@@ -265,26 +265,21 @@ export default function ImPage() {
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] flex-col">
-      {/* Staging banner: 现 PoC 是差异化层, 阶段 A 后底座迁 Rocket.Chat fork */}
-      <div className="flex shrink-0 items-center justify-between border-b border-amber-200 bg-amber-50 px-4 py-1.5 text-[11px]">
-        <span className="text-amber-800">
-          ⚠️ <strong>差异化层 PoC (Staging)</strong> · 按
+      {/* Staging banner: IM 自建在 Hermes runtime + PG, 已废弃 Rocket.Chat fork 路径 */}
+      <div className="flex shrink-0 items-center justify-between border-b border-emerald-200 bg-emerald-50 px-4 py-1.5 text-[11px]">
+        <span className="text-emerald-800">
+          🟢 <strong>自建 IM (V1 PoC)</strong> · 按
           <a
             href="/docs/MANIFESTO.md#%E7%AC%AC%E5%8D%81%E5%85%AB%E6%9D%A1"
             className="mx-1 underline"
           >
             宪章第十八条
           </a>
-          阶段 A 完成后, 底座 IM 将迁至 Rocket.Chat fork; 此处差异化逻辑 (开议事室 / @Persona) 将以 Rocket Apps 形式回填
+          复用 Hermes runtime + PG, 不引 Mongo/Rocket.Chat. 差异化: 一键开议事室 · @Persona 召唤 · 决议型已读
         </span>
-        <a
-          href="https://github.com/RocketChat/Rocket.Chat"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="shrink-0 rounded bg-amber-200 px-2 py-0.5 font-medium text-amber-900 hover:bg-amber-300"
-        >
-          Rocket.Chat fork →
-        </a>
+        <span className="shrink-0 rounded bg-emerald-200 px-2 py-0.5 font-medium text-emerald-900">
+          self-built
+        </span>
       </div>
       <div className="grid flex-1 grid-cols-[280px_1fr_280px] overflow-hidden bg-slate-50">
       {/* ---- 左栏: 频道列表 ---- */}
@@ -402,7 +397,7 @@ export default function ImPage() {
             <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3">
               {messages.length === 0 && (
                 <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                  还没有消息. 发条试试 — 别忘了 hover 消息可以一键开议事室.
+                  还没有消息. 发条试试 — 每条消息右上角的 ✨ 开议事室 是 Tandem 独有, 普通 IM 没有.
                 </div>
               )}
               {messages.map((m, idx) => (
@@ -590,19 +585,19 @@ function MessageRow({
           >
             {renderInline(msg.body, onMentionPersona)}
           </div>
-          {/* 差异化按钮: hover 出现 */}
+          {/* 差异化按钮: 默认半透, hover 完整显示 (区别于普通 IM) */}
           <div
-            className={`pointer-events-none absolute -top-2 ${
+            className={`absolute -top-3 ${
               isMe ? 'left-2' : 'right-2'
-            } flex gap-1 opacity-0 transition group-hover:pointer-events-auto group-hover:opacity-100`}
+            } flex gap-1 opacity-40 transition group-hover:opacity-100`}
           >
             <button
               type="button"
               onClick={onSpawnRoom}
-              className="flex items-center gap-0.5 rounded-full bg-white px-2 py-0.5 text-[10px] font-medium text-amber-700 shadow ring-1 ring-amber-200 hover:bg-amber-50"
-              title="把这条消息变成议事室议题"
+              className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-amber-700 shadow-sm ring-1 ring-amber-300 transition hover:scale-105 hover:bg-amber-50 hover:shadow"
+              title="把这条消息变成议事室议题 (Tandem 差异化点 — 普通 IM 没有)"
             >
-              <Sparkles className="h-2.5 w-2.5" />
+              <Sparkles className="h-3 w-3" />
               开议事室
             </button>
           </div>

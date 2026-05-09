@@ -156,19 +156,30 @@ export interface AuthStore {
 
 // ---------------------------------------------------------------------------
 // 全局 store 引用 (启动时注入)
+//
+// 单例必须挂在 globalThis 上, 否则 Next.js dev HMR 会在每次模块重载时
+// 重新求值此文件 → _store 被重置 → 之前 seed 的频道/消息全部丢失.
+// 生产期 Node 不重载, 但用 globalThis 也无害.
 // ---------------------------------------------------------------------------
 
-let _store: TandemStore | null = null;
+const STORE_KEY = '__tandem_store__';
+
+type GlobalWithStore = typeof globalThis & {
+  [STORE_KEY]?: TandemStore | null;
+};
+
+const _g = globalThis as GlobalWithStore;
 
 export function setStore(store: TandemStore): void {
-  _store = store;
+  _g[STORE_KEY] = store;
 }
 
 export function getStore(): TandemStore {
-  if (!_store) {
+  const s = _g[STORE_KEY];
+  if (!s) {
     throw new Error('TandemStore not initialized. Call setStore() at app boot.');
   }
-  return _store;
+  return s;
 }
 
 // ---------------------------------------------------------------------------

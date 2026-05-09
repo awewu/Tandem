@@ -189,6 +189,39 @@ export async function seedDevData(): Promise<void> {
     updatedAt: new Date().toISOString(),
   } as Omit<Persona, 'id'>);
 
+  // Persona for colleague-li (assistant 阶段, soft_opinion 委托级别 — 允许 IM @persona 召唤代行)
+  await s.personas.create({
+    userId: 'colleague-li',
+    schemaVersion: 'tandem.v1',
+    stage: 'assistant',
+    stageEnteredAt: new Date(Date.now() - 120 * 86400000).toISOString(),
+    delegationLevel: 'soft_opinion',
+    decisionHistory: {
+      totalDecisions: 184,
+      selfMade: 150,
+      aiAssisted: 31,
+      vetoedByUser: 3,
+      vetoRate: 0.016,
+    },
+    styleProfile: {
+      decisionSpeed: 'fast',
+      riskAppetite: 0.6,
+      communicationStyle: 'direct',
+      preferredOptions: ['reasoning', 'original', 'SOP', 'historical', 'reasoning'],
+      communicationExamples: [],
+    },
+    growthAreas: [],
+    bossCaptureScore: 62,
+    dataOwnership: {
+      companyOwnsData: true,
+      anonymizationPending: false,
+      employeeCanExportOrigins: true,
+    },
+    learningActive: true,
+    createdAt: new Date(Date.now() - 120 * 86400000).toISOString(),
+    updatedAt: new Date().toISOString(),
+  } as Omit<Persona, 'id'>);
+
   // 3 历史 DecisionCards (展示列表)
   const sample: Partial<DecisionCard>[] = [
     {

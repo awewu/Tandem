@@ -13,48 +13,55 @@ import { seedDevData } from './fixtures/seed';
 import { registerBuiltinSkills } from './taf/skills';
 import { bootstrapOwnerIfMissing } from './auth/bootstrap';
 
-// 单例
-let _booted = false;
-let _seedPromise: Promise<void> | null = null;
-let _router: TandemRouter | null = null;
-let _orchestrator: ConvergenceOrchestrator | null = null;
+// 单例 (挂 globalThis 防 Next.js dev HMR 重置)
+type BootGlobals = {
+  __tandem_booted__?: boolean;
+  __tandem_seed_promise__?: Promise<void> | null;
+  __tandem_router__?: TandemRouter | null;
+  __tandem_orchestrator__?: ConvergenceOrchestrator | null;
+  __tandem_tick_interval__?: ReturnType<typeof setInterval> | null;
+  __tandem_retro_interval__?: ReturnType<typeof setInterval> | null;
+};
+const _g = globalThis as typeof globalThis & BootGlobals;
 
 /**
  * 同步初始化 store / router / orchestrator (无 IO).
  * 多次调用幂等. 不触发 seed.
  */
 function bootSync(): void {
-  if (_booted) return;
+  if (_g.__tandem_booted__) return;
   setStore(createInMemoryStore());
 
   // 优先尝试默认路由器, 失败 fall back 到本地 dev
+  let router: TandemRouter;
   try {
-    _router = createDefaultRouter();
-    if (_router.listProviders().length === 0) {
+    router = createDefaultRouter();
+    if (router.listProviders().length === 0) {
       // 无 API key, 用本地 ollama 路由器 (即使 ollama 没起也不抛错)
-      _router = createLocalDevRouter();
+      router = createLocalDevRouter();
     }
   } catch {
-    _router = createLocalDevRouter();
+    router = createLocalDevRouter();
   }
+  _g.__tandem_router__ = router;
 
-  _orchestrator = new ConvergenceOrchestrator(_router);
+  _g.__tandem_orchestrator__ = new ConvergenceOrchestrator(router);
   registerBuiltinSkills();
   // 自研身份系统: 首次启动建 owner (幂等)
   bootstrapOwnerIfMissing().catch((err) => {
     // eslint-disable-next-line no-console
     console.warn('[boot] bootstrap auth owner failed:', err);
   });
-  _booted = true;
+  _g.__tandem_booted__ = true;
 
   // Seed dev data (in-memory store only) — 启动 promise, 由 boot() 暴露给 await
   if (process.env.NODE_ENV !== 'production') {
-    _seedPromise = seedDevData().catch((err) => {
+    _g.__tandem_seed_promise__ = seedDevData().catch((err) => {
       // eslint-disable-next-line no-console
       console.warn('[boot] seed failed:', err);
     });
   } else {
-    _seedPromise = Promise.resolve();
+    _g.__tandem_seed_promise__ = Promise.resolve();
   }
 
   // 议事室 17min 硬上限闭环: 每 30 秒 sweep 活跃议事室, 超时自动 ESCALATE
@@ -68,30 +75,28 @@ function bootSync(): void {
  */
 export async function boot(): Promise<void> {
   bootSync();
-  if (_seedPromise) await _seedPromise;
+  if (_g.__tandem_seed_promise__) await _g.__tandem_seed_promise__;
 }
 
-let _tickIntervalId: ReturnType<typeof setInterval> | null = null;
-let _retroIntervalId: ReturnType<typeof setInterval> | null = null;
-
 function startConvergenceTickLoop(): void {
-  if (_tickIntervalId) return;
-  _tickIntervalId = setInterval(() => {
-    if (!_orchestrator) return;
-    _orchestrator.checkStalls().catch((err) => {
+  if (_g.__tandem_tick_interval__) return;
+  _g.__tandem_tick_interval__ = setInterval(() => {
+    const orch = _g.__tandem_orchestrator__;
+    if (!orch) return;
+    orch.checkStalls().catch((err: unknown) => {
       // eslint-disable-next-line no-console
       console.warn('[boot] convergence stall check failed:', err);
     });
   }, 30 * 1000);
-  unrefIfPossible(_tickIntervalId);
+  unrefIfPossible(_g.__tandem_tick_interval__);
 
   // 慢速扫描 (10 分钟): 复盘 + Memory 三级签批 SLA + Memory 降级 + Persona 升阶
   // 整合到一个 tick 减少进程开销; 生产环境用 cron / job queue 拆开
-  if (!_retroIntervalId) {
-    _retroIntervalId = setInterval(() => {
+  if (!_g.__tandem_retro_interval__) {
+    _g.__tandem_retro_interval__ = setInterval(() => {
       void runSlowScans();
     }, 10 * 60 * 1000);
-    unrefIfPossible(_retroIntervalId);
+    unrefIfPossible(_g.__tandem_retro_interval__);
   }
 }
 
@@ -163,17 +168,17 @@ function unrefIfPossible(id: ReturnType<typeof setInterval>): void {
 }
 
 export function getRouter(): TandemRouter {
-  if (!_router) {
+  if (!_g.__tandem_router__) {
     bootSync();
   }
-  return _router!;
+  return _g.__tandem_router__!;
 }
 
 export function getOrchestrator(): ConvergenceOrchestrator {
-  if (!_orchestrator) {
+  if (!_g.__tandem_orchestrator__) {
     bootSync();
   }
-  return _orchestrator!;
+  return _g.__tandem_orchestrator__!;
 }
 
 // 重导出常用 helpers

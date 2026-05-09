@@ -488,6 +488,85 @@ model CheckIn {
 }
 
 // =============================================================================
+// IM (消息 / 群聊 - 自建 IM, 复用 Hermes runtime + PG)
+//
+// 设计参考 Rocket.Chat / Mattermost 的 channel + membership + message 三表结构.
+// 不引 Mongo, 走 PG. 见 docs/MANIFESTO.md §18.
+// =============================================================================
+
+model ImChannel {
+  id                   String   @id @default(cuid())
+  type                 String   // 'group' | 'dm' | 'announcement'
+  name                 String   @default("")
+  topic                String?
+  visibility           String   // 'public' | 'private'
+  memberIds            String[] @default([])
+  createdById          String
+  /// 频道是否由某张决议卡触发 (议事室 → IM 反向链接)
+  linkedDecisionCardId String?
+  lastMessageAt        DateTime?
+  lastMessagePreview   String?
+  archivedAt           DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  messages             ImMessage[]
+  memberships          ImMembership[]
+
+  @@index([type])
+  @@index([createdById])
+  @@index([lastMessageAt])
+}
+
+model ImMessage {
+  id                       String   @id @default(cuid())
+  channelId                String
+  senderId                 String
+  /// 'user' | 'system' | 'persona'
+  senderKind               String   @default("user")
+  body                     String
+  /// ImMention[] (kind: 'user'|'persona'|'channel'|'memory', userId 或 ref)
+  mentions                 Json     @default("[]")
+  /// ImAttachment[] (file/image/decisionCard/memory)
+  attachments              Json?
+  parentMessageId          String?
+  /// IM → 议事室反向链接
+  spawnedDecisionCardId    String?
+  editedAt                 DateTime?
+  deletedAt                DateTime?
+  createdAt                DateTime @default(now())
+
+  channel                  ImChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  parentMessage            ImMessage? @relation("ImThread", fields: [parentMessageId], references: [id])
+  threadReplies            ImMessage[] @relation("ImThread")
+
+  @@index([channelId, createdAt])
+  @@index([senderId])
+  @@index([parentMessageId])
+}
+
+model ImMembership {
+  /// 复合键: `${channelId}:${userId}`
+  id           String   @id
+  channelId    String
+  userId       String
+  /// 'owner' | 'admin' | 'member'
+  role         String   @default("member")
+  joinedAt     DateTime @default(now())
+  lastReadAt   DateTime?
+  unreadCount  Int      @default(0)
+  muted        Boolean  @default(false)
+  /// 关注此频道的 Persona 触发关键字 (可选)
+  notifyOn     String[] @default([])
+
+  channel      ImChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, userId])
+  @@index([userId])
+  @@index([channelId])
+}
+
+// =============================================================================
 // 9 宫格历史快照 (季度归档用)
 // =============================================================================
 
