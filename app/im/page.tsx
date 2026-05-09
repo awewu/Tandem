@@ -50,6 +50,7 @@ interface Message {
   parentMessageId?: string;
   createdAt: string;
   spawnedDecisionCardId?: string;
+  spawnedPromotionId?: string;
   mentions?: { userId: string; kind: 'notify' | 'assign' | 'consult' | 'persona' }[];
 }
 
@@ -206,6 +207,28 @@ export default function ImPage() {
       }
       // 跳到新议事室
       window.open(`/convergence?id=${data.cardId}`, '_blank');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function promoteToMemory(messageId: string) {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/im/messages/${messageId}/promote-to-memory`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ triggeredBy: ME, level: 'team', proposedType: 'lesson' }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        window.alert(`沉淀 Memory 失败: ${data.error ?? res.statusText}`);
+        return;
+      }
+      window.alert(
+        `✍️ 已发起 Memory 升级提议\n\nlevel: team · type: lesson\npromotionId: ${data.promotionId}\n\n→ /memories 查看签批`
+      );
     } finally {
       setBusy(false);
     }
@@ -406,6 +429,7 @@ export default function ImPage() {
                   msg={m}
                   prev={messages[idx - 1] ?? null}
                   onSpawnRoom={() => spawnRoom(m.id)}
+                  onPromote={() => promoteToMemory(m.id)}
                   onMentionPersona={(uid) => summonPersona(uid)}
                 />
               ))}
@@ -517,11 +541,13 @@ function MessageRow({
   msg,
   prev,
   onSpawnRoom,
+  onPromote,
   onMentionPersona,
 }: {
   msg: Message;
   prev: Message | null;
   onSpawnRoom: () => void;
+  onPromote: () => void;
   onMentionPersona: (userId: string) => void;
 }) {
   const showSender =
@@ -594,13 +620,33 @@ function MessageRow({
             <button
               type="button"
               onClick={onSpawnRoom}
-              className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-amber-700 shadow-sm ring-1 ring-amber-300 transition hover:scale-105 hover:bg-amber-50 hover:shadow"
-              title="把这条消息变成议事室议题 (Tandem 差异化点 — 普通 IM 没有)"
+              disabled={!!msg.spawnedDecisionCardId}
+              className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-amber-700 shadow-sm ring-1 ring-amber-300 transition hover:scale-105 hover:bg-amber-50 hover:shadow disabled:cursor-not-allowed disabled:opacity-40"
+              title="把这条消息变成议事室议题 (Tandem 差异化 — 普通 IM 没有)"
             >
               <Sparkles className="h-3 w-3" />
               开议事室
             </button>
+            <button
+              type="button"
+              onClick={onPromote}
+              disabled={!!msg.spawnedPromotionId}
+              className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-violet-700 shadow-sm ring-1 ring-violet-300 transition hover:scale-105 hover:bg-violet-50 hover:shadow disabled:cursor-not-allowed disabled:opacity-40"
+              title="沉淀为 Memory 升级提议 (三级签批) — 差异化 §2.2 第 3 条"
+            >
+              <span className="text-sm">🧠</span>
+              沉淀
+            </button>
           </div>
+          {msg.spawnedPromotionId && (
+            <Link
+              href={`/memories?promotionId=${msg.spawnedPromotionId}`}
+              className="ml-2 inline-flex items-center gap-0.5 text-[10px] text-violet-700 hover:underline"
+            >
+              <span className="text-[10px]">🧠</span>
+              已发起升级提议
+            </Link>
+          )}
           {msg.spawnedDecisionCardId && (
             <Link
               href={`/convergence?id=${msg.spawnedDecisionCardId}`}

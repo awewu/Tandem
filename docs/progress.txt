@@ -1,11 +1,49 @@
 Tandem (牛马搭子) · 开发进度 · 持续更新
 
 ==============================================================================
-最后更新: 2026-05-08 (阶段 0 完成 + boot race 修 + git init + 路线澄清)
-当前里程碑: V1 PoC 完成 + IM 差异化层 staging + git 检查点建立
-下一里程碑: IM 自建打磨 (Hermes runtime 上, 不 fork Rocket.Chat)
+最后更新: 2026-05-08 23:00 (PRD 全速推进: IM Memory 沉淀差异化 + e2e 16/16 PASS)
+当前里程碑: V1 PoC 端到端 16/16 PASS (e2e 烟雾) + 3 大差异化点齐
+下一里程碑: V1 GA — 真 Prisma+PG / 真 auth UI 走查 / 等保评估启动
 版本目标: V1 GA in 14 月 (12 人 / 1200 万 RMB)
 ==============================================================================
+
+【2026-05-08 23:00 节点 · 全速推进 (用户外出, 自主 PRD 收尾)】
+
+  目标: 按 PRD §8 V1 GA 验收, 一晚把可机测部分一把干完.
+
+  R1 · /api/integrations/health 路线对齐:
+    × 删 Rocket.Chat 探针 (路线已废)
+    + 加 self-built 类目, IM (in-memory store + 频道计数) 探针
+    + Storage note 标注 "V1 PoC 走 in-memory; V1 GA 启用 Prisma+PG"
+    ✓ 实测: total=12 reachable=2 (DeepSeek + IM)
+
+  R2 · IM 差异化第 3 条 (PRD §2.2 "议事文化沉淀") 端到端:
+    + lib/im/service.ts                        promoteImMessageToMemory():
+                                                  (1) 落 Material (origin: im:{msgId})
+                                                  (2) proposePromotion (默认 team 级 + lesson 类型 + 1d SLA)
+                                                  (3) message.spawnedPromotionId 反链
+                                                  (4) 频道发系统消息 + /memories?promotionId=... 链接
+    + app/api/im/messages/[id]/promote-to-memory/route.ts
+    + app/im/page.tsx                          🧠 沉淀 按钮 (紫色, 与 ✨ 开议事室 并列), 已沉淀状态 disabled
+                                                "已发起升级提议" inline link
+    ✓ 实测: POST 201 → promotionId + materialId, /api/tandem/memory/promotion?status=pending count=3
+
+  R3 · scripts/e2e-v1.ps1 烟雾脚本 (PRD §8 可机测部分):
+    + 0a/0b/0c: /api/health · /api/integrations/health · /api/llm-health (DeepSeek live)
+    + 1a/1b/1c: dashboard/stats (DC/KR/TTI) · me/dashboard.persona
+    + 2a-2g:    IM 列频道 / send / spawn-room / promote-to-memory / @persona → DeepSeek reply
+    + 3:        Memory promotion pending 入库
+    + 4:        9-box matrix
+    + 5:        Persona progress
+    ✓ 实测: 16/16 PASS, exit 0
+    ✓ DeepSeek 真触发: @persona 回复 "In-memory for V1 to move fast, we can always add PG persiste..."
+
+  剩余 V1 GA gap (需人 / 跨进程):
+    □ 真 Prisma migrate (需本地装 PG 或 docker-compose 起 postgres)
+    □ Auth UI 走查 (注册 → MFA TOTP → 登录) — PRD §8 第 1-4 步 cookie 路径, 不在 e2e 范围
+    □ 法务 review AGPL (Cal.com / MinIO)
+    □ 等保二级评估启动
+    □ 一家种子客户私有化部署
 
 【2026-05-08 节点 · 路线澄清: 杀 Rocket.Chat, IM 自建在 Hermes 上】
 

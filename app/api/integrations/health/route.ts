@@ -1,19 +1,25 @@
 import { NextResponse } from 'next/server';
+import { boot, getStore } from '@/lib/boot';
 
 /**
  * GET /api/integrations/health
  *
- * 一键探测所有外部依赖连通性 (OSS bundle + LLM providers).
+ * 一键探测所有外部依赖连通性 (LLM + 自建组件 + OSS bundle).
  * 用于运维监控 / 部署后烟测.
+ *
+ * 路线说明 (MANIFESTO §18):
+ *   - IM 是自建 (复用 Hermes runtime + PG), 不再依赖 Rocket.Chat — 已从 OSS 列表移除
+ *   - "self-built" 类别用于探测 Tandem 自身组件 (in-memory store / Hermes CLI)
  */
 
 interface HealthCheck {
   name: string;
-  category: 'oss' | 'llm' | 'sso' | 'storage';
+  category: 'oss' | 'llm' | 'sso' | 'storage' | 'self-built';
   configured: boolean;
   reachable?: boolean;
   latencyMs?: number;
   error?: string;
+  note?: string;
 }
 
 async function ping(url: string, timeoutMs = 3000): Promise<{ ok: boolean; latencyMs: number; error?: string }> {
@@ -55,9 +61,32 @@ export async function GET() {
     });
   }
 
+  // === Self-built (Tandem 自身组件, 见 MANIFESTO §18) ===
+  // IM: in-memory store + IM 频道是否真有数据
+  try {
+    await boot();
+    const channels = await getStore().imChannels.list();
+    checks.push({
+      name: 'IM (self-built)',
+      category: 'self-built',
+      configured: true,
+      reachable: true,
+      latencyMs: 0,
+      note: `${channels.length} 频道 (in-memory; V2 切 Prisma+PG)`,
+    });
+  } catch (err) {
+    checks.push({
+      name: 'IM (self-built)',
+      category: 'self-built',
+      configured: true,
+      reachable: false,
+      error: (err as Error).message,
+    });
+  }
+
   // === OSS ===
+  // Rocket.Chat 已废弃 (MANIFESTO §18, 2026-05-08 路线澄清). 不再探测.
   const ossTargets = [
-    { name: 'Rocket.Chat', url: process.env.ROCKETCHAT_BASE_URL ?? process.env.ROCKETCHAT_URL },
     { name: 'Cal.com', url: process.env.CALCOM_BASE_URL },
     {
       name: 'MinIO',
@@ -88,7 +117,7 @@ export async function GET() {
     name: 'PostgreSQL',
     category: 'storage',
     configured: !!process.env.DATABASE_URL,
-    // 不探测 (需要 prisma client)
+    note: process.env.DATABASE_URL ? undefined : 'V1 PoC 走 in-memory; V1 GA 启用 Prisma+PG',
   });
 
   // === SSO ===

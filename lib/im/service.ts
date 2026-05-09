@@ -300,6 +300,88 @@ export async function spawnDecisionRoomFromMessage(
 }
 
 // ---------------------------------------------------------------------------
+// 差异化 #1.5: 消息 → Memory 升级提议 (PRD §2.2 第 3 条 "议事文化沉淀")
+//
+// 流程:
+//   1. 把 IM 消息正文落成 Material (origin 反链)
+//   2. 走 proposePromotion 三级签批 (默认 team 级, 1 天 SLA)
+//   3. message.spawnedPromotionId 反向链接
+//   4. 频道发系统消息: "✍️ 已发起 Memory 升级提议 → @Steward 待签字"
+// ---------------------------------------------------------------------------
+
+export interface PromoteToMemoryInput {
+  messageId: string;
+  triggeredBy: string;
+  /** 升级类型 (默认 'lesson') */
+  proposedType?: 'sop' | 'case' | 'redline' | 'value' | 'lesson';
+  /** 标题 (默认从消息正文截前 50 字) */
+  proposedTitle?: string;
+  /** 升级级别 (默认 team — 最低门槛, 鼓励员工沉淀) */
+  level?: 'team' | 'dept' | 'company';
+}
+
+export async function promoteImMessageToMemory(
+  input: PromoteToMemoryInput
+): Promise<{ promotionId: string; materialId: string; messageId: string }> {
+  const store = getStore();
+  const msg = await store.imMessages.get(input.messageId);
+  if (!msg) throw new Error('message not found');
+  if (msg.spawnedPromotionId) {
+    throw new Error(`message ${input.messageId} 已发起过 Memory 升级 (promotion ${msg.spawnedPromotionId})`);
+  }
+
+  const channel = await store.imChannels.get(msg.channelId);
+  if (!channel) throw new Error('channel gone');
+
+  const title = input.proposedTitle ?? extractPreview(msg.body, 50) ?? 'IM 消息升级';
+  const proposedType = input.proposedType ?? 'lesson';
+  const now = new Date().toISOString();
+
+  // 1. 落 Material (origin 反链 IM 消息)
+  const material = await store.materials.create({
+    type: 'project_doc' as const,
+    title,
+    body: { source: 'im_message', body: msg.body, originalSenderId: msg.senderId, originalCreatedAt: msg.createdAt },
+    originRefs: [`im:${msg.id}`],
+    participants: Array.from(new Set([msg.senderId, input.triggeredBy, ...channel.memberIds])),
+    visibility: 'team' as const,
+    createdBy: input.triggeredBy,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  // 2. 调 proposePromotion (动态 import 避免循环依赖)
+  const { proposePromotion } = await import('../memory/promotion-flow');
+  const promotion = await proposePromotion({
+    materialId: material.id,
+    proposedType,
+    proposedTitle: title,
+    proposedBody: msg.body,
+    proposerId: input.triggeredBy,
+    level: input.level ?? 'team',
+  });
+
+  // 3. 反向链接
+  await store.imMessages.update(msg.id, {
+    spawnedPromotionId: promotion.id,
+  });
+
+  // 4. 系统消息
+  await sendMessage({
+    channelId: channel.id,
+    senderId: 'system',
+    senderKind: 'system',
+    body:
+      `✍️ 已发起 **Memory 升级提议**: **${title}**\n\n` +
+      `级别: ${promotion.level} · 类型: ${proposedType} · 由 @${input.triggeredBy} 提议\n` +
+      `[/memories?promotionId=${promotion.id}](查看签批进度)`,
+    parentMessageId: msg.id,
+  });
+
+  return { promotionId: promotion.id, materialId: material.id, messageId: msg.id };
+}
+
+// ---------------------------------------------------------------------------
 // 差异化 #2: @Persona 召唤
 // ---------------------------------------------------------------------------
 
