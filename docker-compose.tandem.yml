@@ -3,8 +3,11 @@
 # 启动: docker compose -f docker-compose.tandem.yml up -d
 # 关闭: docker compose -f docker-compose.tandem.yml down
 #
-# 包含: PostgreSQL+pgvector / Rocket.Chat / Cal.com / MinIO
+# 包含: PostgreSQL+pgvector / Cal.com / MinIO
 # 不含: Tencent Meeting (云端 SaaS), 钉钉/企微/飞书 (云端 SaaS)
+#
+# IM (消息/群聊) 已确定自建 (复用 Hermes runtime + PG, 不引 Mongo/Rocket.Chat).
+#   见 docs/MANIFESTO.md §18, docs/progress.txt 2026-05-08 节点.
 
 version: '3.9'
 
@@ -30,40 +33,9 @@ services:
       retries: 5
 
   # ---------------------------------------------------------------------------
-  # MongoDB (Rocket.Chat 依赖)
+  # IM 自建 (Hermes runtime + Next.js + PG), 不再依赖 Mongo/Rocket.Chat.
+  # 历史的 mongo / rocketchat / mongo-init-replica services 已删 — 见 §18.
   # ---------------------------------------------------------------------------
-  mongo:
-    image: mongo:6
-    container_name: tandem-mongo
-    restart: unless-stopped
-    command: ['--replSet', 'rs0', '--oplogSize', '128']
-    volumes:
-      - tandem_mongo_data:/data/db
-
-  mongo-init-replica:
-    image: mongo:6
-    depends_on:
-      - mongo
-    restart: 'no'
-    command: >
-      bash -c "for i in {1..30}; do mongosh --host mongo:27017 --eval 'rs.initiate()' && break || sleep 2; done"
-
-  # ---------------------------------------------------------------------------
-  # Rocket.Chat (IM)
-  # ---------------------------------------------------------------------------
-  rocketchat:
-    image: rocketchat/rocket.chat:latest
-    container_name: tandem-rocketchat
-    restart: unless-stopped
-    depends_on:
-      - mongo
-    ports:
-      - '3001:3000'
-    environment:
-      MONGO_URL: mongodb://mongo:27017/rocketchat?replicaSet=rs0
-      MONGO_OPLOG_URL: mongodb://mongo:27017/local?replicaSet=rs0
-      ROOT_URL: http://localhost:3001
-      PORT: 3000
 
   # ---------------------------------------------------------------------------
   # Cal.com (日程, AGPL - 法务待 review)
@@ -101,5 +73,4 @@ services:
 
 volumes:
   tandem_pg_data:
-  tandem_mongo_data:
   tandem_minio_data:

@@ -584,11 +584,16 @@ Knowledge Steward 是产品 RBAC 中的**独立角色**, 不可由以下兼任:
    • 四层知识架构 + Steward
    • Inbox 聚合层
 
-✅ 自建 (借力 OSS, fork 改造):
-   • IM 消息 + 群聊       → Rocket.Chat fork
+✅ 自建 (复用 Hermes 驱动 + PG, 不引第二套 stack):
+   • IM 消息 + 群聊       → 自建 (Hermes runtime + Next.js + PG)
+                            理由: PoC 已跑通差异化层 (spawn-room / @persona), 引 Rocket.Chat 等于
+                            (1) 多一套 Mongo 副本集运维, (2) 上游分支同步成本, (3) SSO 桥接复杂度,
+                            (4) 哲学上违反 "Hermes 是底座" — IM 应作为 Hermes 上的应用, 不是平行栈.
    • 组织架构 + 通讯录      → 自建 (Hermes 基础 + 企微/钉钉初始导入)
    • 邮件                  → 腾讯企邮 + Outlook API 调用
-   • 日历                  → Cal.com fork
+
+✅ 自建 (借力 OSS, fork 改造 — 仅当 PoC 自建成本 ≫ fork 成本时启动):
+   • 日历                  → Cal.com fork (V1 后期评估)
    • 文档协作              → Yjs + Tiptap (Doc) + Univer (Sheet)
    • 云盘 / 文件存储         → MinIO + 自建 UI
 

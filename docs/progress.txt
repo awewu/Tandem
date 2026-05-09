@@ -1,11 +1,59 @@
 Tandem (牛马搭子) · 开发进度 · 持续更新
 
 ==============================================================================
-最后更新: 2026-05-08 (阶段 0 完成 + boot race 修 + 编码事故复原)
-当前里程碑: V1 PoC 完成 + IM 差异化层 staging
-下一里程碑: 阶段 A — Rocket.Chat fork (按 MANIFESTO §18)
+最后更新: 2026-05-08 (阶段 0 完成 + boot race 修 + git init + 路线澄清)
+当前里程碑: V1 PoC 完成 + IM 差异化层 staging + git 检查点建立
+下一里程碑: IM 自建打磨 (Hermes runtime 上, 不 fork Rocket.Chat)
 版本目标: V1 GA in 14 月 (12 人 / 1200 万 RMB)
 ==============================================================================
+
+【2026-05-08 节点 · 路线澄清: 杀 Rocket.Chat, IM 自建在 Hermes 上】
+
+  起因: 用户问 "为什么要 Docker, 不是挂架的 Hermes 驱动吗? 会不会影响 Hermes 联网进化?"
+
+  复盘:
+    - 架构事实: Hermes = 本地 Python CLI + Tauri Rust 命令, 是 agent runtime 底座.
+                Tandem webui (本仓库) 通过 lib/hermes-api.ts 调 Hermes CLI 或本地 API 路由.
+                没有 Docker, 也不需要 Docker — Hermes 直接跑在主机.
+    - Docker 引入 Rocket.Chat 等于:
+        (1) 多一套 Mongo 副本集运维成本
+        (2) 上游 Rocket.Chat 分支同步 / SSO 桥接复杂度
+        (3) Docker Desktop on Windows 走 WSL2, 1-2 GB 内存常驻
+        (4) 哲学冲突: IM 应作为 Hermes 上的应用, 不是平行栈
+    - "Hermes 联网进化" 实际是 docs/AGENT-FRAMEWORK.md §9 Hermes Watch 月报机制 (人 + 流程),
+      不是后台进程. Docker 技术上对它 0 影响, 但路线上 Docker 拉远了 IM 与 Hermes 驱动的距离.
+
+  决议: 杀 Rocket.Chat 路径, IM 继续自建 (Hermes runtime + Next.js + PG, 不引 Mongo/Docker).
+
+  代码改动:
+    ✓ docs/MANIFESTO.md §18              IM 从 "Rocket.Chat fork" 改为 "自建 (复用 Hermes + PG)", 列出 4 条理由
+    ✓ docker-compose.tandem.yml          删 mongo / mongo-init-replica / rocketchat services + tandem_mongo_data volume
+    ✓ docs/progress.txt                  本节点
+
+  下一步 (IM 自建打磨):
+    - app/im/page.tsx                    spawn-room hover 更显眼
+    - lib/im/service.ts                  @persona 自动回复联通 DeepSeek 验证现场
+    - prisma/schema.prisma               IM 模型迁到 PG (现 in-memory PoC → 持久化)
+    - lib/storage/prisma-store.ts        补 imChannels/imMessages/imMemberships 实现 (现 TS 报错)
+
+
+【2026-05-08 节点 · git init + 检查点建立】
+
+  起因: 项目从未 git init, 之前 PowerShell 编码事故无法 git restore 恢复, 只能 best-effort 猜.
+
+  动作:
+    ✓ git init -b main                   单仓库, main 分支
+    ✓ git config core.autocrlf=false     防 Windows CRLF 改写中文
+    ✓ git config i18n.commitencoding=utf-8
+    ✓ .gitignore 增补                    /dist, .tmp-*, dev.err, nul, src-tauri/target, src-tauri/gen, tsconfig.tsbuildinfo
+    ✓ git rm -r --cached src-tauri/target src-tauri/gen tsconfig.tsbuildinfo  (回收 ~10600 编译产物)
+    ✓ git commit -m "chore: initial commit ..."  HEAD = 0604b98, 253 跟踪文件
+
+  纪律 (写入此处, 后续不可违反):
+    - 任何"批量替换 / 重命名 / 移动文件"前必须 git commit -m "wip" 或 git stash
+    - PowerShell 改文件必须 [System.IO.File]::WriteAllText($p, $c, $utf8NoBom), 严禁默认 Set-Content
+    - 失误以 git restore <path> 优先, 不靠"猜中文补"
+
 
 【2026-05-08 节点 · boot race 修 + 编码事故】
 
@@ -20,11 +68,6 @@ Tandem (牛马搭子) · 开发进度 · 持续更新
     ✓ tsc 定位 syntax error 全修 (还原中文 + 补 \r\n)
     ✓ 50+ 处中文注释 / 错误信息字面量 best-effort 还原 (上下文猜测, 可能与原文有微差)
     ✓ 全文件 \uFFFD = 0, tsc 无新增错误 (剩余均 pre-existing: prisma-store IM repos / promotion-flow 类型 / e2e implicit any)
-
-  教训 (写入纪律):
-    - PowerShell 改文件必须 [System.IO.File]::WriteAllText($path, $content, $utf8NoBom), 严禁 Set-Content 不带 -Encoding UTF8
-    - 项目无 git → 阶段 A 启动前必须先 `git init` + commit, 锁住业务代码
-    - 批量替换前先在单文件试跑, 看输出再扩大范围
 
 
 【2026-05-08 节点 · 阶段 0 完成】
