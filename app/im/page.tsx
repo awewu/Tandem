@@ -16,15 +16,17 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
   Hash,
-  Lock,
   Megaphone,
   Send,
   Users,
   Sparkles,
   Bot,
-  Crown,
   ArrowRight,
   Plus,
+  Check,
+  Brain,
+  Info,
+  X,
 } from 'lucide-react';
 
 const ME = 'demo-user'; // V1: 单用户 demo, 后续接 auth session
@@ -288,86 +290,84 @@ export default function ImPage() {
 
   return (
     <div className="flex h-[calc(100vh-3.5rem)] flex-col">
-      {/* Staging banner: IM 自建在 Hermes runtime + PG, 已废弃 Rocket.Chat fork 路径 */}
-      <div className="flex shrink-0 items-center justify-between border-b border-emerald-200 bg-emerald-50 px-4 py-1.5 text-[11px]">
-        <span className="text-emerald-800">
-          🟢 <strong>自建 IM (V1 PoC)</strong> · 按
-          <a
-            href="/docs/MANIFESTO.md#%E7%AC%AC%E5%8D%81%E5%85%AB%E6%9D%A1"
-            className="mx-1 underline"
-          >
-            宪章第十八条
-          </a>
-          复用 Hermes runtime + PG, 不引 Mongo/Rocket.Chat. 差异化: 一键开议事室 · @Persona 召唤 · 决议型已读
-        </span>
-        <span className="shrink-0 rounded bg-emerald-200 px-2 py-0.5 font-medium text-emerald-900">
-          self-built
-        </span>
-      </div>
-      <div className="grid flex-1 grid-cols-[280px_1fr_280px] overflow-hidden bg-slate-50">
+      <BannerChip />
+      <div className="grid flex-1 grid-cols-[300px_1fr_300px] overflow-hidden bg-gradient-to-b from-slate-50 to-slate-100/40">
       {/* ---- 左栏: 频道列表 ---- */}
-      <aside className="flex flex-col border-r bg-white">
-        <div className="flex items-center justify-between border-b px-3 py-2">
+      <aside className="flex flex-col border-r border-slate-200/70 bg-white/95 backdrop-blur-sm">
+        <div className="flex items-center justify-between border-b border-slate-200/70 px-4 py-3">
           <div>
-            <div className="text-sm font-semibold">通讯</div>
-            <div className="text-[10px] text-muted-foreground">
+            <div className="text-[15px] font-semibold tracking-tight text-slate-800">通讯</div>
+            <div className="mt-0.5 flex items-center gap-1.5 text-[10.5px] text-slate-500">
+              <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
               {channels.length} 个频道 · 实时 SSE
             </div>
           </div>
-          <div className="flex gap-1">
+          <div className="flex gap-0.5">
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7"
+              className="h-8 w-8 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
               onClick={newDmPrompt}
               title="新建 1:1"
             >
-              <Users className="h-3.5 w-3.5" />
+              <Users className="h-4 w-4" />
             </Button>
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7"
+              className="h-8 w-8 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
               onClick={newGroupPrompt}
               title="新建群"
             >
-              <Plus className="h-3.5 w-3.5" />
+              <Plus className="h-4 w-4" />
             </Button>
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto px-1.5 py-2">
           {channels.length === 0 && (
-            <div className="px-3 py-6 text-xs text-muted-foreground">
+            <div className="px-3 py-6 text-xs text-slate-500">
               暂无频道. 重启 dev server 加载 seed, 或点 ＋ 新建.
             </div>
           )}
           {channels.map((c) => {
             const u = unreadStyle(c);
+            const displayName =
+              c.type === 'dm' ? c.memberIds.find((m) => m !== ME) ?? '私聊' : c.name;
+            const active = activeId === c.id;
             return (
               <button
                 key={c.id}
                 type="button"
                 onClick={() => setActiveId(c.id)}
-                className={`flex w-full items-start gap-2 border-b px-3 py-2 text-left transition hover:bg-slate-50 ${
-                  activeId === c.id ? 'bg-amber-50/60' : ''
+                className={`mb-0.5 flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition ${
+                  active
+                    ? 'bg-amber-50 ring-1 ring-amber-200'
+                    : 'hover:bg-slate-50'
                 }`}
               >
-                <ChannelIcon channel={c} />
+                <ChannelAvatar channel={c} name={displayName} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
                     <span
-                      className={`truncate text-sm ${
-                        u.show !== 'none' ? 'font-semibold' : 'font-medium'
+                      className={`truncate text-[13px] ${
+                        u.show !== 'none' ? 'font-semibold text-slate-900' : 'font-medium text-slate-700'
                       }`}
                     >
-                      {c.type === 'dm'
-                        ? c.memberIds.find((m) => m !== ME) ?? '私聊'
-                        : c.name}
+                      {displayName}
                     </span>
-                    {/* 决议型已读: 焦虑红点仅留给定向消息. 普通消息只灰点 */}
+                    {c.lastMessageAt && (
+                      <span className="shrink-0 text-[10px] text-slate-400">
+                        {formatRelative(c.lastMessageAt)}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-[11.5px] text-slate-500">
+                      {c.lastMessagePreview ?? '—'}
+                    </span>
                     {u.show === 'urgent' && (
                       <Badge
-                        className="h-4 min-w-4 bg-rose-500 px-1 text-[10px]"
+                        className="h-4 min-w-4 shrink-0 bg-rose-500 px-1 text-[10px] hover:bg-rose-600"
                         title="含指派/咨询/议事室回执 — 需关注"
                       >
                         {u.count! > 99 ? '99+' : u.count}
@@ -375,13 +375,10 @@ export default function ImPage() {
                     )}
                     {u.show === 'subtle' && (
                       <span
-                        className="h-1.5 w-1.5 rounded-full bg-slate-400"
+                        className="h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400"
                         title="有新消息 (非定向)"
                       />
                     )}
-                  </div>
-                  <div className="truncate text-[11px] text-muted-foreground">
-                    {c.lastMessagePreview ?? '—'}
                   </div>
                 </div>
               </button>
@@ -394,34 +391,53 @@ export default function ImPage() {
       <main className="flex h-full min-w-0 flex-col">
         {activeChannel ? (
           <>
-            <header className="flex items-center justify-between border-b bg-white px-4 py-2">
-              <div className="flex items-center gap-2">
-                <ChannelIcon channel={activeChannel} />
+            <header className="flex items-center justify-between border-b border-slate-200/70 bg-white/95 px-5 py-3 backdrop-blur-sm">
+              <div className="flex items-center gap-3">
+                <ChannelAvatar
+                  channel={activeChannel}
+                  name={
+                    activeChannel.type === 'dm'
+                      ? activeChannel.memberIds.find((m) => m !== ME) ?? '私聊'
+                      : activeChannel.name
+                  }
+                  size="md"
+                />
                 <div>
-                  <div className="font-semibold">
-                    {activeChannel.type === 'dm'
-                      ? activeChannel.memberIds.find((m) => m !== ME) ??
-                        '私聊'
-                      : activeChannel.name}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[15px] font-semibold tracking-tight text-slate-900">
+                      {activeChannel.type === 'dm'
+                        ? activeChannel.memberIds.find((m) => m !== ME) ?? '私聊'
+                        : activeChannel.name}
+                    </span>
+                    <Badge
+                      variant="outline"
+                      className="h-4 border-slate-300 px-1.5 text-[9.5px] font-medium uppercase tracking-wide text-slate-500"
+                    >
+                      {activeChannel.type === 'announcement'
+                        ? '公告'
+                        : activeChannel.type === 'dm'
+                        ? '私聊'
+                        : activeChannel.visibility === 'private'
+                        ? '私有'
+                        : '公开'}
+                    </Badge>
                   </div>
                   {activeChannel.topic && (
-                    <div className="text-[11px] text-muted-foreground">
+                    <div className="mt-0.5 text-[11.5px] text-slate-500">
                       {activeChannel.topic}
                     </div>
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+              <div className="flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600">
                 <Users className="h-3 w-3" />
                 {activeChannel.memberIds.length}
               </div>
             </header>
 
-            <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4">
               {messages.length === 0 && (
-                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                  还没有消息. 发条试试 — 每条消息右上角的 ✨ 开议事室 是 Tandem 独有, 普通 IM 没有.
-                </div>
+                <EmptyState />
               )}
               {messages.map((m, idx) => (
                 <MessageRow
@@ -435,29 +451,36 @@ export default function ImPage() {
               ))}
             </div>
 
-            <footer className="border-t bg-white p-3">
-              <div className="mb-1 flex items-center gap-1 text-[11px] text-muted-foreground">
+            <footer className="border-t border-slate-200/70 bg-white/95 px-5 py-3 backdrop-blur-sm">
+              <div className="mb-2 flex items-center gap-1.5 text-[11px] text-slate-500">
                 <Sparkles className="h-3 w-3 text-amber-500" />
-                试试: 输入消息后 hover, 一键开议事室 / @[demo-user](demo-user:persona) 召唤 AI 分身
+                <span>hover 消息 → ✨ 开议事室 / 🧠 沉淀 · 输入 <code className="rounded bg-slate-100 px-1 py-0.5 font-mono text-[10px] text-slate-700">@[colleague-li](colleague-li:persona)</code> 召唤 AI 分身</span>
               </div>
-              <div className="flex items-center gap-2">
-                <Input
-                  ref={composerRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      void sendMessage();
-                    }
-                  }}
-                  placeholder={`在 ${
-                    activeChannel.type === 'dm' ? '私聊' : activeChannel.name
-                  } 中说点什么…`}
-                  disabled={sending}
-                />
-                <Button onClick={sendMessage} disabled={sending || !input.trim()}>
-                  <Send className="mr-1 h-3.5 w-3.5" />
+              <div className="flex items-end gap-2">
+                <div className="flex flex-1 items-center rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm transition focus-within:border-amber-400 focus-within:ring-2 focus-within:ring-amber-100">
+                  <Input
+                    ref={composerRef}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        void sendMessage();
+                      }
+                    }}
+                    placeholder={`在 ${
+                      activeChannel.type === 'dm' ? '私聊' : activeChannel.name
+                    } 中说点什么… (Enter 发送)`}
+                    disabled={sending}
+                    className="border-0 bg-transparent p-0 text-[13.5px] shadow-none focus-visible:ring-0"
+                  />
+                </div>
+                <Button
+                  onClick={sendMessage}
+                  disabled={sending || !input.trim()}
+                  className="h-10 gap-1.5 rounded-xl bg-amber-500 px-4 text-white shadow-sm hover:bg-amber-600 disabled:bg-slate-200 disabled:text-slate-400"
+                >
+                  <Send className="h-3.5 w-3.5" />
                   发送
                 </Button>
               </div>
@@ -471,54 +494,92 @@ export default function ImPage() {
       </main>
 
       {/* ---- 右栏: 频道详情 + 差异化提示 ---- */}
-      <aside className="border-l bg-white p-3 text-xs">
+      <aside className="flex flex-col gap-3 overflow-y-auto border-l border-slate-200/70 bg-white/95 p-4 backdrop-blur-sm">
         {activeChannel ? (
-          <div className="space-y-3">
-            <div>
-              <div className="font-semibold text-sm">频道详情</div>
-              <div className="mt-1 text-muted-foreground">
-                类型: {activeChannel.type} · 可见性: {activeChannel.visibility}
-              </div>
-            </div>
-            <div>
-              <div className="font-semibold">成员 ({activeChannel.memberIds.length})</div>
-              <ul className="mt-1 space-y-1">
-                {activeChannel.memberIds.map((uid) => (
-                  <li key={uid} className="flex items-center justify-between">
-                    <span className="font-mono text-[11px]">{uid}</span>
-                    {uid !== ME && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 px-2 text-[10px]"
-                        onClick={() => summonPersona(uid)}
-                      >
-                        <Bot className="mr-1 h-3 w-3" /> @分身
-                      </Button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <Card className="border-amber-200 bg-amber-50/40">
-              <CardContent className="space-y-2 py-3">
-                <div className="flex items-center gap-1 font-semibold text-amber-800">
-                  <Crown className="h-3.5 w-3.5" />
-                  打 WeCom 的差异化点
+          <>
+            <Card className="border-slate-200/70 shadow-sm">
+              <CardContent className="space-y-3 p-4">
+                <div>
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                    频道详情
+                  </div>
+                  <div className="mt-1.5 grid grid-cols-2 gap-2 text-[11.5px]">
+                    <div>
+                      <div className="text-slate-400">类型</div>
+                      <div className="font-medium text-slate-700">{activeChannel.type}</div>
+                    </div>
+                    <div>
+                      <div className="text-slate-400">可见性</div>
+                      <div className="font-medium text-slate-700">{activeChannel.visibility}</div>
+                    </div>
+                  </div>
                 </div>
-                <ul className="space-y-1 text-amber-900">
-                  <li>• 任意消息 hover 一键开议事室 ✅</li>
-                  <li>• @[name](id:persona) 召唤 AI 分身回复 ✅</li>
-                  <li>• 议事结果自动 push 回原频道 ✅</li>
-                  <li className="opacity-60">• 选中消息 → Memory 升级签批门 (P1.1)</li>
-                  <li className="opacity-60">• 群密度自动建议开议事室 (P1.2)</li>
-                  <li className="opacity-60">• inline DeepSeek 中英翻译 (P1.3)</li>
+                <div className="border-t border-slate-100 pt-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                      成员 ({activeChannel.memberIds.length})
+                    </div>
+                  </div>
+                  <ul className="space-y-1">
+                    {activeChannel.memberIds.map((uid) => (
+                      <li
+                        key={uid}
+                        className="flex items-center justify-between rounded-md px-1 py-1 hover:bg-slate-50"
+                      >
+                        <div className="flex items-center gap-2">
+                          <UserAvatar id={uid} />
+                          <span className="text-[12px] text-slate-700">{uid}</span>
+                          {uid === ME && (
+                            <Badge
+                              variant="outline"
+                              className="h-4 border-amber-200 bg-amber-50 px-1 text-[9px] text-amber-700"
+                            >
+                              我
+                            </Badge>
+                          )}
+                        </div>
+                        {uid !== ME && (
+                          <button
+                            type="button"
+                            onClick={() => summonPersona(uid)}
+                            className="flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[10px] text-violet-600 transition hover:bg-violet-50"
+                            title="召唤此人 AI 分身"
+                          >
+                            <Bot className="h-3 w-3" /> @分身
+                          </button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-amber-200/70 bg-gradient-to-br from-amber-50/60 to-orange-50/40 shadow-sm">
+              <CardContent className="space-y-2.5 p-4">
+                <div className="flex items-center gap-1.5">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-md bg-amber-500/90 text-[11px]">
+                    👑
+                  </span>
+                  <span className="text-[12px] font-semibold tracking-tight text-amber-900">
+                    Tandem 打 WeCom 差异化
+                  </span>
+                </div>
+                <ul className="space-y-1.5 text-[11.5px]">
+                  <Diff done text="任意消息 hover · 一键开议事室" />
+                  <Diff done text="@[name](id:persona) 召唤 AI 分身回复" />
+                  <Diff done text="议事结果自动 push 回原频道" />
+                  <Diff done text="消息 → Memory 三级签批沉淀" />
+                  <Diff text="群密度自动建议开议事室" badge="P1.2" />
+                  <Diff text="inline DeepSeek 中英翻译" badge="P1.3" />
                 </ul>
               </CardContent>
             </Card>
-          </div>
+          </>
         ) : (
-          <div className="text-muted-foreground">未选择频道</div>
+          <div className="flex h-full items-center justify-center text-[12px] text-slate-400">
+            未选择频道
+          </div>
         )}
       </aside>
       </div>
@@ -527,14 +588,162 @@ export default function ImPage() {
 }
 
 // ---------------------------------------------------------------------------
-function ChannelIcon({ channel }: { channel: Channel }) {
-  const Icon =
-    channel.type === 'announcement'
-      ? Megaphone
-      : channel.type === 'dm'
-      ? Lock
-      : Hash;
-  return <Icon className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />;
+// 关闭式状态 banner (顶, 可一键收起 — 进入工作流后让位给消息流)
+function BannerChip() {
+  const [open, setOpen] = useState(true);
+  if (!open) return null;
+  return (
+    <div className="flex shrink-0 items-center justify-between gap-3 border-b border-emerald-200/70 bg-gradient-to-r from-emerald-50 via-emerald-50/80 to-transparent px-4 py-1.5 text-[11px]">
+      <div className="flex min-w-0 items-center gap-2 text-emerald-800">
+        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-500/90 text-[9px] text-white">
+          ✓
+        </span>
+        <span className="truncate">
+          <strong className="font-semibold">自建 IM (V1 PoC)</strong> · 复用 Hermes runtime + PG · 差异化: 一键开议事室 · @Persona · 决议型已读
+        </span>
+        <a
+          href="/docs/MANIFESTO.md#%E7%AC%AC%E5%8D%81%E5%85%AB%E6%9D%A1"
+          className="shrink-0 underline decoration-emerald-300 underline-offset-2 hover:text-emerald-900"
+        >
+          宪章 §18
+        </a>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        <span className="rounded-full bg-emerald-200/70 px-2 py-0.5 font-medium text-emerald-900">
+          self-built
+        </span>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          title="收起"
+          className="flex h-5 w-5 items-center justify-center rounded text-emerald-700 hover:bg-emerald-100"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-3 text-slate-400">
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-100 to-violet-100 text-3xl">
+        💬
+      </div>
+      <div className="max-w-xs text-center text-[12.5px]">
+        还没有消息. 发条试试 — hover 任意消息可以
+        <span className="mx-1 inline-flex items-center gap-0.5 rounded bg-amber-100 px-1.5 py-0.5 font-medium text-amber-700">
+          <Sparkles className="h-2.5 w-2.5" />开议事室
+        </span>
+        或
+        <span className="mx-1 inline-flex items-center gap-0.5 rounded bg-violet-100 px-1.5 py-0.5 font-medium text-violet-700">
+          <Brain className="h-2.5 w-2.5" />沉淀 Memory
+        </span>
+        — 普通 IM 都没有.
+      </div>
+    </div>
+  );
+}
+
+function Diff({ done, text, badge }: { done?: boolean; text: string; badge?: string }) {
+  return (
+    <li className="flex items-start gap-1.5">
+      <span
+        className={`mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full ${
+          done ? 'bg-emerald-500 text-white' : 'border border-slate-300 bg-white'
+        }`}
+      >
+        {done && <Check className="h-2.5 w-2.5" strokeWidth={3} />}
+      </span>
+      <span className={done ? 'text-amber-900' : 'text-slate-500'}>{text}</span>
+      {badge && (
+        <Badge
+          variant="outline"
+          className="ml-auto h-4 border-slate-300 px-1 text-[9px] font-mono text-slate-500"
+        >
+          {badge}
+        </Badge>
+      )}
+    </li>
+  );
+}
+
+// 频道左栏头像: 1:1 用对方姓名首字, 群/公告用类型 icon
+function ChannelAvatar({
+  channel,
+  name,
+  size = 'sm',
+}: {
+  channel: Channel;
+  name: string;
+  size?: 'sm' | 'md';
+}) {
+  const dim = size === 'md' ? 'h-9 w-9 text-sm' : 'h-8 w-8 text-xs';
+  if (channel.type === 'announcement') {
+    return (
+      <div
+        className={`${dim} flex shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-rose-400 to-rose-500 text-white shadow-sm`}
+      >
+        <Megaphone className="h-4 w-4" />
+      </div>
+    );
+  }
+  if (channel.type === 'dm') {
+    return (
+      <div
+        className={`${dim} flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-400 to-slate-600 font-semibold uppercase text-white shadow-sm`}
+      >
+        {name.slice(0, 2)}
+      </div>
+    );
+  }
+  // group: 颜色由 channelId 决定 (稳定)
+  const palette = [
+    'from-amber-400 to-orange-500',
+    'from-emerald-400 to-teal-500',
+    'from-sky-400 to-blue-500',
+    'from-violet-400 to-purple-500',
+    'from-pink-400 to-rose-500',
+  ];
+  const idx = channel.id.charCodeAt(0) % palette.length;
+  return (
+    <div
+      className={`${dim} flex shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${palette[idx]} text-white shadow-sm`}
+    >
+      <Hash className="h-4 w-4" />
+    </div>
+  );
+}
+
+function UserAvatar({ id }: { id: string }) {
+  const palette = [
+    'from-amber-400 to-orange-500',
+    'from-emerald-400 to-teal-500',
+    'from-sky-400 to-blue-500',
+    'from-violet-400 to-purple-500',
+    'from-pink-400 to-rose-500',
+  ];
+  const idx = id.charCodeAt(0) % palette.length;
+  return (
+    <div
+      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${palette[idx]} text-[9px] font-semibold uppercase text-white`}
+    >
+      {id.slice(0, 2)}
+    </div>
+  );
+}
+
+function formatRelative(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.round(diff / 60000);
+  if (mins < 1) return '刚刚';
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.round(hours / 24);
+  if (days < 7) return `${days}d`;
+  return new Date(iso).toLocaleDateString();
 }
 
 function MessageRow({
@@ -559,8 +768,9 @@ function MessageRow({
 
   if (msg.senderKind === 'system') {
     return (
-      <div className="my-2 flex justify-center text-[11px] text-muted-foreground">
-        <div className="rounded-full bg-slate-100 px-3 py-1">
+      <div className="my-3 flex justify-center text-[11px]">
+        <div className="flex items-center gap-1.5 rounded-full border border-slate-200/70 bg-white px-3 py-1 text-slate-500 shadow-sm">
+          <Info className="h-3 w-3 text-slate-400" />
           {renderInline(msg.body, onMentionPersona)}
         </div>
       </div>
@@ -571,57 +781,69 @@ function MessageRow({
   const isMe = msg.senderId === ME;
 
   return (
-    <div className={`group mb-1.5 flex items-start gap-2 ${isMe ? 'flex-row-reverse' : ''}`}>
+    <div className={`group mb-1 flex items-start gap-2.5 ${isMe ? 'flex-row-reverse' : ''}`}>
       <div
-        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold shadow-sm ${
           isPersona
-            ? 'bg-violet-100 text-violet-700'
+            ? 'bg-gradient-to-br from-violet-400 to-purple-500 text-white'
             : isMe
-            ? 'bg-amber-100 text-amber-700'
-            : 'bg-slate-200 text-slate-700'
+            ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-white'
+            : 'bg-gradient-to-br from-slate-300 to-slate-500 text-white'
         }`}
         title={msg.senderId}
       >
-        {isPersona ? <Bot className="h-3.5 w-3.5" /> : msg.senderId.slice(0, 2)}
+        {isPersona ? <Bot className="h-4 w-4" /> : msg.senderId.slice(0, 2).toUpperCase()}
       </div>
-      <div className={`max-w-[70%] ${isMe ? 'text-right' : ''}`}>
+      <div className={`max-w-[72%] min-w-0 ${isMe ? 'text-right' : ''}`}>
         {showSender && (
-          <div className="mb-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
-            <span className="font-medium">{msg.senderId}</span>
+          <div
+            className={`mb-1 flex items-center gap-1.5 text-[10.5px] text-slate-500 ${
+              isMe ? 'justify-end' : ''
+            }`}
+          >
+            <span className="font-medium text-slate-700">{msg.senderId}</span>
             {isPersona && (
               <Badge
                 variant="outline"
-                className="h-4 border-violet-300 px-1 text-[9px] text-violet-700"
+                className="h-4 border-violet-300 bg-violet-50 px-1 text-[9px] font-medium text-violet-700"
               >
                 AI 分身
               </Badge>
             )}
-            <span>{new Date(msg.createdAt).toLocaleTimeString()}</span>
+            <span className="text-slate-400">·</span>
+            <span className="text-slate-400">
+              {new Date(msg.createdAt).toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </span>
           </div>
         )}
-        <div className="relative">
+        <div className={`relative inline-block ${isMe ? 'text-left' : ''}`}>
           <div
-            className={`inline-block whitespace-pre-wrap break-words rounded-2xl px-3 py-1.5 text-sm ${
+            className={`inline-block whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-[13.5px] leading-relaxed shadow-sm ${
               isMe
-                ? 'bg-amber-500 text-white'
+                ? 'bg-gradient-to-br from-amber-500 to-orange-500 text-white'
                 : isPersona
-                ? 'border border-violet-200 bg-violet-50 text-violet-900'
-                : 'bg-white text-slate-900 ring-1 ring-slate-200'
+                ? 'border border-violet-200/80 bg-gradient-to-br from-violet-50 to-purple-50/40 text-violet-900'
+                : 'bg-white text-slate-800 ring-1 ring-slate-200/80'
             }`}
           >
             {renderInline(msg.body, onMentionPersona)}
           </div>
-          {/* 差异化按钮: 默认半透, hover 完整显示 (区别于普通 IM) */}
+
+          {/* 差异化浮条: 落在气泡右下/左下角. 默认隐藏, hover 浮起.
+              比起绝对定位 -top-3 的旧方案, 不再遮挡 sender 名 */}
           <div
-            className={`absolute -top-3 ${
+            className={`pointer-events-none absolute -bottom-3 ${
               isMe ? 'left-2' : 'right-2'
-            } flex gap-1 opacity-40 transition group-hover:opacity-100`}
+            } flex translate-y-1 gap-1 opacity-0 transition-all duration-150 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100`}
           >
             <button
               type="button"
               onClick={onSpawnRoom}
               disabled={!!msg.spawnedDecisionCardId}
-              className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-amber-700 shadow-sm ring-1 ring-amber-300 transition hover:scale-105 hover:bg-amber-50 hover:shadow disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-amber-700 shadow-md ring-1 ring-amber-300/80 transition hover:bg-amber-50 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-40"
               title="把这条消息变成议事室议题 (Tandem 差异化 — 普通 IM 没有)"
             >
               <Sparkles className="h-3 w-3" />
@@ -631,32 +853,41 @@ function MessageRow({
               type="button"
               onClick={onPromote}
               disabled={!!msg.spawnedPromotionId}
-              className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-violet-700 shadow-sm ring-1 ring-violet-300 transition hover:scale-105 hover:bg-violet-50 hover:shadow disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-violet-700 shadow-md ring-1 ring-violet-300/80 transition hover:bg-violet-50 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-40"
               title="沉淀为 Memory 升级提议 (三级签批) — 差异化 §2.2 第 3 条"
             >
-              <span className="text-sm">🧠</span>
+              <Brain className="h-3 w-3" />
               沉淀
             </button>
           </div>
-          {msg.spawnedPromotionId && (
-            <Link
-              href={`/memories?promotionId=${msg.spawnedPromotionId}`}
-              className="ml-2 inline-flex items-center gap-0.5 text-[10px] text-violet-700 hover:underline"
-            >
-              <span className="text-[10px]">🧠</span>
-              已发起升级提议
-            </Link>
-          )}
-          {msg.spawnedDecisionCardId && (
-            <Link
-              href={`/convergence?id=${msg.spawnedDecisionCardId}`}
-              className="ml-2 inline-flex items-center gap-0.5 text-[10px] text-amber-700 hover:underline"
-            >
-              <ArrowRight className="h-2.5 w-2.5" />
-              已开议事室
-            </Link>
-          )}
         </div>
+        {/* spawned 状态 chip — 永久可见, 移到气泡下方独立行 (不再嵌进气泡). 比 inline link 更克制 */}
+        {(msg.spawnedDecisionCardId || msg.spawnedPromotionId) && (
+          <div
+            className={`mt-1.5 flex flex-wrap gap-1 ${isMe ? 'justify-end' : ''}`}
+          >
+            {msg.spawnedDecisionCardId && (
+              <Link
+                href={`/convergence?id=${msg.spawnedDecisionCardId}`}
+                className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700 transition hover:bg-amber-100"
+              >
+                <Sparkles className="h-2.5 w-2.5" />
+                议事室进行中
+                <ArrowRight className="h-2.5 w-2.5" />
+              </Link>
+            )}
+            {msg.spawnedPromotionId && (
+              <Link
+                href={`/memories?promotionId=${msg.spawnedPromotionId}`}
+                className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700 transition hover:bg-violet-100"
+              >
+                <Brain className="h-2.5 w-2.5" />
+                Memory 升级提议中
+                <ArrowRight className="h-2.5 w-2.5" />
+              </Link>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
