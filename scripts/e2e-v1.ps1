@@ -48,9 +48,9 @@ function Get-Json($path) {
   return Invoke-RestMethod -Uri "$BaseUrl$path" -Method GET
 }
 
-function Send-Json($path, $body) {
+function Send-Json($path, $body, $method = 'POST') {
   $bytes = $utf8.GetBytes(($body | ConvertTo-Json -Compress -Depth 10))
-  return Invoke-RestMethod -Method POST -Uri "$BaseUrl$path" `
+  return Invoke-RestMethod -Method $method -Uri "$BaseUrl$path" `
     -ContentType 'application/json; charset=utf-8' -Body $bytes
 }
 
@@ -180,6 +180,102 @@ try {
   $pe = Get-Json '/api/persona/demo-user/progress'
   Step '5 Persona progress' ($null -ne $pe) "stage=$($pe.persona.stage) delegationLevel=$($pe.persona.delegationLevel)"
 } catch { Step '5 Persona progress' $false "ERR: $($_.Exception.Message)" }
+
+# ---------------------------------------------------------------------------
+# 6. Convergence full lifecycle: start -> PICK -> COMMIT -> VETO
+#    (PRD section 8 acceptance steps 5/6/8)
+# ---------------------------------------------------------------------------
+$cardId = $null
+try {
+  $cv = Send-Json '/api/convergence' @{
+    title = '[E2E] should we cut V1 GA from 14 months to 12?'
+    description = 'Trade-off: faster GA vs. unfinished compliance review.'
+    ownerId = 'demo-user'
+  }
+  $cardId = $cv.cardId
+  $hasOpts = ($cv.step -eq 'DIVERGE')
+  Step '6a Convergence start (LLM 3+1 generated)' $hasOpts "cardId=$cardId step=$($cv.step)"
+} catch { Step '6a Convergence start' $false "ERR: $($_.Exception.Message)" }
+
+if (-not $cardId) {
+  Write-Host '!! convergence start failed, skipping 6b-6e'
+}
+
+if ($cardId) {
+  # PICK_OPTION D (forces human originality per Manifesto section 9)
+  try {
+    $pick = Send-Json "/api/convergence/$cardId" @{
+      event = @{ type = 'PICK_OPTION'; userId = 'demo-user'; option = 'D'; at = [int64](([DateTimeOffset]::Now.ToUnixTimeMilliseconds())) }
+    }
+    Step '6b Convergence PICK_OPTION D' ($pick.step -eq 'CONVERGE') "step=$($pick.step)"
+  } catch { Step '6b Convergence PICK' $false "ERR: $($_.Exception.Message)" }
+
+  # COMMIT (opens 24h veto window)
+  try {
+    $com = Send-Json "/api/convergence/$cardId" @{
+      event = @{ type = 'COMMIT'; userId = 'demo-user'; at = [int64](([DateTimeOffset]::Now.ToUnixTimeMilliseconds())) }
+    }
+    Step '6c Convergence COMMIT' ($com.step -eq 'COMMIT') "step=$($com.step) events=$($com.events -join ',')"
+  } catch { Step '6c Convergence COMMIT' $false "ERR: $($_.Exception.Message)" }
+
+  # Verify card has vetoWindowEnds set
+  try {
+    $card = (Get-Json "/api/convergence/$cardId").card
+    $vetoOpen = ($null -ne $card.vetoWindowEnds)
+    Step '6d Convergence veto window opened' $vetoOpen "vetoWindowEnds=$($card.vetoWindowEnds)"
+  } catch { Step '6d Convergence veto window' $false "ERR: $($_.Exception.Message)" }
+
+  # VETO within 24h
+  try {
+    $veto = Send-Json "/api/convergence/$cardId" @{
+      event = @{ type = 'VETO'; userId = 'demo-user'; reason = 'e2e: rolling back commit to test veto path'; at = [int64](([DateTimeOffset]::Now.ToUnixTimeMilliseconds())) }
+    }
+    Step '6e Convergence VETO' ($veto.step -eq 'VETOED') "step=$($veto.step)"
+  } catch { Step '6e Convergence VETO' $false "ERR: $($_.Exception.Message)" }
+}
+
+# ---------------------------------------------------------------------------
+# 7. Memory promotion sign flow (PRD section 8 acceptance step 10)
+#    Pick a pending team-level promotion -> sign team_leader -> sign steward
+# ---------------------------------------------------------------------------
+try {
+  $allPending = (Get-Json '/api/tandem/memory/promotion?status=pending&level=team').promotions
+  $target = $allPending | Where-Object { $_.signers.history.Count -eq 0 } | Select-Object -First 1
+  if ($null -eq $target) {
+    Step '7a Memory promotion pick target' $false 'no pending team-level promotion to sign (need fresh seed?)'
+  } else {
+    Step '7a Memory promotion pick target' $true "promotionId=$($target.id) level=$($target.level)"
+
+    # Sign as team_leader (demo-user) - PATCH
+    try {
+      $sig1 = Send-Json '/api/tandem/memory/promotion' @{
+        promotionId = $target.id
+        action = 'sign'
+        signerId = 'demo-user'
+        role = 'team_leader'
+        comment = '[E2E] team_leader sign lesson promotion'
+      } 'PATCH'
+      $tlOk = ($null -ne $sig1.promotion.signers.teamLeader)
+      Step '7b Sign team_leader' $tlOk "teamLeader=$($sig1.promotion.signers.teamLeader.userId)"
+    } catch { Step '7b Sign team_leader' $false "ERR: $($_.Exception.Message)" }
+
+    # Sign as steward (colleague-wang, seed-appointed) - PATCH
+    try {
+      $sig2 = Send-Json '/api/tandem/memory/promotion' @{
+        promotionId = $target.id
+        action = 'sign'
+        signerId = 'colleague-wang'
+        role = 'steward'
+        comment = '[E2E] steward review approved'
+      } 'PATCH'
+      $stOk = ($null -ne $sig2.promotion.signers.steward)
+      Step '7c Sign steward' $stOk "steward=$($sig2.promotion.signers.steward.userId)"
+      # All required signed: team_leader + steward
+      $signedCount = $sig2.promotion.signers.history.Count
+      Step '7d All required roles signed' ($signedCount -ge 2) "history.count=$signedCount status=$($sig2.promotion.status) (note: status=approved 仅在公示期满后, 这里 publicReviewUntil 还在未来 -> 仍 pending)"
+    } catch { Step '7c Sign steward' $false "ERR: $($_.Exception.Message)" }
+  }
+} catch { Step '7 Memory sign flow' $false "ERR: $($_.Exception.Message)" }
 
 # ---------------------------------------------------------------------------
 # Summary

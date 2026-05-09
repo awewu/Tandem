@@ -189,6 +189,13 @@ export async function seedDevData(): Promise<void> {
     updatedAt: new Date().toISOString(),
   } as Omit<Persona, 'id'>);
 
+  // Steward 委任: colleague-wang 担任 Steward (Memory 三级签批刚需角色, 见 MANIFESTO §8.1)
+  await s.stewards.set({
+    userId: 'colleague-wang',
+    appointedAt: new Date(Date.now() - 60 * 86400000).toISOString(),
+    conflictWith: [],
+  } as never);
+
   // Persona for colleague-li (assistant 阶段, soft_opinion 委托级别 — 允许 IM @persona 召唤代行)
   await s.personas.create({
     userId: 'colleague-li',

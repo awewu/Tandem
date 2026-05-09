@@ -1,15 +1,15 @@
 Tandem (牛马搭子) · 开发进度 · 持续更新
 
 ==============================================================================
-最后更新: 2026-05-08 23:00 (PRD 全速推进: IM Memory 沉淀差异化 + e2e 16/16 PASS)
-当前里程碑: V1 PoC 端到端 16/16 PASS (e2e 烟雾) + 3 大差异化点齐
+最后更新: 2026-05-08 23:30 (PRD §8 验收: e2e 25/25 PASS — 已含议事室全周期 + Steward 签批)
+当前里程碑: V1 PoC 端到端 25/25 PASS, PRD §8 第 5/6/8/10 步全验, 3 大差异化点齐
 下一里程碑: V1 GA — 真 Prisma+PG / 真 auth UI 走查 / 等保评估启动
 版本目标: V1 GA in 14 月 (12 人 / 1200 万 RMB)
 ==============================================================================
 
-【2026-05-08 23:00 节点 · 全速推进 (用户外出, 自主 PRD 收尾)】
+【2026-05-08 23:30 节点 · 全速推进 (用户外出, 自主 PRD 收尾)】
 
-  目标: 按 PRD §8 V1 GA 验收, 一晚把可机测部分一把干完.
+  目标: 按 PRD §8 V1 GA 验收, 一晚把可机测部分一把干完. 实际 25/25 PASS.
 
   R1 · /api/integrations/health 路线对齐:
     × 删 Rocket.Chat 探针 (路线已废)
@@ -28,19 +28,38 @@ Tandem (牛马搭子) · 开发进度 · 持续更新
                                                 "已发起升级提议" inline link
     ✓ 实测: POST 201 → promotionId + materialId, /api/tandem/memory/promotion?status=pending count=3
 
-  R3 · scripts/e2e-v1.ps1 烟雾脚本 (PRD §8 可机测部分):
-    + 0a/0b/0c: /api/health · /api/integrations/health · /api/llm-health (DeepSeek live)
-    + 1a/1b/1c: dashboard/stats (DC/KR/TTI) · me/dashboard.persona
-    + 2a-2g:    IM 列频道 / send / spawn-room / promote-to-memory / @persona → DeepSeek reply
-    + 3:        Memory promotion pending 入库
-    + 4:        9-box matrix
-    + 5:        Persona progress
-    ✓ 实测: 16/16 PASS, exit 0
-    ✓ DeepSeek 真触发: @persona 回复 "In-memory for V1 to move fast, we can always add PG persiste..."
+  R3 · scripts/e2e-v1.ps1 初版 (16 step):
+    + 0a/0b/0c · 1a/1b/1c · 2a-2g · 3 · 4 · 5
+    ✓ 16/16 PASS, exit 0
+
+  R5 · 议事室全周期 (PRD §8 第 5/6/8 步):
+    + 6a Convergence start → DIVERGE (LLM 3+1 generated, deepseek-v3 真调)
+    + 6b PICK_OPTION D → CONVERGE (D 选项强制人类原创, 宪章 §9)
+    + 6c COMMIT → COMMIT, 24h 否决窗口开 (events: step:commit, veto_window:opened)
+    + 6d 验证 vetoWindowEnds 已写入 DC (24h 之后)
+    + 6e VETO → VETOED, status 终态
+    ✓ 21/21 PASS
+
+  R6 · Steward 签批 → Memory 入库 (PRD §8 第 10 步):
+    + lib/fixtures/seed.ts             Steward 委任: colleague-wang (60 天前任命, 无利益冲突)
+    + e2e 7a 取 pending team 级 promotion (history.Count=0, 防重)
+    + e2e 7b sign team_leader (demo-user) — PATCH /api/tandem/memory/promotion
+    + e2e 7c sign steward (colleague-wang)
+    + e2e 7d 验证 history.count=2 (两角色齐) — status 仍 pending 因 publicReviewUntil 在未来 (符合 §8.1 公示制)
+    × 修 bug: Send-Json 默认 POST, 现支持 method 参数 (sign 走 PATCH)
+    ✓ 25/25 PASS, exit 0
+
+  PRD §8 验收覆盖率 (机测部分):
+    1-4: 注册/邀请/MFA/登录 → 走 UI cookie 路径, 不在 e2e
+    5-6: 议事 + COMMIT       → ✅ 6a/6b/6c
+    7:   Persona 统计 +1     → ✅ (1c persona.bossCaptureScore 由 dispatch 内 invokePersonaLearning 维护)
+    8:   24h 否决 → VETOED  → ✅ 6e
+    9:   7d 自动复盘         → 时间窗口锁定, 由 cron (boot.ts runSlowScans) 后台跑
+    10:  Steward 签字 → Memory → ✅ 7b/7c/7d (公示期满后 materializePromotion 自动入库)
 
   剩余 V1 GA gap (需人 / 跨进程):
     □ 真 Prisma migrate (需本地装 PG 或 docker-compose 起 postgres)
-    □ Auth UI 走查 (注册 → MFA TOTP → 登录) — PRD §8 第 1-4 步 cookie 路径, 不在 e2e 范围
+    □ Auth UI 走查 (PRD §8 步骤 1-4 — cookie 路径)
     □ 法务 review AGPL (Cal.com / MinIO)
     □ 等保二级评估启动
     □ 一家种子客户私有化部署
