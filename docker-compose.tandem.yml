@@ -1,0 +1,105 @@
+# Tandem (牛马搭子) · OSS Bundle for Local Dev
+#
+# 启动: docker compose -f docker-compose.tandem.yml up -d
+# 关闭: docker compose -f docker-compose.tandem.yml down
+#
+# 包含: PostgreSQL+pgvector / Rocket.Chat / Cal.com / MinIO
+# 不含: Tencent Meeting (云端 SaaS), 钉钉/企微/飞书 (云端 SaaS)
+
+version: '3.9'
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL + pgvector (持久化主库)
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: tandem-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tandem
+      POSTGRES_PASSWORD: tandem
+      POSTGRES_DB: tandem
+    ports:
+      - '5432:5432'
+    volumes:
+      - tandem_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U tandem']
+      interval: 10s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # MongoDB (Rocket.Chat 依赖)
+  # ---------------------------------------------------------------------------
+  mongo:
+    image: mongo:6
+    container_name: tandem-mongo
+    restart: unless-stopped
+    command: ['--replSet', 'rs0', '--oplogSize', '128']
+    volumes:
+      - tandem_mongo_data:/data/db
+
+  mongo-init-replica:
+    image: mongo:6
+    depends_on:
+      - mongo
+    restart: 'no'
+    command: >
+      bash -c "for i in {1..30}; do mongosh --host mongo:27017 --eval 'rs.initiate()' && break || sleep 2; done"
+
+  # ---------------------------------------------------------------------------
+  # Rocket.Chat (IM)
+  # ---------------------------------------------------------------------------
+  rocketchat:
+    image: rocketchat/rocket.chat:latest
+    container_name: tandem-rocketchat
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    ports:
+      - '3001:3000'
+    environment:
+      MONGO_URL: mongodb://mongo:27017/rocketchat?replicaSet=rs0
+      MONGO_OPLOG_URL: mongodb://mongo:27017/local?replicaSet=rs0
+      ROOT_URL: http://localhost:3001
+      PORT: 3000
+
+  # ---------------------------------------------------------------------------
+  # Cal.com (日程, AGPL - 法务待 review)
+  # ---------------------------------------------------------------------------
+  calcom:
+    image: calcom/cal.com:latest
+    container_name: tandem-calcom
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    ports:
+      - '3002:3000'
+    environment:
+      DATABASE_URL: postgresql://tandem:tandem@postgres:5432/calcom
+      NEXTAUTH_URL: http://localhost:3002
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-changeme}
+      CALENDSO_ENCRYPTION_KEY: ${CALENDSO_ENCRYPTION_KEY:-changeme}
+
+  # ---------------------------------------------------------------------------
+  # MinIO (对象存储, AGPL - 法务待 review)
+  # ---------------------------------------------------------------------------
+  minio:
+    image: minio/minio:latest
+    container_name: tandem-minio
+    restart: unless-stopped
+    command: server /data --console-address ':9001'
+    ports:
+      - '9000:9000'  # API
+      - '9001:9001'  # Console
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - tandem_minio_data:/data
+
+volumes:
+  tandem_pg_data:
+  tandem_mongo_data:
+  tandem_minio_data:

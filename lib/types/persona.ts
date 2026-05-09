@@ -1,0 +1,129 @@
+/**
+ * Persona · 拿捏老板 (个体 AI 分身)
+ *
+ * 对应 PERSONA-EVOLUTION + MANIFESTO 第十三条 (数据归公司, 尊严归员工)
+ */
+
+export type PersonaStage =
+  | 'newborn'   // 🥚 新生 (0-2w): 仅旁听
+  | 'apprentice' // 🐣 学徒 (2w-2m): 简单 standup
+  | 'assistant' // 🐤 助手 (2m-6m): 绿区会议 + 表态
+  | 'deputy'    // 🦅 副手 (6m-1y): 黄区会议 + 短承诺
+  | 'partner';  // 🐉 搭档 (>1y): 跨企业 (除红区)
+
+export type DelegationLevel =
+  | 'observe_only'      // 仅旁听
+  | 'report_only'       // 可汇报数据
+  | 'soft_opinion'      // 可表态 (不承诺)
+  | 'commit_short'      // 可承诺 ≤ 1 工作日动作
+  | 'commit_long'       // 可承诺 ≤ 1 周动作
+  | 'cross_company';    // 可参与跨企业 (红区除外)
+
+export interface DecisionHistoryStats {
+  totalDecisions: number;
+  selfMade: number;
+  aiAssisted: number;
+  vetoedByUser: number;
+  /** 员工对 AI 决议否决率 (健康区间 5-15%) */
+  vetoRate: number;
+}
+
+export interface StyleProfile {
+  decisionSpeed: 'fast' | 'medium' | 'slow';
+  riskAppetite: number;          // 0-1
+  communicationStyle: 'direct' | 'diplomatic' | 'analytical';
+  preferredOptions: ('SOP' | 'reasoning' | 'historical' | 'original')[];
+  /** 历史发言样本 (用于 LLM few-shot) */
+  communicationExamples: string[];
+}
+
+export interface GrowthArea {
+  id: string;
+  category: string;
+  description: string;
+  identifiedAt: string;
+  status: 'identified' | 'in_progress' | 'mastered';
+}
+
+export interface Persona {
+  id: string;
+  userId: string;
+  schemaVersion: 'tandem.v1';
+
+  /** 当前阶段 */
+  stage: PersonaStage;
+  stageEnteredAt: string;
+
+  /** 委托级别 (员工授权 AI 能做什么) */
+  delegationLevel: DelegationLevel;
+
+  /** 历史统计 */
+  decisionHistory: DecisionHistoryStats;
+
+  /** 风格画像 */
+  styleProfile: StyleProfile;
+
+  /** 成长区域 */
+  growthAreas: GrowthArea[];
+
+  /** "拿捏老板"度 (0-100, 衡量员工与老板沟通的得心应手程度) */
+  bossCaptureScore: number;
+
+  /** 数据所有权 (MANIFESTO 第十三条) */
+  dataOwnership: {
+    /** 数据归公司 */
+    companyOwnsData: true;
+    /** 员工尊严保障: 离职后画像匿名化 */
+    anonymizationPending: boolean;
+    /** 员工本人对个人原始 ORIGINS 的导出权 */
+    employeeCanExportOrigins: true;
+  };
+
+  /** 元数据 */
+  createdAt: string;
+  updatedAt: string;
+
+  /** 是否在线学习中 */
+  learningActive: boolean;
+}
+
+/** 阶段 → 委托级别默认映射 */
+export const STAGE_TO_DEFAULT_DELEGATION: Record<PersonaStage, DelegationLevel> = {
+  newborn: 'observe_only',
+  apprentice: 'report_only',
+  assistant: 'soft_opinion',
+  deputy: 'commit_short',
+  partner: 'cross_company',
+};
+
+/** 阶段升级条件 */
+export interface StageUpgradeCriteria {
+  minDays: number;
+  minDecisions: number;
+  maxVetoRate: number;
+}
+
+export const STAGE_UPGRADE_CRITERIA: Record<
+  PersonaStage,
+  StageUpgradeCriteria | null
+> = {
+  newborn: { minDays: 14, minDecisions: 10, maxVetoRate: 0.5 },
+  apprentice: { minDays: 60, minDecisions: 50, maxVetoRate: 0.3 },
+  assistant: { minDays: 180, minDecisions: 200, maxVetoRate: 0.2 },
+  deputy: { minDays: 365, minDecisions: 800, maxVetoRate: 0.1 },
+  partner: null,
+};
+
+export function canUpgradeStage(persona: Persona): boolean {
+  const criteria = STAGE_UPGRADE_CRITERIA[persona.stage];
+  if (!criteria) return false;
+
+  const ageDays =
+    (Date.now() - new Date(persona.stageEnteredAt).getTime()) / 86400000;
+
+  return (
+    ageDays >= criteria.minDays &&
+    persona.decisionHistory.totalDecisions >= criteria.minDecisions &&
+    persona.decisionHistory.vetoRate <= criteria.maxVetoRate
+  );
+}

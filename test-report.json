@@ -1,0 +1,373 @@
+﻿{
+    "total":  35,
+    "pass":  35,
+    "fail":  0,
+    "results":  [
+                    {
+                        "name":  "health",
+                        "method":  "GET",
+                        "path":  "/api/health",
+                        "status":  200,
+                        "durationMs":  746,
+                        "pass":  true,
+                        "note":  "",
+                        "sample":  "{\"ok\":true,\"version\":\"Hermes (cron status)\"}"
+                    },
+                    {
+                        "name":  "status",
+                        "method":  "GET",
+                        "path":  "/api/status",
+                        "status":  200,
+                        "durationMs":  989,
+                        "pass":  true,
+                        "note":  "",
+                        "sample":  "{\"ok\":true,\"environment\":{\"project\":\"C:\\\\Users\\\\steve\\\\AppData\\\\Local\\\\hermes\\\\hermes-agent\",\"python\":\"3.11.15\",\"model\":\"kimi-k2.6\",\"provider\":\"Kimi / Moonshot (China)\"},\"apiKeys\":[{\"name\":\"OpenRouter\",\"configured\":false,\"hint\":\"(not set)\"},{\"name\":\"OpenAI\",\"configured\":false,\"hint\":\"(not set)\"},{\"n..."
+                    },
+                    {
+                        "name":  "skills",
+                        "method":  "GET",
+                        "path":  "/api/skills",
+                        "status":  200,
+                        "durationMs":  1021,
+                        "pass":  true,
+                        "note":  "",
+                        "sample":  "{\"skills\":[{\"name\":\"dogfood\",\"category\":\"\",\"source\":\"builtin\",\"trust\":\"builtin\",\"enabled\":true},{\"name\":\"yuanbao\",\"category\":\"\",\"source\":\"builtin\",\"trust\":\"builtin\",\"enabled\":true},{\"name\":\"claude-code\",\"category\":\"autonomous-ai-agents\",\"source\":\"builtin\",\"trust\":\"builtin\",\"enabled\":true},{\"name\":\"c..."
+                    },
+                    {
+                        "name":  "mcp list",
+                        "method":  "GET",
+                        "path":  "/api/mcp",
+                        "status":  200,
+                        "durationMs":  659,
+                        "pass":  true,
+                        "note":  "",
+                        "sample":  "{\"ok\":true,\"servers\":[],\"count\":0,\"empty\":true}"
+                    },
+                    {
+                        "name":  "memory status",
+                        "method":  "GET",
+                        "path":  "/api/memory",
+                        "status":  200,
+                        "durationMs":  812,
+                        "pass":  true,
+                        "note":  "",
+                        "sample":  "{\"ok\":true,\"builtIn\":{\"active\":true,\"description\":\"always active\"},\"provider\":{\"configured\":false},\"plugins\":[{\"name\":\"byterover\",\"description\":\"requires API key\"},{\"name\":\"hindsight\",\"description\":\"API key / local\"},{\"name\":\"holographic\",\"description\":\"local\"},{\"name\":\"honcho\",\"description\":\"API ke..."
+                    },
+                    {
+                        "name":  "logs default",
+                        "method":  "GET",
+                        "path":  "/api/logs?lines=5",
+                        "status":  200,
+                        "durationMs":  651,
+                        "pass":  true,
+                        "note":  "",
+                        "sample":  "{\"ok\":true,\"log\":\"agent\",\"count\":5,\"logs\":[{\"id\":\"2026-05-06 21:02:22,257-0\",\"timestamp\":\"2026-05-06 21:02:22,257\",\"level\":\"INFO\",\"component\":\"hermes_cli.plugins\",\"message\":\"Plugin discovery complete: 9 found, 6 enabled\",\"raw\":\"2026-05-06 21:02:22,257 INFO hermes_cli.plugins: Plugin discovery comple..."
+                    },
+                    {
+                        "name":  "logs filter ERROR",
+                        "method":  "GET",
+                        "path":  "/api/logs?lines=20\u0026level=ERROR",
+                        "status":  200,
+                        "durationMs":  588,
+                        "pass":  true,
+                        "note":  "",
+                        "sample":  "{\"ok\":true,\"log\":\"agent\",\"count\":20,\"logs\":[{\"id\":\"c-0\",\"timestamp\":\"\",\"level\":\"UNKNOWN\",\"component\":\"\",\"message\":\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\",\"raw\":\"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\"},{\"id\":\"c-..."
+                    },
+                    {
+                        "name":  "logs file=errors",
+                        "method":  "GET",
+                        "path":  "/api/logs?log=errors\u0026lines=5",
+                        "status":  200,
+                        "durationMs":  604,
+                        "pass":  true,
+                        "note":  "",
+                        "sample":  "{\"ok\":true,\"log\":\"errors\",\"count\":5,\"logs\":[{\"id\":\"2026-05-06 07:46:42,896-0\",\"timestamp\":\"2026-05-06 07:46:42,896\",\"level\":\"WARNING\",\"component\":\"hermes_cli.plugins\",\"message\":\"Failed to parse C:\\\\Users\\\\steve\\\\AppData\\\\Local\\\\hermes\\\\hermes-agent\\\\plugins\\\\disk-cleanup\\\\plugin.yaml: \u0027gbk\u0027 codec ca..."
+                    },
+                    {
+                        "name":  "logs since 1d",
+                        "method":  "GET",
+                        "path":  "/api/logs?lines=10\u0026since=1d",
+                        "status":  200,
+                        "durationMs":  597,
+                        "pass":  true,
+                        "note":  "",
+                        "sample":  "{\"ok\":true,\"log\":\"agent\",\"count\":10,\"logs\":[{\"id\":\"2026-05-06 21:02:06,309-0\",\"timestamp\":\"2026-05-06 21:02:06,309\",\"level\":\"INFO\",\"component\":\"hermes_cli.plugins\",\"message\":\"Plugin \u0027xai\u0027 registered image_gen provider: xai\",\"raw\":\"2026-05-06 21:02:06,309 INFO hermes_cli.plugins: Plugin \u0027xai\u0027 registe..."
+                    },
+                    {
+                        "name":  "cron list (initial)",
+                        "method":  "GET",
+                        "path":  "/api/cron",
+                        "status":  200,
+                        "durationMs":  795,
+                        "pass":  true,
+                        "note":  "",
+                        "sample":  "{\"jobs\":[],\"raw\":\"No scheduled jobs.\\r\\nCreate one with \u0027hermes cron create ...\u0027 or the /cron command in chat.\\r\\n\"}"
+                    },
+                    {
+                        "name":  "cron create",
+                        "method":  "POST",
+                        "path":  "/api/cron",
+                        "status":  200,
+                        "durationMs":  696,
+                        "pass":  true,
+                        "note":  "",
+                        "sample":  "{\"success\":true,\"raw\":\"Created job: af163c65ba59\\r\\n  Name: webuiTest5865\\r\\n  Schedule: 0 9 * * *\\r\\n  Next run: 2026-05-07T09:00:00-07:00\\r\\n\"}"
+                    },
+                    {
+                        "name":  "cron pause",
+                        "method":  "PATCH",
+                        "path":  "/api/cron/af163c65ba59",
+                        "status":  200,
+                        "durationMs":  761,
+                        "pass":  true,
+                        "note":  "",
+                        "sample":  "{\"success\":true,\"raw\":\"Paused job: webuiTest5865 (af163c65ba59)\\r\\n\"}"
+                    },
+                    {
+                        "name":  "cron resume",
+                        "method":  "PATCH",
+                        "path":  "/api/cron/af163c65ba59",
+                        "status":  200,
+                        "durationMs":  723,
+                        "pass":  true,
+                        "note":  "",
+                        "sample":  "{\"success\":true,\"raw\":\"Resumed job: webuiTest5865 (af163c65ba59)\\r\\n  Next run: 2026-05-07T09:00:00-07:00\\r\\n\"}"
+                    },
+                    {
+                        "name":  "cron run",
+                        "method":  "POST",
+                        "path":  "/api/cron/af163c65ba59",
+                        "status":  200,
+                        "durationMs":  1065,
+                        "pass":  true,
+                        "note":  "",
+                        "sample":  "{\"success\":true,\"raw\":\"Triggered job: webuiTest5865 (af163c65ba59)\\r\\n  Next run: 2026-05-06T21:05:56.356936-07:00\\r\\n  It will run on the next scheduler tick.\\r\\n\"}"
+                    },
+                    {
+                        "name":  "cron delete",
+                        "method":  "DELETE",
+                        "path":  "/api/cron/af163c65ba59",
+                        "status":  200,
+                        "durationMs":  760,
+                        "pass":  true,
+                        "note":  "",
+                        "sample":  "{\"success\":true,\"raw\":\"Removed job: webuiTest5865 (af163c65ba59)\\r\\n\"}"
+                    },
+                    {
+                        "name":  "cron create no schedule",
+                        "method":  "POST",
+                        "path":  "/api/cron",
+                        "status":  400,
+                        "durationMs":  17,
+                        "pass":  true,
+                        "note":  "",
+                        "sample":  "{\"success\":false,\"error\":\"schedule is required\"}"
+                    },
+                    {
+                        "name":  "cron action bad id",
+                        "method":  "DELETE",
+                        "path":  "/api/cron/INVALID..ID",
+                        "status":  400,
+                        "durationMs":  19,
+                        "pass":  true,
+                        "note":  "",
+                        "sample":  "{\"success\":false,\"error\":\"Invalid id\"}"
+                    },
+                    {
+                        "name":  "cron action bad verb",
+                        "method":  "PATCH",
+                        "path":  "/api/cron/af163c65ba59",
+                        "status":  400,
+                        "durationMs":  12,
+                        "pass":  true,
+                        "note":  "",
+                        "sample":  "{\"success\":false,\"error\":\"action must be pause|resume\"}"
+                    },
+                    {
+                        "name":  "llm-stream missing baseURL",
+                        "method":  "POST",
+                        "path":  "/api/llm-stream",
+                        "status":  400,
+                        "durationMs":  65,
+                        "pass":  true,
+                        "note":  "",
+                        "sample":  "data: {\"error\":\"Missing provider.baseURL — 请在 Agent 配置里填写 LLM 代理 baseURL\"}\n\ndata: {\"done\":true}\n\n"
+                    },
+                    {
+                        "name":  "chat stream (CLI)",
+                        "method":  "POST",
+                        "path":  "/api/stream",
+                        "status":  200,
+                        "durationMs":  16299,
+                        "pass":  true,
+                        "note":  "",
+                        "sample":  "API call failed after 3 retries: HTTP 404: Not found the model default or Permission denied\r\n",
+                        "contentChunks":  1,
+                        "totalChars":  93,
+                        "doneSeen":  true,
+                        "errorSeen":  null
+                    },
+                    {
+                        "name":  "workflow run",
+                        "method":  "POST",
+                        "path":  "/api/workflows/run",
+                        "status":  200,
+                        "durationMs":  137446,
+                        "pass":  true,
+                        "note":  "",
+                        "sample":  "{\"node:start\":3,\"node:chunk\":2,\"done\":1,\"node:done\":3,\"plan\":1,\"node:prompt\":2}",
+                        "eventCounts":  {
+                                            "node:start":  3,
+                                            "node:chunk":  2,
+                                            "done":  1,
+                                            "node:done":  3,
+                                            "plan":  1,
+                                            "node:prompt":  2
+                                        },
+                        "nodesStarted":  3,
+                        "nodesDone":  3,
+                        "doneSeen":  true,
+                        "errorSeen":  null
+                    },
+                    {
+                        "name":  "page /",
+                        "method":  "GET",
+                        "path":  "/",
+                        "status":  200,
+                        "durationMs":  972,
+                        "pass":  true,
+                        "note":  "",
+                        "sample":  "\u003c!DOCTYPE html\u003e\u003chtml lang=\"zh-CN\"\u003e\u003chead\u003e\u003cmeta charSet=\"utf-8\"/\u003e\u003cmeta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/\u003e\u003clink rel=\"stylesheet\" href=\"/_next/static/css/app/layout.css?v=1778126911929\" data-precedence=\"next_static/css/app/layout.css\"/\u003e\u003clink rel=\"preload\" as=\"script\" fetchPr..."
+                    },
+                    {
+                        "name":  "page /chat",
+                        "method":  "GET",
+                        "path":  "/chat",
+                        "status":  200,
+                        "durationMs":  570,
+                        "pass":  true,
+                        "note":  "",
+                        "sample":  "\u003c!DOCTYPE html\u003e\u003chtml lang=\"zh-CN\"\u003e\u003chead\u003e\u003cmeta charSet=\"utf-8\"/\u003e\u003cmeta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/\u003e\u003clink rel=\"stylesheet\" href=\"/_next/static/css/app/layout.css?v=1778126912540\" data-precedence=\"next_static/css/app/layout.css\"/\u003e\u003clink rel=\"preload\" as=\"script\" fetchPr..."
+                    },
+                    {
+                        "name":  "page /agents",
+                        "method":  "GET",
+                        "path":  "/agents",
+                        "status":  200,
+                        "durationMs":  446,
+                        "pass":  true,
+                        "note":  "",
+                        "sample":  "\u003c!DOCTYPE html\u003e\u003chtml lang=\"zh-CN\"\u003e\u003chead\u003e\u003cmeta charSet=\"utf-8\"/\u003e\u003cmeta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/\u003e\u003clink rel=\"stylesheet\" href=\"/_next/static/css/app/layout.css?v=1778126913010\" data-precedence=\"next_static/css/app/layout.css\"/\u003e\u003clink rel=\"preload\" as=\"script\" fetchPr..."
+                    },
+                    {
+                        "name":  "page /workflows",
+                        "method":  "GET",
+                        "path":  "/workflows",
+                        "status":  200,
+                        "durationMs":  387,
+                        "pass":  true,
+                        "note":  "",
+                        "sample":  "\u003c!DOCTYPE html\u003e\u003chtml lang=\"zh-CN\"\u003e\u003chead\u003e\u003cmeta charSet=\"utf-8\"/\u003e\u003cmeta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/\u003e\u003clink rel=\"stylesheet\" href=\"/_next/static/css/app/layout.css?v=1778126913377\" data-precedence=\"next_static/css/app/layout.css\"/\u003e\u003clink rel=\"preload\" as=\"script\" fetchPr..."
+                    },
+                    {
+                        "name":  "page /tasks",
+                        "method":  "GET",
+                        "path":  "/tasks",
+                        "status":  200,
+                        "durationMs":  302,
+                        "pass":  true,
+                        "note":  "",
+                        "sample":  "\u003c!DOCTYPE html\u003e\u003chtml lang=\"zh-CN\"\u003e\u003chead\u003e\u003cmeta charSet=\"utf-8\"/\u003e\u003cmeta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/\u003e\u003clink rel=\"stylesheet\" href=\"/_next/static/css/app/layout.css?v=1778126913687\" data-precedence=\"next_static/css/app/layout.css\"/\u003e\u003clink rel=\"preload\" as=\"script\" fetchPr..."
+                    },
+                    {
+                        "name":  "page /skills",
+                        "method":  "GET",
+                        "path":  "/skills",
+                        "status":  200,
+                        "durationMs":  391,
+                        "pass":  true,
+                        "note":  "",
+                        "sample":  "\u003c!DOCTYPE html\u003e\u003chtml lang=\"zh-CN\"\u003e\u003chead\u003e\u003cmeta charSet=\"utf-8\"/\u003e\u003cmeta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/\u003e\u003clink rel=\"stylesheet\" href=\"/_next/static/css/app/layout.css?v=1778126914109\" data-precedence=\"next_static/css/app/layout.css\"/\u003e\u003clink rel=\"preload\" as=\"script\" fetchPr..."
+                    },
+                    {
+                        "name":  "page /knowledge",
+                        "method":  "GET",
+                        "path":  "/knowledge",
+                        "status":  200,
+                        "durationMs":  263,
+                        "pass":  true,
+                        "note":  "",
+                        "sample":  "\u003c!DOCTYPE html\u003e\u003chtml lang=\"zh-CN\"\u003e\u003chead\u003e\u003cmeta charSet=\"utf-8\"/\u003e\u003cmeta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/\u003e\u003clink rel=\"stylesheet\" href=\"/_next/static/css/app/layout.css?v=1778126914397\" data-precedence=\"next_static/css/app/layout.css\"/\u003e\u003clink rel=\"preload\" as=\"script\" fetchPr..."
+                    },
+                    {
+                        "name":  "page /memories",
+                        "method":  "GET",
+                        "path":  "/memories",
+                        "status":  200,
+                        "durationMs":  322,
+                        "pass":  true,
+                        "note":  "",
+                        "sample":  "\u003c!DOCTYPE html\u003e\u003chtml lang=\"zh-CN\"\u003e\u003chead\u003e\u003cmeta charSet=\"utf-8\"/\u003e\u003cmeta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/\u003e\u003clink rel=\"stylesheet\" href=\"/_next/static/css/app/layout.css?v=1778126914675\" data-precedence=\"next_static/css/app/layout.css\"/\u003e\u003clink rel=\"preload\" as=\"script\" fetchPr..."
+                    },
+                    {
+                        "name":  "page /organization",
+                        "method":  "GET",
+                        "path":  "/organization",
+                        "status":  200,
+                        "durationMs":  443,
+                        "pass":  true,
+                        "note":  "",
+                        "sample":  "\u003c!DOCTYPE html\u003e\u003chtml lang=\"zh-CN\"\u003e\u003chead\u003e\u003cmeta charSet=\"utf-8\"/\u003e\u003cmeta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/\u003e\u003clink rel=\"stylesheet\" href=\"/_next/static/css/app/layout.css?v=1778126915146\" data-precedence=\"next_static/css/app/layout.css\"/\u003e\u003clink rel=\"preload\" as=\"script\" fetchPr..."
+                    },
+                    {
+                        "name":  "page /okr",
+                        "method":  "GET",
+                        "path":  "/okr",
+                        "status":  200,
+                        "durationMs":  296,
+                        "pass":  true,
+                        "note":  "",
+                        "sample":  "\u003c!DOCTYPE html\u003e\u003chtml lang=\"zh-CN\"\u003e\u003chead\u003e\u003cmeta charSet=\"utf-8\"/\u003e\u003cmeta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/\u003e\u003clink rel=\"stylesheet\" href=\"/_next/static/css/app/layout.css?v=1778126915458\" data-precedence=\"next_static/css/app/layout.css\"/\u003e\u003clink rel=\"preload\" as=\"script\" fetchPr..."
+                    },
+                    {
+                        "name":  "page /mcp",
+                        "method":  "GET",
+                        "path":  "/mcp",
+                        "status":  200,
+                        "durationMs":  376,
+                        "pass":  true,
+                        "note":  "",
+                        "sample":  "\u003c!DOCTYPE html\u003e\u003chtml lang=\"zh-CN\"\u003e\u003chead\u003e\u003cmeta charSet=\"utf-8\"/\u003e\u003cmeta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/\u003e\u003clink rel=\"stylesheet\" href=\"/_next/static/css/app/layout.css?v=1778126915773\" data-precedence=\"next_static/css/app/layout.css\"/\u003e\u003clink rel=\"preload\" as=\"script\" fetchPr..."
+                    },
+                    {
+                        "name":  "page /logs",
+                        "method":  "GET",
+                        "path":  "/logs",
+                        "status":  200,
+                        "durationMs":  471,
+                        "pass":  true,
+                        "note":  "",
+                        "sample":  "\u003c!DOCTYPE html\u003e\u003chtml lang=\"zh-CN\"\u003e\u003chead\u003e\u003cmeta charSet=\"utf-8\"/\u003e\u003cmeta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/\u003e\u003clink rel=\"stylesheet\" href=\"/_next/static/css/app/layout.css?v=1778126916277\" data-precedence=\"next_static/css/app/layout.css\"/\u003e\u003clink rel=\"preload\" as=\"script\" fetchPr..."
+                    },
+                    {
+                        "name":  "page /design",
+                        "method":  "GET",
+                        "path":  "/design",
+                        "status":  200,
+                        "durationMs":  457,
+                        "pass":  true,
+                        "note":  "",
+                        "sample":  "\u003c!DOCTYPE html\u003e\u003chtml lang=\"zh-CN\"\u003e\u003chead\u003e\u003cmeta charSet=\"utf-8\"/\u003e\u003cmeta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/\u003e\u003clink rel=\"stylesheet\" href=\"/_next/static/css/app/layout.css?v=1778126916719\" data-precedence=\"next_static/css/app/layout.css\"/\u003e\u003clink rel=\"preload\" as=\"script\" fetchPr..."
+                    },
+                    {
+                        "name":  "page /settings",
+                        "method":  "GET",
+                        "path":  "/settings",
+                        "status":  200,
+                        "durationMs":  626,
+                        "pass":  true,
+                        "note":  "",
+                        "sample":  "\u003c!DOCTYPE html\u003e\u003chtml lang=\"zh-CN\"\u003e\u003chead\u003e\u003cmeta charSet=\"utf-8\"/\u003e\u003cmeta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/\u003e\u003clink rel=\"stylesheet\" href=\"/_next/static/css/app/layout.css?v=1778126917332\" data-precedence=\"next_static/css/app/layout.css\"/\u003e\u003clink rel=\"preload\" as=\"script\" fetchPr..."
+                    }
+                ]
+}

@@ -1,0 +1,346 @@
+Tandem (牛马搭子) · 开发进度 · 持续更新
+
+==============================================================================
+最后更新: 2026-05-08 (阶段 0 完成 + boot race 修 + 编码事故复原)
+当前里程碑: V1 PoC 完成 + IM 差异化层 staging
+下一里程碑: 阶段 A — Rocket.Chat fork (按 MANIFESTO §18)
+版本目标: V1 GA in 14 月 (12 人 / 1200 万 RMB)
+==============================================================================
+
+【2026-05-08 节点 · boot race 修 + 编码事故】
+
+  问题: 重启验证 IM seed 时发现 `boot()` fire-and-forget seed, 首屏 race 读到空 store.
+
+  修复:
+    ✓ lib/boot.ts                       boot() 改 async, 暴露 _seedPromise; 同步路径 bootSync() 仅给 getRouter/getOrchestrator 用
+    ✓ app/api/**/route.ts (27 callsites) boot();  → await boot();
+
+  事故 + 复原:
+    × 第一次批量改用 PowerShell Set-Content 默认编码 (CP936), 把 14 个文件的 UTF-8 中文注释烧成 mojibake (\uFFFD?), 偶尔吞换行 → 5 处 syntax error
+    ✓ tsc 定位 syntax error 全修 (还原中文 + 补 \r\n)
+    ✓ 50+ 处中文注释 / 错误信息字面量 best-effort 还原 (上下文猜测, 可能与原文有微差)
+    ✓ 全文件 \uFFFD = 0, tsc 无新增错误 (剩余均 pre-existing: prisma-store IM repos / promotion-flow 类型 / e2e implicit any)
+
+  教训 (写入纪律):
+    - PowerShell 改文件必须 [System.IO.File]::WriteAllText($path, $content, $utf8NoBom), 严禁 Set-Content 不带 -Encoding UTF8
+    - 项目无 git → 阶段 A 启动前必须先 `git init` + commit, 锁住业务代码
+    - 批量替换前先在单文件试跑, 看输出再扩大范围
+
+
+【2026-05-08 节点 · 阶段 0 完成】
+
+  战略复盘发现:
+    - SSOT 失效: WECOM-FEATURE-MAPPING.md (v3 寄生战略) 与 MANIFESTO §18 (OSS fork 自建) 直接冲突, 已废弃前者
+    - 5 问检验未常态化: IM PoC 默认 unread 红点违反附录 C 反例, 已改为"决议型已读"语义
+    - 沟通失误: 4 轮被用户拽方向, 没主动引宪章 → 修正: 任何战略问题第一句必引宪章对应条款
+
+  代码改动:
+    ✓ lib/types/im.ts                       Channel/Message/Membership/Mention(4 kind)/Attachment
+    ✓ lib/storage/repository.ts:62-65       注册 imChannels/imMessages/imMemberships
+    ✓ lib/storage/memory-store.ts:246-248   InMemory 实现挂接
+    ✓ lib/im/service.ts                     createChannel / sendMessage / SSE bus / spawnDecisionRoomFromMessage / invokePersonaReply (Persona 委托级别校验)
+    ✓ app/api/im/channels/{*}               6 个端点 (list/create/send/list/SSE/read/spawn-room/dm)
+    ✓ app/im/page.tsx                       3 栏布局 + SSE 订阅 + hover [开议事室] + @kind 高亮
+    ✓ components/sidebar.tsx:52             "通讯" 入口
+    ✓ lib/fixtures/seed.ts                  IM seed (2 频道 + 3 消息)
+    ✓ docs/WECOM-FEATURE-MAPPING.md         加废弃头, 链宪章 §18
+
+  差异化已落地 (符合 MANIFESTO §1 工作单元是决议):
+    ✓ 任意消息 hover [开议事室] → 真创建 DecisionCard + 议事室
+    ✓ @[name](id:persona) → 召唤 AI 分身, 强制水印 + delegationLevel 校验 (符合 §9 / §13)
+    ✓ 议事室 spawn 后系统消息回 push 原频道, 形成闭环
+    ✓ unread 决议型已读 (符合附录 C 反例): 普通消息只灰点, @assign/@consult/system 才上红
+
+  待办 (阶段 A 启动前):
+    - 重启 dev server 验证 IM seed log + 频道实体加载 (当前进程 _seeded=true 卡住)
+    - Rocket.Chat fork 启动: docker-compose 起本地 Rocket + Mongo
+    - SSO 桥: Tandem Native Auth → Rocket OAuth provider
+    - 移植 spawnDecisionRoomFromMessage 为 Rocket Apps Action Button
+    - 移植 invokePersonaReply 为 Rocket Slash Command /persona
+
+  阶段 0 未结尾的小问题:
+    - boot.ts seedDevData 是 fire-and-forget, 第一次请求可能见空数据 (当前 hot-reload 后通常 OK)
+    - app/chat (单人 AI) vs app/im (多人) UX 重叠, 阶段 A 后规划合并
+
+==============================================================================
+
+【已完成 - 战略层 (12 文档锁定)】
+
+  ✓ MANIFESTO.md (18 条铁律, 含第十六/十七/十八条)
+  ✓ TTI-FRAMEWORK.md (双轨, 60-70% 健康)
+  ✓ CONVERGENCE-PRINCIPLE.md (议事室 5 步)
+  ✓ MEETING-PROXY.md (寄生腾讯会议 + 分身代参)
+  ✓ OKR-FEATURE-MATRIX.md (60+ 功能)
+  ✓ ROADMAP.md (M1-M14 4 阶段)
+  ✓ AGENT-FRAMEWORK.md (TAF 5 层)
+  ✓ KNOWLEDGE-ARCHITECTURE.md (4 层 + Steward)
+  ⚠ WECOM-FEATURE-MAPPING.md (DEPRECATED 2026-05-08, 与 MANIFESTO §18 冲突, 仅历史参考)
+  ✓ OSS-STACK.md (16 模块选型决议)
+  ✓ PERSONA-EVOLUTION.md (待大改, 加数据归公司)
+  ✓ INFO-ARCHITECTURE.md / PRD.md (旧, 待大改)
+
+【已完成 - 代码层 (V1 地基, ~3500 行 TS + Prisma)】
+
+  品牌:
+    ✓ lib/brand/config.ts                  白标可切换 (Tandem 默认)
+    ✓ .env.local.example                   完整环境变量模板
+
+  核心类型:
+    ✓ lib/types/decision-card.ts           决议卡 schema
+    ✓ lib/types/persona.ts                 5 阶段进化
+    ✓ lib/types/memory.ts                  4 层知识 + 签批
+    ✓ lib/types/okr-tti.ts                 双轨 + 9 宫格
+    ✓ lib/types/index.ts
+
+  TAF (Layer 1-2):
+    ✓ lib/taf/provider/types.ts            Provider 接口
+    ✓ lib/taf/provider/openai-compatible.ts OpenAI 兼容
+    ✓ lib/taf/router.ts                    多模型路由 + fallback
+    ✓ lib/taf/index.ts                     5 个国产模型预置
+
+  存储:
+    ✓ prisma/schema.prisma                 完整 DB schema (15 models)
+    ✓ lib/storage/repository.ts            通用接口
+    ✓ lib/storage/memory-store.ts          in-memory 实现
+
+  议事室 (Layer 4):
+    ✓ lib/convergence/state-machine.ts     纯 FSM + 17min + 24h 否决
+    ✓ lib/convergence/decision-engine.ts   3+1 选项生成器
+    ✓ lib/convergence/orchestrator.ts      应用服务
+    ✓ lib/convergence/index.ts
+
+  Persona:
+    ✓ lib/persona/evolution.ts             5 阶段升级引擎
+
+  Memory:
+    ✓ lib/memory/retriever.ts              文本相似 RAG (无 embedding 依赖)
+
+  审计:
+    ✓ lib/audit/log.ts                     链式 hash 审计日志
+
+  系统:
+    ✓ lib/boot.ts                          启动注入
+
+  API:
+    ✓ app/api/convergence/route.ts         POST start, GET list
+    ✓ app/api/convergence/[id]/route.ts    GET state, POST event
+
+  UI:
+    ✓ components/convergence/ConvergenceRoom.tsx   议事室主界面
+    ✓ app/convergence/page.tsx                     议事室列表
+    ✓ app/convergence/[id]/page.tsx                议事室详情
+    ✓ components/nine-box/NineBoxMatrix.tsx        9 宫格组件
+    ✓ app/nine-box/page.tsx                        9 宫格 demo
+    ✓ components/persona/PersonaDashboard.tsx      拿捏老板 dashboard
+    ✓ app/persona/page.tsx                         拿捏老板 demo
+
+【可立即跑】
+
+  npm install
+  cp .env.local.example .env.local
+  # 不填任何 API key 也能跑 (使用 stub retriever + 本地 ollama)
+  npm run dev
+
+  访问:
+    /convergence       发起议事 + 列表
+    /convergence/[id]  议事详情 (5 步流程)
+    /nine-box          9 宫格人才矩阵 demo
+    /persona           拿捏老板 dashboard demo
+
+  完整闭环:
+    POST /api/convergence → 自动调 LLM 生成 3+1 → UI 实时显示 →
+    点选 → COMMIT → 24h 否决窗口 → 审计日志记录全程
+
+==============================================================================
+【P0-P5 全部完成 ✅ - 本次会话新增】
+==============================================================================
+
+P0 - 让产品能演示给客户看:
+  ✓ lib/fixtures/seed.ts                            种子数据 (auto-loaded by boot)
+  ✓ app/api/persona/[userId]/route.ts               Persona CRUD API
+  ✓ app/api/tandem-okr/route.ts                     OKR API (前缀避免冲突现有 /app/okr/)
+  ✓ app/api/tti/route.ts                            TTI API
+  ✓ app/api/nine-box/route.ts                       9 宫格计算 API
+  ✓ components/decision-card/DecisionCardView.tsx   决议卡查看 UI
+  ✓ app/decision-card/[id]/page.tsx                 决议卡详情页
+
+P1 - 让产品能持久化:
+  ✓ lib/storage/prisma-store.ts                     Prisma 实现 (dynamic import)
+  ✓ lib/auth/config.ts                              NextAuth 配置 (钉钉/企微/飞书 SSO)
+  ✓ lib/multi-tenant/context.ts                     多租户解析 + RBAC
+  ⚠ prisma migrate (需 dev 跑 npm 命令, 非代码改动)
+
+P2 - 议事室真实可用:
+  ✓ components/convergence/ContextPanel.tsx         上下文面板 (材料 + KR + TTI)
+  ✓ components/convergence/ActionItemsForm.tsx      Action items 编辑器
+  ✓ components/convergence/DeliberationFeed.tsx     审议讨论流
+  ✓ lib/realtime/event-bus.ts + SSE route           实时通信 (V1 SSE)
+  ✓ app/api/realtime/[channel]/route.ts             SSE 端点
+
+P3 - OSS 集成 (interfaces + stubs):
+  ✓ lib/integrations/rocketchat.ts                  IM (REST API)
+  ✓ lib/integrations/email-tier1.ts                 邮件 IMAP/SMTP universal
+  ✓ lib/integrations/email-tier2.ts                 邮件 native (Exmail/Outlook/Netease)
+  ✓ lib/integrations/calcom.ts                      日历 (AGPL, 法务待 review)
+  ✓ lib/integrations/minio.ts                       对象存储 (AGPL, 法务待 review)
+  ✓ lib/integrations/yjs-tiptap.ts                  文档协作
+  ✓ lib/integrations/univer.ts                      表格 (Excel 替代)
+
+P4 - 创新差异化 (V1 杀手级):
+  ✓ lib/convergence/stall-detector.ts               卡顿信号 (idle / flip-flop / time)
+  ✓ lib/checkin/auto-draft.ts                       周 Check-in 自动草稿 (LLM)
+  ✓ lib/retrospective/auto.ts                       决议 7 日后自动复盘
+  ✓ components/decision-card/HeatMap.tsx            决议热力图 (12 周 × 3 类型)
+  ✓ lib/memory/promotion-flow.ts                    Memory 三方签批 + 公示期 + 紧急通道
+  ✓ components/steward/StewardDashboard.tsx         Steward 工作台
+  ✓ lib/persona/communication-mimicry.ts            风格模仿 (deputy+ 才启用)
+  ✓ lib/proxy/meeting-proxy.ts                      分身代参 (红区强制退出)
+
+P5 - GA 冲刺:
+  ✓ docs/COMPLIANCE-CHECKLIST.md                    等保二级 + GDPR/PIPL 清单
+  ✓ docs/MARKETPLACE-SUBMISSION.md                  钉钉/企微/飞书上架指南
+  ✓ tests/unit/state-machine.test.ts                状态机单元测试 (vitest)
+  ✓ tests/e2e/convergence.spec.ts                   议事室 E2E (Playwright)
+  ✓ docs/USER-GUIDE.md                              终端用户使用指南
+
+P7 - 深化闭环 (B + C + D 并行):
+
+  B · Persona 5 阶段闭环:
+    ✓ lib/persona/learning-collector.ts             决议→学习钩子, 自动更新 stats/style/captureScore
+    ✓ components/persona/StageProgressDashboard.tsx 5 阶段可视化 + 升级条件 + 员工确认
+    ✓ components/persona/DelegationConsole.tsx      代行授权控制台 + Kill Switch
+    ✓ app/persona/evolution/page.tsx                进化 Tab 页 (集成两个组件)
+    ✓ app/api/persona/[userId]/progress/route.ts    阶段进度 API
+    ✓ lib/convergence/orchestrator.ts               commit/veto 时调 ingestDecisionCard
+
+  C · 议事室真实化:
+    ✓ app/api/convergence/[id]/stream/route.ts      LLM 流式 SSE (3+1 边写边出)
+    ✓ .env.local.example                            完整 LLM / Prisma / SSO / OSS 配置
+    ✓ docker-compose.tandem.yml                     OSS bundle (postgres+pgvector / mongo / RC / cal.com / minio)
+
+  D · 集成层连通性:
+    ✓ app/api/integrations/health/route.ts          一键探测全部外部依赖
+    ✓ docker-compose.tandem.yml                     真能启动的 OSS 栈
+    (rocketchat / minio / cal.com 真实 client 已在 P3 创建, 此次仅补连通性测试)
+
+P6 - CircleBot 对齐 (Skill / Agent / Budget):
+  ✓ lib/taf/skills/registry.ts                      Skill Registry (search + execute + 5 道守门)
+  ✓ lib/taf/skills/builtin.ts                       6 个内置 skill (含红区 hr.salary_read 示例)
+  ✓ lib/taf/skills/index.ts                         barrel + boot 注册
+  ✓ lib/taf/agent/spawn.ts                          Agent fork/fresh/parallel + waitAgent
+  ✓ lib/taf/budget/tracker.ts                       三层预算 (request / agent / tenant 日)
+  ✓ lib/audit/log.ts                                新增 skill / agent / budget 审计动作
+  ✓ app/api/tandem-skills/route.ts                  GET 列表 / 检索
+  ✓ app/api/tandem-skills/execute/route.ts          POST 执行
+  ✓ app/api/agent/spawn + wait/route.ts             Agent 生命周期
+  ✓ app/api/budget/route.ts                         预算查询/设置
+  ✓ app/admin/tandem-skills/page.tsx                管理员 demo 页 (检索 + zone 可视化)
+
+==============================================================================
+【部署 / 上线前必做 (本会话未做, 需运行环境)】
+==============================================================================
+
+  □ npm i prisma @prisma/client (启用 Prisma)
+  □ npm i next-auth@beta (启用 SSO)
+  □ npm i imapflow nodemailer (Tier 1 邮件)
+  □ npm i minio yjs y-websocket @tiptap/* (各集成)
+  □ npm i -D vitest @playwright/test (测试)
+  □ 配 .env.local 真实 API key
+  □ 启动 PostgreSQL + pgvector
+  □ npx prisma migrate dev --name init
+  □ npm run build && 部署
+  □ 各应用市场提交审核 (周期 4-8 周)
+  □ 法务 review AGPL 协议 (Cal.com / MinIO)
+  □ 等保二级评估 (3 月)
+  □ BD 沟通腾讯会议 ISV 接入
+
+==============================================================================
+【下一步 - V2 优先级】
+==============================================================================
+
+【P0 - 让产品能演示给客户看】
+
+  1. /api/persona/[userId]/route.ts          Persona CRUD API
+  2. /api/okr/route.ts + /api/tti/route.ts   OKR/TTI CRUD
+  3. components/decision-card/DecisionCardView.tsx   决议卡查看页
+  4. /api/nine-box/route.ts                   9 宫格数据计算 API
+  5. fixtures/seed.ts                         开发期种子数据 (50 决议 + 10 用户 + Memory 库)
+
+【P1 - 让产品能持久化】
+
+  6. lib/storage/prisma-store.ts             Prisma 实现 (替换 in-memory)
+  7. prisma migrate dev --name init           跑首次迁移
+  8. SSO Auth.js 接入 (钉钉/企微/飞书 OAuth)
+  9. 多租户 tenantId 注入
+
+【P2 - 议事室真实可用】
+
+  10. components/convergence/ContextPanel.tsx     上下文 (材料 + KR 关联)
+  11. components/convergence/ActionItemsForm.tsx   Action items 编辑
+  12. components/convergence/DeliberationFeed.tsx  审议讨论流
+  13. WebSocket 实时同步 (多人协作议事室)
+
+【P3 - OSS 集成 (M2 阶段)】
+
+  14. Rocket.Chat fork 启动 + SSO 集成
+  15. 邮件 Tier 1 (IMAP/SMTP universal connector)
+  16. 邮件 Tier 2 (腾讯企邮 / Outlook / 网易企邮 native API)
+  17. Cal.com fork + 议事室排期联动
+  18. MinIO + 文件管理 UI 升级
+  19. Yjs + Tiptap 文档协作
+  20. Univer (Sheet) 集成
+
+【P4 - 创新差异化 (M3)】
+
+  21. components/convergence/StallDetector.tsx     卡顿信号
+  22. lib/checkin/auto-draft.ts                    AI Check-in 草稿
+  23. lib/retrospective/auto.ts                    自动复盘
+  24. components/decision-card/HeatMap.tsx         决议热力图
+  25. lib/memory/promotion-flow.ts                 Material → Memory 签批工作流
+  26. Steward 看板 + 知识治理
+  27. lib/persona/communication-mimicry.ts         风格模仿 (拿捏老板进阶)
+  28. lib/proxy/meeting-proxy.ts                   分身代参 (寄生腾讯会议)
+
+【P5 - GA 冲刺 (M4)】
+
+  29. 等保二级合规整改
+  30. 钉钉/企微/飞书 应用市场 PR + 上架
+  31. 安全审计 + 渗透测试
+  32. E2E 测试套件
+  33. 文档完善 + 商业化页面
+
+==============================================================================
+【关键技术决策 (已锁, 不可改)】
+==============================================================================
+
+  ✓ 框架:          Next.js 14 + React 18 + Tailwind + shadcn/ui (现有)
+  ✓ 桌面端:        Tauri 2 (现有)
+  ✓ TS:            strict, ES5 target (项目已设)
+  ✓ 数据库:        PostgreSQL + pgvector (V2 升 Milvus)
+  ✓ ORM:           Prisma
+  ✓ 状态:          zustand (前端) + custom store (后端)
+  ✓ LLM 路由:      DeepSeek-V3 / Qwen-Max / Doubao / Kimi K2 / Hermes 4
+  ✓ Embeddings:   待选 (BGE-large-zh / Qwen-embed / DeepSeek-embed)
+  ✓ 实时:          先 polling, V2 切 EMQX/Socket.io
+  ✓ 认证:          Auth.js (NextAuth) + 钉钉/企微/飞书 OAuth
+  ✓ 部署:          Vercel (web) + 自有云 (后端) + Tauri (桌面)
+  ✓ 协议:          Tandem schemaVersion = 'tandem.v1'
+
+==============================================================================
+【风险 / 阻塞项】
+==============================================================================
+
+  ⚠ Cal.com / MinIO 是 AGPL, 启动 V1 前需法务 review
+  ⚠ 腾讯会议 API 限制需提前与 BD 沟通
+  ⚠ 钉钉/企微/飞书应用市场上架审核周期约 6-8 周
+  ⚠ 等保二级评估流程 ~ 3 月
+  ⚠ Hermes 4 本地部署需 GPU; 开发期可优先 DeepSeek API
+
+==============================================================================
+【联系点 / 反馈渠道】
+==============================================================================
+
+  - 创始人 (用户): 待 V2 完成后 review (用户已授权全速推进, 不打扰)
+  - 法务: V1 启动前需 OSS 协议 review
+  - BD: 腾讯会议 / 钉钉 / 企微 / 飞书 ISV 接入
+

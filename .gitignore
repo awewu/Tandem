@@ -1,0 +1,22 @@
+/node_modules
+/.next
+/out
+/dist
+.env.local
+*.log
+
+.tmp-test/
+.tmp-*.json
+.tmp-*.txt
+dev.err
+nul
+scripts/fixtures/
+test-results/
+playwright-report/
+
+# Tauri Rust build output
+src-tauri/target/
+src-tauri/gen/
+
+# TS build cache
+tsconfig.tsbuildinfo
