@@ -206,4 +206,9 @@ function scoreSkill(skill: Skill, queryTokens: string[]): number {
 // Singleton
 // ---------------------------------------------------------------------------
 
-export const skillRegistry = new SkillRegistry();
+// 单例挂 globalThis 防 Next.js dev HMR 重置 (内置 skill 在 boot 时注册一次, 不能因 HMR 丢失)
+const _g = globalThis as typeof globalThis & { __tandem_skill_registry__?: SkillRegistry };
+if (!_g.__tandem_skill_registry__) {
+  _g.__tandem_skill_registry__ = new SkillRegistry();
+}
+export const skillRegistry: SkillRegistry = _g.__tandem_skill_registry__;

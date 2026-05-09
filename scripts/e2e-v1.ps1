@@ -278,6 +278,46 @@ try {
 } catch { Step '7 Memory sign flow' $false "ERR: $($_.Exception.Message)" }
 
 # ---------------------------------------------------------------------------
+# 8. Security: red zone skill must reject AI proxy (PRD section 8 security accept)
+#    Manifesto section 9: AI never executes red-zone skills (e.g. salary read).
+# ---------------------------------------------------------------------------
+try {
+  $rz = Send-Json '/api/tandem-skills/execute' @{
+    skillId = 'hr.salary_read'
+    isProxy = $true
+    userId = 'demo-user'
+    args = @{ userId = 'colleague-li' }
+  }
+  Step '8a Red zone reject (isProxy=true)' ($rz.ok -eq $false) "ok=$($rz.ok) error=$($rz.error)"
+} catch {
+  # API returned 4xx with json body { ok:false, error:... } - read body from stream
+  $eb = $null
+  if ($_.ErrorDetails -and $_.ErrorDetails.Message) {
+    try { $eb = $_.ErrorDetails.Message | ConvertFrom-Json } catch {}
+  }
+  if (-not $eb -and $_.Exception.Response) {
+    try {
+      $sr = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+      $bodyText = $sr.ReadToEnd()
+      $sr.Close()
+      $eb = $bodyText | ConvertFrom-Json
+    } catch {}
+  }
+  $okFalse = ($null -ne $eb -and $eb.ok -eq $false)
+  $errMsg = if ($eb) { $eb.error } else { $_.Exception.Message }
+  Step '8a Red zone reject (isProxy=true)' $okFalse "ok=$($eb.ok) error=$errMsg"
+}
+
+# ---------------------------------------------------------------------------
+# 9. Audit log chain hash integrity (PRD section 8 security accept)
+# ---------------------------------------------------------------------------
+try {
+  $au = Get-Json '/api/audit?limit=200'
+  Step '9a Audit log entries present' ($au.count -gt 0) "count=$($au.count)"
+  Step '9b Audit chain hash integrity (verify)' ($au.integrity.ok -eq $true) "ok=$($au.integrity.ok) brokenAt=$($au.integrity.brokenAt)"
+} catch { Step '9 Audit log' $false "ERR: $($_.Exception.Message)" }
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 $summary = "`n========== E2E SUMMARY ==========`nbase: $BaseUrl`npass: $pass`nfail: $fail`nlog : $logPath`n"

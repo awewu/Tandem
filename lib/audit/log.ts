@@ -130,11 +130,12 @@ class AuditLog {
   }
 }
 
-let _log: AuditLog | null = null;
+// 单例挂 globalThis 防 Next.js dev HMR 重置 (与 lib/storage/repository.ts 同一模式)
+const _g = globalThis as typeof globalThis & { __tandem_audit_log__?: AuditLog };
 
 export function getAuditLog(): AuditLog {
-  if (!_log) _log = new AuditLog();
-  return _log;
+  if (!_g.__tandem_audit_log__) _g.__tandem_audit_log__ = new AuditLog();
+  return _g.__tandem_audit_log__;
 }
 
 export async function audit(
