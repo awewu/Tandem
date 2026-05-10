@@ -8,7 +8,8 @@
  * @ 触发: @[name](userId:persona) 形式可召唤对方 AI 分身
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { CreateChannelDialog } from '@/components/im/create-channel-dialog';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -91,6 +92,8 @@ export default function ImPage() {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [busy, setBusy] = useState(false);
+  /** Q2 (2026-05-10) 建群对话框 状态 */
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
   const composerRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -316,8 +319,8 @@ export default function ImPage() {
               variant="ghost"
               size="icon"
               className="h-8 w-8 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-              onClick={newGroupPrompt}
-              title="新建群"
+              onClick={() => setShowCreateDialog(true)}
+              title="建群 (选类型: 普通/部门/团队/项目/跨部门/公告)"
             >
               <Plus className="h-4 w-4" />
             </Button>
@@ -386,6 +389,17 @@ export default function ImPage() {
           })}
         </div>
       </aside>
+
+      {/* Q2 建群对话框 (2026-05-10) */}
+      <CreateChannelDialog
+        open={showCreateDialog}
+        onOpenChange={setShowCreateDialog}
+        currentUserId={ME}
+        onCreated={(channelId) => {
+          void loadChannels();
+          setActiveId(channelId);
+        }}
+      />
 
       {/* ---- 中栏: 消息流 ---- */}
       <main className="flex h-full min-w-0 flex-col">

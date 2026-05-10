@@ -55,6 +55,12 @@ export interface CreateChannelInput {
   memberIds: string[];        // 必含 createdBy
   createdBy: string;
   linkedDecisionCardId?: string;
+  /** Q2: department / team / cross_dept 群关联的部门 ID */
+  departmentId?: string;
+  /** Q2: HR 系统按组织架构自动建群标记 (人工建 false) */
+  autoCreated?: boolean;
+  /** Q2: project 群结束日期 (到期 cron 自动 archive) */
+  projectEndsAt?: string;
 }
 
 export async function createChannel(input: CreateChannelInput): Promise<ImChannel> {
@@ -73,6 +79,9 @@ export async function createChannel(input: CreateChannelInput): Promise<ImChanne
     createdAt: now,
     updatedAt: now,
     linkedDecisionCardId: input.linkedDecisionCardId,
+    departmentId: input.departmentId,
+    autoCreated: input.autoCreated ?? false,
+    projectEndsAt: input.projectEndsAt,
   });
 
   // 建立 membership (创建者 = owner, 其他 = member)

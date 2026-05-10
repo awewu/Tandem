@@ -1,9 +1,14 @@
 /**
  * GET  /api/im/channels?userId=...   列出我的频道 (含未读计数)
- * POST /api/im/channels              创建频道 (group 或 announcement)
+ * POST /api/im/channels              创建频道 (Q2: 7 种 type)
  *
  * Body for POST:
- *   { type, name, memberIds[], topic?, visibility?, createdBy }
+ *   { type, name, memberIds[], topic?, visibility?, createdBy,
+ *     departmentId?, autoCreated?, projectEndsAt? }
+ *
+ * Q2 (2026-05-10) 7 种 type:
+ *   group | announcement | department | team | project | cross_dept
+ *   (dm 走 /api/im/dm)
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -40,6 +45,9 @@ export async function POST(req: NextRequest) {
       visibility: body.visibility,
       memberIds: body.memberIds,
       createdBy: body.createdBy,
+      departmentId: body.departmentId,
+      autoCreated: body.autoCreated,
+      projectEndsAt: body.projectEndsAt,
     });
     return NextResponse.json({ channel }, { status: 201 });
   } catch (err) {
