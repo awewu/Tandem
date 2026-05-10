@@ -22,7 +22,7 @@ import {
   CheckCircle2, AlertCircle, AlertTriangle, Edit2, MessageSquare,
   Calendar, User, Tag, Cloud, Save, X, Filter, FileSpreadsheet, FileJson,
   Sparkles, Stethoscope, TrendingUp, ListChecks, Award, Activity, Eye,
-  BookOpen,
+  BookOpen, CalendarRange, Network,
 } from 'lucide-react';
 import { OKRInitiatives } from '@/components/okr/okr-initiatives';
 import { OKRComments } from '@/components/okr/okr-comments';
@@ -34,6 +34,8 @@ import { OKRHealthPanel } from '@/components/okr/okr-health-panel';
 import { OKRWatchers } from '@/components/okr/okr-watchers';
 import { OKRTtiPanel } from '@/components/okr/okr-tti-panel';
 import { OKRRetrospective } from '@/components/okr/okr-retrospective';
+import { OKRMonthlyComparison } from '@/components/okr/okr-monthly-comparison';
+import { OKRAlignmentTree } from '@/components/okr/okr-alignment-tree';
 import { checkQuality } from '@/lib/okr/quality';
 import { calcObjectiveScore } from '@/lib/okr/scoring';
 import { objectivePulse, pulseLabel, summarizePulses, CADENCE_LABEL } from '@/lib/okr/cadence';
@@ -149,7 +151,7 @@ export default function OKRPage() {
   // ===== 视图状态 =====
   const [selectedObjId, setSelectedObjId] = useState<string | null>(null);
   const [view, setView] = useState<'tree' | 'list'>('tree');
-  type DetailTab = 'overview' | 'initiatives' | 'comments' | 'activity' | 'scoring' | 'watchers' | 'trend' | 'tti' | 'retro';
+  type DetailTab = 'overview' | 'initiatives' | 'comments' | 'activity' | 'scoring' | 'watchers' | 'trend' | 'tti' | 'retro' | 'monthly' | 'alignment';
   const [detailTab, setDetailTab] = useState<DetailTab>('overview');
   const [showTemplates, setShowTemplates] = useState(false);
   const [showHealth, setShowHealth] = useState(false);
@@ -533,7 +535,9 @@ export default function OKRPage() {
             <DetailTabBtn active={detailTab === 'comments'} onClick={() => setDetailTab('comments')} icon={MessageSquare}>评论</DetailTabBtn>
             <DetailTabBtn active={detailTab === 'activity'} onClick={() => setDetailTab('activity')} icon={Activity}>动态</DetailTabBtn>
             <DetailTabBtn active={detailTab === 'trend'} onClick={() => setDetailTab('trend')} icon={TrendingUp}>趋势</DetailTabBtn>
-            <DetailTabBtn active={detailTab === 'tti'} onClick={() => setDetailTab('tti')} icon={Sparkles}>TTI + 月度</DetailTabBtn>
+            <DetailTabBtn active={detailTab === 'tti'} onClick={() => setDetailTab('tti')} icon={Sparkles}>TTI</DetailTabBtn>
+            <DetailTabBtn active={detailTab === 'monthly'} onClick={() => setDetailTab('monthly')} icon={CalendarRange}>月度+MoM</DetailTabBtn>
+            <DetailTabBtn active={detailTab === 'alignment'} onClick={() => setDetailTab('alignment')} icon={Network}>对齐树</DetailTabBtn>
             <DetailTabBtn active={detailTab === 'scoring'} onClick={() => setDetailTab('scoring')} icon={Award}>评分</DetailTabBtn>
             <DetailTabBtn active={detailTab === 'retro'} onClick={() => setDetailTab('retro')} icon={BookOpen}>复盘</DetailTabBtn>
             <DetailTabBtn active={detailTab === 'watchers'} onClick={() => setDetailTab('watchers')} icon={Eye}>关注</DetailTabBtn>
@@ -636,6 +640,25 @@ export default function OKRPage() {
           {/* ===== 复盘 Tab (P0.1, 2026-05-10) ===== */}
           {detailTab === 'retro' && (
             <OKRRetrospective objectiveId={selected.id} />
+          )}
+
+          {/* ===== 月度+MoM Tab (P0.3+P0.4, 2026-05-10) ===== */}
+          {detailTab === 'monthly' && (
+            <OKRMonthlyComparison
+              objective={selected}
+              cycle={cycles.find((c) => c.id === selected.cycleId)}
+              keyResults={selectedKRs}
+              checkIns={checkIns}
+            />
+          )}
+
+          {/* ===== 对齐树 Tab (P0.2, 2026-05-10) ===== */}
+          {detailTab === 'alignment' && (
+            <OKRAlignmentTree
+              selectedId={selected.id}
+              cycleId={selected.cycleId}
+              onSelect={(id) => setSelectedObjId(id)}
+            />
           )}
 
           {/* ===== 关注 Tab ===== */}

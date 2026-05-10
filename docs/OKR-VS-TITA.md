@@ -118,15 +118,33 @@
 
 ---
 
-## 5. 当前路线: 6 天补完 P0
+## 5. 当前路线: P0 **全部干完** (2026-05-10 单 session)
 
 ```
-Day 1   ✅ 复盘 UI (P0.1)        [DONE today]
-Day 2   ⏳ 跨部门对齐树 (P0.2)
-Day 3-4 ⏳ 月度对比表 (P0.3)
-Day 5   ⏳ MoM 环比 (P0.4)
-Day 6   ⏳ 联调 + 测试
+Day 1   ✅ 复盘 UI (P0.1)         [65b89b1]
+Day 2   ✅ 跨部门对齐树 (P0.2)    [本次]
+Day 3-4 ✅ 月度对比表 (P0.3)      [本次]
+Day 5   ✅ MoM 环比 (P0.4)         [本次, 与 P0.3 同表同组件]
+Day 6   ✅ 联调 (tsc 0 errors + /okr 200)
 ```
+
+### P0 落地详情
+
+- **对齐树 `components/okr/okr-alignment-tree.tsx`** (310 行)
+  - 递归 parentId 建树, Ministry → Department 映射做 swimlane 染色
+  - 父子 ownerId 不同部门时红色 ⚠️ 警示 (公司战略沟通风险)
+  - 选中高亮祖孙链路, 其他节点 dim 到 40% 透明
+  - 部门 7 色图例自动循环
+  - 空 cycle / 无根节点都有 empty state
+
+- **月度对比 `components/okr/okr-monthly-comparison.tsx`** (320 行)
+  - 按 cycle startDate/endDate 自动切月 bucket
+  - 2 张表: Objective 整体 (Plan/Actual/Var/MoM 4 行) + KR 明细矩阵
+  - Plan = 线性时间期望 %, Actual = 该月末前最后一条 check-in 的 progressAfter
+  - Variance 彩色 chip (±3pp 同步 / 绿色超前 / 红色落后)
+  - MoM = 本月 − 上月 (pp, 绿 +/红 −/灰持平)
+  - 当前月 amber 背景高亮
+  - **零新 schema 字段, 纯派生计算**
 
 P0 走完后:
 
