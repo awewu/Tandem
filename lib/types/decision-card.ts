@@ -61,7 +61,14 @@ export interface DecisionCard {
   elapsedSeconds: number;
   hardDeadlineAt?: string;   // 17min hard limit (议事室)
 
-  /** 关联 OKR/TTI */
+  /**
+   * KR 软绑定 (Q2): 默认必选, 可选 escape hatch.
+   * 不变量: primaryKrId XOR noKrReason 必须非空 (validateKrBinding 守门).
+   */
+  primaryKrId?: string;      // 主关联 KR (默认路径)
+  noKrReason?: string;       // 不挂任何 KR 时强制填的理由 (≥ 10 字符)
+
+  /** 次要关联 OKR/TTI (多对多) */
   relatedKr?: string[];      // KR IDs
   relatedTti?: string[];     // TTI IDs
 
@@ -113,4 +120,46 @@ export const HARD_TIME_LIMIT_SECONDS = 17 * 60;
 
 export function isOverHardLimit(card: DecisionCard): boolean {
   return card.elapsedSeconds >= HARD_TIME_LIMIT_SECONDS;
+}
+
+/**
+ * KR 软绑定守门 (Q2 决策):
+ *   - 优先路径: primaryKrId 非空 (默认期望)
+ *   - escape hatch: noKrReason 非空 + 长度 ≥ 10 字符 (反"占位理由")
+ *   - 二者必须 XOR (恰一个非空)
+ */
+export const KR_BINDING_REASON_MIN_LENGTH = 10;
+
+export type KrBindingValidation =
+  | { ok: true }
+  | { ok: false; code: 'missing_both' | 'both_present' | 'reason_too_short'; message: string };
+
+export function validateKrBinding(
+  input: { primaryKrId?: string | null; noKrReason?: string | null }
+): KrBindingValidation {
+  const hasKr = !!input.primaryKrId && input.primaryKrId.trim().length > 0;
+  const hasReason = !!input.noKrReason && input.noKrReason.trim().length > 0;
+
+  if (!hasKr && !hasReason) {
+    return {
+      ok: false,
+      code: 'missing_both',
+      message: '必须选择关联 KR, 或填写"无关 KR"的理由',
+    };
+  }
+  if (hasKr && hasReason) {
+    return {
+      ok: false,
+      code: 'both_present',
+      message: '请只选其一: 关联 KR 或 填写理由 (不能同时)',
+    };
+  }
+  if (hasReason && (input.noKrReason ?? '').trim().length < KR_BINDING_REASON_MIN_LENGTH) {
+    return {
+      ok: false,
+      code: 'reason_too_short',
+      message: `理由至少 ${KR_BINDING_REASON_MIN_LENGTH} 字符 (反"占位理由")`,
+    };
+  }
+  return { ok: true };
 }

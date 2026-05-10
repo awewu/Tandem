@@ -199,7 +199,12 @@ model DecisionCard {
   elapsedSeconds  Int      @default(0)
   hardDeadlineAt  DateTime?
 
-  // 关联
+  // KR 软绑定 (Q2): 默认必选, 可选 escape hatch (no KR + reason)
+  // 不变量 (app 层守门): primaryKrId XOR noKrReason 必须非空
+  primaryKrId     String?
+  noKrReason      String?  // 长度 ≥ 10 字符 (反"占位理由")
+
+  // 关联 (次要 KR + TTI 多对多, 仍保留)
   relatedKr       String[] @default([])
   relatedTti      String[] @default([])
   origins         Json?    // {meetingRecording, chatThread, fileRefs}
