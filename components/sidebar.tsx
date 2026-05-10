@@ -86,6 +86,7 @@ const NAV: NavGroup[] = [
       { name: '我的分身', href: '/persona', icon: Users },
       { name: '成长路径', href: '/persona/evolution', icon: Sparkles },
       { name: '5min 日报', href: '/report', icon: Clock3, badge: 'M2' },
+      { name: 'Skills 学习', href: '/skills', icon: Layers },
     ],
   },
 

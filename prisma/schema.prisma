@@ -335,11 +335,25 @@ model MemoryEntry {
   lastReferencedAt  DateTime?
   supersedes        String?
   supersededBy      String?
+
+  // Ownership 4 级 (Q1, 2026-05-10):
+  //   company    → 全员可见, Lv3 签批
+  //   department → 部门内可见, Lv2 签批
+  //   team       → 团队内可见, Lv1 签批
+  //   personal   → 自己 + 主管可见, 无需签批 (个人笔记)
+  // 取代旧的 visibility 字段语义.
+  ownershipLevel    String   @default("company")
+  ownerUserId       String?  // personal 时
+  ownerDepartmentId String?  // department / team 时
+
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   @@index([type, status])
   @@index([status])
+  @@index([ownershipLevel])
+  @@index([ownerUserId])
+  @@index([ownerDepartmentId])
 }
 
 model MemoryPromotionRequest {
@@ -507,12 +521,22 @@ model CheckIn {
 
 model ImChannel {
   id                   String   @id @default(cuid())
-  type                 String   // 'group' | 'dm' | 'announcement'
+  /// dm | group | announcement | department | team | project | cross_dept
+  type                 String
   name                 String   @default("")
   topic                String?
   visibility           String   // 'public' | 'private'
   memberIds            String[] @default([])
   createdById          String
+
+  /// Q2: 部门/团队群链接 (department / team / cross_dept type 必填)
+  /// Department 自含树, team = parentId != null 的 Department
+  departmentId         String?
+  /// Q2: 系统按组织架构自动建群标记 (人工建群 false)
+  autoCreated          Boolean  @default(false)
+  /// Q2: 项目群可设结束日期 (到期自动 archive)
+  projectEndsAt        DateTime?
+
   /// 频道是否由某张决议卡触发 (议事室 → IM 反向链接)
   linkedDecisionCardId String?
   lastMessageAt        DateTime?
@@ -527,6 +551,7 @@ model ImChannel {
   @@index([type])
   @@index([createdById])
   @@index([lastMessageAt])
+  @@index([departmentId])
 }
 
 model ImMessage {

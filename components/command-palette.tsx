@@ -52,6 +52,7 @@ const COMMANDS: CommandItem[] = [
   { name: '我的分身 Persona', href: '/persona', group: '拿捏', icon: Users, keywords: ['persona', 'avatar', '分身'] },
   { name: '成长路径', href: '/persona/evolution', group: '拿捏', icon: Sparkles, keywords: ['evolution', 'growth', '进化'] },
   { name: '5min 日报', href: '/report', group: '拿捏', icon: Clock3, keywords: ['report', 'daily', '日报'] },
+  { name: 'Skills 学习', href: '/skills', group: '拿捏', icon: Layers, keywords: ['skills', 'training', 'learn', '学习', '调用'] },
 
   // 管理
   { name: '邀请码', href: '/admin/invite', group: '管理', icon: Ticket, keywords: ['invite', 'invitation'] },

@@ -112,6 +112,17 @@ export const PROMOTION_REQUIRED_ROLES: Record<PromotionLevel, MemorySignerRole[]
   company: ['ceo', 'clevel', 'steward'],
 };
 
+/**
+ * Q1 (2026-05-10): Memory ownership 4 级.
+ *   company    全员可见 + 强注入 Persona  ·  Lv3 签批 (CEO + clevel + steward, 14d)
+ *   department 部门内可见 + 跨部门借鉴   ·  Lv2 签批 (dept + steward + kr_owner, 5d)
+ *   team       团队内可见                ·  Lv1 签批 (team_leader + steward, 3d)
+ *   personal   自己 + 主管可见 (TTI 评估) ·  无需签批 (个人笔记)
+ *
+ * 取代旧的 visibility 字段语义 ('public'|'team'|'private'). 旧字段已删.
+ */
+export type MemoryOwnershipLevel = 'company' | 'department' | 'team' | 'personal';
+
 export interface MemoryEntry {
   id: string;
   type: MemoryType;
@@ -122,6 +133,12 @@ export interface MemoryEntry {
   signers: MemorySigner[];
   publicReviewUntil?: string;
   embedding?: number[];
+
+  /** Q1 ownership */
+  ownershipLevel: MemoryOwnershipLevel;
+  ownerUserId?: string;       // personal 时
+  ownerDepartmentId?: string; // department / team 时
+
   createdAt: string;
   updatedAt: string;
   /** 引用次数 (Steward 评估归档时参考) */
@@ -131,6 +148,30 @@ export interface MemoryEntry {
   /** 取代关系 (新版 Memory 替代旧版) */
   supersedes?: string;
   supersededBy?: string;
+}
+
+/**
+ * 决定 Memory 对当前用户是否可见.
+ * 用于 /memories 列表过滤 + Persona 调用时的注入.
+ */
+export function canViewMemory(
+  memory: Pick<MemoryEntry, 'ownershipLevel' | 'ownerUserId' | 'ownerDepartmentId'>,
+  viewer: { userId: string; departmentId?: string; isManagerOf?: string[] }
+): boolean {
+  switch (memory.ownershipLevel) {
+    case 'company':
+      return true;
+    case 'department':
+    case 'team':
+      // 同部门可见 (team 也用 departmentId, team = parentId != null 的 Department)
+      return !!memory.ownerDepartmentId && viewer.departmentId === memory.ownerDepartmentId;
+    case 'personal':
+      if (memory.ownerUserId === viewer.userId) return true;
+      // 主管可见 (TTI 评估需要)
+      return !!memory.ownerUserId && (viewer.isManagerOf ?? []).includes(memory.ownerUserId);
+    default:
+      return false;
+  }
 }
 
 // ---------------------------------------------------------------------------

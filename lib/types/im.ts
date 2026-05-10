@@ -13,10 +13,24 @@
  *   - Message 支持 thread (parentId), reply, mentions, attachments
  */
 
+/**
+ * Q2 (2026-05-10): 7 种群型, 体系 + 部门工作群是 V1 GA 必需.
+ *   dm           1:1 私聊
+ *   group        通用多人群 (任意拉)
+ *   announcement 全员/部门公告 (只读)
+ *   department   部门工作群 (按 Department 自动建)            ★
+ *   team         团队工作群 (Department parentId != null)     ★
+ *   project      项目临时群 (可设结束日期, 到期归档)            ★
+ *   cross_dept   跨部门协同群 (双方 leader 都签才能建)         ★
+ */
 export type ImChannelType =
-  | 'group'         // 多人群聊 (公开/私有)
-  | 'dm'            // 1:1 私聊
-  | 'announcement'; // 全员/部门公告 (只有特定角色能发)
+  | 'dm'
+  | 'group'
+  | 'announcement'
+  | 'department'
+  | 'team'
+  | 'project'
+  | 'cross_dept';
 
 export type ImChannelVisibility = 'public' | 'private';
 
@@ -32,6 +46,14 @@ export interface ImChannel {
   memberIds: string[];
   /** 创建者 (= 第一个 owner) */
   createdBy: string;
+
+  /** Q2: 部门/团队/跨部门协同群必填的部门 ID (Department.id) */
+  departmentId?: string;
+  /** Q2: 系统按组织架构自动建群 (HR seed). 人工建群 = false */
+  autoCreated?: boolean;
+  /** Q2: 项目群结束日期, 到期 cron 自动 archive */
+  projectEndsAt?: string;
+
   createdAt: string;
   updatedAt: string;
   /** 最后一条消息时间 (用于排序) */
@@ -40,6 +62,7 @@ export interface ImChannel {
   lastMessagePreview?: string;
   /** 关联的议事室 cardId (如果该频道是议事室派生出的群聊) */
   linkedDecisionCardId?: string;
+  archivedAt?: string;
 }
 
 // ---------------------------------------------------------------------------
