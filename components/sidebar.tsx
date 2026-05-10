@@ -24,6 +24,15 @@ import {
   PanelLeft,
   ScrollText,
   Lock,
+  Bot,
+  Workflow,
+  CheckSquare,
+  FileText,
+  Database,
+  Building2,
+  Cpu,
+  Palette,
+  MessageSquare,
 } from 'lucide-react';
 
 /**
@@ -73,6 +82,9 @@ const NAV: NavGroup[] = [
       { name: '议事室', href: '/convergence', icon: Sparkles, badge: '17min' },
       { name: 'IM 协同', href: '/im', icon: MessagesSquare },
       { name: 'Memory 知识', href: '/memories', icon: Brain },
+      { name: '知识架构', href: '/knowledge', icon: Database },
+      { name: '工作流', href: '/workflows', icon: Workflow },
+      { name: '组织架构', href: '/organization', icon: Building2 },
       { name: '9 宫格', href: '/nine-box', icon: Grid3x3, visibleTo: ['manager', 'steward', 'admin', 'champion'] },
     ],
   },
@@ -86,7 +98,9 @@ const NAV: NavGroup[] = [
       { name: '我的分身', href: '/persona', icon: Users },
       { name: '成长路径', href: '/persona/evolution', icon: Sparkles },
       { name: '5min 日报', href: '/report', icon: Clock3, badge: 'M2' },
-      { name: 'Skills 学习', href: '/skills', icon: Layers },
+      { name: 'AI 对话', href: '/chat', icon: MessageSquare },
+      { name: 'Skills 库', href: '/skills', icon: Layers },
+      { name: 'Skills 学习', href: '/skills/learning', icon: Sparkles },
     ],
   },
 
@@ -103,6 +117,10 @@ const NAV: NavGroup[] = [
       { name: 'Intranet', href: '/admin/intranet', icon: Megaphone, badge: 'M3', visibleTo: ['admin', 'champion'] },
       { name: 'Launchpad', href: '/admin/launchpad', icon: LayoutGrid, badge: 'M2', visibleTo: ['admin', 'champion'] },
       { name: 'TAF Skills', href: '/admin/tandem-skills', icon: Layers, visibleTo: ['admin'] },
+      { name: 'Agents', href: '/agents', icon: Bot, visibleTo: ['admin'] },
+      { name: 'MCP 工具', href: '/mcp', icon: Cpu, visibleTo: ['admin'] },
+      { name: '定时任务', href: '/tasks', icon: CheckSquare, visibleTo: ['admin'] },
+      { name: '系统日志', href: '/logs', icon: FileText, visibleTo: ['admin'] },
     ],
   },
 
@@ -114,6 +132,7 @@ const NAV: NavGroup[] = [
     items: [
       { name: '个人设置', href: '/settings', icon: Settings },
       { name: '§13 数据自助', href: '/settings/privacy', icon: Lock },
+      { name: '设计语言', href: '/design', icon: Palette },
     ],
   },
 ];

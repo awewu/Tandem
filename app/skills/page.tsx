@@ -1,395 +1,195 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import {
-  Loader2,
-  Layers,
-  Sparkles,
-  ShieldCheck,
-  ShieldAlert,
-  Shield,
-  Search,
-  Lightbulb,
-  Play,
-  BookOpen,
-  Bot,
-  CheckCircle2,
-  XCircle,
-} from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { BookOpen, RefreshCw, AlertCircle, CheckCircle2, Play } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { getSkills } from '@/lib/hermes-api';
 
-/**
- * /skills — 员工 Skills 学习 + 调用阵地 (Q3, 2026-05-10)
- *
- * 区别于 /admin/tandem-skills (admin 后台 · 注册/配置/权限):
- *   /skills 是员工面 — 浏览可用 Skills · 学习 · 调用 · 看历史
- *
- * 拿捏模块 §4.3 P3.3 持续训练材料挂接的可视化入口.
- * 员工每学一个 Skill, Persona 也学到 (DecisionHistory ingest).
- */
-
-interface Skill {
-  id: string;
-  description: string;
-  tags: string[];
-  zone: 'green' | 'yellow' | 'red';
-  proxyAllowed: boolean;
-  estimatedTokens: number;
+interface HermesSkill {
+  name: string;
+  category: string;
+  source: string;
+  trust: string;
+  enabled: boolean;
 }
 
-type ZoneFilter = 'all' | 'green' | 'yellow' | 'red';
+const sourceColor = (s: string) => {
+  switch (s.toLowerCase()) {
+    case 'local': return 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20';
+    case 'hub':   return 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20';
+    default:      return 'bg-slate-500/10 text-slate-700 dark:text-slate-400 border-slate-500/20';
+  }
+};
 
 export default function SkillsPage() {
-  const [skills, setSkills] = useState<Skill[]>([]);
+  const [skills, setSkills] = useState<HermesSkill[]>([]);
   const [loading, setLoading] = useState(true);
-  const [query, setQuery] = useState('');
-  const [zoneFilter, setZoneFilter] = useState<ZoneFilter>('all');
-  const [selected, setSelected] = useState<Skill | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedSource, setSelectedSource] = useState<string>('all');
 
-  useEffect(() => {
-    void loadSkills();
-  }, []);
-
-  async function loadSkills() {
+  const load = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const r = await fetch('/api/tandem-skills?limit=100');
-      const j = await r.json();
-      setSkills(j.skills ?? []);
+      const data: any = await getSkills();
+      if (data?.error && !data?.skills?.length) throw new Error(data.error);
+      setSkills(data.skills || []);
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load skills');
+      setSkills([]);
     } finally {
       setLoading(false);
     }
-  }
+  };
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return skills.filter((s) => {
-      if (zoneFilter !== 'all' && s.zone !== zoneFilter) return false;
-      if (!q) return true;
-      return (
-        s.id.toLowerCase().includes(q) ||
-        s.description.toLowerCase().includes(q) ||
-        s.tags.some((t) => t.toLowerCase().includes(q))
-      );
-    });
-  }, [skills, zoneFilter, query]);
+  useEffect(() => { load(); }, []);
 
-  const counts = useMemo(() => {
-    const c = { all: skills.length, green: 0, yellow: 0, red: 0 };
-    for (const s of skills) c[s.zone]++;
-    return c;
+  const categories = useMemo(() => {
+    const set = new Set(skills.map((s) => s.category));
+    return ['all', ...Array.from(set).sort()];
   }, [skills]);
 
-  return (
-    <div className="h-full overflow-auto bg-gradient-to-b from-surface-1 to-surface-2/50">
-      <div className="page-container py-10 space-y-6">
-        {/* Header */}
-        <header className="animate-fade-in-up">
-          <p className="text-caption text-ink-tertiary inline-flex items-center gap-1.5">
-            <Layers className="h-3.5 w-3.5" />
-            拿捏 · Skills 学习与调用
-          </p>
-          <h1 className="mt-1 text-title-2 text-ink-primary">
-            标准智能体 Skills 库
-          </h1>
-          <p className="mt-1 text-body text-ink-secondary">
-            员工学习 + 调用阵地 · 每学一个 Skill, 你的 Persona 也学到 ·
-            红区禁止 AI 代行 (反 §1 欺诈)
-          </p>
-        </header>
+  const sources = useMemo(() => {
+    const set = new Set(skills.map((s) => s.source));
+    return ['all', ...Array.from(set).sort()];
+  }, [skills]);
 
-        {/* Filter bar */}
-        <div className="card-elevated p-4 space-y-3">
-          <div className="flex items-center gap-3">
-            <Search className="h-4 w-4 text-ink-tertiary" />
-            <input
-              className="flex-1 bg-transparent text-body outline-none placeholder:text-ink-tertiary"
-              placeholder="搜索 (例: 议事 · 知识 · KR · 红线)..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-          </div>
-          <div className="flex items-center gap-1.5 text-caption">
-            <ZoneFilterButton
-              active={zoneFilter === 'all'}
-              onClick={() => setZoneFilter('all')}
-              tone="neutral"
-              count={counts.all}
-            >
-              全部
-            </ZoneFilterButton>
-            <ZoneFilterButton
-              active={zoneFilter === 'green'}
-              onClick={() => setZoneFilter('green')}
-              tone="green"
-              count={counts.green}
-            >
-              🟢 绿区 (可代行)
-            </ZoneFilterButton>
-            <ZoneFilterButton
-              active={zoneFilter === 'yellow'}
-              onClick={() => setZoneFilter('yellow')}
-              tone="yellow"
-              count={counts.yellow}
-            >
-              🟡 黄区 (需 consent)
-            </ZoneFilterButton>
-            <ZoneFilterButton
-              active={zoneFilter === 'red'}
-              onClick={() => setZoneFilter('red')}
-              tone="red"
-              count={counts.red}
-            >
-              🔴 红区 (禁 AI)
-            </ZoneFilterButton>
-          </div>
-        </div>
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return skills.filter((s) => {
+      if (selectedCategory !== 'all' && s.category !== selectedCategory) return false;
+      if (selectedSource !== 'all' && s.source !== selectedSource) return false;
+      if (q && !s.name.toLowerCase().includes(q) && !s.category.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [skills, search, selectedCategory, selectedSource]);
 
-        {/* Skills grid */}
-        {loading ? (
-          <div className="card-elevated flex items-center justify-center gap-2 p-12 text-caption text-ink-tertiary">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            加载 Skills...
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="card-elevated p-12 text-center">
-            <p className="text-body text-ink-secondary">没找到匹配的 Skill</p>
-            <p className="mt-1 text-caption text-ink-tertiary">换个关键词或切换分区</p>
-          </div>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((s) => (
-              <SkillCard key={s.id} skill={s} onClick={() => setSelected(s)} />
-            ))}
-          </div>
-        )}
+  const stats = useMemo(() => {
+    const byCat: Record<string, number> = {};
+    for (const s of skills) byCat[s.category] = (byCat[s.category] || 0) + 1;
+    return { total: skills.length, enabled: skills.filter((s) => s.enabled).length, byCat };
+  }, [skills]);
 
-        {/* M2 来 · Learning hub teaser */}
-        <div className="card-elevated p-6 mt-6 border-2 border-dashed border-border opacity-70">
-          <div className="flex items-start gap-3">
-            <div className="rounded-md bg-brand-50 text-brand-600 p-2">
-              <BookOpen className="h-5 w-5" />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-headline text-ink-primary">学习模式 (M2 上线)</h3>
-              <p className="mt-1 text-caption text-ink-secondary">
-                每个 Skill 配教程 + 案例 + Q&A · 通关记录 · 错题集 ·
-                AI 根据你的 KR/AP 智能推荐 Skill
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Detail drawer (modal-lite) */}
-      {selected && <SkillDetailDrawer skill={selected} onClose={() => setSelected(null)} />}
-    </div>
-  );
-}
-
-// ──────────── Sub-components ────────────
-
-function ZoneFilterButton({
-  active,
-  onClick,
-  tone,
-  count,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  tone: 'neutral' | 'green' | 'yellow' | 'red';
-  count: number;
-  children: React.ReactNode;
-}) {
-  const toneMap = {
-    neutral: active ? 'bg-ink-primary text-white' : 'bg-surface-3 text-ink-secondary',
-    green:   active ? 'bg-success text-white'    : 'bg-success/10 text-success',
-    yellow:  active ? 'bg-warning text-white'    : 'bg-warning/10 text-warning',
-    red:     active ? 'bg-danger text-white'     : 'bg-danger/10 text-danger',
+  const handleSkillClick = (skillName: string) => {
+    // Navigate to chat with skill parameter
+    window.location.href = `/chat?skill=${encodeURIComponent(skillName)}`;
   };
-  return (
-    <button
-      onClick={onClick}
-      className={`rounded-md px-2.5 py-1 font-medium surface-interactive ${toneMap[tone]}`}
-    >
-      {children} <span className="ml-1 text-footnote opacity-80">{count}</span>
-    </button>
-  );
-}
 
-function SkillCard({ skill, onClick }: { skill: Skill; onClick: () => void }) {
   return (
-    <button onClick={onClick} className="block surface-interactive text-left">
-      <div className="card-elevated p-5 h-full">
-        <div className="flex items-start justify-between mb-2">
-          <code className="text-caption font-mono text-ink-secondary bg-surface-3 rounded px-1.5 py-0.5">
-            {skill.id}
-          </code>
-          <ZoneBadge zone={skill.zone} />
+    <div className="h-full flex flex-col">
+      {/* Header - Fixed */}
+      <div className="p-6 max-w-6xl mx-auto w-full space-y-4 flex-shrink-0">
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+              <BookOpen className="h-6 w-6" /> Skills
+            </h1>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Live view from <code className="text-xs">hermes skills list</code>.
+              Click any skill to use it in chat.
+            </p>
+          </div>
+          <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+            <RefreshCw className={cn('mr-2 h-3 w-3', loading && 'animate-spin')} /> Refresh
+          </Button>
         </div>
-        <p className="text-body text-ink-primary leading-snug line-clamp-2">{skill.description}</p>
-        <div className="mt-3 flex flex-wrap gap-1">
-          {skill.tags.slice(0, 4).map((t) => (
-            <span
-              key={t}
-              className="rounded bg-surface-3 px-1.5 py-0.5 text-footnote text-ink-secondary"
-            >
-              #{t}
-            </span>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="secondary">Total: {stats.total}</Badge>
+          <Badge className="bg-green-600">Enabled: {stats.enabled}</Badge>
+          {Object.entries(stats.byCat).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([cat, n]) => (
+            <Badge key={cat} variant="outline" className="text-xs">
+              {cat}: {n}
+            </Badge>
           ))}
         </div>
-        <div className="mt-3 flex items-center justify-between text-footnote text-ink-tertiary">
-          <span className="inline-flex items-center gap-1">
-            <Bot className="h-3 w-3" />
-            AI 代行: {skill.proxyAllowed ? '✓' : '✗'}
-          </span>
-          <span>~{skill.estimatedTokens} tokens</span>
-        </div>
-      </div>
-    </button>
-  );
-}
 
-function ZoneBadge({ zone }: { zone: Skill['zone'] }) {
-  const map = {
-    green:  { icon: ShieldCheck, label: '绿区', tone: 'bg-success/10 text-success' },
-    yellow: { icon: Shield,      label: '黄区', tone: 'bg-warning/10 text-warning' },
-    red:    { icon: ShieldAlert, label: '红区', tone: 'bg-danger/10 text-danger' },
-  };
-  const m = map[zone];
-  const Icon = m.icon;
-  return (
-    <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-footnote font-medium ${m.tone}`}>
-      <Icon className="h-3 w-3" />
-      {m.label}
-    </span>
-  );
-}
-
-function SkillDetailDrawer({ skill, onClose }: { skill: Skill; onClose: () => void }) {
-  const [running, setRunning] = useState(false);
-  const [output, setOutput] = useState<string | null>(null);
-
-  async function runDemo() {
-    setRunning(true);
-    setOutput(null);
-    try {
-      const r = await fetch('/api/tandem-skills/execute', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          skillId: skill.id,
-          args: {},
-          isProxy: false,
-          userId: 'demo-user',
-        }),
-      });
-      const j = await r.json();
-      setOutput(JSON.stringify(j, null, 2));
-    } catch (e) {
-      setOutput(`Error: ${(e as Error).message}`);
-    } finally {
-      setRunning(false);
-    }
-  }
-
-  return (
-    <div
-      className="fixed inset-0 z-40 bg-ink-primary/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 animate-fade-in-up"
-      onClick={onClose}
-    >
-      <div
-        className="card-elevated w-full max-w-2xl max-h-[85vh] overflow-auto p-6 space-y-4"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <code className="text-caption font-mono text-ink-secondary">{skill.id}</code>
-            <h2 className="mt-1 text-title-3 text-ink-primary">{skill.description}</h2>
-          </div>
-          <ZoneBadge zone={skill.zone} />
-        </div>
-
-        <div>
-          <p className="text-footnote font-semibold text-ink-tertiary uppercase tracking-wider mb-1.5">
-            标签
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {skill.tags.map((t) => (
-              <span
-                key={t}
-                className="rounded bg-surface-3 px-2 py-0.5 text-caption text-ink-secondary"
-              >
-                #{t}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-md bg-surface-2 p-3">
-            <p className="text-footnote text-ink-tertiary">AI 代行</p>
-            <p className="mt-1 text-body inline-flex items-center gap-1.5">
-              {skill.proxyAllowed ? (
-                <CheckCircle2 className="h-4 w-4 text-success" />
-              ) : (
-                <XCircle className="h-4 w-4 text-danger" />
-              )}
-              {skill.proxyAllowed ? '允许' : '禁止'}
-            </p>
-          </div>
-          <div className="rounded-md bg-surface-2 p-3">
-            <p className="text-footnote text-ink-tertiary">预算估计</p>
-            <p className="mt-1 text-body">~{skill.estimatedTokens} tokens</p>
-          </div>
-        </div>
-
-        <div className="rounded-md border-2 border-dashed border-border bg-surface-2/50 p-3">
-          <p className="text-caption text-ink-secondary inline-flex items-center gap-1.5">
-            <Lightbulb className="h-3.5 w-3.5 text-warning" />
-            <strong>学习模式 (M2)</strong>: 教程 + 案例 + Q&A 即将上线.
-            现在可以试调一次.
-          </p>
-        </div>
-
-        {output && (
-          <div className="space-y-1">
-            <p className="text-footnote font-semibold text-ink-tertiary uppercase tracking-wider">
-              输出
-            </p>
-            <pre className="rounded-md bg-ink-primary/95 text-success p-3 text-footnote font-mono overflow-auto max-h-64">
-              {output}
-            </pre>
+        {error && (
+          <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <AlertCircle className="h-4 w-4" />
+            <span>{error}</span>
+            <span className="text-xs opacity-70">— Is <code>hermes</code> in PATH?</span>
           </div>
         )}
 
-        <div className="flex justify-end gap-2 pt-2">
-          <button
-            onClick={onClose}
-            className="rounded-md border border-border bg-surface-1 px-4 py-2 text-caption text-ink-secondary hover:bg-surface-2 surface-interactive"
+        <div className="flex flex-wrap gap-2 items-center">
+          <Input
+            placeholder="Search by name or category..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="max-w-xs"
+          />
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            className="h-9 rounded-md border bg-background px-3 text-sm"
           >
-            关闭
-          </button>
-          <button
-            onClick={runDemo}
-            disabled={running || skill.zone === 'red'}
-            className="inline-flex items-center gap-1.5 rounded-md bg-brand-500 hover:bg-brand-600 disabled:bg-ink-tertiary disabled:cursor-not-allowed text-white px-4 py-2 text-caption font-semibold shadow-soft-sm surface-interactive"
-            title={skill.zone === 'red' ? '红区不可调用' : '试调一次'}
+            {categories.map((c) => (<option key={c} value={c}>{c === 'all' ? 'All categories' : c}</option>))}
+          </select>
+          <select
+            value={selectedSource}
+            onChange={(e) => setSelectedSource(e.target.value)}
+            className="h-9 rounded-md border bg-background px-3 text-sm"
           >
-            {running ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                调用中...
-              </>
-            ) : (
-              <>
-                <Play className="h-3.5 w-3.5" />
-                试调一次
-              </>
-            )}
-          </button>
+            {sources.map((s) => (<option key={s} value={s}>{s === 'all' ? 'All sources' : s}</option>))}
+          </select>
+          <span className="text-xs text-muted-foreground ml-auto">{filtered.length} shown</span>
         </div>
       </div>
+
+      {/* Scrollable Content */}
+      <ScrollArea className="flex-1 px-6 pb-6">
+        <div className="max-w-6xl mx-auto">
+          {loading && skills.length === 0 ? (
+            <div className="text-sm text-muted-foreground py-12 text-center">Loading skills from Hermes...</div>
+          ) : filtered.length === 0 ? (
+            <div className="text-sm text-muted-foreground py-12 text-center">No skills match the filter.</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {filtered.map((skill) => (
+                <Card 
+                  key={skill.name} 
+                  className={cn(
+                    'cursor-pointer transition-all hover:shadow-md hover:scale-[1.02]',
+                    skill.enabled ? 'border-primary/20 hover:border-primary/50' : 'opacity-60 hover:opacity-90'
+                  )}
+                  onClick={() => handleSkillClick(skill.name)}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium text-sm truncate">{skill.name}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5 truncate">{skill.category}</div>
+                      </div>
+                      {skill.enabled && <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />}
+                    </div>
+                    <div className="flex items-center gap-2 mt-3">
+                      <Badge variant="outline" className={cn('text-[10px]', sourceColor(skill.source))}>
+                        {skill.source}
+                      </Badge>
+                      {skill.trust !== skill.source && (
+                        <Badge variant="outline" className="text-[10px]">{skill.trust}</Badge>
+                      )}
+                      {skill.enabled && (
+                        <Badge className="text-[10px] bg-green-600 hover:bg-green-700 ml-auto">
+                          <Play className="h-3 w-3 mr-1" /> Use
+                        </Badge>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      </ScrollArea>
     </div>
   );
 }

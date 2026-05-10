@@ -3,7 +3,13 @@ import { getStore } from '@/lib/boot';
 
 /**
  * GET /api/tandem-okr?cycleId=...&ownerId=...
- * 列出 Objectives + 嵌套 KRs
+ *
+ * 返回:
+ *   objectives  Objective[] + nested keyResults[]
+ *   ttis        TTI[]  (按 ownerId/cycleId 过滤, 双轨独立 — KPI 与 TTI 平行)
+ *   cycles      Cycle[]
+ *
+ * Q5 Tita 对标: 一次拉全 OKR 树 (含 TTI), 前端无须二次请求.
  *
  * 路由命名带 tandem- 前缀, 避免与现存 /app/okr/ UI 路由的潜在 API 冲突.
  */
@@ -24,8 +30,12 @@ export async function GET(req: NextRequest) {
       keyResults: allKrs.filter((kr) => kr.objectiveId === obj.id),
     }));
 
+    let ttis = await store.ttis.list();
+    if (cycleId) ttis = ttis.filter((t) => t.cycleId === cycleId);
+    if (ownerId) ttis = ttis.filter((t) => t.ownerId === ownerId);
+
     const cycles = await store.cycles.list();
-    return NextResponse.json({ objectives: enriched, cycles });
+    return NextResponse.json({ objectives: enriched, ttis, cycles });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
