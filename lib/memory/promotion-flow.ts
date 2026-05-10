@@ -106,7 +106,9 @@ export async function sign(
   // 兼容: 旧 V1 数据用 business_leader, 等价于 dept_leader
   const normalizedRole: MemorySignerRole = role === 'business_leader' ? 'dept_leader' : role;
 
-  if (!requiredRoles.includes(normalizedRole) && normalizedRole !== 'business_leader') {
+  // normalizedRole already maps 'business_leader' → 'dept_leader' (line 107),
+  // so the role-required check below is sufficient (dead-code branch removed).
+  if (!requiredRoles.includes(normalizedRole)) {
     throw new Error(`Role '${role}' not required for level '${level}'. Required: ${requiredRoles.join(', ')}`);
   }
 
@@ -156,7 +158,8 @@ export async function sign(
   const reviewExpired =
     !!req.publicReviewUntil && new Date(req.publicReviewUntil).getTime() < Date.now();
 
-  let status = req.status;
+  // Type explicit so 'approved' is assignable (req.status was narrowed to 'pending' above).
+  let status: MemoryPromotionRequest['status'] = req.status;
   if (allSigned && reviewExpired) {
     status = 'approved';
   }

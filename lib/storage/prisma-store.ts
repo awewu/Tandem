@@ -72,25 +72,50 @@ function adaptForPrisma(tableName: string, data: any): any {
   return out;
 }
 
+/**
+ * Read-side adapter: Prisma returns Date for timestamp columns, but our domain
+ * types declare them as ISO strings. Convert to keep the boundary clean.
+ *
+ * Also reverse the FIELD_RENAMES on read (createdById → createdBy) so that
+ * downstream code reading the object uses the domain field names.
+ */
+function adaptFromPrisma(tableName: string, row: any): any {
+  if (!row || typeof row !== 'object') return row;
+  const renames = FIELD_RENAMES[tableName] ?? {};
+  const reverseRenames: Record<string, string> = {};
+  for (const [k, v] of Object.entries(renames)) reverseRenames[v] = k;
+
+  const out: any = {};
+  for (const [k, v] of Object.entries(row)) {
+    const domainKey = reverseRenames[k] ?? k;
+    if (v instanceof Date) {
+      out[domainKey] = v.toISOString();
+    } else {
+      out[domainKey] = v;
+    }
+  }
+  return out;
+}
+
 class PrismaRepository<T extends { id: string }> implements Repository<T> {
   constructor(private readonly tableName: string) {}
 
   async get(id: string): Promise<T | null> {
     const p = await getPrisma();
     const row = await p[this.tableName].findUnique({ where: { id } });
-    return row as T | null;
+    return row ? (adaptFromPrisma(this.tableName, row) as T) : null;
   }
 
   async list(filter?: Partial<T>): Promise<T[]> {
     const p = await getPrisma();
     const rows = await p[this.tableName].findMany({ where: filter ?? {} });
-    return rows as T[];
+    return rows.map((r: any) => adaptFromPrisma(this.tableName, r)) as T[];
   }
 
   async create(data: Omit<T, 'id'> & { id?: string }): Promise<T> {
     const p = await getPrisma();
     const row = await p[this.tableName].create({ data: adaptForPrisma(this.tableName, data) });
-    return row as T;
+    return adaptFromPrisma(this.tableName, row) as T;
   }
 
   async update(id: string, data: Partial<T>): Promise<T> {
@@ -99,7 +124,7 @@ class PrismaRepository<T extends { id: string }> implements Repository<T> {
       where: { id },
       data: adaptForPrisma(this.tableName, data),
     });
-    return row as T;
+    return adaptFromPrisma(this.tableName, row) as T;
   }
 
   async delete(id: string): Promise<void> {

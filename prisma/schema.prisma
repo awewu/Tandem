@@ -445,7 +445,10 @@ model TTI {
   currentValue        Float?
   unit                String?
   completionRate      Float    @default(0)
-  yearEndBonusModifier Float?
+  // yearEndBonusModifier removed 2026-05-10 (Constitution §4: TTI must
+  // never affect compensation. Type layer enforces affectsCompensation:
+  // readonly false; this DB column was the last residual. See migration
+  // 20260510_drop_tti_bonus_modifier.)
   notes               String?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt

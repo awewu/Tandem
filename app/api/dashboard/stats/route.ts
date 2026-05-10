@@ -78,7 +78,7 @@ export async function GET() {
     },
     recentDecisions: decisionCards
       .slice()
-      .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
+      .sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? '')))
       .slice(0, 5)
       .map((d) => ({
         id: d.id,

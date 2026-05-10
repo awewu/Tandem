@@ -1,3 +1,7 @@
+// @ts-nocheck — Requires @playwright/test (not installed in V1).
+// V1 uses scripts/e2e-v1.ps1 + scripts/e2e-auth.mjs instead.
+// To activate: npm i -D @playwright/test && npx playwright install && remove this directive.
+
 /**
  * E2E Test · 议事室核心闭环
  *
