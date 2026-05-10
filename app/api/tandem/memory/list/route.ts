@@ -1,0 +1,47 @@
+/**
+ * GET /api/tandem/memory/list
+ *
+ * 列出 Memory 层条目 (SOP / Case / Redline / Value).
+ *
+ * 查询:
+ *   - ?status=active|revising|inactive|deprecated  (可选, 默认全部)
+ *   - ?type=sop|case|redline|value                  (可选)
+ *   - ?limit=N                                      (默认 100)
+ *
+ * 用途:
+ *   - Steward 工作台浏览
+ *   - e2e 获取真实 memoryId 以测试降级流程
+ *
+ * 注意: 这是管控类 API (公司知识资产), 生产环境需加 cookie 鉴权. V1 PoC 暂开放读.
+ */
+
+import { NextResponse, type NextRequest } from 'next/server';
+import { boot } from '@/lib/boot';
+import { getStore } from '@/lib/storage/repository';
+
+export async function GET(req: NextRequest) {
+  await boot();
+  const url = new URL(req.url);
+  const status = url.searchParams.get('status');
+  const type = url.searchParams.get('type');
+  const limit = Math.max(1, Math.min(500, Number(url.searchParams.get('limit') ?? '100')));
+
+  const store = getStore();
+  let memories = await store.memories.list();
+  if (status) memories = memories.filter((m) => m.status === status);
+  if (type) memories = memories.filter((m) => m.type === type);
+
+  memories = memories.slice(0, limit);
+  return NextResponse.json({
+    memories: memories.map((m) => ({
+      id: m.id,
+      type: m.type,
+      title: m.title,
+      status: m.status,
+      referenceCount: m.referenceCount ?? 0,
+      createdAt: m.createdAt,
+      updatedAt: m.updatedAt,
+    })),
+    count: memories.length,
+  });
+}

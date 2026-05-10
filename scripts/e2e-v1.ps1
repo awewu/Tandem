@@ -278,6 +278,44 @@ try {
 } catch { Step '7 Memory sign flow' $false "ERR: $($_.Exception.Message)" }
 
 # ---------------------------------------------------------------------------
+# 7.5 Memory downgrade flow (Manifesto section 8.2)
+#     AI-triggered scan + Steward decision; 4 outcomes: kept/revising/archived/historical_only.
+# ---------------------------------------------------------------------------
+try {
+  # Pick an active seeded Memory (SOP/case) via the list endpoint
+  $lm = Get-Json '/api/tandem/memory/list?status=active&limit=1'
+  $memId = if ($lm.memories.Count -gt 0) { $lm.memories[0].id } else { $null }
+  if (-not $memId) {
+    Step '7.5a Memory downgrade seed' $false "no active memory from seed (count=$($lm.count))"
+  } else {
+    Step '7.5a Memory downgrade seed' $true "memoryId=$memId type=$($lm.memories[0].type) title='$($lm.memories[0].title)'"
+
+    # POST propose downgrade
+    try {
+      $dg = Send-Json '/api/tandem/memory/downgrade' @{
+        memoryId = $memId
+        proposedBy = 'ai'
+        reason = '[E2E] low reference rate (simulated)'
+        metrics = @{ referenceCount = 1; averageReferenceCount = 10 }
+      }
+      $dgId = $dg.downgrade.id
+      Step '7.5b Downgrade proposed' ($null -ne $dgId) "downgradeId=$dgId status=$($dg.downgrade.status)"
+
+      # PATCH steward decides 'revising' (non-destructive)
+      if ($dgId) {
+        $dec = Send-Json '/api/tandem/memory/downgrade' @{
+          downgradeId = $dgId
+          stewardId = 'colleague-wang'
+          decision = 'revising'
+          note = '[E2E] steward requests revision instead of archive'
+        } 'PATCH'
+        Step '7.5c Steward decides (revising)' ($dec.downgrade.status -eq 'revising') "status=$($dec.downgrade.status) decidedBy=$($dec.downgrade.decision.by)"
+      }
+    } catch { Step '7.5 Downgrade flow' $false "ERR: $($_.Exception.Message)" }
+  }
+} catch { Step '7.5 Downgrade flow' $false "ERR: $($_.Exception.Message)" }
+
+# ---------------------------------------------------------------------------
 # 8. Security: red zone skill must reject AI proxy (PRD section 8 security accept)
 #    Manifesto section 9: AI never executes red-zone skills (e.g. salary read).
 # ---------------------------------------------------------------------------
