@@ -21,7 +21,7 @@
  *   - 成员 textarea (V1 简版, M2 替换为用户多选)
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
@@ -60,9 +60,11 @@ interface Props {
   currentUserId: string;
   /** 创建成功回调, 父组件应刷新 channels 列表并切换到新频道 */
   onCreated: (channelId: string) => void;
+  /** Day 2: 通讯录点部门"建群"时预填 (kind=department, departmentId 锁定) */
+  prefillDepartment?: { id: string; name: string } | null;
 }
 
-export function CreateChannelDialog({ open, onOpenChange, currentUserId, onCreated }: Props) {
+export function CreateChannelDialog({ open, onOpenChange, currentUserId, onCreated, prefillDepartment }: Props) {
   const { departments } = useOrgStore();
   const allDepartments = useMemo(() => {
     // Department 在 zustand 是嵌套结构 (Department -> Ministry[])
@@ -86,6 +88,15 @@ export function CreateChannelDialog({ open, onOpenChange, currentUserId, onCreat
   const [memberInput, setMemberInput] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Day 2: 当父组件传入 prefillDepartment 且对话框打开时, 预填部门 + kind=department
+  useEffect(() => {
+    if (open && prefillDepartment) {
+      setKind('department');
+      setDepartmentId(prefillDepartment.id);
+      setName(`${prefillDepartment.name} 工作群`);
+    }
+  }, [open, prefillDepartment]);
 
   const meta = KIND_META[kind];
   const Icon = meta.icon;

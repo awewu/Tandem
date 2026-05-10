@@ -10,6 +10,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { CreateChannelDialog } from '@/components/im/create-channel-dialog';
+import { ContactsTree } from '@/components/im/contacts-tree';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -94,6 +95,10 @@ export default function ImPage() {
   const [busy, setBusy] = useState(false);
   /** Q2 (2026-05-10) 建群对话框 状态 */
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  /** Q2 Day 2: 左栏 tab 切换 [频道|通讯录] */
+  const [leftTab, setLeftTab] = useState<'channels' | 'contacts'>('channels');
+  /** Q2 Day 2: 点部门“建群”时预填数据 */
+  const [prefillDept, setPrefillDept] = useState<{ id: string; name: string } | null>(null);
   const composerRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -246,6 +251,27 @@ export default function ImPage() {
     composerRef.current?.focus();
   }
 
+  /** Q2 Day 2: 点通讯录中人员 → 建/找 dm 并切过去 */
+  async function startDmWith(otherId: string) {
+    if (otherId === ME) return;
+    setBusy(true);
+    try {
+      const res = await fetch('/api/im/dm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ meId: ME, otherId }),
+      });
+      const data = await res.json();
+      if (res.ok && data.channel?.id) {
+        await loadChannels();
+        setActiveId(data.channel.id);
+        setLeftTab('channels');
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function newDmPrompt() {
     const otherId = window.prompt(
       '与谁开始 1:1 对话? 输入 userId (例: colleague-li / colleague-wang):'
@@ -326,6 +352,42 @@ export default function ImPage() {
             </Button>
           </div>
         </div>
+        {/* Q2 Day 2: tab 切换 [频道|通讯录] */}
+        <div className="flex border-b border-slate-200/70 bg-slate-50/50 px-2 py-1.5 text-[11px]">
+          <button
+            type="button"
+            onClick={() => setLeftTab('channels')}
+            className={`flex-1 rounded px-2 py-1 transition ${
+              leftTab === 'channels'
+                ? 'bg-white font-semibold text-slate-800 shadow-sm ring-1 ring-slate-200'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            频道
+          </button>
+          <button
+            type="button"
+            onClick={() => setLeftTab('contacts')}
+            className={`flex-1 rounded px-2 py-1 transition ${
+              leftTab === 'contacts'
+                ? 'bg-white font-semibold text-slate-800 shadow-sm ring-1 ring-slate-200'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            通讯录
+          </button>
+        </div>
+
+        {leftTab === 'contacts' ? (
+          <ContactsTree
+            currentUserId={ME}
+            onSelectPerson={startDmWith}
+            onCreateDeptChannel={(id, name) => {
+              setPrefillDept({ id, name });
+              setShowCreateDialog(true);
+            }}
+          />
+        ) : (
         <div className="flex-1 overflow-y-auto px-1.5 py-2">
           {channels.length === 0 && (
             <div className="px-3 py-6 text-xs text-slate-500">
@@ -388,16 +450,19 @@ export default function ImPage() {
             );
           })}
         </div>
+        )}
       </aside>
 
-      {/* Q2 建群对话框 (2026-05-10) */}
+      {/* Q2 建群对话框 (2026-05-10) · Day 2: 接受部门预填 */}
       <CreateChannelDialog
         open={showCreateDialog}
-        onOpenChange={setShowCreateDialog}
+        onOpenChange={(v) => { setShowCreateDialog(v); if (!v) setPrefillDept(null); }}
         currentUserId={ME}
+        prefillDepartment={prefillDept}
         onCreated={(channelId) => {
           void loadChannels();
           setActiveId(channelId);
+          setPrefillDept(null);
         }}
       />
 
