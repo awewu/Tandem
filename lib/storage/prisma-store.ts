@@ -26,13 +26,12 @@ let _prisma: PrismaClientType | null = null;
 async function getPrisma(): Promise<PrismaClientType> {
   if (_prisma) return _prisma;
   try {
-    // @ts-expect-error optional dependency
     const mod = await import('@prisma/client');
     _prisma = new mod.PrismaClient();
     return _prisma;
-  } catch (err) {
+  } catch {
     throw new Error(
-      '@prisma/client not installed. Run: npm i @prisma/client && npx prisma generate'
+      '@prisma/client installed but prisma generate has not been run yet. Run: npx prisma generate'
     );
   }
 }
@@ -87,49 +86,359 @@ class PrismaStewardRepo {
 }
 
 /**
- * 占位 AuthStore — Prisma 持久化版本待 V2 实现.
+ * PrismaAuthStore · 基于 prisma.user / session / invite / mfaSecret / authEvent
  *
- * 现状: V1 主路径走 InMemoryStore + bootstrapOwnerIfMissing.
- * Prisma store 仅供 schema / 类型检查使用, 调用任何方法会抛 not implemented.
- * V2 启用前必须把每个方法换成基于 prisma.user / prisma.session / prisma.invite 的真实实现.
+ * 与 lib/auth/native.ts 的 AuthStore 接口等价. DATETIME ↔ ISO string
+ * 在边界上透明转换; 不在业务层暴露 Prisma Date 对象.
  */
-function createPrismaAuthStub(): AuthStore {
-  const todo = (name: string) => () => {
-    throw new Error(
-      `[prisma-auth-stub] ${name} not implemented. V1 走 InMemoryStore. ` +
-        `V2 启用前请基于 prisma.user / prisma.session / prisma.invite / prisma.authEvent 实现.`
-    );
-  };
+function createPrismaAuthStore(): AuthStore {
+  const dt = (d: Date | null | undefined): string | null =>
+    d ? d.toISOString() : null;
+
   return {
     users: {
-      findByEmail: todo('users.findByEmail'),
-      findById: todo('users.findById'),
-      create: todo('users.create'),
-      update: todo('users.update'),
-      savePasswordHash: todo('users.savePasswordHash'),
-      findPasswordHash: todo('users.findPasswordHash'),
-      findMfaSecret: todo('users.findMfaSecret'),
-      saveMfaSecret: todo('users.saveMfaSecret'),
-      consumeRecoveryCode: todo('users.consumeRecoveryCode'),
+      async findByEmail(email) {
+        const p = await getPrisma();
+        const u = await p.user.findUnique({ where: { email } });
+        if (!u) return null;
+        return {
+          id: u.id,
+          email: u.email,
+          name: u.name,
+          roles: u.roles ?? [],
+          tenantId: u.tenantId ?? 'default',
+          disabled: u.disabled ?? false,
+          failedLoginCount: u.failedLoginCount ?? 0,
+          lockedUntil: dt(u.lockedUntil),
+          lastLoginAt: dt(u.lastLoginAt),
+          lastLoginIp: u.lastLoginIp ?? null,
+          emailVerifiedAt: dt(u.emailVerifiedAt),
+          departmentId: u.departmentId ?? null,
+        };
+      },
+      async findById(id) {
+        const p = await getPrisma();
+        const u = await p.user.findUnique({ where: { id } });
+        if (!u) return null;
+        return {
+          id: u.id,
+          email: u.email,
+          name: u.name,
+          roles: u.roles ?? [],
+          tenantId: u.tenantId ?? 'default',
+          disabled: u.disabled ?? false,
+          failedLoginCount: u.failedLoginCount ?? 0,
+          lockedUntil: dt(u.lockedUntil),
+          lastLoginAt: dt(u.lastLoginAt),
+          lastLoginIp: u.lastLoginIp ?? null,
+          emailVerifiedAt: dt(u.emailVerifiedAt),
+          departmentId: u.departmentId ?? null,
+        };
+      },
+      async create(input) {
+        const p = await getPrisma();
+        const u = await p.user.create({
+          data: {
+            email: input.email,
+            name: input.name,
+            roles: input.roles ?? [],
+            tenantId: input.tenantId ?? 'default',
+            departmentId: input.departmentId ?? null,
+            emailVerifiedAt: input.emailVerifiedAt ? new Date(input.emailVerifiedAt) : null,
+          },
+        });
+        return {
+          id: u.id,
+          email: u.email,
+          name: u.name,
+          roles: u.roles ?? [],
+          tenantId: u.tenantId ?? 'default',
+          disabled: u.disabled ?? false,
+          failedLoginCount: 0,
+          lockedUntil: null,
+          lastLoginAt: null,
+          lastLoginIp: null,
+          emailVerifiedAt: dt(u.emailVerifiedAt),
+          departmentId: u.departmentId ?? null,
+        };
+      },
+      async update(id, patch) {
+        const p = await getPrisma();
+        const data: Record<string, unknown> = {};
+        if (patch.email !== undefined) data.email = patch.email;
+        if (patch.name !== undefined) data.name = patch.name;
+        if (patch.roles !== undefined) data.roles = patch.roles;
+        if (patch.disabled !== undefined) data.disabled = patch.disabled;
+        if (patch.failedLoginCount !== undefined) data.failedLoginCount = patch.failedLoginCount;
+        if (patch.lockedUntil !== undefined) {
+          data.lockedUntil = patch.lockedUntil ? new Date(patch.lockedUntil) : null;
+        }
+        if (patch.lastLoginAt !== undefined) {
+          data.lastLoginAt = patch.lastLoginAt ? new Date(patch.lastLoginAt) : null;
+        }
+        if (patch.lastLoginIp !== undefined) data.lastLoginIp = patch.lastLoginIp;
+        if (patch.departmentId !== undefined) data.departmentId = patch.departmentId;
+        await p.user.update({ where: { id }, data });
+      },
+      async savePasswordHash(userId, hash) {
+        const p = await getPrisma();
+        await p.passwordHash.upsert({
+          where: { userId },
+          create: { userId, hash, changedAt: new Date() },
+          update: { hash, changedAt: new Date() },
+        });
+      },
+      async findPasswordHash(userId) {
+        const p = await getPrisma();
+        const r = await p.passwordHash.findUnique({ where: { userId } });
+        if (!r) return null;
+        return { hash: r.hash, historyHashes: r.historyHashes ?? [] };
+      },
+      async findMfaSecret(userId) {
+        const p = await getPrisma();
+        const r = await p.mfaSecret.findUnique({ where: { userId } });
+        if (!r) return null;
+        return {
+          encryptedSecret: r.encryptedSecret,
+          recoveryCodeHashes: r.recoveryCodeHashes ?? [],
+        };
+      },
+      async saveMfaSecret(userId, encryptedSecret, recoveryCodeHashes) {
+        const p = await getPrisma();
+        await p.mfaSecret.upsert({
+          where: { userId },
+          create: { userId, encryptedSecret, recoveryCodeHashes, enrolledAt: new Date() },
+          update: { encryptedSecret, recoveryCodeHashes, enrolledAt: new Date() },
+        });
+      },
+      async consumeRecoveryCode(userId, hash) {
+        const p = await getPrisma();
+        const r = await p.mfaSecret.findUnique({ where: { userId } });
+        if (!r) return;
+        const next = (r.recoveryCodeHashes ?? []).filter((h: string) => h !== hash);
+        await p.mfaSecret.update({
+          where: { userId },
+          data: { recoveryCodeHashes: next, lastUsedAt: new Date() },
+        });
+      },
     },
     sessions: {
-      create: todo('sessions.create'),
-      findById: todo('sessions.findById'),
-      findByRefreshHash: todo('sessions.findByRefreshHash'),
-      revoke: todo('sessions.revoke'),
-      revokeAllForUser: todo('sessions.revokeAllForUser'),
-      markMfaVerified: todo('sessions.markMfaVerified'),
+      async create(input) {
+        const p = await getPrisma();
+        const s = await p.session.create({
+          data: {
+            userId: input.userId,
+            refreshTokenHash: input.refreshTokenHash,
+            mfaVerified: input.mfaVerified,
+            userAgent: input.userAgent,
+            ip: input.ip,
+            expiresAt: new Date(input.expiresAt),
+          },
+        });
+        return {
+          id: s.id,
+          userId: s.userId,
+          refreshTokenHash: s.refreshTokenHash,
+          mfaVerified: s.mfaVerified,
+          expiresAt: s.expiresAt.toISOString(),
+          revokedAt: dt(s.revokedAt),
+          userAgent: s.userAgent ?? null,
+          ip: s.ip ?? null,
+        };
+      },
+      async findById(id) {
+        const p = await getPrisma();
+        const s = await p.session.findUnique({ where: { id } });
+        if (!s) return null;
+        return {
+          id: s.id,
+          userId: s.userId,
+          refreshTokenHash: s.refreshTokenHash,
+          mfaVerified: s.mfaVerified,
+          expiresAt: s.expiresAt.toISOString(),
+          revokedAt: dt(s.revokedAt),
+          userAgent: s.userAgent ?? null,
+          ip: s.ip ?? null,
+        };
+      },
+      async findByRefreshHash(hash) {
+        const p = await getPrisma();
+        const s = await p.session.findUnique({ where: { refreshTokenHash: hash } });
+        if (!s) return null;
+        return {
+          id: s.id,
+          userId: s.userId,
+          refreshTokenHash: s.refreshTokenHash,
+          mfaVerified: s.mfaVerified,
+          expiresAt: s.expiresAt.toISOString(),
+          revokedAt: dt(s.revokedAt),
+          userAgent: s.userAgent ?? null,
+          ip: s.ip ?? null,
+        };
+      },
+      async revoke(id, reason) {
+        const p = await getPrisma();
+        await p.session.update({
+          where: { id },
+          data: { revokedAt: new Date(), revokeReason: reason },
+        });
+      },
+      async revokeAllForUser(userId, reason) {
+        const p = await getPrisma();
+        await p.session.updateMany({
+          where: { userId, revokedAt: null },
+          data: { revokedAt: new Date(), revokeReason: reason },
+        });
+      },
+      async markMfaVerified(id) {
+        const p = await getPrisma();
+        await p.session.update({
+          where: { id },
+          data: { mfaVerified: true, lastSeenAt: new Date() },
+        });
+      },
     },
     invites: {
-      create: todo('invites.create'),
-      findByHash: todo('invites.findByHash'),
-      list: todo('invites.list'),
-      markUsed: todo('invites.markUsed'),
-      revoke: todo('invites.revoke'),
+      async create(input) {
+        const p = await getPrisma();
+        const i = await p.invite.create({
+          data: {
+            codeHash: input.codeHash,
+            email: input.email ?? null,
+            presetRoles: input.presetRoles ?? [],
+            presetDepartmentId: input.presetDepartmentId ?? null,
+            tenantId: input.tenantId ?? 'default',
+            invitedById: input.invitedById,
+            maxUses: input.maxUses ?? 1,
+            expiresAt: new Date(input.expiresAt),
+          },
+        });
+        return {
+          id: i.id,
+          codeHash: i.codeHash,
+          email: i.email ?? null,
+          presetRoles: i.presetRoles ?? [],
+          presetDepartmentId: i.presetDepartmentId ?? null,
+          tenantId: i.tenantId ?? 'default',
+          invitedById: i.invitedById,
+          maxUses: i.maxUses,
+          usedCount: i.usedCount,
+          expiresAt: i.expiresAt.toISOString(),
+          redeemedAt: dt(i.redeemedAt),
+        };
+      },
+      async findByHash(hash) {
+        const p = await getPrisma();
+        const i = await p.invite.findUnique({ where: { codeHash: hash } });
+        if (!i) return null;
+        return {
+          id: i.id,
+          codeHash: i.codeHash,
+          email: i.email ?? null,
+          presetRoles: i.presetRoles ?? [],
+          presetDepartmentId: i.presetDepartmentId ?? null,
+          tenantId: i.tenantId ?? 'default',
+          invitedById: i.invitedById,
+          maxUses: i.maxUses,
+          usedCount: i.usedCount,
+          expiresAt: i.expiresAt.toISOString(),
+          redeemedAt: dt(i.redeemedAt),
+        };
+      },
+      async list(filter) {
+        const p = await getPrisma();
+        const rows = await p.invite.findMany({
+          where: {
+            invitedById: filter?.invitedById,
+            tenantId: filter?.tenantId,
+          },
+        });
+        return rows.map((i: Record<string, unknown>) => {
+          const r = i as {
+            id: string;
+            codeHash: string;
+            email: string | null;
+            presetRoles: string[];
+            presetDepartmentId: string | null;
+            tenantId: string;
+            invitedById: string;
+            maxUses: number;
+            usedCount: number;
+            expiresAt: Date;
+            redeemedAt: Date | null;
+          };
+          return {
+            id: r.id,
+            codeHash: r.codeHash,
+            email: r.email,
+            presetRoles: r.presetRoles,
+            presetDepartmentId: r.presetDepartmentId,
+            tenantId: r.tenantId,
+            invitedById: r.invitedById,
+            maxUses: r.maxUses,
+            usedCount: r.usedCount,
+            expiresAt: r.expiresAt.toISOString(),
+            redeemedAt: dt(r.redeemedAt),
+          };
+        });
+      },
+      async markUsed(id) {
+        const p = await getPrisma();
+        await p.invite.update({
+          where: { id },
+          data: {
+            usedCount: { increment: 1 },
+            redeemedAt: new Date(),
+          },
+        });
+      },
+      async revoke(id) {
+        const p = await getPrisma();
+        await p.invite.delete({ where: { id } });
+      },
     },
     events: {
-      append: todo('events.append'),
-      list: todo('events.list'),
+      async append(event) {
+        const p = await getPrisma();
+        await p.authEvent.create({
+          data: {
+            userId: event.userId,
+            email: event.email,
+            eventType: event.eventType,
+            ip: event.ip,
+            userAgent: event.userAgent,
+            metadata: event.metadata as never,
+          },
+        });
+      },
+      async list(filter) {
+        const p = await getPrisma();
+        const where: Record<string, unknown> = {};
+        if (filter?.userId) where.userId = filter.userId;
+        if (filter?.eventType) where.eventType = filter.eventType;
+        if (filter?.sinceMs) where.createdAt = { gte: new Date(filter.sinceMs) };
+        const rows = await p.authEvent.findMany({ where, orderBy: { createdAt: 'desc' } });
+        return rows.map((e: Record<string, unknown>) => {
+          const r = e as {
+            userId: string | null;
+            email: string | null;
+            eventType: string;
+            ip: string | null;
+            userAgent: string | null;
+            metadata: unknown;
+            createdAt: Date;
+          };
+          return {
+            userId: r.userId ?? undefined,
+            email: r.email ?? undefined,
+            eventType: r.eventType,
+            ip: r.ip ?? undefined,
+            userAgent: r.userAgent ?? undefined,
+            metadata: (r.metadata ?? undefined) as Record<string, unknown> | undefined,
+            createdAt: r.createdAt.toISOString(),
+          };
+        });
+      },
     },
   };
 }
@@ -153,6 +462,6 @@ export function createPrismaStore(): TandemStore {
     imChannels: new PrismaRepository('imChannel'),
     imMessages: new PrismaRepository('imMessage'),
     imMemberships: new PrismaRepository('imMembership'),
-    auth: createPrismaAuthStub(),
+    auth: createPrismaAuthStore(),
   };
 }

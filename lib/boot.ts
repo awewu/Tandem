@@ -7,6 +7,7 @@
 
 import { setStore, getStore } from './storage/repository';
 import { createInMemoryStore } from './storage/memory-store';
+import { createPrismaStore } from './storage/prisma-store';
 import { TandemRouter, createDefaultRouter, createLocalDevRouter } from './taf';
 import { ConvergenceOrchestrator } from './convergence/orchestrator';
 import { seedDevData } from './fixtures/seed';
@@ -30,7 +31,26 @@ const _g = globalThis as typeof globalThis & BootGlobals;
  */
 function bootSync(): void {
   if (_g.__tandem_booted__) return;
-  setStore(createInMemoryStore());
+
+  // Storage 路径选择 (宪章 §13 "数据归公司 + 私有化部署优先"):
+  //   - 若 DATABASE_URL 存在 → Prisma + PostgreSQL (V1 GA 生产路径)
+  //   - 否则 → InMemory (dev / e2e, seed 重启可复现)
+  const useDb = !!process.env.DATABASE_URL;
+  if (useDb) {
+    try {
+      setStore(createPrismaStore());
+      // eslint-disable-next-line no-console
+      console.info('[boot] storage=prisma (DATABASE_URL detected)');
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn('[boot] Prisma store 初始化失败, fallback to InMemory:', err);
+      setStore(createInMemoryStore());
+    }
+  } else {
+    setStore(createInMemoryStore());
+    // eslint-disable-next-line no-console
+    console.info('[boot] storage=in-memory (no DATABASE_URL). 生产期请配 DATABASE_URL + prisma migrate.');
+  }
 
   // 优先尝试默认路由器, 失败 fall back 到本地 dev
   let router: TandemRouter;
@@ -54,8 +74,9 @@ function bootSync(): void {
   });
   _g.__tandem_booted__ = true;
 
-  // Seed dev data (in-memory store only) — 启动 promise, 由 boot() 暴露给 await
-  if (process.env.NODE_ENV !== 'production') {
+  // Seed dev data — 仅在 InMemory 模式 + 非 production 下跑.
+  // Prisma 模式的持久化数据应通过 migrate + 客户 onboarding 流程而非硬编码 seed.
+  if (process.env.NODE_ENV !== 'production' && !useDb) {
     _g.__tandem_seed_promise__ = seedDevData().catch((err) => {
       // eslint-disable-next-line no-console
       console.warn('[boot] seed failed:', err);
