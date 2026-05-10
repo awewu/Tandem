@@ -18,7 +18,7 @@
  *   - 按部门聚合版
  */
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ArrowUp, ArrowDown, Minus, TrendingUp, Calendar } from 'lucide-react';
@@ -128,12 +128,23 @@ function momChip(curr: number | null, prev: number | null): React.ReactNode {
 
 export function OKRMonthlyComparison({ objective, cycle, keyResults, checkIns }: Props) {
   const buckets = useMemo(() => buildMonthBuckets(cycle), [cycle]);
+  // SSR 安全: Date.now() 不能在 render 里用, 否则 hydration mismatch.
+  // 先给 0 让 SSR 和首次 CSR 一致, mount 后再设真值 (也兼职 'now' 每分钟刷新).
+  const [nowMs, setNowMs] = useState<number>(0);
+  useEffect(() => {
+    setNowMs(Date.now());
+    const id = setInterval(() => setNowMs(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   // Objective 级 checkIns (scope=objective) + 每 KR 的 checkIns
   const objectiveCheckIns = useMemo(
     () => checkIns.filter((c) => c.scope === 'objective' && c.scopeId === objective.id),
     [checkIns, objective.id]
   );
+  // objectiveActuals 依赖 nowMs 用于未来月处理逻辑, 加入 deps
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _nowDep = nowMs;
 
   /** Objective 月末 actual (降级: 无 objective check-in 时用 KR 加权平均) */
   const objectiveActuals = useMemo(() => {
@@ -147,7 +158,7 @@ export function OKRMonthlyComparison({ objective, cycle, keyResults, checkIns }:
       for (const kr of keyResults) {
         const krCi = checkIns.filter((c) => c.scope === 'kr' && c.scopeId === kr.id);
         const krActual = actualAtMonthEnd(krCi, b.endMs);
-        const progress = krActual ?? (b.endMs >= Date.now() ? null : 0);
+        const progress = krActual ?? (nowMs === 0 || b.endMs >= nowMs ? null : 0);
         if (progress === null) return null;
         const w = kr.weight || 1;
         sum += (progress * w) / (totalWeight || 1);
@@ -178,9 +189,10 @@ export function OKRMonthlyComparison({ objective, cycle, keyResults, checkIns }:
     return buckets.map((b) => actualAtMonthEnd(ci, b.endMs));
   });
 
-  // 当前月索引 (for 高亮)
-  const now = Date.now();
-  const currentMonthIdx = buckets.findIndex((b) => now >= b.startMs && now <= b.endMs);
+  // 当前月索引 (for 高亮). nowMs=0 时 (SSR / 未 mount) 不高亮任何月
+  const currentMonthIdx = nowMs === 0
+    ? -1
+    : buckets.findIndex((b) => nowMs >= b.startMs && nowMs <= b.endMs);
 
   return (
     <div className="space-y-4">

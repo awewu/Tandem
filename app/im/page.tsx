@@ -941,10 +941,19 @@ function MessageRow({
   );
   const readerCount = readers.length;
   const totalReaders = Math.max(0, members.length - 1); // 除发送者
-  const recallable =
-    !msg.deletedAt &&
-    msg.senderId === ME &&
-    Date.now() - new Date(msg.createdAt).getTime() < 2 * 60 * 1000;
+  // Day 4: recallable 用 Date.now(), SSR 和 CSR 时间不同会 hydration mismatch
+  // → useState + useEffect 只在客户端 mount 后计算
+  const [recallable, setRecallable] = useState(false);
+  useEffect(() => {
+    if (msg.deletedAt || msg.senderId !== ME) { setRecallable(false); return; }
+    const ageMs = Date.now() - new Date(msg.createdAt).getTime();
+    const remaining = 2 * 60 * 1000 - ageMs;
+    setRecallable(remaining > 0);
+    if (remaining > 0) {
+      const t = setTimeout(() => setRecallable(false), remaining);
+      return () => clearTimeout(t);
+    }
+  }, [msg.id, msg.deletedAt, msg.senderId, msg.createdAt]);
   const showSender =
     !prev ||
     prev.senderId !== msg.senderId ||
