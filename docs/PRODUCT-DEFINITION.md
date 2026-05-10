@@ -35,7 +35,7 @@
 
 ---
 
-## 2. 锁定的 9 项核心决策 (本次会话)
+## 2. 锁定的 12 项核心决策 (本次会话)
 
 | # | 维度 | 决策 |
 |---|---|---|
@@ -48,6 +48,9 @@
 | 7 | 邮件存证回路 | **完整双向**: 入站 (IMAP) + 出站 (12 事件) + 邮件归档 hash 入审计 |
 | 8 | 日报 ↔ OKR 闭环 | **5 分钟极简日报**, AI 预填 80%, AP 反向强推, 自动算 KR 进度 (反虚报) |
 | 9 | 三层 Dashboard | 个人 / 主管 / 老板 (Champion) 三套, AI 聚合关键信号 |
+| 10 | UI 信息架构重构 | **5 大顶级导航** (首页/事半/拿捏/管理/设置) + **4 段式首页** (工作台/Intranet/Launchpad/IM 摘要) · 砍 9 个 Hermes 遗留页, 详见 `docs/UI-IA.md` |
+| 11 | Intranet 模块 | 4 分类: **公告 / 政策 / 大事记 / 福利**. 政策强制已读 + AI 摘要 + 版本管理. CEO 周记 + 匿名意见箱 |
+| 12 | Launchpad (跳板) | 3 分类: **业务系统 (ERP/CRM) / 通讯 / 学习**. 卡片式 + SSO 一键 + 部门权限 + AI 今日推荐 |
 
 ---
 
@@ -192,6 +195,104 @@ Objective (年度 / 公司或部门)
 - DKIM / SPF / DMARC 全配 (反钓鱼 + 反伪装 Tandem)
 - 退订链接 (营销类邮件, 安全类不可退订)
 
+### 3.6 ★ Intranet (企业内网) (新加)
+
+#### 3.6.1 4 大内容分类
+
+| 类 | 例 | 谁发 | 谁看 |
+|---|---|---|---|
+| **公告 Announcement** | OKR 启动 / 节假日 / 战略调整 / 高管变更 | CEO / HR / 部门负责人 | 全员 / 部门 |
+| **政策 Policy** | 员工手册 / 信息安全 / 反腐 / AI 使用红线 / 数据合规 | HR / 法务 / 合规 | 全员 (★ 强制已读) |
+| **大事记 Milestone** | 融资 / 客户里程碑 / 团队荣誉 / 周年庆 | CEO / 市场 | 全员 |
+| **福利 Welfare** | 节日礼物 / 团建 / 培训报名 / 生日会 / 体检 | 工会 / HR | 全员 |
+
+#### 3.6.2 关键差异化 (vs 钉钉/企微通讯录公告)
+
+- **强制已读 (政策类)**: 未读 → 首页 banner 红点不消失 · 30 天不读 → 邮件 + 主管抄送
+- **AI 摘要**: 长公告 LLM 生成 1 句话, 员工快速过 (反"长公告没人看")
+- **关联 Memory**: 政策同步到 `Memory.value`, AI 每次调用强注入
+- **版本管理**: 政策修订 → 自动 diff + 公示期 (类比 Memory Lv2)
+- **评论/质询**: 员工可在政策下留言, AI 聚合主要疑问反馈给 HR
+- **战略 OKR 公告**: 公司年度 O 一键变 banner, 时刻提醒"我们今年要做什么"
+- **新员工必读**: 入职第 1 天首页强弹政策清单, 100% 读完才解锁邀请议事室能力
+- **CEO 周记**: CEO 每周强制写 1 段战略思考, 全员可见 (反 §1 AI 欺诈的高管版)
+- **匿名意见箱**: §13 员工尊严扩展, 员工匿名提建议直达 CEO
+
+#### 3.6.3 数据模型
+
+```
+IntranetPost
+├── id
+├── category (announcement / policy / milestone / welfare)
+├── title
+├── body (Markdown / Rich text)
+├── author_id
+├── visible_to (全员 / 部门 / 角色)
+├── must_read (政策类 = true)
+├── must_read_until (强制读截止)
+├── ai_summary (LLM 生成)
+├── version (v1, v2, ...)
+├── parent_id (修订指向上版)
+├── status (draft / published / archived)
+├── published_at
+└── memory_link_id (关联 Memory.value)
+
+IntranetReadReceipt
+├── post_id
+├── user_id
+├── read_at
+└── (未读 = 不存在记录)
+
+IntranetComment
+├── post_id
+├── user_id (or anonymous=true)
+├── body
+└── ai_grouped_topic (AI 聚合主题)
+```
+
+### 3.7 ★ Launchpad (跳板入口) (新加)
+
+#### 3.7.1 3 大分类 (admin 可增类)
+
+| 类 | 例 |
+|---|---|
+| **业务系统** | CRM (Salesforce/HubSpot/纷享销客) / ERP (金蝶/用友/SAP) / 财务 / 报销 / Jira / GitLab |
+| **通讯协同** | 钉钉 / 企微 / 飞书 / 腾讯会议 / Zoom |
+| **学习工具** | 公司内部 Wiki / OA / HR / 体检 / 培训 |
+
+#### 3.7.2 关键功能
+
+- **卡片网格**: logo + 名称 + 一句话描述 + 跳转 (不是列表)
+- **SSO 一键**: 配过 SSO 的链接直接进; 没配的弹凭据框 (用户密码自存 Tandem, AES 加密)
+- **部门权限**: 财务系统不是全员看, 按 `visible_to` 过滤
+- **使用统计**: admin 可看哪些跳板用得多 / 哪些没人点 → 决定下架
+- **AI 今日推荐**: 根据当天 KR / AP, 推荐相关系统 (例: 销售 KR → CRM 置顶)
+- **未读角标**: 跳板卡片显示外部系统的红点 (例: CRM 5 条待跟进 = ❺)
+- **跨系统搜索** (V2): 搜跨 ERP/CRM/Memory 内容
+
+#### 3.7.3 数据模型
+
+```
+Launchpad
+├── id
+├── category (business / comm / learning / custom)
+├── name (e.g. "金蝶 ERP")
+├── icon_url
+├── target_url
+├── description
+├── visible_to (roles[] / departments[])
+├── sso_config (json, 字段映射: user.email → ?username?)
+├── click_count
+├── status (active / disabled)
+└── order (admin 排序)
+
+LaunchpadClick
+├── launchpad_id
+├── user_id
+├── clicked_at
+└── (用于使用统计)
+```
+
 ---
 
 ## 4. 拿捏模块 (员工级) · 4 大功能区
@@ -286,21 +387,26 @@ Month 0 (现在)        V1 PoC 完成 · 50/50 e2e PASS
                      · Pilot 文档 + Pitch Deck 就绪
                      · Prisma migrate 实跑 OK
 
-Month 1              E1.1-E1.2 OKR 5 层骨架 + KR 软绑定
+Month 1              UI 重构 (1w) + OKR 5 层骨架 + KR 软绑定 (3w)
+                     · 砍 9 个 Hermes 遗留页 (/agents/chat/skills/...)
+                     · 5 大顶级导航 + 4 段式首页 (壳, 不含 Intranet/Launchpad 内容)
                      · Initiative 实体 + 5 层级联 UI
                      · DC 创建器加 KR 选择 + escape hatch 理由
                      · Schema migration
 
-Month 2              E1.3 日报闭环 + E0.5 中央 AI 拦截器
+Month 2              日报闭环 (2w) + 中央 AI 拦截器 (1w) + Launchpad 骨架 (1w)
                      · 5min 日报 UI + AI 草稿生成
                      · AP 反向强推 + 24h ESCALATE
                      · LLM 中间件 Baseline + Memory 强注入
                      · /admin/baseline 配置页
+                     · Launchpad CRUD + 部门权限 + AI 推荐
 
-Month 3              E1.4 三层 Dashboard + AI 滞后预警
+Month 3              三层 Dashboard (2w) + Intranet (2w)
                      · 个人/主管/老板 三套仪表盘
                      · KR 进度自动算 + AI 预警 cron
                      · 周报 + 季度 review 模板
+                     · Intranet 4 类内容 + 强制已读 + 政策版本管理
+                     · CEO 周记 + 匿名意见箱
 
 Month 4              E3.4-E3.6 IM 企微级 (会议 + 文件 + 文档)
                      · LiveKit 自部署 + 腾讯会议 ISV API + 通话 UI
