@@ -63,6 +63,14 @@ export interface ImChannel {
   /** 关联的议事室 cardId (如果该频道是议事室派生出的群聊) */
   linkedDecisionCardId?: string;
   archivedAt?: string;
+  /** Day 7 (2026-05-10): 群公告 (markdown, owner/admin 可编辑) */
+  announcement?: string;
+  /** Day 7: 公告最后编辑时间 */
+  announcementUpdatedAt?: string;
+  /** Day 7: 公告最后编辑人 */
+  announcementUpdatedBy?: string;
+  /** Day 7: 已 pinned 的消息 ID 列表 (最多 5 条) */
+  pinnedMessageIds?: string[];
 }
 
 // ---------------------------------------------------------------------------

@@ -18,6 +18,7 @@ import {
   type ImChannelVisibility,
   type ImMessage,
   type ImMembership,
+  type ImMemberRole,
   type ImAttachment,
 } from '../types/im';
 
@@ -31,6 +32,7 @@ _bus.setMaxListeners(0); // 允许任意多 SSE 订阅者
 
 export type ImBusEvent =
   | { type: 'message'; channelId: string; message: ImMessage }
+  | { type: 'message_updated'; channelId: string; message: ImMessage }
   | { type: 'channel_updated'; channelId: string; channel: ImChannel }
   | { type: 'unread_changed'; channelId: string; userId: string; unread: number };
 
@@ -255,6 +257,196 @@ export async function markChannelRead(
     lastReadAt: new Date().toISOString(),
   });
   broadcast({ type: 'unread_changed', channelId, userId, unread: 0 });
+}
+
+// ---------------------------------------------------------------------------
+// Day 4-7 (2026-05-10): 撤回 / 成员管理 / 公告 / pinned
+// ---------------------------------------------------------------------------
+
+const RECALL_WINDOW_MS = 2 * 60 * 1000; // 2 分钟内可撤回
+
+/** 撤回消息 (仅本人 + 2 分钟内, owner/admin 任何时候可撤) */
+export async function recallMessage(
+  messageId: string,
+  userId: string
+): Promise<ImMessage> {
+  const store = getStore();
+  const msg = await store.imMessages.get(messageId);
+  if (!msg) throw new Error('message not found');
+  if (msg.deletedAt) throw new Error('already recalled');
+
+  const channel = await store.imChannels.get(msg.channelId);
+  if (!channel) throw new Error('channel gone');
+
+  const isOwn = msg.senderId === userId;
+  const m = await store.imMemberships.get(membershipKey(channel.id, userId));
+  const isAdmin = m?.role === 'owner' || m?.role === 'admin';
+  const ageMs = Date.now() - new Date(msg.createdAt).getTime();
+
+  if (!isOwn && !isAdmin) throw new Error('not your message');
+  if (isOwn && !isAdmin && ageMs > RECALL_WINDOW_MS) {
+    throw new Error('超过 2 分钟, 无法撤回');
+  }
+
+  const now = new Date().toISOString();
+  const updated = await store.imMessages.update(messageId, {
+    deletedAt: now,
+    body: '',
+  });
+  if (!updated) throw new Error('update failed');
+
+  broadcast({ type: 'message_updated', channelId: channel.id, message: updated });
+  return updated;
+}
+
+/** 添加成员 (owner/admin 操作) */
+export async function addChannelMember(
+  channelId: string,
+  userId: string,
+  operatorId: string
+): Promise<ImChannel> {
+  const store = getStore();
+  const channel = await store.imChannels.get(channelId);
+  if (!channel) throw new Error('channel not found');
+
+  const op = await store.imMemberships.get(membershipKey(channelId, operatorId));
+  if (!op || (op.role !== 'owner' && op.role !== 'admin')) {
+    throw new Error('only owner/admin can add members');
+  }
+  if (channel.memberIds.includes(userId)) return channel; // idempotent
+
+  const now = new Date().toISOString();
+  await store.imMemberships.create({
+    id: membershipKey(channelId, userId),
+    channelId,
+    userId,
+    role: 'member',
+    joinedAt: now,
+    unreadCount: 0,
+    muted: false,
+  });
+  const next = await store.imChannels.update(channelId, {
+    memberIds: [...channel.memberIds, userId],
+    updatedAt: now,
+  });
+  if (!next) throw new Error('update failed');
+  broadcast({ type: 'channel_updated', channelId, channel: next });
+  return next;
+}
+
+/** 移除成员 (owner/admin 操作; owner 不可被移除) */
+export async function removeChannelMember(
+  channelId: string,
+  userId: string,
+  operatorId: string
+): Promise<ImChannel> {
+  const store = getStore();
+  const channel = await store.imChannels.get(channelId);
+  if (!channel) throw new Error('channel not found');
+
+  const op = await store.imMemberships.get(membershipKey(channelId, operatorId));
+  const target = await store.imMemberships.get(membershipKey(channelId, userId));
+  if (!op) throw new Error('operator not in channel');
+  if (op.role !== 'owner' && op.role !== 'admin' && operatorId !== userId) {
+    throw new Error('only owner/admin can remove others');
+  }
+  if (target?.role === 'owner') throw new Error('cannot remove owner');
+
+  const now = new Date().toISOString();
+  await store.imMemberships.delete?.(membershipKey(channelId, userId));
+  const next = await store.imChannels.update(channelId, {
+    memberIds: channel.memberIds.filter((id) => id !== userId),
+    updatedAt: now,
+  });
+  if (!next) throw new Error('update failed');
+  broadcast({ type: 'channel_updated', channelId, channel: next });
+  return next;
+}
+
+/** 设置成员角色 (仅 owner) */
+export async function setMemberRole(
+  channelId: string,
+  userId: string,
+  role: ImMemberRole,
+  operatorId: string
+): Promise<ImMembership> {
+  const store = getStore();
+  const op = await store.imMemberships.get(membershipKey(channelId, operatorId));
+  if (!op || op.role !== 'owner') throw new Error('only owner can set roles');
+  const target = await store.imMemberships.get(membershipKey(channelId, userId));
+  if (!target) throw new Error('member not found');
+  const updated = await store.imMemberships.update(target.id, { role });
+  if (!updated) throw new Error('update failed');
+  return updated;
+}
+
+/** 更新频道元数据 (name/topic/announcement, owner/admin) */
+export async function updateChannelMeta(
+  channelId: string,
+  operatorId: string,
+  patch: { name?: string; topic?: string; announcement?: string },
+): Promise<ImChannel> {
+  const store = getStore();
+  const op = await store.imMemberships.get(membershipKey(channelId, operatorId));
+  if (!op || (op.role !== 'owner' && op.role !== 'admin')) {
+    throw new Error('only owner/admin can edit channel');
+  }
+  const now = new Date().toISOString();
+  const partial: Partial<ImChannel> = { updatedAt: now };
+  if (patch.name !== undefined) partial.name = patch.name;
+  if (patch.topic !== undefined) partial.topic = patch.topic;
+  if (patch.announcement !== undefined) {
+    partial.announcement = patch.announcement;
+    partial.announcementUpdatedAt = now;
+    partial.announcementUpdatedBy = operatorId;
+  }
+  const next = await store.imChannels.update(channelId, partial);
+  if (!next) throw new Error('update failed');
+  broadcast({ type: 'channel_updated', channelId, channel: next });
+  return next;
+}
+
+/** Pin/Unpin 消息 (owner/admin, 最多 5 条) */
+export async function togglePinMessage(
+  channelId: string,
+  messageId: string,
+  operatorId: string,
+): Promise<ImChannel> {
+  const store = getStore();
+  const channel = await store.imChannels.get(channelId);
+  if (!channel) throw new Error('channel not found');
+  const op = await store.imMemberships.get(membershipKey(channelId, operatorId));
+  if (!op || (op.role !== 'owner' && op.role !== 'admin')) {
+    throw new Error('only owner/admin can pin');
+  }
+  const current = channel.pinnedMessageIds ?? [];
+  let nextPins: string[];
+  if (current.includes(messageId)) {
+    nextPins = current.filter((id) => id !== messageId);
+  } else {
+    if (current.length >= 5) throw new Error('已置顶 5 条, 请先取消其他');
+    nextPins = [messageId, ...current];
+  }
+  const updated = await store.imChannels.update(channelId, {
+    pinnedMessageIds: nextPins,
+    updatedAt: new Date().toISOString(),
+  });
+  if (!updated) throw new Error('update failed');
+  broadcast({ type: 'channel_updated', channelId, channel: updated });
+  return updated;
+}
+
+/** 列出频道全部成员 + 角色 (含 lastReadAt 用于已读UI) */
+export async function listChannelMembers(channelId: string): Promise<ImMembership[]> {
+  const store = getStore();
+  const channel = await store.imChannels.get(channelId);
+  if (!channel) return [];
+  const result: ImMembership[] = [];
+  for (const uid of channel.memberIds) {
+    const m = await store.imMemberships.get(membershipKey(channelId, uid));
+    if (m) result.push(m);
+  }
+  return result;
 }
 
 // ---------------------------------------------------------------------------

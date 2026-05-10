@@ -11,6 +11,8 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { CreateChannelDialog } from '@/components/im/create-channel-dialog';
 import { ContactsTree } from '@/components/im/contacts-tree';
+import { ChannelSettingsDialog } from '@/components/im/channel-settings-dialog';
+import type { ImChannel, ImMembership, ImMessage } from '@/lib/types/im';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,34 +31,15 @@ import {
   Brain,
   Info,
   X,
+  Pin,
+  Trash2,
 } from 'lucide-react';
 
 const ME = 'demo-user'; // V1: 单用户 demo, 后续接 auth session
 
-interface Channel {
-  id: string;
-  type: 'group' | 'dm' | 'announcement';
-  name: string;
-  topic?: string;
-  visibility: 'public' | 'private';
-  memberIds: string[];
-  unread: number;
-  lastMessageAt?: string;
-  lastMessagePreview?: string;
-}
-
-interface Message {
-  id: string;
-  channelId: string;
-  senderId: string;
-  senderKind: 'user' | 'system' | 'persona';
-  body: string;
-  parentMessageId?: string;
-  createdAt: string;
-  spawnedDecisionCardId?: string;
-  spawnedPromotionId?: string;
-  mentions?: { userId: string; kind: 'notify' | 'assign' | 'consult' | 'persona' }[];
-}
+// Day 4-7: 升级 Channel/Message 类型 以含撤回 + 公告 + pinned
+type Channel = ImChannel & { unread?: number };
+type Message = ImMessage;
 
 /**
  * 决议型已读语义 (符合 MANIFESTO 附录 C 反例清单):
@@ -99,6 +82,10 @@ export default function ImPage() {
   const [leftTab, setLeftTab] = useState<'channels' | 'contacts'>('channels');
   /** Q2 Day 2: 点部门“建群”时预填数据 */
   const [prefillDept, setPrefillDept] = useState<{ id: string; name: string } | null>(null);
+  /** Q2 Day 5-7: 频道设置对话框 */
+  const [showSettings, setShowSettings] = useState(false);
+  /** Q2 Day 4: 当前频道成员 (计算已读人数) */
+  const [members, setMembers] = useState<ImMembership[]>([]);
   const composerRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -165,6 +152,17 @@ export default function ImPage() {
     es.addEventListener('unread', () => {
       void loadChannels();
     });
+    // Day 4: 撤回事件 — 替换本地设置 deletedAt
+    es.addEventListener('message_updated', (e) => {
+      try {
+        const msg = JSON.parse((e as MessageEvent).data) as Message;
+        setMessages((prev) => prev.map((m) => (m.id === msg.id ? msg : m)));
+      } catch { /* ignore */ }
+    });
+    // Day 5-7: channel 更新 (公告/成员/pin) — 重拉 channels
+    es.addEventListener('channel', () => {
+      void loadChannels();
+    });
     return () => es.close();
   }, [activeId]);
 
@@ -179,6 +177,42 @@ export default function ImPage() {
     () => channels.find((c) => c.id === activeId) ?? null,
     [channels, activeId]
   );
+
+  // Day 4: 拉取当前频道成员 (为已读人数计算 + 设置对话框复用)
+  useEffect(() => {
+    if (!activeId) { setMembers([]); return; }
+    void fetch(`/api/im/channels/${activeId}/members`)
+      .then((r) => r.json())
+      .then((data) => setMembers(data.members ?? []));
+  }, [activeId, channels]);
+
+  /** Day 4: 撤回消息 */
+  async function recallMessageHandler(messageId: string) {
+    if (!confirm('确认撤回这条消息?')) return;
+    const res = await fetch(`/api/im/messages/${messageId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'recall', userId: ME }),
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      window.alert(`撤回失败: ${data.error ?? res.statusText}`);
+    }
+  }
+
+  /** Day 7: pin/unpin 消息 */
+  async function togglePinHandler(messageId: string) {
+    if (!activeId) return;
+    const res = await fetch(`/api/im/channels/${activeId}/pins`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messageId, operatorId: ME }),
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      window.alert(`置顶失败: ${data.error ?? res.statusText}`);
+    }
+  }
 
   async function sendMessage() {
     if (!input.trim() || !activeId || sending) return;
@@ -453,6 +487,16 @@ export default function ImPage() {
         )}
       </aside>
 
+      {/* Day 5-7: 频道设置对话框 */}
+      <ChannelSettingsDialog
+        open={showSettings}
+        onOpenChange={setShowSettings}
+        channel={activeChannel}
+        messages={messages}
+        currentUserId={ME}
+        onChanged={() => { void loadChannels(); }}
+      />
+
       {/* Q2 建群对话框 (2026-05-10) · Day 2: 接受部门预填 */}
       <CreateChannelDialog
         open={showCreateDialog}
@@ -508,11 +552,52 @@ export default function ImPage() {
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600">
-                <Users className="h-3 w-3" />
-                {activeChannel.memberIds.length}
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setShowSettings(true)}
+                  className="flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:bg-slate-200"
+                  title="频道设置 (信息/成员/公告/置顶)"
+                >
+                  <Users className="h-3 w-3" />
+                  {activeChannel.memberIds.length}
+                </button>
               </div>
             </header>
+
+            {/* Day 7: 公告条 (如果有) */}
+            {activeChannel.announcement && (
+              <div className="flex items-start gap-2 border-b border-amber-200/70 bg-amber-50/60 px-5 py-2 text-[12px] text-amber-900">
+                <Megaphone className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
+                <div className="min-w-0 flex-1">
+                  <span className="font-medium">公告:</span>{' '}
+                  <span className="whitespace-pre-wrap break-words line-clamp-2">
+                    {activeChannel.announcement}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowSettings(true)}
+                  className="text-[10px] text-amber-700 hover:underline shrink-0"
+                >
+                  详情
+                </button>
+              </div>
+            )}
+
+            {/* Day 7: 置顶消息条 (如果有) */}
+            {(activeChannel.pinnedMessageIds ?? []).length > 0 && (
+              <div className="border-b border-slate-200/70 bg-slate-50/60 px-5 py-1.5">
+                <button
+                  type="button"
+                  onClick={() => setShowSettings(true)}
+                  className="flex items-center gap-1.5 text-[11px] text-slate-600 hover:text-slate-900"
+                >
+                  <Pin className="h-3 w-3 text-amber-500" />
+                  {(activeChannel.pinnedMessageIds ?? []).length} 条置顶消息
+                </button>
+              </div>
+            )}
 
             <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4">
               {messages.length === 0 && (
@@ -523,8 +608,12 @@ export default function ImPage() {
                   key={m.id}
                   msg={m}
                   prev={messages[idx - 1] ?? null}
+                  members={members}
+                  isPinned={(activeChannel.pinnedMessageIds ?? []).includes(m.id)}
                   onSpawnRoom={() => spawnRoom(m.id)}
                   onPromote={() => promoteToMemory(m.id)}
+                  onRecall={() => recallMessageHandler(m.id)}
+                  onPin={() => togglePinHandler(m.id)}
                   onMentionPersona={(uid) => summonPersona(uid)}
                 />
               ))}
@@ -828,22 +917,51 @@ function formatRelative(iso: string): string {
 function MessageRow({
   msg,
   prev,
+  members,
+  isPinned,
   onSpawnRoom,
   onPromote,
+  onRecall,
+  onPin,
   onMentionPersona,
 }: {
   msg: Message;
   prev: Message | null;
+  members: ImMembership[];
+  isPinned: boolean;
   onSpawnRoom: () => void;
   onPromote: () => void;
+  onRecall: () => void;
+  onPin: () => void;
   onMentionPersona: (userId: string) => void;
 }) {
+  // Day 4: 已读人数 (除发送者外, lastReadAt > msg.createdAt 的成员)
+  const readers = members.filter(
+    (m) => m.userId !== msg.senderId && m.lastReadAt && new Date(m.lastReadAt) >= new Date(msg.createdAt)
+  );
+  const readerCount = readers.length;
+  const totalReaders = Math.max(0, members.length - 1); // 除发送者
+  const recallable =
+    !msg.deletedAt &&
+    msg.senderId === ME &&
+    Date.now() - new Date(msg.createdAt).getTime() < 2 * 60 * 1000;
   const showSender =
     !prev ||
     prev.senderId !== msg.senderId ||
     prev.senderKind !== msg.senderKind ||
     new Date(msg.createdAt).getTime() - new Date(prev.createdAt).getTime() >
       5 * 60 * 1000;
+
+  // Day 4: 撤回后显示占位
+  if (msg.deletedAt) {
+    return (
+      <div className="my-2 flex justify-center text-[11px]">
+        <div className="rounded-full border border-slate-200/70 bg-slate-50 px-3 py-1 text-slate-400 italic">
+          {msg.senderId === ME ? '你' : msg.senderId} 撤回了一条消息
+        </div>
+      </div>
+    );
+  }
 
   if (msg.senderKind === 'system') {
     return (
@@ -938,8 +1056,42 @@ function MessageRow({
               <Brain className="h-3 w-3" />
               沉淀
             </button>
+            {/* Day 7: pin/unpin */}
+            <button
+              type="button"
+              onClick={onPin}
+              className={`flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold shadow-md transition hover:shadow-lg ${
+                isPinned ? 'text-amber-700 ring-1 ring-amber-300/80 hover:bg-amber-50' : 'text-slate-600 ring-1 ring-slate-300/80 hover:bg-slate-50'
+              }`}
+              title={isPinned ? '取消置顶' : '置顶 (最多 5 条)'}
+            >
+              <Pin className="h-3 w-3" />
+              {isPinned ? '已顶' : '置顶'}
+            </button>
+            {/* Day 4: 撤回 (仅本人 + 2 分钟内) */}
+            {recallable && (
+              <button
+                type="button"
+                onClick={onRecall}
+                className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-rose-700 shadow-md ring-1 ring-rose-300/80 transition hover:bg-rose-50 hover:shadow-lg"
+                title="撤回 (2 分钟内 有效)"
+              >
+                <Trash2 className="h-3 w-3" />
+                撤回
+              </button>
+            )}
           </div>
         </div>
+        {/* Day 4: 已读人数 (仅我发的消息显示) */}
+        {msg.senderId === ME && totalReaders > 0 && (
+          <div className={`mt-1 text-[10px] text-slate-400 ${isMe ? 'text-right' : ''}`}>
+            {readerCount === 0
+              ? '未读'
+              : readerCount === totalReaders
+              ? '全部已读'
+              : `${readerCount}/${totalReaders} 已读`}
+          </div>
+        )}
         {/* spawned 状态 chip — 永久可见, 移到气泡下方独立行 (不再嵌进气泡). 比 inline link 更克制 */}
         {(msg.spawnedDecisionCardId || msg.spawnedPromotionId) && (
           <div

@@ -50,6 +50,9 @@ export async function GET(req: NextRequest, { params }: Params) {
       const unsubscribe = subscribeIm((evt) => {
         if (evt.type === 'message' && evt.channelId === channelId) {
           sendEvent('message', evt.message);
+        } else if (evt.type === 'message_updated' && evt.channelId === channelId) {
+          // Day 4: 撤回 / 编辑 推送
+          sendEvent('message_updated', evt.message);
         } else if (
           evt.type === 'unread_changed' &&
           evt.channelId === channelId &&
