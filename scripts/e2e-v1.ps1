@@ -182,6 +182,40 @@ try {
 } catch { Step '5 Persona progress' $false "ERR: $($_.Exception.Message)" }
 
 # ---------------------------------------------------------------------------
+# 5.5 Persona upgrade consent (Manifesto section 15 autonomy)
+#     Inject a synthetic upgrade_proposal growth area (simulates cron),
+#     then test DELETE dismiss path (safer than POST upgrade which mutates stage).
+# ---------------------------------------------------------------------------
+try {
+  $pe = Get-Json '/api/persona/demo-user/progress'
+  $personaId = $pe.persona.id
+  if (-not $personaId) {
+    Step '5.5a Persona upgrade consent seed' $false 'no persona for demo-user'
+  } else {
+    # inject a growth area via PATCH on /api/persona/[userId]
+    $growth = @{
+      id = "ga_e2e_$(Get-Date -Format yyyyMMddHHmmss)"
+      category = 'upgrade_proposal'
+      description = '[E2E] synthetic: assistant->deputy autonomy expansion'
+      identifiedAt = (Get-Date -Format 'yyyy-MM-ddTHH:mm:ssZ')
+      status = 'identified'
+    }
+    $allGrowths = @($pe.persona.growthAreas) + $growth
+    $patched = Send-Json "/api/persona/demo-user" @{ growthAreas = $allGrowths } 'PATCH'
+    $injected = $patched.persona.growthAreas | Where-Object { $_.category -eq 'upgrade_proposal' -and $_.status -eq 'identified' }
+    Step '5.5a Upgrade proposal injected' ($null -ne $injected) "growthAreas.count=$($patched.persona.growthAreas.Count)"
+
+    # DELETE dismisses (status -> dismissed). Safe: no stage change.
+    try {
+      $u = "$BaseUrl/api/tandem/persona/upgrade?personaId=$personaId"
+      $dismissRes = Invoke-RestMethod -Uri $u -Method DELETE
+      $dismissed = $dismissRes.persona.growthAreas | Where-Object { $_.category -eq 'upgrade_proposal' -and $_.status -eq 'dismissed' }
+      Step '5.5b Upgrade dismiss (DELETE)' ($null -ne $dismissed) "dismissedCount=$(@($dismissed).Count)"
+    } catch { Step '5.5b Upgrade dismiss' $false "ERR: $($_.Exception.Message)" }
+  }
+} catch { Step '5.5 Persona upgrade consent' $false "ERR: $($_.Exception.Message)" }
+
+# ---------------------------------------------------------------------------
 # 6. Convergence full lifecycle: start -> PICK -> COMMIT -> VETO
 #    (PRD section 8 acceptance steps 5/6/8)
 # ---------------------------------------------------------------------------

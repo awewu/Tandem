@@ -42,7 +42,16 @@ export interface GrowthArea {
   category: string;
   description: string;
   identifiedAt: string;
-  status: 'identified' | 'in_progress' | 'mastered';
+  /**
+   * identified: 初识别 (cron 或 AI 标注)
+   * in_progress: 员工正在改进
+   * mastered: 已达成
+   * addressed: 针对 upgrade_proposal 场景 — 员工已确认升级, 本条处理完毕
+   * dismissed: 针对 upgrade_proposal 场景 — 员工拒绝/推迟升级, 本条已撤销 (不再弹)
+   */
+  status: 'identified' | 'in_progress' | 'mastered' | 'addressed' | 'dismissed';
+  /** addressed/dismissed 的时间 (仅在 status 进入 terminal 状态时写入) */
+  addressedAt?: string;
 }
 
 export interface Persona {

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { StageProgressDashboard } from '@/components/persona/StageProgressDashboard';
 import { DelegationConsole, type DelegationSettings } from '@/components/persona/DelegationConsole';
+import { UpgradeProposalBanner } from '@/components/persona/UpgradeProposalBanner';
 import { Card, CardContent } from '@/components/ui/card';
 import type { StageProgress } from '@/lib/persona/learning-collector';
 import type { Persona } from '@/lib/types/persona';
@@ -33,6 +34,11 @@ export default function PersonaEvolutionPage() {
       <p className="text-sm text-muted-foreground">
         Tandem autonomy 守门: 任何升级与代行边界都由员工本人确认.
       </p>
+
+      {/* cron 识别的高风险升级提议 (assistant→deputy / deputy→partner) — 始终置顶 */}
+      {persona && (
+        <UpgradeProposalBanner persona={persona} onChanged={fetchProgress} />
+      )}
 
       <div className="flex gap-2 border-b">
         <TabBtn active={tab === 'progress'} onClick={() => setTab('progress')}>
