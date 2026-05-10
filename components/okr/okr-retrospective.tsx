@@ -105,9 +105,11 @@ function parse(text: string | undefined): { method: Methodology; fields: Structu
   const methodMatch = text.match(/<!-- methodology:(pdca|kiss|4l) -->/);
   const method: Methodology = (methodMatch?.[1] as Methodology) ?? '4l';
   const fields: StructuredFields = {};
-  const sectionMatches = [...text.matchAll(/^### (.+?)\n([\s\S]*?)(?=^### |$)/gm)];
+  // ES5 target - 用 exec 循环代替 [...matchAll] (避免 --downlevelIteration)
   const meta = METHODOLOGY_META[method];
-  for (const m of sectionMatches) {
+  const re = /^### (.+?)\n([\s\S]*?)(?=^### |$)/gm;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
     const label = m[1].trim();
     const value = m[2].trim();
     const sec = meta.sections.find((s) => label.startsWith(s.label.split(' ')[0]));
@@ -134,7 +136,7 @@ export function OKRRetrospective({ objectiveId }: Props) {
 
   if (!obj) return null;
 
-  const finalScore = calcObjectiveScore(obj, allKRs);
+  const finalScore = calcObjectiveScore(obj, allKRs).value;
   const meta = METHODOLOGY_META[method];
 
   const handleSave = () => {
