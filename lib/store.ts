@@ -419,6 +419,12 @@ export interface KNode {
   type: 'folder' | 'file';
   parentId: string | null;
   content?: string;
+  /**
+   * Q1 (2026-05-10) Memory ownership 4 级.
+   * 与 /memories (Tandem curated Memory) 同语义.
+   * undefined = 未分级, 在筛选 "全部" 时显示.
+   */
+  ownership?: 'company' | 'department' | 'team' | 'personal';
   createdAt: number;
 }
 

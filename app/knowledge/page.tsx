@@ -6,7 +6,25 @@ import { Textarea } from '@/components/ui/textarea';
 import { useKnowledgeStore, type KNode, useChatStore } from '@/lib/store';
 import { FileManager, type FMNode } from '@/components/file-manager';
 import { parseDocument, SUPPORTED_ACCEPT } from '@/lib/document-parser';
-import { Save, Download, ArrowRightLeft } from 'lucide-react';
+import { Save, Download, ArrowRightLeft, Building2, Users, User, Lock } from 'lucide-react';
+
+/**
+ * Q1 (2026-05-10) Memory ownership 4 级 — 给文档分级 (公司/部门/团队/个人).
+ * 与 /memories (curated Memory entries) 同一套语义.
+ *
+ * KNode.ownership 字段 (lib/store.ts) 已扩展, 向后兼容 (undefined = 未分级).
+ * Surgical add — 不重写已有 file-manager 流程.
+ */
+type OwnershipFilter = 'all' | 'company' | 'department' | 'team' | 'personal' | 'unset';
+type OwnershipLevel = NonNullable<KNode['ownership']>;
+
+const OWNERSHIP_META: Record<OwnershipLevel | 'unset', { label: string; icon: React.ElementType; tone: string }> = {
+  company:    { label: '公司',   icon: Building2, tone: 'bg-orange-100 text-orange-700' },
+  department: { label: '部门',   icon: Users,     tone: 'bg-blue-100 text-blue-700' },
+  team:       { label: '团队',   icon: Users,     tone: 'bg-cyan-100 text-cyan-700' },
+  personal:   { label: '个人',   icon: Lock,      tone: 'bg-slate-100 text-slate-700' },
+  unset:      { label: '未分级', icon: User,      tone: 'bg-muted text-muted-foreground' },
+};
 
 export default function KnowledgePage() {
   const { nodes, addNode, updateNode, deleteNode, deleteNodes, moveNodes } = useKnowledgeStore();
@@ -15,11 +33,20 @@ export default function KnowledgePage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
   const [uploadStatus, setUploadStatus] = useState('');
+  /** Q1 ownership 筛选 (默认 all) */
+  const [ownershipFilter, setOwnershipFilter] = useState<OwnershipFilter>('all');
+
+  /** 哪些 node 应被 ownership 筛选过滤掉 */
+  const isVisibleByOwnership = (k: KNode): boolean => {
+    if (ownershipFilter === 'all') return true;
+    if (ownershipFilter === 'unset') return !k.ownership;
+    return k.ownership === ownershipFilter;
+  };
 
   // 把 KNode 适配到 FMNode：modifiedAt 用 createdAt，size 用 content 字节数，ext 从文件名抽
   const fmNodes: FMNode[] = useMemo(
     () =>
-      nodes.map((k) => ({
+      nodes.filter(isVisibleByOwnership).map((k) => ({
         id: k.id,
         parentId: k.parentId,
         name: k.name,
@@ -27,10 +54,21 @@ export default function KnowledgePage() {
         modifiedAt: k.createdAt,
         size: k.content ? new Blob([k.content]).size : undefined,
         ext: k.type === 'file' ? (k.name.split('.').pop() || '').toLowerCase() : undefined,
-        meta: { content: k.content },
+        meta: { content: k.content, ownership: k.ownership },
       })),
-    [nodes]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [nodes, ownershipFilter]
   );
+
+  /** Ownership 计数 (用于 toolbar 徽章) */
+  const ownershipCounts = useMemo(() => {
+    const c = { all: nodes.length, company: 0, department: 0, team: 0, personal: 0, unset: 0 };
+    for (const n of nodes) {
+      if (!n.ownership) c.unset++;
+      else c[n.ownership]++;
+    }
+    return c;
+  }, [nodes]);
 
   const handleCreateFolder = (name: string, parentId: string) => {
     addNode({
@@ -172,6 +210,37 @@ export default function KnowledgePage() {
           </div>
         </div>
 
+        {/* Q1 ownership 选择器 */}
+        <div className="pt-2 border-t space-y-1.5">
+          <div className="text-xs font-medium">知识归属 (Memory ownership)</div>
+          <div className="flex flex-wrap gap-1">
+            {(['unset', 'company', 'department', 'team', 'personal'] as const).map((lvl) => {
+              const meta = OWNERSHIP_META[lvl];
+              const Icon = meta.icon;
+              const current = (k.ownership ?? 'unset') === lvl;
+              return (
+                <button
+                  key={lvl}
+                  onClick={() =>
+                    updateNode(k.id, {
+                      ownership: lvl === 'unset' ? undefined : (lvl as KNode['ownership']),
+                    })
+                  }
+                  className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] transition-colors ${
+                    current ? meta.tone + ' ring-1 ring-current' : 'bg-muted text-muted-foreground hover:bg-accent'
+                  }`}
+                >
+                  <Icon className="h-2.5 w-2.5" />
+                  {meta.label}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            企业/部门/团队/个人 4 级 · 与 /memories 同语义 · 影响 Persona 调用时的可见性
+          </p>
+        </div>
+
         {k.type === 'file' && (
           <>
             <div className="flex gap-1.5 pt-2 border-t">
@@ -240,15 +309,43 @@ export default function KnowledgePage() {
         onOpenFile={handleOpenFile}
         renderDetails={renderDetails}
         toolbarExtra={
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 text-xs ml-1"
-            onClick={deployHermesOutput}
-            title="把所有对话保存为 .md 到「Hermes产出」文件夹"
-          >
-            <ArrowRightLeft className="mr-1 h-3 w-3" /> 部署对话
-          </Button>
+          <>
+            {/* Q1 Ownership 筛选 */}
+            <div className="flex items-center gap-0.5 ml-1 border-l pl-1.5">
+              {(['all', 'company', 'department', 'team', 'personal', 'unset'] as const).map((f) => {
+                const isAll = f === 'all';
+                const meta = isAll ? null : OWNERSHIP_META[f];
+                const count = ownershipCounts[f as keyof typeof ownershipCounts];
+                const active = ownershipFilter === f;
+                const Icon = meta?.icon;
+                return (
+                  <button
+                    key={f}
+                    onClick={() => setOwnershipFilter(f)}
+                    title={isAll ? '全部' : meta!.label}
+                    className={`inline-flex items-center gap-0.5 rounded px-1.5 h-7 text-[11px] transition-colors ${
+                      active
+                        ? (meta?.tone ?? 'bg-foreground text-background') + ' ring-1 ring-current'
+                        : 'hover:bg-accent text-muted-foreground'
+                    }`}
+                  >
+                    {Icon && <Icon className="h-2.5 w-2.5" />}
+                    <span>{isAll ? '全部' : meta!.label}</span>
+                    <span className="opacity-70 tabular-nums">{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs ml-1"
+              onClick={deployHermesOutput}
+              title="把所有对话保存为 .md 到「Hermes产出」文件夹"
+            >
+              <ArrowRightLeft className="mr-1 h-3 w-3" /> 部署对话
+            </Button>
+          </>
         }
         statusBarExtra={uploadStatus ? <span>{uploadStatus}</span> : undefined}
       />
