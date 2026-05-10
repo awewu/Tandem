@@ -153,12 +153,14 @@ async function main() {
   // -------------------------------------------------------------------------
   // 步 2: owner 创建邀请码
   // -------------------------------------------------------------------------
+  // 邮箱加时间戳, 避免 in-memory store 跨次运行 409 email_taken
+  const aliceEmail = `alice-${Date.now()}@tandem.local`;
   let inviteCode = null;
   try {
     const r = await req('POST', '/api/auth/invite', {
       jar: ownerJar,
       body: {
-        email: 'alice@tandem.local',
+        email: aliceEmail,
         presetRoles: ['employee'],
         maxUses: 1,
         validHours: 24,
@@ -182,7 +184,7 @@ async function main() {
     const r = await req('POST', '/api/auth/register', {
       jar: aliceJar,
       body: {
-        email: 'alice@tandem.local',
+        email: aliceEmail,
         password: alicePassword,
         name: 'Alice',
         inviteCode,
@@ -203,7 +205,7 @@ async function main() {
     let lastCode = null;
     for (let i = 1; i <= 6; i++) {
       const r = await req('POST', '/api/auth/login', {
-        body: { email: 'alice@tandem.local', password: `wrong-pass-${i}` },
+        body: { email: aliceEmail, password: `wrong-pass-${i}` },
       });
       lastCode = r.json?.code;
       if (r.status === 423) { lockedStatus = r.status; break; }
