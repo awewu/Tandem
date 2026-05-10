@@ -32,6 +32,7 @@ import { OKRTemplatePicker } from '@/components/okr/okr-templates';
 import { OKRTrendChart } from '@/components/okr/okr-trend-chart';
 import { OKRHealthPanel } from '@/components/okr/okr-health-panel';
 import { OKRWatchers } from '@/components/okr/okr-watchers';
+import { OKRTtiPanel } from '@/components/okr/okr-tti-panel';
 import { checkQuality } from '@/lib/okr/quality';
 import { calcObjectiveScore } from '@/lib/okr/scoring';
 import { objectivePulse, pulseLabel, summarizePulses, CADENCE_LABEL } from '@/lib/okr/cadence';
@@ -147,7 +148,7 @@ export default function OKRPage() {
   // ===== 视图状态 =====
   const [selectedObjId, setSelectedObjId] = useState<string | null>(null);
   const [view, setView] = useState<'tree' | 'list'>('tree');
-  type DetailTab = 'overview' | 'initiatives' | 'comments' | 'activity' | 'scoring' | 'watchers' | 'trend';
+  type DetailTab = 'overview' | 'initiatives' | 'comments' | 'activity' | 'scoring' | 'watchers' | 'trend' | 'tti';
   const [detailTab, setDetailTab] = useState<DetailTab>('overview');
   const [showTemplates, setShowTemplates] = useState(false);
   const [showHealth, setShowHealth] = useState(false);
@@ -531,6 +532,7 @@ export default function OKRPage() {
             <DetailTabBtn active={detailTab === 'comments'} onClick={() => setDetailTab('comments')} icon={MessageSquare}>评论</DetailTabBtn>
             <DetailTabBtn active={detailTab === 'activity'} onClick={() => setDetailTab('activity')} icon={Activity}>动态</DetailTabBtn>
             <DetailTabBtn active={detailTab === 'trend'} onClick={() => setDetailTab('trend')} icon={TrendingUp}>趋势</DetailTabBtn>
+            <DetailTabBtn active={detailTab === 'tti'} onClick={() => setDetailTab('tti')} icon={Sparkles}>TTI + 月度</DetailTabBtn>
             <DetailTabBtn active={detailTab === 'scoring'} onClick={() => setDetailTab('scoring')} icon={Award}>评分</DetailTabBtn>
             <DetailTabBtn active={detailTab === 'watchers'} onClick={() => setDetailTab('watchers')} icon={Eye}>关注</DetailTabBtn>
           </div>
@@ -613,6 +615,15 @@ export default function OKRPage() {
                 })()}
               </div>
             </div>
+          )}
+
+          {/* ===== TTI + 月度 Tab (2026-05-10 增量补丁) ===== */}
+          {detailTab === 'tti' && (
+            <OKRTtiPanel
+              ownerId={selected.ownerId}
+              cycle={cycles.find((c) => c.id === selected.cycleId)}
+              keyResults={selectedKRs}
+            />
           )}
 
           {/* ===== 评分 Tab ===== */}
