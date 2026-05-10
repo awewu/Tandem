@@ -82,8 +82,10 @@ export interface Persona {
   dataOwnership: {
     /** 数据归公司 */
     companyOwnsData: true;
-    /** 员工尊严保障: 离职后画像匿名化 */
+    /** 员工尊严保障: 离职后画像匿名化 (true=未处理, false=已完成或无需) */
     anonymizationPending: boolean;
+    /** 已完成匿名化的时戳 (只有 admin anonymize 端点会写入) */
+    anonymizedAt?: string;
     /** 员工本人对个人原始 ORIGINS 的导出权 */
     employeeCanExportOrigins: true;
   };

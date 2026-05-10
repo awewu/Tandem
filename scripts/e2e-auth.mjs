@@ -137,11 +137,13 @@ async function main() {
   // 步 1: bootstrap owner 登录
   // -------------------------------------------------------------------------
   const ownerJar = makeJar();
+  let ownerUserId = null;
   try {
     const r = await req('POST', '/api/auth/login', {
       jar: ownerJar,
       body: { email: OWNER_EMAIL, password: OWNER_PASSWORD },
     });
+    ownerUserId = r.json?.userId ?? null;
     const ok = r.status === 200 && r.json?.ok === true && !!ownerJar.get('tandem_at');
     step('1 owner login (bootstrap)',
       ok,
@@ -304,6 +306,136 @@ async function main() {
       step('安全3d bad-totp-rejected', false, 'no pendingSessionId');
     }
   } catch (e) { step('安全3d bad-totp-rejected', false, `ERR ${e.message}`); }
+
+  // -------------------------------------------------------------------------
+  // Privacy §13 (data export + admin anonymize)
+  // -------------------------------------------------------------------------
+  try {
+    // Alice 自己导出 (she registered in step 3 and is still live under aliceJar,
+    // but her password was locked in security2 — use fresh owner-issued invite?
+    // Simpler: owner exports his own bundle using freshJar (already verified MFA).
+    const freshJar2 = makeJar();
+    const rLogin = await req('POST', '/api/auth/login', {
+      jar: freshJar2,
+      body: { email: OWNER_EMAIL, password: OWNER_PASSWORD },
+    });
+    if (rLogin.json?.pendingSessionId && ownerSecret) {
+      await req('POST', '/api/auth/mfa/verify', {
+        jar: freshJar2,
+        body: { pendingSessionId: rLogin.json.pendingSessionId, totpCode: totp(ownerSecret) },
+      });
+    }
+    const rExport = await req('GET', '/api/me/export', { jar: freshJar2 });
+    const hasBundle =
+      rExport.status === 200 &&
+      rExport.json?.schemaVersion === 'tandem.export.v1' &&
+      rExport.json?.profile?.email === OWNER_EMAIL;
+    step(
+      '§13.3 self-export bundle',
+      hasBundle,
+      `status=${rExport.status} schema=${rExport.json?.schemaVersion ?? '—'} email=${rExport.json?.profile?.email ?? '—'} dc=${rExport.json?.decisionCards?.length ?? 0} msgs=${rExport.json?.imMessagesSent?.length ?? 0}`
+    );
+  } catch (e) {
+    step('§13.3 self-export bundle', false, `ERR ${e.message}`);
+  }
+
+  // Admin anonymize — need to create a throwaway user first (owner creates invite + anonymous user registers).
+  try {
+    const adminJar = makeJar();
+    const rLogin = await req('POST', '/api/auth/login', {
+      jar: adminJar,
+      body: { email: OWNER_EMAIL, password: OWNER_PASSWORD },
+    });
+    if (rLogin.json?.pendingSessionId && ownerSecret) {
+      await req('POST', '/api/auth/mfa/verify', {
+        jar: adminJar,
+        body: { pendingSessionId: rLogin.json.pendingSessionId, totpCode: totp(ownerSecret) },
+      });
+    }
+
+    const victimEmail = `victim-${Date.now()}@tandem.local`;
+    const rInv = await req('POST', '/api/auth/invite', {
+      jar: adminJar,
+      body: {
+        email: victimEmail,
+        presetRoles: ['employee'],
+        maxUses: 1,
+        validHours: 1,
+        note: 'e2e-anonymize-victim',
+      },
+    });
+    const victimJar = makeJar();
+    const rReg = await req('POST', '/api/auth/register', {
+      jar: victimJar,
+      body: {
+        email: victimEmail,
+        password: 'V1ct1m!Solid-Nebula-2026',
+        name: 'Victim',
+        inviteCode: rInv.json?.code,
+      },
+    });
+    const victimId = rReg.json?.userId;
+    step(
+      '§13.2 anonymize: victim created',
+      !!victimId,
+      `victimId=${victimId ?? '—'} regStatus=${rReg.status}`
+    );
+
+    if (victimId) {
+      // admin triggers anonymize
+      const rAnon = await req('POST', `/api/admin/users/${victimId}/anonymize`, {
+        jar: adminJar,
+        body: {},
+      });
+      const anonOk =
+        rAnon.status === 200 &&
+        rAnon.json?.ok === true &&
+        /^anon-[0-9a-f]+@anonymized\.local$/.test(rAnon.json?.anonEmail ?? '');
+      step(
+        '§13.2 anonymize: auth user scrubbed',
+        anonOk,
+        `status=${rAnon.status} anonEmail=${rAnon.json?.anonEmail ?? '—'} sessionsRevoked=${rAnon.json?.sessionsRevoked}`
+      );
+
+      // Idempotency: second call returns 409
+      const rAnon2 = await req('POST', `/api/admin/users/${victimId}/anonymize`, {
+        jar: adminJar,
+        body: {},
+      });
+      step(
+        '§13.2 anonymize: idempotent (second call 409)',
+        rAnon2.status === 409,
+        `status=${rAnon2.status} err=${rAnon2.json?.error ?? '—'}`
+      );
+
+      // Victim's revoked session cannot login
+      const rLoginRevoked = await req('POST', '/api/auth/login', {
+        body: { email: victimEmail, password: 'V1ct1m!Solid-Nebula-2026' },
+      });
+      const loginBlocked =
+        rLoginRevoked.status === 401 || rLoginRevoked.status === 403 || rLoginRevoked.status === 423;
+      step(
+        '§13.2 anonymize: old credentials rejected',
+        loginBlocked,
+        `status=${rLoginRevoked.status} code=${rLoginRevoked.json?.code ?? '—'}`
+      );
+
+      // Self-denial: owner cannot anonymize themselves
+      if (ownerUserId) {
+        const rSelf = await req('POST', `/api/admin/users/${ownerUserId}/anonymize`, {
+          jar: adminJar,
+          body: {},
+        });
+        step(
+          '§13.2 anonymize: self-anonymize blocked',
+          rSelf.status === 400,
+          `status=${rSelf.status} err=${rSelf.json?.error ?? '—'}`
+        );
+      }
+    }
+  } catch (e) {
+    step('§13.2 anonymize flow', false, `ERR ${e.message}`);
+  }
 
   // -------------------------------------------------------------------------
   // summary
