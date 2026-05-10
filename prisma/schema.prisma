@@ -301,7 +301,10 @@ model Material {
   originRefs    String[] @default([])
   participants  String[] @default([])
   visibility    String   // public | team | private
-  embedding     Unsupported("vector(1536)")?  // pgvector
+  // embedding (vector(1536)) — V2 retriever 启用. 需先装 pgvector 扩展:
+  //   CREATE EXTENSION IF NOT EXISTS vector;
+  // 然后取消下面注释 + npm run db:migrate
+  // embedding     Unsupported("vector(1536)")?
   createdById   String
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -322,7 +325,7 @@ model MemoryEntry {
   sourceMaterialId  String?
   signers           Json     // MemorySigner[]
   publicReviewUntil DateTime?
-  embedding         Unsupported("vector(1536)")?
+  // embedding         Unsupported("vector(1536)")?  // V2 retriever, 同 Material
   referenceCount    Int      @default(0)
   lastReferencedAt  DateTime?
   supersedes        String?

@@ -20,3 +20,4 @@ src-tauri/gen/
 
 # TS build cache
 tsconfig.tsbuildinfo
+.env.local.bak-pre-*
