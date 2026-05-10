@@ -35,6 +35,10 @@ export interface StartConvergenceInput {
   title: string;
   description: string;
   ownerId: string;
+  /** Q2 KR 软绑定: 主 KR (默认路径) */
+  primaryKrId?: string;
+  /** Q2 escape hatch: 未选 KR 时必填理由 (≥ 10 字符) */
+  noKrReason?: string;
   relatedKr?: string[];
   relatedTti?: string[];
   materialRefs?: string[];
@@ -56,6 +60,8 @@ export class ConvergenceOrchestrator {
     const cardId = generateId('dc');
 
     // 1. 创建 DecisionCard (DIVERGE 状态)
+    //    Q2: primaryKrId / noKrReason 不变量 由 API 层 validateKrBinding() 守门.
+    //    到这里 可信任 那对双胞胎 恰一个非空.
     const card: DecisionCard = {
       id: cardId,
       schemaVersion: 'tandem.v1',
@@ -63,6 +69,8 @@ export class ConvergenceOrchestrator {
       decisionClass: 'simple',
       convergenceState: 'DIVERGE',
       elapsedSeconds: 0,
+      primaryKrId: input.primaryKrId,
+      noKrReason: input.noKrReason,
       relatedKr: input.relatedKr,
       relatedTti: input.relatedTti,
       materialRefs: input.materialRefs,

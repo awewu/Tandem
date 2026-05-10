@@ -216,15 +216,87 @@ try {
 } catch { Step '5.5 Persona upgrade consent' $false "ERR: $($_.Exception.Message)" }
 
 # ---------------------------------------------------------------------------
+# 6KR. Q2 KR-binding validator (PRODUCT-DEFINITION decision #2):
+#      DC create requires (primaryKrId XOR noKrReason >= 10 chars).
+#      5 cases: missing-both / reason-too-short / both-present / valid-reason / valid-kr
+# ---------------------------------------------------------------------------
+
+function Try-Post-Convergence {
+  param(
+    [Parameter(Mandatory=$true)] [hashtable]$Body,
+    [Parameter(Mandatory=$true)] [int]$ExpectStatus,
+    [string]$ExpectCode = $null
+  )
+  # PS 5.1 compat: -SkipHttpErrorCheck is PS7+. Catch the WebException to read 4xx.
+  $bytes = $utf8.GetBytes(($Body | ConvertTo-Json -Compress -Depth 10))
+  $statusCode = -1
+  $j = $null
+  try {
+    $r = Invoke-WebRequest -Uri "$BaseUrl/api/convergence" -Method POST `
+      -ContentType 'application/json; charset=utf-8' -Body $bytes `
+      -UseBasicParsing -ErrorAction Stop
+    $statusCode = [int]$r.StatusCode
+    $j = $r.Content | ConvertFrom-Json
+  } catch [System.Net.WebException] {
+    $resp = $_.Exception.Response
+    if ($resp) {
+      $statusCode = [int]$resp.StatusCode
+      try {
+        $sr = New-Object System.IO.StreamReader $resp.GetResponseStream()
+        $bodyText = $sr.ReadToEnd()
+        $sr.Close()
+        if ($bodyText) { $j = $bodyText | ConvertFrom-Json }
+      } catch { }
+    }
+  } catch {
+    # Other error (e.g. parser) - leave statusCode=-1
+  }
+  return @{
+    status = $statusCode
+    code   = $j.code
+    cardId = $j.cardId
+    ok     = ($statusCode -eq $ExpectStatus -and ((-not $ExpectCode) -or $j.code -eq $ExpectCode))
+  }
+}
+
+# 6KR-1: missing both -> 400 missing_both
+$bodyMissing = @{ title='[E2E-KR] missing both'; ownerId='demo-user' }
+$res = Try-Post-Convergence -Body $bodyMissing -ExpectStatus 400 -ExpectCode 'missing_both'
+Step '6KR-1 missing-both rejected' $res.ok "status=$($res.status) code=$($res.code) (expect 400 missing_both)"
+
+# 6KR-2: noKrReason too short -> 400 reason_too_short
+$bodyShort = @{ title='[E2E-KR] short reason'; ownerId='demo-user'; noKrReason='x' }
+$res = Try-Post-Convergence -Body $bodyShort -ExpectStatus 400 -ExpectCode 'reason_too_short'
+Step '6KR-2 short-reason rejected' $res.ok "status=$($res.status) code=$($res.code) (expect 400 reason_too_short)"
+
+# 6KR-3: both present -> 400 both_present
+$bodyBoth = @{ title='[E2E-KR] both present'; ownerId='demo-user'; primaryKrId='kr-test-id'; noKrReason='both KR and reason filled - conflict, should reject' }
+$res = Try-Post-Convergence -Body $bodyBoth -ExpectStatus 400 -ExpectCode 'both_present'
+Step '6KR-3 both-present rejected' $res.ok "status=$($res.status) code=$($res.code) (expect 400 both_present)"
+
+# 6KR-4: valid noKrReason -> 200, cardId returned
+$bodyReasonOk = @{ title='[E2E-KR] valid escape reason'; ownerId='demo-user'; noKrReason='cross-team brainstorm session, no KR alignment yet by design' }
+$res = Try-Post-Convergence -Body $bodyReasonOk -ExpectStatus 200
+Step '6KR-4 valid-reason accepted' ($res.ok -and $res.cardId) "status=$($res.status) cardId=$($res.cardId)"
+
+# 6KR-5: valid primaryKrId -> 200, cardId returned
+$bodyKrOk = @{ title='[E2E-KR] valid kr binding'; ownerId='demo-user'; primaryKrId='kr-q2-tandem-launch-x' }
+$res = Try-Post-Convergence -Body $bodyKrOk -ExpectStatus 200
+Step '6KR-5 valid-kr accepted' ($res.ok -and $res.cardId) "status=$($res.status) cardId=$($res.cardId)"
+
+# ---------------------------------------------------------------------------
 # 6. Convergence full lifecycle: start -> PICK -> COMMIT -> VETO
 #    (PRD section 8 acceptance steps 5/6/8)
 # ---------------------------------------------------------------------------
 $cardId = $null
 try {
+  # Q2 KR soft-binding: must provide either primaryKrId or noKrReason (>=10 chars).
+  # Use noKrReason since seeded KRs may not be addressable in dev.
   $cv = Send-Json '/api/convergence' @{
     title = '[E2E] should we cut V1 GA from 14 months to 12?'
     description = 'Trade-off: faster GA vs. unfinished compliance review.'
     ownerId = 'demo-user'
+    noKrReason = '[E2E] strategic re-baseline question, no specific KR target yet'
   }
   $cardId = $cv.cardId
   $hasOpts = ($cv.step -eq 'DIVERGE')

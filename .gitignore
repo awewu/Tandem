@@ -25,3 +25,5 @@ tsconfig.tsbuildinfo
 # PowerPoint lock files
 ~$*.pptx
 ~$*.docx
+
+.env.local.inmem

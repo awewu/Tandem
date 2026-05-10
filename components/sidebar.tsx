@@ -69,7 +69,7 @@ const NAV: NavGroup[] = [
     label: '事半 · 企业',
     emoji: '📊',
     items: [
-      { name: 'OKR 5 层', href: '/okr', icon: Target },
+      { name: 'OKR 5 层', href: '/okr/cascade', icon: Target },
       { name: '议事室', href: '/convergence', icon: Sparkles, badge: '17min' },
       { name: 'IM 协同', href: '/im', icon: MessagesSquare },
       { name: 'Memory 知识', href: '/memories', icon: Brain },

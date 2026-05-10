@@ -36,6 +36,42 @@ async function getPrisma(): Promise<PrismaClientType> {
   }
 }
 
+/**
+ * 域对象 ↔ Prisma 表的边界适配.
+ *
+ * 1. RELATION_FIELDS_TO_STRIP — 域对象有但 Prisma 是 relation (不是 column),
+ *    比如 DecisionCard.actionItems / initiatives. Prisma create 时不能传
+ *    普通数组, 必须用 { create: [...] } 嵌套语法. 这里直接剥掉, 由业务层
+ *    另外调对应 repo 创建.
+ *
+ * 2. FIELD_RENAMES — 域对象字段名 → Prisma 列名映射. 比如域里写
+ *    createdBy: 'user_xxx' (字符串, 直接是用户 ID), Prisma schema 里这列叫
+ *    createdById (column), 加上 createdBy (relation pointer). 写入时改名.
+ *    读取时不改 (Prisma 返回 createdById, 业务读时按需改).
+ */
+const RELATION_FIELDS_TO_STRIP: Record<string, string[]> = {
+  decisionCard: ['actionItems', 'initiatives'],
+};
+
+const FIELD_RENAMES: Record<string, Record<string, string>> = {
+  decisionCard: {
+    createdBy: 'createdById',
+    selectedBy: 'selectedById',
+  },
+};
+
+function adaptForPrisma(tableName: string, data: any): any {
+  const drop = RELATION_FIELDS_TO_STRIP[tableName] ?? [];
+  const renames = FIELD_RENAMES[tableName] ?? {};
+  const out: any = {};
+  for (const [k, v] of Object.entries(data)) {
+    if (drop.includes(k)) continue;
+    const newKey = renames[k] ?? k;
+    out[newKey] = v;
+  }
+  return out;
+}
+
 class PrismaRepository<T extends { id: string }> implements Repository<T> {
   constructor(private readonly tableName: string) {}
 
@@ -53,13 +89,16 @@ class PrismaRepository<T extends { id: string }> implements Repository<T> {
 
   async create(data: Omit<T, 'id'> & { id?: string }): Promise<T> {
     const p = await getPrisma();
-    const row = await p[this.tableName].create({ data });
+    const row = await p[this.tableName].create({ data: adaptForPrisma(this.tableName, data) });
     return row as T;
   }
 
   async update(id: string, data: Partial<T>): Promise<T> {
     const p = await getPrisma();
-    const row = await p[this.tableName].update({ where: { id }, data });
+    const row = await p[this.tableName].update({
+      where: { id },
+      data: adaptForPrisma(this.tableName, data),
+    });
     return row as T;
   }
 
