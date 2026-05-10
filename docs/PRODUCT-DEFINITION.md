@@ -35,7 +35,7 @@
 
 ---
 
-## 2. 锁定的 6 项核心决策 (本次会话)
+## 2. 锁定的 9 项核心决策 (本次会话)
 
 | # | 维度 | 决策 |
 |---|---|---|
@@ -44,29 +44,87 @@
 | 3 | IM 范围 | 文本 IM ✅ + **音视频会议 + 文件存储 + 协同文档** (LiveKit/腾讯 + MinIO + Univer/Tiptap) |
 | 4 | Persona 模型架构 | **双层**: Persona = **本地 Hermes** / 中央 AI = **云 DeepSeek** |
 | 5 | OKR 追踪深度 | **重型 5 层**: O → KR → Initiative → DC → ActionItem + AI 滞后预警 |
-| 6 | V1 GA 时间线 | **严格 6-7 个月**, 完整覆盖上述 5 项决策, 一次性交付 |
+| 6 | V1 GA 时间线 | **7-7.5 个月** (原 6-7 月 + 新加 3 项扩到 7.5 月) |
+| 7 | 邮件存证回路 | **完整双向**: 入站 (IMAP) + 出站 (12 事件) + 邮件归档 hash 入审计 |
+| 8 | 日报 ↔ OKR 闭环 | **5 分钟极简日报**, AI 预填 80%, AP 反向强推, 自动算 KR 进度 (反虚报) |
+| 9 | 三层 Dashboard | 个人 / 主管 / 老板 (Champion) 三套, AI 聚合关键信号 |
 
 ---
 
 ## 3. 事半模块 (企业级) · 4 大功能区
 
-### 3.1 OKR 重型 5 层
+### 3.1 OKR 重型 5 层 + 日报闭环 + Dashboard
+
+#### 3.1.1 OKR 5 层结构
 
 ```
 Objective (年度 / 公司或部门)
   └─ KR (季度 / 可量化)
        ├─ Initiative (跨季度举措)
        ├─ DecisionCard (议事决议, 17min 闭环)
-       └─ ActionItem (任务追踪)
+       └─ ActionItem / AP (任务追踪 + 截止日)
 ```
 
-**周边**:
-- 1on1 + 周报 + 季度 review
-- 9 宫格 (KPI × TTI 双轨)
-- AI 滞后预警 (KR 进度 < 时间进度的 70% 时主动推选项)
+#### 3.1.2 周边: 1on1 / 周报 / 季度 review / 9 宫格 / AI 滞后预警
 
-**北极星指标更新**:
-> 每个决议平均成交 ≤ 17min · 否决率 ≤ 15% · D 选项率 ≥ 20% · **KR 绑定率 ≥ 95%**
+- KR 进度 < 时间进度 70% → AI 主动给 KR owner 推 3 个推进选项
+- 季末前 2 周自动启动 review
+
+#### 3.1.3 ★ 5 分钟极简日报 ↔ OKR 双向闭环 (新加)
+
+**Flow1 · 日报 → OKR 自动同步 (反虚报)**
+
+员工不填"完成度 %", 系统从今日产出**自动算**:
+- COMMIT 的 DC 数 → 关联的 KR 推进
+- 交付的 AP → ActionItem 完成
+- IM 高价值消息 → Material 候选
+
+**Flow2 · OKR AP → 日报模板反向强推**
+
+日报模板每天**自动列出**:
+- 截止前 1 天的 AP → 强制填"今天怎么推进?"
+- 已逾期 AP → 强制填"为什么延期?"
+- 写不出来 / 留白超 24h → 自动 ESCALATE 给主管
+
+**Flow3 · 日报 → Material → Memory**
+
+日报 IM 风格内容沉淀, AI 周末扫高价值条目入 Memory promotion 队列.
+
+**Flow4 · 5 分钟硬上限 UX**
+
+```
+┌─ 今日总结 (倒计时 5min, 超时自动收) ─────┐
+│  📌 完成 (AI 草稿 80%, 你只核对)         │
+│  🚧 卡点 (你必须自写 ≥1 句)               │
+│  📅 明日计划 (系统列出 AP, 你勾选)        │
+│  ⏱️ 3:42 / 5:00    [发送] [明早补]        │
+└──────────────────────────────────────────┘
+```
+
+#### 3.1.4 ★ 三层 Dashboard (新加)
+
+**个人仪表盘 (员工)**
+- 今日: 待办 AP / 进行中议事 / 待回邮件
+- 本周: 我贡献的 KR / 我的 D 选项率 / 否决率
+- 本月: TTI 成长热点 / Persona 学到的新风格
+- 季度: 9 宫格我在哪 / KR 完成度 / 1on1 摘要
+
+**主管仪表盘**
+- 团队 KR 红绿灯 + AI 滞后预警
+- 团队成员日报摘要 (AI 聚合, 不是逐字读)
+- AP 卡点热力图
+- 团队 D 选项率 / 否决率分布
+
+**老板仪表盘 (Champion)**
+- 全公司 OKR 树状图 (O→KR→Initiative→DC)
+- 9 宫格 (KPI×TTI)
+- Memory 健康 (升降级速率/引用率)
+- Persona 进化全员热图
+- §13 4 项尊严合规仪表 (导出/匿名化/否决/拒签 计数)
+
+#### 3.1.5 北极星指标更新
+
+> 每决议平均成交 ≤ 17min · 否决率 ≤ 15% · D 选项率 ≥ 20% · **KR 绑定率 ≥ 95%** · **日报完成率 ≥ 90%** · **5min 内完成率 ≥ 80%**
 
 ### 3.2 议事室 (Convergence)
 
@@ -80,7 +138,7 @@ Objective (年度 / 公司或部门)
 | 频道 + 私聊 + 群 | ✅ V1 已有 | 现有 `app/im/*` |
 | 一键开议事 + 沉 Memory | ✅ V1 已有 | spawn-room + promote-to-memory |
 | @中央 AI / @个人 Persona | ✅ V1 已有 | DeepSeek 流式 |
-| **音视频会议** | ★ V1 GA 加 | LiveKit 自部署 (主) + 腾讯会议 ISV (辅) |
+| **音视频会议** | ★ V1 GA 加 |  + 腾讯会议 ISV (API打通调用，员工账号和个人AI均可参会会议) |
 | **文件存储** | ★ V1 GA 加 | MinIO (AGPL, 走法务) |
 | **协同文档** | ★ V1 GA 加 | Univer (表格) + Tiptap+Yjs (富文本) |
 
@@ -88,6 +146,51 @@ Objective (年度 / 公司或部门)
 
 `Origins → Materials → Memory → Baseline`, 三级签批 (Lv1/Lv2/Lv3) + AI 反向降级 (引用率扫描).
 **新增重点**: Baseline (公司基线) 由**中央 AI 拦截器**强注入到所有个人 Persona 调用, **防止个人 AI 跑偏**.
+
+### 3.5 ★ 邮件存证回路 (新加)
+
+#### 3.5.1 入站 (U1) · 员工→系统 · 邮件作为法律级存证
+
+```
+员工/客户/合作方 ─ SMTP ─►  企业邮箱 ─ IMAP ─► Tandem
+                                                 │
+                                  ┌──────────────┼──────────────┐
+                                  ▼              ▼              ▼
+                              Material       DC.originRefs   Memory promotion
+                            (附件入 MinIO)   (按抄送号关联)   (主题前缀触发)
+```
+
+支持邮箱: Exchange / Office 365 / Gmail Workspace / 腾讯企业邮 / 阿里企业邮.
+
+主题前缀约定:
+- `[Tandem-DC#xxx]` → 关联到议事室
+- `[Tandem-KR#xxx]` → 关联到 KR
+- `[Tandem-Memory]` → 直接进 Memory promotion 队列
+
+#### 3.5.2 出站 (U2) · 系统→员工 · 12 个事件邮件
+
+| # | 触发 | 收件人 | 时机 |
+|---|---|---|---|
+| 1 | DC COMMIT | 全参与者 | 立即 |
+| 2 | DC VETOED | 全参与者 | 立即 |
+| 3 | DC 24h 否决窗口最后 1h | 全参与者 | 1h 前 |
+| 4 | KR 周进度 | KR owner + 主管 | 每周一 |
+| 5 | KR 滞后预警 | KR owner | AI 扫到时 |
+| 6 | 季度 review 启动 | 全员 | 季末前 2 周 |
+| 7 | Persona 升阶提议 | 员工本人 | 满足条件时 |
+| 8 | Memory 升级公示开始 | 利益相关方 | 立即 |
+| 9 | Memory 降级评估 | Steward | AI 扫到时 |
+| 10 | Steward SLA 即将逾期 | Steward + 治理委员会 | 24h 前 |
+| 11 | 邀请码生成 | 被邀员工 | 立即 |
+| 12 | 安全事件 (异常登录/MFA/锁定) | 员工本人 + admin | 立即 |
+
+#### 3.5.3 邮件归档 + 合规
+
+- 所有进出邮件 hash 链入审计 (§13 不可篡改)
+- 个人邮件可在自助导出 bundle 里 (§13.3)
+- 离职 anonymize 时邮件正文 PII 脱敏 (§13.2)
+- DKIM / SPF / DMARC 全配 (反钓鱼 + 反伪装 Tandem)
+- 退订链接 (营销类邮件, 安全类不可退订)
 
 ---
 
@@ -175,7 +278,7 @@ bossCaptureScore (0 → 100)
 
 ---
 
-## 6. V1 GA 时间线 (锁定 6-7 个月)
+## 6. V1 GA 时间线 (锁定 7 个月, 新加 3 项后)
 
 ```
 Month 0 (现在)        V1 PoC 完成 · 50/50 e2e PASS
@@ -183,41 +286,59 @@ Month 0 (现在)        V1 PoC 完成 · 50/50 e2e PASS
                      · Pilot 文档 + Pitch Deck 就绪
                      · Prisma migrate 实跑 OK
 
-Month 1 - 2          E1.x 重型 OKR
-                     · Initiative 实体 + UI
-                     · 1on1 / 周报 / 季度 review
-                     · AI 滞后预警 cron
-                     · 9 宫格升级 (含 Initiative 维度)
+Month 1              E1.1-E1.2 OKR 5 层骨架 + KR 软绑定
+                     · Initiative 实体 + 5 层级联 UI
+                     · DC 创建器加 KR 选择 + escape hatch 理由
+                     · Schema migration
 
-Month 2 - 3          E2.3 KR 软绑定 + E0.5 中央 AI 拦截器
-                     · DC 创建 UI 加 KR 选择器
-                     · escape hatch 理由强制
-                     · LLM 中间件层加 Baseline + Memory 强注入
+Month 2              E1.3 日报闭环 + E0.5 中央 AI 拦截器
+                     · 5min 日报 UI + AI 草稿生成
+                     · AP 反向强推 + 24h ESCALATE
+                     · LLM 中间件 Baseline + Memory 强注入
                      · /admin/baseline 配置页
 
-Month 3 - 4          E3.4 / E3.5 / E3.6 IM 升级
-                     · LiveKit 自部署 + 通话 UI
+Month 3              E1.4 三层 Dashboard + AI 滞后预警
+                     · 个人/主管/老板 三套仪表盘
+                     · KR 进度自动算 + AI 预警 cron
+                     · 周报 + 季度 review 模板
+
+Month 4              E3.4-E3.6 IM 企微级 (会议 + 文件 + 文档)
+                     · LiveKit 自部署 + 腾讯会议 ISV API + 通话 UI
                      · MinIO 文件库 + 频道附件
                      · Univer 表格 + Tiptap 富文本
 
-Month 4 - 5          P1 个人 AI 双层架构
-                     · Hermes 量化模型部署 SOP (Ollama)
-                     · GPU 资源探针 + 路由策略
+Month 5              P1 个人 AI 双层 + E5 邮件存证回路
+                     · Hermes 量化模型 SOP (Ollama / vLLM)
+                     · GPU 资源探针 + 双层路由策略
                      · 离线模式
-                     · /persona 设置页加"模型选择"
+                     · IMAP 入站 + SMTP 出站 + 12 事件模板
+                     · DKIM/SPF/DMARC 配置
 
-Month 5 - 6          法务 + 合规 + 性能
-                     · AGPL 法务 review (Cal.com / MinIO)
+Month 6              法务 + 合规 + 性能
+                     · AGPL 法务 review (Cal.com / MinIO / Univer)
                      · 等保二级评估提交
                      · 性能压测 (并发议事室 100 → 1000)
                      · 渗透测试
 
-Month 6 - 7          GA 准备
+Month 7              GA 准备 + 友好客户 Pilot
                      · docker-compose.tandem.yml 全栈烟测
                      · 客户成功 SOP + Steward 培训课
                      · 第一批 3 家友好客户跑过 7 天 Pilot
                      · GA 上线
 ```
+
+### 6.1 工期分解
+
+| 模块 | 工期 | Month |
+|---|---|---|
+| OKR 5 层骨架 + KR 软绑定 | 4 周 | M1 |
+| 日报闭环 + 中央 AI 拦截器 | 4 周 | M2 |
+| 三层 Dashboard + 预警 | 4 周 | M3 |
+| IM 升级 (会议/文件/文档) | 4 周 | M4 |
+| Persona 双层 + 邮件回路 | 4 周 | M5 |
+| 法务 + 合规 + 性能 | 4 周 | M6 |
+| GA + Pilot | 4 周 | M7 |
+| **合计** | **28 周 (~7 个月)** | |
 
 ---
 
