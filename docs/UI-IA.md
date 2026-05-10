@@ -181,33 +181,204 @@
 
 ---
 
-## 5. 设计语言 (从 `app/design/page.tsx` 整理)
+## 5. 设计语言 (Apple + Microsoft 级别)
 
-### 5.1 配色
+> **基准**: 苹果 Human Interface Guidelines + 微软 Fluent UI 2 + Vercel Geist + Linear / Notion 现代美学.
+> **核心原则**: 大气 / 整洁 / 精确 / 留白 / 语义化动效.
 
-| 用途 | 颜色 | Tailwind |
+### 5.1 配色 (Semantic Tokens)
+
+> 不直接用 Tailwind 色, 全部走 CSS 变量, dark mode 自动切换.
+
+```css
+/* lib/design/tokens.css */
+:root {
+  /* 品牌 (Tandem Orange, 致敬日出 = 北极星) */
+  --brand-50:  #fff7ed;
+  --brand-500: #f97316;  /* 主品牌 */
+  --brand-600: #ea580c;  /* hover */
+  --brand-900: #7c2d12;
+
+  /* 中性 (Apple System Gray) */
+  --bg-primary:    #ffffff;     /* 主背景 */
+  --bg-secondary:  #fafafa;     /* 次背景 (卡片底) */
+  --bg-tertiary:   #f4f4f5;     /* 三级 (input) */
+  --bg-elevated:   rgba(255,255,255,0.72);  /* 玻璃拟态 */
+
+  --fg-primary:    #09090b;     /* 主文字 */
+  --fg-secondary:  #52525b;     /* 次文字 (描述) */
+  --fg-tertiary:   #a1a1aa;     /* 三级 (placeholder) */
+
+  --border-subtle:  #e4e4e7;
+  --border-default: #d4d4d8;
+  --border-strong:  #a1a1aa;
+
+  /* 语义 */
+  --semantic-success: #10b981;  /* COMMIT/绿区 */
+  --semantic-warning: #f59e0b;  /* 黄区/SLA 即将逾期 */
+  --semantic-danger:  #ef4444;  /* 红区/否决/已逾期 */
+  --semantic-info:    #3b82f6;  /* 中性提示 */
+
+  /* Persona 进化 (从 🥚 到 🐉 的渐变) */
+  --persona-newborn:    #fef3c7;
+  --persona-apprentice: #c7d2fe;
+  --persona-assistant:  #a5f3fc;
+  --persona-deputy:     #fde68a;  /* 黄区警示 */
+  --persona-partner:    #fbcfe8;  /* 红区警示 */
+}
+
+[data-theme="dark"] {
+  --bg-primary:    #09090b;
+  --bg-secondary:  #18181b;
+  --bg-tertiary:   #27272a;
+  --bg-elevated:   rgba(24,24,27,0.72);
+  --fg-primary:    #fafafa;
+  --fg-secondary:  #a1a1aa;
+  --fg-tertiary:   #71717a;
+  --border-subtle: #27272a;
+  --border-default:#3f3f46;
+}
+```
+
+### 5.2 字体 (Apple SF Pro / Microsoft Segoe / 中文 PingFang)
+
+```css
+font-family:
+  'SF Pro Text', -apple-system, BlinkMacSystemFont,
+  'Segoe UI Variable', 'Segoe UI',
+  'PingFang SC', 'Microsoft YaHei', 'Source Han Sans',
+  Inter, system-ui, sans-serif;
+
+font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'ss01';
+text-rendering: optimizeLegibility;
+-webkit-font-smoothing: antialiased;
+```
+
+**字号阶梯** (Apple Type Scale):
+
+| 用途 | px | tailwind | 行高 |
+|---|---|---|---|
+| Display (首页 hero) | 56 | `text-6xl` | 1.05 |
+| Title 1 | 36 | `text-4xl` | 1.1 |
+| Title 2 (页标题) | 28 | `text-3xl` | 1.2 |
+| Title 3 (区标题) | 22 | `text-2xl` | 1.25 |
+| Headline (卡片) | 18 | `text-lg font-semibold` | 1.3 |
+| Body (正文) | 15 | `text-[15px]` | 1.5 |
+| Caption (元信息) | 13 | `text-[13px]` | 1.4 |
+| Footnote | 12 | `text-xs` | 1.3 |
+
+### 5.3 间距 (8pt Grid System · Apple/Material 共识)
+
+```
+所有间距是 4 的倍数, 主要用 8 / 16 / 24 / 32 / 48 / 64
+Tailwind: 1=4px / 2=8px / 4=16px / 6=24px / 8=32px / 12=48px / 16=64px
+```
+
+| 用途 | px | tailwind |
 |---|---|---|
-| 主色 (品牌) | 橙色 | `orange-500` `orange-600` |
-| 次色 (强调) | 琥珀 | `amber-500` |
-| 危险 (红区/否决) | 红 | `rose-500` `red-600` |
-| 警告 (黄区/降级) | 黄 | `yellow-500` |
-| 成功 (绿区/COMMIT) | 绿 | `emerald-500` |
-| 中性 (背景) | 灰 | `slate-50` `slate-100` `slate-900` |
-| 突出 (Persona 进化) | 紫 | `purple-500` `fuchsia-500` |
+| 紧贴 (icon-text gap) | 4 | `gap-1` |
+| 列表项间距 | 8 | `gap-2` |
+| 卡片内边距 | 16 / 24 | `p-4` / `p-6` |
+| 段落间距 | 24 / 32 | `space-y-6` / `space-y-8` |
+| 区块间距 | 48 | `space-y-12` |
+| 页边距 (max-width 1200) | 64 | `px-16` |
 
-### 5.2 字体 / 间距 / 阴影
+### 5.4 圆角 / 阴影 / 玻璃拟态
 
-- 中文: `PingFang SC` / `Microsoft YaHei` / `system-ui`
-- 英文: `Inter` / `SF Pro` / `system-ui`
-- 圆角: `rounded-lg` (8px) 卡片, `rounded-full` 头像
-- 阴影: `shadow-sm` 静止, `shadow-md` hover, `shadow-xl` 模态
-- 间距系: 4 / 8 / 12 / 16 / 24 / 32 / 48 (Tailwind 1/2/3/4/6/8/12)
+```css
+/* 圆角阶梯 */
+--radius-sm: 6px;   /* button / input */
+--radius-md: 10px;  /* card */
+--radius-lg: 16px;  /* modal / panel */
+--radius-xl: 24px;  /* hero card */
+--radius-full: 9999px; /* avatar / pill */
 
-### 5.3 组件库
+/* 阴影 (Apple-style soft shadow, 不要 Material 重影) */
+--shadow-xs: 0 1px 2px rgba(0,0,0,0.04);
+--shadow-sm: 0 2px 8px rgba(0,0,0,0.06);
+--shadow-md: 0 4px 16px rgba(0,0,0,0.08);
+--shadow-lg: 0 12px 32px rgba(0,0,0,0.12);
+--shadow-xl: 0 24px 64px rgba(0,0,0,0.18);
 
-- shadcn/ui 主, 自研 `components/persona/*` 等业务组件辅
-- 图标: Lucide
-- 图表: Recharts (9 宫格 / KR 进度 / Persona 雷达)
+/* 玻璃拟态 (Apple Vibrancy, sidebar/topbar) */
+.glass {
+  background: var(--bg-elevated);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--border-subtle);
+}
+```
+
+### 5.5 动效 (Semantic Motion)
+
+> 不为动而动. 每个动效服务一个**意义**.
+
+```css
+/* 5 档时长曲线 */
+--duration-instant: 100ms;  /* 状态切换 */
+--duration-fast:    200ms;  /* hover/focus */
+--duration-base:    300ms;  /* 卡片/抽屉 */
+--duration-slow:    500ms;  /* 页面切换 */
+--duration-emphasis: 700ms; /* hero entrance */
+
+/* Apple Bezier */
+--ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+--ease-decelerate: cubic-bezier(0, 0, 0.2, 1);
+--ease-accelerate: cubic-bezier(0.4, 0, 1, 1);
+--ease-emphasis: cubic-bezier(0.32, 0.72, 0, 1);  /* iOS spring */
+```
+
+**关键动效场景**:
+- 议事室 17min 倒计时: 进度环 `transform: rotate()` 持续平滑
+- COMMIT 成功: 卡片 scale 0.98 → 1, 200ms standard
+- Persona 升阶: 头像 emoji morph 600ms emphasis + 粒子撒出
+- 否决窗口剩余 1h: 卡片边框 amber 呼吸光晕 (2s loop)
+- 日报 5min 倒计时: 顶部细线渐变 (绿 → 黄 → 红)
+
+### 5.6 组件库
+
+```
+基础: shadcn/ui (Radix Primitives + Tailwind)
+图标: Lucide (统一线条粗细 1.5)
+图表: Tremor + Recharts (业务图) + d3 (Persona 雷达/9 宫格热力)
+动效: Framer Motion (页面 transitions + 复杂手势)
+表格: TanStack Table v8
+富文本: Tiptap (协同) + Tiptap Pro 扩展
+表格: Univer (Excel 风格协同)
+日期: date-fns (轻量) + 中文 locale
+通知: Sonner (toast)
+键盘: cmdk (Cmd+K palette, 致敬 Linear)
+```
+
+### 5.7 可访问性 (WCAG 2.1 AA)
+
+- 所有 interactive 必须有 `:focus-visible` 2px outline (--brand-500)
+- 颜色对比度: 主文字 ≥ 7:1 (AAA), 次文字 ≥ 4.5:1 (AA)
+- 所有图标必须有 `aria-label`
+- Cmd+K 全局命令面板 + 完整键盘导航
+- `prefers-reduced-motion` 自动关动效
+- `prefers-color-scheme` 自动切深色
+
+### 5.8 反例 (我们不做)
+
+- ❌ 渐变满天飞 (除 Persona 进化和 hero)
+- ❌ 重投影 / Material 浮动按钮 (太安卓)
+- ❌ 大量插画 / 卡通 (太消费)
+- ❌ 新拟态 (Neumorphism, 已过时)
+- ❌ 全屏黑底 + 霓虹 (太 Web3)
+- ❌ 无意义动画 (旋转 loading 圈 → 改用 skeleton)
+
+### 5.9 参考标杆
+
+| 标杆 | 我们学什么 |
+|---|---|
+| **Linear** | 命令面板 / 键盘第一 / 极简卡片 / 通知设计 |
+| **Notion** | 信息密度 / 内联编辑 / 嵌入式块 |
+| **Vercel** | Geist 字体节奏 / 黑白对比 / 微妙动效 |
+| **Apple Music** | 玻璃拟态 sidebar / 大标题留白 / 卡片网格 |
+| **Microsoft Loop** | 协同状态指示 / 实时光标 / 头像群 |
+| **Stripe Dashboard** | 数据可视化 / 表格设计 / 财务级精确 |
+| **Raycast** | Cmd+K 体验 / 渐变图标 / Pro 感 |
 
 ---
 
