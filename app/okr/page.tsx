@@ -33,6 +33,7 @@ import { OKRTrendChart } from '@/components/okr/okr-trend-chart';
 import { OKRHealthPanel } from '@/components/okr/okr-health-panel';
 import { OKRWatchers } from '@/components/okr/okr-watchers';
 import { OKRTtiPanel } from '@/components/okr/okr-tti-panel';
+import { OKRRetrospective } from '@/components/okr/okr-retrospective';
 import { checkQuality } from '@/lib/okr/quality';
 import { calcObjectiveScore } from '@/lib/okr/scoring';
 import { objectivePulse, pulseLabel, summarizePulses, CADENCE_LABEL } from '@/lib/okr/cadence';
@@ -148,7 +149,7 @@ export default function OKRPage() {
   // ===== 视图状态 =====
   const [selectedObjId, setSelectedObjId] = useState<string | null>(null);
   const [view, setView] = useState<'tree' | 'list'>('tree');
-  type DetailTab = 'overview' | 'initiatives' | 'comments' | 'activity' | 'scoring' | 'watchers' | 'trend' | 'tti';
+  type DetailTab = 'overview' | 'initiatives' | 'comments' | 'activity' | 'scoring' | 'watchers' | 'trend' | 'tti' | 'retro';
   const [detailTab, setDetailTab] = useState<DetailTab>('overview');
   const [showTemplates, setShowTemplates] = useState(false);
   const [showHealth, setShowHealth] = useState(false);
@@ -534,6 +535,7 @@ export default function OKRPage() {
             <DetailTabBtn active={detailTab === 'trend'} onClick={() => setDetailTab('trend')} icon={TrendingUp}>趋势</DetailTabBtn>
             <DetailTabBtn active={detailTab === 'tti'} onClick={() => setDetailTab('tti')} icon={Sparkles}>TTI + 月度</DetailTabBtn>
             <DetailTabBtn active={detailTab === 'scoring'} onClick={() => setDetailTab('scoring')} icon={Award}>评分</DetailTabBtn>
+            <DetailTabBtn active={detailTab === 'retro'} onClick={() => setDetailTab('retro')} icon={BookOpen}>复盘</DetailTabBtn>
             <DetailTabBtn active={detailTab === 'watchers'} onClick={() => setDetailTab('watchers')} icon={Eye}>关注</DetailTabBtn>
           </div>
 
@@ -629,6 +631,11 @@ export default function OKRPage() {
           {/* ===== 评分 Tab ===== */}
           {detailTab === 'scoring' && (
             <OKRScoring objectiveId={selected.id} />
+          )}
+
+          {/* ===== 复盘 Tab (P0.1, 2026-05-10) ===== */}
+          {detailTab === 'retro' && (
+            <OKRRetrospective objectiveId={selected.id} />
           )}
 
           {/* ===== 关注 Tab ===== */}
