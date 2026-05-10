@@ -21,3 +21,7 @@ src-tauri/gen/
 # TS build cache
 tsconfig.tsbuildinfo
 .env.local.bak-pre-*
+
+# PowerPoint lock files
+~$*.pptx
+~$*.docx
