@@ -357,71 +357,86 @@ export default function ImPage() {
   return (
     <div className="flex h-[calc(100vh-3.5rem)] flex-col">
       <BannerChip />
-      <div className="grid flex-1 grid-cols-[300px_1fr_300px] overflow-hidden bg-gradient-to-b from-slate-50 to-slate-100/40">
-      {/* ---- 左栏: 频道列表 ---- */}
-      <aside className="flex flex-col border-r border-slate-200/70 bg-white/95 backdrop-blur-sm">
-        <div className="flex items-center justify-between border-b border-slate-200/70 px-4 py-3">
-          <div>
-            <div className="text-[15px] font-semibold tracking-tight text-slate-800">通讯</div>
-            <div className="mt-0.5 flex items-center gap-1.5 text-[10.5px] text-slate-500">
-              <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              {channels.length} 个频道 · 实时 SSE
+      <div className="grid flex-1 grid-cols-[340px_1fr_300px] overflow-hidden bg-white">
+      {/* ---- 左栏: 频道列表 — Gemini Gems 风格 (柔和留白 + 大圆角 + 渐变头像) ---- */}
+      <aside className="flex flex-col border-r border-slate-100 bg-gradient-to-b from-white via-white to-slate-50/40">
+        {/* Header: 大标题 + 副描述 + 新建 pill */}
+        <div className="flex flex-col gap-3 px-5 pt-6 pb-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-[22px] font-semibold tracking-tight text-slate-900 leading-none">
+                通讯
+              </h1>
+              <p className="mt-1.5 text-[12px] text-slate-500 leading-snug">
+                与同事和 AI 分身一起协作 · 选择会话或新建一个
+              </p>
+            </div>
+            <div
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-[10px] font-medium text-white shadow-sm"
+              title={`${channels.length} 个频道 · 实时 SSE`}
+            >
+              {channels.length}
             </div>
           </div>
-          <div className="flex gap-0.5">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-              onClick={newDmPrompt}
-              title="新建 1:1"
-            >
-              <Users className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+
+          {/* 新建按钮组: Gems 风 pill */}
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              type="button"
               onClick={() => setShowCreateDialog(true)}
-              title="建群 (选类型: 普通/部门/团队/项目/跨部门/公告)"
+              className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-3.5 py-1.5 text-[12px] font-medium text-white shadow-sm transition hover:bg-slate-800 hover:shadow-md"
+              title="新建群聊 (普通/部门/项目/跨部门/公告)"
             >
-              <Plus className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-amber-600 hover:bg-amber-50"
+              <Plus className="h-3.5 w-3.5" />
+              新建
+            </button>
+            <button
+              type="button"
+              onClick={newDmPrompt}
+              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+              title="新建 1:1 对话"
+            >
+              <Users className="h-3.5 w-3.5" />
+              1:1
+            </button>
+            <button
+              type="button"
               onClick={() => setShowSeedDialog(true)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50/70 px-3 py-1.5 text-[12px] font-medium text-amber-700 transition hover:border-amber-300 hover:bg-amber-100/80"
               title="按组织架构一键建群 (HR/Admin)"
             >
-              <Sparkles className="h-4 w-4" />
-            </Button>
+              <Sparkles className="h-3.5 w-3.5" />
+              一键建群
+            </button>
           </div>
         </div>
-        {/* Q2 Day 2: tab 切换 [频道|通讯录] */}
-        <div className="flex border-b border-slate-200/70 bg-slate-50/50 px-2 py-1.5 text-[11px]">
-          <button
-            type="button"
-            onClick={() => setLeftTab('channels')}
-            className={`flex-1 rounded px-2 py-1 transition ${
-              leftTab === 'channels'
-                ? 'bg-white font-semibold text-slate-800 shadow-sm ring-1 ring-slate-200'
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            频道
-          </button>
-          <button
-            type="button"
-            onClick={() => setLeftTab('contacts')}
-            className={`flex-1 rounded px-2 py-1 transition ${
-              leftTab === 'contacts'
-                ? 'bg-white font-semibold text-slate-800 shadow-sm ring-1 ring-slate-200'
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            通讯录
-          </button>
+
+        {/* Tab segmented control: Gems pill */}
+        <div className="px-5 pb-2">
+          <div className="inline-flex rounded-full bg-slate-100 p-0.5 text-[12px]">
+            <button
+              type="button"
+              onClick={() => setLeftTab('channels')}
+              className={`rounded-full px-4 py-1 font-medium transition ${
+                leftTab === 'channels'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              频道
+            </button>
+            <button
+              type="button"
+              onClick={() => setLeftTab('contacts')}
+              className={`rounded-full px-4 py-1 font-medium transition ${
+                leftTab === 'contacts'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              通讯录
+            </button>
+          </div>
         </div>
 
         {leftTab === 'contacts' ? (
@@ -434,10 +449,16 @@ export default function ImPage() {
             }}
           />
         ) : (
-        <div className="flex-1 overflow-y-auto px-1.5 py-2">
+        <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
           {channels.length === 0 && (
-            <div className="px-3 py-6 text-xs text-slate-500">
-              暂无频道. 重启 dev server 加载 seed, 或点 ＋ 新建.
+            <div className="mx-2 mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 px-5 py-8 text-center">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 text-2xl">
+                💬
+              </div>
+              <p className="text-[12.5px] font-medium text-slate-700">还没有会话</p>
+              <p className="mt-1 text-[11.5px] text-slate-500 leading-relaxed">
+                点上方「新建」开一个群,<br />或「1:1」找同事单聊
+              </p>
             </div>
           )}
           {channels.map((c) => {
@@ -450,35 +471,37 @@ export default function ImPage() {
                 key={c.id}
                 type="button"
                 onClick={() => setActiveId(c.id)}
-                className={`mb-0.5 flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition ${
+                className={`group flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-all duration-150 ${
                   active
-                    ? 'bg-amber-50 ring-1 ring-amber-200'
-                    : 'hover:bg-slate-50'
+                    ? 'bg-white shadow-sm ring-1 ring-slate-200/80'
+                    : 'hover:bg-white/70 hover:shadow-sm'
                 }`}
               >
-                <ChannelAvatar channel={c} name={displayName} />
+                <GemChannelAvatar channel={c} name={displayName} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
                     <span
-                      className={`truncate text-[13px] ${
-                        u.show !== 'none' ? 'font-semibold text-slate-900' : 'font-medium text-slate-700'
+                      className={`truncate text-[13.5px] ${
+                        u.show !== 'none'
+                          ? 'font-semibold text-slate-900'
+                          : 'font-medium text-slate-800'
                       }`}
                     >
                       {displayName}
                     </span>
                     {c.lastMessageAt && (
-                      <span className="shrink-0 text-[10px] text-slate-400">
+                      <span className="shrink-0 text-[10.5px] text-slate-400 font-medium">
                         {formatRelative(c.lastMessageAt)}
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="truncate text-[11.5px] text-slate-500">
-                      {c.lastMessagePreview ?? '—'}
+                  <div className="mt-0.5 flex items-center justify-between gap-2">
+                    <span className="truncate text-[11.5px] text-slate-500 leading-snug">
+                      {c.lastMessagePreview ?? '开始对话…'}
                     </span>
                     {u.show === 'urgent' && (
                       <Badge
-                        className="h-4 min-w-4 shrink-0 bg-rose-500 px-1 text-[10px] hover:bg-rose-600"
+                        className="h-4 min-w-4 shrink-0 bg-rose-500 px-1.5 text-[10px] hover:bg-rose-600"
                         title="含指派/咨询/议事室回执 — 需关注"
                       >
                         {u.count! > 99 ? '99+' : u.count}
@@ -486,7 +509,7 @@ export default function ImPage() {
                     )}
                     {u.show === 'subtle' && (
                       <span
-                        className="h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400"
+                        className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400"
                         title="有新消息 (非定向)"
                       />
                     )}
@@ -675,8 +698,17 @@ export default function ImPage() {
             </footer>
           </>
         ) : (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            选一个频道开始
+          <div className="flex h-full flex-col items-center justify-center gap-4 px-8 text-center">
+            <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-violet-100 via-sky-100 to-emerald-100 text-4xl shadow-sm">
+              ✨
+            </div>
+            <div>
+              <p className="text-[15px] font-semibold text-slate-700">选个会话开始</p>
+              <p className="mt-1.5 text-[12px] text-slate-500 leading-relaxed max-w-xs">
+                从左边选一个频道, 或点上方 <span className="font-medium text-slate-700">新建</span> / <span className="font-medium text-slate-700">1:1</span> 开一个。<br />
+                发出的每条消息 hover 均可一键 <span className="font-medium text-amber-600">开议事室</span> 或 <span className="font-medium text-violet-600">沉淀 Memory</span>.
+              </p>
+            </div>
           </div>
         )}
       </main>
@@ -765,8 +797,13 @@ export default function ImPage() {
             </Card>
           </>
         ) : (
-          <div className="flex h-full items-center justify-center text-[12px] text-slate-400">
-            未选择频道
+          <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-xl">
+              📝
+            </div>
+            <p className="text-[12px] text-slate-400 leading-relaxed">
+              选个会话后<br />这里会显示频道详情·成员·文件
+            </p>
           </div>
         )}
       </aside>
@@ -900,6 +937,51 @@ function ChannelAvatar({
       className={`${dim} flex shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${palette[idx]} text-white shadow-sm`}
     >
       <Hash className="h-4 w-4" />
+    </div>
+  );
+}
+
+/**
+ * Gemini Gems 风频道头像 (左栏列表用):
+ *   - 更大 (h-11 w-11), rounded-2xl (24px)
+ *   - 渐变更柔, 阴影 shadow-md/shadow-sm
+ *   - DM/group/announcement 三种语义保持区别
+ */
+function GemChannelAvatar({
+  channel,
+  name,
+}: {
+  channel: Channel;
+  name: string;
+}) {
+  if (channel.type === 'announcement') {
+    return (
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-400 via-rose-500 to-pink-500 text-white shadow-md shadow-rose-200/60 ring-1 ring-white">
+        <Megaphone className="h-5 w-5" />
+      </div>
+    );
+  }
+  if (channel.type === 'dm') {
+    return (
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-500 via-slate-600 to-slate-700 text-[15px] font-semibold uppercase text-white shadow-md shadow-slate-200/70 ring-1 ring-white">
+        {name.slice(0, 2)}
+      </div>
+    );
+  }
+  const palette = [
+    'from-amber-400 via-orange-400 to-orange-500 shadow-amber-200/60',
+    'from-emerald-400 via-teal-400 to-teal-500 shadow-emerald-200/60',
+    'from-sky-400 via-blue-400 to-blue-500 shadow-sky-200/60',
+    'from-violet-400 via-purple-400 to-purple-500 shadow-violet-200/60',
+    'from-pink-400 via-rose-400 to-rose-500 shadow-pink-200/60',
+    'from-cyan-400 via-sky-400 to-sky-500 shadow-cyan-200/60',
+  ];
+  const idx = channel.id.charCodeAt(0) % palette.length;
+  return (
+    <div
+      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${palette[idx]} text-white shadow-md ring-1 ring-white`}
+    >
+      <Hash className="h-5 w-5" />
     </div>
   );
 }
