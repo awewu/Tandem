@@ -6,6 +6,7 @@ import { CommandPalette } from '@/components/command-palette';
 import { KeyboardShortcuts } from '@/components/keyboard-shortcuts';
 import { Toaster } from '@/components/toaster';
 import { ErrorBoundary } from '@/components/error-boundary';
+import { ApiHydrator } from '@/components/api-hydrator';
 
 export const metadata: Metadata = {
   title: 'Tandem · 牛马搭子',
@@ -30,6 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="zh-CN" suppressHydrationWarning>
       <body className="font-sans antialiased bg-background text-foreground">
         <ThemeProvider>
+          <ApiHydrator />
           <div className="flex h-screen w-screen overflow-hidden">
             <Sidebar />
             <main className="flex-1 overflow-hidden">

@@ -531,9 +531,12 @@ interface OrgStore {
   setDepartments: (d: Department[]) => void;
 }
 
+/**
+ * A4 (2026-05-11): drop persist.
+ * useOrgStore 是 fixture 组织结构数据 (中书省/门下省...), 不入后端表 — 每次启动重置.
+ */
 export const useOrgStore = create<OrgStore>()(
-  persist(
-    (set) => ({
+  ((set) => ({
       departments: [
         {
           id: 'dept-1',
@@ -563,9 +566,7 @@ export const useOrgStore = create<OrgStore>()(
         },
       ],
       setDepartments: (d) => set({ departments: d }),
-    }),
-    { name: '铁山-org-store' }
-  )
+    }))
 );
 
 // =============================================================
@@ -1532,9 +1533,14 @@ interface MemoryStore {
   importMemories: (json: string) => void;
 }
 
+/**
+ * A4 (2026-05-11): drop persist.
+ * useMemoryStore 后端 (DecisionCard / MemoryEntry / PromotionRequest) 已通过
+ * /api/tandem/memory/* 接入. /memories UI 切 API 走 A2.3 后续迭代,
+ * 此处先 drop persist 避免 stale demo 数据继续残留.
+ */
 export const useMemoryStore = create<MemoryStore>()(
-  persist(
-    (set, get) => ({
+  ((set, get) => ({
       folders: [
         { id: 'mem-root', name: '记忆库', parentId: null, createdAt: Date.now() },
         { id: 'cat-requirement', name: '需求', parentId: 'mem-root', createdAt: Date.now() },
@@ -1707,35 +1713,7 @@ export const useMemoryStore = create<MemoryStore>()(
           console.error('Failed to import memories:', e);
         }
       },
-    }),
-    {
-      name: '铁山-memory-store',
-      // v2: 引入 folders 与 parentId
-      version: 2,
-      migrate: (persisted: any, fromVersion: number) => {
-        if (!persisted) return persisted;
-        if (fromVersion < 2) {
-          const now = Date.now();
-          // 老数据可能只有 memories，没有 folders
-          const memories: Memory[] = Array.isArray(persisted.memories) ? persisted.memories : [];
-          const folders: MemoryFolder[] = [
-            { id: 'mem-root', name: '记忆库', parentId: null, createdAt: now },
-            { id: 'cat-requirement', name: '需求', parentId: 'mem-root', createdAt: now },
-            { id: 'cat-consensus', name: '共识', parentId: 'mem-root', createdAt: now },
-            { id: 'cat-standard', name: '标准', parentId: 'mem-root', createdAt: now },
-            { id: 'cat-context', name: '上下文', parentId: 'mem-root', createdAt: now },
-          ];
-          // 按 category 自动划入默认文件夹
-          const upgraded = memories.map((m: Memory) => ({
-            ...m,
-            parentId: m.parentId || `cat-${m.category}`,
-          }));
-          return { ...persisted, folders, memories: upgraded };
-        }
-        return persisted;
-      },
-    }
-  )
+    }))
 );
 
 // =============================================================================
@@ -1793,6 +1771,10 @@ export interface OneOnOneMeeting {
 
 interface OneOnOneStore {
   meetings: OneOnOneMeeting[];
+  /** A2.3: 标记是否已从 API 加载过 (避免重复请求) */
+  _hydrated: boolean;
+  /** A2.3: 从后端拉全量 (mine 范围), 替换本地. 仅在浏览器调用. */
+  loadFromApi: () => Promise<void>;
   addMeeting: (m: Omit<OneOnOneMeeting, 'id' | 'createdAt' | 'updatedAt' | 'actionItems' | 'linkedKrIds' | 'status'> & { status?: OneOnOneStatus; actionItems?: OneOnOneActionItem[]; linkedKrIds?: string[] }) => string;
   updateMeeting: (id: string, patch: Partial<OneOnOneMeeting>) => void;
   deleteMeeting: (id: string) => void;
@@ -1801,76 +1783,128 @@ interface OneOnOneStore {
   removeActionItem: (meetingId: string, itemId: string) => void;
 }
 
-export const useOneOnOneStore = create<OneOnOneStore>()(
-  persist(
-    (set) => ({
-      meetings: [],
-      addMeeting: (m) => {
-        const id = crypto.randomUUID();
-        const now = Date.now();
-        set((s) => ({
-          meetings: [
-            ...s.meetings,
-            {
-              id,
-              actionItems: [],
-              linkedKrIds: [],
-              status: 'scheduled',
-              createdAt: now,
-              updatedAt: now,
-              ...m,
-            } as OneOnOneMeeting,
-          ],
-        }));
-        return id;
-      },
-      updateMeeting: (id, patch) =>
-        set((s) => ({
-          meetings: s.meetings.map((x) =>
-            x.id === id ? { ...x, ...patch, updatedAt: Date.now() } : x
-          ),
-        })),
-      deleteMeeting: (id) =>
-        set((s) => ({ meetings: s.meetings.filter((x) => x.id !== id) })),
-      addActionItem: (meetingId, text, assigneeId, dueDate) =>
-        set((s) => ({
-          meetings: s.meetings.map((m) =>
-            m.id !== meetingId ? m : {
+/**
+ * A2.3 (2026-05-11): 切真后端
+ *  - 删 persist 中间件 (D5: 接受 demo localStorage 数据丢弃)
+ *  - 每个 mutation: 立即更新本地 + fire-and-forget POST/PATCH/DELETE
+ *  - 服务端接受 client 生成的 id (Prisma `@default(cuid())` 但允许显式传)
+ *  - loadFromApi: 页面 mount 时调一次, 后续操作维持本地 + 后台同步
+ *  - 故意不 await 网络: UI 即时响应; 失败 console.warn
+ */
+export const useOneOnOneStore = create<OneOnOneStore>()((set, get) => ({
+  meetings: [],
+  _hydrated: false,
+  loadFromApi: async () => {
+    if (typeof window === 'undefined') return;
+    const { loadAllFromApi } = await import('@/lib/api/one-on-one-sync');
+    const meetings = await loadAllFromApi();
+    set({ meetings, _hydrated: true });
+  },
+  addMeeting: (m) => {
+    const id = crypto.randomUUID();
+    const now = Date.now();
+    const meeting: OneOnOneMeeting = {
+      id,
+      actionItems: [],
+      linkedKrIds: [],
+      status: 'scheduled',
+      createdAt: now,
+      updatedAt: now,
+      ...m,
+    } as OneOnOneMeeting;
+    set((s) => ({ meetings: [...s.meetings, meeting] }));
+    if (typeof window !== 'undefined') {
+      void import('@/lib/api/one-on-one-sync').then((mod) =>
+        mod.syncCreateMeeting(meeting),
+      );
+    }
+    return id;
+  },
+  updateMeeting: (id, patch) => {
+    set((s) => ({
+      meetings: s.meetings.map((x) =>
+        x.id === id ? { ...x, ...patch, updatedAt: Date.now() } : x,
+      ),
+    }));
+    if (typeof window !== 'undefined') {
+      void import('@/lib/api/one-on-one-sync').then((mod) =>
+        mod.syncUpdateMeeting(id, patch),
+      );
+    }
+  },
+  deleteMeeting: (id) => {
+    set((s) => ({ meetings: s.meetings.filter((x) => x.id !== id) }));
+    if (typeof window !== 'undefined') {
+      void import('@/lib/api/one-on-one-sync').then((mod) =>
+        mod.syncDeleteMeeting(id),
+      );
+    }
+  },
+  addActionItem: (meetingId, text, assigneeId, dueDate) => {
+    const itemId = crypto.randomUUID();
+    set((s) => ({
+      meetings: s.meetings.map((m) =>
+        m.id !== meetingId
+          ? m
+          : {
               ...m,
               actionItems: [
                 ...m.actionItems,
-                { id: crypto.randomUUID(), text, assigneeId, dueDate, done: false },
+                { id: itemId, text, assigneeId, dueDate, done: false },
               ],
               updatedAt: Date.now(),
-            }
-          ),
-        })),
-      toggleActionItem: (meetingId, itemId) =>
-        set((s) => ({
-          meetings: s.meetings.map((m) =>
-            m.id !== meetingId ? m : {
-              ...m,
-              actionItems: m.actionItems.map((a) =>
-                a.id !== itemId ? a : { ...a, done: !a.done }
-              ),
-              updatedAt: Date.now(),
-            }
-          ),
-        })),
-      removeActionItem: (meetingId, itemId) =>
-        set((s) => ({
-          meetings: s.meetings.map((m) =>
-            m.id !== meetingId ? m : {
+            },
+      ),
+    }));
+    if (typeof window !== 'undefined') {
+      void import('@/lib/api/one-on-one-sync').then((mod) =>
+        mod.syncAddActionItem(meetingId, itemId, text, assigneeId, dueDate),
+      );
+    }
+  },
+  toggleActionItem: (meetingId, itemId) => {
+    let nextDone = false;
+    set((s) => ({
+      meetings: s.meetings.map((m) => {
+        if (m.id !== meetingId) return m;
+        return {
+          ...m,
+          actionItems: m.actionItems.map((a) => {
+            if (a.id !== itemId) return a;
+            nextDone = !a.done;
+            return { ...a, done: nextDone };
+          }),
+          updatedAt: Date.now(),
+        };
+      }),
+    }));
+    if (typeof window !== 'undefined') {
+      void import('@/lib/api/one-on-one-sync').then((mod) =>
+        mod.syncToggleActionItem(itemId, nextDone),
+      );
+    }
+    // get(): silence lint about unused get; useful for future extensions
+    void get;
+  },
+  removeActionItem: (meetingId, itemId) => {
+    set((s) => ({
+      meetings: s.meetings.map((m) =>
+        m.id !== meetingId
+          ? m
+          : {
               ...m,
               actionItems: m.actionItems.filter((a) => a.id !== itemId),
               updatedAt: Date.now(),
-            }
-          ),
-        })),
-    }),
-    { name: '铁山-1on1-store' }
-  )
-);
+            },
+      ),
+    }));
+    if (typeof window !== 'undefined') {
+      void import('@/lib/api/one-on-one-sync').then((mod) =>
+        mod.syncDeleteActionItem(itemId),
+      );
+    }
+  },
+}));
 
 // =============================================================================
 // 360 评估 (2026-05-10 · OKR P1)
@@ -1948,6 +1982,10 @@ interface Review360Store {
   cycles: Review360CycleDef[];
   assignments: Review360Assignment[];
   submissions: Review360Submission[];
+  /** A2.3 hydration flag */
+  _hydrated: boolean;
+  /** A2.3 从 API 拉全量 */
+  loadFromApi: () => Promise<void>;
 
   addCycle: (c: Omit<Review360CycleDef, 'id' | 'createdAt'>) => string;
   updateCycle: (id: string, patch: Partial<Review360CycleDef>) => void;
@@ -1971,66 +2009,87 @@ const DEFAULT_360_QUESTIONS: Review360Question[] = [
 
 export { DEFAULT_360_QUESTIONS };
 
-export const useReview360Store = create<Review360Store>()(
-  persist(
-    (set) => ({
-      cycles: [],
-      assignments: [],
-      submissions: [],
+/**
+ * A2.3: 真后端切换. 同 useOneOnOneStore 模式 — drop persist + dual-write.
+ */
+export const useReview360Store = create<Review360Store>()((set) => ({
+  cycles: [],
+  assignments: [],
+  submissions: [],
+  _hydrated: false,
+  loadFromApi: async () => {
+    if (typeof window === 'undefined') return;
+    const { loadAllFromApi } = await import('@/lib/api/review-360-sync');
+    const data = await loadAllFromApi();
+    set({ ...data, _hydrated: true });
+  },
 
-      addCycle: (c) => {
-        const id = crypto.randomUUID();
-        set((s) => ({
-          cycles: [...s.cycles, { id, createdAt: Date.now(), ...c }],
-        }));
-        return id;
-      },
-      updateCycle: (id, patch) =>
-        set((s) => ({
-          cycles: s.cycles.map((c) => (c.id === id ? { ...c, ...patch } : c)),
-        })),
-      deleteCycle: (id) =>
-        set((s) => ({
-          cycles: s.cycles.filter((c) => c.id !== id),
-          assignments: s.assignments.filter((a) => a.cycleId !== id),
-          submissions: s.submissions.filter((sub) => sub.cycleId !== id),
-        })),
+  addCycle: (c) => {
+    const id = crypto.randomUUID();
+    const cycle: Review360CycleDef = { id, createdAt: Date.now(), ...c };
+    set((s) => ({ cycles: [...s.cycles, cycle] }));
+    if (typeof window !== 'undefined') {
+      void import('@/lib/api/review-360-sync').then((m) => m.syncCreateCycle(cycle));
+    }
+    return id;
+  },
+  updateCycle: (id, patch) => {
+    set((s) => ({
+      cycles: s.cycles.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+    }));
+    if (typeof window !== 'undefined') {
+      void import('@/lib/api/review-360-sync').then((m) => m.syncUpdateCycle(id, patch));
+    }
+  },
+  deleteCycle: (id) => {
+    set((s) => ({
+      cycles: s.cycles.filter((c) => c.id !== id),
+      assignments: s.assignments.filter((a) => a.cycleId !== id),
+      submissions: s.submissions.filter((sub) => sub.cycleId !== id),
+    }));
+    if (typeof window !== 'undefined') {
+      void import('@/lib/api/review-360-sync').then((m) => m.syncDeleteCycle(id));
+    }
+  },
 
-      addAssignment: (a) =>
-        set((s) => {
-          // 幂等: 同 cycleId+subjectId+raterId 不重复
-          const exists = s.assignments.some(
-            (x) => x.cycleId === a.cycleId && x.subjectId === a.subjectId && x.raterId === a.raterId
-          );
-          if (exists) return {};
-          return {
-            assignments: [
-              ...s.assignments,
-              { id: crypto.randomUUID(), submitted: false, ...a },
-            ],
-          };
-        }),
-      removeAssignment: (id) =>
-        set((s) => ({ assignments: s.assignments.filter((a) => a.id !== id) })),
+  addAssignment: (a) => {
+    let created: Review360Assignment | null = null;
+    set((s) => {
+      const exists = s.assignments.some(
+        (x) => x.cycleId === a.cycleId && x.subjectId === a.subjectId && x.raterId === a.raterId,
+      );
+      if (exists) return {};
+      created = { id: crypto.randomUUID(), submitted: false, ...a };
+      return { assignments: [...s.assignments, created] };
+    });
+    if (created && typeof window !== 'undefined') {
+      const c = created as Review360Assignment;
+      void import('@/lib/api/review-360-sync').then((m) => m.syncCreateAssignment(c));
+    }
+  },
+  removeAssignment: (id) =>
+    set((s) => ({ assignments: s.assignments.filter((a) => a.id !== id) })),
 
-      submitReview: (sub) =>
-        set((s) => {
-          const id = crypto.randomUUID();
-          const now = Date.now();
-          // 同一 (cycleId, subjectId, raterId) 只允许一份, 重复则覆盖
-          const newSubs = s.submissions.filter(
-            (x) => !(x.cycleId === sub.cycleId && x.subjectId === sub.subjectId && x.raterId === sub.raterId)
-          );
-          newSubs.push({ id, submittedAt: now, ...sub });
-          // 更新对应 assignment 状态
-          const newAssigns = s.assignments.map((a) =>
-            a.cycleId === sub.cycleId && a.subjectId === sub.subjectId && a.raterId === sub.raterId
-              ? { ...a, submitted: true, submittedAt: now }
-              : a
-          );
-          return { submissions: newSubs, assignments: newAssigns };
-        }),
-    }),
-    { name: '铁山-360-store' }
-  )
-);
+  submitReview: (sub) => {
+    let created: Review360Submission | null = null;
+    set((s) => {
+      const id = crypto.randomUUID();
+      const now = Date.now();
+      const newSubs = s.submissions.filter(
+        (x) => !(x.cycleId === sub.cycleId && x.subjectId === sub.subjectId && x.raterId === sub.raterId),
+      );
+      created = { id, submittedAt: now, ...sub };
+      newSubs.push(created);
+      const newAssigns = s.assignments.map((a) =>
+        a.cycleId === sub.cycleId && a.subjectId === sub.subjectId && a.raterId === sub.raterId
+          ? { ...a, submitted: true, submittedAt: now }
+          : a,
+      );
+      return { submissions: newSubs, assignments: newAssigns };
+    });
+    if (created && typeof window !== 'undefined') {
+      const c = created as Review360Submission;
+      void import('@/lib/api/review-360-sync').then((m) => m.syncSubmitReview(c));
+    }
+  },
+}));
