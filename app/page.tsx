@@ -24,6 +24,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { InsightsWidget } from '@/components/insights/insights-widget';
+import { PendingRetrosCard } from '@/components/dashboard/pending-retros-card';
 
 /**
  * Homepage — 4-section layout per UI-IA §2:
@@ -292,6 +293,8 @@ export default function HomePage() {
               </ul>
             )}
           </div>
+          {/* EVO-1 · 决议节奏护栏: 仅在用户有"已 COMMIT 但未复盘"的决议时显示, 无数据自动隐藏 */}
+          <PendingRetrosCard />
         </section>
 
         {/* Footer hint */}
