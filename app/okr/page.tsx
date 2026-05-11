@@ -31,6 +31,7 @@ import { OKRScoring } from '@/components/okr/okr-scoring';
 import { OKRTemplatePicker } from '@/components/okr/okr-templates';
 import { OKRTrendChart } from '@/components/okr/okr-trend-chart';
 import { OKRHealthPanel } from '@/components/okr/okr-health-panel';
+import { OKRDiagnosisPanel } from '@/components/okr/okr-diagnosis-panel';
 import { OKRWatchers } from '@/components/okr/okr-watchers';
 import { OKRTtiPanel } from '@/components/okr/okr-tti-panel';
 import { OKRRetrospective } from '@/components/okr/okr-retrospective';
@@ -773,23 +774,50 @@ export default function OKRPage() {
     );
   };
 
-  // Health 折叠面板
+  // Health 折叠面板 (含 EVO-2 智能纠偏)
   const renderHealthDrawer = () => {
     if (!showHealth) return null;
+    const jumpToTarget = (kind: 'objective' | 'kr', id: string) => {
+      if (kind === 'objective') {
+        setSelectedObjId(id);
+        setDetailTab('overview');
+      } else {
+        const kr = keyResults.find((k) => k.id === id);
+        if (kr) {
+          setSelectedObjId(kr.objectiveId);
+          setDetailTab('overview');
+        }
+      }
+    };
     return (
-      <div className="border-b bg-muted/30 px-4 py-3 max-h-64 overflow-auto">
-        <OKRHealthPanel
+      <div className="border-b bg-muted/30 px-4 py-3 max-h-96 overflow-auto space-y-3">
+        <OKRHealthPanel cycleId={activeCycleId} onJump={jumpToTarget} />
+        <OKRDiagnosisPanel
           cycleId={activeCycleId}
-          onJump={(kind, id) => {
-            if (kind === 'objective') {
-              setSelectedObjId(id);
-              setDetailTab('overview');
-            } else {
-              const kr = keyResults.find((k) => k.id === id);
-              if (kr) {
-                setSelectedObjId(kr.objectiveId);
+          onApply={(sug) => {
+            // 守则: 不自动改写 OKR, 仅做"跳转 + 打开正确入口"
+            const targetId = sug.action.targetId;
+            const obj = cycleObjectives.find((o) => o.id === targetId);
+            const kr = keyResults.find((k) => k.id === targetId);
+            const scopeObjId = obj?.id ?? kr?.objectiveId ?? null;
+            if (!scopeObjId) return;
+            switch (sug.action.kind) {
+              case 'open-checkin':
+                if (kr) setCheckinFor({ scope: 'kr', scopeId: kr.id });
+                else setCheckinFor({ scope: 'objective', scopeId: scopeObjId });
+                break;
+              case 'open-discussion':
+                setSelectedObjId(scopeObjId);
+                setDetailTab('comments');
+                break;
+              case 'open-kr-editor':
+              case 'open-objective-editor':
+              case 'jump-to-objective':
+              case 'jump-to-kr':
+              default:
+                setSelectedObjId(scopeObjId);
                 setDetailTab('overview');
-              }
+                break;
             }
           }}
         />
