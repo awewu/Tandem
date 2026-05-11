@@ -28,8 +28,7 @@ import {
   Users, Star, MessageSquare, Plus, CheckCircle2, AlertCircle,
   Lock, Eye, ChevronRight, Send, X,
 } from 'lucide-react';
-
-const ME = 'me';
+import { useCurrentUserId } from '@/lib/hooks/use-current-user';
 
 const RATER_LABEL: Record<Review360RaterType, string> = {
   self: '自评',
@@ -109,16 +108,17 @@ function TabBtn({
 // Tab 1: 待我评
 // =============================================================================
 function TodoTab() {
+  const ME = useCurrentUserId();
   const { cycles, assignments, submissions, submitReview } = useReview360Store();
   const { people } = useOKRStore();
   const [activeAssignmentId, setActiveAssignmentId] = useState<string | null>(null);
 
   const myTodos = useMemo(() => {
     return assignments.filter((a) => a.raterId === ME && !a.submitted);
-  }, [assignments]);
+  }, [assignments, ME]);
   const myDone = useMemo(() => {
     return assignments.filter((a) => a.raterId === ME && a.submitted);
-  }, [assignments]);
+  }, [assignments, ME]);
 
   const personById = useMemo(() => {
     const m = new Map<string, string>();
@@ -390,12 +390,13 @@ function ReviewForm({
 // Tab 2: 收到反馈 (作为 subject 的聚合报告)
 // =============================================================================
 function ReceivedTab() {
+  const ME = useCurrentUserId();
   const { cycles, submissions } = useReview360Store();
   const { people } = useOKRStore();
 
   const myReports = useMemo(() => {
     return submissions.filter((s) => s.subjectId === ME);
-  }, [submissions]);
+  }, [submissions, ME]);
 
   const byCycle = useMemo(() => {
     const map = new Map<string, Review360Submission[]>();

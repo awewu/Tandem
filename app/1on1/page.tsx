@@ -29,9 +29,7 @@ import {
   Trash2, Clock, User, Users, AlertCircle, ListChecks, Heart, X,
 } from 'lucide-react';
 import { InsightsWidget } from '@/components/insights/insights-widget';
-
-// V1: 单用户 demo
-const ME = 'me';
+import { useCurrentUserId } from '@/lib/hooks/use-current-user';
 
 const CADENCE_LABEL: Record<OneOnOneCadence, string> = {
   weekly: '每周',
@@ -48,6 +46,7 @@ const STATUS_META: Record<OneOnOneStatus, { label: string; color: string }> = {
 };
 
 export default function OneOnOnePage() {
+  const ME = useCurrentUserId();
   const { meetings, addMeeting, updateMeeting, deleteMeeting,
           addActionItem, toggleActionItem, removeActionItem } = useOneOnOneStore();
   const { people, keyResults, objectives } = useOKRStore();
@@ -114,6 +113,7 @@ export default function OneOnOnePage() {
               onSelect={setSelectedId}
               personById={personById}
               nowMs={nowMs}
+              currentUserId={ME}
             />
           )}
           {grouped.done.length > 0 && (
@@ -125,6 +125,7 @@ export default function OneOnOnePage() {
               onSelect={setSelectedId}
               personById={personById}
               nowMs={nowMs}
+              currentUserId={ME}
             />
           )}
           {grouped.other.length > 0 && (
@@ -136,6 +137,7 @@ export default function OneOnOnePage() {
               onSelect={setSelectedId}
               personById={personById}
               nowMs={nowMs}
+              currentUserId={ME}
             />
           )}
         </div>
@@ -146,6 +148,7 @@ export default function OneOnOnePage() {
         {showNew ? (
           <NewMeetingForm
             people={people}
+            currentUserId={ME}
             onCreate={(payload) => {
               const id = addMeeting(payload);
               setSelectedId(id);
@@ -197,7 +200,7 @@ export default function OneOnOnePage() {
 // 左侧分组列表
 // -----------------------------------------------------------------------------
 function MeetingSection({
-  title, icon: Icon, items, selectedId, onSelect, personById, nowMs,
+  title, icon: Icon, items, selectedId, onSelect, personById, nowMs, currentUserId,
 }: {
   title: string;
   icon: React.ElementType;
@@ -206,6 +209,7 @@ function MeetingSection({
   onSelect: (id: string) => void;
   personById: Map<string, string>;
   nowMs: number;
+  currentUserId: string;
 }) {
   return (
     <div className="border-b last:border-b-0">
@@ -216,7 +220,7 @@ function MeetingSection({
       {items.map((m) => {
         const when = nowMs > 0 ? formatRelative(m.scheduledAt, nowMs) : '';
         const isSelected = selectedId === m.id;
-        const other = m.managerId === ME ? m.reportId : m.managerId;
+        const other = m.managerId === currentUserId ? m.reportId : m.managerId;
         const meta = STATUS_META[m.status];
         return (
           <button
@@ -262,7 +266,7 @@ function MeetingSection({
 // 新建会议表单
 // -----------------------------------------------------------------------------
 function NewMeetingForm({
-  people, onCreate, onCancel,
+  people, onCreate, onCancel, currentUserId,
 }: {
   people: { id: string; name: string }[];
   onCreate: (p: {
@@ -272,9 +276,10 @@ function NewMeetingForm({
     scheduledAt: number;
   }) => void;
   onCancel: () => void;
+  currentUserId: string;
 }) {
-  const [managerId, setManagerId] = useState(ME);
-  const [reportId, setReportId] = useState(people.find((p) => p.id !== ME)?.id ?? '');
+  const [managerId, setManagerId] = useState(currentUserId);
+  const [reportId, setReportId] = useState(people.find((p) => p.id !== currentUserId)?.id ?? '');
   const [cadence, setCadence] = useState<OneOnOneCadence>('weekly');
   const [dateStr, setDateStr] = useState(() => {
     const d = new Date();

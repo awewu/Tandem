@@ -39,6 +39,7 @@ import { OKRAlignmentTree } from '@/components/okr/okr-alignment-tree';
 import { checkQuality } from '@/lib/okr/quality';
 import { calcObjectiveScore } from '@/lib/okr/scoring';
 import { objectivePulse, pulseLabel, summarizePulses, CADENCE_LABEL } from '@/lib/okr/cadence';
+import { useCurrentUserId } from '@/lib/hooks/use-current-user';
 
 // =============================================================
 // 视觉小组件
@@ -1214,6 +1215,7 @@ function CheckInDialog({
     : getKRProgress(target.scopeId);
   const confidenceBefore = (targetEntity as any)?.confidence || 'on-track';
 
+  const ME = useCurrentUserId();
   const [progressAfter, setProgressAfter] = useState(progressBefore);
   const [confidenceAfter, setConfidenceAfter] = useState<Confidence>(confidenceBefore);
   const [achievements, setAchievements] = useState('');
@@ -1271,7 +1273,7 @@ function CheckInDialog({
               onSubmit({
                 scope: target.scope,
                 scopeId: target.scopeId,
-                authorId: 'me',
+                authorId: ME,
                 progressBefore,
                 progressAfter,
                 confidenceBefore,

@@ -2,9 +2,10 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { HermesHealth } from '@/components/hermes-health';
+import { useCurrentUser, useAuthStore } from '@/lib/hooks/use-current-user';
 import {
   Home,
   Sparkles,
@@ -148,44 +149,27 @@ function isVisible(scopeRoles: Role[] | undefined, userRoles: Role[]): boolean {
   return scopeRoles.some((r) => userRoles.includes(r));
 }
 
+const ALL_ROLES: Role[] = ['admin', 'champion', 'steward', 'manager', 'employee'];
+
 export default function Sidebar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(true);
-  const [userRoles, setUserRoles] = useState<Role[]>(['employee']);
+  // A1 (2026-05-10): 共享 /api/auth/me 通过 useCurrentUser, 避免重复请求.
+  const { user, error } = useCurrentUser();
+  const fetched = useAuthStore((s) => s.fetched);
 
-  // Soft fetch user role from /api/auth/me; fallback to employee on error.
-  // Server-side guards on /admin/* are the real security boundary.
-  useEffect(() => {
-    let cancelled = false;
-    async function loadRoles() {
-      try {
-        const r = await fetch('/api/auth/me', { credentials: 'include' });
-        if (!r.ok) {
-          // 401 unauthenticated → demo mode: 暴露全部入口 (页面自身仍有 server-side guard).
-          // 失败案例 2026-05-10: Steward 工作台等管理项默认对 employee 隐藏,
-          // 未登录用户看不到入口, 体验上像"被删了".
-          if (!cancelled) setUserRoles(['admin', 'champion', 'steward', 'manager', 'employee']);
-          return;
-        }
-        const data = await r.json();
-        if (cancelled) return;
-        const rolesRaw: unknown = data?.user?.roles ?? data?.roles ?? [];
-        const roles = Array.isArray(rolesRaw)
-          ? (rolesRaw.filter((x) => typeof x === 'string') as Role[])
-          : [];
-        // V1 dev: bootstrap owner (admin@tandem.local) gets all roles for visibility
-        if (data?.user?.email === 'admin@tandem.local' && roles.length === 0) {
-          setUserRoles(['admin', 'champion', 'steward', 'manager', 'employee']);
-          return;
-        }
-        setUserRoles(roles.length > 0 ? roles : ['employee']);
-      } catch {
-        /* keep default */
-      }
-    }
-    loadRoles();
-    return () => { cancelled = true; };
-  }, []);
+  const userRoles: Role[] = useMemo(() => {
+    // 还没拉回前, 暂用默认避免侧栏闪烁.
+    if (!fetched) return ['employee'];
+    // 401 / 未登录 → demo 模式给全角色 (页面自身仍有 server-side guard).
+    if (error === 'unauthenticated' || !user) return ALL_ROLES;
+    const roles = (user.roles ?? []).filter((x): x is Role =>
+      typeof x === 'string' && (ALL_ROLES as string[]).includes(x)
+    );
+    // dev bootstrap: admin@tandem.local 没有显式角色时给全角色.
+    if (user.email === 'admin@tandem.local' && roles.length === 0) return ALL_ROLES;
+    return roles.length > 0 ? roles : ['employee'];
+  }, [fetched, user, error]);
 
   const visibleGroups = NAV.filter((g) => isVisible(g.visibleTo, userRoles));
 
