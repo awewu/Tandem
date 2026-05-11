@@ -246,6 +246,11 @@ export function createInMemoryStore(): TandemStore {
     imChannels: new InMemoryRepository(),
     imMessages: new InMemoryRepository(),
     imMemberships: new InMemoryRepository(),
+    oneOnOneMeetings: new InMemoryRepository(),
+    oneOnOneActionItems: new InMemoryRepository(),
+    review360Cycles: new InMemoryRepository(),
+    review360Submissions: new InMemoryRepository(),
+    review360Assignments: new InMemoryRepository(),
     auth: createInMemoryAuthStore(),
   };
 }

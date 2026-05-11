@@ -526,6 +526,11 @@ export function createPrismaStore(): TandemStore {
     imChannels: new PrismaRepository('imChannel'),
     imMessages: new PrismaRepository('imMessage'),
     imMemberships: new PrismaRepository('imMembership'),
+    oneOnOneMeetings: new PrismaRepository('oneOnOneMeeting'),
+    oneOnOneActionItems: new PrismaRepository('oneOnOneActionItem'),
+    review360Cycles: new PrismaRepository('review360Cycle'),
+    review360Submissions: new PrismaRepository('review360Submission'),
+    review360Assignments: new PrismaRepository('review360Assignment'),
     auth: createPrismaAuthStore(),
   };
 }

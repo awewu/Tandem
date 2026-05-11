@@ -25,6 +25,12 @@ import type {
   TTI,
 } from '../types/okr-tti';
 import type { ImChannel, ImMessage, ImMembership } from '../types/im';
+import type { OneOnOneMeeting, OneOnOneActionItem } from '../types/one-on-one';
+import type {
+  Review360Cycle,
+  Review360Submission,
+  Review360Assignment,
+} from '../types/review-360';
 
 // ---------------------------------------------------------------------------
 // 通用 CRUD 接口
@@ -63,6 +69,15 @@ export interface TandemStore {
   imChannels: Repository<ImChannel>;
   imMessages: Repository<ImMessage>;
   imMemberships: Repository<ImMembership>;
+
+  /** 1on1 主管-员工对话 (A2.1b) */
+  oneOnOneMeetings: Repository<OneOnOneMeeting>;
+  oneOnOneActionItems: Repository<OneOnOneActionItem>;
+
+  /** 360 评估 (A2.1b) */
+  review360Cycles: Repository<Review360Cycle>;
+  review360Submissions: Repository<Review360Submission>;
+  review360Assignments: Repository<Review360Assignment>;
 
   /** 自研身份系统 (Native Auth) */
   auth: AuthStore;

@@ -658,3 +658,124 @@ model NineBoxSnapshot {
 
   @@index([userId, cycleId])
 }
+
+// =============================================================================
+// A2.1b (2026-05-11) — 1on1 + 360 评估 Prisma model 落地
+// 设计取舍:
+//   - User.id 直接当 ownerId/raterId 等 (D1 决策, drop Person 概念)
+//   - 不加 User @relation 反向字段 (避免触动 User model + 多租户兼容)
+//   - 用 String + @@index 替代外键, A3 阶段再视需要补 @relation
+//   - tenantId 必填以防多租户跨界 (A2.2 endpoint 强制按 sessionUser.tenantId 过滤)
+//   - JSON 列存 questions / answers (轻量演化, 后期可拆 normalized)
+// =============================================================================
+
+model OneOnOneMeeting {
+  id                  String   @id @default(cuid())
+  tenantId            String   @default("default")
+  managerId           String   // User.id
+  reportId            String   // User.id
+  cadence             String   @default("biweekly")  // weekly | biweekly | monthly | adhoc
+  scheduledAt         DateTime
+  startedAt           DateTime?
+  completedAt         DateTime?
+  status              String   @default("scheduled")  // scheduled | completed | cancelled | no-show
+  agendaManager       String?
+  agendaReport        String?
+  noteProgress        String?
+  noteBlockers        String?
+  noteNextSteps       String?
+  linkedKrIds         String[] @default([])
+  moodScore           Int?     // 1-5, 仅主管可见
+  /// 主管私密备注: API 层按 requester strip (员工读不到)
+  privateManagerNote  String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  actionItems         OneOnOneActionItem[]
+
+  @@index([tenantId])
+  @@index([managerId])
+  @@index([reportId])
+  @@index([scheduledAt])
+}
+
+model OneOnOneActionItem {
+  id          String   @id @default(cuid())
+  meetingId   String
+  text        String
+  assigneeId  String   // User.id
+  dueDate     DateTime?
+  done        Boolean  @default(false)
+  /// A3.1 cross-link: 提升为 KR Initiative 后的引用 (软绑定)
+  linkedInitiativeId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  meeting     OneOnOneMeeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@index([meetingId])
+  @@index([assigneeId])
+  @@index([linkedInitiativeId])
+}
+
+model Review360Cycle {
+  id              String   @id @default(cuid())
+  tenantId        String   @default("default")
+  name            String
+  startDate       DateTime
+  endDate         DateTime
+  status          String   @default("draft")  // draft | active | closed
+  /// Review360Question[] JSON: { id, dimension, prompt, rated, qualitative }
+  questions       Json
+  anonymizePeers  Boolean  @default(true)
+  createdBy       String   // User.id
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  submissions     Review360Submission[]
+  assignments     Review360Assignment[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([createdBy])
+}
+
+model Review360Submission {
+  id            String   @id @default(cuid())
+  cycleId       String
+  subjectId     String   // User.id 被评估人
+  /// 评估人 User.id — 故意不建索引 (D6 隐私决策)
+  raterId       String
+  raterType     String   // self | manager | peer | report | cross
+  /// answers: { questionId, score?, text? }[]
+  answers       Json
+  strengths     String
+  improvements  String
+  overallScore  Float?   // 1-5
+  submittedAt   DateTime @default(now())
+
+  cycle         Review360Cycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@index([cycleId])
+  @@index([subjectId])
+  // 注意: raterId 无索引 (隐私). 查询走 (cycleId, subjectId).
+}
+
+model Review360Assignment {
+  id          String   @id @default(cuid())
+  cycleId     String
+  subjectId   String   // User.id
+  raterId     String   // User.id
+  raterType   String
+  submitted   Boolean  @default(false)
+  submittedAt DateTime?
+  createdAt   DateTime @default(now())
+
+  cycle       Review360Cycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@unique([cycleId, subjectId, raterId])
+  @@index([cycleId])
+  @@index([raterId, submitted])
+}
+
+
