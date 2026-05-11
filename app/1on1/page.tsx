@@ -28,6 +28,7 @@ import {
   Plus, Calendar, MessageSquare, Target, CheckCircle2, Circle,
   Trash2, Clock, User, Users, AlertCircle, ListChecks, Heart, X,
 } from 'lucide-react';
+import { InsightsWidget } from '@/components/insights/insights-widget';
 
 // V1: 单用户 demo
 const ME = 'me';
@@ -471,6 +472,15 @@ function MeetingDetail({
           </Button>
         </div>
       </div>
+
+      {/* AI 信号 (员工相关 · 2026-05-10 跨模块联动) */}
+      <InsightsWidget
+        title="AI 信号 · 会前必读"
+        subtitle={`${reportName} 相关的 OKR / 1on1 / 360 信号`}
+        personId={meeting.reportId}
+        severities={['critical', 'warning', 'info']}
+        limit={4}
+      />
 
       {/* 议程 (双方各写) */}
       <Card>

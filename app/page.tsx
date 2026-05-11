@@ -23,6 +23,7 @@ import {
   Clock,
   ChevronRight,
 } from 'lucide-react';
+import { InsightsWidget } from '@/components/insights/insights-widget';
 
 /**
  * Homepage — 4-section layout per UI-IA §2:
@@ -177,6 +178,11 @@ export default function HomePage() {
               IM 协同
             </QuickAction>
           </div>
+        </section>
+
+        {/* ──────────── AI 信号 (2026-05-10 跨模块联动) ──────────── */}
+        <section className="space-y-3">
+          <InsightsWidget />
         </section>
 
         {/* ──────────── §2 企业内网 (M3 placeholder) ──────────── */}

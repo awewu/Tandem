@@ -815,6 +815,13 @@ export default function OKRPage() {
           <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowHealth(!showHealth)} title="OKR 健康度诊断">
             <Stethoscope className="h-3 w-3 mr-1" /> 健康度
           </Button>
+          <a
+            href="/insights"
+            className="h-7 px-2.5 text-xs inline-flex items-center gap-1 border rounded hover:bg-muted/40"
+            title="AI 智能层 · 跨模块信号"
+          >
+            <Sparkles className="h-3 w-3 text-brand-500" /> AI 信号
+          </a>
           <div className="flex border rounded">
             <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={handleExportJSON} title="导出 JSON 全量备份">
               <FileJson className="h-3 w-3 mr-1" /> JSON
