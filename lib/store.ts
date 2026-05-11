@@ -1737,3 +1737,137 @@ export const useMemoryStore = create<MemoryStore>()(
     }
   )
 );
+
+// =============================================================================
+// 1on1 模块 (2026-05-10 · OKR P1)
+// =============================================================================
+// 主管-员工双向周期对话, 对标 Tita 1on1. Tandem 差异化:
+//   - 关联 KR: 会议直接挂 KR, 避免空聊
+//   - 三段式 notes (进展/障碍/下一步) 沿用 Tita 范式
+//   - 产出 actionItems 直接下发 (M2 可挂 Initiative)
+// =============================================================================
+
+export type OneOnOneCadence = 'weekly' | 'biweekly' | 'monthly' | 'adhoc';
+export type OneOnOneStatus = 'scheduled' | 'completed' | 'cancelled' | 'no-show';
+
+export interface OneOnOneActionItem {
+  id: string;
+  text: string;
+  assigneeId: string;     // 'manager' | 'report' | personId
+  dueDate?: number;
+  done: boolean;
+}
+
+export interface OneOnOneMeeting {
+  id: string;
+  /** 主管 personId */
+  managerId: string;
+  /** 下级 personId */
+  reportId: string;
+  cadence: OneOnOneCadence;
+  /** 计划开始时间 (ms) */
+  scheduledAt: number;
+  /** 实际开始时间 (ms), 未开始时 undefined */
+  startedAt?: number;
+  /** 完成时间 (ms) */
+  completedAt?: number;
+  status: OneOnOneStatus;
+  /** 议程预设 (会前双方各自填) — 也叫 talking points */
+  agendaManager?: string;  // 主管想聊的
+  agendaReport?: string;   // 员工想聊的
+  /** 会中 / 会后填的三段式 */
+  noteProgress?: string;   // 进展
+  noteBlockers?: string;   // 障碍
+  noteNextSteps?: string;  // 下一步
+  /** 挂的 KR ID 列表 (连 OKR) */
+  linkedKrIds: string[];
+  /** 结论性 action items */
+  actionItems: OneOnOneActionItem[];
+  /** 员工干劲评分 1-5 (可选, 隐私保护, 只主管可见) */
+  moodScore?: number;
+  /** 隐私: 是否主管可见 (主管和员工各自的 private note) */
+  privateManagerNote?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+interface OneOnOneStore {
+  meetings: OneOnOneMeeting[];
+  addMeeting: (m: Omit<OneOnOneMeeting, 'id' | 'createdAt' | 'updatedAt' | 'actionItems' | 'linkedKrIds' | 'status'> & { status?: OneOnOneStatus; actionItems?: OneOnOneActionItem[]; linkedKrIds?: string[] }) => string;
+  updateMeeting: (id: string, patch: Partial<OneOnOneMeeting>) => void;
+  deleteMeeting: (id: string) => void;
+  addActionItem: (meetingId: string, text: string, assigneeId: string, dueDate?: number) => void;
+  toggleActionItem: (meetingId: string, itemId: string) => void;
+  removeActionItem: (meetingId: string, itemId: string) => void;
+}
+
+export const useOneOnOneStore = create<OneOnOneStore>()(
+  persist(
+    (set) => ({
+      meetings: [],
+      addMeeting: (m) => {
+        const id = crypto.randomUUID();
+        const now = Date.now();
+        set((s) => ({
+          meetings: [
+            ...s.meetings,
+            {
+              id,
+              actionItems: [],
+              linkedKrIds: [],
+              status: 'scheduled',
+              createdAt: now,
+              updatedAt: now,
+              ...m,
+            } as OneOnOneMeeting,
+          ],
+        }));
+        return id;
+      },
+      updateMeeting: (id, patch) =>
+        set((s) => ({
+          meetings: s.meetings.map((x) =>
+            x.id === id ? { ...x, ...patch, updatedAt: Date.now() } : x
+          ),
+        })),
+      deleteMeeting: (id) =>
+        set((s) => ({ meetings: s.meetings.filter((x) => x.id !== id) })),
+      addActionItem: (meetingId, text, assigneeId, dueDate) =>
+        set((s) => ({
+          meetings: s.meetings.map((m) =>
+            m.id !== meetingId ? m : {
+              ...m,
+              actionItems: [
+                ...m.actionItems,
+                { id: crypto.randomUUID(), text, assigneeId, dueDate, done: false },
+              ],
+              updatedAt: Date.now(),
+            }
+          ),
+        })),
+      toggleActionItem: (meetingId, itemId) =>
+        set((s) => ({
+          meetings: s.meetings.map((m) =>
+            m.id !== meetingId ? m : {
+              ...m,
+              actionItems: m.actionItems.map((a) =>
+                a.id !== itemId ? a : { ...a, done: !a.done }
+              ),
+              updatedAt: Date.now(),
+            }
+          ),
+        })),
+      removeActionItem: (meetingId, itemId) =>
+        set((s) => ({
+          meetings: s.meetings.map((m) =>
+            m.id !== meetingId ? m : {
+              ...m,
+              actionItems: m.actionItems.filter((a) => a.id !== itemId),
+              updatedAt: Date.now(),
+            }
+          ),
+        })),
+    }),
+    { name: '铁山-1on1-store' }
+  )
+);

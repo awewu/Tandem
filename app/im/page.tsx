@@ -12,6 +12,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { CreateChannelDialog } from '@/components/im/create-channel-dialog';
 import { ContactsTree } from '@/components/im/contacts-tree';
 import { ChannelSettingsDialog } from '@/components/im/channel-settings-dialog';
+import { SeedFromOrgDialog } from '@/components/im/seed-from-org-dialog';
 import type { ImChannel, ImMembership, ImMessage } from '@/lib/types/im';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
@@ -86,6 +87,8 @@ export default function ImPage() {
   const [showSettings, setShowSettings] = useState(false);
   /** Q2 Day 4: 当前频道成员 (计算已读人数) */
   const [members, setMembers] = useState<ImMembership[]>([]);
+  /** P1 (2026-05-10): 按组织架构一键建群 对话框 */
+  const [showSeedDialog, setShowSeedDialog] = useState(false);
   const composerRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -384,6 +387,15 @@ export default function ImPage() {
             >
               <Plus className="h-4 w-4" />
             </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-amber-600 hover:bg-amber-50"
+              onClick={() => setShowSeedDialog(true)}
+              title="按组织架构一键建群 (HR/Admin)"
+            >
+              <Sparkles className="h-4 w-4" />
+            </Button>
           </div>
         </div>
         {/* Q2 Day 2: tab 切换 [频道|通讯录] */}
@@ -486,6 +498,14 @@ export default function ImPage() {
         </div>
         )}
       </aside>
+
+      {/* P1: 按组织一键建群 对话框 */}
+      <SeedFromOrgDialog
+        open={showSeedDialog}
+        onOpenChange={setShowSeedDialog}
+        currentUserId={ME}
+        onSeeded={() => { void loadChannels(); }}
+      />
 
       {/* Day 5-7: 频道设置对话框 */}
       <ChannelSettingsDialog

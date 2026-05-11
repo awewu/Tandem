@@ -436,6 +436,89 @@ export async function togglePinMessage(
   return updated;
 }
 
+// ---------------------------------------------------------------------------
+// P1 Day ?? (2026-05-10): 按组织架构一键建群 (HR seed)
+// ---------------------------------------------------------------------------
+
+export interface DepartmentSpec {
+  /** 对应 useOrgStore Department.id / Ministry.id (客户端传入) */
+  departmentId: string;
+  /** 群名, 通常 '{部门名} 工作群' */
+  name: string;
+  /** 成员 userId 数组 (已含 operator) */
+  memberIds: string[];
+  /** team (ministry) 还是 department (一级). 决定 ImChannelType */
+  level: 'department' | 'team';
+}
+
+export interface SeedResult {
+  created: { departmentId: string; channelId: string; name: string }[];
+  skipped: { departmentId: string; reason: string; existingChannelId?: string }[];
+}
+
+/**
+ * 按组织架构一键建部门/团队群 (幂等: 已存在同 departmentId+autoCreated 的跳过).
+ * 管理员专属 (调用方自行鉴权).
+ */
+export async function seedDepartmentChannels(
+  specs: DepartmentSpec[],
+  operatorId: string,
+): Promise<SeedResult> {
+  const store = getStore();
+  const existing = await store.imChannels.list();
+  const existsByDept = new Map<string, ImChannel>();
+  for (const ch of existing) {
+    if (ch.departmentId && ch.autoCreated) {
+      existsByDept.set(ch.departmentId, ch);
+    }
+  }
+
+  const result: SeedResult = { created: [], skipped: [] };
+
+  for (const spec of specs) {
+    if (existsByDept.has(spec.departmentId)) {
+      const ex = existsByDept.get(spec.departmentId)!;
+      result.skipped.push({
+        departmentId: spec.departmentId,
+        reason: '已存在自动创建的部门群',
+        existingChannelId: ex.id,
+      });
+      continue;
+    }
+    if (spec.memberIds.length === 0) {
+      result.skipped.push({
+        departmentId: spec.departmentId,
+        reason: '部门无成员',
+      });
+      continue;
+    }
+    try {
+      const ch = await createChannel({
+        type: spec.level === 'team' ? 'team' : 'department',
+        name: spec.name,
+        visibility: 'public',
+        memberIds: Array.from(new Set([operatorId, ...spec.memberIds])),
+        createdBy: operatorId,
+        departmentId: spec.departmentId,
+        autoCreated: true,
+        topic: `${spec.name} · 按组织架构自动建群`,
+      });
+      result.created.push({
+        departmentId: spec.departmentId,
+        channelId: ch.id,
+        name: ch.name,
+      });
+    } catch (err) {
+      result.skipped.push({
+        departmentId: spec.departmentId,
+        reason: `创建失败: ${(err as Error).message}`,
+      });
+    }
+  }
+
+  return result;
+}
+
 /** 列出频道全部成员 + 角色 (含 lastReadAt 用于已读UI) */
 export async function listChannelMembers(channelId: string): Promise<ImMembership[]> {
   const store = getStore();
