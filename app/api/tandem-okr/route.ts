@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getStore } from '@/lib/boot';
+import { requireAuth } from '@/lib/auth/require-auth';
 
 /**
  * GET /api/tandem-okr?cycleId=...&ownerId=...
@@ -14,6 +15,8 @@ import { getStore } from '@/lib/boot';
  * 路由命名带 tandem- 前缀, 避免与现存 /app/okr/ UI 路由的潜在 API 冲突.
  */
 export async function GET(req: NextRequest) {
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
   try {
     const { searchParams } = new URL(req.url);
     const cycleId = searchParams.get('cycleId');
@@ -42,6 +45,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
   try {
     const body = await req.json();
     const store = getStore();
@@ -50,7 +55,8 @@ export async function POST(req: NextRequest) {
       cycleId: body.cycleId,
       level: body.level ?? 'individual',
       parentObjectiveId: body.parentObjectiveId,
-      ownerId: body.ownerId,
+      // ownerId 默认 = sessionUser.id (D4: 防件被伪造); body 可显式传但需后续权限校验
+      ownerId: body.ownerId ?? auth.userId,
       title: body.title,
       description: body.description,
       visibility: body.visibility ?? 'public',
