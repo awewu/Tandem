@@ -1,0 +1,131 @@
+feat(okr): P1 一口干完 - 部门 dashboard + 日历 + 360 评估
+
+User: 不等了能不能一口气全部完成. OKR P1 剩 4 项 (季度模板/部门 dashboard/
+日历/360 评估), 季度模板已有 (OKRTemplatePicker 已挂在 /okr) - 跳过.
+另外 3 项一口气干完.
+
+==== 1. /okr/dashboard - 部门聚合 dashboard (3 天估 → 1 commit) ====
+
+app/okr/dashboard/page.tsx (NEW, 393 行):
+
+  Header: 周期切换 select
+  4 个 KPI:
+    - 本周期 O 数 / 整体平均进度 / 风险 O 数 / 跨部门对齐数
+    - 整体进度 ≥60% 绿, ≥30% 橙, 否则红
+
+  各部门概览卡:
+    - 部门名 + O 数 + 人数
+    - 在轨/风险/落后 三色 badge
+    - 平均进度条 + 数值
+
+  Top 5 三栏:
+    - 🚨 落后 Top 5 (按 progress 升序)
+    - ⚠️ 风险 Top 5 (confidence != on-track)
+    - 🚀 领先 Top 5 (按 progress 降序)
+
+  100% 派生自 useOKRStore + useOrgStore.
+  owner → person.ministryId → department/ministry 映射做部门归属.
+  跨部门 = 父子 ownerId 不同部门 (复用 alignment-tree 同算法).
+
+==== 2. /okr/calendar - KR 截止日历 (2 天估) ====
+
+app/okr/calendar/page.tsx (NEW, 308 行):
+
+  月网格 (周一首列, 中国习惯):
+    - 今天: amber 边框 + 浅黄底
+    - 过去日: 灰底 + 灰字
+    - 未来日: 白底 + 黑字
+    - 每格最多显示 3 条事件, 超出 "+N 更多"
+
+  事件类型 (4 种):
+    - KR 截止 (彩点按 confidence: 绿/黄/红, 点击跳 /okr?o=)
+    - Check-in 提交 (灰小点)
+    - 周期开始/结束 (紫色)
+
+  导航: ◀ 今天 ▶ + 月份标签
+  统计 chip: 本月 N 个 KR 截止 / N 次 check-in
+  图例区: 6 类事件颜色说明
+
+  SSR 安全: nowMs 用 useState(0) + useEffect 客户端再算 today.
+
+==== 3. /360 - 360 度评估 (7 天估 → MVP) ====
+
+lib/store.ts (+162 行):
+  Review360RaterType (self/manager/peer/report/cross)
+  Review360CycleStatus / Question / CycleDef / Submission / Assignment
+  DEFAULT_360_QUESTIONS (8 题, 业绩/协作/创新/责任/沟通/学习/领导力/价值观)
+  useReview360Store + CRUD:
+    addCycle / updateCycle / deleteCycle (递归删 assignment+submission)
+    addAssignment (幂等 cycleId+subjectId+raterId)
+    submitReview (重复时覆盖, 同步标记 assignment.submitted=true)
+
+app/360/page.tsx (NEW, 595 行):
+
+  3 tab 顶栏:
+    - 待我评 (rater=ME, !submitted) - 进入 ReviewForm
+    - 收到反馈 (subject=ME) - 维度聚合 + 优势/改进点列表 (peer 匿名)
+    - 周期管理 - 创建周期 + 配置评估关系 (subject ↔ rater)
+
+  ReviewForm (单次评估):
+    - 8 个维度题目, 1-5 评分 + 可选文本
+    - 整体优势 + 改进点 (必填)
+    - 总评分 (可选)
+    - peer 模式显示 🔒 匿名 chip
+    - valid: 全部 rated 题填 + 优势 + 改进点 才能提交
+
+  Received 聚合:
+    - 维度评分条形图 (绿/黄/红 by avg)
+    - 优势区 (绿底) + 改进点区 (红底)
+    - peer 匿名时显示 "匿名平级", 其他实名
+
+  CyclesTab:
+    - 新周期表单 (名称 + 起止 + 是否 peer 匿名)
+    - 周期卡 (展开后管理 assignment)
+    - 加 assignment: subject + rater + raterType select 三连
+    - 删除整个周期 (二次确认)
+
+==== 4. Sidebar (1 行 +3) ====
+
+components/sidebar.tsx 在 '事半' 模块加:
+  - 部门 Dashboard (/okr/dashboard, manager+ 可见)
+  - OKR 日历 (/okr/calendar)
+  - 360 评估 (/360)
+
+==== Verified ====
+
+npx tsc --noEmit → 0 errors
+GET /okr/dashboard → 200 (30 KB)
+GET /okr/calendar → 200 (31 KB)
+GET /360 → 200 (27 KB)
+pre-commit hook 通过.
+
+==== 完整度 ====
+
+OKR: 97% → ~99% (P0+P1 全到位)
+  ✅ 季度模板 (已有, OKRTemplatePicker)
+  ✅ 部门 dashboard (本次)
+  ✅ 日历 (本次)
+  ✅ 360 评估 (本次)
+  ✅ 1on1 (上一 commit)
+  ⏳ 仅剩 P2/V2: YoY (1 年数据后) + 邮件通知 + 移动端 + 钉钉企微集成
+
+IM: 75% (上 commit)
+  ⏳ 多端同步 (V2, 后端重构 20 天)
+
+==== Tandem vs Tita 对照 ====
+
+| 维度       | Tita | Tandem |
+|------------|------|--------|
+| 部门 dashboard | 简单列表 | 跨部门对齐统计 + 风险/落后 Top 5 |
+| 日历视图   | 有   | + check-in/cycle 事件 + 周一首列 |
+| 360 评估   | 有   | + peer 默认匿名 + 维度聚合条形图 + 8 维默认题库 |
+| 季度模板   | 有   | 11 套行业模板 (已存在) |
+| 1on1       | 有   | + 关联 KR + 主管私密区 §13 |
+
+==== 4 铁律 ====
+
+#1 不删 - 0 删除 (Templates 已存在直接跳过, 不重写)
+#2 累积演进 - 4 个新 route, 不动既有
+#3 tsc 0 errors
+#4 增量 - 3 新页 + 360 schema/store + sidebar 3 行.
+   零改 lib/okr/* / 既有 store / OKR 主页.

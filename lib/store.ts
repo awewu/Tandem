@@ -1871,3 +1871,166 @@ export const useOneOnOneStore = create<OneOnOneStore>()(
     { name: '铁山-1on1-store' }
   )
 );
+
+// =============================================================================
+// 360 评估 (2026-05-10 · OKR P1)
+// =============================================================================
+// 多源反馈: 自评 + 上级 + 平级 + 下级 + 跨部门
+// 周期化: 季度/年度发起一轮 → 选评估对象和评估人 → 收集 → 聚合
+// 维度可定制 (默认 8 个: 业绩/协作/创新/责任/沟通/学习/领导力/价值观)
+// 评分: 1-5 + 文本 + 强项 + 改进点
+// 匿名: peers 默认匿名, 主管/下级实名 (可选)
+// =============================================================================
+
+export type Review360RaterType = 'self' | 'manager' | 'peer' | 'report' | 'cross';
+export type Review360CycleStatus = 'draft' | 'active' | 'closed';
+
+export interface Review360Question {
+  id: string;
+  /** 维度 (业绩/协作/创新...) */
+  dimension: string;
+  /** 题干 */
+  prompt: string;
+  /** 是否要求评分 (1-5) */
+  rated: boolean;
+  /** 是否要求文字回答 */
+  qualitative: boolean;
+}
+
+export interface Review360CycleDef {
+  id: string;
+  name: string;          // 'Q3-2025 360 评估' 等
+  startDate: number;
+  endDate: number;
+  status: Review360CycleStatus;
+  /** 评估题目 */
+  questions: Review360Question[];
+  /** peer 匿名 */
+  anonymizePeers: boolean;
+  createdAt: number;
+}
+
+export interface Review360Submission {
+  id: string;
+  cycleId: string;
+  /** 被评估人 */
+  subjectId: string;
+  /** 评估人 (匿名时仍存, UI 不暴露) */
+  raterId: string;
+  raterType: Review360RaterType;
+  /** 每题答案 */
+  answers: {
+    questionId: string;
+    score?: number;       // 1-5
+    text?: string;
+  }[];
+  /** 整体强项 (≥1 条) */
+  strengths: string;
+  /** 整体改进点 (≥1 条) */
+  improvements: string;
+  /** 总评分 (可选, 1-5) */
+  overallScore?: number;
+  submittedAt: number;
+}
+
+export interface Review360Assignment {
+  id: string;
+  cycleId: string;
+  subjectId: string;
+  raterId: string;
+  raterType: Review360RaterType;
+  /** 是否已提交 */
+  submitted: boolean;
+  submittedAt?: number;
+}
+
+interface Review360Store {
+  cycles: Review360CycleDef[];
+  assignments: Review360Assignment[];
+  submissions: Review360Submission[];
+
+  addCycle: (c: Omit<Review360CycleDef, 'id' | 'createdAt'>) => string;
+  updateCycle: (id: string, patch: Partial<Review360CycleDef>) => void;
+  deleteCycle: (id: string) => void;
+  /** 添加评估关系 (subject 由谁评) */
+  addAssignment: (a: Omit<Review360Assignment, 'id' | 'submitted' | 'submittedAt'>) => void;
+  removeAssignment: (id: string) => void;
+  submitReview: (s: Omit<Review360Submission, 'id' | 'submittedAt'>) => void;
+}
+
+const DEFAULT_360_QUESTIONS: Review360Question[] = [
+  { id: 'q-perf', dimension: '业绩', prompt: '在过去周期内, 该同事的核心产出/目标完成度如何?', rated: true, qualitative: true },
+  { id: 'q-collab', dimension: '协作', prompt: '在跨团队配合中表现如何? 是否主动拉动协作?', rated: true, qualitative: true },
+  { id: 'q-innovate', dimension: '创新', prompt: '是否带来过新方法/新工具/新思路?', rated: true, qualitative: false },
+  { id: 'q-own', dimension: '责任', prompt: '面对模糊问题或意外情况时, 是否主动 ownership?', rated: true, qualitative: false },
+  { id: 'q-comm', dimension: '沟通', prompt: '表达是否清晰? 倾听是否充分? 是否能在分歧中达成共识?', rated: true, qualitative: true },
+  { id: 'q-learn', dimension: '学习', prompt: '是否在主动迭代自己的能力 / 复盘失败?', rated: true, qualitative: false },
+  { id: 'q-lead', dimension: '领导力', prompt: '能否带动他人 / 提供方向 (即便没正式职称)?', rated: true, qualitative: false },
+  { id: 'q-values', dimension: '价值观', prompt: '行为是否与组织价值观一致 (诚信/客户/敬业...)?', rated: true, qualitative: false },
+];
+
+export { DEFAULT_360_QUESTIONS };
+
+export const useReview360Store = create<Review360Store>()(
+  persist(
+    (set) => ({
+      cycles: [],
+      assignments: [],
+      submissions: [],
+
+      addCycle: (c) => {
+        const id = crypto.randomUUID();
+        set((s) => ({
+          cycles: [...s.cycles, { id, createdAt: Date.now(), ...c }],
+        }));
+        return id;
+      },
+      updateCycle: (id, patch) =>
+        set((s) => ({
+          cycles: s.cycles.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+        })),
+      deleteCycle: (id) =>
+        set((s) => ({
+          cycles: s.cycles.filter((c) => c.id !== id),
+          assignments: s.assignments.filter((a) => a.cycleId !== id),
+          submissions: s.submissions.filter((sub) => sub.cycleId !== id),
+        })),
+
+      addAssignment: (a) =>
+        set((s) => {
+          // 幂等: 同 cycleId+subjectId+raterId 不重复
+          const exists = s.assignments.some(
+            (x) => x.cycleId === a.cycleId && x.subjectId === a.subjectId && x.raterId === a.raterId
+          );
+          if (exists) return {};
+          return {
+            assignments: [
+              ...s.assignments,
+              { id: crypto.randomUUID(), submitted: false, ...a },
+            ],
+          };
+        }),
+      removeAssignment: (id) =>
+        set((s) => ({ assignments: s.assignments.filter((a) => a.id !== id) })),
+
+      submitReview: (sub) =>
+        set((s) => {
+          const id = crypto.randomUUID();
+          const now = Date.now();
+          // 同一 (cycleId, subjectId, raterId) 只允许一份, 重复则覆盖
+          const newSubs = s.submissions.filter(
+            (x) => !(x.cycleId === sub.cycleId && x.subjectId === sub.subjectId && x.raterId === sub.raterId)
+          );
+          newSubs.push({ id, submittedAt: now, ...sub });
+          // 更新对应 assignment 状态
+          const newAssigns = s.assignments.map((a) =>
+            a.cycleId === sub.cycleId && a.subjectId === sub.subjectId && a.raterId === sub.raterId
+              ? { ...a, submitted: true, submittedAt: now }
+              : a
+          );
+          return { submissions: newSubs, assignments: newAssigns };
+        }),
+    }),
+    { name: '铁山-360-store' }
+  )
+);

@@ -79,6 +79,9 @@ const NAV: NavGroup[] = [
     emoji: '📊',
     items: [
       { name: 'OKR 5 层', href: '/okr/cascade', icon: Target },
+      { name: '部门 Dashboard', href: '/okr/dashboard', icon: Target, visibleTo: ['manager', 'steward', 'admin', 'champion'] },
+      { name: 'OKR 日历', href: '/okr/calendar', icon: Target },
+      { name: '360 评估', href: '/360', icon: Sparkles },
       { name: '议事室', href: '/convergence', icon: Sparkles, badge: '17min' },
       { name: 'IM 协同', href: '/im', icon: MessagesSquare },
       { name: 'Memory 知识', href: '/memories', icon: Brain },
