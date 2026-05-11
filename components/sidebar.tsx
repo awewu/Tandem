@@ -160,7 +160,13 @@ export default function Sidebar() {
     async function loadRoles() {
       try {
         const r = await fetch('/api/auth/me', { credentials: 'include' });
-        if (!r.ok) return;
+        if (!r.ok) {
+          // 401 unauthenticated → demo mode: 暴露全部入口 (页面自身仍有 server-side guard).
+          // 失败案例 2026-05-10: Steward 工作台等管理项默认对 employee 隐藏,
+          // 未登录用户看不到入口, 体验上像"被删了".
+          if (!cancelled) setUserRoles(['admin', 'champion', 'steward', 'manager', 'employee']);
+          return;
+        }
         const data = await r.json();
         if (cancelled) return;
         const rolesRaw: unknown = data?.user?.roles ?? data?.roles ?? [];
