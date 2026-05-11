@@ -90,6 +90,8 @@ const NAV: NavGroup[] = [
       { name: '组织架构', href: '/organization', icon: Building2 },
       { name: '9 宫格', href: '/nine-box', icon: Grid3x3, visibleTo: ['manager', 'steward', 'admin', 'champion'] },
       { name: '1on1 对话', href: '/1on1', icon: MessagesSquare },
+      { name: 'AI 智能信号', href: '/insights', icon: Sparkles },
+      { name: '组织分析', href: '/analytics', icon: Grid3x3, visibleTo: ['manager', 'steward', 'admin', 'champion'] },
     ],
   },
 
