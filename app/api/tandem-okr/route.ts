@@ -45,6 +45,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const store = getStore();
+    const now = new Date().toISOString();
     const obj = await store.objectives.create({
       cycleId: body.cycleId,
       level: body.level ?? 'individual',
@@ -53,7 +54,15 @@ export async function POST(req: NextRequest) {
       title: body.title,
       description: body.description,
       visibility: body.visibility ?? 'public',
-      createdAt: new Date().toISOString(),
+      // A2.1a 新增字段, 接受 body 覆盖, 否则给默认
+      weight: typeof body.weight === 'number' ? body.weight : 100,
+      status: body.status ?? 'active',
+      confidence: body.confidence ?? 'on-track',
+      tags: Array.isArray(body.tags) ? body.tags : [],
+      collaboratorIds: Array.isArray(body.collaboratorIds) ? body.collaboratorIds : [],
+      watcherIds: Array.isArray(body.watcherIds) ? body.watcherIds : [],
+      createdAt: now,
+      updatedAt: now,
     });
     return NextResponse.json({ objective: obj });
   } catch (err) {

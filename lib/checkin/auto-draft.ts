@@ -1,109 +1,85 @@
 /**
- * Auto Check-in Draft · 周 Check-in 自动草稿
+ * Auto Check-in Draft · scope-based 自动草稿
  *
- * 每周一早上自动:
- *   1. 拉取上周 KR / TTI 进展
- *   2. 拉取本周关闭的 DecisionCards
- *   3. 调 LLM (高频低成本场景 → 豆包 Pro) 生成草稿
- *   4. 写入 CheckIn (aiDraftGenerated: true, approvedByOwner: false)
- *   5. 推送通知给员工 review
+ * A2.1a 重构 (2026-05-10):
+ *   - CheckIn 模型从 weekly + krUpdates JSON 改为 scope-based (1 KR 或 1 Objective 一条)
+ *   - 本 lib 旧的 LLM 调用代码已删除 (响应模型不再适配); 简化为对每个未达标 KR 生成 1 条 stub 草稿
+ *   - 真正的 AI 摘要后续在 /api/okr/checkins/draft 端点重做 (A3 范围)
  *
- * 关键: 草稿默认未通过, 必须员工手动确认.
+ * 当前状态: 不是 production wire, 仅作为 type-safe 兼容存根, 等 A3 重写
  */
 
 import { getStore } from '../storage/repository';
-import { getRouter } from '../boot';
-import type { CheckIn } from '../types/okr-tti';
+import type { CheckIn, KeyResult, Confidence } from '../types/okr-tti';
 
 export interface DraftInput {
-  ownerId: string;
-  cycleId: string;
-  /** 本周开始日期 (周一) */
-  weekStart: string;
+  /** 发起人 (User.id) */
+  authorId: string;
+  /** 限定 cycle (用于过滤 KR) */
+  cycleId?: string;
 }
 
-export async function generateCheckInDraft(input: DraftInput): Promise<CheckIn> {
-  const store = getStore();
-  const router = getRouter();
+function confidenceFromRisk(risk: KeyResult['riskStatus']): Confidence {
+  if (risk === 'off_track') return 'off-track';
+  if (risk === 'at_risk') return 'at-risk';
+  return 'on-track';
+}
 
-  // 拉取数据
-  const ownKrs = (await store.keyResults.list()).filter((kr) => kr.ownerId === input.ownerId);
-  const ownTtis = (await store.ttis.list()).filter((t) => t.ownerId === input.ownerId);
-  const cards = (await store.decisionCards.list())
-    .filter((c) => c.createdBy === input.ownerId)
-    .filter((c) => {
-      const t = new Date(c.createdAt).getTime();
-      const weekTs = new Date(input.weekStart).getTime();
-      return t >= weekTs && t < weekTs + 7 * 86400_000;
-    });
-
-  // LLM 生成草稿
-  let aiText = '';
-  try {
-    const res = await router.chat({
-      scenario: 'high_frequency',
-      temperature: 0.5,
-      messages: [
-        {
-          role: 'system',
-          content: `你是 Tandem 周 Check-in 助手. 任务: 基于本周 KR / TTI / 决议数据, 生成 3 段:
-1. whatWentWell: 这周做得好的事 (具体)
-2. whatWentWrong: 这周遇到的卡点 (诚实)
-3. nextWeekPlan: 下周计划 (聚焦 1-3 件事)
-
-请输出 JSON: {whatWentWell, whatWentWrong, nextWeekPlan}.
-注意: 这只是草稿, 员工本人会 review 修改.`,
-        },
-        {
-          role: 'user',
-          content: `本周数据:
-- KR: ${ownKrs.map((k) => `${k.title} (${k.currentValue}/${k.targetValue})`).join('; ') || '(无)'}
-- TTI: ${ownTtis.map((t) => `${t.title} (${(t.completionRate * 100).toFixed(0)}%)`).join('; ') || '(无)'}
-- 本周决议: ${cards.map((c) => c.title).join('; ') || '(无)'}`,
-        },
-      ],
-      responseFormat: 'json',
-    });
-    aiText = typeof res.message.content === 'string' ? res.message.content : '{}';
-  } catch (err) {
-    aiText = '{}';
-  }
-
-  let parsed: { whatWentWell?: string; whatWentWrong?: string; nextWeekPlan?: string } = {};
-  try {
-    parsed = JSON.parse(aiText);
-  } catch {
-    /* fallback empty */
-  }
-
-  // 创建 CheckIn
-  return store.checkIns.create({
-    ownerId: input.ownerId,
-    cycleId: input.cycleId,
-    weekStart: input.weekStart,
-    krUpdates: ownKrs.map((k) => ({
-      keyResultId: k.id,
-      previousValue: k.currentValue,
-      newValue: k.currentValue,
-    })),
-    ttiUpdates: ownTtis.map((t) => ({
-      ttiId: t.id,
-      previousRate: t.completionRate,
-      newRate: t.completionRate,
-    })),
-    whatWentWell: parsed.whatWentWell,
-    whatWentWrong: parsed.whatWentWrong,
-    nextWeekPlan: parsed.nextWeekPlan,
-    aiDraftGenerated: true,
-    approvedByOwner: false,
-    createdAt: new Date().toISOString(),
-  });
+function progressOfKR(kr: KeyResult): number {
+  const span = kr.targetValue - kr.startValue;
+  if (span === 0) return kr.currentValue >= kr.targetValue ? 100 : 0;
+  const pct = ((kr.currentValue - kr.startValue) / span) * 100;
+  return Math.max(0, Math.min(100, Math.round(pct)));
 }
 
 /**
- * 员工确认 (autonomy 守门)
+ * 给作者名下未达 70% 的 KR 各生成一条 scope=kr 的 check-in 草稿.
+ *
+ * @returns 创建出来的 check-in 数组
  */
-export async function approveCheckIn(checkInId: string): Promise<CheckIn> {
+export async function generateCheckInDraft(input: DraftInput): Promise<CheckIn[]> {
   const store = getStore();
-  return store.checkIns.update(checkInId, { approvedByOwner: true });
+
+  let ownKrs = (await store.keyResults.list()).filter((kr) => kr.ownerId === input.authorId);
+  if (input.cycleId) {
+    const objs = await store.objectives.list();
+    const cycleObjIds = new Set(
+      objs.filter((o) => o.cycleId === input.cycleId).map((o) => o.id)
+    );
+    ownKrs = ownKrs.filter((kr) => cycleObjIds.has(kr.objectiveId));
+  }
+
+  const now = new Date().toISOString();
+  const created: CheckIn[] = [];
+  for (const kr of ownKrs) {
+    const progress = progressOfKR(kr);
+    if (progress >= 70) continue; // 健康的不打扰
+    const conf = confidenceFromRisk(kr.riskStatus);
+    const ci = await store.checkIns.create({
+      scope: 'kr',
+      scopeId: kr.id,
+      authorId: input.authorId,
+      progressBefore: progress,
+      progressAfter: progress,
+      confidenceBefore: conf,
+      confidenceAfter: conf,
+      achievements: null,
+      blockers: '(草稿) 本周进展低于预期, 请补充阻碍说明.',
+      nextSteps: null,
+      mood: null,
+      createdAt: now,
+    });
+    created.push(ci);
+  }
+  return created;
+}
+
+/**
+ * @deprecated A2.1a: CheckIn 模型已没有 approvedByOwner 字段.
+ *   保留函数签名只为不破坏可能的 import; 实际无操作.
+ *   A3 会把审批语义改到 OKR Activity 流.
+ */
+export async function approveCheckIn(checkInId: string): Promise<CheckIn | null> {
+  const store = getStore();
+  return store.checkIns.get(checkInId);
 }

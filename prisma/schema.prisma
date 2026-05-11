@@ -398,7 +398,6 @@ model Cycle {
 
   objectives Objective[]
   ttis       TTI[]
-  checkIns   CheckIn[]
 }
 
 model Objective {
@@ -410,6 +409,23 @@ model Objective {
   title             String
   description       String?
   visibility        String   @default("public")
+  // A2.1a (2026-05-10) — Prisma 与 zustand 语义对齐:
+  // weight: 0-100, 在父 Objective 下的权重
+  // status: active | paused | completed | abandoned
+  // confidence: on-track | at-risk | off-track (替代 KR 的 green/yellow/red 旧值)
+  weight            Int      @default(100)
+  status            String   @default("active")
+  confidence        String   @default("on-track")
+  tags              String[] @default([])
+  collaboratorIds   String[] @default([])
+  watcherIds        String[] @default([])
+  /// 周期末评分 (Google 0-1.0 风格, null 表示未评)
+  selfScore         Float?
+  managerScore      Float?
+  finalScore        Float?
+  retrospective     String?
+  reviewedAt        DateTime?
+  updatedAt         DateTime @updatedAt
   createdAt         DateTime @default(now())
 
   cycle             Cycle    @relation(fields: [cycleId], references: [id])
@@ -420,6 +436,7 @@ model Objective {
 
   @@index([cycleId])
   @@index([ownerId])
+  @@index([status])
 }
 
 model KeyResult {
@@ -428,14 +445,26 @@ model KeyResult {
   ownerId       String
   coOwnerIds    String[] @default([])
   title         String
-  measureType   String   // numeric | percentage | milestone
-  computeMethod String   // cumulative | latest | average
-  startValue    Float
+  /// A2.1a: measureType 现支持 binary (做/没做) | numeric | percentage | milestone
+  measureType   String   @default("numeric")
+  computeMethod String   @default("latest") // cumulative | latest | average
+  startValue    Float    @default(0)
   targetValue   Float
-  currentValue  Float
+  currentValue  Float    @default(0)
   unit          String?
-  confidence    String   // green | yellow | red
-  riskStatus    String   // on_track | at_risk | off_track
+  /// A2.1a: confidence 值域统一为 on-track | at-risk | off-track (旧 green/yellow/red 已淘汰)
+  confidence    String   @default("on-track")
+  /// 旧 riskStatus (on_track | at_risk | off_track), 保留兼容, 新代码应只用 confidence
+  riskStatus    String   @default("on_track")
+  /// A2.1a 新增:
+  weight        Int      @default(100)
+  status        String   @default("active") // active | completed | abandoned
+  dueDate       DateTime?
+  tags          String[] @default([])
+  collaboratorIds String[] @default([])
+  watcherIds    String[] @default([])
+  selfScore     Float?
+  finalScore    Float?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -445,6 +474,7 @@ model KeyResult {
 
   @@index([objectiveId])
   @@index([ownerId])
+  @@index([status])
 }
 
 model TTI {
@@ -491,25 +521,36 @@ model Initiative {
   @@index([keyResultId])
 }
 
+/// A2.1a (2026-05-10) — CheckIn 重建为 scope-based 模型.
+/// 旧的 weekly + krUpdates/ttiUpdates JSON 周报模型已淘汰 (auto-draft 旧库已废弃).
+/// 新模型: 每条 check-in 直接挂在 1 个 Objective 或 1 个 KR 上, 记录进度+信心+三段式叙述.
 model CheckIn {
-  id              String   @id @default(cuid())
-  ownerId         String
-  cycleId         String
-  weekStart       DateTime
-  krUpdates       Json     // [{keyResultId, previousValue, newValue}]
-  ttiUpdates      Json     // [{ttiId, previousRate, newRate}]
-  whatWentWell    String?
-  whatWentWrong   String?
-  nextWeekPlan    String?
-  aiDraftGenerated Boolean @default(false)
-  approvedByOwner Boolean  @default(false)
-  createdAt       DateTime @default(now())
+  id                String   @id @default(cuid())
+  /// 'objective' | 'kr'
+  scope             String
+  /// 对应 Objective.id 或 KeyResult.id (polymorphic, 不建外键)
+  scopeId           String
+  /// 发起 check-in 的人 (User.id)
+  authorId          String
+  /// 进度快照 (0-100), 写入前/后
+  progressBefore    Float
+  progressAfter     Float
+  /// 信心快照, 值域 on-track | at-risk | off-track
+  confidenceBefore  String
+  confidenceAfter   String
+  /// PPP / 三段式叙述
+  achievements      String?
+  blockers          String?
+  nextSteps         String?
+  /// 个人干劲 (happy | neutral | sad), Weekdone 高级版灵感
+  mood              String?
+  createdAt         DateTime @default(now())
 
-  owner           User     @relation(fields: [ownerId], references: [id])
-  cycle           Cycle    @relation(fields: [cycleId], references: [id])
+  author            User     @relation(fields: [authorId], references: [id])
 
-  @@index([ownerId, weekStart])
-  @@index([cycleId])
+  @@index([scope, scopeId])
+  @@index([authorId])
+  @@index([createdAt])
 }
 
 // =============================================================================

@@ -29,6 +29,9 @@ export interface Cycle {
 
 export type ObjectiveLevel = 'company' | 'team' | 'individual';
 
+export type ObjectiveStatus = 'active' | 'paused' | 'completed' | 'abandoned';
+export type Confidence = 'on-track' | 'at-risk' | 'off-track';
+
 export interface Objective {
   id: string;
   cycleId: string;
@@ -40,36 +43,60 @@ export interface Objective {
   description?: string;
   /** 默认全员可见 (MANIFESTO 第六条) */
   visibility: 'public' | 'team' | 'private';
+  /** A2.1a 新增, 与 zustand 语义对齐 */
+  weight: number;            // 0-100
+  status: ObjectiveStatus;
+  confidence: Confidence;
+  tags: string[];
+  collaboratorIds: string[];
+  watcherIds: string[];
+  selfScore?: number | null;
+  managerScore?: number | null;
+  finalScore?: number | null;
+  retrospective?: string | null;
+  reviewedAt?: string | null;
   createdAt: string;
+  updatedAt: string;
 }
 
 // ---------------------------------------------------------------------------
 // Key Result (KR)
 // ---------------------------------------------------------------------------
 
-export type KRMeasureType = 'numeric' | 'percentage' | 'milestone';
-// 注: 'boolean' 类型禁用 (MANIFESTO 反 OKR 形式主义)
+/** A2.1a: binary 入 enum (做/没做, 加满 100% = 完成) */
+export type KRMeasureType = 'binary' | 'numeric' | 'percentage' | 'milestone';
 
 export type KRComputeMethod = 'cumulative' | 'latest' | 'average';
+
+export type KRStatus = 'active' | 'completed' | 'abandoned';
 
 export interface KeyResult {
   id: string;
   objectiveId: string;
-  /** 单 owner 默认; co-owner 在 V2 加 */
   ownerId: string;
-  coOwnerIds?: string[];
+  coOwnerIds: string[];
   title: string;
   measureType: KRMeasureType;
   computeMethod: KRComputeMethod;
-  /** 三段式: 起始 / 目标 / 当前 */
   startValue: number;
   targetValue: number;
   currentValue: number;
-  unit?: string;             // e.g. "万元" / "%"
-  /** Confidence Score: 红黄绿 (Google 风格) */
-  confidence: 'green' | 'yellow' | 'red';
-  /** 风险标记 */
+  unit?: string | null;
+  /** A2.1a: 值域统一为 on-track | at-risk | off-track */
+  confidence: Confidence;
+  /** 保留 (旧 on_track | at_risk | off_track), 新代码只用 confidence */
   riskStatus: 'on_track' | 'at_risk' | 'off_track';
+  /** A2.1a 新增 */
+  weight: number;
+  status: KRStatus;
+  dueDate?: string | null;
+  tags: string[];
+  collaboratorIds: string[];
+  watcherIds: string[];
+  selfScore?: number | null;
+  finalScore?: number | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /** KR 进度计算 */
@@ -149,23 +176,25 @@ export interface Initiative {
 // Check-in (周报/月报)
 // ---------------------------------------------------------------------------
 
+/**
+ * A2.1a (2026-05-10) — CheckIn 重建为 scope-based.
+ *
+ * 旧的 weekly + krUpdates/ttiUpdates JSON 模型已淘汰.
+ * 新模型: 每条 check-in 挂在一个 Objective 或一个 KR 上, 记进度+信心+三段式叙述.
+ */
 export interface CheckIn {
   id: string;
-  ownerId: string;
-  cycleId: string;
-  weekStart: string;
-  /** 关联 KR 进度 */
-  krUpdates: { keyResultId: string; previousValue: number; newValue: number }[];
-  /** 关联 TTI 进度 */
-  ttiUpdates: { ttiId: string; previousRate: number; newRate: number }[];
-  /** 上周做对什么 / 做错什么 / 下周计划 (复盘模板) */
-  whatWentWell?: string;
-  whatWentWrong?: string;
-  nextWeekPlan?: string;
-  /** AI 自动生成草稿标记 */
-  aiDraftGenerated: boolean;
-  /** 员工 review 后批准 (24h 否决窗口前置) */
-  approvedByOwner: boolean;
+  scope: 'objective' | 'kr';
+  scopeId: string;
+  authorId: string;
+  progressBefore: number;
+  progressAfter: number;
+  confidenceBefore: Confidence;
+  confidenceAfter: Confidence;
+  achievements?: string | null;
+  blockers?: string | null;
+  nextSteps?: string | null;
+  mood?: 'happy' | 'neutral' | 'sad' | null;
   createdAt: string;
 }
 
