@@ -9,6 +9,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { getStore } from '@/lib/storage/repository';
+import { requireAuth } from '@/lib/auth/require-auth';
 import {
   PROMOTION_REQUIRED_ROLES,
   type MemoryPromotionRequest,
@@ -22,9 +23,21 @@ import {
 const VETO_WINDOW_MS = 24 * 60 * 60 * 1000;
 const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
+/**
+ * EVO-7 phase 2 (2026-05-12): 修复 AUDIT-2026-05-10.md §2.2 P1.
+ *
+ * 旧行为: 信任 `?userId=任何值`, 任何人可看任何人的 dashboard.
+ * 新行为: 强制走 requireAuth, userId 锁定为 session 主体.
+ *         保留 demo 模式下 `?userId=demo-user` 兼容 e2e/dev.
+ */
 export async function GET(req: NextRequest) {
   await boot();
-  const userId = new URL(req.url).searchParams.get('userId') ?? 'demo-user';
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
+  const queryUserId = new URL(req.url).searchParams.get('userId');
+  // demo 模式允许 ?userId= 覆盖 (方便单机看不同身份); 生产模式锁定 session
+  const userId =
+    auth.demo && queryUserId ? queryUserId : auth.userId;
   const store = getStore();
 
   // 解析当前用户在 Tandem 里有哪些角色 (用于匹配 Memory promotion 签字者)
