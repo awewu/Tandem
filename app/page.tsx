@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { InsightsWidget } from '@/components/insights/insights-widget';
 import { PendingRetrosCard } from '@/components/dashboard/pending-retros-card';
+import { WorkbenchAgentView } from '@/components/dashboard/workbench-agent-view';
 
 /**
  * Homepage — 4-section layout per UI-IA §2:
@@ -163,6 +164,9 @@ export default function HomePage() {
               href="/memories"
             />
           </div>
+
+          {/* EVO-10 · 多线工作 (Waiting 优先, 仅我可见) */}
+          <WorkbenchAgentView />
 
           {/* Quick actions */}
           <div className="flex flex-wrap items-center gap-2 pt-2">
