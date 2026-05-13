@@ -33,7 +33,6 @@ const WS_URL = process.env.YJS_WS_URL ?? 'ws://localhost:1234';
  * 客户端: 创建协同 Y.Doc + WS provider
  */
 export async function createCollabDoc(docId: string, userInfo: { name: string; color?: string }): Promise<CollabDoc> {
-  // @ts-expect-error optional dependency
   const Y = await import('yjs');
   // @ts-expect-error optional dependency
   const { WebsocketProvider } = await import('y-websocket');

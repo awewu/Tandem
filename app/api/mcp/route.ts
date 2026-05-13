@@ -1,4 +1,4 @@
-import { runHermes } from '@/lib/hermes-cli';
+import { runHermesJson } from '@/lib/hermes-cli';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -41,7 +41,11 @@ function parseList(stdout: string): MCPServer[] {
 
 export async function GET() {
   try {
-    const { stdout, stderr, code } = await runHermes(['mcp', 'list'], 10000);
+    const { data, raw, code, stderr, jsonMode } = await runHermesJson<{ servers: MCPServer[]; count: number }>(['mcp', 'list'], 10000);
+    if (jsonMode && data) {
+      return Response.json({ ok: true, ...data, jsonMode });
+    }
+    const stdout = raw;
     if (code !== 0 && !stdout) {
       return Response.json(
         { ok: false, servers: [], error: stderr || `exit ${code}` },
@@ -51,7 +55,7 @@ export async function GET() {
     // "No MCP servers configured." → empty list, not error
     const empty = /no mcp servers configured/i.test(stdout);
     const servers = empty ? [] : parseList(stdout);
-    return Response.json({ ok: true, servers, count: servers.length, empty });
+    return Response.json({ ok: true, servers, count: servers.length, empty, jsonMode });
   } catch (err: any) {
     return Response.json(
       { ok: false, servers: [], error: err?.message || 'Failed' },

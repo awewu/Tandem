@@ -12,7 +12,7 @@
  */
 
 import * as mammoth from 'mammoth';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
 
 // pdfjs 必须在浏览器侧懒加载，且需要先指定 worker URL
@@ -65,18 +65,27 @@ async function parseDocx(file: File): Promise<ParseResult> {
 
 async function parseXlsx(file: File): Promise<ParseResult> {
   const buf = await readAsArrayBuffer(file);
-  const wb = XLSX.read(buf, { type: 'array' });
+  const workbook = new ExcelJS.Workbook();
+  const bytes = new Uint8Array(buf);
+  const buffer = Buffer.alloc(bytes.length);
+  buffer.set(bytes);
+  await workbook.xlsx.load(buffer as any);
   const sections: string[] = [];
-  for (const name of wb.SheetNames) {
-    const sheet = wb.Sheets[name];
-    const csv = XLSX.utils.sheet_to_csv(sheet, { blankrows: false });
-    if (csv.trim()) sections.push(`### Sheet: ${name}\n\n${csv}`);
+  for (const worksheet of workbook.worksheets) {
+    const rows: string[] = [];
+    worksheet.eachRow((row) => {
+      const cells = row.values as (string | number | null)[];
+      // cells[0] is undefined because ExcelJS uses 1-based indexing
+      rows.push(cells.slice(1).map((c) => (c == null ? '' : String(c))).join(','));
+    });
+    const csv = rows.join('\n');
+    if (csv.trim()) sections.push(`### Sheet: ${worksheet.name}\n\n${csv}`);
   }
   return {
     text: sections.join('\n\n---\n\n').trim(),
     format: 'xlsx',
     bytes: file.size,
-    sheets: wb.SheetNames.length,
+    sheets: workbook.worksheets.length,
   };
 }
 

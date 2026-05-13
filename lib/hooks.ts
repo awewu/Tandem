@@ -1,8 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { getHealth } from './hermes-api';
 
+/**
+ * @deprecated Use `useHealth` from `lib/hooks/use-hermes-queries.ts` instead.
+ * Kept for backward compatibility during migration.
+ */
 export function useHermesStatus() {
   const [connected, setConnected] = useState(false);
   const [checking, setChecking] = useState(true);
@@ -35,6 +40,29 @@ export function useHermesStatus() {
   }, []);
 
   return { connected, checking, version, error };
+}
+
+/**
+ * React Query-powered health check.
+ *
+ * Replaces the manual polling in `useHermesStatus` with automatic
+ * deduplication, background refetch, and shared cache.
+ */
+export function useHealth() {
+  return useQuery({
+    queryKey: ['hermes', 'health'],
+    queryFn: async () => {
+      const data: any = await getHealth();
+      return {
+        connected: !!data?.ok,
+        version: data?.version as string | undefined,
+        error: data?.error as string | undefined,
+        raw: data,
+      };
+    },
+    refetchInterval: 30_000,
+    staleTime: 10_000,
+  });
 }
 
 export function useLocalStorage<T>(key: string, initial: T): [T, (v: T) => void] {

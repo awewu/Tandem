@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { HermesHealth } from '@/components/hermes-health';
 import { useCurrentUser, useAuthStore } from '@/lib/hooks/use-current-user';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Home,
   Sparkles,
@@ -139,6 +140,7 @@ const NAV: NavGroup[] = [
     emoji: '⚙️',
     items: [
       { name: '个人设置', href: '/settings', icon: Settings },
+      { name: '订阅与用量', href: '/settings/billing', icon: Ticket },
       { name: '§13 数据自助', href: '/settings/privacy', icon: Lock },
       { name: '设计语言', href: '/design', icon: Palette },
     ],
@@ -174,6 +176,36 @@ export default function Sidebar() {
 
   const visibleGroups = NAV.filter((g) => isVisible(g.visibleTo, userRoles));
 
+  // Workspace switcher state
+  const [workspaces, setWorkspaces] = useState<{ id: string; name: string }[]>([]);
+  const [currentWs, setCurrentWs] = useState(user?.workspaceId ?? '');
+
+  useEffect(() => {
+    if (!fetched) return;
+    fetch('/api/workspaces')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.workspaces) {
+          setWorkspaces(data.workspaces);
+          const match = data.workspaces.find((w: any) => w.id === user?.workspaceId);
+          if (match) setCurrentWs(match.id);
+        }
+      })
+      .catch(() => {});
+  }, [fetched, user]);
+
+  async function handleSwitch(wsId: string) {
+    if (wsId === currentWs) return;
+    const res = await fetch('/api/workspaces/switch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workspaceId: wsId }),
+    });
+    if (res.ok) {
+      window.location.reload();
+    }
+  }
+
   return (
     <aside
       className={cn(
@@ -204,6 +236,25 @@ export default function Sidebar() {
           {open ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeft className="h-4 w-4" />}
         </button>
       </div>
+
+      {/* Workspace Switcher */}
+      {open && workspaces.length > 0 && (
+        <div className="border-b px-3 py-2">
+          <Select value={currentWs} onValueChange={handleSwitch}>
+            <SelectTrigger className="h-8 text-xs">
+              <Building2 className="mr-1 h-3 w-3 shrink-0" />
+              <SelectValue placeholder="选择工作区" />
+            </SelectTrigger>
+            <SelectContent>
+              {workspaces.map((ws) => (
+                <SelectItem key={ws.id} value={ws.id} className="text-xs">
+                  {ws.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       {/* Nav groups */}
       <nav className="flex-1 space-y-4 overflow-auto p-2">

@@ -17,6 +17,8 @@ const DEMO_PERSONA: Persona = {
     aiAssisted: 9,
     vetoedByUser: 3,
     vetoRate: 0.064,
+    avgDecisionQuality: 0.72,
+    krHitRate: 0.81,
   },
   styleProfile: {
     decisionSpeed: 'medium',

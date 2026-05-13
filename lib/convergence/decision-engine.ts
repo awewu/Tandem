@@ -10,7 +10,8 @@
  * D: ORIGINAL        (员工原创, 强制 humanOnly=true, 禁止 AI 代写)
  */
 
-import type { DecisionOption } from '../types/decision-card';
+import type { DecisionOption, OptionType } from '../types/decision-card';
+import type { StyleProfile } from '../types/persona';
 import type { TandemRouter } from '../taf/router';
 import type { ChatMessage } from '../taf/provider/types';
 
@@ -67,7 +68,10 @@ export class DecisionEngine {
    *
    * 注意: D 选项必须由员工事后填写, 引擎仅占位.
    */
-  async generateOptions(ctx: DecisionContext): Promise<OptionGenerationResult> {
+  async generateOptions(
+    ctx: DecisionContext,
+    style?: StyleProfile
+  ): Promise<OptionGenerationResult> {
     const warnings: string[] = [];
 
     const [sopResults, caseResults] = await Promise.all([
@@ -76,11 +80,11 @@ export class DecisionEngine {
     ]);
 
     // A: SOP-based
-    const optionA = await this.buildOptionA(ctx, sopResults, warnings);
+    const optionA = await this.buildOptionA(ctx, sopResults, warnings, style);
     // B: LLM reasoning
-    const optionB = await this.buildOptionB(ctx, sopResults, caseResults, warnings);
+    const optionB = await this.buildOptionB(ctx, sopResults, caseResults, warnings, style);
     // C: Historical
-    const optionC = await this.buildOptionC(ctx, caseResults, warnings);
+    const optionC = await this.buildOptionC(ctx, caseResults, warnings, style);
     // D: 员工原创占位 (humanOnly=true)
     const optionD: DecisionOption = {
       id: 'D',
@@ -92,10 +96,41 @@ export class DecisionEngine {
       novelInsight: '',
     };
 
+    // Persona-driven reordering: boost preferred option type to first position
+    const ordered = this.reorderByStyle([optionA, optionB, optionC], optionD, style);
+
     return {
-      options: [optionA, optionB, optionC, optionD],
+      options: ordered,
       warnings,
     };
+  }
+
+  /**
+   * Reorder A/B/C based on user's historical preference.
+   * D (ORIGINAL) is always last because it requires human input.
+   */
+  private reorderByStyle(
+    abc: DecisionOption[],
+    optionD: DecisionOption,
+    style?: StyleProfile
+  ): DecisionOption[] {
+    if (!style || style.preferredOptions.length === 0) return [...abc, optionD];
+
+    // Count frequency of each option type in history
+    const freq = new Map<OptionType, number>();
+    for (const pref of style.preferredOptions) {
+      const typeMap: Record<string, OptionType> = {
+        SOP: 'SOP',
+        reasoning: 'AGENT_REASONING',
+        historical: 'HISTORICAL',
+        original: 'ORIGINAL',
+      };
+      const t = typeMap[pref];
+      if (t) freq.set(t, (freq.get(t) || 0) + 1);
+    }
+
+    abc.sort((a, b) => (freq.get(b.type) || 0) - (freq.get(a.type) || 0));
+    return [...abc, optionD];
   }
 
   // ---------------------------------------------------------------------------
@@ -105,7 +140,8 @@ export class DecisionEngine {
   private async buildOptionA(
     ctx: DecisionContext,
     sops: MemorySearchResult[],
-    warnings: string[]
+    warnings: string[],
+    style?: StyleProfile
   ): Promise<DecisionOption> {
     if (sops.length === 0) {
       warnings.push('A 选项: 未找到相关 SOP, 退化为 LLM 推演');
@@ -114,18 +150,19 @@ export class DecisionEngine {
         type: 'SOP',
         description: '当前场景未有匹配的 SOP, 建议参考选项 B/C 或新增 SOP',
         confidence: 0.3,
-        risk: 'medium',
+        risk: this.adjustRisk('medium', style),
       };
     }
 
     const top = sops[0];
+    const baseRisk: 'low' | 'medium' | 'high' = top.similarity > 0.8 ? 'low' : 'medium';
     return {
       id: 'A',
       type: 'SOP',
       description: `按 SOP《${top.title}》执行`,
       reasoning: top.body.slice(0, 500),
-      confidence: top.similarity,
-      risk: top.similarity > 0.8 ? 'low' : 'medium',
+      confidence: this.boostConfidence(top.similarity, style, 'SOP'),
+      risk: this.adjustRisk(baseRisk, style),
       citedMemory: [top.id],
     };
   }
@@ -134,10 +171,16 @@ export class DecisionEngine {
     ctx: DecisionContext,
     sops: MemorySearchResult[],
     cases: MemorySearchResult[],
-    warnings: string[]
+    warnings: string[],
+    style?: StyleProfile
   ): Promise<DecisionOption> {
     const sopHints = sops.map((s) => `- SOP《${s.title}》: ${s.body.slice(0, 200)}`).join('\n');
     const caseHints = cases.map((c) => `- 案例《${c.title}》: ${c.body.slice(0, 200)}`).join('\n');
+
+    // Inject persona style into system prompt for personalized reasoning
+    const styleHint = style
+      ? `\n用户风格画像: 决策速度=${style.decisionSpeed}, 风险偏好=${style.riskAppetite < 0.33 ? '保守' : style.riskAppetite > 0.66 ? '激进' : '均衡'}, 偏好=${style.preferredOptions.slice(-3).join(',')}. 请据此微调方案风格.`
+      : '';
 
     const messages: ChatMessage[] = [
       {
@@ -146,7 +189,7 @@ export class DecisionEngine {
 规则:
 - 输出 JSON: {description, reasoning, confidence (0-1), risk (low|medium|high), timelineDays}
 - 不要复述 SOP, 给出更优 / 更灵活的方案
-- 必须基于事实, 引用 SOP/案例支持`,
+- 必须基于事实, 引用 SOP/案例支持${styleHint}`,
       },
       {
         role: 'user',
@@ -174,14 +217,16 @@ ${caseHints || '(无)'}
       const parsed = JSON.parse(
         typeof res.message.content === 'string' ? res.message.content : '{}'
       );
+      const baseRisk = ['low', 'medium', 'high'].includes(parsed.risk) ? parsed.risk : 'medium';
+      const timelineDays = this.adjustTimeline(parsed.timelineDays, style);
       return {
         id: 'B',
         type: 'AGENT_REASONING',
         description: parsed.description ?? '(LLM 未返回 description)',
         reasoning: parsed.reasoning,
-        confidence: clamp(Number(parsed.confidence) || 0.5, 0, 1),
-        risk: ['low', 'medium', 'high'].includes(parsed.risk) ? parsed.risk : 'medium',
-        timelineDays: parsed.timelineDays,
+        confidence: this.boostConfidence(clamp(Number(parsed.confidence) || 0.5, 0, 1), style, 'AGENT_REASONING'),
+        risk: this.adjustRisk(baseRisk, style),
+        timelineDays,
         citedMemory: [...sops.map((s) => s.id), ...cases.map((c) => c.id)],
       };
     } catch (err) {
@@ -191,7 +236,7 @@ ${caseHints || '(无)'}
         type: 'AGENT_REASONING',
         description: '(LLM 暂不可用, 请稍后重试)',
         confidence: 0,
-        risk: 'high',
+        risk: this.adjustRisk('high', style),
       };
     }
   }
@@ -199,7 +244,8 @@ ${caseHints || '(无)'}
   private async buildOptionC(
     ctx: DecisionContext,
     cases: MemorySearchResult[],
-    warnings: string[]
+    warnings: string[],
+    style?: StyleProfile
   ): Promise<DecisionOption> {
     if (cases.length === 0) {
       warnings.push('C 选项: 未找到相关历史案例');
@@ -208,20 +254,67 @@ ${caseHints || '(无)'}
         type: 'HISTORICAL',
         description: '当前场景无相似历史案例可参考',
         confidence: 0,
-        risk: 'medium',
+        risk: this.adjustRisk('medium', style),
       };
     }
 
     const top = cases[0];
+    const baseRisk: 'low' | 'medium' | 'high' = top.similarity > 0.7 ? 'low' : 'medium';
     return {
       id: 'C',
       type: 'HISTORICAL',
       description: `参考历史案例《${top.title}》的做法`,
       reasoning: top.body.slice(0, 500),
-      confidence: top.similarity,
-      risk: top.similarity > 0.7 ? 'low' : 'medium',
+      confidence: this.boostConfidence(top.similarity, style, 'HISTORICAL'),
+      risk: this.adjustRisk(baseRisk, style),
       citedMemory: [top.id],
     };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Persona style adjustments
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Adjust risk label based on user's risk appetite.
+   * Conservative users (risk < 0.33) see risks downgraded by one level.
+   * Aggressive users (risk > 0.66) see risks upgraded by one level.
+   */
+  private adjustRisk(base: 'low' | 'medium' | 'high', style?: StyleProfile): 'low' | 'medium' | 'high' {
+    if (!style) return base;
+    const levels: ('low' | 'medium' | 'high')[] = ['low', 'medium', 'high'];
+    const idx = levels.indexOf(base);
+    if (style.riskAppetite < 0.33) return levels[Math.max(0, idx - 1)];
+    if (style.riskAppetite > 0.66) return levels[Math.min(2, idx + 1)];
+    return base;
+  }
+
+  /**
+   * Boost confidence for preferred option types.
+   */
+  private boostConfidence(base: number, style: StyleProfile | undefined, type: OptionType): number {
+    if (!style) return base;
+    const prefMap: Record<OptionType, StyleProfile['preferredOptions'][number]> = {
+      SOP: 'SOP',
+      AGENT_REASONING: 'reasoning',
+      HISTORICAL: 'historical',
+      ORIGINAL: 'original',
+    };
+    const mapped = prefMap[type];
+    const recent = style.preferredOptions.slice(-10);
+    const freq = recent.filter((p) => p === mapped).length;
+    const boost = (freq / 10) * 0.15; // up to +0.15 for strongly preferred types
+    return clamp(base + boost, 0, 1);
+  }
+
+  /**
+   * Adjust timeline based on decision speed preference.
+   */
+  private adjustTimeline(base?: number, style?: StyleProfile): number | undefined {
+    if (base == null || !style) return base;
+    if (style.decisionSpeed === 'fast') return Math.max(1, Math.round(base * 0.7));
+    if (style.decisionSpeed === 'slow') return Math.round(base * 1.3);
+    return base;
   }
 }
 

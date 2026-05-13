@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
+import { QueryProvider } from '@/components/query-provider';
 import Sidebar from '@/components/sidebar';
 import { CommandPalette } from '@/components/command-palette';
 import { KeyboardShortcuts } from '@/components/keyboard-shortcuts';
@@ -30,18 +31,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="zh-CN" suppressHydrationWarning>
       <body className="font-sans antialiased bg-background text-foreground">
-        <ThemeProvider>
-          <ApiHydrator />
-          <div className="flex h-screen w-screen overflow-hidden">
-            <Sidebar />
-            <main className="flex-1 overflow-hidden">
-              <ErrorBoundary>{children}</ErrorBoundary>
-            </main>
-          </div>
-          <CommandPalette />
-          <KeyboardShortcuts />
-          <Toaster />
-        </ThemeProvider>
+        <QueryProvider>
+          <ThemeProvider>
+            <ApiHydrator />
+            <div className="flex h-screen w-screen overflow-hidden">
+              <Sidebar />
+              <main className="flex-1 overflow-hidden">
+                <ErrorBoundary>{children}</ErrorBoundary>
+              </main>
+            </div>
+            <CommandPalette />
+            <KeyboardShortcuts />
+            <Toaster />
+          </ThemeProvider>
+        </QueryProvider>
       </body>
     </html>
   );

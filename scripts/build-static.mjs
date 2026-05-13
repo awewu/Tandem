@@ -37,6 +37,11 @@ const apiDir = join(root, 'app', 'api');
 const STASH_SUFFIX = '.tauri-stash';
 const ROUTE_BASENAMES = new Set(['route.ts', 'route.tsx', 'route.js', 'route.mjs']);
 
+/** Pages that cannot be statically exported (e.g. dynamic routes on Windows) */
+const STASH_PAGES = [
+  join(root, 'app', 'convergence', '[id]', 'page.tsx'),
+];
+
 function walkRouteFiles(dir, hits = []) {
   if (!existsSync(dir)) return hits;
   for (const entry of readdirSync(dir)) {
@@ -65,12 +70,23 @@ function stashRoutes() {
     const dst = f + STASH_SUFFIX;
     renameSync(f, dst);
   }
+  for (const f of STASH_PAGES) {
+    if (existsSync(f)) {
+      const dst = f + STASH_SUFFIX;
+      renameSync(f, dst);
+      files.push(f);
+    }
+  }
   console.log(`[build-static] stashed ${files.length} route files`);
   return files;
 }
 
 function restoreRoutes() {
   const stashed = findStashedFiles(apiDir);
+  for (const f of STASH_PAGES) {
+    const stashedPath = f + STASH_SUFFIX;
+    if (existsSync(stashedPath)) stashed.push(stashedPath);
+  }
   for (const f of stashed) {
     const dst = f.slice(0, -STASH_SUFFIX.length);
     try { renameSync(f, dst); } catch (e) {

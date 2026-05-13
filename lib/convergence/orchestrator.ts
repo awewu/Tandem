@@ -19,7 +19,7 @@ import {
   transition,
 } from './state-machine';
 import { DecisionEngine, type DecisionContext } from './decision-engine';
-import { StoreBackedMemoryRetriever } from '../memory/retriever';
+import { CompositeRetriever } from '../memory/retriever';
 import { TandemRouter } from '../taf/router';
 import { getStore, generateId } from '../storage/repository';
 import { audit } from '../audit/log';
@@ -47,7 +47,7 @@ export interface StartConvergenceInput {
 export class ConvergenceOrchestrator {
   constructor(
     private readonly router: TandemRouter,
-    private readonly retriever = new StoreBackedMemoryRetriever()
+    private readonly retriever = new CompositeRetriever()
   ) {}
 
   // ---------------------------------------------------------------------------
@@ -110,16 +110,63 @@ export class ConvergenceOrchestrator {
     });
     state = r2b.state;
 
-    // 6. 生成 3+1 选项 (DIVERGE 阶段内)
+    // 6. 解析 materialRefs → 实际内容摘要
+    const materialDigests: string[] = [];
+    if (input.materialRefs && input.materialRefs.length > 0) {
+      try {
+        const materials = await Promise.all(
+          input.materialRefs.map((id) => store.materials.get(id).catch(() => null))
+        );
+        for (const m of materials) {
+          if (m) {
+            const bodyText = typeof m.body === 'string' ? m.body : JSON.stringify(m.body);
+            materialDigests.push(`《${m.title}》: ${bodyText.slice(0, 800)}`);
+          }
+        }
+      } catch {
+        /* ignore material resolution failures */
+      }
+    }
+
+    // 7. 拉取关联 KR 标题
+    const relatedKrTitles: string[] = [];
+    if (input.primaryKrId) {
+      try {
+        const kr = await store.keyResults.get(input.primaryKrId);
+        if (kr) relatedKrTitles.push(kr.title);
+      } catch { /* ignore */ }
+    }
+    if (input.relatedKr) {
+      for (const krId of input.relatedKr) {
+        try {
+          const kr = await store.keyResults.get(krId);
+          if (kr) relatedKrTitles.push(kr.title);
+        } catch { /* ignore */ }
+      }
+    }
+
+    // 8. 加载用户 Persona 风格画像 (个性化选项生成)
+    let styleProfile: import('../types/persona').StyleProfile | undefined;
+    try {
+      const personas = await store.personas.list({ userId: input.ownerId } as never);
+      const persona = personas[0];
+      if (persona?.learningActive) {
+        styleProfile = persona.styleProfile;
+      }
+    } catch {
+      /* ignore persona load failures */
+    }
+
+    // 9. 生成 3+1 选项 (DIVERGE 阶段内, Persona-aware)
     const engine = new DecisionEngine(this.router, this.retriever);
     const ctx: DecisionContext = {
       cardId,
       title: input.title,
       description: input.description,
-      relatedKrTitles: [], // TODO: hydrate from store
-      materialDigests: [],
+      relatedKrTitles,
+      materialDigests,
     };
-    const gen = await engine.generateOptions(ctx);
+    const gen = await engine.generateOptions(ctx, styleProfile);
 
     const r3 = transition(state, {
       type: 'OPTIONS_GENERATED',
@@ -162,10 +209,18 @@ export class ConvergenceOrchestrator {
     }
 
     // 同步 DecisionCard.convergenceState
-    await getStore().decisionCards.update(cardId, {
+    const updatedCard = await getStore().decisionCards.update(cardId, {
       convergenceState: stepToConvergenceState(result.state.step),
       elapsedSeconds: result.state.elapsedSeconds,
     });
+
+    // 广播状态变更 → SSE 推送
+    try {
+      const { convergenceBus } = await import('./events');
+      if (updatedCard) convergenceBus.emitCardUpdated(cardId, updatedCard);
+    } catch {
+      /* ignore: events module may not be available in test env */
+    }
 
     // 记录关键审计
     if (event.type === 'PICK_OPTION') {

@@ -21,6 +21,8 @@ import {
   type ImMemberRole,
   type ImAttachment,
 } from '../types/im';
+import { handleBotCommand } from './bot-commands';
+import { embedMaterial } from '../memory/vector-retriever';
 
 // ---------------------------------------------------------------------------
 // SSE bus (单进程内)
@@ -205,6 +207,16 @@ export async function sendMessage(input: SendMessageInput): Promise<ImMessage> {
     attachments: input.attachments,
     createdAt: now,
   });
+
+  // Bot command hook: @tandem action / summary / decision / okr
+  // Executed after message creation so bot reply can reference the user message.
+  if (senderKind === 'user') {
+    void handleBotCommand(input.body, {
+      channelId: input.channelId,
+      senderId: input.senderId,
+      messageId: message.id,
+    }).catch(() => null);
+  }
 
   // 更新 channel.lastMessageAt + preview
   const preview = extractPreview(input.body);
@@ -633,6 +645,9 @@ export async function promoteImMessageToMemory(
     createdAt: now,
     updatedAt: now,
   });
+
+  // Fire-and-forget: generate embedding for semantic search
+  embedMaterial(material.id, `${material.title}\n${msg.body}`).catch(() => {});
 
   // 2. 调 proposePromotion (动态 import 避免循环依赖)
   const { proposePromotion } = await import('../memory/promotion-flow');

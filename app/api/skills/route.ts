@@ -1,7 +1,8 @@
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-import { runHermes } from '@/lib/hermes-cli';
+import { runHermesJson } from '@/lib/hermes-cli';
+import { error, json } from '@/app/api/_common/response';
 
 interface HermesSkill {
   name: string;
@@ -51,19 +52,18 @@ function parseSkillsList(stdout: string): HermesSkill[] {
 
 export async function GET() {
   try {
-    const { stdout, stderr, code } = await runHermes(['skills', 'list']);
+    const { data, raw, code, stderr, jsonMode } = await runHermesJson<{ skills: HermesSkill[]; count: number }>(['skills', 'list']);
+    if (jsonMode && data) {
+      return json(data);
+    }
+    // Fallback to regex parser
+    const stdout = raw;
     if (code !== 0 && !stdout) {
-      return Response.json(
-        { skills: [], count: 0, error: stderr || `exit ${code}` },
-        { status: 500 }
-      );
+      return error(stderr || `exit ${code}`, 500, { skills: [], count: 0 });
     }
     const skills = parseSkillsList(stdout);
-    return Response.json({ skills, count: skills.length });
+    return json({ skills, count: skills.length });
   } catch (err: any) {
-    return Response.json(
-      { skills: [], count: 0, error: err?.message || 'Error' },
-      { status: 500 }
-    );
+    return error(err?.message || 'Error', 500, { skills: [], count: 0 });
   }
 }

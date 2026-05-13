@@ -78,6 +78,8 @@ function emptyHistory(): DecisionHistoryStats {
     aiAssisted: 0,
     vetoedByUser: 0,
     vetoRate: 0,
+    avgDecisionQuality: 0.5,
+    krHitRate: 0,
   };
 }
 
@@ -118,6 +120,8 @@ export async function recordDecision(
     aiAssisted,
     vetoedByUser,
     vetoRate: total > 0 ? vetoedByUser / total : 0,
+    avgDecisionQuality: h.avgDecisionQuality ?? 0.5,
+    krHitRate: h.krHitRate ?? 0,
   };
 
   // 更新偏好选项

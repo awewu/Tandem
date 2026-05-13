@@ -1,7 +1,7 @@
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-import { runHermes, parseTable } from '@/lib/hermes-cli';
+import { runHermesJson, parseTable } from '@/lib/hermes-cli';
 
 interface CronJob {
   id: string;
@@ -55,7 +55,11 @@ function parseCronBlocks(stdout: string): CronJob[] {
 
 export async function GET() {
   try {
-    const { stdout, stderr, code } = await runHermes(['cron', 'list']);
+    const { data, raw, code, stderr, jsonMode } = await runHermesJson<{ jobs: CronJob[] }>(['cron', 'list']);
+    if (jsonMode && data) {
+      return Response.json({ jobs: data.jobs, jsonMode });
+    }
+    const stdout = raw;
     if (/no scheduled jobs/i.test(stdout)) {
       return Response.json({ jobs: [], raw: stdout });
     }
@@ -91,11 +95,15 @@ export async function POST(req: Request) {
         if (typeof s === 'string' && /^[A-Za-z0-9_\-]+$/.test(s)) args.push('--skill', s);
       }
     }
-    const { stdout, stderr, code } = await runHermes(args);
+    const { data, raw, code, stderr, jsonMode } = await runHermesJson<{ success: boolean; id?: string }>(args);
+    if (jsonMode && data) {
+      return Response.json({ ...data, jsonMode });
+    }
+    const stdout = raw;
     if (code !== 0) {
       return Response.json({ success: false, error: stderr || `exit ${code}`, raw: stdout }, { status: 500 });
     }
-    return Response.json({ success: true, raw: stdout });
+    return Response.json({ success: true, raw: stdout, jsonMode });
   } catch (err: any) {
     return Response.json({ success: false, error: err?.message }, { status: 500 });
   }

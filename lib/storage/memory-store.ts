@@ -13,6 +13,8 @@ import type {
   AuthSession,
   AuthInvite,
   AuthEvent,
+  Workspace,
+  Plan,
 } from './repository';
 import { generateId } from './repository';
 
@@ -89,6 +91,9 @@ function createInMemoryAuthStore(): AuthStore {
       async findById(id) {
         return users.get(id) ?? null;
       },
+      async list() {
+        return Array.from(users.values());
+      },
       async create(input) {
         const id = generateId('user');
         const user: AuthUser = {
@@ -104,6 +109,7 @@ function createInMemoryAuthStore(): AuthStore {
           lastLoginIp: null,
           emailVerifiedAt: input.emailVerifiedAt ?? null,
           departmentId: input.departmentId ?? null,
+          ssoBindings: input.ssoBindings ?? null,
         };
         users.set(id, user);
         return user;
@@ -227,7 +233,76 @@ function createInMemoryAuthStore(): AuthStore {
   };
 }
 
+const DEFAULT_PLANS: Plan[] = [
+  {
+    id: 'plan_free',
+    name: 'free',
+    displayName: '免费版',
+    description: '小团队起步，含基础功能',
+    priceMonthCents: 0,
+    priceYearCents: 0,
+    maxUsers: 10,
+    maxStorageMb: 1024,
+    maxChannels: 10,
+    apiRateLimitRpm: 60,
+    features: { sso: false, advancedAnalytics: false, apiAccess: false },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'plan_pro',
+    name: 'pro',
+    displayName: '专业版',
+    description: '成长型团队，解锁高级功能',
+    priceMonthCents: 29900,
+    priceYearCents: 299000,
+    maxUsers: 100,
+    maxStorageMb: 10240,
+    maxChannels: 100,
+    apiRateLimitRpm: 300,
+    features: { sso: true, advancedAnalytics: true, apiAccess: true },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'plan_enterprise',
+    name: 'enterprise',
+    displayName: '企业版',
+    description: '大型组织，专属支持 + 无限扩展',
+    priceMonthCents: 99900,
+    priceYearCents: 999000,
+    maxUsers: 9999,
+    maxStorageMb: 102400,
+    maxChannels: 9999,
+    apiRateLimitRpm: 2000,
+    features: { sso: true, advancedAnalytics: true, apiAccess: true, dedicatedSupport: true },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+];
+
+const DEFAULT_WORKSPACE: Workspace = {
+  id: 'ws_default',
+  name: '默认工作区',
+  slug: 'default',
+  planId: 'plan_free',
+  subscriptionStatus: 'active',
+  maxUsers: 10,
+  maxStorageMb: 1024,
+  maxChannels: 10,
+  settings: {},
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+};
+
 export function createInMemoryStore(): TandemStore {
+  const workspaces = new InMemoryRepository<Workspace>();
+  const plans = new InMemoryRepository<Plan>();
+
+  // Seed default billing data
+  workspaces.create(DEFAULT_WORKSPACE);
+  DEFAULT_PLANS.forEach((p) => plans.create(p));
+
   return {
     decisionCards: new InMemoryRepository(),
     personas: new InMemoryRepository(),
@@ -252,5 +327,7 @@ export function createInMemoryStore(): TandemStore {
     review360Submissions: new InMemoryRepository(),
     review360Assignments: new InMemoryRepository(),
     auth: createInMemoryAuthStore(),
+    workspaces,
+    plans,
   };
 }

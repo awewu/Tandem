@@ -1,4 +1,4 @@
-import { runHermes } from '@/lib/hermes-cli';
+import { runHermesJson } from '@/lib/hermes-cli';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -60,14 +60,18 @@ function parse(stdout: string): MemoryStatus {
 
 export async function GET() {
   try {
-    const { stdout, stderr, code } = await runHermes(['memory', 'status'], 10000);
+    const { data, raw, code, stderr, jsonMode } = await runHermesJson<MemoryStatus>(['memory', 'status'], 10000);
+    if (jsonMode && data) {
+      return Response.json({ ...data, raw, jsonMode });
+    }
+    const stdout = raw;
     if (code !== 0 && !stdout) {
       return Response.json(
         { ok: false, error: stderr || `exit ${code}`, raw: stdout },
         { status: 502 }
       );
     }
-    return Response.json(parse(stdout));
+    return Response.json({ ...parse(stdout), raw: stdout, jsonMode });
   } catch (err: any) {
     return Response.json(
       { ok: false, error: err?.message || 'Failed', raw: '' },

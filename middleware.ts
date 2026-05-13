@@ -53,6 +53,9 @@ export async function middleware(req: NextRequest) {
     headers.set('x-tandem-user-id', payload.sub);
     headers.set('x-tandem-tenant-id', payload.tenantId);
     headers.set('x-tandem-roles', payload.roles.join(','));
+    if (payload.workspaceId) {
+      headers.set('x-tandem-workspace-id', payload.workspaceId);
+    }
     return NextResponse.next({ request: { headers } });
   }
 

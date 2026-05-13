@@ -31,6 +31,9 @@ export async function ingestDecisionCard(card: DecisionCard): Promise<void> {
   if (!persona || !persona.learningActive) return;
 
   const stats = persona.decisionHistory;
+  const quality = computeDecisionQuality(card);
+  const krHit = computeKrHit(card);
+
   const newStats = {
     ...stats,
     totalDecisions: stats.totalDecisions + 1,
@@ -41,14 +44,27 @@ export async function ingestDecisionCard(card: DecisionCard): Promise<void> {
   newStats.vetoRate =
     newStats.totalDecisions > 0 ? newStats.vetoedByUser / newStats.totalDecisions : 0;
 
+  // Rolling average of decision quality (0-1)
+  const prevQuality = stats.avgDecisionQuality ?? 0.5;
+  newStats.avgDecisionQuality =
+    (prevQuality * (newStats.totalDecisions - 1) + quality) / newStats.totalDecisions;
+
+  // Rolling KR hit rate
+  const prevHit = stats.krHitRate ?? 0;
+  newStats.krHitRate =
+    (prevHit * (newStats.totalDecisions - 1) + krHit) / newStats.totalDecisions;
+
   // 风格信号
   const styleProfile = updateStyleProfile(persona.styleProfile, card);
 
-  // bossCaptureScore: 简单公式
-  // (selfMade + aiAssisted commit) / total - vetoRate
+  // bossCaptureScore: 综合公式
+  // (selfMade + aiAssisted commit) / total - vetoRate + qualityBonus
+  const qualityBonus = (newStats.avgDecisionQuality - 0.5) * 0.2;
   const captureScore = clamp01(
     newStats.totalDecisions > 0
-      ? (newStats.selfMade + newStats.aiAssisted) / newStats.totalDecisions - newStats.vetoRate
+      ? (newStats.selfMade + newStats.aiAssisted) / newStats.totalDecisions -
+          newStats.vetoRate +
+          qualityBonus
       : 0
   );
 
@@ -70,23 +86,33 @@ export async function ingestDecisionCard(card: DecisionCard): Promise<void> {
 }
 
 function updateStyleProfile(prev: StyleProfile, card: DecisionCard): StyleProfile {
-  // 平均决策耗时 → decisionSpeed
+  // 平均决策耗时 → decisionSpeed (使用指数移动平均, 更重视近期)
   const elapsed = card.elapsedSeconds ?? 0;
   let decisionSpeed: StyleProfile['decisionSpeed'] = prev.decisionSpeed;
   if (elapsed > 0) {
-    if (elapsed < 5 * 60) decisionSpeed = 'fast';
-    else if (elapsed < 15 * 60) decisionSpeed = 'medium';
-    else decisionSpeed = 'slow';
+    const current = elapsed < 5 * 60 ? 'fast' : elapsed < 15 * 60 ? 'medium' : 'slow';
+    // 70% 历史 + 30% 最新
+    const speedScore = { fast: 0, medium: 0.5, slow: 1 };
+    const hist = speedScore[prev.decisionSpeed] ?? 0.5;
+    const now = speedScore[current] ?? 0.5;
+    const blended = hist * 0.7 + now * 0.3;
+    decisionSpeed = blended < 0.25 ? 'fast' : blended < 0.75 ? 'medium' : 'slow';
   }
 
-  // 风险偏好: 看选定的 option type
+  // 风险偏好: 看选定的 option type + 决策质量
   const opts = (card.options ?? []) as Array<{ id: string; risk?: string }>;
   const picked = opts.find((o) => o.id === card.selected);
   let risk = prev.riskAppetite;
-  if (picked?.risk === 'low') risk = clamp01(risk - 0.05);
-  else if (picked?.risk === 'high') risk = clamp01(risk + 0.05);
+  if (picked?.risk === 'low') risk = clamp01(risk - 0.03);
+  else if (picked?.risk === 'high') risk = clamp01(risk + 0.03);
 
-  // 偏好选项 (滚动窗口) - 把 A/B/C/D 映射到 option type
+  // 高质量原创决策 → 略微提升风险偏好 (鼓励创新)
+  const quality = computeDecisionQuality(card);
+  if (card.selected === 'D' && quality > 0.7) {
+    risk = clamp01(risk + 0.02);
+  }
+
+  // 偏好选项 (滚动窗口, 加权: 近期权重更高)
   const optionTypeMap: Record<string, StyleProfile['preferredOptions'][number]> = {
     A: 'SOP',
     B: 'reasoning',
@@ -108,13 +134,76 @@ function updateStyleProfile(prev: StyleProfile, card: DecisionCard): StyleProfil
     if (examples.length > COMMUNICATION_EXAMPLES_CAP) examples.shift();
   }
 
+  // 沟通风格演化: 基于 reasoning 长度和复杂度
+  let communicationStyle = prev.communicationStyle;
+  if (typeof reasoning === 'string') {
+    const len = reasoning.length;
+    const hasNumbers = /\d+/.test(reasoning);
+    const hasBullets = /[\-\*•]/.test(reasoning);
+    if (len > 300 && hasNumbers && hasBullets) {
+      communicationStyle = 'analytical';
+    } else if (len > 200 && !hasNumbers) {
+      communicationStyle = 'diplomatic';
+    } else if (len < 100) {
+      communicationStyle = 'direct';
+    }
+  }
+
   return {
     ...prev,
     decisionSpeed,
     riskAppetite: risk,
     preferredOptions: preferred,
     communicationExamples: examples,
+    communicationStyle,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Decision quality scoring (0-1)
+// ---------------------------------------------------------------------------
+
+function computeDecisionQuality(card: DecisionCard): number {
+  let score = 0.5; // baseline
+
+  // 有明确的预期 KR 影响
+  if (card.expectedKrImpact && card.expectedKrImpact.length > 0) score += 0.1;
+
+  // 有关联的 Action Items (可执行)
+  if (card.actionItems && card.actionItems.length > 0) score += 0.1;
+
+  // 有复盘 (事后验证)
+  if (card.retrospective) score += 0.2;
+
+  // 决策耗时适中 (3-15 min = 认真但不拖延)
+  const elapsed = card.elapsedSeconds ?? 0;
+  if (elapsed >= 3 * 60 && elapsed <= 15 * 60) score += 0.1;
+
+  // 选择了原创方案 (D) → 鼓励独立思考
+  if (card.selected === 'D') score += 0.1;
+
+  // 有 materialRefs (充分调研)
+  if (card.materialRefs && card.materialRefs.length > 0) score += 0.05;
+
+  return clamp01(score);
+}
+
+function computeKrHit(card: DecisionCard): number {
+  // 是否关联了 KR
+  if (!card.primaryKrId && !card.relatedKr?.length) return 0;
+
+  // 如果有 retrospective 且实际结果正面 → 命中
+  const retro = card.retrospective;
+  if (retro) {
+    const outcome = (retro.actualOutcome ?? '').toLowerCase();
+    const positive = /成功|达成|完成|positive|achieved|completed/.test(outcome);
+    const negative = /失败|未达成|取消|negative|failed|cancelled/.test(outcome);
+    if (positive) return 1;
+    if (negative) return 0;
+  }
+
+  // 无 retrospective 时, 用 expectedKrImpact 的存在作为代理信号
+  return card.expectedKrImpact && card.expectedKrImpact.length > 0 ? 0.7 : 0.3;
 }
 
 /**

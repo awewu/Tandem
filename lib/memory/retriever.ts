@@ -10,6 +10,12 @@
 import type { MemoryRetriever, MemorySearchResult } from '../convergence/decision-engine';
 import { getStore } from '../storage/repository';
 import type { MemoryEntry, Material } from '../types/memory';
+import {
+  VectorMemoryRetriever,
+  createHybridRetriever,
+  isVectorSearchAvailable,
+} from './vector-retriever';
+import { embedMaterial, embedMemoryEntry } from './vector-retriever';
 
 // ---------------------------------------------------------------------------
 // Tokenization (中英文混合简单分词)
@@ -102,32 +108,72 @@ export interface MemoryMatch extends MemorySearchResult {
   source: 'memory';
 }
 
-export class CompositeRetriever {
+export class CompositeRetriever implements MemoryRetriever {
+  private hybrid: MemoryRetriever;
+  private vector: VectorMemoryRetriever | null = null;
+
+  constructor() {
+    const fallback = new StoreBackedMemoryRetriever();
+    const vector = new VectorMemoryRetriever();
+    this.vector = vector;
+    // Lazy-init hybrid: vector search if available, else pure text fallback
+    this.hybrid = fallback;
+    isVectorSearchAvailable().then((ok) => {
+      if (ok) {
+        this.hybrid = createHybridRetriever(vector, fallback);
+      }
+    }).catch(() => { /* keep fallback */ });
+  }
+
+  async findRelatedSOP(query: string, limit: number): Promise<MemorySearchResult[]> {
+    return this.hybrid.findRelatedSOP(query, limit);
+  }
+
+  async findHistoricalCases(query: string, limit: number): Promise<MemorySearchResult[]> {
+    return this.hybrid.findHistoricalCases(query, limit);
+  }
+
   async search(query: string, limit = 5): Promise<(MaterialMatch | MemoryMatch)[]> {
-    const store = getStore();
-    const [materials, memories] = await Promise.all([
-      store.materials.list(),
-      store.memories.list(),
-    ]);
+    // Search memories via hybrid retriever
+    const memResults = await this.hybrid.findRelatedSOP(query, limit).catch(() => []);
+    const caseResults = await this.hybrid.findHistoricalCases(query, limit).catch(() => []);
 
-    const matMatches = materials.map((m: Material) => ({
-      id: m.id,
-      title: m.title,
-      body: serializeBody(m.body),
-      similarity:
-        Math.max(similarity(query, m.title) * 1.5, similarity(query, serializeBody(m.body))) * 0.85,
-      source: 'material' as const,
-    }));
+    // Search materials via vector if available, else text fallback
+    let matMatches: MaterialMatch[] = [];
+    if (this.vector) {
+      const vecMats = await this.vector.findRelatedMaterials(query, limit).catch(() => []);
+      if (vecMats.length) {
+        matMatches = vecMats.map((r) => ({
+          id: r.id,
+          title: r.title,
+          body: r.body,
+          similarity: r.similarity,
+          source: 'material' as const,
+        }));
+      }
+    }
 
-    const memMatches = memories
-      .filter((m: MemoryEntry) => m.status === 'active')
-      .map((m: MemoryEntry) => ({
+    // Text fallback for materials if vector returned nothing
+    if (matMatches.length === 0) {
+      const store = getStore();
+      const materials = await store.materials.list().catch(() => [] as Material[]);
+      matMatches = materials.map((m: Material) => ({
         id: m.id,
         title: m.title,
-        body: m.body,
-        similarity: Math.max(similarity(query, m.title) * 1.5, similarity(query, m.body)),
-        source: 'memory' as const,
+        body: serializeBody(m.body),
+        similarity:
+          Math.max(similarity(query, m.title) * 1.5, similarity(query, serializeBody(m.body))) * 0.85,
+        source: 'material' as const,
       }));
+    }
+
+    const memMatches = [...memResults, ...caseResults].map((r) => ({
+      id: r.id,
+      title: r.title,
+      body: r.body,
+      similarity: r.similarity,
+      source: 'memory' as const,
+    }));
 
     return [...matMatches, ...memMatches]
       .filter((s) => s.similarity > 0.05)

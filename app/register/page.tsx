@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Mail, Lock, User, Ticket } from 'lucide-react';
@@ -9,8 +9,6 @@ import Link from 'next/link';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const search = useSearchParams();
-
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
@@ -22,9 +20,9 @@ export default function RegisterPage() {
 
   // 从 URL 提取邀请码
   useEffect(() => {
-    const code = search.get('invite');
+    const code = new URLSearchParams(window.location.search).get('invite');
     if (code) setInviteCode(code);
-  }, [search]);
+  }, []);
 
   // 简易客户端密码强度提示
   useEffect(() => {

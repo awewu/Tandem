@@ -26,6 +26,10 @@ export interface DecisionHistoryStats {
   vetoedByUser: number;
   /** 员工对 AI 决议否决率 (健康区间 5-15%) */
   vetoRate: number;
+  /** 平均决策质量分 (0-1, 基于 expectedKrImpact vs retrospective 回填) */
+  avgDecisionQuality: number;
+  /** 关联 KR 且达成预期的决议占比 */
+  krHitRate: number;
 }
 
 export interface StyleProfile {

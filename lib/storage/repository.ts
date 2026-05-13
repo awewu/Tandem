@@ -81,11 +81,47 @@ export interface TandemStore {
 
   /** 自研身份系统 (Native Auth) */
   auth: AuthStore;
+
+  /** SaaS 多租户 */
+  workspaces: Repository<Workspace>;
+  plans: Repository<Plan>;
 }
 
 // ---------------------------------------------------------------------------
 // Auth Store · 自研身份系统数据访问
 // ---------------------------------------------------------------------------
+
+export interface Workspace {
+  id: string;
+  name: string;
+  slug: string;
+  logoUrl?: string | null;
+  description?: string | null;
+  planId?: string | null;
+  subscriptionStatus: string;
+  settings?: Record<string, unknown> | null;
+  maxUsers: number;
+  maxStorageMb: number;
+  maxChannels?: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Plan {
+  id: string;
+  name: string;
+  displayName: string;
+  description?: string | null;
+  priceMonthCents: number;
+  priceYearCents: number;
+  maxUsers: number;
+  maxStorageMb: number;
+  maxChannels: number;
+  apiRateLimitRpm: number;
+  features: Record<string, boolean>;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface AuthUser {
   id: string;
@@ -100,6 +136,8 @@ export interface AuthUser {
   lastLoginIp?: string | null;
   emailVerifiedAt?: string | null;
   departmentId?: string | null;
+  workspaceId?: string | null;
+  ssoBindings?: Record<string, string> | null;
 }
 
 export interface AuthSession {
@@ -140,6 +178,7 @@ export interface AuthStore {
   users: {
     findByEmail(email: string): Promise<AuthUser | null>;
     findById(id: string): Promise<AuthUser | null>;
+    list(): Promise<AuthUser[]>;
     create(input: Partial<AuthUser> & { email: string; name: string }): Promise<AuthUser>;
     update(id: string, patch: Partial<AuthUser>): Promise<void>;
     savePasswordHash(userId: string, hash: string): Promise<void>;

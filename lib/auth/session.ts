@@ -31,6 +31,7 @@ export interface SessionPayload {
   email: string;
   roles: string[];
   tenantId: string;
+  workspaceId?: string;
   /** 是否已 MFA */
   mfa: boolean;
   /** session id (用于撤销) */

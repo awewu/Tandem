@@ -1,4 +1,5 @@
-import { runHermes } from '@/lib/hermes-cli';
+import { runHermesJson } from '@/lib/hermes-cli';
+import { error, json } from '@/app/api/_common/response';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -157,19 +158,18 @@ function parseStatus(stdout: string): HermesStatus {
 
 export async function GET() {
   try {
-    const { stdout, stderr, code } = await runHermes(['status'], 15000);
+    const { data, raw, code, stderr, jsonMode } = await runHermesJson<HermesStatus>(['status'], 15000);
+    if (jsonMode && data) {
+      return json({ ...data, raw, jsonMode });
+    }
+    // Fallback to regex parser when CLI doesn't support --json yet
+    const stdout = raw;
     if (code !== 0 && !stdout) {
-      return Response.json(
-        { ok: false, error: stderr || `exit ${code}`, raw: stdout },
-        { status: 502 }
-      );
+      return error(stderr || `exit ${code}`, 502, { raw: stdout });
     }
     const status = parseStatus(stdout);
-    return Response.json(status);
+    return json({ ...status, raw, jsonMode });
   } catch (err: any) {
-    return Response.json(
-      { ok: false, error: err?.message || 'Failed to read status', raw: '' },
-      { status: 500 }
-    );
+    return error(err?.message || 'Failed to read status', 500, { raw: '' });
   }
 }

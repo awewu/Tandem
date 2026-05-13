@@ -1,5 +1,9 @@
 import { ConvergenceRoom } from '@/components/convergence/ConvergenceRoom';
 
+export async function generateStaticParams() {
+  return [];
+}
+
 export default function ConvergenceDetailPage({ params }: { params: { id: string } }) {
   // V1 简化: 用固定 demo 用户. V2 接入 SSO 后改为 session.user.id.
   const currentUserId = 'demo-user';

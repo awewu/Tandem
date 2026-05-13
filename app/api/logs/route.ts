@@ -1,4 +1,4 @@
-import { runHermes } from '@/lib/hermes-cli';
+import { runHermesJson } from '@/lib/hermes-cli';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -61,7 +61,11 @@ export async function GET(req: Request) {
   if (since) args.push('--since', since);
 
   try {
-    const { stdout, stderr, code } = await runHermes(args, 15000);
+    const { data, raw, code, stderr, jsonMode } = await runHermesJson<{ logs: LogLine[]; count: number }>(args, 15000);
+    if (jsonMode && data) {
+      return Response.json({ ok: true, log: logName, ...data, jsonMode });
+    }
+    const stdout = raw;
     if (code !== 0 && !stdout) {
       return Response.json(
         { ok: false, error: stderr || `hermes logs exited with code ${code}` },

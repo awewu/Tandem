@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Lock, Mail, ShieldCheck, KeyRound } from 'lucide-react';
@@ -9,7 +9,7 @@ import Link from 'next/link';
 
 export default function LoginPage() {
   const router = useRouter();
-  const search = useSearchParams();
+  const search = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
   const next = search.get('next') ?? '/';
 
   const [stage, setStage] = useState<'creds' | 'mfa'>('creds');
@@ -200,9 +200,9 @@ function SsoFooter() {
         <div className="h-px flex-1 bg-slate-200" />
       </div>
       <div className="flex justify-center gap-2">
-        <SsoButton label="钉钉" disabled />
-        <SsoButton label="企微" disabled />
-        <SsoButton label="飞书" disabled />
+        <SsoButton label="钉钉" provider="dingtalk" />
+        <SsoButton label="企微" provider="wecom" />
+        <SsoButton label="飞书" provider="feishu" />
       </div>
       <p className="mt-2 text-[10px]">
         * SSO 仅作为可选辅助登录方式. Tandem 默认使用自研账号系统, 不依赖任何外部平台.
@@ -211,15 +211,13 @@ function SsoFooter() {
   );
 }
 
-function SsoButton({ label, disabled }: { label: string; disabled?: boolean }) {
+function SsoButton({ label, provider }: { label: string; provider: string }) {
   return (
-    <button
-      type="button"
-      disabled={disabled}
-      className="rounded border px-3 py-1 text-xs hover:bg-slate-50 disabled:opacity-50"
-      title={disabled ? '需在 .env 配置后启用' : undefined}
+    <a
+      href={`/api/auth/sso/${provider}`}
+      className="rounded border px-3 py-1 text-xs hover:bg-slate-50 inline-block"
     >
       {label}
-    </button>
+    </a>
   );
 }

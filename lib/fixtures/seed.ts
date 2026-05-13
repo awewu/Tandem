@@ -10,6 +10,7 @@ import type { MemoryEntry } from '../types/memory';
 import type { Cycle, Objective, KeyResult, TTI } from '../types/okr-tti';
 import type { DecisionCard } from '../types/decision-card';
 import { createChannel, sendMessage } from '../im/service';
+import { embedMemoryEntry } from '../memory/vector-retriever';
 
 let _seeded = false;
 
@@ -88,7 +89,9 @@ export async function seedDevData(): Promise<void> {
     },
   ];
   for (const m of memories) {
-    await s.memories.create(m);
+    const created = await s.memories.create(m);
+    // Fire-and-forget: generate embedding for semantic search
+    embedMemoryEntry(created.id, `${created.title}\n${created.body}`).catch(() => {});
   }
 
   // Cycle
@@ -192,6 +195,8 @@ export async function seedDevData(): Promise<void> {
       aiAssisted: 9,
       vetoedByUser: 3,
       vetoRate: 0.064,
+      avgDecisionQuality: 0.72,
+      krHitRate: 0.81,
     },
     styleProfile: {
       decisionSpeed: 'medium',
@@ -232,6 +237,8 @@ export async function seedDevData(): Promise<void> {
       aiAssisted: 31,
       vetoedByUser: 3,
       vetoRate: 0.016,
+      avgDecisionQuality: 0.85,
+      krHitRate: 0.92,
     },
     styleProfile: {
       decisionSpeed: 'fast',

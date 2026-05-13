@@ -259,6 +259,7 @@ export async function completeMfa(input: {
     email: user.email,
     roles: user.roles ?? [],
     tenantId: user.tenantId ?? 'default',
+    workspaceId: user.workspaceId ?? undefined,
     mfa: true,
     sid: session.id,
   });
@@ -296,7 +297,7 @@ export async function revokeAllSessions(userId: string, reason: string): Promise
 // ---------------------------------------------------------------------------
 
 async function issueSessionForUser(
-  user: { id: string; email: string; roles?: string[]; tenantId?: string },
+  user: { id: string; email: string; roles?: string[]; tenantId?: string; workspaceId?: string | null },
   mfaVerified: boolean,
   deviceInfo?: { userAgent?: string; ip?: string }
 ): Promise<AuthResult> {
@@ -316,6 +317,7 @@ async function issueSessionForUser(
     email: user.email,
     roles: user.roles ?? [],
     tenantId: user.tenantId ?? 'default',
+    workspaceId: user.workspaceId ?? undefined,
     mfa: mfaVerified,
     sid: session.id,
   });
@@ -351,6 +353,7 @@ export interface NativeUser {
   name: string;
   roles?: string[];
   tenantId?: string;
+  workspaceId?: string | null;
   disabled?: boolean;
   failedLoginCount?: number;
   lockedUntil?: string | null;

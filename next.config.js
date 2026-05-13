@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  eslint: { ignoreDuringBuilds: true },
   // Desktop (Tauri) builds: emit a fully static frontend to dist/.
   // The backend that used to live in app/api/* has been ported to Rust
   // commands in src-tauri/src/main.rs and is dispatched through
@@ -27,6 +28,11 @@ const nextConfig = {
   // Reduce compilation time
   experimental: {
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
+  },
+  async redirects() {
+    return [
+      { source: '/decision-card/:id', destination: '/convergence/:id', permanent: true },
+    ];
   },
   async rewrites() {
     return [

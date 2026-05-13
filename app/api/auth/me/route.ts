@@ -24,6 +24,7 @@ export async function GET(req: NextRequest) {
       name: user.name,
       roles: user.roles ?? [],
       tenantId: user.tenantId ?? 'default',
+      workspaceId: user.workspaceId ?? null,
       mfaVerified: payload.mfa,
     },
   });

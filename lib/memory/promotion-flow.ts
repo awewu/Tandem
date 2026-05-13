@@ -13,6 +13,7 @@
 
 import { getStore, generateId } from '../storage/repository';
 import { audit } from '../audit/log';
+import { embedMemoryEntry } from './vector-retriever';
 import type {
   MemoryEntry,
   MemoryPromotionRequest,
@@ -214,6 +215,9 @@ async function materializePromotion(req: MemoryPromotionRequest): Promise<Memory
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   } as never);
+
+  // Fire-and-forget: generate embedding for semantic search
+  embedMemoryEntry(entry.id, `${entry.title}\n${entry.body}`).catch(() => {});
 
   await audit('memory.promotion_approved', 'system', {
     targetId: entry.id,

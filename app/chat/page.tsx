@@ -15,7 +15,7 @@ import {
 import { useChatStore, useAgentStore, useMemoryStore, useKnowledgeStore, PRESET_AGENTS } from '@/lib/store';
 import { Send, Plus, Trash2, Bot, User, AlertCircle, Sparkles, Palette, Package, Target, Megaphone, Code, PenLine, BarChart3, Users, ThumbsUp, ThumbsDown, Star, Shield, Link2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { startChatStream, startLLMStream } from '@/lib/hermes-api';
+import { streamChat } from '@/lib/hermes-api';
 
 const AGENT_ICONS: Record<string, React.ElementType> = {
   'agent-designer': Palette,
@@ -145,69 +145,21 @@ function ChatPageInner() {
         };
 
     let fullContent = '';
-    const handleEvent = (obj: any) => {
-      if (obj?.error) {
-        setError(obj.error);
-        updateMessage(convId, assistantMsgId, { content: fullContent + '\n[Error] ' + obj.error });
-      }
-      if (typeof obj?.content === 'string' && obj.content.length) {
-        fullContent += obj.content;
-        updateMessage(convId, assistantMsgId, { content: fullContent });
-      }
-    };
 
     try {
-      const stream = useProxy
-        ? await startLLMStream(payload as any)
-        : await startChatStream(payload as any);
-
-      if (stream.mode === 'tauri') {
-        // Listen to the global 'hermes-stream' Tauri event until { done: true } or abort.
-        const { listen } = await import('@tauri-apps/api/event');
-        await new Promise<void>(async (resolve) => {
-          let unlisten: (() => void) | null = null;
-          const finish = () => {
-            try { unlisten?.(); } catch {}
-            abort.signal.removeEventListener('abort', finish);
-            resolve();
-          };
-          abort.signal.addEventListener('abort', finish, { once: true });
-          unlisten = await listen<any>('hermes-stream', (ev) => {
-            const obj = ev?.payload ?? {};
-            handleEvent(obj);
-            if (obj?.done) finish();
-          });
-        });
-      } else {
-        const res = stream.response;
-        if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let done = false;
-        const onAbort = () => { try { reader.cancel(); } catch {} };
-        abort.signal.addEventListener('abort', onAbort, { once: true });
-        try {
-          while (!done) {
-            const { value, done: readerDone } = await reader.read();
-            done = readerDone;
-            if (!value) continue;
-            const chunk = decoder.decode(value, { stream: true });
-            for (const line of chunk.split('\n')) {
-              const trimmed = line.trim();
-              if (!trimmed.startsWith('data: ')) continue;
-              const jsonStr = trimmed.slice(6);
-              if (jsonStr === '[DONE]') { done = true; break; }
-              try {
-                const obj = JSON.parse(jsonStr);
-                handleEvent(obj);
-                if (obj.done) done = true;
-              } catch { /* malformed line */ }
-            }
-          }
-        } finally {
-          abort.signal.removeEventListener('abort', onAbort);
-        }
-      }
+      await streamChat(payload as any, {
+        onContent: (chunk) => {
+          fullContent += chunk;
+          updateMessage(convId, assistantMsgId, { content: fullContent });
+        },
+        onError: (err) => {
+          setError(err);
+          updateMessage(convId, assistantMsgId, { content: fullContent + '\n[Error] ' + err });
+        },
+        onDone: () => {
+          // streamChat resolves when done
+        },
+      }, abort.signal);
     } catch (err: unknown) {
       const e = err as { name?: string; message?: string };
       if (e?.name !== 'AbortError') {

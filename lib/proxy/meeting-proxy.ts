@@ -19,6 +19,7 @@
 
 import { audit } from '../audit/log';
 import { getStore } from '../storage/repository';
+import { embedMaterial } from '../memory/vector-retriever';
 import { SENSITIVE_KEYWORDS } from '../persona/communication-mimicry';
 
 export type Zone = 'green' | 'yellow' | 'red';
@@ -163,6 +164,9 @@ export async function completeMission(
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   } as never);
+
+  // Fire-and-forget: generate embedding for semantic search
+  embedMaterial(material.id, `${material.title}\n${summary}`).catch(() => {});
 
   await audit('persona.proxy_action', m.userId, {
     targetId: missionId,

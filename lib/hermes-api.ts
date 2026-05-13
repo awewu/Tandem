@@ -9,6 +9,15 @@
  * or invoke('hermes_...') directly.
  */
 
+import {
+  consumeWebChatStream,
+  consumeTauriChatStream,
+  consumeWebWorkflowStream,
+  consumeTauriWorkflowStream,
+  type ChatStreamHandlers,
+  type WorkflowStreamHandlers,
+} from './streaming';
+
 type Json = unknown;
 
 declare global {
@@ -264,9 +273,8 @@ export async function createCronJob(args: {
 
 // ========== chat (streaming) ==========
 //
-// In Tauri: hermes_chat_stream emits 'hermes-stream' events.
-// In Web:   POST /api/stream returns SSE.
-// Callers should branch on isTauri() since the consumption pattern differs.
+// Low-level: startChatStream / startLLMStream return raw transport handles.
+// High-level: streamChat (below) consumes the stream with callbacks.
 //
 
 export interface ChatStreamArgs {
@@ -295,6 +303,9 @@ export async function startChatStream(
       messages: args.messages,
       model: args.model,
       skills: args.skills,
+      agentId: args.agentId,
+      systemPrompt: args.systemPrompt,
+      temperature: args.temperature,
     });
     return { mode: 'tauri' };
   }
@@ -336,7 +347,46 @@ export async function startLLMStream(
   return { mode: 'web', response };
 }
 
+/**
+ * High-level chat stream consumer.
+ *
+ * Hides the Tauri/Web runtime difference. Just provide callbacks.
+ *
+ * Example:
+ *   await streamChat(payload, {
+ *     onContent: (chunk) => setText((s) => s + chunk),
+ *     onError: (err) => setError(err),
+ *     onDone: () => setStreaming(false),
+ *   }, abortController.signal);
+ */
+export async function streamChat(
+  args: ChatStreamArgs | LLMStreamArgs,
+  handlers: ChatStreamHandlers,
+  signal?: AbortSignal
+): Promise<void> {
+  const isProxy = 'provider' in args && !!args.provider?.baseURL;
+  const stream = isProxy
+    ? await startLLMStream(args as LLMStreamArgs)
+    : await startChatStream(args as ChatStreamArgs);
+
+  if (stream.mode === 'tauri') {
+    await consumeTauriChatStream(handlers, signal);
+  } else {
+    if (!stream.response.ok) {
+      const text = await stream.response.text().catch(() => '');
+      handlers.onError(`HTTP ${stream.response.status}: ${text.slice(0, 200)}`);
+      handlers.onDone();
+      return;
+    }
+    await consumeWebChatStream(stream.response, handlers, signal);
+  }
+}
+
 // ========== workflow run (streaming) ==========
+//
+// Low-level: startWorkflowRun returns raw transport handles.
+// High-level: streamWorkflow (below) consumes the stream with callbacks.
+//
 
 export interface WorkflowRunArgs {
   nodes: unknown[];
@@ -368,4 +418,35 @@ export async function startWorkflowRun(
     body: JSON.stringify(args),
   });
   return { response, mode: 'web' };
+}
+
+/**
+ * High-level workflow stream consumer.
+ *
+ * Hides the Tauri/Web runtime difference.
+ *
+ * Example:
+ *   await streamWorkflow({ nodes, edges }, {
+ *     onEvent: (event, data) => { ... },
+ *     onDone: (ok, payload) => { ... },
+ *   }, abortController.signal);
+ */
+export async function streamWorkflow(
+  args: WorkflowRunArgs,
+  handlers: WorkflowStreamHandlers,
+  signal?: AbortSignal
+): Promise<void> {
+  const stream = await startWorkflowRun(args);
+
+  if (stream.mode === 'tauri') {
+    await consumeTauriWorkflowStream(stream.runId, handlers, signal);
+  } else {
+    if (!stream.response.ok) {
+      const text = await stream.response.text().catch(() => '');
+      handlers.onEvent('error', { message: `HTTP ${stream.response.status}: ${text.slice(0, 200)}` });
+      handlers.onDone(false, { error: text });
+      return;
+    }
+    await consumeWebWorkflowStream(stream.response, handlers, signal);
+  }
 }

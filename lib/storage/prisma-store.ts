@@ -178,6 +178,7 @@ function createPrismaAuthStore(): AuthStore {
           lastLoginIp: u.lastLoginIp ?? null,
           emailVerifiedAt: dt(u.emailVerifiedAt),
           departmentId: u.departmentId ?? null,
+          ssoBindings: (u.ssoBindings as Record<string, string> | null) ?? null,
         };
       },
       async findById(id) {
@@ -197,7 +198,27 @@ function createPrismaAuthStore(): AuthStore {
           lastLoginIp: u.lastLoginIp ?? null,
           emailVerifiedAt: dt(u.emailVerifiedAt),
           departmentId: u.departmentId ?? null,
+          ssoBindings: (u.ssoBindings as Record<string, string> | null) ?? null,
         };
+      },
+      async list() {
+        const p = await getPrisma();
+        const all = await p.user.findMany();
+        return all.map((u: typeof all[0]) => ({
+          id: u.id,
+          email: u.email,
+          name: u.name,
+          roles: u.roles ?? [],
+          tenantId: u.tenantId ?? 'default',
+          disabled: u.disabled ?? false,
+          failedLoginCount: u.failedLoginCount ?? 0,
+          lockedUntil: dt(u.lockedUntil),
+          lastLoginAt: dt(u.lastLoginAt),
+          lastLoginIp: u.lastLoginIp ?? null,
+          emailVerifiedAt: dt(u.emailVerifiedAt),
+          departmentId: u.departmentId ?? null,
+          ssoBindings: (u.ssoBindings as Record<string, string> | null) ?? null,
+        }));
       },
       async create(input) {
         const p = await getPrisma();
@@ -209,6 +230,7 @@ function createPrismaAuthStore(): AuthStore {
             tenantId: input.tenantId ?? 'default',
             departmentId: input.departmentId ?? null,
             emailVerifiedAt: input.emailVerifiedAt ? new Date(input.emailVerifiedAt) : null,
+          ssoBindings: input.ssoBindings as any,
           },
         });
         return {
@@ -224,6 +246,7 @@ function createPrismaAuthStore(): AuthStore {
           lastLoginIp: null,
           emailVerifiedAt: dt(u.emailVerifiedAt),
           departmentId: u.departmentId ?? null,
+          ssoBindings: (u.ssoBindings as Record<string, string> | null) ?? null,
         };
       },
       async update(id, patch) {
@@ -242,6 +265,7 @@ function createPrismaAuthStore(): AuthStore {
         }
         if (patch.lastLoginIp !== undefined) data.lastLoginIp = patch.lastLoginIp;
         if (patch.departmentId !== undefined) data.departmentId = patch.departmentId;
+        if (patch.ssoBindings !== undefined) data.ssoBindings = patch.ssoBindings as any;
         await p.user.update({ where: { id }, data });
       },
       async savePasswordHash(userId, hash) {
@@ -532,5 +556,7 @@ export function createPrismaStore(): TandemStore {
     review360Submissions: new PrismaRepository('review360Submission'),
     review360Assignments: new PrismaRepository('review360Assignment'),
     auth: createPrismaAuthStore(),
+    workspaces: new PrismaRepository('workspace'),
+    plans: new PrismaRepository('plan'),
   };
 }

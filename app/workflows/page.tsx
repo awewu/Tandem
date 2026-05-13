@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
+import { useYjsWorkflow } from '@/hooks/use-yjs-workflow';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +10,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Plus, Trash2, Play, Download, Upload, MousePointer, LayoutTemplate, Sparkles, Square, Loader2, CheckCircle2, XCircle, Terminal as TerminalIcon, Eye, FileText } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { isTauri, startWorkflowRun } from '@/lib/hermes-api';
+import { streamWorkflow } from '@/lib/hermes-api';
 import { getShowcase, type Showcase } from '@/lib/showcases';
 
 type RunStatus = 'idle' | 'running' | 'done' | 'error' | 'skipped';
@@ -230,8 +231,12 @@ const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
 ];
 
 export default function WorkflowsPage() {
-  const [nodes, setNodes] = useState<FlowNode[]>([]);
-  const [edges, setEdges] = useState<FlowEdge[]>([]);
+  const [roomId, setRoomId] = useState('');
+  const yjs = useYjsWorkflow(roomId.trim() || null);
+
+  // 本地 mode: 直接用 hook 返回的 state；Yjs mode: 自动同步
+  const { nodes, edges, setNodes, setEdges, addNode: yjsAddNode, updateNode, deleteNode, collaboratorCount, ready } = yjs;
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [showTemplates, setShowTemplates] = useState(true); // 默认展开模板
@@ -274,70 +279,30 @@ export default function WorkflowsPage() {
     const ac = new AbortController();
     abortRef.current = ac;
     try {
-      const result = await startWorkflowRun({ nodes, edges, initialInput });
-      if (result.mode === 'tauri') {
-        // Listen for events via Tauri event bus
-        const { listen } = await import('@tauri-apps/api/event').catch(() => ({ listen: null as any }));
-        if (!listen) throw new Error('Tauri event API unavailable');
-        const eventName = `workflow:${result.runId}`;
-        const unlisten = await listen(eventName, (msg: any) => {
-          const data = msg?.payload || {};
-          const ev = data.event || 'message';
-          handleEvent(ev, data);
-          if (ev === 'done') {
-            unlisten?.();
-            abortRef.current = null;
+      await streamWorkflow(
+        { nodes, edges, initialInput },
+        {
+          onEvent: (event, data) => handleEvent(event, data),
+          onDone: (ok, payload) => {
+            appendLog(
+              ok
+                ? '[end] Workflow completed.'
+                : `[end] Workflow failed at ${(payload as any)?.failedAt || 'unknown'}.`
+            );
             setRunning(false);
-          }
-        });
-        // Set up abort to call unlisten
-        ac.signal.addEventListener('abort', () => {
-          unlisten?.();
-        });
-        return; // Tauri path resolves async; don't fall through to finally
-      }
-      const res = result.response;
-      if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = '';
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        // SSE: split on double-newline
-        let idx;
-        while ((idx = buf.indexOf('\n\n')) !== -1) {
-          const block = buf.slice(0, idx);
-          buf = buf.slice(idx + 2);
-          const lines = block.split('\n');
-          let event = 'message';
-          let dataStr = '';
-          for (const l of lines) {
-            if (l.startsWith('event: ')) event = l.slice(7).trim();
-            else if (l.startsWith('data: ')) dataStr += l.slice(6);
-          }
-          if (!dataStr) continue;
-          let data: any;
-          try {
-            data = JSON.parse(dataStr);
-          } catch {
-            continue;
-          }
-          handleEvent(event, data);
-        }
-      }
+            abortRef.current = null;
+          },
+        },
+        ac.signal
+      );
     } catch (err: any) {
       if (err.name !== 'AbortError') {
         appendLog(`[error] ${err.message || err}`);
       } else {
         appendLog('[stopped] Aborted by user.');
       }
-    } finally {
-      if (!isTauri()) {
-        setRunning(false);
-        abortRef.current = null;
-      }
+      setRunning(false);
+      abortRef.current = null;
     }
   };
 
@@ -398,17 +363,7 @@ export default function WorkflowsPage() {
 
   const addNode = (type: NodeType) => {
     const id = crypto.randomUUID();
-    setNodes((prev) => [...prev, { id, type, x: 100 + prev.length * 30, y: 100 + prev.length * 20, label: type, config: {} }]);
-  };
-
-  const updateNode = (id: string, patch: Partial<FlowNode>) => {
-    setNodes((prev) => prev.map((n) => (n.id === id ? { ...n, ...patch } : n)));
-  };
-
-  const deleteNode = (id: string) => {
-    setNodes((prev) => prev.filter((n) => n.id !== id));
-    setEdges((prev) => prev.filter((e) => e.from !== id && e.to !== id));
-    setSelectedId(null);
+    yjsAddNode({ id, type, x: 100 + nodes.length * 30, y: 100 + nodes.length * 20, label: type, config: {} });
   };
 
   const handleMouseDown = (e: React.MouseEvent, id: string) => {
@@ -462,6 +417,22 @@ export default function WorkflowsPage() {
     <div className="flex h-full">
       <div className="w-64 border-r p-4 space-y-4 overflow-auto">
         <h2 className="font-semibold text-sm">工作流构建器</h2>
+
+        <div className="space-y-1">
+          <Label className="text-[10px] text-muted-foreground">协作房间 ID (留空 = 本地)</Label>
+          <Input
+            placeholder="输入房间 ID 开启多人协作"
+            value={roomId}
+            onChange={(e) => setRoomId(e.target.value)}
+            className="h-7 text-xs"
+          />
+          {roomId && (
+            <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+              <span className={`w-2 h-2 rounded-full ${ready ? 'bg-green-500' : 'bg-yellow-400 animate-pulse'}`} />
+              {ready ? `已同步 · ${collaboratorCount} 人在线` : '正在连接…'}
+            </div>
+          )}
+        </div>
 
         <div className="space-y-2">
           <Label className="text-xs">Initial Input</Label>
@@ -564,7 +535,7 @@ export default function WorkflowsPage() {
             { type: 'output' as const, label: '输出' },
           ]).map(({ type, label }) => (
             <Button key={type} variant="outline" size="sm" className="w-full justify-start" onClick={() => addNode(type)}>
-              <div className={`w-3 h-3 rounded-full mr-2 ${NODE_COLORS[type]}`} />
+              <div className={`w-3 h-3 rounded-full mr-2 ${NODE_COLORS[type as NodeType]}`} />
               {label}
             </Button>
           ))}
@@ -591,7 +562,7 @@ export default function WorkflowsPage() {
                 className="h-8 text-sm"
               />
             </div>
-            <Button size="sm" variant="destructive" className="w-full" onClick={() => deleteNode(selectedNode.id)}>
+            <Button size="sm" variant="destructive" className="w-full" onClick={() => { deleteNode(selectedNode.id); setSelectedId(null); }}>
               <Trash2 className="mr-1 h-3 w-3" /> Delete
             </Button>
           </div>
@@ -623,7 +594,7 @@ export default function WorkflowsPage() {
                 key={node.id}
                 className={cn(
                   'absolute px-3 py-2 rounded-md text-white text-xs font-medium cursor-move select-none shadow-lg',
-                  NODE_COLORS[node.type],
+                  NODE_COLORS[node.type as NodeType],
                   selectedId === node.id && !ring && 'ring-2 ring-white',
                   ring
                 )}
@@ -719,7 +690,7 @@ export default function WorkflowsPage() {
                     return (
                       <div key={n.id} className="rounded-md border p-2">
                         <div className="flex items-center gap-2 text-xs font-medium mb-1">
-                          <div className={cn('w-2 h-2 rounded-full', NODE_COLORS[n.type])} />
+                          <div className={cn('w-2 h-2 rounded-full', NODE_COLORS[n.type as NodeType])} />
                           {n.label}
                           <span className="text-[10px] text-muted-foreground">
                             ({rs.status})

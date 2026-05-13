@@ -590,8 +590,15 @@ async fn hermes_chat_stream(
     messages: Vec<Value>,
     model: Option<String>,
     skills: Option<Vec<String>>,
+    agent_id: Option<String>,
+    system_prompt: Option<String>,
+    temperature: Option<f64>,
 ) -> Result<(), String> {
     let mut prompt_text = String::new();
+    // 独立的 systemPrompt 优先注入
+    if let Some(sp) = system_prompt {
+        prompt_text.push_str(&format!("System: {}\n", sp));
+    }
     for m in messages {
         if let (Some(role), Some(content)) = (
             m.get("role").and_then(|v| v.as_str()),
@@ -613,6 +620,14 @@ async fn hermes_chat_stream(
     if let Some(s) = skills {
         args.push("--skills".into());
         args.push(s.join(","));
+    }
+    if let Some(a) = agent_id {
+        args.push("--agent-id".into());
+        args.push(a);
+    }
+    if let Some(t) = temperature {
+        args.push("--temperature".into());
+        args.push(t.to_string());
     }
 
     let mut child = Command::new("hermes")

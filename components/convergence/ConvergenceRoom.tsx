@@ -51,6 +51,9 @@ export function ConvergenceRoom({ cardId, currentUserId }: { cardId: string; cur
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [novelInsight, setNovelInsight] = useState('');
+  const [reasoningText, setReasoningText] = useState('');
+  const [reasoningActive, setReasoningActive] = useState(false);
+  const [reasoningDone, setReasoningDone] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -68,9 +71,59 @@ export function ConvergenceRoom({ cardId, currentUserId }: { cardId: string; cur
 
   useEffect(() => {
     fetchData();
-    const t = setInterval(fetchData, 5000);
-    return () => clearInterval(t);
-  }, [fetchData]);
+    const es = new EventSource(`/api/convergence/${cardId}/events`);
+    es.addEventListener('snapshot', (e) => {
+      const card = JSON.parse(e.data) as DecisionCard;
+      setData({
+        card,
+        room: {
+          step: convergenceStateToStep(card.convergenceState),
+          elapsedSeconds: card.elapsedSeconds,
+          escalated: card.convergenceState === 'ESCALATED',
+        },
+      });
+      setLoading(false);
+      setError(null);
+    });
+    es.addEventListener('error', (e) => {
+      // 静默处理: 连接断开时浏览器会自动重连
+    });
+    return () => es.close();
+  }, [cardId]);
+
+  // LLM 推理流: DIVERGE 阶段且 options 为空时启动
+  useEffect(() => {
+    if (!data) return;
+    const step = data.room?.step ?? convergenceStateToStep(data.card.convergenceState);
+    if (step !== 'DIVERGE') return;
+    if (data.card.options.length > 0) return;
+    if (reasoningDone || reasoningActive) return;
+
+    setReasoningActive(true);
+    setReasoningText('');
+    const es = new EventSource(`/api/convergence/${cardId}/stream`);
+    es.addEventListener('start', () => {
+      setReasoningText('AI 正在生成决策选项...\n\n');
+    });
+    es.addEventListener('token', (e) => {
+      try {
+        const { delta } = JSON.parse(e.data);
+        if (delta) setReasoningText((prev) => prev + delta);
+      } catch { /* ignore */ }
+    });
+    es.addEventListener('done', () => {
+      setReasoningActive(false);
+      setReasoningDone(true);
+      es.close();
+      // 流完成后刷新一次数据，获取正式 options
+      fetchData();
+    });
+    es.addEventListener('error', () => {
+      setReasoningActive(false);
+      es.close();
+    });
+    return () => es.close();
+  }, [data?.card.convergenceState, data?.card.options.length, cardId]);
 
   const sendEvent = useCallback(
     async (event: Record<string, unknown>) => {
@@ -164,6 +217,23 @@ export function ConvergenceRoom({ cardId, currentUserId }: { cardId: string; cur
         <BannerCard tone="success" icon={CheckCircle2} title={`决议已生效 (24h 否决窗口至 ${formatTime(card.vetoWindowEnds)})`}>
           员工本人可在窗口内行使否决权.
         </BannerCard>
+      )}
+
+      {/* Reasoning stream (DIVERGE 阶段 AI 正在生成选项) */}
+      {reasoningActive && (
+        <Card className="border-dashed border-amber-300 bg-amber-50/30">
+          <CardHeader className="py-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-amber-500 animate-pulse" />
+              AI 正在推演决策选项…
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono max-h-64 overflow-auto">
+              {reasoningText}
+            </pre>
+          </CardContent>
+        </Card>
       )}
 
       {/* Options */}
