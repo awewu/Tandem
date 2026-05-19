@@ -6,7 +6,8 @@ const nextConfig = {
   // commands in src-tauri/src/main.rs and is dispatched through
   // lib/hermes-api.ts (which detects the Tauri runtime and calls invoke()).
   // Web/dev runs continue to use the Next.js API routes.
-  output: process.env.TAURI === '1' ? 'export' : undefined,
+  // Tauri 静态导出 / Web standalone 自包含部署 / dev undefined
+  output: process.env.TAURI === '1' ? 'export' : process.env.NEXT_OUTPUT === 'standalone' ? 'standalone' : undefined,
   distDir: process.env.TAURI === '1' ? 'dist' : '.next',
   // When TAURI=1, scripts/build-static.mjs temporarily moves app/api/ out
   // of the way so static export does not see the dynamic API routes.

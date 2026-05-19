@@ -1,6 +1,7 @@
-import type { NextRequest } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { boot, getRouter } from '@/lib/boot';
 import { getStore } from '@/lib/storage/repository';
+import { requireAuth } from '@/lib/auth/require-auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -15,7 +16,9 @@ export const dynamic = 'force-dynamic';
  *   es.addEventListener('token', e => append(e.data));
  *   es.addEventListener('done', () => es.close());
  */
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
   await boot();
   const store = getStore();
   const card = await store.decisionCards.get(params.id);

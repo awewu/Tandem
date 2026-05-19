@@ -2,13 +2,34 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { login, AuthError } from '@/lib/auth/native';
 import { COOKIE_ACCESS, COOKIE_REFRESH, SESSION_COOKIE_OPTIONS } from '@/lib/auth/session';
+import { rateLimit, POLICIES, getClientIp } from '@/lib/infra/rate-limit';
+import { logger } from '@/lib/infra/logger';
 
 /**
  * POST /api/auth/login
  * Body: { email, password }
+ *
+ * §T10 防暴力: per-IP sliding window 限流 (默认 5/h, env 可调)
  */
 export async function POST(req: NextRequest) {
   await boot();
+  const ip = getClientIp(req.headers);
+  const rl = await rateLimit({ key: `login:${ip}`, ...POLICIES.login() });
+  if (!rl.allowed) {
+    logger.warn({ ip, totalHits: rl.totalHits }, '[auth] login rate-limited');
+    return NextResponse.json(
+      { ok: false, error: 'too many attempts, please retry later', code: 'RATE_LIMITED' },
+      {
+        status: 429,
+        headers: {
+          'Retry-After': String(rl.resetSec),
+          'X-RateLimit-Limit': String(POLICIES.login().limit),
+          'X-RateLimit-Remaining': '0',
+        },
+      },
+    );
+  }
+
   let body: Record<string, string> = {};
   try {
     body = await req.json();

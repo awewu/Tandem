@@ -8,12 +8,13 @@
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { getStore } from '@/lib/boot';
+import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { redactAuthUser, type RedactableUser } from '@/lib/privacy/redactors-domain';
 import { resolveScope } from '@/lib/privacy/redactor';
 
 export async function GET(req: NextRequest) {
+  await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   try {

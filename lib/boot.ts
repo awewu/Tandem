@@ -7,11 +7,13 @@
 
 import { setStore, getStore } from './storage/repository';
 import { createInMemoryStore } from './storage/memory-store';
-import { createPrismaStore } from './storage/prisma-store';
+import { createDrizzleStore } from './storage/drizzle-store';
 import { TandemRouter, createDefaultRouter, createLocalDevRouter } from './taf';
 import { ConvergenceOrchestrator } from './convergence/orchestrator';
 import { seedDevData } from './fixtures/seed';
 import { registerBuiltinSkills } from './taf/skills';
+import { registerBuiltinTriggers } from './workflows/builtin-triggers';
+import { initObservability } from './infra/observability';
 import { bootstrapOwnerIfMissing } from './auth/bootstrap';
 
 // 单例 (挂 globalThis 防 Next.js dev HMR 重置)
@@ -30,26 +32,44 @@ const _g = globalThis as typeof globalThis & BootGlobals;
  * 多次调用幂等. 不触发 seed.
  */
 function bootSync(): void {
-  if (_g.__tandem_booted__) return;
-
-  // Storage 路径选择 (宪章 §13 "数据归公司 + 私有化部署优先"):
-  //   - 若 DATABASE_URL 存在 → Prisma + PostgreSQL (V1 GA 生产路径)
-  //   - 否则 → InMemory (dev / e2e, seed 重启可复现)
   const useDb = !!process.env.DATABASE_URL;
+  const existingStore = (_g as Record<string, unknown>)['__tandem_store__'];
+  // §T6: DATABASE_URL → Drizzle+PG (持久化); 否则 InMemory (重启清空)
+  const expectedKind = useDb ? 'prisma' : 'memory';
+  const actualKind =
+    existingStore && typeof existingStore === 'object'
+      ? (existingStore as Record<string, string>)._storeKind
+      : undefined;
+  const storeNeedsReset =
+    !existingStore ||
+    (typeof existingStore === 'object' && !('documents' in existingStore)) ||
+    actualKind !== expectedKind;
+
+  if (_g.__tandem_booted__ && !storeNeedsReset) return;
+
+  if (storeNeedsReset && existingStore) {
+    // eslint-disable-next-line no-console
+    console.info('[boot] store schema/mode changed, re-initializing...');
+  }
+
+  // §T6 Storage 路径:
+  //   DATABASE_URL  → Drizzle+PG (Persona/Memory/OKR/IM/DecisionCard 全部持久化)
+  //   否则           → InMemory (dev/e2e, seed 重启可复现)
+  // 注: V1 GA 强类型表 (Document/Calendar/Drive/Notification) 由 app-context-factory 走专用 repo
   if (useDb) {
     try {
-      setStore(createPrismaStore());
+      setStore(createDrizzleStore());
       // eslint-disable-next-line no-console
-      console.info('[boot] storage=prisma (DATABASE_URL detected)');
+      console.info('[boot] storage=drizzle+pg (DATABASE_URL detected)');
     } catch (err) {
       // eslint-disable-next-line no-console
-      console.warn('[boot] Prisma store 初始化失败, fallback to InMemory:', err);
+      console.warn('[boot] Drizzle store 初始化失败, fallback to InMemory:', err);
       setStore(createInMemoryStore());
     }
   } else {
     setStore(createInMemoryStore());
     // eslint-disable-next-line no-console
-    console.info('[boot] storage=in-memory (no DATABASE_URL). 生产期请配 DATABASE_URL + prisma migrate.');
+    console.info('[boot] storage=in-memory (no DATABASE_URL). 生产期请配 DATABASE_URL.');
   }
 
   // 优先尝试默认路由器, 失败 fall back 到本地 dev
@@ -67,6 +87,8 @@ function bootSync(): void {
 
   _g.__tandem_orchestrator__ = new ConvergenceOrchestrator(router);
   registerBuiltinSkills();
+  registerBuiltinTriggers();
+  void initObservability();
   // 自研身份系统: 首次启动建 owner (幂等)
   bootstrapOwnerIfMissing().catch((err) => {
     // eslint-disable-next-line no-console
@@ -74,9 +96,9 @@ function bootSync(): void {
   });
   _g.__tandem_booted__ = true;
 
-  // Seed dev data — 仅在 InMemory 模式 + 非 production 下跑.
-  // Prisma 模式的持久化数据应通过 migrate + 客户 onboarding 流程而非硬编码 seed.
-  if (process.env.NODE_ENV !== 'production' && !useDb) {
+  // Seed dev data — 仅在非 production 下跑.
+  // Prisma 模式下也跑 seed, 让 e2e / demo 有数据.
+  if (process.env.NODE_ENV !== 'production') {
     _g.__tandem_seed_promise__ = seedDevData().catch((err) => {
       // eslint-disable-next-line no-console
       console.warn('[boot] seed failed:', err);

@@ -1,0 +1,116 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  typecheck:
+    name: TypeScript
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci --no-audit --no-fund --ignore-scripts
+      - run: npx tsc --noEmit
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci --no-audit --no-fund --ignore-scripts
+      - run: npm run lint --if-present
+
+  build:
+    name: Next.js Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci --no-audit --no-fund --ignore-scripts
+      - run: node scripts/copy-pdf-worker.mjs || true
+      - run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+          NEXT_OUTPUT: standalone
+
+  smoke:
+    name: API Smoke (PG + Redis + MinIO)
+    runs-on: ubuntu-latest
+    needs: [typecheck]
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: tandem
+          POSTGRES_PASSWORD: tandem
+          POSTGRES_DB: tandem
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U tandem"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://tandem:tandem@localhost:5432/tandem
+      REDIS_URL: redis://localhost:6379
+      NEXTAUTH_SECRET: ci-secret-not-for-production
+      ALLOW_DEMO_AUTH: '1'
+      NODE_ENV: development
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci --no-audit --no-fund --ignore-scripts
+      - run: node scripts/copy-pdf-worker.mjs || true
+      - name: Apply Drizzle migrations
+        run: |
+          for f in drizzle/migrations/*.sql; do
+            echo "Applying $f"
+            PGPASSWORD=tandem psql -h localhost -U tandem -d tandem -f "$f"
+          done
+      - name: Start dev server
+        run: |
+          nohup npx next dev -p 3001 > dev.log 2>&1 &
+          for i in {1..40}; do
+            if curl -fs http://localhost:3001/api/health > /dev/null; then
+              echo "ready"; exit 0
+            fi
+            sleep 2
+          done
+          echo "server failed to start"; cat dev.log; exit 1
+      - name: Smoke
+        run: bash scripts/smoke-api.sh
+      - name: Dump server log on failure
+        if: failure()
+        run: tail -200 dev.log

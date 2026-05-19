@@ -43,6 +43,7 @@ export type AuditAction =
   // Skill / Agent (CircleBot 对齐)
   | 'skill.executed'
   | 'skill.blocked_red_zone'
+  | 'skill.blocked_governance'
   | 'agent.spawned'
   | 'agent.completed'
   | 'budget.exceeded';

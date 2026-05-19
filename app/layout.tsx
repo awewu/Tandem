@@ -7,6 +7,7 @@ import { KeyboardShortcuts } from '@/components/keyboard-shortcuts';
 import { Toaster } from '@/components/toaster';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { ApiHydrator } from '@/components/api-hydrator';
+import { PwaRegister } from '@/components/pwa-register';
 
 export const metadata: Metadata = {
   title: 'Tandem · 牛马搭子',
@@ -15,6 +16,7 @@ export const metadata: Metadata = {
   applicationName: 'Tandem',
   authors: [{ name: 'Tandem Team' }],
   keywords: ['Tandem', '牛马搭子', 'OKR', '议事室', 'AI 副驾', '企业协作'],
+  manifest: '/manifest.webmanifest',
 };
 
 export const viewport: Viewport = {
@@ -41,6 +43,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <CommandPalette />
           <KeyboardShortcuts />
           <Toaster />
+          <PwaRegister />
         </ThemeProvider>
       </body>
     </html>

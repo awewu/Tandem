@@ -1,8 +1,8 @@
 /**
  * In-Memory Store · 开发期 / 测试期使用
  *
- * 生产期由 PrismaStore (lib/storage/prisma-store.ts) 替换.
- * 数据仅在进程内存中, 进程结束即失效.
+ * 用于 Persona/Memory/OKR/IM/DecisionCard 等遗留模块. 重启即丢.
+ * V1 GA 模型 (Document/Calendar/Drive/Notification) 已迁移到 Drizzle + PG, 见 lib/repositories/.
  */
 
 import type {
@@ -229,6 +229,7 @@ function createInMemoryAuthStore(): AuthStore {
 
 export function createInMemoryStore(): TandemStore {
   return {
+    _storeKind: 'memory' as const,
     decisionCards: new InMemoryRepository(),
     personas: new InMemoryRepository(),
     origins: new InMemoryRepository(),
@@ -251,6 +252,13 @@ export function createInMemoryStore(): TandemStore {
     review360Cycles: new InMemoryRepository(),
     review360Submissions: new InMemoryRepository(),
     review360Assignments: new InMemoryRepository(),
+    skillRegistry: new InMemoryRepository(),
+    bitableTables: new InMemoryRepository(),
+    bitableViews: new InMemoryRepository(),
+    documents: new InMemoryRepository(),
+    calendarEvents: new InMemoryRepository(),
+    driveFiles: new InMemoryRepository(),
+    notifications: new InMemoryRepository(),
     auth: createInMemoryAuthStore(),
   };
 }

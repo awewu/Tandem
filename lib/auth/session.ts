@@ -118,9 +118,22 @@ export function hashRefreshToken(refreshToken: string): string {
 export const COOKIE_ACCESS = 'tandem_at';
 export const COOKIE_REFRESH = 'tandem_rt';
 
+/**
+ * Session cookie 选项 (§T10):
+ *   - httpOnly: true                · JS 不可读, 防 XSS 偷 token
+ *   - secure:   production 强制     · HTTPS only
+ *   - sameSite: production='strict'  · 防 CSRF (跨站请求不带 cookie)
+ *               dev='lax'           · 方便 OAuth 回跳测试
+ *   - path: '/'                     · 全站可见
+ */
+const isProd = process.env.NODE_ENV === 'production';
+type SameSite = 'strict' | 'lax' | 'none';
+const cookieSameSite: SameSite =
+  (process.env.COOKIE_SAMESITE as SameSite | undefined) ?? (isProd ? 'strict' : 'lax');
+
 export const SESSION_COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'lax' as const,
+  secure: isProd,
+  sameSite: cookieSameSite,
   path: '/',
 };

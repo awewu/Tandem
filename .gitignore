@@ -2,8 +2,17 @@
 /.next
 /out
 /dist
+.env
 .env.local
+.env.docker-pg
+.env.*.local
+!.env.example
 *.log
+
+# scratch / build artifacts
+progress.txt
+dbpush-output.txt
+lint.txt
 
 .tmp-test/
 .tmp-*.json

@@ -4,7 +4,7 @@
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { getStore } from '@/lib/boot';
+import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 
 async function loadAndAuthorize(itemId: string, requesterId: string, tenantId: string) {
@@ -24,6 +24,7 @@ async function loadAndAuthorize(itemId: string, requesterId: string, tenantId: s
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   const { error } = await loadAndAuthorize(params.id, auth.userId, auth.tenantId);
@@ -43,6 +44,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   const { error } = await loadAndAuthorize(params.id, auth.userId, auth.tenantId);

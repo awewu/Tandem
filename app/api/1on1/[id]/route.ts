@@ -7,7 +7,7 @@
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { getStore } from '@/lib/boot';
+import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { strip1on1ForRequester } from '@/lib/auth/strip';
 
@@ -28,6 +28,7 @@ async function loadAndAuthorize(
 }
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+  await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   const { meeting, error } = await loadAndAuthorize(params.id, auth.userId, auth.tenantId);
@@ -42,6 +43,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   const { meeting, error } = await loadAndAuthorize(params.id, auth.userId, auth.tenantId);
@@ -71,6 +73,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   const { meeting, error } = await loadAndAuthorize(params.id, auth.userId, auth.tenantId);

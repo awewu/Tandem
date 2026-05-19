@@ -12,8 +12,11 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { getAuditLog, type AuditAction } from '@/lib/audit/log';
+import { requireAuth } from '@/lib/auth/require-auth';
 
 export async function GET(req: NextRequest) {
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
   await boot();
   const url = new URL(req.url);
   const log = getAuditLog();

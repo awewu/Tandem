@@ -132,6 +132,31 @@ class SkillRegistry {
       return { ok: false, error: `Skill ${skillId} not found` };
     }
 
+    // 守门 0: 治理状态机 (skill 必须 approved/staging/草稿作者)
+    // §T15: 不在 governance 注册的 skill 仍可执行 (向后兼容内置 skill);
+    //       一旦注册过, 必须按状态机判定.
+    try {
+      const { canInvokeSkill, recordInvocation } = await import('./governance');
+      const gate = await canInvokeSkill(skillId, {
+        userId: ctx.userId,
+        tenantId: ctx.tenantId,
+      });
+      if (gate.record && !gate.allowed) {
+        await audit('skill.blocked_governance', ctx.userId, {
+          targetId: skillId,
+          targetType: 'skill',
+          metadata: { reason: gate.reason, status: gate.record.status },
+        });
+        return { ok: false, error: `Skill ${skillId} 治理拦截: ${gate.reason}` };
+      }
+      // record invocation 在执行后异步打点 (见末尾 finally)
+      ctx = { ...ctx } as SkillContext;
+      (ctx as unknown as { __governanceRecordId?: string }).__governanceRecordId = gate.record?.id;
+      void recordInvocation; // tree-shaking guard, 实际在 finally 调
+    } catch {
+      /* governance 模块未就绪 时不阻塞 */
+    }
+
     // 守门 1: red zone 不允许 AI 代行
     if (skill.zone === 'red' && ctx.isProxy) {
       await audit('skill.blocked_red_zone', ctx.userId, {

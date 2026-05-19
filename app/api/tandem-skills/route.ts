@@ -1,12 +1,15 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { skillRegistry } from '@/lib/taf/skills';
+import { requireAuth } from '@/lib/auth/require-auth';
 
 /**
  * GET /api/tandem-skills?q=<query>&limit=5
  * 列出或检索 Tandem skill registry
  */
 export async function GET(req: NextRequest) {
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
   await boot();
   const { searchParams } = new URL(req.url);
   const query = searchParams.get('q');

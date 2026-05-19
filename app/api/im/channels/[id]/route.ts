@@ -10,12 +10,15 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { getStore } from '@/lib/storage/repository';
 import { updateChannelMeta } from '@/lib/im/service';
+import { requireAuth } from '@/lib/auth/require-auth';
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   await boot();
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
   const { id } = await params;
   const store = getStore();
   const channel = await store.imChannels.get(id);
@@ -28,13 +31,12 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   await boot();
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
   try {
     const { id } = await params;
     const body = await req.json();
-    if (!body.operatorId) {
-      return NextResponse.json({ error: 'operatorId required' }, { status: 400 });
-    }
-    const channel = await updateChannelMeta(id, body.operatorId, {
+    const channel = await updateChannelMeta(id, auth.userId, {
       name: body.name,
       topic: body.topic,
       announcement: body.announcement,

@@ -83,7 +83,14 @@ export function DecisionCardView({ card }: { card: DecisionCard }) {
             <ul className="space-y-2">
               {card.actionItems.map((a) => (
                 <li key={a.id} className="flex items-start gap-2 rounded border p-2 text-sm">
-                  <input type="checkbox" checked={a.status === 'done'} readOnly className="mt-1" />
+                  <input
+                    type="checkbox"
+                    checked={a.status === 'done'}
+                    readOnly
+                    aria-label={`Action item: ${a.task}`}
+                    title={`状态: ${a.status}`}
+                    className="mt-1"
+                  />
                   <div className="flex-1">
                     <div className="font-medium">{a.task}</div>
                     <div className="mt-0.5 text-xs text-muted-foreground">

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { registerWithInvite, AuthError } from '@/lib/auth/native';
 import { COOKIE_ACCESS, COOKIE_REFRESH, SESSION_COOKIE_OPTIONS } from '@/lib/auth/session';
+import { rateLimit, getClientIp } from '@/lib/infra/rate-limit';
 
 /**
  * POST /api/auth/register
@@ -12,6 +13,14 @@ import { COOKIE_ACCESS, COOKIE_REFRESH, SESSION_COOKIE_OPTIONS } from '@/lib/aut
  */
 export async function POST(req: NextRequest) {
   await boot();
+  const ip = getClientIp(req.headers);
+  const rl = await rateLimit({ key: `register:${ip}`, limit: 10, windowSec: 3600 });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { ok: false, error: 'too many attempts', code: 'RATE_LIMITED' },
+      { status: 429, headers: { 'Retry-After': String(rl.resetSec) } },
+    );
+  }
   let body: Record<string, string> = {};
   try {
     body = await req.json();

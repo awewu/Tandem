@@ -34,6 +34,12 @@ import {
   Cpu,
   Palette,
   MessageSquare,
+  CalendarDays,
+  HardDrive,
+  Search,
+  Bell,
+  ClipboardCheck,
+  Video,
 } from 'lucide-react';
 
 /**
@@ -85,6 +91,13 @@ const NAV: NavGroup[] = [
       { name: '360 评估', href: '/360', icon: Sparkles },
       { name: '议事室', href: '/convergence', icon: Sparkles, badge: '17min' },
       { name: 'IM 协同', href: '/im', icon: MessagesSquare },
+      { name: '文档协作', href: '/documents', icon: FileText },
+      { name: '日历会议', href: '/calendar', icon: CalendarDays },
+      { name: '云盘', href: '/drive', icon: HardDrive },
+      { name: '全局搜索', href: '/search', icon: Search },
+      { name: '通知中心', href: '/notifications', icon: Bell },
+      { name: '审批流', href: '/approvals', icon: ClipboardCheck },
+      { name: '会议室', href: '/meetings', icon: Video },
       { name: 'Memory 知识', href: '/memories', icon: Brain },
       { name: '知识架构', href: '/knowledge', icon: Database },
       { name: '工作流', href: '/workflows', icon: Workflow },

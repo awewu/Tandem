@@ -1,0 +1,30 @@
+# Tandem · PostgreSQL (Docker)
+# 
+# 用法:
+#   1. 安装 Docker Desktop 并启动
+#   2. docker compose -f docker-compose.db.yml up -d
+#   3. 数据库将在 localhost:5432 可用
+#
+# 更新 .env:
+#   DATABASE_URL=postgresql://tandem:tandem@localhost:5432/tandem
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: tandem-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tandem
+      POSTGRES_PASSWORD: tandem
+      POSTGRES_DB: tandem
+    ports:
+      - '5440:5432'
+    volumes:
+      - tandem_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U tandem']
+      interval: 10s
+      retries: 5
+
+volumes:
+  tandem_pg_data:

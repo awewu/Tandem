@@ -19,6 +19,14 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { verifyAccessTokenEdge } from '@/lib/auth/session-edge';
 
 const COOKIE_ACCESS = 'tandem_at';
+const HEADER_REQ_ID = 'x-request-id';
+
+/** Edge-safe 16-hex request id (Web Crypto). */
+function genReqId(): string {
+  const arr = new Uint8Array(8);
+  crypto.getRandomValues(arr);
+  return Array.from(arr, (b) => b.toString(16).padStart(2, '0')).join('');
+}
 
 /** \u767d\u540d\u5355: \u4ee5\u8fd9\u4e9b\u524d\u7f00\u5f00\u5934\u7684 /api \u8bf7\u6c42 \u00b7 \u4e0d\u9700 auth */
 const PUBLIC_PREFIXES = [
@@ -42,29 +50,40 @@ export async function middleware(req: NextRequest) {
 
   // \u4ec5\u51fa\u624b /api/*
   if (!path.startsWith('/api/')) return NextResponse.next();
-  if (isPublic(path)) return NextResponse.next();
+
+  // \u8bf7\u6c42 ID: \u590d\u7528\u4e0a\u6e38 trace id, \u6216\u751f\u6210\u65b0\u7684
+  const reqId = req.headers.get(HEADER_REQ_ID) || genReqId();
+  const baseHeaders = new Headers(req.headers);
+  baseHeaders.set(HEADER_REQ_ID, reqId);
+
+  function withReqId(res: NextResponse): NextResponse {
+    res.headers.set(HEADER_REQ_ID, reqId);
+    return res;
+  }
+
+  if (isPublic(path)) {
+    return withReqId(NextResponse.next({ request: { headers: baseHeaders } }));
+  }
 
   const token = req.cookies.get(COOKIE_ACCESS)?.value;
   const payload = token ? await verifyAccessTokenEdge(token) : null;
 
   if (payload) {
-    // \u6709\u6548 token: \u900f\u4f20\u8eab\u4efd\u4fe1\u606f\u5230\u4e0b\u6e38 (header injection, \u9519\u8eab\u4efd\u88ab requireAuth \u518d\u9a8c)
-    const headers = new Headers(req.headers);
-    headers.set('x-tandem-user-id', payload.sub);
-    headers.set('x-tandem-tenant-id', payload.tenantId);
-    headers.set('x-tandem-roles', payload.roles.join(','));
-    return NextResponse.next({ request: { headers } });
+    baseHeaders.set('x-tandem-user-id', payload.sub);
+    baseHeaders.set('x-tandem-tenant-id', payload.tenantId);
+    baseHeaders.set('x-tandem-roles', payload.roles.join(','));
+    return withReqId(NextResponse.next({ request: { headers: baseHeaders } }));
   }
 
   if (isDemoAllowed()) {
-    // demo \u6a21\u5f0f: \u653e\u884c, \u4e0b\u6e38 requireAuth fallback \u5230 demo-user
-    return NextResponse.next();
+    return withReqId(NextResponse.next({ request: { headers: baseHeaders } }));
   }
 
-  // \u751f\u4ea7\u6a21\u5f0f \u00b7 \u65e0 token \u00b7 \u62d2
-  return NextResponse.json(
-    { error: 'unauthenticated', hint: 'login required' },
-    { status: 401 },
+  return withReqId(
+    NextResponse.json(
+      { error: 'unauthenticated', hint: 'login required', requestId: reqId },
+      { status: 401 },
+    ),
   );
 }
 

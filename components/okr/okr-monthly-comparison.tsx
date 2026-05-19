@@ -165,7 +165,7 @@ export function OKRMonthlyComparison({ objective, cycle, keyResults, checkIns }:
       }
       return Math.round(sum);
     });
-  }, [buckets, objectiveCheckIns, keyResults, checkIns]);
+  }, [buckets, objectiveCheckIns, keyResults, checkIns, nowMs]);
 
   if (!cycle) {
     return (

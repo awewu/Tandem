@@ -14,21 +14,25 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { createChannel, listMyChannels } from '@/lib/im/service';
+import { requireAuth } from '@/lib/auth/require-auth';
 
 export async function GET(req: NextRequest) {
   await boot();
-  const userId = new URL(req.url).searchParams.get('userId') ?? 'demo-user';
-  const channels = await listMyChannels(userId);
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
+  const channels = await listMyChannels(auth.userId);
   return NextResponse.json({ channels });
 }
 
 export async function POST(req: NextRequest) {
   await boot();
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
   try {
     const body = await req.json();
-    if (!body.type || !body.createdBy || !Array.isArray(body.memberIds)) {
+    if (!body.type || !Array.isArray(body.memberIds)) {
       return NextResponse.json(
-        { error: 'type / createdBy / memberIds required' },
+        { error: 'type / memberIds required' },
         { status: 400 }
       );
     }
@@ -44,7 +48,7 @@ export async function POST(req: NextRequest) {
       topic: body.topic,
       visibility: body.visibility,
       memberIds: body.memberIds,
-      createdBy: body.createdBy,
+      createdBy: auth.userId,
       departmentId: body.departmentId,
       autoCreated: body.autoCreated,
       projectEndsAt: body.projectEndsAt,

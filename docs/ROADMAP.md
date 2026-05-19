@@ -439,3 +439,57 @@ ROADMAP.md (本文档)
 | 版本 | 日期 | 修订人 | 主要变化 |
 |---|---|---|---|
 | v1.0 | 2026-05 | 牛马搭子产品团队 | 初版, 基于 OKR-FEATURE-MATRIX |
+
+
+---
+
+## 2026-05 实施回放 · "四问"覆盖
+
+### Q1 飞书功能完整度 (当前 ~55%)
+| 已交付 | 进行中 / scaffold | 待办 |
+|---|---|---|
+| 文档CRUD/日历/云盘/IM消息@提及/审批/搜索/通知/Persona回复 | LiveKit 视频 (token API + scaffold), Yjs 实时协作 (provider + ws server) | 多维表格 / 邮箱 / 移动端 / 表情回应 UI |
+
+### Q2 Tita OKR 完整度 (~85%)
+13 个 OKR 子组件齐全 (cycle/对齐树/评分/复盘/月对比/TTI/诊断/趋势/模板/对比/订阅/活动/评论) +
+**新增**: workflow 引擎自动 "KR off-track → 1on1 议程 + 主管通知".
+
+### Q3 拿捏板块 + Hermes基座 + 组织记忆 baseline
+**新建** lib/memory/baseline-guard.ts:
+- Persona 回复前必经 baseline-guard
+- 命中 company-level 记忆且相似度 ≥0.45 → **HARD_BLOCK 转人工**
+- SOFT_WARN → 注入 baseline 上下文到 system prompt
+- 全链路审计留痕
+
+**新建** lib/taf/skills/governance.ts:
+- Skill 状态机: draft → submitted → staging → approved / rejected / suspended
+- /api/skills/governance 提审 + 审批 + 紧急下线
+- registry.execute 调用前做治理门控
+
+### Q4 Agent/真人切换
+- ImMembership.agentMode: manual | agent-confirm | agent-auto + 自动过期
+- PATCH /api/im/channels/:id/agent-mode 切换 API
+- <AgentModeToggle/> UI 组件 (顶部 channel header)
+- DM/小群发消息时, 对方若 agent-auto 未过期 → 自动触发 Persona 代答 (受 baseline-guard 仍可阻断)
+
+### Q5 工作流引擎 (事半拉通)
+**新建** lib/workflows/engine.ts + 5 条 built-in triggers:
+- T1 KR off-track → 1on1 议程
+- T2 1on1 完成 → outcomes 入 Material
+- T3 1on1 排期 → 拉 KR 上下文
+- T4 公司级记忆变更 → baseline 缓存失效
+- T5 360 cycle 开 → 建议 1on1
+
+### 验证
+- TypeScript: tsc --noEmit 0 错误
+- API smoke: 18 endpoints 全 200
+- /api/health: db 10ms, redis n/a (未配置), storage n/a (未配置)
+
+### 仍需后续 (按优先级)
+| P | 项 | 工作量 |
+|---|---|---|
+| P1 | LiveKit / Yjs server 实际接客户端 UI (Tiptap collab + LiveKit Room) | 1 周 |
+| P1 | Skills governance 持久化从 Map 迁到 Drizzle KvStore | 2 天 |
+| P2 | baseline-guard 升级到 pgvector cosine 相似度 | 3 天 |
+| P2 | Calendar / Bitable / 邮箱 | 各 4-8 周 |
+| P3 | 移动端 (React Native 复用 Web API) | 8 周 |

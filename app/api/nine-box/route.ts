@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { getStore } from '@/lib/storage/repository';
 import { classifyNineBox } from '@/lib/types/okr-tti';
+import { requireAuth } from '@/lib/auth/require-auth';
 
 /**
  * GET /api/nine-box?cycleId=...
@@ -9,6 +10,8 @@ import { classifyNineBox } from '@/lib/types/okr-tti';
  * 计算每个用户的 KPI 完成率 (KR currentValue / targetValue 平均) × * TTI 提升率 (TTI completionRate 平均), 输出 9 宫格分类.
  */
 export async function GET(req: NextRequest) {
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
   try {
     await boot();
     const { searchParams } = new URL(req.url);

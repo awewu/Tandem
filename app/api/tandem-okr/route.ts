@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { getStore } from '@/lib/boot';
+import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 
 /**
@@ -15,6 +15,7 @@ import { requireAuth } from '@/lib/auth/require-auth';
  * 路由命名带 tandem- 前缀, 避免与现存 /app/okr/ UI 路由的潜在 API 冲突.
  */
 export async function GET(req: NextRequest) {
+  await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   try {
@@ -45,6 +46,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   try {

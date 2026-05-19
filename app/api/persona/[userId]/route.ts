@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { getStore } from '@/lib/boot';
+import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { computeBossCaptureScore, checkUpgradeEligibility } from '@/lib/persona/evolution';
 
@@ -26,6 +26,7 @@ function checkSelfOrPrivileged(
 }
 
 export async function GET(req: NextRequest, { params }: { params: { userId: string } }) {
+  await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   const gate = checkSelfOrPrivileged(auth, params.userId, false);
@@ -49,6 +50,7 @@ export async function GET(req: NextRequest, { params }: { params: { userId: stri
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { userId: string } }) {
+  await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   const gate = checkSelfOrPrivileged(auth, params.userId, true);

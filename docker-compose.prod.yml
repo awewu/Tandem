@@ -1,0 +1,103 @@
+version: '3.9'
+# Tandem · 生产编排
+# 用法:
+#   1. cp .env.example .env.production && 填值
+#   2. docker compose -f docker-compose.prod.yml --env-file .env.production up -d
+#   3. docker compose -f docker-compose.prod.yml exec app npm run db:migrate
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: tandem-postgres-prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-tandem}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?must set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-tandem}
+    volumes:
+      - tandem_pg_data:/var/lib/postgresql/data
+    networks:
+      - tandem-net
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-tandem}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: tandem-redis-prod
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD:?must set REDIS_PASSWORD} --appendonly yes
+    volumes:
+      - tandem_redis_data:/data
+    networks:
+      - tandem-net
+    healthcheck:
+      test: ['CMD', 'redis-cli', '--no-auth-warning', '-a', '${REDIS_PASSWORD}', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: tandem-minio-prod
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-tandem}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?must set MINIO_ROOT_PASSWORD}
+    volumes:
+      - tandem_minio_data:/data
+    networks:
+      - tandem-net
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: tandem-app:latest
+    container_name: tandem-app-prod
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-tandem}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-tandem}
+      REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-tandem}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      S3_BUCKET_DRIVE: ${S3_BUCKET_DRIVE:-tandem-drive}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?must set NEXTAUTH_SECRET}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    ports:
+      - '${APP_PORT:-3000}:3000'
+    networks:
+      - tandem-net
+    healthcheck:
+      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://127.0.0.1:3000/api/health']
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+networks:
+  tandem-net:
+    driver: bridge
+
+volumes:
+  tandem_pg_data:
+  tandem_redis_data:
+  tandem_minio_data:

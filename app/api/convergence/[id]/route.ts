@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getOrchestrator } from '@/lib/boot';
 import type { ConvergenceEvent } from '@/lib/convergence';
+import { requireAuth } from '@/lib/auth/require-auth';
 
 interface Params {
   params: { id: string };
@@ -10,7 +11,9 @@ interface Params {
  * GET /api/convergence/[id]
  * 查询议事室当前状态 + 关联 DecisionCard
  */
-export async function GET(_req: NextRequest, { params }: Params) {
+export async function GET(req: NextRequest, { params }: Params) {
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
   try {
     const orch = getOrchestrator();
     const card = await orch.getDecisionCard(params.id);
@@ -34,6 +37,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
  * Body: { event: ConvergenceEvent }
  */
 export async function POST(req: NextRequest, { params }: Params) {
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
   try {
     const body = await req.json();
     const event = body?.event as ConvergenceEvent | undefined;

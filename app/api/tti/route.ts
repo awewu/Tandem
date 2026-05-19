@@ -1,7 +1,11 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { getStore } from '@/lib/boot';
+import { getStore, boot } from '@/lib/boot';
+import { requireAuth } from '@/lib/auth/require-auth';
 
 export async function GET(req: NextRequest) {
+  await boot();
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
   try {
     const { searchParams } = new URL(req.url);
     const cycleId = searchParams.get('cycleId');
@@ -19,6 +23,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  await boot();
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
   try {
     const body = await req.json();
     const store = getStore();

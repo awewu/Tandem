@@ -10,6 +10,8 @@ import type { MemoryEntry } from '../types/memory';
 import type { Cycle, Objective, KeyResult, TTI } from '../types/okr-tti';
 import type { DecisionCard } from '../types/decision-card';
 import { createChannel, sendMessage } from '../im/service';
+import { db, schema } from '../infra/drizzle-client';
+import { sql } from 'drizzle-orm';
 
 let _seeded = false;
 
@@ -17,6 +19,43 @@ export async function seedDevData(): Promise<void> {
   if (_seeded) return;
   _seeded = true;
   const s = getStore();
+
+  // §T6 幂等保护: 持久化模式下若 KvStore 已有数据, 跳过 seed (重启不重复)
+  if (process.env.DATABASE_URL) {
+    try {
+      const existing = await db
+        .select({ c: sql<number>`count(*)` })
+        .from(schema.kvStore);
+      const count = Number(existing[0]?.c ?? 0);
+      if (count > 0) {
+        // eslint-disable-next-line no-console
+        console.info(`[seed] skipped (KvStore already has ${count} rows)`);
+        return;
+      }
+    } catch {
+      // KvStore 表不存在(首次) → 继续 seed
+    }
+  }
+
+  // 先创建用户 (FK 外键约束要求 createdById 必须存在)
+  // §T2 仅在 PostgreSQL 模式下执行；InMemory 模式不需要 User 表
+  if (process.env.DATABASE_URL) {
+    try {
+      const now = new Date();
+      const users = [
+        { id: 'demo-user', email: 'demo-user@tandem.local', name: 'Demo User', roles: ['employee'], tenantId: 'default', emailVerifiedAt: now, updatedAt: now },
+        { id: 'colleague-li', email: 'colleague-li@tandem.local', name: 'Colleague Li', roles: ['employee'], tenantId: 'default', emailVerifiedAt: now, updatedAt: now },
+        { id: 'colleague-wang', email: 'colleague-wang@tandem.local', name: 'Colleague Wang', roles: ['steward', 'employee'], tenantId: 'default', emailVerifiedAt: now, updatedAt: now },
+      ];
+      for (const u of users) {
+        await db.insert(schema.user).values(u).onConflictDoNothing({ target: schema.user.id });
+      }
+      console.info('[seed] users upserted (drizzle)');
+    } catch (err) {
+      console.warn('[seed] users creation skipped:', (err as Error).message);
+    }
+  }
+  void sql; // keep import in case of future ad-hoc raw queries
 
   // Memory: SOPs + Cases
   const memories: Omit<MemoryEntry, 'id'>[] = [
@@ -174,7 +213,6 @@ export async function seedDevData(): Promise<void> {
     currentValue: 18,
     unit: '条',
     completionRate: 0.36,
-    affectsCompensation: false,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   } as Omit<TTI, 'id'>);
@@ -334,5 +372,204 @@ export async function seedDevData(): Promise<void> {
   } catch (err) {
     // eslint-disable-next-line no-console
     console.warn('[seed] IM channels: failed —', (err as Error).message, (err as Error).stack);
+  }
+
+  // 飞书功能追赶 seed 数据 (暂时注释以确保稳定启动, 后续通过 API 手动创建)
+  /* try {
+    await s.documents.create({
+      title: 'V1 产品需求文档 PRD',
+      content: JSON.stringify({ type: 'doc', nodes: [{ type: 'paragraph', content: '飞书文档追赶功能说明...' }] }),
+      type: 'doc',
+      ownerId: 'demo-user',
+      tenantId: 'default',
+      permissions: { read: ['demo-user', 'colleague-li', 'colleague-wang'], write: ['demo-user'] },
+      version: 1,
+      isLocked: false,
+      createdAt: new Date(Date.now() - 5 * 86400000).toISOString(),
+      updatedAt: new Date(Date.now() - 5 * 86400000).toISOString(),
+    } as any);
+    await s.documents.create({
+      title: 'Q2 财务预算表',
+      content: JSON.stringify({ type: 'sheet', data: {} }),
+      type: 'sheet',
+      ownerId: 'colleague-wang',
+      tenantId: 'default',
+      permissions: { read: ['demo-user', 'colleague-li', 'colleague-wang'], write: ['colleague-wang'] },
+      version: 1,
+      isLocked: false,
+      createdAt: new Date(Date.now() - 3 * 86400000).toISOString(),
+      updatedAt: new Date(Date.now() - 3 * 86400000).toISOString(),
+    } as any);
+
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    await s.calendarEvents.create({
+      title: '产品周会',
+      description: 'Review OKR 进度 + 决策卡复盘',
+      startAt: tomorrow.toISOString(),
+      endAt: new Date(tomorrow.getTime() + 60 * 60 * 1000).toISOString(),
+      timezone: 'Asia/Shanghai',
+      allDay: false,
+      ownerId: 'demo-user',
+      attendees: ['demo-user', 'colleague-li', 'colleague-wang'],
+      location: '会议室 A',
+      meetingUrl: 'https://meet.tandem.local/abc123',
+      calendarSource: 'manual',
+      status: 'confirmed',
+      tenantId: 'default',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    } as any);
+
+    await s.driveFiles.create({
+      name: 'Tandem 品牌手册.pdf',
+      mimeType: 'application/pdf',
+      size: 2048000,
+      parentId: null,
+      ownerId: 'demo-user',
+      tenantId: 'default',
+      storageKey: 'brand-manual-v1.pdf',
+      storageUrl: null,
+      permissions: { read: ['demo-user', 'colleague-li', 'colleague-wang'] },
+      version: 1,
+      isFolder: false,
+      createdAt: new Date(Date.now() - 10 * 86400000).toISOString(),
+      updatedAt: new Date(Date.now() - 10 * 86400000).toISOString(),
+    } as any);
+    await s.driveFiles.create({
+      name: '产品资料',
+      mimeType: 'inode/directory',
+      size: 0,
+      parentId: null,
+      ownerId: 'demo-user',
+      tenantId: 'default',
+      storageKey: 'folder-product',
+      storageUrl: null,
+      permissions: { read: ['demo-user', 'colleague-li', 'colleague-wang'] },
+      version: 1,
+      isFolder: true,
+      createdAt: new Date(Date.now() - 8 * 86400000).toISOString(),
+      updatedAt: new Date(Date.now() - 8 * 86400000).toISOString(),
+    } as any);
+
+    await s.notifications.create({
+      userId: 'demo-user',
+      type: 'system',
+      title: '欢迎使用 Tandem 飞书功能追赶版',
+      body: '文档协作、日历会议、云盘已上线，请体验反馈。',
+      priority: 'normal',
+      channel: 'in-app',
+      tenantId: 'default',
+      createdAt: new Date().toISOString(),
+    } as any);
+    await s.notifications.create({
+      userId: 'colleague-li',
+      type: 'mention',
+      title: '@你在 产品讨论 中被提及',
+      body: '本周 V1 PoC 部署方案我倾向 docker-compose...',
+      data: { channelId: 'product', messageId: 'msg-1' },
+      priority: 'normal',
+      channel: 'in-app',
+      tenantId: 'default',
+      createdAt: new Date().toISOString(),
+    } as any);
+
+    // eslint-disable-next-line no-console
+    console.info('[seed] Feishu catch-up: documents, calendar, drive, notifications seeded');
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('[seed] Feishu catch-up seed failed:', (err as Error).message);
+  } */
+
+  // 飞书功能追赶 seed — 使用新分层架构 (Service → Repository)
+  try {
+    const { createAppContext } = await import('../repositories/app-context-factory');
+    const { DocumentService } = await import('../services/document-service');
+    const { CalendarService } = await import('../services/calendar-service');
+    const { DriveService } = await import('../services/drive-service');
+    const { NotificationService } = await import('../services/notification-service');
+
+    const ctx = createAppContext();
+    const docSvc = new DocumentService(ctx);
+    const calSvc = new CalendarService(ctx);
+    const drvSvc = new DriveService(ctx);
+    const notifSvc = new NotificationService(ctx);
+
+    await docSvc.create({
+      title: 'V1 产品需求文档 PRD',
+      content: JSON.stringify({ type: 'doc', nodes: [{ type: 'paragraph', content: '飞书文档追赶功能说明...' }] }),
+      type: 'doc',
+      ownerId: 'demo-user',
+      tenantId: 'default',
+      permissions: { read: ['demo-user', 'colleague-li', 'colleague-wang'], write: ['demo-user'] },
+    });
+
+    await docSvc.create({
+      title: 'Q2 财务预算表',
+      content: JSON.stringify({ type: 'sheet', data: {} }),
+      type: 'sheet',
+      ownerId: 'colleague-wang',
+      tenantId: 'default',
+      permissions: { read: ['demo-user', 'colleague-li', 'colleague-wang'], write: ['colleague-wang'] },
+    });
+
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    await calSvc.create({
+      title: '产品周会',
+      description: 'Review OKR 进度 + 决策卡复盘',
+      startAt: tomorrow.toISOString(),
+      endAt: new Date(tomorrow.getTime() + 60 * 60 * 1000).toISOString(),
+      timezone: 'Asia/Shanghai',
+      ownerId: 'demo-user',
+      attendees: ['demo-user', 'colleague-li', 'colleague-wang'],
+      location: '会议室 A',
+      meetingUrl: 'https://meet.tandem.local/abc123',
+      tenantId: 'default',
+    });
+
+    await drvSvc.create({
+      name: 'Tandem 品牌手册.pdf',
+      mimeType: 'application/pdf',
+      size: 2048000,
+      parentId: null,
+      ownerId: 'demo-user',
+      tenantId: 'default',
+      storageKey: 'brand-manual-v1.pdf',
+    });
+
+    await drvSvc.create({
+      name: '产品资料',
+      mimeType: 'inode/directory',
+      size: 0,
+      parentId: null,
+      ownerId: 'demo-user',
+      tenantId: 'default',
+      storageKey: 'folder-product',
+      isFolder: true,
+    });
+
+    await notifSvc.create({
+      userId: 'demo-user',
+      type: 'system',
+      title: '欢迎使用 Tandem 飞书功能追赶版',
+      body: '文档协作、日历会议、云盘已上线，请体验反馈。',
+      tenantId: 'default',
+    });
+
+    await notifSvc.create({
+      userId: 'colleague-li',
+      type: 'mention',
+      title: '@你在 产品讨论 中被提及',
+      body: '本周 V1 PoC 部署方案我倾向 docker-compose...',
+      data: { channelId: 'product', messageId: 'msg-1' },
+      tenantId: 'default',
+    });
+
+    // eslint-disable-next-line no-console
+    console.info('[seed] Feishu catch-up (new arch): documents, calendar, drive, notifications seeded');
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('[seed] Feishu catch-up (new arch) failed:', (err as Error).message);
   }
 }

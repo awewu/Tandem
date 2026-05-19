@@ -1,4 +1,6 @@
 import { spawn } from 'child_process';
+import { requireAuth } from '@/lib/auth/require-auth';
+import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -117,6 +119,8 @@ function runHermesStreaming(
 }
 
 export async function POST(req: Request) {
+  const auth = requireAuth(req as any);
+  if (auth instanceof NextResponse) return auth;
   let payload: RunPayload;
   try {
     payload = await req.json();

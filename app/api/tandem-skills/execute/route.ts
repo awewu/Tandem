@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { skillRegistry } from '@/lib/taf/skills';
+import { requireAuth } from '@/lib/auth/require-auth';
 
 /**
  * POST /api/tandem-skills/execute
@@ -10,6 +11,8 @@ import { skillRegistry } from '@/lib/taf/skills';
  * 服务端代执行 skill (带审计 + 红区守门).
  */
 export async function POST(req: NextRequest) {
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
   await boot();
   let body: { skillId?: string; args?: unknown; isProxy?: boolean; userId?: string; tenantId?: string } = {};
   try {

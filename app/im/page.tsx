@@ -8,11 +8,12 @@
  * @ 触发: @[name](userId:persona) 形式可召唤对方 AI 分身
  */
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useState, useEffect, useMemo, useRef } from 'react';
 import { CreateChannelDialog } from '@/components/im/create-channel-dialog';
 import { ContactsTree } from '@/components/im/contacts-tree';
 import { ChannelSettingsDialog } from '@/components/im/channel-settings-dialog';
 import { SeedFromOrgDialog } from '@/components/im/seed-from-org-dialog';
+import { AgentModeToggle } from '@/components/im/agent-mode-toggle';
 import type { ImChannel, ImMembership, ImMessage } from '@/lib/types/im';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
@@ -93,14 +94,14 @@ export default function ImPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // -- channels --
-  async function loadChannels() {
+  const loadChannels = useCallback(async () => {
     const res = await fetch(`/api/im/channels?userId=${ME}`);
     const data = await res.json();
     setChannels(data.channels ?? []);
     if (!activeId && data.channels?.length) {
       setActiveId(data.channels[0].id);
     }
-  }
+  }, [activeId]);
   useEffect(() => {
     void loadChannels();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -167,7 +168,7 @@ export default function ImPage() {
       void loadChannels();
     });
     return () => es.close();
-  }, [activeId]);
+  }, [activeId, loadChannels]);
 
   // 频道列表也每 10s 拉一次 (其他频道的未读)
   useEffect(() => {
@@ -595,6 +596,10 @@ export default function ImPage() {
                 </div>
               </div>
               <div className="flex items-center gap-1.5">
+                <AgentModeToggle
+                  channelId={activeChannel.id}
+                  initialMode={members.find((m) => m.userId === ME)?.agentMode ?? 'manual'}
+                />
                 <button
                   type="button"
                   onClick={() => setShowSettings(true)}

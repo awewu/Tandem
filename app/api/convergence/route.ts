@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getOrchestrator, getStore } from '@/lib/boot';
 import { validateKrBinding } from '@/lib/types/decision-card';
+import { requireAuth } from '@/lib/auth/require-auth';
 
 /**
  * POST /api/convergence
@@ -10,12 +11,13 @@ import { validateKrBinding } from '@/lib/types/decision-card';
  *   primaryKrId XOR noKrReason 必须非空; 理由 ≥ 10 字符.
  */
 export async function POST(req: NextRequest) {
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
   try {
     const body = await req.json();
     const {
       title,
       description,
-      ownerId,
       primaryKrId,
       noKrReason,
       relatedKr,
@@ -23,9 +25,9 @@ export async function POST(req: NextRequest) {
       materialRefs,
     } = body ?? {};
 
-    if (!title || !ownerId) {
+    if (!title) {
       return NextResponse.json(
-        { error: 'title 和 ownerId 不能为空', code: 'missing_required' },
+        { error: 'title 不能为空', code: 'missing_required' },
         { status: 400 }
       );
     }
@@ -43,7 +45,7 @@ export async function POST(req: NextRequest) {
     const result = await orchestrator.start({
       title,
       description: description ?? '',
-      ownerId,
+      ownerId: auth.userId,
       primaryKrId,
       noKrReason,
       relatedKr,
@@ -70,7 +72,9 @@ export async function POST(req: NextRequest) {
  * GET /api/convergence
  * 列出最近的议事室 (按 createdAt 倒序)
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
   try {
     const store = getStore();
     const cards = await store.decisionCards.list();

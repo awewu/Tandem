@@ -8,22 +8,22 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { recallMessage } from '@/lib/im/service';
+import { requireAuth } from '@/lib/auth/require-auth';
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   await boot();
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
   try {
     const { id } = await params;
     const body = await req.json();
     if (body.action !== 'recall') {
       return NextResponse.json({ error: 'unknown action' }, { status: 400 });
     }
-    if (!body.userId) {
-      return NextResponse.json({ error: 'userId required' }, { status: 400 });
-    }
-    const message = await recallMessage(id, body.userId);
+    const message = await recallMessage(id, auth.userId);
     return NextResponse.json({ message });
   } catch (err) {
     return NextResponse.json(

@@ -1,6 +1,47 @@
+/**
+ * lib/store.ts · 客户端 Zustand 全局状态层 (UI Layer Only)
+ *
+ * 架构定位
+ * ─────────────────────────────────────────────────────────────
+ * 本文件 = **UI / 浏览器内** 的 zustand persist store, 仅供 React 组件订阅.
+ * 与 **服务端真值** (`lib/storage/repository.ts` + `lib/types/*`) 通过 API
+ * 双向同步, 但 **类型独立**, 不直接共用 (历史原因 + UI 拓展字段需要).
+ *
+ * 关键 cross-reference
+ * ─────────────────────────────────────────────────────────────
+ *   OKR 域:      ↔ lib/types/okr-tti.ts (服务端版, 含 TTI / 9-Box)
+ *                 注意 ObjectiveStatus 枚举值不同:
+ *                   here   : 'draft' | 'active' | 'paused' | 'completed' | 'archived'
+ *                   server : 'active' | 'paused' | 'completed' | 'abandoned'
+ *   Memory 域:   ↔ lib/types/memory.ts (服务端版, 4 层 ownershipLevel)
+ *                 here 的 Memory 是 UI 简化版, 不含签批 / referenceCount.
+ *   1on1 域:     ↔ lib/types/one-on-one.ts (服务端版)
+ *   Review360:   ↔ lib/types/review-360.ts (服务端版)
+ *   Org 域:      ↔ lib/types/org.ts (服务端版, 多租户)
+ *
+ * 8 个 Store 域 (按 region 划分, 见下文 `#region` 标记):
+ *   1. Chat        Message / Conversation / LLMProvider / AgentConfig / Task
+ *   2. Knowledge   KNode 知识库节点
+ *   3. Org         Ministry / Department (UI 用, 服务端走 lib/types/org)
+ *   4. OKR         Cycle / Objective / KR / CheckIn / Initiative ...
+ *   5. App         ThemeMode (UI 偏好)
+ *   6. Memory      UI 简化版 Memory (不参与签批治理)
+ *   7. OneOnOne    1on1 会议 + Action items
+ *   8. Review360   360 review cycles / submissions
+ *
+ * 演进路线
+ * ─────────────────────────────────────────────────────────────
+ *   V1 (now): zustand 持久化 to localStorage; 与服务端 dual-write
+ *   V2 (TBD): React Query/SWR + 服务端 SSE 实时同步, 逐步退役本文件
+ *   V2 迁移按页面渐进: 新页面直接走 server API; 老页面保留 zustand
+ *
+ * @see lib/types/okr-tti.ts, lib/types/memory.ts, lib/storage/repository.ts
+ */
+
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+// #region 1 · Chat / Agent / Task ────────────────────────────────────
 export interface Message {
   id: string;
   role: 'user' | 'assistant' | 'system';
@@ -413,6 +454,9 @@ export const useTaskStore = create<TaskStore>()(
   )
 );
 
+// #endregion
+
+// #region 2 · Knowledge ─────────────────────────────────────────────
 export interface KNode {
   id: string;
   name: string;
@@ -512,6 +556,9 @@ export const useKnowledgeStore = create<KnowledgeStore>()(
   )
 );
 
+// #endregion
+
+// #region 3 · Org (UI fixture, see lib/types/org.ts) ─────────────────
 export interface Ministry {
   id: string;
   name: string;
@@ -569,6 +616,9 @@ export const useOrgStore = create<OrgStore>()(
     }))
 );
 
+// #endregion
+
+// #region 4 · OKR (UI layer; see lib/types/okr-tti.ts for server) ────
 // =============================================================
 // OKR — 与 Tita 功能对等的数据模型
 // =============================================================
@@ -1466,6 +1516,9 @@ export const useOKRStore = create<OKRStore>()(
   )
 );
 
+// #endregion
+
+// #region 5 · App (theme / UI prefs) ─────────────────────────────────
 export type ThemeMode = 'light' | 'dark' | 'system';
 
 interface AppStore {
@@ -1488,6 +1541,9 @@ export const useAppStore = create<AppStore>()(
 );
 
 // Memories - 知识库底层要求和累计共识
+// #endregion
+
+// #region 6 · Memory (UI simplified; governance lives in lib/memory) ─
 export interface Memory {
   id: string;
   title: string;
@@ -1725,6 +1781,9 @@ export const useMemoryStore = create<MemoryStore>()(
 //   - 产出 actionItems 直接下发 (M2 可挂 Initiative)
 // =============================================================================
 
+// #endregion
+
+// #region 7 · OneOnOne (see lib/types/one-on-one.ts for server) ──────
 export type OneOnOneCadence = 'weekly' | 'biweekly' | 'monthly' | 'adhoc';
 export type OneOnOneStatus = 'scheduled' | 'completed' | 'cancelled' | 'no-show';
 
@@ -1916,6 +1975,9 @@ export const useOneOnOneStore = create<OneOnOneStore>()((set, get) => ({
 // 匿名: peers 默认匿名, 主管/下级实名 (可选)
 // =============================================================================
 
+// #endregion
+
+// #region 8 · Review360 (see lib/types/review-360.ts for server) ─────
 export type Review360RaterType = 'self' | 'manager' | 'peer' | 'report' | 'cross';
 export type Review360CycleStatus = 'draft' | 'active' | 'closed';
 
@@ -2093,3 +2155,4 @@ export const useReview360Store = create<Review360Store>()((set) => ({
     }
   },
 }));
+// #endregion

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { completeMfa, AuthError } from '@/lib/auth/native';
 import { COOKIE_ACCESS, SESSION_COOKIE_OPTIONS } from '@/lib/auth/session';
+import { rateLimit, getClientIp } from '@/lib/infra/rate-limit';
 
 /**
  * POST /api/auth/mfa/verify
@@ -11,6 +12,14 @@ import { COOKIE_ACCESS, SESSION_COOKIE_OPTIONS } from '@/lib/auth/session';
  */
 export async function POST(req: NextRequest) {
   await boot();
+  const ip = getClientIp(req.headers);
+  const rl = await rateLimit({ key: `mfa-verify:${ip}`, limit: 10, windowSec: 3600 });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { ok: false, error: 'too many MFA attempts', code: 'RATE_LIMITED' },
+      { status: 429, headers: { 'Retry-After': String(rl.resetSec) } },
+    );
+  }
   const body = (await req.json().catch(() => ({}))) as {
     pendingSessionId?: string;
     totpCode?: string;

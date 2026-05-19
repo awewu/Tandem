@@ -4,7 +4,7 @@
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { getStore } from '@/lib/boot';
+import { getStore, boot } from '@/lib/boot';
 import { requireAuth, requireRole } from '@/lib/auth/require-auth';
 import type { Review360Cycle, Review360Question } from '@/lib/types/review-360';
 
@@ -20,6 +20,7 @@ const DEFAULT_QUESTIONS: Review360Question[] = [
 ];
 
 export async function GET(req: NextRequest) {
+  await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   const store = getStore();
@@ -29,6 +30,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   const denied = requireRole(auth, ['admin', 'hr', 'champion']);

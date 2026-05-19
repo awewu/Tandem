@@ -86,7 +86,9 @@ export function evaluatePassword(password: string, userInfo?: { email?: string; 
 // ---------------------------------------------------------------------------
 
 const SCRYPT_KEYLEN = 64;
-const SCRYPT_PARAMS = { N: 16384, r: 8, p: 1 } as const;
+// §T10: N 越大越抗爆破, 但 CPU 越慢. 16384=快(dev), 65536=安全(prod)
+const SCRYPT_N = Number(process.env.SCRYPT_N ?? 16384);
+const SCRYPT_PARAMS = { N: SCRYPT_N, r: 8, p: 1 } as const;
 
 export function hashPassword(password: string): string {
   const salt = randomBytes(16).toString('hex');

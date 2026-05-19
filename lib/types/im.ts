@@ -116,6 +116,8 @@ export interface ImMessage {
   /** 线程: 回复某条消息时填 */
   parentMessageId?: string;
   attachments?: ImAttachment[];
+  /** 表情回应: emoji → userId[] (谁加的) */
+  reactions?: Record<string, string[]>;
   createdAt: string;
   editedAt?: string;
   deletedAt?: string;
@@ -144,6 +146,17 @@ export interface ImMembership {
   unreadCount: number;
   /** 是否静音 (不接收推送, 但仍计未读) */
   muted: boolean;
+  /**
+   * §T15 Agent 模式 (本频道内由分身代答):
+   *   - 'manual'        默认, 真人回复, @persona 才触发分身
+   *   - 'agent-confirm' 分身先生成草稿, 真人确认才发出
+   *   - 'agent-auto'    分身全自动回复 (受 baseline-guard 仍可阻断)
+   */
+  agentMode?: 'manual' | 'agent-confirm' | 'agent-auto';
+  /** 进入 agent 模式的时间, 用于审计 + 自动到期 */
+  agentModeSince?: string;
+  /** 自动模式的到期时间 (e.g. 会议中临时开 2h) */
+  agentModeExpiresAt?: string;
 }
 
 // ---------------------------------------------------------------------------

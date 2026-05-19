@@ -231,10 +231,9 @@ export async function sendMessage(input: SendMessageInput): Promise<ImMessage> {
 
   broadcast({ type: 'message', channelId: channel.id, message });
 
-  // @Persona 提及: 触发异步 AI 回复 (V1 占位, 真实接入下面单独函数)
+  // @Persona 提及: 触发异步 AI 回复
   const personaMention = mentions.find((m) => m.kind === 'persona');
   if (personaMention && senderKind === 'user') {
-    // 异步, 不阻塞当前请求
     void invokePersonaReply({
       channelId: channel.id,
       triggeringMessage: message,
@@ -242,7 +241,49 @@ export async function sendMessage(input: SendMessageInput): Promise<ImMessage> {
     });
   }
 
+  // §T15 Agent 自动模式: 频道其他成员若开启 agent-auto 且未过期, 由其分身自动代答
+  // (限制: 仅 DM 与人数 ≤ 4 的小群; 大群不自动触发以免轰炸)
+  if (senderKind === 'user' && channel.memberIds.length <= 4) {
+    void triggerAutoAgentReplies({
+      channel,
+      message,
+      excludeUserId: input.senderId,
+    });
+  }
+
   return message;
+}
+
+async function triggerAutoAgentReplies(opts: {
+  channel: ImChannel;
+  message: ImMessage;
+  excludeUserId: string;
+}): Promise<void> {
+  try {
+    const store = getStore();
+    const now = Date.now();
+    for (const uid of opts.channel.memberIds) {
+      if (uid === opts.excludeUserId) continue;
+      const m = await store.imMemberships.get(membershipKey(opts.channel.id, uid));
+      if (!m || m.agentMode !== 'agent-auto') continue;
+      if (m.agentModeExpiresAt && new Date(m.agentModeExpiresAt).getTime() < now) {
+        // 过期, 自动恢复 manual
+        await store.imMemberships.update(m.id, {
+          agentMode: 'manual',
+          agentModeSince: undefined,
+          agentModeExpiresAt: undefined,
+        });
+        continue;
+      }
+      void invokePersonaReply({
+        channelId: opts.channel.id,
+        triggeringMessage: opts.message,
+        targetUserId: uid,
+      });
+    }
+  } catch {
+    /* swallow, agent-auto 失败不影响主消息 */
+  }
 }
 
 export async function markChannelRead(
@@ -706,20 +747,59 @@ async function invokePersonaReply(input: InvokePersonaInput): Promise<void> {
       return;
     }
 
+    // §T15 baseline-guard: Agent 调用前防跑偏检查
+    const { checkBaseline } = await import('../memory/baseline-guard');
+    const guard = await checkBaseline({
+      intent: input.triggeringMessage.body,
+      actorUserId: input.targetUserId,
+      agentKind: 'persona',
+    });
+    if (guard.verdict === 'HARD_BLOCK') {
+      await sendMessage({
+        channelId: input.channelId,
+        senderId: 'persona',
+        senderKind: 'system',
+        body:
+          `🚫 ${input.targetUserId} 的 AI 分身被组织记忆基线阻断, 已转人工.\n` +
+          `原因: ${guard.reasons.join('; ')}\n` +
+          `命中: ${guard.hits.slice(0, 3).map((h) => h.title).join(', ')}`,
+        parentMessageId: input.triggeringMessage.id,
+      });
+      // 触发 workflow T14: 通知治理委员会 + audit
+      try {
+        const { emit } = await import('../workflows/engine');
+        await emit({
+          type: 'im.persona.blocked',
+          payload: {
+            channelId: input.channelId,
+            userId: input.targetUserId,
+            reason: guard.reasons.join('; '),
+          },
+        });
+      } catch {
+        /* workflow 失败不影响主流程 */
+      }
+      return;
+    }
+
     const { getRouter } = await import('../boot');
     const router = getRouter();
+
+    const baseSystem =
+      `你正在以 ${input.targetUserId} 的 AI 分身身份回复 IM 消息. ` +
+      `当前阶段: ${persona.stage}; 委托级别: ${persona.delegationLevel}. ` +
+      `风格: 决策速度=${persona.styleProfile.decisionSpeed}, ` +
+      `风险偏好=${persona.styleProfile.riskAppetite}, ` +
+      `沟通风格=${persona.styleProfile.communicationStyle}. ` +
+      `严格遵守委托级别: 不做超出权限的承诺. 只回 1-3 句话, 简洁.`;
 
     const reply = await router.chat({
       messages: [
         {
           role: 'system',
-          content:
-            `你正在以 ${input.targetUserId} 的 AI 分身身份回复 IM 消息. ` +
-            `当前阶段: ${persona.stage}; 委托级别: ${persona.delegationLevel}. ` +
-            `风格: 决策速度=${persona.styleProfile.decisionSpeed}, ` +
-            `风险偏好=${persona.styleProfile.riskAppetite}, ` +
-            `沟通风格=${persona.styleProfile.communicationStyle}. ` +
-            `严格遵守委托级别: 不做超出权限的承诺. 只回 1-3 句话, 简洁.`,
+          content: guard.contextToInject
+            ? `${baseSystem}\n\n${guard.contextToInject}`
+            : baseSystem,
         },
         { role: 'user', content: input.triggeringMessage.body },
       ],

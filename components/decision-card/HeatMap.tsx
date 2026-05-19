@@ -92,6 +92,7 @@ function HeatCellDot({ count, intensity, small }: { count: number; intensity: nu
   return (
     <div
       className={`${size} rounded mx-auto bg-emerald-500`}
+      // dynamic opacity per cell — inline style is required (not knowable at build time)
       style={{ opacity }}
       title={`${count} 个决议`}
     />

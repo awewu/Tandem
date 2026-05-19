@@ -11,7 +11,7 @@
  *   3. SLA Watch: 即将逾期 / 已逾期需要 escalate
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -165,7 +165,7 @@ function PromotionsPanel({ signerId }: { signerId: string }) {
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
   const [actionMsg, setActionMsg] = useState<string | null>(null);
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const url =
@@ -178,12 +178,11 @@ function PromotionsPanel({ signerId }: { signerId: string }) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [filter]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     void load();
-  }, [filter]);
+  }, [load]);
 
   async function sign(p: PromotionRequest, role: string) {
     setActionMsg(null);
@@ -434,7 +433,7 @@ function DowngradesPanel({ signerId }: { signerId: string }) {
   const [filter, setFilter] = useState<'proposed' | 'all'>('proposed');
   const [msg, setMsg] = useState<string | null>(null);
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const url =
@@ -447,12 +446,11 @@ function DowngradesPanel({ signerId }: { signerId: string }) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [filter]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     void load();
-  }, [filter]);
+  }, [load]);
 
   async function decide(d: DowngradeRequest, decision: string) {
     setMsg(null);

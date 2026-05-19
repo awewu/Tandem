@@ -22,6 +22,11 @@ import {
   XCircle,
   Clock,
   ChevronRight,
+  FileText,
+  CalendarDays,
+  HardDrive,
+  Search,
+  Bell,
 } from 'lucide-react';
 import { InsightsWidget } from '@/components/insights/insights-widget';
 import { PendingRetrosCard } from '@/components/dashboard/pending-retros-card';
@@ -181,6 +186,21 @@ export default function HomePage() {
             </QuickAction>
             <QuickAction href="/im" icon={MessagesSquare} muted>
               IM 协同
+            </QuickAction>
+            <QuickAction href="/documents" icon={FileText} muted>
+              文档
+            </QuickAction>
+            <QuickAction href="/calendar" icon={CalendarDays} muted>
+              日程
+            </QuickAction>
+            <QuickAction href="/drive" icon={HardDrive} muted>
+              云盘
+            </QuickAction>
+            <QuickAction href="/search" icon={Search} muted>
+              搜索
+            </QuickAction>
+            <QuickAction href="/notifications" icon={Bell} muted>
+              通知
             </QuickAction>
           </div>
         </section>

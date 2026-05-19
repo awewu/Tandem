@@ -5,7 +5,7 @@
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { getStore } from '@/lib/boot';
+import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 
 async function authorize(initiativeId: string, requesterId: string, demo: boolean) {
@@ -23,6 +23,7 @@ async function authorize(initiativeId: string, requesterId: string, demo: boolea
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   const { error } = await authorize(params.id, auth.userId, auth.demo);
@@ -41,6 +42,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   const { error } = await authorize(params.id, auth.userId, auth.demo);

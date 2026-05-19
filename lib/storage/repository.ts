@@ -49,6 +49,7 @@ export interface Repository<T extends { id: string }> {
 // ---------------------------------------------------------------------------
 
 export interface TandemStore {
+  _storeKind?: 'memory' | 'prisma';
   decisionCards: Repository<DecisionCard>;
   personas: Repository<Persona>;
   origins: Repository<Origin>;
@@ -78,6 +79,19 @@ export interface TandemStore {
   review360Cycles: Repository<Review360Cycle>;
   review360Submissions: Repository<Review360Submission>;
   review360Assignments: Repository<Review360Assignment>;
+
+  /** Skills 治理状态机 (§T15) */
+  skillRegistry: Repository<import('../taf/skills/governance').SkillRecord>;
+
+  /** Bitable 多维表格 (V1 MVP) */
+  bitableTables: Repository<import('../types/bitable').BitableTable>;
+  bitableViews: Repository<import('../types/bitable').BitableView>;
+
+  /** 飞书功能追赶 (Feishu Catch-up) */
+  documents: Repository<import('../types/feishu-catchup').Document>;
+  calendarEvents: Repository<import('../types/feishu-catchup').CalendarEvent>;
+  driveFiles: Repository<import('../types/feishu-catchup').DriveFile>;
+  notifications: Repository<import('../types/feishu-catchup').Notification>;
 
   /** 自研身份系统 (Native Auth) */
   auth: AuthStore;
