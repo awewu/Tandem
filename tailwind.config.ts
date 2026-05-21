@@ -97,7 +97,8 @@ const config: Config = {
       // -------- Typography --------
       fontFamily: {
         sans: [
-          'SF Pro Text',
+          'var(--font-sans)',
+          'Inter',
           '-apple-system',
           'BlinkMacSystemFont',
           'Segoe UI Variable Text',
@@ -107,16 +108,16 @@ const config: Config = {
           'Microsoft YaHei',
           'Source Han Sans CN',
           'Hiragino Sans GB',
-          'Inter',
           'system-ui',
           'sans-serif',
         ],
         display: [
-          'SF Pro Display',
+          'var(--font-display)',
+          'Inter Tight',
+          'var(--font-sans)',
+          'Inter',
           '-apple-system',
           'BlinkMacSystemFont',
-          'Segoe UI Variable Display',
-          'Segoe UI',
           'PingFang SC',
           'Microsoft YaHei UI',
           'system-ui',

@@ -8,7 +8,10 @@ export async function GET(req: NextRequest) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   const tables = await getStore().bitableTables.list();
-  const mine = tables.filter((t) => t.ownerId === auth.userId);
+  // Tenant isolation first, then owner filter.
+  const mine = tables.filter(
+    (t) => (t.tenantId ?? 'default') === auth.tenantId && t.ownerId === auth.userId,
+  );
   return NextResponse.json({ tables: mine });
 }
 
@@ -23,6 +26,7 @@ export async function POST(req: NextRequest) {
     name: body.name,
     description: body.description,
     ownerId: auth.userId,
+    tenantId: auth.tenantId,
     columns: [
       { id: 'col_name', name: '名称', type: 'text', width: 200, required: true },
       { id: 'col_status', name: '状态', type: 'select', options: [

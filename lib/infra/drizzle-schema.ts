@@ -117,6 +117,51 @@ export const driveFile = pgTable(
   }),
 );
 
+export const launchpadApp = pgTable(
+  'LaunchpadApp',
+  {
+    id: text('id').primaryKey(),
+    category: text('category').notNull(),
+    name: text('name').notNull(),
+    description: text('description'),
+    iconUrl: text('iconUrl'),
+    url: text('url').notNull(),
+    ssoMode: text('ssoMode').notNull().default('none'),
+    ssoConfig: jsonb('ssoConfig'),
+    visibleTo: text('visibleTo').array().notNull().default([]),
+    visibleToRoles: text('visibleToRoles').array().notNull().default([]),
+    order: integer('order').notNull().default(0),
+    recommendKeywords: text('recommendKeywords').array().notNull().default([]),
+    unreadAdapter: jsonb('unreadAdapter'),
+    status: text('status').notNull().default('active'),
+    tenantId: text('tenantId').notNull().default('default'),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => ({
+    categoryIdx: index('LaunchpadApp_category_idx').on(t.category),
+    tenantIdx: index('LaunchpadApp_tenantId_idx').on(t.tenantId),
+    statusIdx: index('LaunchpadApp_status_idx').on(t.status),
+  }),
+);
+
+export const launchpadClick = pgTable(
+  'LaunchpadClick',
+  {
+    id: text('id').primaryKey(),
+    appId: text('appId').notNull(),
+    userId: text('userId').notNull(),
+    clickedAt: timestamp('clickedAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    source: text('source').notNull().default('home'),
+    tenantId: text('tenantId').notNull().default('default'),
+  },
+  (t) => ({
+    appIdx: index('LaunchpadClick_appId_idx').on(t.appId),
+    userIdx: index('LaunchpadClick_userId_idx').on(t.userId),
+    clickedIdx: index('LaunchpadClick_clickedAt_idx').on(t.clickedAt),
+  }),
+);
+
 export const notification = pgTable(
   'Notification',
   {

@@ -41,6 +41,8 @@ export interface BitableTable {
   name: string;
   description?: string;
   ownerId: string;
+  /** 多租户隔离 (默认 'default') */
+  tenantId?: string;
   columns: BitableColumn[];
   /** 行数据: 每行是 { [columnId]: value } */
   rows: Array<{ id: string; data: Record<string, unknown>; createdAt: string; updatedAt: string }>;

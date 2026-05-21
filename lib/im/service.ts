@@ -56,6 +56,8 @@ export interface CreateChannelInput {
   visibility?: ImChannelVisibility;
   memberIds: string[];        // 必含 createdBy
   createdBy: string;
+  /** 多租户隔离 (默认 'default') */
+  tenantId?: string;
   linkedDecisionCardId?: string;
   /** Q2: department / team / cross_dept 群关联的部门 ID */
   departmentId?: string;
@@ -78,6 +80,7 @@ export async function createChannel(input: CreateChannelInput): Promise<ImChanne
     visibility: input.visibility ?? (input.type === 'dm' ? 'private' : 'public'),
     memberIds,
     createdBy: input.createdBy,
+    tenantId: input.tenantId ?? 'default',
     createdAt: now,
     updatedAt: now,
     linkedDecisionCardId: input.linkedDecisionCardId,
@@ -127,7 +130,7 @@ export async function getOrCreateDm(
   });
 }
 
-export async function listMyChannels(userId: string): Promise<
+export async function listMyChannels(userId: string, tenantId?: string): Promise<
   Array<ImChannel & { unread: number; membership: ImMembership }>
 > {
   const store = getStore();
@@ -137,7 +140,10 @@ export async function listMyChannels(userId: string): Promise<
   const result: Array<ImChannel & { unread: number; membership: ImMembership }> = [];
   for (const m of memberships) {
     const ch = await store.imChannels.get(m.channelId);
-    if (ch) result.push({ ...ch, unread: m.unreadCount, membership: m });
+    if (!ch) continue;
+    // Tenant isolation: drop channels from other tenants.
+    if (tenantId && (ch.tenantId ?? 'default') !== tenantId) continue;
+    result.push({ ...ch, unread: m.unreadCount, membership: m });
   }
   // 按最后消息时间倒序
   result.sort(

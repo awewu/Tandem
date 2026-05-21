@@ -48,7 +48,7 @@ const STATUS_META: Record<OneOnOneStatus, { label: string; color: string }> = {
 export default function OneOnOnePage() {
   const ME = useCurrentUserId();
   const { meetings, addMeeting, updateMeeting, deleteMeeting,
-          addActionItem, toggleActionItem, removeActionItem } = useOneOnOneStore();
+          addActionItem, toggleActionItem, removeActionItem, promoteActionItem } = useOneOnOneStore();
   const { people, keyResults, objectives } = useOKRStore();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -177,6 +177,10 @@ export default function OneOnOnePage() {
             }
             onToggleAction={(itemId) => toggleActionItem(selected.id, itemId)}
             onRemoveAction={(itemId) => removeActionItem(selected.id, itemId)}
+            onPromoteAction={async (itemId, keyResultId) => {
+              const result = await promoteActionItem(selected.id, itemId, keyResultId);
+              return result !== false;
+            }}
           />
         ) : (
           <div className="flex h-full items-center justify-center">
@@ -387,7 +391,7 @@ function NewMeetingForm({
 // -----------------------------------------------------------------------------
 function MeetingDetail({
   meeting, personById, people, keyResults, objectives, currentUserId,
-  onUpdate, onDelete, onAddAction, onToggleAction, onRemoveAction,
+  onUpdate, onDelete, onAddAction, onToggleAction, onRemoveAction, onPromoteAction,
 }: {
   meeting: OneOnOneMeeting;
   personById: Map<string, string>;
@@ -400,6 +404,8 @@ function MeetingDetail({
   onAddAction: (text: string, assigneeId: string, dueDate?: number) => void;
   onToggleAction: (itemId: string) => void;
   onRemoveAction: (itemId: string) => void;
+  /** A3.1: 把 ActionItem 提升为 Initiative. 返回 true 表示成功. */
+  onPromoteAction: (itemId: string, keyResultId: string) => Promise<boolean>;
 }) {
   const [actionText, setActionText] = useState('');
   const [actionAssignee, setActionAssignee] = useState(meeting.reportId);
@@ -644,6 +650,40 @@ function MeetingDetail({
                 <span className="text-[10px] text-muted-foreground">
                   {new Date(a.dueDate).toLocaleDateString('zh-CN')}
                 </span>
+              )}
+              {/* A3.1: 提升为 Initiative */}
+              {a.linkedInitiativeId ? (
+                <Badge
+                  variant="outline"
+                  className="text-[9px] h-4 border-emerald-300 bg-emerald-50 text-emerald-700"
+                  title={`已提升为 Initiative (${a.linkedInitiativeId.slice(0, 8)})`}
+                >
+                  <Target className="h-2.5 w-2.5 mr-0.5" />已入 KR
+                </Badge>
+              ) : meeting.linkedKrIds.length === 0 ? (
+                <button
+                  type="button"
+                  disabled
+                  className="opacity-30 cursor-not-allowed"
+                  title="先在会议挂上 KR 才能提升为 Initiative"
+                  aria-label="提升为 Initiative (需先挂 KR)"
+                >
+                  <Target className="h-3 w-3 text-muted-foreground" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    // 默认用会议第一个挂的 KR; 后续迭代可改为 popover 选择器
+                    const kr = meeting.linkedKrIds[0];
+                    await onPromoteAction(a.id, kr);
+                  }}
+                  className="opacity-50 hover:opacity-100 text-brand-600"
+                  title={`提升为 Initiative${meeting.linkedKrIds.length > 1 ? ` (默认挂到首个 KR )` : ''}`}
+                  aria-label="提升为 Initiative"
+                >
+                  <Target className="h-3 w-3" />
+                </button>
               )}
               <button
                 type="button"

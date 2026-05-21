@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
+import { useCurrentUserId } from '@/lib/hooks/use-current-user';
 import {
   Shield,
   CheckCircle2,
@@ -99,8 +100,15 @@ const ROLE_LABEL: Record<string, string> = {
 // ---------- Page ----------
 
 export default function StewardWorkbenchPage() {
+  const me = useCurrentUserId();
   const [tab, setTab] = useState<'promotions' | 'downgrades' | 'sla'>('promotions');
-  const [signerId, setSignerId] = useState('u_steward');
+  const [signerId, setSignerId] = useState(me || 'u_steward');
+  // 当真实登录用户加载后 (auth store 异步), 同步默认 signerId
+  useEffect(() => {
+    if (me && signerId === 'u_steward') setSignerId(me);
+    // 仅在 me 变化时触发, 不依赖 signerId 避免覆盖用户手动改的值
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me]);
 
   return (
     <div className="container mx-auto max-w-6xl space-y-4 p-6">

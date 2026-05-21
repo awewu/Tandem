@@ -1791,6 +1791,8 @@ export interface OneOnOneActionItem {
   id: string;
   text: string;
   assigneeId: string;     // 'manager' | 'report' | personId
+  /** A3.1: 提升为 OKR Initiative 后回填的 Initiative ID. undefined = 未提升 */
+  linkedInitiativeId?: string;
   dueDate?: number;
   done: boolean;
 }
@@ -1840,6 +1842,13 @@ interface OneOnOneStore {
   addActionItem: (meetingId: string, text: string, assigneeId: string, dueDate?: number) => void;
   toggleActionItem: (meetingId: string, itemId: string) => void;
   removeActionItem: (meetingId: string, itemId: string) => void;
+  /**
+   * A3.1: 把 ActionItem 提升为 OKR Initiative.
+   * 1. POST /api/okr/initiatives { keyResultId, title: actionItem.text, dueDate, ownerId: assigneeId }
+   * 2. 成功后 PATCH /api/1on1/action-items/[id] { linkedInitiativeId }
+   * 3. 失败返回 false; 成功返回 initiativeId
+   */
+  promoteActionItem: (meetingId: string, itemId: string, keyResultId: string) => Promise<string | false>;
 }
 
 /**
@@ -1961,6 +1970,64 @@ export const useOneOnOneStore = create<OneOnOneStore>()((set, get) => ({
       void import('@/lib/api/one-on-one-sync').then((mod) =>
         mod.syncDeleteActionItem(itemId),
       );
+    }
+  },
+  promoteActionItem: async (meetingId, itemId, keyResultId) => {
+    if (typeof window === 'undefined') return false;
+    const meeting = get().meetings.find((m) => m.id === meetingId);
+    const item = meeting?.actionItems.find((a) => a.id === itemId);
+    if (!meeting || !item) {
+      // eslint-disable-next-line no-console
+      console.warn('[promoteActionItem] meeting/item not found', meetingId, itemId);
+      return false;
+    }
+    if (item.linkedInitiativeId) return item.linkedInitiativeId; // 幂等
+    try {
+      // 1. 建 Initiative
+      const res = await fetch('/api/okr/initiatives', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          keyResultId,
+          title: item.text,
+          ownerId: item.assigneeId !== 'manager' && item.assigneeId !== 'report' ? item.assigneeId : undefined,
+          dueDate: item.dueDate ? new Date(item.dueDate).toISOString() : undefined,
+          status: 'planned',
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        // eslint-disable-next-line no-console
+        console.warn('[promoteActionItem] initiative create failed', res.status, err);
+        return false;
+      }
+      const { initiative } = await res.json();
+      const initiativeId = initiative.id as string;
+      // 2. 本地立即标记
+      set((s) => ({
+        meetings: s.meetings.map((m) =>
+          m.id !== meetingId
+            ? m
+            : {
+                ...m,
+                actionItems: m.actionItems.map((a) =>
+                  a.id === itemId ? { ...a, linkedInitiativeId: initiativeId } : a,
+                ),
+                updatedAt: Date.now(),
+              },
+        ),
+      }));
+      // 3. fire-and-forget PATCH 把 linkedInitiativeId 回填到 ActionItem 表
+      void fetch(`/api/1on1/action-items/${itemId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ linkedInitiativeId: initiativeId }),
+      });
+      return initiativeId;
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn('[promoteActionItem] failed', err);
+      return false;
     }
   },
 }));

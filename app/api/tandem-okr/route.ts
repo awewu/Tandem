@@ -25,6 +25,8 @@ export async function GET(req: NextRequest) {
     const store = getStore();
 
     let objectives = await store.objectives.list();
+    // Tenant isolation: scope to caller's tenant.
+    objectives = objectives.filter((o) => (o.tenantId ?? 'default') === auth.tenantId);
     if (cycleId) objectives = objectives.filter((o) => o.cycleId === cycleId);
     if (ownerId) objectives = objectives.filter((o) => o.ownerId === ownerId);
 
@@ -69,6 +71,7 @@ export async function POST(req: NextRequest) {
       tags: Array.isArray(body.tags) ? body.tags : [],
       collaboratorIds: Array.isArray(body.collaboratorIds) ? body.collaboratorIds : [],
       watcherIds: Array.isArray(body.watcherIds) ? body.watcherIds : [],
+      tenantId: body.tenantId ?? auth.tenantId,
       createdAt: now,
       updatedAt: now,
     });

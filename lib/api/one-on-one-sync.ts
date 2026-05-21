@@ -69,6 +69,7 @@ export function actionItemFromApi(api: ApiActionItem): LocalActionItem {
     assigneeId: api.assigneeId,
     dueDate: isoToMs(api.dueDate),
     done: api.done,
+    linkedInitiativeId: api.linkedInitiativeId ?? undefined, // A3.1: preserve promoted-to-initiative state
   };
 }
 

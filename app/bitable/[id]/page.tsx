@@ -5,7 +5,8 @@ import { useParams } from 'next/navigation';
 import { Plus, Loader2, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import type { BitableTable } from '@/lib/types/bitable';
+import type { BitableTable, BitableColumn } from '@/lib/types/bitable';
+import { useDynamicStyle } from '@/lib/hooks/use-dynamic-style';
 
 export default function BitableTablePage() {
   const { id } = useParams<{ id: string }>();
@@ -68,15 +69,7 @@ export default function BitableTablePage() {
           <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
             <tr>
               {table.columns.map((col) => (
-                <th
-                  key={col.id}
-                  className="text-left px-3 py-2 font-medium"
-                  // dynamic per-column width — inline style is required
-                  style={{ minWidth: col.width ?? 150 }}
-                >
-                  {col.name}
-                  <span className="ml-1 text-slate-400 text-[10px]">{col.type}</span>
-                </th>
+                <ColumnHeader key={col.id} col={col} />
               ))}
             </tr>
           </thead>
@@ -140,5 +133,15 @@ export default function BitableTablePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function ColumnHeader({ col }: { col: BitableColumn }) {
+  const ref = useDynamicStyle<HTMLTableCellElement>({ minWidth: `${col.width ?? 150}px` });
+  return (
+    <th ref={ref} className="text-left px-3 py-2 font-medium">
+      {col.name}
+      <span className="ml-1 text-slate-400 text-[10px]">{col.type}</span>
+    </th>
   );
 }

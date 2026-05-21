@@ -1,116 +1,254 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+/**
+ * Command Palette ⌘K — Linear/Raycast style cross-module jumper.
+ *
+ * Sources:
+ *   1. NAV_MODULES (single source of truth — automatically picks up new modules)
+ *   2. ACTIONS    (verbs: 发起议事, 写日报, 新建文档, etc.)
+ *   3. AI Search  (input non-empty → suggest "AI 搜索: <q>" → /search?q=...)
+ *
+ * Features:
+ *   - ⌘K / Ctrl+K toggles open
+ *   - ↑ ↓ navigate, Enter to execute, Esc to close
+ *   - Recent items (localStorage, top 5)
+ *   - Role-filtered (mirrors AppRail visibility)
+ *   - Fuzzy match across name + keywords + group
+ *
+ * Replaces the old hardcoded list (was ~20 items, duplicate with Sidebar).
+ */
+
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import {
   Search,
-  Home,
   Sparkles,
+  ArrowRight,
+  Plus,
+  Clock3,
+  FileText,
+  MessagesSquare,
   Target,
   Brain,
-  MessagesSquare,
-  Grid3x3,
-  Users,
-  Clock3,
-  Settings,
-  Lock,
-  Ticket,
-  ShieldCheck,
-  ScrollText,
-  Megaphone,
-  LayoutGrid,
-  Layers,
-  ArrowRight,
+  History,
 } from 'lucide-react';
-
-/**
- * Cmd+K command palette — Tandem only routes.
- * UI-IA §5.6 + §5.9 (Linear/Raycast-style).
- */
+import {
+  NAV_MODULES,
+  ALL_ROLES,
+  isVisible,
+  type Role,
+} from '@/components/nav-modules';
+import { useCurrentUser, useAuthStore } from '@/lib/hooks/use-current-user';
 
 interface CommandItem {
+  id: string;
   name: string;
   href: string;
-  group: 'home' | '事半' | '拿捏' | '管理' | '设置';
+  group: string;
   icon: React.ComponentType<{ className?: string }>;
   keywords?: string[];
+  /** Optional badge (e.g., shortcut hint) */
+  hint?: string;
 }
 
-const COMMANDS: CommandItem[] = [
-  // Home
-  { name: '首页', href: '/', group: 'home', icon: Home, keywords: ['home', 'dashboard', '主页'] },
+const RECENT_KEY = 'tandem.cmdk.recent';
+const RECENT_MAX = 5;
 
-  // 事半
-  { name: 'OKR 5 层', href: '/okr', group: '事半', icon: Target, keywords: ['kr', 'objective', 'okr'] },
-  { name: '议事室', href: '/convergence', group: '事半', icon: Sparkles, keywords: ['convergence', 'decision', '17min'] },
-  { name: 'IM 协同', href: '/im', group: '事半', icon: MessagesSquare, keywords: ['im', 'chat', 'message'] },
-  { name: 'Memory 知识库', href: '/memories', group: '事半', icon: Brain, keywords: ['memory', 'knowledge', 'sop'] },
-  { name: '9 宫格', href: '/nine-box', group: '事半', icon: Grid3x3, keywords: ['nine box', 'kpi', 'tti'] },
-
-  // 拿捏
-  { name: '我的分身 Persona', href: '/persona', group: '拿捏', icon: Users, keywords: ['persona', 'avatar', '分身'] },
-  { name: '成长路径', href: '/persona/evolution', group: '拿捏', icon: Sparkles, keywords: ['evolution', 'growth', '进化'] },
-  { name: '5min 日报', href: '/report', group: '拿捏', icon: Clock3, keywords: ['report', 'daily', '日报'] },
-  { name: 'Skills 学习', href: '/skills', group: '拿捏', icon: Layers, keywords: ['skills', 'training', 'learn', '学习', '调用'] },
-
-  // 管理
-  { name: '邀请码', href: '/admin/invite', group: '管理', icon: Ticket, keywords: ['invite', 'invitation'] },
-  { name: 'Steward 工作台', href: '/admin/steward', group: '管理', icon: ShieldCheck, keywords: ['steward', 'governance'] },
-  { name: 'Baseline 配置', href: '/admin/baseline', group: '管理', icon: ScrollText, keywords: ['baseline', '基线'] },
-  { name: 'Intranet 内容', href: '/admin/intranet', group: '管理', icon: Megaphone, keywords: ['intranet', '公告', '政策'] },
-  { name: 'Launchpad 跳板', href: '/admin/launchpad', group: '管理', icon: LayoutGrid, keywords: ['launchpad', '跳板', 'erp', 'crm'] },
-  { name: 'TAF Skills', href: '/admin/tandem-skills', group: '管理', icon: Layers, keywords: ['skills', 'taf', 'tools'] },
-
-  // 设置
-  { name: '个人设置', href: '/settings', group: '设置', icon: Settings, keywords: ['settings', 'profile', 'mfa'] },
-  { name: '§13 数据自助 (导出/匿名)', href: '/settings/privacy', group: '设置', icon: Lock, keywords: ['privacy', 'export', 'anonymize'] },
+// Static verb-style actions that complement nav items.
+const ACTIONS: CommandItem[] = [
+  { id: 'a:convergence:new',  name: '发起议事',       href: '/convergence?new=1',  group: '动作', icon: Sparkles,       keywords: ['new', 'create', 'convergence', '议事', '决策'] },
+  { id: 'a:okr:new',          name: '创建 OKR',       href: '/okr?new=1',           group: '动作', icon: Target,         keywords: ['new', 'okr', 'objective', 'kr', '目标'] },
+  { id: 'a:report:write',     name: '写 5min 日报',    href: '/report',              group: '动作', icon: Clock3,         keywords: ['report', 'daily', '日报'] },
+  { id: 'a:document:new',     name: '新建文档',       href: '/documents?new=1',     group: '动作', icon: FileText,       keywords: ['new', 'doc', 'document', '文档'] },
+  { id: 'a:im:start',         name: '发起 IM 私聊',    href: '/im?dm=new',           group: '动作', icon: MessagesSquare, keywords: ['im', 'dm', 'chat', '私聊'] },
+  { id: 'a:memory:capture',   name: '捕获 Memory',     href: '/memories?capture=1',  group: '动作', icon: Brain,          keywords: ['memory', 'capture', 'sop', '知识'] },
 ];
 
 export function CommandPalette() {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const router = useRouter();
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [recent, setRecent] = useState<string[]>([]);
+  const listRef = useRef<HTMLDivElement>(null);
 
+  const { user, error: authError } = useCurrentUser();
+  const fetched = useAuthStore((s) => s.fetched);
+
+  // Same role logic as AppRail/SubSidebar.
+  const userRoles: Role[] = useMemo(() => {
+    if (!fetched) return ['employee'];
+    if (authError === 'unauthenticated' || !user) return ALL_ROLES;
+    const roles = (user.roles ?? []).filter((x): x is Role =>
+      typeof x === 'string' && (ALL_ROLES as string[]).includes(x),
+    );
+    if (user.email === 'admin@tandem.local' && roles.length === 0) return ALL_ROLES;
+    return roles.length > 0 ? roles : ['employee'];
+  }, [fetched, user, authError]);
+
+  // Derive nav commands from NAV_MODULES (single source of truth).
+  const navCommands: CommandItem[] = useMemo(() => {
+    const out: CommandItem[] = [];
+    for (const m of NAV_MODULES) {
+      if (!isVisible(m.visibleTo, userRoles)) continue;
+      // Module itself (jump to its primary item or path).
+      const primary = m.items.find((i) => isVisible(i.visibleTo, userRoles));
+      const moduleHref = m.id === 'home' ? '/' : primary?.href ?? m.pathPrefixes[0];
+      out.push({
+        id: `m:${m.id}`,
+        name: m.fullLabel,
+        href: moduleHref,
+        group: '模块',
+        icon: m.icon,
+        keywords: [m.id, m.label],
+      });
+      // Each item.
+      for (const it of m.items) {
+        if (!isVisible(it.visibleTo, userRoles)) continue;
+        out.push({
+          id: `i:${it.href}`,
+          name: it.name,
+          href: it.href,
+          group: m.fullLabel,
+          icon: it.icon,
+        });
+      }
+    }
+    return out;
+  }, [userRoles]);
+
+  // Open/close keyboard
   useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
+    function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setOpen((v) => !v);
-      }
-      if (e.key === 'Escape' && open) {
+      } else if (e.key === 'Escape' && open) {
         setOpen(false);
       }
     }
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, [open]);
 
-  // Reset query when reopened
+  // Reset state on open/close
   useEffect(() => {
-    if (!open) setQuery('');
+    if (open) {
+      setQuery('');
+      setActiveIdx(0);
+      // Hydrate recents
+      try {
+        const raw = window.localStorage.getItem(RECENT_KEY);
+        setRecent(raw ? (JSON.parse(raw) as string[]) : []);
+      } catch {
+        setRecent([]);
+      }
+    }
   }, [open]);
 
-  const results = useMemo(() => {
+  // Build candidate list (recent first when empty query, else fuzzy match).
+  const candidates = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return COMMANDS;
-    return COMMANDS.filter((c) => {
+    const allCommands = [...navCommands, ...ACTIONS];
+
+    // AI search synthetic item (only when query non-empty)
+    const aiItem: CommandItem | null = q
+      ? {
+          id: 'ai:search',
+          name: `AI 搜索: "${query.trim()}"`,
+          href: `/search?q=${encodeURIComponent(query.trim())}`,
+          group: 'AI',
+          icon: Sparkles,
+          hint: '在文档 / 决议 / Memory 中检索',
+        }
+      : null;
+
+    if (!q) {
+      // Empty query: show recents first, then top modules + actions
+      const recentItems = recent
+        .map((id) => allCommands.find((c) => c.id === id))
+        .filter((x): x is CommandItem => x != null)
+        .map((c) => ({ ...c, group: '最近使用' }));
+      const seenIds = new Set(recentItems.map((r) => r.id));
+      const rest = allCommands.filter((c) => !seenIds.has(c.id));
+      return [...recentItems, ...rest];
+    }
+
+    const matched = allCommands.filter((c) => {
       if (c.name.toLowerCase().includes(q)) return true;
       if (c.group.toLowerCase().includes(q)) return true;
       if (c.keywords?.some((k) => k.toLowerCase().includes(q))) return true;
       return false;
     });
-  }, [query]);
+
+    return aiItem ? [...matched, aiItem] : matched;
+  }, [query, navCommands, recent]);
 
   const grouped = useMemo(() => {
-    const map = new Map<CommandItem['group'], CommandItem[]>();
-    for (const r of results) {
-      const arr = map.get(r.group) ?? [];
-      arr.push(r);
-      map.set(r.group, arr);
+    const map = new Map<string, CommandItem[]>();
+    for (const c of candidates) {
+      const arr = map.get(c.group) ?? [];
+      arr.push(c);
+      map.set(c.group, arr);
     }
     return Array.from(map.entries());
-  }, [results]);
+  }, [candidates]);
+
+  // Reset active index when candidates change
+  useEffect(() => {
+    setActiveIdx(0);
+  }, [query]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    if (!open) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setActiveIdx((i) => Math.min(i + 1, candidates.length - 1));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setActiveIdx((i) => Math.max(i - 1, 0));
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        const c = candidates[activeIdx];
+        if (c) executeCommand(c);
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, candidates, activeIdx]);
+
+  // Scroll active item into view
+  useEffect(() => {
+    if (!listRef.current) return;
+    const el = listRef.current.querySelector<HTMLElement>(`[data-cmd-idx="${activeIdx}"]`);
+    el?.scrollIntoView({ block: 'nearest' });
+  }, [activeIdx]);
+
+  const executeCommand = useCallback(
+    (c: CommandItem) => {
+      // Persist to recents (but skip AI synthetic ones)
+      if (!c.id.startsWith('ai:')) {
+        try {
+          const raw = window.localStorage.getItem(RECENT_KEY);
+          const prev = raw ? (JSON.parse(raw) as string[]) : [];
+          const next = [c.id, ...prev.filter((id) => id !== c.id)].slice(0, RECENT_MAX);
+          window.localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+        } catch {
+          /* no-op */
+        }
+      }
+      setOpen(false);
+      router.push(c.href);
+    },
+    [router],
+  );
+
+  // Build a flat global index for active highlighting
+  let runningIdx = -1;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -120,49 +258,85 @@ export function CommandPalette() {
           <Search size={16} className="text-ink-tertiary" />
           <input
             type="text"
-            placeholder="搜索页面 (议事 · OKR · 日报 · 设置)..."
+            placeholder="搜索页面 · 动作 · AI 检索 ..."
             className="flex-1 bg-transparent text-body outline-none placeholder:text-ink-tertiary"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus
           />
-          <kbd className="rounded border border-border bg-surface-2 px-1.5 py-0.5 font-mono text-[10px] text-ink-tertiary">ESC</kbd>
+          <kbd className="rounded border border-border bg-surface-2 px-1.5 py-0.5 font-mono text-[10px] text-ink-tertiary">
+            ESC
+          </kbd>
         </div>
-        <div className="max-h-96 overflow-y-auto py-2">
-          {grouped.length === 0 && (
+
+        <div ref={listRef} className="max-h-[420px] overflow-y-auto py-2">
+          {grouped.length === 0 ? (
             <div className="px-4 py-12 text-center text-caption text-ink-tertiary">
               未找到匹配项
             </div>
+          ) : (
+            grouped.map(([group, items]) => (
+              <div key={group} className="mb-2">
+                <p className="px-4 pb-1 pt-2 text-footnote font-semibold uppercase tracking-wider text-ink-tertiary flex items-center gap-1">
+                  {group === '最近使用' && <History className="h-3 w-3" />}
+                  {group === 'AI' && <Sparkles className="h-3 w-3 text-[rgb(var(--brand-500))]" />}
+                  {group === '动作' && <Plus className="h-3 w-3" />}
+                  {group}
+                </p>
+                {items.map((item) => {
+                  runningIdx += 1;
+                  const idx = runningIdx;
+                  const Icon = item.icon;
+                  const isActive = idx === activeIdx;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      data-cmd-idx={idx}
+                      onMouseEnter={() => setActiveIdx(idx)}
+                      onClick={() => executeCommand(item)}
+                      className={
+                        'flex w-full items-center gap-3 px-4 py-2 text-caption text-ink-primary transition-colors duration-instant ' +
+                        (isActive
+                          ? 'bg-[rgb(var(--brand-50))] text-[rgb(var(--brand-700))]'
+                          : 'hover:bg-surface-2')
+                      }
+                    >
+                      <Icon
+                        className={
+                          'h-4 w-4 ' +
+                          (isActive
+                            ? 'text-[rgb(var(--brand-600))]'
+                            : 'text-ink-secondary')
+                        }
+                      />
+                      <span className="flex-1 text-left truncate">{item.name}</span>
+                      {item.hint && (
+                        <span className="text-footnote text-ink-tertiary">{item.hint}</span>
+                      )}
+                      {isActive && (
+                        <ArrowRight className="h-3.5 w-3.5 text-[rgb(var(--brand-600))]" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            ))
           )}
-          {grouped.map(([group, items]) => (
-            <div key={group} className="mb-2">
-              <p className="px-4 pb-1 pt-2 text-footnote font-semibold uppercase tracking-wider text-ink-tertiary">
-                {group}
-              </p>
-              {items.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <button
-                    key={item.href}
-                    className="flex w-full items-center gap-3 px-4 py-2 text-caption text-ink-primary hover:bg-brand-50 transition-colors duration-instant"
-                    onClick={() => {
-                      setOpen(false);
-                      router.push(item.href);
-                    }}
-                  >
-                    <Icon className="h-4 w-4 text-ink-secondary" />
-                    <span className="flex-1 text-left">{item.name}</span>
-                    <ArrowRight className="h-3 w-3 text-ink-tertiary opacity-0 group-hover:opacity-100" />
-                  </button>
-                );
-              })}
-            </div>
-          ))}
         </div>
+
         <div className="flex items-center gap-4 border-t border-border px-4 py-2 text-footnote text-ink-tertiary">
-          <span>导航 <kbd className="rounded border border-border bg-surface-2 px-1 font-mono text-[10px]">↑</kbd><kbd className="ml-0.5 rounded border border-border bg-surface-2 px-1 font-mono text-[10px]">↓</kbd></span>
-          <span>选择 <kbd className="rounded border border-border bg-surface-2 px-1 font-mono text-[10px]">↵</kbd></span>
-          <span className="ml-auto">⌘K 唤起</span>
+          <span>
+            导航{' '}
+            <kbd className="rounded border border-border bg-surface-2 px-1 font-mono text-[10px]">↑</kbd>
+            <kbd className="ml-0.5 rounded border border-border bg-surface-2 px-1 font-mono text-[10px]">↓</kbd>
+          </span>
+          <span>
+            选择{' '}
+            <kbd className="rounded border border-border bg-surface-2 px-1 font-mono text-[10px]">↵</kbd>
+          </span>
+          <span className="ml-auto">⌘K 唤起 · 自动同步 Rail 导航</span>
         </div>
       </DialogContent>
     </Dialog>

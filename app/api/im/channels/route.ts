@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
-  const channels = await listMyChannels(auth.userId);
+  const channels = await listMyChannels(auth.userId, auth.tenantId);
   return NextResponse.json({ channels });
 }
 
@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
       visibility: body.visibility,
       memberIds: body.memberIds,
       createdBy: auth.userId,
+      tenantId: auth.tenantId,
       departmentId: body.departmentId,
       autoCreated: body.autoCreated,
       projectEndsAt: body.projectEndsAt,

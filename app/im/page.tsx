@@ -8,13 +8,15 @@
  * @ 触发: @[name](userId:persona) 形式可召唤对方 AI 分身
  */
 
-import { useCallback, useState, useEffect, useMemo, useRef } from 'react';
+import { Suspense, useCallback, useState, useEffect, useMemo, useRef } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { CreateChannelDialog } from '@/components/im/create-channel-dialog';
 import { ContactsTree } from '@/components/im/contacts-tree';
 import { ChannelSettingsDialog } from '@/components/im/channel-settings-dialog';
 import { SeedFromOrgDialog } from '@/components/im/seed-from-org-dialog';
 import { AgentModeToggle } from '@/components/im/agent-mode-toggle';
 import type { ImChannel, ImMembership, ImMessage } from '@/lib/types/im';
+import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -36,8 +38,6 @@ import {
   Pin,
   Trash2,
 } from 'lucide-react';
-
-const ME = 'demo-user'; // V1: 单用户 demo, 后续接 auth session
 
 // Day 4-7: 升级 Channel/Message 类型 以含撤回 + 公告 + pinned
 type Channel = ImChannel & { unread?: number };
@@ -71,7 +71,19 @@ function unreadStyle(channel: Channel): {
   return { show: 'subtle' };
 }
 
+// useSearchParams() (?new=1 / ?dm=new deep-link) must live inside <Suspense>
+// so Next can prerender the surrounding shell statically.
 export default function ImPage() {
+  return (
+    <Suspense fallback={null}>
+      <ImInner />
+    </Suspense>
+  );
+}
+
+function ImInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [channels, setChannels] = useState<Channel[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -82,6 +94,25 @@ export default function ImPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   /** Q2 Day 2: 左栏 tab 切换 [频道|通讯录] */
   const [leftTab, setLeftTab] = useState<'channels' | 'contacts'>('channels');
+
+  /**
+   * Deep-link query support (used by SubSidebar quick actions + Command Palette):
+   *   /im?new=1   → 自动弹出"新建群聊"对话框
+   *   /im?dm=new  → 切换到"通讯录" tab, 用户可直接选人发起 DM
+   * 命中后清掉 URL 参数避免刷新再次触发.
+   */
+  useEffect(() => {
+    if (!searchParams) return;
+    const isNew = searchParams.get('new') === '1';
+    const isDmNew = searchParams.get('dm') === 'new';
+    if (isNew) {
+      setShowCreateDialog(true);
+      router.replace('/im');
+    } else if (isDmNew) {
+      setLeftTab('contacts');
+      router.replace('/im');
+    }
+  }, [searchParams, router]);
   /** Q2 Day 2: 点部门“建群”时预填数据 */
   const [prefillDept, setPrefillDept] = useState<{ id: string; name: string } | null>(null);
   /** Q2 Day 5-7: 频道设置对话框 */
@@ -93,6 +124,11 @@ export default function ImPage() {
   const composerRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Real auth-bound user id (replaces the legacy hardcoded 'demo-user').
+  // Falls back to 'demo-user' only in unauth/demo mode so existing seeds keep working.
+  const { user } = useCurrentUser();
+  const ME = user?.id ?? 'demo-user';
+
   // -- channels --
   const loadChannels = useCallback(async () => {
     const res = await fetch(`/api/im/channels?userId=${ME}`);
@@ -101,11 +137,10 @@ export default function ImPage() {
     if (!activeId && data.channels?.length) {
       setActiveId(data.channels[0].id);
     }
-  }, [activeId]);
+  }, [activeId, ME]);
   useEffect(() => {
     void loadChannels();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loadChannels]);
 
   // -- messages --
   async function loadMessages(chId: string) {
@@ -168,7 +203,9 @@ export default function ImPage() {
       void loadChannels();
     });
     return () => es.close();
-  }, [activeId, loadChannels]);
+    // loadMessages is a stable function reference within this component scope.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId, loadChannels, ME]);
 
   // 频道列表也每 10s 拉一次 (其他频道的未读)
   useEffect(() => {
@@ -600,11 +637,22 @@ export default function ImPage() {
                   channelId={activeChannel.id}
                   initialMode={members.find((m) => m.userId === ME)?.agentMode ?? 'manual'}
                 />
+                {activeChannel.type !== 'dm' && (
+                  <button
+                    type="button"
+                    onClick={() => setShowSettings(true)}
+                    className="inline-flex items-center gap-1 rounded-full bg-[rgb(var(--brand-50))] px-2.5 py-1 text-[11px] font-medium text-[rgb(var(--brand-700))] hover:bg-[rgb(var(--brand-100))] transition-colors"
+                    title="邀请新成员加入本群"
+                  >
+                    <Plus className="h-3 w-3" />
+                    邀请
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setShowSettings(true)}
                   className="flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:bg-slate-200"
-                  title="频道设置 (信息/成员/公告/置顶)"
+                  title="频道设置 (成员管理 / 公告 / 置顶 / 移除成员)"
                 >
                   <Users className="h-3 w-3" />
                   {activeChannel.memberIds.length}
@@ -656,6 +704,7 @@ export default function ImPage() {
                   msg={m}
                   prev={messages[idx - 1] ?? null}
                   members={members}
+                  meId={ME}
                   isPinned={(activeChannel.pinnedMessageIds ?? []).includes(m.id)}
                   onSpawnRoom={() => spawnRoom(m.id)}
                   onPromote={() => promoteToMemory(m.id)}
@@ -1018,6 +1067,7 @@ function MessageRow({
   prev,
   members,
   isPinned,
+  meId,
   onSpawnRoom,
   onPromote,
   onRecall,
@@ -1028,6 +1078,7 @@ function MessageRow({
   prev: Message | null;
   members: ImMembership[];
   isPinned: boolean;
+  meId: string;
   onSpawnRoom: () => void;
   onPromote: () => void;
   onRecall: () => void;
@@ -1044,7 +1095,7 @@ function MessageRow({
   // → useState + useEffect 只在客户端 mount 后计算
   const [recallable, setRecallable] = useState(false);
   useEffect(() => {
-    if (msg.deletedAt || msg.senderId !== ME) { setRecallable(false); return; }
+    if (msg.deletedAt || msg.senderId !== meId) { setRecallable(false); return; }
     const ageMs = Date.now() - new Date(msg.createdAt).getTime();
     const remaining = 2 * 60 * 1000 - ageMs;
     setRecallable(remaining > 0);
@@ -1052,7 +1103,7 @@ function MessageRow({
       const t = setTimeout(() => setRecallable(false), remaining);
       return () => clearTimeout(t);
     }
-  }, [msg.id, msg.deletedAt, msg.senderId, msg.createdAt]);
+  }, [msg.id, msg.deletedAt, msg.senderId, msg.createdAt, meId]);
   const showSender =
     !prev ||
     prev.senderId !== msg.senderId ||
@@ -1065,7 +1116,7 @@ function MessageRow({
     return (
       <div className="my-2 flex justify-center text-[11px]">
         <div className="rounded-full border border-slate-200/70 bg-slate-50 px-3 py-1 text-slate-400 italic">
-          {msg.senderId === ME ? '你' : msg.senderId} 撤回了一条消息
+          {msg.senderId === meId ? '你' : msg.senderId} 撤回了一条消息
         </div>
       </div>
     );
@@ -1083,7 +1134,7 @@ function MessageRow({
   }
 
   const isPersona = msg.senderKind === 'persona';
-  const isMe = msg.senderId === ME;
+  const isMe = msg.senderId === meId;
 
   return (
     <div className={`group mb-1 flex items-start gap-2.5 ${isMe ? 'flex-row-reverse' : ''}`}>
@@ -1191,7 +1242,7 @@ function MessageRow({
           </div>
         </div>
         {/* Day 4: 已读人数 (仅我发的消息显示) */}
-        {msg.senderId === ME && totalReaders > 0 && (
+        {msg.senderId === meId && totalReaders > 0 && (
           <div className={`mt-1 text-[10px] text-slate-400 ${isMe ? 'text-right' : ''}`}>
             {readerCount === 0
               ? '未读'

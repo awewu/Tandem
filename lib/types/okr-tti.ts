@@ -55,6 +55,8 @@ export interface Objective {
   finalScore?: number | null;
   retrospective?: string | null;
   reviewedAt?: string | null;
+  /** 多租户隔离 (默认 'default') */
+  tenantId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -108,8 +110,20 @@ export function computeKRProgress(kr: KeyResult): number {
 
 // ---------------------------------------------------------------------------
 // TTI · Target to Improve (双轨, 与 KPI 完全分离)
+//
+// ⚠️ DEPRECATED 2026-05-20 (CHARTER-KPI-TTI §6.1):
+//   "TTI 体系" 在新宽章里 = OKR 体系本身 (Objective + KeyResult + Initiative + CheckIn).
+//   本独立 `TTI` interface 是 V1 遗留, 与 KR 平行的"个人成长目标"独立表.
+//   新代码请用 `Objective` (level: 'individual') + `KeyResult` 替代.
+//
+//   不立即删除原因: 13+ 文件引用 (Convergence orchestrator / DecisionCard / 议事室上下文),
+//   贸然删除会破坏 议→沉→拿→算 故事链. V2 合并迁移见 CHARTER §6.1.
 // ---------------------------------------------------------------------------
 
+/**
+ * @deprecated Since 2026-05-20. Use `Objective` (level: 'individual') + `KeyResult` instead.
+ *             见 docs/CHARTER-KPI-TTI.md §6.1. V2 合并迁移.
+ */
 export interface TTI {
   id: string;
   cycleId: string;
@@ -170,6 +184,8 @@ export interface Initiative {
   decisionCardIds?: string[];
   status: 'planned' | 'in_progress' | 'done' | 'blocked';
   dueDate?: string;
+  /** 多租户隔离 (默认 'default') */
+  tenantId?: string;
 }
 
 // ---------------------------------------------------------------------------

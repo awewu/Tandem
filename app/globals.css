@@ -16,32 +16,39 @@
     --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 3.9%;
-    --primary: 24 95% 53%;            /* Tandem Orange #f97316 */
+    --primary: 356 72% 45%;           /* Rheem Red #C8202C */
     --primary-foreground: 0 0% 100%;
     --secondary: 240 4.8% 95.9%;
     --secondary-foreground: 240 5.9% 10%;
     --muted: 240 4.8% 95.9%;
     --muted-foreground: 240 3.8% 46.1%;
-    --accent: 24 95% 96%;             /* brand-50 tint */
-    --accent-foreground: 24 100% 35%;
-    --destructive: 0 72% 51%;
+    --accent: 356 80% 96%;            /* brand-50 tint */
+    --accent-foreground: 356 80% 30%;
+    --destructive: 356 72% 45%;       /* unified with brand red */
     --destructive-foreground: 0 0% 100%;
     --border: 240 5.9% 90%;
     --input: 240 5.9% 90%;
-    --ring: 24 95% 53%;
+    --ring: 356 72% 45%;
     --radius: 0.625rem;               /* 10px md radius */
 
-    /* ---- Tandem brand (raw colors, used in semantic + components) ---- */
-    --brand-50:  250 247 237;
-    --brand-100: 254 235 209;
-    --brand-200: 253 211 165;
-    --brand-300: 252 174 110;
-    --brand-400: 251 130 60;
-    --brand-500: 249 115 22;          /* primary */
-    --brand-600: 234 88 12;           /* hover */
-    --brand-700: 194 65 12;
-    --brand-800: 154 52 18;
-    --brand-900: 124 45 18;
+    /* ---- Rheem brand palette (Rheem Red scale, was Tandem Orange) ---- */
+    --brand-50:  252 233 235;         /* #FCE9EB */
+    --brand-100: 250 203 207;         /* #FACBCF */
+    --brand-200: 245 150 156;         /* #F5969C */
+    --brand-300: 237 96 104;          /* #ED6068 */
+    --brand-400: 220 61 69;           /* #DC3D45 */
+    --brand-500: 200 32 44;           /* #C8202C primary */
+    --brand-600: 159 24 34;           /* #9F1822 hover */
+    --brand-700: 126 19 26;           /* #7E131A */
+    --brand-800: 93 14 19;            /* #5D0E13 */
+    --brand-900: 61 9 12;             /* #3D090C */
+
+    /* ---- Rheem-specific extras (Teams architecture surfaces) ---- */
+    --rheem-charcoal: 31 31 31;       /* #1F1F1F — Teams App Rail */
+    --rheem-charcoal-2: 43 43 43;     /* #2B2B2B — rail hover */
+    --rheem-ink-black: 14 14 14;      /* #0E0E0E — heavy display headings */
+    --rheem-steel:    92 100 112;     /* #5C6470 — secondary text */
+    --rheem-hairline: 229 231 235;    /* #E5E7EB — fine borders */
 
     /* ---- Surfaces (Apple System Gray) ---- */
     --surface-1: 255 255 255;         /* primary bg */
@@ -79,7 +86,7 @@
     --shadow-md: 0 4px 16px rgba(9, 9, 11, 0.08);
     --shadow-lg: 0 12px 32px rgba(9, 9, 11, 0.10);
     --shadow-xl: 0 24px 64px rgba(9, 9, 11, 0.14);
-    --shadow-glow-brand: 0 0 0 4px rgba(249, 115, 22, 0.12);
+    --shadow-glow-brand: 0 0 0 4px rgba(200, 32, 44, 0.16);
 
     /* ---- Radii ---- */
     --radius-xs: 4px;
@@ -109,19 +116,19 @@
     --card-foreground: 0 0% 98%;
     --popover: 240 10% 5%;
     --popover-foreground: 0 0% 98%;
-    --primary: 24 95% 60%;             /* slightly brighter on dark */
-    --primary-foreground: 240 10% 3.9%;
+    --primary: 356 72% 55%;            /* Rheem Red brighter on dark */
+    --primary-foreground: 0 0% 100%;
     --secondary: 240 3.7% 15.9%;
     --secondary-foreground: 0 0% 98%;
     --muted: 240 3.7% 15.9%;
     --muted-foreground: 240 5% 64.9%;
-    --accent: 24 60% 18%;
-    --accent-foreground: 24 100% 80%;
-    --destructive: 0 70% 55%;
+    --accent: 356 50% 18%;
+    --accent-foreground: 356 90% 80%;
+    --destructive: 356 72% 55%;
     --destructive-foreground: 0 0% 98%;
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
-    --ring: 24 95% 60%;
+    --ring: 356 72% 55%;
 
     --surface-1: 9 9 11;
     --surface-2: 24 24 27;
@@ -158,17 +165,41 @@
 
   body {
     @apply bg-background text-foreground;
+    /* Inter (via next/font CSS var) → CJK system fallback. */
     font-family:
-      'SF Pro Text', -apple-system, BlinkMacSystemFont,
+      var(--font-sans), 'Inter',
+      -apple-system, BlinkMacSystemFont,
       'Segoe UI Variable Text', 'Segoe UI',
       'PingFang SC', 'Microsoft YaHei UI', 'Microsoft YaHei',
       'Source Han Sans CN', 'Hiragino Sans GB',
-      'Inter', system-ui, sans-serif;
+      system-ui, sans-serif;
     font-size: 15px;
     line-height: 1.5;
   }
 
-  /* ---- Type scale (Apple-style) ---- */
+  /* Display family (Inter Tight) — auto-applied to .rheem-display and Tailwind `font-display` */
+  .font-display,
+  .rheem-display,
+  h1.font-display, h2.font-display, h3.font-display {
+    font-family:
+      var(--font-display), 'Inter Tight', var(--font-sans), 'Inter',
+      -apple-system, BlinkMacSystemFont,
+      'PingFang SC', 'Microsoft YaHei UI',
+      system-ui, sans-serif;
+  }
+
+  /* ---- Type scale (Apple-style) — large sizes auto-bind Inter Tight (--font-display) ---- */
+  .text-display,
+  .text-title-1,
+  .text-title-2,
+  .text-title-3,
+  .text-headline {
+    font-family:
+      var(--font-display), 'Inter Tight', var(--font-sans), 'Inter',
+      -apple-system, BlinkMacSystemFont,
+      'PingFang SC', 'Microsoft YaHei UI',
+      system-ui, sans-serif;
+  }
   .text-display { font-size: 56px; line-height: 1.05; font-weight: 700; letter-spacing: -0.02em; }
   .text-title-1 { font-size: 36px; line-height: 1.1;  font-weight: 700; letter-spacing: -0.015em; }
   .text-title-2 { font-size: 28px; line-height: 1.2;  font-weight: 600; letter-spacing: -0.01em; }
@@ -278,6 +309,107 @@
   .persona-dot-assistant  { background: rgb(var(--persona-assistant)); }
   .persona-dot-deputy     { background: rgb(var(--persona-deputy)); }
   .persona-dot-partner    { background: rgb(var(--persona-partner)); }
+
+  /* =========================================================
+     Rheem signature components (red solid tile + pill CTA)
+     ========================================================= */
+
+  /* Solid red entry tile (Rheem RheemNet portal-style cards) */
+  .rheem-tile {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: rgb(var(--brand-500));
+    color: #fff;
+    border-radius: 12px;
+    padding: 20px 14px;
+    min-height: 116px;
+    text-align: center;
+    box-shadow: var(--shadow-sm);
+    transition:
+      background-color var(--duration-fast) var(--ease-standard),
+      transform var(--duration-instant) var(--ease-standard),
+      box-shadow var(--duration-fast) var(--ease-standard);
+  }
+  .rheem-tile:hover {
+    background: rgb(var(--brand-600));
+    box-shadow: var(--shadow-md);
+  }
+  .rheem-tile:active {
+    transform: scale(0.985);
+  }
+  /* Narrow column variant (homepage hero+launchpad split): let auto-rows-fr
+     distribute height so 3 rows match HeroCarousel height exactly. */
+  .launchpad-narrow .rheem-tile {
+    min-height: 0;
+    padding: 14px 12px;
+  }
+  .rheem-tile .rheem-tile-icon {
+    width: 28px;
+    height: 28px;
+    color: #fff;
+  }
+  .rheem-tile .rheem-tile-label {
+    font-size: 13px;
+    line-height: 1.25;
+    font-weight: 600;
+    letter-spacing: 0.005em;
+  }
+  .rheem-tile .rheem-tile-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: #fff;
+    color: rgb(var(--brand-700));
+    font-size: 10px;
+    font-weight: 700;
+    border-radius: 9999px;
+    padding: 2px 6px;
+    min-width: 18px;
+    text-align: center;
+  }
+
+  /* Pill CTA (matches Rheem login "sign in" button) */
+  .rheem-btn-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: rgb(var(--brand-500));
+    color: #fff;
+    border-radius: 9999px;
+    padding: 12px 28px;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.005em;
+    box-shadow: var(--shadow-sm);
+    transition:
+      background-color var(--duration-fast) var(--ease-standard),
+      transform var(--duration-instant) var(--ease-standard);
+  }
+  .rheem-btn-pill:hover { background: rgb(var(--brand-600)); }
+  .rheem-btn-pill:active { transform: scale(0.98); }
+
+  /* Heavy display headline (matches "hello." in Rheem login) */
+  .rheem-display {
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: rgb(var(--rheem-ink-black));
+  }
+  .rheem-display-accent {
+    color: rgb(var(--brand-500));
+  }
+
+  /* Subtle grid texture (Rheem login background) — small graph paper feel */
+  .rheem-grid-bg {
+    background-image:
+      linear-gradient(to right, rgb(var(--rheem-hairline) / 0.6) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(var(--rheem-hairline) / 0.6) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
 }
 
 /* =============================================================
@@ -302,4 +434,40 @@
     to   { opacity: 1; transform: translateY(0); }
   }
   .animate-fade-in-up { animation: fade-in-up var(--duration-base) var(--ease-decelerate) both; }
+
+  /* AnimatedHero · slow orbit (full 360°) for SVG dual-engine */
+  @keyframes hero-orbit {
+    from { transform: rotate(0deg);   }
+    to   { transform: rotate(360deg); }
+  }
+  .animate-hero-orbit       { animation: hero-orbit 14s linear infinite; transform-origin: center; }
+  .animate-hero-orbit-rev   { animation: hero-orbit 18s linear infinite reverse; transform-origin: center; }
+
+  /* Pulse-ring · for live status dots (expand + fade) */
+  @keyframes hero-pulse-ring {
+    0%   { transform: scale(1);   opacity: 0.7; }
+    100% { transform: scale(2.4); opacity: 0;   }
+  }
+  .animate-hero-pulse-ring { animation: hero-pulse-ring 1.8s cubic-bezier(0, 0, 0.2, 1) infinite; }
+
+  /* Ticker · cross-fade + slide for rotating broadcast lines */
+  @keyframes hero-ticker-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0);  }
+  }
+  .animate-hero-ticker-in { animation: hero-ticker-in 400ms var(--ease-decelerate) both; }
+
+  /* Marquee · continuous horizontal scroll for ticker-strip variant */
+  @keyframes hero-marquee {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+  }
+  .animate-hero-marquee { animation: hero-marquee 40s linear infinite; }
+
+  /* Shimmer · subtle radial light sweep behind the slogan */
+  @keyframes hero-shimmer {
+    0%, 100% { opacity: 0.35; transform: translateX(-30%); }
+    50%      { opacity: 0.6;  transform: translateX(30%);  }
+  }
+  .animate-hero-shimmer { animation: hero-shimmer 8s ease-in-out infinite; }
 }

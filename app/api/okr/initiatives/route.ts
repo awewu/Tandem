@@ -20,6 +20,8 @@ export async function GET(req: NextRequest) {
     const ownerId = searchParams.get('ownerId');
     const store = getStore();
     let all = await store.initiatives.list();
+    // Tenant isolation: scope to caller's tenant.
+    all = all.filter((i) => (i.tenantId ?? 'default') === auth.tenantId);
     if (keyResultId) all = all.filter((i) => i.keyResultId === keyResultId);
     if (ownerId) all = all.filter((i) => i.ownerId === ownerId);
     return NextResponse.json({ initiatives: all });
@@ -58,6 +60,7 @@ export async function POST(req: NextRequest) {
       decisionCardIds: Array.isArray(body.decisionCardIds) ? body.decisionCardIds : [],
       status: body.status ?? 'planned',
       dueDate: body.dueDate ?? undefined,
+      tenantId: body.tenantId ?? auth.tenantId,
     });
     return NextResponse.json({ initiative });
   } catch (err) {

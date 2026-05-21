@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { DecisionCard } from '@/lib/types';
+import { useDynamicStyle } from '@/lib/hooks/use-dynamic-style';
 
 /**
  * Decision Card Heat Map · 决议热力图
@@ -89,11 +90,11 @@ export function HeatMap({ cards }: { cards: DecisionCard[] }) {
 function HeatCellDot({ count, intensity, small }: { count: number; intensity: number; small?: boolean }) {
   const opacity = Math.max(0.1, intensity);
   const size = small ? 'w-3 h-3' : 'w-6 h-6';
+  const ref = useDynamicStyle<HTMLDivElement>({ opacity: String(opacity) });
   return (
     <div
+      ref={ref}
       className={`${size} rounded mx-auto bg-emerald-500`}
-      // dynamic opacity per cell — inline style is required (not knowable at build time)
-      style={{ opacity }}
       title={`${count} 个决议`}
     />
   );

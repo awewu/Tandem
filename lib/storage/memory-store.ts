@@ -244,6 +244,14 @@ export function createInMemoryStore(): TandemStore {
     ttis: new InMemoryRepository(),
     initiatives: new InMemoryRepository(),
     checkIns: new InMemoryRepository(),
+
+    // KPI 体系 (CHARTER-KPI-TTI §2)
+    kpiCycles: new InMemoryRepository(),
+    kpiSubjects: new InMemoryRepository(),
+    kpis: new InMemoryRepository(),
+    kpiCheckIns: new InMemoryRepository(),
+    kpiSnapshots: new InMemoryRepository(),
+    kpiManualEntries: new InMemoryRepository(),
     imChannels: new InMemoryRepository(),
     imMessages: new InMemoryRepository(),
     imMemberships: new InMemoryRepository(),

@@ -35,6 +35,8 @@ export interface StartConvergenceInput {
   title: string;
   description: string;
   ownerId: string;
+  /** 多租户隔离: 必传, 默认 'default' */
+  tenantId?: string;
   /** Q2 KR 软绑定: 主 KR (默认路径) */
   primaryKrId?: string;
   /** Q2 escape hatch: 未选 KR 时必填理由 (≥ 10 字符) */
@@ -78,6 +80,7 @@ export class ConvergenceOrchestrator {
       actionItems: [],
       createdBy: input.ownerId,
       createdAt: new Date(now).toISOString(),
+      tenantId: input.tenantId ?? 'default',
       watermark: { isProxy: false },
     };
     await store.decisionCards.create(card);

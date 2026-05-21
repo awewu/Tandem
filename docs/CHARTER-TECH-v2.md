@@ -49,7 +49,7 @@ _g.__tandem_store__ = createDrizzleStore(); // HMR 残留 → 500
 
 **正确模式（三选一）：**
 
-#### A. RSC + React Cache（V1 推荐）
+### A. RSC + React Cache（V1 推荐）
 
 ```typescript
 import { unstable_cache } from 'next/cache';
@@ -61,7 +61,7 @@ export const getStore = unstable_cache(
 );
 ```
 
-#### B. 模块级单例 + 环境检测
+### B. 模块级单例 + 环境检测
 
 ```typescript
 // lib/infra/drizzle-client.ts
@@ -71,7 +71,7 @@ if (process.env.NODE_ENV !== 'production') _g.__pg__ = client;
 export const db = drizzle(client, { schema });
 ```
 
-#### C. 请求级 DI（V2 推荐）
+### C. 请求级 DI（V2 推荐）
 
 ```typescript
 // 每个请求创建新 context，依赖注入 store
@@ -91,7 +91,7 @@ interface Repository<T> { list(filter?: Partial<T>): Promise<T[]>; }
 // DecisionCard 有 convergence 状态机，Memory 有签批流程，共用同一接口 = 灾难
 ```
 
-#### 正确模式：按业务语义拆分接口
+### 正确模式：按业务语义拆分接口
 
 ```typescript
 // lib/domain/repositories/decision-card-repo.ts
@@ -231,13 +231,13 @@ async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T> {
 
 ## §T6 · 数据持久化策略
 
-#### 主存储：PostgreSQL + Drizzle ORM
+### 主存储：PostgreSQL + Drizzle ORM
 
 - 所有业务数据（User、DecisionCard、Memory、OKR、Document、Calendar...）
 - 必须运行 `npm run db:migrate` 在生产环境
 - dev 环境用 `npm run db:push`，但必须保留 `drizzle/migrations/` 文件
 
-#### 缓存层：Redis（必选）
+### 缓存层：Redis（必选）
 
 ```text
 - Session / Token 黑名单
@@ -246,7 +246,7 @@ async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T> {
 - Yjs document update awareness（多节点广播）
 ```
 
-#### 对象存储：MinIO / S3
+### 对象存储：MinIO / S3
 
 ```text
 - DriveFile 实际文件内容（bucket: tandem-drive）
@@ -254,14 +254,14 @@ async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T> {
 - 预签名 URL 15 分钟 TTL
 ```
 
-#### 搜索：Elasticsearch / OpenSearch（V2）
+### 搜索：Elasticsearch / OpenSearch（V2）
 
 ```text
 - 全文索引 Document、Memory、DecisionCard
 - 增量同步 via Drizzle hooks + queue
 ```
 
-#### 消息队列：Redis Streams / RabbitMQ（V2）
+### 消息队列：Redis Streams / RabbitMQ（V2）
 
 ```text
 - 会议邀请发送通知（异步）
@@ -273,7 +273,7 @@ async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T> {
 
 ## §T7 · 实时协作架构
 
-#### 文档协同编辑：Yjs + WebSocket
+### 文档协同编辑：Yjs + WebSocket
 
 ```text
 Client A ──Yjs update──→ WebSocket Server ──broadcast──→ Client B
@@ -284,7 +284,7 @@ Client A ──Yjs update──→ WebSocket Server ──broadcast──→ Cli
 - 每 5 秒 snapshot，diff 持久化到 `Document.content` JSON
 - 冲突解决：Yjs CRDT 自动合并
 
-#### 通知推送：SSE（Server-Sent Events）
+### 通知推送：SSE（Server-Sent Events）
 
 ```text
 Client ──EventSource──→ /api/notifications/stream
@@ -295,7 +295,7 @@ Client ──EventSource──→ /api/notifications/stream
 - 替代轮询，延迟 < 1s
 - 断线自动重连 + Event ID 去重
 
-#### 日历同步：iCal/WebDAV + webhook
+### 日历同步：iCal/WebDAV + webhook
 
 ```text
 - 导出: /api/calendar/ical?token=xxx

@@ -6,6 +6,8 @@
  * 等保二级 + GDPR / PIPL 合规所需.
  */
 
+import { createHash } from 'crypto';
+
 export type AuditAction =
   // 议事室
   | 'convergence.start'
@@ -46,7 +48,20 @@ export type AuditAction =
   | 'skill.blocked_governance'
   | 'agent.spawned'
   | 'agent.completed'
-  | 'budget.exceeded';
+  | 'budget.exceeded'
+  // KPI 体系 (CHARTER-KPI-TTI §2)
+  | 'kpi.cycle_created'
+  | 'kpi.cycle_activated'        // targetValue 锁死时刻
+  | 'kpi.cycle_closed'           // 年终关闭
+  | 'kpi.subject_changed'        // 科目主数据 CRUD
+  | 'kpi.target_set'             // 通道 A: target/weight 设置
+  | 'kpi.target_locked'          // 周期 active 后 target 不可改
+  | 'kpi.actuals_imported_erp'   // 通道 B: ERP 自动采集
+  | 'kpi.actuals_manual_entry'   // 通道 C: 财务/HR/内勤人工补录
+  | 'kpi.scope_locked'           // bonus/monitor frozen
+  | 'kpi.excel_imported'         // Excel 批量导入
+  | 'kpi.excel_exported'         // Excel 导出
+  | 'kpi.year_end_close';        // 绩效奖金年终关闭
 
 export interface AuditEntry {
   id: string;
@@ -66,14 +81,15 @@ export interface AuditEntry {
   prevHash?: string;
 }
 
-/** 简单 hash 函数 (生产期升级为 sha256) */
+/**
+ * SHA-256 链式哈希. 任何条目被改动 → 该条 hash 与其后所有 prevHash 链不上.
+ * 与等保二级 / GDPR / PIPL 的"不可篡改证据"要求对齐.
+ */
 function hashEntry(entry: Omit<AuditEntry, 'hash'>): string {
+  // Use stable JSON serialization (key order is deterministic for plain objects
+  // built from a fixed shape, which is our case in append()).
   const text = JSON.stringify(entry);
-  let h = 0;
-  for (let i = 0; i < text.length; i++) {
-    h = (h * 31 + text.charCodeAt(i)) | 0;
-  }
-  return Math.abs(h).toString(16).padStart(8, '0');
+  return createHash('sha256').update(text).digest('hex');
 }
 
 class AuditLog {

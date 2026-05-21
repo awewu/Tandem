@@ -572,4 +572,194 @@ export async function seedDevData(): Promise<void> {
     // eslint-disable-next-line no-console
     console.warn('[seed] Feishu catch-up (new arch) failed:', (err as Error).message);
   }
+
+  await seedLaunchpadIfEmpty();
+  await seedExtraModulesIfEmpty();
+}
+
+/**
+ * Idempotent seed for modules that previously had no fixtures
+ * (bitable / 1on1 / 360 / okr-initiatives). All stamped with tenantId='default'
+ * so cross-tenant isolation smoke tests can exercise them.
+ */
+export async function seedExtraModulesIfEmpty(): Promise<void> {
+  const s = getStore();
+  const now = new Date().toISOString();
+
+  try {
+    // Bitable — single demo table (idempotent per-owner)
+    const existing = await s.bitableTables.list();
+    if (!existing.some((t) => t.ownerId === 'demo-user')) {
+      await s.bitableTables.create({
+        name: 'Q2 任务跟踪',
+        description: 'Demo 多维表',
+        ownerId: 'demo-user',
+        tenantId: 'default',
+        columns: [
+          { id: 'col_name',     name: '任务',   type: 'text',   width: 200, required: true },
+          { id: 'col_status',   name: '状态',   type: 'select', options: [
+            { value: '待办', color: 'slate' },
+            { value: '进行中', color: 'amber' },
+            { value: '已完成', color: 'emerald' },
+          ] },
+          { id: 'col_due',      name: '截止',   type: 'date' },
+          { id: 'col_assignee', name: '负责人', type: 'user' },
+        ],
+        rows: [
+          { id: 'row_1', data: { col_name: '完成 V1 PoC', col_status: '进行中', col_assignee: 'demo-user' }, createdAt: now, updatedAt: now },
+          { id: 'row_2', data: { col_name: 'Q2 OKR Review', col_status: '待办', col_assignee: 'colleague-wang' }, createdAt: now, updatedAt: now },
+        ],
+        createdAt: now,
+        updatedAt: now,
+      } as never);
+    }
+  } catch (err) {
+    console.warn('[seed] bitable failed:', (err as Error).message);
+  }
+
+  try {
+    // 1on1 — single demo meeting (tenantId required by type)
+    const existing = await s.oneOnOneMeetings.list({ tenantId: 'default' });
+    if (existing.length === 0) {
+      await s.oneOnOneMeetings.create({
+        tenantId: 'default',
+        managerId: 'colleague-wang',
+        reportId: 'demo-user',
+        cadence: 'biweekly',
+        scheduledAt: new Date(Date.now() + 3 * 86400000).toISOString(),
+        startedAt: null,
+        completedAt: null,
+        status: 'scheduled',
+        agendaManager: '复盘上周关键决策',
+        agendaReport: '需要支持解决跨部门协同',
+        noteProgress: null,
+        noteBlockers: null,
+        noteNextSteps: null,
+        linkedKrIds: [],
+        moodScore: null,
+        privateManagerNote: null,
+        createdAt: now,
+        updatedAt: now,
+      } as never);
+    }
+  } catch (err) {
+    console.warn('[seed] 1on1 failed:', (err as Error).message);
+  }
+
+  try {
+    // 360 review cycle
+    const existing = await s.review360Cycles.list();
+    if (existing.length === 0) {
+      await s.review360Cycles.create({
+        tenantId: 'default',
+        name: '2026 Q2 360 评估',
+        startDate: new Date('2026-06-01').toISOString(),
+        endDate: new Date('2026-06-30').toISOString(),
+        status: 'draft',
+        questions: [
+          { id: 'q1', text: '此人在跨部门协作中的表现', type: 'mixed', anonymous: true, qualitative: true },
+          { id: 'q2', text: '此人的决策质量', type: 'mixed', anonymous: true, qualitative: true },
+        ],
+        anonymizePeers: true,
+        createdBy: 'demo-user',
+        createdAt: now,
+        updatedAt: now,
+      } as never);
+    }
+  } catch (err) {
+    console.warn('[seed] 360 failed:', (err as Error).message);
+  }
+
+  try {
+    // OKR Initiative — depends on at least one KR existing
+    const existing = await s.initiatives.list();
+    if (existing.length === 0) {
+      const krs = await s.keyResults.list();
+      if (krs.length > 0) {
+        await s.initiatives.create({
+          keyResultId: krs[0].id,
+          ownerId: 'demo-user',
+          title: '推广议事室使用培训',
+          status: 'in_progress',
+          dueDate: new Date(Date.now() + 14 * 86400000).toISOString(),
+          tenantId: 'default',
+        } as never);
+      }
+    }
+  } catch (err) {
+    console.warn('[seed] initiative failed:', (err as Error).message);
+  }
+}
+
+/**
+ * Idempotent Launchpad seed — runs even when KvStore is already populated,
+ * so existing dev DBs can pick up the new tables without a full reset.
+ */
+export async function seedLaunchpadIfEmpty(): Promise<void> {
+  try {
+    const { createAppContext } = await import('../repositories/app-context-factory');
+    const { LaunchpadService } = await import('../services/launchpad-service');
+    const ctx = createAppContext();
+    const lpSvc = new LaunchpadService(ctx);
+    const existing = await lpSvc.listAdmin({ tenantId: 'default' });
+    if (existing.length > 0) return;
+
+    const seedApps: Array<Parameters<typeof lpSvc.create>[0]> = [
+      {
+        category: 'business', name: '金蝶 ERP', description: '采购 · 财务 · 供应链',
+        url: 'https://www.kingdee.com', iconUrl: null, ssoMode: 'none', ssoConfig: null,
+        visibleTo: [], visibleToRoles: [], order: 0,
+        recommendKeywords: ['财务', '采购', '供应链', 'erp', 'finance'],
+        unreadAdapter: null, status: 'active', tenantId: 'default',
+      },
+      {
+        category: 'business', name: 'Salesforce CRM', description: '客户 · 销售 · 商机跟进',
+        url: 'https://login.salesforce.com', iconUrl: null, ssoMode: 'none', ssoConfig: null,
+        visibleTo: [], visibleToRoles: [], order: 1,
+        recommendKeywords: ['销售', '客户', '商机', 'sales', 'crm', '签单'],
+        unreadAdapter: null, status: 'active', tenantId: 'default',
+      },
+      {
+        category: 'business', name: 'Jira', description: '研发任务 · Sprint 看板',
+        url: 'https://www.atlassian.com/software/jira', iconUrl: null, ssoMode: 'none', ssoConfig: null,
+        visibleTo: [], visibleToRoles: [], order: 2,
+        recommendKeywords: ['研发', '工程', 'bug', 'sprint', '迭代'],
+        unreadAdapter: null, status: 'active', tenantId: 'default',
+      },
+      {
+        category: 'comm', name: '钉钉', description: '即时通讯 · 视频会议',
+        url: 'https://im.dingtalk.com', iconUrl: null, ssoMode: 'none', ssoConfig: null,
+        visibleTo: [], visibleToRoles: [], order: 0,
+        recommendKeywords: ['沟通', '消息', '会议'],
+        unreadAdapter: null, status: 'active', tenantId: 'default',
+      },
+      {
+        category: 'comm', name: '腾讯会议', description: '视频会议 · 屏幕共享',
+        url: 'https://meeting.tencent.com', iconUrl: null, ssoMode: 'none', ssoConfig: null,
+        visibleTo: [], visibleToRoles: [], order: 1,
+        recommendKeywords: ['会议', 'meeting', '视频'],
+        unreadAdapter: null, status: 'active', tenantId: 'default',
+      },
+      {
+        category: 'learning', name: '公司 Wiki', description: '知识库 · 文档中心',
+        url: 'https://www.notion.so', iconUrl: null, ssoMode: 'none', ssoConfig: null,
+        visibleTo: [], visibleToRoles: [], order: 0,
+        recommendKeywords: ['文档', '知识', '培训', 'wiki', '手册'],
+        unreadAdapter: null, status: 'active', tenantId: 'default',
+      },
+      {
+        category: 'learning', name: 'HR 系统', description: '考勤 · 请假 · 报销',
+        url: 'https://www.bamboohr.com', iconUrl: null, ssoMode: 'none', ssoConfig: null,
+        visibleTo: [], visibleToRoles: [], order: 1,
+        recommendKeywords: ['人事', 'hr', '请假', '考勤', '报销'],
+        unreadAdapter: null, status: 'active', tenantId: 'default',
+      },
+    ];
+    for (const app of seedApps) await lpSvc.create(app);
+    // eslint-disable-next-line no-console
+    console.info(`[seed] launchpad: ${seedApps.length} default apps seeded`);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('[seed] launchpad seed failed:', (err as Error).message);
+  }
 }

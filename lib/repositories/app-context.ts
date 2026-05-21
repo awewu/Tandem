@@ -7,10 +7,12 @@ import type { DocumentRepository } from './document-repo';
 import type { CalendarEventRepository } from './calendar-repo';
 import type { DriveFileRepository } from './drive-repo';
 import type { NotificationRepository } from './notification-repo';
+import type { LaunchpadRepository } from './launchpad-repo';
 
 export interface ApplicationContext {
   documentRepo: DocumentRepository;
   calendarRepo: CalendarEventRepository;
   driveRepo: DriveFileRepository;
   notificationRepo: NotificationRepository;
+  launchpadRepo: LaunchpadRepository;
 }

@@ -2,16 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useRightPane } from '@/components/right-pane';
+import { LATEST_NEWS } from '@/lib/intranet/featured';
 import {
   Sparkles,
   Target,
   Clock3,
   Brain,
   ArrowRight,
-  Megaphone,
-  FileLock,
-  PartyPopper,
-  Gift,
   LayoutGrid,
   Briefcase,
   MessagesSquare,
@@ -27,17 +26,18 @@ import {
   HardDrive,
   Search,
   Bell,
+  Megaphone,
 } from 'lucide-react';
 import { InsightsWidget } from '@/components/insights/insights-widget';
 import { PendingRetrosCard } from '@/components/dashboard/pending-retros-card';
 import { WorkbenchAgentView } from '@/components/dashboard/workbench-agent-view';
+import type { LaunchpadAppWithBadge, LaunchpadCategory as LpCategory } from '@/lib/types/launchpad';
 
 /**
- * Homepage — 4-section layout per UI-IA §2:
+ * Homepage — 3-section layout (企业内网 已迁出为左侧独立模块 /intranet):
  *   1. 我的工作台 (Workbench, real data from /api/dashboard/stats)
- *   2. 企业内网 (Intranet, M3 placeholder)
- *   3. 快速跳板 (Launchpad, M2 placeholder)
- *   4. IM 摘要 / 议事预告 (real recent decisions)
+ *   2. 快速跳板 (Launchpad)
+ *   3. IM 摘要 / 议事预告 (real recent decisions)
  *
  * Design: Apple/MS aesthetic — generous whitespace, soft shadows,
  * semantic motion, system font stack, glass surfaces.
@@ -68,14 +68,102 @@ interface DashboardStats {
 export default function HomePage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [now, setNow] = useState(new Date());
+  const [launchpadApps, setLaunchpadApps] = useState<LaunchpadAppWithBadge[]>([]);
+  const router = useRouter();
+  const { open: openRightPane, close: closeRightPane } = useRightPane();
+
+  function previewDecision(d: DashboardStats['recentDecisions'][number]) {
+    openRightPane({
+      title: d.title,
+      subtitle: `议事室 · ${d.state}`,
+      content: (
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <DecisionStateIcon state={d.state} />
+            <div>
+              <p className="text-callout font-semibold text-ink-primary">
+                状态 · {d.state}
+              </p>
+              <p className="text-footnote text-ink-tertiary">
+                创建于 {fmtDateTime(d.createdAt)}
+              </p>
+            </div>
+          </div>
+
+          <dl className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-surface-2/40 p-3 text-caption">
+            <div>
+              <dt className="text-ink-tertiary">用时</dt>
+              <dd className="mt-0.5 text-ink-primary font-medium">
+                {fmtDuration(d.elapsedSeconds)}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-ink-tertiary">选项</dt>
+              <dd className="mt-0.5 text-ink-primary font-medium">
+                {d.selected ?? '—'}
+              </dd>
+            </div>
+          </dl>
+
+          <div>
+            <p className="text-footnote text-ink-tertiary mb-1.5">议题</p>
+            <p className="text-body text-ink-primary leading-relaxed">
+              {d.title}
+            </p>
+          </div>
+
+          <p className="text-footnote text-ink-tertiary">
+            按 <kbd className="rounded border border-border bg-surface-2 px-1 py-0.5 font-mono text-[10px]">Esc</kbd> 关闭, 或点底部按钮查看完整议事记录.
+          </p>
+        </div>
+      ),
+      footer: (
+        <div className="flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={closeRightPane}
+            className="rounded-md px-3 py-1.5 text-caption text-ink-secondary hover:bg-surface-3 hover:text-ink-primary surface-interactive"
+          >
+            关闭
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              closeRightPane();
+              router.push(`/convergence/${d.id}`);
+            }}
+            className="inline-flex items-center gap-1.5 rounded-md bg-[rgb(var(--brand-500))] px-3 py-1.5 text-caption font-medium text-white hover:bg-[rgb(var(--brand-600))] surface-interactive"
+          >
+            查看完整记录 <ArrowRight className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      ),
+    });
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/launchpad')
+      .then((r) => (r.ok ? r.json() : { apps: [] }))
+      .then((d) => {
+        if (!cancelled) setLaunchpadApps(d.apps ?? []);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
         const res = await fetch('/api/dashboard/stats');
+        if (!res.ok) return; // 401/5xx — keep stats=null, UI shows "加载中..."
         const data = await res.json();
-        if (!cancelled) setStats(data);
+        // Shape guard: only accept full DashboardStats payloads.
+        if (!data || typeof data !== 'object' || !data.okr || !data.decisionCards) return;
+        if (!cancelled) setStats(data as DashboardStats);
       } catch {
         /* ignore */
       }
@@ -103,27 +191,18 @@ export default function HomePage() {
 
   return (
     <div className="h-full overflow-auto bg-gradient-to-b from-surface-1 to-surface-2/50">
-      <div className="page-container py-10 space-y-12">
-        {/* ──────────── Header ──────────── */}
-        <header className="animate-fade-in-up">
-          <p className="text-caption text-ink-tertiary">
-            {dateStr} · {weekday}
-          </p>
-          <h1 className="mt-1 text-title-1 text-ink-primary">
-            {greeting}
-          </h1>
-          <p className="mt-2 text-body text-ink-secondary">
-            Tandem 牛马搭子 · 17 分钟达成共识. 今天专注 1-2 件真正重要的事就好.
-          </p>
-        </header>
+      <div className="page-container py-8 space-y-10">
+        {/* ──────────── 顶部公告 tagline (单一入口指向 /intranet) ──────────── */}
+        <LatestAnnouncementTagline />
 
-        {/* ──────────── §1 我的工作台 ──────────── */}
-        <section className="space-y-4">
-          <SectionHeader
-            title="我的工作台"
-            subtitle="今日待办 · KR 进度 · 议事 · 日报"
-          />
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {/* ──────────── §1 我的工作台 (左 2/3) + 快速跳板 (右 1/3) 并排 ──────────── */}
+        <div className="grid gap-6 lg:grid-cols-3 lg:items-start">
+          <section className="space-y-4 lg:col-span-2">
+            <SectionHeader
+              title="我的工作台"
+              subtitle="今日待办 · KR 进度 · 议事 · 日报"
+            />
+          <div className="grid gap-4 md:grid-cols-2">
             <WorkbenchCard
               icon={Sparkles}
               tone="brand"
@@ -203,73 +282,19 @@ export default function HomePage() {
               通知
             </QuickAction>
           </div>
-        </section>
+          </section>
+
+          {/* 快速跳板 (右 1/3) */}
+          <LaunchpadSection apps={launchpadApps} maxTiles={9} narrow />
+        </div>
 
         {/* ──────────── AI 信号 (2026-05-10 跨模块联动) ──────────── */}
         <section className="space-y-3">
           <InsightsWidget />
         </section>
 
-        {/* ──────────── §2 企业内网 (M3 placeholder) ──────────── */}
-        <section className="space-y-4">
-          <SectionHeader
-            title="企业内网"
-            subtitle="公告 · 政策 · 大事记 · 福利"
-            badge="M3 上线"
-          />
-          <div className="grid gap-4 md:grid-cols-2">
-            <IntranetPlaceholder
-              icon={Megaphone}
-              title="公告"
-              desc="CEO/HR 发布 · AI 摘要 · 关联 OKR"
-              tone="brand"
-            />
-            <IntranetPlaceholder
-              icon={FileLock}
-              title="政策"
-              desc="员工手册 / AI 红线 · 强制已读 · 版本管理"
-              tone="warning"
-            />
-            <IntranetPlaceholder
-              icon={PartyPopper}
-              title="大事记"
-              desc="融资 · 客户里程碑 · 团队荣誉"
-              tone="success"
-            />
-            <IntranetPlaceholder
-              icon={Gift}
-              title="福利 / 活动"
-              desc="节日 · 团建 · 培训 · 体检"
-              tone="info"
-            />
-          </div>
-        </section>
-
-        {/* ──────────── §3 快速跳板 (M2 placeholder) ──────────── */}
-        <section className="space-y-4">
-          <SectionHeader
-            title="快速跳板"
-            subtitle="ERP / CRM / 通讯 / 学习 — 一键切到外部系统"
-            badge="M2 上线"
-          />
-          <div className="grid gap-4 md:grid-cols-3">
-            <LaunchpadCategory
-              icon={Briefcase}
-              title="业务系统"
-              examples={['CRM', 'ERP', '财务', '报销', 'Jira', 'GitLab']}
-            />
-            <LaunchpadCategory
-              icon={MessagesSquare}
-              title="通讯协同"
-              examples={['钉钉', '企微', '飞书', '腾讯会议']}
-            />
-            <LaunchpadCategory
-              icon={GraduationCap}
-              title="学习工具"
-              examples={['Wiki', 'OA', 'HR', '培训']}
-            />
-          </div>
-        </section>
+        {/* §2 企业内网 已移出首页 → 左侧导航独立模块 (/intranet) */}
+        {/* §3 快速跳板 已上移到 Hero 右侧 */}
 
         {/* ──────────── §4 议事 + IM 摘要 ──────────── */}
         <section className="space-y-4">
@@ -296,9 +321,11 @@ export default function HomePage() {
               <ul className="divide-y divide-border">
                 {stats.recentDecisions.slice(0, 5).map((d) => (
                   <li key={d.id}>
-                    <Link
-                      href={`/convergence/${d.id}`}
-                      className="flex items-center gap-4 px-5 py-3.5 hover:bg-surface-2 transition-colors duration-fast"
+                    <button
+                      type="button"
+                      onClick={() => previewDecision(d)}
+                      className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-surface-2 transition-colors duration-fast text-left surface-interactive"
+                      aria-label={`预览议事室决议: ${d.title}`}
                     >
                       <DecisionStateIcon state={d.state} />
                       <div className="flex-1 min-w-0">
@@ -311,7 +338,7 @@ export default function HomePage() {
                         </p>
                       </div>
                       <ChevronRight className="h-4 w-4 text-ink-tertiary" />
-                    </Link>
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -320,6 +347,8 @@ export default function HomePage() {
           {/* EVO-1 · 决议节奏护栏: 仅在用户有"已 COMMIT 但未复盘"的决议时显示, 无数据自动隐藏 */}
           <PendingRetrosCard />
         </section>
+
+        {/* §5 公司动态 strip 已退役 — 入口由顶部 LatestAnnouncementTagline 承担 */}
 
         {/* Footer hint */}
         <footer className="pt-6 pb-4 text-center text-footnote text-ink-tertiary">
@@ -434,67 +463,142 @@ function QuickAction({
   );
 }
 
-function IntranetPlaceholder({
-  icon: Icon,
-  title,
-  desc,
-  tone,
+// ──────────── Launchpad section (real data) ────────────
+
+const LP_CATEGORY_META: Record<LpCategory, { label: string; icon: React.ComponentType<{ className?: string }> }> = {
+  business: { label: '业务系统', icon: Briefcase },
+  comm: { label: '通讯协同', icon: MessagesSquare },
+  learning: { label: '学习工具', icon: GraduationCap },
+  custom: { label: '自定义', icon: LayoutGrid },
+};
+
+function LaunchpadSection({
+  apps,
+  maxTiles,
+  narrow = false,
 }: {
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  desc: string;
-  tone: 'brand' | 'success' | 'warning' | 'info';
+  apps: LaunchpadAppWithBadge[];
+  maxTiles?: number;
+  /** When true, render in 3-col compact grid sized for half-width column next to Hero. */
+  narrow?: boolean;
 }) {
-  const toneMap = {
-    brand:   'bg-brand-50 text-brand-600',
-    success: 'bg-success/10 text-success',
-    warning: 'bg-warning/10 text-warning',
-    info:    'bg-info/10 text-info',
-  };
-  return (
-    <div className="card-elevated p-5 opacity-70">
-      <div className="flex items-start gap-3">
-        <span className={`rounded-md p-2 ${toneMap[tone]}`}>
-          <Icon className="h-4 w-4" />
-        </span>
-        <div className="flex-1">
-          <h3 className="text-headline text-ink-primary">{title}</h3>
-          <p className="mt-1 text-caption text-ink-tertiary">{desc}</p>
+  const recommended = apps.filter((a) => a.recommendScore && a.recommendScore > 0).slice(0, 3);
+
+  if (apps.length === 0) {
+    return (
+      <section className="space-y-4">
+        <SectionHeader title="快速跳板" subtitle="ERP / CRM / 通讯 / 学习 — 一键切到外部系统" />
+        <div className="card-elevated p-12 text-center">
+          <LayoutGrid className="h-10 w-10 mx-auto text-ink-tertiary mb-3" />
+          <p className="text-body text-ink-secondary">尚未配置跳板卡片</p>
+          <Link
+            href="/admin/launchpad"
+            className="mt-3 inline-flex items-center gap-1.5 text-caption text-brand-600 hover:text-brand-700 font-medium"
+          >
+            去配置 <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
         </div>
+      </section>
+    );
+  }
+
+  // 把推荐的 app 排在最前；其余按 category 顺序铺开 (统一红色卡片墙).
+  const recommendedIds = new Set(recommended.map((a) => a.id));
+  const rest = apps.filter((a) => !recommendedIds.has(a.id));
+  const orderedRest = (['business', 'comm', 'learning', 'custom'] as LpCategory[]).flatMap((cat) =>
+    rest.filter((a) => a.category === cat),
+  );
+  const allTiles = [...recommended, ...orderedRest];
+  const tiles = maxTiles ? allTiles.slice(0, maxTiles) : allTiles;
+  const more = maxTiles ? Math.max(0, allTiles.length - maxTiles) : 0;
+
+  return (
+    <section className={narrow ? 'flex flex-col gap-4 h-full' : 'space-y-4'}>
+      <SectionHeader
+        title="快速跳板"
+        subtitle={
+          narrow
+            ? `${tiles.length}/${apps.length} 个常用${recommended.length > 0 ? ` · ${recommended.length} 个 AI 推荐` : ''}`
+            : `${apps.length} 个系统${recommended.length > 0 ? ` · ${recommended.length} 个 AI 推荐` : ''}`
+        }
+        actionHref="/admin/launchpad"
+        actionLabel={more > 0 ? `+${more} 个` : '管理'}
+      />
+      <div
+        className={
+          narrow
+            ? 'grid gap-2.5 grid-cols-3 flex-1 auto-rows-fr launchpad-narrow'
+            : 'grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6'
+        }
+      >
+        {tiles.map((a) => (
+          <LaunchpadTile key={a.id} app={a} recommended={recommendedIds.has(a.id)} />
+        ))}
       </div>
-    </div>
+    </section>
   );
 }
 
-function LaunchpadCategory({
-  icon: Icon,
-  title,
-  examples,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  examples: string[];
-}) {
+function LaunchpadTile({ app, recommended }: { app: LaunchpadAppWithBadge; recommended?: boolean }) {
+  async function handleClick(e: React.MouseEvent) {
+    e.preventDefault();
+    try {
+      const r = await fetch(`/api/launchpad/${app.id}/click`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source: recommended ? 'recommendation' : 'home' }),
+      });
+      if (r.ok) {
+        const d = await r.json();
+        window.open(d.url ?? app.url, '_blank', 'noopener');
+        return;
+      }
+    } catch {
+      /* fall through */
+    }
+    window.open(app.url, '_blank', 'noopener');
+  }
+
+  const CategoryIcon = LP_CATEGORY_META[app.category]?.icon ?? LayoutGrid;
+  const unread = app.unreadCount ?? 0;
+
   return (
-    <div className="card-elevated p-5 opacity-70">
-      <div className="flex items-center gap-2">
-        <Icon className="h-4 w-4 text-brand-600" />
-        <h3 className="text-headline text-ink-primary">{title}</h3>
-      </div>
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        {examples.map((e) => (
-          <span
-            key={e}
-            className="rounded bg-surface-3 px-2 py-0.5 text-footnote text-ink-secondary"
-          >
-            {e}
-          </span>
-        ))}
-        <span className="rounded border border-dashed border-border px-2 py-0.5 text-footnote text-ink-tertiary inline-flex items-center gap-1">
-          <Plus className="h-3 w-3" /> 添加
+    <a
+      href={app.url}
+      onClick={handleClick}
+      className="rheem-tile group"
+      title={app.description || app.name}
+    >
+      {/* Recommended sparkle indicator (top-left corner) */}
+      {recommended && (
+        <span
+          className="absolute top-2 left-2 inline-flex items-center gap-0.5 text-[9px] font-bold text-white/90"
+          title={app.recommendReason || 'AI 推荐'}
+        >
+          <Sparkles className="h-3 w-3" />
+          AI
         </span>
-      </div>
-    </div>
+      )}
+
+      {/* Unread badge (top-right) */}
+      {unread > 0 && (
+        <span className="rheem-tile-badge">{unread > 99 ? '99+' : unread}</span>
+      )}
+
+      {/* Icon: app's iconUrl if present, else category fallback */}
+      {app.iconUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={app.iconUrl}
+          alt={app.name}
+          className="w-7 h-7 object-contain brightness-0 invert opacity-95"
+        />
+      ) : (
+        <CategoryIcon className="rheem-tile-icon" />
+      )}
+
+      <span className="rheem-tile-label line-clamp-2">{app.name}</span>
+    </a>
   );
 }
 
@@ -541,4 +645,33 @@ function fmtDuration(sec: number): string {
   const m = Math.floor(sec / 60);
   const s = sec % 60;
   return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+// ──────────── LatestAnnouncementTagline ────────────
+// 首页顶部 1 行公告 tagline · 单一入口指向 /intranet (选项 B 「真正分工」).
+// 不复制 carousel; 依靠 lib/intranet/featured.LATEST_NEWS[0] 作为头条.
+
+function LatestAnnouncementTagline() {
+  const top = LATEST_NEWS[0];
+  if (!top) return null;
+  return (
+    <Link
+      href={`/intranet/posts/${top.id}`}
+      className="group flex items-center gap-3 rounded-lg border border-border bg-surface-1 px-4 py-2.5 surface-interactive hover:border-brand-200 hover:bg-brand-50/30 transition-colors"
+    >
+      <span className="inline-flex items-center gap-1 rounded-full bg-[rgb(var(--brand-500))] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white shrink-0">
+        <Megaphone className="h-3 w-3" />
+        公告
+      </span>
+      <span className="text-caption text-ink-primary truncate flex-1">
+        {top.title}
+      </span>
+      <span className="text-footnote text-ink-tertiary shrink-0 hidden sm:inline">
+        {top.publishedAt} · {top.author}
+      </span>
+      <span className="inline-flex items-center gap-1 text-caption text-brand-600 group-hover:text-brand-700 font-medium shrink-0">
+        进公司门户 <ArrowRight className="h-3.5 w-3.5" />
+      </span>
+    </Link>
+  );
 }

@@ -102,6 +102,8 @@ export interface DecisionCard {
   /** 元数据 */
   createdBy: string;
   createdAt: string;
+  /** 多租户隔离: 议事室所属租户 (默认 'default') */
+  tenantId?: string;
   watermark: DecisionCardWatermark;
 
   /** 24h 否决窗口 (员工对 AI 提交决议的撤回权) */

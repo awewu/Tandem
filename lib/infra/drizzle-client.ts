@@ -12,10 +12,32 @@ declare global {
   var __pg__: ReturnType<typeof postgres> | undefined;
 }
 
+/**
+ * Sanitize Prisma-style ?schema=... query parameter.
+ *
+ * postgres-js forwards every URL query param as a `SET <name> = <value>` to
+ * Postgres on connect.  Prisma uses `?schema=public` to scope DDL, but
+ * Postgres has no `schema` GUC — the equivalent setting is `search_path`.
+ * Without this rewrite the very first query crashes with FATAL 42704
+ * "未识别的配置参数 schema".
+ */
+function sanitizeDatabaseUrl(raw: string): string {
+  try {
+    const u = new URL(raw);
+    // Drop Prisma's `?schema=...`. Postgres has no `schema` GUC and forwarding
+    // it as a connection-startup param crashes with FATAL 42704.  The default
+    // search_path already includes `public`, which covers our setup.
+    if (u.searchParams.has('schema')) u.searchParams.delete('schema');
+    return u.toString();
+  } catch {
+    return raw;
+  }
+}
+
 function makeClient() {
-  const url = process.env.DATABASE_URL;
-  if (!url) throw new Error('DATABASE_URL not set');
-  return postgres(url, { max: 10, prepare: false });
+  const raw = process.env.DATABASE_URL;
+  if (!raw) throw new Error('DATABASE_URL not set');
+  return postgres(sanitizeDatabaseUrl(raw), { max: 10, prepare: false });
 }
 
 const client = global.__pg__ ?? makeClient();

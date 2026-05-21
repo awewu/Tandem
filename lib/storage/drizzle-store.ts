@@ -400,6 +400,14 @@ export function createDrizzleStore(): TandemStore {
     ttis: new DrizzleKvRepository('ttis'),
     initiatives: new DrizzleKvRepository('initiatives'),
     checkIns: new DrizzleKvRepository('check_ins'),
+
+    // KPI 体系 (CHARTER-KPI-TTI §2)
+    kpiCycles: new DrizzleKvRepository('kpi_cycles'),
+    kpiSubjects: new DrizzleKvRepository('kpi_subjects'),
+    kpis: new DrizzleKvRepository('kpis'),
+    kpiCheckIns: new DrizzleKvRepository('kpi_check_ins'),
+    kpiSnapshots: new DrizzleKvRepository('kpi_snapshots'),
+    kpiManualEntries: new DrizzleKvRepository('kpi_manual_entries'),
     imChannels: new DrizzleKvRepository('im_channels'),
     imMessages: new DrizzleKvRepository('im_messages'),
     imMemberships: new DrizzleKvRepository('im_memberships'),

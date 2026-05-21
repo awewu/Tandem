@@ -1,0 +1,9 @@
+{
+  "extends": ["development"],
+  "hints": {
+    "no-inline-styles": "off",
+    "autocomplete": "off",
+    "axe/forms": "off",
+    "axe/aria": "off"
+  }
+}

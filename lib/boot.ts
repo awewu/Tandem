@@ -10,7 +10,7 @@ import { createInMemoryStore } from './storage/memory-store';
 import { createDrizzleStore } from './storage/drizzle-store';
 import { TandemRouter, createDefaultRouter, createLocalDevRouter } from './taf';
 import { ConvergenceOrchestrator } from './convergence/orchestrator';
-import { seedDevData } from './fixtures/seed';
+import { seedDevData, seedLaunchpadIfEmpty, seedExtraModulesIfEmpty } from './fixtures/seed';
 import { registerBuiltinSkills } from './taf/skills';
 import { registerBuiltinTriggers } from './workflows/builtin-triggers';
 import { initObservability } from './infra/observability';
@@ -98,14 +98,30 @@ function bootSync(): void {
 
   // Seed dev data — 仅在非 production 下跑.
   // Prisma 模式下也跑 seed, 让 e2e / demo 有数据.
-  if (process.env.NODE_ENV !== 'production') {
-    _g.__tandem_seed_promise__ = seedDevData().catch((err) => {
-      // eslint-disable-next-line no-console
-      console.warn('[boot] seed failed:', err);
-    });
-  } else {
-    _g.__tandem_seed_promise__ = Promise.resolve();
-  }
+  const baseSeed =
+    process.env.NODE_ENV !== 'production'
+      ? seedDevData().catch((err) => {
+          // eslint-disable-next-line no-console
+          console.warn('[boot] seed failed:', err);
+        })
+      : Promise.resolve();
+
+  // Chain idempotent module seeds — run regardless of KvStore guard
+  // so existing dev DBs pick up new tables added after first seed.
+  // Important: included in __tandem_seed_promise__ so `await boot()` waits.
+  _g.__tandem_seed_promise__ = baseSeed
+    .then(() =>
+      seedLaunchpadIfEmpty().catch((err) => {
+        // eslint-disable-next-line no-console
+        console.warn('[boot] launchpad seed failed:', err);
+      })
+    )
+    .then(() =>
+      seedExtraModulesIfEmpty().catch((err) => {
+        // eslint-disable-next-line no-console
+        console.warn('[boot] extra modules seed failed:', err);
+      }),
+  );
 
   // 议事室 17min 硬上限闭环: 每 30 秒 sweep 活跃议事室, 超时自动 ESCALATE
   // (生产环境用 cron / job queue, V1 用 setInterval 简化)

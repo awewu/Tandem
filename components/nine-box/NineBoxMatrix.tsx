@@ -103,14 +103,14 @@ export function NineBoxMatrix({ people }: { people: PersonInBox[] }) {
       <CardHeader>
         <CardTitle>9 宫格人才矩阵</CardTitle>
         <p className="mt-1 text-sm text-muted-foreground">
-          KPI (横轴) × TTI (纵轴) · 共 {people.length} 人
+          KPI 完成率 (纵轴, 年度底线) × TTI 完成率 (横轴, 战略成长) · 共 {people.length} 人
         </p>
       </CardHeader>
       <CardContent>
         <div className="relative">
-          {/* Y axis label */}
+          {/* Y axis label · 纵轴 = KPI (CHARTER-KPI-TTI §4) */}
           <div className="absolute -left-4 top-1/2 -translate-y-1/2 -rotate-90 text-xs text-muted-foreground whitespace-nowrap">
-            ← TTI 提升度 →
+            ← KPI 完成率 →
           </div>
 
           {/* 3x3 Grid */}
@@ -141,9 +141,9 @@ export function NineBoxMatrix({ people }: { people: PersonInBox[] }) {
             })}
           </div>
 
-          {/* X axis label */}
+          {/* X axis label · 横轴 = TTI (CHARTER-KPI-TTI §4) */}
           <div className="mt-2 text-center text-xs text-muted-foreground">
-            ← KPI 完成度 →
+            ← TTI 完成率 →
           </div>
         </div>
       </CardContent>

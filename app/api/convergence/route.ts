@@ -46,6 +46,7 @@ export async function POST(req: NextRequest) {
       title,
       description: description ?? '',
       ownerId: auth.userId,
+      tenantId: auth.tenantId,
       primaryKrId,
       noKrReason,
       relatedKr,
@@ -78,7 +79,9 @@ export async function GET(req: NextRequest) {
   try {
     const store = getStore();
     const cards = await store.decisionCards.list();
-    const sorted = cards
+    // Tenant isolation: only return cards belonging to caller's tenant.
+    const scoped = cards.filter((c) => (c.tenantId ?? 'default') === auth.tenantId);
+    const sorted = scoped
       .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
       .slice(0, 50);
     return NextResponse.json({ cards: sorted });

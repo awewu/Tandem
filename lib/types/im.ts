@@ -36,6 +36,8 @@ export type ImChannelVisibility = 'public' | 'private';
 
 export interface ImChannel {
   id: string;
+  /** 多租户隔离 (默认 'default') */
+  tenantId?: string;
   type: ImChannelType;
   /** 频道名 (group/announcement); dm 留空, 客户端按对方姓名渲染 */
   name: string;

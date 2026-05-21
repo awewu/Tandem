@@ -28,7 +28,13 @@ function base64UrlToString(s: string): string {
 
 function getSecret(): string {
   const s = process.env.NEXTAUTH_SECRET || process.env.SESSION_SECRET;
-  if (!s) return 'dev-only-secret-do-not-use-in-prod';
+  if (!s || s === 'change-me-in-prod-use-openssl-rand-base64-32') {
+    if (process.env.NODE_ENV === 'production') {
+      // 与 session.ts 行为对齐: 生产环境必须显式配置, 不允许静默回落到已知默认值
+      throw new Error('SESSION_SECRET / NEXTAUTH_SECRET 必须在生产环境配置');
+    }
+    return 'dev-only-secret-do-not-use-in-prod';
+  }
   return s;
 }
 

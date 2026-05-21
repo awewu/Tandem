@@ -18,7 +18,7 @@ export interface CreateNotificationCommand {
 export class NotificationService {
   constructor(private ctx: ApplicationContext) {}
 
-  async list(userId: string, opts?: { unreadOnly?: boolean }): Promise<Notification[]> {
+  async list(userId: string, opts?: { unreadOnly?: boolean; tenantId?: string }): Promise<Notification[]> {
     return this.ctx.notificationRepo.findByUser(userId, opts);
   }
 

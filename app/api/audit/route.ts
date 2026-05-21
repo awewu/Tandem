@@ -30,7 +30,18 @@ export async function GET(req: NextRequest) {
   if (targetId) filter.targetId = targetId;
 
   const limit = Number(url.searchParams.get('limit') ?? '100');
-  const entries = (await log.list(filter)).slice(-limit);
+  const allEntries = await log.list(filter);
+
+  // Tenant isolation: an entry belongs to a tenant when metadata.tenantId says so.
+  // Legacy/unstamped entries default to 'default' (the bootstrap tenant) so the
+  // historic single-tenant deployments stay visible to their owners.
+  const entries = allEntries
+    .filter((e) => {
+      const t = (e.metadata?.tenantId as string | undefined) ?? 'default';
+      return t === auth.tenantId;
+    })
+    .slice(-limit);
+
   const integrity = await log.verify();
 
   return NextResponse.json({

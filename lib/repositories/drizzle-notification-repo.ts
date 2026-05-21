@@ -36,10 +36,11 @@ export class DrizzleNotificationRepository implements NotificationRepository {
 
   async findByUser(
     userId: string,
-    opts?: { unreadOnly?: boolean; limit?: number },
+    opts?: { unreadOnly?: boolean; limit?: number; tenantId?: string },
   ): Promise<Notification[]> {
     const conds = [eq(t.userId, userId)];
     if (opts?.unreadOnly) conds.push(isNull(t.readAt));
+    if (opts?.tenantId) conds.push(eq(t.tenantId, opts.tenantId));
     const q = db
       .select()
       .from(t)

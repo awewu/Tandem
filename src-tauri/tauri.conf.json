@@ -4,8 +4,8 @@
   "identifier": "com.hermes.webui",
   "build": {
     "frontendDist": "../dist",
-    "devUrl": "http://localhost:3000",
-    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:3001",
+    "beforeDevCommand": "",
     "beforeBuildCommand": "npm run build:static"
   },
   "app": {

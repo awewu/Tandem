@@ -16,7 +16,10 @@ import {
   AlertTriangle,
   XCircle,
   ArrowRight,
+  Layers,
 } from 'lucide-react';
+import PageTabs from '@/components/page-tabs';
+import { useDynamicStyle } from '@/lib/hooks/use-dynamic-style';
 
 /**
  * /okr/cascade — OKR 5 层级联视图 (Q5 重型 OKR)
@@ -77,6 +80,8 @@ export default function OkrCascadePage() {
   const [loading, setLoading] = useState(true);
   const [expandedObj, setExpandedObj] = useState<Set<string>>(new Set());
   const [expandedKr, setExpandedKr] = useState<Set<string>>(new Set());
+  const [levelFilter, setLevelFilter] =
+    useState<'all' | 'company' | 'team' | 'individual'>('all');
 
   useEffect(() => {
     void load();
@@ -169,14 +174,45 @@ export default function OkrCascadePage() {
           />
         </div>
 
-        <div className="flex justify-end">
-          <Link
-            href="/okr"
-            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-1 px-3 py-1.5 text-caption text-ink-secondary hover:text-ink-primary hover:bg-surface-2 surface-interactive"
-          >
-            编辑 OKR <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
-        </div>
+        {/* Level filter tabs */}
+        <PageTabs
+          tabs={[
+            {
+              id: 'all',
+              label: '全部',
+              icon: Layers,
+              badge: objectives.length,
+            },
+            {
+              id: 'company',
+              label: '公司级',
+              icon: Building2,
+              badge: objectives.filter((o) => o.level === 'company').length,
+            },
+            {
+              id: 'team',
+              label: '部门级',
+              icon: Users,
+              badge: objectives.filter((o) => o.level === 'team').length,
+            },
+            {
+              id: 'individual',
+              label: '我的',
+              icon: User,
+              badge: objectives.filter((o) => o.level === 'individual').length,
+            },
+          ]}
+          active={levelFilter}
+          onChange={(id) => setLevelFilter(id as 'all' | 'company' | 'team' | 'individual')}
+          actions={
+            <Link
+              href="/okr"
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-1 px-3 py-1.5 text-caption text-ink-secondary hover:text-ink-primary hover:bg-surface-2 surface-interactive"
+            >
+              编辑 OKR <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          }
+        />
 
         {/* Cascade tree */}
         {loading ? (
@@ -194,22 +230,44 @@ export default function OkrCascadePage() {
               去创建第一个 Objective <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
-        ) : (
-          <div className="space-y-3">
-            {objectives.map((obj) => (
-              <ObjectiveNode
-                key={obj.id}
-                obj={obj}
-                expanded={expandedObj.has(obj.id)}
-                onToggle={() => toggleObj(obj.id)}
-                expandedKr={expandedKr}
-                onToggleKr={toggleKr}
-                initiatives={initiatives}
-                cards={cards}
-              />
-            ))}
-          </div>
-        )}
+        ) : (() => {
+          const filtered =
+            levelFilter === 'all'
+              ? objectives
+              : objectives.filter((o) => o.level === levelFilter);
+          if (filtered.length === 0) {
+            return (
+              <div className="card-elevated p-12 text-center">
+                <p className="text-body text-ink-secondary">
+                  当前筛选下没有 Objective
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setLevelFilter('all')}
+                  className="mt-3 text-caption text-brand-600 hover:text-brand-700 font-medium"
+                >
+                  查看全部 →
+                </button>
+              </div>
+            );
+          }
+          return (
+            <div className="space-y-3">
+              {filtered.map((obj) => (
+                <ObjectiveNode
+                  key={obj.id}
+                  obj={obj}
+                  expanded={expandedObj.has(obj.id)}
+                  onToggle={() => toggleObj(obj.id)}
+                  expandedKr={expandedKr}
+                  onToggleKr={toggleKr}
+                  initiatives={initiatives}
+                  cards={cards}
+                />
+              ))}
+            </div>
+          );
+        })()}
 
         {/* Legend */}
         <div className="card-elevated p-4 mt-8">
@@ -310,6 +368,7 @@ function KrNode({
     kr.targetValue !== kr.startValue
       ? Math.max(0, Math.min(100, ((kr.currentValue - kr.startValue) / (kr.targetValue - kr.startValue)) * 100))
       : 0;
+  const progressBarRef = useDynamicStyle<HTMLDivElement>({ width: `${progress}%` });
 
   const riskTone =
     kr.riskStatus === 'on_track'
@@ -340,6 +399,7 @@ function KrNode({
           <div className="mt-1 flex items-center gap-3">
             <div className="flex-1 max-w-xs h-1.5 rounded-full bg-surface-3 overflow-hidden">
               <div
+                ref={progressBarRef}
                 className={`h-full transition-all duration-base ease-decelerate ${
                   kr.riskStatus === 'on_track'
                     ? 'bg-success'
@@ -347,7 +407,6 @@ function KrNode({
                     ? 'bg-warning'
                     : 'bg-danger'
                 }`}
-                style={{ width: `${progress}%` }}
               />
             </div>
             <span className="text-footnote text-ink-tertiary tabular-nums">

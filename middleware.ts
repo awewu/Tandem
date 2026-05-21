@@ -36,8 +36,25 @@ const PUBLIC_PREFIXES = [
   '/api/llm-health',
 ];
 
+/** UI 公开路由前缀: 未登录也能访问 (登录注册自身、静态资源) */
+const PUBLIC_UI_PREFIXES = [
+  '/login',
+  '/register',
+  '/_next/',
+  '/favicon',
+  '/manifest',
+  '/icon',
+  '/robots',
+  '/sitemap',
+  '/brand/',
+];
+
 function isPublic(path: string): boolean {
   return PUBLIC_PREFIXES.some((p) => path.startsWith(p));
+}
+
+function isPublicUi(path: string): boolean {
+  return PUBLIC_UI_PREFIXES.some((p) => path.startsWith(p));
 }
 
 function isDemoAllowed(): boolean {
@@ -48,10 +65,7 @@ function isDemoAllowed(): boolean {
 export async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
 
-  // \u4ec5\u51fa\u624b /api/*
-  if (!path.startsWith('/api/')) return NextResponse.next();
-
-  // \u8bf7\u6c42 ID: \u590d\u7528\u4e0a\u6e38 trace id, \u6216\u751f\u6210\u65b0\u7684
+  // 请求 ID: 复用上游 trace id, 或生成新的
   const reqId = req.headers.get(HEADER_REQ_ID) || genReqId();
   const baseHeaders = new Headers(req.headers);
   baseHeaders.set(HEADER_REQ_ID, reqId);
@@ -61,12 +75,28 @@ export async function middleware(req: NextRequest) {
     return res;
   }
 
+  const token = req.cookies.get(COOKIE_ACCESS)?.value;
+  const payload = token ? await verifyAccessTokenEdge(token) : null;
+
+  // ──────── UI 路由 ────────
+  if (!path.startsWith('/api/')) {
+    // 公开 UI 路由 (登录/注册/静态资源) 直接放行
+    if (isPublicUi(path)) return withReqId(NextResponse.next());
+
+    // 已登录 → 透传
+    if (payload) return withReqId(NextResponse.next());
+
+    // 未登录: 重定向到 /login?next=<原路径>
+    const url = req.nextUrl.clone();
+    url.pathname = '/login';
+    url.searchParams.set('next', path + (req.nextUrl.search || ''));
+    return withReqId(NextResponse.redirect(url));
+  }
+
+  // ──────── /api/* ────────
   if (isPublic(path)) {
     return withReqId(NextResponse.next({ request: { headers: baseHeaders } }));
   }
-
-  const token = req.cookies.get(COOKIE_ACCESS)?.value;
-  const payload = token ? await verifyAccessTokenEdge(token) : null;
 
   if (payload) {
     baseHeaders.set('x-tandem-user-id', payload.sub);
@@ -89,7 +119,7 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   /**
-   * \u53ea\u751f\u6548\u4e8e /api/* \u00b7 \u907f\u514d\u4e0e \u9875\u9762\u8def\u7531/_next/static \u51b2\u7a81
+   * 同时拦截 UI 与 /api · 排除 _next 静态资源 / favicon / 公共 brand 资源
    */
-  matcher: ['/api/:path*'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|brand/).*)'],
 };

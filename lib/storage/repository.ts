@@ -24,6 +24,14 @@ import type {
   Objective,
   TTI,
 } from '../types/okr-tti';
+import type {
+  Kpi,
+  KpiCycle,
+  KpiCheckIn,
+  KpiSnapshot,
+  KpiManualEntry,
+  KpiSubject,
+} from '../types/kpi';
 import type { ImChannel, ImMessage, ImMembership } from '../types/im';
 import type { OneOnOneMeeting, OneOnOneActionItem } from '../types/one-on-one';
 import type {
@@ -65,6 +73,16 @@ export interface TandemStore {
   ttis: Repository<TTI>;
   initiatives: Repository<Initiative>;
   checkIns: Repository<CheckIn>;
+
+  /** KPI 体系 (CHARTER-KPI-TTI §2): 年度底线 + 全维度监控, 三通道写入 */
+  kpiCycles: Repository<KpiCycle>;
+  /** 科目主数据 (动态可扩展树, HR/财务管理) */
+  kpiSubjects: Repository<KpiSubject>;
+  kpis: Repository<Kpi>;
+  kpiCheckIns: Repository<KpiCheckIn>;
+  kpiSnapshots: Repository<KpiSnapshot>;
+  /** 通道 C 人工补录审计 (财务/HR/部门内勤) */
+  kpiManualEntries: Repository<KpiManualEntry>;
 
   /** IM (内置消息层) */
   imChannels: Repository<ImChannel>;

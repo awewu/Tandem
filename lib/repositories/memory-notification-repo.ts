@@ -8,8 +8,9 @@ export class InMemoryNotificationRepository implements NotificationRepository {
   private data = new Map<string, Notification>();
 
   async findById(id: string): Promise<Notification | null> { return this.data.get(id) ?? null; }
-  async findByUser(userId: string, opts?: { unreadOnly?: boolean; limit?: number }): Promise<Notification[]> {
+  async findByUser(userId: string, opts?: { unreadOnly?: boolean; limit?: number; tenantId?: string }): Promise<Notification[]> {
     let arr = Array.from(this.data.values()).filter(n => n.userId === userId);
+    if (opts?.tenantId) arr = arr.filter(n => n.tenantId === opts.tenantId);
     if (opts?.unreadOnly) arr = arr.filter(n => !n.readAt);
     if (opts?.limit) arr = arr.slice(0, opts.limit);
     return arr;
