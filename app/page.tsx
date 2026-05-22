@@ -195,65 +195,72 @@ export default function HomePage() {
         {/* ──────────── 顶部公告 tagline (单一入口指向 /intranet) ──────────── */}
         <LatestAnnouncementTagline />
 
-        {/* ──────────── §1 我的工作台 (左 2/3) + 快速跳板 (右 1/3) 并排 ──────────── */}
-        <div className="grid gap-6 lg:grid-cols-3 lg:items-start">
-          <section className="space-y-4 lg:col-span-2">
+        {/* ──────────── §1 工作台 hero · 4 WorkbenchCards (左 2/3) + Launchpad (右 1/3) 等高并排 ──────────── */}
+        <div className="grid gap-6 lg:grid-cols-3 lg:items-stretch">
+          <section className="space-y-4 lg:col-span-2 flex flex-col">
             <SectionHeader
               title="我的工作台"
               subtitle="今日待办 · KR 进度 · 议事 · 日报"
             />
-          <div className="grid gap-4 md:grid-cols-2">
-            <WorkbenchCard
-              icon={Sparkles}
-              tone="brand"
-              label="议事室决议"
-              value={stats?.decisionCards.total ?? '—'}
-              hint={
-                stats
-                  ? `${stats.decisionCards.committed} 已成 · ${stats.decisionCards.escalated} 升级`
-                  : '加载中...'
-              }
-              href="/convergence"
-            />
-            <WorkbenchCard
-              icon={Clock3}
-              tone="success"
-              label="17 分钟达成率"
-              value={inTimePct !== null ? `${inTimePct}%` : '—'}
-              hint={`目标 ≥ 70% · D 选项 ${stats ? Math.round(stats.decisionCards.dRate * 100) : 0}%`}
-              href="/convergence"
-            />
-            <WorkbenchCard
-              icon={Target}
-              tone="info"
-              label="KR 健康"
-              value={krOnTrackRate !== null ? `${krOnTrackRate}%` : '—'}
-              hint={
-                stats
-                  ? `${stats.okr.keyResultsOnTrack} / ${stats.okr.keyResults} 在轨 · ${stats.okr.objectives} O`
-                  : '加载中...'
-              }
-              href="/okr"
-            />
-            <WorkbenchCard
-              icon={Brain}
-              tone="persona"
-              label="Memory 知识"
-              value={stats?.memories.total ?? '—'}
-              hint={
-                stats
-                  ? `${stats.memories.byType.sop} SOP · ${stats.memories.byType.case} 案例 · ${stats.memories.byType.redline} 红线`
-                  : '加载中...'
-              }
-              href="/memories"
-            />
-          </div>
+            <div className="grid gap-4 md:grid-cols-2 flex-1 auto-rows-fr">
+              <WorkbenchCard
+                icon={Sparkles}
+                tone="brand"
+                label="议事室决议"
+                value={stats?.decisionCards.total ?? '—'}
+                hint={
+                  stats
+                    ? `${stats.decisionCards.committed} 已成 · ${stats.decisionCards.escalated} 升级`
+                    : '加载中...'
+                }
+                href="/convergence"
+              />
+              <WorkbenchCard
+                icon={Clock3}
+                tone="success"
+                label="17 分钟达成率"
+                value={inTimePct !== null ? `${inTimePct}%` : '—'}
+                hint={`目标 ≥ 70% · D 选项 ${stats ? Math.round(stats.decisionCards.dRate * 100) : 0}%`}
+                href="/convergence"
+              />
+              <WorkbenchCard
+                icon={Target}
+                tone="info"
+                label="KR 健康"
+                value={krOnTrackRate !== null ? `${krOnTrackRate}%` : '—'}
+                hint={
+                  stats
+                    ? `${stats.okr.keyResultsOnTrack} / ${stats.okr.keyResults} 在轨 · ${stats.okr.objectives} O`
+                    : '加载中...'
+                }
+                href="/okr"
+              />
+              <WorkbenchCard
+                icon={Brain}
+                tone="persona"
+                label="Memory 知识"
+                value={stats?.memories.total ?? '—'}
+                hint={
+                  stats
+                    ? `${stats.memories.byType.sop} SOP · ${stats.memories.byType.case} 案例 · ${stats.memories.byType.redline} 红线`
+                    : '加载中...'
+                }
+                href="/memories"
+              />
+            </div>
+          </section>
 
+          {/* 快速跳板 (右 1/3, 与 4 张 WorkbenchCard 等高) */}
+          <LaunchpadSection apps={launchpadApps} maxTiles={9} narrow />
+        </div>
+
+        {/* ──────────── §1.5 工作台扩展 (全宽, 移出 hero 以让 Launchpad 不被拉高) ──────────── */}
+        <section className="space-y-4">
           {/* EVO-10 · 多线工作 (Waiting 优先, 仅我可见) */}
           <WorkbenchAgentView />
 
           {/* Quick actions */}
-          <div className="flex flex-wrap items-center gap-2 pt-2">
+          <div className="flex flex-wrap items-center gap-2">
             <QuickAction href="/convergence" icon={Sparkles}>
               发起议事
             </QuickAction>
@@ -282,11 +289,7 @@ export default function HomePage() {
               通知
             </QuickAction>
           </div>
-          </section>
-
-          {/* 快速跳板 (右 1/3) */}
-          <LaunchpadSection apps={launchpadApps} maxTiles={9} narrow />
-        </div>
+        </section>
 
         {/* ──────────── AI 信号 (2026-05-10 跨模块联动) ──────────── */}
         <section className="space-y-3">
