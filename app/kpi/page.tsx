@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Sparkline } from '@/components/charts/sparkline';
 import {
   Select,
   SelectContent,
@@ -48,9 +49,9 @@ import {
 // ---------------------------------------------------------------------------
 
 function healthColor(c: number) {
-  if (c >= 0.9) return { bar: 'bg-emerald-500', text: 'text-emerald-700' };
-  if (c >= 0.6) return { bar: 'bg-amber-500', text: 'text-amber-700' };
-  return { bar: 'bg-rose-500', text: 'text-rose-700' };
+  if (c >= 0.9) return { bar: 'bg-emerald-500', text: 'text-emerald-700', health: 'green' as const };
+  if (c >= 0.6) return { bar: 'bg-amber-500', text: 'text-amber-700', health: 'amber' as const };
+  return { bar: 'bg-rose-500', text: 'text-rose-700', health: 'red' as const };
 }
 
 const DS: Record<string, { label: string; icon: typeof Database }> = {
@@ -69,6 +70,7 @@ export default function MyKpiPage() {
   const [cycles, setCycles] = useState<KpiCycle[]>([]);
   const [subjects, setSubjects] = useState<KpiSubject[]>([]);
   const [kpis, setKpis] = useState<Kpi[]>([]);
+  const [snapshotsByKpi, setSnapshotsByKpi] = useState<Record<string, number[]>>({});
   const [activeCycleId, setActiveCycleId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -103,16 +105,28 @@ export default function MyKpiPage() {
   const loadMyKpis = useCallback(async () => {
     if (!activeCycleId || !me) {
       setKpis([]);
+      setSnapshotsByKpi({});
       return;
     }
     try {
-      const r = await fetch(
-        `/api/kpi?cycleId=${activeCycleId}&assigneeId=${encodeURIComponent(me)}`,
-        { cache: 'no-store' },
-      );
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const j = await r.json();
-      setKpis(j.kpis ?? []);
+      const [rk, rs] = await Promise.all([
+        fetch(`/api/kpi?cycleId=${activeCycleId}&assigneeId=${encodeURIComponent(me)}`, { cache: 'no-store' }),
+        fetch(`/api/kpi/snapshots?cycleId=${activeCycleId}`, { cache: 'no-store' }),
+      ]);
+      if (!rk.ok) throw new Error(`HTTP ${rk.status}`);
+      const jk = await rk.json();
+      setKpis(jk.kpis ?? []);
+      if (rs.ok) {
+        const js = await rs.json();
+        const byKpi: Record<string, number[]> = {};
+        const sorted = [...(js.snapshots ?? [])].sort(
+          (a: { date: string }, b: { date: string }) => (a.date < b.date ? -1 : 1),
+        );
+        for (const s of sorted as Array<{ kpiId: string; cumulativeValue: number }>) {
+          (byKpi[s.kpiId] ??= []).push(s.cumulativeValue);
+        }
+        setSnapshotsByKpi(byKpi);
+      }
     } catch (e) {
       setError((e as Error).message);
     }
@@ -209,6 +223,17 @@ export default function MyKpiPage() {
               <span className={`font-semibold tabular-nums ${hc.text}`}>{pct}%</span>
             </div>
             <Progress value={Math.min(100, pct)} className="h-2" />
+            {(snapshotsByKpi[kpi.id]?.length ?? 0) >= 2 && (
+              <div className="flex justify-end pt-1">
+                <Sparkline
+                  points={snapshotsByKpi[kpi.id]}
+                  target={kpi.targetValue}
+                  health={hc.health}
+                  width={140}
+                  height={32}
+                />
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
