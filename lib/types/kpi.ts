@@ -39,6 +39,8 @@ export interface KpiCycle {
   tenantId: string;
   /** 周期一旦 active, targets 锁死 (CHARTER §2.3) */
   targetsLockedAt?: string;
+  /** 年终关闭时刻 (M3) */
+  closedAt?: string;
   /** 创建人 (HR / 高管) */
   createdBy: string;
   createdAt: string;
@@ -263,4 +265,96 @@ export function isCascadeConsistent(
   const sum = childrenTargets.reduce((acc, v) => acc + v, 0);
   const tolerance = Math.abs(parentTarget) * toleranceRatio;
   return Math.abs(sum - parentTarget) <= tolerance;
+}
+
+// ---------------------------------------------------------------------------
+// 奖金计算 (CHARTER §5 M3)
+// ---------------------------------------------------------------------------
+
+/**
+ * 单条 KPI 在奖金中的贡献明细 (审计 + 工资条解释)
+ */
+export interface KpiBonusContribution {
+  kpiId: string;
+  subjectCode: string;
+  title: string;
+  weight: number;
+  completion: number; // 0-1.5
+  weightedScore: number; // weight * completion
+}
+
+/**
+ * 一个 assignee 在一个 cycle 的奖金计算结果
+ *
+ * 奖金公式 (默认): finalBonus = baseBonus * weightedCompletion (capped at 1.5)
+ *   - baseBonus: HR 配置的基础奖金 (年薪 * 比例, 或固定额)
+ *   - weightedCompletion: 所有 bonus scope KPI 加权完成率 (monitor 不计)
+ *
+ * CHARTER §2.0 铁律: 仅 scope=bonus 触发. monitor KPI 永不进此计算.
+ * CHARTER §2.3 铁律: KPI 不达 (scope=bonus, completion < 0.85) 各家自定: 我们用 weightedCompletion 直接乘.
+ */
+export interface KpiBonusPayout {
+  id: string;
+  cycleId: string;
+  /** 个人 / 部门 / company 标识 (= KPI.assigneeId 同源) */
+  assigneeId: string;
+  /** HR 配置的基础奖金额度 */
+  baseBonus: number;
+  /** 加权完成率 (0-1.5) */
+  weightedCompletion: number;
+  /** 最终奖金 = baseBonus * weightedCompletion */
+  finalBonus: number;
+  /** 各 KPI 贡献明细 (审计) */
+  contributions: KpiBonusContribution[];
+  /** 计算时刻 */
+  calculatedAt: string;
+  /** 触发计算的操作人 */
+  calculatedBy: string;
+  /** 是否已下发 (committed=false 时仅是 draft 预估) */
+  committed: boolean;
+  /** 下发时刻 */
+  committedAt?: string;
+  /** 备注 (HR 手动覆写时填) */
+  note?: string;
+  tenantId: string;
+}
+
+/**
+ * 计算一个 assignee 的奖金 (纯函数, 便于测试).
+ * 如果 bonusKpis 为空 (scope=bonus), 返回 0 完成率, 0 奖金.
+ */
+export function computeBonusPayout(
+  bonusKpis: Pick<Kpi, 'id' | 'subjectId' | 'title' | 'weight' | 'startValue' | 'targetValue' | 'currentValue'>[],
+  baseBonus: number,
+  subjectCodeLookup: (subjectId: string) => string,
+): {
+  weightedCompletion: number;
+  finalBonus: number;
+  contributions: KpiBonusContribution[];
+} {
+  if (bonusKpis.length === 0) {
+    return { weightedCompletion: 0, finalBonus: 0, contributions: [] };
+  }
+  const contributions: KpiBonusContribution[] = [];
+  let totalWeight = 0;
+  let weightedSum = 0;
+  for (const k of bonusKpis) {
+    const completion = computeKpiCompletion(k);
+    const weightedScore = k.weight * completion;
+    contributions.push({
+      kpiId: k.id,
+      subjectCode: subjectCodeLookup(k.subjectId),
+      title: k.title,
+      weight: k.weight,
+      completion,
+      weightedScore,
+    });
+    totalWeight += k.weight;
+    weightedSum += weightedScore;
+  }
+  const weightedCompletion = totalWeight > 0 ? weightedSum / totalWeight : 0;
+  // 奖金不允许超额超过 150% (CHARTER §2.0 的 1.5 cap 一致)
+  const cappedCompletion = Math.min(1.5, weightedCompletion);
+  const finalBonus = Math.round(baseBonus * cappedCompletion * 100) / 100;
+  return { weightedCompletion, finalBonus, contributions };
 }

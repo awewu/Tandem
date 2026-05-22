@@ -30,6 +30,7 @@ import type {
   KpiCheckIn,
   KpiSnapshot,
   KpiManualEntry,
+  KpiBonusPayout,
   KpiSubject,
 } from '../types/kpi';
 import type { ImChannel, ImMessage, ImMembership } from '../types/im';
@@ -83,6 +84,7 @@ export interface TandemStore {
   kpiSnapshots: Repository<KpiSnapshot>;
   /** 通道 C 人工补录审计 (财务/HR/部门内勤) */
   kpiManualEntries: Repository<KpiManualEntry>;
+  kpiBonusPayouts: Repository<KpiBonusPayout>;
 
   /** IM (内置消息层) */
   imChannels: Repository<ImChannel>;

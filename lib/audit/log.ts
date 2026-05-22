@@ -62,6 +62,8 @@ export type AuditAction =
   | 'kpi.scope_locked'           // bonus/monitor frozen
   | 'kpi.excel_imported'         // Excel 批量导入
   | 'kpi.excel_exported'         // Excel 导出
+  | 'kpi.bonus_calculated'       // 奖金试算 (draft)
+  | 'kpi.bonus_committed'        // 奖金下发 (final)
   | 'kpi.year_end_close';        // 绩效奖金年终关闭
 
 export interface AuditEntry {

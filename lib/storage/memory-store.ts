@@ -252,6 +252,7 @@ export function createInMemoryStore(): TandemStore {
     kpiCheckIns: new InMemoryRepository(),
     kpiSnapshots: new InMemoryRepository(),
     kpiManualEntries: new InMemoryRepository(),
+  kpiBonusPayouts: new InMemoryRepository(),
     imChannels: new InMemoryRepository(),
     imMessages: new InMemoryRepository(),
     imMemberships: new InMemoryRepository(),

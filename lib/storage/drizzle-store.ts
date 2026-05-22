@@ -408,6 +408,7 @@ export function createDrizzleStore(): TandemStore {
     kpiCheckIns: new DrizzleKvRepository('kpi_check_ins'),
     kpiSnapshots: new DrizzleKvRepository('kpi_snapshots'),
     kpiManualEntries: new DrizzleKvRepository('kpi_manual_entries'),
+  kpiBonusPayouts: new DrizzleKvRepository('kpi_bonus_payouts'),
     imChannels: new DrizzleKvRepository('im_channels'),
     imMessages: new DrizzleKvRepository('im_messages'),
     imMemberships: new DrizzleKvRepository('im_memberships'),
