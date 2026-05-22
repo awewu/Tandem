@@ -230,14 +230,9 @@ export const NAV_MODULES: NavModule[] = [
     tagline: '同一频道听公司心跳, 不再错过关键播报',
     icon: Megaphone,
     pathPrefixes: ['/intranet'],
-    // 注: /intranet 页面自带横向 TopSubnav (公告/政策/大事记/福利),
-    // SubSidebar 不再重复, 只保留与横轴互补的入口 (CEO 直通车 / A-Z / 论坛 / 编辑入口归 admin).
-    items: [
-      { name: '内网首页', href: '/intranet', icon: Megaphone },
-      { name: 'CEO 直通车', href: '/intranet/town-hall', icon: Megaphone },
-      { name: 'A-Z 资源', href: '/intranet/a-z', icon: FileLock },
-      { name: '内部论坛', href: '/intranet/forum', icon: PartyPopper },
-    ],
+    // /intranet 全部导航走 app/intranet/layout.tsx 的横向 IntranetSubnav.
+    // SubSidebar 在此模块不渲染 (items=[] 时 sub-sidebar.tsx 返回 null).
+    items: [],
   },
 
   {

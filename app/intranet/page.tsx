@@ -16,17 +16,12 @@
 import { useMemo } from 'react';
 import Link from 'next/link';
 import {
-  Megaphone,
-  FileLock,
-  PartyPopper,
-  Gift,
-  ChevronDown,
   Globe2,
   ArrowRight,
   Brain,
   BookOpen,
   Languages,
-  type LucideIcon,
+  Megaphone,
 } from 'lucide-react';
 import {
   HERO_SLIDES,
@@ -43,20 +38,9 @@ import { HeroCarousel } from '@/components/hero-carousel';
 // Top-level page
 // ─────────────────────────────────────────────────────────────────────────────
 
-type Category = 'all' | 'announcement' | 'policy' | 'milestone' | 'welfare';
-
-const SUBNAV: { id: Category; label: string; icon: LucideIcon }[] = [
-  { id: 'announcement', label: '公告',   icon: Megaphone },
-  { id: 'policy',       label: '政策',   icon: FileLock },
-  { id: 'milestone',    label: '大事记', icon: PartyPopper },
-  { id: 'welfare',      label: '福利',   icon: Gift },
-];
-
 export default function IntranetPage() {
   return (
-    <div className="h-full overflow-auto bg-surface-2/40">
-      <TopSubnav />
-      <div className="page-container py-6">
+    <div className="page-container py-6">
         <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
           {/* ──────────── 左主区: 公告 + 新闻流 + 公司年鉴 ──────────── */}
           <div className="space-y-6 min-w-0">
@@ -73,45 +57,7 @@ export default function IntranetPage() {
             <CeoWeeklyPromo />
           </aside>
         </div>
-      </div>
     </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Top secondary nav (4 categories + 高管页 + Ethics)
-// ─────────────────────────────────────────────────────────────────────────────
-
-function TopSubnav() {
-  return (
-    <nav className="border-b border-border bg-surface-1">
-      <div className="page-container flex h-11 items-center gap-1 overflow-x-auto">
-        {SUBNAV.map((item) => (
-          <Link
-            key={item.id}
-            href={`/intranet/category/${item.id}`}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-caption font-medium text-ink-secondary hover:text-ink-primary hover:bg-surface-2 transition-colors duration-fast"
-          >
-            <item.icon className="h-3.5 w-3.5" />
-            {item.label}
-            <ChevronDown className="h-3 w-3 opacity-50" />
-          </Link>
-        ))}
-        <span className="mx-2 h-4 w-px bg-border" />
-        <Link
-          href="/intranet/leadership"
-          className="px-3 py-1.5 rounded text-caption font-medium text-ink-secondary hover:text-ink-primary hover:bg-surface-2"
-        >
-          高管动态
-        </Link>
-        <Link
-          href="/intranet/ethics"
-          className="px-3 py-1.5 rounded text-caption font-medium text-ink-secondary hover:text-ink-primary hover:bg-surface-2"
-        >
-          廉洁举报
-        </Link>
-      </div>
-    </nav>
   );
 }
 
