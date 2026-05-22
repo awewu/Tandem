@@ -210,11 +210,11 @@ PRD `MANIFESTO.md` 的核心链:
 | **M2a-UI** | 4 个 admin 页 + 个人只读页 + nav 接入 | 1d | ✅ | M2a-Core |
 | **M2a-Excel** | xlsx 库 + 4 import/export endpoint + dry-run + 错误回显 + 可复用组件 | 1d | ✅ | M2a-Core |
 | **M2b** | KPI ERP adapter (骨架) + 8 个分析 endpoint + 9-box 纵轴真接 KPI | 1d | ✅ | M2a 全 |
-| **M2c** | TTI 四要素 UI + 主管只读限制 | 0.5d | ⏸ | M2a-UI |
-| **M3** | 绩效奖金计算引擎 + 年终关闭 | 1d | ⏸ | M2 全 |
-| **M4** | 9-box 联动决策卡片 / Persona 升级 | 0.5d | ⏸ | M3 |
+| **M2c** | TTI 四要素 UI (`/tti`) + checkins owner-only 守卫 | 0.5d | ✅ | M2a-UI |
+| **M3** | 绩效奖金计算引擎 + cycle close + HR 工作台 (`/admin/kpi/bonus-payout`) | 1d | ✅ | M2 全 |
+| **M4** | 9-box 联动建议 (`/api/nine-box/suggestions` + `/nine-box/suggestions`) | 0.5d | ✅ | M3 |
 
-**已完成 ≈ 4.5d** (M1 + M2a-Core + M2a-UI + M2a-Excel + M2b) · **剩余 ≈ 2d** (M2c + M3 + M4)
+**全部 M 已完成** ≈ 6d (M1 + M2a-Core + M2a-UI + M2a-Excel + M2b + M2c + M3 + M4)
 
 **P0 差补完成** (2026-05-21):
 

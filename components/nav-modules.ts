@@ -128,6 +128,7 @@ export const NAV_MODULES: NavModule[] = [
       { name: '1on1 对话',         href: '/1on1',             icon: MessagesSquare, group: '反馈评估' },
       { name: '360 评估',          href: '/360',              icon: SparklesAlias,  group: '反馈评估' },
       { name: '9 宫格',            href: '/nine-box',         icon: Grid3x3,        group: '反馈评估', visibleTo: ['manager', 'steward', 'admin', 'champion'] },
+      { name: '9-box 联动建议',    href: '/nine-box/suggestions', icon: Grid3x3,    group: '反馈评估', visibleTo: ['manager', 'steward', 'admin', 'champion'] },
       // 分析洞察
       { name: 'AI 智能信号',       href: '/insights',         icon: SparklesAlias,  group: '分析洞察' },
       { name: '组织分析',          href: '/analytics',        icon: Grid3x3,        group: '分析洞察', visibleTo: ['manager', 'steward', 'admin', 'champion'] },
