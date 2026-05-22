@@ -218,6 +218,20 @@ async function runSlowScans(): Promise<void> {
     // eslint-disable-next-line no-console
     console.warn('[boot] persona upgrade scan failed:', err);
   }
+
+  try {
+    const { scanKpiSnapshots } = await import('./kpi/snapshot-cron');
+    const r = await scanKpiSnapshots();
+    if (r.created > 0) {
+      // eslint-disable-next-line no-console
+      console.info(
+        `[boot] kpi snapshot: ${r.created} 条已写入 (date=${r.date}, scanned=${r.scanned})`
+      );
+    }
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('[boot] kpi snapshot scan failed:', err);
+  }
 }
 
 function unrefIfPossible(id: ReturnType<typeof setInterval>): void {

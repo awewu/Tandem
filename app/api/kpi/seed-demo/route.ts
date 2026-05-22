@@ -154,7 +154,16 @@ export async function POST(req: NextRequest) {
     subjectByCode.set(spec.code, subj);
   }
 
+  // 清旧快照 (force 模式)
+  if (force) {
+    const oldKpiIds = new Set((await store.kpis.list()).filter((k) => k.cycleId === cycle.id).map((k) => k.id));
+    const oldSnaps = (await store.kpiSnapshots.list()).filter((s) => oldKpiIds.has(s.kpiId));
+    for (const s of oldSnaps) await store.kpiSnapshots.delete(s.id);
+  }
+
   const created: Kpi[] = [];
+  /** 每个 KPI 反推 30 天进度: 从 startValue 线性逼近到 currentValue, 加 ±5% 噪声 */
+  const SNAPSHOT_DAYS = 30;
   for (const spec of KPI_SPECS) {
     const subj = subjectByCode.get(spec.subjectCode);
     if (!subj) continue;
@@ -184,6 +193,25 @@ export async function POST(req: NextRequest) {
       updatedAt: now,
     } as Omit<Kpi, 'id'>);
     created.push(kpi);
+
+    // 30 天历史快照 (synthetic monotonic + 噪声)
+    const finalValue = kpi.currentValue;
+    for (let d = SNAPSHOT_DAYS - 1; d >= 0; d--) {
+      const date = new Date();
+      date.setDate(date.getDate() - d);
+      const dayStr = date.toISOString().slice(0, 10);
+      const t = (SNAPSHOT_DAYS - 1 - d) / (SNAPSHOT_DAYS - 1); // 0..1
+      // 线性逼近 + ±5% 噪声 (deterministic by index, 不用 random 让幂等)
+      const noise = ((d * 7 + spec.startValue) % 11) / 100 - 0.05;
+      const v = spec.startValue + (finalValue - spec.startValue) * (t + noise * t);
+      await store.kpiSnapshots.create({
+        kpiId: kpi.id,
+        date: dayStr,
+        cumulativeValue: Math.round(v * 100) / 100,
+        source: 'manual',
+        createdAt: now,
+      } as Omit<import('@/lib/types/kpi').KpiSnapshot, 'id'>);
+    }
   }
 
   return NextResponse.json({

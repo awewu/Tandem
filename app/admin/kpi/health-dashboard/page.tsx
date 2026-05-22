@@ -22,6 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Sparkline } from '@/components/charts/sparkline';
 import {
   Select,
   SelectContent,
@@ -92,6 +93,7 @@ export default function KpiHealthDashboardPage() {
   const [cycles, setCycles] = useState<KpiCycle[]>([]);
   const [subjects, setSubjects] = useState<KpiSubject[]>([]);
   const [kpis, setKpis] = useState<Kpi[]>([]);
+  const [snapshotsByKpi, setSnapshotsByKpi] = useState<Record<string, number[]>>({});
   const [activeCycleId, setActiveCycleId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -130,15 +132,28 @@ export default function KpiHealthDashboardPage() {
   const loadKpis = useCallback(async () => {
     if (!activeCycleId) {
       setKpis([]);
+      setSnapshotsByKpi({});
       return;
     }
     try {
-      const r = await fetch(`/api/kpi?cycleId=${activeCycleId}&scope=monitor`, {
-        cache: 'no-store',
-      });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const j = await r.json();
-      setKpis(j.kpis ?? []);
+      const [rk, rs] = await Promise.all([
+        fetch(`/api/kpi?cycleId=${activeCycleId}&scope=monitor`, { cache: 'no-store' }),
+        fetch(`/api/kpi/snapshots?cycleId=${activeCycleId}`, { cache: 'no-store' }),
+      ]);
+      if (!rk.ok) throw new Error(`HTTP ${rk.status}`);
+      const jk = await rk.json();
+      setKpis(jk.kpis ?? []);
+      if (rs.ok) {
+        const js = await rs.json();
+        const byKpi: Record<string, number[]> = {};
+        const sorted = [...(js.snapshots ?? [])].sort((a: { date: string }, b: { date: string }) =>
+          a.date < b.date ? -1 : 1,
+        );
+        for (const s of sorted as Array<{ kpiId: string; cumulativeValue: number }>) {
+          (byKpi[s.kpiId] ??= []).push(s.cumulativeValue);
+        }
+        setSnapshotsByKpi(byKpi);
+      }
     } catch (e) {
       setError((e as Error).message);
     }
@@ -380,6 +395,17 @@ export default function KpiHealthDashboardPage() {
                           <span className={`tabular-nums font-semibold ${c.text}`}>{pct}%</span>
                         </div>
                         <Progress value={Math.min(100, pct)} className="h-1.5" />
+                        {(snapshotsByKpi[kpi.id]?.length ?? 0) >= 2 && (
+                          <div className="flex justify-end pt-1">
+                            <Sparkline
+                              points={snapshotsByKpi[kpi.id]}
+                              target={kpi.targetValue}
+                              health={health}
+                              width={120}
+                              height={28}
+                            />
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
