@@ -31,7 +31,6 @@ import {
   Bot,
   ArrowRight,
   Plus,
-  Check,
   Brain,
   Info,
   X,
@@ -828,26 +827,6 @@ function ImInner() {
               </CardContent>
             </Card>
 
-            <Card className="border-amber-200/70 bg-gradient-to-br from-amber-50/60 to-orange-50/40 shadow-sm">
-              <CardContent className="space-y-2.5 p-4">
-                <div className="flex items-center gap-1.5">
-                  <span className="flex h-5 w-5 items-center justify-center rounded-md bg-amber-500/90 text-[11px]">
-                    👑
-                  </span>
-                  <span className="text-[12px] font-semibold tracking-tight text-amber-900">
-                    Tandem 打 WeCom 差异化
-                  </span>
-                </div>
-                <ul className="space-y-1.5 text-[11.5px]">
-                  <Diff done text="任意消息 hover · 一键开议事室" />
-                  <Diff done text="@[name](id:persona) 召唤 AI 分身回复" />
-                  <Diff done text="议事结果自动 push 回原频道" />
-                  <Diff done text="消息 → Memory 三级签批沉淀" />
-                  <Diff text="群密度自动建议开议事室" badge="P1.2" />
-                  <Diff text="inline DeepSeek 中英翻译" badge="P1.3" />
-                </ul>
-              </CardContent>
-            </Card>
           </>
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
@@ -914,29 +893,6 @@ function EmptyState() {
         — 普通 IM 都没有.
       </div>
     </div>
-  );
-}
-
-function Diff({ done, text, badge }: { done?: boolean; text: string; badge?: string }) {
-  return (
-    <li className="flex items-start gap-1.5">
-      <span
-        className={`mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full ${
-          done ? 'bg-emerald-500 text-white' : 'border border-slate-300 bg-white'
-        }`}
-      >
-        {done && <Check className="h-2.5 w-2.5" strokeWidth={3} />}
-      </span>
-      <span className={done ? 'text-amber-900' : 'text-slate-500'}>{text}</span>
-      {badge && (
-        <Badge
-          variant="outline"
-          className="ml-auto h-4 border-slate-300 px-1 text-[9px] font-mono text-slate-500"
-        >
-          {badge}
-        </Badge>
-      )}
-    </li>
   );
 }
 
