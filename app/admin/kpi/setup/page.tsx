@@ -58,6 +58,7 @@ import {
   Activity,
 } from 'lucide-react';
 import type { Kpi, KpiCycle, KpiLevel, KpiScope, KpiSubject } from '@/lib/types/kpi';
+import { ExcelImportExport } from '@/components/kpi/ExcelImportExport';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -529,21 +530,32 @@ export default function KpiSetupPage() {
               <Layers className="h-5 w-5" />
               本周期 KPI ({kpis.length})
             </h2>
-            <Button
-              size="sm"
-              onClick={openCreateKpi}
-              disabled={isLocked || subjects.length === 0}
-              title={
-                isLocked
-                  ? '周期已锁定'
-                  : subjects.length === 0
-                  ? '请先去 /admin/kpi/subjects 创建科目'
-                  : ''
-              }
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              新增 KPI
-            </Button>
+            <div className="flex items-center gap-2">
+              <ExcelImportExport
+                label="KPI"
+                exportUrl={`/api/kpi/export?cycleId=${activeCycle.id}`}
+                importUrl={`/api/kpi/import?cycleId=${activeCycle.id}`}
+                exportFilename={`kpi-${activeCycle.fiscalYear}-${new Date().toISOString().slice(0, 10)}.xlsx`}
+                importDisabled={isLocked}
+                importDisabledReason="周期已锁定, 仅 draft 可批量导入"
+                onImported={() => void refreshKpis()}
+              />
+              <Button
+                size="sm"
+                onClick={openCreateKpi}
+                disabled={isLocked || subjects.length === 0}
+                title={
+                  isLocked
+                    ? '周期已锁定'
+                    : subjects.length === 0
+                    ? '请先去 /admin/kpi/subjects 创建科目'
+                    : ''
+                }
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                新增 KPI
+              </Button>
+            </div>
           </div>
 
           {(['company', 'department', 'individual'] as KpiLevel[]).map((level) => {

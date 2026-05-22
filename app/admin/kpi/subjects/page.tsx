@@ -54,6 +54,7 @@ import {
   Activity,
 } from 'lucide-react';
 import type { KpiSubject } from '@/lib/types/kpi';
+import { ExcelImportExport } from '@/components/kpi/ExcelImportExport';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -291,6 +292,13 @@ export default function KpiSubjectsPage() {
             <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
             刷新
           </Button>
+          <ExcelImportExport
+            label="科目"
+            exportUrl="/api/kpi/subjects/export"
+            importUrl="/api/kpi/subjects/import"
+            exportFilename={`kpi-subjects-${new Date().toISOString().slice(0, 10)}.xlsx`}
+            onImported={() => void refresh()}
+          />
           <Button size="sm" onClick={openCreate}>
             <Plus className="h-4 w-4 mr-1" />
             新增科目
