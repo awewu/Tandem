@@ -113,12 +113,14 @@ export const NAV_MODULES: NavModule[] = [
     fullLabel: '事半 · 目标与反馈',
     tagline: '围绕 OKR 推进, 不跑偏才能事半功倍',
     icon: Target,
-    pathPrefixes: ['/okr', '/360', '/1on1', '/nine-box', '/insights', '/analytics', '/kpi'],
+    pathPrefixes: ['/okr', '/360', '/1on1', '/nine-box', '/insights', '/analytics', '/kpi', '/tti'],
     items: [
       // 绩效 KPI (年度硬指标, 只读)
       { name: '我的 KPI',          href: '/kpi',              icon: Target,         group: '绩效 KPI' },
+      // TTI 四要素 (软目标, 自主填报)
+      { name: '我的 TTI 四要素',    href: '/tti',              icon: SparklesAlias,  group: 'TTI 成长', accent: 'cta' },
       // 目标管理
-      { name: '我的 OKR',          href: '/okr?owner=me',     icon: Target,         group: '目标管理', accent: 'cta' },
+      { name: '我的 OKR',          href: '/okr?owner=me',     icon: Target,         group: '目标管理' },
       { name: 'OKR 5 层 Cascade',  href: '/okr/cascade',      icon: Target,         group: '目标管理' },
       { name: '部门 Dashboard',    href: '/okr/dashboard',    icon: Grid3x3,        group: '目标管理', visibleTo: ['manager', 'steward', 'admin', 'champion'] },
       { name: 'OKR 日历',          href: '/okr/calendar',     icon: CalendarDays,   group: '目标管理' },

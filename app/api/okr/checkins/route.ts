@@ -6,7 +6,11 @@
  *   authorId 强制 = sessionUser.id
  *
  * 校验:
- *   - 仅 owner / coOwner / collaborator / watcher 可 POST (V1: owner only)
+ *   - 仅 owner / coOwner / collaborator 可 POST (V1: owner only)
+ *
+ * CHARTER-KPI-TTI §3.3 (信任铁律):
+ *   主管不能修改下属的 TTI progress / blockers / nextSteps —— 由 owner-only POST 守卫强制.
+ *   admin/champion 可在 demo 模式下覆写 (auth.demo === true), 生产环境 demo 默认关闭.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
