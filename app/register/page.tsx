@@ -27,6 +27,10 @@ function RegisterInner() {
   const [busy, setBusy] = useState(false);
   const [strength, setStrength] = useState(0);
   const [strengthHint, setStrengthHint] = useState<string[]>([]);
+  const [consented, setConsented] = useState(false);
+
+  // Privacy policy version (must match docs/PRIVACY-POLICY.md heading)
+  const PRIVACY_POLICY_VERSION = 'v1.0';
 
   // 从 URL 提取邀请码
   useEffect(() => {
@@ -57,7 +61,16 @@ function RegisterInner() {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, name, inviteCode }),
+        body: JSON.stringify({
+          email,
+          password,
+          name,
+          inviteCode,
+          privacyConsent: {
+            version: PRIVACY_POLICY_VERSION,
+            consentedAt: new Date().toISOString(),
+          },
+        }),
       });
       const data = await res.json();
       if (!res.ok || !data.ok) {
@@ -147,7 +160,30 @@ function RegisterInner() {
 
             {error && <p className="text-sm text-rose-600">{error}</p>}
 
-            <Button type="submit" disabled={busy || strength < 3} className="w-full">
+            {/* PIPL/GDPR consent */}
+            <label className="flex items-start gap-2 rounded border bg-slate-50 p-2.5 text-xs leading-relaxed text-slate-700 cursor-pointer hover:bg-slate-100 transition">
+              <input
+                type="checkbox"
+                checked={consented}
+                onChange={(e) => setConsented(e.target.checked)}
+                className="mt-0.5 h-3.5 w-3.5 accent-emerald-600"
+                required
+              />
+              <span>
+                我已阅读并同意{' '}
+                <a
+                  href="/privacy"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-emerald-700 underline"
+                >
+                  《Tandem 隐私政策》 ({PRIVACY_POLICY_VERSION})
+                </a>{' '}·
+                了解我的数据如何被收集、存储与使用.
+              </span>
+            </label>
+
+            <Button type="submit" disabled={busy || strength < 3 || !consented} className="w-full">
               {busy ? '注册中...' : '注册账号'}
             </Button>
 

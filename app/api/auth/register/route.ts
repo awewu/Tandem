@@ -21,17 +21,28 @@ export async function POST(req: NextRequest) {
       { status: 429, headers: { 'Retry-After': String(rl.resetSec) } },
     );
   }
-  let body: Record<string, string> = {};
+  let body: Record<string, unknown> = {};
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ ok: false, error: 'invalid json' }, { status: 400 });
   }
 
-  const { email, password, name, inviteCode } = body;
+  const email = String(body.email ?? '');
+  const password = String(body.password ?? '');
+  const name = String(body.name ?? '');
+  const inviteCode = String(body.inviteCode ?? '');
+  const privacyConsent = body.privacyConsent as { version?: string; consentedAt?: string } | undefined;
   if (!email || !password || !name || !inviteCode) {
     return NextResponse.json(
       { ok: false, error: 'email, password, name, inviteCode 均为必填' },
+      { status: 400 }
+    );
+  }
+  // PIPL §13/§14 + GDPR Art 7: 注册必须显式同意隐私政策
+  if (!privacyConsent || !privacyConsent.version || !privacyConsent.consentedAt) {
+    return NextResponse.json(
+      { ok: false, error: '请勾选同意《Tandem 隐私政策》' },
       { status: 400 }
     );
   }
@@ -44,6 +55,26 @@ export async function POST(req: NextRequest) {
       inviteCode,
       deviceInfo: extractDeviceInfo(req),
     });
+
+    // 记录同意时间戳到审计链 (PIPL §16: 同意可撤回, 但需可证)
+    try {
+      const { getAuditLog } = await import('@/lib/audit/log');
+      const dev = extractDeviceInfo(req);
+      await getAuditLog().append('user.privacy_consent', result.userId, {
+        targetId: result.userId,
+        targetType: 'user',
+        metadata: {
+          version: privacyConsent.version,
+          consentedAt: privacyConsent.consentedAt,
+          ip: dev.ip,
+          userAgent: dev.userAgent,
+        },
+      });
+    } catch (auditErr) {
+      // 审计失败不阻塞注册, 但记录 warning
+      // eslint-disable-next-line no-console
+      console.warn('[register] privacy consent audit failed:', auditErr);
+    }
 
     const res = NextResponse.json({
       ok: true,

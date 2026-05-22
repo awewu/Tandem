@@ -36,6 +36,9 @@ export type AuditAction =
   | 'data.export_origin'
   | 'data.delete_personal'
   | 'data.anonymize_persona'
+  // User account / consent (PIPL §13/§14, GDPR Art 7)
+  | 'user.privacy_consent'
+  | 'user.privacy_withdraw'
   // 决议事件
   | 'decision_card.create'
   | 'decision_card.update'

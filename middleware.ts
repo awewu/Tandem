@@ -40,6 +40,7 @@ const PUBLIC_PREFIXES = [
 const PUBLIC_UI_PREFIXES = [
   '/login',
   '/register',
+  '/privacy',
   '/_next/',
   '/favicon',
   '/manifest',
