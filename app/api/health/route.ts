@@ -62,25 +62,57 @@ async function checkStorage(): Promise<CheckResult> {
   }
 }
 
+async function checkLlm(): Promise<CheckResult> {
+  // Lightweight provider config check — no actual ping (saves quota).
+  // Detailed ping endpoint is /api/llm-health.
+  try {
+    const { getRouter } = await import('@/lib/boot');
+    const router = getRouter();
+    const registered = router.listProviders();
+    if (registered.length === 0) {
+      return { ok: false, error: 'no LLM provider registered' };
+    }
+    const hasPrimary = registered.includes('deepseek-v3') || registered.includes('qwen-max');
+    return hasPrimary
+      ? { ok: true }
+      : { ok: false, error: `no primary reasoner (got ${registered.join(',')})` };
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
+  }
+}
+
 const startedAt = Date.now();
 
 export async function GET() {
-  const [database, redis, storage] = await Promise.all([
+  const [database, redis, storage, llm] = await Promise.all([
     checkDb(),
     checkRedis(),
     checkStorage(),
+    checkLlm(),
   ]);
+  // llm degraded != 503 (LLM is non-critical for liveness; readiness still passes)
   const allOk = database.ok && redis.ok && storage.ok;
 
   const body = {
     ok: allOk,
     version: process.env.APP_VERSION ?? 'dev',
     uptimeSec: Math.round((Date.now() - startedAt) / 1000),
-    checks: { database, redis, storage },
+    checks: { database, redis, storage, llm },
   };
 
   if (!allOk) {
     logger.warn({ checks: body.checks }, '[health] readiness failed');
+    const failedDeps: string[] = [];
+    if (!database.ok) failedDeps.push('database');
+    if (!redis.ok) failedDeps.push('redis');
+    if (!storage.ok) failedDeps.push('storage');
+    const { fireAlert } = await import('@/lib/infra/alerts');
+    void fireAlert({
+      severity: 'critical',
+      title: 'Readiness check failed',
+      body: failedDeps.map((d) => `${d}: ${(body.checks as Record<string, CheckResult>)[d].error ?? 'unknown'}`).join('\n'),
+      tags: { module: 'health', failed: failedDeps.join(',') },
+    });
   }
 
   return Response.json(body, { status: allOk ? 200 : 503 });
