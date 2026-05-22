@@ -261,6 +261,7 @@ export const NAV_MODULES: NavModule[] = [
       // 用户与权限
       { name: '邀请用户',       href: '/admin/invite',        icon: Ticket,        group: '用户与权限', visibleTo: ['admin', 'champion'] },
       { name: 'Steward 工作台', href: '/admin/steward',       icon: ShieldCheck,   group: '用户与权限', visibleTo: ['steward', 'admin', 'champion'] },
+      { name: '员工组织',       href: '/admin/organization',  icon: Users,         group: '用户与权限', visibleTo: ['admin', 'champion'] },
       // KPI 设置 (CHARTER-KPI-TTI)
       { name: 'KPI 科目主数据', href: '/admin/kpi/subjects',         icon: Layers,        group: 'KPI 设置', visibleTo: ['admin', 'champion'] },
       { name: 'KPI 周期与目标',  href: '/admin/kpi/setup',            icon: Target,        group: 'KPI 设置', visibleTo: ['admin', 'champion'] },

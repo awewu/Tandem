@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useMemoryStore, type Memory } from '@/lib/store';
 import { FileManager, type FMNode } from '@/components/file-manager';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { TandemMemoryDigest } from '@/components/memories/tandem-memory-digest';
 import { parseDocument, SUPPORTED_ACCEPT, SUPPORTED_LIST } from '@/lib/document-parser';
 import { getMemoryStatus, type MemoryStatus } from '@/lib/hermes-api';
 import { cn } from '@/lib/utils';
@@ -432,7 +434,17 @@ export default function MemoriesPage() {
   }
 
   return (
-    <div className="flex flex-col h-full relative">
+    <Tabs defaultValue="company" className="flex flex-col h-full">
+      <div className="px-4 pt-3 border-b">
+        <TabsList>
+          <TabsTrigger value="company">公司 Memory</TabsTrigger>
+          <TabsTrigger value="personal">我的记事本</TabsTrigger>
+        </TabsList>
+      </div>
+      <TabsContent value="company" className="flex-1 overflow-auto p-4 space-y-4 m-0">
+        <TandemMemoryDigest />
+      </TabsContent>
+      <TabsContent value="personal" className="flex-1 m-0 relative overflow-hidden">
       <FileManager
         nodes={fmNodes}
         rootId="mem-root"
@@ -484,6 +496,7 @@ export default function MemoriesPage() {
           {toast.text}
         </div>
       )}
-    </div>
+      </TabsContent>
+    </Tabs>
   );
 }
