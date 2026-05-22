@@ -71,6 +71,9 @@ export function CommandPalette() {
   const [query, setQuery] = useState('');
   const [activeIdx, setActiveIdx] = useState(0);
   const [recent, setRecent] = useState<string[]>([]);
+  const [agentMatches, setAgentMatches] = useState<
+    Array<{ intent: string; route: string; label: string; confidence: number; skill?: string }>
+  >([]);
   const listRef = useRef<HTMLDivElement>(null);
 
   const { user, error: authError } = useCurrentUser();
@@ -182,8 +185,19 @@ export function CommandPalette() {
       return false;
     });
 
-    return aiItem ? [...matched, aiItem] : matched;
-  }, [query, navCommands, recent]);
+    // U1 · Agent intent matches go at top under "智能建议" group
+    const agentItems: CommandItem[] = agentMatches.map((m, i) => ({
+      id: `ai:intent:${i}:${m.intent}`,
+      name: m.label,
+      href: m.route,
+      group: '智能建议',
+      icon: Sparkles,
+      hint: m.skill ? `Skill · ${m.skill}` : `${Math.round(m.confidence * 100)}%`,
+    }));
+
+    const final = [...agentItems, ...matched];
+    return aiItem ? [...final, aiItem] : final;
+  }, [query, navCommands, recent, agentMatches]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, CommandItem[]>();
@@ -199,6 +213,31 @@ export function CommandPalette() {
   useEffect(() => {
     setActiveIdx(0);
   }, [query]);
+
+  // U1 · Agent intent fetch (debounce 250ms, only when query >= 4 chars)
+  useEffect(() => {
+    if (!open) return;
+    const q = query.trim();
+    if (q.length < 4) {
+      setAgentMatches([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const r = await fetch('/api/agent/intent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: q }),
+        });
+        if (!r.ok) return;
+        const j = await r.json();
+        setAgentMatches(j.matches ?? []);
+      } catch {
+        /* noop */
+      }
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [query, open]);
 
   // Keyboard navigation
   useEffect(() => {

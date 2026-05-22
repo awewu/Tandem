@@ -96,6 +96,13 @@ export interface Persona {
 
   /** 是否在线学习中 */
   learningActive: boolean;
+
+  /**
+   * 该 Persona 已解锁的 Agent Skill ID 列表 (S1, CHARTER §16).
+   * Skill 解锁随 stage 渐进, 见 STAGE_TO_DEFAULT_SKILLS.
+   * 红区 (奖金正式下发 / 离职辅导) 永远不解锁, 必须 human-only.
+   */
+  enabledSkills?: string[];
 }
 
 /** 阶段 → 委托级别默认映射 */
@@ -124,6 +131,40 @@ export const STAGE_UPGRADE_CRITERIA: Record<
   deputy: { minDays: 365, minDecisions: 800, maxVetoRate: 0.1 },
   partner: null,
 };
+
+/**
+ * 阶段 → 默认解锁的 Agent Skill IDs (S1)
+ *
+ * 设计原则:
+ *   - newborn: 啥都不能做 (仅观察)
+ *   - apprentice: 只读 / coaching
+ *   - assistant: + 建议性能力 (建决策卡 / 试算)
+ *   - deputy: + 真正能开议事室 + 调岗讨论
+ *   - partner: 几乎全部 (除红区)
+ *
+ * 红区永远不解锁的 skill (human-only):
+ *   - 奖金正式下发 (kpi-bonus 的 commit:true 路径) — 即使 skill 解锁, audit 端的 commit 仍由人触发
+ *   - 离职辅导 (must-intervene 模板的 D 选项)
+ */
+export const STAGE_TO_DEFAULT_SKILLS: Record<PersonaStage, string[]> = {
+  newborn: [],
+  apprentice: ['tti-coaching'],
+  assistant: ['tti-coaching', 'nine-box-action'],
+  deputy: ['tti-coaching', 'nine-box-action', 'decision-card-template', 'kpi-bonus'],
+  partner: [
+    'tti-coaching',
+    'nine-box-action',
+    'decision-card-template',
+    'kpi-bonus',
+    'audit-verify',
+  ],
+};
+
+/** 是否允许对该 persona 调用某 skill */
+export function canPersonaUseSkill(persona: Pick<Persona, 'stage' | 'enabledSkills'>, skillId: string): boolean {
+  const enabled = persona.enabledSkills ?? STAGE_TO_DEFAULT_SKILLS[persona.stage] ?? [];
+  return enabled.includes(skillId);
+}
 
 export function canUpgradeStage(persona: Persona): boolean {
   const criteria = STAGE_UPGRADE_CRITERIA[persona.stage];

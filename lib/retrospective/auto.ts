@@ -98,7 +98,76 @@ ${actionItems.map((a) => `- [${a.status}] ${a.task}`).join('\n')}`,
     metadata: { event: 'retrospective_generated', shouldPromoteToMemory: draft.shouldPromoteToMemory },
   });
 
+  // S3 · Reflection 闭环: shouldPromoteToMemory=true 时自动起草 Memory 候选
+  if (draft.shouldPromoteToMemory && draft.promoteAs && draft.learning) {
+    try {
+      await autoProposeMemoryFromRetrospective({
+        cardId,
+        cardTitle: card.title,
+        learning: draft.learning,
+        actualOutcome: draft.actualOutcome,
+        promoteAs: draft.promoteAs,
+        proposerId: 'system',
+      });
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn('[reflection] auto-propose failed:', err);
+    }
+  }
+
   return draft;
+}
+
+/**
+ * S3 · 自动从复盘起草 Memory 候选 (走标准签批流程, 不绕过审批)
+ *
+ * 行为:
+ *   1. 创建 Material (sourceMaterialId 用 cardId, 类型 'retrospective')
+ *   2. proposePromotion(level='team', proposedType='sop'|'case')
+ *   3. 写 audit memory.promotion_proposed (proposerId='system' 标记 AI 起草)
+ *
+ * 这就把"7 天后复盘"和"Memory 沉淀"打通了 — Nous Hermes 的 Reflection 闭环.
+ * 主管/steward 看到 system 起草的 promotion 时, 走人审, AI 不绕过.
+ */
+async function autoProposeMemoryFromRetrospective(input: {
+  cardId: string;
+  cardTitle: string;
+  learning: string;
+  actualOutcome: string;
+  promoteAs: 'sop' | 'case';
+  proposerId: string;
+}): Promise<void> {
+  const store = getStore();
+  const now = new Date().toISOString();
+  // 1. Material (用决议为源, 类型固定 retrospective)
+  const material = await store.materials.create({
+    type: 'retrospective',
+    title: `复盘提取: ${input.cardTitle}`,
+    body: `**实际结果**\n${input.actualOutcome}\n\n**关键学习**\n${input.learning}`,
+    originRefs: [`decision_card:${input.cardId}`],
+    participants: [input.proposerId],
+    visibility: 'team',
+    createdBy: input.proposerId,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  // 2. Promotion request (默认 team 级, 主管签即可, 反 AI 绕过)
+  const { proposePromotion } = await import('../memory/promotion-flow');
+  await proposePromotion({
+    materialId: material.id,
+    proposedType: input.promoteAs,
+    proposedTitle: input.cardTitle,
+    proposedBody: input.learning,
+    proposerId: input.proposerId,
+    level: 'team',
+  });
+
+  await audit('decision_card.update', 'system', {
+    targetId: input.cardId,
+    targetType: 'decision_card',
+    metadata: { event: 'reflection_promoted_to_memory_candidate', promoteAs: input.promoteAs },
+  });
 }
 
 /**
