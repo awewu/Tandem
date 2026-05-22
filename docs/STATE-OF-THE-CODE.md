@@ -224,6 +224,10 @@ PRD `MANIFESTO.md` 的核心链:
 
 完成全部 M 后: 9-box 真双轨投影 + KPI 与奖金挂钩闭环 + 公司全维度健康度可观测 + Excel 互通.
 
+**演示种子** (admin 一键): `POST /api/kpi/seed-demo` 创建 FY2026 演示周期 + 7 个科目 +
+12 个 KPI + 4 个 assignee (覆盖 9-box 4 种典型格), 让 `/admin/kpi/*` + `/nine-box/suggestions`
+立即有数据可玩. 加 `?force=1` 重置.
+
 ---
 
 ## §8 维护规则
