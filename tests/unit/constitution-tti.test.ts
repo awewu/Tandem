@@ -8,8 +8,6 @@
  * 任何让测试失败的 PR, 都必须先修改宪章 (需要创始人 + 产品 + AI 三方签字).
  */
 
-/* eslint-disable */
-// @ts-expect-error optional dependency
 import { describe, it, expect } from 'vitest';
 import type { TTI } from '@/lib/types/okr-tti';
 

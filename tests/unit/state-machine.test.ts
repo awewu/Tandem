@@ -5,8 +5,6 @@
  *       npx vitest run
  */
 
-/* eslint-disable */
-// @ts-expect-error optional dependency
 import { describe, it, expect } from 'vitest';
 import {
   createInitialState,

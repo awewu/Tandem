@@ -17,10 +17,10 @@
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { boot, getStore } from '@/lib/boot';
+import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { hasKpiPermission } from '@/lib/auth/kpi-perms';
-import { audit } from '@/lib/audit/log';
+import { kpiCycleRepo } from '@/lib/domain/kpi/kpi-cycle-repo-impl';
 
 export async function POST(
   req: NextRequest,
@@ -38,63 +38,34 @@ export async function POST(
     const body = await req.json().catch(() => ({}));
     const force = body.force === true;
 
-    const store = getStore();
-    const cycle = await store.kpiCycles.get(cycleId);
+    const cycle = await kpiCycleRepo.findById(cycleId);
     if (!cycle || cycle.tenantId !== auth.tenantId) {
       return NextResponse.json({ error: 'cycle_not_found' }, { status: 404 });
     }
-    if (cycle.status === 'closed') {
-      return NextResponse.json({ error: 'already_closed' }, { status: 400 });
-    }
-    if (cycle.status === 'draft') {
-      return NextResponse.json(
-        { error: 'cycle_draft: 周期未激活, 无需关闭' },
-        { status: 400 },
-      );
-    }
 
-    // 校验: 所有 bonus assignee 已有 committed payout
-    if (!force) {
-      const bonusKpis = (await store.kpis.list()).filter(
-        (k) => k.tenantId === auth.tenantId && k.cycleId === cycleId && k.scope === 'bonus',
-      );
-      const assignees = Array.from(new Set(bonusKpis.map((k) => k.assigneeId)));
-      const payouts = (await store.kpiBonusPayouts.list()).filter(
-        (p) => p.tenantId === auth.tenantId && p.cycleId === cycleId,
-      );
-      const committedAssignees = new Set(
-        payouts.filter((p) => p.committed).map((p) => p.assigneeId),
-      );
-      const missing = assignees.filter((a) => !committedAssignees.has(a));
-      if (missing.length > 0) {
-        return NextResponse.json(
-          {
-            error: 'precondition_failed: 以下 assignee 尚未完成奖金下发',
-            missingAssignees: missing,
-            hint: '调用 POST /api/kpi/cycles/[id]/bonus { commit: true, ... } 先下发, 或加 ?force=1 强制关闭',
-          },
-          { status: 412 },
-        );
+    const result = await kpiCycleRepo.close({
+      cycleId,
+      actorId: auth.userId,
+      force,
+    });
+
+    if (!result.ok) {
+      if (result.reason === 'invalid_state') {
+        const msg =
+          result.current === 'closed' ? 'already_closed' : 'cycle_draft: 周期未激活, 无需关闭';
+        return NextResponse.json({ error: msg }, { status: 400 });
       }
+      return NextResponse.json(
+        {
+          error: 'precondition_failed: 以下 assignee 尚未完成奖金下发',
+          missingAssignees: result.missingAssignees,
+          hint: '先 POST /api/kpi/cycles/[id]/bonus { commit:true, ... } 下发, 或 force:true 强关',
+        },
+        { status: 412 },
+      );
     }
 
-    const now = new Date().toISOString();
-    const updated = await store.kpiCycles.update(cycleId, {
-      status: 'closed',
-      closedAt: now,
-      updatedAt: now,
-    });
-
-    await audit('kpi.year_end_close', auth.userId, {
-      targetId: cycleId,
-      targetType: 'kpi_cycle',
-      metadata: {
-        fiscalYear: cycle.fiscalYear,
-        force,
-      },
-    });
-
-    return NextResponse.json({ cycle: updated, closedAt: now });
+    return NextResponse.json({ cycle: result.cycle, closedAt: result.cycle.closedAt });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }

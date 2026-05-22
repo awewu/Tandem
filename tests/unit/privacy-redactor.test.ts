@@ -4,8 +4,6 @@
  * 启用: npm i -D vitest && npx vitest run tests/unit/privacy-redactor
  */
 
-/* eslint-disable */
-// @ts-expect-error optional dependency
 import { describe, it, expect } from 'vitest';
 import {
   buildRedactor,
