@@ -113,8 +113,10 @@ export const NAV_MODULES: NavModule[] = [
     fullLabel: '事半 · 目标与反馈',
     tagline: '围绕 OKR 推进, 不跑偏才能事半功倍',
     icon: Target,
-    pathPrefixes: ['/okr', '/360', '/1on1', '/nine-box', '/insights', '/analytics'],
+    pathPrefixes: ['/okr', '/360', '/1on1', '/nine-box', '/insights', '/analytics', '/kpi'],
     items: [
+      // 绩效 KPI (年度硬指标, 只读)
+      { name: '我的 KPI',          href: '/kpi',              icon: Target,         group: '绩效 KPI' },
       // 目标管理
       { name: '我的 OKR',          href: '/okr?owner=me',     icon: Target,         group: '目标管理', accent: 'cta' },
       { name: 'OKR 5 层 Cascade',  href: '/okr/cascade',      icon: Target,         group: '目标管理' },
@@ -260,6 +262,11 @@ export const NAV_MODULES: NavModule[] = [
       // 用户与权限
       { name: '邀请用户',       href: '/admin/invite',        icon: Ticket,        group: '用户与权限', visibleTo: ['admin', 'champion'] },
       { name: 'Steward 工作台', href: '/admin/steward',       icon: ShieldCheck,   group: '用户与权限', visibleTo: ['steward', 'admin', 'champion'] },
+      // KPI 设置 (CHARTER-KPI-TTI)
+      { name: 'KPI 科目主数据', href: '/admin/kpi/subjects',         icon: Layers,        group: 'KPI 设置', visibleTo: ['admin', 'champion'] },
+      { name: 'KPI 周期与目标',  href: '/admin/kpi/setup',            icon: Target,        group: 'KPI 设置', visibleTo: ['admin', 'champion'] },
+      { name: 'KPI 人工补录',      href: '/admin/kpi/manual-entry',     icon: ScrollText,    group: 'KPI 设置', visibleTo: ['admin', 'champion'] },
+      { name: 'KPI 健康度看板',  href: '/admin/kpi/health-dashboard', icon: Grid3x3,       group: 'KPI 设置', visibleTo: ['admin', 'champion', 'steward'] },
       // 内容管理
       { name: 'Intranet 编辑',  href: '/admin/intranet',      icon: Megaphone,     group: '内容管理', visibleTo: ['admin', 'champion'] },
       { name: 'Launchpad 管理', href: '/admin/launchpad',     icon: LayoutGrid,    group: '内容管理', visibleTo: ['admin', 'champion'] },
