@@ -5,6 +5,8 @@ import { DocumentService } from '@/lib/services/document-service';
 import { CalendarService } from '@/lib/services/calendar-service';
 import { DriveService } from '@/lib/services/drive-service';
 
+export const dynamic = 'force-dynamic';
+
 export const GET = withErrorHandler(async (req: Request) => {
   const { searchParams } = new URL(req.url);
   const q = (searchParams.get('q') ?? '').toLowerCase().trim();

@@ -3,6 +3,8 @@ import { withErrorHandler } from '@/lib/api/error-middleware';
 import { createAppContext } from '@/lib/repositories/app-context-factory';
 import { DriveService } from '@/lib/services/drive-service';
 
+export const dynamic = 'force-dynamic';
+
 export const GET = withErrorHandler(async (req: Request) => {
   const { searchParams } = new URL(req.url);
   const folderId = searchParams.get('folderId');

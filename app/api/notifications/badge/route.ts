@@ -4,6 +4,8 @@ import { createAppContext } from '@/lib/repositories/app-context-factory';
 import { NotificationService } from '@/lib/services/notification-service';
 import { cacheGetOrLoad } from '@/lib/infra/cache';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/notifications/badge?userId=xxx
  *

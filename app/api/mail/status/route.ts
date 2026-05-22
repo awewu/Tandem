@@ -10,6 +10,8 @@ import { withErrorHandler } from '@/lib/api/error-middleware';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { isEmailConfigured } from '@/lib/infra/email';
 
+export const dynamic = 'force-dynamic';
+
 export const GET = withErrorHandler(async (req: NextRequest) => {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
