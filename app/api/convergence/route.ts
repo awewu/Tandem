@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getOrchestrator, getStore } from '@/lib/boot';
 import { validateKrBinding } from '@/lib/types/decision-card';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { applyTemplate, type TemplateId } from '@/lib/skills/decision-card-templates';
 
 /**
  * POST /api/convergence
@@ -15,11 +16,18 @@ export async function POST(req: NextRequest) {
   if (auth instanceof NextResponse) return auth;
   try {
     const body = await req.json();
+
+    // S2 · Skill template 预填 (?template=role-transfer 等)
+    let template: ReturnType<typeof applyTemplate> = null;
+    if (body?.template) {
+      template = applyTemplate(body.template as TemplateId, body.templateContext ?? {});
+    }
+
     const {
-      title,
-      description,
+      title = template?.title,
+      description = template?.description,
       primaryKrId,
-      noKrReason,
+      noKrReason = template?.noKrReason,
       relatedKr,
       relatedTti,
       materialRefs,
