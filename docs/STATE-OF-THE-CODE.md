@@ -82,7 +82,10 @@
 | `/mail` | `/api/mail/send` + `/api/mail/status` | ✅ |
 | `/admin/launchpad` | `/api/admin/launchpad` | ✅ |
 | **(KPI 后端)** `/api/kpi/{cycles,subjects,manual-entry,[id]}` | 7 endpoint + 12 audit events + 3 权限位 + canManualEntry 守卫 | ✅ M2a-Core |
-| `/admin/kpi/{setup,subjects,manual-entry,health-dashboard}` + `/kpi` | UI 待建 | ⏸ M2a-UI |
+| `/admin/kpi/{setup,subjects,manual-entry,health-dashboard}` + `/kpi` | 5 页 + nav 入口 + ExcelImportExport 嵌入 | ✅ M2a-UI |
+| `/api/kpi/{export,import,subjects/{export,import}}` | 4 endpoint + dry-run + 错误行回显 | ✅ M2a-Excel |
+| `/api/kpi/analytics?view=...` (8 视图) + `/api/kpi/erp/sync` + 9-box 纵轴 | ERP adapter + 8 分析 + 9-box 接 KPI 加权完成率 | ✅ M2b |
+| `/api/audit/verify` + Drizzle `AuditLog` 表 | SHA-256 链 + 跨重启保存 + verify endpoint | ✅ P0 audit-persist |
 | `/admin/baseline` | `/api/tandem/memory/*` (baseline 走 memory) | ⏸ 待验证 |
 | `/admin/steward` | `/api/tandem/memory/{promotion,downgrade}` + SLA 监控 | ✅ 3 tab 完整工作台 (升级/降级/SLA) |
 | `/admin/intranet` | (新加, 后端待补) | ❌ |
@@ -204,14 +207,20 @@ PRD `MANIFESTO.md` 的核心链:
 |---|---|---|:-:|---|
 | **M1** | 双轨语义对齐 (Charter + 9-box 轴换位 + deprecate TTI) | 30min | ✅ | — |
 | **M2a-Core** | KPI types + Repository + audit + 权限 + 7 API 端点 (cycles/subjects/kpis/manual-entry) | 1d | ✅ | M1 |
-| **M2a-UI** | 4 个 admin 页 + 个人只读页 | 1d | ⏸ | M2a-Core |
-| **M2a-Excel** | xlsx 库 + 4 import/export endpoint + dry-run + 错误回显 | 1d | ⏸ | M2a-Core |
-| **M2b** | KPI ERP 采集通道 + 8 个分析 endpoint + 9-box 纵轴真接 KPI | 1d | ⏸ | M2a 全 |
+| **M2a-UI** | 4 个 admin 页 + 个人只读页 + nav 接入 | 1d | ✅ | M2a-Core |
+| **M2a-Excel** | xlsx 库 + 4 import/export endpoint + dry-run + 错误回显 + 可复用组件 | 1d | ✅ | M2a-Core |
+| **M2b** | KPI ERP adapter (骨架) + 8 个分析 endpoint + 9-box 纵轴真接 KPI | 1d | ✅ | M2a 全 |
 | **M2c** | TTI 四要素 UI + 主管只读限制 | 0.5d | ⏸ | M2a-UI |
 | **M3** | 绩效奖金计算引擎 + 年终关闭 | 1d | ⏸ | M2 全 |
 | **M4** | 9-box 联动决策卡片 / Persona 升级 | 0.5d | ⏸ | M3 |
 
-**已完成 ≈ 1.5d** (M1 + M2a-Core) · **剩余 ≈ 4d** (M2a-UI + M2a-Excel + M2b + M2c + M3 + M4)
+**已完成 ≈ 4.5d** (M1 + M2a-Core + M2a-UI + M2a-Excel + M2b) · **剩余 ≈ 2d** (M2c + M3 + M4)
+
+**P0 差补完成** (2026-05-21):
+
+- ✅ audit log Drizzle 持久化 (SHA-256 链 + 跨重启保存 + tenantId 维度 + `/api/audit/verify`)
+- ✅ pg_dump 备份脚本 (·sh + ·ps1) + S3 上传 + `docs/RECOVERY-SOP.md`
+- ⚠ ERP adapter 仅交付接口 + noop 默认实现· 真实租户需注入具体 ERP adapter (SAP/用友/金蝶)
 
 完成全部 M 后: 9-box 真双轨投影 + KPI 与奖金挂钩闭环 + 公司全维度健康度可观测 + Excel 互通.
 
