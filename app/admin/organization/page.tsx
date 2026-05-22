@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Users, Search, RefreshCw, AlertCircle, Building2, ShieldCheck } from 'lucide-react';
+import { Users, Search, RefreshCw, AlertCircle, Building2, ShieldCheck, Upload, Download } from 'lucide-react';
 
 interface OrgUser {
   id: string;
@@ -107,6 +107,9 @@ export default function AdminOrganizationPage() {
           刷新
         </Button>
       </header>
+
+      {/* 通讯录批量导入 (pilot Day 1) */}
+      <BulkInviteCard onSuccess={() => void load()} />
 
       {/* 工具条 */}
       <Card>
@@ -224,5 +227,167 @@ export default function AdminOrganizationPage() {
         <a href="/organization" className="text-primary hover:underline">/organization</a>.
       </footer>
     </div>
+  );
+}
+
+interface BulkResult {
+  row: number;
+  email: string;
+  ok: boolean;
+  code?: string;
+  error?: string;
+  registerUrl?: string;
+}
+
+function BulkInviteCard({ onSuccess }: { onSuccess?: () => void }) {
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [results, setResults] = useState<BulkResult[] | null>(null);
+  const [summary, setSummary] = useState<{ total: number; ok: number; failed: number; dryRun: boolean } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function upload(dryRun: boolean) {
+    if (!file) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      if (dryRun) fd.append('dryRun', '1');
+      const r = await fetch('/api/admin/users/bulk-invite', { method: 'POST', body: fd });
+      const j = await r.json();
+      if (!r.ok || !j.ok) {
+        setError(j.error ?? `HTTP ${r.status}`);
+        return;
+      }
+      setResults(j.results);
+      setSummary(j.summary);
+      if (!dryRun && onSuccess) onSuccess();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '上传失败');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function downloadResults() {
+    if (!results) return;
+    const lines = [
+      'row,email,ok,code,registerUrl,error',
+      ...results.map((r) =>
+        [r.row, r.email, r.ok, r.code ?? '', r.registerUrl ?? '', r.error ?? ''].join(','),
+      ),
+    ];
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `bulk-invite-${Date.now()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <Card className="border-amber-200 bg-amber-50/30">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Upload className="h-4 w-4" />
+          通讯录批量邀请 · pilot Day 1
+        </CardTitle>
+        <p className="text-xs text-muted-foreground mt-1">
+          上传 CSV 或 Excel (列: <span className="font-mono">email,name,department,roles</span>) ·
+          每行生成 7 天单次邀请码 · 单批 ≤ 500 行 ·
+          下载 CSV 模板:{' '}
+          <a href="/api/admin/users/bulk-invite/template" className="text-amber-700 underline">下载模板</a>
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <input
+            type="file"
+            accept=".csv,.xlsx,.xls"
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            className="text-xs"
+          />
+          <Button size="sm" variant="outline" disabled={!file || busy} onClick={() => void upload(true)}>
+            {busy ? '校验中…' : '试运行 (dry-run)'}
+          </Button>
+          <Button size="sm" disabled={!file || busy} onClick={() => void upload(false)}>
+            {busy ? '生成中…' : '正式生成邀请码'}
+          </Button>
+          {results && (
+            <Button size="sm" variant="ghost" onClick={downloadResults}>
+              <Download className="h-3.5 w-3.5 mr-1" />
+              下载结果 CSV
+            </Button>
+          )}
+        </div>
+
+        {error && (
+          <div className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded px-3 py-2 flex items-center gap-2">
+            <AlertCircle className="h-3.5 w-3.5" />
+            {error}
+          </div>
+        )}
+
+        {summary && (
+          <div className="text-xs flex items-center gap-3">
+            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+              成功 {summary.ok}
+            </Badge>
+            {summary.failed > 0 && (
+              <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200">
+                失败 {summary.failed}
+              </Badge>
+            )}
+            <span className="text-muted-foreground">
+              共 {summary.total} 行 · {summary.dryRun ? '试运行 (未写入)' : '已生成邀请码'}
+            </span>
+          </div>
+        )}
+
+        {results && results.length > 0 && (
+          <div className="max-h-64 overflow-auto border rounded">
+            <table className="w-full text-xs">
+              <thead className="bg-muted/40 sticky top-0">
+                <tr>
+                  <th className="px-2 py-1.5 text-left font-medium">#</th>
+                  <th className="px-2 py-1.5 text-left font-medium">邮箱</th>
+                  <th className="px-2 py-1.5 text-left font-medium">状态</th>
+                  <th className="px-2 py-1.5 text-left font-medium">邀请码 / 错误</th>
+                </tr>
+              </thead>
+              <tbody>
+                {results.slice(0, 100).map((r) => (
+                  <tr key={r.row} className="border-t">
+                    <td className="px-2 py-1 font-mono text-muted-foreground">{r.row}</td>
+                    <td className="px-2 py-1">{r.email}</td>
+                    <td className="px-2 py-1">
+                      {r.ok ? (
+                        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px]">
+                          ✓
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 text-[10px]">
+                          ✗
+                        </Badge>
+                      )}
+                    </td>
+                    <td className="px-2 py-1 font-mono text-[10px] text-muted-foreground truncate max-w-md">
+                      {r.code ?? r.error ?? ''}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {results.length > 100 && (
+              <div className="text-[10px] text-muted-foreground p-2 text-center border-t">
+                仅显示前 100 行 · 完整列表请下载 CSV
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
