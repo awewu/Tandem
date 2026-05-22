@@ -3,6 +3,7 @@ import { boot } from '@/lib/boot';
 import { getStore } from '@/lib/storage/repository';
 import { classifyNineBox } from '@/lib/types/okr-tti';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { computeKpiCompletion } from '@/lib/types/kpi';
 
 /**
  * GET /api/nine-box?cycleId=...
@@ -33,9 +34,24 @@ export async function GET(req: NextRequest) {
           .reduce((acc: typeof allKrs, oid) => acc.concat(allKrs.filter((k) => k.objectiveId === oid)), [])
       : allKrs;
 
-    // group by ownerId (KR owners 即 TTI 涉及人)
+    // KPI 数据 (CHARTER §5 M2a 已交付): 取 bonus scope, 当前 cycleId 过滤
+    // 注: KPI cycleId 与 OKR cycleId 是同一个 ID 空间 (都来自 store.cycles 主表)
+    const allKpis = (await store.kpis.list()).filter(
+      (k) => !cycleId || k.cycleId === cycleId,
+    );
+    const bonusKpisByAssignee = new Map<string, typeof allKpis>();
+    for (const k of allKpis) {
+      if (k.scope !== 'bonus') continue;
+      const arr = bonusKpisByAssignee.get(k.assigneeId) ?? [];
+      arr.push(k);
+      bonusKpisByAssignee.set(k.assigneeId, arr);
+    }
+    const kpiReady = allKpis.length > 0;
+
+    // 9-box 人选 = KR owners ∪ KPI assignees (任一被纳入)
     const owners = new Set<string>();
     krs.forEach((k) => owners.add(k.ownerId));
+    Array.from(bonusKpisByAssignee.keys()).forEach((a) => owners.add(a));
 
     const people = await Promise.all(
       Array.from(owners).map(async (userId) => {
@@ -51,9 +67,20 @@ export async function GET(req: NextRequest) {
                 return sum + Math.max(0, Math.min(1, r));
               }, 0) / ownKrs.length;
 
-        // 纵轴 = KPI 完成率. KPI 表尚未建 (CHARTER §5 M2a), 暂返 0.
-        // M2a 完成后, 此处改为: const kpiScore = await store.kpis.getCompletionRate(userId, fiscalYear)
-        const kpiScore = 0;
+        // 纵轴 = KPI 加权完成率 (bonus scope, weight 加权; monitor 不参与)
+        const myBonusKpis = bonusKpisByAssignee.get(userId) ?? [];
+        let kpiScore = 0;
+        if (myBonusKpis.length > 0) {
+          const totalW = myBonusKpis.reduce((s, k) => s + k.weight, 0);
+          if (totalW > 0) {
+            const sum = myBonusKpis.reduce(
+              (s, k) => s + k.weight * computeKpiCompletion(k),
+              0,
+            );
+            // 允许超额成绩参与 9-box, 但顶到 1 (>100% 算 high)
+            kpiScore = Math.min(1, sum / totalW);
+          }
+        }
 
         // best-effort 姓名解析: 没注册账号就回退到 userId
         let name = userId;
@@ -82,7 +109,7 @@ export async function GET(req: NextRequest) {
       cycles,
       // 状态指示器: 前端用于显示"KPI 数据待接入"提示
       dataSources: {
-        kpiReady: false, // CHARTER §5 M2a 完成后置 true
+        kpiReady, // CHARTER §5 M2a-Core 已完成, 看是否有真实 KPI 数据
         ttiReady: true,
       },
     });
