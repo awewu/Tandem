@@ -38,9 +38,9 @@ import {
   RefreshCw,
   CheckCircle2,
   AlertCircle,
-  Heart,
   Compass,
 } from 'lucide-react';
+import { TrustBanner } from '@/components/trust-banner';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -310,19 +310,10 @@ export default function TtiPage() {
         </p>
       </header>
 
-      {/* 信任叙事 banner */}
-      <Card className="border-emerald-200 bg-emerald-50">
-        <CardContent className="py-3 flex items-start gap-3 text-sm">
-          <Heart className="h-5 w-5 text-emerald-600 mt-0.5 flex-shrink-0" />
-          <div className="space-y-1">
-            <div className="font-medium text-emerald-900">记录, 不审批</div>
-            <div className="text-emerald-800/90 text-xs">
-              主管可以看到你的填报, 但 <strong>不会驳回</strong> 也 <strong>不会因此扣奖金</strong>.
-              TTI 是为了让你 / 主管 / 公司一起看清你的成长方向, 不是用来考核的.
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <TrustBanner tone="trust" charter="CHARTER §3.2">
+        主管可以看到你的填报, 但 <strong>不会驳回</strong> 也 <strong>不会因此扣奖金</strong>.
+        TTI 是为了让你 / 主管 / 公司一起看清你的成长方向, 不是用来考核的.
+      </TrustBanner>
 
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">

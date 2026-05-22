@@ -149,6 +149,7 @@ export default function KpiSetupPage() {
   const [kpiForm, setKpiForm] = useState<KpiFormState>(EMPTY_KPI_FORM);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [levelTab, setLevelTab] = useState<'all' | KpiLevel>('all');
 
   // ---------------------------------------------------------------------------
   // Fetch
@@ -584,7 +585,35 @@ export default function KpiSetupPage() {
             </div>
           </div>
 
-          {(['company', 'department', 'individual'] as KpiLevel[]).map((level) => {
+          {/* 层级 tab 过滤 (减少视觉密度) */}
+          <div className="flex items-center gap-1 border-b">
+            {(['all', 'company', 'department', 'individual'] as const).map((tab) => {
+              const count = tab === 'all' ? kpis.length : kpiByLevel[tab as KpiLevel].length;
+              const label = tab === 'all' ? '全部' : LEVEL_LABEL[tab as KpiLevel].label;
+              const active = levelTab === tab;
+              return (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setLevelTab(tab)}
+                  className={`px-3 py-1.5 text-sm border-b-2 -mb-px transition-colors ${
+                    active
+                      ? 'border-primary text-foreground font-medium'
+                      : 'border-transparent text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {label}
+                  <span className="ml-1.5 text-xs text-muted-foreground tabular-nums">
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {(['company', 'department', 'individual'] as KpiLevel[])
+            .filter((l) => levelTab === 'all' || levelTab === l)
+            .map((level) => {
             const list = kpiByLevel[level];
             const lvlInfo = LEVEL_LABEL[level];
             return (

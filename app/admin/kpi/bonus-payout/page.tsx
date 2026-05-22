@@ -30,8 +30,8 @@ import {
   Send,
   ChevronDown,
   ChevronRight,
-  ShieldAlert,
 } from 'lucide-react';
+import { TrustBanner } from '@/components/trust-banner';
 import type { KpiBonusPayout, KpiCycle } from '@/lib/types/kpi';
 
 // ---------------------------------------------------------------------------
@@ -69,6 +69,7 @@ export default function KpiBonusPayoutPage() {
   const [busy, setBusy] = useState(false);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [userMap, setUserMap] = useState<Record<string, { name?: string; email?: string }>>({});
 
   // ---------------------------------------------------------------------------
   // Fetch
@@ -86,6 +87,21 @@ export default function KpiBonusPayoutPage() {
       setActiveCycleId(pref.id);
     }
   }, [activeCycleId]);
+
+  const loadUsers = useCallback(async () => {
+    try {
+      const r = await fetch('/api/org/users', { cache: 'no-store' });
+      if (!r.ok) return;
+      const j = await r.json();
+      const m: Record<string, { name?: string; email?: string }> = {};
+      for (const u of (j.users ?? []) as { id: string; name?: string; email?: string }[]) {
+        m[u.id] = { name: u.name, email: u.email };
+      }
+      setUserMap(m);
+    } catch {
+      /* noop */
+    }
+  }, []);
 
   const loadCycleData = useCallback(async () => {
     if (!activeCycleId) {
@@ -113,13 +129,13 @@ export default function KpiBonusPayoutPage() {
     setLoading(true);
     setError(null);
     try {
-      await loadCycles();
+      await Promise.all([loadCycles(), loadUsers()]);
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setLoading(false);
     }
-  }, [loadCycles]);
+  }, [loadCycles, loadUsers]);
 
   useEffect(() => {
     void load();
@@ -270,15 +286,10 @@ export default function KpiBonusPayoutPage() {
         </Button>
       </header>
 
-      <Card className="border-amber-200 bg-amber-50">
-        <CardContent className="py-3 text-sm text-amber-800 flex items-start gap-2">
-          <ShieldAlert className="h-4 w-4 mt-0.5 flex-shrink-0" />
-          <div>
-            奖金 = baseBonus × min(1.5, 加权完成率). 仅 <strong>scope=bonus</strong> KPI 参与计算,
-            monitor 永不进 (CHARTER §2.0). 一旦正式下发, 不可撤销 (需新建工单).
-          </div>
-        </CardContent>
-      </Card>
+      <TrustBanner tone="audit" title="奖金计算铁律" charter="CHARTER §2.0">
+        奖金 = baseBonus × min(1.5, 加权完成率). 仅 <strong>scope=bonus</strong> KPI 参与计算,
+        monitor 永不进. 一旦正式下发, 不可撤销 (需新建工单).
+      </TrustBanner>
 
       {error && (
         <Card className="border-rose-200 bg-rose-50">
@@ -438,7 +449,20 @@ export default function KpiBonusPayoutPage() {
                             )}
                           </button>
                         </td>
-                        <td className="px-4 py-2 font-mono text-xs">{a}</td>
+                        <td className="px-4 py-2">
+                          <div className="flex flex-col">
+                            <span className="text-sm">
+                              {userMap[a]?.name ?? userMap[a]?.email ?? (
+                                <span className="font-mono text-muted-foreground">{a}</span>
+                              )}
+                            </span>
+                            {(userMap[a]?.name || userMap[a]?.email) && (
+                              <span className="font-mono text-[10px] text-muted-foreground">
+                                {a}
+                              </span>
+                            )}
+                          </div>
+                        </td>
                         <td className="px-4 py-2 text-right text-xs">{myKpis.length}</td>
                         <td className={`px-4 py-2 text-right tabular-nums ${wcColor}`}>
                           {p ? `${wcPct}%` : '—'}
