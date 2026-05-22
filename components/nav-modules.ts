@@ -199,8 +199,8 @@ export const NAV_MODULES: NavModule[] = [
       { name: '成长路径',   href: '/persona/evolution', icon: SparklesAlias, group: '我的成长' },
       { name: '我的技能',   href: '/skills',            icon: Layers,        group: '我的成长' },
       { name: '学习路径',   href: '/skills/learning',   icon: SparklesAlias, group: '我的成长' },
-      // 每日记录
-      { name: '5min 日报',  href: '/report',            icon: Clock3,        group: '每日记录' },
+      // 每日记录 — 5min 日报 暂未上线 (M2), 隐藏入口避免 pilot 用户撞 placeholder
+      // { name: '5min 日报',  href: '/report',            icon: Clock3,        group: '每日记录' },
       // AI 协作
       { name: 'AI 一对一',  href: '/chat',              icon: MessageSquare, group: 'AI 协作' },
       { name: 'AI 助手',    href: '/agents',            icon: Bot,           group: 'AI 协作' },
