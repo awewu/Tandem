@@ -56,6 +56,7 @@ import {
   Layers,
   Coins,
   Activity,
+  Sparkles,
 } from 'lucide-react';
 import type { Kpi, KpiCycle, KpiLevel, KpiScope, KpiSubject } from '@/lib/types/kpi';
 import { ExcelImportExport } from '@/components/kpi/ExcelImportExport';
@@ -446,8 +447,33 @@ export default function KpiSetupPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           {cycleCount === 0 ? (
-            <div className="text-sm text-muted-foreground py-2">
-              尚未创建任何 KPI 周期. 点击右上 &quot;新增周期&quot; 开始 — 一个财年 = 一个周期.
+            <div className="space-y-3 py-2">
+              <p className="text-sm text-muted-foreground">
+                尚未创建任何 KPI 周期. 你可以从一个空周期开始, 也可以一键种入演示数据 (FY2026 + 7 科目 + 12 KPI + 4 assignee, 覆盖 9-box 4 种典型格).
+              </p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button size="sm" onClick={openCreateCycle}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  新增空周期
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={async () => {
+                    try {
+                      const r = await fetch('/api/kpi/seed-demo', { method: 'POST' });
+                      const j = await r.json().catch(() => ({}));
+                      if (!r.ok) throw new Error(j.error ?? `HTTP ${r.status}`);
+                      await refresh();
+                    } catch (e) {
+                      alert('种入失败: ' + (e as Error).message);
+                    }
+                  }}
+                >
+                  <Sparkles className="h-4 w-4 mr-1" />
+                  种入演示数据
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="flex items-center gap-3 flex-wrap">

@@ -54,6 +54,7 @@ import {
   Lock,
   Plus,
   UserPlus,
+  Activity,
 } from 'lucide-react';
 
 export type Role = 'employee' | 'manager' | 'steward' | 'admin' | 'champion';
@@ -270,6 +271,7 @@ export const NAV_MODULES: NavModule[] = [
       { name: 'KPI 周期与目标',  href: '/admin/kpi/setup',            icon: Target,        group: 'KPI 设置', visibleTo: ['admin', 'champion'] },
       { name: 'KPI 人工补录',      href: '/admin/kpi/manual-entry',     icon: ScrollText,    group: 'KPI 设置', visibleTo: ['admin', 'champion'] },
       { name: 'KPI 健康度看板',  href: '/admin/kpi/health-dashboard', icon: Grid3x3,       group: 'KPI 设置', visibleTo: ['admin', 'champion', 'steward'] },
+      { name: 'KPI 分析中枢',    href: '/admin/kpi/analytics',        icon: Activity,      group: 'KPI 设置', visibleTo: ['admin', 'champion', 'steward'] },
       { name: 'KPI 奖金下发',    href: '/admin/kpi/bonus-payout',     icon: ShieldCheck,   group: 'KPI 设置', visibleTo: ['admin', 'champion'] },
       // 内容管理
       { name: 'Intranet 编辑',  href: '/admin/intranet',      icon: Megaphone,     group: '内容管理', visibleTo: ['admin', 'champion'] },
