@@ -185,3 +185,35 @@ export const notification = pgTable(
     createdIdx: index('Notification_createdAt_idx').on(t.createdAt),
   }),
 );
+
+/**
+ * AuditLog · 不可篡改审计链
+ *
+ * - hash + prevHash 形成 SHA-256 链, 任何条目被改动会导致后续 verify() 失败
+ * - 跨重启保持链路完整 (启动时从 DB 加载最新 hash 作为新链头 prevHash)
+ * - 等保二级 / GDPR / PIPL 证据要求
+ */
+export const auditLog = pgTable(
+  'AuditLog',
+  {
+    id: text('id').primaryKey(),
+    action: text('action').notNull(),
+    actorId: text('actorId').notNull(),
+    targetId: text('targetId'),
+    targetType: text('targetType'),
+    metadata: jsonb('metadata'),
+    timestamp: timestamp('timestamp', { precision: 3, mode: 'date' }).notNull(),
+    hash: text('hash').notNull(),
+    prevHash: text('prevHash'),
+    tenantId: text('tenantId').notNull().default('default'),
+    /** sequence number (monotonic per tenant, db-side default via BIGSERIAL-equivalent) */
+    seq: integer('seq').notNull(),
+  },
+  (t) => ({
+    actionIdx: index('AuditLog_action_idx').on(t.action),
+    actorIdx: index('AuditLog_actorId_idx').on(t.actorId),
+    targetIdx: index('AuditLog_targetId_idx').on(t.targetId),
+    timestampIdx: index('AuditLog_timestamp_idx').on(t.timestamp),
+    tenantSeqIdx: index('AuditLog_tenant_seq_idx').on(t.tenantId, t.seq),
+  }),
+);

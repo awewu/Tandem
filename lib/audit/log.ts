@@ -7,6 +7,7 @@
  */
 
 import { createHash } from 'crypto';
+import { desc, eq, and } from 'drizzle-orm';
 
 export type AuditAction =
   // 议事室
@@ -79,7 +80,15 @@ export interface AuditEntry {
   /** 链式哈希 (前一条 hash + 本条 payload) */
   hash: string;
   prevHash?: string;
+  /** 多租户 (可选; 默认 'default') */
+  tenantId?: string;
 }
+
+/**
+ * 持久化开关 · 仅在 DATABASE_URL 配置时启用 Drizzle 持久化.
+ * 缺失时回退为纯内存模式 (适合 e2e / dev 无 DB 环境).
+ */
+const PERSIST_ENABLED = !!process.env.DATABASE_URL;
 
 /**
  * SHA-256 链式哈希. 任何条目被改动 → 该条 hash 与其后所有 prevHash 链不上.
@@ -93,7 +102,33 @@ function hashEntry(entry: Omit<AuditEntry, 'hash'>): string {
 }
 
 class AuditLog {
+  /** 内存近期缓存 (用于 prevHash 快速读取 + 离线 fallback) */
   private entries: AuditEntry[] = [];
+  /** 按租户维护最新一条 hash + seq (跨重启从 DB 加载) */
+  private tail = new Map<string, { hash: string; seq: number }>();
+  private hydrated = new Set<string>();
+
+  /** 第一次写某租户前, 从 DB 加载尾部 (prevHash + seq) */
+  private async hydrateTenant(tenantId: string): Promise<void> {
+    if (this.hydrated.has(tenantId)) return;
+    this.hydrated.add(tenantId);
+    if (!PERSIST_ENABLED) return;
+    try {
+      // 动态 import 避免 e2e/dev 无 DB 时启动炸
+      const { db, schema } = await import('@/lib/infra/drizzle-client');
+      const rows = await db
+        .select()
+        .from(schema.auditLog)
+        .where(eq(schema.auditLog.tenantId, tenantId))
+        .orderBy(desc(schema.auditLog.seq))
+        .limit(1);
+      if (rows[0]) {
+        this.tail.set(tenantId, { hash: rows[0].hash, seq: rows[0].seq });
+      }
+    } catch {
+      // DB 不可达 → silently fallback to memory only
+    }
+  }
 
   async append(
     action: AuditAction,
@@ -102,9 +137,14 @@ class AuditLog {
       targetId?: string;
       targetType?: string;
       metadata?: Record<string, unknown>;
+      tenantId?: string;
     } = {}
   ): Promise<AuditEntry> {
-    const prev = this.entries[this.entries.length - 1];
+    const tenantId = options.tenantId ?? 'default';
+    await this.hydrateTenant(tenantId);
+
+    const prev = this.tail.get(tenantId);
+    const nextSeq = (prev?.seq ?? 0) + 1;
     const skeleton = {
       id: `audit_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       action,
@@ -114,36 +154,134 @@ class AuditLog {
       metadata: options.metadata,
       timestamp: new Date().toISOString(),
       prevHash: prev?.hash,
+      tenantId,
     };
     const entry: AuditEntry = { ...skeleton, hash: hashEntry(skeleton) };
+
     this.entries.push(entry);
+    this.tail.set(tenantId, { hash: entry.hash, seq: nextSeq });
+
+    // 持久化 (best-effort, 不阻塞业务路径)
+    if (PERSIST_ENABLED) {
+      try {
+        const { db, schema } = await import('@/lib/infra/drizzle-client');
+        await db.insert(schema.auditLog).values({
+          id: entry.id,
+          action: entry.action,
+          actorId: entry.actorId,
+          targetId: entry.targetId ?? null,
+          targetType: entry.targetType ?? null,
+          metadata: (entry.metadata as object | undefined) ?? null,
+          timestamp: new Date(entry.timestamp),
+          hash: entry.hash,
+          prevHash: entry.prevHash ?? null,
+          tenantId,
+          seq: nextSeq,
+        });
+      } catch (err) {
+        // DB 失败 → 留在内存, 告警但不阻断业务. 真实部署应有 cron 巡检.
+        // eslint-disable-next-line no-console
+        console.error('[audit] persist failed:', (err as Error).message);
+      }
+    }
+
     return entry;
   }
 
-  async list(filter?: { actorId?: string; action?: AuditAction; targetId?: string }): Promise<AuditEntry[]> {
+  async list(filter?: {
+    actorId?: string;
+    action?: AuditAction;
+    targetId?: string;
+    tenantId?: string;
+    limit?: number;
+  }): Promise<AuditEntry[]> {
+    if (PERSIST_ENABLED) {
+      try {
+        const { db, schema } = await import('@/lib/infra/drizzle-client');
+        const conds = [] as ReturnType<typeof eq>[];
+        if (filter?.actorId) conds.push(eq(schema.auditLog.actorId, filter.actorId));
+        if (filter?.action) conds.push(eq(schema.auditLog.action, filter.action));
+        if (filter?.targetId) conds.push(eq(schema.auditLog.targetId, filter.targetId));
+        if (filter?.tenantId) conds.push(eq(schema.auditLog.tenantId, filter.tenantId));
+        const where = conds.length === 0 ? undefined : conds.length === 1 ? conds[0] : and(...conds);
+        const query = db
+          .select()
+          .from(schema.auditLog)
+          .orderBy(desc(schema.auditLog.seq));
+        const rows = where
+          ? await query.where(where).limit(filter?.limit ?? 1000)
+          : await query.limit(filter?.limit ?? 1000);
+        return rows.map((r): AuditEntry => ({
+          id: r.id,
+          action: r.action as AuditAction,
+          actorId: r.actorId,
+          targetId: r.targetId ?? undefined,
+          targetType: r.targetType ?? undefined,
+          metadata: (r.metadata as Record<string, unknown> | null) ?? undefined,
+          timestamp: r.timestamp.toISOString(),
+          hash: r.hash,
+          prevHash: r.prevHash ?? undefined,
+          tenantId: r.tenantId,
+        }));
+      } catch {
+        // fallthrough to memory
+      }
+    }
     let result = this.entries;
     if (filter?.actorId) result = result.filter((e) => e.actorId === filter.actorId);
     if (filter?.action) result = result.filter((e) => e.action === filter.action);
     if (filter?.targetId) result = result.filter((e) => e.targetId === filter.targetId);
+    if (filter?.tenantId) result = result.filter((e) => (e.tenantId ?? 'default') === filter.tenantId);
     return result;
   }
 
-  /** 验证完整性 (任何篡改会让 hash 链断裂) */
-  async verify(): Promise<{ ok: boolean; brokenAt?: number }> {
-    for (let i = 0; i < this.entries.length; i++) {
-      const e = this.entries[i];
-      const expectedPrev = i === 0 ? undefined : this.entries[i - 1].hash;
+  /**
+   * 验证完整性 (任何篡改会让 hash 链断裂).
+   * 默认验证某租户. 不传 tenantId 时仅验证 'default'.
+   */
+  async verify(tenantId = 'default'): Promise<{ ok: boolean; brokenAt?: number; total: number }> {
+    let entries: AuditEntry[] = [];
+    if (PERSIST_ENABLED) {
+      try {
+        const { db, schema } = await import('@/lib/infra/drizzle-client');
+        const rows = await db
+          .select()
+          .from(schema.auditLog)
+          .where(eq(schema.auditLog.tenantId, tenantId))
+          .orderBy(schema.auditLog.seq);
+        entries = rows.map((r): AuditEntry => ({
+          id: r.id,
+          action: r.action as AuditAction,
+          actorId: r.actorId,
+          targetId: r.targetId ?? undefined,
+          targetType: r.targetType ?? undefined,
+          metadata: (r.metadata as Record<string, unknown> | null) ?? undefined,
+          timestamp: r.timestamp.toISOString(),
+          hash: r.hash,
+          prevHash: r.prevHash ?? undefined,
+          tenantId: r.tenantId,
+        }));
+      } catch {
+        entries = this.entries.filter((e) => (e.tenantId ?? 'default') === tenantId);
+      }
+    } else {
+      entries = this.entries.filter((e) => (e.tenantId ?? 'default') === tenantId);
+    }
+
+    for (let i = 0; i < entries.length; i++) {
+      const e = entries[i];
+      const expectedPrev = i === 0 ? undefined : entries[i - 1].hash;
       if (e.prevHash !== expectedPrev) {
-        return { ok: false, brokenAt: i };
+        return { ok: false, brokenAt: i, total: entries.length };
       }
       const { hash: _omit, ...rest } = e;
       void _omit;
       const recomputed = hashEntry(rest);
       if (recomputed !== e.hash) {
-        return { ok: false, brokenAt: i };
+        return { ok: false, brokenAt: i, total: entries.length };
       }
     }
-    return { ok: true };
+    return { ok: true, total: entries.length };
   }
 }
 
@@ -158,7 +296,12 @@ export function getAuditLog(): AuditLog {
 export async function audit(
   action: AuditAction,
   actorId: string,
-  options?: { targetId?: string; targetType?: string; metadata?: Record<string, unknown> }
+  options?: {
+    targetId?: string;
+    targetType?: string;
+    metadata?: Record<string, unknown>;
+    tenantId?: string;
+  }
 ): Promise<AuditEntry> {
   return getAuditLog().append(action, actorId, options ?? {});
 }
