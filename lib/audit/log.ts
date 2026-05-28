@@ -50,6 +50,9 @@ export type AuditAction =
   // OKR Anchor 度量 (V1.5 · OKR-DRIVEN §三第4条)
   | 'decision_card.anchored'              // anchored: 议事直接锚到 KR
   | 'decision_card.unanchored_created'    // unanchored_with_reason: 进 Steward 月审
+  // CompanyBrain Decision 闭环 (CA-13)
+  | 'company_brain.decision_recorded'     // 中央 AI 输出落地 CompanyBrainDecision
+  | 'company_brain.feedback_submitted'    // 用户/治理委员会对中央 AI 输出反馈 (adopted/modified/overruled/ignored)
   // 系统
   | 'system.provider_health_failed'
   | 'system.provider_switch'

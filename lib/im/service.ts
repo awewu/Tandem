@@ -929,6 +929,7 @@ async function invokeCompanyBrainReply(input: InvokePersonaInput): Promise<void>
     // §IM-7 trace id
     const aiTraceId = `imtrace_cb_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 
+    const startedAt = Date.now();
     const reply = await router.chat({
       messages: [
         { role: 'system', content: systemPrompt },
@@ -941,8 +942,9 @@ async function invokeCompanyBrainReply(input: InvokePersonaInput): Promise<void>
         requestId: aiTraceId,
       },
     });
+    const latencyMs = Date.now() - startedAt;
 
-    await sendMessage({
+    const msg = await sendMessage({
       channelId: input.channelId,
       senderId: COMPANY_BRAIN_USER_ID,
       senderKind: 'persona',
@@ -950,6 +952,53 @@ async function invokeCompanyBrainReply(input: InvokePersonaInput): Promise<void>
       parentMessageId: input.triggeringMessage.id,
       aiTraceId,
     });
+
+    // §CA-13 闭环: 落地 CompanyBrainDecision (best-effort, 不阻断主流程)
+    try {
+      const { recordDecision } = await import('../persona/company-brain-decision');
+      const { estimateCostMicroUsd } = await import('../analytics/track');
+      const tokensIn = reply.usage?.promptTokens ?? 0;
+      const tokensOut = reply.usage?.completionTokens ?? 0;
+      const costMicroUsd = estimateCostMicroUsd(reply.model, tokensIn, tokensOut);
+      const outputText = typeof reply.message.content === 'string'
+        ? reply.message.content
+        : reply.message.content.map((p) => ('text' in p ? p.text : '')).join('');
+      const decision = await recordDecision({
+        context: 'im_reply',
+        inputSummary: input.triggeringMessage.body,
+        outputSummary: outputText,
+        modelUsed: reply.model,
+        providerUsed: reply.model.includes('claude') ? 'anthropic' : reply.model.includes('deepseek') ? 'deepseek' : 'unknown',
+        scenario: 'reasoning_complex',
+        tokensIn,
+        tokensOut,
+        costMicroUsd,
+        latencyMs,
+        aiTraceId,
+        refId: msg.id,
+        refType: 'im_message',
+      });
+      if (decision) {
+        const { audit } = await import('../audit/log');
+        await audit('company_brain.decision_recorded', COMPANY_BRAIN_USER_ID, {
+          targetId: decision.id,
+          targetType: 'company_brain_decision',
+          metadata: {
+            context: 'im_reply',
+            channelId: input.channelId,
+            refMessageId: msg.id,
+            brainVersion: decision.brainVersion,
+            model: reply.model,
+            tokensIn,
+            tokensOut,
+            costMicroUsd,
+            latencyMs,
+          },
+        });
+      }
+    } catch {
+      /* 决策记录失败不影响 IM 主流程 */
+    }
   } catch (err) {
     try {
       await sendMessage({
