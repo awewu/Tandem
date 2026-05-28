@@ -62,11 +62,14 @@ export interface DecisionCard {
   hardDeadlineAt?: string;   // 17min hard limit (议事室)
 
   /**
-   * KR 软绑定 (Q2): 默认必选, 可选 escape hatch.
-   * 不变量: primaryKrId XOR noKrReason 必须非空 (validateKrBinding 守门).
+   * OKR Anchor (V1.5 灵魂层升级 · 2026-05-28):
+   *   - 现有字段 primaryKrId 即 OKR Anchor (KR-level), 通过 KR.objectiveId 可反查到 Objective.
+   *   - OKR-DRIVEN-ARCHITECTURE.md § 三 第 4 条 严绑定: 任何 DecisionCard 必须可回溯到当前 OKR.
+   *   - 不变量: primaryKrId XOR noKrReason 必须非空 (validateOkrAnchor / 兼容 validateKrBinding 守门).
+   *   - escape hatch 门槛升级: noKrReason ≥ 30 字符 (从 V1 的 ≥10 提高), 防"占位理由"; 进 audit decision_card.unanchored_created 度量月审.
    */
-  primaryKrId?: string;      // 主关联 KR (默认路径)
-  noKrReason?: string;       // 不挂任何 KR 时强制填的理由 (≥ 10 字符)
+  primaryKrId?: string;      // OKR Anchor (KR-level) — 通过 KR.objectiveId 解析 cascade 路径
+  noKrReason?: string;       // 无锚理由 (≥ 30 字, Steward 月审)
 
   /** 次要关联 OKR/TTI (多对多) */
   relatedKr?: string[];      // KR IDs
@@ -125,18 +128,24 @@ export function isOverHardLimit(card: DecisionCard): boolean {
 }
 
 /**
- * KR 软绑定守门 (Q2 决策):
- *   - 优先路径: primaryKrId 非空 (默认期望)
- *   - escape hatch: noKrReason 非空 + 长度 ≥ 10 字符 (反"占位理由")
+ * OKR Anchor 严绑定守门 (V1.5 升级 · 2026-05-28 · OKR-DRIVEN-ARCHITECTURE §三第4条):
+ *   - 优先路径: primaryKrId 非空 (anchored — 决议直接锚到 KR/Objective)
+ *   - escape hatch: noKrReason 非空 + 长度 ≥ 30 字符 (unanchored_with_reason — 进月审看板)
  *   - 二者必须 XOR (恰一个非空)
+ *
+ * 历史: V1 KR_BINDING_REASON_MIN_LENGTH = 10 (软绑定)
+ *      V1.5 升级到 30 (严绑定, 防"占位理由"; Owner 拍板 2026-05-27 PT 22:55).
  */
-export const KR_BINDING_REASON_MIN_LENGTH = 10;
+export const KR_BINDING_REASON_MIN_LENGTH = 30;
+
+/** Anchor 状态: 决议是直接锚 KR, 还是带理由无锚 */
+export type DecisionAnchorState = 'anchored' | 'unanchored_with_reason';
 
 export type KrBindingValidation =
-  | { ok: true }
+  | { ok: true; anchorState: DecisionAnchorState }
   | { ok: false; code: 'missing_both' | 'both_present' | 'reason_too_short'; message: string };
 
-export function validateKrBinding(
+export function validateOkrAnchor(
   input: { primaryKrId?: string | null; noKrReason?: string | null }
 ): KrBindingValidation {
   const hasKr = !!input.primaryKrId && input.primaryKrId.trim().length > 0;
@@ -146,7 +155,7 @@ export function validateKrBinding(
     return {
       ok: false,
       code: 'missing_both',
-      message: '必须选择关联 KR, 或填写"无关 KR"的理由',
+      message: '必须选择关联 KR (OKR Anchor), 或填写"无关 KR"的充分理由 (≥30 字)',
     };
   }
   if (hasKr && hasReason) {
@@ -160,8 +169,11 @@ export function validateKrBinding(
     return {
       ok: false,
       code: 'reason_too_short',
-      message: `理由至少 ${KR_BINDING_REASON_MIN_LENGTH} 字符 (反"占位理由")`,
+      message: `无锚理由至少 ${KR_BINDING_REASON_MIN_LENGTH} 字符 (V1.5 严绑定, 反"占位理由"). 当前 ${(input.noKrReason ?? '').trim().length} 字符.`,
     };
   }
-  return { ok: true };
+  return { ok: true, anchorState: hasKr ? 'anchored' : 'unanchored_with_reason' };
 }
+
+/** @deprecated V1.5 已重命名为 validateOkrAnchor (语义不变, 守门更严). 保留旧名以兼容存量代码. */
+export const validateKrBinding = validateOkrAnchor;

@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getOrchestrator, getStore } from '@/lib/boot';
-import { validateKrBinding } from '@/lib/types/decision-card';
+import { validateOkrAnchor } from '@/lib/types/decision-card';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { applyTemplate, type TemplateId } from '@/lib/skills/decision-card-templates';
+import { audit } from '@/lib/audit/log';
 
 /**
  * POST /api/convergence
@@ -40,8 +41,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Q2 KR 软绑定守门
-    const krCheck = validateKrBinding({ primaryKrId, noKrReason });
+    // V1.5 OKR Anchor 严绑定守门 (OKR-DRIVEN §三第4条)
+    const krCheck = validateOkrAnchor({ primaryKrId, noKrReason });
     if (!krCheck.ok) {
       return NextResponse.json(
         { error: krCheck.message, code: krCheck.code, field: 'kr_binding' },
@@ -62,12 +63,31 @@ export async function POST(req: NextRequest) {
       materialRefs,
     });
 
+    // OKR Anchor 度量审计 (governance 看板 + Steward 月审用)
+    await audit(
+      krCheck.anchorState === 'anchored'
+        ? 'decision_card.anchored'
+        : 'decision_card.unanchored_created',
+      auth.userId,
+      {
+        targetId: result.cardId,
+        targetType: 'decision_card',
+        tenantId: auth.tenantId,
+        metadata: {
+          primaryKrId: primaryKrId ?? null,
+          noKrReason: noKrReason ?? null,
+          anchorState: krCheck.anchorState,
+        },
+      }
+    );
+
     return NextResponse.json({
       cardId: result.cardId,
       step: result.state.step,
       elapsedSeconds: result.state.elapsedSeconds,
       primaryKrId: primaryKrId ?? null,
       noKrReason: noKrReason ?? null,
+      anchorState: krCheck.anchorState,
     });
   } catch (err) {
     return NextResponse.json(

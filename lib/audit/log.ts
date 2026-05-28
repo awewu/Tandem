@@ -21,6 +21,10 @@ export type AuditAction =
   | 'persona.upgrade'
   | 'persona.downgrade'
   | 'persona.proxy_action'
+  | 'persona.proxy_drafted'
+  | 'persona.proxy_executed'
+  | 'persona.proxy_vetoed'
+  | 'persona.proxy_expired'
   // Memory
   | 'memory.promotion_proposed'
   | 'memory.promotion_signed'
@@ -43,12 +47,20 @@ export type AuditAction =
   | 'decision_card.create'
   | 'decision_card.update'
   | 'decision_card.veto'
+  // OKR Anchor 度量 (V1.5 · OKR-DRIVEN §三第4条)
+  | 'decision_card.anchored'              // anchored: 议事直接锚到 KR
+  | 'decision_card.unanchored_created'    // unanchored_with_reason: 进 Steward 月审
   // 系统
   | 'system.provider_health_failed'
   | 'system.provider_switch'
   // Skill / Agent (CircleBot 对齐)
   | 'skill.executed'
   | 'skill.blocked_red_zone'
+  // Persona 拿捏闭环
+  | 'persona.proxy_action_created'
+  | 'persona.proxy_action_vetoed'
+  | 'persona.proxy_action_confirmed'
+  | 'persona_feedback_submitted'
   | 'skill.blocked_governance'
   | 'agent.spawned'
   | 'agent.completed'

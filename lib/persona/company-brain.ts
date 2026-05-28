@@ -1,0 +1,243 @@
+/**
+ * CompanyBrain · 中央 AI 实体 (CA-1, V1.5)
+ *
+ * 详见 docs/CENTRAL-AI-ARCHITECTURE.md
+ *
+ * 设计:
+ *   - 复用 Persona 类型, 用特殊 userId='__company__' 区分
+ *   - stage='partner' (永远最高), delegationLevel='cross_company'
+ *   - boot 时 seed (如不存在则创建; 已存在则不动, 允许后续编辑)
+ *   - styleProfile 反映"公司价值观"默认值, 可在 /admin/company-brain 调整
+ *   - 训练数据 = 全公司 Memory (ownershipLevel='company') + 议事 DecisionCard
+ *
+ * 跟员工 Persona 的核心区别:
+ *   - 不走 baseline-guard (它就是基线本身, 不能被自己阻断)
+ *   - 不写 ProxyAction (公司 AI 不需要 24h 否决窗口; 它的输出本身就是基线参考)
+ *   - 默认路由 scenario='reasoning_complex' (旗舰模型 claude-opus-4-5), 不是 persona_dialogue
+ *   - system prompt 注入全公司 Memory, 而不是个人风格
+ *
+ * V1.5 状态: 仅骨架 + IM @召唤 + 单次 LLM 调用
+ * V2 计划:   接入 Mastra agent runtime, 多步推理, tool calling
+ * V3 计划:   Reflection loop + correction-based fine-tune + distillation
+ */
+
+import type { Persona } from '@/lib/types/persona';
+import { getStore } from '@/lib/storage/repository';
+import { logger } from '@/lib/infra/logger';
+import { computeKRProgress, type KeyResult, type Objective } from '@/lib/types/okr-tti';
+
+/** CompanyBrain 在系统里的特殊 userId. 跟真实 userId 永不冲突 (双下划线保留) */
+export const COMPANY_BRAIN_USER_ID = '__company__';
+
+/** CompanyBrain Persona 单例 ID */
+export const COMPANY_BRAIN_PERSONA_ID = 'persona_company_brain';
+
+/**
+ * 默认 styleProfile: 反映"公司"的稳健、分析型决策风格
+ * Admin 可在 /admin/company-brain 调整
+ */
+const DEFAULT_COMPANY_STYLE = {
+  decisionSpeed: 'medium' as const,
+  riskAppetite: 0.4,                    // 公司倾向稳健, 略低于中位
+  communicationStyle: 'analytical' as const,
+  preferredOptions: ['SOP', 'reasoning', 'historical'] as const,
+  communicationExamples: [
+    '根据公司 Memory "XXX", 我建议优先考虑选项 B.',
+    '这个动作涉及公司战略红线, 必须走议事室. 我不能单方面承诺.',
+    '历史决策 #DC-123 在类似情况下采用了 SOP-A, 仅供参考.',
+  ],
+};
+
+/**
+ * 构建 CompanyBrain 的 Persona 对象 (用于 seed)
+ */
+export function buildCompanyBrainPersona(now: string = new Date().toISOString()): Persona {
+  return {
+    id: COMPANY_BRAIN_PERSONA_ID,
+    userId: COMPANY_BRAIN_USER_ID,
+    schemaVersion: 'tandem.v1',
+    stage: 'partner',
+    stageEnteredAt: now,
+    delegationLevel: 'cross_company',
+    decisionHistory: {
+      totalDecisions: 0,
+      selfMade: 0,
+      aiAssisted: 0,
+      vetoedByUser: 0,
+      vetoRate: 0,
+    },
+    styleProfile: {
+      decisionSpeed: DEFAULT_COMPANY_STYLE.decisionSpeed,
+      riskAppetite: DEFAULT_COMPANY_STYLE.riskAppetite,
+      communicationStyle: DEFAULT_COMPANY_STYLE.communicationStyle,
+      preferredOptions: [...DEFAULT_COMPANY_STYLE.preferredOptions],
+      communicationExamples: [...DEFAULT_COMPANY_STYLE.communicationExamples],
+    },
+    growthAreas: [],
+    bossCaptureScore: 100,
+    dataOwnership: {
+      companyOwnsData: true,
+      anonymizationPending: false,
+      employeeCanExportOrigins: true,
+    },
+    createdAt: now,
+    updatedAt: now,
+    learningActive: true,
+    enabledSkills: [],
+  };
+}
+
+/**
+ * boot 期幂等 seed: 若 CompanyBrain 不存在则创建, 已存在不动
+ * 永不抛错, 失败仅 warn
+ */
+export async function seedCompanyBrainIfMissing(): Promise<{ created: boolean }> {
+  try {
+    const store = getStore();
+    const existing = await store.personas.get(COMPANY_BRAIN_PERSONA_ID);
+    if (existing) {
+      return { created: false };
+    }
+    await store.personas.create(buildCompanyBrainPersona());
+    logger.info({ id: COMPANY_BRAIN_PERSONA_ID }, '[company-brain] seeded');
+    return { created: true };
+  } catch (err) {
+    logger.warn({ err: (err as Error).message }, '[company-brain] seed failed');
+    return { created: false };
+  }
+}
+
+/**
+ * 取当前 CompanyBrain Persona (用于 admin 查看 / 调用方)
+ */
+export async function getCompanyBrain(): Promise<Persona | null> {
+  const store = getStore();
+  return store.personas.get(COMPANY_BRAIN_PERSONA_ID);
+}
+
+/**
+ * 判断 userId 是否为 CompanyBrain
+ */
+export function isCompanyBrain(userId: string): boolean {
+  return userId === COMPANY_BRAIN_USER_ID;
+}
+
+/**
+ * B-014 · OKR Anchor 注入器 (V1.5 灵魂层 · 2026-05-28)
+ *
+ * 拉取 active 周期的公司层 Objective + 直接挂 KR + 进展. 用于 CompanyBrain
+ * system prompt, 让"中央 AI"始终知道公司当前在追什么 OKR, 任何答复都可
+ * 服务/不服务这些目标.
+ *
+ * OKR-DRIVEN-ARCHITECTURE.md § 三 第 1 条 (企业 AI = 组织目标聚焦达成) 落地.
+ *
+ * 特性:
+ *   - 永不抛错 (失败返回提示性占位文本, 不阻断 LLM 调用)
+ *   - 只注入公司层 Objective (level='company'), 不注入团队/个人, 防 prompt 爆炸
+ *   - KR 进度数值化 (computeKRProgress), 让 LLM 能识别 at-risk
+ */
+export async function buildOkrAnchorContext(): Promise<string> {
+  try {
+    const store = getStore();
+
+    // 1. 找 active 周期 (期望恰一个; 多个取最新 startDate)
+    const cycles = await store.cycles.list();
+    const activeCycles = cycles.filter((c) => c.isActive);
+    if (activeCycles.length === 0) {
+      return [
+        '【当前 OKR 周期】无 active 周期.',
+        '⚠️ 你当前无法将议事/建议锚定到任何 OKR. 建议提示用户先到 /okr 启动周期.',
+      ].join('\n');
+    }
+    const cycle = activeCycles.sort((a, b) =>
+      (b.startDate ?? '').localeCompare(a.startDate ?? '')
+    )[0];
+
+    // 2. 拉公司层 Objective + 直接挂 KR
+    const allObjectives = await store.objectives.list();
+    const companyObjectives: Objective[] = allObjectives.filter(
+      (o) => o.cycleId === cycle.id && o.level === 'company' && o.status === 'active'
+    );
+    if (companyObjectives.length === 0) {
+      return [
+        `【当前 OKR 周期】${cycle.name} (${cycle.startDate} → ${cycle.endDate})`,
+        '⚠️ 周期内无公司层 active Objective. 议事无法 cascade 锚定.',
+      ].join('\n');
+    }
+
+    const allKRs = await store.keyResults.list();
+    const lines: string[] = [
+      `【当前 OKR 周期】${cycle.name} (${cycle.startDate} → ${cycle.endDate})`,
+      `公司层 active Objective ${companyObjectives.length} 个:`,
+    ];
+
+    companyObjectives.forEach((o, i) => {
+      const krs = allKRs.filter((kr) => kr.objectiveId === o.id && kr.status === 'active');
+      const summary = summarizeObjectiveProgress(o, krs);
+      lines.push(`  ${i + 1}. [${o.confidence}] ${o.title} — ${summary}`);
+      krs.slice(0, 3).forEach((kr) => {
+        const pct = Math.round(computeKRProgress(kr) * 100);
+        lines.push(`     · KR: ${kr.title} (${pct}% · ${kr.confidence})`);
+      });
+      if (krs.length > 3) {
+        lines.push(`     · ...还有 ${krs.length - 3} 个 KR 未列出`);
+      }
+    });
+
+    return lines.join('\n');
+  } catch (err) {
+    logger.warn({ err: (err as Error).message }, '[company-brain] OKR anchor context failed');
+    return '【当前 OKR 周期】(读取失败, 降级到无 OKR 上下文)';
+  }
+}
+
+function summarizeObjectiveProgress(o: Objective, krs: KeyResult[]): string {
+  if (krs.length === 0) return '无直接挂 KR';
+  const avg = krs.reduce((acc, kr) => acc + computeKRProgress(kr), 0) / krs.length;
+  const pct = Math.round(avg * 100);
+  const atRisk = krs.filter((kr) => kr.confidence !== 'on-track').length;
+  return `${krs.length} KRs · 平均 ${pct}%${atRisk > 0 ? ` · ${atRisk} at-risk` : ''}`;
+}
+
+/**
+ * 构建 CompanyBrain system prompt
+ * V1.5 升级: OKR Anchor 注入器 (B-014) 在最前 — 让 LLM 任何输出都基于公司当前在追的 OKR.
+ * 然后注入全公司 Memory (ownershipLevel='company') 作为基线知识.
+ */
+export async function buildCompanyBrainSystemPrompt(): Promise<string> {
+  const store = getStore();
+  const allMems = await store.memories.list();
+  const companyMems = allMems.filter((m) => m.ownershipLevel === 'company');
+  const okrContext = await buildOkrAnchorContext();
+
+  const lines = [
+    '你是 Tandem 的"中央 AI" (CompanyBrain), 代表整个公司的视角发言.',
+    '',
+    '【身份约束】',
+    '- 你不代表任何个人, 你是组织记忆的延伸',
+    '- 你不能为个人许愿; 涉及战略/红线决策必须建议走议事室',
+    '- 回复应包含明确的 Memory 引用 (例: "根据公司 Memory \'XXX\', ...")',
+    '- 任何建议都应回答"这服务/不服务哪个 OKR" — 如不服务任何 OKR 应明示',
+    '- 语气分析型, 不情绪化; 简洁, 不超过 4 句话',
+    '',
+    okrContext,
+    '',
+    `【已知公司层 Memory · ${companyMems.length} 条】`,
+  ];
+
+  // 注入前 10 条公司 Memory (避免 prompt 过长)
+  const top = companyMems.slice(0, 10);
+  top.forEach((m, i) => {
+    lines.push(`${i + 1}. ${m.title}`);
+    lines.push(`   ${(m.body ?? '').slice(0, 200)}`);
+  });
+
+  if (companyMems.length > 10) {
+    lines.push(`(... 还有 ${companyMems.length - 10} 条公司 Memory 未注入)`);
+  }
+
+  lines.push('');
+  lines.push('【风格】决策速度=medium · 风险偏好=低 (0.4) · 沟通=分析型 · 优先 SOP/reasoning/historical');
+
+  return lines.join('\n');
+}
