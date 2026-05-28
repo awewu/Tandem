@@ -61,6 +61,7 @@ export type AuditAction =
   // Skill / Agent (CircleBot 对齐)
   | 'skill.executed'
   | 'skill.blocked_red_zone'
+  | 'skill.registry.reloaded'
   // Persona 拿捏闭环
   | 'persona.proxy_action_created'
   | 'persona.proxy_action_vetoed'

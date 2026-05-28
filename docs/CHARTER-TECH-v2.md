@@ -439,6 +439,58 @@ GET /api/health  → { ok: true, db: 'connected', redis: 'connected', version: '
 
 ---
 
+## §T13 · 横向扩展能力（V2 议程 · 抽象升级而非垂直加模块）
+
+> **背景**：以瑞美中国 (HVAC 制造业 + 跨国 + 长周期 + 经销商 + 售后) 为压力测试案例，反向暴露 Tandem 核心四件套 (决议 + OKR + 知识 + Persona) 在以下五类复杂度下会发生**抽象变形**——它们不是 §17 sweet spot，但暴露的是**核心产品的通用不足**，必须在 V2 修补。
+>
+> **铁律**：本节列出的 6 项**只允许升级核心抽象**，**禁止**演变为行业垂直模块 (DMS / MES / Field Service / CRM)。任何 PR 触发此红线，触发 §T11 告警。
+
+### 五类复杂度（核心抽象的"非客户"反测）
+
+| # | 复杂度 | 现状变形 | 受益客户面（≠ HVAC 专属） |
+| --- | --- | --- | --- |
+| ① | 跨国 / 跨时区 / 跨语言 | 17min 钟表绝对时间，单语种 DC | 所有出海 / 跨城企业 |
+| ② | 长周期决议（6-18 月） | DC 单点无族谱 | 投融资 / 律所 / 咨询 / 项目制 |
+| ③ | 隐性 / 口头知识 | 知识 4 层假设文档化 | 咨询 / 医疗 / 法务 / 科研 |
+| ④ | 外部用户协作（B2B2B） | RBAC 仅 5 内部角色 | 平台型企业 / 供应链 / 律所 |
+| ⑤ | 物理世界事件触发 | 议事室仅人发起 | 零售 / 物流 / 客诉响应 |
+| ⑥ | 跨角色信息接力（多人多年） | Persona 单线绑员工 | 4A / 项目制 / 医疗 / 客户成功 |
+
+### 六项核心抽象升级（V2 排期，V1 GA 不动）
+
+| # | 升级项 | 触及条款 | 关键产出 |
+| --- | --- | --- | --- |
+| **A** | **联邦用户 / 跨 tenant 协作** | §T6 多租户 + RBAC | `ExternalRole` 类型 + `tenant.federation` + 跨 tenant DC 联签 |
+| **B** | **EventBus + DecisionTrigger** | §T7 实时 + 议事 | `EventSource` 抽象 (webhook/mqtt/cron/metric) + 阈值规则引擎 + AI 预审 3+1 候选 |
+| **C** | **DecisionThread（决议族）** | 议事室 | `DecisionCard.parentDecisionId` + `threadId` + Initiative 终结**强制**触发复盘 DC |
+| **D** | **Entity-centric SharedMemory** | 知识 4 层 + Persona | Memory 可挂 `entity:customer:*` / `entity:project:*` + 离职强制 Persona handoff |
+| **E** | **多形态 SLA 时钟 + 多语种 DC** | 议事 + i18n | `slaClock = absolute \| businessHours \| crossTimezoneIntersect` + `DC.i18n.primary/mirror[]` |
+| **F** | **Voice→Memory + Mentor 关系** | 1on1 + 知识 | 录音→AI 摘要→Memory 候选 + `mentor` 关系类型（独立于汇报线） |
+
+### 不做清单（禁止演变）
+
+以下能力**永远**外部对接，不进 Tandem 核心：
+
+- ❌ DMS（经销商进货 / 库存 / 返利） → 对接现有 DMS
+- ❌ MES（工单 / 良率 / OEE） → 对接 SAP / Oracle
+- ❌ Field Service（派单 / 路径 / 备件） → 对接 ServiceTitan / 售后宝
+- ❌ CRM（漏斗 / 商机 / 报价） → 对接 Salesforce / 销售易
+- ❌ PLM / BOM / CAD → 对接 Teamcenter / PTC
+- ❌ DAM（素材库 / 投放回看） → 对接专业 DAM
+- ❌ IoT 网关（设备协议 / 故障码） → 对接 EMQ / 阿里云 IoT
+
+**Tandem 只通过 §T13-B 的 EventBus 接收上述系统的事件，触发决议 / 知识 / Persona 反应。**
+
+### 收益度量
+
+V2 完成 §T13 六项后，Tandem 核心抽象覆盖面预计扩大 **3-5 倍**：
+
+- §17 sweet spot 7 类民企不变
+- **新增可服务面**：跨国 / 长周期决议型 / 联邦协作型 / 项目制服务业
+- **仍主动放弃**：制造业重资产 / 国企 / 金融强监管
+
+---
+
 > **签字区**
 >
 > 本宪章自 2026-05-17 生效，所有代码提交必须通过 CI 检查（tsc, lint, test, e2e）。

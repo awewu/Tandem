@@ -9,13 +9,13 @@ import { computeKpiCompletion } from '@/lib/types/kpi';
  * GET /api/nine-box?cycleId=...
  *
  * 9-box 双轨投影 (见 docs/CHARTER-KPI-TTI.md §4):
- *   - 纵轴 kpiScore = KPI 完成率 (年度底线, 与奖金挂钩, 来自 ERP 采集)
- *   - 横轴 ttiScore = TTI 完成率 (战略成长, 与奖金分离, 即 OKR KR 平均进度)
+ *   - 纵轴 kpiScore = KPI bonus 完成率 (年度底线, 与奖金挂钩, 来自 ERP 采集)
+ *   - 横轴 ttiScore = (TTI 完成率 + 360 评分均值) / 2
+ *       · TTI = OKR KR 平均完成率 (0-1)
+ *       · 360 = 该人作为 subject 的 Review360Submission.overallScore 平均, 归一化 1-5 → 0-1
+ *       · 任一缺失时, 取另一项; 全无则 0
  *
- * 当前状态 (2026-05-20):
- *   - KPI 实表尚未建 (见 CHARTER §5 M2a). 纵轴暂返回 0, UI 会显示"KPI 数据待接入".
- *   - TTI = OKR KR 已通. 横轴用 KR 平均完成率.
- *   - 独立的 `TTI` interface (lib/types/okr-tti.ts:115) 是 V1 遗留, 已 deprecated; 不再用于 9-box.
+ * P1-4 (2026-05-22): 横轴改成 360+TTI 均分 (与 CHARTER 一致).
  */
 export async function GET(req: NextRequest) {
   const auth = requireAuth(req);
@@ -48,24 +48,53 @@ export async function GET(req: NextRequest) {
     }
     const kpiReady = allKpis.length > 0;
 
-    // 9-box 人选 = KR owners ∪ KPI assignees (任一被纳入)
+    // 360 评分 (按 subjectId 聚合 overallScore 均值, 归一化 1-5 → 0-1)
+    const allSubmissions = (await store.review360Submissions.list()).filter(
+      (s) => !cycleId || s.cycleId === cycleId,
+    );
+    const reviewByUser = new Map<string, number[]>();
+    for (const sub of allSubmissions) {
+      if (sub.overallScore == null) continue;
+      const arr = reviewByUser.get(sub.subjectId) ?? [];
+      arr.push(sub.overallScore);
+      reviewByUser.set(sub.subjectId, arr);
+    }
+
+    // 9-box 人选 = KR owners ∪ KPI assignees ∪ 360 subjects
     const owners = new Set<string>();
     krs.forEach((k) => owners.add(k.ownerId));
     Array.from(bonusKpisByAssignee.keys()).forEach((a) => owners.add(a));
+    Array.from(reviewByUser.keys()).forEach((s) => owners.add(s));
 
     const people = await Promise.all(
       Array.from(owners).map(async (userId) => {
         const ownKrs = krs.filter((k) => k.ownerId === userId);
 
-        // 横轴 = TTI 完成率 (= 该用户所有 KR 的平均进度)
-        const ttiScore =
+        // TTI 完成率 = KR 平均进度 (0-1)
+        const ttiCompletion =
           ownKrs.length === 0
-            ? 0
+            ? null
             : ownKrs.reduce((sum, k) => {
                 if (k.targetValue === k.startValue) return sum + 1;
                 const r = (k.currentValue - k.startValue) / (k.targetValue - k.startValue);
                 return sum + Math.max(0, Math.min(1, r));
               }, 0) / ownKrs.length;
+
+        // 360 评分 (1-5 归一化到 0-1: (avg - 1) / 4)
+        const myReviews = reviewByUser.get(userId) ?? [];
+        const review360Normalized = myReviews.length === 0
+          ? null
+          : Math.max(0, Math.min(1, (myReviews.reduce((s, n) => s + n, 0) / myReviews.length - 1) / 4));
+
+        // 横轴 = (TTI + 360) / 2; 任一缺失则取另一项; 全无 → 0
+        let ttiScore = 0;
+        if (ttiCompletion != null && review360Normalized != null) {
+          ttiScore = (ttiCompletion + review360Normalized) / 2;
+        } else if (ttiCompletion != null) {
+          ttiScore = ttiCompletion;
+        } else if (review360Normalized != null) {
+          ttiScore = review360Normalized;
+        }
 
         // 纵轴 = KPI 加权完成率 (bonus scope, weight 加权; monitor 不参与)
         const myBonusKpis = bonusKpisByAssignee.get(userId) ?? [];

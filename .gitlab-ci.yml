@@ -1,0 +1,117 @@
+# GitLab CI · Tandem
+#
+# 这是当前真实生效的 CI 配置 (git remote 是内部 GitLab: 192.1.1.208:8088/root/hermes-tandem.git)
+# .github/workflows/ci.yml 是镜像配置, 仅当 push 到 GitHub mirror 时触发
+#
+# 5 个 stage:
+#   - test (并行): typecheck / lint / unit (vitest)
+#   - build:        next build
+#   - smoke:        PG + Redis services + drizzle migrations + dev server + scripts/smoke-api.sh
+
+stages:
+  - test
+  - build
+  - smoke
+
+variables:
+  NODE_VERSION: "22"
+  NEXT_TELEMETRY_DISABLED: "1"
+  NPM_CONFIG_CACHE: ".npm"
+
+# 共享 base (extends)
+.node-base:
+  image: node:22-bookworm
+  before_script:
+    - node --version
+    - npm --version
+    - npm ci --no-audit --no-fund --ignore-scripts --prefer-offline
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - .npm/
+      - node_modules/
+    policy: pull-push
+
+typecheck:
+  extends: .node-base
+  stage: test
+  script:
+    - npx tsc --noEmit
+
+lint:
+  extends: .node-base
+  stage: test
+  script:
+    - npm run lint --if-present
+  allow_failure: true # lint 警告暂不阻塞 (V1 阶段)
+
+unit:
+  extends: .node-base
+  stage: test
+  script:
+    - npm test
+  variables:
+    NODE_ENV: test
+
+build:
+  extends: .node-base
+  stage: build
+  needs: ["typecheck"]
+  script:
+    - node scripts/copy-pdf-worker.mjs || true
+    - npm run build
+  variables:
+    NEXT_OUTPUT: standalone
+  artifacts:
+    paths:
+      - .next/
+    expire_in: 1 day
+    when: on_success
+
+smoke:
+  extends: .node-base
+  stage: smoke
+  needs: ["unit", "build"]
+  services:
+    - name: pgvector/pgvector:pg16
+      alias: postgres
+      variables:
+        POSTGRES_USER: tandem
+        POSTGRES_PASSWORD: tandem
+        POSTGRES_DB: tandem
+    - name: redis:7-alpine
+      alias: redis
+  variables:
+    DATABASE_URL: "postgresql://tandem:tandem@postgres:5432/tandem"
+    REDIS_URL: "redis://redis:6379"
+    NEXTAUTH_SECRET: "ci-secret-not-for-production"
+    ALLOW_DEMO_AUTH: "1"
+    NODE_ENV: development
+  script:
+    - apt-get update -qq && apt-get install -y -qq postgresql-client curl >/dev/null
+    - node scripts/copy-pdf-worker.mjs || true
+    # Apply Drizzle migrations
+    - |
+      for f in drizzle/migrations/*.sql; do
+        echo "Applying $f"
+        PGPASSWORD=tandem psql -h postgres -U tandem -d tandem -f "$f"
+      done
+    # Start dev server in background
+    - nohup npx next dev -p 3001 > dev.log 2>&1 &
+    - |
+      for i in $(seq 1 40); do
+        if curl -fs http://localhost:3001/api/health > /dev/null; then
+          echo "ready"; break
+        fi
+        sleep 2
+      done
+    - bash scripts/smoke-api.sh
+  after_script:
+    - tail -200 dev.log || true
+  artifacts:
+    when: on_failure
+    paths:
+      - dev.log
+    expire_in: 3 days

@@ -115,6 +115,9 @@ export interface TandemStore {
   /** Skills 治理状态机 (§T15) */
   skillRegistry: Repository<import('../taf/skills/governance').SkillRecord>;
 
+  /** Skill Proposals · pattern-detector + LLM 生成的 SkillProposal 草稿 (#14 闭环) */
+  skillProposals: Repository<import('../skills/skill-proposal').SkillProposal>;
+
   /** Bitable 多维表格 (V1 MVP) */
   bitableTables: Repository<import('../types/bitable').BitableTable>;
   bitableViews: Repository<import('../types/bitable').BitableView>;

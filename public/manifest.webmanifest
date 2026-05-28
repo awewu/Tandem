@@ -3,27 +3,49 @@
   "short_name": "Tandem",
   "description": "OKR 驱动的 AI 协作平台 · 组织记忆约束的员工 Agent",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "orientation": "portrait",
-  "background_color": "#0f172a",
-  "theme_color": "#10b981",
+  "orientation": "any",
+  "background_color": "#0E0E0E",
+  "theme_color": "#C8202C",
+  "lang": "zh-CN",
+  "dir": "ltr",
   "icons": [
     {
       "src": "/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "monochrome"
     }
   ],
   "shortcuts": [
-    { "name": "OKR", "url": "/okr", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
-    { "name": "IM", "url": "/im", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
-    { "name": "拿捏", "url": "/persona", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
+    { "name": "工作台",  "short_name": "工作台", "url": "/",          "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }] },
+    { "name": "我的 OKR", "short_name": "OKR",   "url": "/okr",       "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }] },
+    { "name": "议事室",   "short_name": "议事",  "url": "/convergence", "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }] },
+    { "name": "分身训练", "short_name": "拿捏",  "url": "/persona/training", "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }] }
   ]
 }

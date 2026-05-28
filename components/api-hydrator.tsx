@@ -1,28 +1,68 @@
 'use client';
 
 /**
- * ApiHydrator (A2.3 / A4)
+ * ApiHydrator (A2.3 / A4 / P1-1)
  *
  * 在根 layout 挂载, 干两件事:
  *   1. 应用首次启动 (本会话还没拉过 API) → 调 useOneOnOneStore.loadFromApi() + useReview360Store.loadFromApi()
  *      旧 localStorage demo 数据 (D5 已接受) 被丢弃, 真后端数据填入.
- *   2. 顶部一次性 banner: 提示用户 demo 数据已迁移. 点击关闭后 sessionStorage 标记不再显示.
- *
- * 不主动 hydrate /memories /organization (后端尚未完全切, 见 A2-PROGRESS.md).
+ *   2. P1-1: hydrate useMemoryStore 的个人记事本 (供 /chat baseline 注入).
+ *   3. 顶部一次性 banner: 提示用户 demo 数据已迁移. 点击关闭后 sessionStorage 标记不再显示.
  */
 
-import { useEffect, useState } from 'react';
-import { useOneOnOneStore, useReview360Store } from '@/lib/store';
+import { useEffect, useRef, useState } from 'react';
+import { useOneOnOneStore, useReview360Store, useMemoryStore, type Memory } from '@/lib/store';
+import { useAuthStore } from '@/lib/hooks/use-current-user';
 
 const BANNER_KEY = 'tandem-a2-banner-dismissed';
+
+/** 把后端 MemoryEntry 转 UI Memory (与 /app/memories/page.tsx 的转换一致) */
+function entryToUiMemory(e: any): Memory {
+  return {
+    id: e.id,
+    title: e.title ?? '',
+    content: e.body ?? '',
+    category: (e.uiCategory ?? 'context') as Memory['category'],
+    tags: Array.isArray(e.tags) ? e.tags : [],
+    priority: (e.priority ?? 'medium') as Memory['priority'],
+    createdAt: typeof e.createdAt === 'string' ? new Date(e.createdAt).getTime() : (e.createdAt ?? Date.now()),
+    updatedAt: typeof e.updatedAt === 'string' ? new Date(e.updatedAt).getTime() : (e.updatedAt ?? Date.now()),
+    version: e.version ?? 1,
+    isActive: e.isActive ?? (e.status === 'active'),
+    parentId: e.parentId ?? `cat-${e.uiCategory ?? 'context'}`,
+  };
+}
 
 export function ApiHydrator() {
   const load1on1 = useOneOnOneStore((s) => s.loadFromApi);
   const hydrated1 = useOneOnOneStore((s) => s._hydrated);
   const load360 = useReview360Store((s) => s.loadFromApi);
   const hydrated360 = useReview360Store((s) => s._hydrated);
+  const hydrateMemories = useMemoryStore((s) => s.hydrateMemories);
+  const user = useAuthStore((s) => s.user);
+  const memHydratedRef = useRef(false);
 
   const [bannerOpen, setBannerOpen] = useState(false);
+
+  // P1-1: 拉个人 memory 注入 zustand, 供 /chat baseline system prompt 用
+  useEffect(() => {
+    if (memHydratedRef.current || !user?.id) return;
+    memHydratedRef.current = true;
+    (async () => {
+      try {
+        const r = await fetch(
+          `/api/tandem/memory/list?ownershipLevel=personal&ownerUserId=${encodeURIComponent(user.id)}&detail=1&limit=500`,
+          { cache: 'no-store', credentials: 'include' }
+        );
+        if (!r.ok) return;
+        const j = await r.json();
+        const items = Array.isArray(j.memories) ? j.memories.map(entryToUiMemory) : [];
+        hydrateMemories(items);
+      } catch {
+        // 忽略, 离线 / 401 等都不阻塞 UI
+      }
+    })();
+  }, [user?.id, hydrateMemories]);
 
   useEffect(() => {
     // hydrate once

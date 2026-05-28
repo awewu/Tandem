@@ -828,48 +828,61 @@ export default function OKRPage() {
   return (
     <div className="flex flex-col h-full">
       {/* ===== 顶栏 ===== */}
-      <div className="border-b px-4 py-2 space-y-2 shrink-0">
+      <div className="border-b px-3 py-2 space-y-2 shrink-0 md:px-4">
         <div className="flex items-center gap-3 flex-wrap">
           <h1 className="text-lg font-semibold flex items-center gap-1.5">
             <Target className="h-5 w-5" /> OKR
           </h1>
-          {renderCycleSwitcher()}
+          <div className="hidden md:flex items-center gap-3 flex-wrap">
+            {renderCycleSwitcher()}
+          </div>
           <div className="flex-1" />
+          {/* 主 CTA: mobile + desktop 都显示 */}
           <Button size="sm" variant="default" onClick={() => startNewObjective()}>
             <Plus className="h-3 w-3 mr-1" /> 新目标
           </Button>
-          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowTemplates(true)} title="从模板库新建">
-            <Sparkles className="h-3 w-3 mr-1 text-amber-500" /> 模板库
-          </Button>
-          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowHealth(!showHealth)} title="OKR 健康度诊断">
-            <Stethoscope className="h-3 w-3 mr-1" /> 健康度
-          </Button>
-          <a
-            href="/insights"
-            className="h-7 px-2.5 text-xs inline-flex items-center gap-1 border rounded hover:bg-muted/40"
-            title="AI 智能层 · 跨模块信号"
-          >
-            <Sparkles className="h-3 w-3 text-brand-500" /> AI 信号
-          </a>
-          <div className="flex border rounded">
-            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={handleExportJSON} title="导出 JSON 全量备份">
-              <FileJson className="h-3 w-3 mr-1" /> JSON
+          {/* 次要按钮: 仅 md+ 显示, mobile 走抽屉 (下版本补) */}
+          <div className="hidden md:flex items-center gap-2 flex-wrap">
+            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowTemplates(true)} title="从模板库新建">
+              <Sparkles className="h-3 w-3 mr-1 text-amber-500" /> 模板库
             </Button>
-            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={handleExportCSV} title="导出 Tita 兼容 CSV">
-              <FileSpreadsheet className="h-3 w-3 mr-1" /> CSV
+            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowHealth(!showHealth)} title="OKR 健康度诊断">
+              <Stethoscope className="h-3 w-3 mr-1" /> 健康度
+            </Button>
+            <a
+              href="/insights"
+              className="h-7 px-2.5 text-xs inline-flex items-center gap-1 border rounded hover:bg-muted/40"
+              title="AI 智能层 · 跨模块信号"
+            >
+              <Sparkles className="h-3 w-3 text-brand-500" /> AI 信号
+            </a>
+            <div className="flex border rounded">
+              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={handleExportJSON} title="导出 JSON 全量备份">
+                <FileJson className="h-3 w-3 mr-1" /> JSON
+              </Button>
+              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={handleExportCSV} title="导出 Tita 兼容 CSV">
+                <FileSpreadsheet className="h-3 w-3 mr-1" /> CSV
+              </Button>
+            </div>
+            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => importInputRef.current?.click()} title="导入 Tita CSV 或 JSON">
+              <Upload className="h-3 w-3 mr-1" /> 导入
+            </Button>
+            <input ref={importInputRef} type="file" accept=".csv,.json" className="hidden" onChange={handleImportFile} title="选择 Tita CSV 或 JSON 文件" />
+            <Button size="sm" variant="outline" className="h-7 text-xs" disabled title="Tita 远程同步：需要 Tita 企业 API token，未配置">
+              <Cloud className="h-3 w-3 mr-1" /> 同步 Tita
             </Button>
           </div>
-          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => importInputRef.current?.click()} title="导入 Tita CSV 或 JSON">
-            <Upload className="h-3 w-3 mr-1" /> 导入
-          </Button>
-          <input ref={importInputRef} type="file" accept=".csv,.json" className="hidden" onChange={handleImportFile} title="选择 Tita CSV 或 JSON 文件" />
-          <Button size="sm" variant="outline" className="h-7 text-xs" disabled title="Tita 远程同步：需要 Tita 企业 API token，未配置">
-            <Cloud className="h-3 w-3 mr-1" /> 同步 Tita
-          </Button>
         </div>
 
-        {/* 周期统计条 */}
-        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+        {/* mobile-only cycle switcher (独立一行, 横滚) */}
+        <div className="md:hidden -mx-3 px-3 overflow-x-auto">
+          <div className="flex items-center gap-2 min-w-max pb-0.5">
+            {renderCycleSwitcher()}
+          </div>
+        </div>
+
+        {/* 周期统计条 (mobile 可横滚) */}
+        <div className="flex items-center gap-4 text-xs text-muted-foreground overflow-x-auto -mx-3 px-3 pb-0.5 md:mx-0 md:px-0 md:overflow-visible">
           <span>当前周期：<span className="font-medium text-foreground">{activeCycle?.name || '—'}</span></span>
           {activeCycle && (
             <span title="Check-in 节奏（可在『新建周期』时设置）">节奏 <span className="font-medium text-foreground">{CADENCE_LABEL[activeCycle.cadence || 'weekly']}</span></span>
@@ -897,12 +910,12 @@ export default function OKRPage() {
           )}
         </div>
 
-        {/* 过滤条 */}
-        <div className="flex items-center gap-2 flex-wrap">
+        {/* 过滤条 (mobile 仅显示搜索 + 视图切换, 其他隐藏) */}
+        <div className="flex items-center gap-2 flex-wrap md:flex-wrap">
           <Filter className="h-3.5 w-3.5 text-muted-foreground" />
           <Input placeholder="搜索目标标题/描述..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-7 w-48 text-xs" />
           <Select value={filterOwner || '__all__'} onValueChange={(v) => setFilterOwner(v === '__all__' ? '' : v)}>
-            <SelectTrigger className="h-7 w-32 text-xs"><SelectValue placeholder="所有负责人" /></SelectTrigger>
+            <SelectTrigger className="hidden md:flex h-7 w-32 text-xs"><SelectValue placeholder="所有负责人" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">所有负责人</SelectItem>
               {people.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
@@ -910,7 +923,7 @@ export default function OKRPage() {
             </SelectContent>
           </Select>
           <Select value={filterConfidence || '__all__'} onValueChange={(v) => setFilterConfidence(v === '__all__' ? '' : v)}>
-            <SelectTrigger className="h-7 w-28 text-xs"><SelectValue placeholder="所有信心" /></SelectTrigger>
+            <SelectTrigger className="hidden md:flex h-7 w-28 text-xs"><SelectValue placeholder="所有信心" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">所有信心</SelectItem>
               <SelectItem value="on-track">正常</SelectItem>
@@ -919,7 +932,7 @@ export default function OKRPage() {
             </SelectContent>
           </Select>
           <Select value={filterStatus || '__all__'} onValueChange={(v) => setFilterStatus(v === '__all__' ? '' : v)}>
-            <SelectTrigger className="h-7 w-28 text-xs"><SelectValue placeholder="所有状态" /></SelectTrigger>
+            <SelectTrigger className="hidden md:flex h-7 w-28 text-xs"><SelectValue placeholder="所有状态" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">所有状态</SelectItem>
               {Object.entries(STATUS_LABEL).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
@@ -947,7 +960,7 @@ export default function OKRPage() {
 
       {/* ===== 主体 ===== */}
       <div className="flex flex-1 min-h-0">
-        <div className="flex-1 border-r overflow-auto p-3">
+        <div className="flex-1 overflow-auto p-3 md:border-r">
           {filteredObjectives.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-muted-foreground gap-2 text-sm">
               <Target className="h-10 w-10 opacity-30" />
@@ -994,7 +1007,8 @@ export default function OKRPage() {
             </div>
           )}
         </div>
-        <div className="w-[420px] shrink-0 bg-muted/10 overflow-hidden">{renderDetail()}</div>
+        {/* 右栏详情 (mobile 隐藏, 详情编辑走桌面; mobile 用户进入 OKR 看进度 + /report 写进展) */}
+        <div className="hidden md:block w-[420px] shrink-0 bg-muted/10 overflow-hidden">{renderDetail()}</div>
       </div>
 
       {/* ===== 编辑弹窗 ===== */}

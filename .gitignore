@@ -13,6 +13,13 @@
 progress.txt
 dbpush-output.txt
 lint.txt
+.build-out.txt
+.build-out*.txt
+.commit-msg-*.txt
+.dev-log.txt
+.nav-hrefs.txt
+.pages.txt
+.tsc.txt
 
 .tmp-test/
 .tmp-*.json
@@ -22,6 +29,7 @@ nul
 scripts/fixtures/
 test-results/
 playwright-report/
+.auth/
 
 # Tauri Rust build output
 src-tauri/target/
@@ -29,7 +37,10 @@ src-tauri/gen/
 
 # TS build cache
 tsconfig.tsbuildinfo
+.env.local.bak
 .env.local.bak-pre-*
+.env.local.bak.*
+*.bak
 
 # PowerPoint lock files
 ~$*.pptx

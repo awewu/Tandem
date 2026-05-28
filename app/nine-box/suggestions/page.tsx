@@ -29,6 +29,8 @@ import {
   Users,
   ExternalLink,
   Zap,
+  CheckCircle2,
+  Loader2,
 } from 'lucide-react';
 
 type Cell =
@@ -67,6 +69,18 @@ interface Cycle {
   status: string;
 }
 
+interface OrgUser {
+  id: string;
+  name?: string;
+  email?: string;
+}
+
+type CardCreateState =
+  | { status: 'idle' }
+  | { status: 'busy' }
+  | { status: 'ok'; cardId: string }
+  | { status: 'error'; message: string };
+
 const CELL_META: Record<Cell, { label: string; emoji: string; color: string }> = {
   star: { label: '明星', emoji: '⭐', color: 'bg-amber-50 text-amber-800 border-amber-200' },
   high_performer: { label: '高产', emoji: '🚀', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
@@ -92,6 +106,9 @@ export default function NineBoxSuggestionsPage() {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [userMap, setUserMap] = useState<Record<string, OrgUser>>({});
+  /** key = `${userId}::${actionIndex}` */
+  const [cardStates, setCardStates] = useState<Record<string, CardCreateState>>({});
 
   const loadCycles = useCallback(async () => {
     const r = await fetch('/api/kpi/cycles', { cache: 'no-store' });
@@ -106,11 +123,24 @@ export default function NineBoxSuggestionsPage() {
     }
   }, [cycleId]);
 
+  const loadUsers = useCallback(async () => {
+    try {
+      const r = await fetch('/api/org/users', { cache: 'no-store' });
+      if (!r.ok) return;
+      const j = await r.json();
+      const map: Record<string, OrgUser> = {};
+      for (const u of (j.users ?? []) as OrgUser[]) map[u.id] = u;
+      setUserMap(map);
+    } catch {
+      /* noop */
+    }
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      await loadCycles();
+      await Promise.all([loadCycles(), loadUsers()]);
       const r = await fetch(
         cycleId ? `/api/nine-box/suggestions?cycleId=${cycleId}` : '/api/nine-box/suggestions',
         { cache: 'no-store' },
@@ -126,11 +156,49 @@ export default function NineBoxSuggestionsPage() {
     } finally {
       setLoading(false);
     }
-  }, [loadCycles, cycleId]);
+  }, [loadCycles, loadUsers, cycleId]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  // ---------------------------------------------------------------------------
+  // Decision card creation
+  // ---------------------------------------------------------------------------
+
+  const createDecisionCard = async (s: Suggestion, actionIdx: number) => {
+    const a = s.actions[actionIdx];
+    if (!a || a.kind !== 'decision_card') return;
+    const key = `${s.userId}::${actionIdx}`;
+    setCardStates((prev) => ({ ...prev, [key]: { status: 'busy' } }));
+    const displayName =
+      s.name ?? userMap[s.userId]?.name ?? userMap[s.userId]?.email ?? s.userId;
+    const cellMeta = CELL_META[s.cell];
+    const noKrReason =
+      `9-box 联动: ${displayName} 落点 ${cellMeta.emoji} ${cellMeta.label} (KPI ` +
+      `${Math.round(s.kpiScore * 100)}% / TTI ${Math.round(s.ttiScore * 100)}%). ` +
+      `${a.description}`;
+    try {
+      const r = await fetch('/api/convergence', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: `${a.title} · ${displayName}`,
+          description: a.description,
+          noKrReason,
+        }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error ?? `HTTP ${r.status}`);
+      const cardId = j.cardId as string;
+      setCardStates((prev) => ({ ...prev, [key]: { status: 'ok', cardId } }));
+    } catch (e) {
+      setCardStates((prev) => ({
+        ...prev,
+        [key]: { status: 'error', message: (e as Error).message },
+      }));
+    }
+  };
 
   const stats = useMemo(() => {
     const byCell = new Map<Cell, number>();
@@ -248,7 +316,11 @@ export default function NineBoxSuggestionsPage() {
                     <Badge variant="outline" className={cell.color}>
                       {cell.emoji} {cell.label}
                     </Badge>
-                    <span className="font-mono text-sm">{s.name ?? s.userId}</span>
+                    <span className="text-sm">
+                      {s.name ?? userMap[s.userId]?.name ?? userMap[s.userId]?.email ?? (
+                        <span className="font-mono text-muted-foreground">{s.userId}</span>
+                      )}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground tabular-nums">
                     <span className="flex items-center gap-1">
@@ -267,11 +339,8 @@ export default function NineBoxSuggestionsPage() {
                 {s.actions.map((a, i) => {
                   const pr = PRIORITY_META[a.priority];
                   const Icon = a.kind === 'persona_upgrade' ? Star : AlertTriangle;
-                  // 跳转目标
-                  const targetHref =
-                    a.kind === 'persona_upgrade'
-                      ? `/persona?owner=${encodeURIComponent(s.userId)}`
-                      : `/okr?owner=${encodeURIComponent(s.userId)}`;
+                  const key = `${s.userId}::${i}`;
+                  const cardState = cardStates[key] ?? { status: 'idle' as const };
                   return (
                     <div
                       key={i}
@@ -296,14 +365,48 @@ export default function NineBoxSuggestionsPage() {
                             <span>建议时限: {a.draft.timelineDays} 天</span>
                           </div>
                         )}
+                        {cardState.status === 'error' && (
+                          <div className="text-xs text-rose-600">
+                            创建失败: {cardState.message}
+                          </div>
+                        )}
                       </div>
-                      <a
-                        href={targetHref}
-                        className="text-sm text-primary inline-flex items-center gap-1 hover:underline flex-shrink-0"
-                      >
-                        {a.kind === 'persona_upgrade' ? '去 Persona' : '建决策卡'}
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
+                      <div className="flex-shrink-0">
+                        {a.kind === 'persona_upgrade' ? (
+                          <a
+                            href={`/persona?owner=${encodeURIComponent(s.userId)}`}
+                            className="text-sm text-primary inline-flex items-center gap-1 hover:underline"
+                          >
+                            去 Persona
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        ) : cardState.status === 'ok' ? (
+                          <a
+                            href={`/convergence/${cardState.cardId}`}
+                            className="text-sm text-emerald-700 inline-flex items-center gap-1 hover:underline"
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            进议事室
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => void createDecisionCard(s, i)}
+                            disabled={cardState.status === 'busy'}
+                          >
+                            {cardState.status === 'busy' ? (
+                              <>
+                                <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                                创建中
+                              </>
+                            ) : (
+                              '建决策卡'
+                            )}
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   );
                 })}

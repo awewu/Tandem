@@ -72,6 +72,8 @@ export interface KpiSubject {
   name: string;
   /** 描述 (可选, 解释科目含义/计算口径) */
   description?: string;
+  /** 平衡记分卡维度归属 */
+  bscPerspective?: 'financial' | 'customer' | 'process' | 'growth';
   /** 层级 (1/2/3, 与 parentId 联动校验) */
   level: number;
   /** 默认 scope (新建 Kpi 时的默认值, 实例可覆盖) */
@@ -114,6 +116,8 @@ export interface Kpi {
   cycleId: string;
   /** 引用 KpiSubject (取代 v1 硬枚举 category) */
   subjectId: string;
+  /** 平衡记分卡维度归属 (常遗传自 KpiSubject, 也支持覆写) */
+  bscPerspective?: 'financial' | 'customer' | 'process' | 'growth';
   /** 层级: 公司 → 部门 → 个人 (三层 cascade) */
   level: KpiLevel;
   /** 父级 KPI (公司 ← 部门 ← 个人, cascade 拆解依赖) */

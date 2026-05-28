@@ -1,8 +1,8 @@
 [package]
-name = "tieshan"
+name = "tandem"
 version = "1.0.0"
-description = "拿捏 — 工作不会找拿捏（AI Agent Dashboard for Hermes）"
-authors = ["you"]
+description = "Tandem · 牛马搭子 — OKR 驱动的 AI 协作平台 (Desktop 端 = 瘦客户端 + 系统集成)"
+authors = ["Tandem Team"]
 license = "MIT"
 repository = ""
 edition = "2021"
@@ -11,14 +11,14 @@ edition = "2021"
 tauri-build = { version = "2.0.0-beta", features = [] }
 
 [dependencies]
-tauri = { version = "2.0.0-beta", features = [] }
+tauri = { version = "2.0.0-beta", features = ["tray-icon"] }
 tauri-plugin-shell = "2.0.0-beta"
+tauri-plugin-notification = "2.0.0-beta"
+tauri-plugin-global-shortcut = "2.0.0-beta"
+tauri-plugin-autostart = "2.0.0-beta"
+tauri-plugin-store = "2.0.0-beta"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tokio = { version = "1", features = ["process", "io-util", "time"] }
-regex = "1"
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "stream"] }
-futures-util = "0.3"
 
 [features]
 default = ["custom-protocol"]

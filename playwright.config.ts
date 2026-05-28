@@ -14,9 +14,11 @@
  */
 
 import { defineConfig } from '@playwright/test';
+import { join } from 'node:path';
 
-const PORT = process.env.PORT ?? '3001';
+const PORT = process.env.PORT ?? '3005';
 const BASE_URL = process.env.E2E_BASE_URL ?? `http://localhost:${PORT}`;
+const AUTH_FILE = join(__dirname, '.auth', 'admin.json');
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -34,9 +36,20 @@ export default defineConfig({
     video: 'retain-on-failure',
   },
   projects: [
+    // 1) 一次性登录 -> 把 cookie 存到 .auth/admin.json
+    {
+      name: 'setup',
+      testMatch: /.*\.setup\.ts$/,
+    },
+    // 2) 正式 spec, 复用上面的 storageState
     {
       name: 'chromium',
-      use: { browserName: 'chromium', viewport: { width: 1366, height: 800 } },
+      use: {
+        browserName: 'chromium',
+        viewport: { width: 1366, height: 800 },
+        storageState: AUTH_FILE,
+      },
+      dependencies: ['setup'],
     },
   ],
 });

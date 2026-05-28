@@ -66,43 +66,175 @@ export interface Conversation {
 
 /**
  * 每个 Agent 可以独立配置 LLM 代理（OpenAI 兼容协议）
- * - type='hermes'：走默认 Hermes CLI（/api/stream）
- * - type='openai-compatible'：走代理（/api/llm-stream），可指向任意兼容端点
- *   （OpenAI / DeepSeek / Moonshot / Qwen / Zhipu / Ollama / 自建中转 等）
+ *
+ * - type='hermes'           走默认 Hermes CLI（/api/stream）
+ * - type='openai-compatible' 个人模式：用户自填 key，走 /api/llm-stream 转发
+ * - type='team'             Team 模式：key 在服务端，用公司 token 池，用户零配置
+ *                           teamProvider = TAF router 中注册的 provider 名
  */
 export interface LLMProvider {
-  type: 'hermes' | 'openai-compatible';
-  /** 兼容端点根路径，如 https://api.openai.com/v1 */
+  type: 'hermes' | 'openai-compatible' | 'team';
+  /** openai-compatible 模式: 兼容端点根路径 */
   baseURL?: string;
-  /** API Key（注意：persist 在浏览器 localStorage，仅本地使用） */
+  /** openai-compatible 模式: 个人 API Key（仅存 localStorage） */
   apiKey?: string;
-  /** 自定义头部，例如 { 'X-Org-Id': '...' } */
+  /** 自定义头部 */
   headers?: Record<string, string>;
   /** 引用的预设 key（仅展示用） */
   presetKey?: string;
+  /** team 模式: 对应 TAF router 注册的 provider 名（如 'claude-opus-4-5'） */
+  teamProvider?: string;
 }
 
 export interface ProviderPreset {
   key: string;
   label: string;
   type: LLMProvider['type'];
+  /** team 模式专用: TAF router 中的 provider 名 */
+  teamProvider?: string;
   baseURL?: string;
   defaultModel?: string;
   /** 用于 UI 卡片徽章显示 */
   badge?: string;
+  /** 'personal' | 'team' — 用于分组展示 */
+  group?: 'personal' | 'team';
+  /** Team 模式下的说明文案 */
+  description?: string;
 }
 
-/** 一键切换的常见 OpenAI 兼容供应商 */
+/**
+ * PROVIDER_PRESETS
+ *
+ * Team 组：key 由服务端提供，员工无需填 API key
+ * Personal 组：用户自填 key，完全本地控制
+ */
 export const PROVIDER_PRESETS: ProviderPreset[] = [
-  { key: 'hermes',    label: 'Hermes CLI (默认)',    type: 'hermes',                                                                          badge: 'Hermes' },
-  { key: 'openai',    label: 'OpenAI',                 type: 'openai-compatible', baseURL: 'https://api.openai.com/v1',                          defaultModel: 'gpt-4o',                  badge: 'OpenAI' },
-  { key: 'anthropic', label: 'Anthropic 代理',         type: 'openai-compatible', baseURL: 'https://api.anthropic.com/v1',                       defaultModel: 'claude-3-5-sonnet-20241022', badge: 'Claude' },
-  { key: 'deepseek',  label: 'DeepSeek',               type: 'openai-compatible', baseURL: 'https://api.deepseek.com/v1',                        defaultModel: 'deepseek-chat',           badge: 'DeepSeek' },
-  { key: 'moonshot',  label: 'Moonshot 月之暗面',      type: 'openai-compatible', baseURL: 'https://api.moonshot.cn/v1',                         defaultModel: 'moonshot-v1-32k',         badge: 'Kimi' },
-  { key: 'qwen',      label: 'Qwen 通义千问',          type: 'openai-compatible', baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',  defaultModel: 'qwen-max',                badge: 'Qwen' },
-  { key: 'zhipu',     label: 'Zhipu 智谱 GLM',         type: 'openai-compatible', baseURL: 'https://open.bigmodel.cn/api/paas/v4',               defaultModel: 'glm-4-plus',              badge: 'GLM' },
-  { key: 'ollama',    label: 'Ollama 本地',            type: 'openai-compatible', baseURL: 'http://localhost:11434/v1',                          defaultModel: 'llama3.1',                badge: 'Ollama' },
-  { key: 'custom',    label: '自定义代理',             type: 'openai-compatible', baseURL: '',                                                   defaultModel: '',                        badge: '自定义' },
+  // ── Team 组（公司 Token 池）─────────────────────────────────────────
+  {
+    key: 'team-claude-opus',
+    label: 'Claude Opus 4.5',
+    type: 'team',
+    teamProvider: 'claude-opus-4-5',
+    defaultModel: 'claude-opus-4-5',
+    badge: 'Team · Opus',
+    group: 'team',
+    description: '企业旗舰 · 200K 上下文 · 最强推理',
+  },
+  {
+    key: 'team-deepseek',
+    label: 'DeepSeek V3',
+    type: 'team',
+    teamProvider: 'deepseek-v3',
+    defaultModel: 'deepseek-chat',
+    badge: 'Team · DeepSeek',
+    group: 'team',
+    description: '高性价比推理 · 企业兜底',
+  },
+  {
+    key: 'team-doubao',
+    label: 'Doubao Pro 256K',
+    type: 'team',
+    teamProvider: 'doubao-pro',
+    defaultModel: 'doubao-1-5-pro-256k',
+    badge: 'Team · Doubao',
+    group: 'team',
+    description: '超长文档 / 高频任务',
+  },
+  {
+    key: 'team-kimi',
+    label: 'Kimi Moonshot',
+    type: 'team',
+    teamProvider: 'kimi-k2',
+    defaultModel: 'moonshot-v1-128k',
+    badge: 'Team · Kimi',
+    group: 'team',
+    description: '128K 长上下文',
+  },
+
+  // ── Personal 组（用户自填 key）───────────────────────────────────────
+  {
+    key: 'hermes',
+    label: 'Hermes CLI (默认)',
+    type: 'hermes',
+    badge: 'Hermes',
+    group: 'personal',
+    description: '本地 Hermes / Ollama',
+  },
+  {
+    key: 'openai',
+    label: 'OpenAI',
+    type: 'openai-compatible',
+    baseURL: 'https://api.openai.com/v1',
+    defaultModel: 'gpt-4o',
+    badge: 'OpenAI',
+    group: 'personal',
+    description: 'GPT-4o / o1 系列',
+  },
+  {
+    key: 'anthropic',
+    label: 'Anthropic',
+    type: 'openai-compatible',
+    baseURL: 'https://api.anthropic.com/v1',
+    defaultModel: 'claude-opus-4-5',
+    badge: 'Claude',
+    group: 'personal',
+    description: 'Claude Opus / Sonnet',
+  },
+  {
+    key: 'deepseek',
+    label: 'DeepSeek',
+    type: 'openai-compatible',
+    baseURL: 'https://api.deepseek.com/v1',
+    defaultModel: 'deepseek-chat',
+    badge: 'DeepSeek',
+    group: 'personal',
+  },
+  {
+    key: 'moonshot',
+    label: 'Moonshot 月之暗面',
+    type: 'openai-compatible',
+    baseURL: 'https://api.moonshot.cn/v1',
+    defaultModel: 'moonshot-v1-32k',
+    badge: 'Kimi',
+    group: 'personal',
+  },
+  {
+    key: 'qwen',
+    label: 'Qwen 通义千问',
+    type: 'openai-compatible',
+    baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    defaultModel: 'qwen-max',
+    badge: 'Qwen',
+    group: 'personal',
+  },
+  {
+    key: 'zhipu',
+    label: 'Zhipu 智谱 GLM',
+    type: 'openai-compatible',
+    baseURL: 'https://open.bigmodel.cn/api/paas/v4',
+    defaultModel: 'glm-4-plus',
+    badge: 'GLM',
+    group: 'personal',
+  },
+  {
+    key: 'ollama',
+    label: 'Ollama 本地',
+    type: 'openai-compatible',
+    baseURL: 'http://localhost:11434/v1',
+    defaultModel: 'llama3.1',
+    badge: 'Ollama',
+    group: 'personal',
+  },
+  {
+    key: 'custom',
+    label: '自定义代理',
+    type: 'openai-compatible',
+    baseURL: '',
+    defaultModel: '',
+    badge: '自定义',
+    group: 'personal',
+    description: '任意 OpenAI 兼容端点',
+  },
 ];
 
 export interface AgentConfig {
@@ -205,12 +337,20 @@ interface AgentStore {
   deleteAgent: (id: string) => void;
 }
 
-// 预设专业 Agent 配置（默认走 Hermes 的 kimi-2.6 板块）
+/** 默认 provider: DeepSeek（服务端已配 DEEPSEEK_API_KEY，走 /api/llm-stream 代理） */
+const DEEPSEEK_PROVIDER: LLMProvider = {
+  type: 'openai-compatible',
+  baseURL: 'https://api.deepseek.com/v1',
+  // API key 由服务端 /api/llm-stream-proxy 注入, 前端留空
+  apiKey: '',
+};
+
 export const PRESET_AGENTS: AgentConfig[] = [
   {
     id: 'agent-designer',
     name: '🎨 设计Agent',
-    model: 'kimi-2.6',
+    model: 'deepseek-chat',
+    provider: DEEPSEEK_PROVIDER,
     skills: ['design', 'ui-ux', 'visual'],
     systemPrompt: `你是一位资深UI/UX设计师。擅长：
 1. 用户界面设计 - 现代、简洁、易用
@@ -224,7 +364,8 @@ export const PRESET_AGENTS: AgentConfig[] = [
   {
     id: 'agent-pm',
     name: '📦 产品经理Agent',
-    model: 'kimi-2.6',
+    model: 'deepseek-chat',
+    provider: DEEPSEEK_PROVIDER,
     skills: ['product', 'prd', 'analysis'],
     systemPrompt: `你是一位经验丰富的产品经理。擅长：
 1. 需求分析 - 用户调研、竞品分析、痛点挖掘
@@ -238,7 +379,8 @@ export const PRESET_AGENTS: AgentConfig[] = [
   {
     id: 'agent-strategy',
     name: '🎯 战略Agent',
-    model: 'kimi-2.6',
+    model: 'deepseek-chat',
+    provider: DEEPSEEK_PROVIDER,
     skills: ['strategy', 'business', 'planning'],
     systemPrompt: `你是一位战略咨询专家。擅长：
 1. 市场分析 - 行业趋势、竞争格局、机会识别
@@ -252,7 +394,8 @@ export const PRESET_AGENTS: AgentConfig[] = [
   {
     id: 'agent-marketing',
     name: '📢 市场策划Agent',
-    model: 'kimi-2.6',
+    model: 'deepseek-chat',
+    provider: DEEPSEEK_PROVIDER,
     skills: ['marketing', 'content', 'growth'],
     systemPrompt: `你是一位资深市场策划专家。擅长：
 1. 品牌策略 - 品牌定位、视觉识别、传播策略
@@ -266,7 +409,8 @@ export const PRESET_AGENTS: AgentConfig[] = [
   {
     id: 'agent-tech-lead',
     name: '💻 技术负责人Agent',
-    model: 'kimi-2.6',
+    model: 'deepseek-chat',
+    provider: DEEPSEEK_PROVIDER,
     skills: ['architecture', 'coding', 'review'],
     systemPrompt: `你是一位技术负责人/架构师。擅长：
 1. 技术架构 - 系统架构设计、技术选型
@@ -280,7 +424,8 @@ export const PRESET_AGENTS: AgentConfig[] = [
   {
     id: 'agent-writer',
     name: '✍️ 文案写作Agent',
-    model: 'kimi-2.6',
+    model: 'deepseek-chat',
+    provider: DEEPSEEK_PROVIDER,
     skills: ['writing', 'editing', 'translation'],
     systemPrompt: `你是一位专业文案撰稿人。擅长：
 1. 商业文案 - 品牌故事、产品描述、宣传文案
@@ -294,7 +439,8 @@ export const PRESET_AGENTS: AgentConfig[] = [
   {
     id: 'agent-data-analyst',
     name: '📊 数据分析Agent',
-    model: 'kimi-2.6',
+    model: 'deepseek-chat',
+    provider: DEEPSEEK_PROVIDER,
     skills: ['analysis', 'sql', 'visualization'],
     systemPrompt: `你是一位数据分析师。擅长：
 1. 数据探索 - 数据清洗、统计分析、模式识别
@@ -308,7 +454,8 @@ export const PRESET_AGENTS: AgentConfig[] = [
   {
     id: 'agent-hr',
     name: '👥 HR Agent',
-    model: 'kimi-2.6',
+    model: 'deepseek-chat',
+    provider: DEEPSEEK_PROVIDER,
     skills: ['hr', 'recruiting', 'training'],
     systemPrompt: `你是一位资深HR专家。擅长：
 1. 招聘面试 - 岗位分析、面试题库、评估标准
@@ -324,7 +471,8 @@ export const PRESET_AGENTS: AgentConfig[] = [
   {
     id: 'agent-hh-promo',
     name: '🚿 恒热产品推广 Agent',
-    model: 'kimi-2.6',
+    model: 'deepseek-chat',
+    provider: DEEPSEEK_PROVIDER,
     skills: ['marketing', 'content', 'ecommerce'],
     systemPrompt: `你是恒热品牌（即热式电热水器）的产品推广专家，深度理解中国家用热水器市场。擅长：
 1. 卖点萃取 - 即热出水、恒温技术、5重安防、节能省电、零冷水、不锈钢内胆等核心利益点的提炼
@@ -338,7 +486,8 @@ export const PRESET_AGENTS: AgentConfig[] = [
   {
     id: 'agent-hh-geo',
     name: '🔍 恒热品牌 GEO Agent',
-    model: 'kimi-2.6',
+    model: 'deepseek-chat',
+    provider: DEEPSEEK_PROVIDER,
     skills: ['seo', 'geo', 'content'],
     systemPrompt: `你是品牌 GEO（Generative Engine Optimization，面向 AI 搜索/对话引擎的内容优化）专家，专为恒热品牌服务。擅长：
 1. 目标问句梳理 - 用户在 ChatGPT/豆包/Kimi/百度AI/腾讯元宝里会问什么"哪个品牌的即热式电热水器值得买""恒热和XX对比""出租屋装哪种热水器"
@@ -352,7 +501,8 @@ export const PRESET_AGENTS: AgentConfig[] = [
   {
     id: 'agent-hh-mps',
     name: '🏭 恒热生产计划 Agent',
-    model: 'kimi-2.6',
+    model: 'deepseek-chat',
+    provider: DEEPSEEK_PROVIDER,
     skills: ['manufacturing', 'mps', 'planning'],
     systemPrompt: `你是恒热工厂的主生产计划（MPS）排程专家，理解即热式电热水器制造工艺与上游供应链。擅长：
 1. 需求预测 - 渠道分销补单 + 大促囤货 + 工程项目 + 出口订单四源汇总；考虑季节性（冬季需求峰值 11-2 月）
@@ -366,7 +516,8 @@ export const PRESET_AGENTS: AgentConfig[] = [
   {
     id: 'agent-hh-video',
     name: '🎬 恒热视频脚本 Agent',
-    model: 'kimi-2.6',
+    model: 'deepseek-chat',
+    provider: DEEPSEEK_PROVIDER,
     skills: ['video', 'script', 'douyin'],
     systemPrompt: `你是恒热品牌的短视频脚本撰稿人，专精抖音/视频号/小红书 30s-90s 卖货/种草视频。擅长：
 1. 钩子前 3 秒 - 痛点反差/冲突镜头/数字标签（"洗到一半没热水的崩溃""90 元一年的电费"）
@@ -380,7 +531,8 @@ export const PRESET_AGENTS: AgentConfig[] = [
   {
     id: 'agent-hh-gtm',
     name: '🚀 恒热 GTM Agent',
-    model: 'kimi-2.6',
+    model: 'deepseek-chat',
+    provider: DEEPSEEK_PROVIDER,
     skills: ['gtm', 'strategy', 'channel'],
     systemPrompt: `你是恒热品牌的市场进入（GTM）策略专家。擅长：
 1. 市场切片 - 按城市等级/装修阶段/户型/水压/家庭结构切出可打的细分市场
@@ -409,7 +561,8 @@ export const useAgentStore = create<AgentStore>()(
       name: '铁山-agent-store',
       // v3: 预设 Agent 模型 → kimi-2.6（Hermes Kimi 板块）
       // v4: 追加 5 个恒热业务专属 Agent
-      version: 4,
+      // v5: 修复 kimi-2.6 为 deepseek-chat + 绑定 DEEPSEEK_PROVIDER
+      version: 5,
       migrate: (persistedState: unknown, fromVersion: number) => {
         const state = persistedState as { agents?: AgentConfig[] } | null;
         if (!state || !Array.isArray(state.agents)) return state ?? { agents: [...PRESET_AGENTS] };
@@ -420,10 +573,20 @@ export const useAgentStore = create<AgentStore>()(
           );
         }
         if (fromVersion < 4) {
-          // 追加缺失的预设 Agent（包括 5 个恒热业务 Agent）
           const existingIds = new Set(state.agents.map((a) => a.id));
           const missing = PRESET_AGENTS.filter((p) => !existingIds.has(p.id));
           state.agents = [...state.agents, ...missing];
+        }
+        if (fromVersion < 5) {
+          // 把所有 kimi-2.6 替换成 deepseek-chat + 注入 provider
+          const presetMap = new Map(PRESET_AGENTS.map((p) => [p.id, p]));
+          state.agents = state.agents.map((a) => {
+            if (a.model === 'kimi-2.6') {
+              const preset = presetMap.get(a.id);
+              return preset ? { ...a, model: preset.model, provider: preset.provider } : { ...a, model: 'deepseek-chat', provider: DEEPSEEK_PROVIDER };
+            }
+            return a;
+          });
         }
         return state;
       },
@@ -1569,6 +1732,8 @@ export interface MemoryFolder {
 interface MemoryStore {
   memories: Memory[];
   folders: MemoryFolder[];
+  /** P1-1: 从后端 /api/tandem/memory/list 同步 (个人记事本 hydrate) */
+  hydrateMemories: (items: Memory[]) => void;
   addMemory: (m: Omit<Memory, 'id' | 'createdAt' | 'updatedAt' | 'version'>) => void;
   updateMemory: (id: string, patch: Partial<Omit<Memory, 'id' | 'createdAt'>>) => void;
   deleteMemory: (id: string) => void;
@@ -1604,47 +1769,8 @@ export const useMemoryStore = create<MemoryStore>()(
         { id: 'cat-standard', name: '标准', parentId: 'mem-root', createdAt: Date.now() },
         { id: 'cat-context', name: '上下文', parentId: 'mem-root', createdAt: Date.now() },
       ],
-      memories: [
-        {
-          id: 'mem-1',
-          title: '项目技术栈',
-          content: 'Next.js 14 + TypeScript + Tailwind CSS + shadcn/ui + Zustand',
-          category: 'standard',
-          parentId: 'cat-standard',
-          tags: ['tech-stack', 'frontend'],
-          priority: 'critical',
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-          version: 1,
-          isActive: true,
-        },
-        {
-          id: 'mem-2',
-          title: '编码规范共识',
-          content: '1. 使用中文注释和界面\n2. 禁止 inline style，改用 CSS 变量\n3. 所有 API 路由必须加 UTF-8 环境变量\n4. Windows spawn 使用 shell: false',
-          category: 'consensus',
-          parentId: 'cat-consensus',
-          tags: ['coding', 'style', 'agreement'],
-          priority: 'high',
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-          version: 1,
-          isActive: true,
-        },
-        {
-          id: 'mem-3',
-          title: 'Hermes CLI 集成要求',
-          content: '所有 Hermes 调用必须通过统一封装，确保：\n- PYTHONIOENCODING=utf-8\n- PYTHONUTF8=1\n- NO_COLOR=1\n- Windows 避免 shell injection',
-          category: 'requirement',
-          parentId: 'cat-requirement',
-          tags: ['hermes', 'cli', 'integration'],
-          priority: 'critical',
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-          version: 1,
-          isActive: true,
-        },
-      ],
+      memories: [],
+      hydrateMemories: (items) => set({ memories: items }),
       addMemory: (m) => {
         const now = Date.now();
         const newMemory: Memory = {

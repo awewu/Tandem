@@ -11,6 +11,8 @@ import { Toaster } from '@/components/toaster';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { ApiHydrator } from '@/components/api-hydrator';
 import { PwaRegister } from '@/components/pwa-register';
+import { MobileTopBar } from '@/components/mobile-top-bar';
+import { MobileTabBar } from '@/components/mobile-tab-bar';
 
 // Body — Inter, variable weight 100-900, latin + latin-ext only (zh-CN falls back to system PingFang / Microsoft YaHei)
 const fontSans = Inter({
@@ -57,12 +59,28 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider>
           <RightPaneProvider>
             <ApiHydrator />
-            <div className="flex h-screen w-screen overflow-hidden bg-[rgb(var(--surface-2))]">
-              <AppRail />
-              <SubSidebar />
-              <main className="flex-1 overflow-hidden bg-[rgb(var(--surface-1))]">
+            {/*
+              Responsive shell:
+              - md+ : 桌面三栏 (AppRail + SubSidebar + main)
+              - <md : 顶栏 + 全屏 main + 底部 tab bar (Kimi/GPT 移动端风格)
+                     AppRail / SubSidebar 在 mobile 视口下隐藏.
+            */}
+            <div className="flex h-screen w-screen flex-col overflow-hidden bg-[rgb(var(--surface-2))] md:flex-row">
+              {/* Desktop only */}
+              <div className="hidden md:contents">
+                <AppRail />
+                <SubSidebar />
+              </div>
+
+              {/* Mobile only top bar */}
+              <MobileTopBar />
+
+              <main className="flex-1 overflow-y-auto bg-[rgb(var(--surface-1))] pb-[56px] md:overflow-hidden md:pb-0">
                 <ErrorBoundary>{children}</ErrorBoundary>
               </main>
+
+              {/* Mobile only bottom tab bar */}
+              <MobileTabBar />
             </div>
             <CommandPalette />
             <KeyboardShortcuts />

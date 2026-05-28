@@ -1,4 +1,4 @@
-# KPI / TTI 双轨绩效宽章 (Charter)
+KPI / TTI 双轨绩效宽章 (Charter)
 
 > **状态**: 🔒 冻结 · 2026-05-20 创建
 > **取代**: TTI-FRAMEWORK.md (旧, 单轨语义不清) · 与 MANIFESTO §4 协调

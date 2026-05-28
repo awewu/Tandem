@@ -17,6 +17,8 @@ import { SeedFromOrgDialog } from '@/components/im/seed-from-org-dialog';
 import { AgentModeToggle } from '@/components/im/agent-mode-toggle';
 import { AiTraceButton } from '@/components/im/ai-trace-button';
 import { CompanyBrainFeedbackButtons } from '@/components/im/company-brain-feedback';
+import { VoiceInputButton } from '@/components/voice-input-button';
+import { cn } from '@/lib/utils';
 import type { ImChannel, ImMembership, ImMessage } from '@/lib/types/im';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import Link from 'next/link';
@@ -32,6 +34,7 @@ import {
   Sparkles,
   Bot,
   ArrowRight,
+  ArrowLeft,
   Plus,
   Brain,
   Info,
@@ -87,6 +90,8 @@ function ImInner() {
   const searchParams = useSearchParams();
   const [channels, setChannels] = useState<Channel[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
+  /** §mobile: < md 单栏切换 — true=显示频道列表, false=显示消息流. md+ 忽略. */
+  const [mobileShowList, setMobileShowList] = useState(true);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
@@ -361,7 +366,10 @@ function ImInner() {
       .then((r) => r.json())
       .then(({ channel }) => {
         void loadChannels();
-        if (channel?.id) setActiveId(channel.id);
+        if (channel?.id) {
+          setActiveId(channel.id);
+          setMobileShowList(false);
+        }
       });
   }
 
@@ -389,16 +397,24 @@ function ImInner() {
       .then((r) => r.json())
       .then(({ channel }) => {
         void loadChannels();
-        if (channel?.id) setActiveId(channel.id);
+        if (channel?.id) {
+          setActiveId(channel.id);
+          setMobileShowList(false);
+        }
       });
   }
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] flex-col">
+    <div className="flex h-full md:h-[calc(100vh-3.5rem)] flex-col">
       <BannerChip />
-      <div className="grid flex-1 grid-cols-[340px_1fr_300px] overflow-hidden bg-white">
+      <div className="grid flex-1 grid-cols-1 md:grid-cols-[340px_1fr_300px] overflow-hidden bg-white">
       {/* ---- 左栏: 频道列表 — Gemini Gems 风格 (柔和留白 + 大圆角 + 渐变头像) ---- */}
-      <aside className="flex flex-col border-r border-slate-100 bg-gradient-to-b from-white via-white to-slate-50/40">
+      <aside
+        className={cn(
+          'flex-col border-r border-slate-100 bg-gradient-to-b from-white via-white to-slate-50/40 md:flex',
+          mobileShowList ? 'flex' : 'hidden',
+        )}
+      >
         {/* Header: 大标题 + 副描述 + 新建 pill */}
         <div className="flex flex-col gap-3 px-5 pt-6 pb-3">
           <div className="flex items-start justify-between gap-3">
@@ -509,7 +525,10 @@ function ImInner() {
               <button
                 key={c.id}
                 type="button"
-                onClick={() => setActiveId(c.id)}
+                onClick={() => {
+                  setActiveId(c.id);
+                  setMobileShowList(false);
+                }}
                 className={`group flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-all duration-150 ${
                   active
                     ? 'bg-white shadow-sm ring-1 ring-slate-200/80'
@@ -588,16 +607,31 @@ function ImInner() {
         onCreated={(channelId) => {
           void loadChannels();
           setActiveId(channelId);
+          setMobileShowList(false);
           setPrefillDept(null);
         }}
       />
 
       {/* ---- 中栏: 消息流 ---- */}
-      <main className="flex h-full min-w-0 flex-col">
+      <main
+        className={cn(
+          'h-full min-w-0 flex-col md:flex',
+          mobileShowList ? 'hidden' : 'flex',
+        )}
+      >
         {activeChannel ? (
           <>
-            <header className="flex items-center justify-between border-b border-slate-200/70 bg-white/95 px-5 py-3 backdrop-blur-sm">
-              <div className="flex items-center gap-3">
+            <header className="flex items-center justify-between border-b border-slate-200/70 bg-white/95 px-3 py-3 backdrop-blur-sm md:px-5">
+              <div className="flex items-center gap-2 md:gap-3 min-w-0">
+                {/* §mobile back arrow: 仅 < md 显示, 点击返回频道列表 */}
+                <button
+                  type="button"
+                  onClick={() => setMobileShowList(true)}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-slate-600 hover:bg-slate-100 md:hidden"
+                  aria-label="返回频道列表"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </button>
                 <GemChannelAvatar
                   channel={activeChannel}
                   name={
@@ -740,6 +774,11 @@ function ImInner() {
                     className="border-0 bg-transparent p-0 text-[13.5px] shadow-none focus-visible:ring-0"
                   />
                 </div>
+                {/* §mobile: 长按语音输入 (Web Speech API). 桌面也可用. */}
+                <VoiceInputButton
+                  onText={(text) => setInput((cur) => (cur ? `${cur} ${text}` : text))}
+                  disabled={sending}
+                />
                 <Button
                   onClick={sendMessage}
                   disabled={sending || !input.trim()}
@@ -767,8 +806,8 @@ function ImInner() {
         )}
       </main>
 
-      {/* ---- 右栏: 频道详情 + 差异化提示 ---- */}
-      <aside className="flex flex-col gap-3 overflow-y-auto border-l border-slate-200/70 bg-white/95 p-4 backdrop-blur-sm">
+      {/* ---- 右栏: 频道详情 + 差异化提示 (mobile 隐藏, 详情可走频道顶部 ⓘ 按钮调起 settings) ---- */}
+      <aside className="hidden flex-col gap-3 overflow-y-auto border-l border-slate-200/70 bg-white/95 p-4 backdrop-blur-sm md:flex">
         {activeChannel ? (
           <>
             <Card className="border-slate-200/70 shadow-sm">

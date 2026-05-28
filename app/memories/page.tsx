@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useMemoryStore, type Memory } from '@/lib/store';
+import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { FileManager, type FMNode } from '@/components/file-manager';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TandemMemoryDigest } from '@/components/memories/tandem-memory-digest';
@@ -17,6 +18,40 @@ import {
   Save, Download, Upload, Eye, EyeOff, Tag, AlertCircle, FileText, CheckCircle2,
   Lightbulb, Database, Cloud,
 } from 'lucide-react';
+
+// ────────────────────────────────────────────────────────────────────────────
+// P1-1: API ↔ UI Memory 适配
+// ────────────────────────────────────────────────────────────────────────────
+
+/** 把后端 MemoryEntry (个人记事本子集) 转成 UI Memory */
+function entryToUiMemory(e: any): Memory {
+  return {
+    id: e.id,
+    title: e.title ?? '',
+    content: e.body ?? '',
+    category: (e.uiCategory ?? 'context') as Memory['category'],
+    tags: Array.isArray(e.tags) ? e.tags : [],
+    priority: (e.priority ?? 'medium') as Memory['priority'],
+    createdAt: typeof e.createdAt === 'string' ? new Date(e.createdAt).getTime() : (e.createdAt ?? Date.now()),
+    updatedAt: typeof e.updatedAt === 'string' ? new Date(e.updatedAt).getTime() : (e.updatedAt ?? Date.now()),
+    version: e.version ?? 1,
+    isActive: e.isActive ?? (e.status === 'active'),
+    parentId: e.parentId ?? `cat-${e.uiCategory ?? 'context'}`,
+  };
+}
+
+/** UI Memory 字段 → 后端 PATCH body */
+function uiToEntryPatch(m: Partial<Memory>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (typeof m.title === 'string') out.title = m.title;
+  if (typeof m.content === 'string') out.body = m.content;
+  if (typeof m.category === 'string') out.uiCategory = m.category;
+  if (typeof m.priority === 'string') out.priority = m.priority;
+  if (Array.isArray(m.tags)) out.tags = m.tags;
+  if ('parentId' in m) out.parentId = m.parentId;
+  if (typeof m.isActive === 'boolean') out.isActive = m.isActive;
+  return out;
+}
 
 const CATEGORY_LABELS: Record<Memory['category'], { label: string; icon: React.ElementType; color: string }> = {
   requirement: { label: '需求', icon: AlertCircle, color: 'bg-blue-500' },
@@ -34,10 +69,73 @@ const PRIORITY_COLORS: Record<Memory['priority'], string> = {
 
 export default function MemoriesPage() {
   const {
-    memories, folders, addMemory, updateMemory, toggleActive,
-    deleteMemoryNodes, moveMemoryNodes, addFolder, renameFolder,
+    memories, folders, hydrateMemories,
+    moveMemoryNodes, addFolder, renameFolder,
     exportMemories, importMemories,
   } = useMemoryStore();
+
+  const { user } = useCurrentUser();
+  const userId = user?.id;
+
+  // ── P1-1: 个人记事本从后端 API 拉取 (替换原 zustand demo) ──
+  const reloadMemories = useCallback(async () => {
+    if (!userId) return;
+    try {
+      const r = await fetch(
+        `/api/tandem/memory/list?ownershipLevel=personal&ownerUserId=${encodeURIComponent(userId)}&detail=1&limit=500`,
+        { cache: 'no-store', credentials: 'include' }
+      );
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const j = await r.json();
+      const items = Array.isArray(j.memories) ? j.memories.map(entryToUiMemory) : [];
+      hydrateMemories(items);
+    } catch (err) {
+      console.warn('[memories] reload failed:', (err as Error).message);
+    }
+  }, [userId, hydrateMemories]);
+
+  useEffect(() => { void reloadMemories(); }, [reloadMemories]);
+
+  // ── API CRUD wrappers (取代 zustand 直接 mutation) ──
+  const apiCreate = useCallback(async (m: Partial<Memory>) => {
+    const r = await fetch('/api/tandem/memory', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(uiToEntryPatch(m)),
+    });
+    if (!r.ok) throw new Error(`create failed: HTTP ${r.status}`);
+    await reloadMemories();
+  }, [reloadMemories]);
+
+  const apiUpdate = useCallback(async (id: string, patch: Partial<Memory>) => {
+    const r = await fetch(`/api/tandem/memory/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(uiToEntryPatch(patch)),
+    });
+    if (!r.ok) throw new Error(`update failed: HTTP ${r.status}`);
+    await reloadMemories();
+  }, [reloadMemories]);
+
+  const apiDelete = useCallback(async (ids: string[]) => {
+    // 文件夹纯客户端, memory 才走 API
+    const memIds = ids.filter((id) => memories.some((m) => m.id === id));
+    await Promise.allSettled(memIds.map((id) =>
+      fetch(`/api/tandem/memory/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+    ));
+    await reloadMemories();
+  }, [memories, reloadMemories]);
+
+  const apiToggleActive = useCallback(async (id: string) => {
+    const m = memories.find((x) => x.id === id);
+    if (!m) return;
+    await apiUpdate(id, { isActive: !m.isActive });
+  }, [memories, apiUpdate]);
 
   const [hermesMemory, setHermesMemory] = useState<MemoryStatus | null>(null);
   useEffect(() => {
@@ -108,7 +206,7 @@ export default function MemoriesPage() {
           result.sheets != null ? `${result.sheets}表` : null,
           `${(result.bytes / 1024).toFixed(1)}KB`,
         ].filter(Boolean).join(' · ');
-        addMemory({
+        await apiCreate({
           title: file.name.replace(/\.[^.]+$/, ''),
           content: `<!-- 来源：${file.name} (${meta}) -->\n\n${result.text}`,
           category,
@@ -116,7 +214,7 @@ export default function MemoriesPage() {
           tags: [ext, result.format, 'uploaded'],
           priority: 'medium',
           isActive: true,
-        } as Omit<Memory, 'id' | 'createdAt' | 'updatedAt' | 'version'>);
+        });
         added++;
       } catch (err: any) {
         failures.push(`${file.name}（${err?.message || '解析失败'}）`);
@@ -130,11 +228,11 @@ export default function MemoriesPage() {
   // === 文件夹/memory 重命名（统一入口） ===
   const handleRename = (id: string, newName: string) => {
     if (folders.some((f) => f.id === id)) renameFolder(id, newName);
-    else updateMemory(id, { title: newName });
+    else void apiUpdate(id, { title: newName });
   };
 
   const handleCreateFolder = (name: string, parentId: string) => addFolder(name, parentId);
-  const handleDelete = (ids: string[]) => deleteMemoryNodes(ids);
+  const handleDelete = (ids: string[]) => void apiDelete(ids);
   const handleMove = (ids: string[], target: string) => moveMemoryNodes(ids, target);
 
   // === 双击 memory 文件 → 进入编辑 ===
@@ -168,19 +266,23 @@ export default function MemoriesPage() {
     });
   };
 
-  const saveDraft = () => {
+  const saveDraft = async () => {
     if (!draft.title?.trim() || !draft.content?.trim()) {
       showToast('error', '标题和内容均不能为空');
       return;
     }
-    if (creatingNew) {
-      addMemory(draft as Omit<Memory, 'id' | 'createdAt' | 'updatedAt' | 'version'>);
-    } else if (editingId) {
-      updateMemory(editingId, draft);
+    try {
+      if (creatingNew) {
+        await apiCreate(draft);
+      } else if (editingId) {
+        await apiUpdate(editingId, draft);
+      }
+      setEditingId(null);
+      setCreatingNew(false);
+      setDraft({});
+    } catch (err) {
+      showToast('error', `保存失败：${(err as Error).message}`);
     }
-    setEditingId(null);
-    setCreatingNew(false);
-    setDraft({});
   };
 
   const cancelEdit = () => {
@@ -306,7 +408,7 @@ export default function MemoriesPage() {
           <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleOpenFile(node)}>
             编辑
           </Button>
-          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => toggleActive(memory.id)}>
+          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => void apiToggleActive(memory.id)}>
             {memory.isActive ? '停用' : '激活'}
           </Button>
         </div>

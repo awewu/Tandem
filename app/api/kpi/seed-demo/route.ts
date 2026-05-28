@@ -25,12 +25,13 @@ import type { Kpi, KpiCycle, KpiSubject } from '@/lib/types/kpi';
 const FISCAL_YEAR = 2026;
 const CYCLE_NAME = 'FY2026 (Demo)';
 
-const ASSIGNEES = ['demo-star', 'demo-burnout', 'demo-mismatch', 'demo-intervene'] as const;
+const ASSIGNEES = ['demo-user', 'demo-star', 'demo-burnout', 'demo-mismatch', 'demo-intervene'] as const;
 
 const PROFILES: Record<
   (typeof ASSIGNEES)[number],
   { kpiCompletion: number; ttiCompletion: number; label: string }
 > = {
+  'demo-user': { kpiCompletion: 0.88, ttiCompletion: 0.9, label: '👨 我自己 (BSC 四维示范指标)' },
   'demo-star': { kpiCompletion: 1.05, ttiCompletion: 0.85, label: '⭐ 明星 (高 KPI + 高 TTI)' },
   'demo-burnout': { kpiCompletion: 1.0, ttiCompletion: 0.3, label: '⚠️ 风险枯萎 (高 KPI + 低 TTI)' },
   'demo-mismatch': { kpiCompletion: 0.5, ttiCompletion: 0.85, label: '🔄 人岗错位 (低 KPI + 高 TTI)' },
@@ -43,16 +44,17 @@ interface SubjectSpec {
   defaultUnit: string;
   defaultMeasureType: KpiSubject['defaultMeasureType'];
   defaultScope: 'bonus' | 'monitor';
+  bscPerspective: KpiSubject['bscPerspective'];
 }
 
 const SUBJECTS: SubjectSpec[] = [
-  { code: 'FIN.REV', name: '营业收入', defaultUnit: '万元', defaultMeasureType: 'currency', defaultScope: 'bonus' },
-  { code: 'FIN.GP', name: '毛利率', defaultUnit: '%', defaultMeasureType: 'percentage', defaultScope: 'bonus' },
-  { code: 'CUST.CSAT', name: '客户满意度', defaultUnit: '分', defaultMeasureType: 'numeric', defaultScope: 'monitor' },
-  { code: 'CUST.NEW', name: '新客户数', defaultUnit: '家', defaultMeasureType: 'count', defaultScope: 'bonus' },
-  { code: 'OPS.QA', name: '质量合格率', defaultUnit: '%', defaultMeasureType: 'percentage', defaultScope: 'monitor' },
-  { code: 'OPS.LEAD', name: '交付周期', defaultUnit: '天', defaultMeasureType: 'numeric', defaultScope: 'monitor' },
-  { code: 'HR.RETAIN', name: '关键人才留存率', defaultUnit: '%', defaultMeasureType: 'percentage', defaultScope: 'monitor' },
+  { code: 'FIN.REV', name: '营业收入', defaultUnit: '万元', defaultMeasureType: 'currency', defaultScope: 'bonus', bscPerspective: 'financial' },
+  { code: 'FIN.GP', name: '毛利率', defaultUnit: '%', defaultMeasureType: 'percentage', defaultScope: 'bonus', bscPerspective: 'financial' },
+  { code: 'CUST.CSAT', name: '客户满意度', defaultUnit: '分', defaultMeasureType: 'numeric', defaultScope: 'monitor', bscPerspective: 'customer' },
+  { code: 'CUST.NEW', name: '新客户数', defaultUnit: '家', defaultMeasureType: 'count', defaultScope: 'bonus', bscPerspective: 'customer' },
+  { code: 'OPS.QA', name: '质量合格率', defaultUnit: '%', defaultMeasureType: 'percentage', defaultScope: 'monitor', bscPerspective: 'process' },
+  { code: 'OPS.LEAD', name: '交付周期', defaultUnit: '天', defaultMeasureType: 'numeric', defaultScope: 'monitor', bscPerspective: 'process' },
+  { code: 'HR.RETAIN', name: '关键人才留存率', defaultUnit: '%', defaultMeasureType: 'percentage', defaultScope: 'monitor', bscPerspective: 'growth' },
 ];
 
 interface KpiSpec {
@@ -66,6 +68,13 @@ interface KpiSpec {
 }
 
 const KPI_SPECS: KpiSpec[] = [
+  // demo-user 本人经典的 BSC 四维度度量
+  { subjectCode: 'FIN.REV', assignee: 'demo-user', title: '研发项目相关业务增量营收', startValue: 0, targetValue: 500, weight: 30, scope: 'bonus' },
+  { subjectCode: 'CUST.CSAT', assignee: 'demo-user', title: '核心系统可用性 SLA 客户满意度', startValue: 80, targetValue: 95, weight: 30, scope: 'bonus' },
+  { subjectCode: 'OPS.QA', assignee: 'demo-user', title: '代码发布质量合格率', startValue: 90, targetValue: 98, weight: 20, scope: 'bonus' },
+  { subjectCode: 'HR.RETAIN', assignee: 'demo-user', title: '关键技能掌握与内部技术分享次', startValue: 0, targetValue: 5, weight: 20, scope: 'bonus' },
+
+  // 原有其他被考核人员的演示数据
   { subjectCode: 'FIN.REV', assignee: 'demo-star', title: '营业收入 (Star)', startValue: 5000, targetValue: 8000, weight: 50, scope: 'bonus' },
   { subjectCode: 'CUST.NEW', assignee: 'demo-star', title: '新客户数 (Star)', startValue: 0, targetValue: 30, weight: 30, scope: 'bonus' },
   { subjectCode: 'FIN.GP', assignee: 'demo-star', title: '毛利率 (Star)', startValue: 25, targetValue: 35, weight: 20, scope: 'bonus' },
@@ -142,6 +151,7 @@ export async function POST(req: NextRequest) {
       code: spec.code,
       name: spec.name,
       level: 1,
+      bscPerspective: spec.bscPerspective,
       defaultScope: spec.defaultScope,
       defaultUnit: spec.defaultUnit,
       defaultMeasureType: spec.defaultMeasureType,
@@ -176,6 +186,7 @@ export async function POST(req: NextRequest) {
     const kpi = await store.kpis.create({
       cycleId: cycle.id,
       subjectId: subj.id,
+      bscPerspective: subj.bscPerspective,
       level: spec.scope === 'monitor' ? 'company' : 'individual',
       assigneeId: spec.assignee,
       title: spec.title,

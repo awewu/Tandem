@@ -77,6 +77,26 @@ class SkillRegistry {
     this.skills.set(skill.id, skill as Skill);
   }
 
+  /** §V2 hot-reload: 注销某 skill (admin 后台关停 / suspended 后调) */
+  unregister(id: string): boolean {
+    return this.skills.delete(id);
+  }
+
+  /** §V2 hot-reload: 清空整个 registry (reload 前调) */
+  clear(): void {
+    this.skills.clear();
+  }
+
+  /** 是否注册过此 skill */
+  has(id: string): boolean {
+    return this.skills.has(id);
+  }
+
+  /** Skill 数量 (admin 看板探针) */
+  size(): number {
+    return this.skills.size;
+  }
+
   get(id: string): Skill | undefined {
     return this.skills.get(id);
   }

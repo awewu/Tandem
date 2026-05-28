@@ -30,6 +30,29 @@ function envOr(key: string, fallback = ''): string {
 }
 
 export const PROVIDER_CONFIGS: Record<string, ProviderConfig> = {
+  // ── 企业中央AI 旗舰 (管理员配置, 员工不直接消耗) ──────────────────────────
+  'claude-opus-4-5': {
+    name: 'claude-opus-4-5',
+    // Anthropic 原生端点 (OpenAI 兼容模式, 需 anthropic-version header)
+    // 若走代理 (如 OpenRouter / AWS Bedrock), 替换 ANTHROPIC_BASE_URL
+    baseUrl: envOr('ANTHROPIC_BASE_URL', 'https://api.anthropic.com/v1'),
+    model: envOr('ANTHROPIC_MODEL', 'claude-opus-4-5'),
+    apiKey: envOr('ANTHROPIC_API_KEY'),
+    headers: {
+      'anthropic-version': '2023-06-01',
+      'anthropic-beta': 'messages-2023-12-15',
+    },
+    capabilities: {
+      chat: true,
+      functionCalling: true,
+      streaming: true,
+      jsonMode: true,
+      vision: true,
+      maxContextTokens: 200_000,
+      inputPriceRmbPerM: 108.0,   // ~$15/M × 7.2
+      outputPriceRmbPerM: 540.0,  // ~$75/M × 7.2
+    },
+  },
   'deepseek-v3': {
     name: 'deepseek-v3',
     baseUrl: envOr('DEEPSEEK_BASE_URL', 'https://api.deepseek.com/v1'),

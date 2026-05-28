@@ -65,6 +65,24 @@ const ACTIONS: CommandItem[] = [
   { id: 'a:memory:capture',   name: '捕获 Memory',     href: '/memories?capture=1',  group: '动作', icon: Brain,          keywords: ['memory', 'capture', 'sop', '知识'] },
 ];
 
+// ── /api/agent/intent 响应缓存 (module-level, 跨 CommandPalette 打开/关闭保留) ──
+// 同一 query 10 分钟内重复触发直接读缓存，避免快速打字浪费 LLM token。
+interface IntentCacheEntry {
+  matches: Array<{ intent: string; route: string; label: string; confidence: number; skill?: string }>;
+  ts: number;
+}
+const INTENT_CACHE = new Map<string, IntentCacheEntry>();
+const INTENT_CACHE_MAX = 25;
+const INTENT_CACHE_TTL_MS = 10 * 60 * 1000;
+function intentCacheSet(key: string, matches: IntentCacheEntry['matches']): void {
+  if (INTENT_CACHE.size >= INTENT_CACHE_MAX) {
+    // LRU: 删最早一个
+    const firstKey = INTENT_CACHE.keys().next().value;
+    if (firstKey !== undefined) INTENT_CACHE.delete(firstKey);
+  }
+  INTENT_CACHE.set(key, { matches, ts: Date.now() });
+}
+
 export function CommandPalette() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -214,14 +232,22 @@ export function CommandPalette() {
     setActiveIdx(0);
   }, [query]);
 
-  // U1 · Agent intent fetch (debounce 250ms, only when query >= 4 chars)
+  // U1 · Agent intent fetch (debounce 500ms + LRU cache，避免快速打字浪费 token)
   useEffect(() => {
     if (!open) return;
-    const q = query.trim();
+    const q = query.trim().toLowerCase();
     if (q.length < 4) {
       setAgentMatches([]);
       return;
     }
+
+    // 命中缓存直接返回
+    const cached = INTENT_CACHE.get(q);
+    if (cached && Date.now() - cached.ts < INTENT_CACHE_TTL_MS) {
+      setAgentMatches(cached.matches);
+      return;
+    }
+
     const timer = setTimeout(async () => {
       try {
         const r = await fetch('/api/agent/intent', {
@@ -231,11 +257,13 @@ export function CommandPalette() {
         });
         if (!r.ok) return;
         const j = await r.json();
-        setAgentMatches(j.matches ?? []);
+        const matches = j.matches ?? [];
+        setAgentMatches(matches);
+        intentCacheSet(q, matches);
       } catch {
         /* noop */
       }
-    }, 250);
+    }, 500);
     return () => clearTimeout(timer);
   }, [query, open]);
 

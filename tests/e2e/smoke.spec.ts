@@ -20,10 +20,8 @@ test.describe('Tandem · Smoke 4 flows', () => {
 
   test('② Convergence 列表页可加载, 发起按钮可见', async ({ page }) => {
     await page.goto('/convergence');
-    // 标题或主要按钮之一可见
-    const initBtn = page.getByRole('button', { name: /发起议事|新建议事/ }).first();
-    const heading = page.getByRole('heading').first();
-    await expect(initBtn.or(heading)).toBeVisible();
+    // 直接断言 /convergence 的核心 CTA: "发起议事 (17 min)"
+    await expect(page.getByRole('button', { name: /发起议事/ })).toBeVisible();
   });
 
   test('③ OKR 页可加载, KR 树或空态出现', async ({ page }) => {

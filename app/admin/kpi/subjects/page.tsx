@@ -27,6 +27,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { cn } from '@/lib/utils';
 import {
   Dialog,
   DialogContent,
@@ -72,6 +73,7 @@ interface SubjectFormState {
   defaultScope: Scope;
   defaultUnit: string;
   defaultMeasureType: Measure;
+  bscPerspective?: 'financial' | 'customer' | 'process' | 'growth';
 }
 
 const EMPTY_FORM: SubjectFormState = {
@@ -196,6 +198,7 @@ export default function KpiSubjectsPage() {
       defaultScope: s.defaultScope,
       defaultUnit: s.defaultUnit ?? '',
       defaultMeasureType: s.defaultMeasureType,
+      bscPerspective: s.bscPerspective,
     });
     setSubmitError(null);
     setDialogOpen(true);
@@ -217,6 +220,7 @@ export default function KpiSubjectsPage() {
             defaultScope: form.defaultScope,
             defaultUnit: form.defaultUnit || undefined,
             defaultMeasureType: form.defaultMeasureType,
+            bscPerspective: form.bscPerspective || undefined,
           }
         : {
             parentId: form.parentId || undefined,
@@ -226,6 +230,7 @@ export default function KpiSubjectsPage() {
             defaultScope: form.defaultScope,
             defaultUnit: form.defaultUnit || undefined,
             defaultMeasureType: form.defaultMeasureType,
+            bscPerspective: form.bscPerspective || undefined,
           };
       const r = await fetch(url, {
         method,
@@ -380,8 +385,31 @@ export default function KpiSubjectsPage() {
                           {depth > 0 && (
                             <span className="text-muted-foreground/60 mr-1">└</span>
                           )}
-                          {s.name}
+                          <span className="font-semibold">{s.name}</span>
                         </span>
+                        {s.level === 1 && s.bscPerspective && (
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              'ml-2 text-[10px] py-0 px-1 border',
+                              s.bscPerspective === 'financial'
+                                ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                : s.bscPerspective === 'customer'
+                                  ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                  : s.bscPerspective === 'process'
+                                    ? 'bg-sky-50 text-sky-700 border-sky-200'
+                                    : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            )}
+                          >
+                            {s.bscPerspective === 'financial'
+                              ? '📈 财务'
+                              : s.bscPerspective === 'customer'
+                                ? '👥 客户'
+                                : s.bscPerspective === 'process'
+                                  ? '⚙️ 流程'
+                                  : '🧠 成长'}
+                          </Badge>
+                        )}
                         {s.description && (
                           <p className="text-xs text-muted-foreground mt-0.5 ml-[18px]">
                             {s.description}
@@ -515,6 +543,30 @@ export default function KpiSubjectsPage() {
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
               />
             </div>
+
+            {/* 平衡记分卡维度选择 (仅一级科目需要归属) */}
+            {!form.parentId && (
+              <div className="space-y-1.5">
+                <Label htmlFor="bsc">平衡记分卡维度归属 (BSC)</Label>
+                <Select
+                  value={form.bscPerspective ?? '__none__'}
+                  onValueChange={(v) =>
+                    setForm({ ...form, bscPerspective: v === '__none__' ? undefined : v as any })
+                  }
+                >
+                  <SelectTrigger id="bsc">
+                    <SelectValue placeholder="不属于平衡记分卡维度" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">不属于平衡记分卡维度</SelectItem>
+                    <SelectItem value="financial">📈 财务与经营维度 (Financial)</SelectItem>
+                    <SelectItem value="customer">👥 客户与市场维度 (Customer)</SelectItem>
+                    <SelectItem value="process">⚙️ 内部运营流程维度 (Internal Processes)</SelectItem>
+                    <SelectItem value="growth">🧠 学习与成长维度 (Learning & Growth)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="space-y-1.5">
               <Label htmlFor="desc">描述 / 计算口径</Label>

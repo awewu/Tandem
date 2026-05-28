@@ -14,30 +14,55 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-tandem}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?must set POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB:-tandem}
+      # 上海时区, 与业务定时任务一致
+      TZ: ${TZ:-Asia/Shanghai}
+      PGTZ: ${TZ:-Asia/Shanghai}
     volumes:
       - tandem_pg_data:/var/lib/postgresql/data
     networks:
       - tandem-net
+    # PG 不对外暴露端口, 仅内网 (绝不要加 ports:)
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-tandem}']
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: ${PG_MEM_LIMIT:-1G}
+          cpus: '${PG_CPU_LIMIT:-1.0}'
+    logging:
+      driver: json-file
+      options:
+        max-size: '50m'
+        max-file: '3'
 
   redis:
     image: redis:7-alpine
     container_name: tandem-redis-prod
     restart: unless-stopped
-    command: redis-server --requirepass ${REDIS_PASSWORD:?must set REDIS_PASSWORD} --appendonly yes
+    command: redis-server --requirepass ${REDIS_PASSWORD:?must set REDIS_PASSWORD} --appendonly yes --maxmemory ${REDIS_MAXMEMORY:-256mb} --maxmemory-policy allkeys-lru
     volumes:
       - tandem_redis_data:/data
     networks:
       - tandem-net
+    # Redis 不对外暴露端口, 仅内网
     healthcheck:
       test: ['CMD', 'redis-cli', '--no-auth-warning', '-a', '${REDIS_PASSWORD}', 'ping']
       interval: 10s
       timeout: 3s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: ${REDIS_MEM_LIMIT:-384M}
+          cpus: '0.5'
+    logging:
+      driver: json-file
+      options:
+        max-size: '20m'
+        max-file: '3'
 
   minio:
     image: minio/minio:latest
@@ -47,15 +72,28 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-tandem}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?must set MINIO_ROOT_PASSWORD}
+      # MinIO 默认建 bucket (避免首次上传 NoSuchBucket)
+      MINIO_DEFAULT_BUCKETS: ${S3_BUCKET_DRIVE:-tandem-drive}
     volumes:
       - tandem_minio_data:/data
     networks:
       - tandem-net
+    # MinIO 控制台 (9001) 默认不对外, 如需访问改用 SSH tunnel
     healthcheck:
       test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
       interval: 15s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: ${MINIO_MEM_LIMIT:-512M}
+          cpus: '1.0'
+    logging:
+      driver: json-file
+      options:
+        max-size: '20m'
+        max-file: '3'
 
   app:
     build:
@@ -74,7 +112,29 @@ services:
       S3_BUCKET_DRIVE: ${S3_BUCKET_DRIVE:-tandem-drive}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?must set NEXTAUTH_SECRET}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      SESSION_SECRET: ${SESSION_SECRET:?must set SESSION_SECRET}
+      MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:?must set MFA_ENCRYPTION_KEY}
+      ALLOW_DEMO_AUTH: ${ALLOW_DEMO_AUTH:-0}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      # 首次启动自动建 Owner (bootstrapOwnerIfMissing in lib/auth/bootstrap.ts)
+      TANDEM_BOOTSTRAP_OWNER_EMAIL: ${TANDEM_BOOTSTRAP_OWNER_EMAIL:-}
+      TANDEM_BOOTSTRAP_OWNER_PASSWORD: ${TANDEM_BOOTSTRAP_OWNER_PASSWORD:-}
+      TANDEM_BOOTSTRAP_OWNER_NAME: ${TANDEM_BOOTSTRAP_OWNER_NAME:-Owner}
+      # LLM Providers (至少配一个 key, 否则 AI 功能降级到 fallback)
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com/v1}
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-chat}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-3-5-sonnet-20241022}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      # Rate limit
+      RATE_LIMIT_LOGIN_PER_HOUR: ${RATE_LIMIT_LOGIN_PER_HOUR:-5}
+      RATE_LIMIT_API_PER_MINUTE: ${RATE_LIMIT_API_PER_MINUTE:-120}
+      # 告警 webhook (飞书/钉钉/Slack), 不配则告警丢失
+      ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL:-}
+      # 时区
+      TZ: ${TZ:-Asia/Shanghai}
     depends_on:
       postgres:
         condition: service_healthy
@@ -83,7 +143,8 @@ services:
       minio:
         condition: service_healthy
     ports:
-      - '${APP_PORT:-3000}:3000'
+      # 建议只绑 127.0.0.1, 由前端反代 (Caddy/Nginx) 转发, 不直接对外
+      - '${APP_BIND:-127.0.0.1}:${APP_PORT:-3000}:3000'
     networks:
       - tandem-net
     healthcheck:
@@ -92,6 +153,16 @@ services:
       timeout: 5s
       start_period: 30s
       retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: ${APP_MEM_LIMIT:-1G}
+          cpus: '${APP_CPU_LIMIT:-2.0}'
+    logging:
+      driver: json-file
+      options:
+        max-size: '100m'
+        max-file: '5'
 
 networks:
   tandem-net:

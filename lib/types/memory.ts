@@ -148,6 +148,20 @@ export interface MemoryEntry {
   /** 取代关系 (新版 Memory 替代旧版) */
   supersedes?: string;
   supersededBy?: string;
+
+  // ── 个人记事本 UI 元数据 (P1-1, 仅 ownershipLevel='personal' 时使用) ──
+  /** UI 分类: requirement/consensus/standard/context (与 type 正交, 仅 UI 展示) */
+  uiCategory?: 'requirement' | 'consensus' | 'standard' | 'context';
+  /** 优先级 (UI 排序 + getBaselineSystemPrompt 注入门槛) */
+  priority?: 'low' | 'medium' | 'high' | 'critical';
+  /** 标签 */
+  tags?: string[];
+  /** 客户端文件夹归属 (UI 树状导航) */
+  parentId?: string | null;
+  /** 是否激活 (个人 memory 默认 true, 停用后不参与 baseline 注入) */
+  isActive?: boolean;
+  /** 版本号 (每次 update +1) */
+  version?: number;
 }
 
 /**

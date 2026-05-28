@@ -272,6 +272,7 @@ export function createInMemoryStore(): TandemStore {
     review360Submissions: new InMemoryRepository(),
     review360Assignments: new InMemoryRepository(),
     skillRegistry: new InMemoryRepository(),
+    skillProposals: new InMemoryRepository(),
     bitableTables: new InMemoryRepository(),
     bitableViews: new InMemoryRepository(),
     intranetPosts: new InMemoryRepository(),

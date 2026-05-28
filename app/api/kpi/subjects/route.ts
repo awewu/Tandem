@@ -81,6 +81,7 @@ export async function POST(req: NextRequest) {
       code: body.code,
       name: body.name,
       description: body.description,
+      bscPerspective: body.bscPerspective ?? undefined,
       level,
       defaultScope: body.defaultScope,
       defaultUnit: body.defaultUnit,

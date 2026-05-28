@@ -10,11 +10,12 @@ import { createInMemoryStore } from './storage/memory-store';
 import { createDrizzleStore } from './storage/drizzle-store';
 import { TandemRouter, createDefaultRouter, createLocalDevRouter } from './taf';
 import { ConvergenceOrchestrator } from './convergence/orchestrator';
-import { seedDevData, seedLaunchpadIfEmpty, seedExtraModulesIfEmpty } from './fixtures/seed';
+import { seedDevData, seedLaunchpadIfEmpty, seedExtraModulesIfEmpty, seedKpiDemoIfEmpty } from './fixtures/seed';
 import { registerBuiltinSkills } from './taf/skills';
 import { registerBuiltinTriggers } from './workflows/builtin-triggers';
 import { initObservability } from './infra/observability';
 import { bootstrapOwnerIfMissing } from './auth/bootstrap';
+import { enforceProductionGuard } from './infra/production-guard';
 
 // 单例 (挂 globalThis 防 Next.js dev HMR 重置)
 type BootGlobals = {
@@ -47,6 +48,9 @@ function bootSync(): void {
 
   if (_g.__tandem_booted__ && !storeNeedsReset) return;
 
+  // P4-13: 生产启动硬化 — 检查关键 env, 弱配置直接抛错阻止启动
+  enforceProductionGuard();
+
   if (storeNeedsReset && existingStore) {
     // eslint-disable-next-line no-console
     console.info('[boot] store schema/mode changed, re-initializing...');
@@ -72,17 +76,19 @@ function bootSync(): void {
     console.info('[boot] storage=in-memory (no DATABASE_URL). 生产期请配 DATABASE_URL.');
   }
 
-  // 优先尝试默认路由器, 失败 fall back 到本地 dev
+  // 优先尝试默认路由器 (从环境变量自动注册有 API key 的 provider)
   let router: TandemRouter;
   try {
     router = createDefaultRouter();
     if (router.listProviders().length === 0) {
-      // 无 API key, 用本地 ollama 路由器 (即使 ollama 没起也不抛错)
+      // 无任何 API key, 仅尝试本地 Hermes/Ollama
       router = createLocalDevRouter();
     }
   } catch {
     router = createLocalDevRouter();
   }
+  // eslint-disable-next-line no-console
+  console.info('[boot] LLM providers registered:', router.listProviders().join(', ') || '(none)');
   _g.__tandem_router__ = router;
 
   _g.__tandem_orchestrator__ = new ConvergenceOrchestrator(router);
@@ -120,8 +126,28 @@ function bootSync(): void {
       seedExtraModulesIfEmpty().catch((err) => {
         // eslint-disable-next-line no-console
         console.warn('[boot] extra modules seed failed:', err);
-      }),
-  );
+      })
+    )
+    .then(() =>
+      seedKpiDemoIfEmpty().catch((err) => {
+        // eslint-disable-next-line no-console
+        console.warn('[boot] KPI bsc seed failed:', err);
+      })
+    )
+    // §CA-1 (CENTRAL-AI-ARCHITECTURE) CompanyBrain Persona 单例 seed (幂等)
+    .then(async () => {
+      try {
+        const { seedCompanyBrainIfMissing } = await import('./persona/company-brain');
+        const r = await seedCompanyBrainIfMissing();
+        if (r.created) {
+          // eslint-disable-next-line no-console
+          console.info('[boot] CompanyBrain seeded (中央 AI 实体)');
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('[boot] CompanyBrain seed failed:', err);
+      }
+    });
 
   // 议事室 17min 硬上限闭环: 每 30 秒 sweep 活跃议事室, 超时自动 ESCALATE
   // (生产环境用 cron / job queue, V1 用 setInterval 简化)

@@ -19,6 +19,9 @@ import {
   Building2,
   Wrench,
   Settings,
+  BotMessageSquare,
+  BarChart3,
+  TrendingUp,
   // item icons
   Sparkles as SparklesAlias,
   Grid3x3,
@@ -57,7 +60,12 @@ import {
   Activity,
 } from 'lucide-react';
 
-export type Role = 'employee' | 'manager' | 'steward' | 'admin' | 'champion';
+export type Role = 'employee' | 'manager' | 'steward' | 'admin' | 'champion' | 'owner' | 'partner';
+
+/** 内部员工角色集合（不含合作伙伴） */
+export const INTERNAL_ROLES: Role[] = ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'];
+/** 合作伙伴可见的模块/功能 */
+export const PARTNER_ALLOWED_MODULES = ['ai', 'settings'] as const;
 
 export interface NavItem {
   name: string;
@@ -114,22 +122,16 @@ export const NAV_MODULES: NavModule[] = [
     fullLabel: '事半 · 目标与反馈',
     tagline: '围绕 OKR 推进, 不跑偏才能事半功倍',
     icon: Target,
-    pathPrefixes: ['/okr', '/360', '/1on1', '/nine-box', '/insights', '/analytics', '/kpi', '/tti'],
+    visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
+    pathPrefixes: ['/okr', '/insights', '/analytics', '/kpi', '/tti'],
     items: [
-      // 绩效 KPI (年度硬指标, 只读)
-      { name: '我的 KPI',          href: '/kpi',              icon: Target,         group: '绩效 KPI' },
-      // TTI 四要素 (软目标, 自主填报)
-      { name: '我的 TTI 四要素',    href: '/tti',              icon: SparklesAlias,  group: 'TTI 成长', accent: 'cta' },
-      // 目标管理
-      { name: '我的 OKR',          href: '/okr?owner=me',     icon: Target,         group: '目标管理' },
-      { name: 'OKR 5 层 Cascade',  href: '/okr/cascade',      icon: Target,         group: '目标管理' },
-      { name: '部门 Dashboard',    href: '/okr/dashboard',    icon: Grid3x3,        group: '目标管理', visibleTo: ['manager', 'steward', 'admin', 'champion'] },
-      { name: 'OKR 日历',          href: '/okr/calendar',     icon: CalendarDays,   group: '目标管理' },
-      // 反馈评估
-      { name: '1on1 对话',         href: '/1on1',             icon: MessagesSquare, group: '反馈评估' },
-      { name: '360 评估',          href: '/360',              icon: SparklesAlias,  group: '反馈评估' },
-      { name: '9 宫格',            href: '/nine-box',         icon: Grid3x3,        group: '反馈评估', visibleTo: ['manager', 'steward', 'admin', 'champion'] },
-      { name: '9-box 联动建议',    href: '/nine-box/suggestions', icon: Grid3x3,    group: '反馈评估', visibleTo: ['manager', 'steward', 'admin', 'champion'] },
+      // 绩效目标 (KPI 年度硬指标, 只读)
+      { name: '我的绩效目标',       href: '/kpi',              icon: BarChart3,      group: 'KPI 绩效达成' },
+      { name: '部门绩效对比',       href: '/kpi?view=dept',    icon: TrendingUp,     group: 'KPI 绩效达成', visibleTo: ['manager', 'steward', 'admin', 'champion'] },
+      // 目标管理 (精简为符合 Tita 极简逻辑 of 3步流程)
+      { name: '我的目标与对齐',    href: '/okr?owner=me',     icon: Target,         group: '目标与关键成果法 OKR' },
+      { name: '日常推进 (TTI)',    href: '/tti',              icon: SparklesAlias,  group: '目标与关键成果法 OKR', accent: 'cta' },
+      { name: '团队效能 Dashboard',href: '/okr/dashboard',    icon: Grid3x3,        group: '目标与关键成果法 OKR', visibleTo: ['manager', 'steward', 'admin', 'champion'] },
       // 分析洞察
       { name: 'AI 智能信号',       href: '/insights',         icon: SparklesAlias,  group: '分析洞察' },
       { name: '组织分析',          href: '/analytics',        icon: Grid3x3,        group: '分析洞察', visibleTo: ['manager', 'steward', 'admin', 'champion'] },
@@ -142,6 +144,7 @@ export const NAV_MODULES: NavModule[] = [
     fullLabel: '沟通 · IM 与议事',
     tagline: '17 分钟达成共识, 把闲聊沉淀为决议',
     icon: MessagesSquare,
+    visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
     // /chat moved to `me` (单聊 LLM 是个人 AI 工具, 不属于团队沟通)
     pathPrefixes: ['/im', '/convergence', '/meetings', '/decision-card'],
     items: [
@@ -161,6 +164,7 @@ export const NAV_MODULES: NavModule[] = [
     fullLabel: '知识 · 文档与检索',
     tagline: '让组织记忆持续生长, 而非随员工流失',
     icon: BookOpen,
+    visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
     // /search 移除 (⌘K Command Palette 已覆盖全局搜索)
     pathPrefixes: ['/documents', '/knowledge', '/memories', '/drive'],
     items: [
@@ -177,6 +181,7 @@ export const NAV_MODULES: NavModule[] = [
     fullLabel: '流程 · 审批与日程',
     tagline: '日常事务自动跑, 把时间还给思考',
     icon: ListChecks,
+    visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
     // /report 移到拿捏 · /notifications 由 AppRail 顶部 bell 承担 · /calendar 移到日程并入 comm
     pathPrefixes: ['/approvals', '/workflows', '/calendar'],
     items: [
@@ -189,21 +194,37 @@ export const NAV_MODULES: NavModule[] = [
   {
     id: 'me',
     label: '拿捏',
-    fullLabel: '拿捏 · 个人成长 & AI',
-    tagline: '一个 AI 分身陪你长大, 拿捏老板拿捏未来',
+    fullLabel: '拿捏 · 个人成长',
+    tagline: '认识自己、积累技能, 让成长看得见',
     icon: Sparkles,
-    pathPrefixes: ['/persona', '/skills', '/agents', '/chat', '/report'],
+    visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
+    pathPrefixes: ['/persona', '/skills', '/report'],
     items: [
       // 我的成长
       { name: '我的分身',   href: '/persona',           icon: Users,         group: '我的成长' },
+      { name: '分身训练台', href: '/persona/training',  icon: BotMessageSquare, group: '我的成长' },
       { name: '成长路径',   href: '/persona/evolution', icon: SparklesAlias, group: '我的成长' },
       { name: '我的技能',   href: '/skills',            icon: Layers,        group: '我的成长' },
       { name: '学习路径',   href: '/skills/learning',   icon: SparklesAlias, group: '我的成长' },
-      // 每日记录 — 5min 日报 暂未上线 (M2), 隐藏入口避免 pilot 用户撞 placeholder
-      // { name: '5min 日报',  href: '/report',            icon: Clock3,        group: '每日记录' },
-      // AI 协作
-      { name: 'AI 一对一',  href: '/chat',              icon: MessageSquare, group: 'AI 协作' },
-      { name: 'AI 助手',    href: '/agents',            icon: Bot,           group: 'AI 协作' },
+      // 每日记录 — 5min 日报 + 本周回顾
+      { name: '5min 智能日报', href: '/report',         icon: Clock3,        group: '每日记录', accent: 'cta' },
+      { name: '本周回顾',      href: '/report/weekly',  icon: CalendarDays,  group: '每日记录' },
+    ],
+  },
+
+  {
+    id: 'ai',
+    label: '搭子',
+    fullLabel: '召唤搭子',
+    tagline: '一个 AI 分身陪你长大, 拿捏老板拿捏未来',
+    icon: BotMessageSquare,
+    pathPrefixes: ['/chat', '/agents', '/settings/llm'],
+    items: [
+      { name: 'AI 对话',    href: '/chat',              icon: MessageSquare, accent: 'cta', group: '立即开始' },
+      { name: 'Agent 助手', href: '/agents',            icon: Bot,                          group: '立即开始' },
+      { name: 'AI 分身',    href: '/persona',           icon: Users,                        group: '我的 AI' },
+      { name: 'AI 智能信号', href: '/insights',         icon: SparklesAlias,                group: '我的 AI' },
+      { name: '模型设置',   href: '/settings/llm',      icon: Cpu,                          group: '配置' },
     ],
   },
 
@@ -213,6 +234,7 @@ export const NAV_MODULES: NavModule[] = [
     fullLabel: '邮箱 · 对外正式沟通',
     tagline: '正式承诺与外部协同, 留痕可追溯',
     icon: Mail,
+    visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
     pathPrefixes: ['/mail'],
     items: [
       { name: '收件箱', href: '/mail',                  icon: Inbox },
@@ -229,6 +251,7 @@ export const NAV_MODULES: NavModule[] = [
     fullLabel: '企业内网 · 公告与大事记',
     tagline: '同一频道听公司心跳, 不再错过关键播报',
     icon: Megaphone,
+    visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
     pathPrefixes: ['/intranet'],
     // /intranet 全部导航走 app/intranet/layout.tsx 的横向 IntranetSubnav.
     // SubSidebar 在此模块不渲染 (items=[] 时 sub-sidebar.tsx 返回 null).
@@ -241,11 +264,18 @@ export const NAV_MODULES: NavModule[] = [
     fullLabel: '组织 · 公司架构',
     tagline: '看清架构与节奏, 协作不再各干各',
     icon: Building2,
-    pathPrefixes: ['/organization'],
+    visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
+    pathPrefixes: ['/organization', '/360', '/1on1', '/nine-box'],
     items: [
-      { name: '组织架构',   href: '/organization',           icon: Building2 },
-      { name: '部门列表',   href: '/organization?view=departments', icon: Users },
-      { name: '三省六部制', href: '/organization?view=ministries',  icon: Layers },
+      // 组织架构
+      { name: '组织架构',   href: '/organization',           icon: Building2,      group: '公司架构' },
+      { name: '部门列表',   href: '/organization?view=departments', icon: Users,     group: '公司架构' },
+      { name: '三省六部制', href: '/organization?view=ministries',  icon: Layers,    group: '公司架构' },
+      // 反馈评估 (现在归属组织模块)
+      { name: '1on1 对话',         href: '/1on1',             icon: MessagesSquare, group: '反馈评估' },
+      { name: '360 评估',          href: '/360',              icon: SparklesAlias,  group: '反馈评估', visibleTo: ['manager', 'steward', 'admin', 'champion'] },
+      { name: '9 宫格',            href: '/nine-box',         icon: Grid3x3,        group: '反馈评估', visibleTo: ['manager', 'steward', 'admin', 'champion'] },
+      { name: '9-box 联动建议',    href: '/nine-box/suggestions', icon: Grid3x3,    group: '反馈评估', visibleTo: ['manager', 'steward', 'admin', 'champion'] },
     ],
   },
 
@@ -299,7 +329,7 @@ export const NAV_MODULES: NavModule[] = [
   },
 ];
 
-export const ALL_ROLES: Role[] = ['admin', 'champion', 'steward', 'manager', 'employee'];
+export const ALL_ROLES: Role[] = ['owner', 'admin', 'champion', 'steward', 'manager', 'employee', 'partner'];
 
 export function isVisible(scopeRoles: Role[] | undefined, userRoles: Role[]): boolean {
   if (!scopeRoles || scopeRoles.length === 0) return true;

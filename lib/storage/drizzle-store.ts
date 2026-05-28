@@ -190,6 +190,13 @@ function createDrizzleAuthStore(): AuthStore {
           .limit(1);
         return rows[0] ? fetchUserComposite(rows[0]) : null;
       },
+      async list(filter) {
+        const tenantId = filter?.tenantId;
+        const rows = tenantId
+          ? await db.select().from(schema.user).where(eq(schema.user.tenantId, tenantId))
+          : await db.select().from(schema.user);
+        return Promise.all(rows.map((r) => fetchUserComposite(r)));
+      },
       async create(input) {
         const id = generateId('user');
         const now = new Date();
@@ -388,6 +395,11 @@ export function createDrizzleStore(): TandemStore {
     _storeKind: 'prisma' as const, // 历史命名, 表示"已持久化"模式
     decisionCards: new DrizzleKvRepository('decision_cards'),
     personas: new DrizzleKvRepository('personas'),
+    // §CA-13 CompanyBrain 智能迭代闭环
+    companyBrainDecisions: new DrizzleKvRepository('company_brain_decisions'),
+    companyBrainVersions: new DrizzleKvRepository('company_brain_versions'),
+    companyBrainEvalCases: new DrizzleKvRepository('company_brain_eval_cases'),
+    companyBrainReflections: new DrizzleKvRepository('company_brain_reflections'),
     origins: new DrizzleKvRepository('origins'),
     materials: new DrizzleKvRepository('materials'),
     memories: new DrizzleKvRepository('memories'),
@@ -418,8 +430,14 @@ export function createDrizzleStore(): TandemStore {
     review360Submissions: new DrizzleKvRepository('review360_submissions'),
     review360Assignments: new DrizzleKvRepository('review360_assignments'),
     skillRegistry: new DrizzleKvRepository('skill_registry'),
+    skillProposals: new DrizzleKvRepository('skill_proposals'),
     bitableTables: new DrizzleKvRepository('bitable_tables'),
     bitableViews: new DrizzleKvRepository('bitable_views'),
+    intranetPosts: new DrizzleKvRepository('intranet_posts'),
+    proxyActions: new DrizzleKvRepository('proxy_actions'),
+    personaFeedbacks: new DrizzleKvRepository('persona_feedbacks'),
+    llmPreferences: new DrizzleKvRepository('llm_preferences'),
+    tenantAiPolicies: new DrizzleKvRepository('tenant_ai_policies'),
     // V1 GA 模型仍使用专用 Drizzle Repo (强类型 schema)
     documents: new DrizzleKvRepository('documents_legacy'),
     calendarEvents: new DrizzleKvRepository('calendar_events_legacy'),

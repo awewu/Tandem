@@ -43,6 +43,24 @@ export default function DocumentEditorPage() {
     setSaving(false);
   }, [id, title, content]);
 
+  // P3-12: 协同编辑下每 30s 静默 auto-save (CollabTextarea 已通过 Yjs 实时同步,
+  // 但服务器重启 / 单人离线时仍需要落库). dirty=true 才发请求.
+  useEffect(() => {
+    if (!doc) return;
+    const t = setInterval(() => {
+      if (saving) return;
+      if (title === doc.title && content === doc.content) return;
+      void fetch(`/api/documents/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, content }),
+      }).then(() => {
+        setDoc((d) => (d ? { ...d, title, content, updatedAt: new Date().toISOString() } : d));
+      }).catch(() => {});
+    }, 30_000);
+    return () => clearInterval(t);
+  }, [id, title, content, doc, saving]);
+
   const toggleLock = useCallback(async () => {
     await fetch(`/api/documents/${id}/permissions`, {
       method: "PATCH",

@@ -127,6 +127,8 @@ export interface ImMessage {
   spawnedDecisionCardId?: string;
   /** 升级到 Memory 的 promotionId */
   spawnedPromotionId?: string;
+  /** §IM-7 (CHARTER-FOUR-PILLARS) · AI 回复透明化: 关联 LlmUsageLog.requestId, 仅 senderKind='persona' 消息有值 */
+  aiTraceId?: string;
 }
 
 // ---------------------------------------------------------------------------

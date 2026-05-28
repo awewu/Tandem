@@ -16,6 +16,7 @@ import { useChatStore, useAgentStore, useMemoryStore, useKnowledgeStore, PRESET_
 import { Send, Plus, Trash2, Bot, User, AlertCircle, Sparkles, Palette, Package, Target, Megaphone, Code, PenLine, BarChart3, Users, ThumbsUp, ThumbsDown, Star, Shield, Link2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { startChatStream, startLLMStream } from '@/lib/hermes-api';
+import { VoiceInputButton } from '@/components/voice-input-button';
 
 const AGENT_ICONS: Record<string, React.ElementType> = {
   'agent-designer': Palette,
@@ -573,14 +574,18 @@ function ChatPageInner() {
         )}
 
         <form onSubmit={handleSubmit} className="border-t p-4">
-          <div className="flex gap-2 max-w-3xl mx-auto">
+          <div className="flex gap-2 max-w-3xl mx-auto items-center">
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Type a message..."
+              placeholder="跟搭子聊聊… (Enter 发送)"
               disabled={isStreaming}
               className="flex-1"
+            />
+            <VoiceInputButton
+              onText={(text) => setInput((cur) => (cur ? `${cur} ${text}` : text))}
+              disabled={isStreaming}
             />
             <Button type="submit" disabled={isStreaming || !input.trim()}>
               <Send className="h-4 w-4" />

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Tandem 拿捏 · PWA / favicon SVG icon
+  Maskable safe-zone: 80% center, edges with red field bleed.
+  192×192 / 512×512 都用同一个 SVG, 浏览器自动 rasterize.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Tandem">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#C8202C"/>
+      <stop offset="1" stop-color="#8A0F1A"/>
+    </linearGradient>
+  </defs>
+  <!-- Background tile (full bleed for maskable) -->
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <!-- Center "拿" glyph: simple geometric mark, no font dependency -->
+  <g fill="#FFFFFF">
+    <!-- top stroke (人字头) -->
+    <path d="M 156 130 L 256 96 L 356 130 L 340 162 L 256 134 L 172 162 Z"/>
+    <!-- middle horizontal stroke (合) -->
+    <rect x="148" y="200" width="216" height="22" rx="4"/>
+    <rect x="148" y="252" width="216" height="22" rx="4"/>
+    <!-- bottom 手 stroke -->
+    <rect x="118" y="320" width="276" height="22" rx="4"/>
+    <rect x="246" y="320" width="20" height="92" rx="4"/>
+    <path d="M 162 372 L 246 372 L 246 412 L 200 412 Z"/>
+    <path d="M 350 372 L 266 372 L 266 412 L 312 412 Z"/>
+  </g>
+  <!-- Red dot (Rheem brand accent) - bottom-right -->
+  <circle cx="430" cy="430" r="22" fill="#FFFFFF" opacity="0.95"/>
+  <circle cx="430" cy="430" r="14" fill="#C8202C"/>
+</svg>

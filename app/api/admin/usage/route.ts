@@ -1,0 +1,159 @@
+/**
+ * GET /api/admin/usage · 自用阶段使用 + AI 成本看板
+ *
+ * 返回:
+ *   - UsageEvent 维度: top 10 事件 / top 10 活跃用户 / 最近 24h 时序
+ *   - LlmUsageLog 维度: 各 provider 调用次数 / token 总量 / 估算成本 / 失败率
+ *
+ * 查询参数 ?days=N (默认 7)
+ *
+ * 权限: admin
+ */
+import { NextResponse, type NextRequest } from 'next/server';
+import { withErrorHandler } from '@/lib/api/error-middleware';
+import { requireAuth, requireRole } from '@/lib/auth/require-auth';
+import { sql } from 'drizzle-orm';
+
+export const dynamic = 'force-dynamic';
+
+export const GET = withErrorHandler(async (req: NextRequest) => {
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
+  const forbid = requireRole(auth, ['admin', 'owner']);
+  if (forbid) return forbid;
+
+  const url = new URL(req.url);
+  const days = Math.max(1, Math.min(90, Number(url.searchParams.get('days') ?? '7')));
+  const sinceMs = Date.now() - days * 86400_000;
+  const since = new Date(sinceMs);
+
+  const { db } = await import('@/lib/infra/drizzle-client');
+
+  // ---- UsageEvent 维度 ----
+  const [topEvents, topUsers, dailyEvents] = await Promise.all([
+    db.execute(sql`
+      SELECT "eventName", COUNT(*)::int AS cnt
+      FROM "UsageEvent"
+      WHERE "createdAt" >= ${since}
+        AND "tenantId" = ${auth.tenantId}
+      GROUP BY "eventName"
+      ORDER BY cnt DESC
+      LIMIT 10
+    `),
+    db.execute(sql`
+      SELECT "userId", COUNT(*)::int AS cnt
+      FROM "UsageEvent"
+      WHERE "createdAt" >= ${since}
+        AND "tenantId" = ${auth.tenantId}
+        AND "userId" IS NOT NULL
+      GROUP BY "userId"
+      ORDER BY cnt DESC
+      LIMIT 10
+    `),
+    db.execute(sql`
+      SELECT to_char("createdAt", 'YYYY-MM-DD') AS day, COUNT(*)::int AS cnt
+      FROM "UsageEvent"
+      WHERE "createdAt" >= ${since}
+        AND "tenantId" = ${auth.tenantId}
+      GROUP BY day
+      ORDER BY day
+    `),
+  ]);
+
+  // ---- LlmUsageLog 维度 ----
+  const [llmByProvider, llmByScenario, llmDaily, llmFailures] = await Promise.all([
+    db.execute(sql`
+      SELECT
+        "provider",
+        COUNT(*)::int AS calls,
+        SUM("tokensIn")::int AS tokens_in,
+        SUM("tokensOut")::int AS tokens_out,
+        SUM("costMicroUsd")::bigint AS cost_micro_usd,
+        AVG("latencyMs")::int AS avg_latency_ms,
+        SUM(CASE WHEN "success" THEN 0 ELSE 1 END)::int AS failures
+      FROM "LlmUsageLog"
+      WHERE "createdAt" >= ${since}
+        AND "tenantId" = ${auth.tenantId}
+      GROUP BY "provider"
+      ORDER BY calls DESC
+    `),
+    db.execute(sql`
+      SELECT
+        "scenario",
+        COUNT(*)::int AS calls,
+        SUM("tokensIn" + "tokensOut")::int AS total_tokens,
+        SUM("costMicroUsd")::bigint AS cost_micro_usd
+      FROM "LlmUsageLog"
+      WHERE "createdAt" >= ${since}
+        AND "tenantId" = ${auth.tenantId}
+      GROUP BY "scenario"
+      ORDER BY cost_micro_usd DESC NULLS LAST
+      LIMIT 10
+    `),
+    db.execute(sql`
+      SELECT
+        to_char("createdAt", 'YYYY-MM-DD') AS day,
+        COUNT(*)::int AS calls,
+        SUM("costMicroUsd")::bigint AS cost_micro_usd
+      FROM "LlmUsageLog"
+      WHERE "createdAt" >= ${since}
+        AND "tenantId" = ${auth.tenantId}
+      GROUP BY day
+      ORDER BY day
+    `),
+    db.execute(sql`
+      SELECT "errorMessage", COUNT(*)::int AS cnt
+      FROM "LlmUsageLog"
+      WHERE "createdAt" >= ${since}
+        AND "tenantId" = ${auth.tenantId}
+        AND "success" = false
+      GROUP BY "errorMessage"
+      ORDER BY cnt DESC
+      LIMIT 5
+    `),
+  ]);
+
+  // 总览 (整段时间)
+  const totalsRes = await db.execute(sql`
+    SELECT
+      (SELECT COUNT(*)::int FROM "UsageEvent"
+        WHERE "createdAt" >= ${since} AND "tenantId" = ${auth.tenantId}) AS total_events,
+      (SELECT COUNT(DISTINCT "userId")::int FROM "UsageEvent"
+        WHERE "createdAt" >= ${since} AND "tenantId" = ${auth.tenantId} AND "userId" IS NOT NULL) AS active_users,
+      (SELECT COUNT(*)::int FROM "LlmUsageLog"
+        WHERE "createdAt" >= ${since} AND "tenantId" = ${auth.tenantId}) AS total_llm_calls,
+      (SELECT COALESCE(SUM("costMicroUsd"), 0)::bigint FROM "LlmUsageLog"
+        WHERE "createdAt" >= ${since} AND "tenantId" = ${auth.tenantId}) AS total_cost_micro_usd
+  `);
+
+  const totalsRow = ((totalsRes as { rows?: unknown[] }).rows?.[0] ?? {}) as Record<string, unknown>;
+
+  return NextResponse.json({
+    days,
+    since: since.toISOString(),
+    totals: {
+      totalEvents: Number(totalsRow.total_events ?? 0),
+      activeUsers: Number(totalsRow.active_users ?? 0),
+      totalLlmCalls: Number(totalsRow.total_llm_calls ?? 0),
+      totalCostMicroUsd: Number(totalsRow.total_cost_micro_usd ?? 0),
+      totalCostUsd: Number(totalsRow.total_cost_micro_usd ?? 0) / 10000,
+    },
+    usage: {
+      topEvents: rowsOf(topEvents),
+      topUsers: rowsOf(topUsers),
+      dailyEvents: rowsOf(dailyEvents),
+    },
+    llm: {
+      byProvider: rowsOf(llmByProvider),
+      byScenario: rowsOf(llmByScenario),
+      daily: rowsOf(llmDaily),
+      failures: rowsOf(llmFailures),
+    },
+  });
+});
+
+function rowsOf(result: unknown): unknown[] {
+  if (Array.isArray(result)) return result;
+  const r = (result as { rows?: unknown[] }).rows;
+  return Array.isArray(r) ? r : [];
+}

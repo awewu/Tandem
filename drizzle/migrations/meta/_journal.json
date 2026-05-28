@@ -22,6 +22,13 @@
       "when": 1779417312504,
       "tag": "0002_real_kat_farrell",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1779969006345,
+      "tag": "0003_spooky_nuke",
+      "breakpoints": true
     }
   ]
 }

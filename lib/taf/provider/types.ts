@@ -61,11 +61,15 @@ export interface ChatRequest {
   stream?: boolean;
   /** 用于路由器选择模型 */
   scenario?: ScenarioTag;
+  /** 强制使用指定 provider (中央AI/个人AI 偏好), 若未注册则 fallback 到 scenario 规则 */
+  forceProvider?: string;
   /** 用户/会话 ID, 用于审计日志 */
   metadata?: {
     userId?: string;
     sessionId?: string;
     decisionCardId?: string;
+    /** §IM-7 (CHARTER-FOUR-PILLARS) · 调用方 trace id, 透传到 LlmUsageLog.requestId. 例: IM 消息 id, 议事 cardId, ⌘K session id */
+    requestId?: string;
   };
 }
 

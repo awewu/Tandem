@@ -13,6 +13,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { loadSkills, getLoadedSkills } from '@/lib/skills/registry';
+import { boot, getRouter } from '@/lib/boot';
 
 interface Match {
   intent: string;
@@ -33,6 +34,51 @@ const RULES: Array<{
   match: (q: string, allKeywords: string[]) => boolean;
   produce: (q: string) => Match | null;
 }> = [
+  // 5min 智能日报
+  {
+    keywords: ['日报', '5min', '5 min', '日志', '今天'],
+    match: (q, kw) => kw.some((k) => ['日报', '5min', '日志'].includes(k)) || /今天.*做了|今天.*推进/.test(q),
+    produce: () => ({
+      intent: 'report.daily',
+      route: '/report',
+      label: '写 5min 智能日报',
+      confidence: 0.85,
+    }),
+  },
+  // 本周回顾 / 周报
+  {
+    keywords: ['周报', '本周', '回顾', '周回顾', '一周'],
+    match: (q, kw) => kw.some((k) => ['周报', '本周', '回顾', '一周'].includes(k)) || /这.*周|本周.*怎么/.test(q),
+    produce: () => ({
+      intent: 'report.weekly',
+      route: '/report/weekly',
+      label: '看本周回顾（AI 周报）',
+      confidence: 0.85,
+    }),
+  },
+  // 平衡记分卡 / 个人绩效
+  {
+    keywords: ['平衡记分卡', 'bsc', '绩效达成', '我的绩效', '绩效目标'],
+    match: (q, kw) =>
+      kw.some((k) => ['bsc', '平衡记分卡', '绩效达成'].includes(k)) || /我.*绩效|绩效.*目标/.test(q),
+    produce: () => ({
+      intent: 'kpi.personal',
+      route: '/kpi',
+      label: '看我的绩效目标（平衡记分卡）',
+      confidence: 0.8,
+    }),
+  },
+  // 部门绩效对比
+  {
+    keywords: ['部门绩效', '团队绩效', '部门对比'],
+    match: (q) => /部门绩效|团队绩效|部门对比|部门.*完成/.test(q),
+    produce: () => ({
+      intent: 'kpi.department',
+      route: '/kpi?view=dept',
+      label: '看部门绩效对比',
+      confidence: 0.85,
+    }),
+  },
   // 奖金类
   {
     keywords: ['奖金', '年终', '下发', 'baseBonus', 'bonus'],
@@ -202,8 +248,109 @@ export async function POST(req: NextRequest) {
   // Sort by confidence desc
   matches.sort((a, b) => b.confidence - a.confidence);
 
+  // ── LLM 兜底：query 较长且关键词命中弱时调 LLM 做真正的意图理解 ──
+  const needLlmFallback =
+    query.length >= 4 && (matches.length === 0 || matches[0].confidence < 0.7);
+  if (needLlmFallback) {
+    const llmMatch = await tryLlmIntent(query, auth.userId);
+    if (llmMatch) {
+      // LLM 结果置顶
+      matches.unshift(llmMatch);
+    }
+  }
+
   return NextResponse.json({
     matches: matches.slice(0, 5),
     query,
   });
+}
+
+// ---------------------------------------------------------------------------
+// LLM 兜底意图理解
+// ---------------------------------------------------------------------------
+
+/** 可路由的页面清单（同步给 LLM 作为 schema） */
+const ROUTE_CATALOG: Array<{ route: string; description: string }> = [
+  { route: '/report', description: '写 5min 智能日报（员工每日填报，AI 自动提炼并推流 OKR）' },
+  { route: '/report/weekly', description: '本周回顾 / AI 周报（基于过去 7 天 check-in）' },
+  { route: '/kpi', description: '我的绩效目标 · 平衡记分卡（BSC 四维度）' },
+  { route: '/kpi?view=dept', description: '部门绩效对比（manager 及以上可见）' },
+  { route: '/okr', description: '我的 OKR / 关键结果与对齐' },
+  { route: '/okr/cascade', description: 'OKR 5 层 Cascade 对齐树' },
+  { route: '/okr/dashboard', description: '团队效能 Dashboard' },
+  { route: '/tti', description: 'TTI 四要素填报' },
+  { route: '/convergence', description: '议事室（17 分钟决策协议）' },
+  { route: '/decision-card', description: '决议卡 / Decision Card 列表' },
+  { route: '/memories', description: 'Memory 知识库（SOP / 案例 / 红线 / 价值观）' },
+  { route: '/intranet', description: '企业内网 / 公告 / 政策' },
+  { route: '/im', description: 'IM 群聊 / 团队沟通' },
+  { route: '/mail', description: '邮箱（对外正式沟通）' },
+  { route: '/persona', description: '我的 AI 分身 / Persona' },
+  { route: '/360', description: '360 评估' },
+  { route: '/1on1', description: '1on1 对话' },
+  { route: '/nine-box', description: '9 宫格人才矩阵' },
+  { route: '/nine-box/suggestions', description: '9-box 联动管理建议' },
+  { route: '/admin/kpi/health-dashboard', description: 'KPI 健康度看板（admin）' },
+  { route: '/admin/kpi/analytics', description: 'KPI 分析中枢（admin）' },
+  { route: '/admin/kpi/bonus-payout', description: 'KPI 奖金下发（admin）' },
+  { route: '/admin/intranet', description: 'Intranet 编辑（admin）' },
+  { route: '/admin/launchpad', description: 'Launchpad 管理（admin）' },
+];
+
+async function tryLlmIntent(query: string, userId: string): Promise<Match | null> {
+  try {
+    await boot();
+    const router = getRouter();
+    if (router.listProviders().length === 0) return null;
+
+    const catalogText = ROUTE_CATALOG.map((r) => `${r.route} — ${r.description}`).join('\n');
+    const system = `你是一个企业内部产品的导航助手。根据用户的自然语言需求，从下方"可路由清单"里选出最匹配的一个 route，并返回严格 JSON：
+
+{ "route": "/xxx", "label": "去做某件事", "confidence": 0.8 }
+
+可路由清单：
+${catalogText}
+
+要求：
+1. route 必须严格在清单里出现；如果没有任何项合理，返回 { "route": "", "label": "", "confidence": 0 }。
+2. label 用中文动词短语描述用户的动作意图，≤ 16 字。
+3. confidence 0-1 之间。
+4. 只输出 JSON，不要解释。`;
+
+    const resp = await router.chat({
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: query },
+      ],
+      scenario: 'high_frequency',
+      temperature: 0.2,
+      responseFormat: 'json',
+      maxTokens: 200,
+      metadata: { userId },
+    });
+
+    const text = typeof resp.message.content === 'string' ? resp.message.content : '';
+    const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+    const start = cleaned.indexOf('{');
+    const end = cleaned.lastIndexOf('}');
+    if (start < 0 || end < 0) return null;
+    const obj = JSON.parse(cleaned.slice(start, end + 1)) as {
+      route?: string;
+      label?: string;
+      confidence?: number;
+    };
+
+    if (!obj.route || !obj.label || typeof obj.confidence !== 'number') return null;
+    // 验证 route 必须在清单里（防 LLM 编造）
+    if (!ROUTE_CATALOG.some((r) => r.route === obj.route)) return null;
+
+    return {
+      intent: 'llm.routed',
+      route: obj.route,
+      label: `🤖 ${obj.label}`,
+      confidence: Math.max(0.6, Math.min(0.95, obj.confidence)),
+    };
+  } catch {
+    return null;
+  }
 }

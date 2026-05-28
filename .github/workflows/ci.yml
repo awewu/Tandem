@@ -38,6 +38,20 @@ jobs:
       - run: npm ci --no-audit --no-fund --ignore-scripts
       - run: npm run lint --if-present
 
+  unit:
+    name: Vitest Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci --no-audit --no-fund --ignore-scripts
+      - run: npm test
+        env:
+          NODE_ENV: test
+
   build:
     name: Next.js Build
     runs-on: ubuntu-latest

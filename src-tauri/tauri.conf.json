@@ -1,17 +1,18 @@
 {
-  "productName": "拿捏",
+  "productName": "Tandem",
   "version": "1.0.0",
-  "identifier": "com.hermes.webui",
+  "identifier": "local.tandem.app",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:3001",
     "beforeDevCommand": "",
-    "beforeBuildCommand": "npm run build:static"
+    "beforeBuildCommand": ""
   },
   "app": {
     "windows": [
       {
-        "title": "拿捏 — 工作不会找拿捏",
+        "label": "main",
+        "title": "Tandem · 牛马搭子",
         "width": 1400,
         "height": 900,
         "minWidth": 800,

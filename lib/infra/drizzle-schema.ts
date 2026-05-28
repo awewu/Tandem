@@ -217,3 +217,83 @@ export const auditLog = pgTable(
     tenantSeqIdx: index('AuditLog_tenant_seq_idx').on(t.tenantId, t.seq),
   }),
 );
+
+/**
+ * UsageEvent · 用户行为埋点
+ *
+ * 用途: 自用阶段 30+ 同事每天产生的使用数据 → 产品决策原料
+ *   - 哪些页面 / 模块被真用
+ *   - 谁用得多 / 谁完全不用
+ *   - 哪些功能从来没被点 (准备砍)
+ *
+ * 设计选择:
+ *   - 不引入第三方 (PostHog / Mixpanel), 自建可控
+ *   - props 用 jsonb 保留灵活性, 不强 schema
+ *   - 按 userId / eventName / createdAt 三索引覆盖看板查询
+ */
+export const usageEvent = pgTable(
+  'UsageEvent',
+  {
+    id: text('id').primaryKey(),
+    userId: text('userId'), // 匿名访问 (未登录) 时可为 null
+    tenantId: text('tenantId').notNull().default('default'),
+    /** 事件名 (推荐 'domain.action' 格式: 'page.view' / 'okr.create' / 'persona.train' / 'memory.promote' / 'convergence.commit' / ...) */
+    eventName: text('eventName').notNull(),
+    /** 任意属性 (path, durationMs, targetId, targetType, ...) */
+    props: jsonb('props'),
+    sessionId: text('sessionId'),
+    userAgent: text('userAgent'),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => ({
+    userIdx: index('UsageEvent_userId_idx').on(t.userId),
+    eventIdx: index('UsageEvent_eventName_idx').on(t.eventName),
+    createdAtIdx: index('UsageEvent_createdAt_idx').on(t.createdAt),
+    tenantUserIdx: index('UsageEvent_tenant_user_idx').on(t.tenantId, t.userId),
+  }),
+);
+
+/**
+ * LlmUsageLog · LLM 调用成本与延迟记录
+ *
+ * 用途: AI 调用从黑盒变可见, 自用语境下是"成本中心"而不是"商业化定价"
+ *   - 每月 LLM 总花费 ¥? token?
+ *   - 哪个 scenario (persona_dialogue / reasoning_complex / long_context) 烧最多
+ *   - 哪个 provider (deepseek / anthropic / openai) ROI 最好
+ *   - 是否有用户在异常调用 (rate limit)
+ *
+ * §B-005 (AI-BACKLOG 战略级条目)
+ */
+export const llmUsageLog = pgTable(
+  'LlmUsageLog',
+  {
+    id: text('id').primaryKey(),
+    userId: text('userId'), // 系统任务可为 null
+    tenantId: text('tenantId').notNull().default('default'),
+    /** TAF Router scenario (persona_dialogue / reasoning_complex / long_context / chat_simple / ...) */
+    scenario: text('scenario').notNull(),
+    /** Provider (deepseek / anthropic / openai / kimi / doubao / qwen / ...) */
+    provider: text('provider').notNull(),
+    /** 具体模型名 (deepseek-chat / claude-3-7-sonnet / gpt-4o / ...) */
+    model: text('model').notNull(),
+    tokensIn: integer('tokensIn').notNull().default(0),
+    tokensOut: integer('tokensOut').notNull().default(0),
+    latencyMs: integer('latencyMs').notNull().default(0),
+    /** 成本: 单位 1/10000 美元 (= 0.01 美分). 100 美分 = $1. 用 integer 避免浮点 */
+    costMicroUsd: integer('costMicroUsd').notNull().default(0),
+    /** 追踪请求链路 (可关联 baseline-guard checkId / api request id / ...) */
+    requestId: text('requestId'),
+    success: boolean('success').notNull().default(true),
+    errorMessage: text('errorMessage'),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => ({
+    userIdx: index('LlmUsageLog_userId_idx').on(t.userId),
+    providerIdx: index('LlmUsageLog_provider_idx').on(t.provider),
+    scenarioIdx: index('LlmUsageLog_scenario_idx').on(t.scenario),
+    createdAtIdx: index('LlmUsageLog_createdAt_idx').on(t.createdAt),
+    tenantCreatedIdx: index('LlmUsageLog_tenant_created_idx').on(t.tenantId, t.createdAt),
+  }),
+);
+
+

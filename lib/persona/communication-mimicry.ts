@@ -74,13 +74,59 @@ export async function mimicCommunication(input: MimicryInput): Promise<MimicryDr
     throw new Error(`Persona stage ${persona.stage} 不允许风格模仿, 至少 deputy 阶段`);
   }
 
+  // §T15 baseline-guard: 代行沟通必须经组织记忆基线校验
+  let baselineContext = '';
+  try {
+    const { checkBaseline } = await import('../memory/baseline-guard');
+    const guard = await checkBaseline({
+      intent: `代行沟通(${input.context}): ${input.topic}`,
+      actorUserId: input.userId,
+      agentKind: 'persona',
+      toolName: 'persona.communication-mimicry',
+      payload: { context: input.context, audience: input.audience },
+    });
+    if (guard.verdict === 'HARD_BLOCK') {
+      // 通知治理委员会
+      try {
+        const { emit } = await import('../workflows/engine');
+        await emit({
+          type: 'workflow.custom',
+          payload: {
+            customType: 'persona.mimicry.blocked',
+            actorUserId: input.userId,
+            context: input.context,
+            topic: input.topic,
+            reason: guard.reasons.join('; '),
+            hits: guard.hits.slice(0, 5).map((h) => ({
+              memoryId: h.memoryId,
+              title: h.title,
+              ownershipLevel: h.ownershipLevel,
+            })),
+            checkId: guard.checkId,
+          },
+        });
+      } catch {
+        /* workflow 失败不再升级, baseline-guard 已 audit */
+      }
+      const hitTitles = guard.hits.slice(0, 3).map((h) => h.title).join(', ') || '未指明';
+      throw new Error(
+        `代行沟通被组织记忆基线阻断 (checkId: ${guard.checkId}). 命中: ${hitTitles}. 请员工本人处理.`
+      );
+    }
+    if (guard.verdict === 'SOFT_WARN' && guard.contextToInject) {
+      baselineContext = guard.contextToInject;
+    }
+  } catch (err) {
+    // 如果 err 是基线阻断本身, 透传; 否则 fail-open (记日志, 不阻断)
+    if (err instanceof Error && err.message.includes('基线阻断')) throw err;
+    // eslint-disable-next-line no-console
+    console.warn('[mimicry] baseline-guard 调用失败, fail-open:', (err as Error).message);
+  }
+
   const router = getRouter();
   const styleHint = describeStyle(persona.styleProfile);
 
-  const messages: ChatMessage[] = [
-    {
-      role: 'system',
-      content: `你是 ${input.userId} 的沟通分身. 任务: 用其个人风格起草 ${input.context}.
+  const systemBase = `你是 ${input.userId} 的沟通分身. 任务: 用其个人风格起草 ${input.context}.
 
 风格特征:
 ${styleHint}
@@ -91,7 +137,14 @@ ${persona.styleProfile.communicationExamples.slice(0, 5).join('\n---\n')}
 规则:
 - 严格模仿语气 + 用词 + 句式
 - 长度匹配场景 (chat 短 / email 中 / decision 详细)
-- 输出纯文本, 不带任何 "AI 生成" 字样 (水印由系统自动添加)`,
+- 输出纯文本, 不带任何 "AI 生成" 字样 (水印由系统自动添加)`;
+
+  const messages: ChatMessage[] = [
+    {
+      role: 'system',
+      content: baselineContext
+        ? `${baselineContext}\n\n---\n\n${systemBase}\n- 必须遵守上方的组织记忆基线`
+        : systemBase,
     },
     {
       role: 'user',
@@ -110,6 +163,26 @@ ${persona.styleProfile.communicationExamples.slice(0, 5).join('\n---\n')}
   });
 
   const draftText = typeof res.message.content === 'string' ? res.message.content : '';
+
+  // 写入统一 ProxyAction (drafted: 等员工确认才发出)
+  try {
+    const { createProxyAction } = await import('./proxy-actions');
+    await createProxyAction({
+      userId: input.userId,
+      personaId: persona.id,
+      tenantId: 'default',
+      kind: 'communication',
+      zone: 'yellow',
+      title: `[草稿] ${input.context} · ${input.topic}`,
+      body: draftText,
+      refType: 'communication',
+      initialStatus: 'drafted',
+      metadata: { audience: input.audience, context: input.context, topic: input.topic },
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('[mimicry] failed to record ProxyAction', err);
+  }
 
   return {
     draftText,

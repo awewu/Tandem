@@ -37,35 +37,90 @@ export async function generateRetrospective(cardId: string): Promise<Retrospecti
 
   const router = getRouter();
   let aiText = '';
+
+  // §T15 baseline-guard: 自动复盘前的组织记忆基线校验
+  // actor 用决议发起人 (autonomous 后台任务, 但责任归属到 createdBy)
+  const actorUserId = card.createdBy ?? 'system';
+  let baselineContext = '';
+  let baselineBlocked = false;
   try {
-    const res = await router.chat({
-      scenario: 'long_context',
-      temperature: 0.4,
-      messages: [
-        {
-          role: 'system',
-          content: `你是 Tandem 复盘 Agent. 任务: 基于决议 + Action items 完成度, 生成复盘.
+    const { checkBaseline } = await import('../memory/baseline-guard');
+    const guard = await checkBaseline({
+      intent: `自动复盘决议: ${card.title}`,
+      actorUserId,
+      agentKind: 'autonomous',
+      toolName: 'retrospective.auto',
+    });
+    if (guard.verdict === 'HARD_BLOCK') {
+      baselineBlocked = true;
+      // 通知治理委员会
+      try {
+        const { emit } = await import('../workflows/engine');
+        await emit({
+          type: 'workflow.custom',
+          payload: {
+            customType: 'retrospective.baseline.blocked',
+            cardId,
+            actorUserId,
+            reason: guard.reasons.join('; '),
+            hits: guard.hits.slice(0, 5).map((h) => ({
+              memoryId: h.memoryId,
+              title: h.title,
+              ownershipLevel: h.ownershipLevel,
+            })),
+            checkId: guard.checkId,
+          },
+        });
+      } catch {
+        /* workflow 失败不阻塞, baseline-guard 已 audit */
+      }
+    } else if (guard.verdict === 'SOFT_WARN' && guard.contextToInject) {
+      baselineContext = guard.contextToInject;
+    }
+  } catch {
+    /* baseline-guard 失败 fail-open, 不阻塞复盘 */
+  }
+
+  if (baselineBlocked) {
+    // 降级: 不调 LLM, 用基于数据的降级版本
+    aiText = JSON.stringify({
+      actualOutcome: `Action items 完成率 ${(completionRate * 100).toFixed(0)}% (LLM 复盘被组织记忆基线阻断, 仅数据视图)`,
+      learning: '本次复盘的 LLM 推演命中组织记忆基线红线, 需员工人工补完关键学习并经主管签批后方可入 Memory.',
+      shouldPromoteToMemory: false,
+      promoteAs: null,
+    });
+  } else {
+    const systemBase = `你是 Tandem 复盘 Agent. 任务: 基于决议 + Action items 完成度, 生成复盘.
 
 输出 JSON: {actualOutcome, learning, shouldPromoteToMemory (boolean), promoteAs ("sop" | "case" | null)}.
 
 判断 shouldPromoteToMemory:
 - 决议很成功且方法可复用 → true, promoteAs: "sop"
 - 决议失败但教训重要 → true, promoteAs: "case"
-- 普通决议 → false`,
-        },
-        {
-          role: 'user',
-          content: `决议: ${card.title}
+- 普通决议 → false`;
+    const systemContent = baselineContext
+      ? `${baselineContext}\n\n---\n\n${systemBase}\n- 必须遵守上方的组织记忆基线`
+      : systemBase;
+    try {
+      const res = await router.chat({
+        scenario: 'long_context',
+        temperature: 0.4,
+        messages: [
+          { role: 'system', content: systemContent },
+          {
+            role: 'user',
+            content: `决议: ${card.title}
 选定: ${card.selected ?? '(未选)'}
 Action items 完成率: ${(completionRate * 100).toFixed(0)}%
 ${actionItems.map((a) => `- [${a.status}] ${a.task}`).join('\n')}`,
-        },
-      ],
-      responseFormat: 'json',
-    });
-    aiText = typeof res.message.content === 'string' ? res.message.content : '{}';
-  } catch {
-    aiText = '{}';
+          },
+        ],
+        responseFormat: 'json',
+      });
+      aiText = typeof res.message.content === 'string' ? res.message.content : '{}';
+    } catch {
+      aiText = '{}';
+    }
   }
 
   let parsed: Partial<RetrospectiveDraft> = {};

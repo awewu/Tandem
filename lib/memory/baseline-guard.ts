@@ -71,13 +71,15 @@ export interface BaselineDecision {
 // ---------------------------------------------------------------------------
 
 function tokenize(s: string): Set<string> {
-  return new Set(
-    s
-      .toLowerCase()
-      .replace(/[^\w\u4e00-\u9fa5\s]/g, ' ')
-      .split(/\s+/)
-      .filter((t) => t.length >= 2),
-  );
+  // 英文按整词, 中文按字 (跟 lib/memory/retriever.ts 一致)
+  // 不再 filter length>=2: 单个中文字也是有效 token
+  const tokens = new Set<string>();
+  const re = /([a-zA-Z0-9]+)|([\u4e00-\u9fa5])/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(s.toLowerCase())) !== null) {
+    tokens.add(m[1] ?? m[2]);
+  }
+  return tokens;
 }
 
 function jaccardSim(a: Set<string>, b: Set<string>): number {
