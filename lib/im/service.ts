@@ -999,6 +999,25 @@ async function invokeCompanyBrainReply(input: InvokePersonaInput): Promise<void>
     } catch {
       /* 决策记录失败不影响 IM 主流程 */
     }
+
+    // §B-015 OKR Drift Detection: 检测 intent 是否偏离公司主航道 (best-effort, 不阻断)
+    try {
+      const { checkOkrDrift, auditOkrDriftIfNeeded } = await import('../governance/okr-drift');
+      const drift = await checkOkrDrift({
+        intent: input.triggeringMessage.body,
+        actorUserId: input.triggeringMessage.senderId,
+        source: 'company_brain_reply',
+        refId: msg.id,
+      });
+      await auditOkrDriftIfNeeded(drift, {
+        intent: input.triggeringMessage.body,
+        actorUserId: input.triggeringMessage.senderId,
+        source: 'company_brain_reply',
+        refId: msg.id,
+      });
+    } catch {
+      /* drift 检测失败不影响 IM 主流程 */
+    }
   } catch (err) {
     try {
       await sendMessage({

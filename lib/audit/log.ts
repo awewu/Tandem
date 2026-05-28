@@ -53,6 +53,8 @@ export type AuditAction =
   // CompanyBrain Decision 闭环 (CA-13)
   | 'company_brain.decision_recorded'     // 中央 AI 输出落地 CompanyBrainDecision
   | 'company_brain.feedback_submitted'    // 用户/治理委员会对中央 AI 输出反馈 (adopted/modified/overruled/ignored)
+  // Governance · OKR 主航道偏离 (§B-015, 灵魂层第 2 条)
+  | 'governance.okr_drift_detected'       // checkOkrDrift 判定 DRIFT_SUSPECTED, 写入治理审计
   // 系统
   | 'system.provider_health_failed'
   | 'system.provider_switch'
