@@ -184,6 +184,8 @@ export interface SendMessageInput {
   attachments?: ImAttachment[];
   /** 系统/Persona 消息时指定 */
   senderKind?: 'user' | 'system' | 'persona';
+  /** §IM-7 · Persona 回复时关联 LlmUsageLog.requestId (透明化) */
+  aiTraceId?: string;
 }
 
 export async function sendMessage(input: SendMessageInput): Promise<ImMessage> {
@@ -209,6 +211,7 @@ export async function sendMessage(input: SendMessageInput): Promise<ImMessage> {
     mentions,
     parentMessageId: input.parentMessageId,
     attachments: input.attachments,
+    aiTraceId: input.aiTraceId,
     createdAt: now,
   });
 
@@ -723,6 +726,14 @@ interface InvokePersonaInput {
 }
 
 async function invokePersonaReply(input: InvokePersonaInput): Promise<void> {
+  // §CA-1 中央 AI 实体: 召唤 CompanyBrain 走独立分支 (不走 baseline-guard, 不写 ProxyAction)
+  const { COMPANY_BRAIN_USER_ID, isCompanyBrain } = await import('../persona/company-brain');
+  void COMPANY_BRAIN_USER_ID; // 引用以避免 tree-shaking
+  if (isCompanyBrain(input.targetUserId)) {
+    await invokeCompanyBrainReply(input);
+    return;
+  }
+
   try {
     const store = getStore();
     const personas = await store.personas.list();
@@ -791,6 +802,32 @@ async function invokePersonaReply(input: InvokePersonaInput): Promise<void> {
     const { getRouter } = await import('../boot');
     const router = getRouter();
 
+    // 解析用户 LLM 偏好 (个人AI > 中央AI > 路由器内置规则)
+    let forceProvider: string | null = null;
+    try {
+      const { resolveProviderForUser } = await import('../settings/llm-preference');
+      const { checkPersonalAiAllowed, recordTokenUsage } = await import('../settings/tenant-ai-policy');
+      const tenantId = 'default';
+
+      const resolved = await resolveProviderForUser(input.targetUserId, tenantId, 'persona_dialogue');
+
+      // 若解析到个人AI 偏好，检查是否在策略允许范围内
+      if (resolved) {
+        const check = await checkPersonalAiAllowed(tenantId, input.targetUserId, resolved);
+        if (check.allowed) {
+          forceProvider = resolved;
+        } else {
+          // 策略不允许: 记录日志，fallback 到中央AI 路由规则 (不 forceProvider)
+          console.info(`[im] personalAI blocked for ${input.targetUserId}: ${check.reason}`);
+        }
+      }
+
+      // 记录 token 用量 (粗估: 200 tokens/reply, 实际从 ChatResponse.usage 取)
+      void recordTokenUsage(tenantId, input.targetUserId, 200).catch(() => {/* ignore */});
+    } catch {
+      /* 偏好/策略读取失败不影响主流程, 走默认路由 */
+    }
+
     const baseSystem =
       `你正在以 ${input.targetUserId} 的 AI 分身身份回复 IM 消息. ` +
       `当前阶段: ${persona.stage}; 委托级别: ${persona.delegationLevel}. ` +
@@ -798,6 +835,9 @@ async function invokePersonaReply(input: InvokePersonaInput): Promise<void> {
       `风险偏好=${persona.styleProfile.riskAppetite}, ` +
       `沟通风格=${persona.styleProfile.communicationStyle}. ` +
       `严格遵守委托级别: 不做超出权限的承诺. 只回 1-3 句话, 简洁.`;
+
+    // §IM-7 trace id: 关联 router.chat → LlmUsageLog.requestId 同时也写入 IM message.aiTraceId, 让 trace popover 可逆查
+    const aiTraceId = `imtrace_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 
     const reply = await router.chat({
       messages: [
@@ -810,16 +850,47 @@ async function invokePersonaReply(input: InvokePersonaInput): Promise<void> {
         { role: 'user', content: input.triggeringMessage.body },
       ],
       scenario: 'persona_dialogue',
+      forceProvider: forceProvider ?? undefined,
       maxTokens: 200,
+      metadata: {
+        userId: input.targetUserId,
+        requestId: aiTraceId,
+      },
     });
 
-    await sendMessage({
+    const sent = await sendMessage({
       channelId: input.channelId,
       senderId: input.targetUserId,
       senderKind: 'persona',
       body: `${reply.message.content}\n\n_— ${input.targetUserId} 的 AI 分身 (${persona.stage}) · 仅供参考, 待本人确认_`,
       parentMessageId: input.triggeringMessage.id,
+      aiTraceId,
     });
+
+    // 写入统一 ProxyAction (拿捏闭环 ③, 24h 否决窗口)
+    try {
+      const { createProxyAction } = await import('../persona/proxy-actions');
+      await createProxyAction({
+        userId: input.targetUserId,
+        personaId: persona.id,
+        tenantId: 'default',
+        kind: 'im_reply',
+        zone: 'yellow',
+        title: `[AI 自动回复] ${input.channelId}`,
+        body: typeof reply.message.content === 'string' ? reply.message.content : '',
+        refType: 'im_message',
+        refId: sent?.id,
+        metadata: {
+          channelId: input.channelId,
+          triggeringMessageId: input.triggeringMessage.id,
+          stage: persona.stage,
+          delegationLevel: persona.delegationLevel,
+        },
+      });
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn('[im] failed to record ProxyAction', err);
+    }
   } catch (err) {
     // 失败静默 (V1 简化), 在频道里提示但不抛
     try {
@@ -828,6 +899,64 @@ async function invokePersonaReply(input: InvokePersonaInput): Promise<void> {
         senderId: 'persona',
         senderKind: 'system',
         body: `⚠️ Persona 代行失败: ${(err as Error).message}`,
+        parentMessageId: input.triggeringMessage.id,
+      });
+    } catch {
+      /* noop */
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// §CA-1 (CENTRAL-AI-ARCHITECTURE.md) · CompanyBrain · 中央 AI 实体 IM 回复
+//
+// 跟员工 Persona 的差异:
+//   - 不走 baseline-guard (它就是基线本身, 不能被自己阻断)
+//   - 不写 ProxyAction (它的输出本身就是公司视角参考, 不需要 24h 否决)
+//   - 用 reasoning_complex scenario → claude-opus-4-5 旗舰模型
+//   - system prompt 注入全公司 Memory (buildCompanyBrainSystemPrompt)
+// ---------------------------------------------------------------------------
+async function invokeCompanyBrainReply(input: InvokePersonaInput): Promise<void> {
+  try {
+    const { buildCompanyBrainSystemPrompt, COMPANY_BRAIN_USER_ID } = await import(
+      '../persona/company-brain'
+    );
+    const { getRouter } = await import('../boot');
+    const router = getRouter();
+
+    const systemPrompt = await buildCompanyBrainSystemPrompt();
+
+    // §IM-7 trace id
+    const aiTraceId = `imtrace_cb_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+
+    const reply = await router.chat({
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: input.triggeringMessage.body },
+      ],
+      scenario: 'reasoning_complex', // CompanyBrain 用旗舰模型 (claude-opus-4-5)
+      maxTokens: 400,
+      metadata: {
+        userId: COMPANY_BRAIN_USER_ID,
+        requestId: aiTraceId,
+      },
+    });
+
+    await sendMessage({
+      channelId: input.channelId,
+      senderId: COMPANY_BRAIN_USER_ID,
+      senderKind: 'persona',
+      body: `${reply.message.content}\n\n_— 🏛️ CompanyBrain · 中央 AI · 基于公司层 Memory · 仅供参考_`,
+      parentMessageId: input.triggeringMessage.id,
+      aiTraceId,
+    });
+  } catch (err) {
+    try {
+      await sendMessage({
+        channelId: input.channelId,
+        senderId: 'persona',
+        senderKind: 'system',
+        body: `⚠️ CompanyBrain 调用失败: ${(err as Error).message}`,
         parentMessageId: input.triggeringMessage.id,
       });
     } catch {

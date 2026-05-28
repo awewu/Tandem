@@ -117,13 +117,22 @@ function ChatPageInner() {
     assistantMsgId: string,
     abort: AbortController,
   ): Promise<string> => {
-    const useProxy = agent.provider?.type === 'openai-compatible' && !!agent.provider.baseURL;
+    const useTeam = agent.provider?.type === 'team' && !!agent.provider.teamProvider;
+    const useProxy = !useTeam && agent.provider?.type === 'openai-compatible' && !!agent.provider.baseURL;
 
     // 注入企业基线（active 且 critical/high 的 memory）+ Agent 自身 systemPrompt
     const baseline = getBaselineSystemPrompt();
     const composedSystemPrompt = [baseline, agent.systemPrompt].filter((s) => s && s.trim()).join('\n\n');
 
-    const payload = useProxy
+    const payload = useTeam
+      ? {
+          messages: messagesForApi,
+          model: agent.model,
+          systemPrompt: composedSystemPrompt,
+          temperature: agent.temperature,
+          teamProvider: agent.provider!.teamProvider,
+        }
+      : useProxy
       ? {
           messages: messagesForApi,
           model: agent.model,
@@ -157,7 +166,7 @@ function ChatPageInner() {
     };
 
     try {
-      const stream = useProxy
+      const stream = (useTeam || useProxy)
         ? await startLLMStream(payload as any)
         : await startChatStream(payload as any);
 

@@ -34,6 +34,12 @@ import type {
   KpiSubject,
 } from '../types/kpi';
 import type { ImChannel, ImMessage, ImMembership } from '../types/im';
+import type {
+  CompanyBrainDecision,
+  CompanyBrainVersion,
+  CompanyBrainEvalCase,
+  CompanyBrainReflectionReport,
+} from '../types/company-brain';
 import type { OneOnOneMeeting, OneOnOneActionItem } from '../types/one-on-one';
 import type {
   Review360Cycle,
@@ -61,6 +67,12 @@ export interface TandemStore {
   _storeKind?: 'memory' | 'prisma';
   decisionCards: Repository<DecisionCard>;
   personas: Repository<Persona>;
+
+  /** §CA-13 (CENTRAL-AI-ARCHITECTURE) CompanyBrain 智能迭代闭环 */
+  companyBrainDecisions: Repository<CompanyBrainDecision>;
+  companyBrainVersions: Repository<CompanyBrainVersion>;
+  companyBrainEvalCases: Repository<CompanyBrainEvalCase>;
+  companyBrainReflections: Repository<CompanyBrainReflectionReport>;
   origins: Repository<Origin>;
   materials: Repository<Material>;
   memories: Repository<MemoryEntry>;
@@ -106,6 +118,21 @@ export interface TandemStore {
   /** Bitable 多维表格 (V1 MVP) */
   bitableTables: Repository<import('../types/bitable').BitableTable>;
   bitableViews: Repository<import('../types/bitable').BitableView>;
+
+  /** Intranet 公告/政策/大事记/福利 CMS (P3-10) */
+  intranetPosts: Repository<import('../types/intranet-post').IntranetPost>;
+
+  /** 拿捏代行行为 (Persona ProxyAction 一等公民, §13 24h 否决窗口) */
+  proxyActions: Repository<import('../types/proxy-action').ProxyAction>;
+
+  /** Persona 反馈评分 (闭环④) */
+  personaFeedbacks: Repository<import('../types/persona-feedback').PersonaFeedback>;
+
+  /** LLM 模型切换偏好 (中央AI + 个人AI) */
+  llmPreferences: Repository<import('../types/llm-preference').LlmPreference>;
+
+  /** 企业 AI 治理策略 (中央AI token 开关 / 配额 / 白名单) */
+  tenantAiPolicies: Repository<import('../types/tenant-ai-policy').TenantAiPolicy>;
 
   /** 飞书功能追赶 (Feishu Catch-up) */
   documents: Repository<import('../types/feishu-catchup').Document>;
@@ -174,6 +201,8 @@ export interface AuthStore {
   users: {
     findByEmail(email: string): Promise<AuthUser | null>;
     findById(id: string): Promise<AuthUser | null>;
+    /** P1-2: 列出全部 (或按 tenant) 用户; /admin/organization 列表用 */
+    list(filter?: { tenantId?: string }): Promise<AuthUser[]>;
     create(input: Partial<AuthUser> & { email: string; name: string }): Promise<AuthUser>;
     update(id: string, patch: Partial<AuthUser>): Promise<void>;
     savePasswordHash(userId: string, hash: string): Promise<void>;

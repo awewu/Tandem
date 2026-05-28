@@ -273,6 +273,84 @@ export async function completeMfa(input: {
 }
 
 // ---------------------------------------------------------------------------
+// SSO 自助注册 — 内部员工：邮箱域名白名单 + 工号自动激活
+// ---------------------------------------------------------------------------
+
+export interface SsoRegisterInput {
+  email: string;
+  name: string;
+  /** 工号（人事主数据 ID），用于和 HR 系统对齐 */
+  employeeId?: string;
+  /** 密码（允许员工自设；也可企业统一下发临时密码） */
+  password: string;
+  deviceInfo?: { userAgent?: string; ip?: string };
+}
+
+/**
+ * 邮箱域名白名单：读取环境变量 INTERNAL_EMAIL_DOMAINS
+ * 格式: "company.com,corp.example.com"
+ * 未配置时返回空数组（SSO 路径关闭）
+ */
+function getInternalDomains(): string[] {
+  const raw = process.env.INTERNAL_EMAIL_DOMAINS ?? '';
+  return raw.split(',').map((d) => d.trim().toLowerCase()).filter(Boolean);
+}
+
+/**
+ * 内部员工自助注册
+ * - 邮箱必须属于企业域名白名单 (INTERNAL_EMAIL_DOMAINS)
+ * - 不需要邀请码：域名即凭证
+ * - 自动分配 ['employee'] 角色，tenantId = 'default'
+ * - 工号写入 departmentId 字段（临时用，待 HR 主数据接入后替换）
+ */
+export async function registerWithSso(input: SsoRegisterInput): Promise<AuthResult> {
+  const email = input.email.trim().toLowerCase();
+  if (!/^\S+@\S+\.\S+$/.test(email)) {
+    throw new AuthError('invalid_email', '邮箱格式错误', 400);
+  }
+
+  const domains = getInternalDomains();
+  if (domains.length === 0) {
+    throw new AuthError('sso_disabled', '企业自助注册未开启，请联系管理员', 403);
+  }
+  const emailDomain = email.split('@')[1] ?? '';
+  if (!domains.includes(emailDomain)) {
+    throw new AuthError('domain_not_allowed', `邮箱域名 @${emailDomain} 不在企业白名单中`, 403);
+  }
+
+  const strength = evaluatePassword(input.password, { email, name: input.name });
+  if (!strength.ok) {
+    throw new AuthError('weak_password', `密码不符合要求: ${strength.errors.join(', ')}`, 400);
+  }
+
+  const userStore = getUserStore();
+  const existing = await userStore.findByEmail(email);
+  if (existing) {
+    throw new AuthError('email_taken', '该邮箱已注册，请直接登录', 409);
+  }
+
+  const user = await userStore.create({
+    email,
+    name: input.name,
+    roles: ['employee'],
+    tenantId: 'default',
+    departmentId: input.employeeId ?? null,
+    emailVerifiedAt: new Date().toISOString(),
+  });
+  await userStore.savePasswordHash(user.id, hashPassword(input.password));
+
+  const session = await issueSessionForUser(user, false, input.deviceInfo);
+  await audit({
+    userId: user.id,
+    email,
+    eventType: 'register_sso',
+    metadata: { employeeId: input.employeeId, domain: emailDomain },
+    ...input.deviceInfo,
+  });
+  return session;
+}
+
+// ---------------------------------------------------------------------------
 // 登出 / 撤销
 // ---------------------------------------------------------------------------
 

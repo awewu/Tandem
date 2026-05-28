@@ -48,6 +48,9 @@ const PUBLIC_UI_PREFIXES = [
   '/robots',
   '/sitemap',
   '/brand/',
+  '/sw.js',              // PWA service worker · 必须以 JS MIME 公开, 否则浏览器拒绝注册
+  '/workbox-',           // (future) workbox 拆分 chunk
+  '/.well-known/',       // ACME / Apple App Site Association etc.
 ];
 
 function isPublic(path: string): boolean {

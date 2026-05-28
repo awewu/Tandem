@@ -89,6 +89,11 @@ function createInMemoryAuthStore(): AuthStore {
       async findById(id) {
         return users.get(id) ?? null;
       },
+      async list(filter) {
+        let arr = Array.from(users.values());
+        if (filter?.tenantId) arr = arr.filter((u) => (u.tenantId ?? 'default') === filter.tenantId);
+        return arr;
+      },
       async create(input) {
         const id = generateId('user');
         const user: AuthUser = {
@@ -232,6 +237,11 @@ export function createInMemoryStore(): TandemStore {
     _storeKind: 'memory' as const,
     decisionCards: new InMemoryRepository(),
     personas: new InMemoryRepository(),
+    // §CA-13 CompanyBrain 智能迭代闭环
+    companyBrainDecisions: new InMemoryRepository(),
+    companyBrainVersions: new InMemoryRepository(),
+    companyBrainEvalCases: new InMemoryRepository(),
+    companyBrainReflections: new InMemoryRepository(),
     origins: new InMemoryRepository(),
     materials: new InMemoryRepository(),
     memories: new InMemoryRepository(),
@@ -264,6 +274,11 @@ export function createInMemoryStore(): TandemStore {
     skillRegistry: new InMemoryRepository(),
     bitableTables: new InMemoryRepository(),
     bitableViews: new InMemoryRepository(),
+    intranetPosts: new InMemoryRepository(),
+    proxyActions: new InMemoryRepository(),
+    personaFeedbacks: new InMemoryRepository(),
+    llmPreferences: new InMemoryRepository(),
+    tenantAiPolicies: new InMemoryRepository(),
     documents: new InMemoryRepository(),
     calendarEvents: new InMemoryRepository(),
     driveFiles: new InMemoryRepository(),

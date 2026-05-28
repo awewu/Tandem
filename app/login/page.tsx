@@ -13,7 +13,7 @@
 import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Eye, EyeOff, ShieldCheck, KeyRound } from 'lucide-react';
+import { Eye, EyeOff, ShieldCheck, KeyRound, HandHeart, Smile } from 'lucide-react';
 
 // useSearchParams() in a Client Component must be wrapped in <Suspense> for prerender.
 export default function LoginPage() {
@@ -119,13 +119,45 @@ function LoginInner() {
             </span>
           </h1>
           <p className="mt-8 text-title-3 text-ink-primary max-w-lg leading-snug">
-            <span className="rheem-display-accent font-extrabold">事半</span>功倍 ·
-            <span className="rheem-display-accent font-extrabold"> 拿捏</span>老板
+            <span className="rheem-display-accent font-extrabold">召唤搭子</span> ·
+            <span className="rheem-display-accent font-extrabold"> 拿捏</span>老板 ·
+            <span className="rheem-display-accent font-extrabold"> 事半</span>功倍
             <span className="text-[rgb(var(--brand-500))]">.</span>
           </p>
           <p className="mt-3 text-body text-ink-secondary max-w-lg">
-            17 分钟达成共识 · AI 智能工作台 · 私有化部署
+            17 分钟达成共识 · AI-Navigator 助力高效工作
           </p>
+
+          {/* Core Spirit — 三段产品精神 */}
+          <div className="mt-10 max-w-lg">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="h-px flex-1 bg-ink-tertiary/30" />
+              <span className="text-[10px] tracking-[0.25em] uppercase text-ink-tertiary font-medium">
+                Our Spirit · 产品精神
+              </span>
+              <span className="h-px flex-1 bg-ink-tertiary/30" />
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { Icon: HandHeart, title: '创造价值', en: 'Create Value' },
+                { Icon: ShieldCheck, title: '赢得尊重', en: 'Earn Respect' },
+                { Icon: Smile, title: '快乐工作', en: 'Work Happily' },
+              ].map(({ Icon, title, en }) => (
+                <div
+                  key={title}
+                  className="group flex flex-col items-start gap-1.5 rounded-lg border border-ink-tertiary/20 bg-white/50 backdrop-blur-sm px-3 py-3 transition-colors hover:border-[rgb(var(--brand-500))]/40 hover:bg-white/70"
+                >
+                  <Icon className="h-4 w-4 text-[rgb(var(--brand-500))]" strokeWidth={1.75} />
+                  <div className="text-callout font-semibold text-ink-primary leading-tight">
+                    {title}
+                  </div>
+                  <div className="text-[10px] tracking-wide text-ink-tertiary uppercase">
+                    {en}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Bottom: legal */}

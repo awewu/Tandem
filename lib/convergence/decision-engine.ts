@@ -45,6 +45,12 @@ export interface DecisionContext {
   relatedKrTitles?: string[];
   /** 决议涉及的材料原文 (摘要) */
   materialDigests?: string[];
+  /**
+   * 议事发起人 userId, 用于 baseline-guard 可见性过滤 + 审计.
+   * §T15: 议事决策必须经组织记忆基线校验, 调用方应该传入.
+   * 留 optional 为向后兼容; 未来移除 optional 强制传入.
+   */
+  actorUserId?: string;
 }
 
 export interface OptionGenerationResult {
@@ -66,9 +72,106 @@ export class DecisionEngine {
    * 生成 3+1 选项 (A/B/C 由 AI, D 留空, 必须人填)
    *
    * 注意: D 选项必须由员工事后填写, 引擎仅占位.
+   *
+   * §T15 baseline-guard: 入口先校验组织记忆基线.
+   *   - HARD_BLOCK: 返回 4 个阻断占位选项 + emit workflow event 通知治理委员会
+   *   - SOFT_WARN:  把 baselineContext 注入 buildOptionB 的 system prompt
+   *   - PASS:       继续
    */
   async generateOptions(ctx: DecisionContext): Promise<OptionGenerationResult> {
     const warnings: string[] = [];
+
+    // §T15 baseline-guard 议事决策前的组织记忆基线校验
+    let baselineContext = '';
+    if (ctx.actorUserId) {
+      try {
+        const { checkBaseline } = await import('../memory/baseline-guard');
+        const guard = await checkBaseline({
+          intent: `议事决策: ${ctx.title}. ${ctx.description}`,
+          actorUserId: ctx.actorUserId,
+          agentKind: 'autonomous',
+          toolName: 'convergence.decision-engine',
+        });
+
+        if (guard.verdict === 'HARD_BLOCK') {
+          warnings.push(
+            `🚫 组织记忆基线阻断: ${guard.reasons.join('; ')}`
+          );
+          // 通知治理委员会 (workflow engine 事件; 走 workflow.custom 透传 custom subtype)
+          try {
+            const { emit } = await import('../workflows/engine');
+            await emit({
+              type: 'workflow.custom',
+              payload: {
+                customType: 'convergence.baseline.blocked',
+                cardId: ctx.cardId,
+                actorUserId: ctx.actorUserId,
+                title: ctx.title,
+                reason: guard.reasons.join('; '),
+                hits: guard.hits.slice(0, 5).map((h) => ({
+                  memoryId: h.memoryId,
+                  title: h.title,
+                  ownershipLevel: h.ownershipLevel,
+                })),
+                checkId: guard.checkId,
+              },
+            });
+          } catch {
+            /* workflow 失败不阻塞议事流程, 已有 baseline-guard 自己的 audit */
+          }
+          // 返回 4 个阻断占位; D 选项保留人工原创路径作为合规出口
+          const hitTitles = guard.hits.slice(0, 3).map((h) => h.title).join(', ') || '未指明';
+          return {
+            options: [
+              {
+                id: 'A',
+                type: 'SOP',
+                description: '🚫 议事决策被组织记忆基线阻断, 需人工评估后重新发起',
+                confidence: 0,
+                risk: 'high',
+              },
+              {
+                id: 'B',
+                type: 'AGENT_REASONING',
+                description: `🚫 命中组织记忆: ${hitTitles}`,
+                reasoning: guard.reasons.join('\n'),
+                confidence: 0,
+                risk: 'high',
+              },
+              {
+                id: 'C',
+                type: 'HISTORICAL',
+                description: '🚫 议事被阻断, 不生成历史参考',
+                confidence: 0,
+                risk: 'high',
+              },
+              {
+                id: 'D',
+                type: 'ORIGINAL',
+                description: '[ 等待员工填写原创方案, 需说明如何与组织记忆基线不冲突 ]',
+                confidence: 0,
+                risk: 'medium',
+                humanOnly: true,
+                novelInsight: '',
+              },
+            ],
+            warnings,
+          };
+        }
+
+        if (guard.verdict === 'SOFT_WARN' && guard.contextToInject) {
+          baselineContext = guard.contextToInject;
+          warnings.push(
+            `已注入 ${guard.hits.length} 条组织记忆作为决策基线 (checkId: ${guard.checkId})`
+          );
+        }
+      } catch (err) {
+        // baseline-guard 失败不阻塞议事 (fail-open), 但记 warning
+        warnings.push(`baseline-guard 调用失败 (fail-open): ${(err as Error).message}`);
+      }
+    } else {
+      warnings.push('未提供 actorUserId, 跳过 baseline-guard 校验 (建议调用方补全)');
+    }
 
     const [sopResults, caseResults] = await Promise.all([
       this.retriever.findRelatedSOP(ctx.description, 3),
@@ -77,8 +180,8 @@ export class DecisionEngine {
 
     // A: SOP-based
     const optionA = await this.buildOptionA(ctx, sopResults, warnings);
-    // B: LLM reasoning
-    const optionB = await this.buildOptionB(ctx, sopResults, caseResults, warnings);
+    // B: LLM reasoning (注入 baselineContext)
+    const optionB = await this.buildOptionB(ctx, sopResults, caseResults, warnings, baselineContext);
     // C: Historical
     const optionC = await this.buildOptionC(ctx, caseResults, warnings);
     // D: 员工原创占位 (humanOnly=true)
@@ -134,19 +237,29 @@ export class DecisionEngine {
     ctx: DecisionContext,
     sops: MemorySearchResult[],
     cases: MemorySearchResult[],
-    warnings: string[]
+    warnings: string[],
+    baselineContext = ''
   ): Promise<DecisionOption> {
     const sopHints = sops.map((s) => `- SOP《${s.title}》: ${s.body.slice(0, 200)}`).join('\n');
     const caseHints = cases.map((c) => `- 案例《${c.title}》: ${c.body.slice(0, 200)}`).join('\n');
 
-    const messages: ChatMessage[] = [
-      {
-        role: 'system',
-        content: `你是 Tandem 议事室的推理 Agent. 任务: 基于上下文给出第二种执行方案 (Option B), 区别于 SOP 直执行.
+    const systemContent = baselineContext
+      ? `${baselineContext}\n\n---\n\n你是 Tandem 议事室的推理 Agent. 任务: 基于上下文给出第二种执行方案 (Option B), 区别于 SOP 直执行.
 规则:
 - 输出 JSON: {description, reasoning, confidence (0-1), risk (low|medium|high), timelineDays}
 - 不要复述 SOP, 给出更优 / 更灵活的方案
-- 必须基于事实, 引用 SOP/案例支持`,
+- 必须基于事实, 引用 SOP/案例支持
+- 必须遵守上方的组织记忆基线, 若方案需偏离需在 reasoning 中明确说明`
+      : `你是 Tandem 议事室的推理 Agent. 任务: 基于上下文给出第二种执行方案 (Option B), 区别于 SOP 直执行.
+规则:
+- 输出 JSON: {description, reasoning, confidence (0-1), risk (low|medium|high), timelineDays}
+- 不要复述 SOP, 给出更优 / 更灵活的方案
+- 必须基于事实, 引用 SOP/案例支持`;
+
+    const messages: ChatMessage[] = [
+      {
+        role: 'system',
+        content: systemContent,
       },
       {
         role: 'user',

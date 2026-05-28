@@ -121,6 +121,7 @@ export class ConvergenceOrchestrator {
       description: input.description,
       relatedKrTitles: [], // TODO: hydrate from store
       materialDigests: [],
+      actorUserId: input.ownerId, // §T15 baseline-guard 校验所需
     };
     const gen = await engine.generateOptions(ctx);
 

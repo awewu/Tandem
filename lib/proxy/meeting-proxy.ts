@@ -20,6 +20,7 @@
 import { audit } from '../audit/log';
 import { getStore } from '../storage/repository';
 import { SENSITIVE_KEYWORDS } from '../persona/communication-mimicry';
+import { createProxyAction } from '../persona/proxy-actions';
 
 export type Zone = 'green' | 'yellow' | 'red';
 
@@ -168,6 +169,28 @@ export async function completeMission(
     targetId: missionId,
     metadata: { event: 'completed', materialId: material.id },
   });
+
+  // 写入统一 ProxyAction 表 (拿捏闭环 ③)
+  try {
+    const store = getStore();
+    const personas = await store.personas.list({ userId: m.userId } as never);
+    const persona = personas[0];
+    await createProxyAction({
+      userId: m.userId,
+      personaId: persona?.id ?? 'unknown',
+      tenantId: 'default',
+      kind: 'meeting_proxy',
+      zone: m.authorizedZones.includes('yellow') ? 'yellow' : 'green',
+      title: `[AI 代参] ${m.meetingTitle}`,
+      body: summary,
+      refType: 'meeting',
+      refId: m.meetingId,
+      metadata: { missionId, materialId: material.id, exitReason: m.exitReason },
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('[meeting-proxy] failed to record ProxyAction', err);
+  }
 
   return { materialId: material.id };
 }

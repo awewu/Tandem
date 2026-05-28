@@ -9,6 +9,7 @@ import type { Persona } from '../types/persona';
 import type { MemoryEntry } from '../types/memory';
 import type { Cycle, Objective, KeyResult, TTI } from '../types/okr-tti';
 import type { DecisionCard } from '../types/decision-card';
+import type { Kpi, KpiCycle, KpiSubject, KpiSnapshot, KpiScope } from '../types/kpi';
 import { createChannel, sendMessage } from '../im/service';
 import { db, schema } from '../infra/drizzle-client';
 import { sql } from 'drizzle-orm';
@@ -761,5 +762,129 @@ export async function seedLaunchpadIfEmpty(): Promise<void> {
   } catch (err) {
     // eslint-disable-next-line no-console
     console.warn('[seed] launchpad seed failed:', (err as Error).message);
+  }
+}
+
+/**
+ * 自动在系统 boot 期间种入 BSC 个人及部门 KPI 演示数据 (P0)
+ */
+export async function seedKpiDemoIfEmpty(): Promise<void> {
+  const s = getStore();
+  try {
+    const existing = await s.kpiCycles.list();
+    if (existing.length > 0) return;
+
+    const now = new Date().toISOString();
+    // 1. 创建 FY2026 演示周期
+    const cycle = await s.kpiCycles.create({
+      fiscalYear: 2026,
+      name: 'FY2026 (Demo)',
+      startDate: '2026-01-01T00:00:00Z',
+      endDate: '2026-12-31T23:59:59Z',
+      status: 'active',
+      tenantId: 'default',
+      targetsLockedAt: now,
+      createdBy: 'demo-user',
+      createdAt: now,
+      updatedAt: now,
+    } as Omit<KpiCycle, 'id'>);
+
+    // 2. 创建 7 个核心 BSC 科目
+    type SubjectSpec = Pick<KpiSubject, 'code' | 'name' | 'defaultUnit' | 'defaultMeasureType' | 'defaultScope' | 'bscPerspective'>;
+    const subjectsSpec: SubjectSpec[] = [
+      { code: 'FIN.REV', name: '营业收入', defaultUnit: '万元', defaultMeasureType: 'currency', defaultScope: 'bonus', bscPerspective: 'financial' },
+      { code: 'FIN.GP', name: '毛利率', defaultUnit: '%', defaultMeasureType: 'percentage', defaultScope: 'bonus', bscPerspective: 'financial' },
+      { code: 'CUST.CSAT', name: '客户满意度', defaultUnit: '分', defaultMeasureType: 'numeric', defaultScope: 'monitor', bscPerspective: 'customer' },
+      { code: 'CUST.NEW', name: '新客户数', defaultUnit: '家', defaultMeasureType: 'count', defaultScope: 'bonus', bscPerspective: 'customer' },
+      { code: 'OPS.QA', name: '质量合格率', defaultUnit: '%', defaultMeasureType: 'percentage', defaultScope: 'monitor', bscPerspective: 'process' },
+      { code: 'OPS.LEAD', name: '交付周期', defaultUnit: '天', defaultMeasureType: 'numeric', defaultScope: 'monitor', bscPerspective: 'process' },
+      { code: 'HR.RETAIN', name: '关键人才留存率', defaultUnit: '%', defaultMeasureType: 'percentage', defaultScope: 'monitor', bscPerspective: 'growth' },
+    ];
+
+    const subjectByCode = new Map<string, KpiSubject>();
+    for (const spec of subjectsSpec) {
+      const subj = await s.kpiSubjects.create({
+        code: spec.code,
+        name: spec.name,
+        level: 1,
+        bscPerspective: spec.bscPerspective,
+        defaultScope: spec.defaultScope,
+        defaultUnit: spec.defaultUnit,
+        defaultMeasureType: spec.defaultMeasureType,
+        active: true,
+        tenantId: 'default',
+        createdBy: 'demo-user',
+        createdAt: now,
+        updatedAt: now,
+      } as Omit<KpiSubject, 'id'>);
+      subjectByCode.set(spec.code, subj);
+    }
+
+    // 3. 配置每个人（包括 demo-user 员工本人）的指标实例
+    const kpiSpecs = [
+      // 员工自己 (demo-user)
+      { subjectCode: 'FIN.REV', assignee: 'demo-user', title: '研发项目相关业务增量营收', startValue: 0, targetValue: 500, weight: 30, scope: 'bonus', kpiCompletion: 0.88 },
+      { subjectCode: 'CUST.CSAT', assignee: 'demo-user', title: '核心系统可用性 SLA 客户满意度', startValue: 80, targetValue: 95, weight: 30, scope: 'bonus', kpiCompletion: 0.88 },
+      { subjectCode: 'OPS.QA', assignee: 'demo-user', title: '代码发布质量合格率', startValue: 90, targetValue: 98, weight: 20, scope: 'bonus', kpiCompletion: 0.88 },
+      { subjectCode: 'HR.RETAIN', assignee: 'demo-user', title: '关键技能掌握与内部技术分享次', startValue: 0, targetValue: 5, weight: 20, scope: 'bonus', kpiCompletion: 0.88 },
+      // 演示同事
+      { subjectCode: 'FIN.REV', assignee: 'demo-star', title: '营业收入 (Star)', startValue: 5000, targetValue: 8000, weight: 50, scope: 'bonus', kpiCompletion: 1.05 },
+      { subjectCode: 'CUST.NEW', assignee: 'demo-star', title: '新客户数 (Star)', startValue: 0, targetValue: 30, weight: 30, scope: 'bonus', kpiCompletion: 1.05 },
+      { subjectCode: 'FIN.GP', assignee: 'demo-star', title: '毛利率 (Star)', startValue: 25, targetValue: 35, weight: 20, scope: 'bonus', kpiCompletion: 1.05 },
+      { subjectCode: 'FIN.REV', assignee: 'demo-burnout', title: '营业收入 (Burnout)', startValue: 4000, targetValue: 6000, weight: 60, scope: 'bonus', kpiCompletion: 1.0 },
+      { subjectCode: 'OPS.LEAD', assignee: 'demo-burnout', title: '交付周期 (Burnout)', startValue: 30, targetValue: 20, weight: 40, scope: 'bonus', kpiCompletion: 1.0 },
+      { subjectCode: 'FIN.REV', assignee: 'demo-mismatch', title: '营业收入 (Mismatch)', startValue: 3000, targetValue: 5000, weight: 70, scope: 'bonus', kpiCompletion: 0.5 },
+      { subjectCode: 'OPS.QA', assignee: 'demo-mismatch', title: '质量合格率 (Mismatch)', startValue: 90, targetValue: 95, weight: 30, scope: 'bonus', kpiCompletion: 0.5 },
+      { subjectCode: 'FIN.REV', assignee: 'demo-intervene', title: '营业收入 (Intervene)', startValue: 2000, targetValue: 4000, weight: 100, scope: 'bonus', kpiCompletion: 0.4 },
+    ];
+
+    const SNAPSHOT_DAYS = 30;
+    for (const spec of kpiSpecs) {
+      const subj = subjectByCode.get(spec.subjectCode);
+      if (!subj) continue;
+      const range = spec.targetValue - spec.startValue;
+      const currentValue = spec.startValue + range * spec.kpiCompletion;
+      const kpi = await s.kpis.create({
+        cycleId: cycle.id,
+        subjectId: subj.id,
+        bscPerspective: subj.bscPerspective,
+        level: spec.assignee === 'demo-user' ? 'individual' : 'company',
+        assigneeId: spec.assignee,
+        title: spec.title,
+        measureType: subj.defaultMeasureType,
+        startValue: spec.startValue,
+        targetValue: spec.targetValue,
+        currentValue: Math.round(currentValue * 100) / 100,
+        unit: subj.defaultUnit,
+        weight: spec.weight,
+        dataSource: 'manual',
+        scope: spec.scope as KpiScope,
+        tenantId: 'default',
+        createdBy: 'demo-user',
+        createdAt: now,
+        updatedAt: now,
+      } as Omit<Kpi, 'id'>);
+
+      // 生成 30 天历史快照
+      const finalValue = kpi.currentValue;
+      for (let d = SNAPSHOT_DAYS - 1; d >= 0; d--) {
+        const date = new Date();
+        date.setDate(date.getDate() - d);
+        const dayStr = date.toISOString().slice(0, 10);
+        const t = (SNAPSHOT_DAYS - 1 - d) / (SNAPSHOT_DAYS - 1);
+        const noise = ((d * 7 + spec.startValue) % 11) / 100 - 0.05;
+        const v = spec.startValue + (finalValue - spec.startValue) * (t + noise * t);
+        await s.kpiSnapshots.create({
+          kpiId: kpi.id,
+          date: dayStr,
+          cumulativeValue: Math.round(v * 100) / 100,
+          source: 'manual',
+          createdAt: now,
+        } as Omit<KpiSnapshot, 'id'>);
+      }
+    }
+    console.info(`[seed] KPI balance-scorecard seeded: ${kpiSpecs.length} KPIs inserted`);
+  } catch (err) {
+    console.warn('[seed] KPI demo seed failed:', (err as Error).message);
   }
 }
