@@ -55,7 +55,9 @@
 
 ---
 
-## 不动条款 (18 条)
+## 不动条款 (19 条)
+
+> 第十九条于 2026-05-27 立项追加, 标记为"立项之时"条款, 与原 18 条同等地位.
 
 ### 第一条 · 工作的原子单元是「决议」, 不是「消息」
 
@@ -626,6 +628,61 @@ Knowledge Steward 是产品 RBAC 中的**独立角色**, 不可由以下兼任:
 **口号**:
 
 > **「上面思考层是我们的, 下面底座是社区的. 不为轮子舍本, 不为服从妥协.」**
+
+---
+
+### 第十九条 · 拥抱个人 AI · Skill Gateway 4 道闸
+
+> 立项之时 (2026-05-27) 定稿. 详见 `docs/OKR-DRIVEN-ARCHITECTURE.md` § 三 第 3 条 + § 四 Skill Gateway 设计.
+
+**世界观**:
+
+员工继续自由使用市面所有个人智能体 — Claude Code / Cursor / Codex / Hermes / OpenClaw / Manus / 飞书 AI / 钉钉 AI / 任何未来出现的个人 AI. **Tandem 不重新发明个人 AI, 也不替代任何个人 AI.**
+
+Tandem 的位置不是"个人 AI 竞品", 而是**"个人 AI 的组织级网关"** (Organizational Gateway). 个人 AI 在企业内调任何工具 / 取任何数据 / 执行任何企业行为时, 必须穿过 Tandem 中央 AI 的 4 道闸:
+
+```
+个人 AI (Claude Code / Cursor / 飞书 AI ...) 
+    │
+    │ 调企业数据/工具/Agent
+    ▼
+┌──────────────────────────────────────┐
+│  Tandem · CompanyBrain Skill Gateway │
+├──────────────────────────────────────┤
+│  ① Baseline-Guard 闸                 │  红区禁入 / 黄区议事 / 灰区 LLM 仲裁
+│  ② OKR Drift Detection 闸            │  跟当前 active OKR 对齐度 ≥ 阈值
+│  ③ Data Scope 闸                     │  RBAC + 个人/团队/部门/公司 4 级
+│  ④ Action Scope 闸                   │  红区拒 / 黄区签批 / 绿区 + ProxyAction 24h 否决窗
+└──────────────────────────────────────┘
+    │
+    ▼
+企业行为 (议事 / 决议 / Memory / OKR 更新 / IM 发言 / 邮件发送 ...)
+```
+
+**铁律**:
+
+1. **个人 AI 的产出可被反哺组织**, 但**反哺路径必须是 Tandem 的 Capture 层** (IDE 插件 / 邮件 webhook / 文档元数据). 直接绕过 Tandem 把代码 / 决议 / Memory 写入企业资产 = 违反第十九条.
+2. **个人 AI 的 skill (MCP / Function Calling 协议) 接入 Tandem 时**, 必须挂在 4 道闸之后 — Tandem 不发布"裸 skill 列表"给员工自取.
+3. **CompanyBrain 永远是边界设定者**, 不是个人 AI 的协作者 — 它检查个人 AI 的输入/输出, 不替个人 AI 干活.
+4. **任何个人 AI 调用都进 audit** — 包括 prompt / tool calls / 阻断原因, 用于 Steward 月度审计.
+
+**反例**:
+
+- ❌ Tandem 自研个人 AI Coder/Writer 跟 Claude Code/Cursor 竞争 (重新发明轮子)
+- ❌ 把企业 Memory / OKR 直接 fan-out 到任意个人 AI (无闸放行 = 数据泄漏)
+- ❌ 让个人 AI 直接调 Tandem 议事 API 跳过 Baseline-Guard (架构破窗)
+- ❌ 不审计个人 AI 调用 (合规黑洞)
+- ❌ 强制员工只能用 Tandem 自带 AI (反第十九条之"拥抱个人 AI")
+
+**为什么单列一条 (不嫁接到第十八条 OSS 借力)**:
+
+- 第十八条边界是"**底座**借 OSS, 思考层自建" (Yjs / Tiptap / MinIO / Cal.com 等)
+- 第十九条边界是"**上层 AI 能力**借市面个人 AI, 但加 4 道闸保护组织边界"
+- 二者是**不同抽象层的开放策略**, 合并会模糊两类资产的安全模型
+
+**口号**:
+
+> **「员工自由用市面任何 AI, 我们做组织级网关, 让个人智能在组织规则下放大.」**
 
 ---
 

@@ -1,14 +1,42 @@
-# Tandem (牛马搭子) · 产品需求文档 (PRD v0.3)
+# Tandem (牛马搭子) · 产品需求文档 (PRD v0.3) · ⚠️ ARCHIVE 性质
+
+> ## ⚠️ 2026-05-27 SUPERSEDE 通告
+>
+> **本文档已下放为 archive 性质**. 后续权威按以下三层文档体系:
+>
+> | 层级 | 文档 | 性质 |
+> |---|---|---|
+> | **不变根基** | [MANIFESTO.md](./MANIFESTO.md) (19 条宪章) | 不可频繁修改 |
+> | **灵魂层** | [OKR-DRIVEN-ARCHITECTURE.md](./OKR-DRIVEN-ARCHITECTURE.md) (6 条立项初心) | 不可频繁修改, 跟 MANIFESTO 同等地位 |
+> | **产品决策** | [PRODUCT-DEFINITION.md](./PRODUCT-DEFINITION.md) (14 项决策, 已升级) | 季度更新 |
+> | **当前状态** | [STATE-OF-THE-CODE.md](./STATE-OF-THE-CODE.md) | 持续维护 |
+>
+> ### 哪些内容已 supersede
+>
+> - **§ 0-3 (产品定位 + 模块树)**: 看 PRODUCT-DEFINITION.md
+> - **§ 9-12 (GTM / 定价 / 竞品 / 财务)**: 已 supersede 为 [SELF-USE-FIRST.md](./SELF-USE-FIRST.md) — Tandem 是 Owner 自己企业的内部协作 AI 平台, 不是 SaaS 创业项目, 商业化是远期可选项
+> - **§ 5 (数据模型)**: 看 `lib/types/*.ts` + `lib/infra/drizzle-schema.ts` (代码即权威)
+>
+> ### 哪些内容仍有价值 (不删)
+>
+> - **§ 4 (系统架构 + 技术栈)**: 历史栈选型决策记录
+> - **§ 6 (UI/IA)**: 已被 [UI-IA.md](./UI-IA.md) supersede 但作背景
+> - **§ 7 (NFR)**: 等保 / GDPR / PIPL 合规清单 — 可继续参考
+> - **§ 8 (验收标准)**: 50/50 e2e + 新模块 - 已大部分完成, 可对照
+>
+> **下次大改时再迁移结构清晰内容; 当前优先做代码 + 灵魂层 + 4 板块超越**.
+
+---
 
 > **版本**: v0.3 (2026-05-10)
-> **状态**: V1 GA 实施基线 (锁 14 项核心决策, 7-7.75 月路线)
+> **状态**: ARCHIVE (2026-05-27 起) · 原标题: V1 GA 实施基线
 > **历史**: v0.1 / v0.2 见 `PRD-v0.2-archive.md`
 > **同栈文档**:
-> - `MANIFESTO.md` (18 条宪章, 不可改, 优先级最高)
-> - `PRODUCT-DEFINITION.md` (本次会话锁定的 14 项决策, 优先于 PRD)
+> - `MANIFESTO.md` (19 条宪章, 不可改, 优先级最高)
+> - `OKR-DRIVEN-ARCHITECTURE.md` (灵魂层)
+> - `PRODUCT-DEFINITION.md` (14 项决策, 优先于 PRD)
 > - `UI-IA.md` (UI 信息架构 + 设计语言)
-> - `PILOT-ONBOARDING.md` (种子客户运营)
-> - `PITCH-DECK.md` / `.pdf` / `.pptx` (销售弹药)
+> - `PILOT-ONBOARDING.md` (种子客户运营 — 远期商业化才用)
 
 ---
 

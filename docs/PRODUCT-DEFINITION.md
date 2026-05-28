@@ -13,6 +13,22 @@
 
 ---
 
+## 0.5 灵魂层 (2026-05-27 立项追加)
+
+> 详见 `docs/OKR-DRIVEN-ARCHITECTURE.md` · 跟 MANIFESTO 同等地位的不可频繁修改文档.
+
+**Tandem 企业级 Agent 的第一性原理 = OKR 驱动 / 战略执行**. 不是抽象的"组织 IQ 放大器", 是**为 OKR 而活**.
+
+| 模块 | OKR 关系 | 严格度 |
+|---|---|---|
+| **事半 (企业)** | OKR 驱动器 — 严格版 · **任何 ToDo / 自动化 / 通知 / Decision 必须可回溯到当前 OKR** | V1.5 严绑定 (`primaryKrId` XOR `noKrReason ≥ 30 字`) |
+| **拿捏 (个人)** | OKR 解耦 — 个人成长平台, 跟 OKR 不强绑 (员工尊严铁律) | 自由 |
+| **搭子 (Squad)** | OKR 关联但不强求 — 鼓励团队 Agent 围绕 KR cascade, 不强制 | 中等 |
+
+**4 道闸 (Skill Gateway, 见 MANIFESTO 第十九条)**: 个人 AI (Claude Code/Cursor/...) 接入 Tandem 时, 必须穿过 ① Baseline-Guard ② OKR Drift Detection ③ Data Scope ④ Action Scope.
+
+---
+
 ## 1. 双模块结构
 
 ```
@@ -40,7 +56,7 @@
 | # | 维度 | 决策 |
 |---|---|---|
 | 1 | 第二模块命名 | **拿捏** (呼应北极星"拿捏老板") |
-| 2 | DecisionCard ↔ KR 关系 | **软绑定**: 默认必选 KR, 可选 "无关 KR" 但**强制填写理由** |
+| 2 | DecisionCard ↔ KR 关系 | **V1.5 严绑定** (升级 2026-05-28, 见 OKR-DRIVEN §三第4条): 默认必选 KR, escape hatch 理由 ≥30 字 + 进 Steward 月审. ~~V1 软绑定 ≥10 字~~ |
 | 3 | IM 范围 | **完整替代企微 (内部)**: 通讯录树/群聊/已读回执/撤回/多端同步 + 音视频会议 + 文件存储 + 协同文档 (LiveKit/腾讯 + MinIO + Univer/Tiptap) + **PC/Web/iOS/Android 多端** |
 | 4 | Persona 模型架构 | **双层**: Persona = **本地 Hermes** / 中央 AI = **云 DeepSeek** |
 | 5 | OKR 追踪深度 | **重型 5 层**: O → KR → Initiative → DC → ActionItem + AI 滞后预警 |
