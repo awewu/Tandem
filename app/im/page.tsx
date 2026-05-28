@@ -15,6 +15,8 @@ import { ContactsTree } from '@/components/im/contacts-tree';
 import { ChannelSettingsDialog } from '@/components/im/channel-settings-dialog';
 import { SeedFromOrgDialog } from '@/components/im/seed-from-org-dialog';
 import { AgentModeToggle } from '@/components/im/agent-mode-toggle';
+import { AiTraceButton } from '@/components/im/ai-trace-button';
+import { CompanyBrainFeedbackButtons } from '@/components/im/company-brain-feedback';
 import type { ImChannel, ImMembership, ImMessage } from '@/lib/types/im';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import Link from 'next/link';
@@ -1183,6 +1185,12 @@ function MessageRow({
               <Pin className="h-3 w-3" />
               {isPinned ? '已顶' : '置顶'}
             </button>
+            {/* §IM-7: AI 回复透明化 trace 按钮 (仅 persona 消息) */}
+            {isPersona && <AiTraceButton messageId={msg.id} />}
+            {/* §CA-13: CompanyBrain Decision 反馈按钮 (仅 CompanyBrain 消息, 通过 aiTraceId 前缀判断) */}
+            {isPersona && msg.aiTraceId?.startsWith('imtrace_cb_') && (
+              <CompanyBrainFeedbackButtons messageId={msg.id} />
+            )}
             {/* Day 4: 撤回 (仅本人 + 2 分钟内) */}
             {recallable && (
               <button
