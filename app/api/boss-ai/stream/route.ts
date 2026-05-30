@@ -172,6 +172,25 @@ export async function POST(req: NextRequest): Promise<Response> {
           tenantId: auth.tenantId,
         });
 
+        // §B-015 OKR Drift Detection · fire-and-forget · 不阻塞 SSE close
+        // 治理委员会月审看 'BossAI 提问主航道偏离率', 不警告用户 (BossAI 是问答, 不是决策)
+        queueMicrotask(() => {
+          (async () => {
+            try {
+              const { checkOkrDrift, auditOkrDriftIfNeeded } = await import('@/lib/governance/okr-drift');
+              const driftInput = {
+                intent: userQuestion,
+                actorUserId: auth.userId,
+                source: 'company_brain_reply' as const,
+                refId: sessionId ?? undefined,
+                tenantId: auth.tenantId,
+              };
+              const drift = await checkOkrDrift(driftInput);
+              await auditOkrDriftIfNeeded(drift, driftInput);
+            } catch { /* best-effort */ }
+          })();
+        });
+
         send({ done: true, length: fullResponse.length });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
