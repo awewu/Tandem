@@ -1,0 +1,229 @@
+/**
+ * POST /api/boss-ai/stream · Tandem AI · 老板的搭子 · SSE 流式接口
+ *
+ * §灵魂入口 (2026-05-29 PT 19:00):
+ * - 任何同事在任何页面方向不明 → 浮窗问 → 此端点回答
+ * - 答案基于 CompanyBrain Persona (老板的分身) + OKR Anchor + 公司 Memory
+ * - 客户端不可改写 systemPrompt; 安全 + 一致性都在服务端兜底
+ *
+ * Body:
+ *   { messages: { role, content }[],
+ *     sessionId?: string,        // 客户端 uuid, 用于审计串联
+ *     currentPath?: string,      // 当前页面 URL, 注入为 'PAGE_CONTEXT' anchor
+ *     currentTask?: string }     // 当前任务简述 (可选)
+ *
+ * Response: SSE
+ *   data: {"content": "..."}
+ *   data: {"done": true, "usage": {...}}
+ *   data: {"error": "..."}
+ */
+import { NextRequest } from 'next/server';
+import { boot, getRouter } from '@/lib/boot';
+import { requireAuth } from '@/lib/auth/require-auth';
+import { buildCompanyBrainSystemPrompt } from '@/lib/persona/company-brain';
+import { audit } from '@/lib/audit/log';
+import type { ChatMessage } from '@/lib/taf/provider/types';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+interface IncomingMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+}
+
+interface RequestBody {
+  messages?: IncomingMessage[];
+  sessionId?: string;
+  currentPath?: string;
+  currentTask?: string;
+}
+
+export async function POST(req: NextRequest): Promise<Response> {
+  const auth = requireAuth(req);
+  if (!('userId' in auth)) return auth; // 401
+
+  let body: RequestBody;
+  try {
+    body = (await req.json()) as RequestBody;
+  } catch {
+    return sseError('Invalid JSON body', 400);
+  }
+
+  const { messages = [], sessionId, currentPath, currentTask } = body;
+  if (messages.length === 0) {
+    return sseError('messages 不能为空', 400);
+  }
+
+  await boot();
+  const router = getRouter();
+
+  // ── 1. 服务端构建 systemPrompt (客户端无权改写) ──────────────────
+  let baseSystemPrompt: string;
+  try {
+    baseSystemPrompt = await buildCompanyBrainSystemPrompt();
+  } catch (err) {
+    return sseError(`CompanyBrain prompt 构建失败: ${(err as Error).message}`, 500);
+  }
+
+  // ── 2. 注入页面/任务上下文 anchor ─────────────────────────────
+  const contextAnchor = buildContextAnchor({ currentPath, currentTask, userId: auth.userId });
+  const systemPrompt = `${baseSystemPrompt}\n\n${contextAnchor}`;
+
+  const chatMessages: ChatMessage[] = [
+    { role: 'system', content: systemPrompt },
+    ...messages.map((m) => ({ role: m.role, content: m.content })),
+  ];
+
+  // ── 3. 审计起点 (问题进 audit, 答案在 stream 结束后再写) ────────
+  const userQuestion = messages[messages.length - 1]?.content ?? '';
+  await audit('boss_ai.ask', auth.userId, {
+    targetId: sessionId ?? 'no-session',
+    targetType: 'boss_ai_session',
+    metadata: {
+      questionPreview: userQuestion.slice(0, 200),
+      currentPath: currentPath ?? null,
+      messageCount: messages.length,
+    },
+    tenantId: auth.tenantId,
+  }).catch(() => { /* best-effort */ });
+
+  // ── 4. SSE 流式回写 ────────────────────────────────────────────
+  const encoder = new TextEncoder();
+  let fullResponse = '';
+
+  const readable = new ReadableStream({
+    async start(controller) {
+      let closed = false;
+      const safeClose = () => {
+        if (closed) return;
+        closed = true;
+        try { controller.close(); } catch { /* ignore */ }
+      };
+      const send = (obj: unknown) => {
+        try {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`));
+        } catch { /* ignore */ }
+      };
+
+      const onAbort = () => {
+        send({ done: true, aborted: true });
+        safeClose();
+      };
+      req.signal.addEventListener('abort', onAbort);
+
+      try {
+        const stream = router.chatStream({
+          messages: chatMessages,
+          scenario: 'reasoning_complex',
+          temperature: 0.6,
+          metadata: { requestId: sessionId },
+        });
+
+        for await (const chunk of stream) {
+          if (req.signal.aborted) break;
+          const text = typeof chunk.delta?.content === 'string' ? chunk.delta.content : '';
+          if (text) {
+            fullResponse += text;
+            send({ content: text });
+          }
+        }
+
+        // 完成 · 写答案审计 (best-effort)
+        await audit('boss_ai.answer', auth.userId, {
+          targetId: sessionId ?? 'no-session',
+          targetType: 'boss_ai_session',
+          metadata: {
+            answerLength: fullResponse.length,
+            answerPreview: fullResponse.slice(0, 300),
+          },
+          tenantId: auth.tenantId,
+        }).catch(() => {});
+
+        send({ done: true, length: fullResponse.length });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        send({ error: `Tandem AI 调用失败: ${msg}` });
+        send({ done: true, length: fullResponse.length });
+      } finally {
+        req.signal.removeEventListener('abort', onAbort);
+        safeClose();
+      }
+    },
+  });
+
+  return new Response(readable, {
+    headers: {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    },
+  });
+}
+
+/**
+ * GET /api/boss-ai/stream · 仅做 health probe (返回当前 CompanyBrain 路由信息)
+ * 客户端首屏可调用此端点确认 provider 在线.
+ */
+export async function GET(req: NextRequest): Promise<Response> {
+  const auth = requireAuth(req);
+  if (!('userId' in auth)) return auth;
+
+  await boot();
+  const router = getRouter();
+  return new Response(
+    JSON.stringify({
+      ok: true,
+      providers: router.listProviders(),
+      scenario: 'reasoning_complex',
+    }),
+    { headers: { 'Content-Type': 'application/json' } },
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────
+// helpers
+// ──────────────────────────────────────────────────────────────────
+
+function buildContextAnchor(args: {
+  currentPath?: string;
+  currentTask?: string;
+  userId: string;
+}): string {
+  const lines: string[] = ['【会话上下文】'];
+  lines.push(`- 提问人 userId: ${args.userId}`);
+  if (args.currentPath) {
+    lines.push(`- 当前页面: ${args.currentPath}`);
+  }
+  if (args.currentTask) {
+    lines.push(`- 当前任务: ${args.currentTask}`);
+  }
+  lines.push('');
+  lines.push(
+    '【回答原则】你是老板的分身, 永远在线. 同事方向不明就问你. ' +
+      '请用第一人称代表老板回答, 简短(≤300字), 务实, 优先指向当前 OKR. ' +
+      '如果问题需要具体数据/同事确认, 明确说"我建议你去 X 页面看 / 跟 Y 同事确认". ' +
+      '不编造数据, 不替员工签字; 但要给出方向、优先级、判断框架.',
+  );
+  return lines.join('\n');
+}
+
+function sseError(message: string, status: number): Response {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: message })}\n\n`));
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true })}\n\n`));
+      controller.close();
+    },
+  });
+  return new Response(stream, {
+    status,
+    headers: {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache',
+    },
+  });
+}
+

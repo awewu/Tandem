@@ -90,6 +90,9 @@ export type AuditAction =
   | 'agent.spawned'
   | 'agent.completed'
   | 'budget.exceeded'
+  // BossAI · Tandem AI 老板的搭子 (全局浮窗入口)
+  | 'boss_ai.ask'                // 同事提问
+  | 'boss_ai.answer'             // 中央 AI 回答完成
   // KPI 体系 (CHARTER-KPI-TTI §2)
   | 'kpi.cycle_created'
   | 'kpi.cycle_activated'        // targetValue 锁死时刻
