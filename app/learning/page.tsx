@@ -64,18 +64,18 @@ export default function LearningPage() {
 
   return (
     <main className="container mx-auto max-w-4xl space-y-6 px-4 py-6 sm:py-8">
-      {/* ===== v0.2 Banner · 学院 stub 公告 ===== */}
+      {/* ===== v0.2 Banner · 学院 stub 公告 (CHARTER-UI-V1 §1.5 合规) ===== */}
       <div
         role="status"
-        className="rounded-xl border-l-4 border-amber-500 bg-amber-50 dark:bg-amber-950/30 px-4 py-3 text-caption"
+        className="rounded-2xl border-l-4 border-warning bg-warning/5 px-4 py-3 shadow-soft-xs"
       >
         <div className="flex items-start gap-3">
-          <Sparkles className="h-5 w-5 shrink-0 text-amber-600 mt-0.5" />
+          <Sparkles className="h-5 w-5 shrink-0 text-warning mt-0.5" />
           <div className="min-w-0">
-            <p className="font-semibold text-amber-900 dark:text-amber-200">
+            <p className="text-headline text-ink-primary">
               学院 v0.2 即将上线 · 当前展示骨架
             </p>
-            <p className="mt-1 text-amber-800/80 dark:text-amber-300/80">
+            <p className="mt-1 text-caption text-ink-secondary">
               本页课程为示例占位（fixtures）。HR 派课、Excel 导入、真实题库、学分置换
               在 v0.2-v0.4 分阶段开放。当前可以浏览结构 + 体验骨架，未来无缝接入真课程。
             </p>

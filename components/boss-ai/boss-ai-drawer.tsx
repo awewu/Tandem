@@ -7,17 +7,11 @@
  * 内容: header + 首屏引导 (空态) + 消息列表 + 输入框
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { Sparkles, X, Plus, Send, AlertCircle, Loader2 } from 'lucide-react';
+import { Sparkles, X, Plus, Send, AlertCircle, Loader2, MapPin } from 'lucide-react';
 import { useBossAi, type BossAiMessage } from './use-boss-ai';
-
-const EXAMPLE_PROMPTS = [
-  { icon: '🎯', text: '我现在应该聚焦什么 OKR?' },
-  { icon: '🤝', text: '这个客户值不值得花时间?' },
-  { icon: '💡', text: '这个议题怎么对齐公司战略?' },
-  { icon: '📋', text: '我这周该和谁 1on1?' },
-];
+import { getExamplePrompts, getPathLabel } from './example-prompts';
 
 export function BossAiDrawer() {
   const { isOpen, close, messages, streaming, error, send, newSession } = useBossAi();
@@ -25,6 +19,10 @@ export function BossAiDrawer() {
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // §上下文感知 · 按 path 动态生成示例 prompts + 显示"已带入上下文"标签
+  const examplePrompts = useMemo(() => getExamplePrompts(pathname), [pathname]);
+  const pathLabel = useMemo(() => getPathLabel(pathname), [pathname]);
 
   // Esc 关闭
   useEffect(() => {
@@ -96,9 +94,16 @@ export function BossAiDrawer() {
             <Sparkles className="h-4 w-4" />
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="text-callout font-semibold text-ink-primary">Tandem AI · 老板的搭子</h2>
-            <p className="text-footnote text-ink-tertiary truncate">
-              方向不明就问我 · 基于老板 Persona + 当前 OKR
+            <h2 className="text-headline text-ink-primary">Tandem AI · 老板的搭子</h2>
+            <p className="text-footnote text-ink-tertiary truncate inline-flex items-center gap-1">
+              {pathLabel ? (
+                <>
+                  <MapPin className="h-3 w-3 shrink-0" aria-hidden />
+                  已带入「{pathLabel}」上下文
+                </>
+              ) : (
+                <>方向不明就问我 · 基于老板 Persona + 当前 OKR</>
+              )}
             </p>
           </div>
           {hasMessages && (
@@ -125,7 +130,11 @@ export function BossAiDrawer() {
         {/* ── 消息区 (滚动) ──────────────────────────────── */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
           {!hasMessages ? (
-            <EmptyState onPick={(t) => { setInput(t); inputRef.current?.focus(); }} />
+            <EmptyState
+              prompts={examplePrompts}
+              pathLabel={pathLabel}
+              onPick={(t) => { setInput(t); inputRef.current?.focus(); }}
+            />
           ) : (
             messages.map((m, i) => <MessageBubble key={i} m={m} />)
           )}
@@ -189,10 +198,18 @@ export function BossAiDrawer() {
 // ──────────────────────────────────────────────────────────────────
 // 空态首屏
 // ──────────────────────────────────────────────────────────────────
-function EmptyState({ onPick }: { onPick: (text: string) => void }) {
+function EmptyState({
+  prompts,
+  pathLabel,
+  onPick,
+}: {
+  prompts: { icon: string; text: string }[];
+  pathLabel: string | null;
+  onPick: (text: string) => void;
+}) {
   return (
     <div className="py-2">
-      <div className="rounded-2xl bg-gradient-to-br from-[rgb(var(--brand-50))] to-[rgb(var(--surface-2))] p-4">
+      <div className="rounded-2xl bg-gradient-to-br from-[rgb(var(--brand-50))] to-[rgb(var(--surface-2))] p-4 shadow-soft-xs">
         <p className="text-body text-ink-primary leading-relaxed">
           我是 <strong>Tandem AI · 老板的分身</strong>。
         </p>
@@ -203,21 +220,21 @@ function EmptyState({ onPick }: { onPick: (text: string) => void }) {
       </div>
 
       <p className="mt-4 mb-2 text-footnote text-ink-tertiary uppercase tracking-wider">
-        试试这样问
+        {pathLabel ? `「${pathLabel}」上试试这样问` : '试试这样问'}
       </p>
       <div className="space-y-2">
-        {EXAMPLE_PROMPTS.map((p) => (
+        {prompts.map((p) => (
           <button
             key={p.text}
             type="button"
             onClick={() => onPick(p.text)}
             className={
-              'flex w-full items-center gap-3 rounded-lg border bg-[rgb(var(--surface-1))] px-3 py-2.5 text-left ' +
+              'flex w-full items-center gap-3 rounded-md border bg-[rgb(var(--surface-1))] px-3 py-2.5 text-left ' +
               'hover:border-[rgb(var(--brand-300))] hover:bg-[rgb(var(--surface-2))] transition-colors surface-interactive'
             }
             style={{ borderColor: 'rgb(var(--border-subtle))' }}
           >
-            <span className="text-base shrink-0" aria-hidden>{p.icon}</span>
+            <span className="text-headline shrink-0" aria-hidden>{p.icon}</span>
             <span className="text-caption text-ink-primary">{p.text}</span>
           </button>
         ))}

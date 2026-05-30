@@ -165,6 +165,7 @@ Persona stage 5 阶段 (`newborn/apprentice/assistant/deputy/partner`) **只能*
 | 日期 | 范围 | 文件 | 描述 | 修复 PR |
 |---|---|---|---|---|
 | 2026-05-29 | Academy Metaphor 7 组件 | StudentCard / CourseTabs / TodayTab / ArchiveTab / LessonViewer / app/persona/page / app/learning/page | 全 raw Tailwind 颜色 + Tailwind 默认 shadow + Hero `text-lg` 当主标 | 同日重构 (见 git log) |
+| 2026-05-29 PT 19:30 | /learning v0.2 banner + BossAI header/FAB | app/learning/page.tsx (新加 banner) + components/boss-ai/boss-ai-fab.tsx + boss-ai-drawer.tsx | banner 用 `bg-amber-50 text-amber-700 border-amber-500` raw 调色 (§1.5 违规); BossAI 标题用未定义的 `text-callout` (§1.2 违规, 系统性遗留) | 同日整改: banner 改 `bg-warning/5 border-warning text-warning`; BossAI 改 `text-headline` (charter §1.2 列出的合规级) |
 
 每次违规事故必须登记在此表, 不许默默修, 防止重复犯.
 

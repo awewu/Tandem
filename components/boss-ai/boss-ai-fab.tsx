@@ -49,8 +49,8 @@ export function BossAiFab() {
       style={{ paddingRight: '14px' }}
     >
       <Sparkles className="h-5 w-5 shrink-0" aria-hidden />
-      <span className="hidden md:inline text-callout font-semibold whitespace-nowrap">问老板</span>
-      <span className="hidden md:inline text-[10px] font-mono opacity-70 ml-1">⌘J</span>
+      <span className="hidden md:inline text-headline font-semibold whitespace-nowrap">问老板</span>
+      <span className="hidden md:inline text-footnote font-mono opacity-70 ml-1">⌘J</span>
     </button>
   );
 }
