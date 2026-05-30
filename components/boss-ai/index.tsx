@@ -28,3 +28,4 @@ export function BossAiMount() {
 
 export { useBossAi, type PendingPrompt } from './use-boss-ai';
 export type { ExamplePrompt } from './example-prompts';
+export { AskBossButton } from './ask-boss-button';

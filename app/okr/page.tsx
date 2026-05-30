@@ -37,6 +37,7 @@ import { OKRTtiPanel } from '@/components/okr/okr-tti-panel';
 import { OKRRetrospective } from '@/components/okr/okr-retrospective';
 import { OKRMonthlyComparison } from '@/components/okr/okr-monthly-comparison';
 import { OKRAlignmentTree } from '@/components/okr/okr-alignment-tree';
+import { AskBossButton } from '@/components/boss-ai';
 import { checkQuality } from '@/lib/okr/quality';
 import { calcObjectiveScore } from '@/lib/okr/scoring';
 import { objectivePulse, pulseLabel, summarizePulses, CADENCE_LABEL } from '@/lib/okr/cadence';
@@ -503,6 +504,12 @@ export default function OKRPage() {
                   <p className="text-xs text-muted-foreground mt-1">{selected.description}</p>
                 )}
               </div>
+              <AskBossButton
+                variant="icon"
+                prompt={`关于这个目标「${selected.title}」, 我应该怎么推进? 它跟当前公司 OKR 的关系是什么?`}
+                task={`OKR Objective: ${selected.title}`}
+                aria-label="问老板这个目标怎么推进"
+              />
               <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => startEditObjective(selected)}>
                 <Edit2 className="h-3.5 w-3.5" />
               </Button>

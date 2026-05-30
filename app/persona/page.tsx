@@ -19,6 +19,8 @@ import {
 import { TodayTab } from '@/components/persona/TodayTab';
 import { ArchiveTab } from '@/components/persona/ArchiveTab';
 import { PrivacyFooter } from '@/components/persona/PrivacyFooter';
+import { AskBossButton } from '@/components/boss-ai';
+import { STAGE_META } from '@/lib/persona/stage-meta';
 import { useCurrentUserId } from '@/lib/hooks/use-current-user';
 import type { Persona } from '@/lib/types/persona';
 
@@ -129,10 +131,28 @@ function PersonaPageInner() {
     [],
   );
 
+  const stageMeta = STAGE_META[view.stage];
   return (
     <main className="container mx-auto max-w-3xl space-y-5 px-4 py-6">
       {/* Hero · 学员证 (含 5 主修网格) */}
       <StudentCard persona={view} isDemo={isDemo} />
+
+      {/* §灵魂入口深链 · 给学员一个"问老板我怎么晋升"的快捷 */}
+      <div className="flex flex-wrap items-center gap-2 px-1">
+        <AskBossButton
+          prompt={`我现在是 Lv.${stageMeta.level} ${stageMeta.title}, 综合 GPA ${view.bossCaptureScore}/100. 我下一阶段晋升缺什么? 应该先训练哪个主修方向?`}
+          task={`Persona 阶段咨询: Lv.${stageMeta.level} ${stageMeta.title}`}
+        >
+          问老板我怎么晋升
+        </AskBossButton>
+        <AskBossButton
+          variant="pill"
+          prompt={`我应该如何训练我的主分身让它代我做更多事? 我现在的代行权限够不够用?`}
+          task={`Persona 训练咨询: delegationLevel=${view.delegationLevel}`}
+        >
+          我该怎么训练分身
+        </AskBossButton>
+      </div>
 
       {/* 4 面 tab */}
       <CourseTabs active={activeTab} badges={badges} />
