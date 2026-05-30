@@ -166,6 +166,7 @@ Persona stage 5 阶段 (`newborn/apprentice/assistant/deputy/partner`) **只能*
 |---|---|---|---|---|
 | 2026-05-29 | Academy Metaphor 7 组件 | StudentCard / CourseTabs / TodayTab / ArchiveTab / LessonViewer / app/persona/page / app/learning/page | 全 raw Tailwind 颜色 + Tailwind 默认 shadow + Hero `text-lg` 当主标 | 同日重构 (见 git log) |
 | 2026-05-29 PT 19:30 | /learning v0.2 banner + BossAI header/FAB | app/learning/page.tsx (新加 banner) + components/boss-ai/boss-ai-fab.tsx + boss-ai-drawer.tsx | banner 用 `bg-amber-50 text-amber-700 border-amber-500` raw 调色 (§1.5 违规); BossAI 标题用未定义的 `text-callout` (§1.2 违规, 系统性遗留) | 同日整改: banner 改 `bg-warning/5 border-warning text-warning`; BossAI 改 `text-headline` (charter §1.2 列出的合规级) |
+| 2026-05-29 PT 22:10 | /admin/usage 看板 (Owner 同事使用 + 成本) | app/admin/usage/page.tsx | 全 raw Tailwind: `text-zinc-500/400` (§1.4) + `border-zinc-200/300/800` + `bg-white/dark:bg-zinc-900` (§1.5) + `text-red-600` + `text-2xl/sm/xs font-semibold` (§1.2 应走 text-title/headline/caption/footnote) + `rounded-xl` (§1.7 应 rounded-2xl); 这页刚被加到 nav '使用 + 成本', 不可以是违规货 | 同日 commit `4d495d5` 一次性整改: ink-{primary,secondary,tertiary} / surface-card + shadow-soft-xs / text-title-1/headline/caption/footnote / rounded-2xl / border via CSS var inline style |
 
 每次违规事故必须登记在此表, 不许默默修, 防止重复犯.
 
