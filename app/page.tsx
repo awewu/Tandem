@@ -138,7 +138,7 @@ export default function HomePage() {
             }}
             className="inline-flex items-center gap-1.5 rounded-md border border-[rgb(var(--brand-300))] bg-[rgb(var(--brand-50))] px-3 py-1.5 text-caption font-medium text-[rgb(var(--brand-700))] hover:bg-[rgb(var(--brand-100))] surface-interactive"
           >
-            <Sparkles className="h-3.5 w-3.5" /> 问老板
+            <Sparkles className="h-3.5 w-3.5" /> 问 Tandem
           </button>
           <button
             type="button"

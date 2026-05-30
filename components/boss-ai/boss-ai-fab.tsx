@@ -30,9 +30,9 @@ export function BossAiFab() {
     <button
       type="button"
       onClick={toggle}
-      aria-label={isOpen ? '关闭 Tandem AI · 老板的搭子' : '打开 Tandem AI · 老板的搭子'}
+      aria-label={isOpen ? '关闭 Tandem AI · 工作搭子' : '打开 Tandem AI · 工作搭子'}
       aria-pressed={isOpen}
-      title="问老板 (⌘J)"
+      title="Tandem AI (⌘J)"
       className={
         // 桌面: 右下 24px · mobile: 右下 80px (避开底部 tab bar 56px + 间距)
         'fixed right-5 bottom-5 z-[60] flex items-center gap-2 ' +
@@ -49,7 +49,7 @@ export function BossAiFab() {
       style={{ paddingRight: '14px' }}
     >
       <Sparkles className="h-5 w-5 shrink-0" aria-hidden />
-      <span className="hidden md:inline text-headline font-semibold whitespace-nowrap">问老板</span>
+      <span className="hidden md:inline text-headline font-semibold whitespace-nowrap">问 Tandem</span>
       <span className="hidden md:inline text-footnote font-mono opacity-70 ml-1">⌘J</span>
     </button>
   );

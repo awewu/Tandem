@@ -62,8 +62,8 @@ export function AskBossButton({
       <button
         type="button"
         onClick={handleClick}
-        aria-label={ariaLabel ?? '问老板'}
-        title={ariaLabel ?? '问老板'}
+        aria-label={ariaLabel ?? '问 Tandem'}
+        title={ariaLabel ?? '问 Tandem'}
         className={cn(
           'inline-flex h-7 w-7 items-center justify-center rounded-full',
           'border border-[rgb(var(--brand-200))] bg-[rgb(var(--brand-50))] text-[rgb(var(--brand-600))]',
@@ -90,7 +90,7 @@ export function AskBossButton({
         )}
       >
         <Sparkles className="h-3.5 w-3.5" aria-hidden />
-        {children ?? '问老板'}
+        {children ?? '问 Tandem'}
       </button>
     );
   }
@@ -110,7 +110,7 @@ export function AskBossButton({
       )}
     >
       <Sparkles className="h-3.5 w-3.5" aria-hidden />
-      {children ?? '问老板'}
+      {children ?? '问 Tandem'}
     </button>
   );
 }

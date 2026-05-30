@@ -143,7 +143,7 @@ function PersonaPageInner() {
           prompt={`我现在是 Lv.${stageMeta.level} ${stageMeta.title}, 综合 GPA ${view.bossCaptureScore}/100. 我下一阶段晋升缺什么? 应该先训练哪个主修方向?`}
           task={`Persona 阶段咨询: Lv.${stageMeta.level} ${stageMeta.title}`}
         >
-          问老板我怎么晋升
+          问 Tandem 我怎么晋升
         </AskBossButton>
         <AskBossButton
           variant="pill"

@@ -484,7 +484,7 @@ function MeetingDetail({
             prompt={`我马上要跟 ${reportName} 1on1, 应该聊什么? 他/她最近的成长瓶颈可能在哪? 怎么给反馈最有效?`}
             task={`1on1: ${managerName} ↔ ${reportName} · ${new Date(meeting.scheduledAt).toLocaleString('zh-CN')}`}
           >
-            问老板这场怎么聊
+            问 Tandem 这场怎么聊
           </AskBossButton>
           <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={onDelete} title="删除">
             <Trash2 className="h-3.5 w-3.5" />

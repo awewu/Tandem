@@ -508,7 +508,7 @@ export default function OKRPage() {
                 variant="icon"
                 prompt={`关于这个目标「${selected.title}」, 我应该怎么推进? 它跟当前公司 OKR 的关系是什么?`}
                 task={`OKR Objective: ${selected.title}`}
-                aria-label="问老板这个目标怎么推进"
+                aria-label="问 Tandem 这个目标怎么推进"
               />
               <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => startEditObjective(selected)}>
                 <Edit2 className="h-3.5 w-3.5" />

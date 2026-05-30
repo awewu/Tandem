@@ -41,7 +41,7 @@ export function StageProgressDashboard({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-amber-500" />
-            拿捏老板分身 · 进化进度
+            我的分身 · 进化进度
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">

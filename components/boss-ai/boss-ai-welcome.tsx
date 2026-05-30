@@ -93,7 +93,7 @@ export function BossAiWelcome() {
         </div>
         <div className="min-w-0 flex-1">
           <h3 className="text-headline text-ink-primary">试试 Tandem AI</h3>
-          <p className="text-footnote text-ink-tertiary">老板的搭子 · 永远在线</p>
+          <p className="text-footnote text-ink-tertiary">工作搭子 · 永远在线</p>
         </div>
         <button
           type="button"
@@ -108,7 +108,7 @@ export function BossAiWelcome() {
       {/* 内容 */}
       <div className="px-4 pb-3">
         <p className="text-body text-ink-secondary leading-relaxed">
-          方向不明就问我。任何页面右下角点 <span className="text-ink-primary font-medium">「问老板」</span>
+          方向不明就问我。任何页面右下角点 <span className="text-ink-primary font-medium">「问 Tandem」</span>
           {' '}或按 <kbd className="rounded border border-[rgb(var(--border-subtle))] bg-[rgb(var(--surface-2))] px-1.5 py-0.5 font-mono text-footnote">⌘J</kbd>。
         </p>
       </div>
@@ -129,7 +129,7 @@ export function BossAiWelcome() {
           className="ml-auto inline-flex items-center gap-1.5 rounded-md bg-[rgb(var(--brand-500))] px-3 py-1.5 text-caption font-semibold text-white hover:bg-[rgb(var(--brand-600))] surface-interactive"
         >
           <Sparkles className="h-3.5 w-3.5" />
-          试试问老板
+          试试 Tandem AI
         </button>
       </div>
     </aside>
