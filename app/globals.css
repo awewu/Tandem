@@ -559,9 +559,9 @@
    mobile 不调整, drawer 全屏覆盖是预期行为.
    ============================================================= */
 @media (min-width: 768px) {
-  body.bossai-open main {
+  /* 仅作用于外层 shell main (layout.tsx), 嵌套 <main> 不受影响 */
+  body.bossai-open #tandem-shell-main {
     padding-right: 420px;
-    transition: padding-right 240ms cubic-bezier(0.4, 0, 0.2, 1);
   }
   /* 同时给 fixed FAB 也让位, 避免被 drawer 盖住 */
   body.bossai-open [aria-label*="Tandem AI"][aria-pressed] {
@@ -569,6 +569,6 @@
     transition: right 240ms cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
-main {
+#tandem-shell-main {
   transition: padding-right 240ms cubic-bezier(0.4, 0, 0.2, 1);
 }

@@ -78,7 +78,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               {/* Mobile only top bar */}
               <MobileTopBar />
 
-              <main className="flex-1 overflow-y-auto bg-[rgb(var(--surface-1))] pb-[56px] md:overflow-hidden md:pb-0">
+              <main id="tandem-shell-main" className="flex-1 overflow-y-auto bg-[rgb(var(--surface-1))] pb-[56px] md:overflow-hidden md:pb-0">
                 <ErrorBoundary>{children}</ErrorBoundary>
               </main>
 
