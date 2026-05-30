@@ -152,8 +152,8 @@ Hermes 的 `AIAgent.run_conversation()` 同一核心, 通过薄适配层服务:
 - API Server
 - Batch Runner
 
-**对 Tandem 的映射**: Tandem 当前是 Web 应用, 但企业用户已经在用企业微信/钉钉/飞书.
-→ **Gateway 适配层**: 让 Tandem Agent 可以通过企业 IM 渠道触达用户 (不是替代 IM, 而是"决议提醒通过 IM 推送").
+**对 Tandem 的映射**: Tandem 当前是 Web 应用. 中国市场走自有桌面 (Tauri) + 原生移动 App, **不接钉钉/企微/飞书** (战略红线, 他们是直接竞品, 详 `OKR-VS-TITA.md` §11).
+→ **中性 Gateway 适配层** (仅 V2 考虑): 让 Tandem Agent 通过中性渠道触达用户 — SMTP/IMAP 邮箱 / Slack · Teams (海外市场) / RocketChat (OSS).
 
 **宪章守门**: 仅推送"需要你决定的事"(Waiting), 不推送"你在拖延"(§11 反消息黏性).
 
@@ -313,12 +313,15 @@ hermes chat --toolsets "web,terminal"
 - **优先级**: 高 (V1.5, 安全基线)
 - **宪章守门**: `restricted-tools` 列表由宪章 §13.2 直接推导, 非管理员可配置
 
-### EVO-19 · 企业 IM Gateway (仅 Waiting 推送)
+### EVO-19 · 中性 IM Gateway (仅 Waiting 推送 · 不接钉钉/企微/飞书)
 
-- **来源**: Hermes Gateway (Telegram/Discord/Slack/WhatsApp/Signal)
+> 2026-05-30 战略红线调整: 原名"企业 IM Gateway" 准备接钉钉/企微/飞书, 现改为“中性” — 他们是直接竞品, 接 = 变插件.
+仅接: Slack/Teams (海外) / SMTP-IMAP 邮箱 / RocketChat (OSS). 详 `OKR-VS-TITA.md` §11.
+
+- **来源**: Hermes Gateway (Telegram/Discord/Slack/WhatsApp/Signal 中性渠道)
 - **现状**: Tandem 是纯 Web 应用, 用户必须主动打开
 - **方案**:
-  - 构建轻量 Gateway 层, 支持企业微信 / 钉钉 / 飞书 Webhook
+  - 构建轻量 Gateway 层, 支持中性渠道 (Slack / Teams / SMTP-IMAP) — **不接企业微信 / 钉钉 / 飞书 Webhook**
   - 仅推送 **"Waiting" 状态项** (需要你决定的事):
     - 决议待投票 ("XX 决议等你投票, 还剩 2 小时")
     - 1on1 待确认 ("下周三 1on1 请确认时间")

@@ -34,7 +34,7 @@
 | 16 | **EVO-16** Persona 记忆三层化 | Hermes Memory | V1.5 | 6 天 | 🔄 待启动 | EVO-4 基础版 |
 | 17 | **EVO-17** 多角色 Profile | Hermes Profile | V1.5 | 5 天 | 🔄 待启动 | EVO-13 Skills |
 | 18 | **EVO-18** Agent 工具集动态管理 | Hermes Toolsets | V1.5 | 4 天 | 🔄 待启动 | — |
-| 19 | **EVO-19** 企业 IM Gateway | Hermes Gateway | V1.5 | 7 天 | 🔄 待启动 | IM auth 修复 |
+| 19 | **EVO-19** 中性 IM Gateway (Slack/Teams/Email) | Hermes Gateway | V1.5 | 7 天 | 🔄 待启动 (原“企业 IM Gateway” 含钉钉/企微/飞书 · 2026-05-30 战略红线调整 · 他们是直接竞品永不接) | IM auth 修复 |
 
 ### 0.2 审计修复项 (AUDIT-FIX-1 ~ AUDIT-FIX-8)
 
@@ -93,7 +93,7 @@ EVO-16 Persona 记忆三层化        6 天
 EVO-4  Persona 工作记忆基础版     6 天
 EVO-9  ReasoningBank             6 天
 EVO-3  HRIS Adapter (via MCP)    7 天
-EVO-19 企业 IM Gateway           7 天
+EVO-19 中性 IM Gateway           7 天
 EVO-14 Steward Subagent 隔离     8 天
 EVO-6  Steward Agent 基础版      10 天
 ─────────────────────────────────
@@ -169,7 +169,7 @@ Layer 3 (架构深化)
 |---|---|---|
 | D22-D24 | EVO-15: MCP Gateway (Client + Server) | PR #11 |
 | D25-D26 | EVO-4: Persona 工作记忆基础版 | PR #12 |
-| D27-D28 | EVO-19: 企业 IM Gateway (企业微信/钉钉/飞书) | PR #13 |
+| D27-D28 | EVO-19: 中性 IM Gateway (Slack/Teams/Email · 不接钉钉/企微/飞书 · 详 OKR-VS-TITA.md §11) | PR #13 |
 
 ### Month 2 (2026-06-10 ~ 07-07): 架构完成
 
