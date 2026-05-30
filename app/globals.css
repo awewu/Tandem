@@ -552,3 +552,23 @@
   }
   .animate-hero-shimmer { animation: hero-shimmer 8s ease-in-out infinite; }
 }
+
+/* =============================================================
+   §BossAI Drawer Layout Adjustment (2026-05-29)
+   drawer 打开时, 桌面 (md+) 让出 420px 空间, 让主内容平滑缩小而非被遮挡.
+   mobile 不调整, drawer 全屏覆盖是预期行为.
+   ============================================================= */
+@media (min-width: 768px) {
+  body.bossai-open main {
+    padding-right: 420px;
+    transition: padding-right 240ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  /* 同时给 fixed FAB 也让位, 避免被 drawer 盖住 */
+  body.bossai-open [aria-label*="Tandem AI"][aria-pressed] {
+    right: calc(420px + 1.25rem);
+    transition: right 240ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+main {
+  transition: padding-right 240ms cubic-bezier(0.4, 0, 0.2, 1);
+}

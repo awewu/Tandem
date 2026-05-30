@@ -15,10 +15,12 @@
 import { BossAiFab } from './boss-ai-fab';
 import { BossAiDrawer } from './boss-ai-drawer';
 import { BossAiWelcome } from './boss-ai-welcome';
+import { BossAiLayoutAdjuster } from './boss-ai-layout-adjuster';
 
 export function BossAiMount() {
   return (
     <>
+      <BossAiLayoutAdjuster />
       <BossAiFab />
       <BossAiDrawer />
       <BossAiWelcome />
