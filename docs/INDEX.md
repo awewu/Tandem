@@ -48,6 +48,7 @@
 | `PITCH-SPEAKER-SCRIPT-2026-05-30.md` ★ | **12 分钟演讲稿** (8 段 + 6 类 Q&A + 演示动作 + 场地准备清单) — PITCH-LAUNCH 的口播版 |
 | `COMPETITIVE-ANALYSIS-2026-05-30.md` ★ | **企业级 AI Agent 竞品对标** (Coze/Claude/Copilot/ChatGPT Enterprise 时间线 + 真定位 "首个 OKR 决议链 OS" + Q&A 应对脚本) |
 | `REFLECTION-2026-05-30-CLOSURE.md` ★ | **闭环复盘 + 文档冲突修正 + 借鉴清单 + AI 时代产品自信论据** (40 项功能闭环计分 / 4 处战略冲突修复 / 8 类大厂借鉴 / 3 个产品自信论据) |
+| `TEST-MATRIX-2026-05-30.md` ★ | **测试矩阵 + 完整测试规划** (40 文件 / 372 it 覆盖矩阵 + 修 1 fail + 抽 fixture 共享 + 5 道 CI 闸协同 + 90 天补齐路线) |
 | `MANIFESTO.md` 序言 + 文化基座 | "四个满意" (客户/员工/股东/社会) |
 
 ## 2. 架构 · 当前生效

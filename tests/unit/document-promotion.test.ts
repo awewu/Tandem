@@ -14,40 +14,13 @@ import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { promoteDocumentToMemory } from '../../lib/services/document-promotion';
 import { getStore, setStore } from '../../lib/storage/repository';
 import { createInMemoryStore } from '../../lib/storage/memory-store';
-import type { Document } from '../../lib/types/feishu-catchup';
+import { seedDoc, resetDocPromotionStores } from '../fixtures/document';
 
 beforeAll(() => {
   setStore(createInMemoryStore());
 });
 
-async function reset() {
-  const store = getStore();
-  for (const d of await store.documents.list()) await store.documents.delete(d.id);
-  for (const m of await store.materials.list()) await store.materials.delete(m.id);
-  for (const p of await store.promotions.list()) await store.promotions.delete(p.id);
-}
-
-async function seedDoc(p: Partial<Document> & { id: string; ownerId: string; title: string }): Promise<Document> {
-  const store = getStore();
-  const now = new Date().toISOString();
-  const doc: Document = {
-    id: p.id,
-    title: p.title,
-    content: p.content ?? '正文内容 ABC',
-    type: p.type ?? 'doc',
-    ownerId: p.ownerId,
-    tenantId: p.tenantId ?? 'default',
-    permissions: p.permissions ?? { read: [], write: [] },
-    version: p.version ?? 1,
-    isLocked: p.isLocked ?? false,
-    createdAt: p.createdAt ?? now,
-    updatedAt: p.updatedAt ?? now,
-    ...(p.spawnedPromotionId ? { spawnedPromotionId: p.spawnedPromotionId } : {}),
-    ...(p.spawnedDecisionCardId ? { spawnedDecisionCardId: p.spawnedDecisionCardId } : {}),
-  };
-  await store.documents.create(doc);
-  return doc;
-}
+const reset = resetDocPromotionStores;
 
 beforeEach(async () => {
   await reset();

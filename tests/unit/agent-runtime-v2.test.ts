@@ -26,23 +26,30 @@ describe('§V2-#13 · MCP Bridge live mode + Skill Gateway', () => {
     for (const s of listMcpServers()) unregisterMcpServer(s.name);
   });
 
-  it('mode=live + SDK 加载失败 → 返回错误而不是抛, ok=false', async () => {
-    const { registerMcpServer, invokeMcp } = await import('@/lib/agent-runtime/mcp-bridge');
-    registerMcpServer({
-      name: 'fake-live',
-      description: 'test',
-      transport: 'http',
-      endpoint: 'http://invalid-host-doesnt-exist.local:9999',
-      tools: [],
-      enabled: true,
-      mode: 'live',
-    });
-    const r = await invokeMcp('fake-live.do_thing', { x: 1 }, { actorUserId: 'u1' });
-    expect(r.ok).toBe(false);
-    expect(r.serverName).toBe('fake-live');
-    // 不应该抛 — 而是返回错误
-    expect(r.error).toBeTruthy();
-  });
+  // §V2-#13 网络出口测试: 真实 DNS 解析无效 host 在不同环境耗时差异大
+  // (Linux 立即返回 ECONNREFUSED, macOS/Windows 走 DNS 超时 ≥ 15s)
+  // 测试核心是 "SDK 加载失败 → 优雅返回 error 而不是抛", 不是测网络.
+  it(
+    'mode=live + SDK 加载失败 → 返回错误而不是抛, ok=false',
+    async () => {
+      const { registerMcpServer, invokeMcp } = await import('@/lib/agent-runtime/mcp-bridge');
+      registerMcpServer({
+        name: 'fake-live',
+        description: 'test',
+        transport: 'http',
+        endpoint: 'http://invalid-host-doesnt-exist.local:9999',
+        tools: [],
+        enabled: true,
+        mode: 'live',
+      });
+      const r = await invokeMcp('fake-live.do_thing', { x: 1 }, { actorUserId: 'u1' });
+      expect(r.ok).toBe(false);
+      expect(r.serverName).toBe('fake-live');
+      // 不应该抛 — 而是返回错误
+      expect(r.error).toBeTruthy();
+    },
+    30_000, // 30s timeout (默认 5s 在 Win/macOS DNS 超时下会 fail)
+  );
 
   it('dataScope 白名单拒绝: 工具名不在白名单 → ok=false, gatewayChecks.dataScope=denied', async () => {
     const { registerMcpServer, invokeMcp } = await import('@/lib/agent-runtime/mcp-bridge');

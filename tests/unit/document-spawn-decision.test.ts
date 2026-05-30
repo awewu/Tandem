@@ -12,37 +12,13 @@
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { getStore, setStore } from '../../lib/storage/repository';
 import { createInMemoryStore } from '../../lib/storage/memory-store';
-import type { Document } from '../../lib/types/feishu-catchup';
+import { seedDoc, resetDocStore } from '../fixtures/document';
 
 beforeAll(() => {
   setStore(createInMemoryStore());
 });
 
-async function reset() {
-  const store = getStore();
-  for (const d of await store.documents.list()) await store.documents.delete(d.id);
-}
-
-async function seedDoc(p: Partial<Document> & { id: string; title: string; ownerId: string }): Promise<Document> {
-  const store = getStore();
-  const now = new Date().toISOString();
-  const doc: Document = {
-    id: p.id,
-    title: p.title,
-    content: p.content ?? '正文',
-    type: p.type ?? 'doc',
-    ownerId: p.ownerId,
-    tenantId: p.tenantId ?? 'default',
-    permissions: p.permissions ?? { read: [], write: [] },
-    version: 1,
-    isLocked: false,
-    createdAt: now,
-    updatedAt: now,
-    ...(p.spawnedDecisionCardId ? { spawnedDecisionCardId: p.spawnedDecisionCardId } : {}),
-  };
-  await store.documents.create(doc);
-  return doc;
-}
+const reset = resetDocStore;
 
 /**
  * 模拟 PATCH /api/documents/[id]/spawned-decision-card 的核心业务逻辑.

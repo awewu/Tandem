@@ -17,43 +17,7 @@ import {
   saveCalibrations,
 } from '../../lib/services/okr-calibration';
 import type { Objective, KeyResult } from '../../lib/store';
-
-const T0 = new Date('2026-04-01T00:00:00Z').getTime();
-
-function makeObj(o: Partial<Objective> & { id: string; ownerId: string }): Objective {
-  return {
-    title: 'Test',
-    cycleId: '2026Q2',
-    parentId: null,
-    weight: 100,
-    status: 'active',
-    confidence: 'on-track',
-    visibility: 'public',
-    tags: [],
-    createdAt: T0,
-    updatedAt: T0,
-    ...o,
-  } as Objective;
-}
-
-function makeKr(k: Partial<KeyResult> & { id: string; objectiveId: string }): KeyResult {
-  return {
-    title: 'KR',
-    ownerId: 'alice',
-    type: 'numeric',
-    startValue: 0,
-    targetValue: 100,
-    currentValue: 50,
-    unit: '万元',
-    weight: 100,
-    confidence: 'on-track',
-    status: 'active',
-    tags: [],
-    createdAt: T0,
-    updatedAt: T0,
-    ...k,
-  } as KeyResult;
-}
+import { makeObj, makeKr } from '../fixtures/okr';
 
 describe('recommendCalibratedScore', () => {
   it('无 self → 用 KR 实际进度', () => {

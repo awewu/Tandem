@@ -14,45 +14,14 @@
 import { describe, it, expect } from 'vitest';
 import { forecastKr, forecastObjective, type ForecastRiskLevel } from '../../lib/okr/trend';
 import type { CheckIn, KeyResult, Objective } from '../../lib/store';
+import { makeKr as baseMakeKr, makeCheckIn, T0, DAY } from '../fixtures/okr';
 
-const DAY = 86_400_000;
-const T0 = new Date('2026-04-01T00:00:00Z').getTime();
 const CYCLE_END = T0 + 90 * DAY; // 90 天周期
 
+// makeKr 本测试默认 id='kr_1' / objectiveId='o_1'; fixture 要求显传
+// 包装一层适配原有调用 (overrides only)
 function makeKr(overrides: Partial<KeyResult> = {}): KeyResult {
-  return {
-    id: 'kr_1',
-    objectiveId: 'o_1',
-    title: 'Test KR',
-    type: 'numeric',
-    startValue: 0,
-    targetValue: 100,
-    currentValue: 50,
-    unit: '万元',
-    weight: 100,
-    ownerId: 'alice',
-    confidence: 'on-track',
-    status: 'active',
-    createdAt: T0,
-    updatedAt: T0,
-    ...overrides,
-  } as KeyResult;
-}
-
-function makeCheckIn(overrides: Partial<CheckIn> = {}): CheckIn {
-  return {
-    id: `c_${Math.random()}`,
-    scope: 'kr',
-    scopeId: 'kr_1',
-    progressBefore: 0,
-    progressAfter: 0,
-    confidenceBefore: 'on-track',
-    confidenceAfter: 'on-track',
-    narrative: { progress: '', blocker: '', next: '' },
-    createdBy: 'alice',
-    createdAt: T0,
-    ...overrides,
-  } as CheckIn;
+  return baseMakeKr({ id: 'kr_1', objectiveId: 'o_1', ...overrides });
 }
 
 describe('forecastKr · 数据不足', () => {
