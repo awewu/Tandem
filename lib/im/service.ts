@@ -922,8 +922,32 @@ async function invokeCompanyBrainReply(input: InvokePersonaInput): Promise<void>
       '../persona/company-brain'
     );
     const { getRouter } = await import('../boot');
+    const { rateLimit, POLICIES } = await import('../infra/rate-limit');
     const router = getRouter();
     const store = getStore();
+
+    // §限流: IM @中央 AI 跟 BossAI 共用预算池 (key 同) · 防绕过 BossAI 走 IM 烧 token
+    const senderId = input.triggeringMessage.senderId;
+    const minute = await rateLimit({ key: `boss_ai:min:${senderId}`, ...POLICIES.bossAi() });
+    const day = await rateLimit({ key: `boss_ai:day:${senderId}`, ...POLICIES.bossAiDaily() });
+    if (!minute.allowed || !day.allowed) {
+      const tip = !minute.allowed
+        ? `请慢一点 · 每分钟最多 ${POLICIES.bossAi().limit} 次 @中央 AI, 稍后再试`
+        : `今日额度已用完 (${POLICIES.bossAiDaily().limit} 次/天). 明天再来, 或联系 admin 调整`;
+      await sendMessage({
+        channelId: input.channelId,
+        senderId: COMPANY_BRAIN_USER_ID,
+        senderKind: 'system',
+        body: `⏳ ${tip}`,
+        parentMessageId: input.triggeringMessage.id,
+      }).catch(() => { /* noop */ });
+      const { deferAudit } = await import('../audit/defer');
+      deferAudit('boss_ai.rate_limited', senderId, {
+        targetType: 'im_company_brain',
+        metadata: { window: minute.allowed ? 'day' : 'minute' },
+      });
+      return;
+    }
 
     // §P1 Reranker · 用 @中央 AI 的 IM 消息作为 query, 让注入 Memory 按相关度重排
     const systemPrompt = await buildCompanyBrainSystemPrompt({
