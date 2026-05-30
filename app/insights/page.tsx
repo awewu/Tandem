@@ -34,6 +34,7 @@ import {
   type InsightSeverity,
   type InsightCategory,
 } from '@/lib/insights/derive';
+import { Stat } from '@/components/ui/stat';
 
 const SEV_COLORS: Record<InsightSeverity, { bg: string; text: string; ring: string; label: string }> = {
   critical: { bg: 'bg-red-50', text: 'text-red-700', ring: 'ring-red-200', label: '严重' },
@@ -122,21 +123,30 @@ export default function InsightsPage() {
         </div>
       </header>
 
-      {/* 严重度概览卡片 */}
+      {/* 严重度概览卡片 · 点击过滤 + Stat 排版 (Stripe-class 数字层次) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {(['critical', 'warning', 'info', 'positive'] as InsightSeverity[]).map((s) => {
           const c = SEV_COLORS[s];
           const active = severityFilter === s;
+          // critical/warning 是越多越坏, 升级后接 delta 时 invertTrend 需为 true
+          const invert = s === 'critical' || s === 'warning';
           return (
             <button
               key={s}
               onClick={() => setSeverityFilter(active ? 'all' : s)}
+              aria-pressed={active}
+              aria-label={`${active ? '取消过滤' : '过滤'} ${c.label} (${counts[s]} 条)`}
               className={`text-left p-4 rounded-lg ring-1 transition ${c.bg} ${c.ring} ${
                 active ? 'ring-2' : 'hover:ring-2'
               }`}
             >
-              <div className={`text-caption font-semibold ${c.text}`}>{c.label}</div>
-              <div className={`mt-1 text-title-1 font-bold ${c.text}`}>{counts[s]}</div>
+              <Stat
+                label={c.label}
+                value={counts[s]}
+                format="integer"
+                size="md"
+                invertTrend={invert}
+              />
             </button>
           );
         })}

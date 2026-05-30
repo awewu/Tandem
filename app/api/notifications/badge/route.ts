@@ -14,7 +14,10 @@ export const dynamic = 'force-dynamic';
  */
 export const GET = withErrorHandler(async (req: Request) => {
   const { searchParams } = new URL(req.url);
-  const userId = searchParams.get('userId') ?? 'demo-user';
+  const userId = searchParams.get('userId');
+  if (!userId || userId.trim().length === 0) {
+    return NextResponse.json({ error: 'userId required' }, { status: 400 });
+  }
   const count = await cacheGetOrLoad(`badge:${userId}`, 30, async () => {
     const ctx = createAppContext();
     const svc = new NotificationService(ctx);

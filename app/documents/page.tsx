@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useCurrentUserId } from "@/lib/hooks/use-current-user";
 import Link from "next/link";
 import { FileText, Plus, Lock, Sheet, Presentation } from "lucide-react";
 
@@ -20,6 +21,7 @@ const typeIcon = {
 };
 
 export default function DocumentsPage() {
+  const currentUserId = useCurrentUserId();
   const [docs, setDocs] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -40,7 +42,7 @@ export default function DocumentsPage() {
         title: `新建${type === "doc" ? "文档" : type === "sheet" ? "表格" : "幻灯片"}`,
         content: "",
         type,
-        ownerId: "demo-user",
+        ownerId: currentUserId,
         tenantId: "default",
       }),
     });

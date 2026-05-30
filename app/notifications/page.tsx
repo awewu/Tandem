@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Bell, Check, X, MessageSquare, Calendar, FileText, HardDrive } from "lucide-react";
+import { useCurrentUserId } from "@/lib/hooks/use-current-user";
 
 interface Notification {
   id: string;
@@ -22,17 +23,19 @@ const typeIcon = {
 };
 
 export default function NotificationsPage() {
+  const currentUserId = useCurrentUserId();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/notifications?userId=demo-user")
+    if (!currentUserId) return;
+    fetch(`/api/notifications?userId=${encodeURIComponent(currentUserId)}`)
       .then((r) => r.json())
       .then((data) => {
         setNotifications(data.notifications ?? []);
         setLoading(false);
       });
-  }, []);
+  }, [currentUserId]);
 
   async function markRead(id: string) {
     await fetch(`/api/notifications/${id}`, {

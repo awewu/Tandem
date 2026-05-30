@@ -42,6 +42,7 @@ import {
   Cog,
 } from 'lucide-react';
 import { computeKpiCompletion, type Kpi, type KpiCycle, type KpiSubject } from '@/lib/types/kpi';
+import { Stat } from '@/components/ui/stat';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -301,17 +302,49 @@ export default function KpiHealthDashboardPage() {
             </span>
           )}
 
-          <div className="ml-auto flex items-center gap-2">
-            <Badge variant="outline" className={`${HEALTH_COLOR.green.bg} ${HEALTH_COLOR.green.text} ${HEALTH_COLOR.green.border}`}>
-              健康 {stats.green}
-            </Badge>
-            <Badge variant="outline" className={`${HEALTH_COLOR.amber.bg} ${HEALTH_COLOR.amber.text} ${HEALTH_COLOR.amber.border}`}>
-              警戒 {stats.amber}
-            </Badge>
-            <Badge variant="outline" className={`${HEALTH_COLOR.red.bg} ${HEALTH_COLOR.red.text} ${HEALTH_COLOR.red.border}`}>
-              风险 {stats.red}
-            </Badge>
-            <Badge variant="outline">合计 {stats.total}</Badge>
+        </CardContent>
+      </Card>
+
+      {/* Stat 行 · 从内联 badge 升为首要指标 (Stripe-class) */}
+      <Card>
+        <CardContent className="p-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className={`p-3 rounded-md ${HEALTH_COLOR.green.bg} ${HEALTH_COLOR.green.border} border`}>
+            <Stat
+              label="健康 (≥ 90%)"
+              value={stats.green}
+              format="integer"
+              size="md"
+              hint={stats.total > 0 ? `占比 ${Math.round((stats.green / stats.total) * 100)}%` : undefined}
+            />
+          </div>
+          <div className={`p-3 rounded-md ${HEALTH_COLOR.amber.bg} ${HEALTH_COLOR.amber.border} border`}>
+            <Stat
+              label="警戒 (60-90%)"
+              value={stats.amber}
+              format="integer"
+              size="md"
+              hint={stats.total > 0 ? `占比 ${Math.round((stats.amber / stats.total) * 100)}%` : undefined}
+              invertTrend
+            />
+          </div>
+          <div className={`p-3 rounded-md ${HEALTH_COLOR.red.bg} ${HEALTH_COLOR.red.border} border`}>
+            <Stat
+              label="风险 (< 60%)"
+              value={stats.red}
+              format="integer"
+              size="md"
+              hint={stats.total > 0 ? `占比 ${Math.round((stats.red / stats.total) * 100)}%` : undefined}
+              invertTrend
+            />
+          </div>
+          <div className="p-3 rounded-md border bg-surface-2">
+            <Stat
+              label="监控 KPI 合计"
+              value={stats.total}
+              format="integer"
+              size="md"
+              hint="scope=monitor · 不挂奖金"
+            />
           </div>
         </CardContent>
       </Card>

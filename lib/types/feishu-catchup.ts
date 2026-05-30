@@ -24,6 +24,16 @@ export interface Document {
   createdAt: string;
   updatedAt: string;
   deletedAt?: string | null;
+  /**
+   * DOC-2 (charter §四 文档板块): 已发起的 Memory 升级 promotion id (反向链接).
+   * 防止同一文档重复发起升级提议.
+   */
+  spawnedPromotionId?: string;
+  /**
+   * DOC-4 (charter §四 文档板块): 已发起的议事 Decision Card id (反向链接).
+   * 防止同一文档重复发起议事.
+   */
+  spawnedDecisionCardId?: string;
 }
 
 // ---------------------------------------------------------------------------

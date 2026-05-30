@@ -276,9 +276,9 @@ function Kpi({
   }[tone];
   return (
     <div className={`rounded-xl p-4 ring-1 ${c}`}>
-      <div className="text-[10.5px] uppercase tracking-wider opacity-70">{label}</div>
-      <div className="mt-1 text-xl font-bold tabular-nums">{value}</div>
-      <div className="mt-0.5 truncate text-[10.5px] opacity-60" title={hint}>
+      <div className="text-caption uppercase tracking-wider opacity-70">{label}</div>
+      <div className="mt-1 text-title-2 font-semibold tabular-nums tracking-tight">{value}</div>
+      <div className="mt-0.5 truncate text-caption opacity-60" title={hint}>
         {hint}
       </div>
     </div>

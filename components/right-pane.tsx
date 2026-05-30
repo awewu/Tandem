@@ -126,7 +126,7 @@ function RightPaneOutlet({
         aria-label="关闭面板"
         onClick={onClose}
         className={cn(
-          'fixed inset-0 z-40 bg-[rgb(var(--rheem-ink-black)/0.18)] transition-opacity duration-200',
+          'fixed inset-0 z-40 bg-[rgb(var(--rheem-ink-black)/0.18)] transition-opacity',
           visible ? 'opacity-100' : 'opacity-0 pointer-events-none',
         )}
       />
@@ -139,7 +139,7 @@ function RightPaneOutlet({
         aria-label={payload.title}
         className={cn(
           'fixed right-0 top-0 z-50 flex h-screen flex-col border-l border-border bg-[rgb(var(--surface-1))] shadow-soft-lg',
-          'transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]',
+          'transition-transform ease-[cubic-bezier(0.32,0.72,0,1)]',
           visible ? 'translate-x-0' : 'translate-x-full',
         )}
       >

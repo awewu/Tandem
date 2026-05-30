@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useCurrentUserId } from "@/lib/hooks/use-current-user";
 import { Folder, File, HardDrive, Plus, Trash2, MoveRight } from "lucide-react";
 
 interface DriveFile {
@@ -13,6 +14,7 @@ interface DriveFile {
 }
 
 export default function DrivePage() {
+  const currentUserId = useCurrentUserId();
   const [files, setFiles] = useState<DriveFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -35,7 +37,7 @@ export default function DrivePage() {
       body: JSON.stringify({
         name: form.name,
         type: form.type,
-        ownerId: "demo-user",
+        ownerId: currentUserId,
         tenantId: "default",
         parentId: null,
       }),

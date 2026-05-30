@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useCurrentUserId } from '@/lib/hooks/use-current-user';
 import {
   Loader2,
   Sparkles,
@@ -39,6 +40,7 @@ interface ObjectiveWithKrs {
  */
 export default function ConvergencePage() {
   const router = useRouter();
+  const currentUserId = useCurrentUserId();
 
   const [cards, setCards] = useState<DecisionCard[]>([]);
   const [objectives, setObjectives] = useState<ObjectiveWithKrs[]>([]);
@@ -96,7 +98,7 @@ export default function ConvergencePage() {
       const body: Record<string, unknown> = {
         title,
         description,
-        ownerId: 'demo-user',
+        ownerId: currentUserId,
       };
       if (krMode === 'select') body.primaryKrId = primaryKrId;
       else body.noKrReason = noKrReason;

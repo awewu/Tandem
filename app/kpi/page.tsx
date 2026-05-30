@@ -158,12 +158,14 @@ function DeltaBadge({ value, label, suffix = '%' }: { value: number | null; labe
 }
 
 function StatCard({ label, value, sub, color }: { label: string; value: string; sub?: string; color?: string }) {
+  // Stat-class typography: tabular-nums + 等宽对齐 + ink hierarchy + tracking-tight
+  // value 仍为 string (caller 已自行格式化), 这里只升级排版.
   return (
     <Card>
-      <CardContent className="p-4">
-        <div className="text-xs text-muted-foreground mb-1">{label}</div>
-        <div className={`text-xl font-bold tabular-nums ${color ?? ''}`}>{value}</div>
-        {sub && <div className="text-xs text-muted-foreground mt-1">{sub}</div>}
+      <CardContent className="p-4 flex flex-col gap-1">
+        <div className="text-caption text-ink-tertiary">{label}</div>
+        <div className={`text-title-2 font-semibold tabular-nums tracking-tight ${color ?? 'text-ink-primary'}`}>{value}</div>
+        {sub && <div className="text-caption text-ink-tertiary">{sub}</div>}
       </CardContent>
     </Card>
   );

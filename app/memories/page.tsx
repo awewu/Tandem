@@ -14,6 +14,7 @@ import { TandemMemoryDigest } from '@/components/memories/tandem-memory-digest';
 import { parseDocument, SUPPORTED_ACCEPT, SUPPORTED_LIST } from '@/lib/document-parser';
 import { getMemoryStatus, type MemoryStatus } from '@/lib/hermes-api';
 import { cn } from '@/lib/utils';
+import { useHandoffPrefill } from '@/hooks/useHandoffPrefill';
 import {
   Save, Download, Upload, Eye, EyeOff, Tag, AlertCircle, FileText, CheckCircle2,
   Lightbulb, Database, Cloud,
@@ -290,6 +291,22 @@ export default function MemoriesPage() {
     setCreatingNew(false);
     setDraft({});
   };
+
+  // Tandem 工作台转交: sessionStorage `tandem.handoff.memory` → 直接进新建态预填 title/content
+  useHandoffPrefill('memory', (payload) => {
+    setEditingId(null);
+    setCreatingNew(true);
+    setDraft({
+      title: payload.title,
+      content: payload.body,
+      category: 'context',
+      parentId: 'cat-context',
+      tags: [],
+      priority: 'medium',
+      isActive: true,
+    });
+    showToast('info', '已从 Tandem 工作台接收草稿, 检查后点保存即可入库.');
+  });
 
   // === 导入/导出 JSON 备份 ===
   const handleExport = () => {

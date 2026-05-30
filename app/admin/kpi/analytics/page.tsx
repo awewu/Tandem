@@ -22,6 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Stat } from '@/components/ui/stat';
 import {
   Activity,
   AlertTriangle,
@@ -325,26 +326,30 @@ export default function KpiAnalyticsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
-                  <div className="border rounded-md py-3">
-                    <div className="text-2xl font-semibold tabular-nums">{cs.total}</div>
-                    <div className="text-xs text-muted-foreground mt-1">KPI 总数</div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="border rounded-md p-3">
+                    <Stat label="KPI 总数" value={cs.total} format="integer" size="md" />
                   </div>
-                  <div className="border rounded-md py-3">
-                    <div className="text-2xl font-semibold tabular-nums">{cs.bonus}</div>
-                    <div className="text-xs text-muted-foreground mt-1">bonus (奖金挂钩)</div>
+                  <div className="border rounded-md p-3">
+                    <Stat label="bonus (奖金挂钩)" value={cs.bonus} format="integer" size="md" />
                   </div>
-                  <div className="border rounded-md py-3">
-                    <div className="text-2xl font-semibold tabular-nums text-emerald-700">
-                      {Math.round(cs.bonusWeightedCompletion * 100)}%
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1">bonus 加权完成率</div>
+                  <div className="border rounded-md p-3">
+                    <Stat
+                      label="bonus 加权完成率"
+                      value={cs.bonusWeightedCompletion}
+                      format="percent"
+                      precision={0}
+                      size="md"
+                    />
                   </div>
-                  <div className="border rounded-md py-3">
-                    <div className="text-2xl font-semibold tabular-nums text-violet-700">
-                      {Math.round(cs.companyLevelWeightedCompletion * 100)}%
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1">公司层级加权完成率</div>
+                  <div className="border rounded-md p-3">
+                    <Stat
+                      label="公司层级加权完成率"
+                      value={cs.companyLevelWeightedCompletion}
+                      format="percent"
+                      precision={0}
+                      size="md"
+                    />
                   </div>
                 </div>
 

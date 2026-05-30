@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
+import { useCurrentUserId } from '@/lib/hooks/use-current-user';
 import {
   Clock,
   Sparkles,
@@ -99,6 +100,7 @@ export default function ReportPage() {
 function ReportPageInner() {
   const { toast } = useToast();
   const store = useOKRStore();
+  const currentUserId = useCurrentUserId();
   const {
     cycles,
     objectives,
@@ -285,7 +287,7 @@ function ReportPageInner() {
     addCheckIn({
       scope: 'kr',
       scopeId: selectedKr.id,
-      authorId: 'demo-user',
+      authorId: currentUserId,
       progressBefore: snapshot.currentValue,
       progressAfter: newValue,
       confidenceBefore: snapshot.confidence,
@@ -610,12 +612,20 @@ function ReportPageInner() {
                     {/* 进度条动画对比 */}
                     <div className="relative h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
                       <div
-                        className="absolute left-0 top-0 h-full bg-slate-300 transition-all duration-300"
-                        style={{ width: `${selectedKr ? (selectedKr.currentValue / selectedKr.targetValue) * 100 : 0}%` }}
+                        className="absolute left-0 top-0 h-full bg-slate-300 transition-all"
+                        style={{
+                          transitionDuration: 'var(--duration-base)',
+                          transitionTimingFunction: 'var(--ease-standard)',
+                          width: `${selectedKr ? (selectedKr.currentValue / selectedKr.targetValue) * 100 : 0}%`,
+                        }}
                       />
                       <div
-                        className="absolute left-0 top-0 h-full bg-[rgb(var(--brand-500))] transition-all duration-500"
-                        style={{ width: `${selectedKr ? (analysisResult.suggestedValue / selectedKr.targetValue) * 100 : 0}%` }}
+                        className="absolute left-0 top-0 h-full bg-[rgb(var(--brand-500))] transition-all"
+                        style={{
+                          transitionDuration: 'var(--duration-slow)',
+                          transitionTimingFunction: 'var(--ease-emphasis)',
+                          width: `${selectedKr ? (analysisResult.suggestedValue / selectedKr.targetValue) * 100 : 0}%`,
+                        }}
                       />
                     </div>
                   </div>

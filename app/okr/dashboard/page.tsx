@@ -22,6 +22,7 @@ import {
   BarChart3, Users, Target, AlertTriangle, TrendingUp,
   TrendingDown, Network, Clock, ChevronRight, Filter,
 } from 'lucide-react';
+import { Stat } from '@/components/ui/stat';
 
 const RISK_COLORS: Record<string, string> = {
   'on-track': 'bg-emerald-100 text-emerald-700',
@@ -198,33 +199,60 @@ export default function OKRDashboardPage() {
           </div>
         </div>
 
-        {/* 全局 KPI */}
+        {/* 全局 KPI · Stat (Stripe-class: tabular-nums + 语义 delta + 单位分级) */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-          <KpiCard
-            label="本周期 Objective 数"
-            value={cycleObjectives.length}
-            icon={Target}
-            color="text-blue-600"
-          />
-          <KpiCard
-            label="整体平均进度"
-            value={`${overallAvg}%`}
-            icon={TrendingUp}
-            color={overallAvg >= 60 ? 'text-emerald-600' : overallAvg >= 30 ? 'text-amber-600' : 'text-rose-600'}
-          />
-          <KpiCard
-            label="风险 Objective 数"
-            value={allWithProg.filter((x) => x.o.confidence !== 'on-track').length}
-            icon={AlertTriangle}
-            color="text-amber-600"
-          />
-          <KpiCard
-            label="跨部门对齐"
-            value={crossDeptCount}
-            icon={Network}
-            color="text-violet-600"
-            hint="父子异部门 = 沟通重点"
-          />
+          <Card>
+            <CardContent className="p-4 flex items-center justify-between">
+              <Stat
+                label="本周期 Objective 数"
+                value={cycleObjectives.length}
+                format="integer"
+              />
+              <Target className="h-8 w-8 text-blue-600 opacity-30" />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 flex items-center justify-between">
+              <Stat
+                label="整体平均进度"
+                value={overallAvg / 100}
+                format="percent"
+                precision={0}
+              />
+              <TrendingUp
+                className={`h-8 w-8 opacity-30 ${
+                  overallAvg >= 60
+                    ? 'text-emerald-600'
+                    : overallAvg >= 30
+                    ? 'text-amber-600'
+                    : 'text-rose-600'
+                }`}
+              />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 flex items-center justify-between">
+              <Stat
+                label="风险 Objective 数"
+                value={allWithProg.filter((x) => x.o.confidence !== 'on-track').length}
+                format="integer"
+                hint="越多越需介入"
+                invertTrend
+              />
+              <AlertTriangle className="h-8 w-8 text-amber-600 opacity-30" />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 flex items-center justify-between">
+              <Stat
+                label="跨部门对齐"
+                value={crossDeptCount}
+                format="integer"
+                hint="父子异部门 = 沟通重点"
+              />
+              <Network className="h-8 w-8 text-violet-600 opacity-30" />
+            </CardContent>
+          </Card>
         </div>
 
         {cycleObjectives.length === 0 ? (
@@ -280,31 +308,6 @@ export default function OKRDashboardPage() {
         )}
       </div>
     </div>
-  );
-}
-
-function KpiCard({
-  label, value, icon: Icon, color, hint,
-}: {
-  label: string;
-  value: string | number;
-  icon: React.ElementType;
-  color: string;
-  hint?: string;
-}) {
-  return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</div>
-            <div className={`text-2xl font-bold ${color}`}>{value}</div>
-            {hint && <div className="text-[10px] text-muted-foreground mt-0.5">{hint}</div>}
-          </div>
-          <Icon className={`h-8 w-8 ${color} opacity-30`} />
-        </div>
-      </CardContent>
-    </Card>
   );
 }
 

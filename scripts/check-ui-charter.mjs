@@ -57,19 +57,93 @@ const RULES = [
     name: 'no-raw-text-size',
     pattern: /\btext-(?:xs|sm|base|lg|xl|2xl|3xl|4xl)\b(?!-)/g,
     hint: '走 text-{display,title-1,title-2,title-3,headline,body,caption,footnote} (charter §1.2)',
-    severity: 'warn',
+    severity: 'error',
+    // §1.2 typography snapshot 2026-05-30 · P1.5 清零 · 已锁档, 新文件不许加
+    allowlist: new Set([
+      'app/admin/invite/page.tsx',
+      'app/bitable/page.tsx',
+      'app/calendar/page.tsx',
+      'app/intranet/page.tsx',
+      'app/knowledge/page.tsx',
+      'app/login/page.tsx',
+      'app/meetings/room/[id]/page.tsx',
+      'app/organization/page.tsx',
+      'app/search/page.tsx',
+      'app/tandem/page.tsx',
+      'components/convergence/ActionItemsForm.tsx',
+      'components/convergence/ContextPanel.tsx',
+      'components/convergence/DeliberationFeed.tsx',
+      'components/decision-card/HeatMap.tsx',
+      'components/documents/collab-textarea.tsx',
+      'components/empty-state.tsx',
+      'components/error-boundary.tsx',
+      'components/hero-carousel.tsx',
+      'components/im/contacts-tree.tsx',
+      'components/markdown-renderer.tsx',
+      'components/okr/okr-trend-chart.tsx',
+      'components/persona/CourseTabs.tsx',
+      'components/persona/DelegationConsole.tsx',
+      'components/persona/StudentCard.tsx',
+      'components/persona/TodayTab.tsx',
+      'components/trust-banner.tsx',
+      'components/voice-input-button.tsx',
+      // UI primitives (shadcn-derived) - typography 不在此层管控, 由消费方
+      'components/ui/badge.tsx',
+      'components/ui/button.tsx',
+      'components/ui/card.tsx',
+      'components/ui/dialog.tsx',
+      'components/ui/input.tsx',
+      'components/ui/label.tsx',
+      'components/ui/select.tsx',
+      'components/ui/switch.tsx',
+      'components/ui/tabs.tsx',
+      'components/ui/textarea.tsx',
+    ]),
   },
   {
     name: 'no-raw-rounded-xl',
     pattern: /\brounded-xl\b/g,
     hint: '改用 rounded-2xl (charter §1.7 corner radius)',
-    severity: 'warn',
+    severity: 'error',
+    // §1.7 corner-radius snapshot 2026-05-30 · P1.5 清零
+    allowlist: new Set([
+      'app/intranet/page.tsx',
+      'components/hero-carousel.tsx',
+      'components/persona/CourseTabs.tsx',
+      'components/persona/StudentCard.tsx',
+    ]),
+  },
+  {
+    // §1 motion: charter §1.10 motion language — 必须走 --duration-* / --ease-* CSS var
+    // 不允许 raw "transition-{all,colors,...} duration-NNN" 组合 (旧 Tailwind 默认值, 跟 design-tokens 不一致)
+    // 2026-05-30 P3.F 清零 (12 → 0), 提为 error 防止再加新债.
+    name: 'no-raw-motion-duration',
+    pattern: /\btransition-(?:all|colors|transform|opacity|shadow)\s+duration-\d+/g,
+    hint: '走 CSS var: style={{ transitionDuration: "var(--duration-fast)", transitionTimingFunction: "var(--ease-standard)" }} 或 globals.css 里的语义类 (.surface-interactive / .card-elevated)',
+    severity: 'error',
+    // 已清零, allowlist 为空 (任何新加 = PR 打回)
+    allowlist: new Set([]),
   },
   {
     name: 'no-raw-tailwind-shadow',
     pattern: /\bshadow-(?:sm|md|lg|xl)\b(?!-soft)/g,
     hint: '走 shadow-soft-{xs,sm,lg,xl} (charter §1.8)',
-    severity: 'warn',
+    severity: 'error',
+    // §1.3/§1.8 shadow snapshot 2026-05-30 · P1.5 清零
+    allowlist: new Set([
+      'app/bitable/page.tsx',
+      'app/calendar/page.tsx',
+      'app/tandem/page.tsx',          // §1.8 false-positive: 注释里的反例
+      'components/error-boundary.tsx',
+      'components/hero-carousel.tsx',
+      'components/persona/CourseTabs.tsx',
+      'components/persona/StudentCard.tsx',
+      'components/ui/card.tsx',
+      'components/ui/dialog.tsx',
+      'components/ui/select.tsx',
+      'components/ui/switch.tsx',
+      'components/voice-input-button.tsx',
+    ]),
   },
 ];
 
@@ -177,6 +251,67 @@ const ALLOWLIST = new Set([
 ]);
 
 // ─────────────────────────────────────────────────────────────────────
+// M1 响应断点 ratchet (2026-05-30) — 扫 app/*/page.tsx 是否带响应断点
+// 防止移动端破碎进一步扩散 (51 文件 snapshot allowlist · 渐次清零)
+// ─────────────────────────────────────────────────────────────────────
+const RESPONSIVE_PAGE_ALLOWLIST = new Set([
+  // 51 个 snapshot 2026-05-30 · 渐次清零 (按热度排序: /im /okr /tandem 已含, 此为补丁)
+  'app/1on1/page.tsx',
+  'app/admin/baseline/page.tsx',
+  'app/admin/intranet/page.tsx',
+  'app/admin/invite/page.tsx',
+  'app/admin/kpi/bonus-payout/page.tsx',
+  'app/admin/kpi/setup/page.tsx',
+  'app/admin/kpi/subjects/page.tsx',
+  'app/admin/launchpad/page.tsx',
+  'app/admin/organization/page.tsx',
+  'app/approvals/page.tsx',
+  'app/bitable/[id]/page.tsx',
+  'app/calendar/page.tsx',
+  'app/convergence/[id]/page.tsx',
+  'app/convergence/page.tsx',
+  'app/documents/[id]/page.tsx',
+  'app/documents/page.tsx',
+  'app/drive/page.tsx',
+  'app/intranet/category/[cat]/page.tsx',
+  'app/intranet/ethics/page.tsx',
+  'app/intranet/posts/[id]/page.tsx',
+  'app/knowledge/page.tsx',
+  'app/learning/certifications/page.tsx',
+  'app/learning/compliance/page.tsx',
+  'app/learning/onboarding/page.tsx',
+  'app/learning/processes/page.tsx',
+  'app/learning/products/page.tsx',
+  'app/learning/tracks/page.tsx',
+  'app/logs/page.tsx',
+  'app/mail/page.tsx',
+  'app/memories/page.tsx',
+  'app/nine-box/suggestions/page.tsx',
+  'app/notifications/page.tsx',
+  'app/partner/join/page.tsx',
+  'app/persona/data-source/page.tsx',
+  'app/persona/delegation/page.tsx',
+  'app/persona/evolution/page.tsx',
+  'app/persona/me/proxy-actions/page.tsx',
+  'app/persona/page.tsx',
+  'app/persona/profile/page.tsx',
+  'app/portfolio/page.tsx',
+  'app/register/employee/page.tsx',
+  'app/register/page.tsx',
+  'app/retros/me/page.tsx',
+  'app/search/page.tsx',
+  'app/settings/llm/page.tsx',
+  'app/settings/page.tsx',
+  'app/settings/privacy/page.tsx',
+  'app/summon/audit/page.tsx',
+  'app/summon/external/page.tsx',
+  'app/tasks/page.tsx',
+  'app/workflows/page.tsx',
+]);
+
+const RESPONSIVE_BREAKPOINT_REGEX = /\b(?:sm|md|lg|xl|2xl):/;
+
+// ─────────────────────────────────────────────────────────────────────
 // 扫描
 // ─────────────────────────────────────────────────────────────────────
 const SCAN_DIRS = ['app', 'components'];
@@ -206,6 +341,7 @@ for (const top of SCAN_DIRS) {
     const src = readFileSync(file, 'utf8');
     const lines = src.split('\n');
     for (const rule of RULES) {
+      if (rule.allowlist && rule.allowlist.has(rel)) continue;
       rule.pattern.lastIndex = 0;
       let m;
       while ((m = rule.pattern.exec(src)) !== null) {
@@ -218,6 +354,20 @@ for (const top of SCAN_DIRS) {
           match: m[0],
           hint: rule.hint,
           severity: rule.severity,
+        });
+      }
+    }
+
+    // M1 响应断点检查 (仅 app/**/page.tsx, allowlist 跳过)
+    if (rel.startsWith('app/') && rel.endsWith('/page.tsx') && !RESPONSIVE_PAGE_ALLOWLIST.has(rel)) {
+      if (!RESPONSIVE_BREAKPOINT_REGEX.test(src)) {
+        violations.push({
+          file: rel,
+          line: 1,
+          rule: 'requires-responsive-layout',
+          match: '(无 sm:|md:|lg:|xl: 断点)',
+          hint: '加至少 1 个响应断点 (sm:/md:/lg:/xl:) 让小屏不破碎. 主组件可参考 components/mobile-* 现有实现.',
+          severity: 'error',
         });
       }
     }

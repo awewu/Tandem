@@ -1,6 +1,7 @@
 ﻿'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useCurrentUserId } from '@/lib/hooks/use-current-user';
 import {
   Loader2,
   Layers,
@@ -267,6 +268,7 @@ function ZoneBadge({ zone }: { zone: Skill['zone'] }) {
 }
 
 function SkillDetailDrawer({ skill, onClose }: { skill: Skill; onClose: () => void }) {
+  const currentUserId = useCurrentUserId();
   const [running, setRunning] = useState(false);
   const [output, setOutput] = useState<string | null>(null);
 
@@ -281,7 +283,7 @@ function SkillDetailDrawer({ skill, onClose }: { skill: Skill; onClose: () => vo
           skillId: skill.id,
           args: {},
           isProxy: false,
-          userId: 'demo-user',
+          userId: currentUserId,
         }),
       });
       const j = await r.json();

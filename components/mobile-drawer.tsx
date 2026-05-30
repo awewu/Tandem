@@ -67,7 +67,7 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
       {/* 遮罩 */}
       <div
         className={cn(
-          'md:hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-sm transition-opacity duration-200',
+          'md:hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-sm transition-opacity',
           open ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none',
         )}
         onClick={onClose}
@@ -84,7 +84,7 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
           'bg-white dark:bg-[rgb(var(--rheem-charcoal))]',
           'shadow-2xl',
           'flex flex-col',
-          'transition-transform duration-200 ease-out',
+          'transition-transform ease-out',
           'pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]',
           open ? 'translate-x-0' : '-translate-x-full',
         )}

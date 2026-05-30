@@ -263,7 +263,7 @@ export function AnimatedHero({
                   aria-label={`跳到播报 ${i + 1}`}
                   onClick={() => setTickerIdx(i)}
                   className={
-                    'h-1 rounded-full transition-all duration-300 ' +
+                    'h-1 rounded-full transition-all ' +
                     (i === tickerIdx
                       ? 'w-6 bg-[rgb(var(--brand-500))]'
                       : 'w-1.5 bg-ink-tertiary/30 hover:bg-ink-tertiary/60')

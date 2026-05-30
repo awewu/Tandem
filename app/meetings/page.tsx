@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Video, Plus, Users, CalendarDays, Copy } from "lucide-react";
+import { useCurrentUserId } from "@/lib/hooks/use-current-user";
 
 interface MeetingRoom {
   id: string;
@@ -12,6 +13,7 @@ interface MeetingRoom {
 }
 
 export default function MeetingsPage() {
+  const currentUserId = useCurrentUserId();
   const [rooms, setRooms] = useState<MeetingRoom[]>([]);
   const [loading, setLoading] = useState(true);
   const [joinId, setJoinId] = useState("");
@@ -28,7 +30,7 @@ export default function MeetingsPage() {
     await fetch("/api/meetings/bookings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ roomId: id, title, userId: "demo-user", start: new Date().toISOString(), end: new Date(Date.now() + 3600000).toISOString() }),
+      body: JSON.stringify({ roomId: id, title, userId: currentUserId, start: new Date().toISOString(), end: new Date(Date.now() + 3600000).toISOString() }),
     });
     alert("已预订");
   }

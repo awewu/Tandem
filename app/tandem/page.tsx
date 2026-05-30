@@ -25,6 +25,7 @@ import Link from 'next/link';
 import { Suspense, createContext, useContext, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useBossAi } from '@/components/boss-ai/use-boss-ai';
+import { ThreePlusOneSelector } from '@/components/decision-layer/ThreePlusOneSelector';
 import {
   AlertCircle,
   ArrowLeft,
@@ -801,11 +802,81 @@ function InboxCard() {
   );
 }
 
-// ── Recommend: 搭子基于当前信号建议下一步 ──────────────────────────
+// ── Recommend: 搭子基于当前信号给 3+1 建议 (MANIFESTO §2 通用化) ────
+//
+// 双模式渲染:
+//   - 默认 = 启发式快速建议 (buildRecommendations, 客户端本地算)
+//   - "请搭子细想" = 调 /api/me/brief-options 走 ThreePlusOneEngine (LLM)
+//
+// 设计原则: 快速 (≤50ms 本地) 与 深思 (3-8s LLM) 并行存在, 用户挑.
 function RecommendCard() {
   const { dashboard, retros, loading } = useTandemDashboard();
+  const [briefOpts, setBriefOpts] = useState<import('@/lib/types/decision-card').DecisionOption[] | null>(null);
+  const [briefWarns, setBriefWarns] = useState<string[]>([]);
+  const [briefLoading, setBriefLoading] = useState(false);
+  const [briefErr, setBriefErr] = useState<string | null>(null);
+
+  async function loadBrief() {
+    if (briefLoading) return;
+    setBriefLoading(true); setBriefErr(null);
+    try {
+      const res = await fetch('/api/me/brief-options');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
+      if (data.empty) {
+        setBriefErr('没有强信号 · 你可以自己决定');
+      } else {
+        setBriefOpts(data.options ?? []);
+        setBriefWarns(data.warnings ?? []);
+      }
+    } catch (e) {
+      setBriefErr((e as Error).message ?? '加载失败');
+    } finally {
+      setBriefLoading(false);
+    }
+  }
+
   if (loading) return <SkeletonRows />;
   const recs = buildRecommendations(dashboard, retros);
+
+  // 走完整 3+1 流程时, 渲染 Selector
+  if (briefOpts && briefOpts.length === 4) {
+    return (
+      <div className="space-y-3">
+        <button
+          type="button"
+          onClick={() => { setBriefOpts(null); setBriefWarns([]); setBriefErr(null); }}
+          className="text-footnote text-tertiary hover:text-primary surface-interactive"
+        >
+          ← 回快速建议
+        </button>
+        <ThreePlusOneSelector
+          options={briefOpts}
+          warnings={briefWarns}
+          scenario="persona_brief"
+          compact
+          onChoose={async ({ option, novelInsight }) => {
+            // 落 audit + 跳到匹配信号 (启发式映射: id A/B/C → 第 1/2/3 个 rec, D → 不跳, 留给用户自由)
+            try {
+              await fetch('/api/audit/log', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  action: 'persona_brief.option_picked',
+                  metadata: { optionId: option.id, optionType: option.type, novelInsight: novelInsight ?? null },
+                }),
+              }).catch(() => {});
+            } catch {}
+            const idx = option.id === 'A' ? 0 : option.id === 'B' ? 1 : option.id === 'C' ? 2 : -1;
+            if (idx >= 0 && recs[idx]) {
+              window.location.href = recs[idx].href;
+            }
+          }}
+        />
+      </div>
+    );
+  }
+
   if (recs.length === 0) {
     return (
       <div className="surface-card-soft rounded-2xl p-4 shadow-soft-xs text-caption text-secondary">
@@ -830,6 +901,17 @@ function RecommendCard() {
           </div>
         </Link>
       ))}
+      <button
+        type="button"
+        onClick={loadBrief}
+        disabled={briefLoading}
+        className="w-full mt-1 inline-flex items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-footnote text-secondary hover:bg-[rgb(var(--surface-2))] surface-interactive disabled:opacity-40"
+        style={{ borderColor: 'rgb(var(--border-subtle))' }}
+      >
+        <Sparkles className="h-3 w-3 text-[rgb(var(--brand-500))]" />
+        {briefLoading ? '搭子细想中…' : '请搭子细想 · 给 3+1'}
+      </button>
+      {briefErr && <p className="text-footnote text-tertiary">{briefErr}</p>}
     </div>
   );
 }

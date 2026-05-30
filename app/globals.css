@@ -551,6 +551,35 @@
     50%      { opacity: 0.6;  transform: translateX(30%);  }
   }
   .animate-hero-shimmer { animation: hero-shimmer 8s ease-in-out infinite; }
+
+  /* =========================================================
+     Skeleton · Brand-tinted shimmer (Vercel/Linear class)
+     替代 Tailwind 默认 animate-pulse (透明度变化, 廉价感).
+     使用从左到右扫光 + 微 brand 色温, 高级感更接近 Stripe Dashboard / Linear.
+     ========================================================= */
+  @keyframes skeleton-shimmer {
+    0%   { background-position: -200% 0; }
+    100% { background-position: 200% 0;  }
+  }
+  .skeleton {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(
+      90deg,
+      rgb(var(--surface-2)) 0%,
+      rgb(var(--surface-3)) 40%,
+      rgb(var(--brand-50)  / 0.55) 50%,
+      rgb(var(--surface-3)) 60%,
+      rgb(var(--surface-2)) 100%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.6s var(--ease-standard) infinite;
+    border-radius: var(--radius-md);
+  }
+  /* 圆形 (头像) · 文本 · 卡片 三档语义类 */
+  .skeleton-text   { height: 0.75rem; border-radius: var(--radius-sm); }
+  .skeleton-circle { border-radius: var(--radius-full); }
+  .skeleton-card   { height: 6rem;    border-radius: var(--radius-lg); }
 }
 
 /* =============================================================

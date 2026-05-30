@@ -144,7 +144,7 @@ export function VoiceInputButton({
       onTouchEnd={() => stop(false)}
       onTouchCancel={() => stop(true)}
       className={cn(
-        'flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all duration-150',
+        'flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all',
         'touch-none select-none',
         active
           ? 'bg-[rgb(var(--brand-500))] text-white scale-110 shadow-lg shadow-[rgb(var(--brand-500))]/30 animate-pulse'

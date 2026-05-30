@@ -79,7 +79,7 @@ function TabItem({ tab, pathname }: { tab: Tab; pathname: string }) {
       aria-current={active ? 'page' : undefined}
       className={cn(
         'flex flex-1 flex-col items-center justify-center gap-0.5 py-1',
-        'text-[10px] font-medium transition-colors duration-150',
+        'text-[10px] font-medium transition-colors',
         active
           ? 'text-ink-primary dark:text-white'
           : 'text-slate-400 dark:text-white/40',
@@ -124,7 +124,7 @@ export function MobileTabBar() {
             'absolute -top-[18px]',
             'flex h-[52px] w-[52px] items-center justify-center rounded-full',
             'shadow-[0_4px_14px_rgba(200,32,44,0.32),0_1px_2px_rgba(0,0,0,0.08)]',
-            'transition-transform duration-150 active:scale-95',
+            'transition-transform active:scale-95',
             centerActive
               ? 'bg-[rgb(var(--brand-600))] text-white ring-2 ring-[rgb(var(--brand-500))]/30'
               : 'bg-[rgb(var(--brand-500))] text-white',

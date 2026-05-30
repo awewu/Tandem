@@ -28,6 +28,7 @@ import PageTabs from '@/components/page-tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
+import { useHandoffPrefill } from '@/hooks/useHandoffPrefill';
 
 interface MailStatus {
   configured: boolean;
@@ -48,6 +49,8 @@ function MailInner() {
   const initialTab = params.get('tab') === 'compose' ? 'compose' : 'inbox';
   const [tab, setTab] = useState<'inbox' | 'compose'>(initialTab);
   const [status, setStatus] = useState<MailStatus | null>(null);
+  /** Tandem 转交草稿: 仅在收到 handoff 时有值, 一次性预填给 ComposeView */
+  const [handoffDraft, setHandoffDraft] = useState<{ subject: string; body: string } | null>(null);
 
   useEffect(() => {
     fetch('/api/mail/status', { credentials: 'include' })
@@ -55,6 +58,11 @@ function MailInner() {
       .then(setStatus)
       .catch(() => setStatus(null));
   }, []);
+
+  useHandoffPrefill('mail', (p) => {
+    setHandoffDraft({ subject: p.title, body: p.body });
+    setTab('compose');
+  });
 
   return (
     <div className="h-full flex flex-col">
@@ -111,7 +119,7 @@ function MailInner() {
 
       {/* Body */}
       <div className="flex-1 overflow-auto p-6">
-        {tab === 'inbox' ? <InboxView /> : <ComposeView canSend={status?.configured ?? false} />}
+        {tab === 'inbox' ? <InboxView /> : <ComposeView canSend={status?.configured ?? false} initialDraft={handoffDraft} />}
       </div>
     </div>
   );
@@ -142,13 +150,22 @@ function InboxView() {
 
 /* ─────────── Compose (V1 real SMTP send) ─────────── */
 
-function ComposeView({ canSend }: { canSend: boolean }) {
+function ComposeView({ canSend, initialDraft }: { canSend: boolean; initialDraft?: { subject: string; body: string } | null }) {
   const [to, setTo] = useState('');
-  const [subject, setSubject] = useState('');
-  const [body, setBody] = useState('');
+  const [subject, setSubject] = useState(initialDraft?.subject ?? '');
+  const [body, setBody] = useState(initialDraft?.body ?? '');
   const [cc, setCc] = useState('');
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  // Tandem 转交后, 父组件可能在挂载后才填入 initialDraft (异步 sessionStorage 消费)
+  // → 监听 initialDraft 变化, 仅在 subject/body 为空时回填, 避免覆盖用户已输入内容
+  useEffect(() => {
+    if (!initialDraft) return;
+    setSubject((cur) => (cur ? cur : initialDraft.subject));
+    setBody((cur) => (cur ? cur : initialDraft.body));
+    setFeedback({ ok: true, msg: '已从 Tandem 工作台预填草稿, 补完收件人后即可发送.' });
+  }, [initialDraft]);
 
   async function handleSend() {
     if (!canSend) {

@@ -62,9 +62,11 @@ interface Props {
   onCreated: (channelId: string) => void;
   /** Day 2: 通讯录点部门"建群"时预填 (kind=department, departmentId 锁定) */
   prefillDepartment?: { id: string; name: string } | null;
+  /** 2026-05-30: Tandem 工作台转交 handoff 时预填群名 + topic, 用户改完直接建 */
+  prefillDraft?: { name?: string; topic?: string } | null;
 }
 
-export function CreateChannelDialog({ open, onOpenChange, currentUserId, onCreated, prefillDepartment }: Props) {
+export function CreateChannelDialog({ open, onOpenChange, currentUserId, onCreated, prefillDepartment, prefillDraft }: Props) {
   const { departments } = useOrgStore();
   const allDepartments = useMemo(() => {
     // Department 在 zustand 是嵌套结构 (Department -> Ministry[])
@@ -97,6 +99,13 @@ export function CreateChannelDialog({ open, onOpenChange, currentUserId, onCreat
       setName(`${prefillDepartment.name} 工作群`);
     }
   }, [open, prefillDepartment]);
+
+  // 2026-05-30: Tandem handoff 预填 (只在 name 仍为空时回填, 避免覆盖用户输入)
+  useEffect(() => {
+    if (!open || !prefillDraft) return;
+    if (prefillDraft.name) setName((cur) => (cur ? cur : prefillDraft.name!));
+    if (prefillDraft.topic) setTopic((cur) => (cur ? cur : prefillDraft.topic!));
+  }, [open, prefillDraft]);
 
   const meta = KIND_META[kind];
   const Icon = meta.icon;

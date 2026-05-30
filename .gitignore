@@ -9,7 +9,7 @@
 !.env.example
 *.log
 
-# scratch / build artifacts
+# scratch / build artifacts (2026-05-30 加固 · 防 root 噪声)
 progress.txt
 dbpush-output.txt
 lint.txt
@@ -21,9 +21,31 @@ lint.txt
 .pages.txt
 .tsc.txt
 
+# *.log 在最上已涵盖 · 这里追加非 .log 的临时产物
+*.tmp.txt
+*.tmp.json
+dev*.log
+dev*.err
+live*.log
+run*.log
+nextjs*.log
+db-push*.log
+dbpush*.log
+migrate.log
+prisma-migrate.log
+smoke-report.log
+test-run*.log
+test-report.json
+.warmup.log
+.tauri-dev.log
+.prod*.log
+.selfcheck-*.log
+.dev*.log
 .tmp-test/
 .tmp-*.json
 .tmp-*.txt
+.tmp-*.log
+.tmp-tsc.log
 dev.err
 nul
 scripts/fixtures/

@@ -11,6 +11,7 @@
 import { Suspense, useCallback, useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { CreateChannelDialog } from '@/components/im/create-channel-dialog';
+import { useHandoffPrefill } from '@/hooks/useHandoffPrefill';
 import { ContactsTree } from '@/components/im/contacts-tree';
 import { ChannelSettingsDialog } from '@/components/im/channel-settings-dialog';
 import { SeedFromOrgDialog } from '@/components/im/seed-from-org-dialog';
@@ -121,6 +122,13 @@ function ImInner() {
   }, [searchParams, router]);
   /** Q2 Day 2: 点部门“建群”时预填数据 */
   const [prefillDept, setPrefillDept] = useState<{ id: string; name: string } | null>(null);
+  /** 2026-05-30: Tandem 工作台 handoff 预填 (一次性, 打开建群弹窗) */
+  const [handoffDraft, setHandoffDraft] = useState<{ name?: string; topic?: string } | null>(null);
+
+  useHandoffPrefill('im', (payload) => {
+    setHandoffDraft({ name: payload.title, topic: payload.body });
+    setShowCreateDialog(true);
+  });
   /** Q2 Day 5-7: 频道设置对话框 */
   const [showSettings, setShowSettings] = useState(false);
   /** Q2 Day 4: 当前频道成员 (计算已读人数) */
@@ -529,7 +537,7 @@ function ImInner() {
                   setActiveId(c.id);
                   setMobileShowList(false);
                 }}
-                className={`group flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-all duration-150 ${
+                className={`group flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-all ${
                   active
                     ? 'bg-white shadow-sm ring-1 ring-slate-200/80'
                     : 'hover:bg-white/70 hover:shadow-sm'
@@ -601,9 +609,10 @@ function ImInner() {
       {/* Q2 建群对话框 (2026-05-10) · Day 2: 接受部门预填 */}
       <CreateChannelDialog
         open={showCreateDialog}
-        onOpenChange={(v) => { setShowCreateDialog(v); if (!v) setPrefillDept(null); }}
+        onOpenChange={(v) => { setShowCreateDialog(v); if (!v) { setPrefillDept(null); setHandoffDraft(null); } }}
         currentUserId={ME}
         prefillDepartment={prefillDept}
+        prefillDraft={handoffDraft}
         onCreated={(channelId) => {
           void loadChannels();
           setActiveId(channelId);
@@ -1216,7 +1225,7 @@ function MessageRow({
           <div
             className={`pointer-events-none absolute -bottom-3 ${
               isMe ? 'left-2' : 'right-2'
-            } flex translate-y-1 gap-1 opacity-0 transition-all duration-150 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100`}
+            } flex translate-y-1 gap-1 opacity-0 transition-all group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100`}
           >
             <button
               type="button"
