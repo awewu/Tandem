@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCurrentUserId } from '@/lib/hooks/use-current-user';
@@ -37,8 +37,18 @@ interface ObjectiveWithKrs {
 /**
  * /convergence — 议事室列表 + 发起新议事
  * Q2 KR 软绑定: 默认必选, escape hatch 需填理由 (≥10 字符)
+ *
+ * Next.js 14 SSG 要求使用 useSearchParams 的组件包 Suspense (CSR bailout)
  */
 export default function ConvergencePage() {
+  return (
+    <Suspense fallback={null}>
+      <ConvergencePageInner />
+    </Suspense>
+  );
+}
+
+function ConvergencePageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const currentUserId = useCurrentUserId();

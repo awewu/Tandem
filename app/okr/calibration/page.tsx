@@ -19,7 +19,7 @@
  * v0 范围: 单屏 grid + 批量保存. v1 加 1on1 联动 / 校准会议日历自动插.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useOKRStore, useOneOnOneStore } from '@/lib/store';
@@ -50,6 +50,14 @@ const DRIFT_META = {
 } as const;
 
 export default function OkrCalibrationPage() {
+  return (
+    <Suspense fallback={null}>
+      <OkrCalibrationPageInner />
+    </Suspense>
+  );
+}
+
+function OkrCalibrationPageInner() {
   const searchParams = useSearchParams();
   const currentUserId = useCurrentUserId();
 

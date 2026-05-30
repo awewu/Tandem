@@ -21,7 +21,6 @@
 
 import type { Objective, KeyResult } from '../store';
 import { calcObjectiveScore } from '../okr/scoring';
-import { audit } from '../audit/log';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -223,6 +222,12 @@ export interface SaveCalibrationsInput {
   updates: CalibrationUpdate[];
   /** 调用方传入的 store updater (避免直接耦合 Zustand client store) */
   updateObjective: (id: string, patch: Partial<Objective>) => void;
+  /**
+   * 可选 audit 回调 (server-only).
+   * Client 不传 → 仅写 store; Server 传入 lib/audit/log → 同步走链式 hash.
+   * 这样设计避免 audit 模块传递引入 postgres 进 client bundle.
+   */
+  auditCallback?: (action: string, actorId: string, metadata: Record<string, unknown>) => Promise<void>;
 }
 
 export interface SaveCalibrationsResult {
@@ -249,16 +254,14 @@ export async function saveCalibrations(input: SaveCalibrationsInput): Promise<Sa
     applied++;
   }
 
-  // 单条 audit (批量校准做为一次 session)
-  await audit('decision_card.update', input.managerId, {
-    targetType: 'okr_calibration',
-    metadata: {
-      action: 'okr.calibration_session_saved',
+  // 单条 audit (批量校准做为一次 session). 仅在 server 传入 audit 回调时走.
+  if (input.auditCallback) {
+    await input.auditCallback('okr.calibration_session_saved', input.managerId, {
       cycleId: input.cycleId,
       appliedCount: applied,
       skippedCount: skipped,
-    },
-  });
+    });
+  }
 
   return { appliedCount: applied, skippedCount: skipped };
 }
