@@ -14,12 +14,14 @@
 
 import { BossAiFab } from './boss-ai-fab';
 import { BossAiDrawer } from './boss-ai-drawer';
+import { BossAiWelcome } from './boss-ai-welcome';
 
 export function BossAiMount() {
   return (
     <>
       <BossAiFab />
       <BossAiDrawer />
+      <BossAiWelcome />
     </>
   );
 }
