@@ -307,7 +307,24 @@ ${caseHints || '(无)'}
       const res = await this.router.chat({
         messages,
         scenario: 'reasoning_complex',
-        responseFormat: 'json',
+        // §B-004 · 严格 schema 输出, 消灭 JSON.parse 失败 + 字段缺失
+        responseFormat: {
+          type: 'json_schema',
+          name: 'three_plus_one_option_b',
+          strict: true,
+          schema: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['description', 'reasoning', 'confidence', 'risk', 'timelineDays'],
+            properties: {
+              description: { type: 'string' },
+              reasoning: { type: 'string' },
+              confidence: { type: 'number', minimum: 0, maximum: 1 },
+              risk: { type: 'string', enum: ['low', 'medium', 'high'] },
+              timelineDays: { type: 'number', minimum: 1, maximum: 365 },
+            },
+          },
+        },
         temperature: 0.7,
       });
       const parsed = JSON.parse(

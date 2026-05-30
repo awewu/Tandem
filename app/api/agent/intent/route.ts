@@ -324,7 +324,22 @@ ${catalogText}
       ],
       scenario: 'high_frequency',
       temperature: 0.2,
-      responseFormat: 'json',
+      // §B-004 · 严格 schema · 消灭 ```json``` 包裹 / 多余文本 / 字段缺失
+      responseFormat: {
+        type: 'json_schema',
+        name: 'agent_intent',
+        strict: true,
+        schema: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['route', 'label', 'confidence'],
+          properties: {
+            route: { type: 'string' },
+            label: { type: 'string', maxLength: 16 },
+            confidence: { type: 'number', minimum: 0, maximum: 1 },
+          },
+        },
+      },
       maxTokens: 200,
       metadata: { userId },
     });

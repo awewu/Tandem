@@ -67,7 +67,22 @@ export interface ChatRequest {
   toolChoice?: 'auto' | 'none' | { type: 'function'; function: { name: string } };
   temperature?: number;
   maxTokens?: number;
-  responseFormat?: 'text' | 'json';
+  /**
+   * §B-004 OpenAI Structured Outputs 支持
+   *   'text' (默认) · 'json' (json_object 旧式) · { type:'json_schema', schema, name?, strict? } 新式
+   *
+   * 'json_schema' 强制 LLM 输出严格匹配 schema, 消灭 JSON.parse 失败的 bug.
+   * 不支持的 provider (DeepSeek 早期 / Qwen) 会忽略, 退化到普通 text 输出, 调用方需自己 fallback.
+   */
+  responseFormat?:
+    | 'text'
+    | 'json'
+    | {
+        type: 'json_schema';
+        name: string;
+        schema: Record<string, unknown>;
+        strict?: boolean;
+      };
   stream?: boolean;
   /** 用于路由器选择模型 */
   scenario?: ScenarioTag;

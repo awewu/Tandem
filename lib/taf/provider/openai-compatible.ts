@@ -25,6 +25,28 @@ import type {
  *
  * 命中后输入 token 计费 ~10% (Anthropic 官价), 大型 system prompt 重复调用时省钱明显.
  */
+/**
+ * §B-004 · responseFormat 转换为 OpenAI wire 格式
+ *
+ * - 'text' / undefined → undefined (LLM 自由格式)
+ * - 'json' → { type: 'json_object' } (旧式, 不保证 schema 一致)
+ * - { type: 'json_schema', ... } → { type: 'json_schema', json_schema: {...} } (新式严格 schema)
+ *
+ * 不支持的 provider 会忽略 → 调用方需 try/catch JSON.parse fallback.
+ */
+export function buildResponseFormat(rf: ChatRequest['responseFormat']): Record<string, unknown> | undefined {
+  if (!rf || rf === 'text') return undefined;
+  if (rf === 'json') return { type: 'json_object' };
+  return {
+    type: 'json_schema',
+    json_schema: {
+      name: rf.name,
+      schema: rf.schema,
+      strict: rf.strict ?? true,
+    },
+  };
+}
+
 export function transformMessageForWire(m: ChatMessage): Record<string, unknown> {
   const wire: Record<string, unknown> = {
     role: m.role,
@@ -186,8 +208,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
       tool_choice: req.toolChoice,
       temperature: req.temperature ?? this.defaultTemperature,
       max_tokens: req.maxTokens ?? this.defaultMaxTokens,
-      response_format:
-        req.responseFormat === 'json' ? { type: 'json_object' } : undefined,
+      response_format: buildResponseFormat(req.responseFormat),
       stream,
     };
   }
