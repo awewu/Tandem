@@ -131,6 +131,11 @@ export interface TandemStore {
   /** Persona 反馈评分 (闭环④) */
   personaFeedbacks: Repository<import('../types/persona-feedback').PersonaFeedback>;
 
+  /** Academy 闭环 (P0 KvStore-based, P2 升级 drizzle 强类型表) */
+  learningAttempts: Repository<import('../learning/types').LessonAttempt>;
+  learningCertifications: Repository<import('../learning/types').Certification>;
+  learningEnrollments: Repository<import('../learning/enrollment').LearningEnrollment>;
+
   /** LLM 模型切换偏好 (中央AI + 个人AI) */
   llmPreferences: Repository<import('../types/llm-preference').LlmPreference>;
 

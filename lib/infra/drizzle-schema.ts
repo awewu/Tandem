@@ -296,4 +296,347 @@ export const llmUsageLog = pgTable(
   }),
 );
 
+// ===========================================================================
+// Academy · 学院架构核心 8 表 (2026-05-29)
+// 详见 docs/ACADEMY-METAPHOR-2026-05-29.md § 2.2
+// 心智模型: 学员证 / 5 主修 / GPA / 课程目录 / 必修 / 学位 / 实习权限
+// 设计原则: 强类型核心 (HR CRUD 高频), 租户隔离, 软删, 版本化, 全审计
+// ===========================================================================
 
+/**
+ * Course · 课程主表
+ *
+ * HR 创建 + 学员选课/被派课. 一门课 N 节 Lesson.
+ * 心智模型 = 「课程 / 学位课」.
+ */
+export const course = pgTable(
+  'Course',
+  {
+    id: text('id').primaryKey(),
+    title: text('title').notNull(),
+    slug: text('slug').notNull(),
+    /** onboarding | compliance | product | process | track | mode_specialty | leadership */
+    category: text('category').notNull(),
+    /** 关联的 5 模式 (设计/PM/技术/营销/战略), null = 通识课 */
+    modeAffinity: text('modeAffinity').array().notNull().default([]),
+    /** beginner | intermediate | advanced */
+    level: text('level').notNull().default('beginner'),
+    estMinutes: integer('estMinutes').notNull().default(0),
+    description: text('description').notNull().default(''),
+    coverUrl: text('coverUrl'),
+
+    // 治理
+    ownerUserId: text('ownerUserId').notNull(),
+    createdByUserId: text('createdByUserId').notNull(),
+    /** Steward 双签批人 IDs (MANIFESTO §8) */
+    reviewedByUserIds: text('reviewedByUserIds').array().notNull().default([]),
+    /** draft | in_review | published | archived */
+    status: text('status').notNull().default('draft'),
+    publishedAt: timestamp('publishedAt', { precision: 3, mode: 'date' }),
+
+    // 必修策略
+    /** mandatory_once | mandatory_quarterly | mandatory_yearly | recommended | elective */
+    requirement: text('requirement').notNull().default('elective'),
+
+    // 学分 / 解锁
+    /** { mode: 'pm', score: 5 } 通过该课给 mode proficiency +5 */
+    proficiencyReward: jsonb('proficiencyReward'),
+    /** 通过给综合 GPA (bossCaptureScore) 加分 */
+    bossCaptureBonus: integer('bossCaptureBonus').notNull().default(0),
+    /** 通过此课才能晋升到指定 delegationLevel (L1/L2/L3) */
+    unlocksDelegationLevel: text('unlocksDelegationLevel'),
+    /** 季度复训过期 → 锁权限触发 */
+    lockOnExpiry: boolean('lockOnExpiry').notNull().default(false),
+
+    // 版本
+    version: integer('version').notNull().default(1),
+    /** 内容 hash, 大改后老证书标 outdated */
+    contentHash: text('contentHash').notNull().default(''),
+
+    tenantId: text('tenantId').notNull().default('default'),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+    deletedAt: timestamp('deletedAt', { precision: 3, mode: 'date' }),
+  },
+  (t) => ({
+    slugUniq: index('Course_slug_tenant_uniq').on(t.slug, t.tenantId),
+    statusCatIdx: index('Course_status_category_idx').on(t.status, t.category),
+    requirementIdx: index('Course_requirement_idx').on(t.requirement, t.status),
+    tenantIdx: index('Course_tenant_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * Lesson · 课时 (1 课程 N 课时)
+ *
+ * 心智模型 = 「课节 / 讲义」.
+ */
+export const lesson = pgTable(
+  'Lesson',
+  {
+    id: text('id').primaryKey(),
+    courseId: text('courseId').notNull(),
+    orderIdx: integer('orderIdx').notNull().default(0),
+    title: text('title').notNull(),
+    /** lecture | video | quiz | interactive | reading */
+    type: text('type').notNull().default('lecture'),
+    estMinutes: integer('estMinutes').notNull().default(0),
+
+    // 内容 (按 type 用对应字段)
+    contentMarkdown: text('contentMarkdown'),
+    contentVideoUrl: text('contentVideoUrl'),
+    /** type=interactive 用: { schema: 'three_plus_one_decision', ctx: {...} } */
+    contentInteractiveSchema: jsonb('contentInteractiveSchema'),
+
+    // AI 生成标识 (走 /api/learning/generate, 必经 Skill Gateway 4 道闸)
+    aiGeneratedAt: timestamp('aiGeneratedAt', { precision: 3, mode: 'date' }),
+    aiSourceId: text('aiSourceId'),
+    aiReviewedBy: text('aiReviewedBy'),
+
+    // 通过条件
+    /** { type: 'quiz_score', threshold: 0.8 } */
+    passCondition: jsonb('passCondition'),
+
+    // 三柱闭环锚定 (lib/learning/closure.ts)
+    linkedKrId: text('linkedKrId'),
+    /** 通过该 lesson 给 mode proficiency 加分 */
+    rewardMode: text('rewardMode'),
+    rewardScore: integer('rewardScore').notNull().default(0),
+
+    tenantId: text('tenantId').notNull().default('default'),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+  },
+  (t) => ({
+    courseOrderIdx: index('Lesson_courseId_orderIdx').on(t.courseId, t.orderIdx),
+    tenantIdx: index('Lesson_tenant_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * Question · 题库 (多对一 Lesson)
+ *
+ * 学院特色: type=decision_3plus1 走 lib/decision-layer/ 引擎
+ */
+export const question = pgTable(
+  'Question',
+  {
+    id: text('id').primaryKey(),
+    lessonId: text('lessonId').notNull(),
+    orderIdx: integer('orderIdx').notNull().default(0),
+    /** single | multi | true_false | free_text | decision_3plus1 */
+    type: text('type').notNull().default('single'),
+    prompt: text('prompt').notNull(),
+    /** [{ id, text, isCorrect, explanation }] */
+    options: jsonb('options').notNull().default([]),
+    /** free_text 评分准则 */
+    rubric: jsonb('rubric'),
+    correctAnswerExplanation: text('correctAnswerExplanation').notNull().default(''),
+
+    // 学院特色 · 3+1 决策题
+    /** type=decision_3plus1 时填: { scenario, A/B/C/D options } */
+    decisionContext: jsonb('decisionContext'),
+    /** A_sop | B_reason | C_case | D_original | any */
+    rightAnswerType: text('rightAnswerType'),
+
+    weight: integer('weight').notNull().default(1),
+    tenantId: text('tenantId').notNull().default('default'),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+  },
+  (t) => ({
+    lessonOrderIdx: index('Question_lessonId_orderIdx').on(t.lessonId, t.orderIdx),
+  }),
+);
+
+/**
+ * Enrollment · 选课 / 报名关系 (一人一课一份)
+ */
+export const enrollment = pgTable(
+  'Enrollment',
+  {
+    id: text('id').primaryKey(),
+    userId: text('userId').notNull(),
+    courseId: text('courseId').notNull(),
+    /** self_elected | hr_assigned | manager_assigned | ai_recommended | track_required */
+    source: text('source').notNull().default('self_elected'),
+    /** 若 source=*_assigned, 关联 CourseAssignment.id */
+    assignmentId: text('assignmentId'),
+    /** enrolled | in_progress | passed | failed | dropped */
+    status: text('status').notNull().default('enrolled'),
+    enrolledAt: timestamp('enrolledAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    startedAt: timestamp('startedAt', { precision: 3, mode: 'date' }),
+    completedAt: timestamp('completedAt', { precision: 3, mode: 'date' }),
+    /** HR 派课截止时间 */
+    dueAt: timestamp('dueAt', { precision: 3, mode: 'date' }),
+
+    /** 已完成的 lesson IDs */
+    lessonsCompleted: text('lessonsCompleted').array().notNull().default([]),
+    totalScore: integer('totalScore'),
+
+    tenantId: text('tenantId').notNull().default('default'),
+  },
+  (t) => ({
+    userStatusIdx: index('Enrollment_userId_status_idx').on(t.userId, t.status),
+    courseStatusIdx: index('Enrollment_courseId_status_idx').on(t.courseId, t.status),
+    uniqEnroll: index('Enrollment_user_course_tenant_uniq').on(t.userId, t.courseId, t.tenantId),
+  }),
+);
+
+/**
+ * LessonAttempt · 单次答题尝试 (一节课多次重修 = 多条 attempt)
+ */
+export const lessonAttempt = pgTable(
+  'LessonAttempt',
+  {
+    id: text('id').primaryKey(),
+    enrollmentId: text('enrollmentId').notNull(),
+    /** 冗余, 加速查询 */
+    userId: text('userId').notNull(),
+    lessonId: text('lessonId').notNull(),
+    attemptNo: integer('attemptNo').notNull().default(1),
+
+    startedAt: timestamp('startedAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    submittedAt: timestamp('submittedAt', { precision: 3, mode: 'date' }),
+    timeSpentSec: integer('timeSpentSec').notNull().default(0),
+
+    /** { questionId: answerValue }[] */
+    answers: jsonb('answers').notNull().default([]),
+    score: integer('score'),
+    passed: boolean('passed'),
+
+    // 三柱闭环 (走 lib/learning/closure.ts onLessonCompleted)
+    closureExecuted: boolean('closureExecuted').notNull().default(false),
+    /** krProgressDelta / proficiencyDelta / certification / personaMemoryCandidate */
+    closureEffects: jsonb('closureEffects'),
+
+    tenantId: text('tenantId').notNull().default('default'),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => ({
+    userLessonIdx: index('LessonAttempt_userId_lessonId_idx').on(t.userId, t.lessonId),
+    enrollmentIdx: index('LessonAttempt_enrollmentId_idx').on(t.enrollmentId),
+  }),
+);
+
+/**
+ * Certification · 证书 (通过课程后颁发, 季度复训会过期)
+ */
+export const certification = pgTable(
+  'Certification',
+  {
+    id: text('id').primaryKey(),
+    userId: text('userId').notNull(),
+    courseId: text('courseId').notNull(),
+    enrollmentId: text('enrollmentId').notNull(),
+
+    earnedAt: timestamp('earnedAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    /** 季度必修 = earnedAt + 90 天 */
+    expiresAt: timestamp('expiresAt', { precision: 3, mode: 'date' }),
+    /** valid | expiring_soon | expired | revoked | outdated */
+    status: text('status').notNull().default('valid'),
+
+    /** 「TANDEM-2026-CMPL-Q2-0007」 */
+    certNo: text('certNo').notNull(),
+    /** 学到的内容版本快照 */
+    contentHashAtEarning: text('contentHashAtEarning').notNull().default(''),
+    /** Steward 数字签名 (高阶证书) */
+    signedBy: text('signedBy'),
+
+    /** 解锁: L1/L2/L3 实习权限 */
+    unlockedDelegationLevel: text('unlockedDelegationLevel'),
+    /** { mode: 'pm', score: 5 } */
+    unlockedProficiencyBoost: jsonb('unlockedProficiencyBoost'),
+
+    tenantId: text('tenantId').notNull().default('default'),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => ({
+    userStatusIdx: index('Certification_userId_status_idx').on(t.userId, t.status, t.expiresAt),
+    courseEarnedIdx: index('Certification_courseId_earnedAt_idx').on(t.courseId, t.earnedAt),
+    certNoIdx: index('Certification_certNo_idx').on(t.certNo),
+  }),
+);
+
+/**
+ * CourseAssignment · HR / 上级派课 (按部门 / 角色 / 单人)
+ *
+ * 派课 = 自动给 target 创建 Enrollment + 推提醒.
+ */
+export const courseAssignment = pgTable(
+  'CourseAssignment',
+  {
+    id: text('id').primaryKey(),
+    courseId: text('courseId').notNull(),
+
+    /** user | department | role | all_tenant */
+    targetType: text('targetType').notNull(),
+    targetUserId: text('targetUserId'),
+    targetDepartmentId: text('targetDepartmentId'),
+    targetRole: text('targetRole'),
+
+    assignedByUserId: text('assignedByUserId').notNull(),
+    /** 派课理由 (审计用) */
+    reason: text('reason').notNull().default(''),
+
+    dueInDays: integer('dueInDays'),
+    /** { firstReminderDays: 7, escalateAfterDays: 14 } */
+    reminderPolicy: jsonb('reminderPolicy'),
+
+    /** 完成前锁特定权限 (例: 锁 黄区代行) */
+    blocksUntilCompletion: boolean('blocksUntilCompletion').notNull().default(false),
+
+    /** active | paused | cancelled */
+    status: text('status').notNull().default('active'),
+
+    tenantId: text('tenantId').notNull().default('default'),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+  },
+  (t) => ({
+    targetUserIdx: index('CourseAssignment_targetUserId_idx').on(t.targetUserId, t.status),
+    targetDeptIdx: index('CourseAssignment_targetDepartmentId_idx').on(t.targetDepartmentId, t.status),
+    courseIdx: index('CourseAssignment_courseId_idx').on(t.courseId),
+  }),
+);
+
+/**
+ * LearningMcpToken · 个人 AI 接入 token
+ *
+ * MANIFESTO §19 落地: 员工把自己的 Claude Desktop / Cursor 等接入 Tandem 学习 MCP.
+ * Token 颁发 = 员工自助 + 默认极窄 scope (不含 submit_attempt).
+ * 所有 MCP 调用走 runSkillGateway() 4 道闸.
+ */
+export const learningMcpToken = pgTable(
+  'LearningMcpToken',
+  {
+    id: text('id').primaryKey(),
+    userId: text('userId').notNull(),
+    name: text('name').notNull(),
+    /** SHA-256 of token (不存明文) */
+    tokenHash: text('tokenHash').notNull(),
+
+    /**
+     * 默认 scope: ['academy.search', 'academy.fetch_lesson', 'academy.my_status', 'academy.recommend', 'academy.export_notes']
+     * 高敏 scope (员工 UI 二次确认才开): ['academy.start_lesson', 'academy.submit_attempt', 'academy.claim_proficiency']
+     */
+    scopes: text('scopes').array().notNull().default([]),
+
+    /** 节流 */
+    rateLimitPerHour: integer('rateLimitPerHour').notNull().default(30),
+    /** 90 天后过期 */
+    expiresAt: timestamp('expiresAt', { precision: 3, mode: 'date' }).notNull(),
+
+    /** 审计 */
+    lastUsedAt: timestamp('lastUsedAt', { precision: 3, mode: 'date' }),
+    totalCalls: integer('totalCalls').notNull().default(0),
+    revokedAt: timestamp('revokedAt', { precision: 3, mode: 'date' }),
+
+    tenantId: text('tenantId').notNull().default('default'),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => ({
+    userActiveIdx: index('LearningMcpToken_userId_revokedAt_idx').on(t.userId, t.revokedAt),
+    tokenHashIdx: index('LearningMcpToken_tokenHash_idx').on(t.tokenHash),
+  }),
+);
