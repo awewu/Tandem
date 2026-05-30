@@ -17,15 +17,16 @@ import { requireAuth, requireRole } from '@/lib/auth/require-auth';
 import {
   runSuite,
   buildBossAiOkrAnchorSuite,
+  buildBossAiSafetySuite,
   type SuiteReport,
 } from '@/lib/evals';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// In-memory store · last report (单进程, 上下次 run 之间保留)
+// In-memory store · last reports (单进程, 上下次 run 之间保留)
 const _g = globalThis as typeof globalThis & {
-  __tandem_last_eval_report__?: SuiteReport;
+  __tandem_last_eval_reports__?: SuiteReport[];
   __tandem_last_eval_at__?: string;
 };
 
@@ -36,7 +37,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (roleErr) return roleErr;
 
   return NextResponse.json({
-    lastReport: _g.__tandem_last_eval_report__ ?? null,
+    lastReports: _g.__tandem_last_eval_reports__ ?? [],
     lastRanAt: _g.__tandem_last_eval_at__ ?? null,
   });
 }
@@ -70,11 +71,30 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
   };
 
-  const suite = buildBossAiOkrAnchorSuite(internalRunner, { useLlmJudge: false });
-  const report = await runSuite(suite, { concurrency: 2, caseTimeoutMs: 30_000 });
+  const okrSuite = buildBossAiOkrAnchorSuite(internalRunner, { useLlmJudge: false });
+  const safetySuite = buildBossAiSafetySuite(internalRunner, { useLlmJudge: false });
 
-  _g.__tandem_last_eval_report__ = report;
+  // 顺序跑 (LLM provider 限流友好); 失败不阻塞另一 suite
+  const reports: SuiteReport[] = [];
+  for (const suite of [okrSuite, safetySuite]) {
+    try {
+      const r = await runSuite(suite, { concurrency: 2, caseTimeoutMs: 30_000 });
+      reports.push(r);
+    } catch (err) {
+      // 跑挂的 suite 也记 stub report, 让前端能看到失败
+      reports.push({
+        suiteName: suite.name,
+        ranAt: new Date().toISOString(),
+        durationMs: 0,
+        total: 0, passed: 0, avgScore: 0,
+        results: [], failures: [],
+        meta: { runner: 'crashed', judge: (err as Error).message },
+      });
+    }
+  }
+
+  _g.__tandem_last_eval_reports__ = reports;
   _g.__tandem_last_eval_at__ = new Date().toISOString();
 
-  return NextResponse.json({ report });
+  return NextResponse.json({ reports });
 }

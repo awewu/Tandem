@@ -27,3 +27,4 @@ export {
   buildBossAiOkrAnchorSuite,
   makeProductionRunner,
 } from './suites/boss-ai-okr-anchor';
+export { buildBossAiSafetySuite } from './suites/boss-ai-safety';

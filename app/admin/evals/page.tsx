@@ -39,7 +39,7 @@ interface SuiteReport {
 }
 
 export default function EvalsPage() {
-  const [report, setReport] = useState<SuiteReport | null>(null);
+  const [reports, setReports] = useState<SuiteReport[]>([]);
   const [lastRanAt, setLastRanAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
@@ -52,7 +52,7 @@ export default function EvalsPage() {
       const res = await fetch('/api/admin/evals', { credentials: 'include' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      setReport(data.lastReport);
+      setReports(Array.isArray(data.lastReports) ? data.lastReports : []);
       setLastRanAt(data.lastRanAt);
     } catch (e) {
       setErr((e as Error).message);
@@ -71,8 +71,9 @@ export default function EvalsPage() {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      setReport(data.report);
-      setLastRanAt(data.report?.ranAt ?? new Date().toISOString());
+      const next = Array.isArray(data.reports) ? data.reports : [];
+      setReports(next);
+      setLastRanAt(next[0]?.ranAt ?? new Date().toISOString());
     } catch (e) {
       setErr((e as Error).message);
     } finally {
@@ -84,8 +85,19 @@ export default function EvalsPage() {
     void loadLast();
   }, []);
 
-  const passRate = report && report.total > 0 ? Math.round((report.passed / report.total) * 100) : 0;
-  const scorePct = report ? (report.avgScore * 100).toFixed(1) : '—';
+  // 聚合统计 (跨 suite)
+  const totals = reports.reduce(
+    (s, r) => ({
+      cases: s.cases + r.total,
+      passed: s.passed + r.passed,
+      scoreWeighted: s.scoreWeighted + r.avgScore * r.total,
+      durationMs: s.durationMs + r.durationMs,
+    }),
+    { cases: 0, passed: 0, scoreWeighted: 0, durationMs: 0 },
+  );
+  const passRate = totals.cases > 0 ? Math.round((totals.passed / totals.cases) * 100) : 0;
+  const avgScore = totals.cases > 0 ? totals.scoreWeighted / totals.cases : 0;
+  const scorePct = totals.cases > 0 ? (avgScore * 100).toFixed(1) : '—';
 
   return (
     <main className="container mx-auto max-w-4xl space-y-6 px-4 py-6 sm:py-8">
@@ -144,50 +156,74 @@ export default function EvalsPage() {
       )}
 
       {/* 总览 */}
-      {loading && !report && (
+      {loading && reports.length === 0 && (
         <div className="text-caption text-ink-tertiary">加载中...</div>
       )}
 
-      {report && (
+      {reports.length > 0 && (
         <>
-          {/* 总分卡 */}
+          {/* 总分卡 (跨 suite 聚合) */}
           <section className="grid gap-4 sm:grid-cols-3">
             <KpiCard
-              label="通过率"
+              label="总通过率"
               value={`${passRate}%`}
-              hint={`${report.passed} / ${report.total}`}
+              hint={`${totals.passed} / ${totals.cases} · ${reports.length} suite`}
               tone={passRate >= 80 ? 'success' : passRate >= 60 ? 'warning' : 'danger'}
             />
             <KpiCard
               label="平均得分"
               value={`${scorePct}`}
               hint="0-100"
-              tone={report.avgScore >= 0.8 ? 'success' : report.avgScore >= 0.6 ? 'warning' : 'danger'}
+              tone={avgScore >= 0.8 ? 'success' : avgScore >= 0.6 ? 'warning' : 'danger'}
             />
             <KpiCard
-              label="耗时"
-              value={`${(report.durationMs / 1000).toFixed(1)}s`}
-              hint={report.meta.judge}
+              label="总耗时"
+              value={`${(totals.durationMs / 1000).toFixed(1)}s`}
+              hint="顺序执行"
               tone="info"
             />
           </section>
 
-          {/* Case 列表 */}
-          <section className="surface-card rounded-2xl shadow-soft-xs overflow-hidden">
-            <header className="border-b px-5 py-3" style={{ borderColor: 'rgb(var(--border-subtle))' }}>
-              <h2 className="text-headline text-ink-primary">{report.suiteName}</h2>
-              <p className="text-footnote text-ink-tertiary mt-0.5">{report.meta.runner}</p>
-            </header>
-            <ul className="divide-y" style={{ borderColor: 'rgb(var(--border-subtle))' }}>
-              {report.results.map((r) => (
-                <CaseRow key={r.caseId} r={r} />
-              ))}
-            </ul>
-          </section>
+          {/* 各 suite case 列表 */}
+          {reports.map((report) => (
+            <section
+              key={report.suiteName}
+              className="surface-card rounded-2xl shadow-soft-xs overflow-hidden"
+            >
+              <header
+                className="flex items-baseline justify-between gap-4 border-b px-5 py-3"
+                style={{ borderColor: 'rgb(var(--border-subtle))' }}
+              >
+                <div className="min-w-0">
+                  <h2 className="text-headline text-ink-primary">{report.suiteName}</h2>
+                  <p className="text-footnote text-ink-tertiary mt-0.5">{report.meta.runner}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <div className="text-headline font-mono text-ink-primary">
+                    {report.passed} / {report.total}
+                  </div>
+                  <div className="text-footnote text-ink-tertiary">
+                    {(report.avgScore * 100).toFixed(0)} 分 · {(report.durationMs / 1000).toFixed(1)}s
+                  </div>
+                </div>
+              </header>
+              {report.results.length === 0 ? (
+                <div className="px-5 py-6 text-caption text-ink-tertiary">
+                  (suite 未产出 case · {report.meta.judge})
+                </div>
+              ) : (
+                <ul className="divide-y" style={{ borderColor: 'rgb(var(--border-subtle))' }}>
+                  {report.results.map((r) => (
+                    <CaseRow key={r.caseId} r={r} />
+                  ))}
+                </ul>
+              )}
+            </section>
+          ))}
         </>
       )}
 
-      {!loading && !report && !err && (
+      {!loading && reports.length === 0 && !err && (
         <div className="surface-card-soft rounded-2xl p-8 text-center shadow-soft-xs">
           <Sparkles className="h-8 w-8 mx-auto text-ink-tertiary mb-2" />
           <p className="text-body text-ink-secondary">还没跑过 evals</p>
