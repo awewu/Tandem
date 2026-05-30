@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useCurrentUserId } from '@/lib/hooks/use-current-user';
 import {
   Loader2,
@@ -40,7 +40,12 @@ interface ObjectiveWithKrs {
  */
 export default function ConvergencePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const currentUserId = useCurrentUserId();
+
+  // DOC-4 闭环: 从文档详情页跳来时携带 fromDocId / fromDocTitle
+  const fromDocId = searchParams.get('fromDocId');
+  const fromDocTitle = searchParams.get('fromDocTitle');
 
   const [cards, setCards] = useState<DecisionCard[]>([]);
   const [objectives, setObjectives] = useState<ObjectiveWithKrs[]>([]);
@@ -58,6 +63,17 @@ export default function ConvergencePage() {
   useEffect(() => {
     void Promise.all([refreshList(), loadOkrTree()]);
   }, []);
+
+  // DOC-4 闭环: URL 带 fromDocId/fromDocTitle 时预填 form (只走一次, 避免覆盖用户输入)
+  const [docPrefilled, setDocPrefilled] = useState(false);
+  useEffect(() => {
+    if (docPrefilled) return;
+    if (fromDocId && fromDocTitle) {
+      setTitle(`讨论文档: ${fromDocTitle}`);
+      setDescription(`本议事由文档 [${fromDocTitle}](/documents/${fromDocId}) 发起.`);
+      setDocPrefilled(true);
+    }
+  }, [fromDocId, fromDocTitle, docPrefilled]);
 
   async function refreshList() {
     setLoading(true);
@@ -102,6 +118,8 @@ export default function ConvergencePage() {
       };
       if (krMode === 'select') body.primaryKrId = primaryKrId;
       else body.noKrReason = noKrReason;
+      // DOC-4 闭环: 携带源文档信号让后端 materialRefs 反链
+      if (fromDocId) body.fromDocId = fromDocId;
 
       const res = await fetch('/api/convergence', {
         method: 'POST',
@@ -110,6 +128,20 @@ export default function ConvergencePage() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+
+      // DOC-4 闭环: 创建成功后回写 document.spawnedDecisionCardId (防重复发起)
+      if (fromDocId) {
+        try {
+          await fetch(`/api/documents/${fromDocId}/spawned-decision-card`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ decisionCardId: json.cardId }),
+          });
+        } catch {
+          // 不阶断主路径 — 反链失败不影响议事创建成功
+        }
+      }
+
       router.push(`/convergence/${json.cardId}`);
     } catch (err) {
       setError((err as Error).message);
@@ -132,6 +164,24 @@ export default function ConvergencePage() {
             3+1 框架: A SOP · B AI 推演 · C 历史案例 · D 你的原创 (必填)
           </p>
         </header>
+
+        {/* DOC-4 闭环: 文档来源 banner (走语义 warning token, 非 raw amber) */}
+        {fromDocId && fromDocTitle && (
+          <section className="card-elevated p-4 ring-1 ring-warning/30 bg-warning/5">
+            <div className="flex items-start gap-3">
+              <Sparkles className="h-4 w-4 mt-0.5 text-warning shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="text-caption font-medium text-ink-primary">本议事由文档发起</div>
+                <div className="mt-0.5 text-caption text-ink-secondary">
+                  源: <Link href={`/documents/${fromDocId}`} className="font-medium text-warning hover:underline">{fromDocTitle}</Link>
+                </div>
+                <div className="mt-1 text-footnote text-ink-tertiary">
+                  标题与描述已预填, 你可以继续修改. 发起后系统会自动反写文档反链.
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Create form */}
         <section className="card-elevated p-6 space-y-4">
