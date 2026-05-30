@@ -85,7 +85,7 @@ export default function TandemPage() {
 
       {/* ───────── 主舞台 (≥60%) ───────── */}
       <main className="flex-1 min-w-0 overflow-y-auto">
-        <Stage />
+        <Stage onSummonPersona={() => setLeftTab('persona')} />
       </main>
 
       {/* ───────── 右召唤栏 (行动) ───────── */}
@@ -228,7 +228,7 @@ function SummonPanelStub({ id, side }: { id: string; side: 'left' | 'right' }) {
 // ════════════════════════════════════════════════════════════════
 // 主舞台 — 当前任务 / 决策卡 / 文档 / 主分身对话
 // ════════════════════════════════════════════════════════════════
-function Stage() {
+function Stage({ onSummonPersona }: { onSummonPersona: () => void }) {
   return (
     <div className="mx-auto max-w-5xl px-6 py-8 space-y-6">
       {/* Hero — Tandem 个人工作台引导 */}
@@ -246,12 +246,14 @@ function Stage() {
           决策卡 / 文档 / 主分身对话框在此展开.
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
-          <Link
-            href="/persona"
+          {/* §召唤是页内机制 (展开左召唤栏 persona 面板), 不是跳转. */}
+          <button
+            type="button"
+            onClick={onSummonPersona}
             className="inline-flex items-center gap-2 rounded-full bg-white text-[rgb(var(--rheem-ink-black))] px-4 py-2 text-caption font-medium surface-interactive hover:bg-white/90"
           >
             <Bot className="h-4 w-4" /> 召唤主分身
-          </Link>
+          </button>
           <Link
             href="/okr?owner=me"
             className="inline-flex items-center gap-2 rounded-full border border-white/30 text-white px-4 py-2 text-caption font-medium surface-interactive hover:bg-white/10"
