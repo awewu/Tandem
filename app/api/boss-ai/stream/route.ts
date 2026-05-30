@@ -22,6 +22,7 @@ import { boot, getRouter } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { buildCompanyBrainSystemPrompt } from '@/lib/persona/company-brain';
 import { audit } from '@/lib/audit/log';
+import { compactMessages } from '@/lib/agent-runtime/compaction';
 import type { ChatMessage } from '@/lib/taf/provider/types';
 
 export const runtime = 'nodejs';
@@ -70,10 +71,14 @@ export async function POST(req: NextRequest): Promise<Response> {
   const contextAnchor = buildContextAnchor({ currentPath, currentTask, userId: auth.userId });
   const systemPrompt = `${baseSystemPrompt}\n\n${contextAnchor}`;
 
-  const chatMessages: ChatMessage[] = [
+  const rawChatMessages: ChatMessage[] = [
     { role: 'system', content: systemPrompt },
     ...messages.map((m) => ({ role: m.role, content: m.content })),
   ];
+
+  // §Compaction: 长对话自动摘要中间历史, 保住首条 + 末 4 轮
+  const compaction = await compactMessages(rawChatMessages);
+  const chatMessages = compaction.messages;
 
   // ── 3. 审计起点 (问题进 audit, 答案在 stream 结束后再写) ────────
   const userQuestion = messages[messages.length - 1]?.content ?? '';
@@ -84,6 +89,8 @@ export async function POST(req: NextRequest): Promise<Response> {
       questionPreview: userQuestion.slice(0, 200),
       currentPath: currentPath ?? null,
       messageCount: messages.length,
+      compacted: compaction.compacted,
+      droppedCount: compaction.droppedCount,
     },
     tenantId: auth.tenantId,
   }).catch(() => { /* best-effort */ });
