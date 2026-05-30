@@ -14,7 +14,7 @@ import { useBossAi, type BossAiMessage } from './use-boss-ai';
 import { getExamplePrompts, getPathLabel } from './example-prompts';
 
 export function BossAiDrawer() {
-  const { isOpen, close, messages, streaming, error, send, newSession } = useBossAi();
+  const { isOpen, close, messages, streaming, error, send, newSession, pendingPrompt, consumePendingPrompt } = useBossAi();
   const pathname = usePathname();
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -23,6 +23,19 @@ export function BossAiDrawer() {
   // §上下文感知 · 按 path 动态生成示例 prompts + 显示"已带入上下文"标签
   const examplePrompts = useMemo(() => getExamplePrompts(pathname), [pathname]);
   const pathLabel = useMemo(() => getPathLabel(pathname), [pathname]);
+
+  // §深链消费 · 外部组件 askAbout(prompt, { task, autoSend }) 触发后, drawer 自动 prefill / 自动发送
+  useEffect(() => {
+    if (!isOpen || !pendingPrompt) return;
+    const consumed = consumePendingPrompt();
+    if (!consumed) return;
+    if (consumed.autoSend) {
+      void send(consumed.text, { currentPath: pathname ?? undefined, currentTask: consumed.task });
+    } else {
+      setInput(consumed.text);
+      setTimeout(() => inputRef.current?.focus(), 50);
+    }
+  }, [isOpen, pendingPrompt, consumePendingPrompt, send, pathname]);
 
   // Esc 关闭
   useEffect(() => {

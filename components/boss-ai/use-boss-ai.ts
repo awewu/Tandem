@@ -21,6 +21,15 @@ export interface BossAiMessage {
   streaming?: boolean;
 }
 
+/** 深链时由外部组件 askAbout 写入, drawer 消费后清空 */
+export interface PendingPrompt {
+  text: string;
+  /** 父任务上下文 (注入到 service 端 currentTask anchor) */
+  task?: string;
+  /** 写入后自动发送 (false 时仅 prefill 让用户编辑) */
+  autoSend?: boolean;
+}
+
 interface BossAiState {
   open: boolean;
   sessionId: string;
@@ -28,6 +37,8 @@ interface BossAiState {
   /** stream pending */
   streaming: boolean;
   error: string | null;
+  /** §深链 pending prompt (drawer 打开时消费) */
+  pendingPrompt: PendingPrompt | null;
 }
 
 const LS_KEY = 'tandem.bossAi.v1';
@@ -43,6 +54,7 @@ function loadInitial(): BossAiState {
     messages: [],
     streaming: false,
     error: null,
+    pendingPrompt: null,
   };
   if (typeof window === 'undefined') return fallback;
   try {
@@ -69,7 +81,7 @@ function loadInitial(): BossAiState {
 type Listener = () => void;
 
 class BossAiStore {
-  private state: BossAiState = { open: false, sessionId: '', messages: [], streaming: false, error: null };
+  private state: BossAiState = { open: false, sessionId: '', messages: [], streaming: false, error: null, pendingPrompt: null };
   private listeners = new Set<Listener>();
   private hydrated = false;
 
@@ -133,6 +145,32 @@ class BossAiStore {
 
   toggle() {
     this.state.open ? this.close() : this.open();
+  }
+
+  /**
+   * §深链 · 让外部组件 (议事卡 / OKR 卡 / Action item 卡) 一键打开 BossAI
+   * 并预填一段提问. 同时可携带 currentTask 让服务端注入上下文锚.
+   *
+   * @example
+   *   askAbout('这个议题该锚到哪个 OKR?', { task: '议事: 北区是否加大投入' })
+   */
+  askAbout(prompt: string, context?: { task?: string; autoSend?: boolean }) {
+    this.state = {
+      ...this.state,
+      open: true,
+      error: null,
+      pendingPrompt: { text: prompt, task: context?.task, autoSend: context?.autoSend ?? false },
+    };
+    this.emit();
+  }
+
+  /** drawer 消费完 pending prompt 后调 (清空避免重复触发) */
+  consumePendingPrompt(): PendingPrompt | null {
+    const pending = this.state.pendingPrompt;
+    if (!pending) return null;
+    this.state = { ...this.state, pendingPrompt: null };
+    this.emit();
+    return pending;
   }
 
   newSession() {
@@ -263,16 +301,25 @@ export function useBossAi() {
     }
   }, [store, state.streaming, state.sessionId]);
 
+  const askAbout = useCallback(
+    (prompt: string, context?: { task?: string; autoSend?: boolean }) => store.askAbout(prompt, context),
+    [store],
+  );
+  const consumePendingPrompt = useCallback(() => store.consumePendingPrompt(), [store]);
+
   return useMemo(() => ({
     isOpen: state.open,
     sessionId: state.sessionId,
     messages: state.messages,
     streaming: state.streaming,
     error: state.error,
+    pendingPrompt: state.pendingPrompt,
     open: () => store.open(),
     close: () => store.close(),
     toggle: () => store.toggle(),
     newSession: () => store.newSession(),
     send,
-  }), [state, store, send]);
+    askAbout,
+    consumePendingPrompt,
+  }), [state, store, send, askAbout, consumePendingPrompt]);
 }

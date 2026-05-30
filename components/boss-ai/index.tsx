@@ -24,4 +24,5 @@ export function BossAiMount() {
   );
 }
 
-export { useBossAi } from './use-boss-ai';
+export { useBossAi, type PendingPrompt } from './use-boss-ai';
+export type { ExamplePrompt } from './example-prompts';
