@@ -128,6 +128,44 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
 
   const totalsRow = ((totalsRes as { rows?: unknown[] }).rows?.[0] ?? {}) as Record<string, unknown>;
 
+  // ---- BossAI 维度 (audit log + UsageEvent boss_ai.opened 联合) ----
+  const [bossAiPerUser, bossAiRateLimited, bossAiDaily] = await Promise.all([
+    db.execute(sql`
+      SELECT
+        "actorId" AS user_id,
+        SUM(CASE WHEN "action" = 'boss_ai.ask' THEN 1 ELSE 0 END)::int AS asks,
+        SUM(CASE WHEN "action" = 'boss_ai.answer' THEN 1 ELSE 0 END)::int AS answers,
+        SUM(CASE WHEN "action" = 'boss_ai.rate_limited' THEN 1 ELSE 0 END)::int AS rate_limited
+      FROM "AuditLog"
+      WHERE "timestamp" >= ${since}
+        AND "tenantId" = ${auth.tenantId}
+        AND "action" IN ('boss_ai.ask', 'boss_ai.answer', 'boss_ai.rate_limited')
+      GROUP BY "actorId"
+      ORDER BY asks DESC
+      LIMIT 10
+    `),
+    db.execute(sql`
+      SELECT COUNT(*)::int AS cnt
+      FROM "AuditLog"
+      WHERE "timestamp" >= ${since}
+        AND "tenantId" = ${auth.tenantId}
+        AND "action" = 'boss_ai.rate_limited'
+    `),
+    db.execute(sql`
+      SELECT
+        to_char("timestamp", 'YYYY-MM-DD') AS day,
+        SUM(CASE WHEN "action" = 'boss_ai.ask' THEN 1 ELSE 0 END)::int AS asks
+      FROM "AuditLog"
+      WHERE "timestamp" >= ${since}
+        AND "tenantId" = ${auth.tenantId}
+        AND "action" = 'boss_ai.ask'
+      GROUP BY day
+      ORDER BY day ASC
+    `),
+  ]);
+
+  const rateLimitedRow = ((bossAiRateLimited as { rows?: unknown[] }).rows?.[0] ?? {}) as Record<string, unknown>;
+
   return NextResponse.json({
     days,
     since: since.toISOString(),
@@ -148,6 +186,11 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
       byScenario: rowsOf(llmByScenario),
       daily: rowsOf(llmDaily),
       failures: rowsOf(llmFailures),
+    },
+    bossAi: {
+      topUsers: rowsOf(bossAiPerUser),    // [{user_id, asks, answers, rate_limited}]
+      totalRateLimited: Number(rateLimitedRow.cnt ?? 0),
+      daily: rowsOf(bossAiDaily),         // [{day, asks}]
     },
   });
 });

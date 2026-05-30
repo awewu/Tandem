@@ -43,6 +43,11 @@ interface UsageData {
     daily: Array<{ day: string; calls: number; cost_micro_usd: number }>;
     failures: Array<{ errorMessage: string; cnt: number }>;
   };
+  bossAi?: {
+    topUsers: Array<{ user_id: string; asks: number; answers: number; rate_limited: number }>;
+    totalRateLimited: number;
+    daily: Array<{ day: string; asks: number }>;
+  };
 }
 
 function fmtUsd(microUsd: number | string | null | undefined): string {
@@ -130,6 +135,41 @@ export default function UsagePage() {
             </Section>
           </div>
 
+          {/* §BossAI 专属面板 · 别让 Owner 翻 audit log 才知道谁在烧 token */}
+          {data.bossAi && data.bossAi.topUsers.length > 0 && (
+            <Section
+              title={
+                <span className="inline-flex items-center gap-2">
+                  ✨ BossAI 维度
+                  {data.bossAi.totalRateLimited > 0 && (
+                    <span className="rounded-full bg-warning/10 px-2 py-0.5 text-footnote text-warning">
+                      限流 {data.bossAi.totalRateLimited} 次
+                    </span>
+                  )}
+                </span>
+              }
+            >
+              <Table
+                headers={['用户 ID', '提问', '已答', '被限流']}
+                rows={data.bossAi.topUsers.map((r) => [
+                  r.user_id,
+                  fmtNum(r.asks),
+                  fmtNum(r.answers),
+                  r.rate_limited > 0 ? `⏳ ${r.rate_limited}` : '0',
+                ])}
+              />
+              {data.bossAi.daily.length > 0 && (
+                <div className="mt-4">
+                  <div className="text-caption text-ink-secondary mb-2">每日 BossAI 提问数:</div>
+                  <Table
+                    headers={['日期', '提问']}
+                    rows={data.bossAi.daily.map((r) => [r.day, fmtNum(r.asks)])}
+                  />
+                </div>
+              )}
+            </Section>
+          )}
+
           <Section title="LLM 各 Provider 维度">
             <Table
               headers={['Provider', '调用', 'Tokens In', 'Tokens Out', '成本估算', '平均延迟', '失败']}
@@ -198,7 +238,7 @@ function KpiCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children }: { title: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="surface-card rounded-2xl p-5 shadow-soft-xs">
       <h2 className="text-headline text-ink-primary mb-3">{title}</h2>
