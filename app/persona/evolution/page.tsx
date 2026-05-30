@@ -30,9 +30,9 @@ export default function PersonaEvolutionPage() {
 
   return (
     <main className="container mx-auto max-w-3xl space-y-4 px-4 py-6">
-      <h1 className="text-2xl font-bold">拿捏老板分身 · 进化与控制</h1>
+      <h1 className="text-2xl font-bold">主分身 · 进阶轨迹 (新手 → 拿手)</h1>
       <p className="text-sm text-muted-foreground">
-        Tandem autonomy 守门: 任何升级与代行边界都由员工本人确认.
+        Tandem autonomy 守门: 任何升级与实习权限 (代行边界) 都由员工本人确认.
       </p>
 
       {/* cron 识别的高风险升级提议 (assistant→deputy / deputy→partner) — 始终置顶 */}

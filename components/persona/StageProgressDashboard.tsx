@@ -5,14 +5,21 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Egg, Sparkles, Target, AlertTriangle, ArrowRight } from 'lucide-react';
 import type { StageProgress } from '@/lib/persona/learning-collector';
+import { STAGE_META, TONE_TOKENS, STAGE_LIST } from '@/lib/persona/stage-meta';
+import type { PersonaStage } from '@/lib/types/persona';
 
-const STAGE_META: Record<string, { emoji: string; label: string; color: string; desc: string }> = {
-  newborn: { emoji: '🥚', label: '新生', color: 'bg-slate-100 text-slate-700', desc: '仅旁听学习, 不发言' },
-  apprentice: { emoji: '🐣', label: '学徒', color: 'bg-emerald-100 text-emerald-700', desc: '简单 standup 代汇报' },
-  assistant: { emoji: '🐤', label: '助手', color: 'bg-blue-100 text-blue-700', desc: '绿区会议表态' },
-  deputy: { emoji: '🦅', label: '副手', color: 'bg-amber-100 text-amber-700', desc: '黄区会议短承诺' },
-  partner: { emoji: '🐉', label: '搭档', color: 'bg-purple-100 text-purple-700', desc: '跨企业代行 (除红区)' },
-};
+/** 把 SSOT STAGE_META 折成本组件需要的形状 */
+function metaFor(stage: PersonaStage | string) {
+  const m = STAGE_META[stage as PersonaStage];
+  if (!m) return null;
+  const tone = TONE_TOKENS[m.tone];
+  return {
+    emoji: m.emoji,
+    label: `Lv.${m.level} ${m.title}`,
+    color: `${tone.bgSoft} ${tone.text}`,
+    desc: m.blurb,
+  };
+}
 
 export function StageProgressDashboard({
   progress,
@@ -23,8 +30,9 @@ export function StageProgressDashboard({
   bossCaptureScore: number;
   onConfirmUpgrade: () => Promise<void>;
 }) {
-  const cur = STAGE_META[progress.currentStage];
-  const next = progress.nextStage ? STAGE_META[progress.nextStage] : null;
+  const cur = metaFor(progress.currentStage);
+  const next = progress.nextStage ? metaFor(progress.nextStage) : null;
+  if (!cur) return null;
 
   return (
     <div className="space-y-4">
@@ -141,17 +149,19 @@ export function StageProgressDashboard({
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
-            {Object.entries(STAGE_META).map(([key, m]) => {
-              const isCurrent = key === progress.currentStage;
+            {STAGE_LIST.map((sm) => {
+              const isCurrent = sm.stage === progress.currentStage;
               return (
                 <div
-                  key={key}
+                  key={sm.stage}
                   className={`flex items-center gap-3 rounded p-2 ${isCurrent ? 'bg-amber-50' : ''}`}
                 >
-                  <span className="text-2xl">{m.emoji}</span>
+                  <span className="text-2xl">{sm.emoji}</span>
                   <div className="flex-1">
-                    <Badge variant={isCurrent ? 'default' : 'outline'}>{m.label}</Badge>
-                    <p className="mt-0.5 text-xs text-muted-foreground">{m.desc}</p>
+                    <Badge variant={isCurrent ? 'default' : 'outline'}>
+                      Lv.{sm.level} {sm.title}
+                    </Badge>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{sm.blurb}</p>
                   </div>
                 </div>
               );

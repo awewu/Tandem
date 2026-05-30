@@ -30,14 +30,14 @@ const AUTONOMY_CHANGE: Record<PersonaStage, AutonomyChange | null> = {
   apprentice: null,
   // deputy 是新权限边界扩张的第一跳 — 黄区代行
   assistant: {
-    title: '升级到 🦅 副手 = 开启"黄区会议短承诺"代行权',
+    title: '升级到 🦅 Lv.4 老手 = 开启"黄区会议短承诺"实习权限',
     desc:
       '确认后, 分身可在工作时段内对黄区议题 (中等风险) 代你做出 ≤ 1 工作日的承诺 (例如: "明天之前给你方案"). 仍有 24h 否决窗口, 红区(薪资/法律/投诉)永禁.',
     color: 'amber',
   },
   // partner 是跨企业权限扩张 — 尤其需谨慎
   deputy: {
-    title: '升级到 🐉 搭档 = 开启"跨企业代行"权 (除红区)',
+    title: '升级到 🐉 Lv.5 拿手 = 开启"跨企业代行"实习权限 (除红区)',
     desc:
       '确认后, 分身可在跨企业会议中代你参会表态 (第 17 条: 客户/合作伙伴会议需双方书面同意 + 双倍水印). 24h 否决窗口保留. 这是员工尊严铁律下的最高 autonomy, 请谨慎评估.',
     color: 'rose',
@@ -132,7 +132,7 @@ export function UpgradeProposalBanner({
 
         <div className="rounded-md border border-white/70 bg-white/70 px-3 py-2 text-[11px] text-slate-600">
           <strong className="text-slate-800">宪章 §15:</strong> 升级必须由员工本人确认,
-          AI 不会自动扩张代行边界. 点「暂不升级」不会降档, 只会关掉本次提醒 —
+          AI 不会自动扩张实习权限 (代行边界). 点「暂不升级」不会降档, 只会关掉本次提醒 —
           你可以之后在「进化进度」页随时手动触发.
         </div>
 

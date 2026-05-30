@@ -1,11 +1,31 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { PersonaDashboard } from '@/components/persona/PersonaDashboard';
+/**
+ * /persona · 学员主页 (Academy Student Hub)
+ *
+ * 立项: docs/ACADEMY-METAPHOR-2026-05-29.md
+ * 心智模型: 学员证 + 4 面 tab (今日课表/实习日志/培养计划/实习权限)
+ *
+ */
+
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { StudentCard } from '@/components/persona/StudentCard';
+import {
+  CourseTabs,
+  isPersonaTab,
+  type PersonaTab,
+} from '@/components/persona/CourseTabs';
+import { TodayTab } from '@/components/persona/TodayTab';
+import { ArchiveTab } from '@/components/persona/ArchiveTab';
+import { PrivacyFooter } from '@/components/persona/PrivacyFooter';
 import { useCurrentUserId } from '@/lib/hooks/use-current-user';
 import type { Persona } from '@/lib/types/persona';
 
+// ---------------------------------------------------------------------------
 // Demo 回退: 未同步 / 未初始化时用
+// ---------------------------------------------------------------------------
+
 const DEMO_PERSONA: Persona = {
   id: 'persona_demo',
   userId: 'demo-user',
@@ -24,7 +44,13 @@ const DEMO_PERSONA: Persona = {
     decisionSpeed: 'medium',
     riskAppetite: 0.4,
     communicationStyle: 'analytical',
-    preferredOptions: ['SOP', 'reasoning', 'historical', 'reasoning', 'original'],
+    preferredOptions: [
+      'SOP',
+      'reasoning',
+      'historical',
+      'reasoning',
+      'original',
+    ],
     communicationExamples: [],
   },
   growthAreas: [
@@ -47,8 +73,30 @@ const DEMO_PERSONA: Persona = {
   updatedAt: new Date().toISOString(),
 };
 
+// ---------------------------------------------------------------------------
+// 主页 (suspense wrapper, 因为 useSearchParams 必须在 Suspense 下)
+// ---------------------------------------------------------------------------
+
 export default function PersonaPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="container mx-auto max-w-3xl px-4 py-8">
+          <div className="text-caption text-tertiary">加载学员主页…</div>
+        </main>
+      }
+    >
+      <PersonaPageInner />
+    </Suspense>
+  );
+}
+
+function PersonaPageInner() {
   const userId = useCurrentUserId();
+  const params = useSearchParams();
+  const tabParam = params.get('tab');
+  const activeTab: PersonaTab = isPersonaTab(tabParam) ? tabParam : 'today';
+
   const [persona, setPersona] = useState<Persona | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -72,20 +120,29 @@ export default function PersonaPage() {
     };
   }, [userId]);
 
-  // 在加载或未初始化时回退 demo, 避免空页
   const view = persona ?? DEMO_PERSONA;
+  const isDemo = !loading && !persona;
+
+  // P1 mock: 待办课/badges 数; P1.5 真接入 brief API 后从 streaming 数据计算
+  const badges = useMemo<Partial<Record<PersonaTab, number>>>(
+    () => ({ today: 2 }),
+    [],
+  );
 
   return (
-    <main className="container mx-auto max-w-3xl py-6 px-4">
-      {loading && (
-        <div className="text-xs text-muted-foreground mb-3">加载中…</div>
-      )}
-      {!loading && !persona && (
-        <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-3">
-          未检测到你的 Persona 记录, 展示为示范数据. 首次质押决策后会自动初始化.
-        </div>
-      )}
-      <PersonaDashboard persona={view} />
+    <main className="container mx-auto max-w-3xl space-y-5 px-4 py-6">
+      {/* Hero · 学员证 (含 5 主修网格) */}
+      <StudentCard persona={view} isDemo={isDemo} />
+
+      {/* 4 面 tab */}
+      <CourseTabs active={activeTab} badges={badges} />
+
+      {/* tab content */}
+      {activeTab === 'today' && <TodayTab />}
+      {activeTab === 'archive' && <ArchiveTab persona={view} />}
+
+      {/* 校规与权益 (折叠) */}
+      <PrivacyFooter />
     </main>
   );
 }
