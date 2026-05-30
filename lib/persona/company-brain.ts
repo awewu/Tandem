@@ -205,10 +205,14 @@ function summarizeObjectiveProgress(o: Objective, krs: KeyResult[]): string {
  * 然后注入全公司 Memory (ownershipLevel='company') 作为基线知识.
  */
 export async function buildCompanyBrainSystemPrompt(): Promise<string> {
+  const { bucketMemoriesByKind } = await import('@/lib/types/memory');
   const store = getStore();
   const allMems = await store.memories.list();
   const companyMems = allMems.filter((m) => m.ownershipLevel === 'company');
   const okrContext = await buildOkrAnchorContext();
+
+  // §P0 #3 · 按 kind 分桶: brief 优先 procedural (做事方法) + semantic (事实), episodic 留底
+  const buckets = bucketMemoriesByKind(companyMems);
 
   const lines = [
     '你是 Tandem 的"中央 AI" (CompanyBrain), 代表整个公司的视角发言.',
@@ -222,18 +226,23 @@ export async function buildCompanyBrainSystemPrompt(): Promise<string> {
     '',
     okrContext,
     '',
-    `【已知公司层 Memory · ${companyMems.length} 条】`,
+    `【已知公司层 Memory · ${companyMems.length} 条 ` +
+      `(procedural ${buckets.procedural.length} / semantic ${buckets.semantic.length} / episodic ${buckets.episodic.length})】`,
   ];
 
-  // 注入前 10 条公司 Memory (避免 prompt 过长)
-  const top = companyMems.slice(0, 10);
-  top.forEach((m, i) => {
-    lines.push(`${i + 1}. ${m.title}`);
+  // §P0 #3 · 注入顺序: procedural 优先 → semantic → episodic, 各 ≤ 5 条
+  const inject = [
+    ...buckets.procedural.slice(0, 5),
+    ...buckets.semantic.slice(0, 5),
+  ];
+  inject.forEach((m, i) => {
+    lines.push(`${i + 1}. [${m.kind ?? 'auto'}] ${m.title}`);
     lines.push(`   ${(m.body ?? '').slice(0, 200)}`);
   });
 
-  if (companyMems.length > 10) {
-    lines.push(`(... 还有 ${companyMems.length - 10} 条公司 Memory 未注入)`);
+  const remaining = companyMems.length - inject.length;
+  if (remaining > 0) {
+    lines.push(`(... 还有 ${remaining} 条公司 Memory 未注入, 含 ${buckets.episodic.length} 条 episodic)`);
   }
 
   lines.push('');

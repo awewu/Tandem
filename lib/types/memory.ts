@@ -123,6 +123,36 @@ export const PROMOTION_REQUIRED_ROLES: Record<PromotionLevel, MemorySignerRole[]
  */
 export type MemoryOwnershipLevel = 'company' | 'department' | 'team' | 'personal';
 
+/**
+ * §2026 Mem0 State of AI Agent Memory · 三类认知记忆 (与 type 正交)
+ *
+ *   episodic   "发生了什么"   — 会话/事件流水 (议事 transcript, IM 记录, BossAI 问答历史)
+ *   semantic   "已知事实"     — SOP / 价值观 / 红线 / 案例知识点 (现有 type 多数属此)
+ *   procedural "怎么做"       — 团队工作流 / 评审套路 / 决策习惯 (学院课程通过后落地的过程性知识)
+ *
+ * 默认 semantic (向后兼容): 旧数据无此字段时按 semantic 处理.
+ * 检索分桶时建议: brief 用 semantic+procedural, 复盘用 episodic, 教学用 procedural.
+ */
+export type MemoryKind = 'episodic' | 'semantic' | 'procedural';
+
+/**
+ * §2026 Mem0 4-Scope Memory Identifier (与 ownershipLevel 正交)
+ *
+ * ownershipLevel 解决"谁可见", scope 解决"哪个 agent / 哪次会话产出的".
+ * 多分身/子分身/外部 AI 反哺时, 同一条 Memory 可能挂在不同 scope 上.
+ *
+ *   orgId      公司 (CompanyBrain 训练数据多挂这)
+ *   agentId    分身 ID (CompanyBrain / 个人主分身 / 子分身)
+ *   userId     用户 (员工自己的 personal memory)
+ *   sessionId  会话 (议事/1on1/BossAI 单次会话, 短期)
+ */
+export interface MemoryScope {
+  orgId?: string;
+  agentId?: string;
+  userId?: string;
+  sessionId?: string;
+}
+
 export interface MemoryEntry {
   id: string;
   type: MemoryType;
@@ -162,6 +192,16 @@ export interface MemoryEntry {
   isActive?: boolean;
   /** 版本号 (每次 update +1) */
   version?: number;
+
+  // ── §2026 4-Scope + 三类认知记忆 (P0 #3) ────────────────────────
+  /** 认知类型. 默认 semantic (向后兼容). */
+  kind?: MemoryKind;
+  /** 哪个 agent 产出/拥有 (CompanyBrain / 主分身 / 子分身 / 外部 AI) */
+  agentId?: string;
+  /** 哪次会话产出 (议事/1on1/BossAI session) */
+  sessionId?: string;
+  /** 组织 id (多租户时 = tenantId, 单租户时可省) */
+  orgId?: string;
 }
 
 /**
@@ -309,6 +349,79 @@ export interface Baseline {
 
 export function isMemoryActive(entry: MemoryEntry): boolean {
   return entry.status === 'active';
+}
+
+/**
+ * §P0 #3 · Memory kind 推断 (向后兼容旧数据)
+ *
+ * 优先用显式 entry.kind. 没有时按 type 推断:
+ *   sop / value / redline → procedural (做事方法/原则)
+ *   case / lesson         → episodic (具体事件)
+ *   其他                  → semantic (默认事实)
+ */
+export function getMemoryKind(entry: Pick<MemoryEntry, 'kind' | 'type'>): MemoryKind {
+  if (entry.kind) return entry.kind;
+  switch (entry.type) {
+    case 'sop':
+    case 'value':
+    case 'redline':
+      return 'procedural';
+    case 'case':
+    case 'lesson':
+      return 'episodic';
+    default:
+      return 'semantic';
+  }
+}
+
+/**
+ * §P0 #3 · 按 scope 过滤 Memory.
+ *
+ * 任一字段命中即视为匹配 (OR 语义). 多字段同时要满足时调用方自行 AND.
+ * 空 scope (无任一字段) 等价"不过滤", 全量返回.
+ *
+ * 用于 brief 注入 / Persona 检索时的范围限定.
+ *
+ * @example
+ *   // 拉 BossAI 当前 session 的 episodic 记忆 (短期)
+ *   filterMemoriesByScope(all, { sessionId: 'sess-abc' })
+ *
+ *   // 拉公司级 procedural (团队 SOP)
+ *   all.filter(m => m.ownershipLevel === 'company' && getMemoryKind(m) === 'procedural')
+ */
+export function filterMemoriesByScope(
+  memories: MemoryEntry[],
+  scope: MemoryScope,
+): MemoryEntry[] {
+  const { orgId, agentId, userId, sessionId } = scope;
+  if (!orgId && !agentId && !userId && !sessionId) return memories;
+  return memories.filter((m) => {
+    if (orgId && m.orgId === orgId) return true;
+    if (agentId && m.agentId === agentId) return true;
+    if (userId && m.ownerUserId === userId) return true;
+    if (sessionId && m.sessionId === sessionId) return true;
+    return false;
+  });
+}
+
+/**
+ * §P0 #3 · 按 kind 分桶 (检索建议用法)
+ *
+ * @example
+ *   const { semantic, procedural, episodic } = bucketMemoriesByKind(all);
+ *   // brief: [...procedural, ...semantic]
+ *   // retro: [...episodic]
+ */
+export function bucketMemoriesByKind(memories: MemoryEntry[]): {
+  episodic: MemoryEntry[];
+  semantic: MemoryEntry[];
+  procedural: MemoryEntry[];
+} {
+  const out = { episodic: [] as MemoryEntry[], semantic: [] as MemoryEntry[], procedural: [] as MemoryEntry[] };
+  for (const m of memories) {
+    out[getMemoryKind(m)].push(m);
+  }
+  return out;
 }
 
 export function isPromotionApproved(req: MemoryPromotionRequest): boolean {
