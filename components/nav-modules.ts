@@ -25,6 +25,7 @@ import {
   // item icons
   Sparkles as SparklesAlias,
   Grid3x3,
+  MessageSquare,
   Video,
   FileText,
   Database,
@@ -216,46 +217,64 @@ export const NAV_MODULES: NavModule[] = [
     tagline: '认识自己、积累技能, 让成长看得见',
     icon: Sparkles,
     visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
-    // §归属整合 (2026-05-29): 原「搭子」(ai 模块) 已删除, 其路由前缀合并到这里
-    //   理由: D1「搭子 → Tandem」, /tandem 工作台已是分身使用入口, ai 模块完全重复.
-    //   /persona/* (分身管理) + /summon (个人 AI 接入) + /settings/llm (模型) 都属个人成长域.
-    pathPrefixes: [
-      '/persona', '/skills', '/learning', '/portfolio', '/retros', '/360', '/nine-box',
-      '/summon', '/settings/llm', '/chat', '/agents',
-    ],
+    pathPrefixes: ['/persona', '/skills', '/learning', '/portfolio', '/retros', '/360', '/nine-box'],
     items: [
-      // 🤖 我的分身 — SUMMON-AND-NURTURE V1 (B1-B4) · 日常使用走 /tandem 工作台, 这里是深度管理
-      { name: '我的分身',         href: '/persona',                  icon: Users,            group: '🤖 我的分身' },
-      { name: '分身训练台',       href: '/persona/training',         icon: BotMessageSquare, group: '🤖 我的分身' },
-      { name: '养料仪表盘',       href: '/persona/data-source',      icon: Database,         group: '🤖 我的分身' },
-      { name: '五阶段进化',       href: '/persona/evolution',        icon: SparklesAlias,    group: '🤖 我的分身' },
-      { name: '实习权限',         href: '/persona/delegation',       icon: ShieldCheck,      group: '🤖 我的分身' },
-      { name: '代办审计',         href: '/persona/me/proxy-actions', icon: Activity,         group: '🤖 我的分身' },
+      // 我的分身 — SUMMON-AND-NURTURE V1 必交付 (B1-B4)
+      { name: '我的分身',     href: '/persona',            icon: Users,            group: '🤖 我的分身' },
+      { name: '分身训练台',   href: '/persona/training',   icon: BotMessageSquare, group: '🤖 我的分身' },
+      { name: '养料仪表盘',   href: '/persona/data-source', icon: Database,        group: '🤖 我的分身' },
+      { name: '五阶段进化',   href: '/persona/evolution',  icon: SparklesAlias,    group: '🤖 我的分身' },
+      { name: '实习权限',     href: '/persona/delegation', icon: ShieldCheck,      group: '🤖 我的分身' },
 
-      // 📊 自我画像 — 我是谁
-      { name: '个人档案',         href: '/persona/profile',          icon: Users,            group: '📊 自我画像' },
-      { name: '360° 评估',        href: '/360',                      icon: Activity,         group: '📊 自我画像' },
-      { name: '9-Box 定位',        href: '/nine-box',                 icon: Grid3x3,          group: '📊 自我画像' },
+      // 自我画像 — 我是谁
+      { name: '个人档案',     href: '/persona/profile',    icon: Users,            group: '📊 自我画像' },
+      { name: '360° 评估',    href: '/360',                icon: Activity,         group: '📊 自我画像' },
+      { name: '9-Box 定位',    href: '/nine-box',           icon: Grid3x3,          group: '📊 自我画像' },
 
-      // 🎓 技能与成长 — 我会什么
-      { name: '我的技能',         href: '/skills',                   icon: Layers,           group: '🎓 技能与成长' },
-      { name: '学习路径推荐',     href: '/skills/learning',          icon: SparklesAlias,    group: '🎓 技能与成长' },
-      { name: '我的复盘库',       href: '/retros/me',                icon: Brain,            group: '🎓 技能与成长' },
-      { name: '我的代表作',       href: '/portfolio',                icon: Gift,             group: '🎓 技能与成长' },
+      // 技能与成长 — 我会什么
+      { name: '我的技能',     href: '/skills',             icon: Layers,           group: '🎓 技能与成长' },
+      { name: '学习路径推荐', href: '/skills/learning',    icon: SparklesAlias,    group: '🎓 技能与成长' },
+      { name: '我的复盘库',   href: '/retros/me',          icon: Brain,            group: '🎓 技能与成长' },
+      { name: '我的代表作',   href: '/portfolio',          icon: Gift,             group: '🎓 技能与成长' },
 
-      // 📚 学习中心 (P2 MVP)
-      { name: '学习台',           href: '/learning',                 icon: BookOpen,        accent: 'cta', group: '📚 学习中心' },
-      { name: '入职必修',         href: '/learning/onboarding',      icon: PartyPopper,                    group: '📚 学习中心' },
-      { name: '合规与红线',       href: '/learning/compliance',      icon: FileLock,                       group: '📚 学习中心' },
-      { name: '产品学院',         href: '/learning/products',        icon: Layers,                         group: '📚 学习中心' },
-      { name: '流程与标准',       href: '/learning/processes',       icon: Workflow,                       group: '📚 学习中心' },
-      { name: '专项进阶',         href: '/learning/tracks',          icon: TrendingUp,                     group: '📚 学习中心' },
-      { name: '我的认证',         href: '/learning/certifications',  icon: ScrollText,                     group: '📚 学习中心' },
+      // 📚 学习中心 — 我在学什么 (P2 MVP)
+      { name: '学习台',         href: '/learning',                  icon: BookOpen,        accent: 'cta', group: '📚 学习中心' },
+      { name: '入职必修',     href: '/learning/onboarding',       icon: PartyPopper,                    group: '📚 学习中心' },
+      { name: '合规与红线',   href: '/learning/compliance',       icon: FileLock,                       group: '📚 学习中心' },
+      { name: '产品学院',     href: '/learning/products',         icon: Layers,                         group: '📚 学习中心' },
+      { name: '流程与标准',   href: '/learning/processes',        icon: Workflow,                       group: '📚 学习中心' },
+      { name: '专项进阶',     href: '/learning/tracks',           icon: TrendingUp,                     group: '📚 学习中心' },
+      { name: '我的认证',     href: '/learning/certifications',   icon: ScrollText,                     group: '📚 学习中心' },
+    ],
+  },
 
-      // 🌉 个人 AI 接入 — MANIFESTO §19 拥抱市面智能体 + Skill Gateway 4 道闸
-      { name: '接入市面智能体',   href: '/summon/external',          icon: Bot,                            group: '🌉 个人 AI 接入' },
-      { name: 'Skill Gateway 审计', href: '/summon/audit',             icon: ShieldCheck,                    group: '🌉 个人 AI 接入' },
-      { name: '模型设置',         href: '/settings/llm',             icon: Cpu,                            group: '🌉 个人 AI 接入' },
+  {
+    id: 'ai',
+    label: '搭子',
+    fullLabel: '召唤搭子',
+    tagline: '一个 AI 分身陪你长大, 拿捏老板拿捏未来',
+    icon: BotMessageSquare,
+    pathPrefixes: ['/chat', '/agents', '/settings/llm', '/summon'],
+    items: [
+      // 🌟 主分身工作台 — 今日 brief + 代办审计 (P1 MVP)
+      { name: '主分身工作台',   href: '/persona',                  icon: BotMessageSquare, accent: 'cta', group: '🌟 主分身工作台' },
+      { name: '主分身代办审计', href: '/persona/me/proxy-actions', icon: Activity,                       group: '🌟 主分身工作台' },
+
+      // 🧬 技能模式 — 同一主分身参数切换 (不是新 Agent)
+      { name: '🎨 设计模式',   href: '/persona?mode=design',     icon: Palette,                        group: '🧬 技能模式' },
+      { name: '📦 PM 模式',      href: '/persona?mode=pm',         icon: ClipboardCheck,                 group: '🧬 技能模式' },
+      { name: '💻 技术模式',   href: '/persona?mode=tech',       icon: Cpu,                            group: '🧬 技能模式' },
+      { name: '📣 营销模式',   href: '/persona?mode=marketing',  icon: Megaphone,                      group: '🧬 技能模式' },
+      { name: '🎯 战略模式',   href: '/persona?mode=strategy',   icon: Target,                         group: '🧬 技能模式' },
+
+      // 🌉 个人 AI 接入 — MANIFESTO §19 拥抱市面智能体 + Skill Gateway 4 道闸 (P4 加固)
+      { name: '接入市面智能体', href: '/summon/external',         icon: Bot,                            group: '🌉 个人 AI 接入' },
+      { name: 'Skill Gateway 审计', href: '/summon/audit',          icon: ShieldCheck,                    group: '🌉 个人 AI 接入' },
+
+      // ⚙️ 召唤台 + 配置
+      { name: '作战室对话',     href: '/chat',                     icon: MessageSquare,                  group: '⚙️ 召唤台 + 配置' },
+      { name: 'Agent 超市',     href: '/agents',                   icon: Bot,                            group: '⚙️ 召唤台 + 配置' },
+      { name: '模型设置',       href: '/settings/llm',             icon: Cpu,                            group: '⚙️ 召唤台 + 配置' },
     ],
   },
 
