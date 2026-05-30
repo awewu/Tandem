@@ -4,12 +4,16 @@
  * 对应 PERSONA-EVOLUTION + MANIFESTO 第十三条 (数据归公司, 尊严归员工)
  */
 
+/**
+ * v2 命名 (2026-05-29): 新手 → 上手 → 熟手 → 老手 → 拿手
+ * SSOT: lib/persona/stage-meta.ts (含 emoji / 称谓 / blurb / Lv / 实习权限)
+ */
 export type PersonaStage =
-  | 'newborn'   // 🥚 新生 (0-2w): 仅旁听
-  | 'apprentice' // 🐣 学徒 (2w-2m): 简单 standup
-  | 'assistant' // 🐤 助手 (2m-6m): 绿区会议 + 表态
-  | 'deputy'    // 🦅 副手 (6m-1y): 黄区会议 + 短承诺
-  | 'partner';  // 🐉 搭档 (>1y): 跨企业 (除红区)
+  | 'newborn'   // 🥚 Lv.1 新手 (0-2w): 仅旁听
+  | 'apprentice' // 🐣 Lv.2 上手 (2w-2m): 简单 standup
+  | 'assistant' // 🐤 Lv.3 熟手 (2m-6m): 绿区会议 + 表态
+  | 'deputy'    // 🦅 Lv.4 老手 (6m-1y): 黄区会议 + 短承诺
+  | 'partner';  // 🐉 Lv.5 拿手 (>1y): 跨企业 (除红区)
 
 export type DelegationLevel =
   | 'observe_only'      // 仅旁听
@@ -96,6 +100,14 @@ export interface Persona {
 
   /** 是否在线学习中 */
   learningActive: boolean;
+
+  /**
+   * 5 主修 GPA · Mode Proficiency map (0-100)
+   * 来源: 学习闭环 closure.ts onLessonCompleted 累加 lesson.rewardScore.
+   * 缺省/未学过的主修不出现, 由 UI fallback.
+   * 这是学院架构 (ACADEMY-METAPHOR §1.2) 的核心数据通道.
+   */
+  modeProficiency?: Partial<Record<'design' | 'pm' | 'tech' | 'marketing' | 'strategy', number>>;
 
   /**
    * 该 Persona 已解锁的 Agent Skill ID 列表 (S1, CHARTER §16).
