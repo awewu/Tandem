@@ -40,6 +40,7 @@ style: |
 <!-- _class: cover -->
 
 # Tandem
+
 ## 牛马搭子 · 给民企老板和员工的搭档
 
 <br>
@@ -201,6 +202,7 @@ KPI (硬指标)              TTI (成长度, Tandem Improvement Index)
 <br>
 
 **明面** (写在合同里):
+
 - 数据归 **公司**, 装在客户自己的 PostgreSQL
 - pg_dump 随时带走, 不续签 Tandem 0 残留
 
@@ -342,6 +344,7 @@ e2e-auth.mjs (Auth + §13 隐私)     17 / 17 PASS
 <br>
 
 **我们提供**:
+
 - 60 分钟装机 + 7 天 pilot 期
 - 创始人本人对接, 30 min P0 响应
 - DeepSeek 调用成本我方先垫
@@ -350,6 +353,7 @@ e2e-auth.mjs (Auth + §13 隐私)     17 / 17 PASS
 <br>
 
 **你提供**:
+
 - 一个真实业务议题
 - 一个 Champion + 3-5 试用员工
 - 7 天后 1 小时复盘

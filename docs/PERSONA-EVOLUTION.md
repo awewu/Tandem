@@ -93,6 +93,7 @@
 ```
 
 **核心特性**：
+
 - **下行**：上层向下层赋能，每层都注入上层 prompt + skills + 数据
 - **上行**：下层向上层贡献，但**先去标识 + 经审核**才能进入上层
 - **隔离**：员工私域永远不被上层"看见"，只贡献"模式"不贡献"内容"
@@ -118,6 +119,7 @@
 | **Persona Hotfix** | 监管告警 | 即时 | 紧急熔断/修补 |
 
 **推送通道**：
+
 - Empowerment Channel（基于 Kafka topic `personas.empower`）
 - 客户端订阅 + 服务端拉取双保险
 - 每次更新有 manifest，分身可选择性应用 + 灰度
@@ -154,6 +156,7 @@
 ```
 
 **进化粒度**：
+
 - **Hot path（毫秒）**：在线偏好更新（如"这位员工倾向用"我们"而非"我"）
 - **Cold path（小时/天）**：离线萃取，生成 Patch 候选
 - **Cycle path（周/季）**：周期级技能升级、Wiki 摘录沉淀
@@ -223,6 +226,7 @@
 ### 5.1 Skills Registry → Persona Skill Graft
 
 **机制**：
+
 - 每个 Persona 有自己的 `installed_skills[]`（中央下发 + 个人选装）
 - 中央每周发布"认证 Skill 包"，员工可一键安装
 - Persona 可在沙箱里**试用未认证 Skill**（标 `experimental`），表现好就上报候选
@@ -233,6 +237,7 @@
 ### 5.2 Workflows → 成功流程自动沉淀
 
 **机制**：
+
 - Persona 完成一个高分任务后，自动产出"任务回放"
 - 回放经反思 Agent 提炼出可复用步骤 → 候选 Workflow
 - 员工确认后，存入个人 Workflow 库
@@ -392,6 +397,7 @@ EvolutionLog(
 | **PE-ε** | 持续 | 行业 Persona SDK / 跨租户匿名贡献池（可选） |
 
 **与 PRD 路线图映射**：
+
 - PE-α/β 在 PRD V2 内
 - PE-γ 在 PRD V3 内
 - PE-δ 在 PRD V3 末
@@ -432,26 +438,31 @@ EvolutionLog(
 ### 10.1 新员工 Onboarding（中央赋能主导）
 
 **Day 1**：HR 发起 → 自动从公司模板生成 `张三的分身 v0`
+
 - 继承：公司 Baseline + 产品部 Baseline + Onboarding Skill 包
 - Memory：公司 Wiki + 部门历史决策摘要
 - 委托级别：L0（仅观察 + 摘要）
 
 **Week 2–4**：分身陪员工跑通"新员工 7 天计划"
+
 - 每天记录员工反馈与偏好
 - 自动注入"该员工偏好 Slack 风格、不喜冗长邮件"等
 
 **Month 3**：分身已建立稳定个性
+
 - 委托级别可升 L1（建议草稿）
 - 萃取流水线开始接收该员工的去标识模式
 
 ### 10.2 资深员工的 Persona 升级（自我进化主导）
 
 **周三 16:00**：李四给客户写报价单。分身建议用模板 A，李四改用模板 B 完成。
+
 - 反馈信号：草稿被改写 60% 内容
 - 当晚 23:00 离线萃取：发现"李四在金额>X 时偏好 B 模板"
 - 候选 Patch 生成
 
 **周四 09:00**：分身在 Daily Coach 提示"我注意到您偏好 B 模板，是否更新偏好？"
+
 - 李四确认 → 写入 personal preferences
 - 后续金额>X 的报价直接用 B
 
@@ -460,6 +471,7 @@ EvolutionLog(
 ### 10.3 中央 Hotfix（紧急赋能）
 
 **周二 14:00**：法务发现公司基线漏了一条"不主动提及竞品名"。
+
 - 法务在 `/baseline` 改条款 → 发布 Hotfix
 - Empowerment Channel 即时推送到所有 Persona
 - 5 分钟内全员生效，所有进行中草稿被重新 baseline 检查
