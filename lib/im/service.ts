@@ -925,7 +925,10 @@ async function invokeCompanyBrainReply(input: InvokePersonaInput): Promise<void>
     const router = getRouter();
     const store = getStore();
 
-    const systemPrompt = await buildCompanyBrainSystemPrompt();
+    // §P1 Reranker · 用 @中央 AI 的 IM 消息作为 query, 让注入 Memory 按相关度重排
+    const systemPrompt = await buildCompanyBrainSystemPrompt({
+      query: input.triggeringMessage.body,
+    });
 
     // §IM-7 trace id
     const aiTraceId = `imtrace_cb_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;

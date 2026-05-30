@@ -355,6 +355,8 @@ export const NAV_MODULES: NavModule[] = [
       { name: 'Baseline',       href: '/admin/baseline',      icon: ScrollText,    group: '内容管理', visibleTo: ['admin', 'champion'] },
       // 系统运维
       { name: 'TAF Skills',     href: '/admin/tandem-skills', icon: Layers,        group: '系统运维', visibleTo: ['admin'] },
+      { name: '使用 + 成本',    href: '/admin/usage',         icon: Activity,      group: '系统运维', visibleTo: ['admin'] },
+      { name: 'AI 评估',        href: '/admin/evals',         icon: Sparkles,      group: '系统运维', visibleTo: ['admin', 'steward'] },
       { name: '定时任务',       href: '/tasks',               icon: CheckSquare,   group: '系统运维', visibleTo: ['admin'] },
       { name: '系统日志',       href: '/logs',                icon: FileText,      group: '系统运维', visibleTo: ['admin'] },
       // 工程参考
