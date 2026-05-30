@@ -8,6 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "lint:ui-charter": "node scripts/check-ui-charter.mjs",
+    "lint:ui-charter:strict": "node scripts/check-ui-charter.mjs --strict",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",

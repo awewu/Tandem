@@ -1,0 +1,55 @@
+#!/bin/sh
+# Tandem pre-commit gate — 防止退化提交
+# 4 条铁律的工程层兜底.
+# 跳过: 临时可用 git commit --no-verify (但要在 commit message 里说明理由)
+#
+# 安装:
+#   bash scripts/setup-git-hooks.sh
+#   或: cp scripts/git-hooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+
+echo "🔒 Tandem pre-commit gate · 检查中..."
+
+# 1. TypeScript 0 errors (覆盖 lib/ + app/ + components/ + scripts/)
+echo "  [1/3] npx tsc --noEmit ..."
+npx tsc --noEmit 2>&1 | grep -E "error TS" | head -20
+TSC_ERRORS=$(npx tsc --noEmit 2>&1 | grep -c "error TS")
+if [ "$TSC_ERRORS" -gt 0 ]; then
+  echo ""
+  echo "  ❌ tsc found $TSC_ERRORS error(s). 修完再 commit."
+  echo "     (强制提交: git commit --no-verify -m '...' + 在 message 解释)"
+  exit 1
+fi
+echo "  ✓ tsc clean"
+
+# 2. 检查砍页警示: 是否新增了 redirect-only 文件 (page.tsx 仅含 redirect('/'))
+echo "  [2/3] 检查 redirect-only 砍页 (反推到重建)..."
+SUSPICIOUS=$(git diff --cached --name-only --diff-filter=A | grep "page\.tsx$" | xargs -I {} sh -c 'lines=$(wc -l < "{}" 2>/dev/null || echo 0); if [ "$lines" -lt 20 ] && grep -q "redirect" "{}"; then echo "{}"; fi' 2>/dev/null)
+if [ -n "$SUSPICIOUS" ]; then
+  echo ""
+  echo "  ⚠ 新增了 redirect-only 短文件:"
+  echo "$SUSPICIOUS"
+  echo "     这通常是砍页 — 请确认:"
+  echo "     1. 已经 git log 看过原文件功能"
+  echo "     2. 已经在 commit message 写明 '为什么删'"
+  echo "     3. 不是误删了已有业务页"
+  echo "     (强制提交: git commit --no-verify)"
+  exit 1
+fi
+echo "  ✓ 无可疑砍页"
+
+# 3. CHARTER-UI-V1 ratchet · 不许 allowlist 外的文件引入 raw color 违规
+echo "  [3/3] CHARTER-UI-V1 ratchet (raw color 违规) ..."
+node scripts/check-ui-charter.mjs --strict > /dev/null 2>&1
+UI_EXIT=$?
+if [ "$UI_EXIT" -ne 0 ]; then
+  echo ""
+  echo "  ❌ UI 宪章: allowlist 外的文件有 raw color 违规"
+  echo "     看详情: npm run lint:ui-charter -- --fix-hint"
+  echo "     合规规则: docs/CHARTER-UI-V1.md §1.4 / §1.5"
+  echo "     (强制提交: git commit --no-verify + commit msg 说明 + 登记 §5 事故档案)"
+  exit 1
+fi
+echo "  ✓ UI 宪章 ratchet 通过"
+
+echo "🟢 pre-commit 通过"
+exit 0
