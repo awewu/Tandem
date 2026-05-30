@@ -201,4 +201,20 @@ describe('§B-014 · OKR Anchor 注入器', () => {
     expect(prompt).toContain('服务/不服务'); // 身份约束
     expect(prompt).toContain('2026 Q2'); // 周期信息
   });
+
+  it('§P1 Reranker · query 让相关 Memory 提前注入', async () => {
+    await seedCycle({ id: 'c1', isActive: true });
+    // 6 条 semantic memory, 只有 1 条跟 "客户漏斗" 相关
+    await seedCompanyMemory({ id: 'm_noise1', title: '产品价格表', body: '产品定价指南' });
+    await seedCompanyMemory({ id: 'm_noise2', title: '招聘流程', body: '招聘候选人步骤' });
+    await seedCompanyMemory({ id: 'm_noise3', title: '加班政策', body: '加班补贴规则' });
+    await seedCompanyMemory({ id: 'm_noise4', title: '差旅报销', body: '出差报销规则' });
+    await seedCompanyMemory({ id: 'm_noise5', title: '邮件签名', body: '邮件签名格式' });
+    await seedCompanyMemory({ id: 'm_target', title: '客户漏斗 SOP', body: '客户漏斗 6 阶段标准' });
+
+    // 不传 query: 原顺序 (m_target 是最后插入, 默认顺序里靠后, 但只有 6 条 ≤ 5 阈值不触发 rerank)
+    // 传 query='客户漏斗怎么算', target 应在 top 5
+    const promptWithQuery = await buildCompanyBrainSystemPrompt({ query: '客户漏斗怎么算?' });
+    expect(promptWithQuery).toContain('客户漏斗 SOP');
+  });
 });

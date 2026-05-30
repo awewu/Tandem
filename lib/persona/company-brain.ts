@@ -203,9 +203,17 @@ function summarizeObjectiveProgress(o: Objective, krs: KeyResult[]): string {
  * 构建 CompanyBrain system prompt
  * V1.5 升级: OKR Anchor 注入器 (B-014) 在最前 — 让 LLM 任何输出都基于公司当前在追的 OKR.
  * 然后注入全公司 Memory (ownershipLevel='company') 作为基线知识.
+ *
+ * V1.7 (2026-05-29 P1) · Reranker 接入:
+ *   传入 opts.query 时, 按"查询相关度 + 时效 + 引用度"重排选 top.
+ *   不传 query 时退化为原顺序 (向后兼容).
  */
-export async function buildCompanyBrainSystemPrompt(): Promise<string> {
+export async function buildCompanyBrainSystemPrompt(opts?: {
+  /** 用户当前提问 (BossAI 路径必传, IM 路径暂不传保留兼容) */
+  query?: string;
+}): Promise<string> {
   const { bucketMemoriesByKind } = await import('@/lib/types/memory');
+  const { rerank } = await import('@/lib/memory/reranker');
   const store = getStore();
   const allMems = await store.memories.list();
   const companyMems = allMems.filter((m) => m.ownershipLevel === 'company');
@@ -213,6 +221,13 @@ export async function buildCompanyBrainSystemPrompt(): Promise<string> {
 
   // §P0 #3 · 按 kind 分桶: brief 优先 procedural (做事方法) + semantic (事实), episodic 留底
   const buckets = bucketMemoriesByKind(companyMems);
+
+  // §P1 Reranker · 若有 query, 按多信号重排序; 否则原顺序
+  const pickTop = (pool: typeof buckets.procedural, k: number) => {
+    if (!opts?.query || pool.length <= k) return pool.slice(0, k);
+    return rerank(opts.query, pool.map((memory) => ({ memory })), { topK: k })
+      .map((r) => r.memory);
+  };
 
   const lines = [
     '你是 Tandem 的"中央 AI" (CompanyBrain), 代表整个公司的视角发言.',
@@ -230,10 +245,10 @@ export async function buildCompanyBrainSystemPrompt(): Promise<string> {
       `(procedural ${buckets.procedural.length} / semantic ${buckets.semantic.length} / episodic ${buckets.episodic.length})】`,
   ];
 
-  // §P0 #3 · 注入顺序: procedural 优先 → semantic → episodic, 各 ≤ 5 条
+  // §P0 #3 · 注入顺序: procedural 优先 → semantic → episodic, 各 ≤ 5 条 (P1: rerank by query)
   const inject = [
-    ...buckets.procedural.slice(0, 5),
-    ...buckets.semantic.slice(0, 5),
+    ...pickTop(buckets.procedural, 5),
+    ...pickTop(buckets.semantic, 5),
   ];
   inject.forEach((m, i) => {
     lines.push(`${i + 1}. [${m.kind ?? 'auto'}] ${m.title}`);

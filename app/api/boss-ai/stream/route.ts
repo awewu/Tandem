@@ -60,9 +60,11 @@ export async function POST(req: NextRequest): Promise<Response> {
   const router = getRouter();
 
   // ── 1. 服务端构建 systemPrompt (客户端无权改写) ──────────────────
+  //    §P1 Reranker · 用最新一条 user message 作为 query, 让 CompanyBrain Memory 注入按相关度排序
+  const latestUserMessage = [...messages].reverse().find((m) => m.role === 'user')?.content ?? '';
   let baseSystemPrompt: string;
   try {
-    baseSystemPrompt = await buildCompanyBrainSystemPrompt();
+    baseSystemPrompt = await buildCompanyBrainSystemPrompt({ query: latestUserMessage });
   } catch (err) {
     return sseError(`CompanyBrain prompt 构建失败: ${(err as Error).message}`, 500);
   }
