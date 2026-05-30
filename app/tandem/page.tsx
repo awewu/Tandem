@@ -22,20 +22,23 @@
  */
 
 import Link from 'next/link';
-import { Suspense, useState } from 'react';
+import { Suspense, createContext, useContext, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
+  AlertCircle,
   ArrowLeft,
   Bot,
   Brain,
   ChevronLeft,
   ChevronRight,
   ClipboardCheck,
+  Clock,
   Compass,
   Cpu,
   ExternalLink,
   FileText,
   GraduationCap,
+  History,
   Inbox,
   Layers,
   Megaphone,
@@ -43,7 +46,9 @@ import {
   Palette,
   Send,
   Sparkles,
+  Stamp,
   Target,
+  TrendingUp,
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -103,6 +108,69 @@ const CARD_REGISTRY = {
 } as const;
 type CardId = keyof typeof CARD_REGISTRY;
 
+// ────────────────────────────────────────────────────────────────
+// /api/me/dashboard + /api/me/retro-pending 聚合 hook
+// ────────────────────────────────────────────────────────────────
+interface MeDashboardData {
+  todos: {
+    promotionsAwaitingMySignature: Array<{
+      id: string; title: string; level: string;
+      slaDeadline?: string | null; overdue: boolean;
+    }>;
+    personaUpgradeAvailable: {
+      fromStage: string; toStage: string; bossCaptureScore: number;
+    } | null;
+    myKrAtRisk: Array<{ id: string; title: string; riskStatus: string; progress: number }>;
+    myTtiInProgress: Array<{ id: string; title: string; completionRate: number }>;
+    myRecentCommitsInVetoWindow: Array<{ id: string; title: string; remainingMs: number }>;
+    totalCount: number;
+  };
+  creation: {
+    persona: { id: string; stage: string; bossCaptureScore: number; learningActive: boolean } | null;
+    myMemoryContributions: { total: number; pending: number; rejected: number };
+    myRecentDecisions: Array<{ id: string; title: string; state: string; selected?: boolean; createdAt: string }>;
+  };
+}
+interface RetroPendingData {
+  items: Array<{
+    decisionId: string; title: string; decisionClass: string;
+    daysSinceCommit: number; urgency: 'due' | 'overdue';
+  }>;
+  total: number;
+}
+
+interface DashboardCtx {
+  loading: boolean;
+  dashboard: MeDashboardData | null;
+  retros: RetroPendingData | null;
+}
+const DashboardContext = createContext<DashboardCtx>({ loading: true, dashboard: null, retros: null });
+const useTandemDashboard = () => useContext(DashboardContext);
+
+function useDashboardFetch(): DashboardCtx {
+  const [state, setState] = useState<DashboardCtx>({ loading: true, dashboard: null, retros: null });
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      fetch('/api/me/dashboard').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch('/api/me/retro-pending').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    ]).then(([d, r]) => {
+      if (cancelled) return;
+      setState({ loading: false, dashboard: d as MeDashboardData | null, retros: r as RetroPendingData | null });
+    });
+    return () => { cancelled = true; };
+  }, []);
+  return state;
+}
+
+function fmtRemainingMs(ms: number): string {
+  if (ms <= 0) return '已过期';
+  const h = Math.floor(ms / 3_600_000);
+  const m = Math.floor((ms % 3_600_000) / 60_000);
+  if (h >= 1) return `${h}h${m}min 内可撤回`;
+  return `${m}min 内可撤回`;
+}
+
 // ════════════════════════════════════════════════════════════════
 // 页面入口
 // ════════════════════════════════════════════════════════════════
@@ -126,7 +194,10 @@ function TandemPageInner() {
       ? (cardParam as CardId)
       : null;
 
+  const dashCtx = useDashboardFetch();
+
   return (
+   <DashboardContext.Provider value={dashCtx}>
     <div className="relative flex h-full w-full surface-2">
       {/* ───────── 左召唤栏 (身份) · 桌面 ───────── */}
       <div className="hidden md:contents">
@@ -187,6 +258,7 @@ function TandemPageInner() {
         onClose={() => { setLeftTab(null); setRightTab(null); }}
       />
     </div>
+   </DashboardContext.Provider>
   );
 }
 
@@ -302,12 +374,17 @@ function SummonPanel({ side, tab, onClose }: SummonPanelProps) {
 // 召唤面板内容 · 按 tab.id 分发 (P1 = 我的分身 + 交付 真实占位, 其它 = 通用 stub)
 // ════════════════════════════════════════════════════════════════
 function SummonPanelContent({ id, side }: { id: string; side: 'left' | 'right' }) {
-  if (side === 'left'  && id === 'persona') return <PersonaCard />;
-  if (side === 'right' && id === 'deliver') return <DeliverCard />;
+  if (side === 'left'  && id === 'persona')   return <PersonaCard />;
+  if (side === 'left'  && id === 'memory')    return <MemoryCard />;
+  if (side === 'right' && id === 'deliver')   return <DeliverCard />;
+  if (side === 'right' && id === 'inbox')     return <InboxCard />;
+  if (side === 'right' && id === 'recommend') return <RecommendCard />;
   return <StubCard id={id} side={side} />;
 }
 
 function PersonaCard() {
+  const { dashboard, loading } = useTandemDashboard();
+  const persona = dashboard?.creation.persona ?? null;
   const modes = [
     { id: 'design',    label: '🎨 设计模式', icon: Palette },
     { id: 'pm',        label: '📦 PM 模式', icon: ClipboardCheck },
@@ -324,7 +401,11 @@ function PersonaCard() {
           </div>
           <div className="min-w-0">
             <p className="text-headline text-primary truncate">我的搭子</p>
-            <p className="text-footnote text-tertiary">就绪 · 代行权限: 基础</p>
+            <p className="text-footnote text-tertiary">
+              {loading ? '加载中…' : persona
+                ? <>阶段 <span className="text-primary">{persona.stage}</span> · 拿捏 {persona.bossCaptureScore}{persona.learningActive ? ' · 学习中' : ''}</>
+                : '尚未召唤 · 去主分身页激活'}
+            </p>
           </div>
         </div>
         <Link
@@ -402,6 +483,251 @@ function StubCard({ id, side }: { id: string; side: 'left' | 'right' }) {
           {side === 'left' ? '身份' : '行动'}召唤 · <code className="text-primary">{id}</code> 面板待接入。
         </p>
       </div>
+    </div>
+  );
+}
+
+// ── Memory: 我最近的决议 + Memory 贡献统计 ──────────────────────────
+function MemoryCard() {
+  const { dashboard, loading } = useTandemDashboard();
+  if (loading) return <SkeletonRows />;
+  const decisions = dashboard?.creation.myRecentDecisions ?? [];
+  const contrib = dashboard?.creation.myMemoryContributions;
+  return (
+    <div className="space-y-3">
+      {contrib && (
+        <div className="surface-card rounded-2xl p-3 shadow-soft-xs">
+          <p className="text-footnote text-tertiary uppercase tracking-wider mb-2">我的 Memory 贡献</p>
+          <div className="flex items-center gap-3 text-caption">
+            <span className="text-primary"><strong>{contrib.total}</strong> 已上库</span>
+            <span className="text-tertiary">·</span>
+            <span className="text-tertiary">待签 {contrib.pending}</span>
+          </div>
+        </div>
+      )}
+      <div>
+        <p className="text-footnote text-tertiary uppercase tracking-wider mb-2">我最近的决议</p>
+        {decisions.length === 0 ? (
+          <p className="text-caption text-tertiary">暂无决议 · 去议事室创建</p>
+        ) : (
+          <div className="space-y-1.5">
+            {decisions.slice(0, 5).map((d) => (
+              <Link
+                key={d.id}
+                href={`/decisions/${d.id}`}
+                className="block rounded-md px-2 py-1.5 text-caption text-primary hover:bg-[rgb(var(--surface-3))] surface-interactive"
+              >
+                <span className="truncate block">{d.title}</span>
+                <span className="text-footnote text-tertiary">{d.state}</span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+      <Link
+        href="/memories"
+        className="inline-flex items-center gap-1 text-caption text-[rgb(var(--brand-600))] hover:underline"
+      >
+        打开 Memory 中心 <ExternalLink className="h-3 w-3" />
+      </Link>
+    </div>
+  );
+}
+
+// ── Inbox: 我的待办 (KR / TTI / 签字 / 否决窗口 / 复盘) ─────────────
+function InboxCard() {
+  const { dashboard, retros, loading } = useTandemDashboard();
+  if (loading) return <SkeletonRows />;
+  if (!dashboard) return <p className="text-caption text-tertiary">无数据</p>;
+  const t = dashboard.todos;
+  const empty = t.totalCount === 0 && (!retros || retros.items.length === 0);
+  if (empty) {
+    return (
+      <div className="surface-card-soft rounded-2xl p-4 shadow-soft-xs text-caption text-secondary">
+        <Sparkles className="inline h-4 w-4 text-[rgb(var(--brand-500))] mr-1" />
+        清空了。今天可以做点新东西。
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-2">
+      {t.personaUpgradeAvailable && (
+        <InboxRow
+          icon={TrendingUp}
+          tone="brand"
+          title={`搭子升级 · ${t.personaUpgradeAvailable.fromStage} → ${t.personaUpgradeAvailable.toStage}`}
+          meta={`拿捏分 ${t.personaUpgradeAvailable.bossCaptureScore}`}
+          href="/persona"
+        />
+      )}
+      {t.promotionsAwaitingMySignature.map((p) => (
+        <InboxRow
+          key={`mem-${p.id}`}
+          icon={Stamp}
+          tone={p.overdue ? 'danger' : 'warning'}
+          title={`签字 · ${p.title}`}
+          meta={p.overdue ? 'SLA 已逾期' : `Memory → ${p.level}`}
+          href={`/memories?id=${p.id}`}
+        />
+      ))}
+      {t.myKrAtRisk.slice(0, 3).map((k) => (
+        <InboxRow
+          key={`kr-${k.id}`}
+          icon={AlertCircle}
+          tone="danger"
+          title={k.title}
+          meta={`KR 风险 · ${Math.round(k.progress * 100)}%`}
+          href={`/okr?kr=${k.id}`}
+        />
+      ))}
+      {t.myTtiInProgress.slice(0, 3).map((tti) => (
+        <InboxRow
+          key={`tti-${tti.id}`}
+          icon={Target}
+          tone="info"
+          title={tti.title}
+          meta={`TTI 进行中 · ${Math.round(tti.completionRate * 100)}%`}
+          href={`/okr?tti=${tti.id}`}
+        />
+      ))}
+      {t.myRecentCommitsInVetoWindow.map((d) => (
+        <InboxRow
+          key={`veto-${d.id}`}
+          icon={Clock}
+          tone="warning"
+          title={d.title}
+          meta={fmtRemainingMs(d.remainingMs)}
+          href={`/decisions/${d.id}`}
+        />
+      ))}
+      {retros?.items.map((r) => (
+        <InboxRow
+          key={`retro-${r.decisionId}`}
+          icon={History}
+          tone={r.urgency === 'overdue' ? 'danger' : 'warning'}
+          title={`复盘 · ${r.title}`}
+          meta={`${r.daysSinceCommit}d 未复盘`}
+          href={`/decisions/${r.decisionId}?tab=retro`}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ── Recommend: 搭子基于当前信号建议下一步 ──────────────────────────
+function RecommendCard() {
+  const { dashboard, retros, loading } = useTandemDashboard();
+  if (loading) return <SkeletonRows />;
+  const recs = buildRecommendations(dashboard, retros);
+  if (recs.length === 0) {
+    return (
+      <div className="surface-card-soft rounded-2xl p-4 shadow-soft-xs text-caption text-secondary">
+        没有强信号。试试问中央 (⌘J)：「下半天我应该聚焦什么？」
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-2">
+      {recs.map((r, i) => (
+        <Link
+          key={i}
+          href={r.href}
+          className="block surface-card rounded-2xl p-3 shadow-soft-xs surface-interactive hover:shadow-soft-sm"
+        >
+          <div className="flex items-start gap-2">
+            <Compass className="h-4 w-4 shrink-0 text-[rgb(var(--brand-500))] mt-0.5" />
+            <div className="min-w-0 flex-1">
+              <p className="text-caption text-primary leading-snug">{r.title}</p>
+              <p className="mt-0.5 text-footnote text-tertiary">{r.reason}</p>
+            </div>
+          </div>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+function buildRecommendations(
+  dash: MeDashboardData | null,
+  retros: RetroPendingData | null,
+): Array<{ title: string; reason: string; href: string }> {
+  if (!dash) return [];
+  const recs: Array<{ title: string; reason: string; href: string }> = [];
+  if (dash.todos.myKrAtRisk.length > 0) {
+    const kr = dash.todos.myKrAtRisk[0];
+    recs.push({
+      title: '先救一个 KR',
+      reason: `${kr.title} · ${kr.riskStatus}, 进度 ${Math.round(kr.progress * 100)}%`,
+      href: `/okr?kr=${kr.id}`,
+    });
+  }
+  if (retros && retros.items.some((r) => r.urgency === 'overdue')) {
+    const r = retros.items.find((x) => x.urgency === 'overdue')!;
+    recs.push({
+      title: '补一个复盘',
+      reason: `${r.title} · ${r.daysSinceCommit}d 未复盘`,
+      href: `/decisions/${r.decisionId}?tab=retro`,
+    });
+  }
+  if (dash.todos.personaUpgradeAvailable) {
+    const u = dash.todos.personaUpgradeAvailable;
+    recs.push({
+      title: '确认搭子升级',
+      reason: `${u.fromStage} → ${u.toStage} · 拿捏分 ${u.bossCaptureScore}`,
+      href: '/persona',
+    });
+  }
+  if (dash.todos.promotionsAwaitingMySignature.length > 0) {
+    recs.push({
+      title: '清掉 Memory 签字',
+      reason: `${dash.todos.promotionsAwaitingMySignature.length} 条等你`,
+      href: '/memories?filter=mine-pending',
+    });
+  }
+  return recs.slice(0, 4);
+}
+
+// ── 行级条目 ────────────────────────────────────────────────────────
+function InboxRow({
+  icon: Icon,
+  tone,
+  title,
+  meta,
+  href,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  tone: 'brand' | 'warning' | 'danger' | 'info';
+  title: string;
+  meta?: string;
+  href: string;
+}) {
+  const toneClass = {
+    brand:   'text-[rgb(var(--brand-600))]',
+    warning: 'text-[rgb(var(--semantic-warning))]',
+    danger:  'text-[rgb(var(--semantic-danger))]',
+    info:    'text-[rgb(var(--semantic-info))]',
+  }[tone];
+  return (
+    <Link
+      href={href}
+      className="flex items-start gap-2 rounded-md border px-3 py-2 hover:border-[rgb(var(--brand-300))] hover:bg-[rgb(var(--surface-2))] surface-interactive"
+      style={{ borderColor: 'rgb(var(--border-subtle))' }}
+    >
+      <Icon className={cn('h-4 w-4 shrink-0 mt-0.5', toneClass)} />
+      <div className="min-w-0 flex-1">
+        <p className="text-caption text-primary truncate">{title}</p>
+        {meta && <p className="text-footnote text-tertiary">{meta}</p>}
+      </div>
+    </Link>
+  );
+}
+
+function SkeletonRows() {
+  return (
+    <div className="space-y-2">
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="h-10 rounded-md surface-3 animate-pulse-soft" />
+      ))}
     </div>
   );
 }
