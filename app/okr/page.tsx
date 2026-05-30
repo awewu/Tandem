@@ -868,6 +868,13 @@ export default function OKRPage() {
             <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowBulkCreate(true)} title="AI 起草 4 套 OKR 候选 (季初推荐)">
               <Sparkles className="h-3 w-3 mr-1 text-[rgb(var(--brand-500))]" /> AI 起草 4 套
             </Button>
+            <a
+              href="/okr/calibration"
+              className="h-7 px-2.5 text-xs inline-flex items-center gap-1 border rounded hover:bg-muted/40"
+              title="经理一屏校准下属 OKR 评分 (季末推荐)"
+            >
+              <CalendarRange className="h-3 w-3" /> 校准下属
+            </a>
             <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowHealth(!showHealth)} title="OKR 健康度诊断">
               <Stethoscope className="h-3 w-3 mr-1" /> 健康度
             </Button>
