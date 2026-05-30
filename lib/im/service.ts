@@ -846,6 +846,8 @@ async function invokePersonaReply(input: InvokePersonaInput): Promise<void> {
           content: guard.contextToInject
             ? `${baseSystem}\n\n${guard.contextToInject}`
             : baseSystem,
+          // §B-003 · ephemeral 缓存大型 system prompt, Anthropic 命中后省 ~90% 输入 token
+          cacheControl: 'ephemeral',
         },
         { role: 'user', content: input.triggeringMessage.body },
       ],
@@ -990,7 +992,8 @@ async function invokeCompanyBrainReply(input: InvokePersonaInput): Promise<void>
     try {
       const stream = router.chatStream({
         messages: [
-          { role: 'system', content: systemPrompt },
+          // §B-003 · ephemeral 缓存
+          { role: 'system', content: systemPrompt, cacheControl: 'ephemeral' },
           { role: 'user', content: input.triggeringMessage.body },
         ],
         scenario: 'reasoning_complex',

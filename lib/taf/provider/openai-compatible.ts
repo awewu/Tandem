@@ -8,12 +8,48 @@
 
 import type {
   ChatChunk,
+  ChatMessage,
   ChatRequest,
   ChatResponse,
   LLMProvider,
   ProviderCapabilities,
   ProviderConfig,
 } from './types';
+
+/**
+ * §B-003 · 按 cacheControl 标记转换消息为 wire 格式
+ *
+ * - cacheControl='ephemeral' + content 是 string → 转 [{type:'text', text, cache_control:{type:'ephemeral'}}]
+ * - 其它 provider 不识别 cache_control 字段时会忽略 (Anthropic / OpenRouter / Bedrock 兼容)
+ * - 无 cacheControl 时直接透传 (向后兼容)
+ *
+ * 命中后输入 token 计费 ~10% (Anthropic 官价), 大型 system prompt 重复调用时省钱明显.
+ */
+export function transformMessageForWire(m: ChatMessage): Record<string, unknown> {
+  const wire: Record<string, unknown> = {
+    role: m.role,
+    content: m.content,
+  };
+  if (m.name !== undefined) wire.name = m.name;
+  if (m.toolCallId !== undefined) wire.tool_call_id = m.toolCallId;
+  if (m.toolCalls !== undefined) wire.tool_calls = m.toolCalls;
+
+  if (m.cacheControl === 'ephemeral') {
+    if (typeof m.content === 'string') {
+      wire.content = [{ type: 'text', text: m.content, cache_control: { type: 'ephemeral' } }];
+    } else if (Array.isArray(m.content) && m.content.length > 0) {
+      // 仅在最后一个 part 上挂 cache_control (Anthropic 官方推荐)
+      const parts = m.content.map((p, i, arr) => {
+        if (i === arr.length - 1 && p.type === 'text') {
+          return { ...p, cache_control: { type: 'ephemeral' } };
+        }
+        return p;
+      });
+      wire.content = parts;
+    }
+  }
+  return wire;
+}
 
 export class OpenAICompatibleProvider implements LLMProvider {
   readonly name: string;
@@ -145,7 +181,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
   private buildRequestBody(req: ChatRequest, stream: boolean): Record<string, unknown> {
     return {
       model: this.model,
-      messages: req.messages,
+      messages: req.messages.map((m) => transformMessageForWire(m)),
       tools: req.tools,
       tool_choice: req.toolChoice,
       temperature: req.temperature ?? this.defaultTemperature,

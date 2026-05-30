@@ -96,7 +96,8 @@ export async function POST(req: NextRequest): Promise<Response> {
   const systemPrompt = `${baseSystemPrompt}\n\n${contextAnchor}`;
 
   const rawChatMessages: ChatMessage[] = [
-    { role: 'system', content: systemPrompt },
+    // §B-003 · system prompt 上挂 ephemeral 缓存; Anthropic 命中后输入 token ~10% 计费
+    { role: 'system', content: systemPrompt, cacheControl: 'ephemeral' },
     ...messages.map((m) => ({ role: m.role, content: m.content })),
   ];
 

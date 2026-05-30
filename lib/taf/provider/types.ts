@@ -19,6 +19,16 @@ export interface ChatMessage {
   name?: string;
   toolCallId?: string;
   toolCalls?: ToolCall[];
+  /**
+   * §B-003 Anthropic Prompt Caching · ephemeral 标记
+   *
+   * 当走 Claude (含 OpenRouter / Bedrock OpenAI-compat 代理) 时, 该消息内容会以
+   *   [{type:'text', text:..., cache_control:{type:'ephemeral'}}]
+   * 形式发出, Anthropic 会缓存该前缀, 后续命中时输入 token 计费 90%+ 折扣.
+   *
+   * 典型用法: 大型 system prompt (CompanyBrain 等) 上挂. 不影响其它 provider (它们直接忽略).
+   */
+  cacheControl?: 'ephemeral';
 }
 
 export type ContentPart =
