@@ -5,12 +5,14 @@
  *
  * 决议来源: docs/PLATFORM-ARCHITECTURE-2026-05-29.md
  *   D13 三层 AI: 通用 / 中央 (本栏) / 个人主分身
- *   D15 中央 AI 独立 UI: 路由 /atlas, 5 大栏目
+ *   D15 中央 AI 独立 UI: 路由 /atlas, 4 大栏目 (公司大脑相关)
  *   G2 数据红线网关: 中央 AI 不读个人 IM/邮箱/通用 AI 沙盒
  *   G3 Skill 署名 + 撤回 + 复议
- *   G4 公司之声单签高管, 发布前可追溯草稿
  *
- * Phase 1 = 骨架壳, 5 个栏目占位, Skill Market + Memory Atlas 优先实装 (Phase 2).
+ * 注: 公司之声 / 入职教师 等内容生产/HR 培训型模块, 归属 /intranet 与 /learning,
+ *     不在中央 AI 调度范围. /atlas 只管 AI 工具/Memory/合规守护.
+ *
+ * Phase 1 = 骨架壳, 4 个栏目占位, Skill Market + Memory Atlas 优先实装 (Phase 2).
  */
 
 import Link from 'next/link';
@@ -19,8 +21,6 @@ import {
   BookHeart,
   Brain,
   Compass,
-  GraduationCap,
-  Megaphone,
   Sparkles,
   Store,
   type LucideIcon,
@@ -56,28 +56,12 @@ const SECTIONS: AtlasSection[] = [
     guardrail: '§9',
   },
   {
-    id: 'voice',
-    title: '公司之声',
-    icon: Megaphone,
-    desc: 'CEO · 高管 AI 分身的对外稿件 / 月度致辞. 发布前 ≥1 名高管单签, 草稿全员可追溯.',
-    status: 'p3',
-    guardrail: 'G4 / §15',
-  },
-  {
     id: 'alerts',
     title: '监控告警',
     icon: Bell,
     desc: 'OKR 偏差 · 决策卡风险 · 合规扫描. 走数据红线网关, 不读个人 IM / 邮箱 / 通用 AI 沙盒.',
     status: 'p3',
     guardrail: 'G2 / §19',
-  },
-  {
-    id: 'onboarding',
-    title: '入职教师',
-    icon: GraduationCap,
-    desc: '新人前 30 天的引导分身, 公司知识 / 流程 / 红线一对一陪跑.',
-    href: '/learning/onboarding',
-    status: 'p3',
   },
   {
     id: 'steward',
@@ -89,6 +73,11 @@ const SECTIONS: AtlasSection[] = [
     guardrail: '§2',
   },
 ];
+
+// 归属修正 (2026-05-29):
+//   - 「公司之声」已下架: 跟 /intranet/leadership + /intranet/town-hall 重复, 属内网门户而非中央 AI
+//   - 「入职教师」已下架: 属学院模块 (/learning/onboarding), 不属中央 AI 调度
+//   /atlas 仅保留中央 AI 调度自身相关的栏目 (Skill Market / Memory Atlas / 监控告警 / Steward 副驾)
 
 const STATUS_META: Record<AtlasSection['status'], { label: string; pill: string }> = {
   p1: { label: 'P1 已上线', pill: 'pill-brand' },
@@ -107,8 +96,8 @@ export default function AtlasPage() {
         </div>
         <h1 className="text-title-1 text-white">公司大脑.</h1>
         <p className="mt-3 text-body text-white/75 max-w-2xl">
-          Tandem Atlas 是公司的中央 AI: 调度技能市场、绘制决议地图、播报公司之声、
-          监控合规与 OKR 偏差. 它不读个人 IM 与邮箱, 也不替高管拍板.
+          Tandem Atlas 是公司的中央 AI: 调度技能市场、绘制决议地图、监控合规与 OKR 偏差,
+          为公司级决策提供 3+1 副驾建议. 它不读个人 IM 与邮箱, 也不替高管拍板.
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <Link
