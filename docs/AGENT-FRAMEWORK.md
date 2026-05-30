@@ -367,7 +367,7 @@ for await (const chunk of stream) {
 {
   "$schema": "tandem.persona.v1",
   "user_id": "...",
-  "stage": "🥚 新生 | 🐣 学徒 | 🐤 助手 | 🦅 副手 | 🐉 搭档",
+  "stage": "🥚 Lv.1 新手 | 🐣 Lv.2 上手 | 🐤 Lv.3 熟手 | 🦅 Lv.4 老手 | 🐉 Lv.5 拿手",
 
   "decision_history": {
     "total_decisions": 1247,

@@ -513,3 +513,45 @@ EvolutionLog(
 | **版本控制 + 回滚** | Persona 每次进化是一个"提交"，可 git-blame，可 revert |
 
 > 本质上，**拿捏让"组织即一个会进化的群体智能"成为工程现实。**
+
+---
+
+## 附录：2026-05-29 实现快照
+
+> 本节是 v0.1 哲学论述的代码落地锚点. 详见 `docs/IMPL-NOTES-2026-05-29.md` 模块 3 + 4.
+
+### 单分身 + 5 技能模式 (取代"主分身/子分身"早期思路)
+
+**核心铁律 (MANIFESTO §13.2)**: 每个员工**只有一个分身**, 无论调哪个技能模式, 名字 / 总 stage / 风格画像 / 边界跨模式一致.
+
+**5 模式标准清单** (`lib/persona/skill-modes.ts`):
+
+| 模式 ID | emoji | 适用场景 |
+|---|---|---|
+| `design` | 🎨 | 视觉/交互设计 |
+| `pm` | 📦 | PRD / 路线图 / 调研 |
+| `tech` | 🛠️ | 架构 / 代码 / CR |
+| `marketing` | 📣 | 文案 / 活动 / 品牌 |
+| `strategy` | 🎯 | OKR / 决策 / 复盘 |
+
+切换模式 = URL `?mode=X` 参数. 模式只换 system prompt segment + recommended tools, **不切实体**.
+
+### Mode Proficiency 算法 v0 (`lib/persona/maturity.ts`)
+
+与 §6 Persona 数据模型扩展中的 `overallStage` (nascent → maturing → mature → master) **双层独立, 不混淆**.
+
+```
+proficiency = base × decay + bonus
+
+  base = log10(samples + 1) × 20         # 100 样本 = 40 分, 饱和增长
+  decay = exp(-recentDays / 90)          # 90 天半衰
+  bonus = endorsements × 3 + okrContrib × 5
+
+→ 1-5 ★ 映射: ≥80=5★ / ≥60=4★ / ≥40=3★ / ≥20=2★ / <20=1★
+```
+
+5 模式各自独立 proficiency, 跨模式不传染.
+
+### 新增模式的治理 (P6 待定)
+
+提议 → Decision Card 走议事室 → Steward 评审是否真"通用模式" → 写入 `skill-modes.ts` 灰度发布.

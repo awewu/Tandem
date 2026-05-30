@@ -55,9 +55,9 @@
 
 ---
 
-## 不动条款 (19 条)
+## 不动条款 (20 条)
 
-> 第十九条于 2026-05-27 立项追加, 标记为"立项之时"条款, 与原 18 条同等地位.
+> 第十九条于 2026-05-27 立项追加 (Skill Gateway), 第二十条于 2026-05-29 立项追加 (设计语言), 均标记为"立项之时"条款, 与原 18 条同等地位.
 
 ### 第一条 · 工作的原子单元是「决议」, 不是「消息」
 
@@ -105,6 +105,12 @@
 - 「Multi-Agent 互相辩论扩散」(违反目标驱动收敛)
 
 **例外**: 常规决策 (SOP 已完整覆盖) 可只给 1 个 SOP 方案 + 一键确认.
+
+**实现锚点** (2026-05-29 新增):
+
+- 代码: `lib/decision-layer/three-plus-one-engine.ts` 通用 3+1 引擎 (从议事室抽出, 5 个 adapter 复用)
+- 5 个 scenario 复用: convergence (议事室) / report (抽取) / tti (Initiative 拆解) / weekly_retro (复盘) / persona_brief (主分身 brief)
+- 详细: `docs/IMPL-NOTES-2026-05-29.md` 模块 1
 
 ---
 
@@ -683,6 +689,45 @@ Tandem 的位置不是"个人 AI 竞品", 而是**"个人 AI 的组织级网关"
 **口号**:
 
 > **「员工自由用市面任何 AI, 我们做组织级网关, 让个人智能在组织规则下放大.」**
+
+**实现锚点** (2026-05-29 新增):
+
+- 代码: `lib/skill-gateway/index.ts` → `runSkillGateway()` unified entry
+- 详细: `docs/IMPL-NOTES-2026-05-29.md` 模块 2
+- 落地铁律: **任何 AI 调企业数据 / 执行企业动作前, 必须先调 `runSkillGateway()`. 不调 = 违反 §19. Code review checklist 应固化此项.**
+
+---
+
+### 第二十条 · 设计语言不可妥协 · Apple HIG + Fluent + Vercel Geist
+
+> 立项 (2026-05-29). 因 Academy Metaphor 落地时 7 个组件批量 raw Tailwind 违规事故立. 详见 `docs/CHARTER-UI-V1.md`.
+
+**铁律 (一句话)**:
+
+> Tandem 的 UI **永远走** Apple HIG (整洁/留白) + 微软 Fluent (语义化动效) + Vercel Geist (字体节奏/黑白对比) + Linear (键盘第一) + Notion (信息密度) 五栏标杆. **禁** 直接用 raw Tailwind 调色 / 默认阴影 / 默认时序 — 必须走 `app/globals.css` 的 L3 语义类 (`.text-display/.text-title-*/.text-headline/.shadow-soft-*/.glass/.hero-ink/.surface-*/.pill-*`) 与 `lib/design-tokens.ts` 的 L3 语义 token (`HEALTH/CONFIDENCE/PERSONA_STAGE/TONE_TOKENS` 等).
+
+**红线**:
+
+1. **禁** `bg-slate-*` `text-amber-*` `border-rose-*` 等 raw 调色铺底 (语义 token 例外)
+2. **禁** Tailwind 默认 `shadow-sm/md/lg` (Material 重阴影), 必用 `.shadow-soft-*` (Apple 轻阴影)
+3. **禁** Hero 用 `text-lg` 当主标题, Hero 标题 **≥ `.text-title-2`** (28px)
+4. **禁** Hero 用浅花色铺底 (`bg-amber-50` 这类), Hero 必须 `.hero-ink` 或 `.glass`
+5. **禁** Stage 颜色散落, **唯一**走 `STAGE_META.tone` → `TONE_TOKENS`
+
+**为什么单列一条 (不嫁接到第十八条 OSS 借力)**:
+
+- 第十八条 = **底座**借 OSS (Next.js / Tailwind / Drizzle), 思考层自建
+- 第二十条 = **设计语言**作为 Tandem 的**身份资产**, 不可借不可妥协 — 它是与三巨头视觉区隔的唯一抗辩
+
+**审计**:
+
+- Code review 必看 `docs/CHARTER-UI-V1.md §3 PR 自检清单`
+- 每次违规事故登记 `CHARTER-UI-V1.md §5 违规事故档案`
+- P1 加 `eslint-plugin-tandem-ui` 自动拦截 (backlog B-UI-LINT-01)
+
+**口号**:
+
+> 「**Tandem 看一眼就知道是 Tandem** — 不是又一个 SaaS 抄飞书的灰白脸.」
 
 ---
 
