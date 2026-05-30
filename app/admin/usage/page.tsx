@@ -76,28 +76,33 @@ export default function UsagePage() {
   }, [days]);
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">使用 + AI 成本看板</h1>
-          <p className="text-sm text-zinc-500 mt-1">
+    <main className="container mx-auto max-w-7xl space-y-6 px-4 py-6 sm:py-8">
+      <header className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-title-1 text-ink-primary">使用 + AI 成本看板</h1>
+          <p className="mt-1 text-caption text-ink-secondary">
             §SELF-USE-FIRST 数据飞轮 · 同事真实使用 + LLM 成本中心可见
           </p>
         </div>
         <select
           value={days}
           onChange={(e) => setDays(Number(e.target.value))}
-          className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm bg-white dark:bg-zinc-900"
+          className="rounded-lg px-3 py-1.5 text-caption shadow-soft-xs surface-card surface-interactive"
+          style={{ border: '1px solid rgb(var(--border-subtle))' }}
         >
           <option value={1}>最近 1 天</option>
           <option value={7}>最近 7 天</option>
           <option value={30}>最近 30 天</option>
           <option value={90}>最近 90 天</option>
         </select>
-      </div>
+      </header>
 
-      {loading && <div className="text-sm text-zinc-500">加载中...</div>}
-      {err && <div className="text-sm text-red-600">错误: {err}</div>}
+      {loading && <div className="text-caption text-ink-tertiary">加载中...</div>}
+      {err && (
+        <div className="rounded-2xl border-l-4 border-danger bg-danger/5 px-4 py-3 shadow-soft-xs">
+          <p className="text-caption text-danger">错误: {err}</p>
+        </div>
+      )}
 
       {data && (
         <>
@@ -171,29 +176,32 @@ export default function UsagePage() {
             />
           </Section>
 
-          <div className="text-xs text-zinc-400 pt-4 border-t">
+          <div
+            className="pt-4 text-footnote text-ink-tertiary space-y-0.5"
+            style={{ borderTop: '1px solid rgb(var(--border-subtle))' }}
+          >
             <div>数据起始: {new Date(data.since).toLocaleString('zh-CN')}</div>
             <div>提示: 成本是按 lib/analytics/track.ts 内置 pricing 表估算, 真实账单以 provider 后台为准.</div>
           </div>
         </>
       )}
-    </div>
+    </main>
   );
 }
 
 function KpiCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
-      <div className="text-xs text-zinc-500">{label}</div>
-      <div className="text-2xl font-semibold mt-2 tabular-nums">{value}</div>
+    <div className="surface-card rounded-2xl p-5 shadow-soft-xs">
+      <div className="text-caption text-ink-secondary">{label}</div>
+      <div className="mt-2 text-title-1 tabular-nums text-ink-primary">{value}</div>
     </div>
   );
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5">
-      <h2 className="text-base font-semibold mb-3">{title}</h2>
+    <div className="surface-card rounded-2xl p-5 shadow-soft-xs">
+      <h2 className="text-headline text-ink-primary mb-3">{title}</h2>
       {children}
     </div>
   );
@@ -201,15 +209,15 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function Table({ headers, rows }: { headers: string[]; rows: (string | number)[][] }) {
   if (rows.length === 0) {
-    return <div className="text-sm text-zinc-400">暂无数据</div>;
+    return <div className="text-caption text-ink-tertiary">暂无数据</div>;
   }
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+      <table className="w-full text-caption">
         <thead>
-          <tr className="border-b border-zinc-200 dark:border-zinc-800">
+          <tr style={{ borderBottom: '1px solid rgb(var(--border-subtle))' }}>
             {headers.map((h) => (
-              <th key={h} className="text-left py-2 px-3 font-medium text-zinc-500">
+              <th key={h} className="text-left py-2 px-3 font-medium text-ink-secondary">
                 {h}
               </th>
             ))}
@@ -217,9 +225,13 @@ function Table({ headers, rows }: { headers: string[]; rows: (string | number)[]
         </thead>
         <tbody>
           {rows.map((r, i) => (
-            <tr key={i} className="border-b border-zinc-100 dark:border-zinc-800/50 last:border-0">
+            <tr
+              key={i}
+              style={{ borderBottom: '1px solid rgb(var(--border-subtle) / 0.5)' }}
+              className="last:border-0"
+            >
               {r.map((cell, j) => (
-                <td key={j} className="py-2 px-3 tabular-nums">
+                <td key={j} className="py-2 px-3 tabular-nums text-ink-primary">
                   {cell}
                 </td>
               ))}
