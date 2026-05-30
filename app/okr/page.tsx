@@ -29,6 +29,7 @@ import { OKRComments } from '@/components/okr/okr-comments';
 import { OKRActivityFeed } from '@/components/okr/okr-activity';
 import { OKRScoring } from '@/components/okr/okr-scoring';
 import { OKRTemplatePicker } from '@/components/okr/okr-templates';
+import { OKRBulkCreateDialog } from '@/components/okr/okr-bulk-create-dialog';
 import { OKRTrendChart } from '@/components/okr/okr-trend-chart';
 import { OKRHealthPanel } from '@/components/okr/okr-health-panel';
 import { OKRDiagnosisPanel } from '@/components/okr/okr-diagnosis-panel';
@@ -157,6 +158,7 @@ export default function OKRPage() {
   type DetailTab = 'overview' | 'initiatives' | 'comments' | 'activity' | 'scoring' | 'watchers' | 'trend' | 'tti' | 'retro' | 'monthly' | 'alignment';
   const [detailTab, setDetailTab] = useState<DetailTab>('overview');
   const [showTemplates, setShowTemplates] = useState(false);
+  const [showBulkCreate, setShowBulkCreate] = useState(false);
   const [showHealth, setShowHealth] = useState(false);
   const [filterOwner, setFilterOwner] = useState<string>('');
   const [filterTag, setFilterTag] = useState<string>('');
@@ -863,6 +865,9 @@ export default function OKRPage() {
             <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowTemplates(true)} title="从模板库新建">
               <Sparkles className="h-3 w-3 mr-1 text-amber-500" /> 模板库
             </Button>
+            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowBulkCreate(true)} title="AI 起草 4 套 OKR 候选 (季初推荐)">
+              <Sparkles className="h-3 w-3 mr-1 text-[rgb(var(--brand-500))]" /> AI 起草 4 套
+            </Button>
             <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowHealth(!showHealth)} title="OKR 健康度诊断">
               <Stethoscope className="h-3 w-3 mr-1" /> 健康度
             </Button>
@@ -1061,6 +1066,15 @@ export default function OKRPage() {
         open={showTemplates}
         cycleId={activeCycleId}
         onClose={() => setShowTemplates(false)}
+        onApplied={(objId) => { setSelectedObjId(objId); setDetailTab('overview'); }}
+      />
+
+      {/* ===== AI 批量创建 OKR 候选弹窗 (vs Tita 2025 H2 #1 缺口) ===== */}
+      <OKRBulkCreateDialog
+        open={showBulkCreate}
+        cycleId={activeCycleId}
+        cycleName={cycles.find((c) => c.id === activeCycleId)?.name ?? '当前周期'}
+        onClose={() => setShowBulkCreate(false)}
         onApplied={(objId) => { setSelectedObjId(objId); setDetailTab('overview'); }}
       />
     </div>
