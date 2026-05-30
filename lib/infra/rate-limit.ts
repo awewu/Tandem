@@ -108,6 +108,16 @@ export const POLICIES = {
     limit: Number(process.env.RATE_LIMIT_EXPENSIVE_PER_MINUTE ?? 10),
     windowSec: 60,
   }),
+  // §BossAI · LLM 调用昂贵, 默认 20/分钟 (= 1200/小时), Owner 可调
+  bossAi: () => ({
+    limit: Number(process.env.RATE_LIMIT_BOSS_AI_PER_MINUTE ?? 20),
+    windowSec: 60,
+  }),
+  // §BossAI 日上限 · 防失控成本, 默认 500 次/日/人
+  bossAiDaily: () => ({
+    limit: Number(process.env.RATE_LIMIT_BOSS_AI_PER_DAY ?? 500),
+    windowSec: 86_400,
+  }),
 } as const;
 
 /** 提取客户端 IP (尊重 trust proxy headers). */

@@ -100,6 +100,22 @@ describe('/api/boss-ai/stream', () => {
     expect(events[0]).toHaveProperty('error');
   });
 
+  it('POST 触发分钟级限流 → 429', async () => {
+    process.env.RATE_LIMIT_BOSS_AI_PER_MINUTE = '1';
+    // 不同 user 不互相影响, 这里同 userId 连发 2 次
+    const { POST } = await import('@/app/api/boss-ai/stream/route');
+    const req1 = mockReq({ messages: [{ role: 'user', content: '第一次' }] });
+    const r1 = await POST(req1);
+    expect(r1.status).toBe(200);
+    const req2 = mockReq({ messages: [{ role: 'user', content: '第二次' }] });
+    const r2 = await POST(req2);
+    expect(r2.status).toBe(429);
+    const events = await readAllSse(r2);
+    expect((events[0] as { error: string }).error).toContain('请慢一点');
+    // 还原默认
+    delete process.env.RATE_LIMIT_BOSS_AI_PER_MINUTE;
+  });
+
   it('POST 正常请求返回 content + done SSE 帧, 并写审计', async () => {
     const { POST } = await import('@/app/api/boss-ai/stream/route');
     const res = await POST(mockReq({

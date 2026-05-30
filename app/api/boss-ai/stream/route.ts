@@ -23,6 +23,7 @@ import { requireAuth } from '@/lib/auth/require-auth';
 import { buildCompanyBrainSystemPrompt } from '@/lib/persona/company-brain';
 import { deferAudit } from '@/lib/audit/defer';
 import { compactMessages } from '@/lib/agent-runtime/compaction';
+import { rateLimit, POLICIES } from '@/lib/infra/rate-limit';
 import type { ChatMessage } from '@/lib/taf/provider/types';
 
 export const runtime = 'nodejs';
@@ -54,6 +55,27 @@ export async function POST(req: NextRequest): Promise<Response> {
   const { messages = [], sessionId, currentPath, currentTask } = body;
   if (messages.length === 0) {
     return sseError('messages 不能为空', 400);
+  }
+
+  // ── §0. 限流: 防失控成本 ──────────────────────────────────────
+  //   per-user per-minute (突发限流) + per-user per-day (失控上限)
+  const minute = await rateLimit({ key: `boss_ai:min:${auth.userId}`, ...POLICIES.bossAi() });
+  if (!minute.allowed) {
+    deferAudit('boss_ai.rate_limited', auth.userId, {
+      targetType: 'boss_ai_session',
+      metadata: { window: 'minute', limit: minute.totalHits },
+      tenantId: auth.tenantId,
+    });
+    return sseError(`请慢一点 · 每分钟最多 ${POLICIES.bossAi().limit} 次, 稍后再试`, 429);
+  }
+  const day = await rateLimit({ key: `boss_ai:day:${auth.userId}`, ...POLICIES.bossAiDaily() });
+  if (!day.allowed) {
+    deferAudit('boss_ai.rate_limited', auth.userId, {
+      targetType: 'boss_ai_session',
+      metadata: { window: 'day', limit: day.totalHits },
+      tenantId: auth.tenantId,
+    });
+    return sseError(`今日额度已用完 (${POLICIES.bossAiDaily().limit} 次/天). 明天再来, 或联系 admin 调整额度`, 429);
   }
 
   await boot();
