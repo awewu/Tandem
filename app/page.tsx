@@ -31,7 +31,6 @@ import {
 import { InsightsWidget } from '@/components/insights/insights-widget';
 import { PendingRetrosCard } from '@/components/dashboard/pending-retros-card';
 import { WorkbenchAgentView } from '@/components/dashboard/workbench-agent-view';
-import { useBossAi } from '@/components/boss-ai';
 import type { LaunchpadAppWithBadge, LaunchpadCategory as LpCategory } from '@/lib/types/launchpad';
 
 /**
@@ -72,7 +71,6 @@ export default function HomePage() {
   const [launchpadApps, setLaunchpadApps] = useState<LaunchpadAppWithBadge[]>([]);
   const router = useRouter();
   const { open: openRightPane, close: closeRightPane } = useRightPane();
-  const { askAbout: askBossAbout } = useBossAi();
 
   function previewDecision(d: DashboardStats['recentDecisions'][number]) {
     openRightPane({
@@ -128,18 +126,7 @@ export default function HomePage() {
           >
             关闭
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              closeRightPane();
-              askBossAbout(`这个议题该锚到哪个 OKR? 议题: ${d.title}`, {
-                task: `议事: ${d.title} (当前状态 ${d.state})`,
-              });
-            }}
-            className="inline-flex items-center gap-1.5 rounded-md border border-[rgb(var(--brand-300))] bg-[rgb(var(--brand-50))] px-3 py-1.5 text-caption font-medium text-[rgb(var(--brand-700))] hover:bg-[rgb(var(--brand-100))] surface-interactive"
-          >
-            <Sparkles className="h-3.5 w-3.5" /> 问 Tandem
-          </button>
+          {/* §作用域调整: 首页不挂 Tandem AI 入口, 用户去议事室 / OKR / 工作台时再用 */}
           <button
             type="button"
             onClick={() => {
