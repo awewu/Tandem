@@ -3,7 +3,7 @@ import { getOrchestrator, getStore } from '@/lib/boot';
 import { validateOkrAnchor } from '@/lib/types/decision-card';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { applyTemplate, type TemplateId } from '@/lib/skills/decision-card-templates';
-import { audit } from '@/lib/audit/log';
+import { deferAudit } from '@/lib/audit/defer';
 
 /**
  * POST /api/convergence
@@ -63,8 +63,8 @@ export async function POST(req: NextRequest) {
       materialRefs,
     });
 
-    // OKR Anchor 度量审计 (governance 看板 + Steward 月审用)
-    await audit(
+    // OKR Anchor 度量审计 (governance 看板 + Steward 月审用) · defer fire-and-forget
+    deferAudit(
       krCheck.anchorState === 'anchored'
         ? 'decision_card.anchored'
         : 'decision_card.unanchored_created',

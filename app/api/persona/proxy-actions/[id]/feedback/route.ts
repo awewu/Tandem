@@ -9,7 +9,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { boot, getStore } from '@/lib/boot';
 import { createFeedback, recalcBossCaptureScore } from '@/lib/persona/feedback';
-import { audit } from '@/lib/audit/log';
+import { deferAudit } from '@/lib/audit/defer';
 
 interface Params {
   params: { id: string };
@@ -62,8 +62,8 @@ export async function POST(req: NextRequest, { params }: Params) {
       newScore = await recalcBossCaptureScore(persona);
     }
 
-    // 审计日志
-    await audit('persona_feedback_submitted', auth.userId, {
+    // 审计日志 (defer · fire-and-forget, 不阻塞响应)
+    deferAudit('persona_feedback_submitted', auth.userId, {
       targetId: params.id,
       tenantId: auth.tenantId ?? 'default',
       metadata: {

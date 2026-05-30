@@ -19,7 +19,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { setFeedback } from '@/lib/persona/company-brain-decision';
-import { audit } from '@/lib/audit/log';
+import { deferAudit } from '@/lib/audit/defer';
 
 export const runtime = 'nodejs';
 
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'decision_not_found' }, { status: 404 });
   }
 
-  await audit('company_brain.feedback_submitted', auth.userId, {
+  deferAudit('company_brain.feedback_submitted', auth.userId, {
     targetId: body.decisionId,
     targetType: 'company_brain_decision',
     tenantId: auth.tenantId,

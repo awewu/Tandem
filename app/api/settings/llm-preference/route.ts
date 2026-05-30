@@ -22,7 +22,7 @@ import {
   getUserPreference,
   upsertPreference,
 } from '@/lib/settings/llm-preference';
-import { audit } from '@/lib/audit/log';
+import { deferAudit } from '@/lib/audit/defer';
 
 export async function GET(req: NextRequest) {
   await boot();
@@ -111,7 +111,7 @@ export async function PUT(req: NextRequest) {
       updatedBy: auth.userId,
     });
 
-    await audit(scope === 'tenant' ? 'system.provider_switch' : 'system.provider_switch', auth.userId, {
+    deferAudit(scope === 'tenant' ? 'system.provider_switch' : 'system.provider_switch', auth.userId, {
       tenantId: auth.tenantId ?? 'default',
       metadata: { scope, byScenario, defaultProvider, prefId: pref.id },
     });

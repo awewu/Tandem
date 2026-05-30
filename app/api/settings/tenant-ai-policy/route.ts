@@ -13,7 +13,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { boot, getRouter } from '@/lib/boot';
 import { getTenantAiPolicy, upsertTenantAiPolicy } from '@/lib/settings/tenant-ai-policy';
-import { audit } from '@/lib/audit/log';
+import { deferAudit } from '@/lib/audit/defer';
 
 export async function GET(req: NextRequest) {
   await boot();
@@ -68,7 +68,7 @@ export async function PUT(req: NextRequest) {
 
     const policy = await upsertTenantAiPolicy(tenantId, patch, auth.userId);
 
-    await audit('system.provider_switch', auth.userId, {
+    deferAudit('system.provider_switch', auth.userId, {
       tenantId,
       metadata: { action: 'tenant_ai_policy_update', patch },
     });

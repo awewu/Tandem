@@ -15,6 +15,7 @@ import { MobileTopBar } from '@/components/mobile-top-bar';
 import { MobileTabBar } from '@/components/mobile-tab-bar';
 import { BossAiMount } from '@/components/boss-ai';
 import { PageViewTracker } from '@/components/page-view-tracker';
+import { ClientErrorReporter } from '@/components/client-error-reporter';
 
 // Body — Inter, variable weight 100-900, latin + latin-ext only (zh-CN falls back to system PingFang / Microsoft YaHei)
 const fontSans = Inter({
@@ -90,6 +91,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <PwaRegister />
             {/* §SELF-USE-FIRST 埋点 · page.view 自动追踪 */}
             <PageViewTracker />
+            {/* §观测埋点 · 浏览器错误捕获 (window.onerror + unhandledrejection) */}
+            <ClientErrorReporter />
             {/* §灵魂入口 · Tandem AI = 老板的搭子 · 全应用浮动问老板 · ⌘J */}
             <BossAiMount />
           </RightPaneProvider>
