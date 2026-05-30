@@ -62,7 +62,7 @@ export class ConvergenceOrchestrator {
     const cardId = generateId('dc');
 
     // 1. 创建 DecisionCard (DIVERGE 状态)
-    //    Q2: primaryKrId / noKrReason 不变量 由 API 层 validateKrBinding() 守门.
+    //    Q2: primaryKrId / noKrReason 不变量 由 API 层 validateOkrAnchor() 守门.
     //    到这里 可信任 那对双胞胎 恰一个非空.
     const card: DecisionCard = {
       id: cardId,

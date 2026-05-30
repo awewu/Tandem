@@ -74,12 +74,3 @@ export async function generateCheckInDraft(input: DraftInput): Promise<CheckIn[]
   return created;
 }
 
-/**
- * @deprecated A2.1a: CheckIn 模型已没有 approvedByOwner 字段.
- *   保留函数签名只为不破坏可能的 import; 实际无操作.
- *   A3 会把审批语义改到 OKR Activity 流.
- */
-export async function approveCheckIn(checkInId: string): Promise<CheckIn | null> {
-  const store = getStore();
-  return store.checkIns.get(checkInId);
-}

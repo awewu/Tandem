@@ -923,59 +923,115 @@ async function invokeCompanyBrainReply(input: InvokePersonaInput): Promise<void>
     );
     const { getRouter } = await import('../boot');
     const router = getRouter();
+    const store = getStore();
 
     const systemPrompt = await buildCompanyBrainSystemPrompt();
 
     // §IM-7 trace id
     const aiTraceId = `imtrace_cb_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 
-    const startedAt = Date.now();
-    const reply = await router.chat({
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: input.triggeringMessage.body },
-      ],
-      scenario: 'reasoning_complex', // CompanyBrain 用旗舰模型 (claude-opus-4-5)
-      maxTokens: 400,
-      metadata: {
-        userId: COMPANY_BRAIN_USER_ID,
-        requestId: aiTraceId,
-      },
-    });
-    const latencyMs = Date.now() - startedAt;
+    const channelRow = await store.imChannels.get(input.channelId);
+    if (!channelRow) return;
+    const channelId = channelRow.id;
 
-    const msg = await sendMessage({
-      channelId: input.channelId,
+    // §P1 流式打字: 先发空 placeholder, 让前端立刻显示"打字中"气泡
+    const placeholder = await sendMessage({
+      channelId,
       senderId: COMPANY_BRAIN_USER_ID,
       senderKind: 'persona',
-      body: `${reply.message.content}\n\n_— 🏛️ CompanyBrain · 中央 AI · 基于公司层 Memory · 仅供参考_`,
+      body: '', // 空 = 触发前端 typing indicator
       parentMessageId: input.triggeringMessage.id,
       aiTraceId,
     });
+
+    const startedAt = Date.now();
+    let buffer = '';
+    let lastFlushAt = 0;
+    const FLUSH_INTERVAL_MS = 80; // 80ms 节流: 看起来流畅, 不轰炸 SSE
+
+    const flush = async (force: boolean): Promise<void> => {
+      const now = Date.now();
+      if (!force && now - lastFlushAt < FLUSH_INTERVAL_MS) return;
+      lastFlushAt = now;
+      const updated = await store.imMessages.update(placeholder.id, { body: buffer });
+      if (updated) {
+        broadcast({ type: 'message_updated', channelId, message: updated });
+      }
+    };
+
+    // §P1 真·流式: token-by-token, 边读边 update IM 消息体 + SSE 广播
+    try {
+      const stream = router.chatStream({
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: input.triggeringMessage.body },
+        ],
+        scenario: 'reasoning_complex',
+        maxTokens: 400,
+        metadata: {
+          userId: COMPANY_BRAIN_USER_ID,
+          requestId: aiTraceId,
+        },
+      });
+      for await (const chunk of stream) {
+        const delta = chunk.delta?.content;
+        if (typeof delta === 'string' && delta.length > 0) {
+          buffer += delta;
+          await flush(false);
+        }
+      }
+    } catch (streamErr) {
+      // Stream 失败: 把 error 拼到 buffer 尾部 (避免用户看不见错误)
+      buffer += `\n\n⚠️ 流式中断: ${(streamErr as Error).message}`;
+    }
+
+    const latencyMs = Date.now() - startedAt;
+    const finalBody = buffer.length > 0
+      ? `${buffer}\n\n_— 🏛️ CompanyBrain · 中央 AI · 基于公司层 Memory · 仅供参考_`
+      : '_(CompanyBrain 未返回内容)_';
+
+    // 最终 update: 写入完整 body + footer, 同步 channel preview
+    const finalUpdated = await store.imMessages.update(placeholder.id, { body: finalBody });
+    const finalMsg = finalUpdated ?? placeholder;
+    if (finalUpdated) {
+      broadcast({ type: 'message_updated', channelId, message: finalUpdated });
+      const previewText = extractPreview(finalBody);
+      const nowIso = new Date().toISOString();
+      await store.imChannels.update(channelId, {
+        lastMessageAt: nowIso,
+        lastMessagePreview: previewText,
+        updatedAt: nowIso,
+      });
+    }
 
     // §CA-13 闭环: 落地 CompanyBrainDecision (best-effort, 不阻断主流程)
     try {
       const { recordDecision } = await import('../persona/company-brain-decision');
       const { estimateCostMicroUsd } = await import('../analytics/track');
-      const tokensIn = reply.usage?.promptTokens ?? 0;
-      const tokensOut = reply.usage?.completionTokens ?? 0;
-      const costMicroUsd = estimateCostMicroUsd(reply.model, tokensIn, tokensOut);
-      const outputText = typeof reply.message.content === 'string'
-        ? reply.message.content
-        : reply.message.content.map((p) => ('text' in p ? p.text : '')).join('');
+      // 流式接口没有 usage, 用 inline estimate (中文 1 char ≈ 1.5 token, 其他 ≈ 0.3 token)
+      const estimateTokens = (text: string): number => {
+        const cn = (text.match(/[\u4e00-\u9fa5]/g) ?? []).length;
+        const other = text.length - cn;
+        return Math.ceil(cn * 1.5 + other * 0.3);
+      };
+      const tokensIn = estimateTokens(`${systemPrompt}\n${input.triggeringMessage.body}`);
+      const tokensOut = estimateTokens(buffer);
+      const modelUsed = 'claude-opus-4-5'; // §B-005 CompanyBrain scenario=reasoning_complex 锁定旗舰
+      const providerUsed = 'anthropic';
+      const costMicroUsd = estimateCostMicroUsd(modelUsed, tokensIn, tokensOut);
       const decision = await recordDecision({
         context: 'im_reply',
         inputSummary: input.triggeringMessage.body,
-        outputSummary: outputText,
-        modelUsed: reply.model,
-        providerUsed: reply.model.includes('claude') ? 'anthropic' : reply.model.includes('deepseek') ? 'deepseek' : 'unknown',
+        outputSummary: buffer,
+        modelUsed,
+        providerUsed,
         scenario: 'reasoning_complex',
         tokensIn,
         tokensOut,
         costMicroUsd,
         latencyMs,
         aiTraceId,
-        refId: msg.id,
+        refId: finalMsg.id,
         refType: 'im_message',
       });
       if (decision) {
@@ -986,9 +1042,9 @@ async function invokeCompanyBrainReply(input: InvokePersonaInput): Promise<void>
           metadata: {
             context: 'im_reply',
             channelId: input.channelId,
-            refMessageId: msg.id,
+            refMessageId: finalMsg.id,
             brainVersion: decision.brainVersion,
-            model: reply.model,
+            model: modelUsed,
             tokensIn,
             tokensOut,
             costMicroUsd,
@@ -1007,13 +1063,13 @@ async function invokeCompanyBrainReply(input: InvokePersonaInput): Promise<void>
         intent: input.triggeringMessage.body,
         actorUserId: input.triggeringMessage.senderId,
         source: 'company_brain_reply',
-        refId: msg.id,
+        refId: finalMsg.id,
       });
       await auditOkrDriftIfNeeded(drift, {
         intent: input.triggeringMessage.body,
         actorUserId: input.triggeringMessage.senderId,
         source: 'company_brain_reply',
-        refId: msg.id,
+        refId: finalMsg.id,
       });
     } catch {
       /* drift 检测失败不影响 IM 主流程 */

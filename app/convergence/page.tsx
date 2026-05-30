@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import {
   KR_BINDING_REASON_MIN_LENGTH,
-  validateKrBinding,
+  validateOkrAnchor,
   type DecisionCard,
 } from '@/lib/types/decision-card';
 
@@ -81,7 +81,7 @@ export default function ConvergencePage() {
   }
 
   // Form validation: same rule as server, mirror for instant UX
-  const krValidation = validateKrBinding({
+  const krValidation = validateOkrAnchor({
     primaryKrId: krMode === 'select' ? primaryKrId : null,
     noKrReason: krMode === 'escape' ? noKrReason : null,
   });

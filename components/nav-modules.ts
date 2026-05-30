@@ -58,6 +58,10 @@ import {
   Plus,
   UserPlus,
   Activity,
+  Compass,
+  Store,
+  Bell as BellAlias,
+  GraduationCap,
 } from 'lucide-react';
 
 export type Role = 'employee' | 'manager' | 'steward' | 'admin' | 'champion' | 'owner' | 'partner';
@@ -117,21 +121,36 @@ export const NAV_MODULES: NavModule[] = [
   },
 
   {
+    id: 'tandem',
+    label: 'Tandem',
+    fullLabel: 'Tandem · 个人工作台',
+    tagline: '1 舞台 + 2 召唤 · 身份在左 / 行动在右',
+    icon: Sparkles,
+    visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
+    // /tandem 内部自有 1+2 召唤布局, 不需 SubSidebar (items=[] = sub-sidebar.tsx 返回 null).
+    pathPrefixes: ['/tandem'],
+    items: [],
+  },
+
+  {
     id: 'okr',
     label: '事半',
     fullLabel: '事半 · 目标与反馈',
     tagline: '围绕 OKR 推进, 不跑偏才能事半功倍',
     icon: Target,
     visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
-    pathPrefixes: ['/okr', '/insights', '/analytics', '/kpi', '/tti'],
+    pathPrefixes: ['/okr', '/insights', '/analytics', '/kpi', '/tti', '/report'],
     items: [
       // 绩效目标 (KPI 年度硬指标, 只读)
       { name: '我的绩效目标',       href: '/kpi',              icon: BarChart3,      group: 'KPI 绩效达成' },
       { name: '部门绩效对比',       href: '/kpi?view=dept',    icon: TrendingUp,     group: 'KPI 绩效达成', visibleTo: ['manager', 'steward', 'admin', 'champion'] },
       // 目标管理 (精简为符合 Tita 极简逻辑 of 3步流程)
       { name: '我的目标与对齐',    href: '/okr?owner=me',     icon: Target,         group: '目标与关键成果法 OKR' },
-      { name: '日常推进 (TTI)',    href: '/tti',              icon: SparklesAlias,  group: '目标与关键成果法 OKR', accent: 'cta' },
+      { name: '日常推进 (TTI)',    href: '/tti',              icon: SparklesAlias,  group: '目标与关键成果法 OKR' },
       { name: '团队效能 Dashboard',href: '/okr/dashboard',    icon: Grid3x3,        group: '目标与关键成果法 OKR', visibleTo: ['manager', 'steward', 'admin', 'champion'] },
+      // 每日推进 — 5min 日报与周回顾 (OKR daily/weekly check-in 输入, 与KR互动推进)
+      { name: '5min 智能日报', href: '/report',         icon: Clock3,        group: '每日推进', accent: 'cta' },
+      { name: '本周回顾',      href: '/report/weekly',  icon: CalendarDays,  group: '每日推进' },
       // 分析洞察
       { name: 'AI 智能信号',       href: '/insights',         icon: SparklesAlias,  group: '分析洞察' },
       { name: '组织分析',          href: '/analytics',        icon: Grid3x3,        group: '分析洞察', visibleTo: ['manager', 'steward', 'admin', 'champion'] },
@@ -198,17 +217,34 @@ export const NAV_MODULES: NavModule[] = [
     tagline: '认识自己、积累技能, 让成长看得见',
     icon: Sparkles,
     visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
-    pathPrefixes: ['/persona', '/skills', '/report'],
+    pathPrefixes: ['/persona', '/skills', '/learning', '/portfolio', '/retros', '/360', '/nine-box'],
     items: [
-      // 我的成长
-      { name: '我的分身',   href: '/persona',           icon: Users,         group: '我的成长' },
-      { name: '分身训练台', href: '/persona/training',  icon: BotMessageSquare, group: '我的成长' },
-      { name: '成长路径',   href: '/persona/evolution', icon: SparklesAlias, group: '我的成长' },
-      { name: '我的技能',   href: '/skills',            icon: Layers,        group: '我的成长' },
-      { name: '学习路径',   href: '/skills/learning',   icon: SparklesAlias, group: '我的成长' },
-      // 每日记录 — 5min 日报 + 本周回顾
-      { name: '5min 智能日报', href: '/report',         icon: Clock3,        group: '每日记录', accent: 'cta' },
-      { name: '本周回顾',      href: '/report/weekly',  icon: CalendarDays,  group: '每日记录' },
+      // 我的分身 — SUMMON-AND-NURTURE V1 必交付 (B1-B4)
+      { name: '我的分身',     href: '/persona',            icon: Users,            group: '🤖 我的分身' },
+      { name: '分身训练台',   href: '/persona/training',   icon: BotMessageSquare, group: '🤖 我的分身' },
+      { name: '养料仪表盘',   href: '/persona/data-source', icon: Database,        group: '🤖 我的分身' },
+      { name: '五阶段进化',   href: '/persona/evolution',  icon: SparklesAlias,    group: '🤖 我的分身' },
+      { name: '实习权限',     href: '/persona/delegation', icon: ShieldCheck,      group: '🤖 我的分身' },
+
+      // 自我画像 — 我是谁
+      { name: '个人档案',     href: '/persona/profile',    icon: Users,            group: '📊 自我画像' },
+      { name: '360° 评估',    href: '/360',                icon: Activity,         group: '📊 自我画像' },
+      { name: '9-Box 定位',    href: '/nine-box',           icon: Grid3x3,          group: '📊 自我画像' },
+
+      // 技能与成长 — 我会什么
+      { name: '我的技能',     href: '/skills',             icon: Layers,           group: '🎓 技能与成长' },
+      { name: '学习路径推荐', href: '/skills/learning',    icon: SparklesAlias,    group: '🎓 技能与成长' },
+      { name: '我的复盘库',   href: '/retros/me',          icon: Brain,            group: '🎓 技能与成长' },
+      { name: '我的代表作',   href: '/portfolio',          icon: Gift,             group: '🎓 技能与成长' },
+
+      // 📚 学习中心 — 我在学什么 (P2 MVP)
+      { name: '学习台',         href: '/learning',                  icon: BookOpen,        accent: 'cta', group: '📚 学习中心' },
+      { name: '入职必修',     href: '/learning/onboarding',       icon: PartyPopper,                    group: '📚 学习中心' },
+      { name: '合规与红线',   href: '/learning/compliance',       icon: FileLock,                       group: '📚 学习中心' },
+      { name: '产品学院',     href: '/learning/products',         icon: Layers,                         group: '📚 学习中心' },
+      { name: '流程与标准',   href: '/learning/processes',        icon: Workflow,                       group: '📚 学习中心' },
+      { name: '专项进阶',     href: '/learning/tracks',           icon: TrendingUp,                     group: '📚 学习中心' },
+      { name: '我的认证',     href: '/learning/certifications',   icon: ScrollText,                     group: '📚 学习中心' },
     ],
   },
 
@@ -218,13 +254,27 @@ export const NAV_MODULES: NavModule[] = [
     fullLabel: '召唤搭子',
     tagline: '一个 AI 分身陪你长大, 拿捏老板拿捏未来',
     icon: BotMessageSquare,
-    pathPrefixes: ['/chat', '/agents', '/settings/llm'],
+    pathPrefixes: ['/chat', '/agents', '/settings/llm', '/summon'],
     items: [
-      { name: 'AI 对话',    href: '/chat',              icon: MessageSquare, accent: 'cta', group: '立即开始' },
-      { name: 'Agent 助手', href: '/agents',            icon: Bot,                          group: '立即开始' },
-      { name: 'AI 分身',    href: '/persona',           icon: Users,                        group: '我的 AI' },
-      { name: 'AI 智能信号', href: '/insights',         icon: SparklesAlias,                group: '我的 AI' },
-      { name: '模型设置',   href: '/settings/llm',      icon: Cpu,                          group: '配置' },
+      // 🌟 主分身工作台 — 今日 brief + 代办审计 (P1 MVP)
+      { name: '主分身工作台',   href: '/persona',                  icon: BotMessageSquare, accent: 'cta', group: '🌟 主分身工作台' },
+      { name: '主分身代办审计', href: '/persona/me/proxy-actions', icon: Activity,                       group: '🌟 主分身工作台' },
+
+      // 🧬 技能模式 — 同一主分身参数切换 (不是新 Agent)
+      { name: '🎨 设计模式',   href: '/persona?mode=design',     icon: Palette,                        group: '🧬 技能模式' },
+      { name: '📦 PM 模式',      href: '/persona?mode=pm',         icon: ClipboardCheck,                 group: '🧬 技能模式' },
+      { name: '💻 技术模式',   href: '/persona?mode=tech',       icon: Cpu,                            group: '🧬 技能模式' },
+      { name: '📣 营销模式',   href: '/persona?mode=marketing',  icon: Megaphone,                      group: '🧬 技能模式' },
+      { name: '🎯 战略模式',   href: '/persona?mode=strategy',   icon: Target,                         group: '🧬 技能模式' },
+
+      // 🌉 个人 AI 接入 — MANIFESTO §19 拥抱市面智能体 + Skill Gateway 4 道闸 (P4 加固)
+      { name: '接入市面智能体', href: '/summon/external',         icon: Bot,                            group: '🌉 个人 AI 接入' },
+      { name: 'Skill Gateway 审计', href: '/summon/audit',          icon: ShieldCheck,                    group: '🌉 个人 AI 接入' },
+
+      // ⚙️ 召唤台 + 配置
+      { name: '作战室对话',     href: '/chat',                     icon: MessageSquare,                  group: '⚙️ 召唤台 + 配置' },
+      { name: 'Agent 超市',     href: '/agents',                   icon: Bot,                            group: '⚙️ 召唤台 + 配置' },
+      { name: '模型设置',       href: '/settings/llm',             icon: Cpu,                            group: '⚙️ 召唤台 + 配置' },
     ],
   },
 
@@ -311,6 +361,18 @@ export const NAV_MODULES: NavModule[] = [
       { name: 'MCP 工具',       href: '/mcp',                 icon: Cpu,           group: '工程参考', visibleTo: ['admin'] },
       { name: '设计语言',       href: '/design',              icon: Palette,       group: '工程参考' },
     ],
+  },
+
+  {
+    id: 'atlas',
+    label: 'Atlas',
+    fullLabel: 'Atlas · 公司中央 AI',
+    tagline: '调度技能市场、决议地图、公司之声',
+    icon: Brain,
+    visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
+    // /atlas 独立栏, items=[] 不走 SubSidebar (页内自有栏目网格).
+    pathPrefixes: ['/atlas'],
+    items: [],
   },
 
   {

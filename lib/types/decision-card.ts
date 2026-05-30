@@ -65,7 +65,7 @@ export interface DecisionCard {
    * OKR Anchor (V1.5 灵魂层升级 · 2026-05-28):
    *   - 现有字段 primaryKrId 即 OKR Anchor (KR-level), 通过 KR.objectiveId 可反查到 Objective.
    *   - OKR-DRIVEN-ARCHITECTURE.md § 三 第 4 条 严绑定: 任何 DecisionCard 必须可回溯到当前 OKR.
-   *   - 不变量: primaryKrId XOR noKrReason 必须非空 (validateOkrAnchor / 兼容 validateKrBinding 守门).
+   *   - 不变量: primaryKrId XOR noKrReason 必须非空 (validateOkrAnchor 守门).
    *   - escape hatch 门槛升级: noKrReason ≥ 30 字符 (从 V1 的 ≥10 提高), 防"占位理由"; 进 audit decision_card.unanchored_created 度量月审.
    */
   primaryKrId?: string;      // OKR Anchor (KR-level) — 通过 KR.objectiveId 解析 cascade 路径
@@ -174,6 +174,3 @@ export function validateOkrAnchor(
   }
   return { ok: true, anchorState: hasKr ? 'anchored' : 'unanchored_with_reason' };
 }
-
-/** @deprecated V1.5 已重命名为 validateOkrAnchor (语义不变, 守门更严). 保留旧名以兼容存量代码. */
-export const validateKrBinding = validateOkrAnchor;

@@ -1182,7 +1182,33 @@ function MessageRow({
                 : 'bg-white text-slate-800 ring-1 ring-slate-200/80'
             }`}
           >
-            {renderInline(msg.body, onMentionPersona)}
+            {(() => {
+              /* §P1 流式打字气泡: CompanyBrain 消息在 footer marker 出现前显示闪烁光标 */
+              const isCompanyBrain = isPersona && msg.aiTraceId?.startsWith('imtrace_cb_');
+              const hasFooter = msg.body.includes('— 🏛️ CompanyBrain');
+              const isStreaming = !!isCompanyBrain && !hasFooter;
+              const bodyEmpty = msg.body.trim().length === 0;
+              if (bodyEmpty && isStreaming) {
+                return (
+                  <span className="inline-flex items-center gap-1.5 text-violet-500/80">
+                    <span className="text-[11px]">CompanyBrain 思考中</span>
+                    <span className="inline-flex gap-0.5">
+                      <span className="h-1 w-1 animate-bounce rounded-full bg-violet-400 [animation-delay:-0.3s]" />
+                      <span className="h-1 w-1 animate-bounce rounded-full bg-violet-400 [animation-delay:-0.15s]" />
+                      <span className="h-1 w-1 animate-bounce rounded-full bg-violet-400" />
+                    </span>
+                  </span>
+                );
+              }
+              return (
+                <>
+                  {renderInline(msg.body, onMentionPersona)}
+                  {isStreaming && !bodyEmpty && (
+                    <span className="ml-0.5 inline-block w-[6px] animate-pulse text-violet-500/70">▍</span>
+                  )}
+                </>
+              );
+            })()}
           </div>
 
           {/* 差异化浮条: 落在气泡右下/左下角. 默认隐藏, hover 浮起.

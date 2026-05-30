@@ -85,13 +85,18 @@ export const PRIORITY = {
   low: { badge: 'bg-zinc-50 text-zinc-600 border-zinc-200', label: '低', rank: 3 },
 } as const;
 
-/** Persona stage (apprentice/assistant/deputy/partner) */
+/**
+ * Persona stage (v2: 新手/上手/熟手/老手/拿手)
+ *
+ * 派生层 — SSOT 在 `lib/persona/stage-meta.ts`.
+ * 这里只把 STAGE_META 的 `emoji + title` 映射到 badge 类名, 不另起标签.
+ */
 export const PERSONA_STAGE = {
-  newborn: { badge: 'bg-zinc-50 text-zinc-700 border-zinc-200', label: '🐣 新生' },
-  apprentice: { badge: 'bg-sky-50 text-sky-700 border-sky-200', label: '🐤 学徒' },
-  assistant: { badge: 'bg-emerald-50 text-emerald-700 border-emerald-200', label: '🐦 同事' },
-  deputy: { badge: 'bg-amber-50 text-amber-700 border-amber-200', label: '🦅 副手' },
-  partner: { badge: 'bg-violet-50 text-violet-700 border-violet-200', label: '🐉 搭档' },
+  newborn:    { badge: 'bg-slate-50 text-slate-700 border-slate-200',   label: '🥚 新手' },
+  apprentice: { badge: 'bg-sky-50 text-sky-700 border-sky-200',         label: '� 上手' },
+  assistant:  { badge: 'bg-amber-50 text-amber-700 border-amber-200',   label: '� 熟手' },
+  deputy:     { badge: 'bg-emerald-50 text-emerald-700 border-emerald-200', label: '🦅 老手' },
+  partner:    { badge: 'bg-purple-50 text-purple-700 border-purple-200', label: '🐉 拿手' },
 } as const;
 
 /** 数据来源 (CHARTER §2.1 三通道) */

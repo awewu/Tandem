@@ -55,6 +55,25 @@ export type AuditAction =
   | 'company_brain.feedback_submitted'    // 用户/治理委员会对中央 AI 输出反馈 (adopted/modified/overruled/ignored)
   // Governance · OKR 主航道偏离 (§B-015, 灵魂层第 2 条)
   | 'governance.okr_drift_detected'       // checkOkrDrift 判定 DRIFT_SUSPECTED, 写入治理审计
+  // Skill Gateway · 4 道闸 (P4, MANIFESTO §19)
+  | 'skill_gateway.checked'               // 4 道闸调用留痕 (PASS / SOFT_WARN / HARD_BLOCK)
+  | 'skill_gateway.blocked'               // 任一闸 HARD_BLOCK 时单独高亮 (Steward 月审重点)
+  // Academy · 学院架构 (2026-05-29, docs/ACADEMY-METAPHOR-2026-05-29.md)
+  | 'academy.course_created'              // HR 创建课程
+  | 'academy.course_published'            // Steward 双签批通过, 课程上架
+  | 'academy.course_archived'             // 课程归档
+  | 'academy.course_assigned'             // HR/上级派课 (CourseAssignment)
+  | 'academy.enrollment_created'          // 学员选课/被派
+  | 'academy.lesson_attempted'            // 提交答题 (走 closure.ts 闭环)
+  | 'academy.certification_earned'        // 颁证 (含解锁 delegation level)
+  | 'academy.certification_expired'       // 季度复训过期
+  | 'academy.delegation_unlocked'         // 通过必修, 解锁 L1/L2/L3
+  | 'academy.delegation_locked'           // 必修过期, 锁权限
+  | 'academy.mcp_token_issued'            // 个人 AI 接入 token 颁发
+  | 'academy.mcp_token_revoked'           // token 撤销
+  | 'academy.mcp_call'                    // MCP 工具调用 (走 Skill Gateway)
+  | 'academy.proficiency_claimed'         // 校友自学申请 (学分置换, Steward 月审)
+  | 'academy.proficiency_claim_decided'   // Steward 审完: approved / rejected
   // 系统
   | 'system.provider_health_failed'
   | 'system.provider_switch'

@@ -7,10 +7,10 @@
  * 点任一链接关闭抽屉.
  */
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { X } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { X, Sparkles, ShieldCheck, Settings, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NAV_MODULES, ALL_ROLES, isVisible, type Role } from './nav-modules';
 import { useCurrentUser, useAuthStore } from '@/lib/hooks/use-current-user';
@@ -48,6 +48,19 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
     () => NAV_MODULES.filter((m) => isVisible(m.visibleTo, userRoles)),
     [userRoles],
   );
+
+  const router = useRouter();
+  const [signingOut, setSigningOut] = useState(false);
+  async function handleLogout() {
+    if (signingOut) return;
+    setSigningOut(true);
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch { /* ignore */ }
+    router.replace('/login');
+  }
+
+  const userInitial = (user?.name?.[0] || user?.email?.[0] || 'T').toUpperCase();
 
   return (
     <>
@@ -87,6 +100,66 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
             <X className="h-5 w-5" />
           </button>
         </header>
+
+        {/* §P6 用户区: 头像 + Persona 训练入口 + 设置 + 退出 */}
+        {user && (
+          <div className="shrink-0 border-b border-slate-200/80 px-3 py-3 dark:border-white/10">
+            <Link
+              href="/persona"
+              onClick={onClose}
+              className="flex items-center gap-3 rounded-lg p-2 hover:bg-slate-100 dark:hover:bg-white/5"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[rgb(var(--brand-500))] text-[15px] font-semibold text-white">
+                {userInitial}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[14px] font-semibold text-ink-primary truncate">
+                  {user.name || user.email}
+                </span>
+                <span className="block text-[11.5px] text-ink-tertiary truncate">
+                  {user.email}
+                </span>
+              </span>
+            </Link>
+            <div className="mt-2 grid grid-cols-3 gap-1.5">
+              <Link
+                href="/persona/training"
+                onClick={onClose}
+                className="flex flex-col items-center gap-1 rounded-md py-2 text-[11px] text-ink-secondary hover:bg-slate-100 dark:hover:bg-white/5"
+                title="训练我的 AI 分身"
+              >
+                <Sparkles className="h-4 w-4" />
+                训练分身
+              </Link>
+              <Link
+                href="/persona/me/proxy-actions"
+                onClick={onClose}
+                className="flex flex-col items-center gap-1 rounded-md py-2 text-[11px] text-ink-secondary hover:bg-slate-100 dark:hover:bg-white/5"
+                title="我的分身代办"
+              >
+                <ShieldCheck className="h-4 w-4" />
+                分身代办
+              </Link>
+              <Link
+                href="/settings"
+                onClick={onClose}
+                className="flex flex-col items-center gap-1 rounded-md py-2 text-[11px] text-ink-secondary hover:bg-slate-100 dark:hover:bg-white/5"
+              >
+                <Settings className="h-4 w-4" />
+                设置
+              </Link>
+            </div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={signingOut}
+              className="mt-2 w-full flex items-center justify-center gap-1.5 rounded-md py-2 text-[12px] text-red-600 hover:bg-red-50 disabled:opacity-60 dark:hover:bg-red-500/10"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              {signingOut ? '退出中…' : '退出登录'}
+            </button>
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto px-2 py-3">
           {modules.map((m) => {

@@ -191,13 +191,13 @@ export default function HomePage() {
 
   return (
     <div className="h-full overflow-auto bg-gradient-to-b from-surface-1 to-surface-2/50">
-      <div className="page-container py-8 space-y-10">
+      <div className="page-container py-4 md:py-8 space-y-6 md:space-y-10">
         {/* ──────────── 顶部公告 tagline (单一入口指向 /intranet) ──────────── */}
         <LatestAnnouncementTagline />
 
         {/* ──────────── §1 工作台 hero · 4 WorkbenchCards (左 2/3) + Launchpad (右 1/3) 等高并排 ──────────── */}
-        <div className="grid gap-6 lg:grid-cols-3 lg:items-stretch">
-          <section className="space-y-4 lg:col-span-2 flex flex-col">
+        <div className="grid gap-4 md:gap-6 lg:grid-cols-3 lg:items-stretch">
+          <section className="space-y-3 md:space-y-4 lg:col-span-2 flex flex-col">
             <SectionHeader
               title="我的工作台"
               subtitle="今日待办 · KR 进度 · 议事 · 日报"
@@ -250,8 +250,10 @@ export default function HomePage() {
             </div>
           </section>
 
-          {/* 快速跳板 (右 1/3, 与 4 张 WorkbenchCard 等高) */}
-          <LaunchpadSection apps={launchpadApps} maxTiles={9} narrow />
+          {/* 快速跳板 (右 1/3, 与 4 张 WorkbenchCard 等高) · mobile 隐藏 (跳板入口交给 drawer) */}
+          <div className="hidden md:block lg:col-span-1">
+            <LaunchpadSection apps={launchpadApps} maxTiles={9} narrow />
+          </div>
         </div>
 
         {/* ──────────── §1.5 工作台扩展 (全宽, 移出 hero 以让 Launchpad 不被拉高) ──────────── */}
@@ -259,7 +261,7 @@ export default function HomePage() {
           {/* EVO-10 · 多线工作 (Waiting 优先, 仅我可见) */}
           <WorkbenchAgentView />
 
-          {/* Quick actions */}
+          {/* Quick actions · mobile 仅三个核心 (议事/日报/KR), md+ 全量 */}
           <div className="flex flex-wrap items-center gap-2">
             <QuickAction href="/convergence" icon={Sparkles}>
               发起议事
@@ -270,24 +272,26 @@ export default function HomePage() {
             <QuickAction href="/okr" icon={Target} muted>
               查我的 KR
             </QuickAction>
-            <QuickAction href="/im" icon={MessagesSquare} muted>
-              IM 协同
-            </QuickAction>
-            <QuickAction href="/documents" icon={FileText} muted>
-              文档
-            </QuickAction>
-            <QuickAction href="/calendar" icon={CalendarDays} muted>
-              日程
-            </QuickAction>
-            <QuickAction href="/drive" icon={HardDrive} muted>
-              云盘
-            </QuickAction>
-            <QuickAction href="/search" icon={Search} muted>
-              搜索
-            </QuickAction>
-            <QuickAction href="/notifications" icon={Bell} muted>
-              通知
-            </QuickAction>
+            <div className="hidden md:flex flex-wrap items-center gap-2">
+              <QuickAction href="/im" icon={MessagesSquare} muted>
+                IM 协同
+              </QuickAction>
+              <QuickAction href="/documents" icon={FileText} muted>
+                文档
+              </QuickAction>
+              <QuickAction href="/calendar" icon={CalendarDays} muted>
+                日程
+              </QuickAction>
+              <QuickAction href="/drive" icon={HardDrive} muted>
+                云盘
+              </QuickAction>
+              <QuickAction href="/search" icon={Search} muted>
+                搜索
+              </QuickAction>
+              <QuickAction href="/notifications" icon={Bell} muted>
+                通知
+              </QuickAction>
+            </div>
           </div>
         </section>
 

@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
   validateOkrAnchor,
-  validateKrBinding, // deprecated alias, 兼容性测试
   classifyDecision,
   KR_BINDING_REASON_MIN_LENGTH,
 } from '@/lib/types/decision-card';
@@ -47,11 +46,6 @@ describe('validateOkrAnchor · V1.5 严绑定守门 (OKR-DRIVEN §三第4条)', 
     if (!r.ok) expect(r.code).toBe('reason_too_short');
   });
 
-  it('validateKrBinding alias 仍工作 (向后兼容)', () => {
-    const r = validateKrBinding({ primaryKrId: 'kr_1', noKrReason: null });
-    expect(r.ok).toBe(true);
-  });
-
   it('legacy long reason still passes', () => {
     const r = validateOkrAnchor({
       primaryKrId: null,
@@ -62,7 +56,7 @@ describe('validateOkrAnchor · V1.5 严绑定守门 (OKR-DRIVEN §三第4条)', 
 
   it('rejects too-short reason (< MIN_LENGTH)', () => {
     const short = 'a'.repeat(KR_BINDING_REASON_MIN_LENGTH - 1);
-    const r = validateKrBinding({ primaryKrId: null, noKrReason: short });
+    const r = validateOkrAnchor({ primaryKrId: null, noKrReason: short });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.code).toBe('reason_too_short');
   });

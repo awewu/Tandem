@@ -10,7 +10,8 @@
  *   3. OKR 进度反向推流：AI 自动推算增量，一键更新全局 OKR / TTI 进度，生成 Check-in，终结拉动滑块！
  */
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { Suspense, useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useOKRStore } from '@/lib/store';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent } from '@/components/ui/card';
@@ -88,6 +89,14 @@ function parsePartialJson(raw: string): any {
 }
 
 export default function ReportPage() {
+  return (
+    <Suspense fallback={null}>
+      <ReportPageInner />
+    </Suspense>
+  );
+}
+
+function ReportPageInner() {
   const { toast } = useToast();
   const store = useOKRStore();
   const {
@@ -126,12 +135,20 @@ export default function ReportPage() {
 
   const selectedKr = useMemo(() => cycleKrs.find(k => k.id === selectedKrId) ?? null, [cycleKrs, selectedKrId]);
 
-  // 当可用 KR 变化时，默认选中第一个
+  /** §P4 OKR 联动: 支持 ?krId=xxx URL 参数, mobile OKR 列表点 "写进展" 跳过来直接锚定 */
+  const searchParams = useSearchParams();
+  const urlKrId = searchParams.get('krId');
+
+  // 当可用 KR 变化时, 默认选中第一个; 若 URL 带 krId 且有效, 优先用之
   useEffect(() => {
+    if (urlKrId && cycleKrs.some(k => k.id === urlKrId)) {
+      setSelectedKrId(urlKrId);
+      return;
+    }
     if (cycleKrs.length > 0 && !selectedKrId) {
       setSelectedKrId(cycleKrs[0].id);
     }
-  }, [cycleKrs, selectedKrId]);
+  }, [cycleKrs, selectedKrId, urlKrId]);
 
   // ===== AI 动态问题引导逻辑 =====
   const aiPrompt = useMemo(() => {
@@ -318,8 +335,15 @@ export default function ReportPage() {
     }
   };
 
+  /** §P2 mobile sticky CTA: 根据当前阶段显示主操作, 防止键盘挡住 + 滚动卷走 */
+  const stickyState: 'idle' | 'analyze' | 'push' | 'done' =
+    pushedSuccess ? 'done'
+    : analysisResult ? 'push'
+    : (selectedKrId && rawInput.trim().length > 0) ? 'analyze'
+    : 'idle';
+
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-4 md:px-6 md:py-6 space-y-4">
+    <div className="mx-auto w-full max-w-6xl px-4 py-4 md:px-6 md:py-6 space-y-4 pb-24 md:pb-4">
       <header className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-[20px] md:text-xl font-semibold tracking-tight text-ink-primary leading-tight">
@@ -633,6 +657,50 @@ export default function ReportPage() {
                 </div>
               </CardContent>
             </Card>
+          )}
+        </div>
+      </div>
+
+      {/* §P2 移动端 sticky CTA · md+ 隐藏 · safe-area 适配 */}
+      <div className="md:hidden fixed bottom-16 inset-x-0 z-30 px-3 pb-[max(env(safe-area-inset-bottom),0.5rem)] pointer-events-none">
+        <div className="pointer-events-auto rounded-2xl bg-white/95 backdrop-blur-md shadow-[0_-2px_24px_rgba(0,0,0,0.06)] border border-slate-200/70 p-2.5">
+          {stickyState === 'idle' && (
+            <div className="flex items-center justify-center gap-1.5 py-2 text-[12px] text-ink-tertiary">
+              <Target className="h-3.5 w-3.5" />
+              <span>先选 KR, 写下今日进展</span>
+            </div>
+          )}
+          {stickyState === 'analyze' && (
+            <Button
+              onClick={handleAiAnalyze}
+              disabled={isAnalyzing}
+              className="w-full h-11 text-[13.5px] font-medium"
+            >
+              {isAnalyzing ? (
+                <><RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" />AI 正在对账...</>
+              ) : (
+                <><Sparkles className="h-3.5 w-3.5 mr-1.5" />AI 智能提炼 & 对齐</>
+              )}
+            </Button>
+          )}
+          {stickyState === 'push' && (
+            <Button
+              onClick={handlePushToOkr}
+              disabled={isPushing || isAnalyzing}
+              className="w-full h-11 text-[13.5px] font-medium"
+            >
+              {isPushing ? (
+                <><RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" />正在推流...</>
+              ) : (
+                <><CheckSquare className="h-3.5 w-3.5 mr-1.5" />确认推流到 OKR</>
+              )}
+            </Button>
+          )}
+          {stickyState === 'done' && (
+            <div className="flex items-center justify-center gap-1.5 py-2.5 text-[13px] font-medium text-emerald-700">
+              <CheckCircle2 className="h-4 w-4" />
+              <span>已更新 OKR 进度</span>
+            </div>
           )}
         </div>
       </div>

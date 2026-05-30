@@ -22,7 +22,7 @@ import {
   CheckCircle2, AlertCircle, AlertTriangle, Edit2, MessageSquare,
   Calendar, User, Tag, Cloud, Save, X, Filter, FileSpreadsheet, FileJson,
   Sparkles, Stethoscope, TrendingUp, ListChecks, Award, Activity, Eye,
-  BookOpen, CalendarRange, Network,
+  BookOpen, CalendarRange, Network, Edit3,
 } from 'lucide-react';
 import { OKRInitiatives } from '@/components/okr/okr-initiatives';
 import { OKRComments } from '@/components/okr/okr-comments';
@@ -455,11 +455,21 @@ export default function OKRPage() {
                   >
                     <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', CONFIDENCE_META[kr.confidence].color)} />
                     <span className="flex-1 truncate">{kr.title || '(未命名 KR)'}</span>
-                    <span className="text-muted-foreground tabular-nums">
+                    <span className="text-muted-foreground tabular-nums hidden md:inline">
                       {kr.currentValue} / {kr.targetValue} {kr.unit}
                     </span>
                     <div className="w-16"><ProgressBar value={krProg} confidence={kr.confidence} /></div>
                     <span className="w-8 text-right tabular-nums text-muted-foreground">{krProg}%</span>
+                    {/* §P4 mobile 快速写进展: tap 跳 /report?krId=xxx 直接锚定该 KR */}
+                    <a
+                      href={`/report?krId=${kr.id}`}
+                      className="md:hidden inline-flex items-center justify-center h-6 w-6 rounded-md text-brand-600 hover:bg-brand-50 shrink-0"
+                      title="写进展 → 自动锚定到此 KR"
+                      aria-label="写进展"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Edit3 className="h-3.5 w-3.5" />
+                    </a>
                   </div>
                 );
               })}

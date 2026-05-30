@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useChatStore, useAgentStore, useMemoryStore, useKnowledgeStore, PRESET_AGENTS } from '@/lib/store';
-import { Send, Plus, Trash2, Bot, User, AlertCircle, Sparkles, Palette, Package, Target, Megaphone, Code, PenLine, BarChart3, Users, ThumbsUp, ThumbsDown, Star, Shield, Link2 } from 'lucide-react';
+import { Send, Plus, Trash2, Bot, User, AlertCircle, Sparkles, Palette, Package, Target, Megaphone, Code, PenLine, BarChart3, Users, ThumbsUp, ThumbsDown, Star, Shield, Link2, ArrowLeft, History } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { startChatStream, startLLMStream } from '@/lib/hermes-api';
 import { VoiceInputButton } from '@/components/voice-input-button';
@@ -60,6 +60,8 @@ function ChatPageInner() {
   const [input, setInput] = useState('');
   const [selectedAgentId, setSelectedAgentId] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  /** §P5 mobile: < md 单栏切换 — true=显示历史会话 overlay, false=显示对话主体. md+ 忽略 */
+  const [mobileShowList, setMobileShowList] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const searchParams = useSearchParams();
@@ -351,10 +353,29 @@ function ChatPageInner() {
 
   return (
     <div className="flex h-full">
-      {/* Sidebar */}
-      <div className="w-64 border-r flex flex-col bg-muted/30">
-        <div className="p-3 border-b">
-          <Button onClick={handleNewChat} className="w-full" variant="outline">
+      {/* Sidebar (md+) / mobile overlay */}
+      <div
+        className={cn(
+          'border-r flex flex-col bg-muted/30 w-64',
+          // mobile: 默认隐藏; mobileShowList=true 时全屏 overlay
+          'md:flex',
+          mobileShowList
+            ? 'fixed inset-0 z-40 w-full md:relative md:z-auto md:inset-auto md:w-64'
+            : 'hidden',
+        )}
+      >
+        <div className="p-3 border-b flex items-center gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="md:hidden h-9 w-9"
+            onClick={() => setMobileShowList(false)}
+            aria-label="返回对话"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <Button onClick={() => { handleNewChat(); setMobileShowList(false); }} className="flex-1" variant="outline">
             <Plus className="mr-2 h-4 w-4" /> New Chat
           </Button>
         </div>
@@ -363,7 +384,7 @@ function ChatPageInner() {
             {conversations.map((c) => (
               <div
                 key={c.id}
-                onClick={() => setActive(c.id)}
+                onClick={() => { setActive(c.id); setMobileShowList(false); }}
                 className={cn(
                   'group flex items-center justify-between px-3 py-2 rounded-md cursor-pointer text-sm',
                   activeId === c.id ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted'
@@ -389,14 +410,37 @@ function ChatPageInner() {
       </div>
 
       {/* Main */}
-      <div className="flex-1 flex flex-col">
-        <div className="border-b px-4 py-2 flex items-center gap-3 flex-wrap">
-          <span className="text-sm font-medium">Agent:</span>
+      <div className={cn('flex-1 flex flex-col min-w-0', mobileShowList && 'hidden md:flex')}>
+        <div className="border-b px-3 md:px-4 py-2 flex items-center gap-2 md:gap-3 flex-wrap">
+          {/* §P5 mobile: 历史按钮 + 新对话 (md+ 隐藏, 走 sidebar) */}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="md:hidden h-8 w-8 -ml-1"
+            onClick={() => setMobileShowList(true)}
+            aria-label="历史对话"
+            title="历史对话"
+          >
+            <History className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="md:hidden h-8 w-8"
+            onClick={handleNewChat}
+            aria-label="新对话"
+            title="新对话"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+          <span className="hidden md:inline text-sm font-medium">Agent:</span>
           <Select
             value={selectedAgentId || '__none__'}
             onValueChange={(v) => setSelectedAgentId(v === '__none__' ? '' : v)}
           >
-            <SelectTrigger className="w-64">
+            <SelectTrigger className="w-40 md:w-64 h-8 md:h-9 text-xs md:text-sm">
               <SelectValue placeholder="Default (no agent)" />
             </SelectTrigger>
             <SelectContent>
@@ -573,7 +617,7 @@ function ChatPageInner() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="border-t p-4">
+        <form onSubmit={handleSubmit} className="border-t p-3 md:p-4 pb-[max(env(safe-area-inset-bottom),0.75rem)] md:pb-4">
           <div className="flex gap-2 max-w-3xl mx-auto items-center">
             <Input
               value={input}
