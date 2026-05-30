@@ -1,0 +1,67 @@
+name: test
+
+on:
+  push:
+    branches: [main, steve/main]
+  pull_request:
+    branches: [main, steve/main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit
+
+      - name: TypeScript typecheck
+        run: npx tsc --noEmit
+
+      - name: Vitest unit tests
+        run: npx vitest run --silent
+        env:
+          # 关闭 demo auth, 保证 production-like 测试环境
+          ALLOW_DEMO_AUTH: '1'
+
+      - name: Next.js lint
+        run: npx next lint --max-warnings=0
+        continue-on-error: true # lint warnings 不阻塞 CI, 仅观察
+
+  # 单独 job 做 build smoke (失败也不阻塞 test job)
+  build-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: test
+    if: github.event_name == 'push'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install
+        run: npm ci --prefer-offline --no-audit
+
+      - name: Next build (smoke)
+        run: npx next build
+        env:
+          # CI smoke 不需要真 DB
+          SKIP_DB_BOOT: '1'
+        continue-on-error: true

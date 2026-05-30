@@ -108,6 +108,22 @@ class BossAiStore {
   open() {
     this.state = { ...this.state, open: true, error: null };
     this.emit();
+    // §SELF-USE-FIRST 埋点 (fire-and-forget)
+    if (typeof window !== 'undefined') {
+      fetch('/api/analytics/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventName: 'boss_ai.opened',
+          props: {
+            sessionId: this.state.sessionId,
+            messageCount: this.state.messages.length,
+            path: typeof location !== 'undefined' ? location.pathname : null,
+          },
+        }),
+        keepalive: true,
+      }).catch(() => { /* ignore */ });
+    }
   }
 
   close() {
