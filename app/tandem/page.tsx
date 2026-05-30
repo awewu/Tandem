@@ -23,7 +23,8 @@
 
 import Link from 'next/link';
 import { Suspense, createContext, useContext, useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useBossAi } from '@/components/boss-ai/use-boss-ai';
 import {
   AlertCircle,
   ArrowLeft,
@@ -85,7 +86,7 @@ const CARD_REGISTRY = {
     title: '起新决策卡',
     desc: '与搭子一起起草决议·选项·取舍',
     icon: Target,
-    deepLink: { href: '/decisions/new',  label: '到议事室创建正式决策卡' },
+    deepLink: { href: '/convergence',    label: '到议事室列表' },
   },
   document: {
     title: '起草文档',
@@ -376,6 +377,9 @@ function SummonPanel({ side, tab, onClose }: SummonPanelProps) {
 function SummonPanelContent({ id, side }: { id: string; side: 'left' | 'right' }) {
   if (side === 'left'  && id === 'persona')   return <PersonaCard />;
   if (side === 'left'  && id === 'memory')    return <MemoryCard />;
+  if (side === 'left'  && id === 'skills')    return <SkillsCard />;
+  if (side === 'left'  && id === 'sandbox')   return <SandboxCard />;
+  if (side === 'left'  && id === 'growth')    return <GrowthCard />;
   if (side === 'right' && id === 'deliver')   return <DeliverCard />;
   if (side === 'right' && id === 'inbox')     return <InboxCard />;
   if (side === 'right' && id === 'recommend') return <RecommendCard />;
@@ -444,33 +448,124 @@ function PersonaCard() {
   );
 }
 
+type DeliverTarget = 'decision' | 'memory' | 'im' | 'mail';
+
+const DELIVER_TARGETS: Array<{ id: DeliverTarget; label: string; icon: React.ComponentType<{ className?: string }> }> = [
+  { id: 'decision', label: '议事室',  icon: Target },
+  { id: 'memory',   label: 'Memory',  icon: Brain },
+  { id: 'im',       label: 'IM',      icon: MessageSquare },
+  { id: 'mail',     label: '邮件',    icon: Send },
+];
+
 function DeliverCard() {
-  const targets = [
-    { id: 'decisions', label: '送到议事室',     href: '/decisions/new',           icon: Target },
-    { id: 'im',        label: '送到 IM',         href: '/im',                      icon: MessageSquare },
-    { id: 'mail',      label: '送到邮件',         href: '/mail/compose',            icon: Send },
-    { id: 'memory',    label: '沉淀到 Memory',  href: '/company-brain',           icon: Brain },
-  ];
+  const router = useRouter();
+  const [target, setTarget] = useState<DeliverTarget>('decision');
+  const [title, setTitle] = useState('');
+  const [body, setBody]   = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [ok, setOk]   = useState<string | null>(null);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!title.trim() || submitting) return;
+    setSubmitting(true); setErr(null); setOk(null);
+    try {
+      if (target === 'decision') {
+        // 创建议事室 (POST /api/convergence)
+        const res = await fetch('/api/convergence', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: title.trim(),
+            description: body.trim(),
+            // KR 软绑定守门: 走 noKrReason 通道, 后续在议事室页内绑 KR
+            noKrReason: '从 Tandem 个人工作台快速发起, 进议事室后绑定 KR',
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
+        setOk('已发起议事 · 跳转中…');
+        setTimeout(() => router.push(`/convergence/${data.cardId}`), 400);
+      } else {
+        // im / mail / memory: 写 sessionStorage 作为预填载荷, 由目标页消费
+        const payload = { title: title.trim(), body: body.trim(), from: '/tandem' };
+        try {
+          sessionStorage.setItem(`tandem.handoff.${target}`, JSON.stringify(payload));
+        } catch {}
+        const dest = target === 'im' ? '/im' : target === 'mail' ? '/mail' : '/memories';
+        setOk('已存草稿 · 跳转中…');
+        setTimeout(() => router.push(dest), 400);
+      }
+    } catch (e) {
+      setErr((e as Error).message ?? '送出失败');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
-    <div className="space-y-2">
+    <form onSubmit={submit} className="space-y-3">
       <p className="text-caption text-secondary leading-relaxed">
-        把主舞台上和搭子协作的产出送出去。<span className="text-tertiary">(P1 = 入口, 实际送出待接 Bridges)</span>
+        把主舞台和搭子的协作产出送出去 · 进入对应模块继续完善。
       </p>
-      {targets.map((t) => {
-        const Icon = t.icon;
-        return (
-          <Link
-            key={t.id}
-            href={t.href}
-            className="flex items-center gap-2 rounded-md border px-3 py-2 text-caption text-primary hover:border-[rgb(var(--brand-300))] hover:bg-[rgb(var(--surface-2))] surface-interactive"
-            style={{ borderColor: 'rgb(var(--border-subtle))' }}
-          >
-            <Icon className="h-4 w-4 text-[rgb(var(--brand-500))]" />
-            {t.label}
-          </Link>
-        );
-      })}
-    </div>
+      <div className="flex flex-wrap gap-1.5">
+        {DELIVER_TARGETS.map((t) => {
+          const Icon = t.icon;
+          const active = target === t.id;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTarget(t.id)}
+              className={cn(
+                'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-footnote surface-interactive',
+                active
+                  ? 'border-[rgb(var(--brand-500))] bg-[rgb(var(--brand-50))] text-[rgb(var(--brand-700))]'
+                  : 'text-secondary hover:bg-[rgb(var(--surface-3))]',
+              )}
+              style={!active ? { borderColor: 'rgb(var(--border-subtle))' } : undefined}
+            >
+              <Icon className="h-3 w-3" />
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+      <input
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="标题"
+        maxLength={120}
+        className="w-full rounded-md border bg-[rgb(var(--surface-2))] px-2 py-1.5 text-caption text-primary placeholder:text-tertiary focus:outline-none focus:ring-2 focus:ring-[rgb(var(--brand-300))]"
+        style={{ borderColor: 'rgb(var(--border-subtle))' }}
+      />
+      <textarea
+        value={body}
+        onChange={(e) => setBody(e.target.value)}
+        placeholder="说明 / 摘要 (可选)"
+        rows={3}
+        maxLength={1000}
+        className="w-full resize-none rounded-md border bg-[rgb(var(--surface-2))] px-2 py-1.5 text-caption text-primary placeholder:text-tertiary focus:outline-none focus:ring-2 focus:ring-[rgb(var(--brand-300))]"
+        style={{ borderColor: 'rgb(var(--border-subtle))' }}
+      />
+      <button
+        type="submit"
+        disabled={!title.trim() || submitting}
+        className="w-full inline-flex items-center justify-center gap-1.5 rounded-full bg-[rgb(var(--brand-500))] px-3 py-1.5 text-caption font-medium text-white hover:bg-[rgb(var(--brand-600))] disabled:opacity-40 surface-interactive"
+      >
+        <Send className="h-3.5 w-3.5" />
+        {submitting ? '送出中…' : `送到${DELIVER_TARGETS.find((t) => t.id === target)?.label}`}
+      </button>
+      {err && <p className="text-footnote text-[rgb(var(--semantic-danger))]">{err}</p>}
+      {ok  && <p className="text-footnote text-[rgb(var(--semantic-success))]">{ok}</p>}
+      <p className="text-footnote text-tertiary leading-relaxed">
+        {target === 'decision' && '会立即创建议事室; KR 绑定在议事页内完成。'}
+        {target === 'memory'   && '草稿存到 sessionStorage, /memories 页消费 (P2 实装直送)。'}
+        {target === 'im'       && '草稿存到 sessionStorage, /im 选频道发送 (P2 一键送)。'}
+        {target === 'mail'     && '草稿存到 sessionStorage, /mail 写邮件 (P2 一键送)。'}
+      </p>
+    </form>
   );
 }
 
@@ -483,6 +578,98 @@ function StubCard({ id, side }: { id: string; side: 'left' | 'right' }) {
           {side === 'left' ? '身份' : '行动'}召唤 · <code className="text-primary">{id}</code> 面板待接入。
         </p>
       </div>
+    </div>
+  );
+}
+
+// ── Skills: 我的技能 (链接到主分身页 + Tandem-Skills 库) ────────────
+function SkillsCard() {
+  return (
+    <div className="space-y-2">
+      <p className="text-caption text-secondary leading-relaxed">
+        搭子的能力随你的训练成长 · 技能树 / 进度 / 认证。
+      </p>
+      <Link
+        href="/persona?tab=skills"
+        className="flex items-center gap-2 rounded-md border px-3 py-2 text-caption text-primary hover:border-[rgb(var(--brand-300))] hover:bg-[rgb(var(--surface-2))] surface-interactive"
+        style={{ borderColor: 'rgb(var(--border-subtle))' }}
+      >
+        <Layers className="h-4 w-4 text-[rgb(var(--brand-500))]" />
+        我的搭子技能 + 进度
+      </Link>
+      <Link
+        href="/admin/tandem-skills"
+        className="flex items-center gap-2 rounded-md border px-3 py-2 text-caption text-primary hover:border-[rgb(var(--brand-300))] hover:bg-[rgb(var(--surface-2))] surface-interactive"
+        style={{ borderColor: 'rgb(var(--border-subtle))' }}
+      >
+        <ClipboardCheck className="h-4 w-4 text-[rgb(var(--brand-500))]" />
+        全公司技能库
+      </Link>
+    </div>
+  );
+}
+
+// ── Sandbox: 通用 AI 沙盒 (不入公司 Memory) ─────────────────────────
+function SandboxCard() {
+  return (
+    <div className="space-y-2">
+      <p className="text-caption text-secondary leading-relaxed">
+        独立的 AI 聊天区 · 不沉淀公司 Memory · 用于个人探索。
+      </p>
+      <Link
+        href="/chat"
+        className="flex items-center gap-2 rounded-md border px-3 py-2 text-caption text-primary hover:border-[rgb(var(--brand-300))] hover:bg-[rgb(var(--surface-2))] surface-interactive"
+        style={{ borderColor: 'rgb(var(--border-subtle))' }}
+      >
+        <Sparkles className="h-4 w-4 text-[rgb(var(--brand-500))]" />
+        新开通用沙盒会话
+      </Link>
+      <Link
+        href="/agents"
+        className="flex items-center gap-2 rounded-md border px-3 py-2 text-caption text-primary hover:border-[rgb(var(--brand-300))] hover:bg-[rgb(var(--surface-2))] surface-interactive"
+        style={{ borderColor: 'rgb(var(--border-subtle))' }}
+      >
+        <Bot className="h-4 w-4 text-[rgb(var(--brand-500))]" />
+        Agent 超市
+      </Link>
+      <p className="text-footnote text-tertiary leading-relaxed">
+        想要进公司 Memory? 用议事室或主分身页。
+      </p>
+    </div>
+  );
+}
+
+// ── Growth: 学习 / 9-Box / 360 ────────────────────────────────────
+function GrowthCard() {
+  return (
+    <div className="space-y-2">
+      <p className="text-caption text-secondary leading-relaxed">
+        我的成长地图 · 学习路径 / 9-Box 落点 / 360°反馈。
+      </p>
+      <Link
+        href="/learning"
+        className="flex items-center gap-2 rounded-md border px-3 py-2 text-caption text-primary hover:border-[rgb(var(--brand-300))] hover:bg-[rgb(var(--surface-2))] surface-interactive"
+        style={{ borderColor: 'rgb(var(--border-subtle))' }}
+      >
+        <GraduationCap className="h-4 w-4 text-[rgb(var(--brand-500))]" />
+        学习路径
+      </Link>
+      <Link
+        href="/360"
+        className="flex items-center gap-2 rounded-md border px-3 py-2 text-caption text-primary hover:border-[rgb(var(--brand-300))] hover:bg-[rgb(var(--surface-2))] surface-interactive"
+        style={{ borderColor: 'rgb(var(--border-subtle))' }}
+      >
+        <Compass className="h-4 w-4 text-[rgb(var(--brand-500))]" />
+        360° 反馈
+      </Link>
+      <Link
+        href="/persona?tab=nine-box"
+        className="flex items-center gap-2 rounded-md border px-3 py-2 text-caption text-primary hover:border-[rgb(var(--brand-300))] hover:bg-[rgb(var(--surface-2))] surface-interactive"
+        style={{ borderColor: 'rgb(var(--border-subtle))' }}
+      >
+        <TrendingUp className="h-4 w-4 text-[rgb(var(--brand-500))]" />
+        9-Box 我的落点
+      </Link>
     </div>
   );
 }
@@ -550,7 +737,7 @@ function InboxCard() {
     );
   }
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
       {t.personaUpgradeAvailable && (
         <InboxRow
           icon={TrendingUp}
@@ -846,23 +1033,153 @@ function CardStage({ card }: { card: CardId }) {
         </div>
       </header>
 
-      <section className="surface-card-soft rounded-2xl p-6 shadow-soft-xs min-h-[200px]">
-        <div className="flex items-center gap-2 text-caption text-tertiary mb-3">
-          <Bot className="h-4 w-4" />
-          <span>搭子在线 · 等你开始</span>
-        </div>
-        <p className="text-body text-secondary leading-relaxed">
-          这里展开「{meta.title}」的协作界面。<br />
-          <span className="text-tertiary">P1 = 入口骨架, P2 接入实际编辑器 / 对话流 / 决议起草组件。</span>
-        </p>
-        <Link
-          href={meta.deepLink.href}
-          className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-[rgb(var(--brand-500))] text-white px-4 py-2 text-caption font-medium surface-interactive hover:bg-[rgb(var(--brand-600))]"
-        >
-          {meta.deepLink.label} <ExternalLink className="h-3.5 w-3.5" />
-        </Link>
-      </section>
+      {card === 'decision'  && <DecisionDraftStage />}
+      {card === 'dialog'    && <DialogStage />}
+      {(card === 'document' || card === 'portfolio') && (
+        <section className="surface-card-soft rounded-2xl p-6 shadow-soft-xs min-h-[200px]">
+          <div className="flex items-center gap-2 text-caption text-tertiary mb-3">
+            <Bot className="h-4 w-4" />
+            <span>搭子在线 · 等你开始</span>
+          </div>
+          <p className="text-body text-secondary leading-relaxed">
+            「{meta.title}」协作界面将在此展开。<br />
+            <span className="text-tertiary">P2 接入编辑器 / 聚合视图。当前先去对应模块继续。</span>
+          </p>
+          <Link
+            href={meta.deepLink.href}
+            className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-[rgb(var(--brand-500))] text-white px-4 py-2 text-caption font-medium surface-interactive hover:bg-[rgb(var(--brand-600))]"
+          >
+            {meta.deepLink.label} <ExternalLink className="h-3.5 w-3.5" />
+          </Link>
+        </section>
+      )}
     </div>
+  );
+}
+
+// ── /tandem?card=decision · 内嵌议事室起草表单 ─────────────────────
+function DecisionDraftStage() {
+  const router = useRouter();
+  const [title, setTitle] = useState('');
+  const [desc, setDesc]   = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!title.trim() || submitting) return;
+    setSubmitting(true); setErr(null);
+    try {
+      const res = await fetch('/api/convergence', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: title.trim(),
+          description: desc.trim(),
+          noKrReason: '从 Tandem 主舞台快速发起, 进议事室后绑定 KR',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
+      router.push(`/convergence/${data.cardId}`);
+    } catch (e) {
+      setErr((e as Error).message ?? '提交失败');
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <section className="surface-card rounded-2xl p-5 md:p-6 shadow-soft-xs">
+      <div className="flex items-center gap-2 text-caption text-tertiary mb-4">
+        <Bot className="h-4 w-4" />
+        <span>搭子陪你起草 · 提交即创建议事室</span>
+      </div>
+      <form onSubmit={submit} className="space-y-3">
+        <input
+          autoFocus
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="议题标题 · 一句话说清要决什么"
+          maxLength={200}
+          className="w-full rounded-md border bg-[rgb(var(--surface-2))] px-3 py-2 text-body text-primary placeholder:text-tertiary focus:outline-none focus:ring-2 focus:ring-[rgb(var(--brand-300))]"
+          style={{ borderColor: 'rgb(var(--border-subtle))' }}
+        />
+        <textarea
+          value={desc}
+          onChange={(e) => setDesc(e.target.value)}
+          placeholder="背景 / 选项 / 取舍 (可空, 进议事室再补)"
+          rows={6}
+          maxLength={4000}
+          className="w-full resize-y rounded-md border bg-[rgb(var(--surface-2))] px-3 py-2 text-body text-primary placeholder:text-tertiary focus:outline-none focus:ring-2 focus:ring-[rgb(var(--brand-300))]"
+          style={{ borderColor: 'rgb(var(--border-subtle))' }}
+        />
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-footnote text-tertiary">
+            提交后将创建议事室 · 自动生成 3+1 选项 · KR 进议事页内绑定
+          </p>
+          <button
+            type="submit"
+            disabled={!title.trim() || submitting}
+            className="inline-flex items-center gap-1.5 rounded-full bg-[rgb(var(--brand-500))] px-4 py-2 text-caption font-medium text-white hover:bg-[rgb(var(--brand-600))] disabled:opacity-40 surface-interactive"
+          >
+            <Send className="h-3.5 w-3.5" />
+            {submitting ? '创建中…' : '创建议事室'}
+          </button>
+        </div>
+        {err && <p className="text-caption text-[rgb(var(--semantic-danger))]">{err}</p>}
+      </form>
+    </section>
+  );
+}
+
+// ── /tandem?card=dialog · 与搭子对话 (拉起 Tandem AI / 跳主分身) ─────
+function DialogStage() {
+  const { askAbout } = useBossAi();
+  const [prompt, setPrompt] = useState('');
+
+  function ask() {
+    const text = prompt.trim() || '搭子, 帮我梳理今天的优先级';
+    askAbout(text, { autoSend: false });
+  }
+
+  return (
+    <section className="surface-card rounded-2xl p-5 md:p-6 shadow-soft-xs">
+      <div className="flex items-center gap-2 text-caption text-tertiary mb-4">
+        <Bot className="h-4 w-4" />
+        <span>问搭子 · 或问中央 (Tandem AI)</span>
+      </div>
+      <textarea
+        value={prompt}
+        onChange={(e) => setPrompt(e.target.value)}
+        placeholder="你想问什么? · 例: 这个迭代要怎么排期 / 帮我起草给老王的回复"
+        rows={4}
+        maxLength={2000}
+        className="w-full resize-y rounded-md border bg-[rgb(var(--surface-2))] px-3 py-2 text-body text-primary placeholder:text-tertiary focus:outline-none focus:ring-2 focus:ring-[rgb(var(--brand-300))]"
+        style={{ borderColor: 'rgb(var(--border-subtle))' }}
+      />
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={ask}
+          className="inline-flex items-center gap-1.5 rounded-full bg-[rgb(var(--brand-500))] text-white px-4 py-2 text-caption font-medium hover:bg-[rgb(var(--brand-600))] surface-interactive"
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+          问 Tandem AI (中央智囊)
+        </button>
+        <Link
+          href="/persona"
+          className="inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-caption font-medium text-primary hover:bg-[rgb(var(--surface-2))] surface-interactive"
+          style={{ borderColor: 'rgb(var(--border-subtle))' }}
+        >
+          <Bot className="h-3.5 w-3.5 text-[rgb(var(--brand-500))]" />
+          打开主分身工作台
+        </Link>
+      </div>
+      <p className="mt-3 text-footnote text-tertiary leading-relaxed">
+        搭子 = 你的 AI 分身, 在「主分身工作台」里成长。<br />
+        Tandem AI = 公司中央智囊, 给你方向 / 优先级 / 判断框架, 不替你签字。
+      </p>
+    </section>
   );
 }
 
