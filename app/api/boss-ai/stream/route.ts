@@ -21,7 +21,7 @@ import { NextRequest } from 'next/server';
 import { boot, getRouter } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { buildCompanyBrainSystemPrompt } from '@/lib/persona/company-brain';
-import { audit } from '@/lib/audit/log';
+import { deferAudit } from '@/lib/audit/defer';
 import { compactMessages } from '@/lib/agent-runtime/compaction';
 import type { ChatMessage } from '@/lib/taf/provider/types';
 
@@ -84,7 +84,7 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   // ── 3. 审计起点 (问题进 audit, 答案在 stream 结束后再写) ────────
   const userQuestion = messages[messages.length - 1]?.content ?? '';
-  await audit('boss_ai.ask', auth.userId, {
+  deferAudit('boss_ai.ask', auth.userId, {
     targetId: sessionId ?? 'no-session',
     targetType: 'boss_ai_session',
     metadata: {
@@ -95,7 +95,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       droppedCount: compaction.droppedCount,
     },
     tenantId: auth.tenantId,
-  }).catch(() => { /* best-effort */ });
+  });
 
   // ── 4. SSE 流式回写 ────────────────────────────────────────────
   const encoder = new TextEncoder();
@@ -139,7 +139,7 @@ export async function POST(req: NextRequest): Promise<Response> {
         }
 
         // 完成 · 写答案审计 (best-effort)
-        await audit('boss_ai.answer', auth.userId, {
+        deferAudit('boss_ai.answer', auth.userId, {
           targetId: sessionId ?? 'no-session',
           targetType: 'boss_ai_session',
           metadata: {
@@ -147,7 +147,7 @@ export async function POST(req: NextRequest): Promise<Response> {
             answerPreview: fullResponse.slice(0, 300),
           },
           tenantId: auth.tenantId,
-        }).catch(() => {});
+        });
 
         send({ done: true, length: fullResponse.length });
       } catch (err) {
