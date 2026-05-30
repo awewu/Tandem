@@ -69,6 +69,23 @@ export const PROVIDER_CONFIGS: Record<string, ProviderConfig> = {
       outputPriceRmbPerM: 2.0,
     },
   },
+  // §B-001 · DeepSeek-R1 推理模型 · 议事/OKR 推演专用 · 性价比最高的强推理
+  'deepseek-r1': {
+    name: 'deepseek-r1',
+    baseUrl: envOr('DEEPSEEK_BASE_URL', 'https://api.deepseek.com/v1'),
+    model: envOr('DEEPSEEK_R1_MODEL', 'deepseek-reasoner'),
+    apiKey: envOr('DEEPSEEK_API_KEY'),
+    capabilities: {
+      chat: true,
+      functionCalling: false,    // R1 当前不支持 function calling
+      streaming: true,
+      jsonMode: false,           // R1 当前不支持 json mode (走 prompt 约束)
+      vision: false,
+      maxContextTokens: 64_000,
+      inputPriceRmbPerM: 4.0,    // ~$0.55/M × 7.2
+      outputPriceRmbPerM: 16.0,  // ~$2.19/M × 7.2 (含 reasoning tokens)
+    },
+  },
   'qwen-max': {
     name: 'qwen-max',
     baseUrl: envOr('QWEN_BASE_URL', 'https://dashscope.aliyuncs.com/compatible-mode/v1'),

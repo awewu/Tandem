@@ -34,8 +34,9 @@ export const DEFAULT_ROUTING_RULES: RoutingRule[] = [
   {
     scenario: 'reasoning_complex',
     primary: 'claude-opus-4-5',
-    fallbacks: ['deepseek-v3', 'qwen-max', 'kimi-k2'],
-    reason: '议事室 / 3+1 决策 — 企业最强推理旗舰',
+    // §B-001 · deepseek-r1 作为第一 fallback (推理质量接近 + ~30x 便宜)
+    fallbacks: ['deepseek-r1', 'deepseek-v3', 'qwen-max', 'kimi-k2'],
+    reason: '议事室 / 3+1 决策 — 企业最强推理旗舰; R1 fallback 提质降本',
   },
   {
     scenario: 'agentic',
