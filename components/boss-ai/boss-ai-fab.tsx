@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * BossAiFab · 全局浮动按钮 ("问老板")
+ * BossAiFab · 全局浮动按钮 ("问 Tandem")
  *
  * § 灵魂入口 · 右下角固定 · 全应用可见 · 含 mobile
  * 快捷键: ⌘/Ctrl + J
@@ -30,7 +30,7 @@ export function BossAiFab() {
     <button
       type="button"
       onClick={toggle}
-      aria-label={isOpen ? '关闭 Tandem AI · 工作搭子' : '打开 Tandem AI · 工作搭子'}
+      aria-label={isOpen ? '关闭 Tandem AI · 中央智囊' : '打开 Tandem AI · 中央智囊'}
       aria-pressed={isOpen}
       title="Tandem AI (⌘J)"
       className={

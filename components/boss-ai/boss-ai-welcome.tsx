@@ -93,7 +93,7 @@ export function BossAiWelcome() {
         </div>
         <div className="min-w-0 flex-1">
           <h3 className="text-headline text-ink-primary">试试 Tandem AI</h3>
-          <p className="text-footnote text-ink-tertiary">工作搭子 · 永远在线</p>
+          <p className="text-footnote text-ink-tertiary">中央智囊 · 永远在线</p>
         </div>
         <button
           type="button"

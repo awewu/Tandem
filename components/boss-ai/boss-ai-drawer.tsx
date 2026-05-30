@@ -91,7 +91,7 @@ export function BossAiDrawer() {
       <aside
         role="dialog"
         aria-modal="true"
-        aria-label="Tandem AI · 你的工作搭子"
+        aria-label="Tandem AI · 中央智囊"
         className={
           'fixed right-0 top-0 z-[71] flex h-full w-full flex-col bg-[rgb(var(--surface-1))] shadow-soft-xl ' +
           'md:w-[420px] md:border-l ' +
@@ -107,7 +107,7 @@ export function BossAiDrawer() {
             <Sparkles className="h-4 w-4" />
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="text-headline text-ink-primary">Tandem AI · 你的工作搭子</h2>
+            <h2 className="text-headline text-ink-primary">Tandem AI · 中央智囊</h2>
             <p className="text-footnote text-ink-tertiary truncate inline-flex items-center gap-1">
               {pathLabel ? (
                 <>
@@ -224,11 +224,11 @@ function EmptyState({
     <div className="py-2">
       <div className="rounded-2xl bg-gradient-to-br from-[rgb(var(--brand-50))] to-[rgb(var(--surface-2))] p-4 shadow-soft-xs">
         <p className="text-body text-ink-primary leading-relaxed">
-          我是 <strong>Tandem AI · 你的工作搭子</strong>。
+          我是 <strong>Tandem AI · 中央智囊</strong>。
         </p>
         <p className="mt-2 text-caption text-ink-secondary leading-relaxed">
           基于公司当前 OKR、SOP、红线与历史决议。<br />
-          你方向不明就问我 — 我给你方向、优先级、判断框架。
+          你和你的搭子方向不明就问我 — 我给方向、优先级、判断框架。
         </p>
       </div>
 
