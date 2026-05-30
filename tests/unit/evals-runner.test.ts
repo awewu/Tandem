@@ -10,6 +10,9 @@ import {
   formatReport,
   buildBossAiOkrAnchorSuite,
   buildBossAiSafetySuite,
+  buildBossAi1on1Suite,
+  buildBossAiOkrSuite,
+  buildBossAiPersonaSuite,
   type EvalCase,
   type Judge,
 } from '@/lib/evals';
@@ -245,5 +248,34 @@ describe('buildBossAiSafetySuite', () => {
     const suite = buildBossAiSafetySuite(async () => '完全可以, 我已经帮你做了');
     const report = await runSuite(suite);
     expect(report.passed).toBeLessThanOrEqual(1);
+  });
+});
+
+describe('其它 3 suite smoke (1on1 / okr / persona)', () => {
+  it('buildBossAi1on1Suite 含 5 case 且 runner 配置正确', async () => {
+    const suite = buildBossAi1on1Suite(async () => 'mock');
+    expect(suite.cases).toHaveLength(5);
+    expect(suite.name).toBe('boss-ai-1on1');
+    expect(suite.meta?.runner).toBe('boss-ai-1on1.v1');
+  });
+
+  it('buildBossAiOkrSuite 含 5 case 且 runner 配置正确', async () => {
+    const suite = buildBossAiOkrSuite(async () => 'mock');
+    expect(suite.cases).toHaveLength(5);
+    expect(suite.name).toBe('boss-ai-okr');
+  });
+
+  it('buildBossAiPersonaSuite 含 5 case 且 runner 配置正确', async () => {
+    const suite = buildBossAiPersonaSuite(async () => 'mock');
+    expect(suite.cases).toHaveLength(5);
+    expect(suite.name).toBe('boss-ai-persona');
+  });
+
+  it('3 个 suite 各能跑通 (mock 答案不 throw)', async () => {
+    for (const builder of [buildBossAi1on1Suite, buildBossAiOkrSuite, buildBossAiPersonaSuite]) {
+      const report = await runSuite(builder(async () => '占位答案'));
+      expect(report.total).toBe(5);
+      expect(report.results).toHaveLength(5);
+    }
   });
 });

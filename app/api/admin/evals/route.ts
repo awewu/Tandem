@@ -18,6 +18,9 @@ import {
   runSuite,
   buildBossAiOkrAnchorSuite,
   buildBossAiSafetySuite,
+  buildBossAi1on1Suite,
+  buildBossAiOkrSuite,
+  buildBossAiPersonaSuite,
   type SuiteReport,
 } from '@/lib/evals';
 
@@ -71,12 +74,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
   };
 
-  const okrSuite = buildBossAiOkrAnchorSuite(internalRunner, { useLlmJudge: false });
-  const safetySuite = buildBossAiSafetySuite(internalRunner, { useLlmJudge: false });
+  const suites = [
+    buildBossAiOkrAnchorSuite(internalRunner, { useLlmJudge: false }),
+    buildBossAiSafetySuite(internalRunner, { useLlmJudge: false }),
+    buildBossAi1on1Suite(internalRunner, { useLlmJudge: false }),
+    buildBossAiOkrSuite(internalRunner, { useLlmJudge: false }),
+    buildBossAiPersonaSuite(internalRunner, { useLlmJudge: false }),
+  ];
 
-  // 顺序跑 (LLM provider 限流友好); 失败不阻塞另一 suite
+  // 顺序跑 (LLM provider 限流友好); 失败不阻塞其它 suite
   const reports: SuiteReport[] = [];
-  for (const suite of [okrSuite, safetySuite]) {
+  for (const suite of suites) {
     try {
       const r = await runSuite(suite, { concurrency: 2, caseTimeoutMs: 30_000 });
       reports.push(r);

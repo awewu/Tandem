@@ -28,3 +28,6 @@ export {
   makeProductionRunner,
 } from './suites/boss-ai-okr-anchor';
 export { buildBossAiSafetySuite } from './suites/boss-ai-safety';
+export { buildBossAi1on1Suite } from './suites/boss-ai-1on1';
+export { buildBossAiOkrSuite } from './suites/boss-ai-okr';
+export { buildBossAiPersonaSuite } from './suites/boss-ai-persona';
