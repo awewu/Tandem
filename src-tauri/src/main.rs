@@ -36,6 +36,17 @@ use tauri_plugin_store::StoreExt;
 
 const CONFIG_FILE: &str = "tandem-config.json";
 
+/// 默认服务器 URL。
+///
+/// 本机自用 (无环境变量): http://127.0.0.1:3005
+/// 公司分发 (build 时设 TANDEM_DEFAULT_SERVER_URL=https://tandem.yourco.com):
+///   该值被烒进可执行文件, 员工装包即连上, 无需手填.
+/// bootstrap (dist/index.html) 连不上会弹配置表单托底.
+const DEFAULT_SERVER_URL: &str = match option_env!("TANDEM_DEFAULT_SERVER_URL") {
+    Some(u) => u,
+    None => "http://127.0.0.1:3005",
+};
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct TandemConfig {
     /// 公司局域网 Tandem server URL, 默认 http://127.0.0.1:3005 (本机生产).
@@ -52,7 +63,7 @@ struct TandemConfig {
 impl Default for TandemConfig {
     fn default() -> Self {
         Self {
-            server_url: "http://127.0.0.1:3005".into(),
+            server_url: DEFAULT_SERVER_URL.into(),
             notify_enabled: true,
             autostart_enabled: false,
         }
@@ -67,7 +78,7 @@ fn load_config(app: &AppHandle) -> TandemConfig {
     let server_url = store
         .get("server_url")
         .and_then(|v| v.as_str().map(String::from))
-        .unwrap_or_else(|| "http://127.0.0.1:3005".into());
+        .unwrap_or_else(|| DEFAULT_SERVER_URL.into());
     let notify_enabled = store
         .get("notify_enabled")
         .and_then(|v| v.as_bool())

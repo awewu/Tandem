@@ -1,7 +1,13 @@
-﻿# Tandem Server Daemon · 后台常驻守护进程
+﻿# ╔══════════════════════════════════════════════════════════════════════════╗
+# ║   ⚠️  本机自用专属 · LOCAL SELF-USE ONLY  ⚠️                             ║
+# ║   云服务器/公司局域网部署请用 docker-compose.prod.yml, 勿用此脚本。       ║
+# ║   详见 DEPLOY-LOCAL-VS-CLOUD.md                                          ║
+# ╚══════════════════════════════════════════════════════════════════════════╝
+#
+# Tandem Server Daemon · 本机后台常驻守护进程 (Windows-only)
 #
 # 用途: 作为 Windows 计划任务在登录时静默启动, 把 Tandem 生产服务锁死在 3005,
-#       崩溃后自动重启. 桌面端 App (localhost:3005) 始终有后端可连.
+#       崩溃后自动重启. 桌面端 App (127.0.0.1:3005) 始终有后端可连.
 #
 # 注册/卸载请用 scripts/install-tandem-service.ps1。
 # 前置: 已 `npm run build` (存在 .next 生产产物) + 原生 Postgres 在 5432 运行。

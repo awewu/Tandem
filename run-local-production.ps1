@@ -1,4 +1,17 @@
-﻿# Tandem · 本机极速生产级部署与启动脚本 (run-local-production.ps1)
+﻿# ╔══════════════════════════════════════════════════════════════════════════╗
+# ║   ⚠️  本机自用专属 · LOCAL SELF-USE ONLY  ⚠️                             ║
+# ║                                                                          ║
+# ║   本脚本只用于在你本机笔记本/工作站跑 Tandem 全栈做日常自用。              ║
+# ║   含 SKIP_STARTUP_GUARD / ALLOW_DEMO_AUTH / 弱密钥 / Windows 单进程守护。 ║
+# ║                                                                          ║
+# ║   🚫 严禁直接套到云服务器 / 公司局域网部署 — 会跳过生产硬化检查、         ║
+# ║      未登录请求自动获 admin 权、无 HTTPS / 反代 / 健康检查。              ║
+# ║                                                                          ║
+# ║   云部署请用 docker-compose.prod.yml + Caddy 反代, 详见:                 ║
+# ║      DEPLOY-LOCAL-VS-CLOUD.md  /  DEPLOY.md  /  DEPLOY-CHECKLIST.md       ║
+# ╚══════════════════════════════════════════════════════════════════════════╝
+#
+# Tandem · 本机极速生产级部署与启动脚本 (run-local-production.ps1)
 #
 # 💡 为什么需要这个？
 #   因为默认的 'npm run dev' 在开发模式下对 9.7 万行代码进行按需实时编译，导致页面点击时有数秒延迟。

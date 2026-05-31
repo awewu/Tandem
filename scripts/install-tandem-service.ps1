@@ -1,4 +1,10 @@
-﻿# Tandem Server · 注册/卸载 Windows 开机自启后台服务 (任务计划)
+﻿# ╔══════════════════════════════════════════════════════════════════════════╗
+# ║   ⚠️  本机自用专属 · LOCAL SELF-USE ONLY  ⚠️                             ║
+# ║   云服务器/公司局域网部署请用 docker-compose.prod.yml + Systemd, 勿用此。  ║
+# ║   详见 DEPLOY-LOCAL-VS-CLOUD.md                                          ║
+# ╚══════════════════════════════════════════════════════════════════════════╝
+#
+# Tandem Server · 注册/卸载 Windows 开机自启后台服务 (任务计划, Windows-only)
 #
 # 把 scripts/tandem-server-daemon.ps1 注册成"登录时自动、隐藏窗口、崩溃自动重启"的计划任务,
 # 使 Tandem 生产服务常驻锁在 3005, 桌面端 App 随时可连。
