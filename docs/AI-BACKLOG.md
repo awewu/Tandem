@@ -89,7 +89,48 @@
 
 ---
 
-### 🔴 战略级 / 高优先 · 通用 AI 能力
+### � BSC 平衡记分卡补全 (KPI 体系深化)
+
+> 来源: 2026-05-30 Owner 复盘 "KPI 是否引入 BSC 核心精神". 现状:
+> - ✅ 已落: `KpiSubject.bscPerspective` + `Kpi.bscPerspective` 字段 (`lib/types/kpi.ts`); `/kpi` 个人页四维分组渲染 (`app/kpi/page.tsx`); `KpiSubject` 树带 BSC 维度.
+> - ⚠️ 未落: **因果传导链 (Strategy Map)** + **四维配比强制校验**. BSC 原版灵魂 = "Learning & Growth → Internal Process → Customer → Financial" 因果链 + 维度权重分布 (financial ≤ 50%).
+> 这两条补齐后, BSC 才算精神 + 形式都到位.
+
+#### B-019 · BSC Strategy Map · 因果传导链建模
+
+- **来源**: CHARTER-KPI-TTI §2 + 2026-05-30 复盘
+- **解谁的痛**: HR / 高管 — 当前 BSC 四维仅作分类标签, 无法回答"我投学习成长这个 KPI, 是否最终拉动了财务 KPI"; 缺战略地图可视化, 年终复盘无因果证据.
+- **接入成本**: 2 (2-3 天)
+- **价值**: 3 (BSC 灵魂到位, 长期决策证据链)
+- **优先级**: 0 (V1.5 补)
+- **状态**: 待 sprint
+- **拥有者**: TBD
+- **设计**:
+  - 新增 `KpiCausalLink` 表: `{ id, fromKpiId, toKpiId, hypothesis: string, strength: 'weak'|'medium'|'strong', validatedAt?, evidenceUrl? }`
+  - 约束: `from.bscPerspective` 在因果链下游 (growth → process → customer → financial 单向, 反向需走议事室特批)
+  - `/admin/kpi/strategy-map` 工作台: 拓扑图 (D3/Reactflow) 显示四维节点 + KPI 子节点 + 因果链
+  - 年终关闭流程加 "因果链验证" 步骤: 标记哪些 hypothesis 被实际数据印证 (strong/medium/weak)
+- **依赖**: 无 (复用 `Kpi.bscPerspective` 已落字段)
+
+#### B-020 · BSC 四维配比强制校验
+
+- **来源**: Kaplan/Norton 原版 BSC 建议 + 2026-05-30 复盘
+- **解谁的痛**: HR / 高管 — `/admin/kpi/setup` 当前只校验三层 cascade 一致性, 不校验"四维权重分布", 容易出现 "财务 KPI 占 80%, 学习成长 5%" 的失衡, 退回单一财务考核.
+- **接入成本**: 1 (0.5-1 天)
+- **价值**: 2 (防失衡, 立竿见影)
+- **优先级**: 0 (V1.5 补)
+- **状态**: 待 sprint
+- **拥有者**: TBD
+- **设计**:
+  - `lib/kpi/bsc-validation.ts`: `computeBscDistribution(kpis)` → `{ financial, customer, process, growth }` (按 weight 求和归一)
+  - 健康区间 (软警告, 不阻断): financial ≤ 50%, customer/process/growth 各 ≥ 10%
+  - `/admin/kpi/setup` 顶部加四维雷达图 + 失衡黄区告警
+  - 周期 `draft → active` 激活时若严重失衡 (某维度 = 0% 或 financial > 70%) → 二次确认 + audit 留痕
+- **依赖**: 无
+
+---
+
+### �🔴 战略级 / 高优先 · 通用 AI 能力
 
 #### B-002 · `lib/tools/` MCP 化
 

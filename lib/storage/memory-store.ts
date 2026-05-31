@@ -283,6 +283,7 @@ export function createInMemoryStore(): TandemStore {
     learningEnrollments: new InMemoryRepository(),
     llmPreferences: new InMemoryRepository(),
     tenantAiPolicies: new InMemoryRepository(),
+    workspaceManifests: new InMemoryRepository(),
     documents: new InMemoryRepository(),
     calendarEvents: new InMemoryRepository(),
     driveFiles: new InMemoryRepository(),

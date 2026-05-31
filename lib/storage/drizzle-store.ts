@@ -441,6 +441,7 @@ export function createDrizzleStore(): TandemStore {
     learningEnrollments: new DrizzleKvRepository('learning_enrollments'),
     llmPreferences: new DrizzleKvRepository('llm_preferences'),
     tenantAiPolicies: new DrizzleKvRepository('tenant_ai_policies'),
+    workspaceManifests: new DrizzleKvRepository('workspace_manifests'),
     // V1 GA 模型仍使用专用 Drizzle Repo (强类型 schema)
     documents: new DrizzleKvRepository('documents_legacy'),
     calendarEvents: new DrizzleKvRepository('calendar_events_legacy'),

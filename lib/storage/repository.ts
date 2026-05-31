@@ -142,6 +142,9 @@ export interface TandemStore {
   /** 企业 AI 治理策略 (中央AI token 开关 / 配额 / 白名单) */
   tenantAiPolicies: Repository<import('../types/tenant-ai-policy').TenantAiPolicy>;
 
+  /** WorkspaceManifest (tandem.workspace.md declarative governance, 借鉴 CLAUDE.md/AGENTS.md) */
+  workspaceManifests: Repository<import('../types/workspace-manifest').WorkspaceManifest>;
+
   /** 飞书功能追赶 (Feishu Catch-up) */
   documents: Repository<import('../types/feishu-catchup').Document>;
   calendarEvents: Repository<import('../types/feishu-catchup').CalendarEvent>;
