@@ -30,6 +30,7 @@ import {
   computeOrgMetrics,
   type OrgMetrics,
 } from '@/lib/insights/derive';
+import { buildDeptIndex, resolveOwner } from '@/lib/org/ownership';
 
 export default function AnalyticsPage() {
   const okr = useOKRStore();
@@ -56,13 +57,15 @@ export default function AnalyticsPage() {
     return computeOrgMetrics(input, insights);
   }, [now, okr.objectives, okr.keyResults, okr.checkIns, okr.people, oneOnOne.meetings, r360.submissions, r360.cycles]);
 
-  // 部门维度 OKR 健康 (依赖 person.ministryId)
+  // 部门维度 OKR 健康 (走 Ownership SSOT, 修 bug: 原逻辑只看 person.ministryId, 不能解 'team:X' / 'person:X')
   const deptHealth = useMemo(() => {
     if (now == null) return [];
-    const byMin = new Map<string, { total: number; onTrack: number; progressSum: number }>();
+    const deptIndex = buildDeptIndex(org.departments);
+    const byKey = new Map<string, { name: string; total: number; onTrack: number; progressSum: number }>();
     for (const o of okr.objectives) {
-      const owner = okr.people.find((p) => p.id === o.ownerId);
-      const minId = owner?.ministryId ?? 'unknown';
+      const owner = resolveOwner(o.ownerId, { people: okr.people, deptIndex });
+      const key = owner.ministryId ?? owner.deptId ?? 'unknown';
+      const name = owner.ministryName ?? owner.deptName ?? '未归属';
       const krs = okr.keyResults.filter((k) => k.objectiveId === o.id);
       const prog = krs.length
         ? krs.reduce((s, k) => {
@@ -72,28 +75,21 @@ export default function AnalyticsPage() {
             return s + pct;
           }, 0) / krs.length
         : 0;
-      const cur = byMin.get(minId) ?? { total: 0, onTrack: 0, progressSum: 0 };
+      const cur = byKey.get(key) ?? { name, total: 0, onTrack: 0, progressSum: 0 };
       cur.total++;
       if (o.confidence === 'on-track') cur.onTrack++;
       cur.progressSum += prog;
-      byMin.set(minId, cur);
+      byKey.set(key, cur);
     }
-    const list: { id: string; name: string; total: number; onTrack: number; avg: number }[] = [];
-    Array.from(byMin.entries()).forEach(([id, v]) => {
-      const dept = org.departments.find((d) =>
-        d.ministries?.some((m) => m.id === id)
-      );
-      const ministry = dept?.ministries?.find((m) => m.id === id);
-      const name = ministry?.name ?? (id === 'unknown' ? '未归属' : id);
-      list.push({
+    return Array.from(byKey.entries())
+      .map(([id, v]) => ({
         id,
-        name,
+        name: v.name,
         total: v.total,
         onTrack: v.onTrack,
         avg: Math.round(v.progressSum / Math.max(1, v.total)),
-      });
-    });
-    return list.sort((a, b) => b.total - a.total);
+      }))
+      .sort((a, b) => b.total - a.total);
   }, [now, okr.objectives, okr.keyResults, okr.people, org.departments]);
 
   return (

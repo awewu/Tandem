@@ -23,7 +23,13 @@ vi.mock('@/lib/infra/logger', () => ({
   },
 }));
 
+// Mock track 让我们能 assert 跨域事件被镜像到 UsageEvent
+vi.mock('@/lib/analytics/track', () => ({
+  track: vi.fn(async () => undefined),
+}));
+
 import { logger } from '@/lib/infra/logger';
+import { track } from '@/lib/analytics/track';
 
 beforeEach(() => {
   eventBus.__clearHandlers();
@@ -139,5 +145,65 @@ describe('event subscribers · 注册中心', () => {
       expect.objectContaining({ krId: 'kr1', from: 30, to: 60 }),
       '[event] okr.kr-progressed',
     );
+  });
+
+  // ── domain event → UsageEvent mirror ──
+  it('convergence.committed 镜像到 UsageEvent (track 被调用, eventName 带 event. 前缀)', async () => {
+    registerCrossDomainSubscribers();
+    await eventBus.emit('convergence.committed', {
+      cardId: 'c1',
+      decidedBy: 'u1',
+      primaryKrId: 'kr-1',
+      okrAnchor: { type: 'kr', id: 'kr-1' },
+      timestamp: Date.now(),
+    });
+    // 微等一拍, mirrorToUsage 是 fire-and-forget
+    await new Promise((r) => setTimeout(r, 0));
+    expect(vi.mocked(track)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventName: 'event.convergence.committed',
+        userId: 'u1',
+        props: expect.objectContaining({ cardId: 'c1', anchorType: 'kr' }),
+      }),
+    );
+  });
+
+  it('memory.upgraded / persona.stage-upgraded / okr.kr-progressed 都进 track', async () => {
+    registerCrossDomainSubscribers();
+
+    await eventBus.emit('memory.upgraded', {
+      memoryId: 'm1',
+      promotionId: 'p1',
+      toLevel: 'company',
+      approvedBy: 'admin',
+      timestamp: Date.now(),
+    });
+    await eventBus.emit('persona.stage-upgraded', {
+      userId: 'u2',
+      personaId: 'pp2',
+      fromStage: 'apprentice',
+      toStage: 'assistant',
+      auto: false,
+      timestamp: Date.now(),
+    });
+    await eventBus.emit('okr.kr-progressed', {
+      krId: 'kr2',
+      from: 50,
+      to: 80,
+      by: 'u3',
+      source: 'check-in',
+      timestamp: Date.now(),
+    });
+    await new Promise((r) => setTimeout(r, 0));
+
+    const eventNames = vi
+      .mocked(track)
+      .mock.calls.map((c) => (c[0] as { eventName: string }).eventName)
+      .sort();
+    expect(eventNames).toEqual([
+      'event.memory.upgraded',
+      'event.okr.kr-progressed',
+      'event.persona.stage-upgraded',
+    ]);
   });
 });

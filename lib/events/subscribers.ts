@@ -21,8 +21,19 @@
 
 import { eventBus } from './bus';
 import { logger } from '@/lib/infra/logger';
+import { track } from '@/lib/analytics/track';
 
 let registered = false;
+
+/**
+ * 把 domain event 镜像到 UsageEvent 表, 让 /admin/usage 看板能看到跨域副作用流量.
+ * fire-and-forget, 失败仅 warn (复用 track() 的 fire-and-forget 语义).
+ */
+function mirrorToUsage(eventName: string, userId: string | null, props: Record<string, unknown>): void {
+  void track({ eventName, userId, props }).catch(() => {
+    /* track 自己 try/catch, 这里冗余防御 */
+  });
+}
 
 /**
  * 注册所有跨域订阅者. 幂等 (重复调用不会重复订阅).
@@ -45,6 +56,11 @@ export function registerCrossDomainSubscribers(): void {
       },
       '[event] convergence.committed',
     );
+    mirrorToUsage('event.convergence.committed', p.decidedBy, {
+      cardId: p.cardId,
+      primaryKrId: p.primaryKrId,
+      anchorType: p.okrAnchor.type,
+    });
   });
 
   eventBus.on('convergence.escalated', (p) => {
@@ -57,6 +73,11 @@ export function registerCrossDomainSubscribers(): void {
       },
       '[event] convergence.escalated',
     );
+    mirrorToUsage('event.convergence.escalated', null, {
+      cardId: p.cardId,
+      reason: p.reason,
+      elapsedSeconds: p.elapsedSeconds,
+    });
   });
 
   // ── Memory ───────────────────────────────────────────────────
@@ -71,6 +92,11 @@ export function registerCrossDomainSubscribers(): void {
       },
       '[event] memory.upgraded',
     );
+    mirrorToUsage('event.memory.upgraded', p.approvedBy, {
+      memoryId: p.memoryId,
+      promotionId: p.promotionId,
+      toLevel: p.toLevel,
+    });
   });
 
   eventBus.on('memory.promotion-sla-overdue', (p) => {
@@ -110,6 +136,12 @@ export function registerCrossDomainSubscribers(): void {
       },
       '[event] persona.stage-upgraded',
     );
+    mirrorToUsage('event.persona.stage-upgraded', p.userId, {
+      personaId: p.personaId,
+      fromStage: p.fromStage,
+      toStage: p.toStage,
+      auto: p.auto,
+    });
   });
 
   // ── OKR ──────────────────────────────────────────────────────
@@ -125,6 +157,11 @@ export function registerCrossDomainSubscribers(): void {
       },
       '[event] okr.kr-progressed',
     );
+    mirrorToUsage('event.okr.kr-progressed', p.by, {
+      krId: p.krId,
+      delta: p.to - p.from,
+      source: p.source,
+    });
   });
 
   eventBus.on('okr.drift-detected', (p) => {
