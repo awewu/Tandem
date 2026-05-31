@@ -94,7 +94,7 @@ export function ContactsTree({ currentUserId, onSelectPerson, onCreateDeptChanne
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="搜索同事 / 部门"
-            className="h-7 pl-6 text-xs"
+            className="h-7 pl-6 text-footnote"
           />
         </div>
         <div className="mt-1 px-1 text-[10px] text-slate-500">
@@ -103,7 +103,7 @@ export function ContactsTree({ currentUserId, onSelectPerson, onCreateDeptChanne
       </div>
 
       {/* 树 */}
-      <div className="flex-1 overflow-y-auto px-1 py-1.5 text-sm">
+      <div className="flex-1 overflow-y-auto px-1 py-1.5 text-caption">
         {departments.map((dept) => {
           const deptKey = `dept-${dept.id}`;
           const deptOpen = expanded.has(deptKey);
@@ -193,7 +193,7 @@ export function ContactsTree({ currentUserId, onSelectPerson, onCreateDeptChanne
         )}
 
         {totalPeople === 0 && (
-          <div className="px-3 py-6 text-xs text-slate-500">
+          <div className="px-3 py-6 text-footnote text-slate-500">
             暂无成员. 去 <a className="underline" href="/organization">组织架构</a> 添加.
           </div>
         )}

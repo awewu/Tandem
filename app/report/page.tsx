@@ -348,10 +348,10 @@ function ReportPageInner() {
     <div className="mx-auto w-full max-w-6xl px-4 py-4 md:px-6 md:py-6 space-y-4 pb-24 md:pb-4">
       <header className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-[20px] md:text-xl font-semibold tracking-tight text-ink-primary leading-tight">
+          <h1 className="text-[20px] md:text-headline font-semibold tracking-tight text-ink-primary leading-tight">
             今日 5 分钟日报
           </h1>
-          <p className="mt-1 text-[12.5px] md:text-sm text-ink-tertiary leading-relaxed">
+          <p className="mt-1 text-[12.5px] md:text-caption text-ink-tertiary leading-relaxed">
             写下今天的进展, AI 帮你提炼成 Action Plan, 一键推流到 OKR 进度.
           </p>
         </div>
@@ -368,10 +368,10 @@ function ReportPageInner() {
           <Card>
             <CardContent className="p-5 space-y-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700 block">1. 锚定本工作关联的 OKR 关键结果 (必选)</label>
+                <label className="text-footnote font-semibold text-slate-700 block">1. 锚定本工作关联的 OKR 关键结果 (必选)</label>
                 <div className="grid grid-cols-1 gap-2 max-h-[160px] overflow-y-auto pr-1 border rounded-md p-2 bg-slate-50/50">
                   {cycleKrs.length === 0 ? (
-                    <p className="text-xs text-muted-foreground text-center py-4">当前考核周期内无属于你的 O/KR 指标，请在后台配置。</p>
+                    <p className="text-footnote text-muted-foreground text-center py-4">当前考核周期内无属于你的 O/KR 指标，请在后台配置。</p>
                   ) : (
                     cycleKrs.map(kr => {
                       const isSelected = kr.id === selectedKrId;
@@ -381,7 +381,7 @@ function ReportPageInner() {
                           key={kr.id}
                           onClick={() => { setSelectedKrId(kr.id); setPushSuccess(false); setAnalysisResult(null); }}
                           className={cn(
-                            "w-full text-left p-2.5 rounded border text-xs flex flex-col gap-1 transition-all",
+                            "w-full text-left p-2.5 rounded border text-footnote flex flex-col gap-1 transition-all",
                             isSelected
                               ? "bg-primary/5 border-primary/40 ring-1 ring-primary/20 shadow-soft-sm"
                               : "bg-white hover:bg-muted/50 border-slate-100"
@@ -398,7 +398,7 @@ function ReportPageInner() {
                             <span>当前: {kr.currentValue}/{kr.targetValue} {kr.unit ?? ''}</span>
                             <span className={cn(
                               "font-medium",
-                              kr.confidence === 'on-track' ? 'text-emerald-600' : kr.confidence === 'at-risk' ? 'text-amber-600' : 'text-rose-600'
+                              kr.confidence === 'on-track' ? 'text-emerald-600' : kr.confidence === 'at-risk' ? 'text-warning' : 'text-rose-600'
                             )}>
                               {kr.confidence === 'on-track' ? '正常' : kr.confidence === 'at-risk' ? '有卡点' : '严重落后'}
                             </span>
@@ -423,19 +423,19 @@ function ReportPageInner() {
 
               {/* 日志记录区 */}
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700 block">2. 今日日常工作碎碎念（不限格式）</label>
+                <label className="text-footnote font-semibold text-slate-700 block">2. 今日日常工作碎碎念（不限格式）</label>
                 <Textarea
                   value={rawInput}
                   onChange={(e) => setRawInput(e.target.value)}
                   placeholder="e.g. 今天排查了一下可用性低的问题，终于把那个历史遗留核心接口 SLA 给重构好了，可用性目前测算了一下，丟包率直接没了，看来本周目标没问题了。下午还开会讨论了..."
-                  className="min-h-[120px] text-xs leading-relaxed font-sans placeholder:opacity-60 text-slate-800"
+                  className="min-h-[120px] text-footnote leading-relaxed font-sans placeholder:opacity-60 text-slate-800"
                 />
               </div>
 
               {/* 团队心流状态 */}
               <div className="flex items-center justify-between gap-4 border-t pt-3 flex-wrap">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-slate-700">3. 今日心流状态</span>
+                  <span className="text-footnote font-semibold text-slate-700">3. 今日心流状态</span>
                   <div className="flex items-center gap-1.5">
                     {(['happy', 'neutral', 'sad'] as const).map(m => {
                       const isActive = mood === m;
@@ -493,7 +493,7 @@ function ReportPageInner() {
                     <span className="p-1 rounded bg-indigo-100 text-indigo-700">
                       <Brain className="h-4 w-4 animate-pulse" />
                     </span>
-                    <span className="text-xs font-semibold text-slate-800">AI 思考中（流式输出）</span>
+                    <span className="text-footnote font-semibold text-slate-800">AI 思考中（流式输出）</span>
                     <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-indigo-600">
                       <span className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse" />
                       正在生成
@@ -509,7 +509,7 @@ function ReportPageInner() {
               <Card className="border-dashed border-slate-200">
                 <CardContent className="py-24 text-center space-y-3">
                   <Brain className="h-8 w-8 text-indigo-300 mx-auto" />
-                  <p className="text-xs font-semibold text-slate-700">等待 AI 提炼</p>
+                  <p className="text-footnote font-semibold text-slate-700">等待 AI 提炼</p>
                   <p className="text-[10px] text-muted-foreground max-w-[240px] mx-auto leading-normal">
                     锚定 KR 后写下今日进展，点击「AI 智能提炼 &amp; 对齐」即可。
                     未配置 LLM 时会进入降级模式（基于关键词的规则提取）。
@@ -530,7 +530,7 @@ function ReportPageInner() {
                   )}>
                     {pushedSuccess ? <CheckCircle2 className="h-4 w-4" /> : <Brain className="h-4 w-4" />}
                   </span>
-                  <span className="text-xs font-bold text-slate-800">
+                  <span className="text-footnote font-bold text-slate-800">
                     {pushedSuccess ? '已推流到 OKR' : 'AI 提炼结果'}
                   </span>
                   <Badge
@@ -539,7 +539,7 @@ function ReportPageInner() {
                       'ml-auto text-[10px] border',
                       analysisResult.source === 'llm'
                         ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        : 'bg-amber-50 text-amber-700 border-amber-200',
+                        : 'bg-warning/5 text-warning border-warning/20',
                     )}
                     title={analysisResult.reason}
                   >
@@ -550,7 +550,7 @@ function ReportPageInner() {
                 </div>
 
                 {/* 1. AI 提取 AP (Action Plan) */}
-                <div className="space-y-2.5 text-xs text-slate-800 border-b pb-3">
+                <div className="space-y-2.5 text-footnote text-slate-800 border-b pb-3">
                   <div className="space-y-1">
                     <p className="font-semibold flex items-center gap-1 text-slate-700">
                       <CheckSquare className="h-3.5 w-3.5 text-emerald-500" />
@@ -566,13 +566,13 @@ function ReportPageInner() {
 
                   {analysisResult.blockers.length > 0 && (
                     <div className="space-y-1">
-                      <p className="font-semibold flex items-center gap-1 text-amber-600">
-                        <AlertTriangle className="h-3.5 w-3.5 text-amber-500 animate-pulse" />
+                      <p className="font-semibold flex items-center gap-1 text-warning">
+                        <AlertTriangle className="h-3.5 w-3.5 text-warning animate-pulse" />
                         Blockers (潜在卡点阻碍):
                       </p>
                       {analysisResult.blockers.map((item, i) => (
-                        <p key={i} className="text-[11px] text-amber-800 pl-4 relative">
-                          <CornerDownRight className="h-3 w-3 inline text-amber-400 mr-1" />
+                        <p key={i} className="text-[11px] text-warning pl-4 relative">
+                          <CornerDownRight className="h-3 w-3 inline text-warning mr-1" />
                           {item}
                         </p>
                       ))}
@@ -599,13 +599,13 @@ function ReportPageInner() {
                     <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Suggested OKR Alignment (对账进度变化)</p>
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
-                        <p className="text-xs font-medium text-slate-800 truncate max-w-[200px]">{selectedKr?.title}</p>
+                        <p className="text-footnote font-medium text-slate-800 truncate max-w-[200px]">{selectedKr?.title}</p>
                         <p className="text-[10px] text-muted-foreground">当前进度: {selectedKr?.currentValue}/{selectedKr?.targetValue} {selectedKr?.unit}</p>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
-                        <span className="text-xs font-semibold tabular-nums text-muted-foreground">{selectedKr?.currentValue}</span>
+                        <span className="text-footnote font-semibold tabular-nums text-muted-foreground">{selectedKr?.currentValue}</span>
                         <ArrowRight className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                        <span className="text-sm font-bold tabular-nums text-primary">{analysisResult.suggestedValue}</span>
+                        <span className="text-caption font-bold tabular-nums text-primary">{analysisResult.suggestedValue}</span>
                         <span className="text-[10px] font-medium text-primary">({selectedKr?.unit})</span>
                       </div>
                     </div>
@@ -631,7 +631,7 @@ function ReportPageInner() {
                   </div>
 
                   <div className="text-[11px] text-muted-foreground leading-normal flex items-start gap-1.5">
-                    <Lightbulb className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+                    <Lightbulb className="h-3.5 w-3.5 text-warning shrink-0 mt-0.5" />
                     <span>{analysisResult.explanation}</span>
                   </div>
 

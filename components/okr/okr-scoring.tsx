@@ -11,9 +11,9 @@ interface Props {
 }
 
 const BAND_CLS = {
-  green: 'text-green-700 bg-green-50 border-green-200 dark:bg-green-950/30',
-  yellow: 'text-amber-700 bg-amber-50 border-amber-200 dark:bg-amber-950/30',
-  red: 'text-red-700 bg-red-50 border-red-200 dark:bg-red-950/30',
+  green: 'text-success bg-success/5 border-success/20 dark:bg-success/30',
+  yellow: 'text-warning bg-warning/5 border-warning/20 dark:bg-warning/30',
+  red: 'text-danger bg-danger/5 border-danger/20 dark:bg-danger/30',
 };
 
 export function OKRScoring({ objectiveId }: Props) {
@@ -33,15 +33,15 @@ export function OKRScoring({ objectiveId }: Props) {
   return (
     <div className="space-y-4">
       <div>
-        <div className="text-sm font-medium mb-2 flex items-center gap-1.5">
+        <div className="text-caption font-medium mb-2 flex items-center gap-1.5">
           <Award size={14} /> 周期评分（Google 0.0 - 1.0 制）
         </div>
         <div className={cn('border rounded p-3 space-y-2', BAND_CLS[report.band])}>
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold">{report.value.toFixed(2)}</span>
-            <span className="text-xs">{report.band === 'green' ? '🟢 健康' : report.band === 'yellow' ? '🟡 待改进' : '🔴 未达预期'}</span>
+            <span className="text-title-2 font-bold">{report.value.toFixed(2)}</span>
+            <span className="text-footnote">{report.band === 'green' ? '🟢 健康' : report.band === 'yellow' ? '🟡 待改进' : '🔴 未达预期'}</span>
           </div>
-          <div className="text-xs">{report.interpretation}</div>
+          <div className="text-footnote">{report.interpretation}</div>
           <div className="text-[11px] opacity-75 leading-relaxed">
             <strong>0.7 是健康分</strong>。OKR 文化鼓励「野心目标」——拿到 0.7 已经说明很努力了。
             如果总能拿满分 1.0，说明目标定低了。
@@ -77,16 +77,16 @@ export function OKRScoring({ objectiveId }: Props) {
       {/* KR 评分 */}
       {krs.length > 0 && (
         <div>
-          <div className="text-sm font-medium mb-2">KR 单项评分</div>
+          <div className="text-caption font-medium mb-2">KR 单项评分</div>
           <div className="space-y-2">
             {krs.map((k) => (
               <div key={k.id} className="border rounded p-2">
-                <div className="text-sm mb-1.5">{k.title}</div>
-                <div className="flex items-center gap-3 text-xs">
+                <div className="text-caption mb-1.5">{k.title}</div>
+                <div className="flex items-center gap-3 text-footnote">
                   <span className="text-muted-foreground w-12 shrink-0">自评</span>
                   <ScoreSlider value={k.selfScore ?? null} onChange={(v) => scoreKeyResult(k.id, 'self', v)} />
                 </div>
-                <div className="flex items-center gap-3 text-xs mt-1">
+                <div className="flex items-center gap-3 text-footnote mt-1">
                   <span className="text-muted-foreground w-12 shrink-0">终评</span>
                   <ScoreSlider value={k.finalScore ?? null} onChange={(v) => scoreKeyResult(k.id, 'final', v)} />
                 </div>
@@ -98,7 +98,7 @@ export function OKRScoring({ objectiveId }: Props) {
 
       {/* 复盘 */}
       <div>
-        <div className="text-sm font-medium mb-2 flex items-center gap-1.5">
+        <div className="text-caption font-medium mb-2 flex items-center gap-1.5">
           <BookOpen size={14} /> 复盘记录（PDCA / KISS / 4L 任选）
         </div>
         <textarea
@@ -106,15 +106,15 @@ export function OKRScoring({ objectiveId }: Props) {
           onChange={(e) => setRetroDraft(e.target.value)}
           placeholder={`PDCA：Plan/Do/Check/Act\nKISS：Keep/Improve/Start/Stop\n4L：Liked/Learned/Lacked/Longed for\n\n例：\n• Liked：Onboarding 改版让 D1 留存提升 8%\n• Learned：用户对推送的容忍度低于预期\n• Lacked：A/B 测试基础设施\n• Longed for：更快的实验迭代周期`}
           rows={8}
-          className="w-full text-sm border rounded p-2 bg-background"
+          className="w-full text-caption border rounded p-2 bg-background"
         />
         <div className="flex items-center justify-between mt-2">
-          <span className="text-xs text-muted-foreground">
+          <span className="text-footnote text-muted-foreground">
             {obj.reviewedAt ? `已于 ${new Date(obj.reviewedAt).toLocaleDateString('zh-CN')} 复盘` : '尚未保存复盘'}
           </span>
           <button
             onClick={() => reviewObjective(obj.id, retroDraft)}
-            className="text-xs px-3 py-1 rounded bg-primary text-primary-foreground"
+            className="text-footnote px-3 py-1 rounded bg-primary text-primary-foreground"
           >
             保存复盘
           </button>
@@ -134,7 +134,7 @@ function ScoreInput({
 }) {
   return (
     <div>
-      <div className="flex items-center justify-between text-xs mb-1">
+      <div className="flex items-center justify-between text-footnote mb-1">
         <span className="text-muted-foreground">{label}</span>
         <span className="font-medium">
           {value == null ? <span className="text-muted-foreground">未评</span> : value.toFixed(2)}
@@ -164,7 +164,7 @@ function ScoreSlider({ value, onChange }: { value: number | null; onChange: (v: 
         className="flex-1"
         title="评分滑块 0.0-1.0"
       />
-      <span className="text-xs w-10 text-right tabular-nums">
+      <span className="text-footnote w-10 text-right tabular-nums">
         {value == null ? '—' : value.toFixed(2)}
       </span>
     </div>

@@ -56,7 +56,7 @@ function uiToEntryPatch(m: Partial<Memory>): Record<string, unknown> {
 
 const CATEGORY_LABELS: Record<Memory['category'], { label: string; icon: React.ElementType; color: string }> = {
   requirement: { label: '需求', icon: AlertCircle, color: 'bg-blue-500' },
-  consensus: { label: '共识', icon: CheckCircle2, color: 'bg-green-500' },
+  consensus: { label: '共识', icon: CheckCircle2, color: 'bg-success' },
   standard: { label: '标准', icon: FileText, color: 'bg-purple-500' },
   context: { label: '上下文', icon: Lightbulb, color: 'bg-yellow-500' },
 };
@@ -65,7 +65,7 @@ const PRIORITY_COLORS: Record<Memory['priority'], string> = {
   low: 'bg-slate-400',
   medium: 'bg-blue-500',
   high: 'bg-orange-500',
-  critical: 'bg-red-600',
+  critical: 'bg-danger',
 };
 
 export default function MemoriesPage() {
@@ -348,9 +348,9 @@ export default function MemoriesPage() {
       const childCount = memories.filter((m) => m.parentId === folder.id).length
         + folders.filter((f) => f.parentId === folder.id).length;
       return (
-        <div className="p-4 space-y-2 text-sm">
+        <div className="p-4 space-y-2 text-caption md:px-8">
           <div className="font-medium">{folder.name}</div>
-          <div className="text-xs text-muted-foreground">文件夹 · 包含 {childCount} 项</div>
+          <div className="text-footnote text-muted-foreground">文件夹 · 包含 {childCount} 项</div>
           <Button
             size="sm"
             className="w-full mt-3"
@@ -365,7 +365,7 @@ export default function MemoriesPage() {
     if (!memory) return null;
     const cat = CATEGORY_LABELS[memory.category];
     return (
-      <div className="p-4 space-y-3 text-sm">
+      <div className="p-4 space-y-3 text-caption">
         <div>
           <div className="font-medium break-words">{memory.title}</div>
           <div className="flex flex-wrap items-center gap-1 mt-1.5">
@@ -378,7 +378,7 @@ export default function MemoriesPage() {
               {memory.priority}
             </Badge>
             {memory.isActive ? (
-              <Badge variant="outline" className="text-[10px] text-green-700 dark:text-green-400">
+              <Badge variant="outline" className="text-[10px] text-success dark:text-success">
                 <Eye className="h-2.5 w-2.5 mr-0.5" /> active
               </Badge>
             ) : (
@@ -389,7 +389,7 @@ export default function MemoriesPage() {
           </div>
         </div>
 
-        <div className="space-y-1 text-xs">
+        <div className="space-y-1 text-footnote">
           <div className="flex justify-between">
             <span className="text-muted-foreground">版本</span>
             <span>v{memory.version}</span>
@@ -415,17 +415,17 @@ export default function MemoriesPage() {
         )}
 
         <div className="pt-2 border-t">
-          <div className="text-xs font-medium mb-1">内容预览</div>
+          <div className="text-footnote font-medium mb-1">内容预览</div>
           <pre className="text-[10px] font-mono whitespace-pre-wrap break-words bg-muted/40 p-2 rounded max-h-48 overflow-auto leading-relaxed">
             {memory.content.slice(0, 800)}{memory.content.length > 800 && '\n…'}
           </pre>
         </div>
 
         <div className="grid grid-cols-2 gap-1.5 pt-2 border-t">
-          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleOpenFile(node)}>
+          <Button size="sm" variant="outline" className="h-7 text-footnote" onClick={() => handleOpenFile(node)}>
             编辑
           </Button>
-          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => void apiToggleActive(memory.id)}>
+          <Button size="sm" variant="outline" className="h-7 text-footnote" onClick={() => void apiToggleActive(memory.id)}>
             {memory.isActive ? '停用' : '激活'}
           </Button>
         </div>
@@ -443,7 +443,7 @@ export default function MemoriesPage() {
         </div>
         <div className="flex items-center justify-between">
           <span className="text-muted-foreground">Built-in</span>
-          <CheckCircle2 className="h-3 w-3 text-green-500" />
+          <CheckCircle2 className="h-3 w-3 text-success" />
         </div>
         <div className="flex items-center justify-between">
           <span className="text-muted-foreground">Provider</span>
@@ -465,7 +465,7 @@ export default function MemoriesPage() {
     return (
       <div className="flex flex-col h-full">
         <div className="flex items-center justify-between px-4 h-11 border-b">
-          <div className="font-medium text-sm">
+          <div className="font-medium text-caption">
             {creatingNew ? '新建 Memory' : '编辑 Memory'}
           </div>
           <div className="flex gap-2">
@@ -475,7 +475,7 @@ export default function MemoriesPage() {
         </div>
         <div className="flex-1 overflow-auto p-6 space-y-3">
           <div>
-            <label className="text-xs font-medium text-muted-foreground">标题</label>
+            <label className="text-footnote font-medium text-muted-foreground">标题</label>
             <Input
               value={draft.title || ''}
               onChange={(e) => setDraft({ ...draft, title: e.target.value })}
@@ -485,7 +485,7 @@ export default function MemoriesPage() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-muted-foreground">分类</label>
+              <label className="text-footnote font-medium text-muted-foreground">分类</label>
               <Select
                 value={draft.category}
                 onValueChange={(v) => setDraft({ ...draft, category: v as Memory['category'] })}
@@ -500,7 +500,7 @@ export default function MemoriesPage() {
               </Select>
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground">优先级</label>
+              <label className="text-footnote font-medium text-muted-foreground">优先级</label>
               <Select
                 value={draft.priority}
                 onValueChange={(v) => setDraft({ ...draft, priority: v as Memory['priority'] })}
@@ -516,7 +516,7 @@ export default function MemoriesPage() {
             </div>
           </div>
           <div>
-            <label className="text-xs font-medium text-muted-foreground">标签（逗号分隔）</label>
+            <label className="text-footnote font-medium text-muted-foreground">标签（逗号分隔）</label>
             <Input
               value={(draft.tags || []).join(', ')}
               onChange={(e) =>
@@ -527,13 +527,13 @@ export default function MemoriesPage() {
             />
           </div>
           <div>
-            <label className="text-xs font-medium text-muted-foreground">内容</label>
+            <label className="text-footnote font-medium text-muted-foreground">内容</label>
             <Textarea
               value={draft.content || ''}
               onChange={(e) => setDraft({ ...draft, content: e.target.value })}
               rows={20}
               placeholder="详细描述..."
-              className="mt-1 font-mono text-xs"
+              className="mt-1 font-mono text-footnote"
             />
           </div>
           <div className="flex items-center gap-2">
@@ -543,7 +543,7 @@ export default function MemoriesPage() {
               onChange={(e) => setDraft({ ...draft, isActive: e.target.checked })}
               id="active-cb"
             />
-            <label htmlFor="active-cb" className="text-xs text-muted-foreground">
+            <label htmlFor="active-cb" className="text-footnote text-muted-foreground">
               激活（参与 baseline system prompt 注入）
             </label>
           </div>
@@ -582,7 +582,7 @@ export default function MemoriesPage() {
             <Button
               size="sm"
               variant="outline"
-              className="h-7 text-xs ml-1"
+              className="h-7 text-footnote ml-1"
               onClick={() => startNewMemory('cat-context')}
               title="新建一条 memory"
             >
@@ -606,9 +606,9 @@ export default function MemoriesPage() {
       {toast && (
         <div
           className={cn(
-            'absolute bottom-10 right-4 max-w-md text-xs px-3 py-2 rounded border shadow-md',
-            toast.kind === 'success' && 'bg-green-50 border-green-300 text-green-800 dark:bg-green-950 dark:border-green-800 dark:text-green-200',
-            toast.kind === 'error' && 'bg-red-50 border-red-300 text-red-800 dark:bg-red-950 dark:border-red-800 dark:text-red-200',
+            'absolute bottom-10 right-4 max-w-md text-footnote px-3 py-2 rounded border shadow-soft',
+            toast.kind === 'success' && 'bg-success/5 border-success/30 text-success dark:bg-success dark:border-success dark:text-success',
+            toast.kind === 'error' && 'bg-danger/5 border-danger/30 text-danger dark:bg-danger dark:border-danger dark:text-danger',
             toast.kind === 'info' && 'bg-blue-50 border-blue-300 text-blue-800 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-200',
           )}
         >

@@ -58,7 +58,7 @@ function HorizontalBar({
   const pct = max <= 0 ? 0 : Math.min(100, (value / max) * 100);
   return (
     <div className="space-y-1">
-      <div className="flex items-baseline justify-between gap-3 text-xs">
+      <div className="flex items-baseline justify-between gap-3 text-footnote">
         <div className="min-w-0 flex-1 truncate">{label}</div>
         <div className="text-muted-foreground tabular-nums flex-shrink-0">{hint}</div>
       </div>
@@ -78,13 +78,13 @@ function HorizontalBar({
 
 const HEALTH_COLOR: Record<string, string> = {
   green: 'bg-emerald-500',
-  amber: 'bg-amber-500',
+  amber: 'bg-warning',
   red: 'bg-rose-500',
 };
 
 const HEALTH_BADGE: Record<string, string> = {
   green: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  amber: 'bg-amber-50 text-amber-700 border-amber-200',
+  amber: 'bg-warning/5 text-warning border-warning/20',
   red: 'bg-rose-50 text-rose-700 border-rose-200',
 };
 
@@ -267,13 +267,13 @@ export default function KpiAnalyticsPage() {
     <div className="container mx-auto max-w-7xl p-6 space-y-4">
       <header className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+          <h1 className="text-title-3 font-semibold tracking-tight flex items-center gap-2">
             <Activity className="h-6 w-6 text-primary" />
             KPI 分析中枢
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-caption text-muted-foreground mt-1">
             8 视图 · 公司全维度健康度 · 高管 / HR 简报
-            <span className="ml-2 text-xs">CHARTER §3 + M2b</span>
+            <span className="ml-2 text-footnote">CHARTER §3 + M2b</span>
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => void refresh()} disabled={loading}>
@@ -284,7 +284,7 @@ export default function KpiAnalyticsPage() {
 
       {error && (
         <Card className="border-rose-200 bg-rose-50">
-          <CardContent className="py-3 text-sm text-rose-700 flex items-center gap-2">
+          <CardContent className="py-3 text-caption text-rose-700 flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />
             {error}
           </CardContent>
@@ -310,7 +310,7 @@ export default function KpiAnalyticsPage() {
 
       {!cycleId ? (
         <Card>
-          <CardContent className="py-12 text-center text-sm text-muted-foreground">
+          <CardContent className="py-12 text-center text-caption text-muted-foreground">
             请先选择一个 KPI 周期
           </CardContent>
         </Card>
@@ -320,7 +320,7 @@ export default function KpiAnalyticsPage() {
           {cs && (
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
+                <CardTitle className="text-body flex items-center gap-2">
                   <Building2 className="h-4 w-4 text-primary" />
                   公司整体
                 </CardTitle>
@@ -354,13 +354,13 @@ export default function KpiAnalyticsPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-3 text-footnote text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />
                       绿 {cs.green}
                     </span>
                     <span className="flex items-center gap-1">
-                      <span className="inline-block w-2 h-2 rounded-full bg-amber-500" />
+                      <span className="inline-block w-2 h-2 rounded-full bg-warning" />
                       黄 {cs.amber}
                     </span>
                     <span className="flex items-center gap-1">
@@ -370,7 +370,7 @@ export default function KpiAnalyticsPage() {
                   </div>
                   <div className="h-3 rounded-full overflow-hidden flex">
                     <div className="bg-emerald-500" style={{ width: `${greenPct}%` }} />
-                    <div className="bg-amber-500" style={{ width: `${amberPct}%` }} />
+                    <div className="bg-warning" style={{ width: `${amberPct}%` }} />
                     <div className="bg-rose-500" style={{ width: `${redPct}%` }} />
                   </div>
                 </div>
@@ -382,7 +382,7 @@ export default function KpiAnalyticsPage() {
           {data.assigneeRollup && data.assigneeRollup.assignees.length > 0 && (
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
+                <CardTitle className="text-body flex items-center gap-2">
                   <Users className="h-4 w-4 text-primary" />
                   人员加权完成率排序
                 </CardTitle>
@@ -393,7 +393,7 @@ export default function KpiAnalyticsPage() {
                     key={a.assigneeId}
                     label={
                       <span className="inline-flex items-center gap-2">
-                        <Badge variant="outline" className={`${GRADE_BADGE[a.grade]} text-xs`}>
+                        <Badge variant="outline" className={`${GRADE_BADGE[a.grade]} text-footnote`}>
                           {a.grade}
                         </Badge>
                         <span>{userName(a.assigneeId)}</span>
@@ -416,7 +416,7 @@ export default function KpiAnalyticsPage() {
           {data.departmentRollup && data.departmentRollup.departments.length > 0 && (
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
+                <CardTitle className="text-body flex items-center gap-2">
                   <Layers className="h-4 w-4 text-primary" />
                   部门加权完成率
                 </CardTitle>
@@ -447,17 +447,17 @@ export default function KpiAnalyticsPage() {
           {data.riskList && (
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
+                <CardTitle className="text-body flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4 text-rose-600" />
                   红色 KPI 清单 (完成率 &lt; 60%)
-                  <Badge variant="outline" className="ml-2 text-xs">
+                  <Badge variant="outline" className="ml-2 text-footnote">
                     {data.riskList.risks.length}
                   </Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 {data.riskList.risks.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-caption text-muted-foreground">
                     没有红色 KPI · 全部完成率 ≥ 60% 🎉
                   </p>
                 ) : (
@@ -465,19 +465,19 @@ export default function KpiAnalyticsPage() {
                     {data.riskList.risks.slice(0, 20).map((r) => (
                       <li
                         key={r.id}
-                        className="flex items-center justify-between gap-2 text-sm border-l-2 border-rose-300 pl-2 py-0.5"
+                        className="flex items-center justify-between gap-2 text-caption border-l-2 border-rose-300 pl-2 py-0.5"
                       >
                         <div className="min-w-0 flex-1 truncate">
-                          <span className="font-mono text-xs text-muted-foreground mr-1">
+                          <span className="font-mono text-footnote text-muted-foreground mr-1">
                             {r.subjectCode}
                           </span>
                           {r.title}
-                          <span className="text-xs text-muted-foreground ml-2">
+                          <span className="text-footnote text-muted-foreground ml-2">
                             {userName(r.assigneeId)} · {r.scope}
                           </span>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
-                          <span className="text-xs text-muted-foreground tabular-nums">
+                          <span className="text-footnote text-muted-foreground tabular-nums">
                             {r.currentValue} / {r.targetValue}
                           </span>
                           <Badge variant="outline" className={HEALTH_BADGE.red}>
@@ -487,7 +487,7 @@ export default function KpiAnalyticsPage() {
                       </li>
                     ))}
                     {data.riskList.risks.length > 20 && (
-                      <li className="text-xs text-muted-foreground pl-2 pt-1">
+                      <li className="text-footnote text-muted-foreground pl-2 pt-1">
                         …还有 {data.riskList.risks.length - 20} 条
                       </li>
                     )}
@@ -502,12 +502,12 @@ export default function KpiAnalyticsPage() {
             {data.cascadeCoverage && (
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base flex items-center gap-2">
+                  <CardTitle className="text-body flex items-center gap-2">
                     <Layers className="h-4 w-4" />
                     Cascade 覆盖
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-2 text-sm">
+                <CardContent className="space-y-2 text-caption">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">公司层 KPI 总数</span>
                     <span className="font-semibold">{data.cascadeCoverage.company.total}</span>
@@ -517,7 +517,7 @@ export default function KpiAnalyticsPage() {
                     <span
                       className={
                         data.cascadeCoverage.company.uncascadedToDept > 0
-                          ? 'text-amber-700 font-semibold'
+                          ? 'text-warning font-semibold'
                           : ''
                       }
                     >
@@ -546,7 +546,7 @@ export default function KpiAnalyticsPage() {
                     <span
                       className={
                         data.cascadeCoverage.department.uncascadedToIndividual > 0
-                          ? 'text-amber-700 font-semibold'
+                          ? 'text-warning font-semibold'
                           : ''
                       }
                     >
@@ -579,12 +579,12 @@ export default function KpiAnalyticsPage() {
             {data.dataSource && (
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base flex items-center gap-2">
+                  <CardTitle className="text-body flex items-center gap-2">
                     <Database className="h-4 w-4" />
                     数据来源分布
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-2 text-sm">
+                <CardContent className="space-y-2 text-caption">
                   {Object.entries(data.dataSource.counts).map(([src, count]) => (
                     <div key={src} className="flex justify-between items-center">
                       <span className="capitalize">
@@ -599,7 +599,7 @@ export default function KpiAnalyticsPage() {
                       <span className="tabular-nums font-semibold">{count}</span>
                     </div>
                   ))}
-                  <div className="border-t pt-2 flex justify-between text-xs text-muted-foreground">
+                  <div className="border-t pt-2 flex justify-between text-footnote text-muted-foreground">
                     <span>合计</span>
                     <span>{data.dataSource.total}</span>
                   </div>
@@ -610,24 +610,24 @@ export default function KpiAnalyticsPage() {
             {data.scopeBalance && (
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base flex items-center gap-2">
+                  <CardTitle className="text-body flex items-center gap-2">
                     <Scale className="h-4 w-4" />
                     Scope 平衡 (bonus vs monitor)
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-2 text-sm">
+                <CardContent className="space-y-2 text-caption">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="border rounded-md p-3 space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">bonus</span>
+                        <span className="text-footnote text-muted-foreground">bonus</span>
                         <span className="font-semibold">
                           {data.scopeBalance.bonus.count}
                         </span>
                       </div>
-                      <div className="text-xs text-muted-foreground">
+                      <div className="text-footnote text-muted-foreground">
                         总权重 {data.scopeBalance.bonus.totalWeight}
                       </div>
-                      <div className="text-xs text-muted-foreground">
+                      <div className="text-footnote text-muted-foreground">
                         公司 {data.scopeBalance.bonus.byLevel.company} · 部门{' '}
                         {data.scopeBalance.bonus.byLevel.department} · 个人{' '}
                         {data.scopeBalance.bonus.byLevel.individual}
@@ -635,13 +635,13 @@ export default function KpiAnalyticsPage() {
                     </div>
                     <div className="border rounded-md p-3 space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">monitor</span>
+                        <span className="text-footnote text-muted-foreground">monitor</span>
                         <span className="font-semibold">
                           {data.scopeBalance.monitor.count}
                         </span>
                       </div>
-                      <div className="text-xs text-muted-foreground">不进奖金</div>
-                      <div className="text-xs text-muted-foreground">
+                      <div className="text-footnote text-muted-foreground">不进奖金</div>
+                      <div className="text-footnote text-muted-foreground">
                         公司 {data.scopeBalance.monitor.byLevel.company} · 部门{' '}
                         {data.scopeBalance.monitor.byLevel.department} · 个人{' '}
                         {data.scopeBalance.monitor.byLevel.individual}
@@ -655,7 +655,7 @@ export default function KpiAnalyticsPage() {
             {data.weightValidation && (
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base flex items-center gap-2">
+                  <CardTitle className="text-body flex items-center gap-2">
                     {data.weightValidation.ok ? (
                       <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                     ) : (
@@ -664,7 +664,7 @@ export default function KpiAnalyticsPage() {
                     权重 = 100 校验
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-2 text-sm">
+                <CardContent className="space-y-2 text-caption">
                   {data.weightValidation.ok ? (
                     <p className="text-emerald-700">
                       所有 assignee 的 bonus KPI 权重之和 = 100 ✓

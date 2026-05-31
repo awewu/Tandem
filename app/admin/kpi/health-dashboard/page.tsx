@@ -65,10 +65,10 @@ const HEALTH_COLOR: Record<Health, { bar: string; text: string; bg: string; bord
     label: '健康',
   },
   amber: {
-    bar: 'bg-amber-500',
-    text: 'text-amber-700',
-    bg: 'bg-amber-50',
-    border: 'border-amber-200',
+    bar: 'bg-warning',
+    text: 'text-warning',
+    bg: 'bg-warning/5',
+    border: 'border-warning/20',
     label: '警戒',
   },
   red: {
@@ -251,13 +251,13 @@ export default function KpiHealthDashboardPage() {
     <div className="container mx-auto max-w-7xl p-6 space-y-4">
       <header className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+          <h1 className="text-title-3 font-semibold tracking-tight flex items-center gap-2">
             <Activity className="h-6 w-6 text-primary" />
             KPI 健康度看板
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-caption text-muted-foreground mt-1">
             scope=monitor 的全维度 KPI · 不挂奖金, 仅监控公司运行健康度
-            <span className="ml-2 text-xs">CHARTER-KPI-TTI §2.0</span>
+            <span className="ml-2 text-footnote">CHARTER-KPI-TTI §2.0</span>
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
@@ -268,7 +268,7 @@ export default function KpiHealthDashboardPage() {
 
       {error && (
         <Card className="border-rose-200 bg-rose-50">
-          <CardContent className="py-3 text-sm text-rose-700 flex items-center gap-2">
+          <CardContent className="py-3 text-caption text-rose-700 flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />
             {error}
           </CardContent>
@@ -297,7 +297,7 @@ export default function KpiHealthDashboardPage() {
           </div>
 
           {activeCycle && (
-            <span className="text-xs text-muted-foreground">
+            <span className="text-footnote text-muted-foreground">
               {activeCycle.startDate.slice(0, 10)} → {activeCycle.endDate.slice(0, 10)}
             </span>
           )}
@@ -352,13 +352,13 @@ export default function KpiHealthDashboardPage() {
       {/* 主体: 分组卡片 grid */}
       {loading ? (
         <Card>
-          <CardContent className="py-12 text-center text-sm text-muted-foreground">
+          <CardContent className="py-12 text-center text-caption text-muted-foreground">
             加载中…
           </CardContent>
         </Card>
       ) : kpis.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center text-sm text-muted-foreground">
+          <CardContent className="py-12 text-center text-caption text-muted-foreground">
             {activeCycle
               ? '本周期没有 scope=monitor 的 KPI · 监控类指标可在 /admin/kpi/setup 创建'
               : '请选择一个周期'}
@@ -368,16 +368,16 @@ export default function KpiHealthDashboardPage() {
         groups.map(({ root, items }) => (
           <Card key={root?.id ?? '__none__'}>
             <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
+              <CardTitle className="text-body flex items-center gap-2">
                 {root ? (
                   <>
-                    <span className="font-mono text-xs text-muted-foreground">{root.code}</span>
+                    <span className="font-mono text-footnote text-muted-foreground">{root.code}</span>
                     {root.name}
                   </>
                 ) : (
                   <span className="text-muted-foreground">未分类</span>
                 )}
-                <Badge variant="outline" className="text-xs">
+                <Badge variant="outline" className="text-footnote">
                   {items.length}
                 </Badge>
               </CardTitle>
@@ -398,11 +398,11 @@ export default function KpiHealthDashboardPage() {
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <div className="font-medium text-sm leading-tight truncate">
+                          <div className="font-medium text-caption leading-tight truncate">
                             {kpi.title}
                           </div>
                           {subject && (
-                            <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                            <div className="text-footnote text-muted-foreground mt-0.5 truncate">
                               {subject.name}
                             </div>
                           )}
@@ -414,7 +414,7 @@ export default function KpiHealthDashboardPage() {
                       </div>
 
                       <div className="space-y-1">
-                        <div className="flex items-baseline justify-between text-xs">
+                        <div className="flex items-baseline justify-between text-footnote">
                           <span className="tabular-nums">
                             <span className="text-foreground font-semibold">
                               {(kpi.currentValue ?? 0).toLocaleString()}
@@ -441,7 +441,7 @@ export default function KpiHealthDashboardPage() {
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-2 text-footnote text-muted-foreground">
                         {DsIcon && ds && (
                           <span className="inline-flex items-center gap-0.5">
                             <DsIcon className="h-3 w-3" />

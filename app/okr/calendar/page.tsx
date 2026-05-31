@@ -25,7 +25,7 @@ import {
 
 const CONF_DOT: Record<Confidence, string> = {
   'on-track': 'bg-emerald-500',
-  'at-risk': 'bg-amber-500',
+  'at-risk': 'bg-warning',
   'off-track': 'bg-rose-500',
 };
 
@@ -172,11 +172,11 @@ export default function OKRCalendarPage() {
       <div className="max-w-6xl mx-auto px-6 py-6">
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h1 className="text-2xl font-semibold flex items-center gap-2">
+            <h1 className="text-title-3 font-semibold flex items-center gap-2">
               <CalendarIcon className="h-6 w-6 text-blue-600" />
               OKR 日历
             </h1>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-footnote text-muted-foreground mt-1">
               KR 截止 / Check-in / 周期切换 — 月网格视图
             </p>
           </div>
@@ -187,7 +187,7 @@ export default function OKRCalendarPage() {
             <Button size="sm" variant="outline" onClick={goToday}>
               今天
             </Button>
-            <span className="font-medium text-sm w-28 text-center">{monthLabel}</span>
+            <span className="font-medium text-caption w-28 text-center">{monthLabel}</span>
             <Button size="sm" variant="outline" onClick={goNext}>
               <ChevronRight className="h-4 w-4" />
             </Button>
@@ -195,7 +195,7 @@ export default function OKRCalendarPage() {
         </div>
 
         {/* 月度统计 */}
-        <div className="flex gap-2 mb-4 text-xs">
+        <div className="flex gap-2 mb-4 text-footnote">
           <Badge variant="outline" className="gap-1">
             <Target className="h-3 w-3" /> 本月 {monthKrDue} 个 KR 截止
           </Badge>
@@ -230,14 +230,14 @@ export default function OKRCalendarPage() {
                     key={day}
                     className={`min-h-[88px] rounded border p-1 transition ${
                       isToday
-                        ? 'border-amber-400 bg-amber-50/40'
+                        ? 'border-warning/50 bg-warning/5/40'
                         : isPast
                         ? 'border-slate-200 bg-slate-50/30'
                         : 'border-slate-200 bg-white hover:bg-slate-50'
                     }`}
                   >
                     <div className={`text-[11px] font-medium mb-0.5 ${
-                      isToday ? 'text-amber-700' : isPast ? 'text-slate-400' : 'text-slate-700'
+                      isToday ? 'text-warning' : isPast ? 'text-slate-400' : 'text-slate-700'
                     }`}>
                       {day}
                     </div>
@@ -261,7 +261,7 @@ export default function OKRCalendarPage() {
         {/* 图例 */}
         <Card className="mt-4">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">图例</CardTitle>
+            <CardTitle className="text-caption">图例</CardTitle>
           </CardHeader>
           <CardContent className="text-[11px] grid grid-cols-2 md:grid-cols-4 gap-2">
             <div className="flex items-center gap-1.5">
@@ -269,7 +269,7 @@ export default function OKRCalendarPage() {
               KR 截止 (在轨)
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-amber-500" />
+              <span className="h-2 w-2 rounded-full bg-warning" />
               KR 截止 (风险)
             </div>
             <div className="flex items-center gap-1.5">
@@ -285,7 +285,7 @@ export default function OKRCalendarPage() {
               周期开始/结束
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="h-3 w-3 rounded border-2 border-amber-400" />
+              <div className="h-3 w-3 rounded border-2 border-warning/50" />
               今天
             </div>
           </CardContent>

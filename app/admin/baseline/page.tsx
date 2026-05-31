@@ -7,7 +7,7 @@ import { ShieldCheck, Sparkles } from 'lucide-react';
  */
 export default function BaselinePage() {
   return (
-    <div className="page-container section-y">
+    <div className="page-container section-y md:py-10">
       <div className="max-w-2xl mx-auto card-elevated p-12 text-center animate-fade-in-up">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-brand-50 text-brand-600 mb-6">
           <ShieldCheck className="h-8 w-8" />

@@ -77,7 +77,7 @@ interface DowngradeRequest {
 
 const LEVEL_LABEL: Record<string, { label: string; color: string }> = {
   team: { label: 'Lv1 团队', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  dept: { label: 'Lv2 部门', color: 'bg-amber-50 text-amber-700 border-amber-200' },
+  dept: { label: 'Lv2 部门', color: 'bg-warning/5 text-warning border-warning/20' },
   company: { label: 'Lv3 公司', color: 'bg-rose-50 text-rose-700 border-rose-200' },
 };
 
@@ -118,20 +118,20 @@ export default function StewardWorkbenchPage() {
             <Shield className="h-5 w-5 text-violet-600" />
             Steward 工作台 · 知识治理官
           </CardTitle>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-caption text-muted-foreground">
             宪章 §8.1 三级签批门 (Lv1/Lv2/Lv3) + §8.2 降级评估 — 守门人, 不是橡皮章
           </p>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">当前签字身份:</span>
+            <span className="text-footnote text-muted-foreground">当前签字身份:</span>
             <Input
               value={signerId}
               onChange={(e) => setSignerId(e.target.value)}
-              className="h-8 w-48 font-mono text-xs"
+              className="h-8 w-48 font-mono text-footnote"
               placeholder="signerId (e.g. u_steward)"
             />
-            <span className="ml-auto text-xs text-muted-foreground">
+            <span className="ml-auto text-footnote text-muted-foreground">
               真实环境: 从登录态自动注入, 此处供演示
             </span>
           </div>
@@ -245,18 +245,18 @@ function PromotionsPanel({ signerId }: { signerId: string }) {
       </div>
 
       {actionMsg && (
-        <Card className="border-amber-200 bg-amber-50/50">
-          <CardContent className="py-2 text-xs text-amber-900">{actionMsg}</CardContent>
+        <Card className="border-warning/20 bg-warning/5/50">
+          <CardContent className="py-2 text-footnote text-warning">{actionMsg}</CardContent>
         </Card>
       )}
 
       {loading ? (
         <Card>
-          <CardContent className="py-8 text-center text-sm text-muted-foreground">加载中…</CardContent>
+          <CardContent className="py-8 text-center text-caption text-muted-foreground">加载中…</CardContent>
         </Card>
       ) : items.length === 0 ? (
         <Card>
-          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+          <CardContent className="py-8 text-center text-caption text-muted-foreground">
             暂无 {filter === 'all' ? '' : filter} 升级请求
           </CardContent>
         </Card>
@@ -320,13 +320,13 @@ function PromotionCard({
                 {p.status}
               </Badge>
               {(p.escalationHistory?.length ?? 0) > 0 && (
-                <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-700">
+                <Badge variant="outline" className="border-warning/30 bg-warning/5 text-warning">
                   已 escalate {p.escalationHistory!.length} 次
                 </Badge>
               )}
             </div>
             <div className="font-medium">{p.proposedTitle}</div>
-            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{p.proposedBody}</p>
+            <p className="mt-1 line-clamp-2 text-footnote text-muted-foreground">{p.proposedBody}</p>
           </div>
           <div className="flex flex-col items-end gap-1 text-right text-[11px] text-muted-foreground">
             <span>提议: {p.createdBy}</span>
@@ -336,7 +336,7 @@ function PromotionCard({
                 className={
                   slaInfo.overdue
                     ? 'flex items-center gap-1 font-medium text-rose-600'
-                    : 'flex items-center gap-1 text-amber-600'
+                    : 'flex items-center gap-1 text-warning'
                 }
               >
                 <Clock className="h-3 w-3" />
@@ -356,7 +356,7 @@ function PromotionCard({
             return (
               <div
                 key={r}
-                className="flex items-center gap-2 rounded-sm border bg-white px-2 py-1 text-xs"
+                className="flex items-center gap-2 rounded-sm border bg-white px-2 py-1 text-footnote"
               >
                 {signed ? (
                   <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
@@ -501,18 +501,18 @@ function DowngradesPanel({ signerId }: { signerId: string }) {
       </div>
 
       {msg && (
-        <Card className="border-amber-200 bg-amber-50/50">
-          <CardContent className="py-2 text-xs">{msg}</CardContent>
+        <Card className="border-warning/20 bg-warning/5/50">
+          <CardContent className="py-2 text-footnote">{msg}</CardContent>
         </Card>
       )}
 
       {loading ? (
         <Card>
-          <CardContent className="py-8 text-center text-sm text-muted-foreground">加载中…</CardContent>
+          <CardContent className="py-8 text-center text-caption text-muted-foreground">加载中…</CardContent>
         </Card>
       ) : items.length === 0 ? (
         <Card>
-          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+          <CardContent className="py-8 text-center text-caption text-muted-foreground">
             暂无降级评估请求 (cron 每 10min 自动扫描引用率低于均值 30% 的 Memory)
           </CardContent>
         </Card>
@@ -531,14 +531,14 @@ function DowngradesPanel({ signerId }: { signerId: string }) {
                     variant="outline"
                     className={
                       d.status === 'proposed' || d.status === 'under_review'
-                        ? 'border-amber-300 bg-amber-50 text-amber-700'
+                        ? 'border-warning/30 bg-warning/5 text-warning'
                         : 'border-slate-200'
                     }
                   >
                     {d.status}
                   </Badge>
                 </div>
-                <p className="text-sm">{d.reason}</p>
+                <p className="text-caption">{d.reason}</p>
                 <div className="mt-2 text-[11px] text-muted-foreground">
                   引用次数: {d.metrics.referenceCount}
                   {d.metrics.averageReferenceCount !== undefined &&
@@ -627,7 +627,7 @@ function SlaPanel() {
       {overdue.length > 0 && (
         <Card className="border-rose-200">
           <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
+            <CardTitle className="flex items-center gap-2 text-body">
               <AlertTriangle className="h-4 w-4 text-rose-600" />
               已逾期 (cron 下一轮 10min 内自动 escalate +1 级)
             </CardTitle>
@@ -639,17 +639,17 @@ function SlaPanel() {
               return (
                 <div
                   key={p.id}
-                  className="flex items-center justify-between rounded border bg-rose-50/30 px-3 py-2 text-sm"
+                  className="flex items-center justify-between rounded border bg-rose-50/30 px-3 py-2 text-caption"
                 >
                   <div className="min-w-0 flex-1">
                     <span className="font-medium">{p.proposedTitle}</span>
-                    <span className="ml-2 text-xs text-muted-foreground">{p.id}</span>
+                    <span className="ml-2 text-footnote text-muted-foreground">{p.id}</span>
                   </div>
                   <Badge variant="outline" className={LEVEL_LABEL[lvl].color}>
                     {LEVEL_LABEL[lvl].label}
                   </Badge>
                   {sla && (
-                    <span className="ml-2 text-xs font-medium text-rose-600">
+                    <span className="ml-2 text-footnote font-medium text-rose-600">
                       逾期 {sla.label}
                     </span>
                   )}
@@ -661,10 +661,10 @@ function SlaPanel() {
       )}
 
       {dueSoon.length > 0 && (
-        <Card className="border-amber-200">
+        <Card className="border-warning/20">
           <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Clock className="h-4 w-4 text-amber-600" />
+            <CardTitle className="flex items-center gap-2 text-body">
+              <Clock className="h-4 w-4 text-warning" />
               24h 内到期
             </CardTitle>
           </CardHeader>
@@ -675,13 +675,13 @@ function SlaPanel() {
               return (
                 <div
                   key={p.id}
-                  className="flex items-center justify-between rounded border bg-amber-50/30 px-3 py-2 text-sm"
+                  className="flex items-center justify-between rounded border bg-warning/5/30 px-3 py-2 text-caption"
                 >
                   <span className="font-medium">{p.proposedTitle}</span>
                   <Badge variant="outline" className={LEVEL_LABEL[lvl].color}>
                     {LEVEL_LABEL[lvl].label}
                   </Badge>
-                  {sla && <span className="ml-2 text-xs text-amber-700">剩 {sla.label}</span>}
+                  {sla && <span className="ml-2 text-footnote text-warning">剩 {sla.label}</span>}
                 </div>
               );
             })}
@@ -691,7 +691,7 @@ function SlaPanel() {
 
       {!loading && items.length === 0 && (
         <Card>
-          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+          <CardContent className="py-8 text-center text-caption text-muted-foreground">
             当前没有待签升级请求
           </CardContent>
         </Card>
@@ -713,12 +713,12 @@ function Stat({
     accent === 'rose'
       ? 'text-rose-600'
       : accent === 'amber'
-      ? 'text-amber-600'
+      ? 'text-warning'
       : 'text-foreground';
   return (
     <div className="rounded border bg-white p-3 text-center">
-      <div className={`text-2xl font-semibold ${cls}`}>{value}</div>
-      <div className="mt-1 text-xs text-muted-foreground">{label}</div>
+      <div className={`text-title-3 font-semibold ${cls}`}>{value}</div>
+      <div className="mt-1 text-footnote text-muted-foreground">{label}</div>
     </div>
   );
 }

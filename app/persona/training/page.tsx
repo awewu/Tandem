@@ -244,18 +244,18 @@ export default function PersonaTrainingPage() {
   return (
     <div className="container mx-auto max-w-7xl p-6 space-y-4">
       <header>
-        <h1 className="text-xl font-semibold tracking-tight flex items-center gap-2">
+        <h1 className="text-headline font-semibold tracking-tight flex items-center gap-2">
           <Brain className="h-5 w-5 text-primary" />
           分身训练台
         </h1>
-        <p className="text-sm text-muted-foreground mt-1">
+        <p className="text-caption text-muted-foreground mt-1">
           左侧透明展示分身从你哪些真实数据里学；右侧训练对话，标「像我 / 不像我」收集偏好信号。
         </p>
       </header>
 
       {/* V1 诚实标签 */}
-      <Card className="border-amber-200 bg-amber-50/40">
-        <CardContent className="p-3 text-xs text-amber-800 flex items-start gap-2">
+      <Card className="border-warning/20 bg-warning/5/40">
+        <CardContent className="p-3 text-footnote text-warning flex items-start gap-2">
           <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
           <span>
             V1 阶段：反馈仅更新 <code className="font-mono">persona.decisionHistory</code> 统计字段（vetoRate 等），
@@ -286,8 +286,8 @@ export default function PersonaTrainingPage() {
             <Card className="border-dashed">
               <CardContent className="py-10 text-center space-y-2">
                 <Database className="h-8 w-8 mx-auto text-muted-foreground/50" />
-                <p className="text-sm font-semibold">养料尚不足</p>
-                <p className="text-xs text-muted-foreground max-w-xs mx-auto leading-relaxed">
+                <p className="text-caption font-semibold">养料尚不足</p>
+                <p className="text-footnote text-muted-foreground max-w-xs mx-auto leading-relaxed">
                   {ctx.reason}
                 </p>
               </CardContent>
@@ -297,7 +297,7 @@ export default function PersonaTrainingPage() {
               {/* 总览 */}
               <Card>
                 <CardContent className="p-4 space-y-2">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                  <div className="flex items-center gap-2 text-footnote font-semibold text-slate-700">
                     <Database className="h-3.5 w-3.5 text-primary" />
                     分身当前学习的真实数据
                     <Button
@@ -312,15 +312,15 @@ export default function PersonaTrainingPage() {
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-center pt-1">
                     <div className="space-y-0.5">
-                      <div className="text-lg font-bold tabular-nums text-slate-800">{ctx.totals.checkIns}</div>
+                      <div className="text-headline font-bold tabular-nums text-slate-800">{ctx.totals.checkIns}</div>
                       <div className="text-[10px] text-muted-foreground">日报 check-in</div>
                     </div>
                     <div className="space-y-0.5">
-                      <div className="text-lg font-bold tabular-nums text-slate-800">{ctx.totals.ttis}</div>
+                      <div className="text-headline font-bold tabular-nums text-slate-800">{ctx.totals.ttis}</div>
                       <div className="text-[10px] text-muted-foreground">TTI 填报</div>
                     </div>
                     <div className="space-y-0.5">
-                      <div className="text-lg font-bold tabular-nums text-slate-800">{ctx.totals.memories}</div>
+                      <div className="text-headline font-bold tabular-nums text-slate-800">{ctx.totals.memories}</div>
                       <div className="text-[10px] text-muted-foreground">个人 Memory</div>
                     </div>
                   </div>
@@ -360,7 +360,7 @@ export default function PersonaTrainingPage() {
                           )}
                           {c.blockers && (
                             <p className="text-muted-foreground">
-                              <span className="text-amber-600 font-semibold mr-1">卡点:</span>
+                              <span className="text-warning font-semibold mr-1">卡点:</span>
                               {c.blockers}
                             </p>
                           )}
@@ -427,7 +427,7 @@ export default function PersonaTrainingPage() {
           <Card className="flex flex-col h-[640px]">
             <div className="px-4 py-2 border-b flex items-center gap-2">
               <Sparkles className="h-3.5 w-3.5 text-indigo-500" />
-              <span className="text-xs font-semibold text-slate-800">训练对话</span>
+              <span className="text-footnote font-semibold text-slate-800">训练对话</span>
               <Badge variant="outline" className="ml-auto text-[10px]">
                 场景: persona_dialogue
               </Badge>
@@ -436,7 +436,7 @@ export default function PersonaTrainingPage() {
             <ScrollArea className="flex-1 p-4">
               <div className="space-y-3">
                 {messages.length === 0 && !streaming && (
-                  <div className="text-center py-12 text-xs text-muted-foreground">
+                  <div className="text-center py-12 text-footnote text-muted-foreground">
                     <Brain className="h-8 w-8 mx-auto mb-2 opacity-30" />
                     <p>问你的分身一个问题，看它用你自己的口吻回答。</p>
                     <p className="mt-1 text-[10px]">例：「客户投诉 SLA 不达标，我该怎么回复？」</p>
@@ -447,7 +447,7 @@ export default function PersonaTrainingPage() {
                   <div
                     key={m.id}
                     className={cn(
-                      'flex items-start gap-2 text-xs',
+                      'flex items-start gap-2 text-footnote',
                       m.role === 'user' ? 'justify-end' : '',
                     )}
                   >
@@ -473,7 +473,7 @@ export default function PersonaTrainingPage() {
                               'text-[9px]',
                               m.source === 'llm'
                                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                : 'bg-amber-50 text-amber-700 border-amber-200',
+                                : 'bg-warning/5 text-warning border-warning/20',
                             )}
                           >
                             {m.source === 'llm' ? `LLM · ${m.model ?? 'unknown'}` : '降级（未调 LLM）'}
@@ -512,7 +512,7 @@ export default function PersonaTrainingPage() {
                 ))}
 
                 {streaming && (
-                  <div className="flex items-start gap-2 text-xs">
+                  <div className="flex items-start gap-2 text-footnote">
                     <span className="p-1 rounded bg-indigo-100 text-indigo-700 shrink-0 mt-0.5">
                       <Brain className="h-3 w-3 animate-pulse" />
                     </span>
@@ -531,7 +531,7 @@ export default function PersonaTrainingPage() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
                 placeholder="问你的分身一个问题…"
-                className="h-9 text-xs"
+                className="h-9 text-footnote"
                 disabled={streaming || ctx?.source === 'empty'}
               />
               <Button

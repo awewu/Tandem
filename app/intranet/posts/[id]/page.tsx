@@ -71,7 +71,7 @@ export default function IntranetPostPage() {
 
   if (!post) {
     return (
-      <div className="page-container py-10 max-w-3xl">
+      <div className="page-container py-10 max-w-3xl md:py-10">
         <BackToIntranet />
         <div className="card-elevated mt-6 p-12 text-center">
           <p className="text-headline text-ink-primary">条目不存在</p>

@@ -33,8 +33,8 @@ export default function SearchPage() {
   }
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6 flex items-center gap-2">
+    <div className="p-6 max-w-3xl mx-auto md:px-8">
+      <h1 className="text-title-3 font-bold mb-6 flex items-center gap-2">
         <Search size={24} /> 全局搜索
       </h1>
 
@@ -66,12 +66,12 @@ export default function SearchPage() {
               <Icon size={20} className="text-gray-500 mt-0.5" />
               <div className="flex-1">
                 <div className="font-medium">{r.title}</div>
-                <div className="text-sm text-gray-500">{r.snippet}</div>
-                <div className="text-xs text-gray-400 mt-1">
+                <div className="text-caption text-gray-500">{r.snippet}</div>
+                <div className="text-footnote text-gray-400 mt-1">
                   {new Date(r.updatedAt).toLocaleString()}
                 </div>
               </div>
-              <span className="text-xs px-2 py-1 bg-gray-100 rounded text-gray-500">
+              <span className="text-footnote px-2 py-1 bg-gray-100 rounded text-gray-500">
                 {r.type === "document" ? "文档" : r.type === "calendar" ? "日程" : "云盘"}
               </span>
             </div>

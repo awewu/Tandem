@@ -78,15 +78,15 @@ export default function PartnerJoinPage() {
   }
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-violet-50 via-white to-slate-50 dark:from-violet-950/20 dark:via-background dark:to-background px-4 py-12">
+    <main className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-violet-50 via-white to-slate-50 dark:from-violet-950/20 dark:via-background dark:to-background px-4 py-12 md:px-8">
 
       {/* Logo / 标题区 */}
       <div className="mb-8 text-center">
-        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-violet-600 text-white mb-4 shadow-lg">
+        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-violet-600 text-white mb-4 shadow-soft-lg">
           <Bot className="w-7 h-7" />
         </div>
-        <h1 className="text-2xl font-bold tracking-tight">合作伙伴入口</h1>
-        <p className="mt-1 text-muted-foreground text-sm">
+        <h1 className="text-title-3 font-bold tracking-tight">合作伙伴入口</h1>
+        <p className="mt-1 text-muted-foreground text-caption">
           调用公司智能体 · 体验企业 AI 工具集
         </p>
       </div>
@@ -96,9 +96,9 @@ export default function PartnerJoinPage() {
         <div className="w-full max-w-md space-y-5">
           <div className="grid grid-cols-3 gap-3 mb-6">
             {PARTNER_FEATURES.map(({ icon: Icon, label, desc }) => (
-              <div key={label} className="flex flex-col items-center text-center p-3 rounded-xl border bg-card gap-1.5">
+              <div key={label} className="flex flex-col items-center text-center p-3 rounded-2xl border bg-card gap-1.5">
                 <Icon className="w-5 h-5 text-violet-500" />
-                <span className="text-xs font-medium">{label}</span>
+                <span className="text-footnote font-medium">{label}</span>
                 <span className="text-[10px] text-muted-foreground">{desc}</span>
               </div>
             ))}
@@ -106,12 +106,12 @@ export default function PartnerJoinPage() {
 
           <Card className="border-violet-200 dark:border-violet-800">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
+              <CardTitle className="text-body flex items-center gap-2">
                 <Ticket className="w-4 h-4 text-violet-500" />
                 已有邀请码
                 <Badge className="bg-violet-100 text-violet-700 dark:bg-violet-900 dark:text-violet-300 text-[10px]">推荐</Badge>
               </CardTitle>
-              <p className="text-xs text-muted-foreground">由公司业务或运营团队发放，直接开通账号</p>
+              <p className="text-footnote text-muted-foreground">由公司业务或运营团队发放，直接开通账号</p>
             </CardHeader>
             <CardContent>
               <Button className="w-full bg-violet-600 hover:bg-violet-700" onClick={() => setMode('invite')}>
@@ -122,11 +122,11 @@ export default function PartnerJoinPage() {
 
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
+              <CardTitle className="text-body flex items-center gap-2">
                 <Building2 className="w-4 h-4 text-muted-foreground" />
                 申请开通
               </CardTitle>
-              <p className="text-xs text-muted-foreground">提交合作申请，审核通过后获得邀请码</p>
+              <p className="text-footnote text-muted-foreground">提交合作申请，审核通过后获得邀请码</p>
             </CardHeader>
             <CardContent>
               <Button variant="outline" className="w-full" onClick={() => setMode('apply')}>
@@ -135,7 +135,7 @@ export default function PartnerJoinPage() {
             </CardContent>
           </Card>
 
-          <p className="text-center text-xs text-muted-foreground">
+          <p className="text-center text-footnote text-muted-foreground">
             内部员工？
             <a href="/register/employee" className="text-violet-600 hover:underline ml-1">使用企业邮箱直接注册 →</a>
           </p>
@@ -146,8 +146,8 @@ export default function PartnerJoinPage() {
       {mode === 'invite' && (
         <Card className="w-full max-w-md">
           <CardHeader>
-            <button onClick={() => setMode('choose')} className="text-xs text-muted-foreground hover:text-foreground mb-1">← 返回</button>
-            <CardTitle className="text-base">使用邀请码注册</CardTitle>
+            <button onClick={() => setMode('choose')} className="text-footnote text-muted-foreground hover:text-foreground mb-1">← 返回</button>
+            <CardTitle className="text-body">使用邀请码注册</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={submitInvite} className="space-y-3">
@@ -163,7 +163,7 @@ export default function PartnerJoinPage() {
               <Field label="密码">
                 <Input type="password" placeholder="8位以上，含数字与字母" value={invPassword} onChange={e => setInvPassword(e.target.value)} required />
               </Field>
-              {error && <p className="text-xs text-destructive">{error}</p>}
+              {error && <p className="text-footnote text-destructive">{error}</p>}
               <Button type="submit" className="w-full bg-violet-600 hover:bg-violet-700" disabled={busy}>
                 {busy ? '注册中...' : '注册并进入'}
               </Button>
@@ -179,8 +179,8 @@ export default function PartnerJoinPage() {
       {mode === 'apply' && (
         <Card className="w-full max-w-md">
           <CardHeader>
-            <button onClick={() => setMode('choose')} className="text-xs text-muted-foreground hover:text-foreground mb-1">← 返回</button>
-            <CardTitle className="text-base">提交合作申请</CardTitle>
+            <button onClick={() => setMode('choose')} className="text-footnote text-muted-foreground hover:text-foreground mb-1">← 返回</button>
+            <CardTitle className="text-body">提交合作申请</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={submitApply} className="space-y-3">
@@ -195,14 +195,14 @@ export default function PartnerJoinPage() {
               </Field>
               <Field label="合作说明">
                 <textarea
-                  className="w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  className="w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-caption resize-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   placeholder="简述合作意向或使用场景..."
                   value={appReason}
                   onChange={e => setAppReason(e.target.value)}
                   required
                 />
               </Field>
-              {error && <p className="text-xs text-destructive">{error}</p>}
+              {error && <p className="text-footnote text-destructive">{error}</p>}
               <Button type="submit" className="w-full" disabled={busy}>
                 {busy ? '提交中...' : '提交申请'}
               </Button>
@@ -215,10 +215,10 @@ export default function PartnerJoinPage() {
       {mode === 'done' && (
         <Card className="w-full max-w-md text-center">
           <CardContent className="pt-8 pb-8 flex flex-col items-center gap-4">
-            <CheckCircle2 className="w-12 h-12 text-green-500" />
+            <CheckCircle2 className="w-12 h-12 text-success" />
             <div>
-              <h2 className="text-lg font-semibold">申请已提交</h2>
-              <p className="text-sm text-muted-foreground mt-1">
+              <h2 className="text-headline font-semibold">申请已提交</h2>
+              <p className="text-caption text-muted-foreground mt-1">
                 我们将在 1-3 个工作日内审核并发送邀请码到你的邮箱。
               </p>
             </div>
@@ -233,7 +233,7 @@ export default function PartnerJoinPage() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1">
-      <label className="text-xs font-medium text-muted-foreground">{label}</label>
+      <label className="text-footnote font-medium text-muted-foreground">{label}</label>
       {children}
     </div>
   );

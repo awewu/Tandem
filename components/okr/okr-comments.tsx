@@ -56,7 +56,7 @@ export function OKRComments({ scope, scopeId }: Props) {
 
   return (
     <div className="space-y-3">
-      <div className="text-sm font-medium">
+      <div className="text-caption font-medium">
         评论
         {comments.length > 0 && (
           <span className="text-muted-foreground font-normal"> · {comments.length}</span>
@@ -74,13 +74,13 @@ export function OKRComments({ scope, scopeId }: Props) {
           }}
           placeholder="说点什么…  · 输入 @ 提及他人 · ⌘/Ctrl+Enter 发送"
           rows={2}
-          className="w-full px-2 py-2 text-sm bg-transparent outline-none resize-none"
+          className="w-full px-2 py-2 text-caption bg-transparent outline-none resize-none"
         />
         <div className="flex items-center justify-between px-2 py-1 border-t bg-muted/30">
           <div className="flex items-center gap-1">
             <button
               onClick={() => setShowMentionMenu(!showMentionMenu)}
-              className="text-xs text-muted-foreground hover:text-foreground p-1"
+              className="text-footnote text-muted-foreground hover:text-foreground p-1"
               title="提及他人"
             >
               <AtSign size={14} />
@@ -91,7 +91,7 @@ export function OKRComments({ scope, scopeId }: Props) {
                   <button
                     key={p.id}
                     onClick={() => { setDraft((d) => d + (d.endsWith(' ') || d === '' ? '' : ' ') + '@' + p.name + ' '); setShowMentionMenu(false); }}
-                    className="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-700 hover:bg-blue-200"
+                    className="text-footnote px-2 py-0.5 rounded bg-blue-100 text-blue-700 hover:bg-blue-200"
                   >
                     @{p.name}
                   </button>
@@ -102,7 +102,7 @@ export function OKRComments({ scope, scopeId }: Props) {
           <button
             onClick={submit}
             disabled={!draft.trim()}
-            className="text-xs px-3 py-1 rounded bg-primary text-primary-foreground disabled:opacity-50 flex items-center gap-1"
+            className="text-footnote px-3 py-1 rounded bg-primary text-primary-foreground disabled:opacity-50 flex items-center gap-1"
           >
             <Send size={12} /> 发送
           </button>
@@ -111,7 +111,7 @@ export function OKRComments({ scope, scopeId }: Props) {
 
       {/* 评论列表 */}
       {comments.length === 0 ? (
-        <div className="text-xs text-muted-foreground text-center py-4 border border-dashed rounded">
+        <div className="text-footnote text-muted-foreground text-center py-4 border border-dashed rounded">
           还没有评论 · 第一个发起讨论吧
         </div>
       ) : (
@@ -124,32 +124,32 @@ export function OKRComments({ scope, scopeId }: Props) {
             }, {});
             return (
               <div key={c.id} className="group flex gap-2">
-                <div className="w-7 h-7 rounded-full bg-muted shrink-0 flex items-center justify-center text-xs font-medium">
+                <div className="w-7 h-7 rounded-full bg-muted shrink-0 flex items-center justify-center text-footnote font-medium">
                   {author?.name.slice(0, 1) || '?'}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-2 text-footnote text-muted-foreground">
                     <span className="font-medium text-foreground">{author?.name || '未知'}</span>
                     <span>{new Date(c.createdAt).toLocaleString('zh-CN', { hour12: false })}</span>
                     {c.editedAt && <span>(已编辑)</span>}
                     {c.authorId === currentUserId && (
                       <button
                         onClick={() => deleteComment(c.id)}
-                        className="opacity-0 group-hover:opacity-100 hover:text-red-600 ml-auto"
+                        className="opacity-0 group-hover:opacity-100 hover:text-danger ml-auto"
                         title="删除"
                       >
                         <Trash2 size={11} />
                       </button>
                     )}
                   </div>
-                  <div className="text-sm whitespace-pre-wrap break-words mt-1">{renderBody(c.body)}</div>
+                  <div className="text-caption whitespace-pre-wrap break-words mt-1">{renderBody(c.body)}</div>
                   <div className="flex items-center gap-1 mt-1">
                     {Object.entries(reactionCounts).map(([emoji, userIds]) => (
                       <button
                         key={emoji}
                         onClick={() => toggleReaction(c.id, emoji, currentUserId)}
                         className={cn(
-                          'text-xs px-1.5 py-0.5 rounded border',
+                          'text-footnote px-1.5 py-0.5 rounded border',
                           userIds.includes(currentUserId) ? 'bg-blue-100 border-blue-300' : 'border-transparent hover:bg-muted',
                         )}
                       >
@@ -161,7 +161,7 @@ export function OKRComments({ scope, scopeId }: Props) {
                         <button
                           key={emoji}
                           onClick={() => toggleReaction(c.id, emoji, currentUserId)}
-                          className="text-xs hover:bg-muted rounded px-1"
+                          className="text-footnote hover:bg-muted rounded px-1"
                           title={`点赞 ${emoji}`}
                         >
                           {emoji}

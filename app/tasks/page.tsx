@@ -82,20 +82,20 @@ export default function TasksPage() {
   const statusBadge = (s: string) => {
     const v = s.toLowerCase();
     if (v.includes('pause')) return <Badge variant="secondary">paused</Badge>;
-    if (v.includes('error') || v.includes('fail')) return <Badge className="bg-red-500">{s}</Badge>;
+    if (v.includes('error') || v.includes('fail')) return <Badge className="bg-danger">{s}</Badge>;
     if (v.includes('run')) return <Badge className="bg-blue-500">{s}</Badge>;
-    return <Badge className="bg-green-600">{s || 'active'}</Badge>;
+    return <Badge className="bg-success">{s || 'active'}</Badge>;
   };
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-4">
+    <div className="p-6 max-w-5xl mx-auto space-y-4 md:px-8">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <ListChecks className="h-6 w-6" /> Tasks <span className="text-xs text-muted-foreground font-normal">(Hermes cron)</span>
+          <h1 className="text-title-3 font-bold tracking-tight flex items-center gap-2">
+            <ListChecks className="h-6 w-6" /> Tasks <span className="text-footnote text-muted-foreground font-normal">(Hermes cron)</span>
           </h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Scheduled jobs managed by <code className="text-xs">hermes cron</code>. Changes are live — they persist in the Hermes daemon, not localStorage.
+          <p className="text-muted-foreground mt-1 text-caption">
+            Scheduled jobs managed by <code className="text-footnote">hermes cron</code>. Changes are live — they persist in the Hermes daemon, not localStorage.
           </p>
         </div>
         <div className="flex gap-2">
@@ -114,11 +114,11 @@ export default function TasksPage() {
             <form onSubmit={submit} className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground">Name (optional)</label>
+                  <label className="text-footnote font-medium text-muted-foreground">Name (optional)</label>
                   <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Daily Digest" />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground">Schedule</label>
+                  <label className="text-footnote font-medium text-muted-foreground">Schedule</label>
                   <Input
                     value={form.schedule}
                     onChange={(e) => setForm({ ...form, schedule: e.target.value })}
@@ -128,9 +128,9 @@ export default function TasksPage() {
                 </div>
               </div>
               <div>
-                <label className="text-xs font-medium text-muted-foreground">Prompt</label>
+                <label className="text-footnote font-medium text-muted-foreground">Prompt</label>
                 <textarea
-                  className="w-full min-h-[80px] rounded-md border px-3 py-2 text-sm mt-1 bg-background"
+                  className="w-full min-h-[80px] rounded-md border px-3 py-2 text-caption mt-1 bg-background"
                   value={form.prompt}
                   onChange={(e) => setForm({ ...form, prompt: e.target.value })}
                   placeholder="What should the agent do when this fires?"
@@ -148,20 +148,20 @@ export default function TasksPage() {
       )}
 
       {error && (
-        <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-caption text-destructive">
           <AlertCircle className="h-4 w-4 shrink-0" />
           <span className="break-all">{error}</span>
         </div>
       )}
 
       {loading && jobs.length === 0 ? (
-        <div className="text-sm text-muted-foreground py-12 text-center">Loading from Hermes…</div>
+        <div className="text-caption text-muted-foreground py-12 text-center">Loading from Hermes…</div>
       ) : jobs.length === 0 ? (
         <Card>
-          <CardContent className="p-8 text-center text-sm text-muted-foreground">
+          <CardContent className="p-8 text-center text-caption text-muted-foreground">
             <ListChecks className="h-10 w-10 opacity-20 mx-auto mb-2" />
             <p>No scheduled jobs yet.</p>
-            <p className="text-xs mt-1">Click <strong>New Task</strong> to create one, or run <code>hermes cron create</code> in a terminal.</p>
+            <p className="text-footnote mt-1">Click <strong>New Task</strong> to create one, or run <code>hermes cron create</code> in a terminal.</p>
           </CardContent>
         </Card>
       ) : (
@@ -174,11 +174,11 @@ export default function TasksPage() {
                   <div className="flex items-start gap-4">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium text-sm">{job.name || job.id}</span>
+                        <span className="font-medium text-caption">{job.name || job.id}</span>
                         {statusBadge(job.status)}
-                        <code className="text-xs text-muted-foreground">{job.schedule}</code>
+                        <code className="text-footnote text-muted-foreground">{job.schedule}</code>
                       </div>
-                      <div className="text-xs text-muted-foreground mt-1 font-mono">id: {job.id}</div>
+                      <div className="text-footnote text-muted-foreground mt-1 font-mono">id: {job.id}</div>
                     </div>
                     <div className="flex gap-1 shrink-0">
                       <Button size="sm" variant="outline" onClick={() => act(job, 'run')} disabled={!!busy} title="Run now">
@@ -206,7 +206,7 @@ export default function TasksPage() {
       )}
 
       {rawOutput && (
-        <details className="text-xs text-muted-foreground">
+        <details className="text-footnote text-muted-foreground">
           <summary className="cursor-pointer">Raw hermes output</summary>
           <pre className="mt-2 p-2 rounded bg-muted overflow-auto whitespace-pre text-[11px]">{rawOutput}</pre>
         </details>

@@ -147,7 +147,7 @@ export function VoiceInputButton({
         'flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all',
         'touch-none select-none',
         active
-          ? 'bg-[rgb(var(--brand-500))] text-white scale-110 shadow-lg shadow-[rgb(var(--brand-500))]/30 animate-pulse'
+          ? 'bg-[rgb(var(--brand-500))] text-white scale-110 shadow-soft-lg shadow-[rgb(var(--brand-500))]/30 animate-pulse'
           : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/10 dark:text-white/75 dark:hover:bg-white/15',
         disabled && 'opacity-50 cursor-not-allowed',
         className,

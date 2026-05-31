@@ -13,7 +13,7 @@ import { rateLimit, getClientIp } from '@/lib/infra/rate-limit';
 export async function POST(req: NextRequest) {
   await boot();
   const ip = getClientIp(req.headers);
-  const rl = await rateLimit({ key: `mfa-verify:${ip}`, limit: 10, windowSec: 3600 });
+  const rl = await rateLimit({ key: `mfa-verify:${ip}`, limit: 10, windowSec: 3600, failClosed: true });
   if (!rl.allowed) {
     return NextResponse.json(
       { ok: false, error: 'too many MFA attempts', code: 'RATE_LIMITED' },

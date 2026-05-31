@@ -45,28 +45,28 @@ export default function MeetingsPage() {
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold flex items-center gap-2"><Video size={24} /> 会议室</h1>
+        <h1 className="text-title-3 font-bold flex items-center gap-2"><Video size={24} /> 会议室</h1>
         <div className="flex gap-2">
-          <input value={joinId} onChange={(e) => setJoinId(e.target.value)} placeholder="输入会议号加入" className="p-2 border rounded-lg text-sm w-48" />
-          <button onClick={() => { if (joinId) window.open(`/meetings/${joinId}`, "_blank"); }} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">加入</button>
+          <input value={joinId} onChange={(e) => setJoinId(e.target.value)} placeholder="输入会议号加入" className="p-2 border rounded-lg text-caption w-48" />
+          <button onClick={() => { if (joinId) window.open(`/meetings/${joinId}`, "_blank"); }} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-caption hover:bg-blue-700">加入</button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {rooms.map((room) => (
-          <div key={room.id} className="p-5 border rounded-xl hover:shadow-lg transition">
+          <div key={room.id} className="p-5 border rounded-2xl hover:shadow-soft-lg transition">
             <div className="flex items-start justify-between mb-3">
-              <div className="font-semibold text-lg">{room.name}</div>
-              <span className={`text-xs px-2 py-1 rounded-full ${room.status === "available" ? "bg-green-100 text-green-700" : room.status === "occupied" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
+              <div className="font-semibold text-headline">{room.name}</div>
+              <span className={`text-footnote px-2 py-1 rounded-full ${room.status === "available" ? "bg-success/10 text-success" : room.status === "occupied" ? "bg-danger/10 text-danger" : "bg-warning/10 text-warning"}`}>
                 {room.status === "available" ? "空闲" : room.status === "occupied" ? "占用中" : "已预订"}
               </span>
             </div>
-            <div className="flex items-center gap-1 text-sm text-gray-500 mb-4"><Users size={14} /> 容纳 {room.capacity} 人</div>
+            <div className="flex items-center gap-1 text-caption text-gray-500 mb-4"><Users size={14} /> 容纳 {room.capacity} 人</div>
             {room.nextBooking && (
-              <div className="text-sm text-gray-500 mb-3 p-2 bg-gray-50 rounded"><CalendarDays size={14} className="inline mr-1" />{room.nextBooking.title}<br/>{new Date(room.nextBooking.start).toLocaleString()} - {new Date(room.nextBooking.end).toLocaleTimeString()}</div>
+              <div className="text-caption text-gray-500 mb-3 p-2 bg-gray-50 rounded"><CalendarDays size={14} className="inline mr-1" />{room.nextBooking.title}<br/>{new Date(room.nextBooking.start).toLocaleString()} - {new Date(room.nextBooking.end).toLocaleTimeString()}</div>
             )}
             <div className="flex gap-2">
-              <button onClick={() => bookRoom(room.id)} className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">立即预订</button>
+              <button onClick={() => bookRoom(room.id)} className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg text-caption hover:bg-blue-700">立即预订</button>
               <button onClick={() => copyJoinUrl(room.id)} className="p-2 border rounded-lg hover:bg-gray-50" title="复制会议链接"><Copy size={16} /></button>
             </div>
           </div>

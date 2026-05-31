@@ -232,7 +232,7 @@ function CeoWeeklyPromo() {
   return (
     <Link
       href="/intranet/town-hall"
-      className="block rounded-xl overflow-hidden shadow-soft-md group"
+      className="block rounded-2xl overflow-hidden shadow-soft-md group"
     >
       <div className="relative bg-gradient-to-br from-slate-800 via-slate-700 to-brand-700 p-5 text-white">
         <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_80%_30%,white_1px,transparent_1px)] [background-size:18px_18px]" />

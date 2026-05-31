@@ -48,7 +48,7 @@ export function MessageReactions({ messageId, reactions = {}, currentUserId, onC
             onClick={() => toggle(emoji)}
             disabled={busy}
             className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[11px] transition ${
-              mine ? 'border-amber-300 bg-amber-50 text-amber-900' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+              mine ? 'border-warning/30 bg-warning/5 text-warning' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
             }`}
             title={users.join(', ')}
           >
@@ -67,14 +67,14 @@ export function MessageReactions({ messageId, reactions = {}, currentUserId, onC
           <Smile className="h-3 w-3" />
         </button>
         {open && (
-          <div className="absolute bottom-full left-0 mb-1 z-50 flex gap-0.5 rounded-md border border-slate-200 bg-white p-1 shadow-lg">
+          <div className="absolute bottom-full left-0 mb-1 z-50 flex gap-0.5 rounded-md border border-slate-200 bg-white p-1 shadow-soft-lg">
             {QUICK_EMOJIS.map((e) => (
               <button
                 key={e}
                 type="button"
                 onClick={() => toggle(e)}
                 disabled={busy}
-                className="h-7 w-7 rounded hover:bg-slate-100 text-base"
+                className="h-7 w-7 rounded hover:bg-slate-100 text-body"
               >
                 {e}
               </button>

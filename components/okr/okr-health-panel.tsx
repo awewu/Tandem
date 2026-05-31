@@ -9,8 +9,8 @@ const ICON: Record<HealthIssue['severity'], any> = {
   error: AlertCircle, warning: AlertTriangle, info: Info,
 };
 const CLS: Record<HealthIssue['severity'], string> = {
-  error: 'text-red-700 bg-red-50 border-red-200 dark:bg-red-950/30',
-  warning: 'text-amber-700 bg-amber-50 border-amber-200 dark:bg-amber-950/30',
+  error: 'text-danger bg-danger/5 border-danger/20 dark:bg-danger/30',
+  warning: 'text-warning bg-warning/5 border-warning/20 dark:bg-warning/30',
   info: 'text-blue-700 bg-blue-50 border-blue-200 dark:bg-blue-950/30',
 };
 
@@ -35,14 +35,14 @@ export function OKRHealthPanel({ cycleId, onJump, compact }: Props) {
   if (compact) {
     if (issues.length === 0) {
       return (
-        <span className="text-xs text-green-700 flex items-center gap-1" title="OKR 健康度良好">
+        <span className="text-footnote text-success flex items-center gap-1" title="OKR 健康度良好">
           <Stethoscope size={12} /> 健康
         </span>
       );
     }
     return (
       <span
-        className={cn('text-xs flex items-center gap-1', errorCount > 0 ? 'text-red-700' : 'text-amber-700')}
+        className={cn('text-footnote flex items-center gap-1', errorCount > 0 ? 'text-danger' : 'text-warning')}
         title={`${errorCount} 个错误 · ${warningCount} 个警告`}
       >
         <Stethoscope size={12} />
@@ -54,7 +54,7 @@ export function OKRHealthPanel({ cycleId, onJump, compact }: Props) {
 
   if (issues.length === 0) {
     return (
-      <div className="border border-dashed border-green-300 rounded p-3 text-sm text-green-700 bg-green-50/50 dark:bg-green-950/20">
+      <div className="border border-dashed border-success/30 rounded p-3 text-caption text-success bg-success/5/50 dark:bg-success/20">
         ✅ 本周期 OKR 健康度良好，无可疑问题
       </div>
     );
@@ -62,9 +62,9 @@ export function OKRHealthPanel({ cycleId, onJump, compact }: Props) {
 
   return (
     <div className="space-y-2">
-      <div className="text-sm font-medium flex items-center gap-1.5">
+      <div className="text-caption font-medium flex items-center gap-1.5">
         <Stethoscope size={14} /> 健康度检查
-        <span className="text-xs text-muted-foreground font-normal">
+        <span className="text-footnote text-muted-foreground font-normal">
           {errorCount > 0 && <>· {errorCount} 错误</>}
           {warningCount > 0 && <> · {warningCount} 警告</>}
         </span>
@@ -78,7 +78,7 @@ export function OKRHealthPanel({ cycleId, onJump, compact }: Props) {
               key={idx}
               {...(i.jumpTo && onJump ? { onClick: () => onJump(i.jumpTo!.kind, i.jumpTo!.id) } : {})}
               className={cn(
-                'border rounded p-2 text-xs flex items-start gap-2 w-full text-left',
+                'border rounded p-2 text-footnote flex items-start gap-2 w-full text-left',
                 CLS[i.severity],
                 i.jumpTo && onJump && 'hover:opacity-90 cursor-pointer',
               )}

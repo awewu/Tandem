@@ -80,7 +80,7 @@ export function OKRTtiPanel({ ownerId, cycle, keyResults }: Props) {
       {/* TTI 区 */}
       <section>
         <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-medium flex items-center gap-1.5">
+          <h3 className="text-caption font-medium flex items-center gap-1.5">
             <Sparkles size={14} className="text-orange-500" />
             TTI · 成长软轨
           </h3>
@@ -89,12 +89,12 @@ export function OKRTtiPanel({ ownerId, cycle, keyResults }: Props) {
           </span>
         </div>
         {loading ? (
-          <div className="border rounded p-6 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+          <div className="border rounded p-6 flex items-center justify-center gap-2 text-footnote text-muted-foreground">
             <Loader2 size={12} className="animate-spin" />
             加载 TTI...
           </div>
         ) : ttis.length === 0 ? (
-          <div className="border rounded p-6 text-center text-xs text-muted-foreground">
+          <div className="border rounded p-6 text-center text-footnote text-muted-foreground">
             该负责人暂无 TTI · 在 Tandem 后端用 POST /api/tti 创建
           </div>
         ) : (
@@ -108,22 +108,22 @@ export function OKRTtiPanel({ ownerId, cycle, keyResults }: Props) {
 
       {/* KR Plan vs Actual 月度对比 */}
       <section>
-        <h3 className="text-sm font-medium flex items-center gap-1.5 mb-2">
+        <h3 className="text-caption font-medium flex items-center gap-1.5 mb-2">
           <Target size={14} className="text-emerald-500" />
           KR · Plan vs Actual (本周期)
         </h3>
         {!cycle ? (
-          <div className="border rounded p-4 text-xs text-muted-foreground inline-flex items-center gap-1.5">
+          <div className="border rounded p-4 text-footnote text-muted-foreground inline-flex items-center gap-1.5">
             <AlertCircle size={12} />
             未选择 cycle, 无法算 plan
           </div>
         ) : keyResults.length === 0 ? (
-          <div className="border rounded p-4 text-xs text-muted-foreground">
+          <div className="border rounded p-4 text-footnote text-muted-foreground">
             该 Objective 下暂无 KR
           </div>
         ) : (
           <div className="border rounded overflow-hidden">
-            <table className="w-full text-xs">
+            <table className="w-full text-footnote">
               <thead className="bg-muted/50">
                 <tr>
                   <th className="text-left px-3 py-2 font-medium">KR</th>
@@ -144,7 +144,7 @@ export function OKRTtiPanel({ ownerId, cycle, keyResults }: Props) {
       </section>
 
       {/* M2 月度对比表预告 */}
-      <section className="border-2 border-dashed rounded p-4 text-xs">
+      <section className="border-2 border-dashed rounded p-4 text-footnote">
         <p className="font-medium mb-1 inline-flex items-center gap-1.5">
           <TrendingUp size={12} className="text-blue-500" />
           月度对比 / 同比环比 (M2 上线)
@@ -164,10 +164,10 @@ function TtiRow({ tti }: { tti: PrismaTti }) {
   const tone = isHealthy
     ? 'border-emerald-300 bg-emerald-50/50'
     : isOverEasy
-    ? 'border-amber-300 bg-amber-50/50'
+    ? 'border-warning/30 bg-warning/5/50'
     : rate >= 0.4
     ? 'border-orange-200 bg-orange-50/30'
-    : 'border-red-200 bg-red-50/30';
+    : 'border-danger/20 bg-danger/5/30';
   const note = isOverEasy
     ? '⚠ 设得过低 (过于轻松)'
     : isHealthy
@@ -186,7 +186,7 @@ function TtiRow({ tti }: { tti: PrismaTti }) {
           </div>
         </div>
         <div className="text-right shrink-0">
-          <div className="text-base font-bold tabular-nums">{Math.round(rate * 100)}%</div>
+          <div className="text-body font-bold tabular-nums">{Math.round(rate * 100)}%</div>
           <div className="text-[10px] text-muted-foreground">{note}</div>
         </div>
       </div>
@@ -199,7 +199,7 @@ function TtiRow({ tti }: { tti: PrismaTti }) {
         />
         <div
           className={`h-full transition-all ${
-            isHealthy ? 'bg-emerald-500' : isOverEasy ? 'bg-amber-500' : 'bg-orange-400'
+            isHealthy ? 'bg-emerald-500' : isOverEasy ? 'bg-warning' : 'bg-orange-400'
           }`}
           style={{ width: `${Math.min(100, rate * 100)}%` }}
         />
@@ -234,7 +234,7 @@ function KrRow({ kr, cycle }: { kr: KeyResult; cycle: ZustandCycle }) {
   const color = ahead
     ? 'text-emerald-600'
     : behind
-    ? 'text-red-600'
+    ? 'text-danger'
     : 'text-muted-foreground';
 
   return (

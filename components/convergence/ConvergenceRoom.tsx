@@ -36,7 +36,7 @@ const OPTION_META: Record<
 > = {
   A: { icon: BookOpen, color: 'text-blue-600', label: 'A · SOP 直执行' },
   B: { icon: Sparkles, color: 'text-purple-600', label: 'B · AI 推演' },
-  C: { icon: History, color: 'text-amber-600', label: 'C · 历史案例' },
+  C: { icon: History, color: 'text-warning', label: 'C · 历史案例' },
   D: { icon: Lightbulb, color: 'text-emerald-600', label: 'D · 你的原创' },
 };
 
@@ -106,7 +106,7 @@ export function ConvergenceRoom({ cardId, currentUserId }: { cardId: string; cur
 
   if (error || !data) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-red-700">
+      <div className="rounded-lg border border-danger/20 bg-danger/5 p-6 text-danger">
         <AlertTriangle className="mb-2 h-5 w-5" />
         加载失败: {error ?? '未知错误'}
       </div>
@@ -132,8 +132,8 @@ export function ConvergenceRoom({ cardId, currentUserId }: { cardId: string; cur
         <CardHeader>
           <div className="flex items-start justify-between">
             <div>
-              <CardTitle className="text-xl">{card.title}</CardTitle>
-              <div className="mt-1 text-sm text-muted-foreground">
+              <CardTitle className="text-headline">{card.title}</CardTitle>
+              <div className="mt-1 text-caption text-muted-foreground">
                 {STEP_LABEL[step] ?? step}
               </div>
             </div>
@@ -141,8 +141,8 @@ export function ConvergenceRoom({ cardId, currentUserId }: { cardId: string; cur
           </div>
         </CardHeader>
         <CardContent>
-          <Progress value={progressPct} className={progressPct > 80 ? 'bg-red-100' : ''} />
-          <div className="mt-2 flex justify-between text-xs text-muted-foreground">
+          <Progress value={progressPct} className={progressPct > 80 ? 'bg-danger/10' : ''} />
+          <div className="mt-2 flex justify-between text-footnote text-muted-foreground">
             <span>已用 {Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, '0')}</span>
             <span>硬上限 17:00</span>
           </div>
@@ -170,7 +170,7 @@ export function ConvergenceRoom({ cardId, currentUserId }: { cardId: string; cur
       {card.options.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">3+1 决策选项</CardTitle>
+            <CardTitle className="text-body">3+1 决策选项</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {card.options.map((opt) => (
@@ -236,11 +236,11 @@ function TimerBadge({ minutes, seconds, elapsed }: { minutes: number; seconds: n
   const warn = elapsed >= HARD_LIMIT_SECONDS / 2;
   return (
     <div
-      className={`flex items-center gap-1 rounded-full px-3 py-1 text-sm font-mono ${
+      className={`flex items-center gap-1 rounded-full px-3 py-1 text-caption font-mono ${
         danger
-          ? 'bg-red-100 text-red-700'
+          ? 'bg-danger/10 text-danger'
           : warn
-          ? 'bg-amber-100 text-amber-700'
+          ? 'bg-warning/10 text-warning'
           : 'bg-emerald-100 text-emerald-700'
       }`}
     >
@@ -273,7 +273,7 @@ function OptionRow({
   return (
     <div
       className={`rounded-lg border p-4 transition-all ${
-        selected ? 'border-blue-500 bg-blue-50/50 shadow-sm' : 'border-border'
+        selected ? 'border-blue-500 bg-blue-50/50 shadow-soft-sm' : 'border-border'
       }`}
     >
       <div className="flex items-start gap-3">
@@ -284,13 +284,13 @@ function OptionRow({
             <ConfidencePill confidence={option.confidence} risk={option.risk} />
           </div>
           {!isD && (
-            <p className="mt-1 text-sm text-muted-foreground whitespace-pre-wrap">
+            <p className="mt-1 text-caption text-muted-foreground whitespace-pre-wrap">
               {option.description}
             </p>
           )}
           {isD && (
             <textarea
-              className="mt-2 w-full rounded border p-2 text-sm"
+              className="mt-2 w-full rounded border p-2 text-caption"
               rows={3}
               placeholder="请填写原创方案 (此选项必须人填, AI 不可代写)"
               value={novelInsight}
@@ -299,7 +299,7 @@ function OptionRow({
             />
           )}
           {option.reasoning && !isD && (
-            <details className="mt-2 text-xs text-muted-foreground">
+            <details className="mt-2 text-footnote text-muted-foreground">
               <summary className="cursor-pointer hover:text-foreground">查看推理依据</summary>
               <p className="mt-1 whitespace-pre-wrap">{option.reasoning}</p>
             </details>
@@ -326,10 +326,10 @@ function ConfidencePill({ confidence, risk }: { confidence: number; risk: string
     risk === 'low'
       ? 'bg-emerald-100 text-emerald-700'
       : risk === 'medium'
-      ? 'bg-amber-100 text-amber-700'
-      : 'bg-red-100 text-red-700';
+      ? 'bg-warning/10 text-warning'
+      : 'bg-danger/10 text-danger';
   return (
-    <div className="flex gap-1 text-xs">
+    <div className="flex gap-1 text-footnote">
       <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-700">
         信心 {pct}%
       </span>
@@ -351,8 +351,8 @@ function BannerCard({
 }) {
   const colorMap = {
     success: 'border-emerald-200 bg-emerald-50 text-emerald-800',
-    warn: 'border-amber-200 bg-amber-50 text-amber-800',
-    error: 'border-red-200 bg-red-50 text-red-800',
+    warn: 'border-warning/20 bg-warning/5 text-warning',
+    error: 'border-danger/20 bg-danger/5 text-danger',
   };
   return (
     <div className={`rounded-lg border p-4 ${colorMap[tone]}`}>
@@ -360,7 +360,7 @@ function BannerCard({
         <Icon className="h-4 w-4" />
         {title}
       </div>
-      <p className="mt-1 text-sm">{children}</p>
+      <p className="mt-1 text-caption">{children}</p>
     </div>
   );
 }

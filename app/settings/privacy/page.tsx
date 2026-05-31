@@ -37,7 +37,7 @@ export default function PrivacyPage() {
   }
 
   return (
-    <div className="page-container section-y">
+    <div className="page-container section-y md:py-10">
       <div className="max-w-3xl mx-auto space-y-6">
         <header>
           <h1 className="text-title-2 text-ink-primary">数据自助 · §13 员工尊严</h1>

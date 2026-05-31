@@ -280,16 +280,16 @@ export default function KpiSubjectsPage() {
   const inactive = total - active;
 
   return (
-    <div className="container mx-auto max-w-6xl p-6 space-y-4">
+    <div className="container mx-auto max-w-6xl p-6 space-y-4 md:px-8">
       <header className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+          <h1 className="text-title-3 font-semibold tracking-tight flex items-center gap-2">
             <FolderTree className="h-6 w-6 text-primary" />
             KPI 科目管理
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-caption text-muted-foreground mt-1">
             动态可扩展科目树 · 默认三层 (一级/二级/三级) · 软删除保护历史 KPI 数据
-            <span className="ml-2 text-xs">CHARTER-KPI-TTI §2.4</span>
+            <span className="ml-2 text-footnote">CHARTER-KPI-TTI §2.4</span>
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -313,16 +313,16 @@ export default function KpiSubjectsPage() {
 
       {/* 统计 + 控制 */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-3 text-sm">
+        <div className="flex items-center gap-3 text-caption">
           <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
             启用 {active}
           </Badge>
-          <Badge variant="outline" className="bg-zinc-50 text-zinc-600 border-zinc-200">
+          <Badge variant="outline" className="bg-surface-1 text-ink-secondary border">
             软删 {inactive}
           </Badge>
           <Badge variant="outline">合计 {total}</Badge>
         </div>
-        <div className="flex items-center gap-2 text-sm">
+        <div className="flex items-center gap-2 text-caption">
           <Switch
             id="show-inactive"
             checked={showInactive}
@@ -336,7 +336,7 @@ export default function KpiSubjectsPage() {
 
       {error && (
         <Card className="border-rose-200 bg-rose-50">
-          <CardContent className="py-3 text-sm text-rose-700 flex items-center gap-2">
+          <CardContent className="py-3 text-caption text-rose-700 flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />
             加载失败: {error}
           </CardContent>
@@ -345,18 +345,18 @@ export default function KpiSubjectsPage() {
 
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">科目树</CardTitle>
+          <CardTitle className="text-body">科目树</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
-            <div className="p-6 text-center text-sm text-muted-foreground">加载中…</div>
+            <div className="p-6 text-center text-caption text-muted-foreground">加载中…</div>
           ) : sorted.length === 0 ? (
-            <div className="p-6 text-center text-sm text-muted-foreground">
+            <div className="p-6 text-center text-caption text-muted-foreground">
               暂无科目. 点击右上 &quot;新增科目&quot; 开始建立公司科目体系.
             </div>
           ) : (
-            <table className="w-full text-sm">
-              <thead className="border-b bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+            <table className="w-full text-caption">
+              <thead className="border-b bg-muted/40 text-footnote uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th className="px-4 py-2 text-left font-medium w-32">编码</th>
                   <th className="px-4 py-2 text-left font-medium">名称</th>
@@ -377,7 +377,7 @@ export default function KpiSubjectsPage() {
                       key={s.id}
                       className={`border-b last:border-0 ${s.active ? '' : 'opacity-50'}`}
                     >
-                      <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
+                      <td className="px-4 py-2.5 font-mono text-footnote text-muted-foreground">
                         {s.code}
                       </td>
                       <td className="px-4 py-2.5">
@@ -395,7 +395,7 @@ export default function KpiSubjectsPage() {
                               s.bscPerspective === 'financial'
                                 ? 'bg-rose-50 text-rose-700 border-rose-200'
                                 : s.bscPerspective === 'customer'
-                                  ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                  ? 'bg-warning/5 text-warning border-warning/20'
                                   : s.bscPerspective === 'process'
                                     ? 'bg-sky-50 text-sky-700 border-sky-200'
                                     : 'bg-emerald-50 text-emerald-700 border-emerald-200'
@@ -411,18 +411,18 @@ export default function KpiSubjectsPage() {
                           </Badge>
                         )}
                         {s.description && (
-                          <p className="text-xs text-muted-foreground mt-0.5 ml-[18px]">
+                          <p className="text-footnote text-muted-foreground mt-0.5 ml-[18px]">
                             {s.description}
                           </p>
                         )}
                       </td>
                       <td className="px-4 py-2.5">
-                        <Badge variant="outline" className="text-xs">
+                        <Badge variant="outline" className="text-footnote">
                           Lv{s.level}
                         </Badge>
                       </td>
                       <td className="px-4 py-2.5">
-                        <Badge variant="outline" className={`${Scope.color} text-xs`}>
+                        <Badge variant="outline" className={`${Scope.color} text-footnote`}>
                           <ScopeIcon className="h-3 w-3 mr-1" />
                           {Scope.label}
                         </Badge>
@@ -435,11 +435,11 @@ export default function KpiSubjectsPage() {
                       </td>
                       <td className="px-4 py-2.5">
                         {s.active ? (
-                          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs">
+                          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-footnote">
                             启用
                           </Badge>
                         ) : (
-                          <Badge variant="outline" className="bg-zinc-50 text-zinc-600 border-zinc-200 text-xs">
+                          <Badge variant="outline" className="bg-surface-1 text-ink-secondary border text-footnote">
                             软删
                           </Badge>
                         )}
@@ -477,7 +477,7 @@ export default function KpiSubjectsPage() {
 
       {/* 父级提示 */}
       {sorted.length > 0 && (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-footnote text-muted-foreground">
           科目树深度上限 5 层. 编码 (code) 创建后不可修改 — 它是 Excel 导入的唯一键.
         </p>
       )}
@@ -628,14 +628,14 @@ export default function KpiSubjectsPage() {
             </div>
 
             {submitError && (
-              <div className="text-sm text-rose-600 flex items-center gap-1.5 bg-rose-50 px-3 py-2 rounded-md">
+              <div className="text-caption text-rose-600 flex items-center gap-1.5 bg-rose-50 px-3 py-2 rounded-md">
                 <AlertCircle className="h-4 w-4" />
                 {submitError}
               </div>
             )}
 
             {form.id && form.parentId && (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-footnote text-muted-foreground">
                 父级: {subjectName(form.parentId)}. 修改 parent 会重新派生 level.
               </p>
             )}

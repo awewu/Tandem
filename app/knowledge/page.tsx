@@ -181,17 +181,17 @@ export default function KnowledgePage() {
     const k = nodes.find((x) => x.id === n.id);
     if (!k) return null;
     return (
-      <div className="p-4 space-y-3 text-sm">
+      <div className="p-4 space-y-3 text-caption md:px-8">
         <div className="flex items-start gap-2">
           <div className="flex-1 min-w-0">
             <div className="font-medium break-all">{k.name}</div>
-            <div className="text-xs text-muted-foreground mt-0.5">
+            <div className="text-footnote text-muted-foreground mt-0.5">
               {k.type === 'folder' ? '文件夹' : (n.ext || '文件').toUpperCase()}
             </div>
           </div>
         </div>
 
-        <div className="space-y-1.5 text-xs">
+        <div className="space-y-1.5 text-footnote">
           <div className="flex justify-between">
             <span className="text-muted-foreground">创建时间</span>
             <span>{new Date(k.createdAt).toLocaleString('zh-CN')}</span>
@@ -212,7 +212,7 @@ export default function KnowledgePage() {
 
         {/* Q1 ownership 选择器 */}
         <div className="pt-2 border-t space-y-1.5">
-          <div className="text-xs font-medium">知识归属 (Memory ownership)</div>
+          <div className="text-footnote font-medium">知识归属 (Memory ownership)</div>
           <div className="flex flex-wrap gap-1">
             {(['unset', 'company', 'department', 'team', 'personal'] as const).map((lvl) => {
               const meta = OWNERSHIP_META[lvl];
@@ -244,16 +244,16 @@ export default function KnowledgePage() {
         {k.type === 'file' && (
           <>
             <div className="flex gap-1.5 pt-2 border-t">
-              <Button size="sm" variant="outline" className="flex-1 h-7 text-xs" onClick={() => handleOpenFile(n)}>
+              <Button size="sm" variant="outline" className="flex-1 h-7 text-footnote" onClick={() => handleOpenFile(n)}>
                 <Save className="mr-1 h-3 w-3" /> 编辑
               </Button>
-              <Button size="sm" variant="outline" className="flex-1 h-7 text-xs" onClick={() => downloadNode(k)}>
+              <Button size="sm" variant="outline" className="flex-1 h-7 text-footnote" onClick={() => downloadNode(k)}>
                 <Download className="mr-1 h-3 w-3" /> 下载
               </Button>
             </div>
             {k.content && (
               <div className="pt-2 border-t">
-                <div className="text-xs font-medium mb-1.5">预览</div>
+                <div className="text-footnote font-medium mb-1.5">预览</div>
                 <pre className="text-[10px] font-mono whitespace-pre-wrap break-words bg-muted/40 p-2 rounded max-h-64 overflow-auto leading-relaxed">
                   {k.content.slice(0, 1500)}
                   {k.content.length > 1500 && '\n…'}
@@ -276,7 +276,7 @@ export default function KnowledgePage() {
     return (
       <div className="flex flex-col h-full">
         <div className="flex items-center justify-between px-4 h-11 border-b">
-          <div className="font-medium text-sm truncate">{k.name}</div>
+          <div className="font-medium text-caption truncate">{k.name}</div>
           <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>取消</Button>
             <Button size="sm" onClick={saveEdit}>
@@ -287,7 +287,7 @@ export default function KnowledgePage() {
         <Textarea
           value={editContent}
           onChange={(e) => setEditContent(e.target.value)}
-          className="flex-1 font-mono text-xs resize-none border-0 rounded-none focus-visible:ring-0"
+          className="flex-1 font-mono text-footnote resize-none border-0 rounded-none focus-visible:ring-0"
           placeholder="文件内容..."
         />
       </div>
@@ -339,7 +339,7 @@ export default function KnowledgePage() {
             <Button
               size="sm"
               variant="outline"
-              className="h-7 text-xs ml-1"
+              className="h-7 text-footnote ml-1"
               onClick={deployHermesOutput}
               title="把所有对话保存为 .md 到「Hermes产出」文件夹"
             >

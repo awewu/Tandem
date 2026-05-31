@@ -211,13 +211,13 @@ export default function KpiManualEntryPage() {
     <div className="container mx-auto max-w-7xl p-6 space-y-4">
       <header className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+          <h1 className="text-title-3 font-semibold tracking-tight flex items-center gap-2">
             <Pencil className="h-6 w-6 text-primary" />
             KPI 人工补录 · 通道 C
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-caption text-muted-foreground mt-1">
             财务 / HR / 内勤 (kpi.manual_entry) 补录 ERP 未覆盖的指标
-            <span className="ml-2 text-xs">CHARTER-KPI-TTI §2.1</span>
+            <span className="ml-2 text-footnote">CHARTER-KPI-TTI §2.1</span>
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => void loadAll()} disabled={loading}>
@@ -226,8 +226,8 @@ export default function KpiManualEntryPage() {
         </Button>
       </header>
 
-      <Card className="border-amber-200 bg-amber-50">
-        <CardContent className="py-3 text-sm text-amber-800 flex items-start gap-2">
+      <Card className="border-warning/20 bg-warning/5">
+        <CardContent className="py-3 text-caption text-warning flex items-start gap-2">
           <ShieldAlert className="h-4 w-4 mt-0.5 flex-shrink-0" />
           <div>
             <strong>不可篡改铁律 (CHARTER §2.1)</strong>: 不能补录自己被考核的 KPI,
@@ -238,7 +238,7 @@ export default function KpiManualEntryPage() {
 
       {error && (
         <Card className="border-rose-200 bg-rose-50">
-          <CardContent className="py-3 text-sm text-rose-700 flex items-center gap-2">
+          <CardContent className="py-3 text-caption text-rose-700 flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />
             {error}
           </CardContent>
@@ -249,13 +249,13 @@ export default function KpiManualEntryPage() {
         {/* 左栏: 可补录 KPI 列表 */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">
+            <CardTitle className="text-caption">
               可补录 KPI ({eligibleKpis.length})
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0 max-h-[70vh] overflow-y-auto">
             {eligibleKpis.length === 0 ? (
-              <div className="p-4 text-sm text-muted-foreground">
+              <div className="p-4 text-caption text-muted-foreground">
                 {activeCycles.length === 0
                   ? '没有 active 状态的周期, 请先去 /admin/kpi/setup 激活周期'
                   : '暂无可补录的 KPI (排除你本人作为 assignee 的)'}
@@ -275,16 +275,16 @@ export default function KpiManualEntryPage() {
                         }`}
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <span className="text-sm font-medium leading-tight">{k.title}</span>
-                          <Badge variant="outline" className={`${sc.color} text-xs flex-shrink-0`}>
+                          <span className="text-caption font-medium leading-tight">{k.title}</span>
+                          <Badge variant="outline" className={`${sc.color} text-footnote flex-shrink-0`}>
                             {sc.label}
                           </Badge>
                         </div>
-                        <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
+                        <div className="text-footnote text-muted-foreground mt-1 flex items-center gap-2">
                           <span className="font-mono">{subjectCode(k.subjectId)}</span>
                           <span>· {cycleName(k.cycleId)}</span>
                         </div>
-                        <div className="text-xs text-muted-foreground mt-0.5 font-mono">
+                        <div className="text-footnote text-muted-foreground mt-0.5 font-mono">
                           assignee: {k.assigneeId}
                         </div>
                       </button>
@@ -300,7 +300,7 @@ export default function KpiManualEntryPage() {
         <div className="space-y-4">
           {!selected ? (
             <Card>
-              <CardContent className="py-12 text-center text-sm text-muted-foreground">
+              <CardContent className="py-12 text-center text-caption text-muted-foreground">
                 左栏选择一个 KPI 开始补录
               </CardContent>
             </Card>
@@ -308,21 +308,21 @@ export default function KpiManualEntryPage() {
             <>
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base">{selected.title}</CardTitle>
+                  <CardTitle className="text-body">{selected.title}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  <div className="grid grid-cols-4 gap-3 text-sm">
+                  <div className="grid grid-cols-4 gap-3 text-caption">
                     <div>
-                      <div className="text-xs text-muted-foreground">科目</div>
-                      <div className="font-mono text-xs">{subjectCode(selected.subjectId)}</div>
+                      <div className="text-footnote text-muted-foreground">科目</div>
+                      <div className="font-mono text-footnote">{subjectCode(selected.subjectId)}</div>
                       <div>{subjectName(selected.subjectId)}</div>
                     </div>
                     <div>
-                      <div className="text-xs text-muted-foreground">承担人</div>
-                      <div className="font-mono text-xs">{selected.assigneeId}</div>
+                      <div className="text-footnote text-muted-foreground">承担人</div>
+                      <div className="font-mono text-footnote">{selected.assigneeId}</div>
                     </div>
                     <div>
-                      <div className="text-xs text-muted-foreground">起始 / 目标</div>
+                      <div className="text-footnote text-muted-foreground">起始 / 目标</div>
                       <div className="tabular-nums">
                         {selected.startValue.toLocaleString()} →{' '}
                         <strong>{selected.targetValue.toLocaleString()}</strong>
@@ -332,11 +332,11 @@ export default function KpiManualEntryPage() {
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs text-muted-foreground">当前实际</div>
-                      <div className="tabular-nums text-lg font-semibold text-primary">
+                      <div className="text-footnote text-muted-foreground">当前实际</div>
+                      <div className="tabular-nums text-headline font-semibold text-primary">
                         {(selected.currentValue ?? 0).toLocaleString()}
                         {selected.unit && (
-                          <span className="text-sm text-muted-foreground ml-1">
+                          <span className="text-caption text-muted-foreground ml-1">
                             {selected.unit}
                           </span>
                         )}
@@ -344,7 +344,7 @@ export default function KpiManualEntryPage() {
                     </div>
                   </div>
                   {selected.description && (
-                    <p className="text-xs text-muted-foreground border-t pt-2">
+                    <p className="text-footnote text-muted-foreground border-t pt-2">
                       {selected.description}
                     </p>
                   )}
@@ -354,7 +354,7 @@ export default function KpiManualEntryPage() {
               {/* 补录表单 */}
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base flex items-center gap-2">
+                  <CardTitle className="text-body flex items-center gap-2">
                     <Pencil className="h-4 w-4" />
                     新建补录
                   </CardTitle>
@@ -370,7 +370,7 @@ export default function KpiManualEntryPage() {
                       onChange={(e) => setToValue(e.target.value)}
                       placeholder="实际累计值"
                     />
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-footnote text-muted-foreground">
                       当前 KPI.currentValue: {(selected.currentValue ?? 0).toLocaleString()}{' '}
                       → 提交后将覆写为本数值, dataSource 标记为 manual
                     </p>
@@ -396,13 +396,13 @@ export default function KpiManualEntryPage() {
                   </div>
 
                   {submitError && (
-                    <div className="text-sm text-rose-600 bg-rose-50 px-3 py-2 rounded-md flex items-center gap-1.5">
+                    <div className="text-caption text-rose-600 bg-rose-50 px-3 py-2 rounded-md flex items-center gap-1.5">
                       <AlertCircle className="h-4 w-4" />
                       {submitError}
                     </div>
                   )}
                   {submitOk && (
-                    <div className="text-sm text-emerald-700 bg-emerald-50 px-3 py-2 rounded-md flex items-center gap-1.5">
+                    <div className="text-caption text-emerald-700 bg-emerald-50 px-3 py-2 rounded-md flex items-center gap-1.5">
                       <CheckCircle2 className="h-4 w-4" />
                       {submitOk}
                     </div>
@@ -425,18 +425,18 @@ export default function KpiManualEntryPage() {
               {/* 历史时间线 */}
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base flex items-center gap-2">
+                  <CardTitle className="text-body flex items-center gap-2">
                     <History className="h-4 w-4" />
                     补录历史 ({selectedEntries.length})
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
                   {selectedEntries.length === 0 ? (
-                    <div className="p-4 text-sm text-muted-foreground">尚无补录记录</div>
+                    <div className="p-4 text-caption text-muted-foreground">尚无补录记录</div>
                   ) : (
                     <ul className="divide-y">
                       {selectedEntries.slice(0, 20).map((e) => (
-                        <li key={e.id} className="px-4 py-2.5 text-sm">
+                        <li key={e.id} className="px-4 py-2.5 text-caption">
                           <div className="flex items-center justify-between gap-2">
                             <span className="tabular-nums">
                               <span className="text-muted-foreground">
@@ -444,17 +444,17 @@ export default function KpiManualEntryPage() {
                               </span>{' '}
                               →{' '}
                               <strong>{e.toValue.toLocaleString()}</strong>
-                              <span className="text-xs text-muted-foreground ml-2">
+                              <span className="text-footnote text-muted-foreground ml-2">
                                 Δ {(e.toValue - e.fromValue >= 0 ? '+' : '')}
                                 {(e.toValue - e.fromValue).toLocaleString()}
                               </span>
                             </span>
-                            <span className="text-xs text-muted-foreground">
+                            <span className="text-footnote text-muted-foreground">
                               {new Date(e.createdAt).toLocaleString()}
                             </span>
                           </div>
-                          <div className="text-xs text-muted-foreground mt-1 flex items-center gap-3">
-                            <Badge variant="outline" className="text-xs">
+                          <div className="text-footnote text-muted-foreground mt-1 flex items-center gap-3">
+                            <Badge variant="outline" className="text-footnote">
                               {e.operatorRole}
                             </Badge>
                             <span className="font-mono">by {e.operatorId}</span>
@@ -470,7 +470,7 @@ export default function KpiManualEntryPage() {
                             )}
                           </div>
                           {e.reason && (
-                            <div className="text-xs text-foreground/80 mt-1 italic">
+                            <div className="text-footnote text-foreground/80 mt-1 italic">
                               &ldquo;{e.reason}&rdquo;
                             </div>
                           )}

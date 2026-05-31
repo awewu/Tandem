@@ -29,7 +29,7 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
               {String(children).replace(/\n$/, '')}
             </SyntaxHighlighter>
           ) : (
-            <code className={cn('rounded bg-muted px-1 py-0.5 text-sm font-mono', className)} {...props}>
+            <code className={cn('rounded bg-muted px-1 py-0.5 text-caption font-mono', className)} {...props}>
               {children}
             </code>
           );
@@ -37,7 +37,7 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
         table({ children }) {
           return (
             <div className="overflow-auto">
-              <table className="border-collapse text-sm">{children}</table>
+              <table className="border-collapse text-caption">{children}</table>
             </div>
           );
         },

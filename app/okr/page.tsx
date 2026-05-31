@@ -48,9 +48,9 @@ import { useCurrentUserId } from '@/lib/hooks/use-current-user';
 // 视觉小组件
 // =============================================================
 const CONFIDENCE_META: Record<Confidence, { label: string; color: string; ring: string; icon: React.ElementType }> = {
-  'on-track': { label: '正常', color: 'bg-green-500', ring: 'ring-green-500/40', icon: CheckCircle2 },
+  'on-track': { label: '正常', color: 'bg-success', ring: 'ring-success/40', icon: CheckCircle2 },
   'at-risk': { label: '有风险', color: 'bg-yellow-500', ring: 'ring-yellow-500/40', icon: AlertTriangle },
-  'off-track': { label: '严重偏离', color: 'bg-red-500', ring: 'ring-red-500/40', icon: AlertCircle },
+  'off-track': { label: '严重偏离', color: 'bg-danger', ring: 'ring-danger/40', icon: AlertCircle },
 };
 const STATUS_LABEL: Record<ObjectiveStatus, string> = {
   draft: '草稿', active: '进行中', paused: '暂停', completed: '已完成', archived: '已归档',
@@ -90,7 +90,7 @@ function PulseBadge({
     return (
       <Badge
         variant="outline"
-        className={cn('gap-1 text-[10px] border-amber-400 text-amber-700 bg-amber-50', className)}
+        className={cn('gap-1 text-[10px] border-warning/50 text-warning bg-warning/5', className)}
         title={pulseLabel(pulse)}
       >
         ⏰ {pulse.daysToNext === 0 ? '今天 Check-in' : `${pulse.daysToNext}天内 Check-in`}
@@ -101,7 +101,7 @@ function PulseBadge({
   return (
     <Badge
       variant="outline"
-      className={cn('gap-1 text-[10px] border-red-400 text-red-700 bg-red-50 animate-pulse', className)}
+      className={cn('gap-1 text-[10px] border-danger/50 text-danger bg-danger/5 animate-pulse', className)}
       title={pulseLabel(pulse)}
     >
       ⚠ 逆期 {-pulse.daysToNext}天
@@ -116,7 +116,7 @@ function DetailTabBtn({
     <button
       onClick={onClick}
       className={cn(
-        'flex items-center gap-1 px-2.5 py-1.5 text-xs whitespace-nowrap border-b-2 -mb-px transition',
+        'flex items-center gap-1 px-2.5 py-1.5 text-footnote whitespace-nowrap border-b-2 -mb-px transition',
         active ? 'border-primary text-primary font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'
       )}
     >
@@ -130,7 +130,7 @@ function ConfidencePill({ confidence }: { confidence: Confidence }) {
   const Icon = meta.icon;
   return (
     <Badge variant="outline" className="gap-1 text-[10px]">
-      <Icon className={cn('h-2.5 w-2.5', confidence === 'on-track' ? 'text-green-600' : confidence === 'at-risk' ? 'text-yellow-600' : 'text-red-600')} />
+      <Icon className={cn('h-2.5 w-2.5', confidence === 'on-track' ? 'text-success' : confidence === 'at-risk' ? 'text-yellow-600' : 'text-danger')} />
       {meta.label}
     </Badge>
   );
@@ -363,7 +363,7 @@ export default function OKRPage() {
           key={c.id}
           onClick={() => setActiveCycleId(c.id)}
           className={cn(
-            'px-3 py-1 text-xs rounded-full border transition-colors',
+            'px-3 py-1 text-footnote rounded-full border transition-colors',
             c.id === activeCycleId
               ? 'bg-primary text-primary-foreground border-primary'
               : 'bg-background hover:bg-muted'
@@ -373,7 +373,7 @@ export default function OKRPage() {
         </button>
       ))}
       <Button
-        size="sm" variant="ghost" className="h-6 text-xs"
+        size="sm" variant="ghost" className="h-6 text-footnote"
         onClick={() => {
           const name = prompt('新周期名（如 2027 / 2027-Q1）');
           if (!name?.trim()) return;
@@ -429,7 +429,7 @@ export default function OKRPage() {
             <Target className="h-4 w-4 text-primary mt-0.5 shrink-0" />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-medium text-sm truncate">{obj.title}</span>
+                <span className="font-medium text-caption truncate">{obj.title}</span>
                 <ConfidencePill confidence={obj.confidence} />
                 <Badge variant="secondary" className="text-[10px]">{STATUS_LABEL[obj.status]}</Badge>
                 <PulseBadge pulse={pulseMap.get(obj.id)} />
@@ -439,7 +439,7 @@ export default function OKRPage() {
               </div>
               <div className="flex items-center gap-2 mt-1">
                 <div className="flex-1"><ProgressBar value={progress} confidence={obj.confidence} /></div>
-                <span className="text-xs text-muted-foreground tabular-nums">{progress}%</span>
+                <span className="text-footnote text-muted-foreground tabular-nums">{progress}%</span>
               </div>
               <div className="flex items-center gap-3 text-[11px] text-muted-foreground mt-1">
                 <span><User className="h-2.5 w-2.5 inline mr-0.5" />{ownerLabel(obj.ownerId)}</span>
@@ -454,7 +454,7 @@ export default function OKRPage() {
                 return (
                   <div
                     key={kr.id}
-                    className="flex items-center gap-2 px-2 py-1 rounded text-xs hover:bg-muted/40"
+                    className="flex items-center gap-2 px-2 py-1 rounded text-footnote hover:bg-muted/40"
                   >
                     <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', CONFIDENCE_META[kr.confidence].color)} />
                     <span className="flex-1 truncate">{kr.title || '(未命名 KR)'}</span>
@@ -488,7 +488,7 @@ export default function OKRPage() {
   const renderDetail = () => {
     if (!selected) {
       return (
-        <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2 text-sm">
+        <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2 text-caption">
           <Target className="h-10 w-10 opacity-30" />
           选中一个目标查看详情
         </div>
@@ -501,9 +501,9 @@ export default function OKRPage() {
           <div>
             <div className="flex items-start gap-2">
               <div className="flex-1">
-                <h2 className="font-semibold text-lg">{selected.title}</h2>
+                <h2 className="font-semibold text-headline">{selected.title}</h2>
                 {selected.description && (
-                  <p className="text-xs text-muted-foreground mt-1">{selected.description}</p>
+                  <p className="text-footnote text-muted-foreground mt-1">{selected.description}</p>
                 )}
               </div>
               <AskBossButton
@@ -516,7 +516,7 @@ export default function OKRPage() {
                 <Edit2 className="h-3.5 w-3.5" />
               </Button>
               <Button
-                size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-500"
+                size="sm" variant="ghost" className="h-7 w-7 p-0 text-danger"
                 onClick={() => {
                   if (confirm(`删除目标「${selected.title}」（连同其 KR 与子目标）？`)) {
                     deleteObjective(selected.id);
@@ -541,7 +541,7 @@ export default function OKRPage() {
               ))}
             </div>
             <div className="mt-3">
-              <div className="flex justify-between text-xs mb-1">
+              <div className="flex justify-between text-footnote mb-1">
                 <span className="text-muted-foreground">总进度{selected.progressOverride != null && '（已覆盖）'}</span>
                 <span className="font-semibold tabular-nums">{progress}%</span>
               </div>
@@ -550,7 +550,7 @@ export default function OKRPage() {
           </div>
 
           {/* ===== 详情子 Tab 栏 ===== */}
-          <div className="flex items-center gap-0.5 border-b text-xs overflow-x-auto -mx-1 px-1">
+          <div className="flex items-center gap-0.5 border-b text-footnote overflow-x-auto -mx-1 px-1">
             <DetailTabBtn active={detailTab === 'overview'} onClick={() => setDetailTab('overview')} icon={Target}>概览</DetailTabBtn>
             <DetailTabBtn active={detailTab === 'initiatives'} onClick={() => setDetailTab('initiatives')} icon={ListChecks}>行动项</DetailTabBtn>
             <DetailTabBtn active={detailTab === 'comments'} onClick={() => setDetailTab('comments')} icon={MessageSquare}>评论</DetailTabBtn>
@@ -570,7 +570,7 @@ export default function OKRPage() {
               <OKRInitiatives scope="objective" scopeId={selected.id} />
               {selectedKRs.map((kr) => (
                 <div key={kr.id}>
-                  <div className="text-xs text-muted-foreground mb-1">KR · {kr.title}</div>
+                  <div className="text-footnote text-muted-foreground mb-1">KR · {kr.title}</div>
                   <OKRInitiatives scope="kr" scopeId={kr.id} />
                 </div>
               ))}
@@ -591,18 +591,18 @@ export default function OKRPage() {
           {detailTab === 'trend' && (
             <div className="space-y-4">
               <div>
-                <div className="text-sm font-medium mb-2 flex items-center gap-1.5">
+                <div className="text-caption font-medium mb-2 flex items-center gap-1.5">
                   <TrendingUp size={14} /> 目标进度趋势
                 </div>
                 <OKRTrendChart scope="objective" objectiveId={selected.id} width={420} height={140} />
               </div>
               {selectedKRs.length > 0 && (
                 <div>
-                  <div className="text-sm font-medium mb-2">KR 趋势</div>
+                  <div className="text-caption font-medium mb-2">KR 趋势</div>
                   <div className="space-y-3">
                     {selectedKRs.map((kr) => (
                       <div key={kr.id}>
-                        <div className="text-xs mb-1">{kr.title}</div>
+                        <div className="text-footnote mb-1">{kr.title}</div>
                         <OKRTrendChart scope="kr" krId={kr.id} width={420} height={100} />
                       </div>
                     ))}
@@ -611,15 +611,15 @@ export default function OKRPage() {
               )}
               {/* 质量诊断 */}
               <div>
-                <div className="text-sm font-medium mb-2 flex items-center gap-1.5">
+                <div className="text-caption font-medium mb-2 flex items-center gap-1.5">
                   <BookOpen size={14} /> OKR 质量诊断
                 </div>
                 {(() => {
                   const q = checkQuality(selected, selectedKRs);
                   return (
-                    <div className="border rounded p-3 text-xs space-y-1.5">
+                    <div className="border rounded p-3 text-footnote space-y-1.5">
                       <div className="flex items-baseline gap-2">
-                        <span className="text-2xl font-bold">{q.score}</span>
+                        <span className="text-title-3 font-bold">{q.score}</span>
                         <span className="text-muted-foreground">/ 100</span>
                         <span className="ml-auto">{q.summary}</span>
                       </div>
@@ -628,8 +628,8 @@ export default function OKRPage() {
                           {q.issues.map((it, i) => (
                             <li key={i} className={cn(
                               'text-[11px] pl-2 border-l-2',
-                              it.level === 'error' ? 'border-red-500 text-red-700' :
-                              it.level === 'warning' ? 'border-amber-500 text-amber-700' :
+                              it.level === 'error' ? 'border-danger text-danger' :
+                              it.level === 'warning' ? 'border-warning text-warning' :
                               'border-blue-500 text-blue-700'
                             )}>
                               {it.message}
@@ -692,13 +692,13 @@ export default function OKRPage() {
           {/* KR 列表 */}
           <Card>
             <CardHeader className="py-2 flex flex-row items-center justify-between space-y-0">
-              <CardTitle className="text-sm">关键结果（{selectedKRs.length}）</CardTitle>
+              <CardTitle className="text-caption">关键结果（{selectedKRs.length}）</CardTitle>
               <div className="flex gap-1">
-                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => startNewKR(selected.id)}>
+                <Button size="sm" variant="ghost" className="h-7 text-footnote" onClick={() => startNewKR(selected.id)}>
                   <Plus className="h-3 w-3 mr-0.5" /> KR
                 </Button>
                 <Button
-                  size="sm" variant="ghost" className="h-7 text-xs"
+                  size="sm" variant="ghost" className="h-7 text-footnote"
                   onClick={() => setCheckinFor({ scope: 'objective', scopeId: selected.id })}
                 >
                   <MessageSquare className="h-3 w-3 mr-0.5" /> Check-in
@@ -707,7 +707,7 @@ export default function OKRPage() {
             </CardHeader>
             <CardContent className="space-y-2">
               {selectedKRs.length === 0 && (
-                <div className="text-xs text-muted-foreground text-center py-4">
+                <div className="text-footnote text-muted-foreground text-center py-4">
                   尚无 KR，点击「+ KR」新建
                 </div>
               )}
@@ -718,7 +718,7 @@ export default function OKRPage() {
                     <div className="flex items-start gap-2">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="font-medium text-sm">{kr.title || '(未命名)'}</span>
+                          <span className="font-medium text-caption">{kr.title || '(未命名)'}</span>
                           <ConfidencePill confidence={kr.confidence} />
                           <Badge variant="outline" className="text-[10px]">{KR_TYPE_LABEL[kr.type]}</Badge>
                           {kr.weight !== 1 && (
@@ -744,14 +744,14 @@ export default function OKRPage() {
                         onClick={() => setCheckinFor({ scope: 'kr', scopeId: kr.id })}>
                         <MessageSquare className="h-3 w-3" />
                       </Button>
-                      <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-red-500"
+                      <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-danger"
                         onClick={() => { if (confirm('删除此 KR？')) deleteKeyResult(kr.id); }}>
                         <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="flex-1"><ProgressBar value={krProg} confidence={kr.confidence} /></div>
-                      <span className="text-xs tabular-nums text-muted-foreground w-32 text-right">
+                      <span className="text-footnote tabular-nums text-muted-foreground w-32 text-right">
                         {kr.currentValue} / {kr.targetValue} {kr.unit} · {krProg}%
                       </span>
                     </div>
@@ -764,14 +764,14 @@ export default function OKRPage() {
           {/* Check-in 时间线 */}
           <Card>
             <CardHeader className="py-2">
-              <CardTitle className="text-sm">进度更新（{selectedCheckIns.length}）</CardTitle>
+              <CardTitle className="text-caption">进度更新（{selectedCheckIns.length}）</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {selectedCheckIns.length === 0 && (
-                <div className="text-xs text-muted-foreground text-center py-4">尚无 Check-in</div>
+                <div className="text-footnote text-muted-foreground text-center py-4">尚无 Check-in</div>
               )}
               {selectedCheckIns.map((c) => (
-                <div key={c.id} className="border-l-2 border-muted pl-2 space-y-1 text-xs">
+                <div key={c.id} className="border-l-2 border-muted pl-2 space-y-1 text-footnote">
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <span>{new Date(c.createdAt).toLocaleString('zh-CN')}</span>
                     <span>·</span>
@@ -849,7 +849,7 @@ export default function OKRPage() {
       {/* ===== 顶栏 ===== */}
       <div className="border-b px-3 py-2 space-y-2 shrink-0 md:px-4">
         <div className="flex items-center gap-3 flex-wrap">
-          <h1 className="text-lg font-semibold flex items-center gap-1.5">
+          <h1 className="text-headline font-semibold flex items-center gap-1.5">
             <Target className="h-5 w-5" /> OKR
           </h1>
           <div className="hidden md:flex items-center gap-3 flex-wrap">
@@ -862,42 +862,42 @@ export default function OKRPage() {
           </Button>
           {/* 次要按钮: 仅 md+ 显示, mobile 走抽屉 (下版本补) */}
           <div className="hidden md:flex items-center gap-2 flex-wrap">
-            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowTemplates(true)} title="从模板库新建">
-              <Sparkles className="h-3 w-3 mr-1 text-amber-500" /> 模板库
+            <Button size="sm" variant="outline" className="h-7 text-footnote" onClick={() => setShowTemplates(true)} title="从模板库新建">
+              <Sparkles className="h-3 w-3 mr-1 text-warning" /> 模板库
             </Button>
-            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowBulkCreate(true)} title="AI 起草 4 套 OKR 候选 (季初推荐)">
+            <Button size="sm" variant="outline" className="h-7 text-footnote" onClick={() => setShowBulkCreate(true)} title="AI 起草 4 套 OKR 候选 (季初推荐)">
               <Sparkles className="h-3 w-3 mr-1 text-[rgb(var(--brand-500))]" /> AI 起草 4 套
             </Button>
             <a
               href="/okr/calibration"
-              className="h-7 px-2.5 text-xs inline-flex items-center gap-1 border rounded hover:bg-muted/40"
+              className="h-7 px-2.5 text-footnote inline-flex items-center gap-1 border rounded hover:bg-muted/40"
               title="经理一屏校准下属 OKR 评分 (季末推荐)"
             >
               <CalendarRange className="h-3 w-3" /> 校准下属
             </a>
-            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowHealth(!showHealth)} title="OKR 健康度诊断">
+            <Button size="sm" variant="outline" className="h-7 text-footnote" onClick={() => setShowHealth(!showHealth)} title="OKR 健康度诊断">
               <Stethoscope className="h-3 w-3 mr-1" /> 健康度
             </Button>
             <a
               href="/insights"
-              className="h-7 px-2.5 text-xs inline-flex items-center gap-1 border rounded hover:bg-muted/40"
+              className="h-7 px-2.5 text-footnote inline-flex items-center gap-1 border rounded hover:bg-muted/40"
               title="AI 智能层 · 跨模块信号"
             >
               <Sparkles className="h-3 w-3 text-brand-500" /> AI 信号
             </a>
             <div className="flex border rounded">
-              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={handleExportJSON} title="导出 JSON 全量备份">
+              <Button size="sm" variant="ghost" className="h-7 text-footnote" onClick={handleExportJSON} title="导出 JSON 全量备份">
                 <FileJson className="h-3 w-3 mr-1" /> JSON
               </Button>
-              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={handleExportCSV} title="导出 Tita 兼容 CSV">
+              <Button size="sm" variant="ghost" className="h-7 text-footnote" onClick={handleExportCSV} title="导出 Tita 兼容 CSV">
                 <FileSpreadsheet className="h-3 w-3 mr-1" /> CSV
               </Button>
             </div>
-            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => importInputRef.current?.click()} title="导入 Tita CSV 或 JSON">
+            <Button size="sm" variant="outline" className="h-7 text-footnote" onClick={() => importInputRef.current?.click()} title="导入 Tita CSV 或 JSON">
               <Upload className="h-3 w-3 mr-1" /> 导入
             </Button>
             <input ref={importInputRef} type="file" accept=".csv,.json" className="hidden" onChange={handleImportFile} title="选择 Tita CSV 或 JSON 文件" />
-            <Button size="sm" variant="outline" className="h-7 text-xs" disabled title="Tita 远程同步：需要 Tita 企业 API token，未配置">
+            <Button size="sm" variant="outline" className="h-7 text-footnote" disabled title="Tita 远程同步：需要 Tita 企业 API token，未配置">
               <Cloud className="h-3 w-3 mr-1" /> 同步 Tita
             </Button>
           </div>
@@ -911,7 +911,7 @@ export default function OKRPage() {
         </div>
 
         {/* 周期统计条 (mobile 可横滚) */}
-        <div className="flex items-center gap-4 text-xs text-muted-foreground overflow-x-auto -mx-3 px-3 pb-0.5 md:mx-0 md:px-0 md:overflow-visible">
+        <div className="flex items-center gap-4 text-footnote text-muted-foreground overflow-x-auto -mx-3 px-3 pb-0.5 md:mx-0 md:px-0 md:overflow-visible">
           <span>当前周期：<span className="font-medium text-foreground">{activeCycle?.name || '—'}</span></span>
           {activeCycle && (
             <span title="Check-in 节奏（可在『新建周期』时设置）">节奏 <span className="font-medium text-foreground">{CADENCE_LABEL[activeCycle.cadence || 'weekly']}</span></span>
@@ -919,21 +919,21 @@ export default function OKRPage() {
           <span>目标 <span className="font-medium text-foreground">{cycleStats.total}</span></span>
           <span>平均进度 <span className="font-medium text-foreground">{cycleStats.avgProgress}%</span></span>
           <span className="flex items-center gap-1" title="信心：正常">
-            <span className="h-2 w-2 rounded-full bg-green-500" /> {cycleStats.onTrack}
+            <span className="h-2 w-2 rounded-full bg-success" /> {cycleStats.onTrack}
           </span>
           <span className="flex items-center gap-1" title="信心：有风险">
             <span className="h-2 w-2 rounded-full bg-yellow-500" /> {cycleStats.atRisk}
           </span>
           <span className="flex items-center gap-1" title="信心：严重偏离">
-            <span className="h-2 w-2 rounded-full bg-red-500" /> {cycleStats.offTrack}
+            <span className="h-2 w-2 rounded-full bg-danger" /> {cycleStats.offTrack}
           </span>
           {pulseSummary.overdue > 0 && (
-            <span className="flex items-center gap-1 text-red-600" title="Check-in 逆期的目标数">
+            <span className="flex items-center gap-1 text-danger" title="Check-in 逆期的目标数">
               ⚠ {pulseSummary.overdue} 逆期
             </span>
           )}
           {pulseSummary.soon > 0 && (
-            <span className="flex items-center gap-1 text-amber-600" title="未来 2 天内应做 Check-in">
+            <span className="flex items-center gap-1 text-warning" title="未来 2 天内应做 Check-in">
               ⏰ {pulseSummary.soon} 即将
             </span>
           )}
@@ -942,9 +942,9 @@ export default function OKRPage() {
         {/* 过滤条 (mobile 仅显示搜索 + 视图切换, 其他隐藏) */}
         <div className="flex items-center gap-2 flex-wrap md:flex-wrap">
           <Filter className="h-3.5 w-3.5 text-muted-foreground" />
-          <Input placeholder="搜索目标标题/描述..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-7 w-48 text-xs" />
+          <Input placeholder="搜索目标标题/描述..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-7 w-48 text-footnote" />
           <Select value={filterOwner || '__all__'} onValueChange={(v) => setFilterOwner(v === '__all__' ? '' : v)}>
-            <SelectTrigger className="hidden md:flex h-7 w-32 text-xs"><SelectValue placeholder="所有负责人" /></SelectTrigger>
+            <SelectTrigger className="hidden md:flex h-7 w-32 text-footnote"><SelectValue placeholder="所有负责人" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">所有负责人</SelectItem>
               {people.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
@@ -952,7 +952,7 @@ export default function OKRPage() {
             </SelectContent>
           </Select>
           <Select value={filterConfidence || '__all__'} onValueChange={(v) => setFilterConfidence(v === '__all__' ? '' : v)}>
-            <SelectTrigger className="hidden md:flex h-7 w-28 text-xs"><SelectValue placeholder="所有信心" /></SelectTrigger>
+            <SelectTrigger className="hidden md:flex h-7 w-28 text-footnote"><SelectValue placeholder="所有信心" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">所有信心</SelectItem>
               <SelectItem value="on-track">正常</SelectItem>
@@ -961,7 +961,7 @@ export default function OKRPage() {
             </SelectContent>
           </Select>
           <Select value={filterStatus || '__all__'} onValueChange={(v) => setFilterStatus(v === '__all__' ? '' : v)}>
-            <SelectTrigger className="hidden md:flex h-7 w-28 text-xs"><SelectValue placeholder="所有状态" /></SelectTrigger>
+            <SelectTrigger className="hidden md:flex h-7 w-28 text-footnote"><SelectValue placeholder="所有状态" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">所有状态</SelectItem>
               {Object.entries(STATUS_LABEL).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
@@ -969,7 +969,7 @@ export default function OKRPage() {
           </Select>
           {allTags.length > 0 && (
             <Select value={filterTag || '__all__'} onValueChange={(v) => setFilterTag(v === '__all__' ? '' : v)}>
-              <SelectTrigger className="h-7 w-28 text-xs"><SelectValue placeholder="所有标签" /></SelectTrigger>
+              <SelectTrigger className="h-7 w-28 text-footnote"><SelectValue placeholder="所有标签" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">所有标签</SelectItem>
                 {allTags.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
@@ -978,8 +978,8 @@ export default function OKRPage() {
           )}
           <div className="flex-1" />
           <div className="flex border rounded">
-            <Button size="sm" variant={view === 'tree' ? 'default' : 'ghost'} className="h-7 text-xs" onClick={() => setView('tree')}>对齐树</Button>
-            <Button size="sm" variant={view === 'list' ? 'default' : 'ghost'} className="h-7 text-xs" onClick={() => setView('list')}>列表</Button>
+            <Button size="sm" variant={view === 'tree' ? 'default' : 'ghost'} className="h-7 text-footnote" onClick={() => setView('tree')}>对齐树</Button>
+            <Button size="sm" variant={view === 'list' ? 'default' : 'ghost'} className="h-7 text-footnote" onClick={() => setView('list')}>列表</Button>
           </div>
         </div>
       </div>
@@ -991,7 +991,7 @@ export default function OKRPage() {
       <div className="flex flex-1 min-h-0">
         <div className="flex-1 overflow-auto p-3 md:border-r">
           {filteredObjectives.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-64 text-muted-foreground gap-2 text-sm">
+            <div className="flex flex-col items-center justify-center h-64 text-muted-foreground gap-2 text-caption">
               <Target className="h-10 w-10 opacity-30" />
               <div>当前周期没有目标</div>
               <Button size="sm" onClick={() => startNewObjective()}>
@@ -1017,14 +1017,14 @@ export default function OKRPage() {
                     <Target className="h-4 w-4 text-primary mt-0.5" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium text-sm">{obj.title}</span>
+                        <span className="font-medium text-caption">{obj.title}</span>
                         <ConfidencePill confidence={obj.confidence} />
                         <Badge variant="secondary" className="text-[10px]">{STATUS_LABEL[obj.status]}</Badge>
                         <PulseBadge pulse={pulseMap.get(obj.id)} />
                       </div>
                       <div className="flex items-center gap-2 mt-1">
                         <div className="flex-1"><ProgressBar value={progress} confidence={obj.confidence} /></div>
-                        <span className="text-xs tabular-nums w-10 text-right text-muted-foreground">{progress}%</span>
+                        <span className="text-footnote tabular-nums w-10 text-right text-muted-foreground">{progress}%</span>
                       </div>
                       <div className="text-[11px] text-muted-foreground mt-1">
                         {ownerLabel(obj.ownerId)} · {objKRs.length} KR
@@ -1118,29 +1118,29 @@ function EditDialog({
     <div className="fixed inset-0 z-40 bg-black/40 flex items-center justify-center p-4" onClick={() => setEditing(null)}>
       <Card className="w-full max-w-lg max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-base">
+          <CardTitle className="text-body">
             {isObj ? (data.id ? '编辑目标' : '新建目标') : (data.id ? '编辑 KR' : '新建 KR')}
           </CardTitle>
           <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setEditing(null)}>
             <X className="h-4 w-4" />
           </Button>
         </CardHeader>
-        <CardContent className="space-y-3 text-sm">
+        <CardContent className="space-y-3 text-caption">
           <div>
-            <label className="text-xs font-medium text-muted-foreground">{isObj ? '目标标题' : 'KR 标题'} *</label>
+            <label className="text-footnote font-medium text-muted-foreground">{isObj ? '目标标题' : 'KR 标题'} *</label>
             <Input value={data.title || ''} onChange={(e) => setField('title', e.target.value)} className="mt-1" />
           </div>
 
           {isObj && (
             <div>
-              <label className="text-xs font-medium text-muted-foreground">描述</label>
+              <label className="text-footnote font-medium text-muted-foreground">描述</label>
               <Textarea value={data.description || ''} onChange={(e) => setField('description', e.target.value)} rows={2} className="mt-1" />
             </div>
           )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-muted-foreground">负责人</label>
+              <label className="text-footnote font-medium text-muted-foreground">负责人</label>
               <Select value={data.ownerId || ''} onValueChange={(v) => {
                 if (v === '__new__') {
                   const name = prompt('新人员姓名');
@@ -1159,7 +1159,7 @@ function EditDialog({
               </Select>
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground">信心</label>
+              <label className="text-footnote font-medium text-muted-foreground">信心</label>
               <Select value={data.confidence || 'on-track'} onValueChange={(v) => setField('confidence', v)}>
                 <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -1175,7 +1175,7 @@ function EditDialog({
             <>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground">状态</label>
+                  <label className="text-footnote font-medium text-muted-foreground">状态</label>
                   <Select value={data.status || 'active'} onValueChange={(v) => setField('status', v)}>
                     <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -1184,7 +1184,7 @@ function EditDialog({
                   </Select>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground">上级目标（对齐）</label>
+                  <label className="text-footnote font-medium text-muted-foreground">上级目标（对齐）</label>
                   <Select value={data.parentId || '__none__'} onValueChange={(v) => setField('parentId', v === '__none__' ? null : v)}>
                     <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -1195,7 +1195,7 @@ function EditDialog({
                 </div>
               </div>
               <div>
-                <label className="text-xs font-medium text-muted-foreground">权重（0-100）</label>
+                <label className="text-footnote font-medium text-muted-foreground">权重（0-100）</label>
                 <Input type="number" min={0} max={100} value={data.weight ?? 100}
                   onChange={(e) => setField('weight', Number(e.target.value))} className="mt-1" />
               </div>
@@ -1206,7 +1206,7 @@ function EditDialog({
             <>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground">类型</label>
+                  <label className="text-footnote font-medium text-muted-foreground">类型</label>
                   <Select value={data.type || 'numeric'} onValueChange={(v) => setField('type', v)}>
                     <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -1218,30 +1218,30 @@ function EditDialog({
                   </Select>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground">权重</label>
+                  <label className="text-footnote font-medium text-muted-foreground">权重</label>
                   <Input type="number" value={data.weight ?? 1} onChange={(e) => setField('weight', Number(e.target.value))} className="mt-1" />
                 </div>
               </div>
               <div className="grid grid-cols-4 gap-2">
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground">起始</label>
+                  <label className="text-footnote font-medium text-muted-foreground">起始</label>
                   <Input type="number" value={data.startValue ?? 0} onChange={(e) => setField('startValue', Number(e.target.value))} className="mt-1" />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground">当前</label>
+                  <label className="text-footnote font-medium text-muted-foreground">当前</label>
                   <Input type="number" value={data.currentValue ?? 0} onChange={(e) => setField('currentValue', Number(e.target.value))} className="mt-1" />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground">目标</label>
+                  <label className="text-footnote font-medium text-muted-foreground">目标</label>
                   <Input type="number" value={data.targetValue ?? 100} onChange={(e) => setField('targetValue', Number(e.target.value))} className="mt-1" />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground">单位</label>
+                  <label className="text-footnote font-medium text-muted-foreground">单位</label>
                   <Input value={data.unit || ''} placeholder="个 / % / 万元" onChange={(e) => setField('unit', e.target.value)} className="mt-1" />
                 </div>
               </div>
               <div>
-                <label className="text-xs font-medium text-muted-foreground">截止日期</label>
+                <label className="text-footnote font-medium text-muted-foreground">截止日期</label>
                 <Input
                   type="date"
                   value={data.dueDate ? new Date(data.dueDate).toISOString().slice(0, 10) : ''}
@@ -1253,7 +1253,7 @@ function EditDialog({
           )}
 
           <div>
-            <label className="text-xs font-medium text-muted-foreground">标签（逗号分隔）</label>
+            <label className="text-footnote font-medium text-muted-foreground">标签（逗号分隔）</label>
             <Input
               value={(data.tags || []).join(', ')}
               onChange={(e) => setField('tags', e.target.value.split(',').map((s: string) => s.trim()).filter(Boolean))}
@@ -1306,25 +1306,25 @@ function CheckInDialog({
     <div className="fixed inset-0 z-40 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
       <Card className="w-full max-w-lg max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-base">
+          <CardTitle className="text-body">
             <MessageSquare className="h-4 w-4 inline mr-1" /> Check-in：{targetTitle}
           </CardTitle>
           <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={onClose}>
             <X className="h-4 w-4" />
           </Button>
         </CardHeader>
-        <CardContent className="space-y-3 text-sm">
+        <CardContent className="space-y-3 text-caption">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-muted-foreground">进度（%）</label>
+              <label className="text-footnote font-medium text-muted-foreground">进度（%）</label>
               <div className="flex items-center gap-2 mt-1">
                 <Input type="number" min={0} max={100} value={progressAfter}
                   onChange={(e) => setProgressAfter(Number(e.target.value))} />
-                <span className="text-xs text-muted-foreground whitespace-nowrap">原 {progressBefore}%</span>
+                <span className="text-footnote text-muted-foreground whitespace-nowrap">原 {progressBefore}%</span>
               </div>
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground">信心</label>
+              <label className="text-footnote font-medium text-muted-foreground">信心</label>
               <Select value={confidenceAfter} onValueChange={(v) => setConfidenceAfter(v as Confidence)}>
                 <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -1336,15 +1336,15 @@ function CheckInDialog({
             </div>
           </div>
           <div>
-            <label className="text-xs font-medium text-muted-foreground">✅ 进展（本周做了什么）</label>
+            <label className="text-footnote font-medium text-muted-foreground">✅ 进展（本周做了什么）</label>
             <Textarea rows={2} value={achievements} onChange={(e) => setAchievements(e.target.value)} className="mt-1" />
           </div>
           <div>
-            <label className="text-xs font-medium text-muted-foreground">⚠️ 障碍（遇到什么困难）</label>
+            <label className="text-footnote font-medium text-muted-foreground">⚠️ 障碍（遇到什么困难）</label>
             <Textarea rows={2} value={blockers} onChange={(e) => setBlockers(e.target.value)} className="mt-1" />
           </div>
           <div>
-            <label className="text-xs font-medium text-muted-foreground">➡️ 下一步</label>
+            <label className="text-footnote font-medium text-muted-foreground">➡️ 下一步</label>
             <Textarea rows={2} value={nextSteps} onChange={(e) => setNextSteps(e.target.value)} className="mt-1" />
           </div>
           <div className="flex justify-end gap-2 pt-2">

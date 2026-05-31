@@ -43,7 +43,7 @@ const DEFAULT_BROADCASTS: BroadcastItem[] = [
     category: '大事记',
     title: 'Tandem 议事室上线 100 天 — 平均共识时长 19.2 分钟',
     href: '/intranet/posts/h1',
-    chipClass: 'bg-amber-100 text-amber-800',
+    chipClass: 'bg-warning/10 text-warning',
   },
   {
     id: 'h2',
@@ -223,7 +223,7 @@ export function AnimatedHero({
           {/* ───── Broadcast ticker ───── */}
           <Link
             href={current.href}
-            className="group mt-5 flex items-center gap-3 rounded-xl border border-border bg-white/70 px-4 py-3 backdrop-blur-sm hover:border-[rgb(var(--brand-300))] hover:bg-white surface-interactive shadow-soft-sm"
+            className="group mt-5 flex items-center gap-3 rounded-2xl border border-border bg-white/70 px-4 py-3 backdrop-blur-sm hover:border-[rgb(var(--brand-300))] hover:bg-white surface-interactive shadow-soft-sm"
             aria-label={`公司播报 · ${current.title}`}
           >
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[rgb(var(--brand-500))] text-white">
@@ -421,14 +421,14 @@ function PulseStat({ icon: Icon, label, value, tone, href }: PulseStatProps) {
   const dotClass = {
     brand: 'bg-[rgb(var(--brand-500))]',
     success: 'bg-emerald-500',
-    warning: 'bg-amber-500',
+    warning: 'bg-warning',
     info: 'bg-sky-500',
   }[tone];
 
   const iconClass = {
     brand: 'text-[rgb(var(--brand-600))]',
     success: 'text-emerald-600',
-    warning: 'text-amber-600',
+    warning: 'text-warning',
     info: 'text-sky-600',
   }[tone];
 

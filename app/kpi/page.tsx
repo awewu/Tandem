@@ -77,8 +77,8 @@ const BSC_META: Record<BscPerspective, { label: string; icon: any; color: string
   customer: {
     label: '客户与市场维度',
     icon: Users,
-    color: 'text-amber-600',
-    bg: 'bg-amber-50',
+    color: 'text-warning',
+    bg: 'bg-warning/5',
     desc: '考核外部 SLA、客户满意度、留存率及需求响应时长',
   },
   process: {
@@ -120,7 +120,7 @@ function getBscPerspective(kpi: Kpi, subject?: KpiSubject): BscPerspective {
 
 function healthColor(c: number) {
   if (c >= 0.9) return { bar: 'bg-emerald-500', text: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', health: 'green' as const };
-  if (c >= 0.6) return { bar: 'bg-amber-500', text: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200', health: 'amber' as const };
+  if (c >= 0.6) return { bar: 'bg-warning', text: 'text-warning', bg: 'bg-warning/5', border: 'border-warning/20', health: 'amber' as const };
   return { bar: 'bg-rose-500', text: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-200', health: 'red' as const };
 }
 
@@ -147,10 +147,10 @@ function calcDeltas(kpi: Kpi, snapshots: number[]) {
 // ---------------------------------------------------------------------------
 
 function DeltaBadge({ value, label, suffix = '%' }: { value: number | null; label: string; suffix?: string }) {
-  if (value === null) return <span className="text-muted-foreground text-xs">—</span>;
+  if (value === null) return <span className="text-muted-foreground text-footnote">—</span>;
   const pos = value >= 0;
   return (
-    <span className={`inline-flex items-center gap-0.5 text-xs font-medium ${pos ? 'text-emerald-600' : 'text-rose-600'}`}>
+    <span className={`inline-flex items-center gap-0.5 text-footnote font-medium ${pos ? 'text-emerald-600' : 'text-rose-600'}`}>
       {pos ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
       {label}: {pos ? '+' : ''}{value.toFixed(1)}{suffix}
     </span>
@@ -362,11 +362,11 @@ export function KpiContent() {
           <Card key={p} className={`${meta.bg} border-muted/50`}>
             <CardContent className="p-4 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-800 flex items-center gap-1">
+                <span className="text-footnote font-semibold text-slate-800 flex items-center gap-1">
                   <Icon className="h-3.5 w-3.5" />
                   {meta.label.slice(0, 4)}
                 </span>
-                <span className={`text-lg font-bold tabular-nums ${hc.text}`}>{Math.round(val * 100)}%</span>
+                <span className={`text-headline font-bold tabular-nums ${hc.text}`}>{Math.round(val * 100)}%</span>
               </div>
               <Progress value={Math.min(100, Math.round(val * 100))} className="h-1.5 bg-slate-200" />
               <div className="text-[10px] text-muted-foreground leading-tight line-clamp-2">{meta.desc}</div>
@@ -410,26 +410,26 @@ export function KpiContent() {
     <Card>
       <CardContent className="py-3 px-4">
         <div className="flex items-center gap-6 flex-wrap">
-          <span className="text-xs text-muted-foreground font-medium">指标健康度分布</span>
-          <span className="inline-flex items-center gap-1.5 text-sm">
+          <span className="text-footnote text-muted-foreground font-medium">指标健康度分布</span>
+          <span className="inline-flex items-center gap-1.5 text-caption">
             <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block" />
             <span className="text-emerald-700 font-medium">{onTrackCount}</span>
-            <span className="text-muted-foreground text-xs">正常 ≥90%</span>
+            <span className="text-muted-foreground text-footnote">正常 ≥90%</span>
           </span>
-          <span className="inline-flex items-center gap-1.5 text-sm">
-            <span className="h-2 w-2 rounded-full bg-amber-500 inline-block" />
-            <span className="text-amber-700 font-medium">{atRiskCount}</span>
-            <span className="text-muted-foreground text-xs">关注 60-90%</span>
+          <span className="inline-flex items-center gap-1.5 text-caption">
+            <span className="h-2 w-2 rounded-full bg-warning inline-block" />
+            <span className="text-warning font-medium">{atRiskCount}</span>
+            <span className="text-muted-foreground text-footnote">关注 60-90%</span>
           </span>
-          <span className="inline-flex items-center gap-1.5 text-sm">
+          <span className="inline-flex items-center gap-1.5 text-caption">
             <span className="h-2 w-2 rounded-full bg-rose-500 inline-block" />
             <span className="text-rose-700 font-medium">{offTrackCount}</span>
-            <span className="text-muted-foreground text-xs">落后 &lt;60%</span>
+            <span className="text-muted-foreground text-footnote">落后 &lt;60%</span>
           </span>
           <div className="ml-auto flex h-3 w-48 rounded-full overflow-hidden">
             {bonusKpis.length > 0 && <>
               <div className="bg-emerald-500 transition-all" style={{ width: `${(onTrackCount / bonusKpis.length) * 100}%` }} />
-              <div className="bg-amber-500 transition-all" style={{ width: `${(atRiskCount / bonusKpis.length) * 100}%` }} />
+              <div className="bg-warning transition-all" style={{ width: `${(atRiskCount / bonusKpis.length) * 100}%` }} />
               <div className="bg-rose-500 transition-all" style={{ width: `${(offTrackCount / bonusKpis.length) * 100}%` }} />
             </>}
           </div>
@@ -451,15 +451,15 @@ export function KpiContent() {
               <span className={`p-1 rounded ${meta.bg} ${meta.color}`}>
                 <Icon className="h-4 w-4" />
               </span>
-              <h3 className="text-sm font-semibold">{meta.label}</h3>
-              <p className="text-xs text-muted-foreground font-normal">{meta.desc}</p>
-              <Badge variant="outline" className="ml-auto text-xs">{list.length}项指标</Badge>
+              <h3 className="text-caption font-semibold">{meta.label}</h3>
+              <p className="text-footnote text-muted-foreground font-normal">{meta.desc}</p>
+              <Badge variant="outline" className="ml-auto text-footnote">{list.length}项指标</Badge>
             </div>
             <Card>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-caption">
                   <thead>
-                    <tr className="border-b text-xs text-muted-foreground">
+                    <tr className="border-b text-footnote text-muted-foreground">
                       <th className="text-left px-3 py-2 font-medium w-[28%]">指标名称</th>
                       <th className="text-right px-3 py-2 font-medium">目标值</th>
                       <th className="text-right px-3 py-2 font-medium">当前值</th>
@@ -492,7 +492,7 @@ export function KpiContent() {
                           <td className="px-3 py-2">
                             <div className="font-medium leading-tight">{kpi.title}</div>
                             {subject && (
-                              <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
+                              <div className="text-footnote text-muted-foreground mt-0.5 flex items-center gap-1.5">
                                 <span className="font-mono">{subject.code}</span>
                                 {kpi.scope === 'bonus' && (
                                   <Badge className="bg-rose-50 text-rose-700 hover:bg-rose-50 border-rose-200 py-0 px-1 text-[10px]">
@@ -517,7 +517,7 @@ export function KpiContent() {
                           <td className="px-3 py-2 text-right tabular-nums">
                             <span className={gap >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
                               {gap >= 0 ? '+' : ''}{gap.toLocaleString()}
-                              <span className="text-xs ml-1">({gapPct >= 0 ? '+' : ''}{gapPct.toFixed(1)}%)</span>
+                              <span className="text-footnote ml-1">({gapPct >= 0 ? '+' : ''}{gapPct.toFixed(1)}%)</span>
                             </span>
                           </td>
                           <td className="px-3 py-2 text-right">
@@ -530,10 +530,10 @@ export function KpiContent() {
                             {snaps.length >= 2 ? (
                               <Sparkline points={snaps} target={kpi.targetValue} health={hc.health} width={80} height={24} />
                             ) : (
-                              <span className="text-xs text-muted-foreground">暂无数据</span>
+                              <span className="text-footnote text-muted-foreground">暂无数据</span>
                             )}
                           </td>
-                          <td className="px-3 py-2 text-xs text-muted-foreground">
+                          <td className="px-3 py-2 text-footnote text-muted-foreground">
                             <span className="inline-flex items-center gap-1">
                               <ds.icon className="h-3 w-3" />
                               {ds.label}
@@ -689,16 +689,16 @@ export function KpiContent() {
                   <span className="p-1 rounded bg-slate-200 text-slate-700">
                     <Activity className="h-4 w-4" />
                   </span>
-                  <span className="text-sm font-semibold text-slate-800">部门洞察（规则派生）</span>
+                  <span className="text-caption font-semibold text-slate-800">部门洞察（规则派生）</span>
                   <Badge
                     variant="outline"
-                    className="ml-auto bg-amber-50 text-amber-700 border-amber-200 text-[10px]"
+                    className="ml-auto bg-warning/5 text-warning border-warning/20 text-[10px]"
                     title="当前洞察由 completion 排序得出，未调用 LLM。接入 /api/ai/extract-team-insight 后可升级为真实 AI 分析。"
                   >
                     规则示例 · 未调用 LLM
                   </Badge>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-slate-700 leading-relaxed">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-footnote text-slate-700 leading-relaxed">
                   {worst && (
                     <div className="space-y-1">
                       <p className="font-semibold text-rose-700">⚠️ 完成率最低</p>
@@ -728,9 +728,9 @@ export function KpiContent() {
         {/* 部门成员对比表格 */}
         <Card>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-caption">
               <thead>
-                <tr className="border-b text-xs text-muted-foreground">
+                <tr className="border-b text-footnote text-muted-foreground">
                   <th className="text-left px-3 py-2 font-medium">成员 / 岗位</th>
                   <th className="text-left px-3 py-2 font-medium">核心考核指标</th>
                   <th className="text-right px-3 py-2 font-medium">目标</th>
@@ -749,7 +749,7 @@ export function KpiContent() {
                     <tr key={m.id} className="hover:bg-muted/30 transition-colors">
                       <td className="px-3 py-2">
                         <div className="font-medium">{m.name}</div>
-                        <div className="text-xs text-muted-foreground mt-0.5">{m.role}</div>
+                        <div className="text-footnote text-muted-foreground mt-0.5">{m.role}</div>
                       </td>
                       <td className="px-3 py-2 text-muted-foreground max-w-[200px] truncate">
                         {m.kpiName}
@@ -773,11 +773,11 @@ export function KpiContent() {
                         <DeltaBadge value={m.yoy} label="" />
                       </td>
                       <td className="px-3 py-2 text-center">
-                        <Badge variant="secondary" className="bg-slate-100 text-slate-700 hover:bg-slate-100 text-xs py-0.5 font-normal">
+                        <Badge variant="secondary" className="bg-slate-100 text-slate-700 hover:bg-slate-100 text-footnote py-0.5 font-normal">
                           {m.nineBox}
                         </Badge>
                       </td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground leading-normal">
+                      <td className="px-3 py-2 text-footnote text-muted-foreground leading-normal">
                         {m.aiInsight}
                       </td>
                     </tr>
@@ -800,25 +800,25 @@ export function KpiContent() {
       {/* Header */}
       <header className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight flex items-center gap-2">
+          <h1 className="text-headline font-semibold tracking-tight flex items-center gap-2">
             <BarChart3 className="h-5 w-5 text-primary" />
             平衡记分卡 · KPI 绩效达成
           </h1>
-          <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
+          <p className="text-caption text-muted-foreground mt-1 flex items-center gap-2">
             <span>战略四维度度量 · 每周一 04:00 由 ERP/对账端口周度自动对账拉取</span>
             <Badge variant="secondary" className="bg-slate-100 text-slate-700 border-none flex items-center gap-1 text-[10px] py-0 px-1.5">
               <Database className="h-2.5 w-2.5" />周度对账
             </Badge>
-            <span className="text-xs opacity-60">CHARTER-KPI-TTI §2.1</span>
+            <span className="text-footnote opacity-60">CHARTER-KPI-TTI §2.1</span>
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Tabs value={view} onValueChange={handleViewChange}>
             <TabsList className="h-8">
-              <TabsTrigger value="personal" className="text-xs px-3">
+              <TabsTrigger value="personal" className="text-footnote px-3">
                 <Target className="h-3 w-3 mr-1" />个人绩效
               </TabsTrigger>
-              <TabsTrigger value="dept" className="text-xs px-3">
+              <TabsTrigger value="dept" className="text-footnote px-3">
                 <Users className="h-3 w-3 mr-1" />部门绩效
               </TabsTrigger>
             </TabsList>
@@ -831,7 +831,7 @@ export function KpiContent() {
 
       {error && (
         <Card className="border-rose-200 bg-rose-50">
-          <CardContent className="py-3 text-sm text-rose-700 flex items-center gap-2">
+          <CardContent className="py-3 text-caption text-rose-700 flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />{error}
           </CardContent>
         </Card>
@@ -841,20 +841,20 @@ export function KpiContent() {
       <Card>
         <CardContent className="py-3 px-4 flex items-center gap-4 flex-wrap">
           <Select value={activeCycleId ?? ''} onValueChange={setActiveCycleId}>
-            <SelectTrigger className="w-64 h-8 text-sm">
+            <SelectTrigger className="w-64 h-8 text-caption">
               <SelectValue placeholder="选择考核周期" />
             </SelectTrigger>
             <SelectContent>
               {cycles.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.name} · FY{c.fiscalYear}
-                  {c.status === 'active' && <Badge className="ml-2 text-xs" variant="outline">进行中</Badge>}
+                  {c.status === 'active' && <Badge className="ml-2 text-footnote" variant="outline">进行中</Badge>}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
           {activeCycle && (
-            <span className="text-xs text-muted-foreground flex items-center gap-1">
+            <span className="text-footnote text-muted-foreground flex items-center gap-1">
               <Calendar className="h-3.5 w-3.5" />
               考核期: {activeCycle.startDate.slice(0, 10)} 至 {activeCycle.endDate.slice(0, 10)}
             </span>
@@ -914,7 +914,7 @@ export function KpiContent() {
           </Card>
         </div>
       ) : view === 'dept' ? renderDeptView() : kpis.length === 0 ? (
-        <Card><CardContent className="py-14 text-center text-sm text-muted-foreground">本周期没有分配给你的 KPI</CardContent></Card>
+        <Card><CardContent className="py-14 text-center text-caption text-muted-foreground">本周期没有分配给你的 KPI</CardContent></Card>
       ) : (
         <>
           {/* 1. BSC 四维度战略摘要 (Financial, Customer, Process, Growth) */}
@@ -959,7 +959,7 @@ export function KpiContent() {
                     <pers.icon className="h-4 w-4" />
                   </span>
                   <div className="space-y-0.5">
-                    <h2 className="text-sm font-bold text-slate-800">BSC 战略详情对账</h2>
+                    <h2 className="text-caption font-bold text-slate-800">BSC 战略详情对账</h2>
                     <p className="text-[10px] text-muted-foreground uppercase">{pers.label}</p>
                   </div>
                 </div>
@@ -969,11 +969,11 @@ export function KpiContent() {
               </header>
 
               {/* Content */}
-              <div className="flex-1 overflow-y-auto p-5 space-y-5 text-xs text-slate-700">
+              <div className="flex-1 overflow-y-auto p-5 space-y-5 text-footnote text-slate-700">
                 {/* 1. 指标明细卡 */}
                 <div className="bg-slate-50/50 rounded-lg p-4 border border-slate-100 space-y-3">
                   <div>
-                    <h3 className="text-sm font-bold text-slate-900 leading-snug">{kpi.title}</h3>
+                    <h3 className="text-caption font-bold text-slate-900 leading-snug">{kpi.title}</h3>
                     {subject && <p className="text-[10px] text-muted-foreground mt-1 font-mono">科目: {subject.code} · {subject.name}</p>}
                     {kpi.description && <p className="text-[10px] text-slate-500 mt-1 leading-normal">{kpi.description}</p>}
                   </div>
@@ -997,7 +997,7 @@ export function KpiContent() {
                   </h4>
                   {alignedObj ? (
                     <div className="bg-primary/5 rounded-md p-3 border border-primary/20 flex flex-col gap-1">
-                      <div className="flex items-center justify-between text-xs font-semibold text-slate-800">
+                      <div className="flex items-center justify-between text-footnote font-semibold text-slate-800">
                         <span className="truncate flex items-center gap-1"><Target className="h-3.5 w-3.5 text-primary" /> {alignedObj.title}</span>
                         <Badge variant="outline" className="text-[10px] scale-90">对齐中</Badge>
                       </div>
@@ -1047,7 +1047,7 @@ export function KpiContent() {
                 <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                   <Database className="h-3 w-3" /> 数据来源: {DS[kpi.dataSource ?? 'pending'].label}
                 </span>
-                <Button size="sm" onClick={() => setActiveKpiId(null)} className="h-8 text-xs px-4">
+                <Button size="sm" onClick={() => setActiveKpiId(null)} className="h-8 text-footnote px-4">
                   确定
                 </Button>
               </footer>
@@ -1062,7 +1062,7 @@ export function KpiContent() {
 export default function MyKpiPage() {
   return (
     <Suspense fallback={
-      <div className="container mx-auto p-12 text-center text-xs text-muted-foreground flex flex-col items-center justify-center gap-2">
+      <div className="container mx-auto p-12 text-center text-footnote text-muted-foreground flex flex-col items-center justify-center gap-2">
         <RefreshCw className="h-4 w-4 animate-spin text-primary" />
         正在准备企业对账看板...
       </div>

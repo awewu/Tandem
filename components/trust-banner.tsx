@@ -78,7 +78,7 @@ export function TrustBanner({
   return (
     <div
       className={cn(
-        'border rounded-md px-3 py-2.5 flex items-start gap-3 text-sm',
+        'border rounded-md px-3 py-2.5 flex items-start gap-3 text-caption',
         meta.bg,
         meta.border,
         className,
@@ -92,7 +92,7 @@ export function TrustBanner({
             <span className={cn('text-[10px] font-normal opacity-70', meta.fg)}>{charter}</span>
           )}
         </div>
-        {children && <div className={cn('text-xs opacity-90', meta.fg)}>{children}</div>}
+        {children && <div className={cn('text-footnote opacity-90', meta.fg)}>{children}</div>}
       </div>
     </div>
   );

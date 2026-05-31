@@ -84,11 +84,11 @@ function RegisterInner() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-amber-50 px-4">
+    <main className="min-h-screen flex flex-col md:flex-row items-center justify-center bg-gradient-to-br from-slate-50 to-amber-50 px-4">
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>使用邀请码注册 Tandem</CardTitle>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-caption text-muted-foreground">
             Tandem 默认关闭公开注册. 请向管理员索要邀请码.
           </p>
         </CardHeader>
@@ -145,7 +145,7 @@ function RegisterInner() {
                       ? strength >= 3
                         ? 'bg-emerald-500'
                         : strength === 2
-                        ? 'bg-amber-400'
+                        ? 'bg-warning/50'
                         : 'bg-rose-400'
                       : 'bg-slate-200'
                   }`}
@@ -153,15 +153,15 @@ function RegisterInner() {
               ))}
             </div>
             {strengthHint.length > 0 && (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-footnote text-muted-foreground">
                 提示: {strengthHint.join(' · ')}
               </p>
             )}
 
-            {error && <p className="text-sm text-rose-600">{error}</p>}
+            {error && <p className="text-caption text-rose-600">{error}</p>}
 
             {/* PIPL/GDPR consent */}
-            <label className="flex items-start gap-2 rounded border bg-slate-50 p-2.5 text-xs leading-relaxed text-slate-700 cursor-pointer hover:bg-slate-100 transition">
+            <label className="flex items-start gap-2 rounded border bg-slate-50 p-2.5 text-footnote leading-relaxed text-slate-700 cursor-pointer hover:bg-slate-100 transition">
               <input
                 type="checkbox"
                 checked={consented}
@@ -187,14 +187,14 @@ function RegisterInner() {
               {busy ? '注册中...' : '注册账号'}
             </Button>
 
-            <p className="pt-2 text-center text-xs text-muted-foreground">
+            <p className="pt-2 text-center text-footnote text-muted-foreground">
               已有账号? {' '}
-              <Link href="/login" className="text-amber-700 underline">
+              <Link href="/login" className="text-warning underline">
                 登录
               </Link>
             </p>
 
-            <div className="rounded border bg-emerald-50 p-2 text-xs text-emerald-800">
+            <div className="rounded border bg-emerald-50 p-2 text-footnote text-emerald-800">
               💚 Tandem 私有化: 注册数据 100% 在你公司内, 离开网络也能用. 自研身份系统, 不依赖任何第三方.
             </div>
           </form>
@@ -215,7 +215,7 @@ function Field({
 }) {
   return (
     <div>
-      <p className="mb-1 text-xs text-muted-foreground">{label}</p>
+      <p className="mb-1 text-footnote text-muted-foreground">{label}</p>
       <div className="flex items-center gap-2 rounded border bg-white px-2 py-1.5">
         <span className="text-muted-foreground">{icon}</span>
         {children}

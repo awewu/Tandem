@@ -79,7 +79,7 @@ export function AiTraceButton({ messageId }: { messageId: string }) {
       <button
         type="button"
         onClick={handleOpen}
-        className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-indigo-700 shadow-md ring-1 ring-indigo-300/80 transition hover:bg-indigo-50 hover:shadow-lg"
+        className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-indigo-700 shadow-soft ring-1 ring-indigo-300/80 transition hover:bg-indigo-50 hover:shadow-soft-lg"
         title="AI 回复透明化 (Tandem 差异化 — 飞书 AI 是黑盒)"
       >
         <Search className="h-3 w-3" />
@@ -92,7 +92,7 @@ export function AiTraceButton({ messageId }: { messageId: string }) {
           onClick={() => setOpen(false)}
         >
           <div
-            className="relative w-[420px] max-w-[92vw] rounded-xl bg-white p-5 shadow-2xl ring-1 ring-slate-200"
+            className="relative w-[420px] max-w-[92vw] rounded-2xl bg-white p-5 shadow-2xl ring-1 ring-slate-200"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -103,7 +103,7 @@ export function AiTraceButton({ messageId }: { messageId: string }) {
             >
               <X className="h-4 w-4" />
             </button>
-            <h3 className="mb-1 text-sm font-semibold text-slate-900">
+            <h3 className="mb-1 text-caption font-semibold text-slate-900">
               AI 回复 trace · §IM-7
             </h3>
             <p className="mb-4 text-[11px] text-slate-500">
@@ -111,7 +111,7 @@ export function AiTraceButton({ messageId }: { messageId: string }) {
             </p>
 
             {loading && (
-              <div className="flex items-center gap-2 py-6 text-sm text-slate-500">
+              <div className="flex items-center gap-2 py-6 text-caption text-slate-500">
                 <Loader2 className="h-4 w-4 animate-spin" /> 加载 trace...
               </div>
             )}
@@ -125,7 +125,7 @@ export function AiTraceButton({ messageId }: { messageId: string }) {
             {data && !loading && (
               <div className="space-y-2.5 text-[12.5px]">
                 {data.warning && (
-                  <div className="rounded-md bg-amber-50 px-3 py-2 text-[11.5px] text-amber-800">
+                  <div className="rounded-md bg-warning/5 px-3 py-2 text-[11.5px] text-warning">
                     ⚠️ {data.warning}
                     {data.reason ? <div className="mt-1 text-[10.5px] opacity-70">{data.reason}</div> : null}
                   </div>

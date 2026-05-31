@@ -16,7 +16,7 @@ import { rateLimit, getClientIp } from '@/lib/infra/rate-limit';
 export async function POST(req: NextRequest) {
   await boot();
   const ip = getClientIp(req.headers);
-  const rl = await rateLimit({ key: `sso-register:${ip}`, limit: 20, windowSec: 3600 });
+  const rl = await rateLimit({ key: `sso-register:${ip}`, limit: 20, windowSec: 3600, failClosed: true });
   if (!rl.allowed) {
     return NextResponse.json(
       { ok: false, error: 'too many attempts', code: 'RATE_LIMITED' },

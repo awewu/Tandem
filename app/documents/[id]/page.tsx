@@ -122,7 +122,7 @@ export default function DocumentEditorPage() {
     setDoc((d) => (d ? { ...d, isLocked: !d.isLocked } : d));
   }, [id, doc]);
 
-  if (!doc) return <div className="p-8 text-gray-500">加载中...</div>;
+  if (!doc) return <div className="p-8 text-gray-500 md:px-8">加载中...</div>;
 
   return (
     <div className="flex flex-col h-screen">
@@ -131,7 +131,7 @@ export default function DocumentEditorPage() {
           aria-label="文档标题"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="flex-1 text-xl font-bold border-none outline-none"
+          className="flex-1 text-headline font-bold border-none outline-none"
         />
         <div className="flex items-center gap-2">
           {/* DOC-4: 由此发起议事 — 把文档作为议题进议事室 (charter §四 飞书做不到 #2) */}
@@ -139,7 +139,7 @@ export default function DocumentEditorPage() {
             type="button"
             onClick={spawnConvergence}
             disabled={busy === 'spawn'}
-            className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-amber-700 ring-1 ring-amber-300/80 transition hover:bg-amber-50 disabled:opacity-40"
+            className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-warning ring-1 ring-warning/30/80 transition hover:bg-warning/5 disabled:opacity-40"
             title={
               doc.spawnedDecisionCardId
                 ? '本文档已发起议事, 点击查看决议'
@@ -170,7 +170,7 @@ export default function DocumentEditorPage() {
               : '升级 Memory'}
           </button>
           <button onClick={toggleLock} className="p-2 rounded hover:bg-gray-100" title={doc.isLocked ? "解锁" : "锁定"}>
-            {doc.isLocked ? <Lock size={18} className="text-amber-500" /> : <Unlock size={18} />}
+            {doc.isLocked ? <Lock size={18} className="text-warning" /> : <Unlock size={18} />}
           </button>
           <button onClick={save} className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
             <Save size={16} /> {saving ? "保存中..." : "保存"}
@@ -184,12 +184,12 @@ export default function DocumentEditorPage() {
       )}
       {/* DOC-2 反链 chip — 已发起的 promotion / decision card 的状态条 */}
       {(doc.spawnedPromotionId || doc.spawnedDecisionCardId) && (
-        <div className="px-4 py-1.5 text-[11px] flex items-center gap-2 bg-amber-50/40 border-b border-amber-100">
+        <div className="px-4 py-1.5 text-[11px] flex items-center gap-2 bg-warning/5/40 border-b border-warning/10">
           <span className="text-ink-tertiary">本文档已派生:</span>
           {doc.spawnedDecisionCardId && (
             <Link
               href={`/convergence?id=${doc.spawnedDecisionCardId}`}
-              className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 font-medium text-amber-700 hover:bg-amber-100"
+              className="inline-flex items-center gap-1 rounded-full border border-warning/20 bg-warning/5 px-2 py-0.5 font-medium text-warning hover:bg-warning/10"
             >
               <Sparkles className="h-2.5 w-2.5" />
               议事 / Decision Card
@@ -221,7 +221,7 @@ export default function DocumentEditorPage() {
           <h3 className="font-medium mb-3 flex items-center gap-1">
             <Users size={16} /> 协作权限
           </h3>
-          <div className="space-y-2 text-sm">
+          <div className="space-y-2 text-caption">
             {Object.entries(doc.permissions).map(([uid, role]) => (
               <div key={uid} className="flex justify-between p-2 bg-white rounded border">
                 <span>{uid}</span>
@@ -232,7 +232,7 @@ export default function DocumentEditorPage() {
               <div className="text-gray-400">暂无协作者</div>
             )}
           </div>
-          <div className="mt-4 text-xs text-gray-400">
+          <div className="mt-4 text-footnote text-gray-400">
             最后更新: {new Date(doc.updatedAt).toLocaleString()}
           </div>
         </div>

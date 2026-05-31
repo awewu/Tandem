@@ -169,7 +169,7 @@ export function OKRMonthlyComparison({ objective, cycle, keyResults, checkIns }:
 
   if (!cycle) {
     return (
-      <div className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
+      <div className="rounded-md border border-dashed p-4 text-center text-caption text-muted-foreground">
         该 Objective 未绑定 cycle, 无法展开月度对比
       </div>
     );
@@ -177,7 +177,7 @@ export function OKRMonthlyComparison({ objective, cycle, keyResults, checkIns }:
 
   if (buckets.length === 0) {
     return (
-      <div className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
+      <div className="rounded-md border border-dashed p-4 text-center text-caption text-muted-foreground">
         cycle {cycle.name} 跨度为 0 月
       </div>
     );
@@ -199,7 +199,7 @@ export function OKRMonthlyComparison({ objective, cycle, keyResults, checkIns }:
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="flex items-center gap-1.5 text-sm font-semibold">
+          <div className="flex items-center gap-1.5 text-caption font-semibold">
             <TrendingUp className="h-4 w-4 text-blue-600" />
             月度 Plan vs Actual + MoM 环比
           </div>
@@ -218,10 +218,10 @@ export function OKRMonthlyComparison({ objective, cycle, keyResults, checkIns }:
       {/* Objective 主表 */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">Objective 整体</CardTitle>
+          <CardTitle className="text-caption font-medium">Objective 整体</CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto">
-          <table className="w-full text-xs border-collapse">
+          <table className="w-full text-footnote border-collapse">
             <thead>
               <tr className="border-b text-muted-foreground">
                 <th className="text-left py-1.5 pr-3 font-medium whitespace-nowrap">行</th>
@@ -229,12 +229,12 @@ export function OKRMonthlyComparison({ objective, cycle, keyResults, checkIns }:
                   <th
                     key={b.key}
                     className={`text-center py-1.5 px-2 font-medium whitespace-nowrap ${
-                      i === currentMonthIdx ? 'bg-amber-50 text-amber-900 rounded-t' : ''
+                      i === currentMonthIdx ? 'bg-warning/5 text-warning rounded-t' : ''
                     }`}
                   >
                     {b.label}
                     {i === currentMonthIdx && (
-                      <span className="ml-1 text-[9px] text-amber-600">● 本月</span>
+                      <span className="ml-1 text-[9px] text-warning">● 本月</span>
                     )}
                   </th>
                 ))}
@@ -257,7 +257,7 @@ export function OKRMonthlyComparison({ objective, cycle, keyResults, checkIns }:
                   <td
                     key={buckets[i].key}
                     className={`text-center py-1.5 px-2 tabular-nums font-medium ${
-                      i === currentMonthIdx ? 'bg-amber-50' : ''
+                      i === currentMonthIdx ? 'bg-warning/5' : ''
                     }`}
                   >
                     {actual === null ? (
@@ -299,12 +299,12 @@ export function OKRMonthlyComparison({ objective, cycle, keyResults, checkIns }:
       {keyResults.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">
+            <CardTitle className="text-caption font-medium">
               KR 明细 ({keyResults.length})
             </CardTitle>
           </CardHeader>
           <CardContent className="overflow-x-auto">
-            <table className="w-full text-xs border-collapse">
+            <table className="w-full text-footnote border-collapse">
               <thead>
                 <tr className="border-b text-muted-foreground">
                   <th className="text-left py-1.5 pr-3 font-medium min-w-[200px]">KR</th>
@@ -313,7 +313,7 @@ export function OKRMonthlyComparison({ objective, cycle, keyResults, checkIns }:
                     <th
                       key={b.key}
                       className={`text-center py-1.5 px-2 font-medium whitespace-nowrap ${
-                        i === currentMonthIdx ? 'bg-amber-50 text-amber-900' : ''
+                        i === currentMonthIdx ? 'bg-warning/5 text-warning' : ''
                       }`}
                     >
                       {b.label}
@@ -341,7 +341,7 @@ export function OKRMonthlyComparison({ objective, cycle, keyResults, checkIns }:
                         <td
                           key={buckets[i].key}
                           className={`text-center py-1.5 px-2 tabular-nums ${
-                            i === currentMonthIdx ? 'bg-amber-50' : ''
+                            i === currentMonthIdx ? 'bg-warning/5' : ''
                           } ${v === null ? 'text-slate-300' : ''}`}
                         >
                           {v === null ? '—' : `${v}%`}

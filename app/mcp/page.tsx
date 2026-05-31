@@ -44,7 +44,7 @@ const CATEGORY_META: Record<string, { label: string; icon: React.ElementType; co
   code: { label: 'Code', icon: Code2, color: 'bg-emerald-500' },
   media: { label: 'Media', icon: Image, color: 'bg-pink-500' },
   agent: { label: 'Agent', icon: Network, color: 'bg-purple-500' },
-  productivity: { label: 'Productivity', icon: ListTodo, color: 'bg-amber-500' },
+  productivity: { label: 'Productivity', icon: ListTodo, color: 'bg-warning' },
   messaging: { label: 'Messaging', icon: MessageCircle, color: 'bg-cyan-500' },
   ml: { label: 'ML', icon: Zap, color: 'bg-orange-500' },
   iot: { label: 'IoT', icon: Home, color: 'bg-teal-500' },
@@ -117,11 +117,11 @@ export default function MCPPage() {
       <div className="p-6 space-y-6 max-w-7xl mx-auto">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            <h1 className="text-title-3 font-bold tracking-tight flex items-center gap-2">
               <Cpu className="h-6 w-6" />
               MCP Server &amp; Tools
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-caption text-muted-foreground mt-1">
               {HERMES_TOOLS.length} built-in Hermes tools across {TOOL_CATEGORIES.length} categories.
             </p>
           </div>
@@ -131,17 +131,17 @@ export default function MCPPage() {
               {checking ? (
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               ) : connected ? (
-                <CheckCircle2 className="h-5 w-5 text-green-500" />
+                <CheckCircle2 className="h-5 w-5 text-success" />
               ) : (
-                <XCircle className="h-5 w-5 text-red-500" />
+                <XCircle className="h-5 w-5 text-danger" />
               )}
               <div className="flex flex-col">
-                <span className="text-xs text-muted-foreground">Backend</span>
-                <span className="text-sm font-medium">
+                <span className="text-footnote text-muted-foreground">Backend</span>
+                <span className="text-caption font-medium">
                   {checking ? 'Checking…' : connected ? 'Online' : 'Offline'}
                 </span>
                 {(version || error) && (
-                  <span className="text-xs text-muted-foreground truncate max-w-[200px]">
+                  <span className="text-footnote text-muted-foreground truncate max-w-[200px]">
                     {error || version}
                   </span>
                 )}
@@ -152,7 +152,7 @@ export default function MCPPage() {
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center justify-between">
+            <CardTitle className="text-body flex items-center justify-between">
               <span className="flex items-center gap-2">
                 <Network className="h-4 w-4" />
                 Configured MCP Servers
@@ -162,15 +162,15 @@ export default function MCPPage() {
           </CardHeader>
           <CardContent className="pt-0">
             {serversLoading ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 text-caption text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" /> Loading from <code>hermes mcp list</code>…
               </div>
             ) : serversError ? (
-              <div className="text-sm text-destructive">{serversError}</div>
+              <div className="text-caption text-destructive">{serversError}</div>
             ) : servers.length === 0 ? (
-              <div className="text-sm text-muted-foreground">
+              <div className="text-caption text-muted-foreground">
                 No MCP servers configured. Add one with{' '}
-                <code className="px-1.5 py-0.5 rounded bg-muted text-xs font-mono">
+                <code className="px-1.5 py-0.5 rounded bg-muted text-footnote font-mono">
                   hermes mcp add &lt;name&gt; --url &lt;endpoint&gt;
                 </code>
                 .
@@ -184,14 +184,14 @@ export default function MCPPage() {
                   >
                     <div
                       className={`h-8 w-8 rounded-md flex items-center justify-center text-white shrink-0 ${
-                        s.enabled ? 'bg-green-500' : 'bg-slate-400'
+                        s.enabled ? 'bg-success' : 'bg-slate-400'
                       }`}
                     >
                       <Network className="h-4 w-4" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm truncate">{s.name}</span>
+                        <span className="font-medium text-caption truncate">{s.name}</span>
                         {s.status && (
                           <Badge variant={s.enabled ? 'secondary' : 'outline'} className="text-[10px]">
                             {s.status}
@@ -199,12 +199,12 @@ export default function MCPPage() {
                         )}
                       </div>
                       {s.endpoint && (
-                        <p className="text-xs text-muted-foreground font-mono truncate mt-0.5">
+                        <p className="text-footnote text-muted-foreground font-mono truncate mt-0.5">
                           {s.endpoint}
                         </p>
                       )}
                       {s.type && (
-                        <p className="text-xs text-muted-foreground mt-0.5">{s.type}</p>
+                        <p className="text-footnote text-muted-foreground mt-0.5">{s.type}</p>
                       )}
                     </div>
                   </div>
@@ -215,7 +215,7 @@ export default function MCPPage() {
         </Card>
 
         <div>
-          <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+          <h2 className="text-headline font-semibold mb-3 flex items-center gap-2">
             <Cpu className="h-4 w-4" />
             Built-in Hermes Tools
             <Badge variant="secondary" className="ml-1">{HERMES_TOOLS.length}</Badge>
@@ -288,8 +288,8 @@ function ToolCard({ tool }: { tool: HermesTool }) {
               <Icon className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <CardTitle className="text-base truncate">{tool.name}</CardTitle>
-              <p className="text-xs text-muted-foreground font-mono truncate">{tool.id}</p>
+              <CardTitle className="text-body truncate">{tool.name}</CardTitle>
+              <p className="text-footnote text-muted-foreground font-mono truncate">{tool.id}</p>
             </div>
           </div>
           {tool.noApiKey ? (
@@ -306,7 +306,7 @@ function ToolCard({ tool }: { tool: HermesTool }) {
         </div>
       </CardHeader>
       <CardContent className="pt-0 space-y-3">
-        <p className="text-sm text-muted-foreground">{tool.description}</p>
+        <p className="text-caption text-muted-foreground">{tool.description}</p>
         <div className="flex flex-wrap gap-1">
           {tool.commands.map((cmd) => (
             <code

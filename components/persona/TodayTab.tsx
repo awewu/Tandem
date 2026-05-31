@@ -7,7 +7,7 @@
  * 设计语言: MANIFESTO §20 + docs/CHARTER-UI-V1.md
  *   - 内容卡 = surface-card (Notion-density)
  *   - 强调色用 CSS var (semantic-warning / semantic-danger / brand-500)
- *   - 标题 text-headline (18px), 不用 raw text-base font-semibold
+ *   - 标题 text-headline (18px), 不用 raw text-body font-semibold
  *
  * P1.5 真接入:
  *   - brief 改为 useStreamingBrief(userId) 流式 LLM

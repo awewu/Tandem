@@ -37,7 +37,7 @@ export function OKRTrendChart(props: Props) {
   if (points.length < 2) {
     return (
       <div
-        className="border border-dashed rounded flex items-center justify-center text-xs text-muted-foreground"
+        className="border border-dashed rounded flex items-center justify-center text-footnote text-muted-foreground"
         style={{ width, height }}
       >
         {points.length === 0 ? '尚无 Check-in' : '至少需 2 次 Check-in 才能画趋势'}

@@ -37,19 +37,19 @@ export class ErrorBoundary extends Component<Props, State> {
 
     return (
       <div className="flex h-full w-full items-center justify-center p-6">
-        <div className="max-w-lg w-full rounded-lg border bg-card text-card-foreground shadow-sm p-6 space-y-4">
+        <div className="max-w-lg w-full rounded-lg border bg-card text-card-foreground shadow-soft-sm p-6 space-y-4">
           <div className="flex items-center gap-3">
             <div className="rounded-full bg-destructive/10 p-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold">出错了</h2>
-              <p className="text-xs text-muted-foreground">
+              <h2 className="text-headline font-semibold">出错了</h2>
+              <p className="text-footnote text-muted-foreground">
                 Something went wrong while rendering this view.
               </p>
             </div>
           </div>
-          <pre className="text-xs font-mono bg-muted p-3 rounded-md overflow-auto max-h-48 whitespace-pre-wrap break-words">
+          <pre className="text-footnote font-mono bg-muted p-3 rounded-md overflow-auto max-h-48 whitespace-pre-wrap break-words">
             {error.message || String(error)}
             {error.stack && (
               <>

@@ -161,7 +161,7 @@ function ConvergencePageInner() {
   }
 
   return (
-    <div className="h-full overflow-auto bg-gradient-to-b from-surface-1 to-surface-2/50">
+    <div className="h-full overflow-auto bg-gradient-to-b from-surface-1 to-surface-2/50 md:px-8">
       <div className="page-container py-10 space-y-8">
         {/* Header */}
         <header className="animate-fade-in-up">

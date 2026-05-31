@@ -219,7 +219,7 @@ export function ChannelSettingsDialog({
                 key={t.key}
                 type="button"
                 onClick={() => setTab(t.key)}
-                className={`flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs transition ${
+                className={`flex items-center gap-1.5 border-b-2 px-3 py-2 text-footnote transition ${
                   active
                     ? 'border-primary font-semibold text-foreground'
                     : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -238,7 +238,7 @@ export function ChannelSettingsDialog({
         {/* Body */}
         <div className="flex-1 overflow-y-auto py-3 space-y-3">
           {error && (
-            <div className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">
+            <div className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-footnote text-destructive">
               {error}
             </div>
           )}
@@ -247,7 +247,7 @@ export function ChannelSettingsDialog({
           {tab === 'info' && (
             <div className="space-y-3">
               <div className="space-y-1.5">
-                <Label htmlFor="ch-name" className="text-xs">群名称</Label>
+                <Label htmlFor="ch-name" className="text-footnote">群名称</Label>
                 <Input
                   id="ch-name"
                   value={name}
@@ -257,7 +257,7 @@ export function ChannelSettingsDialog({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="ch-topic" className="text-xs">简介</Label>
+                <Label htmlFor="ch-topic" className="text-footnote">简介</Label>
                 <Input
                   id="ch-topic"
                   value={topic}
@@ -291,7 +291,7 @@ export function ChannelSettingsDialog({
                 const isMe = m.userId === currentUserId;
                 const RoleIcon = m.role === 'owner' ? Crown : m.role === 'admin' ? Shield : null;
                 const roleColor =
-                  m.role === 'owner' ? 'text-amber-600' :
+                  m.role === 'owner' ? 'text-warning' :
                   m.role === 'admin' ? 'text-blue-600' : 'text-muted-foreground';
                 return (
                   <div
@@ -303,7 +303,7 @@ export function ChannelSettingsDialog({
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-sm font-medium truncate">{name}</span>
+                        <span className="text-caption font-medium truncate">{name}</span>
                         {isMe && <Badge variant="secondary" className="text-[9px] h-4">我</Badge>}
                         {RoleIcon && (
                           <RoleIcon className={`h-3 w-3 ${roleColor}`} />
@@ -320,7 +320,7 @@ export function ChannelSettingsDialog({
                         value={m.role}
                         onChange={(e) => handleSetRole(m.userId, e.target.value as ImMemberRole)}
                         disabled={busy}
-                        className="h-7 rounded border border-input bg-background px-2 text-xs"
+                        className="h-7 rounded border border-input bg-background px-2 text-footnote"
                       >
                         <option value="member">成员</option>
                         <option value="admin">管理员</option>
@@ -345,7 +345,7 @@ export function ChannelSettingsDialog({
               {/* 加成员 */}
               {isAdmin && candidates.length > 0 && (
                 <details className="rounded-md border border-dashed p-2">
-                  <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+                  <summary className="cursor-pointer text-footnote text-muted-foreground hover:text-foreground">
                     <UserPlus className="inline h-3 w-3 mr-1" />
                     添加成员 ({candidates.length} 位候选)
                   </summary>
@@ -356,7 +356,7 @@ export function ChannelSettingsDialog({
                         type="button"
                         onClick={() => handleAddMember(p.id)}
                         disabled={busy}
-                        className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-xs hover:bg-accent disabled:opacity-50"
+                        className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-footnote hover:bg-accent disabled:opacity-50"
                       >
                         <div className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-400 text-[9px] font-semibold uppercase text-white">
                           {(p.name[0] ?? '?').toUpperCase()}
@@ -377,10 +377,10 @@ export function ChannelSettingsDialog({
               {!editingAnn ? (
                 <>
                   {channel.announcement ? (
-                    <div className="rounded-md border bg-amber-50/40 p-3">
-                      <div className="whitespace-pre-wrap text-sm">{channel.announcement}</div>
+                    <div className="rounded-md border bg-warning/5/40 p-3">
+                      <div className="whitespace-pre-wrap text-caption">{channel.announcement}</div>
                       {channel.announcementUpdatedAt && (
-                        <div className="mt-2 pt-2 border-t border-amber-200/50 text-[10px] text-muted-foreground">
+                        <div className="mt-2 pt-2 border-t border-warning/20/50 text-[10px] text-muted-foreground">
                           {peopleById.get(channel.announcementUpdatedBy ?? '') ?? channel.announcementUpdatedBy}
                           {' · '}
                           {new Date(channel.announcementUpdatedAt).toLocaleString('zh-CN')}
@@ -388,7 +388,7 @@ export function ChannelSettingsDialog({
                       )}
                     </div>
                   ) : (
-                    <div className="text-xs text-muted-foreground py-4 text-center">
+                    <div className="text-footnote text-muted-foreground py-4 text-center">
                       暂无公告
                     </div>
                   )}
@@ -433,7 +433,7 @@ export function ChannelSettingsDialog({
           {tab === 'pinned' && (
             <div className="space-y-2">
               {pinnedMessages.length === 0 ? (
-                <div className="text-xs text-muted-foreground py-4 text-center">
+                <div className="text-footnote text-muted-foreground py-4 text-center">
                   暂无置顶消息
                   <div className="mt-1 text-[10px]">
                     在消息上 hover → 点 📌 即可置顶 (最多 5 条)
@@ -444,12 +444,12 @@ export function ChannelSettingsDialog({
                   const senderName = peopleById.get(msg.senderId) ?? msg.senderId;
                   return (
                     <div key={msg.id} className="rounded-md border p-2 flex items-start gap-2">
-                      <Pin className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+                      <Pin className="h-3.5 w-3.5 text-warning shrink-0 mt-0.5" />
                       <div className="flex-1 min-w-0">
                         <div className="text-[10px] text-muted-foreground">
                           {senderName} · {new Date(msg.createdAt).toLocaleString('zh-CN')}
                         </div>
-                        <div className="mt-0.5 text-xs whitespace-pre-wrap break-words line-clamp-3">
+                        <div className="mt-0.5 text-footnote whitespace-pre-wrap break-words line-clamp-3">
                           {msg.deletedAt ? <em className="text-muted-foreground">[已撤回]</em> : msg.body}
                         </div>
                       </div>

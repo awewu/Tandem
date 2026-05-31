@@ -30,10 +30,10 @@ interface OrgUser {
 const ROLE_LABEL: Record<string, { label: string; color: string }> = {
   admin: { label: 'Admin', color: 'bg-rose-50 text-rose-700 border-rose-200' },
   champion: { label: 'Champion', color: 'bg-violet-50 text-violet-700 border-violet-200' },
-  steward: { label: 'Steward', color: 'bg-amber-50 text-amber-700 border-amber-200' },
+  steward: { label: 'Steward', color: 'bg-warning/5 text-warning border-warning/20' },
   manager: { label: '主管', color: 'bg-sky-50 text-sky-700 border-sky-200' },
   hr: { label: 'HR', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  employee: { label: '员工', color: 'bg-zinc-50 text-zinc-700 border-zinc-200' },
+  employee: { label: '员工', color: 'bg-surface-1 text-ink-primary border' },
 };
 
 export default function AdminOrganizationPage() {
@@ -94,15 +94,15 @@ export default function AdminOrganizationPage() {
   }, [filtered]);
 
   return (
-    <div className="page-container py-8 space-y-6">
+    <div className="page-container py-8 space-y-6 md:py-10">
       <header className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+          <h1 className="text-title-3 font-semibold tracking-tight flex items-center gap-2">
             <Users className="h-6 w-6 text-primary" />
             员工组织 · 管理
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            真员工列表 · 部门 · 角色 · 数据来源: <span className="font-mono text-xs">/api/org/users</span>
+          <p className="text-caption text-muted-foreground mt-1">
+            真员工列表 · 部门 · 角色 · 数据来源: <span className="font-mono text-footnote">/api/org/users</span>
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
@@ -148,7 +148,7 @@ export default function AdminOrganizationPage() {
               ))}
             </SelectContent>
           </Select>
-          <div className="text-xs text-muted-foreground tabular-nums ml-auto">
+          <div className="text-footnote text-muted-foreground tabular-nums ml-auto">
             {filtered.length} / {users.length} 人
           </div>
         </CardContent>
@@ -157,7 +157,7 @@ export default function AdminOrganizationPage() {
       {/* 错误 */}
       {error && (
         <Card className="border-rose-200 bg-rose-50">
-          <CardContent className="py-3 text-sm text-rose-700 flex items-center gap-2">
+          <CardContent className="py-3 text-caption text-rose-700 flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />
             {error}
           </CardContent>
@@ -167,11 +167,11 @@ export default function AdminOrganizationPage() {
       {/* 按部门分组列表 */}
       {loading ? (
         <Card>
-          <CardContent className="py-12 text-center text-sm text-muted-foreground">加载中…</CardContent>
+          <CardContent className="py-12 text-center text-caption text-muted-foreground">加载中…</CardContent>
         </Card>
       ) : byDept.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center text-sm text-muted-foreground">
+          <CardContent className="py-12 text-center text-caption text-muted-foreground">
             没有符合条件的员工
           </CardContent>
         </Card>
@@ -179,15 +179,15 @@ export default function AdminOrganizationPage() {
         byDept.map(([dept, list]) => (
           <Card key={dept}>
             <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
+              <CardTitle className="text-body flex items-center gap-2">
                 <Building2 className="h-4 w-4" />
                 {dept}
-                <span className="text-sm text-muted-foreground font-normal">({list.length})</span>
+                <span className="text-caption text-muted-foreground font-normal">({list.length})</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              <table className="w-full text-sm">
-                <thead className="border-b bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+              <table className="w-full text-caption">
+                <thead className="border-b bg-muted/40 text-footnote uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th className="px-4 py-2 text-left font-medium">姓名</th>
                     <th className="px-4 py-2 text-left font-medium">邮箱</th>
@@ -198,14 +198,14 @@ export default function AdminOrganizationPage() {
                   {list.map((u) => (
                     <tr key={u.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
                       <td className="px-4 py-2.5 font-medium">{u.name}</td>
-                      <td className="px-4 py-2.5 text-xs text-muted-foreground font-mono">{u.email || '—'}</td>
+                      <td className="px-4 py-2.5 text-footnote text-muted-foreground font-mono">{u.email || '—'}</td>
                       <td className="px-4 py-2.5">
                         <div className="flex flex-wrap items-center gap-1">
                           {u.roles.length === 0 ? (
-                            <span className="text-xs text-muted-foreground">—</span>
+                            <span className="text-footnote text-muted-foreground">—</span>
                           ) : (
                             u.roles.map((r) => {
-                              const meta = ROLE_LABEL[r] ?? { label: r, color: 'bg-zinc-50 text-zinc-700 border-zinc-200' };
+                              const meta = ROLE_LABEL[r] ?? { label: r, color: 'bg-surface-1 text-ink-primary border' };
                               return (
                                 <Badge key={r} variant="outline" className={`${meta.color} text-[10px] gap-0.5`}>
                                   {(r === 'admin' || r === 'champion') && <ShieldCheck className="h-2.5 w-2.5" />}
@@ -225,7 +225,7 @@ export default function AdminOrganizationPage() {
         ))
       )}
 
-      <footer className="text-xs text-muted-foreground border-t pt-4">
+      <footer className="text-footnote text-muted-foreground border-t pt-4">
         关于&ldquo;项目协作三省六部&rdquo;可视化 (Agent 工作组), 见{' '}
         <a href="/organization" className="text-primary hover:underline">/organization</a>.
       </footer>
@@ -291,17 +291,17 @@ function BulkInviteCard({ onSuccess }: { onSuccess?: () => void }) {
   }
 
   return (
-    <Card className="border-amber-200 bg-amber-50/30">
+    <Card className="border-warning/20 bg-warning/5/30">
       <CardHeader className="pb-2">
-        <CardTitle className="text-base flex items-center gap-2">
+        <CardTitle className="text-body flex items-center gap-2">
           <Upload className="h-4 w-4" />
           通讯录批量邀请 · pilot Day 1
         </CardTitle>
-        <p className="text-xs text-muted-foreground mt-1">
+        <p className="text-footnote text-muted-foreground mt-1">
           上传 CSV 或 Excel (列: <span className="font-mono">email,name,department,roles</span>) ·
           每行生成 7 天单次邀请码 · 单批 ≤ 500 行 ·
           下载 CSV 模板:{' '}
-          <a href="/api/admin/users/bulk-invite/template" className="text-amber-700 underline">下载模板</a>
+          <a href="/api/admin/users/bulk-invite/template" className="text-warning underline">下载模板</a>
         </p>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -310,7 +310,7 @@ function BulkInviteCard({ onSuccess }: { onSuccess?: () => void }) {
             type="file"
             accept=".csv,.xlsx,.xls"
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            className="text-xs"
+            className="text-footnote"
           />
           <Button size="sm" variant="outline" disabled={!file || busy} onClick={() => void upload(true)}>
             {busy ? '校验中…' : '试运行 (dry-run)'}
@@ -327,14 +327,14 @@ function BulkInviteCard({ onSuccess }: { onSuccess?: () => void }) {
         </div>
 
         {error && (
-          <div className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded px-3 py-2 flex items-center gap-2">
+          <div className="text-footnote text-rose-700 bg-rose-50 border border-rose-200 rounded px-3 py-2 flex items-center gap-2">
             <AlertCircle className="h-3.5 w-3.5" />
             {error}
           </div>
         )}
 
         {summary && (
-          <div className="text-xs flex items-center gap-3">
+          <div className="text-footnote flex items-center gap-3">
             <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
               成功 {summary.ok}
             </Badge>
@@ -351,7 +351,7 @@ function BulkInviteCard({ onSuccess }: { onSuccess?: () => void }) {
 
         {results && results.length > 0 && (
           <div className="max-h-64 overflow-auto border rounded">
-            <table className="w-full text-xs">
+            <table className="w-full text-footnote">
               <thead className="bg-muted/40 sticky top-0">
                 <tr>
                   <th className="px-2 py-1.5 text-left font-medium">#</th>

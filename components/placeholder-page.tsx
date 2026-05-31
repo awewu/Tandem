@@ -44,18 +44,18 @@ export function PlaceholderPage({
     <div className="container mx-auto max-w-3xl px-4 py-12">
       <div className="rounded-2xl border border-dashed border-slate-300 bg-gradient-to-br from-white to-slate-50 p-10">
         <div className="flex items-start gap-4">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-slate-900 text-white">
             <Icon className="h-7 w-7" />
           </div>
           <div className="flex-1">
             {pillar && (
-              <p className="mb-1 text-xs font-medium uppercase tracking-wider text-slate-500">
+              <p className="mb-1 text-footnote font-medium uppercase tracking-wider text-slate-500">
                 {pillar}
               </p>
             )}
-            <h1 className="text-2xl font-semibold text-slate-900">{title}</h1>
+            <h1 className="text-title-3 font-semibold text-slate-900">{title}</h1>
             {subtitle && <p className="mt-1 text-slate-600">{subtitle}</p>}
-            <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
+            <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-warning/5 px-3 py-1 text-footnote font-medium text-warning">
               <Sparkles className="h-3 w-3" />
               {phase}
             </p>
@@ -64,8 +64,8 @@ export function PlaceholderPage({
 
         {features && features.length > 0 && (
           <div className="mt-8 border-t border-slate-200 pt-6">
-            <h2 className="mb-3 text-sm font-semibold text-slate-900">即将提供的能力</h2>
-            <ul className="space-y-2 text-sm text-slate-700">
+            <h2 className="mb-3 text-caption font-semibold text-slate-900">即将提供的能力</h2>
+            <ul className="space-y-2 text-caption text-slate-700">
               {features.map((f, i) => (
                 <li key={i} className="flex items-start gap-2">
                   <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400" />
@@ -76,7 +76,7 @@ export function PlaceholderPage({
           </div>
         )}
 
-        <div className="mt-8 flex flex-wrap items-center gap-3 border-t border-slate-200 pt-6 text-sm">
+        <div className="mt-8 flex flex-wrap items-center gap-3 border-t border-slate-200 pt-6 text-caption">
           {fallback && (
             <Link
               href={fallback.href}
@@ -86,7 +86,7 @@ export function PlaceholderPage({
             </Link>
           )}
           {relatedDoc && (
-            <span className="text-xs text-slate-500">
+            <span className="text-footnote text-slate-500">
               设计稿: <code className="rounded bg-slate-100 px-1.5 py-0.5">docs/{relatedDoc}.md</code>
             </span>
           )}

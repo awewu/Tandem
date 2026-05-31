@@ -62,7 +62,7 @@ const DEPT_COLORS = [
   'bg-blue-50 border-blue-200 text-blue-900',
   'bg-emerald-50 border-emerald-200 text-emerald-900',
   'bg-violet-50 border-violet-200 text-violet-900',
-  'bg-amber-50 border-amber-200 text-amber-900',
+  'bg-warning/5 border-warning/20 text-warning',
   'bg-rose-50 border-rose-200 text-rose-900',
   'bg-cyan-50 border-cyan-200 text-cyan-900',
   'bg-lime-50 border-lime-200 text-lime-900',
@@ -128,7 +128,7 @@ export function OKRAlignmentTree({ selectedId, cycleId, onSelect }: Props) {
 
   if (cycleObjs.length === 0) {
     return (
-      <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+      <div className="rounded-md border border-dashed p-6 text-center text-caption text-muted-foreground">
         本 cycle 暂无 Objective · 先创建至少 1 个 O 再看对齐
       </div>
     );
@@ -157,7 +157,7 @@ export function OKRAlignmentTree({ selectedId, cycleId, onSelect }: Props) {
     // Confidence = 'on-track' | 'at-risk' | 'off-track'
     const confColor =
       obj.confidence === 'on-track' ? 'bg-emerald-500' :
-      obj.confidence === 'at-risk' ? 'bg-amber-500' : 'bg-rose-500';
+      obj.confidence === 'at-risk' ? 'bg-warning' : 'bg-rose-500';
 
     return (
       <div key={obj.id} className="relative">
@@ -184,11 +184,11 @@ export function OKRAlignmentTree({ selectedId, cycleId, onSelect }: Props) {
             >
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className={`h-1.5 w-1.5 rounded-full ${confColor}`} title={`信心 ${obj.confidence}`} />
-                <span className="text-xs font-semibold line-clamp-1 group-hover:underline">
+                <span className="text-footnote font-semibold line-clamp-1 group-hover:underline">
                   {obj.title}
                 </span>
                 {obj.status === 'paused' && (
-                  <Badge variant="outline" className="h-4 text-[9px] border-amber-300 text-amber-700">
+                  <Badge variant="outline" className="h-4 text-[9px] border-warning/30 text-warning">
                     暂停
                   </Badge>
                 )}
@@ -226,7 +226,7 @@ export function OKRAlignmentTree({ selectedId, cycleId, onSelect }: Props) {
                   <div
                     className={`h-full ${
                       progress >= 70 ? 'bg-emerald-500' :
-                      progress >= 40 ? 'bg-amber-500' : 'bg-rose-500'
+                      progress >= 40 ? 'bg-warning' : 'bg-rose-500'
                     }`}
                     style={{ width: `${progress}%` }}
                   />
@@ -270,7 +270,7 @@ export function OKRAlignmentTree({ selectedId, cycleId, onSelect }: Props) {
       {/* 概览 */}
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="flex items-center gap-1.5 text-sm font-semibold">
+          <div className="flex items-center gap-1.5 text-caption font-semibold">
             <Network className="h-4 w-4 text-violet-600" />
             跨部门对齐树
           </div>
@@ -287,7 +287,7 @@ export function OKRAlignmentTree({ selectedId, cycleId, onSelect }: Props) {
             <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" /> &ge; 70%
           </span>
           <span className="flex items-center gap-1 text-muted-foreground">
-            <span className="inline-block h-2 w-2 rounded-full bg-amber-500" /> 40-69%
+            <span className="inline-block h-2 w-2 rounded-full bg-warning" /> 40-69%
           </span>
           <span className="flex items-center gap-1 text-muted-foreground">
             <span className="inline-block h-2 w-2 rounded-full bg-rose-500" /> &lt; 40%
@@ -313,7 +313,7 @@ export function OKRAlignmentTree({ selectedId, cycleId, onSelect }: Props) {
 
       {/* 树根 */}
       {orphans.length === 0 ? (
-        <div className="rounded-md border border-dashed p-4 text-center text-xs text-muted-foreground">
+        <div className="rounded-md border border-dashed p-4 text-center text-footnote text-muted-foreground">
           无根节点 (所有 O 都有父对齐)
         </div>
       ) : (

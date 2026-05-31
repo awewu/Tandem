@@ -37,8 +37,8 @@ import {
 import { Stat } from '@/components/ui/stat';
 
 const SEV_COLORS: Record<InsightSeverity, { bg: string; text: string; ring: string; label: string }> = {
-  critical: { bg: 'bg-red-50', text: 'text-red-700', ring: 'ring-red-200', label: '严重' },
-  warning: { bg: 'bg-amber-50', text: 'text-amber-700', ring: 'ring-amber-200', label: '注意' },
+  critical: { bg: 'bg-danger/5', text: 'text-danger', ring: 'ring-danger/20', label: '严重' },
+  warning: { bg: 'bg-warning/5', text: 'text-warning', ring: 'ring-warning/20', label: '注意' },
   info: { bg: 'bg-blue-50', text: 'text-blue-700', ring: 'ring-blue-200', label: '信息' },
   positive: { bg: 'bg-emerald-50', text: 'text-emerald-700', ring: 'ring-emerald-200', label: '正向' },
 };

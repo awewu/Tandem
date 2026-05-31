@@ -40,7 +40,7 @@ export function StageProgressDashboard({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-amber-500" />
+            <Sparkles className="h-5 w-5 text-warning" />
             我的分身 · 进化进度
           </CardTitle>
         </CardHeader>
@@ -48,11 +48,11 @@ export function StageProgressDashboard({
           <div className="flex items-center gap-4">
             <div className="text-6xl">{cur.emoji}</div>
             <div className="flex-1">
-              <div className={`inline-block rounded px-2 py-0.5 text-sm font-semibold ${cur.color}`}>
+              <div className={`inline-block rounded px-2 py-0.5 text-caption font-semibold ${cur.color}`}>
                 {cur.label} (当前)
               </div>
-              <p className="mt-1 text-sm text-muted-foreground">{cur.desc}</p>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="mt-1 text-caption text-muted-foreground">{cur.desc}</p>
+              <p className="mt-1 text-footnote text-muted-foreground">
                 已在此阶段 {progress.daysInStage} 天
               </p>
             </div>
@@ -61,7 +61,7 @@ export function StageProgressDashboard({
                 <ArrowRight className="h-6 w-6 text-muted-foreground" />
                 <div>
                   <div className="text-6xl opacity-40">{next.emoji}</div>
-                  <p className="mt-1 text-center text-xs text-muted-foreground">{next.label}</p>
+                  <p className="mt-1 text-center text-footnote text-muted-foreground">{next.label}</p>
                 </div>
               </>
             )}
@@ -69,7 +69,7 @@ export function StageProgressDashboard({
 
           {/* 拿捏度 */}
           <div>
-            <div className="mb-1 flex items-center justify-between text-sm">
+            <div className="mb-1 flex items-center justify-between text-caption">
               <span className="font-medium">拿捏度</span>
               <span>{(bossCaptureScore * 100).toFixed(0)} / 100</span>
             </div>
@@ -88,7 +88,7 @@ export function StageProgressDashboard({
       {next && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">
+            <CardTitle className="text-body">
               升级到 {next.emoji} {next.label} 的条件
             </CardTitle>
           </CardHeader>
@@ -117,7 +117,7 @@ export function StageProgressDashboard({
             />
 
             {progress.blockedReasons.length > 0 ? (
-              <div className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+              <div className="rounded border border-warning/20 bg-warning/5 p-3 text-caption text-warning">
                 <p className="font-medium">距离升级还差:</p>
                 <ul className="mt-1 list-inside list-disc">
                   {progress.blockedReasons.map((r) => (
@@ -127,10 +127,10 @@ export function StageProgressDashboard({
               </div>
             ) : (
               <div className="space-y-2 rounded border border-emerald-200 bg-emerald-50 p-3">
-                <p className="text-sm font-medium text-emerald-800">
+                <p className="text-caption font-medium text-emerald-800">
                   ✨ 全部条件达成! 你可以确认升级到下一阶段.
                 </p>
-                <p className="text-xs text-emerald-700">
+                <p className="text-footnote text-emerald-700">
                   Tandem autonomy 守门: 升级必须由员工本人主动确认, AI 不会自动升级.
                 </p>
                 <Button onClick={onConfirmUpgrade} size="sm">
@@ -145,7 +145,7 @@ export function StageProgressDashboard({
       {/* 5 阶段总览 */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">5 阶段进化路线</CardTitle>
+          <CardTitle className="text-body">5 阶段进化路线</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
@@ -154,14 +154,14 @@ export function StageProgressDashboard({
               return (
                 <div
                   key={sm.stage}
-                  className={`flex items-center gap-3 rounded p-2 ${isCurrent ? 'bg-amber-50' : ''}`}
+                  className={`flex items-center gap-3 rounded p-2 ${isCurrent ? 'bg-warning/5' : ''}`}
                 >
-                  <span className="text-2xl">{sm.emoji}</span>
+                  <span className="text-title-3">{sm.emoji}</span>
                   <div className="flex-1">
                     <Badge variant={isCurrent ? 'default' : 'outline'}>
                       Lv.{sm.level} {sm.title}
                     </Badge>
-                    <p className="mt-0.5 text-xs text-muted-foreground">{sm.blurb}</p>
+                    <p className="mt-0.5 text-footnote text-muted-foreground">{sm.blurb}</p>
                   </div>
                 </div>
               );
@@ -196,7 +196,7 @@ function CriterionRow({
 
   return (
     <div>
-      <div className="mb-1 flex items-center justify-between text-sm">
+      <div className="mb-1 flex items-center justify-between text-caption">
         <span className="flex items-center gap-1">
           {icon}
           {label}
@@ -207,7 +207,7 @@ function CriterionRow({
       </div>
       <div className="h-1.5 overflow-hidden rounded bg-slate-100">
         <div
-          className={`h-full ${met ? 'bg-emerald-500' : 'bg-amber-400'}`}
+          className={`h-full ${met ? 'bg-emerald-500' : 'bg-warning/50'}`}
           style={{ width: `${pct}%` }}
         />
       </div>

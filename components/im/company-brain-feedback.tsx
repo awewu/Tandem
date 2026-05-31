@@ -168,12 +168,12 @@ function FeedbackBtn({ icon, label, active, muted, loading, onClick, color }: Bt
     ? color === 'emerald'
       ? 'bg-emerald-100 text-emerald-800 ring-emerald-400/80'
       : color === 'amber'
-      ? 'bg-amber-100 text-amber-800 ring-amber-400/80'
+      ? 'bg-warning/10 text-warning ring-warning/50/80'
       : 'bg-rose-100 text-rose-800 ring-rose-400/80'
     : color === 'emerald'
     ? 'text-emerald-700 ring-emerald-300/80 hover:bg-emerald-50'
     : color === 'amber'
-    ? 'text-amber-700 ring-amber-300/80 hover:bg-amber-50'
+    ? 'text-warning ring-warning/30/80 hover:bg-warning/5'
     : 'text-rose-700 ring-rose-300/80 hover:bg-rose-50';
 
   return (
@@ -181,7 +181,7 @@ function FeedbackBtn({ icon, label, active, muted, loading, onClick, color }: Bt
       type="button"
       onClick={onClick}
       disabled={loading || muted}
-      className={`flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold shadow-md ring-1 transition hover:shadow-lg disabled:cursor-not-allowed ${
+      className={`flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold shadow-soft ring-1 transition hover:shadow-soft-lg disabled:cursor-not-allowed ${
         muted ? 'opacity-30' : ''
       } ${colorClass}`}
     >

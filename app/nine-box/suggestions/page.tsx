@@ -82,22 +82,22 @@ type CardCreateState =
   | { status: 'error'; message: string };
 
 const CELL_META: Record<Cell, { label: string; emoji: string; color: string }> = {
-  star: { label: '明星', emoji: '⭐', color: 'bg-amber-50 text-amber-800 border-amber-200' },
+  star: { label: '明星', emoji: '⭐', color: 'bg-warning/5 text-warning border-warning/20' },
   high_performer: { label: '高产', emoji: '🚀', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
   risk_burnout: { label: '风险枯萎', emoji: '⚠️', color: 'bg-rose-50 text-rose-700 border-rose-200' },
   rising_talent: { label: '升星人才', emoji: '🌱', color: 'bg-sky-50 text-sky-700 border-sky-200' },
-  core: { label: '核心力量', emoji: '🧱', color: 'bg-zinc-50 text-zinc-700 border-zinc-200' },
-  plateau: { label: '平台期', emoji: '➖', color: 'bg-zinc-50 text-zinc-600 border-zinc-200' },
+  core: { label: '核心力量', emoji: '🧱', color: 'bg-surface-1 text-ink-primary border' },
+  plateau: { label: '平台期', emoji: '➖', color: 'bg-surface-1 text-ink-secondary border' },
   mismatch: { label: '人岗错位', emoji: '🔄', color: 'bg-violet-50 text-violet-700 border-violet-200' },
-  low_engagement: { label: '投入不足', emoji: '😴', color: 'bg-amber-50 text-amber-700 border-amber-200' },
+  low_engagement: { label: '投入不足', emoji: '😴', color: 'bg-warning/5 text-warning border-warning/20' },
   must_intervene: { label: '必须干预', emoji: '🚨', color: 'bg-rose-100 text-rose-800 border-rose-300' },
 };
 
 const PRIORITY_META: Record<Priority, { label: string; color: string; rank: number }> = {
   urgent: { label: '紧急', color: 'bg-rose-100 text-rose-800 border-rose-300', rank: 0 },
-  high: { label: '高', color: 'bg-amber-50 text-amber-700 border-amber-200', rank: 1 },
+  high: { label: '高', color: 'bg-warning/5 text-warning border-warning/20', rank: 1 },
   medium: { label: '中', color: 'bg-sky-50 text-sky-700 border-sky-200', rank: 2 },
-  low: { label: '低', color: 'bg-zinc-50 text-zinc-600 border-zinc-200', rank: 3 },
+  low: { label: '低', color: 'bg-surface-1 text-ink-secondary border', rank: 3 },
 };
 
 export default function NineBoxSuggestionsPage() {
@@ -215,16 +215,16 @@ export default function NineBoxSuggestionsPage() {
   }, [suggestions]);
 
   return (
-    <div className="container mx-auto max-w-7xl p-6 space-y-4">
+    <div className="container mx-auto max-w-7xl p-6 space-y-4 md:px-8">
       <header className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+          <h1 className="text-title-3 font-semibold tracking-tight flex items-center gap-2">
             <Grid3x3 className="h-6 w-6 text-primary" />
             9-box 联动建议
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-caption text-muted-foreground mt-1">
             按 9-box 落点生成管理动作建议 · 紧急者优先 · 跳决策卡 / Persona 升级流程
-            <span className="ml-2 text-xs">CHARTER §5 M4</span>
+            <span className="ml-2 text-footnote">CHARTER §5 M4</span>
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
@@ -235,7 +235,7 @@ export default function NineBoxSuggestionsPage() {
 
       {error && (
         <Card className="border-rose-200 bg-rose-50">
-          <CardContent className="py-3 text-sm text-rose-700 flex items-center gap-2">
+          <CardContent className="py-3 text-caption text-rose-700 flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />
             {error}
           </CardContent>
@@ -262,7 +262,7 @@ export default function NineBoxSuggestionsPage() {
 
           <div className="flex items-center gap-2">
             <Users className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm">
+            <span className="text-caption">
               共 <strong>{suggestions.length}</strong> 人有数据
             </span>
           </div>
@@ -281,7 +281,7 @@ export default function NineBoxSuggestionsPage() {
           <div className="ml-auto">
             <a
               href={cycleId ? `/nine-box?cycleId=${cycleId}` : '/nine-box'}
-              className="text-sm text-primary inline-flex items-center gap-1 hover:underline"
+              className="text-caption text-primary inline-flex items-center gap-1 hover:underline"
             >
               <Grid3x3 className="h-3.5 w-3.5" />
               看 9-box 全景图
@@ -294,13 +294,13 @@ export default function NineBoxSuggestionsPage() {
       {/* 列表 */}
       {loading ? (
         <Card>
-          <CardContent className="py-12 text-center text-sm text-muted-foreground">
+          <CardContent className="py-12 text-center text-caption text-muted-foreground">
             加载中…
           </CardContent>
         </Card>
       ) : suggestions.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center text-sm text-muted-foreground">
+          <CardContent className="py-12 text-center text-caption text-muted-foreground">
             本周期暂无可分析的人 · 需要至少有 KPI 或 KR 数据
           </CardContent>
         </Card>
@@ -311,18 +311,18 @@ export default function NineBoxSuggestionsPage() {
           return (
             <Card key={s.userId}>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center justify-between gap-3 flex-wrap">
+                <CardTitle className="text-body flex items-center justify-between gap-3 flex-wrap">
                   <div className="flex items-center gap-2 min-w-0">
                     <Badge variant="outline" className={cell.color}>
                       {cell.emoji} {cell.label}
                     </Badge>
-                    <span className="text-sm">
+                    <span className="text-caption">
                       {s.name ?? userMap[s.userId]?.name ?? userMap[s.userId]?.email ?? (
                         <span className="font-mono text-muted-foreground">{s.userId}</span>
                       )}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground tabular-nums">
+                  <div className="flex items-center gap-2 text-footnote text-muted-foreground tabular-nums">
                     <span className="flex items-center gap-1">
                       <TrendingUp className="h-3 w-3" />
                       KPI {Math.round(s.kpiScore * 100)}%
@@ -350,23 +350,23 @@ export default function NineBoxSuggestionsPage() {
                         <div className="flex items-center gap-2">
                           <Icon
                             className={`h-4 w-4 ${
-                              a.kind === 'persona_upgrade' ? 'text-amber-600' : 'text-rose-600'
+                              a.kind === 'persona_upgrade' ? 'text-warning' : 'text-rose-600'
                             }`}
                           />
-                          <span className="font-medium text-sm">{a.title}</span>
-                          <Badge variant="outline" className={`${pr.color} text-xs`}>
+                          <span className="font-medium text-caption">{a.title}</span>
+                          <Badge variant="outline" className={`${pr.color} text-footnote`}>
                             {pr.label}
                           </Badge>
                         </div>
-                        <p className="text-xs text-muted-foreground">{a.description}</p>
+                        <p className="text-footnote text-muted-foreground">{a.description}</p>
                         {a.draft && (
-                          <div className="text-xs text-muted-foreground flex items-center gap-3">
+                          <div className="text-footnote text-muted-foreground flex items-center gap-3">
                             <span>类别: {a.draft.decisionClass}</span>
                             <span>建议时限: {a.draft.timelineDays} 天</span>
                           </div>
                         )}
                         {cardState.status === 'error' && (
-                          <div className="text-xs text-rose-600">
+                          <div className="text-footnote text-rose-600">
                             创建失败: {cardState.message}
                           </div>
                         )}
@@ -375,7 +375,7 @@ export default function NineBoxSuggestionsPage() {
                         {a.kind === 'persona_upgrade' ? (
                           <a
                             href={`/persona?owner=${encodeURIComponent(s.userId)}`}
-                            className="text-sm text-primary inline-flex items-center gap-1 hover:underline"
+                            className="text-caption text-primary inline-flex items-center gap-1 hover:underline"
                           >
                             去 Persona
                             <ExternalLink className="h-3 w-3" />
@@ -383,7 +383,7 @@ export default function NineBoxSuggestionsPage() {
                         ) : cardState.status === 'ok' ? (
                           <a
                             href={`/convergence/${cardState.cardId}`}
-                            className="text-sm text-emerald-700 inline-flex items-center gap-1 hover:underline"
+                            className="text-caption text-emerald-700 inline-flex items-center gap-1 hover:underline"
                           >
                             <CheckCircle2 className="h-3.5 w-3.5" />
                             进议事室

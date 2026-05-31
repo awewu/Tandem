@@ -93,8 +93,8 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-3xl">
-      <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+    <div className="space-y-6 max-w-3xl md:px-8">
+      <h1 className="text-title-2 font-bold tracking-tight">Settings</h1>
 
       <Card>
         <CardHeader>
@@ -102,7 +102,7 @@ export default function SettingsPage() {
           <CardDescription>Connect the WebUI to your Hermes Agent bridge</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="rounded-md bg-muted p-3 text-sm">
+          <div className="rounded-md bg-muted p-3 text-caption">
             <div className="flex items-center gap-2 font-medium mb-1">
               <ExternalLink size={14} /> Quick Start
             </div>
@@ -122,12 +122,12 @@ export default function SettingsPage() {
               </Button>
             </div>
             {testStatus === 'success' && (
-              <div className="flex items-center gap-1 text-sm text-green-600">
+              <div className="flex items-center gap-1 text-caption text-success">
                 <CheckCircle size={14} /> Connected to Hermes bridge successfully
               </div>
             )}
             {testStatus === 'error' && (
-              <div className="flex items-center gap-1 text-sm text-red-600">
+              <div className="flex items-center gap-1 text-caption text-danger">
                 <AlertCircle size={14} /> Cannot reach bridge. Is <code>start.bat</code> running?
               </div>
             )}
@@ -149,7 +149,7 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between">
             <div>
               <div className="font-medium">Theme</div>
-              <div className="text-sm text-muted-foreground">Light, dark, or follow system</div>
+              <div className="text-caption text-muted-foreground">Light, dark, or follow system</div>
             </div>
             <div className="flex gap-1">
               <Button variant={theme === 'light' ? 'default' : 'outline'} size="sm" onClick={() => setTheme('light')}><Sun size={14} className="mr-1" /> Light</Button>
@@ -161,14 +161,14 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between">
             <div>
               <div className="font-medium">Stream Responses</div>
-              <div className="text-sm text-muted-foreground">Token-by-token generation in chat</div>
+              <div className="text-caption text-muted-foreground">Token-by-token generation in chat</div>
             </div>
             <Switch defaultChecked />
           </div>
           <div className="flex items-center justify-between">
             <div>
               <div className="font-medium">Auto-save</div>
-              <div className="text-sm text-muted-foreground">Persist data to browser storage</div>
+              <div className="text-caption text-muted-foreground">Persist data to browser storage</div>
             </div>
             <Switch defaultChecked />
           </div>
@@ -187,7 +187,7 @@ export default function SettingsPage() {
             </Button>
             <label className="cursor-pointer">
               <input type="file" accept=".json" className="hidden" onChange={handleImport} />
-              <div className="inline-flex items-center gap-2 rounded-md border bg-background px-4 py-2 text-sm font-medium hover:bg-accent">
+              <div className="inline-flex items-center gap-2 rounded-md border bg-background px-4 py-2 text-caption font-medium hover:bg-accent">
                 <Upload size={14} /> Import Backup
               </div>
             </label>
@@ -196,7 +196,7 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between">
             <div>
               <div className="font-medium text-destructive">Reset All Data</div>
-              <div className="text-sm text-muted-foreground">Permanently delete everything</div>
+              <div className="text-caption text-muted-foreground">Permanently delete everything</div>
             </div>
             <Button variant="destructive" size="sm" onClick={handleClearAll}>
               <Trash2 size={14} className="mr-1" /> Reset
@@ -205,7 +205,7 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      <div className="text-center text-xs text-muted-foreground pt-4">
+      <div className="text-center text-footnote text-muted-foreground pt-4">
         Hermes Agent WebUI v0.1.0 · Next.js + shadcn/ui
       </div>
     </div>

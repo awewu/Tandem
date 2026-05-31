@@ -10,7 +10,7 @@ import { ArrowLeft, ShieldAlert, Lock, Mail } from 'lucide-react';
 
 export default function EthicsPage() {
   return (
-    <div className="page-container py-10 max-w-3xl space-y-8">
+    <div className="page-container py-10 max-w-3xl space-y-8 md:py-10">
       <Link
         href="/intranet"
         className="inline-flex items-center gap-1.5 text-caption text-brand-600 hover:text-brand-700 font-medium"

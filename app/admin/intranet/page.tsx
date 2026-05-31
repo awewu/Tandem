@@ -32,7 +32,7 @@ const TYPE_ICON: Record<IntranetPostType, React.ElementType> = {
 };
 
 const TYPE_COLOR: Record<IntranetPostType, string> = {
-  announcement: 'bg-amber-50 text-amber-700 border-amber-200',
+  announcement: 'bg-warning/5 text-warning border-warning/20',
   policy: 'bg-rose-50 text-rose-700 border-rose-200',
   event: 'bg-blue-50 text-blue-700 border-blue-200',
   benefit: 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -79,15 +79,15 @@ export default function IntranetAdminPage() {
   }, [posts]);
 
   return (
-    <div className="page-container py-8 space-y-6">
+    <div className="page-container py-8 space-y-6 md:py-10">
       <header className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+          <h1 className="text-title-3 font-semibold tracking-tight flex items-center gap-2">
             <Megaphone className="h-6 w-6 text-primary" />
             Intranet 内容管理
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            公告 · 政策 · 大事记 · 福利 · 数据来源: <span className="font-mono text-xs">/api/intranet/posts</span>
+          <p className="text-caption text-muted-foreground mt-1">
+            公告 · 政策 · 大事记 · 福利 · 数据来源: <span className="font-mono text-footnote">/api/intranet/posts</span>
           </p>
         </div>
         <div className="flex gap-2">
@@ -104,7 +104,7 @@ export default function IntranetAdminPage() {
 
       {error && (
         <Card className="border-rose-200 bg-rose-50">
-          <CardContent className="py-3 text-sm text-rose-700 flex items-center gap-2">
+          <CardContent className="py-3 text-caption text-rose-700 flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />
             {error}
           </CardContent>
@@ -125,7 +125,7 @@ export default function IntranetAdminPage() {
         return (
           <Card key={t}>
             <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
+              <CardTitle className="text-body flex items-center gap-2">
                 <Icon className="h-4 w-4" />
                 {INTRANET_POST_TYPE_LABELS[t]}
                 <Badge variant="outline" className={`text-[10px] ${TYPE_COLOR[t]}`}>
@@ -135,12 +135,12 @@ export default function IntranetAdminPage() {
             </CardHeader>
             <CardContent className="p-0">
               {list.length === 0 ? (
-                <div className="px-4 py-6 text-center text-xs text-muted-foreground">
+                <div className="px-4 py-6 text-center text-footnote text-muted-foreground">
                   暂无{INTRANET_POST_TYPE_LABELS[t]}
                 </div>
               ) : (
-                <table className="w-full text-sm">
-                  <thead className="border-b bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+                <table className="w-full text-caption">
+                  <thead className="border-b bg-muted/40 text-footnote uppercase tracking-wide text-muted-foreground">
                     <tr>
                       <th className="px-4 py-2 text-left font-medium">标题</th>
                       <th className="px-4 py-2 text-left font-medium">状态</th>
@@ -201,43 +201,43 @@ function PostRow({ post, onEdit, onChanged }: { post: IntranetPost; onEdit: () =
       </td>
       <td className="px-4 py-2.5">
         {isArchived ? (
-          <Badge variant="outline" className="bg-zinc-50 text-zinc-600 text-[10px]">已归档</Badge>
+          <Badge variant="outline" className="bg-surface-1 text-ink-secondary text-[10px]">已归档</Badge>
         ) : isDraft ? (
-          <Badge variant="outline" className="bg-amber-50 text-amber-700 text-[10px]">草稿</Badge>
+          <Badge variant="outline" className="bg-warning/5 text-warning text-[10px]">草稿</Badge>
         ) : (
           <Badge variant="outline" className="bg-emerald-50 text-emerald-700 text-[10px]">已发布</Badge>
         )}
       </td>
-      <td className="px-4 py-2.5 text-xs text-muted-foreground tabular-nums">
+      <td className="px-4 py-2.5 text-footnote text-muted-foreground tabular-nums">
         {post.mandatoryRead ? `${post.readBy.length} 人` : '—'}
       </td>
-      <td className="px-4 py-2.5 text-xs text-muted-foreground">
+      <td className="px-4 py-2.5 text-footnote text-muted-foreground">
         {post.publishedAt ? new Date(post.publishedAt).toLocaleString('zh-CN') : '—'}
       </td>
       <td className="px-4 py-2.5">
         <div className="flex gap-1">
-          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={onEdit} disabled={busy}>
+          <Button size="sm" variant="ghost" className="h-7 text-footnote" onClick={onEdit} disabled={busy}>
             <Eye className="h-3 w-3 mr-0.5" />编辑
           </Button>
           {isDraft && !isArchived && (
-            <Button size="sm" variant="ghost" className="h-7 text-xs text-emerald-700"
+            <Button size="sm" variant="ghost" className="h-7 text-footnote text-emerald-700"
               onClick={() => void patch({ publish: true })} disabled={busy}>
               <Send className="h-3 w-3 mr-0.5" />发布
             </Button>
           )}
           {!isDraft && !isArchived && (
-            <Button size="sm" variant="ghost" className="h-7 text-xs"
+            <Button size="sm" variant="ghost" className="h-7 text-footnote"
               onClick={() => void patch({ unpublish: true })} disabled={busy}>
               收回
             </Button>
           )}
           {!isArchived ? (
-            <Button size="sm" variant="ghost" className="h-7 text-xs text-zinc-600"
+            <Button size="sm" variant="ghost" className="h-7 text-footnote text-ink-secondary"
               onClick={() => { if (confirm(`确认归档 "${post.title}"?`)) void patch({ archive: true }); }} disabled={busy}>
               <Archive className="h-3 w-3 mr-0.5" />归档
             </Button>
           ) : (
-            <Button size="sm" variant="ghost" className="h-7 text-xs"
+            <Button size="sm" variant="ghost" className="h-7 text-footnote"
               onClick={() => void patch({ unarchive: true })} disabled={busy}>
               恢复
             </Button>
@@ -303,14 +303,14 @@ function PostEditor({
   return (
     <Card className="border-primary/30">
       <CardHeader className="pb-2">
-        <CardTitle className="text-base flex items-center gap-2">
+        <CardTitle className="text-body flex items-center gap-2">
           {initial ? '编辑' : '新建'}内容
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <Label className="text-xs">类型</Label>
+            <Label className="text-footnote">类型</Label>
             <Select value={type} onValueChange={(v) => setType(v as IntranetPostType)} disabled={!!initial}>
               <SelectTrigger className="h-9 mt-1"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -321,7 +321,7 @@ function PostEditor({
             </Select>
           </div>
           <div className="flex items-end">
-            <label className="flex items-center gap-2 text-xs cursor-pointer">
+            <label className="flex items-center gap-2 text-footnote cursor-pointer">
               <input
                 type="checkbox"
                 checked={mandatoryRead}
@@ -333,36 +333,36 @@ function PostEditor({
           </div>
         </div>
         <div>
-          <Label className="text-xs">标题</Label>
+          <Label className="text-footnote">标题</Label>
           <Input value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1" placeholder="一句话总结" />
         </div>
         <div>
-          <Label className="text-xs">摘要 (可选, ≤280 字)</Label>
+          <Label className="text-footnote">摘要 (可选, ≤280 字)</Label>
           <Textarea
             value={summary}
             onChange={(e) => setSummary(e.target.value.slice(0, 280))}
             rows={2}
-            className="mt-1 text-sm"
+            className="mt-1 text-caption"
             placeholder="列表页展示用; 留空则不显示摘要"
           />
         </div>
         <div>
-          <Label className="text-xs">正文 (Markdown)</Label>
+          <Label className="text-footnote">正文 (Markdown)</Label>
           <Textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
             rows={10}
-            className="mt-1 text-sm font-mono"
+            className="mt-1 text-caption font-mono"
             placeholder="支持 Markdown 语法"
           />
         </div>
         <div>
-          <Label className="text-xs">标签 (逗号分隔)</Label>
+          <Label className="text-footnote">标签 (逗号分隔)</Label>
           <Input value={tags} onChange={(e) => setTags(e.target.value)} className="mt-1" placeholder="Q4-2026, 工程部" />
         </div>
 
         {err && (
-          <div className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded px-3 py-2 flex items-center gap-2">
+          <div className="text-footnote text-rose-700 bg-rose-50 border border-rose-200 rounded px-3 py-2 flex items-center gap-2">
             <AlertCircle className="h-3.5 w-3.5" />{err}
           </div>
         )}

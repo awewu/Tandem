@@ -55,18 +55,18 @@ export default function BitableTablePage() {
   if (!table) return <div className="p-8 text-slate-400">表格不存在</div>;
 
   return (
-    <div className="max-w-7xl mx-auto p-6">
+    <div className="max-w-7xl mx-auto p-6 md:px-8">
       <div className="mb-4 flex items-center gap-2">
         <Link href="/bitable" className="text-slate-500 hover:text-slate-900">
           <ArrowLeft className="h-4 w-4" />
         </Link>
-        <h1 className="text-xl font-bold">{table.name}</h1>
-        <span className="text-xs text-slate-400">· {table.rows.length} 行</span>
+        <h1 className="text-headline font-bold">{table.name}</h1>
+        <span className="text-footnote text-slate-400">· {table.rows.length} 行</span>
       </div>
 
       <div className="rounded-lg border border-slate-200 bg-white overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
+        <table className="w-full text-caption">
+          <thead className="bg-slate-50 text-footnote text-slate-500 uppercase">
             <tr>
               {table.columns.map((col) => (
                 <ColumnHeader key={col.id} col={col} />
@@ -95,7 +95,7 @@ export default function BitableTablePage() {
                           autoFocus
                           aria-label={`编辑 ${col.name}`}
                           placeholder={col.name}
-                          className="w-full bg-amber-50 px-1 py-0.5 outline-none ring-1 ring-amber-300 rounded"
+                          className="w-full bg-warning/5 px-1 py-0.5 outline-none ring-1 ring-warning/30 rounded"
                           value={editValue}
                           onChange={(e) => setEditValue(e.target.value)}
                           onBlur={() => {
@@ -126,7 +126,7 @@ export default function BitableTablePage() {
         <div className="border-t border-slate-100">
           <button
             onClick={addRow}
-            className="w-full px-3 py-2 text-sm text-slate-500 hover:bg-slate-50 flex items-center gap-1.5"
+            className="w-full px-3 py-2 text-caption text-slate-500 hover:bg-slate-50 flex items-center gap-1.5"
           >
             <Plus className="h-3.5 w-3.5" /> 新增一行
           </button>

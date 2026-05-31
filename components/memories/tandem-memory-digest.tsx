@@ -38,10 +38,10 @@ interface MemoryArtifact {
 
 const TYPE_META: Record<MemoryArtifact['type'], { label: string; icon: React.ElementType; color: string }> = {
   sop: { label: 'SOP', icon: BookOpen, color: 'bg-sky-100 text-sky-800 border-sky-200' },
-  case: { label: '案例', icon: Lightbulb, color: 'bg-amber-100 text-amber-800 border-amber-200' },
+  case: { label: '案例', icon: Lightbulb, color: 'bg-warning/10 text-warning border-warning/20' },
   redline: { label: '红线', icon: AlertTriangle, color: 'bg-rose-100 text-rose-800 border-rose-200' },
   value: { label: '价值观', icon: Heart, color: 'bg-violet-100 text-violet-800 border-violet-200' },
-  lesson: { label: '教训', icon: TrendingUp, color: 'bg-zinc-100 text-zinc-700 border-zinc-200' },
+  lesson: { label: '教训', icon: TrendingUp, color: 'bg-surface-1 text-ink-primary border' },
 };
 
 export function TandemMemoryDigest() {
@@ -78,11 +78,11 @@ export function TandemMemoryDigest() {
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <CardTitle className="text-base flex items-center gap-2">
+            <CardTitle className="text-body flex items-center gap-2">
               <BookOpen className="h-4 w-4" />
               公司 Memory · 全员可引用
             </CardTitle>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-footnote text-muted-foreground mt-1">
               经 Lv1/2/3 签批沉淀的 SOP / 案例 / 红线 / 价值观 · CHARTER §6
             </p>
           </div>
@@ -92,7 +92,7 @@ export function TandemMemoryDigest() {
             </Button>
             <Link
               href="/admin/steward"
-              className="text-xs text-primary hover:underline inline-flex items-center gap-0.5"
+              className="text-footnote text-primary hover:underline inline-flex items-center gap-0.5"
             >
               Steward 工作台 <ArrowRight className="h-3 w-3" />
             </Link>
@@ -122,9 +122,9 @@ export function TandemMemoryDigest() {
 
         {/* 列表 */}
         {loading ? (
-          <div className="text-xs text-muted-foreground py-4 text-center">加载中…</div>
+          <div className="text-footnote text-muted-foreground py-4 text-center">加载中…</div>
         ) : error ? (
-          <div className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded px-3 py-2">
+          <div className="text-footnote text-rose-700 bg-rose-50 border border-rose-200 rounded px-3 py-2">
             加载失败: {error} · <button onClick={() => void load()} className="underline">重试</button>
           </div>
         ) : items && items.length > 0 ? (
@@ -133,13 +133,13 @@ export function TandemMemoryDigest() {
               const meta = TYPE_META[m.type];
               const Icon = meta.icon;
               return (
-                <li key={m.id} className="px-3 py-2 hover:bg-muted/30 transition-colors flex items-center gap-3 text-sm">
+                <li key={m.id} className="px-3 py-2 hover:bg-muted/30 transition-colors flex items-center gap-3 text-caption">
                   <Badge variant="outline" className={`${meta.color} shrink-0 gap-1`}>
                     <Icon className="h-3 w-3" />
                     {meta.label}
                   </Badge>
                   <span className="flex-1 truncate font-medium">{m.title}</span>
-                  <span className="text-xs text-muted-foreground tabular-nums shrink-0">
+                  <span className="text-footnote text-muted-foreground tabular-nums shrink-0">
                     引用 {m.referenceCount}
                   </span>
                 </li>
@@ -147,7 +147,7 @@ export function TandemMemoryDigest() {
             })}
           </ul>
         ) : (
-          <div className="text-xs text-muted-foreground bg-muted/30 border border-dashed rounded px-3 py-6 text-center">
+          <div className="text-footnote text-muted-foreground bg-muted/30 border border-dashed rounded px-3 py-6 text-center">
             <p>暂无已签批的 Memory artifact</p>
             <Link
               href="/admin/steward"
@@ -161,7 +161,7 @@ export function TandemMemoryDigest() {
         {items && items.length > 8 && (
           <Link
             href="/admin/steward"
-            className="block text-center text-xs text-primary hover:underline"
+            className="block text-center text-footnote text-primary hover:underline"
           >
             查看全部 {items.length} 条 →
           </Link>

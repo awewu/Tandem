@@ -113,10 +113,10 @@ export default function MeetingRoomPage() {
     <div className="flex h-screen flex-col bg-slate-950 text-white">
       <header className="border-b border-slate-800 px-5 py-3 flex items-center justify-between">
         <div>
-          <div className="text-xs text-slate-400">视频会议</div>
+          <div className="text-footnote text-slate-400">视频会议</div>
           <div className="font-semibold">{roomId}</div>
         </div>
-        <div className="text-xs text-slate-400">
+        <div className="text-footnote text-slate-400">
           {phase === 'connecting' && <span className="inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> 连接中…</span>}
           {phase === 'connected' && <span className="text-emerald-400">● 已连接 · {peers.length + 1} 人</span>}
           {phase === 'error' && (
@@ -130,13 +130,13 @@ export default function MeetingRoomPage() {
       <main className="flex-1 grid grid-cols-2 md:grid-cols-3 gap-2 p-3 overflow-auto">
         <div className="relative bg-slate-900 rounded-lg overflow-hidden aspect-video">
           <video ref={localVideoRef} autoPlay muted playsInline className="h-full w-full object-cover" />
-          <div className="absolute bottom-2 left-2 bg-black/50 px-2 py-0.5 text-xs rounded">我</div>
+          <div className="absolute bottom-2 left-2 bg-black/50 px-2 py-0.5 text-footnote rounded">我</div>
         </div>
         {peers.map((p) => (
           <PeerTile key={p.identity} peer={p} />
         ))}
         {phase === 'connecting' && (
-          <div className="bg-slate-900 rounded-lg aspect-video flex items-center justify-center text-slate-500 text-xs">
+          <div className="bg-slate-900 rounded-lg aspect-video flex items-center justify-center text-slate-500 text-footnote">
             <Loader2 className="h-5 w-5 animate-spin" />
           </div>
         )}
@@ -192,7 +192,7 @@ function PeerTile({ peer }: { peer: RemotePeer }) {
     <div className="relative bg-slate-900 rounded-lg overflow-hidden aspect-video">
       <video ref={videoRef} autoPlay playsInline className="h-full w-full object-cover" />
       <audio ref={audioRef} autoPlay />
-      <div className="absolute bottom-2 left-2 bg-black/50 px-2 py-0.5 text-xs rounded">{peer.identity}</div>
+      <div className="absolute bottom-2 left-2 bg-black/50 px-2 py-0.5 text-footnote rounded">{peer.identity}</div>
     </div>
   );
 }

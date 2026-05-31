@@ -93,7 +93,7 @@ interface CheckIn {
 
 const CONFIDENCE_META: Record<Confidence, { label: string; color: string }> = {
   'on-track': { label: '正常', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  'at-risk': { label: '有风险', color: 'bg-amber-50 text-amber-700 border-amber-200' },
+  'at-risk': { label: '有风险', color: 'bg-warning/5 text-warning border-warning/20' },
   'off-track': { label: '严重偏离', color: 'bg-rose-50 text-rose-700 border-rose-200' },
 };
 
@@ -106,7 +106,7 @@ function ttiHealth(progressPct: number): {
   if (progressPct >= 90) {
     return {
       label: '过高',
-      color: 'bg-amber-50 text-amber-700 border-amber-200',
+      color: 'bg-warning/5 text-warning border-warning/20',
       hint: '> 90% 通常说明目标设定偏低. 下个周期可设更有挑战的 stretch goal.',
     };
   }
@@ -300,13 +300,13 @@ export default function TtiPage() {
   return (
     <div className="container mx-auto max-w-5xl p-6 space-y-4">
       <header>
-        <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+        <h1 className="text-title-3 font-semibold tracking-tight flex items-center gap-2">
           <Sparkles className="h-6 w-6 text-primary" />
           我的 TTI · 四要素填报
         </h1>
-        <p className="text-sm text-muted-foreground mt-1">
+        <p className="text-caption text-muted-foreground mt-1">
           战略成长空间 · 与奖金完全分离 · 60-70% 是健康区间
-          <span className="ml-2 text-xs">CHARTER-KPI-TTI §3</span>
+          <span className="ml-2 text-footnote">CHARTER-KPI-TTI §3</span>
         </p>
       </header>
 
@@ -316,7 +316,7 @@ export default function TtiPage() {
       </TrustBanner>
 
       <div className="flex items-center justify-between">
-        <div className="text-sm text-muted-foreground">
+        <div className="text-caption text-muted-foreground">
           属于你的 Objective: <strong>{objectives.length}</strong> · KR: <strong>{krs.length}</strong>
         </div>
         <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
@@ -327,7 +327,7 @@ export default function TtiPage() {
 
       {error && (
         <Card className="border-rose-200 bg-rose-50">
-          <CardContent className="py-3 text-sm text-rose-700 flex items-center gap-2">
+          <CardContent className="py-3 text-caption text-rose-700 flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />
             {error}
           </CardContent>
@@ -336,13 +336,13 @@ export default function TtiPage() {
 
       {loading ? (
         <Card>
-          <CardContent className="py-10 text-center text-sm text-muted-foreground">
+          <CardContent className="py-10 text-center text-caption text-muted-foreground">
             加载中…
           </CardContent>
         </Card>
       ) : krs.length === 0 ? (
         <Card>
-          <CardContent className="py-10 text-center text-sm text-muted-foreground">
+          <CardContent className="py-10 text-center text-caption text-muted-foreground">
             你还没有 KR (TTI). 去{' '}
             <a href="/okr" className="text-primary underline">
               /okr
@@ -357,12 +357,12 @@ export default function TtiPage() {
           return (
             <Card key={obj.id}>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-start gap-2">
+                <CardTitle className="text-body flex items-start gap-2">
                   <Compass className="h-4 w-4 mt-0.5 text-primary flex-shrink-0" />
                   <div className="space-y-0.5">
                     <div>{obj.title}</div>
                     {obj.description && (
-                      <div className="text-xs text-muted-foreground font-normal">
+                      <div className="text-footnote text-muted-foreground font-normal">
                         <span className="font-medium">改进实现:</span> {obj.description}
                       </div>
                     )}
@@ -385,7 +385,7 @@ export default function TtiPage() {
                             <Target className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                             {kr.title}
                           </div>
-                          <div className="text-xs text-muted-foreground mt-1 tabular-nums">
+                          <div className="text-footnote text-muted-foreground mt-1 tabular-nums">
                             起 {kr.startValue.toLocaleString()} → 目标{' '}
                             <strong>{kr.targetValue.toLocaleString()}</strong>
                             {kr.unit && <span> {kr.unit}</span>} · 当前{' '}
@@ -396,19 +396,19 @@ export default function TtiPage() {
                           <Badge variant="outline" className={health.color}>
                             {health.label} {progress}%
                           </Badge>
-                          <Badge variant="outline" className={`${conf.color} text-xs`}>
+                          <Badge variant="outline" className={`${conf.color} text-footnote`}>
                             {conf.label}
                           </Badge>
                         </div>
                       </div>
                       <Progress value={Math.min(100, progress)} className="h-2" />
-                      <p className="text-xs text-muted-foreground italic">{health.hint}</p>
+                      <p className="text-footnote text-muted-foreground italic">{health.hint}</p>
 
                       {/* 四要素引导表单 */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t">
                         {/* 推进事项 (本期取得了什么) */}
                         <div className="space-y-1.5">
-                          <Label className="text-xs flex items-center gap-1.5">
+                          <Label className="text-footnote flex items-center gap-1.5">
                             <Zap className="h-3.5 w-3.5 text-emerald-600" />
                             推进事项 · 本期取得了什么
                           </Label>
@@ -424,8 +424,8 @@ export default function TtiPage() {
 
                         {/* 关键障碍 */}
                         <div className="space-y-1.5">
-                          <Label className="text-xs flex items-center gap-1.5">
-                            <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                          <Label className="text-footnote flex items-center gap-1.5">
+                            <AlertTriangle className="h-3.5 w-3.5 text-warning" />
                             关键障碍 · 在阻挠你的是什么
                           </Label>
                           <Textarea
@@ -438,7 +438,7 @@ export default function TtiPage() {
 
                         {/* 实际进度 */}
                         <div className="space-y-1.5">
-                          <Label className="text-xs flex items-center gap-1.5">
+                          <Label className="text-footnote flex items-center gap-1.5">
                             <TrendingUp className="h-3.5 w-3.5 text-sky-600" />
                             实际进度 · 当前数值
                             <span className="text-rose-500">*</span>
@@ -453,7 +453,7 @@ export default function TtiPage() {
 
                         {/* 信心度 */}
                         <div className="space-y-1.5">
-                          <Label className="text-xs flex items-center gap-1.5">
+                          <Label className="text-footnote flex items-center gap-1.5">
                             <Activity className="h-3.5 w-3.5 text-violet-600" />
                             信心度
                           </Label>
@@ -476,7 +476,7 @@ export default function TtiPage() {
 
                         {/* 推进事项 - 下一步 (推进事项 第二维) */}
                         <div className="space-y-1.5 md:col-span-2">
-                          <Label className="text-xs flex items-center gap-1.5">
+                          <Label className="text-footnote flex items-center gap-1.5">
                             <Compass className="h-3.5 w-3.5 text-primary" />
                             推进事项 · 下一步做什么
                           </Label>
@@ -490,13 +490,13 @@ export default function TtiPage() {
                       </div>
 
                       {f.error && (
-                        <div className="text-sm text-rose-600 bg-rose-50 px-3 py-2 rounded-md flex items-center gap-1.5">
+                        <div className="text-caption text-rose-600 bg-rose-50 px-3 py-2 rounded-md flex items-center gap-1.5">
                           <AlertCircle className="h-4 w-4" />
                           {f.error}
                         </div>
                       )}
                       {f.ok && (
-                        <div className="text-sm text-emerald-700 bg-emerald-50 px-3 py-2 rounded-md flex items-center gap-1.5">
+                        <div className="text-caption text-emerald-700 bg-emerald-50 px-3 py-2 rounded-md flex items-center gap-1.5">
                           <CheckCircle2 className="h-4 w-4" />
                           {f.ok}
                         </div>
@@ -514,14 +514,14 @@ export default function TtiPage() {
                       {/* 历史 check-in (近 3 次) */}
                       {recent.length > 0 && (
                         <div className="border-t pt-3">
-                          <div className="text-xs text-muted-foreground mb-2">
+                          <div className="text-footnote text-muted-foreground mb-2">
                             近期填报 · {recent.length} 次
                           </div>
                           <ul className="space-y-2">
                             {recent.slice(0, 3).map((c) => (
                               <li
                                 key={c.id}
-                                className="text-xs text-muted-foreground border-l-2 pl-3 py-1"
+                                className="text-footnote text-muted-foreground border-l-2 pl-3 py-1"
                               >
                                 <div className="flex items-center gap-2">
                                   <span className="tabular-nums">
@@ -529,7 +529,7 @@ export default function TtiPage() {
                                   </span>
                                   <Badge
                                     variant="outline"
-                                    className={`${CONFIDENCE_META[c.confidenceAfter].color} text-xs`}
+                                    className={`${CONFIDENCE_META[c.confidenceAfter].color} text-footnote`}
                                   >
                                     {CONFIDENCE_META[c.confidenceAfter].label}
                                   </Badge>
@@ -544,7 +544,7 @@ export default function TtiPage() {
                                 )}
                                 {c.blockers && (
                                   <div className="mt-0.5">
-                                    <span className="text-amber-700">障碍:</span> {c.blockers}
+                                    <span className="text-warning">障碍:</span> {c.blockers}
                                   </div>
                                 )}
                                 {c.nextSteps && (

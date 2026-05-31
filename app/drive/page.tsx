@@ -56,9 +56,9 @@ export default function DrivePage() {
   if (loading) return <div className="p-8 text-gray-500">加载中...</div>;
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-6 max-w-5xl mx-auto md:px-8">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold flex items-center gap-2">
+        <h1 className="text-title-3 font-bold flex items-center gap-2">
           <HardDrive size={24} /> 云盘
         </h1>
         <button onClick={() => setShowForm(true)} className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
@@ -83,12 +83,12 @@ export default function DrivePage() {
       <div className="grid gap-2">
         {files.map((f) => (
           <div key={f.id} className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 transition">
-            {f.type === "folder" ? <Folder size={20} className="text-amber-500" /> : <File size={20} className="text-blue-500" />}
+            {f.type === "folder" ? <Folder size={20} className="text-warning" /> : <File size={20} className="text-blue-500" />}
             <div className="flex-1">
               <div className="font-medium">{f.name}</div>
-              <div className="text-xs text-gray-400">{new Date(f.updatedAt).toLocaleString()}</div>
+              <div className="text-footnote text-gray-400">{new Date(f.updatedAt).toLocaleString()}</div>
             </div>
-            <button aria-label="删除" onClick={() => deleteFile(f.id)} className="p-2 text-red-500 hover:bg-red-50 rounded">
+            <button aria-label="删除" onClick={() => deleteFile(f.id)} className="p-2 text-danger hover:bg-danger/5 rounded">
               <Trash2 size={16} />
             </button>
           </div>

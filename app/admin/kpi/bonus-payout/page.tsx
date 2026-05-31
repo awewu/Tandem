@@ -268,16 +268,16 @@ export default function KpiBonusPayoutPage() {
   const isLocked = activeCycle?.status === 'closed';
 
   return (
-    <div className="container mx-auto max-w-7xl p-6 space-y-4">
+    <div className="container mx-auto max-w-7xl p-6 space-y-4 md:px-8">
       <header className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+          <h1 className="text-title-3 font-semibold tracking-tight flex items-center gap-2">
             <DollarSign className="h-6 w-6 text-primary" />
             KPI 绩效奖金下发
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-caption text-muted-foreground mt-1">
             按 scope=bonus KPI 加权完成率计算 · 试算预览 → 正式下发 → 年终关闭
-            <span className="ml-2 text-xs">CHARTER §5 M3</span>
+            <span className="ml-2 text-footnote">CHARTER §5 M3</span>
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
@@ -293,7 +293,7 @@ export default function KpiBonusPayoutPage() {
 
       {error && (
         <Card className="border-rose-200 bg-rose-50">
-          <CardContent className="py-3 text-sm text-rose-700 flex items-center gap-2">
+          <CardContent className="py-3 text-caption text-rose-700 flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />
             {error}
           </CardContent>
@@ -332,7 +332,7 @@ export default function KpiBonusPayoutPage() {
             </Badge>
           )}
 
-          <div className="ml-auto flex items-center gap-3 text-sm">
+          <div className="ml-auto flex items-center gap-3 text-caption">
             <span className="text-muted-foreground">
               人员 <strong>{assignees.length}</strong>
             </span>
@@ -390,13 +390,13 @@ export default function KpiBonusPayoutPage() {
       )}
 
       {busy && busyAction && (
-        <div className="text-sm text-muted-foreground text-center">{busyAction}</div>
+        <div className="text-caption text-muted-foreground text-center">{busyAction}</div>
       )}
 
       {/* 表格 */}
       {assignees.length === 0 && !loading ? (
         <Card>
-          <CardContent className="py-10 text-center text-sm text-muted-foreground">
+          <CardContent className="py-10 text-center text-caption text-muted-foreground">
             {activeCycle
               ? '本周期没有 scope=bonus 的 KPI · 无人需要算奖金'
               : '请选择一个周期'}
@@ -405,11 +405,11 @@ export default function KpiBonusPayoutPage() {
       ) : (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">奖金明细</CardTitle>
+            <CardTitle className="text-body">奖金明细</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <table className="w-full text-sm">
-              <thead className="border-b bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+            <table className="w-full text-caption">
+              <thead className="border-b bg-muted/40 text-footnote uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th className="px-4 py-2 text-left font-medium w-8"></th>
                   <th className="px-4 py-2 text-left font-medium">承担人</th>
@@ -431,7 +431,7 @@ export default function KpiBonusPayoutPage() {
                     wc >= 1.0
                       ? 'text-emerald-700'
                       : wc >= 0.85
-                      ? 'text-amber-700'
+                      ? 'text-warning'
                       : 'text-rose-700';
                   return (
                     <Fragment key={a}>
@@ -451,7 +451,7 @@ export default function KpiBonusPayoutPage() {
                         </td>
                         <td className="px-4 py-2">
                           <div className="flex flex-col">
-                            <span className="text-sm">
+                            <span className="text-caption">
                               {userMap[a]?.name ?? userMap[a]?.email ?? (
                                 <span className="font-mono text-muted-foreground">{a}</span>
                               )}
@@ -463,7 +463,7 @@ export default function KpiBonusPayoutPage() {
                             )}
                           </div>
                         </td>
-                        <td className="px-4 py-2 text-right text-xs">{myKpis.length}</td>
+                        <td className="px-4 py-2 text-right text-footnote">{myKpis.length}</td>
                         <td className={`px-4 py-2 text-right tabular-nums ${wcColor}`}>
                           {p ? `${wcPct}%` : '—'}
                         </td>
@@ -484,14 +484,14 @@ export default function KpiBonusPayoutPage() {
                         </td>
                         <td className="px-4 py-2">
                           {!p && (
-                            <Badge variant="outline" className="text-xs">
+                            <Badge variant="outline" className="text-footnote">
                               未计算
                             </Badge>
                           )}
                           {p && !p.committed && (
                             <Badge
                               variant="outline"
-                              className="bg-amber-50 text-amber-700 border-amber-200 text-xs"
+                              className="bg-warning/5 text-warning border-warning/20 text-footnote"
                             >
                               草稿
                             </Badge>
@@ -499,7 +499,7 @@ export default function KpiBonusPayoutPage() {
                           {p?.committed && (
                             <Badge
                               variant="outline"
-                              className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs"
+                              className="bg-emerald-50 text-emerald-700 border-emerald-200 text-footnote"
                             >
                               <CheckCircle2 className="h-3 w-3 mr-1" />
                               已下发
@@ -510,10 +510,10 @@ export default function KpiBonusPayoutPage() {
                       {isOpen && (
                         <tr className="bg-muted/20">
                           <td colSpan={7} className="px-8 py-3">
-                            <div className="text-xs text-muted-foreground mb-2">
+                            <div className="text-footnote text-muted-foreground mb-2">
                               KPI 贡献明细
                             </div>
-                            <table className="w-full text-xs">
+                            <table className="w-full text-footnote">
                               <thead>
                                 <tr className="text-muted-foreground">
                                   <th className="text-left py-1">标题</th>

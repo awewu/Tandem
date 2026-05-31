@@ -70,7 +70,7 @@ import { assessBscBalance, computeBscDistribution } from '@/lib/kpi/bsc-validati
 
 const LEVEL_LABEL: Record<KpiLevel, { label: string; color: string }> = {
   company: { label: '公司级', color: 'bg-violet-50 text-violet-700 border-violet-200' },
-  department: { label: '部门级', color: 'bg-amber-50 text-amber-700 border-amber-200' },
+  department: { label: '部门级', color: 'bg-warning/5 text-warning border-warning/20' },
   individual: { label: '个人级', color: 'bg-sky-50 text-sky-700 border-sky-200' },
 };
 
@@ -80,7 +80,7 @@ const SCOPE_LABEL: Record<KpiScope, { label: string; color: string; icon: typeof
 };
 
 const STATUS_LABEL: Record<KpiCycle['status'], { label: string; color: string }> = {
-  draft: { label: '草稿', color: 'bg-zinc-100 text-zinc-700 border-zinc-300' },
+  draft: { label: '草稿', color: 'bg-surface-1 text-ink-primary border' },
   active: { label: '已激活 (锁定)', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
   closed: { label: '已关闭', color: 'bg-rose-50 text-rose-700 border-rose-200' },
 };
@@ -425,16 +425,16 @@ export default function KpiSetupPage() {
   const cycleCount = cycles.length;
 
   return (
-    <div className="container mx-auto max-w-7xl p-6 space-y-4">
+    <div className="container mx-auto max-w-7xl p-6 space-y-4 md:px-8">
       <header className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
+          <h1 className="text-title-3 font-semibold tracking-tight flex items-center gap-2">
             <Target className="h-6 w-6 text-primary" />
             KPI 设置工作台
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-caption text-muted-foreground mt-1">
             HR/高管 (kpi.write) 设置年度 KPI 目标 · 三层 cascade · 通道 A
-            <span className="ml-2 text-xs">CHARTER-KPI-TTI §2.1</span>
+            <span className="ml-2 text-footnote">CHARTER-KPI-TTI §2.1</span>
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -451,7 +451,7 @@ export default function KpiSetupPage() {
 
       {error && (
         <Card className="border-rose-200 bg-rose-50">
-          <CardContent className="py-3 text-sm text-rose-700 flex items-center gap-2">
+          <CardContent className="py-3 text-caption text-rose-700 flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />
             加载失败: {error}
           </CardContent>
@@ -461,7 +461,7 @@ export default function KpiSetupPage() {
       {/* 周期选择 + 状态 */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
+          <CardTitle className="text-body flex items-center gap-2">
             <Calendar className="h-4 w-4" />
             当前周期
           </CardTitle>
@@ -469,7 +469,7 @@ export default function KpiSetupPage() {
         <CardContent className="space-y-3">
           {cycleCount === 0 ? (
             <div className="space-y-3 py-2">
-              <p className="text-sm text-muted-foreground">
+              <p className="text-caption text-muted-foreground">
                 尚未创建任何 KPI 周期. 你可以从一个空周期开始, 也可以一键种入演示数据 (FY2026 + 7 科目 + 12 KPI + 4 assignee, 覆盖 9-box 4 种典型格).
               </p>
               <div className="flex items-center gap-2 flex-wrap">
@@ -522,11 +522,11 @@ export default function KpiSetupPage() {
                     {activeCycle.status !== 'draft' && <Lock className="h-3 w-3 mr-1" />}
                     {STATUS_LABEL[activeCycle.status].label}
                   </Badge>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-footnote text-muted-foreground">
                     {activeCycle.startDate.slice(0, 10)} → {activeCycle.endDate.slice(0, 10)}
                   </span>
                   {activeCycle.targetsLockedAt && (
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-footnote text-muted-foreground">
                       锁定于 {activeCycle.targetsLockedAt.slice(0, 10)}
                     </span>
                   )}
@@ -561,7 +561,7 @@ export default function KpiSetupPage() {
           )}
 
           {activeCycle && isLocked && (
-            <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 flex items-center gap-2">
+            <div className="text-footnote text-warning bg-warning/5 border border-warning/20 rounded-md px-3 py-2 flex items-center gap-2">
               <Lock className="h-3.5 w-3.5" />
               周期已 {activeCycle.status === 'active' ? '激活' : '关闭'}: target / scope 不可修改, 不可新增/删除 KPI (CHARTER §2.3)
             </div>
@@ -581,7 +581,7 @@ export default function KpiSetupPage() {
       {activeCycle && (
         <>
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-medium flex items-center gap-2">
+            <h2 className="text-headline font-medium flex items-center gap-2">
               <Layers className="h-5 w-5" />
               本周期 KPI ({kpis.length})
             </h2>
@@ -624,14 +624,14 @@ export default function KpiSetupPage() {
                   key={tab}
                   type="button"
                   onClick={() => setLevelTab(tab)}
-                  className={`px-3 py-1.5 text-sm border-b-2 -mb-px transition-colors ${
+                  className={`px-3 py-1.5 text-caption border-b-2 -mb-px transition-colors ${
                     active
                       ? 'border-primary text-foreground font-medium'
                       : 'border-transparent text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   {label}
-                  <span className="ml-1.5 text-xs text-muted-foreground tabular-nums">
+                  <span className="ml-1.5 text-footnote text-muted-foreground tabular-nums">
                     {count}
                   </span>
                 </button>
@@ -647,23 +647,23 @@ export default function KpiSetupPage() {
             return (
               <Card key={level}>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base flex items-center gap-2">
+                  <CardTitle className="text-body flex items-center gap-2">
                     <Badge variant="outline" className={lvlInfo.color}>
                       {lvlInfo.label}
                     </Badge>
-                    <span className="text-sm text-muted-foreground font-normal">
+                    <span className="text-caption text-muted-foreground font-normal">
                       ({list.length})
                     </span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
                   {list.length === 0 ? (
-                    <div className="px-4 pb-4 text-sm text-muted-foreground">
+                    <div className="px-4 pb-4 text-caption text-muted-foreground">
                       暂无{lvlInfo.label} KPI
                     </div>
                   ) : (
-                    <table className="w-full text-sm">
-                      <thead className="border-b bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+                    <table className="w-full text-caption">
+                      <thead className="border-b bg-muted/40 text-footnote uppercase tracking-wide text-muted-foreground">
                         <tr>
                           <th className="px-4 py-2 text-left font-medium">标题</th>
                           <th className="px-4 py-2 text-left font-medium w-32">科目</th>
@@ -683,24 +683,24 @@ export default function KpiSetupPage() {
                               <td className="px-4 py-2.5">
                                 <div className="font-medium">{k.title}</div>
                                 {k.description && (
-                                  <div className="text-xs text-muted-foreground mt-0.5">
+                                  <div className="text-footnote text-muted-foreground mt-0.5">
                                     {k.description}
                                   </div>
                                 )}
                               </td>
-                              <td className="px-4 py-2.5 text-xs">
+                              <td className="px-4 py-2.5 text-footnote">
                                 <span className="font-mono text-muted-foreground">
                                   {subjectCode(k.subjectId)}
                                 </span>
-                                <div className="text-xs">{subjectName(k.subjectId)}</div>
+                                <div className="text-footnote">{subjectName(k.subjectId)}</div>
                               </td>
                               <td className="px-4 py-2.5">
-                                <Badge variant="outline" className={`${sc.color} text-xs`}>
+                                <Badge variant="outline" className={`${sc.color} text-footnote`}>
                                   <ScopeIcon className="h-3 w-3 mr-1" />
                                   {sc.label}
                                 </Badge>
                               </td>
-                              <td className="px-4 py-2.5 text-xs font-mono text-muted-foreground">
+                              <td className="px-4 py-2.5 text-footnote font-mono text-muted-foreground">
                                 {k.assigneeId}
                               </td>
                               <td className="px-4 py-2.5 text-right tabular-nums">
@@ -811,7 +811,7 @@ export default function KpiSetupPage() {
               </div>
             </div>
             {submitError && (
-              <div className="text-sm text-rose-600 bg-rose-50 px-3 py-2 rounded-md flex items-center gap-1.5">
+              <div className="text-caption text-rose-600 bg-rose-50 px-3 py-2 rounded-md flex items-center gap-1.5">
                 <AlertCircle className="h-4 w-4" />
                 {submitError}
               </div>
@@ -1033,7 +1033,7 @@ export default function KpiSetupPage() {
             </div>
 
             {submitError && (
-              <div className="text-sm text-rose-600 bg-rose-50 px-3 py-2 rounded-md flex items-center gap-1.5">
+              <div className="text-caption text-rose-600 bg-rose-50 px-3 py-2 rounded-md flex items-center gap-1.5">
                 <AlertCircle className="h-4 w-4" />
                 {submitError}
               </div>

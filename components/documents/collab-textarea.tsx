@@ -144,7 +144,7 @@ export function CollabTextarea({ docId, userName, fallback, onLocalChange }: Pro
         aria-label="文档内容"
         value={text}
         onChange={handleChange}
-        className="w-full h-full resize-none outline-none text-base leading-relaxed p-1"
+        className="w-full h-full resize-none outline-none text-body leading-relaxed p-1"
         placeholder="开始写作…"
       />
     </div>

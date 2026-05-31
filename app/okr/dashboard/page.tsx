@@ -27,7 +27,7 @@ import { Stat } from '@/components/ui/stat';
 
 const RISK_COLORS: Record<string, string> = {
   'on-track': 'bg-emerald-100 text-emerald-700',
-  'at-risk': 'bg-amber-100 text-amber-800',
+  'at-risk': 'bg-warning/10 text-warning',
   'off-track': 'bg-rose-100 text-rose-700',
 };
 
@@ -172,11 +172,11 @@ export default function OKRDashboardPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-semibold flex items-center gap-2">
+            <h1 className="text-title-3 font-semibold flex items-center gap-2">
               <BarChart3 className="h-6 w-6 text-blue-600" />
               部门 OKR Dashboard
             </h1>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-footnote text-muted-foreground mt-1">
               按部门聚合的进度 / 风险 / 跨部门对齐 — 管理层视角
             </p>
           </div>
@@ -186,7 +186,7 @@ export default function OKRDashboardPage() {
               aria-label="选择周期"
               value={cycleId}
               onChange={(e) => setCycleId(e.target.value)}
-              className="h-9 rounded border border-input bg-white px-2 text-sm"
+              className="h-9 rounded border border-input bg-white px-2 text-caption"
             >
               {cycles.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -222,7 +222,7 @@ export default function OKRDashboardPage() {
                   overallAvg >= 60
                     ? 'text-emerald-600'
                     : overallAvg >= 30
-                    ? 'text-amber-600'
+                    ? 'text-warning'
                     : 'text-rose-600'
                 }`}
               />
@@ -237,7 +237,7 @@ export default function OKRDashboardPage() {
                 hint="越多越需介入"
                 invertTrend
               />
-              <AlertTriangle className="h-8 w-8 text-amber-600 opacity-30" />
+              <AlertTriangle className="h-8 w-8 text-warning opacity-30" />
             </CardContent>
           </Card>
           <Card>
@@ -255,7 +255,7 @@ export default function OKRDashboardPage() {
 
         {cycleObjectives.length === 0 ? (
           <Card>
-            <CardContent className="py-12 text-center text-sm text-muted-foreground">
+            <CardContent className="py-12 text-center text-caption text-muted-foreground">
               本周期还没有 Objective. 去 <Link href="/okr" className="text-blue-600 underline">/okr</Link> 创建.
             </CardContent>
           </Card>
@@ -264,7 +264,7 @@ export default function OKRDashboardPage() {
             {/* 部门栅格 */}
             <Card className="mb-5">
               <CardHeader>
-                <CardTitle className="text-sm flex items-center gap-1.5">
+                <CardTitle className="text-caption flex items-center gap-1.5">
                   <Users className="h-4 w-4" />
                   各部门概览
                 </CardTitle>
@@ -274,7 +274,7 @@ export default function OKRDashboardPage() {
                   <DeptRow key={d.id} stats={d} />
                 ))}
                 {deptStats.filter((d) => d.objectives.length > 0).length === 0 && (
-                  <div className="text-xs text-muted-foreground py-4 text-center">
+                  <div className="text-footnote text-muted-foreground py-4 text-center">
                     所有 Objective 的负责人都未关联到部门
                   </div>
                 )}
@@ -291,7 +291,7 @@ export default function OKRDashboardPage() {
               />
               <TopList
                 title="⚠️ 风险 Top 5"
-                titleColor="text-amber-700"
+                titleColor="text-warning"
                 items={topRisk}
                 metric="confidence"
               />
@@ -311,12 +311,12 @@ export default function OKRDashboardPage() {
 
 function DeptRow({ stats }: { stats: DeptStats }) {
   const progColor = stats.avgProgress >= 60 ? 'bg-emerald-500'
-    : stats.avgProgress >= 30 ? 'bg-amber-500' : 'bg-rose-500';
+    : stats.avgProgress >= 30 ? 'bg-warning' : 'bg-rose-500';
   return (
     <div className="border rounded p-3 hover:bg-slate-50/60 transition">
       <div className="flex items-start justify-between mb-1.5">
         <div>
-          <div className="text-sm font-semibold flex items-center gap-1.5">
+          <div className="text-caption font-semibold flex items-center gap-1.5">
             {stats.name}
             <span className="text-[10px] text-muted-foreground font-normal">
               {stats.objectives.length} O · {stats.memberCount} 人
@@ -342,7 +342,7 @@ function DeptRow({ stats }: { stats: DeptStats }) {
             style={{ width: `${stats.avgProgress}%` }}
           />
         </div>
-        <span className="text-xs font-mono w-10 text-right">{stats.avgProgress}%</span>
+        <span className="text-footnote font-mono w-10 text-right">{stats.avgProgress}%</span>
       </div>
     </div>
   );
@@ -359,17 +359,17 @@ function TopList({
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className={`text-sm ${titleColor}`}>{title}</CardTitle>
+        <CardTitle className={`text-caption ${titleColor}`}>{title}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-1.5">
         {items.length === 0 ? (
-          <div className="text-xs text-muted-foreground py-2">无</div>
+          <div className="text-footnote text-muted-foreground py-2">无</div>
         ) : (
           items.map((x) => (
             <Link
               key={x.o.id}
               href={`/okr?o=${x.o.id}`}
-              className="block border rounded px-2 py-1.5 text-xs hover:bg-muted/50 transition"
+              className="block border rounded px-2 py-1.5 text-footnote hover:bg-muted/50 transition"
             >
               <div className="font-medium truncate">{x.o.title}</div>
               <div className="flex items-center justify-between mt-0.5 text-[10px] text-muted-foreground">

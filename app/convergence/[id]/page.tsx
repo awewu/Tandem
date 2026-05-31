@@ -14,7 +14,7 @@ export default function ConvergenceDetailPage({
   const currentUserId = useCurrentUserId();
 
   return (
-    <main className="container mx-auto max-w-4xl py-6 px-4">
+    <main className="container mx-auto max-w-4xl py-6 px-4 md:px-8">
       <ConvergenceRoom cardId={resolved.id} currentUserId={currentUserId} />
     </main>
   );

@@ -23,7 +23,7 @@ const MODE_META: Record<Mode, { label: string; icon: React.ElementType; cls: str
   'agent-confirm': {
     label: '草稿',
     icon: Bot,
-    cls: 'bg-amber-50 text-amber-700 border-amber-300',
+    cls: 'bg-warning/5 text-warning border-warning/30',
     desc: '分身先生草稿，我确认才发出',
   },
   'agent-auto': {
@@ -74,7 +74,7 @@ export function AgentModeToggle({ channelId, initialMode = 'manual', onChanged }
         disabled={busy}
         title={Meta.desc}
         className={cn(
-          'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition',
+          'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-footnote font-medium transition',
           Meta.cls,
           busy && 'opacity-50 cursor-not-allowed',
         )}
@@ -83,7 +83,7 @@ export function AgentModeToggle({ channelId, initialMode = 'manual', onChanged }
         {Meta.label}
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-1 w-64 rounded-md border border-slate-200 bg-white shadow-lg z-50">
+        <div className="absolute right-0 top-full mt-1 w-64 rounded-md border border-slate-200 bg-white shadow-soft-lg z-50">
           <div className="p-2 space-y-1">
             {(Object.keys(MODE_META) as Mode[]).map((k) => {
               const M = MODE_META[k];
@@ -94,7 +94,7 @@ export function AgentModeToggle({ channelId, initialMode = 'manual', onChanged }
                   type="button"
                   onClick={() => switchMode(k, k === 'agent-auto' ? 120 : undefined)}
                   className={cn(
-                    'w-full flex items-start gap-2 px-2 py-2 text-left rounded text-xs hover:bg-slate-50 transition',
+                    'w-full flex items-start gap-2 px-2 py-2 text-left rounded text-footnote hover:bg-slate-50 transition',
                     mode === k && 'bg-slate-100',
                   )}
                 >

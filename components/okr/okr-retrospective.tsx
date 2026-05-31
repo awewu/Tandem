@@ -159,25 +159,25 @@ export function OKRRetrospective({ objectiveId }: Props) {
     : null;
 
   return (
-    <div className="space-y-4 text-sm">
+    <div className="space-y-4 text-caption">
       {/* Header: 总评 + 上次复盘时间 */}
       <div className="border rounded p-3 bg-muted/30">
         <div className="flex items-baseline justify-between gap-3">
           <div>
-            <div className="text-xs text-muted-foreground">本季度总分 (基于 KR 评分)</div>
+            <div className="text-footnote text-muted-foreground">本季度总分 (基于 KR 评分)</div>
             <div className="mt-0.5 flex items-baseline gap-2">
-              <span className="text-2xl font-bold tabular-nums">{(finalScore * 100).toFixed(0)}</span>
-              <span className="text-xs text-muted-foreground">/ 100 (Tita 风 0.1-0.7 = 健康)</span>
+              <span className="text-title-3 font-bold tabular-nums">{(finalScore * 100).toFixed(0)}</span>
+              <span className="text-footnote text-muted-foreground">/ 100 (Tita 风 0.1-0.7 = 健康)</span>
             </div>
           </div>
-          <div className="text-right text-xs text-muted-foreground shrink-0">
+          <div className="text-right text-footnote text-muted-foreground shrink-0">
             {reviewedAtStr ? (
               <>
                 <div>上次复盘</div>
                 <div className="font-medium text-foreground">{reviewedAtStr}</div>
               </>
             ) : (
-              <span className="inline-flex items-center gap-1 text-amber-600">
+              <span className="inline-flex items-center gap-1 text-warning">
                 <AlertTriangle size={12} /> 未复盘
               </span>
             )}
@@ -186,14 +186,14 @@ export function OKRRetrospective({ objectiveId }: Props) {
 
         {/* 偏差 KR 引导 */}
         {lowKRs.length > 0 && (
-          <div className="mt-3 pt-3 border-t flex items-start gap-2 text-xs">
-            <Lightbulb size={14} className="text-amber-500 shrink-0 mt-0.5" />
+          <div className="mt-3 pt-3 border-t flex items-start gap-2 text-footnote">
+            <Lightbulb size={14} className="text-warning shrink-0 mt-0.5" />
             <div>
               <div className="font-medium">引导反思:</div>
               <div className="text-muted-foreground mt-0.5">
                 {lowKRs.length} 项 KR 评分 &lt; 0.5, 建议重点回答「为什么没达成 + 下季度怎么调」:
                 {lowKRs.map((k) => (
-                  <span key={k.id} className="inline-block ml-1.5 px-1.5 py-0.5 rounded bg-red-100 text-red-700">
+                  <span key={k.id} className="inline-block ml-1.5 px-1.5 py-0.5 rounded bg-danger/10 text-danger">
                     {k.title}
                   </span>
                 ))}
@@ -205,7 +205,7 @@ export function OKRRetrospective({ objectiveId }: Props) {
 
       {/* 方法论切换 */}
       <div>
-        <div className="text-xs font-medium mb-1.5 flex items-center gap-1.5">
+        <div className="text-footnote font-medium mb-1.5 flex items-center gap-1.5">
           <BookOpen size={14} /> 选择复盘方法论
         </div>
         <div className="flex flex-wrap gap-1.5">
@@ -213,7 +213,7 @@ export function OKRRetrospective({ objectiveId }: Props) {
             <button
               key={m}
               onClick={() => setMethod(m)}
-              className={`text-xs px-3 py-1.5 rounded border transition-colors ${
+              className={`text-footnote px-3 py-1.5 rounded border transition-colors ${
                 method === m
                   ? 'bg-primary text-primary-foreground border-primary'
                   : 'bg-background hover:bg-accent'
@@ -229,13 +229,13 @@ export function OKRRetrospective({ objectiveId }: Props) {
       <div className="space-y-3">
         {meta.sections.map((s) => (
           <div key={s.key}>
-            <label className="text-xs font-medium block mb-1">{s.label}</label>
+            <label className="text-footnote font-medium block mb-1">{s.label}</label>
             <textarea
               value={fields[s.key] ?? ''}
               onChange={(e) => setFields({ ...fields, [s.key]: e.target.value })}
               placeholder={s.placeholder}
               rows={3}
-              className="w-full text-sm border rounded p-2 bg-background resize-none"
+              className="w-full text-caption border rounded p-2 bg-background resize-none"
             />
           </div>
         ))}
@@ -245,20 +245,20 @@ export function OKRRetrospective({ objectiveId }: Props) {
       <div className="flex items-center justify-between pt-2 border-t">
         <button
           onClick={handleClear}
-          className="text-xs px-3 py-1.5 rounded text-muted-foreground hover:bg-accent inline-flex items-center gap-1"
+          className="text-footnote px-3 py-1.5 rounded text-muted-foreground hover:bg-accent inline-flex items-center gap-1"
         >
           <RotateCcw size={11} /> 清空
         </button>
         <button
           onClick={handleSave}
-          className="text-xs px-4 py-1.5 rounded bg-primary text-primary-foreground inline-flex items-center gap-1.5 font-medium"
+          className="text-footnote px-4 py-1.5 rounded bg-primary text-primary-foreground inline-flex items-center gap-1.5 font-medium"
         >
           <Save size={11} /> 保存复盘
         </button>
       </div>
 
       {/* M2 提示 */}
-      <div className="border-2 border-dashed rounded p-3 text-xs">
+      <div className="border-2 border-dashed rounded p-3 text-footnote">
         <div className="font-medium mb-1 inline-flex items-center gap-1.5">
           <CheckCircle2 size={12} className="text-emerald-500" />
           复盘后 (M2 联动)

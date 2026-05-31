@@ -177,7 +177,7 @@ export default function SubSidebar() {
                           className={cn(
                             'rounded px-1.5 py-0.5 font-mono text-[9px]',
                             item.badge === '17min'
-                              ? 'bg-amber-100 text-amber-800'
+                              ? 'bg-warning/10 text-warning'
                               : 'bg-surface-3 text-ink-secondary',
                           )}
                         >

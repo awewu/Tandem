@@ -84,7 +84,7 @@ export function StudentCard({
       <header className="flex items-start gap-5">
         {/* Stage emoji 大块 (Hero accent) */}
         <div
-          className="flex h-16 w-16 sm:h-20 sm:w-20 shrink-0 items-center justify-center rounded-2xl text-4xl sm:text-5xl leading-none"
+          className="flex h-16 w-16 sm:h-20 sm:w-20 shrink-0 items-center justify-center rounded-2xl text-title-1 sm:text-5xl leading-none"
           style={{
             background: 'rgba(255,255,255,0.08)',
             border: '1px solid rgba(255,255,255,0.16)',
@@ -228,7 +228,7 @@ function MajorChip({ active, emoji, label, score, onClick }: MajorChipProps) {
     <button
       type="button"
       onClick={onClick}
-      className="surface-interactive flex flex-col items-center gap-1 rounded-xl p-2.5 text-caption"
+      className="surface-interactive flex flex-col items-center gap-1 rounded-2xl p-2.5 text-caption"
       style={
         active
           ? {

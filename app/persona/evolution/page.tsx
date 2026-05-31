@@ -29,9 +29,9 @@ export default function PersonaEvolutionPage() {
   }, []);
 
   return (
-    <main className="container mx-auto max-w-3xl space-y-4 px-4 py-6">
-      <h1 className="text-2xl font-bold">主分身 · 进阶轨迹 (新手 → 拿手)</h1>
-      <p className="text-sm text-muted-foreground">
+    <main className="container mx-auto max-w-3xl space-y-4 px-4 py-6 md:px-8">
+      <h1 className="text-title-3 font-bold">主分身 · 进阶轨迹 (新手 → 拿手)</h1>
+      <p className="text-caption text-muted-foreground">
         Tandem autonomy 守门: 任何升级与实习权限 (代行边界) 都由员工本人确认.
       </p>
 
@@ -118,9 +118,9 @@ function TabBtn({
     <button
       type="button"
       onClick={onClick}
-      className={`border-b-2 px-3 py-1.5 text-sm font-medium transition ${
+      className={`border-b-2 px-3 py-1.5 text-caption font-medium transition ${
         active
-          ? 'border-amber-500 text-amber-700'
+          ? 'border-warning text-warning'
           : 'border-transparent text-muted-foreground hover:text-foreground'
       }`}
     >

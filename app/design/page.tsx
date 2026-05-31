@@ -251,17 +251,17 @@ export default function DesignPage() {
                   setEditName(f.name);
                   setEditContent(f.content);
                 }}
-                className={`w-full text-left px-3 py-2 rounded-md text-sm flex items-center gap-2 ${
+                className={`w-full text-left px-3 py-2 rounded-md text-caption flex items-center gap-2 ${
                   selectedId === f.id ? 'bg-primary/10 text-primary' : 'hover:bg-muted'
                 }`}
               >
                 <Palette className="h-3.5 w-3.5 shrink-0" />
                 <span className="truncate">{f.name}</span>
-                {validateDesignMd(f.content) && <CheckCircle className="h-3 w-3 text-green-500 ml-auto shrink-0" />}
+                {validateDesignMd(f.content) && <CheckCircle className="h-3 w-3 text-success ml-auto shrink-0" />}
               </button>
             ))}
             {files.length === 0 && (
-              <p className="text-xs text-muted-foreground px-2">No files yet. Create from template or blank.</p>
+              <p className="text-footnote text-muted-foreground px-2">No files yet. Create from template or blank.</p>
             )}
           </div>
         </ScrollArea>
@@ -304,13 +304,13 @@ export default function DesignPage() {
             <Textarea
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}
-              className="min-h-[600px] font-mono text-sm"
+              className="min-h-[600px] font-mono text-caption"
             />
           </div>
         ) : (
           <div className="max-w-4xl mx-auto space-y-6">
             <div>
-              <h1 className="text-2xl font-bold tracking-tight">Design System</h1>
+              <h1 className="text-title-3 font-bold tracking-tight">Design System</h1>
               <p className="text-muted-foreground mt-1">
                 Manage DESIGN.md tokens and design systems. Based on Google DESIGN.md spec.
               </p>
@@ -326,10 +326,10 @@ export default function DesignPage() {
                   {TEMPLATES.map((tpl) => (
                     <Card key={tpl.name} className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => createFromTemplate(tpl)}>
                       <CardHeader>
-                        <CardTitle className="text-base">{tpl.name}</CardTitle>
+                        <CardTitle className="text-body">{tpl.name}</CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <p className="text-sm text-muted-foreground">{tpl.description}</p>
+                        <p className="text-caption text-muted-foreground">{tpl.description}</p>
                         <div className="flex gap-2 mt-3">
                           <Badge variant="outline"><Palette className="mr-1 h-3 w-3" /> Colors</Badge>
                           <Badge variant="outline"><Type className="mr-1 h-3 w-3" /> Typography</Badge>
@@ -344,7 +344,7 @@ export default function DesignPage() {
                   <CardHeader>
                     <CardTitle>DESIGN.md Spec</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-2 text-sm">
+                  <CardContent className="space-y-2 text-caption">
                     <p>A DESIGN.md file contains frontmatter YAML + markdown sections.</p>
                     <ul className="list-disc ml-5 space-y-1 text-muted-foreground">
                       <li><strong>colors:</strong> primary, secondary, background, surface, error, success</li>

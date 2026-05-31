@@ -31,10 +31,10 @@ const AGENT_CATEGORIES: Record<string, { label: string; color: string }> = {
   'agent-pm': { label: '产品', color: 'bg-blue-500' },
   'agent-strategy': { label: '战略', color: 'bg-purple-500' },
   'agent-marketing': { label: '市场', color: 'bg-orange-500' },
-  'agent-tech-lead': { label: '技术', color: 'bg-green-500' },
+  'agent-tech-lead': { label: '技术', color: 'bg-success' },
   'agent-writer': { label: '文案', color: 'bg-yellow-500' },
   'agent-data-analyst': { label: '数据', color: 'bg-cyan-500' },
-  'agent-hr': { label: '人事', color: 'bg-red-500' },
+  'agent-hr': { label: '人事', color: 'bg-danger' },
 };
 
 const PRESET_SKILLS = [
@@ -349,7 +349,7 @@ ${warRoomDoc}
                     key={a.id}
                     onClick={() => handleSummon(a.id)}
                     className={cn(
-                      "w-full text-left p-2.5 rounded-lg border text-xs flex flex-col gap-1 transition-all",
+                      "w-full text-left p-2.5 rounded-lg border text-footnote flex flex-col gap-1 transition-all",
                       isSelected
                         ? "bg-primary/5 border-primary/40 ring-1 ring-primary/20 shadow-soft-sm"
                         : "bg-white hover:bg-muted/40 border-slate-100"
@@ -368,14 +368,14 @@ ${warRoomDoc}
             <div className="space-y-1">
               {/* 原有自定义 Agent 渲染列表 */}
               <div className="p-3 border-b">
-                <Button variant="outline" size="sm" className="w-full h-8 text-xs" onClick={() => setShowNew((v) => !v)}>
+                <Button variant="outline" size="sm" className="w-full h-8 text-footnote" onClick={() => setShowNew((v) => !v)}>
                   <Plus className="mr-1 h-3 w-3" /> 新建 Agent
                 </Button>
               </div>
               {showNew && (
                 <div className="p-3 border-b space-y-2 animate-fade-in">
-                  <Input placeholder="Agent 名字" value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && createAgent()} className="h-8 text-xs" />
-                  <Button size="sm" className="w-full h-8 text-xs" onClick={createAgent}>创建</Button>
+                  <Input placeholder="Agent 名字" value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && createAgent()} className="h-8 text-footnote" />
+                  <Button size="sm" className="w-full h-8 text-footnote" onClick={createAgent}>创建</Button>
                 </div>
               )}
               {agents.filter(a => !PRESET_AGENTS.some(p => p.id === a.id)).map((a) => (
@@ -383,7 +383,7 @@ ${warRoomDoc}
                   key={a.id}
                   onClick={() => { setSelectedId(a.id); setActiveWarRoomAgentId(null); }}
                   className={cn(
-                    'w-full text-left pl-3 py-2 text-xs flex items-center gap-2 rounded-md transition-colors',
+                    'w-full text-left pl-3 py-2 text-footnote flex items-center gap-2 rounded-md transition-colors',
                     selectedId === a.id ? 'bg-primary/10 text-primary' : 'hover:bg-muted'
                   )}
                 >
@@ -410,7 +410,7 @@ ${warRoomDoc}
                       <agent.icon className="h-4 w-4" />
                     </span>
                     <div>
-                      <h2 className="text-xs font-bold text-slate-800">{agent.name}作战工作台</h2>
+                      <h2 className="text-footnote font-bold text-slate-800">{agent.name}作战工作台</h2>
                       <p className="text-[10px] text-muted-foreground flex items-center gap-1.5 mt-0.5">
                         <span>公司托管专家</span>
                         <span>·</span>
@@ -424,7 +424,7 @@ ${warRoomDoc}
                         🚀 决议沉淀成功！已入库
                       </Badge>
                     ) : (
-                      <Button size="sm" onClick={handlePushDecision} className="h-8 text-xs bg-indigo-600 hover:bg-indigo-700">
+                      <Button size="sm" onClick={handlePushDecision} className="h-8 text-footnote bg-indigo-600 hover:bg-indigo-700">
                         <Save className="h-3.5 w-3.5 mr-1" />
                         一键沉淀为决议卡 (Decision Card)
                       </Button>
@@ -446,7 +446,7 @@ ${warRoomDoc}
                     <textarea
                       value={warRoomDoc}
                       onChange={(e) => setWarRoomDoc(e.target.value)}
-                      className="flex-1 p-5 text-xs leading-relaxed font-mono whitespace-pre-wrap outline-none resize-none bg-transparent"
+                      className="flex-1 p-5 text-footnote leading-relaxed font-mono whitespace-pre-wrap outline-none resize-none bg-transparent"
                     />
                   </div>
 
@@ -460,7 +460,7 @@ ${warRoomDoc}
                     <ScrollArea className="flex-1 p-4">
                       <div className="space-y-4">
                         {warRoomChat.map((msg, i) => (
-                          <div key={i} className={cn('flex items-start gap-2.5 text-xs', msg.role === 'user' ? 'justify-end' : '')}>
+                          <div key={i} className={cn('flex items-start gap-2.5 text-footnote', msg.role === 'user' ? 'justify-end' : '')}>
                             {msg.role === 'assistant' && (
                               <span className={cn('p-1 rounded bg-indigo-100 text-indigo-700 shrink-0 mt-0.5')}>
                                 <agent.icon className="h-3.5 w-3.5" />
@@ -477,7 +477,7 @@ ${warRoomDoc}
                           </div>
                         ))}
                         {isAnlyzing && streamingText && (
-                          <div className="flex items-start gap-2.5 text-xs animate-pulse">
+                          <div className="flex items-start gap-2.5 text-footnote animate-pulse">
                             <span className="p-1 rounded bg-indigo-100 text-indigo-700 shrink-0 mt-0.5">
                               <agent.icon className="h-3.5 w-3.5" />
                             </span>
@@ -497,10 +497,10 @@ ${warRoomDoc}
                         onChange={(e) => setWarRoomInput(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleWarRoomSend()}
                         placeholder="e.g. 帮我把第十二条违规屏幕监控条款修改为符合宪章合规的表述..."
-                        className="text-xs h-9"
+                        className="text-footnote h-9"
                         disabled={isAnlyzing}
                       />
-                      <Button size="sm" onClick={handleWarRoomSend} disabled={isAnlyzing || !warRoomInput.trim()} className="h-9 px-4 text-xs">
+                      <Button size="sm" onClick={handleWarRoomSend} disabled={isAnlyzing || !warRoomInput.trim()} className="h-9 px-4 text-footnote">
                         {isAnlyzing ? '对账中...' : '发送'}
                       </Button>
                     </div>
@@ -522,7 +522,7 @@ ${warRoomDoc}
                       return (
                         <>
                           <Icon className={cn('h-5 w-5', category?.color.replace('bg-', 'text-'))} />
-                          <CardTitle className="text-lg">{selected.name}</CardTitle>
+                          <CardTitle className="text-headline">{selected.name}</CardTitle>
                         </>
                       );
                     })()}
@@ -541,27 +541,27 @@ ${warRoomDoc}
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium">Name</label>
+                  <label className="text-caption font-medium">Name</label>
                   <Input value={selected.name} onChange={(e) => updateAgent(selected.id, { name: e.target.value })} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium">Model</label>
+                    <label className="text-caption font-medium">Model</label>
                     <Input value={selected.model} placeholder="gpt-4o" onChange={(e) => updateAgent(selected.id, { model: e.target.value })} />
                   </div>
                   <div>
-                    <label className="text-sm font-medium">Temperature</label>
+                    <label className="text-caption font-medium">Temperature</label>
                     <Input type="number" min="0" max="1" step="0.1" value={selected.temperature ?? 0.7} onChange={(e) => updateAgent(selected.id, { temperature: parseFloat(e.target.value) })} />
                   </div>
                 </div>
                 <div>
-                  <label className="text-sm font-medium">System Prompt</label>
+                  <label className="text-caption font-medium">System Prompt</label>
                   <Textarea value={selected.systemPrompt} onChange={(e) => updateAgent(selected.id, { systemPrompt: e.target.value })} rows={4} />
                 </div>
 
                 {/* Skills */}
                 <div>
-                  <label className="text-sm font-medium">Skills</label>
+                  <label className="text-caption font-medium">Skills</label>
                   <div className="flex flex-wrap gap-2 mt-2">
                     {PRESET_SKILLS.map((skill) => (
                       <Badge
@@ -591,7 +591,7 @@ ${warRoomDoc}
 
                 {/* 接力链 */}
                 <div className="border-t pt-4 space-y-2">
-                  <label className="text-sm font-medium flex items-center gap-2">
+                  <label className="text-caption font-medium flex items-center gap-2">
                     <Link2 className="h-4 w-4 text-primary" />
                     完成后接力 Agent
                     <span className="text-[10px] text-muted-foreground font-normal ml-auto">
@@ -600,13 +600,13 @@ ${warRoomDoc}
                   </label>
                   {(selected.chainTo ?? []).length > 0 && (
                     <div className="flex flex-wrap items-center gap-1 p-2 bg-muted/40 rounded border border-dashed">
-                      <Badge variant="default" className="text-xs">{selected.name}</Badge>
+                      <Badge variant="default" className="text-footnote">{selected.name}</Badge>
                       {(selected.chainTo ?? []).map((nid, i) => {
                         const next = agents.find((a) => a.id === nid);
                         return (
                           <div key={`${nid}-${i}`} className="flex items-center gap-1">
                             <ArrowRight className="h-3 w-3 text-muted-foreground" />
-                            <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                            <Badge variant="secondary" className="text-footnote flex items-center gap-1">
                               {next?.name ?? '(已删除)'}
                               <button
                                 type="button"
@@ -651,7 +651,7 @@ ${warRoomDoc}
                 {/* Provider 配置 (Team / Personal 双栏) */}
                 <div className="border-t pt-4 space-y-3">
                   <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium flex items-center gap-2">
+                    <label className="text-caption font-medium flex items-center gap-2">
                       <Cloud className="h-4 w-4 text-primary" />
                       模型配置
                     </label>
@@ -681,7 +681,7 @@ ${warRoomDoc}
 
                     return (
                       <>
-                        <div className="flex rounded-lg border border-border overflow-hidden text-sm">
+                        <div className="flex rounded-lg border border-border overflow-hidden text-caption">
                           <button
                             type="button"
                             onClick={() => setProviderTab('team')}
@@ -734,7 +734,7 @@ ${warRoomDoc}
                                         : 'border-border bg-muted/30 hover:border-violet-300'
                                     )}
                                   >
-                                    <span className={cn('text-xs font-semibold', active ? 'text-violet-700 dark:text-violet-300' : '')}>
+                                    <span className={cn('text-footnote font-semibold', active ? 'text-violet-700 dark:text-violet-300' : '')}>
                                       {p.label}
                                     </span>
                                     {p.description && (
@@ -751,7 +751,7 @@ ${warRoomDoc}
                         {providerTab === 'personal' && (
                           <div className="space-y-3">
                             <div>
-                              <label className="text-xs text-muted-foreground">供应商</label>
+                              <label className="text-footnote text-muted-foreground">供应商</label>
                               <Select
                                 value={currentProvider.presetKey ?? (currentProvider.type === 'hermes' ? 'hermes' : '')}
                                 onValueChange={applyProviderPreset}
@@ -763,7 +763,7 @@ ${warRoomDoc}
                                   {personalPresets.map((p) => (
                                     <SelectItem key={p.key} value={p.key}>
                                       <span>{p.label}</span>
-                                      {p.defaultModel && <span className="text-muted-foreground ml-2 text-xs">{p.defaultModel}</span>}
+                                      {p.defaultModel && <span className="text-muted-foreground ml-2 text-footnote">{p.defaultModel}</span>}
                                     </SelectItem>
                                   ))}
                                 </SelectContent>
@@ -773,23 +773,23 @@ ${warRoomDoc}
                             {currentProvider.type === 'openai-compatible' && (
                               <>
                                 <div>
-                                  <label className="text-xs text-muted-foreground">Base URL</label>
+                                  <label className="text-footnote text-muted-foreground">Base URL</label>
                                   <Input
-                                    className="mt-1 font-mono text-xs"
+                                    className="mt-1 font-mono text-footnote"
                                     placeholder="https://api.openai.com/v1"
                                     value={currentProvider.baseURL ?? ''}
                                     onChange={(e) => updateProvider({ baseURL: e.target.value })}
                                   />
                                 </div>
                                 <div>
-                                  <label className="text-xs text-muted-foreground flex items-center gap-1">
+                                  <label className="text-footnote text-muted-foreground flex items-center gap-1">
                                     <KeyRound className="h-3 w-3" /> API Key
                                     <span className="ml-auto text-[10px] text-muted-foreground/70">仅本地浏览器存储</span>
                                   </label>
                                   <div className="relative mt-1">
                                     <Input
                                       type={showApiKey ? 'text' : 'password'}
-                                      className="font-mono text-xs pr-9"
+                                      className="font-mono text-footnote pr-9"
                                       placeholder="sk-..."
                                       value={currentProvider.apiKey ?? ''}
                                       onChange={(e) => updateProvider({ apiKey: e.target.value })}
@@ -805,10 +805,10 @@ ${warRoomDoc}
                                   </div>
                                 </div>
                                 <div>
-                                  <label className="text-xs text-muted-foreground">自定义 Headers (JSON，可选)</label>
+                                  <label className="text-footnote text-muted-foreground">自定义 Headers (JSON，可选)</label>
                                   <Textarea
                                     rows={2}
-                                    className="mt-1 font-mono text-xs"
+                                    className="mt-1 font-mono text-footnote"
                                     placeholder={'{"X-Org-Id": "..."}'}
                                     defaultValue={currentProvider.headers ? JSON.stringify(currentProvider.headers, null, 2) : ''}
                                     onChange={(e) => setHeadersDraft(e.target.value)}
@@ -834,15 +834,15 @@ ${warRoomDoc}
           <div className="max-w-5xl mx-auto py-6 space-y-6 animate-fade-in">
             <div className="flex items-start justify-between">
               <div>
-                <h2 className="text-lg font-semibold flex items-center gap-2">
+                <h2 className="text-headline font-semibold flex items-center gap-2">
                   <Sparkles className="h-5 w-5 text-indigo-500" />
                   AI 智能体超市
                 </h2>
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-footnote text-muted-foreground mt-1">
                   选择标准 Agent 进入作战室协同；产出可一键沉淀为议事室 Decision Card。
                 </p>
               </div>
-              <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px]">
+              <Badge variant="outline" className="bg-warning/5 text-warning border-warning/20 text-[10px]">
                 V1 演示 Agent · 后端 catalog 待接入
               </Badge>
             </div>
@@ -862,7 +862,7 @@ ${warRoomDoc}
                           <Icon className="h-5 w-5" />
                         </span>
                         <div>
-                          <CardTitle className="text-sm font-bold text-slate-800">{a.name}</CardTitle>
+                          <CardTitle className="text-caption font-bold text-slate-800">{a.name}</CardTitle>
                           <p className="text-[10px] text-muted-foreground mt-0.5">每周对账活跃 · {a.calls}次召唤</p>
                         </div>
                       </div>
@@ -871,7 +871,7 @@ ${warRoomDoc}
                       <p className="text-[11px] text-muted-foreground leading-relaxed">
                         {a.desc}
                       </p>
-                      <Button size="sm" className="w-full text-xs h-8 bg-indigo-600 hover:bg-indigo-700 mt-2">
+                      <Button size="sm" className="w-full text-footnote h-8 bg-indigo-600 hover:bg-indigo-700 mt-2">
                         <Sparkles className="mr-1 h-3.5 w-3.5" /> 召唤进入作战室
                       </Button>
                     </CardContent>

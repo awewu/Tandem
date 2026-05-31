@@ -192,12 +192,12 @@ export function ExcelImportExport({
                   const f = e.target.files?.[0];
                   if (f) void onSelectFile(f);
                 }}
-                className="block w-full text-sm file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border file:border-input file:bg-background file:text-sm file:font-medium hover:file:bg-accent"
+                className="block w-full text-caption file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border file:border-input file:bg-background file:text-caption file:font-medium hover:file:bg-accent"
               />
             </label>
 
             {file && (
-              <div className="text-xs text-muted-foreground flex items-center gap-2">
+              <div className="text-footnote text-muted-foreground flex items-center gap-2">
                 <FileSpreadsheet className="h-3.5 w-3.5" />
                 {file.name} ({Math.round(file.size / 1024)} KB)
                 <button
@@ -213,7 +213,7 @@ export function ExcelImportExport({
             )}
 
             {error && (
-              <div className="text-sm text-rose-600 bg-rose-50 px-3 py-2 rounded-md flex items-center gap-1.5">
+              <div className="text-caption text-rose-600 bg-rose-50 px-3 py-2 rounded-md flex items-center gap-1.5">
                 <AlertCircle className="h-4 w-4" />
                 {error}
               </div>
@@ -221,7 +221,7 @@ export function ExcelImportExport({
 
             {summary && (
               <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm">
+                <div className="flex items-center gap-2 text-caption">
                   <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
                     ok {summary.ok}
                   </Badge>
@@ -230,7 +230,7 @@ export function ExcelImportExport({
                   </Badge>
                   <Badge variant="outline">合计 {summary.total}</Badge>
                   {summary.dryRun ? (
-                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                    <Badge variant="outline" className="bg-warning/5 text-warning border-warning/20">
                       预览 (未落库)
                     </Badge>
                   ) : (
@@ -242,8 +242,8 @@ export function ExcelImportExport({
 
                 {summary.failed > 0 && (
                   <div className="border border-rose-200 bg-rose-50 rounded-md p-2 max-h-64 overflow-y-auto">
-                    <div className="text-xs text-rose-700 font-medium mb-1">失败行明细:</div>
-                    <table className="w-full text-xs">
+                    <div className="text-footnote text-rose-700 font-medium mb-1">失败行明细:</div>
+                    <table className="w-full text-footnote">
                       <tbody>
                         {summary.rows
                           .filter((r) => !r.ok)
@@ -265,7 +265,7 @@ export function ExcelImportExport({
                 )}
 
                 {committed && summary.ok > 0 && (
-                  <div className="text-sm text-emerald-700 bg-emerald-50 px-3 py-2 rounded-md flex items-center gap-1.5">
+                  <div className="text-caption text-emerald-700 bg-emerald-50 px-3 py-2 rounded-md flex items-center gap-1.5">
                     <CheckCircle2 className="h-4 w-4" />
                     {summary.ok} 条 {label} 已导入
                   </div>

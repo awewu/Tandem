@@ -47,15 +47,15 @@ const KIND_LABEL: Record<ProxyAction['kind'], string> = {
 
 const STATUS_BADGE: Record<ProxyAction['status'], { label: string; cls: string }> = {
   drafted: { label: '草稿待确认', cls: 'bg-blue-100 text-blue-800' },
-  awaiting_veto: { label: '24h 否决窗口', cls: 'bg-amber-100 text-amber-800' },
+  awaiting_veto: { label: '24h 否决窗口', cls: 'bg-warning/10 text-warning' },
   executed: { label: '已执行', cls: 'bg-emerald-100 text-emerald-800' },
   vetoed: { label: '已否决', cls: 'bg-rose-100 text-rose-800' },
-  expired: { label: '已过期', cls: 'bg-zinc-100 text-zinc-700' },
+  expired: { label: '已过期', cls: 'bg-surface-1 text-ink-primary' },
 };
 
 const ZONE_BADGE: Record<ProxyAction['zone'], { label: string; cls: string }> = {
   green: { label: '🟢 绿区', cls: 'text-emerald-700' },
-  yellow: { label: '🟡 黄区', cls: 'text-amber-700' },
+  yellow: { label: '🟡 黄区', cls: 'text-warning' },
   red: { label: '🔴 红区', cls: 'text-rose-700' },
 };
 
@@ -186,42 +186,42 @@ export default function ProxyActionsPage() {
   ];
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-8">
+    <div className="mx-auto max-w-5xl px-6 py-8 md:px-8">
       <header className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">分身代行台账</h1>
-        <p className="mt-1 text-sm text-zinc-500">
+        <h1 className="text-title-3 font-bold tracking-tight">分身代行台账</h1>
+        <p className="mt-1 text-caption text-ink-secondary">
           所有 Persona 替你做的事都在这里。24h 内可撤回，过期自动落定。红区永不进表。
         </p>
       </header>
 
-      <nav className="mb-4 flex flex-wrap gap-2 border-b border-zinc-200">
+      <nav className="mb-4 flex flex-wrap gap-2 border-b border">
         {tabs.map((t) => (
           <button
             key={t}
             onClick={() => setFilter(t)}
-            className={`px-3 py-2 text-sm transition ${
+            className={`px-3 py-2 text-caption transition ${
               filter === t
-                ? 'border-b-2 border-zinc-900 font-semibold text-zinc-900'
-                : 'text-zinc-500 hover:text-zinc-800'
+                ? 'border-b-2 border font-semibold text-ink-primary'
+                : 'text-ink-secondary hover:text-ink-primary'
             }`}
           >
             {t === 'all' ? '全部' : STATUS_BADGE[t].label}
-            <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-zinc-100 px-1.5 text-xs">
+            <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-surface-1 px-1.5 text-footnote">
               {counts[t]}
             </span>
           </button>
         ))}
       </nav>
 
-      {loading && <div className="py-8 text-center text-sm text-zinc-500">加载中…</div>}
+      {loading && <div className="py-8 text-center text-caption text-ink-secondary">加载中…</div>}
       {err && (
-        <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+        <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-caption text-rose-700">
           错误: {err}
         </div>
       )}
 
       {!loading && !err && actions.length === 0 && (
-        <div className="rounded-lg border border-dashed border-zinc-300 bg-zinc-50 px-6 py-12 text-center text-sm text-zinc-500">
+        <div className="rounded-lg border border-dashed border bg-surface-1 px-6 py-12 text-center text-caption text-ink-secondary">
           暂无代行记录。当 Persona 替你回复 IM、起草沟通或参加会议时，此处会出现。
         </div>
       )}
@@ -236,33 +236,33 @@ export default function ProxyActionsPage() {
           return (
             <li
               key={a.id}
-              className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm"
+              className="rounded-lg border border bg-white p-4 shadow-soft-sm"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className={`text-xs font-medium ${ztb.cls}`}>{ztb.label}</span>
-                    <span className="text-xs text-zinc-400">·</span>
-                    <span className="text-xs font-medium text-zinc-600">{KIND_LABEL[a.kind]}</span>
-                    <span className={`rounded-full px-2 py-0.5 text-xs ${stb.cls}`}>
+                    <span className={`text-footnote font-medium ${ztb.cls}`}>{ztb.label}</span>
+                    <span className="text-footnote text-ink-tertiary">·</span>
+                    <span className="text-footnote font-medium text-ink-secondary">{KIND_LABEL[a.kind]}</span>
+                    <span className={`rounded-full px-2 py-0.5 text-footnote ${stb.cls}`}>
                       {stb.label}
                     </span>
                     {canVeto && a.vetoUntil && (
-                      <span className="text-xs text-amber-700">
+                      <span className="text-footnote text-warning">
                         剩余 {timeRemaining(a.vetoUntil)}
                       </span>
                     )}
                   </div>
-                  <h3 className="mt-1.5 font-medium text-zinc-900">{a.title}</h3>
+                  <h3 className="mt-1.5 font-medium text-ink-primary">{a.title}</h3>
                   {a.body && (
-                    <p className="mt-1 line-clamp-2 text-sm text-zinc-600">{a.body}</p>
+                    <p className="mt-1 line-clamp-2 text-caption text-ink-secondary">{a.body}</p>
                   )}
                   {a.vetoReason && (
-                    <p className="mt-2 text-xs text-rose-700">
+                    <p className="mt-2 text-footnote text-rose-700">
                       否决理由: {a.vetoReason}
                     </p>
                   )}
-                  <div className="mt-2 text-xs text-zinc-400">
+                  <div className="mt-2 text-footnote text-ink-tertiary">
                     {new Date(a.createdAt).toLocaleString()}
                     {a.refType && a.refId && (
                       <>
@@ -280,7 +280,7 @@ export default function ProxyActionsPage() {
                       <button
                         disabled={busyId === a.id}
                         onClick={() => confirm(a.id)}
-                        className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                        className="rounded-md bg-emerald-600 px-3 py-1.5 text-footnote font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
                       >
                         立即确认
                       </button>
@@ -289,7 +289,7 @@ export default function ProxyActionsPage() {
                       <button
                         disabled={busyId === a.id}
                         onClick={() => veto(a.id)}
-                        className="rounded-md border border-rose-300 px-3 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                        className="rounded-md border border-rose-300 px-3 py-1.5 text-footnote font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-50"
                       >
                         否决
                       </button>
@@ -300,13 +300,13 @@ export default function ProxyActionsPage() {
 
               {/* ④ 反馈评分 - 对已执行的代行进行评价 */}
               {(a.status === 'executed' || a.status === 'vetoed' || a.status === 'expired') && (
-                <div className="mt-3 flex items-center gap-3 border-t border-zinc-100 pt-3">
-                  <span className="text-xs text-zinc-500">本次代行质量:</span>
+                <div className="mt-3 flex items-center gap-3 border-t border pt-3">
+                  <span className="text-footnote text-ink-secondary">本次代行质量:</span>
                   <div className="flex gap-2">
                     <button
                       disabled={feedbackBusy[a.id]}
                       onClick={() => submitFeedback(a.id, 'thumbs_up')}
-                      className="flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-xs text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+                      className="flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-footnote text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
                       title="点赞 - 这次代行符合我的风格"
                     >
                       👍 有用
@@ -314,14 +314,14 @@ export default function ProxyActionsPage() {
                     <button
                       disabled={feedbackBusy[a.id]}
                       onClick={() => submitFeedback(a.id, 'thumbs_down')}
-                      className="flex items-center gap-1 rounded-md bg-rose-50 px-2 py-1 text-xs text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                      className="flex items-center gap-1 rounded-md bg-rose-50 px-2 py-1 text-footnote text-rose-700 hover:bg-rose-100 disabled:opacity-50"
                       title="点踩 - 这次代行需要改进"
                     >
                       👎 需改进
                     </button>
                   </div>
                   {feedbackOk[a.id] && (
-                    <span className="text-xs text-emerald-600">✓ bossCaptureScore 已更新</span>
+                    <span className="text-footnote text-emerald-600">✓ bossCaptureScore 已更新</span>
                   )}
                 </div>
               )}

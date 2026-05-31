@@ -93,8 +93,8 @@ export default function NineBoxPage() {
     <main className="container mx-auto max-w-5xl space-y-4 px-4 py-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">人才 9 宫格</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h1 className="text-title-3 font-bold">人才 9 宫格</h1>
+          <p className="mt-1 text-caption text-muted-foreground">
             实时基于真实 KR (KPI 完成度) + TTI (成长度) 双轨评估 ·{' '}
             {lastUpdated ? `更新于 ${lastUpdated.toLocaleTimeString()}` : '加载中'}
             {' · 自动每 60s 刷新'}
@@ -120,15 +120,15 @@ export default function NineBoxPage() {
 
       {error && (
         <Card className="border-rose-200 bg-rose-50/40">
-          <CardContent className="flex items-center gap-2 py-3 text-sm text-rose-700">
+          <CardContent className="flex items-center gap-2 py-3 text-caption text-rose-700">
             <AlertTriangle className="h-4 w-4" /> 加载失败: {error} (已 fallback 到 demo 数据)
           </CardContent>
         </Card>
       )}
 
       {usingDemo && !error && (
-        <Card className="border-amber-200 bg-amber-50/40">
-          <CardContent className="flex items-center gap-2 py-3 text-sm text-amber-800">
+        <Card className="border-warning/20 bg-warning/5/40">
+          <CardContent className="flex items-center gap-2 py-3 text-caption text-warning">
             <Database className="h-4 w-4" />
             当前 cycle 没有实时 KR/TTI 数据, 显示 demo 占位. 在 OKR 看板创建 KR + TTI 后将自动归位.
           </CardContent>
@@ -149,9 +149,9 @@ export default function NineBoxPage() {
 
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">数据来源</CardTitle>
+          <CardTitle className="text-body">数据来源</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-1 text-xs text-muted-foreground">
+        <CardContent className="space-y-1 text-footnote text-muted-foreground">
           <div>
             <span className="font-medium text-foreground">KPI 完成度</span> = 该 owner 所有 KR 的 (current - start) / (target - start) 平均, clamp 到 [0,1]
           </div>
@@ -183,13 +183,13 @@ function CycleSelect({
   onChange: (v: string) => void;
 }) {
   return (
-    <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+    <label className="flex items-center gap-1.5 text-footnote text-muted-foreground">
       Cycle:
       <select
         aria-label="选择考核周期"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-8 rounded border bg-background px-2 text-sm"
+        className="h-8 rounded border bg-background px-2 text-caption"
       >
         <option value="all">全部</option>
         {cycles.map((c) => (
@@ -220,7 +220,7 @@ function Stat({
   return (
     <Card>
       <CardContent className="py-3 text-center">
-        <div className={`text-xl font-semibold ${cls}`}>{value}</div>
+        <div className={`text-headline font-semibold ${cls}`}>{value}</div>
         <div className="mt-0.5 text-[11px] text-muted-foreground">{label}</div>
       </CardContent>
     </Card>

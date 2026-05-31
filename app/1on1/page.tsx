@@ -78,12 +78,12 @@ export default function OneOnOnePage() {
   }, [people]);
 
   return (
-    <div className="flex h-screen bg-slate-50">
+    <div className="flex flex-col md:flex-row h-screen bg-slate-50">
       {/* 左: 列表 */}
       <aside className="w-80 border-r bg-white flex flex-col">
         <div className="border-b px-4 py-3 flex items-center justify-between">
           <div>
-            <div className="text-sm font-semibold flex items-center gap-1.5">
+            <div className="text-caption font-semibold flex items-center gap-1.5">
               <MessageSquare className="h-4 w-4 text-violet-600" />
               1on1 对话
             </div>
@@ -91,14 +91,14 @@ export default function OneOnOnePage() {
               主管-员工 双向周期沟通
             </div>
           </div>
-          <Button size="sm" onClick={() => setShowNew(true)} className="h-7 text-xs">
+          <Button size="sm" onClick={() => setShowNew(true)} className="h-7 text-footnote">
             <Plus className="h-3 w-3 mr-1" /> 新建
           </Button>
         </div>
 
         <div className="flex-1 overflow-y-auto">
           {meetings.length === 0 && (
-            <div className="p-6 text-center text-xs text-muted-foreground">
+            <div className="p-6 text-center text-footnote text-muted-foreground">
               还没有 1on1 记录
               <div className="mt-1 text-[10px]">点右上角新建第一次对话</div>
             </div>
@@ -186,7 +186,7 @@ export default function OneOnOnePage() {
           <div className="flex h-full items-center justify-center">
             <div className="text-center">
               <MessageSquare className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-              <div className="text-sm text-muted-foreground">
+              <div className="text-caption text-muted-foreground">
                 左侧选一次 1on1 查看详情
               </div>
               <div className="text-[11px] text-muted-foreground mt-1">
@@ -238,7 +238,7 @@ function MeetingSection({
             <div className="flex items-start justify-between gap-2 mb-0.5">
               <div className="flex items-center gap-1.5 min-w-0">
                 <User className="h-3 w-3 text-slate-400 shrink-0" />
-                <span className="text-xs font-medium truncate">
+                <span className="text-footnote font-medium truncate">
                   {personById.get(other) ?? other}
                 </span>
               </div>
@@ -297,8 +297,8 @@ function NewMeetingForm({
   return (
     <div className="max-w-xl mx-auto px-6 py-8">
       <div className="mb-6">
-        <div className="text-lg font-semibold">排期新 1on1</div>
-        <div className="text-xs text-muted-foreground mt-1">
+        <div className="text-headline font-semibold">排期新 1on1</div>
+        <div className="text-footnote text-muted-foreground mt-1">
           选参与人 + 节奏 + 时间, 稍后可在详情里补议程和 KR
         </div>
       </div>
@@ -306,12 +306,12 @@ function NewMeetingForm({
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label className="text-xs">主管</Label>
+            <Label className="text-footnote">主管</Label>
             <select
               aria-label="主管"
               value={managerId}
               onChange={(e) => setManagerId(e.target.value)}
-              className="w-full h-9 rounded border border-input bg-background px-2 text-sm"
+              className="w-full h-9 rounded border border-input bg-background px-2 text-caption"
             >
               <option value="">选择...</option>
               {people.map((p) => (
@@ -320,12 +320,12 @@ function NewMeetingForm({
             </select>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">员工</Label>
+            <Label className="text-footnote">员工</Label>
             <select
               aria-label="员工"
               value={reportId}
               onChange={(e) => setReportId(e.target.value)}
-              className="w-full h-9 rounded border border-input bg-background px-2 text-sm"
+              className="w-full h-9 rounded border border-input bg-background px-2 text-caption"
             >
               <option value="">选择...</option>
               {people.filter((p) => p.id !== managerId).map((p) => (
@@ -336,14 +336,14 @@ function NewMeetingForm({
         </div>
 
         <div className="space-y-1.5">
-          <Label className="text-xs">节奏</Label>
+          <Label className="text-footnote">节奏</Label>
           <div className="flex gap-2">
             {(Object.keys(CADENCE_LABEL) as OneOnOneCadence[]).map((c) => (
               <button
                 key={c}
                 type="button"
                 onClick={() => setCadence(c)}
-                className={`flex-1 h-8 rounded text-xs transition ${
+                className={`flex-1 h-8 rounded text-footnote transition ${
                   cadence === c
                     ? 'bg-violet-600 text-white'
                     : 'bg-muted/50 hover:bg-muted'
@@ -356,7 +356,7 @@ function NewMeetingForm({
         </div>
 
         <div className="space-y-1.5">
-          <Label className="text-xs">计划时间</Label>
+          <Label className="text-footnote">计划时间</Label>
           <Input
             type="datetime-local"
             value={dateStr}
@@ -435,14 +435,14 @@ function MeetingDetail({
       <div className="flex items-start justify-between border-b pb-3">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold">
+            <h1 className="text-headline font-semibold">
               {managerName} ↔ {reportName}
             </h1>
             <Badge className={`text-[10px] ${meta.color} hover:${meta.color}`}>
               {meta.label}
             </Badge>
           </div>
-          <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
+          <div className="text-footnote text-muted-foreground mt-1 flex items-center gap-2">
             <Calendar className="h-3 w-3" />
             {new Date(meeting.scheduledAt).toLocaleString('zh-CN')}
             <span>·</span>
@@ -497,7 +497,7 @@ function MeetingDetail({
       {/* 议程 (双方各写) */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-1.5">
+          <CardTitle className="text-caption flex items-center gap-1.5">
             <ListChecks className="h-4 w-4 text-blue-600" />
             议程 / Talking Points
           </CardTitle>
@@ -512,7 +512,7 @@ function MeetingDetail({
               onChange={(e) => onUpdate({ agendaManager: e.target.value })}
               placeholder="· 上季度 Q 目标进展&#10;· 下一步优先级"
               rows={3}
-              className="mt-1 text-xs"
+              className="mt-1 text-footnote"
             />
           </div>
           <div>
@@ -524,7 +524,7 @@ function MeetingDetail({
               onChange={(e) => onUpdate({ agendaReport: e.target.value })}
               placeholder="· 卡点/障碍&#10;· 职业发展想法"
               rows={3}
-              className="mt-1 text-xs"
+              className="mt-1 text-footnote"
             />
           </div>
         </CardContent>
@@ -533,14 +533,14 @@ function MeetingDetail({
       {/* 关联 KR */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-1.5">
-            <Target className="h-4 w-4 text-amber-600" />
+          <CardTitle className="text-caption flex items-center gap-1.5">
+            <Target className="h-4 w-4 text-warning" />
             关联 KR · 避免空聊 ({meeting.linkedKrIds.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
           {availableKRs.length === 0 ? (
-            <div className="text-xs text-muted-foreground py-2">
+            <div className="text-footnote text-muted-foreground py-2">
               还没创建任何 KR · 去 <a href="/okr" className="text-blue-600 underline">/okr</a> 先建
             </div>
           ) : (
@@ -548,7 +548,7 @@ function MeetingDetail({
               {availableKRs.map((kr) => {
                 const checked = meeting.linkedKrIds.includes(kr.id);
                 return (
-                  <label key={kr.id} className="flex items-start gap-2 text-xs p-1.5 rounded hover:bg-muted/40 cursor-pointer">
+                  <label key={kr.id} className="flex items-start gap-2 text-footnote p-1.5 rounded hover:bg-muted/40 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={checked}
@@ -574,7 +574,7 @@ function MeetingDetail({
       {/* 三段式 notes */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-1.5">
+          <CardTitle className="text-caption flex items-center gap-1.5">
             <MessageSquare className="h-4 w-4 text-violet-600" />
             会议记录 · 三段式
           </CardTitle>
@@ -587,7 +587,7 @@ function MeetingDetail({
               onChange={(e) => onUpdate({ noteProgress: e.target.value })}
               placeholder="本周/月 完成了什么..."
               rows={3}
-              className="mt-1 text-xs"
+              className="mt-1 text-footnote"
             />
           </div>
           <div>
@@ -597,7 +597,7 @@ function MeetingDetail({
               onChange={(e) => onUpdate({ noteBlockers: e.target.value })}
               placeholder="遇到什么卡点, 需要什么帮助..."
               rows={3}
-              className="mt-1 text-xs"
+              className="mt-1 text-footnote"
             />
           </div>
           <div>
@@ -607,7 +607,7 @@ function MeetingDetail({
               onChange={(e) => onUpdate({ noteNextSteps: e.target.value })}
               placeholder="下周/月 的聚焦事项..."
               rows={3}
-              className="mt-1 text-xs"
+              className="mt-1 text-footnote"
             />
           </div>
         </CardContent>
@@ -616,19 +616,19 @@ function MeetingDetail({
       {/* Action Items */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-1.5">
+          <CardTitle className="text-caption flex items-center gap-1.5">
             <CheckCircle2 className="h-4 w-4 text-emerald-600" />
             Action Items ({meeting.actionItems.length})
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           {meeting.actionItems.length === 0 && (
-            <div className="text-xs text-muted-foreground py-1">
+            <div className="text-footnote text-muted-foreground py-1">
               还没有 action item
             </div>
           )}
           {meeting.actionItems.map((a) => (
-            <div key={a.id} className="flex items-center gap-2 text-xs group">
+            <div key={a.id} className="flex items-center gap-2 text-footnote group">
               <button
                 type="button"
                 onClick={() => onToggleAction(a.id)}
@@ -702,7 +702,7 @@ function MeetingDetail({
               value={actionText}
               onChange={(e) => setActionText(e.target.value)}
               placeholder="新 action item..."
-              className="text-xs h-8"
+              className="text-footnote h-8"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && actionText.trim()) {
                   onAddAction(actionText.trim(), actionAssignee);
@@ -713,7 +713,7 @@ function MeetingDetail({
             <select
               value={actionAssignee}
               onChange={(e) => setActionAssignee(e.target.value)}
-              className="h-8 rounded border border-input bg-background px-2 text-xs"
+              className="h-8 rounded border border-input bg-background px-2 text-footnote"
               aria-label="指派给"
             >
               {people.map((p) => (
@@ -736,9 +736,9 @@ function MeetingDetail({
 
       {/* 主管私密笔记 + 心情评分 */}
       {isManager && (
-        <Card className="border-amber-200/50 bg-amber-50/30">
+        <Card className="border-warning/20/50 bg-warning/5/30">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-1.5">
+            <CardTitle className="text-caption flex items-center gap-1.5">
               <Heart className="h-4 w-4 text-rose-500" />
               主管私密区 · 仅主管可见
             </CardTitle>
@@ -752,7 +752,7 @@ function MeetingDetail({
                     key={n}
                     type="button"
                     onClick={() => onUpdate({ moodScore: meeting.moodScore === n ? undefined : n })}
-                    className={`h-8 w-8 rounded text-sm transition ${
+                    className={`h-8 w-8 rounded text-caption transition ${
                       meeting.moodScore === n
                         ? 'bg-rose-500 text-white'
                         : 'bg-white border hover:bg-muted'
@@ -770,10 +770,10 @@ function MeetingDetail({
                 onChange={(e) => onUpdate({ privateManagerNote: e.target.value })}
                 placeholder="员工本人看不到, 用于主管自己记忆..."
                 rows={2}
-                className="mt-1 text-xs"
+                className="mt-1 text-footnote"
               />
             </div>
-            <div className="text-[10px] text-amber-700 flex items-center gap-1">
+            <div className="text-[10px] text-warning flex items-center gap-1">
               <AlertCircle className="h-2.5 w-2.5" />
               §13 数据尊严: 此区内容永不暴露给 {reportName}
             </div>

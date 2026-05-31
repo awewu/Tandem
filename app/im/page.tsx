@@ -435,7 +435,7 @@ function ImInner() {
               </p>
             </div>
             <div
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-[10px] font-medium text-white shadow-sm"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-[10px] font-medium text-white shadow-soft-sm"
               title={`${channels.length} 个频道 · 实时 SSE`}
             >
               {channels.length}
@@ -447,7 +447,7 @@ function ImInner() {
             <button
               type="button"
               onClick={() => setShowCreateDialog(true)}
-              className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-3.5 py-1.5 text-[12px] font-medium text-white shadow-sm transition hover:bg-slate-800 hover:shadow-md"
+              className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-3.5 py-1.5 text-[12px] font-medium text-white shadow-soft-sm transition hover:bg-slate-800 hover:shadow-soft"
               title="新建群聊 (普通/部门/项目/跨部门/公告)"
             >
               <Plus className="h-3.5 w-3.5" />
@@ -465,7 +465,7 @@ function ImInner() {
             <button
               type="button"
               onClick={() => setShowSeedDialog(true)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50/70 px-3 py-1.5 text-[12px] font-medium text-amber-700 transition hover:border-amber-300 hover:bg-amber-100/80"
+              className="inline-flex items-center gap-1.5 rounded-full border border-warning/20 bg-warning/5/70 px-3 py-1.5 text-[12px] font-medium text-warning transition hover:border-warning/30 hover:bg-warning/10/80"
               title="按组织架构一键建群 (HR/Admin)"
             >
               <Sparkles className="h-3.5 w-3.5" />
@@ -482,7 +482,7 @@ function ImInner() {
               onClick={() => setLeftTab('channels')}
               className={`rounded-full px-4 py-1 font-medium transition ${
                 leftTab === 'channels'
-                  ? 'bg-white text-slate-900 shadow-sm'
+                  ? 'bg-white text-slate-900 shadow-soft-sm'
                   : 'text-slate-500 hover:text-slate-700'
               }`}
             >
@@ -493,7 +493,7 @@ function ImInner() {
               onClick={() => setLeftTab('contacts')}
               className={`rounded-full px-4 py-1 font-medium transition ${
                 leftTab === 'contacts'
-                  ? 'bg-white text-slate-900 shadow-sm'
+                  ? 'bg-white text-slate-900 shadow-soft-sm'
                   : 'text-slate-500 hover:text-slate-700'
               }`}
             >
@@ -515,7 +515,7 @@ function ImInner() {
         <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
           {channels.length === 0 && (
             <div className="mx-2 mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 px-5 py-8 text-center">
-              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 text-2xl">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 text-title-3">
                 💬
               </div>
               <p className="text-[12.5px] font-medium text-slate-700">还没有会话</p>
@@ -539,8 +539,8 @@ function ImInner() {
                 }}
                 className={`group flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-all ${
                   active
-                    ? 'bg-white shadow-sm ring-1 ring-slate-200/80'
-                    : 'hover:bg-white/70 hover:shadow-sm'
+                    ? 'bg-white shadow-soft-sm ring-1 ring-slate-200/80'
+                    : 'hover:bg-white/70 hover:shadow-soft-sm'
                 }`}
               >
                 <GemChannelAvatar channel={c} name={displayName} />
@@ -706,8 +706,8 @@ function ImInner() {
 
             {/* Day 7: 公告条 (如果有) */}
             {activeChannel.announcement && (
-              <div className="flex items-start gap-2 border-b border-amber-200/70 bg-amber-50/60 px-5 py-2 text-[12px] text-amber-900">
-                <Megaphone className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
+              <div className="flex items-start gap-2 border-b border-warning/20/70 bg-warning/5/60 px-5 py-2 text-[12px] text-warning">
+                <Megaphone className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
                 <div className="min-w-0 flex-1">
                   <span className="font-medium">公告:</span>{' '}
                   <span className="whitespace-pre-wrap break-words line-clamp-2">
@@ -717,7 +717,7 @@ function ImInner() {
                 <button
                   type="button"
                   onClick={() => setShowSettings(true)}
-                  className="text-[10px] text-amber-700 hover:underline shrink-0"
+                  className="text-[10px] text-warning hover:underline shrink-0"
                 >
                   详情
                 </button>
@@ -732,7 +732,7 @@ function ImInner() {
                   onClick={() => setShowSettings(true)}
                   className="flex items-center gap-1.5 text-[11px] text-slate-600 hover:text-slate-900"
                 >
-                  <Pin className="h-3 w-3 text-amber-500" />
+                  <Pin className="h-3 w-3 text-warning" />
                   {(activeChannel.pinnedMessageIds ?? []).length} 条置顶消息
                 </button>
               </div>
@@ -761,11 +761,11 @@ function ImInner() {
 
             <footer className="border-t border-slate-200/70 bg-white/95 px-5 py-3 backdrop-blur-sm">
               <div className="mb-2 flex items-center gap-1.5 text-[11px] text-slate-500">
-                <Sparkles className="h-3 w-3 text-amber-500" />
+                <Sparkles className="h-3 w-3 text-warning" />
                 <span>hover 消息 → ✨ 开议事室 / 🧠 沉淀 · 输入 <code className="rounded bg-slate-100 px-1 py-0.5 font-mono text-[10px] text-slate-700">@[colleague-li](colleague-li:persona)</code> 召唤 AI 分身</span>
               </div>
               <div className="flex items-end gap-2">
-                <div className="flex flex-1 items-center rounded-2xl border border-slate-200 bg-white px-4 py-2.5 shadow-sm transition focus-within:border-amber-400 focus-within:ring-2 focus-within:ring-amber-100">
+                <div className="flex flex-1 items-center rounded-2xl border border-slate-200 bg-white px-4 py-2.5 shadow-soft-sm transition focus-within:border-warning/50 focus-within:ring-2 focus-within:ring-warning/10">
                   <Input
                     ref={composerRef}
                     value={input}
@@ -791,7 +791,7 @@ function ImInner() {
                 <Button
                   onClick={sendMessage}
                   disabled={sending || !input.trim()}
-                  className="h-11 gap-1.5 rounded-full bg-slate-900 px-5 text-white shadow-sm transition hover:bg-slate-800 hover:shadow-md disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
+                  className="h-11 gap-1.5 rounded-full bg-slate-900 px-5 text-white shadow-soft-sm transition hover:bg-slate-800 hover:shadow-soft disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
                 >
                   <Send className="h-3.5 w-3.5" />
                   发送
@@ -801,14 +801,14 @@ function ImInner() {
           </>
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-4 px-8 text-center">
-            <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-violet-100 via-sky-100 to-emerald-100 text-4xl shadow-sm">
+            <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-violet-100 via-sky-100 to-emerald-100 text-title-1 shadow-soft-sm">
               ✨
             </div>
             <div>
               <p className="text-[15px] font-semibold text-slate-700">选个会话开始</p>
               <p className="mt-1.5 text-[12px] text-slate-500 leading-relaxed max-w-xs">
                 从左边选一个频道, 或点上方 <span className="font-medium text-slate-700">新建</span> / <span className="font-medium text-slate-700">1:1</span> 开一个。<br />
-                发出的每条消息 hover 均可一键 <span className="font-medium text-amber-600">开议事室</span> 或 <span className="font-medium text-violet-600">沉淀 Memory</span>.
+                发出的每条消息 hover 均可一键 <span className="font-medium text-warning">开议事室</span> 或 <span className="font-medium text-violet-600">沉淀 Memory</span>.
               </p>
             </div>
           </div>
@@ -819,7 +819,7 @@ function ImInner() {
       <aside className="hidden flex-col gap-3 overflow-y-auto border-l border-slate-200/70 bg-white/95 p-4 backdrop-blur-sm md:flex">
         {activeChannel ? (
           <>
-            <Card className="border-slate-200/70 shadow-sm">
+            <Card className="border-slate-200/70 shadow-soft-sm">
               <CardContent className="space-y-3 p-4">
                 <div>
                   <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
@@ -854,7 +854,7 @@ function ImInner() {
                           {uid === ME && (
                             <Badge
                               variant="outline"
-                              className="h-4 border-amber-200 bg-amber-50 px-1 text-[9px] text-amber-700"
+                              className="h-4 border-warning/20 bg-warning/5 px-1 text-[9px] text-warning"
                             >
                               我
                             </Badge>
@@ -880,7 +880,7 @@ function ImInner() {
           </>
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-xl">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-headline">
               📝
             </div>
             <p className="text-[12px] text-slate-400 leading-relaxed">
@@ -928,12 +928,12 @@ function BannerChip() {
 function EmptyState() {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3 text-slate-400">
-      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-100 to-violet-100 text-3xl">
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-100 to-violet-100 text-title-2">
         💬
       </div>
       <div className="max-w-xs text-center text-[12.5px]">
         还没有消息. 发条试试 — hover 任意消息可以
-        <span className="mx-1 inline-flex items-center gap-0.5 rounded bg-amber-100 px-1.5 py-0.5 font-medium text-amber-700">
+        <span className="mx-1 inline-flex items-center gap-0.5 rounded bg-warning/10 px-1.5 py-0.5 font-medium text-warning">
           <Sparkles className="h-2.5 w-2.5" />开议事室
         </span>
         或
@@ -956,11 +956,11 @@ function ChannelAvatar({
   name: string;
   size?: 'sm' | 'md';
 }) {
-  const dim = size === 'md' ? 'h-9 w-9 text-sm' : 'h-8 w-8 text-xs';
+  const dim = size === 'md' ? 'h-9 w-9 text-caption' : 'h-8 w-8 text-footnote';
   if (channel.type === 'announcement') {
     return (
       <div
-        className={`${dim} flex shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-rose-400 to-rose-500 text-white shadow-sm`}
+        className={`${dim} flex shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-rose-400 to-rose-500 text-white shadow-soft-sm`}
       >
         <Megaphone className="h-4 w-4" />
       </div>
@@ -969,7 +969,7 @@ function ChannelAvatar({
   if (channel.type === 'dm') {
     return (
       <div
-        className={`${dim} flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-400 to-slate-600 font-semibold uppercase text-white shadow-sm`}
+        className={`${dim} flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-400 to-slate-600 font-semibold uppercase text-white shadow-soft-sm`}
       >
         {name.slice(0, 2)}
       </div>
@@ -986,7 +986,7 @@ function ChannelAvatar({
   const idx = channel.id.charCodeAt(0) % palette.length;
   return (
     <div
-      className={`${dim} flex shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${palette[idx]} text-white shadow-sm`}
+      className={`${dim} flex shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${palette[idx]} text-white shadow-soft-sm`}
     >
       <Hash className="h-4 w-4" />
     </div>
@@ -996,7 +996,7 @@ function ChannelAvatar({
 /**
  * Gemini Gems 风频道头像 (左栏列表用):
  *   - 更大 (h-11 w-11), rounded-2xl (24px)
- *   - 渐变更柔, 阴影 shadow-md/shadow-sm
+ *   - 渐变更柔, 阴影 shadow-soft/shadow-soft-sm
  *   - DM/group/announcement 三种语义保持区别
  */
 function GemChannelAvatar({
@@ -1008,14 +1008,14 @@ function GemChannelAvatar({
 }) {
   if (channel.type === 'announcement') {
     return (
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-400 via-rose-500 to-pink-500 text-white shadow-md shadow-rose-200/60 ring-1 ring-white">
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-400 via-rose-500 to-pink-500 text-white shadow-soft shadow-rose-200/60 ring-1 ring-white">
         <Megaphone className="h-5 w-5" />
       </div>
     );
   }
   if (channel.type === 'dm') {
     return (
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-500 via-slate-600 to-slate-700 text-[15px] font-semibold uppercase text-white shadow-md shadow-slate-200/70 ring-1 ring-white">
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-500 via-slate-600 to-slate-700 text-[15px] font-semibold uppercase text-white shadow-soft shadow-slate-200/70 ring-1 ring-white">
         {name.slice(0, 2)}
       </div>
     );
@@ -1031,7 +1031,7 @@ function GemChannelAvatar({
   const idx = channel.id.charCodeAt(0) % palette.length;
   return (
     <div
-      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${palette[idx]} text-white shadow-md ring-1 ring-white`}
+      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${palette[idx]} text-white shadow-soft ring-1 ring-white`}
     >
       <Hash className="h-5 w-5" />
     </div>
@@ -1131,7 +1131,7 @@ function MessageRow({
   if (msg.senderKind === 'system') {
     return (
       <div className="my-3 flex justify-center text-[11px]">
-        <div className="flex items-center gap-1.5 rounded-full border border-slate-200/70 bg-white px-3 py-1 text-slate-500 shadow-sm">
+        <div className="flex items-center gap-1.5 rounded-full border border-slate-200/70 bg-white px-3 py-1 text-slate-500 shadow-soft-sm">
           <Info className="h-3 w-3 text-slate-400" />
           {renderInline(msg.body, onMentionPersona)}
         </div>
@@ -1145,7 +1145,7 @@ function MessageRow({
   return (
     <div className={`group mb-1 flex items-start gap-2.5 ${isMe ? 'flex-row-reverse' : ''}`}>
       <div
-        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold shadow-sm ${
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold shadow-soft-sm ${
           isPersona
             ? 'bg-gradient-to-br from-violet-400 to-purple-500 text-white'
             : isMe
@@ -1183,7 +1183,7 @@ function MessageRow({
         )}
         <div className={`relative inline-block ${isMe ? 'text-left' : ''}`}>
           <div
-            className={`inline-block whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-[13.5px] leading-relaxed shadow-sm ${
+            className={`inline-block whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-[13.5px] leading-relaxed shadow-soft-sm ${
               isMe
                 ? 'bg-gradient-to-br from-amber-500 to-orange-500 text-white'
                 : isPersona
@@ -1231,7 +1231,7 @@ function MessageRow({
               type="button"
               onClick={onSpawnRoom}
               disabled={!!msg.spawnedDecisionCardId}
-              className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-amber-700 shadow-md ring-1 ring-amber-300/80 transition hover:bg-amber-50 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-warning shadow-soft ring-1 ring-warning/30/80 transition hover:bg-warning/5 hover:shadow-soft-lg disabled:cursor-not-allowed disabled:opacity-40"
               title="把这条消息变成议事室议题 (Tandem 差异化 — 普通 IM 没有)"
             >
               <Sparkles className="h-3 w-3" />
@@ -1241,7 +1241,7 @@ function MessageRow({
               type="button"
               onClick={onPromote}
               disabled={!!msg.spawnedPromotionId}
-              className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-violet-700 shadow-md ring-1 ring-violet-300/80 transition hover:bg-violet-50 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-violet-700 shadow-soft ring-1 ring-violet-300/80 transition hover:bg-violet-50 hover:shadow-soft-lg disabled:cursor-not-allowed disabled:opacity-40"
               title="沉淀为 Memory 升级提议 (三级签批) — 差异化 §2.2 第 3 条"
             >
               <Brain className="h-3 w-3" />
@@ -1251,8 +1251,8 @@ function MessageRow({
             <button
               type="button"
               onClick={onPin}
-              className={`flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold shadow-md transition hover:shadow-lg ${
-                isPinned ? 'text-amber-700 ring-1 ring-amber-300/80 hover:bg-amber-50' : 'text-slate-600 ring-1 ring-slate-300/80 hover:bg-slate-50'
+              className={`flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold shadow-soft transition hover:shadow-soft-lg ${
+                isPinned ? 'text-warning ring-1 ring-warning/30/80 hover:bg-warning/5' : 'text-slate-600 ring-1 ring-slate-300/80 hover:bg-slate-50'
               }`}
               title={isPinned ? '取消置顶' : '置顶 (最多 5 条)'}
             >
@@ -1270,7 +1270,7 @@ function MessageRow({
               <button
                 type="button"
                 onClick={onRecall}
-                className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-rose-700 shadow-md ring-1 ring-rose-300/80 transition hover:bg-rose-50 hover:shadow-lg"
+                className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-rose-700 shadow-soft ring-1 ring-rose-300/80 transition hover:bg-rose-50 hover:shadow-soft-lg"
                 title="撤回 (2 分钟内 有效)"
               >
                 <Trash2 className="h-3 w-3" />
@@ -1297,7 +1297,7 @@ function MessageRow({
             {msg.spawnedDecisionCardId && (
               <Link
                 href={`/convergence?id=${msg.spawnedDecisionCardId}`}
-                className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700 transition hover:bg-amber-100"
+                className="inline-flex items-center gap-1 rounded-full border border-warning/20 bg-warning/5 px-2 py-0.5 text-[10px] font-medium text-warning transition hover:bg-warning/10"
               >
                 <Sparkles className="h-2.5 w-2.5" />
                 议事室进行中

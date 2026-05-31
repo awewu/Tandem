@@ -130,11 +130,11 @@ export default function CompanyBrainAdminPage() {
       {/* 头部 */}
       <header className="rounded-2xl bg-gradient-to-br from-violet-50 to-purple-50/40 p-6 ring-1 ring-violet-200/80">
         <div className="flex items-start gap-4">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-md">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-soft">
             <Brain className="h-7 w-7" />
           </div>
           <div className="flex-1">
-            <h1 className="text-xl font-bold text-violet-900">
+            <h1 className="text-headline font-bold text-violet-900">
               🏛️ CompanyBrain · 中央 AI 看板
             </h1>
             <p className="mt-1 text-[12.5px] text-violet-700/80">
@@ -170,7 +170,7 @@ export default function CompanyBrainAdminPage() {
       {/* byContext */}
       {metrics && Object.keys(metrics.byContext).length > 0 && (
         <section className="rounded-2xl bg-white p-5 ring-1 ring-slate-200/80">
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-800">
+          <h2 className="mb-3 flex items-center gap-2 text-caption font-bold text-slate-800">
             <TrendingUp className="h-4 w-4 text-violet-600" /> 按场景分桶
           </h2>
           <table className="w-full text-[12px]">
@@ -204,7 +204,7 @@ export default function CompanyBrainAdminPage() {
       {metrics && (
         <div className="grid gap-3 md:grid-cols-2">
           <section className="rounded-2xl bg-white p-5 ring-1 ring-slate-200/80">
-            <h2 className="mb-3 text-sm font-bold text-slate-800">按版本对比</h2>
+            <h2 className="mb-3 text-caption font-bold text-slate-800">按版本对比</h2>
             {Object.keys(metrics.byBrainVersion).length === 0 ? (
               <p className="text-[12px] text-slate-400">暂无数据</p>
             ) : (
@@ -232,7 +232,7 @@ export default function CompanyBrainAdminPage() {
           </section>
 
           <section className="rounded-2xl bg-white p-5 ring-1 ring-slate-200/80">
-            <h2 className="mb-3 text-sm font-bold text-slate-800">近 30 天采纳率趋势</h2>
+            <h2 className="mb-3 text-caption font-bold text-slate-800">近 30 天采纳率趋势</h2>
             <div className="flex h-24 items-end gap-[2px]">
               {metrics.dailyTrend.map((d, i) => {
                 const h = d.total > 0 ? Math.max(6, d.adoptionRate * 100) : 4;
@@ -256,18 +256,18 @@ export default function CompanyBrainAdminPage() {
 
       {/* topFailurePatterns */}
       {metrics && metrics.topFailurePatterns.length > 0 && (
-        <section className="rounded-2xl bg-amber-50/40 p-5 ring-1 ring-amber-200/60">
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-amber-900">
+        <section className="rounded-2xl bg-warning/5/40 p-5 ring-1 ring-warning/20/60">
+          <h2 className="mb-3 flex items-center gap-2 text-caption font-bold text-warning">
             <AlertTriangle className="h-4 w-4" /> Top 推翻原因关键词
           </h2>
           <div className="flex flex-wrap gap-1.5">
             {metrics.topFailurePatterns.map((p) => (
               <span
                 key={p.keyword}
-                className="rounded-full bg-white px-2.5 py-1 text-[11.5px] font-medium text-amber-800 ring-1 ring-amber-300/80"
+                className="rounded-full bg-white px-2.5 py-1 text-[11.5px] font-medium text-warning ring-1 ring-warning/30/80"
                 title={`样本: ${p.sampleDecisionIds.join(', ')}`}
               >
-                {p.keyword} <span className="text-amber-500">×{p.count}</span>
+                {p.keyword} <span className="text-warning">×{p.count}</span>
               </span>
             ))}
           </div>
@@ -276,7 +276,7 @@ export default function CompanyBrainAdminPage() {
 
       {/* Recent Decisions */}
       <section className="rounded-2xl bg-white p-5 ring-1 ring-slate-200/80">
-        <h2 className="mb-3 text-sm font-bold text-slate-800">最近 20 条决策</h2>
+        <h2 className="mb-3 text-caption font-bold text-slate-800">最近 20 条决策</h2>
         {decisions.length === 0 ? (
           <p className="text-[12px] text-slate-400">
             暂无数据. 在 IM 里 @CompanyBrain 触发首次记录.
@@ -340,14 +340,14 @@ function KpiCard({
     slate: 'bg-white text-slate-800 ring-slate-200',
     emerald: 'bg-emerald-50/50 text-emerald-900 ring-emerald-200',
     rose: 'bg-rose-50/50 text-rose-900 ring-rose-200',
-    amber: 'bg-amber-50/50 text-amber-900 ring-amber-200',
+    amber: 'bg-warning/5/50 text-warning ring-warning/20',
     indigo: 'bg-indigo-50/50 text-indigo-900 ring-indigo-200',
   }[tone];
 
   return (
-    <div className={`rounded-xl p-4 ring-1 ${toneClass}`}>
+    <div className={`rounded-2xl p-4 ring-1 ${toneClass}`}>
       <div className="text-[10.5px] uppercase tracking-wider opacity-70">{label}</div>
-      <div className="mt-1 text-xl font-bold tabular-nums">{value}</div>
+      <div className="mt-1 text-headline font-bold tabular-nums">{value}</div>
       <div className="mt-0.5 text-[10.5px] opacity-60">{hint}</div>
     </div>
   );
@@ -357,7 +357,7 @@ function OutcomeBadge({ outcome }: { outcome: string }) {
   const map: Record<string, { bg: string; text: string; label: string }> = {
     pending: { bg: 'bg-slate-100', text: 'text-slate-600', label: '待反馈' },
     adopted: { bg: 'bg-emerald-100', text: 'text-emerald-800', label: '采纳' },
-    modified: { bg: 'bg-amber-100', text: 'text-amber-800', label: '修改' },
+    modified: { bg: 'bg-warning/10', text: 'text-warning', label: '修改' },
     overruled: { bg: 'bg-rose-100', text: 'text-rose-800', label: '推翻' },
     ignored: { bg: 'bg-slate-100', text: 'text-slate-500', label: '忽略' },
   };

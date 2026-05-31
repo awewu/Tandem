@@ -96,21 +96,21 @@ export default function OkrDriftAdminPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-6">
       {/* 头部 */}
-      <header className="rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50/40 p-6 ring-1 ring-amber-200/80">
+      <header className="rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50/40 p-6 ring-1 ring-warning/20/80">
         <div className="flex items-start gap-4">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-md">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-soft">
             <Target className="h-7 w-7" />
           </div>
           <div className="flex-1">
-            <h1 className="text-xl font-bold text-amber-900">
+            <h1 className="text-headline font-bold text-warning">
               🎯 OKR 主航道偏离 · 治理看板
             </h1>
-            <p className="mt-1 text-[12.5px] text-amber-800/80">
+            <p className="mt-1 text-[12.5px] text-warning/80">
               §B-015 (OKR-DRIVEN §三第2条) · 灵魂层第 2 条 整体能力提升 + 约束聚焦.
               <br />
               检测对象: CompanyBrain 答复 / Persona 代行 / 议事议题 vs 公司层 active Objective + KR 的语义对齐度.
             </p>
-            <p className="mt-1.5 text-[11px] text-amber-700/70">
+            <p className="mt-1.5 text-[11px] text-warning/70">
               判定逻辑: <code className="rounded bg-white/60 px-1.5 py-0.5 font-mono text-[11px]">lib/governance/okr-drift.ts</code> · 阈值
               <code className="rounded bg-white/60 px-1.5 py-0.5 font-mono text-[11px]">ALIGNED_THRESHOLD=0.28</code> (embedding) /
               <code className="rounded bg-white/60 px-1.5 py-0.5 font-mono text-[11px]">0.15</code> (jaccard 兜底)
@@ -134,7 +134,7 @@ export default function OkrDriftAdminPage() {
       {/* 双栏: 按来源 + 日趋势 */}
       <div className="grid gap-3 md:grid-cols-2">
         <section className="rounded-2xl bg-white p-5 ring-1 ring-slate-200/80">
-          <h2 className="mb-3 text-sm font-bold text-slate-800">按来源分桶</h2>
+          <h2 className="mb-3 text-caption font-bold text-slate-800">按来源分桶</h2>
           {Object.keys(data.bySource).length === 0 ? (
             <p className="text-[12px] text-slate-400">暂无 drift 数据</p>
           ) : (
@@ -166,7 +166,7 @@ export default function OkrDriftAdminPage() {
         </section>
 
         <section className="rounded-2xl bg-white p-5 ring-1 ring-slate-200/80">
-          <h2 className="mb-3 text-sm font-bold text-slate-800">日趋势</h2>
+          <h2 className="mb-3 text-caption font-bold text-slate-800">日趋势</h2>
           {data.dailyTrend.length === 0 ? (
             <p className="text-[12px] text-slate-400">暂无 drift 数据</p>
           ) : (
@@ -175,7 +175,7 @@ export default function OkrDriftAdminPage() {
                 {data.dailyTrend.map((d) => (
                   <div
                     key={d.date}
-                    className="flex-1 rounded-t bg-amber-400"
+                    className="flex-1 rounded-t bg-warning/50"
                     style={{ height: `${Math.max(6, (d.count / maxDayCount) * 100)}%` }}
                     title={`${d.date} · ${d.count} drift`}
                   />
@@ -192,7 +192,7 @@ export default function OkrDriftAdminPage() {
 
       {/* 明细 */}
       <section className="rounded-2xl bg-white p-5 ring-1 ring-slate-200/80">
-        <h2 className="mb-3 text-sm font-bold text-slate-800">
+        <h2 className="mb-3 text-caption font-bold text-slate-800">
           Drift 明细 ({data.entries.length})
         </h2>
         {data.entries.length === 0 ? (
@@ -211,7 +211,7 @@ export default function OkrDriftAdminPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
-                      <span className="rounded bg-amber-50 px-1.5 py-0.5 font-mono text-amber-700">
+                      <span className="rounded bg-warning/5 px-1.5 py-0.5 font-mono text-warning">
                         {SOURCE_LABEL[e.source ?? ''] ?? e.source ?? '?'}
                       </span>
                       <span>·</span>
@@ -270,12 +270,12 @@ function Kpi({
   tone: 'amber' | 'rose' | 'indigo';
 }) {
   const c = {
-    amber: 'bg-amber-50/50 text-amber-900 ring-amber-200',
+    amber: 'bg-warning/5/50 text-warning ring-warning/20',
     rose: 'bg-rose-50/50 text-rose-900 ring-rose-200',
     indigo: 'bg-indigo-50/50 text-indigo-900 ring-indigo-200',
   }[tone];
   return (
-    <div className={`rounded-xl p-4 ring-1 ${c}`}>
+    <div className={`rounded-2xl p-4 ring-1 ${c}`}>
       <div className="text-caption uppercase tracking-wider opacity-70">{label}</div>
       <div className="mt-1 text-title-2 font-semibold tabular-nums tracking-tight">{value}</div>
       <div className="mt-0.5 truncate text-caption opacity-60" title={hint}>

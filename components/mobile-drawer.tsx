@@ -153,7 +153,7 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
               type="button"
               onClick={handleLogout}
               disabled={signingOut}
-              className="mt-2 w-full flex items-center justify-center gap-1.5 rounded-md py-2 text-[12px] text-red-600 hover:bg-red-50 disabled:opacity-60 dark:hover:bg-red-500/10"
+              className="mt-2 w-full flex items-center justify-center gap-1.5 rounded-md py-2 text-[12px] text-danger hover:bg-danger/5 disabled:opacity-60 dark:hover:bg-danger/10"
             >
               <LogOut className="h-3.5 w-3.5" />
               {signingOut ? '退出中…' : '退出登录'}

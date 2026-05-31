@@ -110,13 +110,13 @@ function getFileIcon(node: FMNode, className = '') {
   const ext = (node.ext || node.name.split('.').pop() || '').toLowerCase();
   const iconClass = cn('shrink-0', className);
   if (['xlsx', 'xls', 'csv', 'ods'].includes(ext))
-    return <FileSpreadsheet className={cn('text-green-600', iconClass)} />;
+    return <FileSpreadsheet className={cn('text-success', iconClass)} />;
   if (['docx', 'doc', 'odt', 'rtf'].includes(ext))
     return <FileText className={cn('text-blue-600', iconClass)} />;
   if (['pptx', 'ppt', 'odp'].includes(ext))
     return <FileType className={cn('text-orange-500', iconClass)} />;
   if (['pdf'].includes(ext))
-    return <FileText className={cn('text-red-600', iconClass)} />;
+    return <FileText className={cn('text-danger', iconClass)} />;
   if (['md', 'markdown', 'txt', 'log', 'json', 'yaml', 'yml', 'xml', 'html'].includes(ext))
     return <FileText className={cn('text-slate-500', iconClass)} />;
   if (['js', 'ts', 'tsx', 'jsx', 'py', 'rs', 'go', 'java', 'c', 'cpp', 'h', 'sql'].includes(ext))
@@ -124,7 +124,7 @@ function getFileIcon(node: FMNode, className = '') {
   if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp'].includes(ext))
     return <FileImage className={cn('text-pink-500', iconClass)} />;
   if (['zip', 'rar', 'tar', 'gz', '7z'].includes(ext))
-    return <FileArchive className={cn('text-amber-600', iconClass)} />;
+    return <FileArchive className={cn('text-warning', iconClass)} />;
   if (['mp4', 'mov', 'avi', 'mkv', 'webm'].includes(ext))
     return <FileVideo className={cn('text-fuchsia-500', iconClass)} />;
   if (['mp3', 'wav', 'flac', 'ogg', 'm4a'].includes(ext))
@@ -481,7 +481,7 @@ export function FileManager({
         <div key={node.id}>
           <div
             className={cn(
-              'flex items-center gap-1 px-2 py-1 text-xs cursor-pointer rounded select-none',
+              'flex items-center gap-1 px-2 py-1 text-footnote cursor-pointer rounded select-none',
               isCurrent ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted',
               isDropTarget && 'ring-2 ring-primary/50 bg-primary/5'
             )}
@@ -545,7 +545,7 @@ export function FileManager({
 
     return (
       <div
-        className="fixed z-50 min-w-[180px] py-1 bg-popover border rounded-md shadow-lg text-sm"
+        className="fixed z-50 min-w-[180px] py-1 bg-popover border rounded-md shadow-soft-lg text-caption"
         style={{ left: ctxMenu.x, top: ctxMenu.y }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -606,7 +606,7 @@ export function FileManager({
           <>
             <div className="h-px bg-border my-1" />
             <MenuItem
-              icon={<Trash2 className="h-3.5 w-3.5 text-red-500" />}
+              icon={<Trash2 className="h-3.5 w-3.5 text-danger" />}
               label="删除"
               shortcut="Del"
               onClick={() => { handleDelete(targetIds); setCtxMenu(null); }}
@@ -659,7 +659,7 @@ export function FileManager({
         </Button>
 
         {/* 面包屑 */}
-        <div className="flex items-center gap-0.5 flex-1 min-w-0 px-2 py-1 text-xs bg-muted/50 rounded border overflow-x-auto">
+        <div className="flex items-center gap-0.5 flex-1 min-w-0 px-2 py-1 text-footnote bg-muted/50 rounded border overflow-x-auto">
           {breadcrumbs.map((n, i) => (
             <React.Fragment key={n.id}>
               {i > 0 && <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />}
@@ -684,7 +684,7 @@ export function FileManager({
             placeholder="搜索全部..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-7 pl-7 text-xs"
+            className="h-7 pl-7 text-footnote"
           />
         </div>
 
@@ -733,7 +733,7 @@ export function FileManager({
             <Button
               variant="ghost"
               size="sm"
-              className="flex-1 h-7 text-xs"
+              className="flex-1 h-7 text-footnote"
               onClick={() => setCreatingFolder(true)}
             >
               <Plus className="h-3 w-3 mr-1" /> 新建
@@ -752,7 +752,7 @@ export function FileManager({
                     }
                   }}
                 />
-                <Button variant="ghost" size="sm" className="w-full h-7 text-xs" asChild>
+                <Button variant="ghost" size="sm" className="w-full h-7 text-footnote" asChild>
                   <span><UploadIcon className="h-3 w-3 mr-1" /> 上传</span>
                 </Button>
               </label>
@@ -763,7 +763,7 @@ export function FileManager({
               <div className="flex gap-1">
                 <Input
                   autoFocus
-                  className="h-7 text-xs"
+                  className="h-7 text-footnote"
                   value={newFolderName}
                   onChange={(e) => setNewFolderName(e.target.value)}
                   onKeyDown={(e) => {
@@ -792,7 +792,7 @@ export function FileManager({
                 return (
                   <div
                     className={cn(
-                      'flex items-center gap-1 px-2 py-1 text-xs cursor-pointer rounded',
+                      'flex items-center gap-1 px-2 py-1 text-footnote cursor-pointer rounded',
                       currentFolderId === rootId
                         ? 'bg-primary/10 text-primary font-medium'
                         : 'hover:bg-muted'
@@ -851,7 +851,7 @@ export function FileManager({
               </div>
               {/* 行 */}
               {visibleChildren.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-64 text-muted-foreground gap-1 text-sm">
+                <div className="flex flex-col items-center justify-center h-64 text-muted-foreground gap-1 text-caption">
                   <FolderOpen className="h-8 w-8 opacity-30" />
                   {searchQuery ? '没有找到匹配项' : '此文件夹为空'}
                 </div>
@@ -881,7 +881,7 @@ export function FileManager({
                         setCtxMenu({ x: e.clientX, y: e.clientY, targetId: node.id });
                       }}
                       className={cn(
-                        'flex items-center gap-2 px-3 py-1.5 text-sm cursor-default border-b border-transparent select-none',
+                        'flex items-center gap-2 px-3 py-1.5 text-caption cursor-default border-b border-transparent select-none',
                         isSelected ? 'bg-primary/10' : 'hover:bg-muted/50',
                         isCut && 'opacity-50',
                         dropTargetId === node.id && node.type === 'folder' && 'ring-2 ring-primary/50 ring-inset'
@@ -902,20 +902,20 @@ export function FileManager({
                                 setRenameDraft('');
                               }
                             }}
-                            className="h-6 text-xs"
+                            className="h-6 text-footnote"
                             onClick={(e) => e.stopPropagation()}
                           />
                         ) : (
                           <span className="truncate">{node.name}</span>
                         )}
                       </div>
-                      <div className="w-32 hidden md:block text-xs text-muted-foreground">
+                      <div className="w-32 hidden md:block text-footnote text-muted-foreground">
                         {formatTime(node.modifiedAt)}
                       </div>
-                      <div className="w-20 hidden lg:block text-xs text-muted-foreground uppercase">
+                      <div className="w-20 hidden lg:block text-footnote text-muted-foreground uppercase">
                         {node.type === 'folder' ? '文件夹' : (node.ext || '文件')}
                       </div>
-                      <div className="w-20 hidden lg:block text-xs text-muted-foreground text-right">
+                      <div className="w-20 hidden lg:block text-footnote text-muted-foreground text-right">
                         {node.type === 'folder' ? '—' : formatBytes(node.size)}
                       </div>
                     </div>
@@ -927,7 +927,7 @@ export function FileManager({
             // Grid View
             <ScrollArea className="flex-1">
               {visibleChildren.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-64 text-muted-foreground gap-1 text-sm">
+                <div className="flex flex-col items-center justify-center h-64 text-muted-foreground gap-1 text-caption">
                   <FolderOpen className="h-8 w-8 opacity-30" />
                   {searchQuery ? '没有找到匹配项' : '此文件夹为空'}
                 </div>
@@ -980,11 +980,11 @@ export function FileManager({
                                 setRenameDraft('');
                               }
                             }}
-                            className="h-6 text-xs"
+                            className="h-6 text-footnote"
                             onClick={(e) => e.stopPropagation()}
                           />
                         ) : (
-                          <div className="text-xs text-center break-all line-clamp-2 leading-tight">
+                          <div className="text-footnote text-center break-all line-clamp-2 leading-tight">
                             {node.name}
                           </div>
                         )}
@@ -1003,14 +1003,14 @@ export function FileManager({
             {selectedSingleNode ? (
               renderDetails(selectedSingleNode)
             ) : selectedIds.size > 1 ? (
-              <div className="p-4 text-sm text-muted-foreground space-y-1">
+              <div className="p-4 text-caption text-muted-foreground space-y-1">
                 <div className="font-medium text-foreground">已选 {selectedIds.size} 项</div>
-                <div className="text-xs">使用右键菜单或快捷键批量操作</div>
+                <div className="text-footnote">使用右键菜单或快捷键批量操作</div>
               </div>
             ) : (
-              <div className="p-4 text-sm text-muted-foreground space-y-1">
+              <div className="p-4 text-caption text-muted-foreground space-y-1">
                 <div>选中一项查看详情</div>
-                <div className="text-xs mt-2 space-y-0.5">
+                <div className="text-footnote mt-2 space-y-0.5">
                   <div>↑↓ 导航 · Enter 打开</div>
                   <div>F2 重命名 · Del 删除</div>
                   <div>Ctrl+A 全选 · Esc 取消</div>
@@ -1067,7 +1067,7 @@ function MenuItem({
       type="button"
       disabled={disabled}
       className={cn(
-        'flex items-center gap-2 w-full px-3 py-1 text-left hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed text-xs'
+        'flex items-center gap-2 w-full px-3 py-1 text-left hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed text-footnote'
       )}
       onClick={onClick}
     >

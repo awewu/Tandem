@@ -88,11 +88,11 @@ export default function SkillsPage() {
       <div className="p-6 max-w-6xl mx-auto w-full space-y-4 flex-shrink-0">
         <div className="flex items-end justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            <h1 className="text-title-3 font-bold tracking-tight flex items-center gap-2">
               <BookOpen className="h-6 w-6" /> Skills
             </h1>
-            <p className="text-muted-foreground mt-1 text-sm">
-              Live view from <code className="text-xs">hermes skills list</code>.
+            <p className="text-muted-foreground mt-1 text-caption">
+              Live view from <code className="text-footnote">hermes skills list</code>.
               Click any skill to use it in chat.
             </p>
           </div>
@@ -103,19 +103,19 @@ export default function SkillsPage() {
 
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="secondary">Total: {stats.total}</Badge>
-          <Badge className="bg-green-600">Enabled: {stats.enabled}</Badge>
+          <Badge className="bg-success">Enabled: {stats.enabled}</Badge>
           {Object.entries(stats.byCat).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([cat, n]) => (
-            <Badge key={cat} variant="outline" className="text-xs">
+            <Badge key={cat} variant="outline" className="text-footnote">
               {cat}: {n}
             </Badge>
           ))}
         </div>
 
         {error && (
-          <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-caption text-destructive">
             <AlertCircle className="h-4 w-4" />
             <span>{error}</span>
-            <span className="text-xs opacity-70">— Is <code>hermes</code> in PATH?</span>
+            <span className="text-footnote opacity-70">— Is <code>hermes</code> in PATH?</span>
           </div>
         )}
 
@@ -129,18 +129,18 @@ export default function SkillsPage() {
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            className="h-9 rounded-md border bg-background px-3 text-sm"
+            className="h-9 rounded-md border bg-background px-3 text-caption"
           >
             {categories.map((c) => (<option key={c} value={c}>{c === 'all' ? 'All categories' : c}</option>))}
           </select>
           <select
             value={selectedSource}
             onChange={(e) => setSelectedSource(e.target.value)}
-            className="h-9 rounded-md border bg-background px-3 text-sm"
+            className="h-9 rounded-md border bg-background px-3 text-caption"
           >
             {sources.map((s) => (<option key={s} value={s}>{s === 'all' ? 'All sources' : s}</option>))}
           </select>
-          <span className="text-xs text-muted-foreground ml-auto">{filtered.length} shown</span>
+          <span className="text-footnote text-muted-foreground ml-auto">{filtered.length} shown</span>
         </div>
       </div>
 
@@ -148,16 +148,16 @@ export default function SkillsPage() {
       <ScrollArea className="flex-1 px-6 pb-6">
         <div className="max-w-6xl mx-auto">
           {loading && skills.length === 0 ? (
-            <div className="text-sm text-muted-foreground py-12 text-center">Loading skills from Hermes...</div>
+            <div className="text-caption text-muted-foreground py-12 text-center">Loading skills from Hermes...</div>
           ) : filtered.length === 0 ? (
-            <div className="text-sm text-muted-foreground py-12 text-center">No skills match the filter.</div>
+            <div className="text-caption text-muted-foreground py-12 text-center">No skills match the filter.</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {filtered.map((skill) => (
                 <Card 
                   key={skill.name} 
                   className={cn(
-                    'cursor-pointer transition-all hover:shadow-md hover:scale-[1.02]',
+                    'cursor-pointer transition-all hover:shadow-soft hover:scale-[1.02]',
                     skill.enabled ? 'border-primary/20 hover:border-primary/50' : 'opacity-60 hover:opacity-90'
                   )}
                   onClick={() => handleSkillClick(skill.name)}
@@ -165,10 +165,10 @@ export default function SkillsPage() {
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <div className="font-medium text-sm truncate">{skill.name}</div>
-                        <div className="text-xs text-muted-foreground mt-0.5 truncate">{skill.category}</div>
+                        <div className="font-medium text-caption truncate">{skill.name}</div>
+                        <div className="text-footnote text-muted-foreground mt-0.5 truncate">{skill.category}</div>
                       </div>
-                      {skill.enabled && <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />}
+                      {skill.enabled && <CheckCircle2 className="h-4 w-4 text-success shrink-0" />}
                     </div>
                     <div className="flex items-center gap-2 mt-3">
                       <Badge variant="outline" className={cn('text-[10px]', sourceColor(skill.source))}>
@@ -178,7 +178,7 @@ export default function SkillsPage() {
                         <Badge variant="outline" className="text-[10px]">{skill.trust}</Badge>
                       )}
                       {skill.enabled && (
-                        <Badge className="text-[10px] bg-green-600 hover:bg-green-700 ml-auto">
+                        <Badge className="text-[10px] bg-success hover:bg-success ml-auto">
                           <Play className="h-3 w-3 mr-1" /> Use
                         </Badge>
                       )}

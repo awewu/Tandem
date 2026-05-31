@@ -18,7 +18,7 @@
  * UI 铁律 (CHARTER-UI-V1):
  *   - 只用 surface-* / shadow-soft-* / .text-title-* / pill-* token
  *   - 卡片 rounded-2xl, Hero rounded-3xl
- *   - 不出现 bg-slate-* / shadow-sm 等 raw tailwind
+ *   - 不出现 bg-slate-* / shadow-soft-sm 等 raw tailwind
  */
 
 import Link from 'next/link';

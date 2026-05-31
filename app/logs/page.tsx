@@ -24,8 +24,8 @@ const LEVEL_COLORS: Record<string, string> = {
   INFO: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
   DEBUG: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200',
   WARNING: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-  ERROR: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-  CRITICAL: 'bg-red-200 text-red-900 dark:bg-red-950 dark:text-red-100',
+  ERROR: 'bg-danger/10 text-danger dark:bg-danger dark:text-danger',
+  CRITICAL: 'bg-danger/20 text-danger dark:bg-danger dark:text-danger',
   UNKNOWN: 'bg-muted text-muted-foreground',
 };
 
@@ -98,14 +98,14 @@ export default function LogsPage() {
   ).sort();
 
   return (
-    <div className="space-y-4 h-full flex flex-col">
+    <div className="space-y-4 h-full flex flex-col md:px-8">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+          <h1 className="text-title-2 font-bold tracking-tight flex items-center gap-2">
             <Activity className="h-7 w-7" />
             Activity Logs
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-caption text-muted-foreground mt-1">
             Live tail of <code className="font-mono">~/AppData/Local/hermes/logs/{logName}.log</code>
           </p>
         </div>
@@ -187,11 +187,11 @@ export default function LogsPage() {
 
       {error && (
         <Card className="border-destructive">
-          <CardContent className="p-4 flex items-start gap-2 text-sm text-destructive">
+          <CardContent className="p-4 flex items-start gap-2 text-caption text-destructive">
             <AlertCircle size={16} className="mt-0.5 shrink-0" />
             <div>
               <div className="font-medium">Failed to load logs</div>
-              <div className="font-mono text-xs mt-1 break-all">{error}</div>
+              <div className="font-mono text-footnote mt-1 break-all">{error}</div>
             </div>
           </CardContent>
         </Card>
@@ -199,16 +199,16 @@ export default function LogsPage() {
 
       <Card className="flex-1 min-h-0 flex flex-col">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+          <CardTitle className="text-caption font-medium text-muted-foreground flex items-center gap-2">
             {loading && <Loader2 size={14} className="animate-spin" />}
             {filtered.length} entries shown ({logs.length} loaded)
-            {!paused && <span className="text-xs">· refreshing every {POLL_MS / 1000}s</span>}
-            {paused && <span className="text-xs text-yellow-600">· paused</span>}
+            {!paused && <span className="text-footnote">· refreshing every {POLL_MS / 1000}s</span>}
+            {paused && <span className="text-footnote text-yellow-600">· paused</span>}
           </CardTitle>
         </CardHeader>
         <CardContent className="flex-1 min-h-0 p-0">
           <ScrollArea className="h-[calc(100vh-22rem)] px-4">
-            <div className="space-y-0.5 font-mono text-xs py-2">
+            <div className="space-y-0.5 font-mono text-footnote py-2">
               {filtered.length === 0 && !loading && (
                 <div className="text-center text-muted-foreground py-12">
                   {logs.length === 0

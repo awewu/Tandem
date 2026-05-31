@@ -9,8 +9,8 @@ const STATE_META: Record<string, { label: string; className: string; icon: typeo
   DIVERGE: { label: '审议中', className: 'bg-blue-100 text-blue-700', icon: Clock },
   CONVERGE: { label: '收敛中', className: 'bg-purple-100 text-purple-700', icon: Clock },
   COMMIT: { label: '已生效', className: 'bg-emerald-100 text-emerald-700', icon: CheckCircle2 },
-  ESCALATED: { label: '已升级', className: 'bg-amber-100 text-amber-700', icon: AlertTriangle },
-  VETOED: { label: '已否决', className: 'bg-red-100 text-red-700', icon: XCircle },
+  ESCALATED: { label: '已升级', className: 'bg-warning/10 text-warning', icon: AlertTriangle },
+  VETOED: { label: '已否决', className: 'bg-danger/10 text-danger', icon: XCircle },
 };
 
 export function DecisionCardView({ card }: { card: DecisionCard }) {
@@ -22,12 +22,12 @@ export function DecisionCardView({ card }: { card: DecisionCard }) {
       <Card>
         <CardHeader>
           <div className="flex items-start justify-between gap-4">
-            <CardTitle className="text-xl">{card.title}</CardTitle>
-            <span className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${state.className}`}>
+            <CardTitle className="text-headline">{card.title}</CardTitle>
+            <span className={`flex items-center gap-1 rounded-full px-3 py-1 text-footnote font-medium ${state.className}`}>
               <Icon className="h-3 w-3" /> {state.label}
             </span>
           </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-footnote text-muted-foreground">
             <Badge variant="outline">{card.decisionClass}</Badge>
             <span>耗时 {Math.floor(card.elapsedSeconds / 60)}:{String(card.elapsedSeconds % 60).padStart(2, '0')}</span>
             <span>· 创建于 {formatDate(card.createdAt)}</span>
@@ -44,7 +44,7 @@ export function DecisionCardView({ card }: { card: DecisionCard }) {
       {card.selected && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">最终方案: 选项 {card.selected}</CardTitle>
+            <CardTitle className="text-body">最终方案: 选项 {card.selected}</CardTitle>
           </CardHeader>
           <CardContent>
             {(() => {
@@ -54,13 +54,13 @@ export function DecisionCardView({ card }: { card: DecisionCard }) {
                 <div className="space-y-2">
                   <p className="whitespace-pre-wrap">{opt.description}</p>
                   {opt.reasoning && (
-                    <details className="text-sm text-muted-foreground">
+                    <details className="text-caption text-muted-foreground">
                       <summary className="cursor-pointer">推理依据</summary>
                       <p className="mt-1 whitespace-pre-wrap">{opt.reasoning}</p>
                     </details>
                   )}
                   {card.selectedBy && (
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-footnote text-muted-foreground">
                       选定人: {card.selectedBy} · 于 {card.selectedAt && formatDate(card.selectedAt)}
                     </p>
                   )}
@@ -75,14 +75,14 @@ export function DecisionCardView({ card }: { card: DecisionCard }) {
       {card.actionItems.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
+            <CardTitle className="text-body flex items-center gap-2">
               <FileText className="h-4 w-4" /> Action Items
             </CardTitle>
           </CardHeader>
           <CardContent>
             <ul className="space-y-2">
               {card.actionItems.map((a) => (
-                <li key={a.id} className="flex items-start gap-2 rounded border p-2 text-sm">
+                <li key={a.id} className="flex items-start gap-2 rounded border p-2 text-caption">
                   <input
                     type="checkbox"
                     checked={a.status === 'done'}
@@ -93,7 +93,7 @@ export function DecisionCardView({ card }: { card: DecisionCard }) {
                   />
                   <div className="flex-1">
                     <div className="font-medium">{a.task}</div>
-                    <div className="mt-0.5 text-xs text-muted-foreground">
+                    <div className="mt-0.5 text-footnote text-muted-foreground">
                       负责人: {a.owner} · 截止: {formatDate(a.due)} · 状态: {a.status}
                     </div>
                   </div>
@@ -108,11 +108,11 @@ export function DecisionCardView({ card }: { card: DecisionCard }) {
       {(card.relatedKr?.length || card.relatedTti?.length) && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
+            <CardTitle className="text-body flex items-center gap-2">
               <Link2 className="h-4 w-4" /> 关联 OKR / TTI
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-1 text-sm">
+          <CardContent className="space-y-1 text-caption">
             {card.relatedKr?.map((kr) => (
               <div key={kr} className="text-muted-foreground">KR: {kr}</div>
             ))}
@@ -126,7 +126,7 @@ export function DecisionCardView({ card }: { card: DecisionCard }) {
       {/* Veto window */}
       {card.vetoWindowEnds && card.convergenceState === 'COMMIT' && (
         <Card>
-          <CardContent className="py-3 text-sm text-amber-800 bg-amber-50">
+          <CardContent className="py-3 text-caption text-warning bg-warning/5">
             ⚠️ 24h 否决窗口至 {formatDate(card.vetoWindowEnds)} - 员工本人可在此期间撤回决议
           </CardContent>
         </Card>
@@ -136,9 +136,9 @@ export function DecisionCardView({ card }: { card: DecisionCard }) {
       {card.retrospective && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">复盘</CardTitle>
+            <CardTitle className="text-body">复盘</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm">
+          <CardContent className="space-y-2 text-caption">
             <div>
               <span className="text-muted-foreground">实际效果: </span>
               <span>{card.retrospective.actualOutcome ?? '(未填写)'}</span>

@@ -54,7 +54,7 @@ export function HeroCarousel({
 
   return (
     <section
-      className={`relative rounded-xl overflow-hidden shadow-soft-md ${className}`}
+      className={`relative rounded-2xl overflow-hidden shadow-soft-md ${className}`}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       aria-roledescription="carousel"

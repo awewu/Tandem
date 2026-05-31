@@ -48,7 +48,7 @@ const KIND_META: Record<ChannelKind, {
   group:        { label: '普通群',     description: '通用多人群, 任意拉成员',           icon: Users,       color: 'text-violet-600 bg-violet-50',  needsDepartment: false, needsEndDate: false },
   department:   { label: '部门群',     description: '按部门组织, HR seed 自动包含全员', icon: Building2,   color: 'text-blue-600 bg-blue-50',      needsDepartment: true,  needsEndDate: false },
   team:         { label: '团队群',     description: '部门下的小组 (Department parent)', icon: UsersRound, color: 'text-cyan-600 bg-cyan-50',      needsDepartment: true,  needsEndDate: false },
-  project:      { label: '项目群',     description: '临时项目协作, 到期自动归档',       icon: Briefcase,   color: 'text-amber-600 bg-amber-50',    needsDepartment: false, needsEndDate: true },
+  project:      { label: '项目群',     description: '临时项目协作, 到期自动归档',       icon: Briefcase,   color: 'text-warning bg-warning/5',    needsDepartment: false, needsEndDate: true },
   cross_dept:   { label: '跨部门协同', description: '双方部门 leader 协商建立',         icon: Network,     color: 'text-fuchsia-600 bg-fuchsia-50', needsDepartment: true,  needsEndDate: false },
   announcement: { label: '公告频道',   description: '全员/部门公告 (只读流)',           icon: Megaphone,   color: 'text-rose-600 bg-rose-50',      needsDepartment: false, needsEndDate: false },
 };
@@ -175,7 +175,7 @@ export function CreateChannelDialog({ open, onOpenChange, currentUserId, onCreat
         <div className="space-y-4 py-2">
           {/* 类型选择 */}
           <div className="space-y-1.5">
-            <Label className="text-xs">群类型</Label>
+            <Label className="text-footnote">群类型</Label>
             <div className="grid grid-cols-2 gap-1.5">
               {(Object.keys(KIND_META) as ChannelKind[]).map((k) => {
                 const km = KIND_META[k];
@@ -196,7 +196,7 @@ export function CreateChannelDialog({ open, onOpenChange, currentUserId, onCreat
                       <KmIcon className="h-3 w-3" />
                     </span>
                     <div className="flex-1 min-w-0">
-                      <div className="text-xs font-medium">{km.label}</div>
+                      <div className="text-footnote font-medium">{km.label}</div>
                       <div className="text-[10px] text-muted-foreground line-clamp-2">{km.description}</div>
                     </div>
                   </button>
@@ -207,7 +207,7 @@ export function CreateChannelDialog({ open, onOpenChange, currentUserId, onCreat
 
           {/* 名称 */}
           <div className="space-y-1.5">
-            <Label htmlFor="ch-name" className="text-xs">群名称 *</Label>
+            <Label htmlFor="ch-name" className="text-footnote">群名称 *</Label>
             <Input
               id="ch-name"
               value={name}
@@ -227,7 +227,7 @@ export function CreateChannelDialog({ open, onOpenChange, currentUserId, onCreat
 
           {/* 简介 */}
           <div className="space-y-1.5">
-            <Label htmlFor="ch-topic" className="text-xs">简介 (可选)</Label>
+            <Label htmlFor="ch-topic" className="text-footnote">简介 (可选)</Label>
             <Input
               id="ch-topic"
               value={topic}
@@ -241,7 +241,7 @@ export function CreateChannelDialog({ open, onOpenChange, currentUserId, onCreat
           {/* 部门 */}
           {meta.needsDepartment && (
             <div className="space-y-1.5">
-              <Label htmlFor="ch-dept" className="text-xs flex items-center gap-1">
+              <Label htmlFor="ch-dept" className="text-footnote flex items-center gap-1">
                 <Building2 className="h-3 w-3" /> 关联部门 *
               </Label>
               <select
@@ -250,7 +250,7 @@ export function CreateChannelDialog({ open, onOpenChange, currentUserId, onCreat
                 value={departmentId}
                 onChange={(e) => setDepartmentId(e.target.value)}
                 disabled={submitting}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-caption"
               >
                 <option value="">— 选择部门/团队 —</option>
                 {allDepartments.map((d) => (
@@ -271,7 +271,7 @@ export function CreateChannelDialog({ open, onOpenChange, currentUserId, onCreat
           {/* 项目结束日期 */}
           {meta.needsEndDate && (
             <div className="space-y-1.5">
-              <Label htmlFor="ch-end" className="text-xs flex items-center gap-1">
+              <Label htmlFor="ch-end" className="text-footnote flex items-center gap-1">
                 <Calendar className="h-3 w-3" /> 项目结束日期 *
               </Label>
               <Input
@@ -289,13 +289,13 @@ export function CreateChannelDialog({ open, onOpenChange, currentUserId, onCreat
 
           {/* 公开/私密 */}
           <div className="space-y-1.5">
-            <Label className="text-xs">可见范围</Label>
+            <Label className="text-footnote">可见范围</Label>
             <div className="flex gap-1.5">
               <button
                 type="button"
                 onClick={() => setVisibility('public')}
                 disabled={submitting}
-                className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-md border px-3 py-1.5 text-xs ${
+                className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-md border px-3 py-1.5 text-footnote ${
                   visibility === 'public'
                     ? 'border-primary bg-primary/5 ring-1 ring-primary'
                     : 'border-border hover:bg-accent'
@@ -307,7 +307,7 @@ export function CreateChannelDialog({ open, onOpenChange, currentUserId, onCreat
                 type="button"
                 onClick={() => setVisibility('private')}
                 disabled={submitting}
-                className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-md border px-3 py-1.5 text-xs ${
+                className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-md border px-3 py-1.5 text-footnote ${
                   visibility === 'private'
                     ? 'border-primary bg-primary/5 ring-1 ring-primary'
                     : 'border-border hover:bg-accent'
@@ -320,7 +320,7 @@ export function CreateChannelDialog({ open, onOpenChange, currentUserId, onCreat
 
           {/* 成员 */}
           <div className="space-y-1.5">
-            <Label htmlFor="ch-members" className="text-xs">初始成员 userId (可选, 逗号分隔)</Label>
+            <Label htmlFor="ch-members" className="text-footnote">初始成员 userId (可选, 逗号分隔)</Label>
             <Textarea
               id="ch-members"
               value={memberInput}
@@ -328,7 +328,7 @@ export function CreateChannelDialog({ open, onOpenChange, currentUserId, onCreat
               placeholder="colleague-li, colleague-wang, colleague-zhang"
               rows={2}
               disabled={submitting}
-              className="text-xs"
+              className="text-footnote"
             />
             <p className="text-[10px] text-muted-foreground">
               你 ({currentUserId}) 自动作为创建者. 当前 {memberIds.length} 位邀请.
@@ -339,7 +339,7 @@ export function CreateChannelDialog({ open, onOpenChange, currentUserId, onCreat
           </div>
 
           {error && (
-            <div className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">
+            <div className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-footnote text-destructive">
               {error}
             </div>
           )}
@@ -352,7 +352,7 @@ export function CreateChannelDialog({ open, onOpenChange, currentUserId, onCreat
                 <Icon className="h-3.5 w-3.5" />
               </span>
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium truncate">{name || '未命名'}</div>
+                <div className="text-caption font-medium truncate">{name || '未命名'}</div>
                 <div className="text-[10px] text-muted-foreground">
                   {meta.label} · {visibility === 'public' ? '公开' : '私密'} · {memberIds.length + 1} 人
                   {meta.needsEndDate && projectEndsAt && ` · 截止 ${projectEndsAt}`}

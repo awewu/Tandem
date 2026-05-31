@@ -188,11 +188,11 @@ export default function WeeklyRecapPage() {
     <div className="container mx-auto max-w-5xl p-6 space-y-4">
       <header className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight flex items-center gap-2">
+          <h1 className="text-headline font-semibold tracking-tight flex items-center gap-2">
             <CalendarRange className="h-5 w-5 text-primary" />
             本周回顾
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-caption text-muted-foreground mt-1">
             汇总过去 {days} 天的真实 check-in 数据；AI 提炼 highlights / concerns / blockers / 下周重点。
           </p>
         </div>
@@ -200,7 +200,7 @@ export default function WeeklyRecapPage() {
           {/* 主管/HR 代审选人区 (U1-B B端高阶特色) */}
           {selectedAssignee && (
             <Select value={selectedAssignee} onValueChange={setSelectedAssignee}>
-              <SelectTrigger className="w-48 h-8 text-xs bg-white">
+              <SelectTrigger className="w-48 h-8 text-footnote bg-white">
                 <SelectValue placeholder="选择审阅人选" />
               </SelectTrigger>
               <SelectContent>
@@ -213,7 +213,7 @@ export default function WeeklyRecapPage() {
             </Select>
           )}
 
-          <div className="flex items-center gap-1 rounded-md bg-muted p-0.5 h-8 text-xs">
+          <div className="flex items-center gap-1 rounded-md bg-muted p-0.5 h-8 text-footnote">
             {DAY_OPTIONS.map((d) => (
               <button
                 key={d}
@@ -280,7 +280,7 @@ export default function WeeklyRecapPage() {
             <StatCard
               label="卡点条数"
               value={String(data.stats.blockersCount)}
-              color={data.stats.blockersCount > 0 ? 'text-amber-600' : 'text-emerald-600'}
+              color={data.stats.blockersCount > 0 ? 'text-warning' : 'text-emerald-600'}
             />
           </div>
 
@@ -288,7 +288,7 @@ export default function WeeklyRecapPage() {
           <Card>
             <CardContent className="p-5 space-y-4">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-slate-800">AI 周报汇总</span>
+                <span className="text-caption font-semibold text-slate-800">AI 周报汇总</span>
                 {data.summary === '' && loading ? (
                   <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-indigo-600">
                     <span className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse" />
@@ -301,7 +301,7 @@ export default function WeeklyRecapPage() {
                       'ml-auto text-[10px] border',
                       data.source === 'llm'
                         ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        : 'bg-amber-50 text-amber-700 border-amber-200',
+                        : 'bg-warning/5 text-warning border-warning/20',
                     )}
                     title={data.reason}
                   >
@@ -317,12 +317,12 @@ export default function WeeklyRecapPage() {
                 </pre>
               ) : (
                 <>
-                  <p className="text-sm text-slate-800 leading-relaxed">{data.summary}</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                  <p className="text-caption text-slate-800 leading-relaxed">{data.summary}</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-footnote">
                     <Section icon={<TrendingUp className="h-3.5 w-3.5 text-emerald-500" />} title="Highlights · 亮点">
                       {data.highlights}
                     </Section>
-                    <Section icon={<AlertTriangle className="h-3.5 w-3.5 text-amber-500" />} title="Concerns · 关注">
+                    <Section icon={<AlertTriangle className="h-3.5 w-3.5 text-warning" />} title="Concerns · 关注">
                       {data.concerns}
                     </Section>
                     <Section icon={<AlertCircle className="h-3.5 w-3.5 text-rose-500" />} title="Blockers · 卡点">
@@ -341,7 +341,7 @@ export default function WeeklyRecapPage() {
           {data.checkIns.length > 0 && (
             <Card>
               <CardContent className="p-0">
-                <div className="px-5 py-3 border-b flex items-center gap-2 text-xs font-semibold text-slate-800 bg-slate-50/50">
+                <div className="px-5 py-3 border-b flex items-center gap-2 text-footnote font-semibold text-slate-800 bg-slate-50/50">
                   <CheckSquare className="h-3.5 w-3.5 text-indigo-600" />
                   本周行动项计划 (AP) 智能核销对账
                 </div>
@@ -353,7 +353,7 @@ export default function WeeklyRecapPage() {
                     {data.checkIns.map((c) => {
                       if (!c.achievements && !c.nextSteps) return null;
                       return (
-                        <div key={c.id} className="p-3 rounded border text-xs flex items-start gap-4">
+                        <div key={c.id} className="p-3 rounded border text-footnote flex items-start gap-4">
                           <div className="space-y-1 flex-1">
                             <div className="font-bold text-slate-800">{c.krTitle}</div>
                             {c.achievements && (
@@ -385,14 +385,14 @@ export default function WeeklyRecapPage() {
           {data.stats.byKr.length > 0 && (
             <Card>
               <CardContent className="p-0">
-                <div className="px-5 py-3 border-b flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="px-5 py-3 border-b flex items-center gap-2 text-footnote text-muted-foreground">
                   <ListChecks className="h-3.5 w-3.5" />
                   按 KR 维度汇总
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-caption">
                     <thead>
-                      <tr className="border-b text-xs text-muted-foreground">
+                      <tr className="border-b text-footnote text-muted-foreground">
                         <th className="text-left px-3 py-2 font-medium">KR</th>
                         <th className="text-right px-3 py-2 font-medium">check-in 次数</th>
                         <th className="text-right px-3 py-2 font-medium">本周推进</th>
@@ -414,7 +414,7 @@ export default function WeeklyRecapPage() {
                           <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
                             {k.finalProgress} / {k.targetValue}
                           </td>
-                          <td className="px-3 py-2 text-xs">
+                          <td className="px-3 py-2 text-footnote">
                             <ConfidencePill v={k.finalConfidence} />
                           </td>
                         </tr>
@@ -430,13 +430,13 @@ export default function WeeklyRecapPage() {
           {data.checkIns.length > 0 && (
             <Card>
               <CardContent className="p-0">
-                <div className="px-5 py-3 border-b flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="px-5 py-3 border-b flex items-center gap-2 text-footnote text-muted-foreground">
                   <CheckSquare className="h-3.5 w-3.5" />
                   原始 check-in 流水（共 {data.checkIns.length} 条 · 提供给 LLM 的依据）
                 </div>
                 <div className="divide-y">
                   {data.checkIns.map((c) => (
-                    <div key={c.id} className="px-5 py-3 text-xs space-y-1">
+                    <div key={c.id} className="px-5 py-3 text-footnote space-y-1">
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-slate-800">{c.krTitle}</span>
                         <span className="text-muted-foreground">
@@ -450,7 +450,7 @@ export default function WeeklyRecapPage() {
                       {c.achievements && (
                         <DetailLine label="成果" text={c.achievements} color="text-emerald-700" />
                       )}
-                      {c.blockers && <DetailLine label="卡点" text={c.blockers} color="text-amber-700" />}
+                      {c.blockers && <DetailLine label="卡点" text={c.blockers} color="text-warning" />}
                       {c.nextSteps && <DetailLine label="下一步" text={c.nextSteps} color="text-indigo-700" />}
                     </div>
                   ))}
@@ -472,8 +472,8 @@ function StatCard({ label, value, sub, color }: { label: string; value: string; 
   return (
     <Card>
       <CardContent className="p-4">
-        <div className="text-xs text-muted-foreground mb-1">{label}</div>
-        <div className={cn('text-xl font-bold tabular-nums', color)}>{value}</div>
+        <div className="text-footnote text-muted-foreground mb-1">{label}</div>
+        <div className={cn('text-headline font-bold tabular-nums', color)}>{value}</div>
         {sub && <div className="text-[10px] text-muted-foreground mt-1">{sub}</div>}
       </CardContent>
     </Card>
@@ -506,7 +506,7 @@ function ConfidencePill({ v }: { v: string }) {
     v === 'on-track'
       ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
       : v === 'at-risk'
-        ? 'bg-amber-50 text-amber-700 border-amber-200'
+        ? 'bg-warning/5 text-warning border-warning/20'
         : 'bg-rose-50 text-rose-700 border-rose-200';
   const label = v === 'on-track' ? '正常' : v === 'at-risk' ? '关注' : '落后';
   return (

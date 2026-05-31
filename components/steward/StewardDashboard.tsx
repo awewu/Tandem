@@ -26,10 +26,10 @@ export function StewardDashboard({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5 text-amber-600" />
+            <Shield className="h-5 w-5 text-warning" />
             Steward 工作台
           </CardTitle>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-caption text-muted-foreground">
             知识管家 - 守护 Memory 层质量, 防止劣币驱逐良币
           </p>
         </CardHeader>
@@ -76,8 +76,8 @@ function PromotionCard({
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1">
-            <CardTitle className="text-base">{item.proposedTitle}</CardTitle>
-            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+            <CardTitle className="text-body">{item.proposedTitle}</CardTitle>
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-footnote">
               <Badge variant="outline">{item.proposedType}</Badge>
               {item.isEmergencyTrack && (
                 <Badge variant="destructive">紧急通道</Badge>
@@ -91,12 +91,12 @@ function PromotionCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="rounded border bg-slate-50 p-3 text-sm whitespace-pre-wrap">
+        <div className="rounded border bg-slate-50 p-3 text-caption whitespace-pre-wrap">
           {item.proposedBody}
         </div>
 
         {reviewExpiry && (
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1 text-footnote text-muted-foreground">
             <Clock className="h-3 w-3" />
             公示截止: {formatDate(reviewExpiry.toISOString())}
             {reviewExpired ? ' · 已结束' : ' · 进行中'}
@@ -136,7 +136,7 @@ function SignerStatus({
     { key: 'ceo', label: 'CEO' },
   ] as const;
   return (
-    <div className="flex flex-col gap-1 text-xs">
+    <div className="flex flex-col gap-1 text-footnote">
       {roles.map((r) => {
         const signed = signers?.[r.key]?.userId;
         return (

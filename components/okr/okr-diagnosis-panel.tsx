@@ -31,8 +31,8 @@ interface Props {
 }
 
 const SEVERITY_TINT: Record<OKRSuggestion['severity'], string> = {
-  error: 'border-red-300 bg-red-50/70 dark:bg-red-950/20',
-  warning: 'border-amber-300 bg-amber-50/70 dark:bg-amber-950/20',
+  error: 'border-danger/30 bg-danger/5/70 dark:bg-danger/20',
+  warning: 'border-warning/30 bg-warning/5/70 dark:bg-warning/20',
   info: 'border-blue-300 bg-blue-50/70 dark:bg-blue-950/20',
 };
 
@@ -56,7 +56,7 @@ export function OKRDiagnosisPanel({ cycleId, onApply, proactivePrompt }: Props) 
 
   if (suggestions.length === 0 && !proactivePrompt) {
     return (
-      <div className="border border-dashed border-emerald-300 rounded-lg p-3 text-xs text-emerald-700 dark:text-emerald-300 flex items-center gap-2 bg-emerald-50/40 dark:bg-emerald-950/20">
+      <div className="border border-dashed border-emerald-300 rounded-lg p-3 text-footnote text-emerald-700 dark:text-emerald-300 flex items-center gap-2 bg-emerald-50/40 dark:bg-emerald-950/20">
         <ShieldCheck size={14} />
         <span>无紧急纠偏建议。继续保持当前节奏。</span>
       </div>
@@ -65,7 +65,7 @@ export function OKRDiagnosisPanel({ cycleId, onApply, proactivePrompt }: Props) 
 
   return (
     <div className="space-y-2">
-      <div className="text-sm font-medium flex items-center gap-1.5">
+      <div className="text-caption font-medium flex items-center gap-1.5">
         <Sparkles size={14} className="text-purple-600" />
         AI 纠偏建议
         <span className="text-[10px] text-muted-foreground font-normal">
@@ -82,7 +82,7 @@ export function OKRDiagnosisPanel({ cycleId, onApply, proactivePrompt }: Props) 
             )}
           >
             <div className="flex-1 min-w-0 space-y-0.5">
-              <div className="text-xs font-medium">{s.title}</div>
+              <div className="text-footnote font-medium">{s.title}</div>
               <div className="text-[11px] text-muted-foreground line-clamp-2">
                 依据: {s.rationale}
               </div>
@@ -90,7 +90,7 @@ export function OKRDiagnosisPanel({ cycleId, onApply, proactivePrompt }: Props) 
             {onApply && (
               <button
                 onClick={() => onApply(s)}
-                className="shrink-0 text-[11px] font-medium px-2.5 py-1 rounded-md border bg-white/80 dark:bg-zinc-900/70 hover:bg-white dark:hover:bg-zinc-800 flex items-center gap-1 transition-colors"
+                className="shrink-0 text-[11px] font-medium px-2.5 py-1 rounded-md border bg-white/80 dark:bg-surface-3/70 hover:bg-white dark:hover:bg-surface-3 flex items-center gap-1 transition-colors"
               >
                 {s.action.label}
                 <ArrowRight size={11} />
@@ -101,7 +101,7 @@ export function OKRDiagnosisPanel({ cycleId, onApply, proactivePrompt }: Props) 
         {proactivePrompt && (
           <div className="border border-purple-200 rounded-lg p-2.5 flex items-start gap-3 bg-purple-50/60 dark:bg-purple-950/20">
             <div className="flex-1 min-w-0 space-y-0.5">
-              <div className="text-xs font-medium">
+              <div className="text-footnote font-medium">
                 顺便一问 · 「{proactivePrompt.objectiveTitle}」最近怎么样？
               </div>
               <div className="text-[11px] text-muted-foreground">
@@ -110,7 +110,7 @@ export function OKRDiagnosisPanel({ cycleId, onApply, proactivePrompt }: Props) 
             </div>
             <button
               onClick={proactivePrompt.onAccept}
-              className="shrink-0 text-[11px] font-medium px-2.5 py-1 rounded-md border bg-white/80 dark:bg-zinc-900/70 hover:bg-white flex items-center gap-1"
+              className="shrink-0 text-[11px] font-medium px-2.5 py-1 rounded-md border bg-white/80 dark:bg-surface-3/70 hover:bg-white flex items-center gap-1"
             >
               去 Check-in
               <ArrowRight size={11} />

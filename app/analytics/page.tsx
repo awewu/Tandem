@@ -152,8 +152,8 @@ export default function AnalyticsPage() {
               信号分布
             </h2>
             <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
-              <SignalBar label="严重" value={metrics.insightCounts.critical} max={Math.max(1, ...Object.values(metrics.insightCounts))} color="bg-red-500" />
-              <SignalBar label="注意" value={metrics.insightCounts.warning} max={Math.max(1, ...Object.values(metrics.insightCounts))} color="bg-amber-500" />
+              <SignalBar label="严重" value={metrics.insightCounts.critical} max={Math.max(1, ...Object.values(metrics.insightCounts))} color="bg-danger" />
+              <SignalBar label="注意" value={metrics.insightCounts.warning} max={Math.max(1, ...Object.values(metrics.insightCounts))} color="bg-warning" />
               <SignalBar label="信息" value={metrics.insightCounts.info} max={Math.max(1, ...Object.values(metrics.insightCounts))} color="bg-blue-500" />
               <SignalBar label="正向" value={metrics.insightCounts.positive} max={Math.max(1, ...Object.values(metrics.insightCounts))} color="bg-emerald-500" />
             </div>
@@ -223,7 +223,7 @@ export default function AnalyticsPage() {
                           <div className="h-2 bg-surface-3 rounded overflow-hidden">
                             <div
                               className={`h-full ${
-                                d.avg >= 70 ? 'bg-emerald-500' : d.avg >= 40 ? 'bg-amber-500' : 'bg-red-500'
+                                d.avg >= 70 ? 'bg-emerald-500' : d.avg >= 40 ? 'bg-warning' : 'bg-danger'
                               }`}
                               style={{ width: `${d.avg}%` }}
                             />
@@ -259,8 +259,8 @@ function KpiCard({
     tone === 'good'
       ? 'text-emerald-600'
       : tone === 'warn'
-      ? 'text-amber-600'
-      : 'text-red-600';
+      ? 'text-warning'
+      : 'text-danger';
   return (
     <div className="card-elevated p-4">
       <div className="flex items-center gap-2 text-caption text-ink-tertiary">

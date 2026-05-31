@@ -13,8 +13,8 @@ interface Props {
 const STATUS_OPTIONS: { v: Initiative['status']; label: string; cls: string; icon: any }[] = [
   { v: 'todo', label: '待办', cls: 'text-muted-foreground', icon: Circle },
   { v: 'in-progress', label: '进行中', cls: 'text-blue-600', icon: Clock },
-  { v: 'done', label: '已完成', cls: 'text-green-600', icon: Check },
-  { v: 'blocked', label: '阻塞', cls: 'text-red-600', icon: AlertTriangle },
+  { v: 'done', label: '已完成', cls: 'text-success', icon: Check },
+  { v: 'blocked', label: '阻塞', cls: 'text-danger', icon: AlertTriangle },
   { v: 'cancelled', label: '取消', cls: 'text-muted-foreground line-through', icon: X },
 ];
 
@@ -22,7 +22,7 @@ const PRIORITY_OPTIONS: { v: Initiative['priority']; label: string; cls: string 
   { v: 'low', label: '低', cls: 'bg-gray-100 text-gray-700' },
   { v: 'medium', label: '中', cls: 'bg-blue-100 text-blue-700' },
   { v: 'high', label: '高', cls: 'bg-orange-100 text-orange-700' },
-  { v: 'urgent', label: '紧急', cls: 'bg-red-100 text-red-700' },
+  { v: 'urgent', label: '紧急', cls: 'bg-danger/10 text-danger' },
 ];
 
 export function OKRInitiatives({ scope, scopeId }: Props) {
@@ -63,7 +63,7 @@ export function OKRInitiatives({ scope, scopeId }: Props) {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <div className="text-sm font-medium">
+        <div className="text-caption font-medium">
           行动项 {totalCount > 0 && (
             <span className="text-muted-foreground font-normal">
               · {doneCount}/{totalCount} 完成
@@ -73,7 +73,7 @@ export function OKRInitiatives({ scope, scopeId }: Props) {
         {!adding && (
           <button
             onClick={() => setAdding(true)}
-            className="text-xs flex items-center gap-1 px-2 py-1 rounded hover:bg-muted text-muted-foreground"
+            className="text-footnote flex items-center gap-1 px-2 py-1 rounded hover:bg-muted text-muted-foreground"
             title="新增行动项"
           >
             <Plus size={12} /> 新增
@@ -89,25 +89,25 @@ export function OKRInitiatives({ scope, scopeId }: Props) {
             onChange={(e) => setDraftTitle(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') setAdding(false); }}
             placeholder="行动项标题（如：搭建客户健康度评分模型）"
-            className="w-full text-sm bg-background border rounded px-2 py-1"
+            className="w-full text-caption bg-background border rounded px-2 py-1"
           />
           <div className="flex items-center gap-2">
             <select
               value={draftPriority}
               onChange={(e) => setDraftPriority(e.target.value as any)}
-              className="text-xs border rounded px-2 py-1 bg-background"
+              className="text-footnote border rounded px-2 py-1 bg-background"
               title="优先级"
             >
               {PRIORITY_OPTIONS.map((p) => <option key={p.v} value={p.v}>{p.label}</option>)}
             </select>
-            <button onClick={submit} className="text-xs px-2 py-1 rounded bg-primary text-primary-foreground">添加</button>
-            <button onClick={() => { setAdding(false); setDraftTitle(''); }} className="text-xs px-2 py-1 rounded hover:bg-muted">取消</button>
+            <button onClick={submit} className="text-footnote px-2 py-1 rounded bg-primary text-primary-foreground">添加</button>
+            <button onClick={() => { setAdding(false); setDraftTitle(''); }} className="text-footnote px-2 py-1 rounded hover:bg-muted">取消</button>
           </div>
         </div>
       )}
 
       {sorted.length === 0 && !adding && (
-        <div className="text-xs text-muted-foreground text-center py-4 border border-dashed rounded">
+        <div className="text-footnote text-muted-foreground text-center py-4 border border-dashed rounded">
           还没有行动项 · KR 是衡量结果，行动项是为达成 KR 而做的具体动作
         </div>
       )}
@@ -123,9 +123,9 @@ export function OKRInitiatives({ scope, scopeId }: Props) {
             <div
               key={init.id}
               className={cn(
-                'flex items-center gap-2 p-2 rounded border text-sm group',
+                'flex items-center gap-2 p-2 rounded border text-caption group',
                 init.status === 'done' && 'opacity-60',
-                init.status === 'blocked' && 'border-red-200 bg-red-50/50 dark:bg-red-950/20',
+                init.status === 'blocked' && 'border-danger/20 bg-danger/5/50 dark:bg-danger/20',
               )}
             >
               <button
@@ -143,14 +143,14 @@ export function OKRInitiatives({ scope, scopeId }: Props) {
                 value={init.title}
                 onChange={(e) => updateInitiative(init.id, { title: e.target.value })}
                 className={cn(
-                  'flex-1 bg-transparent border-0 outline-none text-sm',
+                  'flex-1 bg-transparent border-0 outline-none text-caption',
                   init.status === 'done' && 'line-through',
                 )}
               />
               <span className={cn('text-[10px] px-1.5 py-0.5 rounded shrink-0', priority.cls)}>
                 {priority.label}
               </span>
-              {overdue && <span className="text-[10px] text-red-600 shrink-0">逾期</span>}
+              {overdue && <span className="text-[10px] text-danger shrink-0">逾期</span>}
               {owner && (
                 <span className="text-[10px] text-muted-foreground shrink-0" title={owner.name}>
                   {owner.name.slice(0, 1)}
@@ -158,7 +158,7 @@ export function OKRInitiatives({ scope, scopeId }: Props) {
               )}
               <button
                 onClick={() => deleteInitiative(init.id)}
-                className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-600 shrink-0"
+                className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-danger shrink-0"
                 title="删除"
               >
                 <Trash2 size={12} />

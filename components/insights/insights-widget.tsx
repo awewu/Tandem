@@ -36,8 +36,8 @@ import {
 } from '@/lib/insights/derive';
 
 const SEV_STYLES: Record<InsightSeverity, { dot: string; text: string }> = {
-  critical: { dot: 'bg-red-500', text: 'text-red-700' },
-  warning: { dot: 'bg-amber-500', text: 'text-amber-700' },
+  critical: { dot: 'bg-danger', text: 'text-danger' },
+  warning: { dot: 'bg-warning', text: 'text-warning' },
   info: { dot: 'bg-blue-500', text: 'text-blue-700' },
   positive: { dot: 'bg-emerald-500', text: 'text-emerald-700' },
 };

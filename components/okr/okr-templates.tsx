@@ -82,14 +82,14 @@ export function OKRTemplatePicker({ open, cycleId, onClose, onApplied }: Props) 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
       <div
-        className="bg-background rounded-lg shadow-xl w-full max-w-4xl max-h-[85vh] flex flex-col"
+        className="bg-background rounded-lg shadow-soft-xl w-full max-w-4xl max-h-[85vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-4 border-b">
           <div className="flex items-center gap-2">
-            <Sparkles size={18} className="text-amber-500" />
-            <h2 className="text-lg font-semibold">OKR 模板库</h2>
-            <span className="text-xs text-muted-foreground">· {OKR_TEMPLATES.length} 个内置模板</span>
+            <Sparkles size={18} className="text-warning" />
+            <h2 className="text-headline font-semibold">OKR 模板库</h2>
+            <span className="text-footnote text-muted-foreground">· {OKR_TEMPLATES.length} 个内置模板</span>
           </div>
           <button onClick={onClose} className="p-1 rounded hover:bg-muted" title="关闭"><X size={18} /></button>
         </div>
@@ -99,7 +99,7 @@ export function OKRTemplatePicker({ open, cycleId, onClose, onApplied }: Props) 
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="搜索：留存 / ARR / NPS / DORA …"
-            className="w-full text-sm border rounded px-3 py-1.5 bg-background"
+            className="w-full text-caption border rounded px-3 py-1.5 bg-background"
           />
           <div className="flex flex-wrap gap-1">
             <FilterChip active={filter === 'all'} onClick={() => setFilter('all')}>全部</FilterChip>
@@ -113,14 +113,14 @@ export function OKRTemplatePicker({ open, cycleId, onClose, onApplied }: Props) 
 
         <div className="flex-1 overflow-auto p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
           {visible.map((tpl) => (
-            <div key={tpl.id} className="border rounded-lg p-3 hover:border-primary/50 hover:shadow-sm transition flex flex-col">
+            <div key={tpl.id} className="border rounded-lg p-3 hover:border-primary/50 hover:shadow-soft-sm transition flex flex-col">
               <div className="flex items-start justify-between gap-2 mb-1">
-                <div className="text-sm font-semibold">{tpl.title}</div>
+                <div className="text-caption font-semibold">{tpl.title}</div>
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted shrink-0">
                   {TEMPLATE_CATEGORIES.find((c) => c.value === tpl.category)?.label}
                 </span>
               </div>
-              <div className="text-xs text-muted-foreground line-clamp-2 mb-2">{tpl.description}</div>
+              <div className="text-footnote text-muted-foreground line-clamp-2 mb-2">{tpl.description}</div>
               <div className="flex flex-wrap gap-1 mb-2">
                 {tpl.tags.map((tg) => (
                   <span key={tg} className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 dark:bg-blue-950/40">
@@ -139,14 +139,14 @@ export function OKRTemplatePicker({ open, cycleId, onClose, onApplied }: Props) 
               )}
               <button
                 onClick={() => apply(tpl)}
-                className="text-xs px-3 py-1.5 rounded bg-primary text-primary-foreground hover:opacity-90"
+                className="text-footnote px-3 py-1.5 rounded bg-primary text-primary-foreground hover:opacity-90"
               >
                 使用此模板
               </button>
             </div>
           ))}
           {visible.length === 0 && (
-            <div className="col-span-full text-center text-sm text-muted-foreground py-8">
+            <div className="col-span-full text-center text-caption text-muted-foreground py-8">
               没有符合条件的模板
             </div>
           )}
@@ -161,7 +161,7 @@ function FilterChip({ active, onClick, children }: { active: boolean; onClick: (
     <button
       onClick={onClick}
       className={cn(
-        'text-xs px-2.5 py-1 rounded-full border transition',
+        'text-footnote px-2.5 py-1 rounded-full border transition',
         active
           ? 'bg-primary text-primary-foreground border-primary'
           : 'border-transparent hover:bg-muted'

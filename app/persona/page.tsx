@@ -82,7 +82,7 @@ export default function PersonaPage() {
   return (
     <Suspense
       fallback={
-        <main className="container mx-auto max-w-3xl px-4 py-8">
+        <main className="container mx-auto max-w-3xl px-4 py-8 md:px-8">
           <div className="text-caption text-tertiary">加载学员主页…</div>
         </main>
       }

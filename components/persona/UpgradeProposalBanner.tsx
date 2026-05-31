@@ -63,13 +63,13 @@ export function UpgradeProposalBanner({
   const cls =
     change.color === 'rose'
       ? 'border-rose-300 bg-gradient-to-br from-rose-50 via-white to-rose-50'
-      : 'border-amber-300 bg-gradient-to-br from-amber-50 via-white to-amber-50';
+      : 'border-warning/30 bg-gradient-to-br from-amber-50 via-white to-amber-50';
   const iconCls =
-    change.color === 'rose' ? 'text-rose-600' : 'text-amber-600';
+    change.color === 'rose' ? 'text-rose-600' : 'text-warning';
   const confirmBtnCls =
     change.color === 'rose'
       ? 'bg-rose-600 hover:bg-rose-700 text-white'
-      : 'bg-amber-600 hover:bg-amber-700 text-white';
+      : 'bg-warning hover:bg-warning text-white';
 
   async function confirmUpgrade() {
     const sure = window.confirm(
@@ -107,7 +107,7 @@ export function UpgradeProposalBanner({
       <CardContent className="space-y-3 p-4">
         <div className="flex items-start gap-3">
           <div
-            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white shadow-sm ${iconCls}`}
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white shadow-soft-sm ${iconCls}`}
           >
             <ShieldAlert className="h-5 w-5" />
           </div>
@@ -121,7 +121,7 @@ export function UpgradeProposalBanner({
                 {new Date(proposal.identifiedAt).toLocaleString()}
               </span>
             </div>
-            <h3 className="mt-1 text-sm font-semibold text-slate-900">
+            <h3 className="mt-1 text-caption font-semibold text-slate-900">
               {change.title}
             </h3>
             <p className="mt-1 text-[12px] leading-relaxed text-slate-700">

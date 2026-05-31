@@ -32,7 +32,7 @@ interface ApiResponse {
 const URGENCY_BADGE: Record<Urgency, { label: string; cls: string }> = {
   due: {
     label: '到期',
-    cls: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30',
+    cls: 'bg-warning/5 text-warning border-warning/20 dark:bg-warning/30',
   },
   overdue: {
     label: '逾期',

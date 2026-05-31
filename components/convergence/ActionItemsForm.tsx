@@ -65,7 +65,7 @@ export function ActionItemsForm({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base flex items-center justify-between">
+        <CardTitle className="text-body flex items-center justify-between">
           <span>Action Items</span>
           <Button size="sm" variant="ghost" onClick={addItem} disabled={disabled}>
             <Plus className="h-4 w-4" />
@@ -78,7 +78,7 @@ export function ActionItemsForm({
           <div key={item.id} className="space-y-2 rounded border p-3">
             <div className="flex items-start gap-2">
               <textarea
-                className="flex-1 rounded border p-2 text-sm"
+                className="flex-1 rounded border p-2 text-caption"
                 rows={2}
                 placeholder="任务描述 (做什么)"
                 value={item.task}
@@ -98,7 +98,7 @@ export function ActionItemsForm({
               <div className="flex items-center gap-1 rounded border p-1.5">
                 <User className="h-3 w-3 text-muted-foreground" />
                 <input
-                  className="flex-1 bg-transparent text-sm outline-none"
+                  className="flex-1 bg-transparent text-caption outline-none"
                   placeholder="负责人 (userId 或邮箱)"
                   value={item.owner}
                   onChange={(e) => updateItem(item.id, 'owner', e.target.value)}
@@ -109,7 +109,7 @@ export function ActionItemsForm({
                 <Calendar className="h-3 w-3 text-muted-foreground" />
                 <input
                   type="date"
-                  className="flex-1 bg-transparent text-sm outline-none"
+                  className="flex-1 bg-transparent text-caption outline-none"
                   value={item.due ? item.due.split('T')[0] : ''}
                   onChange={(e) =>
                     updateItem(item.id, 'due', new Date(e.target.value).toISOString())

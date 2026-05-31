@@ -36,14 +36,14 @@ export function HeatMap({ cards }: { cards: DecisionCard[] }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">决议热力图 (近 12 周)</CardTitle>
-        <p className="mt-1 text-xs text-muted-foreground">
+        <CardTitle className="text-body">决议热力图 (近 12 周)</CardTitle>
+        <p className="mt-1 text-footnote text-muted-foreground">
           颜色越深 = 决议越密集 · 共 {cards.length} 个决议
         </p>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+          <table className="w-full text-footnote">
             <thead>
               <tr>
                 <th className="w-16 text-left font-normal text-muted-foreground"></th>
@@ -75,7 +75,7 @@ export function HeatMap({ cards }: { cards: DecisionCard[] }) {
         </div>
 
         {/* Legend */}
-        <div className="mt-3 flex items-center justify-end gap-2 text-xs text-muted-foreground">
+        <div className="mt-3 flex items-center justify-end gap-2 text-footnote text-muted-foreground">
           <span>少</span>
           {[0.1, 0.3, 0.5, 0.7, 1.0].map((i) => (
             <HeatCellDot key={i} count={0} intensity={i} small />

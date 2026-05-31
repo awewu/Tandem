@@ -29,7 +29,7 @@ export function OKRWatchers({ scope, scopeId }: Props) {
   const isWatching = watchers.includes(currentUserId);
 
   return (
-    <div className="space-y-3 text-xs">
+    <div className="space-y-3 text-footnote">
       {/* 我关注 */}
       <div className="flex items-center justify-between">
         <span className="text-muted-foreground flex items-center gap-1.5">
@@ -38,7 +38,7 @@ export function OKRWatchers({ scope, scopeId }: Props) {
         <button
           onClick={() => toggleWatcher(scope, scopeId, currentUserId)}
           className={cn(
-            'text-xs px-2.5 py-1 rounded border transition',
+            'text-footnote px-2.5 py-1 rounded border transition',
             isWatching
               ? 'bg-primary text-primary-foreground border-primary'
               : 'hover:bg-muted',
@@ -57,7 +57,7 @@ export function OKRWatchers({ scope, scopeId }: Props) {
               const p = people.find((x) => x.id === id);
               if (!p) return null;
               return (
-                <span key={id} className="px-1.5 py-0.5 rounded bg-muted text-xs flex items-center gap-1" title={p.name}>
+                <span key={id} className="px-1.5 py-0.5 rounded bg-muted text-footnote flex items-center gap-1" title={p.name}>
                   <span className="w-4 h-4 rounded-full bg-background flex items-center justify-center text-[9px]">
                     {p.name.slice(0, 1)}
                   </span>
@@ -85,7 +85,7 @@ export function OKRWatchers({ scope, scopeId }: Props) {
               <button
                 key={p.id}
                 onClick={() => { toggleCollaborator(scope, scopeId, p.id); setPickCollab(false); }}
-                className="text-xs px-2 py-0.5 rounded hover:bg-muted"
+                className="text-footnote px-2 py-0.5 rounded hover:bg-muted"
               >
                 + {p.name}
               </button>
@@ -97,11 +97,11 @@ export function OKRWatchers({ scope, scopeId }: Props) {
             const p = people.find((x) => x.id === id);
             if (!p) return null;
             return (
-              <span key={id} className="group px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 dark:bg-blue-950/40 text-xs flex items-center gap-1">
+              <span key={id} className="group px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 dark:bg-blue-950/40 text-footnote flex items-center gap-1">
                 {p.name}
                 <button
                   onClick={() => toggleCollaborator(scope, scopeId, id)}
-                  className="opacity-50 group-hover:opacity-100 hover:text-red-600"
+                  className="opacity-50 group-hover:opacity-100 hover:text-danger"
                   title="移除"
                 >
                   <X size={10} />

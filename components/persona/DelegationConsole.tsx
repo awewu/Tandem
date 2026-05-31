@@ -61,7 +61,7 @@ export function DelegationConsole({
             <ShieldCheck className="h-5 w-5 text-emerald-600" />
             代行授权控制台
           </CardTitle>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-caption text-muted-foreground">
             你 (员工本人) 是 AI 分身的最终主人. 任何代行边界都由你设定.
           </p>
         </CardHeader>
@@ -82,7 +82,7 @@ export function DelegationConsole({
 
           {/* 代行场景 */}
           <div>
-            <h4 className="mb-2 text-sm font-medium">允许代行的场景</h4>
+            <h4 className="mb-2 text-caption font-medium">允许代行的场景</h4>
             <div className="space-y-2 rounded border p-3">
               {(['chat', 'email', 'standup', 'meeting'] as const).map((s) => (
                 <Row
@@ -107,8 +107,8 @@ export function DelegationConsole({
 
           {/* 黑名单议题 */}
           <div>
-            <h4 className="mb-2 text-sm font-medium">议题黑名单</h4>
-            <p className="mb-2 text-xs text-muted-foreground">
+            <h4 className="mb-2 text-caption font-medium">议题黑名单</h4>
+            <p className="mb-2 text-footnote text-muted-foreground">
               出现这些关键词时, AI 立即停止代行 (高敏内容默认已加, 不可移除)
             </p>
             <div className="flex flex-wrap gap-1.5">
@@ -138,7 +138,7 @@ export function DelegationConsole({
               <input
                 type="text"
                 placeholder="添加自定义关键词"
-                className="flex-1 rounded border p-1.5 text-sm"
+                className="flex-1 rounded border p-1.5 text-caption"
                 value={newTopic}
                 onChange={(e) => setNewTopic(e.target.value)}
               />
@@ -162,13 +162,13 @@ export function DelegationConsole({
 
           {/* Token 预算 */}
           <div>
-            <h4 className="mb-2 text-sm font-medium">日 Token 预算</h4>
-            <p className="mb-2 text-xs text-muted-foreground">
+            <h4 className="mb-2 text-caption font-medium">日 Token 预算</h4>
+            <p className="mb-2 text-footnote text-muted-foreground">
               超过后 AI 停止任何代行操作. 默认 10 万 tokens / 天.
             </p>
             <input
               type="number"
-              className="w-32 rounded border p-1.5 text-sm"
+              className="w-32 rounded border p-1.5 text-caption"
               value={settings.dailyTokenBudget}
               onChange={(e) =>
                 setSettings({ ...settings, dailyTokenBudget: Number(e.target.value) || 0 })
@@ -191,7 +191,7 @@ export function DelegationConsole({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="mb-3 text-sm text-muted-foreground">
+          <p className="mb-3 text-caption text-muted-foreground">
             一键关闭所有 AI 代行. 已经派出的会议代参 / 邮件草稿都会立即停止. 24h 内已发送的代行
             操作可主动撤回.
           </p>
@@ -237,8 +237,8 @@ function Row({
   return (
     <div className="flex items-center justify-between gap-3">
       <div className="flex-1">
-        <p className="text-sm font-medium">{title}</p>
-        {description && <p className="text-xs text-muted-foreground">{description}</p>}
+        <p className="text-caption font-medium">{title}</p>
+        {description && <p className="text-footnote text-muted-foreground">{description}</p>}
       </div>
       {control}
     </div>

@@ -41,15 +41,15 @@ export default function EmployeeSsoRegisterPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-amber-50 dark:from-background dark:to-background px-4">
+    <main className="min-h-screen flex flex-col md:flex-row items-center justify-center bg-gradient-to-br from-slate-50 to-amber-50 dark:from-background dark:to-background px-4">
       <Card className="w-full max-w-md">
         <CardHeader>
           <div className="flex items-center gap-2 mb-1">
             <Building2 className="w-5 h-5 text-primary" />
-            <CardTitle className="text-base">内部员工注册</CardTitle>
+            <CardTitle className="text-body">内部员工注册</CardTitle>
             <Badge variant="secondary" className="text-[10px]">企业专属通道</Badge>
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-footnote text-muted-foreground">
             使用公司邮箱（如 @company.com）直接注册，无需邀请码。<br />
             注册成功后自动获得员工权限，可使用牛马搭子 + 拿捏全套功能。
           </p>
@@ -57,8 +57,8 @@ export default function EmployeeSsoRegisterPage() {
         <CardContent>
           {done ? (
             <div className="flex flex-col items-center gap-3 py-6">
-              <CheckCircle2 className="w-10 h-10 text-green-500" />
-              <p className="text-sm font-medium">注册成功，正在跳转...</p>
+              <CheckCircle2 className="w-10 h-10 text-success" />
+              <p className="text-caption font-medium">注册成功，正在跳转...</p>
             </div>
           ) : (
             <form onSubmit={submit} className="space-y-3">
@@ -95,7 +95,7 @@ export default function EmployeeSsoRegisterPage() {
                   required
                 />
               </Field>
-              {error && <p className="text-xs text-destructive">{error}</p>}
+              {error && <p className="text-footnote text-destructive">{error}</p>}
               <Button type="submit" className="w-full" disabled={busy}>
                 {busy ? '注册中...' : '立即注册'}
               </Button>
@@ -118,7 +118,7 @@ export default function EmployeeSsoRegisterPage() {
 function Field({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="space-y-1">
-      <label className="text-xs font-medium text-muted-foreground">{label}</label>
+      <label className="text-footnote font-medium text-muted-foreground">{label}</label>
       {children}
     </div>
   );

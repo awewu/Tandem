@@ -62,12 +62,12 @@ export default function NotificationsPage() {
   if (loading) return <div className="p-8 text-gray-500">加载中...</div>;
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
+    <div className="p-6 max-w-3xl mx-auto md:px-8">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold flex items-center gap-2">
+        <h1 className="text-title-3 font-bold flex items-center gap-2">
           <Bell size={24} /> 消息中心
           {unreadCount > 0 && (
-            <span className="px-2 py-1 text-sm bg-red-500 text-white rounded-full">{unreadCount}</span>
+            <span className="px-2 py-1 text-caption bg-danger text-white rounded-full">{unreadCount}</span>
           )}
         </h1>
       </div>
@@ -85,18 +85,18 @@ export default function NotificationsPage() {
               <Icon size={20} className="text-gray-500 mt-0.5" />
               <div className="flex-1">
                 <div className="font-medium">{n.title}</div>
-                <div className="text-sm text-gray-500">{n.message}</div>
-                <div className="text-xs text-gray-400 mt-1">
+                <div className="text-caption text-gray-500">{n.message}</div>
+                <div className="text-footnote text-gray-400 mt-1">
                   {new Date(n.createdAt).toLocaleString()}
                 </div>
               </div>
               <div className="flex gap-1">
                 {!n.read && (
-                  <button onClick={() => markRead(n.id)} className="p-2 text-green-600 hover:bg-green-50 rounded" title="标记已读">
+                  <button onClick={() => markRead(n.id)} className="p-2 text-success hover:bg-success/5 rounded" title="标记已读">
                     <Check size={16} />
                   </button>
                 )}
-                <button onClick={() => dismiss(n.id)} className="p-2 text-red-500 hover:bg-red-50 rounded" title="删除">
+                <button onClick={() => dismiss(n.id)} className="p-2 text-danger hover:bg-danger/5 rounded" title="删除">
                   <X size={16} />
                 </button>
               </div>

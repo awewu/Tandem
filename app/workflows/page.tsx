@@ -41,7 +41,7 @@ const NODE_COLORS: Record<NodeType, string> = {
   agent: 'bg-purple-500',
   tool: 'bg-orange-500',
   condition: 'bg-yellow-500',
-  output: 'bg-green-500',
+  output: 'bg-success',
 };
 
 interface WorkflowTemplate {
@@ -459,22 +459,22 @@ export default function WorkflowsPage() {
   };
 
   return (
-    <div className="flex h-full">
+    <div className="flex flex-col md:flex-row h-full">
       <div className="w-64 border-r p-4 space-y-4 overflow-auto">
-        <h2 className="font-semibold text-sm">工作流构建器</h2>
+        <h2 className="font-semibold text-caption">工作流构建器</h2>
 
         <div className="space-y-2">
-          <Label className="text-xs">Initial Input</Label>
+          <Label className="text-footnote">Initial Input</Label>
           <Input
             placeholder="Optional seed prompt"
             value={initialInput}
             onChange={(e) => setInitialInput(e.target.value)}
-            className="h-8 text-xs"
+            className="h-8 text-footnote"
           />
           {!running ? (
             <Button
               size="sm"
-              className="w-full bg-green-600 hover:bg-green-700 text-white"
+              className="w-full bg-success hover:bg-success text-white"
               onClick={runWorkflow}
               disabled={nodes.length === 0}
             >
@@ -491,7 +491,7 @@ export default function WorkflowsPage() {
             <Button
               size="sm"
               variant="ghost"
-              className="w-full text-xs h-7"
+              className="w-full text-footnote h-7"
               onClick={() => setShowExecPanel((v) => !v)}
             >
               <TerminalIcon className="mr-1 h-3 w-3" />
@@ -526,9 +526,9 @@ export default function WorkflowsPage() {
                     >
                       <div className="flex items-center gap-2">
                         <LayoutTemplate className="h-4 w-4 text-primary" />
-                        <span className="font-medium text-xs flex-1">{tpl.name}</span>
+                        <span className="font-medium text-footnote flex-1">{tpl.name}</span>
                         {showcase && (
-                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 font-medium">
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-warning/10 text-warning dark:bg-warning dark:text-warning font-medium">
                             含样板
                           </span>
                         )}
@@ -538,7 +538,7 @@ export default function WorkflowsPage() {
                     {showcase && (
                       <button
                         type="button"
-                        className="mt-1.5 w-full text-[10px] flex items-center justify-center gap-1 py-1 rounded border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors"
+                        className="mt-1.5 w-full text-[10px] flex items-center justify-center gap-1 py-1 rounded border border-warning/30 dark:border-warning text-warning dark:text-warning hover:bg-warning/5 dark:hover:bg-warning/40 transition-colors"
                         onClick={(e) => {
                           e.stopPropagation();
                           setShowcaseOpen(showcase);
@@ -555,7 +555,7 @@ export default function WorkflowsPage() {
         </div>
 
         <div className="space-y-2">
-          <div className="text-xs text-muted-foreground mb-1">添加节点</div>
+          <div className="text-footnote text-muted-foreground mb-1">添加节点</div>
           {([
             { type: 'trigger' as const, label: '触发器' },
             { type: 'agent' as const, label: 'Agent' },
@@ -582,13 +582,13 @@ export default function WorkflowsPage() {
         </div>
         {selectedNode && (
           <div className="pt-4 border-t space-y-3">
-            <h3 className="text-sm font-medium">Node Config</h3>
+            <h3 className="text-caption font-medium">Node Config</h3>
             <div>
-              <Label className="text-xs">Label</Label>
+              <Label className="text-footnote">Label</Label>
               <Input
                 value={selectedNode.label}
                 onChange={(e) => updateNode(selectedNode.id, { label: e.target.value })}
-                className="h-8 text-sm"
+                className="h-8 text-caption"
               />
             </div>
             <Button size="sm" variant="destructive" className="w-full" onClick={() => deleteNode(selectedNode.id)}>
@@ -614,15 +614,15 @@ export default function WorkflowsPage() {
               status === 'running'
                 ? 'ring-2 ring-yellow-400 ring-offset-2 ring-offset-background animate-pulse'
                 : status === 'done'
-                  ? 'ring-2 ring-green-400 ring-offset-2 ring-offset-background'
+                  ? 'ring-2 ring-success/50 ring-offset-2 ring-offset-background'
                   : status === 'error'
-                    ? 'ring-2 ring-red-400 ring-offset-2 ring-offset-background'
+                    ? 'ring-2 ring-danger/50 ring-offset-2 ring-offset-background'
                     : '';
             return (
               <div
                 key={node.id}
                 className={cn(
-                  'absolute px-3 py-2 rounded-md text-white text-xs font-medium cursor-move select-none shadow-lg',
+                  'absolute px-3 py-2 rounded-md text-white text-footnote font-medium cursor-move select-none shadow-soft-lg',
                   NODE_COLORS[node.type],
                   selectedId === node.id && !ring && 'ring-2 ring-white',
                   ring
@@ -652,7 +652,7 @@ export default function WorkflowsPage() {
             <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
               <div className="text-center">
                 <MousePointer className="h-8 w-8 mx-auto mb-2 opacity-20" />
-                <p className="text-sm">Add nodes from the sidebar to build a workflow</p>
+                <p className="text-caption">Add nodes from the sidebar to build a workflow</p>
               </div>
             </div>
           )}
@@ -661,12 +661,12 @@ export default function WorkflowsPage() {
         {showExecPanel && (
           <div className="border-t bg-background h-64 flex flex-col">
             <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30">
-              <div className="flex items-center gap-2 text-sm font-medium">
+              <div className="flex items-center gap-2 text-caption font-medium">
                 <TerminalIcon className="h-4 w-4" />
                 Execution Log
                 {running && <Loader2 className="h-3 w-3 animate-spin text-yellow-500" />}
               </div>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <div className="flex items-center gap-2 text-footnote text-muted-foreground">
                 <span>
                   {Object.values(runStates).filter((s) => s.status === 'done').length} done /
                   {' '}
@@ -677,7 +677,7 @@ export default function WorkflowsPage() {
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="h-6 px-2 text-xs"
+                  className="h-6 px-2 text-footnote"
                   onClick={() => {
                     setLogLines([]);
                     setRunStates({});
@@ -690,17 +690,17 @@ export default function WorkflowsPage() {
             </div>
             <div className="flex-1 grid grid-cols-2 min-h-0">
               <ScrollArea className="border-r">
-                <div className="p-3 font-mono text-xs space-y-0.5">
+                <div className="p-3 font-mono text-footnote space-y-0.5">
                   {logLines.map((l, i) => (
                     <div
                       key={i}
                       className={cn(
                         'whitespace-pre-wrap break-all',
-                        l.includes('[error]') && 'text-red-500',
-                        l.includes('[end]') && 'text-green-500 font-semibold',
+                        l.includes('[error]') && 'text-danger',
+                        l.includes('[end]') && 'text-success font-semibold',
                         l.includes('[start]') && 'text-blue-500 font-semibold',
                         l.includes('[run]') && 'text-yellow-600',
-                        l.includes('[done]') && 'text-green-600'
+                        l.includes('[done]') && 'text-success'
                       )}
                     >
                       {l}
@@ -718,7 +718,7 @@ export default function WorkflowsPage() {
                     if (!rs || (rs.status === 'idle' && !rs.output)) return null;
                     return (
                       <div key={n.id} className="rounded-md border p-2">
-                        <div className="flex items-center gap-2 text-xs font-medium mb-1">
+                        <div className="flex items-center gap-2 text-footnote font-medium mb-1">
                           <div className={cn('w-2 h-2 rounded-full', NODE_COLORS[n.type])} />
                           {n.label}
                           <span className="text-[10px] text-muted-foreground">
@@ -732,7 +732,7 @@ export default function WorkflowsPage() {
                           </pre>
                         )}
                         {rs.error && (
-                          <pre className="text-[11px] font-mono text-red-500 whitespace-pre-wrap break-all max-h-24 overflow-auto mt-1">
+                          <pre className="text-[11px] font-mono text-danger whitespace-pre-wrap break-all max-h-24 overflow-auto mt-1">
                             {rs.error}
                           </pre>
                         )}
@@ -740,7 +740,7 @@ export default function WorkflowsPage() {
                     );
                   })}
                   {Object.keys(runStates).length === 0 && (
-                    <div className="text-xs text-muted-foreground">
+                    <div className="text-footnote text-muted-foreground">
                       Per-node outputs will appear here once you click Run.
                     </div>
                   )}
@@ -758,17 +758,17 @@ export default function WorkflowsPage() {
             <>
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-amber-600" />
+                  <FileText className="h-5 w-5 text-warning" />
                   样板：{showcaseOpen.summary}
                 </DialogTitle>
                 <DialogDescription className="space-y-2 pt-2">
-                  <div className="text-xs">
+                  <div className="text-footnote">
                     <span className="font-medium text-foreground">初始输入：</span>
                     <code className="ml-1 px-1.5 py-0.5 rounded bg-muted text-foreground">
                       {showcaseOpen.initialInput}
                     </code>
                   </div>
-                  <div className="text-xs whitespace-pre-line">
+                  <div className="text-footnote whitespace-pre-line">
                     <span className="font-medium text-foreground">业务背景：</span>
                     {showcaseOpen.context}
                   </div>
@@ -779,15 +779,15 @@ export default function WorkflowsPage() {
                   {showcaseOpen.nodes.map((node, idx) => (
                     <div key={node.nodeId} className="border rounded-lg overflow-hidden">
                       <div className="px-3 py-2 bg-muted/60 border-b flex items-center gap-2">
-                        <div className="h-6 w-6 rounded-full bg-amber-500 text-white text-xs flex items-center justify-center font-medium">
+                        <div className="h-6 w-6 rounded-full bg-warning text-white text-footnote flex items-center justify-center font-medium">
                           {idx + 1}
                         </div>
-                        <span className="text-sm font-medium">{node.label}</span>
+                        <span className="text-caption font-medium">{node.label}</span>
                         <span className="text-[10px] text-muted-foreground ml-auto font-mono">
                           {node.nodeId}
                         </span>
                       </div>
-                      <pre className="p-3 text-xs whitespace-pre-wrap break-words font-mono leading-relaxed bg-background">
+                      <pre className="p-3 text-footnote whitespace-pre-wrap break-words font-mono leading-relaxed bg-background">
                         {node.output}
                       </pre>
                     </div>
@@ -795,7 +795,7 @@ export default function WorkflowsPage() {
                 </div>
               </ScrollArea>
               <div className="flex items-center justify-between pt-2 border-t">
-                <span className="text-xs text-muted-foreground">
+                <span className="text-footnote text-muted-foreground">
                   {showcaseOpen.nodes.length} 步 ·{' '}
                   {showcaseOpen.nodes.reduce((s, n) => s + n.output.length, 0)} 字
                 </span>

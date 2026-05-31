@@ -90,7 +90,7 @@ export default function IntranetCategoryPage() {
 
   if (!meta) {
     return (
-      <div className="page-container py-10 max-w-3xl">
+      <div className="page-container py-10 max-w-3xl md:py-10">
         <BackToIntranet />
         <div className="card-elevated mt-6 p-12 text-center">
           <p className="text-headline text-ink-primary">未知分类</p>

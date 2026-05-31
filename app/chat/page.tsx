@@ -386,7 +386,7 @@ function ChatPageInner() {
                 key={c.id}
                 onClick={() => { setActive(c.id); setMobileShowList(false); }}
                 className={cn(
-                  'group flex items-center justify-between px-3 py-2 rounded-md cursor-pointer text-sm',
+                  'group flex items-center justify-between px-3 py-2 rounded-md cursor-pointer text-caption',
                   activeId === c.id ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted'
                 )}
               >
@@ -435,12 +435,12 @@ function ChatPageInner() {
           >
             <Plus className="h-4 w-4" />
           </Button>
-          <span className="hidden md:inline text-sm font-medium">Agent:</span>
+          <span className="hidden md:inline text-caption font-medium">Agent:</span>
           <Select
             value={selectedAgentId || '__none__'}
             onValueChange={(v) => setSelectedAgentId(v === '__none__' ? '' : v)}
           >
-            <SelectTrigger className="w-40 md:w-64 h-8 md:h-9 text-xs md:text-sm">
+            <SelectTrigger className="w-40 md:w-64 h-8 md:h-9 text-footnote md:text-caption">
               <SelectValue placeholder="Default (no agent)" />
             </SelectTrigger>
             <SelectContent>
@@ -448,7 +448,7 @@ function ChatPageInner() {
               {/* 预设 Agent 分组 */}
               {agents.filter(a => PRESET_AGENTS.some(p => p.id === a.id)).length > 0 && (
                 <>
-                  <div className="px-2 py-1.5 text-xs text-muted-foreground font-medium flex items-center gap-1">
+                  <div className="px-2 py-1.5 text-footnote text-muted-foreground font-medium flex items-center gap-1">
                     <Sparkles className="h-3 w-3" />
                     预设 Agent
                   </div>
@@ -468,7 +468,7 @@ function ChatPageInner() {
               {/* 自定义 Agent 分组 */}
               {agents.filter(a => !PRESET_AGENTS.some(p => p.id === a.id)).length > 0 && (
                 <>
-                  <div className="px-2 py-1.5 text-xs text-muted-foreground font-medium mt-1 flex items-center gap-1">
+                  <div className="px-2 py-1.5 text-footnote text-muted-foreground font-medium mt-1 flex items-center gap-1">
                     <span className="text-muted-foreground">●</span>
                     自定义
                   </div>
@@ -509,7 +509,7 @@ function ChatPageInner() {
                 return (
                   <div key={m.id} className="flex items-center gap-2 my-2">
                     <div className="flex-1 h-px bg-border" />
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted px-3 py-1 rounded-full border">
+                    <div className="flex items-center gap-1.5 text-footnote text-muted-foreground bg-muted px-3 py-1 rounded-full border">
                       <Link2 className="h-3 w-3" />
                       {m.content}
                     </div>
@@ -544,7 +544,7 @@ function ChatPageInner() {
                     )}
                     <div
                       className={cn(
-                        'px-4 py-2 rounded-lg text-sm whitespace-pre-wrap',
+                        'px-4 py-2 rounded-lg text-caption whitespace-pre-wrap',
                         m.role === 'user'
                           ? 'bg-primary text-primary-foreground'
                           : 'bg-muted border'
@@ -586,13 +586,13 @@ function ChatPageInner() {
                           disabled={m.starred}
                           className={cn(
                             'p-1 rounded hover:bg-muted transition-colors',
-                            m.starred && 'text-amber-500 bg-amber-500/10 cursor-default'
+                            m.starred && 'text-warning bg-warning/10 cursor-default'
                           )}
                         >
                           <Star className={cn('h-3.5 w-3.5', m.starred && 'fill-current')} />
                         </button>
                         {m.starred && (
-                          <span className="text-[10px] text-amber-600 dark:text-amber-400 ml-1">
+                          <span className="text-[10px] text-warning dark:text-warning ml-1">
                             已存入 Knowledge › Best Practice
                           </span>
                         )}
@@ -611,7 +611,7 @@ function ChatPageInner() {
         </ScrollArea>
 
         {error && (
-          <div className="px-4 py-2 bg-destructive/10 text-destructive text-sm flex items-center gap-2">
+          <div className="px-4 py-2 bg-destructive/10 text-destructive text-caption flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />
             {error}
           </div>

@@ -122,7 +122,7 @@ const KIND_ICON: Record<RowKind, { icon: typeof Sparkles; tint: string }> = {
   'persona-upgrade': { icon: TrendingUp, tint: 'text-brand-600' },
   'kr-at-risk': { icon: AlertCircle, tint: 'text-rose-600' },
   'tti-progress': { icon: Target, tint: 'text-blue-600' },
-  'veto-window': { icon: Clock, tint: 'text-amber-600' },
+  'veto-window': { icon: Clock, tint: 'text-warning' },
   'retro-pending': { icon: History, tint: 'text-emerald-600' },
 };
 
@@ -137,8 +137,8 @@ const STATE_BADGE: Record<
   },
   running: {
     label: 'Running',
-    cls: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30',
-    dot: 'bg-amber-500 animate-pulse',
+    cls: 'bg-warning/5 text-warning border-warning/20 dark:bg-warning/30',
+    dot: 'bg-warning animate-pulse',
   },
   done: {
     label: 'Done',
@@ -337,7 +337,7 @@ export function WorkbenchAgentView() {
           )}
           {waitingCount > 0 && runningCount > 0 && <span> · </span>}
           {runningCount > 0 && (
-            <span className="text-amber-700">{runningCount} Running</span>
+            <span className="text-warning">{runningCount} Running</span>
           )}
         </span>
         <div className="flex-1" />

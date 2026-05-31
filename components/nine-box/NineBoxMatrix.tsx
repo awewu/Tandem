@@ -28,8 +28,8 @@ const CELL_META: Record<NineBoxCell, { title: string; sub: string; bg: string; t
   risk_burnout: {
     title: '⚠️ 枯萎风险',
     sub: '高 KPI · 低 TTI',
-    bg: 'bg-amber-50',
-    textColor: 'text-amber-800',
+    bg: 'bg-warning/5',
+    textColor: 'text-warning',
   },
   rising_talent: {
     title: '🌱 升星人才',
@@ -58,14 +58,14 @@ const CELL_META: Record<NineBoxCell, { title: string; sub: string; bg: string; t
   low_engagement: {
     title: '😴 投入不足',
     sub: '低 KPI · 中 TTI',
-    bg: 'bg-amber-50',
-    textColor: 'text-amber-800',
+    bg: 'bg-warning/5',
+    textColor: 'text-warning',
   },
   must_intervene: {
     title: '🚨 必须干预',
     sub: '低 KPI · 低 TTI',
-    bg: 'bg-red-50',
-    textColor: 'text-red-800',
+    bg: 'bg-danger/5',
+    textColor: 'text-danger',
   },
 };
 
@@ -102,14 +102,14 @@ export function NineBoxMatrix({ people }: { people: PersonInBox[] }) {
     <Card>
       <CardHeader>
         <CardTitle>9 宫格人才矩阵</CardTitle>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-caption text-muted-foreground">
           KPI 完成率 (纵轴, 年度底线) × TTI 完成率 (横轴, 战略成长) · 共 {people.length} 人
         </p>
       </CardHeader>
       <CardContent>
         <div className="relative">
           {/* Y axis label · 纵轴 = KPI (CHARTER-KPI-TTI §4) */}
-          <div className="absolute -left-4 top-1/2 -translate-y-1/2 -rotate-90 text-xs text-muted-foreground whitespace-nowrap">
+          <div className="absolute -left-4 top-1/2 -translate-y-1/2 -rotate-90 text-footnote text-muted-foreground whitespace-nowrap">
             ← KPI 完成率 →
           </div>
 
@@ -123,17 +123,17 @@ export function NineBoxMatrix({ people }: { people: PersonInBox[] }) {
                   key={idx}
                   className={`rounded-lg border p-3 min-h-[140px] ${meta.bg} ${meta.textColor}`}
                 >
-                  <div className="font-semibold text-sm">{meta.title}</div>
-                  <div className="text-xs mt-0.5 opacity-75">{meta.sub}</div>
+                  <div className="font-semibold text-caption">{meta.title}</div>
+                  <div className="text-footnote mt-0.5 opacity-75">{meta.sub}</div>
                   <div className="mt-2 flex flex-wrap gap-1">
                     {occupants.length === 0 && (
-                      <span className="text-xs opacity-50">—</span>
+                      <span className="text-footnote opacity-50">—</span>
                     )}
                     {occupants.slice(0, 8).map((p) => (
                       <PersonChip key={p.userId} person={p} />
                     ))}
                     {occupants.length > 8 && (
-                      <span className="text-xs opacity-75">+{occupants.length - 8}</span>
+                      <span className="text-footnote opacity-75">+{occupants.length - 8}</span>
                     )}
                   </div>
                 </div>
@@ -142,7 +142,7 @@ export function NineBoxMatrix({ people }: { people: PersonInBox[] }) {
           </div>
 
           {/* X axis label · 横轴 = TTI (CHARTER-KPI-TTI §4) */}
-          <div className="mt-2 text-center text-xs text-muted-foreground">
+          <div className="mt-2 text-center text-footnote text-muted-foreground">
             ← TTI 完成率 →
           </div>
         </div>
@@ -155,7 +155,7 @@ function PersonChip({ person }: { person: PersonInBox }) {
   const initial = person.name.slice(0, 1);
   return (
     <div
-      className="inline-flex items-center gap-1 rounded-full bg-white/70 px-2 py-0.5 text-xs"
+      className="inline-flex items-center gap-1 rounded-full bg-white/70 px-2 py-0.5 text-footnote"
       title={`${person.name} (KPI ${Math.round(person.kpiScore * 100)}% / TTI ${Math.round(
         person.ttiScore * 100
       )}%)`}

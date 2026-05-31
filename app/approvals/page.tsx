@@ -38,12 +38,12 @@ export default function ApprovalsPage() {
   if (loading) return <div className="p-8 text-gray-500">加载中...</div>;
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-6 max-w-4xl mx-auto md:px-8">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold flex items-center gap-2"><ClipboardCheck size={24} /> 审批流</h1>
+        <h1 className="text-title-3 font-bold flex items-center gap-2"><ClipboardCheck size={24} /> 审批流</h1>
         <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
           {(["all", "pending", "approved", "rejected"] as const).map((f) => (
-            <button key={f} onClick={() => setFilter(f)} className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${filter === f ? "bg-white shadow-sm" : "text-gray-500"}`}>
+            <button key={f} onClick={() => setFilter(f)} className={`px-3 py-1.5 rounded-md text-caption font-medium transition ${filter === f ? "bg-white shadow-soft-sm" : "text-gray-500"}`}>
               {f === "all" ? "全部" : f === "pending" ? "待审批" : f === "approved" ? "已通过" : "已驳回"}
             </button>
           ))}
@@ -52,19 +52,19 @@ export default function ApprovalsPage() {
 
       <div className="space-y-2">
         {filtered.map((item) => (
-          <div key={item.id} className="flex items-center gap-4 p-4 border rounded-lg hover:shadow-md transition">
-            <div className={`flex h-10 w-10 items-center justify-center rounded-full ${item.status === "approved" ? "bg-green-100 text-green-600" : item.status === "rejected" ? "bg-red-100 text-red-600" : "bg-amber-100 text-amber-600"}`}>
+          <div key={item.id} className="flex items-center gap-4 p-4 border rounded-lg hover:shadow-soft transition">
+            <div className={`flex h-10 w-10 items-center justify-center rounded-full ${item.status === "approved" ? "bg-success/10 text-success" : item.status === "rejected" ? "bg-danger/10 text-danger" : "bg-warning/10 text-warning"}`}>
               {item.status === "approved" ? <Check size={20} /> : item.status === "rejected" ? <X size={20} /> : <Clock size={20} />}
             </div>
             <div className="flex-1">
               <div className="font-medium">{item.title}</div>
-              <div className="text-sm text-gray-500">{item.requester} → {item.approver} · {new Date(item.createdAt).toLocaleString()}</div>
+              <div className="text-caption text-gray-500">{item.requester} → {item.approver} · {new Date(item.createdAt).toLocaleString()}</div>
             </div>
-            <span className="text-xs px-2 py-1 rounded-full bg-gray-100">{item.type === "leave" ? "请假" : item.type === "expense" ? "报销" : item.type === "project" ? "立项" : "其他"}</span>
+            <span className="text-footnote px-2 py-1 rounded-full bg-gray-100">{item.type === "leave" ? "请假" : item.type === "expense" ? "报销" : item.type === "project" ? "立项" : "其他"}</span>
             {item.status === "pending" && (
               <div className="flex gap-2">
-                <button onClick={() => action(item.id, "approved")} className="px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700">通过</button>
-                <button onClick={() => action(item.id, "rejected")} className="px-3 py-1.5 bg-red-500 text-white rounded text-sm hover:bg-red-600">驳回</button>
+                <button onClick={() => action(item.id, "approved")} className="px-3 py-1.5 bg-success text-white rounded text-caption hover:bg-success">通过</button>
+                <button onClick={() => action(item.id, "rejected")} className="px-3 py-1.5 bg-danger text-white rounded text-caption hover:bg-danger">驳回</button>
               </div>
             )}
           </div>

@@ -53,14 +53,14 @@ export default function DocumentsPage() {
   if (loading) return <div className="p-8 text-gray-500">加载中...</div>;
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-6 max-w-5xl mx-auto md:px-8">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">文档协作</h1>
+        <h1 className="text-title-3 font-bold">文档协作</h1>
         <div className="flex gap-2">
           <button onClick={() => createDoc("doc")} className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
             <Plus size={16} /> 文档
           </button>
-          <button onClick={() => createDoc("sheet")} className="flex items-center gap-1 px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+          <button onClick={() => createDoc("sheet")} className="flex items-center gap-1 px-3 py-2 bg-success text-white rounded hover:bg-success">
             <Plus size={16} /> 表格
           </button>
           <button onClick={() => createDoc("slide")} className="flex items-center gap-1 px-3 py-2 bg-orange-600 text-white rounded hover:bg-orange-700">
@@ -76,16 +76,16 @@ export default function DocumentsPage() {
             <Link
               key={doc.id}
               href={`/documents/${doc.id}`}
-              className="flex items-center gap-3 p-4 border rounded-lg hover:shadow-md transition"
+              className="flex items-center gap-3 p-4 border rounded-lg hover:shadow-soft transition"
             >
               <Icon size={20} className="text-gray-500" />
               <div className="flex-1">
                 <div className="font-medium">{doc.title}</div>
-                <div className="text-sm text-gray-400">
+                <div className="text-caption text-gray-400">
                   {new Date(doc.updatedAt).toLocaleString()}
                 </div>
               </div>
-              {doc.isLocked && <Lock size={16} className="text-amber-500" />}
+              {doc.isLocked && <Lock size={16} className="text-warning" />}
             </Link>
           );
         })}

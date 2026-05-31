@@ -8,7 +8,7 @@
  *   - surface-card 容器 (white + subtle border + soft shadow)
  *   - active = 品牌色 (rheem red 反白)
  *   - hover = surface-2 微弱反馈
- *   - 字体 text-caption (13px), 不再用 raw text-sm
+ *   - 字体 text-caption (13px), 不再用 raw text-caption
  */
 
 import Link from 'next/link';
@@ -67,7 +67,7 @@ export function CourseTabs({ active, badges }: CourseTabsProps) {
             <li key={tab.id}>
               <Link
                 href={href}
-                className="surface-interactive flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-caption font-medium"
+                className="surface-interactive flex items-center justify-center gap-1.5 rounded-2xl px-3 py-2.5 text-caption font-medium"
                 style={
                   isActive
                     ? {

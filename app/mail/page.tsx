@@ -65,7 +65,7 @@ function MailInner() {
   });
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col md:px-8">
       {/* Header */}
       <header className="px-6 pt-6 pb-3">
         <div className="flex items-end justify-between gap-4">
@@ -99,7 +99,7 @@ function MailInner() {
               SMTP 已就绪 · {status.outbound.fromAddress}
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-footnote font-medium text-amber-700">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-warning/5 px-3 py-1 text-footnote font-medium text-warning">
               <AlertCircle className="h-3.5 w-3.5" />
               SMTP 未配置 · 仅可写草稿, 不能发送
             </span>

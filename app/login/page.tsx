@@ -103,7 +103,7 @@ function LoginInner() {
 
         {/* Top: brand mark */}
         <div className="relative z-10 flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-md bg-[rgb(var(--brand-500))] text-white text-lg font-extrabold">
+          <span className="flex h-10 w-10 items-center justify-center rounded-md bg-[rgb(var(--brand-500))] text-white text-headline font-extrabold">
             T
           </span>
           <span className="text-callout font-semibold text-ink-primary">
@@ -174,7 +174,7 @@ function LoginInner() {
               <header className="text-center mb-2">
                 {/* Mobile-only inline brand */}
                 <div className="lg:hidden mb-6 flex items-center justify-center gap-2">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-md bg-[rgb(var(--brand-500))] text-white text-base font-extrabold">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-md bg-[rgb(var(--brand-500))] text-white text-body font-extrabold">
                     T
                   </span>
                   <span className="text-callout font-semibold text-ink-primary">
@@ -294,7 +294,7 @@ function LoginInner() {
                 value={totpCode}
                 onChange={(v) => setTotpCode(v.replace(/\D/g, ''))}
                 placeholder="000000"
-                className="text-center tracking-[0.5em] text-lg font-semibold"
+                className="text-center tracking-[0.5em] text-headline font-semibold"
               />
 
               <details className="text-caption">
