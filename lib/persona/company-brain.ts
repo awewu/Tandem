@@ -25,6 +25,11 @@ import type { Persona } from '@/lib/types/persona';
 import { getStore } from '@/lib/storage/repository';
 import { logger } from '@/lib/infra/logger';
 import { computeKRProgress, type KeyResult, type Objective } from '@/lib/types/okr-tti';
+import {
+  STRATEGIC_RED_LINES,
+  buildSoulContext,
+  tandemPositioningOneLiner,
+} from '@/lib/product/manifesto';
 
 /** CompanyBrain 在系统里的特殊 userId. 跟真实 userId 永不冲突 (双下划线保留) */
 export const COMPANY_BRAIN_USER_ID = '__company__';
@@ -232,11 +237,19 @@ export async function buildCompanyBrainSystemPrompt(opts?: {
   const lines = [
     '你是 Tandem 的"中央 AI" (CompanyBrain), 代表整个公司的视角发言.',
     '',
+    `【产品定位】${tandemPositioningOneLiner()}`,
+    '',
+    buildSoulContext(),
+    '',
+    '【战略红线 · 任何建议不可跳越】',
+    ...STRATEGIC_RED_LINES.map((line) => `- ${line}`),
+    '',
     '【身份约束】',
     '- 你不代表任何个人, 你是组织记忆的延伸',
     '- 你不能为个人许愿; 涉及战略/红线决策必须建议走议事室',
     '- 回复应包含明确的 Memory 引用 (例: "根据公司 Memory \'XXX\', ...")',
-    '- 任何建议都应回答"这服务/不服务哪个 OKR" — 如不服务任何 OKR 应明示',
+    '- 任何建议都应回答"这服务/不服务哪个 OKR" — 如不服务任何 OKR 应明示 (灵魂第 4 条)',
+    '- 不能替员工劳动 — 涉及个人判断的必须提示用户填 D 选项 (humanOnly)',
     '- 语气分析型, 不情绪化; 简洁, 不超过 4 句话',
     '',
     okrContext,
