@@ -120,6 +120,68 @@ export const NINE_BOX_CELL = {
   must_intervene: { badge: 'bg-rose-100 text-rose-800 border-rose-300', emoji: '🚨', label: '必须干预' },
 } as const;
 
+/**
+ * BSC 平衡记分卡 4 维 (Kaplan/Norton)
+ *
+ * 因果链方向 (BSC 原版灵魂):
+ *   growth → process → customer → financial
+ *   (学习成长 驱动 内部流程 驱动 客户市场 驱动 财务经营)
+ *
+ * `causalDownstream` 给出该维度的"下游"集合, 用于 B-019 因果链建模校验.
+ */
+export const BSC_PERSPECTIVE = {
+  financial: {
+    badge: 'bg-rose-50 text-rose-700 border-rose-200',
+    bar: 'bg-rose-500',
+    text: 'text-rose-700',
+    bg: 'bg-rose-50',
+    border: 'border-rose-200',
+    emoji: '📈',
+    label: '财务与经营',
+    desc: '营业收入 / 净利润 / 成本控制 / 预算达成',
+    rank: 4,
+    causalDownstream: [] as const,
+  },
+  customer: {
+    badge: 'bg-amber-50 text-amber-700 border-amber-200',
+    bar: 'bg-amber-500',
+    text: 'text-amber-700',
+    bg: 'bg-amber-50',
+    border: 'border-amber-200',
+    emoji: '👥',
+    label: '客户与市场',
+    desc: '外部 SLA / 客户满意度 / 留存率 / 需求响应',
+    rank: 3,
+    causalDownstream: ['financial'] as const,
+  },
+  process: {
+    badge: 'bg-sky-50 text-sky-700 border-sky-200',
+    bar: 'bg-sky-500',
+    text: 'text-sky-700',
+    bg: 'bg-sky-50',
+    border: 'border-sky-200',
+    emoji: '⚙️',
+    label: '内部流程',
+    desc: '系统稳定 / 研发交付 / 项目交付 / 合规',
+    rank: 2,
+    causalDownstream: ['customer', 'financial'] as const,
+  },
+  growth: {
+    badge: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    bar: 'bg-emerald-500',
+    text: 'text-emerald-700',
+    bg: 'bg-emerald-50',
+    border: 'border-emerald-200',
+    emoji: '🧠',
+    label: '学习与成长',
+    desc: '关键技能 / 技术分享 / IDP / TTI 创新转化',
+    rank: 1,
+    causalDownstream: ['process', 'customer', 'financial'] as const,
+  },
+} as const;
+
+export type BscPerspective = keyof typeof BSC_PERSPECTIVE;
+
 /** 工具函数: KPI 完成率 → health */
 export function completionToHealth(c: number): keyof typeof HEALTH {
   if (c >= 0.9) return 'green';
