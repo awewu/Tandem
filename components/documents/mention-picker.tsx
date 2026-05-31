@@ -216,3 +216,49 @@ export function useMentionTrigger(opts: {
 
   return { open, query, anchor, onChange, onKeyDown, insertMention, setOpen };
 }
+
+/**
+ * 通用 textarea + 文档 @ 引用. 三个调用点共用 (IM / 议事 Option D / 1on1 议程).
+ *
+ * 不强加样式; 默认 `mt-1 w-full rounded border p-2 text-footnote`. 调用方可用 className 覆盖.
+ */
+export function MentionTextarea(props: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  rows?: number;
+  disabled?: boolean;
+  className?: string;
+}) {
+  const { value, onChange, placeholder, rows = 3, disabled, className } = props;
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const mention = useMentionTrigger({ value, setValue: onChange, inputRef: ref });
+  return (
+    <>
+      <textarea
+        ref={ref}
+        className={
+          className ??
+          "mt-1 w-full rounded border p-2 text-footnote focus:outline-none focus:ring-1 focus:ring-brand-300"
+        }
+        rows={rows}
+        value={value}
+        onChange={mention.onChange}
+        onKeyDown={(e) => {
+          if (mention.open && ["ArrowDown", "ArrowUp", "Enter", "Escape", "Tab"].includes(e.key)) {
+            if (e.key === "Enter" || e.key === "Tab") e.preventDefault();
+          }
+        }}
+        placeholder={placeholder}
+        disabled={disabled}
+      />
+      <DocumentMentionPicker
+        open={mention.open}
+        query={mention.query}
+        anchor={mention.anchor}
+        onSelect={mention.insertMention}
+        onClose={() => mention.setOpen(false)}
+      />
+    </>
+  );
+}

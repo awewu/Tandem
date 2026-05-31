@@ -13,7 +13,8 @@
  *   - actionItems 可一键变 KR 下 Initiative (M2)
  */
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useRef, useState, useEffect } from 'react';
+import { MentionTextarea } from '@/components/documents/mention-picker';
 import {
   useOneOnOneStore, useOKRStore,
   type OneOnOneMeeting, type OneOnOneCadence, type OneOnOneStatus,
@@ -507,24 +508,22 @@ function MeetingDetail({
             <Label className="text-[11px] text-muted-foreground">
               👔 {managerName} (主管) 想聊:
             </Label>
-            <Textarea
+            <MentionTextarea
               value={meeting.agendaManager ?? ''}
-              onChange={(e) => onUpdate({ agendaManager: e.target.value })}
-              placeholder="· 上季度 Q 目标进展&#10;· 下一步优先级"
+              onChange={(v) => onUpdate({ agendaManager: v })}
+              placeholder="· 上季度 Q 目标进展&#10;· 下一步优先级 · @ 可引项目文档"
               rows={3}
-              className="mt-1 text-footnote"
             />
           </div>
           <div>
             <Label className="text-[11px] text-muted-foreground">
               👤 {reportName} (员工) 想聊:
             </Label>
-            <Textarea
+            <MentionTextarea
               value={meeting.agendaReport ?? ''}
-              onChange={(e) => onUpdate({ agendaReport: e.target.value })}
-              placeholder="· 卡点/障碍&#10;· 职业发展想法"
+              onChange={(v) => onUpdate({ agendaReport: v })}
+              placeholder="· 卡点/障碍&#10;· 职业发展想法 · @ 可引项目文档"
               rows={3}
-              className="mt-1 text-footnote"
             />
           </div>
         </CardContent>
