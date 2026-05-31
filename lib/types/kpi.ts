@@ -323,6 +323,40 @@ export interface KpiBonusPayout {
   tenantId: string;
 }
 
+// ---------------------------------------------------------------------------
+// BSC 战略地图因果链 (B-019)
+// ---------------------------------------------------------------------------
+
+/**
+ * KpiCausalLink · BSC 战略地图因果链
+ *
+ * 建模 growth → process → customer → financial 跨维度假设验证.
+ * fromKpiId 是"驱动因", toKpiId 是"结果果".
+ * 方向合法性由 isCausalDirectionValid() (lib/kpi/bsc-validation.ts) 校验.
+ */
+export interface KpiCausalLink {
+  id: string;
+  cycleId: string;
+  /** 驱动因 KPI ID */
+  fromKpiId: string;
+  /** 结果果 KPI ID */
+  toKpiId: string;
+  /** 因果置信强度: 0.0-1.0 (HR/高管主观打分, 年终可用数据修正) */
+  strength: number;
+  /** 假设描述, e.g. "技能提升 → 交付效率提升 → NPS 上升" */
+  hypothesis?: string;
+  /** true = 年终复盘后数据验证成立 */
+  validated: boolean;
+  validatedAt?: string;
+  validatedBy?: string;
+  /** 验证注记 (复盘结论摘要) */
+  validationNote?: string;
+  tenantId: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 /**
  * 计算一个 assignee 的奖金 (纯函数, 便于测试).
  * 如果 bonusKpis 为空 (scope=bonus), 返回 0 完成率, 0 奖金.

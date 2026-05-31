@@ -32,6 +32,7 @@ import type {
   KpiManualEntry,
   KpiBonusPayout,
   KpiSubject,
+  KpiCausalLink,
 } from '../types/kpi';
 import type { ImChannel, ImMessage, ImMembership } from '../types/im';
 import type {
@@ -98,6 +99,9 @@ export interface TandemStore {
   kpiManualEntries: Repository<KpiManualEntry>;
   kpiBonusPayouts: Repository<KpiBonusPayout>;
 
+  /** BSC 战略地图因果链 (B-019) */
+  kpiCausalLinks: Repository<KpiCausalLink>;
+
   /** IM (内置消息层) */
   imChannels: Repository<ImChannel>;
   imMessages: Repository<ImMessage>;
@@ -145,6 +149,9 @@ export interface TandemStore {
   /** WorkspaceManifest (tandem.workspace.md declarative governance, 借鉴 CLAUDE.md/AGENTS.md) */
   workspaceManifests: Repository<import('../types/workspace-manifest').WorkspaceManifest>;
 
+  /** Persona 价值观锚 (B-027, 五引擎 · 防漂移层. id=userId 一对一) */
+  personaConstitutions: Repository<import('../types/persona-constitution').PersonaConstitution>;
+
   /** 飞书功能追赶 (Feishu Catch-up) */
   documents: Repository<import('../types/feishu-catchup').Document>;
   calendarEvents: Repository<import('../types/feishu-catchup').CalendarEvent>;
@@ -153,6 +160,16 @@ export interface TandemStore {
 
   /** 自研身份系统 (Native Auth) */
   auth: AuthStore;
+
+  /** 外部人员注册申请 (审批制) — 区别于即时邀请码 */
+  authApplications: Repository<import('../types/auth-application').AuthApplication>;
+
+  /** 三省六部项目治理 · 战略项目实体 (Phase 2) */
+  governanceProjects: Repository<import('../types/governance').GovernanceProject>;
+  /** 三省六部项目治理 · 每个项目的协同模板 (id = projectId) */
+  governanceTemplates: Repository<import('../types/governance').GovernanceTemplate>;
+  /** 三省六部模板版本快照 (id = `{projectId}:{version}`) */
+  governanceTemplateVersions: Repository<import('../types/governance').GovernanceTemplateVersion>;
 }
 
 // ---------------------------------------------------------------------------

@@ -3,7 +3,7 @@
  * 仅声明 V1 GA 路径所需表；其它表可后续增量迁移。
  */
 
-import { pgTable, text, integer, boolean, timestamp, jsonb, index, primaryKey } from 'drizzle-orm/pg-core';
+import { pgTable, text, integer, boolean, timestamp, jsonb, index, primaryKey, numeric, uniqueIndex } from 'drizzle-orm/pg-core';
 
 /**
  * KvStore · 遗留模块持久化的通用 JSON 表
@@ -638,5 +638,278 @@ export const learningMcpToken = pgTable(
   (t) => ({
     userActiveIdx: index('LearningMcpToken_userId_revokedAt_idx').on(t.userId, t.revokedAt),
     tokenHashIdx: index('LearningMcpToken_tokenHash_idx').on(t.tokenHash),
+  }),
+);
+
+// ===========================================================================
+// KPI 体系强类型表 (B-019 / B-020, 从 KvStore 升级)
+// 见 docs/CHARTER-KPI-TTI.md §2 + lib/types/kpi.ts
+// 设计原则: 热表强类型 + 复合索引, 时序表按 kpiId+date 索引
+// ===========================================================================
+
+/**
+ * KpiCycle · 财年绩效周期 (年度, 一家公司同时只有一个 active)
+ */
+export const kpiCycle = pgTable(
+  'KpiCycle',
+  {
+    id: text('id').primaryKey(),
+    fiscalYear: integer('fiscalYear').notNull(),
+    name: text('name').notNull(),
+    startDate: text('startDate').notNull(),
+    endDate: text('endDate').notNull(),
+    /** draft | active | closed */
+    status: text('status').notNull().default('draft'),
+    tenantId: text('tenantId').notNull().default('default'),
+    targetsLockedAt: timestamp('targetsLockedAt', { precision: 3, mode: 'date' }),
+    closedAt: timestamp('closedAt', { precision: 3, mode: 'date' }),
+    createdBy: text('createdBy').notNull(),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+  },
+  (t) => ({
+    tenantStatusIdx: index('KpiCycle_tenantId_status_idx').on(t.tenantId, t.status),
+    fiscalYearIdx: index('KpiCycle_fiscalYear_idx').on(t.fiscalYear, t.tenantId),
+  }),
+);
+
+/**
+ * KpiSubject · 科目主数据 (动态可扩展树)
+ *
+ * 三层结构: level=1 一级科目 → level=2 二级 → level=3 三级.
+ * HR/财务可增删改; 软删除 (active=false) 保留历史 KPI 引用完整性.
+ */
+export const kpiSubject = pgTable(
+  'KpiSubject',
+  {
+    id: text('id').primaryKey(),
+    parentId: text('parentId'),
+    /** 业务编码, e.g. "REV-001". Excel 导入匹配键 */
+    code: text('code').notNull(),
+    name: text('name').notNull(),
+    description: text('description'),
+    /** financial | customer | process | growth */
+    bscPerspective: text('bscPerspective'),
+    level: integer('level').notNull().default(1),
+    /** bonus | monitor */
+    defaultScope: text('defaultScope').notNull().default('bonus'),
+    defaultUnit: text('defaultUnit'),
+    /** numeric | percentage | currency | count */
+    defaultMeasureType: text('defaultMeasureType').notNull().default('numeric'),
+    active: boolean('active').notNull().default(true),
+    tenantId: text('tenantId').notNull().default('default'),
+    createdBy: text('createdBy').notNull(),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+  },
+  (t) => ({
+    codeUniq: uniqueIndex('KpiSubject_code_tenant_uniq').on(t.code, t.tenantId),
+    parentIdx: index('KpiSubject_parentId_idx').on(t.parentId),
+    bscIdx: index('KpiSubject_bscPerspective_idx').on(t.bscPerspective, t.tenantId),
+    activeIdx: index('KpiSubject_active_tenant_idx').on(t.active, t.tenantId),
+  }),
+);
+
+/**
+ * Kpi · KPI 指标实例 (热表, 最高频查询)
+ *
+ * 复合索引覆盖: cycleId+level+scope+assigneeId 是最常见过滤组合.
+ */
+export const kpi = pgTable(
+  'Kpi',
+  {
+    id: text('id').primaryKey(),
+    cycleId: text('cycleId').notNull(),
+    subjectId: text('subjectId').notNull(),
+    /** financial | customer | process | growth (可覆写 subject 的默认值) */
+    bscPerspective: text('bscPerspective'),
+    /** company | department | individual */
+    level: text('level').notNull(),
+    parentKpiId: text('parentKpiId'),
+    assigneeId: text('assigneeId').notNull(),
+    departmentId: text('departmentId'),
+    title: text('title').notNull(),
+    description: text('description'),
+    /** numeric | percentage | currency | count */
+    measureType: text('measureType').notNull().default('numeric'),
+    startValue: numeric('startValue', { precision: 18, scale: 4 }).notNull().default('0'),
+    targetValue: numeric('targetValue', { precision: 18, scale: 4 }).notNull().default('0'),
+    currentValue: numeric('currentValue', { precision: 18, scale: 4 }).notNull().default('0'),
+    unit: text('unit'),
+    weight: numeric('weight', { precision: 6, scale: 2 }).notNull().default('0'),
+    /** erp | manual | pending */
+    dataSource: text('dataSource').notNull().default('pending'),
+    /** bonus | monitor */
+    scope: text('scope').notNull().default('bonus'),
+    tenantId: text('tenantId').notNull().default('default'),
+    createdBy: text('createdBy').notNull(),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+  },
+  (t) => ({
+    /** 最核心查询: 一个周期内按层级+scope+被考核人过滤 */
+    cycleLevelScopeIdx: index('Kpi_cycleId_level_scope_idx').on(t.cycleId, t.level, t.scope),
+    assigneeIdx: index('Kpi_assigneeId_cycleId_idx').on(t.assigneeId, t.cycleId),
+    parentIdx: index('Kpi_parentKpiId_idx').on(t.parentKpiId),
+    deptIdx: index('Kpi_departmentId_cycleId_idx').on(t.departmentId, t.cycleId),
+    bscIdx: index('Kpi_bscPerspective_cycleId_idx').on(t.bscPerspective, t.cycleId),
+    tenantIdx: index('Kpi_tenantId_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * KpiCheckIn · 季度/月度进度快照 (只读追加, 审计链节点)
+ */
+export const kpiCheckIn = pgTable(
+  'KpiCheckIn',
+  {
+    id: text('id').primaryKey(),
+    kpiId: text('kpiId').notNull(),
+    /** 快照时点 ISO 字符串 */
+    asOf: text('asOf').notNull(),
+    cumulativeValue: numeric('cumulativeValue', { precision: 18, scale: 4 }).notNull(),
+    delta: numeric('delta', { precision: 18, scale: 4 }).notNull().default('0'),
+    /** erp | manual | pending */
+    source: text('source').notNull().default('manual'),
+    note: text('note'),
+    createdBy: text('createdBy').notNull(),
+    tenantId: text('tenantId').notNull().default('default'),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => ({
+    kpiAsOfIdx: index('KpiCheckIn_kpiId_asOf_idx').on(t.kpiId, t.asOf),
+    tenantIdx: index('KpiCheckIn_tenantId_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * KpiSnapshot · 每日/每周时序快照 (供 YTD / 环比 / 趋势分析)
+ *
+ * 时序表: kpiId+date 是唯一键, 每日 upsert 一条.
+ * 避免 KvStore 全量拉出再在 Node 内存排序的 O(N) 问题.
+ */
+export const kpiSnapshot = pgTable(
+  'KpiSnapshot',
+  {
+    id: text('id').primaryKey(),
+    kpiId: text('kpiId').notNull(),
+    /** YYYY-MM-DD */
+    date: text('date').notNull(),
+    cumulativeValue: numeric('cumulativeValue', { precision: 18, scale: 4 }).notNull(),
+    /** erp | manual | pending */
+    source: text('source').notNull().default('erp'),
+    /** 多维分解 JSON, e.g. { "productA": 100, "productB": 200 } */
+    breakdown: jsonb('breakdown'),
+    tenantId: text('tenantId').notNull().default('default'),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => ({
+    /** 时序主查询索引: 按 kpiId 拿时间段数据 */
+    kpiDateIdx: index('KpiSnapshot_kpiId_date_idx').on(t.kpiId, t.date),
+    /** 唯一约束: 一条 KPI 每日只有一条快照 */
+    kpiDateUniq: uniqueIndex('KpiSnapshot_kpiId_date_uniq').on(t.kpiId, t.date),
+    tenantDateIdx: index('KpiSnapshot_tenantId_date_idx').on(t.tenantId, t.date),
+  }),
+);
+
+/**
+ * KpiManualEntry · 通道 C 人工补录审计记录
+ *
+ * CHARTER §2.1: 人工补录必须留记录 + reason + 可选 evidenceUrl.
+ * 财务/HR/内勤操作, 高管和被考核人不能操作.
+ */
+export const kpiManualEntry = pgTable(
+  'KpiManualEntry',
+  {
+    id: text('id').primaryKey(),
+    kpiId: text('kpiId').notNull(),
+    operatorId: text('operatorId').notNull(),
+    /** finance | hr | internal_staff */
+    operatorRole: text('operatorRole').notNull(),
+    fromValue: numeric('fromValue', { precision: 18, scale: 4 }).notNull(),
+    toValue: numeric('toValue', { precision: 18, scale: 4 }).notNull(),
+    reason: text('reason').notNull(),
+    evidenceUrl: text('evidenceUrl'),
+    tenantId: text('tenantId').notNull().default('default'),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => ({
+    /** 审计查询: 某 KPI 的全部人工操作历史 */
+    kpiOperatorIdx: index('KpiManualEntry_kpiId_operatorId_idx').on(t.kpiId, t.operatorId),
+    kpiCreatedIdx: index('KpiManualEntry_kpiId_createdAt_idx').on(t.kpiId, t.createdAt),
+    tenantIdx: index('KpiManualEntry_tenantId_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * KpiBonusPayout · 年终奖金计算结果 (CHARTER §5 M3)
+ *
+ * committed=false = draft 预估; committed=true = 已下发, 不可撤回.
+ */
+export const kpiBonusPayout = pgTable(
+  'KpiBonusPayout',
+  {
+    id: text('id').primaryKey(),
+    cycleId: text('cycleId').notNull(),
+    assigneeId: text('assigneeId').notNull(),
+    baseBonus: numeric('baseBonus', { precision: 18, scale: 2 }).notNull(),
+    weightedCompletion: numeric('weightedCompletion', { precision: 6, scale: 4 }).notNull(),
+    finalBonus: numeric('finalBonus', { precision: 18, scale: 2 }).notNull(),
+    /** JSON: KpiBonusContribution[] */
+    contributions: jsonb('contributions').notNull().default([]),
+    calculatedAt: timestamp('calculatedAt', { precision: 3, mode: 'date' }).notNull(),
+    calculatedBy: text('calculatedBy').notNull(),
+    committed: boolean('committed').notNull().default(false),
+    committedAt: timestamp('committedAt', { precision: 3, mode: 'date' }),
+    note: text('note'),
+    tenantId: text('tenantId').notNull().default('default'),
+  },
+  (t) => ({
+    cycleAssigneeIdx: index('KpiBonusPayout_cycleId_assigneeId_idx').on(t.cycleId, t.assigneeId),
+    committedIdx: index('KpiBonusPayout_committed_cycleId_idx').on(t.committed, t.cycleId),
+    tenantIdx: index('KpiBonusPayout_tenantId_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * KpiCausalLink · BSC 战略地图因果链 (B-019)
+ *
+ * 建模"学习与成长 → 内部流程 → 客户 → 财务"的跨维度假设验证.
+ * fromKpiId 是"驱动因", toKpiId 是"结果果".
+ * validated=true 表示经年终复盘确认因果成立.
+ *
+ * isCausalDirectionValid() 见 lib/kpi/bsc-validation.ts — 仅允许
+ * growth→process/customer/financial, process→customer/financial, customer→financial.
+ */
+export const kpiCausalLink = pgTable(
+  'KpiCausalLink',
+  {
+    id: text('id').primaryKey(),
+    cycleId: text('cycleId').notNull(),
+    fromKpiId: text('fromKpiId').notNull(),
+    toKpiId: text('toKpiId').notNull(),
+    /** 因果关系置信强度: 0.0-1.0 (由 HR/高管主观打分, 年终可用数据修正) */
+    strength: numeric('strength', { precision: 4, scale: 3 }).notNull().default('0.5'),
+    /** 假设描述, e.g. "技能提升 → 交付效率提升 → NPS 上升" */
+    hypothesis: text('hypothesis'),
+    /** true = 年终复盘后数据验证成立 */
+    validated: boolean('validated').notNull().default(false),
+    validatedAt: timestamp('validatedAt', { precision: 3, mode: 'date' }),
+    validatedBy: text('validatedBy'),
+    /** 验证注记 (复盘结论摘要) */
+    validationNote: text('validationNote'),
+    tenantId: text('tenantId').notNull().default('default'),
+    createdBy: text('createdBy').notNull(),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+  },
+  (t) => ({
+    /** 拓扑构建查询: 一个周期内从某 KPI 出发的所有下游 */
+    fromCycleIdx: index('KpiCausalLink_fromKpiId_cycleId_idx').on(t.fromKpiId, t.cycleId),
+    /** 反向查询: 某 KPI 被哪些 KPI 驱动 */
+    toCycleIdx: index('KpiCausalLink_toKpiId_cycleId_idx').on(t.toKpiId, t.cycleId),
+    /** 防重: 同周期同一对 KPI 只能有一条因果链 */
+    linkUniq: uniqueIndex('KpiCausalLink_from_to_cycle_uniq').on(t.fromKpiId, t.toKpiId, t.cycleId),
+    tenantIdx: index('KpiCausalLink_tenantId_idx').on(t.tenantId),
   }),
 );

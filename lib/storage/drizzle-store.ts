@@ -1,12 +1,15 @@
 /**
- * Drizzle Store · 遗留模块 PostgreSQL 持久化
+ * Drizzle Store · PostgreSQL 持久化
  *
- * 使用 KvStore 通用 JSONB 表 + Drizzle 实现 Repository<T>.
- * 与 InMemory Store 行为完全一致, 替换无业务影响.
- * §T6: 后续热表会逐步升级为强类型 schema, 同时保持 Repository 接口稳定.
+ * 两层实现:
+ *   1. DrizzleKvRepository<T> — 遗留模块用 KvStore JSONB 表 (接口稳定, 逐步升级)
+ *   2. 强类型 Repository — KPI 体系 8 张表已升级 (B-019/B-020):
+ *        KpiCycle / KpiSubject / Kpi / KpiCheckIn / KpiSnapshot /
+ *        KpiManualEntry / KpiBonusPayout / KpiCausalLink
+ * §T6: 后续热表按需升级, Repository<T> 接口保持稳定.
  */
 
-import { and, eq, sql, desc } from 'drizzle-orm';
+import { and, eq, sql, desc, asc, gte, lte, isNull } from 'drizzle-orm';
 import { db, schema } from '../infra/drizzle-client';
 import type {
   Repository,
@@ -17,6 +20,16 @@ import type {
   AuthInvite,
   AuthEvent,
 } from './repository';
+import type {
+  KpiCycle,
+  KpiSubject,
+  Kpi,
+  KpiCheckIn,
+  KpiSnapshot,
+  KpiManualEntry,
+  KpiBonusPayout,
+  KpiCausalLink,
+} from '../types/kpi';
 import { generateId } from './repository';
 
 const kv = schema.kvStore;
@@ -387,6 +400,578 @@ function createDrizzleAuthStore(): AuthStore {
 }
 
 // ---------------------------------------------------------------------------
+// KPI 强类型 Repository 实现 (B-019 / B-020)
+// ---------------------------------------------------------------------------
+
+type KpiCycleRow = typeof schema.kpiCycle.$inferSelect;
+type KpiSubjectRow = typeof schema.kpiSubject.$inferSelect;
+type KpiRow = typeof schema.kpi.$inferSelect;
+type KpiCheckInRow = typeof schema.kpiCheckIn.$inferSelect;
+type KpiSnapshotRow = typeof schema.kpiSnapshot.$inferSelect;
+type KpiManualEntryRow = typeof schema.kpiManualEntry.$inferSelect;
+type KpiBonusPayoutRow = typeof schema.kpiBonusPayout.$inferSelect;
+type KpiCausalLinkRow = typeof schema.kpiCausalLink.$inferSelect;
+
+function rowToKpiCycle(r: KpiCycleRow): KpiCycle {
+  return {
+    id: r.id,
+    fiscalYear: r.fiscalYear,
+    name: r.name,
+    startDate: r.startDate,
+    endDate: r.endDate,
+    status: r.status as KpiCycle['status'],
+    tenantId: r.tenantId,
+    targetsLockedAt: r.targetsLockedAt?.toISOString(),
+    closedAt: r.closedAt?.toISOString(),
+    createdBy: r.createdBy,
+    createdAt: r.createdAt.toISOString(),
+    updatedAt: r.updatedAt.toISOString(),
+  };
+}
+
+function rowToKpiSubject(r: KpiSubjectRow): KpiSubject {
+  return {
+    id: r.id,
+    parentId: r.parentId ?? undefined,
+    code: r.code,
+    name: r.name,
+    description: r.description ?? undefined,
+    bscPerspective: r.bscPerspective as KpiSubject['bscPerspective'] ?? undefined,
+    level: r.level,
+    defaultScope: r.defaultScope as KpiSubject['defaultScope'],
+    defaultUnit: r.defaultUnit ?? undefined,
+    defaultMeasureType: r.defaultMeasureType as KpiSubject['defaultMeasureType'],
+    active: r.active,
+    tenantId: r.tenantId,
+    createdBy: r.createdBy,
+    createdAt: r.createdAt.toISOString(),
+    updatedAt: r.updatedAt.toISOString(),
+  };
+}
+
+function rowToKpi(r: KpiRow): Kpi {
+  return {
+    id: r.id,
+    cycleId: r.cycleId,
+    subjectId: r.subjectId,
+    bscPerspective: r.bscPerspective as Kpi['bscPerspective'] ?? undefined,
+    level: r.level as Kpi['level'],
+    parentKpiId: r.parentKpiId ?? undefined,
+    assigneeId: r.assigneeId,
+    departmentId: r.departmentId ?? undefined,
+    title: r.title,
+    description: r.description ?? undefined,
+    measureType: r.measureType as Kpi['measureType'],
+    startValue: Number(r.startValue),
+    targetValue: Number(r.targetValue),
+    currentValue: Number(r.currentValue),
+    unit: r.unit ?? undefined,
+    weight: Number(r.weight),
+    dataSource: r.dataSource as Kpi['dataSource'],
+    scope: r.scope as Kpi['scope'],
+    tenantId: r.tenantId,
+    createdBy: r.createdBy,
+    createdAt: r.createdAt.toISOString(),
+    updatedAt: r.updatedAt.toISOString(),
+  };
+}
+
+function rowToKpiCheckIn(r: KpiCheckInRow): KpiCheckIn {
+  return {
+    id: r.id,
+    kpiId: r.kpiId,
+    asOf: r.asOf,
+    cumulativeValue: Number(r.cumulativeValue),
+    delta: Number(r.delta),
+    source: r.source as KpiCheckIn['source'],
+    note: r.note ?? undefined,
+    createdBy: r.createdBy,
+    createdAt: r.createdAt.toISOString(),
+  };
+}
+
+function rowToKpiSnapshot(r: KpiSnapshotRow): KpiSnapshot {
+  return {
+    id: r.id,
+    kpiId: r.kpiId,
+    date: r.date,
+    cumulativeValue: Number(r.cumulativeValue),
+    source: r.source as KpiSnapshot['source'],
+    breakdown: r.breakdown as KpiSnapshot['breakdown'] ?? undefined,
+    createdAt: r.createdAt.toISOString(),
+  };
+}
+
+function rowToKpiManualEntry(r: KpiManualEntryRow): KpiManualEntry {
+  return {
+    id: r.id,
+    kpiId: r.kpiId,
+    operatorId: r.operatorId,
+    operatorRole: r.operatorRole as KpiManualEntry['operatorRole'],
+    fromValue: Number(r.fromValue),
+    toValue: Number(r.toValue),
+    reason: r.reason,
+    evidenceUrl: r.evidenceUrl ?? undefined,
+    tenantId: r.tenantId,
+    createdAt: r.createdAt.toISOString(),
+  };
+}
+
+function rowToKpiBonusPayout(r: KpiBonusPayoutRow): KpiBonusPayout {
+  return {
+    id: r.id,
+    cycleId: r.cycleId,
+    assigneeId: r.assigneeId,
+    baseBonus: Number(r.baseBonus),
+    weightedCompletion: Number(r.weightedCompletion),
+    finalBonus: Number(r.finalBonus),
+    contributions: r.contributions as KpiBonusPayout['contributions'],
+    calculatedAt: r.calculatedAt.toISOString(),
+    calculatedBy: r.calculatedBy,
+    committed: r.committed,
+    committedAt: r.committedAt?.toISOString(),
+    note: r.note ?? undefined,
+    tenantId: r.tenantId,
+  };
+}
+
+function rowToKpiCausalLink(r: KpiCausalLinkRow): KpiCausalLink {
+  return {
+    id: r.id,
+    cycleId: r.cycleId,
+    fromKpiId: r.fromKpiId,
+    toKpiId: r.toKpiId,
+    strength: Number(r.strength),
+    hypothesis: r.hypothesis ?? undefined,
+    validated: r.validated,
+    validatedAt: r.validatedAt?.toISOString(),
+    validatedBy: r.validatedBy ?? undefined,
+    validationNote: r.validationNote ?? undefined,
+    tenantId: r.tenantId,
+    createdBy: r.createdBy,
+    createdAt: r.createdAt.toISOString(),
+    updatedAt: r.updatedAt.toISOString(),
+  };
+}
+
+function createKpiCycleRepo(): import('./repository').Repository<KpiCycle> {
+  const t = schema.kpiCycle;
+  return {
+    async get(id) {
+      const rows = await db.select().from(t).where(eq(t.id, id)).limit(1);
+      return rows[0] ? rowToKpiCycle(rows[0]) : null;
+    },
+    async list(filter) {
+      const rows = await db.select().from(t).orderBy(desc(t.createdAt));
+      const all = rows.map(rowToKpiCycle);
+      if (!filter || Object.keys(filter).length === 0) return all;
+      return all.filter((item) =>
+        Object.entries(filter).every(([k, v]) => (item as unknown as Record<string, unknown>)[k] === v),
+      );
+    },
+    async create(data) {
+      const id = data.id ?? generateId('kc');
+      const now = new Date();
+      const row = {
+        ...data,
+        id,
+        targetsLockedAt: data.targetsLockedAt ? new Date(data.targetsLockedAt) : null,
+        closedAt: data.closedAt ? new Date(data.closedAt) : null,
+        createdAt: new Date(data.createdAt ?? now),
+        updatedAt: new Date(data.updatedAt ?? now),
+      } as typeof t.$inferInsert;
+      await db.insert(t).values(row).onConflictDoUpdate({
+        target: t.id,
+        set: { ...row, updatedAt: now },
+      });
+      return (await this.get(id))!;
+    },
+    async update(id, patch) {
+      const now = new Date();
+      const dbPatch: Partial<typeof t.$inferInsert> = { updatedAt: now };
+      if (patch.fiscalYear !== undefined) dbPatch.fiscalYear = patch.fiscalYear;
+      if (patch.name !== undefined) dbPatch.name = patch.name;
+      if (patch.startDate !== undefined) dbPatch.startDate = patch.startDate;
+      if (patch.endDate !== undefined) dbPatch.endDate = patch.endDate;
+      if (patch.status !== undefined) dbPatch.status = patch.status;
+      if (patch.targetsLockedAt !== undefined)
+        dbPatch.targetsLockedAt = patch.targetsLockedAt ? new Date(patch.targetsLockedAt) : null;
+      if (patch.closedAt !== undefined)
+        dbPatch.closedAt = patch.closedAt ? new Date(patch.closedAt) : null;
+      await db.update(t).set(dbPatch).where(eq(t.id, id));
+      return (await this.get(id))!;
+    },
+    async delete(id) {
+      await db.delete(t).where(eq(t.id, id));
+    },
+  };
+}
+
+function createKpiSubjectRepo(): import('./repository').Repository<KpiSubject> {
+  const t = schema.kpiSubject;
+  return {
+    async get(id) {
+      const rows = await db.select().from(t).where(eq(t.id, id)).limit(1);
+      return rows[0] ? rowToKpiSubject(rows[0]) : null;
+    },
+    async list(filter) {
+      const rows = await db.select().from(t).orderBy(asc(t.level), asc(t.code));
+      const all = rows.map(rowToKpiSubject);
+      if (!filter || Object.keys(filter).length === 0) return all;
+      return all.filter((item) =>
+        Object.entries(filter).every(([k, v]) => (item as unknown as Record<string, unknown>)[k] === v),
+      );
+    },
+    async create(data) {
+      const id = data.id ?? generateId('ks');
+      const now = new Date();
+      const row = {
+        ...data,
+        id,
+        parentId: data.parentId ?? null,
+        description: data.description ?? null,
+        bscPerspective: data.bscPerspective ?? null,
+        defaultUnit: data.defaultUnit ?? null,
+        createdAt: new Date(data.createdAt ?? now),
+        updatedAt: new Date(data.updatedAt ?? now),
+      } as typeof t.$inferInsert;
+      await db.insert(t).values(row).onConflictDoUpdate({
+        target: t.id,
+        set: { ...row, updatedAt: now },
+      });
+      return (await this.get(id))!;
+    },
+    async update(id, patch) {
+      const now = new Date();
+      const dbPatch: Partial<typeof t.$inferInsert> = { updatedAt: now };
+      const fields = ['code','name','description','bscPerspective','level','defaultScope','defaultUnit','defaultMeasureType','active','parentId'] as const;
+      for (const f of fields) {
+        if ((patch as Record<string, unknown>)[f] !== undefined)
+          (dbPatch as Record<string, unknown>)[f] = (patch as Record<string, unknown>)[f] ?? null;
+      }
+      await db.update(t).set(dbPatch).where(eq(t.id, id));
+      return (await this.get(id))!;
+    },
+    async delete(id) {
+      await db.delete(t).where(eq(t.id, id));
+    },
+  };
+}
+
+function createKpiRepo(): import('./repository').Repository<Kpi> {
+  const t = schema.kpi;
+  return {
+    async get(id) {
+      const rows = await db.select().from(t).where(eq(t.id, id)).limit(1);
+      return rows[0] ? rowToKpi(rows[0]) : null;
+    },
+    async list(filter) {
+      let q = db.select().from(t).$dynamic();
+      if (filter?.cycleId) q = q.where(eq(t.cycleId, filter.cycleId as string));
+      else if (filter?.assigneeId) q = q.where(eq(t.assigneeId, filter.assigneeId as string));
+      const rows = await q.orderBy(desc(t.createdAt));
+      const all = rows.map(rowToKpi);
+      if (!filter || Object.keys(filter).length === 0) return all;
+      return all.filter((item) =>
+        Object.entries(filter).every(([k, v]) => (item as unknown as Record<string, unknown>)[k] === v),
+      );
+    },
+    async create(data) {
+      const id = data.id ?? generateId('kpi');
+      const now = new Date();
+      const row = {
+        ...data,
+        id,
+        startValue: String(data.startValue ?? 0),
+        targetValue: String(data.targetValue ?? 0),
+        currentValue: String(data.currentValue ?? 0),
+        weight: String(data.weight ?? 0),
+        parentKpiId: data.parentKpiId ?? null,
+        departmentId: data.departmentId ?? null,
+        description: data.description ?? null,
+        bscPerspective: data.bscPerspective ?? null,
+        unit: data.unit ?? null,
+        createdAt: new Date(data.createdAt ?? now),
+        updatedAt: new Date(data.updatedAt ?? now),
+      } as typeof t.$inferInsert;
+      await db.insert(t).values(row).onConflictDoUpdate({
+        target: t.id,
+        set: { ...row, updatedAt: now },
+      });
+      return (await this.get(id))!;
+    },
+    async update(id, patch) {
+      const now = new Date();
+      const dbPatch: Partial<typeof t.$inferInsert> = { updatedAt: now };
+      const numericFields = ['startValue','targetValue','currentValue','weight'] as const;
+      for (const f of numericFields) {
+        if ((patch as Record<string, unknown>)[f] !== undefined)
+          (dbPatch as Record<string, unknown>)[f] = String((patch as Record<string, unknown>)[f]);
+      }
+      const textFields = ['title','description','bscPerspective','level','parentKpiId','assigneeId','departmentId','measureType','unit','dataSource','scope','subjectId','cycleId'] as const;
+      for (const f of textFields) {
+        if ((patch as Record<string, unknown>)[f] !== undefined)
+          (dbPatch as Record<string, unknown>)[f] = (patch as Record<string, unknown>)[f] ?? null;
+      }
+      await db.update(t).set(dbPatch).where(eq(t.id, id));
+      return (await this.get(id))!;
+    },
+    async delete(id) {
+      await db.delete(t).where(eq(t.id, id));
+    },
+  };
+}
+
+function createKpiCheckInRepo(): import('./repository').Repository<KpiCheckIn> {
+  const t = schema.kpiCheckIn;
+  return {
+    async get(id) {
+      const rows = await db.select().from(t).where(eq(t.id, id)).limit(1);
+      return rows[0] ? rowToKpiCheckIn(rows[0]) : null;
+    },
+    async list(filter) {
+      let q = db.select().from(t).$dynamic();
+      if (filter?.kpiId) q = q.where(eq(t.kpiId, filter.kpiId as string));
+      const rows = await q.orderBy(asc(t.asOf));
+      const all = rows.map(rowToKpiCheckIn);
+      if (!filter || Object.keys(filter).length === 0) return all;
+      return all.filter((item) =>
+        Object.entries(filter).every(([k, v]) => (item as unknown as Record<string, unknown>)[k] === v),
+      );
+    },
+    async create(data) {
+      const id = data.id ?? generateId('kci');
+      const now = new Date();
+      const row = {
+        ...data,
+        id,
+        cumulativeValue: String(data.cumulativeValue),
+        delta: String(data.delta ?? 0),
+        note: data.note ?? null,
+        createdAt: new Date(data.createdAt ?? now),
+      } as typeof t.$inferInsert;
+      await db.insert(t).values(row);
+      return (await this.get(id))!;
+    },
+    async update(id, patch) {
+      const dbPatch: Partial<typeof t.$inferInsert> = {};
+      if (patch.note !== undefined) dbPatch.note = patch.note ?? null;
+      if (patch.cumulativeValue !== undefined) dbPatch.cumulativeValue = String(patch.cumulativeValue);
+      if (patch.delta !== undefined) dbPatch.delta = String(patch.delta);
+      await db.update(t).set(dbPatch).where(eq(t.id, id));
+      return (await this.get(id))!;
+    },
+    async delete(id) {
+      await db.delete(t).where(eq(t.id, id));
+    },
+  };
+}
+
+function createKpiSnapshotRepo(): import('./repository').Repository<KpiSnapshot> {
+  const t = schema.kpiSnapshot;
+  return {
+    async get(id) {
+      const rows = await db.select().from(t).where(eq(t.id, id)).limit(1);
+      return rows[0] ? rowToKpiSnapshot(rows[0]) : null;
+    },
+    async list(filter) {
+      let q = db.select().from(t).$dynamic();
+      if (filter?.kpiId) q = q.where(eq(t.kpiId, filter.kpiId as string));
+      const rows = await q.orderBy(asc(t.date));
+      const all = rows.map(rowToKpiSnapshot);
+      if (!filter || Object.keys(filter).length === 0) return all;
+      return all.filter((item) =>
+        Object.entries(filter).every(([k, v]) => (item as unknown as Record<string, unknown>)[k] === v),
+      );
+    },
+    async create(data) {
+      const id = data.id ?? generateId('ksn');
+      const now = new Date();
+      const row = {
+        ...data,
+        id,
+        cumulativeValue: String(data.cumulativeValue),
+        breakdown: data.breakdown ?? null,
+        createdAt: new Date(data.createdAt ?? now),
+      } as typeof t.$inferInsert;
+      await db.insert(t).values(row).onConflictDoUpdate({
+        target: [t.kpiId, t.date],
+        set: { cumulativeValue: row.cumulativeValue, source: row.source, breakdown: row.breakdown },
+      });
+      return (await this.get(id))!;
+    },
+    async update(id, patch) {
+      const dbPatch: Partial<typeof t.$inferInsert> = {};
+      if (patch.cumulativeValue !== undefined) dbPatch.cumulativeValue = String(patch.cumulativeValue);
+      if (patch.source !== undefined) dbPatch.source = patch.source;
+      if (patch.breakdown !== undefined) dbPatch.breakdown = patch.breakdown ?? null;
+      await db.update(t).set(dbPatch).where(eq(t.id, id));
+      return (await this.get(id))!;
+    },
+    async delete(id) {
+      await db.delete(t).where(eq(t.id, id));
+    },
+  };
+}
+
+function createKpiManualEntryRepo(): import('./repository').Repository<KpiManualEntry> {
+  const t = schema.kpiManualEntry;
+  return {
+    async get(id) {
+      const rows = await db.select().from(t).where(eq(t.id, id)).limit(1);
+      return rows[0] ? rowToKpiManualEntry(rows[0]) : null;
+    },
+    async list(filter) {
+      let q = db.select().from(t).$dynamic();
+      if (filter?.kpiId) q = q.where(eq(t.kpiId, filter.kpiId as string));
+      const rows = await q.orderBy(desc(t.createdAt));
+      const all = rows.map(rowToKpiManualEntry);
+      if (!filter || Object.keys(filter).length === 0) return all;
+      return all.filter((item) =>
+        Object.entries(filter).every(([k, v]) => (item as unknown as Record<string, unknown>)[k] === v),
+      );
+    },
+    async create(data) {
+      const id = data.id ?? generateId('kme');
+      const now = new Date();
+      const row = {
+        ...data,
+        id,
+        fromValue: String(data.fromValue),
+        toValue: String(data.toValue),
+        evidenceUrl: data.evidenceUrl ?? null,
+        createdAt: new Date(data.createdAt ?? now),
+      } as typeof t.$inferInsert;
+      await db.insert(t).values(row);
+      return (await this.get(id))!;
+    },
+    async update(id, patch) {
+      const dbPatch: Partial<typeof t.$inferInsert> = {};
+      if (patch.reason !== undefined) dbPatch.reason = patch.reason;
+      if (patch.evidenceUrl !== undefined) dbPatch.evidenceUrl = patch.evidenceUrl ?? null;
+      if (patch.fromValue !== undefined) dbPatch.fromValue = String(patch.fromValue);
+      if (patch.toValue !== undefined) dbPatch.toValue = String(patch.toValue);
+      await db.update(t).set(dbPatch).where(eq(t.id, id));
+      return (await this.get(id))!;
+    },
+    async delete(id) {
+      await db.delete(t).where(eq(t.id, id));
+    },
+  };
+}
+
+function createKpiBonusPayoutRepo(): import('./repository').Repository<KpiBonusPayout> {
+  const t = schema.kpiBonusPayout;
+  return {
+    async get(id) {
+      const rows = await db.select().from(t).where(eq(t.id, id)).limit(1);
+      return rows[0] ? rowToKpiBonusPayout(rows[0]) : null;
+    },
+    async list(filter) {
+      let q = db.select().from(t).$dynamic();
+      if (filter?.cycleId) q = q.where(eq(t.cycleId, filter.cycleId as string));
+      const rows = await q.orderBy(desc(t.calculatedAt));
+      const all = rows.map(rowToKpiBonusPayout);
+      if (!filter || Object.keys(filter).length === 0) return all;
+      return all.filter((item) =>
+        Object.entries(filter).every(([k, v]) => (item as unknown as Record<string, unknown>)[k] === v),
+      );
+    },
+    async create(data) {
+      const id = data.id ?? generateId('kbp');
+      const row = {
+        ...data,
+        id,
+        baseBonus: String(data.baseBonus),
+        weightedCompletion: String(data.weightedCompletion),
+        finalBonus: String(data.finalBonus),
+        contributions: data.contributions as object[],
+        calculatedAt: new Date(data.calculatedAt),
+        committedAt: data.committedAt ? new Date(data.committedAt) : null,
+        note: data.note ?? null,
+      } as typeof t.$inferInsert;
+      await db.insert(t).values(row).onConflictDoUpdate({
+        target: t.id,
+        set: { ...row },
+      });
+      return (await this.get(id))!;
+    },
+    async update(id, patch) {
+      const dbPatch: Partial<typeof t.$inferInsert> = {};
+      if (patch.committed !== undefined) dbPatch.committed = patch.committed;
+      if (patch.committedAt !== undefined)
+        dbPatch.committedAt = patch.committedAt ? new Date(patch.committedAt) : null;
+      if (patch.note !== undefined) dbPatch.note = patch.note ?? null;
+      if (patch.finalBonus !== undefined) dbPatch.finalBonus = String(patch.finalBonus);
+      if (patch.weightedCompletion !== undefined) dbPatch.weightedCompletion = String(patch.weightedCompletion);
+      if (patch.contributions !== undefined) dbPatch.contributions = patch.contributions as object[];
+      await db.update(t).set(dbPatch).where(eq(t.id, id));
+      return (await this.get(id))!;
+    },
+    async delete(id) {
+      await db.delete(t).where(eq(t.id, id));
+    },
+  };
+}
+
+function createKpiCausalLinkRepo(): import('./repository').Repository<KpiCausalLink> {
+  const t = schema.kpiCausalLink;
+  return {
+    async get(id) {
+      const rows = await db.select().from(t).where(eq(t.id, id)).limit(1);
+      return rows[0] ? rowToKpiCausalLink(rows[0]) : null;
+    },
+    async list(filter) {
+      let q = db.select().from(t).$dynamic();
+      if (filter?.cycleId) q = q.where(eq(t.cycleId, filter.cycleId as string));
+      else if (filter?.fromKpiId) q = q.where(eq(t.fromKpiId, filter.fromKpiId as string));
+      const rows = await q.orderBy(desc(t.createdAt));
+      const all = rows.map(rowToKpiCausalLink);
+      if (!filter || Object.keys(filter).length === 0) return all;
+      return all.filter((item) =>
+        Object.entries(filter).every(([k, v]) => (item as unknown as Record<string, unknown>)[k] === v),
+      );
+    },
+    async create(data) {
+      const id = data.id ?? generateId('kcl');
+      const now = new Date();
+      const row = {
+        ...data,
+        id,
+        strength: String(data.strength ?? 0.5),
+        hypothesis: data.hypothesis ?? null,
+        validatedAt: data.validatedAt ? new Date(data.validatedAt) : null,
+        validatedBy: data.validatedBy ?? null,
+        validationNote: data.validationNote ?? null,
+        createdAt: new Date(data.createdAt ?? now),
+        updatedAt: new Date(data.updatedAt ?? now),
+      } as typeof t.$inferInsert;
+      await db.insert(t).values(row).onConflictDoUpdate({
+        target: [t.fromKpiId, t.toKpiId, t.cycleId],
+        set: { strength: row.strength, hypothesis: row.hypothesis, updatedAt: now },
+      });
+      return (await this.get(id))!;
+    },
+    async update(id, patch) {
+      const now = new Date();
+      const dbPatch: Partial<typeof t.$inferInsert> = { updatedAt: now };
+      if (patch.strength !== undefined) dbPatch.strength = String(patch.strength);
+      if (patch.hypothesis !== undefined) dbPatch.hypothesis = patch.hypothesis ?? null;
+      if (patch.validated !== undefined) dbPatch.validated = patch.validated;
+      if (patch.validatedAt !== undefined)
+        dbPatch.validatedAt = patch.validatedAt ? new Date(patch.validatedAt) : null;
+      if (patch.validatedBy !== undefined) dbPatch.validatedBy = patch.validatedBy ?? null;
+      if (patch.validationNote !== undefined) dbPatch.validationNote = patch.validationNote ?? null;
+      await db.update(t).set(dbPatch).where(eq(t.id, id));
+      return (await this.get(id))!;
+    },
+    async delete(id) {
+      await db.delete(t).where(eq(t.id, id));
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Drizzle Store 工厂
 // ---------------------------------------------------------------------------
 
@@ -413,14 +998,15 @@ export function createDrizzleStore(): TandemStore {
     initiatives: new DrizzleKvRepository('initiatives'),
     checkIns: new DrizzleKvRepository('check_ins'),
 
-    // KPI 体系 (CHARTER-KPI-TTI §2)
-    kpiCycles: new DrizzleKvRepository('kpi_cycles'),
-    kpiSubjects: new DrizzleKvRepository('kpi_subjects'),
-    kpis: new DrizzleKvRepository('kpis'),
-    kpiCheckIns: new DrizzleKvRepository('kpi_check_ins'),
-    kpiSnapshots: new DrizzleKvRepository('kpi_snapshots'),
-    kpiManualEntries: new DrizzleKvRepository('kpi_manual_entries'),
-  kpiBonusPayouts: new DrizzleKvRepository('kpi_bonus_payouts'),
+    // KPI 体系 (CHARTER-KPI-TTI §2) — 强类型表, 不走 KvStore
+    kpiCycles: createKpiCycleRepo(),
+    kpiSubjects: createKpiSubjectRepo(),
+    kpis: createKpiRepo(),
+    kpiCheckIns: createKpiCheckInRepo(),
+    kpiSnapshots: createKpiSnapshotRepo(),
+    kpiManualEntries: createKpiManualEntryRepo(),
+    kpiBonusPayouts: createKpiBonusPayoutRepo(),
+    kpiCausalLinks: createKpiCausalLinkRepo(),
     imChannels: new DrizzleKvRepository('im_channels'),
     imMessages: new DrizzleKvRepository('im_messages'),
     imMemberships: new DrizzleKvRepository('im_memberships'),
@@ -442,11 +1028,16 @@ export function createDrizzleStore(): TandemStore {
     llmPreferences: new DrizzleKvRepository('llm_preferences'),
     tenantAiPolicies: new DrizzleKvRepository('tenant_ai_policies'),
     workspaceManifests: new DrizzleKvRepository('workspace_manifests'),
+    personaConstitutions: new DrizzleKvRepository('persona_constitutions'),
     // V1 GA 模型仍使用专用 Drizzle Repo (强类型 schema)
     documents: new DrizzleKvRepository('documents_legacy'),
     calendarEvents: new DrizzleKvRepository('calendar_events_legacy'),
     driveFiles: new DrizzleKvRepository('drive_files_legacy'),
     notifications: new DrizzleKvRepository('notifications_legacy'),
     auth: createDrizzleAuthStore(),
+    authApplications: new DrizzleKvRepository('auth_applications'),
+    governanceProjects: new DrizzleKvRepository('governance_projects'),
+    governanceTemplates: new DrizzleKvRepository('governance_templates'),
+    governanceTemplateVersions: new DrizzleKvRepository('governance_template_versions'),
   };
 }

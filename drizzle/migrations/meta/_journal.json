@@ -36,6 +36,13 @@
       "when": 1780063780914,
       "tag": "0004_normal_champions",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1748671200000,
+      "tag": "0005_kpi_typed_tables",
+      "breakpoints": true
     }
   ]
 }
