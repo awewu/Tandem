@@ -66,6 +66,55 @@ import {
 
 type BscPerspective = 'financial' | 'customer' | 'process' | 'growth';
 
+/** KPI 仪表盘横轴层级 (个人/部门/体系/事业部) */
+type KpiViewLevel = 'individual' | 'department' | 'system' | 'business_unit';
+const KPI_VIEW_LEVELS: readonly KpiViewLevel[] = ['individual', 'department', 'system', 'business_unit'];
+
+/** as-of 时间粒度: live=当前实时值; month/quarter/year=取选定期末的最近快照值 */
+type Granularity = 'live' | 'month' | 'quarter' | 'year';
+interface AsOfPeriod { key: string; label: string; endDate: string }
+
+function lastDayOfMonth(year: number, monthIdx0: number): number {
+  return new Date(Date.UTC(year, monthIdx0 + 1, 0)).getUTCDate();
+}
+
+/** 在考核周期内, 按粒度列出 as-of 时点 (各期末日期, 截止 min(周期末, 今天)) */
+function buildAsOfPeriods(cycle: KpiCycle, gran: Exclude<Granularity, 'live'>, today: string): AsOfPeriod[] {
+  const start = cycle.startDate.slice(0, 10);
+  const cycleEnd = cycle.endDate.slice(0, 10);
+  const end = cycleEnd < today ? cycleEnd : today;
+  if (end < start) return [];
+  const sY = Number(start.slice(0, 4));
+  const sM = Number(start.slice(5, 7)) - 1;
+  const eY = Number(end.slice(0, 4));
+  const eM = Number(end.slice(5, 7)) - 1;
+  const out: AsOfPeriod[] = [];
+  const clamp = (d: string) => (d < end ? d : end);
+  if (gran === 'month') {
+    let y = sY, m = sM;
+    while (y < eY || (y === eY && m <= eM)) {
+      const mm = String(m + 1).padStart(2, '0');
+      const last = `${y}-${mm}-${String(lastDayOfMonth(y, m)).padStart(2, '0')}`;
+      out.push({ key: `${y}-${mm}`, label: `${y}年${m + 1}月`, endDate: clamp(last) });
+      m++; if (m > 11) { m = 0; y++; }
+    }
+  } else if (gran === 'quarter') {
+    let y = sY, q = Math.floor(sM / 3);
+    const eQ = Math.floor(eM / 3);
+    while (y < eY || (y === eY && q <= eQ)) {
+      const qEndM = q * 3 + 2;
+      const last = `${y}-${String(qEndM + 1).padStart(2, '0')}-${String(lastDayOfMonth(y, qEndM)).padStart(2, '0')}`;
+      out.push({ key: `${y}-Q${q + 1}`, label: `${y} Q${q + 1}`, endDate: clamp(last) });
+      q++; if (q > 3) { q = 0; y++; }
+    }
+  } else {
+    for (let y = sY; y <= eY; y++) {
+      out.push({ key: `${y}`, label: `FY${y}`, endDate: clamp(`${y}-12-31`) });
+    }
+  }
+  return out;
+}
+
 const BSC_META: Record<BscPerspective, { label: string; icon: any; color: string; bg: string; desc: string }> = {
   financial: {
     label: '财务与经营维度',
@@ -179,8 +228,10 @@ export function KpiContent() {
   const me = useCurrentUserId();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const viewParam = searchParams.get('view') ?? 'personal';
-  const [view, setView] = useState<'personal' | 'dept'>(viewParam === 'dept' ? 'dept' : 'personal');
+  const viewParam = searchParams.get('view') ?? 'individual';
+  const [view, setView] = useState<KpiViewLevel>(
+    KPI_VIEW_LEVELS.includes(viewParam as KpiViewLevel) ? (viewParam as KpiViewLevel) : 'individual',
+  );
 
   const { objectives } = useOKRStore();
   const [activeKpiId, setActiveKpiId] = useState<string | null>(null);
@@ -188,7 +239,9 @@ export function KpiContent() {
   const [cycles, setCycles] = useState<KpiCycle[]>([]);
   const [subjects, setSubjects] = useState<KpiSubject[]>([]);
   const [kpis, setKpis] = useState<Kpi[]>([]);
-  const [snapshotsByKpi, setSnapshotsByKpi] = useState<Record<string, number[]>>({});
+  const [snapsByKpi, setSnapsByKpi] = useState<Record<string, { date: string; value: number }[]>>({});
+  const [granularity, setGranularity] = useState<Granularity>('live');
+  const [periodKey, setPeriodKey] = useState<string | null>(null);
   const [deptKpisByAssignee, setDeptKpisByAssignee] = useState<Record<string, Kpi[]>>({});
   const [activeCycleId, setActiveCycleId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -222,10 +275,16 @@ export function KpiContent() {
   }, [activeCycleId]);
 
   const loadMyKpis = useCallback(async () => {
-    if (!activeCycleId || !me) { setKpis([]); setSnapshotsByKpi({}); return; }
+    // department 视图走 renderDeptView (deptKpisByAssignee), 不在此加载
+    if (!activeCycleId || view === 'department') { setKpis([]); setSnapsByKpi({}); return; }
+    const filter =
+      view === 'individual'
+        ? (me ? `assigneeId=${encodeURIComponent(me)}` : null)
+        : `level=${view}`;
+    if (!filter) { setKpis([]); setSnapsByKpi({}); return; }
     try {
       const [rk, rs] = await Promise.all([
-        fetch(`/api/kpi?cycleId=${activeCycleId}&assigneeId=${encodeURIComponent(me)}`, { cache: 'no-store' }),
+        fetch(`/api/kpi?cycleId=${activeCycleId}&${filter}`, { cache: 'no-store' }),
         fetch(`/api/kpi/snapshots?cycleId=${activeCycleId}`, { cache: 'no-store' }),
       ]);
       if (!rk.ok) throw new Error(`HTTP ${rk.status}`);
@@ -233,22 +292,22 @@ export function KpiContent() {
       setKpis(jk.kpis ?? []);
       if (rs.ok) {
         const js = await rs.json();
-        const byKpi: Record<string, number[]> = {};
+        const byKpi: Record<string, { date: string; value: number }[]> = {};
         const sorted = [...(js.snapshots ?? [])].sort(
           (a: { date: string }, b: { date: string }) => (a.date < b.date ? -1 : 1),
         );
-        for (const s of sorted as Array<{ kpiId: string; cumulativeValue: number }>) {
-          (byKpi[s.kpiId] ??= []).push(s.cumulativeValue);
+        for (const s of sorted as Array<{ kpiId: string; date: string; cumulativeValue: number }>) {
+          (byKpi[s.kpiId] ??= []).push({ date: s.date, value: s.cumulativeValue });
         }
-        setSnapshotsByKpi(byKpi);
+        setSnapsByKpi(byKpi);
       }
     } catch (e) {
       setError((e as Error).message);
     }
-  }, [activeCycleId, me]);
+  }, [activeCycleId, me, view]);
 
   const loadDeptKpis = useCallback(async () => {
-    if (!activeCycleId || view !== 'dept') return;
+    if (!activeCycleId || view !== 'department') return;
     try {
       const assignees = ['demo-star', 'demo-burnout', 'demo-mismatch', 'demo-intervene'];
       const results = await Promise.all(
@@ -282,18 +341,57 @@ export function KpiContent() {
     return m;
   }, [subjects]);
 
-  const bonusKpis = useMemo(() => kpis.filter((k) => k.scope === 'bonus').sort((a, b) => b.weight - a.weight), [kpis]);
-  const monitorKpis = useMemo(() => kpis.filter((k) => k.scope === 'monitor'), [kpis]);
+  const ymdToday = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const periods = useMemo<AsOfPeriod[]>(
+    () => (granularity === 'live' || !activeCycle ? [] : buildAsOfPeriods(activeCycle, granularity, ymdToday)),
+    [granularity, activeCycle, ymdToday],
+  );
+  useEffect(() => {
+    if (periods.length > 0 && (!periodKey || !periods.some((p) => p.key === periodKey))) {
+      setPeriodKey(periods[periods.length - 1].key);
+    }
+  }, [periods, periodKey]);
+  const asOfDate = useMemo(
+    () => (granularity === 'live' ? null : periods.find((p) => p.key === periodKey)?.endDate ?? null),
+    [granularity, periods, periodKey],
+  );
+
+  // as-of: 用 ≤ asOfDate 的最近快照值覆盖 currentValue; 该时点前无快照按起始值(0%)
+  const effectiveKpis = useMemo<Kpi[]>(() => {
+    if (granularity === 'live' || !asOfDate) return kpis;
+    return kpis.map((k) => {
+      const arr = snapsByKpi[k.id] ?? [];
+      let v: number | null = null;
+      for (const s of arr) {
+        if (s.date <= asOfDate) v = s.value;
+        else break;
+      }
+      return { ...k, currentValue: v ?? k.startValue };
+    });
+  }, [kpis, snapsByKpi, granularity, asOfDate]);
+
+  // sparkline / 环比用的 number[] 序列 (as-of 模式裁剪到 ≤ asOfDate)
+  const snapshotsByKpi = useMemo<Record<string, number[]>>(() => {
+    const out: Record<string, number[]> = {};
+    for (const [id, arr] of Object.entries(snapsByKpi)) {
+      const clipped = granularity === 'live' || !asOfDate ? arr : arr.filter((s) => s.date <= asOfDate);
+      out[id] = clipped.map((s) => s.value);
+    }
+    return out;
+  }, [snapsByKpi, granularity, asOfDate]);
+
+  const bonusKpis = useMemo(() => effectiveKpis.filter((k) => k.scope === 'bonus').sort((a, b) => b.weight - a.weight), [effectiveKpis]);
+  const monitorKpis = useMemo(() => effectiveKpis.filter((k) => k.scope === 'monitor'), [effectiveKpis]);
 
   // 按 BSC 维度分组
   const bscGrouped = useMemo(() => {
     const map: Record<BscPerspective, Kpi[]> = { financial: [], customer: [], process: [], growth: [] };
-    for (const k of kpis) {
+    for (const k of effectiveKpis) {
       const p = getBscPerspective(k, subjectById.get(k.subjectId));
       map[p].push(k);
     }
     return map;
-  }, [kpis, subjectById]);
+  }, [effectiveKpis, subjectById]);
 
   // 各维度的加权平均完成率
   const bscPerformance = useMemo(() => {
@@ -340,10 +438,10 @@ export function KpiContent() {
   const offTrackCount = useMemo(() => bonusKpis.filter(k => computeKpiCompletion(k) < 0.6).length, [bonusKpis]);
 
   function handleViewChange(v: string) {
-    const next = v as 'personal' | 'dept';
+    const next = v as KpiViewLevel;
     setView(next);
     const params = new URLSearchParams(searchParams.toString());
-    if (next === 'dept') params.set('view', 'dept'); else params.delete('view');
+    if (next === 'individual') params.delete('view'); else params.set('view', next);
     router.replace(`/kpi?${params.toString()}`);
   }
 
@@ -815,11 +913,17 @@ export function KpiContent() {
         <div className="flex items-center gap-2">
           <Tabs value={view} onValueChange={handleViewChange}>
             <TabsList className="h-8">
-              <TabsTrigger value="personal" className="text-footnote px-3">
-                <Target className="h-3 w-3 mr-1" />个人绩效
+              <TabsTrigger value="individual" className="text-footnote px-3">
+                <Target className="h-3 w-3 mr-1" />个人
               </TabsTrigger>
-              <TabsTrigger value="dept" className="text-footnote px-3">
-                <Users className="h-3 w-3 mr-1" />部门绩效
+              <TabsTrigger value="department" className="text-footnote px-3">
+                <Users className="h-3 w-3 mr-1" />部门
+              </TabsTrigger>
+              <TabsTrigger value="system" className="text-footnote px-3">
+                <Activity className="h-3 w-3 mr-1" />体系
+              </TabsTrigger>
+              <TabsTrigger value="business_unit" className="text-footnote px-3">
+                <BarChart3 className="h-3 w-3 mr-1" />事业部
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -853,10 +957,39 @@ export function KpiContent() {
               ))}
             </SelectContent>
           </Select>
+          <Select value={granularity} onValueChange={(v) => setGranularity(v as Granularity)}>
+            <SelectTrigger className="w-24 h-8 text-caption"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="live">实时</SelectItem>
+              <SelectItem value="month">按月</SelectItem>
+              <SelectItem value="quarter">按季</SelectItem>
+              <SelectItem value="year">按年</SelectItem>
+            </SelectContent>
+          </Select>
+          {granularity !== 'live' && periods.length > 0 && (
+            <Select value={periodKey ?? ''} onValueChange={setPeriodKey}>
+              <SelectTrigger className="w-36 h-8 text-caption"><SelectValue placeholder="选择时点" /></SelectTrigger>
+              <SelectContent>
+                {periods.map((p) => (
+                  <SelectItem key={p.key} value={p.key}>{p.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          {asOfDate && (
+            <Badge variant="outline" className="text-footnote flex items-center gap-1">
+              <CalendarRange className="h-3 w-3" />截至 {asOfDate}
+            </Badge>
+          )}
           {activeCycle && (
             <span className="text-footnote text-muted-foreground flex items-center gap-1">
               <Calendar className="h-3.5 w-3.5" />
               考核期: {activeCycle.startDate.slice(0, 10)} 至 {activeCycle.endDate.slice(0, 10)}
+            </span>
+          )}
+          {asOfDate && (
+            <span className="text-footnote text-muted-foreground basis-full">
+              显示截至 {asOfDate} 的最近快照值; 该时点前无快照的指标按起始值(0%)计 (诚实标注, 无伪造)。
             </span>
           )}
         </CardContent>
@@ -913,8 +1046,8 @@ export function KpiContent() {
             </CardContent>
           </Card>
         </div>
-      ) : view === 'dept' ? renderDeptView() : kpis.length === 0 ? (
-        <Card><CardContent className="py-14 text-center text-caption text-muted-foreground">本周期没有分配给你的 KPI</CardContent></Card>
+      ) : view === 'department' ? renderDeptView() : kpis.length === 0 ? (
+        <Card><CardContent className="py-14 text-center text-caption text-muted-foreground">本周期暂无该层级 KPI</CardContent></Card>
       ) : (
         <>
           {/* 1. BSC 四维度战略摘要 (Financial, Customer, Process, Growth) */}
@@ -933,7 +1066,7 @@ export function KpiContent() {
 
       {/* 5. BSC 战略详情与 OKR 联动 Drawer (P2 Drawer 核心落地) */}
       {activeKpiId && (() => {
-        const kpi = kpis.find(k => k.id === activeKpiId);
+        const kpi = effectiveKpis.find(k => k.id === activeKpiId);
         if (!kpi) return null;
         const hc = healthColor(computeKpiCompletion(kpi));
         const snaps = snapshotsByKpi[kpi.id] ?? [];

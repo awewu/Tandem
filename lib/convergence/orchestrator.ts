@@ -184,6 +184,34 @@ export class ConvergenceOrchestrator {
         targetId: cardId,
         targetType: 'decision_card',
       });
+      
+      // 飞轮成功率回写 (Reference Count): 累加所选选项引用的 Memory 的引用计数 (闭环)
+      try {
+        const card = await getStore().decisionCards.get(cardId);
+        if (card && card.selected) {
+          const selectedOpt = card.options.find((o) => o.id === card.selected);
+          if (selectedOpt && selectedOpt.citedMemory && selectedOpt.citedMemory.length > 0) {
+            const store = getStore();
+            for (const memId of selectedOpt.citedMemory) {
+              const mem = await store.memories.get(memId);
+              if (mem) {
+                const count = (mem.referenceCount ?? 0) + 1;
+                await store.memories.update(memId, { referenceCount: count });
+                // 审计修改
+                await audit('memory.entry_revised', 'system', {
+                  targetId: memId,
+                  targetType: 'memory',
+                  metadata: { action: 'reference_count_increment', referenceCount: count, cardId },
+                });
+              }
+            }
+          }
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('[orchestrator] referenceCount increment failed:', err);
+      }
+
       // Persona 学习钩子: 决议成交后更新 decisionHistory + styleProfile
       try {
         const { ingestDecisionCard } = await import('../persona/learning-collector');

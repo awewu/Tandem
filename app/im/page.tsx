@@ -141,6 +141,8 @@ function ImInner() {
   const [showSeedDialog, setShowSeedDialog] = useState(false);
   const composerRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  /** 双身份发送切换器 (MANIFESTO §15.2 同款双轨选择) */
+  const [sendAsAgent, setSendAsAgent] = useState(false);
 
   // Real auth-bound user id (replaces the legacy hardcoded 'demo-user').
   // Falls back to 'demo-user' only in unauth/demo mode so existing seeds keep working.
@@ -280,7 +282,11 @@ function ImInner() {
       const res = await fetch(`/api/im/channels/${activeId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ senderId: ME, body: input }),
+        body: JSON.stringify({
+          senderId: ME,
+          body: input,
+          senderKind: sendAsAgent ? 'persona' : 'user',
+        }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -769,16 +775,30 @@ function ImInner() {
                 <span>hover 消息 → ✨ 开议事室 / 🧠 沉淀 · 输入 <code className="rounded bg-slate-100 px-1 py-0.5 font-mono text-[10px] text-slate-700">@[colleague-li](colleague-li:persona)</code> 召唤 AI 分身</span>
               </div>
               <div className="flex items-end gap-2">
-                <div className="flex flex-1 items-center rounded-2xl border border-slate-200 bg-white px-4 py-2.5 shadow-soft-sm transition focus-within:border-warning/50 focus-within:ring-2 focus-within:ring-warning/10">
+                <div className="flex flex-1 items-center rounded-2xl border border-slate-200 bg-white pl-3 pr-4 py-2.5 shadow-soft-sm transition focus-within:border-warning/50 focus-within:ring-2 focus-within:ring-warning/10">
+                  {/* 双身份切换器 (Dual-Identity Selector) */}
+                  <button
+                    type="button"
+                    onClick={() => setSendAsAgent(!sendAsAgent)}
+                    className={`mr-2 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[9px] font-bold shadow-soft-sm transition ${
+                      sendAsAgent
+                        ? 'bg-gradient-to-br from-violet-400 to-purple-500 text-white hover:opacity-90'
+                        : 'bg-gradient-to-br from-amber-400 to-orange-500 text-white hover:opacity-90'
+                    }`}
+                    title={sendAsAgent ? '当前以 AI 分身身份发送 · 点击切换为真人' : '当前以 真人身份发送 · 点击切换为分身'}
+                  >
+                    {sendAsAgent ? <Bot className="h-3.5 w-3.5" /> : ME.slice(0, 2).toUpperCase()}
+                  </button>
                   <ImComposerInput
                     composerRef={composerRef}
                     value={input}
                     setValue={setInput}
                     onEnter={() => void sendMessage()}
                     disabled={sending}
-                    placeholder={`在 ${
-                      activeChannel.type === 'dm' ? '私聊' : activeChannel.name
-                    } 中说点什么… (Enter 发送 · @ 引用文档)`}
+                    placeholder={sendAsAgent 
+                      ? `以分身身份在 ${activeChannel.type === 'dm' ? '私聊' : activeChannel.name} 中代表发言…`
+                      : `在 ${activeChannel.type === 'dm' ? '私聊' : activeChannel.name} 中说点什么… (Enter 发送 · @ 引用文档)`
+                    }
                   />
                 </div>
                 {/* §mobile: 长按语音输入 (Web Speech API). 桌面也可用. */}

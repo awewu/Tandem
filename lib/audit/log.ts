@@ -102,6 +102,7 @@ export type AuditAction =
   | 'agent.spawned'
   | 'agent.completed'
   | 'budget.exceeded'
+  | 'email.security_conflict_detected'
   // BossAI · Tandem AI 老板的搭子 (全局浮窗入口)
   | 'boss_ai.ask'                // 同事提问
   | 'boss_ai.answer'             // 中央 AI 回答完成

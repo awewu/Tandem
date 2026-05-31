@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useChatStore, useAgentStore, useMemoryStore, useKnowledgeStore, PRESET_AGENTS } from '@/lib/store';
-import { Send, Plus, Trash2, Bot, User, AlertCircle, Sparkles, Palette, Package, Target, Megaphone, Code, PenLine, BarChart3, Users, ThumbsUp, ThumbsDown, Star, Shield, Link2, ArrowLeft, History } from 'lucide-react';
+import { Send, Plus, Trash2, Bot, User, AlertCircle, Sparkles, Palette, Package, Target, Megaphone, Code, PenLine, BarChart3, Users, ThumbsUp, ThumbsDown, Star, Shield, Link2, ArrowLeft, History, Brain } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { startChatStream, startLLMStream } from '@/lib/hermes-api';
 import { VoiceInputButton } from '@/components/voice-input-button';
@@ -60,6 +60,9 @@ function ChatPageInner() {
   const [input, setInput] = useState('');
   const [selectedAgentId, setSelectedAgentId] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  /** 沉淀闭环 (A): 把助手回答沉淀为企业 Memory 升级提议 (三级签批) */
+  const [promotingId, setPromotingId] = useState<string | null>(null);
+  const [promotedIds, setPromotedIds] = useState<Set<string>>(new Set());
   /** §P5 mobile: < md 单栏切换 — true=显示历史会话 overlay, false=显示对话主体. md+ 忽略 */
   const [mobileShowList, setMobileShowList] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -351,6 +354,37 @@ function ChatPageInner() {
     if (activeId) updateMessage(activeId, msg.id, { starred: true });
   };
 
+  /**
+   * 沉淀闭环 (A): 把助手回答 → Material → proposePromotion 三级签批.
+   * 批准后 materializePromotion 落 ownershipLevel='company' 的企业 Memory,
+   * 被 company-brain 注入中央 AI, 反哺后续 3+1 / BossAI. 真链路, 非假闭环.
+   */
+  const promoteToMemory = async (m: { id: string; content: string }) => {
+    if (!m.content.trim() || promotingId) return;
+    setPromotingId(m.id);
+    setError(null);
+    try {
+      const res = await fetch('/api/memories/promote-text', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          body: m.content,
+          source: 'chat:作战室',
+          proposedType: 'lesson',
+          level: 'team',
+          originRef: activeId ? `chat:${activeId}` : undefined,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
+      setPromotedIds((prev) => new Set(prev).add(m.id));
+    } catch (e) {
+      setError(`沉淀失败: ${(e as Error).message}`);
+    } finally {
+      setPromotingId(null);
+    }
+  };
+
   return (
     <div className="flex h-full">
       {/* Sidebar (md+) / mobile overlay */}
@@ -591,9 +625,28 @@ function ChatPageInner() {
                         >
                           <Star className={cn('h-3.5 w-3.5', m.starred && 'fill-current')} />
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => promoteToMemory(m)}
+                          title="沉淀为企业 Memory（发起三级签批，批准后反哺中央 AI）"
+                          aria-label="沉淀为企业 Memory"
+                          disabled={promotingId === m.id || promotedIds.has(m.id)}
+                          className={cn(
+                            'p-1 rounded hover:bg-muted transition-colors',
+                            promotedIds.has(m.id) && 'text-[rgb(var(--brand-600))] bg-[rgb(var(--brand-500))]/10 cursor-default',
+                            promotingId === m.id && 'opacity-50 cursor-wait'
+                          )}
+                        >
+                          <Brain className="h-3.5 w-3.5" />
+                        </button>
                         {m.starred && (
                           <span className="text-[10px] text-warning dark:text-warning ml-1">
                             已存入 Knowledge › Best Practice
+                          </span>
+                        )}
+                        {promotedIds.has(m.id) && (
+                          <span className="text-[10px] text-[rgb(var(--brand-600))] ml-1">
+                            已发起签批 · 待入企业 Memory
                           </span>
                         )}
                       </div>

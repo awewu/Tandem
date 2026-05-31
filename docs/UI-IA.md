@@ -1,12 +1,59 @@
 # Tandem UI 信息架构 (IA) 设计
 
-> **状态**: V1 GA Month 1 开工蓝本 · v2 evolution applied 2026-05-19
+> **状态**: v3 applied 2026-05-31 (见 §0 当前 SSOT) · v1/v2 历史留档于下
 > **配套**: `docs/PRODUCT-DEFINITION.md` §2 决策 #10 / #11 / #12
 > **目标**: 把当前 27 页混乱结构重组为 5 大顶级导航 + 4 段式首页
 
 ---
 
-## 0. v2 演进 (2026-05-19)
+## 0. v3 演进 (2026-05-31) ★ 当前 SSOT
+
+> 2026-05-31 Owner 因试用发现呈现混乱, 重新澄清底层产品逻辑并重排 `components/nav-modules.ts`。
+> **本节为当前权威结构。下方 §0.1 起的 v1/v2 内容已被取代, 仅作历史留档。**
+> 代码 SSOT = `components/nav-modules.ts` (`NAV_MODULES`)。
+
+### 0.0 底层产品逻辑 (不可改写)
+
+Tandem AI = 企业级 AI 驱动软件, 基座 = **战略执行 / 目标达成**。所有板块产出最终回写 OKR。
+
+### 0.0.1 五大核心板块 (各有唯一职责)
+
+| 板块 | 职责 | 主路由 | nav id |
+|---|---|---|---|
+| **事半** | 交付 OKR (战略执行基座) | `/okr` `/kpi` `/tti` `/report` `/insights` `/analytics` | `okr` |
+| **IM** | 群与部门协同 | `/im` | `im` |
+| **Tandem** | 议事 / 会议 / 决议书 / 共同决策 | `/convergence` `/meetings` | `tandem` |
+| **搭子** | 个人工作台 (用分身, 每天干活) | `/tandem` (1 舞台 + 2 召唤) | `dazi` |
+| **拿捏** | 修炼分身 + 成长 (炼分身/学资料/调外部 skills, 类训练龙虾); 产出类 Google Gems 锁定分身, 受中央 Tandem 强管控 | `/persona/*` `/skills` `/learning` `/portfolio` `/retros` `/chat` `/agents` `/summon` | `me` |
+
+核心链条: **拿捏 (炼分身) → 搭子 (用分身) → 中央 Tandem 管控**。
+
+### 0.0.2 支撑模块 (顶级但次级心智)
+
+知识(`kb`) / 流程(`flow`) / 邮箱(`mail`) / 内网(`intranet`) / 组织(`org`) / 管理(`admin`) / 中枢(`atlas`, 原"公司中央 AI", 因中央 AI = Tandem 本身故改名) / 设置(`settings`)。
+
+### 0.0.3 关键命名修正 (避免撞名)
+
+- 原模块 id `tandem` (标"个人工作台") → 改 id `dazi` 标"搭子", route 仍 `/tandem`
+- 议事独立成顶级 id `tandem` 标 "Tandem" (`/convergence` `/meetings`)
+- 原 `comm` (沟通=IM+议事) 拆为 `im` + `tandem`
+- 原 `ai` 模块 (标"搭子", 实为训练/skills/外部AI) 并入 `me` (拿捏); `/persona` 双入口去重 = 全归拿捏
+- 原 `atlas` "公司中央 AI" → "中枢 · 公司治理与调度"
+
+### 0.0.4 归位修正 (2026-05-31)
+
+- `/okr/calibration` (OKR 校准会, manager+) 挂入事半
+- `/organization` = redirect 空壳 (→ `/governance/three-departments`), 不动
+- 设置删除重复的"通知偏好"项 (通知中心 `/notifications` 走首页快捷入口)
+- `/360` `/nine-box` 主高亮归"组织", 拿捏保留可点 item (不占 pathPrefix)
+
+### 0.0.5 顶级 rail 顺序
+
+首页 / 事半 / IM / Tandem / 搭子 / 拿捏 / 知识 / 流程 / 邮箱 / 内网 / 组织 / 管理 / 中枢 / 设置
+
+---
+
+## ~~0. v2 演进 (2026-05-19)~~ (已被 v3 取代, 历史留档)
 
 V1 蓝本写于"5 大顶级导航"假设。落地过程中由迭代加入了若干模块, 此处统一记账 (优化派, 不大改):
 

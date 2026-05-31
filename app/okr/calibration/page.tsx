@@ -101,6 +101,28 @@ function OkrCalibrationPageInner() {
   const [drafts, setDrafts] = useState<Record<string, number | null>>({});
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  // 日期管理: 季度(周期) / 月度期中检查点
+  const [granularity, setGranularity] = useState<'quarter' | 'month'>('quarter');
+  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
+  const monthsInCycle = useMemo(() => {
+    if (!cycle) return [] as { value: string; label: string }[];
+    const out: { value: string; label: string }[] = [];
+    const start = new Date(cycle.startDate);
+    const end = new Date(cycle.endDate);
+    const d = new Date(start.getFullYear(), start.getMonth(), 1);
+    const last = new Date(end.getFullYear(), end.getMonth(), 1);
+    let guard = 0;
+    while (d <= last && guard < 36) {
+      out.push({
+        value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+        label: `${d.getFullYear()}年${d.getMonth() + 1}月`,
+      });
+      d.setMonth(d.getMonth() + 1);
+      guard++;
+    }
+    return out;
+  }, [cycle]);
+  const activeMonth = selectedMonth ?? monthsInCycle[0]?.value ?? null;
 
   // 重置 draft 当 grid 数据变化 (不要覆盖用户正在打字)
   useEffect(() => {
@@ -186,26 +208,75 @@ function OkrCalibrationPageInner() {
           </div>
         </div>
 
-        {/* 周期切换 (如有多周期) */}
-        {cycles.length > 1 && (
-          <div className="mt-3 flex flex-wrap items-center gap-1.5 text-caption">
-            <span className="text-ink-tertiary">周期:</span>
-            {cycles.map((c) => (
-              <Link
-                key={c.id}
-                href={`/okr/calibration?cycleId=${c.id}`}
+        {/* 日期管理: 季度(周期) / 月度(期中检查点) */}
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-caption">
+          <div className="inline-flex items-center gap-0.5 rounded-full border border-border bg-surface-2 p-0.5">
+            {(['quarter', 'month'] as const).map((g) => (
+              <button
+                key={g}
+                type="button"
+                onClick={() => setGranularity(g)}
+                aria-pressed={granularity === g}
                 className={cn(
-                  'surface-interactive rounded-full px-2.5 py-0.5 ring-1',
-                  c.id === cycleId
-                    ? 'bg-[rgb(var(--brand-50))] text-[rgb(var(--brand-700))] ring-[rgb(var(--brand-300))]'
-                    : 'bg-surface-2 text-ink-secondary ring-border hover:bg-surface-3',
+                  'rounded-full px-3 py-1 font-medium transition-colors',
+                  granularity === g
+                    ? 'bg-white text-ink-primary shadow-soft-xs'
+                    : 'text-ink-tertiary hover:text-ink-secondary',
                 )}
               >
-                {c.name}
-                {c.isActive && ' · 当前'}
-              </Link>
+                {g === 'quarter' ? '季度' : '月度'}
+              </button>
             ))}
           </div>
+          <span className="text-ink-tertiary">·</span>
+          {granularity === 'quarter' ? (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-ink-tertiary">周期:</span>
+              {cycles.map((c) => (
+                <Link
+                  key={c.id}
+                  href={`/okr/calibration?cycleId=${c.id}`}
+                  className={cn(
+                    'surface-interactive rounded-full px-2.5 py-0.5 ring-1',
+                    c.id === cycleId
+                      ? 'bg-[rgb(var(--brand-50))] text-[rgb(var(--brand-700))] ring-[rgb(var(--brand-300))]'
+                      : 'bg-surface-2 text-ink-secondary ring-border hover:bg-surface-3',
+                  )}
+                >
+                  {c.name}
+                  {c.isActive && ' · 当前'}
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-ink-tertiary">月份:</span>
+              {monthsInCycle.length === 0 ? (
+                <span className="text-ink-tertiary">当前周期无月份范围</span>
+              ) : (
+                monthsInCycle.map((m) => (
+                  <button
+                    key={m.value}
+                    type="button"
+                    onClick={() => setSelectedMonth(m.value)}
+                    className={cn(
+                      'surface-interactive rounded-full px-2.5 py-0.5 ring-1',
+                      activeMonth === m.value
+                        ? 'bg-[rgb(var(--brand-50))] text-[rgb(var(--brand-700))] ring-[rgb(var(--brand-300))]'
+                        : 'bg-surface-2 text-ink-secondary ring-border hover:bg-surface-3',
+                    )}
+                  >
+                    {m.label}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+        {granularity === 'month' && (
+          <p className="mt-1.5 text-footnote text-ink-tertiary">
+            月度为期中校准检查点 (review 当月推进); 季末以「季度」做正式校准评分.
+          </p>
         )}
       </header>
 

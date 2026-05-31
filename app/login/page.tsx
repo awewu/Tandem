@@ -10,10 +10,11 @@
  * Renders without AppShell (Rail + SubSidebar return null on /login).
  */
 
-import { Suspense, useState } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Eye, EyeOff, ShieldCheck, KeyRound, HandHeart, Smile } from 'lucide-react';
+import { Eye, EyeOff, ShieldCheck, KeyRound, HandHeart, Smile, Phone, QrCode, UserRound } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 // useSearchParams() in a Client Component must be wrapped in <Suspense> for prerender.
 export default function LoginPage() {
@@ -30,6 +31,7 @@ function LoginInner() {
   const next = search.get('next') ?? '/';
 
   const [stage, setStage] = useState<'creds' | 'mfa'>('creds');
+  const [method, setMethod] = useState<LoginMethod>('account');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPwd, setShowPwd] = useState(false);
@@ -42,6 +44,7 @@ function LoginInner() {
 
   async function submitCreds(e: React.FormEvent) {
     e.preventDefault();
+    if (method !== 'account') return; // 手机/微信走各自面板, 不触发账户登录
     setError('');
     setBusy(true);
     try {
@@ -189,6 +192,7 @@ function LoginInner() {
                 </p>
               </header>
 
+              {method === 'account' && (<>
               <PillInput
                 id="email"
                 type="email"
@@ -270,7 +274,19 @@ function LoginInner() {
                 </Link>
               </p>
 
-              <SsoFooter />
+              </>)}
+
+              {method === 'phone' && <PhoneLoginPanel />}
+              {method === 'wechat' && <WechatLoginPanel />}
+
+              <div className="pt-2">
+                <div className="my-3 flex items-center gap-3">
+                  <div className="h-px flex-1 bg-border" />
+                  <span className="text-footnote text-ink-tertiary">切换登录方式</span>
+                  <div className="h-px flex-1 bg-border" />
+                </div>
+                <LoginMethodTabs method={method} onChange={(m) => { setMethod(m); setError(''); }} />
+              </div>
             </form>
           ) : (
             <form onSubmit={submitMfa} className="space-y-5">
@@ -440,35 +456,196 @@ function PillInput({
   );
 }
 
-function SsoFooter() {
+type LoginMethod = 'account' | 'phone' | 'wechat';
+
+function LoginMethodTabs({
+  method,
+  onChange,
+}: {
+  method: LoginMethod;
+  onChange: (m: LoginMethod) => void;
+}) {
+  const tabs: { id: LoginMethod; label: string; Icon: typeof Phone }[] = [
+    { id: 'account', label: '账号', Icon: UserRound },
+    { id: 'phone', label: '电话号码', Icon: Phone },
+    { id: 'wechat', label: '微信扫码', Icon: QrCode },
+  ];
   return (
-    <div className="pt-2">
-      <div className="my-3 flex items-center gap-3">
-        <div className="h-px flex-1 bg-border" />
-        <span className="text-footnote text-ink-tertiary">或使用第三方 SSO</span>
-        <div className="h-px flex-1 bg-border" />
+    <div className="flex items-center gap-1 rounded-full border border-border bg-[rgb(var(--surface-2))] p-1">
+      {tabs.map((t) => (
+        <button
+          key={t.id}
+          type="button"
+          onClick={() => onChange(t.id)}
+          aria-pressed={method === t.id}
+          className={cn(
+            'flex flex-1 items-center justify-center gap-1.5 rounded-full px-2 py-1.5 text-caption font-medium transition-colors',
+            method === t.id
+              ? 'bg-white text-ink-primary shadow-soft-xs'
+              : 'text-ink-tertiary hover:text-ink-secondary',
+          )}
+        >
+          <t.Icon className="h-3.5 w-3.5" />
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function PhoneLoginPanel() {
+  const router = useRouter();
+  const search = useSearchParams();
+  const next = search.get('next') ?? '/';
+  const [phone, setPhone] = useState('');
+  const [code, setCode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [notice, setNotice] = useState('');
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
+
+  async function sendCode() {
+    if (busy || cooldown > 0) return;
+    if (phone.length < 6) { setErr('请输入正确手机号'); return; }
+    setErr(''); setNotice(''); setBusy(true);
+    try {
+      const res = await fetch('/api/auth/phone/send-code', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) { setErr(data.error ?? '发送失败'); return; }
+      setCooldown(60);
+      setNotice(data.devCode ? `验证码已发送 (dev: ${data.devCode})` : '验证码已发送');
+    } catch (e) { setErr((e as Error).message); }
+    finally { setBusy(false); }
+  }
+
+  async function submit() {
+    if (busy) return;
+    if (phone.length < 6 || code.length < 4) { setErr('请输入手机号和验证码'); return; }
+    setErr(''); setBusy(true);
+    try {
+      const res = await fetch('/api/auth/phone/verify', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, code }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) { setErr(data.error ?? '登录失败'); return; }
+      router.push(next);
+    } catch (e) { setErr((e as Error).message); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <div className="space-y-4">
+      <PillInput
+        id="phone"
+        type="tel"
+        value={phone}
+        onChange={(v) => setPhone(v.replace(/\D/g, ''))}
+        placeholder="手机号"
+        inputMode="numeric"
+        maxLength={11}
+        leading={<Phone className="h-4 w-4 text-ink-tertiary" />}
+      />
+      <div className="flex items-stretch gap-2">
+        <div className="flex-1">
+          <PillInput
+            id="smscode"
+            type="text"
+            value={code}
+            onChange={(v) => setCode(v.replace(/\D/g, ''))}
+            placeholder="短信验证码"
+            inputMode="numeric"
+            maxLength={6}
+          />
+        </div>
+        <button
+          type="button"
+          onClick={sendCode}
+          disabled={busy || cooldown > 0}
+          className="shrink-0 rounded-full border border-border px-4 text-caption text-ink-secondary hover:bg-surface-2 disabled:opacity-50 disabled:cursor-not-allowed surface-interactive"
+        >
+          {cooldown > 0 ? `${cooldown}s` : '获取验证码'}
+        </button>
       </div>
-      <div className="flex justify-center gap-2">
-        <SsoButton label="钉钉" disabled />
-        <SsoButton label="企微" disabled />
-        <SsoButton label="飞书" disabled />
-      </div>
-      <p className="mt-3 text-center text-[10px] text-ink-tertiary">
-        * SSO 仅作为可选辅助登录方式. Tandem 默认使用自研账号系统, 不依赖任何外部平台.
+      {notice && <p className="text-center text-[10px] text-[rgb(var(--brand-600))]">{notice}</p>}
+      {err && (
+        <p className="rounded-md bg-[rgb(var(--brand-50))] px-3 py-2 text-caption text-[rgb(var(--brand-700))]">{err}</p>
+      )}
+      <button
+        type="button"
+        onClick={submit}
+        disabled={busy || !phone || !code}
+        className="rheem-btn-pill w-full disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        {busy ? '处理中…' : '手机号登录'}
+      </button>
+      <p className="text-center text-[10px] text-ink-tertiary">
+        * 未配置短信服务 (.env: SMS_PROVIDER) 时, 点「获取验证码」会提示待配置.
       </p>
     </div>
   );
 }
 
-function SsoButton({ label, disabled }: { label: string; disabled?: boolean }) {
+function WechatLoginPanel() {
+  const router = useRouter();
+  const search = useSearchParams();
+  const next = search.get('next') ?? '/';
+  const [state, setState] = useState<'loading' | 'notconfigured' | 'ready' | 'error'>('loading');
+  const [qrUrl, setQrUrl] = useState('');
+  const [hint, setHint] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setInterval> | null = null;
+    void (async () => {
+      try {
+        const res = await fetch('/api/auth/wechat/qr');
+        const data = await res.json();
+        if (cancelled) return;
+        if (res.status === 501 || data.code === 'not_configured') { setState('notconfigured'); return; }
+        if (!res.ok || !data.ok) { setState('error'); setHint(data.error ?? '加载失败'); return; }
+        setQrUrl(data.qrUrl); setState('ready');
+        timer = setInterval(async () => {
+          const pr = await fetch(`/api/auth/wechat/poll?ticket=${encodeURIComponent(data.ticket)}`);
+          const pd = await pr.json();
+          if (pd.ok && pd.status === 'confirmed') { if (timer) clearInterval(timer); router.push(next); }
+          if (pd.ok && pd.status === 'expired') { if (timer) clearInterval(timer); setState('error'); setHint('二维码已过期, 请刷新'); }
+        }, 2000);
+      } catch {
+        if (!cancelled) setState('error');
+      }
+    })();
+    return () => { cancelled = true; if (timer) clearInterval(timer); };
+  }, [router, next]);
+
   return (
-    <button
-      type="button"
-      disabled={disabled}
-      className="rounded-full border border-border px-3.5 py-1.5 text-caption text-ink-secondary hover:bg-surface-2 hover:text-ink-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-      title={disabled ? '需在 .env 配置后启用' : undefined}
-    >
-      {label}
-    </button>
+    <div className="flex flex-col items-center gap-3 py-2">
+      <div className="flex h-44 w-44 items-center justify-center rounded-2xl border border-border bg-[rgb(var(--surface-2))]">
+        {state === 'ready' && qrUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={qrUrl} alt="微信扫码登录" className="h-40 w-40 rounded-lg object-contain" />
+        ) : (
+          <QrCode className="h-16 w-16 text-ink-tertiary" strokeWidth={1.25} />
+        )}
+      </div>
+      <p className="text-caption text-ink-secondary">
+        {state === 'ready' ? '打开微信扫一扫登录' : state === 'loading' ? '加载中…' : '微信扫码登录'}
+      </p>
+      {state === 'notconfigured' && (
+        <p className="max-w-xs text-center text-[10px] text-ink-tertiary">
+          * 微信扫码登录需配置微信开放平台 (.env: WECHAT_APP_ID / WECHAT_APP_SECRET) 后启用.
+        </p>
+      )}
+      {state === 'error' && <p className="text-[10px] text-[rgb(var(--brand-600))]">{hint}</p>}
+    </div>
   );
 }

@@ -70,6 +70,8 @@ import { assessBscBalance, computeBscDistribution } from '@/lib/kpi/bsc-validati
 
 const LEVEL_LABEL: Record<KpiLevel, { label: string; color: string }> = {
   company: { label: '公司级', color: 'bg-violet-50 text-violet-700 border-violet-200' },
+  business_unit: { label: '事业部', color: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
+  system: { label: '体系', color: 'bg-cyan-50 text-cyan-700 border-cyan-200' },
   department: { label: '部门级', color: 'bg-warning/5 text-warning border-warning/20' },
   individual: { label: '个人级', color: 'bg-sky-50 text-sky-700 border-sky-200' },
 };
@@ -238,7 +240,7 @@ export default function KpiSetupPage() {
   );
 
   const kpiByLevel = useMemo(() => {
-    const groups: Record<KpiLevel, Kpi[]> = { company: [], department: [], individual: [] };
+    const groups: Record<KpiLevel, Kpi[]> = { company: [], business_unit: [], system: [], department: [], individual: [] };
     for (const k of kpis) groups[k.level].push(k);
     for (const arr of Object.values(groups)) {
       arr.sort((a, b) => a.title.localeCompare(b.title));
@@ -248,7 +250,8 @@ export default function KpiSetupPage() {
 
   // 父级 KPI 候选: parent.level 必须严格小于 current level
   const parentKpiOptions = useMemo(() => {
-    const order: Record<KpiLevel, number> = { company: 1, department: 2, individual: 3 };
+    // 自上而下排名 (父级 = 更高组织 = 更小数字); 注: 与 types 里 cascade 序相反, 为父级校验专用
+    const order: Record<KpiLevel, number> = { company: 1, business_unit: 2, system: 3, department: 4, individual: 5 };
     return kpis.filter((k) => order[k.level] < order[kpiForm.level]);
   }, [kpis, kpiForm.level]);
 
@@ -615,7 +618,7 @@ export default function KpiSetupPage() {
 
           {/* 层级 tab 过滤 (减少视觉密度) */}
           <div className="flex items-center gap-1 border-b">
-            {(['all', 'company', 'department', 'individual'] as const).map((tab) => {
+            {(['all', 'company', 'business_unit', 'system', 'department', 'individual'] as const).map((tab) => {
               const count = tab === 'all' ? kpis.length : kpiByLevel[tab as KpiLevel].length;
               const label = tab === 'all' ? '全部' : LEVEL_LABEL[tab as KpiLevel].label;
               const active = levelTab === tab;
@@ -639,7 +642,7 @@ export default function KpiSetupPage() {
             })}
           </div>
 
-          {(['company', 'department', 'individual'] as KpiLevel[])
+          {(['company', 'business_unit', 'system', 'department', 'individual'] as KpiLevel[])
             .filter((l) => levelTab === 'all' || levelTab === l)
             .map((level) => {
             const list = kpiByLevel[level];
@@ -877,6 +880,8 @@ export default function KpiSetupPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="company">公司级</SelectItem>
+                    <SelectItem value="business_unit">事业部</SelectItem>
+                    <SelectItem value="system">体系</SelectItem>
                     <SelectItem value="department">部门级</SelectItem>
                     <SelectItem value="individual">个人级</SelectItem>
                   </SelectContent>

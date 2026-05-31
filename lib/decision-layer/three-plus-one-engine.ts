@@ -216,6 +216,15 @@ export class ThreePlusOneEngine {
       }
     }
 
+    // OKR 锚注入 (OKR-driven 第一性原理): 让 Option B 始终知道公司在追什么 OKR.
+    let okrContext = '';
+    try {
+      const { buildOkrAnchorContext } = await import('../persona/company-brain');
+      okrContext = await buildOkrAnchorContext();
+    } catch (err) {
+      warnings.push(`OKR 锚注入失败 (fail-soft): ${(err as Error).message}`);
+    }
+
     const [sopResults, caseResults] = await Promise.all([
       this.retriever.findRelatedSOP(ctx.description, 3),
       this.retriever.findHistoricalCases(ctx.description, 3),
@@ -224,7 +233,7 @@ export class ThreePlusOneEngine {
     // A: SOP-based
     const optionA = await this.buildOptionA(ctx, sopResults, warnings);
     // B: LLM reasoning (硬前置价值观锚 → 组织记忆基线 → 推理底座)
-    const optionB = await this.buildOptionB(ctx, sopResults, caseResults, warnings, baselineContext, constitutionSegment);
+    const optionB = await this.buildOptionB(ctx, sopResults, caseResults, warnings, baselineContext, constitutionSegment, okrContext);
     // C: Historical
     const optionC = await this.buildOptionC(ctx, caseResults, warnings);
     // D: 员工原创占位 (humanOnly=true)
@@ -282,7 +291,8 @@ export class ThreePlusOneEngine {
     cases: MemorySearchResult[],
     warnings: string[],
     baselineContext = '',
-    constitutionSegment = ''
+    constitutionSegment = '',
+    okrContext = ''
   ): Promise<DecisionOption> {
     const sopHints = sops.map((s) => `- SOP《${s.title}》: ${s.body.slice(0, 200)}`).join('\n');
     const caseHints = cases.map((c) => `- 案例《${c.title}》: ${c.body.slice(0, 200)}`).join('\n');
@@ -315,7 +325,7 @@ export class ThreePlusOneEngine {
         content: `决议: ${ctx.title}
 描述: ${ctx.description}
 ${ctx.relatedKrTitles ? `关联 KR: ${ctx.relatedKrTitles.join(', ')}` : ''}
-
+${okrContext ? `\n【当前公司 OKR 锐·你的方案应回答服务哪个 KR】\n${okrContext}\n` : ''}
 可参考 SOP:
 ${sopHints || '(无)'}
 

@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * /tandem — Tandem 个人工作台 (1 主舞台 + 2 召唤侧栏)
+ * /tandem — 搭子 · 个人工作台 (1 主舞台 + 2 召唤侧栏)
  *
  * 心智模型 (2026-05-29 与 Owner 对齐):
  *   - 主舞台 = 我和「我的搭子 (Persona)」的协作区
@@ -39,10 +39,8 @@ import {
   Cpu,
   ExternalLink,
   FileText,
-  GraduationCap,
   History,
   Inbox,
-  Layers,
   Megaphone,
   MessageSquare,
   Palette,
@@ -61,9 +59,7 @@ import { cn } from '@/lib/utils';
 const LEFT_TABS = [
   { id: 'persona',   label: '我的分身',  icon: Bot,           hint: '分身名片 / 技能模式 / 代行权限' },
   { id: 'memory',    label: 'Memory',    icon: Brain,         hint: '我签名的决议 / 复盘 / 灵感' },
-  { id: 'skills',    label: '我的技能',  icon: Layers,        hint: '技能库 + 进度' },
   { id: 'sandbox',   label: '通用 AI',   icon: Sparkles,      hint: '不入公司 Memory 的个人沙盒' },
-  { id: 'growth',    label: '成长',      icon: GraduationCap, hint: '学习路径 · 9-box · 360°' },
 ] as const;
 
 // ────────────────────────────────────────────────────────────────
@@ -378,9 +374,7 @@ function SummonPanel({ side, tab, onClose }: SummonPanelProps) {
 function SummonPanelContent({ id, side }: { id: string; side: 'left' | 'right' }) {
   if (side === 'left'  && id === 'persona')   return <PersonaCard />;
   if (side === 'left'  && id === 'memory')    return <MemoryCard />;
-  if (side === 'left'  && id === 'skills')    return <SkillsCard />;
   if (side === 'left'  && id === 'sandbox')   return <SandboxCard />;
-  if (side === 'left'  && id === 'growth')    return <GrowthCard />;
   if (side === 'right' && id === 'deliver')   return <DeliverCard />;
   if (side === 'right' && id === 'inbox')     return <InboxCard />;
   if (side === 'right' && id === 'recommend') return <RecommendCard />;
@@ -583,33 +577,6 @@ function StubCard({ id, side }: { id: string; side: 'left' | 'right' }) {
   );
 }
 
-// ── Skills: 我的技能 (链接到主分身页 + Tandem-Skills 库) ────────────
-function SkillsCard() {
-  return (
-    <div className="space-y-2">
-      <p className="text-caption text-secondary leading-relaxed">
-        搭子的能力随你的训练成长 · 技能树 / 进度 / 认证。
-      </p>
-      <Link
-        href="/persona?tab=skills"
-        className="flex items-center gap-2 rounded-md border px-3 py-2 text-caption text-primary hover:border-[rgb(var(--brand-300))] hover:bg-[rgb(var(--surface-2))] surface-interactive"
-        style={{ borderColor: 'rgb(var(--border-subtle))' }}
-      >
-        <Layers className="h-4 w-4 text-[rgb(var(--brand-500))]" />
-        我的搭子技能 + 进度
-      </Link>
-      <Link
-        href="/admin/tandem-skills"
-        className="flex items-center gap-2 rounded-md border px-3 py-2 text-caption text-primary hover:border-[rgb(var(--brand-300))] hover:bg-[rgb(var(--surface-2))] surface-interactive"
-        style={{ borderColor: 'rgb(var(--border-subtle))' }}
-      >
-        <ClipboardCheck className="h-4 w-4 text-[rgb(var(--brand-500))]" />
-        全公司技能库
-      </Link>
-    </div>
-  );
-}
-
 // ── Sandbox: 通用 AI 沙盒 (不入公司 Memory) ─────────────────────────
 function SandboxCard() {
   return (
@@ -636,41 +603,6 @@ function SandboxCard() {
       <p className="text-footnote text-tertiary leading-relaxed">
         想要进公司 Memory? 用议事室或主分身页。
       </p>
-    </div>
-  );
-}
-
-// ── Growth: 学习 / 9-Box / 360 ────────────────────────────────────
-function GrowthCard() {
-  return (
-    <div className="space-y-2">
-      <p className="text-caption text-secondary leading-relaxed">
-        我的成长地图 · 学习路径 / 9-Box 落点 / 360°反馈。
-      </p>
-      <Link
-        href="/learning"
-        className="flex items-center gap-2 rounded-md border px-3 py-2 text-caption text-primary hover:border-[rgb(var(--brand-300))] hover:bg-[rgb(var(--surface-2))] surface-interactive"
-        style={{ borderColor: 'rgb(var(--border-subtle))' }}
-      >
-        <GraduationCap className="h-4 w-4 text-[rgb(var(--brand-500))]" />
-        学习路径
-      </Link>
-      <Link
-        href="/360"
-        className="flex items-center gap-2 rounded-md border px-3 py-2 text-caption text-primary hover:border-[rgb(var(--brand-300))] hover:bg-[rgb(var(--surface-2))] surface-interactive"
-        style={{ borderColor: 'rgb(var(--border-subtle))' }}
-      >
-        <Compass className="h-4 w-4 text-[rgb(var(--brand-500))]" />
-        360° 反馈
-      </Link>
-      <Link
-        href="/persona?tab=nine-box"
-        className="flex items-center gap-2 rounded-md border px-3 py-2 text-caption text-primary hover:border-[rgb(var(--brand-300))] hover:bg-[rgb(var(--surface-2))] surface-interactive"
-        style={{ borderColor: 'rgb(var(--border-subtle))' }}
-      >
-        <TrendingUp className="h-4 w-4 text-[rgb(var(--brand-500))]" />
-        9-Box 我的落点
-      </Link>
     </div>
   );
 }
@@ -1017,7 +949,7 @@ function WelcomeStage({
       <section className="hero-ink rounded-3xl p-6 md:p-8 shadow-soft-lg">
         <div className="flex items-center gap-2 text-white/70 text-caption mb-3">
           <Sparkles className="h-4 w-4" />
-          <span>Tandem · 个人工作台</span>
+          <span>搭子 · 个人工作台</span>
         </div>
         <h1 className="text-title-1 text-white">
           搭子, 今天我们干什么?
@@ -1079,7 +1011,7 @@ function WelcomeStage({
       </section>
 
       <footer className="text-footnote text-tertiary text-center pt-2">
-        Tandem 个人工作台 · 1 舞台 + 2 召唤 · 你 ↔ 搭子 ↔ Tandem AI 三层协作
+        搭子 · 个人工作台 · 1 舞台 + 2 召唤 · 你 ↔ 搭子 ↔ Tandem AI 三层协作
       </footer>
     </div>
   );

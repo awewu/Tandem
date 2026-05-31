@@ -141,9 +141,25 @@ export async function POST(req: NextRequest) {
           return;
         }
 
-        const systemPrompt = buildSystemPrompt(body.context);
+        // §19.5 搭子受控铁律: persona 自有 prompt 先过统一卡点, 企业基线强制注入,
+        // 命中企业红线 HARD_BLOCK 则转人工 (不进 LLM)。
+        const basePersonaPrompt = buildSystemPrompt(body.context);
+        const { governPersonaOutput } = await import('@/lib/persona/govern-persona');
+        const gov = await governPersonaOutput({
+          actorUserId: auth.userId,
+          intent: body.query.trim(),
+          basePersonaPrompt,
+          agentKind: 'persona',
+          toolName: 'persona-train',
+        });
+        if (!gov.allowed) {
+          send({ type: 'delta', content: `🚫 ${gov.blockReason ?? '命中企业红线, 已转人工。'}` });
+          send({ type: 'done', source: 'fallback', reason: 'baseline_hard_block', model: 'governed' });
+          safeClose();
+          return;
+        }
         const messages: ChatMessage[] = [
-          { role: 'system', content: systemPrompt },
+          { role: 'system', content: gov.systemPrompt },
           { role: 'user', content: body.query.trim() },
         ];
 

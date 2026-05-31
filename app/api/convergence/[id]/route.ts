@@ -2,6 +2,49 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getOrchestrator } from '@/lib/boot';
 import type { ConvergenceEvent } from '@/lib/convergence';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { getStore } from '@/lib/storage/repository';
+import type { DecisionCard } from '@/lib/types/decision-card';
+
+/**
+ * 议题上下文水合: 把 DecisionCard 上的 materialRefs / relatedKr / relatedTti (ID)
+ * 解析为 ContextPanel 渲染所需的对象 (title / 进度 / 完成度). 失败的 ID 静默跳过.
+ */
+async function hydrateContext(card: DecisionCard) {
+  const store = getStore();
+  const [materials, krs, ttis] = await Promise.all([
+    Promise.all(
+      (card.materialRefs ?? []).map(async (id) => {
+        const m = await store.materials.get(id).catch(() => null);
+        return m ? { id: m.id, title: m.title, type: m.type } : null;
+      })
+    ),
+    Promise.all(
+      (card.relatedKr ?? []).map(async (id) => {
+        const kr = await store.keyResults.get(id).catch(() => null);
+        return kr
+          ? {
+              id: kr.id,
+              title: kr.title,
+              currentValue: kr.currentValue,
+              targetValue: kr.targetValue,
+              unit: kr.unit ?? undefined,
+            }
+          : null;
+      })
+    ),
+    Promise.all(
+      (card.relatedTti ?? []).map(async (id) => {
+        const t = await store.ttis.get(id).catch(() => null);
+        return t ? { id: t.id, title: t.title, completionRate: t.completionRate } : null;
+      })
+    ),
+  ]);
+  return {
+    materials: materials.filter((x): x is NonNullable<typeof x> => x !== null),
+    krs: krs.filter((x): x is NonNullable<typeof x> => x !== null),
+    ttis: ttis.filter((x): x is NonNullable<typeof x> => x !== null),
+  };
+}
 
 interface Params {
   params: { id: string };
@@ -21,7 +64,8 @@ export async function GET(req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: 'not found' }, { status: 404 });
     }
     const room = await orch.getRoomState(params.id);
-    return NextResponse.json({ card, room });
+    const context = await hydrateContext(card);
+    return NextResponse.json({ card, room, context });
   } catch (err) {
     return NextResponse.json(
       { error: (err as Error).message ?? 'unknown error' },

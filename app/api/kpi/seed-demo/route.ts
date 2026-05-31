@@ -20,7 +20,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot, getStore } from '@/lib/boot';
 import { requireAuth, requireRole } from '@/lib/auth/require-auth';
-import type { Kpi, KpiCycle, KpiSubject } from '@/lib/types/kpi';
+import type { Kpi, KpiCycle, KpiLevel, KpiSubject } from '@/lib/types/kpi';
 
 const FISCAL_YEAR = 2026;
 const CYCLE_NAME = 'FY2026 (Demo)';
@@ -59,12 +59,17 @@ const SUBJECTS: SubjectSpec[] = [
 
 interface KpiSpec {
   subjectCode: string;
-  assignee: keyof typeof PROFILES;
+  /** 个人级用 PROFILES key; 组织级用自定义主体 id (如 dept-rd) */
+  assignee: string;
   title: string;
   startValue: number;
   targetValue: number;
   weight: number;
   scope: 'bonus' | 'monitor';
+  /** 组织层级, 缺省: monitor=company / 其余=individual */
+  level?: KpiLevel;
+  /** 完成率 0-1 (组织级显式给; 个人级用 PROFILES) */
+  completion?: number;
 }
 
 const KPI_SPECS: KpiSpec[] = [
@@ -73,6 +78,12 @@ const KPI_SPECS: KpiSpec[] = [
   { subjectCode: 'CUST.CSAT', assignee: 'demo-user', title: '核心系统可用性 SLA 客户满意度', startValue: 80, targetValue: 95, weight: 30, scope: 'bonus' },
   { subjectCode: 'OPS.QA', assignee: 'demo-user', title: '代码发布质量合格率', startValue: 90, targetValue: 98, weight: 20, scope: 'bonus' },
   { subjectCode: 'HR.RETAIN', assignee: 'demo-user', title: '关键技能掌握与内部技术分享次', startValue: 0, targetValue: 5, weight: 20, scope: 'bonus' },
+
+  // 当前登录用户本人 (useCurrentUserId 现统一返回 'me') · BSC 四维 → 让"个人"tab 有数据
+  { subjectCode: 'FIN.REV',   assignee: 'me', title: '我的·研发业务增量营收',     startValue: 0,  targetValue: 500, weight: 30, scope: 'bonus', level: 'individual', completion: 0.86 },
+  { subjectCode: 'CUST.CSAT', assignee: 'me', title: '我的·核心系统 SLA 满意度',   startValue: 80, targetValue: 95,  weight: 30, scope: 'bonus', level: 'individual', completion: 0.92 },
+  { subjectCode: 'OPS.QA',    assignee: 'me', title: '我的·代码发布质量合格率',     startValue: 90, targetValue: 98,  weight: 20, scope: 'bonus', level: 'individual', completion: 0.95 },
+  { subjectCode: 'HR.RETAIN', assignee: 'me', title: '我的·关键技能掌握与分享',     startValue: 0,  targetValue: 5,   weight: 20, scope: 'bonus', level: 'individual', completion: 0.80 },
 
   // 原有其他被考核人员的演示数据
   { subjectCode: 'FIN.REV', assignee: 'demo-star', title: '营业收入 (Star)', startValue: 5000, targetValue: 8000, weight: 50, scope: 'bonus' },
@@ -87,6 +98,24 @@ const KPI_SPECS: KpiSpec[] = [
   { subjectCode: 'OPS.QA', assignee: 'demo-star', title: '质量合格率', startValue: 92, targetValue: 98, weight: 0, scope: 'monitor' },
   { subjectCode: 'HR.RETAIN', assignee: 'demo-star', title: '关键人才留存率', startValue: 80, targetValue: 90, weight: 0, scope: 'monitor' },
   { subjectCode: 'OPS.LEAD', assignee: 'demo-star', title: '平均交付周期', startValue: 28, targetValue: 18, weight: 0, scope: 'monitor' },
+
+  // ── 部门级 (研发部) · BSC 四维 ──
+  { subjectCode: 'FIN.REV',   assignee: 'dept-rd', title: '研发部·业务增量营收',     startValue: 0,  targetValue: 1200, weight: 30, scope: 'bonus', level: 'department', completion: 0.82 },
+  { subjectCode: 'CUST.CSAT', assignee: 'dept-rd', title: '研发部·内部客户满意度',     startValue: 78, targetValue: 92,   weight: 25, scope: 'bonus', level: 'department', completion: 0.90 },
+  { subjectCode: 'OPS.QA',    assignee: 'dept-rd', title: '研发部·交付质量合格率',     startValue: 88, targetValue: 97,   weight: 25, scope: 'bonus', level: 'department', completion: 0.95 },
+  { subjectCode: 'HR.RETAIN', assignee: 'dept-rd', title: '研发部·关键人才留存率',     startValue: 80, targetValue: 92,   weight: 20, scope: 'bonus', level: 'department', completion: 0.88 },
+
+  // ── 体系级 (技术体系) · BSC 四维 ──
+  { subjectCode: 'FIN.GP',    assignee: 'sys-tech', title: '技术体系·毛利率',           startValue: 28, targetValue: 38, weight: 30, scope: 'bonus', level: 'system', completion: 0.76 },
+  { subjectCode: 'CUST.NEW',  assignee: 'sys-tech', title: '技术体系·新客户交付数',     startValue: 0,  targetValue: 40, weight: 25, scope: 'bonus', level: 'system', completion: 0.85 },
+  { subjectCode: 'OPS.LEAD',  assignee: 'sys-tech', title: '技术体系·平均交付周期',     startValue: 32, targetValue: 20, weight: 25, scope: 'bonus', level: 'system', completion: 0.70 },
+  { subjectCode: 'HR.RETAIN', assignee: 'sys-tech', title: '技术体系·人才梯队完备度',   startValue: 70, targetValue: 88, weight: 20, scope: 'bonus', level: 'system', completion: 0.80 },
+
+  // ── 事业部级 (智能产品事业部) · BSC 四维 ──
+  { subjectCode: 'FIN.REV',   assignee: 'bu-product', title: '智能产品事业部·营业收入',   startValue: 8000, targetValue: 15000, weight: 35, scope: 'bonus', level: 'business_unit', completion: 0.92 },
+  { subjectCode: 'FIN.GP',    assignee: 'bu-product', title: '智能产品事业部·毛利率',     startValue: 30,   targetValue: 42,    weight: 20, scope: 'bonus', level: 'business_unit', completion: 0.83 },
+  { subjectCode: 'CUST.CSAT', assignee: 'bu-product', title: '智能产品事业部·客户满意度', startValue: 82,   targetValue: 93,    weight: 25, scope: 'bonus', level: 'business_unit', completion: 0.96 },
+  { subjectCode: 'HR.RETAIN', assignee: 'bu-product', title: '智能产品事业部·组织能力指数', startValue: 75, targetValue: 90,    weight: 20, scope: 'bonus', level: 'business_unit', completion: 0.87 },
 ];
 
 export async function POST(req: NextRequest) {
@@ -144,7 +173,14 @@ export async function POST(req: NextRequest) {
       (s) => s.tenantId === auth.tenantId && s.code === spec.code,
     );
     if (existing) {
-      subjectByCode.set(spec.code, existing);
+      // 旧 subject 可能缺 bscPerspective (早期 seed), 回填以保证 BSC 分类准确
+      if (existing.bscPerspective !== spec.bscPerspective) {
+        await store.kpiSubjects.update(existing.id, {
+          bscPerspective: spec.bscPerspective,
+          updatedAt: now,
+        });
+      }
+      subjectByCode.set(spec.code, { ...existing, bscPerspective: spec.bscPerspective });
       continue;
     }
     const subj = await store.kpiSubjects.create({
@@ -172,22 +208,25 @@ export async function POST(req: NextRequest) {
   }
 
   const created: Kpi[] = [];
-  /** 每个 KPI 反推 30 天进度: 从 startValue 线性逼近到 currentValue, 加 ±5% 噪声 */
-  const SNAPSHOT_DAYS = 30;
+  // 历史快照跨度: 从周期开始到今天每日一条 (供 /kpi 月/季/年 as-of 有真实可核对历史)
+  const cycleStart = new Date(cycle.startDate);
+  const todayDate = new Date();
+  const spanDays = Math.max(1, Math.floor((todayDate.getTime() - cycleStart.getTime()) / 86400000));
   for (const spec of KPI_SPECS) {
     const subj = subjectByCode.get(spec.subjectCode);
     if (!subj) continue;
-    const profile = PROFILES[spec.assignee];
+    const profile = PROFILES[spec.assignee as keyof typeof PROFILES];
     const range = spec.targetValue - spec.startValue;
-    const currentValue =
-      spec.scope === 'monitor'
-        ? spec.startValue + range * 0.85
-        : spec.startValue + range * profile.kpiCompletion;
+    const completionRate =
+      spec.completion ??
+      (spec.scope === 'monitor' ? 0.85 : (profile?.kpiCompletion ?? 0.8));
+    const currentValue = spec.startValue + range * completionRate;
+    const level: KpiLevel = spec.level ?? (spec.scope === 'monitor' ? 'company' : 'individual');
     const kpi = await store.kpis.create({
       cycleId: cycle.id,
       subjectId: subj.id,
       bscPerspective: subj.bscPerspective,
-      level: spec.scope === 'monitor' ? 'company' : 'individual',
+      level,
       assigneeId: spec.assignee,
       title: spec.title,
       measureType: subj.defaultMeasureType,
@@ -205,16 +244,17 @@ export async function POST(req: NextRequest) {
     } as Omit<Kpi, 'id'>);
     created.push(kpi);
 
-    // 30 天历史快照 (synthetic monotonic + 噪声)
+    // 历史快照 (synthetic monotonic + 噪声): 从周期开始到今天, 每日一条
     const finalValue = kpi.currentValue;
-    for (let d = SNAPSHOT_DAYS - 1; d >= 0; d--) {
-      const date = new Date();
-      date.setDate(date.getDate() - d);
+    for (let i = 0; i <= spanDays; i++) {
+      const date = new Date(cycleStart);
+      date.setDate(date.getDate() + i);
+      if (date > todayDate) break;
       const dayStr = date.toISOString().slice(0, 10);
-      const t = (SNAPSHOT_DAYS - 1 - d) / (SNAPSHOT_DAYS - 1); // 0..1
-      // 线性逼近 + ±5% 噪声 (deterministic by index, 不用 random 让幂等)
-      const noise = ((d * 7 + spec.startValue) % 11) / 100 - 0.05;
-      const v = spec.startValue + (finalValue - spec.startValue) * (t + noise * t);
+      const t = spanDays === 0 ? 1 : i / spanDays; // 0..1
+      // 线性逼近 + ±5% 噪声 (deterministic by index, 幂等; 端点对齐 start/final)
+      const noise = ((i * 7 + spec.startValue) % 11) / 100 - 0.05;
+      const v = spec.startValue + (finalValue - spec.startValue) * (t + noise * t * (1 - t));
       await store.kpiSnapshots.create({
         kpiId: kpi.id,
         date: dayStr,

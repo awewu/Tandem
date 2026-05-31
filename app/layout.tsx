@@ -4,6 +4,7 @@ import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import AppRail from '@/components/app-rail';
 import SubSidebar from '@/components/sub-sidebar';
+import HubTabs from '@/components/hub-tabs';
 import { RightPaneProvider } from '@/components/right-pane';
 import { CommandPalette } from '@/components/command-palette';
 import { KeyboardShortcuts } from '@/components/keyboard-shortcuts';
@@ -78,8 +79,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               {/* Mobile only top bar */}
               <MobileTopBar />
 
-              <main id="tandem-shell-main" className="flex-1 overflow-y-auto bg-[rgb(var(--surface-1))] pb-[56px] md:overflow-hidden md:pb-0">
-                <ErrorBoundary>{children}</ErrorBoundary>
+              <main id="tandem-shell-main" className="flex flex-1 flex-col overflow-y-auto bg-[rgb(var(--surface-1))] pb-[56px] md:overflow-hidden md:pb-0">
+                <HubTabs />
+                <div className="min-h-0 flex-1 md:overflow-y-auto">
+                  <ErrorBoundary>{children}</ErrorBoundary>
+                </div>
               </main>
 
               {/* Mobile only bottom tab bar */}

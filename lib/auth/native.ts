@@ -409,6 +409,18 @@ async function issueSessionForUser(
   };
 }
 
+/**
+ * 外部身份登录 (手机 OTP / 微信扫码) 验证通过后, 复用统一会话签发.
+ * external login 视为已完成身份验证 → mfaVerified=true (跳过 MFA 阶段).
+ * 调用方 (phone-login / wechat-login) 负责"找/建用户 + 绑定", 这里只发 session.
+ */
+export async function issueSessionForExternalLogin(
+  user: { id: string; email: string; roles?: string[]; tenantId?: string },
+  deviceInfo?: { userAgent?: string; ip?: string },
+): Promise<AuthResult> {
+  return issueSessionForUser(user, true, deviceInfo);
+}
+
 // ---------------------------------------------------------------------------
 // 占位 store wrappers (V1: 包装 in-memory store; V2: Prisma)
 // ---------------------------------------------------------------------------

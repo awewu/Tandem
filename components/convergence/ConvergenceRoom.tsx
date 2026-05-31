@@ -5,6 +5,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MentionTextarea } from '@/components/documents/mention-picker';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { DeliberationFeed, type DeliberationComment } from '@/components/convergence/DeliberationFeed';
+import { ActionItemsForm } from '@/components/convergence/ActionItemsForm';
+import {
+  ContextPanel,
+  type ContextMaterial,
+  type ContextKr,
+  type ContextTti,
+} from '@/components/convergence/ContextPanel';
+import type { ActionItem } from '@/lib/types';
 import {
   Loader2,
   AlertTriangle,
@@ -41,9 +50,28 @@ const OPTION_META: Record<
   D: { icon: Lightbulb, color: 'text-emerald-600', label: 'D · 你的原创' },
 };
 
+interface DeliberationRecord {
+  id: string;
+  userId: string;
+  comment: string;
+  at: number;
+  isAi?: boolean;
+}
+
 interface RoomData {
   card: DecisionCard;
-  room: { step: string; elapsedSeconds: number; escalated: boolean } | null;
+  room: {
+    step: string;
+    elapsedSeconds: number;
+    escalated: boolean;
+    deliberation?: DeliberationRecord[];
+    actionItems?: ActionItem[];
+  } | null;
+  context?: {
+    materials: ContextMaterial[];
+    krs: ContextKr[];
+    ttis: ContextTti[];
+  };
 }
 
 export function ConvergenceRoom({ cardId, currentUserId }: { cardId: string; currentUserId: string }) {
@@ -116,6 +144,15 @@ export function ConvergenceRoom({ cardId, currentUserId }: { cardId: string; cur
 
   const { card, room } = data;
   const elapsed = room?.elapsedSeconds ?? card.elapsedSeconds;
+  const comments: DeliberationComment[] = (room?.deliberation ?? []).map((d) => ({
+    id: d.id,
+    userId: d.userId,
+    comment: d.comment,
+    timestamp: new Date(d.at).toISOString(),
+    isAi: d.isAi,
+  }));
+  const actionItems: ActionItem[] = room?.actionItems ?? card.actionItems ?? [];
+  const context = data.context;
   const progressPct = Math.min(100, (elapsed / HARD_LIMIT_SECONDS) * 100);
   const remaining = Math.max(0, HARD_LIMIT_SECONDS - elapsed);
   const minutes = Math.floor(remaining / 60);
@@ -167,6 +204,11 @@ export function ConvergenceRoom({ cardId, currentUserId }: { cardId: string; cur
         </BannerCard>
       )}
 
+      {/* 议题上下文 (AI 检索的材料 / 关联 OKR / TTI 作为决策依据) */}
+      {context && (context.materials.length > 0 || context.krs.length > 0 || context.ttis.length > 0) && (
+        <ContextPanel materials={context.materials} krs={context.krs} ttis={context.ttis} />
+      )}
+
       {/* Options */}
       {card.options.length > 0 && (
         <Card>
@@ -193,6 +235,30 @@ export function ConvergenceRoom({ cardId, currentUserId }: { cardId: string; cur
             ))}
           </CardContent>
         </Card>
+      )}
+
+      {/* 审议讨论 (DIVERGE 阶段, 真闭环: DELIBERATION_INPUT 事件持久化到 room state) */}
+      {step === 'DIVERGE' && (
+        <DeliberationFeed
+          comments={comments}
+          currentUserId={currentUserId}
+          disabled={actionLoading}
+          onSubmit={async (comment) => {
+            await sendEvent({ type: 'DELIBERATION_INPUT', userId: currentUserId, comment });
+          }}
+        />
+      )}
+
+      {/* 行动项录入 (CONVERGE 阶段, 选定方案后 · ACTIONS_DEFINED 事件 → COMMIT 时落库) */}
+      {step === 'CONVERGE' && !isCommitted && !isEscalated && !isVetoed && (
+        <ActionItemsForm
+          cardId={card.id}
+          initialItems={actionItems}
+          disabled={actionLoading}
+          onSave={async (items) => {
+            await sendEvent({ type: 'ACTIONS_DEFINED', actions: items });
+          }}
+        />
       )}
 
       {/* Action buttons */}

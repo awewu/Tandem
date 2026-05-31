@@ -21,11 +21,9 @@ import {
   Settings,
   BotMessageSquare,
   BarChart3,
-  TrendingUp,
   // item icons
   Sparkles as SparklesAlias,
   Grid3x3,
-  MessageSquare,
   Video,
   FileText,
   Database,
@@ -36,23 +34,14 @@ import {
   Workflow,
   Clock3,
   CalendarDays,
-  Bell,
   Users,
-  Layers,
   Bot,
   Cpu,
-  Ticket,
-  ShieldCheck,
-  ScrollText,
   Megaphone,
-  FileLock,
-  PartyPopper,
-  Gift,
   Mail,
   Inbox,
   Send,
   LayoutGrid,
-  CheckSquare,
   Palette,
   Lock,
   Plus,
@@ -60,7 +49,6 @@ import {
   Activity,
   Compass,
   Store,
-  Bell as BellAlias,
   GraduationCap,
   Network,
 } from 'lucide-react';
@@ -91,6 +79,11 @@ export interface NavItem {
    * Items without `group` render in an unlabeled lead section.
    */
   group?: string;
+  /**
+   * Hub 子页 tab (二级页面范式): 重模块把“功能多”的子页收进 Hub,
+   * 子页通过内容区顶部的 <HubTabs> 横向 tab 到达, 而非平铺在 SubSidebar.
+   */
+  tabs?: { name: string; href: string; visibleTo?: Role[] }[];
 }
 
 export interface NavModule {
@@ -131,13 +124,11 @@ export const NAV_MODULES: NavModule[] = [
     pathPrefixes: ['/okr', '/insights', '/analytics', '/kpi', '/tti', '/report'],
     items: [
       // 绩效目标 (KPI 年度硬指标, 只读)
-      { name: '我的绩效目标',       href: '/kpi',              icon: BarChart3,      group: 'KPI 绩效达成' },
-      { name: '部门绩效对比',       href: '/kpi?view=dept',    icon: TrendingUp,     group: 'KPI 绩效达成', visibleTo: ['manager', 'steward', 'admin', 'champion'] },
+      { name: '绩效记分卡',         href: '/kpi',              icon: BarChart3,      group: 'KPI 绩效达成' },
       // 目标管理 (精简为符合 Tita 极简逻辑 of 3步流程)
       { name: '我的目标与对齐',    href: '/okr?owner=me',     icon: Target,         group: '目标与关键成果法 OKR' },
-      { name: '日常推进 (TTI)',    href: '/tti',              icon: SparklesAlias,  group: '目标与关键成果法 OKR' },
-      { name: '团队效能 Dashboard',href: '/okr/dashboard',    icon: Grid3x3,        group: '目标与关键成果法 OKR', visibleTo: ['manager', 'steward', 'admin', 'champion'] },
       { name: 'OKR 5 层级联树',    href: '/okr/cascade',      icon: Network,        group: '目标与关键成果法 OKR' },
+      { name: 'OKR 校准会',        href: '/okr/calibration',  icon: Grid3x3,        group: '目标与关键成果法 OKR', visibleTo: ['manager', 'steward', 'admin', 'champion'] },
       { name: 'OKR 日历视图',      href: '/okr/calendar',     icon: CalendarDays,   group: '目标与关键成果法 OKR' },
       // 每日推进 — 5min 日报与周回顾 (OKR daily/weekly check-in 输入, 与KR互动推进)
       { name: '5min 智能日报', href: '/report',         icon: Clock3,        group: '每日推进', accent: 'cta' },
@@ -187,7 +178,8 @@ export const NAV_MODULES: NavModule[] = [
     tagline: '每天和你的分身一起干活 · 1 舞台 + 2 召唤',
     icon: BotMessageSquare,
     // /tandem 内部自有 1+2 召唤布局, 不需 SubSidebar (items=[] = sub-sidebar.tsx 返回 null).
-    pathPrefixes: ['/tandem'],
+    // /chat /agents = 用已固化 agent/Gem 干活, 归搭子 (入口在工作台"通用 AI"召唤).
+    pathPrefixes: ['/tandem', '/chat', '/agents'],
     items: [],
   },
 
@@ -202,26 +194,38 @@ export const NAV_MODULES: NavModule[] = [
     pathPrefixes: ['/documents', '/knowledge', '/memories', '/drive', '/bitable'],
     items: [
       { name: '文档协作',     href: '/documents', icon: FileText },
-      { name: 'Memory 知识库', href: '/memories',  icon: Brain },
+      { name: '企业 Memory（需审批）', href: '/memories',  icon: Brain },
       { name: '知识图谱',     href: '/knowledge', icon: Database },
       { name: '多维表格',     href: '/bitable',   icon: LayoutGrid },
       { name: '云盘',         href: '/drive',     icon: HardDrive },
     ],
   },
 
+  // ═══ 日程 · 高频日用 (独立顶级, Teams 式直达) ═══
+  {
+    id: 'calendar',
+    label: '日程',
+    fullLabel: '日程 · 我的时间',
+    tagline: '会议 / 待办 / Check-in 节奏一屏掌握',
+    icon: CalendarDays,
+    visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
+    // /calendar 页内自有视图, items=[] 不走 SubSidebar (高频直达)
+    pathPrefixes: ['/calendar'],
+    items: [],
+  },
+
   {
     id: 'flow',
     label: '流程',
-    fullLabel: '流程 · 审批与日程',
+    fullLabel: '流程 · 审批与工作流',
     tagline: '日常事务自动跑, 把时间还给思考',
     icon: ListChecks,
     visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
-    // /report 移到拿捏 · /notifications 由 AppRail 顶部 bell 承担 · /calendar 移到日程并入 comm
-    pathPrefixes: ['/approvals', '/workflows', '/calendar'],
+    // /calendar 已提为顶级「日程」模块 (高频独立)
+    pathPrefixes: ['/approvals', '/workflows'],
     items: [
       { name: '审批流',  href: '/approvals',  icon: ClipboardCheck },
       { name: '工作流',  href: '/workflows',  icon: Workflow },
-      { name: '日程',    href: '/calendar',   icon: CalendarDays },
     ],
   },
 
@@ -233,49 +237,63 @@ export const NAV_MODULES: NavModule[] = [
     tagline: '炼分身 · 学公司资料 · 调外部 skills, 让成长看得见',
     icon: GraduationCap,
     visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
-    pathPrefixes: ['/persona', '/skills', '/learning', '/portfolio', '/retros', '/360', '/nine-box', '/chat', '/agents', '/summon', '/settings/llm'],
+    // 注: /360 /nine-box 主高亮归「组织」模块, 此处仅保留可点 item, 不占 pathPrefix.
+    // 注: /chat /agents (用 agent 干活) 已移交搭子; 拿捏只留"造/炼"层面.
+    pathPrefixes: ['/persona', '/skills', '/learning', '/portfolio', '/retros', '/summon', '/settings/llm'],
+    // 4-Hub 重构: 二级栏只留 4 个 Hub 入口, 各 Hub 的子页走页内 <HubTabs> 横向 tab.
+    // 技能模式(设计/PM/...)收进 /persona 页内模式切换器, 不占独立项.
     items: [
-      // 🤖 我的分身 — 修炼 (SUMMON-AND-NURTURE V1 B1-B4)
-      { name: '我的分身',     href: '/persona',                  icon: Users,            group: '🤖 我的分身' },
-      { name: '分身训练台',   href: '/persona/training',         icon: BotMessageSquare, group: '🤖 我的分身' },
-      { name: '养料仪表盘',   href: '/persona/data-source',      icon: Database,         group: '🤖 我的分身' },
-      { name: '五阶段进化',   href: '/persona/evolution',        icon: SparklesAlias,    group: '🤖 我的分身' },
-      { name: '实习权限',     href: '/persona/delegation',       icon: ShieldCheck,      group: '🤖 我的分身' },
-      { name: '代办审计',     href: '/persona/me/proxy-actions', icon: Activity,         group: '🤖 我的分身' },
-
-      // 🧬 技能模式 — 同一主分身参数切换 (不是新 Agent)
-      { name: '🎨 设计模式',   href: '/persona?mode=design',     icon: Palette,         group: '🧬 技能模式' },
-      { name: '📦 PM 模式',      href: '/persona?mode=pm',         icon: ClipboardCheck,  group: '🧬 技能模式' },
-      { name: '💻 技术模式',   href: '/persona?mode=tech',       icon: Cpu,             group: '🧬 技能模式' },
-      { name: '📣 营销模式',   href: '/persona?mode=marketing',  icon: Megaphone,       group: '🧬 技能模式' },
-      { name: '🎯 战略模式',   href: '/persona?mode=strategy',   icon: Target,          group: '🧬 技能模式' },
-
-      // 🌉 外部 AI 接入 — MANIFESTO §19 拥抱市面智能体 + Skill Gateway 4 道闸
-      { name: '接入市面智能体',     href: '/summon/external', icon: Bot,           group: '🌉 外部 AI 接入' },
-      { name: 'Skill Gateway 审计', href: '/summon/audit',    icon: ShieldCheck,   group: '🌉 外部 AI 接入' },
-      { name: '作战室对话',         href: '/chat',            icon: MessageSquare, group: '🌉 外部 AI 接入' },
-      { name: 'Agent 超市',         href: '/agents',          icon: Bot,           group: '🌉 外部 AI 接入' },
-      { name: '模型设置',           href: '/settings/llm',    icon: Cpu,           group: '🌉 外部 AI 接入' },
-
-      // � 自我画像 — 我是谁
-      { name: '个人档案',     href: '/persona/profile',    icon: Users,            group: '� 自我画像' },
-      { name: '360° 评估',    href: '/360',                icon: Activity,         group: '� 自我画像' },
-      { name: '9-Box 定位',    href: '/nine-box',           icon: Grid3x3,          group: '📊 自我画像' },
-
-      // � 技能与成长 — 我会什么
-      { name: '我的技能',     href: '/skills',             icon: Layers,           group: '� 技能与成长' },
-      { name: '学习路径推荐', href: '/skills/learning',    icon: SparklesAlias,    group: '� 技能与成长' },
-      { name: '我的复盘库',   href: '/retros/me',          icon: Brain,            group: '🎓 技能与成长' },
-      { name: '我的代表作',   href: '/portfolio',          icon: Gift,             group: '🎓 技能与成长' },
-
-      // 📚 学习中心 — 我在学什么 (学公司资料, 类训练龙虾)
-      { name: '学习台',       href: '/learning',                  icon: BookOpen,        accent: 'cta', group: '📚 学习中心' },
-      { name: '入职必修',     href: '/learning/onboarding',       icon: PartyPopper,                    group: '📚 学习中心' },
-      { name: '合规与红线',   href: '/learning/compliance',       icon: FileLock,                       group: '📚 学习中心' },
-      { name: '产品学院',     href: '/learning/products',         icon: Layers,                         group: '📚 学习中心' },
-      { name: '流程与标准',   href: '/learning/processes',        icon: Workflow,                       group: '📚 学习中心' },
-      { name: '专项进阶',     href: '/learning/tracks',           icon: TrendingUp,                     group: '📚 学习中心' },
-      { name: '我的认证',     href: '/learning/certifications',   icon: ScrollText,                     group: '📚 学习中心' },
+      {
+        name: '我的分身',
+        href: '/persona',
+        icon: Users,
+        tabs: [
+          { name: '分身主页', href: '/persona' },
+          { name: '训练台', href: '/persona/training' },
+          { name: '养料仪表盘', href: '/persona/data-source' },
+          { name: '五阶段进化', href: '/persona/evolution' },
+          { name: '实习权限', href: '/persona/delegation' },
+          { name: '代办审计', href: '/persona/me/proxy-actions' },
+        ],
+      },
+      {
+        name: '自我画像与成长',
+        href: '/persona/profile',
+        icon: Grid3x3,
+        tabs: [
+          { name: '个人档案', href: '/persona/profile' },
+          { name: '360° 评估', href: '/360' },
+          { name: '9-Box 定位', href: '/nine-box' },
+          { name: '我的技能', href: '/skills' },
+          { name: '学习路径推荐', href: '/skills/learning' },
+          { name: '我的复盘库', href: '/retros/me' },
+          { name: '我的代表作', href: '/portfolio' },
+        ],
+      },
+      {
+        name: '学习中心',
+        href: '/learning',
+        icon: BookOpen,
+        tabs: [
+          { name: '学习台', href: '/learning' },
+          { name: '入职必修', href: '/learning/onboarding' },
+          { name: '合规与红线', href: '/learning/compliance' },
+          { name: '产品学院', href: '/learning/products' },
+          { name: '流程与标准', href: '/learning/processes' },
+          { name: '专项进阶', href: '/learning/tracks' },
+          { name: '我的认证', href: '/learning/certifications' },
+        ],
+      },
+      {
+        name: '外部 AI 接入',
+        href: '/summon/external',
+        icon: Bot,
+        tabs: [
+          { name: '接入市面智能体', href: '/summon/external' },
+          { name: 'Skill Gateway 审计', href: '/summon/audit' },
+          { name: '模型设置', href: '/settings/llm' },
+        ],
+      },
     ],
   },
 
@@ -338,35 +356,77 @@ export const NAV_MODULES: NavModule[] = [
     icon: Wrench,
     pathPrefixes: ['/admin', '/mcp', '/tasks', '/logs', '/design', '/governance'],
     visibleTo: ['admin', 'steward', 'champion'],
+    // 6-Hub 重构 (同拿捏范式): 二级栏放 6 个 Hub, 各组子页走页内 <HubTabs> (按角色过滤).
     items: [
-      // 用户与权限
-      { name: '邀请用户',       href: '/admin/invite',        icon: Ticket,        group: '用户与权限', visibleTo: ['admin', 'champion'] },
-      { name: 'Steward 工作台', href: '/admin/steward',       icon: ShieldCheck,   group: '用户与权限', visibleTo: ['steward', 'admin', 'champion'] },
-      { name: '员工部门 (HR)',  href: '/admin/organization',  icon: Users,         group: '用户与权限', visibleTo: ['admin', 'champion'] },
-      { name: '外部协作申请',   href: '/admin/user-applications', icon: Ticket,     group: '用户与权限', visibleTo: ['admin', 'owner'] },
-      // KPI 设置 (CHARTER-KPI-TTI)
-      { name: 'KPI 科目主数据', href: '/admin/kpi/subjects',         icon: Layers,        group: 'KPI 设置', visibleTo: ['admin', 'champion'] },
-      { name: 'KPI 周期与目标',  href: '/admin/kpi/setup',            icon: Target,        group: 'KPI 设置', visibleTo: ['admin', 'champion'] },
-      { name: 'KPI 人工补录',      href: '/admin/kpi/manual-entry',     icon: ScrollText,    group: 'KPI 设置', visibleTo: ['admin', 'champion'] },
-      { name: 'KPI 健康度看板',  href: '/admin/kpi/health-dashboard', icon: Grid3x3,       group: 'KPI 设置', visibleTo: ['admin', 'champion', 'steward'] },
-      { name: 'KPI 分析中枢',    href: '/admin/kpi/analytics',        icon: Activity,      group: 'KPI 设置', visibleTo: ['admin', 'champion', 'steward'] },
-      { name: 'KPI 奖金下发',    href: '/admin/kpi/bonus-payout',     icon: ShieldCheck,   group: 'KPI 设置', visibleTo: ['admin', 'champion'] },
-      // 中央 AI 治理 (灵魂层第 2 + 6 条 · CA-13 + B-015)
-      { name: 'CompanyBrain 看板',     href: '/admin/company-brain',          icon: Brain,    group: '中央 AI 治理', visibleTo: ['steward', 'admin', 'champion'] },
-      { name: 'OKR 主航道偏离',         href: '/admin/governance/okr-drift',   icon: Target,   group: '中央 AI 治理', visibleTo: ['steward', 'admin', 'champion'] },
-      // 内容管理
-      { name: 'Intranet 编辑',  href: '/admin/intranet',      icon: Megaphone,     group: '内容管理', visibleTo: ['admin', 'champion'] },
-      { name: 'Launchpad 管理', href: '/admin/launchpad',     icon: LayoutGrid,    group: '内容管理', visibleTo: ['admin', 'champion'] },
-      { name: 'Baseline',       href: '/admin/baseline',      icon: ScrollText,    group: '内容管理', visibleTo: ['admin', 'champion'] },
-      // 系统运维
-      { name: 'TAF Skills',     href: '/admin/tandem-skills', icon: Layers,        group: '系统运维', visibleTo: ['admin'] },
-      { name: '使用 + 成本',    href: '/admin/usage',         icon: Activity,      group: '系统运维', visibleTo: ['admin'] },
-      { name: 'AI 评估',        href: '/admin/evals',         icon: Sparkles,      group: '系统运维', visibleTo: ['admin', 'steward'] },
-      { name: '定时任务',       href: '/tasks',               icon: CheckSquare,   group: '系统运维', visibleTo: ['admin'] },
-      { name: '系统日志',       href: '/logs',                icon: FileText,      group: '系统运维', visibleTo: ['admin'] },
-      // 工程参考
-      { name: 'MCP 工具',       href: '/mcp',                 icon: Cpu,           group: '工程参考', visibleTo: ['admin'] },
-      { name: '设计语言',       href: '/design',              icon: Palette,       group: '工程参考' },
+      {
+        name: '用户与权限',
+        href: '/admin/steward',
+        icon: Users,
+        visibleTo: ['admin', 'champion', 'steward', 'owner'],
+        tabs: [
+          { name: 'Steward 工作台', href: '/admin/steward', visibleTo: ['steward', 'admin', 'champion'] },
+          { name: '邀请用户', href: '/admin/invite', visibleTo: ['admin', 'champion'] },
+          { name: '员工部门 (HR)', href: '/admin/organization', visibleTo: ['admin', 'champion'] },
+          { name: '外部协作申请', href: '/admin/user-applications', visibleTo: ['admin', 'owner'] },
+        ],
+      },
+      {
+        name: 'KPI 设置',
+        href: '/admin/kpi/setup',
+        icon: Target,
+        visibleTo: ['admin', 'champion', 'steward'],
+        tabs: [
+          { name: '周期与目标', href: '/admin/kpi/setup', visibleTo: ['admin', 'champion'] },
+          { name: '科目主数据', href: '/admin/kpi/subjects', visibleTo: ['admin', 'champion'] },
+          { name: '人工补录', href: '/admin/kpi/manual-entry', visibleTo: ['admin', 'champion'] },
+          { name: '健康度看板', href: '/admin/kpi/health-dashboard', visibleTo: ['admin', 'champion', 'steward'] },
+          { name: '分析中枢', href: '/admin/kpi/analytics', visibleTo: ['admin', 'champion', 'steward'] },
+          { name: '奖金下发', href: '/admin/kpi/bonus-payout', visibleTo: ['admin', 'champion'] },
+        ],
+      },
+      {
+        name: '中央 AI 治理',
+        href: '/admin/company-brain',
+        icon: Brain,
+        visibleTo: ['steward', 'admin', 'champion'],
+        tabs: [
+          { name: 'CompanyBrain 看板', href: '/admin/company-brain', visibleTo: ['steward', 'admin', 'champion'] },
+          { name: 'OKR 主航道偏离', href: '/admin/governance/okr-drift', visibleTo: ['steward', 'admin', 'champion'] },
+        ],
+      },
+      {
+        name: '内容管理',
+        href: '/admin/intranet',
+        icon: Megaphone,
+        visibleTo: ['admin', 'champion'],
+        tabs: [
+          { name: 'Intranet 编辑', href: '/admin/intranet', visibleTo: ['admin', 'champion'] },
+          { name: 'Launchpad 管理', href: '/admin/launchpad', visibleTo: ['admin', 'champion'] },
+          { name: 'Baseline', href: '/admin/baseline', visibleTo: ['admin', 'champion'] },
+        ],
+      },
+      {
+        name: '系统运维',
+        href: '/admin/usage',
+        icon: Activity,
+        visibleTo: ['admin', 'steward'],
+        tabs: [
+          { name: '使用 + 成本', href: '/admin/usage', visibleTo: ['admin'] },
+          { name: 'TAF Skills', href: '/admin/tandem-skills', visibleTo: ['admin'] },
+          { name: 'AI 评估', href: '/admin/evals', visibleTo: ['admin', 'steward'] },
+          { name: '定时任务', href: '/tasks', visibleTo: ['admin'] },
+          { name: '系统日志', href: '/logs', visibleTo: ['admin'] },
+        ],
+      },
+      {
+        name: '工程参考',
+        href: '/design',
+        icon: Cpu,
+        tabs: [
+          { name: '设计语言', href: '/design' },
+          { name: 'MCP 工具', href: '/mcp', visibleTo: ['admin'] },
+        ],
+      },
     ],
   },
 
@@ -392,7 +452,6 @@ export const NAV_MODULES: NavModule[] = [
       { name: '个人设置',     href: '/settings',               icon: Settings },
       { name: '外观与品牌',   href: '/settings/appearance',    icon: Palette },
       { name: '邮箱配置',     href: '/settings/email',         icon: Mail },
-      { name: '通知偏好',     href: '/notifications',          icon: Bell },
       { name: '§13 数据自助', href: '/settings/privacy',       icon: Lock },
     ],
   },

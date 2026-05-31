@@ -204,11 +204,19 @@ async function materializePromotion(req: MemoryPromotionRequest): Promise<Memory
   const store = getStore();
   const allSigners: MemorySigner[] = req.signers.history ?? [];
 
+  // 闭环关键: 按签批 level 写 ownershipLevel, 否则 company-brain (只注入
+  // ownershipLevel==='company') + canViewMemory 永远读不到批准的企业 Memory.
+  // PromotionLevel 'dept' → MemoryOwnershipLevel 'department'; 'team'/'company' 直通.
+  const level = req.level ?? 'company';
+  const ownershipLevel: MemoryEntry['ownershipLevel'] =
+    level === 'dept' ? 'department' : level;
+
   const entry = await store.memories.create({
     type: req.proposedType,
     title: req.proposedTitle,
     body: req.proposedBody,
     status: 'active',
+    ownershipLevel,
     sourceMaterialId: req.materialId,
     signers: allSigners,
     referenceCount: 0,

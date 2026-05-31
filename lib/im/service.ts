@@ -764,22 +764,31 @@ async function invokePersonaReply(input: InvokePersonaInput): Promise<void> {
       return;
     }
 
-    // §T15 baseline-guard: Agent 调用前防跑偏检查
-    const { checkBaseline } = await import('../memory/baseline-guard');
-    const guard = await checkBaseline({
-      intent: input.triggeringMessage.body,
+    // §19.5 搭子受控统一卡点: baseline-guard(红线 HARD_BLOCK) + OKR锚 + 价值观锚 强制注入
+    const baseSystem =
+      `你正在以 ${input.targetUserId} 的 AI 分身身份回复 IM 消息. ` +
+      `当前阶段: ${persona.stage}; 委托级别: ${persona.delegationLevel}. ` +
+      `风格: 决策速度=${persona.styleProfile.decisionSpeed}, ` +
+      `风险偏好=${persona.styleProfile.riskAppetite}, ` +
+      `沟通风格=${persona.styleProfile.communicationStyle}. ` +
+      `严格遵守委托级别: 不做超出权限的承诺. 只回 1-3 句话, 简洁.`;
+
+    const { governPersonaOutput } = await import('../persona/govern-persona');
+    const gov = await governPersonaOutput({
       actorUserId: input.targetUserId,
+      intent: input.triggeringMessage.body,
+      basePersonaPrompt: baseSystem,
       agentKind: 'persona',
+      toolName: 'im.persona_reply',
     });
-    if (guard.verdict === 'HARD_BLOCK') {
+    if (!gov.allowed) {
       await sendMessage({
         channelId: input.channelId,
         senderId: 'persona',
         senderKind: 'system',
         body:
-          `🚫 ${input.targetUserId} 的 AI 分身被组织记忆基线阻断, 已转人工.\n` +
-          `原因: ${guard.reasons.join('; ')}\n` +
-          `命中: ${guard.hits.slice(0, 3).map((h) => h.title).join(', ')}`,
+          `🚫 ${input.targetUserId} 的 AI 分身被企业红线/组织记忆基线阻断, 已转人工.\n` +
+          `${gov.blockReason ?? ''}`,
         parentMessageId: input.triggeringMessage.id,
       });
       // 触发 workflow T14: 通知治理委员会 + audit
@@ -790,7 +799,7 @@ async function invokePersonaReply(input: InvokePersonaInput): Promise<void> {
           payload: {
             channelId: input.channelId,
             userId: input.targetUserId,
-            reason: guard.reasons.join('; '),
+            reason: gov.blockReason ?? 'baseline_hard_block',
           },
         });
       } catch {
@@ -828,14 +837,6 @@ async function invokePersonaReply(input: InvokePersonaInput): Promise<void> {
       /* 偏好/策略读取失败不影响主流程, 走默认路由 */
     }
 
-    const baseSystem =
-      `你正在以 ${input.targetUserId} 的 AI 分身身份回复 IM 消息. ` +
-      `当前阶段: ${persona.stage}; 委托级别: ${persona.delegationLevel}. ` +
-      `风格: 决策速度=${persona.styleProfile.decisionSpeed}, ` +
-      `风险偏好=${persona.styleProfile.riskAppetite}, ` +
-      `沟通风格=${persona.styleProfile.communicationStyle}. ` +
-      `严格遵守委托级别: 不做超出权限的承诺. 只回 1-3 句话, 简洁.`;
-
     // §IM-7 trace id: 关联 router.chat → LlmUsageLog.requestId 同时也写入 IM message.aiTraceId, 让 trace popover 可逆查
     const aiTraceId = `imtrace_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 
@@ -843,9 +844,7 @@ async function invokePersonaReply(input: InvokePersonaInput): Promise<void> {
       messages: [
         {
           role: 'system',
-          content: guard.contextToInject
-            ? `${baseSystem}\n\n${guard.contextToInject}`
-            : baseSystem,
+          content: gov.systemPrompt,
           // §B-003 · ephemeral 缓存大型 system prompt, Anthropic 命中后省 ~90% 输入 token
           cacheControl: 'ephemeral',
         },

@@ -14,7 +14,7 @@ import { boot, getStore } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { hasKpiPermission } from '@/lib/auth/kpi-perms';
 import { audit } from '@/lib/audit/log';
-import type { Kpi, KpiLevel, KpiScope } from '@/lib/types/kpi';
+import { KPI_LEVEL_ORDER, type Kpi, type KpiLevel, type KpiScope } from '@/lib/types/kpi';
 
 export async function GET(req: NextRequest) {
   await boot();
@@ -59,8 +59,8 @@ export async function POST(req: NextRequest) {
     if (!['bonus', 'monitor'].includes(body.scope)) {
       return NextResponse.json({ error: 'scope must be bonus or monitor' }, { status: 400 });
     }
-    if (!['company', 'department', 'individual'].includes(body.level)) {
-      return NextResponse.json({ error: 'level must be company/department/individual' }, { status: 400 });
+    if (!(body.level in KPI_LEVEL_ORDER)) {
+      return NextResponse.json({ error: 'level must be one of individual/department/system/business_unit/company' }, { status: 400 });
     }
 
     const store = getStore();

@@ -10,6 +10,12 @@
 import type { MemoryRetriever, MemorySearchResult } from '../convergence/decision-engine';
 import { getStore } from '../storage/repository';
 import type { MemoryEntry, Material } from '../types/memory';
+import { embed, cosineSim, isEmbeddingConfigured } from '../infra/embedding';
+
+/** 性能护栏: 单次最多对多少条候选做向量计算 (其余走 Jaccard 兜底) */
+const SEMANTIC_EVAL_CAP = 80;
+/** 语义命中阈值 (cosine) */
+const SEMANTIC_MIN_SIM = 0.15;
 
 // ---------------------------------------------------------------------------
 // Tokenization (中英文混合简单分词)
@@ -62,7 +68,7 @@ export class StoreBackedMemoryRetriever implements MemoryRetriever {
     const sops = all.filter(
       (m: MemoryEntry) => m.type === 'sop' && m.status === 'active'
     );
-    return rank(sops, query, limit);
+    return rankSemantic(sops, query, limit);
   }
 
   async findHistoricalCases(query: string, limit: number): Promise<MemorySearchResult[]> {
@@ -71,8 +77,60 @@ export class StoreBackedMemoryRetriever implements MemoryRetriever {
     const cases = all.filter(
       (m: MemoryEntry) => m.type === 'case' && m.status === 'active'
     );
-    return rank(cases, query, limit);
+    return rankSemantic(cases, query, limit);
   }
+}
+
+/**
+ * 语义检索 + 引用加权排序. 优先 embedding cosine, 任一环节不可用则无损回退 Jaccard.
+ * 飞轮: 被引用越多的 SOP/案例 (referenceCount) 略微上浮, 让验证过的经验优先。
+ */
+async function rankSemantic(
+  entries: MemoryEntry[],
+  query: string,
+  limit: number,
+): Promise<MemorySearchResult[]> {
+  if (entries.length === 0) return [];
+  if (isEmbeddingConfigured()) {
+    try {
+      const qv = await embed(query);
+      if (qv) {
+        // 优先最近更新的候选做向量计算, 控制 N+1 成本
+        const cap = [...entries]
+          .sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''))
+          .slice(0, SEMANTIC_EVAL_CAP);
+        const scored = await Promise.all(
+          cap.map(async (e) => {
+            let v = e.embedding;
+            if (!v || v.length === 0) v = (await embed(`${e.title}\n${e.body}`)) ?? undefined;
+            const sim = v ? cosineSim(qv, v) : 0;
+            return { e, sim };
+          }),
+        );
+        const ranked = scored
+          .map(({ e, sim }) => ({
+            id: e.id,
+            title: e.title,
+            body: e.body,
+            similarity: applyRefBoost(sim, e),
+          }))
+          .filter((s) => s.similarity >= SEMANTIC_MIN_SIM)
+          .sort((a, b) => b.similarity - a.similarity)
+          .slice(0, limit);
+        if (ranked.length > 0) return ranked;
+        // 语义零命中 → 落 Jaccard 兜底 (embeddings 可能偏弱/稀疏)
+      }
+    } catch {
+      // 向量检索失败 → 静默回退 Jaccard
+    }
+  }
+  return rank(entries, query, limit);
+}
+
+/** 引用越多的条目略微加权 (上限 +0.1), 飞轮: 验证过的经验优先 */
+function applyRefBoost(sim: number, e: MemoryEntry): number {
+  const refBoost = Math.min(0.1, ((e.referenceCount ?? 0) as number) * 0.01);
+  return Math.min(1, sim + refBoost);
 }
 
 function rank(entries: MemoryEntry[], query: string, limit: number): MemorySearchResult[] {

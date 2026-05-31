@@ -95,7 +95,29 @@ export interface KpiSubject {
 // KPI 指标 (单个)
 // ---------------------------------------------------------------------------
 
-export type KpiLevel = 'company' | 'department' | 'individual';
+/**
+ * 组织层级 (cascade 小→大): 个人 < 部门 < 体系 < 事业部 < 公司.
+ * 'system'(体系)/'business_unit'(事业部) 于 2026-05-31 新增, 'company' 保留向后兼容.
+ */
+export type KpiLevel = 'individual' | 'department' | 'system' | 'business_unit' | 'company';
+
+/** cascade 顺序 (小→大), 用于父级 KPI 校验 (parent.level > child.level) */
+export const KPI_LEVEL_ORDER: Record<KpiLevel, number> = {
+  individual: 1,
+  department: 2,
+  system: 3,
+  business_unit: 4,
+  company: 5,
+};
+
+/** 层级中文标签 (SSOT) */
+export const KPI_LEVEL_LABEL: Record<KpiLevel, string> = {
+  individual: '个人',
+  department: '部门',
+  system: '体系',
+  business_unit: '事业部',
+  company: '公司',
+};
 
 export type KpiDataSource = 'erp' | 'manual' | 'pending';
 

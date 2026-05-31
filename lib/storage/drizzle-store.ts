@@ -305,8 +305,15 @@ function createDrizzleAuthStore(): AuthStore {
         return sessRepo.get(id);
       },
       async findByRefreshHash(hash) {
-        const all = await sessRepo.list();
-        return all.find((s) => s.refreshTokenHash === hash) ?? null;
+        const rows = await db
+          .select()
+          .from(kv)
+          .where(and(
+            eq(kv.collection, 'auth_session'),
+            sql`${kv.data}->>'refreshTokenHash' = ${hash}`
+          ))
+          .limit(1);
+        return rows[0] ? (rows[0].data as AuthSession) : null;
       },
       async revoke(id, reason) {
         const s = await sessRepo.get(id);
@@ -317,7 +324,14 @@ function createDrizzleAuthStore(): AuthStore {
         });
       },
       async revokeAllForUser(userId, reason) {
-        const all = await sessRepo.list({ userId } as Partial<AuthSession>);
+        const rows = await db
+          .select()
+          .from(kv)
+          .where(and(
+            eq(kv.collection, 'auth_session'),
+            sql`${kv.data}->>'userId' = ${userId}`
+          ));
+        const all = rows.map((r) => r.data as AuthSession);
         for (const s of all) {
           if (!s.revokedAt) {
             await sessRepo.update(s.id, {
@@ -340,15 +354,30 @@ function createDrizzleAuthStore(): AuthStore {
         return i;
       },
       async findByHash(hash) {
-        const all = await inviteRepo.list();
-        return all.find((i) => i.codeHash === hash) ?? null;
+        const rows = await db
+          .select()
+          .from(kv)
+          .where(and(
+            eq(kv.collection, 'auth_invite'),
+            sql`${kv.data}->>'codeHash' = ${hash}`
+          ))
+          .limit(1);
+        return rows[0] ? (rows[0].data as AuthInvite) : null;
       },
       async list(filter) {
-        const all = await inviteRepo.list();
-        let arr = all;
-        if (filter?.invitedById) arr = arr.filter((i) => i.invitedById === filter.invitedById);
-        if (filter?.tenantId) arr = arr.filter((i) => i.tenantId === filter.tenantId);
-        return arr;
+        const conds = [eq(kv.collection, 'auth_invite')];
+        if (filter?.invitedById) {
+          conds.push(sql`${kv.data}->>'invitedById' = ${filter.invitedById}`);
+        }
+        if (filter?.tenantId) {
+          conds.push(sql`${kv.data}->>'tenantId' = ${filter.tenantId}`);
+        }
+        const rows = await db
+          .select()
+          .from(kv)
+          .where(and(...conds))
+          .orderBy(desc(kv.updatedAt));
+        return rows.map((r) => r.data as AuthInvite);
       },
       async markUsed(id) {
         const i = await inviteRepo.get(id);
@@ -366,21 +395,41 @@ function createDrizzleAuthStore(): AuthStore {
         const id = generateId('evt');
         const createdAt = new Date().toISOString();
         await eventsRepo.create({ ...event, id, createdAt });
-        // 简单清理: 超过 10k 条时删最旧 (近似实现, 高频场景应改为后台任务)
-        const total = await db
-          .select({ c: sql<number>`count(*)` })
-          .from(kv)
-          .where(eq(kv.collection, 'auth_event'));
-        if (Number(total[0]?.c ?? 0) > 10_000) {
-          await db.execute(
-            sql`DELETE FROM "KvStore" WHERE collection = 'auth_event' AND id IN (SELECT id FROM "KvStore" WHERE collection = 'auth_event' ORDER BY "createdAt" ASC LIMIT 1000)`,
-          );
+        
+        // 分摊剪裁 (Amortized pruning): 仅以 1% 概率运行后台清理，且绝不阻塞响应
+        if (Math.random() < 0.01) {
+          void (async () => {
+            try {
+              const total = await db
+                .select({ c: sql<number>`count(*)` })
+                .from(kv)
+                .where(eq(kv.collection, 'auth_event'));
+              if (Number(total[0]?.c ?? 0) > 10_000) {
+                await db.execute(
+                  sql`DELETE FROM "KvStore" WHERE collection = 'auth_event' AND id IN (SELECT id FROM "KvStore" WHERE collection = 'auth_event' ORDER BY "createdAt" ASC LIMIT 1000)`,
+                );
+              }
+            } catch (err) {
+              // 守护后台任务，防报错崩溃影响主流程
+            }
+          })();
         }
       },
       async list(filter) {
-        let arr = await eventsRepo.list();
-        if (filter?.userId) arr = arr.filter((e) => e.userId === filter.userId);
-        if (filter?.eventType) arr = arr.filter((e) => e.eventType === filter.eventType);
+        const conds = [eq(kv.collection, 'auth_event')];
+        if (filter?.userId) {
+          conds.push(sql`${kv.data}->>'userId' = ${filter.userId}`);
+        }
+        if (filter?.eventType) {
+          conds.push(sql`${kv.data}->>'eventType' = ${filter.eventType}`);
+        }
+        const rows = await db
+          .select()
+          .from(kv)
+          .where(and(...conds))
+          .orderBy(desc(kv.updatedAt))
+          .limit(1000);
+        let arr = rows.map((r) => r.data as AuthEvent & { id: string; createdAt: string });
         if (filter?.sinceMs) {
           const cutoff = filter.sinceMs;
           arr = arr.filter((e) => new Date(e.createdAt).getTime() >= cutoff);

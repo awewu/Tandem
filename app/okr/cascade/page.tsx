@@ -17,6 +17,7 @@ import {
   XCircle,
   ArrowRight,
   Layers,
+  BarChart3,
 } from 'lucide-react';
 import PageTabs from '@/components/page-tabs';
 import { useDynamicStyle } from '@/lib/hooks/use-dynamic-style';
@@ -205,12 +206,21 @@ export default function OkrCascadePage() {
           active={levelFilter}
           onChange={(id) => setLevelFilter(id as 'all' | 'company' | 'team' | 'individual')}
           actions={
-            <Link
-              href="/okr"
-              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-1 px-3 py-1.5 text-caption text-ink-secondary hover:text-ink-primary hover:bg-surface-2 surface-interactive"
-            >
-              编辑 OKR <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/okr/dashboard"
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-1 px-3 py-1.5 text-caption text-ink-secondary hover:text-ink-primary hover:bg-surface-2 surface-interactive"
+                title="按部门聚合的进度/风险 · 管理层视角"
+              >
+                <BarChart3 className="h-3.5 w-3.5" /> 部门效能
+              </Link>
+              <Link
+                href="/okr"
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-1 px-3 py-1.5 text-caption text-ink-secondary hover:text-ink-primary hover:bg-surface-2 surface-interactive"
+              >
+                编辑 OKR <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
           }
         />
 

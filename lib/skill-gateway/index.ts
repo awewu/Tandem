@@ -45,7 +45,7 @@ export interface SkillGatewayResult {
   gates: {
     baseline: { verdict: GateVerdict; reasons: string[] };
     okrDrift: { verdict: GateVerdict; driftScore?: number };
-    dataScope: { verdict: GateVerdict; level?: string };
+    dataScope: { verdict: GateVerdict; level?: string; reason?: string };
     actionScope: { verdict: GateVerdict; zone?: 'green' | 'yellow' | 'red' };
   };
   /** 注入到 system prompt 的额外上下文 (SOFT_WARN 时) */
@@ -70,8 +70,8 @@ export async function runSkillGateway(input: SkillGatewayInput): Promise<SkillGa
   // ② OKR Drift Detection (真接现有)
   const okrDrift = await checkOkrDrift_(input);
 
-  // ③ Data Scope (P4 v0 stub: 简单等级映射, P5 接 RBAC)
-  const dataScope = checkDataScope_(input);
+  // ③ Data Scope (已升级：真接角色权限校验, MANIFESTO §19.3)
+  const dataScope = await checkDataScope_(input);
 
   // ④ Action Scope (P4 v0: 红/黄/绿区简化判断, P5 接 ProxyAction)
   const actionScope = checkActionScope_(input);
@@ -84,6 +84,7 @@ export async function runSkillGateway(input: SkillGatewayInput): Promise<SkillGa
 
   const blockReasons: string[] = [];
   if (baseline.verdict === 'HARD_BLOCK') blockReasons.push(...baseline.reasons);
+  if (dataScope.verdict === 'HARD_BLOCK' && dataScope.reason) blockReasons.push(dataScope.reason);
   if (actionScope.zone === 'red') blockReasons.push(`Action zone=red 严禁代行 (MANIFESTO §9.2)`);
 
   // Audit (Steward 月度审计入口)
@@ -178,11 +179,34 @@ async function checkOkrDrift_(input: SkillGatewayInput): Promise<{
 // 闸 ③ Data Scope (P4 v0 stub)
 // ---------------------------------------------------------------------------
 
-function checkDataScope_(input: SkillGatewayInput): { verdict: GateVerdict; level?: string } {
-  // P5 接 RBAC; v0: personal 总放行, company 默认 SOFT_WARN 提示需审批
+async function checkDataScope_(input: SkillGatewayInput): Promise<{
+  verdict: GateVerdict;
+  level?: string;
+  reason?: string;
+}> {
+  // 落地真实 RBAC 数据边界限制 (MANIFESTO §19.3):
+  // 个人级 dataScope ('personal') 总放行; 
+  // 公司级/部门级 ('company' / 'department') 仅放行内部管理或审计角色 ('manager' / 'steward' / 'admin' / 'owner')
   const scope = input.dataScope ?? 'personal';
-  if (scope === 'company') {
-    return { verdict: 'SOFT_WARN', level: scope };
+  if (scope === 'company' || scope === 'department') {
+    try {
+      const { getStore } = await import('../storage/repository');
+      const store = getStore();
+      const user = await store.auth.users.findById(input.actorUserId);
+      const roles: string[] = user?.roles ?? [];
+      const hasPrivilege = roles.some((r: string) => ['manager', 'steward', 'admin', 'owner'].includes(r));
+      
+      if (!hasPrivilege) {
+        return {
+          verdict: 'HARD_BLOCK',
+          level: scope,
+          reason: `无权访问数据级别 ${scope}：非内部管理或审计角色 (MANIFESTO §19.3)`,
+        };
+      }
+      return { verdict: 'SOFT_WARN', level: scope };
+    } catch (err) {
+      return { verdict: 'SOFT_WARN', level: scope };
+    }
   }
   return { verdict: 'PASS', level: scope };
 }

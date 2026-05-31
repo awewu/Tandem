@@ -58,6 +58,16 @@ export const STEP_BUDGET_SECONDS: Record<Step, number> = {
 /** 5 主步骤的顺序 (用于 UI 步进展示) */
 export const MAIN_STEPS: ReadonlyArray<Step> = ['ALIGN', 'FRAME', 'DIVERGE', 'CONVERGE', 'COMMIT'];
 
+/** 审议讨论记录 (DIVERGE 阶段内的发言, 含 AI 主持人) */
+export interface DeliberationEntry {
+  id: string;
+  userId: string;
+  comment: string;
+  /** ms epoch */
+  at: number;
+  isAi?: boolean;
+}
+
 export interface ConvergenceRoomState {
   cardId: string;
   step: Step;
@@ -87,6 +97,8 @@ export interface ConvergenceRoomState {
   selectedById?: string;
   /** Action items (CONVERGE 阶段) */
   actionItems: ActionItem[];
+  /** 审议讨论记录 (DIVERGE 阶段累积) */
+  deliberation: DeliberationEntry[];
   /** 是否已升级 */
   escalated: boolean;
   escalationReason?: string;
@@ -248,9 +260,19 @@ export function transition(
     }
 
     case 'DELIBERATION_INPUT': {
-      // 不切状态, 仅记录活动 (DIVERGE 阶段内的审议)
+      // 不切状态, 仅记录活动 (DIVERGE 阶段内的审议). 评论持久化到 room state.
       if (state.step !== 'DIVERGE') return noOp(state);
-      return { state: next, commands: [], events: ['deliberation:input'] };
+      const entry: DeliberationEntry = {
+        id: `dl_${event.userId}_${event.at}`,
+        userId: event.userId,
+        comment: event.comment,
+        at: event.at,
+      };
+      return {
+        state: { ...next, deliberation: [...state.deliberation, entry] },
+        commands: [],
+        events: ['deliberation:input'],
+      };
     }
 
     case 'PICK_OPTION': {
@@ -362,6 +384,7 @@ export function createInitialState(cardId: string, startedAt: number): Convergen
     lastActivityAt: startedAt,
     elapsedSeconds: 0,
     actionItems: [],
+    deliberation: [],
     escalated: false,
   };
 }

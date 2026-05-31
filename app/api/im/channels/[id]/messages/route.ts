@@ -41,6 +41,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       body: body.body,
       parentMessageId: body.parentMessageId,
       attachments: body.attachments,
+      senderKind: body.senderKind,
     });
     return NextResponse.json({ message }, { status: 201 });
   } catch (err) {
