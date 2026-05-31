@@ -190,6 +190,11 @@ export type TrinityNode = keyof typeof TANDEM_TRINITY;
 
 // ============================================================================
 // §E · Skill Gateway 4 道闸 (§19 · 拥抱市面智能体的边界)
+//
+// 2026-05-31 立宪追加: 4 道闸为**双向**:
+//   - 入站 (外部 AI → Tandem 数据/动作): 现有 academy-server.ts 等已落
+//   - 出站 (Tandem 分身 → 外部 AIGC): 待落 B-021/B-022/B-023
+// 任一方向调用前必须先经 runSkillGateway(). 不调 = 违反 §19.
 // ============================================================================
 
 export const SKILL_GATEWAY_GATES = [

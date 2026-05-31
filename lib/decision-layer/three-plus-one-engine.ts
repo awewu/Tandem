@@ -199,6 +199,23 @@ export class ThreePlusOneEngine {
       warnings.push('未提供 actorUserId, 跳过 baseline-guard 校验 (建议调用方补全)');
     }
 
+    // B-027 价值观锚 · 防漂移层. 有 actorUserId 时硬前置员工的不可妥协原则,
+    // 优先级高于组织记忆基线 (compose-prompt 约定: constitution 先于底座).
+    let constitutionSegment = '';
+    if (ctx.actorUserId) {
+      try {
+        const { loadActiveRules, getConstitutionPromptSegment } = await import('../persona/constitution');
+        const rules = await loadActiveRules(ctx.actorUserId);
+        constitutionSegment = getConstitutionPromptSegment(rules);
+        if (constitutionSegment) {
+          warnings.push(`已硬前置 ${rules.length} 条价值观锚 (B-027 防漂移)`);
+        }
+      } catch (err) {
+        // 价值观锚加载失败不阻塞决策 (fail-soft)
+        warnings.push(`价值观锚加载失败 (fail-soft): ${(err as Error).message}`);
+      }
+    }
+
     const [sopResults, caseResults] = await Promise.all([
       this.retriever.findRelatedSOP(ctx.description, 3),
       this.retriever.findHistoricalCases(ctx.description, 3),
@@ -206,8 +223,8 @@ export class ThreePlusOneEngine {
 
     // A: SOP-based
     const optionA = await this.buildOptionA(ctx, sopResults, warnings);
-    // B: LLM reasoning (注入 baselineContext)
-    const optionB = await this.buildOptionB(ctx, sopResults, caseResults, warnings, baselineContext);
+    // B: LLM reasoning (硬前置价值观锚 → 组织记忆基线 → 推理底座)
+    const optionB = await this.buildOptionB(ctx, sopResults, caseResults, warnings, baselineContext, constitutionSegment);
     // C: Historical
     const optionC = await this.buildOptionC(ctx, caseResults, warnings);
     // D: 员工原创占位 (humanOnly=true)
@@ -264,12 +281,13 @@ export class ThreePlusOneEngine {
     sops: MemorySearchResult[],
     cases: MemorySearchResult[],
     warnings: string[],
-    baselineContext = ''
+    baselineContext = '',
+    constitutionSegment = ''
   ): Promise<DecisionOption> {
     const sopHints = sops.map((s) => `- SOP《${s.title}》: ${s.body.slice(0, 200)}`).join('\n');
     const caseHints = cases.map((c) => `- 案例《${c.title}》: ${c.body.slice(0, 200)}`).join('\n');
 
-    const systemContent = baselineContext
+    const baseInstruction = baselineContext
       ? `${baselineContext}\n\n---\n\n你是 Tandem 的推理 Agent. 任务: 基于上下文给出第二种执行方案 (Option B), 区别于 SOP 直执行.
 规则:
 - 输出 JSON: {description, reasoning, confidence (0-1), risk (low|medium|high), timelineDays}
@@ -281,6 +299,11 @@ export class ThreePlusOneEngine {
 - 输出 JSON: {description, reasoning, confidence (0-1), risk (low|medium|high), timelineDays}
 - 不要复述 SOP, 给出更优 / 更灵活的方案
 - 必须基于事实, 引用 SOP/案例支持`;
+
+    // B-027 价值观锚硬前置在最前 (优先级高于组织记忆基线 + 推理底座)
+    const systemContent = constitutionSegment
+      ? `${constitutionSegment}\n\n---\n\n${baseInstruction}`
+      : baseInstruction;
 
     const messages: ChatMessage[] = [
       {

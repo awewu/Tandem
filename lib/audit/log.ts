@@ -25,6 +25,9 @@ export type AuditAction =
   | 'persona.proxy_executed'
   | 'persona.proxy_vetoed'
   | 'persona.proxy_expired'
+  // Persona Constitution (B-027 · 价值观锚 / 防漂移层)
+  | 'persona.constitution.rule_added'      // 添加一条不可妥协原则
+  | 'persona.constitution.rule_archived'   // 归档某条规则 (软删)
   // Memory
   | 'memory.promotion_proposed'
   | 'memory.promotion_signed'
@@ -74,6 +77,15 @@ export type AuditAction =
   | 'academy.mcp_call'                    // MCP 工具调用 (走 Skill Gateway)
   | 'academy.proficiency_claimed'         // 校友自学申请 (学分置换, Steward 月审)
   | 'academy.proficiency_claim_decided'   // Steward 审完: approved / rejected
+  // 自研身份系统 · 外部人员申请审批 (T4)
+  | 'auth.application.submit'             // 外部人员公开提交申请
+  | 'auth.application.approve'            // Owner/Admin 审批通过 (生成单次邀请码)
+  | 'auth.application.reject'             // Owner/Admin 拒绝申请
+  // 三省六部项目治理 (Phase 2 · docs/GOVERNANCE-THREE-DEPARTMENTS-2026-05-30.md)
+  | 'governance.project_created'          // 新战略项目 (复制模板)
+  | 'governance.project_updated'          // 项目元信息变更 / 状态切换
+  | 'governance.project_deleted'          // 项目删除 (非 default)
+  | 'governance.template_saved'           // 三省六部结构保存
   // 系统
   | 'system.provider_health_failed'
   | 'system.provider_switch'
@@ -110,7 +122,12 @@ export type AuditAction =
   | 'kpi.excel_exported'         // Excel 导出
   | 'kpi.bonus_calculated'       // 奖金试算 (draft)
   | 'kpi.bonus_committed'        // 奖金下发 (final)
-  | 'kpi.year_end_close';        // 绩效奖金年终关闭
+  | 'kpi.year_end_close'         // 绩效奖金年终关闭
+  // BSC 战略地图因果链 (B-019)
+  | 'kpi.causal_link.create'     // 建因果链
+  | 'kpi.causal_link.update'     // 改 strength/hypothesis
+  | 'kpi.causal_link.validate'   // 年终复盘验证假设
+  | 'kpi.causal_link.delete';    // 删因果链
 
 export interface AuditEntry {
   id: string;

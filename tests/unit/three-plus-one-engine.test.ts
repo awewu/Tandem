@@ -24,6 +24,7 @@ import {
   type DecisionContext,
 } from '@/lib/decision-layer/three-plus-one-engine';
 import type { TandemRouter } from '@/lib/taf/router';
+import { addRule } from '@/lib/persona/constitution';
 
 beforeAll(() => {
   setStore(createInMemoryStore());
@@ -208,5 +209,46 @@ describe('DecisionScenario 标签', () => {
     const engine = new ThreePlusOneEngine(makeMockRouter(), new StubMemoryRetriever());
     const r = await engine.generateOptions(ctxBase);
     expect(r.options).toHaveLength(4);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 9. B-027 价值观锚硬前置 (防漂移层生产注入)
+// ---------------------------------------------------------------------------
+
+describe('B-027 价值观锚注入', () => {
+  it('有 active 规则时硬前置到 Option B 的 system prompt + warning', async () => {
+    const userId = 'u_constitution';
+    await addRule({ userId, text: '永不向客户承诺无法兑现的交期', addedBy: userId });
+
+    const router = makeMockRouter();
+    const engine = new ThreePlusOneEngine(router, new StubMemoryRetriever());
+    const r = await engine.generateOptions({ ...ctxBase, actorUserId: userId });
+
+    // 1. system prompt 含不可妥协原则段 + 规则文本
+    const chatMock = router.chat as unknown as ReturnType<typeof vi.fn>;
+    const systemMsg = chatMock.mock.calls[0][0].messages.find(
+      (m: { role: string }) => m.role === 'system',
+    );
+    expect(systemMsg.content).toContain('## 不可妥协原则');
+    expect(systemMsg.content).toContain('永不向客户承诺无法兑现的交期');
+    // 2. 价值观锚段在最前 (硬前置, index 早于推理底座)
+    expect(systemMsg.content.indexOf('## 不可妥协原则')).toBeLessThan(
+      systemMsg.content.indexOf('你是 Tandem 的推理 Agent'),
+    );
+    // 3. warning 提示已注入
+    expect(r.warnings.some((w) => w.includes('价值观锚'))).toBe(true);
+  });
+
+  it('无规则的用户不污染 system prompt', async () => {
+    const router = makeMockRouter();
+    const engine = new ThreePlusOneEngine(router, new StubMemoryRetriever());
+    await engine.generateOptions({ ...ctxBase, actorUserId: 'u_no_rules' });
+
+    const chatMock = router.chat as unknown as ReturnType<typeof vi.fn>;
+    const systemMsg = chatMock.mock.calls[0][0].messages.find(
+      (m: { role: string }) => m.role === 'system',
+    );
+    expect(systemMsg.content).not.toContain('## 不可妥协原则');
   });
 });
