@@ -1,4 +1,4 @@
-# Tandem · 本机极速生产级部署与启动脚本 (run-local-production.ps1)
+﻿# Tandem · 本机极速生产级部署与启动脚本 (run-local-production.ps1)
 #
 # 💡 为什么需要这个？
 #   因为默认的 'npm run dev' 在开发模式下对 9.7 万行代码进行按需实时编译，导致页面点击时有数秒延迟。
