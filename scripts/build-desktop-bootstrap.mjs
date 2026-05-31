@@ -7,7 +7,7 @@
  * frontendDist 指向 `../dist`, 生产构建时被打进 .exe/.msi.
  *
  * index.html 职责 (纯原生, 无框架, 因为它在跳转到真正 app 之前运行):
- *   1. 读 tandem_get_config 拿到已保存的 serverUrl (默认 http://localhost:3000)
+ *   1. 读 tandem_get_config 拿到已保存的 serverUrl (默认 http://localhost:3005)
  *   2. 探活 serverUrl (no-cors fetch, 区分"服务器在/不在")
  *   3. 通 → window.location.replace(serverUrl) 加载完整 app
  *   4. 不通/首次 → 显示配置表单, 用户填公司服务器地址 → tandem_set_config → 重试
@@ -117,9 +117,9 @@ const HTML = `<!doctype html>
     <form id="config" onsubmit="return false;">
       <label for="url">公司服务器地址</label>
       <input id="url" type="text" inputmode="url" autocomplete="off"
-             placeholder="http://192.168.1.100:3000" />
+             placeholder="http://192.168.1.100:3005" />
       <p class="hint">
-        本机开发: <code>http://localhost:3000</code>　·　局域网: <code>http://&lt;服务器IP&gt;:3000</code>
+        本机生产: <code>http://localhost:3005</code>　·　局域网: <code>http://&lt;服务器IP&gt;:3005</code>
       </p>
       <button id="connect" type="submit">连接</button>
       <div class="err" id="err"></div>
@@ -127,7 +127,7 @@ const HTML = `<!doctype html>
   </div>
 
   <script>
-    var DEFAULT_URL = 'http://localhost:3000';
+    var DEFAULT_URL = 'http://localhost:3005';
 
     function tauriInvoke(cmd, args) {
       try {
