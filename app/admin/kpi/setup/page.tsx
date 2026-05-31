@@ -60,6 +60,8 @@ import {
 } from 'lucide-react';
 import type { Kpi, KpiCycle, KpiLevel, KpiScope, KpiSubject } from '@/lib/types/kpi';
 import { ExcelImportExport } from '@/components/kpi/ExcelImportExport';
+import { BscDistributionPanel } from '@/components/kpi/BscDistributionPanel';
+import { assessBscBalance, computeBscDistribution } from '@/lib/kpi/bsc-validation';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -219,6 +221,12 @@ export default function KpiSetupPage() {
 
   const isLocked = activeCycle ? activeCycle.status !== 'draft' : true;
 
+  // B-020: BSC 四维配比 (bonus scope KPI 加权归一)
+  const bscReport = useMemo(
+    () => assessBscBalance(computeBscDistribution(kpis, subjects)),
+    [kpis, subjects],
+  );
+
   const subjectName = useCallback(
     (id: string) => subjects.find((s) => s.id === id)?.name ?? id,
     [subjects],
@@ -289,6 +297,17 @@ export default function KpiSetupPage() {
     if (!activeCycle) return;
     const verb = next === 'active' ? '激活并锁定 target' : '关闭周期';
     if (!confirm(`确认${verb} "${activeCycle.name}" ?`)) return;
+    // B-020: 激活前 BSC 四维配比严重失衡 = 二次确认 + audit 留痕 (CHARTER §2)
+    if (next === 'active' && !bscReport.canActivateWithoutConfirm) {
+      const severeMsgs = bscReport.issues
+        .filter((i) => i.severity === 'severe')
+        .map((i) => `• ${i.message}`)
+        .join('\n');
+      const ok = confirm(
+        `⚠️ BSC 配比严重失衡:\n\n${severeMsgs}\n\n仍然激活并锁定? 此决定会走 audit log 留痕.`,
+      );
+      if (!ok) return;
+    }
     try {
       const r = await fetch(`/api/kpi/cycles/${activeCycle.id}`, {
         method: 'PATCH',
@@ -548,6 +567,9 @@ export default function KpiSetupPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* BSC 四维配比 (B-020) */}
+      {activeCycle && kpis.length > 0 && <BscDistributionPanel report={bscReport} />}
 
       {/* KPI 列表 (分层级) */}
       {activeCycle && (
