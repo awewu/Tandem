@@ -89,6 +89,166 @@
 
 ---
 
+### 🔴 战略级 · Persona 分身 AIGC 进化能力 (Gems-like 三件套)
+
+> 来源: 2026-05-31 Owner 复盘. MANIFESTO §19 立宪 "拥抱个人 AI", 当前只做了**反向**通道 (Claude Code 经 MCP 调进 Tandem); **正向通道完全没做** (Tandem 分身主动出站调 GPT-image / Perplexity / Notion AI). Gemini Gems 三件套 (自定义 instructions + 知识库 + 工具勾选) 在 Tandem 实现度 ≈ 20%, 是当前最大架构欠款. 三条立项, 跟 OKR-DRIVE-M1 之后串行排.
+
+#### B-021 · Persona Skill Builder UI (Gems-like 配置面板)
+
+- **来源**: 2026-05-31 Owner 复盘 + MANIFESTO §19 + `lib/persona/company-brain.ts:91` `enabledSkills` 字段空跑
+- **解谁的痛**: 员工 — 当前分身能力固化在代码里, 用户不能像 Gems 那样自己组装"我的财务搭子" = 自定义 instructions + 上传知识 + 勾选工具集. `enabledSkills` 字段已存在但 UI 0 行.
+- **接入成本**: 3 (3-5 天)
+- **价值**: 4 (战略 — §19 落地的用户侧入口)
+- **优先级**: 0 (V2 起手)
+- **状态**: 待 sprint
+- **拥有者**: TBD
+- **设计**:
+  - `/persona/builder` 单页: 三 Tab (Instructions / Knowledge / Skills)
+  - Instructions: 用户可覆盖 StyleProfile 自动学到的风格 (差量存 `personaInstructionOverride` 字段)
+  - Knowledge: 上传 md/pdf → 切片入 Memory 表 (type='persona_knowledge', ownerUserId 隔离)
+  - Skills: 勾选 `enabledSkills[]` (来源 = B-022 注册表)
+  - 所有变更进 audit (`persona.builder.updated`)
+- **依赖**: B-022 (要有出站 skill 注册表才有得勾)
+
+#### B-022 · 出站 Skill 适配器 (Tandem 分身 → 外部 AIGC, 经 Skill Gateway)
+
+- **来源**: 2026-05-31 Owner 复盘 + MANIFESTO §19 (出站亦经此闸) + `app/summon/external/page.tsx` 当前是 PlaceholderPage
+- **解谁的痛**: 员工 — Tandem 分身现在是"哑壳", 不会调外部 AIGC. 想让分身"帮我搜一下竞品近期新闻"/"画一张架构图"/"读这个 PDF 摘要" 全部做不到. 第 §19 条 "拥抱个人 AI" 只兑现了一半.
+- **接入成本**: 4 (1-2 周)
+- **价值**: 5 (战略 — Tandem 分身首次具备 AIGC 进化能力)
+- **优先级**: 0 (V2 起手, 跟 B-021 协同)
+- **状态**: 待 sprint
+- **拥有者**: TBD
+- **设计**:
+  - 新增 `lib/skill-gateway/outbound/` 目录, 每个外部 AIGC 一个 adapter
+  - 首发 5 个: `web.search` (Perplexity) / `image.gen` (GPT-image-1) / `doc.summarize` (Anthropic) / `mcp.notion` / `mcp.github`
+  - 统一接口 `OutboundSkill { id, label, requiredScope, invoke(input, ctx) }`
+  - 调用前必经 `runSkillGateway()` (现有 `lib/skill-gateway/index.ts`), `actionScope='send_external'` 默认 HARD_BLOCK, 由用户在 Builder 显式授权升黄
+  - 失败 fail-soft, 写 `LlmUsageLog` 归因到 actor
+  - 全部调用走 audit (`skill_gateway.outbound_invoked`)
+- **依赖**: B-017 (Skill Gateway 4 道闸已落) + B-023 (BYOK)
+
+#### B-023 · BYOK 凭据库 (员工自带 API Key)
+
+- **来源**: MANIFESTO §19 + `app/summon/external/page.tsx:16` "员工自带 key (BYOK) 不消耗公司 token (v2)" + 当前代码 0 行
+- **解谁的痛**: 财务 / 员工 — 出站 AIGC 调用若全用公司 key, 成本不可控且无法归因到个人; 员工自带 key 还可让 Tandem 兑现 §19 "Tandem 不重发明个人 AI" 的真正承诺.
+- **接入成本**: 3 (1 周)
+- **价值**: 4 (成本 + 合规 + §19 兑现)
+- **优先级**: 0 (V2, B-022 前置)
+- **状态**: 待 sprint
+- **拥有者**: TBD
+- **设计**:
+  - `KvStore` collection='byok_credential', key=`${userId}:${provider}`, value=AES-GCM 加密 (KEK 走 env `BYOK_KEK`)
+  - 新增 `lib/byok/credential.ts`: `getKey(userId, provider)` / `setKey(userId, provider, plaintext)` / `revokeKey(...)`
+  - `/persona/builder` 多一 Tab "Credentials": 录入 + 测试连通性 (调一次最便宜的 ping 端点)
+  - 出站 adapter 优先取 actor key, fallback 到公司 key (公司 key 用量进 LlmUsageLog 加 fallback 标签)
+  - 所有 set/revoke 进 audit
+- **依赖**: 无 (但 B-022 必须等它)
+
+---
+
+### 🔴 战略级 · Persona 进化五引擎 (真"进化", 不是假学习)
+
+> 来源: 2026-05-31 Owner 复盘 "再想想分身如何进化". 当前 persona 子系统是**3 引擎漏气 + 2 引擎根本没装**: 能力/知识/风格三引擎写了一半 (`learning-collector.ts:33` 只 +1 计数, `enabledSkills` 有字段无 UI, communicationExamples 单向写不读回); **战略引擎**(OKR 切换 → 重组分身) 0 行; **反思引擎**(VETOED 归因) 只数数不诊断. 五引擎缺一就跑不起飞轮 — 之前 B-021/B-022/B-023 的 "Gems-like 三件套" 没这五条等于摆设.
+>
+> 五引擎: ① 能力 (skill 加载 = B-022) ② 知识 (Memory/上传) ③ 风格 (StyleProfile) ④ 战略 (OKR 同步) ⑤ 反思 (失败归因). 闭环 = 议事 outcome → 反思诊断 → 反推前 4 引擎调整 → 下次议事更准.
+
+#### B-024 · Persona 反思引擎 (VETOED 归因 + 负样本库)
+
+- **来源**: 2026-05-31 Owner 复盘. 现状 `lib/persona/learning-collector.ts:33-42` 只 `+1 vetoedByUser`, **不问"为什么被否"**. 计数 ≠ 学习, 否决 100 次还是同样错.
+- **解谁的痛**: Owner / 员工 — 当前所有"训练台/学习闭环/StyleProfile" 都是**假学习**, 因为没有诊断机制反向修. 这条不落, 之前 B-021/B-022/B-023 全是摆设.
+- **接入成本**: 4 (5-7 天)
+- **价值**: 5 (战略 — 五引擎根. 不落这条, persona 进化整盘是假象)
+- **优先级**: 0 (V2 起手, **B-021/B-022/B-023 之前**)
+- **状态**: 待 sprint
+- **拥有者**: TBD
+- **设计**:
+  - 议事 VETOED / Decision selected='D' (用户推翻 AI 建议) 触发 LLM 写一条 `RetroNote`: 议题 / 被否选项 / 被否原因 / 反推归类 (knowledge_gap | style_drift | skill_misuse | okr_drift | other)
+  - 落库: `Memory` 表 type='retro_note' + `KvStore` collection='persona_negative_examples'
+  - **反推前 4 引擎**:
+    - skill_misuse 累积 ≥ 3 次 → 自动从 `enabledSkills` 卸该 skill, 通知用户
+    - knowledge_gap → 提示用户"建议上传 X 类知识" (跳 B-021 Knowledge Tab)
+    - style_drift → 该 RetroNote 摘要进 next prompt 的 `negative_examples` 段
+    - okr_drift → 落 `okr-drift` audit + 跳 B-025 realign
+  - 新增 `lib/persona/reflection.ts` `reflectOnVeto(decisionId)` (LLM 单点调用, fail-soft)
+- **依赖**: 无 (基于现有 `learning-collector` + Memory + LLM)
+
+#### B-025 · Persona 战略引擎 (OKR 切换 → 重组分身)
+
+- **来源**: 2026-05-31 Owner 复盘. 全代码搜不到 OKR 切换 → 重组 `enabledSkills` / 淘汰过时 examples 的逻辑. §19 + OKR-DRIVEN 灵魂没接通.
+- **解谁的痛**: Owner — Q3 OKR 切到 Q4, 分身**毫无感知**继续干上季度的活. 跟 OKR-DRIVEN 第 4 条 "牛马 = OKR 驱动器严格版" 直接矛盾.
+- **接入成本**: 3 (1 周)
+- **价值**: 5 (战略 — §19 + OKR-DRIVEN 代码兑现)
+- **优先级**: 0 (V2, B-024 之后)
+- **状态**: 待 sprint
+- **拥有者**: TBD
+- **设计**:
+  - 监听 `eventBus` 事件 `okr.cycle_changed` (新增, 由 OKR 模块发)
+  - 触发 `realignPersonaToOkr(userId, oldOkr, newOkr)`:
+    1. 跑 `skillRegistry.search(newOkr.kr.title)` 找新 OKR 高相关 skill, 提议 register
+    2. 跑相同检索, 旧 OKR 不沾边的 skill 标记为 candidate-unregister
+    3. `communicationExamples` 加 staleness 标记 (旧 cycle 的衰减权重 0.3)
+    4. 写 `growthArea` `category='okr_realign'` status='identified' 等用户确认
+  - 通知:"OKR 切到 Q4 后, 我建议: 卸 [X], 加 [Y], 你确认?"
+  - 跟 B-021 Persona Builder Skills Tab 共用 UI 入口
+- **依赖**: B-022 (要有 skill 市场才有得加) + B-014 OKR 注入器 (已落)
+
+#### B-026 · 跨 Persona 学习 · Anti-pattern 共享库
+
+- **来源**: 2026-05-31 Owner 复盘. 当前每个 persona 各自踩坑, 30 个同事重复犯同类错.
+- **解谁的痛**: Steward / HR / 新员工 — 同岗位 (e.g. 销售 / 工程师) newborn 入职时, 应继承组织级"前人踩过的坑"; 现状 0.
+- **接入成本**: 4 (1-2 周, 等 B-024 跑出语料)
+- **价值**: 4 (组织级 — 30 人不再重复试错)
+- **优先级**: 0 (V2.5, 紧跟 B-024)
+- **状态**: 待 sprint
+- **拥有者**: TBD
+- **设计**:
+  - `lib/persona/anti-pattern.ts` `aggregateRetroNotes(opts: { okrAnchor?, role? })`
+  - LLM 把 N 条同岗位/同 OKR 的 RetroNote 抽象成"某岗位 X 类员工常犯 Y 类错" (去敏感化 — 不带姓名/具体决议 ID)
+  - 落到 `Memory` type='org_anti_pattern' tenantId 范围, 不带 ownerUserId
+  - 同岗位 newborn / apprentice 入职时, system prompt prepend top-5 相关 anti-pattern
+  - 季度 Steward review 一次, 失效的标记 archived
+  - 隐私守门: 抽象前 LLM 必须返回 `containsPii: false`, 否则人审
+- **依赖**: B-024 (需要 RetroNote 语料)
+
+#### B-027 · 价值观锚 (Constitutional Persona)
+
+- **来源**: 2026-05-31 Owner 复盘. 当前没"老板的不可妥协原则"显式建模, 对话久了 persona 容易漂.
+- **解谁的痛**: Owner — 跟 OKR Drift 平级, 但管"性格红线"而不是"目标偏离". 比如 "绝不在没合同情况下打折" 这类硬规则.
+- **接入成本**: 2 (2-3 天 + 季度 review)
+- **价值**: 3 (防漂移, 比 OKR drift 更底层)
+- **优先级**: 1 (V2.5)
+- **状态**: ✅ MVP 已落地 (2026-05-31)
+- **拥有者**: TBD
+- **设计 (✅ = 已实现)**:
+  - ✅ `KvStore` collection='persona_constitutions', key=userId, value=`PersonaConstitution { rules: ConstitutionRule[], createdAt, updatedAt }` (`lib/types/persona-constitution.ts`, MAX_ACTIVE_RULES=10)
+  - ✅ Service `lib/persona/constitution.ts` (load/add/archive + `getConstitutionPromptSegment`) + audit `persona.constitution.rule_added/archived`
+  - ✅ API `app/api/persona/[userId]/constitution/route.ts` (GET/POST/DELETE, 写权限限本人/admin, steward 只读)
+  - ✅ 每次 system prompt 拼装硬前置, 标 "## 不可妥协原则 (违反 = 重答)" (`lib/persona/compose-prompt.ts` + 生产注入在 `lib/decision-layer/three-plus-one-engine.ts` Option B, 优先级高于组织记忆基线)
+  - ✅ UI: `/persona/training` 挂 `PersonaConstitutionCard` (增删 + 归档历史, 10 条上限)
+  - ⏳ (后续 sprint) LLM 输出后 baseline-guard 二次扫描: 输出是否违反 constitution rule, 违反 → 重生成 + audit
+  - ⏳ (后续 sprint) 季度 `governance.constitution_review` 任务: Owner / Steward review 每条是否仍有效
+- **依赖**: 无
+
+#### B-028 · 探索预算 (Multi-Armed Bandit)
+
+- **来源**: 2026-05-31 Owner 复盘. 当前分身永远只用熟练 skill, 无主动尝试.
+- **解谁的痛**: Owner — persona 不主动学新 skill = 永远停在当前能力上限.
+- **接入成本**: 3 (3-5 天)
+- **价值**: 3 (主动性 — 让 persona 自己找进化方向)
+- **优先级**: 1 (V3, 等 B-022/B-024 数据积累)
+- **状态**: 观察
+- **拥有者**: TBD
+- **设计**:
+  - 给每 persona 每周 N 次 (默认 3) "试新 skill" 配额
+  - ε-greedy: 90% 用 top-success skill, 10% 试 `enabledSkills` 中调用次数 <5 的或新加载的
+  - 每次试用结果 (用户接受 / 否决) 进入 `LlmUsageLog` 标 `experimentalSkill: true`
+  - 累积成功率 > 阈值 → 该 skill 升为常用; 失败 ≥ 3 次 → 候选 unregister
+  - bandit state 落 `KvStore` collection='persona_bandit_state'
+- **依赖**: B-022 (skill 市场) + B-024 (反思反馈)
+
+---
+
 ### � BSC 平衡记分卡补全 (KPI 体系深化)
 
 > 来源: 2026-05-30 Owner 复盘 "KPI 是否引入 BSC 核心精神". 现状:

@@ -671,6 +671,7 @@ Tandem 的位置不是"个人 AI 竞品", 而是**"个人 AI 的组织级网关"
 2. **个人 AI 的 skill (MCP / Function Calling 协议) 接入 Tandem 时**, 必须挂在 4 道闸之后 — Tandem 不发布"裸 skill 列表"给员工自取.
 3. **CompanyBrain 永远是边界设定者**, 不是个人 AI 的协作者 — 它检查个人 AI 的输入/输出, 不替个人 AI 干活.
 4. **任何个人 AI 调用都进 audit** — 包括 prompt / tool calls / 阻断原因, 用于 Steward 月度审计.
+5. **分身出站亦经此闸** (2026-05-31 立宪追加) — Tandem 分身主动调外部 AIGC (web 搜索 / 图像生成 / 文档摘要 / 第三方 MCP) 时, 同样必须先经 `runSkillGateway()`. 出站默认 `actionScope='send_external'` = HARD_BLOCK, 由用户在 Persona Builder 显式授权升黄. 4 道闸是**双向**的: 外部 AI → Tandem 数据 (反向, 已落) ＋ Tandem 分身 → 外部 AIGC (出站, 待落 B-021/B-022/B-023).
 
 **反例**:
 

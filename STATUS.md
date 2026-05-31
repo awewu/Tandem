@@ -1,12 +1,47 @@
 # Tandem · 全量验证状态报告
 
-**最后更新**: 2026-05-25  
-**生成方式**: 由 8 阶段自动化脚本 + 文档汇总  
+**最后更新**: 2026-05-31 PT  
+**生成方式**: 由门禁脚本 + git/文件实测汇总  
 **当前服务**: `http://localhost:3005` (dev mode, PG 在 localhost:5432)
 
 ---
 
-## 一句话总结
+## 当前快照 (2026-05-31 实测)
+
+### 代码规模
+
+| 维度 | 数量 |
+|---|---|
+| app 页面 (`page.tsx`) | 104 |
+| API 路由 (`route.ts`) | 170 |
+| 组件 (`components/*.tsx`) | 100 |
+| lib 模块 (`*.ts`) | 217 |
+| 测试文件 | 59 |
+| 文档 (`docs/*.md`) | 91 |
+| TS/TSX 代码行 (app+lib+components) | ~97,400 |
+
+### 质量门禁 — 6 道全绿
+
+| 门禁 | 结果 |
+|---|---|
+| `tsc --noEmit` | ✅ 干净 |
+| `vitest run` | ✅ **680 passed** (62 文件, 已修 .env.local 泄漏导致的 audit flake) |
+| UI Charter (`check-ui-charter.mjs --strict`) | ✅ 0 违规 (allowlist 90 遗留待清零) |
+| 内链 (`check-deeplinks.mjs --strict`) | ✅ 0 悬空 · 279 路由 |
+| docs 索引 (`check-docs-index.mjs --strict`) | ✅ INDEX 与 91 docs 同步 |
+| `npm run build` | ✅ 路由全编译 |
+
+### 进行中 (未提交工作区)
+
+- **外部协作申请 + RBAC**: `lib/auth/{applications,roles,module-scope}` + `app/register/apply` + `app/admin/user-applications` + `app/forbidden`
+- **三省六部治理协同**: `lib/governance/projects` + `app/governance/three-departments` + `app/api/governance`
+- **KPI 强类型化 (B-019)**: `drizzle/migrations/0005_kpi_typed_tables.sql` + 8 个 typed Repository (含 `KpiCausalLink` BSC 因果链)
+- **Persona Constitution (B-027)**: `lib/types/persona-constitution` + `lib/persona/constitution` + prompt 硬前置 + `app/api/persona/[userId]/constitution`
+- **Ownership SSOT + Org 后端化 (D/F-pragma)**: 见 `docs/OWNERSHIP-SSOT-2026-05-31.md`
+
+---
+
+## 一句话总结 (2026-05-25 基线 · 历史)
 
 - **后端 / API**：✅ 闭环全通 (18/18 业务调用 + 95/95 单元 + 12/12 E2E)
 - **手机端**：✅ 3 viewport × 6 页面 (19/19) — 布局密集但可用
@@ -17,7 +52,7 @@
 
 ---
 
-## 详细验证结果
+## 详细验证结果 (2026-05-25 快照 · 历史归档, 数字以上方「当前快照」为准)
 
 ### Phase 1 · 业务闭环 (18/18) — 真实 PG 写入
 
@@ -53,8 +88,8 @@
 
 | 测试 | 结果 |
 |---|---|
-| `vitest run` | **95/95 通过**, 1.2s |
-| `npm run build` | **154 路由**全部编译, Exit 0 |
+| `vitest run` | **95/95 通过**, 1.2s (2026-05-25 基线; 现已 **616 passed**) |
+| `npm run build` | **154 路由**全部编译, Exit 0 (现已 **170 路由**) |
 | Production standalone 输出 | `.next/standalone/` 已生成 |
 
 ### Phase 3 · 手机端 (19/19)

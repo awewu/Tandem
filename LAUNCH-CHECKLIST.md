@@ -19,8 +19,10 @@
 ### A2. 全量自动验证 (按顺序跑 4 个脚本)
 
 - [ ] `node scripts/full-loop-verify.mjs`  → 应看到 `✅ Pass: 18, ❌ Fail: 0`
-- [ ] `npm test`  → 应看到 `Test Files 11 passed (11), Tests 95 passed (95)`
-- [ ] `npm run build`  → Exit 0
+- [ ] `npm test`  → 应看到 `Test Files 62 passed (62), Tests 680 passed (680)`
+- [ ] `npx tsc --noEmit`  → Exit 0 (强类型门)
+- [ ] 4 道静态门禁全过: `check-ui-charter` / `check-deeplinks` / `check-docs-index` (均 `--strict`)
+- [ ] `npm run build`  → Exit 0 (2026-05-31 已确认, 全路由编译)
 - [ ] `$env:PORT="3005"; $env:E2E_BASE_URL="http://localhost:3005"; npx playwright test`  → `12 passed`
 - [ ] `npx playwright test tests/e2e/mobile.spec.ts`  → `19 passed`
 

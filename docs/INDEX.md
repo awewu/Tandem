@@ -71,6 +71,7 @@
 | `CONVERGENCE-PRINCIPLE.md` | 17 分钟议事收敛 |
 | `SUMMON-AND-NURTURE.md` | 召唤式工作台 / 主分身培养 |
 | `ACADEMY-METAPHOR-2026-05-29.md` | 学院化主分身 (StudentCard/CourseTabs) |
+| `OWNERSHIP-SSOT-2026-05-31.md` | Ownership SSOT + Org 后端化 (D/F-pragma 已落地) |
 
 ## 3. 演进 · 路线 / 反思 / 审计
 
@@ -81,6 +82,7 @@
 | `EVOLUTION-2026-05-APPENDIX-*` | 三份附录 (Claude Code / Ruflo / Skills) |
 | `EVOLUTION-ROADMAP-2026-05-28.md` | 路线图 |
 | `EVOLUTION-ROADMAP-2026-05-V2.md` | 路线图 V2 |
+| `STORE-SLICE-PLAN-2026-05-31.md` | `lib/store.ts` 拆 slice 备忘 (P1b, 下会话专项) |
 | `EVOLUTION-STATUS-2026-05-28.md` | 路线进展 (历史) |
 | `REFLECTION-2026-05.md` | 月度反思 |
 | `META-REVIEW-2026-05-27.md` | 元审查 |
@@ -107,6 +109,7 @@
 | 移动端 vs 桌面 AI | `MOBILE-VS-GPT-KIMI.md` |
 | Tandem vs 飞书差距 | `TANDEM-vs-FEISHU-GAP-ANALYSIS.md` |
 | 团队协作补充 | `SUPPLEMENT-TEAMS-COWORK.md` |
+| 治理协同 (三省六部) | `GOVERNANCE-THREE-DEPARTMENTS-2026-05-30.md` |
 
 ## 5. 运营 / 合规 / 商业
 
