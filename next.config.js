@@ -1,12 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Desktop (Tauri) builds: emit a fully static frontend to dist/.
-  // The backend that used to live in app/api/* has been ported to Rust
-  // commands in src-tauri/src/main.rs and is dispatched through
-  // lib/hermes-api.ts (which detects the Tauri runtime and calls invoke()).
-  // Web/dev runs continue to use the Next.js API routes.
-  // Tauri 静态导出 / Web standalone 自包含部署 / dev undefined
+  // 桌面端 (Tauri) = 瘦客户端: webview 加载远端公司 Tandem server (完整 Next.js, 含 API + Postgres),
+  // 功能与 web 端 100% 等价. 桌面打包不再静态导出整个应用, 仅打入 scripts/build-desktop-bootstrap.mjs
+  // 生成的连接网关页 (dist/index.html). 因此 TAURI=1 静态导出分支已不再用于桌面构建, 保留仅作兜底.
+  // Web standalone 自包含部署 / dev undefined.
   output: process.env.TAURI === '1' ? 'export' : process.env.NEXT_OUTPUT === 'standalone' ? 'standalone' : undefined,
   distDir: process.env.TAURI === '1' ? 'dist' : '.next',
   // When TAURI=1, scripts/build-static.mjs temporarily moves app/api/ out

@@ -4,6 +4,8 @@
 **生成方式**: 由门禁脚本 + git/文件实测汇总  
 **当前服务**: `http://localhost:3005` (dev mode, PG 在 localhost:5432)
 
+> **口径说明**: 本文是**点位验证状态报告**。项目权威总览见 `docs/PROJECT-OVERVIEW.md`; 战略锚点以 `docs/SELF-USE-FIRST.md` 为准 (自用优先)。文中"试用邀请/100 人通用码"指**内部同事 onboarding**, 非对外 SaaS 销售。
+
 ---
 
 ## 当前快照 (2026-05-31 实测)
@@ -25,7 +27,7 @@
 | 门禁 | 结果 |
 |---|---|
 | `tsc --noEmit` | ✅ 干净 |
-| `vitest run` | ✅ **680 passed** (62 文件, 已修 .env.local 泄漏导致的 audit flake) |
+| `vitest run` | ✅ **722 passed** (67 文件, 2026-05-31 实测) |
 | UI Charter (`check-ui-charter.mjs --strict`) | ✅ 0 违规 (allowlist 90 遗留待清零) |
 | 内链 (`check-deeplinks.mjs --strict`) | ✅ 0 悬空 · 279 路由 |
 | docs 索引 (`check-docs-index.mjs --strict`) | ✅ INDEX 与 91 docs 同步 |
@@ -88,7 +90,7 @@
 
 | 测试 | 结果 |
 |---|---|
-| `vitest run` | **95/95 通过**, 1.2s (2026-05-25 基线; 现已 **616 passed**) |
+| `vitest run` | **95/95 通过**, 1.2s (2026-05-25 基线; 现已 **722 passed** / 67 文件) |
 | `npm run build` | **154 路由**全部编译, Exit 0 (现已 **170 路由**) |
 | Production standalone 输出 | `.next/standalone/` 已生成 |
 

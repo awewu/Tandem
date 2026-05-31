@@ -27,6 +27,8 @@ import {
   Search,
   Bell,
   Megaphone,
+  CheckSquare,
+  HelpCircle,
 } from 'lucide-react';
 import { InsightsWidget } from '@/components/insights/insights-widget';
 import { PendingRetrosCard } from '@/components/dashboard/pending-retros-card';
@@ -195,6 +197,9 @@ export default function HomePage() {
       <div className="page-container py-4 md:py-8 space-y-6 md:space-y-10">
         {/* ──────────── 顶部公告 tagline (单一入口指向 /intranet) ──────────── */}
         <LatestAnnouncementTagline />
+
+        {/* ──────────── Onboarding 3步新手引导 (Top-5 #5 采纳命门) ──────────── */}
+        <OnboardingTour />
 
         {/* ──────────── §1 工作台 hero · 4 WorkbenchCards (左 2/3) + Launchpad (右 1/3) 等高并排 ──────────── */}
         <div className="grid gap-4 md:gap-6 lg:grid-cols-3 lg:items-stretch">
@@ -681,5 +686,177 @@ function LatestAnnouncementTagline() {
         进公司门户 <ArrowRight className="h-3.5 w-3.5" />
       </span>
     </Link>
+  );
+}
+
+// ──────────── Onboarding 3步新手引导 (Top-5 #5) ────────────
+
+function OnboardingTour() {
+  const [visible, setVisible] = useState(false);
+  const [steps, setSteps] = useState({ okr: false, debate: false, persona: false });
+
+  useEffect(() => {
+    // 仅在 client-side 加载状态, 避免 SSR mismatch
+    const dismissed = localStorage.getItem('tandem_onboard_dismissed') === 'true';
+    if (!dismissed) {
+      setVisible(true);
+    }
+    setSteps({
+      okr: localStorage.getItem('tandem_onboard_okr') === 'true',
+      debate: localStorage.getItem('tandem_onboard_debate') === 'true',
+      persona: localStorage.getItem('tandem_onboard_persona') === 'true',
+    });
+  }, []);
+
+  if (!visible) return null;
+
+  const doneCount = Object.values(steps).filter(Boolean).length;
+  const pct = Math.round((doneCount / 3) * 100);
+
+  const toggleStep = (key: keyof typeof steps) => {
+    const next = !steps[key];
+    setSteps((prev) => {
+      const updated = { ...prev, [key]: next };
+      localStorage.setItem(`tandem_onboard_${key}`, String(next));
+      return updated;
+    });
+  };
+
+  const handleDismiss = () => {
+    localStorage.setItem('tandem_onboard_dismissed', 'true');
+    setVisible(false);
+  };
+
+  return (
+    <div className="rounded-2xl border border-border bg-gradient-to-r from-brand-500/5 via-brand-500/10 to-transparent p-5 relative overflow-hidden shadow-soft-sm animate-fade-in">
+      <div className="absolute -right-10 -bottom-10 h-32 w-32 rounded-full bg-brand-500/5 blur-xl pointer-events-none" />
+      
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+        <div>
+          <h3 className="text-headline font-semibold text-ink-primary flex items-center gap-2">
+            <HelpCircle className="h-4.5 w-4.5 text-brand-500 animate-pulse-soft" />
+            Tandem 新手 3 步 Onboarding
+          </h3>
+          <p className="text-caption text-ink-secondary mt-0.5">
+            5 分钟上手指南：从 OKR 对齐、议事体验到分身激活，开启真实的 OKR 驱动协同。
+          </p>
+        </div>
+        
+        <div className="flex items-center gap-3">
+          <div className="flex flex-col items-end gap-1">
+            <span className="text-footnote font-semibold text-brand-600 tabular-nums">
+              完成度 {pct}% ({doneCount}/3)
+            </span>
+            <div className="h-1.5 w-28 bg-surface-3 rounded-full overflow-hidden">
+              <div className="h-full bg-brand-500 transition-all duration-emphasis" style={{ width: `${pct}%` }} />
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleDismiss}
+            className="text-footnote text-ink-tertiary hover:text-ink-primary border border-border hover:bg-surface-2 rounded px-2.5 py-1 transition-colors surface-interactive"
+          >
+            不再显示
+          </button>
+        </div>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        {/* Step 1 */}
+        <div className={`rounded-lg border p-3.5 transition-all flex flex-col justify-between h-full bg-surface-1 ${steps.okr ? 'border-brand-200/50 bg-brand-500/[0.01]' : 'border-border hover:border-brand-200'}`}>
+          <div className="space-y-1.5">
+            <div className="flex items-start justify-between">
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-brand-500/10 text-[10px] font-bold text-brand-600 font-mono">
+                01
+              </span>
+              <button
+                type="button"
+                onClick={() => toggleStep('okr')}
+                className="text-brand-500 hover:text-brand-600 shrink-0"
+                title={steps.okr ? "标记未完成" : "标记已完成"}
+              >
+                {steps.okr ? <CheckSquare className="h-5 w-5" /> : <div className="h-5 w-5 rounded border-2 border-muted hover:border-brand-500 transition-colors" />}
+              </button>
+            </div>
+            <h4 className="text-caption font-semibold text-ink-primary">目标对齐 (Align OKRs)</h4>
+            <p className="text-footnote text-ink-secondary leading-normal">
+              进入 OKR 页面，为本周期建立你的 O 和 KR。这是 AI 分身后续工作的前提。
+            </p>
+          </div>
+          <Link
+            href="/okr"
+            className="mt-3.5 text-footnote font-medium text-brand-600 hover:text-brand-700 flex items-center gap-1 self-start"
+          >
+            去对齐 OKR <ArrowRight className="h-3 w-3" />
+          </Link>
+        </div>
+
+        {/* Step 2 */}
+        <div className={`rounded-lg border p-3.5 transition-all flex flex-col justify-between h-full bg-surface-1 ${steps.debate ? 'border-brand-200/50 bg-brand-500/[0.01]' : 'border-border hover:border-brand-200'}`}>
+          <div className="space-y-1.5">
+            <div className="flex items-start justify-between">
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-brand-500/10 text-[10px] font-bold text-brand-600 font-mono">
+                02
+              </span>
+              <button
+                type="button"
+                onClick={() => toggleStep('debate')}
+                className="text-brand-500 hover:text-brand-600 shrink-0"
+                title={steps.debate ? "标记未完成" : "标记已完成"}
+              >
+                {steps.debate ? <CheckSquare className="h-5 w-5" /> : <div className="h-5 w-5 rounded border-2 border-muted hover:border-brand-500 transition-colors" />}
+              </button>
+            </div>
+            <h4 className="text-caption font-semibold text-ink-primary">17min 试跑议事 (Run Convergence)</h4>
+            <p className="text-footnote text-ink-secondary leading-normal">
+              发起一条议事。体验 A/B/C 三选与硬门禁 D 选项（人写选项），防范 AI 伪造。
+            </p>
+          </div>
+          <Link
+            href="/convergence"
+            className="mt-3.5 text-footnote font-medium text-brand-600 hover:text-brand-700 flex items-center gap-1 self-start"
+          >
+            去发起议事 <ArrowRight className="h-3 w-3" />
+          </Link>
+        </div>
+
+        {/* Step 3 */}
+        <div className={`rounded-lg border p-3.5 transition-all flex flex-col justify-between h-full bg-surface-1 ${steps.persona ? 'border-brand-200/50 bg-brand-500/[0.01]' : 'border-border hover:border-brand-200'}`}>
+          <div className="space-y-1.5">
+            <div className="flex items-start justify-between">
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-brand-500/10 text-[10px] font-bold text-brand-600 font-mono">
+                03
+              </span>
+              <button
+                type="button"
+                onClick={() => toggleStep('persona')}
+                className="text-brand-500 hover:text-brand-600 shrink-0"
+                title={steps.persona ? "标记未完成" : "标记已完成"}
+              >
+                {steps.persona ? <CheckSquare className="h-5 w-5" /> : <div className="h-5 w-5 rounded border-2 border-muted hover:border-brand-500 transition-colors" />}
+              </button>
+            </div>
+            <h4 className="text-caption font-semibold text-ink-primary">激活 Lv.1 个人分身 (Train Persona)</h4>
+            <p className="text-footnote text-ink-secondary leading-normal">
+              进入拿捏板块，建立并同意激活你的 Lv.1 新手分身。它是组织记忆的最佳载体。
+            </p>
+          </div>
+          <Link
+            href="/persona"
+            className="mt-3.5 text-footnote font-medium text-brand-600 hover:text-brand-700 flex items-center gap-1 self-start"
+          >
+            去激活分身 <ArrowRight className="h-3 w-3" />
+          </Link>
+        </div>
+      </div>
+      
+      <div className="mt-3 flex items-center gap-1.5 text-footnote text-ink-tertiary justify-end">
+        <FileText className="h-3.5 w-3.5 text-ink-tertiary" />
+        <span>更详细的新人指引，请阅读 </span>
+        <Link href="/documents?path=docs%2FINTERNAL-USER-GUIDE.md" className="text-brand-600 hover:underline font-semibold flex items-center gap-0.5">
+          《Tandem 5分钟极简上手手册》<ArrowRight className="h-3 w-3 inline" />
+        </Link>
+      </div>
+    </div>
   );
 }

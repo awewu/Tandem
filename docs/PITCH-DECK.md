@@ -37,6 +37,13 @@ style: |
   .big { font-size: 56px; font-weight: 700; color: #ea580c; }
 ---
 
+<!--
+  ⚠️ 文档状态 (2026-05-31): 本 deck 为**旧 SaaS 商业化口径**, 第"四、商业"章节 (种子客户/定价/GTM/退款)
+  已被自用优先战略锚点取代。当前权威口径见 docs/SELF-USE-FIRST.md 与 docs/PROJECT-OVERVIEW.md。
+  产品机制部分 (议事室/Persona/KPI×TTI/Memory) 仍准确; 持久化已从 Prisma 迁为 Drizzle ORM。
+  仅作历史参考, 勿照搬商业判断。
+-->
+
 <!-- _class: cover -->
 
 # Tandem

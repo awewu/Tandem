@@ -1,27 +1,33 @@
-# 铁山 Desktop App (Tauri)
+# Tandem Desktop App (Tauri)
 
-## Architecture
+## Architecture — 瘦客户端 (thin client)
 
-| Runtime | Frontend | Backend | API client path |
-|---|---|---|---|
-| **Web (browser)** | Next.js dev / `next start` | Next.js API routes in `app/api/*` (which spawn `hermes` CLI) | `lib/hermes-api.ts` → `fetch()` |
-| **Desktop (Tauri)** | Static export to `dist/` | Rust commands in `src-tauri/src/main.rs` (which spawn `hermes` CLI) | `lib/hermes-api.ts` → `invoke()` |
+桌面端 **不重复实现业务**. 它是一个 Tauri webview, 加载运行在公司服务器/局域网上的
+**完整 Next.js Tandem server** (含 `app/api/*` + Postgres). 因此桌面端功能与 web 端 **100% 等价** ——
+同一份代码, 同一份数据, 只是多了原生系统集成 (托盘 / 通知 / 全局快捷键 / 开机自启).
 
-`lib/hermes-api.ts` auto-detects `window.__TAURI_INTERNALS__` and routes calls
-to either `fetch('/api/...')` or `invoke('hermes_...')`. Pages are agnostic —
-they just call `getStatus()`, `getSkills()`, `startWorkflowRun()`, etc.
+| Runtime | 加载什么 | Backend |
+|---|---|---|
+| **Web (browser)** | Next.js dev / `next start` | `app/api/*` + Postgres |
+| **Desktop dev** (`tauri dev`) | `tauri.conf.json` → `devUrl` = 运行中的 Next server | 同 web (远端) |
+| **Desktop prod** (`tauri build`) | `frontendDist` = `dist/index.html` (bootstrap 连接网关) → 跳转配置的 server URL | 同 web (远端) |
 
-### Rust commands implemented (`src-tauri/src/main.rs`)
+### 启动 / 连接流程
 
-- `hermes_health` ↔ `/api/health`
-- `hermes_skills` ↔ `/api/skills`
-- `hermes_status` ↔ `/api/status`
-- `hermes_mcp_list` ↔ `/api/mcp`
-- `hermes_memory_status` ↔ `/api/memory`
-- `hermes_logs` ↔ `/api/logs`
-- `hermes_cron_list` / `hermes_cron_action` / `hermes_cron_create` ↔ `/api/cron`
-- `hermes_chat_stream` ↔ `/api/stream` (uses Tauri events `hermes-stream`)
-- `hermes_workflow_run` ↔ `/api/workflows/run` (uses per-runId Tauri events `workflow:<runId>`)
+- **dev**: `tauri dev` 直接加载 `devUrl` (默认 `http://localhost:3000`) = 完整 app.
+- **prod**: webview 先加载打进包的 `dist/index.html` (由 `scripts/build-desktop-bootstrap.mjs` 生成).
+  该页 JS 调 `tandem_get_config` 读已保存的 `serverUrl` → 探活 → `window.location.replace(serverUrl)`;
+  首次启动 / 连不上 → 展示配置表单, 用户填公司服务器地址 → `tandem_set_config` → 重试.
+
+### Rust 原生集成命令 (`src-tauri/src/main.rs`, 前端走 `lib/tauri.ts` 调用)
+
+- `tandem_get_config` / `tandem_set_config` — server URL / 通知开关 / 自启, 落 disk (tauri-plugin-store)
+- `tandem_notify` — native 通知 (议事室开始 / ProxyAction 待审 / @我)
+- `tandem_show_main` / `tandem_hide_main` — 从托盘唤起 / 缩回托盘
+- `tandem_navigate` — 让 webview 跳到指定路径 (托盘菜单 / 快捷键)
+
+> 注: `lib/hermes-api.ts` 是早期 “Hermes CLI 胖客户端” 残留 (`invoke('hermes_*')`), 与当前 main.rs 不匹配.
+> 桌面瘦客户端模型下不依赖它 —— 远端页面走 web 自己的 `fetch('/api/...')`.
 
 ## Quick start
 
@@ -40,15 +46,12 @@ The output `.msi` / `.exe` lands under `src-tauri/target/release/bundle/`.
 
 `npm run tauri:build` triggers (per `tauri.conf.json` → `beforeBuildCommand`):
 
-1. **`scripts/build-static.mjs`** — refuses to run if port 3000 is busy,
-   then renames `app/api/` → `app/_api_stashed_for_tauri/` (so Next.js
-   doesn't choke on dynamic API routes during `output: 'export'`).
-2. **`next build`** with `TAURI=1` — emits a fully static frontend to
-   `dist/`. Conditional in `next.config.js`.
-3. **Restore** — script unconditionally renames `_api_stashed_for_tauri/`
-   back to `api/`, even on failure.
-4. **Tauri** picks up `dist/` (declared as `frontendDist`), bundles it
+1. **`scripts/build-desktop-bootstrap.mjs`** — 生成 `dist/index.html` (连接网关页).
+   瘦客户端不需要静态导出整个 app, 只需这个轻量 bootstrap.
+2. **Tauri** picks up `dist/` (declared as `frontendDist`), bundles it
    along with the Rust binary into `target/release/bundle/`.
+
+> `scripts/build-static.mjs` (老的全量静态导出) 已不再用于桌面打包, 仅作历史保留.
 
 ## Prerequisites
 
@@ -58,7 +61,7 @@ The output `.msi` / `.exe` lands under `src-tauri/target/release/bundle/`.
 - ✅ Node.js 18+ — installed
 - ✅ WebView2 runtime — installed (comes with Win11 / Edge)
 - ⚠️ **MSVC Build Tools (linker)** — install if missing:
-  https://aka.ms/vs/17/release/vs_BuildTools.exe → *Desktop development with C++*
+  <https://aka.ms/vs/17/release/vs_BuildTools.exe> → *Desktop development with C++*
 
 If `cargo build --release` complains about `link.exe` not found, that's the
 only thing left to install.
@@ -81,11 +84,11 @@ cargo check --manifest-path src-tauri/Cargo.toml
 
 ## Notes
 
-- **Don't run `npm run dev` while `npm run tauri:build` is running.**
-  The static-build script will refuse to start (port 3000 conflict, file locks).
-- The unified `lib/hermes-api.ts` is the only canonical entry point for
-  backend calls. Don't add new `fetch('/api/...')` calls in pages.
-- New backend commands need to be added in **both** places:
-  - `app/api/<name>/route.ts` (web)
-  - `src-tauri/src/main.rs` (`hermes_<name>` + register in `invoke_handler!`)
-  - `lib/hermes-api.ts` (export a function that branches on `isTauri()`)
+- 桌面端 = 瘦客户端, 所以 **业务功能不需要在 Rust 里重写**. 加新业务 API 只改 `app/api/<name>/route.ts`,
+  桌面端 webview 加载远端 server 后自动拥有.
+- 只有 **原生系统能力** (通知 / 托盘 / 快捷键 / 配置) 才需要动 Rust:
+  - `src-tauri/src/main.rs` (`tandem_<name>` + 注册进 `invoke_handler!`)
+  - `src-tauri/capabilities/default.json` (按需加 permission)
+  - `lib/tauri.ts` (导出一个 `isTauri()` 守卫的封装函数)
+- 默认 server URL = `http://localhost:3000`; 局域网/生产由 bootstrap 配置页或 `tandem_set_config` 写入.
+- `tauri.conf.json` 开了 `withGlobalTauri`, 让 bootstrap 纯 HTML 能用 `window.__TAURI__.core.invoke`.

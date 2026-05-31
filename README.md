@@ -1,129 +1,93 @@
-# 拿捏 — 工作不会找拿捏
+# Tandem · 牛马搭子
 
-> **Hermes AI Agent Dashboard** · Web + Desktop control plane for the **Hermes** AI platform.
-> Same UI runs in a browser tab or as a native Windows app.
+> **Owner 自有"产研销一体企业"的内部 OKR 驱动型协作 AI 平台。** Web + 桌面同一套 UI。
+> 北极星: *不让 AI 替员工对老板撒谎, 也不让老板用 AI 把员工挤干。*
+>
+> **完整总览见 [`docs/PROJECT-OVERVIEW.md`](docs/PROJECT-OVERVIEW.md)。战略锚点以 [`docs/SELF-USE-FIRST.md`](docs/SELF-USE-FIRST.md) 为准 (自用优先, 商业化是远期可选项)。**
 
 ## Stack
 
-- **Frontend** — Next.js 14 (App Router) · React 18 · TypeScript · Tailwind · shadcn/ui · Zustand
-- **Backend (web)** — Next.js Route Handlers, each one wraps a `hermes` CLI invocation
-- **Backend (desktop)** — Rust commands in `src-tauri/src/main.rs` (Tauri v2), same wrapping pattern
-- **Unified client** — `lib/hermes-api.ts` auto-detects runtime and routes calls to either `fetch('/api/...')` or `invoke('hermes_...')`
+- **前端** — Next.js 14 (App Router) · React 18 · TypeScript · Tailwind (严格 design-token, 禁 raw Tailwind) · shadcn/ui · Zustand
+- **持久化** — Drizzle ORM + PostgreSQL (`drizzle/` migrations, `drizzle.config.ts`) · 审计链 hash
+- **思考层 (自建 TAF)** — 议事室 orchestrator · Persona 5 阶段守门 · Memory 三级签批+降级 · 3+1 决议引擎
+- **中央治理** — CompanyBrain + Skill Gateway 4 道闸 (Baseline / OKR Drift / Data Scope / Action Scope)
+- **LLM** — DeepSeek V3 主 + 本地兜底 · 真流式 SSE
+- **桌面** — Tauri v2 (Rust, `src-tauri/`), 同一 UI 双运行时
 
-## Pages (14)
+## 四大核心机制
 
-| Path | Purpose |
-|---|---|
-| `/` | Dashboard — backend health, stats, quick actions |
-| `/chat` | Multi-session streaming chat (CLI or BYOK OpenAI-compatible) |
-| `/agents` | 8 preset agents + custom agent CRUD with system prompts |
-| `/workflows` | Visual node editor + topological-sort execution engine |
-| `/tasks` | Hermes cron jobs (list/create/run/pause/resume/delete) |
-| `/skills` | Skills marketplace synced from `hermes skills list` |
-| `/knowledge` | Local knowledge base |
-| `/memories` | Project standards / consensus / requirements store |
-| `/organization` | 三省六部 org chart |
-| `/okr` | Objectives & key results |
-| `/mcp` | MCP servers + built-in Hermes tools |
-| `/logs` | Live tail of `hermes logs` with level/component filters |
-| `/design` | Design system reference |
-| `/settings` | Theme, backend test, data export/import |
+1. **议事室 (Convergence)** — 17 分钟硬上限闭环, AI 给 3 选项 + D 选项必须人写; COMMIT→24h 否决窗
+2. **拿捏老板分身 (Persona)** — 5 阶段永不跳级, autonomy 升阶必须员工本人 consent, 红区 AI 强退
+3. **双轨 KPI × TTI** — KPI 挂钩奖金 (100% 合格); TTI 成长度永不挂钩金钱; 9 宫格识人
+4. **Memory 三级签批 + AI 反向降级** — 知识库靠淘汰而非累积
 
-## Backend surface (10 endpoints / 12 Rust commands — all paired)
+## 信息架构 (Hub + 页内 Tab)
 
-| Endpoint | Rust command | Unified client export |
-|---|---|---|
-| `GET /api/health` | `hermes_health` | `getHealth` |
-| `GET /api/status` | `hermes_status` | `getStatus` |
-| `GET /api/skills` | `hermes_skills` | `getSkills` |
-| `GET /api/mcp` | `hermes_mcp_list` | `getMCPServers` |
-| `GET /api/memory` | `hermes_memory_status` | `getMemoryStatus` |
-| `GET /api/logs` | `hermes_logs` | `getLogs` |
-| `GET /api/cron`, `POST /api/cron`, `DELETE/POST/PATCH /api/cron/[id]` | `hermes_cron_list` / `hermes_cron_create` / `hermes_cron_action` | `getCronJobs` / `createCronJob` / `runCronAction` |
-| `POST /api/stream` (SSE) | `hermes_chat_stream` | `startChatStream` |
-| `POST /api/llm-stream` (SSE, BYOK) | `hermes_llm_stream` | `startLLMStream` |
-| `POST /api/workflows/run` (SSE) | `hermes_workflow_run` | `startWorkflowRun` |
+OKR · Tandem (议事/会议/决议台账) · 知识 (文档/Memory/图谱/多维表/云盘) · 拿捏 (4 Hub) · 管理 (6 Hub) · KPI (BSC 四维 + 月/季/年 as-of) · 反馈 (1on1/360/9宫格) · 协作 (IM/邮件)
 
-Streaming endpoints emit identical `{ content }` / `{ error }` / `{ done }`
-payloads in either runtime — web via SSE on the response body, Tauri via the
-`hermes-stream` (chat / BYOK) or `workflow:<runId>` (workflows) event bus.
+实现: `components/nav-modules.ts` · `components/hub-tabs.tsx` · `app/layout.tsx`
 
 ## Quick start
 
-### Web (browser, dev)
+### Web (开发)
 
 ```powershell
 npm install
 npm run dev
-# → http://localhost:3000
+# → http://localhost:3005  (dev 需 NODE_ENV=development)
 ```
 
-### Desktop dev (Rust hot-reload + frontend hot-reload)
+- 数据库: 本机原生 PostgreSQL `localhost:5432/tandem` (`.env.local` 覆盖)
+- Owner: `admin@tandem.local` + `.env.local` 的 `TANDEM_BOOTSTRAP_OWNER_PASSWORD`
+- Demo 账号 (由 `scripts/seed-demo-users.mjs` 创建, 密码 `Demo1234!@#`): `employee@` / `manager@` / `hr@tandem.local`
+
+### 测试
 
 ```powershell
-npm run tauri:dev
+npx vitest run        # 单元/集成 (722/722)
+npx playwright test   # e2e
+npm run lint:dead-code # 死代码巡检 (:strict 用于 CI)
 ```
 
-### Desktop production (.exe installer)
+### 资料批量导入与一键投喂 (新)
 
 ```powershell
-# stop any `npm run dev` first (build:static refuses if port 3000 is busy)
-npm run tauri:build
-# → src-tauri/target/release/bundle/nsis/铁山_<version>_x64-setup.exe   (~3 MB)
-# → src-tauri/target/release/tieshan.exe                                (~12 MB raw exe)
+# 批量递归导入本地硬盘中的 Word/Excel/PPT/PDF/TXT 资料
+# 自动通过 Node 侧高效无损提取纯文本，双写创建为协作文档并投喂为个人 Memory，AI 瞬间直接引用学习！
+npm run db:import:local -- "D:\SOPs-Folder"
 ```
 
-See `DESKTOP.md` for prerequisites (MSVC Build Tools, WebView2), the
-`scripts/build-static.mjs` API-route stash mechanism, and packaging notes.
+### 桌面 (Tauri)
+
+```powershell
+npm run tauri:dev     # Rust + 前端 热重载
+npm run tauri:build   # 打包 .exe (先停掉 npm run dev)
+```
+
+详见 [`DESKTOP.md`](DESKTOP.md) (MSVC Build Tools / WebView2 前置)。
 
 ## Project layout
 
 ```
-app/
-  ├── api/                         # 10 Next.js Route Handlers (web backend)
-  ├── (14 page routes)
-  └── layout.tsx                   # ErrorBoundary + ThemeProvider + Sidebar
-components/
-  ├── ui/                          # shadcn primitives + skeleton.tsx
-  ├── empty-state.tsx
-  ├── error-boundary.tsx
-  └── (sidebar, command-palette, keyboard-shortcuts, …)
-lib/
-  ├── hermes-api.ts                # unified client (web ↔ Tauri)
-  ├── hermes-cli.ts                # web-side CLI runner
-  ├── hooks.ts                     # useHermesStatus (uses unified client)
-  ├── store.ts                     # Zustand stores (chat / agents / tasks / memory / knowledge)
-  └── …
-src-tauri/
-  ├── src/main.rs                  # 12 Rust commands (mirrors of API routes)
-  ├── tauri.conf.json
-  └── Cargo.toml
-scripts/build-static.mjs           # API-route stash for Tauri static export
-dist/                              # output of `npm run build:static`
-DESKTOP.md                         # desktop / Tauri reference
+app/            # Next.js App Router: 页面 + api/ Route Handlers
+  ├── okr/ convergence/ meetings/ decisions/      # OKR + 议事
+  ├── kpi/ 1on1/ 360/ nine-box/                   # 指标与反馈
+  ├── persona/ learning/ summon/                  # 拿捏分身与成长
+  ├── admin/ knowledge/ memories/ im/             # 管理 / 知识 / 协作
+  └── layout.tsx                                  # AppRail + SubSidebar + HubTabs
+components/     # ui/ (shadcn) + nav-modules.ts + hub-tabs.tsx + 业务组件
+lib/            # agent-runtime/ persona/ memory/ decision-layer/ convergence/ retrospective/ …
+drizzle/        # SQL migrations + meta
+src-tauri/      # Rust 桌面外壳 (Tauri v2)
+docs/           # 宪章/架构/总览 (权威: SELF-USE-FIRST > OKR-DRIVEN-ARCHITECTURE/MANIFESTO)
+scripts/        # 运维/迁移/种子/巡检脚本
+tests/          # unit/ integration/ e2e/
 ```
 
-## Adding a new backend command
+## UI 设计宪法 (不可妥协)
 
-Three files, one per layer:
-
-1. **`app/api/<name>/route.ts`** — Next route handler (web)
-2. **`src-tauri/src/main.rs`** — `hermes_<name>` `#[tauri::command]` + register in `invoke_handler!`
-3. **`lib/hermes-api.ts`** — exported function that branches on `isTauri()` and normalizes the two response shapes
-
-Pages should always import from `lib/hermes-api.ts` — never call `fetch('/api/...')` or `invoke()` directly.
-
-## Conventions
-
-- All page-level types live in `lib/hermes-api.ts` (e.g. `HermesStatus`,
-  `MCPServer`, `MemoryStatus`, `LogLine`). The static-build script stashes
-  `app/api/*/route.ts` files during Tauri export, so importing types from
-  there would break the build.
-- Streaming pages must handle both runtimes:
-  - Tauri: `import { listen } from '@tauri-apps/api/event'`
-  - Web: read `response.body` as SSE
-- New env-dependent code paths must guard `typeof window === 'undefined'`
-  and `isTauri()` checks.
+组件**只用 L3 语义类** (`.text-title-*` / `.shadow-soft-*` / `.surface-*` / `.hero-ink` / `.glass`), 禁 raw `bg-slate-*`/`text-amber-*`/Tailwind 默认 shadow。Stage 配色唯一走 `STAGE_META.tone → TONE_TOKENS`。
+细则: [`docs/CHARTER-UI-V1.md`](docs/CHARTER-UI-V1.md) · 实现 SSOT: `app/globals.css` · TS 层: `lib/design-tokens.ts`。
 
 ## License
 

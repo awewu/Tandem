@@ -38,8 +38,8 @@ const CONFIG_FILE: &str = "tandem-config.json";
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct TandemConfig {
-    /// 公司局域网 Tandem server URL, 默认 http://localhost:3001 (本地 dev)
-    /// 生产部署后改成 http://192.1.1.x:3001 (公司服务器 IP)
+    /// 公司局域网 Tandem server URL, 默认 http://localhost:3000 (本地 dev = next dev)
+    /// 生产部署后改成 http://192.1.1.x:3000 (公司服务器 IP), 由 bootstrap 连接网关页或应用内设置写入
     server_url: String,
     /// 是否启用 native 通知 (默认 true)
     notify_enabled: bool,
@@ -50,7 +50,7 @@ struct TandemConfig {
 impl Default for TandemConfig {
     fn default() -> Self {
         Self {
-            server_url: "http://localhost:3001".into(),
+            server_url: "http://localhost:3000".into(),
             notify_enabled: true,
             autostart_enabled: false,
         }
@@ -65,7 +65,7 @@ fn load_config(app: &AppHandle) -> TandemConfig {
     let server_url = store
         .get("server_url")
         .and_then(|v| v.as_str().map(String::from))
-        .unwrap_or_else(|| "http://localhost:3001".into());
+        .unwrap_or_else(|| "http://localhost:3000".into());
     let notify_enabled = store
         .get("notify_enabled")
         .and_then(|v| v.as_bool())
@@ -292,18 +292,16 @@ fn on_window_close(window: &Window, api: tauri::CloseRequestApi) {
 }
 
 // =====================================================================
-// 启动: 加载初始 URL = config.server_url
+// 启动: 托盘 + 快捷键 (页面加载/跳转由 devUrl 或 bootstrap 网关页负责)
 // =====================================================================
 
 fn on_setup(app: &AppHandle) -> tauri::Result<()> {
-    let cfg = load_config(app);
-
-    // 把 webview 导航到配置的 server URL
-    if let Some(win) = app.get_webview_window("main") {
-        let url = cfg.server_url.clone();
-        let _ = win.eval(&format!("window.location.replace('{}')", url));
-    }
-
+    // 不再在此强制 redirect:
+    //   - dev (`tauri dev`): webview 直接加载 tauri.conf.devUrl (= 运行中的 Next server, 完整 app)
+    //   - prod (`tauri build`): webview 加载 frontendDist 的 bootstrap 连接网关页 (dist/index.html),
+    //                           由该页 JS 读 tandem_get_config → 探活 → window.location.replace(serverUrl);
+    //                           首次/连不上时展示配置表单, 写入后重试.
+    // 这样把跳转逻辑集中到前端, 避免 Rust eval 与页面加载的竞态, 也让"连不上"有可视化兜底.
     setup_tray(app)?;
     setup_global_shortcuts(app)?;
     Ok(())

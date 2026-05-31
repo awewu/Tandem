@@ -1,0 +1,36 @@
+# Tandem · 生产 Caddy 极简反代配置 (Caddyfile)
+#
+# 用途: 一键开启自动 HTTPS + HTTP/2 + PWA 离线存储支持
+# 用法:
+#   1. 安装 Caddy: apt install caddy / dnf install caddy
+#   2. 复制本文件到 /etc/caddy/Caddyfile (修改 your-domain.com 为你公司的真实域名)
+#   3. caddy reload
+#
+# 注意: Next.js PWA (sw.js) 需要严格的 https 安全上下文，否则浏览器会拒绝离线安装。
+
+your-domain.com {
+    # 转发至 docker-compose.prod.yml 的宿主机绑定端口 APP_PORT
+    reverse_proxy 127.0.0.1:3000
+
+    # 开启 gzip/zstd 压缩，优化移动端和慢速网络加载 (TTI)
+    encode zstd gzip
+
+    # 强阻断：禁止非合规搜索引擎爬取 (企业私有部署合规)
+    header {
+        X-Robots-Tag "noindex, nofollow, nosnippet, noarchive"
+        # 严格安全响应头
+        Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+
+    # 日志留存 (企业安全审计必备)
+    log {
+        output file /var/log/caddy/tandem_access.log {
+            roll_size 100mb
+            roll_keep 10
+            roll_keep_for 90d
+        }
+    }
+}
