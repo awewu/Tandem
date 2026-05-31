@@ -152,6 +152,12 @@ function bootSync(): void {
   // 议事室 17min 硬上限闭环: 每 30 秒 sweep 活跃议事室, 超时自动 ESCALATE
   // (生产环境用 cron / job queue, V1 用 setInterval 简化)
   startConvergenceTickLoop();
+
+  // 注册跨域事件订阅者 (lib/events/subscribers.ts · 幂等)
+  // 任何 service A 影响 service B 必须经此, 不允许 service A 直接 await service B
+  void import('./events/subscribers').then(({ registerCrossDomainSubscribers }) => {
+    registerCrossDomainSubscribers();
+  });
 }
 
 /**
