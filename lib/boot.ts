@@ -16,6 +16,7 @@ import { registerBuiltinTriggers } from './workflows/builtin-triggers';
 import { initObservability } from './infra/observability';
 import { bootstrapOwnerIfMissing } from './auth/bootstrap';
 import { enforceProductionGuard } from './infra/production-guard';
+import { withCronLock } from './infra/leader';
 
 // 单例 (挂 globalThis 防 Next.js dev HMR 重置)
 type BootGlobals = {
@@ -174,7 +175,8 @@ function startConvergenceTickLoop(): void {
   _g.__tandem_tick_interval__ = setInterval(() => {
     const orch = _g.__tandem_orchestrator__;
     if (!orch) return;
-    orch.checkStalls().catch((err: unknown) => {
+    // B3: 多副本下单飞行 — 只有抢到锁的副本执行本轮 sweep (ttl 25s < 30s 间隔)
+    void withCronLock('convergence-tick', 25_000, () => orch.checkStalls()).catch((err: unknown) => {
       // eslint-disable-next-line no-console
       console.warn('[boot] convergence stall check failed:', err);
     });
@@ -185,7 +187,11 @@ function startConvergenceTickLoop(): void {
   // 整合到一个 tick 减少进程开销; 生产环境用 cron / job queue 拆开
   if (!_g.__tandem_retro_interval__) {
     _g.__tandem_retro_interval__ = setInterval(() => {
-      void runSlowScans();
+      // B3: 单飞行 — ttl 9min < 10min 间隔, 给足慢扫描执行时长
+      void withCronLock('slow-scans', 9 * 60_000, runSlowScans).catch((err: unknown) => {
+        // eslint-disable-next-line no-console
+        console.warn('[boot] slow scans failed:', err);
+      });
     }, 10 * 60 * 1000);
     unrefIfPossible(_g.__tandem_retro_interval__);
   }

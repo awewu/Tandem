@@ -21,6 +21,13 @@ export interface RateLimitOptions {
   limit: number;
   /** 窗口长度 (秒) */
   windowSec: number;
+  /**
+   * B6: Redis 故障时的策略.
+   *   - false (默认): fail-open — 放行, 保可用性 (适合普通业务端点)
+   *   - true: fail-closed — 拒绝, 保安全 (适合 login/mfa/register 等鉴权敏感端点,
+   *     防 Redis 宕机窗口期被绕过限流爆破). 可用 RATE_LIMIT_FORCE_OPEN=1 全局回退到 fail-open.
+   */
+  failClosed?: boolean;
 }
 
 export interface RateLimitResult {
@@ -81,9 +88,28 @@ async function redisCheck(opts: RateLimitOptions): Promise<RateLimitResult> {
       totalHits,
     };
   } catch (err) {
-    logger.warn({ err: (err as Error).message, key: opts.key }, '[rate-limit] redis failed, fail-open');
-    return { allowed: true, remaining: opts.limit, resetSec: opts.windowSec, totalHits: 0 };
+    const r = failureResult(opts);
+    logger.warn(
+      { err: (err as Error).message, key: opts.key, allowed: r.allowed },
+      `[rate-limit] redis failed, ${r.allowed ? 'fail-open (allow)' : 'fail-CLOSED (deny)'}`,
+    );
+    return r;
   }
+}
+
+/**
+ * B6: Redis 故障时的结果决策 (纯函数, 便于测试).
+ * failClosed=true 且未全局强制 open → 拒绝; 否则放行.
+ */
+export function failureResult(opts: RateLimitOptions): RateLimitResult {
+  const forceOpen = process.env.RATE_LIMIT_FORCE_OPEN === '1';
+  const failClosed = !!opts.failClosed && !forceOpen;
+  return {
+    allowed: !failClosed,
+    remaining: failClosed ? 0 : opts.limit,
+    resetSec: opts.windowSec,
+    totalHits: failClosed ? opts.limit + 1 : 0,
+  };
 }
 
 export async function rateLimit(opts: RateLimitOptions): Promise<RateLimitResult> {
@@ -99,6 +125,7 @@ export const POLICIES = {
   login: () => ({
     limit: Number(process.env.RATE_LIMIT_LOGIN_PER_HOUR ?? 5),
     windowSec: 3600,
+    failClosed: true,
   }),
   api: () => ({
     limit: Number(process.env.RATE_LIMIT_API_PER_MINUTE ?? 120),

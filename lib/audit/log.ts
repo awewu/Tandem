@@ -156,6 +156,16 @@ export interface AuditEntry {
 const PERSIST_ENABLED = !!process.env.DATABASE_URL;
 
 /**
+ * B5: 内存 entries 环形缓冲上限. 防长 uptime 进程内 entries 数组无界增长.
+ * DB 模式下 entries 仅作 prevHash 快取 + 离线 fallback, DB 才是真相源, 裁剪安全.
+ * 纯内存模式 (dev/e2e) 下裁剪会丢更老的条目 (verify 仅覆盖近 N 条), 可接受.
+ * 在 append 时读 env (AUDIT_MEMORY_MAX 覆盖, floor 100), 默认 10000.
+ */
+function maxMemoryEntries(): number {
+  return Math.max(100, Number(process.env.AUDIT_MEMORY_MAX ?? 10_000));
+}
+
+/**
  * SHA-256 链式哈希. 任何条目被改动 → 该条 hash 与其后所有 prevHash 链不上.
  * 与等保二级 / GDPR / PIPL 的"不可篡改证据"要求对齐.
  */
@@ -224,6 +234,11 @@ class AuditLog {
     const entry: AuditEntry = { ...skeleton, hash: hashEntry(skeleton) };
 
     this.entries.push(entry);
+    // B5: 环形裁剪 — 只保留最近 N 条 (tail/prevHash 链不受影响, 链续靠 this.tail)
+    const cap = maxMemoryEntries();
+    if (this.entries.length > cap) {
+      this.entries.splice(0, this.entries.length - cap);
+    }
     this.tail.set(tenantId, { hash: entry.hash, seq: nextSeq });
 
     // 持久化 (best-effort, 不阻塞业务路径)
@@ -335,8 +350,9 @@ class AuditLog {
 
     for (let i = 0; i < entries.length; i++) {
       const e = entries[i];
-      const expectedPrev = i === 0 ? undefined : entries[i - 1].hash;
-      if (e.prevHash !== expectedPrev) {
+      // i===0 是窗口起点 (B5: 可能因 ring-buffer 裁剪 / DB 分页而非创世), 不强制 prevHash===undefined.
+      // 对 i>0 仍校验与前一条的链接, 加逐条 hash 重算 → 任何篡改/重排仍会被发现.
+      if (i > 0 && e.prevHash !== entries[i - 1].hash) {
         return { ok: false, brokenAt: i, total: entries.length };
       }
       const { hash: _omit, ...rest } = e;

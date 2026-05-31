@@ -96,8 +96,17 @@ export function runProductionGuard(): GuardResult {
     warnings.push(`NEXTAUTH_URL=${nextauthUrl} 不是 https://, cookie SameSite/Secure 可能失效.`);
   }
 
+  const replicas = Number(process.env.APP_REPLICAS ?? '1');
   if (isProd && !process.env.REDIS_URL) {
-    warnings.push('REDIS_URL 未设, rate-limit / session-store 退化为单进程内存 (多副本部署会失效).');
+    if (replicas > 1) {
+      // B7: 多副本无 Redis = cron 重复执行 (重复 KPI 快照/escalate) + 限流各副本独立失效, 必须拦
+      errors.push(
+        `APP_REPLICAS=${replicas} (多副本) 但 REDIS_URL 未设. 多副本必须配 Redis: ` +
+          'cron 单飞行 (lib/infra/leader.ts) 与分布式限流都依赖它, 否则定时任务重复执行 + 限流失效.',
+      );
+    } else {
+      warnings.push('REDIS_URL 未设, rate-limit / cron 单飞行退化为单进程内存 (仅单副本安全; 多副本请设 APP_REPLICAS).');
+    }
   }
 
   if (isProd && !process.env.S3_ENDPOINT) {

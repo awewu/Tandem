@@ -94,6 +94,10 @@
 | `AUDIT-2026-05-10-A-realbackend.md` | 后端真实化审计 |
 | `AUDIT-2026-05-13-FULL.md` | 全量审计 |
 | `DEAD-CODE-AUDIT-2026-05-29.md` | 死代码审计 |
+| `PRODUCTION-AUDIT-2026-05-31.md` ★ | **生产级上线审计** (架构/技术栈/模块/前后端问题/Go-Live 清单) |
+| `UI-AUDIT-2026-05-31.md` | UI 审计 (charter 违规扫描基线) |
+| `UI-AUDIT-AFTER-CODEMOD.md` | UI 审计 (codemod 自动修复后复扫) |
+| `UI-AUDIT-FINAL.md` | UI 审计 (最终零违规确认) |
 | `DEPLOY-READINESS-AUDIT.md` | 部署就绪审计 |
 | `IMPL-NOTES-2026-05-29.md` | 实施备注 |
 | `STATE-OF-THE-CODE.md` | 代码现状 |
