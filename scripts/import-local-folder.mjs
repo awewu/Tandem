@@ -10,7 +10,7 @@
  */
 
 import pg from 'pg';
-import { randomBytes, Buffer } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname, extname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -313,7 +313,7 @@ try {
   console.log(`  - 重复跳过: ${skipCount} 个文件`);
   console.log(`  - 失败/空子: ${failCount} 个文件`);
   console.log(`==================================================`);
-  console.log(`💡 AI 已经在后台瞬间吸收了这 ${okCount} 份资料！快去本地工作台 `/memories` 或 `/documents` 查看吧。`);
+  console.log(`💡 AI 已经在后台瞬间吸收了这 ${okCount} 份资料！快去本地工作台 /memories 或 /documents 查看吧。`);
 
 } catch (err) {
   console.error('[import] FATAL ERROR:', err.message);
