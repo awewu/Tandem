@@ -161,6 +161,56 @@ export async function POST(req: NextRequest): Promise<Response> {
           }
         }
 
+        // §Output Guard · 出口矫正镜片 (Open-Read / Governed-Output / Locked-Write 三段闸)
+        // 流式答案推完后, 用公司 Memory 裁判一遍, HARD_CONFLICT 追加矫正块.
+        if (!req.signal.aborted && fullResponse.trim().length >= 20) {
+          try {
+            const { checkOutput } = await import('@/lib/memory/output-guard');
+            const verdict = await checkOutput({
+              query: userQuestion,
+              response: fullResponse,
+              actorUserId: auth.userId,
+              source: 'company_brain_boss',
+              refId: sessionId ?? undefined,
+            });
+            if (verdict.verdict === 'HARD_CONFLICT' && verdict.revisionPrompt) {
+              try {
+                const retry = await router.chat({
+                  messages: [
+                    ...chatMessages,
+                    { role: 'assistant', content: fullResponse },
+                    { role: 'user', content: verdict.revisionPrompt },
+                  ],
+                  scenario: 'reasoning_complex',
+                  temperature: 0.4,
+                  metadata: { requestId: `${sessionId ?? 'no-session'}_revised` },
+                });
+                const revised = typeof retry.message.content === 'string' ? retry.message.content.trim() : '';
+                if (revised) {
+                  const correctionBlock = `\n\n---\n\n**⚠️ Output Guard 矫正**: 上面的回答与公司 Memory 存在冲突, 按公司基线重述如下:\n\n${revised}\n\n_— output_guard checkId=${verdict.checkId}_`;
+                  send({ content: correctionBlock });
+                  fullResponse += correctionBlock;
+                  const { audit } = await import('@/lib/audit/log');
+                  await audit('output_guard.revised', auth.userId, {
+                    targetId: sessionId ?? undefined,
+                    targetType: 'company_brain_boss',
+                    metadata: { checkId: verdict.checkId, hits: verdict.hits.length },
+                  }).catch(() => { /* noop */ });
+                }
+              } catch {
+                const warn = `\n\n---\n\n_⚠️ Output Guard 检测到与公司 Memory 偏离 (checkId=${verdict.checkId}), 重写失败 — 请谨慎采纳上述回答_`;
+                send({ content: warn });
+                fullResponse += warn;
+              }
+            } else if (verdict.verdict === 'SOFT_DRIFT' && verdict.footnote) {
+              send({ content: verdict.footnote });
+              fullResponse += verdict.footnote;
+            }
+          } catch {
+            /* output-guard 自身失败不阻断 (fail-soft) */
+          }
+        }
+
         // 完成 · 写答案审计 (best-effort)
         deferAudit('boss_ai.answer', auth.userId, {
           targetId: sessionId ?? 'no-session',

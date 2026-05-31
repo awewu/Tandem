@@ -221,6 +221,130 @@ export const SalaryAccessSkill: Skill<{ userId: string }, unknown> = {
 };
 
 // ---------------------------------------------------------------------------
+// web.search · 公开网络搜索 (绿区, 代行允许, "Open-Read"段)
+//
+// 让中央 AI / 分身能调用公开数据让自己不傻 (实时信息 / 行业资讯 / 竞品动态).
+// 结果仅活在本次对话上下文, 不进 Memory; Memory 升级仍由人走三级签批 ("Locked-Write").
+//
+// Provider 优先级:
+//   1. Tavily (TAVILY_API_KEY) — 为 AI 优化, 免费 1000 calls/月
+//   2. Brave Search (BRAVE_SEARCH_API_KEY) — 免费 2000 calls/月
+//   3. 都没配 → 返 not_configured (诚实告知, 不伪造)
+// ---------------------------------------------------------------------------
+
+interface WebSearchResult {
+  title: string;
+  url: string;
+  snippet: string;
+  publishedAt?: string;
+}
+
+async function tavilySearch(query: string, count: number): Promise<WebSearchResult[]> {
+  const apiKey = process.env.TAVILY_API_KEY;
+  if (!apiKey) throw new Error('TAVILY_API_KEY not set');
+  const res = await fetch('https://api.tavily.com/search', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      api_key: apiKey,
+      query,
+      max_results: Math.min(count, 10),
+      search_depth: 'basic',
+      include_answer: false,
+    }),
+  });
+  if (!res.ok) throw new Error(`tavily ${res.status}: ${await res.text().catch(() => '')}`);
+  const data = (await res.json()) as { results?: Array<{ title?: string; url?: string; content?: string; published_date?: string }> };
+  return (data.results ?? []).map((r) => ({
+    title: r.title ?? '(no title)',
+    url: r.url ?? '',
+    snippet: r.content ?? '',
+    publishedAt: r.published_date,
+  }));
+}
+
+async function braveSearch(query: string, count: number): Promise<WebSearchResult[]> {
+  const apiKey = process.env.BRAVE_SEARCH_API_KEY;
+  if (!apiKey) throw new Error('BRAVE_SEARCH_API_KEY not set');
+  const url = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=${Math.min(count, 10)}`;
+  const res = await fetch(url, {
+    headers: {
+      'X-Subscription-Token': apiKey,
+      'Accept': 'application/json',
+    },
+  });
+  if (!res.ok) throw new Error(`brave ${res.status}: ${await res.text().catch(() => '')}`);
+  const data = (await res.json()) as { web?: { results?: Array<{ title?: string; url?: string; description?: string; age?: string }> } };
+  return (data.web?.results ?? []).map((r) => ({
+    title: r.title ?? '(no title)',
+    url: r.url ?? '',
+    snippet: r.description ?? '',
+    publishedAt: r.age,
+  }));
+}
+
+export const WebSearchSkill: Skill<
+  { query: string; count?: number },
+  { provider: string; results: WebSearchResult[] }
+> = {
+  id: 'web.search',
+  description: '搜索公开互联网获取实时信息 (行业资讯/竞品动态/市场数据). 结果仅作上下文, 不进公司 Memory.',
+  tags: ['web', 'search', '搜索', '网络', '实时', '资讯', '市场'],
+  zone: 'green',
+  proxyAllowed: true,
+  estimatedTokens: 800,
+  schema: {
+    type: 'function',
+    function: {
+      name: 'web_search',
+      description: '搜索公开互联网, 返回标题/URL/摘要列表. 用于需要实时/外部信息的场景.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: '搜索查询 (自然语言)' },
+          count: { type: 'number', description: '返回结果数 (默认 5, 上限 10)' },
+        },
+        required: ['query'],
+      },
+    },
+  },
+  async execute({ query, count = 5 }) {
+    const q = (query ?? '').trim();
+    if (!q) return { ok: false, error: 'query 不能为空' };
+
+    // 按优先级尝试
+    const providers: Array<{ name: string; fn: (q: string, c: number) => Promise<WebSearchResult[]> }> = [];
+    if (process.env.TAVILY_API_KEY) providers.push({ name: 'tavily', fn: tavilySearch });
+    if (process.env.BRAVE_SEARCH_API_KEY) providers.push({ name: 'brave', fn: braveSearch });
+
+    if (providers.length === 0) {
+      return {
+        ok: false,
+        error:
+          'not_configured: web_search 需要 TAVILY_API_KEY 或 BRAVE_SEARCH_API_KEY. ' +
+          'Tavily: https://tavily.com (免费 1000/月); Brave: https://brave.com/search/api (免费 2000/月). ' +
+          '在 .env.local 配置后重启服务即可.',
+      };
+    }
+
+    const errors: string[] = [];
+    for (const p of providers) {
+      try {
+        const results = await p.fn(q, count);
+        return {
+          ok: true,
+          data: { provider: p.name, results },
+          tokensUsed: 200 + results.length * 100,
+        };
+      } catch (err) {
+        errors.push(`${p.name}: ${(err as Error).message}`);
+      }
+    }
+    return { ok: false, error: `所有 web_search provider 失败: ${errors.join('; ')}` };
+  },
+};
+
+// ---------------------------------------------------------------------------
 // 注册所有内置工具
 // ---------------------------------------------------------------------------
 
@@ -231,4 +355,5 @@ export function registerBuiltinSkills(): void {
   skillRegistry.register(PersonaGetSkill);
   skillRegistry.register(ConvergenceStartSkill);
   skillRegistry.register(SalaryAccessSkill);
+  skillRegistry.register(WebSearchSkill);
 }

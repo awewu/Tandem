@@ -1014,9 +1014,59 @@ async function invokeCompanyBrainReply(input: InvokePersonaInput): Promise<void>
       buffer += `\n\n⚠️ 流式中断: ${(streamErr as Error).message}`;
     }
 
+    // §Output Guard · 输出矫正镜片 (Open-Read / Governed-Output / Locked-Write 三段闸的"出口"段)
+    // 让 LLM 答案在交付员工前过一次"是否与公司 Memory/红线冲突"裁判. HARD_CONFLICT → 重写一次.
+    let footnote = '';
+    if (buffer.trim().length >= 20) {
+      try {
+        const { checkOutput } = await import('../memory/output-guard');
+        const verdict = await checkOutput({
+          query: input.triggeringMessage.body,
+          response: buffer,
+          actorUserId: input.triggeringMessage.senderId,
+          source: 'company_brain_im',
+          refId: placeholder.id,
+        });
+        if (verdict.verdict === 'HARD_CONFLICT' && verdict.revisionPrompt) {
+          // 一次性重写 (非流式, 用同一 scenario)
+          try {
+            const retry = await router.chat({
+              messages: [
+                { role: 'system', content: systemPrompt, cacheControl: 'ephemeral' },
+                { role: 'user', content: input.triggeringMessage.body },
+                { role: 'assistant', content: buffer },
+                { role: 'user', content: verdict.revisionPrompt },
+              ],
+              scenario: 'reasoning_complex',
+              maxTokens: 500,
+              metadata: { userId: COMPANY_BRAIN_USER_ID, requestId: `${aiTraceId}_revised` },
+            });
+            const revised = typeof retry.message.content === 'string' ? retry.message.content.trim() : '';
+            if (revised) {
+              buffer = revised;
+              footnote = `\n\n_⚠️ 已根据公司 Memory 矫正 (output_guard checkId=${verdict.checkId})_`;
+              const { audit: auditFn } = await import('../audit/log');
+              await auditFn('output_guard.revised', input.triggeringMessage.senderId, {
+                targetId: placeholder.id,
+                targetType: 'company_brain_im',
+                metadata: { checkId: verdict.checkId, hits: verdict.hits.length },
+              }).catch(() => { /* noop */ });
+            }
+          } catch {
+            // 重写失败 → 保留原 buffer, 加警告脚注 (而不是拒交)
+            footnote = `\n\n_⚠️ 中央 AI 输出与公司 Memory 存在偏离 (output_guard checkId=${verdict.checkId}), 请谨慎采纳_`;
+          }
+        } else if (verdict.verdict === 'SOFT_DRIFT' && verdict.footnote) {
+          footnote = verdict.footnote;
+        }
+      } catch {
+        /* output-guard 自身失败不阻断 (fail-soft) */
+      }
+    }
+
     const latencyMs = Date.now() - startedAt;
     const finalBody = buffer.length > 0
-      ? `${buffer}\n\n_— 🏛️ CompanyBrain · 中央 AI · 基于公司层 Memory · 仅供参考_`
+      ? `${buffer}${footnote}\n\n_— 🏛️ CompanyBrain · 中央 AI · 基于公司层 Memory · 仅供参考_`
       : '_(CompanyBrain 未返回内容)_';
 
     // 最终 update: 写入完整 body + footer, 同步 channel preview

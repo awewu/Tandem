@@ -61,6 +61,9 @@ export type AuditAction =
   // Skill Gateway · 4 道闸 (P4, MANIFESTO §19)
   | 'skill_gateway.checked'               // 4 道闸调用留痕 (PASS / SOFT_WARN / HARD_BLOCK)
   | 'skill_gateway.blocked'               // 任一闸 HARD_BLOCK 时单独高亮 (Steward 月审重点)
+  // Output Guard · 输出矫正镜片 (中央 AI / 分身回答后置闸)
+  | 'output_guard.checked'                // 每次审完留痕 (PASS / SOFT_DRIFT / HARD_CONFLICT)
+  | 'output_guard.revised'                // HARD_CONFLICT 后 LLM 重写一次
   // Academy · 学院架构 (2026-05-29, docs/ACADEMY-METAPHOR-2026-05-29.md)
   | 'academy.course_created'              // HR 创建课程
   | 'academy.course_published'            // Steward 双签批通过, 课程上架
