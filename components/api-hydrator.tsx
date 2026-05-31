@@ -77,6 +77,14 @@ export function ApiHydrator() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // B4 (2026-05-31): OKR 读路径收敛 — 已登录时把本地 zustand 替换为后端真值
+  // (后端无 objectives 时保留本地, 不破坏 demo/离线; 写路径仍本地 = Phase 2)
+  useEffect(() => {
+    if (okrHydratedRef.current || !user?.id) return;
+    okrHydratedRef.current = true;
+    void hydrateOkrFromApi();
+  }, [user?.id]);
+
   // D-pragma (2026-05-31): 已登录时把 zustand fixture 替换为后端 governance 默认模板
   useEffect(() => {
     if (!user?.id || orgHydrated) return;
