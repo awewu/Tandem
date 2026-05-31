@@ -62,6 +62,7 @@ import {
   Store,
   Bell as BellAlias,
   GraduationCap,
+  Network,
 } from 'lucide-react';
 
 export type Role = 'employee' | 'manager' | 'steward' | 'admin' | 'champion' | 'owner' | 'partner';
@@ -148,6 +149,8 @@ export const NAV_MODULES: NavModule[] = [
       { name: '我的目标与对齐',    href: '/okr?owner=me',     icon: Target,         group: '目标与关键成果法 OKR' },
       { name: '日常推进 (TTI)',    href: '/tti',              icon: SparklesAlias,  group: '目标与关键成果法 OKR' },
       { name: '团队效能 Dashboard',href: '/okr/dashboard',    icon: Grid3x3,        group: '目标与关键成果法 OKR', visibleTo: ['manager', 'steward', 'admin', 'champion'] },
+      { name: 'OKR 5 层级联树',    href: '/okr/cascade',      icon: Network,        group: '目标与关键成果法 OKR' },
+      { name: 'OKR 日历视图',      href: '/okr/calendar',     icon: CalendarDays,   group: '目标与关键成果法 OKR' },
       // 每日推进 — 5min 日报与周回顾 (OKR daily/weekly check-in 输入, 与KR互动推进)
       { name: '5min 智能日报', href: '/report',         icon: Clock3,        group: '每日推进', accent: 'cta' },
       { name: '本周回顾',      href: '/report/weekly',  icon: CalendarDays,  group: '每日推进' },
@@ -165,7 +168,7 @@ export const NAV_MODULES: NavModule[] = [
     icon: MessagesSquare,
     visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
     // /chat moved to `me` (单聊 LLM 是个人 AI 工具, 不属于团队沟通)
-    pathPrefixes: ['/im', '/convergence', '/meetings', '/decision-card'],
+    pathPrefixes: ['/im', '/convergence', '/meetings'],
     items: [
       // 高频发起 (CTA, 顶部)
       { name: '新建群聊', href: '/im?new=1',   icon: Plus,     accent: 'cta', group: '发起' },
@@ -185,11 +188,12 @@ export const NAV_MODULES: NavModule[] = [
     icon: BookOpen,
     visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
     // /search 移除 (⌘K Command Palette 已覆盖全局搜索)
-    pathPrefixes: ['/documents', '/knowledge', '/memories', '/drive'],
+    pathPrefixes: ['/documents', '/knowledge', '/memories', '/drive', '/bitable'],
     items: [
       { name: '文档协作',     href: '/documents', icon: FileText },
       { name: 'Memory 知识库', href: '/memories',  icon: Brain },
       { name: '知识图谱',     href: '/knowledge', icon: Database },
+      { name: '多维表格',     href: '/bitable',   icon: LayoutGrid },
       { name: '云盘',         href: '/drive',     icon: HardDrive },
     ],
   },
@@ -311,16 +315,16 @@ export const NAV_MODULES: NavModule[] = [
   {
     id: 'org',
     label: '组织',
-    fullLabel: '组织 · 公司架构',
-    tagline: '看清架构与节奏, 协作不再各干各',
+    fullLabel: '组织 · 公司架构与治理',
+    tagline: '部门是人归属哪里, 三省六部是事如何流转',
     icon: Building2,
     visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
-    pathPrefixes: ['/organization', '/360', '/1on1', '/nine-box'],
+    pathPrefixes: ['/organization', '/governance', '/admin/organization', '/360', '/1on1', '/nine-box'],
     items: [
-      // 组织架构
-      { name: '组织架构',   href: '/organization',           icon: Building2,      group: '公司架构' },
-      { name: '部门列表',   href: '/organization?view=departments', icon: Users,     group: '公司架构' },
-      { name: '三省六部制', href: '/organization?view=ministries',  icon: Layers,    group: '公司架构' },
+      // 公司架构 (HR 部门线 · 真员工数据)
+      { name: '员工部门',       href: '/admin/organization',           icon: Building2, group: '公司架构', visibleTo: ['manager', 'steward', 'admin', 'champion', 'owner'] },
+      // 项目治理 (三省六部 · 跨部门协同模板)
+      { name: '三省六部 · 项目治理', href: '/governance/three-departments', icon: Network,   group: '项目治理' },
       // 反馈评估 (现在归属组织模块)
       { name: '1on1 对话',         href: '/1on1',             icon: MessagesSquare, group: '反馈评估' },
       { name: '360 评估',          href: '/360',              icon: SparklesAlias,  group: '反馈评估', visibleTo: ['manager', 'steward', 'admin', 'champion'] },
@@ -335,13 +339,14 @@ export const NAV_MODULES: NavModule[] = [
     fullLabel: '管理 · 系统与运维',
     tagline: 'Steward 守护治理, 让规则可解释可追溯',
     icon: Wrench,
-    pathPrefixes: ['/admin', '/mcp', '/tasks', '/logs', '/design'],
+    pathPrefixes: ['/admin', '/mcp', '/tasks', '/logs', '/design', '/governance'],
     visibleTo: ['admin', 'steward', 'champion'],
     items: [
       // 用户与权限
       { name: '邀请用户',       href: '/admin/invite',        icon: Ticket,        group: '用户与权限', visibleTo: ['admin', 'champion'] },
       { name: 'Steward 工作台', href: '/admin/steward',       icon: ShieldCheck,   group: '用户与权限', visibleTo: ['steward', 'admin', 'champion'] },
-      { name: '员工组织',       href: '/admin/organization',  icon: Users,         group: '用户与权限', visibleTo: ['admin', 'champion'] },
+      { name: '员工部门 (HR)',  href: '/admin/organization',  icon: Users,         group: '用户与权限', visibleTo: ['admin', 'champion'] },
+      { name: '外部协作申请',   href: '/admin/user-applications', icon: Ticket,     group: '用户与权限', visibleTo: ['admin', 'owner'] },
       // KPI 设置 (CHARTER-KPI-TTI)
       { name: 'KPI 科目主数据', href: '/admin/kpi/subjects',         icon: Layers,        group: 'KPI 设置', visibleTo: ['admin', 'champion'] },
       { name: 'KPI 周期与目标',  href: '/admin/kpi/setup',            icon: Target,        group: 'KPI 设置', visibleTo: ['admin', 'champion'] },
@@ -349,6 +354,9 @@ export const NAV_MODULES: NavModule[] = [
       { name: 'KPI 健康度看板',  href: '/admin/kpi/health-dashboard', icon: Grid3x3,       group: 'KPI 设置', visibleTo: ['admin', 'champion', 'steward'] },
       { name: 'KPI 分析中枢',    href: '/admin/kpi/analytics',        icon: Activity,      group: 'KPI 设置', visibleTo: ['admin', 'champion', 'steward'] },
       { name: 'KPI 奖金下发',    href: '/admin/kpi/bonus-payout',     icon: ShieldCheck,   group: 'KPI 设置', visibleTo: ['admin', 'champion'] },
+      // 中央 AI 治理 (灵魂层第 2 + 6 条 · CA-13 + B-015)
+      { name: 'CompanyBrain 看板',     href: '/admin/company-brain',          icon: Brain,    group: '中央 AI 治理', visibleTo: ['steward', 'admin', 'champion'] },
+      { name: 'OKR 主航道偏离',         href: '/admin/governance/okr-drift',   icon: Target,   group: '中央 AI 治理', visibleTo: ['steward', 'admin', 'champion'] },
       // 内容管理
       { name: 'Intranet 编辑',  href: '/admin/intranet',      icon: Megaphone,     group: '内容管理', visibleTo: ['admin', 'champion'] },
       { name: 'Launchpad 管理', href: '/admin/launchpad',     icon: LayoutGrid,    group: '内容管理', visibleTo: ['admin', 'champion'] },

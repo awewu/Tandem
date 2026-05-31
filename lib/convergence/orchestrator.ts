@@ -23,6 +23,7 @@ import { StoreBackedMemoryRetriever } from '../memory/retriever';
 import { TandemRouter } from '../taf/router';
 import { getStore, generateId } from '../storage/repository';
 import { audit } from '../audit/log';
+import { eventBus } from '../events/bus';
 import type { DecisionCard } from '../types/decision-card';
 
 // ---------------------------------------------------------------------------
@@ -192,6 +193,27 @@ export class ConvergenceOrchestrator {
         // eslint-disable-next-line no-console
         console.warn('[orchestrator] persona learning failed:', err);
       }
+      // 事件总线广播 (跨域订阅者可问): material-service / memory / okr-progress
+      try {
+        const card = await getStore().decisionCards.get(cardId);
+        await eventBus.emit(
+          'convergence.committed',
+          {
+            cardId,
+            primaryKrId: card?.primaryKrId,
+            decidedBy: event.userId,
+            okrAnchor: card?.primaryKrId
+              ? { type: 'kr', id: card.primaryKrId }
+              : card?.noKrReason
+              ? { type: 'none', reason: card.noKrReason }
+              : { type: 'none' },
+            timestamp: Date.now(),
+          },
+          `committed:${cardId}`,
+        );
+      } catch {
+        /* event 广播错误不阫主流程 (bus 已隔离) */
+      }
     } else if (event.type === 'VETO') {
       await audit('convergence.veto', event.userId, {
         targetId: cardId,
@@ -212,6 +234,21 @@ export class ConvergenceOrchestrator {
         targetType: 'decision_card',
         metadata: { reason: event.reason },
       });
+      // 事件总线广播 (跨域订阅者可问): governance / notification / persona
+      try {
+        await eventBus.emit(
+          'convergence.escalated',
+          {
+            cardId,
+            reason: event.reason === 'hard_time_limit' ? 'time-limit' : 'manual',
+            elapsedSeconds: result.state.elapsedSeconds,
+            timestamp: Date.now(),
+          },
+          `escalated:${cardId}`,
+        );
+      } catch {
+        /* event 广播错误不阫主流程 (bus 已隔离) */
+      }
     }
 
     return result;
