@@ -14,6 +14,7 @@
 
 import { getStore, generateId } from '../storage/repository';
 import { audit } from '../audit/log';
+import { eventBus } from '../events/bus';
 import type { MemoryDowngradeRequest, MemoryEntry } from '../types/memory';
 
 /** 引用率连续低于均值 30% 阈值 */
@@ -60,6 +61,23 @@ export async function proposeDowngrade(
     targetType: 'memory_downgrade',
     metadata: { memoryId: input.memoryId, reason: input.reason },
   });
+
+  // 跨域事件广播: Steward UI 刷新 / notification 可订阅
+  try {
+    await eventBus.emit(
+      'memory.downgrade-proposed',
+      {
+        memoryId: input.memoryId,
+        referenceRate:
+          (input.metrics?.referenceCount ?? memory.referenceCount ?? 0) /
+          Math.max(1, input.metrics?.averageReferenceCount ?? 1),
+        timestamp: Date.now(),
+      },
+      `downgrade-proposed:${input.memoryId}`,
+    );
+  } catch {
+    /* isolated */
+  }
 
   return req;
 }

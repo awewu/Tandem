@@ -48,9 +48,12 @@ export interface DomainEventMap {
 
   // ── Memory ────────────────────────────────────────────────────
   'memory.upgraded': {
+    /** 新生成的 MemoryEntry id (晋升结果) */
     memoryId: string;
-    fromLevel: 1 | 2 | 3;
-    toLevel: 2 | 3 | 4;
+    /** 来源 promotion 请求 id */
+    promotionId: string;
+    /** 晋升到的层级 (team/dept/company) */
+    toLevel: 'team' | 'dept' | 'company';
     approvedBy: string;
     timestamp: number;
   };
@@ -61,8 +64,12 @@ export interface DomainEventMap {
   };
   'memory.promotion-sla-overdue': {
     promotionId: string;
-    level: 1 | 2 | 3;
-    overdueHours: number;
+    /** 逾期时所在层级 */
+    fromLevel: 'team' | 'dept' | 'company';
+    /** 升到的层级 (若已 Lv3 则同 fromLevel, 改通知 governance) */
+    toLevel: 'team' | 'dept' | 'company';
+    /** true = 已 Lv3 无法再升, 已通知 governance */
+    notifiedGovernance: boolean;
     timestamp: number;
   };
 

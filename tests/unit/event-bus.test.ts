@@ -40,8 +40,8 @@ describe('event-bus · 类型化 Domain Event Bus', () => {
 
     const r = await eventBus.emit('memory.upgraded', {
       memoryId: 'm1',
-      fromLevel: 1,
-      toLevel: 2,
+      promotionId: 'p1',
+      toLevel: 'team',
       approvedBy: 'u-steward',
       timestamp: Date.now(),
     });

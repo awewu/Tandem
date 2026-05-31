@@ -13,6 +13,7 @@
 
 import { getStore, generateId } from '../storage/repository';
 import { audit } from '../audit/log';
+import { eventBus } from '../events/bus';
 import type {
   MemoryEntry,
   MemoryPromotionRequest,
@@ -221,6 +222,25 @@ async function materializePromotion(req: MemoryPromotionRequest): Promise<Memory
     metadata: { promotionId: req.id, level: req.level ?? 'company' },
   });
 
+  // 跨域事件广播: Persona / OKR cascade / Notification 可订阅
+  try {
+    const lastSigner =
+      (req.signers.history ?? []).slice(-1)[0]?.userId ?? 'system';
+    await eventBus.emit(
+      'memory.upgraded',
+      {
+        memoryId: entry.id,
+        promotionId: req.id,
+        toLevel: req.level ?? 'company',
+        approvedBy: lastSigner,
+        timestamp: Date.now(),
+      },
+      `memory-upgraded:${entry.id}`,
+    );
+  } catch {
+    /* event 广播错误不阫主流程 (bus 已隔离) */
+  }
+
   return entry;
 }
 
@@ -273,6 +293,19 @@ export async function escalateOverduePromotions(): Promise<EscalationResult> {
         targetType: 'memory_promotion',
         metadata: { reason: 'level_3_sla_breach', proposer: req.createdBy },
       });
+      try {
+        await eventBus.emit(
+          'memory.promotion-sla-overdue',
+          {
+            promotionId: req.id,
+            fromLevel,
+            toLevel: fromLevel,
+            notifiedGovernance: true,
+            timestamp: now,
+          },
+          `promo-sla:${req.id}:lv3`,
+        );
+      } catch { /* isolated */ }
       notified++;
       continue;
     }
@@ -298,6 +331,19 @@ export async function escalateOverduePromotions(): Promise<EscalationResult> {
       targetType: 'memory_promotion',
       metadata: { fromLevel, toLevel, reason: 'sla_overdue' },
     });
+    try {
+      await eventBus.emit(
+        'memory.promotion-sla-overdue',
+        {
+          promotionId: req.id,
+          fromLevel,
+          toLevel,
+          notifiedGovernance: false,
+          timestamp: now,
+        },
+        `promo-sla:${req.id}:${toLevel}`,
+      );
+    } catch { /* isolated */ }
     escalated++;
   }
 

@@ -16,6 +16,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { eventBus } from '@/lib/events/bus';
 
 export async function GET(req: NextRequest) {
   await boot();
@@ -88,6 +89,25 @@ export async function POST(req: NextRequest) {
       if (typeof body.currentValue === 'number') patch.currentValue = body.currentValue;
       if (typeof body.confidenceAfter === 'string') patch.confidence = body.confidenceAfter;
       await store.keyResults.update(scopeId, patch);
+    }
+    // 跨域事件广播 (仅 KR scope): drift detector / analytics / company-brain 可订阅
+    if (scope === 'kr') {
+      try {
+        await eventBus.emit(
+          'okr.kr-progressed',
+          {
+            krId: scopeId,
+            from: checkIn.progressBefore,
+            to: checkIn.progressAfter,
+            by: auth.userId,
+            source: 'check-in',
+            timestamp: Date.now(),
+          },
+          `kr-progressed:${checkIn.id}`,
+        );
+      } catch {
+        /* isolated */
+      }
     }
     return NextResponse.json({ checkIn });
   } catch (err) {

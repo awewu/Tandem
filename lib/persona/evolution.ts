@@ -31,6 +31,7 @@ import {
 } from '../types/persona';
 import { getStore, generateId } from '../storage/repository';
 import { audit } from '../audit/log';
+import { eventBus } from '../events/bus';
 
 const STAGE_ORDER: PersonaStage[] = [
   'newborn',
@@ -237,6 +238,24 @@ export async function upgradeStage(personaId: string, triggeredBy: 'user' | 'aut
       vetoRate: persona.decisionHistory.vetoRate,
     },
   });
+
+  // 跨域事件广播: notification / kpi / company-brain 可订阅
+  try {
+    await eventBus.emit(
+      'persona.stage-upgraded',
+      {
+        userId: persona.userId,
+        personaId,
+        fromStage: check.currentStage,
+        toStage: check.nextStage,
+        auto: triggeredBy === 'auto',
+        timestamp: Date.now(),
+      },
+      `persona-upgrade:${personaId}:${check.nextStage}`,
+    );
+  } catch {
+    /* event 广播错误不阫主流程 (bus 已隔离) */
+  }
 
   return updated;
 }
