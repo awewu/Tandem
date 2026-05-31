@@ -50,14 +50,14 @@ const RIGHT_TABS: Tab[] = [
     label: 'IM',
     href: '/im',
     icon: MessagesSquare,
-    matches: (p) => p.startsWith('/im') || p.startsWith('/convergence'),
+    matches: (p) => p.startsWith('/im'),
   },
   {
-    id: 'chat',
+    id: 'dazi',
     label: '搭子',
-    href: '/chat',
+    href: '/tandem',
     icon: BotMessageSquare,
-    matches: (p) => p.startsWith('/chat') || p.startsWith('/agents') || p.startsWith('/persona'),
+    matches: (p) => p.startsWith('/tandem') || p.startsWith('/chat') || p.startsWith('/agents') || p.startsWith('/persona'),
   },
 ];
 

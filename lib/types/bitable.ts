@@ -20,7 +20,9 @@ export type BitableColumnType =
   | 'multiselect'
   | 'checkbox'
   | 'user'
-  | 'link';
+  | 'link'
+  /** D-02: AI 计算列 (Tandem 杀手锏 · 飞书没有). LLM 按 aiPrompt + 本行其它字段计算值. */
+  | 'ai_compute';
 
 export interface BitableColumn {
   id: string;
@@ -34,6 +36,40 @@ export interface BitableColumn {
   required?: boolean;
   /** 列宽 (px) */
   width?: number;
+
+  // ----- D-02 · AI 计算列专用 -----
+  /**
+   * AI 列的提示词. 占位符 {{字段名}} 会被自动展开为本行该字段的值.
+   * 例: "用一句话评估这个员工本季度 OKR 的进展. 姓名: {{姓名}}, KR: {{KR}}, 当前值: {{当前值}}, 目标值: {{目标值}}"
+   */
+  aiPrompt?: string;
+  /** 该 AI 列依赖的其它列 id (用于增量重算判定). 不填则依赖所有其它列. */
+  aiDependsOn?: string[];
+  /** 'fast' (高频低成本) 或 'standard' (Opus 等). 默认 fast. */
+  aiModel?: 'fast' | 'standard';
+}
+
+/**
+ * D-02: AI 列单元格的运行状态.
+ * 写在 row.data[colId] 上面, 让前端能区分"计算中 / 成功 / 失败".
+ * (常规字段直接是 string/number 等; AI 字段是这个对象, 用 typeof 判断.)
+ */
+export interface BitableAiCellValue {
+  __ai: true;
+  /** 计算结果 (LLM 输出, 已 trim). 失败时为 undefined. */
+  value?: string;
+  /** 'pending' (排队中) | 'running' (LLM 调用中) | 'ok' | 'error' */
+  status: 'pending' | 'running' | 'ok' | 'error';
+  /** 错误信息 (status='error' 时). */
+  error?: string;
+  /** 上次成功计算时间. */
+  computedAt?: string;
+  /** 使用的 model. */
+  model?: string;
+}
+
+export function isAiCellValue(v: unknown): v is BitableAiCellValue {
+  return typeof v === 'object' && v !== null && (v as { __ai?: boolean }).__ai === true;
 }
 
 export interface BitableTable {

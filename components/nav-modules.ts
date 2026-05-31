@@ -70,7 +70,7 @@ export type Role = 'employee' | 'manager' | 'steward' | 'admin' | 'champion' | '
 /** 内部员工角色集合（不含合作伙伴） */
 export const INTERNAL_ROLES: Role[] = ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'];
 /** 合作伙伴可见的模块/功能 */
-export const PARTNER_ALLOWED_MODULES = ['ai', 'settings'] as const;
+export const PARTNER_ALLOWED_MODULES = ['dazi', 'settings'] as const;
 
 export interface NavItem {
   name: string;
@@ -122,22 +122,10 @@ export const NAV_MODULES: NavModule[] = [
   },
 
   {
-    id: 'tandem',
-    label: 'Tandem',
-    fullLabel: 'Tandem · 个人工作台',
-    tagline: '1 舞台 + 2 召唤 · 身份在左 / 行动在右',
-    icon: Sparkles,
-    visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
-    // /tandem 内部自有 1+2 召唤布局, 不需 SubSidebar (items=[] = sub-sidebar.tsx 返回 null).
-    pathPrefixes: ['/tandem'],
-    items: [],
-  },
-
-  {
     id: 'okr',
     label: '事半',
-    fullLabel: '事半 · 目标与反馈',
-    tagline: '围绕 OKR 推进, 不跑偏才能事半功倍',
+    fullLabel: '事半 · 战略执行基座',
+    tagline: '围绕 OKR 推进, 战略执行与目标达成的核心基座',
     icon: Target,
     visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
     pathPrefixes: ['/okr', '/insights', '/analytics', '/kpi', '/tti', '/report'],
@@ -160,24 +148,47 @@ export const NAV_MODULES: NavModule[] = [
     ],
   },
 
+  // ═══ IM · 群与部门协同 ═══
   {
-    id: 'comm',
-    label: '沟通',
-    fullLabel: '沟通 · IM 与议事',
-    tagline: '17 分钟达成共识, 把闲聊沉淀为决议',
+    id: 'im',
+    label: 'IM',
+    fullLabel: 'IM · 群与部门协同',
+    tagline: '群聊与部门协同, 把日常沟通沉淀为组织资产',
     icon: MessagesSquare,
     visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
-    // /chat moved to `me` (单聊 LLM 是个人 AI 工具, 不属于团队沟通)
-    pathPrefixes: ['/im', '/convergence', '/meetings'],
+    pathPrefixes: ['/im'],
     items: [
-      // 高频发起 (CTA, 顶部)
       { name: '新建群聊', href: '/im?new=1',   icon: Plus,     accent: 'cta', group: '发起' },
       { name: '找人私聊', href: '/im?dm=new',  icon: UserPlus, accent: 'cta', group: '发起' },
-      // 沟通工具 — 议事室前置 (差异化核心)
-      { name: '议事室',   href: '/convergence', icon: SparklesAlias, badge: '17min', group: '沟通' },
-      { name: 'IM 协同',  href: '/im',          icon: MessagesSquare,                group: '沟通' },
-      { name: '会议室',   href: '/meetings',    icon: Video,                          group: '沟通' },
+      { name: 'IM 协同',  href: '/im',          icon: MessagesSquare,          group: '协同' },
     ],
+  },
+
+  // ═══ Tandem · 议事与决议 (会议 / 决议书 / 共同决策) ═══
+  {
+    id: 'tandem',
+    label: 'Tandem',
+    fullLabel: 'Tandem · 议事与决议',
+    tagline: '会议、决议书、需共同决定的事 · 17 分钟收敛',
+    icon: Sparkles,
+    visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
+    pathPrefixes: ['/convergence', '/meetings'],
+    items: [
+      { name: '议事室',   href: '/convergence', icon: SparklesAlias, accent: 'cta', badge: '17min', group: '议事' },
+      { name: '会议室',   href: '/meetings',    icon: Video,                        group: '议事' },
+    ],
+  },
+
+  // ═══ 搭子 · 个人工作台 (用分身) ═══
+  {
+    id: 'dazi',
+    label: '搭子',
+    fullLabel: '搭子 · 个人工作台',
+    tagline: '每天和你的分身一起干活 · 1 舞台 + 2 召唤',
+    icon: BotMessageSquare,
+    // /tandem 内部自有 1+2 召唤布局, 不需 SubSidebar (items=[] = sub-sidebar.tsx 返回 null).
+    pathPrefixes: ['/tandem'],
+    items: [],
   },
 
   {
@@ -214,71 +225,57 @@ export const NAV_MODULES: NavModule[] = [
     ],
   },
 
+  // ═══ 拿捏 · 修炼分身与个人成长 (炼分身 · 学资料 · 调外部 skills) ═══
   {
     id: 'me',
     label: '拿捏',
-    fullLabel: '拿捏 · 个人成长',
-    tagline: '认识自己、积累技能, 让成长看得见',
-    icon: Sparkles,
+    fullLabel: '拿捏 · 修炼分身与成长',
+    tagline: '炼分身 · 学公司资料 · 调外部 skills, 让成长看得见',
+    icon: GraduationCap,
     visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
-    pathPrefixes: ['/persona', '/skills', '/learning', '/portfolio', '/retros', '/360', '/nine-box'],
+    pathPrefixes: ['/persona', '/skills', '/learning', '/portfolio', '/retros', '/360', '/nine-box', '/chat', '/agents', '/summon', '/settings/llm'],
     items: [
-      // 我的分身 — SUMMON-AND-NURTURE V1 必交付 (B1-B4)
-      { name: '我的分身',     href: '/persona',            icon: Users,            group: '🤖 我的分身' },
-      { name: '分身训练台',   href: '/persona/training',   icon: BotMessageSquare, group: '🤖 我的分身' },
-      { name: '养料仪表盘',   href: '/persona/data-source', icon: Database,        group: '🤖 我的分身' },
-      { name: '五阶段进化',   href: '/persona/evolution',  icon: SparklesAlias,    group: '🤖 我的分身' },
-      { name: '实习权限',     href: '/persona/delegation', icon: ShieldCheck,      group: '🤖 我的分身' },
+      // 🤖 我的分身 — 修炼 (SUMMON-AND-NURTURE V1 B1-B4)
+      { name: '我的分身',     href: '/persona',                  icon: Users,            group: '🤖 我的分身' },
+      { name: '分身训练台',   href: '/persona/training',         icon: BotMessageSquare, group: '🤖 我的分身' },
+      { name: '养料仪表盘',   href: '/persona/data-source',      icon: Database,         group: '🤖 我的分身' },
+      { name: '五阶段进化',   href: '/persona/evolution',        icon: SparklesAlias,    group: '🤖 我的分身' },
+      { name: '实习权限',     href: '/persona/delegation',       icon: ShieldCheck,      group: '🤖 我的分身' },
+      { name: '代办审计',     href: '/persona/me/proxy-actions', icon: Activity,         group: '🤖 我的分身' },
 
-      // 自我画像 — 我是谁
-      { name: '个人档案',     href: '/persona/profile',    icon: Users,            group: '📊 自我画像' },
-      { name: '360° 评估',    href: '/360',                icon: Activity,         group: '📊 自我画像' },
+      // 🧬 技能模式 — 同一主分身参数切换 (不是新 Agent)
+      { name: '🎨 设计模式',   href: '/persona?mode=design',     icon: Palette,         group: '🧬 技能模式' },
+      { name: '📦 PM 模式',      href: '/persona?mode=pm',         icon: ClipboardCheck,  group: '🧬 技能模式' },
+      { name: '💻 技术模式',   href: '/persona?mode=tech',       icon: Cpu,             group: '🧬 技能模式' },
+      { name: '📣 营销模式',   href: '/persona?mode=marketing',  icon: Megaphone,       group: '🧬 技能模式' },
+      { name: '🎯 战略模式',   href: '/persona?mode=strategy',   icon: Target,          group: '🧬 技能模式' },
+
+      // 🌉 外部 AI 接入 — MANIFESTO §19 拥抱市面智能体 + Skill Gateway 4 道闸
+      { name: '接入市面智能体',     href: '/summon/external', icon: Bot,           group: '🌉 外部 AI 接入' },
+      { name: 'Skill Gateway 审计', href: '/summon/audit',    icon: ShieldCheck,   group: '🌉 外部 AI 接入' },
+      { name: '作战室对话',         href: '/chat',            icon: MessageSquare, group: '🌉 外部 AI 接入' },
+      { name: 'Agent 超市',         href: '/agents',          icon: Bot,           group: '🌉 外部 AI 接入' },
+      { name: '模型设置',           href: '/settings/llm',    icon: Cpu,           group: '🌉 外部 AI 接入' },
+
+      // � 自我画像 — 我是谁
+      { name: '个人档案',     href: '/persona/profile',    icon: Users,            group: '� 自我画像' },
+      { name: '360° 评估',    href: '/360',                icon: Activity,         group: '� 自我画像' },
       { name: '9-Box 定位',    href: '/nine-box',           icon: Grid3x3,          group: '📊 自我画像' },
 
-      // 技能与成长 — 我会什么
-      { name: '我的技能',     href: '/skills',             icon: Layers,           group: '🎓 技能与成长' },
-      { name: '学习路径推荐', href: '/skills/learning',    icon: SparklesAlias,    group: '🎓 技能与成长' },
+      // � 技能与成长 — 我会什么
+      { name: '我的技能',     href: '/skills',             icon: Layers,           group: '� 技能与成长' },
+      { name: '学习路径推荐', href: '/skills/learning',    icon: SparklesAlias,    group: '� 技能与成长' },
       { name: '我的复盘库',   href: '/retros/me',          icon: Brain,            group: '🎓 技能与成长' },
       { name: '我的代表作',   href: '/portfolio',          icon: Gift,             group: '🎓 技能与成长' },
 
-      // 📚 学习中心 — 我在学什么 (P2 MVP)
-      { name: '学习台',         href: '/learning',                  icon: BookOpen,        accent: 'cta', group: '📚 学习中心' },
+      // 📚 学习中心 — 我在学什么 (学公司资料, 类训练龙虾)
+      { name: '学习台',       href: '/learning',                  icon: BookOpen,        accent: 'cta', group: '📚 学习中心' },
       { name: '入职必修',     href: '/learning/onboarding',       icon: PartyPopper,                    group: '📚 学习中心' },
       { name: '合规与红线',   href: '/learning/compliance',       icon: FileLock,                       group: '📚 学习中心' },
       { name: '产品学院',     href: '/learning/products',         icon: Layers,                         group: '📚 学习中心' },
       { name: '流程与标准',   href: '/learning/processes',        icon: Workflow,                       group: '📚 学习中心' },
       { name: '专项进阶',     href: '/learning/tracks',           icon: TrendingUp,                     group: '📚 学习中心' },
       { name: '我的认证',     href: '/learning/certifications',   icon: ScrollText,                     group: '📚 学习中心' },
-    ],
-  },
-
-  {
-    id: 'ai',
-    label: '搭子',
-    fullLabel: '召唤搭子',
-    tagline: '一个 AI 分身陪你长大, 拿捏老板拿捏未来',
-    icon: BotMessageSquare,
-    pathPrefixes: ['/chat', '/agents', '/settings/llm', '/summon'],
-    items: [
-      // 🌟 主分身工作台 — 今日 brief + 代办审计 (P1 MVP)
-      { name: '主分身工作台',   href: '/persona',                  icon: BotMessageSquare, accent: 'cta', group: '🌟 主分身工作台' },
-      { name: '主分身代办审计', href: '/persona/me/proxy-actions', icon: Activity,                       group: '🌟 主分身工作台' },
-
-      // 🧬 技能模式 — 同一主分身参数切换 (不是新 Agent)
-      { name: '🎨 设计模式',   href: '/persona?mode=design',     icon: Palette,                        group: '🧬 技能模式' },
-      { name: '📦 PM 模式',      href: '/persona?mode=pm',         icon: ClipboardCheck,                 group: '🧬 技能模式' },
-      { name: '💻 技术模式',   href: '/persona?mode=tech',       icon: Cpu,                            group: '🧬 技能模式' },
-      { name: '📣 营销模式',   href: '/persona?mode=marketing',  icon: Megaphone,                      group: '🧬 技能模式' },
-      { name: '🎯 战略模式',   href: '/persona?mode=strategy',   icon: Target,                         group: '🧬 技能模式' },
-
-      // 🌉 个人 AI 接入 — MANIFESTO §19 拥抱市面智能体 + Skill Gateway 4 道闸 (P4 加固)
-      { name: '接入市面智能体', href: '/summon/external',         icon: Bot,                            group: '🌉 个人 AI 接入' },
-      { name: 'Skill Gateway 审计', href: '/summon/audit',          icon: ShieldCheck,                    group: '🌉 个人 AI 接入' },
-
-      // ⚙️ 召唤台 + 配置
-      { name: '作战室对话',     href: '/chat',                     icon: MessageSquare,                  group: '⚙️ 召唤台 + 配置' },
-      { name: 'Agent 超市',     href: '/agents',                   icon: Bot,                            group: '⚙️ 召唤台 + 配置' },
-      { name: '模型设置',       href: '/settings/llm',             icon: Cpu,                            group: '⚙️ 召唤台 + 配置' },
     ],
   },
 
@@ -375,9 +372,9 @@ export const NAV_MODULES: NavModule[] = [
 
   {
     id: 'atlas',
-    label: 'Atlas',
-    fullLabel: 'Atlas · 公司中央 AI',
-    tagline: '调度技能市场、决议地图、公司之声',
+    label: '中枢',
+    fullLabel: '中枢 · 公司治理与调度',
+    tagline: '技能市场、决议地图、公司之声的中央调度',
     icon: Brain,
     visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
     // /atlas 独立栏, items=[] 不走 SubSidebar (页内自有栏目网格).
