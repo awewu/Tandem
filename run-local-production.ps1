@@ -13,6 +13,13 @@ Write-Host "==================================================" -ForegroundColor
 Write-Host "🚀 开始 Tandem 本机生产级极速部署与启动" -ForegroundColor Cyan
 Write-Host "==================================================" -ForegroundColor Cyan
 
+# 0. 清场: 杀掉会抢占 .next 文件锁的 dev/tauri 进程 (本机踩坑根因)
+#    next dev / tauri:dev 与 next build 同时碰 .next 会导致 webpack chunk 写一半被打断,
+#    报 "Cannot find module './xxxx.js'" 或 "pages-manifest.json ENOENT".
+Write-Host "🧹 [清场] 正在停止可能占用 .next 的 dev/tauri 进程..." -ForegroundColor Cyan
+Get-Process node, tandem -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Start-Sleep -Milliseconds 800
+
 # 1. 确保 .env.local 存在
 if (-not (Test-Path ".env.local")) {
     if (Test-Path ".env.example") {
@@ -76,4 +83,7 @@ Write-Host ""
 
 $env:PORT="3005"
 $env:NODE_ENV="production"
+# 本机自用预览: 跳过生产强密钥/反代硬约束 (NEXTAUTH_SECRET 强度 / ALLOW_DEMO_AUTH / bootstrap 密码).
+# 对外正式生产部署请删除此行, 并按 lib/infra/production-guard.ts 配齐强随机密钥.
+$env:SKIP_STARTUP_GUARD="1"
 npm run start
