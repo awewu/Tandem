@@ -10,6 +10,10 @@
 import type { Persona } from '../types/persona';
 import { SKILL_MODES, type SkillMode } from './skill-modes';
 import { STAGE_META } from './stage-meta';
+import {
+  getConstitutionPromptSegment,
+} from './constitution';
+import type { ConstitutionRule } from '../types/persona-constitution';
 
 export interface ComposePromptOptions {
   persona: Persona;
@@ -21,6 +25,12 @@ export interface ComposePromptOptions {
   privacyScope?: 'personal' | 'team';
   /** 调用方场景 (audit + 决策上下文) */
   scenario?: 'persona_brief' | 'chat' | 'report_extract' | 'tti_breakdown' | string;
+  /**
+   * B-027 价值观锚 · 不可妥协原则.
+   * 调用方先 await loadActiveRules(userId) 拉, 再传入此参数.
+   * 拼装时硬前置在最前 (优先级高于"底座"段, 防 persona 长对话漂走立场).
+   */
+  constitutionRules?: ConstitutionRule[];
 }
 
 /**
@@ -44,11 +54,17 @@ function stageLabelFor(stage: Persona['stage']): string {
  *   [隐私] 默认私有标识
  */
 export function composePersonaSystemPrompt(opts: ComposePromptOptions): string {
-  const { persona, mode, okrContext, privacyScope = 'personal', scenario } = opts;
+  const { persona, mode, okrContext, privacyScope = 'personal', scenario, constitutionRules } = opts;
   const stageLabel = stageLabelFor(persona.stage);
   const modeDef = mode ? SKILL_MODES[mode] : undefined;
 
   const segments: string[] = [];
+
+  // [B-027] 价值观锚 · 硬前置 (先于底座, 优先级最高)
+  if (constitutionRules && constitutionRules.length > 0) {
+    const seg = getConstitutionPromptSegment(constitutionRules);
+    if (seg) segments.push(seg);
+  }
 
   // [底座] 主分身唯一身份
   segments.push(

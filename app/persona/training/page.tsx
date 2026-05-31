@@ -23,6 +23,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { useCurrentUserId } from '@/lib/hooks/use-current-user';
 import { cn } from '@/lib/utils';
+import { PersonaConstitutionCard } from '@/components/persona/ConstitutionCard';
 import {
   Brain,
   Send,
@@ -262,6 +263,9 @@ export default function PersonaTrainingPage() {
           </span>
         </CardContent>
       </Card>
+
+      {/* B-027 价值观锚 · 不可妥协原则 (防漂移层) */}
+      {me && <PersonaConstitutionCard userId={me} />}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* 左：养料来源仪表盘 */}
