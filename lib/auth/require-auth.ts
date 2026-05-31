@@ -16,6 +16,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { COOKIE_ACCESS, verifyAccessToken } from './session';
+import { DEMO_FULL_ROLES } from './roles';
 
 export interface AuthContext {
   userId: string;
@@ -31,7 +32,7 @@ const DEMO_FALLBACK: AuthContext = {
   userId: 'demo-user',
   email: 'demo@tandem.local',
   tenantId: 'default',
-  roles: ['admin', 'manager', 'employee', 'champion', 'steward'],
+  roles: DEMO_FULL_ROLES,
   mfaVerified: false,
   demo: true,
 };

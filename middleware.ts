@@ -17,6 +17,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { verifyAccessTokenEdge } from '@/lib/auth/session-edge';
+import { canAccessPath, FORBIDDEN_REDIRECT } from '@/lib/auth/module-scope';
 
 const COOKIE_ACCESS = 'tandem_at';
 const HEADER_REQ_ID = 'x-request-id';
@@ -40,6 +41,7 @@ const PUBLIC_PREFIXES = [
 const PUBLIC_UI_PREFIXES = [
   '/login',
   '/register',
+  '/forbidden',
   '/privacy',
   '/_next/',
   '/favicon',
@@ -84,11 +86,21 @@ export async function middleware(req: NextRequest) {
 
   // ──────── UI 路由 ────────
   if (!path.startsWith('/api/')) {
-    // 公开 UI 路由 (登录/注册/静态资源) 直接放行
-    if (isPublicUi(path)) return withReqId(NextResponse.next());
+    // 公开 UI 路由 (登录/注册/静态资源/forbidden 自身) 直接放行
+    if (isPublicUi(path) || path === FORBIDDEN_REDIRECT) {
+      return withReqId(NextResponse.next());
+    }
 
-    // 已登录 → 透传
-    if (payload) return withReqId(NextResponse.next());
+    // 已登录 → 检查板块边界 (外部角色禁事半)
+    if (payload) {
+      if (!canAccessPath(payload.roles ?? [], path)) {
+        const url = req.nextUrl.clone();
+        url.pathname = FORBIDDEN_REDIRECT;
+        url.searchParams.set('from', path);
+        return withReqId(NextResponse.redirect(url));
+      }
+      return withReqId(NextResponse.next());
+    }
 
     // 未登录: 重定向到 /login?next=<原路径>
     const url = req.nextUrl.clone();
@@ -103,6 +115,18 @@ export async function middleware(req: NextRequest) {
   }
 
   if (payload) {
+    if (!canAccessPath(payload.roles ?? [], path)) {
+      return withReqId(
+        NextResponse.json(
+          {
+            error: 'forbidden_module',
+            hint: '当前角色无权访问该板块 (外部协作者默认禁事半)',
+            requestId: reqId,
+          },
+          { status: 403 },
+        ),
+      );
+    }
     baseHeaders.set('x-tandem-user-id', payload.sub);
     baseHeaders.set('x-tandem-tenant-id', payload.tenantId);
     baseHeaders.set('x-tandem-roles', payload.roles.join(','));

@@ -105,7 +105,7 @@ export default function EmployeeSsoRegisterPage() {
               </p>
               <p className="text-[11px] text-center text-muted-foreground">
                 合作伙伴？
-                <a href="/partner/join" className="text-violet-600 hover:underline ml-1">使用邀请码注册 →</a>
+                <a href="/partner/join" className="text-brand-600 hover:underline ml-1">使用邀请码注册 →</a>
               </p>
             </form>
           )}

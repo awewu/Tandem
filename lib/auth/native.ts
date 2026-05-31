@@ -20,6 +20,7 @@
  */
 
 import { hashPassword, verifyPassword, evaluatePassword, isPasswordReused } from './password';
+import { DEFAULT_EMPLOYEE_ROLES } from './roles';
 import {
   signAccessToken,
   issueRefreshToken,
@@ -332,7 +333,7 @@ export async function registerWithSso(input: SsoRegisterInput): Promise<AuthResu
   const user = await userStore.create({
     email,
     name: input.name,
-    roles: ['employee'],
+    roles: [...DEFAULT_EMPLOYEE_ROLES],
     tenantId: 'default',
     departmentId: input.employeeId ?? null,
     emailVerifiedAt: new Date().toISOString(),

@@ -260,6 +260,15 @@ function LoginInner() {
                   使用邀请码注册
                 </Link>
               </p>
+              <p className="text-center text-footnote text-ink-tertiary -mt-3">
+                <Link href="/register/employee" className="hover:text-ink-secondary">
+                  公司邮箱直接注册
+                </Link>
+                {' · '}
+                <Link href="/register/apply" className="hover:text-ink-secondary">
+                  外部协作 申请加入
+                </Link>
+              </p>
 
               <SsoFooter />
             </form>

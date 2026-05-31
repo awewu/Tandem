@@ -13,6 +13,7 @@
 import { getStore } from '../storage/repository';
 import { hashPassword } from './password';
 import { audit } from '../audit/log';
+import { OWNER_BOOTSTRAP_ROLES } from './roles';
 
 export async function bootstrapOwnerIfMissing(): Promise<void> {
   try {
@@ -31,7 +32,7 @@ export async function bootstrapOwnerIfMissing(): Promise<void> {
     const user = await store.auth.users.create({
       email,
       name,
-      roles: ['owner', 'admin'],
+      roles: [...OWNER_BOOTSTRAP_ROLES],
       tenantId: 'default',
       emailVerifiedAt: new Date().toISOString(),
     });
