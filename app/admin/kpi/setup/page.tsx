@@ -61,6 +61,7 @@ import {
 import type { Kpi, KpiCycle, KpiLevel, KpiScope, KpiSubject } from '@/lib/types/kpi';
 import { ExcelImportExport } from '@/components/kpi/ExcelImportExport';
 import { BscDistributionPanel } from '@/components/kpi/BscDistributionPanel';
+import { StrategyMapPanel } from '@/components/kpi/StrategyMapPanel';
 import { assessBscBalance, computeBscDistribution } from '@/lib/kpi/bsc-validation';
 
 // ---------------------------------------------------------------------------
@@ -570,6 +571,11 @@ export default function KpiSetupPage() {
 
       {/* BSC 四维配比 (B-020) */}
       {activeCycle && kpis.length > 0 && <BscDistributionPanel report={bscReport} />}
+
+      {/* BSC 战略地图 · 因果链 (B-019) */}
+      {activeCycle && kpis.length > 0 && (
+        <StrategyMapPanel cycleId={activeCycle.id} readOnly={activeCycle.status === 'closed'} />
+      )}
 
       {/* KPI 列表 (分层级) */}
       {activeCycle && (
