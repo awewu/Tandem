@@ -12,7 +12,8 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { useOneOnOneStore, useReview360Store, useMemoryStore, type Memory } from '@/lib/store';
+import { useOneOnOneStore, useReview360Store, useMemoryStore, useOrgStore, useOKRStore, type Memory } from '@/lib/store';
+import { useOrgPeopleStore } from '@/lib/org/people-source';
 import { useAuthStore } from '@/lib/hooks/use-current-user';
 
 /** 把后端 MemoryEntry 转 UI Memory (与 /app/memories/page.tsx 的转换一致) */
@@ -38,6 +39,12 @@ export function ApiHydrator() {
   const load360 = useReview360Store((s) => s.loadFromApi);
   const hydrated360 = useReview360Store((s) => s._hydrated);
   const hydrateMemories = useMemoryStore((s) => s.hydrateMemories);
+  const hydrateOrg = useOrgStore((s) => s.hydrateFromGovernance);
+  const orgHydrated = useOrgStore((s) => s._hydrated);
+  const fixturePeople = useOKRStore((s) => s.people);
+  const setOrgPeopleFixture = useOrgPeopleStore((s) => s.setFixture);
+  const hydrateOrgPeople = useOrgPeopleStore((s) => s.hydrateFromApi);
+  const orgPeopleHydrated = useOrgPeopleStore((s) => s._hydrated);
   const user = useAuthStore((s) => s.user);
   const memHydratedRef = useRef(false);
 
@@ -67,6 +74,21 @@ export function ApiHydrator() {
     if (!hydrated360) void load360();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // D-pragma (2026-05-31): 已登录时把 zustand fixture 替换为后端 governance 默认模板
+  useEffect(() => {
+    if (!user?.id || orgHydrated) return;
+    void hydrateOrg();
+  }, [user?.id, orgHydrated, hydrateOrg]);
+
+  // E-pragma (2026-05-31): OrgPeople = 真用户 + fixture 合并
+  useEffect(() => {
+    setOrgPeopleFixture(fixturePeople);
+  }, [fixturePeople, setOrgPeopleFixture]);
+  useEffect(() => {
+    if (!user?.id || orgPeopleHydrated) return;
+    void hydrateOrgPeople();
+  }, [user?.id, orgPeopleHydrated, hydrateOrgPeople]);
 
   // 纯 side-effect 组件, 不渲染任何 UI
   return null;

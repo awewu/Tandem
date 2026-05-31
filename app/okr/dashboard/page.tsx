@@ -15,6 +15,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useOKRStore, useOrgStore, type Objective, type KeyResult } from '@/lib/store';
+import { buildDeptIndex, resolveOwner } from '@/lib/org/ownership';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -70,29 +71,26 @@ export default function OKRDashboardPage() {
     [objectives, cycleId]
   );
 
-  /** owner → department 映射 */
+  /** Ownership SSOT: ministry/department 索引. 代替原手卷 ownerToDept (修 bug: 现支持 'team:X' / 'person:X' 前缀). */
+  const deptIndex = useMemo(() => buildDeptIndex(departments), [departments]);
+
+  /** 封装: ownerId → deptId/deptName/teamName (统一走 SSOT) */
   const ownerToDept = useMemo(() => {
-    const map = new Map<string, { deptId: string; deptName: string; teamId?: string; teamName?: string }>();
-    for (const p of people) {
-      // person.ministryId 可能是 ministry.id 或 department.id
-      let info: { deptId: string; deptName: string; teamId?: string; teamName?: string } | null = null;
-      for (const d of departments) {
-        if (d.id === p.ministryId) {
-          info = { deptId: d.id, deptName: d.name };
-          break;
-        }
-        for (const m of d.ministries) {
-          if (m.id === p.ministryId) {
-            info = { deptId: d.id, deptName: d.name, teamId: m.id, teamName: m.name };
-            break;
-          }
-        }
-        if (info) break;
+    const cache = new Map<string, { deptId?: string; deptName?: string; teamId?: string; teamName?: string }>();
+    const resolve = (ownerId: string) => {
+      if (!cache.has(ownerId)) {
+        const r = resolveOwner(ownerId, { people, deptIndex });
+        cache.set(ownerId, {
+          deptId: r.deptId,
+          deptName: r.deptName,
+          teamId: r.ministryId,
+          teamName: r.ministryName,
+        });
       }
-      if (info) map.set(p.id, info);
-    }
-    return map;
-  }, [people, departments]);
+      return cache.get(ownerId)!;
+    };
+    return { get: resolve };
+  }, [people, deptIndex]);
 
   /** 部门统计 */
   const deptStats = useMemo<DeptStats[]>(() => {

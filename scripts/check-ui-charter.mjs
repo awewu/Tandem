@@ -359,7 +359,13 @@ for (const top of SCAN_DIRS) {
     }
 
     // M1 响应断点检查 (仅 app/**/page.tsx, allowlist 跳过)
-    if (rel.startsWith('app/') && rel.endsWith('/page.tsx') && !RESPONSIVE_PAGE_ALLOWLIST.has(rel)) {
+    // 跳过无 className 的页面 (纯 redirect / 纯 metadata 导出, 没有可响应的布局)
+    if (
+      rel.startsWith('app/') &&
+      rel.endsWith('/page.tsx') &&
+      !RESPONSIVE_PAGE_ALLOWLIST.has(rel) &&
+      /className\s*=/.test(src)
+    ) {
       if (!RESPONSIVE_BREAKPOINT_REGEX.test(src)) {
         violations.push({
           file: rel,

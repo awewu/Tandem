@@ -24,6 +24,7 @@
 
 import { useMemo } from 'react';
 import { useOKRStore, useOrgStore } from '@/lib/store';
+import { buildDeptIndex, resolveOwner as resolveOwnerSSOT } from '@/lib/org/ownership';
 import { Badge } from '@/components/ui/badge';
 import {
   Network, AlertTriangle, Building2, User, Users, ChevronRight,
@@ -35,30 +36,6 @@ interface Props {
   selectedId?: string | null;
   cycleId: string;
   onSelect?: (objId: string) => void;
-}
-
-/** 从 ownerId ('person:X' / 'team:Y' / 纯 id) 解析出 department / 展示名 */
-function resolveOwner(
-  ownerId: string,
-  people: ReturnType<typeof useOKRStore.getState>['people'],
-  deptByMinistry: Map<string, { deptId: string; deptName: string; ministryName: string }>,
-): { kind: 'person' | 'team' | 'unknown'; name: string; deptId?: string; deptName?: string } {
-  if (!ownerId) return { kind: 'unknown', name: '未指派' };
-  if (ownerId.startsWith('team:')) {
-    const mId = ownerId.slice(5);
-    const hit = deptByMinistry.get(mId);
-    if (hit) return { kind: 'team', name: hit.ministryName, deptId: hit.deptId, deptName: hit.deptName };
-    return { kind: 'team', name: mId };
-  }
-  const pId = ownerId.startsWith('person:') ? ownerId.slice(7) : ownerId;
-  const person = people.find((p) => p.id === pId);
-  const dept = person?.ministryId ? deptByMinistry.get(person.ministryId) : undefined;
-  return {
-    kind: 'person',
-    name: person?.name ?? pId,
-    deptId: dept?.deptId,
-    deptName: dept?.deptName,
-  };
 }
 
 /** KR 加权平均 → Objective progress */
@@ -95,17 +72,8 @@ export function OKRAlignmentTree({ selectedId, cycleId, onSelect }: Props) {
   const { objectives, keyResults, people } = useOKRStore();
   const { departments } = useOrgStore();
 
-  // ministry → department 映射
-  const deptByMinistry = useMemo(() => {
-    const m = new Map<string, { deptId: string; deptName: string; ministryName: string }>();
-    for (const d of departments) {
-      m.set(d.id, { deptId: d.id, deptName: d.name, ministryName: d.name });
-      for (const min of d.ministries) {
-        m.set(min.id, { deptId: d.id, deptName: d.name, ministryName: min.name });
-      }
-    }
-    return m;
-  }, [departments]);
+  // ministry/department → 索引 (Ownership SSOT)
+  const deptIndex = useMemo(() => buildDeptIndex(departments), [departments]);
 
   // 部门 → 颜色
   const deptColor = useMemo(() => {
@@ -168,7 +136,7 @@ export function OKRAlignmentTree({ selectedId, cycleId, onSelect }: Props) {
 
   const renderNode = (obj: Objective, depth: number, parentOwner?: string): React.ReactNode => {
     const progress = calcObjProgress(obj, keyResults);
-    const owner = resolveOwner(obj.ownerId, people, deptByMinistry);
+    const owner = resolveOwnerSSOT(obj.ownerId, { people, deptIndex });
     const color = owner.deptId
       ? deptColor.get(owner.deptId) ?? 'bg-slate-50 border-slate-200 text-slate-900'
       : 'bg-slate-50 border-slate-200 text-slate-900';
@@ -177,7 +145,7 @@ export function OKRAlignmentTree({ selectedId, cycleId, onSelect }: Props) {
     // 跨部门警告: 父和子 ownerId deptId 不同
     let crossDeptWarn = false;
     if (parentOwner) {
-      const parentResolved = resolveOwner(parentOwner, people, deptByMinistry);
+      const parentResolved = resolveOwnerSSOT(parentOwner, { people, deptIndex });
       if (parentResolved.deptId && owner.deptId && parentResolved.deptId !== owner.deptId) {
         crossDeptWarn = true;
       }
@@ -291,8 +259,8 @@ export function OKRAlignmentTree({ selectedId, cycleId, onSelect }: Props) {
     if (!o.parentId) return cnt;
     const parent = cycleObjs.find((p) => p.id === o.parentId);
     if (!parent) return cnt;
-    const co = resolveOwner(o.ownerId, people, deptByMinistry);
-    const cp = resolveOwner(parent.ownerId, people, deptByMinistry);
+    const co = resolveOwnerSSOT(o.ownerId, { people, deptIndex });
+    const cp = resolveOwnerSSOT(parent.ownerId, { people, deptIndex });
     if (co.deptId && cp.deptId && co.deptId !== cp.deptId) return cnt + 1;
     return cnt;
   }, 0);

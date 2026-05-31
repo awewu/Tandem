@@ -86,4 +86,63 @@ test.describe('Tandem · API smoke', () => {
     const j = await r.json();
     expect(j).toHaveProperty('users');
   });
+
+  test('B-027 价值观锚 API: POST 加规则 → GET 可见 → DELETE 归档', async ({ request }) => {
+    const userId = 'demo-user';
+    const base = `/api/persona/${userId}/constitution`;
+    const text = `e2e 临时原则 ${Date.now()}`;
+
+    // POST 加一条
+    const post = await request.post(base, { data: { text } });
+    expect(post.status()).toBe(200);
+    const created = await post.json();
+    const rule = created.constitution?.rules?.find((r: { text: string }) => r.text === text);
+    expect(rule).toBeTruthy();
+
+    // GET 应含该 active 规则
+    const get = await request.get(base);
+    expect(get.status()).toBe(200);
+    const got = await get.json();
+    expect(
+      got.constitution.rules.some(
+        (r: { id: string; archivedAt?: string }) => r.id === rule.id && !r.archivedAt,
+      ),
+    ).toBeTruthy();
+
+    // DELETE 归档 (软删) — 清理 e2e 残留
+    const del = await request.delete(`${base}?ruleId=${rule.id}&reason=e2e-cleanup`);
+    expect(del.status()).toBe(200);
+    const after = await del.json();
+    expect(
+      after.constitution.rules.find((r: { id: string }) => r.id === rule.id)?.archivedAt,
+    ).toBeTruthy();
+  });
+});
+
+test.describe('B-027 · 价值观锚 UI 流程', () => {
+  test('训练台增删价值观锚: 添加可见 → 归档移除', async ({ page }) => {
+    await page.goto('/persona/training');
+
+    // 卡片标题可见
+    await expect(page.getByRole('heading', { name: /价值观锚/ })).toBeVisible({ timeout: 10_000 });
+
+    const text = `e2e UI 原则 ${Date.now()}`;
+    const input = page.getByPlaceholder(/不可妥协原则|已达上限/);
+    await input.fill(text);
+    await input.press('Enter');
+
+    // 新规则出现在列表
+    const ruleItem = page.getByText(text, { exact: false });
+    await expect(ruleItem).toBeVisible({ timeout: 10_000 });
+
+    // 归档 (确认弹窗自动接受) — 清理残留
+    page.on('dialog', (d) => d.accept());
+    await page
+      .locator('li', { hasText: text })
+      .getByTitle('归档此原则')
+      .click();
+
+    // 规则从 active 列表消失
+    await expect(ruleItem).toHaveCount(0, { timeout: 10_000 });
+  });
 });
