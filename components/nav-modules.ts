@@ -25,6 +25,7 @@ import {
   Sparkles as SparklesAlias,
   Grid3x3,
   Video,
+  ScrollText,
   FileText,
   Database,
   Brain,
@@ -163,10 +164,11 @@ export const NAV_MODULES: NavModule[] = [
     tagline: '会议、决议书、需共同决定的事 · 17 分钟收敛',
     icon: Sparkles,
     visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
-    pathPrefixes: ['/convergence', '/meetings'],
+    pathPrefixes: ['/convergence', '/meetings', '/decisions'],
     items: [
       { name: '议事室',   href: '/convergence', icon: SparklesAlias, accent: 'cta', badge: '17min', group: '议事' },
       { name: '会议室',   href: '/meetings',    icon: Video,                        group: '议事' },
+      { name: '决议台账', href: '/decisions',   icon: ScrollText,                   group: '决议' },
     ],
   },
 

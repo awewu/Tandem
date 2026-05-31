@@ -125,26 +125,174 @@ function MailInner() {
   );
 }
 
-/* ─────────── Inbox (V1 placeholder) ─────────── */
+/* ─────────── Inbox · AI 邮件归档 (真闭环: digest + 入库 + 自动签批) ─────────── */
+
+interface IngestActionItem { task: string; deadline?: string; owner?: string }
+interface IngestDigest {
+  summary: string;
+  sentiment: 'positive' | 'neutral' | 'negative' | 'critical';
+  keywords: string[];
+  actionItems: IngestActionItem[];
+  category: 'sop' | 'case' | 'lesson' | 'agreement' | 'operational';
+  securityRiskDetected: boolean;
+  riskDetails?: string;
+}
+interface IngestResult { digest: IngestDigest; originId: string; promotionId?: string }
+
+const SENTIMENT_META: Record<string, { label: string; className: string }> = {
+  positive: { label: '正面', className: 'bg-emerald-50 text-emerald-700' },
+  neutral: { label: '中性', className: 'bg-surface-2 text-ink-secondary' },
+  negative: { label: '负面', className: 'bg-warning/10 text-warning' },
+  critical: { label: '严重', className: 'bg-danger/10 text-danger' },
+};
+const CATEGORY_LABEL: Record<string, string> = {
+  sop: '流程规范', case: '历史案例', lesson: '教训反思', agreement: '协议共识', operational: '日常事务',
+};
 
 function InboxView() {
+  const [from, setFrom] = useState('');
+  const [subject, setSubject] = useState('');
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<IngestResult | null>(null);
+
+  async function analyze() {
+    if (!subject.trim() || !text.trim()) {
+      setError('主题与正文均不可为空');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setResult(null);
+    try {
+      const res = await fetch('/api/mail/ingest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ from, subject, text }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.ok) {
+        setError(json.error ?? `分析失败 (${res.status})`);
+      } else {
+        setResult({ digest: json.digest, originId: json.originId, promotionId: json.promotionId });
+      }
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
-    <Card className="max-w-2xl">
-      <CardContent className="p-8 text-center space-y-3">
-        <div className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-full bg-[rgb(var(--brand-50))] text-[rgb(var(--brand-600))]">
-          <Inbox className="h-6 w-6" />
-        </div>
-        <h2 className="text-headline text-ink-primary">收件箱 V2 计划中</h2>
-        <p className="text-caption text-ink-secondary max-w-md mx-auto">
-          通用 IMAP 收件 (Gmail / Outlook / 自建邮箱) 即将上线.
-          届时支持: 邮件作为 ORIGIN 入档 · @ 触发分身回信草稿 · 议事室一键开会复盘.
-        </p>
-        <p className="text-footnote text-ink-tertiary">
-          紧急沟通推荐使用 <Link href="/im" className="text-[rgb(var(--brand-600))] hover:underline">IM 议事室</Link>,
-          17 分钟达成共识.
-        </p>
-      </CardContent>
-    </Card>
+    <div className="max-w-3xl space-y-4">
+      <Card>
+        <CardContent className="p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-[rgb(var(--brand-600))]" />
+            <h2 className="text-headline text-ink-primary">AI 邮件归档</h2>
+          </div>
+          <p className="text-caption text-ink-secondary">
+            粘贴一封邮件, AI 自动摘要 / 情感与风险扫描 / 抽取 Action Items, 并写入企业 Origins 层;
+            识别为高价值 (流程/案例/教训/共识) 时自动发起三级签批沉淀为中央 Memory.
+            IMAP 自动收件为 V2, 当前为手动 / Webhook 入口.
+          </p>
+          <Input value={from} onChange={(e) => setFrom(e.target.value)} placeholder="发件人 (可选, 默认你自己)" autoComplete="off" />
+          <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="邮件主题" autoComplete="off" />
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="粘贴邮件正文..."
+            className="w-full min-h-[180px] rounded-md border border-border bg-[rgb(var(--surface-1))] px-3 py-2 text-body text-ink-primary placeholder:text-ink-tertiary focus:outline-none focus:ring-2 focus:ring-[rgb(var(--brand-500))/.25] focus:border-[rgb(var(--brand-500))] resize-y"
+          />
+          {error && (
+            <div className="rounded-md bg-rose-50 px-3 py-2 text-caption text-rose-700 flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+          <div className="flex justify-end">
+            <Button onClick={analyze} disabled={busy} className="rheem-btn-pill">
+              <Sparkles className="h-4 w-4 mr-1.5" />
+              {busy ? 'AI 分析中...' : 'AI 分析并归档'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {result && (
+        <Card>
+          <CardContent className="p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-headline text-ink-primary flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                已归档
+              </h3>
+              <div className="flex items-center gap-2">
+                <span className={`rounded-full px-2.5 py-0.5 text-footnote font-medium ${SENTIMENT_META[result.digest.sentiment]?.className ?? ''}`}>
+                  {SENTIMENT_META[result.digest.sentiment]?.label ?? result.digest.sentiment}
+                </span>
+                <span className="rounded-full bg-surface-2 px-2.5 py-0.5 text-footnote text-ink-secondary">
+                  {CATEGORY_LABEL[result.digest.category] ?? result.digest.category}
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <div className="text-footnote font-medium text-ink-tertiary mb-1">摘要</div>
+              <p className="text-caption text-ink-primary whitespace-pre-wrap">{result.digest.summary}</p>
+            </div>
+
+            {result.digest.keywords.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {result.digest.keywords.map((k) => (
+                  <span key={k} className="rounded-full bg-surface-2 px-2 py-0.5 text-footnote text-ink-secondary">{k}</span>
+                ))}
+              </div>
+            )}
+
+            {result.digest.actionItems.length > 0 && (
+              <div>
+                <div className="text-footnote font-medium text-ink-tertiary mb-1">提取的 Action Items</div>
+                <ul className="space-y-1">
+                  {result.digest.actionItems.map((a, i) => (
+                    <li key={i} className="rounded border border-border p-2 text-caption text-ink-primary">
+                      {a.task}
+                      {(a.owner || a.deadline) && (
+                        <span className="ml-2 text-footnote text-ink-tertiary">
+                          {a.owner ? `负责人: ${a.owner}` : ''}{a.owner && a.deadline ? ' · ' : ''}{a.deadline ? `截止: ${a.deadline}` : ''}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {result.digest.securityRiskDetected && (
+              <div className="rounded-md bg-danger/5 px-3 py-2 text-caption text-danger flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                <span>检测到风险: {result.digest.riskDetails ?? '(无细节)'} — 已写入审计</span>
+              </div>
+            )}
+
+            <div className="flex items-center gap-3 pt-1 text-footnote text-ink-tertiary">
+              <span>Origins 物料: {result.originId}</span>
+              {result.promotionId && (
+                <Link href={`/memories?promotionId=${result.promotionId}`} className="text-[rgb(var(--brand-600))] hover:underline">
+                  已发起签批 → 查看
+                </Link>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <p className="text-footnote text-ink-tertiary">
+        通用 IMAP 收件 (Gmail / Outlook / 自建邮箱) 为 V2. 紧急沟通推荐 <Link href="/im" className="text-[rgb(var(--brand-600))] hover:underline">IM 议事室</Link>.
+      </p>
+    </div>
   );
 }
 

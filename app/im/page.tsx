@@ -24,6 +24,7 @@ import {
   useMentionTrigger,
 } from '@/components/documents/mention-picker';
 import { cn } from '@/lib/utils';
+import { MessageReactions } from '@/components/im/message-reactions';
 import type { ImChannel, ImMembership, ImMessage } from '@/lib/types/im';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import Link from 'next/link';
@@ -765,6 +766,9 @@ function ImInner() {
                   onRecall={() => recallMessageHandler(m.id)}
                   onPin={() => togglePinHandler(m.id)}
                   onMentionPersona={(uid) => summonPersona(uid)}
+                  onReactionChange={(reactions) =>
+                    setMessages((prev) => prev.map((x) => (x.id === m.id ? { ...x, reactions } : x)))
+                  }
                 />
               ))}
             </div>
@@ -1097,6 +1101,7 @@ function MessageRow({
   onRecall,
   onPin,
   onMentionPersona,
+  onReactionChange,
 }: {
   msg: Message;
   prev: Message | null;
@@ -1108,6 +1113,7 @@ function MessageRow({
   onRecall: () => void;
   onPin: () => void;
   onMentionPersona: (userId: string) => void;
+  onReactionChange: (reactions: Record<string, string[]>) => void;
 }) {
   // Day 4: 已读人数 (除发送者外, lastReadAt > msg.createdAt 的成员)
   const readers = members.filter(
@@ -1296,6 +1302,15 @@ function MessageRow({
               </button>
             )}
           </div>
+        </div>
+        {/* 表情回应 (真闭环: /api/im/messages/:id/reactions 切换持久化到 ImMessage.reactions) */}
+        <div className={isMe ? 'flex justify-end' : ''}>
+          <MessageReactions
+            messageId={msg.id}
+            reactions={msg.reactions}
+            currentUserId={meId}
+            onChanged={onReactionChange}
+          />
         </div>
         {/* Day 4: 已读人数 (仅我发的消息显示) */}
         {msg.senderId === meId && totalReaders > 0 && (
