@@ -19,7 +19,9 @@ import {
   ChevronRight, ChevronDown, Building2, UsersRound,
   User, Search, Plus,
 } from 'lucide-react';
-import { useOrgStore, useOKRStore, type Person, type Ministry } from '@/lib/store';
+import { useOrgStore } from '@/lib/store';
+import { useOrgPeopleStore, type OrgPerson } from '@/lib/org/people-source';
+import type { Ministry } from '@/lib/types/governance';
 import { Input } from '@/components/ui/input';
 
 interface Props {
@@ -31,14 +33,16 @@ interface Props {
   onCreateDeptChannel: (departmentId: string, departmentName: string) => void;
 }
 
-interface PersonWithMinistry extends Person {
+interface PersonWithMinistry extends OrgPerson {
   ministryName?: string;
   departmentName?: string;
+  avatarUrl?: string;
 }
 
 export function ContactsTree({ currentUserId, onSelectPerson, onCreateDeptChannel }: Props) {
   const { departments } = useOrgStore();
-  const people = useOKRStore((s) => s.people);
+  // E-pragma (2026-05-31): 合并真用户 + fixture, 真用户优先
+  const people = useOrgPeopleStore((s) => s.people);
 
   const [expanded, setExpanded] = useState<Set<string>>(() => {
     // 默认展开所有部门 (一级), 折叠 ministry (二级)
@@ -258,7 +262,7 @@ function PersonRow({
   person,
   onSelectPerson,
 }: {
-  person: Person;
+  person: PersonWithMinistry;
   onSelectPerson: (personId: string) => void;
 }) {
   const initial = (person.name?.[0] ?? '?').toUpperCase();

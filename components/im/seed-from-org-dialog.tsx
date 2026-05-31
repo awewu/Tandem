@@ -24,7 +24,8 @@ import {
   Building2, UsersRound, CheckCircle2, AlertCircle, Sparkles,
   Users,
 } from 'lucide-react';
-import { useOrgStore, useOKRStore } from '@/lib/store';
+import { useOrgStore } from '@/lib/store';
+import { useOrgPeopleStore } from '@/lib/org/people-source';
 
 interface Props {
   open: boolean;
@@ -49,7 +50,8 @@ interface SeedResponse {
 
 export function SeedFromOrgDialog({ open, onOpenChange, currentUserId, onSeeded }: Props) {
   const { departments } = useOrgStore();
-  const people = useOKRStore((s) => s.people);
+  // E-pragma (2026-05-31): 真用户 + fixture 合并后的人源
+  const people = useOrgPeopleStore((s) => s.people);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);

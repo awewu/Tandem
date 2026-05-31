@@ -1,9 +1,12 @@
 /**
- * /admin/organization · 真员工组织管理
+ * /admin/organization · 员工部门 (HR 部门线 · 真员工数据)
  *
- * 与 /organization (三省六部 Agent 工作组可视化, 项目机制 fixture) 区分:
- * - /organization      → 项目协作 metaphor (frozen §9.2, 保持 fixture)
- * - /admin/organization → HR/Admin 看真员工 (本页, 真接 /api/org/users)
+ * 三套相关页面的边界 (2026-05-30 重整 · docs/GOVERNANCE-THREE-DEPARTMENTS-2026-05-30.md):
+ *   - /admin/organization          → 本页. HR/Admin 管理真员工 (User.departmentId, 走 /api/org/users)
+ *   - /governance/three-departments → 三省六部项目治理协同模板 (跨部门协同, fixture)
+ *   - /agents                      → AI Agent 工作组 (与人无关)
+ *
+ * 一句话: 部门 = 「人归属哪里」; 三省六部 = 「事如何流转」; Agent = AI 干活的单元.
  */
 
 'use client';
