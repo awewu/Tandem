@@ -60,17 +60,14 @@ if ($needBuild) {
     Write-Host "⏩ [编译] 已跳过编译，直接使用缓存启动。" -ForegroundColor Gray
 }
 
-# 4. 确保 Drizzle Schema 对齐
-Write-Host "📊 [数据库] 正在校验并对齐本地 Drizzle 数据表结构..." -ForegroundColor Cyan
-npm run db:push
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "⚠️ [警告] 数据库推送失败，可能因为你还没有在 .env.local 中将 DATABASE_URL 指向 5440 端口。" -ForegroundColor Yellow
-    Write-Host "请确保你的 .env.local 包含: DATABASE_URL=postgresql://tandem:tandem@localhost:5440/tandem" -ForegroundColor Yellow
-    $ans = Read-Host "是否已确认配置并重试？[Y/N]"
-    if ($ans -eq "Y" -or $ans -eq "y") {
-        npm run db:push
-    }
-}
+# 4. (已停用) Drizzle Schema 对齐
+#    本库是 Prisma 时代迁移过来的, User 表仍保留若干 Prisma 遗留物理列
+#    (departmentId/managerId/ssoBindings/failedLoginCount/lockedUntil/lastLoginAt/lastLoginIp),
+#    而 Drizzle schema 是精简版 (这些字段改存 KvStore auth_user_extras).
+#    因此 `drizzle-kit push` 每次都会判定这些列为"待删除", 触发数据丢失警告并中止.
+#    => 本机不再盲跑 db:push. schema 变更通过手写幂等 DDL / 迁移管理.
+#    (AuditLog 等新表已用 CREATE TABLE IF NOT EXISTS 单独建好.)
+Write-Host "📊 [数据库] 跳过 db:push (Prisma 遗留库, push 会误删 User 旧列). schema 由迁移手动管理。" -ForegroundColor Gray
 
 # 5. 极速拉起生产级服务
 Write-Host ""
