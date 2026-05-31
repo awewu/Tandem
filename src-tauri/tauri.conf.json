@@ -4,7 +4,7 @@
   "identifier": "local.tandem.app",
   "build": {
     "frontendDist": "../dist",
-    "devUrl": "http://localhost:3005",
+    "devUrl": "http://127.0.0.1:3005",
     "beforeDevCommand": "",
     "beforeBuildCommand": "node scripts/build-desktop-bootstrap.mjs"
   },

@@ -38,7 +38,9 @@ const CONFIG_FILE: &str = "tandem-config.json";
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct TandemConfig {
-    /// 公司局域网 Tandem server URL, 默认 http://localhost:3005 (本机生产 = next start -p 3005)
+    /// 公司局域网 Tandem server URL, 默认 http://127.0.0.1:3005 (本机生产).
+    /// 注: 必须用 127.0.0.1 而非 localhost —— WebView2 渲染进程(AppContainer) 够不到 IPv6 ::1,
+    /// localhost 会被解析成 ::1 导致 ERR_FAILED; 显式 IPv4 127.0.0.1 才能连上.
     /// 生产部署后改成 http://192.1.1.x:3005 (公司服务器 IP), 由 bootstrap 连接网关页或应用内设置写入
     server_url: String,
     /// 是否启用 native 通知 (默认 true)
@@ -50,7 +52,7 @@ struct TandemConfig {
 impl Default for TandemConfig {
     fn default() -> Self {
         Self {
-            server_url: "http://localhost:3005".into(),
+            server_url: "http://127.0.0.1:3005".into(),
             notify_enabled: true,
             autostart_enabled: false,
         }
@@ -65,7 +67,7 @@ fn load_config(app: &AppHandle) -> TandemConfig {
     let server_url = store
         .get("server_url")
         .and_then(|v| v.as_str().map(String::from))
-        .unwrap_or_else(|| "http://localhost:3005".into());
+        .unwrap_or_else(|| "http://127.0.0.1:3005".into());
     let notify_enabled = store
         .get("notify_enabled")
         .and_then(|v| v.as_bool())

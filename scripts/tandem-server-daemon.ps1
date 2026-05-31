@@ -43,9 +43,11 @@ while ($true) {
         continue
     }
 
-    Log "launching: next start -p 3005"
-    # 直接调 next 二进制, 输出重定向到日志
-    & node "node_modules\next\dist\bin\next" start -p 3005 *>> $LogFile
+    Log "launching: next start -H 0.0.0.0 -p 3005"
+    # 直接调 next 二进制, 输出重定向到日志.
+    # -H 0.0.0.0: 必须显式绑 IPv4. 默认 next start 绑 :: (IPv6 双栈), 虽然 curl 能通,
+    # 但 WebView2(桌面端) 连 127.0.0.1 时要求真正的 IPv4 监听器, 双栈 IPv4-mapped 它不认 → ERR_FAILED.
+    & node "node_modules\next\dist\bin\next" start -H 0.0.0.0 -p 3005 *>> $LogFile
     $code = $LASTEXITCODE
     Log "next start exited (code=$code); restarting in 5s"
     Start-Sleep -Seconds 5
