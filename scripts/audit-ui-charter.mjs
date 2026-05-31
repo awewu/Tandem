@@ -11,18 +11,54 @@
  *   node scripts/audit-ui-charter.mjs > docs/UI-AUDIT-2026-05-31.md
  *   node scripts/audit-ui-charter.mjs --pages-only   # 只列 app/**\/page.tsx
  *   node scripts/audit-ui-charter.mjs --by-rule      # 按规则分组
+ *   node scripts/audit-ui-charter.mjs --since=HEAD~5 # 只扫近 5 个 commit 改过的文件
+ *   node scripts/audit-ui-charter.mjs --since=HEAD   # 只扫未提交 + 最后一个 commit
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execSync } from 'node:child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const ROOT = join(__dirname, '..');
 
-const args = new Set(process.argv.slice(2));
+const argv = process.argv.slice(2);
+const args = new Set(argv);
 const PAGES_ONLY = args.has('--pages-only');
 const BY_RULE = args.has('--by-rule');
+const SINCE = (() => {
+  const a = argv.find((x) => x.startsWith('--since='));
+  return a ? a.slice('--since='.length) : null;
+})();
+
+const SCAN_DIRS = ['app', 'components'];
+const IGNORE = new Set(['node_modules', '.next', 'dist', 'build']);
+
+// 增量模式: 只扫 git diff --name-only $SINCE 列出的 .ts/.tsx, 过滤到 SCAN_DIRS
+function loadChangedFiles(since) {
+  try {
+    // 不带 path 过滤, 在 Node 侧用 SCAN_DIRS 过滤 (Windows shell 对单引号 glob 处理不稳)
+    const tracked = execSync(`git diff --name-only ${since}`, {
+      cwd: ROOT,
+      encoding: 'utf8',
+    }).split('\n').map((s) => s.trim()).filter(Boolean);
+    const untracked = execSync(`git ls-files --others --exclude-standard`, {
+      cwd: ROOT,
+      encoding: 'utf8',
+    }).split('\n').map((s) => s.trim()).filter(Boolean);
+    return new Set(
+      [...tracked, ...untracked]
+        .filter((f) => f.endsWith('.tsx') || f.endsWith('.ts'))
+        .filter((f) => SCAN_DIRS.some((d) => f.startsWith(d + '/'))),
+    );
+  } catch (err) {
+    console.error(`[audit] git diff failed: ${err.message}`);
+    process.exit(2);
+  }
+}
+
+const SINCE_FILES = SINCE ? loadChangedFiles(SINCE) : null;
 
 const RULES = [
   { name: 'no-raw-zinc-color', pattern: /\b(?:text|bg|border|ring)-zinc-\d+/g, hint: 'text-ink-{primary,secondary,tertiary} / surface-card' },
@@ -36,9 +72,6 @@ const RULES = [
 ];
 
 const RESPONSIVE_REGEX = /\b(?:sm|md|lg|xl|2xl):/;
-
-const SCAN_DIRS = ['app', 'components'];
-const IGNORE = new Set(['node_modules', '.next', 'dist', 'build']);
 
 function* walk(dir) {
   for (const name of readdirSync(dir)) {
@@ -62,6 +95,7 @@ for (const top of SCAN_DIRS) {
   for (const file of walk(abs)) {
     const rel = relative(ROOT, file).split('\\').join('/');
     if (PAGES_ONLY && !(rel.startsWith('app/') && rel.endsWith('/page.tsx'))) continue;
+    if (SINCE_FILES && !SINCE_FILES.has(rel)) continue;
     const src = readFileSync(file, 'utf8');
     const fileViolations = [];
     for (const rule of RULES) {
@@ -97,17 +131,24 @@ const totalFiles = (() => {
     for (const f of walk(abs)) {
       const rel = relative(ROOT, f).split('\\').join('/');
       if (PAGES_ONLY && !(rel.startsWith('app/') && rel.endsWith('/page.tsx'))) continue;
+      if (SINCE_FILES && !SINCE_FILES.has(rel)) continue;
       n++;
     }
   }
   return n;
 })();
 
-console.log('# UI Charter 全量审计报告');
+const auditTitle = SINCE
+  ? `# UI Charter 增量审计报告 (--since=${SINCE})`
+  : '# UI Charter 全量审计报告';
+const auditScope = SINCE
+  ? `${SCAN_DIRS.join(' / ')} · 仅扫 ${SINCE} 以后变动 + 未提交文件`
+  : `${SCAN_DIRS.join(' / ')} · 全量, **不应用任何 allowlist**`;
+console.log(auditTitle);
 console.log('');
 console.log(`> 生成日期: ${new Date().toISOString().slice(0, 10)}`);
 console.log(`> 规则: 6 raw color + raw text-size + rounded-xl + motion + shadow + missing-responsive`);
-console.log(`> 范围: ${SCAN_DIRS.join(' / ')} · 全量, **不应用任何 allowlist**`);
+console.log(`> 范围: ${auditScope}`);
 console.log('');
 console.log('## 总体');
 console.log('');

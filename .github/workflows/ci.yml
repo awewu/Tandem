@@ -38,6 +38,21 @@ jobs:
       - run: npm ci --no-audit --no-fund --ignore-scripts
       - run: npm run lint --if-present
 
+  ui-charter:
+    # CHARTER-UI-V1 ratchet · 2026-05-31 全量清零后入 CI
+    # PR 上任何 raw token (text-sm/bg-red-NNN/shadow-md/rounded-xl/缺响应断点 ...)
+    # 直接 fail merge. 配套 codemod 见 scripts/codemod-charter-tokens.mjs.
+    name: UI Charter (strict)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci --no-audit --no-fund --ignore-scripts
+      - run: npm run lint:ui-charter -- --strict
+
   unit:
     name: Vitest Unit Tests
     runs-on: ubuntu-latest
