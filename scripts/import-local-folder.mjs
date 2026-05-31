@@ -273,9 +273,12 @@ try {
         context: 'case'
       };
 
+      // kind='semantic' (事实知识) — CompanyBrain 只注入 procedural+semantic 两桶,
+      // 不显式标 kind 会按 type 回退: case/lesson → episodic → 不被注入. 文档资料默认 semantic.
       const memoryData = {
         id: memoryId,
         type: typeMap[uiCategory],
+        kind: 'semantic',
         title: f.fileName.replace(/\.[^.]+$/, ''), // 去掉后缀
         body: docContent,
         status: 'active',
