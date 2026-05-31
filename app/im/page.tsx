@@ -19,6 +19,10 @@ import { AgentModeToggle } from '@/components/im/agent-mode-toggle';
 import { AiTraceButton } from '@/components/im/ai-trace-button';
 import { CompanyBrainFeedbackButtons } from '@/components/im/company-brain-feedback';
 import { VoiceInputButton } from '@/components/voice-input-button';
+import {
+  DocumentMentionPicker,
+  useMentionTrigger,
+} from '@/components/documents/mention-picker';
 import { cn } from '@/lib/utils';
 import type { ImChannel, ImMembership, ImMessage } from '@/lib/types/im';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
@@ -766,21 +770,15 @@ function ImInner() {
               </div>
               <div className="flex items-end gap-2">
                 <div className="flex flex-1 items-center rounded-2xl border border-slate-200 bg-white px-4 py-2.5 shadow-soft-sm transition focus-within:border-warning/50 focus-within:ring-2 focus-within:ring-warning/10">
-                  <Input
-                    ref={composerRef}
+                  <ImComposerInput
+                    composerRef={composerRef}
                     value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        void sendMessage();
-                      }
-                    }}
+                    setValue={setInput}
+                    onEnter={() => void sendMessage()}
+                    disabled={sending}
                     placeholder={`在 ${
                       activeChannel.type === 'dm' ? '私聊' : activeChannel.name
-                    } 中说点什么… (Enter 发送)`}
-                    disabled={sending}
-                    className="border-0 bg-transparent p-0 text-[13.5px] shadow-none focus-visible:ring-0"
+                    } 中说点什么… (Enter 发送 · @ 引用文档)`}
                   />
                 </div>
                 {/* §mobile: 长按语音输入 (Web Speech API). 桌面也可用. */}
@@ -1363,4 +1361,57 @@ function renderInline(
   }
   if (lastIdx < body.length) parts.push(body.slice(lastIdx));
   return parts.length ? parts : body;
+}
+
+/**
+ * D-01: IM composer 输入框, 接 @ 文档引用 picker.
+ *
+ * 既不破坏现有 @[name](userId:persona) 召唤分身的语法 (那个是 @ 紧跟 `[`,
+ * useMentionTrigger 的 regex 会立刻 fail → 收起 picker),
+ * 也支持新的 @<文件名> 文档引用 (插入 [[doc:id|title]], 走 router preprocess).
+ */
+function ImComposerInput(props: {
+  composerRef: React.RefObject<HTMLInputElement>;
+  value: string;
+  setValue: React.Dispatch<React.SetStateAction<string>>;
+  onEnter: () => void;
+  disabled?: boolean;
+  placeholder?: string;
+}) {
+  const { composerRef, value, setValue, onEnter, disabled, placeholder } = props;
+  const mention = useMentionTrigger({
+    value,
+    setValue: (v) => setValue(v),
+    inputRef: composerRef,
+  });
+
+  return (
+    <>
+      <Input
+        ref={composerRef}
+        value={value}
+        onChange={mention.onChange}
+        onKeyDown={(e) => {
+          // picker 接管 ↑↓⏎Esc, 不让 Input 默认 Enter 触发发送
+          if (mention.open && ['ArrowDown', 'ArrowUp', 'Enter', 'Escape', 'Tab'].includes(e.key)) {
+            return;
+          }
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            onEnter();
+          }
+        }}
+        placeholder={placeholder}
+        disabled={disabled}
+        className="border-0 bg-transparent p-0 text-[13.5px] shadow-none focus-visible:ring-0"
+      />
+      <DocumentMentionPicker
+        open={mention.open}
+        query={mention.query}
+        anchor={mention.anchor}
+        onSelect={mention.insertMention}
+        onClose={() => mention.setOpen(false)}
+      />
+    </>
+  );
 }

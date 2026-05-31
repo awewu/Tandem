@@ -1,7 +1,11 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  DocumentMentionPicker,
+  useMentionTrigger,
+} from '@/components/documents/mention-picker';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -289,12 +293,9 @@ function OptionRow({
             </p>
           )}
           {isD && (
-            <textarea
-              className="mt-2 w-full rounded border p-2 text-caption"
-              rows={3}
-              placeholder="请填写原创方案 (此选项必须人填, AI 不可代写)"
+            <NovelInsightTextarea
               value={novelInsight}
-              onChange={(e) => onNovelInsightChange(e.target.value)}
+              onChange={onNovelInsightChange}
               disabled={disabled}
             />
           )}
@@ -386,4 +387,47 @@ function formatTime(iso: string): string {
   return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(
     d.getMinutes()
   ).padStart(2, '0')}`;
+}
+
+/**
+ * D-01: Option D 原创方案 textarea, 支持 @ 引用文档.
+ * 用户写"基于 @合同.pdf 提出收紧违约金条款" → LLM 在评估 Option D 时真读得到合同原文.
+ */
+function NovelInsightTextarea({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  disabled?: boolean;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const mention = useMentionTrigger({ value, setValue: onChange, inputRef: ref });
+  return (
+    <>
+      <textarea
+        ref={ref}
+        className="mt-2 w-full rounded border p-2 text-caption"
+        rows={3}
+        placeholder="请填写原创方案 (此选项必须人填, AI 不可代写) · 输入 @ 可引用文档"
+        value={value}
+        onChange={mention.onChange}
+        onKeyDown={(e) => {
+          if (mention.open && ['ArrowDown', 'ArrowUp', 'Enter', 'Escape', 'Tab'].includes(e.key)) {
+            // picker 接管, 防止 Enter 触发表单提交
+            if (e.key === 'Enter' || e.key === 'Tab') e.preventDefault();
+          }
+        }}
+        disabled={disabled}
+      />
+      <DocumentMentionPicker
+        open={mention.open}
+        query={mention.query}
+        anchor={mention.anchor}
+        onSelect={mention.insertMention}
+        onClose={() => mention.setOpen(false)}
+      />
+    </>
+  );
 }

@@ -13,6 +13,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useOneOnOneStore, useReview360Store, useMemoryStore, useOrgStore, useOKRStore, type Memory } from '@/lib/store';
+import { hydrateOkrFromApi } from '@/lib/store/okr-sync';
 import { useOrgPeopleStore } from '@/lib/org/people-source';
 import { useAuthStore } from '@/lib/hooks/use-current-user';
 
@@ -47,6 +48,7 @@ export function ApiHydrator() {
   const orgPeopleHydrated = useOrgPeopleStore((s) => s._hydrated);
   const user = useAuthStore((s) => s.user);
   const memHydratedRef = useRef(false);
+  const okrHydratedRef = useRef(false);
 
   // P1-1: 拉个人 memory 注入 zustand, 供 /chat baseline system prompt 用
   useEffect(() => {
