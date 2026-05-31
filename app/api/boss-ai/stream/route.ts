@@ -93,7 +93,18 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   // ── 2. 注入页面/任务上下文 anchor ─────────────────────────────
   const contextAnchor = buildContextAnchor({ currentPath, currentTask, userId: auth.userId });
-  const systemPrompt = `${baseSystemPrompt}\n\n${contextAnchor}`;
+  let systemPrompt = `${baseSystemPrompt}\n\n${contextAnchor}`;
+
+  // §Pre-Search Layer · 时间敏感 / 公司 Memory 覆盖度低时主动联网 (不阻塞流式)
+  try {
+    const { preSearchLayer } = await import('@/lib/persona/company-brain');
+    const ps = await preSearchLayer(latestUserMessage, systemPrompt, auth.userId);
+    if (ps.searched) {
+      systemPrompt = ps.revisedSystemPrompt;
+    }
+  } catch {
+    // preSearch 失败不阻塞主流程
+  }
 
   const rawChatMessages: ChatMessage[] = [
     // §B-003 · system prompt 上挂 ephemeral 缓存; Anthropic 命中后输入 token ~10% 计费

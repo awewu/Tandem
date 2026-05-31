@@ -951,7 +951,7 @@ async function invokeCompanyBrainReply(input: InvokePersonaInput): Promise<void>
     }
 
     // §P1 Reranker · 用 @中央 AI 的 IM 消息作为 query, 让注入 Memory 按相关度重排
-    const systemPrompt = await buildCompanyBrainSystemPrompt({
+    const baseSystemPrompt = await buildCompanyBrainSystemPrompt({
       query: input.triggeringMessage.body,
     });
 
@@ -971,6 +971,34 @@ async function invokeCompanyBrainReply(input: InvokePersonaInput): Promise<void>
       parentMessageId: input.triggeringMessage.id,
       aiTraceId,
     });
+
+    // §Pre-Search Layer · 时间敏感 / 公司 Memory 覆盖度低时主动联网 (不阻塞流式)
+    let systemPrompt = baseSystemPrompt;
+    try {
+      const { preSearchLayer } = await import('../persona/company-brain');
+      const ps = await preSearchLayer(
+        input.triggeringMessage.body,
+        baseSystemPrompt,
+        input.triggeringMessage.senderId,
+      );
+      if (ps.searched) {
+        systemPrompt = ps.revisedSystemPrompt;
+        const { audit: psAudit } = await import('../audit/log');
+        await psAudit('output_guard.checked', input.triggeringMessage.senderId, {
+          targetId: placeholder.id,
+          targetType: 'company_brain_im',
+          metadata: {
+            preSearch: true,
+            provider: ps.provider,
+            resultCount: ps.log.resultCount,
+            triggerReason: ps.log.triggerReason,
+            latencyMs: ps.log.latencyMs,
+          },
+        }).catch(() => { /* noop */ });
+      }
+    } catch {
+      // preSearch 失败不阻塞主流程
+    }
 
     const startedAt = Date.now();
     let buffer = '';
