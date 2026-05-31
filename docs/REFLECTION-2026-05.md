@@ -404,6 +404,57 @@ Anthropic 在 2025 年底 / 2026 年初推了"Memory"能力（Claude.ai consumer
 
 ---
 
+## 十、2026-05-31 补：后端体系化首日（一夜攻关）
+
+> 复盘原版 §六 列了 4 项 🔴 红色债 (CI / 成本观测 / Eval harness / Persona 评测) 和 9 项 🟡/🟢/🔵 债。
+> 2026-05-30 跟 Owner 一起把"后端体系化没做"列为本月最大债, 2026-05-31 凌晨一夜处理掉其中"系统耦合纪律"这一类。
+
+### 这一夜做了什么 (4 个 commit)
+
+```
+f95c4c1 feat(events):       跨域订阅者注册中心 + boot 自动 wire        (+319 / 0)
+174dcb5 feat(events):       5 个跨域副作用迁到 event bus + 2 个集成测试 (+523 / -6)
+badb6ae feat(company-brain): 灵魂层注入 system prompt · LLM 也读 manifesto  (+97 / -1)
+dcff2c6 feat(backend-core): manifesto SSOT + event bus + 孤儿 nav 翻盘     (+969 / -11)
+```
+
+### 治了什么硬伤
+
+| 之前 (复盘原版指出) | 现在 (落地) |
+|---|---|
+| 灵魂只在 `docs/MANIFESTO.md`, 代码读不到 | `lib/product/manifesto.ts` 6 灵魂 + 4 不变量 + 三元 + 红线 SSOT, 10 单测钉住 |
+| LLM 推理时 system prompt 不带灵魂 | `buildCompanyBrainSystemPrompt` 注入 6 灵魂 + 战略红线, 6 单测锁顺序 |
+| 跨域副作用靠 `service A 直 await service B` | `lib/events/bus.ts` 类型化 Domain Event Bus + `subscribers.ts` 注册中心 + boot wire |
+| 5 个跨域副作用还是同步链 | promotion 升 / sla 逾期 / 降级提议 / persona 升阶 / KR 进度 全 emit |
+| 测试全 unit, 无跨域集成 | `tests/integration/` 第 1 次出现, 3 文件 15 case |
+| 回头看复盘 §六.10 `src-tauri` 死代码 | 暂未删, 仍待清理 |
+
+### 测试矩阵
+- **2026-05-29 复盘点**: 95/95 单测 + 49 e2e
+- **2026-05-31 03:21**: **609/609 单测** (53 unit + 3 integration) · 2.44s · `tsc --noEmit` 0 errors
+
+### 立的纪律 (写进代码注释 + commit msg, 团队铁律)
+
+1. **灵魂修改 = Owner 立宪**. `lib/product/manifesto.ts` 文件头明文.
+2. **跨域副作用必经 event bus**. 不允许 service A 直接 import service B 然后 await 副作用方法. 任何 PR 绕过 = code review 打回.
+3. **新订阅者必须进 `lib/events/subscribers.ts`** (单点注册 + 幂等). boot.ts 自动 register.
+
+### 复盘原版 §六 红色债剩余 (待办)
+
+| # | 项 | 工期 | 说明 |
+|---|---|---|---|
+| 1 | ❌ AI 调用是黑盒 (无成本观测) | 1-2 天 | LlmUsageLog 表已存在, 但缺 /admin 看板 + alert |
+| 2 | ❌ Memory / Persona 没 Eval harness | 2-3 天 | 需建 fixture + 自动化 benchmark (进 AI-BACKLOG) |
+| 3 | ✅ 已有 CI (.github/workflows/ci.yml + test.yml) | — | 本会话 E1 验证 typecheck/lint/unit/build/smoke 5 jobs 都在 |
+| 4 | ⏸ store.ts 87KB 未拆 slice | 1.5-2 天 | 单独会话, 风险高 (90+ 引用) |
+
+### 给下一次开会话的 Cascade
+
+读完 manifesto.ts + buildSoulContext() + DomainEventMap 这三处, 你已经吃到产品灵魂.
+任何 PR 修改这些文件 = 改产品灵魂, 触发 30+ 测试集 = Owner 立宪审核.
+
+---
+
 ## 附录：本复盘没回答的问题（留给下次）
 
 - 商业模式细节（定价、客单价、获客成本、留存假设）
