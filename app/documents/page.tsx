@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useCurrentUserId } from "@/lib/hooks/use-current-user";
 import Link from "next/link";
-import { FileText, Plus, Lock, Sheet, Presentation } from "lucide-react";
+import { FileText, Plus, Lock, Sheet, Presentation, Upload, Brain } from "lucide-react";
+import { parseDocument } from "@/lib/document-parser";
 
 interface Document {
   id: string;
@@ -24,6 +25,9 @@ export default function DocumentsPage() {
   const currentUserId = useCurrentUserId();
   const [docs, setDocs] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+  const [promoteOnUpload, setPromoteOnUpload] = useState(true);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     fetch("/api/documents")
@@ -50,13 +54,104 @@ export default function DocumentsPage() {
     setDocs((prev) => [doc, ...prev]);
   }
 
+  /**
+   * D-01: 上传文件 → parseDocument → POST /api/documents (type=doc, content=parsed)
+   * D-04: 若 promoteOnUpload, 自动调 /api/documents/:id/promote-to-memory (team level)
+   */
+  async function handleUpload(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    let okCount = 0;
+    let failCount = 0;
+    const failures: string[] = [];
+    for (const file of Array.from(files)) {
+      setUploadStatus(`解析 ${file.name}...`);
+      try {
+        const parsed = await parseDocument(file);
+        const meta = [
+          parsed.format,
+          parsed.pages != null ? `${parsed.pages}页` : null,
+          parsed.sheets != null ? `${parsed.sheets}表` : null,
+        ]
+          .filter(Boolean)
+          .join(" · ");
+        const header = meta ? `<!-- 来源: 上传 · ${meta} -->\n\n` : "";
+        const res = await fetch("/api/documents", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: file.name,
+            content: header + parsed.text,
+            type: "doc",
+            ownerId: currentUserId,
+            tenantId: "default",
+          }),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const doc = (await res.json()) as Document & { id: string };
+        setDocs((prev) => [doc, ...prev]);
+
+        // D-04: 自动提议升级 Memory (复用 promoteDocumentToMemory)
+        if (promoteOnUpload) {
+          await fetch(`/api/documents/${doc.id}/promote-to-memory`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ proposedType: "lesson", level: "team" }),
+          }).catch(() => {
+            // 失败不阻断上传 (fire-and-forget)
+          });
+        }
+        okCount++;
+      } catch (err) {
+        failCount++;
+        failures.push(`${file.name} (${err instanceof Error ? err.message : "未知"})`);
+      }
+    }
+    if (failCount === 0) {
+      setUploadStatus(
+        `✅ 上传 ${okCount} 个文件成功${promoteOnUpload ? " · 已提议升级 Memory" : ""}`,
+      );
+    } else if (okCount > 0) {
+      setUploadStatus(`⚠️ 成功 ${okCount}, 失败 ${failCount}: ${failures[0]}`);
+    } else {
+      setUploadStatus(`❌ 全部失败: ${failures[0]}`);
+    }
+    window.setTimeout(() => setUploadStatus(null), 6000);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
   if (loading) return <div className="p-8 text-gray-500">加载中...</div>;
 
   return (
     <div className="p-6 max-w-5xl mx-auto md:px-8">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col gap-3 mb-6 md:flex-row md:items-center md:justify-between">
         <h1 className="text-title-3 font-bold">文档协作</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-1 px-3 py-2 bg-ink-primary text-white rounded hover:opacity-90"
+            title="上传 PDF/Word/Excel/PPT/文本, 自动解析 + 提议升级 Memory"
+          >
+            <Upload size={16} /> 上传
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept=".pdf,.docx,.xlsx,.xls,.pptx,.txt,.md,.csv,.json,.html,.xml,.yaml,.yml"
+            className="hidden"
+            onChange={(e) => handleUpload(e.target.files)}
+            aria-label="上传文件"
+          />
+          <label className="flex items-center gap-1 px-2 py-1.5 text-caption text-ink-secondary cursor-pointer">
+            <input
+              type="checkbox"
+              checked={promoteOnUpload}
+              onChange={(e) => setPromoteOnUpload(e.target.checked)}
+              className="accent-brand-600"
+            />
+            <Brain size={14} /> 自动提议升级 Memory
+          </label>
           <button onClick={() => createDoc("doc")} className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
             <Plus size={16} /> 文档
           </button>
@@ -68,6 +163,12 @@ export default function DocumentsPage() {
           </button>
         </div>
       </div>
+
+      {uploadStatus && (
+        <div className="mb-4 px-3 py-2 text-caption text-ink-secondary bg-surface-2 rounded-md border border-hairline">
+          {uploadStatus}
+        </div>
+      )}
 
       <div className="grid gap-3">
         {docs.map((doc) => {

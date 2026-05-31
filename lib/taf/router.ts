@@ -96,6 +96,7 @@ export class TandemRouter {
 
   /** 阻塞调用, 自动 fallback */
   async chat(req: ChatRequest): Promise<ChatResponse> {
+    req = await this.preprocessMessages(req);
     const candidates = this.resolveCandidates(req.scenario, req.forceProvider);
 
     let lastError: unknown;
@@ -164,6 +165,7 @@ export class TandemRouter {
 
   /** 流式调用 */
   async *chatStream(req: ChatRequest): AsyncIterable<ChatChunk> {
+    req = await this.preprocessMessages(req);
     const candidates = this.resolveCandidates(req.scenario, req.forceProvider);
 
     for (const name of candidates) {
@@ -221,5 +223,71 @@ export class TandemRouter {
     // 网络错误 / 限流 / 5xx → 可恢复
     if (/timeout|ECONNREFUSED|429|5\d\d/i.test(msg)) return true;
     return false;
+  }
+
+  /**
+   * D-01: 在 LLM 调用前展开 user message 中的 `[[doc:id|title]]` 文档引用.
+   *
+   * - 把 inline mention 替换为 "(见附录 N: title)"
+   * - 把所有文档原文以附录形式追加到最后一条 system 消息 (没有 system 就新建)
+   * - 防爆量: 单文件 8000 字 / 整体 24000 字 (resolve-mentions.ts 内置)
+   * - 无 mention 时 0 IO, 直接返回原 req
+   *
+   * 这是 Tandem 文档板块"超越飞书"的真注入点 (内存 7b67ce8c 同志要求的"真注入到 systemContent").
+   */
+  private async preprocessMessages(req: ChatRequest): Promise<ChatRequest> {
+    try {
+      const { hasDocumentMention, resolveDocumentMentions } = await import(
+        '@/lib/documents/resolve-mentions'
+      );
+      const hasMention = req.messages.some(
+        (m) => typeof m.content === 'string' && hasDocumentMention(m.content),
+      );
+      if (!hasMention) return req;
+
+      const allAppendix: string[] = [];
+      const newMessages = await Promise.all(
+        req.messages.map(async (m) => {
+          if (typeof m.content !== 'string' || !hasDocumentMention(m.content)) return m;
+          const { inlineText, appendix } = await resolveDocumentMentions(m.content);
+          if (appendix) allAppendix.push(appendix);
+          return { ...m, content: inlineText };
+        }),
+      );
+
+      if (allAppendix.length === 0) return { ...req, messages: newMessages };
+
+      // 把附录拼到最后一条 system 消息末尾; 若无 system 则在最前插入
+      const combinedAppendix = allAppendix.join('\n');
+      const lastSystemIdx = (() => {
+        for (let i = newMessages.length - 1; i >= 0; i--) {
+          if (newMessages[i].role === 'system') return i;
+        }
+        return -1;
+      })();
+      if (lastSystemIdx >= 0) {
+        const sys = newMessages[lastSystemIdx];
+        newMessages[lastSystemIdx] = {
+          ...sys,
+          content:
+            (typeof sys.content === 'string' ? sys.content : String(sys.content ?? '')) +
+            combinedAppendix,
+        };
+      } else {
+        newMessages.unshift({
+          role: 'system',
+          content: '## 用户引用的文档原文 (供你回答时参考)' + combinedAppendix,
+        });
+      }
+
+      return { ...req, messages: newMessages };
+    } catch (err) {
+      // resolve 失败永不阻断 LLM 调用; 直接返回原 req
+      if (process.env.NODE_ENV !== 'production') {
+        // eslint-disable-next-line no-console
+        console.warn('[router] preprocessMessages failed:', err);
+      }
+      return req;
+    }
   }
 }
