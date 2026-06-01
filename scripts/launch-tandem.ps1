@@ -94,8 +94,30 @@ if ($cleaned -gt 0) {
     Write-Host " none" -ForegroundColor Gray
 }
 
-# --- Step 3: Launch desktop app ---
-Write-Host "[3/4] Launching desktop app..." -NoNewline
+# --- Step 3: Handle proxy (WebView2 localhost fix) ---
+Write-Host "[3/4] Checking proxy settings..." -NoNewline
+$proxyKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings"
+$proxyWasEnabled = $false
+$originalProxy = $null
+$originalOverride = $null
+try {
+    $prop = Get-ItemProperty -Path $proxyKey -Name ProxyEnable, ProxyServer, ProxyOverride -ErrorAction Stop
+    if ($prop.ProxyEnable -eq 1 -and $prop.ProxyServer) {
+        $proxyWasEnabled = $true
+        $originalProxy = $prop.ProxyServer
+        $originalOverride = $prop.ProxyOverride
+        Write-Host " proxy detected ($originalProxy), temporarily disabling for localhost..." -NoNewline
+        Set-ItemProperty -Path $proxyKey -Name ProxyEnable -Value 0
+        Write-Host " disabled" -ForegroundColor Green
+    } else {
+        Write-Host " none" -ForegroundColor Gray
+    }
+} catch {
+    Write-Host " error checking proxy" -ForegroundColor Gray
+}
+
+# --- Step 4: Launch desktop app ---
+Write-Host "[4/4] Launching desktop app..." -NoNewline
 
 $installedPath = "${env:ProgramFiles}\Tandem\Tandem.exe"
 $installedPathX86 = "${env:ProgramFiles(x86)}\Tandem\Tandem.exe"
@@ -118,4 +140,13 @@ if ($desktopExe) {
     Write-Host "  (dev mode: npx tauri dev)" -ForegroundColor Gray
     Set-Location "$PSScriptRoot\.."
     npx tauri dev
+}
+
+# --- Restore proxy ---
+if ($proxyWasEnabled) {
+    Write-Host "Restoring proxy settings..." -NoNewline
+    Set-ItemProperty -Path $proxyKey -Name ProxyEnable -Value 1
+    if ($originalProxy) { Set-ItemProperty -Path $proxyKey -Name ProxyServer -Value $originalProxy }
+    if ($originalOverride) { Set-ItemProperty -Path $proxyKey -Name ProxyOverride -Value $originalOverride }
+    Write-Host " restored" -ForegroundColor Green
 }
