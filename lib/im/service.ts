@@ -840,11 +840,27 @@ async function invokePersonaReply(input: InvokePersonaInput): Promise<void> {
     // §IM-7 trace id: 关联 router.chat → LlmUsageLog.requestId 同时也写入 IM message.aiTraceId, 让 trace popover 可逆查
     const aiTraceId = `imtrace_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 
+    // §Pre-Search Layer · 个人搭子也接入联网查实时信息
+    let systemPrompt = gov.systemPrompt;
+    try {
+      const { preSearchLayer } = await import('../persona/company-brain');
+      const ps = await preSearchLayer(
+        input.triggeringMessage.body,
+        gov.systemPrompt,
+        input.targetUserId,
+      );
+      if (ps.searched) {
+        systemPrompt = ps.revisedSystemPrompt;
+      }
+    } catch {
+      // preSearch 失败不阻塞主流程
+    }
+
     const reply = await router.chat({
       messages: [
         {
           role: 'system',
-          content: gov.systemPrompt,
+          content: systemPrompt,
           // §B-003 · ephemeral 缓存大型 system prompt, Anthropic 命中后省 ~90% 输入 token
           cacheControl: 'ephemeral',
         },
