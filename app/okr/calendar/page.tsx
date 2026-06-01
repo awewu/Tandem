@@ -23,11 +23,14 @@ import {
   CheckCircle2, AlertTriangle, MessageSquare,
 } from 'lucide-react';
 
-const CONF_DOT: Record<Confidence, string> = {
+const CONF_DOT: Record<string, string> = {
   'on-track': 'bg-emerald-500',
   'at-risk': 'bg-warning',
   'off-track': 'bg-rose-500',
 };
+function dotColor(confidence?: string | null) {
+  return (confidence && CONF_DOT[confidence]) || 'bg-slate-400';
+}
 
 const WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日'];
 
@@ -80,22 +83,27 @@ export default function OKRCalendarPage() {
 
     // KR dueDate
     for (const kr of keyResults) {
-      if (!kr.dueDate) continue;
-      if (kr.dueDate < monthStart || kr.dueDate > monthEnd) continue;
-      const day = new Date(kr.dueDate).getDate();
+      if (!kr || !kr.dueDate) continue;
+      const d = typeof kr.dueDate === 'number' ? kr.dueDate : Date.parse(kr.dueDate as unknown as string);
+      if (Number.isNaN(d)) continue;
+      if (d < monthStart || d > monthEnd) continue;
+      const day = new Date(d).getDate();
       push(day, {
         type: 'kr-due',
-        label: kr.title,
+        label: kr.title || '(无标题)',
         meta: `${objectiveById.get(kr.objectiveId) ?? ''} · ${personById.get(kr.ownerId) ?? ''}`,
         href: `/okr?o=${kr.objectiveId}`,
-        confidence: kr.confidence,
+        confidence: kr.confidence || undefined,
       });
     }
 
     // check-ins
     for (const ci of checkIns) {
-      if (ci.createdAt < monthStart || ci.createdAt > monthEnd) continue;
-      const day = new Date(ci.createdAt).getDate();
+      if (!ci || !ci.createdAt) continue;
+      const d = typeof ci.createdAt === 'number' ? ci.createdAt : Date.parse(ci.createdAt as unknown as string);
+      if (Number.isNaN(d)) continue;
+      if (d < monthStart || d > monthEnd) continue;
+      const day = new Date(d).getDate();
       const targetTitle =
         ci.scope === 'objective'
           ? objectiveById.get(ci.scopeId)
@@ -103,7 +111,7 @@ export default function OKRCalendarPage() {
       push(day, {
         type: 'checkin',
         label: `${ci.scope === 'objective' ? 'O' : 'KR'} check-in: ${targetTitle ?? ''}`,
-        meta: `${personById.get(ci.authorId) ?? ''} · ${ci.progressAfter}%`,
+        meta: `${personById.get(ci.authorId) ?? ''} · ${(ci.progressAfter ?? 0)}%`,
       });
     }
 
@@ -230,7 +238,7 @@ export default function OKRCalendarPage() {
                     key={day}
                     className={`min-h-[88px] rounded border p-1 transition ${
                       isToday
-                        ? 'border-warning/50 bg-warning/5/40'
+                        ? 'border-warning/50 bg-warning/5'
                         : isPast
                         ? 'border-slate-200 bg-slate-50/30'
                         : 'border-slate-200 bg-white hover:bg-slate-50'
@@ -297,7 +305,7 @@ export default function OKRCalendarPage() {
 
 function CellEventRow({ ev }: { ev: CellEvent }) {
   if (ev.type === 'kr-due') {
-    const dot = ev.confidence ? CONF_DOT[ev.confidence] : 'bg-slate-400';
+    const dot = dotColor(ev.confidence);
     const inner = (
       <div className="flex items-center gap-1 text-[9px] truncate">
         <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${dot}`} />
