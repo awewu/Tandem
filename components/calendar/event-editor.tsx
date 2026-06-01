@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar as CalendarIcon, Clock, MapPin, Trash2, Copy, X, Users } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, MapPin, Trash2, Copy, X, Users, ClipboardList } from 'lucide-react';
 
 interface EventEditorProps {
   open: boolean;
@@ -37,6 +37,76 @@ const REMINDER_OPTIONS = [
   { value: 1440, label: '提前 1 天' },
 ];
 
+// 会议复盘子组件 (必须在 EventEditor 之前定义)
+function MeetingRetroButton({ eventId, eventEndTime }: { eventId: string; eventEndTime: number }) {
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<{
+    summary: string;
+    decisions: string[];
+    actionItems: Array<{ task: string; owner?: string; dueDate?: string }>;
+    nextSteps: string[];
+  } | null>(null);
+  const isPast = Date.now() > eventEndTime;
+
+  async function handleRetro() {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/calendar/meeting-retro', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ eventId }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (json.ok && json.retro) setResult(json.retro);
+    } catch { /* 静默失败 */ }
+    finally { setLoading(false); }
+  }
+
+  return (
+    <>
+      <Button
+        variant="outline"
+        size="sm"
+        className="flex-1 gap-1 text-xs"
+        onClick={handleRetro}
+        disabled={loading || !isPast}
+        title={isPast ? '生成会议纪要' : '会议结束后可用'}
+      >
+        <ClipboardList className="h-3.5 w-3.5" />
+        {loading ? '复盘中...' : isPast ? '会议复盘' : '待结束'}
+      </Button>
+      {result && (
+        <div className="rounded-md border border-emerald-200 bg-emerald-50/40 p-2.5 space-y-2 text-xs">
+          <div className="font-medium text-emerald-800">会议纪要</div>
+          <p className="text-ink-secondary">{result.summary}</p>
+          {result.decisions.length > 0 && (
+            <div>
+              <div className="text-[10px] font-medium text-ink-tertiary uppercase mb-0.5">已达成决策</div>
+              <ul className="list-disc list-inside space-y-0.5 text-ink-secondary">
+                {result.decisions.map((d, i) => <li key={i}>{d}</li>)}
+              </ul>
+            </div>
+          )}
+          {result.actionItems.length > 0 && (
+            <div>
+              <div className="text-[10px] font-medium text-ink-tertiary uppercase mb-0.5">Action Items</div>
+              <ul className="space-y-0.5 text-ink-secondary">
+                {result.actionItems.map((a, i) => (
+                  <li key={i} className="flex justify-between">
+                    <span>{a.task}</span>
+                    <span className="text-ink-tertiary">{a.owner}{a.dueDate ? ` · ${a.dueDate}` : ''}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function EventEditor({ open, onClose, initialDate, editEventId }: EventEditorProps) {
   const { calendars, events, addEvent, updateEvent, deleteEvent, duplicateEvent } = useCalendarStore();
   const writableCals = calendars.filter((c) => c.type !== 'okr_sync');
@@ -59,6 +129,15 @@ export default function EventEditor({ open, onClose, initialDate, editEventId }:
   const [hasRecurrence, setHasRecurrence] = useState(false);
   const [recurFreq, setRecurFreq] = useState<RecurrenceRule['frequency']>('weekly');
   const [recurInterval, setRecurInterval] = useState(1);
+
+  // 会议自动准备
+  const [prepLoading, setPrepLoading] = useState(false);
+  const [prepResult, setPrepResult] = useState<{
+    context: string;
+    keyPoints: string[];
+    suggestedAgenda: Array<{ item: string; durationMin: number }>;
+    relatedMaterials: string[];
+  } | null>(null);
 
   // 初始化表单
   useEffect(() => {
@@ -102,7 +181,29 @@ export default function EventEditor({ open, onClose, initialDate, editEventId }:
       setRecurFreq('weekly');
       setRecurInterval(1);
     }
+    setPrepResult(null);
   }, [open, editing, initialDate, writableCals]);
+
+  async function handleMeetingPrep() {
+    if (!editing) return;
+    setPrepLoading(true);
+    try {
+      const res = await fetch('/api/calendar/meeting-prep', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ eventId: editing.id }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (json.ok && json.prep) {
+        setPrepResult(json.prep);
+      }
+    } catch {
+      /* 静默失败 */
+    } finally {
+      setPrepLoading(false);
+    }
+  }
 
   function handleSave() {
     const startMs = parseDateTime(startDate, startTime);
@@ -112,6 +213,16 @@ export default function EventEditor({ open, onClose, initialDate, editEventId }:
 
     if (Number.isNaN(startMs) || Number.isNaN(endMs) || startMs >= endMs) {
       alert('时间格式有误或结束时间早于开始时间');
+      return;
+    }
+
+    // 冲突检测：检查与其他事件的时间重叠
+    const conflicts = events.filter((e) => {
+      if (editing && e.id === editing.id) return false;
+      if (e.status === 'cancelled') return false;
+      return startMs < e.endTime && endMs > e.startTime;
+    });
+    if (conflicts.length > 0 && !confirm(`检测到 ${conflicts.length} 个时间冲突:\n${conflicts.map((c) => `• ${c.title} (${new Date(c.startTime).toLocaleString('zh-CN', { hour: '2-digit', minute: '2-digit' })}-${new Date(c.endTime).toLocaleString('zh-CN', { hour: '2-digit', minute: '2-digit' })})`).join('\n')}\n\n仍要保存吗？`)) {
       return;
     }
 
@@ -362,6 +473,53 @@ export default function EventEditor({ open, onClose, initialDate, editEventId }:
                   <SelectItem value="cancelled">已取消</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+          )}
+
+          {/* 会议自动准备 & 复盘 (仅 meeting 编辑模式) */}
+          {editing && type === 'meeting' && (
+            <div className="space-y-2 pt-2 border-t">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 gap-1 text-xs"
+                  onClick={handleMeetingPrep}
+                  disabled={prepLoading}
+                >
+                  <ClipboardList className="h-3.5 w-3.5" />
+                  {prepLoading ? '准备中...' : '会议准备'}
+                </Button>
+                <MeetingRetroButton eventId={editing.id} eventEndTime={editing.endTime} />
+              </div>
+
+              {prepResult && (
+                <div className="rounded-md border border-blue-200 bg-blue-50/40 p-2.5 space-y-2 text-xs">
+                  <div className="font-medium text-blue-800">会前准备材料</div>
+                  <p className="text-ink-secondary">{prepResult.context}</p>
+                  {prepResult.keyPoints.length > 0 && (
+                    <div>
+                      <div className="text-[10px] font-medium text-ink-tertiary uppercase mb-0.5">关键议题</div>
+                      <ul className="list-disc list-inside space-y-0.5 text-ink-secondary">
+                        {prepResult.keyPoints.map((kp, i) => <li key={i}>{kp}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                  {prepResult.suggestedAgenda.length > 0 && (
+                    <div>
+                      <div className="text-[10px] font-medium text-ink-tertiary uppercase mb-0.5">建议议程</div>
+                      <ul className="space-y-0.5 text-ink-secondary">
+                        {prepResult.suggestedAgenda.map((a, i) => (
+                          <li key={i} className="flex justify-between">
+                            <span>{a.item}</span>
+                            <span className="text-ink-tertiary">{a.durationMin}min</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>

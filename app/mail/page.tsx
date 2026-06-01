@@ -23,6 +23,9 @@ import {
   AlertCircle,
   CheckCircle2,
   Sparkles,
+  Bot,
+  ShieldCheck,
+  RefreshCw,
 } from 'lucide-react';
 import PageTabs from '@/components/page-tabs';
 import { Button } from '@/components/ui/button';
@@ -30,7 +33,8 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { useHandoffPrefill } from '@/hooks/useHandoffPrefill';
 import { useCalendarStore } from '@/lib/store/calendar';
-import { CalendarPlus } from 'lucide-react';
+import { useContactStore } from '@/lib/store/contacts';
+import { CalendarPlus, UserCircle } from 'lucide-react';
 
 interface MailStatus {
   configured: boolean;
@@ -171,6 +175,44 @@ function InboxView() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<IngestResult | null>(null);
   const { addEvent, events } = useCalendarStore();
+
+  // 邮件链摘要
+  const [threadText, setThreadText] = useState('');
+  const [threadLoading, setThreadLoading] = useState(false);
+  const [threadResult, setThreadResult] = useState<{
+    timeline: Array<{ date: string; who: string; what: string }>;
+    keyDecisions: string[];
+    outstandingQuestions: string[];
+    nextActions: string[];
+  } | null>(null);
+
+  async function handleThreadSummary() {
+    if (!threadText.trim()) return;
+    setThreadLoading(true);
+    try {
+      const emails = threadText.split(/\n-{3,}\n/).map((block) => {
+        const lines = block.trim().split('\n');
+        const subjectLine = lines.find((l) => l.toLowerCase().includes('subject:')) || '';
+        const fromLine = lines.find((l) => l.toLowerCase().includes('from:')) || '';
+        return {
+          subject: subjectLine.replace(/subject:/i, '').trim() || '无主题',
+          from: fromLine.replace(/from:/i, '').trim() || '未知',
+          date: new Date().toISOString(),
+          text: block.slice(0, 2000),
+        };
+      }).filter((e) => e.text.length > 20);
+
+      const res = await fetch('/api/mail/thread-summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ emails: emails.length > 0 ? emails : [{ subject: '邮件链', from: 'sender', date: new Date().toISOString(), text: threadText.slice(0, 2000) }] }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (json.ok && json.summary) setThreadResult(json.summary);
+    } catch { /* 静默失败 */ }
+    finally { setThreadLoading(false); }
+  }
 
   async function analyze() {
     if (!subject.trim() || !text.trim()) {
@@ -358,6 +400,60 @@ function InboxView() {
         </Card>
       )}
 
+      {/* 邮件链智能摘要 */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <h3 className="text-xs font-medium text-ink-secondary">邮件链智能摘要</h3>
+          <span className="text-[10px] text-ink-tertiary">粘贴多封邮件，用 --- 分隔</span>
+        </div>
+        <textarea
+          value={threadText}
+          onChange={(e) => setThreadText(e.target.value)}
+          placeholder="粘贴多封邮件内容，用 --- 分隔各封..."
+          className="w-full min-h-[100px] rounded-md border border-border bg-[rgb(var(--surface-1))] px-3 py-2 text-caption text-ink-primary placeholder:text-ink-tertiary focus:outline-none focus:ring-2 focus:ring-[rgb(var(--brand-500))/.25] resize-y"
+        />
+        <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={handleThreadSummary} disabled={threadLoading || !threadText.trim()}>
+          <RefreshCw className="h-3.5 w-3.5" />
+          {threadLoading ? 'AI 分析中...' : '生成摘要'}
+        </Button>
+
+        {threadResult && (
+          <Card className="border-border">
+            <CardContent className="p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-ink-primary">邮件链时间线</span>
+                <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[10px]" onClick={() => setThreadResult(null)}>关闭</Button>
+              </div>
+              <ul className="space-y-1">
+                {threadResult.timeline.map((t, i) => (
+                  <li key={i} className="text-caption text-ink-secondary flex gap-2">
+                    <span className="text-ink-tertiary shrink-0">{t.date}</span>
+                    <span className="font-medium shrink-0">{t.who}</span>
+                    <span>{t.what}</span>
+                  </li>
+                ))}
+              </ul>
+              {threadResult.keyDecisions.length > 0 && (
+                <div>
+                  <div className="text-[10px] font-medium text-ink-tertiary uppercase mb-0.5">关键决策</div>
+                  <ul className="list-disc list-inside text-caption text-ink-secondary">
+                    {threadResult.keyDecisions.map((d, i) => <li key={i}>{d}</li>)}
+                  </ul>
+                </div>
+              )}
+              {threadResult.nextActions.length > 0 && (
+                <div>
+                  <div className="text-[10px] font-medium text-ink-tertiary uppercase mb-0.5">下一步行动</div>
+                  <ul className="list-disc list-inside text-caption text-ink-secondary">
+                    {threadResult.nextActions.map((a, i) => <li key={i}>{a}</li>)}
+                  </ul>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
       <p className="text-footnote text-ink-tertiary">
         通用 IMAP 收件 (Gmail / Outlook / 自建邮箱) 为 V2. 紧急沟通推荐 <Link href="/im" className="text-[rgb(var(--brand-600))] hover:underline">IM 议事室</Link>.
       </p>
@@ -375,6 +471,19 @@ function ComposeView({ canSend, initialDraft }: { canSend: boolean; initialDraft
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; msg: string } | null>(null);
 
+  // 外部联系人档案
+  const { getContactByEmail, upsertContact } = useContactStore();
+  const firstEmail = to.split(/[,;\s]+/).filter(Boolean)[0];
+  const contact = firstEmail ? getContactByEmail(firstEmail) : undefined;
+
+  // AI 回复
+  const [aiReplyLoading, setAiReplyLoading] = useState(false);
+  const [aiReplyDraft, setAiReplyDraft] = useState<string | null>(null);
+
+  // AI 审校
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewResult, setReviewResult] = useState<{ score: number; summary: string; issues: Array<{ severity: string; category: string; message: string; suggestion: string }>; isSafe: boolean } | null>(null);
+
   // Tandem 转交后, 父组件可能在挂载后才填入 initialDraft (异步 sessionStorage 消费)
   // → 监听 initialDraft 变化, 仅在 subject/body 为空时回填, 避免覆盖用户已输入内容
   useEffect(() => {
@@ -383,6 +492,48 @@ function ComposeView({ canSend, initialDraft }: { canSend: boolean; initialDraft
     setBody((cur) => (cur ? cur : initialDraft.body));
     setFeedback({ ok: true, msg: '已从 Tandem 工作台预填草稿, 补完收件人后即可发送.' });
   }, [initialDraft]);
+
+  async function handleAiReply() {
+    if (!body.trim()) return;
+    setAiReplyLoading(true);
+    try {
+      const res = await fetch('/api/mail/ai-reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ originalText: body, originalSubject: subject, tone: 'formal' }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (json.ok && json.draft) {
+        setAiReplyDraft(json.draft);
+      }
+    } catch {
+      /* 静默失败 */
+    } finally {
+      setAiReplyLoading(false);
+    }
+  }
+
+  async function handleAiReview() {
+    if (!body.trim()) return;
+    setReviewLoading(true);
+    try {
+      const res = await fetch('/api/mail/ai-review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ subject, body }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (json.ok && json.review) {
+        setReviewResult(json.review);
+      }
+    } catch {
+      /* 静默失败 */
+    } finally {
+      setReviewLoading(false);
+    }
+  }
 
   async function handleSend() {
     if (!canSend) {
@@ -434,6 +585,16 @@ function ComposeView({ canSend, initialDraft }: { canSend: boolean; initialDraft
             placeholder="alice@example.com, bob@example.com"
             autoComplete="off"
           />
+          {/* 外部联系人智能档案提示 */}
+          {contact && (
+            <div className="flex items-center gap-2 mt-1.5 text-[11px] text-ink-secondary bg-surface-2 rounded px-2 py-1">
+              <UserCircle className="h-3.5 w-3.5 text-brand-500" />
+              <span className="font-medium">{contact.name || contact.email}</span>
+              {contact.company && <span className="text-ink-tertiary">· {contact.company}</span>}
+              {contact.role && <span className="text-ink-tertiary">· {contact.role}</span>}
+              <span className="text-ink-tertiary ml-auto">互动 {contact.interactionCount} 次</span>
+            </div>
+          )}
         </Field>
         <Field label="抄送 (Cc)" hint="可选">
           <Input
@@ -459,6 +620,57 @@ function ComposeView({ canSend, initialDraft }: { canSend: boolean; initialDraft
             className="w-full min-h-[200px] rounded-md border border-border bg-[rgb(var(--surface-1))] px-3 py-2 text-body text-ink-primary placeholder:text-ink-tertiary focus:outline-none focus:ring-2 focus:ring-[rgb(var(--brand-500))/.25] focus:border-[rgb(var(--brand-500))] resize-y"
           />
         </Field>
+
+        {/* AI 回复草稿 */}
+        {aiReplyDraft && (
+          <div className="rounded-md border border-blue-200 bg-blue-50/50 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-blue-700">
+                <Bot className="h-3.5 w-3.5" />
+                AI 回复草稿
+              </div>
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px]" onClick={() => setBody(aiReplyDraft)}>
+                  采用
+                </Button>
+                <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px]" onClick={() => setAiReplyDraft(null)}>
+                  关闭
+                </Button>
+              </div>
+            </div>
+            <div className="text-caption text-ink-primary whitespace-pre-wrap">{aiReplyDraft}</div>
+          </div>
+        )}
+
+        {/* AI 审校结果 */}
+        {reviewResult && (
+          <div className="rounded-md border border-border p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <ShieldCheck className={`h-4 w-4 ${reviewResult.isSafe ? 'text-emerald-500' : 'text-amber-500'}`} />
+                <span className="text-xs font-medium">AI 审校 · {reviewResult.score}分</span>
+                <span className="text-footnote text-ink-tertiary">{reviewResult.summary}</span>
+              </div>
+              <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px]" onClick={() => setReviewResult(null)}>
+                关闭
+              </Button>
+            </div>
+            {reviewResult.issues.length > 0 && (
+              <ul className="space-y-1">
+                {reviewResult.issues.map((issue, i) => (
+                  <li key={i} className={`text-[11px] rounded px-2 py-1 ${
+                    issue.severity === 'critical' ? 'bg-danger/5 text-danger' :
+                    issue.severity === 'warning' ? 'bg-amber-50 text-amber-700' :
+                    'bg-surface-2 text-ink-secondary'
+                  }`}>
+                    <span className="font-medium">[{issue.category}]</span> {issue.message}
+                    {issue.suggestion && <span className="ml-1 text-ink-tertiary">→ {issue.suggestion}</span>}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
       </div>
 
       {feedback && (
@@ -475,10 +687,16 @@ function ComposeView({ canSend, initialDraft }: { canSend: boolean; initialDraft
       )}
 
       <div className="flex items-center justify-between">
-        <p className="text-footnote text-ink-tertiary inline-flex items-center gap-1">
-          <Sparkles className="h-3 w-3" />
-          AI 起草草稿即将上线 — 现阶段需手写
-        </p>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={handleAiReply} disabled={aiReplyLoading || !body.trim()}>
+            <Bot className="h-3.5 w-3.5" />
+            {aiReplyLoading ? '生成中...' : 'AI 回复'}
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={handleAiReview} disabled={reviewLoading || !body.trim()}>
+            <ShieldCheck className="h-3.5 w-3.5" />
+            {reviewLoading ? '审校中...' : 'AI 审校'}
+          </Button>
+        </div>
         <Button onClick={handleSend} disabled={busy || !canSend} className="rheem-btn-pill">
           <Send className="h-4 w-4 mr-1.5" />
           {busy ? '发送中...' : canSend ? '立即发送' : 'SMTP 未配置'}

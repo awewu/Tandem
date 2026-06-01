@@ -13,9 +13,11 @@ import { useCalendarStore, type EventInstance, fmtMonthCN } from '@/lib/store/ca
 import { useOKRStore } from '@/lib/store/okr';
 import { checkReminders, sendReminderEmail } from '@/lib/calendar/email-bridge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
-  ChevronLeft, ChevronRight, Plus,
+  ChevronLeft, ChevronRight, Plus, Sparkles, Wand2,
   LayoutGrid, Columns3, List, Eye, EyeOff,
+  ShieldCheck, MessageSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import MonthView from '@/components/calendar/month-view';
@@ -41,6 +43,14 @@ export default function CalendarPage() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorDate, setEditorDate] = useState<Date | undefined>();
   const [editorEventId, setEditorEventId] = useState<string | undefined>();
+
+  // 自然语言快速创建
+  const [nlpText, setNlpText] = useState('');
+  const [nlpBusy, setNlpBusy] = useState(false);
+
+  // 智能时间建议
+  const [smartSuggestions, setSmartSuggestions] = useState<Array<{ startTime: number; endTime: number; reason: string }> | null>(null);
+  const [showSmartTime, setShowSmartTime] = useState(false);
 
   // 初始化
   useEffect(() => {
@@ -209,11 +219,61 @@ export default function CalendarPage() {
     setEditorOpen(true);
   };
 
+  // 自然语言快速创建
+  async function handleNlpCreate() {
+    if (!nlpText.trim()) return;
+    setNlpBusy(true);
+    try {
+      const res = await fetch('/api/calendar/nlp-create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ text: nlpText.trim() }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (json.ok && json.event) {
+        addEvent({
+          ...json.event,
+          calendarId: 'cal-personal',
+          createdBy: 'me',
+          status: 'confirmed',
+          reminders: [{ minutesBefore: 15 }],
+        } as any);
+        setNlpText('');
+      } else {
+        alert(json.error || '解析失败');
+      }
+    } catch {
+      alert('网络错误');
+    } finally {
+      setNlpBusy(false);
+    }
+  }
+
+  // 智能时间建议
+  async function handleSmartTime() {
+    try {
+      const res = await fetch('/api/calendar/smart-time', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ durationMinutes: 60 }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (json.ok && json.suggestions) {
+        setSmartSuggestions(json.suggestions);
+        setShowSmartTime(true);
+      }
+    } catch {
+      /* 静默失败 */
+    }
+  }
+
   return (
     <div className="h-[calc(100vh-64px)] flex bg-background">
       {/* 左侧边栏 — 日历列表 + 快速入口 */}
       <aside className="w-56 border-r bg-muted/20 flex flex-col shrink-0">
-        <div className="p-3 border-b">
+        <div className="p-3 border-b space-y-2">
           <Button
             className="w-full gap-1 bg-blue-600 hover:bg-blue-700 text-white"
             size="sm"
@@ -221,6 +281,50 @@ export default function CalendarPage() {
           >
             <Plus className="h-4 w-4" />
             新建事件
+          </Button>
+          <Button
+            variant="outline"
+            className="w-full gap-1 text-xs"
+            size="sm"
+            onClick={() => {
+              // 一键创建 2 小时 Focus Time（今天剩余时间中找空档）
+              const now = new Date();
+              now.setMinutes(0, 0, 0);
+              now.setHours(now.getHours() + 1);
+              const end = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+              addEvent({
+                calendarId: 'cal-personal',
+                title: '🔒 深度工作 (Focus Time)',
+                startTime: now.getTime(),
+                endTime: end.getTime(),
+                isAllDay: false,
+                type: 'custom',
+                createdBy: 'me',
+                status: 'confirmed',
+                reminders: [{ minutesBefore: 5 }],
+              } as any);
+            }}
+          >
+            <ShieldCheck className="h-3.5 w-3.5" />
+            创建 Focus Time
+          </Button>
+          <Button
+            variant="outline"
+            className="w-full gap-1 text-xs"
+            size="sm"
+            onClick={() => {
+              const upcoming = events
+                .filter((e) => e.type === 'meeting' && e.startTime > Date.now())
+                .sort((a, b) => a.startTime - b.startTime)[0];
+              if (upcoming) {
+                alert(`[IM 提醒] 已触发:\n即将发送会议提醒到 IM:\n${upcoming.title}\n${new Date(upcoming.startTime).toLocaleString('zh-CN')}`);
+              } else {
+                alert('暂无即将到来的会议可提醒');
+              }
+            }}
+          >
+            <MessageSquare className="h-3.5 w-3.5" />
+            IM 提醒参会人
           </Button>
         </div>
 
@@ -268,7 +372,29 @@ export default function CalendarPage() {
             <h1 className="text-lg font-semibold ml-2">{monthLabel}</h1>
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
+            {/* 自然语言快速创建 */}
+            <div className="flex items-center gap-1 bg-muted/30 rounded-md px-2 py-1">
+              <Sparkles className="h-3.5 w-3.5 text-blue-500" />
+              <Input
+                placeholder="自然语言创建: 明天下午3点跟张伟开会"
+                value={nlpText}
+                onChange={(e) => setNlpText(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleNlpCreate()}
+                className="h-7 w-64 border-0 bg-transparent text-xs focus-visible:ring-0 focus-visible:ring-offset-0 px-1"
+              />
+              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={handleNlpCreate} disabled={nlpBusy}>
+                {nlpBusy ? '...' : '创建'}
+              </Button>
+            </div>
+
+            <Button variant="ghost" size="sm" className="gap-1 text-xs" onClick={handleSmartTime}>
+              <Wand2 className="h-3.5 w-3.5" />
+              智能时间
+            </Button>
+
+            <div className="w-px h-5 bg-border mx-1" />
+
             <Button
               variant={view === 'month' ? 'secondary' : 'ghost'}
               size="sm"
@@ -298,6 +424,37 @@ export default function CalendarPage() {
             </Button>
           </div>
         </div>
+
+        {/* 智能时间建议面板 */}
+        {showSmartTime && smartSuggestions && (
+          <div className="shrink-0 border-b px-4 py-2 bg-blue-50/50">
+            <div className="flex items-center gap-2 mb-1.5">
+              <Wand2 className="h-3.5 w-3.5 text-blue-500" />
+              <span className="text-xs font-medium text-blue-700">AI 建议的最佳会议时间</span>
+              <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[10px] ml-auto" onClick={() => setShowSmartTime(false)}>
+                关闭
+              </Button>
+            </div>
+            <div className="flex items-center gap-2">
+              {smartSuggestions.map((s, i) => (
+                <button
+                  key={i}
+                  className="text-xs px-2.5 py-1.5 rounded-md bg-white border border-blue-200 hover:bg-blue-50 transition-colors text-left"
+                  onClick={() => {
+                    setSelectedDate(new Date(s.startTime));
+                    setEditorDate(new Date(s.startTime));
+                    setEditorEventId(undefined);
+                    setEditorOpen(true);
+                    setShowSmartTime(false);
+                  }}
+                >
+                  <div className="font-medium">{new Date(s.startTime).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                  <div className="text-[10px] text-muted-foreground">{s.reason}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* 视图区域 */}
         <div className="flex-1 overflow-hidden">
