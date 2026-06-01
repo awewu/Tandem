@@ -23,6 +23,7 @@ interface Body {
   cc?: unknown;
   bcc?: unknown;
   replyTo?: unknown;
+  attachments?: unknown;
 }
 
 function asAddrList(v: unknown): string[] | string | undefined {
@@ -60,6 +61,16 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     return NextResponse.json({ ok: false, error: 'text 与 html 至少填一个' }, { status: 400 });
   }
 
+  const attachments = Array.isArray(body.attachments)
+    ? body.attachments
+        .filter((a: unknown): a is Record<string, unknown> => typeof a === 'object' && a !== null)
+        .map((a) => ({
+          filename: typeof a.filename === 'string' ? a.filename : 'attachment',
+          content: typeof a.content === 'string' ? a.content : JSON.stringify(a.content),
+          contentType: typeof a.contentType === 'string' ? a.contentType : undefined,
+        }))
+    : undefined;
+
   const result = await sendEmail({
     to,
     subject,
@@ -68,6 +79,7 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     cc: asAddrList(body.cc),
     bcc: asAddrList(body.bcc),
     replyTo: typeof body.replyTo === 'string' ? body.replyTo : undefined,
+    attachments,
   });
 
   if (!result.ok) {

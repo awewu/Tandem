@@ -55,6 +55,8 @@ export interface CalendarEvent {
   reminders?: { minutesBefore: number }[];
   type: EventType;
   color?: string; // 覆盖日历颜色
+  // 参会人 (邮箱列表, meeting 类型用)
+  attendees?: string[];
   // 系统关联
   linkedObjectiveId?: string;
   linkedKrId?: string;
@@ -84,6 +86,7 @@ export interface EventInstance {
   color: string;
   calendarId: string;
   recurrence?: RecurrenceRule;
+  attendees?: string[];
   linkedObjectiveId?: string;
   linkedKrId?: string;
   linkedConvergenceId?: string;
@@ -259,6 +262,7 @@ function toInstance(
     color: calColor,
     calendarId: event.calendarId,
     recurrence: event.recurrence,
+    attendees: event.attendees,
     linkedObjectiveId: event.linkedObjectiveId,
     linkedKrId: event.linkedKrId,
     linkedConvergenceId: event.linkedConvergenceId,

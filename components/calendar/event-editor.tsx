@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useCalendarStore, type CalendarEvent, type EventType, type EventStatus, type RecurrenceRule } from '@/lib/store/calendar';
+import { sendCalendarInvite } from '@/lib/calendar/email-bridge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar as CalendarIcon, Clock, MapPin, Trash2, Copy, X } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, MapPin, Trash2, Copy, X, Users } from 'lucide-react';
 
 interface EventEditorProps {
   open: boolean;
@@ -54,6 +55,7 @@ export default function EventEditor({ open, onClose, initialDate, editEventId }:
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<EventStatus>('confirmed');
   const [reminderMins, setReminderMins] = useState<number>(15);
+  const [attendees, setAttendees] = useState<string>('');
   const [hasRecurrence, setHasRecurrence] = useState(false);
   const [recurFreq, setRecurFreq] = useState<RecurrenceRule['frequency']>('weekly');
   const [recurInterval, setRecurInterval] = useState(1);
@@ -74,6 +76,7 @@ export default function EventEditor({ open, onClose, initialDate, editEventId }:
       setDescription(editing.description || '');
       setStatus(editing.status);
       setReminderMins(editing.reminders?.[0]?.minutesBefore ?? 15);
+      setAttendees(editing.attendees?.join(', ') ?? '');
       setHasRecurrence(!!editing.recurrence);
       setRecurFreq(editing.recurrence?.frequency ?? 'weekly');
       setRecurInterval(editing.recurrence?.interval ?? 1);
@@ -94,6 +97,7 @@ export default function EventEditor({ open, onClose, initialDate, editEventId }:
       setDescription('');
       setStatus('confirmed');
       setReminderMins(15);
+      setAttendees('');
       setHasRecurrence(false);
       setRecurFreq('weekly');
       setRecurInterval(1);
@@ -121,6 +125,9 @@ export default function EventEditor({ open, onClose, initialDate, editEventId }:
       location: location.trim() || undefined,
       description: description.trim() || undefined,
       status,
+      attendees: attendees.trim()
+        ? attendees.split(/[,;\s]+/).filter(Boolean)
+        : undefined,
       reminders: reminderMins >= 0 ? [{ minutesBefore: reminderMins }] : undefined,
       recurrence: hasRecurrence
         ? { frequency: recurFreq, interval: recurInterval }
@@ -128,12 +135,22 @@ export default function EventEditor({ open, onClose, initialDate, editEventId }:
     };
 
     if (editing) {
+      const hadAttendees = (editing.attendees?.length ?? 0) > 0;
       updateEvent(editing.id, payload);
+      // 如果是 meeting 且有 attendees, 发送更新通知
+      if (type === 'meeting' && (hadAttendees || (payload.attendees && payload.attendees.length > 0))) {
+        const updatedEvent = { ...editing, ...payload } as CalendarEvent;
+        sendCalendarInvite({ event: updatedEvent, method: 'UPDATE' }).catch(() => {});
+      }
     } else {
-      addEvent({
+      const newEvent = addEvent({
         ...payload,
         createdBy: 'me',
       } as Omit<CalendarEvent, 'id' | 'createdAt' | 'updatedAt'>);
+      // 新建 meeting 且有 attendees → 发邀请
+      if (type === 'meeting' && newEvent.attendees && newEvent.attendees.length > 0) {
+        sendCalendarInvite({ event: newEvent, method: 'REQUEST' }).catch(() => {});
+      }
     }
     onClose();
   }
@@ -141,6 +158,10 @@ export default function EventEditor({ open, onClose, initialDate, editEventId }:
   function handleDelete() {
     if (!editing) return;
     if (confirm('确定删除此事件？')) {
+      // 删除 meeting 且有 attendees → 发取消通知
+      if (editing.type === 'meeting' && editing.attendees && editing.attendees.length > 0) {
+        sendCalendarInvite({ event: { ...editing, status: 'cancelled' }, method: 'CANCEL' }).catch(() => {});
+      }
       deleteEvent(editing.id);
       onClose();
     }
@@ -238,6 +259,24 @@ export default function EventEditor({ open, onClose, initialDate, editEventId }:
               </div>
             </div>
           </div>
+
+          {/* 参会人 (仅 meeting 类型显示) */}
+          {type === 'meeting' && (
+            <div className="flex items-start gap-2">
+              <Users className="h-4 w-4 text-muted-foreground mt-2.5" />
+              <div className="flex-1 space-y-1">
+                <Input
+                  placeholder="参会人邮箱, 用逗号或空格分隔"
+                  value={attendees}
+                  onChange={(e) => setAttendees(e.target.value)}
+                  className="flex-1"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  保存后自动发送 ICS 日历邀请邮件
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* 地点 */}
           <div className="flex items-start gap-2">

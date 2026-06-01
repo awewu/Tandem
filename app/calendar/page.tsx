@@ -8,9 +8,10 @@
  * 集成: OKR due / Check-in / Cycle 自动同步 (cal-okr)
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useCalendarStore, type EventInstance, fmtMonthCN } from '@/lib/store/calendar';
 import { useOKRStore } from '@/lib/store/okr';
+import { checkReminders, sendReminderEmail } from '@/lib/calendar/email-bridge';
 import { Button } from '@/components/ui/button';
 import {
   ChevronLeft, ChevronRight, Plus,
@@ -48,6 +49,19 @@ export default function CalendarPage() {
     setMonth(now.getMonth());
     setTodayMs(new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime());
   }, []);
+
+  // 提醒轮询 (每 60 秒检查一次, 到期发邮件通知)
+  useEffect(() => {
+    if (events.length === 0) return;
+    const timer = setInterval(() => {
+      const fired = checkReminders(events);
+      for (const f of fired) {
+        const ev = events.find((e) => e.id === f.eventId);
+        if (ev) sendReminderEmail(ev, f.minutesBefore).catch(() => {});
+      }
+    }, 60_000);
+    return () => clearInterval(timer);
+  }, [events]);
 
   // 自动同步 OKR 数据 → CalendarEvent (cal-okr)
   useEffect(() => {

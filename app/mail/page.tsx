@@ -29,6 +29,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { useHandoffPrefill } from '@/hooks/useHandoffPrefill';
+import { useCalendarStore } from '@/lib/store/calendar';
+import { CalendarPlus } from 'lucide-react';
 
 interface MailStatus {
   configured: boolean;
@@ -128,6 +130,17 @@ function MailInner() {
 /* ─────────── Inbox · AI 邮件归档 (真闭环: digest + 入库 + 自动签批) ─────────── */
 
 interface IngestActionItem { task: string; deadline?: string; owner?: string }
+interface IngestSuggestedEvent {
+  title: string;
+  startDate: string;
+  startTime?: string;
+  endDate?: string;
+  endTime?: string;
+  isAllDay?: boolean;
+  type: 'meeting' | 'deadline' | 'reminder';
+  location?: string;
+  description?: string;
+}
 interface IngestDigest {
   summary: string;
   sentiment: 'positive' | 'neutral' | 'negative' | 'critical';
@@ -136,6 +149,7 @@ interface IngestDigest {
   category: 'sop' | 'case' | 'lesson' | 'agreement' | 'operational';
   securityRiskDetected: boolean;
   riskDetails?: string;
+  suggestedEvents?: IngestSuggestedEvent[];
 }
 interface IngestResult { digest: IngestDigest; originId: string; promotionId?: string }
 
@@ -156,6 +170,7 @@ function InboxView() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<IngestResult | null>(null);
+  const { addEvent, events } = useCalendarStore();
 
   async function analyze() {
     if (!subject.trim() || !text.trim()) {
@@ -266,6 +281,60 @@ function InboxView() {
                       )}
                     </li>
                   ))}
+                </ul>
+              </div>
+            )}
+
+            {/* AI 建议的日历事件 (邮件 → 日程打通) */}
+            {result.digest.suggestedEvents && result.digest.suggestedEvents.length > 0 && (
+              <div>
+                <div className="text-footnote font-medium text-ink-tertiary mb-1 flex items-center gap-1">
+                  <CalendarPlus className="h-3.5 w-3.5" />
+                  AI 提取的日程建议
+                </div>
+                <ul className="space-y-1">
+                  {result.digest.suggestedEvents.map((sev, i) => {
+                    const startMs = sev.startDate
+                      ? new Date(sev.startTime ? `${sev.startDate}T${sev.startTime}` : sev.startDate).getTime()
+                      : Date.now();
+                    const endMs = sev.endDate
+                      ? new Date(sev.endTime ? `${sev.endDate}T${sev.endTime}` : sev.endDate).getTime()
+                      : startMs + 60 * 60 * 1000;
+                    return (
+                      <li key={i} className="rounded border border-border p-2 flex items-center justify-between gap-2">
+                        <div className="text-caption text-ink-primary min-w-0">
+                          <span className="font-medium">{sev.title}</span>
+                          <span className="text-footnote text-ink-tertiary ml-2">
+                            {sev.startDate}{sev.startTime ? ` ${sev.startTime}` : ''}
+                            {sev.type === 'deadline' ? ' · 截止' : sev.type === 'meeting' ? ' · 会议' : ' · 提醒'}
+                          </span>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="shrink-0 text-[rgb(var(--brand-600))]"
+                          onClick={() => {
+                            addEvent({
+                              calendarId: 'cal-personal',
+                              title: sev.title,
+                              startTime: startMs,
+                              endTime: endMs,
+                              isAllDay: sev.isAllDay || false,
+                              type: sev.type === 'meeting' ? 'meeting' : sev.type === 'deadline' ? 'task' : 'reminder',
+                              location: sev.location,
+                              description: sev.description,
+                              createdBy: 'me',
+                              status: 'confirmed',
+                              reminders: sev.type === 'meeting' ? [{ minutesBefore: 15 }] : [{ minutesBefore: 60 }],
+                            });
+                          }}
+                        >
+                          <CalendarPlus className="h-3.5 w-3.5 mr-1" />
+                          加入日程
+                        </Button>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             )}

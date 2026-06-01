@@ -320,7 +320,27 @@ bash / 文件 / 浏览器 — 都是操作机器. 没有"操作组织"的工具 
 - **Tandem**: 4 个角色 (Owner / 治理委员会 / Steward / 员工), 否决/升级/降级链路化, 24h 撤回窗口
 - **状态**: V1.0 完整, V2 加治理委员会议事 + Memory promotion 三级签批
 
-### 路径 8 · 跨 IM 接入 (Persona / CompanyBrain 在外部 IM 也能被召唤) ⏳ 未启动
+### 路径 8 · OKR Drift Detection (OKR 偏离检测) ⏳ V1.5 必补
+
+- **个人 Agent**: 无 OKR 概念，无战略执行闭环
+- **Tandem**: 检测 intent 是否偏离当前 OKR (不偏离→PASS, 边缘→SOFT_WARN, 远离→询问用户)
+- **差异化 vs 个人 agent**: 个人 agent 没有组织目标锚定，Tandem 所有 AI 回答必须可回溯到具体 KR
+- **工作量**: 1 周 (器官 #16)
+- **技术实现**: `lib/skill-gateway/okr-drift.ts` — embedding 召回当前 OKR + 相似度判定
+
+### 路径 9 · Skill Gateway 4 道闸 (技能网关) ⏳ V2-V3
+
+- **个人 Agent (Claude Cowork)**: 4 道闸已有，但 zone 判定是调用方声明（个人主权）
+- **Tandem**: 4 道闸升级为组织主权（company 红线一票否决，zone 由组织基线+委托级别定）
+  - ① Baseline-Guard — 检测 intent 是否违反公司 Memory
+  - ② OKR Drift Detection — 检测 intent 是否偏离当前 OKR
+  - ③ Data Scope — RBAC + ownershipLevel + 组织基线判定
+  - ④ Action Scope — 绿/黄/红区 + delegationLevel + 24h 否决 + ProxyAction
+- **差异化 vs 个人 agent**: Cowork = 个人主权（you decide / your choice），Tandem = 组织主权（company 红线一票否决）
+- **工作量**: 1-2 月 (器官 #18)
+- **技术实现**: `lib/governance/governed-chat.ts` — 统一 chokepoint，串联输入闸 + LLM + 输出闸 + 动作闸
+
+### 路径 10 · 跨 IM 接入 (Persona / CompanyBrain 在外部 IM 也能被召唤) ⏳ 未启动
 
 - **个人 Agent (OpenClaw / Hermes)**: 已做到 — Telegram / WhatsApp / Slack / Signal / iMessage / Email / Discord 都能召唤同一个 agent
 - **飞书 / 钉钉**: 做不到 — 它们的 AI 必须在自家 App 里
@@ -330,7 +350,7 @@ bash / 文件 / 浏览器 — 都是操作机器. 没有"操作组织"的工具 
 - **工作量**: 每个渠道 3-5 天 bridge 实现, 首选: 微信 (国内自用必须) + Email (异步必须) + Slack (海外预备)
 - **新增到 CHARTER-FOUR-PILLARS 应为 IM-9**
 
-### 路径 9 · Skills 自动生成 + Promotion 签批 ⏳ 未启动
+### 路径 11 · Skills 自动生成 + Promotion 签批 ⏳ 未启动
 
 - **个人 Agent (Hermes)**: "creates skills from experience, improves them during use" — AI 从经验里自动造 skill, 自我改进
 - **Tandem 当前**: Memory 4 层 + promotion-flow 已有, 但 **Skills 这一层缺失** — AI 不会主动总结"这种问题我常被问, 我应该把它变成 skill"

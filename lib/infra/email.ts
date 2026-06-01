@@ -16,6 +16,12 @@
 import nodemailer from 'nodemailer';
 import { logger } from './logger';
 
+interface AttachmentInput {
+  filename: string;
+  content: string | Buffer;
+  contentType?: string;
+}
+
 interface SendEmailInput {
   to: string | string[];
   subject: string;
@@ -24,6 +30,7 @@ interface SendEmailInput {
   cc?: string | string[];
   bcc?: string | string[];
   replyTo?: string;
+  attachments?: AttachmentInput[];
 }
 
 let transporter: nodemailer.Transporter | null = null;
@@ -63,6 +70,11 @@ export async function sendEmail(input: SendEmailInput): Promise<{ ok: boolean; m
       subject: input.subject,
       text: input.text,
       html: input.html,
+      attachments: input.attachments?.map((a) => ({
+        filename: a.filename,
+        content: a.content,
+        contentType: a.contentType,
+      })),
     });
     logger.info({ messageId: info.messageId, to: input.to }, '[email] sent');
     return { ok: true, messageId: info.messageId };

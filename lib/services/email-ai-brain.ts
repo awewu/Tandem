@@ -20,6 +20,18 @@ export interface EmailActionItem {
   owner?: string;
 }
 
+export interface SuggestedCalendarEvent {
+  title: string;
+  startDate: string; // YYYY-MM-DD
+  startTime?: string; // HH:MM
+  endDate?: string;   // YYYY-MM-DD
+  endTime?: string;   // HH:MM
+  isAllDay?: boolean;
+  type: 'meeting' | 'deadline' | 'reminder';
+  location?: string;
+  description?: string;
+}
+
 export interface EmailDigestResult {
   summary: string;
   sentiment: 'positive' | 'neutral' | 'negative' | 'critical';
@@ -28,6 +40,7 @@ export interface EmailDigestResult {
   category: 'sop' | 'case' | 'lesson' | 'agreement' | 'operational';
   securityRiskDetected: boolean;
   riskDetails?: string;
+  suggestedEvents?: SuggestedCalendarEvent[];
 }
 
 /**
@@ -60,8 +73,17 @@ JSON 字段必须为：
     { "task": "具体待办描述", "deadline": "格式为 YYYY-MM-DD，若无写 null", "owner": "预计负责人邮箱，若无写 null" }
   ],
   "securityRiskDetected": false,
-  "riskDetails": "检测到风险的简要细节，若无写 null"
+  "riskDetails": "检测到风险的简要细节，若无写 null",
+  "suggestedEvents": [
+    { "title": "会议或截止日标题", "startDate": "YYYY-MM-DD", "startTime": "HH:MM(可选)", "endDate": "YYYY-MM-DD(可选)", "endTime": "HH:MM(可选)", "isAllDay": false, "type": "meeting" | "deadline" | "reminder", "location": "地点(可选)", "description": "描述(可选)" }
+  ]
 }
+
+suggestedEvents 规则：
+- 如果邮件中明确提到了会议时间、截止日、提醒事项，提取出来
+- 会议 type=meeting, 截止日 type=deadline, 提醒 type=reminder
+- 无时间信息则 suggestedEvents 为空数组 []
+- 不要编造不存在的时间
 `;
 
   try {
@@ -89,6 +111,7 @@ JSON 字段必须为：
       actionItems: digest.actionItems || [],
       securityRiskDetected: !!digest.securityRiskDetected,
       riskDetails: digest.riskDetails || undefined,
+      suggestedEvents: digest.suggestedEvents || [],
     };
   } catch (err) {
     // LLM 调用失败兜底
@@ -99,6 +122,7 @@ JSON 字段必须为：
       category: 'operational',
       actionItems: [],
       securityRiskDetected: false,
+      suggestedEvents: [],
     };
   }
 }

@@ -47,6 +47,8 @@
 | `UNIFIED-TECH-DESIGN.md` ★ | 统一技术设计 (TandemNode 原语 / governedChat / Skill Gateway as MCP) |
 | `OKR-DRIVEN-ARCHITECTURE.md` | 事半 OKR 域架构 (第一性原理) |
 | `CENTRAL-AI-ARCHITECTURE.md` | Tandem Atlas / 中央 AI |
+| `CENTRAL-AI-DRIVER-MAP.md` | 中央 AI 驱动全模块复盘 (介入各模块详解) |
+| `CENTRAL-AI-TECH-STACK-DRIVER.md` | 中央 AI 技术栈驱动全模块分析 (5 层技术栈) |
 | `CENTRAL-AI-ENTERPRISE-EDGE.md` | 中央 AI 企业边界 (G2 数据红线) |
 | `AGENT-FRAMEWORK.md` | Agent 分层 (Layer 1-4) |
 | `KNOWLEDGE-ARCHITECTURE.md` | Memory 4 层 ownership |
@@ -77,6 +79,7 @@
 | 文件 | 一句话 |
 |---|---|
 | `COMPETITOR-ARCHITECTURE.md` ★ | 7 竞品架构拆解 **详细 SoT** (灵魂+代码映射+gap，2026-06-01 逐条核实) |
+| `CLAUDE-COWORK-ANALYSIS.md` | Claude Cowork vs Tandem 技术体系对比分析 (4 道闸 + MCP 三原语) |
 | `EVOLUTION-CHECKLIST-FULL.md` ★ | 7 竞品**可执行进化清单** (编号项+落点+验收+核实状态) |
 | `COMPETITIVE-ANALYSIS-2026-05-30.md` | 竞品定位 + 销售 Q&A 脚本 |
 | `WECOM-FEATURE-MAPPING.md` | IM vs 企业微信功能映射 |
@@ -98,6 +101,7 @@
 | `MASTER-UPGRADE.md` | 主升级总纲 (v2.0 对齐) |
 | `ROADMAP-AI.md` | AI 路线 |
 | `PLAN-DOCS-BEYOND-FEISHU-2026-05-31.md` | 文档能力超飞书计划 |
+| `NOTION-CATCHUP-PLAN.md` | Notion 完整追赶计划（6 阶段 16-18 周） |
 | `AI-BACKLOG.md` | AI backlog (B-xxx 编号) |
 | `AI-RADAR.md` | AI 技术雷达 |
 | `REFLECTION-2026-05-30-CLOSURE.md` | 闭环复盘 (最新) |

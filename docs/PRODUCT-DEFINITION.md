@@ -21,7 +21,7 @@
 
 | 模块 | OKR 关系 | 严格度 |
 |---|---|---|
-| **事半 (企业)** | OKR 驱动器 — 严格版 · **任何 ToDo / 自动化 / 通知 / Decision 必须可回溯到当前 OKR** | V1.5 严绑定 (`primaryKrId` XOR `noKrReason ≥ 30 字`) |
+| **事半 (企业)** | **OKR 驱动器 - 严格版** · **任何 ToDo / 自动化 / 通知 / Decision 必须可回溯到当前 OKR** | V1.5 严绑定 (`primaryKrId` XOR `noKrReason ≥ 30 字`) |
 | **拿捏 (个人)** | OKR 解耦 — 个人成长平台, 跟 OKR 不强绑 (员工尊严铁律) | 自由 |
 | **搭子 (Squad)** | OKR 关联但不强求 — 鼓励团队 Agent 围绕 KR cascade, 不强制 | 中等 |
 
