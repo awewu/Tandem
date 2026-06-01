@@ -156,7 +156,7 @@ v1.0 REFLECTION-2026-05.md 错误判断:
 
 ## 十、相关文档
 
-- `docs/MANIFESTO.md` — 18 条产品宪章 (不变的根基)
+- `docs/MANIFESTO.md` — 20 条产品宪章 v2.0 (不变的根基)
 - `docs/PRODUCT-DEFINITION.md` — 详细功能定义
 - `docs/PRODUCT-SPIRIT.md` — 创造价值 / 赢得尊重 / 快乐工作 三段精神
 - `docs/SELF-USE-FIRST.md` — 自用阶段战略锚点

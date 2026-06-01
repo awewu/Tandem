@@ -147,38 +147,21 @@ const HTML = `<!doctype html>
       return u;
     }
 
-    // 探活: no-cors fetch, 网络可达即 resolve (即使 opaque); 连接拒绝/超时则 reject.
-    function ping(url) {
-      var ctrl = new AbortController();
-      var to = setTimeout(function () { ctrl.abort(); }, 4000);
-      return fetch(url + '/api/health', { mode: 'no-cors', signal: ctrl.signal, cache: 'no-store' })
-        .then(function () { clearTimeout(to); return true; })
-        .catch(function () { clearTimeout(to); return false; });
-    }
-
     var $ = function (id) { return document.getElementById(id); };
 
     function showConfig(prefill, message) {
-      $('title').textContent = '连接公司服务器';
-      $('subtitle').textContent = '填写公司 Tandem 服务器地址即可使用全部功能。';
       $('loading').style.display = 'none';
       $('config').style.display = 'block';
+      $('title').textContent = '连接公司服务器';
+      $('subtitle').textContent = '填写公司 Tandem 服务器地址即可使用全部功能。';
       $('url').value = prefill || DEFAULT_URL;
       if (message) { $('err').style.display = 'block'; $('err').textContent = message; }
       $('url').focus();
       $('url').select();
     }
 
-    function attempt(url, opts) {
-      opts = opts || {};
-      $('loading').style.display = 'block';
-      $('config').style.display = 'none';
-      $('title').textContent = '正在连接 Tandem';
-      $('subtitle').textContent = '连接 ' + url + ' …';
-      return ping(url).then(function (ok) {
-        if (ok) { window.location.replace(url); return; }
-        showConfig(url, opts.silent ? '' : '无法连接到 ' + url + '，请检查地址或确认服务器已启动。');
-      });
+    function go(url) {
+      window.location.replace(url);
     }
 
     $('config').addEventListener('submit', function () {
@@ -188,19 +171,16 @@ const HTML = `<!doctype html>
       $('err').style.display = 'none';
       tauriInvoke('tandem_set_config', { serverUrl: url })
         .catch(function () {})
-        .then(function () { return attempt(url); })
-        .then(function () { $('connect').disabled = false; });
+        .then(function () { go(url); });
     });
 
-    // 启动: 读已保存配置 → 探活 → 跳转 / 显示配置表单
+    // 启动: 直接跳转, 不 probe (WebView2 fetch 到 localhost 在 proxy 环境下不可靠)
     tauriInvoke('tandem_get_config')
       .then(function (cfg) {
-        var url = normalize((cfg && cfg.serverUrl) || DEFAULT_URL);
-        return attempt(url, { silent: true });
+        go(normalize((cfg && cfg.serverUrl) || DEFAULT_URL));
       })
       .catch(function () {
-        // 非 Tauri 环境 (例如浏览器直接打开 dist/index.html) 或 IPC 不可用
-        attempt(DEFAULT_URL, { silent: true });
+        go(DEFAULT_URL);
       });
   </script>
 </body>

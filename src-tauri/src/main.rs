@@ -309,14 +309,19 @@ fn on_window_close(window: &Window, api: tauri::CloseRequestApi) {
 // =====================================================================
 
 fn on_setup(app: &AppHandle) -> tauri::Result<()> {
-    // 不再在此强制 redirect:
-    //   - dev (`tauri dev`): webview 直接加载 tauri.conf.devUrl (= 运行中的 Next server, 完整 app)
-    //   - prod (`tauri build`): webview 加载 frontendDist 的 bootstrap 连接网关页 (dist/index.html),
-    //                           由该页 JS 读 tandem_get_config → 探活 → window.location.replace(serverUrl);
-    //                           首次/连不上时展示配置表单, 写入后重试.
-    // 这样把跳转逻辑集中到前端, 避免 Rust eval 与页面加载的竞态, 也让"连不上"有可视化兜底.
     setup_tray(app)?;
     setup_global_shortcuts(app)?;
+
+    // 生产模式: 窗口创建后直接导航到配置的 serverUrl (不依赖 bootstrap 的 JS 导航,
+    // 避免 WebView2 安全策略或代理环境对 window.location.replace 的拦截)
+    #[cfg(not(debug_assertions))]
+    {
+        let cfg = load_config(app);
+        let url = cfg.server_url;
+        if let Some(win) = app.get_webview_window("main") {
+            let _ = win.navigate(&url);
+        }
+    }
     Ok(())
 }
 
