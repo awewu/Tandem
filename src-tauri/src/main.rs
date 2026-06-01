@@ -274,22 +274,22 @@ fn setup_global_shortcuts(app: &AppHandle) -> tauri::Result<()> {
     let report_shortcut = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::KeyR);
 
     let app_handle = app.clone();
-    app.global_shortcut()
-        .on_shortcut(show_shortcut, move |_app, _shortcut, event| {
-            if event.state() == ShortcutState::Pressed {
-                let _ = tandem_show_main(app_handle.clone());
-            }
-        })
-        .map_err(|e| tauri::Error::Io(std::io::Error::other(format!("shortcut register failed: {e}"))))?;
+    if let Err(e) = app.global_shortcut().on_shortcut(show_shortcut, move |_app, _shortcut, event| {
+        if event.state() == ShortcutState::Pressed {
+            let _ = tandem_show_main(app_handle.clone());
+        }
+    }) {
+        eprintln!("[warn] global shortcut Ctrl+Shift+T already taken by another app: {e}");
+    }
 
     let app_handle2 = app.clone();
-    app.global_shortcut()
-        .on_shortcut(report_shortcut, move |_app, _shortcut, event| {
-            if event.state() == ShortcutState::Pressed {
-                let _ = tandem_navigate(app_handle2.clone(), "/report".into());
-            }
-        })
-        .map_err(|e| tauri::Error::Io(std::io::Error::other(format!("shortcut register failed: {e}"))))?;
+    if let Err(e) = app.global_shortcut().on_shortcut(report_shortcut, move |_app, _shortcut, event| {
+        if event.state() == ShortcutState::Pressed {
+            let _ = tandem_navigate(app_handle2.clone(), "/report".into());
+        }
+    }) {
+        eprintln!("[warn] global shortcut Ctrl+Shift+R already taken by another app: {e}");
+    }
 
     Ok(())
 }

@@ -121,20 +121,22 @@ Write-Host "[4/4] Launching desktop app..." -NoNewline
 
 $installedPath = "${env:ProgramFiles}\Tandem\Tandem.exe"
 $installedPathX86 = "${env:ProgramFiles(x86)}\Tandem\Tandem.exe"
-$desktopExe = if (Test-Path $installedPath) { $installedPath }
+$installedPathLocal = "$env:LOCALAPPDATA\Tandem\tandem.exe"
+$desktopExe = if (Test-Path $installedPathLocal) { $installedPathLocal }
+              elseif (Test-Path $installedPath) { $installedPath }
               elseif (Test-Path $installedPathX86) { $installedPathX86 }
               else { $null }
 
 if ($desktopExe) {
-    Start-Process $desktopExe
     Write-Host " OK ($desktopExe)" -ForegroundColor Green
     Write-Host ""
     Write-Host "========================================" -ForegroundColor Cyan
     Write-Host "  Tandem launched!" -ForegroundColor Green
-    Write-Host "  If window doesn't appear, press Win and search 'Tandem'" -ForegroundColor Gray
+    Write-Host "  Close Tandem to restore proxy settings" -ForegroundColor Gray
+    Write-Host "========================================" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "  Press any key to close this window..."
-    [void][Console]::ReadKey($true)
+    # -Wait keeps proxy disabled until Tandem exits
+    Start-Process $desktopExe -Wait
 } else {
     Write-Host ""
     Write-Host "  (dev mode: npx tauri dev)" -ForegroundColor Gray

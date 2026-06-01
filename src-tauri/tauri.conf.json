@@ -23,7 +23,8 @@
         "fullscreen": false,
         "transparent": false,
         "decorations": true,
-        "visible": true
+        "visible": true,
+        "additionalBrowserArgs": "--no-proxy-server"
       }
     ],
     "security": {
