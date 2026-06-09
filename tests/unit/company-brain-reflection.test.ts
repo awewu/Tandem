@@ -14,6 +14,7 @@ import {
   listReflections,
   approveReflection,
   analyzeOkrHealth,
+  setOptimizationProposalStatus,
 } from '@/lib/persona/company-brain-reflection';
 import { recordDecision, setFeedback } from '@/lib/persona/company-brain-decision';
 import {
@@ -326,5 +327,35 @@ describe('§CA-13 · CompanyBrain Reflection 生成器', () => {
     expect(proposals.length).toBe(2);
     expect(proposals[0].targetId).toBe('kr-low');
     expect(proposals[1].targetId).toBe('kr-mid');
+  });
+
+  it('ON-3: 治理处置提议 → status acknowledged/dismissed 落盘 (不触 OKR 写)', async () => {
+    await seedVersion();
+    await seedOkr({ confidence: 'at-risk', current: 20 });
+    for (let i = 0; i < 3; i++) await seedDecision({ outcome: 'adopted' });
+    const r = await generateReflection({ useLlm: false });
+    const pid = r!.optimizationProposals![0].id;
+
+    const ack = await setOptimizationProposalStatus(r!.id, pid, 'acknowledged', 'owner1');
+    expect(ack!.optimizationProposals![0].status).toBe('acknowledged');
+    // 落盘可复读
+    const reloaded = (await listReflections()).find((x) => x.id === r!.id)!;
+    expect(reloaded.optimizationProposals![0].status).toBe('acknowledged');
+    // KR 未被改动 (advisory, 不触写)
+    const kr = await getStore().keyResults.get('kr-at-risk');
+    expect(kr!.confidence).toBe('at-risk');
+    expect(kr!.currentValue).toBe(20);
+
+    const dis = await setOptimizationProposalStatus(r!.id, pid, 'dismissed', 'owner1');
+    expect(dis!.optimizationProposals![0].status).toBe('dismissed');
+  });
+
+  it('ON-3: 处置不存在的报告/提议 → null', async () => {
+    expect(await setOptimizationProposalStatus('nope', 'nope', 'dismissed', 'owner1')).toBeNull();
+    await seedVersion();
+    await seedOkr({ confidence: 'at-risk', current: 20 });
+    for (let i = 0; i < 3; i++) await seedDecision({ outcome: 'adopted' });
+    const r = await generateReflection({ useLlm: false });
+    expect(await setOptimizationProposalStatus(r!.id, 'no-such-proposal', 'dismissed', 'owner1')).toBeNull();
   });
 });

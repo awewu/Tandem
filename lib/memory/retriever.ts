@@ -63,20 +63,15 @@ function similarity(query: string, doc: string): number {
 
 export class StoreBackedMemoryRetriever implements MemoryRetriever {
   async findRelatedSOP(query: string, limit: number): Promise<MemorySearchResult[]> {
+    // P1 下推: 走 KvStore_memory_type/status partial 索引 (0007), 避免 加载全集+JS 过滤.
     const store = getStore();
-    const all = await store.memories.list();
-    const sops = all.filter(
-      (m: MemoryEntry) => m.type === 'sop' && m.status === 'active'
-    );
+    const sops = await store.memories.list({ type: 'sop', status: 'active' } as Partial<MemoryEntry>);
     return rankSemantic(sops, query, limit);
   }
 
   async findHistoricalCases(query: string, limit: number): Promise<MemorySearchResult[]> {
     const store = getStore();
-    const all = await store.memories.list();
-    const cases = all.filter(
-      (m: MemoryEntry) => m.type === 'case' && m.status === 'active'
-    );
+    const cases = await store.memories.list({ type: 'case', status: 'active' } as Partial<MemoryEntry>);
     return rankSemantic(cases, query, limit);
   }
 }

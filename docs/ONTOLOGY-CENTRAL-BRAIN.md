@@ -116,17 +116,18 @@
 | **员工入口** | ✅ confirm 路由 (`/api/persona/proxy-actions/[id]/confirm`) 改走 `confirmAndMaterialize` —— 对 ontology_action **先跑真写再标 executed** (修复"仅翻状态不写"的潜在 bug, 对其它 kind 行为不变); veto 路由无需改 (否决=永不兑现); 台账 UI (`/persona/me/proxy-actions`) 通用列举 + confirm/veto 按钮已含 ontology_action (加 `数据更新代行` 标签); 全链 tsc 0 错 + 900 测零回归 |
 | **剩余** | ① 中央 AI 在对话里**建议**员工去 check-in (参谋输出, 走 §13 humanOnly, **不**自动建提议) ② `reconcileOntologyActionVetoWindows` + `reconcilePendingActions` 挂 cron (注: 二者目前**均**未接 cron, 属既有 infra 缺口, 非 ON-2 特有) |
 
-### ON-3 · 优化方向回路 (Reflection→优化 Action→治理审批) — ❌ 未动 · ~3-4 周 (依赖数据积累)
+### ON-3 · 优化方向回路 (Reflection→优化提议→治理审批) — 🟡 参谋回路闭环 (生成/签批/处置三端 + 看板 UI 已通, 2026-06-09) · 剩余 LLM 深析 + 更多提议类型
 
 | 项 | 内容 |
 |---|---|
-| **落点** | 扩 `lib/persona/company-brain-reflection.ts` (已有 apply 环) → 新增"优化型 Action 提议"产出 |
-| **回路** | 接 S5 数据飞轮: Reflection 读 Decision 结果 → 识别"哪些 KR 长期 at-risk / 哪些 baseline 阈值误判高 / 哪些高频模式可促 skill" → 产出**优化型 ActionType 提议** (KR 资源再分配 / 阈值调整 / skill 促升) |
-| **治理** | 全部以 ActionType 走治理审批 (治理委员会 / Owner), **绝不自动生效**; 批准记入 `CompanyBrainVersion` |
-| **验收** | 月度 Reflection 产出 ≥1 条优化 Action 提议 → 审批后生效 → 记入 CompanyBrainVersion; 覆盖优化回路测 |
-| **依赖** | ON-2 + S5 (CA-13 apply 环 ✅) + 真实使用数据 (自用喂养) |
-| **风险** | 高 (组织级优化建议; owner/委员会强把关; 数据不足则空转, 故排最后) |
-| **解决** | "优化方向"; 把 S5 飞轮从"调自己参数"扩到"调组织资源配置" |
+| **🔒 宪法裁定 A 对齐** | ON-3 的"优化提议"是**参谋产物**: 中央 AI 读 OKR 真值产出建议供治理审视, **不**创建 ProxyAction, **不**自动改任何 OKR (与 ON-2 守卫同源)。区分: ① 中央 AI **自身配置**调整 (阈值/召回/风格/prompt) → 走既有 CA-13 `approveReflection`→`CompanyBrainVersion` (可自动应用, 因调的是 AI 自己) ② **组织层** OKR 优化提议 → 仅 advisory, status='pending', 须人工治理处置 (绝不自动落组织资源) |
+| **落点** | ✅ `lib/persona/company-brain-reflection.ts` 新增 `analyzeOkrHealth()` + `OkrOptimizationProposal` 类型 (`lib/types/company-brain.ts`); `generateReflection` 附 `report.optimizationProposals` + audit `optimizationProposalCount` |
+| **回路** | ✅ **OKR 健康片已通**: 月度反思扫 active 周期内**公司/团队层** active KR, 偏离 on-track 者按进度从低到高取 Top5 → 产出 `kr_at_risk` 优化提议 (含 progressPct/confidence/建议方向/归因)。❌ **剩余**: ① LLM 深析归因 (现为启发式) ② `objective_stalled` / `skill_promotion` 两类提议 ③ 读"长期"趋势 (现为当下快照, 需 CheckIn 历史) |
+| **治理** | ✅ 组织提议 advisory-only fail-soft; AI 自身配置走 `approveReflection`→版本。✅ **处置端点**: `setOptimizationProposalStatus()` + `PATCH .../reflection/proposal` (admin/champion) — 只改 status, **绝不触 OKR 写**。✅ **看板 UI 已通**: `app/admin/company-brain/page.tsx` 加 `ReflectionSection` — 生成反思/签批配置/OKR 提议采纳关注·不予处理 三端全接 UI; 区分"自身配置调整(可应用)" vs "OKR 优化方向(不自动改)"; UI 宪章 0 违规 |
+| **验收** | ✅ 承压 KR→report 含 kr_at_risk 提议 (pending); 全 on-track→空; 个人层 KR 排除; 无 active 周期不报错; 多 KR 按进度排序; 处置→status 落盘且 KR 未被改动; 处置不存在→null; `company-brain-reflection.test.ts` 16 测; 看板 UI tsc + UI 宪章 ratchet 过 + 全量 950 测零回归; 死代码 0 |
+| **依赖** | ON-2 ✅ + CA-13 apply 环 ✅ + OKR 真值 (computeKRProgress ✅) |
+| **风险** | 中 (advisory 不触写, 风险已由"不自动落组织资源"消解; 数据不足则空转) |
+| **解决** | "优化方向"; 把 S5 飞轮从"调自己参数"扩到"指出组织 OKR 承压点 (供人决策)" |
 
 ---
 
@@ -234,3 +235,6 @@ S5 apply✅ ────▶ ON-3 优化方向回路 (3-4w, 高险, 依赖数据)
 | 2026-06-09 | Owner "继续" / Cascade | **ON-2 调配骨架落地**: `lib/ontology/propose-action.ts` 提议→否决窗→兑现延迟执行链路; `execute-action` 加 `approved` 旁路 (审批即授权, 红区仍永拦); ProxyAction 加 `ontology_action` kind, 现有 reconcile 跳过, 专由 `reconcileOntologyActionVetoWindows` 兑现 (失败重试不误标); `confirmAndMaterialize` 人审兑现。8 单测 (窗内零写/确认兑现/否决不写/静默过自动兑现/非法 reject/幂等) + 全量 892 测零回归; 死代码 0。剩余 = LLM 自动提议层 + cron + UI 入口 |
 | 2026-06-09 | Owner 裁定 **A·中央 AI 纯参谋** / Cascade | **与中央 AI 宪法对齐**: 发现 ON-2 让中央 AI 提议写动作 与 `company-brain.ts` doctrine ("不写 ProxyAction") + 三层权力参谋定位冲突, 经 Owner 裁定。`proposeAction` 加**代码层守卫**: 仅接受员工本人的分身 (self-delegation: persona.userId===onBehalfOfUserId), 硬拒中央 AI persona + 跨人代行 —— 宪法从注释变强制不变量。+3 守卫单测 (中央 AI 拒/跨人拒/不存在拒); 全量 897 测零回归; 死代码 0 |
 | 2026-06-09 | Owner "CONTINUE" / Cascade | **ON-2 员工入口打通**: confirm 路由改走 `confirmAndMaterialize` —— ontology_action **先跑真写再标 executed** (修复"仅翻状态不兑现"潜在 bug, 其它 kind 行为不变); 台账 UI (`/persona/me/proxy-actions`) 加 `ontology_action` kind + `数据更新代行` 标签 (confirm/veto 按钮本就通用)。端到端: 员工分身提议→台账显示+24h 倒计时→确认兑现真写/否决永不写。tsc 0 错 + 全量 900 测零回归; 死代码 0 |
+| 2026-06-09 | Owner "B CONTINUE" / Cascade | **ON-3 OKR 健康提议片落地** (守裁定 A): `analyzeOkrHealth()` + `OkrOptimizationProposal` 类型 — 月度反思读 active 周期公司/团队层 KR, 偏离 on-track 者 Top5 产出 `kr_at_risk` **参谋建议** (advisory, status=pending, **不**建 ProxyAction/**不**自动改 OKR); 附 `report.optimizationProposals` + audit。明确区分"调 AI 自己配置 (CA-13 可自动应用)" vs "组织层提议 (仅供人决策)"。+5 测 (14 共) + 全量 937 测零回归; tsc 0 错; 死代码 0。剩余 = LLM 深析 + objective_stalled/skill_promotion + CheckIn 趋势 + 处置端点/UI |
+| 2026-06-09 | Owner "继续" / Cascade | **ON-3 提议处置端点落地**: `setOptimizationProposalStatus()` + `PATCH /api/admin/company-brain/reflection/proposal` (admin/champion) — 治理对参谋建议做 acknowledged/dismissed 处置。守裁定 A: **仅改提议自身 status, 绝不触任何 OKR 写** (测专验证 KR currentValue/confidence 未变); 报告/提议不存在→null + 404。+2 测 (16 共) + 全量 939 测零回归; tsc 0 错; 死代码 0 |
+| 2026-06-09 | Owner "继续" / Cascade | **ON-3 反思看板 UI 落地**: `app/admin/company-brain/page.tsx` 新增 `ReflectionSection` — 接通生成(POST)/签批(PATCH)/提议处置(PATCH proposal) 三端。展示每份报告的自身配置建议(签批即生成新版本) + OKR 优化提议(confidence/进度 chip + 采纳关注/不予处理按钮); 明文提示"参谋·不自动改 OKR"。UI 宪章 ratchet 修 rounded-xl→rounded-2xl 后 0 违规; tsc clean + 全量 950 测零回归; 死代码 0。**ON-3 参谋回路闭环** (剩 LLM 深析 + objective_stalled/skill_promotion + CheckIn 趋势 为增强项) |

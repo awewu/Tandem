@@ -88,11 +88,12 @@ export async function checkOutput(input: OutputGuardInput): Promise<OutputGuardD
     return baseDecision('PASS', { reasons: ['response too short to need check'] });
   }
 
+  // P1 下推: 走 KvStore_memory_ownershipLevel/status partial 索引 (0007).
   const store = getStore();
-  const all = await store.memories.list();
-  const company = all.filter(
-    (m) => m.ownershipLevel === 'company' && m.status === 'active',
-  );
+  const company = await store.memories.list({
+    ownershipLevel: 'company',
+    status: 'active',
+  } as Partial<MemoryEntry>);
   if (company.length === 0) {
     return baseDecision('PASS', { reasons: ['no company-level memories to check against'] });
   }

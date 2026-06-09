@@ -26,7 +26,7 @@ import type {
   OkrOptimizationProposal,
 } from '@/lib/types/company-brain';
 import { DEFAULT_BRAIN_VERSION_ID } from '@/lib/types/company-brain';
-import { computeKRProgress } from '@/lib/types/okr-tti';
+import { computeKRProgress, effectiveObjectiveProgress } from '@/lib/types/okr-tti';
 import { getStore } from '@/lib/storage/repository';
 import { logger } from '@/lib/infra/logger';
 import { audit } from '@/lib/audit/log';
@@ -140,10 +140,12 @@ function heuristicProposedChanges(
  * 宪法裁定 A 边界: 纯读 OKR 真值 → 产出供治理审视的建议, **不**创建 ProxyAction,
  * **不**自动改任何 OKR; status 一律 'pending', 须人工治理处置。永不抛错。
  *
- * @param maxProposals 上限 (默认 5), 按进度从低到高取最承压的。
+ * @param maxKrProposals 承压 KR 提议上限 (默认 5), 按进度从低到高取最承压的。
+ * @param maxObjectiveProposals 停滞目标提议上限 (默认 3), 按进度从低到高。
  */
 export async function analyzeOkrHealth(
-  maxProposals = 5,
+  maxKrProposals = 5,
+  maxObjectiveProposals = 3,
 ): Promise<OkrOptimizationProposal[]> {
   try {
     const store = getStore();
@@ -155,18 +157,19 @@ export async function analyzeOkrHealth(
     )[0];
 
     const objectives = await store.objectives.list();
-    const orgObjectiveIds = new Set(
-      objectives
-        .filter(
-          (o) =>
-            o.cycleId === cycle.id &&
-            o.status === 'active' &&
-            (o.level === 'company' || o.level === 'team'),
-        )
-        .map((o) => o.id),
+    const orgObjectives = objectives.filter(
+      (o) =>
+        o.cycleId === cycle.id &&
+        o.status === 'active' &&
+        (o.level === 'company' || o.level === 'team'),
     );
-    if (orgObjectiveIds.size === 0) return [];
+    if (orgObjectives.length === 0) return [];
+    const orgObjectiveIds = new Set(orgObjectives.map((o) => o.id));
 
+    const ts = Date.now().toString(36);
+    const proposals: OkrOptimizationProposal[] = [];
+
+    // ① 承压 KR (KR 自身信心度偏离 on-track)
     const krs = await store.keyResults.list();
     const atRisk = krs
       .filter(
@@ -177,23 +180,48 @@ export async function analyzeOkrHealth(
       )
       .map((kr) => ({ kr, pct: computeKRProgress(kr) }))
       .sort((a, b) => a.pct - b.pct)
-      .slice(0, maxProposals);
+      .slice(0, maxKrProposals);
 
-    return atRisk.map(({ kr, pct }) => {
+    for (const { kr, pct } of atRisk) {
       const progressPct = Math.round(pct * 100);
-      return {
-        id: `okropt_${kr.id}_${Date.now().toString(36)}`,
-        kind: 'kr_at_risk' as const,
+      proposals.push({
+        id: `okropt_${kr.id}_${ts}`,
+        kind: 'kr_at_risk',
         title: `承压 KR: ${kr.title}`,
-        targetType: 'key_result' as const,
+        targetType: 'key_result',
         targetId: kr.id,
         metrics: { progressPct, confidence: kr.confidence },
         recommendation:
           '建议治理审视: 资源再分配 / 拆解或下调目标值 / 加派协作者 / 必要时进议事室. (参谋建议, 须人工决定)',
         rationale: `该 KR 进度 ${progressPct}% 且信心度=${kr.confidence}, 偏离 on-track. 中央 AI 作为参谋提示组织关注, 不自动调整 OKR.`,
-        status: 'pending' as const,
-      };
-    });
+        status: 'pending',
+      });
+    }
+
+    // ② 停滞目标 (Objective 自身信心度偏离 on-track) — 目标层 rollup 视角
+    const stalled = orgObjectives
+      .filter((o) => o.confidence !== 'on-track')
+      .map((o) => ({ o, pct: effectiveObjectiveProgress(o) }))
+      .sort((a, b) => a.pct - b.pct)
+      .slice(0, maxObjectiveProposals);
+
+    for (const { o, pct } of stalled) {
+      const progressPct = Math.round(pct * 100);
+      proposals.push({
+        id: `okropt_${o.id}_${ts}`,
+        kind: 'objective_stalled',
+        title: `停滞目标: ${o.title}`,
+        targetType: 'objective',
+        targetId: o.id,
+        metrics: { progressPct, confidence: o.confidence },
+        recommendation:
+          '建议治理复盘: 目标是否仍优先 / 是否需重排 KR 或追加资源 / 是否进议事室重新对齐. (参谋建议, 须人工决定)',
+        rationale: `该目标整体进度 ${progressPct}% 且信心度=${o.confidence}, 偏离 on-track. 中央 AI 作为参谋提示组织关注, 不自动调整 OKR.`,
+        status: 'pending',
+      });
+    }
+
+    return proposals;
   } catch (err) {
     logger.warn({ err: (err as Error).message }, '[reflection] OKR health analysis failed');
     return [];
@@ -437,6 +465,65 @@ export async function listReflections(opts: {
   } catch (err) {
     logger.warn({ err: (err as Error).message }, '[reflection] list failed');
     return [];
+  }
+}
+
+/**
+ * ON-3 · 治理处置一条 OKR 优化提议 (acknowledged=已采纳关注 / dismissed=不予处理)。
+ *
+ * 宪法裁定 A 边界: 这**只改提议自身的 status** (advisory 生命周期), **绝不**触碰任何 OKR/本体写;
+ * 组织真要据此调资源, 须人在 OKR 模块另行操作。永不抛错; 报告或提议不存在返回 null。
+ */
+export async function setOptimizationProposalStatus(
+  reportId: string,
+  proposalId: string,
+  status: 'acknowledged' | 'dismissed',
+  actorId: string,
+): Promise<CompanyBrainReflectionReport | null> {
+  try {
+    const store = getStore();
+    const existing = await store.companyBrainReflections.get(reportId);
+    if (!existing) return null;
+    const proposals = existing.optimizationProposals ?? [];
+    const target = proposals.find((p) => p.id === proposalId);
+    if (!target) return null;
+
+    const updated: CompanyBrainReflectionReport = {
+      ...existing,
+      optimizationProposals: proposals.map((p) =>
+        p.id === proposalId ? { ...p, status } : p,
+      ),
+    };
+    await store.companyBrainReflections.update(reportId, updated);
+
+    try {
+      await audit('company_brain.feedback_submitted', actorId, {
+        targetId: proposalId,
+        targetType: 'okr_optimization_proposal',
+        tenantId: existing.tenantId,
+        metadata: {
+          event: 'optimization_proposal_disposition',
+          reportId,
+          status,
+          targetType: target.targetType,
+          targetId: target.targetId,
+        },
+      });
+    } catch {
+      /* audit 失败不阻塞 */
+    }
+
+    logger.info(
+      { reportId, proposalId, status, targetId: target.targetId },
+      '[reflection] optimization proposal disposed (advisory, no OKR write)',
+    );
+    return updated;
+  } catch (err) {
+    logger.warn(
+      { err: (err as Error).message, reportId, proposalId },
+      '[reflection] proposal disposition failed',
+    );
+    return null;
   }
 }
 

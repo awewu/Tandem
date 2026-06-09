@@ -220,9 +220,9 @@ export async function buildCompanyBrainSystemPrompt(opts?: {
   const { bucketMemoriesByKind } = await import('@/lib/types/memory');
   const { rerank } = await import('@/lib/memory/reranker');
   const { getActiveBrainVersion } = await import('./company-brain-version');
+  // P1 下推: 走 KvStore_memory_ownershipLevel partial 索引 (0007).
   const store = getStore();
-  const allMems = await store.memories.list();
-  const companyMems = allMems.filter((m) => m.ownershipLevel === 'company');
+  const companyMems = await store.memories.list({ ownershipLevel: 'company' });
   const okrContext = await buildOkrAnchorContext();
 
   // CA-13 读侧: 注入数量 + 风格取自当前生效版本, 让反思签批后的配置真正生效。
@@ -373,9 +373,9 @@ export async function preSearchLayer(
   if (!heuristic.trigger) {
     // 判断 B: 公司 Memory 覆盖度低
     try {
+      // P1 下推: 走 KvStore_memory_ownershipLevel/status partial 索引 (0007).
       const store = getStore();
-      const all = await store.memories.list();
-      const company = all.filter((m) => m.ownershipLevel === 'company' && m.status === 'active');
+      const company = await store.memories.list({ ownershipLevel: 'company', status: 'active' });
       if (company.length > 0) {
         const { rerank } = await import('@/lib/memory/reranker');
         const scored = rerank(query, company.map((m) => ({ memory: m })), { topK: 3 });

@@ -160,9 +160,9 @@ export interface ScanResult {
 }
 
 export async function scanLowReferenceMemories(): Promise<ScanResult> {
+  // P1 下推: 走 KvStore_memory_status partial 索引 (0007).
   const store = getStore();
-  const all = await store.memories.list();
-  const active = all.filter((m) => m.status === 'active');
+  const active = await store.memories.list({ status: 'active' } as Partial<MemoryEntry>);
   if (active.length === 0) return { scanned: 0, proposed: 0 };
 
   const avgRef =
