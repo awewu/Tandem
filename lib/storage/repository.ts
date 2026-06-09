@@ -52,9 +52,20 @@ import type {
 // 通用 CRUD 接口
 // ---------------------------------------------------------------------------
 
+/**
+ * 列表分页选项 (P1 · 可选, 向后兼容).
+ * 热集合 (im_messages / memories / audit) 应传 limit 避免全集合加载.
+ * 注: 当 filter 仅含 tenantId (或为空) 时, limit/offset 下推到 SQL;
+ *     若含其它需 JS 过滤的字段, 则在 JS 过滤后再切片 (仍兜底返回行数).
+ */
+export interface ListOptions {
+  limit?: number;
+  offset?: number;
+}
+
 export interface Repository<T extends { id: string }> {
   get(id: string): Promise<T | null>;
-  list(filter?: Partial<T>): Promise<T[]>;
+  list(filter?: Partial<T>, opts?: ListOptions): Promise<T[]>;
   create(data: Omit<T, 'id'> & { id?: string }): Promise<T>;
   update(id: string, data: Partial<T>): Promise<T>;
   delete(id: string): Promise<void>;
@@ -161,8 +172,14 @@ export interface TandemStore {
   /** 自研身份系统 (Native Auth) */
   auth: AuthStore;
 
+  /** 组织实体 · 企业微信「上下游」供应链模型 (anchor 上游 / downstream 下游 / individual 个人下游) */
+  organizations: Repository<import('../types/organization').Organization>;
+
   /** 外部人员注册申请 (审批制) — 区别于即时邀请码 */
   authApplications: Repository<import('../types/auth-application').AuthApplication>;
+
+  /** 搭子手抄 · AI 笔记 (独立模块, KvStore-based) */
+  shouchaoNotes: Repository<import('../types/shouchao').ShouchaoNote>;
 
   /** 三省六部项目治理 · 战略项目实体 (Phase 2) */
   governanceProjects: Repository<import('../types/governance').GovernanceProject>;
@@ -189,6 +206,10 @@ export interface AuthUser {
   lastLoginIp?: string | null;
   emailVerifiedAt?: string | null;
   departmentId?: string | null;
+  /** 所属组织 (企业微信上下游模型); 未归属时为 null */
+  orgId?: string | null;
+  /** 成员身份类型 (internal / upstream_downstream / individual / linked / pending) */
+  membershipType?: import('../types/organization').MembershipType;
 }
 
 export interface AuthSession {

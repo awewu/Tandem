@@ -6,6 +6,7 @@
  */
 
 import type {
+  ListOptions,
   Repository,
   TandemStore,
   AuthStore,
@@ -16,6 +17,13 @@ import type {
 } from './repository';
 import { generateId } from './repository';
 
+function paginate<T>(rows: T[], opts?: ListOptions): T[] {
+  if (!opts) return rows;
+  const start = opts.offset ?? 0;
+  const end = opts.limit !== undefined ? start + opts.limit : undefined;
+  return rows.slice(start, end);
+}
+
 class InMemoryRepository<T extends { id: string }> implements Repository<T> {
   private data = new Map<string, T>();
 
@@ -23,12 +31,14 @@ class InMemoryRepository<T extends { id: string }> implements Repository<T> {
     return this.data.get(id) ?? null;
   }
 
-  async list(filter?: Partial<T>): Promise<T[]> {
+  async list(filter?: Partial<T>, opts?: ListOptions): Promise<T[]> {
     const all = Array.from(this.data.values());
-    if (!filter) return all;
-    return all.filter((item) =>
-      Object.entries(filter).every(([key, val]) => (item as never)[key] === val)
-    );
+    const filtered = filter
+      ? all.filter((item) =>
+          Object.entries(filter).every(([key, val]) => (item as never)[key] === val),
+        )
+      : all;
+    return paginate(filtered, opts);
   }
 
   async create(data: Omit<T, 'id'> & { id?: string }): Promise<T> {
@@ -109,6 +119,8 @@ function createInMemoryAuthStore(): AuthStore {
           lastLoginIp: null,
           emailVerifiedAt: input.emailVerifiedAt ?? null,
           departmentId: input.departmentId ?? null,
+          orgId: input.orgId ?? null,
+          membershipType: input.membershipType,
         };
         users.set(id, user);
         return user;
@@ -291,7 +303,9 @@ export function createInMemoryStore(): TandemStore {
     driveFiles: new InMemoryRepository(),
     notifications: new InMemoryRepository(),
     auth: createInMemoryAuthStore(),
+    organizations: new InMemoryRepository(),
     authApplications: new InMemoryRepository(),
+    shouchaoNotes: new InMemoryRepository(),
     governanceProjects: new InMemoryRepository(),
     governanceTemplates: new InMemoryRepository(),
     governanceTemplateVersions: new InMemoryRepository(),

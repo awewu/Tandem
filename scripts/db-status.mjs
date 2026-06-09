@@ -10,6 +10,8 @@
  * Pure SELECTs — never mutates. Usage:  node scripts/db-status.mjs
  */
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { join } from 'node:path';
 import pg from 'pg';
 
 // Load .env.local then .env (Next.js precedence) without dotenv dep.
@@ -68,10 +70,15 @@ console.log('');
 console.log(`── MIGRATIONS ──`);
 console.log(`files on disk: ${migrationFiles.length}`);
 console.log(`recorded applied: ${appliedMigrations.length}`);
+// drizzle.__drizzle_migrations.hash holds the SHA-256 of the .sql content for
+// migrations applied by drizzle-kit, but legacy rows in this DB stored the bare
+// filename instead. Match against BOTH so the report is trustworthy.
 const appliedSet = new Set(appliedMigrations.map((r) => r.hash));
-const pending = migrationFiles.filter((f) => !appliedSet.has(f));
+const sha256 = (p) => createHash('sha256').update(readFileSync(p, 'utf8')).digest('hex');
+const isApplied = (f) => appliedSet.has(f) || appliedSet.has(sha256(join('drizzle/migrations', f)));
+const pending = migrationFiles.filter((f) => !isApplied(f));
 for (const f of migrationFiles) {
-  console.log(`${appliedSet.has(f) ? '✓ applied ' : '✗ PENDING '} ${f}`);
+  console.log(`${isApplied(f) ? '✓ applied ' : '✗ PENDING '} ${f}`);
 }
 console.log(pending.length === 0
   ? '\n✓ All migrations applied.'

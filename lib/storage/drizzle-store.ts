@@ -12,6 +12,7 @@
 import { and, eq, sql, desc, asc, gte, lte, isNull } from 'drizzle-orm';
 import { db, schema } from '../infra/drizzle-client';
 import type {
+  ListOptions,
   Repository,
   TandemStore,
   AuthStore,
@@ -50,28 +51,57 @@ class DrizzleKvRepository<T extends { id: string }> implements Repository<T> {
     return rows[0] ? (rows[0].data as T) : null;
   }
 
-  async list(filter?: Partial<T>): Promise<T[]> {
-    const rows = await db
-      .select()
-      .from(kv)
-      .where(eq(kv.collection, this.collection))
-      .orderBy(desc(kv.updatedAt));
+  async list(filter?: Partial<T>, opts?: ListOptions): Promise<T[]> {
+    // C2/C1: 若 filter 带 tenantId, 把租户过滤下推到 SQL (减少加载行数 + 数据层兜底).
+    //   依赖迁移 0006 回填 KvStore.tenantId 列 + create/update 落列, 列已"复活".
+    //   尾部 JS filter 保留, 对其余字段精确过滤, 行为与历史一致.
+    const tenantId = (filter as Record<string, unknown> | undefined)?.tenantId as
+      | string
+      | undefined;
+    const where = tenantId
+      ? and(eq(kv.collection, this.collection), eq(kv.tenantId, tenantId))
+      : eq(kv.collection, this.collection);
+
+    // P1 分页: 仅当无需 JS 侧过滤 (filter 仅 tenantId 或为空) 时, 把 limit/offset 下推到 SQL.
+    //   否则 SQL 限行会发生在 JS 过滤之前, 语义错误 → 退化为"加载后 JS 切片".
+    const jsFilterKeys = filter
+      ? Object.keys(filter).filter((k) => k !== 'tenantId')
+      : [];
+    const canPushLimit = jsFilterKeys.length === 0;
+
+    let q = db.select().from(kv).where(where).orderBy(desc(kv.updatedAt)).$dynamic();
+    if (opts && canPushLimit) {
+      if (opts.limit !== undefined) q = q.limit(opts.limit);
+      if (opts.offset !== undefined) q = q.offset(opts.offset);
+    }
+    const rows = await q;
     const all = rows.map((r) => r.data as T);
-    if (!filter || Object.keys(filter).length === 0) return all;
-    return all.filter((item) =>
-      Object.entries(filter).every(([key, val]) => (item as Record<string, unknown>)[key] === val),
+    if (jsFilterKeys.length === 0) return all;
+
+    const filtered = all.filter((item) =>
+      Object.entries(filter as Partial<T>).every(
+        ([key, val]) => (item as Record<string, unknown>)[key] === val,
+      ),
     );
+    // 退化路径: limit/offset 在 JS 过滤后切片 (仍兜底返回行数, 但 DB 仍加载了 tenant 全量).
+    if (!opts) return filtered;
+    const start = opts.offset ?? 0;
+    const end = opts.limit !== undefined ? start + opts.limit : undefined;
+    return filtered.slice(start, end);
   }
 
   async create(data: Omit<T, 'id'> & { id?: string }): Promise<T> {
     const id = data.id ?? generateId();
     const item = { ...(data as object), id } as T;
+    // C1: 把 data.tenantId 落到 tenantId 列 (历史只写 JSONB, 列恒为 'default' → 索引死).
+    const tenantId =
+      ((item as Record<string, unknown>).tenantId as string | undefined) ?? 'default';
     await db
       .insert(kv)
-      .values({ collection: this.collection, id, data: item as object })
+      .values({ collection: this.collection, id, data: item as object, tenantId })
       .onConflictDoUpdate({
         target: [kv.collection, kv.id],
-        set: { data: item as object, updatedAt: new Date() },
+        set: { data: item as object, tenantId, updatedAt: new Date() },
       });
     return item;
   }
@@ -80,9 +110,12 @@ class DrizzleKvRepository<T extends { id: string }> implements Repository<T> {
     const existing = await this.get(id);
     if (!existing) throw new Error(`Record ${this.collection}/${id} not found`);
     const updated = { ...existing, ...patch, id } as T;
+    // C1: 写更新时保持 tenantId 列与 JSONB 同步.
+    const tenantId =
+      ((updated as Record<string, unknown>).tenantId as string | undefined) ?? 'default';
     await db
       .update(kv)
-      .set({ data: updated as object, updatedAt: new Date() })
+      .set({ data: updated as object, tenantId, updatedAt: new Date() })
       .where(and(eq(kv.collection, this.collection), eq(kv.id, id)));
     return updated;
   }
@@ -164,6 +197,8 @@ function createDrizzleAuthStore(): AuthStore {
     lastLoginAt?: string | null;
     lastLoginIp?: string | null;
     departmentId?: string | null;
+    orgId?: string | null;
+    membershipType?: import('../types/organization').MembershipType;
   }>('auth_user_extras');
 
   async function fetchUserComposite(row: typeof schema.user.$inferSelect): Promise<AuthUser> {
@@ -181,6 +216,8 @@ function createDrizzleAuthStore(): AuthStore {
       lastLoginAt: extras?.lastLoginAt ?? null,
       lastLoginIp: extras?.lastLoginIp ?? null,
       departmentId: extras?.departmentId ?? null,
+      orgId: extras?.orgId ?? null,
+      membershipType: extras?.membershipType,
     };
   }
   void authUserFromRow;
@@ -188,10 +225,11 @@ function createDrizzleAuthStore(): AuthStore {
   return {
     users: {
       async findByEmail(email) {
+        // C5: 排除软删用户 (deletedAt 非空) — 防软删账号仍可被命中/登录.
         const rows = await db
           .select()
           .from(schema.user)
-          .where(eq(schema.user.email, email.toLowerCase()))
+          .where(and(eq(schema.user.email, email.toLowerCase()), isNull(schema.user.deletedAt)))
           .limit(1);
         return rows[0] ? fetchUserComposite(rows[0]) : null;
       },
@@ -199,15 +237,16 @@ function createDrizzleAuthStore(): AuthStore {
         const rows = await db
           .select()
           .from(schema.user)
-          .where(eq(schema.user.id, id))
+          .where(and(eq(schema.user.id, id), isNull(schema.user.deletedAt)))
           .limit(1);
         return rows[0] ? fetchUserComposite(rows[0]) : null;
       },
       async list(filter) {
         const tenantId = filter?.tenantId;
-        const rows = tenantId
-          ? await db.select().from(schema.user).where(eq(schema.user.tenantId, tenantId))
-          : await db.select().from(schema.user);
+        const where = tenantId
+          ? and(eq(schema.user.tenantId, tenantId), isNull(schema.user.deletedAt))
+          : isNull(schema.user.deletedAt);
+        const rows = await db.select().from(schema.user).where(where);
         return Promise.all(rows.map((r) => fetchUserComposite(r)));
       },
       async create(input) {
@@ -224,8 +263,13 @@ function createDrizzleAuthStore(): AuthStore {
           updatedAt: now,
         };
         const [inserted] = await db.insert(schema.user).values(row).returning();
-        if (input.departmentId) {
-          await extrasRepo.create({ id, departmentId: input.departmentId });
+        if (input.departmentId || input.orgId || input.membershipType) {
+          await extrasRepo.create({
+            id,
+            departmentId: input.departmentId ?? null,
+            orgId: input.orgId ?? null,
+            membershipType: input.membershipType,
+          });
         }
         return fetchUserComposite(inserted);
       },
@@ -248,6 +292,8 @@ function createDrizzleAuthStore(): AuthStore {
           lastLoginAt: string | null;
           lastLoginIp: string | null;
           departmentId: string | null;
+          orgId: string | null;
+          membershipType: import('../types/organization').MembershipType;
         }> = {};
         if (patch.failedLoginCount !== undefined)
           extrasPatch.failedLoginCount = patch.failedLoginCount;
@@ -255,6 +301,8 @@ function createDrizzleAuthStore(): AuthStore {
         if (patch.lastLoginAt !== undefined) extrasPatch.lastLoginAt = patch.lastLoginAt;
         if (patch.lastLoginIp !== undefined) extrasPatch.lastLoginIp = patch.lastLoginIp;
         if (patch.departmentId !== undefined) extrasPatch.departmentId = patch.departmentId;
+        if (patch.orgId !== undefined) extrasPatch.orgId = patch.orgId;
+        if (patch.membershipType !== undefined) extrasPatch.membershipType = patch.membershipType;
         if (Object.keys(extrasPatch).length > 0) {
           const existing = await extrasRepo.get(id);
           await extrasRepo.create({ ...(existing ?? { id }), ...extrasPatch, id });
@@ -410,7 +458,9 @@ function createDrizzleAuthStore(): AuthStore {
                 );
               }
             } catch (err) {
-              // 守护后台任务，防报错崩溃影响主流程
+              // 守护后台任务，防报错崩溃影响主流程; 但不静默吞错 (C7), 留告警便于排障.
+              // eslint-disable-next-line no-console
+              console.warn('[drizzle-store] auth_event amortized prune failed:', err);
             }
           })();
         }
@@ -611,7 +661,11 @@ function createKpiCycleRepo(): import('./repository').Repository<KpiCycle> {
       return rows[0] ? rowToKpiCycle(rows[0]) : null;
     },
     async list(filter) {
-      const rows = await db.select().from(t).orderBy(desc(t.createdAt));
+      const rows = await db
+        .select()
+        .from(t)
+        .where(filter?.tenantId ? eq(t.tenantId, filter.tenantId as string) : undefined)
+        .orderBy(desc(t.createdAt));
       const all = rows.map(rowToKpiCycle);
       if (!filter || Object.keys(filter).length === 0) return all;
       return all.filter((item) =>
@@ -664,7 +718,11 @@ function createKpiSubjectRepo(): import('./repository').Repository<KpiSubject> {
       return rows[0] ? rowToKpiSubject(rows[0]) : null;
     },
     async list(filter) {
-      const rows = await db.select().from(t).orderBy(asc(t.level), asc(t.code));
+      const rows = await db
+        .select()
+        .from(t)
+        .where(filter?.tenantId ? eq(t.tenantId, filter.tenantId as string) : undefined)
+        .orderBy(asc(t.level), asc(t.code));
       const all = rows.map(rowToKpiSubject);
       if (!filter || Object.keys(filter).length === 0) return all;
       return all.filter((item) =>
@@ -716,8 +774,15 @@ function createKpiRepo(): import('./repository').Repository<Kpi> {
     },
     async list(filter) {
       let q = db.select().from(t).$dynamic();
-      if (filter?.cycleId) q = q.where(eq(t.cycleId, filter.cycleId as string));
-      else if (filter?.assigneeId) q = q.where(eq(t.assigneeId, filter.assigneeId as string));
+      q = q.where(
+        and(
+          filter?.cycleId ? eq(t.cycleId, filter.cycleId as string) : undefined,
+          filter?.assigneeId && !filter?.cycleId
+            ? eq(t.assigneeId, filter.assigneeId as string)
+            : undefined,
+          filter?.tenantId ? eq(t.tenantId, filter.tenantId as string) : undefined,
+        ),
+      );
       const rows = await q.orderBy(desc(t.createdAt));
       const all = rows.map(rowToKpi);
       if (!filter || Object.keys(filter).length === 0) return all;
@@ -779,6 +844,7 @@ function createKpiCheckInRepo(): import('./repository').Repository<KpiCheckIn> {
       return rows[0] ? rowToKpiCheckIn(rows[0]) : null;
     },
     async list(filter) {
+      // 注: KpiCheckIn 领域类型不含 tenantId 字段, 仅按 kpiId 下推.
       let q = db.select().from(t).$dynamic();
       if (filter?.kpiId) q = q.where(eq(t.kpiId, filter.kpiId as string));
       const rows = await q.orderBy(asc(t.asOf));
@@ -824,6 +890,7 @@ function createKpiSnapshotRepo(): import('./repository').Repository<KpiSnapshot>
       return rows[0] ? rowToKpiSnapshot(rows[0]) : null;
     },
     async list(filter) {
+      // 注: KpiSnapshot 领域类型不含 tenantId 字段, 仅按 kpiId 下推.
       let q = db.select().from(t).$dynamic();
       if (filter?.kpiId) q = q.where(eq(t.kpiId, filter.kpiId as string));
       const rows = await q.orderBy(asc(t.date));
@@ -872,7 +939,12 @@ function createKpiManualEntryRepo(): import('./repository').Repository<KpiManual
     },
     async list(filter) {
       let q = db.select().from(t).$dynamic();
-      if (filter?.kpiId) q = q.where(eq(t.kpiId, filter.kpiId as string));
+      q = q.where(
+        and(
+          filter?.kpiId ? eq(t.kpiId, filter.kpiId as string) : undefined,
+          filter?.tenantId ? eq(t.tenantId, filter.tenantId as string) : undefined,
+        ),
+      );
       const rows = await q.orderBy(desc(t.createdAt));
       const all = rows.map(rowToKpiManualEntry);
       if (!filter || Object.keys(filter).length === 0) return all;
@@ -918,7 +990,12 @@ function createKpiBonusPayoutRepo(): import('./repository').Repository<KpiBonusP
     },
     async list(filter) {
       let q = db.select().from(t).$dynamic();
-      if (filter?.cycleId) q = q.where(eq(t.cycleId, filter.cycleId as string));
+      q = q.where(
+        and(
+          filter?.cycleId ? eq(t.cycleId, filter.cycleId as string) : undefined,
+          filter?.tenantId ? eq(t.tenantId, filter.tenantId as string) : undefined,
+        ),
+      );
       const rows = await q.orderBy(desc(t.calculatedAt));
       const all = rows.map(rowToKpiBonusPayout);
       if (!filter || Object.keys(filter).length === 0) return all;
@@ -972,8 +1049,15 @@ function createKpiCausalLinkRepo(): import('./repository').Repository<KpiCausalL
     },
     async list(filter) {
       let q = db.select().from(t).$dynamic();
-      if (filter?.cycleId) q = q.where(eq(t.cycleId, filter.cycleId as string));
-      else if (filter?.fromKpiId) q = q.where(eq(t.fromKpiId, filter.fromKpiId as string));
+      q = q.where(
+        and(
+          filter?.cycleId ? eq(t.cycleId, filter.cycleId as string) : undefined,
+          filter?.fromKpiId && !filter?.cycleId
+            ? eq(t.fromKpiId, filter.fromKpiId as string)
+            : undefined,
+          filter?.tenantId ? eq(t.tenantId, filter.tenantId as string) : undefined,
+        ),
+      );
       const rows = await q.orderBy(desc(t.createdAt));
       const all = rows.map(rowToKpiCausalLink);
       if (!filter || Object.keys(filter).length === 0) return all;
@@ -1084,7 +1168,9 @@ export function createDrizzleStore(): TandemStore {
     driveFiles: new DrizzleKvRepository('drive_files_legacy'),
     notifications: new DrizzleKvRepository('notifications_legacy'),
     auth: createDrizzleAuthStore(),
+    organizations: new DrizzleKvRepository('organizations'),
     authApplications: new DrizzleKvRepository('auth_applications'),
+    shouchaoNotes: new DrizzleKvRepository('shouchao_notes'),
     governanceProjects: new DrizzleKvRepository('governance_projects'),
     governanceTemplates: new DrizzleKvRepository('governance_templates'),
     governanceTemplateVersions: new DrizzleKvRepository('governance_template_versions'),

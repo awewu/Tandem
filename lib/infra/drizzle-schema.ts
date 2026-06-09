@@ -24,6 +24,8 @@ export const kvStore = pgTable(
     pk: primaryKey({ columns: [t.collection, t.id] }),
     collectionIdx: index('KvStore_collection_idx').on(t.collection),
     tenantIdx: index('KvStore_tenant_idx').on(t.tenantId),
+    // 迁移 0006: 支撑 list(filter.tenantId) 的 collection+tenant 下推 (C2)
+    collectionTenantIdx: index('KvStore_collection_tenant_idx').on(t.collection, t.tenantId),
   }),
 );
 
