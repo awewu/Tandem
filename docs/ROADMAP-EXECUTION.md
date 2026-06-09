@@ -61,14 +61,15 @@
 | **okr.health_digest 眼睛工具** | ✅ 已落 (2026-06-08) | `lib/taf/skills/builtin.ts` 用 rollup 真值出全层级 at-risk 排行, 绿区/proxyAllowed/已注册。覆盖 `okr-health-digest-skill.test.ts`(4) |
 | **工具与出站 Skill 分清 (Owner 2026-06-08 纠偏)** | ✅ 内部已落 / [R] 对外降远期 | ⚠️ 别再把两者混为"同一套机器": ① **自用内部** tool-loop (`runToolLoop` 调 `okr.health_digest`/`memory.search`, S1 已落) = 给中央AI/搭子**自己**装手, **核心保留**。② **对外出站互通** (B-022 出站 Skill / 接竞品产品 MCP / 当竞品治理底座) = **降为远期可选** —— 竞品不会自愿当你网关 client, 非真护城河。资源全压自用智能主轴 |
 | **S2 议事 Option B 多步参谋 (第一片)** | ✅ 已落 (2026-06-08) | `lib/decision-layer/reasoning-pass.ts buildDecisionReasoningBrief`: 3+1 Option B 前跑 `runMultiStep`(native→tool-loop) 只读工具 (decision_card.list/okr.health_digest/okr.read/memory.search) 收集历史决议/OKR真值/风险 → 注入 Option B 上下文。已接 `three-plus-one-engine.generateOptions`, fail-soft 零回归。覆盖 `decision-reasoning-pass.test.ts`(4) |
-| **S2 全路径深推理 (剩余)** | ❌ 剩余 | 把 multi-step 从"议事 Option B 参谋简报"扩到 IM/BossAI 主回复 + 完整 ReAct(召回→评估→风险→相关人); 现仅决策层 Option B 接入 |
-| **议事入口感知接入** | ❌ 剩余 | 感知 pass 已接 IM + BossAI 两流式出口; 议事 (convergence) 入口待同样接入 |
-| **CA-2 灰区 LLM 仲裁 (S3)** | ❌ 剩余 | sim ∈ [0.2,0.45] 灰区走 LLM 判断, 仅 1 周高杠杆; 依赖 S1 (已具备) |
+| **S2 全路径深推理 · 主回复路径** | ✅ 已落 (2026-06-09) | `lib/persona/company-brain-reasoning.ts companyBrainReasoningPass`: 严格 gate (复杂决策类: 比较/为什么/应该/分析/策略...) 触发 `runMultiStep` (mode=native, REASONING_TOOLSET, maxSteps=6) → 结构化简报注入 systemPrompt。已接 `lib/im/service.ts invokeCompanyBrainReply` + `app/api/boss-ai/stream/route.ts`, S2 命中即跳过 S1 (mutex, S2 ⊇ S1)。覆盖 `company-brain-reasoning.test.ts`(7) |
+| **议事入口感知接入** | ✅ 已落 (实质已通) | 议事 generateOptions 全程跑 baseline-guard (S3) + buildDecisionReasoningBrief (S2 multi-step), 是 IM/BossAI 感知的真超集; 不需要再单独接 S1 perception |
+| **CA-2 灰区 LLM 仲裁 (S3)** | ✅ 已落 + live | `lib/memory/baseline-guard.ts arbitrateGreyZone`: 公司级记忆灰区 (sim ∈ [softWarn, hardBlock)) 走 LLM 真判 (json_schema strict), 可升级到 HARD_BLOCK / 降级到 PASS / 维持 SOFT_WARN。env `BASELINE_GREYZONE_ARBITRATION=off` 退回纯启发式; fail-soft。覆盖 `baseline-greyzone-arbitration.test.ts`(5) |
 
 **验收门**: 中央 AI 回答 "R&D 最迟的 KR 怎么样" 时能拉出真实数值与 at-risk 判定, 且工具调用穿闸留痕。
 > **✅ 已达成 + 真模型验证 (2026-06-08)**: `okr.health_digest` 真值经 perception pass 注入。
 > ⚠️ **真模型探针暴露并修复了一个"精致的假"bug**: tool-loop 把带点 skill id (`okr.health_digest`) 原样下发, 但 OpenAI/DeepSeek 规范禁止 name 带点, 模型回传下划线名 (`okr_health_digest`) → 白名单/registry 查找全 miss → 每个 tool_call 被判 `tool_not_allowed` → 感知 pass 永远 0 工具 → 生产里中央AI 仍是瞎子 (尽管单测全绿)。已修: `lib/agent-runtime/tool-loop.ts` 下发 sanitize + 回传按映射还原 (`sanitizeToolName` + `nameToSkillId`), DeepSeek 探针确认 `okr.health_digest ok=true` 返真值, 回归测试已加。**教训: 全绿+接线 ≠ 真接通, 真模型 function calling 必须探针验证。**
-> 剩余 = S2 全路径深推理 (主回复) + 议事路径同接 + S3 灰区仲裁。
+> **2026-06-09 收口**: S2 全路径深推理 (主回复)、议事入口感知 (实质由 S2 reasoning-pass 覆盖)、S3 灰区仲裁三件全部落地 + 测试 (937/937 绿)。
+> 剩余 = (1) 真模型探针 S2 main-reply (像 S1 sanitize 那样跑一次 DeepSeek/OpenAI 实测), (2) DB-AUDIT P1 list() 分页/下推 (热集合)。
 
 ---
 
