@@ -72,8 +72,9 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-tandem}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?must set MINIO_ROOT_PASSWORD}
-      # MinIO 默认建 bucket (避免首次上传 NoSuchBucket)
-      MINIO_DEFAULT_BUCKETS: ${S3_BUCKET_DRIVE:-tandem-drive}
+      # MinIO 默认建 bucket (避免首次上传 NoSuchBucket).
+      # 逗号分隔多 bucket: drive (文档/Drive) + attachments (IM/邮件附件).
+      MINIO_DEFAULT_BUCKETS: ${S3_BUCKET_DRIVE:-tandem-drive},${S3_BUCKET_ATTACHMENTS:-tandem-attachments}
     volumes:
       - tandem_minio_data:/data
     networks:
@@ -110,6 +111,7 @@ services:
       S3_ACCESS_KEY: ${MINIO_ROOT_USER:-tandem}
       S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       S3_BUCKET_DRIVE: ${S3_BUCKET_DRIVE:-tandem-drive}
+      S3_BUCKET_ATTACHMENTS: ${S3_BUCKET_ATTACHMENTS:-tandem-attachments}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?must set NEXTAUTH_SECRET}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
       SESSION_SECRET: ${SESSION_SECRET:?must set SESSION_SECRET}

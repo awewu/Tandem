@@ -197,8 +197,9 @@
   - ✅ **生产 LLM 注入** (真闭环):
     - IM 回复: `lib/im/service.ts:858-860` 已注入
     - **议事 Option B**: `lib/decision-layer/three-plus-one-engine.ts:219-236` 已注入 (优先级: B-027 价值观锚 → B-024 自省教训 → 基线 + 推理底座)
-  - ✅ 测试: `tests/unit/reflexion.test.ts` (11 个) + `tests/unit/three-plus-one-engine.test.ts` B-024 (2 个)
-  - ⏳ (后续 sprint) 反推前 4 引擎: skill_misuse ≥ 3 次 → 自动卸 enabledSkills; knowledge_gap → 跳 B-021 Knowledge Tab; okr_drift → 跳 B-025 realign (当前只语言化教训, 未做结构化分类自动反推)
+  - ✅ 测试: `tests/unit/reflexion.test.ts` (16 个 = 11 旧 + 5 结构化反推) + `tests/unit/three-plus-one-engine.test.ts` B-024 (2 个)
+  - ✅ **结构化反推数据收集层** (2026-06-09): LLM schema 增 `category` (skill_misuse/okr_drift/knowledge_gap/judgment/other) + `skillId`; memory.tags 加 `category:xxx` + `skill:xxx`; `analyzeReflexionPatterns(userId, windowDays)` 聚合 byCategory + skillMisuseCounts (供 B-025 / 自动卸 skill 消费)
+  - ⏳ (后续 sprint) **结构化反推 mutate 路径**: skill_misuse ≥ 3 次 → 写 ProxyAction 提议从 enabledSkills 移除 (走 24h 否决); okr_drift ≥ 阈值 → 喂给 B-025 realign; knowledge_gap → 通知员工补 Persona Knowledge (B-021 已降级, 暂只通知)
 - **依赖**: 无 (基于现有 `learning-collector` + Memory + LLM)
 
 #### B-025 · Persona 战略引擎 (OKR 切换 → 重组分身)

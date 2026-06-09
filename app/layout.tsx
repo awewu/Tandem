@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, Inter_Tight } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { RightPaneProvider } from '@/components/right-pane';
@@ -9,20 +8,12 @@ import { AppShell } from '@/components/app-shell';
 import { PageViewTracker } from '@/components/page-view-tracker';
 import { ClientErrorReporter } from '@/components/client-error-reporter';
 
-// Body — Inter, variable weight 100-900, latin + latin-ext only (zh-CN falls back to system PingFang / Microsoft YaHei)
-const fontSans = Inter({
-  subsets: ['latin', 'latin-ext'],
-  variable: '--font-sans',
-  display: 'swap',
-});
-
-// Headings — Inter Tight, heavier display cousin of Inter (used for .rheem-display + h1/h2/h3)
-const fontDisplay = Inter_Tight({
-  subsets: ['latin', 'latin-ext'],
-  variable: '--font-display',
-  display: 'swap',
-  weight: ['600', '700', '800', '900'],
-});
+// 字体策略 (2026-06-09 生产硬化):
+//   不再使用 next/font/google — Google Fonts CDN 在国内云主机/容器构建中频繁 ECONNRESET,
+//   会直接 fail build. globals.css + tailwind.config.ts 已写完整 fallback 链
+//   (Inter → -apple-system / Segoe UI Variable Text → PingFang SC / Microsoft YaHei UI),
+//   未注入 --font-sans / --font-display 时 CSS 变量为空, 浏览器自动落到下一项, 视觉无损.
+//   如未来要锁定 Inter, 改用 next/font/local 把 woff2 放 public/fonts/ 而非走外网.
 
 export const metadata: Metadata = {
   title: 'Tandem · 牛马搭子',
@@ -45,11 +36,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html
-      lang="zh-CN"
-      suppressHydrationWarning
-      className={`${fontSans.variable} ${fontDisplay.variable}`}
-    >
+    <html lang="zh-CN" suppressHydrationWarning>
       <body className="font-sans antialiased bg-background text-foreground">
         <ThemeProvider>
           <RightPaneProvider>

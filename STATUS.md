@@ -1,8 +1,35 @@
 # Tandem · 全量验证状态报告
 
-**最后更新**: 2026-05-31 PT  
-**生成方式**: 由门禁脚本 + git/文件实测汇总  
+**最后更新**: 2026-06-09 PT (生产级部署冲刺)
+**生成方式**: 由门禁脚本 + git/文件实测汇总
 **当前服务**: `http://localhost:3005` (dev mode, PG 在 localhost:5432)
+
+## 2026-06-09 · 生产级部署冲刺快照
+
+**6 道门全绿** (本次冲刺新测):
+
+| 门禁 | 结果 |
+|---|---|
+| `npx tsc --noEmit` | ✅ 干净 |
+| `npm test` (vitest run) | ✅ **937 passed** (91 文件) |
+| UI Charter `--strict` | ✅ 0 违规 (allowlist 0) |
+| 内链 `--strict` | ✅ 0 悬空 · 304 路由 |
+| docs 索引 `--strict` | ✅ INDEX 与 77 docs 同步 |
+| `npm run build` | ✅ 全路由编译 (next/font/google 已替换为系统字体栈) |
+
+**冲刺修复**:
+- `app/layout.tsx`: 移除 `next/font/google` (生产容器构建 ECONNRESET), 改用 CSS fallback 链 (Inter → -apple-system / PingFang SC). 视觉无损, 零外网依赖.
+- `docker-compose.prod.yml`: MinIO 同时自动建 `tandem-drive` + `tandem-attachments` 两个 bucket (修首次附件上传 `NoSuchBucket`); app 容器同步注入 `S3_BUCKET_ATTACHMENTS`.
+- `docs/INDEX.md`: 补登 3 个新 .md (CASCADE-STATUS-PROTOCOL / DAZI-BEYOND-COWORK / DB-AUDIT-2026-06-09); §8 归档区改为纯文本纪念清单 (清除 38 条悬空 backtick 引用); 修 PITCH-DECK 引用 (仅剩 .pdf/.pptx).
+- `lib/persona/reflexion.ts`: B-024 结构化反推数据收集层 (LLM schema 增 category + skillId; tags `category:xxx` + `skill:xxx`; 新增 `analyzeReflexionPatterns(userId, windowDays)` 聚合 API).
+
+**部署入口验收**: `scripts/deploy-bootstrap.sh` + `docker-compose.prod.yml` + `.env.production.example` 三件套对齐, Owner 拿 `DEPLOY-CHECKLIST.md` 直接上.
+
+**已知警告 (非阻塞)**:
+- 单副本默认 `REDIS_URL` 未设 → rate-limit / cron 退化为内存 (单副本安全; 多副本必须配 Redis, production-guard 会拦).
+- `SENTRY_DSN` 未设 → 错误仅 stdout, 无远程聚合.
+
+---
 
 > **口径说明**: 本文是**点位验证状态报告**。项目权威总览见 `docs/PROJECT-OVERVIEW.md`。战略定位为**二者并存 · 分阶段** (2026-06-02 Owner 裁定): **目标形态** = 200-1000 人生产级交付产品 (`PRD.md`/`MASTER-UPGRADE.md`)，**当前阶段路径** = 自用优先 (`docs/SELF-USE-FIRST.md`)。文中"试用邀请/100 人通用码"指**当前自用阶段的内部同事 onboarding**, 对外销售属目标形态规划 (`PRD.md` §9)，自用阶段尚不执行。
 
