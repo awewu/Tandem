@@ -41,12 +41,32 @@ export type ReflexionTrigger =
   | 'rejected_for_original' // 员工弃 AI 选项 (A/B/C) 改用自己原创 D
   | 'retrospective'; // 复盘回填了 actualOutcome / learning
 
+/**
+ * B-024 结构化反推 · 教训分类 (2026-06-09).
+ * LLM 反思后必须把这次失败归到一个类别, 才能被下游消费:
+ *   - skill_misuse → 未来用 analyzeSkillMisusePattern() 聚合, 命中阈值后建议卸该 skill (B-024 mutate 路径, 后续 sprint)
+ *   - okr_drift   → 喂给 B-025 战略引擎, 提示该分身偏离当前 OKR
+ *   - knowledge_gap → 提示员工补 Persona Knowledge (B-021, 已降级, 暂只标记)
+ *   - judgment    → 单纯判断失误, 无法机器修, 仅供员工 review
+ *   - other       → 兜底
+ */
+export type ReflexionCategory =
+  | 'skill_misuse'
+  | 'okr_drift'
+  | 'knowledge_gap'
+  | 'judgment'
+  | 'other';
+
 export interface ReflexionResult {
   reflected: boolean;
   trigger?: ReflexionTrigger;
   memoryId?: string;
   lesson?: string;
   hint?: string;
+  /** B-024 结构化反推: LLM 给出的失败类别, 供下游 (B-025 realign / 自动卸 skill) 聚合 */
+  category?: ReflexionCategory;
+  /** 当 category=skill_misuse 时, LLM 指出涉嫌被误用的 skill id (best-effort, 可空) */
+  skillId?: string;
   reason: string;
 }
 
@@ -93,25 +113,29 @@ export async function reflectOnDecision(
       return { reflected: false, trigger, reason: 'no-active-persona' };
     }
 
-    const { lesson, hint } = await generateReflectionText(card, trigger);
+    const { lesson, hint, category, skillId } = await generateReflectionText(card, trigger);
     if (!lesson.trim() && !hint.trim()) {
       return { reflected: false, trigger, reason: 'empty-reflection' };
     }
 
     const now = new Date().toISOString();
+    // B-024 结构化反推 · tags 增量: category:xxx 必填, skill:xxx 仅当 LLM 给出 skillId
+    const tags = [REFLEXION_TAG, `trigger:${trigger}`, `category:${category}`];
+    if (skillId && skillId.trim()) tags.push(`skill:${skillId.trim()}`);
+
     const entry: MemoryEntry = {
       id: generateId('reflexion'),
       type: 'lesson',
       kind: 'episodic',
       title: `自省: ${card.title}`.slice(0, 120),
-      body: formatReflectionBody(card, trigger, lesson, hint),
+      body: formatReflectionBody(card, trigger, lesson, hint, category, skillId),
       status: 'active',
       signers: [],
       ownershipLevel: 'personal',
       ownerUserId: p.userId,
       agentId: p.id,
       referenceCount: 0,
-      tags: [REFLEXION_TAG, `trigger:${trigger}`],
+      tags,
       priority: trigger === 'veto' ? 'high' : 'medium',
       isActive: true,
       createdAt: now,
@@ -128,6 +152,8 @@ export async function reflectOnDecision(
       memoryId: entry.id,
       lesson,
       hint,
+      category,
+      skillId: skillId || undefined,
       reason: 'ok',
     };
   } catch (err) {
@@ -227,10 +253,32 @@ const REFLEXION_SYSTEM = [
   '只输出 JSON, 严格 schema:',
   '{',
   '  "lesson": "<这次发生了什么 + 根因, 1-2 句, 对事不对人>",',
-  '  "hint": "<下次遇到同类情况的具体行动建议, 1 句, 必须可执行而非空话>"',
+  '  "hint": "<下次遇到同类情况的具体行动建议, 1 句, 必须可执行而非空话>",',
+  '  "category": "<skill_misuse | okr_drift | knowledge_gap | judgment | other>",',
+  '  "skillId": "<可选, 仅当 category=skill_misuse 时填. 涉嫌被误用的 skill id, 如 web.search / okr.health_digest>"',
   '}',
+  'category 选择规则:',
+  '  - skill_misuse: 该分身调用了不该调的工具/skill, 或调了对的 skill 但用法错',
+  '  - okr_drift:   该决议偏离了当前 OKR 主题, 不该花时间做',
+  '  - knowledge_gap: 缺乏关键事实/资料, 凭空推测导致错',
+  '  - judgment:    资料齐, 工具用对, 但判断失误 (不可机器修)',
+  '  - other:       不属上述任一',
   '要求: 诚实归因 (承认分身判断的不足), 不甩锅给员工; hint 必须具体 (如"涉及预算>10万先确认 ROI 再提交"), 禁止"要更谨慎"这类空话。',
 ].join('\n');
+
+const VALID_CATEGORIES: ReadonlySet<ReflexionCategory> = new Set<ReflexionCategory>([
+  'skill_misuse',
+  'okr_drift',
+  'knowledge_gap',
+  'judgment',
+  'other',
+]);
+
+function normalizeCategory(raw: unknown): ReflexionCategory {
+  if (typeof raw !== 'string') return 'other';
+  const v = raw.trim().toLowerCase();
+  return VALID_CATEGORIES.has(v as ReflexionCategory) ? (v as ReflexionCategory) : 'other';
+}
 
 const TRIGGER_DESC: Record<ReflexionTrigger, string> = {
   veto: '员工在 24h 否决窗口内撤回了我 (AI 分身) 提交的这个决议。',
@@ -253,7 +301,7 @@ async function resolveRouter() {
 async function generateReflectionText(
   card: DecisionCard,
   trigger: ReflexionTrigger,
-): Promise<{ lesson: string; hint: string }> {
+): Promise<{ lesson: string; hint: string; category: ReflexionCategory; skillId: string }> {
   const router = (await resolveRouter()) as { chat: (req: unknown) => Promise<{ message: { content: unknown } }> };
 
   const selectedOpt = (card.options ?? []).find((o) => o.id === card.selected);
@@ -294,14 +342,21 @@ async function generateReflectionText(
   const raw = res.message.content;
   const content = typeof raw === 'string' ? raw : '{}';
   try {
-    const parsed = JSON.parse(extractJson(content)) as { lesson?: string; hint?: string };
+    const parsed = JSON.parse(extractJson(content)) as {
+      lesson?: string;
+      hint?: string;
+      category?: string;
+      skillId?: string;
+    };
     return {
       lesson: (parsed.lesson ?? '').trim(),
       hint: (parsed.hint ?? '').trim(),
+      category: normalizeCategory(parsed.category),
+      skillId: (parsed.skillId ?? '').trim(),
     };
   } catch {
-    // 解析失败 → 退化为整段文本当 lesson (仍比丢弃强)
-    return { lesson: content.trim().slice(0, 500), hint: '' };
+    // 解析失败 → 退化为整段文本当 lesson (仍比丢弃强), category 兜底 'other'
+    return { lesson: content.trim().slice(0, 500), hint: '', category: 'other', skillId: '' };
   }
 }
 
@@ -310,13 +365,102 @@ function formatReflectionBody(
   trigger: ReflexionTrigger,
   lesson: string,
   hint: string,
+  category: ReflexionCategory,
+  skillId: string,
 ): string {
+  const catLabel = `[分类] ${category}${category === 'skill_misuse' && skillId ? ` (skill=${skillId})` : ''}`;
   const parts = [
     `[场景] ${card.title} (反馈: ${trigger})`,
+    catLabel,
     lesson ? `[教训] ${lesson}` : '',
     hint ? `[下次怎么做] ${hint}` : '',
   ].filter(Boolean);
   return parts.join('\n');
+}
+
+// ---------------------------------------------------------------------------
+// B-024 结构化反推 · 聚合 API (供下游消费, 数据收集层. mutate 路径在后续 sprint)
+// ---------------------------------------------------------------------------
+
+export interface ReflexionPatternSummary {
+  /** 按 category 计数 */
+  byCategory: Record<ReflexionCategory, number>;
+  /** skill_misuse 类别下, 每个 skill 出现频次 (按 skillId 聚合) */
+  skillMisuseCounts: Array<{ skillId: string; count: number }>;
+  /** 窗口内自省总数 */
+  total: number;
+  /** 窗口起始时间 (ISO) */
+  windowStart: string;
+}
+
+/**
+ * 聚合某员工自省模式: 用于回答"我哪个 skill 被误用最多 / 是否漂离 OKR"。
+ *
+ * 用法:
+ *   - B-025 战略引擎: byCategory.okr_drift ≥ 阈值 → 触发 realignPersonaToOkr
+ *   - 自动卸 skill (后续 sprint): skillMisuseCounts[i].count ≥ 3 → 写 ProxyAction 提议从 enabledSkills 移除
+ *   - /admin/persona-evolution 看板: 直接展示
+ *
+ * fail-soft: 出错返回空 summary。
+ *
+ * @param userId   员工 id
+ * @param windowDays  时间窗口 (默认 30 天)
+ */
+export async function analyzeReflexionPatterns(
+  userId: string,
+  windowDays = 30,
+): Promise<ReflexionPatternSummary> {
+  const empty: ReflexionPatternSummary = {
+    byCategory: { skill_misuse: 0, okr_drift: 0, knowledge_gap: 0, judgment: 0, other: 0 },
+    skillMisuseCounts: [],
+    total: 0,
+    windowStart: new Date(Date.now() - windowDays * 86400_000).toISOString(),
+  };
+  try {
+    const store = getStore();
+    const all = await store.memories.list();
+    const since = Date.now() - windowDays * 86400_000;
+    const mine = all.filter(
+      (m: MemoryEntry) =>
+        m.ownershipLevel === 'personal' &&
+        m.ownerUserId === userId &&
+        m.type === 'lesson' &&
+        (m.tags ?? []).includes(REFLEXION_TAG) &&
+        new Date(m.createdAt ?? 0).getTime() >= since,
+    );
+    if (mine.length === 0) return empty;
+
+    const skillCounter = new Map<string, number>();
+    const summary: ReflexionPatternSummary = { ...empty, total: mine.length };
+    summary.byCategory = { skill_misuse: 0, okr_drift: 0, knowledge_gap: 0, judgment: 0, other: 0 };
+
+    for (const m of mine) {
+      // tags 形如 [REFLEXION_TAG, 'trigger:veto', 'category:skill_misuse', 'skill:web.search']
+      const catTag = (m.tags ?? []).find((t) => t.startsWith('category:'));
+      const cat = catTag ? normalizeCategory(catTag.slice('category:'.length)) : 'other';
+      summary.byCategory[cat] = (summary.byCategory[cat] ?? 0) + 1;
+
+      if (cat === 'skill_misuse') {
+        const skillTag = (m.tags ?? []).find((t) => t.startsWith('skill:'));
+        if (skillTag) {
+          const sid = skillTag.slice('skill:'.length);
+          skillCounter.set(sid, (skillCounter.get(sid) ?? 0) + 1);
+        }
+      }
+    }
+
+    summary.skillMisuseCounts = Array.from(skillCounter.entries())
+      .map(([skillId, count]) => ({ skillId, count }))
+      .sort((a, b) => b.count - a.count);
+
+    return summary;
+  } catch (err) {
+    logger.warn(
+      { userId, err: (err as Error).message },
+      '[reflexion] analyzeReflexionPatterns failed (fail-soft)',
+    );
+    return empty;
+  }
 }
 
 // ---------------------------------------------------------------------------

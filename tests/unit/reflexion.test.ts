@@ -17,11 +17,16 @@ import type { DecisionCard } from '@/lib/types/decision-card';
 const USER = 'user_alice';
 const G = globalThis as unknown as { __tandem_router__?: unknown };
 
-function installFakeRouter(lesson = '我主推的 B 选项低估了预算风险', hint = '涉及预算>10万先核 ROI 再提交') {
+function installFakeRouter(
+  lesson = '我主推的 B 选项低估了预算风险',
+  hint = '涉及预算>10万先核 ROI 再提交',
+  category = 'judgment',
+  skillId = '',
+) {
   G.__tandem_router__ = {
     chat: async () => ({
       id: 'fake',
-      message: { role: 'assistant', content: JSON.stringify({ lesson, hint }) },
+      message: { role: 'assistant', content: JSON.stringify({ lesson, hint, category, skillId }) },
       usage: { promptTokens: 1, completionTokens: 1, totalTokens: 2 },
     }),
     listProviders: () => ['fake'],
@@ -167,3 +172,90 @@ describe('B-024 · retrieve + inject self-hints', () => {
     expect(inj.revisedSystemPrompt).toBe('基线 prompt');
   });
 });
+
+describe('B-024 · 结构化反推 (category + skillId)', () => {
+  it('LLM 给 category=skill_misuse + skillId → 落库 tags 含 category:skill_misuse + skill:web.search', async () => {
+    await seedPersona();
+    installFakeRouter('我不该调 web.search 解算预算', '此类问题用 okr.health_digest', 'skill_misuse', 'web.search');
+    const { reflectOnDecision } = await import('@/lib/persona/reflexion');
+
+    const r = await reflectOnDecision(makeCard({ convergenceState: 'VETOED' }));
+    expect(r.reflected).toBe(true);
+    expect(r.category).toBe('skill_misuse');
+    expect(r.skillId).toBe('web.search');
+
+    const mem = (await getStore().memories.list()).find((m) => m.id === r.memoryId);
+    expect(mem?.tags).toContain('category:skill_misuse');
+    expect(mem?.tags).toContain('skill:web.search');
+    expect(mem?.body).toContain('skill=web.search');
+  });
+
+  it('LLM 给非法 category → 兜底 other', async () => {
+    await seedPersona();
+    installFakeRouter('lesson', 'hint', 'banana_split' as never);
+    const { reflectOnDecision } = await import('@/lib/persona/reflexion');
+    const r = await reflectOnDecision(makeCard({ convergenceState: 'VETOED' }));
+    expect(r.category).toBe('other');
+  });
+
+  it('analyzeReflexionPatterns: 聚合 byCategory 与 skillMisuseCounts', async () => {
+    await seedPersona();
+    const { reflectOnDecision, analyzeReflexionPatterns } = await import('@/lib/persona/reflexion');
+
+    // 3 次 web.search 误用 + 1 次 okr_drift + 1 次 judgment
+    installFakeRouter('a', 'h', 'skill_misuse', 'web.search');
+    await reflectOnDecision(makeCard({ id: 'd1', convergenceState: 'VETOED', title: 'c1' }));
+    await reflectOnDecision(makeCard({ id: 'd2', convergenceState: 'VETOED', title: 'c2' }));
+    await reflectOnDecision(makeCard({ id: 'd3', convergenceState: 'VETOED', title: 'c3' }));
+
+    installFakeRouter('a', 'h', 'okr_drift', '');
+    await reflectOnDecision(makeCard({ id: 'd4', convergenceState: 'VETOED', title: 'c4' }));
+
+    installFakeRouter('a', 'h', 'judgment', '');
+    await reflectOnDecision(makeCard({ id: 'd5', convergenceState: 'VETOED', title: 'c5' }));
+
+    const sum = await analyzeReflexionPatterns(USER, 30);
+    expect(sum.total).toBe(5);
+    expect(sum.byCategory.skill_misuse).toBe(3);
+    expect(sum.byCategory.okr_drift).toBe(1);
+    expect(sum.byCategory.judgment).toBe(1);
+    expect(sum.skillMisuseCounts).toEqual([{ skillId: 'web.search', count: 3 }]);
+  });
+
+  it('analyzeReflexionPatterns: 别的员工不串台 + 空 → 空 summary', async () => {
+    const { analyzeReflexionPatterns } = await import('@/lib/persona/reflexion');
+    const sum = await analyzeReflexionPatterns('user_ghost', 30);
+    expect(sum.total).toBe(0);
+    expect(sum.byCategory.skill_misuse).toBe(0);
+    expect(sum.skillMisuseCounts).toEqual([]);
+  });
+
+  it('analyzeReflexionPatterns: 旧自省超出窗口被排除', async () => {
+    await seedPersona();
+    const store = getStore();
+    // 直接塞一条 31 天前的 reflexion memory
+    await store.memories.create({
+      id: 'old1',
+      type: 'lesson',
+      kind: 'episodic',
+      title: '旧自省',
+      body: 'b',
+      status: 'active',
+      signers: [],
+      ownershipLevel: 'personal',
+      ownerUserId: USER,
+      referenceCount: 0,
+      tags: ['reflexion', 'category:skill_misuse', 'skill:old.tool'],
+      isActive: true,
+      createdAt: new Date(Date.now() - 31 * 86400_000).toISOString(),
+      updatedAt: new Date(Date.now() - 31 * 86400_000).toISOString(),
+    } as never);
+
+    const { analyzeReflexionPatterns } = await import('@/lib/persona/reflexion');
+    const sum = await analyzeReflexionPatterns(USER, 30);
+    expect(sum.total).toBe(0);
+  });
+});
+
+// 抑制 vitest 'vi imported but unused' (保留以便后续扩展时随手 mock)
+void vi;

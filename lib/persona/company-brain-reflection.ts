@@ -23,8 +23,10 @@ import type {
   CompanyBrainVersion,
   CompanyBrainDecisionContext,
   CompanyBrainVersionMetrics,
+  OkrOptimizationProposal,
 } from '@/lib/types/company-brain';
 import { DEFAULT_BRAIN_VERSION_ID } from '@/lib/types/company-brain';
+import { computeKRProgress } from '@/lib/types/okr-tti';
 import { getStore } from '@/lib/storage/repository';
 import { logger } from '@/lib/infra/logger';
 import { audit } from '@/lib/audit/log';
@@ -131,6 +133,73 @@ function heuristicProposedChanges(
   return proposed;
 }
 
+/**
+ * ON-3 · OKR 健康分析 (参谋视角): 扫 active 周期内公司/团队层 KR,
+ * 识别偏离 on-track 的承压 KR, 产出**优化方向提议** (advisory)。
+ *
+ * 宪法裁定 A 边界: 纯读 OKR 真值 → 产出供治理审视的建议, **不**创建 ProxyAction,
+ * **不**自动改任何 OKR; status 一律 'pending', 须人工治理处置。永不抛错。
+ *
+ * @param maxProposals 上限 (默认 5), 按进度从低到高取最承压的。
+ */
+export async function analyzeOkrHealth(
+  maxProposals = 5,
+): Promise<OkrOptimizationProposal[]> {
+  try {
+    const store = getStore();
+    const cycles = await store.cycles.list();
+    const activeCycles = cycles.filter((c) => c.isActive);
+    if (activeCycles.length === 0) return [];
+    const cycle = activeCycles.sort((a, b) =>
+      (b.startDate ?? '').localeCompare(a.startDate ?? ''),
+    )[0];
+
+    const objectives = await store.objectives.list();
+    const orgObjectiveIds = new Set(
+      objectives
+        .filter(
+          (o) =>
+            o.cycleId === cycle.id &&
+            o.status === 'active' &&
+            (o.level === 'company' || o.level === 'team'),
+        )
+        .map((o) => o.id),
+    );
+    if (orgObjectiveIds.size === 0) return [];
+
+    const krs = await store.keyResults.list();
+    const atRisk = krs
+      .filter(
+        (kr) =>
+          kr.status === 'active' &&
+          orgObjectiveIds.has(kr.objectiveId) &&
+          kr.confidence !== 'on-track',
+      )
+      .map((kr) => ({ kr, pct: computeKRProgress(kr) }))
+      .sort((a, b) => a.pct - b.pct)
+      .slice(0, maxProposals);
+
+    return atRisk.map(({ kr, pct }) => {
+      const progressPct = Math.round(pct * 100);
+      return {
+        id: `okropt_${kr.id}_${Date.now().toString(36)}`,
+        kind: 'kr_at_risk' as const,
+        title: `承压 KR: ${kr.title}`,
+        targetType: 'key_result' as const,
+        targetId: kr.id,
+        metrics: { progressPct, confidence: kr.confidence },
+        recommendation:
+          '建议治理审视: 资源再分配 / 拆解或下调目标值 / 加派协作者 / 必要时进议事室. (参谋建议, 须人工决定)',
+        rationale: `该 KR 进度 ${progressPct}% 且信心度=${kr.confidence}, 偏离 on-track. 中央 AI 作为参谋提示组织关注, 不自动调整 OKR.`,
+        status: 'pending' as const,
+      };
+    });
+  } catch (err) {
+    logger.warn({ err: (err as Error).message }, '[reflection] OKR health analysis failed');
+    return [];
+  }
+}
+
 async function getCurrentVersion(): Promise<CompanyBrainVersion | null> {
   try {
     const store = getStore();
@@ -199,6 +268,9 @@ export async function generateReflection(
       metrics.recentOverrules.map((d) => d.id),
     );
 
+    // ON-3 · OKR 健康优化方向提议 (参谋产物, 与上面"中央 AI 自身配置"调整正交)
+    const optimizationProposals = await analyzeOkrHealth();
+
     const now = new Date().toISOString();
     const report: CompanyBrainReflectionReport = {
       id: `cbref_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
@@ -211,6 +283,7 @@ export async function generateReflection(
       strengths,
       failurePatterns,
       proposedChanges,
+      optimizationProposals,
       approvalStatus: 'pending',
     };
 
@@ -236,6 +309,7 @@ export async function generateReflection(
           overruleRate: metricsSummary.overruleRate,
           failurePatternCount: failurePatterns.length,
           proposedRationaleLen: proposedChanges.rationale.length,
+          optimizationProposalCount: optimizationProposals.length,
         },
       });
     } catch {

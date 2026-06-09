@@ -13,6 +13,7 @@ import {
   generateReflection,
   listReflections,
   approveReflection,
+  analyzeOkrHealth,
 } from '@/lib/persona/company-brain-reflection';
 import { recordDecision, setFeedback } from '@/lib/persona/company-brain-decision';
 import {
@@ -38,7 +39,49 @@ async function reset() {
   for (const v of await store.companyBrainVersions.list()) {
     await store.companyBrainVersions.delete(v.id);
   }
+  for (const c of await store.cycles.list()) {
+    await store.cycles.delete(c.id);
+  }
+  for (const o of await store.objectives.list()) {
+    await store.objectives.delete(o.id);
+  }
+  for (const k of await store.keyResults.list()) {
+    await store.keyResults.delete(k.id);
+  }
   invalidateBrainVersionCache();
+}
+
+/** ON-3: 播 active 周期 + 公司/团队 Objective + KR (confidence 可控) */
+async function seedOkr(opts: {
+  level?: 'company' | 'team' | 'individual';
+  confidence: 'on-track' | 'at-risk' | 'off-track';
+  current?: number;
+  krId?: string;
+}) {
+  const store = getStore();
+  const NOW = new Date().toISOString();
+  if (!(await store.cycles.get('cyc-on3'))) {
+    await store.cycles.create({
+      id: 'cyc-on3', name: '2026', startDate: '2026-01-01', endDate: '2026-12-31', isActive: true,
+    } as never);
+  }
+  const objId = `obj-${opts.level ?? 'company'}`;
+  if (!(await store.objectives.get(objId))) {
+    await store.objectives.create({
+      id: objId, cycleId: 'cyc-on3', level: opts.level ?? 'company', ownerId: 'u-1',
+      title: `${opts.level ?? 'company'} 目标`, visibility: 'public', weight: 100,
+      status: 'active', confidence: 'on-track', tags: [], collaboratorIds: [], watcherIds: [],
+      createdAt: NOW, updatedAt: NOW,
+    } as never);
+  }
+  const krId = opts.krId ?? `kr-${opts.confidence}`;
+  await store.keyResults.create({
+    id: krId, objectiveId: objId, ownerId: 'u-1', coOwnerIds: [], measureType: 'numeric',
+    computeMethod: 'latest', startValue: 0, targetValue: 100, currentValue: opts.current ?? 20,
+    confidence: opts.confidence, riskStatus: 'at_risk', weight: 1, status: 'active', tags: [],
+    collaboratorIds: [], watcherIds: [], title: `KR ${krId}`, createdAt: NOW, updatedAt: NOW,
+  } as never);
+  return krId;
 }
 
 async function seedVersion(overrides: Partial<CompanyBrainVersion> = {}): Promise<CompanyBrainVersion> {
@@ -235,5 +278,53 @@ describe('§CA-13 · CompanyBrain Reflection 生成器', () => {
     await seedVersion();
     const r = await generateReflection({ useLlm: false, windowDays: 30 });
     expect(r).toBeNull();
+  });
+
+  // ----- ON-3 · OKR 健康优化提议 (参谋产物) -----
+
+  it('ON-3: 承压 KR (偏离 on-track) → report 含 kr_at_risk 优化提议 (pending, 不自动改)', async () => {
+    await seedVersion();
+    await seedOkr({ confidence: 'at-risk', current: 20 });
+    for (let i = 0; i < 3; i++) await seedDecision({ outcome: 'adopted' });
+
+    const r = await generateReflection({ useLlm: false });
+    expect(r).not.toBeNull();
+    expect(r!.optimizationProposals?.length).toBe(1);
+    const p = r!.optimizationProposals![0];
+    expect(p.kind).toBe('kr_at_risk');
+    expect(p.targetType).toBe('key_result');
+    expect(p.targetId).toBe('kr-at-risk');
+    expect(p.status).toBe('pending');
+    expect(p.metrics.progressPct).toBe(20);
+    expect(p.metrics.confidence).toBe('at-risk');
+  });
+
+  it('ON-3: 全部 on-track → 无优化提议', async () => {
+    await seedVersion();
+    await seedOkr({ confidence: 'on-track', current: 90 });
+    for (let i = 0; i < 3; i++) await seedDecision({ outcome: 'adopted' });
+
+    const r = await generateReflection({ useLlm: false });
+    expect(r!.optimizationProposals).toEqual([]);
+  });
+
+  it('ON-3: analyzeOkrHealth 只看公司/团队层, 排除个人层 KR', async () => {
+    await seedOkr({ level: 'individual', confidence: 'off-track', current: 5 });
+    const proposals = await analyzeOkrHealth();
+    expect(proposals).toEqual([]);
+  });
+
+  it('ON-3: 无 active 周期 → analyzeOkrHealth 空 (不报错)', async () => {
+    const proposals = await analyzeOkrHealth();
+    expect(proposals).toEqual([]);
+  });
+
+  it('ON-3: 多个承压 KR 按进度从低到高排序', async () => {
+    await seedOkr({ confidence: 'off-track', current: 50, krId: 'kr-mid' });
+    await seedOkr({ confidence: 'at-risk', current: 10, krId: 'kr-low' });
+    const proposals = await analyzeOkrHealth();
+    expect(proposals.length).toBe(2);
+    expect(proposals[0].targetId).toBe('kr-low');
+    expect(proposals[1].targetId).toBe('kr-mid');
   });
 });

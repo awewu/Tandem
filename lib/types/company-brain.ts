@@ -199,6 +199,37 @@ export interface CompanyBrainEvalResult {
 }
 
 // ---------------------------------------------------------------------------
+// ON-3 · OKR 健康驱动的优化方向提议 (参谋产物, 须治理签批; 绝不自动执行)
+// ---------------------------------------------------------------------------
+
+/**
+ * 中央 AI 作为"参谋"在月度反思里读 OKR 真值, 识别长期承压的目标/KR,
+ * 产出**优化方向提议**供治理委员会/Owner 审视。
+ *
+ * 宪法裁定 A 边界: 这是参谋建议, **不**创建 ProxyAction, **不**自动调整任何 OKR;
+ * 须人工治理决定 (acknowledged/dismissed)。中央 AI 只负责"指出值得关注", 不替组织拍板。
+ */
+export interface OkrOptimizationProposal {
+  id: string;
+  /** 提议类型 (首片仅 kr_at_risk; 预留 objective_stalled / skill_promotion) */
+  kind: 'kr_at_risk' | 'objective_stalled' | 'skill_promotion';
+  /** 提议标题 */
+  title: string;
+  /** 关联本体对象类型 */
+  targetType: 'key_result' | 'objective';
+  /** 关联本体对象 id */
+  targetId: string;
+  /** 当前度量快照 (供治理审视) */
+  metrics: { progressPct: number; confidence: string };
+  /** 优化方向建议 (参谋措辞, 非执行指令) */
+  recommendation: string;
+  /** 归因说明 */
+  rationale: string;
+  /** 签批状态: 参谋提议须人工治理处置; 绝不自动生效 */
+  status: 'pending' | 'acknowledged' | 'dismissed';
+}
+
+// ---------------------------------------------------------------------------
 // Reflection · 月度反思报告
 // ---------------------------------------------------------------------------
 
@@ -226,7 +257,7 @@ export interface CompanyBrainReflectionReport {
     suggestedFix: string;
   }>;
 
-  // ----- 配置调整建议 -----
+  // ----- 配置调整建议 (中央 AI 自身配置: 阈值/召回/风格/prompt) -----
   proposedChanges: {
     styleProfileDiff?: Partial<CompanyBrainVersion['styleProfileSnapshot']>;
     systemPromptDiff?: string;
@@ -234,6 +265,10 @@ export interface CompanyBrainReflectionReport {
     topKMemoriesInjectedDiff?: number;
     rationale: string;
   };
+
+  // ----- ON-3 · OKR 健康优化方向提议 (组织层, 参谋建议, 须人工治理处置) -----
+  /** 中央 AI 读 OKR 真值产出的优化方向提议; 缺省/无承压目标时为空数组 */
+  optimizationProposals?: OkrOptimizationProposal[];
 
   // ----- 签批状态 -----
   /** pending: 待 Owner/治理委员会签批 / approved: 已应用 / rejected: 已拒绝 */
