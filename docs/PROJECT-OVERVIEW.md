@@ -1,9 +1,11 @@
 # Tandem · 项目总览 (Project Overview)
 
 > 本文件是 Tandem 的**权威单页总览**。当其它文档 (尤其 `README.md` / `PITCH-DECK.md`) 与本文冲突时，
-> 以**战略锚点**为准：`docs/SELF-USE-FIRST.md` > `docs/OKR-DRIVEN-ARCHITECTURE.md` / `docs/MANIFESTO.md` > 其它。
+> 以**战略锚点**为准。锚点分两层 (见 §二 二者并存 · 分阶段):
+> - **当前阶段执行**: `docs/SELF-USE-FIRST.md` (自用路径) > `docs/OKR-DRIVEN-ARCHITECTURE.md` / `docs/MANIFESTO.md`
+> - **目标形态架构**: `docs/PRD.md` / `docs/UNIFIED-TECH-DESIGN.md` / `docs/MASTER-UPGRADE.md` (200-1000 人生产级交付)
 
-最后更新: 2026-05-31
+最后更新: 2026-06-07
 
 ---
 
@@ -16,16 +18,34 @@
 
 ---
 
-## 二、战略定位 (自用优先)
+## 二、战略定位 (二者并存 · 分阶段)
 
-- **自用优先**: 对标字节内部飞书 (2016–2020 自用 4 年再对外)、Slack/Notion/Linear/GitLab 的"先内部验证再开放"路径。
-- **商业化是远期可选项**: Owner 明确"先不要管商务"。`PITCH-DECK.md` 中的种子客户 / 定价 / GTM / 退款等属**旧 SaaS 口径，当前不适用**。
-- **自用成功标准** (达到全部 = 可考虑商业化):
+> **2026-06-02 Owner 裁定**: Tandem 定为 **200-1000 人生产级交付产品** (`MANIFESTO.md` §17 sweet spot)。但落地路径仍走**自用优先**——不是降级，而是把生产级当作**目标形态**，把自用当作**当前阶段验证路径**。两者并存，不矛盾。
+
+### 当前阶段 (路径) — 自用优先
+
+- 对标字节内部飞书 (2016–2020 自用 4 年再对外)、Slack/Notion/Linear/GitLab 的"先内部验证再开放"路径。
+- Owner 公司全员即真实用户群，用真实工作数据喂养、为真实同事服务。
+- **阶段过关标准** (达到全部 = 可推进对外交付):
   - 公司 70%+ 同事每周打开 ≥ 3 次，持续 3 个月
   - 80%+ OKR / 议事 / 1on1 在 Tandem 完成
   - 50%+ 同事主动训练 Persona
   - 至少 3 个具体的"省时间"故事
 - **当前真正该做的 Top 5**: 生产部署+HTTPS+备份 / 行为埋点 / CI / 内部成本看板 / 同事 Onboarding。详见 `docs/SELF-USE-FIRST.md`。
+
+### 目标形态 (终局) — 200-1000 人生产级交付产品
+
+- **目标客户** (`MANIFESTO.md` §17): 50-3000 人民营企业 (sweet spot 200-1000)，7 类行业 (互联网/SaaS/跨境/文娱/教育/消费/创意)；不进政企/国企/金融监管类。
+- **生产级三大架构决策** (`PRD` + `UNIFIED-TECH-DESIGN.md` + `EVOLUTION-CHECKLIST-FULL.md`):
+  - **Persona 双层架构**: 本地 Hermes (Ollama/GPU) + 云 DeepSeek 双层路由 + 离线 degraded 模式；多数民企无 GPU，提供**全云 fallback** (PRD §9 风险登记已列)。
+  - **TandemNode 统一原语**: 取代 `repository.ts` 按类型分仓，让知识 4 层 (Origins→Materials→Memory) = 同一原语 type 跃迁 + 签批。独立专项、高风险大重构。
+  - **Skill Gateway 深度兑现**: 完整 Capture 层 (IDE 插件 / 邮件 webhook / 文档元数据) + `runSkillGateway` 真接入生产。
+- **GTM / 销售 / 私有租户**: 见 `docs/PRD.md` §9（属目标形态规划，自用阶段尚不执行）。
+
+### 过渡纪律
+
+- 自用阶段验证的功能闭环 → 生产级交付前必须通过"防假闭环断言" (用户→存储→生产 LLM 注入→audit)。
+- 当 `SELF-USE-FIRST.md` (自用路径) 与 `PRD`/`MASTER-UPGRADE.md` (目标形态) 表述冲突时：**当前阶段执行以 `SELF-USE-FIRST.md` 为准；终局架构以 `PRD`/`UNIFIED-TECH-DESIGN.md` 为准**。
 
 ---
 
@@ -110,17 +130,20 @@
 
 | 文档 | 用途 | 权威度 |
 |---|---|---|
-| `docs/SELF-USE-FIRST.md` | 自用优先战略锚点 | 最高 |
+| `docs/SELF-USE-FIRST.md` | 当前阶段战略锚点 (自用路径) | 最高 (阶段执行) |
+| `docs/PRD.md` / `docs/MASTER-UPGRADE.md` | 目标形态 (200-1000 人生产级交付) + GTM | 最高 (终局规划) |
+| `docs/UNIFIED-TECH-DESIGN.md` / `docs/EVOLUTION-CHECKLIST-FULL.md` | 生产级三大架构 (Persona 双层 / TandemNode / Skill Gateway) | 高 |
 | `docs/OKR-DRIVEN-ARCHITECTURE.md` | OKR 驱动架构 (与 MANIFESTO 同级) | 高 |
-| `docs/MANIFESTO.md` | 顶层承诺 | 高 |
+| `docs/MANIFESTO.md` | 顶层承诺 (含 §17 sweet spot) | 高 |
 | `docs/CHARTER-UI-V1.md` | UI 设计宪章 + 违规事故档案 | 高 |
 | `docs/PROJECT-OVERVIEW.md` | 本文 (单页总览) | 高 |
-| `PITCH-DECK.md` | 旧 SaaS 商业化口径 | **已被自用锚点取代，慎用** |
+| `PITCH-DECK.md` | 旧 SaaS 商业化口径 | **慎用 (口径偏旧)** |
 | `README.md` | 工程入门 (已于 2026-05-31 重写为 Tandem 口径) | 中 |
 
 ---
 
 ## 九、诚实提示 (文档漂移)
 
-- `PITCH-DECK.md` 的"四、商业"章节与 `SELF-USE-FIRST.md` 冲突，仅作历史参考。
+- **阶段 vs 终局**: `SELF-USE-FIRST.md` 写"商业化是远期可选项"，描述的是**当前阶段路径**；`PRD.md`/`MASTER-UPGRADE.md` 的 GTM/销售/私有租户描述的是**目标形态**。两者并存不矛盾 (见 §二)，但 GTM 章节在自用阶段尚不执行。
+- `PITCH-DECK.md` 的"四、商业"章节口径偏旧，以 `PRD.md` §9 GTM 为准。
 - `REFLECTION-2026-05.md` / `META-REVIEW-2026-05-27.md` 含 SaaS 创业语境判断，已被 `SELF-USE-FIRST.md` 推翻或重排，不要照搬。

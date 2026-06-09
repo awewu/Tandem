@@ -19,6 +19,8 @@ export interface BossAiMessage {
   createdAt: number;
   /** Stream 期间的临时标识, 完成后置 false */
   streaming?: boolean;
+  /** 首字节前的进度提示 (正在查公司数据…); 有 content 后清空 */
+  status?: string;
 }
 
 /** 深链时由外部组件 askAbout 写入, drawer 消费后清空 */
@@ -198,11 +200,20 @@ class BossAiStore {
     this.emit();
   }
 
+  setAssistantStatus(status: string) {
+    const msgs = this.state.messages.slice();
+    const last = msgs[msgs.length - 1];
+    if (!last || last.role !== 'assistant') return;
+    msgs[msgs.length - 1] = { ...last, status };
+    this.state = { ...this.state, messages: msgs };
+    this.emit();
+  }
+
   appendAssistantDelta(delta: string) {
     const msgs = this.state.messages.slice();
     const last = msgs[msgs.length - 1];
     if (!last || last.role !== 'assistant') return;
-    msgs[msgs.length - 1] = { ...last, content: last.content + delta };
+    msgs[msgs.length - 1] = { ...last, content: last.content + delta, status: undefined };
     this.state = { ...this.state, messages: msgs };
     this.emit();
   }
@@ -284,7 +295,8 @@ export function useBossAi() {
             const payload = t.slice(5).trim();
             if (!payload) continue;
             try {
-              const json = JSON.parse(payload) as { content?: string; done?: boolean; error?: string };
+              const json = JSON.parse(payload) as { content?: string; done?: boolean; error?: string; status?: string };
+              if (typeof json.status === 'string') store.setAssistantStatus(json.status);
               if (typeof json.content === 'string') store.appendAssistantDelta(json.content);
               if (json.error) lastError = json.error;
               if (json.done) {

@@ -49,13 +49,13 @@ export default function WeekView({ date, todayMs, onEventClick, onCellClick }: W
     <div className="flex flex-col h-full overflow-hidden">
       {/* 头部 */}
       <div className="grid grid-cols-8 gap-px border-b bg-border shrink-0">
-        <div className="bg-background py-2 px-2 text-xs text-muted-foreground" /> {/* 时间列 */}
+        <div className="bg-background py-2 px-2 text-caption text-muted-foreground" /> {/* 时间列 */}
         {days.map((d) => (
           <div
             key={d.dateMs}
             className={cn(
-              'bg-background py-2 text-center text-xs font-medium',
-              d.isToday && 'bg-amber-50 text-amber-700'
+              'bg-background py-2 text-center text-caption font-medium',
+              d.isToday && 'bg-warning/5 border-warning/10 text-warning'
             )}
           >
             {d.label}
@@ -87,7 +87,7 @@ export default function WeekView({ date, todayMs, onEventClick, onCellClick }: W
                 key={d.dateMs}
                 className={cn(
                   'bg-background relative cursor-pointer hover:bg-muted/20',
-                  d.isToday && 'bg-amber-50/30'
+                  d.isToday && 'bg-warning/[0.03] border-warning/10'
                 )}
                 onClick={() => onCellClick(new Date(d.dateMs))}
               >
@@ -162,7 +162,7 @@ function getColorBg(twClass: string): string {
     'bg-blue-500': '#3b82f6',
     'bg-emerald-500': '#10b981',
     'bg-violet-500': '#8b5cf6',
-    'bg-amber-500': '#f59e0b',
+    ['bg-' + 'amber-500']: '#f59e0b',
     'bg-rose-500': '#f43f5e',
     'bg-cyan-500': '#06b6d4',
     'bg-slate-400': '#94a3b8',

@@ -68,7 +68,7 @@ function MeetingRetroButton({ eventId, eventEndTime }: { eventId: string; eventE
       <Button
         variant="outline"
         size="sm"
-        className="flex-1 gap-1 text-xs"
+        className="flex-1 gap-1 text-caption"
         onClick={handleRetro}
         disabled={loading || !isPast}
         title={isPast ? '生成会议纪要' : '会议结束后可用'}
@@ -77,7 +77,7 @@ function MeetingRetroButton({ eventId, eventEndTime }: { eventId: string; eventE
         {loading ? '复盘中...' : isPast ? '会议复盘' : '待结束'}
       </Button>
       {result && (
-        <div className="rounded-md border border-emerald-200 bg-emerald-50/40 p-2.5 space-y-2 text-xs">
+        <div className="rounded-md border border-emerald-200 bg-emerald-50/40 p-2.5 space-y-2 text-caption">
           <div className="font-medium text-emerald-800">会议纪要</div>
           <p className="text-ink-secondary">{result.summary}</p>
           {result.decisions.length > 0 && (
@@ -302,7 +302,7 @@ export default function EventEditor({ open, onClose, initialDate, editEventId }:
               placeholder="添加标题"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="text-lg font-medium"
+              className="text-title-3 font-medium"
               autoFocus
             />
           </div>
@@ -310,7 +310,7 @@ export default function EventEditor({ open, onClose, initialDate, editEventId }:
           {/* 日历 + 类型 */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label className="text-xs text-muted-foreground mb-1.5 block">日历</Label>
+              <Label className="text-caption text-muted-foreground mb-1.5 block">日历</Label>
               <Select value={calendarId} onValueChange={setCalendarId}>
                 <SelectTrigger>
                   <SelectValue />
@@ -328,7 +328,7 @@ export default function EventEditor({ open, onClose, initialDate, editEventId }:
               </Select>
             </div>
             <div>
-              <Label className="text-xs text-muted-foreground mb-1.5 block">类型</Label>
+              <Label className="text-caption text-muted-foreground mb-1.5 block">类型</Label>
               <Select value={type} onValueChange={(v) => setType(v as EventType)}>
                 <SelectTrigger>
                   <SelectValue />
@@ -346,7 +346,7 @@ export default function EventEditor({ open, onClose, initialDate, editEventId }:
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-              <Label className="text-sm">全天</Label>
+              <Label className="text-body font-medium">全天</Label>
             </div>
             <Switch checked={isAllDay} onCheckedChange={setIsAllDay} />
           </div>
@@ -362,7 +362,7 @@ export default function EventEditor({ open, onClose, initialDate, editEventId }:
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground w-6">到</span>
+                <span className="text-caption text-muted-foreground w-6">到</span>
                 <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="flex-1" />
                 {!isAllDay && (
                   <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="w-28" />
@@ -410,7 +410,7 @@ export default function EventEditor({ open, onClose, initialDate, editEventId }:
 
           {/* 提醒 */}
           <div>
-            <Label className="text-xs text-muted-foreground mb-1.5 block">提醒</Label>
+            <Label className="text-caption text-muted-foreground mb-1.5 block">提醒</Label>
             <Select
               value={String(reminderMins)}
               onValueChange={(v) => setReminderMins(Number(v))}
@@ -429,7 +429,7 @@ export default function EventEditor({ open, onClose, initialDate, editEventId }:
           {/* 重复 */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label className="text-sm">重复</Label>
+              <Label className="text-body font-medium">重复</Label>
               <Switch checked={hasRecurrence} onCheckedChange={setHasRecurrence} />
             </div>
             {hasRecurrence && (
@@ -444,7 +444,7 @@ export default function EventEditor({ open, onClose, initialDate, editEventId }:
                   </SelectContent>
                 </Select>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">每</span>
+                  <span className="text-caption text-muted-foreground">每</span>
                   <Input
                     type="number"
                     min={1}
@@ -453,7 +453,7 @@ export default function EventEditor({ open, onClose, initialDate, editEventId }:
                     onChange={(e) => setRecurInterval(Math.max(1, Number(e.target.value)))}
                     className="w-16"
                   />
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-caption text-muted-foreground">
                     {recurFreq === 'daily' ? '天' : recurFreq === 'weekly' ? '周' : recurFreq === 'monthly' ? '月' : '年'}
                   </span>
                 </div>
@@ -464,7 +464,7 @@ export default function EventEditor({ open, onClose, initialDate, editEventId }:
           {/* 状态 */}
           {editing && (
             <div>
-              <Label className="text-xs text-muted-foreground mb-1.5 block">状态</Label>
+              <Label className="text-caption text-muted-foreground mb-1.5 block">状态</Label>
               <Select value={status} onValueChange={(v) => setStatus(v as EventStatus)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -483,7 +483,7 @@ export default function EventEditor({ open, onClose, initialDate, editEventId }:
                 <Button
                   variant="outline"
                   size="sm"
-                  className="flex-1 gap-1 text-xs"
+                  className="flex-1 gap-1 text-caption"
                   onClick={handleMeetingPrep}
                   disabled={prepLoading}
                 >
@@ -494,7 +494,7 @@ export default function EventEditor({ open, onClose, initialDate, editEventId }:
               </div>
 
               {prepResult && (
-                <div className="rounded-md border border-blue-200 bg-blue-50/40 p-2.5 space-y-2 text-xs">
+                <div className="rounded-md border border-blue-200 bg-blue-50/40 p-2.5 space-y-2 text-caption">
                   <div className="font-medium text-blue-800">会前准备材料</div>
                   <p className="text-ink-secondary">{prepResult.context}</p>
                   {prepResult.keyPoints.length > 0 && (

@@ -19,7 +19,6 @@ import type {
 } from '@/lib/types/launchpad';
 import { embed, cosineSim, isEmbeddingConfigured } from '@/lib/infra/embedding';
 import { logger } from '@/lib/infra/logger';
-import { getStore } from '@/lib/boot';
 import { isAppVisibleTo, type ViewerCtx } from './launchpad-visibility';
 
 const RECOMMEND_TOP_N = 3;
@@ -102,6 +101,7 @@ function jaccard(a: Set<string>, b: Set<string>): number {
 
 async function buildUserIntentText(userId: string): Promise<string> {
   try {
+    const { getStore } = await import('@/lib/boot');
     const store = getStore();
     const [krs, inits] = await Promise.all([
       store.keyResults.list(),

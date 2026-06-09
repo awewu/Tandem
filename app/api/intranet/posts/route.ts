@@ -9,6 +9,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { requireRole } from '@/lib/auth/require-auth';
+import { DATA_STEWARD_ROLES } from '@/lib/auth/roles';
 import type { IntranetPost, IntranetPostType } from '@/lib/types/intranet-post';
 
 const VALID_TYPES: IntranetPostType[] = ['announcement', 'policy', 'event', 'benefit'];
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
-  const forbidden = requireRole(auth, ['admin', 'champion', 'hr']);
+  const forbidden = requireRole(auth, [...DATA_STEWARD_ROLES, 'champion']);
   if (forbidden) return forbidden;
 
   try {

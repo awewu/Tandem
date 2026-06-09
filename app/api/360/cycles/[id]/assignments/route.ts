@@ -9,6 +9,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { DATA_STEWARD_ROLES } from '@/lib/auth/roles';
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
@@ -22,7 +23,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const isPriv =
     auth.demo ||
     cycle.createdBy === auth.userId ||
-    auth.roles.some((r) => ['admin', 'hr', 'champion'].includes(r));
+    auth.roles.some((r) => ([...DATA_STEWARD_ROLES, 'champion'] as string[]).includes(r));
   if (!isPriv) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   try {
     const body = await req.json();

@@ -8,6 +8,7 @@
  *   - employee@tandem.local  (role: employee)        — 张伟
  *   - manager@tandem.local   (role: manager)         — 王主管
  *   - hr@tandem.local        (role: steward)         — 李 HR
+ *   - dealer@partner.local   (role: partner)         — 赵经销 (外部/经销商, 落地 /hub)
  *
  * All share the same password: Demo1234!@#  (passes the lib/auth/password.ts policy)
  *
@@ -72,6 +73,7 @@ const USERS = [
   { email: 'employee@tandem.local', name: '张伟 (员工)',     roles: ['employee'] },
   { email: 'manager@tandem.local',  name: '王主管 (部门经理)', roles: ['employee', 'manager'] },
   { email: 'hr@tandem.local',       name: '李 HR (Steward)',   roles: ['employee', 'steward'] },
+  { email: 'dealer@partner.local',  name: '赵经销 (经销商)',    roles: ['partner'] },
 ];
 
 // ---------- main ----------

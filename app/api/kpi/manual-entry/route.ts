@@ -26,8 +26,9 @@ import { audit } from '@/lib/audit/log';
 import type { KpiManualEntry } from '@/lib/types/kpi';
 
 function operatorRoleFromAuth(roles: string[]): 'finance' | 'hr' | 'internal_staff' {
+  // SSOT 角色 → KPI 审计 operatorRole 标签 (kpi.ts). 'steward' 即 HR/数据管家.
   if (roles.includes('finance')) return 'finance';
-  if (roles.includes('hr')) return 'hr';
+  if (roles.includes('steward')) return 'hr';
   return 'internal_staff';
 }
 

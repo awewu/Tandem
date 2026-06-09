@@ -6,6 +6,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getStore, boot } from '@/lib/boot';
 import { requireAuth, requireRole } from '@/lib/auth/require-auth';
+import { DATA_STEWARD_ROLES } from '@/lib/auth/roles';
 import type { IntranetPost } from '@/lib/types/intranet-post';
 
 async function loadAndAuthorize(
@@ -17,7 +18,7 @@ async function loadAndAuthorize(
 > {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return { error: auth };
-  const forbidden = requireRole(auth, ['admin', 'champion', 'hr']);
+  const forbidden = requireRole(auth, [...DATA_STEWARD_ROLES, 'champion']);
   if (forbidden) return { error: forbidden };
   const store = getStore();
   const post = await store.intranetPosts.get(postId);

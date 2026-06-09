@@ -2,19 +2,10 @@ import type { Metadata, Viewport } from 'next';
 import { Inter, Inter_Tight } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
-import AppRail from '@/components/app-rail';
-import SubSidebar from '@/components/sub-sidebar';
-import HubTabs from '@/components/hub-tabs';
 import { RightPaneProvider } from '@/components/right-pane';
-import { CommandPalette } from '@/components/command-palette';
-import { KeyboardShortcuts } from '@/components/keyboard-shortcuts';
 import { Toaster } from '@/components/toaster';
-import { ErrorBoundary } from '@/components/error-boundary';
-import { ApiHydrator } from '@/components/api-hydrator';
 import { PwaRegister } from '@/components/pwa-register';
-import { MobileTopBar } from '@/components/mobile-top-bar';
-import { MobileTabBar } from '@/components/mobile-tab-bar';
-import { BossAiMount } from '@/components/boss-ai';
+import { AppShell } from '@/components/app-shell';
 import { PageViewTracker } from '@/components/page-view-tracker';
 import { ClientErrorReporter } from '@/components/client-error-reporter';
 
@@ -62,43 +53,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="font-sans antialiased bg-background text-foreground">
         <ThemeProvider>
           <RightPaneProvider>
-            <ApiHydrator />
-            {/*
-              Responsive shell:
-              - md+ : 桌面三栏 (AppRail + SubSidebar + main)
-              - <md : 顶栏 + 全屏 main + 底部 tab bar (Kimi/GPT 移动端风格)
-                     AppRail / SubSidebar 在 mobile 视口下隐藏.
-            */}
-            <div className="flex h-screen w-screen flex-col overflow-hidden bg-[rgb(var(--surface-2))] md:flex-row">
-              {/* Desktop only */}
-              <div className="hidden md:contents">
-                <AppRail />
-                <SubSidebar />
-              </div>
-
-              {/* Mobile only top bar */}
-              <MobileTopBar />
-
-              <main id="tandem-shell-main" className="flex flex-1 flex-col overflow-y-auto bg-[rgb(var(--surface-1))] pb-[56px] md:overflow-hidden md:pb-0">
-                <HubTabs />
-                <div className="min-h-0 flex-1 md:overflow-y-auto">
-                  <ErrorBoundary>{children}</ErrorBoundary>
-                </div>
-              </main>
-
-              {/* Mobile only bottom tab bar */}
-              <MobileTabBar />
-            </div>
-            <CommandPalette />
-            <KeyboardShortcuts />
+            {/* 按路由决定是否套内部 chrome (独立 app: /shouchao /hub 全屏无壳) */}
+            <AppShell>{children}</AppShell>
             <Toaster />
             <PwaRegister />
             {/* §SELF-USE-FIRST 埋点 · page.view 自动追踪 */}
             <PageViewTracker />
             {/* §观测埋点 · 浏览器错误捕获 (window.onerror + unhandledrejection) */}
             <ClientErrorReporter />
-            {/* §灵魂入口 · Tandem AI = 老板的搭子 · 全应用浮动问老板 · ⌘J */}
-            <BossAiMount />
           </RightPaneProvider>
         </ThemeProvider>
       </body>

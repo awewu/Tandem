@@ -18,7 +18,7 @@ interface ProxyAction {
   id: string;
   userId: string;
   personaId: string;
-  kind: 'meeting_proxy' | 'communication' | 'im_reply' | 'decision_draft' | 'email_draft';
+  kind: 'meeting_proxy' | 'communication' | 'im_reply' | 'decision_draft' | 'email_draft' | 'ontology_action';
   zone: 'green' | 'yellow' | 'red';
   status: 'drafted' | 'awaiting_veto' | 'executed' | 'vetoed' | 'expired';
   title: string;
@@ -43,6 +43,7 @@ const KIND_LABEL: Record<ProxyAction['kind'], string> = {
   im_reply: 'IM 自动回复',
   decision_draft: '决议起草',
   email_draft: '邮件起草',
+  ontology_action: '数据更新代行',
 };
 
 const STATUS_BADGE: Record<ProxyAction['status'], { label: string; cls: string }> = {

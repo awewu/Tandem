@@ -12,6 +12,7 @@
     "lint:ui-charter:strict": "node scripts/check-ui-charter.mjs --strict",
     "lint:dead-code": "node scripts/scan-unused.mjs",
     "lint:dead-code:strict": "node scripts/scan-unused.mjs --strict",
+    "check:backlog-drift": "node scripts/check-backlog-drift.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",

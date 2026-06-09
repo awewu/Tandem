@@ -50,6 +50,7 @@
 | `CENTRAL-AI-DRIVER-MAP.md` | 中央 AI 驱动全模块复盘 (介入各模块详解) |
 | `CENTRAL-AI-TECH-STACK-DRIVER.md` | 中央 AI 技术栈驱动全模块分析 (5 层技术栈) |
 | `CENTRAL-AI-ENTERPRISE-EDGE.md` | 中央 AI 企业边界 (G2 数据红线) |
+| `ONTOLOGY-CENTRAL-BRAIN.md` | 本体层与统一决策调配施工图 (Palantir 式 Ontology+Action 层 · ON-0..ON-3) |
 | `AGENT-FRAMEWORK.md` | Agent 分层 (Layer 1-4) |
 | `KNOWLEDGE-ARCHITECTURE.md` | Memory 4 层 ownership |
 | `INFO-ARCHITECTURE.md` | 信息架构 (路由/模块边界) |
@@ -103,6 +104,7 @@
 | `PLAN-DOCS-BEYOND-FEISHU-2026-05-31.md` | 文档能力超飞书计划 |
 | `NOTION-CATCHUP-PLAN.md` | Notion 完整追赶计划（6 阶段 16-18 周） |
 | `AI-BACKLOG.md` | AI backlog (B-xxx 编号) |
+| `ROADMAP-EXECUTION.md` | 推进执行路线图 (P0-P4 单一执行入口, 代码级状态核实) |
 | `AI-RADAR.md` | AI 技术雷达 |
 | `REFLECTION-2026-05-30-CLOSURE.md` | 闭环复盘 (最新) |
 | `PRODUCTION-AUDIT-2026-05-31.md` | 生产级上线审计 |

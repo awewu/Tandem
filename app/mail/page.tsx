@@ -403,7 +403,7 @@ function InboxView() {
       {/* 邮件链智能摘要 */}
       <div className="space-y-2">
         <div className="flex items-center gap-2">
-          <h3 className="text-xs font-medium text-ink-secondary">邮件链智能摘要</h3>
+          <h3 className="text-caption font-medium text-ink-secondary">邮件链智能摘要</h3>
           <span className="text-[10px] text-ink-tertiary">粘贴多封邮件，用 --- 分隔</span>
         </div>
         <textarea
@@ -412,7 +412,7 @@ function InboxView() {
           placeholder="粘贴多封邮件内容，用 --- 分隔各封..."
           className="w-full min-h-[100px] rounded-md border border-border bg-[rgb(var(--surface-1))] px-3 py-2 text-caption text-ink-primary placeholder:text-ink-tertiary focus:outline-none focus:ring-2 focus:ring-[rgb(var(--brand-500))/.25] resize-y"
         />
-        <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={handleThreadSummary} disabled={threadLoading || !threadText.trim()}>
+        <Button variant="outline" size="sm" className="gap-1 text-caption" onClick={handleThreadSummary} disabled={threadLoading || !threadText.trim()}>
           <RefreshCw className="h-3.5 w-3.5" />
           {threadLoading ? 'AI 分析中...' : '生成摘要'}
         </Button>
@@ -421,7 +421,7 @@ function InboxView() {
           <Card className="border-border">
             <CardContent className="p-3 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-ink-primary">邮件链时间线</span>
+                <span className="text-caption font-medium text-ink-primary">邮件链时间线</span>
                 <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[10px]" onClick={() => setThreadResult(null)}>关闭</Button>
               </div>
               <ul className="space-y-1">
@@ -625,7 +625,7 @@ function ComposeView({ canSend, initialDraft }: { canSend: boolean; initialDraft
         {aiReplyDraft && (
           <div className="rounded-md border border-blue-200 bg-blue-50/50 p-3 space-y-2">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-xs font-medium text-blue-700">
+              <div className="flex items-center gap-1.5 text-caption font-medium text-blue-700">
                 <Bot className="h-3.5 w-3.5" />
                 AI 回复草稿
               </div>
@@ -647,8 +647,8 @@ function ComposeView({ canSend, initialDraft }: { canSend: boolean; initialDraft
           <div className="rounded-md border border-border p-3 space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
-                <ShieldCheck className={`h-4 w-4 ${reviewResult.isSafe ? 'text-emerald-500' : 'text-amber-500'}`} />
-                <span className="text-xs font-medium">AI 审校 · {reviewResult.score}分</span>
+                <ShieldCheck className={`h-4 w-4 ${reviewResult.isSafe ? 'text-emerald-500' : 'text-warning'}`} />
+                <span className="text-caption font-medium">AI 审校 · {reviewResult.score}分</span>
                 <span className="text-footnote text-ink-tertiary">{reviewResult.summary}</span>
               </div>
               <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px]" onClick={() => setReviewResult(null)}>
@@ -660,7 +660,7 @@ function ComposeView({ canSend, initialDraft }: { canSend: boolean; initialDraft
                 {reviewResult.issues.map((issue, i) => (
                   <li key={i} className={`text-[11px] rounded px-2 py-1 ${
                     issue.severity === 'critical' ? 'bg-danger/5 text-danger' :
-                    issue.severity === 'warning' ? 'bg-amber-50 text-amber-700' :
+                    issue.severity === 'warning' ? 'bg-warning/5 border border-warning/10 text-warning' :
                     'bg-surface-2 text-ink-secondary'
                   }`}>
                     <span className="font-medium">[{issue.category}]</span> {issue.message}
@@ -688,11 +688,11 @@ function ComposeView({ canSend, initialDraft }: { canSend: boolean; initialDraft
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={handleAiReply} disabled={aiReplyLoading || !body.trim()}>
+          <Button variant="outline" size="sm" className="gap-1 text-caption" onClick={handleAiReply} disabled={aiReplyLoading || !body.trim()}>
             <Bot className="h-3.5 w-3.5" />
             {aiReplyLoading ? '生成中...' : 'AI 回复'}
           </Button>
-          <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={handleAiReview} disabled={reviewLoading || !body.trim()}>
+          <Button variant="outline" size="sm" className="gap-1 text-caption" onClick={handleAiReview} disabled={reviewLoading || !body.trim()}>
             <ShieldCheck className="h-3.5 w-3.5" />
             {reviewLoading ? '审校中...' : 'AI 审校'}
           </Button>

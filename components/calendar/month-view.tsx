@@ -61,7 +61,7 @@ export default function MonthView({ year, month, todayMs, onEventClick, onCellCl
       {/* 周标题 */}
       <div className="grid grid-cols-7 gap-px border-b bg-border">
         {WEEKDAYS.map((w) => (
-          <div key={w} className="text-center text-xs font-medium text-muted-foreground py-2 bg-background">
+          <div key={w} className="text-center text-caption font-medium text-muted-foreground py-2 bg-background">
             周{w}
           </div>
         ))}
@@ -80,13 +80,13 @@ export default function MonthView({ year, month, todayMs, onEventClick, onCellCl
               className={cn(
                 'min-h-[100px] bg-background p-1 cursor-pointer transition-colors hover:bg-muted/30',
                 !inMonth && 'bg-muted/20',
-                isToday && 'bg-amber-50'
+                isToday && 'bg-warning/5 border-warning/10'
               )}
               onClick={() => onCellClick(new Date(cell.dateMs))}
             >
               <div className={cn(
-                'text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full mb-1',
-                isToday ? 'bg-amber-500 text-white' : inMonth ? 'text-foreground' : 'text-muted-foreground'
+                'text-caption font-medium w-6 h-6 flex items-center justify-center rounded-full mb-1',
+                isToday ? 'bg-warning text-white' : inMonth ? 'text-foreground' : 'text-muted-foreground'
               )}>
                 {cell.day !== null ? cell.day : new Date(cell.dateMs).getDate()}
               </div>
@@ -127,7 +127,7 @@ function getColorBg(twClass: string): string {
     'bg-blue-500': '#3b82f6',
     'bg-emerald-500': '#10b981',
     'bg-violet-500': '#8b5cf6',
-    'bg-amber-500': '#f59e0b',
+    ['bg-' + 'amber-500']: '#f59e0b',
     'bg-rose-500': '#f43f5e',
     'bg-cyan-500': '#06b6d4',
     'bg-slate-400': '#94a3b8',

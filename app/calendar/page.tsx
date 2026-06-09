@@ -270,7 +270,7 @@ export default function CalendarPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-64px)] flex bg-background">
+    <div className="h-[calc(100vh-64px)] flex flex-col md:flex-row bg-background">
       {/* 左侧边栏 — 日历列表 + 快速入口 */}
       <aside className="w-56 border-r bg-muted/20 flex flex-col shrink-0">
         <div className="p-3 border-b space-y-2">
@@ -284,7 +284,7 @@ export default function CalendarPage() {
           </Button>
           <Button
             variant="outline"
-            className="w-full gap-1 text-xs"
+            className="w-full gap-1 text-caption"
             size="sm"
             onClick={() => {
               // 一键创建 2 小时 Focus Time（今天剩余时间中找空档）
@@ -310,7 +310,7 @@ export default function CalendarPage() {
           </Button>
           <Button
             variant="outline"
-            className="w-full gap-1 text-xs"
+            className="w-full gap-1 text-caption"
             size="sm"
             onClick={() => {
               const upcoming = events
@@ -329,12 +329,12 @@ export default function CalendarPage() {
         </div>
 
         <div className="flex-1 overflow-y-auto p-3">
-          <h3 className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">我的日历</h3>
+          <h3 className="text-caption font-semibold text-muted-foreground mb-2 uppercase tracking-wider">我的日历</h3>
           <div className="space-y-1">
             {calendars.map((cal) => (
               <button
                 key={cal.id}
-                className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-muted transition-colors"
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-body hover:bg-muted transition-colors"
                 onClick={() => toggleCalendarVisibility(cal.id)}
               >
                 {cal.isVisible ? (
@@ -369,7 +369,7 @@ export default function CalendarPage() {
             <Button variant="outline" size="sm" onClick={goNext}>
               <ChevronRight className="h-4 w-4" />
             </Button>
-            <h1 className="text-lg font-semibold ml-2">{monthLabel}</h1>
+            <h1 className="text-title-3 font-semibold ml-2">{monthLabel}</h1>
           </div>
 
           <div className="flex items-center gap-2">
@@ -381,14 +381,14 @@ export default function CalendarPage() {
                 value={nlpText}
                 onChange={(e) => setNlpText(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleNlpCreate()}
-                className="h-7 w-64 border-0 bg-transparent text-xs focus-visible:ring-0 focus-visible:ring-offset-0 px-1"
+                className="h-7 w-64 border-0 bg-transparent text-caption focus-visible:ring-0 focus-visible:ring-offset-0 px-1"
               />
-              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={handleNlpCreate} disabled={nlpBusy}>
+              <Button variant="ghost" size="sm" className="h-6 px-2 text-caption" onClick={handleNlpCreate} disabled={nlpBusy}>
                 {nlpBusy ? '...' : '创建'}
               </Button>
             </div>
 
-            <Button variant="ghost" size="sm" className="gap-1 text-xs" onClick={handleSmartTime}>
+            <Button variant="ghost" size="sm" className="gap-1 text-caption" onClick={handleSmartTime}>
               <Wand2 className="h-3.5 w-3.5" />
               智能时间
             </Button>
@@ -430,7 +430,7 @@ export default function CalendarPage() {
           <div className="shrink-0 border-b px-4 py-2 bg-blue-50/50">
             <div className="flex items-center gap-2 mb-1.5">
               <Wand2 className="h-3.5 w-3.5 text-blue-500" />
-              <span className="text-xs font-medium text-blue-700">AI 建议的最佳会议时间</span>
+              <span className="text-caption font-medium text-blue-700">AI 建议的最佳会议时间</span>
               <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[10px] ml-auto" onClick={() => setShowSmartTime(false)}>
                 关闭
               </Button>
@@ -439,7 +439,7 @@ export default function CalendarPage() {
               {smartSuggestions.map((s, i) => (
                 <button
                   key={i}
-                  className="text-xs px-2.5 py-1.5 rounded-md bg-white border border-blue-200 hover:bg-blue-50 transition-colors text-left"
+                  className="text-caption px-2.5 py-1.5 rounded-md bg-white border border-blue-200 hover:bg-blue-50 transition-colors text-left"
                   onClick={() => {
                     setSelectedDate(new Date(s.startTime));
                     setEditorDate(new Date(s.startTime));
@@ -505,14 +505,14 @@ function UpcomingEvents() {
 
   return (
     <div className="mt-4">
-      <h3 className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">即将到来</h3>
+      <h3 className="text-caption font-semibold text-muted-foreground mb-2 uppercase tracking-wider">即将到来</h3>
       <div className="space-y-1.5">
         {upcoming.map((ev) => {
           const cal = calendars.find((c) => c.id === ev.calendarId);
           const date = new Date(ev.startTime);
           const isToday = new Date().toDateString() === date.toDateString();
           return (
-            <div key={ev.instanceId} className="text-xs px-2 py-1.5 rounded bg-muted/50">
+            <div key={ev.instanceId} className="text-caption px-2 py-1.5 rounded-md bg-muted/50">
               <div className="flex items-center gap-1.5">
                 <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', cal?.color || 'bg-slate-400')} />
                 <span className="font-medium truncate">{ev.title}</span>

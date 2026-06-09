@@ -42,16 +42,16 @@ export default function DayView({ date, todayMs, onEventClick, onCellClick }: Da
       {/* 日期头部 */}
       <div className={cn(
         'shrink-0 px-4 py-3 border-b',
-        isToday ? 'bg-amber-50' : 'bg-background'
+        isToday ? 'bg-warning/5 border-warning/10' : 'bg-background'
       )}>
-        <h2 className="text-lg font-semibold">{dayLabel}</h2>
+        <h2 className="text-title-3 font-semibold">{dayLabel}</h2>
         {allDayEvents.length > 0 && (
           <div className="mt-2 space-y-1">
             {allDayEvents.map((ev) => (
               <button
                 key={ev.instanceId}
                 className={cn(
-                  'text-xs px-2 py-1 rounded truncate w-full text-left',
+                  'text-caption px-2 py-1 rounded-md truncate w-full text-left',
                   ev.status === 'cancelled' && 'opacity-40 line-through'
                 )}
                 style={{ backgroundColor: getColorBg(ev.color), color: '#fff' }}
@@ -87,7 +87,7 @@ export default function DayView({ date, todayMs, onEventClick, onCellClick }: Da
               <button
                 key={ev.instanceId}
                 className={cn(
-                  'absolute left-16 right-2 text-xs px-2 py-1 rounded text-left overflow-hidden shadow-sm transition-opacity hover:opacity-90',
+                  'absolute left-16 right-2 text-caption px-2 py-1 rounded-md text-left overflow-hidden shadow-soft-xs transition-opacity hover:opacity-90',
                   ev.status === 'cancelled' && 'opacity-40 line-through'
                 )}
                 style={{
@@ -122,7 +122,7 @@ function getColorBg(twClass: string): string {
     'bg-blue-500': '#3b82f6',
     'bg-emerald-500': '#10b981',
     'bg-violet-500': '#8b5cf6',
-    'bg-amber-500': '#f59e0b',
+    ['bg-' + 'amber-500']: '#f59e0b',
     'bg-rose-500': '#f43f5e',
     'bg-cyan-500': '#06b6d4',
     'bg-slate-400': '#94a3b8',

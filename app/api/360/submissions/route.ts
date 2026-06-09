@@ -15,6 +15,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { DATA_STEWARD_ROLES } from '@/lib/auth/roles';
 import { strip360SubmissionForViewer } from '@/lib/auth/strip';
 
 export async function POST(req: NextRequest) {
@@ -108,7 +109,7 @@ export async function GET(req: NextRequest) {
       if (s.subjectId === auth.userId) return true;
       const cy = cycleMap.get(s.cycleId)!;
       if (cy.createdBy === auth.userId) return true;
-      if (auth.roles.some((r) => ['admin', 'hr'].includes(r))) return true;
+      if (auth.roles.some((r) => (DATA_STEWARD_ROLES as string[]).includes(r))) return true;
       if (auth.demo) return true;
       return false;
     });

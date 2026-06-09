@@ -11,6 +11,7 @@
 import { Suspense, useCallback, useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { CreateChannelDialog } from '@/components/im/create-channel-dialog';
+import { OkrCheckinDialog } from '@/components/okr/okr-checkin-dialog';
 import { useHandoffPrefill } from '@/hooks/useHandoffPrefill';
 import { ContactsTree } from '@/components/im/contacts-tree';
 import { ChannelSettingsDialog } from '@/components/im/channel-settings-dialog';
@@ -28,6 +29,33 @@ import { MessageReactions } from '@/components/im/message-reactions';
 import type { ImChannel, ImMembership, ImMessage } from '@/lib/types/im';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import Link from 'next/link';
+import { useOKRStore } from '@/lib/store/okr';
+import { hydrateOkrFromApi } from '@/lib/store/okr-sync';
+import { useToast } from '@/hooks/use-toast';
+import { Progress } from '@/components/ui/progress';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Target,
+  TrendingUp,
+  AlertTriangle,
+  CheckCircle2,
+  AlertCircle,
+  MessageSquare,
+} from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -150,6 +178,18 @@ function ImInner() {
   const { user } = useCurrentUser();
   const ME = user?.id ?? 'demo-user';
 
+  // -- OKR and IM synergy states --
+  const { toast } = useToast();
+  const keyResults = useOKRStore((state) => state.keyResults);
+  const people = useOKRStore((state) => state.people);
+  const [selectedKrForCheckin, setSelectedKrForCheckin] = useState<any>(null);
+  const [showCheckinDialog, setShowCheckinDialog] = useState(false);
+
+  // Automatically hydrate OKR data from API on load
+  useEffect(() => {
+    void hydrateOkrFromApi();
+  }, []);
+
   // -- channels --
   const loadChannels = useCallback(async () => {
     const res = await fetch(`/api/im/channels?userId=${ME}`);
@@ -239,6 +279,16 @@ function ImInner() {
     () => channels.find((c) => c.id === activeId) ?? null,
     [channels, activeId]
   );
+
+  const krsInChannel = useMemo(() => {
+    if (!activeChannel) return [];
+    return keyResults.filter((kr) => activeChannel.memberIds.includes(kr.ownerId));
+  }, [activeChannel, keyResults]);
+
+  const getPersonName = useCallback((id: string) => {
+    const p = people.find((x) => x.id === id);
+    return p ? p.name : id.split('@')[0] || id;
+  }, [people]);
 
   // Day 4: 拉取当前频道成员 (为已读人数计算 + 设置对话框复用)
   useEffect(() => {
@@ -632,6 +682,19 @@ function ImInner() {
         }}
       />
 
+      {/* OKR & IM Synergy: 快捷 Check-in & 广播 对话框 */}
+      <OkrCheckinDialog
+        open={showCheckinDialog}
+        onOpenChange={setShowCheckinDialog}
+        kr={selectedKrForCheckin}
+        activeChannelId={activeId}
+        onSuccess={() => {
+          if (activeId) void loadMessages(activeId);
+          setSelectedKrForCheckin(null);
+          setShowCheckinDialog(false);
+        }}
+      />
+
       {/* ---- 中栏: 消息流 ---- */}
       <main
         className={cn(
@@ -895,6 +958,98 @@ function ImInner() {
                       </li>
                     ))}
                   </ul>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* OKR & IM Synergy: 成员对齐的 Key Results 看板 */}
+            <Card className="border-slate-200/70 shadow-soft-sm mt-3 flex-1 flex flex-col min-h-[350px]">
+              <CardContent className="p-4 flex flex-col h-full space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2 shrink-0">
+                  <div className="flex items-center gap-1.5">
+                    <Target className="h-4 w-4 text-warning" />
+                    <span className="text-[12px] font-semibold uppercase tracking-wider text-slate-700">
+                      成员对齐的 Key Results
+                    </span>
+                  </div>
+                  <Badge variant="secondary" className="h-5 px-1.5 text-[10px] bg-slate-100 text-slate-600 border-none">
+                    {krsInChannel.length} 个
+                  </Badge>
+                </div>
+
+                <div className="flex-1 overflow-y-auto space-y-3.5 pr-0.5 min-h-[220px]">
+                  {krsInChannel.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-10 text-center text-slate-400">
+                      <TrendingUp className="h-8 w-8 mb-2 text-slate-300" />
+                      <p className="text-[11.5px]">本群暂无关联的 Key Results</p>
+                      <p className="text-[10px] mt-1 max-w-[200px]">频道成员在 OKR 系统中创建 KR 后，此处将自动聚合对齐</p>
+                    </div>
+                  ) : (
+                    krsInChannel.map((kr) => {
+                      const start = kr.startValue;
+                      const current = kr.currentValue;
+                      const target = kr.targetValue;
+                      const progressPct = Math.max(0, Math.min(100, Math.round(((current - start) / (target - start || 1)) * 100)));
+                      
+                      const confidenceColors = {
+                        'on-track': 'border-success/20 bg-success/5 text-success',
+                        'at-risk': 'border-warning/20 bg-warning/5 text-warning',
+                        'off-track': 'border-danger/20 bg-danger/5 text-danger',
+                      };
+                      const confidenceLabels = {
+                        'on-track': '正常',
+                        'at-risk': '有风险',
+                        'off-track': '严重偏离',
+                      };
+
+                      return (
+                        <div key={kr.id} className="group/kr border border-slate-100 rounded-2xl p-3 bg-slate-50/30 transition hover:bg-slate-50/70 hover:border-slate-200/80">
+                          <div className="flex items-start justify-between gap-1.5">
+                            <span className="text-[12.5px] font-medium text-slate-800 leading-snug line-clamp-2">
+                              {kr.title}
+                            </span>
+                            <Badge className={cn("h-4 shrink-0 px-1 text-[9px] font-normal border shadow-none", confidenceColors[kr.confidence])}>
+                              {confidenceLabels[kr.confidence]}
+                            </Badge>
+                          </div>
+
+                          <div className="mt-2.5 flex items-center justify-between text-[11px] text-slate-400">
+                            <span className="flex items-center gap-1">
+                              <Bot className="h-3 w-3 shrink-0 text-slate-300" />
+                              <span className="text-slate-500 font-medium truncate max-w-[100px]" title={kr.ownerId}>
+                                {getPersonName(kr.ownerId)}
+                              </span>
+                            </span>
+                            <span className="font-semibold text-slate-600">
+                              {current} / {target} {kr.unit}
+                            </span>
+                          </div>
+
+                          <div className="mt-2 flex items-center gap-2">
+                            <Progress value={progressPct} className="h-1.5 flex-1 bg-slate-100" />
+                            <span className="text-[10px] font-bold text-slate-500 shrink-0 min-w-[28px] text-right">
+                              {progressPct}%
+                            </span>
+                          </div>
+
+                          {/* 快捷 Check-in 触发按钮 */}
+                          <div className="mt-2.5 pt-2 border-t border-slate-100/50 flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedKrForCheckin(kr);
+                                setShowCheckinDialog(true);
+                              }}
+                              className="inline-flex items-center gap-1 text-[11px] font-medium text-warning hover:text-orange-600 transition"
+                            >
+                              <TrendingUp className="h-3 w-3" />
+                              快捷 Check-in & 广播
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -1222,9 +1377,11 @@ function MessageRow({
               const isStreaming = !!isCompanyBrain && !hasFooter;
               const bodyEmpty = msg.body.trim().length === 0;
               if (bodyEmpty && isStreaming) {
+                // §SSE-UX: 优先显示后端分阶段进度文案 (statusText), 无则回退通用 "思考中"
+                const statusLabel = msg.statusText?.trim() || 'CompanyBrain 思考中';
                 return (
                   <span className="inline-flex items-center gap-1.5 text-violet-500/80">
-                    <span className="text-[11px]">CompanyBrain 思考中</span>
+                    <span className="text-[11px]">{statusLabel}</span>
                     <span className="inline-flex gap-0.5">
                       <span className="h-1 w-1 animate-bounce rounded-full bg-violet-400 [animation-delay:-0.3s]" />
                       <span className="h-1 w-1 animate-bounce rounded-full bg-violet-400 [animation-delay:-0.15s]" />

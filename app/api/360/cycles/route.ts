@@ -6,6 +6,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getStore, boot } from '@/lib/boot';
 import { requireAuth, requireRole } from '@/lib/auth/require-auth';
+import { DATA_STEWARD_ROLES } from '@/lib/auth/roles';
 import type { Review360Cycle, Review360Question } from '@/lib/types/review-360';
 
 const DEFAULT_QUESTIONS: Review360Question[] = [
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
-  const denied = requireRole(auth, ['admin', 'hr', 'champion']);
+  const denied = requireRole(auth, [...DATA_STEWARD_ROLES, 'champion']);
   if (denied) return denied;
   try {
     const body = await req.json();

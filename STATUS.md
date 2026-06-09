@@ -4,7 +4,7 @@
 **生成方式**: 由门禁脚本 + git/文件实测汇总  
 **当前服务**: `http://localhost:3005` (dev mode, PG 在 localhost:5432)
 
-> **口径说明**: 本文是**点位验证状态报告**。项目权威总览见 `docs/PROJECT-OVERVIEW.md`; 战略锚点以 `docs/SELF-USE-FIRST.md` 为准 (自用优先)。文中"试用邀请/100 人通用码"指**内部同事 onboarding**, 非对外 SaaS 销售。
+> **口径说明**: 本文是**点位验证状态报告**。项目权威总览见 `docs/PROJECT-OVERVIEW.md`。战略定位为**二者并存 · 分阶段** (2026-06-02 Owner 裁定): **目标形态** = 200-1000 人生产级交付产品 (`PRD.md`/`MASTER-UPGRADE.md`)，**当前阶段路径** = 自用优先 (`docs/SELF-USE-FIRST.md`)。文中"试用邀请/100 人通用码"指**当前自用阶段的内部同事 onboarding**, 对外销售属目标形态规划 (`PRD.md` §9)，自用阶段尚不执行。
 
 ---
 

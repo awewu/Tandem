@@ -199,14 +199,14 @@ export default function ThreeDepartmentsPage() {
           <Network className="w-5 h-5 text-violet-600 shrink-0" />
           <div className="flex-1 min-w-[280px]">
             <div className="text-caption font-semibold flex items-center gap-2 flex-wrap">
-              三省六部 · 项目治理
+              三省六部 · 执行协同
               <Badge variant="outline" className="text-[10px] font-normal">
-                跨部门协同模板
+                重大公司级工作
               </Badge>
             </div>
             <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
-              <strong>事如何流转</strong>, 不是<strong>人归属哪里</strong> · 中书 (提案) →
-              门下 (审议) → 尚书 (执行) ·{' '}
+              <strong>事业项目 / 重大公司级工作 / 执行项目组</strong>的协同骨架 · 中书 (提案) →
+              门下 (审议) → 尚书六部 (执行) · 锚定 OKR 战略执行 ·{' '}
               <Link href="/admin/organization" className="text-violet-600 hover:underline">
                 员工部门 (HR) →
               </Link>

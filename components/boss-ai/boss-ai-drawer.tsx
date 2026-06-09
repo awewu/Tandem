@@ -261,6 +261,8 @@ function EmptyState({
 // ──────────────────────────────────────────────────────────────────
 function MessageBubble({ m }: { m: BossAiMessage }) {
   const isUser = m.role === 'user';
+  // 首字节前: 显示进度提示 (正在查公司数据…) 而非空气泡
+  const showStatus = m.streaming && !m.content && Boolean(m.status);
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div
@@ -271,9 +273,18 @@ function MessageBubble({ m }: { m: BossAiMessage }) {
             : 'bg-[rgb(var(--surface-2))] text-ink-primary')
         }
       >
-        {m.content}
-        {m.streaming && (
-          <span className="ml-1 inline-block h-2 w-2 animate-pulse rounded-full bg-current opacity-60" />
+        {showStatus ? (
+          <span className="inline-flex items-center gap-2 text-ink-tertiary">
+            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
+            {m.status}
+          </span>
+        ) : (
+          <>
+            {m.content}
+            {m.streaming && (
+              <span className="ml-1 inline-block h-2 w-2 animate-pulse rounded-full bg-current opacity-60" />
+            )}
+          </>
         )}
       </div>
     </div>

@@ -8,6 +8,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { DATA_STEWARD_ROLES } from '@/lib/auth/roles';
 import { strip1on1ForRequester } from '@/lib/auth/strip';
 import type { OneOnOneMeeting } from '@/lib/types/one-on-one';
 
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
     let all = await store.oneOnOneMeetings.list({ tenantId: auth.tenantId });
 
     if (scope === 'all') {
-      const isAdmin = auth.roles.includes('admin') || auth.roles.includes('hr') || auth.demo;
+      const isAdmin = auth.roles.some((r) => (DATA_STEWARD_ROLES as string[]).includes(r)) || auth.demo;
       if (!isAdmin) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
     } else {
       all = all.filter((m) => m.managerId === auth.userId || m.reportId === auth.userId);

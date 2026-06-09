@@ -1,4 +1,4 @@
-CREATE TABLE "Certification" (
+CREATE TABLE IF NOT EXISTS "Certification" (
 	"id" text PRIMARY KEY NOT NULL,
 	"userId" text NOT NULL,
 	"courseId" text NOT NULL,
@@ -15,7 +15,7 @@ CREATE TABLE "Certification" (
 	"createdAt" timestamp (3) DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "Course" (
+CREATE TABLE IF NOT EXISTS "Course" (
 	"id" text PRIMARY KEY NOT NULL,
 	"title" text NOT NULL,
 	"slug" text NOT NULL,
@@ -43,7 +43,7 @@ CREATE TABLE "Course" (
 	"deletedAt" timestamp (3)
 );
 --> statement-breakpoint
-CREATE TABLE "CourseAssignment" (
+CREATE TABLE IF NOT EXISTS "CourseAssignment" (
 	"id" text PRIMARY KEY NOT NULL,
 	"courseId" text NOT NULL,
 	"targetType" text NOT NULL,
@@ -61,7 +61,7 @@ CREATE TABLE "CourseAssignment" (
 	"updatedAt" timestamp (3) NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "Enrollment" (
+CREATE TABLE IF NOT EXISTS "Enrollment" (
 	"id" text PRIMARY KEY NOT NULL,
 	"userId" text NOT NULL,
 	"courseId" text NOT NULL,
@@ -77,7 +77,7 @@ CREATE TABLE "Enrollment" (
 	"tenantId" text DEFAULT 'default' NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "LearningMcpToken" (
+CREATE TABLE IF NOT EXISTS "LearningMcpToken" (
 	"id" text PRIMARY KEY NOT NULL,
 	"userId" text NOT NULL,
 	"name" text NOT NULL,
@@ -92,7 +92,7 @@ CREATE TABLE "LearningMcpToken" (
 	"createdAt" timestamp (3) DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "Lesson" (
+CREATE TABLE IF NOT EXISTS "Lesson" (
 	"id" text PRIMARY KEY NOT NULL,
 	"courseId" text NOT NULL,
 	"orderIdx" integer DEFAULT 0 NOT NULL,
@@ -114,7 +114,7 @@ CREATE TABLE "Lesson" (
 	"updatedAt" timestamp (3) NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "LessonAttempt" (
+CREATE TABLE IF NOT EXISTS "LessonAttempt" (
 	"id" text PRIMARY KEY NOT NULL,
 	"enrollmentId" text NOT NULL,
 	"userId" text NOT NULL,
@@ -132,7 +132,7 @@ CREATE TABLE "LessonAttempt" (
 	"createdAt" timestamp (3) DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "Question" (
+CREATE TABLE IF NOT EXISTS "Question" (
 	"id" text PRIMARY KEY NOT NULL,
 	"lessonId" text NOT NULL,
 	"orderIdx" integer DEFAULT 0 NOT NULL,
@@ -149,28 +149,28 @@ CREATE TABLE "Question" (
 	"updatedAt" timestamp (3) NOT NULL
 );
 --> statement-breakpoint
-DROP INDEX "LlmUsageLog_tenantId_idx";--> statement-breakpoint
-DROP INDEX "LlmUsageLog_requestId_idx";--> statement-breakpoint
-DROP INDEX "UsageEvent_tenantId_idx";--> statement-breakpoint
-CREATE INDEX "Certification_userId_status_idx" ON "Certification" USING btree ("userId","status","expiresAt");--> statement-breakpoint
-CREATE INDEX "Certification_courseId_earnedAt_idx" ON "Certification" USING btree ("courseId","earnedAt");--> statement-breakpoint
-CREATE INDEX "Certification_certNo_idx" ON "Certification" USING btree ("certNo");--> statement-breakpoint
-CREATE INDEX "Course_slug_tenant_uniq" ON "Course" USING btree ("slug","tenantId");--> statement-breakpoint
-CREATE INDEX "Course_status_category_idx" ON "Course" USING btree ("status","category");--> statement-breakpoint
-CREATE INDEX "Course_requirement_idx" ON "Course" USING btree ("requirement","status");--> statement-breakpoint
-CREATE INDEX "Course_tenant_idx" ON "Course" USING btree ("tenantId");--> statement-breakpoint
-CREATE INDEX "CourseAssignment_targetUserId_idx" ON "CourseAssignment" USING btree ("targetUserId","status");--> statement-breakpoint
-CREATE INDEX "CourseAssignment_targetDepartmentId_idx" ON "CourseAssignment" USING btree ("targetDepartmentId","status");--> statement-breakpoint
-CREATE INDEX "CourseAssignment_courseId_idx" ON "CourseAssignment" USING btree ("courseId");--> statement-breakpoint
-CREATE INDEX "Enrollment_userId_status_idx" ON "Enrollment" USING btree ("userId","status");--> statement-breakpoint
-CREATE INDEX "Enrollment_courseId_status_idx" ON "Enrollment" USING btree ("courseId","status");--> statement-breakpoint
-CREATE INDEX "Enrollment_user_course_tenant_uniq" ON "Enrollment" USING btree ("userId","courseId","tenantId");--> statement-breakpoint
-CREATE INDEX "LearningMcpToken_userId_revokedAt_idx" ON "LearningMcpToken" USING btree ("userId","revokedAt");--> statement-breakpoint
-CREATE INDEX "LearningMcpToken_tokenHash_idx" ON "LearningMcpToken" USING btree ("tokenHash");--> statement-breakpoint
-CREATE INDEX "Lesson_courseId_orderIdx" ON "Lesson" USING btree ("courseId","orderIdx");--> statement-breakpoint
-CREATE INDEX "Lesson_tenant_idx" ON "Lesson" USING btree ("tenantId");--> statement-breakpoint
-CREATE INDEX "LessonAttempt_userId_lessonId_idx" ON "LessonAttempt" USING btree ("userId","lessonId");--> statement-breakpoint
-CREATE INDEX "LessonAttempt_enrollmentId_idx" ON "LessonAttempt" USING btree ("enrollmentId");--> statement-breakpoint
-CREATE INDEX "Question_lessonId_orderIdx" ON "Question" USING btree ("lessonId","orderIdx");--> statement-breakpoint
-CREATE INDEX "LlmUsageLog_tenant_created_idx" ON "LlmUsageLog" USING btree ("tenantId","createdAt");--> statement-breakpoint
-CREATE INDEX "UsageEvent_tenant_user_idx" ON "UsageEvent" USING btree ("tenantId","userId");
+DROP INDEX IF EXISTS "LlmUsageLog_tenantId_idx";--> statement-breakpoint
+DROP INDEX IF EXISTS "LlmUsageLog_requestId_idx";--> statement-breakpoint
+DROP INDEX IF EXISTS "UsageEvent_tenantId_idx";--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "Certification_userId_status_idx" ON "Certification" USING btree ("userId","status","expiresAt");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "Certification_courseId_earnedAt_idx" ON "Certification" USING btree ("courseId","earnedAt");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "Certification_certNo_idx" ON "Certification" USING btree ("certNo");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "Course_slug_tenant_uniq" ON "Course" USING btree ("slug","tenantId");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "Course_status_category_idx" ON "Course" USING btree ("status","category");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "Course_requirement_idx" ON "Course" USING btree ("requirement","status");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "Course_tenant_idx" ON "Course" USING btree ("tenantId");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "CourseAssignment_targetUserId_idx" ON "CourseAssignment" USING btree ("targetUserId","status");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "CourseAssignment_targetDepartmentId_idx" ON "CourseAssignment" USING btree ("targetDepartmentId","status");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "CourseAssignment_courseId_idx" ON "CourseAssignment" USING btree ("courseId");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "Enrollment_userId_status_idx" ON "Enrollment" USING btree ("userId","status");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "Enrollment_courseId_status_idx" ON "Enrollment" USING btree ("courseId","status");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "Enrollment_user_course_tenant_uniq" ON "Enrollment" USING btree ("userId","courseId","tenantId");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "LearningMcpToken_userId_revokedAt_idx" ON "LearningMcpToken" USING btree ("userId","revokedAt");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "LearningMcpToken_tokenHash_idx" ON "LearningMcpToken" USING btree ("tokenHash");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "Lesson_courseId_orderIdx" ON "Lesson" USING btree ("courseId","orderIdx");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "Lesson_tenant_idx" ON "Lesson" USING btree ("tenantId");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "LessonAttempt_userId_lessonId_idx" ON "LessonAttempt" USING btree ("userId","lessonId");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "LessonAttempt_enrollmentId_idx" ON "LessonAttempt" USING btree ("enrollmentId");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "Question_lessonId_orderIdx" ON "Question" USING btree ("lessonId","orderIdx");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "LlmUsageLog_tenant_created_idx" ON "LlmUsageLog" USING btree ("tenantId","createdAt");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "UsageEvent_tenant_user_idx" ON "UsageEvent" USING btree ("tenantId","userId");

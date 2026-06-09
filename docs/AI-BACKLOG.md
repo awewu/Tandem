@@ -27,7 +27,25 @@
 
 ## 当前 Backlog（按优先级降序）
 
-### 🔴 战略级 / 高优先 · OKR-DRIVEN 灵魂层 (2026-05-27/28 立项)
+### � 搭子手抄 (Shouchao · AI 笔记) — 二阶段进化 (2026-06-07 立项)
+
+> 一阶段已落: 精简内核 (文字/Markdown 笔记 + 链接/网页剪藏 + AI 总结/润色/生成标签 + 列表搜索), 复用 Tandem LLM router + Memory 沉淀通道 (`/api/memories/promote-text`). 模块路径 `/shouchao`, 首页 ERP(快速跳板)旁有跳转 tile, 可独立运行/独立 app.
+>
+> 对标 Get笔记 (biji.com) + Notion AI + 飞书妙记 + flomo。
+
+#### B-029 · 搭子手抄 二阶段 (结构化 + 团队协同)
+
+- **来源**: 2026-06-07 Owner 指定。对标 Get笔记结构化能力 + Notion AI / 飞书妙记团队协同。
+- **解谁的痛**: 个人/团队 — 一阶段笔记是孤岛, 无智能归类、无关联、无法多人协同。
+- **接入成本**: 4 (>2周, 建议分里程碑)
+- **价值**: 3 (强需求)
+- **状态**: 待评估 (二阶段)
+- **范围 (Owner 明确要包含)**:
+  1. **结构化**: 智能标签/分类 (AI 自动归类) + 知识图谱 (笔记内容间逻辑关联可视化)
+  2. **Notion AI / 飞书妙记 模型**: 文档 + AI 总结 + 团队协同强 (多人共享 / 协作编辑 / 团队知识库)
+- **终局 (全功能对标, 分后续里程碑)**: 录音秒变笔记 (STT 转写) · OCR · 思维导图 · 笔记内 AI 问答 · 备考测验。
+
+### �🔴 战略级 / 高优先 · OKR-DRIVEN 灵魂层 (2026-05-27/28 立项)
 
 > 这 4 条来自 `docs/OKR-DRIVEN-ARCHITECTURE.md` § 三 14→18 器官升级. 是 Tandem 从"组件集合"晋级"企业级 Agent"的第一性原理落地. 优先级一律 +战略级.
 
@@ -117,10 +135,18 @@
 - **接入成本**: 4 (1-2 周)
 - **价值**: 5 (战略 — Tandem 分身首次具备 AIGC 进化能力)
 - **优先级**: 0 (V2 起手, 跟 B-021 协同)
-- **状态**: 待 sprint
-- **拥有者**: TBD
-- **设计**:
-  - 新增 `lib/skill-gateway/outbound/` 目录, 每个外部 AIGC 一个 adapter
+- **状态**: 🟡 部分落地 (议事联网 MVP 已落 2026-06-09)
+- **拥有者**: Cascade
+- **已落地 (✅)**:
+  - ✅ `lib/persona/company-brain.ts:preSearchLayer` — Tavily/Brave web search 出站, 含触发启发式 (时间敏感词 / 公司 Memory 覆盖度低)
+  - ✅ BossAI stream 路径已接 (`app/api/boss-ai/stream/route.ts`)
+  - ✅ IM 持续回复已接 (`lib/im/service.ts:850, 1029`)
+  - ✅ **议事 Option B 已接** (`lib/decision-layer/three-plus-one-engine.ts:238-256`) — 优先级: B-027 价值观锚 → B-024 自省教训 → **B-022 外部联网** → 基线 + 推理底座
+  - ✅ Skill Gateway 4 道闸真接 (baseline / okrDrift / dataScope / actionScope · `lib/skill-gateway/index.ts`)
+  - ✅ TAF skill registry + governance 状态机 (`lib/taf/skills/registry.ts`, governance.ts) 5 道守门
+  - ✅ 测试 `tests/unit/three-plus-one-engine.test.ts` B-022 (3 个 case: 触发/未触发/fail-soft)
+- **设计 (⏳ 后续 sprint)**:
+  - ⏳ 新增 `lib/skill-gateway/outbound/` 目录, 把更多外部 AIGC adapter 归类: `gpt-image.ts` (生图) / `claude-pdf.ts` (PDF阅读) / `notion-ai.ts` (文档生成) / `perplexity.ts`
   - 首发 5 个: `web.search` (Perplexity) / `image.gen` (GPT-image-1) / `doc.summarize` (Anthropic) / `mcp.notion` / `mcp.github`
   - 统一接口 `OutboundSkill { id, label, requiredScope, invoke(input, ctx) }`
   - 调用前必经 `runSkillGateway()` (现有 `lib/skill-gateway/index.ts`), `actionScope='send_external'` 默认 HARD_BLOCK, 由用户在 Builder 显式授权升黄
@@ -160,17 +186,19 @@
 - **接入成本**: 4 (5-7 天)
 - **价值**: 5 (战略 — 五引擎根. 不落这条, persona 进化整盘是假象)
 - **优先级**: 0 (V2 起手, **B-021/B-022/B-023 之前**)
-- **状态**: 待 sprint
-- **拥有者**: TBD
-- **设计**:
-  - 议事 VETOED / Decision selected='D' (用户推翻 AI 建议) 触发 LLM 写一条 `RetroNote`: 议题 / 被否选项 / 被否原因 / 反推归类 (knowledge_gap | style_drift | skill_misuse | okr_drift | other)
-  - 落库: `Memory` 表 type='retro_note' + `KvStore` collection='persona_negative_examples'
-  - **反推前 4 引擎**:
-    - skill_misuse 累积 ≥ 3 次 → 自动从 `enabledSkills` 卸该 skill, 通知用户
-    - knowledge_gap → 提示用户"建议上传 X 类知识" (跳 B-021 Knowledge Tab)
-    - style_drift → 该 RetroNote 摘要进 next prompt 的 `negative_examples` 段
-    - okr_drift → 落 `okr-drift` audit + 跳 B-025 realign
-  - 新增 `lib/persona/reflection.ts` `reflectOnVeto(decisionId)` (LLM 单点调用, fail-soft)
+- **状态**: ✅ MVP 闭环 (2026-06-08 写侧 + 2026-06-09 读侧议事入口)
+- **拥有者**: Cascade
+- **设计 (✅ = 已实现, ⏳ = 后续 sprint)**:
+  - ✅ `lib/persona/reflexion.ts` `reflectOnDecision(card, persona)` — Reflexion (Shinn 2023) LLM 单点, fail-soft
+  - ✅ 触发器: `detectReflexionTrigger` — VETOED / 弃 ABC 选 D / retrospective 复盘
+  - ✅ 写侧落库: Memory `type='lesson'` `kind='episodic'` `tags=['reflexion']` `ownershipLevel='personal'`, 200 条上限淘汰
+  - ✅ 触发挂钩: `lib/persona/learning-collector.ts:73-78` — 议事 commit/veto 后真触发
+  - ✅ 读侧召回: `retrievePersonaSelfHints(userId, query)` — 关键词重叠 + 近因衰减 + referenceCount 飞轮
+  - ✅ **生产 LLM 注入** (真闭环):
+    - IM 回复: `lib/im/service.ts:858-860` 已注入
+    - **议事 Option B**: `lib/decision-layer/three-plus-one-engine.ts:219-236` 已注入 (优先级: B-027 价值观锚 → B-024 自省教训 → 基线 + 推理底座)
+  - ✅ 测试: `tests/unit/reflexion.test.ts` (11 个) + `tests/unit/three-plus-one-engine.test.ts` B-024 (2 个)
+  - ⏳ (后续 sprint) 反推前 4 引擎: skill_misuse ≥ 3 次 → 自动卸 enabledSkills; knowledge_gap → 跳 B-021 Knowledge Tab; okr_drift → 跳 B-025 realign (当前只语言化教训, 未做结构化分类自动反推)
 - **依赖**: 无 (基于现有 `learning-collector` + Memory + LLM)
 
 #### B-025 · Persona 战略引擎 (OKR 切换 → 重组分身)
@@ -246,6 +274,49 @@
   - 累积成功率 > 阈值 → 该 skill 升为常用; 失败 ≥ 3 次 → 候选 unregister
   - bandit state 落 `KvStore` collection='persona_bandit_state'
 - **依赖**: B-022 (skill 市场) + B-024 (反思反馈)
+
+---
+
+### 🟡 架构债 / 工程治理 (2026-06-09 立项)
+
+> 来源: 2026-06-09 Cascade 复盘. 两条都是"机制级"债, 不解后面会持续翻车.
+
+#### B-031 · SystemPromptComposer 抽象 (replace 6+ 段拼接)
+
+- **来源**: 2026-06-09 Cascade 复盘. `lib/decision-layer/three-plus-one-engine.ts:buildOptionB` 当前用裸数组拼 6 段 systemContent (constitution / selfHint / webContext / baseline / okrContext / reasoningBrief). 第 7 段 (B-021 Knowledge / B-025 OKR realign) 进来时会爆.
+- **解谁的痛**: 后续 sprint 工程师 — 不抽象, 每加一个注入源都要改 buildOptionB 签名 + 拼装顺序, 容易漏 / 顺序错.
+- **接入成本**: 1 (半天)
+- **价值**: 3 (后续每条新增注入源 -50% 工时)
+- **优先级**: 1 (V2 任意一条注入源新增前必做)
+- **状态**: ⏳ 待 sprint
+- **拥有者**: TBD
+- **设计**:
+  - 新增 `lib/persona/system-prompt-composer.ts` `class SystemPromptComposer`
+  - API: `composer.add(name, segment, priority).compose() → string`
+  - priority 枚举: `CONSTITUTION (0) → SELF_HINT (1) → WEB_CONTEXT (2) → BASELINE (3) → OKR (4) → REASONING (5) → BASE (10)`
+  - 自动跳过空段, 拼 `\n\n---\n\n`
+  - 同时迁移 `lib/im/service.ts invokeCompanyBrainReply` 的同型拼装 (它也已经拼 4-5 段)
+  - 测试: 顺序 / 空段 / 单段 / 全段
+- **依赖**: 无
+
+#### B-032 · 文档自检机制 (Cascade 状态评估真实性)
+
+- **来源**: 2026-06-09 Cascade 复盘. Cascade 多次因为 backlog 状态字段过期, 误报"0 行进度", 险些重写 (B-024 / B-022 都翻车过).
+- **解谁的痛**: Cascade / Owner — 防止 Cascade 起手时凭文档拍板, 浪费 Owner 时间.
+- **接入成本**: 0.5 (本次已落首版)
+- **价值**: 4 (机制层, 持续受益)
+- **优先级**: 1 (本次 V2 进化已落 MVP)
+- **状态**: 🟡 MVP 已落 (2026-06-09)
+- **拥有者**: Cascade
+- **已落地 (✅)**:
+  - ✅ `scripts/check-backlog-drift.mjs` — 扫核心模块改动 vs backlog 状态字段, 发 DRIFT 警告 (info-only 不阻塞 commit)
+  - ✅ `npm run check:backlog-drift` 注册
+  - ✅ `docs/CASCADE-STATUS-PROTOCOL.md` — Cascade 起手前 4 步自检 SOP (多关键词 grep / git log / drift 脚本 / import 反推)
+- **设计 (⏳ 后续)**:
+  - ⏳ 选择性挂 pre-commit hook (Owner 决定; 当前不挂, 因可能噪声过多)
+  - ⏳ Cascade 系统提示加引用 `docs/CASCADE-STATUS-PROTOCOL.md` (起手必读)
+  - ⏳ drift 脚本输出 JSON 模式, 供 CI 集成
+- **依赖**: 无
 
 ---
 
