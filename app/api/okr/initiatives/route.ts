@@ -9,6 +9,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { syncKrFromInitiatives } from '@/lib/okr/execution-rollup';
 
 export async function GET(req: NextRequest) {
   await boot();
@@ -62,7 +63,17 @@ export async function POST(req: NextRequest) {
       dueDate: body.dueDate ?? undefined,
       tenantId: body.tenantId ?? auth.tenantId,
     });
-    return NextResponse.json({ initiative });
+    // B3 执行联动: 新建 Initiative 改变完成率分母 → 重算 KR → 向上 rollup.
+    let execRollup = null;
+    try {
+      execRollup = await syncKrFromInitiatives(keyResultId, store, {
+        actorId: auth.userId,
+        eventIdSuffix: `create:${initiative.id}`,
+      });
+    } catch {
+      /* fail-soft */
+    }
+    return NextResponse.json({ initiative, execRollup });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }

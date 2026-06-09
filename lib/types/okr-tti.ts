@@ -55,6 +55,15 @@ export interface Objective {
   finalScore?: number | null;
   retrospective?: string | null;
   reviewedAt?: string | null;
+  /**
+   * B2 真 rollup (OKR-EVOLUTION-PLAN §3 B2 · 2026-06-02):
+   *   - currentProgress = 由 rollup 引擎自动计算 (KR 加权 + 子 Objective 加权), 0-1.
+   *     是服务端真值进度, 此前服务端模型完全缺失此字段 (进度只活在 localStorage UI store = 假闭环).
+   *   - progressOverride = 人工覆盖, 默认 null (废"默认人手填"); 非 null 时 UI 显示 + 向上 rollup 都用它.
+   *   - effective = progressOverride ?? currentProgress ?? 0 (见 effectiveObjectiveProgress).
+   */
+  currentProgress?: number;
+  progressOverride?: number | null;
   /** 多租户隔离 (默认 'default') */
   tenantId?: string;
   createdAt: string;
@@ -91,6 +100,13 @@ export interface KeyResult {
   /** A2.1a 新增 */
   weight: number;
   status: KRStatus;
+  /**
+   * B3 执行联动 (OKR-EVOLUTION-PLAN §3 B3 · 2026-06-02):
+   *   true 时 KR.currentValue 由其 Initiative 完成率自动驱动 (currentValue = start + ratio*(target-start)),
+   *   人工 check-in 不再需要. measureType==='milestone' 默认视为开启 (里程碑天然按完成数计).
+   *   其他类型默认关闭, 防自动值覆盖人工测量的数值型 KR.
+   */
+  autoProgressFromInitiatives?: boolean;
   dueDate?: string | null;
   tags: string[];
   collaboratorIds: string[];
@@ -106,6 +122,16 @@ export function computeKRProgress(kr: KeyResult): number {
   const range = kr.targetValue - kr.startValue;
   if (range === 0) return 0;
   return Math.min(1, Math.max(0, (kr.currentValue - kr.startValue) / range));
+}
+
+/**
+ * Objective 有效进度 (B2 · 2026-06-02):
+ *   人工覆盖优先, 否则用 rollup 自动计算值, 都没有则 0.
+ *   UI 显示 + 父级 rollup 聚合 统一走这个函数, 保证"真值唯一来源".
+ */
+export function effectiveObjectiveProgress(o: Pick<Objective, 'progressOverride' | 'currentProgress'>): number {
+  if (o.progressOverride != null) return o.progressOverride;
+  return o.currentProgress ?? 0;
 }
 
 // ---------------------------------------------------------------------------

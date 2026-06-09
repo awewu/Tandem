@@ -67,6 +67,13 @@ export interface Objective {
   watchers?: string[];
   /** 手动覆盖进度；null 表示按 KR 加权自动计算 */
   progressOverride?: number | null;
+  /**
+   * B1 读路径收敛 (2026-06-02): 服务端 rollup 真值进度 (0-100).
+   * 来自 /api/tandem-okr 的 Objective.currentProgress (服务端 0-1 ×100 映射).
+   * 含子 Objective 向上聚合 + Initiative 执行联动 (B2/B3), 是客户端本地 KR 重算算不出的.
+   * getObjectiveProgress 优先级: progressOverride > currentProgress(服务端) > 本地 KR 重算.
+   */
+  currentProgress?: number | null;
   /** 周期结束时的最终评分 0-1.0（Google 式） */
   score?: number | null;
   /** 负责人自评分 0-1.0 */

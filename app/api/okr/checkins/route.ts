@@ -16,7 +16,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
-import { eventBus } from '@/lib/events/bus';
+import { executeAction, type KrCheckinResult } from '@/lib/ontology';
 
 export async function GET(req: NextRequest) {
   await boot();
@@ -50,27 +50,50 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
-    const store = getStore();
-    // 验证 scopeId 存在 & 调用者是 owner/coOwner
-    if (scope === 'objective') {
-      const obj = await store.objectives.get(scopeId);
-      if (!obj) return NextResponse.json({ error: 'objective not found' }, { status: 404 });
-      const allowed =
-        obj.ownerId === auth.userId ||
-        (obj.collaboratorIds ?? []).includes(auth.userId) ||
-        auth.demo;
-      if (!allowed) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
-    } else {
-      const kr = await store.keyResults.get(scopeId);
-      if (!kr) return NextResponse.json({ error: 'kr not found' }, { status: 404 });
-      const allowed =
-        kr.ownerId === auth.userId ||
-        (kr.coOwnerIds ?? []).includes(auth.userId) ||
-        auth.demo;
-      if (!allowed) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+    // ── scope === 'kr' → 走 ON-1 声明式 Action Type (单一真值: lib/ontology/actions/kr-checkin) ──
+    // 原先散在这里的 KR 校验+主写+rollup+事件 全部收编进 executeAction('kr.checkin'),
+    // 副作用只声明一次; IM/日历/中央 AI 均调同一动作 (根治 Issue 4 类耦合)。
+    if (scope === 'kr') {
+      const r = await executeAction<KrCheckinResult>(
+        'kr.checkin',
+        {
+          krId: scopeId,
+          currentValue: body.currentValue,
+          confidenceAfter: body.confidenceAfter,
+          confidenceBefore: body.confidenceBefore,
+          progressBefore: body.progressBefore,
+          progressAfter: body.progressAfter,
+          achievements: body.achievements,
+          blockers: body.blockers,
+          nextSteps: body.nextSteps,
+          mood: body.mood,
+        },
+        { actorUserId: auth.userId, isProxy: false, demo: auth.demo },
+      );
+      if (!r.ok) {
+        const code = r.blocked?.code;
+        const status = code === 'not_found' ? 404 : code === 'forbidden' ? 403 : code === 'invalid' ? 400 : 403;
+        return NextResponse.json(
+          { error: r.blocked?.reasons.join('; ') ?? 'check-in blocked' },
+          { status },
+        );
+      }
+      // lineage (被 rollup 重算的 Objective 链) 从副作用输出读出, 保持原响应体形状
+      const rolledUp = r.sideEffects.find((s) => s.name === 'okr.rollup.propagate')?.data ?? [];
+      return NextResponse.json({ checkIn: r.result!.checkIn, rolledUp });
     }
+
+    // ── scope === 'objective' → 保留原逻辑 (objective check-in 暂未建 Action Type) ──
+    const store = getStore();
+    const obj = await store.objectives.get(scopeId);
+    if (!obj) return NextResponse.json({ error: 'objective not found' }, { status: 404 });
+    const allowed =
+      obj.ownerId === auth.userId ||
+      (obj.collaboratorIds ?? []).includes(auth.userId) ||
+      auth.demo;
+    if (!allowed) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
     const checkIn = await store.checkIns.create({
-      scope,
+      scope: 'objective',
       scopeId,
       authorId: auth.userId,
       progressBefore: typeof body.progressBefore === 'number' ? body.progressBefore : 0,
@@ -83,33 +106,7 @@ export async function POST(req: NextRequest) {
       mood: body.mood ?? null,
       createdAt: new Date().toISOString(),
     });
-    // 如果是 KR check-in: 同步更新 KR 的 currentValue + confidence
-    if (scope === 'kr' && (typeof body.currentValue === 'number' || typeof body.confidenceAfter === 'string')) {
-      const patch: Record<string, unknown> = { updatedAt: new Date().toISOString() };
-      if (typeof body.currentValue === 'number') patch.currentValue = body.currentValue;
-      if (typeof body.confidenceAfter === 'string') patch.confidence = body.confidenceAfter;
-      await store.keyResults.update(scopeId, patch);
-    }
-    // 跨域事件广播 (仅 KR scope): drift detector / analytics / company-brain 可订阅
-    if (scope === 'kr') {
-      try {
-        await eventBus.emit(
-          'okr.kr-progressed',
-          {
-            krId: scopeId,
-            from: checkIn.progressBefore,
-            to: checkIn.progressAfter,
-            by: auth.userId,
-            source: 'check-in',
-            timestamp: Date.now(),
-          },
-          `kr-progressed:${checkIn.id}`,
-        );
-      } catch {
-        /* isolated */
-      }
-    }
-    return NextResponse.json({ checkIn });
+    return NextResponse.json({ checkIn, rolledUp: [] });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
