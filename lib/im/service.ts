@@ -1051,9 +1051,40 @@ async function invokeCompanyBrainReply(input: InvokePersonaInput): Promise<void>
       // preSearch 失败不阻塞主流程
     }
 
-    // §S1 内部感知层 (CA-6/7) · 流式前先用只读工具查 OKR/决议真值, 注入 systemPrompt
-    // "瞎子 → 能看": 让中央 AI 回答执行/进度类问题时基于 S0 rollup 真值, 而非静态注入文本。
+    // §S2 深推理层 (主回复路径 · 2026-06-09) · 复杂决策类提问跑 multi-step ReAct
+    //   "比较 / 为什么 / 应该 / 分析 / 策略 ..." 这种多面向决策提问需要"召回→评估→风险→相关人"
+    //   结构化推理。命中即跳过 S1 (S2 是 S1 的超集, 已用同一只读工具集 + 多步框架)。
+    let s2Reasoned = false;
     try {
+      await pushStatus('正在做多步推理 …');
+      const { companyBrainReasoningPass } = await import('../persona/company-brain-reasoning');
+      const reasoning = await companyBrainReasoningPass(input.triggeringMessage.body, systemPrompt);
+      if (reasoning.reasoned) {
+        systemPrompt = reasoning.revisedSystemPrompt;
+        s2Reasoned = true;
+        const { audit: r2Audit } = await import('../audit/log');
+        await r2Audit('output_guard.checked', input.triggeringMessage.senderId, {
+          targetId: placeholder.id,
+          targetType: 'company_brain_im',
+          metadata: {
+            stage: 'S2',
+            reasoned: true,
+            tools: reasoning.toolsUsed,
+            stepsExecuted: reasoning.log.stepsExecuted,
+            toolCallCount: reasoning.log.toolCallCount,
+            latencyMs: reasoning.log.latencyMs,
+            triggerReason: reasoning.log.triggerReason,
+            traceId: reasoning.log.traceId,
+          },
+        }).catch(() => { /* noop */ });
+      }
+    } catch {
+      // S2 失败不阻塞主流程 (fail-soft) — 继续走 S1 兜底
+    }
+
+    // §S1 内部感知层 (CA-6/7) · S2 未命中时兜底, 流式前用只读工具查 OKR/决议真值
+    // "瞎子 → 能看": 让中央 AI 回答执行/进度类问题时基于 S0 rollup 真值, 而非静态注入文本。
+    if (!s2Reasoned) try {
       await pushStatus('正在核对 OKR / 决议实时进度…');
       const { companyBrainPerceptionPass } = await import('../persona/company-brain-perception');
       const perception = await companyBrainPerceptionPass(input.triggeringMessage.body, systemPrompt);

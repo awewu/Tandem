@@ -138,7 +138,37 @@ export async function POST(req: NextRequest): Promise<Response> {
 
         // ── 3. §S1 内部感知层 (CA-6/7) · 只读工具查 OKR/决议真值并注入 ──
         //   "瞎子 → 能看": 基于 S0 rollup 真值作答, 而非静态注入文本。
+        // §S2 深推理层 (主回复路径 · 2026-06-09) · 复杂决策类提问跑 multi-step ReAct
+        //   "比较 / 为什么 / 应该 / 分析 / 策略" → 命中即跳过 S1 (S2 是 S1 的超集)。
+        let s2Reasoned = false;
         try {
+          send({ status: '正在做多步推理 …' });
+          const { companyBrainReasoningPass } = await import('@/lib/persona/company-brain-reasoning');
+          const reasoning = await companyBrainReasoningPass(latestUserMessage, systemPrompt);
+          if (reasoning.reasoned) {
+            systemPrompt = reasoning.revisedSystemPrompt;
+            s2Reasoned = true;
+            deferAudit('output_guard.checked', auth.userId, {
+              targetId: sessionId ?? 'no-session',
+              targetType: 'company_brain_boss',
+              metadata: {
+                stage: 'S2',
+                reasoned: true,
+                tools: reasoning.toolsUsed,
+                stepsExecuted: reasoning.log.stepsExecuted,
+                toolCallCount: reasoning.log.toolCallCount,
+                latencyMs: reasoning.log.latencyMs,
+                triggerReason: reasoning.log.triggerReason,
+                traceId: reasoning.log.traceId,
+              },
+              tenantId: auth.tenantId,
+            });
+          }
+        } catch {
+          /* S2 失败不阻塞主流程 — 继续走 S1 兜底 */
+        }
+
+        if (!s2Reasoned) try {
           send({ status: '正在核对 OKR / 决议实时进度…' });
           const { companyBrainPerceptionPass } = await import('@/lib/persona/company-brain-perception');
           const perception = await companyBrainPerceptionPass(latestUserMessage, systemPrompt);
