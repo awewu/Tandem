@@ -6,22 +6,26 @@
  *   - kpi.write         : 通道 A 目标设定 (target/weight/cycle setup)
  *   - kpi.manual_entry  : 通道 C 人工补录 (财务/HR/内勤, ERP 未覆盖指标)
  *
- * 角色 → 权限映射 (默认): admin/hr 拥有全部三位; finance 缺 kpi.write;
+ * 角色 → 权限映射 (默认): owner/admin/steward(HR) 拥有全部三位; finance 缺 kpi.write;
  * manager 仅 kpi.write; internal_staff 仅 kpi.manual_entry.
+ * 注: 旧 'hr' 字面量已收敛到 SSOT 角色 'steward' (定义即 HR/数据管家).
  *
  * 绝对禁止改 KPI 的角色 (CHARTER §2.1): 被考核员工本人 / 直属主管 / 高管 (改 actuals).
  */
 
 import type { AuthContext } from './require-auth';
+import { type Role } from './roles';
 
 export type KpiPermission = 'kpi.subject_admin' | 'kpi.write' | 'kpi.manual_entry';
 
 /**
  * 角色 → 权限位映射. 改这里 = 改全局 KPI 数据通道权限边界.
+ * key 必须是合法 SSOT Role (lib/auth/roles.ts), 由 kpi-perms 测试锁定.
  */
-const ROLE_PERMS: Record<string, KpiPermission[]> = {
+const ROLE_PERMS: Partial<Record<Role, KpiPermission[]>> = {
+  owner: ['kpi.subject_admin', 'kpi.write', 'kpi.manual_entry'],
   admin: ['kpi.subject_admin', 'kpi.write', 'kpi.manual_entry'],
-  hr: ['kpi.subject_admin', 'kpi.write', 'kpi.manual_entry'],
+  steward: ['kpi.subject_admin', 'kpi.write', 'kpi.manual_entry'],
   finance: ['kpi.subject_admin', 'kpi.manual_entry'],
   internal_staff: ['kpi.manual_entry'],
   manager: ['kpi.write'],
@@ -31,7 +35,7 @@ export function hasKpiPermission(ctx: AuthContext, perm: KpiPermission): boolean
   // demo 模式 (e2e/dev) 视为全权
   if (ctx.demo) return true;
   for (const role of ctx.roles) {
-    const perms = ROLE_PERMS[role];
+    const perms = ROLE_PERMS[role as Role];
     if (perms?.includes(perm)) return true;
   }
   return false;

@@ -29,6 +29,7 @@ import {
   Megaphone,
   CheckSquare,
   HelpCircle,
+  NotebookPen,
 } from 'lucide-react';
 import { InsightsWidget } from '@/components/insights/insights-widget';
 import { PendingRetrosCard } from '@/components/dashboard/pending-retros-card';
@@ -497,24 +498,6 @@ function LaunchpadSection({
 }) {
   const recommended = apps.filter((a) => a.recommendScore && a.recommendScore > 0).slice(0, 3);
 
-  if (apps.length === 0) {
-    return (
-      <section className="space-y-4">
-        <SectionHeader title="快速跳板" subtitle="ERP / CRM / 通讯 / 学习 — 一键切到外部系统" />
-        <div className="card-elevated p-12 text-center">
-          <LayoutGrid className="h-10 w-10 mx-auto text-ink-tertiary mb-3" />
-          <p className="text-body text-ink-secondary">尚未配置跳板卡片</p>
-          <Link
-            href="/admin/launchpad"
-            className="mt-3 inline-flex items-center gap-1.5 text-caption text-brand-600 hover:text-brand-700 font-medium"
-          >
-            去配置 <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
-        </div>
-      </section>
-    );
-  }
-
   // 把推荐的 app 排在最前；其余按 category 顺序铺开 (统一红色卡片墙).
   const recommendedIds = new Set(recommended.map((a) => a.id));
   const rest = apps.filter((a) => !recommendedIds.has(a.id));
@@ -544,11 +527,22 @@ function LaunchpadSection({
             : 'grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6'
         }
       >
+        <ShouchaoHomeTile />
         {tiles.map((a) => (
           <LaunchpadTile key={a.id} app={a} recommended={recommendedIds.has(a.id)} />
         ))}
       </div>
     </section>
+  );
+}
+
+// 搭子手抄 · 内部 AI 笔记模块入口 (放在 ERP/快速跳板旁, 内部跳转不开新窗口)
+function ShouchaoHomeTile() {
+  return (
+    <Link href="/shouchao" className="rheem-tile group" title="搭子手抄 · AI 笔记 (记录 → 加工 → 沉淀)">
+      <NotebookPen className="rheem-tile-icon" />
+      <span className="rheem-tile-label line-clamp-2">搭子手抄</span>
+    </Link>
   );
 }
 

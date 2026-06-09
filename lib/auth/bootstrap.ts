@@ -14,9 +14,40 @@ import { getStore } from '../storage/repository';
 import { hashPassword } from './password';
 import { audit } from '../audit/log';
 import { OWNER_BOOTSTRAP_ROLES } from './roles';
+import { ANCHOR_ORG_ID } from '../types/organization';
+
+/**
+ * 幂等创建上游本部组织 (anchor) · 企业微信「上下游」模型的根节点.
+ * 固定 id (ANCHOR_ORG_ID) → 可重入 + 历史 default 租户用户回填时确定性引用.
+ * 任何启动路径 (有/无 bootstrap owner env) 都应保证 anchor 存在.
+ */
+export async function ensureAnchorOrg(): Promise<void> {
+  try {
+    const store = getStore();
+    if (!store.organizations) return;
+    const existing = await store.organizations.get(ANCHOR_ORG_ID);
+    if (existing) return;
+    const name = process.env.TANDEM_BOOTSTRAP_ORG_NAME ?? process.env.TANDEM_BOOTSTRAP_OWNER_NAME ?? '本部';
+    await store.organizations.create({
+      id: ANCHOR_ORG_ID,
+      name,
+      type: 'anchor',
+      parentOrgId: null,
+      tenantId: 'default',
+      status: 'active',
+      createdAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[bootstrap] 初始化 anchor 组织失败:', err);
+  }
+}
 
 export async function bootstrapOwnerIfMissing(): Promise<void> {
   try {
+    // 先确保上游本部组织存在 (与是否创建 owner 无关)
+    await ensureAnchorOrg();
+
     const email = process.env.TANDEM_BOOTSTRAP_OWNER_EMAIL;
     const password = process.env.TANDEM_BOOTSTRAP_OWNER_PASSWORD;
     const name = process.env.TANDEM_BOOTSTRAP_OWNER_NAME ?? 'Owner';
@@ -34,6 +65,8 @@ export async function bootstrapOwnerIfMissing(): Promise<void> {
       name,
       roles: [...OWNER_BOOTSTRAP_ROLES],
       tenantId: 'default',
+      orgId: ANCHOR_ORG_ID,
+      membershipType: 'internal',
       emailVerifiedAt: new Date().toISOString(),
     });
     await store.auth.users.savePasswordHash(user.id, hashPassword(password));

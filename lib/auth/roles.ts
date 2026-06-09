@@ -14,8 +14,10 @@ export const INTERNAL_ROLES = [
   'admin',     // IT/系统管理员
   'manager',   // 主管 / 管理层
   'employee',  // 普通员工 (默认)
-  'steward',   // HR / 数据管家
+  'steward',   // HR / 数据管家 (绩效数据治理 · 兼治理审核)
   'champion',  // 业务冠军 / 推广大使
+  'finance',   // 财务 (KPI 通道 C 补录: 财务口径指标 · CHARTER-KPI §2.4)
+  'internal_staff', // 内勤 (KPI 通道 C 补录: ERP 未覆盖的人工指标)
 ] as const;
 
 export const EXTERNAL_ROLES = [
@@ -82,7 +84,24 @@ export const ROLE_LABELS: Record<Role, string> = {
   employee: '员工',
   steward: 'HR / 管家',
   champion: '冠军',
+  finance: '财务',
+  internal_staff: '内勤',
   guest: '访客',
   partner: '合作伙伴',
   contractor: '承包商',
 };
+
+// ---------------------------------------------------------------------------
+// 语义化权限角色组 (SSOT) · 端点禁止再手卷字面量, 一律引用这些常量
+// ---------------------------------------------------------------------------
+
+/**
+ * 数据管家级特权组: owner + admin + steward.
+ * 用于"超出本人范围的敏感数据访问/治理":
+ *   - 隐私揭示 (privacy redactor → admin scope)
+ *   - 读他人 Persona 画像 / 训练上下文
+ *   - 360 全量可见 (看所有评价)
+ *   - Skill 治理审核 (governance review)
+ * 注: 'hr' / 'governance' 旧字面量统一收敛到 steward (steward 定义即 HR/数据管家).
+ */
+export const DATA_STEWARD_ROLES: Role[] = ['owner', 'admin', 'steward'];

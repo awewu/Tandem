@@ -67,8 +67,18 @@ function bootSync(): void {
       // eslint-disable-next-line no-console
       console.info('[boot] storage=drizzle+pg (DATABASE_URL detected)');
     } catch (err) {
+      // In production a DATABASE_URL was explicitly configured, so a silent
+      // fallback to in-memory would drop every write while appearing healthy.
+      // Fail loud instead. Dev/test keep the convenient fallback.
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error(
+          `[boot] DATABASE_URL is set but Drizzle store init failed; refusing to start with in-memory storage in production: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
       // eslint-disable-next-line no-console
-      console.warn('[boot] Drizzle store 初始化失败, fallback to InMemory:', err);
+      console.warn('[boot] Drizzle store 初始化失败, fallback to InMemory (non-production):', err);
       setStore(createInMemoryStore());
     }
   } else {

@@ -20,7 +20,8 @@
  */
 
 import { hashPassword, verifyPassword, evaluatePassword, isPasswordReused } from './password';
-import { DEFAULT_EMPLOYEE_ROLES } from './roles';
+import { DEFAULT_EMPLOYEE_ROLES, hasInternalRole } from './roles';
+import { ANCHOR_ORG_ID, type MembershipType } from '../types/organization';
 import {
   signAccessToken,
   issueRefreshToken,
@@ -103,12 +104,21 @@ export async function registerWithInvite(input: RegisterInput): Promise<AuthResu
   }
 
   // 4. 创建用户 + 密码 hash
+  // §上下游: 按邀请预设角色推断成员身份 —
+  //   内部角色 → internal + 上游本部 (anchor)
+  //   外部角色 → pending (具体下游组织待上游邀请流分配; 本期不在邀请码内携带 orgId)
+  const presetRoles = v.invite!.presetRoles;
+  const internalInvite = hasInternalRole(presetRoles);
+  const membershipType: MembershipType = internalInvite ? 'internal' : 'pending';
+  const orgId = internalInvite ? ANCHOR_ORG_ID : null;
   const user = await userStore.create({
     email,
     name: input.name,
-    roles: v.invite!.presetRoles,
+    roles: presetRoles,
     departmentId: v.invite!.presetDepartmentId ?? null,
     tenantId: v.invite!.tenantId,
+    orgId,
+    membershipType,
     emailVerifiedAt: new Date().toISOString(),
   });
 
@@ -335,6 +345,9 @@ export async function registerWithSso(input: SsoRegisterInput): Promise<AuthResu
     name: input.name,
     roles: [...DEFAULT_EMPLOYEE_ROLES],
     tenantId: 'default',
+    // §上下游: 企业邮箱域名白名单 = 内部员工身份, 归属上游本部组织 (anchor)
+    orgId: ANCHOR_ORG_ID,
+    membershipType: 'internal',
     departmentId: input.employeeId ?? null,
     emailVerifiedAt: new Date().toISOString(),
   });
@@ -449,6 +462,10 @@ export interface NativeUser {
   lastLoginIp?: string | null;
   emailVerifiedAt?: string | null;
   departmentId?: string | null;
+  /** 所属组织 (企业微信上下游模型) */
+  orgId?: string | null;
+  /** 成员身份类型 */
+  membershipType?: MembershipType;
 }
 
 interface NativeSessionStore {

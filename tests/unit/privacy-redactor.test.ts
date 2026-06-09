@@ -38,10 +38,15 @@ describe('EVO-7 · resolveScope', () => {
       resolveScope({ ...ctxBase, viewerRoles: ['admin'] }, ['bob']),
     ).toBe('admin');
   });
-  it('viewer 是 hr → admin', () => {
+  it('viewer 是 steward (HR/数据管家) → admin', () => {
+    expect(
+      resolveScope({ ...ctxBase, viewerRoles: ['steward'] }, ['bob']),
+    ).toBe('admin');
+  });
+  it("旧 'hr' 字面量已收敛, 不再具特权 → tenant", () => {
     expect(
       resolveScope({ ...ctxBase, viewerRoles: ['hr'] }, ['bob']),
-    ).toBe('admin');
+    ).toBe('tenant');
   });
   it('viewer 跨租户 → public', () => {
     expect(

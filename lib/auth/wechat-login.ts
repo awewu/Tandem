@@ -10,6 +10,7 @@
 
 import { getStore } from '@/lib/storage/repository';
 import { issueSessionForExternalLogin, type AuthResult } from './native';
+import { DEFAULT_EXTERNAL_ROLES } from './roles';
 import { getWechatProvider, type WechatQrTicket, type WechatScanState } from './wechat-provider';
 import { getWechatBinding, setWechatBinding } from './identity-store';
 
@@ -60,11 +61,15 @@ export async function pollWechatScan(
   if (binding) {
     userId = binding.userId;
   } else {
+    // §上下游: 个人微信扫码 = 未归属外部访客, 绝不默认 employee/default 内部身份。
+    // 落到 membershipType='pending' (待上游/管理员归属到某下游组织), 最小权限 guest。
     const created = await userStore.create({
       email: `wx_${state.unionId.slice(0, 16)}@wechat.tandem.local`,
       name: state.nickname ?? '微信用户',
-      roles: ['employee'],
+      roles: [...DEFAULT_EXTERNAL_ROLES],
       tenantId: 'default',
+      orgId: null,
+      membershipType: 'pending',
       emailVerifiedAt: new Date().toISOString(),
     });
     userId = created.id;

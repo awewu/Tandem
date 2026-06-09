@@ -12,7 +12,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { X, Sparkles, ShieldCheck, Settings, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { NAV_MODULES, ALL_ROLES, isVisible, type Role } from './nav-modules';
+import { NAV_MODULES, isVisible, resolveNavRoles, type Role } from './nav-modules';
 import { useCurrentUser, useAuthStore } from '@/lib/hooks/use-current-user';
 
 export interface MobileDrawerProps {
@@ -25,15 +25,15 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
   const { user, error } = useCurrentUser();
   const fetched = useAuthStore((s) => s.fetched);
 
-  const userRoles: Role[] = useMemo(() => {
-    if (!fetched) return ['employee'];
-    if (error === 'unauthenticated' || !user) return ALL_ROLES;
-    const roles = (user.roles ?? []).filter(
-      (x): x is Role => typeof x === 'string' && (ALL_ROLES as string[]).includes(x),
-    );
-    if (user.email === 'admin@tandem.local' && roles.length === 0) return ALL_ROLES;
-    return roles.length > 0 ? roles : ['employee'];
-  }, [fetched, user, error]);
+  const userRoles: Role[] = useMemo(
+    () =>
+      resolveNavRoles(user?.roles, {
+        fetched,
+        unauthenticated: error === 'unauthenticated' || !user,
+        email: user?.email,
+      }),
+    [fetched, user, error],
+  );
 
   // 锁页面滚动
   useEffect(() => {

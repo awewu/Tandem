@@ -16,8 +16,10 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { LucideIcon } from 'lucide-react';
-import { Home, MessagesSquare, Target, BotMessageSquare, Sparkles } from 'lucide-react';
+import { Home, MessagesSquare, Target, BotMessageSquare, Sparkles, NotebookPen, UserRound } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useCurrentUser } from '@/lib/hooks/use-current-user';
+import { hasExternalRole, hasInternalRole } from '@/lib/auth/roles';
 
 interface Tab {
   id: string;
@@ -26,6 +28,31 @@ interface Tab {
   icon: LucideIcon;
   matches: (path: string) => boolean;
 }
+
+/** 纯外部用户 (经销商/申请注册人) 的底部导航: 只露授权模块, 不露内部 OKR/IM/日报 */
+const EXTERNAL_TABS: Tab[] = [
+  {
+    id: 'hub',
+    label: '首页',
+    href: '/hub',
+    icon: Home,
+    matches: (p) => p === '/hub' || p === '/' || p === '/home',
+  },
+  {
+    id: 'shouchao',
+    label: '手抄',
+    href: '/shouchao',
+    icon: NotebookPen,
+    matches: (p) => p.startsWith('/shouchao'),
+  },
+  {
+    id: 'me',
+    label: '我的',
+    href: '/settings',
+    icon: UserRound,
+    matches: (p) => p.startsWith('/settings'),
+  },
+];
 
 const LEFT_TABS: Tab[] = [
   {
@@ -93,8 +120,34 @@ function TabItem({ tab, pathname }: { tab: Tab; pathname: string }) {
 
 export function MobileTabBar() {
   const pathname = usePathname() ?? '/';
+  const { user } = useCurrentUser();
+  const roles = user?.roles ?? [];
+  const pureExternal = hasExternalRole(roles) && !hasInternalRole(roles);
+
   const centerActive = CENTER_TAB.matches(pathname);
   const CenterIcon = CENTER_TAB.icon;
+
+  // 纯外部用户: 极简 3-tab (首页/手抄/我的), 无内部日报 FAB
+  if (pureExternal) {
+    return (
+      <nav
+        aria-label="底部导航"
+        className={cn(
+          'md:hidden',
+          'fixed inset-x-0 bottom-0 z-40',
+          'flex items-stretch',
+          'border-t border-slate-200/80 bg-white',
+          'pb-[env(safe-area-inset-bottom,0px)]',
+          'h-[56px]',
+          'dark:bg-[rgb(var(--rheem-charcoal))] dark:border-white/10',
+        )}
+      >
+        {EXTERNAL_TABS.map((t) => (
+          <TabItem key={t.id} tab={t} pathname={pathname} />
+        ))}
+      </nav>
+    );
+  }
 
   return (
     <nav

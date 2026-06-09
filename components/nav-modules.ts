@@ -129,6 +129,8 @@ export const NAV_MODULES: NavModule[] = [
       // 目标管理 (精简为符合 Tita 极简逻辑 of 3步流程)
       { name: '我的目标与对齐',    href: '/okr?owner=me',     icon: Target,         group: '目标与关键成果法 OKR' },
       { name: 'OKR 5 层级联树',    href: '/okr/cascade',      icon: Network,        group: '目标与关键成果法 OKR' },
+      // 双入口: 战略项目走三省六部执行协同 (主高亮归 Tandem 议事模块, 此处仅可点直达).
+      { name: '战略项目 · 三省六部', href: '/governance/three-departments', icon: Network, group: '目标与关键成果法 OKR' },
       { name: 'OKR 校准会',        href: '/okr/calibration',  icon: Grid3x3,        group: '目标与关键成果法 OKR', visibleTo: ['manager', 'steward', 'admin', 'champion'] },
       { name: 'OKR 日历视图',      href: '/okr/calendar',     icon: CalendarDays,   group: '目标与关键成果法 OKR' },
       // 每日推进 — 5min 日报与周回顾 (OKR daily/weekly check-in 输入, 与KR互动推进)
@@ -156,19 +158,21 @@ export const NAV_MODULES: NavModule[] = [
     ],
   },
 
-  // ═══ Tandem · 议事与决议 (会议 / 决议书 / 共同决策) ═══
+  // ═══ Tandem · 议事与决议 (会议 / 决议书 / 共同决策 / 重大公司级工作执行协同) ═══
   {
     id: 'tandem',
     label: 'Tandem',
     fullLabel: 'Tandem · 议事与决议',
-    tagline: '会议、决议书、需共同决定的事 · 17 分钟收敛',
+    tagline: '提案·审议·执行 — 重大公司级工作的协同与 17 分钟议事收敛',
     icon: Sparkles,
     visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
-    pathPrefixes: ['/convergence', '/meetings', '/decisions'],
+    pathPrefixes: ['/convergence', '/meetings', '/decisions', '/governance'],
     items: [
       { name: '议事室',   href: '/convergence', icon: SparklesAlias, accent: 'cta', badge: '17min', group: '议事' },
       { name: '会议室',   href: '/meetings',    icon: Video,                        group: '议事' },
       { name: '决议台账', href: '/decisions',   icon: ScrollText,                   group: '决议' },
+      // 三省六部 = 提案(中书)→审议(门下)→执行(尚书六部) 的执行协同骨架, 支撑 OKR 战略执行.
+      { name: '三省六部 · 执行协同', href: '/governance/three-departments', icon: Network, group: '执行协同' },
     ],
   },
 
@@ -333,15 +337,14 @@ export const NAV_MODULES: NavModule[] = [
     id: 'org',
     label: '组织',
     fullLabel: '组织 · 公司架构与治理',
-    tagline: '部门是人归属哪里, 三省六部是事如何流转',
+    tagline: '部门是人归属哪里, 反馈评估让成长看得见',
     icon: Building2,
     visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
-    pathPrefixes: ['/organization', '/governance', '/admin/organization', '/360', '/1on1', '/nine-box'],
+    // 三省六部 已迁出: 主高亮归 Tandem(议事)模块「执行协同」, 事半模块设双入口.
+    pathPrefixes: ['/organization', '/admin/organization', '/360', '/1on1', '/nine-box'],
     items: [
       // 公司架构 (HR 部门线 · 真员工数据)
       { name: '员工部门',       href: '/admin/organization',           icon: Building2, group: '公司架构', visibleTo: ['manager', 'steward', 'admin', 'champion', 'owner'] },
-      // 项目治理 (三省六部 · 跨部门协同模板)
-      { name: '三省六部 · 项目治理', href: '/governance/three-departments', icon: Network,   group: '项目治理' },
       // 反馈评估 (现在归属组织模块)
       { name: '1on1 对话',         href: '/1on1',             icon: MessagesSquare, group: '反馈评估' },
       { name: '360 评估',          href: '/360',              icon: SparklesAlias,  group: '反馈评估', visibleTo: ['manager', 'steward', 'admin', 'champion'] },
@@ -356,7 +359,7 @@ export const NAV_MODULES: NavModule[] = [
     fullLabel: '管理 · 系统与运维',
     tagline: 'Steward 守护治理, 让规则可解释可追溯',
     icon: Wrench,
-    pathPrefixes: ['/admin', '/mcp', '/tasks', '/logs', '/design', '/governance'],
+    pathPrefixes: ['/admin', '/mcp', '/tasks', '/logs', '/design'],
     visibleTo: ['admin', 'steward', 'champion'],
     // 6-Hub 重构 (同拿捏范式): 二级栏放 6 个 Hub, 各组子页走页内 <HubTabs> (按角色过滤).
     items: [
@@ -461,9 +464,36 @@ export const NAV_MODULES: NavModule[] = [
 
 export const ALL_ROLES: Role[] = ['owner', 'admin', 'champion', 'steward', 'manager', 'employee', 'partner'];
 
+/** auth 外部角色 (lib/auth/roles.ts EXTERNAL_ROLES). nav 只用 'partner' 表达外部视图. */
+const EXTERNAL_AUTH_ROLES = new Set(['guest', 'partner', 'contractor']);
+
 export function isVisible(scopeRoles: Role[] | undefined, userRoles: Role[]): boolean {
   if (!scopeRoles || scopeRoles.length === 0) return true;
   return scopeRoles.some((r) => userRoles.includes(r));
+}
+
+/**
+ * 把 auth 角色解析为导航可见性角色集 (SSOT, 供 AppRail / MobileDrawer 复用).
+ * - 未发起 fetch: 默认 employee (避免闪烁)
+ * - 未登录: ALL_ROLES (登录页等公开壳不依赖此)
+ * - admin@tandem.local 无角色: ALL_ROLES (bootstrap)
+ * - 命中已知 nav 角色: 原样返回
+ * - 纯外部角色 (guest/contractor 等 nav 未登记): 统一映射为 partner 视图 (只见授权模块)
+ * - 其它空: employee
+ */
+export function resolveNavRoles(
+  authRoles: readonly string[] | undefined,
+  opts?: { fetched?: boolean; unauthenticated?: boolean; email?: string },
+): Role[] {
+  if (opts && opts.fetched === false) return ['employee'];
+  if (opts?.unauthenticated) return ALL_ROLES;
+  const known = (authRoles ?? []).filter(
+    (x): x is Role => typeof x === 'string' && (ALL_ROLES as string[]).includes(x),
+  );
+  if (opts?.email === 'admin@tandem.local' && known.length === 0) return ALL_ROLES;
+  if (known.length > 0) return known;
+  if ((authRoles ?? []).some((r) => EXTERNAL_AUTH_ROLES.has(r))) return ['partner'];
+  return ['employee'];
 }
 
 /**

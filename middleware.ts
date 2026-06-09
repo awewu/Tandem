@@ -18,6 +18,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { verifyAccessTokenEdge } from '@/lib/auth/session-edge';
 import { canAccessPath, FORBIDDEN_REDIRECT } from '@/lib/auth/module-scope';
+import { hasExternalRole, hasInternalRole } from '@/lib/auth/roles';
+
+/** 纯外部用户 (经销商/申请注册人): 有外部角色且无任何内部角色. 落地到外部 Hub, 不进内部全功能首页. */
+const EXTERNAL_HOME = '/hub';
 
 const COOKIE_ACCESS = 'tandem_at';
 const HEADER_REQ_ID = 'x-request-id';
@@ -93,7 +97,16 @@ export async function middleware(req: NextRequest) {
 
     // 已登录 → 检查板块边界 (外部角色禁事半)
     if (payload) {
-      if (!canAccessPath(payload.roles ?? [], path)) {
+      const roles = payload.roles ?? [];
+      // 纯外部用户 (经销商/申请注册人): 内部全功能首页 → 外部 Hub 落地
+      const pureExternal = hasExternalRole(roles) && !hasInternalRole(roles);
+      if (pureExternal && (path === '/' || path === '/home')) {
+        const url = req.nextUrl.clone();
+        url.pathname = EXTERNAL_HOME;
+        url.search = '';
+        return withReqId(NextResponse.redirect(url));
+      }
+      if (!canAccessPath(roles, path)) {
         const url = req.nextUrl.clone();
         url.pathname = FORBIDDEN_REDIRECT;
         url.searchParams.set('from', path);

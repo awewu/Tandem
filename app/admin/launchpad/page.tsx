@@ -27,6 +27,19 @@ const CATEGORY_META: Record<LaunchpadCategory, { label: string; icon: typeof Bri
   custom: { label: '自定义', icon: Sparkles, cls: 'bg-warning/10 text-warning' },
 };
 
+/** 角色授权选项 (内部 / 外部分组). 外部 = 经销商/申请注册人 (lib/auth/roles.ts EXTERNAL_ROLES). */
+const ROLE_OPTIONS: { value: string; label: string; group: '内部员工' | '外部协作' }[] = [
+  { value: 'owner', label: 'Owner', group: '内部员工' },
+  { value: 'admin', label: '管理员', group: '内部员工' },
+  { value: 'champion', label: 'Champion', group: '内部员工' },
+  { value: 'steward', label: 'Steward', group: '内部员工' },
+  { value: 'manager', label: '经理', group: '内部员工' },
+  { value: 'employee', label: '员工', group: '内部员工' },
+  { value: 'partner', label: '合作伙伴', group: '外部协作' },
+  { value: 'guest', label: '访客 / 申请注册', group: '外部协作' },
+  { value: 'contractor', label: '承包商', group: '外部协作' },
+];
+
 export default function LaunchpadAdminPage() {
   const [apps, setApps] = useState<AppWithStats[]>([]);
   const [loading, setLoading] = useState(true);
@@ -392,15 +405,14 @@ function LaunchpadForm({
               className="w-full px-3 py-2 border border-slate-200 rounded-lg text-caption"
             />
           </Field>
-          <Field label="可见角色（逗号分隔，留空=不限）">
-            <input
-              value={(form.visibleToRoles ?? []).join(',')}
-              onChange={(e) =>
-                update('visibleToRoles', e.target.value.split(',').map((s) => s.trim()).filter(Boolean))
-              }
-              placeholder="manager,admin"
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-caption"
+          <Field label="可见角色（不选=不限角色都可见）">
+            <RoleChips
+              selected={form.visibleToRoles ?? []}
+              onChange={(roles) => update('visibleToRoles', roles)}
             />
+            <p className="text-footnote text-slate-400 mt-1.5">
+              授权给「外部协作」角色 (合作伙伴/经销商/申请注册人) 后, 该应用会出现在他们的外部首页 (/hub)。
+            </p>
           </Field>
           <Field label="AI 推荐关键词（逗号分隔）">
             <input
@@ -444,5 +456,47 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span className="text-footnote font-medium text-slate-700">{label}</span>
       <div className="mt-1">{children}</div>
     </label>
+  );
+}
+
+function RoleChips({
+  selected,
+  onChange,
+}: {
+  selected: string[];
+  onChange: (roles: string[]) => void;
+}) {
+  function toggle(value: string) {
+    onChange(selected.includes(value) ? selected.filter((r) => r !== value) : [...selected, value]);
+  }
+  const groups = ['内部员工', '外部协作'] as const;
+  return (
+    <div className="space-y-2.5">
+      {groups.map((g) => (
+        <div key={g}>
+          <span className="block text-footnote font-medium text-slate-500 mb-1">{g}</span>
+          <div className="flex flex-wrap gap-1.5">
+            {ROLE_OPTIONS.filter((r) => r.group === g).map((r) => {
+              const on = selected.includes(r.value);
+              return (
+                <button
+                  key={r.value}
+                  type="button"
+                  onClick={() => toggle(r.value)}
+                  aria-pressed={on}
+                  className={
+                    on
+                      ? 'px-2.5 py-1 rounded-full text-footnote font-medium border border-brand-500 bg-brand-50 text-brand-700'
+                      : 'px-2.5 py-1 rounded-full text-footnote font-medium border border-slate-200 text-slate-600 hover:border-slate-300'
+                  }
+                >
+                  {r.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }

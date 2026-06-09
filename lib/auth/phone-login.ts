@@ -11,6 +11,7 @@
 
 import { getStore } from '@/lib/storage/repository';
 import { issueSessionForExternalLogin, type AuthResult } from './native';
+import { DEFAULT_EXTERNAL_ROLES } from './roles';
 import { getSmsProvider } from './sms-provider';
 import {
   saveOtp,
@@ -96,11 +97,15 @@ export async function verifyPhoneCode(
   if (binding) {
     userId = binding.userId;
   } else {
+    // §上下游: 手机 OTP 新用户 = 未归属外部访客, 绝不默认 employee/default 内部身份。
+    // 落到 membershipType='pending' (待上游/管理员归属到某下游组织), 最小权限 guest。
     const created = await userStore.create({
       email: `${phone}@phone.tandem.local`,
       name: `用户${phone.slice(-4)}`,
-      roles: ['employee'],
+      roles: [...DEFAULT_EXTERNAL_ROLES],
       tenantId: 'default',
+      orgId: null,
+      membershipType: 'pending',
       emailVerifiedAt: new Date().toISOString(),
     });
     userId = created.id;

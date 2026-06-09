@@ -20,41 +20,16 @@ import type {
 import { embed, cosineSim, isEmbeddingConfigured } from '@/lib/infra/embedding';
 import { logger } from '@/lib/infra/logger';
 import { getStore } from '@/lib/boot';
+import { isAppVisibleTo, type ViewerCtx } from './launchpad-visibility';
 
 const RECOMMEND_TOP_N = 3;
 const RECOMMEND_MIN_SCORE = 0.18;
 
 // ---------------------------------------------------------------------------
-// Visibility
+// Visibility (纯逻辑已抽到 launchpad-visibility.ts, 此处 re-export 保持向后兼容)
 // ---------------------------------------------------------------------------
 
-export interface ViewerCtx {
-  userId: string;
-  roles: string[];
-  /** 用户所在部门 ID 列表 (从 org tree 解析) */
-  deptIds?: string[];
-  tenantId: string;
-}
-
-export function isAppVisibleTo(app: LaunchpadApp, viewer: ViewerCtx): boolean {
-  if (app.status !== 'active') return false;
-  if (app.tenantId !== viewer.tenantId) return false;
-
-  // role gate
-  if (app.visibleToRoles.length > 0) {
-    const ok = viewer.roles.some((r) => app.visibleToRoles.includes(r));
-    if (!ok) return false;
-  }
-
-  // dept gate (空数组 = 全员可见)
-  if (app.visibleTo.length > 0) {
-    const userDepts = viewer.deptIds ?? [];
-    const ok = userDepts.some((d) => app.visibleTo.includes(d));
-    if (!ok) return false;
-  }
-
-  return true;
-}
+export { isAppVisibleTo, type ViewerCtx };
 
 // ---------------------------------------------------------------------------
 // Credential vault (AES-256-GCM)

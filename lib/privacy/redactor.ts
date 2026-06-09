@@ -15,9 +15,11 @@
  *   - 内部实现迁移到 redactor 注册表, 加测试覆盖
  */
 
+import { DATA_STEWARD_ROLES } from '@/lib/auth/roles';
+
 export type RedactionScope =
   | 'self' // viewer 就是数据主人 (或本人参与方), 看全
-  | 'admin' // 系统管理员 / 租户 admin / hr, 看全
+  | 'admin' // 系统管理员 / 租户 admin / steward(HR), 看全
   | 'tenant' // 同租户其他员工
   | 'public'; // 未登录或跨租户
 
@@ -48,9 +50,7 @@ export function resolveScope(
     return 'self';
   }
   if (ctx.demo) return 'admin';
-  if (
-    ctx.viewerRoles.some((r) => ['admin', 'hr'].includes(r))
-  ) {
+  if (ctx.viewerRoles.some((r) => (DATA_STEWARD_ROLES as string[]).includes(r))) {
     return 'admin';
   }
   if (ctx.ownerTenantId && ctx.ownerTenantId !== ctx.viewerTenantId) {
