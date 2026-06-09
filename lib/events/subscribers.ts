@@ -162,6 +162,43 @@ export function registerCrossDomainSubscribers(): void {
       delta: p.to - p.from,
       source: p.source,
     });
+
+    // OKR & IM Synergy: If check-in happens outside of IM (e.g., in OKR dashboard),
+    // automatically notify the member's department channel.
+    if (p.source !== 'check-in') {
+      void (async () => {
+        try {
+          const { getStore } = await import('@/lib/boot');
+          const { sendMessage } = await import('@/lib/im/service');
+          const store = getStore();
+          
+          const kr = await store.keyResults.get(p.krId);
+          if (!kr) return;
+          
+          const user = await store.auth.users.findById(p.by);
+          if (!user || !user.departmentId) return;
+          
+          // Find any department or team channels for this department
+          const channels = await store.imChannels.list();
+          const targetCh = channels.find(
+            (c) =>
+              (c.type === 'department' || c.type === 'team') &&
+              c.departmentId === user.departmentId
+          );
+          
+          if (targetCh) {
+            await sendMessage({
+              channelId: targetCh.id,
+              senderId: 'system',
+              senderKind: 'system',
+              body: `📢 **部门 OKR 动态**：成员 **${user.name}** 更新了指标 **「${kr.title}」** 的进度：${p.from} ➔ ${p.to} ${kr.unit || ''}`,
+            });
+          }
+        } catch (err) {
+          logger.warn({ error: (err as Error).message }, '[subscribers] okr.kr-progressed cross-domain message failed');
+        }
+      })();
+    }
   });
 
   eventBus.on('okr.drift-detected', (p) => {
@@ -176,6 +213,53 @@ export function registerCrossDomainSubscribers(): void {
       },
       '[event] okr.drift-detected',
     );
+
+    // OKR & IM Synergy: Send private IM warning to user's direct DM when drift is detected
+    void (async () => {
+      try {
+        const { getStore } = await import('@/lib/boot');
+        const { sendMessage, getOrCreateDm } = await import('@/lib/im/service');
+        const store = getStore();
+
+        const actor = await store.auth.users.findById(p.actorId);
+        if (!actor) return;
+
+        // If alignment score is bad, send warning DM to the actor (or manager if available)
+        if (p.alignmentScore < 0.5) {
+          // Send to actor's DM as a system message warning
+          const dm = await getOrCreateDm('system', p.actorId);
+          await sendMessage({
+            channelId: dm.id,
+            senderId: 'system',
+            senderKind: 'system',
+            body: `⚠️ **Tandem AI 偏离警告**：你在进行「${p.source}」时偏离了当前 OKR 基准（对齐得分：${p.alignmentScore}，低于阈值 0.5）。请注意聚焦核心目标。`,
+          });
+        }
+      } catch (err) {
+        logger.warn({ error: (err as Error).message }, '[subscribers] okr.drift-detected DM notification failed');
+      }
+    })();
+  });
+
+  // B2 真 rollup: Objective 进度被向上重算 (替代旧"只打日志不传播"假闭环).
+  eventBus.on('okr.objective-rolled-up', (p) => {
+    logger.info(
+      {
+        objectiveId: p.objectiveId,
+        from: p.from,
+        to: p.to,
+        delta: p.to - p.from,
+        depth: p.depth,
+        triggeredByKrId: p.triggeredByKrId,
+        domain: 'okr→rollup',
+      },
+      '[event] okr.objective-rolled-up',
+    );
+    mirrorToUsage('event.okr.objective-rolled-up', null, {
+      objectiveId: p.objectiveId,
+      delta: p.to - p.from,
+      depth: p.depth,
+    });
   });
 
   eventBus.on('audit.event-emitted', (p) => {
@@ -186,7 +270,7 @@ export function registerCrossDomainSubscribers(): void {
   });
 
   logger.info(
-    { count: 9 },
+    { count: 10 },
     '[events] cross-domain subscribers registered',
   );
 }

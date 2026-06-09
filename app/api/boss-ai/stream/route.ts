@@ -81,57 +81,12 @@ export async function POST(req: NextRequest): Promise<Response> {
   await boot();
   const router = getRouter();
 
-  // ── 1. 服务端构建 systemPrompt (客户端无权改写) ──────────────────
-  //    §P1 Reranker · 用最新一条 user message 作为 query, 让 CompanyBrain Memory 注入按相关度排序
+  // §轻量字段 (无 IO)。所有重活 (Memory 构建 / preSearch / S1 感知, 合计 ~4s) 都移进
+  //   stream start() 内, 先回 status 事件让用户立刻看到进度, 而非干等 ~4s 才见首字节。
   const latestUserMessage = [...messages].reverse().find((m) => m.role === 'user')?.content ?? '';
-  let baseSystemPrompt: string;
-  try {
-    baseSystemPrompt = await buildCompanyBrainSystemPrompt({ query: latestUserMessage });
-  } catch (err) {
-    return sseError(`CompanyBrain prompt 构建失败: ${(err as Error).message}`, 500);
-  }
-
-  // ── 2. 注入页面/任务上下文 anchor ─────────────────────────────
-  const contextAnchor = buildContextAnchor({ currentPath, currentTask, userId: auth.userId });
-  let systemPrompt = `${baseSystemPrompt}\n\n${contextAnchor}`;
-
-  // §Pre-Search Layer · 时间敏感 / 公司 Memory 覆盖度低时主动联网 (不阻塞流式)
-  try {
-    const { preSearchLayer } = await import('@/lib/persona/company-brain');
-    const ps = await preSearchLayer(latestUserMessage, systemPrompt, auth.userId);
-    if (ps.searched) {
-      systemPrompt = ps.revisedSystemPrompt;
-    }
-  } catch {
-    // preSearch 失败不阻塞主流程
-  }
-
-  const rawChatMessages: ChatMessage[] = [
-    // §B-003 · system prompt 上挂 ephemeral 缓存; Anthropic 命中后输入 token ~10% 计费
-    { role: 'system', content: systemPrompt, cacheControl: 'ephemeral' },
-    ...messages.map((m) => ({ role: m.role, content: m.content })),
-  ];
-
-  // §Compaction: 长对话自动摘要中间历史, 保住首条 + 末 4 轮
-  const compaction = await compactMessages(rawChatMessages);
-  const chatMessages = compaction.messages;
-
-  // ── 3. 审计起点 (问题进 audit, 答案在 stream 结束后再写) ────────
   const userQuestion = messages[messages.length - 1]?.content ?? '';
-  deferAudit('boss_ai.ask', auth.userId, {
-    targetId: sessionId ?? 'no-session',
-    targetType: 'boss_ai_session',
-    metadata: {
-      questionPreview: userQuestion.slice(0, 200),
-      currentPath: currentPath ?? null,
-      messageCount: messages.length,
-      compacted: compaction.compacted,
-      droppedCount: compaction.droppedCount,
-    },
-    tenantId: auth.tenantId,
-  });
 
-  // ── 4. SSE 流式回写 ────────────────────────────────────────────
+  // ── SSE 流式回写 ────────────────────────────────────────────
   const encoder = new TextEncoder();
   let fullResponse = '';
 
@@ -156,6 +111,81 @@ export async function POST(req: NextRequest): Promise<Response> {
       req.signal.addEventListener('abort', onAbort);
 
       try {
+        // ── 1. 构建 systemPrompt (Memory rerank) · 先回 status 让前端立刻有反馈 ──
+        send({ status: '正在调取公司知识库…' });
+        let systemPrompt: string;
+        try {
+          const baseSystemPrompt = await buildCompanyBrainSystemPrompt({ query: latestUserMessage });
+          const contextAnchor = buildContextAnchor({ currentPath, currentTask, userId: auth.userId });
+          systemPrompt = `${baseSystemPrompt}\n\n${contextAnchor}`;
+        } catch (err) {
+          send({ error: `CompanyBrain prompt 构建失败: ${(err as Error).message}` });
+          send({ done: true });
+          return;
+        }
+
+        // ── 2. Pre-Search Layer · 时间敏感 / Memory 覆盖率低时主动联网 ──
+        try {
+          const { preSearchLayer } = await import('@/lib/persona/company-brain');
+          const ps = await preSearchLayer(latestUserMessage, systemPrompt, auth.userId);
+          if (ps.searched) {
+            send({ status: '正在联网查证最新信息…' });
+            systemPrompt = ps.revisedSystemPrompt;
+          }
+        } catch {
+          /* preSearch 失败不阻塞主流程 */
+        }
+
+        // ── 3. §S1 内部感知层 (CA-6/7) · 只读工具查 OKR/决议真值并注入 ──
+        //   "瞎子 → 能看": 基于 S0 rollup 真值作答, 而非静态注入文本。
+        try {
+          send({ status: '正在核对 OKR / 决议实时进度…' });
+          const { companyBrainPerceptionPass } = await import('@/lib/persona/company-brain-perception');
+          const perception = await companyBrainPerceptionPass(latestUserMessage, systemPrompt);
+          if (perception.perceived) {
+            systemPrompt = perception.revisedSystemPrompt;
+            deferAudit('output_guard.checked', auth.userId, {
+              targetId: sessionId ?? 'no-session',
+              targetType: 'company_brain_boss',
+              metadata: {
+                perception: true,
+                tools: perception.toolInvocations.map((t) => t.name),
+                toolCallCount: perception.log.toolCallCount,
+                roundsExecuted: perception.log.roundsExecuted,
+                latencyMs: perception.log.latencyMs,
+                triggerReason: perception.log.triggerReason,
+              },
+              tenantId: auth.tenantId,
+            });
+          }
+        } catch {
+          /* 感知层失败不阻塞主流程 (fail-soft) */
+        }
+
+        // ── 4. Compaction + 起点审计 ──
+        const rawChatMessages: ChatMessage[] = [
+          // §B-003 · system prompt 上挂 ephemeral 缓存; Anthropic 命中后输入 token ~10% 计费
+          { role: 'system', content: systemPrompt, cacheControl: 'ephemeral' },
+          ...messages.map((m) => ({ role: m.role, content: m.content })),
+        ];
+        const compaction = await compactMessages(rawChatMessages);
+        const chatMessages = compaction.messages;
+
+        deferAudit('boss_ai.ask', auth.userId, {
+          targetId: sessionId ?? 'no-session',
+          targetType: 'boss_ai_session',
+          metadata: {
+            questionPreview: userQuestion.slice(0, 200),
+            currentPath: currentPath ?? null,
+            messageCount: messages.length,
+            compacted: compaction.compacted,
+            droppedCount: compaction.droppedCount,
+          },
+          tenantId: auth.tenantId,
+        });
+
+        // ── 5. 流式回答 ──
+        send({ status: '正在组织回答…' });
         const stream = router.chatStream({
           messages: chatMessages,
           scenario: 'reasoning_complex',

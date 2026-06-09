@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { DATA_STEWARD_ROLES } from '@/lib/auth/roles';
 import { computeBossCaptureScore, checkUpgradeEligibility } from '@/lib/persona/evolution';
 
 /**
@@ -18,9 +19,7 @@ function checkSelfOrPrivileged(
   if (auth instanceof NextResponse) return auth;
   if (auth.userId === targetUserId) return null;
   if (auth.demo) return null;
-  const privileged = forWrite
-    ? ['admin']
-    : ['admin', 'hr', 'steward'];
+  const privileged: string[] = forWrite ? ['admin'] : DATA_STEWARD_ROLES;
   if (auth.roles.some((r) => privileged.includes(r))) return null;
   return NextResponse.json({ error: 'forbidden' }, { status: 403 });
 }

@@ -129,6 +129,11 @@ export interface ImMessage {
   spawnedPromotionId?: string;
   /** §IM-7 (CHARTER-FOUR-PILLARS) · AI 回复透明化: 关联 LlmUsageLog.requestId, 仅 senderKind='persona' 消息有值 */
   aiTraceId?: string;
+  /**
+   * 流式前置状态提示 (transient · UX): CompanyBrain 在首 token 前的分阶段进度文案
+   * (如 "正在核对 OKR…"). 首个 content delta 到达时被清空 ('')。不参与 preview/持久语义。
+   */
+  statusText?: string;
 }
 
 // ---------------------------------------------------------------------------

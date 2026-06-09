@@ -13,6 +13,7 @@
  *   - im_reply        : IM 自动回复 (lib/im/service.ts)
  *   - decision_draft  : 议事室代起草决议卡
  *   - email_draft     : 邮件代起草
+ *   - ontology_action : 中央 AI 提议的本体写动作 (ON-2, 延迟执行: 否决窗过/确认后才真写)
  *
  * 状态机:
  *   drafted        — 已起草, 未发送 (黄区, 等员工确认或否决)
@@ -34,7 +35,8 @@ export type ProxyActionKind =
   | 'communication'
   | 'im_reply'
   | 'decision_draft'
-  | 'email_draft';
+  | 'email_draft'
+  | 'ontology_action';
 
 export type ProxyActionStatus =
   | 'drafted'

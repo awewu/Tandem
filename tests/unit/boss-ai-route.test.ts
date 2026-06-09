@@ -107,6 +107,9 @@ describe('/api/boss-ai/stream', () => {
     const req1 = mockReq({ messages: [{ role: 'user', content: '第一次' }] });
     const r1 = await POST(req1);
     expect(r1.status).toBe(200);
+    // 重活 (含 boss_ai.ask 审计) 现已移进 stream start() 内异步执行; 必须 drain r1
+    // 否则其后台审计会在下个用例 beforeEach 清空后才落入 auditCalls, 污染断言。
+    await readAllSse(r1);
     const req2 = mockReq({ messages: [{ role: 'user', content: '第二次' }] });
     const r2 = await POST(req2);
     expect(r2.status).toBe(429);

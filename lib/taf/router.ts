@@ -97,7 +97,11 @@ export class TandemRouter {
   /** 阻塞调用, 自动 fallback */
   async chat(req: ChatRequest): Promise<ChatResponse> {
     req = await this.preprocessMessages(req);
-    const candidates = this.resolveCandidates(req.scenario, req.forceProvider);
+    const candidates = this.resolveCandidates(
+      req.scenario,
+      req.forceProvider,
+      hasTools(req),
+    );
 
     let lastError: unknown;
     for (const name of candidates) {
@@ -166,7 +170,11 @@ export class TandemRouter {
   /** 流式调用 */
   async *chatStream(req: ChatRequest): AsyncIterable<ChatChunk> {
     req = await this.preprocessMessages(req);
-    const candidates = this.resolveCandidates(req.scenario, req.forceProvider);
+    const candidates = this.resolveCandidates(
+      req.scenario,
+      req.forceProvider,
+      hasTools(req),
+    );
 
     for (const name of candidates) {
       const provider = this.providers.get(name);
@@ -198,24 +206,38 @@ export class TandemRouter {
   // Internal
   // ---------------------------------------------------------------------------
 
-  private resolveCandidates(scenario?: ScenarioTag, forceProvider?: string): string[] {
+  private resolveCandidates(
+    scenario?: ScenarioTag,
+    forceProvider?: string,
+    requireFunctionCalling = false,
+  ): string[] {
+    let candidates: string[];
+
     // 中央AI/个人AI 偏好: forceProvider 优先, 不在则退回场景规则
     if (forceProvider && this.providers.has(forceProvider)) {
       const rule = scenario ? this.rules.find((r) => r.scenario === scenario) : undefined;
       const fallbacks = rule ? [rule.primary, ...rule.fallbacks].filter((p) => p !== forceProvider) : [];
-      return [forceProvider, ...fallbacks];
+      candidates = [forceProvider, ...fallbacks];
+    } else if (!scenario) {
+      candidates = Array.from(this.providers.keys());
+    } else {
+      const rule = this.rules.find((r) => r.scenario === scenario);
+      candidates = rule ? [rule.primary, ...rule.fallbacks] : Array.from(this.providers.keys());
     }
 
-    if (!scenario) {
-      return Array.from(this.providers.keys());
+    // ⚠️ 带 tools 的请求绝不能路由到不支持 function calling 的 provider:
+    //   否则模型要么报错要么静默忽略 tools → 工具循环拿 0 工具 → 上层 (S1 感知 /
+    //   S2 议事参谋) fail-soft 返空 = "精致的假"。例: reasoning_complex 首选 fallback
+    //   deepseek-r1 (functionCalling=false), 不过滤则 tool 请求会先打到它。
+    //   只过滤"已注册且不支持"的; 未注册名留着 (调用循环里自然 skip)。
+    if (requireFunctionCalling) {
+      candidates = candidates.filter((name) => {
+        const p = this.providers.get(name);
+        return !p || p.capabilities.functionCalling;
+      });
     }
 
-    const rule = this.rules.find((r) => r.scenario === scenario);
-    if (!rule) {
-      return Array.from(this.providers.keys());
-    }
-
-    return [rule.primary, ...rule.fallbacks];
+    return candidates;
   }
 
   private isRecoverable(err: unknown): boolean {
@@ -290,4 +312,9 @@ export class TandemRouter {
       return req;
     }
   }
+}
+
+/** 请求是否携带 tools (用于路由时过滤掉不支持 function calling 的 provider) */
+function hasTools(req: ChatRequest): boolean {
+  return Array.isArray(req.tools) && req.tools.length > 0;
 }

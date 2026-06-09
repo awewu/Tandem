@@ -18,6 +18,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { DATA_STEWARD_ROLES } from '@/lib/auth/roles';
 import type { CheckIn, TTI, KeyResult } from '@/lib/types/okr-tti';
 import type { MemoryEntry } from '@/lib/types/memory';
 import type { Persona } from '@/lib/types/persona';
@@ -70,7 +71,7 @@ function checkSelfOrPrivileged(
   if (auth instanceof NextResponse) return auth;
   if (auth.userId === targetUserId) return null;
   if (auth.demo) return null;
-  if (auth.roles.some((r) => ['admin', 'hr', 'steward'].includes(r))) return null;
+  if (auth.roles.some((r) => (DATA_STEWARD_ROLES as string[]).includes(r))) return null;
   return NextResponse.json({ error: 'forbidden' }, { status: 403 });
 }
 

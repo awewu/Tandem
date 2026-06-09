@@ -252,3 +252,149 @@ describe('B-027 价值观锚注入', () => {
     expect(systemMsg.content).not.toContain('## 不可妥协原则');
   });
 });
+
+// ---------------------------------------------------------------------------
+// 10. B-024 真学习闭环 · self-hint 在 Option B 生产注入
+// ---------------------------------------------------------------------------
+
+describe('B-024 self-hint 注入', () => {
+  it('员工有历史自省时, Option B 的 system prompt 真带「自省教训」段 + warning', async () => {
+    const userId = 'u_reflexion';
+    // 1. 先 seed 一个分身 (reflectOnDecision 要求 learningActive)
+    const store = (await import('@/lib/storage/repository')).getStore();
+    await store.personas.create({
+      id: `persona_${userId}`,
+      userId,
+      schemaVersion: 'tandem.v1',
+      stage: 'apprentice',
+      stageEnteredAt: new Date().toISOString(),
+      delegationLevel: 'report_only',
+      decisionHistory: { totalDecisions: 0, selfMade: 0, aiAssisted: 0, vetoedByUser: 0, vetoRate: 0 },
+      styleProfile: {
+        decisionSpeed: 'medium',
+        riskAppetite: 0.5,
+        communicationStyle: 'analytical',
+        preferredOptions: [],
+        communicationExamples: [],
+      },
+      growthAreas: [],
+      bossCaptureScore: 0,
+      dataOwnership: { companyOwnsData: true, anonymizationPending: false, employeeCanExportOrigins: true },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      learningActive: true,
+    } as never);
+
+    // 2. mock 反思的 LLM router (落 lesson) — 用 globalThis 同 reflexion.test.ts 模式
+    const G = globalThis as { __tandem_router__?: unknown };
+    G.__tandem_router__ = {
+      chat: async () => ({
+        message: { content: JSON.stringify({ lesson: '上次报价漏 ROI', hint: '预算>10万先确认 ROI' }) },
+      }),
+      listProviders: () => [],
+      healthCheckAll: async () => ({}),
+    };
+    const { reflectOnDecision } = await import('@/lib/persona/reflexion');
+    await reflectOnDecision({
+      id: 'dc_seed_1',
+      title: '客户投诉处理',
+      description: '某 KA 客户投诉报价偏高',
+      createdBy: userId,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      convergenceState: 'VETOED',
+      options: [{ id: 'B', type: 'reasoning', description: 'B方案', confidence: 0.7 }],
+    } as never);
+
+    // 3. 议事 Option B 生成时, system prompt 应带"自省教训"
+    const router = makeMockRouter();
+    const engine = new ThreePlusOneEngine(router, new StubMemoryRetriever());
+    const r = await engine.generateOptions({ ...ctxBase, actorUserId: userId });
+
+    const chatMock = router.chat as unknown as ReturnType<typeof vi.fn>;
+    const systemMsg = chatMock.mock.calls[0][0].messages.find(
+      (m: { role: string }) => m.role === 'system',
+    );
+    expect(systemMsg.content).toContain('自省教训');
+    expect(systemMsg.content).toContain('上次报价漏 ROI');
+    // warning 提示
+    expect(r.warnings.some((w) => w.includes('B-024 真学习'))).toBe(true);
+
+    // 清场
+    delete G.__tandem_router__;
+  });
+
+  it('员工无历史自省时, Option B system prompt 不含「自省教训」段', async () => {
+    const router = makeMockRouter();
+    const engine = new ThreePlusOneEngine(router, new StubMemoryRetriever());
+    await engine.generateOptions({ ...ctxBase, actorUserId: 'u_no_reflexion' });
+
+    const chatMock = router.chat as unknown as ReturnType<typeof vi.fn>;
+    const systemMsg = chatMock.mock.calls[0][0].messages.find(
+      (m: { role: string }) => m.role === 'system',
+    );
+    expect(systemMsg.content).not.toContain('自省教训');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 11. B-022 出站联网 · 议事 Option B 接 web search (与 IM/BossAI 对齐)
+// ---------------------------------------------------------------------------
+
+describe('B-022 出站联网注入', () => {
+  it('preSearchLayer 触发时, Option B system prompt 真带外部信息段 + warning', async () => {
+    // 桩 preSearchLayer: 模拟时间敏感词触发 + 返回 web 上下文
+    const cb = await import('@/lib/persona/company-brain');
+    const spy = vi.spyOn(cb, 'preSearchLayer').mockResolvedValue({
+      searched: true,
+      revisedSystemPrompt: '【外部联网信息 · 仅供本轮上下文】\n来源: Tavily\n- 2026-06 行业新闻: AI 模型成本下降 30%',
+      extraMessages: [],
+      provider: 'tavily',
+      log: { query: 'q', triggerReason: 'time-sensitive keywords', resultCount: 3, latencyMs: 250, checkId: 'ps_test_1' },
+    });
+
+    const router = makeMockRouter();
+    const engine = new ThreePlusOneEngine(router, new StubMemoryRetriever());
+    const r = await engine.generateOptions({
+      ...ctxBase,
+      title: '采购最新 AI 服务',
+      description: '最近行业新出 GPT-5, 是否切换',
+      actorUserId: 'u_websearch',
+    });
+
+    const chatMock = router.chat as unknown as ReturnType<typeof vi.fn>;
+    const systemMsg = chatMock.mock.calls[0][0].messages.find(
+      (m: { role: string }) => m.role === 'system',
+    );
+    expect(systemMsg.content).toContain('外部联网信息');
+    expect(systemMsg.content).toContain('AI 模型成本下降 30%');
+    expect(r.warnings.some((w) => w.includes('B-022 出站'))).toBe(true);
+    spy.mockRestore();
+  });
+
+  it('preSearchLayer 未触发时, Option B system prompt 不含外部信息段', async () => {
+    // 默认无 TAVILY/BRAVE key → preSearchLayer 直接 emptyResult, searched=false
+    const router = makeMockRouter();
+    const engine = new ThreePlusOneEngine(router, new StubMemoryRetriever());
+    await engine.generateOptions({ ...ctxBase, actorUserId: 'u_no_web' });
+
+    const chatMock = router.chat as unknown as ReturnType<typeof vi.fn>;
+    const systemMsg = chatMock.mock.calls[0][0].messages.find(
+      (m: { role: string }) => m.role === 'system',
+    );
+    expect(systemMsg.content).not.toContain('外部联网信息');
+  });
+
+  it('preSearchLayer 抛错 → fail-soft, 议事不阻塞 + warning', async () => {
+    const cb = await import('@/lib/persona/company-brain');
+    const spy = vi.spyOn(cb, 'preSearchLayer').mockRejectedValue(new Error('Tavily down'));
+
+    const router = makeMockRouter();
+    const engine = new ThreePlusOneEngine(router, new StubMemoryRetriever());
+    const r = await engine.generateOptions({ ...ctxBase, actorUserId: 'u_web_err' });
+
+    expect(r.options.length).toBe(4);
+    expect(r.warnings.some((w) => w.includes('出站联网失败'))).toBe(true);
+    spy.mockRestore();
+  });
+});

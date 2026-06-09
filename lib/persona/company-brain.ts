@@ -219,10 +219,16 @@ export async function buildCompanyBrainSystemPrompt(opts?: {
 }): Promise<string> {
   const { bucketMemoriesByKind } = await import('@/lib/types/memory');
   const { rerank } = await import('@/lib/memory/reranker');
+  const { getActiveBrainVersion } = await import('./company-brain-version');
   const store = getStore();
   const allMems = await store.memories.list();
   const companyMems = allMems.filter((m) => m.ownershipLevel === 'company');
   const okrContext = await buildOkrAnchorContext();
+
+  // CA-13 读侧: 注入数量 + 风格取自当前生效版本, 让反思签批后的配置真正生效。
+  const activeVersion = await getActiveBrainVersion();
+  const perBucket = Math.max(1, Math.ceil(activeVersion.topKMemoriesInjected / 2));
+  const style = activeVersion.styleProfileSnapshot;
 
   // §P0 #3 · 按 kind 分桶: brief 优先 procedural (做事方法) + semantic (事实), episodic 留底
   const buckets = bucketMemoriesByKind(companyMems);
@@ -258,10 +264,10 @@ export async function buildCompanyBrainSystemPrompt(opts?: {
       `(procedural ${buckets.procedural.length} / semantic ${buckets.semantic.length} / episodic ${buckets.episodic.length})】`,
   ];
 
-  // §P0 #3 · 注入顺序: procedural 优先 → semantic → episodic, 各 ≤ 5 条 (P1: rerank by query)
+  // §P0 #3 · 注入顺序: procedural 优先 → semantic → episodic, 各 ≤ perBucket 条 (P1: rerank by query)
   const inject = [
-    ...pickTop(buckets.procedural, 5),
-    ...pickTop(buckets.semantic, 5),
+    ...pickTop(buckets.procedural, perBucket),
+    ...pickTop(buckets.semantic, perBucket),
   ];
   inject.forEach((m, i) => {
     lines.push(`${i + 1}. [${m.kind ?? 'auto'}] ${m.title}`);
@@ -273,8 +279,12 @@ export async function buildCompanyBrainSystemPrompt(opts?: {
     lines.push(`(... 还有 ${remaining} 条公司 Memory 未注入, 含 ${buckets.episodic.length} 条 episodic)`);
   }
 
+  const speedLabel = { fast: '快', medium: 'medium', slow: '慎' }[style.decisionSpeed];
+  const commLabel = { direct: '直接', diplomatic: '外交型', analytical: '分析型' }[style.communicationStyle];
   lines.push('');
-  lines.push('【风格】决策速度=medium · 风险偏好=低 (0.4) · 沟通=分析型 · 优先 SOP/reasoning/historical');
+  lines.push(
+    `【风格】决策速度=${speedLabel} · 风险偏好=${style.riskAppetite.toFixed(1)} · 沟通=${commLabel} · 优先 SOP/reasoning/historical`,
+  );
 
   return lines.join('\n');
 }

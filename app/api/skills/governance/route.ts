@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { DATA_STEWARD_ROLES } from '@/lib/auth/roles';
 import { listSkillRecords, submitForReview, reviewSkill, suspendSkill } from '@/lib/taf/skills/governance';
 
 /**
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ record: r });
     }
     if (body.action === 'review') {
-      if (!auth.roles.some((r) => ['admin', 'steward', 'governance'].includes(r))) {
+      if (!auth.roles.some((r) => (DATA_STEWARD_ROLES as string[]).includes(r))) {
         return NextResponse.json({ error: 'forbidden' }, { status: 403 });
       }
       if (!body.decision) {
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest) {
       const r = await reviewSkill(
         body.recordId,
         auth.userId,
-        auth.roles[0] ?? 'governance',
+        auth.roles[0] ?? 'steward',
         body.decision,
         body.comment,
         body.stagingScope,

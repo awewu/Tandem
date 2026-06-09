@@ -15,6 +15,10 @@ import {
   approveReflection,
 } from '@/lib/persona/company-brain-reflection';
 import { recordDecision, setFeedback } from '@/lib/persona/company-brain-decision';
+import {
+  getActiveBrainVersion,
+  invalidateBrainVersionCache,
+} from '@/lib/persona/company-brain-version';
 import { getStore, setStore } from '@/lib/storage/repository';
 import { createInMemoryStore } from '@/lib/storage/memory-store';
 import type { CompanyBrainVersion } from '@/lib/types/company-brain';
@@ -34,6 +38,7 @@ async function reset() {
   for (const v of await store.companyBrainVersions.list()) {
     await store.companyBrainVersions.delete(v.id);
   }
+  invalidateBrainVersionCache();
 }
 
 async function seedVersion(overrides: Partial<CompanyBrainVersion> = {}): Promise<CompanyBrainVersion> {
@@ -172,6 +177,58 @@ describe('§CA-13 · CompanyBrain Reflection 生成器', () => {
   it('approveReflection 不存在的 reportId 返回 null', async () => {
     const r = await approveReflection('nonexistent', true, 'owner1');
     expect(r).toBeNull();
+  });
+
+  it('CA-13 闭环写侧: 签批含 diff 的报告 → 创建新版本 + resultingVersionId + 配置生效', async () => {
+    // topK=8 + 10 采纳 → 提议 topKMemoriesInjectedDiff=10
+    await seedVersion({ topKMemoriesInjected: 8 });
+    for (let i = 0; i < 10; i++) {
+      await seedDecision({ outcome: 'adopted' });
+    }
+    const r = await generateReflection({ useLlm: false });
+    expect(r!.proposedChanges.topKMemoriesInjectedDiff).toBe(10);
+
+    const before = (await getStore().companyBrainVersions.list()).length;
+    const approved = await approveReflection(r!.id, true, 'owner1', 'apply it');
+    expect(approved!.approvalStatus).toBe('approved');
+    // 写侧: 新版本被创建
+    expect(approved!.resultingVersionId).toBeDefined();
+    const after = await getStore().companyBrainVersions.list();
+    expect(after.length).toBe(before + 1);
+    const newVersion = after.find((v) => v.id === approved!.resultingVersionId)!;
+    expect(newVersion.version).toBe(2);
+    expect(newVersion.topKMemoriesInjected).toBe(10);
+    expect(newVersion.createdReason).toBe('auto_reflection');
+    expect(newVersion.previousVersionId).toBe('cbv_v1_seed');
+    expect(newVersion.approvedBy).toBe('owner1');
+    // 读侧: getActiveBrainVersion 立即读到新版本 (缓存已失效)
+    const active = await getActiveBrainVersion();
+    expect(active.id).toBe(approved!.resultingVersionId);
+    expect(active.topKMemoriesInjected).toBe(10);
+  });
+
+  it('CA-13 写侧: 签批仅 rationale 无 diff → 不造新版本', async () => {
+    await seedVersion();
+    // 1 采纳 1 推翻 = 50% 推翻率, 但 topK=10 不触发上调; overruleRate 0.5 会触发 hardBlock diff
+    // 改用全采纳但 topK 已到 20 避免任何 diff: seed topK=20
+    await getStore().companyBrainVersions.update('cbv_v1_seed', {
+      ...(await getStore().companyBrainVersions.get('cbv_v1_seed'))!,
+      topKMemoriesInjected: 20,
+    });
+    invalidateBrainVersionCache();
+    for (let i = 0; i < 3; i++) {
+      await seedDecision({ outcome: 'adopted' });
+    }
+    const r = await generateReflection({ useLlm: false });
+    expect(r!.proposedChanges.topKMemoriesInjectedDiff).toBeUndefined();
+    expect(r!.proposedChanges.baselineThresholdsDiff).toBeUndefined();
+
+    const before = (await getStore().companyBrainVersions.list()).length;
+    const approved = await approveReflection(r!.id, true, 'owner1');
+    expect(approved!.approvalStatus).toBe('approved');
+    expect(approved!.resultingVersionId).toBeUndefined();
+    const after = (await getStore().companyBrainVersions.list()).length;
+    expect(after).toBe(before);
   });
 
   it('窗口内无决策 → null (即使有历史决策但都在窗口外, 这里仅验证 0 决策路径)', async () => {

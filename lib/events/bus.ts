@@ -89,7 +89,7 @@ export interface DomainEventMap {
     from: number;
     to: number;
     by: string;
-    source: 'check-in' | 'daily-report' | 'manual' | 'ai-bulk';
+    source: 'check-in' | 'daily-report' | 'manual' | 'ai-bulk' | 'initiative';
     timestamp: number;
   };
   'okr.drift-detected': {
@@ -98,6 +98,20 @@ export interface DomainEventMap {
     targetType: string;
     source: string;
     alignmentScore: number;
+    timestamp: number;
+  };
+  /**
+   * B2 真 rollup (2026-06-02): KR 进度变化向上传播后, 每个被重算的 Objective 发一条.
+   * 供 drift detector / health monitor / company-brain 订阅 (跨域反应), 替代旧"只打日志"假闭环.
+   */
+  'okr.objective-rolled-up': {
+    objectiveId: string;
+    from: number;
+    to: number;
+    /** 触发源 KR (若由 KR check-in 触发) */
+    triggeredByKrId?: string;
+    /** 距叶子的层数 (0 = 直接所属 O, 1 = 其父, ...) */
+    depth: number;
     timestamp: number;
   };
 

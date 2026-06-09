@@ -216,6 +216,45 @@ export class ThreePlusOneEngine {
       }
     }
 
+    // B-024 真学习闭环 · 读侧: 注入该员工过去的语言化自省教训 (Reflexion self-hint).
+    // 飞轮: 议事 VETOED → reflectOnDecision 落 lesson → 下次议事这里召回 → Option B 不再犯同类错.
+    // fail-soft: 召回失败不阻塞决策.
+    let selfHintSegment = '';
+    if (ctx.actorUserId) {
+      try {
+        const { injectSelfHints } = await import('../persona/reflexion');
+        // 用 description 作为查询 (议题语义), 注入到一个空 prompt 里仅取增量段
+        const inj = await injectSelfHints('', ctx.actorUserId, ctx.description);
+        if (inj.hintCount > 0) {
+          // 去掉 leading "\n" (空 prompt 起头会留 newline)
+          selfHintSegment = inj.revisedSystemPrompt.replace(/^\n+/, '');
+          warnings.push(`已注入 ${inj.hintCount} 条历史自省教训 (B-024 真学习)`);
+        }
+      } catch (err) {
+        warnings.push(`自省召回失败 (fail-soft): ${(err as Error).message}`);
+      }
+    }
+
+    // B-022 出站联网 · 议事 Option B 接 web search (与 IM/BossAI 对齐).
+    // 触发: 时间敏感词 / 公司 Memory 覆盖度低. 复用 preSearchLayer (Tavily/Brave).
+    // fail-soft: provider 缺/网络错都不阻塞议事.
+    let webContextSegment = '';
+    if (ctx.actorUserId) {
+      try {
+        const { preSearchLayer } = await import('../persona/company-brain');
+        const query = `${ctx.title} ${ctx.description}`;
+        const ps = await preSearchLayer(query, '', ctx.actorUserId);
+        if (ps.searched) {
+          webContextSegment = ps.revisedSystemPrompt.replace(/^\n+/, '');
+          warnings.push(
+            `已注入外部联网信息 (B-022 出站, provider: ${ps.provider ?? 'unknown'}, ${ps.log.resultCount} 条, ${ps.log.latencyMs}ms)`,
+          );
+        }
+      } catch (err) {
+        warnings.push(`出站联网失败 (fail-soft): ${(err as Error).message}`);
+      }
+    }
+
     // OKR 锚注入 (OKR-driven 第一性原理): 让 Option B 始终知道公司在追什么 OKR.
     let okrContext = '';
     try {
@@ -223,6 +262,20 @@ export class ThreePlusOneEngine {
       okrContext = await buildOkrAnchorContext();
     } catch (err) {
       warnings.push(`OKR 锚注入失败 (fail-soft): ${(err as Error).message}`);
+    }
+
+    // S2·CA-5 多步参谋推理: Option B 前跑 runMultiStep 只读工具收集历史决议/OKR真值/风险简报.
+    // fail-soft: 出错 (含未 boot router) 返空简报, 不改变原 single-shot 行为.
+    let reasoningBrief = '';
+    try {
+      const { buildDecisionReasoningBrief } = await import('./reasoning-pass');
+      const r = await buildDecisionReasoningBrief(ctx);
+      if (r.reasoned) {
+        reasoningBrief = r.brief;
+        warnings.push(`已注入多步参谋简报 (S2: ${r.toolsUsed.length} 次工具调用, traceId: ${r.log.traceId})`);
+      }
+    } catch (err) {
+      warnings.push(`多步参谋推理失败 (fail-soft): ${(err as Error).message}`);
     }
 
     const [sopResults, caseResults] = await Promise.all([
@@ -233,7 +286,7 @@ export class ThreePlusOneEngine {
     // A: SOP-based
     const optionA = await this.buildOptionA(ctx, sopResults, warnings);
     // B: LLM reasoning (硬前置价值观锚 → 组织记忆基线 → 推理底座)
-    const optionB = await this.buildOptionB(ctx, sopResults, caseResults, warnings, baselineContext, constitutionSegment, okrContext);
+    const optionB = await this.buildOptionB(ctx, sopResults, caseResults, warnings, baselineContext, constitutionSegment, okrContext, reasoningBrief, selfHintSegment, webContextSegment);
     // C: Historical
     const optionC = await this.buildOptionC(ctx, caseResults, warnings);
     // D: 员工原创占位 (humanOnly=true)
@@ -292,7 +345,10 @@ export class ThreePlusOneEngine {
     warnings: string[],
     baselineContext = '',
     constitutionSegment = '',
-    okrContext = ''
+    okrContext = '',
+    reasoningBrief = '',
+    selfHintSegment = '',
+    webContextSegment = ''
   ): Promise<DecisionOption> {
     const sopHints = sops.map((s) => `- SOP《${s.title}》: ${s.body.slice(0, 200)}`).join('\n');
     const caseHints = cases.map((c) => `- 案例《${c.title}》: ${c.body.slice(0, 200)}`).join('\n');
@@ -310,10 +366,13 @@ export class ThreePlusOneEngine {
 - 不要复述 SOP, 给出更优 / 更灵活的方案
 - 必须基于事实, 引用 SOP/案例支持`;
 
-    // B-027 价值观锚硬前置在最前 (优先级高于组织记忆基线 + 推理底座)
-    const systemContent = constitutionSegment
-      ? `${constitutionSegment}\n\n---\n\n${baseInstruction}`
-      : baseInstruction;
+    // 优先级: B-027 价值观锚 (硬红线) → B-024 自省教训 (历史失败) → B-022 外部联网信息 → 基线 + 推理底座.
+    const systemSegments: string[] = [];
+    if (constitutionSegment) systemSegments.push(constitutionSegment);
+    if (selfHintSegment) systemSegments.push(selfHintSegment);
+    if (webContextSegment) systemSegments.push(webContextSegment);
+    systemSegments.push(baseInstruction);
+    const systemContent = systemSegments.join('\n\n---\n\n');
 
     const messages: ChatMessage[] = [
       {
@@ -326,6 +385,7 @@ export class ThreePlusOneEngine {
 描述: ${ctx.description}
 ${ctx.relatedKrTitles ? `关联 KR: ${ctx.relatedKrTitles.join(', ')}` : ''}
 ${okrContext ? `\n【当前公司 OKR 锐·你的方案应回答服务哪个 KR】\n${okrContext}\n` : ''}
+${reasoningBrief ? `\n${reasoningBrief}\n` : ''}
 可参考 SOP:
 ${sopHints || '(无)'}
 

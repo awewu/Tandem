@@ -40,6 +40,8 @@ export interface ToolInvocationRecord {
   ok: boolean;
   error?: string;
   latencyMs: number;
+  /** true = 本轮已用相同 (skill+args) 调用过, 直接复用缓存结果, 未再执行 */
+  cached?: boolean;
 }
 
 export interface ToolLoopInput {
@@ -86,8 +88,24 @@ export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult>
     const { skillRegistry } = await import('@/lib/taf/skills/registry');
 
     // 1. 拼工具 schemas (从白名单 skill 取)
+    //    ⚠️ OpenAI/DeepSeek function-calling 规范要求 name 匹配 ^[a-zA-Z0-9_-]+$,
+    //    但 skill id 带点 (e.g. 'okr.health_digest')。若原样下发, 模型会把点
+    //    归一化成下划线再回传 (okr_health_digest), 导致白名单/registry 查找全 miss
+    //    → 每个 tool_call 被判 tool_not_allowed → 中央AI 永远"瞎"。
+    //    故: 下发时 sanitize, 回传时按映射还原回真实 skill id。
+    const nameToSkillId = new Map<string, string>();
     const tools: ToolSchema[] = input.toolset
-      .map((id) => skillRegistry.get(id)?.schema)
+      .map((id) => {
+        const schema = skillRegistry.get(id)?.schema;
+        if (!schema) return undefined;
+        const safeName = sanitizeToolName(id);
+        nameToSkillId.set(safeName, id);
+        // 克隆, 不要 mutate 共享的 registry schema
+        return {
+          ...schema,
+          function: { ...schema.function, name: safeName },
+        } satisfies ToolSchema;
+      })
       .filter((s): s is ToolSchema => Boolean(s));
 
     if (tools.length === 0) {
@@ -102,6 +120,11 @@ export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult>
       { role: 'system', content: input.systemPrompt },
       { role: 'user', content: input.userQuery },
     ];
+
+    // 同一次 loop 内的工具结果缓存: key = skillId + 稳定序列化 args。
+    //   只读工具幂等, 模型常重复调同一查询 (实测 reasoning-pass memory.search 调 4+ 次),
+    //   命中缓存则直接复用 + 提示模型勿重复 → 省 DB/省 token + 助收敛。
+    const resultCache = new Map<string, ToolInvocationRecord>();
 
     for (let round = 1; round <= maxRounds; round++) {
       roundsExecuted = round;
@@ -142,7 +165,8 @@ export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult>
 
       // 顺序执行每个 tool_call, 把 result 喂回 messages (role='tool')
       for (const tc of toolCalls) {
-        const skillId = tc.function.name;
+        // 模型回传的 name 可能是 sanitize 后的形式 (点→下划线); 还原回真实 skill id
+        const skillId = nameToSkillId.get(tc.function.name) ?? tc.function.name;
         let parsedArgs: Record<string, unknown> = {};
         try {
           parsedArgs = tc.function.arguments
@@ -154,6 +178,7 @@ export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult>
 
         const invStart = Date.now();
         let invocation: ToolInvocationRecord;
+        const cacheKey = `${skillId}:${stableStringify(parsedArgs)}`;
 
         if (!input.toolset.includes(skillId)) {
           // 安全: LLM 调了不在白名单的工具
@@ -165,6 +190,21 @@ export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult>
             ok: false,
             error: 'tool_not_allowed',
             latencyMs: Date.now() - invStart,
+          };
+        } else if (resultCache.has(cacheKey)) {
+          // 同参数重复调用 → 复用缓存, 不再执行, 并提示模型勿重复查询
+          const cached = resultCache.get(cacheKey)!;
+          invocation = {
+            toolCallId: tc.id,
+            name: skillId,
+            args: parsedArgs,
+            result: cached.ok
+              ? `${cached.result}\n(注: 本轮已用相同参数调用过 ${skillId}, 上为缓存结果; 请勿重复查询, 据此继续或收敛。)`
+              : cached.result,
+            ok: cached.ok,
+            error: cached.error,
+            latencyMs: 0,
+            cached: true,
           };
         } else {
           const skillResult = await skillRegistry.execute(skillId, parsedArgs, {
@@ -183,6 +223,7 @@ export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult>
             error: skillResult.error,
             latencyMs: Date.now() - invStart,
           };
+          resultCache.set(cacheKey, invocation);
         }
 
         toolInvocations.push(invocation);
@@ -226,4 +267,26 @@ export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult>
 
 function truncate(s: string, max: number): string {
   return s.length > max ? `${s.slice(0, max)}...(truncated)` : s;
+}
+
+/**
+ * 稳定序列化 (对象键排序), 让 {a:1,b:2} 与 {b:2,a:1} 产生同一缓存 key。
+ * 仅用于工具调用去重, 不追求完整 JSON 语义。
+ */
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? 'null';
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+  const entries = Object.entries(value as Record<string, unknown>)
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([k, v]) => `${JSON.stringify(k)}:${stableStringify(v)}`);
+  return `{${entries.join(',')}}`;
+}
+
+/**
+ * 把 skill id 转成 OpenAI/DeepSeek function-calling 规范允许的 name:
+ * 仅 [a-zA-Z0-9_-], 其余 (尤其点 '.') 全部转下划线。
+ * 例: 'okr.health_digest' → 'okr_health_digest', 'decision_card.list' → 'decision_card_list'。
+ */
+function sanitizeToolName(id: string): string {
+  return id.replace(/[^a-zA-Z0-9_-]/g, '_');
 }

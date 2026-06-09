@@ -15,6 +15,7 @@
  */
 
 import type { ToolSchema } from '../provider/types';
+import type { DataScopeLevel } from '../../auth/data-scope';
 import { audit } from '../../audit/log';
 
 // ---------------------------------------------------------------------------
@@ -55,6 +56,16 @@ export interface Skill<TArgs = unknown, TResult = unknown> {
   zone: SkillZone;
   /** AI 代行是否允许 (red zone 永远 false) */
   proxyAllowed: boolean;
+  /**
+   * 数据边界声明 (可选)。一旦声明, registry.execute 会在执行前**强制**校验调用方
+   * 是否有权访问 (MANIFESTO §19.3) — 把"靠每个 skill 自觉查角色"变成架构强制。
+   *   level         — 数据级别 (personal/team/department/company)
+   *   targetUserArg — args 中代表"目标用户"的字段名 (用于跨用户判定; 缺省则仅按 level 判)
+   */
+  dataScope?: {
+    level: DataScopeLevel;
+    targetUserArg?: string;
+  };
   /** 平均消耗 token (用于预算) */
   estimatedTokens: number;
   /** OpenAI 兼容的 function calling schema */
@@ -189,6 +200,40 @@ class SkillRegistry {
 
     if (ctx.isProxy && !skill.proxyAllowed) {
       return { ok: false, error: `工具 ${skillId} 不允许 AI 代行` };
+    }
+
+    // 守门 1.5: data-scope (架构强制 · MANIFESTO §19.3)
+    // skill 声明 dataScope 后, 由 registry 统一查角色 + 判跨用户边界, 不再靠 skill 自觉。
+    if (skill.dataScope) {
+      try {
+        const { checkDataScope } = await import('../../auth/data-scope');
+        const { getStore } = await import('../../storage/repository');
+        const store = getStore();
+        const user = await store.auth.users.findById(ctx.userId);
+        const roles: string[] = user?.roles ?? [];
+        const targetArg = skill.dataScope.targetUserArg;
+        const targetUserId =
+          targetArg && args && typeof args === 'object'
+            ? ((args as Record<string, unknown>)[targetArg] as string | undefined)
+            : undefined;
+        const verdict = checkDataScope({
+          actorUserId: ctx.userId,
+          actorRoles: roles,
+          level: skill.dataScope.level,
+          targetUserId,
+        });
+        if (!verdict.allowed) {
+          await audit('skill.blocked_data_scope', ctx.userId, {
+            targetId: skillId,
+            targetType: 'skill',
+            tenantId: ctx.tenantId,
+            metadata: { reason: verdict.reason, level: verdict.level, targetUserId, isProxy: ctx.isProxy },
+          });
+          return { ok: false, error: `数据边界拦截: ${verdict.reason}` };
+        }
+      } catch {
+        // store/user 查不到 → 不阻塞 (个人级 fail-open); 高敏级别仍由 skill-gateway 兜底
+      }
     }
 
     // 守门 2: 预算

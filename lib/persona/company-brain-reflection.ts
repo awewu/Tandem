@@ -366,10 +366,62 @@ export async function listReflections(opts: {
   }
 }
 
+/** proposedChanges 是否含真实配置 diff (非仅 rationale 文本) */
+function hasConfigDiffs(pc: CompanyBrainReflectionReport['proposedChanges']): boolean {
+  return Boolean(
+    pc.styleProfileDiff ||
+      (typeof pc.systemPromptDiff === 'string' && pc.systemPromptDiff.trim().length > 0) ||
+      pc.baselineThresholdsDiff ||
+      typeof pc.topKMemoriesInjectedDiff === 'number',
+  );
+}
+
 /**
- * 签批 Reflection (Owner / 治理委员会).
- * approve=true: 标记 approved (V2 才真正自动创建新 Version)
- * approve=false: 标记 rejected
+ * 应用反思的 proposedChanges, 基于 current 创建新 CompanyBrainVersion (CA-13 闭环写侧)。
+ * 纯构造, 不落库; 调用方负责持久化 + 失效缓存。
+ */
+function buildNextVersion(
+  report: CompanyBrainReflectionReport,
+  current: CompanyBrainVersion,
+  approverId: string,
+): CompanyBrainVersion {
+  const pc = report.proposedChanges;
+  const nextNum = current.version + 1;
+  return {
+    id: `cbv_v${nextNum}_${Date.now().toString(36)}`,
+    version: nextNum,
+    createdAt: new Date().toISOString(),
+    tenantId: report.tenantId,
+    styleProfileSnapshot: { ...current.styleProfileSnapshot, ...(pc.styleProfileDiff ?? {}) },
+    systemPromptTemplate:
+      typeof pc.systemPromptDiff === 'string' && pc.systemPromptDiff.trim().length > 0
+        ? pc.systemPromptDiff
+        : current.systemPromptTemplate,
+    baselineThresholds: { ...current.baselineThresholds, ...(pc.baselineThresholdsDiff ?? {}) },
+    topKMemoriesInjected:
+      typeof pc.topKMemoriesInjectedDiff === 'number'
+        ? pc.topKMemoriesInjectedDiff
+        : current.topKMemoriesInjected,
+    metrics: {
+      decisionsCount: 0,
+      adoptionRate: 0,
+      overruleRate: 0,
+      avgCostMicroUsd: 0,
+      avgLatencyMs: 0,
+      sampleDecisionIds: [],
+    },
+    previousVersionId: current.id,
+    createdReason: 'auto_reflection',
+    reflectionReportId: report.id,
+    approvedBy: approverId,
+  };
+}
+
+/**
+ * 签批 Reflection (Owner / 治理委员会) — CA-13 闭环写侧。
+ * approve=true 且含配置 diff: 应用 diff → 创建新 CompanyBrainVersion → 失效缓存 (即时生效),
+ *   并把 report.resultingVersionId 指向新版本。无 diff (仅 rationale) 则只标 approved, 不造版本。
+ * approve=false: 标记 rejected。
  */
 export async function approveReflection(
   reportId: string,
@@ -381,11 +433,38 @@ export async function approveReflection(
     const store = getStore();
     const existing = await store.companyBrainReflections.get(reportId);
     if (!existing) return null;
+
+    let resultingVersionId: string | undefined = existing.resultingVersionId;
+
+    // 写侧: 仅在签批通过 + 含真实配置 diff 时应用并迭代版本
+    if (approve && hasConfigDiffs(existing.proposedChanges)) {
+      try {
+        const { invalidateBrainVersionCache, buildDefaultBrainVersion } = await import(
+          './company-brain-version'
+        );
+        const current = (await getCurrentVersion()) ?? buildDefaultBrainVersion(existing.tenantId);
+        const next = buildNextVersion(existing, current, approverId);
+        await store.companyBrainVersions.create(next);
+        invalidateBrainVersionCache();
+        resultingVersionId = next.id;
+        logger.info(
+          { reportId, fromVersion: current.version, toVersion: next.version, newVersionId: next.id },
+          '[reflection] approved → applied proposedChanges, new CompanyBrainVersion created',
+        );
+      } catch (err) {
+        logger.warn(
+          { err: (err as Error).message, reportId },
+          '[reflection] version apply failed (report still marked approved)',
+        );
+      }
+    }
+
     const updated: CompanyBrainReflectionReport = {
       ...existing,
       approvalStatus: approve ? 'approved' : 'rejected',
       approvalBy: approverId,
       approvalAt: new Date().toISOString(),
+      resultingVersionId,
     };
     await store.companyBrainReflections.update(reportId, updated);
 
@@ -397,6 +476,7 @@ export async function approveReflection(
         metadata: {
           event: 'reflection_approval',
           approvalStatus: updated.approvalStatus,
+          resultingVersionId: resultingVersionId ?? null,
           reason,
         },
       });

@@ -2,12 +2,16 @@
  * POST /api/persona/proxy-actions/[id]/confirm
  *
  * 员工显式确认代行 (跳过 24h 等待, 立即落定).
+ *
+ * ON-2: kind='ontology_action' 是"延迟执行"代行 (真写发生在确认/否决窗后),
+ * 故走 `confirmAndMaterialize` —— 它对 ontology_action 先跑 executeAction 真写再标 executed,
+ * 对其它 kind 退化为普通 confirmProxyAction (仅翻状态)。
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
-import { confirmProxyAction } from '@/lib/persona/proxy-actions';
+import { confirmAndMaterialize } from '@/lib/ontology';
 import { getStore } from '@/lib/storage/repository';
 
 export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
@@ -27,8 +31,12 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
   }
 
   try {
-    const updated = await confirmProxyAction(params.id, auth.userId);
-    return NextResponse.json({ ok: true, action: updated });
+    const result = await confirmAndMaterialize(params.id, auth.userId);
+    if (!result.ok) {
+      return NextResponse.json({ ok: false, error: result.reason ?? 'confirm_failed' }, { status: 400 });
+    }
+    const updated = await store.proxyActions.get(params.id);
+    return NextResponse.json({ ok: true, action: updated, materialized: !!result.execResult });
   } catch (err) {
     return NextResponse.json(
       { ok: false, error: (err as Error).message },

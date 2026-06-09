@@ -27,6 +27,11 @@ Unit tests 验证代码正确性 (函数返回正确值, 异常被处理).
   - 6 条 case, 验证 `checkUpgradeEligibility` 在边界条件 (时长/决议数/否决率/已最高级) 上判定正确
   - 不调 LLM, 直接跑 `lib/persona/evolution.ts::checkUpgradeEligibility`
 
+- `company-brain-perception-gate.eval.test.ts` — 中央 AI 感知 gate 基准 (offline)
+  - 12 条 case, 锁住 `company-brain-perception.ts::shouldPerceive` 的"睁眼/闭眼"边界 (8 正例必触发 + 4 反例不触发)
+  - 学 Palantir AIP Evals "把 LLM 逻辑当软件测": 防 INTERNAL_DATA_RE 收窄导致中央 AI 又变瞎子的"精致的假"回归 (case-3 "KR3 进展" 专守无词边界场景)
+  - 不调 LLM, 直接跑 `shouldPerceive`
+
 ## 运行
 
 ```bash

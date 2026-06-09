@@ -773,44 +773,6 @@ async function invokePersonaReply(input: InvokePersonaInput): Promise<void> {
       `沟通风格=${persona.styleProfile.communicationStyle}. ` +
       `严格遵守委托级别: 不做超出权限的承诺. 只回 1-3 句话, 简洁.`;
 
-    const { governPersonaOutput } = await import('../persona/govern-persona');
-    const gov = await governPersonaOutput({
-      actorUserId: input.targetUserId,
-      intent: input.triggeringMessage.body,
-      basePersonaPrompt: baseSystem,
-      agentKind: 'persona',
-      toolName: 'im.persona_reply',
-    });
-    if (!gov.allowed) {
-      await sendMessage({
-        channelId: input.channelId,
-        senderId: 'persona',
-        senderKind: 'system',
-        body:
-          `🚫 ${input.targetUserId} 的 AI 分身被企业红线/组织记忆基线阻断, 已转人工.\n` +
-          `${gov.blockReason ?? ''}`,
-        parentMessageId: input.triggeringMessage.id,
-      });
-      // 触发 workflow T14: 通知治理委员会 + audit
-      try {
-        const { emit } = await import('../workflows/engine');
-        await emit({
-          type: 'im.persona.blocked',
-          payload: {
-            channelId: input.channelId,
-            userId: input.targetUserId,
-            reason: gov.blockReason ?? 'baseline_hard_block',
-          },
-        });
-      } catch {
-        /* workflow 失败不影响主流程 */
-      }
-      return;
-    }
-
-    const { getRouter } = await import('../boot');
-    const router = getRouter();
-
     // 解析用户 LLM 偏好 (个人AI > 中央AI > 路由器内置规则)
     let forceProvider: string | null = null;
     try {
@@ -837,49 +799,109 @@ async function invokePersonaReply(input: InvokePersonaInput): Promise<void> {
       /* 偏好/策略读取失败不影响主流程, 走默认路由 */
     }
 
-    // §IM-7 trace id: 关联 router.chat → LlmUsageLog.requestId 同时也写入 IM message.aiTraceId, 让 trace popover 可逆查
+    // §IM-7 trace id: 关联 → LlmUsageLog.requestId + IM message.aiTraceId, 让 trace popover 可逆查
     const aiTraceId = `imtrace_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 
-    // §Pre-Search Layer · 个人搭子也接入联网查实时信息
-    let systemPrompt = gov.systemPrompt;
-    try {
-      const { preSearchLayer } = await import('../persona/company-brain');
-      const ps = await preSearchLayer(
-        input.triggeringMessage.body,
-        gov.systemPrompt,
-        input.targetUserId,
-      );
-      if (ps.searched) {
-        systemPrompt = ps.revisedSystemPrompt;
-      }
-    } catch {
-      // preSearch 失败不阻塞主流程
-    }
+    // 序2 搭子感知前置: 由 systemPromptTransform 闭包写入, 供 ProxyAction 留痕
+    let personaPerceived = false;
+    let personaPerceptionTools: string[] = [];
 
-    const reply = await router.chat({
-      messages: [
-        {
-          role: 'system',
-          content: systemPrompt,
-          // §B-003 · ephemeral 缓存大型 system prompt, Anthropic 命中后省 ~90% 输入 token
-          cacheControl: 'ephemeral',
-        },
-        { role: 'user', content: input.triggeringMessage.body },
-      ],
+    // §19.5 + P1-M4: 走唯一治理出口 governedChat (输入闸 baseline+OKR+价值观 / 动作闸④ 内容判定 / 输出闸矫正镜片)
+    const { governedChat } = await import('../governance/governed-chat');
+    const gc = await governedChat({
+      actorUserId: input.targetUserId,
+      intent: input.triggeringMessage.body,
+      basePersonaPrompt: baseSystem,
+      messages: [{ role: 'user', content: input.triggeringMessage.body }],
+      agentKind: 'persona',
+      toolName: 'im.persona_reply',
+      // IM 代行 = 草稿性回复 (yellow ProxyAction + 24h 否决); 闸④ 内容判定会拦红区/越权
+      action: {
+        dataScope: 'personal',
+        declaredActionScope: 'create_draft',
+        delegationLevel: persona.delegationLevel,
+      },
       scenario: 'persona_dialogue',
       forceProvider: forceProvider ?? undefined,
+      cacheControlSystem: true,
       maxTokens: 200,
-      metadata: {
-        userId: input.targetUserId,
-        requestId: aiTraceId,
+      metadata: { userId: input.targetUserId, requestId: aiTraceId },
+      refId: input.triggeringMessage.id,
+      outputGuardSource: 'im.persona_reply',
+      // 治理后追加上下文钩子 (三闸之后、LLM 之前; 不绕过闸):
+      //   ① 序2 搭子感知前置: 答前用只读工具查本人 OKR/决议/记忆真值 (会查)
+      //   ② Pre-Search Layer: 个人搭子联网查实时外部信息
+      systemPromptTransform: async (sys) => {
+        let out = sys;
+        // ① 内部感知 pass (序2 · 搭子装执行肢体 · 只读, fail-soft)
+        try {
+          const { personaPerceptionPass } = await import('../persona/persona-perception');
+          const pp = await personaPerceptionPass(input.triggeringMessage.body, out, input.targetUserId);
+          if (pp.perceived) {
+            out = pp.revisedSystemPrompt;
+            personaPerceived = true;
+            personaPerceptionTools = pp.toolInvocations.filter((t) => t.ok).map((t) => t.name);
+          }
+        } catch {
+          /* fail-soft: 感知失败不阻塞回复 */
+        }
+        // ② 联网 pre-search (实时外部信息)
+        try {
+          const { preSearchLayer } = await import('../persona/company-brain');
+          const ps = await preSearchLayer(input.triggeringMessage.body, out, input.targetUserId);
+          if (ps.searched) out = ps.revisedSystemPrompt;
+        } catch {
+          /* fail-soft */
+        }
+        // ③ §B-024 self-hint 召回: 注入分身过去的语言化自省教训 (真学习闭环·读侧)
+        try {
+          const { injectSelfHints } = await import('../persona/reflexion');
+          const sh = await injectSelfHints(out, input.targetUserId, input.triggeringMessage.body);
+          out = sh.revisedSystemPrompt;
+        } catch {
+          /* fail-soft: 自省召回失败不阻塞回复 */
+        }
+        return out;
       },
     });
+
+    if (!gc.ok) {
+      const blockedAtAction = gc.blocked?.stage === 'action';
+      await sendMessage({
+        channelId: input.channelId,
+        senderId: 'persona',
+        senderKind: 'system',
+        body: blockedAtAction
+          ? `🚫 ${input.targetUserId} 的 AI 分身想做的动作超出绿区/委托权限 (${gc.gates.action?.zone ?? 'red'} 区), 已转人工。\n${(gc.blocked?.reasons ?? []).join('; ')}`
+          : `🚫 ${input.targetUserId} 的 AI 分身被企业红线/组织记忆基线阻断, 已转人工。\n${(gc.blocked?.reasons ?? []).join('; ')}`,
+        parentMessageId: input.triggeringMessage.id,
+      });
+      // 触发 workflow T14: 通知治理委员会 + audit
+      try {
+        const { emit } = await import('../workflows/engine');
+        await emit({
+          type: 'im.persona.blocked',
+          payload: {
+            channelId: input.channelId,
+            userId: input.targetUserId,
+            reason:
+              gc.blocked?.reasons?.join('; ') ??
+              (blockedAtAction ? 'action_gate_block' : 'baseline_hard_block'),
+          },
+        });
+      } catch {
+        /* workflow 失败不影响主流程 */
+      }
+      return;
+    }
+
+    const replyText = gc.answer ?? '';
 
     const sent = await sendMessage({
       channelId: input.channelId,
       senderId: input.targetUserId,
       senderKind: 'persona',
-      body: `${reply.message.content}\n\n_— ${input.targetUserId} 的 AI 分身 (${persona.stage}) · 仅供参考, 待本人确认_`,
+      body: `${replyText}\n\n_— ${input.targetUserId} 的 AI 分身 (${persona.stage}) · 仅供参考, 待本人确认_`,
       parentMessageId: input.triggeringMessage.id,
       aiTraceId,
     });
@@ -894,7 +916,7 @@ async function invokePersonaReply(input: InvokePersonaInput): Promise<void> {
         kind: 'im_reply',
         zone: 'yellow',
         title: `[AI 自动回复] ${input.channelId}`,
-        body: typeof reply.message.content === 'string' ? reply.message.content : '',
+        body: replyText,
         refType: 'im_message',
         refId: sent?.id,
         metadata: {
@@ -902,6 +924,9 @@ async function invokePersonaReply(input: InvokePersonaInput): Promise<void> {
           triggeringMessageId: input.triggeringMessage.id,
           stage: persona.stage,
           delegationLevel: persona.delegationLevel,
+          // 序2: 是否答前查了本人真值 + 调了哪些只读工具 (留痕)
+          perceived: personaPerceived,
+          perceptionTools: personaPerceptionTools,
         },
       });
     } catch (err) {
@@ -966,11 +991,6 @@ async function invokeCompanyBrainReply(input: InvokePersonaInput): Promise<void>
       return;
     }
 
-    // §P1 Reranker · 用 @中央 AI 的 IM 消息作为 query, 让注入 Memory 按相关度重排
-    const baseSystemPrompt = await buildCompanyBrainSystemPrompt({
-      query: input.triggeringMessage.body,
-    });
-
     // §IM-7 trace id
     const aiTraceId = `imtrace_cb_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 
@@ -988,9 +1008,24 @@ async function invokeCompanyBrainReply(input: InvokePersonaInput): Promise<void>
       aiTraceId,
     });
 
+    // §SSE-UX · 分阶段状态提示: 首 token 前的重活 (Memory 构建 / preSearch / S1 感知) 同步 await
+    // 会阻塞首字 ~4s, 前端只见 "思考中" 干等。每阶段把进度文案写进 placeholder.statusText 并广播,
+    // 让用户立刻看到 "正在核对 OKR…" 之类反馈 (与 BossAI SSE status 事件对齐)。首 content delta 时清空。
+    const pushStatus = async (statusText: string): Promise<void> => {
+      const updated = await store.imMessages.update(placeholder.id, { statusText });
+      if (updated) broadcast({ type: 'message_updated', channelId, message: updated });
+    };
+
+    // §P1 Reranker · 用 @中央 AI 的 IM 消息作为 query, 让注入 Memory 按相关度重排
+    await pushStatus('正在调取公司知识库…');
+    const baseSystemPrompt = await buildCompanyBrainSystemPrompt({
+      query: input.triggeringMessage.body,
+    });
+
     // §Pre-Search Layer · 时间敏感 / 公司 Memory 覆盖度低时主动联网 (不阻塞流式)
     let systemPrompt = baseSystemPrompt;
     try {
+      await pushStatus('正在联网查证最新信息…');
       const { preSearchLayer } = await import('../persona/company-brain');
       const ps = await preSearchLayer(
         input.triggeringMessage.body,
@@ -1016,16 +1051,51 @@ async function invokeCompanyBrainReply(input: InvokePersonaInput): Promise<void>
       // preSearch 失败不阻塞主流程
     }
 
+    // §S1 内部感知层 (CA-6/7) · 流式前先用只读工具查 OKR/决议真值, 注入 systemPrompt
+    // "瞎子 → 能看": 让中央 AI 回答执行/进度类问题时基于 S0 rollup 真值, 而非静态注入文本。
+    try {
+      await pushStatus('正在核对 OKR / 决议实时进度…');
+      const { companyBrainPerceptionPass } = await import('../persona/company-brain-perception');
+      const perception = await companyBrainPerceptionPass(input.triggeringMessage.body, systemPrompt);
+      if (perception.perceived) {
+        systemPrompt = perception.revisedSystemPrompt;
+        const { audit: pcAudit } = await import('../audit/log');
+        await pcAudit('output_guard.checked', input.triggeringMessage.senderId, {
+          targetId: placeholder.id,
+          targetType: 'company_brain_im',
+          metadata: {
+            perception: true,
+            tools: perception.toolInvocations.map((t) => t.name),
+            toolCallCount: perception.log.toolCallCount,
+            roundsExecuted: perception.log.roundsExecuted,
+            latencyMs: perception.log.latencyMs,
+            triggerReason: perception.log.triggerReason,
+          },
+        }).catch(() => { /* noop */ });
+      }
+    } catch {
+      // 感知层失败不阻塞主流程 (fail-soft)
+    }
+
+    await pushStatus('正在组织回答…');
+
     const startedAt = Date.now();
     let buffer = '';
     let lastFlushAt = 0;
+    let statusCleared = false;
     const FLUSH_INTERVAL_MS = 80; // 80ms 节流: 看起来流畅, 不轰炸 SSE
 
     const flush = async (force: boolean): Promise<void> => {
       const now = Date.now();
       if (!force && now - lastFlushAt < FLUSH_INTERVAL_MS) return;
       lastFlushAt = now;
-      const updated = await store.imMessages.update(placeholder.id, { body: buffer });
+      // 首个 content 落地时清空 statusText (前端从 "正在组织回答…" 切到真实正文)
+      const patch: Partial<ImMessage> = { body: buffer };
+      if (!statusCleared) {
+        patch.statusText = '';
+        statusCleared = true;
+      }
+      const updated = await store.imMessages.update(placeholder.id, patch);
       if (updated) {
         broadcast({ type: 'message_updated', channelId, message: updated });
       }
@@ -1113,8 +1183,8 @@ async function invokeCompanyBrainReply(input: InvokePersonaInput): Promise<void>
       ? `${buffer}${footnote}\n\n_— 🏛️ CompanyBrain · 中央 AI · 基于公司层 Memory · 仅供参考_`
       : '_(CompanyBrain 未返回内容)_';
 
-    // 最终 update: 写入完整 body + footer, 同步 channel preview
-    const finalUpdated = await store.imMessages.update(placeholder.id, { body: finalBody });
+    // 最终 update: 写入完整 body + footer, 同步 channel preview (并确保清空 statusText, 覆盖空回复场景)
+    const finalUpdated = await store.imMessages.update(placeholder.id, { body: finalBody, statusText: '' });
     const finalMsg = finalUpdated ?? placeholder;
     if (finalUpdated) {
       broadcast({ type: 'message_updated', channelId, message: finalUpdated });

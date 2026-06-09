@@ -192,6 +192,10 @@ export async function reconcilePendingActions(): Promise<{
   let expired = 0;
 
   for (const a of all) {
+    // ON-2: ontology_action 是"延迟执行"代行 (真写发生在否决窗后), 不能像已发生动作那样
+    // 仅翻状态为 executed —— 必须由 lib/ontology/propose-action.ts 的兑现路径真跑 executeAction。
+    // 这里跳过, 交 reconcileOntologyActionVetoWindows / confirmAndMaterialize 处理。
+    if (a.kind === 'ontology_action') continue;
     if (a.status === 'awaiting_veto' && a.vetoUntil && new Date(a.vetoUntil).getTime() <= now) {
       await store.proxyActions.update(a.id, {
         status: 'executed',

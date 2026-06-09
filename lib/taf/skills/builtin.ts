@@ -9,6 +9,7 @@ import type { Skill } from './registry';
 import { skillRegistry } from './registry';
 import { getStore } from '../../storage/repository';
 import { CompositeRetriever } from '../../memory/retriever';
+import { computeKRProgress, effectiveObjectiveProgress } from '../../types/okr-tti';
 
 // ---------------------------------------------------------------------------
 // memory.search · 知识检索 (绿区, 代行允许)
@@ -56,6 +57,8 @@ export const DecisionCardListSkill: Skill<
   tags: ['decision', '决议', '议事', 'card'],
   zone: 'green',
   proxyAllowed: true,
+  // 按 ownerId 查他人决议需特权 (§19.3, registry 强制)
+  dataScope: { level: 'personal', targetUserArg: 'ownerId' },
   estimatedTokens: 200,
   schema: {
     type: 'function',
@@ -92,6 +95,8 @@ export const OkrReadSkill: Skill<{ ownerId?: string; cycleId?: string }, unknown
   tags: ['okr', '目标', 'kr'],
   zone: 'green',
   proxyAllowed: true,
+  // 按 ownerId 查他人 OKR 需特权 (§19.3, registry 强制)
+  dataScope: { level: 'personal', targetUserArg: 'ownerId' },
   estimatedTokens: 200,
   schema: {
     type: 'function',
@@ -119,6 +124,98 @@ export const OkrReadSkill: Skill<{ ownerId?: string; cycleId?: string }, unknown
 };
 
 // ---------------------------------------------------------------------------
+// okr.health_digest · 全公司 OKR 健康度速览 (绿区, 代行允许) — S1 "眼睛"
+//
+// 中央 AI 的静态 prompt 只注入公司层 Objective; 本工具让它能**按需**查全层级
+// (含团队/个人) 的 at-risk 真值, 主动发现"最迟的 KR / 哪个目标快崩了"。
+// 进度用 S0 rollup 真值 (effectiveObjectiveProgress / computeKRProgress), 非静态文本。
+// ---------------------------------------------------------------------------
+
+export const OkrHealthDigestSkill: Skill<
+  { level?: 'company' | 'team' | 'individual'; limit?: number },
+  unknown
+> = {
+  id: 'okr.health_digest',
+  description: '全公司 OKR 健康度速览: at-risk Objective/KR 排行 (按真值进度), 用于"哪些目标落后/最迟的KR是什么"',
+  tags: ['okr', '目标', 'kr', '健康度', 'at-risk', '预警', '进度'],
+  zone: 'green',
+  proxyAllowed: true,
+  estimatedTokens: 400,
+  schema: {
+    type: 'function',
+    function: {
+      name: 'okr_health_digest',
+      description: '查当前 active 周期的 OKR 健康度: 按真值进度排出最落后 / at-risk 的 Objective 与 KR',
+      parameters: {
+        type: 'object',
+        properties: {
+          level: {
+            type: 'string',
+            enum: ['company', 'team', 'individual'],
+            description: '仅看某层级 (缺省=全层级)',
+          },
+          limit: { type: 'number', description: '最落后项返回数 (默认 10)' },
+        },
+      },
+    },
+  },
+  async execute({ level, limit = 10 }) {
+    const store = getStore();
+    const cycles = await store.cycles.list();
+    const activeCycles = cycles.filter((c) => c.isActive);
+    if (activeCycles.length === 0) {
+      return { ok: true, data: { cycle: null, note: '无 active OKR 周期', objectives: [] } };
+    }
+    const cycle = activeCycles.sort((a, b) => (b.startDate ?? '').localeCompare(a.startDate ?? ''))[0];
+
+    let objs = (await store.objectives.list()).filter(
+      (o) => o.cycleId === cycle.id && o.status === 'active',
+    );
+    if (level) objs = objs.filter((o) => o.level === level);
+
+    const allKrs = await store.keyResults.list();
+    const rows = objs.map((o) => {
+      const krs = allKrs.filter((kr) => kr.objectiveId === o.id && kr.status === 'active');
+      const progress = effectiveObjectiveProgress(o);
+      const atRiskKrs = krs
+        .filter((kr) => kr.confidence !== 'on-track')
+        .map((kr) => ({
+          title: kr.title,
+          progress: Math.round(computeKRProgress(kr) * 100),
+          confidence: kr.confidence,
+        }))
+        .sort((a, b) => a.progress - b.progress);
+      return {
+        objectiveId: o.id,
+        title: o.title,
+        level: o.level,
+        confidence: o.confidence,
+        progressPct: Math.round(progress * 100),
+        krCount: krs.length,
+        atRiskCount: atRiskKrs.length,
+        atRiskKrs,
+      };
+    });
+
+    // 健康度: at-risk 优先, 再按真值进度升序 (最落后在前)
+    const worst = rows
+      .sort((a, b) => b.atRiskCount - a.atRiskCount || a.progressPct - b.progressPct)
+      .slice(0, limit);
+
+    return {
+      ok: true,
+      data: {
+        cycle: { id: cycle.id, name: cycle.name, endDate: cycle.endDate },
+        totalObjectives: rows.length,
+        atRiskObjectives: rows.filter((r) => r.atRiskCount > 0 || r.confidence !== 'on-track').length,
+        worst,
+      },
+      tokensUsed: 150 + worst.length * 30,
+    };
+  },
+};
+
+// ---------------------------------------------------------------------------
 // persona.get · 读取自己的 Persona (绿区)
 // ---------------------------------------------------------------------------
 
@@ -128,6 +225,8 @@ export const PersonaGetSkill: Skill<{ userId: string }, unknown> = {
   tags: ['persona', '分身', '拿捏老板', '阶段'],
   zone: 'green',
   proxyAllowed: false, // 元能力, 代行禁止 (避免分身自我审视)
+  // 查他人 Persona 画像需特权 (§19.3, registry 强制)
+  dataScope: { level: 'personal', targetUserArg: 'userId' },
   estimatedTokens: 100,
   schema: {
     type: 'function',
@@ -352,6 +451,7 @@ export function registerBuiltinSkills(): void {
   skillRegistry.register(MemorySearchSkill);
   skillRegistry.register(DecisionCardListSkill);
   skillRegistry.register(OkrReadSkill);
+  skillRegistry.register(OkrHealthDigestSkill);
   skillRegistry.register(PersonaGetSkill);
   skillRegistry.register(ConvergenceStartSkill);
   skillRegistry.register(SalaryAccessSkill);

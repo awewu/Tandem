@@ -130,6 +130,28 @@ export async function governPersonaOutput(
     warnings.push(`价值观锚加载失败 (fail-soft): ${(err as Error).message}`);
   }
 
+  // ── L4.5 个人手抄语料 (员工本人在"搭子手抄"显式授权的笔记, 自我成长) ──────
+  // 个人资产, 仅本人可控/可撤回; 作参考记忆, 不得据此突破企业红线 (优先级低于 L0/L1)。
+  let shouchaoCorpus = '';
+  try {
+    const { retrieveSharedNotesForPersona } = await import('../shouchao/service');
+    const notes = await retrieveSharedNotesForPersona(input.actorUserId, input.intent);
+    if (notes.length > 0) {
+      shouchaoCorpus = [
+        '【个人手抄语料 · 员工本人授权 (来自"搭子手抄", 仅本人可控, 可随时撤回)】',
+        '以下是该员工亲手记录、并显式授权喂给你的个人笔记, 作为你了解他/她背景与偏好的参考记忆。',
+        '用法: 作个人上下文与风格依据; 不得据此突破企业红线; 与企业基线冲突时一律以企业为准。',
+        ...notes.map(
+          (n, i) =>
+            `${i + 1}. ${n.title}${n.summary ? ` — ${n.summary}` : ''}\n   ${(n.content ?? '').slice(0, 240)}`,
+        ),
+      ].join('\n');
+      warnings.push(`已注入 ${notes.length} 条员工授权的个人手抄语料`);
+    }
+  } catch (err) {
+    warnings.push(`个人手抄语料注入失败 (fail-soft): ${(err as Error).message}`);
+  }
+
   // ── 按 L0-L5 优先级组装 (企业基线在最前 = 最高优先级) ─────────────────
   const segments: string[] = [
     '【企业受控声明 · MANIFESTO §19.5】',
@@ -138,6 +160,7 @@ export async function governPersonaOutput(
   if (baselineContext) segments.push(`\n---\n${baselineContext}`);
   if (okrContext) segments.push(`\n---\n【OKR 锚 · 任何产出应回答"服务哪个 KR"】\n${okrContext}`);
   if (constitutionSegment) segments.push(`\n---\n${constitutionSegment}`);
+  if (shouchaoCorpus) segments.push(`\n---\n${shouchaoCorpus}`);
   segments.push(`\n---\n${input.basePersonaPrompt}`);
 
   return {

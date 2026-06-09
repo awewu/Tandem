@@ -17,6 +17,8 @@
  */
 
 import { audit } from '../audit/log';
+import { deriveActionZone } from './derive-zone';
+import type { DelegationLevel } from '../types/persona';
 
 export type GateVerdict = 'PASS' | 'SOFT_WARN' | 'HARD_BLOCK';
 
@@ -35,8 +37,12 @@ export interface SkillGatewayInput {
   krAnchorId?: string;
   /** 涉及数据范围 */
   dataScope?: 'personal' | 'team' | 'department' | 'company';
+  /** 涉及的目标用户 (跨用户数据访问判定; 等于 actor=本人放行, 不等需特权) */
+  targetUserId?: string;
   /** 涉及动作类型 */
   actionScope?: 'read_only' | 'create_draft' | 'commit' | 'send_external';
+  /** persona 委托级别 (C1: 用于"越权即升红"内容判定) */
+  delegationLevel?: DelegationLevel;
 }
 
 export interface SkillGatewayResult {
@@ -184,50 +190,64 @@ async function checkDataScope_(input: SkillGatewayInput): Promise<{
   level?: string;
   reason?: string;
 }> {
-  // 落地真实 RBAC 数据边界限制 (MANIFESTO §19.3):
-  // 个人级 dataScope ('personal') 总放行; 
-  // 公司级/部门级 ('company' / 'department') 仅放行内部管理或审计角色 ('manager' / 'steward' / 'admin' / 'owner')
+  // 落地真实 RBAC 数据边界 (MANIFESTO §19.3), 判定逻辑统一收敛到 lib/auth/data-scope.ts:
+  //   - 本人 personal/team 或未指定目标 → PASS
+  //   - 访问他人 personal/team → 需特权角色, 否则 HARD_BLOCK
+  //   - department/company → 需特权角色, 否则 HARD_BLOCK; 有权则 SOFT_WARN (敏感, 留痕注意)
   const scope = input.dataScope ?? 'personal';
-  if (scope === 'company' || scope === 'department') {
-    try {
-      const { getStore } = await import('../storage/repository');
-      const store = getStore();
-      const user = await store.auth.users.findById(input.actorUserId);
-      const roles: string[] = user?.roles ?? [];
-      const hasPrivilege = roles.some((r: string) => ['manager', 'steward', 'admin', 'owner'].includes(r));
-      
-      if (!hasPrivilege) {
-        return {
-          verdict: 'HARD_BLOCK',
-          level: scope,
-          reason: `无权访问数据级别 ${scope}：非内部管理或审计角色 (MANIFESTO §19.3)`,
-        };
-      }
-      return { verdict: 'SOFT_WARN', level: scope };
-    } catch (err) {
+  try {
+    const { getStore } = await import('../storage/repository');
+    const { checkDataScope } = await import('../auth/data-scope');
+    const store = getStore();
+    const user = await store.auth.users.findById(input.actorUserId);
+    const roles: string[] = user?.roles ?? [];
+    const result = checkDataScope({
+      actorUserId: input.actorUserId,
+      actorRoles: roles,
+      level: scope,
+      targetUserId: input.targetUserId,
+    });
+    if (!result.allowed) {
+      return { verdict: 'HARD_BLOCK', level: scope, reason: result.reason };
+    }
+    // 部门/公司级即便放行也升 SOFT_WARN (敏感数据访问留痕提示)
+    if (scope === 'company' || scope === 'department') {
       return { verdict: 'SOFT_WARN', level: scope };
     }
+    return { verdict: 'PASS', level: scope };
+  } catch {
+    // 用户查不到 / store 故障 → fail-open 但只对个人级; 公司/部门级保守拦截
+    if (scope === 'company' || scope === 'department') {
+      return { verdict: 'SOFT_WARN', level: scope };
+    }
+    return { verdict: 'PASS', level: scope };
   }
-  return { verdict: 'PASS', level: scope };
 }
 
 // ---------------------------------------------------------------------------
-// 闸 ④ Action Scope (MANIFESTO §9 三区 v0)
+// 闸 ④ Action Scope (MANIFESTO §9 三区 · C1 内容判定升级)
+//
+// 不再只信 caller 声明的 actionScope, 而是 deriveActionZone() 按
+// 内容 + 委托级别判定 (组织主权)。声明只作下限参考。
 // ---------------------------------------------------------------------------
 
 function checkActionScope_(input: SkillGatewayInput): {
   verdict: GateVerdict;
   zone?: 'green' | 'yellow' | 'red';
 } {
-  const action = input.actionScope ?? 'read_only';
-  // 红区: 对外发送 (邮件/IM 给外部) + 红区会议代参
-  if (action === 'send_external') {
+  const derived = deriveActionZone({
+    intent: input.intent,
+    declaredActionScope: input.actionScope,
+    delegationLevel: input.delegationLevel,
+  });
+  // 红区: 对外发送 / 红线内容 / persona 越权 → 严禁代行
+  if (derived.zone === 'red') {
     return { verdict: 'HARD_BLOCK', zone: 'red' };
   }
-  // 黄区: commit (改企业数据)
-  if (action === 'commit') {
+  // 黄区: 改企业数据 / 对外承诺 → 需签批 (不阻断, 注入告警)
+  if (derived.zone === 'yellow') {
     return { verdict: 'SOFT_WARN', zone: 'yellow' };
   }
-  // 绿区: read_only / create_draft
+  // 绿区: read_only / create_draft 且内容无高敏
   return { verdict: 'PASS', zone: 'green' };
 }

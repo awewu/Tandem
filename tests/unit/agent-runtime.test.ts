@@ -228,6 +228,170 @@ describe('§CA-6/7 · runToolLoop · 执行肢体 (Tool Calling)', () => {
     expect(r.roundsExecuted).toBe(2);
     expect(r.finalMessage).toContain('maxRounds');
   });
+
+  // 回归: skill id 带点 (okr.health_digest) → 下发须 sanitize 成 okr_health_digest
+  //   (OpenAI/DeepSeek 规范禁止点), 模型回传下划线名须能还原回真实 skill id 并执行。
+  //   2026-06-08 真模型探针发现的"精致的假"bug: 不还原则每个 tool_call 被判
+  //   tool_not_allowed, 中央AI 永远查不到真值。
+  it('dotted skill id 下发 sanitize + 回传下划线名还原执行 (S1/S2 真接通)', async () => {
+    let sentToolName: string | undefined;
+    let executedSkillId: string | undefined;
+    let callCount = 0;
+
+    vi.doMock('@/lib/boot', () => ({
+      getRouter: () => ({
+        chat: async (req: { tools?: Array<{ function: { name: string } }> }) => {
+          callCount++;
+          // 捕获下发给模型的工具名 (应已 sanitize)
+          if (req.tools?.[0]) sentToolName = req.tools[0].function.name;
+          if (callCount === 1) {
+            return {
+              id: 'fake',
+              message: {
+                role: 'assistant',
+                content: '',
+                // 模型回传下划线形式 (DeepSeek 把点归一化)
+                toolCalls: [
+                  {
+                    id: 'tc1',
+                    type: 'function' as const,
+                    function: { name: 'okr_health_digest', arguments: '{"level":"company"}' },
+                  },
+                ],
+              },
+              finishReason: 'tool_calls',
+              usage: { promptTokens: 50, completionTokens: 10, totalTokens: 60 },
+              model: 'mock',
+            };
+          }
+          return {
+            id: 'fake',
+            message: { role: 'assistant', content: '查到了真值' },
+            finishReason: 'stop',
+            usage: { promptTokens: 60, completionTokens: 8, totalTokens: 68 },
+            model: 'mock',
+          };
+        },
+      }),
+    }));
+
+    vi.doMock('@/lib/taf/skills/registry', () => ({
+      skillRegistry: {
+        get: (id: string) =>
+          id === 'okr.health_digest'
+            ? {
+                schema: {
+                  type: 'function' as const,
+                  function: {
+                    name: 'okr.health_digest',
+                    description: 'OKR 健康度',
+                    parameters: { type: 'object', properties: {} },
+                  },
+                },
+              }
+            : undefined,
+        execute: async (id: string) => {
+          executedSkillId = id;
+          return { ok: true, data: { atRisk: 1 } };
+        },
+      },
+    }));
+
+    const { runToolLoop } = await import('@/lib/agent-runtime/tool-loop');
+    const r = await runToolLoop({
+      systemPrompt: 'sys',
+      userQuery: '公司 OKR 进度?',
+      toolset: ['okr.health_digest'],
+      actorUserId: '__company__',
+      maxRounds: 3,
+    });
+
+    // 下发的工具名已 sanitize (无点)
+    expect(sentToolName).toBe('okr_health_digest');
+    // 模型回传的下划线名被还原回真实 skill id 并真执行
+    expect(executedSkillId).toBe('okr.health_digest');
+    expect(r.toolInvocations).toHaveLength(1);
+    expect(r.toolInvocations[0].name).toBe('okr.health_digest');
+    expect(r.toolInvocations[0].ok).toBe(true);
+    expect(r.finishedNaturally).toBe(true);
+  });
+
+  // 2026-06-08 深挖#3: reasoning-pass 实测同一 loop 内 memory.search 被重复调 4+ 次 (浪费 DB/token)。
+  //   tool-loop 加同参数去重缓存: 重复 (skill+args) 不再执行, 复用缓存结果 + 标 cached=true。
+  it('同参数重复 tool_call → 只执行一次, 复用缓存 (cached=true)', async () => {
+    let executeCount = 0;
+    let callCount = 0;
+    vi.doMock('@/lib/boot', () => ({
+      getRouter: () => ({
+        chat: async () => {
+          callCount++;
+          // 第 1、2 轮都用相同参数调 memory.search; 第 3 轮收敛
+          if (callCount <= 2) {
+            return {
+              id: 'fake',
+              message: {
+                role: 'assistant',
+                content: '',
+                toolCalls: [
+                  {
+                    id: `tc_${callCount}`,
+                    type: 'function' as const,
+                    function: { name: 'memory_search', arguments: '{"query":"风险","limit":5}' },
+                  },
+                ],
+              },
+              usage: { totalTokens: 10 },
+              finishReason: 'tool_calls' as const,
+            };
+          }
+          return {
+            id: 'fake',
+            message: { role: 'assistant', content: '收敛' },
+            usage: { totalTokens: 5 },
+            finishReason: 'stop' as const,
+          };
+        },
+      }),
+    }));
+
+    vi.doMock('@/lib/taf/skills/registry', () => ({
+      skillRegistry: {
+        get: (id: string) =>
+          id === 'memory.search'
+            ? {
+                id,
+                description: 'search',
+                zone: 'green',
+                schema: {
+                  type: 'function' as const,
+                  function: { name: 'memory.search', description: 'd', parameters: { type: 'object', properties: {} } },
+                },
+              }
+            : undefined,
+        execute: async () => {
+          executeCount++;
+          return { ok: true, data: [{ id: 'm1' }] };
+        },
+      },
+    }));
+
+    const { runToolLoop } = await import('@/lib/agent-runtime/tool-loop');
+    const r = await runToolLoop({
+      systemPrompt: 'sys',
+      userQuery: 'q',
+      toolset: ['memory.search'],
+      actorUserId: 'u1',
+      maxRounds: 4,
+    });
+
+    // 两轮都调了工具 → 2 条 invocation, 但实际 execute 只跑 1 次 (第二次命中缓存)
+    expect(r.toolInvocations).toHaveLength(2);
+    expect(executeCount).toBe(1);
+    expect(r.toolInvocations[0].cached).toBeFalsy();
+    expect(r.toolInvocations[1].cached).toBe(true);
+    expect(r.toolInvocations[1].result).toContain('缓存结果');
+    expect(r.finishedNaturally).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -61,6 +61,9 @@ export type AuditAction =
   // Skill Gateway · 4 道闸 (P4, MANIFESTO §19)
   | 'skill_gateway.checked'               // 4 道闸调用留痕 (PASS / SOFT_WARN / HARD_BLOCK)
   | 'skill_gateway.blocked'               // 任一闸 HARD_BLOCK 时单独高亮 (Steward 月审重点)
+  // Ontology Action Type · 声明式受治理写动作 (ON-1, docs/ONTOLOGY-CENTRAL-BRAIN.md)
+  | 'ontology.action_executed'            // executeAction 主写成功 + 副作用编排完成
+  | 'ontology.action_blocked'             // 校验(submission criteria)或动作闸(zone)拦截
   // Output Guard · 输出矫正镜片 (中央 AI / 分身回答后置闸)
   | 'output_guard.checked'                // 每次审完留痕 (PASS / SOFT_DRIFT / HARD_CONFLICT)
   | 'output_guard.revised'                // HARD_CONFLICT 后 LLM 重写一次
@@ -95,6 +98,7 @@ export type AuditAction =
   // Skill / Agent (CircleBot 对齐)
   | 'skill.executed'
   | 'skill.blocked_red_zone'
+  | 'skill.blocked_data_scope'             // §19.3 数据边界拦截 (跨用户/越级访问)
   | 'skill.registry.reloaded'
   // Persona 拿捏闭环
   | 'persona.proxy_action_created'
@@ -127,6 +131,9 @@ export type AuditAction =
   | 'kpi.bonus_calculated'       // 奖金试算 (draft)
   | 'kpi.bonus_committed'        // 奖金下发 (final)
   | 'kpi.year_end_close'         // 绩效奖金年终关闭
+  // 搭子手抄 · 员工本人闸门 (个人笔记 → 工作分身, opt-in, 可撤回)
+  | 'shouchao.shared_to_persona'          // 本人开启: 某条笔记授权喂给工作分身
+  | 'shouchao.unshared_from_persona'      // 本人撤回: 关闭授权 / 从分身语料移除
   // BSC 战略地图因果链 (B-019)
   | 'kpi.causal_link.create'     // 建因果链
   | 'kpi.causal_link.update'     // 改 strength/hypothesis

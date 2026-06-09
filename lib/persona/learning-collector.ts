@@ -67,6 +67,15 @@ export async function ingestDecisionCard(card: DecisionCard): Promise<void> {
   } catch {
     /* ignore */
   }
+
+  // §B-024 真学习: 计数器之外, 若本次决议带结果反馈 (被否/弃用/复盘) 则做语言化自省并落库.
+  // fail-soft: reflectOnDecision 内部已包异常, 这里再兜一层防 import 失败阻塞决议流。
+  try {
+    const { reflectOnDecision } = await import('./reflexion');
+    await reflectOnDecision(card, persona);
+  } catch {
+    /* ignore: 反思失败绝不影响决议主流程 */
+  }
 }
 
 function updateStyleProfile(prev: StyleProfile, card: DecisionCard): StyleProfile {
