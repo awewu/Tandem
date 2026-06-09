@@ -32,8 +32,12 @@ import type {
   KpiCausalLink,
 } from '../types/kpi';
 import { generateId } from './repository';
+// DB-AUDIT P1 · classifier 提取到独立无 db-import 文件 (便于单测).
+import { classifyKvFilter } from './kv-filter';
 
 const kv = schema.kvStore;
+
+export { SAFE_KEY_RE, classifyKvFilter } from './kv-filter';
 
 // ---------------------------------------------------------------------------
 // 通用 JSON Repository
@@ -52,35 +56,42 @@ class DrizzleKvRepository<T extends { id: string }> implements Repository<T> {
   }
 
   async list(filter?: Partial<T>, opts?: ListOptions): Promise<T[]> {
-    // C2/C1: 若 filter 带 tenantId, 把租户过滤下推到 SQL (减少加载行数 + 数据层兜底).
-    //   依赖迁移 0006 回填 KvStore.tenantId 列 + create/update 落列, 列已"复活".
-    //   尾部 JS filter 保留, 对其余字段精确过滤, 行为与历史一致.
-    const tenantId = (filter as Record<string, unknown> | undefined)?.tenantId as
-      | string
-      | undefined;
-    const where = tenantId
-      ? and(eq(kv.collection, this.collection), eq(kv.tenantId, tenantId))
-      : eq(kv.collection, this.collection);
+    // ────────────────────────────────────────────────────────────────────
+    // C2/C1 + P1 (DB-AUDIT 2026-06-09): 把可下推的 filter 都推到 SQL,
+    //   减少"加载全集合 → JS 过滤"的内存与网络开销.
+    //   - tenantId 列下推 (0006 回填后列已复活)
+    //   - 其余 string 类型 filter 走 JSONB ->> 表达式 + 参数绑定
+    //   - number / boolean / object 留给 JS 兜底 (避免 ->> 类型转换坑)
+    //   - 仅当无 JS 兜底键 (= 全部下推成功) 时才把 limit/offset 也推到 SQL,
+    //     否则 SQL 限行会发生在 JS 过滤之前 → 语义错误.
+    //   key 必须是合法标识符 ([A-Za-z_][A-Za-z0-9_]*), 防 SQL 注入 (虽然 key 来自
+    //   typed Partial<T> 编译期源, 但兜底校验保留, 兜底成本 ≈ 0).
+    // ────────────────────────────────────────────────────────────────────
+    const filterRec = (filter as Record<string, unknown> | undefined) ?? {};
+    const cls = classifyKvFilter(filterRec);
 
-    // P1 分页: 仅当无需 JS 侧过滤 (filter 仅 tenantId 或为空) 时, 把 limit/offset 下推到 SQL.
-    //   否则 SQL 限行会发生在 JS 过滤之前, 语义错误 → 退化为"加载后 JS 切片".
-    const jsFilterKeys = filter
-      ? Object.keys(filter).filter((k) => k !== 'tenantId')
-      : [];
-    const canPushLimit = jsFilterKeys.length === 0;
+    const conds = [eq(kv.collection, this.collection)] as Array<ReturnType<typeof eq> | ReturnType<typeof sql>>;
+    if (cls.tenantId) conds.push(eq(kv.tenantId, cls.tenantId));
+    for (const { key, value } of cls.jsonbStringKeys) {
+      // sql.raw on key is safe because classifyKvFilter已用 SAFE_KEY_RE 校验;
+      // value 走标准参数绑定 (Drizzle 自动 prepared statement).
+      conds.push(sql`${kv.data}->>${sql.raw(`'${key}'`)} = ${value}`);
+    }
+
+    const where = conds.length === 1 ? conds[0] : and(...conds);
 
     let q = db.select().from(kv).where(where).orderBy(desc(kv.updatedAt)).$dynamic();
-    if (opts && canPushLimit) {
+    if (opts && cls.canPushLimit) {
       if (opts.limit !== undefined) q = q.limit(opts.limit);
       if (opts.offset !== undefined) q = q.offset(opts.offset);
     }
     const rows = await q;
     const all = rows.map((r) => r.data as T);
-    if (jsFilterKeys.length === 0) return all;
+    if (cls.jsFallbackKeys.length === 0) return all;
 
     const filtered = all.filter((item) =>
-      Object.entries(filter as Partial<T>).every(
-        ([key, val]) => (item as Record<string, unknown>)[key] === val,
+      cls.jsFallbackKeys.every(
+        (key) => (item as Record<string, unknown>)[key] === filterRec[key],
       ),
     );
     // 退化路径: limit/offset 在 JS 过滤后切片 (仍兜底返回行数, 但 DB 仍加载了 tenant 全量).
