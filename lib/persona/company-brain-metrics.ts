@@ -146,6 +146,7 @@ export async function computeMetrics(opts: {
     'boss_ai_reply',
     'baseline_arbitration',
     'meeting_advice',
+    'retrospective_draft',
     'document_review',
     'memory_promotion',
   ];

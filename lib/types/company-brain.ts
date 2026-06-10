@@ -20,6 +20,7 @@ export type CompanyBrainDecisionContext =
   | 'boss_ai_reply'         // BossAI 浮窗流式回复 (灵魂入口, 2026-06-09 接 CA-13 飞轮)
   | 'baseline_arbitration'  // 灰区 LLM 仲裁 (CA-2, 待启动)
   | 'meeting_advice'        // 议事室公司视角
+  | 'retrospective_draft'   // 7天后自动复盘草稿 (2026-06-09 补燃料, 与 meeting_advice 不同 LLM 调用, 不同决策)
   | 'document_review'       // 文档评审
   | 'memory_promotion';     // Memory 升级建议
 
@@ -212,13 +213,24 @@ export interface CompanyBrainEvalResult {
  */
 export interface OkrOptimizationProposal {
   id: string;
-  /** 提议类型 (首片仅 kr_at_risk; 预留 objective_stalled / skill_promotion) */
-  kind: 'kr_at_risk' | 'objective_stalled' | 'skill_promotion';
+  /**
+   * 提议类型:
+   *   - kr_at_risk: KR 信心度偏离 on-track
+   *   - objective_stalled: Objective 信心度偏离 on-track
+   *   - kr_stalled_trend: KR 信心度仍 on-track, 但近窗口多次 check-in 进度停滞/倒退 (长期承压预警)
+   *   - skill_promotion: 高采纳决策场景 → 建议沉淀为可复用技能/企业 Memory (capability target)
+   */
+  kind: 'kr_at_risk' | 'objective_stalled' | 'kr_stalled_trend' | 'skill_promotion';
   /** 提议标题 */
   title: string;
-  /** 关联本体对象类型 */
-  targetType: 'key_result' | 'objective';
-  /** 关联本体对象 id */
+  /**
+   * 关联对象类型:
+   *   - key_result / objective: 指向 OKR 本体对象
+   *   - capability: skill_promotion 专用, targetId 为决策场景 (CompanyBrainDecisionContext),
+   *     建议将该高采纳场景沉淀为可复用技能/企业 Memory (须经三级签批, 中央 AI 不自动建)
+   */
+  targetType: 'key_result' | 'objective' | 'capability';
+  /** 关联对象 id (OKR 对象 id, 或 capability 场景名) */
   targetId: string;
   /** 当前度量快照 (供治理审视) */
   metrics: { progressPct: number; confidence: string };

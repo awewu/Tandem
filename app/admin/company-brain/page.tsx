@@ -85,6 +85,7 @@ const CTX_LABEL: Record<string, string> = {
   boss_ai_reply: 'BossAI 浮窗',
   baseline_arbitration: '灰区仲裁',
   meeting_advice: '议事建议',
+  retrospective_draft: '7天后复盘',
   document_review: '文档评审',
   memory_promotion: 'Memory 升级',
 };

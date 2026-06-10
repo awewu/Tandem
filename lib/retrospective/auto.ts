@@ -26,6 +26,7 @@ export interface RetrospectiveDraft {
 }
 
 export async function generateRetrospective(cardId: string): Promise<RetrospectiveDraft | null> {
+  const t0 = Date.now();
   const store = getStore();
   const card = await store.decisionCards.get(cardId);
   if (!card || card.convergenceState !== 'COMMIT') return null;
@@ -37,6 +38,9 @@ export async function generateRetrospective(cardId: string): Promise<Retrospecti
 
   const router = getRouter();
   let aiText = '';
+  let llmRan = false;
+  let llmUsage: { promptTokens?: number; completionTokens?: number } | undefined;
+  let llmModel = 'unknown';
 
   // §T15 baseline-guard: 自动复盘前的组织记忆基线校验
   // actor 用决议发起人 (autonomous 后台任务, 但责任归属到 createdBy)
@@ -118,6 +122,9 @@ ${actionItems.map((a) => `- [${a.status}] ${a.task}`).join('\n')}`,
         responseFormat: 'json',
       });
       aiText = typeof res.message.content === 'string' ? res.message.content : '{}';
+      llmRan = true;
+      llmUsage = res.usage;
+      llmModel = res.model ?? 'long_context';
     } catch {
       aiText = '{}';
     }
@@ -152,6 +159,40 @@ ${actionItems.map((a) => `- [${a.status}] ${a.task}`).join('\n')}`,
     targetType: 'decision_card',
     metadata: { event: 'retrospective_generated', shouldPromoteToMemory: draft.shouldPromoteToMemory },
   });
+
+  // §CA-13 闭环 (2026-06-09 · 补燃料): 落地 retrospective_draft 决策给反思循环喂料.
+  //   与 meeting_advice 不同: meeting_advice 是议事 COMMIT 时的 AI 建议, retrospective_draft 是 7 天后
+  //   AI 看 action item 完成率回头反思. 不同 LLM 调用 = 不同决策 = 应分别评估.
+  //   仅 LLM 真跑过才记 (baseline_blocked 走数据降级 path, 不是 AI 决策, 不该污染 adoptionRate 分母).
+  //   Owner 在台账/admin 看到草稿后通过 admin inline 反馈 (781fd5e) 标 adopted/overruled.
+  if (llmRan) {
+    try {
+      const { recordDecision } = await import('../persona/company-brain-decision');
+      const { estimateCostMicroUsd } = await import('../analytics/track');
+      const tokensIn = llmUsage?.promptTokens ?? 0;
+      const tokensOut = llmUsage?.completionTokens ?? 0;
+      const inputSummary = `复盘: ${card.title} · 完成率 ${(completionRate * 100).toFixed(0)}%`;
+      const outputSummary = `${draft.actualOutcome.slice(0, 200)} · 学习: ${draft.learning.slice(0, 200)}${
+        draft.shouldPromoteToMemory ? ` · 提议入 Memory (${draft.promoteAs})` : ''
+      }`;
+      await recordDecision({
+        context: 'retrospective_draft',
+        inputSummary,
+        outputSummary,
+        modelUsed: llmModel,
+        providerUsed: 'router',
+        scenario: 'long_context',
+        tokensIn,
+        tokensOut,
+        costMicroUsd: estimateCostMicroUsd(llmModel, tokensIn, tokensOut),
+        latencyMs: Date.now() - t0,
+        refId: cardId,
+        refType: 'decision_card',
+      });
+    } catch {
+      /* 决策记录失败不影响复盘主流程 */
+    }
+  }
 
   // S3 · Reflection 闭环: shouldPromoteToMemory=true 时自动起草 Memory 候选
   if (draft.shouldPromoteToMemory && draft.promoteAs && draft.learning) {
