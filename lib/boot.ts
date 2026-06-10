@@ -228,7 +228,15 @@ async function runSlowScans(): Promise<void> {
   }
 
   try {
-    const { escalateOverduePromotions } = await import('./memory/promotion-flow');
+    const { finalizeApprovedPromotions, escalateOverduePromotions } = await import(
+      './memory/promotion-flow'
+    );
+    // 先物化"已全签 + 公示期满"的提议 (避免按时签完却被下面的升级扫描误判逾期).
+    const fin = await finalizeApprovedPromotions();
+    if (fin.materialized > 0) {
+      // eslint-disable-next-line no-console
+      console.info(`[boot] memory promotion finalize: ${fin.materialized} 条公示期满全签 → 已物化生效`);
+    }
     const r = await escalateOverduePromotions();
     if (r.escalated > 0 || r.notifiedGovernance > 0) {
       // eslint-disable-next-line no-console

@@ -24,9 +24,9 @@ import type {
 import {
   PROMOTION_REQUIRED_ROLES,
   PROMOTION_SLA_DAYS,
+  PROMOTION_REVIEW_DAYS,
 } from '../types/memory';
 
-const PUBLIC_REVIEW_DAYS = 7;
 const EMERGENCY_REVIEW_DAYS = 1;
 
 /** Lv1 → Lv2 → Lv3 升序 */
@@ -53,7 +53,7 @@ export interface ProposeInput {
 export async function proposePromotion(input: ProposeInput): Promise<MemoryPromotionRequest> {
   const store = getStore();
   const level = input.level ?? 'team';
-  const reviewDays = input.isEmergencyTrack ? EMERGENCY_REVIEW_DAYS : PUBLIC_REVIEW_DAYS;
+  const reviewDays = input.isEmergencyTrack ? EMERGENCY_REVIEW_DAYS : PROMOTION_REVIEW_DAYS[level];
   const slaDays = PROMOTION_SLA_DAYS[level];
   const now = Date.now();
 
@@ -264,6 +264,46 @@ export async function reject(promotionId: string, signerId: string, reason: stri
     metadata: { reason },
   });
   return updated;
+}
+
+// ---------------------------------------------------------------------------
+// 公示期满兜底物化 (全签 + 公示期过 → 生效)
+//
+// 必要性: materializePromotion 只在 sign() 当下触发. 若所有签字都在公示期内完成,
+//   之后再无 sign 事件, 提议会一直卡在 pending. 本扫描在公示期满后把"已全签待公示"
+//   的提议物化生效. 与 escalateOverduePromotions 配对, boot 中本函数先跑:
+//   全签的先物化生效, 再轮到升级扫描 → 永不会把"按时签完只是在等公示"的提议误升级.
+//   (公示期 ≤ SLA 保证: 全签时公示期必早于 SLA 到期.)
+// ---------------------------------------------------------------------------
+
+export interface FinalizeResult {
+  scanned: number;
+  materialized: number;
+}
+
+export async function finalizeApprovedPromotions(): Promise<FinalizeResult> {
+  const store = getStore();
+  const now = Date.now();
+  const pending = (await store.promotions.list()).filter((p) => p.status === 'pending');
+
+  let materialized = 0;
+  for (const req of pending) {
+    const level = req.level ?? 'company';
+    const requiredRoles = PROMOTION_REQUIRED_ROLES[level];
+    const allSigned = isAllRolesSigned(req.signers, requiredRoles);
+    const reviewExpired =
+      !!req.publicReviewUntil && new Date(req.publicReviewUntil).getTime() < now;
+    if (!allSigned || !reviewExpired) continue;
+
+    const updated = await store.promotions.update(req.id, {
+      status: 'approved',
+      finalDecisionAt: new Date(now).toISOString(),
+    });
+    await materializePromotion(updated);
+    materialized++;
+  }
+
+  return { scanned: pending.length, materialized };
 }
 
 // ---------------------------------------------------------------------------

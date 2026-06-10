@@ -24,6 +24,7 @@ import {
   sign,
   reject,
   escalateOverduePromotions,
+  finalizeApprovedPromotions,
 } from '@/lib/memory/promotion-flow';
 import { getStore, setStore } from '@/lib/storage/repository';
 import { createInMemoryStore } from '@/lib/storage/memory-store';
@@ -76,7 +77,7 @@ beforeEach(async () => {
 // ---------------------------------------------------------------------------
 
 describe('proposePromotion · SLA + publicReview', () => {
-  it('Lv1 team 默认 → SLA 3 天 / publicReview 7 天', async () => {
+  it('Lv1 team 默认 → SLA 3 天 / publicReview 2 天', async () => {
     const req = await proposePromotion({
       materialId: 'mat_1',
       proposedType: 'sop',
@@ -90,6 +91,10 @@ describe('proposePromotion · SLA + publicReview', () => {
     const slaDays = (new Date(req.slaDeadline!).getTime() - Date.now()) / 86400_000;
     expect(slaDays).toBeGreaterThan(2.9);
     expect(slaDays).toBeLessThan(3.1);
+    // 公示期 = 2 天 (team), 必须 ≤ SLA
+    const reviewDays = (new Date(req.publicReviewUntil!).getTime() - Date.now()) / 86400_000;
+    expect(reviewDays).toBeGreaterThan(1.9);
+    expect(reviewDays).toBeLessThan(2.1);
     expect(req.isEmergencyTrack).toBe(false);
   });
 
@@ -252,10 +257,106 @@ describe('publicReview 公示期', () => {
       proposerId: 'u_alice',
       level: 'team',
     });
-    // 默认 publicReviewUntil = 7 天后, 不动
+    // 默认 publicReviewUntil = 2 天后 (team), 不动
     await sign(req.id, 'u_team_lead', 'team_leader');
     const after = await sign(req.id, 'u_steward', 'steward');
     expect(after.status).toBe('pending');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 14. finalizeApprovedPromotions (公示期满兜底物化)
+// ---------------------------------------------------------------------------
+
+describe('finalizeApprovedPromotions', () => {
+  it('全签 + 公示期满 → 物化生效 + materialized=1', async () => {
+    const store = getStore();
+    const req = await proposePromotion({
+      materialId: 'mat_1',
+      proposedType: 'sop',
+      proposedTitle: 'SOP-兜底',
+      proposedBody: '正文',
+      proposerId: 'u_alice',
+      level: 'team',
+    });
+    // 在公示期内签完 (sign 此时不物化, 因公示期未过)
+    await sign(req.id, 'u_team_lead', 'team_leader');
+    const afterSign = await sign(req.id, 'u_steward', 'steward');
+    expect(afterSign.status).toBe('pending');
+
+    // 公示期满 (手动推到过去)
+    await store.promotions.update(req.id, {
+      publicReviewUntil: new Date(Date.now() - 86400_000).toISOString(),
+    });
+
+    const r = await finalizeApprovedPromotions();
+    expect(r.materialized).toBe(1);
+
+    const updated = await store.promotions.get(req.id);
+    expect(updated!.status).toBe('approved');
+    expect(updated!.finalDecisionAt).toBeTruthy();
+
+    const memos = await store.memories.list();
+    expect(memos.length).toBe(1);
+    expect(memos[0].title).toBe('SOP-兜底');
+    expect(memos[0].sourceMaterialId).toBe('mat_1');
+  });
+
+  it('全签但公示期未到 → 不物化 (materialized=0, 仍 pending)', async () => {
+    const store = getStore();
+    const req = await proposePromotion({
+      materialId: 'mat_1',
+      proposedType: 'sop',
+      proposedTitle: 'X',
+      proposedBody: 'X',
+      proposerId: 'u_alice',
+      level: 'team',
+    });
+    await sign(req.id, 'u_team_lead', 'team_leader');
+    await sign(req.id, 'u_steward', 'steward');
+    // publicReviewUntil 默认 2 天后, 未到
+
+    const r = await finalizeApprovedPromotions();
+    expect(r.materialized).toBe(0);
+    const updated = await store.promotions.get(req.id);
+    expect(updated!.status).toBe('pending');
+    expect((await store.memories.list()).length).toBe(0);
+  });
+
+  it('未全签但公示期满 → 不物化 (materialized=0)', async () => {
+    const store = getStore();
+    const req = await proposePromotion({
+      materialId: 'mat_1',
+      proposedType: 'sop',
+      proposedTitle: 'X',
+      proposedBody: 'X',
+      proposerId: 'u_alice',
+      level: 'team',
+    });
+    await sign(req.id, 'u_team_lead', 'team_leader'); // 缺 steward
+    await store.promotions.update(req.id, {
+      publicReviewUntil: new Date(Date.now() - 86400_000).toISOString(),
+    });
+
+    const r = await finalizeApprovedPromotions();
+    expect(r.materialized).toBe(0);
+    expect((await store.promotions.get(req.id))!.status).toBe('pending');
+  });
+
+  it('已 approved/rejected 不参与 (过滤)', async () => {
+    const store = getStore();
+    const req = await proposePromotion({
+      materialId: 'mat_1',
+      proposedType: 'sop',
+      proposedTitle: 'X',
+      proposedBody: 'X',
+      proposerId: 'u_alice',
+      level: 'team',
+    });
+    await store.promotions.update(req.id, { status: 'rejected' });
+    const r = await finalizeApprovedPromotions();
+    expect(r.scanned).toBe(0);
+    expect(r.materialized).toBe(0);
   });
 });
 

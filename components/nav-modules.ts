@@ -124,8 +124,10 @@ export const NAV_MODULES: NavModule[] = [
     visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
     pathPrefixes: ['/okr', '/insights', '/analytics', '/kpi', '/tti', '/report'],
     items: [
-      // 绩效目标 (KPI 年度硬指标, 只读)
-      { name: '绩效记分卡',         href: '/kpi',              icon: BarChart3,      group: 'KPI 绩效达成' },
+      // KPI = BSC 底线绩效结果 (年度硬指标, 100% 才达标, 与奖金挂钩; KPI 只关联 BSC). 只读.
+      { name: '绩效记分卡',         href: '/kpi',              icon: BarChart3,      group: 'KPI · BSC 底线绩效' },
+      // TTI = 事半主轴 (前瞻提升轨, 60-70% 即健康, 与薪资分离). /tti=四要素填报, 与 /okr 同源互为镜像.
+      { name: 'TTI 四要素填报',     href: '/tti',              icon: Activity,       group: '目标与关键成果法 OKR' },
       // 目标管理 (精简为符合 Tita 极简逻辑 of 3步流程)
       { name: '我的目标与对齐',    href: '/okr?owner=me',     icon: Target,         group: '目标与关键成果法 OKR' },
       { name: 'OKR 5 层级联树',    href: '/okr/cascade',      icon: Network,        group: '目标与关键成果法 OKR' },
@@ -136,6 +138,8 @@ export const NAV_MODULES: NavModule[] = [
       // 每日推进 — 5min 日报与周回顾 (OKR daily/weekly check-in 输入, 与KR互动推进)
       { name: '5min 智能日报', href: '/report',         icon: Clock3,        group: '每日推进', accent: 'cta' },
       { name: '本周回顾',      href: '/report/weekly',  icon: CalendarDays,  group: '每日推进' },
+      // 经营推演 (FP&A 引擎: 成本中心 BSC + OKR 驱动交付基线; 高亮稳定归事半, 不弹跳 Tandem)
+      { name: 'FP&A 经营推演',     href: '/okr/fpa',          icon: Building2,      group: '经营推演 FP&A' },
       // 分析洞察
       { name: 'AI 智能信号',       href: '/insights',         icon: SparklesAlias,  group: '分析洞察' },
       { name: '组织分析',          href: '/analytics',        icon: Grid3x3,        group: '分析洞察', visibleTo: ['manager', 'steward', 'admin', 'champion'] },
@@ -159,6 +163,11 @@ export const NAV_MODULES: NavModule[] = [
   },
 
   // ═══ Tandem · 议事与决议 (会议 / 决议书 / 共同决策 / 重大公司级工作执行协同) ═══
+  //
+  // ⚠️ TODO(nav-naming): 命名碰撞 — 本模块名为 "Tandem" 但其 pathPrefixes 不含 /tandem;
+  //   而路由 /tandem 实际归下方「搭子(dazi)」模块 (个人工作台). 即「叫 Tandem 的模块」
+  //   ≠「/tandem 这个页」, 排查/接手极易踩坑. 改路由 (/tandem→/workbench 或本模块→/governance)
+  //   有迁移成本, 暂不动; 合并后另起一轮统一. 见复盘 2026-06-09.
   {
     id: 'tandem',
     label: 'Tandem',
@@ -183,9 +192,12 @@ export const NAV_MODULES: NavModule[] = [
     fullLabel: '搭子 · 个人工作台',
     tagline: '每天和你的分身一起干活 · 1 舞台 + 2 召唤',
     icon: BotMessageSquare,
+    // ⚠️ 命名碰撞: 路由 /tandem 归本「搭子」模块, 而非上方名为 "Tandem" 的治理模块. 见上方 TODO(nav-naming).
     // /tandem 内部自有 1+2 召唤布局, 不需 SubSidebar (items=[] = sub-sidebar.tsx 返回 null).
     // /chat /agents = 用已固化 agent/Gem 干活, 归搭子 (入口在工作台"通用 AI"召唤).
-    pathPrefixes: ['/tandem', '/chat', '/agents'],
+    // /teammates = AI 同事目录 (中央 AI + 我的搭子, 一键召唤), 概念归搭子; 入口在首页 QuickAction.
+    //   搭子无 SubSidebar (会破坏 /tandem 全屏布局), 故仅靠 pathPrefix 高亮 + 首页磁贴可达.
+    pathPrefixes: ['/tandem', '/chat', '/agents', '/teammates'],
     items: [],
   },
 

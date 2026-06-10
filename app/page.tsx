@@ -10,6 +10,7 @@ import {
   Target,
   Clock3,
   Brain,
+  Bot,
   ArrowRight,
   LayoutGrid,
   Briefcase,
@@ -282,6 +283,9 @@ export default function HomePage() {
             <div className="hidden md:flex flex-wrap items-center gap-2">
               <QuickAction href="/im" icon={MessagesSquare} muted>
                 IM 协同
+              </QuickAction>
+              <QuickAction href="/teammates" icon={Bot} muted>
+                AI 同事
               </QuickAction>
               <QuickAction href="/documents" icon={FileText} muted>
                 文档

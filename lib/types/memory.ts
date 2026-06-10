@@ -105,6 +105,18 @@ export const PROMOTION_SLA_DAYS: Record<PromotionLevel, number> = {
   company: 14,
 };
 
+/**
+ * 各级公示期天数 (签字与公示并行, 必须 ≤ 同级 SLA).
+ * 规则: 公示期满且全签 → 物化生效 (finalizeApprovedPromotions);
+ *       SLA 到点仍未签完 → 升级 (escalateOverduePromotions).
+ * 紧急通道 (isEmergencyTrack) 统一 1 天, 不分级.
+ */
+export const PROMOTION_REVIEW_DAYS: Record<PromotionLevel, number> = {
+  team: 2,
+  dept: 3,
+  company: 5,
+};
+
 /** 各级别需要的签字角色 (steward 全级别都要) */
 export const PROMOTION_REQUIRED_ROLES: Record<PromotionLevel, MemorySignerRole[]> = {
   team: ['team_leader', 'steward'],

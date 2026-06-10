@@ -153,10 +153,10 @@ export default function NineBoxPage() {
         </CardHeader>
         <CardContent className="space-y-1 text-footnote text-muted-foreground">
           <div>
-            <span className="font-medium text-foreground">KPI 完成度</span> = 该 owner 所有 KR 的 (current - start) / (target - start) 平均, clamp 到 [0,1]
+            <span className="font-medium text-foreground">纵轴 · KPI 绩效结果</span> = 该 owner bonus KPI 的加权完成率 (与 BSC 底线 / 奖金挂钩, 100% 才达标), clamp 到 [0,1]
           </div>
           <div>
-            <span className="font-medium text-foreground">TTI 提升度</span> = 该 owner 所有 TTI 的 completionRate 平均
+            <span className="font-medium text-foreground">横轴 · TTI 潜力</span> = 该 owner OKR KR 平均完成率 与 360 评分均值 的均分 (前瞻提升, 60-70% 即健康, 与薪资分离)
           </div>
           <div>
             <span className="font-medium text-foreground">分类阈值</span> · KPI: ≥0.9 高 / ≥0.7 中 / 其余低 ·{' '}
