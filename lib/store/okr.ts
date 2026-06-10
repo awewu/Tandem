@@ -103,6 +103,14 @@ export interface KeyResult {
   confidence: Confidence;
   status: 'active' | 'completed' | 'abandoned';
   dueDate?: number;
+  /**
+   * FP&A 数据契约桥 (中书↔门下 · docs/GOVERNANCE-FPA-ENGINE-2026-06-09.md §3.2):
+   *   targetKpiId      = 该 KR 意图推动的 BSC KPI (Kpi.id), 取代旧的标题模糊匹配。
+   *   expectedKpiDelta = KR 100% 完成时预期把该 KPI 推动的绝对增量 (与 KPI 同量纲, 可正可负)。
+   *   供三省六部 FP&A DeliveryBaseline 投影 OKR→BSC 影响。两者皆可空 (非锚定 KR)。
+   */
+  targetKpiId?: string | null;
+  expectedKpiDelta?: number | null;
   tags: string[];
   collaborators?: string[];
   watchers?: string[];

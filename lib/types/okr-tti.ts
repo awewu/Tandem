@@ -107,6 +107,14 @@ export interface KeyResult {
    *   其他类型默认关闭, 防自动值覆盖人工测量的数值型 KR.
    */
   autoProgressFromInitiatives?: boolean;
+  /**
+   * FP&A 数据契约桥 (中书↔门下 · docs/GOVERNANCE-FPA-ENGINE-2026-06-09.md §3.2):
+   *   targetKpiId    = 该 KR 意图推动的 BSC KPI (Kpi.id), 取代旧的标题模糊匹配。
+   *   expectedKpiDelta = KR 100% 完成时预期把该 KPI 推动的绝对增量 (与 KPI 同量纲, 可正可负)。
+   *   FP&A DeliveryBaseline 据此投影 OKR 进度对 BSC 的影响。两者皆可空 (非锚定 KR)。
+   */
+  targetKpiId?: string | null;
+  expectedKpiDelta?: number | null;
   dueDate?: string | null;
   tags: string[];
   collaboratorIds: string[];

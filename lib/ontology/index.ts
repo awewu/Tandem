@@ -34,6 +34,11 @@ export type {
 export { actionRegistry } from './action-types';
 export { executeAction, type ExecuteActionResult } from './execute-action';
 export { KrCheckinAction, type KrCheckinInput, type KrCheckinResult } from './actions/kr-checkin';
+export {
+  ObjectiveCheckinAction,
+  type ObjectiveCheckinInput,
+  type ObjectiveCheckinResult,
+} from './actions/objective-checkin';
 
 // ── ON-2 · 中央 AI 决策调配 (提议 → 否决窗 → 兑现) ────────────────────
 export {
@@ -50,10 +55,12 @@ export {
 import { ensureCoreObjectTypes } from './object-types';
 import { actionRegistry } from './action-types';
 import { KrCheckinAction } from './actions/kr-checkin';
+import { ObjectiveCheckinAction } from './actions/objective-checkin';
 
 /** 幂等注册核心 Action Type (用 has() 判定, 使 test clear 后能重注册)。 */
 export function ensureCoreActions(): void {
   if (!actionRegistry.has(KrCheckinAction.id)) actionRegistry.register(KrCheckinAction);
+  if (!actionRegistry.has(ObjectiveCheckinAction.id)) actionRegistry.register(ObjectiveCheckinAction);
 }
 
 // import 即注册核心对象类型 + Action Type (幂等; 镜像 skillRegistry 的 boot 注册范式)。

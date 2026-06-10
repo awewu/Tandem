@@ -44,10 +44,10 @@ test.describe('Tandem · Smoke 4 flows', () => {
     await expect(title).toBeVisible();
   });
 
-  test('⑥ Memories 公司 Memory tab 加载真后端', async ({ page }) => {
+  test('⑥ 组织记忆 tab 加载真后端', async ({ page }) => {
     await page.goto('/memories');
-    await expect(page.getByRole('tab', { name: /公司 Memory/ })).toBeVisible();
-    // 默认 tab = 公司 Memory, 应显示 banner 或类型计数
+    await expect(page.getByRole('tab', { name: /组织记忆/ })).toBeVisible();
+    // 默认 tab = 组织记忆, 应显示 banner 或类型计数
     await expect(page.getByText(/SOP|案例|红线|价值观/).first()).toBeVisible({ timeout: 10_000 });
   });
 

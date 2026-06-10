@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Lock, Unlock, Save, Users, Brain, Sparkles, ArrowRight } from "lucide-react";
+import { Lock, Unlock, Save, Users, Brain, Sparkles, ArrowRight, ScanSearch, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { CollabTextarea } from "@/components/documents/collab-textarea";
 
 interface DocumentDetail {
@@ -29,8 +29,43 @@ export default function DocumentEditorPage() {
   const [content, setContent] = useState("");
   const [saving, setSaving] = useState(false);
   // DOC-2 / DOC-4 行内反馈状态
-  const [busy, setBusy] = useState<null | 'promote' | 'spawn'>(null);
+  const [busy, setBusy] = useState<null | 'promote' | 'spawn' | 'review'>(null);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
+
+  // DOC-3 (charter §四 · 2026-06-09): AI 评审结果. null=未评审, 评审完显示侧边面板.
+  interface DocReview {
+    documentId: string;
+    generatedAt: string;
+    summary: string;
+    clarityScore: number;
+    clarityFeedback: string;
+    missingPoints: string[];
+    risks: string[];
+    suggestedActions: Array<'promote_to_memory' | 'send_to_decision' | 'revise' | 'archive'>;
+    rationale: string;
+    llmRan: boolean;
+  }
+  const [review, setReview] = useState<DocReview | null>(null);
+
+  /** DOC-3: 让中央 AI 评审本文档. 不改文档/不自动 promote (advisory, 宪法 A). */
+  const runReview = useCallback(async () => {
+    if (!doc || busy) return;
+    setBusy('review');
+    setActionMsg(null);
+    try {
+      const res = await fetch(`/api/documents/${id}/review`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        setActionMsg(data?.error ?? 'AI 评审失败');
+        return;
+      }
+      setReview(data as DocReview);
+    } catch (err) {
+      setActionMsg(err instanceof Error ? err.message : '网络错误');
+    } finally {
+      setBusy(null);
+    }
+  }, [id, doc, busy]);
 
   /** DOC-2: 把当前文档升级为团队 Memory (走宪章 §8.1 三级签批) */
   const promoteToMemory = useCallback(async () => {
@@ -134,6 +169,17 @@ export default function DocumentEditorPage() {
           className="flex-1 text-headline font-bold border-none outline-none"
         />
         <div className="flex items-center gap-2">
+          {/* DOC-3: AI 评审 — 中央 AI 出参谋意见, 不改文档 (charter §四 飞书做不到 #3) */}
+          <button
+            type="button"
+            onClick={runReview}
+            disabled={busy === 'review'}
+            className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-sky-700 ring-1 ring-sky-300/80 transition hover:bg-sky-50 disabled:opacity-40"
+            title="让中央 AI 评审清晰度/缺漏/风险/建议下一步 (不改文档, 仅参谋)"
+          >
+            <ScanSearch className="h-3 w-3" />
+            {busy === 'review' ? 'AI 评审中...' : review ? '重新评审' : 'AI 评审'}
+          </button>
           {/* DOC-4: 由此发起议事 — 把文档作为议题进议事室 (charter §四 飞书做不到 #2) */}
           <button
             type="button"
@@ -217,7 +263,81 @@ export default function DocumentEditorPage() {
           />
         </div>
 
-        <div className="w-64 border-l p-4 bg-gray-50 overflow-auto">
+        <div className="w-80 border-l p-4 bg-gray-50 overflow-auto space-y-4">
+          {/* DOC-3 评审结果 — 仅 advisory, 不替员工决定下一步 (宪法 A) */}
+          {review && (
+            <div className="rounded-md border border-sky-200 bg-white p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="font-medium text-caption flex items-center gap-1 text-sky-700">
+                  <ScanSearch size={14} /> AI 评审
+                </h3>
+                <span className="text-[10px] text-gray-400">
+                  清晰度 {review.clarityScore}/5
+                </span>
+              </div>
+              {!review.llmRan && (
+                <div className="text-[10px] text-warning bg-warning/5 border border-warning/20 rounded px-2 py-1 flex items-start gap-1">
+                  <AlertTriangle size={11} className="mt-0.5 shrink-0" />
+                  评审降级: LLM 未响应, 仅模板回复. 建议人工通读.
+                </div>
+              )}
+              {review.summary && (
+                <p className="text-[11px] text-gray-700 leading-relaxed">{review.summary}</p>
+              )}
+              {review.clarityFeedback && (
+                <p className="text-[11px] text-gray-500 italic">{review.clarityFeedback}</p>
+              )}
+              {review.missingPoints.length > 0 && (
+                <div>
+                  <div className="text-[10px] text-gray-500 mb-0.5">缺漏点</div>
+                  <ul className="text-[11px] space-y-0.5">
+                    {review.missingPoints.map((p, i) => (
+                      <li key={i} className="text-gray-700">· {p}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {review.risks.length > 0 && (
+                <div>
+                  <div className="text-[10px] text-rose-600 mb-0.5 flex items-center gap-1">
+                    <AlertTriangle size={10} /> 风险
+                  </div>
+                  <ul className="text-[11px] space-y-0.5">
+                    {review.risks.map((r, i) => (
+                      <li key={i} className="text-rose-700">· {r}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {review.suggestedActions.length > 0 && (
+                <div>
+                  <div className="text-[10px] text-emerald-600 mb-1 flex items-center gap-1">
+                    <CheckCircle2 size={10} /> 建议下一步 (人工决定)
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {review.suggestedActions.map((a) => (
+                      <span
+                        key={a}
+                        className="text-[10px] px-1.5 py-0.5 rounded border border-emerald-200 bg-emerald-50 text-emerald-700"
+                      >
+                        {ACTION_LABEL[a]}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {review.rationale && (
+                <p className="text-[10px] text-gray-500 leading-relaxed pt-1 border-t">
+                  {review.rationale}
+                </p>
+              )}
+              <p className="text-[9px] text-gray-400 italic pt-1">
+                参谋建议, 不替你决定. 评审本身已记入 CA-13 飞轮, 可在 admin/company-brain 看板反馈.
+              </p>
+            </div>
+          )}
+
+          <div>
           <h3 className="font-medium mb-3 flex items-center gap-1">
             <Users size={16} /> 协作权限
           </h3>
@@ -235,8 +355,16 @@ export default function DocumentEditorPage() {
           <div className="mt-4 text-footnote text-gray-400">
             最后更新: {new Date(doc.updatedAt).toLocaleString()}
           </div>
+          </div>
         </div>
       </div>
     </div>
   );
 }
+
+const ACTION_LABEL: Record<'promote_to_memory' | 'send_to_decision' | 'revise' | 'archive', string> = {
+  promote_to_memory: '沉淀为 Memory',
+  send_to_decision: '进议事室',
+  revise: '修订',
+  archive: '存档',
+};

@@ -181,6 +181,9 @@ export interface TandemStore {
   /** 搭子手抄 · AI 笔记 (独立模块, KvStore-based) */
   shouchaoNotes: Repository<import('../types/shouchao').ShouchaoNote>;
 
+  /** 知识库 · 文件树节点 (后端持久化, 替代原纯前端 localStorage) */
+  knowledgeNodes: Repository<import('../types/knowledge').KnowledgeNode>;
+
   /** 三省六部项目治理 · 战略项目实体 (Phase 2) */
   governanceProjects: Repository<import('../types/governance').GovernanceProject>;
   /** 三省六部项目治理 · 每个项目的协同模板 (id = projectId) */

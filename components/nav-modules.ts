@@ -200,7 +200,7 @@ export const NAV_MODULES: NavModule[] = [
     pathPrefixes: ['/documents', '/knowledge', '/memories', '/drive', '/bitable'],
     items: [
       { name: '文档协作',     href: '/documents', icon: FileText },
-      { name: '企业 Memory（需审批）', href: '/memories',  icon: Brain },
+      { name: '组织记忆（需审批）', href: '/memories',  icon: Brain },
       { name: '知识图谱',     href: '/knowledge', icon: Database },
       { name: '多维表格',     href: '/bitable',   icon: LayoutGrid },
       { name: '云盘',         href: '/drive',     icon: HardDrive },

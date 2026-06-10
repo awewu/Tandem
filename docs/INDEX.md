@@ -110,6 +110,7 @@
 | `PRODUCTION-AUDIT-2026-05-31.md` | 生产级上线审计 |
 | `TEST-MATRIX-2026-05-30.md` | 测试矩阵 + 规划 |
 | `GOVERNANCE-THREE-DEPARTMENTS-2026-05-30.md` | 三省六部治理协同 |
+| `GOVERNANCE-FPA-ENGINE-2026-06-09.md` | 三省六部 FP&A 引擎 × BSC × OKR 协同 + 成本中心 BSC + 展示标注 |
 | `CASCADE-STATUS-PROTOCOL.md` | Cascade 状态自检 SOP (防 backlog 滞后误判) |
 | `DAZI-BEYOND-COWORK.md` | 搭子 vs Cowork 形态比较 |
 | `DB-AUDIT-2026-06-09.md` | DB schema 审计 (2026-06-09) |

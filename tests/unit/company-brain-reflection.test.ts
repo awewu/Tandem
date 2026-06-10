@@ -49,7 +49,27 @@ async function reset() {
   for (const k of await store.keyResults.list()) {
     await store.keyResults.delete(k.id);
   }
+  for (const c of await store.checkIns.list()) {
+    await store.checkIns.delete(c.id);
+  }
   invalidateBrainVersionCache();
+}
+
+/** ON-3: 给某 KR 播一条 check-in (用于趋势检测) */
+async function seedCheckIn(opts: {
+  krId: string;
+  progressBefore: number;
+  progressAfter: number;
+  daysAgo?: number;
+}) {
+  const store = getStore();
+  const createdAt = new Date(Date.now() - (opts.daysAgo ?? 0) * 24 * 60 * 60 * 1000).toISOString();
+  await store.checkIns.create({
+    id: `ci-${opts.krId}-${Math.random().toString(36).slice(2, 8)}`,
+    scope: 'kr', scopeId: opts.krId, authorId: 'u-1',
+    progressBefore: opts.progressBefore, progressAfter: opts.progressAfter,
+    confidenceBefore: 'on-track', confidenceAfter: 'on-track', createdAt,
+  } as never);
 }
 
 /** ON-3: 播 active 周期 + 公司/团队 Objective + KR (confidence 可控) */
@@ -58,6 +78,8 @@ async function seedOkr(opts: {
   confidence: 'on-track' | 'at-risk' | 'off-track';
   current?: number;
   krId?: string;
+  objConfidence?: 'on-track' | 'at-risk' | 'off-track';
+  objProgress?: number;
 }) {
   const store = getStore();
   const NOW = new Date().toISOString();
@@ -71,7 +93,8 @@ async function seedOkr(opts: {
     await store.objectives.create({
       id: objId, cycleId: 'cyc-on3', level: opts.level ?? 'company', ownerId: 'u-1',
       title: `${opts.level ?? 'company'} 目标`, visibility: 'public', weight: 100,
-      status: 'active', confidence: 'on-track', tags: [], collaboratorIds: [], watcherIds: [],
+      status: 'active', confidence: opts.objConfidence ?? 'on-track',
+      currentProgress: opts.objProgress, tags: [], collaboratorIds: [], watcherIds: [],
       createdAt: NOW, updatedAt: NOW,
     } as never);
   }
@@ -327,6 +350,159 @@ describe('§CA-13 · CompanyBrain Reflection 生成器', () => {
     expect(proposals.length).toBe(2);
     expect(proposals[0].targetId).toBe('kr-low');
     expect(proposals[1].targetId).toBe('kr-mid');
+  });
+
+  it('ON-3: 停滞目标 (Objective 偏离 on-track) → objective_stalled 提议', async () => {
+    // KR on-track (不产 kr 提议), 但目标自身 at-risk → 仅 1 条 objective_stalled
+    await seedOkr({ confidence: 'on-track', current: 90, objConfidence: 'at-risk', objProgress: 0.3 });
+    const proposals = await analyzeOkrHealth();
+    expect(proposals.length).toBe(1);
+    const p = proposals[0];
+    expect(p.kind).toBe('objective_stalled');
+    expect(p.targetType).toBe('objective');
+    expect(p.targetId).toBe('obj-company');
+    expect(p.metrics.confidence).toBe('at-risk');
+    expect(p.metrics.progressPct).toBe(30);
+    expect(p.status).toBe('pending');
+  });
+
+  it('ON-3: KR 提议排在目标提议之前 (承压 KR + 停滞目标并存)', async () => {
+    await seedOkr({ confidence: 'at-risk', current: 20, objConfidence: 'off-track', objProgress: 0.1 });
+    const proposals = await analyzeOkrHealth();
+    expect(proposals.length).toBe(2);
+    expect(proposals[0].kind).toBe('kr_at_risk');
+    expect(proposals[1].kind).toBe('objective_stalled');
+  });
+
+  it('ON-3: 目标 on-track 时不产 objective_stalled', async () => {
+    await seedOkr({ confidence: 'on-track', current: 80, objConfidence: 'on-track' });
+    const proposals = await analyzeOkrHealth();
+    expect(proposals).toEqual([]);
+  });
+
+  it('ON-3: 信心度 on-track 但 check-in 趋势停滞 → kr_stalled_trend 提议', async () => {
+    await seedOkr({ confidence: 'on-track', current: 30, krId: 'kr-flat' });
+    // 两次 check-in, 净进度仅 +1pt (停滞)
+    await seedCheckIn({ krId: 'kr-flat', progressBefore: 0.29, progressAfter: 0.30, daysAgo: 20 });
+    await seedCheckIn({ krId: 'kr-flat', progressBefore: 0.30, progressAfter: 0.30, daysAgo: 2 });
+    const proposals = await analyzeOkrHealth();
+    expect(proposals.length).toBe(1);
+    const p = proposals[0];
+    expect(p.kind).toBe('kr_stalled_trend');
+    expect(p.targetType).toBe('key_result');
+    expect(p.targetId).toBe('kr-flat');
+    expect(p.metrics.confidence).toBe('on-track');
+  });
+
+  it('ON-3: check-in 有明显进度增长 → 不产 kr_stalled_trend', async () => {
+    await seedOkr({ confidence: 'on-track', current: 60, krId: 'kr-moving' });
+    await seedCheckIn({ krId: 'kr-moving', progressBefore: 0.20, progressAfter: 0.40, daysAgo: 15 });
+    await seedCheckIn({ krId: 'kr-moving', progressBefore: 0.40, progressAfter: 0.60, daysAgo: 1 });
+    const proposals = await analyzeOkrHealth();
+    expect(proposals).toEqual([]);
+  });
+
+  it('ON-3: 仅 1 次 check-in 不构成趋势 → 不产 kr_stalled_trend', async () => {
+    await seedOkr({ confidence: 'on-track', current: 30, krId: 'kr-one' });
+    await seedCheckIn({ krId: 'kr-one', progressBefore: 0.30, progressAfter: 0.30, daysAgo: 3 });
+    const proposals = await analyzeOkrHealth();
+    expect(proposals).toEqual([]);
+  });
+
+  it('ON-3: 承压 KR (非 on-track) 不重复进趋势分支 (仅 kr_at_risk)', async () => {
+    await seedOkr({ confidence: 'at-risk', current: 20, krId: 'kr-risk' });
+    await seedCheckIn({ krId: 'kr-risk', progressBefore: 0.20, progressAfter: 0.20, daysAgo: 10 });
+    await seedCheckIn({ krId: 'kr-risk', progressBefore: 0.20, progressAfter: 0.20, daysAgo: 1 });
+    const proposals = await analyzeOkrHealth();
+    expect(proposals.length).toBe(1);
+    expect(proposals[0].kind).toBe('kr_at_risk');
+  });
+
+  it('ON-3: 窗口外的 check-in 不计入趋势', async () => {
+    await seedOkr({ confidence: 'on-track', current: 30, krId: 'kr-old' });
+    // 两条都在 30 天窗口外
+    await seedCheckIn({ krId: 'kr-old', progressBefore: 0.30, progressAfter: 0.30, daysAgo: 60 });
+    await seedCheckIn({ krId: 'kr-old', progressBefore: 0.30, progressAfter: 0.30, daysAgo: 40 });
+    const proposals = await analyzeOkrHealth();
+    expect(proposals).toEqual([]);
+  });
+
+  it('ON-3: 长期高采纳场景 → skill_promotion 沉淀提议 (capability, pending)', async () => {
+    await seedVersion();
+    for (let i = 0; i < 6; i++) await seedDecision({ outcome: 'adopted', context: 'meeting_advice' });
+    const r = await generateReflection({ useLlm: false });
+    const skill = r!.optimizationProposals!.find((p) => p.kind === 'skill_promotion');
+    expect(skill).toBeDefined();
+    expect(skill!.targetType).toBe('capability');
+    expect(skill!.targetId).toBe('meeting_advice');
+    expect(skill!.status).toBe('pending');
+    expect(skill!.metrics.progressPct).toBe(100);
+  });
+
+  it('ON-3: 推翻率高的场景不产 skill_promotion', async () => {
+    await seedVersion();
+    for (let i = 0; i < 3; i++) await seedDecision({ outcome: 'overruled', reason: '跑偏' });
+    for (let i = 0; i < 3; i++) await seedDecision({ outcome: 'adopted' });
+    const r = await generateReflection({ useLlm: false });
+    const skill = r!.optimizationProposals!.find((p) => p.kind === 'skill_promotion');
+    expect(skill).toBeUndefined();
+  });
+
+  it('ON-3: 样本不足 (<5) 不产 skill_promotion', async () => {
+    await seedVersion();
+    for (let i = 0; i < 4; i++) await seedDecision({ outcome: 'adopted', context: 'meeting_advice' });
+    const r = await generateReflection({ useLlm: false });
+    const skill = r!.optimizationProposals!.find((p) => p.kind === 'skill_promotion');
+    expect(skill).toBeUndefined();
+  });
+
+  it('ON-3 闭环: acknowledged skill_promotion → 发起 Memory 三级签批请求 (company 级, 不自动写 Memory)', async () => {
+    await seedVersion();
+    for (let i = 0; i < 6; i++) await seedDecision({ outcome: 'adopted', context: 'meeting_advice' });
+    const r = await generateReflection({ useLlm: false });
+    const skill = r!.optimizationProposals!.find((p) => p.kind === 'skill_promotion')!;
+    const memBefore = (await getStore().memories.list()).length;
+
+    const updated = await setOptimizationProposalStatus(r!.id, skill.id, 'acknowledged', 'owner1');
+    const sp = updated!.optimizationProposals!.find((p) => p.id === skill.id)!;
+    expect(sp.status).toBe('acknowledged');
+    expect(sp.promotionRequestId).toBeTruthy();
+
+    const promo = (await getStore().promotions.list()).find((p) => p.id === sp.promotionRequestId)!;
+    expect(promo).toBeDefined();
+    expect(promo.status).toBe('pending');
+    expect(promo.level).toBe('company');
+    expect(promo.proposedType).toBe('sop');
+    // 裁定 A: 三级签批前不写 Memory
+    expect((await getStore().memories.list()).length).toBe(memBefore);
+  });
+
+  it('ON-3 闭环: 重复 acknowledged skill_promotion 幂等 (不重复发起 promotion)', async () => {
+    await seedVersion();
+    for (let i = 0; i < 6; i++) await seedDecision({ outcome: 'adopted', context: 'meeting_advice' });
+    const r = await generateReflection({ useLlm: false });
+    const skill = r!.optimizationProposals!.find((p) => p.kind === 'skill_promotion')!;
+    const u1 = await setOptimizationProposalStatus(r!.id, skill.id, 'acknowledged', 'owner1');
+    const pid1 = u1!.optimizationProposals!.find((p) => p.id === skill.id)!.promotionRequestId;
+    const u2 = await setOptimizationProposalStatus(r!.id, skill.id, 'acknowledged', 'owner1');
+    const pid2 = u2!.optimizationProposals!.find((p) => p.id === skill.id)!.promotionRequestId;
+    expect(pid2).toBe(pid1);
+    const promos = (await getStore().promotions.list()).filter(
+      (p) => p.materialId === `skill_promotion:${skill.id}`,
+    );
+    expect(promos.length).toBe(1);
+  });
+
+  it('ON-3 闭环: kr_at_risk acknowledged 不发起 promotion (仅 skill_promotion 走沉淀)', async () => {
+    await seedVersion();
+    await seedOkr({ confidence: 'at-risk', current: 20 });
+    for (let i = 0; i < 3; i++) await seedDecision({ outcome: 'adopted' });
+    const r = await generateReflection({ useLlm: false });
+    const kr = r!.optimizationProposals!.find((p) => p.kind === 'kr_at_risk')!;
+    const promosBefore = (await getStore().promotions.list()).length;
+    const u = await setOptimizationProposalStatus(r!.id, kr.id, 'acknowledged', 'owner1');
+    expect(u!.optimizationProposals!.find((p) => p.id === kr.id)!.promotionRequestId).toBeUndefined();
+    expect((await getStore().promotions.list()).length).toBe(promosBefore);
   });
 
   it('ON-3: 治理处置提议 → status acknowledged/dismissed 落盘 (不触 OKR 写)', async () => {

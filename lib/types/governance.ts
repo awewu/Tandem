@@ -169,11 +169,39 @@ export function validateProjectOkrAnchor(input: {
   return { ok: true, anchorState: hasObj ? 'anchored' : 'unanchored_with_reason' };
 }
 
-/** Pillar UI 元数据 (label / 单字 / Tailwind color) */
-export const PILLAR_META: Record<GovernancePillar, { label: string; short: string; color: string }> = {
-  decision: { label: '中书 · 提案', short: '提', color: 'violet' },
-  review: { label: '门下 · 审议', short: '审', color: 'amber' },
-  execution: { label: '尚书 · 执行', short: '执', color: 'emerald' },
+/**
+ * Pillar UI 元数据 (label / 单字 / Tailwind color / 组织实体 / 职能).
+ *
+ * 语义对齐 docs/GOVERNANCE-FPA-ENGINE-2026-06-09.md §1:
+ *   中书=事业部提案 (OKR 草案+FP&A 推演) · 门下=总部/FP&A 用 BSC 底线审议封驳 ·
+ *   尚书六部=经营单元/生产/研发 执行落真值 (成本中心)。
+ *   「君·盖印」(议事室共识) 在三省之上, 非 pillar, 由页面 FP&A 视图单独表达。
+ */
+export const PILLAR_META: Record<
+  GovernancePillar,
+  { label: string; short: string; color: string; who: string; desc: string }
+> = {
+  decision: {
+    label: '中书 · 提案',
+    short: '中书',
+    color: 'violet',
+    who: '事业部',
+    desc: '起草 OKR/战略草案, FP&A 推演产交付基线作附件',
+  },
+  review: {
+    label: '门下 · 审议封驳',
+    short: '门下',
+    color: 'amber',
+    who: '总部 · FP&A',
+    desc: '用 BSC 底线 + FP&A 差异把关, 可驳回; 不替「君」盖印',
+  },
+  execution: {
+    label: '尚书 · 执行',
+    short: '尚书',
+    color: 'emerald',
+    who: '经营单元 · 成本中心',
+    desc: '六部执行落真值; FP&A 落账时切换为尚书户部',
+  },
 };
 
 /** RACI 中文 + 颜色 */

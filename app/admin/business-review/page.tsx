@@ -128,7 +128,7 @@ export default function BusinessReviewPage() {
           {/* 议事概览 */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm">议事活动 (近 {days} 天)</CardTitle>
+              <CardTitle className="text-caption">议事活动 (近 {days} 天)</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex gap-4 text-caption">
@@ -144,7 +144,7 @@ export default function BusinessReviewPage() {
           {review.suggestedTopics.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm">本月建议讨论议题</CardTitle>
+                <CardTitle className="text-caption">本月建议讨论议题</CardTitle>
               </CardHeader>
               <CardContent>
                 <ul className="space-y-2">
@@ -165,7 +165,7 @@ export default function BusinessReviewPage() {
           {/* Markdown 完整版 */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-sm">完整 Markdown 报告</CardTitle>
+              <CardTitle className="text-caption">完整 Markdown 报告</CardTitle>
               <button
                 type="button"
                 onClick={copyMarkdown}
@@ -194,7 +194,7 @@ function Metric({
     <Card>
       <CardContent className="py-4 text-center">
         <p className="text-caption text-muted-foreground">{label}</p>
-        <p className={`text-2xl font-bold ${toneClass}`}>{value}</p>
+        <p className={`text-title-3 font-bold ${toneClass}`}>{value}</p>
       </CardContent>
     </Card>
   );

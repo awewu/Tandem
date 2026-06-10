@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -1114,6 +1114,26 @@ function EditDialog({
     (o) => o.cycleId === activeCycleId && o.id !== data.id
   );
 
+  // FP&A 锚定: 拉取 BSC KPI 候选 (供 KR.targetKpiId 选择), 仅 KR 编辑时
+  const [kpiOptions, setKpiOptions] = useState<{ id: string; title: string; unit?: string | null }[]>([]);
+  useEffect(() => {
+    if (isObj) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const r = await fetch('/api/kpi', { cache: 'no-store' });
+        if (!r.ok) return;
+        const j = await r.json();
+        if (!cancelled) {
+          setKpiOptions((j.kpis ?? []).map((k: any) => ({ id: k.id, title: k.title, unit: k.unit })));
+        }
+      } catch {
+        /* ignore — 锚定为选填, 拉取失败不阻塞 KR 编辑 */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isObj]);
+
   return (
     <div className="fixed inset-0 z-40 bg-black/40 flex items-center justify-center p-4" onClick={() => setEditing(null)}>
       <Card className="w-full max-w-lg max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
@@ -1248,6 +1268,41 @@ function EditDialog({
                   onChange={(e) => setField('dueDate', e.target.value ? new Date(e.target.value).getTime() : undefined)}
                   className="mt-1"
                 />
+              </div>
+              {/* FP&A 锚定: KR → BSC KPI 数据契约桥 (三省六部推演用, 选填) */}
+              <div className="rounded-md border border-dashed border-violet-200 bg-violet-50/40 dark:bg-violet-900/10 p-3 space-y-2">
+                <div className="text-footnote font-medium text-violet-700 dark:text-violet-300 flex items-center gap-1 flex-wrap">
+                  <Network className="h-3 w-3" /> FP&amp;A 锚定 · 这个 KR 推动哪个 BSC 指标
+                  <span className="text-[10px] font-normal text-muted-foreground">三省六部推演用 · 选填</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-footnote text-muted-foreground">目标 BSC KPI</label>
+                    <Select
+                      value={data.targetKpiId ?? '__none__'}
+                      onValueChange={(v) => setField('targetKpiId', v === '__none__' ? null : v)}
+                    >
+                      <SelectTrigger className="mt-1"><SelectValue placeholder="不锚定" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">不锚定</SelectItem>
+                        {kpiOptions.map((k) => (
+                          <SelectItem key={k.id} value={k.id}>{k.title}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-footnote text-muted-foreground">预期推动增量 Δ (KR 100% 时)</label>
+                    <Input
+                      type="number"
+                      value={data.expectedKpiDelta ?? ''}
+                      placeholder="如 0.3 / 1500"
+                      onChange={(e) => setField('expectedKpiDelta', e.target.value === '' ? null : Number(e.target.value))}
+                      className="mt-1"
+                      disabled={!data.targetKpiId}
+                    />
+                  </div>
+                </div>
               </div>
             </>
           )}

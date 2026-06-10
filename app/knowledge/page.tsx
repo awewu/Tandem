@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { useKnowledgeStore, type KNode, useChatStore } from '@/lib/store';
+import { type KNode, useChatStore } from '@/lib/store';
 import { FileManager, type FMNode } from '@/components/file-manager';
 import { parseDocument, SUPPORTED_ACCEPT } from '@/lib/document-parser';
 import { Save, Download, ArrowRightLeft, Building2, Users, User, Lock } from 'lucide-react';
@@ -27,8 +27,123 @@ const OWNERSHIP_META: Record<OwnershipLevel | 'unset', { label: string; icon: Re
 };
 
 export default function KnowledgePage() {
-  const { nodes, addNode, updateNode, deleteNode, deleteNodes, moveNodes } = useKnowledgeStore();
+  // ── 后端持久化 (替代原 zustand-persist/localStorage): 数据落库, 跨设备不丢 ──
+  const [nodes, setNodes] = useState<KNode[]>([]);
   const conversations = useChatStore((s) => s.conversations);
+
+  const mapApiNode = (n: any): KNode => ({
+    id: n.id,
+    name: n.name,
+    type: n.type,
+    parentId: n.parentId ?? 'root',
+    content: n.content,
+    ownership: n.ownership,
+    createdAt: typeof n.createdAt === 'string' ? new Date(n.createdAt).getTime() : (n.createdAt ?? Date.now()),
+  });
+
+  const fetchNodes = useCallback(async (): Promise<KNode[]> => {
+    const r = await fetch('/api/knowledge', { cache: 'no-store', credentials: 'include' });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const j = await r.json();
+    return (Array.isArray(j.nodes) ? j.nodes : []).map(mapApiNode);
+  }, []);
+
+  const reload = useCallback(async () => {
+    try {
+      let mapped = await fetchNodes();
+      // 首次为空 → 播种默认文件夹 (兼容"部署对话"等既有功能, 需要「Hermes产出」存在)
+      if (mapped.length === 0) {
+        await Promise.all(
+          ['文档', 'Hermes产出', '设计资源'].map((name) =>
+            fetch('/api/knowledge', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({ name, type: 'folder', parentId: 'root' }),
+            }),
+          ),
+        );
+        mapped = await fetchNodes();
+      }
+      setNodes(mapped);
+    } catch (err) {
+      console.warn('[knowledge] reload failed:', (err as Error).message);
+    }
+  }, [fetchNodes]);
+
+  useEffect(() => { void reload(); }, [reload]);
+
+  // ── API CRUD wrappers (保持原 store 调用签名, 内部走 /api/knowledge) ──
+  const addNode = useCallback(
+    async (n: Partial<KNode> & { name: string; type: 'folder' | 'file'; parentId: string }) => {
+      await fetch('/api/knowledge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          name: n.name,
+          type: n.type,
+          parentId: n.parentId,
+          content: n.content,
+          ownership: n.ownership,
+        }),
+      });
+      await reload();
+    },
+    [reload],
+  );
+
+  const updateNode = useCallback(
+    async (id: string, patch: Partial<KNode>) => {
+      const body: Record<string, unknown> = {};
+      if (patch.name !== undefined) body.name = patch.name;
+      if (patch.content !== undefined) body.content = patch.content;
+      if ('ownership' in patch) body.ownership = patch.ownership ?? null;
+      await fetch(`/api/knowledge/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+      });
+      await reload();
+    },
+    [reload],
+  );
+
+  const deleteNode = useCallback(
+    async (id: string) => {
+      await fetch(`/api/knowledge/${encodeURIComponent(id)}`, { method: 'DELETE', credentials: 'include' });
+      await reload();
+    },
+    [reload],
+  );
+
+  const deleteNodes = useCallback(
+    async (ids: string[]) => {
+      await Promise.allSettled(
+        ids.map((id) => fetch(`/api/knowledge/${encodeURIComponent(id)}`, { method: 'DELETE', credentials: 'include' })),
+      );
+      await reload();
+    },
+    [reload],
+  );
+
+  const moveNodes = useCallback(
+    async (ids: string[], target: string) => {
+      await Promise.allSettled(
+        ids.map((id) =>
+          fetch(`/api/knowledge/${encodeURIComponent(id)}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ parentId: target }),
+          }),
+        ),
+      );
+      await reload();
+    },
+    [reload],
+  );
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
@@ -104,7 +219,7 @@ export default function KnowledgePage() {
           result.pages != null ? `${result.pages}页` : null,
           result.sheets != null ? `${result.sheets}表` : null,
         ].filter(Boolean).join(' · ');
-        addNode({
+        await addNode({
           id: crypto.randomUUID(),
           name: file.name,
           type: 'file',
@@ -148,7 +263,7 @@ export default function KnowledgePage() {
   };
 
   // 把当前对话同步到「Hermes产出」文件夹
-  const deployHermesOutput = () => {
+  const deployHermesOutput = async () => {
     const targetFolder = nodes.find((n) => n.name === 'Hermes产出' && n.type === 'folder');
     if (!targetFolder) return;
     let count = 0;
@@ -159,9 +274,9 @@ export default function KnowledgePage() {
         (n) => n.name === fileName && n.parentId === targetFolder.id
       );
       if (existing) {
-        updateNode(existing.id, { content });
+        await updateNode(existing.id, { content });
       } else {
-        addNode({
+        await addNode({
           id: crypto.randomUUID(),
           name: fileName,
           type: 'file',

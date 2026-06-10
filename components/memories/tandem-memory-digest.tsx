@@ -80,7 +80,7 @@ export function TandemMemoryDigest() {
           <div>
             <CardTitle className="text-body flex items-center gap-2">
               <BookOpen className="h-4 w-4" />
-              公司 Memory · 全员可引用
+              组织记忆 · 全员可引用
             </CardTitle>
             <p className="text-footnote text-muted-foreground mt-1">
               经 Lv1/2/3 签批沉淀的 SOP / 案例 / 红线 / 价值观 · CHARTER §6

@@ -114,8 +114,11 @@ export type AuditAction =
   | 'boss_ai.ask'                // 同事提问
   | 'boss_ai.answer'             // 中央 AI 回答完成
   | 'boss_ai.rate_limited'       // 触发限流 (突发或日上限)
+  | 'im.rate_limited'            // IM 发消息触发限流 (spam guard)
   | 'persona_brief.options_generated' // 3+1 通用化 · 主分身 brief 4 选项产出
   | 'persona_brief.option_picked'     // 员工挑了 A/B/C/D 哪一个
+  // 文档板块 (charter §四 DOC-3 · 2026-06-09)
+  | 'document_review.generated'  // 中央 AI 评审文档 (CA-13 document_review 接入点)
   // KPI 体系 (CHARTER-KPI-TTI §2)
   | 'kpi.cycle_created'
   | 'kpi.cycle_activated'        // targetValue 锁死时刻

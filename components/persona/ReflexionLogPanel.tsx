@@ -99,7 +99,7 @@ export function ReflexionLogPanel() {
       {/* 顶部: 大数字 + 时间窗切换 */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
+          <CardTitle className="text-caption font-medium text-muted-foreground">
             分身近 {days} 天学到的教训
           </CardTitle>
           <div className="flex gap-1">
@@ -121,7 +121,7 @@ export function ReflexionLogPanel() {
         </CardHeader>
         <CardContent>
           <div className="flex items-baseline gap-3">
-            <span className="text-3xl font-bold text-foreground">{totalInWindow}</span>
+            <span className="text-title-2 font-bold text-foreground">{totalInWindow}</span>
             <span className="text-caption text-muted-foreground">条新教训</span>
             <span className="ml-auto text-caption text-muted-foreground">
               累计 {data.lifetimeTotal} 条
@@ -137,7 +137,7 @@ export function ReflexionLogPanel() {
       {totalInWindow > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">按类别分布</CardTitle>
+            <CardTitle className="text-caption">按类别分布</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
@@ -185,7 +185,7 @@ export function ReflexionLogPanel() {
       {/* Timeline */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">教训详情 ({recentCount})</CardTitle>
+          <CardTitle className="text-caption">教训详情 ({recentCount})</CardTitle>
         </CardHeader>
         <CardContent>
           {recentCount === 0 ? (

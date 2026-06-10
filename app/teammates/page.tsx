@@ -76,9 +76,9 @@ export default function TeammatesPage() {
                 <CardHeader>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3">
-                      <span className="text-3xl leading-none">{KIND_ICON[t.kind]}</span>
+                      <span className="text-title-2 leading-none">{KIND_ICON[t.kind]}</span>
                       <div>
-                        <CardTitle className="text-base">{t.name}</CardTitle>
+                        <CardTitle className="text-body">{t.name}</CardTitle>
                         <p className="mt-1 text-caption text-muted-foreground">{t.subtitle}</p>
                       </div>
                     </div>
@@ -105,7 +105,7 @@ export default function TeammatesPage() {
                     {t.stats.map((s, i) => (
                       <div key={i}>
                         <p className="text-caption text-muted-foreground">{s.label}</p>
-                        <p className="text-sm font-medium">{s.value}</p>
+                        <p className="text-caption font-medium">{s.value}</p>
                       </div>
                     ))}
                   </div>

@@ -13,6 +13,7 @@ import type {
   CompanyBrainFeedback,
   CompanyBrainFeedbackOutcome,
 } from '@/lib/types/company-brain';
+import type { DecisionCard } from '@/lib/types/decision-card';
 import { getStore } from '@/lib/storage/repository';
 import { logger } from '@/lib/infra/logger';
 import {
@@ -178,6 +179,112 @@ export async function getDecisionByRefId(
     .filter((d) => d.refId === refId && (refType === undefined || d.refType === refType))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   return matched[0] ?? null;
+}
+
+/**
+ * §CA-13 议事闭环 · 决议卡 COMMIT/VETO 时把"中央 AI 参谋方案 (Option B)"是否被采纳
+ * 作为一条 meeting_advice 决策落地, 并**立即**写反馈 — 议事的选项选择本身就是天然的
+ * 采纳/推翻信号, 立即反馈可避免 pending→ignored 衰减, 给反思循环稳定的学习梯度.
+ *
+ * 归因:
+ *   - 选 B (AI 推演)            → adopted
+ *   - 选 A/C (AI 召回的 SOP/历史) → modified (用了 AI 浮现的记忆, 非纯推演也非纯人工)
+ *   - 选 D (员工原创) / VETO      → overruled
+ *
+ * VETO 时若已有该卡的决策记录 (COMMIT 阶段已落), 则**翻转既有记录**为 overruled,
+ * 而非重复记一条 (避免同卡双计).
+ *
+ * 永不抛错 (best-effort).
+ */
+export async function recordMeetingAdviceOutcome(
+  card: DecisionCard,
+  opts: { decidedBy: string; vetoed?: boolean },
+): Promise<CompanyBrainDecision | null> {
+  try {
+    const selected = card.selected;
+    const vetoed = opts.vetoed ?? false;
+    // 既无选择又非否决 → 无可归因信号, 跳过
+    if (!selected && !vetoed) return null;
+
+    // VETO: 优先翻转既有决策记录, 不重复落条
+    if (vetoed) {
+      const existing = await getDecisionByRefId(card.id, 'decision_card');
+      if (existing) {
+        return setFeedback(existing.id, {
+          outcome: 'overruled',
+          feedbackBy: opts.decidedBy,
+          reason: '议事 24h 否决窗口内被撤回',
+        });
+      }
+    }
+
+    let outcome: Exclude<CompanyBrainFeedbackOutcome, 'pending'>;
+    let reason: string;
+    if (vetoed) {
+      outcome = 'overruled';
+      reason = '议事 24h 否决窗口内被撤回';
+    } else if (selected === 'B') {
+      outcome = 'adopted';
+      reason = '议事选定 Option B (中央 AI 推演方案)';
+    } else if (selected === 'D') {
+      outcome = 'overruled';
+      reason = '议事选定 Option D (员工原创), 中央 AI 方案未被采纳';
+    } else {
+      outcome = 'modified';
+      reason = `议事选定 Option ${selected} (AI 召回的 ${selected === 'A' ? 'SOP' : '历史案例'})`;
+    }
+
+    const optionB = card.options.find((o) => o.id === 'B');
+    const outputSummary = optionB?.description ?? '(本议题未生成 Option B)';
+    const inputSummary = card.title;
+
+    // 流式无 usage, 与 IM 路径一致用近似 (中文 1 char ≈ 1.5 token, 其他 ≈ 0.3)
+    const estimateTokens = (text: string): number => {
+      let t = 0;
+      for (const ch of text) t += /[\u4e00-\u9fff]/.test(ch) ? 1.5 : 0.3;
+      return Math.max(1, Math.round(t));
+    };
+    const tokensIn = estimateTokens(inputSummary + (optionB?.reasoning ?? ''));
+    const tokensOut = estimateTokens(outputSummary);
+    let costMicroUsd = 0;
+    try {
+      const { estimateCostMicroUsd } = await import('@/lib/analytics/track');
+      costMicroUsd = estimateCostMicroUsd('claude-opus-4-5', tokensIn, tokensOut);
+    } catch {
+      /* 成本估算非关键 */
+    }
+
+    const decision = await recordDecision({
+      context: 'meeting_advice',
+      inputSummary,
+      outputSummary,
+      retrievedMemoryIds: optionB?.citedMemory ?? [],
+      modelUsed: 'claude-opus-4-5',
+      providerUsed: 'anthropic',
+      scenario: 'reasoning_complex',
+      tokensIn,
+      tokensOut,
+      costMicroUsd,
+      latencyMs: 0,
+      refId: card.id,
+      refType: 'decision_card',
+      tenantId: card.tenantId,
+    });
+    if (!decision) return null;
+
+    const fed = await setFeedback(decision.id, {
+      outcome,
+      feedbackBy: opts.decidedBy,
+      reason,
+    });
+    return fed ?? decision;
+  } catch (err) {
+    logger.warn(
+      { err: (err as Error).message, cardId: card.id },
+      '[company-brain-decision] meeting outcome record failed',
+    );
+    return null;
+  }
 }
 
 /**

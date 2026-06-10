@@ -933,6 +933,41 @@ async function invokePersonaReply(input: InvokePersonaInput): Promise<void> {
       // eslint-disable-next-line no-console
       console.warn('[im] failed to record ProxyAction', err);
     }
+
+    // §S1 搭子「装手」: 若员工消息表达"更新自己 OKR 进度"意图, 经治理提议写动作 (proposeAction → 24h 否决窗)。
+    //   fail-soft + 严格意图门控 (shouldAct), 不改既有回复行为; 仅在真落成提议时追加一条系统提示。
+    //   写动作全经 proposeAction: 宪法 A (中央 AI 不可 proposer) + zone (红拒/黄24h窗) + 委托级别越权升红。
+    try {
+      const { personaActPass } = await import('../persona/persona-act');
+      const act = await personaActPass(input.triggeringMessage.body, input.targetUserId, {
+        tenantId: 'default',
+      });
+      if (act.proposals.length > 0) {
+        const pending = act.proposals.filter((p) => p.status === 'pending_veto').length;
+        const executed = act.proposals.filter((p) => p.status === 'executed').length;
+        const parts: string[] = [];
+        if (pending > 0) parts.push(`${pending} 项待你确认 (24h 否决窗)`);
+        if (executed > 0) parts.push(`${executed} 项已执行 (绿区, 已留痕)`);
+        await sendMessage({
+          channelId: input.channelId,
+          senderId: 'persona',
+          senderKind: 'system',
+          body: `🤚 分身已为你起草 OKR 数据更新代行: ${parts.join(' · ')}。去「分身代行台账」确认或否决。`,
+          parentMessageId: input.triggeringMessage.id,
+        });
+      } else if (act.rejected.length > 0) {
+        await sendMessage({
+          channelId: input.channelId,
+          senderId: 'persona',
+          senderKind: 'system',
+          body: `🚫 分身尝试代行更新 OKR 数据被治理拦截 (越权/红区), 请本人操作。`,
+          parentMessageId: input.triggeringMessage.id,
+        });
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn('[im] persona act pass failed (non-blocking)', err);
+    }
   } catch (err) {
     // 失败静默 (V1 简化), 在频道里提示但不抛
     try {

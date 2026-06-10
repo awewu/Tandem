@@ -221,6 +221,16 @@ export class ConvergenceOrchestrator {
         // eslint-disable-next-line no-console
         console.warn('[orchestrator] persona learning failed:', err);
       }
+      // §CA-13 中央 AI 学习闭环: 把"Option B (AI 参谋) 是否被采纳"作为 meeting_advice
+      // 决策 + 即时反馈落地, 喂给月度反思循环 (best-effort, 不阻断主流程).
+      try {
+        const { recordMeetingAdviceOutcome } = await import('../persona/company-brain-decision');
+        const card = await getStore().decisionCards.get(cardId);
+        if (card) await recordMeetingAdviceOutcome(card, { decidedBy: event.userId });
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('[orchestrator] CA-13 meeting outcome record failed:', err);
+      }
       // 事件总线广播 (跨域订阅者可问): material-service / memory / okr-progress
       try {
         const card = await getStore().decisionCards.get(cardId);
@@ -255,6 +265,15 @@ export class ConvergenceOrchestrator {
         if (card) await ingestDecisionCard(card);
       } catch {
         /* ignore */
+      }
+      // §CA-13 中央 AI 学习闭环: 否决 = 推翻信号, 翻转该卡的 meeting_advice 决策为 overruled.
+      try {
+        const { recordMeetingAdviceOutcome } = await import('../persona/company-brain-decision');
+        const card = await getStore().decisionCards.get(cardId);
+        if (card) await recordMeetingAdviceOutcome(card, { decidedBy: event.userId, vetoed: true });
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('[orchestrator] CA-13 veto outcome record failed:', err);
       }
     } else if (event.type === 'ESCALATE') {
       await audit('convergence.escalate', 'system', {

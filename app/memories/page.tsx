@@ -556,7 +556,7 @@ export default function MemoriesPage() {
     <Tabs defaultValue="company" className="flex flex-col h-full">
       <div className="px-4 pt-3 border-b">
         <TabsList>
-          <TabsTrigger value="company">公司 Memory</TabsTrigger>
+          <TabsTrigger value="company">组织记忆</TabsTrigger>
           <TabsTrigger value="personal">我的记事本</TabsTrigger>
         </TabsList>
       </div>

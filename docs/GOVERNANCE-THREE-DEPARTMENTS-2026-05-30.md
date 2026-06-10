@@ -1,6 +1,8 @@
 # 三省六部 · 项目与决策治理协同模型
 
 > **2026-05-30 · Phase 1 定型** · 替代旧的 `/organization` "Agent 工作组 fixture" 含糊定位
+>
+> **续篇**：BSC × OKR × FP&A 引擎协同、尚书六部＝成本中心、软件展示标注 → 见 `GOVERNANCE-FPA-ENGINE-2026-06-09.md`
 
 ## 1 · 一句话定位
 

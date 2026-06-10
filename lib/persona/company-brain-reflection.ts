@@ -142,10 +142,16 @@ function heuristicProposedChanges(
  *
  * @param maxKrProposals 承压 KR 提议上限 (默认 5), 按进度从低到高取最承压的。
  * @param maxObjectiveProposals 停滞目标提议上限 (默认 3), 按进度从低到高。
+ * @param windowDays check-in 趋势窗口 (默认 30 天), 用于长期承压预警。
+ * @param maxTrendProposals 停滞趋势提议上限 (默认 3)。
+ * @param enrichWithLlm true 时调 LLM 读 check-in blockers/nextSteps 做深析归因 (fail-soft 回退模板)。
  */
 export async function analyzeOkrHealth(
   maxKrProposals = 5,
   maxObjectiveProposals = 3,
+  windowDays = 30,
+  maxTrendProposals = 3,
+  enrichWithLlm = false,
 ): Promise<OkrOptimizationProposal[]> {
   try {
     const store = getStore();
@@ -221,10 +227,179 @@ export async function analyzeOkrHealth(
       });
     }
 
+    // ③ 长期承压 KR (信心度仍 on-track, 但近窗口内多次 check-in 进度停滞/倒退)
+    //    —— 信心度是主观自评, 趋势是客观真值; 二者背离时中央 AI 作为参谋预警。
+    //    与 ① 不重叠 (① 仅取非 on-track; 这里仅取 on-track)。
+    const STALL_NET_GAIN = 0.02; // 窗口内净进度增幅 ≤ 2pt 视为停滞
+    const MIN_CHECKINS = 2; // 至少 2 次 check-in 才构成"趋势"
+    const windowStartMs = Date.now() - windowDays * 24 * 60 * 60 * 1000;
+    const checkIns = await store.checkIns.list();
+    const onTrackKrs = krs.filter(
+      (kr) =>
+        kr.status === 'active' &&
+        orgObjectiveIds.has(kr.objectiveId) &&
+        kr.confidence === 'on-track',
+    );
+    const trendCandidates: Array<{ kr: (typeof krs)[number]; netGain: number; n: number }> = [];
+    for (const kr of onTrackKrs) {
+      const krCheckIns = checkIns
+        .filter(
+          (c) =>
+            c.scope === 'kr' &&
+            c.scopeId === kr.id &&
+            new Date(c.createdAt).getTime() >= windowStartMs,
+        )
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+      if (krCheckIns.length < MIN_CHECKINS) continue;
+      const first = krCheckIns[0];
+      const last = krCheckIns[krCheckIns.length - 1];
+      const netGain = last.progressAfter - first.progressBefore;
+      if (netGain > STALL_NET_GAIN) continue;
+      trendCandidates.push({ kr, netGain, n: krCheckIns.length });
+    }
+    const stalledTrend = trendCandidates
+      .sort((a, b) => a.netGain - b.netGain)
+      .slice(0, maxTrendProposals);
+
+    for (const { kr, netGain, n } of stalledTrend) {
+      const progressPct = Math.round(computeKRProgress(kr) * 100);
+      const netGainPct = Math.round(netGain * 100);
+      proposals.push({
+        id: `okropt_trend_${kr.id}_${ts}`,
+        kind: 'kr_stalled_trend',
+        title: `长期承压 KR: ${kr.title}`,
+        targetType: 'key_result',
+        targetId: kr.id,
+        metrics: { progressPct, confidence: kr.confidence },
+        recommendation:
+          '建议治理核实: 信心度自评是否乐观 / 是否存在隐性阻塞 / 是否需复核 KR 设计. (参谋建议, 须人工决定)',
+        rationale: `近 ${windowDays} 天 ${n} 次 check-in 净进度仅 ${netGainPct}pt (停滞/倒退), 但信心度自评仍 on-track. 中央 AI 作为参谋提示主观自评与客观趋势背离, 不自动调整 OKR.`,
+        status: 'pending',
+      });
+    }
+
+    // ④ (可选) LLM 深析归因: 读 check-in 的 blockers/nextSteps 文本, 把模板 rationale 升级为针对性诊断。
+    //    best-effort, 失败保留模板 rationale (永不影响主流程)。
+    if (enrichWithLlm && proposals.length > 0) {
+      await enrichProposalRationales(proposals, checkIns, windowStartMs);
+    }
+
     return proposals;
   } catch (err) {
     logger.warn({ err: (err as Error).message }, '[reflection] OKR health analysis failed');
     return [];
+  }
+}
+
+/**
+ * skill_promotion (参谋视角): 读决策度量, 找长期高采纳/低推翻的决策场景,
+ * 建议治理将其"沉淀为可复用技能/企业 Memory"(须经三级签批; 中央 AI 不自动建 Memory)。
+ *
+ * 宪法裁定 A 边界: 纯参谋, status='pending', 绝不自动写 Memory / 不创建 ProxyAction。
+ */
+export function analyzeSkillPromotion(
+  metrics: Awaited<ReturnType<typeof computeMetrics>>,
+  maxProposals = 3,
+): OkrOptimizationProposal[] {
+  const MIN_SAMPLE = 5; // 样本太小不构成"长期"信号
+  const MIN_ADOPTION = 0.8; // 采纳率门槛
+  const MAX_OVERRULE = 0.1; // 推翻率上限
+  const ts = Date.now().toString(36);
+
+  const candidates = (
+    Object.entries(metrics.byContext) as Array<[CompanyBrainDecisionContext, typeof metrics.overall]>
+  )
+    .filter(
+      ([, b]) =>
+        b.total >= MIN_SAMPLE && b.adoptionRate >= MIN_ADOPTION && b.overruleRate <= MAX_OVERRULE,
+    )
+    .sort((a, b) => b[1].adoptionRate - a[1].adoptionRate || b[1].total - a[1].total)
+    .slice(0, maxProposals);
+
+  return candidates.map(([ctx, b]) => {
+    const adoptionPct = Math.round(b.adoptionRate * 100);
+    const overrulePct = Math.round(b.overruleRate * 100);
+    return {
+      id: `okropt_skill_${ctx}_${ts}`,
+      kind: 'skill_promotion',
+      title: `可沉淀能力: ${ctx} 场景`,
+      targetType: 'capability',
+      targetId: ctx,
+      metrics: { progressPct: adoptionPct, confidence: '稳健' },
+      recommendation:
+        '建议治理将该高采纳场景沉淀为可复用技能/企业 Memory (经三级签批生效); 中央 AI 不自动建 Memory. (参谋建议, 须人工决定)',
+      rationale: `近窗口 ${b.total} 次 ${ctx} 决策, 采纳率 ${adoptionPct}% / 推翻率 ${overrulePct}%, 长期稳健. 中央 AI 作为参谋建议沉淀该能力, 不自动写入.`,
+      status: 'pending',
+    };
+  });
+}
+
+/**
+ * LLM 深析归因 (best-effort): 给 OKR 优化提议补针对性诊断 rationale。
+ * 读对应对象近窗口 check-in 的 blockers/nextSteps 文本; 失败保留模板 rationale。
+ * 单次 LLM 调用批量处理, 控成本; 解析失败 fail-soft。
+ */
+async function enrichProposalRationales(
+  proposals: OkrOptimizationProposal[],
+  checkIns: Awaited<ReturnType<ReturnType<typeof getStore>['checkIns']['list']>>,
+  windowStartMs: number,
+): Promise<void> {
+  try {
+    const recent = checkIns.filter((c) => new Date(c.createdAt).getTime() >= windowStartMs);
+    const payload = proposals.map((p) => {
+      const texts = recent
+        .filter((c) => c.scopeId === p.targetId)
+        .flatMap((c) => [c.blockers, c.nextSteps])
+        .filter((t): t is string => !!t && t.trim().length > 0)
+        .slice(0, 6);
+      return {
+        targetId: p.targetId,
+        kind: p.kind,
+        title: p.title,
+        progressPct: p.metrics.progressPct,
+        confidence: p.metrics.confidence,
+        signals: texts,
+      };
+    });
+    // 无任何 check-in 文本信号 → 不值得调 LLM (模板已足够)
+    if (payload.every((p) => p.signals.length === 0)) return;
+
+    const { getRouter } = await import('@/lib/boot');
+    const router = getRouter();
+    const system =
+      '你是企业 OKR 治理参谋。基于每个提议的进度与 check-in 信号(阻塞/下一步), 为每条提议写一句更具针对性的中文归因诊断(≤80字), ' +
+      '只指出"值得关注什么", 严禁给出会自动改 OKR 的指令。仅输出 JSON: {"diagnoses":[{"targetId":"...","rationale":"..."}]}。';
+    const user = `提议与信号 (JSON):\n\`\`\`json\n${JSON.stringify(payload, null, 2)}\n\`\`\``;
+
+    const reply = await router.chat({
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+      scenario: 'reasoning_complex',
+      maxTokens: 800,
+    });
+    const content =
+      typeof reply.message.content === 'string'
+        ? reply.message.content
+        : JSON.stringify(reply.message.content);
+    const m = content.match(/\{[\s\S]*\}/);
+    if (!m) return;
+    const parsed = JSON.parse(m[0]) as { diagnoses?: Array<{ targetId?: unknown; rationale?: unknown }> };
+    if (!Array.isArray(parsed.diagnoses)) return;
+
+    const byId = new Map<string, string>();
+    for (const d of parsed.diagnoses) {
+      if (typeof d.targetId === 'string' && typeof d.rationale === 'string' && d.rationale.trim()) {
+        byId.set(d.targetId, d.rationale.trim());
+      }
+    }
+    for (const p of proposals) {
+      const refined = byId.get(p.targetId);
+      if (refined) p.rationale = `${refined} (LLM 深析 · 参谋, 不自动改 OKR)`;
+    }
+  } catch (err) {
+    logger.warn({ err: (err as Error).message }, '[reflection] LLM proposal enrichment failed');
   }
 }
 
@@ -297,7 +472,10 @@ export async function generateReflection(
     );
 
     // ON-3 · OKR 健康优化方向提议 (参谋产物, 与上面"中央 AI 自身配置"调整正交)
-    const optimizationProposals = await analyzeOkrHealth();
+    //   useLlm=true 时对 OKR 提议做 LLM 深析归因; skill_promotion 读决策度量产出能力沉淀提议。
+    const okrProposals = await analyzeOkrHealth(5, 3, windowDays, 3, !!input.useLlm);
+    const skillProposals = analyzeSkillPromotion(metrics, 3);
+    const optimizationProposals = [...okrProposals, ...skillProposals];
 
     const now = new Date().toISOString();
     const report: CompanyBrainReflectionReport = {
@@ -488,10 +666,40 @@ export async function setOptimizationProposalStatus(
     const target = proposals.find((p) => p.id === proposalId);
     if (!target) return null;
 
+    // 闭环 (skill_promotion 专用): 治理 acknowledged = 人工决定, 据此发起 Memory 升级签批请求
+    // (进入三级签批 → 全签 + 公示期过 → materializePromotion 真写企业 Memory)。
+    // 裁定 A: 中央 AI 不自动写 Memory; 这里由"人工 acknowledged"触发, 且仍须三级签批方生效。
+    // 幂等: 已有 promotionRequestId 不重复发起。
+    let promotionRequestId = target.promotionRequestId;
+    if (status === 'acknowledged' && target.kind === 'skill_promotion' && !promotionRequestId) {
+      try {
+        const { proposePromotion } = await import('@/lib/memory/promotion-flow');
+        const req = await proposePromotion({
+          materialId: `skill_promotion:${target.id}`,
+          proposedType: 'sop',
+          proposedTitle: target.title,
+          proposedBody: `${target.recommendation}\n\n依据: ${target.rationale}`,
+          proposerId: actorId,
+          level: 'company', // 企业级能力沉淀 → Lv3 三级签批 (ceo+clevel+steward)
+        });
+        promotionRequestId = req.id;
+        logger.info(
+          { reportId, proposalId, promotionRequestId, capability: target.targetId },
+          '[reflection] skill_promotion acknowledged → memory promotion request created (三级签批)',
+        );
+      } catch (err) {
+        // fail-soft: 发起失败不阻塞 advisory 处置 (proposal 仍标 acknowledged)
+        logger.warn(
+          { err: (err as Error).message, reportId, proposalId },
+          '[reflection] skill_promotion → promotion request failed (proposal still acknowledged)',
+        );
+      }
+    }
+
     const updated: CompanyBrainReflectionReport = {
       ...existing,
       optimizationProposals: proposals.map((p) =>
-        p.id === proposalId ? { ...p, status } : p,
+        p.id === proposalId ? { ...p, status, promotionRequestId } : p,
       ),
     };
     await store.companyBrainReflections.update(reportId, updated);
@@ -505,8 +713,10 @@ export async function setOptimizationProposalStatus(
           event: 'optimization_proposal_disposition',
           reportId,
           status,
+          kind: target.kind,
           targetType: target.targetType,
           targetId: target.targetId,
+          promotionRequestId: promotionRequestId ?? null,
         },
       });
     } catch {

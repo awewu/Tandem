@@ -25,6 +25,7 @@ import { COMPANY_BRAIN_USER_ID } from './company-brain';
 /** 只读感知工具白名单 (全部 green · proxyAllowed · 无副作用) */
 export const PERCEPTION_TOOLSET = [
   'okr.health_digest',
+  'okr.business_review',
   'okr.read',
   'memory.search',
   'decision_card.list',

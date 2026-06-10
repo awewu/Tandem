@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useChatStore, useAgentStore, useMemoryStore, useKnowledgeStore, PRESET_AGENTS } from '@/lib/store';
+import { useChatStore, useAgentStore, useMemoryStore, PRESET_AGENTS } from '@/lib/store';
 import { Send, Plus, Trash2, Bot, User, AlertCircle, Sparkles, Palette, Package, Target, Megaphone, Code, PenLine, BarChart3, Users, ThumbsUp, ThumbsDown, Star, Shield, Link2, ArrowLeft, History, Brain } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { startChatStream, startLLMStream } from '@/lib/hermes-api';
@@ -54,8 +54,6 @@ function ChatPageInner() {
   const activeMemoryCount = useMemoryStore((s) =>
     s.memories.filter((m) => m.isActive && (m.priority === 'critical' || m.priority === 'high')).length
   );
-  const addKnowledgeNode = useKnowledgeStore((s) => s.addNode);
-  const knowledgeNodes = useKnowledgeStore((s) => s.nodes);
   const activeConv = conversations.find((c) => c.id === activeId);
   const [input, setInput] = useState('');
   const [selectedAgentId, setSelectedAgentId] = useState<string>('');
@@ -324,34 +322,42 @@ function ChatPageInner() {
     }));
   };
 
-  /** ⭐ 收藏到知识库 — 创建一个 best-practice 文件夹（如不存在），把消息存为 file 节点 */
-  const saveToKnowledge = (msg: { id: string; content: string }) => {
+  /** ⭐ 收藏到知识库 — 创建一个 best-practice 文件夹（如不存在），把消息存为 file 节点 (后端持久化) */
+  const saveToKnowledge = async (msg: { id: string; content: string }) => {
     if (!msg.content.trim()) return;
-    let bestPracticeFolderId = knowledgeNodes.find(
-      (n) => n.type === 'folder' && n.name === 'Best Practice'
-    )?.id;
-    if (!bestPracticeFolderId) {
-      bestPracticeFolderId = crypto.randomUUID();
-      addKnowledgeNode({
-        id: bestPracticeFolderId,
-        name: 'Best Practice',
-        type: 'folder',
-        parentId: 'root',
-        createdAt: Date.now(),
+    try {
+      // 拉取本人知识节点, 找 Best Practice 文件夹
+      const listRes = await fetch('/api/knowledge', { cache: 'no-store', credentials: 'include' });
+      const listJson = listRes.ok ? await listRes.json() : { nodes: [] };
+      const existingNodes: Array<{ id: string; type: string; name: string }> =
+        Array.isArray(listJson.nodes) ? listJson.nodes : [];
+      let bestPracticeFolderId = existingNodes.find(
+        (n) => n.type === 'folder' && n.name === 'Best Practice',
+      )?.id;
+      if (!bestPracticeFolderId) {
+        const folderRes = await fetch('/api/knowledge', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ name: 'Best Practice', type: 'folder', parentId: 'root' }),
+        });
+        const folderJson = await folderRes.json();
+        bestPracticeFolderId = folderJson?.node?.id;
+      }
+      if (!bestPracticeFolderId) throw new Error('无法创建 Best Practice 文件夹');
+      const agent = agents.find((a) => a.id === activeConv?.agentId);
+      const title = `${agent?.name ?? '通用'} · ${new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-')}`;
+      await fetch('/api/knowledge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ name: title, type: 'file', parentId: bestPracticeFolderId, content: msg.content }),
       });
+      // 同步标记已收藏
+      if (activeId) updateMessage(activeId, msg.id, { starred: true });
+    } catch (err) {
+      setError(`收藏到知识库失败：${(err as Error).message}`);
     }
-    const agent = agents.find((a) => a.id === activeConv?.agentId);
-    const title = `${agent?.name ?? '通用'} · ${new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-')}`;
-    addKnowledgeNode({
-      id: crypto.randomUUID(),
-      name: title,
-      type: 'file',
-      parentId: bestPracticeFolderId,
-      content: msg.content,
-      createdAt: Date.now(),
-    });
-    // 同步标记已收藏
-    if (activeId) updateMessage(activeId, msg.id, { starred: true });
   };
 
   /**

@@ -240,6 +240,11 @@ export interface OkrOptimizationProposal {
   rationale: string;
   /** 签批状态: 参谋提议须人工治理处置; 绝不自动生效 */
   status: 'pending' | 'acknowledged' | 'dismissed';
+  /**
+   * skill_promotion 专用闭环链接: 治理 acknowledged 后, 据此提议发起的
+   * Memory 升级签批请求 id (进入三级签批; 中央 AI 不自动写 Memory)。
+   */
+  promotionRequestId?: string;
 }
 
 // ---------------------------------------------------------------------------

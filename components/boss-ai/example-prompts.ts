@@ -161,7 +161,7 @@ export function getPathLabel(currentPath: string | null | undefined): string | n
     '/360': '360 反馈',
     '/nine-box': '9-Box',
     '/portfolio': '我的成果',
-    '/memories': '知识库',
+    '/memories': '组织记忆',
     '/knowledge': '知识库',
   };
   if (map[currentPath]) return map[currentPath];

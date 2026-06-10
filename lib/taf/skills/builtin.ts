@@ -7,6 +7,11 @@
 
 import type { Skill } from './registry';
 import { skillRegistry } from './registry';
+import {
+  OkrCheckinProposeSkill,
+  OkrObjectiveCheckinProposeSkill,
+  PersonaProposeActionSkill,
+} from './persona-write';
 import { getStore } from '../../storage/repository';
 import { CompositeRetriever } from '../../memory/retriever';
 import { computeKRProgress, effectiveObjectiveProgress } from '../../types/okr-tti';
@@ -444,6 +449,67 @@ export const WebSearchSkill: Skill<
 };
 
 // ---------------------------------------------------------------------------
+// okr.business_review · 经营回顾 pre-read (绿区, 代行允许) — 按需 agent 产物
+//
+// 复用 analyzeOkrHealth (月度反思里同款参谋分析): 扫 active 周期公司/团队层 OKR,
+// 产出"承压 KR / 停滞目标 / 长期承压趋势"优化方向提议 —— 但从月度 cron 里解放出来,
+// 让中央 AI / BossAI / 经营回顾会前**按需**生成 (对位 WorkBoard 的 Business Review)。
+// 纯只读: 不创建 ProxyAction, 不改任何 OKR (宪法 A 边界), 仅供治理/Owner 审视。
+// ---------------------------------------------------------------------------
+
+export const OkrBusinessReviewSkill: Skill<{ windowDays?: number }, unknown> = {
+  id: 'okr.business_review',
+  description:
+    '经营回顾 pre-read: 扫公司/团队层 OKR 真值, 产出承压 KR / 停滞目标 / 长期承压趋势的优化方向提议 (参谋建议, 不自动改 OKR). 用于"这个月经营回顾该关注什么/哪些目标要复盘"。',
+  tags: ['okr', '经营回顾', 'business review', '复盘', '承压', '参谋', 'pre-read', '月度'],
+  zone: 'green',
+  proxyAllowed: true,
+  estimatedTokens: 400,
+  schema: {
+    type: 'function',
+    function: {
+      name: 'okr_business_review',
+      description:
+        '生成经营回顾 pre-read: 当前 active 周期里最需治理关注的承压 KR / 停滞目标 / 长期承压趋势 (按真值)。',
+      parameters: {
+        type: 'object',
+        properties: {
+          windowDays: { type: 'number', description: 'check-in 趋势分析窗口 (天), 默认 30' },
+        },
+      },
+    },
+  },
+  async execute({ windowDays = 30 }) {
+    const { analyzeOkrHealth } = await import('../../persona/company-brain-reflection');
+    const proposals = await analyzeOkrHealth(8, 5, windowDays, 5);
+    const byKind = {
+      kr_at_risk: proposals.filter((p) => p.kind === 'kr_at_risk'),
+      objective_stalled: proposals.filter((p) => p.kind === 'objective_stalled'),
+      kr_stalled_trend: proposals.filter((p) => p.kind === 'kr_stalled_trend'),
+    };
+    return {
+      ok: true,
+      data: {
+        generatedAt: new Date().toISOString(),
+        windowDays,
+        totalSignals: proposals.length,
+        summary: {
+          atRiskKr: byKind.kr_at_risk.length,
+          stalledObjectives: byKind.objective_stalled.length,
+          stalledTrendKr: byKind.kr_stalled_trend.length,
+        },
+        proposals,
+        note:
+          proposals.length === 0
+            ? '当前 active 周期公司/团队层 OKR 无显著承压信号 (或无 active 周期/目标)。'
+            : '以上为参谋视角承压信号, 须人工治理处置 (资源再分配 / 复盘 / 进议事室), 中央 AI 不自动调整 OKR。',
+      },
+      tokensUsed: 300 + proposals.length * 40,
+    };
+  },
+};
+
+// ---------------------------------------------------------------------------
 // 注册所有内置工具
 // ---------------------------------------------------------------------------
 
@@ -452,8 +518,13 @@ export function registerBuiltinSkills(): void {
   skillRegistry.register(DecisionCardListSkill);
   skillRegistry.register(OkrReadSkill);
   skillRegistry.register(OkrHealthDigestSkill);
+  skillRegistry.register(OkrBusinessReviewSkill);
   skillRegistry.register(PersonaGetSkill);
   skillRegistry.register(ConvergenceStartSkill);
   skillRegistry.register(SalaryAccessSkill);
   skillRegistry.register(WebSearchSkill);
+  // S1 搭子写动作肢体 (提议→治理→24h否决窗; 真治理在 proposeAction 下游)
+  skillRegistry.register(OkrCheckinProposeSkill);
+  skillRegistry.register(OkrObjectiveCheckinProposeSkill);
+  skillRegistry.register(PersonaProposeActionSkill);
 }

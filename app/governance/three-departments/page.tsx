@@ -53,6 +53,7 @@ import {
   GitMerge,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { CostCenterBscView, FpaRehearsalView } from '@/components/governance/fpa-views';
 
 const PILLAR_BADGE: Record<GovernancePillar, string> = {
   decision: 'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-900/20 dark:text-violet-300',
@@ -70,7 +71,7 @@ const RACI_BADGE: Record<RaciTag, string> = {
 
 const RACI_TAGS: RaciTag[] = ['R', 'A', 'C', 'I', 'O'];
 
-type ViewMode = 'tree' | 'raci';
+type ViewMode = 'tree' | 'raci' | 'bsc' | 'fpa';
 
 export default function ThreeDepartmentsPage() {
   const [projects, setProjects] = useState<GovernanceProject[]>([]);
@@ -265,6 +266,26 @@ export default function ThreeDepartmentsPage() {
                 <LayoutGrid className="w-3 h-3" />
                 RACI 矩阵
               </button>
+              <button
+                onClick={() => setView('bsc')}
+                className={cn(
+                  'px-3 py-1 text-footnote rounded transition-colors flex items-center gap-1',
+                  view === 'bsc' ? 'bg-background shadow-soft-sm' : 'text-muted-foreground',
+                )}
+              >
+                <Building2 className="w-3 h-3" />
+                成本中心 BSC
+              </button>
+              <button
+                onClick={() => setView('fpa')}
+                className={cn(
+                  'px-3 py-1 text-footnote rounded transition-colors flex items-center gap-1',
+                  view === 'fpa' ? 'bg-background shadow-soft-sm' : 'text-muted-foreground',
+                )}
+              >
+                <Sparkles className="w-3 h-3" />
+                FP&amp;A 推演
+              </button>
             </div>
             <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
               {project?.northStar && (
@@ -335,6 +356,10 @@ export default function ThreeDepartmentsPage() {
           departments={departments}
           onUpdateMinistry={(deptId, minId, patch) => updateMinistry(deptId, minId, patch)}
         />
+      ) : view === 'bsc' ? (
+        <CostCenterBscView />
+      ) : view === 'fpa' ? (
+        <FpaRehearsalView />
       ) : (
         <div className="flex flex-1 min-h-0">
           {/* 左 · 树 */}

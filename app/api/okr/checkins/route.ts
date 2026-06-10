@@ -16,7 +16,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
-import { executeAction, type KrCheckinResult } from '@/lib/ontology';
+import { executeAction, type KrCheckinResult, type ObjectiveCheckinResult } from '@/lib/ontology';
 
 export async function GET(req: NextRequest) {
   await boot();
@@ -83,30 +83,34 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ checkIn: r.result!.checkIn, rolledUp });
     }
 
-    // ── scope === 'objective' → 保留原逻辑 (objective check-in 暂未建 Action Type) ──
-    const store = getStore();
-    const obj = await store.objectives.get(scopeId);
-    if (!obj) return NextResponse.json({ error: 'objective not found' }, { status: 404 });
-    const allowed =
-      obj.ownerId === auth.userId ||
-      (obj.collaboratorIds ?? []).includes(auth.userId) ||
-      auth.demo;
-    if (!allowed) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
-    const checkIn = await store.checkIns.create({
-      scope: 'objective',
-      scopeId,
-      authorId: auth.userId,
-      progressBefore: typeof body.progressBefore === 'number' ? body.progressBefore : 0,
-      progressAfter: typeof body.progressAfter === 'number' ? body.progressAfter : 0,
-      confidenceBefore: body.confidenceBefore ?? 'on-track',
-      confidenceAfter: body.confidenceAfter ?? 'on-track',
-      achievements: body.achievements ?? null,
-      blockers: body.blockers ?? null,
-      nextSteps: body.nextSteps ?? null,
-      mood: body.mood ?? null,
-      createdAt: new Date().toISOString(),
-    });
-    return NextResponse.json({ checkIn, rolledUp: [] });
+    // ── scope === 'objective' → 走 ON-1 声明式 Action Type (单一真值: lib/ontology/actions/objective-checkin) ──
+    // 与 kr.checkin 对齐: 校验+主写+rollup 全收编进 executeAction('objective.checkin'),
+    // 副作用 (向父链 rollup + 事件) 只声明一次 (根治散写)。
+    const r = await executeAction<ObjectiveCheckinResult>(
+      'objective.checkin',
+      {
+        objectiveId: scopeId,
+        confidenceAfter: body.confidenceAfter,
+        confidenceBefore: body.confidenceBefore,
+        progressBefore: body.progressBefore,
+        progressAfter: body.progressAfter,
+        achievements: body.achievements,
+        blockers: body.blockers,
+        nextSteps: body.nextSteps,
+        mood: body.mood,
+      },
+      { actorUserId: auth.userId, isProxy: false, demo: auth.demo },
+    );
+    if (!r.ok) {
+      const code = r.blocked?.code;
+      const status = code === 'not_found' ? 404 : code === 'forbidden' ? 403 : code === 'invalid' ? 400 : 403;
+      return NextResponse.json(
+        { error: r.blocked?.reasons.join('; ') ?? 'check-in blocked' },
+        { status },
+      );
+    }
+    const rolledUp = r.sideEffects.find((s) => s.name === 'okr.rollup.propagate')?.data ?? [];
+    return NextResponse.json({ checkIn: r.result!.checkIn, rolledUp });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }

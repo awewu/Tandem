@@ -110,6 +110,8 @@ export interface DomainEventMap {
     to: number;
     /** 触发源 KR (若由 KR check-in 触发) */
     triggeredByKrId?: string;
+    /** 触发源 Objective (若由 Objective check-in 触发, 见 lib/ontology/actions/objective-checkin.ts:124) */
+    triggeredByObjectiveId?: string;
     /** 距叶子的层数 (0 = 直接所属 O, 1 = 其父, ...) */
     depth: number;
     timestamp: number;

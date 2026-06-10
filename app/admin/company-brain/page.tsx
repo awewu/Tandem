@@ -429,6 +429,7 @@ interface OptimizationProposal {
   recommendation: string;
   rationale: string;
   status: 'pending' | 'acknowledged' | 'dismissed';
+  promotionRequestId?: string;
 }
 
 interface ReflectionReport {
@@ -646,6 +647,15 @@ function ReflectionSection() {
                             </div>
                             <p className="mt-1 text-slate-600">{p.recommendation}</p>
                             <p className="mt-0.5 text-[10.5px] text-slate-400">{p.rationale}</p>
+                            {p.promotionRequestId && (
+                              <a
+                                href="/admin/steward"
+                                className="mt-1 inline-flex items-center gap-1 rounded-md bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 ring-1 ring-violet-200/70 hover:bg-violet-100"
+                                title={`Memory 升级签批 ${p.promotionRequestId}`}
+                              >
+                                <ExternalLink className="h-2.5 w-2.5" /> 已发起 Memory 沉淀 · 去三级签批台账
+                              </a>
+                            )}
                           </div>
                           {p.status === 'pending' ? (
                             <div className="flex shrink-0 gap-1">

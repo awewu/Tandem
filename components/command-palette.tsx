@@ -62,7 +62,7 @@ const ACTIONS: CommandItem[] = [
   { id: 'a:report:write',     name: '写 5min 日报',    href: '/report',              group: '动作', icon: Clock3,         keywords: ['report', 'daily', '日报'] },
   { id: 'a:document:new',     name: '新建文档',       href: '/documents?new=1',     group: '动作', icon: FileText,       keywords: ['new', 'doc', 'document', '文档'] },
   { id: 'a:im:start',         name: '发起 IM 私聊',    href: '/im?dm=new',           group: '动作', icon: MessagesSquare, keywords: ['im', 'dm', 'chat', '私聊'] },
-  { id: 'a:memory:capture',   name: '捕获 Memory',     href: '/memories?capture=1',  group: '动作', icon: Brain,          keywords: ['memory', 'capture', 'sop', '知识'] },
+  { id: 'a:memory:capture',   name: '捕获组织记忆',     href: '/memories?capture=1',  group: '动作', icon: Brain,          keywords: ['memory', 'capture', 'sop', '知识', '组织记忆', 'enterprise'] },
 ];
 
 // ── /api/agent/intent 响应缓存 (module-level, 跨 CommandPalette 打开/关闭保留) ──
