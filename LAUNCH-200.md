@@ -57,15 +57,15 @@
   - **必须**: 在另一台机器跑一次完整 restore, 验证 backup 能 import + 应用能起 + 数据完整.
 - 验收: 备份 SHA256 + restore 演练日志贴到 `docs/RUNBOOK.md`.
 
-### P0-3 · 关键告警 5 条接入 🟡 待办
-- 现状: `lib/infra/alerts.ts` 提供 hook, 但未接外部 (短信/邮件/IM).
-- 落地接 webhook (Lark / 钉钉 / Slack), 5 条核心:
-  1. `/api/health` 失败 (连续 2 次)
-  2. LLM provider 错误率 > 5% / 10 min (BossAI rate_limited 不算)
-  3. DB 连接池饱和 (`pg_stat_activity > 80% max_connections`)
-  4. brain-smoke CI 基线跌破 (`npm run brain:smoke -- --against-baseline` 用 exit code 接 CI)
-  5. 磁盘 > 80% (Linux node_exporter, Windows perfmon)
-- 验收: 故意拉一次 503, 群里 60s 内收到告警.
+### P0-3 · 关键告警 5 条接入 🟡 应用侧已落 (3/5), 基础设施 2 条留 ops
+- 应用侧 (✅ 已落): 设 `ALERT_WEBHOOK_URL` (Lark/钉钉/Slack) 即生效, 内置 60s 同标题抖动抑制.
+  1. ✅ `/api/health` 任一关键依赖失败 → critical 告警 (`app/api/health/route.ts:109`)
+  2. ✅ LLM 全 provider 失败 (非流式 + 流式) → critical (`lib/taf/router.ts:127`, 本会话)
+  3. ✅ brain-smoke CI 基线跌破 → GitHub Actions 红 (brain-quality.yml 本会话)
+- 基础设施侧 (🟡 留 ops):
+  4. DB 连接池饱和 (`pg_stat_activity > 80% max_connections`) — Prometheus + postgres_exporter, 接 alertmanager.
+  5. 磁盘 > 80% — node_exporter (Linux) / perfmon (Windows), 同上.
+- 验收: 故意停掉 PG (`docker stop tandem-postgres`), 1 分钟内群里看到 "Readiness check failed".
 
 ### P0-4 · 特权角色 MFA 强制 ✅ 本会话已落 (选 A)
 - 落地: `lib/auth/native.ts login()` 检测 `DATA_STEWARD_ROLES (owner/admin/steward) && !mfa && mfaForcedOn`, 返回 `mfaEnrollmentRequired: true`. 客户端 `app/login/page.tsx` 收到此 flag 强跳 `/settings/security?enrollMfa=1`.

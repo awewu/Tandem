@@ -124,10 +124,18 @@ export class TandemRouter {
       }
     }
 
+    // P0-3 (LAUNCH-200): 全 provider 失败 = critical, 触发告警 (alerts.ts 内置 60s 同标题抖动抑制)
+    const errMsg = (lastError as Error)?.message ?? 'unknown';
+    void import('../infra/alerts').then(({ fireAlert }) =>
+      fireAlert({
+        severity: 'critical',
+        title: 'LLM all providers failed',
+        body: `scenario=${req.scenario ?? 'default'} candidates=${candidates.join(',')} last=${errMsg.slice(0, 300)}`,
+        tags: { module: 'llm-router', scenario: req.scenario ?? 'default' },
+      }),
+    ).catch(() => {});
     throw new Error(
-      `All providers failed for scenario=${req.scenario ?? 'default'}. Last: ${
-        (lastError as Error)?.message ?? 'unknown'
-      }`
+      `All providers failed for scenario=${req.scenario ?? 'default'}. Last: ${errMsg}`
     );
   }
 
@@ -188,6 +196,14 @@ export class TandemRouter {
       }
     }
 
+    void import('../infra/alerts').then(({ fireAlert }) =>
+      fireAlert({
+        severity: 'critical',
+        title: 'LLM all providers failed (streaming)',
+        body: `scenario=${req.scenario ?? 'default'} candidates=${candidates.join(',')}`,
+        tags: { module: 'llm-router', scenario: req.scenario ?? 'default', stream: true },
+      }),
+    ).catch(() => {});
     throw new Error(`All providers failed for streaming scenario=${req.scenario ?? 'default'}`);
   }
 
