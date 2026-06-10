@@ -303,11 +303,14 @@ export async function checkBaseline(input: BaselineCheckInput): Promise<Baseline
   // fail-soft: 仲裁失败/未启用 → 保留上面的启发式裁决。仲裁可升级到 HARD_BLOCK, 也可降级到 PASS。
   let arbitration: BaselineDecision['arbitration'];
   if (verdict !== 'HARD_BLOCK' && greyCompanyHits.length > 0 && isArbitrationEnabled()) {
+    const arbT0 = Date.now();
+    const verdictBeforeArb = verdict;
     const verdictRaw = await arbitrateGreyZone({
       intent: input.intent,
       toolName: input.toolName,
       greyHits: greyCompanyHits,
     });
+    const arbLatencyMs = Date.now() - arbT0;
     if (verdictRaw) {
       arbitration = {
         verdict: verdictRaw.verdict,
@@ -323,6 +326,44 @@ export async function checkBaseline(input: BaselineCheckInput): Promise<Baseline
         if (verdict === 'HARD_BLOCK') requireHumanConfirm = true;
       } else {
         reasons.push(`灰区 LLM 仲裁: 维持 ${verdict} (${verdictRaw.rationale || '无理由'})`);
+      }
+
+      // §CA-13 闭环 (2026-06-09 · 补燃料): 落地 baseline_arbitration 决策给反思循环喂料.
+      //   每次灰区 LLM 仲裁都是"中央 AI 真在公司红线上做判断"的高信号样本 — 治理委员会
+      //   月度需要看采纳率/推翻率, 反推 softWarn/hardBlock 阈值或 ARBITRATION_SYSTEM 提示词的调整.
+      //   await 但 fail-soft: 一次 KV insert (~5ms) 相比 LLM 调用 (500-3000ms) 可忽略, 但能保证
+      //   进程退出前记录已落盘; 失败仅吃掉, 永不阻塞 checkBaseline 主路径.
+      try {
+        const { recordDecision } = await import('@/lib/persona/company-brain-decision');
+        const { estimateCostMicroUsd } = await import('@/lib/analytics/track');
+        const estimateTokens = (text: string): number => {
+          const cn = (text.match(/[\u4e00-\u9fa5]/g) ?? []).length;
+          const other = text.length - cn;
+          return Math.ceil(cn * 1.5 + other * 0.3);
+        };
+        const inputSummary = `[${verdictBeforeArb}→${verdictRaw.verdict}] ${input.intent}`;
+        const outputSummary = `${verdictRaw.verdict} · ${verdictRaw.rationale || '无理由'}`;
+        const tokensIn = estimateTokens(`${ARBITRATION_SYSTEM}\n${input.intent}`);
+        const tokensOut = estimateTokens(outputSummary);
+        const modelUsed = 'claude-opus-4-5'; // scenario=reasoning_complex
+        const costMicroUsd = estimateCostMicroUsd(modelUsed, tokensIn, tokensOut);
+        await recordDecision({
+          context: 'baseline_arbitration',
+          inputSummary,
+          outputSummary,
+          modelUsed,
+          providerUsed: 'anthropic',
+          scenario: 'reasoning_complex',
+          tokensIn,
+          tokensOut,
+          costMicroUsd,
+          latencyMs: arbLatencyMs,
+          retrievedMemoryIds: greyCompanyHits.map((h) => h.mem.id),
+          refId: checkId,
+          refType: 'baseline_check',
+        });
+      } catch {
+        /* 决策记录失败不影响 baseline-guard 主流程 */
       }
     }
   }

@@ -18,6 +18,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { setStore, getStore } from '@/lib/storage/repository';
 import { createInMemoryStore } from '@/lib/storage/memory-store';
 import { checkBaseline } from '@/lib/memory/baseline-guard';
+import { listDecisions } from '@/lib/persona/company-brain-decision';
 import type { MemoryEntry } from '@/lib/types/memory';
 
 const G = globalThis as unknown as { __tandem_router__?: unknown };
@@ -124,5 +125,34 @@ describe('S3/CA-2 · 灰区 LLM 仲裁', () => {
     const d = await checkBaseline({ intent: 'totally unrelated query xyz', actorUserId: 'u_alice', agentKind: 'persona' });
     expect(d.verdict).toBe('PASS');
     expect(d.arbitration).toBeUndefined();
+  });
+
+  // §CA-13 闭环 · 灰区仲裁落 decision (2026-06-09)
+  it('仲裁命中 → 落地一条 baseline_arbitration CA-13 决策 (refId=checkId)', async () => {
+    await seedCompanyGreyMemory();
+    installFakeRouter('HARD_BLOCK', '违反公司红线');
+
+    const d = await checkBaseline({ intent: INTENT, actorUserId: 'u_alice', agentKind: 'persona' });
+
+    const decisions = await listDecisions({ context: 'baseline_arbitration' });
+    expect(decisions.length).toBe(1);
+    const rec = decisions[0];
+    expect(rec.refId).toBe(d.checkId);
+    expect(rec.refType).toBe('baseline_check');
+    expect(rec.feedback.outcome).toBe('pending');
+    expect(rec.outputSummary).toContain('HARD_BLOCK');
+    expect(rec.inputSummary).toContain('SOFT_WARN→HARD_BLOCK'); // 启发式 vs 仲裁前后
+    expect(rec.retrievedMemoryIds).toContain('mem_company_redline');
+  });
+
+  it('env=off → 不落 baseline_arbitration 决策 (没仲裁就没记录)', async () => {
+    await seedCompanyGreyMemory();
+    installFakeRouter('HARD_BLOCK');
+    process.env.BASELINE_GREYZONE_ARBITRATION = 'off';
+
+    await checkBaseline({ intent: INTENT, actorUserId: 'u_alice', agentKind: 'persona' });
+
+    const decisions = await listDecisions({ context: 'baseline_arbitration' });
+    expect(decisions.length).toBe(0);
   });
 });
