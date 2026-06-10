@@ -61,6 +61,9 @@ function LoginInner() {
       if (data.requiresMfa) {
         setPendingSessionId(data.pendingSessionId);
         setStage('mfa');
+      } else if (data.mfaEnrollmentRequired) {
+        // P0-4 (LAUNCH-200): owner/admin/steward 未启用 MFA → 强跳启用页, 不放过业务路由
+        router.push('/settings/security?enrollMfa=1&reason=privileged_role');
       } else {
         router.push(next);
       }

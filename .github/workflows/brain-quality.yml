@@ -1,0 +1,138 @@
+name: Brain Quality (smoke + load)
+
+# 中央 AI 智能门禁 · 与 ci.yml 解耦, 因为本 job 需 LLM API key (DEEPSEEK_API_KEY) secret.
+# 触发: 手动 / 每日 02:00 UTC / staging 部署后.
+# 跌破基线 = 阻断上线 (P0-5 of LAUNCH-200.md).
+
+on:
+  workflow_dispatch:
+    inputs:
+      users:
+        description: '并发用户数 (brain:load)'
+        required: false
+        default: '10'
+      duration:
+        description: '负载时长秒'
+        required: false
+        default: '30'
+  schedule:
+    # 每日 02:00 UTC (北京 10:00) 跑一次, 趁低峰
+    - cron: '0 2 * * *'
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  brain-smoke:
+    name: Brain Smoke (5 scenarios)
+    runs-on: ubuntu-latest
+    if: ${{ secrets.DEEPSEEK_API_KEY != '' || secrets.OPENAI_API_KEY != '' }}
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: tandem
+          POSTGRES_PASSWORD: tandem
+          POSTGRES_DB: tandem
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U tandem"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+    env:
+      DATABASE_URL: postgresql://tandem:tandem@localhost:5432/tandem
+      REDIS_URL: redis://localhost:6379
+      NEXTAUTH_SECRET: ci-secret-only-not-for-production
+      ALLOW_DEMO_AUTH: '1'
+      NODE_ENV: development
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci --no-audit --no-fund --ignore-scripts
+      - run: node scripts/copy-pdf-worker.mjs || true
+      - name: Apply migrations
+        run: |
+          for f in drizzle/migrations/*.sql; do
+            PGPASSWORD=tandem psql -h localhost -U tandem -d tandem -f "$f"
+          done
+      - name: Start dev server
+        run: |
+          nohup npx next dev -p 3005 > dev.log 2>&1 &
+          for i in {1..60}; do
+            if curl -fs http://localhost:3005/api/health > /dev/null; then echo ready; exit 0; fi
+            sleep 2
+          done
+          echo "dev failed"; cat dev.log; exit 1
+      - name: Brain smoke (exit 1 if any scenario fails)
+        run: node scripts/brain-smoke.mjs --base http://localhost:3005 --json > brain-smoke.json
+      - name: Upload smoke report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: brain-smoke-report
+          path: brain-smoke.json
+      - name: Dump dev log on failure
+        if: failure()
+        run: tail -300 dev.log
+
+  brain-load:
+    name: Brain Load (concurrency p95/cost)
+    # 手动触发才跑, 避免 schedule 烧 LLM 余额
+    if: ${{ github.event_name == 'workflow_dispatch' && (secrets.DEEPSEEK_API_KEY != '' || secrets.OPENAI_API_KEY != '') }}
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: tandem
+          POSTGRES_PASSWORD: tandem
+          POSTGRES_DB: tandem
+        ports: ['5432:5432']
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+    env:
+      DATABASE_URL: postgresql://tandem:tandem@localhost:5432/tandem
+      REDIS_URL: redis://localhost:6379
+      NEXTAUTH_SECRET: ci-secret-only-not-for-production
+      ALLOW_DEMO_AUTH: '1'
+      NODE_ENV: development
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci --no-audit --no-fund --ignore-scripts
+      - name: Apply migrations
+        run: |
+          for f in drizzle/migrations/*.sql; do
+            PGPASSWORD=tandem psql -h localhost -U tandem -d tandem -f "$f"
+          done
+      - name: Start dev server
+        run: |
+          nohup npx next dev -p 3005 > dev.log 2>&1 &
+          for i in {1..60}; do
+            if curl -fs http://localhost:3005/api/health > /dev/null; then echo ready; exit 0; fi
+            sleep 2
+          done
+          echo "dev failed"; cat dev.log; exit 1
+      - name: Brain load
+        run: |
+          node scripts/brain-load.mjs \
+            --base http://localhost:3005 \
+            --users ${{ github.event.inputs.users || 10 }} \
+            --duration ${{ github.event.inputs.duration || 30 }} \
+            --confirm

@@ -20,7 +20,7 @@
  */
 
 import { hashPassword, verifyPassword, evaluatePassword, isPasswordReused } from './password';
-import { DEFAULT_EMPLOYEE_ROLES, hasInternalRole } from './roles';
+import { DEFAULT_EMPLOYEE_ROLES, DATA_STEWARD_ROLES, hasInternalRole } from './roles';
 import { ANCHOR_ORG_ID, type MembershipType } from '../types/organization';
 import {
   signAccessToken,
@@ -67,6 +67,11 @@ export interface AuthResult {
   requiresMfa: boolean;
   /** 临时 session id (MFA 未通过前持有) */
   pendingSessionId?: string;
+  /**
+   * P0-4 (LAUNCH-200): 特权角色 (owner/admin/steward) 未启用 MFA + REQUIRE_MFA_FOR_PRIVILEGED=1
+   * 客户端应强跳 /settings/security 启用 MFA, 不放过任何业务路由.
+   */
+  mfaEnrollmentRequired?: boolean;
 }
 
 export async function registerWithInvite(input: RegisterInput): Promise<AuthResult> {
@@ -208,16 +213,30 @@ export async function login(input: LoginInput): Promise<AuthResult> {
   const mfa = await userStore.findMfaSecret(user.id);
   const requiresMfa = !!mfa;
 
+  // P0-4 (LAUNCH-200): 特权角色 (owner/admin/steward) 未启用 MFA 时强制启用门.
+  //   生产 (NODE_ENV=production) 默认开启; 可用 REQUIRE_MFA_FOR_PRIVILEGED=0 关闭 (不建议).
+  //   非生产默认关闭; REQUIRE_MFA_FOR_PRIVILEGED=1 显式开启.
+  const userRoles = user.roles ?? [];
+  const isPrivileged = userRoles.some((r) => DATA_STEWARD_ROLES.includes(r as never));
+  const mfaForcedOn =
+    process.env.REQUIRE_MFA_FOR_PRIVILEGED === '1' ||
+    (process.env.NODE_ENV === 'production' && process.env.REQUIRE_MFA_FOR_PRIVILEGED !== '0');
+  const mfaEnrollmentRequired = isPrivileged && !mfa && mfaForcedOn;
+
   const session = await issueSessionForUser(user, !requiresMfa, input.deviceInfo);
 
   await audit({
     userId: user.id,
     email,
-    eventType: requiresMfa ? 'login_pending_mfa' : 'login',
+    eventType: requiresMfa
+      ? 'login_pending_mfa'
+      : mfaEnrollmentRequired
+        ? 'login_mfa_enrollment_required'
+        : 'login',
     ...input.deviceInfo,
   });
 
-  return { ...session, requiresMfa };
+  return { ...session, requiresMfa, mfaEnrollmentRequired };
 }
 
 // ---------------------------------------------------------------------------

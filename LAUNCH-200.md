@@ -48,11 +48,12 @@
 - 同时落审计事件 `im.rate_limited`.
 - 文件: `app/api/im/channels/[id]/messages/route.ts`.
 
-### P0-2 · 备份 cron + 一次完整恢复演练 🟡 待办
-- 现状: `scripts/backup-pg.ps1` 存在但只能手动跑, 没有 cron schedule。
-- 落地:
-  - Linux 部署: 加 `/etc/cron.d/tandem-backup` 每天 04:00 跑 `pg_dump | gzip | aws s3 cp -` (或 oss/minio).
-  - Windows 部署: 加 Task Scheduler 任务调 backup-pg.ps1.
+### P0-2 · 备份 cron + 一次完整恢复演练 🟡 脚本已就绪
+- 现状: `scripts/backup-pg.mjs` (跨平台) + `scripts/install-backup-cron.sh` (本会话) 已就绪.
+- 部署侧落地:
+  - Linux: `sudo bash scripts/install-backup-cron.sh /opt/tandem /var/backups/tandem` → 写 `/etc/cron.d/tandem-backup`, 每天 04:00 备份 + 保留 7 天.
+  - Windows: 用 Task Scheduler 调 `node scripts/backup-pg.mjs --dir D:/backups/tandem`.
+  - 异地拷贝: `aws s3 cp` / `rclone` / `scp` 任选一 (install 脚本末尾有提示).
   - **必须**: 在另一台机器跑一次完整 restore, 验证 backup 能 import + 应用能起 + 数据完整.
 - 验收: 备份 SHA256 + restore 演练日志贴到 `docs/RUNBOOK.md`.
 
@@ -66,17 +67,21 @@
   5. 磁盘 > 80% (Linux node_exporter, Windows perfmon)
 - 验收: 故意拉一次 503, 群里 60s 内收到告警.
 
-### P0-4 · 真 SSO 或 强口令 + MFA 强制 🟡 待办
-- 现状: MFA 支持但**不强制**, owner/admin 可选不开. 200 人 + 公司数据, 必须强制 admin 角色 MFA.
-- 落地两选一:
-  - 选 A (低成本, 1 天): `app/api/auth/login/route.ts` 在角色 ∈ {owner, admin, steward} 时, 若未启 MFA → 登录后强跳 `/settings/security` 不放过.
-  - 选 B (规范, 1 周): 接公司 IdP (OIDC / SAML) 完全替换密码登录, demo-auth 永久禁用.
-- 验收: 拿一个 admin 账号未启 MFA 登录, 必跳 MFA 启用页, 跳过任何业务路由.
+### P0-4 · 特权角色 MFA 强制 ✅ 本会话已落 (选 A)
+- 落地: `lib/auth/native.ts login()` 检测 `DATA_STEWARD_ROLES (owner/admin/steward) && !mfa && mfaForcedOn`, 返回 `mfaEnrollmentRequired: true`. 客户端 `app/login/page.tsx` 收到此 flag 强跳 `/settings/security?enrollMfa=1`.
+- 开关 (env): `REQUIRE_MFA_FOR_PRIVILEGED=1` 显式开启; 生产环境 (`NODE_ENV=production`) 默认 ON, 可用 `REQUIRE_MFA_FOR_PRIVILEGED=0` 显式关闭 (不建议).
+- 审计: 拦截事件 `login_mfa_enrollment_required` 入 AuditLog, 便于追溯哪些特权账户被门强跳过.
+- 验收: 
+  1. 设 `NODE_ENV=production REQUIRE_MFA_FOR_PRIVILEGED=1`, 一个 owner 账号未启 MFA 登录 → 必跳 `/settings/security`.
+  2. 启 MFA 后再登录 → 走正常 MFA 二步流.
+- 后续 (选 B · 远期): 公司 IdP (OIDC / SAML) 完全替换密码登录, demo-auth 永久禁用.
 
-### P0-5 · `brain-smoke` + `brain-load` 进 CI 流水线 🟡 待办
-- 现状: `npm run brain:smoke` / `brain:load` 可手跑, 但 CI (`.github/workflows/ci.yml`) 没接.
-- 落地: 加 job `ai-quality`, 在 dev/staging 部署后自动跑 smoke, 跌破基线 → block promote 到 prod.
-- 验收: 故意把 system prompt 改坏一句, CI 红.
+### P0-5 · `brain-smoke` + `brain-load` 进 CI ✅ 本会话已落
+- 落地: `.github/workflows/brain-quality.yml`
+  - `brain-smoke` job: workflow_dispatch + 每日 02:00 UTC schedule. 起 PG + Redis + dev server, 跑 `node scripts/brain-smoke.mjs --json`, 任一场景失败 → CI 红, 报告 artifact 上传.
+  - `brain-load` job: 仅 workflow_dispatch (避免 schedule 烧 LLM 余额), 可输入 `users` / `duration`.
+- 依赖 GitHub secret: `DEEPSEEK_API_KEY` 或 `OPENAI_API_KEY`. 未配 secret 则 job skip (不红).
+- 验收: 1) 在 GitHub Actions UI 手动 trigger 一次 brain-smoke, 看 5 场景全过. 2) 故意把 system prompt 改坏一句, 下次 trigger 必红.
 
 ## §3. P1 · 上线 30 天内补 (不阻塞首发)
 

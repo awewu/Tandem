@@ -55,6 +55,8 @@ export async function POST(req: NextRequest) {
       userId: result.userId,
       requiresMfa: result.requiresMfa,
       pendingSessionId: result.pendingSessionId,
+      // P0-4: 客户端见此字段为 true 应强跳 /settings/security 启用 MFA 才能继续业务路由
+      mfaEnrollmentRequired: result.mfaEnrollmentRequired ?? false,
     });
 
     res.cookies.set(COOKIE_ACCESS, result.accessToken, {
