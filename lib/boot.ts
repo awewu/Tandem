@@ -280,6 +280,72 @@ async function runSlowScans(): Promise<void> {
     // eslint-disable-next-line no-console
     console.warn('[boot] kpi snapshot scan failed:', err);
   }
+
+  // ON-2: 代行动作否决窗到期处理
+  //   - reconcilePendingActions: 普通代行 (已发生动作) 窗口过 → executed / drafted 超时 → expired
+  //   - reconcileOntologyActionVetoWindows: ontology_action (延迟执行) 窗口过 → 真跑 executeAction 兑现
+  try {
+    const { reconcilePendingActions } = await import('./persona/proxy-actions');
+    const r = await reconcilePendingActions();
+    if (r.executed > 0 || r.expired > 0) {
+      // eslint-disable-next-line no-console
+      console.info(`[boot] proxy action reconcile: ${r.executed} 执行 / ${r.expired} 过期`);
+    }
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('[boot] proxy action reconcile failed:', err);
+  }
+
+  try {
+    const { reconcileOntologyActionVetoWindows } = await import('./ontology');
+    const r = await reconcileOntologyActionVetoWindows();
+    if (r.materialized > 0 || r.failed > 0) {
+      // eslint-disable-next-line no-console
+      console.info(
+        `[boot] ontology action reconcile: ${r.materialized} 兑现 / ${r.failed} 失败重试`
+      );
+    }
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('[boot] ontology action reconcile failed:', err);
+  }
+
+  // CA-13 (2026-06-09 · 补漏): pending → ignored 慢扫
+  //   7 天没拿到反馈的决策标记 ignored, 否则月度反思的 adoptionRate 分母被 pending 永久污染.
+  //   boot 时机够用 (服务器经常重启); 真正生产部署可挂独立 cron 但 boot 是兜底.
+  try {
+    const { markStaleDecisionsIgnored } = await import('./persona/company-brain-decision');
+    const r = await markStaleDecisionsIgnored(7);
+    if (r.ignored > 0) {
+      // eslint-disable-next-line no-console
+      console.info(`[boot] company-brain decision sweep: ${r.ignored} 条 7天+ pending 决策标记 ignored`);
+    }
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('[boot] company-brain stale decision sweep failed:', err);
+  }
+
+  // ON-3: 月度反思自动生成 (§CA-13)
+  //   月级长回路: 距上一份报告 ≥ 28 天才生成新报告 (产出 pending, 仍须 Owner/治理签批)。
+  //   useLlm=false 保证离线/无 API key 环境也能跑; 无窗口决策时 generateReflection 返回 null。
+  try {
+    const { listReflections, generateReflection } = await import('./persona/company-brain-reflection');
+    const reports = await listReflections({ limit: 1 });
+    const latestMs = reports[0]?.createdAt ? new Date(reports[0].createdAt).getTime() : 0;
+    const MONTHLY_MS = 28 * 24 * 60 * 60 * 1000;
+    if (Date.now() - latestMs >= MONTHLY_MS) {
+      const report = await generateReflection({ useLlm: false, actorUserId: 'cron' });
+      if (report) {
+        // eslint-disable-next-line no-console
+        console.info(
+          `[boot] company-brain reflection: 月度反思已生成 (${report.id}, ${report.optimizationProposals?.length ?? 0} 条 OKR 优化提议, 待签批)`
+        );
+      }
+    }
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('[boot] company-brain monthly reflection failed:', err);
+  }
 }
 
 function unrefIfPossible(id: ReturnType<typeof setInterval>): void {

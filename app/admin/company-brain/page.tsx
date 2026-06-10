@@ -28,6 +28,9 @@ import {
   Check,
   X,
   Target,
+  ThumbsUp,
+  Pencil,
+  ThumbsDown,
 } from 'lucide-react';
 
 interface BrainHead {
@@ -79,6 +82,7 @@ interface DecisionLite {
 
 const CTX_LABEL: Record<string, string> = {
   im_reply: 'IM 召唤',
+  boss_ai_reply: 'BossAI 浮窗',
   baseline_arbitration: '灰区仲裁',
   meeting_advice: '议事建议',
   document_review: '文档评审',
@@ -119,6 +123,28 @@ export default function CompanyBrainAdminPage() {
       }
     })();
   }, []);
+
+  // §CA-13 补漏 (2026-06-09): admin 可在详情页直接给 pending 决策赋 feedback.
+  //   最能受益的是 baseline_arbitration 记录 (无端用户 UI, 不靠 admin 手动就永远 pending).
+  async function submitFeedback(decisionId: string, outcome: 'adopted' | 'modified' | 'overruled'): Promise<void> {
+    const prev = decisions;
+    // 乐观更新
+    setDecisions(prev.map((d) => d.id === decisionId ? { ...d, feedback: { ...d.feedback, outcome } } : d));
+    try {
+      const res = await fetch('/api/company-brain/feedback', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ decisionId, outcome }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    } catch (e) {
+      // 回滚
+      setDecisions(prev);
+      setErr(`反馈失败: ${(e as Error).message}`);
+      setTimeout(() => setErr(null), 4000);
+    }
+  }
 
   if (loading) {
     return (
@@ -319,6 +345,31 @@ export default function CompanyBrainAdminPage() {
                       <p className="mt-1 truncate text-[11.5px] italic text-rose-600">
                         反馈: {d.feedback.reason}
                       </p>
+                    )}
+                    {d.feedback.outcome === 'pending' && (
+                      <div className="mt-1.5 flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => void submitFeedback(d.id, 'adopted')}
+                          className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[10.5px] font-medium text-emerald-700 ring-1 ring-emerald-300/60 hover:bg-emerald-50"
+                        >
+                          <ThumbsUp className="h-2.5 w-2.5" /> 采纳
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void submitFeedback(d.id, 'modified')}
+                          className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[10.5px] font-medium text-warning ring-1 ring-warning/30/60 hover:bg-warning/5"
+                        >
+                          <Pencil className="h-2.5 w-2.5" /> 修改
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void submitFeedback(d.id, 'overruled')}
+                          className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[10.5px] font-medium text-rose-700 ring-1 ring-rose-300/60 hover:bg-rose-50"
+                        >
+                          <ThumbsDown className="h-2.5 w-2.5" /> 推翻
+                        </button>
+                      </div>
                     )}
                   </div>
                   <OutcomeBadge outcome={d.feedback.outcome} />
