@@ -195,6 +195,22 @@ export async function POST(req: NextRequest): Promise<Response> {
           /* 感知层失败不阻塞主流程 (fail-soft) */
         }
 
+        // ── 3.5 §B-024 self-hint 召回 · 注入提问者过去的语言化自省教训 ──
+        //   IM 主路径与 three-plus-one-engine 都已接入; BossAI 之前是 gap,
+        //   导致同一员工反复问同类问题 AI 无法"记住上次怎么栽过". 此处补齐。
+        //   fail-soft: 召回失败原样继续, 绝不阻塞主回复。
+        let selfHintCount = 0;
+        try {
+          const { injectSelfHints } = await import('@/lib/persona/reflexion');
+          const sh = await injectSelfHints(systemPrompt, auth.userId, latestUserMessage);
+          if (sh.hintCount > 0) {
+            systemPrompt = sh.revisedSystemPrompt;
+            selfHintCount = sh.hintCount;
+          }
+        } catch {
+          /* fail-soft */
+        }
+
         // ── 4. Compaction + 起点审计 ──
         const rawChatMessages: ChatMessage[] = [
           // §B-003 · system prompt 上挂 ephemeral 缓存; Anthropic 命中后输入 token ~10% 计费
@@ -376,7 +392,13 @@ export async function POST(req: NextRequest): Promise<Response> {
           })();
         });
 
-        send({ done: true, length: fullResponse.length, decisionId: recordedDecisionId });
+        send({
+          done: true,
+          length: fullResponse.length,
+          decisionId: recordedDecisionId,
+          selfHintCount,
+          s2Reasoned,
+        });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         send({ error: `Tandem AI 调用失败: ${msg}` });

@@ -17,6 +17,7 @@
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "evals": "vitest run tests/eval --reporter=verbose",
+    "brain:smoke": "node scripts/brain-smoke.mjs",
     "evals:online": "node scripts/run-evals.mjs",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
