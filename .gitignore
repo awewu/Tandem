@@ -73,6 +73,7 @@ tsconfig.tsbuildinfo
 # 本地 health probe 临时输出 (smoke-* / health-check 脚本生成, 不入提交)
 .health.txt
 .brain-smoke-baseline.json
+.brain-load-*.json
 
 # Vendored reference source (Paperclip deep-port study) · 不进提交
 /vendor/
