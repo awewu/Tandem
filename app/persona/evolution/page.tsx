@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { StageProgressDashboard } from '@/components/persona/StageProgressDashboard';
 import { DelegationConsole, type DelegationSettings } from '@/components/persona/DelegationConsole';
 import { UpgradeProposalBanner } from '@/components/persona/UpgradeProposalBanner';
+import { ReflexionLogPanel } from '@/components/persona/ReflexionLogPanel';
 import { Card, CardContent } from '@/components/ui/card';
 import type { StageProgress } from '@/lib/persona/learning-collector';
 import type { Persona } from '@/lib/types/persona';
@@ -13,7 +14,7 @@ const DEMO_USER_ID = 'demo-user';
 export default function PersonaEvolutionPage() {
   const [progress, setProgress] = useState<StageProgress | null>(null);
   const [persona, setPersona] = useState<Persona | null>(null);
-  const [tab, setTab] = useState<'progress' | 'delegation'>('progress');
+  const [tab, setTab] = useState<'progress' | 'delegation' | 'reflexion'>('progress');
 
   async function fetchProgress() {
     const res = await fetch(`/api/persona/${DEMO_USER_ID}/progress`);
@@ -46,6 +47,9 @@ export default function PersonaEvolutionPage() {
         </TabBtn>
         <TabBtn active={tab === 'delegation'} onClick={() => setTab('delegation')}>
           代行控制台
+        </TabBtn>
+        <TabBtn active={tab === 'reflexion'} onClick={() => setTab('reflexion')}>
+          学到的教训
         </TabBtn>
       </div>
 
@@ -91,6 +95,8 @@ export default function PersonaEvolutionPage() {
           }}
         />
       )}
+
+      {tab === 'reflexion' && <ReflexionLogPanel />}
     </main>
   );
 }
