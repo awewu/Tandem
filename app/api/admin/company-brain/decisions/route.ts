@@ -24,6 +24,7 @@ export const runtime = 'nodejs';
 
 const ALLOWED_CONTEXTS: CompanyBrainDecisionContext[] = [
   'im_reply',
+  'boss_ai_reply',
   'baseline_arbitration',
   'meeting_advice',
   'document_review',
