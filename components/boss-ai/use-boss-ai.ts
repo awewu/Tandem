@@ -13,6 +13,8 @@
 
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
 
+export type BossAiFeedbackOutcome = 'pending' | 'adopted' | 'modified' | 'overruled';
+
 export interface BossAiMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -21,6 +23,12 @@ export interface BossAiMessage {
   streaming?: boolean;
   /** 首字节前的进度提示 (正在查公司数据…); 有 content 后清空 */
   status?: string;
+  /** §CA-13 设施: 服务端 recordDecision 后的 decision.id, 客户端拿它去 POST /api/company-brain/feedback. */
+  decisionId?: string;
+  /** 本地 cache 的反馈状态, UI 高亮当前 outcome. 仅 assistant 消息有意义. */
+  feedbackOutcome?: BossAiFeedbackOutcome;
+  /** 反馈提交中 (防重复点击). */
+  feedbackSubmitting?: boolean;
 }
 
 /** 深链时由外部组件 askAbout 写入, drawer 消费后清空 */
@@ -218,15 +226,60 @@ class BossAiStore {
     this.emit();
   }
 
-  endAssistantMessage(error?: string) {
+  endAssistantMessage(error?: string, decisionId?: string) {
     const msgs = this.state.messages.slice();
     const last = msgs[msgs.length - 1];
     if (last && last.role === 'assistant') {
-      msgs[msgs.length - 1] = { ...last, streaming: false };
+      msgs[msgs.length - 1] = {
+        ...last,
+        streaming: false,
+        decisionId: decisionId ?? last.decisionId,
+        feedbackOutcome: decisionId ? 'pending' : last.feedbackOutcome,
+      };
     }
     this.state = { ...this.state, messages: msgs, streaming: false, error: error ?? null };
     this.persist();
     this.emit();
+  }
+
+  // §CA-13 闭环: 提交反馈 → POST /api/company-brain/feedback → 本地 cache outcome.
+  //   fail-soft: 网络错误不招引全局 error 状态 (只在 message 级别提示, 不能冲掉上一次成功的回答).
+  async submitFeedback(messageCreatedAt: number, outcome: BossAiFeedbackOutcome): Promise<boolean> {
+    const idx = this.state.messages.findIndex((m) => m.createdAt === messageCreatedAt && m.role === 'assistant');
+    if (idx < 0) return false;
+    const target = this.state.messages[idx];
+    if (!target.decisionId || target.feedbackSubmitting) return false;
+
+    // 乐观提交: 先标记 submitting (UI 锁住按钮)
+    const msgsOpt = this.state.messages.slice();
+    msgsOpt[idx] = { ...target, feedbackSubmitting: true };
+    this.state = { ...this.state, messages: msgsOpt };
+    this.emit();
+
+    try {
+      const res = await fetch('/api/company-brain/feedback', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ decisionId: target.decisionId, outcome }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const msgsOk = this.state.messages.slice();
+      const cur = msgsOk[idx];
+      if (cur) msgsOk[idx] = { ...cur, feedbackOutcome: outcome, feedbackSubmitting: false };
+      this.state = { ...this.state, messages: msgsOk };
+      this.persist();
+      this.emit();
+      return true;
+    } catch {
+      // 回滚 submitting 标记, outcome 保持原状
+      const msgsErr = this.state.messages.slice();
+      const cur = msgsErr[idx];
+      if (cur) msgsErr[idx] = { ...cur, feedbackSubmitting: false };
+      this.state = { ...this.state, messages: msgsErr };
+      this.emit();
+      return false;
+    }
   }
 }
 
@@ -295,12 +348,12 @@ export function useBossAi() {
             const payload = t.slice(5).trim();
             if (!payload) continue;
             try {
-              const json = JSON.parse(payload) as { content?: string; done?: boolean; error?: string; status?: string };
+              const json = JSON.parse(payload) as { content?: string; done?: boolean; error?: string; status?: string; decisionId?: string };
               if (typeof json.status === 'string') store.setAssistantStatus(json.status);
               if (typeof json.content === 'string') store.appendAssistantDelta(json.content);
               if (json.error) lastError = json.error;
               if (json.done) {
-                store.endAssistantMessage(lastError);
+                store.endAssistantMessage(lastError, typeof json.decisionId === 'string' ? json.decisionId : undefined);
                 return;
               }
             } catch { /* ignore */ }
@@ -318,6 +371,10 @@ export function useBossAi() {
     [store],
   );
   const consumePendingPrompt = useCallback(() => store.consumePendingPrompt(), [store]);
+  const submitFeedback = useCallback(
+    (messageCreatedAt: number, outcome: BossAiFeedbackOutcome) => store.submitFeedback(messageCreatedAt, outcome),
+    [store],
+  );
 
   return useMemo(() => ({
     isOpen: state.open,
@@ -333,5 +390,6 @@ export function useBossAi() {
     send,
     askAbout,
     consumePendingPrompt,
-  }), [state, store, send, askAbout, consumePendingPrompt]);
+    submitFeedback,
+  }), [state, store, send, askAbout, consumePendingPrompt, submitFeedback]);
 }

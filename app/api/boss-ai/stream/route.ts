@@ -300,6 +300,8 @@ export async function POST(req: NextRequest): Promise<Response> {
         //   之前 IM 路径已记 im_reply, 议事路径已记 meeting_advice, 唯独 BossAI (灵魂入口)
         //   不留痕 → 流量最大的入口对训练数据零贡献, 推翻梯度=0. 修补这条腿.
         //   best-effort: 失败仅 warn, 永不阻塞流式回答 / 客户端 close.
+        //   decisionId 回传客户端 → 抽屉 UI 渲染 👍/✏️/👎 反馈按钮 → POST /api/company-brain/feedback.
+        let recordedDecisionId: string | undefined;
         try {
           const latencyMs = Date.now() - t0;
           const { recordDecision } = await import('@/lib/persona/company-brain-decision');
@@ -331,6 +333,7 @@ export async function POST(req: NextRequest): Promise<Response> {
             refType: 'boss_ai_session',
           });
           if (decision) {
+            recordedDecisionId = decision.id;
             const { audit } = await import('@/lib/audit/log');
             await audit('company_brain.decision_recorded', auth.userId, {
               targetId: decision.id,
@@ -373,7 +376,7 @@ export async function POST(req: NextRequest): Promise<Response> {
           })();
         });
 
-        send({ done: true, length: fullResponse.length });
+        send({ done: true, length: fullResponse.length, decisionId: recordedDecisionId });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         send({ error: `Tandem AI 调用失败: ${msg}` });

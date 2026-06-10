@@ -9,12 +9,12 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { Sparkles, X, Plus, Send, AlertCircle, Loader2, MapPin } from 'lucide-react';
-import { useBossAi, type BossAiMessage } from './use-boss-ai';
+import { Sparkles, X, Plus, Send, AlertCircle, Loader2, MapPin, ThumbsUp, Pencil, ThumbsDown } from 'lucide-react';
+import { useBossAi, type BossAiMessage, type BossAiFeedbackOutcome } from './use-boss-ai';
 import { getExamplePrompts, getPathLabel } from './example-prompts';
 
 export function BossAiDrawer() {
-  const { isOpen, close, messages, streaming, error, send, newSession, pendingPrompt, consumePendingPrompt } = useBossAi();
+  const { isOpen, close, messages, streaming, error, send, newSession, pendingPrompt, consumePendingPrompt, submitFeedback } = useBossAi();
   const pathname = usePathname();
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -149,7 +149,7 @@ export function BossAiDrawer() {
               onPick={(t) => { setInput(t); inputRef.current?.focus(); }}
             />
           ) : (
-            messages.map((m, i) => <MessageBubble key={i} m={m} />)
+            messages.map((m, i) => <MessageBubble key={i} m={m} onFeedback={submitFeedback} />)
           )}
           {error && (
             <div className="flex items-start gap-2 rounded-lg border border-danger/30 bg-danger/5 p-3 text-caption text-danger">
@@ -259,12 +259,14 @@ function EmptyState({
 // ──────────────────────────────────────────────────────────────────
 // 消息气泡
 // ──────────────────────────────────────────────────────────────────
-function MessageBubble({ m }: { m: BossAiMessage }) {
+function MessageBubble({ m, onFeedback }: { m: BossAiMessage; onFeedback: (createdAt: number, outcome: BossAiFeedbackOutcome) => Promise<boolean> }) {
   const isUser = m.role === 'user';
   // 首字节前: 显示进度提示 (正在查公司数据…) 而非空气泡
   const showStatus = m.streaming && !m.content && Boolean(m.status);
+  // §CA-13 闭环: assistant 完成消息且服务端给了 decisionId → 渲染反馈按钮
+  const showFeedback = !isUser && !m.streaming && Boolean(m.decisionId) && m.content.trim().length > 0;
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+    <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
       <div
         className={
           'max-w-[85%] rounded-2xl px-3.5 py-2.5 text-body leading-relaxed whitespace-pre-wrap break-words ' +
@@ -287,6 +289,69 @@ function MessageBubble({ m }: { m: BossAiMessage }) {
           </>
         )}
       </div>
+      {showFeedback && (
+        <FeedbackRow
+          outcome={m.feedbackOutcome ?? 'pending'}
+          submitting={m.feedbackSubmitting === true}
+          onPick={(o) => { void onFeedback(m.createdAt, o); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// §CA-13 反馈按钮组 (BossAI 浮窗版, 与 IM 版独立 — IM 用 messageId 反查, BossAI 用 SSE 回传的 decisionId)
+function FeedbackRow({
+  outcome,
+  submitting,
+  onPick,
+}: {
+  outcome: BossAiFeedbackOutcome;
+  submitting: boolean;
+  onPick: (o: Exclude<BossAiFeedbackOutcome, 'pending'>) => void;
+}) {
+  const settled = outcome !== 'pending';
+  const items: Array<{ o: Exclude<BossAiFeedbackOutcome, 'pending'>; icon: React.ReactNode; label: string; color: 'emerald' | 'amber' | 'rose' }> = [
+    { o: 'adopted', icon: <ThumbsUp className="h-3 w-3" />, label: '采纳', color: 'emerald' },
+    { o: 'modified', icon: <Pencil className="h-3 w-3" />, label: '修改', color: 'amber' },
+    { o: 'overruled', icon: <ThumbsDown className="h-3 w-3" />, label: '推翻', color: 'rose' },
+  ];
+  return (
+    <div
+      className="mt-1.5 flex items-center gap-1.5 pl-1"
+      title={settled ? '已反馈 · 进入月度反思 (CA-13)' : '给反馈帮我月度自评'}
+    >
+      {items.map(({ o, icon, label, color }) => {
+        const active = outcome === o;
+        const muted = settled && !active;
+        const colorClass = active
+          ? color === 'emerald'
+            ? 'bg-emerald-100 text-emerald-800 ring-emerald-400/80'
+            : color === 'amber'
+              ? 'bg-warning/10 text-warning ring-warning/50/80'
+              : 'bg-rose-100 text-rose-800 ring-rose-400/80'
+          : color === 'emerald'
+            ? 'text-emerald-700 ring-emerald-300/60 hover:bg-emerald-50'
+            : color === 'amber'
+              ? 'text-warning ring-warning/30/60 hover:bg-warning/5'
+              : 'text-rose-700 ring-rose-300/60 hover:bg-rose-50';
+        return (
+          <button
+            key={o}
+            type="button"
+            onClick={() => onPick(o)}
+            disabled={submitting || muted}
+            className={
+              'inline-flex items-center gap-1 rounded-full bg-[rgb(var(--surface-1))] px-2 py-0.5 text-[10px] font-medium ring-1 transition surface-interactive ' +
+              `disabled:cursor-not-allowed ${muted ? 'opacity-30' : ''} ${colorClass}`
+            }
+            aria-pressed={active}
+          >
+            {submitting && active ? <Loader2 className="h-3 w-3 animate-spin" /> : icon}
+            {label}
+          </button>
+        );
+      })}
     </div>
   );
 }
