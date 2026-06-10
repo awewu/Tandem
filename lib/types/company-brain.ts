@@ -17,6 +17,7 @@
 
 export type CompanyBrainDecisionContext =
   | 'im_reply'              // IM 召唤回复
+  | 'boss_ai_reply'         // BossAI 浮窗流式回复 (灵魂入口, 2026-06-09 接 CA-13 飞轮)
   | 'baseline_arbitration'  // 灰区 LLM 仲裁 (CA-2, 待启动)
   | 'meeting_advice'        // 议事室公司视角
   | 'document_review'       // 文档评审

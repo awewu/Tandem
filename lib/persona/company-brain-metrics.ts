@@ -143,6 +143,7 @@ export async function computeMetrics(opts: {
   // by context
   const contextKeys: CompanyBrainDecisionContext[] = [
     'im_reply',
+    'boss_ai_reply',
     'baseline_arbitration',
     'meeting_advice',
     'document_review',

@@ -110,6 +110,9 @@ export async function POST(req: NextRequest): Promise<Response> {
       };
       req.signal.addEventListener('abort', onAbort);
 
+      // §CA-13 飞轮 (2026-06-09): 记录 boss_ai_reply 决策时需要端到端 latency,
+      //   t0 必须包含整个 systemPrompt 构建 + S2/S1 + 流式生成的总耗时 (不只是 LLM 推理).
+      const t0 = Date.now();
       try {
         // ── 1. 构建 systemPrompt (Memory rerank) · 先回 status 让前端立刻有反馈 ──
         send({ status: '正在调取公司知识库…' });
@@ -292,6 +295,64 @@ export async function POST(req: NextRequest): Promise<Response> {
           },
           tenantId: auth.tenantId,
         });
+
+        // §CA-13 闭环 (2026-06-09 · 补燃料): 落地 boss_ai_reply 决策给反思循环喂料.
+        //   之前 IM 路径已记 im_reply, 议事路径已记 meeting_advice, 唯独 BossAI (灵魂入口)
+        //   不留痕 → 流量最大的入口对训练数据零贡献, 推翻梯度=0. 修补这条腿.
+        //   best-effort: 失败仅 warn, 永不阻塞流式回答 / 客户端 close.
+        try {
+          const latencyMs = Date.now() - t0;
+          const { recordDecision } = await import('@/lib/persona/company-brain-decision');
+          const { estimateCostMicroUsd } = await import('@/lib/analytics/track');
+          // 流式无 usage, 沿用 IM 路径同一估算式 (中文 1.5 token / 其他 0.3 token).
+          const estimateTokens = (text: string): number => {
+            const cn = (text.match(/[\u4e00-\u9fa5]/g) ?? []).length;
+            const other = text.length - cn;
+            return Math.ceil(cn * 1.5 + other * 0.3);
+          };
+          const tokensIn = estimateTokens(`${systemPrompt}\n${userQuestion}`);
+          const tokensOut = estimateTokens(fullResponse);
+          const modelUsed = 'claude-opus-4-5'; // scenario=reasoning_complex 锁定旗舰
+          const providerUsed = 'anthropic';
+          const costMicroUsd = estimateCostMicroUsd(modelUsed, tokensIn, tokensOut);
+          const decision = await recordDecision({
+            context: 'boss_ai_reply',
+            inputSummary: userQuestion,
+            outputSummary: fullResponse,
+            modelUsed,
+            providerUsed,
+            scenario: 'reasoning_complex',
+            tokensIn,
+            tokensOut,
+            costMicroUsd,
+            latencyMs,
+            aiTraceId: sessionId,
+            refId: sessionId,
+            refType: 'boss_ai_session',
+          });
+          if (decision) {
+            const { audit } = await import('@/lib/audit/log');
+            await audit('company_brain.decision_recorded', auth.userId, {
+              targetId: decision.id,
+              targetType: 'company_brain_decision',
+              metadata: {
+                context: 'boss_ai_reply',
+                sessionId: sessionId ?? null,
+                brainVersion: decision.brainVersion,
+                model: modelUsed,
+                tokensIn,
+                tokensOut,
+                costMicroUsd,
+                latencyMs,
+                s2Reasoned,
+                currentPath: currentPath ?? null,
+              },
+              tenantId: auth.tenantId,
+            }).catch(() => { /* noop */ });
+          }
+        } catch {
+          /* 决策记录失败不影响 BossAI 主流程 */
+        }
 
         // §B-015 OKR Drift Detection · fire-and-forget · 不阻塞 SSE close
         // 治理委员会月审看 'BossAI 提问主航道偏离率', 不警告用户 (BossAI 是问答, 不是决策)
