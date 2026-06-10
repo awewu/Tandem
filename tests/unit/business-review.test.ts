@@ -22,8 +22,8 @@ const DAYS_AGO = (n: number) => new Date(NOW - n * 86400_000).toISOString();
 function makeCycle(over: Partial<Cycle> = {}): Cycle {
   return {
     id: 'cyc_q2',
-    title: '2026 Q2',
-    cadence: 'quarterly',
+    name: '2026 Q2',
+    period: 'quarter',
     startDate: '2026-04-01',
     endDate: '2026-06-30',
     isActive: true,
@@ -54,17 +54,22 @@ function makeKr(over: Partial<KeyResult> = {}): KeyResult {
   return {
     id: 'k1',
     objectiveId: 'o1',
+    ownerId: 'admin',
+    coOwnerIds: [],
     title: 'KR 1',
-    measurementType: 'numeric',
+    measureType: 'numeric',
+    computeMethod: 'absolute',
     startValue: 0,
     targetValue: 100,
     currentValue: 50,
     weight: 1,
     confidence: 'on-track',
+    riskStatus: 'on_track',
     status: 'active',
     createdAt: DAYS_AGO(30),
     updatedAt: DAYS_AGO(1),
     tenantId: 'default',
+    ...over,
   } as KeyResult;
 }
 
@@ -108,7 +113,7 @@ describe('business-review · summary 分桶', () => {
     await store.cycles.create(makeCycle() as never);
     await store.objectives.create(makeObjective({ id: 'o-ok', confidence: 'on-track', currentProgress: 0.8 }) as never);
     await store.objectives.create(makeObjective({ id: 'o-risk', confidence: 'at-risk', currentProgress: 0.4 }) as never);
-    await store.objectives.create(makeObjective({ id: 'o-bad', confidence: 'behind', currentProgress: 0.1 }) as never);
+    await store.objectives.create(makeObjective({ id: 'o-bad', confidence: 'off-track', currentProgress: 0.1 }) as never);
 
     const r = await generateMonthlyBusinessReview({ periodEnd: new Date(NOW).toISOString() });
     expect(r.summary.activeObjectives).toBe(3);
@@ -121,8 +126,8 @@ describe('business-review · summary 分桶', () => {
   it('behind ≥ 1 → suggestedTopics 含 high severity "目标已落后"', async () => {
     const store = getStore();
     await store.cycles.create(makeCycle() as never);
-    await store.objectives.create(makeObjective({ id: 'o-bad', confidence: 'behind', currentProgress: 0.1 }) as never);
-    await store.keyResults.create(makeKr({ objectiveId: 'o-bad', confidence: 'behind', currentValue: 10 }) as never);
+    await store.objectives.create(makeObjective({ id: 'o-bad', confidence: 'off-track', currentProgress: 0.1 }) as never);
+    await store.keyResults.create(makeKr({ objectiveId: 'o-bad', confidence: 'off-track', currentValue: 10 }) as never);
 
     const r = await generateMonthlyBusinessReview({ periodEnd: new Date(NOW).toISOString() });
     const high = r.suggestedTopics.filter((t) => t.severity === 'high');
@@ -137,7 +142,7 @@ describe('business-review · 决议活动', () => {
     await store.decisionCards.create(makeCard({ id: 'd1', convergenceState: 'COMMIT', createdAt: DAYS_AGO(1) }) as never);
     await store.decisionCards.create(makeCard({ id: 'd2', convergenceState: 'COMMIT', createdAt: DAYS_AGO(3) }) as never);
     await store.decisionCards.create(makeCard({ id: 'd3', convergenceState: 'VETOED', createdAt: DAYS_AGO(5) }) as never);
-    await store.decisionCards.create(makeCard({ id: 'd4', convergenceState: 'CONVERGING', createdAt: DAYS_AGO(7) }) as never);
+    await store.decisionCards.create(makeCard({ id: 'd4', convergenceState: 'CONVERGE', createdAt: DAYS_AGO(7) }) as never);
 
     const r = await generateMonthlyBusinessReview({ periodEnd: new Date(NOW).toISOString(), windowDays: 30 });
     expect(r.decisions.total).toBe(4);
@@ -161,7 +166,7 @@ describe('business-review · 决议活动', () => {
 describe('business-review · markdown 完整性', () => {
   it('markdown 含周期标签 + ID', async () => {
     const store = getStore();
-    await store.cycles.create(makeCycle({ title: '2026 Q2' }) as never);
+    await store.cycles.create(makeCycle({ name: '2026 Q2' }) as never);
     const r = await generateMonthlyBusinessReview({ periodEnd: new Date(NOW).toISOString(), windowDays: 30 });
     expect(r.markdown).toContain('2026 Q2');
     expect(r.markdown).toContain(r.id);

@@ -28,10 +28,8 @@ import { logger } from '../infra/logger';
 import {
   effectiveObjectiveProgress,
 } from '../types/okr-tti';
-import {
-  analyzeOkrHealth,
-  type OkrOptimizationProposal,
-} from './company-brain-reflection';
+import { analyzeOkrHealth } from './company-brain-reflection';
+import type { OkrOptimizationProposal } from '../types/company-brain';
 import type { DecisionCard } from '../types/decision-card';
 import type { Objective } from '../types/okr-tti';
 
@@ -178,7 +176,7 @@ async function buildSummary(): Promise<BusinessReviewSummary> {
     progSum += effectiveObjectiveProgress(o);
     if (o.confidence === 'on-track') onTrack++;
     else if (o.confidence === 'at-risk') atRisk++;
-    else behind++;
+    else behind++; // off-track 或缺失
   }
   return {
     activeObjectives: objectives.length,
@@ -210,12 +208,13 @@ async function buildDecisions(startMs: number, endMs: number): Promise<BusinessR
     const s = c.convergenceState ?? 'unknown';
     byState[s] = (byState[s] ?? 0) + 1;
   }
-  // outcome 推断: COMMIT→adopted-ish; VETOED→overruled; CONVERGING/EXPLORING→pending
+  // outcome 推断: COMMIT→adopted-ish; VETOED→overruled; DIVERGE/CONVERGE/ESCALATED→pending
+  // (real ConvergenceState union per lib/types/decision-card.ts:9)
   const byOutcome = {
     adopted: byState['COMMIT'] ?? 0,
     overruled: byState['VETOED'] ?? 0,
     modified: 0,
-    pending: (byState['CONVERGING'] ?? 0) + (byState['EXPLORING'] ?? 0) + (byState['BRIEFING'] ?? 0),
+    pending: (byState['DIVERGE'] ?? 0) + (byState['CONVERGE'] ?? 0) + (byState['ESCALATED'] ?? 0),
   };
   const topRecent = inWindow
     .sort((a, b) => (a.createdAt > b.createdAt ? -1 : 1))
@@ -235,7 +234,7 @@ async function getActiveCycle(): Promise<{ id: string; title: string } | null> {
     const store = getStore();
     const cycles = await store.cycles.list();
     const a = cycles.find((c) => c.isActive);
-    return a ? { id: a.id, title: a.title ?? a.id } : null;
+    return a ? { id: a.id, title: a.name ?? a.id } : null;
   } catch { return null; }
 }
 
