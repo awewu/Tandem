@@ -11,6 +11,7 @@ export default function BitableHomePage() {
   const [tables, setTables] = useState<BitableTable[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [seeding, setSeeding] = useState(false);
   const [newName, setNewName] = useState('');
 
   async function load() {
@@ -43,6 +44,17 @@ export default function BitableHomePage() {
     }
   }
 
+  async function seedTemplates() {
+    if (seeding) return;
+    setSeeding(true);
+    try {
+      await fetch('/api/bitable/seed-templates', { method: 'POST' });
+      await load();
+    } finally {
+      setSeeding(false);
+    }
+  }
+
   return (
     <div className="max-w-5xl mx-auto p-6">
       <div className="mb-6">
@@ -64,12 +76,22 @@ export default function BitableHomePage() {
           {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
           新建
         </Button>
+        <Button variant="outline" onClick={seedTemplates} disabled={seeding}>
+          {seeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <TableIcon className="h-4 w-4" />}
+          示例模板
+        </Button>
       </div>
 
       {loading ? (
         <div className="text-center py-12 text-slate-400">加载中…</div>
       ) : tables.length === 0 ? (
-        <div className="text-center py-12 text-slate-400 text-caption">还没有表格. 创建一个吧.</div>
+        <div className="text-center py-12 text-slate-400 text-caption space-y-3">
+          <div>还没有表格。新建一个，或一键载入示例模板。</div>
+          <Button variant="outline" onClick={seedTemplates} disabled={seeding}>
+            {seeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <TableIcon className="h-4 w-4" />}
+            载入示例模板 (项目跟踪 / 客户台账 / 招聘漏斗)
+          </Button>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {tables.map((t) => (

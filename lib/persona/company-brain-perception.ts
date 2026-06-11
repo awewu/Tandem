@@ -27,6 +27,12 @@ export const PERCEPTION_TOOLSET = [
   'okr.health_digest',
   'okr.business_review',
   'okr.read',
+  // 融合推演: 从目标层 (OKR) 下沉到底线层 (KPI) / 人 (9宫格) / 钱 (奖金)
+  'kpi.health_digest',
+  'talent.nine_box',
+  'bonus.digest',
+  // 四维错配交叉: 一次拿到 OKR/KPI/9宫格/奖金 在人上对齐后的错配真值
+  'analytics.cross_rollup',
   'memory.search',
   'decision_card.list',
 ] as const;
@@ -54,7 +60,7 @@ export interface PerceptionResult {
  * 命中才跑感知 pass (避免每条闲聊都烧一次 tool-loop)。
  */
 const INTERNAL_DATA_RE =
-  /OKR|目标|KR\b|关键结果|进度|落后|滞后|at[ -]?risk|风险|健康度|预警|决议|议事|完成率|执行情况|落地情况|哪些目标|哪个目标|进展|周期目标|对齐/i;
+  /OKR|目标|KR\b|关键结果|进度|落后|滞后|at[ -]?risk|风险|健康度|预警|决议|议事|完成率|执行情况|落地情况|哪些目标|哪个目标|进展|周期目标|对齐|KPI|绩效|奖金|bonus|9\s*宫格|九宫格|nine[ -]?box|人才|梯队|盘点|继任|激励|进化|演进|改进机会|优化机会/i;
 
 export function shouldPerceive(query: string): { trigger: boolean; reason: string } {
   const q = (query ?? '').trim();
@@ -122,11 +128,12 @@ export function clearPerceptionCache(): void {
 }
 
 const PERCEPTION_SYSTEM = [
-  '你是中央 AI 的「感知前置」。你的唯一任务是: 调用提供的只读工具, 收集与用户问题相关的公司内部真实数据 (OKR 真值进度 / at-risk 项 / 历史决议 / 知识库)。',
+  '你是中央 AI 的「感知前置」。你的唯一任务是: 调用提供的只读工具, 收集与用户问题相关的公司内部真实数据。可用真值维度: OKR 真值进度/at-risk (okr.health_digest/okr.read/okr.business_review)、KPI 底线达成与权重/cascade (kpi.health_digest)、人才 9 宫格分布 (talent.nine_box)、年终奖金池与下发就绪度 (bonus.digest)、历史决议 (decision_card.list)、知识库 (memory.search)。',
   '规则:',
   '1. 只收集数据, 不要回答用户的问题本身, 不要给建议。',
-  '2. 用最少的工具调用拿到关键事实即可, 拿到后立即停止。',
-  '3. 若问题与内部数据无关, 不调用任何工具, 直接简短说明"无需查询"。',
+  '2. 单一维度问题 (只问 OKR 进度 / 只问某人 KPI 等): 用最少的工具调用拿到关键事实即可, 拿到后立即停止。',
+  '3. 跨维度经营分析问题 (要求"融合/综合/交叉/全景/盘点/进化机会/经营推演", 或同时涉及 目标+KPI+人才+奖金 中的多项): 必须分别调用相关维度工具各至少一次 —— OKR (okr.health_digest)、KPI 底线 (kpi.health_digest)、人才 9 宫格 (talent.nine_box)、奖金池 (bonus.digest) —— 不要只查单一维度就停, 否则下游会误判"数据缺失"。',
+  '4. 若问题与内部数据无关, 不调用任何工具, 直接简短说明"无需查询"。',
 ].join('\n');
 
 /**
@@ -177,8 +184,10 @@ export async function companyBrainPerceptionPass(
       scenario: 'tool_use',
       actorUserId: COMPANY_BRAIN_USER_ID,
       isProxy: false,
-      maxRounds: 3,
-      maxTokens: 600,
+      // 跨维度融合推演需分别调 OKR/KPI/人才/奖金 工具, 故提高轮次/token 上限;
+      // 单一维度问题仍会早收敛, 不会浪费预算。
+      maxRounds: 5,
+      maxTokens: 1200,
       aiTraceId: checkId,
     });
 

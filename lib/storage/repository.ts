@@ -238,6 +238,13 @@ export interface AuthInvite {
   usedCount: number;
   expiresAt: string;
   redeemedAt?: string | null;
+  /**
+   * §上下游: 邀请码携带的目标组织 id (上游邀请下游成员时绑定下游组织).
+   * 注册时权威归属来源 — 优先于按角色推断. anchor/内部邀请可留空.
+   */
+  orgId?: string | null;
+  /** §上下游: 邀请码携带的成员身份类型 (注册时权威归属来源). */
+  membershipType?: import('../types/organization').MembershipType;
 }
 
 export interface AuthEvent {

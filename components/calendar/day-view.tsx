@@ -14,7 +14,10 @@ interface DayViewProps {
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 export default function DayView({ date, todayMs, onEventClick, onCellClick }: DayViewProps) {
-  const { getEventsInRange } = useCalendarStore();
+  const getEventsInRange = useCalendarStore((s) => s.getEventsInRange);
+  // 订阅原始 events / calendars, 否则新增事件/切换可见性时 useMemo 不会重算。
+  const allEvents = useCalendarStore((s) => s.events);
+  const allCalendars = useCalendarStore((s) => s.calendars);
   const isToday = date.getTime() === todayMs;
 
   const { events, allDayEvents } = useMemo(() => {
@@ -24,7 +27,7 @@ export default function DayView({ date, todayMs, onEventClick, onCellClick }: Da
       events: all.filter((e) => !e.isAllDay).sort((a, b) => a.startTime - b.startTime),
       allDayEvents: all.filter((e) => e.isAllDay),
     };
-  }, [date, getEventsInRange]);
+  }, [date, getEventsInRange, allEvents, allCalendars]);
 
   const dayLabel = useMemo(() => {
     const d = new Date(date);

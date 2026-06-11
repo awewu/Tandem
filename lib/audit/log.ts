@@ -87,6 +87,10 @@ export type AuditAction =
   | 'auth.application.submit'             // 外部人员公开提交申请
   | 'auth.application.approve'            // Owner/Admin 审批通过 (生成单次邀请码)
   | 'auth.application.reject'             // Owner/Admin 拒绝申请
+  // 上下游组织 (企业微信式供应链模型 · 2026-06-09)
+  | 'org.downstream.created'              // 上游建下游组织 (经销商/供应商/门店)
+  | 'org.downstream.invited'             // 上游给下游组织发邀请码 (绑定 orgId + membershipType)
+  | 'org.downstream.suspended'           // 上游停用下游组织
   // 三省六部项目治理 (Phase 2 · docs/GOVERNANCE-THREE-DEPARTMENTS-2026-05-30.md)
   | 'governance.project_created'          // 新战略项目 (复制模板)
   | 'governance.project_updated'          // 项目元信息变更 / 状态切换

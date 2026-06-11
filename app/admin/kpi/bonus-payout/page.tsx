@@ -68,6 +68,11 @@ export default function KpiBonusPayoutPage() {
   const [baseBonuses, setBaseBonuses] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  /** OKR 进度门槛闸结果 (commit 时被冻结的人) */
+  const [gateInfo, setGateInfo] = useState<{
+    threshold: number;
+    frozen: Array<{ assigneeId: string; okrProgress: number; finalBonus: number }>;
+  } | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [userMap, setUserMap] = useState<Record<string, { name?: string; email?: string }>>({});
 
@@ -206,6 +211,12 @@ export default function KpiBonusPayoutPage() {
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error ?? `HTTP ${r.status}`);
+      const gate = j.summary?.okrGate;
+      if (commit && gate?.enabled && (gate.frozenCount ?? 0) > 0) {
+        setGateInfo({ threshold: gate.threshold, frozen: gate.frozen ?? [] });
+      } else {
+        setGateInfo(null);
+      }
       await loadCycleData();
     } catch (e) {
       setError((e as Error).message);
@@ -296,6 +307,28 @@ export default function KpiBonusPayoutPage() {
           <CardContent className="py-3 text-caption text-rose-700 flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />
             {error}
+          </CardContent>
+        </Card>
+      )}
+
+      {gateInfo && (
+        <Card className="border-amber-200 bg-amber-50">
+          <CardContent className="py-3 text-caption text-amber-800 space-y-1">
+            <div className="flex items-center gap-2 font-medium">
+              <AlertCircle className="h-4 w-4" />
+              OKR 进度门槛闸: {gateInfo.frozen.length} 人因 OKR 进度低于 {Math.round(gateInfo.threshold * 100)}% 被冻结, 奖金未下发 (仍保留草稿)
+            </div>
+            <div className="text-amber-700">
+              {gateInfo.frozen
+                .map(
+                  (f) =>
+                    `${userMap[f.assigneeId]?.name ?? f.assigneeId} (OKR ${Math.round(f.okrProgress * 100)}%, 冻结 ${Math.round(f.finalBonus).toLocaleString()} 元)`,
+                )
+                .join('; ')}
+            </div>
+            <div className="text-amber-600">
+              处置: 待该员工 OKR 进度回升后重新下发, 或经审批 override 单独放行。
+            </div>
           </CardContent>
         </Card>
       )}

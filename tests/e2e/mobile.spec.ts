@@ -34,8 +34,14 @@ for (const vp of VIEWPORTS) {
     for (const p of PAGES) {
       test(`${p.path} 能渲染关键内容`, async ({ page }) => {
         await page.goto(p.path);
-        // 不期待完美布局, 只要核心文本能 visible (即没被裁/覆盖)
-        await expect(page.getByText(p.must).first()).toBeVisible({ timeout: 8000 });
+        // 等首屏 client fetch 落定再断言 — 客户端页面 (OKR/KPI/1on1) 数据是 hydration
+        // 后才拉的, dev server + 首访引导弹窗会拖慢渲染.
+        await page.waitForLoadState('networkidle');
+        // 只取「可见」的匹配项: 窄屏导航抽屉里有同名隐藏链接 (如 "1on1 对话"),
+        // 裸 .first() 会误选隐藏项导致假性失败. :visible 交集确保断言的是页面正文内容.
+        await expect(
+          page.getByText(p.must).and(page.locator(':visible')).first(),
+        ).toBeVisible({ timeout: 12000 });
 
         // 额外检查: 页面没出现 React Error boundary 兜底
         const errorBanner = page.getByText(/出错了|something went wrong|application error/i);

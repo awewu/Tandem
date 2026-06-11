@@ -28,6 +28,7 @@ import { requireAuth } from '@/lib/auth/require-auth';
 import { hasKpiPermission } from '@/lib/auth/kpi-perms';
 import { audit } from '@/lib/audit/log';
 import { computeBonusPayout, type KpiBonusPayout } from '@/lib/types/kpi';
+import { resolveOkrCycle } from '@/lib/domain/cycle/performance-cycle';
 
 export async function GET(
   req: NextRequest,
@@ -69,6 +70,14 @@ export async function POST(
     const commit = body.commit === true;
     const note: string | undefined = body.note;
     const restrictAssignee: string | undefined = body.assigneeId;
+    // OKR 进度门槛闸 (机会#1): commit 时, OKR 进度低于阈值的人冻结奖金, 不予下发,
+    // 直至 OKR 进度回升或 HR 显式 override。默认开启, 阈值 0.2 (20%)。draft 试算不拦截。
+    const gateEnabled: boolean = body.okrGate?.enabled !== false;
+    const gateThreshold: number =
+      typeof body.okrGate?.threshold === 'number' ? body.okrGate.threshold : 0.2;
+    const overrideAssignees = new Set<string>(
+      Array.isArray(body.okrGate?.override) ? body.okrGate.override : [],
+    );
 
     const store = getStore();
     const cycle = await store.kpiCycles.get(cycleId);
@@ -104,6 +113,34 @@ export async function POST(
       byAssignee.set(k.assigneeId, arr);
     }
 
+    // OKR 进度门槛闸: 解析本 KPI 周期对应的 OKR 主周期, 算每位被考核人的 OKR 进度 (KR 平均)
+    const okrProgressByOwner = new Map<string, number>();
+    if (gateEnabled) {
+      const okrCycle = await resolveOkrCycle(store, cycleId, 'kpi');
+      if (okrCycle) {
+        const objIds = new Set(
+          (await store.objectives.list())
+            .filter((o) => o.cycleId === okrCycle.id)
+            .map((o) => o.id),
+        );
+        const krAgg = new Map<string, { sum: number; n: number }>();
+        for (const kr of await store.keyResults.list()) {
+          if (!objIds.has(kr.objectiveId) || !kr.ownerId) continue;
+          const r =
+            kr.targetValue === kr.startValue
+              ? 1
+              : Math.max(0, Math.min(1, (kr.currentValue - kr.startValue) / (kr.targetValue - kr.startValue)));
+          const cur = krAgg.get(kr.ownerId) ?? { sum: 0, n: 0 };
+          cur.sum += r;
+          cur.n += 1;
+          krAgg.set(kr.ownerId, cur);
+        }
+        for (const [owner, agg] of Array.from(krAgg.entries())) {
+          okrProgressByOwner.set(owner, agg.n > 0 ? agg.sum / agg.n : 0);
+        }
+      }
+    }
+
     // 已有 payouts (用于 upsert)
     const existing = (await store.kpiBonusPayouts.list()).filter(
       (p) => p.tenantId === auth.tenantId && p.cycleId === cycleId,
@@ -112,20 +149,39 @@ export async function POST(
 
     const now = new Date().toISOString();
     const results: KpiBonusPayout[] = [];
+    const frozen: Array<{ assigneeId: string; okrProgress: number; finalBonus: number }> = [];
 
     for (const [assigneeId, kpis] of Array.from(byAssignee.entries())) {
-      const baseBonus = Number(baseBonuses[assigneeId] ?? 0);
+      const prev = existingByAssignee.get(assigneeId);
+      // baseBonus: 显式传入优先; 未传入则沿用该人已有 payout 的 baseBonus, 否则 0。
+      // (修复脚手枪: 此前未传 baseBonuses 的试算会把已下发/已算好的金额覆盖成 0)
+      const baseBonus =
+        baseBonuses[assigneeId] != null
+          ? Number(baseBonuses[assigneeId])
+          : prev?.baseBonus ?? 0;
       const { weightedCompletion, finalBonus, contributions } = computeBonusPayout(
         kpis,
         baseBonus,
         lookup,
       );
 
-      const prev = existingByAssignee.get(assigneeId);
       // 一旦 committed=true, 不允许在非 commit 模式覆盖 (防止误操作回退)
       if (prev?.committed && !commit) {
         results.push(prev);
         continue;
+      }
+
+      // OKR 进度门槛: commit 时, OKR 进度低于阈值且未 override → 冻结, 保持 draft 不下发
+      const okrProgress = okrProgressByOwner.get(assigneeId);
+      const gated =
+        commit &&
+        gateEnabled &&
+        okrProgress != null &&
+        okrProgress < gateThreshold &&
+        !overrideAssignees.has(assigneeId);
+      const effectiveCommit = commit && !gated;
+      if (gated) {
+        frozen.push({ assigneeId, okrProgress: okrProgress ?? 0, finalBonus });
       }
 
       const payoutData = {
@@ -137,9 +193,11 @@ export async function POST(
         contributions,
         calculatedAt: now,
         calculatedBy: auth.userId,
-        committed: commit,
-        committedAt: commit ? now : undefined,
-        note,
+        committed: effectiveCommit,
+        committedAt: effectiveCommit ? now : undefined,
+        note: gated
+          ? `[OKR进度${Math.round((okrProgress ?? 0) * 100)}%<${Math.round(gateThreshold * 100)}% 冻结] ${note ?? ''}`.trim()
+          : note,
         tenantId: auth.tenantId,
       };
 
@@ -151,7 +209,7 @@ export async function POST(
       }
       results.push(payout);
 
-      await audit(commit ? 'kpi.bonus_committed' : 'kpi.bonus_calculated', auth.userId, {
+      await audit(payout.committed ? 'kpi.bonus_committed' : 'kpi.bonus_calculated', auth.userId, {
         targetId: payout.id,
         targetType: 'kpi_bonus_payout',
         metadata: {
@@ -161,6 +219,8 @@ export async function POST(
           weightedCompletion,
           finalBonus,
           kpiCount: kpis.length,
+          gated,
+          okrProgress: okrProgress ?? null,
         },
       });
     }
@@ -171,10 +231,17 @@ export async function POST(
         total: results.length,
         committed: results.filter((p) => p.committed).length,
         totalFinalBonus: results.reduce((s, p) => s + p.finalBonus, 0),
+        committedFinalBonus: results.filter((p) => p.committed).reduce((s, p) => s + p.finalBonus, 0),
         averageWeightedCompletion:
           results.length > 0
             ? results.reduce((s, p) => s + p.weightedCompletion, 0) / results.length
             : 0,
+        okrGate: {
+          enabled: gateEnabled,
+          threshold: gateThreshold,
+          frozenCount: frozen.length,
+          frozen,
+        },
       },
     });
   } catch (err) {

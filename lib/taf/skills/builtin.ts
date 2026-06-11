@@ -14,7 +14,14 @@ import {
 } from './persona-write';
 import { getStore } from '../../storage/repository';
 import { CompositeRetriever } from '../../memory/retriever';
-import { computeKRProgress, effectiveObjectiveProgress } from '../../types/okr-tti';
+import {
+  computeKRProgress,
+  effectiveObjectiveProgress,
+  classifyNineBox,
+  type NineBoxCell,
+} from '../../types/okr-tti';
+import { computeKpiCompletion, KPI_LEVEL_LABEL, type KpiLevel } from '../../types/kpi';
+import { computeCrossRollup, misalignKindLabel } from '../../domain/analytics/cross-rollup';
 
 // ---------------------------------------------------------------------------
 // memory.search · 知识检索 (绿区, 代行允许)
@@ -510,6 +517,334 @@ export const OkrBusinessReviewSkill: Skill<{ windowDays?: number }, unknown> = {
 };
 
 // ---------------------------------------------------------------------------
+// kpi.health_digest · KPI 体系健康度速览 (绿区, 代行允许)
+//
+// 让中央 AI 把推演从"目标层 (OKR)"下沉到"底线层 (KPI)": 达成分布 + scope/层级
+// 权重结构 + cascade 覆盖 + 奖金权重校验 + 最落后 KPI。全部 S0 真值, 非静态文本。
+// ---------------------------------------------------------------------------
+
+export const KpiHealthDigestSkill: Skill<{ limit?: number }, unknown> = {
+  id: 'kpi.health_digest',
+  description:
+    'KPI 体系健康度速览: 当前 active 财年周期的达成分布 (绿/黄/红)、bonus/monitor 各层级分布、cascade 孤儿/未拆解、奖金权重≠100 违规、最落后 KPI。用于"KPI 整体怎么样/哪些 KPI 红了/权重配置有没有问题"。',
+  tags: ['kpi', '绩效', '健康度', '达成率', '奖金权重', 'cascade', '红灯', 'bonus', 'monitor', '底线'],
+  zone: 'green',
+  proxyAllowed: true,
+  estimatedTokens: 450,
+  schema: {
+    type: 'function',
+    function: {
+      name: 'kpi_health_digest',
+      description:
+        '查当前 active KPI 周期健康度: 达成分布 / scope×层级分布 / cascade 覆盖 / 奖金权重校验 / 最落后 KPI',
+      parameters: {
+        type: 'object',
+        properties: { limit: { type: 'number', description: '最落后 KPI 返回数, 默认 10' } },
+      },
+    },
+  },
+  async execute({ limit = 10 }) {
+    const store = getStore();
+    const cycles = (await store.kpiCycles.list()).filter((c) => c.status === 'active');
+    if (cycles.length === 0) return { ok: true, data: { cycle: null, note: '无 active KPI 周期' } };
+    const cycle = cycles.sort((a, b) => (b.startDate ?? '').localeCompare(a.startDate ?? ''))[0];
+    const kpis = (await store.kpis.list()).filter((k) => k.cycleId === cycle.id);
+    const withC = kpis.map((k) => ({ k, c: computeKpiCompletion(k) }));
+    const health = (c: number): 'green' | 'amber' | 'red' =>
+      c >= 0.9 ? 'green' : c >= 0.6 ? 'amber' : 'red';
+    const bonus = withC.filter((x) => x.k.scope === 'bonus');
+    const monitor = withC.filter((x) => x.k.scope === 'monitor');
+    const byLevel = (rows: typeof withC) => {
+      const m: Record<string, number> = {};
+      for (const x of rows) m[x.k.level] = (m[x.k.level] ?? 0) + 1;
+      return m;
+    };
+    const wByAssignee = new Map<string, number>();
+    for (const x of bonus)
+      wByAssignee.set(x.k.assigneeId, (wByAssignee.get(x.k.assigneeId) ?? 0) + x.k.weight);
+    const weightViolations = Array.from(wByAssignee.entries())
+      .filter(([, w]) => Math.round(w) !== 100)
+      .map(([assigneeId, totalWeight]) => ({ assigneeId, totalWeight }));
+    const referencedAsParent = new Set(
+      kpis.map((k) => k.parentKpiId).filter((id): id is string => !!id),
+    );
+    const counts = { green: 0, amber: 0, red: 0 };
+    for (const x of withC) counts[health(x.c)]++;
+    const worstKpis = withC
+      .filter((x) => x.c < 0.6)
+      .sort((a, b) => a.c - b.c)
+      .slice(0, limit)
+      .map((x) => ({
+        title: x.k.title,
+        level: KPI_LEVEL_LABEL[x.k.level as KpiLevel] ?? x.k.level,
+        scope: x.k.scope,
+        completionPct: Math.round(x.c * 100),
+        assigneeId: x.k.assigneeId,
+      }));
+    return {
+      ok: true,
+      data: {
+        cycle: { id: cycle.id, name: cycle.name, status: cycle.status },
+        total: kpis.length,
+        bonus: bonus.length,
+        monitor: monitor.length,
+        healthCounts: counts,
+        bonusByLevel: byLevel(bonus),
+        monitorByLevel: byLevel(monitor),
+        cascade: {
+          orphans: kpis.filter((k) => k.level !== 'company' && !k.parentKpiId).length,
+          uncascadedParents: kpis.filter(
+            (k) => k.level !== 'individual' && !referencedAsParent.has(k.id),
+          ).length,
+        },
+        weightValidation: {
+          ok: weightViolations.length === 0,
+          violations: weightViolations.slice(0, 10),
+        },
+        worstKpis,
+      },
+      tokensUsed: 300,
+    };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// talent.nine_box · 人才 9 宫格分布 (绿区, 代行允许)
+//
+// 融合三套子系统: KPI bonus 完成率 (纵轴) × (OKR KR 完成率 + 360 评分) (横轴),
+// 给每位被考核人定格, 让推演能看见"人": 谁是 star / 谁要干预 / 谁在烧穿。
+// ---------------------------------------------------------------------------
+
+export const TalentNineBoxSkill: Skill<{ limit?: number }, unknown> = {
+  id: 'talent.nine_box',
+  description:
+    '人才 9 宫格分布: 用 KPI bonus 完成率 (纵轴) × (OKR KR 完成率 + 360 评分) (横轴) 给每位被考核人定格 (star / risk_burnout / must_intervene 等), 返回各格人数与典型人员。用于"人才梯队怎么样/谁该重点保留/谁要干预/有没有又拼又快烧穿的人"。',
+  tags: ['9宫格', 'nine-box', '人才', '梯队', 'star', '继任', '保留', '干预', 'talent', '盘点'],
+  zone: 'green',
+  proxyAllowed: true,
+  estimatedTokens: 450,
+  schema: {
+    type: 'function',
+    function: {
+      name: 'talent_nine_box',
+      description: '人才 9 宫格分布 (KPI×TTI), 返回各格人数与重点格典型人员',
+      parameters: {
+        type: 'object',
+        properties: { limit: { type: 'number', description: '每个重点格返回人数, 默认 5' } },
+      },
+    },
+  },
+  async execute({ limit = 5 }) {
+    const store = getStore();
+    const kpis = await store.kpis.list();
+    const bonusByAssignee = new Map<string, { w: number; ws: number }>();
+    for (const k of kpis) {
+      if (k.scope !== 'bonus') continue;
+      const cur = bonusByAssignee.get(k.assigneeId) ?? { w: 0, ws: 0 };
+      cur.w += k.weight;
+      cur.ws += k.weight * computeKpiCompletion(k);
+      bonusByAssignee.set(k.assigneeId, cur);
+    }
+    const krByOwner = new Map<string, number[]>();
+    for (const kr of await store.keyResults.list()) {
+      if (!kr.ownerId) continue;
+      const a = krByOwner.get(kr.ownerId) ?? [];
+      a.push(computeKRProgress(kr));
+      krByOwner.set(kr.ownerId, a);
+    }
+    const r360 = new Map<string, number[]>();
+    for (const s of await store.review360Submissions.list()) {
+      const sub = s as { overallScore?: number; subjectId?: string };
+      if (sub.overallScore == null || !sub.subjectId) continue;
+      const a = r360.get(sub.subjectId) ?? [];
+      a.push(sub.overallScore);
+      r360.set(sub.subjectId, a);
+    }
+    const avg = (a: number[]): number | null =>
+      a.length ? a.reduce((s, x) => s + x, 0) / a.length : null;
+    const people = new Set<string>(
+      Array.from(bonusByAssignee.keys())
+        .concat(Array.from(krByOwner.keys()))
+        .concat(Array.from(r360.keys())),
+    );
+    const distribution: Record<string, number> = {};
+    const byCell: Record<string, string[]> = {};
+    for (const pid of Array.from(people)) {
+      const b = bonusByAssignee.get(pid);
+      const kpiScore = b && b.w > 0 ? b.ws / b.w : 0;
+      const krAvg = avg(krByOwner.get(pid) ?? []);
+      const rAvg = avg(r360.get(pid) ?? []);
+      const ttiParts: number[] = [];
+      if (krAvg != null) ttiParts.push(krAvg);
+      if (rAvg != null) ttiParts.push((rAvg - 1) / 4); // 1-5 → 0-1
+      const ttiScore = ttiParts.length
+        ? ttiParts.reduce((s, x) => s + x, 0) / ttiParts.length
+        : 0;
+      const cell = classifyNineBox(kpiScore, ttiScore);
+      distribution[cell] = (distribution[cell] ?? 0) + 1;
+      (byCell[cell] ??= []).push(pid);
+    }
+    const focus = (c: NineBoxCell) => (byCell[c] ?? []).slice(0, limit);
+    return {
+      ok: true,
+      data: {
+        population: people.size,
+        distribution,
+        focus: {
+          star: focus('star'),
+          risk_burnout: focus('risk_burnout'),
+          must_intervene: focus('must_intervene'),
+          mismatch: focus('mismatch'),
+        },
+        note: 'kpiScore=bonus KPI 加权完成率; ttiScore=(OKR KR 完成率 + 360 归一化 1-5→0-1) 均值',
+      },
+      tokensUsed: 300,
+    };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// bonus.digest · 年终奖金池速览 (绿区, 代行允许)
+//
+// 把"钱"接进推演: payout 分布 (committed vs draft)、池子合计、完成率分布、下发就绪度。
+// ---------------------------------------------------------------------------
+
+export const BonusDigestSkill: Skill<Record<string, never>, unknown> = {
+  id: 'bonus.digest',
+  description:
+    '年终奖金池速览: 当前 active KPI 周期已算 payout 的分布 (已下发 committed vs 草稿)、基础/最终池合计、加权完成率分布、下发就绪度 (多少 bonus 被考核人已 committed)。用于"奖金算得怎么样/池子多大/还有多少人没下发/谁系数最高最低"。',
+  tags: ['奖金', 'bonus', 'payout', '年终', '激励', '下发', '绩效系数', '池'],
+  zone: 'green',
+  proxyAllowed: true,
+  estimatedTokens: 350,
+  schema: {
+    type: 'function',
+    function: {
+      name: 'bonus_digest',
+      description: '年终奖金 payout 分布与下发就绪度 (active KPI 周期)',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  async execute() {
+    const store = getStore();
+    const cycles = (await store.kpiCycles.list()).filter((c) => c.status === 'active');
+    if (cycles.length === 0) return { ok: true, data: { cycle: null, note: '无 active KPI 周期' } };
+    const cycle = cycles.sort((a, b) => (b.startDate ?? '').localeCompare(a.startDate ?? ''))[0];
+    const payouts = (await store.kpiBonusPayouts.list()).filter((p) => p.cycleId === cycle.id);
+    const committed = payouts.filter((p) => p.committed);
+    const sum = (xs: number[]) => xs.reduce((s, x) => s + x, 0);
+    const wc = payouts.map((p) => p.weightedCompletion);
+    const kpis = await store.kpis.list();
+    const bonusAssignees = new Set(
+      kpis.filter((k) => k.cycleId === cycle.id && k.scope === 'bonus').map((k) => k.assigneeId),
+    );
+    const committedAssignees = new Set(committed.map((p) => p.assigneeId));
+    const missing = Array.from(bonusAssignees).filter((a) => !committedAssignees.has(a));
+    const sorted = [...payouts].sort((a, b) => b.weightedCompletion - a.weightedCompletion);
+    const brief = (p: (typeof payouts)[number]) => ({
+      assigneeId: p.assigneeId,
+      weightedCompletion: Math.round(p.weightedCompletion * 100) / 100,
+      finalBonus: Math.round(p.finalBonus),
+      committed: p.committed,
+    });
+    return {
+      ok: true,
+      data: {
+        cycle: { id: cycle.id, name: cycle.name },
+        payouts: payouts.length,
+        committed: committed.length,
+        draft: payouts.length - committed.length,
+        baseBonusTotal: Math.round(sum(payouts.map((p) => p.baseBonus))),
+        finalBonusTotal: Math.round(sum(payouts.map((p) => p.finalBonus))),
+        committedFinalTotal: Math.round(sum(committed.map((p) => p.finalBonus))),
+        weightedCompletion: {
+          min: wc.length ? Math.round(Math.min(...wc) * 100) / 100 : null,
+          max: wc.length ? Math.round(Math.max(...wc) * 100) / 100 : null,
+          avg: wc.length ? Math.round((sum(wc) / wc.length) * 100) / 100 : null,
+        },
+        readiness: {
+          bonusAssignees: bonusAssignees.size,
+          committedAssignees: committedAssignees.size,
+          missingCount: missing.length,
+        },
+        top: sorted.slice(0, 5).map(brief),
+        bottom: sorted.slice(-5).reverse().map(brief),
+      },
+      tokensUsed: 250,
+    };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// analytics.cross_rollup · 四维错配交叉速览 (绿区, 代行允许) · 机会#5
+//
+// 一次性把 OKR / KPI / 9宫格 / 奖金 在「人」上对齐, 直接返回跨维度错配信号与
+// 0-100 错配得分。让融合推演不必多次取数自行拼接, 直接拿到"谁在烧穿、奖金跟
+// 产出错配、哪个事业部四维最不一致"的真值。
+// ---------------------------------------------------------------------------
+
+export const CrossRollupSkill: Skill<{ cycleId?: string }, unknown> = {
+  id: 'analytics.cross_rollup',
+  description:
+    '四维错配交叉速览: 在「人」上对齐 OKR 目标进度 / KPI 底线完成 / 9宫格定格 / 年终奖金, 返回全公司与各事业部的「四维错配得分」(0-100)、错配信号统计 (烧穿/人岗错位/紧急干预/奖金错配/奖金未下发) 和错配最严重的人。用于"系统整体哪里最不一致/哪个事业部错配最重/奖金跟产出对不对得上/谁在烧穿"等融合推演。',
+  tags: ['错配', '融合', '交叉', 'cross-rollup', '四维', '杠杆', '烧穿', '奖金错配', '一致性', 'OKR', 'KPI', '9宫格', '奖金'],
+  zone: 'green',
+  proxyAllowed: true,
+  estimatedTokens: 550,
+  schema: {
+    type: 'function',
+    function: {
+      name: 'analytics_cross_rollup',
+      description: '四维 (OKR/KPI/9宫格/奖金) 错配交叉速览, 返回错配得分/信号统计/重点风险人',
+      parameters: {
+        type: 'object',
+        properties: { cycleId: { type: 'string', description: 'OKR 周期 id, 省略则跨全部周期' } },
+      },
+    },
+  },
+  async execute({ cycleId }, ctx) {
+    const store = getStore();
+    const r = await computeCrossRollup(store, ctx.tenantId, cycleId && cycleId !== 'all' ? cycleId : null);
+    const unitBrief = r.units.slice(0, 8).map((u) => ({
+      businessUnit: u.businessUnit,
+      headcount: u.headcount,
+      misalignScore: u.misalignScore,
+      avgOkrProgress: Math.round(u.avgOkrProgress * 100) / 100,
+      avgKpiScore: Math.round(u.avgKpiScore * 100) / 100,
+      bonusTotal: Math.round(u.bonusTotal),
+      bonusCommittedRatio: Math.round(u.bonusCommittedRatio * 100) / 100,
+      signalCounts: u.signalCounts,
+    }));
+    const riskBrief = r.topRisks.slice(0, 10).map((p) => ({
+      name: p.name,
+      businessUnit: p.businessUnit,
+      cell: p.cell,
+      kpiScore: Math.round(p.kpiScore * 100) / 100,
+      ttiScore: Math.round(p.ttiScore * 100) / 100,
+      misalignScore: p.misalignScore,
+      signals: p.signals.map((s) => `${misalignKindLabel(s.kind)}: ${s.detail}`),
+    }));
+    return {
+      ok: true,
+      data: {
+        cycle: { id: r.cycleId, name: r.cycleName },
+        overall: {
+          headcount: r.overall.headcount,
+          misalignScore: r.overall.misalignScore,
+          bonusTotal: Math.round(r.overall.bonusTotal),
+          bonusCommittedRatio: Math.round(r.overall.bonusCommittedRatio * 100) / 100,
+          signalCounts: r.overall.signalCounts,
+        },
+        units: unitBrief,
+        topRisks: riskBrief,
+        note: '错配得分 0-100 越高越不一致; 维度口径与 /api/nine-box、奖金引擎一致',
+      },
+      tokensUsed: 400,
+    };
+  },
+};
+
+// ---------------------------------------------------------------------------
 // 注册所有内置工具
 // ---------------------------------------------------------------------------
 
@@ -519,6 +854,11 @@ export function registerBuiltinSkills(): void {
   skillRegistry.register(OkrReadSkill);
   skillRegistry.register(OkrHealthDigestSkill);
   skillRegistry.register(OkrBusinessReviewSkill);
+  // 融合推演: KPI 底线 / 人才 9 宫格 / 年终奖金 (只读, 绿区, 代行允许)
+  skillRegistry.register(KpiHealthDigestSkill);
+  skillRegistry.register(TalentNineBoxSkill);
+  skillRegistry.register(BonusDigestSkill);
+  skillRegistry.register(CrossRollupSkill);
   skillRegistry.register(PersonaGetSkill);
   skillRegistry.register(ConvergenceStartSkill);
   skillRegistry.register(SalaryAccessSkill);

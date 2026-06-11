@@ -60,6 +60,14 @@ export async function POST(req: NextRequest) {
       createdAt: now,
       updatedAt: now,
     } as Omit<Review360Cycle, 'id'>);
+
+    // P1#4: 若指定了所属 OKR 绩效周期, 在主实体上回填显式链接 (供 PerformanceCycle 解析器)
+    const okrCycleId: string | undefined = body.okrCycleId;
+    if (okrCycleId) {
+      const okr = await store.cycles.get(okrCycleId);
+      if (okr) await store.cycles.update(okrCycleId, { review360CycleId: cycle.id });
+    }
+
     return NextResponse.json({ cycle });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });

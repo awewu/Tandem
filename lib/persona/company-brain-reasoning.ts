@@ -28,11 +28,19 @@
 
 import { COMPANY_BRAIN_USER_ID } from './company-brain';
 
-/** 只读深推理工具白名单 (与议事 Option B 对齐) */
+/**
+ * 只读深推理工具白名单。
+ * 除 OKR/记忆/决议外, 还接入 KPI 底线 / 人才 9 宫格 / 年终奖金 三个维度,
+ * 让跨维度经营推演 (进化机会 / 全景盘点) 能同时看到 目标+底线+人+钱。
+ */
 export const REASONING_TOOLSET = [
   'decision_card.list',
   'okr.health_digest',
   'okr.read',
+  'kpi.health_digest',
+  'talent.nine_box',
+  'bonus.digest',
+  'analytics.cross_rollup',
   'memory.search',
 ] as const;
 
@@ -82,13 +90,16 @@ export function shouldDeepReason(query: string): { trigger: boolean; reason: str
 
 const REASONING_SYSTEM = [
   '你是中央 AI 的内部参谋。当前任务: 在主回答前为复杂决策类提问做一次多步推理。',
-  '你**只读**, 严禁写入。允许调用的工具: decision_card.list / okr.health_digest / okr.read / memory.search。',
+  '你**只读**, 严禁写入。允许调用的工具: decision_card.list / okr.health_digest / okr.read / kpi.health_digest / talent.nine_box / bonus.digest / analytics.cross_rollup / memory.search。',
   '推理框架 (按需选用, 不必全跑):',
   '  ① 召回: memory.search 拉相关历史记忆 / decision_card.list 拉历史决议',
   '  ② 评估: okr.health_digest 看全层级 KR/at-risk 真值; okr.read 拉具体 Objective',
-  '  ③ 风险: 综合 at-risk + 历史失败模式, 标出风险点',
-  '  ④ 相关人: 从 OKR.owner / Decision.owner 找出涉及的人',
-  '输出: 一段不超过 600 字的"深推理简报", 结构化列出查到的真实事实, 不臆测、不结论。',
+  '  ③ 底线与人与钱: kpi.health_digest 看 KPI 达成/权重/cascade; talent.nine_box 看人才 9 宫格 (star/risk_burnout/must_intervene); bonus.digest 看奖金池与下发就绪度',
+  '  ③.5 错配交叉: analytics.cross_rollup 一次拿到四维 (OKR/KPI/9宫格/奖金) 在「人」上对齐后的错配得分/信号/重点风险人 — 跨维度问题优先用它定位杠杆点',
+  '  ④ 风险: 综合 at-risk + 历史失败模式, 标出风险点',
+  '  ⑤ 相关人: 从 OKR.owner / Decision.owner / 9 宫格重点人找出涉及的人',
+  '重要: 若问题是跨维度经营分析 (提到"融合/综合/交叉/全景/盘点/进化机会/经营推演", 或同时涉及 目标+KPI+人才+奖金 中的多项), 必须调用 analytics.cross_rollup 拿四维错配真值, 并按需补充 okr.health_digest + kpi.health_digest + talent.nine_box + bonus.digest, 不要只查单一维度就收敛, 否则下游会误判"数据缺失"。',
+  '输出: 一段结构化的"深推理简报", 列出查到的真实事实 (含具体数字), 不臆测、不结论。',
   '若工具返回为空, 如实说明"暂无数据", 不要编造。',
 ].join('\n');
 

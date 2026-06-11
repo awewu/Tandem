@@ -54,8 +54,12 @@ test.describe('Tandem · Smoke 4 flows', () => {
   test('⑦ Admin 员工组织真接 /api/org/users', async ({ page }) => {
     await page.goto('/admin/organization');
     await expect(page.getByRole('heading', { name: /员工组织/ })).toBeVisible();
-    // 至少 demo seed 用户列表会出现
-    await expect(page.getByText(/demo@tandem.local|我 \(Demo\)|Demo/).first()).toBeVisible({ timeout: 10_000 });
+    // 等用户列表 client fetch (/api/org/users) 落定再断言.
+    await page.waitForLoadState('networkidle');
+    // 至少 seed 用户列表会出现; 取可见匹配 (避开 nav 头像里的同名隐藏元素).
+    await expect(
+      page.getByText(/demo@tandem.local|我 \(Demo\)|Demo/).and(page.locator(':visible')).first(),
+    ).toBeVisible({ timeout: 10_000 });
   });
 });
 
@@ -126,9 +130,17 @@ test.describe('B-027 · 价值观锚 UI 流程', () => {
     // 卡片标题可见
     await expect(page.getByRole('heading', { name: /价值观锚/ })).toBeVisible({ timeout: 10_000 });
 
+    // 等首屏 client fetch (constitution GET + 养料 context) 落定 — 确保 React 已
+    // hydration 再交互. 否则 fill/Enter 会打到 hydration 前的 SSR DOM 上, 受控
+    // input 捕获不到值 (hydration 后被重置为空) → 规则加不进去, 测试假性失败.
+    await page.waitForLoadState('networkidle');
+
     const text = `e2e UI 原则 ${Date.now()}`;
     const input = page.getByPlaceholder(/不可妥协原则|已达上限/);
+    await expect(input).toBeEditable();
     await input.fill(text);
+    // 断言受控 input 已捕获该值 (hydration 完成的确证), 再触发提交.
+    await expect(input).toHaveValue(text);
     await input.press('Enter');
 
     // 新规则出现在列表

@@ -4,6 +4,7 @@ import { getStore } from '@/lib/storage/repository';
 import { classifyNineBox } from '@/lib/types/okr-tti';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { computeKpiCompletion } from '@/lib/types/kpi';
+import { resolveCycleScope } from '@/lib/domain/cycle/performance-cycle';
 
 /**
  * GET /api/nine-box?cycleId=...
@@ -26,6 +27,15 @@ export async function GET(req: NextRequest) {
     const cycleId = searchParams.get('cycleId');
     const store = getStore();
 
+    // 周期解析 (P1#4): 9-box 双轴跨 3 个子系统 (OKR/KPI/360), 各自独立 cycle 实体。
+    // 统一走 PerformanceCycle 解析器: 以 OKR 周期为主实体, 按显式链接 → id 相等 →
+    // 日期重叠三级回退映射到 KPI/360 子周期。彻底取代"靠 id 巧合对齐"的脆弱假设,
+    // 按周期筛选不会再因 id 不匹配而把某条轴静默清零。
+    const { kpiCycleIds, review360CycleIds: r360CycleIds } = await resolveCycleScope(
+      store,
+      cycleId,
+    );
+
     const allKrs = await store.keyResults.list();
     const krs = cycleId
       ? (await store.objectives.list())
@@ -34,10 +44,9 @@ export async function GET(req: NextRequest) {
           .reduce((acc: typeof allKrs, oid) => acc.concat(allKrs.filter((k) => k.objectiveId === oid)), [])
       : allKrs;
 
-    // KPI 数据 (CHARTER §5 M2a 已交付): 取 bonus scope, 当前 cycleId 过滤
-    // 注: KPI cycleId 与 OKR cycleId 是同一个 ID 空间 (都来自 store.cycles 主表)
+    // KPI 数据 (CHARTER §5 M2a 已交付): 取 bonus scope, 按解析出的 KPI 周期过滤
     const allKpis = (await store.kpis.list()).filter(
-      (k) => !cycleId || k.cycleId === cycleId,
+      (k) => !kpiCycleIds || kpiCycleIds.has(k.cycleId),
     );
     const bonusKpisByAssignee = new Map<string, typeof allKpis>();
     for (const k of allKpis) {
@@ -50,7 +59,7 @@ export async function GET(req: NextRequest) {
 
     // 360 评分 (按 subjectId 聚合 overallScore 均值, 归一化 1-5 → 0-1)
     const allSubmissions = (await store.review360Submissions.list()).filter(
-      (s) => !cycleId || s.cycleId === cycleId,
+      (s) => !r360CycleIds || r360CycleIds.has(s.cycleId),
     );
     const reviewByUser = new Map<string, number[]>();
     for (const sub of allSubmissions) {
@@ -132,10 +141,9 @@ export async function GET(req: NextRequest) {
       })
     );
 
-    const cycles = await store.cycles.list();
     return NextResponse.json({
       people,
-      cycles,
+      cycles: await store.cycles.list(),
       // 状态指示器: 前端用于显示"KPI 数据待接入"提示
       dataSources: {
         kpiReady, // CHARTER §5 M2a-Core 已完成, 看是否有真实 KPI 数据

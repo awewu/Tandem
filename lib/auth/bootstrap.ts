@@ -13,8 +13,8 @@
 import { getStore } from '../storage/repository';
 import { hashPassword } from './password';
 import { audit } from '../audit/log';
-import { OWNER_BOOTSTRAP_ROLES } from './roles';
-import { ANCHOR_ORG_ID } from '../types/organization';
+import { OWNER_BOOTSTRAP_ROLES, hasInternalRole } from './roles';
+import { ANCHOR_ORG_ID, type MembershipType } from '../types/organization';
 
 /**
  * 幂等创建上游本部组织 (anchor) · 企业微信「上下游」模型的根节点.
@@ -43,10 +43,47 @@ export async function ensureAnchorOrg(): Promise<void> {
   }
 }
 
+/**
+ * 存量用户回填组织归属 (幂等, 一次性迁移): 本变更前注册的用户没有 membershipType.
+ *   - 含内部角色 (owner/admin/manager/employee/steward/champion) → internal + anchor
+ *   - 其余 (纯外部角色 / 无角色) → pending (待上游/管理员分配下游组织), orgId 不动
+ * 已有 membershipType 的用户跳过 (不覆盖上下游邀请流写入的归属)。
+ * fail-soft: 单用户出错不阻断整体。
+ */
+export async function backfillUserOrgs(): Promise<{ scanned: number; updated: number }> {
+  let scanned = 0;
+  let updated = 0;
+  try {
+    const store = getStore();
+    if (!store.auth) return { scanned, updated };
+    const users = await store.auth.users.list();
+    for (const u of users) {
+      scanned++;
+      if (u.membershipType) continue; // 已归属, 不动
+      const internal = hasInternalRole(u.roles ?? []);
+      const membershipType: MembershipType = internal ? 'internal' : 'pending';
+      const patch: { membershipType: MembershipType; orgId?: string } = { membershipType };
+      if (internal && !u.orgId) patch.orgId = ANCHOR_ORG_ID;
+      try {
+        await store.auth.users.update(u.id, patch);
+        updated++;
+      } catch {
+        /* 单用户回填失败, 跳过 */
+      }
+    }
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[bootstrap] 回填用户组织归属失败:', err);
+  }
+  return { scanned, updated };
+}
+
 export async function bootstrapOwnerIfMissing(): Promise<void> {
   try {
     // 先确保上游本部组织存在 (与是否创建 owner 无关)
     await ensureAnchorOrg();
+    // 存量用户回填组织归属 (幂等)
+    await backfillUserOrgs();
 
     const email = process.env.TANDEM_BOOTSTRAP_OWNER_EMAIL;
     const password = process.env.TANDEM_BOOTSTRAP_OWNER_PASSWORD;

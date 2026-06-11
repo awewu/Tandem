@@ -36,7 +36,16 @@ import {
   CheckCircle2,
   XCircle,
 } from 'lucide-react';
-import type { KpiCycle } from '@/lib/types/kpi';
+import { KPI_LEVEL_LABEL, type KpiCycle, type KpiLevel } from '@/lib/types/kpi';
+
+/** byLevel (Record<level, count>) → "公司 4 · 事业部 16 · 个人 180" (仅非零) */
+function levelBreakdown(byLevel: Record<string, number>): string {
+  const entries = Object.entries(byLevel).filter(([, n]) => n > 0);
+  if (entries.length === 0) return '—';
+  return entries
+    .map(([lvl, n]) => `${KPI_LEVEL_LABEL[lvl as KpiLevel] ?? lvl} ${n}`)
+    .join(' · ');
+}
 
 // ---------------------------------------------------------------------------
 // Tiny inline bar chart (no chart lib dependency)
@@ -124,9 +133,13 @@ interface Views {
     }>;
   };
   cascadeCoverage?: {
-    company: { total: number; uncascadedToDept: number };
-    department: { total: number; orphan: number; uncascadedToIndividual: number };
-    individual: { total: number; orphan: number };
+    levels: Array<{
+      level: string;
+      label: string;
+      total: number;
+      orphan: number;
+      uncascaded: number;
+    }>;
   };
   dataSource?: { total: number; counts: Record<string, number> };
   riskList?: {
@@ -507,71 +520,28 @@ export default function KpiAnalyticsPage() {
                     Cascade 覆盖
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-2 text-caption">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">公司层 KPI 总数</span>
-                    <span className="font-semibold">{data.cascadeCoverage.company.total}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">未拆到部门</span>
-                    <span
-                      className={
-                        data.cascadeCoverage.company.uncascadedToDept > 0
-                          ? 'text-warning font-semibold'
-                          : ''
-                      }
-                    >
-                      {data.cascadeCoverage.company.uncascadedToDept}
-                    </span>
-                  </div>
-                  <div className="border-t my-1" />
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">部门层 KPI 总数</span>
-                    <span className="font-semibold">{data.cascadeCoverage.department.total}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">无父级 (孤儿)</span>
-                    <span
-                      className={
-                        data.cascadeCoverage.department.orphan > 0
-                          ? 'text-rose-700 font-semibold'
-                          : ''
-                      }
-                    >
-                      {data.cascadeCoverage.department.orphan}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">未拆到个人</span>
-                    <span
-                      className={
-                        data.cascadeCoverage.department.uncascadedToIndividual > 0
-                          ? 'text-warning font-semibold'
-                          : ''
-                      }
-                    >
-                      {data.cascadeCoverage.department.uncascadedToIndividual}
-                    </span>
-                  </div>
-                  <div className="border-t my-1" />
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">个人层 KPI 总数</span>
-                    <span className="font-semibold">
-                      {data.cascadeCoverage.individual.total}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">无父级 (孤儿)</span>
-                    <span
-                      className={
-                        data.cascadeCoverage.individual.orphan > 0
-                          ? 'text-rose-700 font-semibold'
-                          : ''
-                      }
-                    >
-                      {data.cascadeCoverage.individual.orphan}
-                    </span>
-                  </div>
+                <CardContent className="space-y-3 text-caption">
+                  {data.cascadeCoverage.levels.map((lvl, i) => (
+                    <div key={lvl.level} className="space-y-1">
+                      {i > 0 && <div className="border-t my-1" />}
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">{lvl.label}层 KPI 总数</span>
+                        <span className="font-semibold">{lvl.total}</span>
+                      </div>
+                      {lvl.orphan > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">无父级 (孤儿)</span>
+                          <span className="text-rose-700 font-semibold">{lvl.orphan}</span>
+                        </div>
+                      )}
+                      {lvl.uncascaded > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">未向下拆解</span>
+                          <span className="text-warning font-semibold">{lvl.uncascaded}</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </CardContent>
               </Card>
             )}
@@ -628,9 +598,7 @@ export default function KpiAnalyticsPage() {
                         总权重 {data.scopeBalance.bonus.totalWeight}
                       </div>
                       <div className="text-footnote text-muted-foreground">
-                        公司 {data.scopeBalance.bonus.byLevel.company} · 部门{' '}
-                        {data.scopeBalance.bonus.byLevel.department} · 个人{' '}
-                        {data.scopeBalance.bonus.byLevel.individual}
+                        {levelBreakdown(data.scopeBalance.bonus.byLevel)}
                       </div>
                     </div>
                     <div className="border rounded-md p-3 space-y-1">
@@ -642,9 +610,7 @@ export default function KpiAnalyticsPage() {
                       </div>
                       <div className="text-footnote text-muted-foreground">不进奖金</div>
                       <div className="text-footnote text-muted-foreground">
-                        公司 {data.scopeBalance.monitor.byLevel.company} · 部门{' '}
-                        {data.scopeBalance.monitor.byLevel.department} · 个人{' '}
-                        {data.scopeBalance.monitor.byLevel.individual}
+                        {levelBreakdown(data.scopeBalance.monitor.byLevel)}
                       </div>
                     </div>
                   </div>

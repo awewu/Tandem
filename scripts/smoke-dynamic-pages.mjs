@@ -64,7 +64,8 @@ const RESOLVERS = {
     const r = await getJson('/api/documents');
     return r?.documents?.[0]?.id ?? r?.[0]?.id ?? null;
   },
-  '/decision-card/[id]': async () => {
+  '/decisions/[id]': async () => {
+    // 决议台账详情. 旧 /decision-card/[id] 路由已并入 /decisions; 用决策卡 id 渲染.
     const r = await getJson('/api/convergence');
     return r?.cards?.[0]?.id ?? null;
   },

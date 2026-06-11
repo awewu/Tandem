@@ -19,7 +19,22 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot, getStore } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
-import { computeKpiCompletion, type Kpi, type KpiSubject } from '@/lib/types/kpi';
+import {
+  computeKpiCompletion,
+  KPI_LEVEL_ORDER,
+  KPI_LEVEL_LABEL,
+  type Kpi,
+  type KpiLevel,
+  type KpiSubject,
+} from '@/lib/types/kpi';
+
+/** 全量层级键 (小→大), 枚举驱动防止再漏 system/business_unit */
+const ALL_LEVELS = (Object.keys(KPI_LEVEL_ORDER) as KpiLevel[]).sort(
+  (a, b) => KPI_LEVEL_ORDER[a] - KPI_LEVEL_ORDER[b],
+);
+function emptyLevelCounts(): Record<string, number> {
+  return Object.fromEntries(ALL_LEVELS.map((l) => [l, 0]));
+}
 
 type Health = 'green' | 'amber' | 'red';
 
@@ -144,31 +159,29 @@ export async function GET(req: NextRequest) {
 
     // -----------------------------------------------------------------------
     case 'cascade-coverage': {
-      const companyKpis = kpis.filter((k) => k.level === 'company');
-      const deptKpis = kpis.filter((k) => k.level === 'department');
-      const indivKpis = kpis.filter((k) => k.level === 'individual');
-      const companyWithChildren = new Set(
-        deptKpis.map((k) => k.parentKpiId).filter((id): id is string => !!id),
+      // 层级无关的 cascade 覆盖统计 (支持 5 级: 个人<部门<体系<事业部<公司).
+      // 父子关系仅靠 parentKpiId, 与具体层级名解耦.
+      const top = ALL_LEVELS[ALL_LEVELS.length - 1];
+      const bottom = ALL_LEVELS[0];
+      const referencedAsParent = new Set(
+        kpis.map((k) => k.parentKpiId).filter((id): id is string => !!id),
       );
-      const deptWithChildren = new Set(
-        indivKpis.map((k) => k.parentKpiId).filter((id): id is string => !!id),
-      );
-      const orphanDept = deptKpis.filter((k) => !k.parentKpiId).length;
-      const orphanIndiv = indivKpis.filter((k) => !k.parentKpiId).length;
-      const companyUncascaded = companyKpis.filter(
-        (k) => !companyWithChildren.has(k.id),
-      ).length;
-      const deptUncascaded = deptKpis.filter((k) => !deptWithChildren.has(k.id)).length;
-      return NextResponse.json({
-        view,
-        company: { total: companyKpis.length, uncascadedToDept: companyUncascaded },
-        department: {
-          total: deptKpis.length,
-          orphan: orphanDept,
-          uncascadedToIndividual: deptUncascaded,
-        },
-        individual: { total: indivKpis.length, orphan: orphanIndiv },
-      });
+      const levels = ALL_LEVELS.map((lvl) => {
+        const inLevel = kpis.filter((k) => k.level === lvl);
+        return {
+          level: lvl,
+          label: KPI_LEVEL_LABEL[lvl],
+          total: inLevel.length,
+          // 非顶层却无父级 = 孤儿
+          orphan: lvl === top ? 0 : inLevel.filter((k) => !k.parentKpiId).length,
+          // 非底层却无子级 = 未向下拆解
+          uncascaded:
+            lvl === bottom ? 0 : inLevel.filter((k) => !referencedAsParent.has(k.id)).length,
+        };
+      })
+        .filter((l) => l.total > 0)
+        .reverse(); // 展示顺序: 大→小 (公司在上)
+      return NextResponse.json({ view, levels });
     }
 
     // -----------------------------------------------------------------------
@@ -207,10 +220,10 @@ export async function GET(req: NextRequest) {
     case 'scope-balance': {
       const bonus = kpis.filter((k) => k.scope === 'bonus');
       const monitor = kpis.filter((k) => k.scope === 'monitor');
-      const bonusByLevel: Record<string, number> = { company: 0, department: 0, individual: 0 };
-      const monitorByLevel: Record<string, number> = { company: 0, department: 0, individual: 0 };
-      for (const k of bonus) bonusByLevel[k.level]++;
-      for (const k of monitor) monitorByLevel[k.level]++;
+      const bonusByLevel = emptyLevelCounts();
+      const monitorByLevel = emptyLevelCounts();
+      for (const k of bonus) bonusByLevel[k.level] = (bonusByLevel[k.level] ?? 0) + 1;
+      for (const k of monitor) monitorByLevel[k.level] = (monitorByLevel[k.level] ?? 0) + 1;
       const totalBonusWeight = bonus.reduce((s, k) => s + k.weight, 0);
       return NextResponse.json({
         view,

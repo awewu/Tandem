@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Users, Search, RefreshCw, AlertCircle, Building2, ShieldCheck, Upload, Download } from 'lucide-react';
+import { Users, Search, RefreshCw, AlertCircle, Building2, ShieldCheck, Upload, Download, ChevronRight, ChevronDown, Network } from 'lucide-react';
 
 interface OrgUser {
   id: string;
@@ -25,6 +25,38 @@ interface OrgUser {
   name: string;
   departmentId: string | null;
   roles: string[];
+}
+
+interface DeptNode {
+  name: string;
+  path: string;
+  depth: number;
+  children: Map<string, DeptNode>;
+  members: OrgUser[];
+}
+
+function buildTree(users: OrgUser[]): DeptNode {
+  const root: DeptNode = { name: 'root', path: '', depth: -1, children: new Map(), members: [] };
+  for (const u of users) {
+    const segs = (u.departmentId ?? '(未分配)').split(' / ').map((s) => s.trim()).filter(Boolean);
+    let cur = root;
+    const acc: string[] = [];
+    for (const seg of segs) {
+      acc.push(seg);
+      if (!cur.children.has(seg)) {
+        cur.children.set(seg, { name: seg, path: acc.join(' / '), depth: acc.length - 1, children: new Map(), members: [] });
+      }
+      cur = cur.children.get(seg)!;
+    }
+    cur.members.push(u);
+  }
+  return root;
+}
+
+function subtreeCount(node: DeptNode): number {
+  let n = node.members.length;
+  for (const c of Array.from(node.children.values())) n += subtreeCount(c);
+  return n;
 }
 
 const ROLE_LABEL: Record<string, { label: string; color: string }> = {
@@ -42,7 +74,9 @@ export default function AdminOrganizationPage() {
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
-  const [deptFilter, setDeptFilter] = useState<string>('all');
+  const [buFilter, setBuFilter] = useState<string>('all');
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [autoExpand, setAutoExpand] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -63,46 +97,62 @@ export default function AdminOrganizationPage() {
     void load();
   }, []);
 
-  // 部门列表 (从 users 推导)
-  const departments = useMemo(() => {
+  // 事业部列表 (路径第 2 段) 用于快速过滤
+  const businessUnits = useMemo(() => {
     const set = new Set<string>();
-    for (const u of users) if (u.departmentId) set.add(u.departmentId);
+    for (const u of users) {
+      const segs = (u.departmentId ?? '').split(' / ');
+      if (segs[1]) set.add(segs[1]);
+    }
     return Array.from(set).sort();
   }, [users]);
 
   const filtered = useMemo(() => {
+    const lc = q.toLowerCase();
     return users.filter((u) => {
       if (roleFilter !== 'all' && !u.roles.includes(roleFilter)) return false;
-      if (deptFilter !== 'all' && u.departmentId !== deptFilter) return false;
-      if (q) {
-        const lc = q.toLowerCase();
-        if (!u.name.toLowerCase().includes(lc) && !u.email.toLowerCase().includes(lc)) return false;
-      }
+      if (buFilter !== 'all' && (u.departmentId ?? '').split(' / ')[1] !== buFilter) return false;
+      if (lc && !u.name.toLowerCase().includes(lc) && !u.email.toLowerCase().includes(lc)) return false;
       return true;
     });
-  }, [users, q, roleFilter, deptFilter]);
+  }, [users, q, roleFilter, buFilter]);
 
-  // 部门聚合
-  const byDept = useMemo(() => {
-    const m = new Map<string, OrgUser[]>();
-    for (const u of filtered) {
-      const k = u.departmentId ?? '(未分配)';
-      if (!m.has(k)) m.set(k, []);
-      m.get(k)!.push(u);
-    }
-    return Array.from(m.entries()).sort();
-  }, [filtered]);
+  const tree = useMemo(() => buildTree(filtered), [filtered]);
+  // 搜索/过滤时自动全展开, 否则默认展开到事业部层 (depth 0/1)
+  const searching = q.trim() !== '' || roleFilter !== 'all' || buFilter !== 'all';
+
+  const toggle = (path: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+
+  const allPaths = useMemo(() => {
+    const acc: string[] = [];
+    const walk = (n: DeptNode) => { for (const c of Array.from(n.children.values())) { acc.push(c.path); walk(c); } };
+    walk(tree);
+    return acc;
+  }, [tree]);
+
+  const isOpen = (path: string, depth: number) => {
+    if (autoExpand || searching) return true;
+    if (expanded.has(path)) return true;
+    // 默认展开集团(0) + 事业部(1)
+    return depth <= 0;
+  };
 
   return (
     <div className="page-container py-8 space-y-6 md:py-10">
       <header className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-title-3 font-semibold tracking-tight flex items-center gap-2">
-            <Users className="h-6 w-6 text-primary" />
-            员工组织 · 管理
+            <Network className="h-6 w-6 text-primary" />
+            员工组织 · 部门层级
           </h1>
           <p className="text-caption text-muted-foreground mt-1">
-            真员工列表 · 部门 · 角色 · 数据来源: <span className="font-mono text-footnote">/api/org/users</span>
+            集团 → 事业部 → 公司/组织 → 部门 多级树 · 数据来源: <span className="font-mono text-footnote">/api/org/users</span>
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
@@ -137,19 +187,30 @@ export default function AdminOrganizationPage() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={deptFilter} onValueChange={setDeptFilter}>
+          <Select value={buFilter} onValueChange={setBuFilter}>
             <SelectTrigger className="w-[180px] h-9">
-              <SelectValue placeholder="部门" />
+              <SelectValue placeholder="事业部" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">全部部门</SelectItem>
-              {departments.map((d) => (
+              <SelectItem value="all">全部事业部</SelectItem>
+              {businessUnits.map((d) => (
                 <SelectItem key={d} value={d}>{d}</SelectItem>
               ))}
             </SelectContent>
           </Select>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9"
+            onClick={() => {
+              if (autoExpand || expanded.size > 0) { setAutoExpand(false); setExpanded(new Set()); }
+              else { setAutoExpand(true); }
+            }}
+          >
+            {autoExpand || expanded.size > 0 ? '折叠全部' : '展开全部'}
+          </Button>
           <div className="text-footnote text-muted-foreground tabular-nums ml-auto">
-            {filtered.length} / {users.length} 人
+            {filtered.length} / {users.length} 人 · {businessUnits.length} 事业部
           </div>
         </CardContent>
       </Card>
@@ -164,71 +225,127 @@ export default function AdminOrganizationPage() {
         </Card>
       )}
 
-      {/* 按部门分组列表 */}
+      {/* 部门层级树 */}
       {loading ? (
         <Card>
           <CardContent className="py-12 text-center text-caption text-muted-foreground">加载中…</CardContent>
         </Card>
-      ) : byDept.length === 0 ? (
+      ) : tree.children.size === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-caption text-muted-foreground">
             没有符合条件的员工
           </CardContent>
         </Card>
       ) : (
-        byDept.map(([dept, list]) => (
-          <Card key={dept}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-body flex items-center gap-2">
-                <Building2 className="h-4 w-4" />
-                {dept}
-                <span className="text-caption text-muted-foreground font-normal">({list.length})</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <table className="w-full text-caption">
-                <thead className="border-b bg-muted/40 text-footnote uppercase tracking-wide text-muted-foreground">
-                  <tr>
-                    <th className="px-4 py-2 text-left font-medium">姓名</th>
-                    <th className="px-4 py-2 text-left font-medium">邮箱</th>
-                    <th className="px-4 py-2 text-left font-medium">角色</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {list.map((u) => (
-                    <tr key={u.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
-                      <td className="px-4 py-2.5 font-medium">{u.name}</td>
-                      <td className="px-4 py-2.5 text-footnote text-muted-foreground font-mono">{u.email || '—'}</td>
-                      <td className="px-4 py-2.5">
-                        <div className="flex flex-wrap items-center gap-1">
-                          {u.roles.length === 0 ? (
-                            <span className="text-footnote text-muted-foreground">—</span>
-                          ) : (
-                            u.roles.map((r) => {
-                              const meta = ROLE_LABEL[r] ?? { label: r, color: 'bg-surface-1 text-ink-primary border' };
-                              return (
-                                <Badge key={r} variant="outline" className={`${meta.color} text-[10px] gap-0.5`}>
-                                  {(r === 'admin' || r === 'champion') && <ShieldCheck className="h-2.5 w-2.5" />}
-                                  {meta.label}
-                                </Badge>
-                              );
-                            })
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </CardContent>
-          </Card>
-        ))
+        <Card>
+          <CardContent className="p-2">
+            {Array.from(tree.children.values())
+              .sort((a, b) => a.name.localeCompare(b.name))
+              .map((child) => (
+                <DeptTreeNode
+                  key={child.path}
+                  node={child}
+                  isOpen={isOpen}
+                  toggle={toggle}
+                />
+              ))}
+          </CardContent>
+        </Card>
       )}
 
       <footer className="text-footnote text-muted-foreground border-t pt-4">
         关于&ldquo;项目协作三省六部&rdquo;可视化 (Agent 工作组), 见{' '}
         <a href="/organization" className="text-primary hover:underline">/organization</a>.
+        {' '}全展开节点: {allPaths.length}.
       </footer>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 递归部门树节点
+// ---------------------------------------------------------------------------
+
+function DeptTreeNode({
+  node,
+  isOpen,
+  toggle,
+}: {
+  node: DeptNode;
+  isOpen: (path: string, depth: number) => boolean;
+  toggle: (path: string) => void;
+}) {
+  const open = isOpen(node.path, node.depth);
+  const childCount = node.children.size;
+  const total = subtreeCount(node);
+  const hasKids = childCount > 0;
+  const directMembers = node.members;
+  const indent = node.depth * 16;
+
+  return (
+    <div>
+      <button
+        onClick={() => hasKids && toggle(node.path)}
+        className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left hover:bg-muted/50 transition-colors ${hasKids ? 'cursor-pointer' : 'cursor-default'}`}
+        style={{ paddingLeft: indent + 8 }}
+      >
+        {hasKids ? (
+          open ? <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+               : <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        ) : (
+          <span className="w-3.5 shrink-0" />
+        )}
+        <Building2 className={`h-3.5 w-3.5 shrink-0 ${node.depth <= 1 ? 'text-primary' : 'text-muted-foreground'}`} />
+        <span className={`text-caption ${node.depth <= 1 ? 'font-semibold' : 'font-medium'}`}>{node.name}</span>
+        <Badge variant="secondary" className="h-4 px-1.5 text-[10px] tabular-nums">{total}</Badge>
+      </button>
+
+      {open && (
+        <div>
+          {/* 子部门 */}
+          {Array.from(node.children.values())
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .map((c) => (
+              <DeptTreeNode key={c.path} node={c} isOpen={isOpen} toggle={toggle} />
+            ))}
+
+          {/* 本节点直属成员 */}
+          {directMembers.length > 0 && (
+            <div style={{ paddingLeft: indent + 28 }} className="py-1">
+              <table className="w-full text-caption">
+                <tbody>
+                  {directMembers
+                    .slice()
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .map((u) => (
+                      <tr key={u.id} className="hover:bg-muted/20 transition-colors">
+                        <td className="py-1 pr-3 font-medium w-32">{u.name}</td>
+                        <td className="py-1 pr-3 text-footnote text-muted-foreground font-mono">{u.email || '—'}</td>
+                        <td className="py-1">
+                          <div className="flex flex-wrap items-center gap-1">
+                            {u.roles.length === 0 ? (
+                              <span className="text-footnote text-muted-foreground">—</span>
+                            ) : (
+                              u.roles.map((r) => {
+                                const meta = ROLE_LABEL[r] ?? { label: r, color: 'bg-surface-1 text-ink-primary border' };
+                                return (
+                                  <Badge key={r} variant="outline" className={`${meta.color} text-[10px] gap-0.5`}>
+                                    {(r === 'admin' || r === 'champion') && <ShieldCheck className="h-2.5 w-2.5" />}
+                                    {meta.label}
+                                  </Badge>
+                                );
+                              })
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

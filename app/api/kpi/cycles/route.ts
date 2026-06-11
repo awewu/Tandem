@@ -62,6 +62,13 @@ export async function POST(req: NextRequest) {
     const store = getStore();
     const created = await store.kpiCycles.create(cycle);
 
+    // P1#4: 若指定了所属 OKR 绩效周期, 在主实体上回填显式链接 (供 PerformanceCycle 解析器)
+    const okrCycleId: string | undefined = body.okrCycleId;
+    if (okrCycleId) {
+      const okr = await store.cycles.get(okrCycleId);
+      if (okr) await store.cycles.update(okrCycleId, { kpiCycleId: created.id });
+    }
+
     await audit('kpi.cycle_created', auth.userId, {
       targetId: created.id,
       targetType: 'kpi_cycle',

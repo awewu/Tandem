@@ -14,7 +14,10 @@ interface WeekViewProps {
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 export default function WeekView({ date, todayMs, onEventClick, onCellClick }: WeekViewProps) {
-  const { getEventsInRange } = useCalendarStore();
+  const getEventsInRange = useCalendarStore((s) => s.getEventsInRange);
+  // 订阅原始 events / calendars, 否则新增事件/切换可见性时 useMemo 不会重算。
+  const allEvents = useCalendarStore((s) => s.events);
+  const allCalendars = useCalendarStore((s) => s.calendars);
 
   const { days, events } = useMemo(() => {
     const { start, end } = getWeekRange(date);
@@ -31,7 +34,7 @@ export default function WeekView({ date, todayMs, onEventClick, onCellClick }: W
     }
     const events = getEventsInRange(start, end);
     return { days, events };
-  }, [date, todayMs, getEventsInRange]);
+  }, [date, todayMs, getEventsInRange, allEvents, allCalendars]);
 
   // 按天分组
   const eventsByDay = useMemo(() => {

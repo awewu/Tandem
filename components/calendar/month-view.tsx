@@ -15,7 +15,10 @@ interface MonthViewProps {
 const WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日'];
 
 export default function MonthView({ year, month, todayMs, onEventClick, onCellClick }: MonthViewProps) {
-  const { getEventsInRange } = useCalendarStore();
+  const getEventsInRange = useCalendarStore((s) => s.getEventsInRange);
+  // 订阅原始 events / calendars, 否则新增事件或切换可见性时 useMemo 不会重算 (函数引用恒定)。
+  const allEvents = useCalendarStore((s) => s.events);
+  const allCalendars = useCalendarStore((s) => s.calendars);
 
   const { cells, eventsByDay, monthStart, monthEnd } = useMemo(() => {
     const first = new Date(year, month, 1);
@@ -52,7 +55,7 @@ export default function MonthView({ year, month, todayMs, onEventClick, onCellCl
     }
 
     return { cells, eventsByDay, monthStart, monthEnd };
-  }, [year, month, getEventsInRange]);
+  }, [year, month, getEventsInRange, allEvents, allCalendars]);
 
   const isInMonth = (ms: number) => ms >= monthStart && ms <= monthEnd;
 

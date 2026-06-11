@@ -14,6 +14,16 @@
 
 export type CyclePeriod = 'year' | 'half' | 'quarter' | 'bi_monthly' | 'month' | 'custom';
 
+/**
+ * OKR 周期 = 全公司「绩效周期 (PerformanceCycle)」的**主实体 / 标准来源**。
+ *
+ * KPI 子系统 (KpiCycle) 与 360 子系统 (Review360Cycle) 是同一绩效周期在各自领域的
+ * 专门化投影。它们曾经各自独立、靠 id 偶然相等来对齐 (见 nine-box 旧注释), 极脆弱。
+ * 现在由本主实体显式持有下游链接 (`kpiCycleId` / `review360CycleId`), 跨子系统对齐
+ * 一律通过 `lib/domain/cycle/performance-cycle.ts` 的解析器, 不再依赖 id 巧合。
+ *
+ * 链接为可选: 未回填的历史数据由解析器按 id 相等 / 日期区间重叠回退。
+ */
 export interface Cycle {
   id: string;
   period: CyclePeriod;
@@ -21,6 +31,10 @@ export interface Cycle {
   startDate: string;
   endDate: string;
   isActive: boolean;
+  /** 关联的 KPI 周期 id (本绩效周期在 KPI 子系统的投影) */
+  kpiCycleId?: string;
+  /** 关联的 360 周期 id (本绩效周期在 360 子系统的投影) */
+  review360CycleId?: string;
 }
 
 // ---------------------------------------------------------------------------

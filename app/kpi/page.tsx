@@ -30,7 +30,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { useCurrentUserId } from '@/lib/hooks/use-current-user';
+import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { useOKRStore } from '@/lib/store';
 import {
   RefreshCw,
@@ -225,7 +225,10 @@ function StatCard({ label, value, sub, color }: { label: string; value: string; 
 // ---------------------------------------------------------------------------
 
 export function KpiContent() {
-  const me = useCurrentUserId();
+  // 个人 KPI 按真实登录用户 id 过滤 (KPI.assigneeId = auth user.id)。
+  // 旧实现用 demo personId 'me', 对真实数据查不到, 故改用 auth user.id。
+  const { user } = useCurrentUser();
+  const me = user?.id ?? '';
   const searchParams = useSearchParams();
   const router = useRouter();
   const viewParam = searchParams.get('view') ?? 'individual';

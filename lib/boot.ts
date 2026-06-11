@@ -11,6 +11,7 @@ import { createDrizzleStore } from './storage/drizzle-store';
 import { TandemRouter, createDefaultRouter, createLocalDevRouter } from './taf';
 import { ConvergenceOrchestrator } from './convergence/orchestrator';
 import { seedDevData, seedLaunchpadIfEmpty, seedExtraModulesIfEmpty, seedKpiDemoIfEmpty } from './fixtures/seed';
+import { seedShowcaseIfEmpty } from './fixtures/seed-showcase';
 import { registerBuiltinSkills } from './taf/skills';
 import { registerBuiltinTriggers } from './workflows/builtin-triggers';
 import { initObservability } from './infra/observability';
@@ -115,13 +116,16 @@ function bootSync(): void {
 
   // Seed dev data — 仅在非 production 下跑.
   // Prisma 模式下也跑 seed, 让 e2e / demo 有数据.
-  const baseSeed =
-    process.env.NODE_ENV !== 'production'
-      ? seedDevData().catch((err) => {
-          // eslint-disable-next-line no-console
-          console.warn('[boot] seed failed:', err);
-        })
-      : Promise.resolve();
+  // DISABLE_DEMO_SEED=1: 关闭一切 demo 内容种子 (恒热/晨光/KPI BSC 等),
+  //   用于导入正式数据集 (如瑞合瑞德) 后, 防 boot 重新注入演示数据污染。
+  const demoSeedEnabled =
+    process.env.NODE_ENV !== 'production' && process.env.DISABLE_DEMO_SEED !== '1';
+  const baseSeed = demoSeedEnabled
+    ? seedDevData().catch((err) => {
+        // eslint-disable-next-line no-console
+        console.warn('[boot] seed failed:', err);
+      })
+    : Promise.resolve();
 
   // Chain idempotent module seeds — run regardless of KvStore guard
   // so existing dev DBs pick up new tables added after first seed.
@@ -140,10 +144,20 @@ function bootSync(): void {
       })
     )
     .then(() =>
-      seedKpiDemoIfEmpty().catch((err) => {
-        // eslint-disable-next-line no-console
-        console.warn('[boot] KPI bsc seed failed:', err);
-      })
+      demoSeedEnabled
+        ? seedKpiDemoIfEmpty().catch((err) => {
+            // eslint-disable-next-line no-console
+            console.warn('[boot] KPI bsc seed failed:', err);
+          })
+        : undefined
+    )
+    .then(() =>
+      demoSeedEnabled
+        ? seedShowcaseIfEmpty().catch((err) => {
+            // eslint-disable-next-line no-console
+            console.warn('[boot] showcase seed failed:', err);
+          })
+        : undefined
     )
     // §CA-1 (CENTRAL-AI-ARCHITECTURE) CompanyBrain Persona 单例 seed (幂等)
     .then(async () => {

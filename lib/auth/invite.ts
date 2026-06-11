@@ -53,6 +53,10 @@ export interface InviteRecord {
   usedCount: number;
   expiresAt: Date | string;
   redeemedAt?: Date | string | null;
+  /** §上下游: 邀请码绑定的目标组织 (上游邀请下游成员时). */
+  orgId?: string | null;
+  /** §上下游: 邀请码绑定的成员身份类型. */
+  membershipType?: import('../types/organization').MembershipType;
 }
 
 export interface InviteValidation {

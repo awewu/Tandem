@@ -13,7 +13,7 @@
  *   - actionItems 可一键变 KR 下 Initiative (M2)
  */
 
-import { useMemo, useRef, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { MentionTextarea } from '@/components/documents/mention-picker';
 import {
   useOneOnOneStore, useOKRStore,
@@ -30,7 +30,14 @@ import {
   Trash2, Clock, User, Users, AlertCircle, ListChecks, Heart, X,
 } from 'lucide-react';
 import { InsightsWidget } from '@/components/insights/insights-widget';
-import { useCurrentUserId } from '@/lib/hooks/use-current-user';
+
+interface OrgUser {
+  id: string;
+  name: string;
+  email: string;
+  departmentId: string | null;
+  roles: string[];
+}
 
 const CADENCE_LABEL: Record<OneOnOneCadence, string> = {
   weekly: '每周',
@@ -47,16 +54,52 @@ const STATUS_META: Record<OneOnOneStatus, { label: string; color: string }> = {
 };
 
 export default function OneOnOnePage() {
-  const ME = useCurrentUserId();
-  const { meetings, addMeeting, updateMeeting, deleteMeeting,
-          addActionItem, toggleActionItem, removeActionItem, promoteActionItem } = useOneOnOneStore();
-  const { people, keyResults, objectives } = useOKRStore();
+  const {
+    meetings, addMeeting, updateMeeting, deleteMeeting,
+    addActionItem, toggleActionItem, removeActionItem, promoteActionItem,
+    loadFromApi,
+  } = useOneOnOneStore();
+  const { keyResults, objectives } = useOKRStore();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
 
   const [nowMs, setNowMs] = useState(0);
   useEffect(() => { setNowMs(Date.now()); }, []);
+
+  // 拉真实用户数据 (替代 demo 'me')
+  const [realUser, setRealUser] = useState<{ id: string; name: string } | null>(null);
+  const [realPeople, setRealPeople] = useState<OrgUser[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [meRes, usersRes] = await Promise.all([
+          fetch('/api/auth/me', { credentials: 'include' }),
+          fetch('/api/org/users', { credentials: 'include' }),
+        ]);
+        if (cancelled) return;
+        const meJson = await meRes.json().catch(() => ({}));
+        const usersJson = await usersRes.json().catch(() => ({}));
+        if (meJson?.user) {
+          setRealUser({ id: meJson.user.id, name: meJson.user.name });
+        }
+        setRealPeople((usersJson.users ?? []) as OrgUser[]);
+        // 加载真实 1on1 会议
+        await loadFromApi();
+      } catch {
+        /* 静默失败, 保持空状态 */
+      } finally {
+        if (!cancelled) setDataLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [loadFromApi]);
+
+  const ME = realUser?.id ?? '';
+  const people = realPeople;
 
   // 分组: 即将 / 已完成 / 取消
   const grouped = useMemo(() => {
@@ -146,7 +189,9 @@ export default function OneOnOnePage() {
 
       {/* 右: 详情 */}
       <main className="flex-1 overflow-y-auto">
-        {showNew ? (
+        {dataLoading ? (
+          <div className="flex h-full items-center justify-center text-muted-foreground">加载中...</div>
+        ) : showNew ? (
           <NewMeetingForm
             people={people}
             currentUserId={ME}
@@ -735,7 +780,7 @@ function MeetingDetail({
 
       {/* 主管私密笔记 + 心情评分 */}
       {isManager && (
-        <Card className="border-warning/20/50 bg-warning/5/30">
+        <Card className="border-warning/30 bg-warning/5">
           <CardHeader className="pb-2">
             <CardTitle className="text-caption flex items-center gap-1.5">
               <Heart className="h-4 w-4 text-rose-500" />

@@ -12,10 +12,14 @@ import { join } from 'node:path';
 const AUTH_FILE = join(__dirname, '..', '..', '.auth', 'admin.json');
 
 setup('authenticate as demo user', async ({ page }) => {
-  // 默认走 employee 测试账号 (由 scripts/seed-demo-users.mjs 创建).
-  // 任一存在的账号都行 — middleware 只检查"有 cookie", 不区分角色.
-  const email = process.env.E2E_LOGIN_EMAIL ?? 'manager@tandem.local';
-  const password = process.env.E2E_LOGIN_PASSWORD ?? 'Demo1234!@#';
+  // 默认走 admin 账号 (恒热 Everhot CEO 何恒, owner+admin, 由 showcase seed 创建).
+  // 为何用 admin 而非 manager:
+  //   - smoke 覆盖 /admin/organization 等 admin 页面
+  //   - B-027 价值观锚写入受 MANIFESTO §15 约束 (仅本人/admin), 而 demo 工作台
+  //     固定操作 persona id 'me'/'demo-user' — 非 admin 的真实登录会被 403.
+  //   admin 是这些操作的合法身份, 能让全部 smoke 在真鉴权 (非 demo bypass) 下通过.
+  const email = process.env.E2E_LOGIN_EMAIL ?? 'heheng@everhot.com.cn';
+  const password = process.env.E2E_LOGIN_PASSWORD ?? 'Everhot@2026';
 
   // 用 page.request 保证 cookie 落入同一个 browser context,
   // 之后 storageState 才能正确捕获到登录态.

@@ -109,13 +109,20 @@ export async function registerWithInvite(input: RegisterInput): Promise<AuthResu
   }
 
   // 4. 创建用户 + 密码 hash
-  // §上下游: 按邀请预设角色推断成员身份 —
-  //   内部角色 → internal + 上游本部 (anchor)
-  //   外部角色 → pending (具体下游组织待上游邀请流分配; 本期不在邀请码内携带 orgId)
+  // §上下游: 归属优先级 —
+  //   (a) 邀请码显式携带 orgId/membershipType (上游邀请下游成员) → 权威, 直接采用
+  //   (b) 否则按预设角色推断: 内部角色 → internal+anchor; 外部角色 → pending (待分配)
   const presetRoles = v.invite!.presetRoles;
-  const internalInvite = hasInternalRole(presetRoles);
-  const membershipType: MembershipType = internalInvite ? 'internal' : 'pending';
-  const orgId = internalInvite ? ANCHOR_ORG_ID : null;
+  let membershipType: MembershipType;
+  let orgId: string | null;
+  if (v.invite!.membershipType) {
+    membershipType = v.invite!.membershipType;
+    orgId = v.invite!.orgId ?? null;
+  } else {
+    const internalInvite = hasInternalRole(presetRoles);
+    membershipType = internalInvite ? 'internal' : 'pending';
+    orgId = internalInvite ? ANCHOR_ORG_ID : null;
+  }
   const user = await userStore.create({
     email,
     name: input.name,
