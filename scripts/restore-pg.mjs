@@ -22,6 +22,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import zlib from 'node:zlib';
 import readline from 'node:readline';
+import crypto from 'node:crypto';
 
 function loadEnv(envFile) {
   if (!fs.existsSync(envFile)) return;
@@ -72,7 +73,31 @@ async function confirm() {
   });
 }
 
+function verifyChecksum() {
+  const sumFile = `${absFile}.sha256`;
+  if (!fs.existsSync(sumFile)) {
+    console.warn('[restore] WARN 未找到 .sha256 校验文件, 跳过完整性校验 (旧备份?)');
+    return;
+  }
+  if (process.env.SKIP_CHECKSUM === '1') {
+    console.warn('[restore] SKIP_CHECKSUM=1 跳过完整性校验');
+    return;
+  }
+  const expected = fs.readFileSync(sumFile, 'utf8').trim().split(/\s+/)[0];
+  const actual = crypto.createHash('sha256').update(fs.readFileSync(absFile)).digest('hex');
+  if (expected !== actual) {
+    console.error('[restore] FATAL: 校验和不匹配, 备份可能损坏!');
+    console.error(`  expected: ${expected}`);
+    console.error(`  actual:   ${actual}`);
+    console.error('  如确认仍要恢复, 设 SKIP_CHECKSUM=1');
+    process.exit(1);
+  }
+  console.log('[restore] sha256 校验通过 ✓');
+}
+
 async function main() {
+  verifyChecksum();
+
   if (!(await confirm())) {
     console.log('[restore] 已取消');
     process.exit(0);

@@ -19,6 +19,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import zlib from 'node:zlib';
+import crypto from 'node:crypto';
 
 // 1) 读 .env 取 DATABASE_URL
 function loadEnv(envFile) {
@@ -44,6 +45,9 @@ const backupDir = path.resolve(
   dirArgIdx >= 0 ? args[dirArgIdx + 1] : process.env.BACKUP_DIR ?? './backups'
 );
 fs.mkdirSync(backupDir, { recursive: true });
+
+// 保留天数 (默认 30, 与 RECOVERY-SOP 一致); 0 = 不清理
+const retainDays = Number(process.env.BACKUP_RETAIN_DAYS ?? 30);
 
 // 3) 文件名 (排除非法字符)
 const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
@@ -95,6 +99,36 @@ out.on('finish', () => {
   const sizeMb = (fs.statSync(outFile).size / 1024 / 1024).toFixed(2);
   const inMb = (bytesIn / 1024 / 1024).toFixed(2);
   console.log(`[backup] OK  raw=${inMb}MB  gz=${sizeMb}MB  → ${outFile}`);
+
+  // sha256 校验和 sidecar (RECOVERY-SOP 完整性校验依赖此文件; 仅存 hex hash)
+  try {
+    const hash = crypto.createHash('sha256').update(fs.readFileSync(outFile)).digest('hex');
+    fs.writeFileSync(`${outFile}.sha256`, hash);
+    console.log(`[backup] sha256 → ${hash}`);
+  } catch (err) {
+    console.error('[backup] WARN sha256 生成失败:', err.message);
+  }
+
+  // 保留窗口清理: 删除超过 retainDays 的旧备份 (含其 .sha256)
+  if (retainDays > 0) {
+    const cutoff = Date.now() - retainDays * 24 * 60 * 60 * 1000;
+    let pruned = 0;
+    try {
+      for (const f of fs.readdirSync(backupDir)) {
+        if (!/^tandem-.*\.sql\.gz$/.test(f)) continue;
+        const fp = path.join(backupDir, f);
+        if (fs.statSync(fp).mtimeMs < cutoff) {
+          fs.unlinkSync(fp);
+          fs.rmSync(`${fp}.sha256`, { force: true });
+          pruned++;
+        }
+      }
+      if (pruned > 0) console.log(`[backup] pruned ${pruned} 个 > ${retainDays}d 旧备份`);
+    } catch (err) {
+      console.error('[backup] WARN 保留清理失败:', err.message);
+    }
+  }
+
   // 留尾巴的 stderr (pg_dump --verbose 信息)
   if (process.env.VERBOSE) console.error(stderrBuf);
 });
