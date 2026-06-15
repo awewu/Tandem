@@ -93,11 +93,14 @@ export async function GET() {
   // llm degraded != 503 (LLM is non-critical for liveness; readiness still passes)
   const allOk = database.ok && redis.ok && storage.ok;
 
+  const { isObservabilityEnabled } = await import('@/lib/infra/observability');
+
   const body = {
     ok: allOk,
     version: process.env.APP_VERSION ?? 'dev',
     uptimeSec: Math.round((Date.now() - startedAt) / 1000),
     checks: { database, redis, storage, llm },
+    observability: isObservabilityEnabled(),
   };
 
   if (!allOk) {

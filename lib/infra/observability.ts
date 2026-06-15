@@ -18,8 +18,31 @@ import { logger } from './logger';
 
 let sentryEnabled = false;
 let otelEnabled = false;
+let processHandlersBound = false;
+
+/**
+ * 注册进程级未捕获错误处理器 (只注册一次).
+ * 即使 Sentry 未启用, captureException 也会 fallback 到 logger, 保证不静默丢错.
+ */
+function bindProcessErrorHandlers(): void {
+  if (processHandlersBound) return;
+  processHandlersBound = true;
+
+  process.on('unhandledRejection', (reason: unknown) => {
+    captureException(reason instanceof Error ? reason : new Error(String(reason)), {
+      kind: 'unhandledRejection',
+    });
+  });
+  process.on('uncaughtException', (err: Error) => {
+    captureException(err, { kind: 'uncaughtException' });
+    logger.error({ err: err.message, stack: err.stack }, '[observability] uncaughtException');
+  });
+  logger.info('[observability] process error handlers bound');
+}
 
 export async function initObservability(): Promise<void> {
+  bindProcessErrorHandlers();
+
   // Sentry
   if (process.env.SENTRY_DSN) {
     try {
