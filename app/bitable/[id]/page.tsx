@@ -11,7 +11,7 @@ type ViewKind = 'grid' | 'kanban' | 'calendar';
 
 const OPTION_COLOR: Record<string, string> = {
   slate: 'bg-slate-100 text-slate-700 border-slate-200',
-  amber: 'bg-amber-100 text-amber-800 border-amber-200',
+  amber: 'bg-warning/15 text-warning border-warning/30',
   emerald: 'bg-emerald-100 text-emerald-800 border-emerald-200',
   sky: 'bg-sky-100 text-sky-800 border-sky-200',
   rose: 'bg-rose-100 text-rose-800 border-rose-200',
@@ -116,7 +116,7 @@ export default function BitableTablePage() {
                 onClick={() => setView(t.kind)}
                 title={!t.enabled ? (t.kind === 'kanban' ? '需要一个单选列' : '需要一个日期列') : t.label}
                 className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-footnote transition ${
-                  active ? 'bg-white shadow-sm font-medium text-slate-900' : 'text-slate-500'
+                  active ? 'bg-white shadow-soft-sm font-medium text-slate-900' : 'text-slate-500'
                 } ${!t.enabled ? 'opacity-40 cursor-not-allowed' : 'hover:text-slate-900'}`}
               >
                 <Icon className="h-3.5 w-3.5" /> {t.label}
@@ -338,7 +338,7 @@ function KanbanView({
             </div>
             <div className="space-y-2">
               {rows.map((r) => (
-                <div key={r.id} className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                <div key={r.id} className="rounded-lg border border-slate-200 bg-white p-3 shadow-soft-sm">
                   <div className="font-medium text-caption">
                     {labelCol && r.data[labelCol.id] != null && String(r.data[labelCol.id]).length > 0
                       ? String(r.data[labelCol.id])

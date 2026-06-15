@@ -34,6 +34,8 @@ export default function WeekView({ date, todayMs, onEventClick, onCellClick }: W
     }
     const events = getEventsInRange(start, end);
     return { days, events };
+    // allEvents/allCalendars 为有意依赖: 触发重算 (getEventsInRange 内部读 store, ESLint 看不到)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date, todayMs, getEventsInRange, allEvents, allCalendars]);
 
   // 按天分组

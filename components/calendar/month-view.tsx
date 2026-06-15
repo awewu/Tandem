@@ -55,6 +55,8 @@ export default function MonthView({ year, month, todayMs, onEventClick, onCellCl
     }
 
     return { cells, eventsByDay, monthStart, monthEnd };
+    // allEvents/allCalendars 为有意依赖: 触发重算 (getEventsInRange 内部读 store, ESLint 看不到)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [year, month, getEventsInRange, allEvents, allCalendars]);
 
   const isInMonth = (ms: number) => ms >= monthStart && ms <= monthEnd;

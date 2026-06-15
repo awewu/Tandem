@@ -27,6 +27,8 @@ export default function DayView({ date, todayMs, onEventClick, onCellClick }: Da
       events: all.filter((e) => !e.isAllDay).sort((a, b) => a.startTime - b.startTime),
       allDayEvents: all.filter((e) => e.isAllDay),
     };
+    // allEvents/allCalendars 为有意依赖: 触发重算 (getEventsInRange 内部读 store, ESLint 看不到)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date, getEventsInRange, allEvents, allCalendars]);
 
   const dayLabel = useMemo(() => {

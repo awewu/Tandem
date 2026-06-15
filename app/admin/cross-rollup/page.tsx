@@ -128,12 +128,12 @@ interface Consistency {
 
 function scoreColor(score: number): string {
   if (score >= 50) return 'text-rose-600';
-  if (score >= 25) return 'text-amber-600';
+  if (score >= 25) return 'text-warning';
   return 'text-emerald-600';
 }
 function scoreBg(score: number): string {
   if (score >= 50) return 'bg-rose-500';
-  if (score >= 25) return 'bg-amber-500';
+  if (score >= 25) return 'bg-warning';
   return 'bg-emerald-500';
 }
 const pct = (n: number) => `${Math.round(n * 100)}%`;
@@ -250,7 +250,7 @@ export default function CrossRollupPage() {
             </CardContent>
             <CardContent className="pt-0 flex flex-wrap gap-2">
               {Object.entries(data.overall.signalCounts).map(([kind, n]) => (
-                <Badge key={kind} variant="outline" className="border-amber-200 text-amber-700">
+                <Badge key={kind} variant="outline" className="border-warning/30 text-warning">
                   {KIND_LABEL[kind as MisalignKind] ?? kind} · {n}
                 </Badge>
               ))}
@@ -276,7 +276,7 @@ export default function CrossRollupPage() {
                       consistency.summary.consistencyScore >= 60
                         ? 'text-emerald-600'
                         : consistency.summary.consistencyScore >= 30
-                        ? 'text-amber-600'
+                        ? 'text-warning'
                         : 'text-rose-600'
                     }`}
                   >
@@ -318,7 +318,7 @@ export default function CrossRollupPage() {
                       <span className="text-muted-foreground tabular-nums flex-shrink-0">
                         KR {it.anchoredKrCount}/{it.krCount} 锚定
                       </span>
-                      <Badge variant="outline" className="border-amber-200 text-amber-700 flex-shrink-0">
+                      <Badge variant="outline" className="border-warning/30 text-warning flex-shrink-0">
                         {CONSISTENCY_LABEL[it.status]}
                       </Badge>
                     </div>
@@ -399,7 +399,7 @@ export default function CrossRollupPage() {
                     {p.signals.map((s, i) => (
                       <span
                         key={i}
-                        className="text-caption1 px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200"
+                        className="text-caption1 px-2 py-0.5 rounded bg-warning/10 text-warning border border-warning/30"
                       >
                         {KIND_LABEL[s.kind]}: {s.detail}
                       </span>

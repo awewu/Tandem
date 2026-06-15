@@ -312,13 +312,13 @@ export default function KpiBonusPayoutPage() {
       )}
 
       {gateInfo && (
-        <Card className="border-amber-200 bg-amber-50">
-          <CardContent className="py-3 text-caption text-amber-800 space-y-1">
+        <Card className="border-warning/30 bg-warning/10">
+          <CardContent className="py-3 text-caption text-warning space-y-1">
             <div className="flex items-center gap-2 font-medium">
               <AlertCircle className="h-4 w-4" />
               OKR 进度门槛闸: {gateInfo.frozen.length} 人因 OKR 进度低于 {Math.round(gateInfo.threshold * 100)}% 被冻结, 奖金未下发 (仍保留草稿)
             </div>
-            <div className="text-amber-700">
+            <div className="text-warning">
               {gateInfo.frozen
                 .map(
                   (f) =>
@@ -326,7 +326,7 @@ export default function KpiBonusPayoutPage() {
                 )
                 .join('; ')}
             </div>
-            <div className="text-amber-600">
+            <div className="text-warning">
               处置: 待该员工 OKR 进度回升后重新下发, 或经审批 override 单独放行。
             </div>
           </CardContent>
