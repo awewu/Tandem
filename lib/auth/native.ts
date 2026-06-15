@@ -230,7 +230,7 @@ export async function login(input: LoginInput): Promise<AuthResult> {
     (process.env.NODE_ENV === 'production' && process.env.REQUIRE_MFA_FOR_PRIVILEGED !== '0');
   const mfaEnrollmentRequired = isPrivileged && !mfa && mfaForcedOn;
 
-  const session = await issueSessionForUser(user, !requiresMfa, input.deviceInfo);
+  const session = await issueSessionForUser(user, !requiresMfa, input.deviceInfo, mfaEnrollmentRequired);
 
   await audit({
     userId: user.id,
@@ -307,6 +307,58 @@ export async function completeMfa(input: {
     refreshTokenExpiresAt: new Date(session.expiresAt),
     requiresMfa: false,
   };
+}
+
+// ---------------------------------------------------------------------------
+// 改密 (自助轮换) — 验旧密 + 强度 + 历史复用 + 改后撤销其它会话
+// ---------------------------------------------------------------------------
+
+export interface ChangePasswordInput {
+  userId: string;
+  oldPassword: string;
+  newPassword: string;
+  /** 改密后是否撤销该用户所有会话 (默认 true, 安全最佳实践; 调用方需重新登录/重发会话) */
+  revokeOtherSessions?: boolean;
+  deviceInfo?: { userAgent?: string; ip?: string };
+}
+
+export async function changePassword(input: ChangePasswordInput): Promise<void> {
+  const userStore = getUserStore();
+  const user = await userStore.findById(input.userId);
+  if (!user) throw new AuthError('invalid_session', '账户异常', 401);
+
+  // 1. 验证旧密码
+  const stored = await userStore.findPasswordHash(user.id);
+  if (!stored || !verifyPassword(input.oldPassword, stored.hash)) {
+    await audit({ userId: user.id, eventType: 'password_change_failed', ...input.deviceInfo });
+    throw new AuthError('invalid_credentials', '当前密码错误', 401);
+  }
+
+  // 2. 新密码强度
+  const strength = evaluatePassword(input.newPassword, { email: user.email, name: user.name });
+  if (!strength.ok) {
+    throw new AuthError('weak_password', `新密码不符合要求: ${strength.errors.join(', ')}`, 400);
+  }
+
+  // 3. 历史复用检查 (当前 hash + 最近历史)
+  const historyPool = [stored.hash, ...(stored.historyHashes ?? [])];
+  if (isPasswordReused(input.newPassword, historyPool)) {
+    throw new AuthError('weak_password', `新密码不可与最近 ${PASSWORD_HISTORY_KEEP} 次重复`, 400);
+  }
+
+  // 4. 落库 (savePasswordHash 自动把旧 hash 追加进历史)
+  await userStore.savePasswordHash(user.id, hashPassword(input.newPassword));
+
+  // 5. 撤销全部会话 (默认开启; 改密后强制各端重新登录)
+  if (input.revokeOtherSessions !== false) {
+    try {
+      await revokeAllSessions(user.id, 'password_changed');
+    } catch {
+      /* 撤销失败不阻塞改密 */
+    }
+  }
+
+  await audit({ userId: user.id, email: user.email, eventType: 'password_changed', ...input.deviceInfo });
 }
 
 // ---------------------------------------------------------------------------
@@ -416,7 +468,8 @@ export async function revokeAllSessions(userId: string, reason: string): Promise
 async function issueSessionForUser(
   user: { id: string; email: string; roles?: string[]; tenantId?: string },
   mfaVerified: boolean,
-  deviceInfo?: { userAgent?: string; ip?: string }
+  deviceInfo?: { userAgent?: string; ip?: string },
+  pendingMfaEnroll = false,
 ): Promise<AuthResult> {
   const refresh = issueRefreshToken();
   const sessionStore = getSessionStore();
@@ -435,6 +488,8 @@ async function issueSessionForUser(
     roles: user.roles ?? [],
     tenantId: user.tenantId ?? 'default',
     mfa: mfaVerified,
+    // P0-C: 特权未启 MFA → token 携带强制启用标记, middleware 据此拦截业务路由.
+    pendingMfaEnroll,
     sid: session.id,
   });
 
