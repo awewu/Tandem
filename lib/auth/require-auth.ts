@@ -9,9 +9,9 @@
  *     ...
  *   }
  *
- * Demo 模式 (ALLOW_DEMO_AUTH=1):
+ * Demo 模式 (显式 opt-in, 仅 ALLOW_DEMO_AUTH=1 才开):
  *   未登录时回退到 demo 用户 'demo-user' / tenant 'default' / roles=['admin'].
- *   生产环境必须不设 ALLOW_DEMO_AUTH (或 =0).
+ *   默认/未设 = 关闭 (走真实登录). 生产环境 (NODE_ENV=production) 无论如何强制关闭.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -38,8 +38,10 @@ const DEMO_FALLBACK: AuthContext = {
 };
 
 function isDemoAllowed(): boolean {
+  // 生产环境永远关闭 demo 回退.
   if (process.env.NODE_ENV === 'production') return false;
-  return process.env.ALLOW_DEMO_AUTH !== '0';
+  // 显式 opt-in: 只有 ALLOW_DEMO_AUTH=1 才开 (默认/未设 = 关), 防误配把 admin 白送.
+  return process.env.ALLOW_DEMO_AUTH === '1';
 }
 
 /**

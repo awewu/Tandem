@@ -1,6 +1,11 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
-import { COOKIE_ACCESS, verifyAccessToken } from '@/lib/auth/session';
+import {
+  COOKIE_ACCESS,
+  SESSION_COOKIE_OPTIONS,
+  signAccessToken,
+  verifyAccessToken,
+} from '@/lib/auth/session';
 import { getStore } from '@/lib/storage/repository';
 import {
   generateEnrollment,
@@ -9,6 +14,7 @@ import {
   verifyTotp,
   decryptSecret,
 } from '@/lib/auth/mfa';
+import QRCode from 'qrcode';
 
 /**
  * POST /api/auth/mfa/setup
@@ -32,9 +38,15 @@ export async function POST(req: NextRequest) {
   // 阶段 1: 生成
   if (!body.secretBase32) {
     const m = generateEnrollment(payload.email);
+    const qrDataUrl = await QRCode.toDataURL(m.otpauthUri, {
+      width: 220,
+      margin: 1,
+      errorCorrectionLevel: 'M',
+    });
     return NextResponse.json({
       ok: true,
       stage: 'pending_verify',
+      qrDataUrl,
       ...m,
     });
   }
@@ -62,7 +74,20 @@ export async function POST(req: NextRequest) {
     eventType: 'mfa_enrolled',
   });
 
-  return NextResponse.json({ ok: true, stage: 'enrolled' });
+  // P0-C: 启用成功后立即重签 token, 清除 pendingMfaEnroll 标记 (TOTP 已验证 → mfa: true),
+  //   否则 middleware 硬门会继续挡用户最多 15 分钟 (至旧 token 过期).
+  const res = NextResponse.json({ ok: true, stage: 'enrolled' });
+  const freshToken = signAccessToken({
+    sub: payload.sub,
+    email: payload.email,
+    roles: payload.roles,
+    tenantId: payload.tenantId,
+    mfa: true,
+    pendingMfaEnroll: false,
+    sid: payload.sid,
+  });
+  res.cookies.set(COOKIE_ACCESS, freshToken, { ...SESSION_COOKIE_OPTIONS, maxAge: 15 * 60 });
+  return res;
 }
 
 /**

@@ -8,7 +8,8 @@
  *   4. 跑测试: `npm run test:e2e`
  *
  * 设计原则:
- *   - 默认 demo / dev 模式 (ALLOW_DEMO_AUTH=1) — bypass auth
+ *   - demo bypass 已改为显式 opt-in: 仅 ALLOW_DEMO_AUTH=1 才免登录;
+ *     默认走 *.setup.ts 真实登录流程 (bootstrap owner 账号), storageState 复用 cookie
  *   - baseURL 走 env 覆盖, 默认 localhost:3001
  *   - headless on, 失败截图 + trace 到 ./playwright-report
  */

@@ -33,6 +33,11 @@ export interface SessionPayload {
   tenantId: string;
   /** 是否已 MFA */
   mfa: boolean;
+  /**
+   * P0-C: 特权角色 (owner/admin/steward) 未启用 MFA 且强制门开启时为 true.
+   * middleware 据此拦截除 MFA 启用路径外的所有请求 (服务端强制, 非仅客户端强跳).
+   */
+  pendingMfaEnroll?: boolean;
   /** session id (用于撤销) */
   sid: string;
   /** issued at, expires at */

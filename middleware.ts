@@ -4,7 +4,7 @@
  * \u8bbe\u8ba1:
  *   - \u4ec5\u751f\u6548\u4e8e /api/* (UI \u9875\u9762\u4ecd\u4f9d\u8d56\u5404\u81ea\u8def\u7531\u8bbf\u95ee\u63a7\u5236)
  *   - \u767d\u540d\u5355: /api/auth/* (\u767b\u5f55\u672a\u767b\u5f55\u90fd\u8981\u8bbf), /api/health*, /api/integrations/health, /api/llm-health
- *   - demo \u6a21\u5f0f (ALLOW_DEMO_AUTH != '0' \u4e14\u975e production): \u65e0 cookie \u4e5f\u653e\u884c, \u7531 requireAuth fallback
+ *   - demo \u6a21\u5f0f (\u663e\u5f0f opt-in: \u4ec5 ALLOW_DEMO_AUTH=1 \u4e14\u975e production): \u65e0 cookie \u4e5f\u653e\u884c, \u7531 requireAuth fallback
  *   - \u751f\u4ea7\u6a21\u5f0f: \u65e0\u6709\u6548 access token \u2192 401 (\u9759\u9ed8\u8fd4 JSON, \u4e0d redirect, \u907f\u514d\u7834\u574f API \u8c03\u7528\u65b9)
  *
  * \u4e0e endpoint-level requireAuth \u7684\u5173\u7cfb:
@@ -68,8 +68,22 @@ function isPublicUi(path: string): boolean {
 }
 
 function isDemoAllowed(): boolean {
+  // 生产环境永远关闭 demo 回退.
   if (process.env.NODE_ENV === 'production') return false;
-  return process.env.ALLOW_DEMO_AUTH !== '0';
+  // 显式 opt-in: 只有 ALLOW_DEMO_AUTH=1 才开 (默认/未设 = 关), 防误配把 admin 白送.
+  return process.env.ALLOW_DEMO_AUTH === '1';
+}
+
+/**
+ * P0-C: 特权角色未启用 MFA (token.pendingMfaEnroll) 时, 仅允许访问 MFA 启用相关路径.
+ *   - UI: /settings/security (启用页)
+ *   - API: /api/auth/* 已在 PUBLIC_PREFIXES (含 mfa/setup, mfa/verify, logout), 此处再放行 /settings/security 资源.
+ * 其余一律拦截, 防特权账户忽略客户端强跳直接调用业务路由 (服务端硬门, 非装饰).
+ */
+const MFA_ENROLL_ALLOWED_UI_PREFIXES = ['/settings/security', '/logout'];
+
+function isMfaEnrollAllowedUi(path: string): boolean {
+  return MFA_ENROLL_ALLOWED_UI_PREFIXES.some((p) => path.startsWith(p));
 }
 
 export async function middleware(req: NextRequest) {
@@ -98,6 +112,14 @@ export async function middleware(req: NextRequest) {
     // 已登录 → 检查板块边界 (外部角色禁事半)
     if (payload) {
       const roles = payload.roles ?? [];
+      // P0-C: 特权未启 MFA → 除启用页外, 一律强跳 /settings/security (服务端硬门).
+      if (payload.pendingMfaEnroll && !isMfaEnrollAllowedUi(path)) {
+        const url = req.nextUrl.clone();
+        url.pathname = '/settings/security';
+        url.search = '';
+        url.searchParams.set('enrollMfa', '1');
+        return withReqId(NextResponse.redirect(url));
+      }
       // 纯外部用户 (经销商/申请注册人): 内部全功能首页 → 外部 Hub 落地
       const pureExternal = hasExternalRole(roles) && !hasInternalRole(roles);
       if (pureExternal && (path === '/' || path === '/home')) {
@@ -128,6 +150,19 @@ export async function middleware(req: NextRequest) {
   }
 
   if (payload) {
+    // P0-C: 特权未启 MFA → 拦截所有业务 API (MFA 启用/登出 API 在 /api/auth/* 白名单已放行).
+    if (payload.pendingMfaEnroll) {
+      return withReqId(
+        NextResponse.json(
+          {
+            error: 'mfa_enrollment_required',
+            hint: '特权账户必须先启用 MFA (访问 /settings/security)',
+            requestId: reqId,
+          },
+          { status: 403 },
+        ),
+      );
+    }
     if (!canAccessPath(payload.roles ?? [], path)) {
       return withReqId(
         NextResponse.json(
