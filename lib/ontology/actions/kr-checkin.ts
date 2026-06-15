@@ -95,6 +95,8 @@ export const KrCheckinAction: ActionType<KrCheckinInput, KrCheckinResult> = {
       blockers: input.blockers ?? null,
       nextSteps: input.nextSteps ?? null,
       mood: input.mood ?? null,
+      // P0-B: check-in 继承父 KR 的租户, 保证多租户读隔离.
+      tenantId: kr?.tenantId ?? 'default',
       createdAt: now,
     });
 

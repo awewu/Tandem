@@ -135,6 +135,8 @@ export interface KeyResult {
   watcherIds: string[];
   selfScore?: number | null;
   finalScore?: number | null;
+  /** 多租户隔离 (默认 'default') */
+  tenantId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -200,6 +202,8 @@ export interface TTI {
    */
   readonly affectsCompensation: false;
   notes?: string;
+  /** 多租户隔离: 归属租户 (P0-B). 缺省视为 'default'. */
+  tenantId?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -259,6 +263,8 @@ export interface CheckIn {
   blockers?: string | null;
   nextSteps?: string | null;
   mood?: 'happy' | 'neutral' | 'sad' | null;
+  /** 多租户隔离: 继承自父 KR/Objective 的租户 (P0-B). 缺省视为 'default'. */
+  tenantId?: string;
   createdAt: string;
 }
 

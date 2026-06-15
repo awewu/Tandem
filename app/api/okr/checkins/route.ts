@@ -28,6 +28,8 @@ export async function GET(req: NextRequest) {
     const scopeId = searchParams.get('scopeId');
     const store = getStore();
     let all = await store.checkIns.list();
+    // P0-B: 多租户读隔离 — 只返回调用方租户的 check-in (继承自父 KR/Objective 的 tenantId).
+    all = all.filter((c) => (c.tenantId ?? 'default') === auth.tenantId);
     if (scope) all = all.filter((c) => c.scope === scope);
     if (scopeId) all = all.filter((c) => c.scopeId === scopeId);
     all.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));

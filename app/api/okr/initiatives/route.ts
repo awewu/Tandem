@@ -61,7 +61,8 @@ export async function POST(req: NextRequest) {
       decisionCardIds: Array.isArray(body.decisionCardIds) ? body.decisionCardIds : [],
       status: body.status ?? 'planned',
       dueDate: body.dueDate ?? undefined,
-      tenantId: body.tenantId ?? auth.tenantId,
+      // P0-A: tenantId 一律取自鉴权上下文, 绝不接受 body 注入 (防跨租户写).
+      tenantId: auth.tenantId,
     });
     // B3 执行联动: 新建 Initiative 改变完成率分母 → 重算 KR → 向上 rollup.
     let execRollup = null;

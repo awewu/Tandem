@@ -13,6 +13,8 @@ export async function GET(req: NextRequest) {
     const store = getStore();
 
     let ttis = await store.ttis.list();
+    // P0-B: 多租户读隔离 — 只返回调用方租户的 TTI.
+    ttis = ttis.filter((t) => (t.tenantId ?? 'default') === auth.tenantId);
     if (cycleId) ttis = ttis.filter((t) => t.cycleId === cycleId);
     if (ownerId) ttis = ttis.filter((t) => t.ownerId === ownerId);
 
@@ -43,6 +45,8 @@ export async function POST(req: NextRequest) {
       // 宪章 §4 铁律: TTI 永不挂钩任何金钱回报 (含系数浮动). 不接受外部覆盖.
       affectsCompensation: false,
       notes: body.notes,
+      // P0-B: tenantId 取自鉴权上下文, 保证多租户隔离 (不接受 body 注入).
+      tenantId: auth.tenantId,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });

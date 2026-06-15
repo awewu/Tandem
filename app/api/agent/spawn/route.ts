@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot, getRouter } from '@/lib/boot';
 import { spawnAgent, spawnAgentAsync } from '@/lib/taf/agent/spawn';
 import { audit } from '@/lib/audit/log';
+import { requireAuth } from '@/lib/auth/require-auth';
 
 /**
  * POST /api/agent/spawn
@@ -21,6 +22,9 @@ import { audit } from '@/lib/audit/log';
  */
 export async function POST(req: NextRequest) {
   await boot();
+  // P0-A/P0-未鉴权: spawn 会烧 LLM 预算, 必须登录; 身份取自鉴权上下文, 不接受 body 注入.
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
   let body: Record<string, unknown> = {};
   try {
     body = await req.json();
@@ -34,7 +38,7 @@ export async function POST(req: NextRequest) {
   }
 
   const router = getRouter();
-  const userId = String(body.userId ?? 'demo_user');
+  const userId = auth.userId;
 
   await audit('agent.spawned', userId, {
     targetType: 'agent',
@@ -51,7 +55,7 @@ export async function POST(req: NextRequest) {
     maxSteps: body.maxSteps as number | undefined,
     ctx: {
       userId,
-      tenantId: String(body.tenantId ?? 'default'),
+      tenantId: auth.tenantId,
       isProxy: Boolean(body.isProxy),
     },
   };

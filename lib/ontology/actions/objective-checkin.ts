@@ -91,6 +91,8 @@ export const ObjectiveCheckinAction: ActionType<ObjectiveCheckinInput, Objective
       blockers: input.blockers ?? null,
       nextSteps: input.nextSteps ?? null,
       mood: input.mood ?? null,
+      // P0-B: check-in 继承父 Objective 的租户, 保证多租户读隔离.
+      tenantId: obj?.tenantId ?? 'default',
       createdAt: now,
     });
 

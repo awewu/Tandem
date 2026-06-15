@@ -32,11 +32,11 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   const body = await req.json();
   const ctx = createAppContext();
   const svc = new CalendarService(ctx);
-  // Derive ownerId & tenantId from auth ctx if client did not provide them.
+  // P0-A: tenantId/ownerId 一律取自鉴权上下文, 绝不接受 body 注入 (防跨租户写).
   const ev = await svc.create({
     ...body,
     ownerId: body.ownerId ?? auth.userId,
-    tenantId: body.tenantId ?? auth.tenantId,
+    tenantId: auth.tenantId,
   });
   return NextResponse.json(ev, { status: 201 });
 });

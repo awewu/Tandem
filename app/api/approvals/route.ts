@@ -21,7 +21,17 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   const body = await req.json();
-  const apv: Approval = { id: `apv-${Date.now()}`, ...body, status: "pending", createdAt: new Date().toISOString(), tenantId: body.tenantId ?? auth.tenantId };
+  // P0-A: 身份字段 (requester/tenantId) 取自鉴权上下文, 不接受 body 注入 (防伪造申请人/跨租户写).
+  const apv: Approval = {
+    id: `apv-${Date.now()}`,
+    title: String(body.title ?? ""),
+    type: String(body.type ?? "generic"),
+    approver: String(body.approver ?? ""),
+    requester: auth.userId,
+    status: "pending",
+    createdAt: new Date().toISOString(),
+    tenantId: auth.tenantId,
+  };
   approvals.push(apv);
   return Response.json(apv, { status: 201 });
 });

@@ -71,7 +71,8 @@ export async function POST(req: NextRequest) {
       tags: Array.isArray(body.tags) ? body.tags : [],
       collaboratorIds: Array.isArray(body.collaboratorIds) ? body.collaboratorIds : [],
       watcherIds: Array.isArray(body.watcherIds) ? body.watcherIds : [],
-      tenantId: body.tenantId ?? auth.tenantId,
+      // P0-A: tenantId 一律取自鉴权上下文, 绝不接受 body 注入 (防跨租户写).
+      tenantId: auth.tenantId,
       createdAt: now,
       updatedAt: now,
     });
