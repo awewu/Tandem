@@ -11,6 +11,8 @@ import {
   OkrCheckinProposeSkill,
   OkrObjectiveCheckinProposeSkill,
   PersonaProposeActionSkill,
+  PersonaDraftReportSkill,
+  PersonaDraftActionItemsSkill,
 } from './persona-write';
 import { getStore } from '../../storage/repository';
 import { CompositeRetriever } from '../../memory/retriever';
@@ -867,4 +869,7 @@ export function registerBuiltinSkills(): void {
   skillRegistry.register(OkrCheckinProposeSkill);
   skillRegistry.register(OkrObjectiveCheckinProposeSkill);
   skillRegistry.register(PersonaProposeActionSkill);
+  // A 执行肢体扩面: 起草类代行 (周报 / 行动项), 落 decision_draft ProxyAction (24h)
+  skillRegistry.register(PersonaDraftReportSkill);
+  skillRegistry.register(PersonaDraftActionItemsSkill);
 }

@@ -157,5 +157,24 @@ export const KrCheckinAction: ActionType<KrCheckinInput, KrCheckinResult> = {
         );
       },
     },
+    {
+      // ③ 工作流编排: 喂 workflowEngine 'okr.checkin.created' → 唤醒 T1
+      //    (KR confidence=off-track → 自动给主管 1on1 议程加项 + 通知). 两条总线分工:
+      //    eventBus=领域观测/drift; workflowEngine="事半"跨模块编排. 此前无人 emit 此事件 → T1 死线.
+      name: 'workflow.okr_checkin.emit',
+      async run(result, ctx) {
+        const { emit } = await import('@/lib/workflows/engine');
+        const kr = await getStore().keyResults.get(result.krId);
+        await emit({
+          type: 'okr.checkin.created',
+          payload: {
+            krId: result.krId,
+            ownerId: kr?.ownerId ?? ctx.actorUserId,
+            confidence: result.checkIn.confidenceAfter,
+            comment: result.checkIn.blockers ?? undefined,
+          },
+        });
+      },
+    },
   ],
 };

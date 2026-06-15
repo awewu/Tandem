@@ -249,6 +249,18 @@ async function materializePromotion(req: MemoryPromotionRequest): Promise<Memory
     /* event 广播错误不阫主流程 (bus 已隔离) */
   }
 
+  // 工作流编排: 喂 workflowEngine 'memory.entry.promoted' → 唤醒 T4
+  //   (company 级记忆变更 → 失效 Persona baseline 缓存 + 通知治理). 此前无人 emit → T4 死线.
+  try {
+    const { emit } = await import('../workflows/engine');
+    await emit({
+      type: 'memory.entry.promoted',
+      payload: { memoryId: entry.id, level: ownershipLevel },
+    });
+  } catch {
+    /* workflow emit 失败不阻塞 */
+  }
+
   return entry;
 }
 

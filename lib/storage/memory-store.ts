@@ -310,5 +310,7 @@ export function createInMemoryStore(): TandemStore {
     governanceProjects: new InMemoryRepository(),
     governanceTemplates: new InMemoryRepository(),
     governanceTemplateVersions: new InMemoryRepository(),
+    approvals: new InMemoryRepository(),
+    meetingBookings: new InMemoryRepository(),
   };
 }

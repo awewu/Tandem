@@ -65,7 +65,32 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     }
     patch.updatedAt = new Date().toISOString();
     const store = getStore();
+    const wasCompleted = meeting!.status === 'completed' || !!meeting!.completedAt;
     const updated = await store.oneOnOneMeetings.update(params.id, patch);
+    const nowCompleted = updated.status === 'completed' || !!updated.completedAt;
+
+    // 工作流编排: 1on1 完成 (首次跃迁) → emit one_on_one.completed → 唤醒 T2 (outcomes 入 materials).
+    // 此前无人 emit → T2 死线. outcomes 取本次复盘的 progress/nextSteps/blockers 非空文本.
+    if (!wasCompleted && nowCompleted) {
+      const outcomes = [updated.noteProgress, updated.noteNextSteps, updated.noteBlockers]
+        .filter((s): s is string => typeof s === 'string' && s.trim().length > 0);
+      if (outcomes.length > 0) {
+        try {
+          const { emit } = await import('@/lib/workflows/engine');
+          await emit({
+            type: 'one_on_one.completed',
+            payload: {
+              meetingId: params.id,
+              managerId: updated.managerId,
+              reportId: updated.reportId,
+              outcomes,
+            },
+          });
+        } catch {
+          /* workflow emit 失败不阻塞主流程 */
+        }
+      }
+    }
     return NextResponse.json({ meeting: strip1on1ForRequester(updated, auth.userId) });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });

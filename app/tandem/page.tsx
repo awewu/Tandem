@@ -22,7 +22,7 @@
  */
 
 import Link from 'next/link';
-import { Suspense, createContext, useContext, useEffect, useState } from 'react';
+import { Suspense, createContext, useContext, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useBossAi } from '@/components/boss-ai/use-boss-ai';
 import { ThreePlusOneSelector } from '@/components/decision-layer/ThreePlusOneSelector';
@@ -54,26 +54,18 @@ import {
 import { cn } from '@/lib/utils';
 
 // ────────────────────────────────────────────────────────────────
-// 左召唤 (身份栏) tabs · 「我」与「搭子」的状态切换
+// 右侧行动坞 (Dock) tabs · 交付 / 我的分身 / Memory / 通用 AI
+// 今日待办 + AI 推荐已提到左侧常驻驾驶舱 (CockpitRail), 不在此重复.
+// 议事室、IM 是全局 rail 模块, 不在坞内重复.
 // ────────────────────────────────────────────────────────────────
-const LEFT_TABS = [
-  { id: 'persona',   label: '我的分身',  icon: Bot,           hint: '分身名片 / 技能模式 / 代行权限' },
-  { id: 'memory',    label: 'Memory',    icon: Brain,         hint: '我签名的决议 / 复盘 / 灵感' },
-  { id: 'sandbox',   label: '通用 AI',   icon: Sparkles,      hint: '不入公司 Memory 的个人沙盒' },
+const DOCK_TABS = [
+  { id: 'deliver',   label: '交付',     icon: Send,     hint: '主舞台产出 → 议事室 / IM / 邮件 / Memory' },
+  { id: 'persona',   label: '我的分身',  icon: Bot,      hint: '分身名片 / 技能模式 / 代行权限' },
+  { id: 'memory',    label: 'Memory',    icon: Brain,    hint: '我签名的决议 / 复盘 / 灵感' },
+  { id: 'sandbox',   label: '通用 AI',   icon: Sparkles, hint: '不入公司 Memory 的个人沙盒' },
 ] as const;
 
-// ────────────────────────────────────────────────────────────────
-// 右召唤 (行动栏) tabs · 交付 / 待办 / AI 推荐
-// 议事室、IM 是全局 rail 模块, 不在召唤栏重复.
-// ────────────────────────────────────────────────────────────────
-const RIGHT_TABS = [
-  { id: 'deliver',   label: '交付',     icon: Send,    hint: '主舞台产出 → 议事室 / IM / 邮件 / Memory' },
-  { id: 'inbox',     label: '待办',     icon: Inbox,   hint: '议事回写 · 搭子提醒' },
-  { id: 'recommend', label: 'AI 推荐',  icon: Compass, hint: '搭子基于当前工作建议下一步' },
-] as const;
-
-type LeftTabId  = (typeof LEFT_TABS)[number]['id'];
-type RightTabId = (typeof RIGHT_TABS)[number]['id'];
+type DockTabId = (typeof DOCK_TABS)[number]['id'];
 
 // ────────────────────────────────────────────────────────────────
 // 任务卡 · ?card=xxx 加载对应主舞台界面
@@ -102,6 +94,12 @@ const CARD_REGISTRY = {
     desc: '日报 / 复盘 / 议事发言, 自动聚合 + 标星沉淀',
     icon: Sparkles,
     deepLink: { href: '/portfolio',      label: '去代表作中心' },
+  },
+  panel: {
+    title: '召唤专家团',
+    desc: '一个议题, 设计/PM/技术/营销/战略分身并行起草, 你合稿',
+    icon: Cpu,
+    deepLink: { href: '/persona',        label: '去主分身工作台' },
   },
 } as const;
 type CardId = keyof typeof CARD_REGISTRY;
@@ -145,6 +143,16 @@ interface DashboardCtx {
 const DashboardContext = createContext<DashboardCtx>({ loading: true, dashboard: null, retros: null });
 const useTandemDashboard = () => useContext(DashboardContext);
 
+// ── 交付草稿桥 · 主舞台/对话产出 → 交付卡自动带入 (P2/P3) ──────────────
+interface TandemDraft { title: string; body: string; nonce: number }
+interface DraftCtx {
+  draft: TandemDraft | null;
+  /** 主舞台/对话产出推送到交付卡 (自动展开行动坞的交付页) */
+  pushDraft: (d: { title: string; body: string }) => void;
+}
+const DraftContext = createContext<DraftCtx>({ draft: null, pushDraft: () => {} });
+const useTandemDraft = () => useContext(DraftContext);
+
 function useDashboardFetch(): DashboardCtx {
   const [state, setState] = useState<DashboardCtx>({ loading: true, dashboard: null, retros: null });
   useEffect(() => {
@@ -181,9 +189,18 @@ export default function TandemPage() {
 }
 
 function TandemPageInner() {
-  // 召唤是临时调出, 两侧默认折叠
-  const [leftTab,  setLeftTab]  = useState<LeftTabId  | null>(null);
-  const [rightTab, setRightTab] = useState<RightTabId | null>(null);
+  // 右侧行动坞默认开在「交付」(常驻产出); 左侧今日驾驶舱默认常驻展开
+  const [dockTab, setDockTab] = useState<DockTabId | null>('deliver');
+  const [cockpitOpen, setCockpitOpen] = useState(true);
+  // 移动端: 'cockpit' / 某个 dock tab / null
+  const [mobileSheet, setMobileSheet] = useState<'cockpit' | DockTabId | null>(null);
+  // 交付草稿桥: 主舞台/对话产出 → 交付卡
+  const [draft, setDraft] = useState<TandemDraft | null>(null);
+  const pushDraft = (d: { title: string; body: string }) => {
+    setDraft({ ...d, nonce: Date.now() });
+    setDockTab('deliver');
+    setMobileSheet('deliver');
+  };
 
   const sp = useSearchParams();
   const cardParam = sp?.get('card');
@@ -196,67 +213,127 @@ function TandemPageInner() {
 
   return (
    <DashboardContext.Provider value={dashCtx}>
+   <DraftContext.Provider value={{ draft, pushDraft }}>
     <div className="relative flex h-full w-full surface-2">
-      {/* ───────── 左召唤栏 (身份) · 桌面 ───────── */}
-      <div className="hidden md:contents">
-        <SummonRail
-          side="left"
-          tabs={LEFT_TABS}
-          activeId={leftTab}
-          onToggle={(id) => setLeftTab((cur) => (cur === id ? null : id))}
-        />
-        <SummonPanel
-          side="left"
-          tab={LEFT_TABS.find((t) => t.id === leftTab) ?? null}
-          onClose={() => setLeftTab(null)}
-        />
-      </div>
+      {/* ───────── 左: 今日驾驶舱 (常驻) · 桌面 ───────── */}
+      <CockpitRail open={cockpitOpen} onToggle={() => setCockpitOpen((v) => !v)} />
 
       {/* ───────── 主舞台 ───────── */}
-      <main className="flex-1 min-w-0 overflow-y-auto pb-14 md:pb-0">
+      <main className="flex-1 min-w-0 flex flex-col overflow-hidden">
         {activeCard ? (
-          <CardStage card={activeCard} />
+          <div className="flex-1 overflow-y-auto pb-14 md:pb-0">
+            <CardStage card={activeCard} />
+          </div>
         ) : (
-          <WelcomeStage
-            onSummonPersona={() => setLeftTab('persona')}
-            onSummonDeliver={() => setRightTab('deliver')}
+          <HomeStage
+            onSummonPersona={() => setDockTab('persona')}
+            onSummonDeliver={() => setDockTab('deliver')}
           />
         )}
       </main>
 
-      {/* ───────── 右召唤栏 (行动) · 桌面 ───────── */}
+      {/* ───────── 右: 行动坞 (折叠) · 桌面 ───────── */}
       <div className="hidden md:contents">
         <SummonPanel
           side="right"
-          tab={RIGHT_TABS.find((t) => t.id === rightTab) ?? null}
-          onClose={() => setRightTab(null)}
+          tab={DOCK_TABS.find((t) => t.id === dockTab) ?? null}
+          onClose={() => setDockTab(null)}
         />
         <SummonRail
           side="right"
-          tabs={RIGHT_TABS}
-          activeId={rightTab}
-          onToggle={(id) => setRightTab((cur) => (cur === id ? null : id))}
+          tabs={DOCK_TABS}
+          activeId={dockTab}
+          onToggle={(id) => setDockTab((cur) => (cur === id ? null : id))}
         />
       </div>
 
       {/* ───────── 移动端: 底部召唤条 + 弹起 sheet ───────── */}
       <MobileSummonBar
-        leftActive={leftTab}
-        rightActive={rightTab}
-        onPickLeft={(id) => setLeftTab((cur) => (cur === id ? null : id))}
-        onPickRight={(id) => setRightTab((cur) => (cur === id ? null : id))}
+        active={mobileSheet}
+        onPick={(id) => setMobileSheet((cur) => (cur === id ? null : id))}
       />
-      <MobileSummonSheet
-        tab={
-          LEFT_TABS.find((t) => t.id === leftTab) ??
-          RIGHT_TABS.find((t) => t.id === rightTab) ??
-          null
-        }
-        side={leftTab ? 'left' : 'right'}
-        onClose={() => { setLeftTab(null); setRightTab(null); }}
-      />
+      <MobileSheet which={mobileSheet} onClose={() => setMobileSheet(null)} />
     </div>
+   </DraftContext.Provider>
    </DashboardContext.Provider>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// 左: 今日驾驶舱 (常驻 260px, 可折叠到 48px) · 桌面
+//   = 今日待办 (InboxCard) + 搭子推荐 (RecommendCard)
+//   第一屏直接呈现「今天的战场」, 不再藏折叠栏.
+// ════════════════════════════════════════════════════════════════
+function CockpitRail({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  const { dashboard, retros } = useTandemDashboard();
+  const total = (dashboard?.todos.totalCount ?? 0) + (retros?.items.length ?? 0);
+
+  if (!open) {
+    return (
+      <nav
+        aria-label="今日驾驶舱 (已折叠)"
+        className="hidden md:flex w-12 shrink-0 flex-col items-center gap-1 py-3 surface-1 border-r"
+        style={{ borderColor: 'rgb(var(--border-subtle))' }}
+      >
+        <button
+          type="button"
+          onClick={onToggle}
+          title="展开今日驾驶舱"
+          aria-label="展开今日驾驶舱"
+          className="flex h-10 w-10 items-center justify-center rounded-md text-tertiary hover:bg-[rgb(var(--surface-3))] hover:text-primary surface-interactive"
+        >
+          <ChevronRight className="h-[18px] w-[18px]" />
+        </button>
+        <div className="relative flex h-10 w-10 items-center justify-center rounded-md text-tertiary">
+          <Inbox className="h-[18px] w-[18px]" />
+          {total > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[rgb(var(--brand-500))] px-1 text-[10px] font-medium text-white">
+              {total}
+            </span>
+          )}
+        </div>
+        <div className="flex h-10 w-10 items-center justify-center rounded-md text-tertiary">
+          <Compass className="h-[18px] w-[18px]" />
+        </div>
+      </nav>
+    );
+  }
+
+  return (
+    <aside
+      aria-label="今日驾驶舱"
+      className="hidden md:flex w-[260px] shrink-0 flex-col overflow-hidden surface-1 border-r"
+      style={{ borderColor: 'rgb(var(--border-subtle))' }}
+    >
+      <header
+        className="flex items-center justify-between border-b px-4 py-3"
+        style={{ borderColor: 'rgb(var(--border-subtle))' }}
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <Inbox className="h-4 w-4 shrink-0 text-[rgb(var(--brand-500))]" />
+          <h2 className="text-headline text-primary truncate">今日驾驶舱</h2>
+          {total > 0 && <span className="pill-neutral text-footnote">{total}</span>}
+        </div>
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-label="收起今日驾驶舱"
+          className="rounded-md p-1 text-tertiary hover:bg-[rgb(var(--surface-3))] hover:text-primary surface-interactive"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+      </header>
+      <div className="flex-1 overflow-y-auto p-4 space-y-5">
+        <section>
+          <p className="text-footnote text-tertiary uppercase tracking-wider mb-2">今日待办</p>
+          <InboxCard />
+        </section>
+        <section>
+          <p className="text-footnote text-tertiary uppercase tracking-wider mb-2">搭子推荐</p>
+          <RecommendCard />
+        </section>
+      </div>
+    </aside>
   );
 }
 
@@ -372,12 +449,10 @@ function SummonPanel({ side, tab, onClose }: SummonPanelProps) {
 // 召唤面板内容 · 按 tab.id 分发 (P1 = 我的分身 + 交付 真实占位, 其它 = 通用 stub)
 // ════════════════════════════════════════════════════════════════
 function SummonPanelContent({ id, side }: { id: string; side: 'left' | 'right' }) {
-  if (side === 'left'  && id === 'persona')   return <PersonaCard />;
-  if (side === 'left'  && id === 'memory')    return <MemoryCard />;
-  if (side === 'left'  && id === 'sandbox')   return <SandboxCard />;
-  if (side === 'right' && id === 'deliver')   return <DeliverCard />;
-  if (side === 'right' && id === 'inbox')     return <InboxCard />;
-  if (side === 'right' && id === 'recommend') return <RecommendCard />;
+  if (id === 'deliver') return <DeliverDock />;
+  if (id === 'persona') return <PersonaCard />;
+  if (id === 'memory')  return <MemoryCard />;
+  if (id === 'sandbox') return <SandboxCard />;
   return <StubCard id={id} side={side} />;
 }
 
@@ -452,29 +527,61 @@ const DELIVER_TARGETS: Array<{ id: DeliverTarget; label: string; icon: React.Com
   { id: 'mail',     label: '邮件',    icon: Send },
 ];
 
+interface ImChannelLite { id: string; name: string }
+
 function DeliverCard() {
   const router = useRouter();
+  const { draft } = useTandemDraft();
   const [target, setTarget] = useState<DeliverTarget>('decision');
   const [title, setTitle] = useState('');
   const [body, setBody]   = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [ok, setOk]   = useState<string | null>(null);
+  // IM 频道选择 (真直送需指定频道)
+  const [channels, setChannels] = useState<ImChannelLite[] | null>(null);
+  const [channelId, setChannelId] = useState('');
+  // 邮件收件人
+  const [mailTo, setMailTo] = useState('');
+
+  // 主舞台/对话产出 → 自动带入 (nonce 变化即覆盖)
+  useEffect(() => {
+    if (!draft) return;
+    setTitle(draft.title);
+    setBody(draft.body);
+    setOk(null); setErr(null);
+  }, [draft]);
+
+  // 选 IM 时按需拉取我的频道列表
+  useEffect(() => {
+    if (target !== 'im' || channels !== null) return;
+    let cancelled = false;
+    fetch('/api/im/channels')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (cancelled) return;
+        const list: ImChannelLite[] = (d?.channels ?? []).map(
+          (c: { id: string; name?: string }) => ({ id: c.id, name: c.name ?? c.id }),
+        );
+        setChannels(list);
+        if (list.length > 0) setChannelId((cur) => cur || list[0].id);
+      })
+      .catch(() => { if (!cancelled) setChannels([]); });
+    return () => { cancelled = true; };
+  }, [target, channels]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim() || submitting) return;
     setSubmitting(true); setErr(null); setOk(null);
+    const headers = { 'Content-Type': 'application/json' };
     try {
       if (target === 'decision') {
-        // 创建议事室 (POST /api/convergence)
         const res = await fetch('/api/convergence', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: 'POST', headers,
           body: JSON.stringify({
             title: title.trim(),
             description: body.trim(),
-            // KR 软绑定守门: 走 noKrReason 通道, 后续在议事室页内绑 KR
             noKrReason: '从 Tandem 个人工作台快速发起, 进议事室后绑定 KR',
           }),
         });
@@ -482,15 +589,36 @@ function DeliverCard() {
         if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
         setOk('已发起议事 · 跳转中…');
         setTimeout(() => router.push(`/convergence/${data.cardId}`), 400);
-      } else {
-        // im / mail / memory: 写 sessionStorage 作为预填载荷, 由目标页消费
-        const payload = { title: title.trim(), body: body.trim(), from: '/tandem' };
-        try {
-          sessionStorage.setItem(`tandem.handoff.${target}`, JSON.stringify(payload));
-        } catch {}
-        const dest = target === 'im' ? '/im' : target === 'mail' ? '/mail' : '/memories';
-        setOk('已存草稿 · 跳转中…');
-        setTimeout(() => router.push(dest), 400);
+      } else if (target === 'memory') {
+        // 真直送: 提交 Memory 升级提议, 进三级签批
+        const text = body.trim() ? `${title.trim()}\n\n${body.trim()}` : title.trim();
+        const res = await fetch('/api/memories/promote-text', {
+          method: 'POST', headers,
+          body: JSON.stringify({ body: text, title: title.trim(), source: 'tandem:deliver' }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
+        setOk('已提交 Memory 升级提议 · 进三级签批');
+      } else if (target === 'im') {
+        // 真直送: 发到选定频道
+        if (!channelId) throw new Error('请选择频道');
+        const text = body.trim() ? `**${title.trim()}**\n${body.trim()}` : title.trim();
+        const res = await fetch(`/api/im/channels/${channelId}/messages`, {
+          method: 'POST', headers, body: JSON.stringify({ body: text }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
+        setOk('已发送到频道');
+      } else if (target === 'mail') {
+        // 真直送: 经 SMTP 发出 (未配置 SMTP 会回 503)
+        if (!mailTo.trim()) throw new Error('请填收件人邮箱');
+        const res = await fetch('/api/mail/send', {
+          method: 'POST', headers,
+          body: JSON.stringify({ to: mailTo.trim(), subject: title.trim(), text: body.trim() || title.trim() }),
+        });
+        const data = await res.json();
+        if (!res.ok || data?.ok === false) throw new Error(data?.error ?? `HTTP ${res.status}`);
+        setOk('邮件已发送');
       }
     } catch (e) {
       setErr((e as Error).message ?? '送出失败');
@@ -499,10 +627,13 @@ function DeliverCard() {
     }
   }
 
+  const inputCls =
+    'w-full rounded-md border bg-[rgb(var(--surface-2))] px-2 py-1.5 text-caption text-primary placeholder:text-tertiary focus:outline-none focus:ring-2 focus:ring-[rgb(var(--brand-300))]';
+
   return (
     <form onSubmit={submit} className="space-y-3">
       <p className="text-caption text-secondary leading-relaxed">
-        把主舞台和搭子的协作产出送出去 · 进入对应模块继续完善。
+        把主舞台和搭子的协作产出一键送出 · 直送到目标模块。
       </p>
       <div className="flex flex-wrap gap-1.5">
         {DELIVER_TARGETS.map((t) => {
@@ -512,7 +643,7 @@ function DeliverCard() {
             <button
               key={t.id}
               type="button"
-              onClick={() => setTarget(t.id)}
+              onClick={() => { setTarget(t.id); setOk(null); setErr(null); }}
               className={cn(
                 'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-footnote surface-interactive',
                 active
@@ -527,21 +658,50 @@ function DeliverCard() {
           );
         })}
       </div>
+
+      {/* IM: 频道选择 */}
+      {target === 'im' && (
+        <select
+          value={channelId}
+          onChange={(e) => setChannelId(e.target.value)}
+          className={inputCls}
+          style={{ borderColor: 'rgb(var(--border-subtle))' }}
+        >
+          {channels === null && <option value="">频道加载中…</option>}
+          {channels !== null && channels.length === 0 && <option value="">无可用频道</option>}
+          {channels?.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+      )}
+
+      {/* 邮件: 收件人 */}
+      {target === 'mail' && (
+        <input
+          value={mailTo}
+          onChange={(e) => setMailTo(e.target.value)}
+          placeholder="收件人邮箱 (逗号分隔可多个)"
+          type="text"
+          className={inputCls}
+          style={{ borderColor: 'rgb(var(--border-subtle))' }}
+        />
+      )}
+
       <input
         value={title}
         onChange={(e) => setTitle(e.target.value)}
-        placeholder="标题"
-        maxLength={120}
-        className="w-full rounded-md border bg-[rgb(var(--surface-2))] px-2 py-1.5 text-caption text-primary placeholder:text-tertiary focus:outline-none focus:ring-2 focus:ring-[rgb(var(--brand-300))]"
+        placeholder={target === 'mail' ? '邮件主题' : '标题'}
+        maxLength={200}
+        className={inputCls}
         style={{ borderColor: 'rgb(var(--border-subtle))' }}
       />
       <textarea
         value={body}
         onChange={(e) => setBody(e.target.value)}
-        placeholder="说明 / 摘要 (可选)"
+        placeholder={target === 'memory' ? '沉淀正文' : '说明 / 正文'}
         rows={3}
-        maxLength={1000}
-        className="w-full resize-none rounded-md border bg-[rgb(var(--surface-2))] px-2 py-1.5 text-caption text-primary placeholder:text-tertiary focus:outline-none focus:ring-2 focus:ring-[rgb(var(--brand-300))]"
+        maxLength={4000}
+        className={cn(inputCls, 'resize-none')}
         style={{ borderColor: 'rgb(var(--border-subtle))' }}
       />
       <button
@@ -556,11 +716,140 @@ function DeliverCard() {
       {ok  && <p className="text-footnote text-[rgb(var(--semantic-success))]">{ok}</p>}
       <p className="text-footnote text-tertiary leading-relaxed">
         {target === 'decision' && '会立即创建议事室; KR 绑定在议事页内完成。'}
-        {target === 'memory'   && '草稿存到 sessionStorage, /memories 页消费 (P2 实装直送)。'}
-        {target === 'im'       && '草稿存到 sessionStorage, /im 选频道发送 (P2 一键送)。'}
-        {target === 'mail'     && '草稿存到 sessionStorage, /mail 写邮件 (P2 一键送)。'}
+        {target === 'memory'   && '直送: 提交 Memory 升级提议, 走三级签批。'}
+        {target === 'im'       && '直送: 发到选定频道。'}
+        {target === 'mail'     && '直送: 经 SMTP 发出 (未配置 SMTP 会提示)。'}
       </p>
     </form>
+  );
+}
+
+// ── P4 治理可见化: 代行待否决轨迹卡 (zone + 24h 否决窗 + 确认/否决) ──────
+interface PendingProxyAction {
+  id: string;
+  kind: string;
+  zone: 'green' | 'yellow' | 'red';
+  status: string;
+  title: string;
+  vetoUntil?: string;
+  refType?: string;
+}
+
+function zoneLabel(zone: PendingProxyAction['zone']): { text: string; tone: string } {
+  if (zone === 'red')   return { text: '红线', tone: 'text-[rgb(var(--semantic-danger))]' };
+  if (zone === 'yellow') return { text: '黄区 · 24h 否决', tone: 'text-[rgb(var(--semantic-warning))]' };
+  return { text: '绿区 · 留痕', tone: 'text-[rgb(var(--semantic-success))]' };
+}
+
+function GovernanceCard({ compact }: { compact?: boolean }) {
+  const [actions, setActions] = useState<PendingProxyAction[] | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    // 拉全量后客户端筛 pending (drafted=搭子草稿待确认 / awaiting_veto=否决窗内)
+    fetch('/api/persona/proxy-actions?limit=40', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (cancelled) return;
+        const all: PendingProxyAction[] = j?.ok ? (j.actions ?? []) : [];
+        setActions(all.filter((a) => a.status === 'drafted' || a.status === 'awaiting_veto'));
+      })
+      .catch(() => { if (!cancelled) setActions([]); });
+    return () => { cancelled = true; };
+  }, [reloadKey]);
+
+  async function act(id: string, kind: 'confirm' | 'veto') {
+    if (busyId) return;
+    let reason: string | null = '';
+    if (kind === 'veto') {
+      reason = window.prompt('否决理由 (可选, 用于审计)');
+      if (reason === null) return;
+    } else if (!window.confirm('确认立即执行该代行 (不再等待 24h 否决窗)?')) {
+      return;
+    }
+    setBusyId(id);
+    try {
+      const res = await fetch(`/api/persona/proxy-actions/${id}/${kind}`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: kind === 'veto' ? JSON.stringify({ reason }) : undefined,
+      });
+      const j = await res.json();
+      if (!j.ok) throw new Error(j.error ?? '操作失败');
+      setReloadKey((k) => k + 1);
+    } catch (e) {
+      window.alert((e as Error).message);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  if (actions === null) return compact ? null : <SkeletonRows />;
+  if (actions.length === 0) return null;
+
+  return (
+    <div className="space-y-2">
+      {!compact && (
+        <p className="text-footnote text-tertiary uppercase tracking-wider">搭子代行 · 待你处理</p>
+      )}
+      {actions.map((a) => {
+        const z = zoneLabel(a.zone);
+        const isDraft = a.status === 'drafted';
+        const remain = a.vetoUntil ? new Date(a.vetoUntil).getTime() - Date.now() : 0;
+        return (
+          <div key={a.id} className="surface-card rounded-2xl p-3 shadow-soft-xs space-y-2">
+            <div className="flex items-start gap-2">
+              {isDraft
+                ? <FileText className="h-4 w-4 shrink-0 text-[rgb(var(--brand-500))] mt-0.5" />
+                : <Stamp className="h-4 w-4 shrink-0 text-[rgb(var(--brand-500))] mt-0.5" />}
+              <div className="min-w-0 flex-1">
+                <p className="text-caption text-primary leading-snug">{a.title}</p>
+                <p className="mt-0.5 text-footnote">
+                  {isDraft
+                    ? <span className="text-[rgb(var(--brand-600))]">搭子草稿 · 待确认</span>
+                    : <span className={z.tone}>{z.text}</span>}
+                  {a.vetoUntil && (
+                    <span className="text-tertiary"> · {fmtRemainingMs(remain)}</span>
+                  )}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-1.5">
+              <button
+                type="button"
+                disabled={busyId === a.id}
+                onClick={() => act(a.id, 'confirm')}
+                className="flex-1 rounded-full bg-[rgb(var(--brand-500))] px-2.5 py-1 text-footnote font-medium text-white hover:bg-[rgb(var(--brand-600))] disabled:opacity-40 surface-interactive"
+              >
+                {isDraft ? '采用' : '确认执行'}
+              </button>
+              <button
+                type="button"
+                disabled={busyId === a.id}
+                onClick={() => act(a.id, 'veto')}
+                className="flex-1 rounded-full border px-2.5 py-1 text-footnote text-secondary hover:bg-[rgb(var(--surface-2))] disabled:opacity-40 surface-interactive"
+                style={{ borderColor: 'rgb(var(--border-subtle))' }}
+              >
+                {isDraft ? '弃用' : '否决'}
+              </button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// 右产出坞 = 交付 + 治理 (代行待否决)
+function DeliverDock() {
+  return (
+    <div className="space-y-5">
+      <DeliverCard />
+      <GovernanceCard />
+    </div>
   );
 }
 
@@ -747,6 +1036,25 @@ function RecommendCard() {
   const [briefWarns, setBriefWarns] = useState<string[]>([]);
   const [briefLoading, setBriefLoading] = useState(false);
   const [briefErr, setBriefErr] = useState<string | null>(null);
+  // D 经营回顾 pre-read
+  const [preread, setPreread] = useState<Array<{ id: string; kind: string; title: string; recommendation: string }> | null>(null);
+  const [prereadLoading, setPrereadLoading] = useState(false);
+  const [prereadErr, setPrereadErr] = useState<string | null>(null);
+
+  async function loadPreread() {
+    if (prereadLoading) return;
+    setPrereadLoading(true); setPrereadErr(null);
+    try {
+      const res = await fetch('/api/me/okr-health');
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
+      setPreread(data.items ?? []);
+    } catch (e) {
+      setPrereadErr((e as Error).message ?? '加载失败');
+    } finally {
+      setPrereadLoading(false);
+    }
+  }
 
   async function loadBrief() {
     if (briefLoading) return;
@@ -809,10 +1117,59 @@ function RecommendCard() {
     );
   }
 
+  // D 经营回顾 pre-read 视图
+  if (preread) {
+    return (
+      <div className="space-y-3">
+        <button
+          type="button"
+          onClick={() => { setPreread(null); setPrereadErr(null); }}
+          className="text-footnote text-tertiary hover:text-primary surface-interactive"
+        >
+          ← 回快速建议
+        </button>
+        <p className="text-footnote text-tertiary uppercase tracking-wider">经营回顾 pre-read · OKR 承压信号</p>
+        {preread.length === 0 ? (
+          <div className="surface-card-soft rounded-2xl p-4 shadow-soft-xs text-caption text-secondary">
+            当前 active 周期公司/团队层 OKR 无显著承压信号。
+          </div>
+        ) : (
+          preread.map((p) => (
+            <div key={p.id} className="surface-card rounded-2xl p-3 shadow-soft-xs">
+              <div className="flex items-start gap-2">
+                <TrendingUp className="h-4 w-4 shrink-0 text-[rgb(var(--semantic-warning))] mt-0.5" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-caption text-primary leading-snug">{p.title}</p>
+                  <p className="mt-0.5 text-footnote text-tertiary">{p.recommendation}</p>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+        <p className="text-footnote text-tertiary leading-relaxed">
+          只读参谋视角 (复用 analyzeOkrHealth) · 须人工处置 (进议事室 / 复盘), 中央 AI 不自动调 OKR。
+        </p>
+      </div>
+    );
+  }
+
   if (recs.length === 0) {
     return (
-      <div className="surface-card-soft rounded-2xl p-4 shadow-soft-xs text-caption text-secondary">
-        没有强信号。试试问中央 (⌘J)：「下半天我应该聚焦什么？」
+      <div className="space-y-2">
+        <div className="surface-card-soft rounded-2xl p-4 shadow-soft-xs text-caption text-secondary">
+          没有强信号。试试问搭子「下半天我应该聚焦什么？」或看经营回顾。
+        </div>
+        <button
+          type="button"
+          onClick={loadPreread}
+          disabled={prereadLoading}
+          className="w-full inline-flex items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-footnote text-secondary hover:bg-[rgb(var(--surface-2))] surface-interactive disabled:opacity-40"
+          style={{ borderColor: 'rgb(var(--border-subtle))' }}
+        >
+          <TrendingUp className="h-3 w-3 text-[rgb(var(--semantic-warning))]" />
+          {prereadLoading ? '生成中…' : '经营回顾 pre-read'}
+        </button>
+        {prereadErr && <p className="text-footnote text-tertiary">{prereadErr}</p>}
       </div>
     );
   }
@@ -843,7 +1200,18 @@ function RecommendCard() {
         <Sparkles className="h-3 w-3 text-[rgb(var(--brand-500))]" />
         {briefLoading ? '搭子细想中…' : '请搭子细想 · 给 3+1'}
       </button>
+      <button
+        type="button"
+        onClick={loadPreread}
+        disabled={prereadLoading}
+        className="w-full inline-flex items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-footnote text-secondary hover:bg-[rgb(var(--surface-2))] surface-interactive disabled:opacity-40"
+        style={{ borderColor: 'rgb(var(--border-subtle))' }}
+      >
+        <TrendingUp className="h-3 w-3 text-[rgb(var(--semantic-warning))]" />
+        {prereadLoading ? '生成中…' : '经营回顾 pre-read'}
+      </button>
       {briefErr && <p className="text-footnote text-tertiary">{briefErr}</p>}
+      {prereadErr && <p className="text-footnote text-tertiary">{prereadErr}</p>}
     </div>
   );
 }
@@ -860,6 +1228,15 @@ function buildRecommendations(
       title: '先救一个 KR',
       reason: `${kr.title} · ${kr.riskStatus}, 进度 ${Math.round(kr.progress * 100)}%`,
       href: `/okr?kr=${kr.id}`,
+    });
+  }
+  // D 信号源扩面: 卡住的执行项 (TTI 低完成度)
+  const stalledTti = dash.todos.myTtiInProgress.find((t) => t.completionRate < 0.34);
+  if (stalledTti) {
+    recs.push({
+      title: '推进卡住的执行项',
+      reason: `${stalledTti.title} · 仅 ${Math.round(stalledTti.completionRate * 100)}%`,
+      href: `/okr?tti=${stalledTti.id}`,
     });
   }
   if (retros && retros.items.some((r) => r.urgency === 'overdue')) {
@@ -929,6 +1306,198 @@ function SkeletonRows() {
       {[0, 1, 2].map((i) => (
         <div key={i} className="h-10 rounded-md surface-3 animate-pulse-soft" />
       ))}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// 主舞台 · Home = 对话即主舞台 (P3)
+//   - 无消息: 欢迎页 (Hero + 快捷入口)
+//   - 有消息: 内嵌对话流 (与右下 Tandem AI FAB 共享同一会话)
+//   - 底部: 常驻指令框 (说一句话立即起对话)
+// ════════════════════════════════════════════════════════════════
+function HomeStage({
+  onSummonPersona,
+  onSummonDeliver,
+}: {
+  onSummonPersona: () => void;
+  onSummonDeliver: () => void;
+}) {
+  const { messages } = useBossAi();
+  const conversing = messages.length > 0;
+  return (
+    <>
+      <div className="flex-1 overflow-y-auto">
+        {conversing ? (
+          <ConversationStream />
+        ) : (
+          <WelcomeStage onSummonPersona={onSummonPersona} onSummonDeliver={onSummonDeliver} />
+        )}
+      </div>
+      <CommandBox />
+    </>
+  );
+}
+
+// 从一段产出文本派生标题 (首行 / 截断)
+function deriveTitle(text: string): string {
+  const firstLine = (text.split('\n').find((l) => l.trim().length > 0) ?? '').trim();
+  return firstLine.length > 60 ? `${firstLine.slice(0, 60)}…` : firstLine || '搭子产出';
+}
+
+// ── 内嵌对话流 ──────────────────────────────────────────────────────
+function ConversationStream() {
+  const { messages, streaming } = useBossAi();
+  const endRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [messages]);
+  return (
+    <div className="mx-auto max-w-3xl px-4 md:px-6 py-6 space-y-4">
+      <div className="flex items-center gap-2 text-caption text-tertiary">
+        <Sparkles className="h-4 w-4 text-[rgb(var(--brand-500))]" />
+        <span>与搭子 / Tandem AI 的协作</span>
+      </div>
+      <GovernanceCard compact />
+      {messages.map((m, i) => (
+        <MessageBubble key={`${m.createdAt}-${i}`} m={m} />
+      ))}
+      {streaming && messages[messages.length - 1]?.role !== 'assistant' && (
+        <p className="text-footnote text-tertiary">搭子思考中…</p>
+      )}
+      <div ref={endRef} />
+    </div>
+  );
+}
+
+function MessageBubble({ m }: { m: import('@/components/boss-ai/use-boss-ai').BossAiMessage }) {
+  const { pushDraft } = useTandemDraft();
+  const { submitFeedback } = useBossAi();
+  const isUser = m.role === 'user';
+  if (isUser) {
+    return (
+      <div className="flex justify-end">
+        <div className="max-w-[85%] rounded-2xl bg-[rgb(var(--brand-500))] px-4 py-2.5 text-caption text-white whitespace-pre-wrap">
+          {m.content}
+        </div>
+      </div>
+    );
+  }
+  const done = !m.streaming && m.content.trim().length > 0;
+  // E 回灌组织 IQ: 中央 AI 回复有 decisionId → 暴露采纳/改用/推翻反馈 (进 CA-13 飞轮)
+  const fbOptions: Array<{ outcome: 'adopted' | 'modified' | 'overruled'; label: string }> = [
+    { outcome: 'adopted', label: '采纳' },
+    { outcome: 'modified', label: '改用' },
+    { outcome: 'overruled', label: '推翻' },
+  ];
+  return (
+    <div className="flex justify-start">
+      <div className="max-w-[90%] space-y-2">
+        <div className="surface-card rounded-2xl px-4 py-3 shadow-soft-xs">
+          {m.status && !m.content && (
+            <p className="text-footnote text-tertiary">{m.status}</p>
+          )}
+          <div className="text-caption text-primary whitespace-pre-wrap leading-relaxed">
+            {m.content}
+            {m.streaming && <span className="ml-0.5 animate-pulse-soft">▋</span>}
+          </div>
+        </div>
+        {done && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => pushDraft({ title: deriveTitle(m.content), body: m.content })}
+              className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-footnote text-secondary hover:bg-[rgb(var(--surface-2))] surface-interactive"
+              style={{ borderColor: 'rgb(var(--border-subtle))' }}
+            >
+              <Send className="h-3 w-3 text-[rgb(var(--brand-500))]" /> 交付这段
+            </button>
+            {m.decisionId && (
+              <>
+                <span className="text-footnote text-tertiary">·</span>
+                {m.feedbackOutcome && m.feedbackOutcome !== 'pending' ? (
+                  <span className="text-footnote text-[rgb(var(--brand-600))]">
+                    已反馈: {fbOptions.find((o) => o.outcome === m.feedbackOutcome)?.label ?? m.feedbackOutcome}
+                  </span>
+                ) : (
+                  fbOptions.map((o) => (
+                    <button
+                      key={o.outcome}
+                      type="button"
+                      disabled={m.feedbackSubmitting}
+                      onClick={() => { void submitFeedback(m.createdAt, o.outcome); }}
+                      className="rounded-full border px-2 py-0.5 text-footnote text-tertiary hover:bg-[rgb(var(--surface-2))] hover:text-primary surface-interactive disabled:opacity-40"
+                      style={{ borderColor: 'rgb(var(--border-subtle))' }}
+                    >
+                      {o.label}
+                    </button>
+                  ))
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── 常驻指令框 ──────────────────────────────────────────────────────
+function CommandBox() {
+  const { send, streaming, messages, newSession } = useBossAi();
+  const [input, setInput] = useState('');
+
+  function submit() {
+    const text = input.trim();
+    if (!text || streaming) return;
+    setInput('');
+    void send(text, { currentPath: '/tandem' });
+  }
+
+  return (
+    <div
+      className="shrink-0 border-t px-4 md:px-6 py-3 surface-1 pb-[calc(0.75rem+3.5rem)] md:pb-3"
+      style={{ borderColor: 'rgb(var(--border-subtle))' }}
+    >
+      <div className="mx-auto max-w-3xl">
+        {messages.length > 0 && (
+          <div className="mb-1.5 flex justify-end">
+            <button
+              type="button"
+              onClick={newSession}
+              className="text-footnote text-tertiary hover:text-primary surface-interactive"
+            >
+              新对话
+            </button>
+          </div>
+        )}
+        <div className="flex items-end gap-2">
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                submit();
+              }
+            }}
+            placeholder="跟搭子说一句话, 立即开干 · Enter 发送 / Shift+Enter 换行"
+            rows={1}
+            maxLength={2000}
+            className="flex-1 resize-none rounded-2xl border bg-[rgb(var(--surface-2))] px-4 py-2.5 text-caption text-primary placeholder:text-tertiary focus:outline-none focus:ring-2 focus:ring-[rgb(var(--brand-300))] max-h-32"
+            style={{ borderColor: 'rgb(var(--border-subtle))' }}
+          />
+          <button
+            type="button"
+            onClick={submit}
+            disabled={!input.trim() || streaming}
+            aria-label="发送"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[rgb(var(--brand-500))] text-white hover:bg-[rgb(var(--brand-600))] disabled:opacity-40 surface-interactive"
+          >
+            <Send className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1011,7 +1580,7 @@ function WelcomeStage({
       </section>
 
       <footer className="text-footnote text-tertiary text-center pt-2">
-        搭子 · 个人工作台 · 1 舞台 + 2 召唤 · 你 ↔ 搭子 ↔ Tandem AI 三层协作
+        搭子 · 个人工作台 · 今日驾驶舱 + 主舞台 + 行动坞 · 你 ↔ 搭子 ↔ Tandem AI 三层协作
       </footer>
     </div>
   );
@@ -1049,6 +1618,7 @@ function CardStage({ card }: { card: CardId }) {
 
       {card === 'decision'  && <DecisionDraftStage />}
       {card === 'dialog'    && <DialogStage />}
+      {card === 'panel'     && <ExpertPanelStage />}
       {(card === 'document' || card === 'portfolio') && (
         <section className="surface-card-soft rounded-2xl p-6 shadow-soft-xs min-h-[200px]">
           <div className="flex items-center gap-2 text-caption text-tertiary mb-3">
@@ -1197,56 +1767,208 @@ function DialogStage() {
   );
 }
 
+// ── /tandem?card=panel · 专家团: 多视角并行起草 + 合稿交付 (C) ────────
+const PANEL_EXPERTS: Array<{ id: string; label: string }> = [
+  { id: 'design', label: '设计' },
+  { id: 'pm', label: 'PM' },
+  { id: 'tech', label: '技术' },
+  { id: 'marketing', label: '营销' },
+  { id: 'strategy', label: '战略' },
+];
+
+interface PanelDraft { mode: string; label: string; ok: boolean; draft: string; error?: string }
+
+function ExpertPanelStage() {
+  const { pushDraft } = useTandemDraft();
+  const [topic, setTopic] = useState('');
+  const [picked, setPicked] = useState<Set<string>>(new Set(['pm', 'tech', 'strategy']));
+  const [drafts, setDrafts] = useState<PanelDraft[] | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  function toggle(id: string) {
+    setPicked((cur) => {
+      const next = new Set(cur);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+  function toggleSelected(mode: string) {
+    setSelected((cur) => {
+      const next = new Set(cur);
+      next.has(mode) ? next.delete(mode) : next.add(mode);
+      return next;
+    });
+  }
+
+  async function run() {
+    const t = topic.trim();
+    if (!t || picked.size === 0 || loading) return;
+    setLoading(true); setErr(null); setDrafts(null); setSelected(new Set());
+    try {
+      const res = await fetch('/api/me/expert-panel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: t, modes: Array.from(picked) }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
+      const ds: PanelDraft[] = data.drafts ?? [];
+      setDrafts(ds);
+      setSelected(new Set(ds.filter((d) => d.ok).map((d) => d.mode)));
+    } catch (e) {
+      setErr((e as Error).message ?? '召唤失败');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function combineDeliver() {
+    if (!drafts) return;
+    const chosen = drafts.filter((d) => d.ok && selected.has(d.mode));
+    if (chosen.length === 0) return;
+    const body = chosen.map((d) => `## ${d.label}视角\n\n${d.draft}`).join('\n\n---\n\n');
+    pushDraft({ title: topic.trim() || '专家团合稿', body });
+  }
+
+  return (
+    <section className="surface-card rounded-2xl p-5 md:p-6 shadow-soft-xs space-y-4">
+      <div className="flex items-center gap-2 text-caption text-tertiary">
+        <Cpu className="h-4 w-4" />
+        <span>受控专家团 · 各分身只起草供你合稿 (不替你拍板/对外)</span>
+      </div>
+
+      <textarea
+        value={topic}
+        onChange={(e) => setTopic(e.target.value)}
+        placeholder="议题 · 例: 北区渠道下季度是否加大投入, 给我多视角草稿"
+        rows={3}
+        maxLength={2000}
+        className="w-full resize-y rounded-md border bg-[rgb(var(--surface-2))] px-3 py-2 text-body text-primary placeholder:text-tertiary focus:outline-none focus:ring-2 focus:ring-[rgb(var(--brand-300))]"
+        style={{ borderColor: 'rgb(var(--border-subtle))' }}
+      />
+
+      <div className="flex flex-wrap gap-1.5">
+        {PANEL_EXPERTS.map((e) => {
+          const on = picked.has(e.id);
+          return (
+            <button
+              key={e.id}
+              type="button"
+              onClick={() => toggle(e.id)}
+              className={cn(
+                'inline-flex items-center gap-1 rounded-full border px-3 py-1 text-footnote surface-interactive',
+                on
+                  ? 'border-[rgb(var(--brand-500))] bg-[rgb(var(--brand-50))] text-[rgb(var(--brand-700))]'
+                  : 'text-secondary hover:bg-[rgb(var(--surface-3))]',
+              )}
+              style={!on ? { borderColor: 'rgb(var(--border-subtle))' } : undefined}
+            >
+              {e.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <button
+        type="button"
+        onClick={run}
+        disabled={!topic.trim() || picked.size === 0 || loading}
+        className="inline-flex items-center gap-1.5 rounded-full bg-[rgb(var(--brand-500))] px-4 py-2 text-caption font-medium text-white hover:bg-[rgb(var(--brand-600))] disabled:opacity-40 surface-interactive"
+      >
+        <Cpu className="h-3.5 w-3.5" />
+        {loading ? `${picked.size} 个分身并行起草中…` : `并行起草 (${picked.size} 个视角)`}
+      </button>
+      {err && <p className="text-footnote text-[rgb(var(--semantic-danger))]">{err}</p>}
+
+      {drafts && (
+        <div className="space-y-3 pt-1">
+          {drafts.map((d) => (
+            <div key={d.mode} className="surface-card-soft rounded-2xl p-4 shadow-soft-xs">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  {d.ok && (
+                    <input
+                      type="checkbox"
+                      checked={selected.has(d.mode)}
+                      onChange={() => toggleSelected(d.mode)}
+                      aria-label={`合稿选择 ${d.label}`}
+                    />
+                  )}
+                  <span className="text-headline text-primary">{d.label}视角</span>
+                </div>
+                {d.ok ? (
+                  <button
+                    type="button"
+                    onClick={() => pushDraft({ title: `${topic.trim()} · ${d.label}`, body: d.draft })}
+                    className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-footnote text-secondary hover:bg-[rgb(var(--surface-2))] surface-interactive"
+                    style={{ borderColor: 'rgb(var(--border-subtle))' }}
+                  >
+                    <Send className="h-3 w-3 text-[rgb(var(--brand-500))]" /> 单独交付
+                  </button>
+                ) : (
+                  <span className="text-footnote text-[rgb(var(--semantic-danger))]">起草失败</span>
+                )}
+              </div>
+              {d.ok ? (
+                <div className="text-caption text-secondary whitespace-pre-wrap leading-relaxed">{d.draft}</div>
+              ) : (
+                <p className="text-footnote text-tertiary">{d.error}</p>
+              )}
+            </div>
+          ))}
+
+          {drafts.some((d) => d.ok) && (
+            <button
+              type="button"
+              onClick={combineDeliver}
+              disabled={selected.size === 0}
+              className="w-full inline-flex items-center justify-center gap-1.5 rounded-full bg-[rgb(var(--brand-500))] px-4 py-2 text-caption font-medium text-white hover:bg-[rgb(var(--brand-600))] disabled:opacity-40 surface-interactive"
+            >
+              <Send className="h-3.5 w-3.5" />
+              合稿交付 ({selected.size} 份 → 交付坞)
+            </button>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
 // ════════════════════════════════════════════════════════════════
 // 移动端: 底部召唤条 (固定, 56px) + 全屏 sheet
 // ════════════════════════════════════════════════════════════════
+type MobileSheetId = 'cockpit' | DockTabId;
+
 function MobileSummonBar({
-  leftActive,
-  rightActive,
-  onPickLeft,
-  onPickRight,
+  active,
+  onPick,
 }: {
-  leftActive:  LeftTabId  | null;
-  rightActive: RightTabId | null;
-  onPickLeft:  (id: LeftTabId)  => void;
-  onPickRight: (id: RightTabId) => void;
+  active: MobileSheetId | null;
+  onPick: (id: MobileSheetId) => void;
 }) {
+  const items: Array<{ id: MobileSheetId; label: string; icon: React.ComponentType<{ className?: string }> }> = [
+    { id: 'cockpit', label: '待办', icon: Inbox },
+    ...DOCK_TABS.map((t) => ({ id: t.id as MobileSheetId, label: t.label, icon: t.icon })),
+  ];
   return (
     <nav
       aria-label="移动端召唤栏"
       className="fixed inset-x-0 bottom-0 z-40 flex md:hidden h-14 items-center justify-around border-t surface-1"
       style={{ borderColor: 'rgb(var(--border-subtle))' }}
     >
-      {LEFT_TABS.slice(0, 3).map((t) => {
+      {items.map((t) => {
         const Icon = t.icon;
-        const active = leftActive === t.id;
+        const isActive = active === t.id;
         return (
           <button
             key={t.id}
             type="button"
-            onClick={() => onPickLeft(t.id)}
+            onClick={() => onPick(t.id)}
             className={cn(
               'flex flex-col items-center gap-0.5 px-2 py-1 surface-interactive',
-              active ? 'text-[rgb(var(--brand-600))]' : 'text-tertiary',
-            )}
-          >
-            <Icon className="h-4 w-4" />
-            <span className="text-[10px]">{t.label}</span>
-          </button>
-        );
-      })}
-      <div className="w-px h-6 bg-[rgb(var(--border-subtle))]" aria-hidden />
-      {RIGHT_TABS.map((t) => {
-        const Icon = t.icon;
-        const active = rightActive === t.id;
-        return (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => onPickRight(t.id)}
-            className={cn(
-              'flex flex-col items-center gap-0.5 px-2 py-1 surface-interactive',
-              active ? 'text-[rgb(var(--brand-600))]' : 'text-tertiary',
+              isActive ? 'text-[rgb(var(--brand-600))]' : 'text-tertiary',
             )}
           >
             <Icon className="h-4 w-4" />
@@ -1258,17 +1980,20 @@ function MobileSummonBar({
   );
 }
 
-function MobileSummonSheet({
-  tab,
-  side,
+function MobileSheet({
+  which,
   onClose,
 }: {
-  tab: SummonTab | null;
-  side: 'left' | 'right';
+  which: MobileSheetId | null;
   onClose: () => void;
 }) {
-  if (!tab) return null;
-  const Icon = tab.icon;
+  if (!which) return null;
+  const isCockpit = which === 'cockpit';
+  const tab = isCockpit ? null : DOCK_TABS.find((t) => t.id === which) ?? null;
+  if (!isCockpit && !tab) return null;
+  const Icon = isCockpit ? Inbox : tab!.icon;
+  const label = isCockpit ? '今日驾驶舱' : tab!.label;
+  const hint = isCockpit ? '今日待办 · 搭子推荐' : tab!.hint;
   return (
     <>
       <div
@@ -1278,14 +2003,14 @@ function MobileSummonSheet({
       />
       <aside
         role="dialog"
-        aria-label={`${tab.label} 召唤面板`}
+        aria-label={`${label} 面板`}
         className="fixed inset-x-0 bottom-14 z-50 md:hidden max-h-[70vh] overflow-y-auto rounded-t-2xl surface-1 shadow-soft-xl"
       >
         <header className="flex items-center justify-between border-b px-4 py-3"
                 style={{ borderColor: 'rgb(var(--border-subtle))' }}>
           <div className="flex items-center gap-2">
             <Icon className="h-4 w-4 text-[rgb(var(--brand-500))]" />
-            <h2 className="text-headline text-primary">{tab.label}</h2>
+            <h2 className="text-headline text-primary">{label}</h2>
           </div>
           <button
             type="button"
@@ -1297,8 +2022,21 @@ function MobileSummonSheet({
           </button>
         </header>
         <div className="p-4">
-          <p className="text-caption text-tertiary mb-3">{tab.hint}</p>
-          <SummonPanelContent id={tab.id} side={side} />
+          <p className="text-caption text-tertiary mb-3">{hint}</p>
+          {isCockpit ? (
+            <div className="space-y-5">
+              <section>
+                <p className="text-footnote text-tertiary uppercase tracking-wider mb-2">今日待办</p>
+                <InboxCard />
+              </section>
+              <section>
+                <p className="text-footnote text-tertiary uppercase tracking-wider mb-2">搭子推荐</p>
+                <RecommendCard />
+              </section>
+            </div>
+          ) : (
+            <SummonPanelContent id={which} side="right" />
+          )}
         </div>
       </aside>
     </>

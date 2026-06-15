@@ -202,10 +202,79 @@ describe('搭子写动作 · persona.propose_action (泛化桥)', () => {
   });
 });
 
+describe('搭子写动作 · 起草类代行 (A 执行肢体扩面)', () => {
+  it('persona.draft_report → 落 decision_draft drafted ProxyAction (24h, 待确认)', async () => {
+    await seedPersona('u_rep', 'commit_short');
+
+    const r = await skillRegistry.execute(
+      'persona.draft_report',
+      { title: '第 24 周周报', body: '## 进展\n- 完成 X\n## 风险\n- Y', period: '2026-W24' },
+      ctx('u_rep'),
+    );
+
+    expect(r.ok).toBe(true);
+    const data = r.data as { status: string; zone: string; proxyActionId?: string; draftType?: string };
+    expect(data.status).toBe('drafted');
+    expect(data.zone).toBe('yellow');
+    expect(data.draftType).toBe('report');
+
+    const pas = await getStore().proxyActions.list();
+    expect(pas).toHaveLength(1);
+    expect(pas[0].kind).toBe('decision_draft');
+    expect(pas[0].status).toBe('drafted');
+    expect(pas[0].refType).toBe('draft:report');
+    expect(pas[0].vetoUntil).toBeTruthy();
+    expect((pas[0].metadata as { period?: string })?.period).toBe('2026-W24');
+  });
+
+  it('persona.draft_action_items → 把 items 拼成编号正文', async () => {
+    await seedPersona('u_ai', 'soft_opinion'); // 起草不经委托级别门槛 (非 commit 动作)
+
+    const r = await skillRegistry.execute(
+      'persona.draft_action_items',
+      { title: '复盘 · 行动项', items: ['张三跟进客户A', '李四补数据'] },
+      ctx('u_ai'),
+    );
+
+    expect(r.ok).toBe(true);
+    expect((r.data as { status: string }).status).toBe('drafted');
+    const pas = await getStore().proxyActions.list();
+    expect(pas[0].body).toContain('1. 张三跟进客户A');
+    expect(pas[0].body).toContain('2. 李四补数据');
+    expect(pas[0].refType).toBe('draft:action_items');
+  });
+
+  it('空 items → 拒, 不落 ProxyAction', async () => {
+    await seedPersona('u_ai2', 'commit_short');
+    const r = await skillRegistry.execute(
+      'persona.draft_action_items',
+      { title: 'x', items: [] },
+      ctx('u_ai2'),
+    );
+    expect(r.ok).toBe(false);
+    expect(await getStore().proxyActions.list()).toHaveLength(0);
+  });
+
+  it('起草无本人分身 → 拒', async () => {
+    const r = await skillRegistry.execute(
+      'persona.draft_report',
+      { title: 't', body: 'b' },
+      ctx('u_nopersona2'),
+    );
+    expect(r.ok).toBe(false);
+    expect(r.error).toContain('未找到本人分身');
+  });
+});
+
 describe('搭子写动作 · shouldAct 意图门控', () => {
   it('明确"更新进度"意图 → 触发', () => {
     expect(shouldAct('帮我把销售额这个KR的进度更新到80%').trigger).toBe(true);
     expect(shouldAct('把那个指标标记成 at-risk').trigger).toBe(true);
+  });
+
+  it('起草类意图 → 触发 (draft_intent)', () => {
+    expect(shouldAct('帮我起草本周周报').reason).toBe('draft_intent');
+    expect(shouldAct('把这次讨论整理成行动项').reason).toBe('draft_intent');
   });
 
   it('提问/闲聊/无 OKR 对象 → 不触发', () => {

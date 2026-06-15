@@ -96,6 +96,10 @@ export type AuditAction =
   | 'governance.project_updated'          // 项目元信息变更 / 状态切换
   | 'governance.project_deleted'          // 项目删除 (非 default)
   | 'governance.template_saved'           // 三省六部结构保存
+  // 通用审批单 (采购/请假等)
+  | 'approval.created'                     // 提交审批单
+  | 'approval.approved'                    // 审批人/admin 通过
+  | 'approval.rejected'                    // 审批人/admin 驳回
   // 系统
   | 'system.provider_health_failed'
   | 'system.provider_switch'

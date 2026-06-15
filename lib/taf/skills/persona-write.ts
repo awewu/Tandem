@@ -197,9 +197,134 @@ export const PersonaProposeActionSkill: Skill<
   },
 };
 
+// ---------------------------------------------------------------------------
+// 起草类写动作 · 搭子代笔产出 (周报 / 行动项), 落成待本人确认的代行 (24h)
+//   与 OKR check-in 提议的区别: 不经 ontology proposeAction (无对应 ActionType),
+//   而是直接落 ProxyAction(kind='decision_draft', status='drafted') —— 内容草稿,
+//   不自动对外、不自动写业务库; 本人确认=保留(executed) / 否决=丢弃 / 24h 未理=过期.
+//   仍受治理: createProxyAction 红区硬拒 + OKR drift 检测 + 进代行台账可审计.
+// ---------------------------------------------------------------------------
+
+async function routeDraft(
+  opts: { title: string; body: string; draftType: string; metadata?: Record<string, unknown> },
+  ctx: SkillContext,
+): Promise<SkillResult> {
+  if (!opts.title?.trim() || !opts.body?.trim()) {
+    return { ok: false, error: '草稿标题与正文均不能为空', tokensUsed: 30 };
+  }
+  const persona = await findProposerPersona(ctx.userId);
+  if (!persona) {
+    return { ok: false, error: '未找到本人分身, 无法起草代行草稿 (须先有 Persona)', tokensUsed: 50 };
+  }
+  try {
+    const { createProxyAction } = await import('../../persona/proxy-actions');
+    const action = await createProxyAction({
+      userId: ctx.userId,
+      personaId: persona.id,
+      tenantId: ctx.tenantId,
+      kind: 'decision_draft',
+      zone: 'yellow', // 内部草稿低风险; 红区由 createProxyAction 硬拒兜底
+      title: opts.title.trim(),
+      body: opts.body.trim(),
+      refType: `draft:${opts.draftType}`,
+      initialStatus: 'drafted', // 待本人确认; 24h 未理则过期 (不自动落定)
+      metadata: { draftType: opts.draftType, source: 'persona_act', ...opts.metadata },
+    });
+    return {
+      ok: true,
+      data: { status: 'drafted', zone: 'yellow', proxyActionId: action.id, draftType: opts.draftType },
+      tokensUsed: 120,
+    };
+  } catch (e) {
+    return { ok: false, error: `起草失败: ${(e as Error).message}`, tokensUsed: 60 };
+  }
+}
+
+export const PersonaDraftReportSkill: Skill<
+  { title: string; body: string; period?: string },
+  unknown
+> = {
+  id: 'persona.draft_report',
+  description:
+    '替员工起草一份周报/日报/汇报草稿, 落成待本人确认的代行 (24h), 不立即对外发送. 用于员工说"帮我起草本周周报"等.',
+  tags: ['周报', '日报', '汇报', '报告', '起草', '草稿', '代行', '写'],
+  zone: 'yellow',
+  proxyAllowed: true,
+  estimatedTokens: 250,
+  schema: {
+    type: 'function',
+    function: {
+      name: 'persona_draft_report',
+      description:
+        '起草一份周报/日报/汇报草稿 (markdown). 落成待本人确认的代行, 不立即对外发送, 员工可在工作台确认或否决.',
+      parameters: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', description: '草稿标题, 如 "第 24 周周报"' },
+          body: { type: 'string', description: '完整草稿正文 (markdown, 含进展/风险/下步)' },
+          period: { type: 'string', description: '周期标识, 如 "2026-W24" (可选)' },
+        },
+        required: ['title', 'body'],
+      },
+    },
+  },
+  async execute({ title, body, period }, ctx) {
+    return routeDraft({ title, body, draftType: 'report', metadata: period ? { period } : undefined }, ctx);
+  },
+};
+
+export const PersonaDraftActionItemsSkill: Skill<
+  { title: string; items: string[]; context?: string },
+  unknown
+> = {
+  id: 'persona.draft_action_items',
+  description:
+    '替员工把一段讨论/会议/对话整理成行动项清单草稿, 落成待本人确认的代行 (24h). 用于员工说"帮我把这次讨论拟成待办"等.',
+  tags: ['行动项', 'action item', '待办', '任务清单', '整理', '起草', '代行', '写'],
+  zone: 'yellow',
+  proxyAllowed: true,
+  estimatedTokens: 250,
+  schema: {
+    type: 'function',
+    function: {
+      name: 'persona_draft_action_items',
+      description:
+        '把讨论整理成行动项清单草稿. items 为逐条行动项 (建议含负责人/期限). 落成待本人确认的代行, 不立即派发.',
+      parameters: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', description: '清单标题, 如 "渠道复盘会 · 行动项"' },
+          items: {
+            type: 'array',
+            items: { type: 'string' },
+            description: '逐条行动项 (一条一项, 建议含负责人/期限)',
+          },
+          context: { type: 'string', description: '来源背景 (可选, 给本人看)' },
+        },
+        required: ['title', 'items'],
+      },
+    },
+  },
+  async execute({ title, items, context }, ctx) {
+    const list = Array.isArray(items) ? items.filter((s) => typeof s === 'string' && s.trim()) : [];
+    if (list.length === 0) {
+      return { ok: false, error: 'items 至少需要一条行动项', tokensUsed: 30 };
+    }
+    const body = list.map((it, i) => `${i + 1}. ${it.trim()}`).join('\n');
+    return routeDraft({ title, body, draftType: 'action_items', metadata: context ? { context } : undefined }, ctx);
+  },
+};
+
+/** 起草类写动作白名单 (内容草稿, 不经 ontology)。 */
+export const PERSONA_DRAFT_SKILL_IDS = [
+  PersonaDraftReportSkill.id,
+  PersonaDraftActionItemsSkill.id,
+] as const;
+
 /** 搭子写动作工具白名单 (供 personaActPass 的 tool-loop 使用)。 */
 export const PERSONA_WRITE_SKILL_IDS = [
   OkrCheckinProposeSkill.id,
   OkrObjectiveCheckinProposeSkill.id,
   PersonaProposeActionSkill.id,
+  ...PERSONA_DRAFT_SKILL_IDS,
 ] as const;

@@ -37,6 +37,15 @@ export function shouldAct(query: string): { trigger: boolean; reason: string } {
   if (actionVerb.test(q) && okrObject.test(q)) {
     return { trigger: true, reason: 'okr_write_intent' };
   }
+
+  // 起草类意图 (A 执行肢体扩面): "帮我起草周报" / "把这次讨论拟成行动项" 等
+  const draftVerb = /(起草|帮我写|帮我?草拟|草拟|拟一?[份个]?|整理成|总结成|draft)/i;
+  const draftObject =
+    /(周报|日报|月报|汇报|报告|行动项|action\s*item|待办事项|任务清单|to-?do)/i;
+  if (draftVerb.test(q) && draftObject.test(q)) {
+    return { trigger: true, reason: 'draft_intent' };
+  }
+
   return { trigger: false, reason: 'no_action_intent' };
 }
 
@@ -68,15 +77,19 @@ export interface PersonaActResult {
 }
 
 const ACT_SYSTEM = [
-  '你是某员工 AI 分身的「行动肢体」。当且仅当该员工明确要求"更新/登记自己某个 OKR (关键结果 KR 或目标 Objective) 的进度或信心度"时, 你才行动。',
-  '步骤:',
+  '你是某员工 AI 分身的「行动肢体」。当且仅当该员工明确要求"更新自己 OKR 进度/信心度"或"起草周报/汇报/行动项"时, 你才行动。',
+  'OKR 写动作 (更新进度/信心度):',
   '1. 先用 okr_read 找到该员工对应的 KR / 目标及其 id (必要时按 ownerId=该员工 查)。',
   '2. 找到唯一明确的目标后, 调对应提议工具:',
   '   - 更新 KR 进度/信心度 → okr_checkin_propose (传 krId + currentValue 或 confidence + 简短 reason)。',
   '   - 更新目标 (Objective) 信心度 → okr_objective_checkin_propose (传 objectiveId + confidence + reason)。',
-  '3. 这只是"提议": 系统会落成待本人确认的代行 (24h 否决窗), 不会立即生效。不要声称已完成。',
-  '规则:',
-  '- 目标对象不唯一/不明确, 或员工只是提问而非要求更新 → 不调用任何写工具, 直接简短说明需要澄清。',
+  '起草类写动作 (代笔产出):',
+  '   - 起草周报/日报/汇报 → persona_draft_report (传 title + 完整 markdown body)。',
+  '   - 把讨论整理成行动项清单 → persona_draft_action_items (传 title + items 数组)。',
+  '   起草前可用 okr_read 等只读工具取真实进展数据, 让草稿有据可依。',
+  '通则:',
+  '- 这只是"提议/草稿": 系统会落成待本人确认的代行 (24h 否决窗), 不会立即生效或对外。不要声称已完成或已发送。',
+  '- 目标对象不唯一/不明确, 或员工只是提问而非要求行动 → 不调用任何写工具, 直接简短说明需要澄清。',
   '- 永远不要替员工做承诺、对外发送、或碰薪资/裁员/法律/资金等红区事项。',
 ].join('\n');
 

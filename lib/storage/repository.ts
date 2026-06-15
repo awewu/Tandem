@@ -190,6 +190,12 @@ export interface TandemStore {
   governanceTemplates: Repository<import('../types/governance').GovernanceTemplate>;
   /** 三省六部模板版本快照 (id = `{projectId}:{version}`) */
   governanceTemplateVersions: Repository<import('../types/governance').GovernanceTemplateVersion>;
+
+  /** 通用审批单 (采购/请假等, KvStore-based) */
+  approvals: Repository<import('../types/approval').Approval>;
+
+  /** 会议室预订 (KvStore-based) */
+  meetingBookings: Repository<import('../types/meeting-booking').MeetingBooking>;
 }
 
 // ---------------------------------------------------------------------------
