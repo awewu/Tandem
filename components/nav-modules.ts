@@ -156,9 +156,7 @@ export const NAV_MODULES: NavModule[] = [
     visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
     pathPrefixes: ['/im'],
     items: [
-      { name: '新建群聊', href: '/im?new=1',   icon: Plus,     accent: 'cta', group: '发起' },
-      { name: '找人私聊', href: '/im?dm=new',  icon: UserPlus, accent: 'cta', group: '发起' },
-      { name: 'IM 协同',  href: '/im',          icon: MessagesSquare,          group: '协同' },
+      { name: '消息', href: '/im', icon: MessagesSquare, group: '协同' },
     ],
   },
 

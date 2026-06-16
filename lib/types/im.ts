@@ -155,6 +155,12 @@ export interface ImMembership {
   unreadCount: number;
   /** 是否静音 (不接收推送, 但仍计未读) */
   muted: boolean;
+  /** 置顶聊天 (排序在列表顶部) */
+  pinnedChat?: boolean;
+  /** 标记会话 (归入"标记"分组) */
+  markedChat?: boolean;
+  /** 有未读 @我 / assign / consult mention (发消息时置 true, markRead 时清) */
+  hasUnreadMention?: boolean;
   /**
    * §T15 Agent 模式 (本频道内由分身代答):
    *   - 'manual'        默认, 真人回复, @persona 才触发分身

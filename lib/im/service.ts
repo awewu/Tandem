@@ -145,13 +145,15 @@ export async function listMyChannels(userId: string, tenantId?: string): Promise
     if (tenantId && (ch.tenantId ?? 'default') !== tenantId) continue;
     result.push({ ...ch, unread: m.unreadCount, membership: m });
   }
-  // 按最后消息时间倒序
-  result.sort(
-    (a, b) =>
-      (b.lastMessageAt ?? b.createdAt).localeCompare(
-        a.lastMessageAt ?? a.createdAt
-      )
-  );
+  // pinnedChat 置顶, 其次按最后消息时间倒序
+  result.sort((a, b) => {
+    const pa = a.membership.pinnedChat ? 1 : 0;
+    const pb = b.membership.pinnedChat ? 1 : 0;
+    if (pb !== pa) return pb - pa;
+    return (b.lastMessageAt ?? b.createdAt).localeCompare(
+      a.lastMessageAt ?? a.createdAt
+    );
+  });
   return result;
 }
 
@@ -223,13 +225,20 @@ export async function sendMessage(input: SendMessageInput): Promise<ImMessage> {
     updatedAt: now,
   });
 
-  // 增量未读: 除发送者外所有 member +1
+  // 增量未读: 除发送者外所有 member +1; 被 mention 的用户额外标记 hasUnreadMention
+  const mentionedUserIds = new Set(
+    mentions
+      .filter((mn) => mn.kind !== 'persona')
+      .map((mn) => mn.userId)
+  );
   for (const uid of channel.memberIds) {
     if (uid === input.senderId && senderKind === 'user') continue;
     const m = await store.imMemberships.get(membershipKey(channel.id, uid));
     if (!m) continue;
     const unread = m.unreadCount + 1;
-    await store.imMemberships.update(m.id, { unreadCount: unread });
+    const patch: Partial<typeof m> = { unreadCount: unread };
+    if (mentionedUserIds.has(uid)) patch.hasUnreadMention = true;
+    await store.imMemberships.update(m.id, patch);
     broadcast({
       type: 'unread_changed',
       channelId: channel.id,
@@ -305,6 +314,7 @@ export async function markChannelRead(
   await store.imMemberships.update(m.id, {
     unreadCount: 0,
     lastReadAt: new Date().toISOString(),
+    hasUnreadMention: false,
   });
   broadcast({ type: 'unread_changed', channelId, userId, unread: 0 });
 }
@@ -413,6 +423,40 @@ export async function removeChannelMember(
   return next;
 }
 
+/** 转让群主 (仅当前 owner 可操作) */
+export async function transferOwner(
+  channelId: string,
+  newOwnerId: string,
+  operatorId: string,
+): Promise<void> {
+  const store = getStore();
+  const op = await store.imMemberships.get(membershipKey(channelId, operatorId));
+  if (!op || op.role !== 'owner') throw new Error('only owner can transfer ownership');
+  const target = await store.imMemberships.get(membershipKey(channelId, newOwnerId));
+  if (!target) throw new Error('new owner is not in channel');
+  const now = new Date().toISOString();
+  await store.imMemberships.update(op.id, { role: 'admin' });
+  await store.imMemberships.update(target.id, { role: 'owner' });
+  const channel = await store.imChannels.get(channelId);
+  if (channel) broadcast({ type: 'channel_updated', channelId, channel: { ...channel, updatedAt: now } });
+}
+
+/** 解散群 (仅 owner, 非 dm/announcement 频道) */
+export async function dissolveChannel(
+  channelId: string,
+  operatorId: string,
+): Promise<void> {
+  const store = getStore();
+  const channel = await store.imChannels.get(channelId);
+  if (!channel) throw new Error('channel not found');
+  if (channel.type === 'dm') throw new Error('cannot dissolve a DM channel');
+  const op = await store.imMemberships.get(membershipKey(channelId, operatorId));
+  if (!op || op.role !== 'owner') throw new Error('only owner can dissolve channel');
+  const now = new Date().toISOString();
+  await store.imChannels.update(channelId, { archivedAt: now, updatedAt: now });
+  broadcast({ type: 'channel_updated', channelId, channel: { ...channel, archivedAt: now, updatedAt: now } });
+}
+
 /** 设置成员角色 (仅 owner) */
 export async function setMemberRole(
   channelId: string,
@@ -426,6 +470,20 @@ export async function setMemberRole(
   const target = await store.imMemberships.get(membershipKey(channelId, userId));
   if (!target) throw new Error('member not found');
   const updated = await store.imMemberships.update(target.id, { role });
+  if (!updated) throw new Error('update failed');
+  return updated;
+}
+
+/** 更新成员个人设置 (muted / pinnedChat / markedChat, 自己才能改自己) */
+export async function updateMemberSettings(
+  channelId: string,
+  userId: string,
+  patch: { muted?: boolean; pinnedChat?: boolean; markedChat?: boolean },
+): Promise<ImMembership> {
+  const store = getStore();
+  const target = await store.imMemberships.get(membershipKey(channelId, userId));
+  if (!target) throw new Error('membership not found');
+  const updated = await store.imMemberships.update(target.id, patch);
   if (!updated) throw new Error('update failed');
   return updated;
 }

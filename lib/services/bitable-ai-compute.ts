@@ -123,6 +123,7 @@ async function computeOneCell(
   const prompt = renderPrompt(col.aiPrompt ?? '', table.columns, rowData);
   const scenario = col.aiModel === 'standard' ? 'reasoning_complex' : 'high_frequency';
   try {
+    // eslint-disable-next-line no-restricted-syntax -- governed-chat-exempt: bitable-ai-compute 是多维表格 AI 计算列，输入为系统拼装 prompt，无 persona baseline 概念；待接入需引入 ownerUserId 作 actorUserId
     const res = await router.chat({
       messages: [
         {

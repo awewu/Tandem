@@ -202,6 +202,12 @@ export interface TandemStore {
 
   /** 会议室预订 (KvStore-based) */
   meetingBookings: Repository<import('../types/meeting-booking').MeetingBooking>;
+
+  /** AI 配置 (Admin UI 可热更新, 优先级高于 env) */
+  aiSettings: Repository<import('../types/ai-settings').AiSettings>;
+
+  /** Web Push 订阅记录 */
+  pushSubscriptions: Repository<import('../infra/web-push').PushSubscriptionRecord>;
 }
 
 // ---------------------------------------------------------------------------

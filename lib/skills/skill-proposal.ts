@@ -151,6 +151,7 @@ async function llmDraftBody(pattern: SkillProposalPattern): Promise<string | nul
       `- 类比上下文: ${pattern.affectedContext}\n\n` +
       `请输出 SKILL.md body.`;
 
+    // eslint-disable-next-line no-restricted-syntax -- governed-chat-exempt: skill-proposal 是 S4 反思引擎产物，系统内部生成 SKILL.md，无用户 session
     const reply = await router.chat({
       messages: [
         { role: 'system', content: system },
@@ -277,7 +278,7 @@ export async function reviewSkillProposal(
     const store = getStore();
     const existing = await store.skillProposals.get(proposalId);
     if (!existing) return null;
-    const updated: SkillProposal = {
+    let updated: SkillProposal = {
       ...existing,
       status: approve ? 'approved' : 'rejected',
       reviewedBy: reviewerId,
@@ -285,6 +286,34 @@ export async function reviewSkillProposal(
       reviewReason: reason,
     };
     await store.skillProposals.update(proposalId, updated);
+
+    // approve → 写 SKILL.md + reload registry
+    if (approve) {
+      try {
+        const { promises: fs } = await import('node:fs');
+        const path = await import('node:path');
+        const { loadSkills } = await import('./registry');
+        const skillDir = path.join(process.cwd(), 'skills', existing.pattern.proposedId);
+        await fs.mkdir(skillDir, { recursive: true });
+        const fm = existing.draft.frontmatter;
+        const allowedRoles = fm.allowedRoles?.length
+          ? `\nallowedRoles: ${JSON.stringify(fm.allowedRoles)}`
+          : '';
+        const permissions = fm.permissions?.length
+          ? `\npermissions: ${JSON.stringify(fm.permissions)}`
+          : '';
+        const skillMd = `---\nname: "${fm.name}"\ndescription: "${fm.description.replace(/"/g, "'")}"${allowedRoles}${permissions}\n---\n\n${existing.draft.body}`;
+        const skillMdPath = path.join(skillDir, 'SKILL.md');
+        await fs.writeFile(skillMdPath, skillMd, 'utf8');
+        await loadSkills();
+        const publishedUpdate: SkillProposal = { ...updated, status: 'published', publishedPath: skillMdPath, publishedAt: new Date().toISOString() };
+        await store.skillProposals.update(proposalId, publishedUpdate);
+        updated = publishedUpdate;
+        logger.info({ proposalId, skillDir }, '[skill-proposal] published SKILL.md + registry reloaded');
+      } catch (writeErr) {
+        logger.warn({ err: (writeErr as Error).message, proposalId }, '[skill-proposal] write SKILL.md failed');
+      }
+    }
 
     try {
       await audit('skill.executed', reviewerId, {

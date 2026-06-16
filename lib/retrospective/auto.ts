@@ -106,6 +106,7 @@ export async function generateRetrospective(cardId: string): Promise<Retrospecti
       ? `${baselineContext}\n\n---\n\n${systemBase}\n- 必须遵守上方的组织记忆基线`
       : systemBase;
     try {
+      // eslint-disable-next-line no-restricted-syntax -- governed-chat-exempt: retrospective/auto 是定时自动复盘，无用户 session；待接入 governedChat agentKind='retrospective'
       const res = await router.chat({
         scenario: 'long_context',
         temperature: 0.4,

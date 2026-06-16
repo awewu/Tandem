@@ -9,7 +9,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { getStore } from '@/lib/storage/repository';
-import { updateChannelMeta } from '@/lib/im/service';
+import { updateChannelMeta, dissolveChannel, transferOwner } from '@/lib/im/service';
 import { requireAuth } from '@/lib/auth/require-auth';
 
 export async function GET(
@@ -47,5 +47,41 @@ export async function PATCH(
       { error: (err as Error).message },
       { status: 400 }
     );
+  }
+}
+
+/** DELETE /api/im/channels/:id   解散群 (owner only) */
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  await boot();
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
+  try {
+    const { id } = await params;
+    await dissolveChannel(id, auth.userId);
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    return NextResponse.json({ error: (err as Error).message }, { status: 400 });
+  }
+}
+
+/** PUT /api/im/channels/:id   { newOwnerId } 转让群主 (owner only) */
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  await boot();
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
+  try {
+    const { id } = await params;
+    const body = await req.json();
+    if (!body.newOwnerId) return NextResponse.json({ error: 'newOwnerId required' }, { status: 400 });
+    await transferOwner(id, body.newOwnerId, auth.userId);
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    return NextResponse.json({ error: (err as Error).message }, { status: 400 });
   }
 }

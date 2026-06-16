@@ -181,7 +181,7 @@ function FeedbackBtn({ icon, label, active, muted, loading, onClick, color }: Bt
       type="button"
       onClick={onClick}
       disabled={loading || muted}
-      className={`flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold shadow-soft ring-1 transition hover:shadow-soft-lg disabled:cursor-not-allowed ${
+      className={`flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold shadow-soft ring-1 transition hover:shadow-soft-lg disabled:cursor-not-allowed ${
         muted ? 'opacity-30' : ''
       } ${colorClass}`}
     >

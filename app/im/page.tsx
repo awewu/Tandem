@@ -1,21 +1,16 @@
 'use client';
 
 /**
- * /im · Tandem 内置 IM 页面
+ * /im · Tandem 内置 IM — 对标企业微信"消息"板块
  *
- * 三栏布局: 频道列表 (左) + 消息流 (中) + 频道详情 (右, 折叠)
- * 差异化按钮: 每条消息 hover 出现 [开议事室] [转 Memory(WIP)]
- * @ 触发: @[name](userId:persona) 形式可召唤对方 AI 分身
+ * 两栏布局: 会话列表 (左 280px) + 消息流 (右)
+ * 差异化: hover 消息 → 开议事室 / 沉淀 Memory / @AI分身 / 已读回执
  */
 
 import { Suspense, useCallback, useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { CreateChannelDialog } from '@/components/im/create-channel-dialog';
-import { OkrCheckinDialog } from '@/components/okr/okr-checkin-dialog';
-import { useHandoffPrefill } from '@/hooks/useHandoffPrefill';
-import { ContactsTree } from '@/components/im/contacts-tree';
-import { ChannelSettingsDialog } from '@/components/im/channel-settings-dialog';
-import { SeedFromOrgDialog } from '@/components/im/seed-from-org-dialog';
+import { ChannelDetailPanel } from '@/components/im/channel-detail-panel';
 import { AgentModeToggle } from '@/components/im/agent-mode-toggle';
 import { AiTraceButton } from '@/components/im/ai-trace-button';
 import { CompanyBrainFeedbackButtons } from '@/components/im/company-brain-feedback';
@@ -29,34 +24,7 @@ import { MessageReactions } from '@/components/im/message-reactions';
 import type { ImChannel, ImMembership, ImMessage } from '@/lib/types/im';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import Link from 'next/link';
-import { useOKRStore } from '@/lib/store/okr';
-import { hydrateOkrFromApi } from '@/lib/store/okr-sync';
-import { useToast } from '@/hooks/use-toast';
-import { Progress } from '@/components/ui/progress';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Target,
-  TrendingUp,
-  AlertTriangle,
-  CheckCircle2,
-  AlertCircle,
-  MessageSquare,
-} from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { useHandoffPrefill } from '@/hooks/useHandoffPrefill';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -72,9 +40,15 @@ import {
   Plus,
   Brain,
   Info,
-  X,
+  Search,
   Pin,
   Trash2,
+  Settings,
+  Smile,
+  Image,
+  Paperclip,
+  AtSign,
+  X,
 } from 'lucide-react';
 
 // Day 4-7: 升级 Channel/Message 类型 以含撤回 + 公告 + pinned
@@ -122,86 +96,50 @@ export default function ImPage() {
 function ImInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [channels, setChannels] = useState<Channel[]>([]);
-  const [activeId, setActiveId] = useState<string | null>(null);
-  /** §mobile: < md 单栏切换 — true=显示频道列表, false=显示消息流. md+ 忽略. */
-  const [mobileShowList, setMobileShowList] = useState(true);
+  const activeId = searchParams?.get('ch') ?? null;
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [busy, setBusy] = useState(false);
-  /** Q2 (2026-05-10) 建群对话框 状态 */
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
-  /** Q2 Day 2: 左栏 tab 切换 [频道|通讯录] */
-  const [leftTab, setLeftTab] = useState<'channels' | 'contacts'>('channels');
-
-  /**
-   * Deep-link query support (used by SubSidebar quick actions + Command Palette):
-   *   /im?new=1   → 自动弹出"新建群聊"对话框
-   *   /im?dm=new  → 切换到"通讯录" tab, 用户可直接选人发起 DM
-   * 命中后清掉 URL 参数避免刷新再次触发.
-   */
-  useEffect(() => {
-    if (!searchParams) return;
-    const isNew = searchParams.get('new') === '1';
-    const isDmNew = searchParams.get('dm') === 'new';
-    if (isNew) {
-      setShowCreateDialog(true);
-      router.replace('/im');
-    } else if (isDmNew) {
-      setLeftTab('contacts');
-      router.replace('/im');
-    }
-  }, [searchParams, router]);
-  /** Q2 Day 2: 点部门“建群”时预填数据 */
-  const [prefillDept, setPrefillDept] = useState<{ id: string; name: string } | null>(null);
-  /** 2026-05-30: Tandem 工作台 handoff 预填 (一次性, 打开建群弹窗) */
-  const [handoffDraft, setHandoffDraft] = useState<{ name?: string; topic?: string } | null>(null);
-
-  useHandoffPrefill('im', (payload) => {
-    setHandoffDraft({ name: payload.title, topic: payload.body });
-    setShowCreateDialog(true);
-  });
-  /** Q2 Day 5-7: 频道设置对话框 */
   const [showSettings, setShowSettings] = useState(false);
-  /** Q2 Day 4: 当前频道成员 (计算已读人数) */
   const [members, setMembers] = useState<ImMembership[]>([]);
-  /** P1 (2026-05-10): 按组织架构一键建群 对话框 */
-  const [showSeedDialog, setShowSeedDialog] = useState(false);
+  const [sendAsAgent, setSendAsAgent] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showIdentityPicker, setShowIdentityPicker] = useState(false);
+  const identityPickerRef = useRef<HTMLDivElement>(null);
+  const [attachments, setAttachments] = useState<{ name: string; size: number; dataUrl?: string }[]>([]);
+  const [activeChannel, setActiveChannel] = useState<Channel | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const composerRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  /** 双身份发送切换器 (MANIFESTO §15.2 同款双轨选择) */
-  const [sendAsAgent, setSendAsAgent] = useState(false);
 
-  // Real auth-bound user id (replaces the legacy hardcoded 'demo-user').
-  // Falls back to 'demo-user' only in unauth/demo mode so existing seeds keep working.
   const { user } = useCurrentUser();
   const ME = user?.id ?? 'demo-user';
 
-  // -- OKR and IM synergy states --
-  const { toast } = useToast();
-  const keyResults = useOKRStore((state) => state.keyResults);
-  const people = useOKRStore((state) => state.people);
-  const [selectedKrForCheckin, setSelectedKrForCheckin] = useState<any>(null);
-  const [showCheckinDialog, setShowCheckinDialog] = useState(false);
-
-  // Automatically hydrate OKR data from API on load
+  // 监听 ChannelDetailPanel 个人名片"发消息"触发的 im:startDm 事件
   useEffect(() => {
-    void hydrateOkrFromApi();
+    const handler = (e: Event) => {
+      const userId = (e as CustomEvent<string>).detail;
+      if (userId) void startDmWith(userId);
+    };
+    window.addEventListener('im:startDm', handler);
+    return () => window.removeEventListener('im:startDm', handler);
+  // startDmWith 在函数体后定义, eslint 无法识别依赖, 这里 ignore 是正确的
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // -- channels --
-  const loadChannels = useCallback(async () => {
-    const res = await fetch(`/api/im/channels?userId=${ME}`);
-    const data = await res.json();
-    setChannels(data.channels ?? []);
-    if (!activeId && data.channels?.length) {
-      setActiveId(data.channels[0].id);
-    }
-  }, [activeId, ME]);
+  // 拉取当前频道元数据
   useEffect(() => {
-    void loadChannels();
-  }, [loadChannels]);
+    if (!activeId) { setActiveChannel(null); return; }
+    void fetch(`/api/im/channels?userId=${ME}`)
+      .then((r) => r.json())
+      .then((data) => {
+        const ch = (data.channels ?? []).find((c: Channel) => c.id === activeId) ?? null;
+        setActiveChannel(ch);
+      });
+  }, [activeId, ME]);
 
   // -- messages --
   async function loadMessages(chId: string) {
@@ -249,9 +187,7 @@ function ImInner() {
         /* ignore */
       }
     });
-    es.addEventListener('unread', () => {
-      void loadChannels();
-    });
+    es.addEventListener('unread', () => { /* ImSidebar 自行轮询 */ });
     // Day 4: 撤回事件 — 替换本地设置 deletedAt
     es.addEventListener('message_updated', (e) => {
       try {
@@ -259,44 +195,18 @@ function ImInner() {
         setMessages((prev) => prev.map((m) => (m.id === msg.id ? msg : m)));
       } catch { /* ignore */ }
     });
-    // Day 5-7: channel 更新 (公告/成员/pin) — 重拉 channels
-    es.addEventListener('channel', () => {
-      void loadChannels();
-    });
+    es.addEventListener('channel', () => { /* ImSidebar 自行轮询 */ });
     return () => es.close();
-    // loadMessages is a stable function reference within this component scope.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeId, loadChannels, ME]);
+  }, [activeId, ME]);
 
-  // 频道列表也每 10s 拉一次 (其他频道的未读)
-  useEffect(() => {
-    const id = setInterval(() => void loadChannels(), 10_000);
-    return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const activeChannel = useMemo(
-    () => channels.find((c) => c.id === activeId) ?? null,
-    [channels, activeId]
-  );
-
-  const krsInChannel = useMemo(() => {
-    if (!activeChannel) return [];
-    return keyResults.filter((kr) => activeChannel.memberIds.includes(kr.ownerId));
-  }, [activeChannel, keyResults]);
-
-  const getPersonName = useCallback((id: string) => {
-    const p = people.find((x) => x.id === id);
-    return p ? p.name : id.split('@')[0] || id;
-  }, [people]);
-
-  // Day 4: 拉取当前频道成员 (为已读人数计算 + 设置对话框复用)
+  // 拉取当前频道成员 (为已读人数计算 + 设置对话框复用)
   useEffect(() => {
     if (!activeId) { setMembers([]); return; }
     void fetch(`/api/im/channels/${activeId}/members`)
       .then((r) => r.json())
       .then((data) => setMembers(data.members ?? []));
-  }, [activeId, channels]);
+  }, [activeId]);
 
   /** Day 4: 撤回消息 */
   async function recallMessageHandler(messageId: string) {
@@ -327,7 +237,7 @@ function ImInner() {
   }
 
   async function sendMessage() {
-    if (!input.trim() || !activeId || sending) return;
+    if ((!input.trim() && attachments.length === 0) || !activeId || sending) return;
     setSending(true);
     try {
       const res = await fetch(`/api/im/channels/${activeId}/messages`, {
@@ -335,7 +245,9 @@ function ImInner() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           senderId: ME,
-          body: input,
+          body: attachments.length > 0
+            ? `${input.trim()}${input.trim() ? '\n' : ''}${attachments.map((a) => `[附件: ${a.name}]`).join(' ')}`.trim()
+            : input,
           senderKind: sendAsAgent ? 'persona' : 'user',
         }),
       });
@@ -344,6 +256,7 @@ function ImInner() {
         window.alert(`发送失败: ${err.error ?? res.statusText}`);
       } else {
         setInput('');
+        setAttachments([]);
       }
     } finally {
       setSending(false);
@@ -413,19 +326,32 @@ function ImInner() {
       });
       const data = await res.json();
       if (res.ok && data.channel?.id) {
-        await loadChannels();
-        setActiveId(data.channel.id);
-        setLeftTab('channels');
+        router.push(`/im?ch=${data.channel.id}`);
       }
     } finally {
       setBusy(false);
     }
   }
 
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>, kind: 'image' | 'file') {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+    files.forEach((file) => {
+      if (kind === 'image' && file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          setAttachments((prev) => [...prev, { name: file.name, size: file.size, dataUrl: ev.target?.result as string }]);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        setAttachments((prev) => [...prev, { name: file.name, size: file.size }]);
+      }
+    });
+    e.target.value = '';
+  }
+
   function newDmPrompt() {
-    const otherId = window.prompt(
-      '与谁开始 1:1 对话? 输入 userId (例: colleague-li / colleague-wang):'
-    );
+    const otherId = window.prompt('与谁开始 1:1 对话? 输入 userId:');
     if (!otherId || otherId === ME) return;
     void fetch('/api/im/dm', {
       method: 'POST',
@@ -433,388 +359,79 @@ function ImInner() {
       body: JSON.stringify({ meId: ME, otherId }),
     })
       .then((r) => r.json())
-      .then(({ channel }) => {
-        void loadChannels();
-        if (channel?.id) {
-          setActiveId(channel.id);
-          setMobileShowList(false);
-        }
-      });
-  }
-
-  function newGroupPrompt() {
-    const name = window.prompt('新群名称:');
-    if (!name) return;
-    const memberInput = window.prompt(
-      '成员 userId (逗号分隔, 例: colleague-li,colleague-wang):',
-      'colleague-li,colleague-wang'
-    );
-    const memberIds = (memberInput ?? '')
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
-    void fetch('/api/im/channels', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'group',
-        name,
-        memberIds,
-        createdBy: ME,
-      }),
-    })
-      .then((r) => r.json())
-      .then(({ channel }) => {
-        void loadChannels();
-        if (channel?.id) {
-          setActiveId(channel.id);
-          setMobileShowList(false);
-        }
-      });
+      .then(({ channel }) => { if (channel?.id) router.push(`/im?ch=${channel.id}`); });
   }
 
   return (
-    <div className="flex h-full md:h-[calc(100vh-3.5rem)] flex-col">
-      <BannerChip />
-      <div className="grid flex-1 grid-cols-1 md:grid-cols-[340px_1fr_300px] overflow-hidden bg-white">
-      {/* ---- 左栏: 频道列表 — Gemini Gems 风格 (柔和留白 + 大圆角 + 渐变头像) ---- */}
-      <aside
-        className={cn(
-          'flex-col border-r border-slate-100 bg-gradient-to-b from-white via-white to-slate-50/40 md:flex',
-          mobileShowList ? 'flex' : 'hidden',
-        )}
-      >
-        {/* Header: 大标题 + 副描述 + 新建 pill */}
-        <div className="flex flex-col gap-3 px-5 pt-6 pb-3">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h1 className="text-[22px] font-semibold tracking-tight text-slate-900 leading-none">
-                通讯
-              </h1>
-              <p className="mt-1.5 text-[12px] text-slate-500 leading-snug">
-                与同事和 AI 分身一起协作 · 选择会话或新建一个
-              </p>
-            </div>
-            <div
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-[10px] font-medium text-white shadow-soft-sm"
-              title={`${channels.length} 个频道 · 实时 SSE`}
-            >
-              {channels.length}
-            </div>
-          </div>
+    <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden bg-surface-1">
 
-          {/* 新建按钮组: Gems 风 pill */}
-          <div className="flex flex-wrap gap-1.5">
-            <button
-              type="button"
-              onClick={() => setShowCreateDialog(true)}
-              className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-3.5 py-1.5 text-[12px] font-medium text-white shadow-soft-sm transition hover:bg-slate-800 hover:shadow-soft"
-              title="新建群聊 (普通/部门/项目/跨部门/公告)"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              新建
-            </button>
-            <button
-              type="button"
-              onClick={newDmPrompt}
-              className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-              title="新建 1:1 对话"
-            >
-              <Users className="h-3.5 w-3.5" />
-              1:1
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowSeedDialog(true)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-warning/20 bg-warning/5/70 px-3 py-1.5 text-[12px] font-medium text-warning transition hover:border-warning/30 hover:bg-warning/10/80"
-              title="按组织架构一键建群 (HR/Admin)"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              一键建群
-            </button>
-          </div>
-        </div>
-
-        {/* Tab segmented control: Gems pill */}
-        <div className="px-5 pb-2">
-          <div className="inline-flex rounded-full bg-slate-100 p-0.5 text-[12px]">
-            <button
-              type="button"
-              onClick={() => setLeftTab('channels')}
-              className={`rounded-full px-4 py-1 font-medium transition ${
-                leftTab === 'channels'
-                  ? 'bg-white text-slate-900 shadow-soft-sm'
-                  : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              频道
-            </button>
-            <button
-              type="button"
-              onClick={() => setLeftTab('contacts')}
-              className={`rounded-full px-4 py-1 font-medium transition ${
-                leftTab === 'contacts'
-                  ? 'bg-white text-slate-900 shadow-soft-sm'
-                  : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              通讯录
-            </button>
-          </div>
-        </div>
-
-        {leftTab === 'contacts' ? (
-          <ContactsTree
-            currentUserId={ME}
-            onSelectPerson={startDmWith}
-            onCreateDeptChannel={(id, name) => {
-              setPrefillDept({ id, name });
-              setShowCreateDialog(true);
-            }}
-          />
-        ) : (
-        <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
-          {channels.length === 0 && (
-            <div className="mx-2 mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 px-5 py-8 text-center">
-              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 text-title-3">
-                💬
-              </div>
-              <p className="text-[12.5px] font-medium text-slate-700">还没有会话</p>
-              <p className="mt-1 text-[11.5px] text-slate-500 leading-relaxed">
-                点上方「新建」开一个群,<br />或「1:1」找同事单聊
-              </p>
-            </div>
-          )}
-          {channels.map((c) => {
-            const u = unreadStyle(c);
-            const displayName =
-              c.type === 'dm' ? c.memberIds.find((m) => m !== ME) ?? '私聊' : c.name;
-            const active = activeId === c.id;
-            return (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => {
-                  setActiveId(c.id);
-                  setMobileShowList(false);
-                }}
-                className={`group flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-all ${
-                  active
-                    ? 'bg-white shadow-soft-sm ring-1 ring-slate-200/80'
-                    : 'hover:bg-white/70 hover:shadow-soft-sm'
-                }`}
-              >
-                <GemChannelAvatar channel={c} name={displayName} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <span
-                      className={`truncate text-[13.5px] ${
-                        u.show !== 'none'
-                          ? 'font-semibold text-slate-900'
-                          : 'font-medium text-slate-800'
-                      }`}
-                    >
-                      {displayName}
-                    </span>
-                    {c.lastMessageAt && (
-                      <span className="shrink-0 text-[10.5px] text-slate-400 font-medium">
-                        {formatRelative(c.lastMessageAt)}
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-0.5 flex items-center justify-between gap-2">
-                    <span className="truncate text-[11.5px] text-slate-500 leading-snug">
-                      {c.lastMessagePreview ?? '开始对话…'}
-                    </span>
-                    {u.show === 'urgent' && (
-                      <Badge
-                        className="h-4 min-w-4 shrink-0 bg-rose-500 px-1.5 text-[10px] hover:bg-rose-600"
-                        title="含指派/咨询/议事室回执 — 需关注"
-                      >
-                        {u.count! > 99 ? '99+' : u.count}
-                      </Badge>
-                    )}
-                    {u.show === 'subtle' && (
-                      <span
-                        className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400"
-                        title="有新消息 (非定向)"
-                      />
-                    )}
-                  </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-        )}
-      </aside>
-
-      {/* P1: 按组织一键建群 对话框 */}
-      <SeedFromOrgDialog
-        open={showSeedDialog}
-        onOpenChange={setShowSeedDialog}
-        currentUserId={ME}
-        onSeeded={() => { void loadChannels(); }}
-      />
-
-      {/* Day 5-7: 频道设置对话框 */}
-      <ChannelSettingsDialog
-        open={showSettings}
-        onOpenChange={setShowSettings}
-        channel={activeChannel}
-        messages={messages}
-        currentUserId={ME}
-        onChanged={() => { void loadChannels(); }}
-      />
-
-      {/* Q2 建群对话框 (2026-05-10) · Day 2: 接受部门预填 */}
-      <CreateChannelDialog
-        open={showCreateDialog}
-        onOpenChange={(v) => { setShowCreateDialog(v); if (!v) { setPrefillDept(null); setHandoffDraft(null); } }}
-        currentUserId={ME}
-        prefillDepartment={prefillDept}
-        prefillDraft={handoffDraft}
-        onCreated={(channelId) => {
-          void loadChannels();
-          setActiveId(channelId);
-          setMobileShowList(false);
-          setPrefillDept(null);
-        }}
-      />
-
-      {/* OKR & IM Synergy: 快捷 Check-in & 广播 对话框 */}
-      <OkrCheckinDialog
-        open={showCheckinDialog}
-        onOpenChange={setShowCheckinDialog}
-        kr={selectedKrForCheckin}
-        activeChannelId={activeId}
-        onSuccess={() => {
-          if (activeId) void loadMessages(activeId);
-          setSelectedKrForCheckin(null);
-          setShowCheckinDialog(false);
-        }}
-      />
-
-      {/* ---- 中栏: 消息流 ---- */}
-      <main
-        className={cn(
-          'h-full min-w-0 flex-col md:flex',
-          mobileShowList ? 'hidden' : 'flex',
-        )}
-      >
+      {/* 消息流 + 右侧详情面板 并排容器 */}
+      <div className="flex min-w-0 flex-1 overflow-hidden">
+      <main className="flex h-full min-w-0 flex-1 flex-col bg-surface-1">
         {activeChannel ? (
           <>
-            <header className="flex items-center justify-between border-b border-slate-200/70 bg-white/95 px-3 py-3 backdrop-blur-sm md:px-5">
-              <div className="flex items-center gap-2 md:gap-3 min-w-0">
-                {/* §mobile back arrow: 仅 < md 显示, 点击返回频道列表 */}
-                <button
-                  type="button"
-                  onClick={() => setMobileShowList(true)}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-slate-600 hover:bg-slate-100 md:hidden"
-                  aria-label="返回频道列表"
-                >
-                  <ArrowLeft className="h-5 w-5" />
-                </button>
-                <GemChannelAvatar
+            {/* 顶部栏 */}
+            <header className="flex shrink-0 items-center justify-between border-b border-hairline bg-surface-1 px-4 py-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <ConvAvatar
                   channel={activeChannel}
-                  name={
-                    activeChannel.type === 'dm'
-                      ? activeChannel.memberIds.find((m) => m !== ME) ?? '私聊'
-                      : activeChannel.name
-                  }
+                  name={activeChannel.type === 'dm' ? activeChannel.memberIds.find((m) => m !== ME) ?? '私聊' : activeChannel.name}
                 />
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[15px] font-semibold tracking-tight text-slate-900">
-                      {activeChannel.type === 'dm'
-                        ? activeChannel.memberIds.find((m) => m !== ME) ?? '私聊'
-                        : activeChannel.name}
-                    </span>
-                    <Badge
-                      variant="outline"
-                      className="h-4 border-slate-300 px-1.5 text-[9.5px] font-medium uppercase tracking-wide text-slate-500"
-                    >
-                      {activeChannel.type === 'announcement'
-                        ? '公告'
-                        : activeChannel.type === 'dm'
-                        ? '私聊'
-                        : activeChannel.visibility === 'private'
-                        ? '私有'
-                        : '公开'}
-                    </Badge>
+                <div className="min-w-0">
+                  <div className="truncate text-[14px] font-semibold text-ink-primary">
+                    {activeChannel.type === 'dm'
+                      ? activeChannel.memberIds.find((m) => m !== ME) ?? '私聊'
+                      : activeChannel.name}
                   </div>
                   {activeChannel.topic && (
-                    <div className="mt-0.5 text-[11.5px] text-slate-500">
-                      {activeChannel.topic}
-                    </div>
+                    <div className="truncate text-[12px] text-ink-secondary">{activeChannel.topic}</div>
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2">
                 <AgentModeToggle
                   channelId={activeChannel.id}
                   initialMode={members.find((m) => m.userId === ME)?.agentMode ?? 'manual'}
                 />
-                {activeChannel.type !== 'dm' && (
-                  <button
-                    type="button"
-                    onClick={() => setShowSettings(true)}
-                    className="inline-flex items-center gap-1 rounded-full bg-[rgb(var(--brand-50))] px-2.5 py-1 text-[11px] font-medium text-[rgb(var(--brand-700))] hover:bg-[rgb(var(--brand-100))] transition-colors"
-                    title="邀请新成员加入本群"
-                  >
-                    <Plus className="h-3 w-3" />
-                    邀请
-                  </button>
-                )}
                 <button
                   type="button"
                   onClick={() => setShowSettings(true)}
-                  className="flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:bg-slate-200"
-                  title="频道设置 (成员管理 / 公告 / 置顶 / 移除成员)"
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-ink-secondary hover:bg-surface-3"
+                  title="频道设置"
                 >
-                  <Users className="h-3 w-3" />
-                  {activeChannel.memberIds.length}
+                  <Settings className="h-4 w-4" />
                 </button>
               </div>
             </header>
 
-            {/* Day 7: 公告条 (如果有) */}
+            {/* 公告条 */}
             {activeChannel.announcement && (
-              <div className="flex items-start gap-2 border-b border-warning/20/70 bg-warning/5/60 px-5 py-2 text-[12px] text-warning">
-                <Megaphone className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
-                <div className="min-w-0 flex-1">
-                  <span className="font-medium">公告:</span>{' '}
-                  <span className="whitespace-pre-wrap break-words line-clamp-2">
-                    {activeChannel.announcement}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowSettings(true)}
-                  className="text-[10px] text-warning hover:underline shrink-0"
-                >
-                  详情
-                </button>
+              <div className="flex shrink-0 items-center gap-2 border-b border-hairline bg-brand-50 px-4 py-2 text-[12px]">
+                <Megaphone className="h-3.5 w-3.5 shrink-0 text-warning" />
+                <span className="flex-1 truncate text-ink-primary">{activeChannel.announcement}</span>
               </div>
             )}
 
-            {/* Day 7: 置顶消息条 (如果有) */}
+            {/* 置顶条 */}
             {(activeChannel.pinnedMessageIds ?? []).length > 0 && (
-              <div className="border-b border-slate-200/70 bg-slate-50/60 px-5 py-1.5">
-                <button
-                  type="button"
-                  onClick={() => setShowSettings(true)}
-                  className="flex items-center gap-1.5 text-[11px] text-slate-600 hover:text-slate-900"
-                >
-                  <Pin className="h-3 w-3 text-warning" />
-                  {(activeChannel.pinnedMessageIds ?? []).length} 条置顶消息
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setShowSettings(true)}
+                className="flex shrink-0 items-center gap-1.5 border-b border-hairline bg-surface-3 px-4 py-1.5 text-[12px] text-ink-secondary hover:bg-surface-3"
+              >
+                <Pin className="h-3 w-3 text-warning" />
+                {(activeChannel.pinnedMessageIds ?? []).length} 条置顶消息
+              </button>
             )}
 
-            <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4">
+            {/* 消息流 */}
+            <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3">
               {messages.length === 0 && (
-                <EmptyState />
+                <div className="flex h-full flex-col items-center justify-center gap-2 text-ink-tertiary">
+                  <div className="text-[32px]">💬</div>
+                  <p className="text-[13px]">还没有消息，发一条试试</p>
+                  <p className="text-[11px] text-ink-tertiary">hover 消息可<span className="text-warning font-medium mx-0.5">开议事室</span>或<span className="text-brand-600 font-medium mx-0.5">沉淀 Memory</span></p>
+                </div>
               )}
               {messages.map((m, idx) => (
                 <MessageRow
@@ -836,47 +453,159 @@ function ImInner() {
               ))}
             </div>
 
-            <footer className="border-t border-slate-200/70 bg-white/95 px-5 py-3 backdrop-blur-sm">
-              <div className="mb-2 flex items-center gap-1.5 text-[11px] text-slate-500">
-                <Sparkles className="h-3 w-3 text-warning" />
-                <span>hover 消息 → ✨ 开议事室 / 🧠 沉淀 · 输入 <code className="rounded bg-slate-100 px-1 py-0.5 font-mono text-[10px] text-slate-700">@[colleague-li](colleague-li:persona)</code> 召唤 AI 分身</span>
-              </div>
-              <div className="flex items-end gap-2">
-                <div className="flex flex-1 items-center rounded-2xl border border-slate-200 bg-white pl-3 pr-4 py-2.5 shadow-soft-sm transition focus-within:border-warning/50 focus-within:ring-2 focus-within:ring-warning/10">
-                  {/* 双身份切换器 (Dual-Identity Selector) */}
+            {/* 输入区 */}
+            <footer className="shrink-0 border-t border-hairline bg-surface-1">
+              {/* 附件预览条 */}
+              {attachments.length > 0 && (
+                <div className="flex flex-wrap gap-2 px-4 pt-2">
+                  {attachments.map((a, i) => (
+                    <div key={i} className="group relative flex items-center gap-1.5 rounded-lg border border-hairline bg-surface-3 px-2.5 py-1.5">
+                      {a.dataUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={a.dataUrl} alt={a.name} className="h-8 w-8 rounded object-cover" />
+                      ) : (
+                        <Paperclip className="h-4 w-4 shrink-0 text-ink-tertiary" />
+                      )}
+                      <span className="max-w-[120px] truncate text-[11px] text-ink-primary">{a.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => setAttachments((prev) => prev.filter((_, j) => j !== i))}
+                        className="ml-0.5 text-ink-tertiary hover:text-ink-primary"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* 工具条 */}
+              <div className="flex items-center gap-0.5 px-3 pt-2">
+                {/* 表情 */}
+                <div className="relative">
                   <button
                     type="button"
-                    onClick={() => setSendAsAgent(!sendAsAgent)}
-                    className={`mr-2 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[9px] font-bold shadow-soft-sm transition ${
-                      sendAsAgent
-                        ? 'bg-gradient-to-br from-violet-400 to-purple-500 text-white hover:opacity-90'
-                        : 'bg-gradient-to-br from-amber-400 to-orange-500 text-white hover:opacity-90'
-                    }`}
-                    title={sendAsAgent ? '当前以 AI 分身身份发送 · 点击切换为真人' : '当前以 真人身份发送 · 点击切换为分身'}
+                    onClick={() => setShowEmojiPicker((v) => !v)}
+                    className="flex h-8 w-8 items-center justify-center rounded-md text-ink-secondary hover:bg-surface-3 hover:text-ink-primary"
+                    title="表情"
                   >
-                    {sendAsAgent ? <Bot className="h-3.5 w-3.5" /> : ME.slice(0, 2).toUpperCase()}
+                    <Smile className="h-4 w-4" />
                   </button>
+                  {showEmojiPicker && (
+                    <EmojiPicker
+                      onPick={(emoji) => {
+                        setInput((cur) => cur + emoji);
+                        setShowEmojiPicker(false);
+                        composerRef.current?.focus();
+                      }}
+                      onClose={() => setShowEmojiPicker(false)}
+                    />
+                  )}
+                </div>
+
+                {/* 图片 */}
+                <button
+                  type="button"
+                  onClick={() => imageInputRef.current?.click()}
+                  className="flex h-8 w-8 items-center justify-center rounded-md text-ink-secondary hover:bg-surface-3 hover:text-ink-primary"
+                  title="图片"
+                >
+                  <Image className="h-4 w-4" />
+                </button>
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => handleFileSelect(e, 'image')}
+                />
+
+                {/* 文件 */}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex h-8 w-8 items-center justify-center rounded-md text-ink-secondary hover:bg-surface-3 hover:text-ink-primary"
+                  title="文件"
+                >
+                  <Paperclip className="h-4 w-4" />
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => handleFileSelect(e, 'file')}
+                />
+
+                {/* @成员 */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInput((cur) => cur + '@');
+                    composerRef.current?.focus();
+                  }}
+                  className="flex h-8 w-8 items-center justify-center rounded-md text-ink-secondary hover:bg-surface-3 hover:text-ink-primary"
+                  title="@成员"
+                >
+                  <AtSign className="h-4 w-4" />
+                </button>
+
+                {/* 语音 */}
+                <VoiceInputButton
+                  onText={(text) => setInput((cur) => (cur ? `${cur} ${text}` : text))}
+                  disabled={sending}
+                />
+
+              </div>
+
+              {/* 身份选择器 + 输入框 + 发送 */}
+              <div className="flex items-end gap-2 px-3 pb-3 pt-1.5">
+
+                {/* 身份切换器 */}
+                <div ref={identityPickerRef} className="relative shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setShowIdentityPicker((v) => !v)}
+                    className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[12px] font-medium transition ${
+                      sendAsAgent
+                        ? 'border-brand-300 bg-brand-50 text-brand-700 hover:bg-brand-100'
+                        : 'border-hairline bg-surface-3 text-ink-primary hover:bg-surface-3'
+                    }`}
+                  >
+                    {sendAsAgent
+                      ? <Bot className="h-3.5 w-3.5 shrink-0" />
+                      : <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white bg-gradient-to-br from-amber-400 to-orange-500`}>{ME.slice(0, 1).toUpperCase()}</span>
+                    }
+                    <span className="hidden sm:inline">{sendAsAgent ? 'AI 分身' : '真人'}</span>
+                    <svg className="h-3 w-3 shrink-0 text-current opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6"/></svg>
+                  </button>
+
+                  {showIdentityPicker && (
+                    <IdentityPickerDropdown
+                      meId={ME}
+                      sendAsAgent={sendAsAgent}
+                      onSelect={(asAgent) => { setSendAsAgent(asAgent); setShowIdentityPicker(false); composerRef.current?.focus(); }}
+                      onClose={() => setShowIdentityPicker(false)}
+                      containerRef={identityPickerRef}
+                    />
+                  )}
+                </div>
+
+                <div className="flex flex-1 items-center rounded-lg border border-hairline bg-surface-1 px-3 py-2 transition focus-within:border-brand-400 focus-within:ring-1 focus-within:ring-brand-100">
                   <ImComposerInput
                     composerRef={composerRef}
                     value={input}
                     setValue={setInput}
                     onEnter={() => void sendMessage()}
                     disabled={sending}
-                    placeholder={sendAsAgent 
-                      ? `以分身身份在 ${activeChannel.type === 'dm' ? '私聊' : activeChannel.name} 中代表发言…`
-                      : `在 ${activeChannel.type === 'dm' ? '私聊' : activeChannel.name} 中说点什么… (Enter 发送 · @ 引用文档)`
-                    }
+                    placeholder={sendAsAgent ? '以 AI 分身身份发言…' : '发送消息…'}
                   />
                 </div>
-                {/* §mobile: 长按语音输入 (Web Speech API). 桌面也可用. */}
-                <VoiceInputButton
-                  onText={(text) => setInput((cur) => (cur ? `${cur} ${text}` : text))}
-                  disabled={sending}
-                />
                 <Button
                   onClick={sendMessage}
-                  disabled={sending || !input.trim()}
-                  className="h-11 gap-1.5 rounded-full bg-slate-900 px-5 text-white shadow-soft-sm transition hover:bg-slate-800 hover:shadow-soft disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
+                  disabled={sending || (!input.trim() && attachments.length === 0)}
+                  className="h-9 gap-1 rounded-lg bg-brand-600 px-4 text-[13px] text-white transition hover:bg-brand-700 disabled:bg-surface-3 disabled:text-ink-tertiary"
                 >
                   <Send className="h-3.5 w-3.5" />
                   发送
@@ -885,274 +614,37 @@ function ImInner() {
             </footer>
           </>
         ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-4 px-8 text-center">
-            <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-violet-100 via-sky-100 to-emerald-100 text-title-1 shadow-soft-sm">
-              ✨
-            </div>
-            <div>
-              <p className="text-[15px] font-semibold text-slate-700">选个会话开始</p>
-              <p className="mt-1.5 text-[12px] text-slate-500 leading-relaxed max-w-xs">
-                从左边选一个频道, 或点上方 <span className="font-medium text-slate-700">新建</span> / <span className="font-medium text-slate-700">1:1</span> 开一个。<br />
-                发出的每条消息 hover 均可一键 <span className="font-medium text-warning">开议事室</span> 或 <span className="font-medium text-violet-600">沉淀 Memory</span>.
-              </p>
-            </div>
+          <div className="flex h-full flex-col items-center justify-center gap-3 text-ink-tertiary">
+            <div className="text-[40px]">💬</div>
+            <p className="text-[14px] font-medium text-ink-secondary">选一个会话开始聊天</p>
+            <p className="text-[12px] text-ink-tertiary">左侧选择会话，或点 + 新建</p>
           </div>
         )}
       </main>
 
-      {/* ---- 右栏: 频道详情 + 差异化提示 (mobile 隐藏, 详情可走频道顶部 ⓘ 按钮调起 settings) ---- */}
-      <aside className="hidden flex-col gap-3 overflow-y-auto border-l border-slate-200/70 bg-white/95 p-4 backdrop-blur-sm md:flex">
-        {activeChannel ? (
-          <>
-            <Card className="border-slate-200/70 shadow-soft-sm">
-              <CardContent className="space-y-3 p-4">
-                <div>
-                  <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                    频道详情
-                  </div>
-                  <div className="mt-1.5 grid grid-cols-2 gap-2 text-[11.5px]">
-                    <div>
-                      <div className="text-slate-400">类型</div>
-                      <div className="font-medium text-slate-700">{activeChannel.type}</div>
-                    </div>
-                    <div>
-                      <div className="text-slate-400">可见性</div>
-                      <div className="font-medium text-slate-700">{activeChannel.visibility}</div>
-                    </div>
-                  </div>
-                </div>
-                <div className="border-t border-slate-100 pt-3">
-                  <div className="mb-2 flex items-center justify-between">
-                    <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                      成员 ({activeChannel.memberIds.length})
-                    </div>
-                  </div>
-                  <ul className="space-y-1">
-                    {activeChannel.memberIds.map((uid) => (
-                      <li
-                        key={uid}
-                        className="flex items-center justify-between rounded-md px-1 py-1 hover:bg-slate-50"
-                      >
-                        <div className="flex items-center gap-2">
-                          <UserAvatar id={uid} />
-                          <span className="text-[12px] text-slate-700">{uid}</span>
-                          {uid === ME && (
-                            <Badge
-                              variant="outline"
-                              className="h-4 border-warning/20 bg-warning/5 px-1 text-[9px] text-warning"
-                            >
-                              我
-                            </Badge>
-                          )}
-                        </div>
-                        {uid !== ME && (
-                          <button
-                            type="button"
-                            onClick={() => summonPersona(uid)}
-                            className="flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[10px] text-violet-600 transition hover:bg-violet-50"
-                            title="召唤此人 AI 分身"
-                          >
-                            <Bot className="h-3 w-3" /> @分身
-                          </button>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* OKR & IM Synergy: 成员对齐的 Key Results 看板 */}
-            <Card className="border-slate-200/70 shadow-soft-sm mt-3 flex-1 flex flex-col min-h-[350px]">
-              <CardContent className="p-4 flex flex-col h-full space-y-3">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-2 shrink-0">
-                  <div className="flex items-center gap-1.5">
-                    <Target className="h-4 w-4 text-warning" />
-                    <span className="text-[12px] font-semibold uppercase tracking-wider text-slate-700">
-                      成员对齐的 Key Results
-                    </span>
-                  </div>
-                  <Badge variant="secondary" className="h-5 px-1.5 text-[10px] bg-slate-100 text-slate-600 border-none">
-                    {krsInChannel.length} 个
-                  </Badge>
-                </div>
-
-                <div className="flex-1 overflow-y-auto space-y-3.5 pr-0.5 min-h-[220px]">
-                  {krsInChannel.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-10 text-center text-slate-400">
-                      <TrendingUp className="h-8 w-8 mb-2 text-slate-300" />
-                      <p className="text-[11.5px]">本群暂无关联的 Key Results</p>
-                      <p className="text-[10px] mt-1 max-w-[200px]">频道成员在 OKR 系统中创建 KR 后，此处将自动聚合对齐</p>
-                    </div>
-                  ) : (
-                    krsInChannel.map((kr) => {
-                      const start = kr.startValue;
-                      const current = kr.currentValue;
-                      const target = kr.targetValue;
-                      const progressPct = Math.max(0, Math.min(100, Math.round(((current - start) / (target - start || 1)) * 100)));
-                      
-                      const confidenceColors = {
-                        'on-track': 'border-success/20 bg-success/5 text-success',
-                        'at-risk': 'border-warning/20 bg-warning/5 text-warning',
-                        'off-track': 'border-danger/20 bg-danger/5 text-danger',
-                      };
-                      const confidenceLabels = {
-                        'on-track': '正常',
-                        'at-risk': '有风险',
-                        'off-track': '严重偏离',
-                      };
-
-                      return (
-                        <div key={kr.id} className="group/kr border border-slate-100 rounded-2xl p-3 bg-slate-50/30 transition hover:bg-slate-50/70 hover:border-slate-200/80">
-                          <div className="flex items-start justify-between gap-1.5">
-                            <span className="text-[12.5px] font-medium text-slate-800 leading-snug line-clamp-2">
-                              {kr.title}
-                            </span>
-                            <Badge className={cn("h-4 shrink-0 px-1 text-[9px] font-normal border shadow-none", confidenceColors[kr.confidence])}>
-                              {confidenceLabels[kr.confidence]}
-                            </Badge>
-                          </div>
-
-                          <div className="mt-2.5 flex items-center justify-between text-[11px] text-slate-400">
-                            <span className="flex items-center gap-1">
-                              <Bot className="h-3 w-3 shrink-0 text-slate-300" />
-                              <span className="text-slate-500 font-medium truncate max-w-[100px]" title={kr.ownerId}>
-                                {getPersonName(kr.ownerId)}
-                              </span>
-                            </span>
-                            <span className="font-semibold text-slate-600">
-                              {current} / {target} {kr.unit}
-                            </span>
-                          </div>
-
-                          <div className="mt-2 flex items-center gap-2">
-                            <Progress value={progressPct} className="h-1.5 flex-1 bg-slate-100" />
-                            <span className="text-[10px] font-bold text-slate-500 shrink-0 min-w-[28px] text-right">
-                              {progressPct}%
-                            </span>
-                          </div>
-
-                          {/* 快捷 Check-in 触发按钮 */}
-                          <div className="mt-2.5 pt-2 border-t border-slate-100/50 flex justify-end">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedKrForCheckin(kr);
-                                setShowCheckinDialog(true);
-                              }}
-                              className="inline-flex items-center gap-1 text-[11px] font-medium text-warning hover:text-orange-600 transition"
-                            >
-                              <TrendingUp className="h-3 w-3" />
-                              快捷 Check-in & 广播
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-          </>
-        ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-headline">
-              📝
-            </div>
-            <p className="text-[12px] text-slate-400 leading-relaxed">
-              选个会话后<br />这里会显示频道详情·成员·文件
-            </p>
-          </div>
-        )}
-      </aside>
+      {/* 右侧详情面板 */}
+      {showSettings && activeChannel && (
+        <ChannelDetailPanel
+          channel={activeChannel}
+          currentUserId={ME}
+          onClose={() => setShowSettings(false)}
+          onChanged={() => {
+            if (!activeId) return;
+            void fetch(`/api/im/channels?userId=${ME}`)
+              .then((r) => r.json())
+              .then((data) => {
+                const ch = (data.channels ?? []).find((c: Channel) => c.id === activeId) ?? null;
+                setActiveChannel(ch);
+              });
+          }}
+        />
+      )}
       </div>
     </div>
   );
 }
 
-// ---------------------------------------------------------------------------
-// 关闭式状态 banner (顶, 可一键收起 — 进入工作流后让位给消息流)
-function BannerChip() {
-  const [open, setOpen] = useState(true);
-  if (!open) return null;
-  return (
-    <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 bg-white px-5 py-2 text-[11px]">
-      <div className="flex min-w-0 items-center gap-2 text-slate-500">
-        <span className="flex h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
-        <span className="truncate">
-          <span className="font-medium text-slate-700">自建 IM</span> · 一键开议事室 · @Persona · 决议型已读
-        </span>
-        <a
-          href="/docs/MANIFESTO.md#%E7%AC%AC%E5%8D%81%E5%85%AB%E6%9D%A1"
-          className="shrink-0 text-slate-400 underline decoration-slate-200 underline-offset-2 hover:text-slate-600"
-        >
-          宪章 §18
-        </a>
-      </div>
-      <button
-        type="button"
-        onClick={() => setOpen(false)}
-        title="收起"
-        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-      >
-        <X className="h-3 w-3" />
-      </button>
-    </div>
-  );
-}
-
-function EmptyState() {
-  return (
-    <div className="flex h-full flex-col items-center justify-center gap-3 text-slate-400">
-      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-100 to-violet-100 text-title-2">
-        💬
-      </div>
-      <div className="max-w-xs text-center text-[12.5px]">
-        还没有消息. 发条试试 — hover 任意消息可以
-        <span className="mx-1 inline-flex items-center gap-0.5 rounded bg-warning/10 px-1.5 py-0.5 font-medium text-warning">
-          <Sparkles className="h-2.5 w-2.5" />开议事室
-        </span>
-        或
-        <span className="mx-1 inline-flex items-center gap-0.5 rounded bg-violet-100 px-1.5 py-0.5 font-medium text-violet-700">
-          <Brain className="h-2.5 w-2.5" />沉淀 Memory
-        </span>
-        — 普通 IM 都没有.
-      </div>
-    </div>
-  );
-}
-
-// 频道左栏头像: 1:1 用对方姓名首字, 群/公告用类型 icon
-function ChannelAvatar({
-  channel,
-  name,
-  size = 'sm',
-}: {
-  channel: Channel;
-  name: string;
-  size?: 'sm' | 'md';
-}) {
-  const dim = size === 'md' ? 'h-9 w-9 text-caption' : 'h-8 w-8 text-footnote';
-  if (channel.type === 'announcement') {
-    return (
-      <div
-        className={`${dim} flex shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-rose-400 to-rose-500 text-white shadow-soft-sm`}
-      >
-        <Megaphone className="h-4 w-4" />
-      </div>
-    );
-  }
-  if (channel.type === 'dm') {
-    return (
-      <div
-        className={`${dim} flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-400 to-slate-600 font-semibold uppercase text-white shadow-soft-sm`}
-      >
-        {name.slice(0, 2)}
-      </div>
-    );
-  }
-  // group: 颜色由 channelId 决定 (稳定)
+function ConvAvatar({ channel, name }: { channel: Channel; name: string }) {
   const palette = [
     'from-amber-400 to-orange-500',
     'from-emerald-400 to-teal-500',
@@ -1160,75 +652,121 @@ function ChannelAvatar({
     'from-violet-400 to-purple-500',
     'from-pink-400 to-rose-500',
   ];
-  const idx = channel.id.charCodeAt(0) % palette.length;
-  return (
-    <div
-      className={`${dim} flex shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${palette[idx]} text-white shadow-soft-sm`}
-    >
-      <Hash className="h-4 w-4" />
-    </div>
-  );
-}
-
-/**
- * Gemini Gems 风频道头像 (左栏列表用):
- *   - 更大 (h-11 w-11), rounded-2xl (24px)
- *   - 渐变更柔, 阴影 shadow-soft/shadow-soft-sm
- *   - DM/group/announcement 三种语义保持区别
- */
-function GemChannelAvatar({
-  channel,
-  name,
-}: {
-  channel: Channel;
-  name: string;
-}) {
   if (channel.type === 'announcement') {
     return (
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-400 via-rose-500 to-pink-500 text-white shadow-soft shadow-rose-200/60 ring-1 ring-white">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-400 to-rose-500 text-white">
         <Megaphone className="h-5 w-5" />
       </div>
     );
   }
   if (channel.type === 'dm') {
+    const idx = name.charCodeAt(0) % palette.length;
     return (
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-500 via-slate-600 to-slate-700 text-[15px] font-semibold uppercase text-white shadow-soft shadow-slate-200/70 ring-1 ring-white">
+      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${palette[idx]} text-[13px] font-semibold uppercase text-white`}>
         {name.slice(0, 2)}
       </div>
     );
   }
-  const palette = [
-    'from-amber-400 via-orange-400 to-orange-500 shadow-amber-200/60',
-    'from-emerald-400 via-teal-400 to-teal-500 shadow-emerald-200/60',
-    'from-sky-400 via-blue-400 to-blue-500 shadow-sky-200/60',
-    'from-violet-400 via-purple-400 to-purple-500 shadow-violet-200/60',
-    'from-pink-400 via-rose-400 to-rose-500 shadow-pink-200/60',
-    'from-cyan-400 via-sky-400 to-sky-500 shadow-cyan-200/60',
-  ];
   const idx = channel.id.charCodeAt(0) % palette.length;
   return (
-    <div
-      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${palette[idx]} text-white shadow-soft ring-1 ring-white`}
-    >
+    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${palette[idx]} text-white`}>
       <Hash className="h-5 w-5" />
     </div>
   );
 }
 
-function UserAvatar({ id }: { id: string }) {
-  const palette = [
-    'from-amber-400 to-orange-500',
-    'from-emerald-400 to-teal-500',
-    'from-sky-400 to-blue-500',
-    'from-violet-400 to-purple-500',
-    'from-pink-400 to-rose-500',
-  ];
-  const idx = id.charCodeAt(0) % palette.length;
+function IdentityPickerDropdown({
+  meId,
+  sendAsAgent,
+  onSelect,
+  onClose,
+  containerRef,
+}: {
+  meId: string;
+  sendAsAgent: boolean;
+  onSelect: (asAgent: boolean) => void;
+  onClose: () => void;
+  containerRef: React.RefObject<HTMLDivElement>;
+}) {
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) onClose();
+    }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose, containerRef]);
+
+  return (
+    <div className="absolute bottom-full left-0 z-50 mb-2 w-56 overflow-hidden rounded-2xl border border-hairline bg-surface-2 shadow-soft-lg">
+      <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-ink-tertiary border-b border-hairline">
+        以哪个身份发言
+      </div>
+      <button
+        type="button"
+        onClick={() => onSelect(false)}
+        className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-surface-3 ${!sendAsAgent ? 'bg-surface-3' : ''}`}
+      >
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-[11px] font-bold text-white">
+          {meId.slice(0, 2).toUpperCase()}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="text-[13px] font-medium text-ink-primary truncate">{meId}</div>
+          <div className="text-[11px] text-ink-secondary">真人 · 以我自己的身份发言</div>
+        </div>
+        {!sendAsAgent && <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-400" />}
+      </button>
+      <button
+        type="button"
+        onClick={() => onSelect(true)}
+        className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-violet-50 ${sendAsAgent ? 'bg-violet-50' : ''}`}
+      >
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-400 to-purple-500 text-white">
+          <Bot className="h-4 w-4" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="text-[13px] font-medium text-violet-800">AI 分身</div>
+          <div className="text-[11px] text-violet-500">让我的分身代我在群里发言</div>
+        </div>
+        {sendAsAgent && <span className="h-2 w-2 shrink-0 rounded-full bg-violet-400" />}
+      </button>
+    </div>
+  );
+}
+
+const EMOJI_LIST = [
+  '😀','😂','🤣','😊','😍','🥰','😎','🤔','😅','😭',
+  '😱','🙄','😏','😢','😡','🥳','🤩','😴','🤗','🤭',
+  '👍','👎','👏','🙌','🤝','✌️','💪','🫡','🙏','👋',
+  '❤️','🧡','💛','💚','💙','💜','🖤','💯','🔥','✨',
+  '🎉','🎊','🎁','🏆','⭐','🌟','💡','📌','✅','❌',
+];
+
+function EmojiPicker({ onPick, onClose }: { onPick: (e: string) => void; onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose]);
   return (
     <div
-      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${palette[idx]} text-[9px] font-semibold uppercase text-white`}
+      ref={ref}
+      className="absolute bottom-10 left-0 z-50 w-64 rounded-2xl border border-hairline bg-surface-2 p-2 shadow-soft-lg"
     >
-      {id.slice(0, 2)}
+      <div className="grid grid-cols-10 gap-0.5">
+        {EMOJI_LIST.map((em) => (
+          <button
+            key={em}
+            type="button"
+            onClick={() => onPick(em)}
+            className="flex h-7 w-7 items-center justify-center rounded text-[16px] hover:bg-surface-3"
+          >
+            {em}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -1300,7 +838,7 @@ function MessageRow({
   if (msg.deletedAt) {
     return (
       <div className="my-2 flex justify-center text-[11px]">
-        <div className="rounded-full border border-slate-200/70 bg-slate-50 px-3 py-1 text-slate-400 italic">
+        <div className="rounded-full border border-hairline bg-surface-3 px-3 py-1 text-ink-tertiary italic">
           {msg.senderId === meId ? '你' : msg.senderId} 撤回了一条消息
         </div>
       </div>
@@ -1310,8 +848,8 @@ function MessageRow({
   if (msg.senderKind === 'system') {
     return (
       <div className="my-3 flex justify-center text-[11px]">
-        <div className="flex items-center gap-1.5 rounded-full border border-slate-200/70 bg-white px-3 py-1 text-slate-500 shadow-soft-sm">
-          <Info className="h-3 w-3 text-slate-400" />
+        <div className="flex items-center gap-1.5 rounded-full border border-hairline bg-surface-2 px-3 py-1 text-ink-secondary shadow-soft-sm">
+          <Info className="h-3 w-3 text-ink-tertiary" />
           {renderInline(msg.body, onMentionPersona)}
         </div>
       </div>
@@ -1329,7 +867,7 @@ function MessageRow({
             ? 'bg-gradient-to-br from-violet-400 to-purple-500 text-white'
             : isMe
             ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-white'
-            : 'bg-gradient-to-br from-slate-300 to-slate-500 text-white'
+            : 'bg-gradient-to-br from-zinc-300 to-zinc-500 text-white'
         }`}
         title={msg.senderId}
       >
@@ -1338,11 +876,11 @@ function MessageRow({
       <div className={`max-w-[72%] min-w-0 ${isMe ? 'text-right' : ''}`}>
         {showSender && (
           <div
-            className={`mb-1 flex items-center gap-1.5 text-[10.5px] text-slate-500 ${
+            className={`mb-1 flex items-center gap-1.5 text-[10.5px] text-ink-secondary ${
               isMe ? 'justify-end' : ''
             }`}
           >
-            <span className="font-medium text-slate-700">{msg.senderId}</span>
+            <span className="font-medium text-ink-primary">{msg.senderId}</span>
             {isPersona && (
               <Badge
                 variant="outline"
@@ -1351,8 +889,8 @@ function MessageRow({
                 AI 分身
               </Badge>
             )}
-            <span className="text-slate-400">·</span>
-            <span className="text-slate-400">
+            <span className="text-ink-tertiary">·</span>
+            <span className="text-ink-tertiary">
               {new Date(msg.createdAt).toLocaleTimeString([], {
                 hour: '2-digit',
                 minute: '2-digit',
@@ -1367,7 +905,7 @@ function MessageRow({
                 ? 'bg-gradient-to-br from-amber-500 to-orange-500 text-white'
                 : isPersona
                 ? 'border border-violet-200/80 bg-gradient-to-br from-violet-50 to-purple-50/40 text-violet-900'
-                : 'bg-white text-slate-800 ring-1 ring-slate-200/80'
+                : 'bg-surface-2 text-ink-primary ring-1 ring-hairline'
             }`}
           >
             {(() => {
@@ -1412,7 +950,7 @@ function MessageRow({
               type="button"
               onClick={onSpawnRoom}
               disabled={!!msg.spawnedDecisionCardId}
-              className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-warning shadow-soft ring-1 ring-warning/30/80 transition hover:bg-warning/5 hover:shadow-soft-lg disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-warning shadow-soft ring-1 ring-warning/30 transition hover:bg-warning/5 hover:shadow-soft-lg disabled:cursor-not-allowed disabled:opacity-40"
               title="把这条消息变成议事室议题 (Tandem 差异化 — 普通 IM 没有)"
             >
               <Sparkles className="h-3 w-3" />
@@ -1422,7 +960,7 @@ function MessageRow({
               type="button"
               onClick={onPromote}
               disabled={!!msg.spawnedPromotionId}
-              className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-violet-700 shadow-soft ring-1 ring-violet-300/80 transition hover:bg-violet-50 hover:shadow-soft-lg disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-violet-700 shadow-soft ring-1 ring-violet-300/80 transition hover:bg-violet-50 hover:shadow-soft-lg disabled:cursor-not-allowed disabled:opacity-40"
               title="沉淀为 Memory 升级提议 (三级签批) — 差异化 §2.2 第 3 条"
             >
               <Brain className="h-3 w-3" />
@@ -1432,8 +970,8 @@ function MessageRow({
             <button
               type="button"
               onClick={onPin}
-              className={`flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold shadow-soft transition hover:shadow-soft-lg ${
-                isPinned ? 'text-warning ring-1 ring-warning/30/80 hover:bg-warning/5' : 'text-slate-600 ring-1 ring-slate-300/80 hover:bg-slate-50'
+              className={`flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold shadow-soft transition hover:shadow-soft-lg ${
+                isPinned ? 'text-warning ring-1 ring-warning/30 hover:bg-warning/5' : 'text-ink-secondary ring-1 ring-hairline hover:bg-surface-3'
               }`}
               title={isPinned ? '取消置顶' : '置顶 (最多 5 条)'}
             >
@@ -1451,7 +989,7 @@ function MessageRow({
               <button
                 type="button"
                 onClick={onRecall}
-                className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-rose-700 shadow-soft ring-1 ring-rose-300/80 transition hover:bg-rose-50 hover:shadow-soft-lg"
+                className="flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-rose-700 shadow-soft ring-1 ring-rose-300/80 transition hover:bg-rose-50 hover:shadow-soft-lg"
                 title="撤回 (2 分钟内 有效)"
               >
                 <Trash2 className="h-3 w-3" />
@@ -1471,7 +1009,7 @@ function MessageRow({
         </div>
         {/* Day 4: 已读人数 (仅我发的消息显示) */}
         {msg.senderId === meId && totalReaders > 0 && (
-          <div className={`mt-1 text-[10px] text-slate-400 ${isMe ? 'text-right' : ''}`}>
+          <div className={`mt-1 text-[10px] text-ink-tertiary ${isMe ? 'text-right' : ''}`}>
             {readerCount === 0
               ? '未读'
               : readerCount === totalReaders
@@ -1534,7 +1072,7 @@ function renderInline(
         ? 'bg-rose-100 text-rose-700'
         : kind === 'consult'
         ? 'bg-blue-100 text-blue-700'
-        : 'bg-slate-100 text-slate-700';
+        : 'bg-surface-3 text-ink-primary';
     parts.push(
       <button
         key={key++}

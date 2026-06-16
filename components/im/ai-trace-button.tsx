@@ -79,7 +79,7 @@ export function AiTraceButton({ messageId }: { messageId: string }) {
       <button
         type="button"
         onClick={handleOpen}
-        className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-indigo-700 shadow-soft ring-1 ring-indigo-300/80 transition hover:bg-indigo-50 hover:shadow-soft-lg"
+        className="flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-indigo-700 shadow-soft ring-1 ring-indigo-300/80 transition hover:bg-indigo-50 hover:shadow-soft-lg"
         title="AI 回复透明化 (Tandem 差异化 — 飞书 AI 是黑盒)"
       >
         <Search className="h-3 w-3" />
@@ -88,30 +88,30 @@ export function AiTraceButton({ messageId }: { messageId: string }) {
 
       {open && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
           onClick={() => setOpen(false)}
         >
           <div
-            className="relative w-[420px] max-w-[92vw] rounded-2xl bg-white p-5 shadow-2xl ring-1 ring-slate-200"
+            className="relative w-[420px] max-w-[92vw] rounded-2xl bg-surface-2 p-5 shadow-2xl ring-1 ring-hairline"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="absolute right-3 top-3 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              className="absolute right-3 top-3 rounded-full p-1 text-ink-tertiary hover:bg-surface-3 hover:text-ink-primary"
               aria-label="关闭"
             >
               <X className="h-4 w-4" />
             </button>
-            <h3 className="mb-1 text-caption font-semibold text-slate-900">
+            <h3 className="mb-1 text-caption font-semibold text-ink-primary">
               AI 回复 trace · §IM-7
             </h3>
-            <p className="mb-4 text-[11px] text-slate-500">
+            <p className="mb-4 text-[11px] text-ink-secondary">
               Tandem 把每次 AI 调用变可见. 飞书做不到的.
             </p>
 
             {loading && (
-              <div className="flex items-center gap-2 py-6 text-caption text-slate-500">
+              <div className="flex items-center gap-2 py-6 text-caption text-ink-secondary">
                 <Loader2 className="h-4 w-4 animate-spin" /> 加载 trace...
               </div>
             )}
@@ -133,46 +133,46 @@ export function AiTraceButton({ messageId }: { messageId: string }) {
 
                 {data.trace ? (
                   <dl className="grid grid-cols-[6.5em_1fr] gap-x-3 gap-y-1.5 tabular-nums">
-                    <dt className="text-slate-500">Provider</dt>
-                    <dd className="font-medium text-slate-800">{data.trace.provider}</dd>
+                    <dt className="text-ink-secondary">Provider</dt>
+                    <dd className="font-medium text-ink-primary">{data.trace.provider}</dd>
 
-                    <dt className="text-slate-500">Model</dt>
-                    <dd className="font-mono text-[11.5px] text-slate-800">{data.trace.model}</dd>
+                    <dt className="text-ink-secondary">Model</dt>
+                    <dd className="font-mono text-[11.5px] text-ink-primary">{data.trace.model}</dd>
 
-                    <dt className="text-slate-500">Scenario</dt>
-                    <dd className="font-mono text-[11.5px] text-slate-800">{data.trace.scenario}</dd>
+                    <dt className="text-ink-secondary">Scenario</dt>
+                    <dd className="font-mono text-[11.5px] text-ink-primary">{data.trace.scenario}</dd>
 
-                    <dt className="text-slate-500">Tokens</dt>
-                    <dd className="text-slate-800">
-                      <span className="text-slate-500">in</span> {data.trace.tokensIn?.toLocaleString() ?? 0}
+                    <dt className="text-ink-secondary">Tokens</dt>
+                    <dd className="text-ink-primary">
+                      <span className="text-ink-secondary">in</span> {data.trace.tokensIn?.toLocaleString() ?? 0}
                       {' · '}
-                      <span className="text-slate-500">out</span> {data.trace.tokensOut?.toLocaleString() ?? 0}
+                      <span className="text-ink-secondary">out</span> {data.trace.tokensOut?.toLocaleString() ?? 0}
                     </dd>
 
-                    <dt className="text-slate-500">延迟</dt>
-                    <dd className="text-slate-800">{data.trace.latencyMs?.toLocaleString() ?? 0} ms</dd>
+                    <dt className="text-ink-secondary">延迟</dt>
+                    <dd className="text-ink-primary">{data.trace.latencyMs?.toLocaleString() ?? 0} ms</dd>
 
-                    <dt className="text-slate-500">成本估算</dt>
+                    <dt className="text-ink-secondary">成本估算</dt>
                     <dd className="text-emerald-700">{fmtCost(data.trace.costUsd)}</dd>
 
-                    <dt className="text-slate-500">状态</dt>
+                    <dt className="text-ink-secondary">状态</dt>
                     <dd className={data.trace.success ? 'text-emerald-700' : 'text-rose-700'}>
                       {data.trace.success ? '✓ 成功' : `✗ 失败 ${data.trace.errorMessage ?? ''}`}
                     </dd>
 
-                    <dt className="text-slate-500">时间</dt>
-                    <dd className="font-mono text-[11px] text-slate-600">
+                    <dt className="text-ink-secondary">时间</dt>
+                    <dd className="font-mono text-[11px] text-ink-secondary">
                       {data.trace.createdAt ? new Date(data.trace.createdAt).toLocaleString('zh-CN') : '—'}
                     </dd>
                   </dl>
                 ) : (
-                  <div className="rounded-md bg-slate-50 px-3 py-2 text-[11.5px] text-slate-600">
+                  <div className="rounded-md bg-surface-3 px-3 py-2 text-[11.5px] text-ink-secondary">
                     没找到对应的 LlmUsageLog (可能 PG 未连/migration 0003 未应用/调用时未传 requestId).
                   </div>
                 )}
 
                 {data.aiTraceId && (
-                  <div className="border-t pt-2 text-[10.5px] text-slate-400">
+                  <div className="border-t border-hairline pt-2 text-[10.5px] text-ink-tertiary">
                     aiTraceId: <span className="font-mono">{data.aiTraceId}</span>
                   </div>
                 )}

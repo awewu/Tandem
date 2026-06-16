@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic';
 export const GET = withErrorHandler(async (req: NextRequest) => {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
-  const configured = isEmailConfigured();
+  const configured = await isEmailConfigured();
   const fromAddress = configured
     ? (process.env.SMTP_FROM ?? `Tandem <${process.env.SMTP_USER}>`)
     : null;

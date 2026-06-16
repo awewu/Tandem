@@ -371,6 +371,7 @@ async function enrichProposalRationales(
       '只指出"值得关注什么", 严禁给出会自动改 OKR 的指令。仅输出 JSON: {"diagnoses":[{"targetId":"...","rationale":"..."}]}。';
     const user = `提议与信号 (JSON):\n\`\`\`json\n${JSON.stringify(payload, null, 2)}\n\`\`\``;
 
+    // eslint-disable-next-line no-restricted-syntax -- governed-chat-exempt: company-brain-reflection 月度 OKR 归因诊断，actorUserId='__company__' 豁免 baseline-guard 自身（宪法A）
     const reply = await router.chat({
       messages: [
         { role: 'system', content: system },
@@ -576,6 +577,7 @@ async function runLlmAnalysis(
 
     const user = `本期决策度量数据 (JSON):\n\`\`\`json\n${JSON.stringify(summary, null, 2)}\n\`\`\`\n\n请基于上述数据, 输出 JSON 反思报告.`;
 
+    // eslint-disable-next-line no-restricted-syntax -- governed-chat-exempt: company-brain-reflection 月度决策度量反思，actorUserId='__company__' 豁免 baseline-guard 自身（宪法A）
     const reply = await router.chat({
       messages: [
         { role: 'system', content: system },

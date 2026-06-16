@@ -177,13 +177,13 @@ export function SeedFromOrgDialog({ open, onOpenChange, currentUserId, onSeeded 
               </div>
             )}
             {result.skipped.length > 0 && (
-              <div className="rounded-md border border-slate-200 bg-slate-50/60 p-2.5 space-y-1">
-                <div className="flex items-center gap-1.5 text-footnote font-semibold text-slate-700">
+              <div className="rounded-md border border-hairline bg-surface-3 p-2.5 space-y-1">
+                <div className="flex items-center gap-1.5 text-footnote font-semibold text-ink-primary">
                   <AlertCircle className="h-3.5 w-3.5" />
                   跳过 {result.skipped.length} 个
                 </div>
                 {result.skipped.map((s) => (
-                  <div key={s.departmentId} className="text-[11px] text-slate-600 pl-5">
+                  <div key={s.departmentId} className="text-[11px] text-ink-secondary pl-5">
                     · {s.departmentId}: {s.reason}
                   </div>
                 ))}
@@ -204,7 +204,7 @@ export function SeedFromOrgDialog({ open, onOpenChange, currentUserId, onSeeded 
                   type="checkbox"
                   checked={allChecked}
                   onChange={toggleAll}
-                  className="h-3.5 w-3.5 rounded border-slate-300 accent-blue-600"
+                  className="h-3.5 w-3.5 rounded border-hairline accent-brand-600"
                 />
                 <span className="font-medium">全选</span>
               </label>
@@ -224,11 +224,11 @@ export function SeedFromOrgDialog({ open, onOpenChange, currentUserId, onSeeded 
                       type="checkbox"
                       checked={selected.has(r.id)}
                       onChange={() => toggleOne(r.id)}
-                      className="h-3.5 w-3.5 rounded border-slate-300 accent-blue-600"
+                      className="h-3.5 w-3.5 rounded border-hairline accent-brand-600"
                     />
                     <Icon
                       className={`h-3.5 w-3.5 shrink-0 ${
-                        r.level === 'department' ? 'text-blue-600' : 'text-slate-500'
+                        r.level === 'department' ? 'text-blue-600' : 'text-ink-secondary'
                       }`}
                     />
                     <div className="flex-1 min-w-0">

@@ -19,6 +19,7 @@ import {
 import { TodayTab } from '@/components/persona/TodayTab';
 import { ArchiveTab } from '@/components/persona/ArchiveTab';
 import { PrivacyFooter } from '@/components/persona/PrivacyFooter';
+import { AiPreferenceCard } from '@/components/persona/AiPreferenceCard';
 import { STAGE_META } from '@/lib/persona/stage-meta';
 import { useCurrentUserId } from '@/lib/hooks/use-current-user';
 import type { Persona } from '@/lib/types/persona';
@@ -144,6 +145,9 @@ function PersonaPageInner() {
       {/* tab content */}
       {activeTab === 'today' && <TodayTab />}
       {activeTab === 'archive' && <ArchiveTab persona={view} />}
+
+      {/* 个人 AI 偏好 */}
+      <AiPreferenceCard />
 
       {/* 校规与权益 (折叠) */}
       <PrivacyFooter />

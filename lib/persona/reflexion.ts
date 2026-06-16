@@ -328,6 +328,7 @@ async function generateReflectionText(
     .filter(Boolean)
     .join('\n\n');
 
+  // eslint-disable-next-line no-restricted-syntax -- governed-chat-exempt: reflexion 是系统内部自省，无用户 session，不需要 persona baseline 闸；迁移至 governedChat 需引入 actorUserId=actorId
   const res = await router.chat({
     messages: [
       { role: 'system', content: REFLEXION_SYSTEM },

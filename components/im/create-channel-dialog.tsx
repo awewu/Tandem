@@ -21,15 +21,15 @@
  *   - 成员 textarea (V1 简版, M2 替换为用户多选)
  */
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useOrgStore } from '@/lib/store';
+import { Search, X as XIcon, Check } from 'lucide-react';
 import {
   Users, Megaphone, Building2, UsersRound, Briefcase, Network,
   Lock, Globe, Calendar, Plus,
@@ -87,9 +87,37 @@ export function CreateChannelDialog({ open, onOpenChange, currentUserId, onCreat
   const [departmentId, setDepartmentId] = useState('');
   const [projectEndsAt, setProjectEndsAt] = useState('');
   const [visibility, setVisibility] = useState<'public' | 'private'>('public');
-  const [memberInput, setMemberInput] = useState('');
+  const [selectedMembers, setSelectedMembers] = useState<{ id: string; name: string; email: string }[]>([]);
+  const [memberSearch, setMemberSearch] = useState('');
+  const [memberResults, setMemberResults] = useState<{ id: string; name: string; email: string }[]>([]);
+  const [memberSearchOpen, setMemberSearchOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const memberSearchRef = useRef<HTMLDivElement>(null);
+
+  const searchMembers = useCallback(async (q: string) => {
+    if (!q.trim()) { setMemberResults([]); return; }
+    try {
+      const res = await fetch(`/api/org/users?q=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      setMemberResults((data.users ?? []).slice(0, 8));
+    } catch { setMemberResults([]); }
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => void searchMembers(memberSearch), 200);
+    return () => clearTimeout(t);
+  }, [memberSearch, searchMembers]);
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (memberSearchRef.current && !memberSearchRef.current.contains(e.target as Node)) {
+        setMemberSearchOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   // Day 2: 当父组件传入 prefillDepartment 且对话框打开时, 预填部门 + kind=department
   useEffect(() => {
@@ -110,8 +138,6 @@ export function CreateChannelDialog({ open, onOpenChange, currentUserId, onCreat
   const meta = KIND_META[kind];
   const Icon = meta.icon;
 
-  const memberIds = memberInput.split(',').map((s) => s.trim()).filter(Boolean);
-
   const valid =
     name.trim().length > 0 &&
     (!meta.needsDepartment || departmentId.length > 0) &&
@@ -124,7 +150,9 @@ export function CreateChannelDialog({ open, onOpenChange, currentUserId, onCreat
     setDepartmentId('');
     setProjectEndsAt('');
     setVisibility('public');
-    setMemberInput('');
+    setSelectedMembers([]);
+    setMemberSearch('');
+    setMemberResults([]);
     setError(null);
     setSubmitting(false);
   }
@@ -142,7 +170,7 @@ export function CreateChannelDialog({ open, onOpenChange, currentUserId, onCreat
           name: name.trim(),
           topic: topic.trim() || undefined,
           visibility,
-          memberIds,
+          memberIds: selectedMembers.map((m) => m.id),
           createdBy: currentUserId,
           departmentId: meta.needsDepartment ? departmentId : undefined,
           projectEndsAt: meta.needsEndDate
@@ -320,19 +348,75 @@ export function CreateChannelDialog({ open, onOpenChange, currentUserId, onCreat
 
           {/* 成员 */}
           <div className="space-y-1.5">
-            <Label htmlFor="ch-members" className="text-footnote">初始成员 userId (可选, 逗号分隔)</Label>
-            <Textarea
-              id="ch-members"
-              value={memberInput}
-              onChange={(e) => setMemberInput(e.target.value)}
-              placeholder="colleague-li, colleague-wang, colleague-zhang"
-              rows={2}
-              disabled={submitting}
-              className="text-footnote"
-            />
+            <Label className="text-footnote">添加成员</Label>
+
+            {/* 已选成员 chips */}
+            {selectedMembers.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 rounded-md border border-border bg-muted/30 p-2">
+                {selectedMembers.map((m) => (
+                  <span
+                    key={m.id}
+                    className="inline-flex items-center gap-1 rounded-full bg-surface-2 border border-hairline px-2 py-0.5 text-[11px] font-medium text-ink-primary shadow-soft-xs"
+                  >
+                    {m.name || m.id}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedMembers((prev) => prev.filter((x) => x.id !== m.id))}
+                      className="ml-0.5 text-ink-tertiary hover:text-ink-primary"
+                    >
+                      <XIcon className="h-2.5 w-2.5" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* 搜索框 + 下拉 */}
+            <div ref={memberSearchRef} className="relative">
+              <div className="flex items-center gap-1.5 rounded-md border border-input bg-background px-3 py-2">
+                <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={memberSearch}
+                  onChange={(e) => { setMemberSearch(e.target.value); setMemberSearchOpen(true); }}
+                  onFocus={() => setMemberSearchOpen(true)}
+                  placeholder="搜索姓名或邮箱…"
+                  disabled={submitting}
+                  className="flex-1 bg-transparent text-footnote outline-none placeholder:text-muted-foreground"
+                />
+              </div>
+              {memberSearchOpen && memberResults.length > 0 && (
+                <div className="absolute left-0 right-0 top-full z-50 mt-1 rounded-md border border-hairline bg-surface-2 shadow-soft">
+                  {memberResults.map((u) => {
+                    const already = selectedMembers.some((m) => m.id === u.id) || u.id === currentUserId;
+                    return (
+                      <button
+                        key={u.id}
+                        type="button"
+                        disabled={already}
+                        onClick={() => {
+                          if (!already) setSelectedMembers((prev) => [...prev, u]);
+                          setMemberSearch('');
+                          setMemberResults([]);
+                          setMemberSearchOpen(false);
+                        }}
+                        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-footnote hover:bg-accent disabled:opacity-50"
+                      >
+                        <div className="min-w-0">
+                          <div className="truncate font-medium text-ink-primary">{u.name || u.id}</div>
+                          <div className="truncate text-[10px] text-muted-foreground">{u.email}</div>
+                        </div>
+                        {already && <Check className="h-3.5 w-3.5 shrink-0 text-primary" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
             <p className="text-[10px] text-muted-foreground">
-              你 ({currentUserId}) 自动作为创建者. 当前 {memberIds.length} 位邀请.
-              {kind === 'department' && (allDepartments.find((d) => d.id === departmentId)) && (
+              你 ({currentUserId}) 自动作为创建者，已选 {selectedMembers.length} 位成员
+              {kind === 'department' && allDepartments.find((d) => d.id === departmentId) && (
                 <> · M2 将自动 seed 部门全员</>
               )}
             </p>
@@ -354,7 +438,7 @@ export function CreateChannelDialog({ open, onOpenChange, currentUserId, onCreat
               <div className="flex-1 min-w-0">
                 <div className="text-caption font-medium truncate">{name || '未命名'}</div>
                 <div className="text-[10px] text-muted-foreground">
-                  {meta.label} · {visibility === 'public' ? '公开' : '私密'} · {memberIds.length + 1} 人
+                  {meta.label} · {visibility === 'public' ? '公开' : '私密'} · {selectedMembers.length + 1} 人
                   {meta.needsEndDate && projectEndsAt && ` · 截止 ${projectEndsAt}`}
                 </div>
               </div>

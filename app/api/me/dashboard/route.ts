@@ -13,12 +13,12 @@ import { requireAuth } from '@/lib/auth/require-auth';
 import {
   PROMOTION_REQUIRED_ROLES,
   type MemoryPromotionRequest,
-  type MemorySignerRole,
 } from '@/lib/types/memory';
 import {
   checkUpgradeEligibility,
   computeBossCaptureScore,
 } from '@/lib/persona/evolution';
+import { deriveSigningAuthority } from '@/lib/governance/signing-authority';
 
 const VETO_WINDOW_MS = 24 * 60 * 60 * 1000;
 const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -40,10 +40,7 @@ export async function GET(req: NextRequest) {
     auth.demo && queryUserId ? queryUserId : auth.userId;
   const store = getStore();
 
-  // 解析当前用户在 Tandem 里有哪些角色 (用于匹配 Memory promotion 签字者)
-  // V1 简化: demo-user 默认拥有所有角色 (方便单人 demo 看到全部待办)
-  // 生产: 应来源于 OrgMembership / Steward 表
-  const myRoles = await resolveMyRoles(store, userId);
+  // 签批角色按每条 promotion 的 level 动态派生，不再全局一次性拉取
 
   // -- 并行拉数据 -----------------------------------------------------------
   const [
@@ -66,32 +63,36 @@ export async function GET(req: NextRequest) {
   const myPersona =
     personasList.find((p) => p.userId === userId) ?? null;
 
-  // 1. 待我签字的 Memory promotion
-  const promotionsAwaitingMySignature = (promotions as MemoryPromotionRequest[])
-    .filter((p) => p.status === 'pending')
-    .map((p) => {
-      const level = p.level ?? 'company';
-      const required = PROMOTION_REQUIRED_ROLES[level] ?? [];
-      const myRequiredRoles = required.filter((r) => myRoles.includes(r));
-      if (myRequiredRoles.length === 0) return null;
-      const history = p.signers?.history ?? [];
-      const alreadySignedRoles = new Set(history.map((s) => s.role));
-      const pendingRoles = myRequiredRoles.filter(
-        (r) => !alreadySignedRoles.has(r)
-      );
-      if (pendingRoles.length === 0) return null;
-      return {
-        id: p.id,
-        title: p.proposedTitle,
-        level,
-        slaDeadline: p.slaDeadline,
-        myPendingRoles: pendingRoles,
-        overdue: p.slaDeadline
-          ? new Date(p.slaDeadline).getTime() < Date.now()
-          : false,
-      };
-    })
-    .filter(Boolean);
+  // 1. 待我签字的 Memory promotion—按每条 level 动态派生签批角色
+  const promotionsAwaitingMySignature = (
+    await Promise.all(
+      (promotions as MemoryPromotionRequest[])
+        .filter((p) => p.status === 'pending')
+        .map(async (p) => {
+          const level = p.level ?? 'company';
+          const required = PROMOTION_REQUIRED_ROLES[level] ?? [];
+          const { roles: myRoles } = await deriveSigningAuthority({ userId, level });
+          const myRequiredRoles = required.filter((r) => myRoles.includes(r));
+          if (myRequiredRoles.length === 0) return null;
+          const history = p.signers?.history ?? [];
+          const alreadySignedRoles = new Set(history.map((s) => s.role));
+          const pendingRoles = myRequiredRoles.filter(
+            (r) => !alreadySignedRoles.has(r)
+          );
+          if (pendingRoles.length === 0) return null;
+          return {
+            id: p.id,
+            title: p.proposedTitle,
+            level,
+            slaDeadline: p.slaDeadline,
+            myPendingRoles: pendingRoles,
+            overdue: p.slaDeadline
+              ? new Date(p.slaDeadline).getTime() < Date.now()
+              : false,
+          };
+        })
+    )
+  ).filter(Boolean);
 
   // 2. 待确认的 Persona 升阶
   let personaUpgradeAvailable: {
@@ -225,33 +226,3 @@ export async function GET(req: NextRequest) {
   });
 }
 
-// ---------------------------------------------------------------------------
-// helpers
-// ---------------------------------------------------------------------------
-
-type StoreLike = ReturnType<typeof getStore>;
-
-async function resolveMyRoles(
-  store: StoreLike,
-  userId: string
-): Promise<MemorySignerRole[]> {
-  // V1 简化 demo: demo-user 拥有全部角色, 方便单人体验所有待办  // 生产应基于 OrgMembership + Steward 表eward repo
-  if (userId === 'demo-user' || userId === 'owner') {
-    return [
-      'team_leader',
-      'dept_leader',
-      'kr_owner',
-      'steward',
-      'ceo',
-      'clevel',
-    ] as MemorySignerRole[];
-  }
-  // 尝试从 stewards 表读 (单点查询)
-  try {
-    const found = await store.stewards.get(userId);
-    if (found) return ['steward'];
-  } catch {
-    /* noop */
-  }
-  return [];
-}

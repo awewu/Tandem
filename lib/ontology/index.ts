@@ -20,6 +20,10 @@ export {
   ObjectiveType,
   KeyResultType,
   InitiativeType,
+  DecisionCardType,
+  PersonaType,
+  KpiType,
+  MemoryEntryType,
 } from './object-types';
 
 // ── ON-1 · Action Type 引擎 ──────────────────────────────────────────

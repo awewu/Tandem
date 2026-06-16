@@ -4,7 +4,7 @@
  * 验证: aligned / drift / no_okr 三种判定路径
  */
 import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
-import { checkOkrDrift } from '@/lib/governance/okr-drift';
+import { checkOkrDrift, invalidateOkrDriftCache } from '@/lib/governance/okr-drift';
 import { getStore, setStore } from '@/lib/storage/repository';
 import { createInMemoryStore } from '@/lib/storage/memory-store';
 import type { Cycle, Objective, KeyResult } from '@/lib/types/okr-tti';
@@ -18,6 +18,7 @@ async function reset() {
   for (const c of await store.cycles.list()) await store.cycles.delete(c.id);
   for (const o of await store.objectives.list()) await store.objectives.delete(o.id);
   for (const kr of await store.keyResults.list()) await store.keyResults.delete(kr.id);
+  invalidateOkrDriftCache();
 }
 
 async function seedOkr(opts: {

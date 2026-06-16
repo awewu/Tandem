@@ -135,7 +135,7 @@ export async function recommendApps(
   if (!intent) return out;
 
   // Try embedding first
-  if (isEmbeddingConfigured()) {
+  if (await isEmbeddingConfigured()) {
     try {
       const intentVec = await embed(intent);
       if (intentVec) {

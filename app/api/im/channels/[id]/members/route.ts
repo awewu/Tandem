@@ -10,8 +10,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import {
-  listChannelMembers, addChannelMember, removeChannelMember, setMemberRole,
+  listChannelMembers, addChannelMember, removeChannelMember, setMemberRole, updateMemberSettings,
 } from '@/lib/im/service';
+import { requireAuth } from '@/lib/auth/require-auth';
 
 export async function GET(
   _req: NextRequest,
@@ -78,9 +79,21 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   await boot();
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
   try {
     const { id } = await params;
     const body = await req.json();
+    // settings branch: muted / pinnedChat / markedChat
+    if ('muted' in body || 'pinnedChat' in body || 'markedChat' in body) {
+      const membership = await updateMemberSettings(id, auth.userId, {
+        muted: body.muted,
+        pinnedChat: body.pinnedChat,
+        markedChat: body.markedChat,
+      });
+      return NextResponse.json({ membership });
+    }
+    // role branch
     if (!body.operatorId || !body.userId || !body.role) {
       return NextResponse.json(
         { error: 'operatorId / userId / role required' },

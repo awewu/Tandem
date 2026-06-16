@@ -241,6 +241,27 @@ export function registerCrossDomainSubscribers(): void {
     })();
   });
 
+  // B-025: OKR 周期切换 → Persona enabledSkills 重对齐
+  eventBus.on('okr.cycle-activated', (p) => {
+    logger.info(
+      { cycleId: p.cycleId, tenantId: p.tenantId, activatedBy: p.activatedBy },
+      '[event] okr.cycle-activated',
+    );
+    mirrorToUsage('event.okr.cycle-activated', p.activatedBy, {
+      cycleId: p.cycleId,
+      previousCycleId: p.previousCycleId,
+    });
+    void (async () => {
+      try {
+        const { realignPersonaToOkr } = await import('@/lib/persona/strategy-engine');
+        const result = await realignPersonaToOkr(p.tenantId);
+        logger.info(result, '[B-025] persona realign complete after cycle activation');
+      } catch (err) {
+        logger.warn({ error: (err as Error).message }, '[subscribers] realignPersonaToOkr failed');
+      }
+    })();
+  });
+
   // B2 真 rollup: Objective 进度被向上重算 (替代旧"只打日志不传播"假闭环).
   eventBus.on('okr.objective-rolled-up', (p) => {
     logger.info(
@@ -260,6 +281,10 @@ export function registerCrossDomainSubscribers(): void {
       delta: p.to - p.from,
       depth: p.depth,
     });
+    // B-015 Palantir #2: OKR 真值变更 → 立即清 Drift 基线 cache (事件驱动, 替代纯 TTL)
+    void import('@/lib/governance/okr-drift').then(({ invalidateOkrDriftCache }) => {
+      invalidateOkrDriftCache();
+    }).catch(() => { /* fail-soft */ });
   });
 
   eventBus.on('audit.event-emitted', (p) => {

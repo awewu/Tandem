@@ -91,6 +91,7 @@ suggestedEvents 规则：
     const { createDefaultRouter } = await import('../taf');
     const router = createDefaultRouter();
 
+    // eslint-disable-next-line no-restricted-syntax -- governed-chat-exempt: email-ai-brain 处理入站邮件分析，无用户 session；待接入 governedChat 需映射 emailSenderId → actorUserId
     const response = await router.chat({
       messages: [
         { role: 'system', content: systemPrompt },

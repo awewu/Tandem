@@ -109,6 +109,7 @@ export async function reviewDocument(input: ReviewDocumentInput): Promise<Docume
 
   try {
     const router = getRouter();
+    // eslint-disable-next-line no-restricted-syntax -- governed-chat-exempt: document-review 是结构化文档审阅，输入为系统拼装 prompt 非用户自由文本，待接入 governedChat agentKind='document_review'
     const res = await router.chat({
       scenario: 'long_context',
       temperature: 0.3,

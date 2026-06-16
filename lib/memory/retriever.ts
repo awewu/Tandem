@@ -86,7 +86,7 @@ async function rankSemantic(
   limit: number,
 ): Promise<MemorySearchResult[]> {
   if (entries.length === 0) return [];
-  if (isEmbeddingConfigured()) {
+  if (await isEmbeddingConfigured()) {
     try {
       const qv = await embed(query);
       if (qv) {

@@ -1,3 +1,6 @@
+# test-generated skill dirs (vitest runs reviewSkillProposal which writes real files)
+skills/review_test/
+
 /node_modules
 /.next
 /out

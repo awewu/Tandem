@@ -87,9 +87,9 @@ export function ContactsTree({ currentUserId, onSelectPerson, onCreateDeptChanne
   return (
     <div className="flex flex-col h-full">
       {/* 搜索 */}
-      <div className="px-2 py-2 border-b border-slate-200/70">
+      <div className="px-2 py-2 border-b border-hairline">
         <div className="relative">
-          <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-slate-400" />
+          <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-ink-tertiary" />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -97,7 +97,7 @@ export function ContactsTree({ currentUserId, onSelectPerson, onCreateDeptChanne
             className="h-7 pl-6 text-footnote"
           />
         </div>
-        <div className="mt-1 px-1 text-[10px] text-slate-500">
+        <div className="mt-1 px-1 text-[10px] text-ink-secondary">
           共 {totalPeople} 位同事 · {departments.length} 个部门
         </div>
       </div>
@@ -120,7 +120,7 @@ export function ContactsTree({ currentUserId, onSelectPerson, onCreateDeptChanne
             <div key={dept.id} className="mb-0.5">
               {/* 部门行 */}
               <div
-                className="group flex items-center gap-1 rounded px-1.5 py-1 hover:bg-slate-100"
+                className="group flex items-center gap-1 rounded px-1.5 py-1 hover:bg-surface-3"
               >
                 <button
                   type="button"
@@ -128,15 +128,15 @@ export function ContactsTree({ currentUserId, onSelectPerson, onCreateDeptChanne
                   className="flex flex-1 items-center gap-1 text-left"
                 >
                   {deptOpen ? (
-                    <ChevronDown className="h-3 w-3 text-slate-500 shrink-0" />
+                    <ChevronDown className="h-3 w-3 text-ink-secondary shrink-0" />
                   ) : (
-                    <ChevronRight className="h-3 w-3 text-slate-500 shrink-0" />
+                    <ChevronRight className="h-3 w-3 text-ink-secondary shrink-0" />
                   )}
                   <Building2 className="h-3.5 w-3.5 text-blue-600 shrink-0" />
-                  <span className="text-[12.5px] font-medium text-slate-700 truncate">
+                  <span className="text-[12.5px] font-medium text-ink-primary truncate">
                     {dept.name}
                   </span>
-                  <span className="ml-1 text-[10px] text-slate-400 tabular-nums">
+                  <span className="ml-1 text-[10px] text-ink-tertiary tabular-nums">
                     {deptPeople.length}
                   </span>
                 </button>
@@ -146,7 +146,7 @@ export function ContactsTree({ currentUserId, onSelectPerson, onCreateDeptChanne
                     e.stopPropagation();
                     onCreateDeptChannel(dept.id, dept.name);
                   }}
-                  className="opacity-0 group-hover:opacity-100 rounded p-0.5 text-slate-500 hover:bg-slate-200"
+                  className="opacity-0 group-hover:opacity-100 rounded p-0.5 text-ink-secondary hover:bg-surface-3"
                   title={`建 ${dept.name} 部门群`}
                 >
                   <Plus className="h-3 w-3" />
@@ -155,7 +155,7 @@ export function ContactsTree({ currentUserId, onSelectPerson, onCreateDeptChanne
 
               {/* Ministry + 人员 */}
               {deptOpen && (
-                <div className="ml-3 border-l border-slate-200/70 pl-1.5">
+                <div className="ml-3 border-l border-hairline pl-1.5">
                   {dept.ministries.map((m) => (
                     <MinistryNode
                       key={m.id}
@@ -177,7 +177,7 @@ export function ContactsTree({ currentUserId, onSelectPerson, onCreateDeptChanne
         {/* 未分配 */}
         {peopleByMinistry.unassigned.length > 0 && (
           <div className="mb-0.5 mt-2">
-            <div className="px-1.5 py-1 text-[10px] font-medium uppercase tracking-wider text-slate-400">
+            <div className="px-1.5 py-1 text-[10px] font-medium uppercase tracking-wider text-ink-tertiary">
               未分配 ({peopleByMinistry.unassigned.length})
             </div>
             {peopleByMinistry.unassigned
@@ -193,7 +193,7 @@ export function ContactsTree({ currentUserId, onSelectPerson, onCreateDeptChanne
         )}
 
         {totalPeople === 0 && (
-          <div className="px-3 py-6 text-footnote text-slate-500">
+          <div className="px-3 py-6 text-footnote text-ink-secondary">
             暂无成员. 去 <a className="underline" href="/organization">组织架构</a> 添加.
           </div>
         )}
@@ -231,16 +231,16 @@ function MinistryNode({
       <button
         type="button"
         onClick={() => onToggle(key)}
-        className="flex w-full items-center gap-1 rounded px-1.5 py-0.5 text-left hover:bg-slate-100"
+        className="flex w-full items-center gap-1 rounded px-1.5 py-0.5 text-left hover:bg-surface-3"
       >
         {open ? (
-          <ChevronDown className="h-3 w-3 text-slate-400 shrink-0" />
+          <ChevronDown className="h-3 w-3 text-ink-tertiary shrink-0" />
         ) : (
-          <ChevronRight className="h-3 w-3 text-slate-400 shrink-0" />
+          <ChevronRight className="h-3 w-3 text-ink-tertiary shrink-0" />
         )}
         <UsersRound className="h-3 w-3 text-cyan-600 shrink-0" />
-        <span className="text-[11.5px] text-slate-600 truncate">{ministry.name}</span>
-        <span className="ml-1 text-[10px] text-slate-400 tabular-nums">{ministryPeople.length}</span>
+        <span className="text-[11.5px] text-ink-primary truncate">{ministry.name}</span>
+        <span className="ml-1 text-[10px] text-ink-tertiary tabular-nums">{ministryPeople.length}</span>
       </button>
       {open && (
         <div className="ml-3">
@@ -250,7 +250,7 @@ function MinistryNode({
               <PersonRow key={p.id} person={p} onSelectPerson={onSelectPerson} />
             ))}
           {ministryPeople.length === 0 && (
-            <div className="px-2 py-1 text-[10px] text-slate-400">无成员</div>
+            <div className="px-2 py-1 text-[10px] text-ink-tertiary">无成员</div>
           )}
         </div>
       )}
@@ -278,12 +278,12 @@ function PersonRow({
         // eslint-disable-next-line @next/next/no-img-element
         <img src={person.avatarUrl} alt={person.name} className="h-5 w-5 rounded-full object-cover" />
       ) : (
-        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-slate-400 to-slate-600 text-[9px] font-semibold uppercase text-white">
+        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-ink-tertiary to-ink-secondary text-[9px] font-semibold uppercase text-white">
           {initial}
         </div>
       )}
-      <span className="flex-1 text-[12px] text-slate-700 truncate">{person.name}</span>
-      <User className="h-3 w-3 text-slate-300 opacity-0 group-hover:opacity-100" />
+      <span className="flex-1 text-[12px] text-ink-primary truncate">{person.name}</span>
+      <User className="h-3 w-3 text-ink-tertiary opacity-0 group-hover:opacity-100" />
     </button>
   );
 }

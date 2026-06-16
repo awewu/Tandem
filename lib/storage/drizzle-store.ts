@@ -1191,5 +1191,7 @@ export function createDrizzleStore(): TandemStore {
     governanceTemplateVersions: new DrizzleKvRepository('governance_template_versions'),
     approvals: new DrizzleKvRepository('approvals'),
     meetingBookings: new DrizzleKvRepository('meeting_bookings'),
+    aiSettings: new DrizzleKvRepository('ai_settings'),
+    pushSubscriptions: new DrizzleKvRepository('push_subscriptions'),
   };
 }

@@ -59,13 +59,25 @@ export async function sendPushTo(userId: string, payload: PushPayload): Promise<
   initVapid();
   if (!initialized) return { sent: 0, failed: 0 };
   const store = getStore();
-  // V1: 订阅记录存在 KvStore (collection=push_subscriptions) — 这里走 dyn 风格 V2 再独立强类型
-  // 简化: 用 notifications 模型代借, 真实生产应该新建独立 collection
-  // 此处仅 scaffold, 实际持久化逻辑在 API 路由里, sendPushTo 直接调时需要传 subscription
-  void store;
-  void payload;
-  logger.debug({ userId }, '[web-push] sendPushTo scaffold (impl in /api/push/send)');
-  return { sent: 0, failed: 0 };
+  let subs: PushSubscriptionRecord[] = [];
+  try {
+    const all = await store.pushSubscriptions.list();
+    subs = all.filter((s) => s.userId === userId);
+  } catch (err) {
+    logger.warn({ err: (err as Error).message, userId }, '[web-push] failed to load subscriptions');
+    return { sent: 0, failed: 0 };
+  }
+  if (subs.length === 0) return { sent: 0, failed: 0 };
+  let sent = 0;
+  let failed = 0;
+  await Promise.all(
+    subs.map(async (sub) => {
+      const ok = await sendPushRaw(sub, payload);
+      if (ok) sent++; else failed++;
+    }),
+  );
+  logger.info({ userId, sent, failed }, '[web-push] sendPushTo');
+  return { sent, failed };
 }
 
 export async function sendPushRaw(sub: PushSubscriptionRecord, payload: PushPayload): Promise<boolean> {

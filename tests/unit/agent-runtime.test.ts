@@ -583,7 +583,7 @@ describe('§CA-9 · pattern-detector + skill-proposal · 习惯沉淀', () => {
     expect(proposal).not.toBeNull();
     const reviewed = await reviewSkillProposal(proposal!.id, true, 'owner1', '看起来合理');
     expect(reviewed).not.toBeNull();
-    expect(reviewed!.status).toBe('approved');
+    expect(['approved', 'published']).toContain(reviewed!.status);
     expect(reviewed!.reviewedBy).toBe('owner1');
     expect(reviewed!.reviewReason).toBe('看起来合理');
   });

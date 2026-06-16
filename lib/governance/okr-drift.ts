@@ -32,6 +32,15 @@ import { audit } from '@/lib/audit/log';
 
 export type OkrDriftVerdict = 'ALIGNED' | 'DRIFT_SUSPECTED' | 'NO_OKR';
 
+/**
+ * B-015 阻断升级: 三色 zone，调用方按 zone 决定是否阻断。
+ *   green  = aligned，无需干预
+ *   yellow = 弱对齐，注入提示 (旧行为)
+ *   red    = 严重偏离，调用方应阻断或强制说明
+ *   no_okr = 无基线，跳过检查
+ */
+export type OkrDriftZone = 'green' | 'yellow' | 'red' | 'no_okr';
+
 export interface OkrDriftInput {
   /** 待检测的文本: IM message body / Persona 输出 / Decision Card 议题 */
   intent: string;
@@ -70,12 +79,43 @@ export interface OkrDriftDecision {
   checkId: string;
   /** 检查窗口里的公司层 Objective 数 (NO_OKR 时为 0) */
   okrCount: number;
+  /**
+   * B-015 三色 zone:
+   *   green  = alignmentScore >= ALIGNED_THRESHOLD
+   *   yellow = YELLOW_THRESHOLD <= score < ALIGNED_THRESHOLD
+   *   red    = score < YELLOW_THRESHOLD (严重偏离)
+   *   no_okr = 无基线 (NO_OKR)
+   */
+  zone: OkrDriftZone;
 }
 
 // V1.5 阈值: 经验值, 后续根据 audit 数据校准
-const ALIGNED_THRESHOLD = 0.28;       // embedding cosine ≥ 此值 → 视为 aligned
+const ALIGNED_THRESHOLD = 0.28;        // embedding cosine ≥ 此值 → green
+const YELLOW_THRESHOLD = 0.15;         // [0.15, 0.28) → yellow; < 0.15 → red
 const ALIGNED_JACCARD_THRESHOLD = 0.15; // Jaccard 兜底阈值 (更宽松, embedding 失败时)
 const TOP_K = 3;
+
+// ---------------------------------------------------------------------------
+// B-015: 模块级 OKR 基线 cache (TTL 5min; okr.objective-rolled-up 事件触发 invalidation)
+// ---------------------------------------------------------------------------
+interface OkrBaselineCache {
+  companyObjectives: import('@/lib/types/okr-tti').Objective[];
+  krsByObjective: Map<string, import('@/lib/types/okr-tti').KeyResult[]>;
+  cachedAt: number;
+  tenantId: string;
+  cycleId: string;
+}
+const OKR_CACHE_TTL_MS = 5 * 60 * 1000; // 5 分钟 TTL
+const _okrBaselineCache = new Map<string, OkrBaselineCache>(); // key = tenantId
+
+/** 事件驱动 cache 清除 (boot.ts 订阅 okr.objective-rolled-up 调此函数) */
+export function invalidateOkrDriftCache(tenantId?: string): void {
+  if (tenantId) {
+    _okrBaselineCache.delete(tenantId);
+  } else {
+    _okrBaselineCache.clear();
+  }
+}
 
 function tokenize(s: string): Set<string> {
   const tokens = new Set<string>();
@@ -123,21 +163,43 @@ export async function checkOkrDrift(input: OkrDriftInput): Promise<OkrDriftDecis
         contextToInject: '',
         checkId,
         okrCount: 0,
+        zone: 'no_okr' as const,
       };
     }
     const cycle = activeCycles.sort((a, b) =>
       (b.startDate ?? '').localeCompare(a.startDate ?? '')
     )[0];
 
-    // 2. 拉公司层 active Objective + KR
-    const allObjectives = await store.objectives.list();
-    const companyObjectives: Objective[] = allObjectives.filter(
-      (o) =>
-        o.cycleId === cycle.id &&
-        o.level === 'company' &&
-        o.status === 'active' &&
-        (input.tenantId === undefined || (o.tenantId ?? 'default') === input.tenantId)
-    );
+    // 2. 拉公司层 active Objective + KR (优先走 cache)
+    const tid = input.tenantId ?? 'default';
+    const now = Date.now();
+    let companyObjectives: Objective[];
+    let krsByObjective: Map<string, KeyResult[]>;
+
+    const cached = _okrBaselineCache.get(tid);
+    if (cached && cached.cycleId === cycle.id && now - cached.cachedAt < OKR_CACHE_TTL_MS) {
+      companyObjectives = cached.companyObjectives;
+      krsByObjective = cached.krsByObjective;
+    } else {
+      const allObjectives = await store.objectives.list();
+      companyObjectives = allObjectives.filter(
+        (o) =>
+          o.cycleId === cycle.id &&
+          o.level === 'company' &&
+          o.status === 'active' &&
+          (input.tenantId === undefined || (o.tenantId ?? 'default') === tid)
+      );
+      const allKRs = await store.keyResults.list();
+      krsByObjective = new Map<string, KeyResult[]>();
+      for (const kr of allKRs) {
+        if (kr.status !== 'active') continue;
+        const arr = krsByObjective.get(kr.objectiveId) ?? [];
+        arr.push(kr);
+        krsByObjective.set(kr.objectiveId, arr);
+      }
+      _okrBaselineCache.set(tid, { companyObjectives, krsByObjective, cachedAt: now, tenantId: tid, cycleId: cycle.id });
+    }
+
     if (companyObjectives.length === 0) {
       return {
         verdict: 'NO_OKR',
@@ -147,16 +209,8 @@ export async function checkOkrDrift(input: OkrDriftInput): Promise<OkrDriftDecis
         contextToInject: '',
         checkId,
         okrCount: 0,
+        zone: 'no_okr',
       };
-    }
-
-    const allKRs = await store.keyResults.list();
-    const krsByObjective = new Map<string, KeyResult[]>();
-    for (const kr of allKRs) {
-      if (kr.status !== 'active') continue;
-      const arr = krsByObjective.get(kr.objectiveId) ?? [];
-      arr.push(kr);
-      krsByObjective.set(kr.objectiveId, arr);
     }
 
     // 3. 算相似度
@@ -164,7 +218,7 @@ export async function checkOkrDrift(input: OkrDriftInput): Promise<OkrDriftDecis
     let usedEmbedding = false;
     const scored: OkrAlignmentHit[] = [];
 
-    if (isEmbeddingConfigured()) {
+    if (await isEmbeddingConfigured()) {
       const intentVec = await embed(intentText);
       if (intentVec) {
         usedEmbedding = true;
@@ -238,6 +292,11 @@ export async function checkOkrDrift(input: OkrDriftInput): Promise<OkrDriftDecis
     const threshold = usedEmbedding ? ALIGNED_THRESHOLD : ALIGNED_JACCARD_THRESHOLD;
     const aligned = alignmentScore >= threshold;
     const verdict: OkrDriftVerdict = aligned ? 'ALIGNED' : 'DRIFT_SUSPECTED';
+    const zone: OkrDriftZone = aligned
+      ? 'green'
+      : alignmentScore >= YELLOW_THRESHOLD
+        ? 'yellow'
+        : 'red';
 
     const reasons: string[] = [];
     if (aligned) {
@@ -270,6 +329,7 @@ export async function checkOkrDrift(input: OkrDriftInput): Promise<OkrDriftDecis
       contextToInject,
       checkId,
       okrCount: companyObjectives.length,
+      zone,
     };
   } catch (err) {
     logger.warn(
@@ -284,6 +344,7 @@ export async function checkOkrDrift(input: OkrDriftInput): Promise<OkrDriftDecis
       contextToInject: '',
       checkId,
       okrCount: 0,
+      zone: 'no_okr',
     };
   }
 }

@@ -101,6 +101,18 @@ export interface DomainEventMap {
     timestamp: number;
   };
   /**
+   * B-025: OKR 周期被激活 (切换 isActive=true).
+   * 供战略引擎订阅 → realignPersonaToOkr 重对齐所有 Persona.enabledSkills.
+   */
+  'okr.cycle-activated': {
+    cycleId: string;
+    tenantId: string;
+    /** 被停用的旧周期 (若存在) */
+    previousCycleId?: string;
+    activatedBy: string;
+    timestamp: number;
+  };
+  /**
    * B2 真 rollup (2026-06-02): KR 进度变化向上传播后, 每个被重算的 Objective 发一条.
    * 供 drift detector / health monitor / company-brain 订阅 (跨域反应), 替代旧"只打日志"假闭环.
    */

@@ -89,6 +89,7 @@ export async function runExpertPanel(
   const drafts = await Promise.all(
     selected.map(async (mode): Promise<ExpertDraft> => {
       try {
+        // eslint-disable-next-line no-restricted-syntax -- governed-chat-exempt: expert-panel 多角色并行草稿，无用户 session；待接入 governedChat 需拆分 actorUserId 映射
         const res = await router.chat({
           scenario: 'high_frequency',
           maxTokens,

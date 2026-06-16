@@ -233,7 +233,7 @@ export async function checkBaseline(input: BaselineCheckInput): Promise<Baseline
   let scored: Array<{ mem: MemoryEntry; sim: number }> = [];
   const intentText = input.intent + ' ' + (input.toolName ?? '');
 
-  if (isEmbeddingConfigured()) {
+  if (await isEmbeddingConfigured()) {
     const intentVec = await embed(intentText);
     if (intentVec) {
       // 性能保护: 仅对最近更新的 50 条 + 所有 company-level 记忆做向量计算.

@@ -4,6 +4,30 @@
   "parser": "@typescript-eslint/parser",
   "rules": {
     "@typescript-eslint/no-explicit-any": "off",
-    "@typescript-eslint/no-unused-vars": "off"
-  }
+    "@typescript-eslint/no-unused-vars": "off",
+    "no-restricted-syntax": [
+      "warn",
+      {
+        "selector": "CallExpression[callee.type='MemberExpression'][callee.property.name='chat'][callee.object.name='router']",
+        "message": "router.chat() 直调绕过治理闸。业务层请改用 governedChat()（lib/governance/governed-chat.ts）。底层 agent-runtime / 治理闸本身 / eval harness 豁免：行前加 // eslint-disable-next-line no-restricted-syntax -- governed-chat-exempt: <reason>"
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": [
+        "lib/agent-runtime/**/*.ts",
+        "lib/memory/baseline-guard.ts",
+        "lib/memory/output-guard.ts",
+        "lib/governance/governed-chat.ts",
+        "lib/evals/**/*.ts",
+        "lib/decision-layer/three-plus-one-engine.ts",
+        "lib/onboarding/init-wizard.ts",
+        "lib/taf/**/*.ts"
+      ],
+      "rules": {
+        "no-restricted-syntax": "off"
+      }
+    }
+  ]
 }

@@ -172,6 +172,46 @@ function bootSync(): void {
         // eslint-disable-next-line no-console
         console.warn('[boot] CompanyBrain seed failed:', err);
       }
+    })
+    // AI 配置热重载: 从 DB AiSettings 覆盖路由器 provider (优先于 env)
+    .then(async () => {
+      try {
+        const { getAiSettings } = await import('./settings/ai-settings');
+        const { OpenAICompatibleProvider } = await import('./taf');
+        const { PROVIDER_CONFIGS } = await import('./taf');
+        const s = await getAiSettings();
+        const router = _g.__tandem_router__;
+        if (!router) return;
+
+        const overrides: Array<{ name: string; key: keyof typeof s; baseUrlKey: keyof typeof s; modelKey: keyof typeof s; defaultBaseUrl: string; defaultModel: string }> = [
+          { name: 'deepseek-v3',      key: 'deepseekApiKey',   baseUrlKey: 'deepseekBaseUrl',   modelKey: 'deepseekModel',   defaultBaseUrl: 'https://api.deepseek.com/v1',  defaultModel: 'deepseek-chat'     },
+          { name: 'deepseek-r1',      key: 'deepseekApiKey',   baseUrlKey: 'deepseekBaseUrl',   modelKey: 'deepseekR1Model', defaultBaseUrl: 'https://api.deepseek.com/v1',  defaultModel: 'deepseek-reasoner' },
+          { name: 'claude-opus-4-5',  key: 'anthropicApiKey',  baseUrlKey: 'anthropicBaseUrl',  modelKey: 'anthropicModel',  defaultBaseUrl: 'https://api.anthropic.com/v1', defaultModel: 'claude-opus-4-5'   },
+          { name: 'qwen-max',         key: 'qwenApiKey',       baseUrlKey: 'qwenBaseUrl',       modelKey: 'qwenModel',       defaultBaseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', defaultModel: 'qwen-max' },
+          { name: 'doubao-pro',       key: 'doubaoApiKey',     baseUrlKey: 'doubaoBaseUrl',     modelKey: 'doubaoModel',     defaultBaseUrl: 'https://ark.cn-beijing.volces.com/api/v3', defaultModel: 'doubao-1-5-pro-256k' },
+          { name: 'kimi-k2',          key: 'kimiApiKey',       baseUrlKey: 'kimiBaseUrl',       modelKey: 'kimiModel',       defaultBaseUrl: 'https://api.moonshot.cn/v1',   defaultModel: 'moonshot-v1-128k'  },
+        ];
+
+        for (const ov of overrides) {
+          const apiKey = (s[ov.key] as string | undefined) ?? '';
+          if (!apiKey) continue;
+          const baseUrl = (s[ov.baseUrlKey] as string | undefined) ?? ov.defaultBaseUrl;
+          const model = (s[ov.modelKey] as string | undefined) ?? ov.defaultModel;
+          const base = PROVIDER_CONFIGS[ov.name];
+          if (!base) continue;
+          router.unregisterProvider(ov.name);
+          router.registerProvider(new OpenAICompatibleProvider({ ...base, apiKey, baseUrl, model }));
+        }
+
+        const after = router.listProviders();
+        if (after.length > 0) {
+          // eslint-disable-next-line no-console
+          console.info('[boot] LLM providers (after DB reload):', after.join(', '));
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('[boot] AI settings DB reload failed (using env):', err);
+      }
     });
 
   // 议事室 17min 硬上限闭环: 每 30 秒 sweep 活跃议事室, 超时自动 ESCALATE

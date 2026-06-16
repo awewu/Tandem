@@ -1,14 +1,11 @@
 /**
  * Embedding Service · 文本向量化
  *
- * 配置驱动:
- *   EMBEDDING_PROVIDER = 'openai' | 'ollama' | 'none'
- *   EMBEDDING_MODEL    = 'text-embedding-3-small' | 'bge-m3' | ...
- *   EMBEDDING_API_URL  = openai-compatible /v1/embeddings 接口
- *   EMBEDDING_API_KEY  = ...
+ * 配置优先级 (高 → 低):
+ *   1. DB AiSettings (Admin UI 热更新)
+ *   2. 环境变量 EMBEDDING_PROVIDER / MODEL / API_URL / API_KEY
  *
- * 未配置时: isConfigured() → false, 调用方应降级到 Jaccard.
- *
+ * 未配置时: isEmbeddingConfigured() → false, 调用方降级到 Jaccard.
  * 缓存: 同一文本 LRU 缓存 1000 条, 避免 baseline-guard 频繁调用.
  */
 
@@ -17,22 +14,48 @@ import { logger } from './logger';
 const cache = new Map<string, number[]>();
 const MAX_CACHE = 1000;
 
-export function isEmbeddingConfigured(): boolean {
-  return (process.env.EMBEDDING_PROVIDER ?? 'none') !== 'none';
+async function resolveEmbedConfig(): Promise<{
+  provider: string;
+  model: string;
+  url: string;
+  apiKey: string | undefined;
+}> {
+  try {
+    const { getAiSettings } = await import('@/lib/settings/ai-settings');
+    const s = await getAiSettings();
+    const provider = s.embeddingProvider ?? process.env.EMBEDDING_PROVIDER ?? 'none';
+    const model = s.embeddingModel ?? process.env.EMBEDDING_MODEL ?? 'text-embedding-3-small';
+    const url = s.embeddingApiUrl ?? process.env.EMBEDDING_API_URL ?? 'https://api.openai.com/v1/embeddings';
+    const apiKey = s.embeddingApiKey ?? process.env.EMBEDDING_API_KEY;
+    return { provider, model, url, apiKey };
+  } catch {
+    return {
+      provider: process.env.EMBEDDING_PROVIDER ?? 'none',
+      model: process.env.EMBEDDING_MODEL ?? 'text-embedding-3-small',
+      url: process.env.EMBEDDING_API_URL ?? 'https://api.openai.com/v1/embeddings',
+      apiKey: process.env.EMBEDDING_API_KEY,
+    };
+  }
+}
+
+export async function isEmbeddingConfigured(): Promise<boolean> {
+  const { provider } = await resolveEmbedConfig();
+  return provider !== 'none';
 }
 
 export async function embed(text: string): Promise<number[] | null> {
-  if (!isEmbeddingConfigured()) return null;
+  const cfg = await resolveEmbedConfig();
+  if (cfg.provider === 'none') return null;
   const key = (text ?? '').slice(0, 4000);
   if (!key.trim()) return null;
   const hit = cache.get(key);
   if (hit) return hit;
 
   try {
-    const provider = process.env.EMBEDDING_PROVIDER ?? 'openai';
-    const model = process.env.EMBEDDING_MODEL ?? 'text-embedding-3-small';
-    const url = process.env.EMBEDDING_API_URL ?? 'https://api.openai.com/v1/embeddings';
-    const apiKey = process.env.EMBEDDING_API_KEY;
+    const provider = cfg.provider;
+    const model = cfg.model;
+    const url = cfg.url;
+    const apiKey = cfg.apiKey;
 
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (provider !== 'ollama' && apiKey) headers.Authorization = `Bearer ${apiKey}`;
@@ -40,7 +63,7 @@ export async function embed(text: string): Promise<number[] | null> {
     const body =
       provider === 'ollama'
         ? JSON.stringify({ model, prompt: key })
-        : JSON.stringify({ model, input: key });
+        : JSON.stringify({ model, input: key, encoding_format: 'float' });
 
     const res = await fetch(url, { method: 'POST', headers, body });
     if (!res.ok) {

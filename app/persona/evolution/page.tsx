@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { StageProgressDashboard } from '@/components/persona/StageProgressDashboard';
 import { DelegationConsole, type DelegationSettings } from '@/components/persona/DelegationConsole';
 import { UpgradeProposalBanner } from '@/components/persona/UpgradeProposalBanner';
@@ -12,9 +13,13 @@ import type { Persona } from '@/lib/types/persona';
 const DEMO_USER_ID = 'demo-user';
 
 export default function PersonaEvolutionPage() {
+  const searchParams = useSearchParams();
+  const initialTab = (searchParams.get('tab') ?? 'progress') as 'progress' | 'delegation' | 'reflexion';
   const [progress, setProgress] = useState<StageProgress | null>(null);
   const [persona, setPersona] = useState<Persona | null>(null);
-  const [tab, setTab] = useState<'progress' | 'delegation' | 'reflexion'>('progress');
+  const [tab, setTab] = useState<'progress' | 'delegation' | 'reflexion'>(
+    ['progress', 'delegation', 'reflexion'].includes(initialTab) ? initialTab : 'progress',
+  );
 
   async function fetchProgress() {
     const res = await fetch(`/api/persona/${DEMO_USER_ID}/progress`);

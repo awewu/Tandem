@@ -17,7 +17,7 @@ const MODE_META: Record<Mode, { label: string; icon: React.ElementType; cls: str
   manual: {
     label: '真人',
     icon: UserIcon,
-    cls: 'bg-slate-100 text-slate-700 border-slate-300',
+    cls: 'bg-surface-3 text-ink-primary border-hairline',
     desc: '我亲自回复（@分身才触发 AI）',
   },
   'agent-confirm': {
@@ -83,7 +83,7 @@ export function AgentModeToggle({ channelId, initialMode = 'manual', onChanged }
         {Meta.label}
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-1 w-64 rounded-md border border-slate-200 bg-white shadow-soft-lg z-50">
+        <div className="absolute right-0 top-full mt-1 w-64 rounded-md border border-hairline bg-surface-2 shadow-soft-lg z-50">
           <div className="p-2 space-y-1">
             {(Object.keys(MODE_META) as Mode[]).map((k) => {
               const M = MODE_META[k];
@@ -94,20 +94,20 @@ export function AgentModeToggle({ channelId, initialMode = 'manual', onChanged }
                   type="button"
                   onClick={() => switchMode(k, k === 'agent-auto' ? 120 : undefined)}
                   className={cn(
-                    'w-full flex items-start gap-2 px-2 py-2 text-left rounded text-footnote hover:bg-slate-50 transition',
-                    mode === k && 'bg-slate-100',
+                    'w-full flex items-start gap-2 px-2 py-2 text-left rounded text-footnote hover:bg-surface-3 transition',
+                    mode === k && 'bg-surface-3',
                   )}
                 >
                   <I className="h-4 w-4 mt-0.5 shrink-0" />
                   <div>
                     <div className="font-medium">{M.label}</div>
-                    <div className="text-slate-500 mt-0.5">{M.desc}</div>
+                    <div className="text-ink-secondary mt-0.5">{M.desc}</div>
                   </div>
                 </button>
               );
             })}
             {mode === 'agent-auto' && (
-              <div className="px-2 py-1 text-[11px] text-violet-700 border-t border-slate-100 mt-1 pt-2">
+              <div className="px-2 py-1 text-[11px] text-violet-700 border-t border-hairline mt-1 pt-2">
                 ⏱ 默认 2h 后自动恢复真人模式
               </div>
             )}

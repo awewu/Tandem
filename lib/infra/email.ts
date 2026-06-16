@@ -34,35 +34,62 @@ interface SendEmailInput {
 }
 
 let transporter: nodemailer.Transporter | null = null;
+let transporterKey = '';
 
-export function isEmailConfigured(): boolean {
-  return !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+async function resolveSmtpConfig() {
+  try {
+    const { getAiSettings } = await import('@/lib/settings/ai-settings');
+    const s = await getAiSettings();
+    return {
+      host: s.smtpHost ?? process.env.SMTP_HOST ?? '',
+      port: Number(s.smtpPort ?? process.env.SMTP_PORT ?? 587),
+      secure: (s.smtpSecure ?? process.env.SMTP_SECURE) === '1',
+      user: s.smtpUser ?? process.env.SMTP_USER ?? '',
+      pass: s.smtpPass ?? process.env.SMTP_PASS ?? '',
+      from: s.smtpFrom ?? process.env.SMTP_FROM ?? '',
+    };
+  } catch {
+    return {
+      host: process.env.SMTP_HOST ?? '',
+      port: Number(process.env.SMTP_PORT ?? 587),
+      secure: process.env.SMTP_SECURE === '1',
+      user: process.env.SMTP_USER ?? '',
+      pass: process.env.SMTP_PASS ?? '',
+      from: process.env.SMTP_FROM ?? '',
+    };
+  }
 }
 
-function getTransporter(): nodemailer.Transporter | null {
-  if (transporter) return transporter;
-  if (!isEmailConfigured()) return null;
+export async function isEmailConfigured(): Promise<boolean> {
+  const cfg = await resolveSmtpConfig();
+  return !!(cfg.host && cfg.user && cfg.pass);
+}
+
+async function getTransporter(): Promise<nodemailer.Transporter | null> {
+  const cfg = await resolveSmtpConfig();
+  if (!cfg.host || !cfg.user || !cfg.pass) return null;
+  const key = `${cfg.host}:${cfg.port}:${cfg.user}`;
+  if (transporter && key === transporterKey) return transporter;
   transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST!,
-    port: Number(process.env.SMTP_PORT ?? 587),
-    secure: process.env.SMTP_SECURE === '1' || Number(process.env.SMTP_PORT) === 465,
-    auth: {
-      user: process.env.SMTP_USER!,
-      pass: process.env.SMTP_PASS!,
-    },
+    host: cfg.host,
+    port: cfg.port,
+    secure: cfg.secure || cfg.port === 465,
+    auth: { user: cfg.user, pass: cfg.pass },
   });
+  transporterKey = key;
   return transporter;
 }
 
 export async function sendEmail(input: SendEmailInput): Promise<{ ok: boolean; messageId?: string; error?: string }> {
-  const t = getTransporter();
+  const t = await getTransporter();
   if (!t) {
     logger.debug({ to: input.to }, '[email] not configured, skipping');
     return { ok: false, error: 'SMTP not configured' };
   }
+  const cfg = await resolveSmtpConfig();
   try {
     const info = await t.sendMail({
-      from: process.env.SMTP_FROM ?? `Tandem <${process.env.SMTP_USER}>`,
+      from: cfg.from || `Tandem <${cfg.user}>`,
       to: input.to,
       cc: input.cc,
       bcc: input.bcc,
@@ -86,7 +113,7 @@ export async function sendEmail(input: SendEmailInput): Promise<{ ok: boolean; m
 
 /** 测试发件配置 */
 export async function verifyEmailConfig(): Promise<boolean> {
-  const t = getTransporter();
+  const t = await getTransporter();
   if (!t) return false;
   try {
     await t.verify();

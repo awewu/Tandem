@@ -156,6 +156,7 @@ ${persona.styleProfile.communicationExamples.slice(0, 5).join('\n---\n')}
     },
   ];
 
+  // eslint-disable-next-line no-restricted-syntax -- governed-chat-exempt: communication-mimicry 是风格模仿辅助函数，被 governedChat 上游调用；迁移会造成套娃
   const res = await router.chat({
     scenario: 'persona_dialogue',
     temperature: 0.6,
