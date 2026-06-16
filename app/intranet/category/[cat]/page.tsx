@@ -3,10 +3,11 @@
 /**
  * /intranet/category/[cat] — 分类视图 (公告 / 政策 / 大事记 / 福利)
  *
- * 从 lib/intranet/featured 的 LATEST_NEWS + HERO_SLIDES 中按分类过滤.
- * V1 seed; M3 接 IntranetPost 表后改为查 DB.
+ * fetch /api/intranet/posts?type=... (真 IntranetPost CMS, store-backed).
+ * URL 用展示分类 (announcement/policy/milestone/welfare), 映射到后端 type.
  */
 
+import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -17,10 +18,12 @@ import {
   PartyPopper,
   Gift,
   Globe2,
+  Loader2,
 } from 'lucide-react';
-import { HERO_SLIDES, LATEST_NEWS, type NewsItem } from '@/lib/intranet/featured';
+import type { IntranetPost } from '@/lib/types/intranet-post';
+import { CATEGORY_TO_TYPE, fmtPublishDate, type IntranetCategory } from '@/lib/intranet/post-view';
 
-type Category = NewsItem['category'];
+type Category = IntranetCategory;
 
 const META: Record<
   Category,
@@ -56,37 +59,23 @@ const META: Record<
   },
 };
 
-interface ListItem {
-  id: string;
-  title: string;
-  publishedAt: string;
-  author: string;
-  source: 'hero' | 'news';
-}
-
-function listForCategory(cat: Category): ListItem[] {
-  const fromSlides: ListItem[] = HERO_SLIDES.filter((s) => s.category === cat).map((s) => ({
-    id: s.id,
-    title: s.title,
-    publishedAt: '2026-05-08',
-    author: s.eyebrow,
-    source: 'hero',
-  }));
-  const fromNews: ListItem[] = LATEST_NEWS.filter((n) => n.category === cat).map((n) => ({
-    id: n.id,
-    title: n.title,
-    publishedAt: n.publishedAt,
-    author: n.author,
-    source: 'news',
-  }));
-  return [...fromSlides, ...fromNews];
-}
-
 export default function IntranetCategoryPage() {
   const { cat } = useParams() as { cat: string };
   const isValid = cat in META;
   const meta = isValid ? META[cat as Category] : null;
-  const items = isValid ? listForCategory(cat as Category) : [];
+  const [items, setItems] = useState<IntranetPost[] | null>(null);
+
+  useEffect(() => {
+    if (!isValid) {
+      setItems([]);
+      return;
+    }
+    const type = CATEGORY_TO_TYPE[cat as Category];
+    fetch(`/api/intranet/posts?type=${type}`, { credentials: 'include', cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then((j) => setItems((j.posts ?? []) as IntranetPost[]))
+      .catch(() => setItems([]));
+  }, [cat, isValid]);
 
   if (!meta) {
     return (
@@ -121,12 +110,13 @@ export default function IntranetCategoryPage() {
         <p className="text-body text-ink-secondary">{meta.description}</p>
       </header>
 
-      {items.length === 0 ? (
+      {items === null ? (
+        <div className="card-elevated p-12 flex items-center justify-center text-ink-tertiary">
+          <Loader2 className="h-5 w-5 animate-spin mr-2" /> 加载中…
+        </div>
+      ) : items.length === 0 ? (
         <div className="card-elevated p-12 text-center">
-          <p className="text-body text-ink-secondary">该分类暂无条目</p>
-          <p className="mt-1 text-caption text-ink-tertiary italic">
-            V1 seed · M3 接真表后会有动态条目
-          </p>
+          <p className="text-body text-ink-secondary">该分类暂无已发布条目</p>
         </div>
       ) : (
         <ul className="card-elevated divide-y divide-border overflow-hidden">
@@ -142,7 +132,8 @@ export default function IntranetCategoryPage() {
                 <div className="flex-1 min-w-0">
                   <p className="text-body text-ink-primary line-clamp-2">{it.title}</p>
                   <p className="mt-0.5 text-footnote text-ink-tertiary">
-                    {it.publishedAt} · {it.author}
+                    {fmtPublishDate(it.publishedAt)} · {it.publishedBy}
+                    {it.mandatoryRead && ' · 强制已读'}
                   </p>
                 </div>
                 <ArrowRight className="h-4 w-4 text-ink-tertiary shrink-0 mt-1" />
@@ -151,10 +142,6 @@ export default function IntranetCategoryPage() {
           ))}
         </ul>
       )}
-
-      <p className="text-footnote text-ink-tertiary italic pt-6 border-t border-border">
-        V1 seed · 当前从 lib/intranet/featured 过滤. M3 接 IntranetPost 表后启用 RBAC 与强制已读.
-      </p>
     </div>
   );
 }

@@ -72,45 +72,43 @@ function MailInner() {
 
   return (
     <div className="h-full flex flex-col md:px-8">
-      {/* Header */}
-      <header className="px-6 pt-6 pb-3">
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <h1 className="text-title-2 text-ink-primary flex items-center gap-2">
-              <Mail className="h-6 w-6 text-[rgb(var(--brand-600))]" />
-              邮箱
-            </h1>
-            <p className="mt-1 text-caption text-ink-tertiary">
-              对外沟通的正式通道 · 出站走 SMTP, 收件 V2 接入 IMAP
-            </p>
-          </div>
-          <Link
-            href="/settings/email"
-            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-caption font-medium text-ink-secondary hover:text-ink-primary hover:bg-surface-2 surface-interactive"
-          >
-            <Settings className="h-3.5 w-3.5" />
-            邮箱设置
-          </Link>
-        </div>
+      {/* Header — 单行紧凑工具条 (标题 + 内联状态 + 设置) */}
+      <header className="flex items-center gap-3 px-6 pt-4 pb-2">
+        <h1 className="text-headline text-ink-primary flex items-center gap-2 shrink-0">
+          <Mail className="h-5 w-5 text-[rgb(var(--brand-600))]" />
+          邮箱
+        </h1>
 
-        {/* Status pill */}
-        <div className="mt-3">
-          {status === null ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-2 px-3 py-1 text-footnote text-ink-tertiary">
-              加载中...
-            </span>
-          ) : status.configured ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-footnote font-medium text-emerald-700">
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              SMTP 已就绪 · {status.outbound.fromAddress}
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-warning/5 px-3 py-1 text-footnote font-medium text-warning">
-              <AlertCircle className="h-3.5 w-3.5" />
-              SMTP 未配置 · 仅可写草稿, 不能发送
-            </span>
-          )}
-        </div>
+        {/* 状态 · 内联到标题旁, 不再独占一行 */}
+        {status === null ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-2 px-2.5 py-0.5 text-footnote text-ink-tertiary">
+            加载中...
+          </span>
+        ) : status.configured ? (
+          <span
+            className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-footnote font-medium text-emerald-700"
+            title={`SMTP 已就绪 · ${status.outbound.fromAddress}`}
+          >
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            <span className="truncate max-w-[200px]">{status.outbound.fromAddress}</span>
+          </span>
+        ) : (
+          <span
+            className="inline-flex items-center gap-1.5 rounded-full bg-warning/5 px-2.5 py-0.5 text-footnote font-medium text-warning"
+            title="SMTP 未配置 · 仅可写草稿, 不能发送"
+          >
+            <AlertCircle className="h-3.5 w-3.5" />
+            未配置
+          </span>
+        )}
+
+        <Link
+          href="/settings/email"
+          className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-caption font-medium text-ink-secondary hover:text-ink-primary hover:bg-surface-2 surface-interactive"
+        >
+          <Settings className="h-3.5 w-3.5" />
+          设置
+        </Link>
       </header>
 
       <PageTabs

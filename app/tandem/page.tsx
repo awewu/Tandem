@@ -1551,6 +1551,41 @@ function WelcomeStage({
         </div>
       </section>
 
+      {/* 每日推进 · 每天和分身一起完成的固定仪式 (从事半迁来; 日报回填 KR check-in) */}
+      <section>
+        <h2 className="text-headline text-primary mb-3">每日推进</h2>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Link
+            href="/report"
+            className="group surface-card rounded-2xl p-4 shadow-soft-xs surface-interactive hover:shadow-soft-sm"
+          >
+            <div className="flex items-start gap-3">
+              <div className="rounded-md bg-[rgb(var(--brand-50))] p-2 text-[rgb(var(--brand-600))]">
+                <Clock className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-title-3 text-primary group-hover:text-[rgb(var(--brand-700))]">5min 智能日报</h3>
+                <p className="mt-1 text-caption text-secondary">和分身一起过今天的推进 · 自动回填 KR 进度</p>
+              </div>
+            </div>
+          </Link>
+          <Link
+            href="/report/weekly"
+            className="group surface-card rounded-2xl p-4 shadow-soft-xs surface-interactive hover:shadow-soft-sm"
+          >
+            <div className="flex items-start gap-3">
+              <div className="rounded-md bg-[rgb(var(--brand-50))] p-2 text-[rgb(var(--brand-600))]">
+                <History className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-title-3 text-primary group-hover:text-[rgb(var(--brand-700))]">本周回顾</h3>
+                <p className="mt-1 text-caption text-secondary">复盘本周节奏 · 沉淀进展与下周重点</p>
+              </div>
+            </div>
+          </Link>
+        </div>
+      </section>
+
       {/* 启动协作 · 入口卡, 进入后通过 ?card= 在本舞台展开 */}
       <section>
         <h2 className="text-headline text-primary mb-3">今天先做点什么</h2>

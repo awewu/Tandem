@@ -4,16 +4,14 @@
  * /intranet — 企业内网员工门户 (PRODUCT-DEFINITION §3.6)
  *
  * 布局参考: RheemNet (Rheem Manufacturing intranet, 2026-05-10 用户提供截图)
- *   - 顶部副导航 (4 大内容分类)
- *   - 品牌头 + 全局搜索
- *   - 左主区 ~60%: Hero 轮播 + 公告流 + 公司年鉴
- *   - 右栏 ~40%: 资源中心红色磁贴 + A-Z + 社交 + CEO 周记 promo
+ *   - 左主区: Hero 轮播 + 最新动态流 + 公司年鉴
+ *   - 右栏:   A-Z + 社交频道 + CEO 直通车
  *
- * 当前状态: 高保真原型, 数据是 seed/mock (M3 实现时换真 API).
- *           真后端模型见 PRODUCT-DEFINITION.md §3.6.3.
+ * 数据源: /api/intranet/posts (真 IntranetPost CMS, store-backed). 视觉字段
+ *         (轮播渐变 / 年鉴 emoji) 由 lib/intranet/post-view 按 type 派生.
  */
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   Globe2,
@@ -22,57 +20,91 @@ import {
   BookOpen,
   Languages,
   Megaphone,
+  Loader2,
 } from 'lucide-react';
+import type { IntranetPost } from '@/lib/types/intranet-post';
 import {
-  HERO_SLIDES,
-  LATEST_NEWS,
-  FEATURED_ARCHIVE,
-  type NewsItem,
-  type ArchiveArticle,
-} from '@/lib/intranet/featured';
+  postToHeroSlide,
+  fmtPublishDate,
+  TYPE_TO_CATEGORY,
+  TYPE_EMOJI,
+  CATEGORY_LABEL,
+  type IntranetCategory,
+} from '@/lib/intranet/post-view';
 import { HeroCarousel } from '@/components/hero-carousel';
-
-// 数据已统一到 lib/intranet/featured (M3 后端就绪后改为 API 拉取).
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Top-level page
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function IntranetPage() {
+  const [posts, setPosts] = useState<IntranetPost[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/intranet/posts', { credentials: 'include', cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : Promise.reject(`HTTP ${r.status}`)))
+      .then((j) => setPosts((j.posts ?? []) as IntranetPost[]))
+      .catch((e) => setError(typeof e === 'string' ? e : '加载失败'));
+  }, []);
+
+  // 已发布在前 (API 已按 publishedAt desc 排序). Hero 取前 4, 年鉴优先取大事记.
+  const heroSlides = useMemo(() => (posts ?? []).slice(0, 4).map(postToHeroSlide), [posts]);
+  const newsItems = useMemo(() => (posts ?? []).slice(0, 6), [posts]);
+  const archive = useMemo(
+    () => (posts ?? []).find((p) => p.type === 'event') ?? (posts ?? [])[0] ?? null,
+    [posts],
+  );
+
   return (
     <div className="page-container py-6">
-        <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-          {/* ──────────── 左主区: 公告 + 新闻流 + 公司年鉴 ──────────── */}
-          <div className="space-y-6 min-w-0">
-            <HeroCarousel slides={HERO_SLIDES} />
-            <LatestNewsRow items={LATEST_NEWS} />
-            <FeaturedArchive article={FEATURED_ARCHIVE} />
-          </div>
-
-          {/* ──────────── 右栏: A-Z + 社交 + CEO 直通车 ──────────── */}
-          {/* 资源磁贴已退役 — 同样的入口在左侧 AppRail / Launchpad 已存在 */}
-          <aside className="space-y-5">
-            <AtoZLink />
-            <SocialChannels />
-            <CeoWeeklyPromo />
-          </aside>
+      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+        {/* ──────────── 左主区: 公告 + 新闻流 + 公司年鉴 ──────────── */}
+        <div className="space-y-6 min-w-0">
+          {error ? (
+            <div className="card-elevated p-8 text-center text-caption text-danger">{error}</div>
+          ) : posts === null ? (
+            <div className="card-elevated flex h-[280px] items-center justify-center text-ink-tertiary">
+              <Loader2 className="h-5 w-5 animate-spin mr-2" /> 加载公司动态…
+            </div>
+          ) : posts.length === 0 ? (
+            <div className="card-elevated p-12 text-center text-ink-secondary">
+              暂无已发布内容 · 管理员可在
+              <Link href="/admin/intranet" className="mx-1 text-brand-600 hover:underline">内容管理</Link>
+              发布公告
+            </div>
+          ) : (
+            <>
+              {heroSlides.length > 0 && <HeroCarousel slides={heroSlides} />}
+              <LatestNewsRow items={newsItems} />
+              {archive && <FeaturedArchive post={archive} />}
+            </>
+          )}
         </div>
+
+        {/* ──────────── 右栏: A-Z + 社交 + CEO 直通车 ──────────── */}
+        <aside className="space-y-5">
+          <AtoZLink />
+          <SocialChannels />
+          <CeoWeeklyPromo />
+        </aside>
+      </div>
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 最新公告 (3-card row, 含 RheemNet 风的地球图标)
+// 最新动态 (3-card row, 含 RheemNet 风的地球图标)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const CAT_META: Record<NewsItem['category'], { label: string; tone: string }> = {
-  announcement: { label: '公告',   tone: 'bg-brand-50 text-brand-700' },
-  milestone:    { label: '大事记', tone: 'bg-success/10 text-success' },
-  policy:       { label: '政策',   tone: 'bg-warning/10 text-warning' },
-  welfare:      { label: '福利',   tone: 'bg-info/10 text-info' },
+const CAT_TONE: Record<IntranetCategory, string> = {
+  announcement: 'bg-brand-50 text-brand-700',
+  milestone:    'bg-success/10 text-success',
+  policy:       'bg-warning/10 text-warning',
+  welfare:      'bg-info/10 text-info',
 };
 
-function LatestNewsRow({ items }: { items: NewsItem[] }) {
+function LatestNewsRow({ items }: { items: IntranetPost[] }) {
   return (
     <section>
       <div className="flex items-end justify-between mb-3">
@@ -80,7 +112,7 @@ function LatestNewsRow({ items }: { items: NewsItem[] }) {
           <p className="text-footnote uppercase tracking-wider text-ink-tertiary">
             最新动态
           </p>
-          <h3 className="text-headline text-ink-primary">EXTERNAL NEWS</h3>
+          <h3 className="text-headline text-ink-primary">LATEST NEWS</h3>
         </div>
         <Link
           href="/intranet/category/announcement"
@@ -91,30 +123,32 @@ function LatestNewsRow({ items }: { items: NewsItem[] }) {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
-        {items.map((it) => (
-          <Link
-            key={it.id}
-            href={`/intranet/posts/${it.id}`}
-            className="card-elevated p-4 flex items-start gap-3 surface-interactive"
-          >
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-3 text-ink-secondary">
-              <Globe2 className="h-4 w-4" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <span
-                className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold ${CAT_META[it.category].tone}`}
-              >
-                {CAT_META[it.category].label}
-              </span>
-              <h4 className="mt-1 text-caption text-ink-primary leading-snug line-clamp-2 group-hover:text-brand-700">
-                {it.title}
-              </h4>
-              <p className="mt-1 text-footnote text-ink-tertiary">
-                {it.publishedAt} · {it.author}
-              </p>
-            </div>
-          </Link>
-        ))}
+        {items.map((p) => {
+          const cat = TYPE_TO_CATEGORY[p.type];
+          return (
+            <Link
+              key={p.id}
+              href={`/intranet/posts/${p.id}`}
+              className="card-elevated p-4 flex items-start gap-3 surface-interactive group"
+            >
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-3 text-ink-secondary">
+                <Globe2 className="h-4 w-4" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold ${CAT_TONE[cat]}`}>
+                  {CATEGORY_LABEL[cat]}
+                  {p.mandatoryRead && ' · 强读'}
+                </span>
+                <h4 className="mt-1 text-caption text-ink-primary leading-snug line-clamp-2 group-hover:text-brand-700">
+                  {p.title}
+                </h4>
+                <p className="mt-1 text-footnote text-ink-tertiary">
+                  {fmtPublishDate(p.publishedAt)} · {p.publishedBy}
+                </p>
+              </div>
+            </Link>
+          );
+        })}
       </div>
     </section>
   );
@@ -124,7 +158,8 @@ function LatestNewsRow({ items }: { items: NewsItem[] }) {
 // 公司年鉴 (1 大卡, 图 + 文)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function FeaturedArchive({ article }: { article: ArchiveArticle }) {
+function FeaturedArchive({ post }: { post: IntranetPost }) {
+  const cat = TYPE_TO_CATEGORY[post.type];
   return (
     <section>
       <div className="flex items-end justify-between mb-3">
@@ -135,32 +170,34 @@ function FeaturedArchive({ article }: { article: ArchiveArticle }) {
           <h3 className="text-headline text-ink-primary">NEWS ARCHIVE</h3>
         </div>
         <Link
-          href="/intranet/archive"
+          href="/intranet/category/milestone"
           className="text-caption text-brand-600 hover:text-brand-700 font-medium inline-flex items-center gap-1"
         >
-          See all <ArrowRight className="h-3.5 w-3.5" />
+          查看全部 <ArrowRight className="h-3.5 w-3.5" />
         </Link>
       </div>
 
       <Link
-        href={`/intranet/posts/${article.id}`}
+        href={`/intranet/posts/${post.id}`}
         className="card-elevated p-5 flex flex-col sm:flex-row gap-5 surface-interactive group"
       >
         <div className="shrink-0 flex h-32 w-full sm:w-44 items-center justify-center rounded-lg bg-gradient-to-br from-brand-50 via-amber-50 to-emerald-50 text-5xl">
-          {article.emoji}
+          {TYPE_EMOJI[post.type]}
         </div>
         <div className="flex-1 min-w-0">
           <span className="inline-block rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold text-brand-700">
-            CEO 周记
+            {CATEGORY_LABEL[cat]}
           </span>
           <h4 className="mt-2 text-title-3 text-ink-primary leading-snug group-hover:text-brand-700">
-            {article.title}
+            {post.title}
           </h4>
-          <p className="mt-1.5 text-caption text-ink-secondary line-clamp-2">
-            {article.excerpt}
-          </p>
+          {post.summary && (
+            <p className="mt-1.5 text-caption text-ink-secondary line-clamp-2">
+              {post.summary}
+            </p>
+          )}
           <p className="mt-2 text-footnote text-ink-tertiary">
-            {article.publishedAt} · {article.author}
+            {fmtPublishDate(post.publishedAt)} · {post.publishedBy}
           </p>
         </div>
       </Link>

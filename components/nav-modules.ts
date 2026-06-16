@@ -127,7 +127,7 @@ export const NAV_MODULES: NavModule[] = [
       // KPI = BSC 底线绩效结果 (年度硬指标, 100% 才达标, 与奖金挂钩; KPI 只关联 BSC). 只读.
       { name: '绩效记分卡',         href: '/kpi',              icon: BarChart3,      group: 'KPI · BSC 底线绩效' },
       // TTI = 事半主轴 (前瞻提升轨, 60-70% 即健康, 与薪资分离). /tti=四要素填报, 与 /okr 同源互为镜像.
-      { name: 'TTI 四要素填报',     href: '/tti',              icon: Activity,       group: '目标与关键成果法 OKR' },
+      { name: 'TTI（Target to Improve）牵引', href: '/tti',     icon: Activity,       group: '目标与关键成果法 OKR' },
       // 目标管理 (精简为符合 Tita 极简逻辑 of 3步流程)
       { name: '我的目标与对齐',    href: '/okr?owner=me',     icon: Target,         group: '目标与关键成果法 OKR' },
       { name: 'OKR 5 层级联树',    href: '/okr/cascade',      icon: Network,        group: '目标与关键成果法 OKR' },
@@ -135,9 +135,9 @@ export const NAV_MODULES: NavModule[] = [
       { name: '战略项目 · 三省六部', href: '/governance/three-departments', icon: Network, group: '目标与关键成果法 OKR' },
       { name: 'OKR 校准会',        href: '/okr/calibration',  icon: Grid3x3,        group: '目标与关键成果法 OKR', visibleTo: ['manager', 'steward', 'admin', 'champion'] },
       { name: 'OKR 日历视图',      href: '/okr/calendar',     icon: CalendarDays,   group: '目标与关键成果法 OKR' },
-      // 每日推进 — 5min 日报与周回顾 (OKR daily/weekly check-in 输入, 与KR互动推进)
-      { name: '5min 智能日报', href: '/report',         icon: Clock3,        group: '每日推进', accent: 'cta' },
-      { name: '本周回顾',      href: '/report/weekly',  icon: CalendarDays,  group: '每日推进' },
+      // 每日推进 (5min 日报 / 周回顾) 主入口已迁往「搭子 · 个人工作台」(每天和分身一起干活);
+      // 因日报是 KR check-in 输入会回填进度, 此处保留一个深链, 做 OKR 的人仍可直达.
+      { name: '每日推进 (日报 / 周回顾)', href: '/report', icon: Clock3, group: '目标与关键成果法 OKR' },
       // 经营推演 (FP&A 引擎: 成本中心 BSC + OKR 驱动交付基线; 高亮稳定归事半, 不弹跳 Tandem)
       { name: 'FP&A 经营推演',     href: '/okr/fpa',          icon: Building2,      group: '经营推演 FP&A' },
       // 分析洞察
@@ -303,7 +303,7 @@ export const NAV_MODULES: NavModule[] = [
         ],
       },
       {
-        name: '外部 AI 接入',
+        name: '寻找外部专家',
         href: '/summon/external',
         icon: Bot,
         tabs: [

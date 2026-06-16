@@ -690,6 +690,117 @@ export async function seedExtraModulesIfEmpty(): Promise<void> {
   } catch (err) {
     console.warn('[seed] initiative failed:', (err as Error).message);
   }
+
+  try {
+    // Intranet — 公告/政策/大事记/福利 真实 seed (替换原 lib/intranet/featured 硬编码)
+    const existing = await s.intranetPosts.list({ tenantId: 'default' });
+    if (existing.length === 0) {
+      const author = 'admin@tandem.local';
+      const day = (n: number) => new Date(Date.now() - n * 86400000).toISOString();
+      const posts: Array<{
+        type: 'announcement' | 'policy' | 'event' | 'benefit';
+        title: string;
+        summary: string;
+        body: string;
+        mandatoryRead: boolean;
+        publishedAt: string;
+        tags: string[];
+      }> = [
+        {
+          type: 'announcement',
+          title: '2026 年度公司 O · 让 70% 的决议在 17 分钟内达成共识',
+          summary: 'CEO 发布 2026 年度公司级目标, 围绕"高质量快速决策"展开。',
+          body:
+            '## 2026 年度公司目标\n\n今年我们只设一个公司级 O: **让 70% 的决议在 17 分钟内达成共识**。\n\n这不是追求快, 而是追求"准备充分 + 信息对齐"后的快。三个关键结果:\n\n1. 议事室覆盖 100% 公司级决议\n2. 前置 5 分钟材料准备率 ≥ 90%\n3. 决议返工率 < 10%\n\n请各部门在本周内完成对齐。',
+          mandatoryRead: false,
+          publishedAt: day(1),
+          tags: ['2026', 'OKR', 'CEO'],
+        },
+        {
+          type: 'policy',
+          title: 'AI 使用红线 v2.1 — 涉客户数据需经 Steward 批准',
+          summary: '更新 AI 使用合规条款, 涉客户/财务数据的 AI 调用须经 Steward 审批。',
+          body:
+            '## AI 使用红线 v2.1\n\n为保护客户与公司数据, 自即日起:\n\n- 任何涉及**客户数据**的 AI 调用, 须经 Steward 批准\n- **财务数据**不得输入未审计的外部模型\n- 分身代行涉红线动作一律进入 24h 否决窗\n\n本政策为强制已读, 请点击下方"我已知晓"确认。',
+          mandatoryRead: true,
+          publishedAt: day(2),
+          tags: ['合规', '红线', 'AI'],
+        },
+        {
+          type: 'event',
+          title: 'Tandem 议事室上线 100 天 — 平均共识时长 19.2 分钟',
+          summary: '议事室上线百日里程碑: 累计收敛 312 单决议, 平均共识 19.2 分钟。',
+          body:
+            '## 议事室上线 100 天\n\n截至今日, Tandem 议事室已累计收敛 **312 单决议**, 平均共识时长 **19.2 分钟**, 距离 17 分钟目标仅一步之遥。\n\n感谢每一位在议前认真准备材料的同事 — 这就是"前置 5 分钟"纪律的力量。',
+          mandatoryRead: false,
+          publishedAt: day(5),
+          tags: ['里程碑', '议事室'],
+        },
+        {
+          type: 'benefit',
+          title: '春季体检报名开放 — 8 家定点医院, 配偶可享同等权益',
+          summary: '2026 春季体检报名开放, 8 家定点医院可选, 配偶享同等权益。',
+          body:
+            '## 春季体检报名\n\n2026 年春季体检报名现已开放:\n\n- **8 家定点医院**任选\n- 配偶可享**同等权益**\n- 报名截止: 月底\n\n请在 HR 系统提交报名, 体检套餐详情见附件。',
+          mandatoryRead: false,
+          publishedAt: day(7),
+          tags: ['福利', '体检', 'HR'],
+        },
+        {
+          type: 'announcement',
+          title: 'Q2 OKR 全员对齐会 · 本周五 14:00',
+          summary: 'Q2 OKR 全员对齐会安排在本周五 14:00, 全员参加。',
+          body:
+            '## Q2 OKR 全员对齐会\n\n时间: **本周五 14:00**\n地点: 全员线上 + 大会议室\n\n议程:\n1. 公司级 O 进展回顾\n2. 各部门 KR 对齐\n3. 下季度重点预告\n\n请提前在事半查看本部门 OKR。',
+          mandatoryRead: false,
+          publishedAt: day(3),
+          tags: ['OKR', '全员会'],
+        },
+      ];
+      for (const p of posts) {
+        await s.intranetPosts.create({
+          type: p.type,
+          title: p.title,
+          body: p.body,
+          summary: p.summary,
+          mandatoryRead: p.mandatoryRead,
+          readBy: [],
+          publishedAt: p.publishedAt,
+          publishedBy: author,
+          archivedAt: null,
+          attachments: [],
+          tags: p.tags,
+          tenantId: 'default',
+          createdAt: p.publishedAt,
+          updatedAt: p.publishedAt,
+        } as never);
+      }
+    }
+  } catch (err) {
+    console.warn('[seed] intranet failed:', (err as Error).message);
+  }
+
+  try {
+    // Academy — 把 fixtures 课程入库为已发布课程 (学院前台/完成接口改查真库)
+    const existing = await s.lessons.list({ tenantId: 'default' } as never);
+    if (existing.length === 0) {
+      const { FIXTURE_LESSONS } = await import('../learning/fixtures');
+      const nowIso = new Date().toISOString();
+      for (const lesson of FIXTURE_LESSONS) {
+        await s.lessons.create({
+          ...lesson,
+          tenantId: 'default',
+          publishedAt: nowIso,
+          publishedBy: 'admin@tandem.local',
+          archivedAt: null,
+          createdAt: nowIso,
+          updatedAt: nowIso,
+        } as never);
+      }
+    }
+  } catch (err) {
+    console.warn('[seed] academy lessons failed:', (err as Error).message);
+  }
 }
 
 /**
@@ -703,58 +814,44 @@ export async function seedLaunchpadIfEmpty(): Promise<void> {
     const ctx = createAppContext();
     const lpSvc = new LaunchpadService(ctx);
     const existing = await lpSvc.listAdmin({ tenantId: 'default' });
-    if (existing.length > 0) return;
+    // 旧演示卡片名单 (历史默认种子). 仅当跳板「只剩这些」时才视为未定制 → 清掉重播集团模块.
+    // 若含任何非旧卡片 (用户自定义 或 已是新集团模块) → 跳过, 保持幂等且绝不误删用户数据.
+    const LEGACY_DEMO_NAMES = new Set([
+      '金蝶 ERP', 'Salesforce CRM', 'Jira', '钉钉', '腾讯会议', '公司 Wiki', 'HR 系统',
+    ]);
+    if (existing.length > 0) {
+      const allLegacy = existing.every((a) => LEGACY_DEMO_NAMES.has(a.name));
+      if (!allLegacy) return;
+      for (const a of existing) await lpSvc.delete(a.id);
+      // eslint-disable-next-line no-console
+      console.info(`[seed] launchpad: 清理 ${existing.length} 张旧演示卡片, 改播集团模块`);
+    }
 
+    // §集团模块 · 快速跳板. url/ssoMode 为对外软件预留接口 (待接入时由 /admin/launchpad 填真实地址 + SSO).
+    const base = {
+      iconUrl: null, ssoMode: 'none' as const, ssoConfig: null,
+      visibleTo: [], visibleToRoles: [], unreadAdapter: null,
+      status: 'active' as const, tenantId: 'default',
+    };
     const seedApps: Array<Parameters<typeof lpSvc.create>[0]> = [
-      {
-        category: 'business', name: '金蝶 ERP', description: '采购 · 财务 · 供应链',
-        url: 'https://www.kingdee.com', iconUrl: null, ssoMode: 'none', ssoConfig: null,
-        visibleTo: [], visibleToRoles: [], order: 0,
-        recommendKeywords: ['财务', '采购', '供应链', 'erp', 'finance'],
-        unreadAdapter: null, status: 'active', tenantId: 'default',
-      },
-      {
-        category: 'business', name: 'Salesforce CRM', description: '客户 · 销售 · 商机跟进',
-        url: 'https://login.salesforce.com', iconUrl: null, ssoMode: 'none', ssoConfig: null,
-        visibleTo: [], visibleToRoles: [], order: 1,
-        recommendKeywords: ['销售', '客户', '商机', 'sales', 'crm', '签单'],
-        unreadAdapter: null, status: 'active', tenantId: 'default',
-      },
-      {
-        category: 'business', name: 'Jira', description: '研发任务 · Sprint 看板',
-        url: 'https://www.atlassian.com/software/jira', iconUrl: null, ssoMode: 'none', ssoConfig: null,
-        visibleTo: [], visibleToRoles: [], order: 2,
-        recommendKeywords: ['研发', '工程', 'bug', 'sprint', '迭代'],
-        unreadAdapter: null, status: 'active', tenantId: 'default',
-      },
-      {
-        category: 'comm', name: '钉钉', description: '即时通讯 · 视频会议',
-        url: 'https://im.dingtalk.com', iconUrl: null, ssoMode: 'none', ssoConfig: null,
-        visibleTo: [], visibleToRoles: [], order: 0,
-        recommendKeywords: ['沟通', '消息', '会议'],
-        unreadAdapter: null, status: 'active', tenantId: 'default',
-      },
-      {
-        category: 'comm', name: '腾讯会议', description: '视频会议 · 屏幕共享',
-        url: 'https://meeting.tencent.com', iconUrl: null, ssoMode: 'none', ssoConfig: null,
-        visibleTo: [], visibleToRoles: [], order: 1,
-        recommendKeywords: ['会议', 'meeting', '视频'],
-        unreadAdapter: null, status: 'active', tenantId: 'default',
-      },
-      {
-        category: 'learning', name: '公司 Wiki', description: '知识库 · 文档中心',
-        url: 'https://www.notion.so', iconUrl: null, ssoMode: 'none', ssoConfig: null,
-        visibleTo: [], visibleToRoles: [], order: 0,
-        recommendKeywords: ['文档', '知识', '培训', 'wiki', '手册'],
-        unreadAdapter: null, status: 'active', tenantId: 'default',
-      },
-      {
-        category: 'learning', name: 'HR 系统', description: '考勤 · 请假 · 报销',
-        url: 'https://www.bamboohr.com', iconUrl: null, ssoMode: 'none', ssoConfig: null,
-        visibleTo: [], visibleToRoles: [], order: 1,
-        recommendKeywords: ['人事', 'hr', '请假', '考勤', '报销'],
-        unreadAdapter: null, status: 'active', tenantId: 'default',
-      },
+      { ...base, category: 'business', name: '搭子手抄', description: 'AI 笔记 · 记录→加工→沉淀',
+        url: '/shouchao', order: 0, recommendKeywords: ['笔记', '手抄', 'note', '沉淀'] },
+      { ...base, category: 'business', name: '创新匠台 PLM', description: '产品全生命周期 · 研发协同',
+        url: '#plm', order: 1, recommendKeywords: ['plm', '研发', '产品', '生命周期', '匠台'] },
+      { ...base, category: 'business', name: '瑞诺瓦 AI 问诊', description: 'AI 智能诊断 · 健康问询',
+        url: '#renova-ai', order: 2, recommendKeywords: ['ai', '问诊', '诊断', '瑞诺瓦', 'renova'] },
+      { ...base, category: 'business', name: 'Youngsuite ERP', description: '采购 · 财务 · 供应链',
+        url: '#youngsuite-erp', order: 3, recommendKeywords: ['erp', '财务', '采购', '供应链', 'youngsuite'] },
+      { ...base, category: 'business', name: '售后系统', description: '工单 · 客诉 · 维保',
+        url: '#after-sales', order: 4, recommendKeywords: ['售后', '工单', '客诉', '维保', 'service'] },
+      { ...base, category: 'business', name: '战略布局 StratOS', description: '战略地图 · 经营沙盘',
+        url: '#stratos', order: 5, recommendKeywords: ['战略', '布局', 'stratos', '沙盘', '经营'] },
+      { ...base, category: 'business', name: 'Salesforce', description: '客户 · 销售 · 商机跟进',
+        url: 'https://login.salesforce.com', order: 6, recommendKeywords: ['销售', '客户', '商机', 'sales', 'crm'] },
+      { ...base, category: 'business', name: 'MES', description: '制造执行 · 生产排程',
+        url: '#mes', order: 7, recommendKeywords: ['mes', '制造', '生产', '排程', '车间'] },
+      { ...base, category: 'business', name: 'Rhautt 宜居家', description: '宜居家 · 智能家居平台',
+        url: '#rhautt', order: 8, recommendKeywords: ['rhautt', '宜居家', '家居', 'home', '智能家居'] },
     ];
     for (const app of seedApps) await lpSvc.create(app);
     // eslint-disable-next-line no-console

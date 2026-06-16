@@ -37,6 +37,18 @@ export interface Lesson {
   rewardScore?: number;
   /** 该课程是否绑定 KR (完成→进度推流) */
   linkedKrId?: string;
+  /** 课程正文 (Markdown). 有则课时页渲染真内容, 无则回退 mock 导读. */
+  contentMarkdown?: string;
+  /** CMS 管理字段 (store-backed 后启用; fixtures 不带这些字段) */
+  tenantId?: string;
+  /** 发布时间 ISO; null/undefined = 草稿 (不对学员可见) */
+  publishedAt?: string | null;
+  /** 归档 (软删) 时间 */
+  archivedAt?: string | null;
+  /** 发布人 (admin/HR userId) */
+  publishedBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface LessonAttempt {

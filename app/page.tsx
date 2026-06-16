@@ -31,6 +31,14 @@ import {
   CheckSquare,
   HelpCircle,
   NotebookPen,
+  DraftingCompass,
+  Stethoscope,
+  Boxes,
+  Headset,
+  Compass,
+  Cloud,
+  Factory,
+  Home,
 } from 'lucide-react';
 import { InsightsWidget } from '@/components/insights/insights-widget';
 import { PendingRetrosCard } from '@/components/dashboard/pending-retros-card';
@@ -148,8 +156,8 @@ export default function HomePage() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/launchpad')
-      .then((r) => (r.ok ? r.json() : { apps: [] }))
+    fetch('/api/launchpad', { credentials: 'include', cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
       .then((d) => {
         if (!cancelled) setLaunchpadApps(d.apps ?? []);
       })
@@ -490,6 +498,26 @@ const LP_CATEGORY_META: Record<LpCategory, { label: string; icon: React.Componen
   custom: { label: '自定义', icon: LayoutGrid },
 };
 
+/**
+ * 集团模块 · 按名称匹配高级感图标 (data model 无 per-app icon 列, 故按 name 关键词映射).
+ * 命中优先级高于 category fallback; 新增模块在此加一条即可.
+ */
+const LP_ICON_BY_NAME: Array<{ match: RegExp; icon: React.ComponentType<{ className?: string }> }> = [
+  { match: /手抄/, icon: NotebookPen },
+  { match: /PLM|匠台/i, icon: DraftingCompass },
+  { match: /问诊|瑞诺瓦|renova/i, icon: Stethoscope },
+  { match: /ERP|youngsuite/i, icon: Boxes },
+  { match: /售后/, icon: Headset },
+  { match: /StratOS|战略/i, icon: Compass },
+  { match: /salesforce/i, icon: Cloud },
+  { match: /\bMES\b/i, icon: Factory },
+  { match: /宜居家|rhautt/i, icon: Home },
+];
+
+function resolveLaunchpadIcon(name: string): React.ComponentType<{ className?: string }> | null {
+  return LP_ICON_BY_NAME.find((e) => e.match.test(name))?.icon ?? null;
+}
+
 function LaunchpadSection({
   apps,
   maxTiles,
@@ -531,7 +559,6 @@ function LaunchpadSection({
             : 'grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6'
         }
       >
-        <ShouchaoHomeTile />
         {tiles.map((a) => (
           <LaunchpadTile key={a.id} app={a} recommended={recommendedIds.has(a.id)} />
         ))}
@@ -540,19 +567,15 @@ function LaunchpadSection({
   );
 }
 
-// 搭子手抄 · 内部 AI 笔记模块入口 (放在 ERP/快速跳板旁, 内部跳转不开新窗口)
-function ShouchaoHomeTile() {
-  return (
-    <Link href="/shouchao" className="rheem-tile group" title="搭子手抄 · AI 笔记 (记录 → 加工 → 沉淀)">
-      <NotebookPen className="rheem-tile-icon" />
-      <span className="rheem-tile-label line-clamp-2">搭子手抄</span>
-    </Link>
-  );
-}
-
 function LaunchpadTile({ app, recommended }: { app: LaunchpadAppWithBadge; recommended?: boolean }) {
+  // url 约定: '#xxx' = 接口预留待接入 (点击不跳转); '/xxx' = 站内导航; 其余 = 外部新窗口.
+  const pending = app.url.startsWith('#');
+  const internal = app.url.startsWith('/');
+
   async function handleClick(e: React.MouseEvent) {
     e.preventDefault();
+    if (pending) return; // 待接入: 接口已预留, 待 /admin/launchpad 填真实地址
+    let target = app.url;
     try {
       const r = await fetch(`/api/launchpad/${app.id}/click`, {
         method: 'POST',
@@ -561,16 +584,17 @@ function LaunchpadTile({ app, recommended }: { app: LaunchpadAppWithBadge; recom
       });
       if (r.ok) {
         const d = await r.json();
-        window.open(d.url ?? app.url, '_blank', 'noopener');
-        return;
+        target = d.url ?? app.url;
       }
     } catch {
-      /* fall through */
+      /* fall through with app.url */
     }
-    window.open(app.url, '_blank', 'noopener');
+    if (internal) window.location.href = target;
+    else window.open(target, '_blank', 'noopener');
   }
 
-  const CategoryIcon = LP_CATEGORY_META[app.category]?.icon ?? LayoutGrid;
+  const NamedIcon = resolveLaunchpadIcon(app.name);
+  const FallbackIcon = LP_CATEGORY_META[app.category]?.icon ?? LayoutGrid;
   const unread = app.unreadCount ?? 0;
 
   return (
@@ -578,7 +602,8 @@ function LaunchpadTile({ app, recommended }: { app: LaunchpadAppWithBadge; recom
       href={app.url}
       onClick={handleClick}
       className="rheem-tile group"
-      title={app.description || app.name}
+      title={pending ? `${app.name} · 接口预留, 待接入` : app.description || app.name}
+      aria-disabled={pending}
     >
       {/* Recommended sparkle indicator (top-left corner) */}
       {recommended && (
@@ -591,13 +616,22 @@ function LaunchpadTile({ app, recommended }: { app: LaunchpadAppWithBadge; recom
         </span>
       )}
 
+      {/* 待接入 pill (top-right) — 接口已预留 */}
+      {pending && (
+        <span className="absolute top-2 right-2 rounded-full bg-white/20 px-1.5 py-0.5 text-[9px] font-medium text-white/90">
+          待接入
+        </span>
+      )}
+
       {/* Unread badge (top-right) */}
-      {unread > 0 && (
+      {!pending && unread > 0 && (
         <span className="rheem-tile-badge">{unread > 99 ? '99+' : unread}</span>
       )}
 
-      {/* Icon: app's iconUrl if present, else category fallback */}
-      {app.iconUrl ? (
+      {/* Icon: 优先名称映射高级图标, 其次 app.iconUrl, 最后 category fallback */}
+      {NamedIcon ? (
+        <NamedIcon className="rheem-tile-icon" />
+      ) : app.iconUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={app.iconUrl}
@@ -605,7 +639,7 @@ function LaunchpadTile({ app, recommended }: { app: LaunchpadAppWithBadge; recom
           className="w-7 h-7 object-contain brightness-0 invert opacity-95"
         />
       ) : (
-        <CategoryIcon className="rheem-tile-icon" />
+        <FallbackIcon className="rheem-tile-icon" />
       )}
 
       <span className="rheem-tile-label line-clamp-2">{app.name}</span>

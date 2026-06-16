@@ -12,6 +12,7 @@
  * 真扭转: 完成课时走 /api/learning/complete → closure.ts 写库.
  */
 
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   BookOpen,
@@ -25,7 +26,7 @@ import {
   TrendingUp,
   Workflow,
 } from 'lucide-react';
-import { FIXTURE_LESSONS, groupLessonsByCategory } from '@/lib/learning/fixtures';
+import { FIXTURE_LESSONS } from '@/lib/learning/fixtures';
 import type { Lesson, LessonCategory } from '@/lib/learning/types';
 
 const CATEGORY_META: Record<
@@ -52,36 +53,76 @@ const CATEGORY_META: Record<
 };
 
 export default function LearningPage() {
-  const grouped = groupLessonsByCategory();
-  const mandatory = FIXTURE_LESSONS.filter(
-    (l) =>
-      l.requirement === 'mandatory_once' ||
-      l.requirement === 'mandatory_quarterly',
+  const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [loadStatus, setLoadStatus] = useState<'loading' | 'ok' | 'error'>('loading');
+
+  useEffect(() => {
+    fetch('/api/learning/lessons', { credentials: 'include', cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then((j) => {
+        const data: Lesson[] = j.lessons ?? [];
+        setLessons(data.length > 0 ? data : FIXTURE_LESSONS);
+        setLoadStatus('ok');
+      })
+      .catch(() => {
+        setLessons(FIXTURE_LESSONS);
+        setLoadStatus('error');
+      });
+  }, []);
+
+  const grouped = useMemo(() => {
+    const map: Partial<Record<LessonCategory, Lesson[]>> = {};
+    for (const l of lessons) {
+      (map[l.category] ??= []).push(l);
+    }
+    return map;
+  }, [lessons]);
+
+  const mandatory = useMemo(
+    () => lessons.filter((l) => l.requirement === 'mandatory_once' || l.requirement === 'mandatory_quarterly'),
+    [lessons],
   );
-  const recommended = FIXTURE_LESSONS.filter(
-    (l) => l.requirement === 'recommended',
+  const recommended = useMemo(
+    () => lessons.filter((l) => l.requirement === 'recommended'),
+    [lessons],
   );
+
+  if (loadStatus === 'loading') {
+    return (
+      <main className="container mx-auto max-w-4xl space-y-6 px-4 py-6 sm:py-8">
+        <div className="hero-ink p-6 sm:p-8 animate-pulse">
+          <div className="h-7 w-48 rounded-lg bg-white/10" />
+          <div className="mt-3 h-4 w-72 rounded bg-white/8" />
+        </div>
+        <div className="surface-card p-5 space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-14 rounded-2xl bg-surface-2 animate-pulse" />
+          ))}
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="container mx-auto max-w-4xl space-y-6 px-4 py-6 sm:py-8">
-      {/* ===== v0.2 Banner · 学院 stub 公告 (CHARTER-UI-V1 §1.5 合规) ===== */}
-      <div
-        role="status"
-        className="rounded-2xl border-l-4 border-warning bg-warning/5 px-4 py-3 shadow-soft-xs"
-      >
-        <div className="flex items-start gap-3">
-          <Sparkles className="h-5 w-5 shrink-0 text-warning mt-0.5" />
-          <div className="min-w-0">
-            <p className="text-headline text-ink-primary">
-              学院 v0.2 即将上线 · 当前展示骨架
-            </p>
-            <p className="mt-1 text-caption text-ink-secondary">
-              本页课程为示例占位（fixtures）。HR 派课、Excel 导入、真实题库、学分置换
-              在 v0.2-v0.4 分阶段开放。当前可以浏览结构 + 体验骨架，未来无缝接入真课程。
-            </p>
+      {loadStatus === 'error' && (
+        <div
+          role="status"
+          className="rounded-2xl border-l-4 border-warning bg-warning/5 px-4 py-3 shadow-soft-xs"
+        >
+          <div className="flex items-start gap-3">
+            <Sparkles className="h-5 w-5 shrink-0 text-warning mt-0.5" />
+            <div className="min-w-0">
+              <p className="text-headline text-ink-primary">
+                课程数据加载失败 · 显示示例课程
+              </p>
+              <p className="mt-1 text-caption text-ink-secondary">
+                无法连接学院 API，当前显示内置示例课程。刷新页面重试。
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* ===== Hero · 深底品牌 ===== */}
       <section className="hero-ink p-6 sm:p-8">
@@ -122,7 +163,7 @@ export default function LearningPage() {
               · 通过课程解锁 实习权限 + 提升 主修 GPA
             </p>
           </div>
-          <span className="pill-on-dark shrink-0">P2 MVP · mock</span>
+          <span className="pill-on-dark shrink-0">学院 v0.2</span>
         </div>
 
         {/* Quick stats */}

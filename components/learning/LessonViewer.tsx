@@ -178,12 +178,16 @@ export function LessonViewer({ lesson }: LessonViewerProps) {
       {phase === 'content' && (
         <section className="surface-card p-5 sm:p-6 shadow-soft-sm">
           <article className="prose prose-sm max-w-none">
-            <div
-              className="text-body text-primary [&>h2]:mt-5 [&>h2]:mb-2 [&>h2]:text-headline [&>h2]:font-semibold [&>p]:my-2 [&>p]:text-secondary [&>ul]:my-2 [&>ul]:list-disc [&>ul]:pl-5 [&>li]:my-0.5 [&>li]:text-secondary"
-              dangerouslySetInnerHTML={{
-                __html: buildMockContentHtml(lesson),
-              }}
-            />
+            {lesson.contentMarkdown ? (
+              <MarkdownContent markdown={lesson.contentMarkdown} />
+            ) : (
+              <div
+                className="text-body text-primary [&>h2]:mt-5 [&>h2]:mb-2 [&>h2]:text-headline [&>h2]:font-semibold [&>p]:my-2 [&>p]:text-secondary [&>ul]:my-2 [&>ul]:list-disc [&>ul]:pl-5 [&>li]:my-0.5 [&>li]:text-secondary"
+                dangerouslySetInnerHTML={{
+                  __html: buildMockContentHtml(lesson),
+                }}
+              />
+            )}
           </article>
 
           <div
@@ -191,7 +195,7 @@ export function LessonViewer({ lesson }: LessonViewerProps) {
             style={{ borderColor: 'rgb(var(--border-subtle))' }}
           >
             <p className="text-footnote text-tertiary">
-              💡 P1 mock · P2 真接入 db Lesson.contentMarkdown
+              {lesson.contentMarkdown ? `📄 ${lesson.title}` : '💡 示例内容 · 课程正文待录入'}
             </p>
             <button
               type="button"
@@ -570,6 +574,52 @@ function buildMockContentHtml(lesson: Lesson): string {
         : '推荐学习, 提升相关主修 GPA.'
   }</p>
 `;
+}
+
+// ---------------------------------------------------------------------------
+// Markdown 渲染 (轻量, 无额外依赖)
+// ---------------------------------------------------------------------------
+
+function MarkdownContent({ markdown }: { markdown: string }) {
+  const lines = markdown.split('\n');
+  const nodes: React.ReactNode[] = [];
+  let listBuffer: string[] = [];
+
+  function flushList() {
+    if (listBuffer.length === 0) return;
+    nodes.push(
+      <ul key={`ul-${nodes.length}`} className="my-2 list-disc pl-5 space-y-0.5">
+        {listBuffer.map((item, i) => (
+          <li key={i} className="text-secondary text-body">{item}</li>
+        ))}
+      </ul>,
+    );
+    listBuffer = [];
+  }
+
+  lines.forEach((line, i) => {
+    if (line.startsWith('### ')) {
+      flushList();
+      nodes.push(<h3 key={i} className="mt-4 mb-1 text-body font-semibold text-primary">{line.slice(4)}</h3>);
+    } else if (line.startsWith('## ')) {
+      flushList();
+      nodes.push(<h2 key={i} className="mt-5 mb-2 text-headline font-semibold text-primary">{line.slice(3)}</h2>);
+    } else if (line.startsWith('# ')) {
+      flushList();
+      nodes.push(<h1 key={i} className="mt-5 mb-2 text-title-3 font-bold text-primary">{line.slice(2)}</h1>);
+    } else if (line.startsWith('- ') || line.startsWith('* ')) {
+      listBuffer.push(line.slice(2));
+    } else if (line.trim() === '') {
+      flushList();
+    } else {
+      flushList();
+      const bold = line.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/`(.+?)`/g, '<code class="font-mono text-footnote bg-surface-2 px-1 rounded">$1</code>');
+      nodes.push(<p key={i} className="my-2 text-secondary text-body" dangerouslySetInnerHTML={{ __html: bold }} />);
+    }
+  });
+  flushList();
+
+  return <div className="text-body text-primary">{nodes}</div>;
 }
 
 function buildMockQuestion(lesson: Lesson): {

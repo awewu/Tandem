@@ -16,9 +16,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { FIXTURE_LESSONS } from '@/lib/learning/fixtures';
 import { onLessonCompleted } from '@/lib/learning/closure';
-import { boot } from '@/lib/boot';
+import { boot, getStore } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
-import type { LessonAttempt } from '@/lib/learning/types';
+import type { Lesson, LessonAttempt } from '@/lib/learning/types';
 
 export const runtime = 'nodejs';
 
@@ -54,7 +54,18 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const lesson = FIXTURE_LESSONS.find((l) => l.id === lessonId);
+  let lesson: Lesson | null = null;
+  try {
+    const stored = await getStore().lessons.get(lessonId);
+    if (stored && (stored.tenantId ?? 'default') === auth.tenantId && stored.publishedAt && !stored.archivedAt) {
+      lesson = stored;
+    }
+  } catch {
+    /* store 不可用时回退 fixtures */
+  }
+  if (!lesson) {
+    lesson = FIXTURE_LESSONS.find((l) => l.id === lessonId) ?? null;
+  }
   if (!lesson) {
     return NextResponse.json(
       { ok: false, error: 'LESSON_NOT_FOUND', lessonId },

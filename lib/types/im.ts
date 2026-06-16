@@ -191,6 +191,60 @@ export function parseMentions(body: string): ImMention[] {
   return mentions;
 }
 
+// ---------------------------------------------------------------------------
+// Presence (在线状态) · 真人离线时分身 24h 兜底代答
+// ---------------------------------------------------------------------------
+
+/** 超过此窗口没有心跳即视为离线 (客户端每 ~30s 心跳一次) */
+export const PRESENCE_ONLINE_WINDOW_MS = 90_000;
+
+export interface ImPresence {
+  /** = userId (主键) */
+  id: string;
+  userId: string;
+  tenantId?: string;
+  /** 最近一次心跳 (ISO). 决定在线/离线 */
+  lastSeenAt: string;
+  /** 用户全局开关: 我离线时, 分身在所有群对"@我/回复我"的消息 24h 兜底代答 */
+  delegateWhenOffline: boolean;
+  updatedAt: string;
+}
+
+/** 是否在线: 最近心跳在窗口内 */
+export function isUserOnline(p: ImPresence | null | undefined, now: number = Date.now()): boolean {
+  if (!p) return false;
+  return now - new Date(p.lastSeenAt).getTime() < PRESENCE_ONLINE_WINDOW_MS;
+}
+
+// ---------------------------------------------------------------------------
+// Mention Inbox (我的 @ 与回复 · 个人消息已读确认)
+// ---------------------------------------------------------------------------
+
+/** mention = 被 @; reply = 我的消息被回复 */
+export type ImInboxKind = 'mention' | 'reply';
+
+export interface ImMentionInboxItem {
+  id: string;
+  tenantId?: string;
+  /** 收件人 (被 @ 或被回复的真人) */
+  userId: string;
+  channelId: string;
+  /** 频道名快照 (渲染用; dm 可空) */
+  channelName?: string;
+  messageId: string;
+  /** 发起者 (发 @ / 回复的人) */
+  senderId: string;
+  kind: ImInboxKind;
+  /** kind=mention 时的提及语义 (assign/consult/notify) */
+  mentionKind?: ImMentionKind;
+  preview: string;
+  createdAt: string;
+  /** 打开收件箱浏览到 (弱已读) */
+  readAt?: string;
+  /** 显式"已读确认"(强确认, 满足"被阅读确认"要求) */
+  ackedAt?: string;
+}
+
 /** 提取消息预览 (列表渲染用, 去除 markdown 和 mention 语法) */
 export function extractPreview(body: string, max = 60): string {
   const stripped = body

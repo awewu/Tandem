@@ -42,7 +42,7 @@
 | **M4 `governedChat()` 统一出口** | ✅ 已落 (2026-06-07) | `lib/governance/governed-chat.ts` 串联输入闸 (govern-persona) + 动作闸 (runSkillGateway 含闸④内容判定) + LLM + 输出闸 (output-guard); autonomous **fail-closed** (基线闸 checkId='' 信号检测)。支持 forceProvider/cacheControl/preSearch 钩子。覆盖 `tests/unit/governed-chat.test.ts` (6 测) |
 | **§19 收口 govern-persona** | 🟡 推进中 | 3+1 引擎 (`three-plus-one-engine.ts`) 按既有结论不迁 (多选项结构)。**IM persona reply (`im/service.ts invokePersonaReply`) 已迁 governedChat** (2026-06-07, 新增动作闸+输出闸, 保留 forceProvider/preSearch/cache)。CompanyBrain/BossAI 等流式出口待迁 |
 | **ESLint `no-direct-router-chat`** | ❌ 未动 | 禁业务代码直调 `router.chat()` 绕过闸 |
-| **B-015 OKR Drift 升真闸** | 🟡 仅审计 | 当前 drift 只 SOFT_WARN 不阻断; 按阈值 (≤0.3 进议事 / 0.3-0.6 黄区签批 / ≥0.6 放行) 升级 |
+| **B-015 OKR Drift 升真闸** | 🟡 检测已完整/阻断待升 | `lib/governance/okr-drift.ts` embedding+Jaccard 双相似度检测已完整; Admin UI `app/admin/governance/okr-drift/page.tsx` 已有; **剩余**: 仍只 SOFT_WARN, 按阈值升阻断 (≤0.3 进议事 / 0.3-0.6 黄区) |
 | **闭环断言测试框架** | 🟡 部分 | governed-chat (6) + derive-zone (14) 已有; 继续补 systemContent 真注入断言 |
 | **CA-13 闭飞轮 (S5)** | ✅ 已落 (2026-06-07) | `approveReflection` 签批含 diff → 应用→创建新 `CompanyBrainVersion`(`company-brain-reflection.ts`); 读侧 `lib/persona/company-brain-version.ts getActiveBrainVersion` 接入 baseline-guard 阈值 + company-brain 注入数/风格。反思不再"写报告不改自己"。覆盖 reflection 闭环测 (9) |
 
@@ -103,7 +103,7 @@ B-024 反思引擎(根,5-7d) → B-025 战略引擎(1w) → B-026 anti-pattern(1
 
 | 任务 | 状态 | 关键落点 |
 |---|---|---|
-| **B-024 反思引擎** | ❌ | `lib/persona/learning-collector.ts:33` 只 +1 计数不诊断。建 `lib/persona/reflection.ts` 写 RetroNote 反推 4 引擎 |
+| **B-024 反思引擎** | ✅ 已落 (2026-06-15 走读验证) | `lib/persona/reflexion.ts` 完整实现 Reflexion 三步 (reflect/store/retrieve); 结构化分类 (skill_misuse/okr_drift/knowledge_gap/judgment); 个人情景记忆落库; `analyzeReflexionPatterns` 聚合 API; fail-soft 全程 |
 | **B-025 战略引擎** | ❌ | 0 行。监听 `okr.cycle_changed` → `realignPersonaToOkr` 重组 enabledSkills |
 | **B-023 BYOK** | 🅩 远期可选 | (对外互通线, 2026-06-08 降级) AES-GCM 凭据库 (`lib/byok/credential.ts`), B-022 前置 |
 | **B-022 出站 Skill** | 🅩 远期可选 | (对外互通线, 2026-06-08 降级) `lib/skill-gateway/outbound/`, 调用必经 runSkillGateway。注: **自用内部** tool-loop (S1) 已落且不在此降级范围 |
@@ -119,9 +119,9 @@ B-024 反思引擎(根,5-7d) → B-025 战略引擎(1w) → B-026 anti-pattern(1
 |---|---|---|
 | **Prisma 残列清理 → 恢复 drizzle 迁移** | ❌ | 清 User 表残列后才能解禁 db:push |
 | **负载测试 100→1000 人** | ❌ | Redis 限流 / DB 连接池已就绪, 需压测 |
-| **B-008 Eval harness** | 🟡 | `tests/eval` + `npm run evals` 已有脚手架, 补 fixture |
+| **B-008 Eval harness** | ✅ 已落 (2026-06-15 走读验证) | `lib/evals/` 完整: runner.ts + judges.ts + 5 套 suites (boss-ai-okr/1on1/persona/safety/okr-anchor) |
 | **B-004 Structured Outputs** | 🟡 部分 | 3+1 引擎已用 `responseFormat: json_schema strict`, **推广到其余调用点** (backlog 标"待评估"已过时) |
-| **B-003 Prompt Cache** | ❌ | 成本砍 50-90%, 半天, 依赖 B-005 (✅已落) |
+| **B-003 Prompt Cache** | ✅ 已落 (2026-06-15 走读验证) | `transformMessageForWire` 已支持 `cacheControl:'ephemeral'`; IM (`lib/im/service.ts`) + BossAI (`app/api/boss-ai/stream/route.ts`) + `governed-chat.ts cacheControlSystem` 全挂; 测试 `anthropic-prompt-cache.test.ts` 已覆盖 |
 
 ---
 

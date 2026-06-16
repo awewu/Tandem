@@ -1,35 +1,48 @@
 'use client';
 
 /**
- * /learning/lesson/[id] · 课时学习页 (P1 stub)
+ * /learning/lesson/[id] · 课时学习页
  *
  * 立项: docs/ACADEMY-METAPHOR-2026-05-29.md Phase 2.1
- *
- * 当前: 从 fixtures 找 lesson, 用 LessonViewer 渲染
- * P2 真接入: 服务端 fetch db Lesson + Question + Enrollment 状态
+ * 数据源: GET /api/learning/lessons/[id] (真 store.lessons CMS).
  */
 
-import { use } from 'react';
-import { notFound } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { Loader2 } from 'lucide-react';
 import { LessonViewer } from '@/components/learning/LessonViewer';
-import { FIXTURE_LESSONS } from '@/lib/learning/fixtures';
+import type { Lesson } from '@/lib/learning/types';
 
-export default function LessonPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = use(params);
-  const lesson = FIXTURE_LESSONS.find((l) => l.id === id);
+export default function LessonPage() {
+  const { id } = useParams<{ id: string }>();
+  const [lesson, setLesson] = useState<Lesson | null>(null);
+  const [status, setStatus] = useState<'loading' | 'ok' | 'notfound'>('loading');
 
-  if (!lesson) {
+  useEffect(() => {
+    fetch(`/api/learning/lessons/${id}`, { credentials: 'include', cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then((j) => {
+        setLesson(j.lesson as Lesson);
+        setStatus('ok');
+      })
+      .catch(() => setStatus('notfound'));
+  }, [id]);
+
+  if (status === 'loading') {
+    return (
+      <main className="container mx-auto max-w-3xl px-4 py-12 flex items-center justify-center text-tertiary">
+        <Loader2 className="h-5 w-5 animate-spin mr-2" /> 加载课程…
+      </main>
+    );
+  }
+
+  if (status === 'notfound' || !lesson) {
     return (
       <main className="container mx-auto max-w-3xl px-4 py-12 text-center">
         <h1 className="text-title-2 text-primary">课程未找到</h1>
         <p className="mt-2 text-body text-secondary">
-          ID <code className="font-mono text-primary">{id}</code> 不在当前
-          fixtures 中.
+          ID <code className="font-mono text-primary">{id}</code> 未匹配已发布课程.
         </p>
         <Link
           href="/learning"

@@ -34,7 +34,7 @@ import type {
   KpiSubject,
   KpiCausalLink,
 } from '../types/kpi';
-import type { ImChannel, ImMessage, ImMembership } from '../types/im';
+import type { ImChannel, ImMessage, ImMembership, ImPresence, ImMentionInboxItem } from '../types/im';
 import type {
   CompanyBrainDecision,
   CompanyBrainVersion,
@@ -117,6 +117,10 @@ export interface TandemStore {
   imChannels: Repository<ImChannel>;
   imMessages: Repository<ImMessage>;
   imMemberships: Repository<ImMembership>;
+  /** IM 在线状态 (真人离线时分身 24h 兜底代答) */
+  imPresence: Repository<ImPresence>;
+  /** IM @我/回复我 收件箱 (个人消息已读确认) */
+  imMentionInbox: Repository<ImMentionInboxItem>;
 
   /** 1on1 主管-员工对话 (A2.1b) */
   oneOnOneMeetings: Repository<OneOnOneMeeting>;
@@ -147,6 +151,8 @@ export interface TandemStore {
   personaFeedbacks: Repository<import('../types/persona-feedback').PersonaFeedback>;
 
   /** Academy 闭环 (P0 KvStore-based, P2 升级 drizzle 强类型表) */
+  /** 学院课程内容 (CMS, store-backed) */
+  lessons: Repository<import('../learning/types').Lesson>;
   learningAttempts: Repository<import('../learning/types').LessonAttempt>;
   learningCertifications: Repository<import('../learning/types').Certification>;
   learningEnrollments: Repository<import('../learning/enrollment').LearningEnrollment>;
