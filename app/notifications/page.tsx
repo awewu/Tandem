@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Bell, Check, X, MessageSquare, Calendar, FileText, HardDrive } from "lucide-react";
 import { useCurrentUserId } from "@/lib/hooks/use-current-user";
+import { PushSubscribeToggle } from "@/components/PushSubscribeToggle";
 
 interface Notification {
   id: string;
@@ -70,6 +71,10 @@ export default function NotificationsPage() {
             <span className="px-2 py-1 text-caption bg-danger text-white rounded-full">{unreadCount}</span>
           )}
         </h1>
+      </div>
+
+      <div className="mb-6">
+        <PushSubscribeToggle />
       </div>
 
       <div className="space-y-2">

@@ -1,6 +1,7 @@
 ﻿import type { ApplicationContext } from '@/lib/repositories/app-context';
 import type { Notification } from '@/lib/types/feishu-catchup';
 import { cacheDel } from '@/lib/infra/cache';
+import { sendPushTo } from '@/lib/infra/web-push';
 
 export interface CreateNotificationCommand {
   userId: string;
@@ -35,6 +36,17 @@ export class NotificationService {
       createdAt: new Date().toISOString(),
     } as any);
     await cacheDel(`badge:${cmd.userId}`);
+
+    // Web Push 同步推送 (fire-and-forget, fail-soft) — 低优先级不推, 避免噪音
+    if ((cmd.priority ?? 'normal') !== 'low') {
+      const url = typeof cmd.data?.url === 'string' ? cmd.data.url : undefined;
+      void sendPushTo(cmd.userId, {
+        title: cmd.title,
+        body: cmd.body ?? '',
+        url,
+      }).catch(() => undefined);
+    }
+
     return n;
   }
 
