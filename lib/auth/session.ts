@@ -23,7 +23,7 @@ const SESSION_SECRET = (() => {
   return s;
 })();
 
-const ACCESS_TOKEN_TTL_SEC = 15 * 60;        // 15 分钟
+const ACCESS_TOKEN_TTL_SEC = 24 * 60 * 60;     // 24 小时 (本地开发用, 生产环境建议改回 15 分钟)
 const REFRESH_TOKEN_TTL_SEC = 30 * 24 * 3600; // 30 天
 
 export interface SessionPayload {
