@@ -515,90 +515,6 @@ export async function issueSessionForExternalLogin(
   return issueSessionForUser(user, true, deviceInfo);
 }
 
-/**
- * 用 refresh token 换发新的 access token (滑动续期).
- *
- * 流程:
- *   1. hash refresh token → 查 session
- *   2. 校验: 存在 / 未撤销 / 未过期 / 用户有效
- *   3. 轮转 (rotate): 撤销旧 session, 颁发新 refresh token (新 30 天窗口), 防重放
- *   4. 用最新角色重新签发 access token, 重算特权 MFA 强制门
- *
- * 任一校验失败抛 AuthError(401/403), 调用方据此清 cookie 并跳登录.
- */
-export async function refreshSession(
-  refreshToken: string,
-  deviceInfo?: { userAgent?: string; ip?: string },
-): Promise<AuthResult> {
-  if (!refreshToken) {
-    throw new AuthError('no_refresh_token', '缺少刷新令牌', 401);
-  }
-
-  const sessionStore = getSessionStore();
-  const hash = hashRefreshToken(refreshToken);
-  const session = await sessionStore.findByRefreshHash(hash);
-  if (!session) {
-    throw new AuthError('invalid_refresh_token', '刷新令牌无效, 请重新登录', 401);
-  }
-  if (session.revokedAt) {
-    throw new AuthError('session_revoked', '会话已撤销, 请重新登录', 401);
-  }
-  if (new Date(session.expiresAt).getTime() <= Date.now()) {
-    throw new AuthError('refresh_expired', '会话已过期, 请重新登录', 401);
-  }
-
-  const userStore = getUserStore();
-  const user = await userStore.findById(session.userId);
-  if (!user) {
-    throw new AuthError('user_not_found', '用户不存在', 401);
-  }
-  if (user.disabled) {
-    throw new AuthError('account_disabled', '账号已被禁用', 403);
-  }
-
-  // 重算特权 MFA 强制门 (角色 / MFA 状态可能在会话期内变化)
-  const mfaSecret = await userStore.findMfaSecret(user.id);
-  const userRoles = user.roles ?? [];
-  const isPrivileged = userRoles.some((r) => DATA_STEWARD_ROLES.includes(r as never));
-  const mfaForcedOn =
-    process.env.REQUIRE_MFA_FOR_PRIVILEGED === '1' ||
-    (process.env.NODE_ENV === 'production' && process.env.REQUIRE_MFA_FOR_PRIVILEGED !== '0');
-  const pendingMfaEnroll = isPrivileged && !mfaSecret && mfaForcedOn;
-
-  // 轮转: 颁发新 refresh (滑动 30 天) + 撤销旧 session, 防 refresh token 重放
-  const refresh = issueRefreshToken();
-  const newSession = await sessionStore.create({
-    userId: user.id,
-    refreshTokenHash: refresh.refreshTokenHash,
-    mfaVerified: session.mfaVerified,
-    userAgent: deviceInfo?.userAgent ?? session.userAgent ?? null,
-    ip: deviceInfo?.ip ?? session.ip ?? null,
-    expiresAt: refresh.expiresAt.toISOString(),
-  });
-  await sessionStore.revoke(session.id, 'refresh_rotated');
-
-  const access = signAccessToken({
-    sub: user.id,
-    email: user.email,
-    roles: userRoles,
-    tenantId: user.tenantId ?? 'default',
-    mfa: session.mfaVerified,
-    pendingMfaEnroll,
-    sid: newSession.id,
-  });
-
-  await audit({ userId: user.id, eventType: 'session_refreshed', ...deviceInfo });
-
-  return {
-    userId: user.id,
-    accessToken: access,
-    refreshToken: refresh.refreshToken,
-    refreshTokenExpiresAt: refresh.expiresAt,
-    requiresMfa: false,
-    mfaEnrollmentRequired: pendingMfaEnroll,
-  };
-}
-
 // ---------------------------------------------------------------------------
 // 占位 store wrappers (V1: 包装 in-memory store; V2: Prisma)
 // ---------------------------------------------------------------------------
@@ -643,7 +559,6 @@ interface NativeSessionStore {
     expiresAt: string;
   }): Promise<{ id: string; userId: string; expiresAt: string }>;
   findById(id: string): Promise<NativeSession | null>;
-  findByRefreshHash(hash: string): Promise<NativeSession | null>;
   revoke(id: string, reason: string): Promise<void>;
   revokeAllForUser(userId: string, reason: string): Promise<void>;
   markMfaVerified(id: string): Promise<void>;
@@ -656,8 +571,6 @@ interface NativeSession {
   mfaVerified: boolean;
   expiresAt: string;
   revokedAt: string | null;
-  userAgent?: string | null;
-  ip?: string | null;
 }
 
 interface NativeInviteStore {
