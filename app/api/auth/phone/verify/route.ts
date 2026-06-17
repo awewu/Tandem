@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     });
 
     const res = NextResponse.json({ ok: true, userId: result.userId });
-    res.cookies.set(COOKIE_ACCESS, result.accessToken, { ...SESSION_COOKIE_OPTIONS, maxAge: 15 * 60 });
+    res.cookies.set(COOKIE_ACCESS, result.accessToken, { ...SESSION_COOKIE_OPTIONS, maxAge: 24 * 60 * 60 });
     if (result.refreshToken) {
       res.cookies.set(COOKIE_REFRESH, result.refreshToken, { ...SESSION_COOKIE_OPTIONS, maxAge: 30 * 24 * 3600 });
     }

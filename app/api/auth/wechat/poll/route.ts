@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
 
     if (r.session) {
       const res = NextResponse.json({ ok: true, status: 'confirmed', userId: r.session.userId });
-      res.cookies.set(COOKIE_ACCESS, r.session.accessToken, { ...SESSION_COOKIE_OPTIONS, maxAge: 15 * 60 });
+      res.cookies.set(COOKIE_ACCESS, r.session.accessToken, { ...SESSION_COOKIE_OPTIONS, maxAge: 24 * 60 * 60 });
       if (r.session.refreshToken) {
         res.cookies.set(COOKIE_REFRESH, r.session.refreshToken, { ...SESSION_COOKIE_OPTIONS, maxAge: 30 * 24 * 3600 });
       }

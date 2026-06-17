@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
     pendingMfaEnroll: false,
     sid: payload.sid,
   });
-  res.cookies.set(COOKIE_ACCESS, freshToken, { ...SESSION_COOKIE_OPTIONS, maxAge: 15 * 60 });
+  res.cookies.set(COOKIE_ACCESS, freshToken, { ...SESSION_COOKIE_OPTIONS, maxAge: 24 * 60 * 60 });
   return res;
 }
 

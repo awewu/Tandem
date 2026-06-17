@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
 
     res.cookies.set(COOKIE_ACCESS, result.accessToken, {
       ...SESSION_COOKIE_OPTIONS,
-      maxAge: 15 * 60,
+      maxAge: 24 * 60 * 60,
     });
     res.cookies.set(COOKIE_REFRESH, result.refreshToken, {
       ...SESSION_COOKIE_OPTIONS,
