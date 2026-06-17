@@ -497,7 +497,7 @@ function PersonaCard() {
             <Link
               key={m.id}
               href={`/persona?mode=${m.id}`}
-              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-caption text-secondary hover:bg-[rgb(var(--surface-3))] hover:text-primary surface-interactive"
+              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-caption text-tertiary hover:bg-[rgb(var(--surface-3))] hover:text-primary surface-interactive"
             >
               <span>{m.label}</span>
             </Link>
@@ -509,7 +509,7 @@ function PersonaCard() {
         <p className="text-footnote text-tertiary uppercase tracking-wider mb-2">治理</p>
         <Link
           href="/persona/me/proxy-actions"
-          className="flex items-center gap-2 rounded-md px-2 py-1.5 text-caption text-secondary hover:bg-[rgb(var(--surface-3))] hover:text-primary surface-interactive"
+          className="flex items-center gap-2 rounded-md px-2 py-1.5 text-caption text-tertiary hover:bg-[rgb(var(--surface-3))] hover:text-primary surface-interactive"
         >
           代行审计
         </Link>
@@ -632,7 +632,7 @@ function DeliverCard() {
 
   return (
     <form onSubmit={submit} className="space-y-3">
-      <p className="text-caption text-secondary leading-relaxed">
+      <p className="text-caption text-tertiary leading-relaxed">
         把主舞台和搭子的协作产出一键送出 · 直送到目标模块。
       </p>
       <div className="flex flex-wrap gap-1.5">
@@ -648,7 +648,7 @@ function DeliverCard() {
                 'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-footnote surface-interactive',
                 active
                   ? 'border-[rgb(var(--brand-500))] bg-[rgb(var(--brand-50))] text-[rgb(var(--brand-700))]'
-                  : 'text-secondary hover:bg-[rgb(var(--surface-3))]',
+                  : 'text-tertiary hover:bg-[rgb(var(--surface-3))]',
               )}
               style={!active ? { borderColor: 'rgb(var(--border-subtle))' } : undefined}
             >
@@ -830,7 +830,7 @@ function GovernanceCard({ compact }: { compact?: boolean }) {
                 type="button"
                 disabled={busyId === a.id}
                 onClick={() => act(a.id, 'veto')}
-                className="flex-1 rounded-full border px-2.5 py-1 text-footnote text-secondary hover:bg-[rgb(var(--surface-2))] disabled:opacity-40 surface-interactive"
+                className="flex-1 rounded-full border px-2.5 py-1 text-footnote text-tertiary hover:bg-[rgb(var(--surface-2))] disabled:opacity-40 surface-interactive"
                 style={{ borderColor: 'rgb(var(--border-subtle))' }}
               >
                 {isDraft ? '弃用' : '否决'}
@@ -856,7 +856,7 @@ function DeliverDock() {
 function StubCard({ id, side }: { id: string; side: 'left' | 'right' }) {
   return (
     <div className="surface-card-soft rounded-2xl p-4 shadow-soft-xs">
-      <div className="text-caption text-secondary leading-relaxed">
+      <div className="text-caption text-tertiary leading-relaxed">
         <span className="pill-neutral mb-2">P1 骨架</span>
         <p className="mt-2">
           {side === 'left' ? '身份' : '行动'}召唤 · <code className="text-primary">{id}</code> 面板待接入。
@@ -870,7 +870,7 @@ function StubCard({ id, side }: { id: string; side: 'left' | 'right' }) {
 function SandboxCard() {
   return (
     <div className="space-y-2">
-      <p className="text-caption text-secondary leading-relaxed">
+      <p className="text-caption text-tertiary leading-relaxed">
         独立的 AI 聊天区 · 不沉淀公司 Memory · 用于个人探索。
       </p>
       <Link
@@ -952,7 +952,7 @@ function InboxCard() {
   const empty = t.totalCount === 0 && (!retros || retros.items.length === 0);
   if (empty) {
     return (
-      <div className="surface-card-soft rounded-2xl p-4 shadow-soft-xs text-caption text-secondary">
+      <div className="surface-card-soft rounded-2xl p-4 shadow-soft-xs text-caption text-tertiary">
         <Sparkles className="inline h-4 w-4 text-[rgb(var(--brand-500))] mr-1" />
         清空了。今天可以做点新东西。
       </div>
@@ -1130,7 +1130,7 @@ function RecommendCard() {
         </button>
         <p className="text-footnote text-tertiary uppercase tracking-wider">经营回顾 pre-read · OKR 承压信号</p>
         {preread.length === 0 ? (
-          <div className="surface-card-soft rounded-2xl p-4 shadow-soft-xs text-caption text-secondary">
+          <div className="surface-card-soft rounded-2xl p-4 shadow-soft-xs text-caption text-tertiary">
             当前 active 周期公司/团队层 OKR 无显著承压信号。
           </div>
         ) : (
@@ -1156,14 +1156,14 @@ function RecommendCard() {
   if (recs.length === 0) {
     return (
       <div className="space-y-2">
-        <div className="surface-card-soft rounded-2xl p-4 shadow-soft-xs text-caption text-secondary">
+        <div className="surface-card-soft rounded-2xl p-4 shadow-soft-xs text-caption text-tertiary">
           没有强信号。试试问搭子「下半天我应该聚焦什么？」或看经营回顾。
         </div>
         <button
           type="button"
           onClick={loadPreread}
           disabled={prereadLoading}
-          className="w-full inline-flex items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-footnote text-secondary hover:bg-[rgb(var(--surface-2))] surface-interactive disabled:opacity-40"
+          className="w-full inline-flex items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-footnote text-tertiary hover:bg-[rgb(var(--surface-2))] surface-interactive disabled:opacity-40"
           style={{ borderColor: 'rgb(var(--border-subtle))' }}
         >
           <TrendingUp className="h-3 w-3 text-[rgb(var(--semantic-warning))]" />
@@ -1194,7 +1194,7 @@ function RecommendCard() {
         type="button"
         onClick={loadBrief}
         disabled={briefLoading}
-        className="w-full mt-1 inline-flex items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-footnote text-secondary hover:bg-[rgb(var(--surface-2))] surface-interactive disabled:opacity-40"
+        className="w-full mt-1 inline-flex items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-footnote text-tertiary hover:bg-[rgb(var(--surface-2))] surface-interactive disabled:opacity-40"
         style={{ borderColor: 'rgb(var(--border-subtle))' }}
       >
         <Sparkles className="h-3 w-3 text-[rgb(var(--brand-500))]" />
@@ -1204,7 +1204,7 @@ function RecommendCard() {
         type="button"
         onClick={loadPreread}
         disabled={prereadLoading}
-        className="w-full inline-flex items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-footnote text-secondary hover:bg-[rgb(var(--surface-2))] surface-interactive disabled:opacity-40"
+        className="w-full inline-flex items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-footnote text-tertiary hover:bg-[rgb(var(--surface-2))] surface-interactive disabled:opacity-40"
         style={{ borderColor: 'rgb(var(--border-subtle))' }}
       >
         <TrendingUp className="h-3 w-3 text-[rgb(var(--semantic-warning))]" />
@@ -1407,7 +1407,7 @@ function MessageBubble({ m }: { m: import('@/components/boss-ai/use-boss-ai').Bo
             <button
               type="button"
               onClick={() => pushDraft({ title: deriveTitle(m.content), body: m.content })}
-              className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-footnote text-secondary hover:bg-[rgb(var(--surface-2))] surface-interactive"
+              className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-footnote text-tertiary hover:bg-[rgb(var(--surface-2))] surface-interactive"
               style={{ borderColor: 'rgb(var(--border-subtle))' }}
             >
               <Send className="h-3 w-3 text-[rgb(var(--brand-500))]" /> 交付这段
@@ -1516,14 +1516,14 @@ function WelcomeStage({
     <div className="mx-auto max-w-4xl px-4 md:px-6 py-6 md:py-8 space-y-6">
       {/* Hero · 欢迎我的搭子 */}
       <section className="hero-ink rounded-3xl p-6 md:p-8 shadow-soft-lg">
-        <div className="flex items-center gap-2 text-white/70 text-caption mb-3">
+        <div className="flex items-center gap-2 text-white/90 text-caption mb-3">
           <Sparkles className="h-4 w-4" />
           <span>搭子 · 个人工作台</span>
         </div>
         <h1 className="text-title-1 text-white">
           搭子, 今天我们干什么?
         </h1>
-        <p className="mt-3 text-body text-white/75 max-w-2xl">
+        <p className="mt-3 text-body text-white/90 max-w-2xl">
           这里是你和「我的搭子」(你的 AI 分身) 的协作主舞台。<br />
           选一件事开始 — 搭子陪你, Tandem AI (中央智囊) 兜底。
         </p>
@@ -1565,7 +1565,7 @@ function WelcomeStage({
               </div>
               <div className="min-w-0">
                 <h3 className="text-title-3 text-primary group-hover:text-[rgb(var(--brand-700))]">5min 智能日报</h3>
-                <p className="mt-1 text-caption text-secondary">和分身一起过今天的推进 · 自动回填 KR 进度</p>
+                <p className="mt-1 text-caption text-tertiary">和分身一起过今天的推进 · 自动回填 KR 进度</p>
               </div>
             </div>
           </Link>
@@ -1579,7 +1579,7 @@ function WelcomeStage({
               </div>
               <div className="min-w-0">
                 <h3 className="text-title-3 text-primary group-hover:text-[rgb(var(--brand-700))]">本周回顾</h3>
-                <p className="mt-1 text-caption text-secondary">复盘本周节奏 · 沉淀进展与下周重点</p>
+                <p className="mt-1 text-caption text-tertiary">复盘本周节奏 · 沉淀进展与下周重点</p>
               </div>
             </div>
           </Link>
@@ -1605,7 +1605,7 @@ function WelcomeStage({
                   </div>
                   <div className="min-w-0">
                     <h3 className="text-title-3 text-primary group-hover:text-[rgb(var(--brand-700))]">{c.title}</h3>
-                    <p className="mt-1 text-caption text-secondary">{c.desc}</p>
+                    <p className="mt-1 text-caption text-tertiary">{c.desc}</p>
                   </div>
                 </div>
               </Link>
@@ -1646,7 +1646,7 @@ function CardStage({ card }: { card: CardId }) {
           </div>
           <div className="min-w-0 flex-1">
             <h1 className="text-title-2 text-primary">{meta.title}</h1>
-            <p className="mt-1 text-caption text-secondary">{meta.desc}</p>
+            <p className="mt-1 text-caption text-primary">{meta.desc}</p>
           </div>
         </div>
       </header>
@@ -1660,7 +1660,7 @@ function CardStage({ card }: { card: CardId }) {
             <Bot className="h-4 w-4" />
             <span>搭子在线 · 等你开始</span>
           </div>
-          <p className="text-body text-secondary leading-relaxed">
+          <p className="text-body text-primary leading-relaxed">
             「{meta.title}」协作界面将在此展开。<br />
             <span className="text-tertiary">P2 接入编辑器 / 聚合视图。当前先去对应模块继续。</span>
           </p>
@@ -1896,7 +1896,7 @@ function ExpertPanelStage() {
                 'inline-flex items-center gap-1 rounded-full border px-3 py-1 text-footnote surface-interactive',
                 on
                   ? 'border-[rgb(var(--brand-500))] bg-[rgb(var(--brand-50))] text-[rgb(var(--brand-700))]'
-                  : 'text-secondary hover:bg-[rgb(var(--surface-3))]',
+                  : 'text-tertiary hover:bg-[rgb(var(--surface-3))]',
               )}
               style={!on ? { borderColor: 'rgb(var(--border-subtle))' } : undefined}
             >
@@ -1937,7 +1937,7 @@ function ExpertPanelStage() {
                   <button
                     type="button"
                     onClick={() => pushDraft({ title: `${topic.trim()} · ${d.label}`, body: d.draft })}
-                    className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-footnote text-secondary hover:bg-[rgb(var(--surface-2))] surface-interactive"
+                    className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-footnote text-tertiary hover:bg-[rgb(var(--surface-2))] surface-interactive"
                     style={{ borderColor: 'rgb(var(--border-subtle))' }}
                   >
                     <Send className="h-3 w-3 text-[rgb(var(--brand-500))]" /> 单独交付
@@ -1947,7 +1947,7 @@ function ExpertPanelStage() {
                 )}
               </div>
               {d.ok ? (
-                <div className="text-caption text-secondary whitespace-pre-wrap leading-relaxed">{d.draft}</div>
+                <div className="text-caption text-tertiary whitespace-pre-wrap leading-relaxed">{d.draft}</div>
               ) : (
                 <p className="text-footnote text-tertiary">{d.error}</p>
               )}

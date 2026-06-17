@@ -905,13 +905,13 @@ export function KpiContent() {
             <BarChart3 className="h-5 w-5 text-primary" />
             平衡记分卡 · KPI 绩效达成
           </h1>
-          <p className="text-caption text-muted-foreground mt-1 flex items-center gap-2">
+          <div className="text-caption text-muted-foreground mt-1 flex items-center gap-2">
             <span>战略四维度度量 · 每周一 04:00 由 ERP/对账端口周度自动对账拉取</span>
             <Badge variant="secondary" className="bg-slate-100 text-slate-700 border-none flex items-center gap-1 text-[10px] py-0 px-1.5">
               <Database className="h-2.5 w-2.5" />周度对账
             </Badge>
             <span className="text-footnote opacity-60">CHARTER-KPI-TTI §2.1</span>
-          </p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <Tabs value={view} onValueChange={handleViewChange}>
