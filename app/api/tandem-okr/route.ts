@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { resolveOkrVisibleOwnerIds } from '@/lib/okr/visibility';
 
 /**
  * GET /api/tandem-okr?cycleId=...&ownerId=...
@@ -31,6 +32,18 @@ export async function GET(req: NextRequest) {
     if (ownerId) objectives = objectives.filter((o) => o.ownerId === ownerId);
 
     const allKrs = await store.keyResults.list();
+
+    // 读权限 (按部门模型): 老板看全部; 部门领导看本部门; 员工只看自己.
+    // 可见判定: objective 自己是可见 owner, 或其下任一 KR 的 owner 可见 (我负责的 KR).
+    const visible = await resolveOkrVisibleOwnerIds(auth, store);
+    if (visible) {
+      objectives = objectives.filter(
+        (o) =>
+          visible.has(o.ownerId) ||
+          allKrs.some((kr) => kr.objectiveId === o.id && visible.has(kr.ownerId)),
+      );
+    }
+
     const enriched = objectives.map((obj) => ({
       ...obj,
       keyResults: allKrs.filter((kr) => kr.objectiveId === obj.id),

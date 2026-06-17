@@ -1,13 +1,13 @@
 /**
  * lib/store/okr.ts · OKR UI layer (region 4)
  *
- * 从 lib/store.ts 机械拆分 (B8, 2026-05-31). 行为/persist key 不变.
- * persist key: 铁山-okr-store (version 3 + migrate 保留)
+ * 从 lib/store.ts 机械拆分 (B8, 2026-05-31).
+ * 2026-06-17: 移除 localStorage persist — DB (lib/types/okr-tti.ts) 是唯一真值,
+ *   数据由 ApiHydrator → hydrateOkrFromApi() 拉取, 写操作走 lib/store/okr-sync.ts persist* helper.
  * 服务端真值见 lib/types/okr-tti.ts (注意 ObjectiveStatus 枚举不同).
  */
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 
 // #region 4 · OKR (UI layer; see lib/types/okr-tti.ts for server) ────
 // =============================================================
@@ -323,8 +323,9 @@ function defaultCycles(): Cycle[] {
   ];
 }
 
+// DB 是唯一真值: OKR store 不再 persist 到 localStorage (2026-06-17).
+// 数据一律由 ApiHydrator → hydrateOkrFromApi() 从后端拉取; 写操作走 persist* API helper.
 export const useOKRStore = create<OKRStore>()(
-  persist(
     (set, get) => ({
       cycles: defaultCycles(),
       people: [
@@ -558,6 +559,7 @@ export const useOKRStore = create<OKRStore>()(
           objectives: data.objectives ?? s.objectives,
           keyResults: data.keyResults ?? s.keyResults,
           checkIns: data.checkIns ?? s.checkIns,
+          initiatives: data.initiatives ?? s.initiatives,
           activeCycleId: data.activeCycleId ?? s.activeCycleId,
         })),
 
@@ -809,116 +811,6 @@ export const useOKRStore = create<OKRStore>()(
           .filter((a) => a.scope === scope && a.scopeId === scopeId)
           .sort((a, b) => b.createdAt - a.createdAt);
       },
-    }),
-    {
-      name: '铁山-okr-store',
-      version: 3,
-      migrate: (persisted: any, fromVersion: number) => {
-        if (!persisted) return persisted;
-        if (fromVersion < 2) {
-          // v1 → v2：把老的 okrs[] 拆成 cycles + objectives + keyResults
-          const legacy: LegacyOKR[] = Array.isArray(persisted.okrs) ? persisted.okrs : [];
-          const cycles = defaultCycles();
-          const cycleMap = new Map<string, string>();
-          for (const c of cycles) cycleMap.set(c.name, c.id);
-          // 老的 quarter 字符串如 '2026-Q1' 可直接用作名字匹配，否则建临时周期
-          const objectives: Objective[] = [];
-          const keyResults: KeyResult[] = [];
-          const now = Date.now();
-          for (const old of legacy) {
-            let cycleId = cycleMap.get(old.quarter);
-            if (!cycleId) {
-              const newCycle: Cycle = {
-                id: crypto.randomUUID(),
-                name: old.quarter,
-                type: 'quarter',
-                startDate: now, endDate: now, isActive: false,
-              };
-              cycles.push(newCycle);
-              cycleId = newCycle.id;
-              cycleMap.set(old.quarter, cycleId);
-            }
-            const objId = old.id;
-            objectives.push({
-              id: objId,
-              title: old.objective,
-              cycleId,
-              ownerId: `team:${old.ownerMinistryId}`,
-              parentId: null,
-              weight: 100,
-              status: old.status === 'abandoned' ? 'archived' : (old.status as ObjectiveStatus),
-              confidence: 'on-track',
-              visibility: 'public',
-              tags: [],
-              progressOverride: null,
-              createdAt: now,
-              updatedAt: now,
-            });
-            for (const kr of old.keyResults) {
-              keyResults.push({
-                id: kr.id,
-                objectiveId: objId,
-                title: kr.text,
-                ownerId: `team:${old.ownerMinistryId}`,
-                type: kr.unit === '%' ? 'percentage' : 'numeric',
-                startValue: 0,
-                currentValue: kr.current,
-                targetValue: kr.target,
-                unit: kr.unit,
-                weight: 100 / Math.max(1, old.keyResults.length),
-                confidence: 'on-track',
-                status: 'active',
-                tags: [],
-                createdAt: now,
-                updatedAt: now,
-              });
-            }
-          }
-          const active = cycles.find((c) => c.isActive)?.id || cycles[0]?.id || '';
-          persisted = {
-            ...persisted,
-            cycles,
-            people: persisted.people || [{ id: 'me', name: '我' }],
-            objectives,
-            keyResults,
-            checkIns: [],
-            activeCycleId: active,
-          };
-          // 不直接 return；继续走 v2 → v3
-        }
-        if (fromVersion < 3) {
-          // v2 → v3：补全新字段（initiatives/comments/activities + scoring/watchers/collaborators 默认值）
-          persisted = {
-            ...persisted,
-            initiatives: persisted.initiatives || [],
-            comments: persisted.comments || [],
-            activities: persisted.activities || [],
-            currentUserId: persisted.currentUserId || 'me',
-            cycles: (persisted.cycles || []).map((c: any) => ({
-              cadence: 'weekly',
-              ...c,
-            })),
-            objectives: (persisted.objectives || []).map((o: any) => ({
-              collaborators: [],
-              watchers: [],
-              selfScore: null,
-              managerScore: null,
-              score: o.score ?? null,
-              retrospective: '',
-              ...o,
-            })),
-            keyResults: (persisted.keyResults || []).map((k: any) => ({
-              collaborators: [],
-              watchers: [],
-              selfScore: null,
-              finalScore: null,
-              ...k,
-            })),
-          };
-        }
-        return persisted;
-      },
-    }
-  )
+    })
 );
 // #endregion

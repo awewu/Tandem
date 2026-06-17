@@ -2,6 +2,12 @@
 
 import { useState } from 'react';
 import { useOKRStore } from '@/lib/store';
+import {
+  hydrateOkrFromApi,
+  persistCreateObjective,
+  persistCreateKeyResult,
+  persistCreateInitiative,
+} from '@/lib/store/okr-sync';
 import { OKR_TEMPLATES, TEMPLATE_CATEGORIES, type OKRTemplate } from '@/lib/okr/templates';
 import { Sparkles, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -14,9 +20,6 @@ interface Props {
 }
 
 export function OKRTemplatePicker({ open, cycleId, onClose, onApplied }: Props) {
-  const addObjective = useOKRStore((s) => s.addObjective);
-  const addKeyResult = useOKRStore((s) => s.addKeyResult);
-  const addInitiative = useOKRStore((s) => s.addInitiative);
   const currentUserId = useOKRStore((s) => s.currentUserId);
 
   const [filter, setFilter] = useState<OKRTemplate['category'] | 'all'>('all');
@@ -33,50 +36,49 @@ export function OKRTemplatePicker({ open, cycleId, onClose, onApplied }: Props) 
     return true;
   });
 
-  const apply = (tpl: OKRTemplate) => {
-    const obj = addObjective({
-      title: tpl.title,
-      description: tpl.description,
-      cycleId,
-      ownerId: currentUserId,
-      parentId: null,
-      weight: 100,
-      status: 'active',
-      confidence: 'on-track',
-      visibility: 'public',
-      tags: tpl.tags,
-      progressOverride: null,
-    });
-    for (const kr of tpl.keyResults) {
-      const newKR = addKeyResult({
-        objectiveId: obj.id,
-        title: kr.title,
+  // DB 落库 (2026-06-17): 模板应用直接写后端, 不再只写本地 store.
+  const apply = async (tpl: OKRTemplate) => {
+    try {
+      const objId = await persistCreateObjective({
+        title: tpl.title,
+        description: tpl.description,
+        cycleId,
         ownerId: currentUserId,
-        type: kr.type,
-        startValue: kr.startValue,
-        currentValue: kr.startValue,
-        targetValue: kr.targetValue,
-        unit: kr.unit,
-        weight: kr.weight,
-        confidence: 'on-track',
+        parentId: null,
+        weight: 100,
         status: 'active',
-        tags: [],
+        confidence: 'on-track',
+        visibility: 'public',
+        tags: tpl.tags,
+        progressOverride: null,
       });
-      if (kr.initiatives) {
-        for (const initTitle of kr.initiatives) {
-          addInitiative({
-            scope: 'kr', scopeId: newKR.id,
-            title: initTitle,
-            ownerId: currentUserId,
-            status: 'todo',
-            priority: 'medium',
-            tags: [],
-          });
+      for (const kr of tpl.keyResults) {
+        const krId = await persistCreateKeyResult({
+          objectiveId: objId,
+          title: kr.title,
+          ownerId: currentUserId,
+          type: kr.type,
+          startValue: kr.startValue,
+          currentValue: kr.startValue,
+          targetValue: kr.targetValue,
+          unit: kr.unit,
+          weight: kr.weight,
+          confidence: 'on-track',
+          status: 'active',
+          tags: [],
+        });
+        if (kr.initiatives) {
+          for (const initTitle of kr.initiatives) {
+            await persistCreateInitiative({ keyResultId: krId, title: initTitle, ownerId: currentUserId });
+          }
         }
       }
+      await hydrateOkrFromApi(true);
+      onApplied?.(objId);
+      onClose();
+    } catch (err: any) {
+      alert(`应用模板失败：${err?.message || err}`);
     }
-    onApplied?.(obj.id);
-    onClose();
   };
 
   return (

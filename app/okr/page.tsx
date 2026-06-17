@@ -42,7 +42,13 @@ import { AskBossButton } from '@/components/boss-ai';
 import { checkQuality } from '@/lib/okr/quality';
 import { calcObjectiveScore } from '@/lib/okr/scoring';
 import { objectivePulse, pulseLabel, summarizePulses, CADENCE_LABEL } from '@/lib/okr/cadence';
-import { useCurrentUserId } from '@/lib/hooks/use-current-user';
+import { useCurrentUserId, useAuthStore } from '@/lib/hooks/use-current-user';
+import {
+  hydrateOkrFromApi,
+  persistCreateObjective, persistUpdateObjective, persistDeleteObjective,
+  persistCreateKeyResult, persistUpdateKeyResult, persistDeleteKeyResult,
+  persistCreateCheckIn,
+} from '@/lib/store/okr-sync';
 
 // =============================================================
 // 视觉小组件
@@ -143,14 +149,15 @@ export default function OKRPage() {
   const store = useOKRStore();
   const {
     cycles, people, objectives, keyResults, checkIns, activeCycleId,
-    addObjective, updateObjective, deleteObjective,
-    addKeyResult, updateKeyResult, deleteKeyResult,
-    addCheckIn, addPerson, addCycle, setActiveCycleId, replaceAll,
+    addPerson, addCycle, setActiveCycleId, replaceAll,
     getObjectiveProgress, getKRProgress,
   } = store;
 
   const { departments } = useOrgStore();
   const ministries = departments.flatMap((d) => d.ministries);
+
+  // 真实登录用户 id (B4 Phase-2: 新建 OKR 默认归属当前用户, 保证落库后本人可见).
+  const meUserId = useAuthStore((s) => s.user?.id);
 
   // ===== 视图状态 =====
   const [selectedObjId, setSelectedObjId] = useState<string | null>(null);
@@ -251,7 +258,7 @@ export default function OKRPage() {
       kind: 'objective',
       data: {
         title: '', description: '', cycleId: activeCycleId,
-        ownerId: people[0]?.id || 'me', parentId: parentId || null,
+        ownerId: meUserId || people[0]?.id || 'me', parentId: parentId || null,
         weight: 100, status: 'active', confidence: 'on-track',
         visibility: 'public', tags: [], progressOverride: null,
       },
@@ -262,7 +269,7 @@ export default function OKRPage() {
     setEditing({
       kind: 'kr',
       data: {
-        objectiveId, title: '', ownerId: people[0]?.id || 'me',
+        objectiveId, title: '', ownerId: meUserId || people[0]?.id || 'me',
         type: 'numeric', startValue: 0, currentValue: 0, targetValue: 100, unit: '',
         weight: 1, confidence: 'on-track', status: 'active', tags: [],
       },
@@ -270,24 +277,38 @@ export default function OKRPage() {
   };
   const startEditKR = (kr: KeyResult) => setEditing({ kind: 'kr', data: { ...kr } });
 
-  const saveEdit = () => {
-    if (!editing) return;
-    if (editing.kind === 'objective') {
-      const d = editing.data;
-      if (!d.title?.trim()) { alert('目标标题必填'); return; }
-      if ('id' in d && d.id) {
-        updateObjective(d.id, d);
+  // B4 Phase-2: 落库 — 创建/编辑写后端, 再 hydrate 收敛到服务端真值 (含服务端 id).
+  // 失败时弹错并保留弹窗内容, 不丢用户输入.
+  const [saving, setSaving] = useState(false);
+  const saveEdit = async () => {
+    if (!editing || saving) return;
+    setSaving(true);
+    try {
+      if (editing.kind === 'objective') {
+        const d = editing.data;
+        if (!d.title?.trim()) { alert('目标标题必填'); return; }
+        if ('id' in d && d.id) {
+          await persistUpdateObjective(d.id, d);
+          await hydrateOkrFromApi(true);
+          setSelectedObjId(d.id);
+        } else {
+          const newId = await persistCreateObjective(d);
+          await hydrateOkrFromApi(true);
+          if (newId) setSelectedObjId(newId);
+        }
       } else {
-        const created = addObjective(d as any);
-        setSelectedObjId(created.id);
+        const d = editing.data;
+        if (!d.title?.trim()) { alert('KR 标题必填'); return; }
+        if ('id' in d && d.id) await persistUpdateKeyResult(d.id, d);
+        else await persistCreateKeyResult(d);
+        await hydrateOkrFromApi(true);
       }
-    } else {
-      const d = editing.data;
-      if (!d.title?.trim()) { alert('KR 标题必填'); return; }
-      if ('id' in d && d.id) updateKeyResult(d.id, d);
-      else addKeyResult(d as any);
+      setEditing(null);
+    } catch (err: any) {
+      alert(`保存失败：${err?.message || err}`);
+    } finally {
+      setSaving(false);
     }
-    setEditing(null);
   };
 
   // ===== 导入/导出 =====
@@ -517,10 +538,15 @@ export default function OKRPage() {
               </Button>
               <Button
                 size="sm" variant="ghost" className="h-7 w-7 p-0 text-danger"
-                onClick={() => {
+                onClick={async () => {
                   if (confirm(`删除目标「${selected.title}」（连同其 KR 与子目标）？`)) {
-                    deleteObjective(selected.id);
-                    setSelectedObjId(null);
+                    try {
+                      await persistDeleteObjective(selected.id);
+                      await hydrateOkrFromApi(true);
+                      setSelectedObjId(null);
+                    } catch (err: any) {
+                      alert(`删除失败：${err?.message || err}`);
+                    }
                   }
                 }}
               >
@@ -745,7 +771,15 @@ export default function OKRPage() {
                         <MessageSquare className="h-3 w-3" />
                       </Button>
                       <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-danger"
-                        onClick={() => { if (confirm('删除此 KR？')) deleteKeyResult(kr.id); }}>
+                        onClick={async () => {
+                          if (!confirm('删除此 KR？')) return;
+                          try {
+                            await persistDeleteKeyResult(kr.id);
+                            await hydrateOkrFromApi(true);
+                          } catch (err: any) {
+                            alert(`删除失败：${err?.message || err}`);
+                          }
+                        }}>
                         <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
@@ -1064,7 +1098,15 @@ export default function OKRPage() {
           getObjectiveProgress={getObjectiveProgress}
           getKRProgress={getKRProgress}
           onClose={() => setCheckinFor(null)}
-          onSubmit={(payload) => { addCheckIn(payload); setCheckinFor(null); }}
+          onSubmit={async (payload) => {
+            try {
+              await persistCreateCheckIn(payload);
+              await hydrateOkrFromApi(true);
+            } catch (err: any) {
+              alert(`Check-in 失败：${err?.message || err}`);
+            }
+            setCheckinFor(null);
+          }}
         />
       )}
 

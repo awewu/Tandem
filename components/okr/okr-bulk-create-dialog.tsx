@@ -19,6 +19,12 @@
 
 import { useEffect, useState } from 'react';
 import { useOKRStore, useOrgStore } from '@/lib/store';
+import {
+  hydrateOkrFromApi,
+  persistCreateObjective,
+  persistCreateKeyResult,
+  persistCreateInitiative,
+} from '@/lib/store/okr-sync';
 import { Sparkles, X, Loader2, CheckCircle2, AlertTriangle, FileText, Brain, History, PenLine } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { BulkCreateOption, BulkCreateResult } from '@/lib/services/okr-bulk-create';
@@ -44,9 +50,6 @@ const OPTION_META: Record<
 };
 
 export function OKRBulkCreateDialog({ open, cycleId, cycleName, onClose, onApplied }: Props) {
-  const addObjective = useOKRStore((s) => s.addObjective);
-  const addKeyResult = useOKRStore((s) => s.addKeyResult);
-  const addInitiative = useOKRStore((s) => s.addInitiative);
   const currentUserId = useOKRStore((s) => s.currentUserId);
   const departments = useOrgStore((s) => s.departments);
 
@@ -110,84 +113,35 @@ export function OKRBulkCreateDialog({ open, cycleId, cycleName, onClose, onAppli
    * 应用某个选项: batch insert 公司 Objective + 部门 cascade Objective + 所有 KR
    * 返回新建的公司 Objective id (用于 onApplied 回调).
    */
-  function applyOption(option: BulkCreateOption): string | null {
-    if (option.objectives.length === 0) return null;
-    setApplyingOption(option.id);
+  // DB 落库 (2026-06-17): 批量创建直接写后端, 不再只写本地 store.
+  async function applyOption(option: BulkCreateOption): Promise<void> {
+    if (option.objectives.length === 0) return;
 
     // 1. 找公司层 Objective (level='company', 应为第一个)
     const companyDraft = option.objectives.find((o) => o.level === 'company');
-    if (!companyDraft) {
-      setApplyingOption(null);
-      return null;
-    }
+    if (!companyDraft) return;
 
-    // 2. 创建公司层 Objective
-    const companyObj = addObjective({
-      title: companyDraft.title,
-      description: companyDraft.description ?? '',
-      cycleId,
-      ownerId: currentUserId,
-      parentId: null,
-      weight: 100,
-      status: 'active',
-      confidence: 'on-track',
-      visibility: 'public',
-      tags: [`AI 起草 · ${option.type}`, `周期 ${cycleName}`],
-      progressOverride: null,
-    });
-
-    // 3. 创建公司层的 KR
-    for (const kr of companyDraft.keyResults) {
-      const newKr = addKeyResult({
-        objectiveId: companyObj.id,
-        title: kr.title,
-        ownerId: currentUserId,
-        type: kr.type,
-        startValue: kr.startValue,
-        currentValue: kr.startValue,
-        targetValue: kr.targetValue,
-        unit: kr.unit,
-        weight: kr.weight,
-        confidence: 'on-track',
-        status: 'active',
-        tags: [],
-      });
-      // Initiatives (如果有)
-      if (kr.initiatives) {
-        for (const initTitle of kr.initiatives) {
-          addInitiative({
-            scope: 'kr',
-            scopeId: newKr.id,
-            title: initTitle,
-            ownerId: currentUserId,
-            status: 'todo',
-            priority: 'medium',
-            tags: [],
-          });
-        }
-      }
-    }
-
-    // 4. 创建部门层 cascade Objective + 各自 KR
-    const cascadeDrafts = option.objectives.filter((o) => o.level !== 'company');
-    for (const draft of cascadeDrafts) {
-      // ownerId 优先用部门第一个 ministry 的 owner, 否则用 currentUserId
-      const cascadeObj = addObjective({
-        title: draft.title,
-        description: draft.description ?? '',
+    setApplyingOption(option.id);
+    try {
+      // 2. 创建公司层 Objective
+      const companyObjId = await persistCreateObjective({
+        title: companyDraft.title,
+        description: companyDraft.description ?? '',
         cycleId,
-        ownerId: currentUserId, // v0 简化, v1 接 deptId → owner
-        parentId: companyObj.id, // 串到公司 Objective
+        ownerId: currentUserId,
+        parentId: null,
         weight: 100,
         status: 'active',
         confidence: 'on-track',
         visibility: 'public',
-        tags: draft.ownerDepartmentId ? [`部门: ${draft.ownerDepartmentId}`] : [],
+        tags: [`AI 起草 · ${option.type}`, `周期 ${cycleName}`],
         progressOverride: null,
       });
-      for (const kr of draft.keyResults) {
-        addKeyResult({
-          objectiveId: cascadeObj.id,
+
+      // 3. 创建公司层的 KR + Initiatives
+      for (const kr of companyDraft.keyResults) {
+        const newKrId = await persistCreateKeyResult({
+          objectiveId: companyObjId,
           title: kr.title,
           ownerId: currentUserId,
           type: kr.type,
@@ -200,13 +154,56 @@ export function OKRBulkCreateDialog({ open, cycleId, cycleName, onClose, onAppli
           status: 'active',
           tags: [],
         });
+        if (kr.initiatives) {
+          for (const initTitle of kr.initiatives) {
+            await persistCreateInitiative({ keyResultId: newKrId, title: initTitle, ownerId: currentUserId });
+          }
+        }
       }
-    }
 
-    setApplyingOption(null);
-    onApplied?.(companyObj.id);
-    onClose();
-    return companyObj.id;
+      // 4. 创建部门层 cascade Objective + 各自 KR (parentId 串到公司 Objective 的服务端 id)
+      const cascadeDrafts = option.objectives.filter((o) => o.level !== 'company');
+      for (const draft of cascadeDrafts) {
+        const cascadeObjId = await persistCreateObjective({
+          title: draft.title,
+          description: draft.description ?? '',
+          cycleId,
+          ownerId: currentUserId, // v0 简化, v1 接 deptId → owner
+          parentId: companyObjId,
+          weight: 100,
+          status: 'active',
+          confidence: 'on-track',
+          visibility: 'public',
+          tags: draft.ownerDepartmentId ? [`部门: ${draft.ownerDepartmentId}`] : [],
+          progressOverride: null,
+        });
+        for (const kr of draft.keyResults) {
+          await persistCreateKeyResult({
+            objectiveId: cascadeObjId,
+            title: kr.title,
+            ownerId: currentUserId,
+            type: kr.type,
+            startValue: kr.startValue,
+            currentValue: kr.startValue,
+            targetValue: kr.targetValue,
+            unit: kr.unit,
+            weight: kr.weight,
+            confidence: 'on-track',
+            status: 'active',
+            tags: [],
+          });
+        }
+      }
+
+      await hydrateOkrFromApi(true);
+      setApplyingOption(null);
+      onApplied?.(companyObjId);
+      onClose();
+    } catch (err: any) {
+      setApplyingOption(null);
+      setErrorMsg(err?.message || String(err));
+      setPhase('error');
+    }
   }
 
   return (
