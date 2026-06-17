@@ -167,9 +167,12 @@
 
   body {
     @apply bg-background text-foreground;
-    /* Inter (via next/font CSS var) → CJK system fallback. */
+    /* 自托管 Noto Sans SC 置于首位 → 拉丁 + 中文全部用 Noto, 跨平台一致; 其后为系统兜底.
+       注意: 不要在此链中加入未定义的 var(--font-*) — 未定义且无 fallback 的 var() 会使
+       整条 font-family 在 computed-value 阶段失效, 回退到 Times New Roman (全站字体失灵). */
     font-family:
-      var(--font-sans), 'Inter',
+      'Noto Sans SC',
+      'Inter',
       -apple-system, BlinkMacSystemFont,
       'Segoe UI Variable Text', 'Segoe UI',
       'PingFang SC', 'Microsoft YaHei UI', 'Microsoft YaHei',
@@ -184,7 +187,8 @@
   .rheem-display,
   h1.font-display, h2.font-display, h3.font-display {
     font-family:
-      var(--font-display), 'Inter Tight', var(--font-sans), 'Inter',
+      'Noto Sans SC',
+      'Inter Tight', 'Inter',
       -apple-system, BlinkMacSystemFont,
       'PingFang SC', 'Microsoft YaHei UI',
       system-ui, sans-serif;
@@ -197,7 +201,8 @@
   .text-title-3,
   .text-headline {
     font-family:
-      var(--font-display), 'Inter Tight', var(--font-sans), 'Inter',
+      'Noto Sans SC',
+      'Inter Tight', 'Inter',
       -apple-system, BlinkMacSystemFont,
       'PingFang SC', 'Microsoft YaHei UI',
       system-ui, sans-serif;

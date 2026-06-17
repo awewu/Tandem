@@ -97,7 +97,7 @@ const config: Config = {
       // -------- Typography --------
       fontFamily: {
         sans: [
-          'var(--font-sans)',
+          'Noto Sans SC',
           'Inter',
           '-apple-system',
           'BlinkMacSystemFont',
@@ -112,9 +112,8 @@ const config: Config = {
           'sans-serif',
         ],
         display: [
-          'var(--font-display)',
+          'Noto Sans SC',
           'Inter Tight',
-          'var(--font-sans)',
           'Inter',
           '-apple-system',
           'BlinkMacSystemFont',

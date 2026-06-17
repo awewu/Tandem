@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { StageProgressDashboard } from '@/components/persona/StageProgressDashboard';
 import { DelegationConsole, type DelegationSettings } from '@/components/persona/DelegationConsole';
@@ -13,6 +13,14 @@ import type { Persona } from '@/lib/types/persona';
 const DEMO_USER_ID = 'demo-user';
 
 export default function PersonaEvolutionPage() {
+  return (
+    <Suspense fallback={null}>
+      <PersonaEvolutionContent />
+    </Suspense>
+  );
+}
+
+function PersonaEvolutionContent() {
   const searchParams = useSearchParams();
   const initialTab = (searchParams.get('tab') ?? 'progress') as 'progress' | 'delegation' | 'reflexion';
   const [progress, setProgress] = useState<StageProgress | null>(null);
