@@ -377,15 +377,16 @@ export async function searchMessages(
     try {
       const q = options.query.trim();
       const uids = await client.search({ or: [{ subject: q }, { from: q }, { body: q }] }, { uid: true });
-      const limited = (uids ?? []).slice(-Math.min(options.limit ?? 30, 50)).reverse();
+      const uidList = Array.isArray(uids) ? uids : [];
+      const limited = uidList.slice(-Math.min(options.limit ?? 30, 50)).reverse();
       if (!limited.length) return [];
       const msgs: EmailMessage[] = [];
       for await (const msg of client.fetch(limited.join(','), { envelope: true, flags: true }, { uid: true })) {
         msgs.push({
           uid: msg.uid,
           seq: msg.seq,
-          from: (msg.envelope?.from ?? []).map((f) => ({ name: f.name ?? '', address: f.mailbox + '@' + f.host })),
-          to: (msg.envelope?.to ?? []).map((t) => ({ name: t.name ?? '', address: t.mailbox + '@' + t.host })),
+          from: (msg.envelope?.from ?? []).map((f) => ({ name: f.name ?? '', address: f.address ?? '' })),
+          to: (msg.envelope?.to ?? []).map((t) => ({ name: t.name ?? '', address: t.address ?? '' })),
           subject: msg.envelope?.subject ?? '(无主题)',
           date: (msg.envelope?.date ?? new Date()).toISOString(),
           seen: (msg.flags ?? new Set()).has('\\Seen'),
@@ -435,7 +436,7 @@ export async function fetchAttachment(
     const lock = await client.getMailboxLock(resolved);
     try {
       const msgData = await client.fetchOne(uid.toString(), { source: true }, { uid: true });
-      if (!msgData?.source) return null;
+      if (!msgData || !msgData.source) return null;
       const { simpleParser } = await import('mailparser');
       const parsed = await simpleParser(msgData.source as Buffer);
       const att = parsed.attachments.find((a) => (a.filename ?? '') === filename);

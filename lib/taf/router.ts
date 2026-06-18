@@ -12,6 +12,7 @@ import type {
   LLMProvider,
   ScenarioTag,
 } from './provider/types';
+import { logger } from '@/lib/infra/logger';
 
 export interface RoutingRule {
   scenario: ScenarioTag;
@@ -184,14 +185,42 @@ export class TandemRouter {
       hasTools(req),
     );
 
+    const registered = candidates.filter((n) => this.providers.has(n));
+    logger.info(
+      { scenario: req.scenario ?? 'default', candidates, registered },
+      '[router] chatStream resolving providers',
+    );
+
     for (const name of candidates) {
       const provider = this.providers.get(name);
       if (!provider) continue;
+      let chunks = 0;
       try {
-        yield* provider.chatStream(req);
+        for await (const chunk of provider.chatStream(req)) {
+          chunks++;
+          yield chunk;
+        }
+        if (chunks === 0) {
+          // 流正常结束但 0 chunk = provider 没吐任何内容 (常见: dashscope/qwen
+          // 把错误塞进 SSE 但 provider 解析层吞了). 视为失败, 继续 fallback。
+          logger.warn(
+            { provider: name, scenario: req.scenario ?? 'default' },
+            '[router] provider streamed 0 chunks, treating as failure → fallback',
+          );
+          continue;
+        }
+        logger.info({ provider: name, chunks }, '[router] chatStream succeeded');
         return;
       } catch (err) {
-        if (!this.isRecoverable(err)) throw err;
+        const msg = (err as Error)?.message ?? String(err);
+        const recoverable = this.isRecoverable(err);
+        logger.warn(
+          { provider: name, chunksBeforeError: chunks, recoverable, err: msg.slice(0, 300) },
+          '[router] provider chatStream failed',
+        );
+        // 已经吐过 chunk 又中途报错 → 不能从头换 provider (会重复输出), 直接抛
+        if (chunks > 0) throw err;
+        if (!recoverable) throw err;
         // try next
       }
     }
@@ -200,11 +229,13 @@ export class TandemRouter {
       fireAlert({
         severity: 'critical',
         title: 'LLM all providers failed (streaming)',
-        body: `scenario=${req.scenario ?? 'default'} candidates=${candidates.join(',')}`,
+        body: `scenario=${req.scenario ?? 'default'} candidates=${candidates.join(',')} registered=${registered.join(',')}`,
         tags: { module: 'llm-router', scenario: req.scenario ?? 'default', stream: true },
       }),
     ).catch(() => {});
-    throw new Error(`All providers failed for streaming scenario=${req.scenario ?? 'default'}`);
+    throw new Error(
+      `All providers failed for streaming scenario=${req.scenario ?? 'default'} (candidates=${candidates.join(',')}, registered=${registered.join(',') || 'NONE'})`,
+    );
   }
 
   /** 健康检查所有 provider */

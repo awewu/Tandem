@@ -352,8 +352,7 @@ interface WebSearchResult {
   publishedAt?: string;
 }
 
-async function tavilySearch(query: string, count: number): Promise<WebSearchResult[]> {
-  const apiKey = process.env.TAVILY_API_KEY;
+async function tavilySearch(query: string, count: number, apiKey: string): Promise<WebSearchResult[]> {
   if (!apiKey) throw new Error('TAVILY_API_KEY not set');
   const res = await fetch('https://api.tavily.com/search', {
     method: 'POST',
@@ -376,8 +375,7 @@ async function tavilySearch(query: string, count: number): Promise<WebSearchResu
   }));
 }
 
-async function braveSearch(query: string, count: number): Promise<WebSearchResult[]> {
-  const apiKey = process.env.BRAVE_SEARCH_API_KEY;
+async function braveSearch(query: string, count: number, apiKey: string): Promise<WebSearchResult[]> {
   if (!apiKey) throw new Error('BRAVE_SEARCH_API_KEY not set');
   const url = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=${Math.min(count, 10)}`;
   const res = await fetch(url, {
@@ -425,10 +423,24 @@ export const WebSearchSkill: Skill<
     const q = (query ?? '').trim();
     if (!q) return { ok: false, error: 'query 不能为空' };
 
+    // key 解析: getAiSettings 合并 DB (admin 后台填写, 热更新) + env (.env.local).
+    //   不再只读 process.env, 否则 admin UI 填的 key 永远不生效。
+    let tavilyKey: string | undefined;
+    let braveKey: string | undefined;
+    try {
+      const { getAiSettings } = await import('../../settings/ai-settings');
+      const cfg = await getAiSettings();
+      tavilyKey = cfg.tavilyApiKey;
+      braveKey = cfg.braveSearchApiKey;
+    } catch {
+      tavilyKey = process.env.TAVILY_API_KEY;
+      braveKey = process.env.BRAVE_SEARCH_API_KEY;
+    }
+
     // 按优先级尝试
     const providers: Array<{ name: string; fn: (q: string, c: number) => Promise<WebSearchResult[]> }> = [];
-    if (process.env.TAVILY_API_KEY) providers.push({ name: 'tavily', fn: tavilySearch });
-    if (process.env.BRAVE_SEARCH_API_KEY) providers.push({ name: 'brave', fn: braveSearch });
+    if (tavilyKey) providers.push({ name: 'tavily', fn: (qq, cc) => tavilySearch(qq, cc, tavilyKey!) });
+    if (braveKey) providers.push({ name: 'brave', fn: (qq, cc) => braveSearch(qq, cc, braveKey!) });
 
     if (providers.length === 0) {
       return {
@@ -436,7 +448,7 @@ export const WebSearchSkill: Skill<
         error:
           'not_configured: web_search 需要 TAVILY_API_KEY 或 BRAVE_SEARCH_API_KEY. ' +
           'Tavily: https://tavily.com (免费 1000/月); Brave: https://brave.com/search/api (免费 2000/月). ' +
-          '在 .env.local 配置后重启服务即可.',
+          '在 admin 后台 AI 设置或 .env.local 配置后即可 (env 需重启服务).',
       };
     }
 

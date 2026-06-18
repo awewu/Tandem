@@ -92,7 +92,7 @@ async function parseExcel(buffer: Buffer): Promise<ImportRow[]> {
   const sheet = wb.Sheets[wb.SheetNames[0]];
   const records = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet);
   return records
-    .map((r) => {
+    .map((r): ImportRow | null => {
       const email = cell(r, ['email', 'Email', '邮箱']);
       if (!email) return null;
       return {
@@ -106,7 +106,7 @@ async function parseExcel(buffer: Buffer): Promise<ImportRow[]> {
         workLocation: cell(r, ['workLocation', 'location', 'Location', '工作地点']) || undefined,
         phone: cell(r, ['phone', 'mobile', 'Mobile', '手机']) || undefined,
         roles: normalizeRoles(cell(r, ['roles', 'role', 'Role', '角色'])),
-      } satisfies ImportRow;
+      };
     })
     .filter((r): r is ImportRow => r !== null);
 }

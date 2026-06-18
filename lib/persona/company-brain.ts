@@ -213,6 +213,21 @@ function summarizeObjectiveProgress(o: Objective, krs: KeyResult[]): string {
  *   传入 opts.query 时, 按"查询相关度 + 时效 + 引用度"重排选 top.
  *   不传 query 时退化为原顺序 (向后兼容).
  */
+/** 当前北京时间, 形如 "2026年6月18日 周三 22:13"。注入 system prompt 防 LLM 凭训练数据臆测日期。 */
+function formatNowCN(now: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(now);
+  return parts.replace(/\s+/g, ' ').trim();
+}
+
 export async function buildCompanyBrainSystemPrompt(opts?: {
   /** 用户当前提问 (BossAI 路径必传, IM 路径暂不传保留兼容) */
   query?: string;
@@ -242,6 +257,8 @@ export async function buildCompanyBrainSystemPrompt(opts?: {
 
   const lines = [
     '你是 Tandem 的"中央 AI" (CompanyBrain), 代表整个公司的视角发言.',
+    '',
+    `【当前时间】${formatNowCN()} (北京时间). 凡涉及"今天/最近/本周/截止日期"等时间判断, 一律以此为准, 不要凭训练数据臆测日期.`,
     '',
     `【产品定位】${tandemPositioningOneLiner()}`,
     '',
@@ -324,8 +341,8 @@ export interface PreSearchResult {
   };
 }
 
-/** 时间敏感/外部信息需求的启发式关键词 */
-const TIME_SENSITIVE_RE = /最新|最近|今年|实时|新闻|竞品|对手|行业趋势|市场行情|股价|政策|财报|发布会|202[5-9]|央行|美联储|GPT|AI|大模型|OpenAI|Anthropic|DeepSeek|LLM/i;
+/** 时间敏感/外部信息需求的启发式关键词 (快路径; 命中即搜, 不命中再走 LLM 判官) */
+const TIME_SENSITIVE_RE = /最新|最近|今年|今天|现在|目前|实时|新闻|热点|竞品|对手|行业趋势|市场行情|股价|股市|汇率|油价|金价|房价|政策|财报|发布会|202[5-9]|央行|美联储|GPT|AI|大模型|OpenAI|Anthropic|DeepSeek|LLM|世界杯|奥运|比分|赛事|战况|球赛|联赛|天气|气温|近况|现状/i;
 
 /** 覆盖度阈值: 与 company memory rerank 最高分低于此值视为"公司无相关知识" */
 const MEMORY_COVERAGE_THRESHOLD = 0.15;
@@ -348,6 +365,38 @@ function shouldTriggerWebSearch(query: string): { trigger: boolean; reason: stri
   return { trigger: false, reason: 'no trigger keywords; company memory likely sufficient' };
 }
 
+/**
+ * LLM 意图判官 · 关键词没命中时的兜底.
+ * 用一次极小的廉价调用 (high_frequency scenario) 判断"这问题是否需要实时/外部公开信息".
+ * 避免靠关键词打地鼠漏掉体育/人物近况/产品发布等外部问题.
+ * fail-soft: 任何异常返回 false (不搜), 不阻塞主回复.
+ */
+async function llmJudgeNeedsWebSearch(query: string): Promise<boolean> {
+  try {
+    const { getRouter } = await import('@/lib/boot');
+    const router = getRouter();
+    const reply = await router.chat({
+      messages: [
+        {
+          role: 'system',
+          content:
+            '你是一个意图分类器。判断用户的问题是否需要查询"实时或外部公开信息"才能准确回答' +
+            '(例如: 新闻时事、体育赛事/比分、股价汇率、天气、人物近况、产品/版本发布、行业动态等),' +
+            '而不是公司内部数据或通用常识。只回一个词: YES 或 NO。',
+        },
+        { role: 'user', content: query.slice(0, 500) },
+      ],
+      scenario: 'high_frequency',
+      maxTokens: 3,
+      temperature: 0,
+    });
+    const text = typeof reply.message.content === 'string' ? reply.message.content : '';
+    return /yes/i.test(text);
+  } catch {
+    return false;
+  }
+}
+
 export async function preSearchLayer(
   query: string,
   baseSystemPrompt: string,
@@ -362,25 +411,35 @@ export async function preSearchLayer(
     log: { query, triggerReason: 'none', resultCount: 0, latencyMs: Date.now() - t0, checkId },
   });
 
-  // 联网开关: admin 可关闭
+  // 联网开关 + provider key: getAiSettings 合并 DB (admin 后台填写, 热更新) + env.
+  //   ⚠️ key 检测必须走 getAiSettings, 不能只读 process.env, 否则 admin UI 填的 key
+  //      永远进不了这道闸 → preSearchLayer 永远 emptyResult → 联网形同未配。
+  let tavilyKey: string | undefined;
+  let braveKey: string | undefined;
   try {
     const { getAiSettings } = await import('@/lib/settings/ai-settings');
     const cfg = await getAiSettings();
     if (cfg.webSearchEnabled === false) {
       return { ...emptyResult(), log: { query, triggerReason: 'webSearchEnabled=false (disabled by admin)', resultCount: 0, latencyMs: Date.now() - t0, checkId } };
     }
-  } catch { /* 读不到配置不阻塞 */ }
+    tavilyKey = cfg.tavilyApiKey;
+    braveKey = cfg.braveSearchApiKey;
+  } catch {
+    tavilyKey = process.env.TAVILY_API_KEY;
+    braveKey = process.env.BRAVE_SEARCH_API_KEY;
+  }
 
   // 没配任何 provider → 直接跳过, 不阻塞主流程
-  const hasProvider = process.env.TAVILY_API_KEY || process.env.BRAVE_SEARCH_API_KEY;
-  if (!hasProvider) {
+  if (!tavilyKey && !braveKey) {
     return emptyResult();
   }
 
   // 判断 A: 启发式关键词
   const heuristic = shouldTriggerWebSearch(query);
   if (!heuristic.trigger) {
-    // 判断 B: 公司 Memory 覆盖度低
+    // 判断 B: 公司 Memory 覆盖度高 → 内部知识够用, 直接不搜 (提前返回).
+    //   注: 仅当确实命中高覆盖时才提前返回; 覆盖度低或公司 Memory 为空时,
+    //   不在此下结论, 交给判断 C 的 LLM 判官决定 (空库不该等于"无需联网")。
     try {
       // P1 下推: 走 KvStore_memory_ownershipLevel/status partial 索引 (0007).
       const store = getStore();
@@ -396,14 +455,15 @@ export async function preSearchLayer(
             log: { query, triggerReason: `company memory sufficient (topScore=${topScore.toFixed(3)})`, resultCount: 0, latencyMs: Date.now() - t0, checkId },
           };
         }
-        // 覆盖度低 → 继续查 web
-        heuristic.trigger = true;
-        heuristic.reason = `low company memory coverage (topScore=${topScore.toFixed(3)} < ${MEMORY_COVERAGE_THRESHOLD})`;
       }
     } catch {
-      // rerank 失败不阻塞, 默认继续查 web
+      /* rerank 失败不阻塞, 继续走判断 C */
+    }
+
+    // 判断 C: LLM 意图判官 (关键词没命中 + 公司 Memory 未覆盖) — 兜住体育/时事/人物近况等
+    if (await llmJudgeNeedsWebSearch(query)) {
       heuristic.trigger = true;
-      heuristic.reason = 'rerank failed (fail-open → search)';
+      heuristic.reason = 'llm judge: needs real-time/external info';
     }
   }
 
