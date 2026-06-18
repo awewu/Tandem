@@ -354,7 +354,7 @@ export const NAV_MODULES: NavModule[] = [
     pathPrefixes: ['/organization', '/admin/organization', '/360', '/1on1', '/nine-box'],
     items: [
       // 公司架构 (HR 部门线 · 真员工数据)
-      { name: '员工部门',       href: '/admin/organization',           icon: Building2, group: '公司架构', visibleTo: ['manager', 'steward', 'admin', 'champion', 'owner'] },
+      { name: '组织架构',       href: '/admin/organization',           icon: Building2, group: '公司架构', visibleTo: ['manager', 'steward', 'admin', 'champion', 'owner'] },
       // 反馈评估 (现在归属组织模块)
       { name: '1on1 对话',         href: '/1on1',             icon: MessagesSquare, group: '反馈评估' },
       { name: '360 评估',          href: '/360',              icon: SparklesAlias,  group: '反馈评估', visibleTo: ['manager', 'steward', 'admin', 'champion'] },
