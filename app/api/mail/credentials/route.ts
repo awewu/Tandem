@@ -9,6 +9,13 @@ import { withErrorHandler } from '@/lib/api/error-middleware';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { getStore } from '@/lib/storage/repository';
 import { encrypt } from '@/lib/infra/crypto';
+import { getAiSettings } from '@/lib/settings/ai-settings';
+import {
+  FIXED_SMTP_HOST,
+  FIXED_IMAP_HOST,
+  DEFAULT_SMTP_PORT,
+  DEFAULT_IMAP_PORT,
+} from '@/lib/infra/email';
 
 const COLLECTION = 'user_email_creds';
 
@@ -68,34 +75,41 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   if (auth instanceof NextResponse) return auth;
 
   const body = await req.json().catch(() => ({}));
-  const {
-    smtpHost, smtpPort, smtpSecure, smtpUser, smtpPass,
-    imapHost, imapPort, imapSecure, imapUser, imapPass,
-  } = body;
+  // 用户只能填写邮箱地址与密码; 主机/端口/SSL 由系统强制 (不接受客户端值).
+  const { smtpUser, smtpPass, imapUser, imapPass } = body;
 
-  if (!smtpHost || !smtpPort || !smtpUser || !smtpPass) {
+  if (!smtpUser || !smtpPass) {
     return NextResponse.json(
-      { error: 'SMTP 主机、端口、用户名、密码均必填' },
+      { error: '邮箱地址与密码必填' },
       { status: 400 },
     );
   }
+
+  // 全局端口配置 (管理员可改), 主机与 SSL 固定.
+  const settings = await getAiSettings(auth.tenantId);
+  const smtpPort = Number(settings.smtpPort) || DEFAULT_SMTP_PORT;
+  const imapPort = Number(settings.imapPort) || DEFAULT_IMAP_PORT;
 
   const kvRepo = getKvRepo(COLLECTION);
   const existing = await kvRepo.get(auth.userId) as EmailCreds | null;
   const now = new Date().toISOString();
 
+  // IMAP 用户名默认与 SMTP 邮箱一致.
+  const resolvedImapUser = imapUser || smtpUser;
+  const resolvedImapPass = imapPass || smtpPass;
+
   const creds: EmailCreds = {
     id: auth.userId,
-    smtpHost,
-    smtpPort: Number(smtpPort),
-    smtpSecure: !!smtpSecure,
+    smtpHost: FIXED_SMTP_HOST,
+    smtpPort,
+    smtpSecure: true,
     smtpUser,
     smtpPassEncrypted: encrypt(smtpPass),
-    imapHost: imapHost || undefined,
-    imapPort: imapPort ? Number(imapPort) : undefined,
-    imapSecure: !!imapSecure,
-    imapUser: imapUser || undefined,
-    imapPassEncrypted: imapPass ? encrypt(imapPass) : undefined,
+    imapHost: FIXED_IMAP_HOST,
+    imapPort,
+    imapSecure: true,
+    imapUser: resolvedImapUser,
+    imapPassEncrypted: encrypt(resolvedImapPass),
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   };

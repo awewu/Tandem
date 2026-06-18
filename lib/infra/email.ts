@@ -16,6 +16,15 @@
 import nodemailer from 'nodemailer';
 import { logger } from './logger';
 
+/**
+ * 企业邮箱固定主机 (网易企业邮箱 · 杭州节点).
+ * 用户不可修改; 端口由管理员全局配置 (aiSettings.smtpPort / imapPort).
+ */
+export const FIXED_SMTP_HOST = 'smtphz.qiye.163.com';
+export const FIXED_IMAP_HOST = 'imaphz.qiye.163.com';
+export const DEFAULT_SMTP_PORT = 465;
+export const DEFAULT_IMAP_PORT = 993;
+
 interface AttachmentInput {
   filename: string;
   content: string | Buffer;
