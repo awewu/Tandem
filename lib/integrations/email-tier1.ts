@@ -124,6 +124,7 @@ export async function fetchInbox(
     
     try {
       const mailbox = client.mailbox;
+      if (!mailbox) throw new Error('mailbox unavailable');
       const total = mailbox.exists;
       
       // 计算分页
@@ -145,21 +146,21 @@ export async function fetchInbox(
         bodyStructure: true,
         source: false,
       })) {
-        const flags = msg.flags ? Array.from(msg.flags as any) : [];
+        const flags: string[] = msg.flags ? Array.from(msg.flags as Set<string>) : [];
         if (options.flaggedOnly && !flags.includes('\\Flagged')) continue;
         messages.push({
           uid: msg.uid,
           seq: msg.seq,
-          from: msg.envelope.from.map((f: any) => ({
+          from: msg.envelope?.from?.map((f) => ({
             name: f.name || '',
             address: f.address || '',
-          })),
-          to: msg.envelope.to?.map((t: any) => ({
+          })) || [],
+          to: msg.envelope?.to?.map((t) => ({
             name: t.name || '',
             address: t.address || '',
           })) || [],
-          subject: msg.envelope.subject || '(无主题)',
-          date: msg.envelope.date?.toISOString() || new Date().toISOString(),
+          subject: msg.envelope?.subject || '(无主题)',
+          date: msg.envelope?.date?.toISOString() || new Date().toISOString(),
           flags,
           seen: flags.includes('\\Seen'),
           attachments: [],
@@ -205,9 +206,11 @@ export async function fetchMessageByUid(
 
     try {
       const msgData = await client.fetchOne(uid.toString(), { source: true }, { uid: true });
-      if (!msgData.source) return null;
+      if (!msgData || !msgData.source) return null;
 
       const parsed = await simpleParser(msgData.source as MailSource);
+      const msgFlags: string[] = msgData.flags ? Array.from(msgData.flags) : [];
+      const toList = Array.isArray(parsed.to) ? parsed.to : parsed.to ? [parsed.to] : [];
 
       return {
         uid,
@@ -216,10 +219,12 @@ export async function fetchMessageByUid(
           name: f.name || '',
           address: f.address || '',
         })) || [],
-        to: parsed.to?.value.map((t) => ({
-          name: t.name || '',
-          address: t.address || '',
-        })) || [],
+        to: toList
+          .flatMap((a) => a.value)
+          .map((t) => ({
+            name: t.name || '',
+            address: t.address || '',
+          })),
         subject: parsed.subject || '(无主题)',
         date: parsed.date?.toISOString() || new Date().toISOString(),
         textBody: parsed.text || undefined,
@@ -229,8 +234,8 @@ export async function fetchMessageByUid(
           size: att.size || 0,
           contentType: att.contentType || 'application/octet-stream',
         })),
-        flags: msgData.flags || [],
-        seen: msgData.flags?.includes('\\Seen') || false,
+        flags: msgFlags,
+        seen: msgFlags.includes('\\Seen'),
       };
     } finally {
       lock.release();
@@ -317,7 +322,7 @@ export async function saveDraft(
     const rawMessage = lines.join('\r\n');
 
     const response = await client.append(resolved, rawMessage, ['\\Draft', '\\Seen']);
-    return response.uid?.toString() || '';
+    return response && response.uid ? response.uid.toString() : '';
   } catch (err) {
     logger.error({ err }, '[imap] save draft failed');
     throw err;

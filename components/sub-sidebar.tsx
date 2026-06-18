@@ -13,7 +13,7 @@
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { HermesHealth } from '@/components/hermes-health';
 import { useCurrentUser, useAuthStore } from '@/lib/hooks/use-current-user';
@@ -30,6 +30,15 @@ import { ImSidebar } from '@/components/im/im-sidebar';
 const STORAGE_KEY = 'tandem.sub-sidebar.open';
 
 export default function SubSidebar() {
+  // useSearchParams() 必须在 Suspense 边界内, 否则静态预渲染 (next build) 会因 CSR bailout 失败.
+  return (
+    <Suspense fallback={null}>
+      <SubSidebarInner />
+    </Suspense>
+  );
+}
+
+function SubSidebarInner() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { user, error } = useCurrentUser();

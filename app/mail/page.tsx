@@ -762,7 +762,7 @@ function ComposeView({ canSend, initialDraft }: { canSend: boolean; initialDraft
           } finally {
             setBusy(false);
           }
-        }} disabled={busy} variant="outline">
+        }} disabled={busy}>
           <FileText className="h-4 w-4 mr-1.5" />
           {busy ? '保存中...' : '存草稿'}
         </Button>

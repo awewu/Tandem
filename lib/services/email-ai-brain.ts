@@ -50,9 +50,11 @@ export async function digestEmailMessage(
   email: EmailMessage,
   actorUserId: string
 ): Promise<EmailDigestResult> {
+  const fmtAddr = (list: { name?: string; address: string }[]) =>
+    list.map((a) => (a.name ? `${a.name} <${a.address}>` : a.address)).join(', ');
   const emailContent = `
-发件人: ${email.from}
-收件人: ${email.to.join(', ')}
+发件人: ${fmtAddr(email.from)}
+收件人: ${fmtAddr(email.to)}
 日期: ${email.date}
 主题: ${email.subject}
 正文:

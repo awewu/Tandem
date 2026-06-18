@@ -47,13 +47,16 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   }
 
   const email: EmailMessage = {
-    uid: `manual_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-    from: typeof body.from === 'string' && body.from.trim() ? body.from.trim() : auth.userId,
-    to: asList(body.to),
+    uid: Date.now(),
+    seq: 0,
+    from: [{ address: typeof body.from === 'string' && body.from.trim() ? body.from.trim() : auth.userId }],
+    to: asList(body.to).map((address) => ({ address })),
     subject,
     date: typeof body.date === 'string' && body.date.trim() ? body.date.trim() : new Date().toISOString(),
     textBody: text,
     attachments: [],
+    flags: [],
+    seen: true,
   };
 
   const digest = await digestEmailMessage(email, auth.userId);
