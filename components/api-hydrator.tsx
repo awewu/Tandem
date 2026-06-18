@@ -42,6 +42,8 @@ export function ApiHydrator() {
   const hydrateMemories = useMemoryStore((s) => s.hydrateMemories);
   const hydrateOrg = useOrgStore((s) => s.hydrateFromGovernance);
   const orgHydrated = useOrgStore((s) => s._hydrated);
+  const hydrateHrDepts = useOrgStore((s) => s.hydrateHrDepts);
+  const hrDeptsHydrated = useOrgStore((s) => s._hrHydrated);
   const fixturePeople = useOKRStore((s) => s.people);
   const setOrgPeopleFixture = useOrgPeopleStore((s) => s.setFixture);
   const hydrateOrgPeople = useOrgPeopleStore((s) => s.hydrateFromApi);
@@ -89,6 +91,7 @@ export function ApiHydrator() {
   useEffect(() => {
     if (!user?.id || orgHydrated) return;
     void hydrateOrg();
+    if (!hrDeptsHydrated) void hydrateHrDepts();
   }, [user?.id, orgHydrated, hydrateOrg]);
 
   // E-pragma (2026-05-31): OrgPeople = 真用户 + fixture 合并

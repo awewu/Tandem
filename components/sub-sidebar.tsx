@@ -85,9 +85,13 @@ function SubSidebarInner() {
   // Empty after role filter is also a no-op render.
   const items = (activeModule?.items ?? []).filter((i) => isVisible(i.visibleTo, userRoles));
 
-  if (!activeModule || items.length === 0) {
+  const isImModule = activeId === 'im';
+
+  if (!isImModule && (!activeModule || items.length === 0)) {
     return null;
   }
+
+  const label = isImModule ? 'IM · 消息' : (activeModule?.fullLabel ?? '');
 
   return (
     <aside
@@ -97,23 +101,23 @@ function SubSidebarInner() {
         'transition-[width] duration-base ease-standard',
         open ? 'w-60' : 'w-12',
       )}
-      aria-label={activeModule.fullLabel}
+      aria-label={label}
     >
       {/* Header */}
       <div className="flex h-14 items-center justify-between border-b border-border px-3">
         {open ? (
           <div className="min-w-0 flex-1">
             <h2 className="text-callout font-semibold text-ink-primary truncate leading-tight">
-              {activeModule.fullLabel}
+              {label}
             </h2>
-            {activeModule.tagline && (
+            {!isImModule && activeModule?.tagline && (
               <p className="text-[10.5px] text-ink-secondary/80 truncate leading-tight mt-0.5">
                 {activeModule.tagline}
               </p>
             )}
           </div>
         ) : (
-          <span className="sr-only">{activeModule.fullLabel}</span>
+          <span className="sr-only">{label}</span>
         )}
         <button
           type="button"
@@ -126,9 +130,12 @@ function SubSidebarInner() {
         </button>
       </div>
 
-      {/* Nav list — items render under uppercase group mini-headers when the
-          `group` field on a NavItem changes vs the previous item. Headers
-          render only in the expanded state. */}
+      {/* IM 模块: 动态会话列表 */}
+      {isImModule ? (
+        <Suspense fallback={null}>
+          <ImSidebar collapsed={!open} />
+        </Suspense>
+      ) : (
       <nav className="flex-1 overflow-y-auto p-2">
         <ul className="space-y-0.5">
           {items.map((item, idx) => {
@@ -208,9 +215,10 @@ function SubSidebarInner() {
           })}
         </ul>
       </nav>
+      )}  {/* end isImModule else */}
 
       {/* Footer: health */}
-      {open && (
+      {!isImModule && open && (
         <div className="border-t border-border p-2">
           <HermesHealth compact />
         </div>

@@ -1,513 +1,532 @@
 /**
- * /admin/organization · 员工部门 (HR 部门线 · 真员工数据)
- *
- * 三套相关页面的边界 (2026-05-30 重整 · docs/GOVERNANCE-THREE-DEPARTMENTS-2026-05-30.md):
- *   - /admin/organization          → 本页. HR/Admin 管理真员工 (User.departmentId, 走 /api/org/users)
- *   - /governance/three-departments → 三省六部项目治理协同模板 (跨部门协同, fixture)
- *   - /agents                      → AI Agent 工作组 (与人无关)
- *
- * 一句话: 部门 = 「人归属哪里」; 三省六部 = 「事如何流转」; Agent = AI 干活的单元.
+ * /admin/organization · 企业 HR 组织管理
  */
-
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Users, Search, RefreshCw, AlertCircle, Building2, ShieldCheck, Upload, Download, ChevronRight, ChevronDown, Network } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import {
+  Network, Building2, Users, Search, RefreshCw, AlertCircle,
+  Plus, Pencil, Trash2, ChevronRight, ChevronDown, Upload, Download,
+  ShieldCheck, X,
+} from 'lucide-react';
 
+interface HrDept {
+  id: string; name: string; parentId: string | null; headId: string | null;
+  description: string; order: number; tenantId: string; createdAt: string; updatedAt: string;
+}
 interface OrgUser {
-  id: string;
-  email: string;
-  name: string;
-  departmentId: string | null;
-  roles: string[];
+  id: string; email: string; name: string; roles: string[];
+  departmentId?: string | null; jobTitle?: string | null; managerId?: string | null;
+  employeeId?: string | null; hireDate?: string | null; workLocation?: string | null; phone?: string | null;
 }
-
-interface DeptNode {
-  name: string;
-  path: string;
-  depth: number;
-  children: Map<string, DeptNode>;
-  members: OrgUser[];
-}
-
-function buildTree(users: OrgUser[]): DeptNode {
-  const root: DeptNode = { name: 'root', path: '', depth: -1, children: new Map(), members: [] };
-  for (const u of users) {
-    const segs = (u.departmentId ?? '(未分配)').split(' / ').map((s) => s.trim()).filter(Boolean);
-    let cur = root;
-    const acc: string[] = [];
-    for (const seg of segs) {
-      acc.push(seg);
-      if (!cur.children.has(seg)) {
-        cur.children.set(seg, { name: seg, path: acc.join(' / '), depth: acc.length - 1, children: new Map(), members: [] });
-      }
-      cur = cur.children.get(seg)!;
-    }
-    cur.members.push(u);
-  }
-  return root;
-}
-
-function subtreeCount(node: DeptNode): number {
-  let n = node.members.length;
-  for (const c of Array.from(node.children.values())) n += subtreeCount(c);
-  return n;
-}
+interface BulkResult { row: number; email: string; ok: boolean; code?: string; error?: string; registerUrl?: string }
 
 const ROLE_LABEL: Record<string, { label: string; color: string }> = {
-  admin: { label: 'Admin', color: 'bg-rose-50 text-rose-700 border-rose-200' },
+  admin:    { label: 'Admin',    color: 'bg-rose-50 text-rose-700 border-rose-200' },
   champion: { label: 'Champion', color: 'bg-violet-50 text-violet-700 border-violet-200' },
-  steward: { label: 'Steward', color: 'bg-warning/5 text-warning border-warning/20' },
-  manager: { label: '主管', color: 'bg-sky-50 text-sky-700 border-sky-200' },
-  hr: { label: 'HR', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  employee: { label: '员工', color: 'bg-surface-1 text-ink-primary border' },
+  steward:  { label: 'Steward',  color: 'bg-warning/5 text-warning border-warning/20' },
+  manager:  { label: '主管',     color: 'bg-sky-50 text-sky-700 border-sky-200' },
+  hr:       { label: 'HR',       color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  employee: { label: '员工',     color: 'bg-surface-1 text-ink-primary border' },
 };
 
+function buildDeptChildren(depts: HrDept[]): Map<string | null, HrDept[]> {
+  const map = new Map<string | null, HrDept[]>();
+  for (const d of depts) {
+    const k = d.parentId;
+    if (!map.has(k)) map.set(k, []);
+    map.get(k)!.push(d);
+  }
+  for (const arr of map.values()) arr.sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
+  return map;
+}
+
+function deptPath(id: string | null | undefined, depts: HrDept[]): string {
+  if (!id) return '—';
+  const map = new Map(depts.map((d) => [d.id, d]));
+  const parts: string[] = [];
+  let cur = map.get(id);
+  while (cur) { parts.unshift(cur.name); cur = cur.parentId ? map.get(cur.parentId) : undefined; }
+  return parts.join(' / ') || '—';
+}
+
+// ─── 部门编辑弹窗 ─────────────────────────────────────────────────────────────
+function DeptDialog({
+  open, onClose, onSave, depts, initial,
+}: {
+  open: boolean; onClose: () => void;
+  onSave: (d: Partial<HrDept>) => Promise<void>;
+  depts: HrDept[]; initial?: HrDept | null;
+}) {
+  const [name, setName] = useState(initial?.name ?? '');
+  const [parentId, setParentId] = useState<string>(initial?.parentId ?? '');
+  const [description, setDescription] = useState(initial?.description ?? '');
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    if (open) { setName(initial?.name ?? ''); setParentId(initial?.parentId ?? ''); setDescription(initial?.description ?? ''); }
+  }, [open, initial]);
+  async function submit() {
+    if (!name.trim()) return;
+    setSaving(true);
+    await onSave({ name: name.trim(), parentId: parentId || null, description });
+    setSaving(false); onClose();
+  }
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>{initial ? '编辑部门' : '新建部门'}</DialogTitle></DialogHeader>
+        <div className="space-y-3 py-2">
+          <div>
+            <label className="text-caption font-medium mb-1 block">部门名称 *</label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="如：销售大区 / 生产部" />
+          </div>
+          <div>
+            <label className="text-caption font-medium mb-1 block">上级部门</label>
+            <Select value={parentId} onValueChange={setParentId}>
+              <SelectTrigger><SelectValue placeholder="顶级部门（无上级）" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">顶级部门（无上级）</SelectItem>
+                {depts.filter((d) => d.id !== initial?.id).map((d) => (
+                  <SelectItem key={d.id} value={d.id}>{deptPath(d.id, depts)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-caption font-medium mb-1 block">描述</label>
+            <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="可选" />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>取消</Button>
+          <Button onClick={submit} disabled={saving || !name.trim()}>{saving ? '保存中…' : '保存'}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── 员工编辑弹窗 ─────────────────────────────────────────────────────────────
+function UserDialog({
+  open, onClose, onSave, user, depts, users,
+}: {
+  open: boolean; onClose: () => void;
+  onSave: (patch: Partial<OrgUser>) => Promise<void>;
+  user: OrgUser | null; depts: HrDept[]; users: OrgUser[];
+}) {
+  const [form, setForm] = useState<Partial<OrgUser>>({});
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    if (open && user) setForm({ departmentId: user.departmentId ?? '', jobTitle: user.jobTitle ?? '', managerId: user.managerId ?? '', employeeId: user.employeeId ?? '', hireDate: user.hireDate ?? '', workLocation: user.workLocation ?? '', phone: user.phone ?? '' });
+  }, [open, user]);
+  const set = (k: keyof OrgUser, v: string) => setForm((p) => ({ ...p, [k]: v || null }));
+  async function submit() {
+    setSaving(true);
+    await onSave(form);
+    setSaving(false); onClose();
+  }
+  if (!user) return null;
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader><DialogTitle>编辑员工 · {user.name}</DialogTitle></DialogHeader>
+        <div className="grid grid-cols-2 gap-3 py-2">
+          <div className="col-span-2">
+            <label className="text-caption font-medium mb-1 block">所属部门</label>
+            <Select value={form.departmentId ?? ''} onValueChange={(v) => set('departmentId', v)}>
+              <SelectTrigger><SelectValue placeholder="未分配" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">未分配</SelectItem>
+                {depts.map((d) => <SelectItem key={d.id} value={d.id}>{deptPath(d.id, depts)}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-caption font-medium mb-1 block">职务/岗位</label>
+            <Input value={form.jobTitle ?? ''} onChange={(e) => set('jobTitle', e.target.value)} placeholder="如：销售经理" />
+          </div>
+          <div>
+            <label className="text-caption font-medium mb-1 block">直属上级</label>
+            <Select value={form.managerId ?? ''} onValueChange={(v) => set('managerId', v)}>
+              <SelectTrigger><SelectValue placeholder="无" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">无</SelectItem>
+                {users.filter((u) => u.id !== user.id).map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-caption font-medium mb-1 block">工号</label>
+            <Input value={form.employeeId ?? ''} onChange={(e) => set('employeeId', e.target.value)} placeholder="可选" />
+          </div>
+          <div>
+            <label className="text-caption font-medium mb-1 block">入职日期</label>
+            <Input type="date" value={form.hireDate ?? ''} onChange={(e) => set('hireDate', e.target.value)} />
+          </div>
+          <div>
+            <label className="text-caption font-medium mb-1 block">工作地点</label>
+            <Input value={form.workLocation ?? ''} onChange={(e) => set('workLocation', e.target.value)} placeholder="如：上海" />
+          </div>
+          <div>
+            <label className="text-caption font-medium mb-1 block">手机</label>
+            <Input value={form.phone ?? ''} onChange={(e) => set('phone', e.target.value)} placeholder="可选" />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>取消</Button>
+          <Button onClick={submit} disabled={saving}>{saving ? '保存中…' : '保存'}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── 部门树节点 ───────────────────────────────────────────────────────────────
+function DeptNode({
+  dept, childrenMap, users, allDepts, depth,
+  onEdit, onDelete, onAddChild, onSelectDept, selectedDeptId,
+}: {
+  dept: HrDept; childrenMap: Map<string | null, HrDept[]>;
+  users: OrgUser[]; allDepts: HrDept[]; depth: number;
+  onEdit: (d: HrDept) => void; onDelete: (d: HrDept) => void;
+  onAddChild: (parentId: string) => void; onSelectDept: (id: string) => void;
+  selectedDeptId: string | null;
+}) {
+  const [open, setOpen] = useState(depth === 0);
+  const children = childrenMap.get(dept.id) ?? [];
+  const members = users.filter((u) => u.departmentId === dept.id);
+  const head = users.find((u) => u.id === dept.headId);
+  const total = members.length + children.reduce((s, c) => s + (users.filter((u) => u.departmentId === c.id).length), 0);
+  const selected = selectedDeptId === dept.id;
+  return (
+    <div>
+      <div
+        className={`flex items-center gap-1.5 px-2 py-1.5 rounded-md cursor-pointer transition-colors group ${selected ? 'bg-primary/8' : 'hover:bg-muted/40'}`}
+        style={{ paddingLeft: depth * 16 + 8 }}
+        onClick={() => onSelectDept(dept.id)}
+      >
+        <button onClick={(e) => { e.stopPropagation(); setOpen((p) => !p); }} className="shrink-0 text-muted-foreground hover:text-foreground">
+          {children.length > 0 ? (open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />) : <span className="w-3.5 inline-block" />}
+        </button>
+        <Building2 className={`h-3.5 w-3.5 shrink-0 ${depth === 0 ? 'text-primary' : 'text-muted-foreground'}`} />
+        <span className={`text-caption flex-1 truncate ${depth === 0 ? 'font-semibold' : 'font-medium'}`}>{dept.name}</span>
+        {head && <span className="text-footnote text-muted-foreground hidden group-hover:inline truncate max-w-[80px]">{head.name}</span>}
+        <Badge variant="secondary" className="h-4 px-1 text-[10px] tabular-nums shrink-0">{total}</Badge>
+        <div className="hidden group-hover:flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+          <button title="新增子部门" className="p-0.5 rounded hover:bg-muted" onClick={() => onAddChild(dept.id)}><Plus className="h-3 w-3" /></button>
+          <button title="编辑" className="p-0.5 rounded hover:bg-muted" onClick={() => onEdit(dept)}><Pencil className="h-3 w-3" /></button>
+          <button title="删除" className="p-0.5 rounded hover:bg-rose-100 text-rose-600" onClick={() => onDelete(dept)}><Trash2 className="h-3 w-3" /></button>
+        </div>
+      </div>
+      {open && children.map((c) => (
+        <DeptNode key={c.id} dept={c} childrenMap={childrenMap} users={users} allDepts={allDepts}
+          depth={depth + 1} onEdit={onEdit} onDelete={onDelete} onAddChild={onAddChild}
+          onSelectDept={onSelectDept} selectedDeptId={selectedDeptId} />
+      ))}
+    </div>
+  );
+}
+
+// ─── 主页面 ──────────────────────────────────────────────────────────────────
 export default function AdminOrganizationPage() {
+  const [depts, setDepts] = useState<HrDept[]>([]);
   const [users, setUsers] = useState<OrgUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState('');
-  const [roleFilter, setRoleFilter] = useState<string>('all');
-  const [buFilter, setBuFilter] = useState<string>('all');
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [autoExpand, setAutoExpand] = useState(false);
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [selectedDeptId, setSelectedDeptId] = useState<string | null>(null);
+  // dept dialog
+  const [deptDialog, setDeptDialog] = useState<{ open: boolean; initial?: HrDept | null; preParent?: string | null }>({ open: false });
+  // user dialog
+  const [userDialog, setUserDialog] = useState<{ open: boolean; user: OrgUser | null }>({ open: false, user: null });
+  // bulk invite
+  const [bulkOpen, setBulkOpen] = useState(false);
 
-  async function load() {
-    setLoading(true);
-    setError(null);
+  const load = useCallback(async () => {
+    setLoading(true); setError(null);
     try {
-      const r = await fetch('/api/org/users', { cache: 'no-store' });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const j = await r.json();
-      setUsers((j.users ?? []) as OrgUser[]);
+      const [dr, ur] = await Promise.all([
+        fetch('/api/org/departments', { cache: 'no-store' }),
+        fetch('/api/org/users', { cache: 'no-store' }),
+      ]);
+      if (!dr.ok || !ur.ok) throw new Error('加载失败');
+      const [dj, uj] = await Promise.all([dr.json(), ur.json()]);
+      setDepts(dj.depts ?? []);
+      setUsers(uj.users ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : '加载失败');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    void load();
+    } finally { setLoading(false); }
   }, []);
 
-  // 事业部列表 (路径第 2 段) 用于快速过滤
-  const businessUnits = useMemo(() => {
-    const set = new Set<string>();
-    for (const u of users) {
-      const segs = (u.departmentId ?? '').split(' / ');
-      if (segs[1]) set.add(segs[1]);
-    }
-    return Array.from(set).sort();
-  }, [users]);
+  useEffect(() => { void load(); }, [load]);
 
-  const filtered = useMemo(() => {
+  const childrenMap = useMemo(() => buildDeptChildren(depts), [depts]);
+  const rootDepts = childrenMap.get(null) ?? [];
+
+  const filteredUsers = useMemo(() => {
     const lc = q.toLowerCase();
     return users.filter((u) => {
       if (roleFilter !== 'all' && !u.roles.includes(roleFilter)) return false;
-      if (buFilter !== 'all' && (u.departmentId ?? '').split(' / ')[1] !== buFilter) return false;
-      if (lc && !u.name.toLowerCase().includes(lc) && !u.email.toLowerCase().includes(lc)) return false;
+      if (selectedDeptId && u.departmentId !== selectedDeptId) return false;
+      if (lc && !u.name.toLowerCase().includes(lc) && !u.email.toLowerCase().includes(lc) && !(u.jobTitle ?? '').toLowerCase().includes(lc)) return false;
       return true;
     });
-  }, [users, q, roleFilter, buFilter]);
+  }, [users, q, roleFilter, selectedDeptId]);
 
-  const tree = useMemo(() => buildTree(filtered), [filtered]);
-  // 搜索/过滤时自动全展开, 否则默认展开到事业部层 (depth 0/1)
-  const searching = q.trim() !== '' || roleFilter !== 'all' || buFilter !== 'all';
+  // ── dept CRUD ──
+  async function saveDept(patch: Partial<HrDept>) {
+    const { initial, preParent } = deptDialog;
+    if (initial) {
+      await fetch(`/api/org/departments/${initial.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) });
+    } else {
+      await fetch('/api/org/departments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...patch, parentId: preParent ?? null }) });
+    }
+    await load();
+  }
 
-  const toggle = (path: string) =>
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(path)) next.delete(path);
-      else next.add(path);
-      return next;
-    });
+  async function deleteDept(d: HrDept) {
+    if (!confirm(`删除部门「${d.name}」？该部门的成员将变为未分配。`)) return;
+    await fetch(`/api/org/departments/${d.id}`, { method: 'DELETE' });
+    await load();
+  }
 
-  const allPaths = useMemo(() => {
-    const acc: string[] = [];
-    const walk = (n: DeptNode) => { for (const c of Array.from(n.children.values())) { acc.push(c.path); walk(c); } };
-    walk(tree);
-    return acc;
-  }, [tree]);
-
-  const isOpen = (path: string, depth: number) => {
-    if (autoExpand || searching) return true;
-    if (expanded.has(path)) return true;
-    // 默认展开集团(0) + 事业部(1)
-    return depth <= 0;
-  };
+  // ── user CRUD ──
+  async function saveUser(patch: Partial<OrgUser>) {
+    if (!userDialog.user) return;
+    await fetch(`/api/org/users/${userDialog.user.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) });
+    await load();
+  }
 
   return (
-    <div className="page-container py-8 space-y-6 md:py-10">
-      <header className="flex items-start justify-between gap-4">
+    <div className="page-container py-8 md:py-10">
+      <header className="flex items-start justify-between gap-4 mb-6">
         <div>
           <h1 className="text-title-3 font-semibold tracking-tight flex items-center gap-2">
             <Network className="h-6 w-6 text-primary" />
-            员工组织 · 部门层级
+            组织架构管理
           </h1>
-          <p className="text-caption text-muted-foreground mt-1">
-            集团 → 事业部 → 公司/组织 → 部门 多级树 · 数据来源: <span className="font-mono text-footnote">/api/org/users</span>
-          </p>
+          <p className="text-caption text-muted-foreground mt-1">部门树 · 员工归属 · 汇报关系 · HR 数据维护</p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
-          <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
-          刷新
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setBulkOpen((p) => !p)}>
+            <Upload className="h-4 w-4 mr-1" />批量邀请
+          </Button>
+          <Button size="sm" onClick={() => setDeptDialog({ open: true, initial: null })}>
+            <Plus className="h-4 w-4 mr-1" />新建部门
+          </Button>
+          <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
       </header>
 
-      {/* 通讯录批量导入 (pilot Day 1) */}
-      <BulkInviteCard onSuccess={() => void load()} />
-
-      {/* 工具条 */}
-      <Card>
-        <CardContent className="pt-4 flex flex-wrap items-center gap-3">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              placeholder="搜索姓名 / 邮箱"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              className="pl-8 h-9"
-            />
-          </div>
-          <Select value={roleFilter} onValueChange={setRoleFilter}>
-            <SelectTrigger className="w-[140px] h-9">
-              <SelectValue placeholder="角色" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部角色</SelectItem>
-              {Object.entries(ROLE_LABEL).map(([k, v]) => (
-                <SelectItem key={k} value={k}>{v.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={buFilter} onValueChange={setBuFilter}>
-            <SelectTrigger className="w-[180px] h-9">
-              <SelectValue placeholder="事业部" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部事业部</SelectItem>
-              {businessUnits.map((d) => (
-                <SelectItem key={d} value={d}>{d}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-9"
-            onClick={() => {
-              if (autoExpand || expanded.size > 0) { setAutoExpand(false); setExpanded(new Set()); }
-              else { setAutoExpand(true); }
-            }}
-          >
-            {autoExpand || expanded.size > 0 ? '折叠全部' : '展开全部'}
-          </Button>
-          <div className="text-footnote text-muted-foreground tabular-nums ml-auto">
-            {filtered.length} / {users.length} 人 · {businessUnits.length} 事业部
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 错误 */}
       {error && (
-        <Card className="border-rose-200 bg-rose-50">
-          <CardContent className="py-3 text-caption text-rose-700 flex items-center gap-2">
-            <AlertCircle className="h-4 w-4" />
-            {error}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* 部门层级树 */}
-      {loading ? (
-        <Card>
-          <CardContent className="py-12 text-center text-caption text-muted-foreground">加载中…</CardContent>
-        </Card>
-      ) : tree.children.size === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center text-caption text-muted-foreground">
-            没有符合条件的员工
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardContent className="p-2">
-            {Array.from(tree.children.values())
-              .sort((a, b) => a.name.localeCompare(b.name))
-              .map((child) => (
-                <DeptTreeNode
-                  key={child.path}
-                  node={child}
-                  isOpen={isOpen}
-                  toggle={toggle}
-                />
-              ))}
-          </CardContent>
-        </Card>
-      )}
-
-      <footer className="text-footnote text-muted-foreground border-t pt-4">
-        关于&ldquo;项目协作三省六部&rdquo;可视化 (Agent 工作组), 见{' '}
-        <a href="/organization" className="text-primary hover:underline">/organization</a>.
-        {' '}全展开节点: {allPaths.length}.
-      </footer>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// 递归部门树节点
-// ---------------------------------------------------------------------------
-
-function DeptTreeNode({
-  node,
-  isOpen,
-  toggle,
-}: {
-  node: DeptNode;
-  isOpen: (path: string, depth: number) => boolean;
-  toggle: (path: string) => void;
-}) {
-  const open = isOpen(node.path, node.depth);
-  const childCount = node.children.size;
-  const total = subtreeCount(node);
-  const hasKids = childCount > 0;
-  const directMembers = node.members;
-  const indent = node.depth * 16;
-
-  return (
-    <div>
-      <button
-        onClick={() => hasKids && toggle(node.path)}
-        className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left hover:bg-muted/50 transition-colors ${hasKids ? 'cursor-pointer' : 'cursor-default'}`}
-        style={{ paddingLeft: indent + 8 }}
-      >
-        {hasKids ? (
-          open ? <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-               : <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-        ) : (
-          <span className="w-3.5 shrink-0" />
-        )}
-        <Building2 className={`h-3.5 w-3.5 shrink-0 ${node.depth <= 1 ? 'text-primary' : 'text-muted-foreground'}`} />
-        <span className={`text-caption ${node.depth <= 1 ? 'font-semibold' : 'font-medium'}`}>{node.name}</span>
-        <Badge variant="secondary" className="h-4 px-1.5 text-[10px] tabular-nums">{total}</Badge>
-      </button>
-
-      {open && (
-        <div>
-          {/* 子部门 */}
-          {Array.from(node.children.values())
-            .sort((a, b) => a.name.localeCompare(b.name))
-            .map((c) => (
-              <DeptTreeNode key={c.path} node={c} isOpen={isOpen} toggle={toggle} />
-            ))}
-
-          {/* 本节点直属成员 */}
-          {directMembers.length > 0 && (
-            <div style={{ paddingLeft: indent + 28 }} className="py-1">
-              <table className="w-full text-caption">
-                <tbody>
-                  {directMembers
-                    .slice()
-                    .sort((a, b) => a.name.localeCompare(b.name))
-                    .map((u) => (
-                      <tr key={u.id} className="hover:bg-muted/20 transition-colors">
-                        <td className="py-1 pr-3 font-medium w-32">{u.name}</td>
-                        <td className="py-1 pr-3 text-footnote text-muted-foreground font-mono">{u.email || '—'}</td>
-                        <td className="py-1">
-                          <div className="flex flex-wrap items-center gap-1">
-                            {u.roles.length === 0 ? (
-                              <span className="text-footnote text-muted-foreground">—</span>
-                            ) : (
-                              u.roles.map((r) => {
-                                const meta = ROLE_LABEL[r] ?? { label: r, color: 'bg-surface-1 text-ink-primary border' };
-                                return (
-                                  <Badge key={r} variant="outline" className={`${meta.color} text-[10px] gap-0.5`}>
-                                    {(r === 'admin' || r === 'champion') && <ShieldCheck className="h-2.5 w-2.5" />}
-                                    {meta.label}
-                                  </Badge>
-                                );
-                              })
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+        <div className="mb-4 flex items-center gap-2 text-caption text-rose-700 bg-rose-50 border border-rose-200 rounded px-3 py-2">
+          <AlertCircle className="h-4 w-4" />{error}
         </div>
       )}
+
+      <div className="flex gap-4 items-start">
+        {/* ── 左侧：部门树 ── */}
+        <div className="w-72 shrink-0">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-caption font-medium text-muted-foreground">部门 ({depts.length})</span>
+            {selectedDeptId && (
+              <button className="text-footnote text-primary hover:underline" onClick={() => setSelectedDeptId(null)}>
+                <X className="h-3 w-3 inline mr-0.5" />清除筛选
+              </button>
+            )}
+          </div>
+          <div className="border rounded-lg bg-background py-1 min-h-[120px]">
+            {loading ? (
+              <div className="py-8 text-center text-caption text-muted-foreground">加载中…</div>
+            ) : rootDepts.length === 0 ? (
+              <div className="py-8 text-center text-caption text-muted-foreground">
+                暂无部门，点击「新建部门」开始
+              </div>
+            ) : rootDepts.map((d) => (
+              <DeptNode key={d.id} dept={d} childrenMap={childrenMap} users={users}
+                allDepts={depts} depth={0}
+                onEdit={(dep) => setDeptDialog({ open: true, initial: dep })}
+                onDelete={deleteDept}
+                onAddChild={(pid) => setDeptDialog({ open: true, initial: null, preParent: pid })}
+                onSelectDept={setSelectedDeptId}
+                selectedDeptId={selectedDeptId}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* ── 右侧：员工列表 ── */}
+        <div className="flex-1 min-w-0">
+          {/* 工具条 */}
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            <div className="relative flex-1 min-w-[180px]">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input placeholder="搜索姓名/邮箱/职务" value={q} onChange={(e) => setQ(e.target.value)} className="pl-8 h-9" />
+            </div>
+            <Select value={roleFilter} onValueChange={setRoleFilter}>
+              <SelectTrigger className="w-[120px] h-9"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部角色</SelectItem>
+                {Object.entries(ROLE_LABEL).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <span className="text-footnote text-muted-foreground tabular-nums ml-auto">
+              {filteredUsers.length} / {users.length} 人
+              {selectedDeptId && <> · {depts.find((d) => d.id === selectedDeptId)?.name}</>}
+            </span>
+          </div>
+
+          {/* 员工表格 */}
+          <div className="border rounded-lg overflow-hidden">
+            <table className="w-full text-caption">
+              <thead>
+                <tr className="bg-muted/40 border-b">
+                  <th className="px-3 py-2 text-left font-medium">姓名</th>
+                  <th className="px-3 py-2 text-left font-medium">职务</th>
+                  <th className="px-3 py-2 text-left font-medium">部门</th>
+                  <th className="px-3 py-2 text-left font-medium hidden md:table-cell">直属上级</th>
+                  <th className="px-3 py-2 text-left font-medium hidden lg:table-cell">工号</th>
+                  <th className="px-3 py-2 text-left font-medium">角色</th>
+                  <th className="px-3 py-2 w-10" />
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr><td colSpan={7} className="py-10 text-center text-muted-foreground">加载中…</td></tr>
+                ) : filteredUsers.length === 0 ? (
+                  <tr><td colSpan={7} className="py-10 text-center text-muted-foreground">暂无数据</td></tr>
+                ) : filteredUsers.map((u) => {
+                  const manager = users.find((m) => m.id === u.managerId);
+                  return (
+                    <tr key={u.id} className="border-t hover:bg-muted/20 transition-colors">
+                      <td className="px-3 py-2">
+                        <div className="font-medium">{u.name}</div>
+                        <div className="text-footnote text-muted-foreground font-mono">{u.email}</div>
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground">{u.jobTitle || '—'}</td>
+                      <td className="px-3 py-2 text-muted-foreground truncate max-w-[140px]">
+                        {deptPath(u.departmentId, depts)}
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground hidden md:table-cell">
+                        {manager?.name || '—'}
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground font-mono text-footnote hidden lg:table-cell">
+                        {u.employeeId || '—'}
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex flex-wrap gap-1">
+                          {(u.roles ?? []).map((r) => {
+                            const m = ROLE_LABEL[r] ?? { label: r, color: 'bg-surface-1 text-ink-primary border' };
+                            return (
+                              <Badge key={r} variant="outline" className={`${m.color} text-[10px] gap-0.5 h-4 px-1`}>
+                                {(r === 'admin' || r === 'champion') && <ShieldCheck className="h-2.5 w-2.5" />}
+                                {m.label}
+                              </Badge>
+                            );
+                          })}
+                        </div>
+                      </td>
+                      <td className="px-2 py-2">
+                        <button
+                          className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+                          title="编辑员工信息"
+                          onClick={() => setUserDialog({ open: true, user: u })}
+                        ><Pencil className="h-3.5 w-3.5" /></button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* 批量邀请 */}
+      {bulkOpen && <BulkInviteCard onSuccess={load} />}
+
+      {/* 弹窗 */}
+      <DeptDialog
+        open={deptDialog.open}
+        onClose={() => setDeptDialog({ open: false })}
+        onSave={saveDept}
+        depts={depts}
+        initial={deptDialog.initial}
+      />
+      <UserDialog
+        open={userDialog.open}
+        onClose={() => setUserDialog({ open: false, user: null })}
+        onSave={saveUser}
+        user={userDialog.user}
+        depts={depts}
+        users={users}
+      />
     </div>
   );
 }
 
-interface BulkResult {
-  row: number;
-  email: string;
-  ok: boolean;
-  code?: string;
-  error?: string;
-  registerUrl?: string;
-}
-
+// ─── 批量邀请组件 ──────────────────────────────────────────────────────────────
 function BulkInviteCard({ onSuccess }: { onSuccess?: () => void }) {
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [results, setResults] = useState<BulkResult[] | null>(null);
   const [summary, setSummary] = useState<{ total: number; ok: number; failed: number; dryRun: boolean } | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
 
   async function upload(dryRun: boolean) {
     if (!file) return;
-    setBusy(true);
-    setError(null);
+    setBusy(true); setErr(null);
     try {
       const fd = new FormData();
       fd.append('file', file);
       if (dryRun) fd.append('dryRun', '1');
       const r = await fetch('/api/admin/users/bulk-invite', { method: 'POST', body: fd });
       const j = await r.json();
-      if (!r.ok || !j.ok) {
-        setError(j.error ?? `HTTP ${r.status}`);
-        return;
-      }
-      setResults(j.results);
-      setSummary(j.summary);
+      if (!r.ok || !j.ok) { setErr(j.error ?? `HTTP ${r.status}`); return; }
+      setResults(j.results); setSummary(j.summary);
       if (!dryRun && onSuccess) onSuccess();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '上传失败');
-    } finally {
-      setBusy(false);
-    }
+    } catch (e) { setErr(e instanceof Error ? e.message : '上传失败'); }
+    finally { setBusy(false); }
   }
 
   function downloadResults() {
     if (!results) return;
-    const lines = [
-      'row,email,ok,code,registerUrl,error',
-      ...results.map((r) =>
-        [r.row, r.email, r.ok, r.code ?? '', r.registerUrl ?? '', r.error ?? ''].join(','),
-      ),
-    ];
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
+    const lines = ['row,email,ok,code,registerUrl,error', ...results.map((r) => [r.row, r.email, r.ok, r.code ?? '', r.registerUrl ?? '', r.error ?? ''].join(','))];
     const a = document.createElement('a');
-    a.href = url;
-    a.download = `bulk-invite-${Date.now()}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    a.href = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' }));
+    a.download = `bulk-invite-${Date.now()}.csv`; a.click();
   }
 
   return (
-    <Card className="border-warning/20 bg-warning/5/30">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-body flex items-center gap-2">
-          <Upload className="h-4 w-4" />
-          通讯录批量邀请 · pilot Day 1
-        </CardTitle>
-        <p className="text-footnote text-muted-foreground mt-1">
-          上传 CSV 或 Excel (列: <span className="font-mono">email,name,department,roles</span>) ·
-          每行生成 7 天单次邀请码 · 单批 ≤ 500 行 ·
-          下载 CSV 模板:{' '}
-          <a href="/api/admin/users/bulk-invite/template" className="text-warning underline">下载模板</a>
-        </p>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <input
-            type="file"
-            accept=".csv,.xlsx,.xls"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            className="text-footnote"
-          />
-          <Button size="sm" variant="outline" disabled={!file || busy} onClick={() => void upload(true)}>
-            {busy ? '校验中…' : '试运行 (dry-run)'}
-          </Button>
-          <Button size="sm" disabled={!file || busy} onClick={() => void upload(false)}>
-            {busy ? '生成中…' : '正式生成邀请码'}
-          </Button>
-          {results && (
-            <Button size="sm" variant="ghost" onClick={downloadResults}>
-              <Download className="h-3.5 w-3.5 mr-1" />
-              下载结果 CSV
-            </Button>
-          )}
+    <div className="mt-4 border rounded-lg p-4 bg-warning/5 border-warning/20">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-caption font-medium flex items-center gap-2"><Upload className="h-4 w-4" />通讯录批量邀请</span>
+        <a href="/api/admin/users/bulk-invite/template" className="text-footnote text-warning underline">下载模板</a>
+      </div>
+      <p className="text-footnote text-muted-foreground mb-3">CSV/Excel，列：email, name, department, roles · 每行生成邀请码 · 单批 ≤ 500 行</p>
+      <div className="flex flex-wrap items-center gap-2">
+        <input type="file" accept=".csv,.xlsx,.xls" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="text-footnote" />
+        <Button size="sm" variant="outline" disabled={!file || busy} onClick={() => void upload(true)}>{busy ? '校验中…' : '试运行'}</Button>
+        <Button size="sm" disabled={!file || busy} onClick={() => void upload(false)}>{busy ? '生成中…' : '正式生成'}</Button>
+        {results && <Button size="sm" variant="ghost" onClick={downloadResults}><Download className="h-3.5 w-3.5 mr-1" />下载结果</Button>}
+      </div>
+      {err && <div className="mt-2 text-footnote text-rose-700 flex items-center gap-1"><AlertCircle className="h-3.5 w-3.5" />{err}</div>}
+      {summary && (
+        <div className="mt-2 flex items-center gap-2 text-footnote">
+          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">成功 {summary.ok}</Badge>
+          {summary.failed > 0 && <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200">失败 {summary.failed}</Badge>}
+          <span className="text-muted-foreground">共 {summary.total} 行 · {summary.dryRun ? '试运行' : '已生成'}</span>
         </div>
-
-        {error && (
-          <div className="text-footnote text-rose-700 bg-rose-50 border border-rose-200 rounded px-3 py-2 flex items-center gap-2">
-            <AlertCircle className="h-3.5 w-3.5" />
-            {error}
-          </div>
-        )}
-
-        {summary && (
-          <div className="text-footnote flex items-center gap-3">
-            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
-              成功 {summary.ok}
-            </Badge>
-            {summary.failed > 0 && (
-              <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200">
-                失败 {summary.failed}
-              </Badge>
-            )}
-            <span className="text-muted-foreground">
-              共 {summary.total} 行 · {summary.dryRun ? '试运行 (未写入)' : '已生成邀请码'}
-            </span>
-          </div>
-        )}
-
-        {results && results.length > 0 && (
-          <div className="max-h-64 overflow-auto border rounded">
-            <table className="w-full text-footnote">
-              <thead className="bg-muted/40 sticky top-0">
-                <tr>
-                  <th className="px-2 py-1.5 text-left font-medium">#</th>
-                  <th className="px-2 py-1.5 text-left font-medium">邮箱</th>
-                  <th className="px-2 py-1.5 text-left font-medium">状态</th>
-                  <th className="px-2 py-1.5 text-left font-medium">邀请码 / 错误</th>
-                </tr>
-              </thead>
-              <tbody>
-                {results.slice(0, 100).map((r) => (
-                  <tr key={r.row} className="border-t">
-                    <td className="px-2 py-1 font-mono text-muted-foreground">{r.row}</td>
-                    <td className="px-2 py-1">{r.email}</td>
-                    <td className="px-2 py-1">
-                      {r.ok ? (
-                        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px]">
-                          ✓
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 text-[10px]">
-                          ✗
-                        </Badge>
-                      )}
-                    </td>
-                    <td className="px-2 py-1 font-mono text-[10px] text-muted-foreground truncate max-w-md">
-                      {r.code ?? r.error ?? ''}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {results.length > 100 && (
-              <div className="text-[10px] text-muted-foreground p-2 text-center border-t">
-                仅显示前 100 行 · 完整列表请下载 CSV
-              </div>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      )}
+    </div>
   );
 }

@@ -362,6 +362,15 @@ export async function preSearchLayer(
     log: { query, triggerReason: 'none', resultCount: 0, latencyMs: Date.now() - t0, checkId },
   });
 
+  // 联网开关: admin 可关闭
+  try {
+    const { getAiSettings } = await import('@/lib/settings/ai-settings');
+    const cfg = await getAiSettings();
+    if (cfg.webSearchEnabled === false) {
+      return { ...emptyResult(), log: { query, triggerReason: 'webSearchEnabled=false (disabled by admin)', resultCount: 0, latencyMs: Date.now() - t0, checkId } };
+    }
+  } catch { /* 读不到配置不阻塞 */ }
+
   // 没配任何 provider → 直接跳过, 不阻塞主流程
   const hasProvider = process.env.TAVILY_API_KEY || process.env.BRAVE_SEARCH_API_KEY;
   if (!hasProvider) {

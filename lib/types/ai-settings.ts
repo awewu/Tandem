@@ -51,6 +51,10 @@ export interface AiSettings {
   /** Web 搜索 */
   tavilyApiKey?: string;
   braveSearchApiKey?: string;
+  /** 联网回答开关 (preSearchLayer): 关闭时跳过所有 web_search 调用 */
+  webSearchEnabled?: boolean;
+  /** 主动爬取学习开关: 允许 AI 定时/按需抓取外部网页存入公司知识库 */
+  webLearnEnabled?: boolean;
 
   /** SMTP 邮件 */
   smtpHost?: string;

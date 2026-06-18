@@ -208,6 +208,12 @@ function createDrizzleAuthStore(): AuthStore {
     lastLoginAt?: string | null;
     lastLoginIp?: string | null;
     departmentId?: string | null;
+    jobTitle?: string | null;
+    managerId?: string | null;
+    employeeId?: string | null;
+    hireDate?: string | null;
+    workLocation?: string | null;
+    phone?: string | null;
     orgId?: string | null;
     membershipType?: import('../types/organization').MembershipType;
   }>('auth_user_extras');
@@ -227,6 +233,12 @@ function createDrizzleAuthStore(): AuthStore {
       lastLoginAt: extras?.lastLoginAt ?? null,
       lastLoginIp: extras?.lastLoginIp ?? null,
       departmentId: extras?.departmentId ?? null,
+      jobTitle: extras?.jobTitle ?? null,
+      managerId: extras?.managerId ?? null,
+      employeeId: extras?.employeeId ?? null,
+      hireDate: extras?.hireDate ?? null,
+      workLocation: extras?.workLocation ?? null,
+      phone: extras?.phone ?? null,
       orgId: extras?.orgId ?? null,
       membershipType: extras?.membershipType,
     };
@@ -303,6 +315,12 @@ function createDrizzleAuthStore(): AuthStore {
           lastLoginAt: string | null;
           lastLoginIp: string | null;
           departmentId: string | null;
+          jobTitle: string | null;
+          managerId: string | null;
+          employeeId: string | null;
+          hireDate: string | null;
+          workLocation: string | null;
+          phone: string | null;
           orgId: string | null;
           membershipType: import('../types/organization').MembershipType;
         }> = {};
@@ -312,6 +330,12 @@ function createDrizzleAuthStore(): AuthStore {
         if (patch.lastLoginAt !== undefined) extrasPatch.lastLoginAt = patch.lastLoginAt;
         if (patch.lastLoginIp !== undefined) extrasPatch.lastLoginIp = patch.lastLoginIp;
         if (patch.departmentId !== undefined) extrasPatch.departmentId = patch.departmentId;
+        if (patch.jobTitle !== undefined) extrasPatch.jobTitle = patch.jobTitle;
+        if (patch.managerId !== undefined) extrasPatch.managerId = patch.managerId;
+        if (patch.employeeId !== undefined) extrasPatch.employeeId = patch.employeeId;
+        if (patch.hireDate !== undefined) extrasPatch.hireDate = patch.hireDate;
+        if (patch.workLocation !== undefined) extrasPatch.workLocation = patch.workLocation;
+        if (patch.phone !== undefined) extrasPatch.phone = patch.phone;
         if (patch.orgId !== undefined) extrasPatch.orgId = patch.orgId;
         if (patch.membershipType !== undefined) extrasPatch.membershipType = patch.membershipType;
         if (Object.keys(extrasPatch).length > 0) {

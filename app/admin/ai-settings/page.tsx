@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Save, Eye, EyeOff, RefreshCw, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
+import { Save, Eye, EyeOff, RefreshCw, CheckCircle2, AlertTriangle, Loader2, Globe, BookOpen } from 'lucide-react';
 
 interface AiSettingsForm {
   deepseekApiKey: string;
@@ -28,6 +28,8 @@ interface AiSettingsForm {
   embeddingApiKey: string;
   tavilyApiKey: string;
   braveSearchApiKey: string;
+  webSearchEnabled: string;   // 'true'|'false'|''
+  webLearnEnabled: string;    // 'true'|'false'|''
   smtpHost: string;
   smtpPort: string;
   smtpUser: string;
@@ -44,7 +46,7 @@ const EMPTY: AiSettingsForm = {
   kimiApiKey: '', kimiBaseUrl: '', kimiModel: '',
   hermesBaseUrl: '', hermesModel: '',
   embeddingProvider: '', embeddingModel: '', embeddingApiUrl: '', embeddingApiKey: '',
-  tavilyApiKey: '', braveSearchApiKey: '',
+  tavilyApiKey: '', braveSearchApiKey: '', webSearchEnabled: '', webLearnEnabled: '',
   smtpHost: '', smtpPort: '', smtpUser: '',
   smtpPass: '', smtpFrom: '', smtpSecure: '',
 };
@@ -92,6 +94,103 @@ interface SectionProps {
   children: React.ReactNode;
 }
 
+
+function Toggle({ label, desc, value, onChange }: {
+  label: string; desc: string; value: string;
+  onChange: (v: string) => void;
+}) {
+  const checked = value === 'true';
+  return (
+    <label className="flex items-start gap-3 cursor-pointer">
+      <div
+        className={`relative mt-0.5 h-5 w-9 shrink-0 rounded-full transition-colors ${checked ? 'bg-brand-500' : 'bg-surface-3 border border-hairline'}`}
+        onClick={() => onChange(checked ? 'false' : 'true')}
+      >
+        <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-4' : 'translate-x-0.5'}`} />
+      </div>
+      <div>
+        <p className="text-caption font-medium text-ink-primary">{label}</p>
+        <p className="text-footnote text-ink-secondary">{desc}</p>
+      </div>
+    </label>
+  );
+}
+
+function WebIngestTrigger() {
+  const [query, setQuery] = useState('');
+  const [urls, setUrls] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ saved: number; processed: number; results: Array<{url:string;ok:boolean;title?:string;error?:string}> } | null>(null);
+  const [err, setErr] = useState('');
+
+  async function run() {
+    setBusy(true); setErr(''); setResult(null);
+    try {
+      const urlList = urls.split('\n').map((u) => u.trim()).filter(Boolean);
+      const res = await fetch('/api/knowledge/web-ingest', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: query.trim(), urls: urlList }),
+      });
+      const j = await res.json();
+      if (!res.ok) { setErr(j.error ?? `HTTP ${res.status}`); return; }
+      setResult(j);
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-3 rounded-lg border border-hairline bg-surface-2 p-4 space-y-3">
+      <div className="flex items-center gap-2 text-caption font-semibold text-ink-primary">
+        <Globe className="h-4 w-4 text-brand-500" />
+        立即触发外网学习
+      </div>
+      <div>
+        <label className="text-footnote text-ink-secondary mb-1 block">搜索关键词（AI 搜索后自动抓取）</label>
+        <input
+          className="w-full rounded-md border border-hairline bg-surface-1 px-3 py-1.5 text-caption text-ink-primary focus:outline-none focus:ring-1 focus:ring-brand-500"
+          placeholder="如：2026年AI大模型行业趋势"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      </div>
+      <div>
+        <label className="text-footnote text-ink-secondary mb-1 block">直接指定 URL（每行一个，可选）</label>
+        <textarea
+          className="w-full rounded-md border border-hairline bg-surface-1 px-3 py-1.5 text-caption text-ink-primary focus:outline-none focus:ring-1 focus:ring-brand-500 h-20 resize-none"
+          placeholder="https://example.com/article"
+          value={urls}
+          onChange={(e) => setUrls(e.target.value)}
+        />
+      </div>
+      <button
+        onClick={run}
+        disabled={busy || (!query.trim() && !urls.trim())}
+        className="flex items-center gap-1.5 rounded-md bg-brand-500 px-4 py-1.5 text-caption font-medium text-white hover:bg-brand-600 disabled:opacity-50"
+      >
+        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <BookOpen className="h-3.5 w-3.5" />}
+        {busy ? '抓取中…' : '开始抓取并存入知识库'}
+      </button>
+      {err && <p className="text-footnote text-rose-600">{err}</p>}
+      {result && (
+        <div className="text-footnote text-ink-secondary space-y-1">
+          <p className="font-medium text-ink-primary">完成：{result.saved}/{result.processed} 条已存入知识库</p>
+          {result.results.map((r, i) => (
+            <div key={i} className={`flex items-start gap-1.5 ${r.ok ? 'text-emerald-700' : 'text-rose-600'}`}>
+              <span>{r.ok ? '✓' : '✗'}</span>
+              <span className="truncate">{r.title ?? r.url}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Section({ title, badge, children }: SectionProps) {
   return (
     <div className="rounded-2xl border border-hairline bg-surface-1 p-5 space-y-4">
@@ -124,7 +223,9 @@ export default function AiSettingsPage() {
         setForm((prev) => ({
           ...prev,
           ...Object.fromEntries(
-            Object.entries(s).filter(([, v]) => typeof v === 'string'),
+            Object.entries(s)
+              .filter(([, v]) => typeof v === 'string' || typeof v === 'boolean')
+              .map(([k, v]) => [k, typeof v === 'boolean' ? String(v) : v]),
           ),
         }));
         setStatus('ok');
@@ -135,9 +236,13 @@ export default function AiSettingsPage() {
   async function handleSave() {
     setStatus('saving');
     try {
-      const body: Record<string, string> = {};
+      const body: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(form)) {
-        if (typeof v === 'string' && v.trim()) body[k] = v.trim();
+        if (typeof v === 'string') {
+          if (v === 'true') body[k] = true;
+          else if (v === 'false') body[k] = false;
+          else if (v.trim()) body[k] = v.trim();
+        }
       }
       const res = await fetch('/api/admin/ai-settings', {
         method: 'PUT',
@@ -256,9 +361,26 @@ export default function AiSettingsPage() {
         <Field label="API Key" field="embeddingApiKey" form={form} onChange={onChange} isKey />
       </Section>
 
-      <Section title="Web 搜索增强">
+      <Section title="Web 搜索 · 外网学习">
         <Field label="Tavily API Key" field="tavilyApiKey" form={form} onChange={onChange} isKey placeholder="tvly-…（免费 1000 次/月）" />
         <Field label="Brave Search API Key" field="braveSearchApiKey" form={form} onChange={onChange} isKey placeholder="BSA…（免费 2000 次/月）" />
+        <div className="flex flex-col gap-3 pt-1">
+          <Toggle
+            label="联网回答（AI 自动联网查证）"
+            desc="开启后，AI 回答时遇到时效性/外部信息类问题会自动搜索公开网络"
+            value={form.webSearchEnabled}
+            onChange={(v) => onChange('webSearchEnabled', v)}
+          />
+          <Toggle
+            label="外网主动学习（爬取存入知识库）"
+            desc="开启后，管理员可手动触发或 AI 将网页内容提炼后存入公司知识库"
+            value={form.webLearnEnabled}
+            onChange={(v) => onChange('webLearnEnabled', v)}
+          />
+        </div>
+        {form.webLearnEnabled === 'true' && (
+          <WebIngestTrigger />
+        )}
       </Section>
 
       <Section title="邮件 (SMTP)">
