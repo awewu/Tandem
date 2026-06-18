@@ -60,7 +60,15 @@ export default function AnalyticsPage() {
   // 部门维度 OKR 健康 (走 Ownership SSOT, 修 bug: 原逻辑只看 person.ministryId, 不能解 'team:X' / 'person:X')
   const deptHealth = useMemo(() => {
     if (now == null) return [];
-    const deptIndex = buildDeptIndex(org.departments);
+    // 优先用 HR 部门树; 若为空则降级到治理模板 departments
+    const hrDepts = org.hrDepts ?? [];
+    const deptSrc = hrDepts.length > 0
+      ? hrDepts.map((d: import('@/lib/org/departments').HrDept) => ({
+          id: d.id, name: d.name, pillar: undefined,
+          ministries: [{ id: d.id, name: d.name, tag: d.id, description: d.description, agents: [] }],
+        }))
+      : org.departments;
+    const deptIndex = buildDeptIndex(deptSrc);
     const byKey = new Map<string, { name: string; total: number; onTrack: number; progressSum: number }>();
     for (const o of okr.objectives) {
       const owner = resolveOwner(o.ownerId, { people: okr.people, deptIndex });

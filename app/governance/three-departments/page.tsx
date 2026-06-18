@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * /governance/three-departments · 三省六部 · 项目治理协同
+ * /governance/three-departments · 治理协同 · 项目执行
  *
  * Phase 2: 真 API 驱动 + 多战略项目 + RACI 矩阵视图
  * 详见 docs/GOVERNANCE-THREE-DEPARTMENTS-2026-05-30.md
@@ -199,14 +199,14 @@ export default function ThreeDepartmentsPage() {
           <Network className="w-5 h-5 text-violet-600 shrink-0" />
           <div className="flex-1 min-w-[280px]">
             <div className="text-caption font-semibold flex items-center gap-2 flex-wrap">
-              三省六部 · 执行协同
+              治理层级 · 执行协同
               <Badge variant="outline" className="text-[10px] font-normal">
                 重大公司级工作
               </Badge>
             </div>
             <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
-              <strong>事业项目 / 重大公司级工作 / 执行项目组</strong>的协同骨架 · 中书 (提案) →
-              门下 (审议) → 尚书六部 (执行) · 锚定 OKR 战略执行 ·{' '}
+              <strong>事业项目 / 重大公司级工作 / 执行项目组</strong>的协同骨架 · 事业部 (提案) →
+              企业决策层 (审议) → 执行 BU (落地) · 锚定 OKR 战略执行 ·{' '}
               <Link href="/admin/organization" className="text-violet-600 hover:underline">
                 员工部门 (HR) →
               </Link>
@@ -425,7 +425,7 @@ export default function ThreeDepartmentsPage() {
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-center max-w-md mx-auto">
                 <Building2 className="h-12 w-12 opacity-20" />
-                <p className="mt-3 text-caption font-medium">选择左侧三省 / 六部查看与配置</p>
+                <p className="mt-3 text-caption font-medium">选择左侧层级 / 部门查看与配置</p>
                 <p className="text-footnote mt-1 max-w-xs leading-relaxed">
                   {projectId === DEFAULT_PROJECT_ID
                     ? '当前是公司级总治理模板。新建战略项目时会以此为种子复制。'

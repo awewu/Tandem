@@ -23,10 +23,12 @@ export { PILLAR_META };
 interface OrgStore {
   departments: Department[];
   setDepartments: (d: Department[]) => void;
-  /** 是否已从后端 hydrate 过 (供 ApiHydrator 防重复) */
+  /** HR 部门树 (来自 /api/org/departments) */
+  hrDepts: import('../org/departments').HrDept[];
   _hydrated: boolean;
-  /** 从后端 governance 默认项目模板拉取并替换 fixture */
+  _hrHydrated: boolean;
   hydrateFromGovernance: () => Promise<void>;
+  hydrateHrDepts: () => Promise<void>;
 }
 
 /**
@@ -43,8 +45,19 @@ interface OrgStore {
 export const useOrgStore = create<OrgStore>()(
   (set, get) => ({
     departments: defaultDepartments(),
+    hrDepts: [],
     _hydrated: false,
+    _hrHydrated: false,
     setDepartments: (d) => set({ departments: d }),
+    hydrateHrDepts: async () => {
+      if (get()._hrHydrated) return;
+      try {
+        const r = await fetch('/api/org/departments', { cache: 'no-store', credentials: 'include' });
+        if (!r.ok) return;
+        const j = await r.json();
+        if (Array.isArray(j.depts)) set({ hrDepts: j.depts, _hrHydrated: true });
+      } catch { /* offline — keep empty */ }
+    },
     hydrateFromGovernance: async () => {
       if (get()._hydrated) return;
       try {

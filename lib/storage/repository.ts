@@ -227,6 +227,18 @@ export interface AuthUser {
   lastLoginIp?: string | null;
   emailVerifiedAt?: string | null;
   departmentId?: string | null;
+  /** 职务 / 岗位名称 */
+  jobTitle?: string | null;
+  /** 直属上级 userId */
+  managerId?: string | null;
+  /** 员工工号 (可选, HR 侧编号) */
+  employeeId?: string | null;
+  /** 入职日期 ISO string */
+  hireDate?: string | null;
+  /** 工作地点 */
+  workLocation?: string | null;
+  /** 手机 */
+  phone?: string | null;
   /** 所属组织 (企业微信上下游模型); 未归属时为 null */
   orgId?: string | null;
   /** 成员身份类型 (internal / upstream_downstream / individual / linked / pending) */

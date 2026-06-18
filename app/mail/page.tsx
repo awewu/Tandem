@@ -30,6 +30,7 @@ import {
   FileText,
   Star,
 } from 'lucide-react';
+import { Download, FolderInput } from 'lucide-react';
 import PageTabs from '@/components/page-tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -178,6 +179,7 @@ function InboxView({ folder = 'INBOX' }: { folder?: string }) {
   const [detailLoading, setDetailLoading] = useState(false);
   const [selectedUids, setSelectedUids] = useState<Set<number>>(new Set());
   const [marking, setMarking] = useState(false);
+  const [moving, setMoving] = useState(false);
 
   const label = FOLDER_LABELS[folder] ?? { title: folder, icon: Inbox };
 
@@ -288,6 +290,34 @@ function InboxView({ folder = 'INBOX' }: { folder?: string }) {
     }
   }
 
+  const MOVE_TARGETS = [
+    { label: '垃圾箱', value: 'Trash' },
+    { label: '草稿箱', value: 'Drafts' },
+    { label: '已发送', value: 'Sent' },
+    { label: '归档', value: 'Archive' },
+  ].filter((t) => t.value.toLowerCase() !== folder.toLowerCase());
+
+  async function batchMove(uids: number[], to: string) {
+    if (!uids.length) return;
+    setMoving(true);
+    try {
+      const apiFolder = folder === 'starred' ? 'INBOX' : folder;
+      const res = await fetch('/api/mail/move', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ uids, from: apiFolder, to }),
+      });
+      if (!res.ok) throw new Error('移动失败');
+      setEmails((prev) => prev.filter((e) => !uids.includes(e.uid)));
+      setSelectedUids(new Set());
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setMoving(false);
+    }
+  }
+
   async function openDetail(uid: number) {
     setSelectedUid(uid);
     setDetailLoading(true);
@@ -324,13 +354,19 @@ function InboxView({ folder = 'INBOX' }: { folder?: string }) {
             <ArrowLeft className="h-3.5 w-3.5 mr-1" />
             返回列表
           </Button>
-          {detail && (
-            <Button variant="outline" size="sm" onClick={() => batchMark([detail.uid], { flagged: !detail.flags.includes('\\Flagged') })} disabled={marking}>
-              <Star className={`h-3.5 w-3.5 mr-1 ${detail.flags.includes('\\Flagged') ? 'fill-yellow-400 text-yellow-400' : ''}`} />
-              {detail.flags.includes('\\Flagged') ? '取消星标' : '标记星标'}
-            </Button>
-          )}
-        </div>
+        {detail && (
+          <Button variant="outline" size="sm" onClick={() => batchMark([detail.uid], { flagged: !detail.flags.includes('\\Flagged') })} disabled={marking}>
+            <Star className={`h-3.5 w-3.5 mr-1 ${detail.flags.includes('\\Flagged') ? 'fill-yellow-400 text-yellow-400' : ''}`} />
+            {detail.flags.includes('\\Flagged') ? '取消星标' : '标记星标'}
+          </Button>
+        )}
+        {detail && MOVE_TARGETS.map((t) => (
+          <Button key={t.value} variant="outline" size="sm" onClick={() => { batchMove([detail.uid], t.value); setSelectedUid(null); setDetail(null); }} disabled={moving}>
+            <FolderInput className="h-3.5 w-3.5 mr-1" />
+            移至{t.label}
+          </Button>
+        ))}
+      </div>
         {detailLoading ? (
           <Card><CardContent className="p-8 text-center text-caption text-ink-tertiary">加载中...</CardContent></Card>
         ) : detail ? (
@@ -354,10 +390,15 @@ function InboxView({ folder = 'INBOX' }: { folder?: string }) {
               {detail.attachments.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {detail.attachments.map((att) => (
-                    <span key={att.filename} className="inline-flex items-center gap-1 rounded-md bg-surface-2 px-2 py-1 text-footnote text-ink-secondary">
-                      <Mail className="h-3 w-3" />
+                    <a
+                      key={att.filename}
+                      href={`/api/mail/attachment?uid=${detail.uid}&filename=${encodeURIComponent(att.filename)}&folder=${encodeURIComponent(folder === 'starred' ? 'INBOX' : folder)}`}
+                      download={att.filename}
+                      className="inline-flex items-center gap-1 rounded-md bg-surface-2 px-2 py-1 text-footnote text-ink-secondary hover:bg-surface-3 hover:text-ink-primary transition-colors"
+                    >
+                      <Download className="h-3 w-3" />
                       {att.filename} ({(att.size / 1024).toFixed(1)} KB)
-                    </span>
+                    </a>
                   ))}
                 </div>
               )}
@@ -399,7 +440,7 @@ function InboxView({ folder = 'INBOX' }: { folder?: string }) {
           <Button variant="outline" size="sm" onClick={() => batchMark(Array.from(selectedUids), { flagged: true })} disabled={marking}>标记星标</Button>
           <Button variant="outline" size="sm" onClick={() => batchMark(Array.from(selectedUids), { flagged: false })} disabled={marking}>取消星标</Button>
           <Button variant="outline" size="sm" className="text-destructive" onClick={async () => {
-            if (!confirm(`确定删除 ${selectedUids.size} 封邮件？`)) return;
+            if (!window.confirm(`确定删除 ${selectedUids.size} 封邮件？`)) return;
             setMarking(true);
             try {
               const isStarred = folder === 'starred';
@@ -414,6 +455,10 @@ function InboxView({ folder = 'INBOX' }: { folder?: string }) {
               setMarking(false);
             }
           }} disabled={marking}>删除</Button>
+          <Button variant="outline" size="sm" onClick={() => batchMove(Array.from(selectedUids), 'Trash')} disabled={moving}>
+            <FolderInput className="h-3.5 w-3.5 mr-1" />
+            移至垃圾箱
+          </Button>
           <Button variant="ghost" size="sm" onClick={() => setSelectedUids(new Set(emails.map((e) => e.uid)))}>全选</Button>
           <Button variant="ghost" size="sm" onClick={() => setSelectedUids(new Set())}>取消选择</Button>
         </div>

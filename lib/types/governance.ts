@@ -39,7 +39,7 @@ export interface Ministry {
 export interface Department {
   id: string;
   name: string;
-  /** 三省语义: 中书=decision / 门下=review / 尚书=execution */
+  /** 层级语义: 事业部=decision / 企业决策层=review / 执行BU=execution */
   pillar?: GovernancePillar;
   ministries: Ministry[];
 }
@@ -173,8 +173,8 @@ export function validateProjectOkrAnchor(input: {
  * Pillar UI 元数据 (label / 单字 / Tailwind color / 组织实体 / 职能).
  *
  * 语义对齐 docs/GOVERNANCE-FPA-ENGINE-2026-06-09.md §1:
- *   中书=事业部提案 (OKR 草案+FP&A 推演) · 门下=总部/FP&A 用 BSC 底线审议封驳 ·
- *   尚书六部=经营单元/生产/研发 执行落真值 (成本中心)。
+ *   事业部=提案 (OKR 草案+FP&A 推演) · 企业决策层=总部/FP&A 用 BSC 底线审议封驳 ·
+ *   执行BU=销售大区/生产/研发 执行落真值 (成本中心)。
  *   「君·盖印」(议事室共识) 在三省之上, 非 pillar, 由页面 FP&A 视图单独表达。
  */
 export const PILLAR_META: Record<
@@ -182,25 +182,25 @@ export const PILLAR_META: Record<
   { label: string; short: string; color: string; who: string; desc: string }
 > = {
   decision: {
-    label: '中书 · 提案',
-    short: '中书',
+    label: '事业部 · 提案',
+    short: '事业部',
     color: 'violet',
-    who: '事业部',
+    who: '事业部 / 经营单元',
     desc: '起草 OKR/战略草案, FP&A 推演产交付基线作附件',
   },
   review: {
-    label: '门下 · 审议封驳',
-    short: '门下',
+    label: '企业决策层 · 审议',
+    short: '决策层',
     color: 'amber',
-    who: '总部 · FP&A',
+    who: '董事会 · 高管层',
     desc: '用 BSC 底线 + FP&A 差异把关, 可驳回; 不替「君」盖印',
   },
   execution: {
-    label: '尚书 · 执行',
-    short: '尚书',
+    label: '执行 BU · 落地',
+    short: 'BU',
     color: 'emerald',
-    who: '经营单元 · 成本中心',
-    desc: '六部执行落真值; FP&A 落账时切换为尚书户部',
+    who: '销售大区 / 生产 / 职能部门',
+    desc: '各 BU 执行落真值; FP&A 落账时切换为户部',
   },
 };
 
@@ -220,7 +220,7 @@ export function defaultDepartments(): Department[] {
   return [
     {
       id: 'dept-decision',
-      name: '中书省',
+      name: '事业部',
       pillar: 'decision',
       ministries: [
         {
@@ -235,7 +235,7 @@ export function defaultDepartments(): Department[] {
     },
     {
       id: 'dept-review',
-      name: '门下省',
+      name: '企业决策层',
       pillar: 'review',
       ministries: [
         {
@@ -250,15 +250,15 @@ export function defaultDepartments(): Department[] {
     },
     {
       id: 'dept-execution',
-      name: '尚书省',
+      name: '执行 BU',
       pillar: 'execution',
       ministries: [
-        { id: 'min-hr',        name: '吏部', tag: 'hr',        description: '项目班子搭建与角色任免',     agents: [], raci: 'R' },
-        { id: 'min-resources', name: '户部', tag: 'resources', description: '预算 / 资源 / 知识资产',      agents: [], raci: 'R' },
-        { id: 'min-protocol',  name: '礼部', tag: 'protocol',  description: '对外接口 / 协议 / 标准规范',  agents: [], raci: 'C' },
-        { id: 'min-ops',       name: '兵部', tag: 'ops',       description: '任务派发 / 调度 / 运维',      agents: [], raci: 'R' },
-        { id: 'min-security',  name: '刑部', tag: 'security',  description: '安全 / 合规 / 审计',          agents: [], raci: 'C' },
-        { id: 'min-dev',       name: '工部', tag: 'dev',       description: '开发 / 工程实施 / 技术落地', agents: [], raci: 'R' },
+        { id: 'min-hr',        name: '人力资源部', tag: 'hr',        description: '人员配置与角色任免',     agents: [], raci: 'R' },
+        { id: 'min-resources', name: '财务部',     tag: 'resources', description: '预算 / 资源 / 知识资产',      agents: [], raci: 'R' },
+        { id: 'min-protocol',  name: '市场部',     tag: 'protocol',  description: '对外接口 / 品牌 / 标准规范',  agents: [], raci: 'C' },
+        { id: 'min-ops',       name: '销售大区',   tag: 'ops',       description: '销售任务派发 / 大区调度 / 运营',      agents: [], raci: 'R' },
+        { id: 'min-security',  name: '合规审计部', tag: 'security',  description: '安全 / 合规 / 审计',          agents: [], raci: 'C' },
+        { id: 'min-dev',       name: '生产部',     tag: 'dev',       description: '生产 / 工程实施 / 技术落地', agents: [], raci: 'R' },
       ],
     },
   ];

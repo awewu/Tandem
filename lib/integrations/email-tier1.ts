@@ -361,3 +361,90 @@ export async function deleteMessages(
     await client.logout();
   }
 }
+/** IMAP 全文搜索 */
+export async function searchMessages(
+  cred: EmailCredentials,
+  options: { query: string; folder?: string; limit?: number }
+): Promise<EmailMessage[]> {
+  const client = new ImapFlow({
+    host: cred.imap.host, port: cred.imap.port,
+    secure: cred.imap.secure, auth: cred.imap.auth, logger: false,
+  });
+  try {
+    await client.connect();
+    const resolved = await resolveMailbox(client, options.folder ?? 'INBOX');
+    const lock = await client.getMailboxLock(resolved);
+    try {
+      const q = options.query.trim();
+      const uids = await client.search({ or: [{ subject: q }, { from: q }, { body: q }] }, { uid: true });
+      const limited = (uids ?? []).slice(-Math.min(options.limit ?? 30, 50)).reverse();
+      if (!limited.length) return [];
+      const msgs: EmailMessage[] = [];
+      for await (const msg of client.fetch(limited.join(','), { envelope: true, flags: true }, { uid: true })) {
+        msgs.push({
+          uid: msg.uid,
+          seq: msg.seq,
+          from: (msg.envelope?.from ?? []).map((f) => ({ name: f.name ?? '', address: f.mailbox + '@' + f.host })),
+          to: (msg.envelope?.to ?? []).map((t) => ({ name: t.name ?? '', address: t.mailbox + '@' + t.host })),
+          subject: msg.envelope?.subject ?? '(无主题)',
+          date: (msg.envelope?.date ?? new Date()).toISOString(),
+          seen: (msg.flags ?? new Set()).has('\\Seen'),
+          flags: Array.from(msg.flags ?? []),
+          attachments: [],
+        });
+      }
+      return msgs;
+    } finally { lock.release(); }
+  } finally { await client.logout(); }
+}
+
+/** 移动邮件到指定文件夹 */
+export async function moveMessages(
+  cred: EmailCredentials,
+  options: { uids: number[]; from: string; to: string }
+): Promise<void> {
+  const client = new ImapFlow({
+    host: cred.imap.host, port: cred.imap.port,
+    secure: cred.imap.secure, auth: cred.imap.auth, logger: false,
+  });
+  try {
+    await client.connect();
+    const fromResolved = await resolveMailbox(client, options.from);
+    const lock = await client.getMailboxLock(fromResolved);
+    try {
+      const toResolved = await resolveMailbox(client, options.to);
+      await client.messageMove(options.uids.join(','), toResolved, { uid: true });
+    } finally { lock.release(); }
+  } finally { await client.logout(); }
+}
+
+/** 下载附件内容（返回 base64 data URI） */
+export async function fetchAttachment(
+  cred: EmailCredentials,
+  uid: number,
+  filename: string,
+  folder?: string
+): Promise<{ data: string; contentType: string; filename: string } | null> {
+  const client = new ImapFlow({
+    host: cred.imap.host, port: cred.imap.port,
+    secure: cred.imap.secure, auth: cred.imap.auth, logger: false,
+  });
+  try {
+    await client.connect();
+    const resolved = await resolveMailbox(client, folder ?? 'INBOX');
+    const lock = await client.getMailboxLock(resolved);
+    try {
+      const msgData = await client.fetchOne(uid.toString(), { source: true }, { uid: true });
+      if (!msgData?.source) return null;
+      const { simpleParser } = await import('mailparser');
+      const parsed = await simpleParser(msgData.source as Buffer);
+      const att = parsed.attachments.find((a) => (a.filename ?? '') === filename);
+      if (!att) return null;
+      return {
+        data: att.content.toString('base64'),
+        contentType: att.contentType,
+        filename: att.filename ?? filename,
+      };
+    } finally { lock.release(); }
+  } finally { await client.logout(); }
+}
