@@ -15,6 +15,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Eye, EyeOff, ShieldCheck, KeyRound, HandHeart, Smile, Phone, QrCode, UserRound } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuthStore } from '@/lib/hooks/use-current-user';
 
 // useSearchParams() in a Client Component must be wrapped in <Suspense> for prerender.
 export default function LoginPage() {
@@ -29,6 +30,7 @@ function LoginInner() {
   const router = useRouter();
   const search = useSearchParams();
   const next = search.get('next') ?? '/';
+  const fetchMe = useAuthStore((s) => s.fetchMe);
 
   const [stage, setStage] = useState<'creds' | 'mfa'>('creds');
   const [method, setMethod] = useState<LoginMethod>('account');
@@ -65,6 +67,7 @@ function LoginInner() {
         // P0-4 (LAUNCH-200): owner/admin/steward 未启用 MFA → 强跳启用页, 不放过业务路由
         router.push('/settings/security?enrollMfa=1&reason=privileged_role');
       } else {
+        await fetchMe();
         router.push(next);
       }
     } finally {
@@ -91,6 +94,7 @@ function LoginInner() {
         setError(data.error ?? 'MFA 验证失败');
         return;
       }
+      await fetchMe();
       router.push(next);
     } finally {
       setBusy(false);

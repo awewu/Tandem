@@ -1,17 +1,16 @@
 /**
- * Tandem Service Worker · PWA + Web Push
+ * Tandem Service Worker - PWA + Web Push.
  *
- * 注意:
- *   - 路径必须是 /sw.js 才能控制根路径下所有页面
- *   - 缓存策略: app shell + 静态资源 cache-first, API network-first
+ * Cache static assets only. Auth-gated HTML pages must stay network-first
+ * so stale PWA caches cannot bypass redirects or login checks.
  */
 
-const CACHE_NAME = 'tandem-v1';
-const APP_SHELL = ['/', '/manifest.webmanifest'];
+const CACHE_NAME = 'tandem-v2';
+const APP_SHELL = ['/manifest.webmanifest', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((c) => c.addAll(APP_SHELL).catch(() => undefined))
+    caches.open(CACHE_NAME).then((c) => c.addAll(APP_SHELL).catch(() => undefined)),
   );
   self.skipWaiting();
 });
@@ -27,29 +26,42 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
-  // API 请求 network-first
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(
-      fetch(event.request).catch(() => caches.match(event.request)),
-    );
+
+  if (event.request.method !== 'GET') return;
+
+  if (url.pathname.startsWith('/api/') || event.request.mode === 'navigate') {
+    event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
     return;
   }
-  // 静态资源 cache-first
-  if (event.request.method === 'GET') {
-    event.respondWith(
-      caches.match(event.request).then(
-        (cached) =>
-          cached ||
-          fetch(event.request).then((res) => {
-            const copy = res.clone();
-            if (res.ok && url.origin === self.location.origin) {
-              caches.open(CACHE_NAME).then((c) => c.put(event.request, copy)).catch(() => undefined);
-            }
-            return res;
-          }),
-      ),
+
+  const isStaticAsset =
+    url.origin === self.location.origin &&
+    (
+      url.pathname.startsWith('/_next/static/') ||
+      url.pathname.startsWith('/brand/') ||
+      url.pathname === '/manifest.webmanifest' ||
+      url.pathname === '/favicon.ico' ||
+      url.pathname.startsWith('/icon-') ||
+      url.pathname.endsWith('.png') ||
+      url.pathname.endsWith('.svg') ||
+      url.pathname.endsWith('.webmanifest')
     );
-  }
+
+  if (!isStaticAsset) return;
+
+  event.respondWith(
+    caches.match(event.request).then(
+      (cached) =>
+        cached ||
+        fetch(event.request).then((res) => {
+          const copy = res.clone();
+          if (res.ok) {
+            caches.open(CACHE_NAME).then((c) => c.put(event.request, copy)).catch(() => undefined);
+          }
+          return res;
+        }),
+    ),
+  );
 });
 
 self.addEventListener('push', (event) => {
