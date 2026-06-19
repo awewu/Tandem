@@ -29,6 +29,12 @@
 import type { ScenarioTag } from '@/lib/taf/provider/types';
 import { runMultiStep, type AgentStepTrace } from './multi-step';
 import { logger } from '@/lib/infra/logger';
+import {
+  getSpecialist,
+  matchSpecialist,
+  type SpecialistDefinition,
+  type SpecialistId,
+} from './agent-definitions';
 
 export interface SubagentInput {
   /** 子任务描述 (subagent 拿到的"用户提问") */
@@ -119,6 +125,98 @@ export async function spawnSubagentsParallel(
   inputs: SubagentInput[],
 ): Promise<SubagentResult[]> {
   return Promise.all(inputs.map((i) => spawnSubagent(i)));
+}
+
+// ──────────────────────────────────────────────────────────────────
+// Specialist subagents · 具名专家派生 (借鉴 Claude Code subagent 模式)
+// ──────────────────────────────────────────────────────────────────
+
+export interface SpecialistSpawnInput {
+  /** 指定专家; 留空则按 task 关键词自动匹配 */
+  specialistId?: SpecialistId | string;
+  /** 子任务描述 */
+  task: string;
+  /** 父任务 hint (可选, 注入 system) */
+  parentSystemHint?: string;
+  actorUserId: string;
+  isProxy?: boolean;
+  tenantId?: string;
+  parentAiTraceId?: string;
+}
+
+export interface SpecialistSpawnResult extends SubagentResult {
+  /** 实际选用的专家 (自动匹配时回填) */
+  specialist: { id: string; name: string } | null;
+  /** 选用原因: 显式指定 / 关键词匹配 / 无匹配 */
+  matchReason: 'explicit' | 'matched' | 'no_match';
+}
+
+/**
+ * 用某个具名专家执行子任务.
+ *
+ * - 显式 specialistId 优先; 否则按 task 关键词匹配.
+ * - 匹配不到时返回 ok=false + matchReason='no_match', 不瞎跑.
+ * - 专家的 systemPrompt / toolset / scenario / maxSteps 全部来自声明式定义,
+ *   真正派生仍走 spawnSubagent → runMultiStep (复用现有运行时与权限闸).
+ */
+export async function spawnSpecialist(
+  input: SpecialistSpawnInput,
+): Promise<SpecialistSpawnResult> {
+  let def: SpecialistDefinition | null = null;
+  let matchReason: SpecialistSpawnResult['matchReason'];
+
+  if (input.specialistId) {
+    def = getSpecialist(input.specialistId) ?? null;
+    matchReason = 'explicit';
+    if (!def) {
+      return {
+        summary: `(未知专家 id: ${input.specialistId})`,
+        ok: false,
+        error: 'unknown_specialist',
+        trace: [],
+        tokensUsed: 0,
+        latencyMs: 0,
+        specialist: null,
+        matchReason: 'no_match',
+      };
+    }
+  } else {
+    def = matchSpecialist(input.task);
+    matchReason = def ? 'matched' : 'no_match';
+    if (!def) {
+      return {
+        summary: '(未能匹配到合适的专家, 请显式指定 specialistId)',
+        ok: false,
+        error: 'no_specialist_matched',
+        trace: [],
+        tokensUsed: 0,
+        latencyMs: 0,
+        specialist: null,
+        matchReason: 'no_match',
+      };
+    }
+  }
+
+  const base = await spawnSubagent({
+    task: input.task,
+    parentSystemHint:
+      [def.systemPrompt, input.parentSystemHint].filter(Boolean).join('\n\n'),
+    isolatedToolset: def.toolset,
+    maxSteps: def.maxSteps,
+    scenario: def.scenario,
+    actorUserId: input.actorUserId,
+    isProxy: input.isProxy,
+    tenantId: input.tenantId,
+    parentAiTraceId: input.parentAiTraceId
+      ? `${input.parentAiTraceId}:${def.id}`
+      : def.id,
+  });
+
+  return {
+    ...base,
+    specialist: { id: def.id, name: def.name },
+    matchReason,
+  };
 }
 
 // ──────────────────────────────────────────────────────────────────
