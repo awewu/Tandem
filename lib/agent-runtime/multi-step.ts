@@ -49,8 +49,16 @@ export interface AgentStepTrace {
   latencyMs?: number;
   /** 是否标记为 finished (LLM 主动停) */
   finished: boolean;
+  /**
+   * 精髓 (Claude Code TodoWrite 式可见性):
+   *   pending → in_progress → completed / failed
+   *   可逐步推流给前端任务面板; 同一时刻只允许一个 in_progress.
+   */
+  status: AgentStepStatus;
 }
 
+/** pending→in_progress→completed/failed (借鉴 Claude Code TodoWrite 精髓) */
+export type AgentStepStatus = 'pending' | 'in_progress' | 'completed' | 'failed';
 export interface MultiStepInput {
   /** TAF Router scenario, 默认 reasoning_complex (走 claude-opus-4-5) */
   scenario?: ScenarioTag;
@@ -134,12 +142,16 @@ export async function runMultiStep(input: MultiStepInput): Promise<MultiStepResu
         observation: typeof inv.result === 'string' ? inv.result.slice(0, 1000) : JSON.stringify(inv.result).slice(0, 1000),
         latencyMs: inv.latencyMs,
         finished: false,
+        status: 'failed',
+        status: inv.ok ? 'completed' : 'failed',
       }));
       // 最后一步加 final answer
       adaptedTrace.push({
         step: adaptedTrace.length + 1,
         thought: '(native: final assistant message)',
         finished: r.finishedNaturally,
+        status: r.finishedNaturally ? 'completed' : 'failed',
+        status: r.finishedNaturally ? 'completed' : 'failed',
       });
       return {
         finalAnswer: r.finalMessage,
@@ -226,6 +238,8 @@ export async function runMultiStep(input: MultiStepInput): Promise<MultiStepResu
           tokensUsed: stepTokens,
           latencyMs: stepLatency,
           finished: false,
+          status: 'failed',
+          status: 'failed',
         });
         break;
       }
@@ -247,6 +261,7 @@ export async function runMultiStep(input: MultiStepInput): Promise<MultiStepResu
             tokensUsed: stepTokens,
             latencyMs: stepLatency,
             finished: false,
+            status: 'failed',
           });
           continue;
         }
@@ -271,6 +286,8 @@ export async function runMultiStep(input: MultiStepInput): Promise<MultiStepResu
           tokensUsed: stepTokens,
           latencyMs: stepLatency,
           finished: false,
+          status: skillResult.ok ? 'completed' : 'failed',
+          status: skillResult.ok ? 'completed' : 'failed',
         });
         continue; // 进入下一轮, 让 LLM 看 observation 决定下一步
       }
@@ -285,6 +302,8 @@ export async function runMultiStep(input: MultiStepInput): Promise<MultiStepResu
           tokensUsed: stepTokens,
           latencyMs: stepLatency,
           finished: true,
+          status: 'completed',
+          status: 'completed',
         });
         break;
       }
@@ -297,6 +316,7 @@ export async function runMultiStep(input: MultiStepInput): Promise<MultiStepResu
         tokensUsed: stepTokens,
         latencyMs: stepLatency,
         finished: false,
+        status: 'failed',
       });
     }
 
@@ -364,6 +384,13 @@ function buildReactSystemPrompt(
   lines.push('给最终答案示例: { "thought": "信息已足够", "finalAnswer": "...", "finished": true }');
   lines.push('');
   lines.push('严禁输出 JSON 之外的任何文本. 不要 markdown code fence.');
+  lines.push('');
+  // 精髓 2 (Claude Code TodoWrite): 先声明再执行, 完成立即确认, 不批量
+  lines.push('【任务纪律 (必须遵守)】');
+  lines.push('- 每步只做一件事: 要么调一个工具, 要么给 finalAnswer. 不要同时做两件事.');
+  lines.push('- 工具调用成功后立即消化结果, 下一步基于结果继续, 不要重复调同一工具.');
+  lines.push('- 信息够了立刻给 finalAnswer; 不够才继续调工具. 不要凑步数.');
+  lines.push('- 输出 ≤ 4 行散文; 不加前言后语; 结论先行.');
   return lines.join('\n');
 }
 
