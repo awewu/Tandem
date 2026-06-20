@@ -84,13 +84,13 @@ export async function POST(req: NextRequest) {
     try {
       const raw = await fetchPageText(url);
       const completion = await router.chat({
-        model: undefined,
+        scenario: 'long_context',
         messages: [
           { role: 'system', content: '你是一个知识提炼助手。将以下网页内容提炼为结构化的中文知识摘要，保留关键数据、观点和结论，去除广告和导航内容。用 Markdown 格式输出，包含标题和要点。' },
           { role: 'user', content: `来源: ${url}\n\n${raw}` },
         ],
       });
-      const summary = completion.choices?.[0]?.message?.content ?? raw.slice(0, 2000);
+      const summary = (typeof completion.message.content === 'string' ? completion.message.content : '') || raw.slice(0, 2000);
       const title = summary.split('\n')[0].replace(/^#+\s*/, '').slice(0, 80) || new URL(url).hostname;
       await createNode({
         ownerId: auth.userId,

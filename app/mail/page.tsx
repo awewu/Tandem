@@ -12,7 +12,7 @@
  * 设置入口      :  右上角 → /settings/email
  */
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
@@ -910,7 +910,17 @@ function ComposeView({
                 AI 回复草稿
               </div>
               <div className="flex items-center gap-1">
-                <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px]" onClick={() => setBody(aiReplyDraft)}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-[10px]"
+                  onClick={() => {
+                    const html = escapeHtml(aiReplyDraft);
+                    setBodyHtml(html);
+                    if (editorRef.current) editorRef.current.innerHTML = html;
+                    setAiReplyDraft(null);
+                  }}
+                >
                   采用
                 </Button>
                 <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px]" onClick={() => setAiReplyDraft(null)}>

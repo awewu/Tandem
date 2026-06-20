@@ -43,7 +43,7 @@ function buildDeptChildren(depts: HrDept[]): Map<string | null, HrDept[]> {
     if (!map.has(k)) map.set(k, []);
     map.get(k)!.push(d);
   }
-  for (const arr of map.values()) arr.sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
+  for (const arr of Array.from(map.values())) arr.sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
   return map;
 }
 
