@@ -38,6 +38,8 @@ import {
   PinOff,
   ExternalLink,
   Share2,
+  MessageCircleQuestion,
+  Send as SendIcon,
 } from 'lucide-react';
 
 interface Note {
@@ -77,6 +79,13 @@ export default function ShouchaoPage() {
   const [aiBusy, setAiBusy] = useState<null | 'summarize' | 'polish' | 'tags'>(null);
   const [clipOpen, setClipOpen] = useState(false);
   const [toast, setToast] = useState<Toast>(null);
+
+  // 跨笔记 AI 问答 (Ask) · 问你的第二大脑
+  const [askOpen, setAskOpen] = useState(false);
+  const [askQuestion, setAskQuestion] = useState('');
+  const [askBusy, setAskBusy] = useState(false);
+  const [askAnswer, setAskAnswer] = useState('');
+  const [askCitations, setAskCitations] = useState<{ index: number; id: string; title: string }[]>([]);
 
   // 刚需 · 随手记快速捕获 (1 步落库, 不开编辑器)
   const [quick, setQuick] = useState('');
@@ -311,6 +320,41 @@ export default function ShouchaoPage() {
     }
   }
 
+  // ---- 跨笔记 AI 问答 (Ask) · 问你的第二大脑 ----
+  async function askNotes() {
+    const q = askQuestion.trim();
+    if (!q || askBusy) return;
+    setAskBusy(true);
+    setAskAnswer('');
+    setAskCitations([]);
+    try {
+      const r = await fetch('/api/shouchao/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: q }),
+      });
+      const d = await r.json();
+      if (!r.ok || !d.ok) throw new Error(d.error ?? 'AI 问答失败');
+      setAskAnswer(d.answer ?? '');
+      setAskCitations(Array.isArray(d.citations) ? d.citations : []);
+    } catch (e) {
+      showToast('err', e instanceof Error ? e.message : 'AI 问答失败');
+    } finally {
+      setAskBusy(false);
+    }
+  }
+
+  // 点引用 → 打开对应笔记
+  function openCitation(id: string) {
+    const n = notes.find((x) => x.id === id);
+    if (n) {
+      selectNote(n);
+      setAskOpen(false);
+    } else {
+      showToast('err', '该笔记可能已归档或删除');
+    }
+  }
+
   // ---- 员工本人闸门: 喂给我的工作分身 (默认关, 可撤回) ----
   async function toggleShare() {
     if (!activeId) return;
@@ -443,6 +487,85 @@ export default function ShouchaoPage() {
               placeholder="搜索标题 / 正文 / 标签"
               className="w-full rounded-2xl border border-border bg-surface-1 py-2 pl-9 pr-3 text-caption text-ink-primary placeholder:text-ink-tertiary focus:border-brand-400 focus:outline-none"
             />
+          </div>
+
+          {/* 问笔记 (跨笔记 AI 问答 · NotebookLM 式"第二大脑") */}
+          <div className="mt-3">
+            {!askOpen ? (
+              <button
+                type="button"
+                onClick={() => setAskOpen(true)}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-brand-300/60 bg-brand-50/40 py-2.5 text-caption font-semibold text-brand-600 hover:bg-brand-50 surface-interactive"
+              >
+                <MessageCircleQuestion className="h-4 w-4" /> 问笔记 · 让 AI 检索你的全部笔记作答
+              </button>
+            ) : (
+              <div className="rounded-2xl border border-brand-300/60 bg-surface-1 p-3 shadow-soft-sm">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="inline-flex items-center gap-1.5 text-caption font-semibold text-brand-600">
+                    <MessageCircleQuestion className="h-4 w-4" /> 问笔记
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setAskOpen(false)}
+                    className="rounded-md p-1 text-ink-tertiary hover:bg-surface-2 hover:text-ink-secondary surface-interactive"
+                    aria-label="关闭"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <div className="flex items-end gap-2">
+                  <textarea
+                    value={askQuestion}
+                    onChange={(e) => setAskQuestion(e.target.value)}
+                    onKeyDown={(e) => {
+                      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                        e.preventDefault();
+                        void askNotes();
+                      }
+                    }}
+                    placeholder="问问你的笔记，比如「我之前记过关于定价的想法吗？」"
+                    rows={2}
+                    className="min-h-[2.5rem] w-full resize-none rounded-lg border border-border bg-surface-1 px-3 py-2 text-caption text-ink-primary placeholder:text-ink-tertiary focus:border-brand-400 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void askNotes()}
+                    disabled={!askQuestion.trim() || askBusy}
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-brand-500 px-3 py-2 text-caption font-semibold text-white hover:bg-brand-600 shadow-soft-sm disabled:opacity-40 surface-interactive"
+                  >
+                    {askBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <SendIcon className="h-3.5 w-3.5" />}
+                    {askBusy ? '检索中' : '提问'}
+                  </button>
+                </div>
+
+                {/* 回答 + 引用溯源 */}
+                {askAnswer && (
+                  <div className="mt-3 rounded-lg border border-border bg-surface-2/40 p-3">
+                    <div className="whitespace-pre-wrap text-caption leading-relaxed text-ink-primary">{askAnswer}</div>
+                    {askCitations.length > 0 && (
+                      <div className="mt-2.5 border-t border-border pt-2">
+                        <p className="mb-1.5 text-footnote text-ink-tertiary">引用来源（点开查看）</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {askCitations.map((c) => (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => openCitation(c.id)}
+                              className="inline-flex items-center gap-1 rounded-md border border-border bg-surface-1 px-2 py-1 text-footnote text-ink-secondary hover:border-brand-300 hover:text-brand-600 surface-interactive"
+                              title={c.title}
+                            >
+                              <span className="font-mono text-brand-500">[{c.index}]</span>
+                              <span className="max-w-[12rem] truncate">{c.title}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* 标签筛选 chips */}

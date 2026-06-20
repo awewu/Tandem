@@ -31,6 +31,7 @@ import {
   Star,
 } from 'lucide-react';
 import { Download, FolderInput } from 'lucide-react';
+import { Reply, ReplyAll, Forward, Bold, Italic, Underline, List, ListOrdered, Link2 } from 'lucide-react';
 import PageTabs from '@/components/page-tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -62,6 +63,8 @@ function MailInner() {
   const [status, setStatus] = useState<MailStatus | null>(null);
   /** Tandem 转交草稿: 仅在收到 handoff 时有值, 一次性预填给 ComposeView */
   const [handoffDraft, setHandoffDraft] = useState<{ subject: string; body: string } | null>(null);
+  /** 回复 / 转发草稿: 由收件箱详情页触发, 预填 ComposeView (含收件人/抄送/HTML 引用) */
+  const [composeDraft, setComposeDraft] = useState<ComposeDraft | null>(null);
 
   // 监听 URL tab 参数变化（左侧菜单切换）
   useEffect(() => {
@@ -80,6 +83,13 @@ function MailInner() {
     setHandoffDraft({ subject: p.title, body: p.body });
     setTab('compose');
   });
+
+  /** 收件箱详情页回调: 构造回复/转发草稿并切到撰写视图 */
+  function startCompose(draft: ComposeDraft) {
+    setComposeDraft(draft);
+    setHandoffDraft(null);
+    setTab('compose');
+  }
 
   return (
     <div className="h-full flex flex-col md:px-8">
@@ -126,10 +136,30 @@ function MailInner() {
 
       {/* Body */}
       <div className="flex-1 overflow-auto p-6">
-        {tab === 'inbox' ? <InboxView folder={params.get('folder') || 'INBOX'} /> : <ComposeView canSend={status?.configured ?? false} initialDraft={handoffDraft} />}
+        {tab === 'inbox' ? (
+          <InboxView folder={params.get('folder') || 'INBOX'} onCompose={startCompose} />
+        ) : (
+          <ComposeView
+            canSend={status?.configured ?? false}
+            initialDraft={handoffDraft}
+            composeDraft={composeDraft}
+            fromAddress={status?.effective?.fromAddress}
+          />
+        )}
       </div>
     </div>
   );
+}
+
+/* 回复 / 转发 / 撰写草稿 */
+interface ComposeDraft {
+  mode: 'reply' | 'replyAll' | 'forward' | 'new';
+  to: string;
+  cc: string;
+  subject: string;
+  html: string;
+  /** 用于 AI 回复 / 审校的纯文本上下文 */
+  quotedText?: string;
 }
 
 /* ─────────── Inbox · IMAP 收件箱 ─────────── */
@@ -168,7 +198,15 @@ const FOLDER_LABELS: Record<string, { title: string; icon: typeof Inbox }> = {
   starred: { title: '星标邮件', icon: Star },
 };
 
-function InboxView({ folder = 'INBOX' }: { folder?: string }) {
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function stripHtml(html: string): string {
+  return html.replace(/<style[\s\S]*?<\/style>/gi, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function InboxView({ folder = 'INBOX', onCompose }: { folder?: string; onCompose: (d: ComposeDraft) => void }) {
   const [emails, setEmails] = useState<InboxEmail[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -180,6 +218,8 @@ function InboxView({ folder = 'INBOX' }: { folder?: string }) {
   const [selectedUids, setSelectedUids] = useState<Set<number>>(new Set());
   const [marking, setMarking] = useState(false);
   const [moving, setMoving] = useState(false);
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
 
   const label = FOLDER_LABELS[folder] ?? { title: folder, icon: Inbox };
 
@@ -346,6 +386,76 @@ function InboxView({ folder = 'INBOX' }: { folder?: string }) {
     loadEmails();
   }, []);
 
+  /** 构造引用块: Gmail 风格的 "On <date>, <from> wrote:" + 原文 HTML */
+  function buildQuote(d: InboxEmail): string {
+    const fromLabel = d.from[0]?.name || d.from[0]?.address || '';
+    const when = new Date(d.date).toLocaleString('zh-CN');
+    const original = d.htmlBody || (d.textBody ? `<pre style="white-space:pre-wrap;font-family:inherit">${escapeHtml(d.textBody)}</pre>` : '');
+    return `<br/><br/><div style="border-left:2px solid #ccc;padding-left:12px;color:#666">在 ${when}，${escapeHtml(fromLabel)} 写道：<br/>${original}</div>`;
+  }
+
+  function startReply(d: InboxEmail, all: boolean) {
+    const me = d.to[0]?.address || '';
+    const ccList = all
+      ? [...d.to.slice(1).map((t) => t.address), ...(d.from.slice(1).map((f) => f.address))].filter((a) => a && a !== me)
+      : [];
+    onCompose({
+      mode: all ? 'replyAll' : 'reply',
+      to: d.from[0]?.address || '',
+      cc: ccList.join(', '),
+      subject: /^re:/i.test(d.subject) ? d.subject : `Re: ${d.subject}`,
+      html: buildQuote(d),
+      quotedText: d.textBody || stripHtml(d.htmlBody || ''),
+    });
+  }
+
+  function startForward(d: InboxEmail) {
+    onCompose({
+      mode: 'forward',
+      to: '',
+      cc: '',
+      subject: /^fwd?:/i.test(d.subject) ? d.subject : `Fwd: ${d.subject}`,
+      html: `<br/><br/>---------- 转发邮件 ----------<br/>发件人: ${escapeHtml(d.from[0]?.address || '')}<br/>日期: ${new Date(d.date).toLocaleString('zh-CN')}<br/>主题: ${escapeHtml(d.subject)}<br/><br/>${d.htmlBody || escapeHtml(d.textBody || '')}`,
+      quotedText: d.textBody || stripHtml(d.htmlBody || ''),
+    });
+  }
+
+  async function summarizeThread(d: InboxEmail) {
+    setSummaryLoading(true);
+    setAiSummary(null);
+    try {
+      const res = await fetch('/api/mail/thread-summary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          emails: [{
+            subject: d.subject,
+            from: d.from[0]?.address || '',
+            date: d.date,
+            text: d.textBody || stripHtml(d.htmlBody || ''),
+          }],
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (json.ok && json.summary) {
+        const s = json.summary;
+        const parts: string[] = [];
+        if (Array.isArray(s.timeline) && s.timeline.length) parts.push('时间线:\n' + s.timeline.map((t: any) => `· ${t.date} ${t.who}: ${t.what}`).join('\n'));
+        if (Array.isArray(s.keyDecisions) && s.keyDecisions.length) parts.push('关键决策:\n' + s.keyDecisions.map((x: string) => `· ${x}`).join('\n'));
+        if (Array.isArray(s.outstandingQuestions) && s.outstandingQuestions.length) parts.push('待解决:\n' + s.outstandingQuestions.map((x: string) => `· ${x}`).join('\n'));
+        if (Array.isArray(s.nextActions) && s.nextActions.length) parts.push('下一步:\n' + s.nextActions.map((x: string) => `· ${x}`).join('\n'));
+        setAiSummary(parts.join('\n\n') || '（无可摘要内容）');
+      } else {
+        setAiSummary('AI 摘要暂时不可用');
+      }
+    } catch {
+      setAiSummary('AI 摘要请求失败');
+    } finally {
+      setSummaryLoading(false);
+    }
+  }
+
   if (selectedUid !== null) {
     return (
       <div className="max-w-3xl space-y-4">
@@ -354,6 +464,26 @@ function InboxView({ folder = 'INBOX' }: { folder?: string }) {
             <ArrowLeft className="h-3.5 w-3.5 mr-1" />
             返回列表
           </Button>
+        {detail && (
+          <>
+            <Button variant="outline" size="sm" onClick={() => startReply(detail, false)}>
+              <Reply className="h-3.5 w-3.5 mr-1" />
+              回复
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => startReply(detail, true)}>
+              <ReplyAll className="h-3.5 w-3.5 mr-1" />
+              全部回复
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => startForward(detail)}>
+              <Forward className="h-3.5 w-3.5 mr-1" />
+              转发
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => summarizeThread(detail)} disabled={summaryLoading}>
+              <Sparkles className="h-3.5 w-3.5 mr-1" />
+              {summaryLoading ? 'AI 摘要中...' : 'AI 摘要'}
+            </Button>
+          </>
+        )}
         {detail && (
           <Button variant="outline" size="sm" onClick={() => batchMark([detail.uid], { flagged: !detail.flags.includes('\\Flagged') })} disabled={marking}>
             <Star className={`h-3.5 w-3.5 mr-1 ${detail.flags.includes('\\Flagged') ? 'fill-yellow-400 text-yellow-400' : ''}`} />
@@ -367,6 +497,18 @@ function InboxView({ folder = 'INBOX' }: { folder?: string }) {
           </Button>
         ))}
       </div>
+        {aiSummary && (
+          <div className="rounded-md border border-blue-200 bg-blue-50/50 p-3">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-700">
+                <Sparkles className="h-3.5 w-3.5" />
+                AI 摘要
+              </span>
+              <button className="text-[10px] text-ink-tertiary hover:text-ink-primary" onClick={() => setAiSummary(null)}>关闭</button>
+            </div>
+            <pre className="whitespace-pre-wrap text-caption text-ink-primary font-sans">{aiSummary}</pre>
+          </div>
+        )}
         {detailLoading ? (
           <Card><CardContent className="p-8 text-center text-caption text-ink-tertiary">加载中...</CardContent></Card>
         ) : detail ? (
@@ -543,13 +685,27 @@ function InboxView({ folder = 'INBOX' }: { folder?: string }) {
 
 /* ─────────── Compose (V1 real SMTP send) ─────────── */
 
-function ComposeView({ canSend, initialDraft }: { canSend: boolean; initialDraft?: { subject: string; body: string } | null }) {
+function ComposeView({
+  canSend,
+  initialDraft,
+  composeDraft,
+  fromAddress,
+}: {
+  canSend: boolean;
+  initialDraft?: { subject: string; body: string } | null;
+  composeDraft?: ComposeDraft | null;
+  fromAddress?: string;
+}) {
   const [to, setTo] = useState('');
   const [subject, setSubject] = useState(initialDraft?.subject ?? '');
-  const [body, setBody] = useState(initialDraft?.body ?? '');
+  /** 正文 HTML (富文本编辑器内容) */
+  const [bodyHtml, setBodyHtml] = useState(initialDraft?.body ? escapeHtml(initialDraft.body) : '');
   const [cc, setCc] = useState('');
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; msg: string } | null>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
+  /** 正文纯文本 (供校验 / AI / 草稿) */
+  const bodyText = stripHtml(bodyHtml);
 
   // 外部联系人档案
   const { getContactByEmail, upsertContact } = useContactStore();
@@ -569,19 +725,44 @@ function ComposeView({ canSend, initialDraft }: { canSend: boolean; initialDraft
   useEffect(() => {
     if (!initialDraft) return;
     setSubject((cur) => (cur ? cur : initialDraft.subject));
-    setBody((cur) => (cur ? cur : initialDraft.body));
+    setBodyHtml((cur) => (cur ? cur : escapeHtml(initialDraft.body)));
+    if (editorRef.current && !editorRef.current.innerHTML) editorRef.current.innerHTML = escapeHtml(initialDraft.body);
     setFeedback({ ok: true, msg: '已从 Tandem 工作台预填草稿, 补完收件人后即可发送.' });
   }, [initialDraft]);
 
+  // 回复 / 全部回复 / 转发: 预填收件人/抄送/主题, 并把引用块写入编辑器
+  useEffect(() => {
+    if (!composeDraft) return;
+    setTo(composeDraft.to);
+    setCc(composeDraft.cc);
+    setSubject(composeDraft.subject);
+    setBodyHtml(composeDraft.html);
+    if (editorRef.current) editorRef.current.innerHTML = composeDraft.html;
+    const label = composeDraft.mode === 'forward' ? '转发' : composeDraft.mode === 'replyAll' ? '全部回复' : '回复';
+    setFeedback({ ok: true, msg: `已进入${label}模式, 在引用上方输入内容即可.` });
+    // 光标置顶, 方便在引用上方书写
+    setTimeout(() => editorRef.current?.focus(), 0);
+  }, [composeDraft]);
+
+  function syncBody() {
+    if (editorRef.current) setBodyHtml(editorRef.current.innerHTML);
+  }
+
+  function exec(cmd: string, value?: string) {
+    document.execCommand(cmd, false, value);
+    editorRef.current?.focus();
+    syncBody();
+  }
+
   async function handleAiReply() {
-    if (!body.trim()) return;
+    if (!bodyText.trim()) return;
     setAiReplyLoading(true);
     try {
       const res = await fetch('/api/mail/ai-reply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ originalText: body, originalSubject: subject, tone: 'formal' }),
+        body: JSON.stringify({ originalText: composeDraft?.quotedText || bodyText, originalSubject: subject, tone: 'formal' }),
       });
       const json = await res.json().catch(() => ({}));
       if (json.ok && json.draft) {
@@ -595,14 +776,14 @@ function ComposeView({ canSend, initialDraft }: { canSend: boolean; initialDraft
   }
 
   async function handleAiReview() {
-    if (!body.trim()) return;
+    if (!bodyText.trim()) return;
     setReviewLoading(true);
     try {
       const res = await fetch('/api/mail/ai-review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ subject, body }),
+        body: JSON.stringify({ subject, body: bodyText }),
       });
       const json = await res.json().catch(() => ({}));
       if (json.ok && json.review) {
@@ -620,7 +801,7 @@ function ComposeView({ canSend, initialDraft }: { canSend: boolean; initialDraft
       setFeedback({ ok: false, msg: 'SMTP 未配置, 无法发送. 联系管理员.' });
       return;
     }
-    if (!to.trim() || !subject.trim() || !body.trim()) {
+    if (!to.trim() || !subject.trim() || !bodyText.trim()) {
       setFeedback({ ok: false, msg: '收件人 / 主题 / 正文均不可为空' });
       return;
     }
@@ -635,7 +816,8 @@ function ComposeView({ canSend, initialDraft }: { canSend: boolean; initialDraft
           to: to.split(/[,;\s]+/).filter(Boolean),
           cc: cc.trim() ? cc.split(/[,;\s]+/).filter(Boolean) : undefined,
           subject,
-          text: body,
+          html: bodyHtml,
+          text: bodyText,
         }),
       });
       const json = await res.json().catch(() => ({}));
@@ -645,7 +827,8 @@ function ComposeView({ canSend, initialDraft }: { canSend: boolean; initialDraft
         setFeedback({ ok: true, msg: `已发送 · messageId: ${json.messageId ?? '(unknown)'}` });
         setTo('');
         setSubject('');
-        setBody('');
+        setBodyHtml('');
+        if (editorRef.current) editorRef.current.innerHTML = '';
         setCc('');
       }
     } catch (e) {
@@ -692,13 +875,30 @@ function ComposeView({ canSend, initialDraft }: { canSend: boolean; initialDraft
             autoComplete="off"
           />
         </Field>
-        <Field label="正文" hint="纯文本, V2 接入富文本编辑器">
-          <textarea
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            placeholder="写下你想说的..."
-            className="w-full min-h-[200px] rounded-md border border-border bg-[rgb(var(--surface-1))] px-3 py-2 text-body text-ink-primary placeholder:text-ink-tertiary focus:outline-none focus:ring-2 focus:ring-[rgb(var(--brand-500))/.25] focus:border-[rgb(var(--brand-500))] resize-y"
-          />
+        <Field label="正文" hint="富文本 · 支持加粗/斜体/下划线/列表/链接">
+          <div className="rounded-md border border-border bg-[rgb(var(--surface-1))] focus-within:ring-2 focus-within:ring-[rgb(var(--brand-500))/.25] focus-within:border-[rgb(var(--brand-500))]">
+            {/* 工具栏 */}
+            <div className="flex items-center gap-0.5 border-b border-border px-2 py-1">
+              <ToolbarBtn label="加粗" onClick={() => exec('bold')}><Bold className="h-3.5 w-3.5" /></ToolbarBtn>
+              <ToolbarBtn label="斜体" onClick={() => exec('italic')}><Italic className="h-3.5 w-3.5" /></ToolbarBtn>
+              <ToolbarBtn label="下划线" onClick={() => exec('underline')}><Underline className="h-3.5 w-3.5" /></ToolbarBtn>
+              <span className="mx-1 h-4 w-px bg-border" />
+              <ToolbarBtn label="无序列表" onClick={() => exec('insertUnorderedList')}><List className="h-3.5 w-3.5" /></ToolbarBtn>
+              <ToolbarBtn label="有序列表" onClick={() => exec('insertOrderedList')}><ListOrdered className="h-3.5 w-3.5" /></ToolbarBtn>
+              <ToolbarBtn label="插入链接" onClick={() => {
+                const url = window.prompt('输入链接地址 (含 https://)');
+                if (url) exec('createLink', url);
+              }}><Link2 className="h-3.5 w-3.5" /></ToolbarBtn>
+            </div>
+            <div
+              ref={editorRef}
+              contentEditable
+              suppressContentEditableWarning
+              onInput={syncBody}
+              data-placeholder="写下你想说的..."
+              className="mail-editor min-h-[220px] max-h-[460px] overflow-auto px-3 py-2 text-body text-ink-primary focus:outline-none prose prose-sm max-w-none"
+            />
+          </div>
         </Field>
 
         {/* AI 回复草稿 */}
@@ -768,17 +968,17 @@ function ComposeView({ canSend, initialDraft }: { canSend: boolean; initialDraft
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={handleAiReply} disabled={aiReplyLoading || !body.trim()}>
+          <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={handleAiReply} disabled={aiReplyLoading || !bodyText.trim()}>
             <Bot className="h-3.5 w-3.5" />
             {aiReplyLoading ? '生成中...' : 'AI 回复'}
           </Button>
-          <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={handleAiReview} disabled={reviewLoading || !body.trim()}>
+          <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={handleAiReview} disabled={reviewLoading || !bodyText.trim()}>
             <ShieldCheck className="h-3.5 w-3.5" />
             {reviewLoading ? '审校中...' : 'AI 审校'}
           </Button>
         </div>
         <Button variant="outline" onClick={async () => {
-          if (!subject.trim() && !body.trim()) {
+          if (!subject.trim() && !bodyText.trim()) {
             setFeedback({ ok: false, msg: '主题或正文至少填一个' });
             return;
           }
@@ -793,7 +993,7 @@ function ComposeView({ canSend, initialDraft }: { canSend: boolean; initialDraft
                 to: to.split(/[,;\s]+/).filter(Boolean),
                 cc: cc.trim() ? cc.split(/[,;\s]+/).filter(Boolean) : undefined,
                 subject,
-                text: body,
+                text: bodyText,
               }),
             });
             const json = await res.json().catch(() => ({}));
@@ -817,6 +1017,21 @@ function ComposeView({ canSend, initialDraft }: { canSend: boolean; initialDraft
         </Button>
       </div>
     </div>
+  );
+}
+
+function ToolbarBtn({ label, onClick, children }: { label: string; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={onClick}
+      className="inline-flex h-7 w-7 items-center justify-center rounded text-ink-secondary hover:bg-surface-2 hover:text-ink-primary"
+    >
+      {children}
+    </button>
   );
 }
 

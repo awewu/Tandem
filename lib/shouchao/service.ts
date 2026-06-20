@@ -301,3 +301,48 @@ export async function retrieveSharedNotesForPersona(
   // 有命中用命中; 全无命中给最近 3 条授权笔记做轻量个人背景
   return matched.length > 0 ? matched : [...shared].sort(byRecent).slice(0, Math.min(3, topK));
 }
+
+// ---------------------------------------------------------------------------
+// 跨笔记 AI 问答 (Ask) · 对标 NotebookLM / open-notebook 的"问你的第二大脑"
+// 在【本人全部笔记】里按相关度召回 topK, 作为带引用的回答上下文.
+// 纯个人范围 (ownerId 隔离), 不读公司/他人 Memory. 检索复用本文件 tokenizeMixed/jaccard,
+// 个人小语料零成本、无 embedding 依赖; 规模上来再升级向量检索.
+// ---------------------------------------------------------------------------
+
+export interface NoteHit {
+  note: ShouchaoNote;
+  score: number;
+}
+
+/**
+ * 在本人全部活跃笔记里检索与 query 最相关的若干条 (关键词相似度 jaccard).
+ * 排除软删/归档. 无命中回落最近笔记, 保证"我记过啥"这类宽泛问题也有上下文.
+ */
+export async function searchNotesForAsk(
+  ownerId: string,
+  query: string,
+  opts?: { topK?: number },
+): Promise<NoteHit[]> {
+  const store = getStore();
+  const all = await store.shouchaoNotes.list({ ownerId } as Partial<ShouchaoNote>);
+  const active = all.filter((n) => !n.deletedAt && !n.archived);
+  if (active.length === 0) return [];
+
+  const topK = opts?.topK ?? 6;
+  const byRecent = (a: ShouchaoNote, b: ShouchaoNote) => b.updatedAt.localeCompare(a.updatedAt);
+  const q = (query ?? '').trim();
+  if (!q) return [...active].sort(byRecent).slice(0, topK).map((n) => ({ note: n, score: 0 }));
+
+  const qt = tokenizeMixed(q);
+  const scored = active
+    .map((n) => ({
+      note: n,
+      score: jaccard(qt, tokenizeMixed(`${n.title} ${n.content} ${(n.tags ?? []).join(' ')}`)),
+    }))
+    .sort((a, b) => b.score - a.score);
+  const matched = scored.filter((x) => x.score > 0).slice(0, topK);
+  // 全无命中给最近 3 条做轻量背景, 让宽泛提问也能回答
+  return matched.length > 0
+    ? matched
+    : [...active].sort(byRecent).slice(0, Math.min(3, topK)).map((n) => ({ note: n, score: 0 }));
+}
