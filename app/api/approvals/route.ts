@@ -4,14 +4,16 @@ import { getStore } from "@/lib/storage/repository";
 import { withErrorHandler } from "@/lib/api/error-middleware";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { audit } from "@/lib/audit/log";
+import { withTenantScope } from "@/lib/multi-tenant/with-tenant-scope";
 import type { Approval } from "@/lib/types/approval";
 
 export const GET = withErrorHandler(async (req: NextRequest) => {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
-  // 租户隔离: 仅返回本租户审批单 (filter 下推到 KvStore tenantId 列).
-  const scoped = await getStore().approvals.list({ tenantId: auth.tenantId } as Partial<Approval>);
+  // 租户隔离: 经 withTenantScope 统一收敛 (§23 P2-A), 不再逐路由手写 tenantId 过滤.
+  const approvals = withTenantScope(getStore().approvals, auth.tenantId);
+  const scoped = await approvals.list();
   scoped.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   return Response.json({ approvals: scoped });
 });
@@ -25,16 +27,16 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   const approver = String(body.approver ?? "").trim();
   if (!title) return Response.json({ error: "title required" }, { status: 400 });
   if (!approver) return Response.json({ error: "approver required" }, { status: 400 });
-  // P0-A: 身份字段 (requester/tenantId) 取自鉴权上下文, 不接受 body 注入 (防伪造申请人/跨租户写).
-  const apv = await getStore().approvals.create({
+  // P0-A: 身份字段 (requester) 取自鉴权上下文, 不接受 body 注入; tenantId 由 withTenantScope 强制注入.
+  const approvals = withTenantScope(getStore().approvals, auth.tenantId);
+  const apv = await approvals.create({
     title,
     type: String(body.type ?? "generic"),
     approver,
     requester: auth.userId,
     status: "pending",
     createdAt: new Date().toISOString(),
-    tenantId: auth.tenantId,
-  });
+  } as Omit<Approval, "id">);
   await audit("approval.created", auth.userId, {
     targetId: apv.id,
     targetType: "approval",

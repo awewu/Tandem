@@ -9,5 +9,5 @@ export interface DriveFileRepository {
   move(id: string, parentId: string | null): Promise<DriveFile>;
   updatePermissions(id: string, permissions: DriveFile['permissions']): Promise<DriveFile>;
   softDelete(id: string): Promise<void>;
-  list(filter?: { parentId?: string | null; ownerId?: string }): Promise<DriveFile[]>;
+  list(filter?: { parentId?: string | null; ownerId?: string; tenantId?: string }): Promise<DriveFile[]>;
 }

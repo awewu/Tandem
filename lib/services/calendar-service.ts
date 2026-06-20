@@ -18,11 +18,12 @@ export interface CreateEventCommand {
 export class CalendarService {
   constructor(private ctx: ApplicationContext) {}
 
-  async list(opts?: { ownerId?: string; from?: Date; to?: Date }): Promise<CalendarEvent[]> {
-    if (opts?.ownerId) {
-      return this.ctx.calendarRepo.findByOwner(opts.ownerId, opts.from && opts.to ? { from: opts.from, to: opts.to } : undefined);
-    }
-    return this.ctx.calendarRepo.list();
+  async list(opts?: { ownerId?: string; from?: Date; to?: Date; tenantId?: string }): Promise<CalendarEvent[]> {
+    const events = opts?.ownerId
+      ? await this.ctx.calendarRepo.findByOwner(opts.ownerId, opts.from && opts.to ? { from: opts.from, to: opts.to } : undefined)
+      : await this.ctx.calendarRepo.list({ tenantId: opts?.tenantId });
+    // 租户隔离: findByOwner 路径无 tenant 列下推 (owner 已隐含单租户), 防御性再过滤一次.
+    return opts?.tenantId ? events.filter((e) => (e.tenantId ?? 'default') === opts.tenantId) : events;
   }
 
   async getById(id: string): Promise<CalendarEvent | null> {

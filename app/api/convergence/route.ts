@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getOrchestrator, getStore } from '@/lib/boot';
 import { validateOkrAnchor } from '@/lib/types/decision-card';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import { applyTemplate, type TemplateId } from '@/lib/skills/decision-card-templates';
 import { deferAudit } from '@/lib/audit/defer';
 
@@ -106,9 +107,8 @@ export async function GET(req: NextRequest) {
   if (auth instanceof NextResponse) return auth;
   try {
     const store = getStore();
-    const cards = await store.decisionCards.list();
-    // Tenant isolation: only return cards belonging to caller's tenant.
-    const scoped = cards.filter((c) => (c.tenantId ?? 'default') === auth.tenantId);
+    // Tenant isolation: 收敛到统一 withTenantScope (宪章 §23).
+    const scoped = await withTenantScope(store.decisionCards, auth.tenantId).list();
     const sorted = scoped
       .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
       .slice(0, 50);

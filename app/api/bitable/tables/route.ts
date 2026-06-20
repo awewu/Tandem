@@ -2,16 +2,15 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { getStore } from '@/lib/storage/repository';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 
 export async function GET(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
-  const tables = await getStore().bitableTables.list();
-  // Tenant isolation first, then owner filter.
-  const mine = tables.filter(
-    (t) => (t.tenantId ?? 'default') === auth.tenantId && t.ownerId === auth.userId,
-  );
+  // Tenant isolation: 收敛到统一 withTenantScope (宪章 §23); 再按 owner 过滤.
+  const tables = await withTenantScope(getStore().bitableTables, auth.tenantId).list();
+  const mine = tables.filter((t) => t.ownerId === auth.userId);
   return NextResponse.json({ tables: mine });
 }
 
@@ -22,11 +21,11 @@ export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => ({}))) as { name?: string; description?: string };
   if (!body.name) return NextResponse.json({ error: 'name required' }, { status: 400 });
   const now = new Date().toISOString();
-  const created = await getStore().bitableTables.create({
+  // Tenant isolation: withTenantScope.create 强制注入 auth.tenantId (防 P0-A).
+  const created = await withTenantScope(getStore().bitableTables, auth.tenantId).create({
     name: body.name,
     description: body.description,
     ownerId: auth.userId,
-    tenantId: auth.tenantId,
     columns: [
       { id: 'col_name', name: '名称', type: 'text', width: 200, required: true },
       { id: 'col_status', name: '状态', type: 'select', options: [

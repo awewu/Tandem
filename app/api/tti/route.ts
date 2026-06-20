@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 
 export async function GET(req: NextRequest) {
   await boot();
@@ -10,11 +11,8 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const cycleId = searchParams.get('cycleId');
     const ownerId = searchParams.get('ownerId');
-    const store = getStore();
-
-    let ttis = await store.ttis.list();
-    // P0-B: 多租户读隔离 — 只返回调用方租户的 TTI.
-    ttis = ttis.filter((t) => (t.tenantId ?? 'default') === auth.tenantId);
+    // P0-B 多租户读隔离: 经 withTenantScope 统一收敛 (§23 P2-A).
+    let ttis = await withTenantScope(getStore().ttis, auth.tenantId).list();
     if (cycleId) ttis = ttis.filter((t) => t.cycleId === cycleId);
     if (ownerId) ttis = ttis.filter((t) => t.ownerId === ownerId);
 

@@ -2,13 +2,14 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { getStore, generateId } from '@/lib/storage/repository';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import type { BitableColumn } from '@/lib/types/bitable';
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
   const auth = requireAuth(_req);
   if (auth instanceof NextResponse) return auth;
-  const table = await getStore().bitableTables.get(params.id);
+  const table = await withTenantScope(getStore().bitableTables, auth.tenantId).get(params.id);
   if (!table) return NextResponse.json({ error: 'not found' }, { status: 404 });
   if (table.ownerId !== auth.userId) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
@@ -28,12 +29,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
-  const store = getStore();
-  const table = await store.bitableTables.get(params.id);
+  const tables = withTenantScope(getStore().bitableTables, auth.tenantId);
+  const table = await tables.get(params.id);
   if (!table) return NextResponse.json({ error: 'not found' }, { status: 404 });
-  if ((table.tenantId ?? 'default') !== auth.tenantId) {
-    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
-  }
   if (table.ownerId !== auth.userId) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
@@ -72,7 +70,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 
   const now = new Date().toISOString();
-  const updated = await store.bitableTables.update(params.id, {
+  const updated = await tables.update(params.id, {
     name: body.name ?? table.name,
     description: body.description ?? table.description,
     columns,
@@ -85,12 +83,12 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   await boot();
   const auth = requireAuth(_req);
   if (auth instanceof NextResponse) return auth;
-  const store = getStore();
-  const table = await store.bitableTables.get(params.id);
+  const tables = withTenantScope(getStore().bitableTables, auth.tenantId);
+  const table = await tables.get(params.id);
   if (!table) return NextResponse.json({ error: 'not found' }, { status: 404 });
   if (table.ownerId !== auth.userId) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
-  await store.bitableTables.delete(params.id);
+  await tables.delete(params.id);
   return NextResponse.json({ ok: true });
 }

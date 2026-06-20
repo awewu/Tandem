@@ -12,6 +12,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import { OKR_BOSS_ROLES } from '@/lib/okr/visibility';
 import type { Confidence } from '@/lib/types/okr-tti';
 
@@ -27,11 +28,12 @@ async function guard(req: NextRequest, id: string) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return { error: auth };
   const store = getStore();
-  const kr = await store.keyResults.get(id);
-  if (!kr || (kr.tenantId ?? 'default') !== auth.tenantId) {
+  const keyResults = withTenantScope(store.keyResults, auth.tenantId);
+  const kr = await keyResults.get(id);
+  if (!kr) {
     return { error: NextResponse.json({ error: 'not_found' }, { status: 404 }) };
   }
-  const obj = await store.objectives.get(kr.objectiveId);
+  const obj = await withTenantScope(store.objectives, auth.tenantId).get(kr.objectiveId);
   const allowed =
     auth.demo ||
     kr.ownerId === auth.userId ||
@@ -40,7 +42,7 @@ async function guard(req: NextRequest, id: string) {
   if (!allowed) {
     return { error: NextResponse.json({ error: 'forbidden' }, { status: 403 }) };
   }
-  return { auth, store, kr };
+  return { auth, store, kr, keyResults };
 }
 
 export async function PATCH(
@@ -50,7 +52,7 @@ export async function PATCH(
   await boot();
   const g = await guard(req, params.id);
   if (g.error) return g.error;
-  const { store } = g;
+  const { keyResults } = g;
   try {
     const body = await req.json();
     const patch: Record<string, unknown> = { updatedAt: new Date().toISOString() };
@@ -72,7 +74,7 @@ export async function PATCH(
     if (Array.isArray(body.tags)) patch.tags = body.tags;
     if (Array.isArray(body.collaboratorIds)) patch.collaboratorIds = body.collaboratorIds;
     if (Array.isArray(body.watcherIds)) patch.watcherIds = body.watcherIds;
-    const updated = await store.keyResults.update(params.id, patch as never);
+    const updated = await keyResults.update(params.id, patch as never);
     return NextResponse.json({ keyResult: updated });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
@@ -86,9 +88,9 @@ export async function DELETE(
   await boot();
   const g = await guard(req, params.id);
   if (g.error) return g.error;
-  const { store } = g;
+  const { keyResults } = g;
   try {
-    await store.keyResults.delete(params.id);
+    await keyResults.delete(params.id);
     return NextResponse.json({ ok: true });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });

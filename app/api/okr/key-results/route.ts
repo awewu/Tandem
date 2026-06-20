@@ -11,6 +11,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import { OKR_BOSS_ROLES } from '@/lib/okr/visibility';
 import type { Confidence } from '@/lib/types/okr-tti';
 
@@ -33,8 +34,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'objectiveId and title required' }, { status: 400 });
     }
     const store = getStore();
-    const obj = await store.objectives.get(objectiveId);
-    if (!obj || (obj.tenantId ?? 'default') !== auth.tenantId) {
+    const obj = await withTenantScope(store.objectives, auth.tenantId).get(objectiveId);
+    if (!obj) {
       return NextResponse.json({ error: 'objective not found' }, { status: 404 });
     }
     if (!auth.demo && obj.ownerId !== auth.userId && !isBoss(auth.roles)) {
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest) {
     }
     const confidence: Confidence = body.confidence ?? 'on-track';
     const now = new Date().toISOString();
-    const kr = await store.keyResults.create({
+    const kr = await withTenantScope(store.keyResults, auth.tenantId).create({
       objectiveId,
       ownerId: typeof body.ownerId === 'string' ? body.ownerId : obj.ownerId,
       coOwnerIds: Array.isArray(body.coOwnerIds) ? body.coOwnerIds : [],
@@ -61,8 +62,7 @@ export async function POST(req: NextRequest) {
       tags: Array.isArray(body.tags) ? body.tags : [],
       collaboratorIds: Array.isArray(body.collaboratorIds) ? body.collaboratorIds : [],
       watcherIds: Array.isArray(body.watcherIds) ? body.watcherIds : [],
-      // tenantId 继承父 objective (隔离一致性).
-      tenantId: obj.tenantId ?? auth.tenantId,
+      // tenantId 由 withTenantScope 强制注入 auth.tenantId (与父 objective 同租户).
       createdAt: now,
       updatedAt: now,
     });

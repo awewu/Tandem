@@ -29,10 +29,11 @@ export class InMemoryDriveFileRepository implements DriveFileRepository {
   async softDelete(id: string): Promise<void> {
     const f = this.data.get(id); if (f) f.deletedAt = new Date().toISOString();
   }
-  async list(filter?: { parentId?: string | null; ownerId?: string }): Promise<DriveFile[]> {
+  async list(filter?: { parentId?: string | null; ownerId?: string; tenantId?: string }): Promise<DriveFile[]> {
     let arr = Array.from(this.data.values()).filter(f => !f.deletedAt);
     if (filter?.parentId !== undefined) arr = arr.filter(f => f.parentId === filter.parentId);
     if (filter?.ownerId) arr = arr.filter(f => f.ownerId === filter.ownerId);
+    if (filter?.tenantId) arr = arr.filter(f => (f.tenantId ?? 'default') === filter.tenantId);
     return arr;
   }
 }

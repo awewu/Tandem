@@ -15,14 +15,14 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const to = searchParams.get('to');
   const ctx = createAppContext();
   const svc = new CalendarService(ctx);
+  // Tenant isolation: tenantId 下推 service/repo, 不再逐路由手写过滤.
   const events = await svc.list({
     ownerId,
     from: from ? new Date(from) : undefined,
     to: to ? new Date(to) : undefined,
+    tenantId: auth.tenantId,
   });
-  // Tenant isolation: scope to caller's tenant.
-  const scoped = events.filter((e) => (e.tenantId ?? 'default') === auth.tenantId);
-  return NextResponse.json({ events: scoped });
+  return NextResponse.json({ events });
 });
 
 export const POST = withErrorHandler(async (req: NextRequest) => {

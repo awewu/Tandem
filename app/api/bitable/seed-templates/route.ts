@@ -8,6 +8,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { getStore, generateId } from '@/lib/storage/repository';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import type { BitableColumn } from '@/lib/types/bitable';
 
 interface TemplateSpec {
@@ -126,21 +127,19 @@ export async function POST(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
-  const store = getStore();
-  const existing = (await store.bitableTables.list()).filter(
-    (t) => (t.tenantId ?? 'default') === auth.tenantId && t.ownerId === auth.userId,
-  );
+  // Tenant isolation: 收敛到统一 withTenantScope (宪章 §23).
+  const tables = withTenantScope(getStore().bitableTables, auth.tenantId);
+  const existing = (await tables.list()).filter((t) => t.ownerId === auth.userId);
   const existingNames = new Set(existing.map((t) => t.name));
 
   const now = new Date().toISOString();
   const created: string[] = [];
   for (const tpl of buildTemplates()) {
     if (existingNames.has(tpl.name)) continue;
-    await store.bitableTables.create({
+    await tables.create({
       name: tpl.name,
       description: tpl.description,
       ownerId: auth.userId,
-      tenantId: auth.tenantId,
       columns: tpl.columns,
       rows: tpl.rows.map((data) => ({
         id: generateId('row'),

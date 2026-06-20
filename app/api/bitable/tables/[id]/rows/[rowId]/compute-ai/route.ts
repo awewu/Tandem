@@ -13,6 +13,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { getStore } from '@/lib/storage/repository';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import { computeAiCellsForRow } from '@/lib/services/bitable-ai-compute';
 
 export async function POST(
@@ -23,12 +24,8 @@ export async function POST(
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
 
-  const store = getStore();
-  const table = await store.bitableTables.get(params.id);
+  const table = await withTenantScope(getStore().bitableTables, auth.tenantId).get(params.id);
   if (!table) return NextResponse.json({ error: 'table not found' }, { status: 404 });
-  if ((table.tenantId ?? 'default') !== auth.tenantId) {
-    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
-  }
   if (table.ownerId !== auth.userId) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }

@@ -7,6 +7,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getStore, boot } from '@/lib/boot';
 import { requireAuth, requireRole } from '@/lib/auth/require-auth';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import { DATA_STEWARD_ROLES } from '@/lib/auth/roles';
 import type { Lesson } from '@/lib/learning/types';
 
@@ -16,8 +17,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   if (auth instanceof NextResponse) return auth;
   try {
     const store = getStore();
-    const lesson = await store.lessons.get(params.id);
-    if (!lesson || (lesson.tenantId ?? 'default') !== auth.tenantId || !lesson.publishedAt || lesson.archivedAt) {
+    const lesson = await withTenantScope(store.lessons, auth.tenantId).get(params.id);
+    if (!lesson || !lesson.publishedAt || lesson.archivedAt) {
       return NextResponse.json({ error: 'not found' }, { status: 404 });
     }
     return NextResponse.json({ lesson });
@@ -29,17 +30,17 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 async function loadAndAuthorize(
   req: NextRequest,
   lessonId: string,
-): Promise<{ error: NextResponse } | { lesson: Lesson; userId: string }> {
+): Promise<{ error: NextResponse } | { lesson: Lesson; userId: string; tenantId: string }> {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return { error: auth };
   const forbidden = requireRole(auth, [...DATA_STEWARD_ROLES, 'champion']);
   if (forbidden) return { error: forbidden };
   const store = getStore();
-  const lesson = await store.lessons.get(lessonId);
-  if (!lesson || (lesson.tenantId ?? 'default') !== auth.tenantId) {
+  const lesson = await withTenantScope(store.lessons, auth.tenantId).get(lessonId);
+  if (!lesson) {
     return { error: NextResponse.json({ error: 'not found' }, { status: 404 }) };
   }
-  return { lesson, userId: auth.userId };
+  return { lesson, userId: auth.userId, tenantId: auth.tenantId };
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
@@ -63,7 +64,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     else if (body.unarchive === true) patch.archivedAt = null;
 
     const store = getStore();
-    const updated = await store.lessons.update(params.id, patch as never);
+    const updated = await withTenantScope(store.lessons, r.tenantId).update(params.id, patch as never);
     return NextResponse.json({ lesson: updated });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
@@ -76,7 +77,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   if ('error' in r) return r.error;
   try {
     const store = getStore();
-    await store.lessons.update(params.id, { archivedAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as never);
+    await withTenantScope(store.lessons, r.tenantId).update(params.id, { archivedAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as never);
     return NextResponse.json({ ok: true });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });

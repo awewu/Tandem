@@ -9,6 +9,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import { syncKrFromInitiatives } from '@/lib/okr/execution-rollup';
 
 export async function GET(req: NextRequest) {
@@ -20,9 +21,8 @@ export async function GET(req: NextRequest) {
     const keyResultId = searchParams.get('keyResultId');
     const ownerId = searchParams.get('ownerId');
     const store = getStore();
-    let all = await store.initiatives.list();
-    // Tenant isolation: scope to caller's tenant.
-    all = all.filter((i) => (i.tenantId ?? 'default') === auth.tenantId);
+    // Tenant isolation: 收敛到统一 withTenantScope (宪章 §23).
+    let all = await withTenantScope(store.initiatives, auth.tenantId).list();
     if (keyResultId) all = all.filter((i) => i.keyResultId === keyResultId);
     if (ownerId) all = all.filter((i) => i.ownerId === ownerId);
     return NextResponse.json({ initiatives: all });
@@ -54,15 +54,14 @@ export async function POST(req: NextRequest) {
       (kr.coOwnerIds ?? []).includes(auth.userId) ||
       auth.demo;
     if (!allowed) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
-    const initiative = await store.initiatives.create({
+    // Tenant isolation: withTenantScope.create 强制注入 auth.tenantId (防 P0-A).
+    const initiative = await withTenantScope(store.initiatives, auth.tenantId).create({
       keyResultId,
       ownerId,
       title,
       decisionCardIds: Array.isArray(body.decisionCardIds) ? body.decisionCardIds : [],
       status: body.status ?? 'planned',
       dueDate: body.dueDate ?? undefined,
-      // P0-A: tenantId 一律取自鉴权上下文, 绝不接受 body 注入 (防跨租户写).
-      tenantId: auth.tenantId,
     });
     // B3 执行联动: 新建 Initiative 改变完成率分母 → 重算 KR → 向上 rollup.
     let execRollup = null;

@@ -15,9 +15,8 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const limit = Math.min(Number(searchParams.get('limit') ?? '50'), 200);
   const ctx = createAppContext();
   const svc = new DocumentService(ctx);
-  const docs = await svc.list({ ownerId });
-  // Tenant isolation: only return rows belonging to caller's tenant.
-  let scoped = docs.filter((d) => (d.tenantId ?? 'default') === auth.tenantId);
+  // Tenant isolation: tenantId 下推到 repo (drizzle SQL eq(tenantId)), 不再逐路由手写过滤.
+  let scoped = await svc.list({ ownerId, tenantId: auth.tenantId });
   // D-01: optional ?q= title contains (case-insensitive) for @ mention picker
   if (q) {
     scoped = scoped.filter((d) => (d.title ?? '').toLowerCase().includes(q));

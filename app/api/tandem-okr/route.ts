@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import { resolveOkrVisibleOwnerIds } from '@/lib/okr/visibility';
 
 /**
@@ -25,9 +26,8 @@ export async function GET(req: NextRequest) {
     const ownerId = searchParams.get('ownerId');
     const store = getStore();
 
-    let objectives = await store.objectives.list();
-    // Tenant isolation: scope to caller's tenant.
-    objectives = objectives.filter((o) => (o.tenantId ?? 'default') === auth.tenantId);
+    // Tenant isolation: 收敛到统一 withTenantScope (宪章 §23).
+    let objectives = await withTenantScope(store.objectives, auth.tenantId).list();
     if (cycleId) objectives = objectives.filter((o) => o.cycleId === cycleId);
     if (ownerId) objectives = objectives.filter((o) => o.ownerId === ownerId);
 
@@ -68,7 +68,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const store = getStore();
     const now = new Date().toISOString();
-    const obj = await store.objectives.create({
+    // Tenant isolation: withTenantScope.create 强制注入 auth.tenantId (防 P0-A).
+    const obj = await withTenantScope(store.objectives, auth.tenantId).create({
       cycleId: body.cycleId,
       level: body.level ?? 'individual',
       parentObjectiveId: body.parentObjectiveId,
@@ -84,8 +85,6 @@ export async function POST(req: NextRequest) {
       tags: Array.isArray(body.tags) ? body.tags : [],
       collaboratorIds: Array.isArray(body.collaboratorIds) ? body.collaboratorIds : [],
       watcherIds: Array.isArray(body.watcherIds) ? body.watcherIds : [],
-      // P0-A: tenantId 一律取自鉴权上下文, 绝不接受 body 注入 (防跨租户写).
-      tenantId: auth.tenantId,
       createdAt: now,
       updatedAt: now,
     });

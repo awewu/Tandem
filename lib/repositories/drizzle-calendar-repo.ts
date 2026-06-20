@@ -124,8 +124,11 @@ export class DrizzleCalendarEventRepository implements CalendarEventRepository {
     return toDomain(row);
   }
 
-  async list(filter?: { ownerId?: string }): Promise<CalendarEvent[]> {
-    const conds = filter?.ownerId ? [eq(t.ownerId, filter.ownerId)] : [];
+  async list(filter?: { ownerId?: string; tenantId?: string }): Promise<CalendarEvent[]> {
+    const conds = [
+      ...(filter?.ownerId ? [eq(t.ownerId, filter.ownerId)] : []),
+      ...(filter?.tenantId ? [eq(t.tenantId, filter.tenantId)] : []),
+    ];
     const rows = conds.length
       ? await db.select().from(t).where(and(...conds)).orderBy(asc(t.startAt))
       : await db.select().from(t).orderBy(asc(t.startAt));

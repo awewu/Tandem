@@ -14,10 +14,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const ownerId = searchParams.get('ownerId') ?? undefined;
   const ctx = createAppContext();
   const svc = new DriveService(ctx);
-  const files = await svc.list({ parentId: parentId ?? null, ownerId });
-  // Tenant isolation: scope to caller's tenant.
-  const scoped = files.filter((f) => (f.tenantId ?? 'default') === auth.tenantId);
-  return NextResponse.json({ files: scoped });
+  // Tenant isolation: tenantId 下推到 repo (drizzle SQL eq(tenantId)), 不再逐路由手写过滤.
+  const files = await svc.list({ parentId: parentId ?? null, ownerId, tenantId: auth.tenantId });
+  return NextResponse.json({ files });
 });
 
 export const POST = withErrorHandler(async (req: NextRequest) => {

@@ -9,5 +9,5 @@ export interface CalendarEventRepository {
   addAttendees(id: string, userIds: string[]): Promise<CalendarEvent>;
   removeAttendees(id: string, userIds: string[]): Promise<CalendarEvent>;
   cancel(id: string): Promise<CalendarEvent>;
-  list(filter?: { ownerId?: string }): Promise<CalendarEvent[]>;
+  list(filter?: { ownerId?: string; tenantId?: string }): Promise<CalendarEvent[]>;
 }

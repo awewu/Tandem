@@ -30,5 +30,10 @@ export class InMemoryCalendarEventRepository implements CalendarEventRepository 
     const e = this.data.get(id); if (!e) throw new Error('not found');
     e.status = 'cancelled'; return e;
   }
-  async list(): Promise<CalendarEvent[]> { return Array.from(this.data.values()); }
+  async list(filter?: { ownerId?: string; tenantId?: string }): Promise<CalendarEvent[]> {
+    let arr = Array.from(this.data.values());
+    if (filter?.ownerId) arr = arr.filter(e => e.ownerId === filter.ownerId);
+    if (filter?.tenantId) arr = arr.filter(e => (e.tenantId ?? 'default') === filter.tenantId);
+    return arr;
+  }
 }

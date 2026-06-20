@@ -5,6 +5,16 @@
 
 ---
 
+## 复核更新 (2026-06-20)
+
+> **状态: 全部 P0 + P1-A/P1-C 已修复并通过对抗性测试锁定。** 本次复核从鉴权边界逐层 grep 实测 (不靠本文记忆), 确认修复在 2026-06-12 审计后落地。原始发现保留在下文 (不静默删改), 每项附 ✅ 已修复证据。
+>
+> - **对抗性回归锁**: `tests/unit/tenant-isolation.test.ts` (写注入 + 读隔离, 4 tests 全绿) + `tests/unit/permission-hardening.test.ts` (P0-A skills / P0-B audit)。
+> - **未尽项 (非阻塞)**: P1-B 全集合扫描下推 (热路径) · P2-A 统一 `withTenantScope` 收敛层 (仍逐路由手写, 靠测试守)。
+> - **宪章锚定**: 这些已上升为 `MANIFESTO.md` §23「200 人工程级架构是基本要求」不可妥协基线。
+
+---
+
 ## P0 · 阻塞上线（安全/数据正确性）
 
 ### P0-A · 跨租户写入注入（Cross-Tenant Write Injection）
@@ -20,6 +30,7 @@
 - **影响**：租户 A 的登录用户 POST 时携带 `tenantId: "B"`，即可把记录写入租户 B 的数据域，污染他人数据。
 - **对照**：团队已在 `app/api/tandem-skills/execute/route.ts:13-15` 显式注释"绝不接受 body 注入"，但只修了这一处。
 - **修复**：所有写接口 `tenantId` 一律取 `auth.tenantId`，删除 `body.tenantId ??` 兜底。可加 ESLint 规则禁止 `body.tenantId`。
+- ✅ **已修复 (2026-06-20)**：全库已无 `body.tenantId` 注入 (仅剩 `tandem-skills/execute` 的解释性注释)。证据 `app/api/calendar/route.ts:39`、`app/api/approvals/route.ts:36`、`app/api/agent/spawn/route.ts:58` 均取 `auth.tenantId`。对抗测试 `tests/unit/tenant-isolation.test.ts`「P0-A」。
 
 ### P0-B · 读接口缺失租户隔离（Cross-Tenant Read Leak）
 - **证据**：
@@ -27,11 +38,13 @@
   - `@/Users/.../app/api/okr/checkins/route.ts:30-32` — 仅按 scope/scopeId 过滤，无租户隔离。
 - **影响**：跨租户读泄露绩效/复盘数据。
 - **修复**：统一加 `.filter(x => (x.tenantId ?? 'default') === auth.tenantId)`。
+- ✅ **已修复 (2026-06-20)**：`app/api/tti/route.ts:17`、`app/api/okr/checkins/route.ts:32` 已加租户读隔离。对抗测试 `tests/unit/tenant-isolation.test.ts`「P0-B /api/tti」。
 
 ### P0-C · MFA 强制门仅客户端生效（Privilege Escalation）
 - **证据**：`@/Users/.../app/api/auth/login/route.ts:53-72` 即使 `mfaEnrollmentRequired=true` 仍照常 `res.cookies.set(COOKIE_ACCESS, ...)` 签发有效 token；`grep mfaVerified app/api` 显示**没有任何业务路由校验 `mfaVerified`**（仅 `auth/me`、`mfa/setup` 回显）。
 - **影响**：特权账户（owner/admin/steward）忽略前端强跳，直接带 token 调 API，即可绕过 MFA 门——P0-4 的"强制"是装饰性的。
 - **修复**：服务端在 `mfaEnrollmentRequired` 时**不签发完整 access token**（或签发受限 token）；敏感写接口加 `requireMfa(auth)` 守卫。
+- ✅ **已修复 (2026-06-20)**：采用更优解 —— token 携带 `pendingMfaEnroll` 标记 (`lib/auth/native.ts:492`)，`middleware.ts:154` 服务端硬门：特权未启 MFA → 所有业务 API 返回 403 (UI 强跳 `/settings/security`)，非装饰性。
 
 ---
 
@@ -41,6 +54,7 @@
 - **证据**：`@/Users/.../app/api/approvals/route.ts:7-25` — `const approvals: Approval[] = [...]` 内存数组，`approvals.push()`。
 - **影响**：① 重启即丢全部审批；② 多副本（APP_REPLICAS>1）各进程数据不一致；③ `...body` 展开可伪造 `requester`/`approver`/`id`。
 - **修复**：迁到 `getStore()` 持久化仓储；create 时只白名单取字段，不展开 body。
+- ✅ **已修复 (2026-06-20)**：`app/api/approvals/route.ts` 已用 `getStore().approvals` 持久化 + filter 下推 (`:14`) + 字段白名单 (`:29-37`，不展开 body)。对抗测试覆盖写注入 + 读隔离。
 
 ### P1-B · 全集合扫描（性能 / 内存）
 - **证据**：大量路由 `await store.X.list()` 无 filter 后 JS 过滤：
@@ -54,6 +68,7 @@
 - **证据**：`@/Users/.../lib/auth/require-auth.ts:40-43,53` — `isDemoAllowed()` 在 `NODE_ENV!=='production'` 且 `ALLOW_DEMO_AUTH!=='0'` 时，未登录请求回退为 `roles: DEMO_FULL_ROLES`（全权限 admin）。
 - **影响**：任何**未精确设 `NODE_ENV=production`** 的部署（如 staging/预览/容器误配），未鉴权即获 admin。生产由 production-guard 兜底，但边缘部署风险高。
 - **修复**：demo 回退改为**显式 opt-in**（仅 `ALLOW_DEMO_AUTH==='1'` 才开），不以 NODE_ENV 反推。
+- ✅ **已修复 (2026-06-20)**：`lib/auth/require-auth.ts:40-45` `isDemoAllowed()` 改为显式 `ALLOW_DEMO_AUTH==='1'` opt-in (生产恒关)，`middleware.ts:70-75` 同步。
 
 ---
 

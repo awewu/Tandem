@@ -18,6 +18,7 @@ import { FIXTURE_LESSONS } from '@/lib/learning/fixtures';
 import { onLessonCompleted } from '@/lib/learning/closure';
 import { boot, getStore } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import type { Lesson, LessonAttempt } from '@/lib/learning/types';
 
 export const runtime = 'nodejs';
@@ -56,8 +57,9 @@ export async function POST(req: NextRequest) {
 
   let lesson: Lesson | null = null;
   try {
-    const stored = await getStore().lessons.get(lessonId);
-    if (stored && (stored.tenantId ?? 'default') === auth.tenantId && stored.publishedAt && !stored.archivedAt) {
+    // Tenant isolation: withTenantScope.get 他租户记录返回 null (宪章 §23).
+    const stored = await withTenantScope(getStore().lessons, auth.tenantId).get(lessonId);
+    if (stored && stored.publishedAt && !stored.archivedAt) {
       lesson = stored;
     }
   } catch {

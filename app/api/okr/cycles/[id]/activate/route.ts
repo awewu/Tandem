@@ -12,6 +12,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { getStore } from '@/lib/storage/repository';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import { eventBus } from '@/lib/events/bus';
 
 export async function POST(
@@ -27,26 +28,28 @@ export async function POST(
   }
 
   const cycleId = params.id;
-  const store = getStore();
+  // 跨租户写隔离 (§23): scoped get/list/update — 激活仅影响本租户周期,
+  // 不再误停用他租户 active 周期.
+  const cycles = withTenantScope(getStore().cycles, auth.tenantId);
 
-  const cycle = await store.cycles.get(cycleId);
+  const cycle = await cycles.get(cycleId);
   if (!cycle) {
     return NextResponse.json({ error: 'cycle_not_found' }, { status: 404 });
   }
 
-  const tenantId = auth.tenantId ?? 'default';
+  const tenantId = auth.tenantId;
 
-  // 找出当前 active 周期
-  const allCycles = await store.cycles.list();
+  // 找出当前 active 周期 (仅本租户)
+  const allCycles = await cycles.list();
   const previousActive = allCycles.find((c) => c.isActive && c.id !== cycleId);
 
-  // 停用所有其他周期，激活目标周期
+  // 停用本租户其他周期，激活目标周期
   await Promise.all(
     allCycles
       .filter((c) => c.id !== cycleId)
-      .map((c) => store.cycles.update(c.id, { isActive: false })),
+      .map((c) => cycles.update(c.id, { isActive: false })),
   );
-  const updated = await store.cycles.update(cycleId, { isActive: true });
+  const updated = await cycles.update(cycleId, { isActive: true });
 
   // 发出域事件 → subscribers → realignPersonaToOkr
   eventBus.emit('okr.cycle-activated', {

@@ -107,9 +107,10 @@ export class DrizzleDriveFileRepository implements DriveFileRepository {
     await db.update(t).set({ deletedAt: new Date() }).where(eq(t.id, id));
   }
 
-  async list(filter?: { parentId?: string | null; ownerId?: string }): Promise<DriveFile[]> {
+  async list(filter?: { parentId?: string | null; ownerId?: string; tenantId?: string }): Promise<DriveFile[]> {
     const conds = [isNull(t.deletedAt)];
     if (filter?.ownerId) conds.push(eq(t.ownerId, filter.ownerId));
+    if (filter?.tenantId) conds.push(eq(t.tenantId, filter.tenantId));
     if (filter && 'parentId' in filter) {
       conds.push(filter.parentId === null ? isNull(t.parentId) : eq(t.parentId, filter.parentId!));
     }

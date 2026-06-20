@@ -10,6 +10,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import { OKR_BOSS_ROLES } from '@/lib/okr/visibility';
 
 function isBoss(roles: string[]): boolean {
@@ -25,8 +26,9 @@ export async function PATCH(
   if (auth instanceof NextResponse) return auth;
   try {
     const store = getStore();
-    const obj = await store.objectives.get(params.id);
-    if (!obj || (obj.tenantId ?? 'default') !== auth.tenantId) {
+    const objectives = withTenantScope(store.objectives, auth.tenantId);
+    const obj = await objectives.get(params.id);
+    if (!obj) {
       return NextResponse.json({ error: 'not_found' }, { status: 404 });
     }
     if (!auth.demo && obj.ownerId !== auth.userId && !isBoss(auth.roles)) {
@@ -52,7 +54,7 @@ export async function PATCH(
     if (typeof body.selfScore === 'number') patch.selfScore = body.selfScore;
     if (typeof body.managerScore === 'number') patch.managerScore = body.managerScore;
     if (typeof body.retrospective === 'string') patch.retrospective = body.retrospective;
-    const updated = await store.objectives.update(params.id, patch as never);
+    const updated = await objectives.update(params.id, patch as never);
     return NextResponse.json({ objective: updated });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
@@ -68,19 +70,21 @@ export async function DELETE(
   if (auth instanceof NextResponse) return auth;
   try {
     const store = getStore();
-    const obj = await store.objectives.get(params.id);
-    if (!obj || (obj.tenantId ?? 'default') !== auth.tenantId) {
+    const objectives = withTenantScope(store.objectives, auth.tenantId);
+    const keyResults = withTenantScope(store.keyResults, auth.tenantId);
+    const obj = await objectives.get(params.id);
+    if (!obj) {
       return NextResponse.json({ error: 'not_found' }, { status: 404 });
     }
     if (!auth.demo && obj.ownerId !== auth.userId && !isBoss(auth.roles)) {
       return NextResponse.json({ error: 'forbidden' }, { status: 403 });
     }
     // 连带删除其 KR (check-in / initiative 暂留, 不阻塞主删除).
-    const krs = (await store.keyResults.list()).filter((k) => k.objectiveId === params.id);
+    const krs = await keyResults.list({ objectiveId: params.id });
     for (const kr of krs) {
-      await store.keyResults.delete(kr.id);
+      await keyResults.delete(kr.id);
     }
-    await store.objectives.delete(params.id);
+    await objectives.delete(params.id);
     return NextResponse.json({ ok: true, deletedKrs: krs.length });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });

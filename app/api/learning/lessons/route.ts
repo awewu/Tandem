@@ -8,6 +8,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getStore, boot } from '@/lib/boot';
 import { requireAuth, requireRole } from '@/lib/auth/require-auth';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import { DATA_STEWARD_ROLES } from '@/lib/auth/roles';
 import type { Lesson, LessonCategory, LessonRequirement } from '@/lib/learning/types';
 
@@ -25,7 +26,8 @@ export async function GET(req: NextRequest) {
     const includeDrafts = searchParams.get('includeDrafts') === '1';
 
     const store = getStore();
-    let lessons = (await store.lessons.list()).filter((l) => (l.tenantId ?? 'default') === auth.tenantId);
+    // Tenant isolation: 收敛到统一 withTenantScope (宪章 §23).
+    let lessons = await withTenantScope(store.lessons, auth.tenantId).list();
     if (categoryFilter && VALID_CATEGORIES.includes(categoryFilter)) {
       lessons = lessons.filter((l) => l.category === categoryFilter);
     }

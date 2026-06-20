@@ -18,7 +18,7 @@ export interface CreateDriveFileCommand {
 export class DriveService {
   constructor(private ctx: ApplicationContext) {}
 
-  async list(opts?: { parentId?: string | null; ownerId?: string }): Promise<DriveFile[]> {
+  async list(opts?: { parentId?: string | null; ownerId?: string; tenantId?: string }): Promise<DriveFile[]> {
     return this.ctx.driveRepo.list(opts);
   }
 

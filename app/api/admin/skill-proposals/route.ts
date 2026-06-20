@@ -15,6 +15,7 @@ import { requireAuth, requireRole } from '@/lib/auth/require-auth';
 import { detectPatterns } from '@/lib/skills/pattern-detector';
 import { generateSkillProposal, reviewSkillProposal } from '@/lib/skills/skill-proposal';
 import { getStore } from '@/lib/storage/repository';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 
 export const runtime = 'nodejs';
 
@@ -32,8 +33,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (limit > 200) limit = 200;
 
   const store = getStore();
-  let all = await store.skillProposals.list();
-  all = all.filter((p) => (p.tenantId ?? 'default') === auth.tenantId);
+  // Tenant isolation: 收敛到统一 withTenantScope (宪章 §23).
+  let all = await withTenantScope(store.skillProposals, auth.tenantId).list();
   if (status) {
     all = all.filter((p) => p.status === status);
   }

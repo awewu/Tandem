@@ -16,6 +16,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import { executeAction, type KrCheckinResult, type ObjectiveCheckinResult } from '@/lib/ontology';
 
 export async function GET(req: NextRequest) {
@@ -26,10 +27,8 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const scope = searchParams.get('scope');
     const scopeId = searchParams.get('scopeId');
-    const store = getStore();
-    let all = await store.checkIns.list();
-    // P0-B: 多租户读隔离 — 只返回调用方租户的 check-in (继承自父 KR/Objective 的 tenantId).
-    all = all.filter((c) => (c.tenantId ?? 'default') === auth.tenantId);
+    // P0-B 多租户读隔离: 经 withTenantScope 统一收敛 (§23 P2-A; 继承自父 KR/Objective 的 tenantId).
+    let all = await withTenantScope(getStore().checkIns, auth.tenantId).list();
     if (scope) all = all.filter((c) => c.scope === scope);
     if (scopeId) all = all.filter((c) => c.scopeId === scopeId);
     all.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
