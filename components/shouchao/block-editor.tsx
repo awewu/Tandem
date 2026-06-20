@@ -73,6 +73,9 @@ export function BlockEditor({ value, onChange, placeholder }: BlockEditorProps) 
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const inputRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
   const focusAfter = useRef<string | null>(null);
+  // 拖拽排序: 当前被拖块 id + 悬停目标块 id (插入到目标块之前)
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   useEffect(() => {
     if (value !== lastSerialized.current) {
@@ -126,6 +129,27 @@ export function BlockEditor({ value, onChange, placeholder }: BlockEditorProps) 
     focusAfter.current = next[Math.max(0, idx - 1)]?.id ?? null;
   };
 
+  // 把 sourceId 移动到 targetId 之前; targetId 为 null 表示移到末尾
+  const moveBlock = (sourceId: string, targetId: string | null) => {
+    if (sourceId === targetId) return;
+    const from = blocks.findIndex((b) => b.id === sourceId);
+    if (from < 0) return;
+    const without = blocks.filter((b) => b.id !== sourceId);
+    const moved = blocks[from];
+    if (targetId === null) {
+      commit([...without, moved]);
+      return;
+    }
+    const to = without.findIndex((b) => b.id === targetId);
+    if (to < 0) return;
+    commit([...without.slice(0, to), moved, ...without.slice(to)]);
+  };
+
+  const endDrag = () => {
+    setDragId(null);
+    setDragOverId(null);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>, block: Block, idx: number) => {
     const el = e.currentTarget;
     // 行首 "/" 唤起菜单
@@ -175,7 +199,23 @@ export function BlockEditor({ value, onChange, placeholder }: BlockEditorProps) 
   return (
     <div className="space-y-0.5">
       {blocks.map((block, idx) => (
-        <div key={block.id} className="group relative flex items-start gap-1">
+        <div
+          key={block.id}
+          className={`group relative flex items-start gap-1 rounded-md transition-colors ${
+            dragOverId === block.id ? 'border-t-2 border-brand-400' : 'border-t-2 border-transparent'
+          } ${dragId === block.id ? 'opacity-40' : ''}`}
+          onDragOver={(e) => {
+            if (!dragId || dragId === block.id) return;
+            e.preventDefault();
+            if (dragOverId !== block.id) setDragOverId(block.id);
+          }}
+          onDrop={(e) => {
+            if (!dragId) return;
+            e.preventDefault();
+            moveBlock(dragId, block.id);
+            endDrag();
+          }}
+        >
           {/* 左侧悬浮控制 */}
           <div className="flex w-10 shrink-0 items-center justify-end gap-0.5 pt-1 opacity-0 transition-opacity group-hover:opacity-100">
             <button
@@ -186,7 +226,20 @@ export function BlockEditor({ value, onChange, placeholder }: BlockEditorProps) 
             >
               <Plus className="h-3.5 w-3.5" />
             </button>
-            <span className="cursor-grab text-ink-tertiary"><GripVertical className="h-3.5 w-3.5" /></span>
+            <span
+              draggable
+              title="拖拽排序"
+              onDragStart={(e) => {
+                setDragId(block.id);
+                e.dataTransfer.effectAllowed = 'move';
+                // 某些浏览器需要设置数据才会触发 drag
+                e.dataTransfer.setData('text/plain', block.id);
+              }}
+              onDragEnd={endDrag}
+              className="cursor-grab text-ink-tertiary active:cursor-grabbing"
+            >
+              <GripVertical className="h-3.5 w-3.5" />
+            </span>
           </div>
 
           {/* 块类型菜单 */}
@@ -256,6 +309,23 @@ export function BlockEditor({ value, onChange, placeholder }: BlockEditorProps) 
           </div>
         </div>
       ))}
+      {/* 末尾落点: 把块拖到这里移到最后 */}
+      {dragId && (
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            if (dragOverId !== '__end__') setDragOverId('__end__');
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            moveBlock(dragId, null);
+            endDrag();
+          }}
+          className={`h-6 rounded-md transition-colors ${
+            dragOverId === '__end__' ? 'border-t-2 border-brand-400' : ''
+          }`}
+        />
+      )}
     </div>
   );
 }

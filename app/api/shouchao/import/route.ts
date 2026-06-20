@@ -1,9 +1,11 @@
 /**
- * 搭字手抄 · 文章/公众号一键导入提炼 (对标 Get笔记 的"链接转笔记")
+ * 搭字手抄 · 文章/公众号/文件一键导入提炼 (对标 Get笔记 的"链接转笔记/文件转笔记")
  *
- *   POST /api/shouchao/import  { url, rawText?, mode?: 'distill' | 'full' }
+ *   POST /api/shouchao/import
+ *     - JSON      { url, rawText?, mode?: 'distill' | 'full' }
+ *     - multipart  file=<PDF/.docx/.txt/.md>, mode=<distill|full>
  *
- * 抓取网页正文 (复用 clip 的 htmlToText), 用 LLM 提炼成结构化中文笔记后落库为本人笔记.
+ * 抓取网页正文 (复用 clip 的 htmlToText) 或抽取上传文件正文, 用 LLM 提炼成结构化中文笔记后落库.
  * - mode='distill' (默认): AI 提炼要点 + 生成标题/标签, 适合长文/公众号
  * - mode='full'           : 保留正文全文 (仅清洗), 适合想自己读原文的场景
  * - 严格 ownerId 隔离, 落到本人搭字手抄, 不进公司知识库
@@ -11,6 +13,7 @@
  *
  * 公众号 (mp.weixin.qq.com) 等需 UA 伪装的站点已带浏览器 UA; 反爬严重的站点会失败,
  * 此时前端可提示用户改用"粘贴正文" (rawText)。
+ * 文件支持: PDF (pdfjs-dist) / .docx (mammoth) / 纯文本/Markdown; 旧版 .doc 与扫描件 PDF 不支持。
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -18,6 +21,7 @@ import { boot } from '@/lib/boot';
 import { withErrorHandler } from '@/lib/api/error-middleware';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { createNote } from '@/lib/shouchao/service';
+import { extractDocument, MAX_FILE_BYTES } from '@/lib/infra/document-extract';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -98,35 +102,69 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   if (auth instanceof NextResponse) return auth;
   await boot();
 
-  const body = (await req.json().catch(() => ({}))) as Body;
-  const url = typeof body.url === 'string' ? body.url.trim() : '';
-  const rawText = typeof body.rawText === 'string' ? body.rawText.trim() : '';
-  const mode = body.mode === 'full' ? 'full' : 'distill';
-
-  if (!url && !rawText) {
-    return NextResponse.json({ ok: false, error: 'url 或 rawText 至少提供一个' }, { status: 400 });
-  }
-
   let sourceTitle = '';
-  let sourceText = rawText;
+  let sourceText = '';
   let sourceUrl: string | undefined;
-  if (!sourceText && url) {
-    let parsed: URL;
+  let mode: 'distill' | 'full' = 'distill';
+
+  const contentType = req.headers.get('content-type') ?? '';
+
+  if (contentType.includes('multipart/form-data')) {
+    // ---- 文件上传分支 ----
+    let form: FormData;
     try {
-      parsed = new URL(url);
-      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') throw new Error('protocol');
+      form = await req.formData();
     } catch {
-      return NextResponse.json({ ok: false, error: '请输入合法的 http(s) 链接' }, { status: 400 });
+      return NextResponse.json({ ok: false, error: '表单解析失败' }, { status: 400 });
     }
-    try {
-      const art = await fetchArticle(parsed.toString());
-      sourceTitle = art.title;
-      sourceText = art.text;
-      sourceUrl = parsed.toString();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'unknown';
-      const friendly = /abort/i.test(msg) ? '抓取超时' : `抓取失败：${msg}（可改用粘贴正文）`;
-      return NextResponse.json({ ok: false, error: friendly }, { status: 502 });
+    const file = form.get('file');
+    const modeField = form.get('mode');
+    mode = modeField === 'full' ? 'full' : 'distill';
+    if (!(file instanceof File)) {
+      return NextResponse.json({ ok: false, error: '缺少上传文件 file' }, { status: 400 });
+    }
+    if (file.size > MAX_FILE_BYTES) {
+      return NextResponse.json(
+        { ok: false, error: `文件过大（上限 ${Math.floor(MAX_FILE_BYTES / 1024 / 1024)}MB）` },
+        { status: 413 },
+      );
+    }
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const extracted = await extractDocument(bytes, file.name, file.type);
+    if (!extracted.ok || !extracted.text) {
+      return NextResponse.json({ ok: false, error: extracted.error ?? '文件解析失败' }, { status: 422 });
+    }
+    sourceTitle = extracted.title ?? '';
+    sourceText = extracted.text;
+  } else {
+    // ---- 链接 / 粘贴正文分支 ----
+    const body = (await req.json().catch(() => ({}))) as Body;
+    const url = typeof body.url === 'string' ? body.url.trim() : '';
+    const rawText = typeof body.rawText === 'string' ? body.rawText.trim() : '';
+    mode = body.mode === 'full' ? 'full' : 'distill';
+
+    if (!url && !rawText) {
+      return NextResponse.json({ ok: false, error: 'url 或 rawText 至少提供一个' }, { status: 400 });
+    }
+    sourceText = rawText;
+    if (!sourceText && url) {
+      let parsed: URL;
+      try {
+        parsed = new URL(url);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') throw new Error('protocol');
+      } catch {
+        return NextResponse.json({ ok: false, error: '请输入合法的 http(s) 链接' }, { status: 400 });
+      }
+      try {
+        const art = await fetchArticle(parsed.toString());
+        sourceTitle = art.title;
+        sourceText = art.text;
+        sourceUrl = parsed.toString();
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'unknown';
+        const friendly = /abort/i.test(msg) ? '抓取超时' : `抓取失败：${msg}（可改用粘贴正文）`;
+        return NextResponse.json({ ok: false, error: friendly }, { status: 502 });
+      }
     }
   }
 

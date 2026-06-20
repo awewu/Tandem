@@ -43,6 +43,7 @@ import {
   Send as SendIcon,
   LayoutList,
   FileText,
+  FileUp,
 } from 'lucide-react';
 
 interface Note {
@@ -83,6 +84,7 @@ export default function ShouchaoPage() {
   const [saving, setSaving] = useState(false);
   const [aiBusy, setAiBusy] = useState<null | 'summarize' | 'polish' | 'tags'>(null);
   const [clipOpen, setClipOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [toast, setToast] = useState<Toast>(null);
 
   // 跨笔记 AI 问答 (Ask) · 问你的第二大脑
@@ -519,6 +521,14 @@ export default function ShouchaoPage() {
                   title="剪藏网页链接"
                 >
                   <Link2 className="h-3.5 w-3.5" /> 剪藏
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setImportOpen(true)}
+                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-footnote text-ink-tertiary hover:bg-surface-2 hover:text-ink-secondary surface-interactive"
+                  title="导入 PDF / Word / 文本文件"
+                >
+                  <FileUp className="h-3.5 w-3.5" /> 导入文件
                 </button>
                 <button
                   type="button"
@@ -964,6 +974,20 @@ export default function ShouchaoPage() {
         />
       )}
 
+      {/* 导入文件弹窗 */}
+      {importOpen && (
+        <ImportDialog
+          onClose={() => setImportOpen(false)}
+          onImported={async (note) => {
+            setImportOpen(false);
+            await loadNotes(search);
+            if (note) selectNote(note);
+            showToast('ok', '导入成功');
+          }}
+          onError={(m) => showToast('err', m)}
+        />
+      )}
+
       {/* Toast */}
       {toast && (
         <div
@@ -1085,6 +1109,141 @@ function ClipDialog({
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
             剪藏
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ImportDialog({
+  onClose,
+  onImported,
+  onError,
+}: {
+  onClose: () => void;
+  onImported: (note: Note | null) => void;
+  onError: (msg: string) => void;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [mode, setMode] = useState<'distill' | 'full'>('distill');
+  const [busy, setBusy] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  function pick(f: File | null | undefined) {
+    if (!f) return;
+    setFile(f);
+  }
+
+  async function go() {
+    if (!file || busy) return;
+    setBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('mode', mode);
+      const r = await fetch('/api/shouchao/import', { method: 'POST', body: fd });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok || !d.ok) throw new Error(d.error ?? '导入失败');
+      onImported((d.note as Note) ?? null);
+    } catch (e) {
+      onError(e instanceof Error ? e.message : '导入失败');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div
+        className="w-full max-w-lg rounded-2xl bg-surface-1 p-6 shadow-soft-lg"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-3 flex items-center gap-2">
+          <FileUp className="h-5 w-5 text-brand-500" />
+          <h2 className="text-headline font-bold text-ink-primary">导入文件</h2>
+        </div>
+        <p className="mb-3 text-footnote text-ink-tertiary">
+          支持 PDF / Word(.docx) / 文本(.txt/.md)。AI 提炼成结构化笔记，或保留全文。
+        </p>
+
+        {/* 拖拽 / 点击选择区 */}
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragActive(true);
+          }}
+          onDragLeave={() => setDragActive(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragActive(false);
+            pick(e.dataTransfer.files?.[0]);
+          }}
+          className={`flex w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-8 text-center transition-colors ${
+            dragActive ? 'border-brand-400 bg-brand-50' : 'border-border hover:bg-surface-2'
+          }`}
+        >
+          <FileUp className="h-6 w-6 text-ink-tertiary" />
+          {file ? (
+            <span className="text-caption font-medium text-ink-primary">{file.name}</span>
+          ) : (
+            <span className="text-caption text-ink-tertiary">点击选择，或拖拽文件到此处</span>
+          )}
+          <span className="text-footnote text-ink-tertiary">PDF · DOCX · TXT · MD（≤20MB）</span>
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".pdf,.docx,.txt,.md,.markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown"
+          className="hidden"
+          onChange={(e) => pick(e.target.files?.[0])}
+        />
+
+        {/* 模式选择 */}
+        <div className="mt-4 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setMode('distill')}
+            className={`flex-1 rounded-lg border px-3 py-2 text-caption font-medium surface-interactive ${
+              mode === 'distill'
+                ? 'border-brand-400 bg-brand-50 text-brand-700'
+                : 'border-border text-ink-secondary hover:bg-surface-2'
+            }`}
+          >
+            AI 提炼要点
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('full')}
+            className={`flex-1 rounded-lg border px-3 py-2 text-caption font-medium surface-interactive ${
+              mode === 'full'
+                ? 'border-brand-400 bg-brand-50 text-brand-700'
+                : 'border-border text-ink-secondary hover:bg-surface-2'
+            }`}
+          >
+            保留全文
+          </button>
+        </div>
+
+        <div className="mt-4 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-border px-4 py-2 text-caption text-ink-secondary hover:bg-surface-2 surface-interactive"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            onClick={() => void go()}
+            disabled={busy || !file}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-caption font-semibold text-white hover:bg-brand-600 disabled:opacity-50 surface-interactive"
+          >
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileUp className="h-4 w-4" />}
+            导入
           </button>
         </div>
       </div>
