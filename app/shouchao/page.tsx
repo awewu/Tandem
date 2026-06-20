@@ -93,6 +93,9 @@ export default function ShouchaoPage() {
   const [askBusy, setAskBusy] = useState(false);
   const [askAnswer, setAskAnswer] = useState('');
   const [askCitations, setAskCitations] = useState<{ index: number; id: string; title: string }[]>([]);
+  // 引用高亮: 点击答案内 [n] 或来源 chip 时高亮对应来源 (null=无高亮)
+  const [highlightCite, setHighlightCite] = useState<number | null>(null);
+  const askAbortRef = useRef<AbortController | null>(null);
 
   // 双向链接: 出链 (本笔记引用谁) + 反链 (谁引用本笔记)
   const [outgoing, setOutgoing] = useState<{ id: string | null; title: string; unresolved: boolean }[]>([]);
@@ -386,29 +389,68 @@ export default function ShouchaoPage() {
     }
   }
 
-  // ---- 跨笔记 AI 问答 (Ask) · 问你的第二大脑 ----
+  // ---- 跨笔记 AI 问答 (Ask) · 问你的第二大脑 · SSE 流式 ----
   async function askNotes() {
     const q = askQuestion.trim();
     if (!q || askBusy) return;
     setAskBusy(true);
     setAskAnswer('');
     setAskCitations([]);
+    setHighlightCite(null);
+    askAbortRef.current?.abort();
+    const ctrl = new AbortController();
+    askAbortRef.current = ctrl;
     try {
       const r = await fetch('/api/shouchao/ask', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question: q }),
+        signal: ctrl.signal,
       });
-      const d = await r.json();
-      if (!r.ok || !d.ok) throw new Error(d.error ?? 'AI 问答失败');
-      setAskAnswer(d.answer ?? '');
-      setAskCitations(Array.isArray(d.citations) ? d.citations : []);
+      // 校验失败等非流式错误 (400/401): 走 JSON 分支
+      if (!r.ok || !r.body) {
+        const d = await r.json().catch(() => ({}));
+        throw new Error(d.error ?? 'AI 问答失败');
+      }
+      const reader = r.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let streamErr = '';
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith('data:')) continue;
+          const payload = trimmed.slice(5).trim();
+          if (!payload) continue;
+          let evt: { citations?: typeof askCitations; content?: string; error?: string; done?: boolean };
+          try {
+            evt = JSON.parse(payload);
+          } catch {
+            continue;
+          }
+          if (Array.isArray(evt.citations)) setAskCitations(evt.citations);
+          if (typeof evt.content === 'string') setAskAnswer((prev) => prev + evt.content);
+          if (typeof evt.error === 'string') streamErr = evt.error;
+          if (evt.done) break;
+        }
+      }
+      if (streamErr) throw new Error(streamErr);
     } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') return; // 被新提问/卸载取消
       showToast('err', e instanceof Error ? e.message : 'AI 问答失败');
     } finally {
+      if (askAbortRef.current === ctrl) askAbortRef.current = null;
       setAskBusy(false);
     }
   }
+
+  // 卸载/关闭页面时中止在途流
+  useEffect(() => () => askAbortRef.current?.abort(), []);
 
   // 点引用 → 打开对应笔记
   function openCitation(id: string) {
@@ -419,6 +461,33 @@ export default function ShouchaoPage() {
     } else {
       showToast('err', '该笔记可能已归档或删除');
     }
+  }
+
+  // 答案内 [n] 渲染为可点击引用: 点击高亮对应来源 chip (再点取消)
+  function renderAnswerWithCitations(text: string) {
+    const parts = text.split(/(\[\d+\])/g);
+    return parts.map((seg, i) => {
+      const m = seg.match(/^\[(\d+)\]$/);
+      if (!m) return <span key={i}>{seg}</span>;
+      const n = Number(m[1]);
+      const known = askCitations.some((c) => c.index === n);
+      if (!known) return <span key={i}>{seg}</span>;
+      return (
+        <button
+          key={i}
+          type="button"
+          onClick={() => setHighlightCite((cur) => (cur === n ? null : n))}
+          className={`mx-0.5 inline-flex items-center rounded font-mono align-baseline surface-interactive ${
+            highlightCite === n
+              ? 'bg-brand-500 px-1 text-white'
+              : 'px-0.5 text-brand-500 hover:bg-brand-50'
+          }`}
+          title="高亮对应来源"
+        >
+          [{n}]
+        </button>
+      );
+    });
   }
 
   // ---- 员工本人闸门: 喂给我的工作分身 (默认关, 可撤回) ----
@@ -609,24 +678,39 @@ export default function ShouchaoPage() {
                     className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-brand-500 px-3 py-2 text-caption font-semibold text-white hover:bg-brand-600 shadow-soft-sm disabled:opacity-40 surface-interactive"
                   >
                     {askBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <SendIcon className="h-3.5 w-3.5" />}
-                    {askBusy ? '检索中' : '提问'}
+                    {askBusy ? '思考中' : '提问'}
                   </button>
                 </div>
 
-                {/* 回答 + 引用溯源 */}
-                {askAnswer && (
+                {/* 回答 + 引用溯源 (流式: 先显来源, 再边生成边显答案) */}
+                {(askAnswer || askCitations.length > 0 || askBusy) && (
                   <div className="mt-3 rounded-lg border border-border bg-surface-2/40 p-3">
-                    <div className="whitespace-pre-wrap text-caption leading-relaxed text-ink-primary">{askAnswer}</div>
+                    <div className="whitespace-pre-wrap text-caption leading-relaxed text-ink-primary">
+                      {askAnswer ? (
+                        <>
+                          {renderAnswerWithCitations(askAnswer)}
+                          {askBusy && <span className="ml-0.5 inline-block h-3.5 w-1.5 animate-pulse bg-brand-400 align-middle" />}
+                        </>
+                      ) : (
+                        <span className="text-ink-tertiary">正在检索你的笔记并组织回答…</span>
+                      )}
+                    </div>
                     {askCitations.length > 0 && (
                       <div className="mt-2.5 border-t border-border pt-2">
-                        <p className="mb-1.5 text-footnote text-ink-tertiary">引用来源（点开查看）</p>
+                        <p className="mb-1.5 text-footnote text-ink-tertiary">引用来源（点 [n] 高亮 · 点卡片打开）</p>
                         <div className="flex flex-wrap gap-1.5">
                           {askCitations.map((c) => (
                             <button
                               key={c.id}
                               type="button"
                               onClick={() => openCitation(c.id)}
-                              className="inline-flex items-center gap-1 rounded-md border border-border bg-surface-1 px-2 py-1 text-footnote text-ink-secondary hover:border-brand-300 hover:text-brand-600 surface-interactive"
+                              onMouseEnter={() => setHighlightCite(c.index)}
+                              onMouseLeave={() => setHighlightCite((cur) => (cur === c.index ? null : cur))}
+                              className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-footnote surface-interactive ${
+                                highlightCite === c.index
+                                  ? 'border-brand-400 bg-brand-50 text-brand-700 ring-1 ring-brand-300'
+                                  : 'border-border bg-surface-1 text-ink-secondary hover:border-brand-300 hover:text-brand-600'
+                              }`}
                               title={c.title}
                             >
                               <span className="font-mono text-brand-500">[{c.index}]</span>
