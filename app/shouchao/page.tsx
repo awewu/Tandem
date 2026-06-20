@@ -92,6 +92,10 @@ export default function ShouchaoPage() {
   const [askAnswer, setAskAnswer] = useState('');
   const [askCitations, setAskCitations] = useState<{ index: number; id: string; title: string }[]>([]);
 
+  // 双向链接: 出链 (本笔记引用谁) + 反链 (谁引用本笔记)
+  const [outgoing, setOutgoing] = useState<{ id: string | null; title: string; unresolved: boolean }[]>([]);
+  const [backlinks, setBacklinks] = useState<{ id: string; title: string; updatedAt: string }[]>([]);
+
   // 刚需 · 随手记快速捕获 (1 步落库, 不开编辑器)
   const [quick, setQuick] = useState('');
   const [quickBusy, setQuickBusy] = useState(false);
@@ -151,6 +155,61 @@ export default function ShouchaoPage() {
     setPinned(!!n.pinned);
     setShared(!!n.sharedToPersona);
     setDirty(false);
+    setOutgoing([]);
+    setBacklinks([]);
+    void loadLinks(n.id);
+  }
+
+  // ---- 双向链接: 拉取出链 + 反链 ----
+  const loadLinks = useCallback(async (id: string) => {
+    try {
+      const r = await fetch(`/api/shouchao/notes/${id}/links`);
+      if (!r.ok) return;
+      const d = await r.json();
+      setOutgoing(Array.isArray(d.outgoing) ? d.outgoing : []);
+      setBacklinks(Array.isArray(d.backlinks) ? d.backlinks : []);
+    } catch {
+      /* 链接面板非关键, 失败静默 */
+    }
+  }, []);
+
+  // ---- 跳转到某笔记 (双链点击): 在已加载列表里找, 找不到则按 id 拉取 ----
+  async function navigateToNote(id: string) {
+    const local = notes.find((x) => x.id === id);
+    if (local) {
+      selectNote(local);
+      return;
+    }
+    try {
+      const r = await fetch(`/api/shouchao/notes/${id}`);
+      if (!r.ok) throw new Error('not found');
+      const d = await r.json();
+      if (d.note) selectNote(d.note as Note);
+    } catch {
+      showToast('err', '该笔记可能已删除');
+    }
+  }
+
+  // ---- 双链点击: 已存在则跳转, 未创建 (unresolved) 则按标题新建 ----
+  async function followWikiLink(ref: { id: string | null; title: string }) {
+    if (ref.id) {
+      void navigateToNote(ref.id);
+      return;
+    }
+    // 未解析: 用该标题新建笔记
+    try {
+      const r = await fetch('/api/shouchao/notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: ref.title, content: '', tags: [] }),
+      });
+      if (!r.ok) throw new Error('create failed');
+      const d = await r.json();
+      await loadNotes(search);
+      if (d.note) selectNote(d.note as Note);
+    } catch {
+      showToast('err', '创建笔记失败');
+    }
   }
 
   function markDirty() {
@@ -841,6 +900,51 @@ export default function ShouchaoPage() {
                     />
                   )}
                 </div>
+
+                {/* 双向链接面板 */}
+                {(outgoing.length > 0 || backlinks.length > 0) && (
+                  <div className="mt-4 space-y-3 border-t border-border pt-4">
+                    {outgoing.length > 0 && (
+                      <div>
+                        <div className="mb-1.5 flex items-center gap-1.5 text-footnote font-semibold text-ink-tertiary">
+                          <Link2 className="h-3.5 w-3.5" /> 引用了 ({outgoing.length})
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {outgoing.map((ref) => (
+                            <button
+                              key={`${ref.title}-${ref.id ?? 'new'}`}
+                              type="button"
+                              onClick={() => void followWikiLink(ref)}
+                              className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-footnote ${ref.unresolved ? 'border border-dashed border-border text-ink-tertiary hover:text-brand-600' : 'bg-surface-2 text-ink-secondary hover:bg-brand-50 hover:text-brand-700'}`}
+                            >
+                              {ref.title}
+                              {ref.unresolved && <Plus className="h-3 w-3" />}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {backlinks.length > 0 && (
+                      <div>
+                        <div className="mb-1.5 flex items-center gap-1.5 text-footnote font-semibold text-ink-tertiary">
+                          <MessageCircleQuestion className="h-3.5 w-3.5" /> 被引用 ({backlinks.length})
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          {backlinks.map((bl) => (
+                            <button
+                              key={bl.id}
+                              type="button"
+                              onClick={() => void navigateToNote(bl.id)}
+                              className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-left text-caption text-ink-secondary hover:bg-surface-2 hover:text-brand-700"
+                            >
+                              <ArrowLeft className="h-3 w-3 shrink-0" /> {bl.title}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>

@@ -372,6 +372,88 @@ export interface NoteHit {
   score: number;
 }
 
+// ---------------------------------------------------------------------------
+// 双向链接 · [[笔记标题]] 引用 + 反向链接 (对标 Notion / Obsidian 的页面网络)
+//   - 解析正文里的 [[标题]] 语法, 解析成对其它笔记的引用
+//   - 反向链接: "哪些笔记引用了我", 让笔记从孤岛变成网络
+//   - 纯 ownerId 隔离, 只在本人笔记之间连边
+//   - 底层仍是 content:string, 不改数据模型; 链接是读时解析, 无需迁移
+// ---------------------------------------------------------------------------
+
+const WIKILINK_RE = /\[\[([^\[\]|]+?)(?:\|([^\[\]]+?))?\]\]/g;
+
+/** 从一段文本里抽出所有 [[标题]] 引用的目标标题 (去重, 保序). */
+export function extractWikiLinks(text: string): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  let m: RegExpExecArray | null;
+  WIKILINK_RE.lastIndex = 0;
+  while ((m = WIKILINK_RE.exec(text ?? '')) !== null) {
+    const target = (m[1] ?? '').trim();
+    if (target && !seen.has(target.toLowerCase())) {
+      seen.add(target.toLowerCase());
+      out.push(target);
+    }
+  }
+  return out;
+}
+
+export interface LinkRef {
+  /** 目标/来源笔记 id (解析命中时有值) */
+  id: string | null;
+  /** 引用里写的标题 */
+  title: string;
+  /** true=链接指向的笔记不存在 (可一键创建) */
+  unresolved: boolean;
+}
+
+/**
+ * 解析某笔记的"出链" (它引用了哪些笔记). 按标题在本人笔记里匹配 (大小写不敏感).
+ * 匹配不到的标题标记 unresolved=true (前端可提示"创建该笔记").
+ */
+export async function getOutgoingLinks(ownerId: string, id: string): Promise<LinkRef[]> {
+  const note = await getNote(ownerId, id);
+  if (!note) return [];
+  const targets = extractWikiLinks(note.content);
+  if (targets.length === 0) return [];
+
+  const store = getStore();
+  const all = await store.shouchaoNotes.list({ ownerId } as Partial<ShouchaoNote>);
+  const active = all.filter((n) => !n.deletedAt);
+  const byTitle = new Map<string, ShouchaoNote>();
+  for (const n of active) {
+    const k = n.title.trim().toLowerCase();
+    // 多个同名取最近更新的
+    const prev = byTitle.get(k);
+    if (!prev || n.updatedAt.localeCompare(prev.updatedAt) > 0) byTitle.set(k, n);
+  }
+
+  return targets.map((title) => {
+    const hit = byTitle.get(title.toLowerCase());
+    return { id: hit?.id ?? null, title, unresolved: !hit };
+  });
+}
+
+/**
+ * 反向链接: 找出所有"正文里 [[本笔记标题]]"的其它笔记.
+ * 标题匹配大小写不敏感; 排除软删/自身. 这是双向链接的"反向"半边.
+ */
+export async function getBacklinks(ownerId: string, id: string): Promise<ShouchaoNote[]> {
+  const target = await getNote(ownerId, id);
+  if (!target) return [];
+  const targetTitle = target.title.trim().toLowerCase();
+  if (!targetTitle) return [];
+
+  const store = getStore();
+  const all = await store.shouchaoNotes.list({ ownerId } as Partial<ShouchaoNote>);
+  return all
+    .filter((n) => !n.deletedAt && n.id !== id)
+    .filter((n) =>
+      extractWikiLinks(n.content).some((t) => t.toLowerCase() === targetTitle),
+    )
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
 /**
  * 在本人全部活跃笔记里检索与 query 最相关的若干条 (关键词相似度 jaccard).
  * 排除软删/归档. 无命中回落最近笔记, 保证"我记过啥"这类宽泛问题也有上下文.
