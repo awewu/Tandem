@@ -142,7 +142,6 @@ export async function runMultiStep(input: MultiStepInput): Promise<MultiStepResu
         observation: typeof inv.result === 'string' ? inv.result.slice(0, 1000) : JSON.stringify(inv.result).slice(0, 1000),
         latencyMs: inv.latencyMs,
         finished: false,
-        status: 'failed',
         status: inv.ok ? 'completed' : 'failed',
       }));
       // 最后一步加 final answer
@@ -150,7 +149,6 @@ export async function runMultiStep(input: MultiStepInput): Promise<MultiStepResu
         step: adaptedTrace.length + 1,
         thought: '(native: final assistant message)',
         finished: r.finishedNaturally,
-        status: r.finishedNaturally ? 'completed' : 'failed',
         status: r.finishedNaturally ? 'completed' : 'failed',
       });
       return {
@@ -239,7 +237,6 @@ export async function runMultiStep(input: MultiStepInput): Promise<MultiStepResu
           latencyMs: stepLatency,
           finished: false,
           status: 'failed',
-          status: 'failed',
         });
         break;
       }
@@ -287,7 +284,6 @@ export async function runMultiStep(input: MultiStepInput): Promise<MultiStepResu
           latencyMs: stepLatency,
           finished: false,
           status: skillResult.ok ? 'completed' : 'failed',
-          status: skillResult.ok ? 'completed' : 'failed',
         });
         continue; // 进入下一轮, 让 LLM 看 observation 决定下一步
       }
@@ -302,7 +298,6 @@ export async function runMultiStep(input: MultiStepInput): Promise<MultiStepResu
           tokensUsed: stepTokens,
           latencyMs: stepLatency,
           finished: true,
-          status: 'completed',
           status: 'completed',
         });
         break;

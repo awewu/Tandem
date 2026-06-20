@@ -48,6 +48,12 @@ export interface AiSettings {
   embeddingApiUrl?: string;
   embeddingApiKey?: string;
 
+  /** 语音转写 (STT) · 对标 Get笔记 语音转笔记. OpenAI Whisper 兼容协议 */
+  sttProvider?: 'openai' | 'none';
+  sttModel?: string;
+  sttApiUrl?: string;
+  sttApiKey?: string;
+
   /** Web 搜索 */
   tavilyApiKey?: string;
   braveSearchApiKey?: string;

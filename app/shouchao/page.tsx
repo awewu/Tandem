@@ -20,6 +20,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { BrandLogo } from '@/components/brand-logo';
 import { enqueue as enqueueOffline, flushQueue } from '@/lib/shouchao/offline-queue';
+import { BlockEditor } from '@/components/shouchao/block-editor';
 import {
   NotebookPen,
   Plus,
@@ -40,6 +41,8 @@ import {
   Share2,
   MessageCircleQuestion,
   Send as SendIcon,
+  LayoutList,
+  FileText,
 } from 'lucide-react';
 
 interface Note {
@@ -72,6 +75,8 @@ export default function ShouchaoPage() {
   const [sourceUrl, setSourceUrl] = useState<string | undefined>(undefined);
   const [pinned, setPinned] = useState(false);
   const [shared, setShared] = useState(false);
+  /** 编辑器模式: block=块编辑(Notion 式) / md=Markdown 源码 */
+  const [editorMode, setEditorMode] = useState<'block' | 'md'>('block');
   const [tagFilter, setTagFilter] = useState<string | null>(null);
 
   const [dirty, setDirty] = useState(false);
@@ -793,16 +798,49 @@ export default function ShouchaoPage() {
                   </div>
                 )}
 
-                {/* 正文 */}
-                <textarea
-                  value={content}
-                  onChange={(e) => {
-                    setContent(e.target.value);
-                    markDirty();
-                  }}
-                  placeholder="开始记录…支持 Markdown。可口述草稿后点「润色」让 AI 整理成稿。"
-                  className="min-h-[55vh] w-full resize-y rounded-lg border border-border bg-surface-1 p-4 text-body leading-relaxed text-ink-primary placeholder:text-ink-tertiary focus:border-brand-400 focus:outline-none"
-                />
+                {/* 正文 · 块编辑 / Markdown 双模式 */}
+                <div>
+                  <div className="mb-2 flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setEditorMode('block')}
+                      title="块编辑"
+                      className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-footnote ${editorMode === 'block' ? 'bg-brand-50 text-brand-700' : 'text-ink-tertiary hover:bg-surface-2'}`}
+                    >
+                      <LayoutList className="h-3.5 w-3.5" /> 块编辑
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditorMode('md')}
+                      title="Markdown 源码"
+                      className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-footnote ${editorMode === 'md' ? 'bg-brand-50 text-brand-700' : 'text-ink-tertiary hover:bg-surface-2'}`}
+                    >
+                      <FileText className="h-3.5 w-3.5" /> Markdown
+                    </button>
+                  </div>
+                  {editorMode === 'block' ? (
+                    <div className="min-h-[55vh] rounded-lg border border-border bg-surface-1 p-4">
+                      <BlockEditor
+                        value={content}
+                        onChange={(md) => {
+                          setContent(md);
+                          markDirty();
+                        }}
+                        placeholder="开始记录，按 “/” 选择块类型…"
+                      />
+                    </div>
+                  ) : (
+                    <textarea
+                      value={content}
+                      onChange={(e) => {
+                        setContent(e.target.value);
+                        markDirty();
+                      }}
+                      placeholder="开始记录…支持 Markdown。可口述草稿后点「润色」让 AI 整理成稿。"
+                      className="min-h-[55vh] w-full resize-y rounded-lg border border-border bg-surface-1 p-4 text-body leading-relaxed text-ink-primary placeholder:text-ink-tertiary focus:border-brand-400 focus:outline-none"
+                    />
+                  )}
+                </div>
               </div>
             </div>
           </div>

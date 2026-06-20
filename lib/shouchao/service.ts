@@ -8,6 +8,7 @@
 import { getStore, generateId } from '../storage/repository';
 import { audit } from '../audit/log';
 import type { ShouchaoNote } from '../types/shouchao';
+import { embed, cosineSim, isEmbeddingConfigured } from '../infra/embedding';
 
 export interface CreateNoteInput {
   ownerId: string;
@@ -268,6 +269,68 @@ function jaccard(a: Set<string>, b: Set<string>): number {
 }
 
 /**
+ * 语义检索 (升级版, 对标 Notion/Get 的"语义召回"):
+ *   优先 embedding cosine, 任一环节不可用则无损回退 Jaccard 关键词。
+ *   解决"年假/休假"这类同义词关键词匹配不上的问题。
+ *
+ * 复用 lib/infra/embedding (含 LRU 缓存 + 未配置降级) 与 lib/memory/retriever 的成熟范式。
+ * 个人笔记规模小, 直接对候选做向量计算; 上限 SEMANTIC_EVAL_CAP 控成本。
+ */
+const SEMANTIC_EVAL_CAP = 60;
+const SEMANTIC_MIN_SIM = 0.18;
+
+function noteText(n: ShouchaoNote): string {
+  return `${n.title}\n${n.content}\n${(n.tags ?? []).join(' ')}`;
+}
+
+/**
+ * 对一批笔记按 query 相关度排序, 返回 [{ note, score }] (score 已归一到 0-1).
+ * 优先 embedding; 失败/未配置/零命中 → Jaccard 兜底。永不抛错。
+ */
+async function rankNotesByRelevance(
+  notes: ShouchaoNote[],
+  query: string,
+): Promise<Array<{ note: ShouchaoNote; score: number }>> {
+  const q = (query ?? '').trim();
+  if (notes.length === 0 || !q) {
+    return notes.map((note) => ({ note, score: 0 }));
+  }
+
+  // 1) 语义优先
+  if (await isEmbeddingConfigured()) {
+    try {
+      const qv = await embed(q);
+      if (qv) {
+        const cap = [...notes]
+          .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+          .slice(0, SEMANTIC_EVAL_CAP);
+        const scored = await Promise.all(
+          cap.map(async (note) => {
+            const v = await embed(noteText(note));
+            const score = v ? cosineSim(qv, v) : 0;
+            return { note, score };
+          }),
+        );
+        const ranked = scored
+          .filter((x) => x.score >= SEMANTIC_MIN_SIM)
+          .sort((a, b) => b.score - a.score);
+        if (ranked.length > 0) return ranked;
+        // 语义零命中 → 落 Jaccard 兜底
+      }
+    } catch {
+      // 向量失败 → 静默回退 Jaccard
+    }
+  }
+
+  // 2) Jaccard 关键词兜底
+  const qt = tokenizeMixed(q);
+  return notes
+    .map((note) => ({ note, score: jaccard(qt, tokenizeMixed(noteText(note))) }))
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score);
+}
+
+/**
  * 取员工本人已授权(sharedToPersona)的笔记中与 intent 最相关的若干条.
  * - 严格 ownerId 隔离, 只读本人笔记, 不读公司/他人 Memory
  * - 排除软删/归档
@@ -290,14 +353,9 @@ export async function retrieveSharedNotesForPersona(
   const q = (intent ?? '').trim();
   if (!q) return [...shared].sort(byRecent).slice(0, topK);
 
-  const qt = tokenizeMixed(q);
-  const scored = shared
-    .map((n) => ({
-      n,
-      s: jaccard(qt, tokenizeMixed(`${n.title} ${n.content} ${(n.tags ?? []).join(' ')}`)),
-    }))
-    .sort((a, b) => b.s - a.s);
-  const matched = scored.filter((x) => x.s > 0).slice(0, topK).map((x) => x.n);
+  // 语义优先 (embedding), 无损回退 Jaccard
+  const ranked = await rankNotesByRelevance(shared, q);
+  const matched = ranked.slice(0, topK).map((x) => x.note);
   // 有命中用命中; 全无命中给最近 3 条授权笔记做轻量个人背景
   return matched.length > 0 ? matched : [...shared].sort(byRecent).slice(0, Math.min(3, topK));
 }
@@ -333,14 +391,9 @@ export async function searchNotesForAsk(
   const q = (query ?? '').trim();
   if (!q) return [...active].sort(byRecent).slice(0, topK).map((n) => ({ note: n, score: 0 }));
 
-  const qt = tokenizeMixed(q);
-  const scored = active
-    .map((n) => ({
-      note: n,
-      score: jaccard(qt, tokenizeMixed(`${n.title} ${n.content} ${(n.tags ?? []).join(' ')}`)),
-    }))
-    .sort((a, b) => b.score - a.score);
-  const matched = scored.filter((x) => x.score > 0).slice(0, topK);
+  // 语义优先 (embedding), 无损回退 Jaccard; 解决同义词漏召回
+  const ranked = await rankNotesByRelevance(active, q);
+  const matched = ranked.slice(0, topK);
   // 全无命中给最近 3 条做轻量背景, 让宽泛提问也能回答
   return matched.length > 0
     ? matched
