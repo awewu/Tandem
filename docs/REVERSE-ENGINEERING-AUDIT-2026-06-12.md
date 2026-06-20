@@ -10,7 +10,8 @@
 > **状态: 全部 P0 + P1-A/P1-C 已修复并通过对抗性测试锁定。** 本次复核从鉴权边界逐层 grep 实测 (不靠本文记忆), 确认修复在 2026-06-12 审计后落地。原始发现保留在下文 (不静默删改), 每项附 ✅ 已修复证据。
 >
 > - **对抗性回归锁**: `tests/unit/tenant-isolation.test.ts` (写注入 + 读隔离, 4 tests 全绿) + `tests/unit/permission-hardening.test.ts` (P0-A skills / P0-B audit)。
-> - **未尽项 (非阻塞)**: P1-B 全集合扫描下推 (热路径) · P2-A 统一 `withTenantScope` 收敛层 (仍逐路由手写, 靠测试守)。
+> - **P2-A 已收敛 (2026-06-20)**: 统一 `withTenantScope` 收敛层落地, app/api 已基本无逐路由手写 `tenantId` 过滤 (仅 4 处显式保留: skill-evals 双租户读 / proxy-actions 403 治理语义 / kpi-close+org-users 不同仓储抽象, 均加注释)。顺带修复 2 处真实跨租户读泄露 (kpi/snapshots 无 cycleId 路径 · nine-box KR/Objective) 与 1 处跨租户写 (cycle-activate)。对抗回归锁见 `tests/unit/tenant-isolation.test.ts` (10 tests)。
+> - **P1-B 部分下推**: drive/documents/calendar list 已下推到 repo (drizzle SQL `eq(tenantId)`); 其余 KvStore 路由经 `withTenantScope.list()` 走 store 层 string-filter 下推。
 > - **宪章锚定**: 这些已上升为 `MANIFESTO.md` §23「200 人工程级架构是基本要求」不可妥协基线。
 
 ---
@@ -77,6 +78,7 @@
 ### P2-A · 统一多租户上下文层零调用
 - **证据**：`grep multi-tenant/context app/api` = 0 命中；各路由各自手写 `tenantId` 过滤，散落 87 文件、易漏（见 P0-B 已漏 2 处）。
 - **修复**：收敛到一个 `withTenantScope(auth, repo)` 包装，杜绝逐路由手写。
+- ✅ **已修复 (2026-06-20)**：`lib/multi-tenant/with-tenant-scope.ts` 落地 (Repository<T> 租户作用域包装, get/list/update/delete/create 全注入+校验, list 透传 filter 走 store 层下推)。约 40+ 路由收敛: OKR(tandem-okr/key-results/cycles/checkins/initiatives/tti)、approvals、convergence、learning、bitable、KPI 全模块(route/[id]/cycles/subjects/analytics/export/import/snapshots/bonus/manual-entry/seed-demo)、intranet/posts、360、1on1、drive/documents/calendar。跨租户记录一律视同不存在(404)。剩余 4 处显式手写均有注释说明 (双租户读 / 403 治理语义 / 非 TandemStore 仓储)。对抗回归锁 `tests/unit/tenant-isolation.test.ts` (10 tests) + `tests/unit/with-tenant-scope.test.ts` (8 tests)。
 
 ### P2-B · `...body` 展开式 create 散布
 - 多处 `svc.create({ ...body, ... })`（documents/drive/notifications/calendar）允许客户端注入任意字段（如 `ownerId`、`createdBy`、状态字段）。建议字段白名单。

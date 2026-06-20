@@ -14,6 +14,7 @@ import { boot, getStore } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { hasKpiPermission } from '@/lib/auth/kpi-perms';
 import { audit } from '@/lib/audit/log';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import type { KpiCycle, KpiCycleStatus } from '@/lib/types/kpi';
 
 export async function GET(req: NextRequest) {
@@ -22,9 +23,9 @@ export async function GET(req: NextRequest) {
   if (auth instanceof NextResponse) return auth;
 
   const store = getStore();
-  const all = await store.kpiCycles.list();
-  const mine = all.filter((c) => c.tenantId === auth.tenantId);
-  return NextResponse.json({ cycles: mine });
+  // 租户隔离统一收敛 (§23 P2-A).
+  const cycles = await withTenantScope(store.kpiCycles, auth.tenantId).list();
+  return NextResponse.json({ cycles });
 }
 
 export async function POST(req: NextRequest) {

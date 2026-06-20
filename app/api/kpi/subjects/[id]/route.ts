@@ -10,14 +10,15 @@ import { boot, getStore } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { hasKpiPermission } from '@/lib/auth/kpi-perms';
 import { audit } from '@/lib/audit/log';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   const store = getStore();
-  const subject = await store.kpiSubjects.get(params.id);
-  if (!subject || subject.tenantId !== auth.tenantId) {
+  const subject = await withTenantScope(store.kpiSubjects, auth.tenantId).get(params.id);
+  if (!subject) {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
   return NextResponse.json({ subject });
@@ -32,8 +33,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 
   const store = getStore();
-  const subject = await store.kpiSubjects.get(params.id);
-  if (!subject || subject.tenantId !== auth.tenantId) {
+  const subjects = withTenantScope(store.kpiSubjects, auth.tenantId);
+  const subject = await subjects.get(params.id);
+  if (!subject) {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
 
@@ -52,8 +54,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if ('parentId' in body && body.parentId !== subject.parentId) {
       let parentLevel = 0;
       if (body.parentId) {
-        const parent = await store.kpiSubjects.get(body.parentId);
-        if (!parent || parent.tenantId !== auth.tenantId) {
+        const parent = await subjects.get(body.parentId);
+        if (!parent) {
           return NextResponse.json({ error: 'parent_not_found' }, { status: 400 });
         }
         if (body.parentId === params.id) {
@@ -67,14 +69,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     // 软删除前检查 active=false 时是否还有 Kpi 引用 (允许软删但记录引用数, UI 提示)
     let referenceCount = 0;
     if (body.active === false && subject.active === true) {
-      const allKpis = await store.kpiSubjects.list();
-      void allKpis; // ts: suppress unused
-      const kpiList = await store.kpis.list();
+      const kpiList = await withTenantScope(store.kpis, auth.tenantId).list();
       referenceCount = kpiList.filter((k) => k.subjectId === params.id).length;
       // 不阻塞软删; 软删后历史 KPI 仍可读, 但不能新建
     }
 
-    const updated = await store.kpiSubjects.update(params.id, patch);
+    const updated = await subjects.update(params.id, patch);
 
     await audit('kpi.subject_changed', auth.userId, {
       targetId: params.id,

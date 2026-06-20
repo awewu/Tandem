@@ -23,6 +23,7 @@ import { boot, getStore } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { canManualEntry } from '@/lib/auth/kpi-perms';
 import { audit } from '@/lib/audit/log';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import type { KpiManualEntry } from '@/lib/types/kpi';
 
 function operatorRoleFromAuth(roles: string[]): 'finance' | 'hr' | 'internal_staff' {
@@ -44,8 +45,8 @@ export async function GET(req: NextRequest) {
   }
 
   const store = getStore();
-  const entries = (await store.kpiManualEntries.list())
-    .filter((e) => e.tenantId === auth.tenantId && e.kpiId === kpiId)
+  const entries = (await withTenantScope(store.kpiManualEntries, auth.tenantId).list())
+    .filter((e) => e.kpiId === kpiId)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
   return NextResponse.json({ entries });
@@ -73,8 +74,8 @@ export async function POST(req: NextRequest) {
     }
 
     const store = getStore();
-    const kpi = await store.kpis.get(body.kpiId);
-    if (!kpi || kpi.tenantId !== auth.tenantId) {
+    const kpi = await withTenantScope(store.kpis, auth.tenantId).get(body.kpiId);
+    if (!kpi) {
       return NextResponse.json({ error: 'kpi_not_found' }, { status: 404 });
     }
 

@@ -10,6 +10,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot, getStore } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import { buildSheet, KPI_COLUMNS } from '@/lib/kpi/excel';
 
 // 额外只读列, import 时忽略
@@ -26,15 +27,15 @@ export async function GET(req: NextRequest) {
   if (!cycleId) return NextResponse.json({ error: 'cycleId required' }, { status: 400 });
 
   const store = getStore();
-  const cycle = await store.kpiCycles.get(cycleId);
-  if (!cycle || cycle.tenantId !== auth.tenantId) {
+  const cycle = await withTenantScope(store.kpiCycles, auth.tenantId).get(cycleId);
+  if (!cycle) {
     return NextResponse.json({ error: 'cycle_not_found' }, { status: 404 });
   }
 
-  const kpis = (await store.kpis.list()).filter(
-    (k) => k.tenantId === auth.tenantId && k.cycleId === cycleId,
+  const kpis = (await withTenantScope(store.kpis, auth.tenantId).list()).filter(
+    (k) => k.cycleId === cycleId,
   );
-  const subjects = (await store.kpiSubjects.list()).filter((s) => s.tenantId === auth.tenantId);
+  const subjects = await withTenantScope(store.kpiSubjects, auth.tenantId).list();
   const subjectById = new Map(subjects.map((s) => [s.id, s]));
 
   kpis.sort((a, b) => a.level.localeCompare(b.level) || a.title.localeCompare(b.title));

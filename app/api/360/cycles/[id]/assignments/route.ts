@@ -10,14 +10,15 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { DATA_STEWARD_ROLES } from '@/lib/auth/roles';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   const store = getStore();
-  const cycle = await store.review360Cycles.get(params.id);
-  if (!cycle || cycle.tenantId !== auth.tenantId) {
+  const cycle = await withTenantScope(store.review360Cycles, auth.tenantId).get(params.id);
+  if (!cycle) {
     return NextResponse.json({ error: 'cycle not found' }, { status: 404 });
   }
   const isPriv =

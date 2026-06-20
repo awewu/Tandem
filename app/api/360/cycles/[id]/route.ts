@@ -7,14 +7,16 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { DATA_STEWARD_ROLES } from '@/lib/auth/roles';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   const store = getStore();
-  const cycle = await store.review360Cycles.get(params.id);
-  if (!cycle || cycle.tenantId !== auth.tenantId) {
+  const cycles = withTenantScope(store.review360Cycles, auth.tenantId);
+  const cycle = await cycles.get(params.id);
+  if (!cycle) {
     return NextResponse.json({ error: 'not found' }, { status: 404 });
   }
   const isPriv =
@@ -28,7 +30,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const patch: Record<string, unknown> = {};
     for (const k of allowed) if (k in body) patch[k] = body[k];
     patch.updatedAt = new Date().toISOString();
-    const updated = await store.review360Cycles.update(params.id, patch);
+    const updated = await cycles.update(params.id, patch);
     return NextResponse.json({ cycle: updated });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });

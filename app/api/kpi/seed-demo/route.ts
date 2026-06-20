@@ -20,6 +20,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot, getStore } from '@/lib/boot';
 import { requireAuth, requireRole } from '@/lib/auth/require-auth';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import type { Kpi, KpiCycle, KpiLevel, KpiSubject } from '@/lib/types/kpi';
 
 const FISCAL_YEAR = 2026;
@@ -131,8 +132,8 @@ export async function POST(req: NextRequest) {
   const store = getStore();
   const now = new Date().toISOString();
 
-  const existingCycles = (await store.kpiCycles.list()).filter(
-    (c) => c.tenantId === auth.tenantId && c.fiscalYear === FISCAL_YEAR && c.name === CYCLE_NAME,
+  const existingCycles = (await withTenantScope(store.kpiCycles, auth.tenantId).list()).filter(
+    (c) => c.fiscalYear === FISCAL_YEAR && c.name === CYCLE_NAME,
   );
 
   if (existingCycles.length > 0 && !force) {
@@ -146,9 +147,9 @@ export async function POST(req: NextRequest) {
 
   if (existingCycles.length > 0 && force) {
     for (const c of existingCycles) {
-      const kpis = (await store.kpis.list()).filter((k) => k.cycleId === c.id);
+      const kpis = (await withTenantScope(store.kpis, auth.tenantId).list()).filter((k) => k.cycleId === c.id);
       for (const k of kpis) await store.kpis.delete(k.id);
-      const payouts = (await store.kpiBonusPayouts.list()).filter((p) => p.cycleId === c.id);
+      const payouts = (await withTenantScope(store.kpiBonusPayouts, auth.tenantId).list()).filter((p) => p.cycleId === c.id);
       for (const p of payouts) await store.kpiBonusPayouts.delete(p.id);
       await store.kpiCycles.delete(c.id);
     }
@@ -169,8 +170,8 @@ export async function POST(req: NextRequest) {
 
   const subjectByCode = new Map<string, KpiSubject>();
   for (const spec of SUBJECTS) {
-    const existing = (await store.kpiSubjects.list()).find(
-      (s) => s.tenantId === auth.tenantId && s.code === spec.code,
+    const existing = (await withTenantScope(store.kpiSubjects, auth.tenantId).list()).find(
+      (s) => s.code === spec.code,
     );
     if (existing) {
       // 旧 subject 可能缺 bscPerspective (早期 seed), 回填以保证 BSC 分类准确
@@ -202,7 +203,7 @@ export async function POST(req: NextRequest) {
 
   // 清旧快照 (force 模式)
   if (force) {
-    const oldKpiIds = new Set((await store.kpis.list()).filter((k) => k.cycleId === cycle.id).map((k) => k.id));
+    const oldKpiIds = new Set((await withTenantScope(store.kpis, auth.tenantId).list()).filter((k) => k.cycleId === cycle.id).map((k) => k.id));
     const oldSnaps = (await store.kpiSnapshots.list()).filter((s) => oldKpiIds.has(s.kpiId));
     for (const s of oldSnaps) await store.kpiSnapshots.delete(s.id);
   }

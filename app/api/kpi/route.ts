@@ -14,6 +14,7 @@ import { boot, getStore } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { hasKpiPermission } from '@/lib/auth/kpi-perms';
 import { audit } from '@/lib/audit/log';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import { KPI_LEVEL_ORDER, type Kpi, type KpiLevel, type KpiScope } from '@/lib/types/kpi';
 
 export async function GET(req: NextRequest) {
@@ -29,7 +30,8 @@ export async function GET(req: NextRequest) {
   const assigneeId = url.searchParams.get('assigneeId');
 
   const store = getStore();
-  let kpis = (await store.kpis.list()).filter((k) => k.tenantId === auth.tenantId);
+  // 租户隔离统一收敛 (§23 P2-A): withTenantScope.list() 下推, 不再逐路由手写 tenantId 过滤.
+  let kpis = await withTenantScope(store.kpis, auth.tenantId).list();
   if (cycleId) kpis = kpis.filter((k) => k.cycleId === cycleId);
   if (scope) kpis = kpis.filter((k) => k.scope === scope);
   if (level) kpis = kpis.filter((k) => k.level === level);
@@ -66,8 +68,8 @@ export async function POST(req: NextRequest) {
     const store = getStore();
 
     // 周期校验: 必须 draft (active 后 target 锁死, 不允许新建)
-    const cycle = await store.kpiCycles.get(body.cycleId);
-    if (!cycle || cycle.tenantId !== auth.tenantId) {
+    const cycle = await withTenantScope(store.kpiCycles, auth.tenantId).get(body.cycleId);
+    if (!cycle) {
       return NextResponse.json({ error: 'cycle_not_found' }, { status: 400 });
     }
     if (cycle.status !== 'draft') {
@@ -78,8 +80,8 @@ export async function POST(req: NextRequest) {
     }
 
     // 科目校验
-    const subject = await store.kpiSubjects.get(body.subjectId);
-    if (!subject || subject.tenantId !== auth.tenantId) {
+    const subject = await withTenantScope(store.kpiSubjects, auth.tenantId).get(body.subjectId);
+    if (!subject) {
       return NextResponse.json({ error: 'subject_not_found' }, { status: 400 });
     }
     if (!subject.active) {

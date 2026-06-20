@@ -10,6 +10,7 @@ import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { requireRole } from '@/lib/auth/require-auth';
 import { DATA_STEWARD_ROLES } from '@/lib/auth/roles';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import type { IntranetPost, IntranetPostType } from '@/lib/types/intranet-post';
 
 const VALID_TYPES: IntranetPostType[] = ['announcement', 'policy', 'event', 'benefit'];
@@ -25,9 +26,8 @@ export async function GET(req: NextRequest) {
     const includeDrafts = searchParams.get('includeDrafts') === '1';
 
     const store = getStore();
-    let posts = (await store.intranetPosts.list()).filter(
-      (p) => p.tenantId === auth.tenantId,
-    );
+    // 租户隔离统一收敛 (§23 P2-A): withTenantScope.list() 经 store 层下推, 不再逐路由手写过滤.
+    let posts = await withTenantScope(store.intranetPosts, auth.tenantId).list();
     if (typeFilter && VALID_TYPES.includes(typeFilter)) {
       posts = posts.filter((p) => p.type === typeFilter);
     }

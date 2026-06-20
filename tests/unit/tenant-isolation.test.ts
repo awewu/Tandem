@@ -236,3 +236,48 @@ describe('P0-B · [id] 写路由跨租户访问视同不存在 (404, 不泄露/�
     expect((await store.objectives.get('obj-other'))?.title).toBe('theirs');
   });
 });
+
+describe('P0-B · kpi/snapshots GET 跨租户读隔离 (快照无 tenantId, 经 KPI 归属隔离)', () => {
+  it('无 cycleId 时只返回本租户 KPI 的快照 (回归: 以前无 cycleId 返回全租户)', async () => {
+    const store = getStore();
+    const mine = await store.kpis.create({
+      cycleId: 'cyc-mine', title: 'mine', tenantId: 'default', assigneeId: 'demo-user',
+    } as never);
+    const theirs = await store.kpis.create({
+      cycleId: 'cyc-other', title: 'theirs', tenantId: 'other-tenant', assigneeId: 'attacker',
+    } as never);
+    const now = new Date().toISOString();
+    await store.kpiSnapshots.create({ kpiId: mine.id, date: '2026-01-01', cumulativeValue: 10, source: 'manual', createdAt: now } as never);
+    await store.kpiSnapshots.create({ kpiId: theirs.id, date: '2026-01-01', cumulativeValue: 99, source: 'manual', createdAt: now } as never);
+
+    const { GET } = await import('@/app/api/kpi/snapshots/route');
+    const res = await GET(jsonReq('http://test.local/api/kpi/snapshots', undefined, 'GET'));
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    const kpiIds = json.snapshots.map((s: { kpiId: string }) => s.kpiId);
+    expect(kpiIds).toContain(mine.id);
+    expect(kpiIds).not.toContain(theirs.id);
+  });
+});
+
+describe('P0-B · nine-box/suggestions 跨租户读隔离 (KR/Objective/KPI)', () => {
+  it('不把他租户 KR/KPI 计入 9-box 落点 (回归: keyResults/objectives 此前无租户过滤)', async () => {
+    const store = getStore();
+    // 本租户: 有 KR + bonus KPI 的 owner
+    await store.objectives.create({ id: 'obj-mine', cycleId: 'cyc', ownerId: 'demo-user', tenantId: 'default' } as never);
+    await store.keyResults.create({ objectiveId: 'obj-mine', ownerId: 'mine-owner', startValue: 0, targetValue: 100, currentValue: 50, tenantId: 'default' } as never);
+    await store.kpis.create({ cycleId: 'cyc', assigneeId: 'mine-owner', scope: 'bonus', weight: 100, measureType: 'numeric', startValue: 0, targetValue: 100, currentValue: 80, tenantId: 'default' } as never);
+    // 他租户: 绝不应出现在本租户 9-box 落点
+    await store.objectives.create({ id: 'obj-other', cycleId: 'cyc', ownerId: 'x', tenantId: 'other-tenant' } as never);
+    await store.keyResults.create({ objectiveId: 'obj-other', ownerId: 'other-owner', startValue: 0, targetValue: 100, currentValue: 10, tenantId: 'other-tenant' } as never);
+    await store.kpis.create({ cycleId: 'cyc', assigneeId: 'other-owner', scope: 'bonus', weight: 100, measureType: 'numeric', startValue: 0, targetValue: 100, currentValue: 5, tenantId: 'other-tenant' } as never);
+
+    const { GET } = await import('@/app/api/nine-box/suggestions/route');
+    const res = await GET(jsonReq('http://test.local/api/nine-box/suggestions', undefined, 'GET'));
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    const userIds = json.suggestions.map((s: { userId: string }) => s.userId);
+    expect(userIds).toContain('mine-owner');
+    expect(userIds).not.toContain('other-owner');
+  });
+});

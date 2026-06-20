@@ -19,6 +19,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot, getStore } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import {
   computeKpiCompletion,
   KPI_LEVEL_ORDER,
@@ -74,12 +75,11 @@ export async function GET(req: NextRequest) {
   if (!cycleId) return NextResponse.json({ error: 'cycleId required' }, { status: 400 });
 
   const store = getStore();
-  const kpis = (await store.kpis.list()).filter(
-    (k) => k.tenantId === auth.tenantId && k.cycleId === cycleId,
+  // 租户隔离统一收敛 (§23 P2-A).
+  const kpis = (await withTenantScope(store.kpis, auth.tenantId).list()).filter(
+    (k) => k.cycleId === cycleId,
   );
-  const subjects = (await store.kpiSubjects.list()).filter(
-    (s) => s.tenantId === auth.tenantId,
-  );
+  const subjects = await withTenantScope(store.kpiSubjects, auth.tenantId).list();
   const subjectById = new Map<string, KpiSubject>(subjects.map((s) => [s.id, s]));
 
   switch (view) {

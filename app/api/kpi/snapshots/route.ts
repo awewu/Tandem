@@ -15,6 +15,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot, getStore } from '@/lib/boot';
 import { requireAuth, requireRole } from '@/lib/auth/require-auth';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import type { KpiSnapshot } from '@/lib/types/kpi';
 
 function ymd(d: Date = new Date()): string {
@@ -31,21 +32,16 @@ export async function GET(req: NextRequest) {
   const kpiId = url.searchParams.get('kpiId');
 
   const store = getStore();
-  const all = (await store.kpiSnapshots.list()).filter((s) => {
-    if (kpiId && s.kpiId !== kpiId) return false;
-    return true;
-  });
-
-  // 若指定了 cycleId, 用 KPI 引用过滤
-  let filtered = all;
-  if (cycleId) {
-    const kpiIds = new Set(
-      (await store.kpis.list())
-        .filter((k) => k.tenantId === auth.tenantId && k.cycleId === cycleId)
-        .map((k) => k.id),
-    );
-    filtered = all.filter((s) => kpiIds.has(s.kpiId));
-  }
+  // KpiSnapshot 无 tenantId 列, 经其归属 KPI 做租户隔离 (§23): 先取本租户 KPI id 集合,
+  // 不管是否传 cycleId 都只返回本租户快照 (以前无 cycleId 路径会跨租户泄露).
+  const tenantKpiIds = new Set(
+    (await withTenantScope(store.kpis, auth.tenantId).list())
+      .filter((k) => !cycleId || k.cycleId === cycleId)
+      .map((k) => k.id),
+  );
+  const filtered = (await store.kpiSnapshots.list()).filter(
+    (s) => tenantKpiIds.has(s.kpiId) && (!kpiId || s.kpiId === kpiId),
+  );
 
   filtered.sort((a, b) => (a.date < b.date ? 1 : -1));
   return NextResponse.json({ snapshots: filtered, total: filtered.length });
@@ -65,8 +61,8 @@ export async function POST(req: NextRequest) {
   const today = dateOverride ?? ymd();
   const store = getStore();
 
-  const cycles = (await store.kpiCycles.list()).filter(
-    (c) => c.tenantId === auth.tenantId && c.status === 'active' && (!cycleId || c.id === cycleId),
+  const cycles = (await withTenantScope(store.kpiCycles, auth.tenantId).list()).filter(
+    (c) => c.status === 'active' && (!cycleId || c.id === cycleId),
   );
   if (cycles.length === 0) {
     return NextResponse.json(
@@ -75,9 +71,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const allKpis = (await store.kpis.list()).filter(
-    (k) =>
-      k.tenantId === auth.tenantId && cycles.some((c) => c.id === k.cycleId),
+  const allKpis = (await withTenantScope(store.kpis, auth.tenantId).list()).filter(
+    (k) => cycles.some((c) => c.id === k.cycleId),
   );
 
   // 已存在的 (kpiId, date) 集合, 避免重复

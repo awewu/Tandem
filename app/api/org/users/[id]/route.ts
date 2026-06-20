@@ -27,6 +27,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ error: 'no fields to update' }, { status: 400 });
 
   const store = getStore();
+  // 租户隔离: store.auth.users 是 auth 子存储 (findById/update), 非 TandemStore Repository<T>,
+  // withTenantScope 不适用; 保留显式 tenantId 校验。
   const existing = await store.auth.users.findById(params.id);
   if (!existing || existing.tenantId !== auth.tenantId)
     return NextResponse.json({ error: 'not found' }, { status: 404 });

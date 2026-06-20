@@ -5,6 +5,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
@@ -16,8 +17,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return NextResponse.json({ error: 'text and assigneeId required' }, { status: 400 });
     }
     const store = getStore();
-    const meeting = await store.oneOnOneMeetings.get(params.id);
-    if (!meeting || meeting.tenantId !== auth.tenantId) {
+    const meeting = await withTenantScope(store.oneOnOneMeetings, auth.tenantId).get(params.id);
+    if (!meeting) {
       return NextResponse.json({ error: 'meeting not found' }, { status: 404 });
     }
     if (meeting.managerId !== auth.userId && meeting.reportId !== auth.userId) {

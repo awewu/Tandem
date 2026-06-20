@@ -38,6 +38,8 @@ export async function POST(
     const body = await req.json().catch(() => ({}));
     const force = body.force === true;
 
+    // 租户隔离: kpiCycleRepo 是 ApplicationContext 仓储 (findById), 非 TandemStore Repository<T>,
+    // withTenantScope 不适用; 保留显式 tenantId 校验。
     const cycle = await kpiCycleRepo.findById(cycleId);
     if (!cycle || cycle.tenantId !== auth.tenantId) {
       return NextResponse.json({ error: 'cycle_not_found' }, { status: 404 });

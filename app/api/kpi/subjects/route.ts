@@ -12,6 +12,7 @@ import { boot, getStore } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { hasKpiPermission } from '@/lib/auth/kpi-perms';
 import { audit } from '@/lib/audit/log';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import type { KpiSubject } from '@/lib/types/kpi';
 
 export async function GET(req: NextRequest) {
@@ -20,8 +21,8 @@ export async function GET(req: NextRequest) {
   if (auth instanceof NextResponse) return auth;
 
   const store = getStore();
-  const all = await store.kpiSubjects.list();
-  let mine = all.filter((s) => s.tenantId === auth.tenantId);
+  // 租户隔离统一收敛 (§23 P2-A).
+  let mine = await withTenantScope(store.kpiSubjects, auth.tenantId).list();
 
   const activeOnly = new URL(req.url).searchParams.get('active');
   if (activeOnly === 'true') mine = mine.filter((s) => s.active);
@@ -54,8 +55,8 @@ export async function POST(req: NextRequest) {
     const store = getStore();
 
     // code 唯一性校验 (租户内)
-    const existing = (await store.kpiSubjects.list()).find(
-      (s) => s.tenantId === auth.tenantId && s.code === body.code,
+    const existing = (await withTenantScope(store.kpiSubjects, auth.tenantId).list()).find(
+      (s) => s.code === body.code,
     );
     if (existing) {
       return NextResponse.json({ error: `code_conflict: ${body.code} 已存在` }, { status: 409 });
@@ -64,8 +65,8 @@ export async function POST(req: NextRequest) {
     // 校验 parentId + level 一致性
     let parentLevel = 0;
     if (body.parentId) {
-      const parent = await store.kpiSubjects.get(body.parentId);
-      if (!parent || parent.tenantId !== auth.tenantId) {
+      const parent = await withTenantScope(store.kpiSubjects, auth.tenantId).get(body.parentId);
+      if (!parent) {
         return NextResponse.json({ error: 'parent_not_found' }, { status: 400 });
       }
       parentLevel = parent.level;

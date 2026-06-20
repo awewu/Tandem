@@ -17,6 +17,7 @@ import { boot, getStore } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { hasKpiPermission } from '@/lib/auth/kpi-perms';
 import { audit } from '@/lib/audit/log';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import {
   cellNumber,
   cellString,
@@ -60,8 +61,8 @@ export async function POST(req: NextRequest) {
   if (!cycleId) return NextResponse.json({ error: 'cycleId required' }, { status: 400 });
 
   const store = getStore();
-  const cycle = await store.kpiCycles.get(cycleId);
-  if (!cycle || cycle.tenantId !== auth.tenantId) {
+  const cycle = await withTenantScope(store.kpiCycles, auth.tenantId).get(cycleId);
+  if (!cycle) {
     return NextResponse.json({ error: 'cycle_not_found' }, { status: 404 });
   }
   if (cycle.status !== 'draft') {
@@ -86,12 +87,12 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const subjects = (await store.kpiSubjects.list()).filter(
-    (s) => s.tenantId === auth.tenantId && s.active,
+  const subjects = (await withTenantScope(store.kpiSubjects, auth.tenantId).list()).filter(
+    (s) => s.active,
   );
   const subjectByCode = new Map(subjects.map((s) => [s.code, s]));
-  const existingKpis = (await store.kpis.list()).filter(
-    (k) => k.tenantId === auth.tenantId && k.cycleId === cycleId,
+  const existingKpis = (await withTenantScope(store.kpis, auth.tenantId).list()).filter(
+    (k) => k.cycleId === cycleId,
   );
   const naturalKey = (subjectCode: string, level: string, assigneeId: string) =>
     `${subjectCode}|${level}|${assigneeId}`;

@@ -8,6 +8,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
@@ -15,13 +16,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (auth instanceof NextResponse) return auth;
   try {
     const store = getStore();
-    const post = await store.intranetPosts.get(params.id);
-    if (!post || post.tenantId !== auth.tenantId) {
+    const posts = withTenantScope(store.intranetPosts, auth.tenantId);
+    const post = await posts.get(params.id);
+    if (!post) {
       return NextResponse.json({ error: 'not found' }, { status: 404 });
     }
     if (!post.readBy.includes(auth.userId)) {
       const readBy = [...post.readBy, auth.userId];
-      await store.intranetPosts.update(params.id, { readBy, updatedAt: new Date().toISOString() });
+      await posts.update(params.id, { readBy, updatedAt: new Date().toISOString() });
     }
     return NextResponse.json({ ok: true });
   } catch (err) {
@@ -35,8 +37,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   if (auth instanceof NextResponse) return auth;
   try {
     const store = getStore();
-    const post = await store.intranetPosts.get(params.id);
-    if (!post || post.tenantId !== auth.tenantId) {
+    const post = await withTenantScope(store.intranetPosts, auth.tenantId).get(params.id);
+    if (!post) {
       return NextResponse.json({ error: 'not found' }, { status: 404 });
     }
     return NextResponse.json({ read: post.readBy.includes(auth.userId) });

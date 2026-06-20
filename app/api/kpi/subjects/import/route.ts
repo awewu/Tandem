@@ -20,6 +20,7 @@ import { boot, getStore } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { hasKpiPermission } from '@/lib/auth/kpi-perms';
 import { audit } from '@/lib/audit/log';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import {
   cellBool,
   cellString,
@@ -71,7 +72,7 @@ export async function POST(req: NextRequest) {
   }
 
   const store = getStore();
-  const existing = (await store.kpiSubjects.list()).filter((s) => s.tenantId === auth.tenantId);
+  const existing = await withTenantScope(store.kpiSubjects, auth.tenantId).list();
   const existingByCode = new Map(existing.map((s) => [s.code, s]));
 
   // Pass 1: parse + per-row field validation (parent 引用尚未校验)

@@ -5,6 +5,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 
 export async function GET(req: NextRequest) {
   await boot();
@@ -12,9 +13,8 @@ export async function GET(req: NextRequest) {
   if (auth instanceof NextResponse) return auth;
   try {
     const store = getStore();
-    const posts = (await store.intranetPosts.list()).filter(
+    const posts = (await withTenantScope(store.intranetPosts, auth.tenantId).list()).filter(
       (p) =>
-        p.tenantId === auth.tenantId &&
         p.mandatoryRead &&
         !!p.publishedAt &&
         !p.archivedAt &&

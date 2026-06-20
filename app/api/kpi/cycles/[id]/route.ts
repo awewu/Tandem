@@ -14,6 +14,7 @@ import { boot, getStore } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { hasKpiPermission } from '@/lib/auth/kpi-perms';
 import { audit } from '@/lib/audit/log';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
@@ -21,8 +22,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   if (auth instanceof NextResponse) return auth;
 
   const store = getStore();
-  const cycle = await store.kpiCycles.get(params.id);
-  if (!cycle || cycle.tenantId !== auth.tenantId) {
+  const cycle = await withTenantScope(store.kpiCycles, auth.tenantId).get(params.id);
+  if (!cycle) {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
   return NextResponse.json({ cycle });
@@ -38,8 +39,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 
   const store = getStore();
-  const cycle = await store.kpiCycles.get(params.id);
-  if (!cycle || cycle.tenantId !== auth.tenantId) {
+  const cycles = withTenantScope(store.kpiCycles, auth.tenantId);
+  const cycle = await cycles.get(params.id);
+  if (!cycle) {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
 
@@ -79,7 +81,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       );
     }
 
-    const updated = await store.kpiCycles.update(params.id, patch);
+    const updated = await cycles.update(params.id, patch);
 
     if (patch.status === 'active') {
       await audit('kpi.cycle_activated', auth.userId, {
@@ -111,8 +113,9 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   }
 
   const store = getStore();
-  const cycle = await store.kpiCycles.get(params.id);
-  if (!cycle || cycle.tenantId !== auth.tenantId) {
+  const cycles = withTenantScope(store.kpiCycles, auth.tenantId);
+  const cycle = await cycles.get(params.id);
+  if (!cycle) {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
   if (cycle.status !== 'draft') {
@@ -122,8 +125,8 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     );
   }
 
-  // 删除前检查是否已有 Kpi 引用
-  const allKpis = await store.kpis.list();
+  // 删除前检查是否已有 Kpi 引用 (仅本租户)
+  const allKpis = await withTenantScope(store.kpis, auth.tenantId).list();
   const refCount = allKpis.filter((k) => k.cycleId === params.id).length;
   if (refCount > 0) {
     return NextResponse.json(
@@ -132,6 +135,6 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     );
   }
 
-  await store.kpiCycles.delete(params.id);
+  await cycles.delete(params.id);
   return NextResponse.json({ ok: true });
 }

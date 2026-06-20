@@ -13,6 +13,7 @@ import { boot, getStore } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { hasKpiPermission } from '@/lib/auth/kpi-perms';
 import { audit } from '@/lib/audit/log';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 
 const PATCH_DENY_KEYS = new Set([
   'currentValue', // 通道 B/C 专属
@@ -30,8 +31,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   if (auth instanceof NextResponse) return auth;
 
   const store = getStore();
-  const kpi = await store.kpis.get(params.id);
-  if (!kpi || kpi.tenantId !== auth.tenantId) {
+  const kpi = await withTenantScope(store.kpis, auth.tenantId).get(params.id);
+  if (!kpi) {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
   return NextResponse.json({ kpi });
@@ -47,8 +48,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 
   const store = getStore();
-  const kpi = await store.kpis.get(params.id);
-  if (!kpi || kpi.tenantId !== auth.tenantId) {
+  const kpis = withTenantScope(store.kpis, auth.tenantId);
+  const kpi = await kpis.get(params.id);
+  if (!kpi) {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
 
@@ -88,7 +90,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const editable = ['title', 'description', 'level', 'parentKpiId', 'assigneeId', 'departmentId', 'measureType', 'startValue', 'targetValue', 'unit', 'weight', 'scope'];
     for (const k of editable) if (k in body) patch[k] = body[k];
 
-    const updated = await store.kpis.update(params.id, patch);
+    const updated = await kpis.update(params.id, patch);
 
     // 若 target / scope 改了, 单独 audit
     if ('targetValue' in body && Number(body.targetValue) !== kpi.targetValue) {
@@ -114,8 +116,9 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   }
 
   const store = getStore();
-  const kpi = await store.kpis.get(params.id);
-  if (!kpi || kpi.tenantId !== auth.tenantId) {
+  const kpis = withTenantScope(store.kpis, auth.tenantId);
+  const kpi = await kpis.get(params.id);
+  if (!kpi) {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
   const cycle = await store.kpiCycles.get(kpi.cycleId);
@@ -125,6 +128,6 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
       { status: 400 },
     );
   }
-  await store.kpis.delete(params.id);
+  await kpis.delete(params.id);
   return NextResponse.json({ ok: true });
 }

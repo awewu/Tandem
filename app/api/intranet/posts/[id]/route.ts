@@ -8,6 +8,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getStore, boot } from '@/lib/boot';
 import { requireAuth, requireRole } from '@/lib/auth/require-auth';
 import { DATA_STEWARD_ROLES } from '@/lib/auth/roles';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import type { IntranetPost } from '@/lib/types/intranet-post';
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
@@ -16,9 +17,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   if (auth instanceof NextResponse) return auth;
   try {
     const store = getStore();
-    const post = await store.intranetPosts.get(params.id);
-    // 租户隔离; 普通门户仅能看已发布且未归档的内容 (草稿/归档走管理后台)
-    if (!post || post.tenantId !== auth.tenantId || !post.publishedAt || post.archivedAt) {
+    const post = await withTenantScope(store.intranetPosts, auth.tenantId).get(params.id);
+    // 跨租户经 withTenantScope 视同不存在; 普通门户仅看已发布且未归档 (草稿/归档走管理后台)
+    if (!post || !post.publishedAt || post.archivedAt) {
       return NextResponse.json({ error: 'not found' }, { status: 404 });
     }
     return NextResponse.json({ post, read: post.readBy.includes(auth.userId) });
@@ -39,8 +40,8 @@ async function loadAndAuthorize(
   const forbidden = requireRole(auth, [...DATA_STEWARD_ROLES, 'champion']);
   if (forbidden) return { error: forbidden };
   const store = getStore();
-  const post = await store.intranetPosts.get(postId);
-  if (!post || post.tenantId !== auth.tenantId) {
+  const post = await withTenantScope(store.intranetPosts, auth.tenantId).get(postId);
+  if (!post) {
     return { error: NextResponse.json({ error: 'not found' }, { status: 404 }) };
   }
   return { post, tenantId: auth.tenantId, userId: auth.userId };
@@ -72,7 +73,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     }
 
     const store = getStore();
-    const updated = await store.intranetPosts.update(params.id, patch);
+    const updated = await withTenantScope(store.intranetPosts, r.tenantId).update(params.id, patch);
     return NextResponse.json({ post: updated });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
@@ -85,7 +86,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   if ('error' in r) return r.error;
   try {
     const store = getStore();
-    await store.intranetPosts.update(params.id, {
+    await withTenantScope(store.intranetPosts, r.tenantId).update(params.id, {
       archivedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });

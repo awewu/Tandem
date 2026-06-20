@@ -16,6 +16,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { DATA_STEWARD_ROLES } from '@/lib/auth/roles';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import { strip360SubmissionForViewer } from '@/lib/auth/strip';
 
 export async function POST(req: NextRequest) {
@@ -32,8 +33,8 @@ export async function POST(req: NextRequest) {
       );
     }
     const store = getStore();
-    const cycle = await store.review360Cycles.get(cycleId);
-    if (!cycle || cycle.tenantId !== auth.tenantId) {
+    const cycle = await withTenantScope(store.review360Cycles, auth.tenantId).get(cycleId);
+    if (!cycle) {
       return NextResponse.json({ error: 'cycle not found' }, { status: 404 });
     }
     if (cycle.status !== 'active') {
@@ -95,8 +96,10 @@ export async function GET(req: NextRequest) {
 
     // 拉对应 cycle 信息 (检查 anonymizePeers + tenant 校验)
     const cycleIds = Array.from(new Set(all.map((s) => s.cycleId)));
-    const cycles = await Promise.all(cycleIds.map((id) => store.review360Cycles.get(id)));
-    const cycleMap = new Map(cycles.filter((c) => c && c.tenantId === auth.tenantId).map((c) => [c!.id, c!]));
+    // Review360Submission 无 tenantId 列, 经其 cycle 做租户隔离 (§23): scoped get 跨租户返回 null.
+    const review360Cycles = withTenantScope(store.review360Cycles, auth.tenantId);
+    const cycles = await Promise.all(cycleIds.map((id) => review360Cycles.get(id)));
+    const cycleMap = new Map(cycles.filter((c) => !!c).map((c) => [c!.id, c!]));
     all = all.filter((s) => cycleMap.has(s.cycleId));
 
     // 可见性:

@@ -50,6 +50,8 @@ export async function GET(req: NextRequest) {
   const store = getStore();
   const all = await store.companyBrainDecisions.list();
 
+  // 租户隔离: 故意的双租户读 (本租户 + 'default') — CompanyBrain 决策记录归属 '__company__'/'default',
+  // 非 §23 P2-A 待收敛项 (withTenantScope 无法表达 OR 两个租户)。保留显式过滤。
   const inWindow = all.filter(
     (d) =>
       new Date(d.createdAt).getTime() >= sinceMs &&

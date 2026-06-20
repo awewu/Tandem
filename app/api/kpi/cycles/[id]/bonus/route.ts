@@ -27,6 +27,7 @@ import { boot, getStore } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { hasKpiPermission } from '@/lib/auth/kpi-perms';
 import { audit } from '@/lib/audit/log';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import { computeBonusPayout, type KpiBonusPayout } from '@/lib/types/kpi';
 import { resolveOkrCycle } from '@/lib/domain/cycle/performance-cycle';
 
@@ -40,13 +41,13 @@ export async function GET(
   const { id: cycleId } = await params;
 
   const store = getStore();
-  const cycle = await store.kpiCycles.get(cycleId);
-  if (!cycle || cycle.tenantId !== auth.tenantId) {
+  const cycle = await withTenantScope(store.kpiCycles, auth.tenantId).get(cycleId);
+  if (!cycle) {
     return NextResponse.json({ error: 'cycle_not_found' }, { status: 404 });
   }
 
-  const payouts = (await store.kpiBonusPayouts.list()).filter(
-    (p) => p.tenantId === auth.tenantId && p.cycleId === cycleId,
+  const payouts = (await withTenantScope(store.kpiBonusPayouts, auth.tenantId).list()).filter(
+    (p) => p.cycleId === cycleId,
   );
   payouts.sort((a, b) => b.finalBonus - a.finalBonus);
   return NextResponse.json({ payouts });
@@ -80,8 +81,8 @@ export async function POST(
     );
 
     const store = getStore();
-    const cycle = await store.kpiCycles.get(cycleId);
-    if (!cycle || cycle.tenantId !== auth.tenantId) {
+    const cycle = await withTenantScope(store.kpiCycles, auth.tenantId).get(cycleId);
+    if (!cycle) {
       return NextResponse.json({ error: 'cycle_not_found' }, { status: 404 });
     }
     if (cycle.status === 'draft') {
@@ -92,16 +93,13 @@ export async function POST(
     }
 
     // 拿 KPI 数据 (仅 bonus scope)
-    const allKpis = (await store.kpis.list()).filter(
+    const allKpis = (await withTenantScope(store.kpis, auth.tenantId).list()).filter(
       (k) =>
-        k.tenantId === auth.tenantId &&
         k.cycleId === cycleId &&
         k.scope === 'bonus' &&
         (!restrictAssignee || k.assigneeId === restrictAssignee),
     );
-    const subjects = (await store.kpiSubjects.list()).filter(
-      (s) => s.tenantId === auth.tenantId,
-    );
+    const subjects = await withTenantScope(store.kpiSubjects, auth.tenantId).list();
     const subjectCodeById = new Map(subjects.map((s) => [s.id, s.code]));
     const lookup = (id: string) => subjectCodeById.get(id) ?? '';
 
@@ -119,12 +117,12 @@ export async function POST(
       const okrCycle = await resolveOkrCycle(store, cycleId, 'kpi');
       if (okrCycle) {
         const objIds = new Set(
-          (await store.objectives.list())
+          (await withTenantScope(store.objectives, auth.tenantId).list())
             .filter((o) => o.cycleId === okrCycle.id)
             .map((o) => o.id),
         );
         const krAgg = new Map<string, { sum: number; n: number }>();
-        for (const kr of await store.keyResults.list()) {
+        for (const kr of await withTenantScope(store.keyResults, auth.tenantId).list()) {
           if (!objIds.has(kr.objectiveId) || !kr.ownerId) continue;
           const r =
             kr.targetValue === kr.startValue
@@ -142,8 +140,8 @@ export async function POST(
     }
 
     // 已有 payouts (用于 upsert)
-    const existing = (await store.kpiBonusPayouts.list()).filter(
-      (p) => p.tenantId === auth.tenantId && p.cycleId === cycleId,
+    const existing = (await withTenantScope(store.kpiBonusPayouts, auth.tenantId).list()).filter(
+      (p) => p.cycleId === cycleId,
     );
     const existingByAssignee = new Map(existing.map((p) => [p.assigneeId, p]));
 

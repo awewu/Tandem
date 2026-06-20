@@ -24,6 +24,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot, getStore } from '@/lib/boot';
 import { requireAuth, requireRole } from '@/lib/auth/require-auth';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import { classifyNineBox, type NineBoxCell } from '@/lib/types/okr-tti';
 import { computeKpiCompletion } from '@/lib/types/kpi';
 
@@ -145,9 +146,10 @@ export async function GET(req: NextRequest) {
   const cycleId = url.searchParams.get('cycleId');
 
   const store = getStore();
-  const allKrs = await store.keyResults.list();
+  // 租户隔离统一收敛 (§23 P2-A): KR/Objective/KPI 全部经 withTenantScope, 防跨租户 9-box 落点泄露.
+  const allKrs = await withTenantScope(store.keyResults, auth.tenantId).list();
   const krs = cycleId
-    ? (await store.objectives.list())
+    ? (await withTenantScope(store.objectives, auth.tenantId).list())
         .filter((o) => o.cycleId === cycleId)
         .map((o) => o.id)
         .reduce(
@@ -155,9 +157,8 @@ export async function GET(req: NextRequest) {
           [],
         )
     : allKrs;
-  const allKpis = (await store.kpis.list()).filter(
+  const allKpis = (await withTenantScope(store.kpis, auth.tenantId).list()).filter(
     (k) =>
-      k.tenantId === auth.tenantId &&
       k.scope === 'bonus' &&
       (!cycleId || k.cycleId === cycleId),
   );

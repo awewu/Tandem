@@ -11,6 +11,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot, getStore } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { hasKpiPermission } from '@/lib/auth/kpi-perms';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import { buildSheet, SUBJECT_COLUMNS } from '@/lib/kpi/excel';
 
 export async function GET(req: NextRequest) {
@@ -22,7 +23,7 @@ export async function GET(req: NextRequest) {
   }
 
   const store = getStore();
-  const subjects = (await store.kpiSubjects.list()).filter((s) => s.tenantId === auth.tenantId);
+  const subjects = await withTenantScope(store.kpiSubjects, auth.tenantId).list();
   const byId = new Map(subjects.map((s) => [s.id, s]));
 
   // 按 level + code 排序导出, 父先于子, 便于人眼阅读

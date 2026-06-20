@@ -3,6 +3,7 @@ import { boot } from "@/lib/boot";
 import { getStore } from "@/lib/storage/repository";
 import { withErrorHandler } from "@/lib/api/error-middleware";
 import { requireAuth } from "@/lib/auth/require-auth";
+import { withTenantScope } from "@/lib/multi-tenant/with-tenant-scope";
 import { audit } from "@/lib/audit/log";
 import type { ApprovalStatus } from "@/lib/types/approval";
 
@@ -22,9 +23,10 @@ export const PATCH = withErrorHandler(
     }
 
     const store = getStore();
-    const apv = await store.approvals.get(params.id);
-    // 租户隔离: 跨租户视为不存在.
-    if (!apv || apv.tenantId !== auth.tenantId) {
+    const approvals = withTenantScope(store.approvals, auth.tenantId);
+    // 租户隔离: 跨租户经 withTenantScope 视为不存在.
+    const apv = await approvals.get(params.id);
+    if (!apv) {
       return Response.json({ error: "not found" }, { status: 404 });
     }
     // 仅指定审批人或 admin/owner 可裁决.
@@ -37,7 +39,7 @@ export const PATCH = withErrorHandler(
       return Response.json({ error: `already ${apv.status}` }, { status: 409 });
     }
 
-    const updated = await store.approvals.update(apv.id, {
+    const updated = await approvals.update(apv.id, {
       status,
       decidedAt: new Date().toISOString(),
       decidedBy: auth.userId,

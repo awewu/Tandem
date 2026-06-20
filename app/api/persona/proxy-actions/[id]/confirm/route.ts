@@ -22,6 +22,8 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
   const store = getStore();
   const action = await store.proxyActions.get(params.id);
   if (!action) return NextResponse.json({ ok: false, error: 'not_found' }, { status: 404 });
+  // 跨租户: 故意保留 403 (而非 withTenantScope 的 404) — proxy-action 治理语义需区分"存在但无权"
+  // 与"不存在"。非 §23 P2-A 待收敛项。
   if (action.tenantId !== auth.tenantId) {
     return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
   }
