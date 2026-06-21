@@ -134,9 +134,8 @@ export async function listMyChannels(userId: string, tenantId?: string): Promise
   Array<ImChannel & { unread: number; membership: ImMembership }>
 > {
   const store = getStore();
-  const memberships = (await store.imMemberships.list()).filter(
-    (m) => m.userId === userId
-  );
+  // §23: userId 等值过滤下推到存储层 (热路径: 每次进 IM 都查本人频道)
+  const memberships = await store.imMemberships.list({ userId });
   const result: Array<ImChannel & { unread: number; membership: ImMembership }> = [];
   for (const m of memberships) {
     const ch = await store.imChannels.get(m.channelId);

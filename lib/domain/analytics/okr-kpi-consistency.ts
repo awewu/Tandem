@@ -86,8 +86,9 @@ export async function computeOkrKpiConsistency(
     krsByObjective.set(kr.objectiveId, arr);
   }
 
-  const kpis = (await store.kpis.list()).filter(
-    (k) => k.tenantId === tenantId && (!kpiCycleIds || kpiCycleIds.has(k.cycleId)),
+  // §23: tenantId 等值下推到存储层; cycleId 集合判断保留 JS
+  const kpis = (await store.kpis.list({ tenantId })).filter(
+    (k) => !kpiCycleIds || kpiCycleIds.has(k.cycleId),
   );
   const kpiById = new Map(kpis.map((k) => [k.id, k]));
 

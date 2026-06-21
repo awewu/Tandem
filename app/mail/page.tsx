@@ -498,9 +498,9 @@ function InboxView({ folder = 'INBOX', onCompose }: { folder?: string; onCompose
         ))}
       </div>
         {aiSummary && (
-          <div className="rounded-md border border-blue-200 bg-blue-50/50 p-3">
+          <div className="rounded-md border border-info/30 bg-info/10/50 p-3">
             <div className="flex items-center justify-between mb-1.5">
-              <span className="inline-flex items-center gap-1.5 text-footnote font-medium text-blue-700">
+              <span className="inline-flex items-center gap-1.5 text-footnote font-medium text-info">
                 <Sparkles className="h-3.5 w-3.5" />
                 AI 摘要
               </span>
@@ -911,9 +911,9 @@ function ComposeView({
 
         {/* AI 回复草稿 */}
         {aiReplyDraft && (
-          <div className="rounded-md border border-blue-200 bg-blue-50/50 p-3 space-y-2">
+          <div className="rounded-md border border-info/30 bg-info/10/50 p-3 space-y-2">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-footnote font-medium text-blue-700">
+              <div className="flex items-center gap-1.5 text-footnote font-medium text-info">
                 <Bot className="h-3.5 w-3.5" />
                 AI 回复草稿
               </div>

@@ -157,7 +157,7 @@ export default function DocumentEditorPage() {
     setDoc((d) => (d ? { ...d, isLocked: !d.isLocked } : d));
   }, [id, doc]);
 
-  if (!doc) return <div className="p-8 text-gray-500 md:px-8">加载中...</div>;
+  if (!doc) return <div className="p-8 text-ink-secondary md:px-8">加载中...</div>;
 
   return (
     <div className="flex flex-col h-screen">
@@ -215,10 +215,10 @@ export default function DocumentEditorPage() {
               ? '查看升级'
               : '升级 Memory'}
           </button>
-          <button onClick={toggleLock} className="p-2 rounded hover:bg-gray-100" title={doc.isLocked ? "解锁" : "锁定"}>
+          <button onClick={toggleLock} className="p-2 rounded hover:bg-surface-3" title={doc.isLocked ? "解锁" : "锁定"}>
             {doc.isLocked ? <Lock size={18} className="text-warning" /> : <Unlock size={18} />}
           </button>
-          <button onClick={save} className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+          <button onClick={save} className="flex items-center gap-1 px-3 py-2 bg-brand-500 text-white rounded hover:bg-brand-600">
             <Save size={16} /> {saving ? "保存中..." : "保存"}
           </button>
         </div>
@@ -263,7 +263,7 @@ export default function DocumentEditorPage() {
           />
         </div>
 
-        <div className="w-80 border-l p-4 bg-gray-50 overflow-auto space-y-4">
+        <div className="w-80 border-l p-4 bg-surface-2 overflow-auto space-y-4">
           {/* DOC-3 评审结果 — 仅 advisory, 不替员工决定下一步 (宪法 A) */}
           {review && (
             <div className="rounded-md border border-sky-200 bg-white p-3 space-y-2">
@@ -271,7 +271,7 @@ export default function DocumentEditorPage() {
                 <h3 className="font-medium text-caption flex items-center gap-1 text-sky-700">
                   <ScanSearch size={14} /> AI 评审
                 </h3>
-                <span className="text-[10px] text-gray-400">
+                <span className="text-[10px] text-ink-tertiary">
                   清晰度 {review.clarityScore}/5
                 </span>
               </div>
@@ -282,17 +282,17 @@ export default function DocumentEditorPage() {
                 </div>
               )}
               {review.summary && (
-                <p className="text-[11px] text-gray-700 leading-relaxed">{review.summary}</p>
+                <p className="text-[11px] text-ink-secondary leading-relaxed">{review.summary}</p>
               )}
               {review.clarityFeedback && (
-                <p className="text-[11px] text-gray-500 italic">{review.clarityFeedback}</p>
+                <p className="text-[11px] text-ink-secondary italic">{review.clarityFeedback}</p>
               )}
               {review.missingPoints.length > 0 && (
                 <div>
-                  <div className="text-[10px] text-gray-500 mb-0.5">缺漏点</div>
+                  <div className="text-[10px] text-ink-secondary mb-0.5">缺漏点</div>
                   <ul className="text-[11px] space-y-0.5">
                     {review.missingPoints.map((p, i) => (
-                      <li key={i} className="text-gray-700">· {p}</li>
+                      <li key={i} className="text-ink-secondary">· {p}</li>
                     ))}
                   </ul>
                 </div>
@@ -327,11 +327,11 @@ export default function DocumentEditorPage() {
                 </div>
               )}
               {review.rationale && (
-                <p className="text-[10px] text-gray-500 leading-relaxed pt-1 border-t">
+                <p className="text-[10px] text-ink-secondary leading-relaxed pt-1 border-t">
                   {review.rationale}
                 </p>
               )}
-              <p className="text-[9px] text-gray-400 italic pt-1">
+              <p className="text-[9px] text-ink-tertiary italic pt-1">
                 参谋建议, 不替你决定. 评审本身已记入 CA-13 飞轮, 可在 admin/company-brain 看板反馈.
               </p>
             </div>
@@ -345,14 +345,14 @@ export default function DocumentEditorPage() {
             {Object.entries(doc.permissions).map(([uid, role]) => (
               <div key={uid} className="flex justify-between p-2 bg-white rounded border">
                 <span>{uid}</span>
-                <span className="text-gray-500">{role}</span>
+                <span className="text-ink-secondary">{role}</span>
               </div>
             ))}
             {Object.keys(doc.permissions).length === 0 && (
-              <div className="text-gray-400">暂无协作者</div>
+              <div className="text-ink-tertiary">暂无协作者</div>
             )}
           </div>
-          <div className="mt-4 text-footnote text-gray-400">
+          <div className="mt-4 text-footnote text-ink-tertiary">
             最后更新: {new Date(doc.updatedAt).toLocaleString()}
           </div>
           </div>

@@ -656,7 +656,7 @@ export default function OKRPage() {
                               'text-[11px] pl-2 border-l-2',
                               it.level === 'error' ? 'border-danger text-danger' :
                               it.level === 'warning' ? 'border-warning text-warning' :
-                              'border-blue-500 text-blue-700'
+                              'border-info text-info'
                             )}>
                               {it.message}
                             </li>

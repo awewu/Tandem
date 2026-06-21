@@ -192,7 +192,7 @@ export default function LlmSettingsPage() {
           </div>
 
           {tab === 'user' && tenantDefault && (
-            <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-caption">
+            <div className="rounded-lg border border-info/30 bg-info/10 p-4 text-caption">
               <strong>中央AI 默认:</strong>{' '}
               {tenantDefault.defaultProvider ?? '(未设)'}{' '}
               {Object.keys(tenantDefault.byScenario ?? {}).length > 0 && (

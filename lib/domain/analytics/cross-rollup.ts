@@ -133,8 +133,9 @@ export async function computeCrossRollup(
     : allKrs;
 
   // ---- KPI (bonus scope) ----
-  const allKpis = (await store.kpis.list()).filter(
-    (k) => k.tenantId === tenantId && (!kpiCycleIds || kpiCycleIds.has(k.cycleId)),
+  // §23: tenantId 等值下推到存储层; cycleId 集合判断 (.has) 非等值, 保留 JS
+  const allKpis = (await store.kpis.list({ tenantId })).filter(
+    (k) => !kpiCycleIds || kpiCycleIds.has(k.cycleId),
   );
   const bonusKpisByAssignee = new Map<string, typeof allKpis>();
   for (const k of allKpis) {
@@ -158,7 +159,7 @@ export async function computeCrossRollup(
   }
 
   // ---- 奖金 ----
-  const payouts = (await store.kpiBonusPayouts.list()).filter((p) => p.tenantId === tenantId);
+  const payouts = await store.kpiBonusPayouts.list({ tenantId }); // §23 下推
   const payoutByAssignee = new Map<string, KpiBonusPayout>();
   for (const p of payouts) {
     // 同一人取最新一条

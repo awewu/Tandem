@@ -21,7 +21,7 @@ import type { LaunchpadApp, LaunchpadCategory, LaunchpadStats } from '@/lib/type
 type AppWithStats = LaunchpadApp & { stats: LaunchpadStats };
 
 const CATEGORY_META: Record<LaunchpadCategory, { label: string; icon: typeof Briefcase; cls: string }> = {
-  business: { label: '业务系统', icon: Briefcase, cls: 'bg-blue-100 text-blue-700' },
+  business: { label: '业务系统', icon: Briefcase, cls: 'bg-info/10 text-info' },
   comm: { label: '通讯协同', icon: MessagesSquare, cls: 'bg-emerald-100 text-emerald-700' },
   learning: { label: '学习工具', icon: GraduationCap, cls: 'bg-purple-100 text-purple-700' },
   custom: { label: '自定义', icon: Sparkles, cls: 'bg-warning/10 text-warning' },

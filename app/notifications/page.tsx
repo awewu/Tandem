@@ -60,7 +60,7 @@ export default function NotificationsPage() {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  if (loading) return <div className="p-8 text-gray-500">加载中...</div>;
+  if (loading) return <div className="p-8 text-ink-secondary">加载中...</div>;
 
   return (
     <div className="p-6 max-w-3xl mx-auto md:px-8">
@@ -84,14 +84,14 @@ export default function NotificationsPage() {
             <div
               key={n.id}
               className={`flex items-start gap-3 p-4 border rounded-lg transition ${
-                n.read ? "bg-white" : "bg-blue-50 border-blue-200"
+                n.read ? "bg-white" : "bg-info/10 border-info/30"
               }`}
             >
-              <Icon size={20} className="text-gray-500 mt-0.5" />
+              <Icon size={20} className="text-ink-secondary mt-0.5" />
               <div className="flex-1">
                 <div className="font-medium">{n.title}</div>
-                <div className="text-caption text-gray-500">{n.message}</div>
-                <div className="text-footnote text-gray-400 mt-1">
+                <div className="text-caption text-ink-secondary">{n.message}</div>
+                <div className="text-footnote text-ink-tertiary mt-1">
                   {new Date(n.createdAt).toLocaleString()}
                 </div>
               </div>
@@ -109,7 +109,7 @@ export default function NotificationsPage() {
           );
         })}
         {notifications.length === 0 && (
-          <div className="text-center text-gray-400 py-12">暂无消息</div>
+          <div className="text-center text-ink-tertiary py-12">暂无消息</div>
         )}
       </div>
     </div>

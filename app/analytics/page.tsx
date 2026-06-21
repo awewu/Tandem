@@ -162,7 +162,7 @@ export default function AnalyticsPage() {
             <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
               <SignalBar label="严重" value={metrics.insightCounts.critical} max={Math.max(1, ...Object.values(metrics.insightCounts))} color="bg-danger" />
               <SignalBar label="注意" value={metrics.insightCounts.warning} max={Math.max(1, ...Object.values(metrics.insightCounts))} color="bg-warning" />
-              <SignalBar label="信息" value={metrics.insightCounts.info} max={Math.max(1, ...Object.values(metrics.insightCounts))} color="bg-blue-500" />
+              <SignalBar label="信息" value={metrics.insightCounts.info} max={Math.max(1, ...Object.values(metrics.insightCounts))} color="bg-info" />
               <SignalBar label="正向" value={metrics.insightCounts.positive} max={Math.max(1, ...Object.values(metrics.insightCounts))} color="bg-emerald-500" />
             </div>
             <div className="mt-3 text-footnote text-ink-tertiary">

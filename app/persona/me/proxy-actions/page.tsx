@@ -47,7 +47,7 @@ const KIND_LABEL: Record<ProxyAction['kind'], string> = {
 };
 
 const STATUS_BADGE: Record<ProxyAction['status'], { label: string; cls: string }> = {
-  drafted: { label: '草稿待确认', cls: 'bg-blue-100 text-blue-800' },
+  drafted: { label: '草稿待确认', cls: 'bg-info/10 text-info' },
   awaiting_veto: { label: '24h 否决窗口', cls: 'bg-warning/10 text-warning' },
   executed: { label: '已执行', cls: 'bg-emerald-100 text-emerald-800' },
   vetoed: { label: '已否决', cls: 'bg-rose-100 text-rose-800' },

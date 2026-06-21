@@ -35,15 +35,15 @@ export default function ApprovalsPage() {
 
   const filtered = items.filter((i) => filter === "all" || i.status === filter);
 
-  if (loading) return <div className="p-8 text-gray-500">加载中...</div>;
+  if (loading) return <div className="p-8 text-ink-secondary">加载中...</div>;
 
   return (
     <div className="p-6 max-w-4xl mx-auto md:px-8">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-title-3 font-bold flex items-center gap-2"><ClipboardCheck size={24} /> 审批流</h1>
-        <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+        <div className="flex gap-1 bg-surface-3 rounded-lg p-1">
           {(["all", "pending", "approved", "rejected"] as const).map((f) => (
-            <button key={f} onClick={() => setFilter(f)} className={`px-3 py-1.5 rounded-md text-caption font-medium transition ${filter === f ? "bg-white shadow-soft-sm" : "text-gray-500"}`}>
+            <button key={f} onClick={() => setFilter(f)} className={`px-3 py-1.5 rounded-md text-caption font-medium transition ${filter === f ? "bg-white shadow-soft-sm" : "text-ink-secondary"}`}>
               {f === "all" ? "全部" : f === "pending" ? "待审批" : f === "approved" ? "已通过" : "已驳回"}
             </button>
           ))}
@@ -58,9 +58,9 @@ export default function ApprovalsPage() {
             </div>
             <div className="flex-1">
               <div className="font-medium">{item.title}</div>
-              <div className="text-caption text-gray-500">{item.requester} → {item.approver} · {new Date(item.createdAt).toLocaleString()}</div>
+              <div className="text-caption text-ink-secondary">{item.requester} → {item.approver} · {new Date(item.createdAt).toLocaleString()}</div>
             </div>
-            <span className="text-footnote px-2 py-1 rounded-full bg-gray-100">{item.type === "leave" ? "请假" : item.type === "expense" ? "报销" : item.type === "project" ? "立项" : "其他"}</span>
+            <span className="text-footnote px-2 py-1 rounded-full bg-surface-3">{item.type === "leave" ? "请假" : item.type === "expense" ? "报销" : item.type === "project" ? "立项" : "其他"}</span>
             {item.status === "pending" && (
               <div className="flex gap-2">
                 <button onClick={() => action(item.id, "approved")} className="px-3 py-1.5 bg-success text-white rounded text-caption hover:bg-success">通过</button>
@@ -69,7 +69,7 @@ export default function ApprovalsPage() {
             )}
           </div>
         ))}
-        {filtered.length === 0 && <div className="text-center text-gray-400 py-12">暂无审批</div>}
+        {filtered.length === 0 && <div className="text-center text-ink-tertiary py-12">暂无审批</div>}
       </div>
     </div>
   );

@@ -53,7 +53,7 @@ export default function DrivePage() {
     setFiles((prev) => prev.filter((f) => f.id !== id));
   }
 
-  if (loading) return <div className="p-8 text-gray-500">加载中...</div>;
+  if (loading) return <div className="p-8 text-ink-secondary">加载中...</div>;
 
   return (
     <div className="p-6 max-w-5xl mx-auto md:px-8">
@@ -61,32 +61,32 @@ export default function DrivePage() {
         <h1 className="text-title-3 font-bold flex items-center gap-2">
           <HardDrive size={24} /> 云盘
         </h1>
-        <button onClick={() => setShowForm(true)} className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+        <button onClick={() => setShowForm(true)} className="flex items-center gap-1 px-3 py-2 bg-brand-500 text-white rounded hover:bg-brand-600">
           <Plus size={16} /> 新建
         </button>
       </div>
 
       {showForm && (
-        <form onSubmit={createFile} className="mb-6 p-4 border rounded-lg bg-gray-50 space-y-3">
+        <form onSubmit={createFile} className="mb-6 p-4 border rounded-lg bg-surface-2 space-y-3">
           <input required placeholder="名称" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full p-2 border rounded" />
           <select aria-label="类型" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as "folder" | "file" })} className="w-full p-2 border rounded">
             <option value="file">文件</option>
             <option value="folder">文件夹</option>
           </select>
           <div className="flex gap-2">
-            <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">创建</button>
-            <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 border rounded hover:bg-gray-100">取消</button>
+            <button type="submit" className="px-4 py-2 bg-brand-500 text-white rounded hover:bg-brand-600">创建</button>
+            <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 border rounded hover:bg-surface-3">取消</button>
           </div>
         </form>
       )}
 
       <div className="grid gap-2">
         {files.map((f) => (
-          <div key={f.id} className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 transition">
-            {f.type === "folder" ? <Folder size={20} className="text-warning" /> : <File size={20} className="text-blue-500" />}
+          <div key={f.id} className="flex items-center gap-3 p-3 border rounded-lg hover:bg-surface-2 transition">
+            {f.type === "folder" ? <Folder size={20} className="text-warning" /> : <File size={20} className="text-info" />}
             <div className="flex-1">
               <div className="font-medium">{f.name}</div>
-              <div className="text-footnote text-gray-400">{new Date(f.updatedAt).toLocaleString()}</div>
+              <div className="text-footnote text-ink-tertiary">{new Date(f.updatedAt).toLocaleString()}</div>
             </div>
             <button aria-label="删除" onClick={() => deleteFile(f.id)} className="p-2 text-danger hover:bg-danger/5 rounded">
               <Trash2 size={16} />
@@ -94,7 +94,7 @@ export default function DrivePage() {
           </div>
         ))}
         {files.length === 0 && (
-          <div className="text-center text-gray-400 py-12">云盘为空，点击上方按钮创建</div>
+          <div className="text-center text-ink-tertiary py-12">云盘为空，点击上方按钮创建</div>
         )}
       </div>
     </div>

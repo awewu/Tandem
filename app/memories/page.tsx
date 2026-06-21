@@ -55,7 +55,7 @@ function uiToEntryPatch(m: Partial<Memory>): Record<string, unknown> {
 }
 
 const CATEGORY_LABELS: Record<Memory['category'], { label: string; icon: React.ElementType; color: string }> = {
-  requirement: { label: '需求', icon: AlertCircle, color: 'bg-blue-500' },
+  requirement: { label: '需求', icon: AlertCircle, color: 'bg-info' },
   consensus: { label: '共识', icon: CheckCircle2, color: 'bg-success' },
   standard: { label: '标准', icon: FileText, color: 'bg-purple-500' },
   context: { label: '上下文', icon: Lightbulb, color: 'bg-yellow-500' },
@@ -63,7 +63,7 @@ const CATEGORY_LABELS: Record<Memory['category'], { label: string; icon: React.E
 
 const PRIORITY_COLORS: Record<Memory['priority'], string> = {
   low: 'bg-slate-400',
-  medium: 'bg-blue-500',
+  medium: 'bg-info',
   high: 'bg-orange-500',
   critical: 'bg-danger',
 };
@@ -449,7 +449,7 @@ export default function MemoriesPage() {
           <span className="text-muted-foreground">Provider</span>
           {hermesMemory.provider.configured ? (
             <span className="flex items-center gap-1">
-              <Cloud className="h-3 w-3 text-blue-500" />
+              <Cloud className="h-3 w-3 text-info" />
               {hermesMemory.provider.name}
             </span>
           ) : (
@@ -609,7 +609,7 @@ export default function MemoriesPage() {
             'absolute bottom-10 right-4 max-w-md text-footnote px-3 py-2 rounded border shadow-soft',
             toast.kind === 'success' && 'bg-success/5 border-success/30 text-success dark:bg-success dark:border-success dark:text-success',
             toast.kind === 'error' && 'bg-danger/5 border-danger/30 text-danger dark:bg-danger dark:border-danger dark:text-danger',
-            toast.kind === 'info' && 'bg-blue-50 border-blue-300 text-blue-800 dark:bg-blue-950 dark:border-blue-800 dark:text-blue-200',
+            toast.kind === 'info' && 'bg-info/10 border-info/30 text-info dark:bg-info dark:border-info dark:text-info',
           )}
         >
           {toast.text}

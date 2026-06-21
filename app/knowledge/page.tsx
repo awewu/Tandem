@@ -20,7 +20,7 @@ type OwnershipLevel = NonNullable<KNode['ownership']>;
 
 const OWNERSHIP_META: Record<OwnershipLevel | 'unset', { label: string; icon: React.ElementType; tone: string }> = {
   company:    { label: '公司',   icon: Building2, tone: 'bg-orange-100 text-orange-700' },
-  department: { label: '部门',   icon: Users,     tone: 'bg-blue-100 text-blue-700' },
+  department: { label: '部门',   icon: Users,     tone: 'bg-info/10 text-info' },
   team:       { label: '团队',   icon: Users,     tone: 'bg-cyan-100 text-cyan-700' },
   personal:   { label: '个人',   icon: Lock,      tone: 'bg-slate-100 text-slate-700' },
   unset:      { label: '未分级', icon: User,      tone: 'bg-muted text-muted-foreground' },

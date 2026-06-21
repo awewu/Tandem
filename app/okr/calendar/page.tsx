@@ -181,7 +181,7 @@ export default function OKRCalendarPage() {
         <div className="flex items-center justify-between mb-5">
           <div>
             <h1 className="text-title-3 font-semibold flex items-center gap-2">
-              <CalendarIcon className="h-6 w-6 text-blue-600" />
+              <CalendarIcon className="h-6 w-6 text-info" />
               OKR 日历
             </h1>
             <p className="text-footnote text-muted-foreground mt-1">

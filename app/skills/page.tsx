@@ -21,7 +21,7 @@ interface HermesSkill {
 const sourceColor = (s: string) => {
   switch (s.toLowerCase()) {
     case 'local': return 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20';
-    case 'hub':   return 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20';
+    case 'hub':   return 'bg-info/10 text-info dark:text-info border-info/20';
     default:      return 'bg-slate-500/10 text-slate-700 dark:text-slate-400 border-slate-500/20';
   }
 };

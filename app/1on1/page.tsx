@@ -47,7 +47,7 @@ const CADENCE_LABEL: Record<OneOnOneCadence, string> = {
 };
 
 const STATUS_META: Record<OneOnOneStatus, { label: string; color: string }> = {
-  scheduled: { label: '已排期', color: 'bg-blue-100 text-blue-700' },
+  scheduled: { label: '已排期', color: 'bg-info/10 text-info' },
   completed: { label: '已完成', color: 'bg-emerald-100 text-emerald-700' },
   cancelled: { label: '已取消', color: 'bg-slate-100 text-slate-500' },
   'no-show': { label: '缺席', color: 'bg-rose-100 text-rose-700' },
@@ -544,7 +544,7 @@ function MeetingDetail({
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-caption flex items-center gap-1.5">
-            <ListChecks className="h-4 w-4 text-blue-600" />
+            <ListChecks className="h-4 w-4 text-info" />
             议程 / Talking Points
           </CardTitle>
         </CardHeader>
@@ -585,7 +585,7 @@ function MeetingDetail({
         <CardContent>
           {availableKRs.length === 0 ? (
             <div className="text-footnote text-muted-foreground py-2">
-              还没创建任何 KR · 去 <a href="/okr" className="text-blue-600 underline">/okr</a> 先建
+              还没创建任何 KR · 去 <a href="/okr" className="text-info underline">/okr</a> 先建
             </div>
           ) : (
             <div className="max-h-48 overflow-y-auto space-y-1">
@@ -645,7 +645,7 @@ function MeetingDetail({
             />
           </div>
           <div>
-            <Label className="text-[11px] text-blue-700">→ 下一步 (Next Steps)</Label>
+            <Label className="text-[11px] text-info">→ 下一步 (Next Steps)</Label>
             <Textarea
               value={meeting.noteNextSteps ?? ''}
               onChange={(e) => onUpdate({ noteNextSteps: e.target.value })}

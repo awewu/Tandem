@@ -83,7 +83,7 @@ export default function TasksPage() {
     const v = s.toLowerCase();
     if (v.includes('pause')) return <Badge variant="secondary">paused</Badge>;
     if (v.includes('error') || v.includes('fail')) return <Badge className="bg-danger">{s}</Badge>;
-    if (v.includes('run')) return <Badge className="bg-blue-500">{s}</Badge>;
+    if (v.includes('run')) return <Badge className="bg-info">{s}</Badge>;
     return <Badge className="bg-success">{s || 'active'}</Badge>;
   };
 

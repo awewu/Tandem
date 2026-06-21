@@ -40,7 +40,7 @@ const RATER_LABEL: Record<Review360RaterType, string> = {
 
 const RATER_COLOR: Record<Review360RaterType, string> = {
   self: 'bg-violet-100 text-violet-700',
-  manager: 'bg-blue-100 text-blue-700',
+  manager: 'bg-info/10 text-info',
   peer: 'bg-emerald-100 text-emerald-700',
   report: 'bg-warning/10 text-warning',
   cross: 'bg-slate-100 text-slate-700',

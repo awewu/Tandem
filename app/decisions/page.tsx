@@ -19,7 +19,7 @@ import { ScrollText, Loader2, AlertTriangle, ArrowRight } from 'lucide-react';
 import type { DecisionCard } from '@/lib/types';
 
 const STATE_META: Record<string, { label: string; className: string }> = {
-  DIVERGE: { label: '审议中', className: 'bg-blue-100 text-blue-700' },
+  DIVERGE: { label: '审议中', className: 'bg-info/10 text-info' },
   CONVERGE: { label: '收敛中', className: 'bg-purple-100 text-purple-700' },
   COMMIT: { label: '已生效', className: 'bg-emerald-100 text-emerald-700' },
   ESCALATED: { label: '已升级', className: 'bg-warning/10 text-warning' },

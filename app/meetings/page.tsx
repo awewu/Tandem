@@ -40,7 +40,7 @@ export default function MeetingsPage() {
     alert("会议链接已复制");
   }
 
-  if (loading) return <div className="p-8 text-gray-500">加载中...</div>;
+  if (loading) return <div className="p-8 text-ink-secondary">加载中...</div>;
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -48,7 +48,7 @@ export default function MeetingsPage() {
         <h1 className="text-title-3 font-bold flex items-center gap-2"><Video size={24} /> 会议室</h1>
         <div className="flex gap-2">
           <input value={joinId} onChange={(e) => setJoinId(e.target.value)} placeholder="输入会议号加入" className="p-2 border rounded-lg text-caption w-48" />
-          <button onClick={() => { if (joinId) window.open(`/meetings/${joinId}`, "_blank"); }} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-caption hover:bg-blue-700">加入</button>
+          <button onClick={() => { if (joinId) window.open(`/meetings/${joinId}`, "_blank"); }} className="px-4 py-2 bg-brand-500 text-white rounded-lg text-caption hover:bg-brand-600">加入</button>
         </div>
       </div>
 
@@ -61,17 +61,17 @@ export default function MeetingsPage() {
                 {room.status === "available" ? "空闲" : room.status === "occupied" ? "占用中" : "已预订"}
               </span>
             </div>
-            <div className="flex items-center gap-1 text-caption text-gray-500 mb-4"><Users size={14} /> 容纳 {room.capacity} 人</div>
+            <div className="flex items-center gap-1 text-caption text-ink-secondary mb-4"><Users size={14} /> 容纳 {room.capacity} 人</div>
             {room.nextBooking && (
-              <div className="text-caption text-gray-500 mb-3 p-2 bg-gray-50 rounded"><CalendarDays size={14} className="inline mr-1" />{room.nextBooking.title}<br/>{new Date(room.nextBooking.start).toLocaleString()} - {new Date(room.nextBooking.end).toLocaleTimeString()}</div>
+              <div className="text-caption text-ink-secondary mb-3 p-2 bg-surface-2 rounded"><CalendarDays size={14} className="inline mr-1" />{room.nextBooking.title}<br/>{new Date(room.nextBooking.start).toLocaleString()} - {new Date(room.nextBooking.end).toLocaleTimeString()}</div>
             )}
             <div className="flex gap-2">
-              <button onClick={() => bookRoom(room.id)} className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg text-caption hover:bg-blue-700">立即预订</button>
-              <button onClick={() => copyJoinUrl(room.id)} className="p-2 border rounded-lg hover:bg-gray-50" title="复制会议链接"><Copy size={16} /></button>
+              <button onClick={() => bookRoom(room.id)} className="flex-1 px-3 py-2 bg-brand-500 text-white rounded-lg text-caption hover:bg-brand-600">立即预订</button>
+              <button onClick={() => copyJoinUrl(room.id)} className="p-2 border rounded-lg hover:bg-surface-2" title="复制会议链接"><Copy size={16} /></button>
             </div>
           </div>
         ))}
-        {rooms.length === 0 && <div className="col-span-full text-center text-gray-400 py-12">暂无会议室</div>}
+        {rooms.length === 0 && <div className="col-span-full text-center text-ink-tertiary py-12">暂无会议室</div>}
       </div>
     </div>
   );

@@ -120,10 +120,9 @@ export async function syncErpActuals(
     };
   }
 
-  const kpis = (await store.kpis.list()).filter(
-    (k) => k.tenantId === tenantId && k.cycleId === cycleId,
-  );
-  const subjects = (await store.kpiSubjects.list()).filter((s) => s.tenantId === tenantId);
+  // §23: tenantId + cycleId 等值过滤下推到存储层
+  const kpis = await store.kpis.list({ tenantId, cycleId });
+  const subjects = await store.kpiSubjects.list({ tenantId });
   const subjectById = new Map(subjects.map((s) => [s.id, s]));
 
   const subjectCodes = Array.from(

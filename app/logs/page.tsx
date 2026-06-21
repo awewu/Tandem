@@ -21,8 +21,8 @@ import { cn } from '@/lib/utils';
 import { getLogs, type LogLine } from '@/lib/hermes-api';
 
 const LEVEL_COLORS: Record<string, string> = {
-  INFO: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-  DEBUG: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200',
+  INFO: 'bg-info/10 text-info dark:bg-info dark:text-info',
+  DEBUG: 'bg-surface-3 text-ink-primary dark:bg-surface-3 dark:text-ink-tertiary',
   WARNING: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
   ERROR: 'bg-danger/10 text-danger dark:bg-danger dark:text-danger',
   CRITICAL: 'bg-danger/20 text-danger dark:bg-danger dark:text-danger',

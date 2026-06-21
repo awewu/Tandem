@@ -34,7 +34,7 @@ const TYPE_ICON: Record<IntranetPostType, React.ElementType> = {
 const TYPE_COLOR: Record<IntranetPostType, string> = {
   announcement: 'bg-warning/5 text-warning border-warning/20',
   policy: 'bg-rose-50 text-rose-700 border-rose-200',
-  event: 'bg-blue-50 text-blue-700 border-blue-200',
+  event: 'bg-info/10 text-info border-info/30',
   benefit: 'bg-emerald-50 text-emerald-700 border-emerald-200',
 };
 

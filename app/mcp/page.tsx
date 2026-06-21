@@ -39,7 +39,7 @@ import {
 } from 'lucide-react';
 
 const CATEGORY_META: Record<string, { label: string; icon: React.ElementType; color: string }> = {
-  web: { label: 'Web', icon: Globe, color: 'bg-blue-500' },
+  web: { label: 'Web', icon: Globe, color: 'bg-info' },
   system: { label: 'System', icon: Terminal, color: 'bg-slate-500' },
   code: { label: 'Code', icon: Code2, color: 'bg-emerald-500' },
   media: { label: 'Media', icon: Image, color: 'bg-pink-500' },
@@ -240,7 +240,7 @@ export default function MCPPage() {
             All ({HERMES_TOOLS.length})
           </Button>
           {TOOL_CATEGORIES.map((cat) => {
-            const meta = CATEGORY_META[cat] || { label: cat, icon: Server, color: 'bg-gray-500' };
+            const meta = CATEGORY_META[cat] || { label: cat, icon: Server, color: 'bg-ink-tertiary' };
             const Icon = meta.icon;
             const count = HERMES_TOOLS.filter((t) => t.category === cat).length;
             return (
@@ -277,7 +277,7 @@ export default function MCPPage() {
 }
 
 function ToolCard({ tool }: { tool: HermesTool }) {
-  const meta = CATEGORY_META[tool.category] || { label: tool.category, icon: Server, color: 'bg-gray-500' };
+  const meta = CATEGORY_META[tool.category] || { label: tool.category, icon: Server, color: 'bg-ink-tertiary' };
   const Icon = TOOL_ICONS[tool.id] || meta.icon;
   return (
     <Card className="transition-colors hover:bg-muted/40">

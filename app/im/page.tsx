@@ -1071,7 +1071,7 @@ function renderInline(
         : kind === 'assign'
         ? 'bg-rose-100 text-rose-700'
         : kind === 'consult'
-        ? 'bg-blue-100 text-blue-700'
+        ? 'bg-info/10 text-info'
         : 'bg-surface-3 text-ink-primary';
     parts.push(
       <button

@@ -173,7 +173,7 @@ export default function OKRDashboardPage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-title-3 font-semibold flex items-center gap-2">
-              <BarChart3 className="h-6 w-6 text-blue-600" />
+              <BarChart3 className="h-6 w-6 text-info" />
               部门 OKR Dashboard
             </h1>
             <p className="text-footnote text-muted-foreground mt-1">
@@ -206,7 +206,7 @@ export default function OKRDashboardPage() {
                 value={cycleObjectives.length}
                 format="integer"
               />
-              <Target className="h-8 w-8 text-blue-600 opacity-30" />
+              <Target className="h-8 w-8 text-info opacity-30" />
             </CardContent>
           </Card>
           <Card>
@@ -256,7 +256,7 @@ export default function OKRDashboardPage() {
         {cycleObjectives.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center text-caption text-muted-foreground">
-              本周期还没有 Objective. 去 <Link href="/okr" className="text-blue-600 underline">/okr</Link> 创建.
+              本周期还没有 Objective. 去 <Link href="/okr" className="text-info underline">/okr</Link> 创建.
             </CardContent>
           </Card>
         ) : (

@@ -119,7 +119,7 @@ export default function DocumentsPage() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
-  if (loading) return <div className="p-8 text-gray-500">加载中...</div>;
+  if (loading) return <div className="p-8 text-ink-secondary">加载中...</div>;
 
   return (
     <div className="p-6 max-w-5xl mx-auto md:px-8">
@@ -152,7 +152,7 @@ export default function DocumentsPage() {
             />
             <Brain size={14} /> 自动提议升级 Memory
           </label>
-          <button onClick={() => createDoc("doc")} className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+          <button onClick={() => createDoc("doc")} className="flex items-center gap-1 px-3 py-2 bg-brand-500 text-white rounded hover:bg-brand-600">
             <Plus size={16} /> 文档
           </button>
           <button onClick={() => createDoc("sheet")} className="flex items-center gap-1 px-3 py-2 bg-success text-white rounded hover:bg-success">
@@ -179,10 +179,10 @@ export default function DocumentsPage() {
               href={`/documents/${doc.id}`}
               className="flex items-center gap-3 p-4 border rounded-lg hover:shadow-soft transition"
             >
-              <Icon size={20} className="text-gray-500" />
+              <Icon size={20} className="text-ink-secondary" />
               <div className="flex-1">
                 <div className="font-medium">{doc.title}</div>
-                <div className="text-caption text-gray-400">
+                <div className="text-caption text-ink-tertiary">
                   {new Date(doc.updatedAt).toLocaleString()}
                 </div>
               </div>
@@ -191,7 +191,7 @@ export default function DocumentsPage() {
           );
         })}
         {docs.length === 0 && (
-          <div className="text-center text-gray-400 py-12">暂无文档，点击上方按钮创建</div>
+          <div className="text-center text-ink-tertiary py-12">暂无文档，点击上方按钮创建</div>
         )}
       </div>
     </div>

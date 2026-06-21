@@ -28,7 +28,7 @@ const AGENT_ICONS: Record<string, React.ElementType> = {
 
 const AGENT_CATEGORIES: Record<string, { label: string; color: string }> = {
   'agent-designer': { label: '设计', color: 'bg-pink-500' },
-  'agent-pm': { label: '产品', color: 'bg-blue-500' },
+  'agent-pm': { label: '产品', color: 'bg-info' },
   'agent-strategy': { label: '战略', color: 'bg-purple-500' },
   'agent-marketing': { label: '市场', color: 'bg-orange-500' },
   'agent-tech-lead': { label: '技术', color: 'bg-success' },

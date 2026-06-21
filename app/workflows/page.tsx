@@ -37,7 +37,7 @@ interface FlowEdge {
 }
 
 const NODE_COLORS: Record<NodeType, string> = {
-  trigger: 'bg-blue-500',
+  trigger: 'bg-info',
   agent: 'bg-purple-500',
   tool: 'bg-orange-500',
   condition: 'bg-yellow-500',
@@ -698,7 +698,7 @@ export default function WorkflowsPage() {
                         'whitespace-pre-wrap break-all',
                         l.includes('[error]') && 'text-danger',
                         l.includes('[end]') && 'text-success font-semibold',
-                        l.includes('[start]') && 'text-blue-500 font-semibold',
+                        l.includes('[start]') && 'text-info font-semibold',
                         l.includes('[run]') && 'text-yellow-600',
                         l.includes('[done]') && 'text-success'
                       )}

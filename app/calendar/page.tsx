@@ -275,7 +275,7 @@ export default function CalendarPage() {
       <aside className="w-56 border-r bg-muted/20 flex flex-col shrink-0">
         <div className="p-3 border-b space-y-2">
           <Button
-            className="w-full gap-1 bg-blue-600 hover:bg-blue-700 text-white"
+            className="w-full gap-1 bg-brand-500 hover:bg-brand-600 text-white"
             size="sm"
             onClick={handleNewEvent}
           >
@@ -375,7 +375,7 @@ export default function CalendarPage() {
           <div className="flex items-center gap-2">
             {/* 自然语言快速创建 */}
             <div className="flex items-center gap-1 bg-muted/30 rounded-md px-2 py-1">
-              <Sparkles className="h-3.5 w-3.5 text-blue-500" />
+              <Sparkles className="h-3.5 w-3.5 text-info" />
               <Input
                 placeholder="自然语言创建: 明天下午3点跟张伟开会"
                 value={nlpText}
@@ -427,10 +427,10 @@ export default function CalendarPage() {
 
         {/* 智能时间建议面板 */}
         {showSmartTime && smartSuggestions && (
-          <div className="shrink-0 border-b px-4 py-2 bg-blue-50/50">
+          <div className="shrink-0 border-b px-4 py-2 bg-info/10/50">
             <div className="flex items-center gap-2 mb-1.5">
-              <Wand2 className="h-3.5 w-3.5 text-blue-500" />
-              <span className="text-caption font-medium text-blue-700">AI 建议的最佳会议时间</span>
+              <Wand2 className="h-3.5 w-3.5 text-info" />
+              <span className="text-caption font-medium text-info">AI 建议的最佳会议时间</span>
               <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[10px] ml-auto" onClick={() => setShowSmartTime(false)}>
                 关闭
               </Button>
@@ -439,7 +439,7 @@ export default function CalendarPage() {
               {smartSuggestions.map((s, i) => (
                 <button
                   key={i}
-                  className="text-caption px-2.5 py-1.5 rounded-md bg-white border border-blue-200 hover:bg-blue-50 transition-colors text-left"
+                  className="text-caption px-2.5 py-1.5 rounded-md bg-white border border-info/30 hover:bg-info/10 transition-colors text-left"
                   onClick={() => {
                     setSelectedDate(new Date(s.startTime));
                     setEditorDate(new Date(s.startTime));

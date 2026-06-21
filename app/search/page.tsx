@@ -47,13 +47,13 @@ export default function SearchPage() {
         />
         <button
           type="submit"
-          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="px-6 py-3 bg-brand-500 text-white rounded-lg hover:bg-brand-600"
         >
           搜索
         </button>
       </form>
 
-      {loading && <div className="text-gray-500">搜索中...</div>}
+      {loading && <div className="text-ink-secondary">搜索中...</div>}
 
       <div className="space-y-2">
         {results.map((r) => {
@@ -61,24 +61,24 @@ export default function SearchPage() {
           return (
             <div
               key={`${r.type}-${r.id}`}
-              className="flex items-start gap-3 p-4 border rounded-lg hover:bg-gray-50 transition"
+              className="flex items-start gap-3 p-4 border rounded-lg hover:bg-surface-2 transition"
             >
-              <Icon size={20} className="text-gray-500 mt-0.5" />
+              <Icon size={20} className="text-ink-secondary mt-0.5" />
               <div className="flex-1">
                 <div className="font-medium">{r.title}</div>
-                <div className="text-caption text-gray-500">{r.snippet}</div>
-                <div className="text-footnote text-gray-400 mt-1">
+                <div className="text-caption text-ink-secondary">{r.snippet}</div>
+                <div className="text-footnote text-ink-tertiary mt-1">
                   {new Date(r.updatedAt).toLocaleString()}
                 </div>
               </div>
-              <span className="text-footnote px-2 py-1 bg-gray-100 rounded text-gray-500">
+              <span className="text-footnote px-2 py-1 bg-surface-3 rounded text-ink-secondary">
                 {r.type === "document" ? "文档" : r.type === "calendar" ? "日程" : "云盘"}
               </span>
             </div>
           );
         })}
         {!loading && query && results.length === 0 && (
-          <div className="text-center text-gray-400 py-12">未找到结果</div>
+          <div className="text-center text-ink-tertiary py-12">未找到结果</div>
         )}
       </div>
     </div>

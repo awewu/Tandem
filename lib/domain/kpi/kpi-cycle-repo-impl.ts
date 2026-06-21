@@ -25,8 +25,8 @@ export const kpiCycleRepo: KpiCycleRepository = {
 
   async findByTenant(tenantId) {
     const store = getStore();
-    const all = await store.kpiCycles.list();
-    return all.filter((c) => c.tenantId === tenantId);
+    // §23: tenantId 等值过滤下推到存储层 (SQL WHERE), 避免全集合加载后 JS 过滤
+    return store.kpiCycles.list({ tenantId });
   },
 
   async findActiveByTenant(tenantId) {
@@ -87,14 +87,17 @@ export const kpiCycleRepo: KpiCycleRepository = {
     }
 
     if (!cmd.force) {
-      const bonusKpis = (await store.kpis.list()).filter(
-        (k) =>
-          k.tenantId === cycle.tenantId && k.cycleId === cmd.cycleId && k.scope === 'bonus',
-      );
+      const bonusKpis = await store.kpis.list({
+        tenantId: cycle.tenantId,
+        cycleId: cmd.cycleId,
+        scope: 'bonus',
+      });
       const expectedAssignees = new Set(bonusKpis.map((k) => k.assigneeId));
-      const payouts = (await store.kpiBonusPayouts.list()).filter(
-        (p) => p.tenantId === cycle.tenantId && p.cycleId === cmd.cycleId && p.committed,
-      );
+      const payouts = await store.kpiBonusPayouts.list({
+        tenantId: cycle.tenantId,
+        cycleId: cmd.cycleId,
+        committed: true,
+      });
       const committedAssignees = new Set(payouts.map((p) => p.assigneeId));
       const missing = Array.from(expectedAssignees).filter((a) => !committedAssignees.has(a));
       if (missing.length > 0) {
