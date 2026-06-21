@@ -124,7 +124,14 @@ export interface SyncPullResult {
   serverTime: string;      // 本次响应的服务端时间, 客户端存为下次 since 游标
 }
 
-/** 拉取自 since 以来的全部变更 (含删除墓碑). since 缺省/非法 = 全量. */
+/**
+ * 拉取自 since 以来的全部变更 (含删除墓碑). since 缺省/非法 = 全量.
+ *
+ * 游标语义为 **inclusive (>=)**: 客户端把上次响应的 serverTime 存为 since,
+ * 与 serverTime 同毫秒更新的笔记会在下次 pull 被再次返回一次 (而非用严格 `>`
+ * 直接丢弃 → 边界写丢失/数据不一致). 客户端按 id 幂等 upsert, 重复无副作用.
+ * 这是无损增量同步的标准取舍: 宁可边界重发, 绝不漏发.
+ */
 export async function pullChanges(
   ownerId: string,
   since?: string,
@@ -134,7 +141,7 @@ export async function pullChanges(
   const sinceMs = since ? Date.parse(since) : NaN;
   const changed = Number.isNaN(sinceMs)
     ? all
-    : all.filter((n) => Date.parse(n.updatedAt) > sinceMs);
+    : all.filter((n) => Date.parse(n.updatedAt) >= sinceMs);
   return {
     notes: changed.filter((n) => !n.deletedAt),
     deleted: changed.filter((n) => n.deletedAt).map((n) => n.id),

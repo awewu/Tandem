@@ -81,6 +81,14 @@ describe('增量同步 pullChanges', () => {
     expect(ids).toContain(n2.id);
     expect(ids).not.toContain(n1.id);
   });
+
+  it('游标 inclusive (>=): 与 since 同刻的笔记不被丢弃 (无损边界, 防边界写丢失)', async () => {
+    const n = await seed('边界笔记');
+    // since 恰好等于该笔记 updatedAt → inclusive 语义必须仍返回它一次 (客户端按 id 幂等去重).
+    // 严格 `>` 会在此处静默丢弃边界写, 造成增量同步数据不一致.
+    const r = await pullChanges(OWNER, n.updatedAt);
+    expect(r.notes.map((x) => x.id)).toContain(n.id);
+  });
 });
 
 describe('推送合并 pushChanges (LWW)', () => {
