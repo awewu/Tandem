@@ -44,6 +44,8 @@ import {
   LayoutList,
   FileText,
   FileUp,
+  Mic,
+  Square,
 } from 'lucide-react';
 
 interface Note {
@@ -85,6 +87,7 @@ export default function ShouchaoPage() {
   const [aiBusy, setAiBusy] = useState<null | 'summarize' | 'polish' | 'tags'>(null);
   const [clipOpen, setClipOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [voiceOpen, setVoiceOpen] = useState(false);
   const [toast, setToast] = useState<Toast>(null);
 
   // 跨笔记 AI 问答 (Ask) · 问你的第二大脑
@@ -601,6 +604,14 @@ export default function ShouchaoPage() {
                 </button>
                 <button
                   type="button"
+                  onClick={() => setVoiceOpen(true)}
+                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-footnote text-ink-tertiary hover:bg-surface-2 hover:text-ink-secondary surface-interactive"
+                  title="语音转笔记 (录音后自动转写)"
+                >
+                  <Mic className="h-3.5 w-3.5" /> 语音
+                </button>
+                <button
+                  type="button"
                   onClick={() => void createNote()}
                   className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-footnote text-ink-tertiary hover:bg-surface-2 hover:text-ink-secondary surface-interactive"
                   title="打开编辑器写长文"
@@ -1072,6 +1083,21 @@ export default function ShouchaoPage() {
         />
       )}
 
+      {/* 语音转笔记弹窗 */}
+      {voiceOpen && (
+        <VoiceDialog
+          onClose={() => setVoiceOpen(false)}
+          onTranscribed={async ({ text }) => {
+            setVoiceOpen(false);
+            const firstLine = text.split('\n').map((l) => l.trim()).find(Boolean) ?? '';
+            const title = firstLine.slice(0, 30) || '语音笔记';
+            await createNote({ title, content: text, tags: ['语音'] });
+            showToast('ok', '语音已转成笔记');
+          }}
+          onError={(m) => showToast('err', m)}
+        />
+      )}
+
       {/* Toast */}
       {toast && (
         <div
@@ -1328,6 +1354,205 @@ function ImportDialog({
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileUp className="h-4 w-4" />}
             导入
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VoiceDialog({
+  onClose,
+  onTranscribed,
+  onError,
+}: {
+  onClose: () => void;
+  onTranscribed: (res: { text: string; polished: boolean }) => void;
+  onError: (msg: string) => void;
+}) {
+  type Phase = 'idle' | 'recording' | 'recorded' | 'transcribing';
+  const [phase, setPhase] = useState<Phase>('idle');
+  const [elapsed, setElapsed] = useState(0);
+  const [polish, setPolish] = useState(true);
+  const [supported, setSupported] = useState(true);
+
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const blobRef = useRef<Blob | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopTracks = useCallback(() => {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (
+      typeof navigator === 'undefined' ||
+      !navigator.mediaDevices?.getUserMedia ||
+      typeof MediaRecorder === 'undefined'
+    ) {
+      setSupported(false);
+    }
+    return () => stopTracks();
+  }, [stopTracks]);
+
+  async function startRecording() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      chunksRef.current = [];
+      const rec = new MediaRecorder(stream);
+      rec.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      rec.onstop = () => {
+        blobRef.current = new Blob(chunksRef.current, { type: rec.mimeType || 'audio/webm' });
+        setPhase('recorded');
+        stopTracks();
+      };
+      rec.start();
+      recorderRef.current = rec;
+      setElapsed(0);
+      setPhase('recording');
+      timerRef.current = setInterval(() => setElapsed((s) => s + 1), 1000);
+    } catch {
+      onError('无法访问麦克风，请在浏览器中授予录音权限');
+    }
+  }
+
+  function stopRecording() {
+    try {
+      recorderRef.current?.stop();
+    } catch {
+      stopTracks();
+      setPhase('recorded');
+    }
+  }
+
+  async function transcribe() {
+    const blob = blobRef.current;
+    if (!blob || blob.size === 0) {
+      onError('没有录到声音，请重试');
+      return;
+    }
+    setPhase('transcribing');
+    try {
+      const fd = new FormData();
+      fd.append('file', blob, 'audio.webm');
+      fd.append('polish', polish ? 'true' : 'false');
+      fd.append('language', 'zh');
+      const r = await fetch('/api/shouchao/transcribe', { method: 'POST', body: fd });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok || !d.ok || !d.text) throw new Error(d.error ?? '转写失败');
+      onTranscribed({ text: d.text as string, polished: Boolean(d.polished) });
+    } catch (e) {
+      onError(e instanceof Error ? e.message : '转写失败');
+      setPhase('recorded');
+    }
+  }
+
+  function reset() {
+    blobRef.current = null;
+    chunksRef.current = [];
+    setElapsed(0);
+    setPhase('idle');
+  }
+
+  const mmss = `${String(Math.floor(elapsed / 60)).padStart(2, '0')}:${String(elapsed % 60).padStart(2, '0')}`;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="w-full max-w-lg rounded-2xl bg-surface-1 p-6 shadow-soft-lg" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-3 flex items-center gap-2">
+          <Mic className="h-5 w-5 text-brand-500" />
+          <h2 className="text-headline font-bold text-ink-primary">语音转笔记</h2>
+        </div>
+
+        {!supported ? (
+          <p className="text-caption text-danger">
+            当前浏览器不支持录音，请改用 Chrome/Safari 等现代浏览器，或用「导入文件」上传音频。
+          </p>
+        ) : (
+          <>
+            <p className="mb-4 text-footnote text-ink-tertiary">
+              对着麦克风口述，停止后自动转写成文字。可选 AI 润色成结构化笔记。
+            </p>
+
+            <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-border bg-surface-2 py-8">
+              {phase === 'recording' ? (
+                <>
+                  <div className="flex items-center gap-2 text-title font-bold tabular-nums text-danger">
+                    <span className="inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-danger" />
+                    {mmss}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={stopRecording}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-danger px-5 py-2.5 text-caption font-semibold text-white hover:opacity-90 surface-interactive"
+                  >
+                    <Square className="h-4 w-4" /> 停止录音
+                  </button>
+                </>
+              ) : phase === 'transcribing' ? (
+                <div className="flex items-center gap-2 text-caption text-ink-secondary">
+                  <Loader2 className="h-4 w-4 animate-spin" /> 正在转写…
+                </div>
+              ) : phase === 'recorded' ? (
+                <>
+                  <div className="text-caption text-ink-secondary">已录制 {mmss}</div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={reset}
+                      className="rounded-lg border border-border px-4 py-2 text-caption text-ink-secondary hover:bg-surface-1 surface-interactive"
+                    >
+                      重录
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void transcribe()}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-caption font-semibold text-white hover:bg-brand-600 surface-interactive"
+                    >
+                      <Check className="h-4 w-4" /> 转成笔记
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void startRecording()}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-brand-500 px-5 py-2.5 text-caption font-semibold text-white hover:bg-brand-600 surface-interactive"
+                >
+                  <Mic className="h-4 w-4" /> 开始录音
+                </button>
+              )}
+            </div>
+
+            <label className="mt-4 flex items-center gap-2 text-caption text-ink-secondary">
+              <input
+                type="checkbox"
+                checked={polish}
+                onChange={(e) => setPolish(e.target.checked)}
+                className="accent-brand-500"
+              />
+              AI 润色（去口头语、修错别字、分段）
+            </label>
+          </>
+        )}
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-border px-4 py-2 text-caption text-ink-secondary hover:bg-surface-2 surface-interactive"
+          >
+            关闭
           </button>
         </div>
       </div>
