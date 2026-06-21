@@ -22,8 +22,11 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const typeFilter = searchParams.get('type') as IntranetPostType | null;
-    const includeArchived = searchParams.get('includeArchived') === '1';
-    const includeDrafts = searchParams.get('includeDrafts') === '1';
+    // 草稿/归档仅 steward/champion 可见 (与单条 GET 一致): 普通员工即使带 ?includeDrafts=1
+    // 也不能枚举未发布/已归档内容, 防草稿(如未公开通知)泄露。
+    const isSteward = !requireRole(auth, [...DATA_STEWARD_ROLES, 'champion']);
+    const includeArchived = isSteward && searchParams.get('includeArchived') === '1';
+    const includeDrafts = isSteward && searchParams.get('includeDrafts') === '1';
 
     const store = getStore();
     // 租户隔离统一收敛 (§23 P2-A): withTenantScope.list() 经 store 层下推, 不再逐路由手写过滤.
