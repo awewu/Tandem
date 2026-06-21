@@ -6,6 +6,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { getStore } from '@/lib/storage/repository';
+import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,8 +17,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const store = getStore();
   const [allCerts, allLessons] = await Promise.all([
-    store.learningCertifications.list(),
-    store.lessons.list(),
+    withTenantScope(store.learningCertifications, auth.tenantId).list(),
+    withTenantScope(store.lessons, auth.tenantId).list(),
   ]);
 
   const lessonMap = new Map(allLessons.map((l) => [l.id, l.title]));

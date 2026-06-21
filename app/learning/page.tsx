@@ -55,6 +55,8 @@ const CATEGORY_META: Record<
 export default function LearningPage() {
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [loadStatus, setLoadStatus] = useState<'loading' | 'ok' | 'error'>('loading');
+  const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
+  const [certValid, setCertValid] = useState(0);
 
   useEffect(() => {
     fetch('/api/learning/lessons', { credentials: 'include', cache: 'no-store' })
@@ -70,6 +72,18 @@ export default function LearningPage() {
       });
   }, []);
 
+  useEffect(() => {
+    fetch('/api/learning/progress', { credentials: 'include', cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then((j) => {
+        setCompletedIds(new Set<string>(j.completedLessonIds ?? []));
+        setCertValid(j.certificationCountValid ?? 0);
+      })
+      .catch(() => {
+        /* 进度加载失败不阻塞目录渲染, 退化为未完成态 */
+      });
+  }, []);
+
   const grouped = useMemo(() => {
     const map: Partial<Record<LessonCategory, Lesson[]>> = {};
     for (const l of lessons) {
@@ -81,6 +95,10 @@ export default function LearningPage() {
   const mandatory = useMemo(
     () => lessons.filter((l) => l.requirement === 'mandatory_once' || l.requirement === 'mandatory_quarterly'),
     [lessons],
+  );
+  const mandatoryPending = useMemo(
+    () => mandatory.filter((l) => !completedIds.has(l.id)),
+    [mandatory, completedIds],
   );
   const recommended = useMemo(
     () => lessons.filter((l) => l.requirement === 'recommended'),
@@ -169,30 +187,42 @@ export default function LearningPage() {
         {/* Quick stats */}
         <div className="mt-6 grid grid-cols-3 gap-3">
           <HeroStat
-            value={mandatory.length}
+            value={mandatoryPending.length}
             label="必修待完成"
             tone="danger"
           />
           <HeroStat value={recommended.length} label="推荐学习" tone="info" />
-          <HeroStat value={0} label="已认证 (本季)" tone="success" />
+          <HeroStat value={certValid} label="已认证 (有效)" tone="success" />
         </div>
       </section>
 
-      {/* 必修区 (置顶) */}
-      {mandatory.length > 0 && (
+      {/* 必修区 (置顶, 仅显示未完成) */}
+      {mandatoryPending.length > 0 && (
         <section className="surface-card p-5 sm:p-6 shadow-soft-sm">
           <h2
             className="mb-4 flex items-center gap-2 text-headline"
             style={{ color: 'rgb(var(--brand-700))' }}
           >
             <Sparkles className="h-5 w-5" />
-            ⚠️ 必修待完成 · {mandatory.length} 门
+            ⚠️ 必修待完成 · {mandatoryPending.length} 门
           </h2>
           <ul className="space-y-2">
-            {mandatory.map((l) => (
-              <LessonRow key={l.id} lesson={l} />
+            {mandatoryPending.map((l) => (
+              <LessonRow key={l.id} lesson={l} completed={completedIds.has(l.id)} />
             ))}
           </ul>
+        </section>
+      )}
+
+      {mandatory.length > 0 && mandatoryPending.length === 0 && (
+        <section className="surface-card flex items-center gap-3 p-4 shadow-soft-sm">
+          <CheckCircle2
+            className="h-5 w-5 shrink-0"
+            style={{ color: 'rgb(var(--semantic-success))' }}
+          />
+          <p className="text-body text-primary">
+            全部 {mandatory.length} 门必修已完成 · 你的搭子已同步成长
+          </p>
         </section>
       )}
 
@@ -233,7 +263,7 @@ export default function LearningPage() {
           </h2>
           <ul className="space-y-2">
             {recommended.map((l) => (
-              <LessonRow key={l.id} lesson={l} />
+              <LessonRow key={l.id} lesson={l} completed={completedIds.has(l.id)} />
             ))}
           </ul>
         </section>
@@ -291,7 +321,7 @@ function HeroStat({
   );
 }
 
-function LessonRow({ lesson }: { lesson: Lesson }) {
+function LessonRow({ lesson, completed = false }: { lesson: Lesson; completed?: boolean }) {
   const reqBadge =
     lesson.requirement === 'mandatory_once'
       ? '必修'
@@ -322,6 +352,17 @@ function LessonRow({ lesson }: { lesson: Lesson }) {
           >
             {reqBadge}
           </span>
+          {completed && (
+            <span
+              className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-footnote font-semibold"
+              style={{
+                background: 'rgb(var(--semantic-success) / 0.12)',
+                color: 'rgb(var(--semantic-success))',
+              }}
+            >
+              <CheckCircle2 className="h-3 w-3" /> 已完成
+            </span>
+          )}
           <h3 className="text-body font-medium text-primary">{lesson.title}</h3>
         </div>
         <p className="mt-1 text-caption text-secondary">{lesson.summary}</p>
@@ -346,7 +387,7 @@ function LessonRow({ lesson }: { lesson: Lesson }) {
         className="rheem-btn-pill shrink-0"
         style={{ padding: '6px 14px', fontSize: 12 }}
       >
-        开始学习
+        {completed ? '复习' : '开始学习'}
       </Link>
     </li>
   );

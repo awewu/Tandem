@@ -22,8 +22,9 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const categoryFilter = searchParams.get('category') as LessonCategory | null;
-    const includeArchived = searchParams.get('includeArchived') === '1';
-    const includeDrafts = searchParams.get('includeDrafts') === '1';
+    const isCmsUser = !requireRole(auth, [...DATA_STEWARD_ROLES, 'champion']);
+    const includeArchived = isCmsUser && searchParams.get('includeArchived') === '1';
+    const includeDrafts = isCmsUser && searchParams.get('includeDrafts') === '1';
 
     const store = getStore();
     // Tenant isolation: 收敛到统一 withTenantScope (宪章 §23).

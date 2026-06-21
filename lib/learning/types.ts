@@ -21,6 +21,18 @@ export type LessonRequirement =
   | 'recommended'         // 推荐
   | 'elective';           // 选修 (专项)
 
+/** 课程题库的单题 (课时答题环节). */
+export interface LessonQuestion {
+  /** 题干 */
+  prompt: string;
+  /** 选项 (2-4 个) */
+  options: string[];
+  /** 正确选项下标 (0-based) */
+  correctIdx: number;
+  /** 答题后展示的解析 */
+  explanation: string;
+}
+
 export interface Lesson {
   id: string;
   title: string;
@@ -39,6 +51,11 @@ export interface Lesson {
   linkedKrId?: string;
   /** 课程正文 (Markdown). 有则课时页渲染真内容, 无则回退 mock 导读. */
   contentMarkdown?: string;
+  /**
+   * 课程专属题库 (答题环节). 有则逐题作答 (全对才 100), 无则回退通用单题.
+   * 设计: 每题考一个本课真实知识点, 反"装饰题".
+   */
+  questions?: LessonQuestion[];
   /** CMS 管理字段 (store-backed 后启用; fixtures 不带这些字段) */
   tenantId?: string;
   /** 发布时间 ISO; null/undefined = 草稿 (不对学员可见) */

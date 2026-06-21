@@ -14,10 +14,19 @@
  *   - 课程内容是 Material 衍生包 (§7), 不入 Memory
  */
 
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
+import { boot } from '@/lib/boot';
+import { requireAuth, requireRole } from '@/lib/auth/require-auth';
+import { DATA_STEWARD_ROLES } from '@/lib/auth/roles';
 import type { GenerateLessonInput, GeneratedLesson } from '@/lib/learning/types';
 
-export async function POST(req: Request): Promise<NextResponse> {
+export async function POST(req: NextRequest): Promise<NextResponse> {
+  await boot();
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
+  const forbidden = requireRole(auth, [...DATA_STEWARD_ROLES, 'champion']);
+  if (forbidden) return forbidden;
+
   let input: GenerateLessonInput;
   try {
     input = await req.json();
@@ -25,7 +34,7 @@ export async function POST(req: Request): Promise<NextResponse> {
     return NextResponse.json({ error: 'invalid body' }, { status: 400 });
   }
 
-  if (!input.sourceId || !input.userId) {
+  if (!input.sourceId) {
     return NextResponse.json({ error: 'sourceId + userId required' }, { status: 400 });
   }
 

@@ -23,7 +23,7 @@ import {
   Sparkles,
   TrendingUp,
 } from 'lucide-react';
-import type { Lesson } from '@/lib/learning/types';
+import type { Lesson, LessonQuestion } from '@/lib/learning/types';
 
 export interface LessonViewerProps {
   lesson: Lesson;
@@ -50,19 +50,28 @@ const CATEGORY_LABEL: Record<Lesson['category'], string> = {
 
 export function LessonViewer({ lesson }: LessonViewerProps) {
   const [phase, setPhase] = useState<'content' | 'quiz' | 'done'>('content');
-  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [closure, setClosure] = useState<ClosureResult | null>(null);
   const [closureError, setClosureError] = useState<string | null>(null);
 
-  const mockQuestion = useMemo(() => buildMockQuestion(lesson), [lesson]);
+  // 课程专属题库; 无则回退一道通用题 (反"装饰题": 有题库时逐题真考).
+  const questions = useMemo<LessonQuestion[]>(
+    () => (lesson.questions && lesson.questions.length > 0 ? lesson.questions : [buildMockQuestion(lesson)]),
+    [lesson],
+  );
+  const [answers, setAnswers] = useState<(number | null)[]>(() => questions.map(() => null));
+
+  const allAnswered = answers.every((a) => a !== null);
+  const correctCount = answers.reduce<number>(
+    (n, a, i) => (a === questions[i].correctIdx ? n + 1 : n),
+    0,
+  );
   const isMandatory = lesson.requirement.startsWith('mandatory');
 
   async function handleSubmit() {
-    if (selectedAnswer === null) return;
+    if (!allAnswered) return;
     setSubmitted(true);
-    const correct = selectedAnswer === mockQuestion.correctIdx;
-    const score = correct ? 100 : 40;
+    const score = Math.round((correctCount / questions.length) * 100);
     try {
       const res = await fetch('/api/learning/complete', {
         method: 'POST',
@@ -209,72 +218,87 @@ export function LessonViewer({ lesson }: LessonViewerProps) {
         </section>
       )}
 
-      {/* ===== 答题阶段 ===== */}
+      {/* ===== 答题阶段 (逐题题库) ===== */}
       {phase === 'quiz' && (
         <section className="surface-card p-5 sm:p-6 shadow-soft-sm">
-          <h2 className="text-headline text-primary">✏️ 答题 · 1 / 1</h2>
-          <p className="mt-4 text-body text-primary">{mockQuestion.prompt}</p>
-
-          <div className="mt-4 space-y-2">
-            {mockQuestion.options.map((opt, i) => {
-              const isSelected = selectedAnswer === i;
-              const showResult = submitted;
-              const isCorrect = i === mockQuestion.correctIdx;
-              return (
-                <button
-                  key={i}
-                  type="button"
-                  disabled={submitted}
-                  onClick={() => setSelectedAnswer(i)}
-                  className="surface-interactive flex w-full items-start gap-2.5 rounded-2xl border p-3.5 text-left text-body"
-                  style={getQuizOptionStyle({
-                    showResult,
-                    isCorrect,
-                    isSelected,
-                  })}
-                >
-                  <span
-                    className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-footnote font-bold"
-                    style={
-                      isSelected
-                        ? {
-                            background: 'rgb(var(--brand-500))',
-                            color: '#fff',
-                            borderColor: 'rgb(var(--brand-500))',
-                          }
-                        : {
-                            background: 'rgb(var(--surface-1))',
-                            color: 'rgb(var(--text-secondary))',
-                            borderColor: 'rgb(var(--border-default))',
-                          }
-                    }
-                  >
-                    {String.fromCharCode(65 + i)}
-                  </span>
-                  <span className="flex-1">{opt}</span>
-                  {showResult && isCorrect && (
-                    <CheckCircle2
-                      className="h-4 w-4 shrink-0"
-                      style={{ color: 'rgb(var(--semantic-success))' }}
-                    />
-                  )}
-                  {showResult && isSelected && !isCorrect && (
-                    <AlertTriangle
-                      className="h-4 w-4 shrink-0"
-                      style={{ color: 'rgb(var(--semantic-danger))' }}
-                    />
-                  )}
-                </button>
-              );
-            })}
+          <div className="flex items-center justify-between">
+            <h2 className="text-headline text-primary">✏️ 答题</h2>
+            <span className="text-caption text-tertiary">
+              {submitted
+                ? `得分 ${Math.round((correctCount / questions.length) * 100)} · 答对 ${correctCount}/${questions.length}`
+                : `共 ${questions.length} 题 · 已答 ${answers.filter((a) => a !== null).length}/${questions.length}`}
+            </span>
           </div>
 
-          {submitted && (
-            <div className="surface-card-soft mt-4 p-3.5 text-caption text-secondary">
-              <span className="font-semibold text-primary">解析:</span>{' '}
-              {mockQuestion.explanation}
-            </div>
-          )}
+          <div className="mt-5 space-y-6">
+            {questions.map((q, qi) => (
+              <div key={qi}>
+                <p className="text-body font-medium text-primary">
+                  <span className="text-tertiary">{qi + 1}.</span> {q.prompt}
+                </p>
+                <div className="mt-3 space-y-2">
+                  {q.options.map((opt, i) => {
+                    const isSelected = answers[qi] === i;
+                    const showResult = submitted;
+                    const isCorrect = i === q.correctIdx;
+                    return (
+                      <button
+                        key={i}
+                        type="button"
+                        disabled={submitted}
+                        onClick={() =>
+                          setAnswers((prev) => {
+                            const next = [...prev];
+                            next[qi] = i;
+                            return next;
+                          })
+                        }
+                        className="surface-interactive flex w-full items-start gap-2.5 rounded-2xl border p-3.5 text-left text-body"
+                        style={getQuizOptionStyle({ showResult, isCorrect, isSelected })}
+                      >
+                        <span
+                          className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-footnote font-bold"
+                          style={
+                            isSelected
+                              ? {
+                                  background: 'rgb(var(--brand-500))',
+                                  color: '#fff',
+                                  borderColor: 'rgb(var(--brand-500))',
+                                }
+                              : {
+                                  background: 'rgb(var(--surface-1))',
+                                  color: 'rgb(var(--text-secondary))',
+                                  borderColor: 'rgb(var(--border-default))',
+                                }
+                          }
+                        >
+                          {String.fromCharCode(65 + i)}
+                        </span>
+                        <span className="flex-1">{opt}</span>
+                        {showResult && isCorrect && (
+                          <CheckCircle2
+                            className="h-4 w-4 shrink-0"
+                            style={{ color: 'rgb(var(--semantic-success))' }}
+                          />
+                        )}
+                        {showResult && isSelected && !isCorrect && (
+                          <AlertTriangle
+                            className="h-4 w-4 shrink-0"
+                            style={{ color: 'rgb(var(--semantic-danger))' }}
+                          />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                {submitted && (
+                  <div className="surface-card-soft mt-3 p-3.5 text-caption text-secondary">
+                    <span className="font-semibold text-primary">解析:</span> {q.explanation}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
 
           <div
             className="mt-6 flex items-center justify-between gap-3 border-t pt-4"
@@ -290,16 +314,13 @@ export function LessonViewer({ lesson }: LessonViewerProps) {
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={selectedAnswer === null || submitted}
+              disabled={!allAnswered || submitted}
               className="rheem-btn-pill"
               style={{
                 padding: '8px 20px',
                 fontSize: 14,
-                opacity: selectedAnswer === null || submitted ? 0.4 : 1,
-                cursor:
-                  selectedAnswer === null || submitted
-                    ? 'not-allowed'
-                    : 'pointer',
+                opacity: !allAnswered || submitted ? 0.4 : 1,
+                cursor: !allAnswered || submitted ? 'not-allowed' : 'pointer',
               }}
             >
               {submitted ? '已提交…' : '提交答案'}
@@ -622,12 +643,7 @@ function MarkdownContent({ markdown }: { markdown: string }) {
   return <div className="text-body text-primary">{nodes}</div>;
 }
 
-function buildMockQuestion(lesson: Lesson): {
-  prompt: string;
-  options: string[];
-  correctIdx: number;
-  explanation: string;
-} {
+function buildMockQuestion(lesson: Lesson): LessonQuestion {
   return {
     prompt: `根据《${lesson.title}》课程内容, 以下哪个做法最符合本课的核心原则?`,
     options: [

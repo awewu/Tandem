@@ -34,6 +34,7 @@ interface Props {
 export function CategoryLessonList({ category, title, subtitle, backHref = '/learning' }: Props) {
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [status, setStatus] = useState<'loading' | 'ok' | 'error'>('loading');
+  const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetch('/api/learning/lessons', { credentials: 'include', cache: 'no-store' })
@@ -49,6 +50,17 @@ export function CategoryLessonList({ category, title, subtitle, backHref = '/lea
         setStatus('error');
       });
   }, [category]);
+
+  useEffect(() => {
+    fetch('/api/learning/progress', { credentials: 'include', cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then((j) => setCompletedIds(new Set<string>(j.completedLessonIds ?? [])))
+      .catch(() => {
+        /* 进度加载失败退化为未完成态 */
+      });
+  }, []);
+
+  const completedInCat = lessons.filter((l) => completedIds.has(l.id)).length;
 
   return (
     <main className="container mx-auto max-w-3xl px-4 py-6 space-y-5">
@@ -67,6 +79,11 @@ export function CategoryLessonList({ category, title, subtitle, backHref = '/lea
           {title}
         </h1>
         <p className="text-caption" style={{ color: 'rgba(255,255,255,0.65)' }}>{subtitle}</p>
+        {lessons.length > 0 && (
+          <p className="text-footnote pt-1" style={{ color: 'rgb(var(--brand-300))' }}>
+            已完成 {completedInCat} / {lessons.length} 课
+          </p>
+        )}
       </div>
 
       {status === 'error' && (
@@ -110,6 +127,11 @@ export function CategoryLessonList({ category, title, subtitle, backHref = '/lea
                   <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${REQ_COLOR[lesson.requirement] ?? 'bg-surface-3 text-ink-secondary'}`}>
                     {REQ_LABEL[lesson.requirement] ?? lesson.requirement}
                   </span>
+                  {completedIds.has(lesson.id) && (
+                    <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-medium text-success">
+                      <CheckCircle2 className="h-3 w-3" /> 已完成
+                    </span>
+                  )}
                 </div>
                 {lesson.summary && (
                   <p className="mt-0.5 text-footnote text-ink-tertiary line-clamp-2">{lesson.summary}</p>
