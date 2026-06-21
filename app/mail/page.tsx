@@ -500,7 +500,7 @@ function InboxView({ folder = 'INBOX', onCompose }: { folder?: string; onCompose
         {aiSummary && (
           <div className="rounded-md border border-blue-200 bg-blue-50/50 p-3">
             <div className="flex items-center justify-between mb-1.5">
-              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-700">
+              <span className="inline-flex items-center gap-1.5 text-footnote font-medium text-blue-700">
                 <Sparkles className="h-3.5 w-3.5" />
                 AI 摘要
               </span>
@@ -913,7 +913,7 @@ function ComposeView({
         {aiReplyDraft && (
           <div className="rounded-md border border-blue-200 bg-blue-50/50 p-3 space-y-2">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-xs font-medium text-blue-700">
+              <div className="flex items-center gap-1.5 text-footnote font-medium text-blue-700">
                 <Bot className="h-3.5 w-3.5" />
                 AI 回复草稿
               </div>
@@ -945,8 +945,8 @@ function ComposeView({
           <div className="rounded-md border border-border p-3 space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
-                <ShieldCheck className={`h-4 w-4 ${reviewResult.isSafe ? 'text-emerald-500' : 'text-amber-500'}`} />
-                <span className="text-xs font-medium">AI 审校 · {reviewResult.score}分</span>
+                <ShieldCheck className={`h-4 w-4 ${reviewResult.isSafe ? 'text-emerald-500' : 'text-warning'}`} />
+                <span className="text-footnote font-medium">AI 审校 · {reviewResult.score}分</span>
                 <span className="text-footnote text-ink-tertiary">{reviewResult.summary}</span>
               </div>
               <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px]" onClick={() => setReviewResult(null)}>
@@ -958,7 +958,7 @@ function ComposeView({
                 {reviewResult.issues.map((issue, i) => (
                   <li key={i} className={`text-[11px] rounded px-2 py-1 ${
                     issue.severity === 'critical' ? 'bg-danger/5 text-danger' :
-                    issue.severity === 'warning' ? 'bg-amber-50 text-amber-700' :
+                    issue.severity === 'warning' ? 'bg-warning/5 text-warning' :
                     'bg-surface-2 text-ink-secondary'
                   }`}>
                     <span className="font-medium">[{issue.category}]</span> {issue.message}
@@ -986,11 +986,11 @@ function ComposeView({
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={handleAiReply} disabled={aiReplyLoading || !bodyText.trim()}>
+          <Button variant="outline" size="sm" className="gap-1 text-footnote" onClick={handleAiReply} disabled={aiReplyLoading || !bodyText.trim()}>
             <Bot className="h-3.5 w-3.5" />
             {aiReplyLoading ? '生成中...' : 'AI 回复'}
           </Button>
-          <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={handleAiReview} disabled={reviewLoading || !bodyText.trim()}>
+          <Button variant="outline" size="sm" className="gap-1 text-footnote" onClick={handleAiReview} disabled={reviewLoading || !bodyText.trim()}>
             <ShieldCheck className="h-3.5 w-3.5" />
             {reviewLoading ? '审校中...' : 'AI 审校'}
           </Button>

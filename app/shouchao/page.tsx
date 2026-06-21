@@ -1292,7 +1292,7 @@ function ImportDialog({
             setDragActive(false);
             pick(e.dataTransfer.files?.[0]);
           }}
-          className={`flex w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-8 text-center transition-colors ${
+          className={`flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-4 py-8 text-center transition-colors ${
             dragActive ? 'border-brand-400 bg-brand-50' : 'border-border hover:bg-surface-2'
           }`}
         >
@@ -1484,7 +1484,7 @@ function VoiceDialog({
               对着麦克风口述，停止后自动转写成文字。可选 AI 润色成结构化笔记。
             </p>
 
-            <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-border bg-surface-2 py-8">
+            <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-border bg-surface-2 py-8">
               {phase === 'recording' ? (
                 <>
                   <div className="flex items-center gap-2 text-title font-bold tabular-nums text-danger">

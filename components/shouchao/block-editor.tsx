@@ -244,7 +244,7 @@ export function BlockEditor({ value, onChange, placeholder }: BlockEditorProps) 
 
           {/* 块类型菜单 */}
           {menuFor === block.id && (
-            <div className="absolute left-10 top-7 z-20 w-40 rounded-lg border border-border bg-surface-1 p-1 shadow-lg">
+            <div className="absolute left-10 top-7 z-20 w-40 rounded-lg border border-border bg-surface-1 p-1 shadow-soft-lg">
               {BLOCK_MENU.map(({ type, label, Icon }) => (
                 <button
                   key={type}

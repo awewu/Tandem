@@ -352,7 +352,7 @@ export default function EmailSettingsPage() {
                   type="button"
                   onClick={handleDelete}
                   disabled={loading}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-border px-4 py-2 text-footnote font-medium text-ink-secondary hover:text-red-600 hover:border-red-200 disabled:opacity-50 surface-interactive"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-border px-4 py-2 text-footnote font-medium text-ink-secondary hover:text-danger hover:border-danger disabled:opacity-50 surface-interactive"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                   删除凭据
