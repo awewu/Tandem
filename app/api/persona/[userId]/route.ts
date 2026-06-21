@@ -5,6 +5,20 @@ import { DATA_STEWARD_ROLES } from '@/lib/auth/roles';
 import { computeBossCaptureScore, checkUpgradeEligibility } from '@/lib/persona/evolution';
 
 /**
+ * 治理/身份/系统计算字段 — 不可经原始 PATCH 注入 (防越权):
+ *   - stage/stageEnteredAt/delegationLevel: 授权等级, 升级必须走 evolution + 议事治理流程
+ *   - bossCaptureScore/decisionHistory/modeProficiency: 系统计算, 非自填
+ *   - enabledSkills: 随 stage 渐进解锁 (红区永不解锁)
+ *   - dataOwnership/id/userId/tenantId/schemaVersion/createdAt: 不可变身份/归属
+ */
+const PERSONA_GOVERNANCE_KEYS = new Set([
+  'id', 'userId', 'schemaVersion', 'tenantId',
+  'stage', 'stageEnteredAt', 'delegationLevel',
+  'decisionHistory', 'bossCaptureScore', 'dataOwnership',
+  'enabledSkills', 'modeProficiency', 'createdAt',
+]);
+
+/**
  * EVO-7 phase 2 (2026-05-12): 加 auth gate.
  *
  * 旧行为: 任何人可读/改任何 userId 的 persona (含 bossCaptureScore 等敏感分数).
@@ -62,10 +76,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { userId: st
     if (!persona) {
       return NextResponse.json({ error: 'persona not found' }, { status: 404 });
     }
-    const updated = await store.personas.update(persona.id, {
-      ...body,
-      updatedAt: new Date().toISOString(),
-    });
+    // 字段白名单 (剔除治理/身份/系统字段): 仅放行软字段 (styleProfile / growthAreas / learningActive 等).
+    const patch: Record<string, unknown> = { updatedAt: new Date().toISOString() };
+    for (const [k, v] of Object.entries(body)) {
+      if (PERSONA_GOVERNANCE_KEYS.has(k)) continue;
+      patch[k] = v;
+    }
+    const updated = await store.personas.update(persona.id, patch);
     return NextResponse.json({ persona: updated });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });

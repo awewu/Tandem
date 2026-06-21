@@ -281,3 +281,48 @@ describe('P0-B · nine-box/suggestions 跨租户读隔离 (KR/Objective/KPI)', (
     expect(userIds).not.toContain('other-owner');
   });
 });
+
+describe('P2-B · persona PATCH 拒绝治理字段越权注入 (防 AI 授权提升)', () => {
+  it('body 注入 stage/delegationLevel/bossCaptureScore 被丢弃, 软字段仍可改', async () => {
+    const store = getStore();
+    await store.personas.create({
+      id: 'persona-1', userId: 'demo-user', tenantId: 'default',
+      stage: 'newborn', delegationLevel: 'observe_only', bossCaptureScore: 0,
+      styleProfile: { decisionSpeed: 'medium', riskAppetite: 0.5, communicationStyle: 'analytical', preferredOptions: [], communicationExamples: [] },
+    } as never);
+
+    const { PATCH } = await import('@/app/api/persona/[userId]/route');
+    const res = await PATCH(
+      jsonReq('http://test.local/api/persona/demo-user', {
+        // 攻击载荷: 试图提升 AI 授权等级 + 伪造分数
+        stage: 'partner',
+        delegationLevel: 'cross_company',
+        bossCaptureScore: 999,
+        // 合法软字段
+        styleProfile: { decisionSpeed: 'fast', riskAppetite: 0.9, communicationStyle: 'direct', preferredOptions: [], communicationExamples: [] },
+      }, 'PATCH'),
+      { params: { userId: 'demo-user' } },
+    );
+    expect(res.status).toBe(200);
+    const after = (await store.personas.list({ userId: 'demo-user' } as never))[0] as {
+      stage: string; delegationLevel: string; bossCaptureScore: number; styleProfile: { communicationStyle: string };
+    };
+    expect(after.stage).toBe('newborn');
+    expect(after.delegationLevel).toBe('observe_only');
+    expect(after.bossCaptureScore).toBe(0);
+    expect(after.styleProfile.communicationStyle).toBe('direct'); // 软字段允许改
+  });
+});
+
+describe('P1 · documents/[id]/permissions 需要鉴权 (此前完全无 auth)', () => {
+  it('未登录 (ALLOW_DEMO_AUTH=0) → 401, 不改 ACL', async () => {
+    process.env.ALLOW_DEMO_AUTH = '0';
+    const { PATCH } = await import('@/app/api/documents/[id]/permissions/route');
+    const res = await PATCH(
+      jsonReq('http://test.local/api/documents/doc-x/permissions', { read: ['attacker'] }, 'PATCH'),
+      { params: { id: 'doc-x' } },
+    );
+    expect(res.status).toBe(401);
+    process.env.ALLOW_DEMO_AUTH = '1';
+  });
+});

@@ -28,10 +28,17 @@ export class NotificationService {
   }
 
   async create(cmd: CreateNotificationCommand): Promise<Notification> {
+    // 字段白名单: 显式构造, 防 body 注入 id/read/dismissedAt 等系统字段 (P2-B).
     const n = await this.ctx.notificationRepo.create({
-      ...cmd,
+      userId: cmd.userId,
+      type: cmd.type,
+      title: cmd.title,
+      body: cmd.body ?? '',
+      data: cmd.data ?? {},
       priority: cmd.priority ?? 'normal',
       channel: cmd.channel ?? 'in-app',
+      sourceId: cmd.sourceId,
+      sourceType: cmd.sourceType,
       tenantId: cmd.tenantId ?? 'default',
       createdAt: new Date().toISOString(),
     } as any);
