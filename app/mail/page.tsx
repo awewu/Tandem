@@ -609,7 +609,15 @@ function InboxView({ folder = 'INBOX', onCompose }: { folder?: string; onCompose
       {error && (
         <div className="rounded-md bg-warning/5 px-3 py-2 text-caption text-warning flex items-start gap-2">
           <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-          <span>{error}</span>
+          <span className="flex-1">{error}</span>
+          {/^(未绑定|.*请先配置)/.test(error) && (
+            <Link
+              href="/settings/email"
+              className="shrink-0 inline-flex items-center gap-1 rounded-md bg-warning/10 px-2 py-0.5 font-medium text-warning hover:bg-warning/20 surface-interactive"
+            >
+              <Settings className="h-3.5 w-3.5" /> 去配置邮箱
+            </Link>
+          )}
         </div>
       )}
 
