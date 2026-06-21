@@ -20,6 +20,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { getStore } from '@/lib/storage/repository';
+import { getChannelIfMember } from '@/lib/im/service';
 
 export const runtime = 'nodejs';
 
@@ -37,6 +38,12 @@ export async function GET(
   const store = getStore();
   const message = await store.imMessages.get(messageId);
   if (!message) {
+    return NextResponse.json({ error: 'message not found' }, { status: 404 });
+  }
+
+  // 访问控制: 仅消息所在频道成员可查 AI trace (防跨频道/跨租户成本元数据泄露).
+  const channel = await getChannelIfMember(message.channelId, auth.userId, auth.tenantId);
+  if (!channel) {
     return NextResponse.json({ error: 'message not found' }, { status: 404 });
   }
 

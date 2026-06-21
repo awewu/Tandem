@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { getStore } from '@/lib/storage/repository';
+import { getChannelIfMember } from '@/lib/im/service';
 
 /**
  * POST   /api/im/messages/:id/reactions   { emoji }   · 切换 (有则移除, 无则添加)
@@ -18,6 +19,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const store = getStore();
   const msg = await store.imMessages.get(params.id);
   if (!msg) return NextResponse.json({ error: 'message not found' }, { status: 404 });
+  // 访问控制: 仅消息所在频道成员可表态 (防跨频道/跨租户写).
+  const channel = await getChannelIfMember(msg.channelId, auth.userId, auth.tenantId);
+  if (!channel) return NextResponse.json({ error: 'message not found' }, { status: 404 });
 
   const reactions = { ...(msg.reactions ?? {}) };
   const cur = reactions[body.emoji] ?? [];

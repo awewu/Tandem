@@ -5,7 +5,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot, getRouter } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
-import { getChannelMessages } from '@/lib/im/service';
+import { getChannelMessages, getChannelIfMember } from '@/lib/im/service';
 
 export async function POST(
   req: NextRequest,
@@ -18,6 +18,9 @@ export async function POST(
   const { id } = await params;
 
   try {
+    // 访问控制: 仅频道成员可生成 AI 总结 (防跨频道/跨租户内容泄露).
+    const channel = await getChannelIfMember(id, auth.userId, auth.tenantId);
+    if (!channel) return NextResponse.json({ error: 'not found' }, { status: 404 });
     const msgs = await getChannelMessages(id, { limit: 60 });
     if (!msgs.length) {
       return NextResponse.json({ summary: '暂无消息可总结。' });

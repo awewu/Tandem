@@ -15,14 +15,17 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { seedDepartmentChannels, type DepartmentSpec } from '@/lib/im/service';
+import { requireAuth, requireRole } from '@/lib/auth/require-auth';
 
 export async function POST(req: NextRequest) {
   await boot();
+  // 管理员专属: 必须登录且为 owner/admin, operator 取自登录身份.
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
+  const roleGuard = requireRole(auth, ['owner', 'admin']);
+  if (roleGuard) return roleGuard;
   try {
     const body = await req.json();
-    if (!body.operatorId) {
-      return NextResponse.json({ error: 'operatorId required' }, { status: 400 });
-    }
     if (!Array.isArray(body.specs)) {
       return NextResponse.json({ error: 'specs must be array' }, { status: 400 });
     }
@@ -38,7 +41,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'level must be department or team' }, { status: 400 });
       }
     }
-    const result = await seedDepartmentChannels(body.specs, body.operatorId);
+    const result = await seedDepartmentChannels(body.specs, auth.userId);
     return NextResponse.json(result);
   } catch (err) {
     return NextResponse.json(

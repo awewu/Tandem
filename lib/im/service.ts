@@ -174,6 +174,23 @@ export async function getChannelMessages(
   return msgs.slice(-limit);
 }
 
+/**
+ * 访问控制: 校验用户对频道是否有读权限 (成员 + 同租户).
+ * 返回 channel (有权) 或 null (无权/不存在/跨租户). 路由据此返回 404 (不泄露存在性).
+ */
+export async function getChannelIfMember(
+  channelId: string,
+  userId: string,
+  tenantId?: string,
+): Promise<ImChannel | null> {
+  const store = getStore();
+  const channel = await store.imChannels.get(channelId);
+  if (!channel) return null;
+  if (tenantId && (channel.tenantId ?? 'default') !== tenantId) return null;
+  if (!channel.memberIds.includes(userId)) return null;
+  return channel;
+}
+
 // ---------------------------------------------------------------------------
 // Send Message
 // ---------------------------------------------------------------------------

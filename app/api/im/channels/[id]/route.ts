@@ -22,7 +22,14 @@ export async function GET(
   const { id } = await params;
   const store = getStore();
   const channel = await store.imChannels.get(id);
-  if (!channel) return NextResponse.json({ error: 'not found' }, { status: 404 });
+  // 访问控制: 同租户 + (成员 或 公开频道可被发现). 否则 404 不泄露存在性.
+  if (!channel || (channel.tenantId ?? 'default') !== auth.tenantId) {
+    return NextResponse.json({ error: 'not found' }, { status: 404 });
+  }
+  const isMember = channel.memberIds.includes(auth.userId);
+  if (!isMember && channel.visibility !== 'public') {
+    return NextResponse.json({ error: 'not found' }, { status: 404 });
+  }
   return NextResponse.json({ channel });
 }
 

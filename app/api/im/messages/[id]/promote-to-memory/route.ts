@@ -14,7 +14,9 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
-import { promoteImMessageToMemory } from '@/lib/im/service';
+import { promoteImMessageToMemory, getChannelIfMember } from '@/lib/im/service';
+import { requireAuth } from '@/lib/auth/require-auth';
+import { getStore } from '@/lib/storage/repository';
 
 interface Params {
   params: { id: string };
@@ -22,14 +24,18 @@ interface Params {
 
 export async function POST(req: NextRequest, { params }: Params) {
   await boot();
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
   try {
     const body = await req.json().catch(() => ({}));
-    if (!body.triggeredBy) {
-      return NextResponse.json({ error: 'triggeredBy required' }, { status: 400 });
-    }
+    // 访问控制: triggeredBy 取自登录身份, 且必须是消息所在频道成员.
+    const msg = await getStore().imMessages.get(params.id);
+    if (!msg) return NextResponse.json({ error: 'message not found' }, { status: 404 });
+    const channel = await getChannelIfMember(msg.channelId, auth.userId, auth.tenantId);
+    if (!channel) return NextResponse.json({ error: 'message not found' }, { status: 404 });
     const result = await promoteImMessageToMemory({
       messageId: params.id,
-      triggeredBy: body.triggeredBy,
+      triggeredBy: auth.userId,
       proposedType: body.proposedType,
       proposedTitle: body.proposedTitle,
       level: body.level,

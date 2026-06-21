@@ -7,9 +7,10 @@
  *   es.addEventListener('message', e => append(JSON.parse(e.data)));
  */
 
-import { type NextRequest } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
-import { subscribeIm } from '@/lib/im/service';
+import { subscribeIm, getChannelIfMember } from '@/lib/im/service';
+import { requireAuth } from '@/lib/auth/require-auth';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -20,8 +21,13 @@ interface Params {
 
 export async function GET(req: NextRequest, { params }: Params) {
   await boot();
-  const userId = new URL(req.url).searchParams.get('userId') ?? '';
+  // 访问控制: 必须登录且为频道成员才能订阅实时消息流 (防未鉴权/跨频道/跨租户 IDOR).
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
   const channelId = params.id;
+  const channel = await getChannelIfMember(channelId, auth.userId, auth.tenantId);
+  if (!channel) return NextResponse.json({ error: 'not found' }, { status: 404 });
+  const userId = auth.userId;
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
