@@ -82,6 +82,13 @@
 
 ### P2-B · `...body` 展开式 create 散布
 - 多处 `svc.create({ ...body, ... })`（documents/drive/notifications/calendar）允许客户端注入任意字段（如 `ownerId`、`createdBy`、状态字段）。建议字段白名单。
+- ✅ **已修复 (2026-06-20)**：逐一核实并加固——
+  - `drive/documents/calendar` create：service 层 (`DriveService`/`DocumentService`/`CalendarService`) **已显式挑字段**构造，`...body` 多余字段被忽略，**确认安全**。
+  - `NotificationService.create`：`{ ...cmd }` 改为显式字段构造，防注入 `id`/`read`/`dismissedAt` 等系统字段。
+  - **额外发现并修复两处 P1 越权 (非原 P2-B 清单, grep 实测新增)**：
+    - `persona/[userId]` PATCH：`{ ...body }` 直入 `personas.update`，自助可注入 `stage`/`delegationLevel`/`bossCaptureScore`/`dataOwnership`/`enabledSkills` → **AI 授权越权**。改为治理字段黑名单过滤 (`PERSONA_GOVERNANCE_KEYS`)，升级仅走 evolution + 议事流程。
+    - `documents/[id]/permissions` PATCH：**旧代码完全无 `requireAuth`/owner 校验**，任何人可重写任意文档 ACL。补 `requireAuth` + `withTenantScope`(跨租户 404) + owner/write 权限校验 + body 白名单(仅 `read`/`write`/`publicAccess`)。
+  - 对抗回归锁见 `tests/unit/tenant-isolation.test.ts` (persona 越权注入丢弃 / documents-permissions 未登录 401)。
 
 ---
 
