@@ -10,6 +10,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { withErrorHandler } from '@/lib/api/error-middleware';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { safeFetch, SsrfBlockedError } from '@/lib/infra/ssrf-guard';
 
 export const runtime = 'nodejs';
 
@@ -54,26 +55,14 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   const body = (await req.json().catch(() => ({}))) as Body;
   const url = typeof body.url === 'string' ? body.url.trim() : '';
 
-  let parsed: URL;
   try {
-    parsed = new URL(url);
-    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') throw new Error('protocol');
-  } catch {
-    return NextResponse.json({ ok: false, error: '请输入合法的 http(s) 链接' }, { status: 400 });
-  }
-
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 12_000);
-    const res = await fetch(parsed.toString(), {
+    // SSRF 防护: 逐跳校验 (含重定向) 后再抓取, 拒绝内网/元数据地址
+    const res = await safeFetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; TandemShouchaoClip/1.0)',
         Accept: 'text/html,application/xhtml+xml',
       },
-      signal: controller.signal,
-      redirect: 'follow',
     });
-    clearTimeout(timer);
 
     if (!res.ok) {
       return NextResponse.json({ ok: false, error: `抓取失败：HTTP ${res.status}` }, { status: 502 });
@@ -83,18 +72,24 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
       return NextResponse.json({ ok: false, error: `不支持的内容类型：${ct || '未知'}` }, { status: 415 });
     }
 
+    const finalUrl = res.url || url;
     const html = await res.text();
     const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-    const title = titleMatch ? decodeEntities(titleMatch[1]).replace(/\s+/g, ' ').trim() : parsed.hostname;
+    let hostname = '';
+    try { hostname = new URL(finalUrl).hostname; } catch { /* ignore */ }
+    const title = titleMatch ? decodeEntities(titleMatch[1]).replace(/\s+/g, ' ').trim() : hostname;
     const text = htmlToText(html).slice(0, 20_000);
 
     return NextResponse.json({
       ok: true,
       title,
-      url: parsed.toString(),
+      url: finalUrl,
       content: text,
     });
   } catch (err) {
+    if (err instanceof SsrfBlockedError) {
+      return NextResponse.json({ ok: false, error: err.message }, { status: 400 });
+    }
     const msg = err instanceof Error ? err.message : 'unknown';
     const friendly = /abort/i.test(msg) ? '抓取超时' : `抓取失败：${msg}`;
     return NextResponse.json({ ok: false, error: friendly }, { status: 502 });

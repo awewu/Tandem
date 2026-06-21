@@ -22,6 +22,7 @@ import { withErrorHandler } from '@/lib/api/error-middleware';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { createNote } from '@/lib/shouchao/service';
 import { extractDocument, MAX_FILE_BYTES } from '@/lib/infra/document-extract';
+import { safeFetch, SsrfBlockedError } from '@/lib/infra/ssrf-guard';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -62,28 +63,23 @@ function htmlToText(html: string): string {
 }
 
 async function fetchArticle(url: string): Promise<{ title: string; text: string }> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 12_000);
-  try {
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
-        Accept: 'text/html,application/xhtml+xml',
-      },
-      signal: controller.signal,
-      redirect: 'follow',
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const ct = res.headers.get('content-type') ?? '';
-    if (!ct.includes('html') && !ct.includes('text')) throw new Error(`不支持的内容类型：${ct || '未知'}`);
-    const html = await res.text();
-    const m = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-    const title = m ? decodeEntities(m[1]).replace(/\s+/g, ' ').trim() : new URL(url).hostname;
-    return { title, text: htmlToText(html).slice(0, 20_000) };
-  } finally {
-    clearTimeout(timer);
-  }
+  // SSRF 防护: safeFetch 逐跳校验 (含重定向), 拒绝内网/元数据地址
+  const res = await safeFetch(url, {
+    headers: {
+      'User-Agent':
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
+      Accept: 'text/html,application/xhtml+xml',
+    },
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const ct = res.headers.get('content-type') ?? '';
+  if (!ct.includes('html') && !ct.includes('text')) throw new Error(`不支持的内容类型：${ct || '未知'}`);
+  const html = await res.text();
+  const m = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  let hostname = '';
+  try { hostname = new URL(res.url || url).hostname; } catch { /* ignore */ }
+  const title = m ? decodeEntities(m[1]).replace(/\s+/g, ' ').trim() : hostname;
+  return { title, text: htmlToText(html).slice(0, 20_000) };
 }
 
 const DISTILL_SYSTEM = [
@@ -161,6 +157,9 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         sourceText = art.text;
         sourceUrl = parsed.toString();
       } catch (err) {
+        if (err instanceof SsrfBlockedError) {
+          return NextResponse.json({ ok: false, error: err.message }, { status: 400 });
+        }
         const msg = err instanceof Error ? err.message : 'unknown';
         const friendly = /abort/i.test(msg) ? '抓取超时' : `抓取失败：${msg}（可改用粘贴正文）`;
         return NextResponse.json({ ok: false, error: friendly }, { status: 502 });
