@@ -16,6 +16,18 @@
 
 ---
 
+## 增补审计 · IM 模块访问控制 (2026-06-21)
+
+> **方法**: 产品纵深收口时对 IM 16 个 API 路由逐个 grep 鉴权边界, 发现系统性 IDOR / 越权 / 消息伪造漏洞 (此前审计未覆盖 IM)。**全部已修复 + 对抗测试锁定。**
+
+- **P1-IM-1 · SSE 实时流完全未鉴权 (最严重)**: `app/api/im/channels/[id]/stream/route.ts` 无 `requireAuth`, `userId` 取自 query param → 任意未鉴权请求可订阅任意频道 (跨租户) 的实时消息体。✅ 修复: 加 `requireAuth` + `getChannelIfMember` 成员校验。
+- **P1-IM-2 · 读路由缺成员校验 (IDOR)**: `messages GET` / `members GET` / `summary` / `reactions` / `ai-trace` 仅 `requireAuth` 或全无, 任意登录用户可读/AI 总结任意频道消息历史与成员名单。✅ 修复: 统一加 `getChannelIfMember` (新增 `lib/im/service.ts` 助手), 404 不泄露存在性。
+- **P1-IM-3 · 消息伪造 + 绕过成员闸**: `messages POST` 透传 `senderKind: body.senderKind`, 服务层成员校验仅 `if (senderKind==='user')` → 客户端传 `system`/`persona` 可伪造系统消息并绕过成员校验。✅ 修复: 路由固定 `senderKind: 'user'`。
+- **P1-IM-4 · operator 越权 (身份冒充)**: `members POST/DELETE/PATCH` / `pins` / `spawn-room` / `promote-to-memory` / `dm` / `read` / `seed-from-org` 把 `operatorId`/`triggeredBy`/`meId`/`userId` 取自客户端 body → 未鉴权或冒充他人 (如声称自己是 owner 提权)。✅ 修复: 一律取 `auth.userId`; `seed-from-org` 加 `requireRole(owner/admin)`。
+- **对抗回归锁**: `tests/unit/im-access-control.test.ts` (8 tests, 全绿)。验证: tsc 0 · vitest 1150/1150。
+
+---
+
 ## P0 · 阻塞上线（安全/数据正确性）
 
 ### P0-A · 跨租户写入注入（Cross-Tenant Write Injection）
