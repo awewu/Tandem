@@ -33,6 +33,12 @@ const { mockStore } = vi.hoisted(() => {
       update: vi.fn(),
       delete: vi.fn(),
     },
+    // generate 接真 LLM 后会按 sourceType 取素材 (memory/material/document)
+    memories: {
+      get: vi.fn().mockResolvedValue({ id: 'mem1', title: '示例 SOP', body: '步骤内容', tenantId: 'default' }),
+    },
+    materials: { get: vi.fn().mockResolvedValue(null) },
+    documents: { get: vi.fn().mockResolvedValue(null) },
   };
   return { mockStore: store };
 });

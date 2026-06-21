@@ -69,6 +69,7 @@ export type AuditAction =
   | 'output_guard.revised'                // HARD_CONFLICT 后 LLM 重写一次
   // Academy · 学院架构 (2026-05-29, docs/ACADEMY-METAPHOR-2026-05-29.md)
   | 'academy.course_created'              // HR 创建课程
+  | 'academy.lesson_generated'            // AI 起草课程 (真 LLM, lib/learning/generate.ts)
   | 'academy.course_published'            // Steward 双签批通过, 课程上架
   | 'academy.course_archived'             // 课程归档
   | 'academy.course_assigned'             // HR/上级派课 (CourseAssignment)
