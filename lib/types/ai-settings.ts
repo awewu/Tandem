@@ -12,6 +12,18 @@ export interface AiSettings {
   id: string;
   tenantId: string;
 
+  /**
+   * 中继站网关 (OpenAI 兼容直通) — 换模型/换中继站只改这几项即可, 无需重启/改码.
+   * 配了 baseUrl + model 即启用, 启用后成为所有场景首选 (其余 provider 降级 fallback).
+   * 优先级高于下方各家 provider; 留空则回退到 LLM_GATEWAY_* 环境变量, 再回退到分家配置.
+   */
+  gatewayEnabled?: boolean;
+  gatewayBaseUrl?: string;
+  gatewayModel?: string;
+  gatewayApiKey?: string;
+  /** false = 中继站不支持 function calling (带 tools 的请求自动绕开网关走 fallback) */
+  gatewayTools?: boolean;
+
   /** DeepSeek Chat/R1 */
   deepseekApiKey?: string;
   deepseekBaseUrl?: string;

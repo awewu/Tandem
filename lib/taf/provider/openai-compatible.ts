@@ -78,7 +78,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
   readonly capabilities: ProviderCapabilities;
 
   private readonly baseUrl: string;
-  private readonly model: string;
+  readonly model: string;
   private readonly apiKey: string;
   private readonly headers: Record<string, string>;
   private readonly defaultTemperature: number;

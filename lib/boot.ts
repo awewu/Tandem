@@ -178,10 +178,43 @@ function bootSync(): void {
       try {
         const { getAiSettings } = await import('./settings/ai-settings');
         const { OpenAICompatibleProvider } = await import('./taf');
-        const { PROVIDER_CONFIGS } = await import('./taf');
+        const { PROVIDER_CONFIGS, GATEWAY_PROVIDER_NAME, buildGatewayConfig } = await import('./taf');
         const s = await getAiSettings();
         const router = _g.__tandem_router__;
         if (!router) return;
+
+        // 中继站网关热重载 (优先于分家 provider): DB 配了 baseUrl+model 即覆盖 env, 并提为首选。
+        // DB 关闭 (gatewayEnabled=false) 时, 回退到 env 网关 (若有), 否则注销网关。
+        {
+          const envGateway = buildGatewayConfig();
+          const dbBaseUrl = (s.gatewayBaseUrl ?? '').trim();
+          const dbModel = (s.gatewayModel ?? '').trim();
+          const dbEnabled = s.gatewayEnabled !== false && Boolean(dbBaseUrl && dbModel);
+          if (dbEnabled) {
+            router.unregisterProvider(GATEWAY_PROVIDER_NAME);
+            router.registerProvider(
+              new OpenAICompatibleProvider({
+                name: GATEWAY_PROVIDER_NAME,
+                baseUrl: dbBaseUrl,
+                model: dbModel,
+                apiKey: (s.gatewayApiKey ?? '').trim() || 'PROXY_MANAGED',
+                capabilities: {
+                  chat: true,
+                  functionCalling: s.gatewayTools !== false,
+                  streaming: true,
+                  jsonMode: true,
+                  vision: true,
+                  maxContextTokens: 200_000,
+                  inputPriceRmbPerM: 0,
+                  outputPriceRmbPerM: 0,
+                },
+              }),
+            );
+            router.promoteToPrimary(GATEWAY_PROVIDER_NAME);
+          } else if (s.gatewayEnabled === false && !envGateway) {
+            router.unregisterProvider(GATEWAY_PROVIDER_NAME);
+          }
+        }
 
         const overrides: Array<{ name: string; key: keyof typeof s; baseUrlKey: keyof typeof s; modelKey: keyof typeof s; defaultBaseUrl: string; defaultModel: string }> = [
           { name: 'deepseek-v3',      key: 'deepseekApiKey',   baseUrlKey: 'deepseekBaseUrl',   modelKey: 'deepseekModel',   defaultBaseUrl: 'https://api.deepseek.com/v1',  defaultModel: 'deepseek-chat'     },
@@ -205,8 +238,13 @@ function bootSync(): void {
 
         const after = router.listProviders();
         if (after.length > 0) {
+          const primary = router.getPrimaryOverride();
           // eslint-disable-next-line no-console
-          console.info('[boot] LLM providers (after DB reload):', after.join(', '));
+          console.info(
+            '[boot] LLM providers (after DB reload):',
+            after.join(', '),
+            primary ? `· 网关首选=${primary}` : '',
+          );
         }
       } catch (err) {
         // eslint-disable-next-line no-console

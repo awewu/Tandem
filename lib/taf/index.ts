@@ -29,6 +29,48 @@ function envOr(key: string, fallback = ''): string {
   return process.env[key] ?? fallback;
 }
 
+/** 中继站网关 slot 名 (固定). 配 LLM_GATEWAY_* 即启用, 见 buildGatewayConfig. */
+export const GATEWAY_PROVIDER_NAME = 'gateway';
+
+/**
+ * 中继站网关配置 (OpenAI 兼容直通模式).
+ *
+ * 设计目标: 以后换模型 API / 换中继站只改 3 个值 (base URL + model + key),
+ * 不动任何代码与路由规则。配置存在 (base URL + model 都有值) 即启用,
+ * 启用后该 provider 成为所有场景首选 (createDefaultRouter 里 promoteToPrimary)。
+ *
+ * 环境变量:
+ *   LLM_GATEWAY_BASE_URL  中继站 OpenAI 兼容端点 (含 /v1)
+ *   LLM_GATEWAY_MODEL     上游真实模型名 (日志/审计据此归因)
+ *   LLM_GATEWAY_API_KEY   中继站密钥 (代理托管可填占位符)
+ *   LLM_GATEWAY_TOOLS     '0' = 中继站不支持 function calling (tool 请求自动绕开网关走 fallback)
+ *   LLM_GATEWAY_VISION    '0' = 关闭 vision 声明
+ *   LLM_GATEWAY_MAX_TOKENS 最大上下文 (默认 200000)
+ *
+ * 返回 null = 未配置, 不注册 (零副作用)。
+ */
+export function buildGatewayConfig(): ProviderConfig | null {
+  const baseUrl = envOr('LLM_GATEWAY_BASE_URL');
+  const model = envOr('LLM_GATEWAY_MODEL');
+  if (!baseUrl || !model) return null;
+  return {
+    name: GATEWAY_PROVIDER_NAME,
+    baseUrl,
+    model,
+    apiKey: envOr('LLM_GATEWAY_API_KEY', 'PROXY_MANAGED'),
+    capabilities: {
+      chat: true,
+      functionCalling: envOr('LLM_GATEWAY_TOOLS') !== '0',
+      streaming: true,
+      jsonMode: true,
+      vision: envOr('LLM_GATEWAY_VISION') !== '0',
+      maxContextTokens: Number(envOr('LLM_GATEWAY_MAX_TOKENS', '200000')) || 200_000,
+      inputPriceRmbPerM: Number(envOr('LLM_GATEWAY_INPUT_RMB_PER_M', '0')) || 0,
+      outputPriceRmbPerM: Number(envOr('LLM_GATEWAY_OUTPUT_RMB_PER_M', '0')) || 0,
+    },
+  };
+}
+
 export const PROVIDER_CONFIGS: Record<string, ProviderConfig> = {
   // ── 企业中央AI 旗舰 (管理员配置, 员工不直接消耗) ──────────────────────────
   'claude-opus-4-5': {
@@ -165,6 +207,15 @@ export function createDefaultRouter(): TandemRouter {
     }
     router.registerProvider(new OpenAICompatibleProvider(config));
   }
+
+  // 中继站网关 (LLM_GATEWAY_*): 配了就注册并提为所有场景首选, 全公司流量先走它。
+  // 换模型/换中继站 = 只改 .env 的 base URL + model + key, 代码与路由规则零改动。
+  const gateway = buildGatewayConfig();
+  if (gateway) {
+    router.registerProvider(new OpenAICompatibleProvider(gateway));
+    router.promoteToPrimary(gateway.name);
+  }
+
   return router;
 }
 

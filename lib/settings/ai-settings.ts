@@ -21,7 +21,14 @@ function env(key: string): string | undefined {
 
 /** 从环境变量构造兜底配置 (未配置字段为 undefined) */
 function fromEnv(): Partial<AiSettings> {
+  const gatewayBaseUrl = env('LLM_GATEWAY_BASE_URL');
+  const gatewayModel = env('LLM_GATEWAY_MODEL');
   return {
+    gatewayEnabled: Boolean(gatewayBaseUrl && gatewayModel),
+    gatewayBaseUrl,
+    gatewayModel,
+    gatewayApiKey: env('LLM_GATEWAY_API_KEY'),
+    gatewayTools: env('LLM_GATEWAY_TOOLS') !== '0',
     deepseekApiKey: env('DEEPSEEK_API_KEY'),
     deepseekBaseUrl: env('DEEPSEEK_BASE_URL'),
     deepseekModel: env('DEEPSEEK_MODEL'),
@@ -130,7 +137,7 @@ export function maskKey(key: string | undefined): string {
 /** 将完整 AiSettings 脱敏后返回 (用于 GET API 响应) */
 export function maskAiSettings(s: Partial<AiSettings>): Partial<AiSettings> {
   const KEY_FIELDS: (keyof AiSettings)[] = [
-    'deepseekApiKey', 'anthropicApiKey', 'qwenApiKey',
+    'gatewayApiKey', 'deepseekApiKey', 'anthropicApiKey', 'qwenApiKey',
     'doubaoApiKey', 'kimiApiKey', 'embeddingApiKey',
     'tavilyApiKey', 'braveSearchApiKey', 'smtpPass',
   ];

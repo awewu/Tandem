@@ -1350,8 +1350,19 @@ async function invokeCompanyBrainReply(input: InvokePersonaInput): Promise<void>
       };
       const tokensIn = estimateTokens(`${systemPrompt}\n${input.triggeringMessage.body}`);
       const tokensOut = estimateTokens(buffer);
-      const modelUsed = 'claude-opus-4-5'; // §B-005 CompanyBrain scenario=reasoning_complex 锁定旗舰
-      const providerUsed = 'anthropic';
+      // 真实归因: 取 router 对 reasoning_complex 实际命中的 provider + 模型名
+      let modelUsed = 'claude-opus-4-5';
+      let providerUsed = 'anthropic';
+      try {
+        const { getRouter } = await import('../boot');
+        const active = getRouter().resolveActiveModel('reasoning_complex');
+        if (active) {
+          modelUsed = active.model;
+          providerUsed = active.provider;
+        }
+      } catch {
+        /* 路由解析失败时沿用默认归因 */
+      }
       const costMicroUsd = estimateCostMicroUsd(modelUsed, tokensIn, tokensOut);
       const decision = await recordDecision({
         context: 'im_reply',

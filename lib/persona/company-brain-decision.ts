@@ -246,10 +246,23 @@ export async function recordMeetingAdviceOutcome(
     };
     const tokensIn = estimateTokens(inputSummary + (optionB?.reasoning ?? ''));
     const tokensOut = estimateTokens(outputSummary);
+    // 真实归因: 取 router 对 reasoning_complex 实际命中的 provider + 模型名
+    let modelUsed = 'claude-opus-4-5';
+    let providerUsed = 'anthropic';
+    try {
+      const { getRouter } = await import('@/lib/boot');
+      const active = getRouter().resolveActiveModel('reasoning_complex');
+      if (active) {
+        modelUsed = active.model;
+        providerUsed = active.provider;
+      }
+    } catch {
+      /* 路由解析失败时沿用默认归因 */
+    }
     let costMicroUsd = 0;
     try {
       const { estimateCostMicroUsd } = await import('@/lib/analytics/track');
-      costMicroUsd = estimateCostMicroUsd('claude-opus-4-5', tokensIn, tokensOut);
+      costMicroUsd = estimateCostMicroUsd(modelUsed, tokensIn, tokensOut);
     } catch {
       /* 成本估算非关键 */
     }
@@ -259,8 +272,8 @@ export async function recordMeetingAdviceOutcome(
       inputSummary,
       outputSummary,
       retrievedMemoryIds: optionB?.citedMemory ?? [],
-      modelUsed: 'claude-opus-4-5',
-      providerUsed: 'anthropic',
+      modelUsed,
+      providerUsed,
       scenario: 'reasoning_complex',
       tokensIn,
       tokensOut,

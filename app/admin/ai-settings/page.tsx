@@ -4,6 +4,11 @@ import { useEffect, useState } from 'react';
 import { Save, Eye, EyeOff, RefreshCw, CheckCircle2, AlertTriangle, Loader2, Globe, BookOpen } from 'lucide-react';
 
 interface AiSettingsForm {
+  gatewayEnabled: string;     // 'true'|'false'|''
+  gatewayBaseUrl: string;
+  gatewayModel: string;
+  gatewayApiKey: string;
+  gatewayTools: string;       // 'true'|'false'|''
   deepseekApiKey: string;
   deepseekBaseUrl: string;
   deepseekModel: string;
@@ -39,6 +44,7 @@ interface AiSettingsForm {
 }
 
 const EMPTY: AiSettingsForm = {
+  gatewayEnabled: '', gatewayBaseUrl: '', gatewayModel: '', gatewayApiKey: '', gatewayTools: '',
   deepseekApiKey: '', deepseekBaseUrl: '', deepseekModel: '',
   deepseekR1Model: '', anthropicApiKey: '', anthropicBaseUrl: '',
   anthropicModel: '', qwenApiKey: '', qwenBaseUrl: '', qwenModel: '',
@@ -305,6 +311,32 @@ export default function AiSettingsPage() {
         <p>① 本页保存的 DB 配置（最高）→ ② 服务器 .env / 环境变量（兜底）</p>
         <p>Key 字段展示为脱敏格式（sk-****xxxx），提交新值才会覆盖。</p>
       </div>
+
+      <Section title="中继站网关 · 一键换模型/换中继" badge="gateway · OpenAI 兼容直通">
+        <div className="md:col-span-2 text-footnote text-ink-secondary -mb-1">
+          填了 Base URL + 模型名即启用，启用后所有 AI 场景（中央AI / 议事 / 拿捣 / IM）优先走它，
+          其余各家模型自动降为 fallback。以后换模型只改“模型名”，换中继只改“Base URL”。
+        </div>
+        <div className="md:col-span-2">
+          <Toggle
+            label="启用中继站网关"
+            desc="关闭后回退到下方各家 provider 的场景路由规则"
+            value={form.gatewayEnabled}
+            onChange={(v) => onChange('gatewayEnabled', v)}
+          />
+        </div>
+        <Field label="Base URL（中继站 OpenAI 兼容端点）" field="gatewayBaseUrl" form={form} onChange={onChange} placeholder="http://127.0.0.1:15721/v1" />
+        <Field label="上游真实模型名（日志/计费据此归因）" field="gatewayModel" form={form} onChange={onChange} placeholder="claude-opus-4-8" />
+        <Field label="API Key（代理托管可填占位符）" field="gatewayApiKey" form={form} onChange={onChange} isKey placeholder="PROXY_MANAGED" />
+        <div className="flex flex-col gap-1 justify-end">
+          <Toggle
+            label="中继站支持 function calling"
+            desc="关闭后带 tools 的请求自动绕开网关走 fallback"
+            value={form.gatewayTools}
+            onChange={(v) => onChange('gatewayTools', v)}
+          />
+        </div>
+      </Section>
 
       <Section title="DeepSeek" badge="deepseek-v3 / deepseek-r1">
         <Field label="API Key" field="deepseekApiKey" form={form} onChange={onChange} isKey />

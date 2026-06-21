@@ -146,6 +146,8 @@ export interface ProviderCapabilities {
 export interface LLMProvider {
   /** Provider 名称 (如 'deepseek-v3', 'qwen-max') */
   readonly name: string;
+  /** 实际配置的底层模型名 (如 'claude-opus-4-8') — 日志/审计真实归因用 */
+  readonly model?: string;
   /** 供路由器决策的能力声明 */
   readonly capabilities: ProviderCapabilities;
 

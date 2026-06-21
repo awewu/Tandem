@@ -73,6 +73,13 @@ export const DEFAULT_ROUTING_RULES: RoutingRule[] = [
 export class TandemRouter {
   private providers = new Map<string, LLMProvider>();
   private rules: RoutingRule[];
+  /**
+   * 中继站网关模式: 设置后, 该 provider 成为所有场景的最高优先候选 (其余降级为 fallback).
+   * 用途: 配一个 OpenAI 兼容中继站 (supertoken / OneAPI / OpenRouter / 本地代理 …),
+   * 全公司 AI 流量都先走它, 换模型/换中继只需改 base URL + model, 无需动路由规则。
+   * 留空 = 不启用 (行为与原来完全一致, 零副作用)。
+   */
+  private primaryOverride?: string;
 
   constructor(rules: RoutingRule[] = DEFAULT_ROUTING_RULES) {
     this.rules = rules;
@@ -84,10 +91,38 @@ export class TandemRouter {
 
   unregisterProvider(name: string): void {
     this.providers.delete(name);
+    if (this.primaryOverride === name) this.primaryOverride = undefined;
   }
 
   listProviders(): string[] {
     return Array.from(this.providers.keys());
+  }
+
+  /**
+   * 启用中继站网关模式: 把 name 设为所有场景的首选候选.
+   * name 必须已注册; 否则忽略 (避免把流量打到不存在的 provider).
+   */
+  promoteToPrimary(name: string): void {
+    if (this.providers.has(name)) this.primaryOverride = name;
+  }
+
+  /** 当前网关 (中继站) provider 名, 未启用返回 null. */
+  getPrimaryOverride(): string | null {
+    return this.primaryOverride ?? null;
+  }
+
+  /**
+   * 报告某 scenario 实际会命中的 provider + 其底层模型名.
+   * 用于日志/审计真实归因 (避免硬编码 'claude-opus-4-5' 与实际模型不符).
+   * 取第一个已注册候选 (与主回复非 tool 路径一致).
+   */
+  resolveActiveModel(scenario?: ScenarioTag): { provider: string; model: string } | null {
+    const candidates = this.resolveCandidates(scenario, undefined, false);
+    for (const name of candidates) {
+      const p = this.providers.get(name);
+      if (p) return { provider: p.name, model: p.model ?? p.name };
+    }
+    return null;
   }
 
   setRules(rules: RoutingRule[]): void {
@@ -239,6 +274,13 @@ export class TandemRouter {
     } else {
       const rule = this.rules.find((r) => r.scenario === scenario);
       candidates = rule ? [rule.primary, ...rule.fallbacks] : Array.from(this.providers.keys());
+    }
+
+    // 中继站网关模式: 把网关 provider 提到最前 (去重), 其余作为 fallback.
+    //   - forceProvider 已显式 pin 时尊重调用方意图, 不强插网关。
+    //   - 仅当网关已注册时生效 (promoteToPrimary 已保证, 双保险)。
+    if (this.primaryOverride && !forceProvider && this.providers.has(this.primaryOverride)) {
+      candidates = [this.primaryOverride, ...candidates.filter((n) => n !== this.primaryOverride)];
     }
 
     // ⚠️ 带 tools 的请求绝不能路由到不支持 function calling 的 provider:

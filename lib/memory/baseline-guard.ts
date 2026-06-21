@@ -345,14 +345,26 @@ export async function checkBaseline(input: BaselineCheckInput): Promise<Baseline
         const outputSummary = `${verdictRaw.verdict} · ${verdictRaw.rationale || '无理由'}`;
         const tokensIn = estimateTokens(`${ARBITRATION_SYSTEM}\n${input.intent}`);
         const tokensOut = estimateTokens(outputSummary);
-        const modelUsed = 'claude-opus-4-5'; // scenario=reasoning_complex
+        // 真实归因: 取 router 对 reasoning_complex 实际命中的 provider + 模型名
+        let modelUsed = 'claude-opus-4-5';
+        let providerUsed = 'anthropic';
+        try {
+          const { getRouter } = await import('@/lib/boot');
+          const active = getRouter().resolveActiveModel('reasoning_complex');
+          if (active) {
+            modelUsed = active.model;
+            providerUsed = active.provider;
+          }
+        } catch {
+          /* 路由解析失败时沿用默认归因 */
+        }
         const costMicroUsd = estimateCostMicroUsd(modelUsed, tokensIn, tokensOut);
         await recordDecision({
           context: 'baseline_arbitration',
           inputSummary,
           outputSummary,
           modelUsed,
-          providerUsed: 'anthropic',
+          providerUsed,
           scenario: 'reasoning_complex',
           tokensIn,
           tokensOut,

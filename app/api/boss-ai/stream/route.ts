@@ -330,8 +330,10 @@ export async function POST(req: NextRequest): Promise<Response> {
           };
           const tokensIn = estimateTokens(`${systemPrompt}\n${userQuestion}`);
           const tokensOut = estimateTokens(fullResponse);
-          const modelUsed = 'claude-opus-4-5'; // scenario=reasoning_complex 锁定旗舰
-          const providerUsed = 'anthropic';
+          // 真实归因: 取 router 对 reasoning_complex 实际命中的 provider + 模型名
+          const active = router.resolveActiveModel('reasoning_complex');
+          const modelUsed = active?.model ?? 'claude-opus-4-5';
+          const providerUsed = active?.provider ?? 'anthropic';
           const costMicroUsd = estimateCostMicroUsd(modelUsed, tokensIn, tokensOut);
           const decision = await recordDecision({
             context: 'boss_ai_reply',
