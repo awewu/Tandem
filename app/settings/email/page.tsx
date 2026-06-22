@@ -39,34 +39,50 @@ interface PersonalCreds {
   updatedAt?: string;
 }
 
+interface MailConfig {
+  smtpHost: string;
+  imapHost: string;
+  smtpPort: number;
+  imapPort: number;
+  smtpSecure: boolean;
+  imapSecure: boolean;
+  isAdmin: boolean;
+}
+
 export default function EmailSettingsPage() {
   const [status, setStatus] = useState<MailStatus | null>(null);
   const [personalCreds, setPersonalCreds] = useState<PersonalCreds | null>(null);
+  const [config, setConfig] = useState<MailConfig | null>(null);
   const [credsLoading, setCredsLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; msg: string } | null>(null);
 
   const [form, setForm] = useState({
-    smtpHost: 'smtphz.qiye.163.com',
-    smtpPort: '465',
-    smtpSecure: true,
     smtpUser: '',
     smtpPass: '',
-    imapHost: '',
-    imapPort: '993',
-    imapSecure: true,
     imapUser: '',
     imapPass: '',
   });
   const [showPass, setShowPass] = useState(false);
-  const [showImapPass, setShowImapPass] = useState(false);
+
+  // 管理员全局端口配置
+  const [portForm, setPortForm] = useState({ smtpPort: '', imapPort: '' });
+  const [portSaving, setPortSaving] = useState(false);
 
   useEffect(() => {
     fetch('/api/mail/status', { credentials: 'include' })
       .then((r) => r.json())
       .then(setStatus)
       .catch(() => setStatus(null));
+
+    fetch('/api/mail/config', { credentials: 'include' })
+      .then((r) => r.json())
+      .then((data: MailConfig) => {
+        setConfig(data);
+        setPortForm({ smtpPort: String(data.smtpPort), imapPort: String(data.imapPort) });
+      })
+      .catch(() => {});
 
     fetch('/api/mail/credentials', { credentials: 'include' })
       .then((r) => r.json())
@@ -75,24 +91,41 @@ export default function EmailSettingsPage() {
         if (data.configured && data.smtp) {
           setForm((prev) => ({
             ...prev,
-            smtpHost: data.smtp.host,
-            smtpPort: String(data.smtp.port),
-            smtpSecure: data.smtp.secure,
             smtpUser: data.smtp.user,
             smtpPass: '',
-            ...(data.imap ? {
-              imapHost: data.imap.host,
-              imapPort: String(data.imap.port),
-              imapSecure: data.imap.secure,
-              imapUser: data.imap.user,
-              imapPass: '',
-            } : {}),
+            imapUser: data.imap?.user ?? '',
+            imapPass: '',
           }));
         }
       })
       .catch(() => {})
       .finally(() => setCredsLoading(false));
   }, []);
+
+  async function handleSavePorts() {
+    setPortSaving(true);
+    setFeedback(null);
+    try {
+      const res = await fetch('/api/mail/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(portForm),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setFeedback({ ok: false, msg: data.error ?? '端口保存失败' });
+        return;
+      }
+      setConfig(data);
+      setPortForm({ smtpPort: String(data.smtpPort), imapPort: String(data.imapPort) });
+      setFeedback({ ok: true, msg: '全局端口配置已保存' });
+    } catch (err) {
+      setFeedback({ ok: false, msg: (err as Error).message });
+    } finally {
+      setPortSaving(false);
+    }
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -111,10 +144,11 @@ export default function EmailSettingsPage() {
         return;
       }
       setFeedback({ ok: true, msg: '个人邮箱凭据已保存' });
+      const imapUser = form.imapUser || form.smtpUser;
       setPersonalCreds({
         configured: true,
-        smtp: { host: form.smtpHost, port: Number(form.smtpPort), secure: form.smtpSecure, user: form.smtpUser },
-        imap: form.imapHost ? { host: form.imapHost, port: Number(form.imapPort), secure: form.imapSecure, user: form.imapUser } : undefined,
+        smtp: config ? { host: config.smtpHost, port: config.smtpPort, secure: config.smtpSecure, user: form.smtpUser } : undefined,
+        imap: config ? { host: config.imapHost, port: config.imapPort, secure: config.imapSecure, user: imapUser } : undefined,
         updatedAt: new Date().toISOString(),
       });
     } catch (err) {
@@ -139,11 +173,7 @@ export default function EmailSettingsPage() {
       }
       setFeedback({ ok: true, msg: '个人邮箱凭据已删除' });
       setPersonalCreds({ configured: false });
-      setForm((prev) => ({
-        ...prev,
-        smtpHost: '', smtpPort: '465', smtpSecure: true, smtpUser: '', smtpPass: '',
-        imapHost: '', imapPort: '993', imapSecure: true, imapUser: '', imapPass: '',
-      }));
+      setForm({ smtpUser: '', smtpPass: '', imapUser: '', imapPass: '' });
     } catch (err) {
       setFeedback({ ok: false, msg: (err as Error).message });
     } finally {
@@ -206,41 +236,41 @@ export default function EmailSettingsPage() {
           </div>
 
           <form onSubmit={handleSave} className="space-y-4">
-            {/* SMTP 发件 */}
+            {/* 协议配置 (系统固定, 收发一并展示) */}
             <div className="space-y-3">
-              <h3 className="text-footnote font-semibold text-ink-secondary uppercase tracking-wide">SMTP 发件（必填）</h3>
+              <h3 className="text-footnote font-semibold text-ink-secondary uppercase tracking-wide">协议配置（系统固定）</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-footnote text-ink-tertiary">SMTP 主机</label>
-                  <input
-                    className="w-full mt-1 rounded-md border border-border bg-[rgb(var(--surface-2))] px-3 py-2 text-caption"
-                    placeholder="smtp.qq.com"
-                    value={form.smtpHost}
-                    onChange={(e) => setForm({ ...form, smtpHost: e.target.value })}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-footnote text-ink-tertiary">端口</label>
-                    <input
-                      className="w-full mt-1 rounded-md border border-border bg-[rgb(var(--surface-2))] px-3 py-2 text-caption"
-                      placeholder="465"
-                      value={form.smtpPort}
-                      onChange={(e) => setForm({ ...form, smtpPort: e.target.value })}
-                    />
-                  </div>
-                  <div className="flex items-end pb-2">
-                    <label className="flex items-center gap-2 text-caption text-ink-secondary cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={form.smtpSecure}
-                        onChange={(e) => setForm({ ...form, smtpSecure: e.target.checked })}
-                        className="rounded border-border"
-                      />
-                      SSL
-                    </label>
+                  <label className="text-footnote text-ink-tertiary">SMTP 发件主机</label>
+                  <div className="w-full mt-1 rounded-md border border-border bg-surface-2 px-3 py-2 text-caption text-ink-secondary">
+                    {config?.smtpHost ?? 'smtphz.qiye.163.com'}
                   </div>
                 </div>
+                <div>
+                  <label className="text-footnote text-ink-tertiary">SMTP 端口 / SSL</label>
+                  <div className="w-full mt-1 rounded-md border border-border bg-surface-2 px-3 py-2 text-caption text-ink-secondary">
+                    {config?.smtpPort ?? 465} · SSL 已启用
+                  </div>
+                </div>
+                <div>
+                  <label className="text-footnote text-ink-tertiary">IMAP 收件主机</label>
+                  <div className="w-full mt-1 rounded-md border border-border bg-surface-2 px-3 py-2 text-caption text-ink-secondary">
+                    {config?.imapHost ?? 'imaphz.qiye.163.com'}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-footnote text-ink-tertiary">IMAP 端口 / SSL</label>
+                  <div className="w-full mt-1 rounded-md border border-border bg-surface-2 px-3 py-2 text-caption text-ink-secondary">
+                    {config?.imapPort ?? 993} · SSL 已启用
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 账号凭据 (收发共用一组) */}
+            <div className="space-y-3">
+              <h3 className="text-footnote font-semibold text-ink-secondary uppercase tracking-wide">账号凭据（收发共用）</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-footnote text-ink-tertiary">邮箱地址</label>
                   <input
@@ -270,78 +300,13 @@ export default function EmailSettingsPage() {
                   </div>
                 </div>
               </div>
-            </div>
-
-            {/* IMAP 收件 (可选) */}
-            <div className="space-y-3">
-              <h3 className="text-footnote font-semibold text-ink-secondary uppercase tracking-wide">IMAP 收件（可选，V2 后续启用）</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-footnote text-ink-tertiary">IMAP 主机</label>
-                  <input
-                    className="w-full mt-1 rounded-md border border-border bg-[rgb(var(--surface-2))] px-3 py-2 text-caption"
-                    placeholder="imap.qq.com"
-                    value={form.imapHost}
-                    onChange={(e) => setForm({ ...form, imapHost: e.target.value })}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-footnote text-ink-tertiary">端口</label>
-                    <input
-                      className="w-full mt-1 rounded-md border border-border bg-[rgb(var(--surface-2))] px-3 py-2 text-caption"
-                      placeholder="993"
-                      value={form.imapPort}
-                      onChange={(e) => setForm({ ...form, imapPort: e.target.value })}
-                    />
-                  </div>
-                  <div className="flex items-end pb-2">
-                    <label className="flex items-center gap-2 text-caption text-ink-secondary cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={form.imapSecure}
-                        onChange={(e) => setForm({ ...form, imapSecure: e.target.checked })}
-                        className="rounded border-border"
-                      />
-                      SSL
-                    </label>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-footnote text-ink-tertiary">IMAP 用户名</label>
-                  <input
-                    className="w-full mt-1 rounded-md border border-border bg-[rgb(var(--surface-2))] px-3 py-2 text-caption"
-                    placeholder="your@email.com"
-                    value={form.imapUser}
-                    onChange={(e) => setForm({ ...form, imapUser: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="text-footnote text-ink-tertiary">IMAP 密码</label>
-                  <div className="relative">
-                    <input
-                      className="w-full mt-1 rounded-md border border-border bg-[rgb(var(--surface-2))] px-3 py-2 pr-10 text-caption"
-                      type={showImapPass ? 'text' : 'password'}
-                      placeholder={personalCreds?.configured ? '留空则不修改' : '邮箱密码或授权码'}
-                      value={form.imapPass}
-                      onChange={(e) => setForm({ ...form, imapPass: e.target.value })}
-                    />
-                    <button
-                      type="button"
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-tertiary hover:text-ink-primary"
-                      onClick={() => setShowImapPass(!showImapPass)}
-                    >
-                      {showImapPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <p className="text-footnote text-ink-tertiary">同一账号同时用于 SMTP 发件与 IMAP 收件。</p>
             </div>
 
             <div className="flex items-center gap-3 pt-2">
               <button
                 type="submit"
-                disabled={saving || !form.smtpHost || !form.smtpUser}
+                disabled={saving || !form.smtpUser}
                 className="inline-flex items-center gap-1.5 rounded-md bg-[rgb(var(--brand-600))] px-4 py-2 text-footnote font-medium text-white hover:bg-[rgb(var(--brand-700))] disabled:opacity-50 disabled:cursor-not-allowed surface-interactive"
               >
                 <Save className="h-3.5 w-3.5" />
@@ -362,6 +327,60 @@ export default function EmailSettingsPage() {
           </form>
         </CardContent>
       </Card>
+
+      {/* 全局端口配置 (管理员可改) */}
+      {config?.isAdmin && (
+        <Card>
+          <CardContent className="p-5 space-y-4">
+            <div>
+              <h2 className="text-headline text-ink-primary flex items-center gap-2">
+                <Server className="h-4 w-4" />
+                全局端口配置（管理员）
+              </h2>
+              <p className="mt-0.5 text-caption text-ink-tertiary">
+                主机固定为 {config.smtpHost} / {config.imapHost}，SSL 始终启用。此处仅调整全局端口，对所有用户生效。
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-footnote text-ink-tertiary">SMTP 端口</label>
+                <input
+                  className="w-full mt-1 rounded-md border border-border bg-[rgb(var(--surface-2))] px-3 py-2 text-caption"
+                  type="number"
+                  min={1}
+                  max={65535}
+                  placeholder="465"
+                  value={portForm.smtpPort}
+                  onChange={(e) => setPortForm({ ...portForm, smtpPort: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-footnote text-ink-tertiary">IMAP 端口</label>
+                <input
+                  className="w-full mt-1 rounded-md border border-border bg-[rgb(var(--surface-2))] px-3 py-2 text-caption"
+                  type="number"
+                  min={1}
+                  max={65535}
+                  placeholder="993"
+                  value={portForm.imapPort}
+                  onChange={(e) => setPortForm({ ...portForm, imapPort: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={handleSavePorts}
+                disabled={portSaving}
+                className="inline-flex items-center gap-1.5 rounded-md bg-[rgb(var(--brand-600))] px-4 py-2 text-footnote font-medium text-white hover:bg-[rgb(var(--brand-700))] disabled:opacity-50 disabled:cursor-not-allowed surface-interactive"
+              >
+                <Save className="h-3.5 w-3.5" />
+                {portSaving ? '保存中...' : '保存端口配置'}
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* 全局 SMTP 状态 (只读) */}
       <Card>

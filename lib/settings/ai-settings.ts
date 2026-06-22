@@ -59,6 +59,7 @@ function fromEnv(): Partial<AiSettings> {
     braveSearchApiKey: env('BRAVE_SEARCH_API_KEY'),
     smtpHost: env('SMTP_HOST'),
     smtpPort: env('SMTP_PORT'),
+    imapPort: env('IMAP_PORT'),
     smtpUser: env('SMTP_USER'),
     smtpPass: env('SMTP_PASS'),
     smtpFrom: env('SMTP_FROM'),

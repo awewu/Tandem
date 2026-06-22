@@ -141,28 +141,52 @@ export class OpenAICompatibleProvider implements LLMProvider {
         if (!trimmed.startsWith('data:')) continue;
         const payload = trimmed.slice(5).trim();
         if (payload === '[DONE]') return;
+
+        // 解析放在独立 try: 只吞"格式损坏"的 chunk, 不吞下面显式抛出的 stream error.
+        let parsed:
+          | (OpenAIStreamChunk & {
+              error?: { message?: string; code?: string; type?: string } | string;
+              code?: string;
+              message?: string;
+            })
+          | undefined;
         try {
-          const parsed = JSON.parse(payload) as OpenAIStreamChunk;
-          const choice = parsed.choices?.[0];
-          if (!choice) continue;
-          yield {
-            delta: {
-              role: choice.delta.role as never,
-              content: choice.delta.content,
-              toolCalls: choice.delta.tool_calls?.map((tc) => ({
-                id: tc.id ?? '',
-                type: 'function' as const,
-                function: {
-                  name: tc.function?.name ?? '',
-                  arguments: tc.function?.arguments ?? '',
-                },
-              })),
-            },
-            finishReason: choice.finish_reason ?? undefined,
-          };
+          parsed = JSON.parse(payload);
         } catch {
           // Ignore malformed chunks
+          continue;
         }
+        if (!parsed) continue;
+
+        // dashscope/qwen 等会在 HTTP 200 的 SSE 流里塞错误 (内容审核 / 参数 / 限流),
+        // 形如 data: {"error": {...}} 或 {"code":"...","message":"..."}.
+        // 旧逻辑 `if(!choice)continue` 把它静默吞掉 → 上层收到 0 chunk 当成空回复。
+        // 这里显式抛出 (不在解析 try 内), 让 router 记录真因并 fallback。
+        const errObj = parsed.error;
+        const errMsg =
+          (typeof errObj === 'string' ? errObj : errObj?.message) ??
+          (parsed.code ? `${parsed.code}: ${parsed.message ?? ''}` : undefined);
+        if (errMsg) {
+          throw new Error(`Provider ${this.name} stream error: ${errMsg}`);
+        }
+
+        const choice = parsed.choices?.[0];
+        if (!choice) continue;
+        yield {
+          delta: {
+            role: choice.delta.role as never,
+            content: choice.delta.content,
+            toolCalls: choice.delta.tool_calls?.map((tc) => ({
+              id: tc.id ?? '',
+              type: 'function' as const,
+              function: {
+                name: tc.function?.name ?? '',
+                arguments: tc.function?.arguments ?? '',
+              },
+            })),
+          },
+          finishReason: choice.finish_reason ?? undefined,
+        };
       }
     }
   }

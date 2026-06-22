@@ -104,6 +104,16 @@ export async function middleware(req: NextRequest) {
 
   // ──────── UI 路由 ────────
   if (!path.startsWith('/api/')) {
+    // Root is the public entry route. If there is no valid access token, send
+    // the bare domain to login before rendering the heavier client home shell.
+    if (path === '/' && !payload) {
+      const url = req.nextUrl.clone();
+      url.pathname = '/login';
+      url.search = '';
+      url.searchParams.set('next', '/');
+      return withReqId(NextResponse.redirect(url));
+    }
+
     // 公开 UI 路由 (登录/注册/静态资源/forbidden 自身) 直接放行
     if (isPublicUi(path) || path === FORBIDDEN_REDIRECT) {
       return withReqId(NextResponse.next());

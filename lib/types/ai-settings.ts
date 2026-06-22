@@ -77,6 +77,7 @@ export interface AiSettings {
   /** SMTP 邮件 */
   smtpHost?: string;
   smtpPort?: string;
+  imapPort?: string;
   smtpUser?: string;
   smtpPass?: string;
   smtpFrom?: string;

@@ -1,5 +1,5 @@
 /**
- * /admin/organization · 企业 HR 组织管理
+ * /admin/organization - 企业 HR 组织管理
  */
 'use client';
 
@@ -26,6 +26,9 @@ interface OrgUser {
   employeeId?: string | null; hireDate?: string | null; workLocation?: string | null; phone?: string | null;
 }
 interface BulkResult { row: number; email: string; ok: boolean; code?: string; error?: string; registerUrl?: string }
+interface ImportResult { row: number; email: string; ok: boolean; action?: string; error?: string }
+
+const NONE_VALUE = '__none__';
 
 const ROLE_LABEL: Record<string, { label: string; color: string }> = {
   admin:    { label: 'Admin',    color: 'bg-rose-50 text-rose-700 border-rose-200' },
@@ -48,15 +51,31 @@ function buildDeptChildren(depts: HrDept[]): Map<string | null, HrDept[]> {
 }
 
 function deptPath(id: string | null | undefined, depts: HrDept[]): string {
-  if (!id) return '—';
+  if (!id) return '-';
   const map = new Map(depts.map((d) => [d.id, d]));
   const parts: string[] = [];
   let cur = map.get(id);
   while (cur) { parts.unshift(cur.name); cur = cur.parentId ? map.get(cur.parentId) : undefined; }
-  return parts.join(' / ') || '—';
+  return parts.join(' / ') || '-';
 }
 
-// ─── 部门编辑弹窗 ─────────────────────────────────────────────────────────────
+function collectDeptSubtreeIds(rootId: string, childrenMap: Map<string | null, HrDept[]>): Set<string> {
+  const ids = new Set<string>();
+  const visit = (id: string) => {
+    ids.add(id);
+    for (const child of childrenMap.get(id) ?? []) visit(child.id);
+  };
+  visit(rootId);
+  return ids;
+}
+
+async function assertOk(res: Response): Promise<void> {
+  if (res.ok) return;
+  const body = await res.json().catch(() => null);
+  throw new Error(body?.error ?? `HTTP ${res.status}`);
+}
+
+// 部门编辑弹窗
 function DeptDialog({
   open, onClose, onSave, depts, initial,
 }: {
@@ -65,17 +84,21 @@ function DeptDialog({
   depts: HrDept[]; initial?: HrDept | null;
 }) {
   const [name, setName] = useState(initial?.name ?? '');
-  const [parentId, setParentId] = useState<string>(initial?.parentId ?? '');
+  const [parentId, setParentId] = useState<string>(initial?.parentId ?? NONE_VALUE);
   const [description, setDescription] = useState(initial?.description ?? '');
   const [saving, setSaving] = useState(false);
   useEffect(() => {
-    if (open) { setName(initial?.name ?? ''); setParentId(initial?.parentId ?? ''); setDescription(initial?.description ?? ''); }
+    if (open) { setName(initial?.name ?? ''); setParentId(initial?.parentId ?? NONE_VALUE); setDescription(initial?.description ?? ''); }
   }, [open, initial]);
   async function submit() {
     if (!name.trim()) return;
     setSaving(true);
-    await onSave({ name: name.trim(), parentId: parentId || null, description });
-    setSaving(false); onClose();
+    try {
+      await onSave({ name: name.trim(), parentId: parentId === NONE_VALUE ? null : parentId, description });
+      onClose();
+    } finally {
+      setSaving(false);
+    }
   }
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -84,14 +107,14 @@ function DeptDialog({
         <div className="space-y-3 py-2">
           <div>
             <label className="text-caption font-medium mb-1 block">部门名称 *</label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="如：销售大区 / 生产部" />
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="例如: 销售大区 / 生产部" />
           </div>
           <div>
             <label className="text-caption font-medium mb-1 block">上级部门</label>
             <Select value={parentId} onValueChange={setParentId}>
-              <SelectTrigger><SelectValue placeholder="顶级部门（无上级）" /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="顶级部门 (无上级)" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">顶级部门（无上级）</SelectItem>
+                <SelectItem value={NONE_VALUE}>顶级部门 (无上级)</SelectItem>
                 {depts.filter((d) => d.id !== initial?.id).map((d) => (
                   <SelectItem key={d.id} value={d.id}>{deptPath(d.id, depts)}</SelectItem>
                 ))}
@@ -105,14 +128,14 @@ function DeptDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>取消</Button>
-          <Button onClick={submit} disabled={saving || !name.trim()}>{saving ? '保存中…' : '保存'}</Button>
+          <Button onClick={submit} disabled={saving || !name.trim()}>{saving ? '保存中...' : '保存'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
 
-// ─── 员工编辑弹窗 ─────────────────────────────────────────────────────────────
+// 员工编辑弹窗
 function UserDialog({
   open, onClose, onSave, user, depts, users,
 }: {
@@ -123,13 +146,17 @@ function UserDialog({
   const [form, setForm] = useState<Partial<OrgUser>>({});
   const [saving, setSaving] = useState(false);
   useEffect(() => {
-    if (open && user) setForm({ departmentId: user.departmentId ?? '', jobTitle: user.jobTitle ?? '', managerId: user.managerId ?? '', employeeId: user.employeeId ?? '', hireDate: user.hireDate ?? '', workLocation: user.workLocation ?? '', phone: user.phone ?? '' });
+    if (open && user) setForm({ departmentId: user.departmentId ?? NONE_VALUE, jobTitle: user.jobTitle ?? '', managerId: user.managerId ?? NONE_VALUE, employeeId: user.employeeId ?? '', hireDate: user.hireDate ?? '', workLocation: user.workLocation ?? '', phone: user.phone ?? '' });
   }, [open, user]);
-  const set = (k: keyof OrgUser, v: string) => setForm((p) => ({ ...p, [k]: v || null }));
+  const set = (k: keyof OrgUser, v: string) => setForm((p) => ({ ...p, [k]: v === NONE_VALUE ? null : (v || null) }));
   async function submit() {
     setSaving(true);
-    await onSave(form);
-    setSaving(false); onClose();
+    try {
+      await onSave(form);
+      onClose();
+    } finally {
+      setSaving(false);
+    }
   }
   if (!user) return null;
   return (
@@ -139,24 +166,24 @@ function UserDialog({
         <div className="grid grid-cols-2 gap-3 py-2">
           <div className="col-span-2">
             <label className="text-caption font-medium mb-1 block">所属部门</label>
-            <Select value={form.departmentId ?? ''} onValueChange={(v) => set('departmentId', v)}>
+            <Select value={form.departmentId ?? NONE_VALUE} onValueChange={(v) => set('departmentId', v)}>
               <SelectTrigger><SelectValue placeholder="未分配" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">未分配</SelectItem>
+                <SelectItem value={NONE_VALUE}>未分配</SelectItem>
                 {depts.map((d) => <SelectItem key={d.id} value={d.id}>{deptPath(d.id, depts)}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
           <div>
             <label className="text-caption font-medium mb-1 block">职务/岗位</label>
-            <Input value={form.jobTitle ?? ''} onChange={(e) => set('jobTitle', e.target.value)} placeholder="如：销售经理" />
+            <Input value={form.jobTitle ?? ''} onChange={(e) => set('jobTitle', e.target.value)} placeholder="例如: 销售经理" />
           </div>
           <div>
             <label className="text-caption font-medium mb-1 block">直属上级</label>
-            <Select value={form.managerId ?? ''} onValueChange={(v) => set('managerId', v)}>
+            <Select value={form.managerId ?? NONE_VALUE} onValueChange={(v) => set('managerId', v)}>
               <SelectTrigger><SelectValue placeholder="无" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">无</SelectItem>
+                <SelectItem value={NONE_VALUE}>无</SelectItem>
                 {users.filter((u) => u.id !== user.id).map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
               </SelectContent>
             </Select>
@@ -171,7 +198,7 @@ function UserDialog({
           </div>
           <div>
             <label className="text-caption font-medium mb-1 block">工作地点</label>
-            <Input value={form.workLocation ?? ''} onChange={(e) => set('workLocation', e.target.value)} placeholder="如：上海" />
+            <Input value={form.workLocation ?? ''} onChange={(e) => set('workLocation', e.target.value)} placeholder="例如: 上海" />
           </div>
           <div>
             <label className="text-caption font-medium mb-1 block">手机</label>
@@ -180,14 +207,14 @@ function UserDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>取消</Button>
-          <Button onClick={submit} disabled={saving}>{saving ? '保存中…' : '保存'}</Button>
+          <Button onClick={submit} disabled={saving}>{saving ? '保存中...' : '保存'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
 
-// ─── 部门树节点 ───────────────────────────────────────────────────────────────
+// 部门树节点
 function DeptNode({
   dept, childrenMap, users, allDepts, depth,
   onEdit, onDelete, onAddChild, onSelectDept, selectedDeptId,
@@ -233,7 +260,7 @@ function DeptNode({
   );
 }
 
-// ─── 主页面 ──────────────────────────────────────────────────────────────────
+// 主页面
 export default function AdminOrganizationPage() {
   const [depts, setDepts] = useState<HrDept[]>([]);
   const [users, setUsers] = useState<OrgUser[]>([]);
@@ -246,6 +273,8 @@ export default function AdminOrganizationPage() {
   const [deptDialog, setDeptDialog] = useState<{ open: boolean; initial?: HrDept | null; preParent?: string | null }>({ open: false });
   // user dialog
   const [userDialog, setUserDialog] = useState<{ open: boolean; user: OrgUser | null }>({ open: false, user: null });
+  // contact import
+  const [importOpen, setImportOpen] = useState(false);
   // bulk invite
   const [bulkOpen, setBulkOpen] = useState(false);
 
@@ -272,35 +301,44 @@ export default function AdminOrganizationPage() {
 
   const filteredUsers = useMemo(() => {
     const lc = q.toLowerCase();
+    const selectedDeptIds = selectedDeptId ? collectDeptSubtreeIds(selectedDeptId, childrenMap) : null;
     return users.filter((u) => {
       if (roleFilter !== 'all' && !u.roles.includes(roleFilter)) return false;
-      if (selectedDeptId && u.departmentId !== selectedDeptId) return false;
+      if (selectedDeptIds && (!u.departmentId || !selectedDeptIds.has(u.departmentId))) return false;
       if (lc && !u.name.toLowerCase().includes(lc) && !u.email.toLowerCase().includes(lc) && !(u.jobTitle ?? '').toLowerCase().includes(lc)) return false;
       return true;
     });
-  }, [users, q, roleFilter, selectedDeptId]);
+  }, [users, q, roleFilter, selectedDeptId, childrenMap]);
 
-  // ── dept CRUD ──
+  // dept CRUD
   async function saveDept(patch: Partial<HrDept>) {
     const { initial, preParent } = deptDialog;
+    setError(null);
     if (initial) {
-      await fetch(`/api/org/departments/${initial.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) });
+      const res = await fetch(`/api/org/departments/${initial.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) });
+      await assertOk(res);
     } else {
-      await fetch('/api/org/departments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...patch, parentId: preParent ?? null }) });
+      const res = await fetch('/api/org/departments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...patch, parentId: preParent ?? null }) });
+      await assertOk(res);
     }
     await load();
   }
 
   async function deleteDept(d: HrDept) {
-    if (!confirm(`删除部门「${d.name}」？该部门的成员将变为未分配。`)) return;
-    await fetch(`/api/org/departments/${d.id}`, { method: 'DELETE' });
+    if (!confirm(`删除部门「${d.name}」及其所有子部门？这些部门的成员将变为未分配。`)) return;
+    setError(null);
+    const res = await fetch(`/api/org/departments/${d.id}`, { method: 'DELETE' });
+    await assertOk(res);
+    if (selectedDeptId && collectDeptSubtreeIds(d.id, childrenMap).has(selectedDeptId)) setSelectedDeptId(null);
     await load();
   }
 
-  // ── user CRUD ──
+  // user CRUD
   async function saveUser(patch: Partial<OrgUser>) {
     if (!userDialog.user) return;
-    await fetch(`/api/org/users/${userDialog.user.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) });
+    setError(null);
+    const res = await fetch(`/api/org/users/${userDialog.user.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) });
+    await assertOk(res);
     await load();
   }
 
@@ -312,9 +350,12 @@ export default function AdminOrganizationPage() {
             <Network className="h-6 w-6 text-primary" />
             组织架构管理
           </h1>
-          <p className="text-caption text-muted-foreground mt-1">部门树 · 员工归属 · 汇报关系 · HR 数据维护</p>
+          <p className="text-caption text-muted-foreground mt-1">部门树 / 员工归属 / 汇报关系 / HR 数据维护</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+            <Upload className="h-4 w-4 mr-1" />导入通讯录
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setBulkOpen((p) => !p)}>
             <Upload className="h-4 w-4 mr-1" />批量邀请
           </Button>
@@ -334,7 +375,7 @@ export default function AdminOrganizationPage() {
       )}
 
       <div className="flex gap-4 items-start">
-        {/* ── 左侧：部门树 ── */}
+        {/* 左侧：部门树 */}
         <div className="w-72 shrink-0">
           <div className="flex items-center justify-between mb-2">
             <span className="text-caption font-medium text-muted-foreground">部门 ({depts.length})</span>
@@ -346,10 +387,10 @@ export default function AdminOrganizationPage() {
           </div>
           <div className="border rounded-lg bg-background py-1 min-h-[120px]">
             {loading ? (
-              <div className="py-8 text-center text-caption text-muted-foreground">加载中…</div>
+              <div className="py-8 text-center text-caption text-muted-foreground">加载中...</div>
             ) : rootDepts.length === 0 ? (
               <div className="py-8 text-center text-caption text-muted-foreground">
-                暂无部门，点击「新建部门」开始
+                暂无部门，点击“新建部门”开始
               </div>
             ) : rootDepts.map((d) => (
               <DeptNode key={d.id} dept={d} childrenMap={childrenMap} users={users}
@@ -364,9 +405,9 @@ export default function AdminOrganizationPage() {
           </div>
         </div>
 
-        {/* ── 右侧：员工列表 ── */}
+        {/* 右侧：员工列表 */}
         <div className="flex-1 min-w-0">
-          {/* 工具条 */}
+          {/* 宸ュ叿鏉?*/}
           <div className="flex flex-wrap items-center gap-2 mb-3">
             <div className="relative flex-1 min-w-[180px]">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -381,7 +422,7 @@ export default function AdminOrganizationPage() {
             </Select>
             <span className="text-footnote text-muted-foreground tabular-nums ml-auto">
               {filteredUsers.length} / {users.length} 人
-              {selectedDeptId && <> · {depts.find((d) => d.id === selectedDeptId)?.name}</>}
+              {selectedDeptId && <> / {depts.find((d) => d.id === selectedDeptId)?.name}</>}
             </span>
           </div>
 
@@ -401,7 +442,7 @@ export default function AdminOrganizationPage() {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={7} className="py-10 text-center text-muted-foreground">加载中…</td></tr>
+                  <tr><td colSpan={7} className="py-10 text-center text-muted-foreground">加载中...</td></tr>
                 ) : filteredUsers.length === 0 ? (
                   <tr><td colSpan={7} className="py-10 text-center text-muted-foreground">暂无数据</td></tr>
                 ) : filteredUsers.map((u) => {
@@ -412,15 +453,15 @@ export default function AdminOrganizationPage() {
                         <div className="font-medium">{u.name}</div>
                         <div className="text-footnote text-muted-foreground font-mono">{u.email}</div>
                       </td>
-                      <td className="px-3 py-2 text-muted-foreground">{u.jobTitle || '—'}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{u.jobTitle || '-'}</td>
                       <td className="px-3 py-2 text-muted-foreground truncate max-w-[140px]">
                         {deptPath(u.departmentId, depts)}
                       </td>
                       <td className="px-3 py-2 text-muted-foreground hidden md:table-cell">
-                        {manager?.name || '—'}
+                        {manager?.name || '-'}
                       </td>
                       <td className="px-3 py-2 text-muted-foreground font-mono text-footnote hidden lg:table-cell">
-                        {u.employeeId || '—'}
+                        {u.employeeId || '-'}
                       </td>
                       <td className="px-3 py-2">
                         <div className="flex flex-wrap gap-1">
@@ -455,6 +496,11 @@ export default function AdminOrganizationPage() {
       {bulkOpen && <BulkInviteCard onSuccess={load} />}
 
       {/* 弹窗 */}
+      <ImportContactsDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onSuccess={load}
+      />
       <DeptDialog
         open={deptDialog.open}
         onClose={() => setDeptDialog({ open: false })}
@@ -474,7 +520,111 @@ export default function AdminOrganizationPage() {
   );
 }
 
-// ─── 批量邀请组件 ──────────────────────────────────────────────────────────────
+// 通讯录导入弹窗
+function ImportContactsDialog({
+  open, onClose, onSuccess,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSuccess?: () => void;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [results, setResults] = useState<ImportResult[] | null>(null);
+  const [summary, setSummary] = useState<{ total: number; ok: number; failed: number; dryRun: boolean } | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      setFile(null);
+      setBusy(false);
+      setResults(null);
+      setSummary(null);
+      setErr(null);
+    }
+  }, [open]);
+
+  async function upload(dryRun: boolean) {
+    if (!file) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      if (dryRun) fd.append('dryRun', '1');
+      const res = await fetch('/api/org/users/import', { method: 'POST', body: fd });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok || !body.ok) {
+        setErr(body.error ?? `HTTP ${res.status}`);
+        return;
+      }
+      setResults(body.results);
+      setSummary(body.summary);
+      if (!dryRun) onSuccess?.();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : '导入失败');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function downloadResults() {
+    if (!results) return;
+    const lines = [
+      'row,email,ok,action,error',
+      ...results.map((r) => [r.row, r.email, r.ok, r.action ?? '', r.error ?? ''].join(',')),
+    ];
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' }));
+    a.download = `contact-import-${Date.now()}.csv`;
+    a.click();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>导入通讯录</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="rounded border bg-muted/20 p-3 text-footnote text-muted-foreground">
+            <div>支持 CSV / Excel，按邮箱匹配已有员工账号并更新部门、职务、直属上级、工号、入职日期、工作地点、手机和角色。</div>
+            <a href="/api/org/users/import/template" className="text-primary underline mt-1 inline-block">下载导入模板</a>
+          </div>
+          <Input
+            type="file"
+            accept=".csv,.xlsx,.xls"
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          />
+          {err && (
+            <div className="flex items-center gap-2 rounded border border-rose-200 bg-rose-50 px-3 py-2 text-caption text-rose-700">
+              <AlertCircle className="h-4 w-4" />{err}
+            </div>
+          )}
+          {summary && (
+            <div className="flex flex-wrap items-center gap-2 text-caption">
+              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">成功 {summary.ok}</Badge>
+              {summary.failed > 0 && <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200">失败 {summary.failed}</Badge>}
+              <span className="text-muted-foreground">共 {summary.total} 行 / {summary.dryRun ? '试运行' : '已导入'}</span>
+              {results && <Button size="sm" variant="ghost" onClick={downloadResults}><Download className="h-3.5 w-3.5 mr-1" />下载结果</Button>}
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>关闭</Button>
+          <Button variant="outline" disabled={!file || busy} onClick={() => void upload(true)}>
+            {busy ? '校验中...' : '试运行'}
+          </Button>
+          <Button disabled={!file || busy} onClick={() => void upload(false)}>
+            {busy ? '导入中...' : '正式导入'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// 批量邀请组件
 function BulkInviteCard({ onSuccess }: { onSuccess?: () => void }) {
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
@@ -512,11 +662,11 @@ function BulkInviteCard({ onSuccess }: { onSuccess?: () => void }) {
         <span className="text-caption font-medium flex items-center gap-2"><Upload className="h-4 w-4" />通讯录批量邀请</span>
         <a href="/api/admin/users/bulk-invite/template" className="text-footnote text-warning underline">下载模板</a>
       </div>
-      <p className="text-footnote text-muted-foreground mb-3">CSV/Excel，列：email, name, department, roles · 每行生成邀请码 · 单批 ≤ 500 行</p>
+      <p className="text-footnote text-muted-foreground mb-3">CSV/Excel，列：email, name, department, roles / 每行生成邀请码 / 单批不超过 500 行</p>
       <div className="flex flex-wrap items-center gap-2">
         <input type="file" accept=".csv,.xlsx,.xls" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="text-footnote" />
-        <Button size="sm" variant="outline" disabled={!file || busy} onClick={() => void upload(true)}>{busy ? '校验中…' : '试运行'}</Button>
-        <Button size="sm" disabled={!file || busy} onClick={() => void upload(false)}>{busy ? '生成中…' : '正式生成'}</Button>
+        <Button size="sm" variant="outline" disabled={!file || busy} onClick={() => void upload(true)}>{busy ? '校验中...' : '试运行'}</Button>
+        <Button size="sm" disabled={!file || busy} onClick={() => void upload(false)}>{busy ? '生成中...' : '正式生成'}</Button>
         {results && <Button size="sm" variant="ghost" onClick={downloadResults}><Download className="h-3.5 w-3.5 mr-1" />下载结果</Button>}
       </div>
       {err && <div className="mt-2 text-footnote text-rose-700 flex items-center gap-1"><AlertCircle className="h-3.5 w-3.5" />{err}</div>}
@@ -524,7 +674,7 @@ function BulkInviteCard({ onSuccess }: { onSuccess?: () => void }) {
         <div className="mt-2 flex items-center gap-2 text-footnote">
           <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">成功 {summary.ok}</Badge>
           {summary.failed > 0 && <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200">失败 {summary.failed}</Badge>}
-          <span className="text-muted-foreground">共 {summary.total} 行 · {summary.dryRun ? '试运行' : '已生成'}</span>
+          <span className="text-muted-foreground">共 {summary.total} 行 / {summary.dryRun ? '试运行' : '已生成'}</span>
         </div>
       )}
     </div>

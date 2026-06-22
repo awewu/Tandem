@@ -26,3 +26,9 @@ ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "workLocation" text;
 
 --> statement-breakpoint
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "phone" text;
+
+--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "User_departmentId_idx" ON "User" ("departmentId");
+
+--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "User_managerId_idx" ON "User" ("managerId");
