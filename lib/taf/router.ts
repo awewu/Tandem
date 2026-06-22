@@ -54,7 +54,7 @@ export const DEFAULT_ROUTING_RULES: RoutingRule[] = [
   {
     scenario: 'long_context',
     primary: 'claude-opus-4-5',
-    fallbacks: ['doubao-pro', 'kimi-k2', 'deepseek-v3'],
+    fallbacks: ['doubao-pro', 'kimi-k2', 'deepseek-v3', 'qwen-max'],
     reason: '200K ctx — 复盘 / 历史回溯 / 长文档分析',
   },
   {
@@ -312,6 +312,15 @@ export class TandemRouter {
     //   - 仅当网关已注册时生效 (promoteToPrimary 已保证, 双保险)。
     if (this.primaryOverride && !forceProvider && this.providers.has(this.primaryOverride)) {
       candidates = [this.primaryOverride, ...candidates.filter((n) => n !== this.primaryOverride)];
+    }
+
+    // 兜底: 场景规则里的候选可能一个都没注册 (例: 只配了 qwen-max, 而 long_context
+    // 规则候选全是 opus/doubao/kimi/deepseek) → registered=NONE 直接报错, 即便有可用 provider。
+    // 把所有"已注册但不在候选里"的 provider 追加为最后兜底, 保证只要有任一 provider 配好,
+    // AI 功能就不会因路由覆盖盲区而失效。场景偏好顺序不变, 仅在前面全失败后才触底。
+    {
+      const extras = Array.from(this.providers.keys()).filter((n) => !candidates.includes(n));
+      if (extras.length > 0) candidates = [...candidates, ...extras];
     }
 
     // ⚠️ 带 tools 的请求绝不能路由到不支持 function calling 的 provider:

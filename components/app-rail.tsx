@@ -66,7 +66,7 @@ export default function AppRail() {
       </Link>
 
       {/* Module icon stack */}
-      <ul className="flex-1 space-y-0.5 overflow-y-auto py-2">
+      <ul className="scrollbar-none flex-1 space-y-0.5 overflow-y-auto py-2">
         {visibleModules.map((m) => {
           const Icon = m.icon;
           const active = m.id === activeId;

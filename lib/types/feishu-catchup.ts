@@ -18,6 +18,7 @@ export interface Document {
   permissions: {
     read?: string[];     // User.id[]
     write?: string[];    // User.id[]
+    publicAccess?: boolean; // true = 同租户所有人可读
   };
   version: number;
   isLocked: boolean;

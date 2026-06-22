@@ -146,6 +146,33 @@ describe('LLM 中继站网关路由', () => {
   });
 });
 
+describe('LLM 路由覆盖盲区兜底 (registered=NONE 回退)', () => {
+  it('G-7: 场景候选一个都没注册时, 回退到任一已注册 provider (chat)', async () => {
+    // 只配 qwen-max — 但 long_context 规则候选是 opus/doubao/kimi/deepseek, 无 qwen-max。
+    // 修复前 → registered=NONE 报错; 修复后 → 兜底回退到 qwen-max。
+    const router = new TandemRouter();
+    const qwen = makeProvider('qwen-max', 'qwen-max');
+    router.registerProvider(qwen);
+
+    const res = await router.chat({ messages: MSG, scenario: 'long_context' });
+    expect(qwen.calls).toBe(1);
+    expect(res.model).toBe('qwen-max');
+  });
+
+  it('G-7b: 同上, 流式 (chatStream) 也能兜底', async () => {
+    const router = new TandemRouter();
+    const qwen = makeProvider('qwen-max', 'qwen-max');
+    router.registerProvider(qwen);
+
+    let text = '';
+    for await (const chunk of router.chatStream({ messages: MSG, scenario: 'long_context' })) {
+      text += chunk.delta?.content ?? '';
+    }
+    expect(qwen.calls).toBe(1);
+    expect(text).toContain('qwen-max');
+  });
+});
+
 describe('buildGatewayConfig (env 驱动)', () => {
   const saved = {
     base: process.env.LLM_GATEWAY_BASE_URL,

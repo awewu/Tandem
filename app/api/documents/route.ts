@@ -4,6 +4,7 @@ import { requireAuth } from '@/lib/auth/require-auth';
 import { boot } from '@/lib/boot';
 import { createAppContext } from '@/lib/repositories/app-context-factory';
 import { DocumentService } from '@/lib/services/document-service';
+import { docAccess } from '@/lib/documents/access';
 
 export const GET = withErrorHandler(async (req: NextRequest) => {
   await boot();
@@ -22,7 +23,8 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     scoped = scoped.filter((d) => (d.title ?? '').toLowerCase().includes(q));
   }
   scoped = scoped.slice(0, limit);
-  return NextResponse.json({ documents: scoped });
+  const documents = scoped.map((d) => ({ ...d, ...docAccess(auth, d) }));
+  return NextResponse.json({ documents });
 });
 
 export const POST = withErrorHandler(async (req: NextRequest) => {

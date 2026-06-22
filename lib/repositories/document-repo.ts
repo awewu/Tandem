@@ -15,6 +15,8 @@ export interface DocumentRepository {
   updatePermissions(id: string, permissions: Document['permissions']): Promise<Document>;
   lock(id: string): Promise<Document>;
   unlock(id: string): Promise<Document>;
+  setSpawnedPromotionId(id: string, promotionId: string): Promise<Document>;
+  setSpawnedDecisionCardId(id: string, decisionCardId: string): Promise<Document>;
   softDelete(id: string): Promise<void>;
   list(filter?: { ownerId?: string; tenantId?: string }): Promise<Document[]>;
 }

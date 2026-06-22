@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useCurrentUserId } from "@/lib/hooks/use-current-user";
+import { useCurrentUser } from "@/lib/hooks/use-current-user";
 import Link from "next/link";
-import { FileText, Plus, Lock, Sheet, Presentation, Upload, Brain } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { FileText, Plus, Lock, Sheet, Presentation, Upload, Brain, Trash2, Users } from "lucide-react";
 import { parseDocument } from "@/lib/document-parser";
 
 interface Document {
@@ -13,6 +14,8 @@ interface Document {
   ownerId: string;
   updatedAt: string;
   isLocked: boolean;
+  /** 服务端按鉴权上下文计算: 是否可删除 (owner/admin) */
+  canDelete?: boolean;
 }
 
 const typeIcon = {
@@ -22,7 +25,9 @@ const typeIcon = {
 };
 
 export default function DocumentsPage() {
-  const currentUserId = useCurrentUserId();
+  const router = useRouter();
+  const { user } = useCurrentUser();
+  const isAdmin = !!user?.roles?.some((r) => r === "owner" || r === "admin");
   const [docs, setDocs] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
@@ -30,7 +35,7 @@ export default function DocumentsPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    fetch("/api/documents")
+    fetch("/api/documents", { credentials: "include", cache: "no-store" })
       .then((r) => r.json())
       .then((data) => {
         setDocs(data.documents ?? []);
@@ -38,16 +43,31 @@ export default function DocumentsPage() {
       });
   }, []);
 
+  async function deleteDoc(e: React.MouseEvent, doc: Document) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!window.confirm(`确认删除「${doc.title}」？此操作不可恢复。`)) return;
+    const res = await fetch(`/api/documents/${doc.id}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    if (res.ok) {
+      setDocs((prev) => prev.filter((d) => d.id !== doc.id));
+    } else {
+      const data = await res.json().catch(() => ({}));
+      window.alert(data?.error === "Only owner can delete" ? "仅文档所有者可删除" : data?.error ?? "删除失败");
+    }
+  }
+
   async function createDoc(type: "doc" | "sheet" | "slide") {
     const res = await fetch("/api/documents", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({
         title: `新建${type === "doc" ? "文档" : type === "sheet" ? "表格" : "幻灯片"}`,
         content: "",
         type,
-        ownerId: currentUserId,
-        tenantId: "default",
       }),
     });
     const doc = await res.json();
@@ -78,12 +98,11 @@ export default function DocumentsPage() {
         const res = await fetch("/api/documents", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({
             title: file.name,
             content: header + parsed.text,
             type: "doc",
-            ownerId: currentUserId,
-            tenantId: "default",
           }),
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -177,7 +196,7 @@ export default function DocumentsPage() {
             <Link
               key={doc.id}
               href={`/documents/${doc.id}`}
-              className="flex items-center gap-3 p-4 border rounded-lg hover:shadow-soft transition"
+              className="group flex items-center gap-3 p-4 border rounded-lg hover:shadow-soft transition"
             >
               <Icon size={20} className="text-ink-secondary" />
               <div className="flex-1">
@@ -187,6 +206,26 @@ export default function DocumentsPage() {
                 </div>
               </div>
               {doc.isLocked && <Lock size={16} className="text-warning" />}
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push(`/documents/${doc.id}`); }}
+                className="p-2 rounded hover:bg-surface-3 text-ink-tertiary"
+                title="打开并管理协作权限"
+                aria-label={`管理 ${doc.title} 的权限`}
+              >
+                <Users size={16} />
+              </button>
+              {(doc.canDelete ?? (isAdmin || doc.ownerId === user?.id)) && (
+                <button
+                  type="button"
+                  onClick={(e) => deleteDoc(e, doc)}
+                  className="p-2 rounded hover:bg-rose-50 text-rose-400"
+                  title="删除文档"
+                  aria-label={`删除 ${doc.title}`}
+                >
+                  <Trash2 size={16} />
+                </button>
+              )}
             </Link>
           );
         })}

@@ -811,16 +811,13 @@ async function invokePersonaReply(input: InvokePersonaInput): Promise<void> {
   try {
     const store = getStore();
     const personas = await store.personas.list();
-    const persona = personas.find((p) => p.userId === input.targetUserId);
+    let persona = personas.find((p) => p.userId === input.targetUserId);
     if (!persona) {
-      await sendMessage({
-        channelId: input.channelId,
-        senderId: 'persona',
-        senderKind: 'system',
-        body: `⚠️ 未找到 @${input.targetUserId} 的 Persona, 无法代行.`,
-        parentMessageId: input.triggeringMessage.id,
-      });
-      return;
+      // 真实注册用户从未被创建 Persona (createPersona 未接入注册/登录流程),
+      // 首次代行时按 newborn 阶段自动建档. 后续 observe_only/report_only 门控
+      // 会自然接管: 新生分身仍不允许代行, 提示"等本人", 直到成长到 assistant 阶段。
+      const { createPersona } = await import('../persona/evolution');
+      persona = await createPersona(input.targetUserId);
     }
 
     // V1: observe_only / report_only 阶段不能代行

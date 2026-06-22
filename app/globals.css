@@ -506,6 +506,17 @@
    ============================================================= */
 
 @layer utilities {
+  /* Hide native scrollbar while keeping scroll (used by AppRail icon stack) */
+  .scrollbar-none {
+    scrollbar-width: none;          /* Firefox */
+    -ms-overflow-style: none;       /* IE / old Edge */
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;                  /* Chrome / Safari / Edge */
+  }
+
   @keyframes pulse-soft {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.7; }

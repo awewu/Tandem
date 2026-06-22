@@ -35,6 +35,14 @@ export class InMemoryDocumentRepository implements DocumentRepository {
     const d = this.data.get(id); if (!d) throw new Error('not found');
     d.isLocked = false; d.updatedAt = new Date().toISOString(); return d;
   }
+  async setSpawnedPromotionId(id: string, promotionId: string): Promise<Document> {
+    const d = this.data.get(id); if (!d) throw new Error('not found');
+    d.spawnedPromotionId = promotionId; d.updatedAt = new Date().toISOString(); return d;
+  }
+  async setSpawnedDecisionCardId(id: string, decisionCardId: string): Promise<Document> {
+    const d = this.data.get(id); if (!d) throw new Error('not found');
+    d.spawnedDecisionCardId = decisionCardId; d.updatedAt = new Date().toISOString(); return d;
+  }
   async softDelete(id: string): Promise<void> {
     const d = this.data.get(id); if (d) { d.deletedAt = new Date().toISOString(); }
   }

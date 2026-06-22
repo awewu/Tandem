@@ -40,10 +40,28 @@ function makeClient() {
   return postgres(sanitizeDatabaseUrl(raw), { max: 10, prepare: false });
 }
 
-const client = global.__pg__ ?? makeClient();
-if (process.env.NODE_ENV !== 'production') {
-  global.__pg__ = client;
+/**
+ * Lazy client/db init — importing this module must NOT open a connection.
+ * Eager connection broke memory-mode tests (vitest clears DATABASE_URL) whenever
+ * a Drizzle repo sat anywhere in an import chain. The actual postgres client is
+ * only created on the first real query, so prod (DATABASE_URL always set) is
+ * unchanged while tests can import freely.
+ */
+type Db = ReturnType<typeof drizzle<typeof schema>>;
+let _db: Db | undefined;
+
+function getDb(): Db {
+  if (_db) return _db;
+  const client = global.__pg__ ?? makeClient();
+  if (process.env.NODE_ENV !== 'production') global.__pg__ = client;
+  _db = drizzle(client, { schema });
+  return _db;
 }
 
-export const db = drizzle(client, { schema });
+export const db = new Proxy({} as Db, {
+  get(_target, prop, receiver) {
+    return Reflect.get(getDb() as object, prop, receiver);
+  },
+}) as Db;
+
 export { schema };

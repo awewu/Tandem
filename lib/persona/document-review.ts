@@ -21,8 +21,8 @@
  */
 
 import { getRouter } from '../boot';
-import { getStore } from '../storage/repository';
 import { audit } from '../audit/log';
+import { createAppContext } from '../repositories/app-context-factory';
 
 // ────────────────── 类型 ──────────────────
 
@@ -94,9 +94,10 @@ const SYSTEM_PROMPT = `你是 Tandem 中央 AI 的**文档评审参谋**. 任务
  */
 export async function reviewDocument(input: ReviewDocumentInput): Promise<DocumentReview | null> {
   const t0 = Date.now();
-  const store = getStore();
-  const doc = await store.documents.get(input.documentId);
-  if (!doc) return null;
+  const { documentRepo } = createAppContext();
+  const doc = await documentRepo.findById(input.documentId);
+  if (!doc || doc.deletedAt) return null;
+  if (input.tenantId && doc.tenantId !== input.tenantId) return null;
 
   // 截断: 大文档保护. 4000 字符够覆盖绝大多数内部文档 (≈ 2000 tokens), 太长 LLM 也只会摸鱼.
   const content = (doc.content ?? '').slice(0, 4000);

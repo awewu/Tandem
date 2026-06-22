@@ -94,6 +94,28 @@ Copy-Item -LiteralPath "public" -Destination (Join-Path $App "public") -Recurse 
 Copy-Item -LiteralPath "drizzle" -Destination (Join-Path $App "drizzle") -Recurse -Force
 Copy-Item -LiteralPath "drizzle.config.ts" -Destination (Join-Path $App "drizzle.config.ts") -Force
 
+# pdfjs-dist 已在 next.config.js 外置 (serverComponentsExternalPackages). nft 能追踪 pdf.mjs,
+# 但 pdf.mjs 内部对 worker 的动态 import 是变量路径, nft 无法跟踪 -> standalone 缺 pdf.worker.mjs,
+# 生产环境 PDF 抽取 (lib/infra/document-extract.ts) 会报 "Setting up fake worker failed".
+# 这里显式把整个 pdfjs-dist 复制进包 (排除 .map 体积), 保证自洽可运行。
+Write-Step "Ensuring pdfjs-dist (with worker) is in package node_modules"
+$PdfSrc = Join-Path $Repo "node_modules\pdfjs-dist"
+$PdfDest = Join-Path $App "node_modules\pdfjs-dist"
+if (-not (Test-Path $PdfSrc)) {
+  throw "Missing $PdfSrc. Run 'npm install' before packaging."
+}
+if (Test-Path $PdfDest) { Remove-Item -LiteralPath $PdfDest -Recurse -Force }
+# /XF *.map: 跳过 source map (数 MB, 运行期不需要); /NFL /NDL /NJH /NJS: 静默
+& robocopy $PdfSrc $PdfDest /E /XF *.map /NFL /NDL /NJH /NJS | Out-Null
+if ($LASTEXITCODE -ge 8) {
+  throw "robocopy pdfjs-dist failed with exit code $LASTEXITCODE"
+}
+$LASTEXITCODE = 0
+$PdfWorker = Join-Path $PdfDest "legacy\build\pdf.worker.mjs"
+if (-not (Test-Path $PdfWorker)) {
+  throw "pdfjs-dist worker missing after copy: $PdfWorker"
+}
+
 Write-Step "Creating zip"
 if (Test-Path $OutputZip) {
   Remove-Item -LiteralPath $OutputZip -Force
@@ -128,6 +150,7 @@ try {
     "app/.next/BUILD_ID",
     "app/.next/static/",
     "app/node_modules/",
+    "app/node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs",
     "app/public/",
     "app/drizzle/",
     "app/lib/",

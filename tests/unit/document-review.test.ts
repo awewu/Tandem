@@ -30,8 +30,9 @@ vi.mock('@/lib/audit/log', () => ({
   audit: auditMock,
 }));
 
-import { setStore, getStore } from '@/lib/storage/repository';
+import { setStore } from '@/lib/storage/repository';
 import { createInMemoryStore } from '@/lib/storage/memory-store';
+import { createAppContext } from '@/lib/repositories/app-context-factory';
 import { reviewDocument } from '@/lib/persona/document-review';
 import type { Document } from '@/lib/types/feishu-catchup';
 
@@ -69,8 +70,7 @@ beforeEach(() => {
 
 describe('reviewDocument · 主路径 (LLM 真跑过 → CA-13)', () => {
   it('LLM 真跑过 → 解析评审 + recordDecision 喂 CA-13', async () => {
-    const store = getStore();
-    await store.documents.create(makeDoc());
+    await createAppContext().documentRepo.create(makeDoc());
     chatMock.mockResolvedValueOnce(
       chatResp(
         JSON.stringify({
@@ -111,8 +111,7 @@ describe('reviewDocument · 主路径 (LLM 真跑过 → CA-13)', () => {
 
 describe('reviewDocument · 降级路径 (不喂 CA-13)', () => {
   it('LLM 抛错 → llmRan=false, 不调 recordDecision, audit 仍写', async () => {
-    const store = getStore();
-    await store.documents.create(makeDoc());
+    await createAppContext().documentRepo.create(makeDoc());
     chatMock.mockRejectedValueOnce(new Error('upstream timeout'));
 
     const review = await reviewDocument({ documentId: 'doc1', requesterId: 'u1' });
@@ -128,8 +127,7 @@ describe('reviewDocument · 降级路径 (不喂 CA-13)', () => {
   });
 
   it('LLM 返回非法 JSON → llmRan=false, 不调 recordDecision (输出不可信)', async () => {
-    const store = getStore();
-    await store.documents.create(makeDoc());
+    await createAppContext().documentRepo.create(makeDoc());
     chatMock.mockResolvedValueOnce(chatResp('这不是 JSON, 模型胡说'));
 
     const review = await reviewDocument({ documentId: 'doc1', requesterId: 'u1' });
@@ -141,8 +139,7 @@ describe('reviewDocument · 降级路径 (不喂 CA-13)', () => {
 
 describe('reviewDocument · 净化器', () => {
   it('越界 clarityScore 夹到 1-5, 非法 action 过滤, 数组 ≤ 5', async () => {
-    const store = getStore();
-    await store.documents.create(makeDoc());
+    await createAppContext().documentRepo.create(makeDoc());
     chatMock.mockResolvedValueOnce(
       chatResp(
         JSON.stringify({
@@ -164,8 +161,7 @@ describe('reviewDocument · 净化器', () => {
   });
 
   it('clarityScore 缺失 → 默认 3 (中性)', async () => {
-    const store = getStore();
-    await store.documents.create(makeDoc());
+    await createAppContext().documentRepo.create(makeDoc());
     chatMock.mockResolvedValueOnce(chatResp(JSON.stringify({ summary: 'no score' })));
     const r = await reviewDocument({ documentId: 'doc1', requesterId: 'u1' });
     expect(r!.clarityScore).toBe(3);
@@ -180,8 +176,7 @@ describe('reviewDocument · 边界', () => {
   });
 
   it('refId/refType 一一对位 (admin 看板要靠这两个字段跳到原文档)', async () => {
-    const store = getStore();
-    await store.documents.create(makeDoc({ id: 'doc-traceable' }));
+    await createAppContext().documentRepo.create(makeDoc({ id: 'doc-traceable' }));
     chatMock.mockResolvedValueOnce(
       chatResp(JSON.stringify({ summary: 'x', clarityScore: 3, suggestedActions: [] })),
     );

@@ -10,8 +10,9 @@
  */
 
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
-import { getStore, setStore } from '../../lib/storage/repository';
+import { setStore } from '../../lib/storage/repository';
 import { createInMemoryStore } from '../../lib/storage/memory-store';
+import { createAppContext } from '../../lib/repositories/app-context-factory';
 import { seedDoc, resetDocStore } from '../fixtures/document';
 
 beforeAll(() => {
@@ -34,8 +35,8 @@ async function linkDecisionCard(
   if (!decisionCardId || decisionCardId.trim().length === 0) {
     return { ok: false, reason: 'invalid_input' };
   }
-  const store = getStore();
-  const doc = await store.documents.get(documentId);
+  const { documentRepo } = createAppContext();
+  const doc = await documentRepo.findById(documentId);
   if (!doc) return { ok: false, reason: 'not_found' };
 
   if (doc.spawnedDecisionCardId && doc.spawnedDecisionCardId !== decisionCardId) {
@@ -45,9 +46,7 @@ async function linkDecisionCard(
     return { ok: true, alreadyLinked: true };
   }
 
-  await store.documents.update(doc.id, {
-    spawnedDecisionCardId: decisionCardId,
-  } as Partial<typeof doc>);
+  await documentRepo.setSpawnedDecisionCardId(doc.id, decisionCardId);
   return { ok: true, alreadyLinked: false };
 }
 
@@ -62,8 +61,7 @@ describe('DOC-4 闭环 · 文档→议事 反链', () => {
     const result = await linkDecisionCard('doc_1', 'dc_abc');
     expect(result).toEqual({ ok: true, alreadyLinked: false });
 
-    const store = getStore();
-    const doc = await store.documents.get('doc_1');
+    const doc = await createAppContext().documentRepo.findById('doc_1');
     expect(doc?.spawnedDecisionCardId).toBe('dc_abc');
   });
 
@@ -104,8 +102,7 @@ describe('DOC-4 闭环 · 文档→议事 反链', () => {
     expect(result).toEqual({ ok: false, reason: 'conflict' });
 
     // 确认未被覆盖
-    const store = getStore();
-    const doc = await store.documents.get('doc_existing');
+    const doc = await createAppContext().documentRepo.findById('doc_existing');
     expect(doc?.spawnedDecisionCardId).toBe('dc_old');
   });
 
@@ -119,9 +116,9 @@ describe('DOC-4 闭环 · 文档→议事 反链', () => {
     expect(r1.ok).toBe(true);
     expect(r2.ok).toBe(true);
 
-    const store = getStore();
-    const a = await store.documents.get('doc_a');
-    const b = await store.documents.get('doc_b');
+    const { documentRepo } = createAppContext();
+    const a = await documentRepo.findById('doc_a');
+    const b = await documentRepo.findById('doc_b');
     expect(a?.spawnedDecisionCardId).toBe('dc_111');
     expect(b?.spawnedDecisionCardId).toBe('dc_222');
   });

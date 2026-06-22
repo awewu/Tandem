@@ -14,6 +14,7 @@
  *   - 必填: id / title / ownerId, 其余有默认值
  */
 
+import { createAppContext } from '../../lib/repositories/app-context-factory';
 import { getStore } from '../../lib/storage/repository';
 import type { Document } from '../../lib/types/feishu-catchup';
 
@@ -27,7 +28,6 @@ import type { Document } from '../../lib/types/feishu-catchup';
 export async function seedDoc(
   p: Partial<Document> & { id: string; title: string; ownerId: string },
 ): Promise<Document> {
-  const store = getStore();
   const now = new Date().toISOString();
   const doc: Document = {
     id: p.id,
@@ -45,22 +45,23 @@ export async function seedDoc(
     ...(p.spawnedDecisionCardId ? { spawnedDecisionCardId: p.spawnedDecisionCardId } : {}),
     ...(p.deletedAt !== undefined ? { deletedAt: p.deletedAt } : {}),
   };
-  await store.documents.create(doc);
+  await createAppContext().documentRepo.create(doc);
   return doc;
 }
 
-/** 清空 documents 表. 用在 beforeEach 隔离测试. */
+/** 清空 documents 表 (canonical documentRepo). 用在 beforeEach 隔离测试. */
 export async function resetDocStore(): Promise<void> {
-  const store = getStore();
-  for (const d of await store.documents.list()) {
-    await store.documents.delete(d.id);
+  const { documentRepo } = createAppContext();
+  for (const d of await documentRepo.list()) {
+    await documentRepo.softDelete(d.id);
   }
 }
 
-/** 同时清 documents + materials + promotions (DOC-2 升级测试用) */
+/** 同时清 documents (documentRepo) + materials + promotions (DOC-2 升级测试用) */
 export async function resetDocPromotionStores(): Promise<void> {
+  const { documentRepo } = createAppContext();
+  for (const d of await documentRepo.list()) await documentRepo.softDelete(d.id);
   const store = getStore();
-  for (const d of await store.documents.list()) await store.documents.delete(d.id);
   for (const m of await store.materials.list()) await store.materials.delete(m.id);
   for (const p of await store.promotions.list()) await store.promotions.delete(p.id);
 }

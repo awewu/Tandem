@@ -3,8 +3,10 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Lock, Unlock, Save, Users, Brain, Sparkles, ArrowRight, ScanSearch, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Lock, Unlock, Save, Brain, Sparkles, ArrowRight, ScanSearch, AlertTriangle, CheckCircle2, Trash2 } from "lucide-react";
 import { CollabTextarea } from "@/components/documents/collab-textarea";
+import { DocumentPermissions, type DocPermissions } from "@/components/documents/document-permissions";
+import { useCurrentUser } from "@/lib/hooks/use-current-user";
 
 interface DocumentDetail {
   id: string;
@@ -13,8 +15,11 @@ interface DocumentDetail {
   type: string;
   ownerId: string;
   isLocked: boolean;
-  permissions: Record<string, string>;
+  permissions: DocPermissions;
   updatedAt: string;
+  /** 服务端按鉴权上下文计算 */
+  canManage?: boolean;
+  canDelete?: boolean;
   /** DOC-2 (charter §四): 已发起的 Memory 升级 promotion id */
   spawnedPromotionId?: string;
   /** DOC-4 (charter §四): 已发起的议事 Decision Card id */
@@ -24,6 +29,8 @@ interface DocumentDetail {
 export default function DocumentEditorPage() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
+  const { user } = useCurrentUser();
+  const isAdmin = !!user?.roles?.some((r) => r === "owner" || r === "admin");
   const [doc, setDoc] = useState<DocumentDetail | null>(null);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -148,6 +155,21 @@ export default function DocumentEditorPage() {
     return () => clearInterval(t);
   }, [id, title, content, doc, saving]);
 
+  const deleteDoc = useCallback(async () => {
+    if (!doc) return;
+    if (!window.confirm(`确认删除文档「${doc.title}」？此操作不可恢复。`)) return;
+    const res = await fetch(`/api/documents/${id}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    if (res.ok) {
+      router.push("/documents");
+    } else {
+      const data = await res.json().catch(() => ({}));
+      setActionMsg(data?.error ?? "删除失败");
+    }
+  }, [id, doc, router]);
+
   const toggleLock = useCallback(async () => {
     await fetch(`/api/documents/${id}/permissions`, {
       method: "PATCH",
@@ -221,6 +243,15 @@ export default function DocumentEditorPage() {
           <button onClick={save} className="flex items-center gap-1 px-3 py-2 bg-brand-500 text-white rounded hover:bg-brand-600">
             <Save size={16} /> {saving ? "保存中..." : "保存"}
           </button>
+          {(doc.canDelete ?? (isAdmin || user?.id === doc.ownerId)) && (
+            <button
+              onClick={deleteDoc}
+              className="p-2 rounded hover:bg-rose-50 text-rose-500"
+              title="删除文档"
+            >
+              <Trash2 size={18} />
+            </button>
+          )}
         </div>
       </div>
       {actionMsg && (
@@ -338,23 +369,17 @@ export default function DocumentEditorPage() {
           )}
 
           <div>
-          <h3 className="font-medium mb-3 flex items-center gap-1">
-            <Users size={16} /> 协作权限
-          </h3>
-          <div className="space-y-2 text-caption">
-            {Object.entries(doc.permissions).map(([uid, role]) => (
-              <div key={uid} className="flex justify-between p-2 bg-white rounded border">
-                <span>{uid}</span>
-                <span className="text-ink-secondary">{role}</span>
-              </div>
-            ))}
-            {Object.keys(doc.permissions).length === 0 && (
-              <div className="text-ink-tertiary">暂无协作者</div>
-            )}
-          </div>
-          <div className="mt-4 text-footnote text-ink-tertiary">
-            最后更新: {new Date(doc.updatedAt).toLocaleString()}
-          </div>
+            <DocumentPermissions
+              docId={id}
+              ownerId={doc.ownerId}
+              permissions={doc.permissions ?? {}}
+              currentUserId={user?.id}
+              isAdmin={doc.canManage ?? isAdmin}
+              onChange={(perms) => setDoc((d) => (d ? { ...d, permissions: perms } : d))}
+            />
+            <div className="mt-4 text-footnote text-ink-tertiary">
+              最后更新: {new Date(doc.updatedAt).toLocaleString()}
+            </div>
           </div>
         </div>
       </div>

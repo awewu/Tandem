@@ -19,6 +19,7 @@ export type AuditAction =
   // Persona
   | 'persona.create'
   | 'persona.upgrade'
+  | 'persona.admin_set_stage'
   | 'persona.downgrade'
   | 'persona.proxy_action'
   | 'persona.proxy_drafted'

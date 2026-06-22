@@ -13,6 +13,7 @@
 
 import { audit } from '../audit/log';
 import { getStore } from '../storage/repository';
+import { createAppContext } from '../repositories/app-context-factory';
 
 export interface PromoteDocumentToMemoryInput {
   documentId: string;
@@ -44,8 +45,9 @@ export async function promoteDocumentToMemory(
   input: PromoteDocumentToMemoryInput,
 ): Promise<PromoteDocumentToMemoryResult> {
   const store = getStore();
+  const { documentRepo } = createAppContext();
 
-  const doc = await store.documents.get(input.documentId);
+  const doc = await documentRepo.findById(input.documentId);
   if (!doc) throw new Error(`document ${input.documentId} not found`);
   if (doc.spawnedPromotionId) {
     throw new Error(
@@ -98,9 +100,7 @@ export async function promoteDocumentToMemory(
   });
 
   // 3) 反向链接 — 防止重复发起
-  await store.documents.update(doc.id, {
-    spawnedPromotionId: promotion.id,
-  } as Partial<typeof doc>);
+  await documentRepo.setSpawnedPromotionId(doc.id, promotion.id);
 
   // 4) audit (与 promotion-flow 内部的 promotion_proposed 互补, 这里记 doc 侧的来源)
   await audit('memory.promotion_proposed', input.triggeredBy, {

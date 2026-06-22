@@ -383,6 +383,7 @@ export const NAV_MODULES: NavModule[] = [
           { name: '邀请用户', href: '/admin/invite', visibleTo: ['admin', 'champion'] },
           { name: '员工部门 (HR)', href: '/admin/organization', visibleTo: ['admin', 'champion'] },
           { name: '上下游组织', href: '/admin/organizations', visibleTo: ['admin', 'owner'] },
+          { name: '分身阶段', href: '/admin/personas', visibleTo: ['admin', 'owner'] },
           { name: '外部协作申请', href: '/admin/user-applications', visibleTo: ['admin', 'owner'] },
         ],
       },

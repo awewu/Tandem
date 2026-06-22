@@ -26,6 +26,11 @@ const nextConfig = {
   // Reduce compilation time
   experimental: {
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
+    // pdfjs-dist 必须按真实 node 模块从 node_modules 加载, 不能被 webpack 打进 server bundle:
+    // 否则 pdfjs 内部动态 import('pdf.worker.mjs') 被改写到 .next/server/vendor-chunks/,
+    // 而该 worker chunk 不会被输出 → "Setting up fake worker failed: Cannot find module".
+    // 外置后 pdfjs 在 Node 下自行解析 worker, 服务端 PDF 抽取 (lib/infra/document-extract.ts) 恢复正常。
+    serverComponentsExternalPackages: ['pdfjs-dist'],
   },
   async rewrites() {
     return [

@@ -20,6 +20,7 @@
 import type {
   Persona,
   PersonaStage,
+  DelegationLevel,
   DecisionHistoryStats,
   StyleProfile,
   GrowthArea,
@@ -255,6 +256,68 @@ export async function upgradeStage(personaId: string, triggeredBy: 'user' | 'aut
     );
   } catch {
     /* event 广播错误不阫主流程 (bus 已隔离) */
+  }
+
+  return updated;
+}
+
+// ---------------------------------------------------------------------------
+// 管理员手动设阶段 (owner/admin override · 绕过升级条件, 留痕)
+// ---------------------------------------------------------------------------
+
+/**
+ * 管理员直接设定某用户 Persona 的阶段 + 委托级别 (不走 upgrade 条件门槛).
+ *
+ * 用途: 企业初始化 / 试点 / 纠错时, 由 owner/admin 直接授予分身代行能力,
+ * 而无需等待时长/决议数累积. 与员工本人的自然成长升级 (upgradeStage) 并行,
+ * 但这是组织主权侧的显式授权, 因此:
+ *   - persona 不存在时自动建档 (newborn → 再设到目标阶段)
+ *   - delegationLevel 缺省取该阶段默认映射, 也可显式覆盖
+ *   - 全程 audit + 事件广播 (复用 persona.stage-upgraded, 标 override=true)
+ */
+export async function adminSetPersonaStage(
+  userId: string,
+  stage: PersonaStage,
+  opts: { actorUserId: string; delegationLevel?: DelegationLevel },
+): Promise<Persona> {
+  const store = getStore();
+  const list = await store.personas.list({ userId } as never);
+  let persona = list[0];
+  if (!persona) {
+    persona = await createPersona(userId);
+  }
+
+  const fromStage = persona.stage;
+  const delegationLevel = opts.delegationLevel ?? STAGE_TO_DEFAULT_DELEGATION[stage];
+
+  const updated = await store.personas.update(persona.id, {
+    stage,
+    stageEnteredAt: new Date().toISOString(),
+    delegationLevel,
+    updatedAt: new Date().toISOString(),
+  });
+
+  await audit('persona.admin_set_stage', opts.actorUserId, {
+    targetId: persona.id,
+    targetType: 'persona',
+    metadata: { userId, fromStage, toStage: stage, delegationLevel, override: true },
+  });
+
+  try {
+    await eventBus.emit(
+      'persona.stage-upgraded',
+      {
+        userId,
+        personaId: persona.id,
+        fromStage,
+        toStage: stage,
+        auto: false,
+        timestamp: Date.now(),
+      },
+      `persona-admin-set:${persona.id}:${stage}:${Date.now()}`,
+    );
+  } catch {
+    /* event 广播错误不阻主流程 */
   }
 
   return updated;

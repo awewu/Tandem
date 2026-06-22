@@ -22,7 +22,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { audit } from '@/lib/audit/log';
-import { getStore } from '@/lib/storage/repository';
+import { createAppContext } from '@/lib/repositories/app-context-factory';
 
 interface Params {
   params: { id: string };
@@ -45,9 +45,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: 'decisionCardId required' }, { status: 400 });
   }
 
-  const store = getStore();
-  const doc = await store.documents.get(params.id);
-  if (!doc) {
+  const { documentRepo } = createAppContext();
+  const doc = await documentRepo.findById(params.id);
+  if (!doc || doc.deletedAt || doc.tenantId !== auth.tenantId) {
     return NextResponse.json({ error: 'document not found' }, { status: 404 });
   }
 
@@ -68,9 +68,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     );
   }
 
-  await store.documents.update(doc.id, {
-    spawnedDecisionCardId: body.decisionCardId,
-  } as Partial<typeof doc>);
+  await documentRepo.setSpawnedDecisionCardId(doc.id, body.decisionCardId);
 
   await audit('decision_card.create', auth.userId, {
     targetId: body.decisionCardId,

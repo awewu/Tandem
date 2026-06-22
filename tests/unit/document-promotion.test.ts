@@ -14,6 +14,7 @@ import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { promoteDocumentToMemory } from '../../lib/services/document-promotion';
 import { getStore, setStore } from '../../lib/storage/repository';
 import { createInMemoryStore } from '../../lib/storage/memory-store';
+import { createAppContext } from '../../lib/repositories/app-context-factory';
 import { seedDoc, resetDocPromotionStores } from '../fixtures/document';
 
 beforeAll(() => {
@@ -41,10 +42,10 @@ describe('promoteDocumentToMemory', () => {
     expect(result.materialId).toBeTruthy();
     expect(result.promotionId).toBeTruthy();
 
-    const store = getStore();
-    const doc = await store.documents.get('doc_1');
+    const doc = await createAppContext().documentRepo.findById('doc_1');
     expect(doc?.spawnedPromotionId).toBe(result.promotionId);
 
+    const store = getStore();
     const material = await store.materials.get(result.materialId);
     expect(material).toBeTruthy();
     expect(material?.originRefs).toEqual(['document:doc_1']);

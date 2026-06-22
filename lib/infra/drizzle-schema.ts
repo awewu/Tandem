@@ -62,6 +62,8 @@ export const document = pgTable(
     permissions: jsonb('permissions').notNull().default({}),
     version: integer('version').notNull().default(1),
     isLocked: boolean('isLocked').notNull().default(false),
+    spawnedPromotionId: text('spawnedPromotionId'),
+    spawnedDecisionCardId: text('spawnedDecisionCardId'),
     createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
     updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
     deletedAt: timestamp('deletedAt', { precision: 3, mode: 'date' }),

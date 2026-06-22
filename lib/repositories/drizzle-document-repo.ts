@@ -23,6 +23,8 @@ function toDomain(row: typeof t.$inferSelect): Document {
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null,
+    spawnedPromotionId: row.spawnedPromotionId ?? undefined,
+    spawnedDecisionCardId: row.spawnedDecisionCardId ?? undefined,
   };
 }
 
@@ -62,6 +64,8 @@ export class DrizzleDocumentRepository implements DocumentRepository {
       permissions: (draft.permissions ?? {}) as object,
       version: draft.version ?? 1,
       isLocked: draft.isLocked ?? false,
+      spawnedPromotionId: draft.spawnedPromotionId ?? null,
+      spawnedDecisionCardId: draft.spawnedDecisionCardId ?? null,
       createdAt: draft.createdAt ? new Date(draft.createdAt) : now,
       updatedAt: now,
     };
@@ -109,6 +113,24 @@ export class DrizzleDocumentRepository implements DocumentRepository {
     const [row] = await db
       .update(t)
       .set({ isLocked: false, updatedAt: new Date() })
+      .where(eq(t.id, id))
+      .returning();
+    return toDomain(row);
+  }
+
+  async setSpawnedPromotionId(id: string, promotionId: string): Promise<Document> {
+    const [row] = await db
+      .update(t)
+      .set({ spawnedPromotionId: promotionId, updatedAt: new Date() })
+      .where(eq(t.id, id))
+      .returning();
+    return toDomain(row);
+  }
+
+  async setSpawnedDecisionCardId(id: string, decisionCardId: string): Promise<Document> {
+    const [row] = await db
+      .update(t)
+      .set({ spawnedDecisionCardId: decisionCardId, updatedAt: new Date() })
       .where(eq(t.id, id))
       .returning();
     return toDomain(row);

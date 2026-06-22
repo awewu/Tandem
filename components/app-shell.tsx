@@ -26,15 +26,26 @@ import { ErrorBoundary } from '@/components/error-boundary';
 /** 这些前缀及其子路由不套内部 chrome, 作为独立 app 全屏呈现 */
 const STANDALONE_PREFIXES = ['/shouchao', '/hub'];
 
+/** 鉴权路由 (登录 / 注册) 全屏呈现, 未登录时不应出现任何内部导航 */
+const AUTH_PREFIXES = ['/login', '/register'];
+
+function matchesPrefix(pathname: string, prefixes: string[]): boolean {
+  return prefixes.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
 function isStandalone(pathname: string): boolean {
-  return STANDALONE_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  return matchesPrefix(pathname, STANDALONE_PREFIXES);
+}
+
+function isAuthRoute(pathname: string): boolean {
+  return matchesPrefix(pathname, AUTH_PREFIXES);
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? '';
 
-  // 独立 app: 无内部导航 / 无问老板 / 无命令面板, 全屏纯内容
-  if (isStandalone(pathname)) {
+  // 独立 app / 鉴权页: 无内部导航 / 无问老板 / 无命令面板, 全屏纯内容
+  if (isStandalone(pathname) || isAuthRoute(pathname)) {
     return (
       <main
         id="tandem-shell-main"

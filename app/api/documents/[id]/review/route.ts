@@ -16,7 +16,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
-import { getStore } from '@/lib/storage/repository';
+import { createAppContext } from '@/lib/repositories/app-context-factory';
 import { reviewDocument } from '@/lib/persona/document-review';
 
 interface Params {
@@ -31,9 +31,9 @@ export async function POST(req: NextRequest, { params }: Params): Promise<NextRe
 
   await boot();
 
-  const store = getStore();
-  const doc = await store.documents.get(params.id);
-  if (!doc) {
+  const { documentRepo } = createAppContext();
+  const doc = await documentRepo.findById(params.id);
+  if (!doc || doc.deletedAt || doc.tenantId !== auth.tenantId) {
     return NextResponse.json({ error: 'Document not found' }, { status: 404 });
   }
 
