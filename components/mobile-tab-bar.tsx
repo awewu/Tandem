@@ -20,6 +20,7 @@ import { Home, MessagesSquare, Target, BotMessageSquare, Sparkles, NotebookPen, 
 import { cn } from '@/lib/utils';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { hasExternalRole, hasInternalRole } from '@/lib/auth/roles';
+import { haptic } from '@/lib/haptics';
 
 interface Tab {
   id: string;
@@ -104,6 +105,7 @@ function TabItem({ tab, pathname }: { tab: Tab; pathname: string }) {
     <Link
       href={tab.href}
       aria-current={active ? 'page' : undefined}
+      onClick={() => haptic('selection')}
       className={cn(
         'flex flex-1 flex-col items-center justify-center gap-0.5 py-1',
         'text-[10px] font-medium transition-colors',
@@ -173,6 +175,7 @@ export function MobileTabBar() {
           href={CENTER_TAB.href}
           aria-current={centerActive ? 'page' : undefined}
           aria-label="5min 日报 · 更新 OKR 进展"
+          onClick={() => haptic('medium')}
           className={cn(
             'absolute -top-[18px]',
             'flex h-[52px] w-[52px] items-center justify-center rounded-full',

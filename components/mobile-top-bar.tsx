@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { UserMenu } from './user-menu';
 import { MobileDrawer } from './mobile-drawer';
 import { NAV_MODULES, activeModuleId } from './nav-modules';
+import { haptic } from '@/lib/haptics';
 
 /**
  * MobileTopBar — < md 顶栏, Apple HIG 简洁风.
@@ -53,9 +54,9 @@ export function MobileTopBar() {
       >
         <button
           type="button"
-          onClick={() => setDrawerOpen(true)}
+          onClick={() => { haptic('light'); setDrawerOpen(true); }}
           aria-label="打开导航"
-          className="flex h-9 w-9 items-center justify-center -ml-1.5 rounded-md text-ink-secondary hover:bg-slate-100 dark:text-white/75 dark:hover:bg-white/10"
+          className="flex h-11 w-11 items-center justify-center -ml-2 rounded-md text-ink-secondary hover:bg-slate-100 dark:text-white/75 dark:hover:bg-white/10"
         >
           <Menu className="h-[22px] w-[22px]" strokeWidth={2} />
         </button>

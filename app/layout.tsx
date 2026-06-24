@@ -17,6 +17,7 @@ import { RightPaneProvider } from '@/components/right-pane';
 import { Toaster } from '@/components/toaster';
 import { PwaRegister } from '@/components/pwa-register';
 import { PwaInstallGuide } from '@/components/pwa-install-guide';
+import { MobileViewportFixes } from '@/components/mobile-viewport-fixes';
 import { AppShell } from '@/components/app-shell';
 import { PageViewTracker } from '@/components/page-view-tracker';
 import { ClientErrorReporter } from '@/components/client-error-reporter';
@@ -46,6 +47,10 @@ export const viewport: Viewport = {
   ],
   width: 'device-width',
   initialScale: 1,
+  viewportFit: 'cover',
+  // 软键盘弹起时 resize 布局视口 (而非悬浮遮挡), 固定底部输入条/发送键不被盖住.
+  // 安卓 Chrome 完整支持; iOS 由 MobileViewportFixes 的 focus 滚入兜底.
+  interactiveWidget: 'resizes-content',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -60,6 +65,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <PwaRegister />
             {/* §移动端「不上架当 App 用」· 装机引导 + 装后推送闭环 */}
             <PwaInstallGuide />
+            {/* §移动端 iOS 键盘遮挡兜底 (focus 滚入可视) */}
+            <MobileViewportFixes />
             {/* §SELF-USE-FIRST 埋点 · page.view 自动追踪 */}
             <PageViewTracker />
             {/* §观测埋点 · 浏览器错误捕获 (window.onerror + unhandledrejection) */}

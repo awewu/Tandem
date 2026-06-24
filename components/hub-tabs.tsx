@@ -12,7 +12,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useCurrentUser, useAuthStore } from '@/lib/hooks/use-current-user';
 import { NAV_MODULES, activeModuleId, ALL_ROLES, isVisible, type Role } from './nav-modules';
@@ -41,11 +41,48 @@ export default function HubTabs() {
   const hub = exact ?? prefixed;
   // 按角色过滤 tab (与 SubSidebar 一致, 不越权显示)
   const visibleTabs = (hub?.tabs ?? []).filter((t) => isVisible(t.visibleTo, userRoles));
+
+  // 横向滚动可达性: 检测左右是否还有溢出, 用边缘渐隐提示「还能滑」
+  const scrollRef = useRef<HTMLElement>(null);
+  const [edge, setEdge] = useState({ left: false, right: false });
+  const recompute = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    setEdge({ left: scrollLeft > 4, right: scrollLeft + clientWidth < scrollWidth - 4 });
+  }, []);
+  useEffect(() => {
+    recompute();
+    const el = scrollRef.current;
+    if (!el) return;
+    el.addEventListener('scroll', recompute, { passive: true });
+    window.addEventListener('resize', recompute);
+    return () => {
+      el.removeEventListener('scroll', recompute);
+      window.removeEventListener('resize', recompute);
+    };
+  }, [recompute, visibleTabs.length]);
+
   if (!hub || visibleTabs.length === 0) return null;
 
   return (
-    <div className="sticky top-0 z-10 border-b border-border bg-[rgb(var(--surface-1))]/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-[rgb(var(--surface-1))]/80">
-      <nav className="flex gap-0 overflow-x-auto" role="tablist" aria-label={`${hub.name} 子页`}>
+    <div className="relative sticky top-0 z-10 border-b border-border bg-[rgb(var(--surface-1))]/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-[rgb(var(--surface-1))]/80">
+      {/* 边缘渐隐: 提示横向还有更多 tab (拿捏 7 个 / 管理 6 个易溢出) */}
+      <div
+        aria-hidden
+        className={cn(
+          'pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-[rgb(var(--surface-1))] to-transparent transition-opacity',
+          edge.left ? 'opacity-100' : 'opacity-0',
+        )}
+      />
+      <div
+        aria-hidden
+        className={cn(
+          'pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[rgb(var(--surface-1))] to-transparent transition-opacity',
+          edge.right ? 'opacity-100' : 'opacity-0',
+        )}
+      />
+      <nav ref={scrollRef} className="flex gap-0 overflow-x-auto" role="tablist" aria-label={`${hub.name} 子页`}>
         {visibleTabs.map((t) => {
           const active = pathname === t.href || pathname.startsWith(t.href + '/');
           return (
