@@ -385,6 +385,7 @@ export const NAV_MODULES: NavModule[] = [
           { name: '上下游组织', href: '/admin/organizations', visibleTo: ['admin', 'owner'] },
           { name: '分身阶段', href: '/admin/personas', visibleTo: ['admin', 'owner'] },
           { name: '外部协作申请', href: '/admin/user-applications', visibleTo: ['admin', 'owner'] },
+          { name: 'SSO 单点登录', href: '/admin/sso', visibleTo: ['admin', 'owner'] },
         ],
       },
       {
