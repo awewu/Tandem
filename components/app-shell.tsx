@@ -22,6 +22,7 @@ import { KeyboardShortcuts } from '@/components/keyboard-shortcuts';
 import { BossAiMount } from '@/components/boss-ai';
 import { ApiHydrator } from '@/components/api-hydrator';
 import { ErrorBoundary } from '@/components/error-boundary';
+import { PullToRefreshProvider } from '@/components/pull-to-refresh';
 
 /** 这些前缀及其子路由不套内部 chrome, 作为独立 app 全屏呈现 */
 const STANDALONE_PREFIXES = ['/shouchao', '/hub'];
@@ -58,7 +59,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   // 内部协作驾驶舱: 完整 chrome
   return (
-    <>
+    <PullToRefreshProvider>
       <ApiHydrator />
       {/*
         Responsive shell:
@@ -93,6 +94,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <KeyboardShortcuts />
       {/* §灵魂入口 · Tandem AI = 老板的搭子 · 全应用浮动问老板 · ⌘J */}
       <BossAiMount />
-    </>
+    </PullToRefreshProvider>
   );
 }

@@ -15,6 +15,7 @@
 import { Suspense, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { usePullToRefreshAction } from '@/components/pull-to-refresh';
 import {
   Inbox,
   Send,
@@ -222,6 +223,9 @@ function InboxView({ folder = 'INBOX', onCompose }: { folder?: string; onCompose
   const [summaryLoading, setSummaryLoading] = useState(false);
 
   const label = FOLDER_LABELS[folder] ?? { title: folder, icon: Inbox };
+
+  // 移动端下拉刷新 → 重新加载收件箱第一页
+  usePullToRefreshAction(() => loadEmails(1, false));
 
   // folder 切换时自动重置并重新加载
   useEffect(() => {
