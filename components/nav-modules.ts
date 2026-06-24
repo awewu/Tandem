@@ -160,16 +160,16 @@ export const NAV_MODULES: NavModule[] = [
     ],
   },
 
-  // ═══ Tandem · 议事与决议 (会议 / 决议书 / 共同决策 / 重大公司级工作执行协同) ═══
+  // ═══ 议事与决议 (会议 / 决议书 / 共同决策 / 重大公司级工作执行协同) ═══
   //
-  // ⚠️ TODO(nav-naming): 命名碰撞 — 本模块名为 "Tandem" 但其 pathPrefixes 不含 /tandem;
-  //   而路由 /tandem 实际归下方「搭子(dazi)」模块 (个人工作台). 即「叫 Tandem 的模块」
-  //   ≠「/tandem 这个页」, 排查/接手极易踩坑. 改路由 (/tandem→/workbench 或本模块→/governance)
-  //   有迁移成本, 暂不动; 合并后另起一轮统一. 见复盘 2026-06-09.
+  // ✅ 2026-06-25: UI 层命名碰撞已消除 — 本模块 label 由 "Tandem" 改为 "议事",
+  //   不再与底栏「搭子」(→/tandem 个人工作台) 同名混淆.
+  // ⚠️ TODO(nav-naming): 仅余「内部」错配 — module id 仍为 'tandem' 但 pathPrefixes 不含 /tandem
+  //   (而 /tandem 归 dazi 模块). 不外显, 但接手代码仍需注意. 改 id/路由有迁移成本, 暂留.
   {
     id: 'tandem',
-    label: 'Tandem',
-    fullLabel: 'Tandem · 议事与决议',
+    label: '议事',
+    fullLabel: '议事 · 提案审议执行',
     tagline: '提案·审议·执行 — 重大公司级工作的协同与 17 分钟议事收敛',
     icon: Sparkles,
     visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],

@@ -23,6 +23,7 @@ import { BossAiMount } from '@/components/boss-ai';
 import { ApiHydrator } from '@/components/api-hydrator';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { PullToRefreshProvider } from '@/components/pull-to-refresh';
+import { ScrollRestoration } from '@/components/scroll-restoration';
 
 /** 这些前缀及其子路由不套内部 chrome, 作为独立 app 全屏呈现 */
 const STANDALONE_PREFIXES = ['/shouchao', '/hub'];
@@ -61,6 +62,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <PullToRefreshProvider>
       <ApiHydrator />
+      <ScrollRestoration />
       {/*
         Responsive shell:
         - md+ : 桌面三栏 (AppRail + SubSidebar + main)
