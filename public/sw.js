@@ -5,8 +5,9 @@
  * so stale PWA caches cannot bypass redirects or login checks.
  */
 
-const CACHE_NAME = 'tandem-v2';
-const APP_SHELL = ['/manifest.webmanifest', '/icon-192.png', '/icon-512.png'];
+const CACHE_NAME = 'tandem-v3';
+const OFFLINE_URL = '/offline.html';
+const APP_SHELL = ['/manifest.webmanifest', '/icon-192.png', '/icon-512.png', OFFLINE_URL];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -29,7 +30,18 @@ self.addEventListener('fetch', (event) => {
 
   if (event.request.method !== 'GET') return;
 
-  if (url.pathname.startsWith('/api/') || event.request.mode === 'navigate') {
+  // 导航 (页面跳转): network-first, 失败回退到离线兜底页 (弱网/断网不白屏).
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(
+        () => caches.match(event.request).then((c) => c || caches.match(OFFLINE_URL)),
+      ),
+    );
+    return;
+  }
+
+  // API: network-first, 失败尝试缓存 (大多 API 未缓存 → 由前端各自兜底).
+  if (url.pathname.startsWith('/api/')) {
     event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
     return;
   }

@@ -16,6 +16,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { RightPaneProvider } from '@/components/right-pane';
 import { Toaster } from '@/components/toaster';
 import { PwaRegister } from '@/components/pwa-register';
+import { PwaInstallGuide } from '@/components/pwa-install-guide';
 import { AppShell } from '@/components/app-shell';
 import { PageViewTracker } from '@/components/page-view-tracker';
 import { ClientErrorReporter } from '@/components/client-error-reporter';
@@ -57,6 +58,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <AppShell>{children}</AppShell>
             <Toaster />
             <PwaRegister />
+            {/* §移动端「不上架当 App 用」· 装机引导 + 装后推送闭环 */}
+            <PwaInstallGuide />
             {/* §SELF-USE-FIRST 埋点 · page.view 自动追踪 */}
             <PageViewTracker />
             {/* §观测埋点 · 浏览器错误捕获 (window.onerror + unhandledrejection) */}

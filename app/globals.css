@@ -163,10 +163,19 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* ── 移动端「像 App」基础重置 ──
+       1) text-size-adjust: 阻止 iOS 横屏时自动放大正文字号 (布局会突然变形)
+       2) tap-highlight: 去掉点击控件时的半透明灰蓝色块闪光 (网页感最强的来源) */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
   }
 
   body {
     @apply bg-background text-foreground;
+    /* overscroll: 关掉竖向滚动到顶/底时的橡皮筋回弹与下拉刷新 (PWA standalone 下尤其重要,
+       否则一拉就露出白底, 暴露"这是网页"). 横向保留默认 (不破坏浏览器返回手势). */
+    overscroll-behavior-y: none;
     /* 自托管 Noto Sans SC 置于首位 → 拉丁 + 中文全部用 Noto, 跨平台一致; 其后为系统兜底.
        注意: 不要在此链中加入未定义的 var(--font-*) — 未定义且无 fallback 的 var() 会使
        整条 font-family 在 computed-value 阶段失效, 回退到 Times New Roman (全站字体失灵). */
@@ -180,6 +189,12 @@
       system-ui, sans-serif;
     font-size: 15px;
     line-height: 1.5;
+  }
+
+  /* 交互控件: touch-action manipulation 关掉移动端双击缩放 + 消除 ~300ms 点击延迟,
+     让按钮/链接点按即响应 (原生 App 的即时反馈感). */
+  button, a, [role='button'], input, select, textarea, label, summary {
+    touch-action: manipulation;
   }
 
   /* Display family (Inter Tight) — auto-applied to .rheem-display and Tailwind `font-display` */
