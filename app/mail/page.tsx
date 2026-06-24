@@ -634,7 +634,7 @@ function InboxView({ folder = 'INBOX', onCompose }: { folder?: string; onCompose
             <div
               key={email.uid}
               onClick={() => openDetail(email.uid)}
-              className={`rounded-md border p-3 cursor-pointer hover:bg-surface-2 transition-colors ${
+              className={`cv-auto rounded-md border p-3 cursor-pointer hover:bg-surface-2 transition-colors ${
                 email.seen ? 'border-border bg-[rgb(var(--surface-1))]' : 'border-[rgb(var(--brand-500))]/30 bg-[rgb(var(--brand-50))]/50'
               }`}
             >

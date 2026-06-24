@@ -84,7 +84,7 @@ export default function DecisionsPage() {
                   {cards.map((card) => {
                     const state = STATE_META[card.convergenceState] ?? STATE_META.DIVERGE;
                     return (
-                      <li key={card.id}>
+                      <li key={card.id} className="cv-auto">
                         <Link
                           href={`/decisions/${card.id}`}
                           className="flex items-center gap-3 px-4 py-3 surface-interactive hover:bg-surface-2"

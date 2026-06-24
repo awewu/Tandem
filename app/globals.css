@@ -532,6 +532,15 @@
     display: none;                  /* Chrome / Safari / Edge */
   }
 
+  /* content-visibility: 让浏览器跳过「屏幕外」列表行的布局与绘制 (原生窗口化),
+     零依赖消除长列表 (IM 消息 / 邮件 / 台账) 在移动端的滚动卡顿.
+     contain-intrinsic-size 提供占位尺寸 → 滚动条稳定; auto 关键字记忆上次真实高度,
+     适配变高行 (消息气泡). 默认按 ~72px 行高占位, 可按需在元素上覆盖 contain-intrinsic-size. */
+  .cv-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 72px;
+  }
+
   @keyframes pulse-soft {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.7; }
