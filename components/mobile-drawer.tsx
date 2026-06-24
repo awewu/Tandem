@@ -7,13 +7,14 @@
  * 点任一链接关闭抽屉.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { X, Sparkles, ShieldCheck, Settings, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NAV_MODULES, isVisible, resolveNavRoles, type Role } from './nav-modules';
 import { useCurrentUser, useAuthStore } from '@/lib/hooks/use-current-user';
+import { useBackDismiss } from '@/lib/hooks/use-back-dismiss';
 
 export interface MobileDrawerProps {
   open: boolean;
@@ -43,6 +44,22 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
       return () => { document.body.style.overflow = prev; };
     }
   }, [open]);
+
+  // 安卓硬件返回键 / 浏览器返回 → 关抽屉 (而非退出 App)
+  useBackDismiss(open, onClose);
+
+  // 左滑手势关闭 (原生抽屉直觉)
+  const touchStartX = useRef<number | null>(null);
+  function onTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.touches[0]?.clientX ?? null;
+  }
+  function onTouchEnd(e: React.TouchEvent) {
+    const start = touchStartX.current;
+    touchStartX.current = null;
+    if (start == null) return;
+    const dx = (e.changedTouches[0]?.clientX ?? start) - start;
+    if (dx < -60) onClose(); // 向左滑 > 60px 关闭
+  }
 
   const modules = useMemo(
     () => NAV_MODULES.filter((m) => isVisible(m.visibleTo, userRoles)),
@@ -78,6 +95,8 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
       <aside
         aria-label="全部导航"
         aria-hidden={!open}
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
         className={cn(
           'md:hidden fixed inset-y-0 left-0 z-50',
           'w-[82%] max-w-[320px]',

@@ -12,6 +12,7 @@ import { usePathname } from 'next/navigation';
 import { Sparkles, X, Plus, Send, AlertCircle, Loader2, MapPin, ThumbsUp, Pencil, ThumbsDown } from 'lucide-react';
 import { useBossAi, type BossAiMessage, type BossAiFeedbackOutcome } from './use-boss-ai';
 import { getExamplePrompts, getPathLabel } from './example-prompts';
+import { useBackDismiss } from '@/lib/hooks/use-back-dismiss';
 
 export function BossAiDrawer() {
   const { isOpen, close, messages, streaming, error, send, newSession, pendingPrompt, consumePendingPrompt, submitFeedback } = useBossAi();
@@ -46,6 +47,9 @@ export function BossAiDrawer() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [isOpen, close]);
+
+  // 安卓硬件返回键 / 浏览器返回 → 关闭 (手机无 Esc 键)
+  useBackDismiss(isOpen, close);
 
   // 打开时聚焦输入框
   useEffect(() => {
