@@ -35,6 +35,7 @@ export const SHIBAN_PREFIXES = [
   '/api/nine-box',
   '/api/initiatives',
   '/api/convergence',
+  '/api-docs',
 ] as const;
 
 /** 拿捏板块: Persona / 个人 AI — 协作者可访问自己的 Persona */

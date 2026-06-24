@@ -814,6 +814,15 @@ export async function seedLaunchpadIfEmpty(): Promise<void> {
     const ctx = createAppContext();
     const lpSvc = new LaunchpadService(ctx);
     const existing = await lpSvc.listAdmin({ tenantId: 'default' });
+    const plmExisting = existing.find((a) => a.url === '#plm' || /PLM/i.test(a.name));
+    if (plmExisting && plmExisting.url !== '/api/integrations/plm/sso') {
+      await lpSvc.update(plmExisting.id, {
+        url: '/api/integrations/plm/sso',
+        ssoMode: 'redirect-token',
+        status: 'active',
+        description: plmExisting.description ?? '产品全生命周期 · 研发协同',
+      });
+    }
     // 旧演示卡片名单 (历史默认种子). 仅当跳板「只剩这些」时才视为未定制 → 清掉重播集团模块.
     // 若含任何非旧卡片 (用户自定义 或 已是新集团模块) → 跳过, 保持幂等且绝不误删用户数据.
     const LEGACY_DEMO_NAMES = new Set([
@@ -837,7 +846,7 @@ export async function seedLaunchpadIfEmpty(): Promise<void> {
       { ...base, category: 'business', name: '搭子手抄', description: 'AI 笔记 · 记录→加工→沉淀',
         url: '/shouchao', order: 0, recommendKeywords: ['笔记', '手抄', 'note', '沉淀'] },
       { ...base, category: 'business', name: '创新匠台 PLM', description: '产品全生命周期 · 研发协同',
-        url: '#plm', order: 1, recommendKeywords: ['plm', '研发', '产品', '生命周期', '匠台'] },
+        url: '/api/integrations/plm/sso', ssoMode: 'redirect-token', order: 1, recommendKeywords: ['plm', '研发', '产品', '生命周期', '匠台'] },
       { ...base, category: 'business', name: '瑞诺瓦 AI 问诊', description: 'AI 智能诊断 · 健康问询',
         url: '#renova-ai', order: 2, recommendKeywords: ['ai', '问诊', '诊断', '瑞诺瓦', 'renova'] },
       { ...base, category: 'business', name: 'Youngsuite ERP', description: '采购 · 财务 · 供应链',

@@ -117,6 +117,8 @@ services:
       SESSION_SECRET: ${SESSION_SECRET:?must set SESSION_SECRET}
       MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:?must set MFA_ENCRYPTION_KEY}
       ALLOW_DEMO_AUTH: ${ALLOW_DEMO_AUTH:-0}
+      PLM_STUDIO_URL: ${PLM_STUDIO_URL:-https://studio.rhautt.com}
+      PLM_SSO_JWT_SECRET: ${PLM_SSO_JWT_SECRET:?must set PLM_SSO_JWT_SECRET}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       # 首次启动自动建 Owner (bootstrapOwnerIfMissing in lib/auth/bootstrap.ts)
       TANDEM_BOOTSTRAP_OWNER_EMAIL: ${TANDEM_BOOTSTRAP_OWNER_EMAIL:-}

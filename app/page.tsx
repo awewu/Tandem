@@ -518,6 +518,8 @@ function resolveLaunchpadIcon(name: string): React.ComponentType<{ className?: s
   return LP_ICON_BY_NAME.find((e) => e.match.test(name))?.icon ?? null;
 }
 
+const PLM_SSO_URL = 'https://studio.rhautt.com/api/auth/sso?next=%2F';
+
 function LaunchpadSection({
   apps,
   maxTiles,
@@ -569,13 +571,15 @@ function LaunchpadSection({
 
 function LaunchpadTile({ app, recommended }: { app: LaunchpadAppWithBadge; recommended?: boolean }) {
   // url 约定: '#xxx' = 接口预留待接入 (点击不跳转); '/xxx' = 站内导航; 其余 = 外部新窗口.
-  const pending = app.url.startsWith('#');
-  const internal = app.url.startsWith('/');
+  const isPlm = /PLM/i.test(app.name);
+  const resolvedUrl = isPlm ? PLM_SSO_URL : app.url;
+  const pending = resolvedUrl.startsWith('#');
+  const internal = resolvedUrl.startsWith('/');
 
   async function handleClick(e: React.MouseEvent) {
     e.preventDefault();
     if (pending) return; // 待接入: 接口已预留, 待 /admin/launchpad 填真实地址
-    let target = app.url;
+    let target = resolvedUrl;
     try {
       const r = await fetch(`/api/launchpad/${app.id}/click`, {
         method: 'POST',
@@ -584,7 +588,7 @@ function LaunchpadTile({ app, recommended }: { app: LaunchpadAppWithBadge; recom
       });
       if (r.ok) {
         const d = await r.json();
-        target = d.url ?? app.url;
+        target = isPlm ? PLM_SSO_URL : d.url ?? resolvedUrl;
       }
     } catch {
       /* fall through with app.url */
@@ -599,8 +603,10 @@ function LaunchpadTile({ app, recommended }: { app: LaunchpadAppWithBadge; recom
 
   return (
     <a
-      href={app.url}
-      onClick={handleClick}
+      href={resolvedUrl}
+      target={isPlm ? '_blank' : undefined}
+      rel={isPlm ? 'noopener' : undefined}
+      onClick={isPlm ? undefined : handleClick}
       className="rheem-tile group"
       title={pending ? `${app.name} · 接口预留, 待接入` : app.description || app.name}
       aria-disabled={pending}

@@ -369,8 +369,8 @@ export const NAV_MODULES: NavModule[] = [
     fullLabel: '管理 · 系统与运维',
     tagline: 'Steward 守护治理, 让规则可解释可追溯',
     icon: Wrench,
-    pathPrefixes: ['/admin', '/mcp', '/tasks', '/logs', '/design'],
-    visibleTo: ['admin', 'steward', 'champion'],
+    pathPrefixes: ['/admin', '/mcp', '/tasks', '/logs', '/design', '/api-docs'],
+    visibleTo: ['admin', 'steward', 'champion', 'owner'],
     // 6-Hub 重构 (同拿捏范式): 二级栏放 6 个 Hub, 各组子页走页内 <HubTabs> (按角色过滤).
     items: [
       {
@@ -443,6 +443,7 @@ export const NAV_MODULES: NavModule[] = [
         tabs: [
           { name: '设计语言', href: '/design' },
           { name: 'MCP 工具', href: '/mcp', visibleTo: ['admin'] },
+          { name: '接口文档', href: '/api-docs', visibleTo: ['admin', 'steward', 'owner'] },
         ],
       },
     ],

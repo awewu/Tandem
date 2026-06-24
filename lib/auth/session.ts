@@ -127,14 +127,13 @@ export const COOKIE_REFRESH = 'tandem_rt';
  * Session cookie 选项 (§T10):
  *   - httpOnly: true                · JS 不可读, 防 XSS 偷 token
  *   - secure:   production 强制     · HTTPS only
- *   - sameSite: production='strict'  · 防 CSRF (跨站请求不带 cookie)
- *               dev='lax'           · 方便 OAuth 回跳测试
+ *   - sameSite: 'lax'                · 允许 OIDC/SSO 顶层 GET 跳转携带会话, 同时阻止跨站子请求带 cookie
  *   - path: '/'                     · 全站可见
  */
 const isProd = process.env.NODE_ENV === 'production';
 type SameSite = 'strict' | 'lax' | 'none';
 const cookieSameSite: SameSite =
-  (process.env.COOKIE_SAMESITE as SameSite | undefined) ?? (isProd ? 'strict' : 'lax');
+  (process.env.COOKIE_SAMESITE as SameSite | undefined) ?? 'lax';
 
 export const SESSION_COOKIE_OPTIONS = {
   httpOnly: true,
