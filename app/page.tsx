@@ -519,6 +519,7 @@ function resolveLaunchpadIcon(name: string): React.ComponentType<{ className?: s
 }
 
 const PLM_SSO_URL = 'https://studio.rhautt.com/api/auth/sso?next=%2F';
+const STRAT_SSO_URL = 'https://strat.rhautt.com/api/auth/tandem?next=%2Fcommand';
 
 function LaunchpadSection({
   apps,
@@ -572,7 +573,9 @@ function LaunchpadSection({
 function LaunchpadTile({ app, recommended }: { app: LaunchpadAppWithBadge; recommended?: boolean }) {
   // url 约定: '#xxx' = 接口预留待接入 (点击不跳转); '/xxx' = 站内导航; 其余 = 外部新窗口.
   const isPlm = /PLM/i.test(app.name);
-  const resolvedUrl = isPlm ? PLM_SSO_URL : app.url;
+  const isStrat = /StratOS|战略/i.test(app.name);
+  const ssoUrl = isPlm ? PLM_SSO_URL : isStrat ? STRAT_SSO_URL : null;
+  const resolvedUrl = ssoUrl ?? app.url;
   const pending = resolvedUrl.startsWith('#');
   const internal = resolvedUrl.startsWith('/');
 
@@ -588,7 +591,7 @@ function LaunchpadTile({ app, recommended }: { app: LaunchpadAppWithBadge; recom
       });
       if (r.ok) {
         const d = await r.json();
-        target = isPlm ? PLM_SSO_URL : d.url ?? resolvedUrl;
+        target = ssoUrl ?? d.url ?? resolvedUrl;
       }
     } catch {
       /* fall through with app.url */
@@ -604,9 +607,9 @@ function LaunchpadTile({ app, recommended }: { app: LaunchpadAppWithBadge; recom
   return (
     <a
       href={resolvedUrl}
-      target={isPlm ? '_blank' : undefined}
-      rel={isPlm ? 'noopener' : undefined}
-      onClick={isPlm ? undefined : handleClick}
+      target={ssoUrl ? '_blank' : undefined}
+      rel={ssoUrl ? 'noopener' : undefined}
+      onClick={ssoUrl ? undefined : handleClick}
       className="rheem-tile group"
       title={pending ? `${app.name} · 接口预留, 待接入` : app.description || app.name}
       aria-disabled={pending}
