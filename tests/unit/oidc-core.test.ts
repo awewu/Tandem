@@ -65,13 +65,16 @@ describe('redirect_uri 精确匹配', () => {
 
 describe('JWT RS256 (id_token / access_token)', () => {
   it('签发的 access token 可验签且 token_use=access', async () => {
-    const { signAccessToken, verifyAccessToken } = await import('@/lib/oidc/tokens');
+    const { signAccessToken, verifyAccessToken, verifyAccessTokenForApiSync } = await import('@/lib/oidc/tokens');
     const tok = await signAccessToken({
       issuer: 'https://idp.test',
       clientId: 'cli_1',
       userId: 'user_1',
-      scope: 'openid profile org',
+      scope: 'openid profile org api.read',
       tenantId: 'default',
+      email: 'user1@example.com',
+      roles: ['employee'],
+      mfaVerified: true,
     });
     const payload = await verifyAccessToken(tok);
     expect(payload).not.toBeNull();
@@ -79,6 +82,10 @@ describe('JWT RS256 (id_token / access_token)', () => {
     expect(payload?.client_id).toBe('cli_1');
     expect(payload?.token_use).toBe('access');
     expect(payload?.iss).toBe('https://idp.test');
+    const apiPayload = verifyAccessTokenForApiSync(tok);
+    expect(apiPayload?.email).toBe('user1@example.com');
+    expect(apiPayload?.roles).toEqual(['employee']);
+    expect(apiPayload?.scope).toContain('api.read');
   });
 
   it('id_token 含标准 claims + nonce', async () => {

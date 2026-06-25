@@ -165,6 +165,11 @@ export async function middleware(req: NextRequest) {
     return withReqId(NextResponse.next({ request: { headers: baseHeaders } }));
   }
 
+  const authz = req.headers.get('authorization') ?? '';
+  if (authz.startsWith('Bearer ')) {
+    return withReqId(NextResponse.next({ request: { headers: baseHeaders } }));
+  }
+
   if (payload) {
     // P0-C: 特权未启 MFA → 拦截所有业务 API (MFA 启用/登出 API 在 /api/auth/* 白名单已放行).
     if (payload.pendingMfaEnroll) {

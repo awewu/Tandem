@@ -84,6 +84,12 @@ export const SUPPORTED_SCOPES = [
   'offline_access',  // 颁发 refresh_token
   'roles',           // Tandem 角色 + tenant
   'org',             // 组织结构: 部门 / 部门路径 / 上级 / 工号
+  'api.read',         // 允许第三方应用读取 Tandem 业务接口
+  'api.write',        // 允许第三方应用写入 Tandem 业务接口
+  'okr.read',         // OKR 读取
+  'okr.write',        // OKR 写入
+  'kpi.read',         // KPI 读取
+  'kpi.write',        // KPI 写入
 ] as const;
 
 export type SupportedScope = (typeof SUPPORTED_SCOPES)[number];

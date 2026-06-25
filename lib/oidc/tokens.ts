@@ -5,7 +5,7 @@
  * 接入方资源服务器可用公钥离线验签, 无需回查 IdP.
  */
 
-import { createSign, createVerify } from 'crypto';
+import { createHmac, createSign, createVerify, timingSafeEqual } from 'crypto';
 import { getSigningKey } from './keys';
 
 export const ID_TOKEN_TTL_SEC = 60 * 60;        // 1h
@@ -100,6 +100,10 @@ export interface AccessTokenPayload extends BaseJwtPayload {
   scope: string;
   tenant: string;
   token_use: 'access';
+  email?: string;
+  roles?: string[];
+  mfa?: boolean;
+  tandem_api_sig?: string;
 }
 
 export interface SignAccessTokenInput {
@@ -108,22 +112,109 @@ export interface SignAccessTokenInput {
   userId: string;
   scope: string;
   tenantId: string;
+  email?: string;
+  roles?: string[];
+  mfaVerified?: boolean;
+}
+
+function apiAuthSecret(): string {
+  const s = process.env.OIDC_API_AUTH_SECRET || process.env.NEXTAUTH_SECRET || process.env.SESSION_SECRET;
+  if (!s || s === 'change-me-in-prod-use-openssl-rand-base64-32') {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('OIDC_API_AUTH_SECRET / NEXTAUTH_SECRET / SESSION_SECRET must be configured in production');
+    }
+    return 'dev-only-secret-do-not-use-in-prod';
+  }
+  return s;
+}
+
+function signApiContext(input: {
+  iss: string;
+  sub: string;
+  aud: string;
+  clientId: string;
+  scope: string;
+  tenantId: string;
+  exp: number;
+  email?: string;
+  roles?: string[];
+  mfaVerified?: boolean;
+}): string {
+  const data = [
+    input.iss,
+    input.sub,
+    input.aud,
+    input.clientId,
+    input.scope,
+    input.tenantId,
+    input.exp,
+    input.email ?? '',
+    (input.roles ?? []).join(','),
+    input.mfaVerified ? '1' : '0',
+  ].join('\n');
+  return createHmac('sha256', apiAuthSecret()).update(data).digest('base64url');
 }
 
 export async function signAccessToken(input: SignAccessTokenInput): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
+  const aud = `${input.issuer}/api/oidc/userinfo`;
+  const exp = now + ACCESS_TOKEN_TTL_SEC;
   const payload: AccessTokenPayload = {
     iss: input.issuer,
     sub: input.userId,
-    aud: `${input.issuer}/api/oidc/userinfo`,
+    aud,
     client_id: input.clientId,
     scope: input.scope,
     tenant: input.tenantId,
     token_use: 'access',
     iat: now,
-    exp: now + ACCESS_TOKEN_TTL_SEC,
+    exp,
   };
+  if (input.email) payload.email = input.email;
+  if (input.roles) payload.roles = input.roles;
+  if (input.mfaVerified !== undefined) payload.mfa = input.mfaVerified;
+  payload.tandem_api_sig = signApiContext({
+    iss: input.issuer,
+    sub: input.userId,
+    aud,
+    clientId: input.clientId,
+    scope: input.scope,
+    tenantId: input.tenantId,
+    exp,
+    email: input.email,
+    roles: input.roles,
+    mfaVerified: input.mfaVerified,
+  });
   return signRs256(payload, 'at+jwt');
+}
+
+export function verifyAccessTokenForApiSync(token: string): AccessTokenPayload | null {
+  try {
+    const [, p] = token.split('.');
+    if (!p) return null;
+    const payload = JSON.parse(Buffer.from(p, 'base64url').toString('utf8')) as AccessTokenPayload;
+    if (payload.token_use !== 'access') return null;
+    if (typeof payload.exp !== 'number' || payload.exp < Math.floor(Date.now() / 1000)) return null;
+    if (!payload.tandem_api_sig) return null;
+    const expected = signApiContext({
+      iss: payload.iss,
+      sub: payload.sub,
+      aud: Array.isArray(payload.aud) ? payload.aud.join(' ') : payload.aud,
+      clientId: payload.client_id,
+      scope: payload.scope,
+      tenantId: payload.tenant,
+      exp: payload.exp,
+      email: payload.email,
+      roles: payload.roles,
+      mfaVerified: payload.mfa,
+    });
+    const a = Buffer.from(payload.tandem_api_sig);
+    const b = Buffer.from(expected);
+    if (a.length !== b.length) return null;
+    return timingSafeEqual(a, b) ? payload : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function verifyAccessToken(token: string): Promise<AccessTokenPayload | null> {

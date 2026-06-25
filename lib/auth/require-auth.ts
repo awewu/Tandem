@@ -17,6 +17,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { COOKIE_ACCESS, verifyAccessToken } from './session';
 import { DEMO_FULL_ROLES } from './roles';
+import { verifyAccessTokenForApiSync } from '@/lib/oidc/tokens';
 
 export interface AuthContext {
   userId: string;
@@ -24,6 +25,9 @@ export interface AuthContext {
   tenantId: string;
   roles: string[];
   mfaVerified: boolean;
+  authType?: 'cookie' | 'oidc_bearer' | 'demo';
+  clientId?: string;
+  scopes?: string[];
   /** 是否走的 demo 回退 (e2e/dev 用) */
   demo: boolean;
 }
@@ -34,6 +38,8 @@ const DEMO_FALLBACK: AuthContext = {
   tenantId: 'default',
   roles: DEMO_FULL_ROLES,
   mfaVerified: false,
+  authType: 'demo',
+  scopes: [],
   demo: true,
 };
 
@@ -44,6 +50,42 @@ function isDemoAllowed(): boolean {
   return process.env.ALLOW_DEMO_AUTH === '1';
 }
 
+function bearer(req: NextRequest): string | null {
+  const authz = req.headers.get('authorization');
+  if (authz?.startsWith('Bearer ')) return authz.slice(7).trim();
+  return null;
+}
+
+function methodNeedsWrite(method: string): boolean {
+  return ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method.toUpperCase());
+}
+
+function hasAny(scopes: string[], allowed: string[]): boolean {
+  return allowed.some((s) => scopes.includes(s));
+}
+
+function scopeForPath(path: string, write: boolean): string[] {
+  if (path.startsWith('/api/okr/') || path === '/api/tandem-okr' || path.startsWith('/api/tandem-okr/')) {
+    return write ? ['api.write', 'okr.write'] : ['api.read', 'okr.read'];
+  }
+  if (path.startsWith('/api/kpi/')) {
+    return write ? ['api.write', 'kpi.write'] : ['api.read', 'kpi.read'];
+  }
+  return write ? ['api.write'] : ['api.read'];
+}
+
+function requireApiScope(req: NextRequest, scopes: string[]): NextResponse | null {
+  const required = scopeForPath(req.nextUrl.pathname, methodNeedsWrite(req.method));
+  if (hasAny(scopes, required)) return null;
+  return NextResponse.json(
+    { error: 'insufficient_scope', required, requires: required },
+    {
+      status: 403,
+      headers: { 'WWW-Authenticate': `Bearer error="insufficient_scope", scope="${required.join(' ')}"` },
+    },
+  );
+}
+
 /**
  * 必须登录: 返回 AuthContext 或 401 NextResponse.
  * 调用方 `if (auth instanceof NextResponse) return auth;`
@@ -51,18 +93,46 @@ function isDemoAllowed(): boolean {
 export function requireAuth(req: NextRequest): AuthContext | NextResponse {
   const at = req.cookies.get(COOKIE_ACCESS)?.value;
   const payload = at ? verifyAccessToken(at) : null;
-  if (!payload) {
-    if (isDemoAllowed()) return DEMO_FALLBACK;
-    return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+  if (payload) {
+    return {
+      userId: payload.sub,
+      email: payload.email,
+      tenantId: payload.tenantId ?? 'default',
+      roles: payload.roles ?? [],
+      mfaVerified: payload.mfa ?? false,
+      authType: 'cookie',
+      scopes: [],
+      demo: false,
+    };
   }
-  return {
-    userId: payload.sub,
-    email: payload.email,
-    tenantId: payload.tenantId ?? 'default',
-    roles: payload.roles ?? [],
-    mfaVerified: payload.mfa ?? false,
-    demo: false,
-  };
+
+  const apiToken = bearer(req);
+  const apiPayload = apiToken ? verifyAccessTokenForApiSync(apiToken) : null;
+  if (apiPayload) {
+    const scopes = (apiPayload.scope ?? '').split(/\s+/).filter(Boolean);
+    const forbidden = requireApiScope(req, scopes);
+    if (forbidden) return forbidden;
+    return {
+      userId: apiPayload.sub,
+      email: apiPayload.email ?? `${apiPayload.sub}@oidc.local`,
+      tenantId: apiPayload.tenant ?? 'default',
+      roles: apiPayload.roles ?? [],
+      mfaVerified: apiPayload.mfa ?? false,
+      authType: 'oidc_bearer',
+      clientId: apiPayload.client_id,
+      scopes,
+      demo: false,
+    };
+  }
+
+  if (isDemoAllowed()) return DEMO_FALLBACK;
+  if (apiToken) {
+    return NextResponse.json(
+      { error: 'invalid_token', error_description: 'Bearer access token invalid, expired or not enabled for Tandem API access' },
+      { status: 401, headers: { 'WWW-Authenticate': 'Bearer error="invalid_token"' } },
+    );
+  }
+  return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
 }
 
 /**

@@ -131,6 +131,9 @@ export async function POST(req: NextRequest) {
       userId: rec.userId,
       scope: rec.scope,
       tenantId: rec.tenantId,
+      email: typeof claims.email === 'string' ? claims.email : undefined,
+      roles: Array.isArray(claims.roles) ? claims.roles.filter((r): r is string => typeof r === 'string') : [],
+      mfaVerified: false,
     });
     const idToken = await signIdToken({
       issuer,
@@ -201,6 +204,9 @@ export async function POST(req: NextRequest) {
       userId: rec.userId,
       scope,
       tenantId: rec.tenantId,
+      email: typeof claims.email === 'string' ? claims.email : undefined,
+      roles: Array.isArray(claims.roles) ? claims.roles.filter((r): r is string => typeof r === 'string') : [],
+      mfaVerified: false,
     });
     const idToken = await signIdToken({
       issuer,
