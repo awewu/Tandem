@@ -51,7 +51,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return (
       <main
         id="tandem-shell-main"
-        className="flex h-screen w-screen flex-col overflow-y-auto bg-[rgb(var(--surface-1))]"
+        className="flex h-dvh w-screen flex-col overflow-y-auto bg-[rgb(var(--surface-1))]"
       >
         <ErrorBoundary>{children}</ErrorBoundary>
       </main>
@@ -69,7 +69,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         - <md : 顶栏 + 全屏 main + 底部 tab bar (Kimi/GPT 移动端风格)
                AppRail / SubSidebar 在 mobile 视口下隐藏.
       */}
-      <div className="flex h-screen w-screen flex-col overflow-hidden bg-[rgb(var(--surface-2))] md:flex-row">
+      <div className="flex h-dvh w-screen flex-col overflow-hidden bg-[rgb(var(--surface-2))] md:flex-row">
         {/* Desktop only */}
         <div className="hidden md:contents">
           <AppRail />
