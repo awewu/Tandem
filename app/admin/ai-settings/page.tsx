@@ -1,7 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Save, Eye, EyeOff, RefreshCw, CheckCircle2, AlertTriangle, Loader2, Globe, BookOpen } from 'lucide-react';
+import { Save, Eye, EyeOff, RefreshCw, CheckCircle2, AlertTriangle, Loader2, Globe, BookOpen, Activity } from 'lucide-react';
+
+interface ProviderHealth {
+  healthy: boolean;
+  latencyMs?: number;
+  error?: string;
+}
 
 interface AiSettingsForm {
   gatewayEnabled: string;     // 'true'|'false'|''
@@ -217,9 +223,28 @@ export default function AiSettingsPage() {
   const [form, setForm] = useState<AiSettingsForm>(EMPTY);
   const [status, setStatus] = useState<'loading' | 'ok' | 'saving' | 'saved' | 'error'>('loading');
   const [errMsg, setErrMsg] = useState('');
+  const [health, setHealth] = useState<{ primary: string | null; providers: Record<string, ProviderHealth> } | null>(null);
+  const [healthBusy, setHealthBusy] = useState(false);
+  const [healthErr, setHealthErr] = useState('');
 
   const onChange = (k: keyof AiSettingsForm, v: string) =>
     setForm((prev) => ({ ...prev, [k]: v }));
+
+  async function handleHealthCheck() {
+    setHealthBusy(true);
+    setHealthErr('');
+    setHealth(null);
+    try {
+      const res = await fetch('/api/admin/ai-settings/health', { credentials: 'include', cache: 'no-store' });
+      const j = await res.json();
+      if (!res.ok) { setHealthErr(j.error ?? `HTTP ${res.status}`); return; }
+      setHealth(j);
+    } catch (e) {
+      setHealthErr((e as Error).message);
+    } finally {
+      setHealthBusy(false);
+    }
+  }
 
   useEffect(() => {
     fetch('/api/admin/ai-settings', { credentials: 'include', cache: 'no-store' })
@@ -283,21 +308,62 @@ export default function AiSettingsPage() {
             留空字段将沿用服务器环境变量兜底。
           </p>
         </div>
-        <button
-          onClick={handleSave}
-          disabled={status === 'saving'}
-          className="flex items-center gap-2 px-4 py-2 rounded-md bg-brand-600 hover:bg-brand-700 text-white text-caption font-medium disabled:opacity-50 transition"
-        >
-          {status === 'saving' ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : status === 'saved' ? (
-            <CheckCircle2 className="w-4 h-4" />
-          ) : (
-            <Save className="w-4 h-4" />
-          )}
-          {status === 'saving' ? '保存中…' : status === 'saved' ? '已保存' : '保存'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleHealthCheck}
+            disabled={healthBusy}
+            className="flex items-center gap-2 px-4 py-2 rounded-md border border-hairline bg-surface-1 hover:bg-surface-2 text-ink-primary text-caption font-medium disabled:opacity-50 transition"
+            title="对当前已注册的所有模型各发一个最小 ping, 验证换底座/换中继后是否可达"
+          >
+            {healthBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Activity className="w-4 h-4" />}
+            {healthBusy ? '检测中…' : '测试连通性'}
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={status === 'saving'}
+            className="flex items-center gap-2 px-4 py-2 rounded-md bg-brand-600 hover:bg-brand-700 text-white text-caption font-medium disabled:opacity-50 transition"
+          >
+            {status === 'saving' ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : status === 'saved' ? (
+              <CheckCircle2 className="w-4 h-4" />
+            ) : (
+              <Save className="w-4 h-4" />
+            )}
+            {status === 'saving' ? '保存中…' : status === 'saved' ? '已保存' : '保存'}
+          </button>
+        </div>
       </div>
+
+      {(health || healthErr) && (
+        <div className="rounded-2xl border border-hairline bg-surface-1 p-4 space-y-2">
+          <div className="flex items-center gap-2 text-caption font-semibold text-ink-primary">
+            <Activity className="w-4 h-4 text-brand-500" />
+            连通性自检结果
+            {health?.primary && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-surface-3 text-ink-secondary font-mono">
+                网关首选 = {health.primary}
+              </span>
+            )}
+          </div>
+          {healthErr && <p className="text-footnote text-rose-600">{healthErr}</p>}
+          {health && Object.keys(health.providers).length === 0 && (
+            <p className="text-footnote text-ink-secondary">当前没有已注册的模型 provider — 请先在下方填好 Key/Base URL 并保存。</p>
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {health && Object.entries(health.providers).map(([name, h]) => (
+              <div key={name} className={`flex items-center justify-between rounded-md border px-3 py-1.5 text-footnote ${h.healthy ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-rose-500/30 bg-rose-500/5'}`}>
+                <span className="font-mono text-ink-primary">{name}</span>
+                {h.healthy ? (
+                  <span className="text-emerald-700 dark:text-emerald-400">✓ {h.latencyMs}ms</span>
+                ) : (
+                  <span className="text-rose-600 truncate max-w-[55%]" title={h.error}>✗ {h.error ?? '不可达'}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {status === 'error' && (
         <div className="flex items-center gap-2 rounded-2xl border border-danger bg-danger/5 px-4 py-3 text-caption text-danger">
