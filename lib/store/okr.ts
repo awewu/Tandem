@@ -8,6 +8,7 @@
  */
 
 import { create } from 'zustand';
+import { krProgress, objectiveProgress } from '../okr/progress';
 
 // #region 4 · OKR (UI layer; see lib/types/okr-tti.ts for server) ────
 // =============================================================
@@ -293,20 +294,6 @@ interface OKRStore {
   getActivities: (scope: 'objective' | 'kr', scopeId: string) => OKRActivity[];
 }
 
-function calcKRProgress(kr: KeyResult): number {
-  if (kr.type === 'binary') {
-    return kr.currentValue >= 1 ? 100 : 0;
-  }
-  if (kr.type === 'milestone') {
-    return Math.max(0, Math.min(100, Math.round(kr.currentValue)));
-  }
-  // numeric / percentage
-  const span = kr.targetValue - kr.startValue;
-  if (span === 0) return kr.currentValue >= kr.targetValue ? 100 : 0;
-  const pct = ((kr.currentValue - kr.startValue) / span) * 100;
-  return Math.max(0, Math.min(100, Math.round(pct)));
-}
-
 const _now = () => Date.now();
 
 // 默认周期：当前年 + 4 季度
@@ -566,21 +553,12 @@ export const useOKRStore = create<OKRStore>()(
       // ===== 计算 =====
       getKRProgress: (krId) => {
         const kr = get().keyResults.find((k) => k.id === krId);
-        return kr ? calcKRProgress(kr) : 0;
+        return kr ? krProgress(kr) : 0;
       },
       getObjectiveProgress: (objectiveId) => {
         const obj = get().objectives.find((o) => o.id === objectiveId);
         if (!obj) return 0;
-        if (obj.progressOverride != null) return obj.progressOverride;
-        const krs = get().keyResults.filter((k) => k.objectiveId === objectiveId);
-        if (krs.length === 0) return 0;
-        const totalWeight = krs.reduce((sum, k) => sum + (k.weight || 1), 0);
-        if (totalWeight === 0) return 0;
-        const weighted = krs.reduce(
-          (sum, k) => sum + calcKRProgress(k) * (k.weight || 1),
-          0
-        );
-        return Math.round(weighted / totalWeight);
+        return objectiveProgress(obj, get().keyResults);
       },
 
       // ===== Person.setCurrentUserId =====

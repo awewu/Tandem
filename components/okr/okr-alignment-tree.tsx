@@ -25,6 +25,7 @@
 import { useMemo } from 'react';
 import { useOKRStore, useOrgStore } from '@/lib/store';
 import { buildDeptIndex, resolveOwner as resolveOwnerSSOT } from '@/lib/org/ownership';
+import { objectiveProgress } from '@/lib/okr/progress';
 import { Badge } from '@/components/ui/badge';
 import {
   Network, AlertTriangle, Building2, User, Users, ChevronRight,
@@ -36,26 +37,6 @@ interface Props {
   selectedId?: string | null;
   cycleId: string;
   onSelect?: (objId: string) => void;
-}
-
-/** KR 加权平均 → Objective progress */
-function calcObjProgress(
-  obj: Objective,
-  keyResults: ReturnType<typeof useOKRStore.getState>['keyResults'],
-): number {
-  if (obj.progressOverride !== undefined && obj.progressOverride !== null) return obj.progressOverride;
-  const krs = keyResults.filter((k) => k.objectiveId === obj.id);
-  if (!krs.length) return 0;
-  const totalW = krs.reduce((s, k) => s + (k.weight || 0), 0) || krs.length;
-  let sum = 0;
-  for (const k of krs) {
-    const denom = k.targetValue - k.startValue;
-    const pct = Math.abs(denom) < 0.0001
-      ? (k.currentValue >= k.targetValue ? 100 : 0)
-      : Math.max(0, Math.min(100, ((k.currentValue - k.startValue) / denom) * 100));
-    sum += (pct * (k.weight || 1)) / (totalW || 1);
-  }
-  return Math.round(sum);
 }
 
 const DEPT_COLORS = [
@@ -135,7 +116,7 @@ export function OKRAlignmentTree({ selectedId, cycleId, onSelect }: Props) {
   }
 
   const renderNode = (obj: Objective, depth: number, parentOwner?: string): React.ReactNode => {
-    const progress = calcObjProgress(obj, keyResults);
+    const progress = objectiveProgress(obj, keyResults);
     const owner = resolveOwnerSSOT(obj.ownerId, { people, deptIndex });
     const color = owner.deptId
       ? deptColor.get(owner.deptId) ?? 'bg-slate-50 border-slate-200 text-slate-900'

@@ -15,6 +15,13 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useOKRStore, useOrgStore, type Objective, type KeyResult } from '@/lib/store';
+import { objectiveProgress } from '@/lib/okr/progress';
+import { objectiveScheduleRisk, type RiskBand } from '@/lib/okr/risk';
+import {
+  computeAdoptionRates,
+  objectivesPerPersonDist,
+  krsPerObjectiveDist,
+} from '@/lib/okr/adoption';
 import { buildDeptIndex, resolveOwner } from '@/lib/org/ownership';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -44,22 +51,8 @@ interface DeptStats {
   memberCount: number;
 }
 
-function calcObjectiveProgress(o: Objective, krs: KeyResult[]): number {
-  if (typeof o.progressOverride === 'number') return o.progressOverride;
-  const own = krs.filter((k) => k.objectiveId === o.id);
-  if (own.length === 0) return 0;
-  const totalW = own.reduce((s, k) => s + (k.weight || 1), 0);
-  let sum = 0;
-  for (const k of own) {
-    const range = k.targetValue - k.startValue;
-    const ratio = range === 0 ? 0 : (k.currentValue - k.startValue) / range;
-    sum += Math.max(0, Math.min(1, ratio)) * (k.weight || 1);
-  }
-  return Math.round((sum / totalW) * 100);
-}
-
 export default function OKRDashboardPage() {
-  const { cycles, objectives, keyResults, people } = useOKRStore();
+  const { cycles, objectives, keyResults, initiatives, people } = useOKRStore();
   const { departments } = useOrgStore();
 
   const [cycleId, setCycleId] = useState<string>(() =>
@@ -110,7 +103,7 @@ export default function OKRDashboardPage() {
       let offTrack = 0;
       let onTrack = 0;
       for (const o of deptOs) {
-        const prog = calcObjectiveProgress(o, keyResults);
+        const prog = objectiveProgress(o, keyResults);
         avgProg += prog;
         if (o.confidence === 'at-risk') atRisk++;
         else if (o.confidence === 'off-track') offTrack++;
@@ -151,7 +144,7 @@ export default function OKRDashboardPage() {
   const allWithProg = useMemo(
     () => cycleObjectives.map((o) => ({
       o,
-      progress: calcObjectiveProgress(o, keyResults),
+      progress: objectiveProgress(o, keyResults),
       ownerName: people.find((p) => p.id === o.ownerId)?.name ?? o.ownerId,
       deptName: ownerToDept.get(o.ownerId)?.deptName ?? '—',
     })),
@@ -165,6 +158,28 @@ export default function OKRDashboardPage() {
   const overallAvg = allWithProg.length > 0
     ? Math.round(allWithProg.reduce((s, x) => s + x.progress, 0) / allWithProg.length)
     : 0;
+
+  const activeCycle = useMemo(() => cycles.find((c) => c.id === cycleId), [cycles, cycleId]);
+
+  /** 组织级三率 (填写/对齐/执行分解) — 对标 Tita OKR 仪表盘 */
+  const rates = useMemo(
+    () => computeAdoptionRates({ objectives: cycleObjectives, keyResults, initiatives, people }),
+    [cycleObjectives, keyResults, initiatives, people],
+  );
+
+  /** 分布直方图 */
+  const distObj = useMemo(() => objectivesPerPersonDist(cycleObjectives, people), [cycleObjectives, people]);
+  const distKr = useMemo(() => krsPerObjectiveDist(cycleObjectives, keyResults), [cycleObjectives, keyResults]);
+
+  /** 客观进度风险 (时间基准线偏差) 分布 */
+  const scheduleRisk = useMemo(() => {
+    const counts: Record<RiskBand, number> = { 'on-track': 0, 'at-risk': 0, 'off-track': 0 };
+    for (const o of cycleObjectives) {
+      const r = objectiveScheduleRisk(o, activeCycle, keyResults);
+      if (r) counts[r.band]++;
+    }
+    return counts;
+  }, [cycleObjectives, activeCycle, keyResults]);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -261,6 +276,77 @@ export default function OKRDashboardPage() {
           </Card>
         ) : (
           <>
+            {/* 三率: 填写 / 对齐 / 执行分解 — 对标 Tita OKR 仪表盘 */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
+              <RateCard
+                label="OKR 填写率"
+                rate={rates.coverage}
+                detail={`${rates.peopleWithOkr} / ${rates.totalPeople} 人已制定 OKR`}
+              />
+              <RateCard
+                label="目标对齐率"
+                rate={rates.alignment}
+                detail={`${rates.alignedObjectives} / ${rates.totalObjectives} 个 O 挂了上级`}
+              />
+              <RateCard
+                label="执行分解率"
+                rate={rates.breakdown}
+                detail={`${rates.brokenDownObjectives} / ${rates.totalObjectives} 个 O 已拆到执行项`}
+              />
+            </div>
+
+            {/* 客观进度风险 (时间基准线偏差) + 分布 */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-caption flex items-center gap-1.5">
+                    <Clock className="h-4 w-4" />
+                    客观进度风险
+                    <span className="text-[10px] font-normal text-muted-foreground">按时间基准线偏差</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-1.5">
+                  <RiskLine label="在轨" count={scheduleRisk['on-track']} color="bg-emerald-500" />
+                  <RiskLine label="预警" count={scheduleRisk['at-risk']} color="bg-warning" />
+                  <RiskLine label="落后" count={scheduleRisk['off-track']} color="bg-rose-500" />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-caption">每人负责的 O 数分布</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <DistBar
+                    segments={[
+                      { label: '未设置', value: distObj.none, color: 'bg-slate-300' },
+                      { label: '1 个', value: distObj.one, color: 'bg-emerald-400' },
+                      { label: '2-4 个', value: distObj.twoToFour, color: 'bg-info' },
+                      { label: '5+ 个', value: distObj.fivePlus, color: 'bg-rose-400' },
+                    ]}
+                    unit="人"
+                  />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-caption">每个 O 下的 KR 数分布</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <DistBar
+                    segments={[
+                      { label: '未设置', value: distKr.none, color: 'bg-slate-300' },
+                      { label: '1-2 个', value: distKr.oneToTwo, color: 'bg-warning' },
+                      { label: '3-5 个', value: distKr.threeToFive, color: 'bg-emerald-400' },
+                      { label: '5+ 个', value: distKr.fivePlus, color: 'bg-rose-400' },
+                    ]}
+                    unit="个 O"
+                  />
+                </CardContent>
+              </Card>
+            </div>
+
             {/* 部门栅格 */}
             <Card className="mb-5">
               <CardHeader>
@@ -304,6 +390,71 @@ export default function OKRDashboardPage() {
             </div>
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+function RateCard({ label, rate, detail }: { label: string; rate: number; detail: string }) {
+  const color = rate >= 60 ? 'bg-emerald-500' : rate >= 30 ? 'bg-warning' : 'bg-rose-500';
+  const textColor = rate >= 60 ? 'text-emerald-600' : rate >= 30 ? 'text-warning' : 'text-rose-600';
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="text-caption text-muted-foreground">{label}</div>
+        <div className={`text-title-3 font-semibold tabular-nums mt-0.5 ${textColor}`}>{rate}%</div>
+        <div className="h-1.5 bg-slate-200 rounded overflow-hidden mt-2">
+          <div className={`h-full ${color} transition-all`} style={{ width: `${rate}%` }} />
+        </div>
+        <div className="text-[10px] text-muted-foreground mt-1.5">{detail}</div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function RiskLine({ label, count, color }: { label: string; count: number; color: string }) {
+  return (
+    <div className="flex items-center gap-2 text-footnote">
+      <span className={`h-2.5 w-2.5 rounded-full ${color}`} />
+      <span className="flex-1 text-muted-foreground">{label}</span>
+      <span className="font-mono font-semibold tabular-nums">{count}</span>
+    </div>
+  );
+}
+
+function DistBar({
+  segments, unit,
+}: {
+  segments: { label: string; value: number; color: string }[];
+  unit: string;
+}) {
+  const total = segments.reduce((s, x) => s + x.value, 0);
+  return (
+    <div>
+      <div className="flex h-3 rounded overflow-hidden bg-slate-100">
+        {total === 0 ? (
+          <div className="flex-1" />
+        ) : (
+          segments.map((s) =>
+            s.value > 0 ? (
+              <div
+                key={s.label}
+                className={s.color}
+                style={{ width: `${(s.value / total) * 100}%` }}
+                title={`${s.label}: ${s.value} ${unit}`}
+              />
+            ) : null,
+          )
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-x-3 gap-y-1 mt-2">
+        {segments.map((s) => (
+          <div key={s.label} className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+            <span className={`h-2 w-2 rounded-full ${s.color}`} />
+            <span className="flex-1">{s.label}</span>
+            <span className="font-mono">{s.value}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
