@@ -156,6 +156,12 @@ export interface Initiative {
   priority: 'low' | 'medium' | 'high' | 'urgent';
   startDate?: number;
   dueDate?: number;
+  /**
+   * 工作法周锚点 (ms, 周起始 00:00). 把行动项"钉"到某一周计划执行.
+   * null/缺省 = backlog. 桶位 (本周/未来四周/遗留) 由 weekOf vs now 派生 (lib/okr/work-method.ts).
+   * 落库: Server.Initiative.weekOf (KV/JSON, 无迁移).
+   */
+  weekOf?: number;
   /** 预计/实际工时 (小时) */
   estimatedHours?: number;
   actualHours?: number;

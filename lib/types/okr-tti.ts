@@ -236,6 +236,11 @@ export interface Initiative {
   decisionCardIds?: string[];
   status: 'planned' | 'in_progress' | 'done' | 'blocked';
   dueDate?: string;
+  /**
+   * 工作法周锚点 (ms, 周起始 00:00). 用户把行动项"钉"到某一周计划执行.
+   * null/缺省 = backlog (未规划). 桶位 (本周/未来四周/遗留) 由 weekOf vs now 派生, 防漂移.
+   */
+  weekOf?: number;
   /** 多租户隔离 (默认 'default') */
   tenantId?: string;
 }

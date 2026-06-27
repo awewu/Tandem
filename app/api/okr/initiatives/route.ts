@@ -62,6 +62,7 @@ export async function POST(req: NextRequest) {
       decisionCardIds: Array.isArray(body.decisionCardIds) ? body.decisionCardIds : [],
       status: body.status ?? 'planned',
       dueDate: body.dueDate ?? undefined,
+      weekOf: typeof body.weekOf === 'number' ? body.weekOf : undefined,
     });
     // B3 执行联动: 新建 Initiative 改变完成率分母 → 重算 KR → 向上 rollup.
     let execRollup = null;

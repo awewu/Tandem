@@ -35,6 +35,7 @@ import {
   Workflow,
   Clock3,
   CalendarDays,
+  CalendarCheck,
   Users,
   Bot,
   Cpu,
@@ -122,7 +123,7 @@ export const NAV_MODULES: NavModule[] = [
     tagline: '围绕 OKR 推进, 战略执行与目标达成的核心基座',
     icon: Target,
     visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
-    pathPrefixes: ['/okr', '/insights', '/analytics', '/kpi', '/tti', '/report'],
+    pathPrefixes: ['/okr', '/work-method', '/insights', '/analytics', '/kpi', '/tti', '/report'],
     items: [
       // KPI = BSC 底线绩效结果 (年度硬指标, 100% 才达标, 与奖金挂钩; KPI 只关联 BSC). 只读.
       { name: '绩效记分卡',         href: '/kpi',              icon: BarChart3,      group: 'KPI · BSC 底线绩效' },
@@ -130,6 +131,7 @@ export const NAV_MODULES: NavModule[] = [
       { name: 'TTI（Target to Improve）牵引', href: '/tti',     icon: Activity,       group: '目标与关键成果法 OKR' },
       // 目标管理 (精简为符合 Tita 极简逻辑 of 3步流程)
       { name: '我的目标与对齐',    href: '/okr?owner=me',     icon: Target,         group: '目标与关键成果法 OKR' },
+      { name: '工作法 · 周节奏',   href: '/work-method',      icon: CalendarCheck,  group: '目标与关键成果法 OKR' },
       { name: 'OKR 5 层级联树',    href: '/okr/cascade',      icon: Network,        group: '目标与关键成果法 OKR' },
       // 双入口: 战略项目走三省六部执行协同 (主高亮归 Tandem 议事模块, 此处仅可点直达).
       { name: '战略项目 · 三省六部', href: '/governance/three-departments', icon: Network, group: '目标与关键成果法 OKR' },

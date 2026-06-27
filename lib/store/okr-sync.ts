@@ -146,6 +146,7 @@ export function mapServerInitiative(i: Server.Initiative): Initiative {
     status: mapInitiativeStatus(i.status),
     priority: 'medium',
     dueDate: i.dueDate ? toMs(i.dueDate) : undefined,
+    weekOf: typeof i.weekOf === 'number' ? i.weekOf : undefined,
     tags: [],
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -350,6 +351,7 @@ export async function persistCreateInitiative(init: {
   ownerId?: string;
   status?: Initiative['status'];
   dueDate?: number;
+  weekOf?: number;
 }): Promise<string> {
   const j = await postJson('/api/okr/initiatives', {
     keyResultId: init.keyResultId,
@@ -357,8 +359,25 @@ export async function persistCreateInitiative(init: {
     ownerId: realOwnerId(init.ownerId),
     status: clientInitiativeStatusToServer(init.status),
     dueDate: init.dueDate ? new Date(init.dueDate).toISOString() : undefined,
+    weekOf: typeof init.weekOf === 'number' ? init.weekOf : undefined,
   });
   return j?.initiative?.id as string;
+}
+
+/**
+ * 更新 Initiative (工作法钉选周锚点 / 改状态 / 改截止日) → 落库 PATCH。
+ * weekOf 传 null 表示移回 backlog (取消周规划)。
+ */
+export async function persistUpdateInitiative(
+  id: string,
+  patch: { weekOf?: number | null; status?: Initiative['status']; dueDate?: number | null; title?: string },
+): Promise<void> {
+  const body: Record<string, unknown> = {};
+  if ('weekOf' in patch) body.weekOf = patch.weekOf; // number | null
+  if ('status' in patch && patch.status) body.status = clientInitiativeStatusToServer(patch.status);
+  if ('dueDate' in patch) body.dueDate = patch.dueDate ? new Date(patch.dueDate).toISOString() : null;
+  if ('title' in patch && patch.title != null) body.title = patch.title;
+  await postJson(`/api/okr/initiatives/${encodeURIComponent(id)}`, body, 'PATCH');
 }
 
 /**
