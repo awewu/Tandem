@@ -59,6 +59,13 @@ export interface ToolLoopInput {
   maxTokens?: number;
   /** ai trace id, 写入 metadata 关联 LlmUsageLog */
   aiTraceId?: string;
+  /**
+   * 是否把已注册的 MCP server 工具一并下发给 LLM (B-002 通路).
+   * 默认 false — 现有调用方零行为变化. 开启后:
+   *   - getAllMcpTools 的 schema 并入 tools 列表
+   *   - 命中的 MCP tool_call 走 invokeMcp (其内部已套 Skill Gateway 4 道闸), 不走 skillRegistry
+   */
+  includeMcpTools?: boolean;
 }
 
 export interface ToolLoopResult {
@@ -86,6 +93,8 @@ export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult>
     const { getRouter } = await import('@/lib/boot');
     const router = getRouter();
     const { skillRegistry } = await import('@/lib/taf/skills/registry');
+    // B-002: 按需接入 MCP 工具 (注册表 + 4 道闸 gate 已在 mcp-bridge 内)
+    const { listMcpServers, invokeMcp } = await import('./mcp-bridge');
 
     // 1. 拼工具 schemas (从白名单 skill 取)
     //    ⚠️ OpenAI/DeepSeek function-calling 规范要求 name 匹配 ^[a-zA-Z0-9_-]+$,
@@ -107,6 +116,27 @@ export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult>
         } satisfies ToolSchema;
       })
       .filter((s): s is ToolSchema => Boolean(s));
+
+    // B-002: 把已注册且启用的 MCP server 工具并入 tools, 并记下 sanitized name → invokeMcp id 映射.
+    //   sanitized name 形如 'github__list_issues' (与 sanitizeToolName 一致), 回传时据此路由到 invokeMcp。
+    const mcpInvokeById = new Map<string, string>();
+    if (input.includeMcpTools) {
+      for (const server of listMcpServers()) {
+        if (!server.enabled) continue;
+        for (const t of server.tools) {
+          const safeName = sanitizeToolName(`${server.name}__${t.function.name}`);
+          mcpInvokeById.set(safeName, `${server.name}.${t.function.name}`);
+          tools.push({
+            type: 'function',
+            function: {
+              ...t.function,
+              name: safeName,
+              description: `[MCP:${server.name}] ${t.function.description ?? ''}`,
+            },
+          } satisfies ToolSchema);
+        }
+      }
+    }
 
     if (tools.length === 0) {
       logger.warn(
@@ -165,8 +195,6 @@ export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult>
 
       // 顺序执行每个 tool_call, 把 result 喂回 messages (role='tool')
       for (const tc of toolCalls) {
-        // 模型回传的 name 可能是 sanitize 后的形式 (点→下划线); 还原回真实 skill id
-        const skillId = nameToSkillId.get(tc.function.name) ?? tc.function.name;
         let parsedArgs: Record<string, unknown> = {};
         try {
           parsedArgs = tc.function.arguments
@@ -178,6 +206,40 @@ export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult>
 
         const invStart = Date.now();
         let invocation: ToolInvocationRecord;
+
+        // B-002 分支: 命中 MCP 工具 → 走 invokeMcp (内部已套 4 道闸), 不经 skillRegistry / 白名单
+        const mcpId = mcpInvokeById.get(tc.function.name);
+        if (mcpId) {
+          const mcpCacheKey = `mcp:${mcpId}:${stableStringify(parsedArgs)}`;
+          if (resultCache.has(mcpCacheKey)) {
+            const cached = resultCache.get(mcpCacheKey)!;
+            invocation = { ...cached, toolCallId: tc.id, cached: true, latencyMs: 0 };
+          } else {
+            const mcpRes = await invokeMcp(mcpId, parsedArgs, {
+              actorUserId: input.actorUserId,
+              tenantId: input.tenantId ?? 'default',
+              isProxy: input.isProxy ?? false,
+            });
+            invocation = {
+              toolCallId: tc.id,
+              name: mcpId,
+              args: parsedArgs,
+              result: mcpRes.ok
+                ? truncate(JSON.stringify(mcpRes.data ?? null), 1500)
+                : `[ERROR] ${mcpRes.error}`,
+              ok: mcpRes.ok,
+              error: mcpRes.error,
+              latencyMs: Date.now() - invStart,
+            };
+            resultCache.set(mcpCacheKey, invocation);
+          }
+          toolInvocations.push(invocation);
+          messages.push({ role: 'tool', content: invocation.result, toolCallId: tc.id });
+          continue;
+        }
+
+        // 模型回传的 name 可能是 sanitize 后的形式 (点→下划线); 还原回真实 skill id
+        const skillId = nameToSkillId.get(tc.function.name) ?? tc.function.name;
         const cacheKey = `${skillId}:${stableStringify(parsedArgs)}`;
 
         if (!input.toolset.includes(skillId)) {
