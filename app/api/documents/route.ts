@@ -35,6 +35,13 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   const ctx = createAppContext();
   const svc = new DocumentService(ctx);
   // P0-A: tenantId 一律取自鉴权上下文, 绝不接受 body 注入 (防跨租户写).
-  const doc = await svc.create({ ...body, tenantId: auth.tenantId, ownerId: body.ownerId ?? auth.userId });
+  const doc = await svc.create({
+    title: body.title,
+    content: body.content,
+    type: body.type,
+    permissions: body.permissions,
+    ownerId: body.ownerId ?? auth.userId,
+    tenantId: auth.tenantId,
+  });
   return NextResponse.json(doc, { status: 201 });
 });

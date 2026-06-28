@@ -27,6 +27,15 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   const ctx = createAppContext();
   const svc = new DriveService(ctx);
   // P0-A: tenantId 一律取自鉴权上下文, 绝不接受 body 注入 (防跨租户写).
-  const file = await svc.create({ ...body, tenantId: auth.tenantId, ownerId: body.ownerId ?? auth.userId });
+  const file = await svc.create({
+    name: body.name,
+    mimeType: body.mimeType,
+    size: body.size,
+    parentId: body.parentId ?? null,
+    storageKey: body.storageKey,
+    isFolder: body.isFolder,
+    ownerId: body.ownerId ?? auth.userId,
+    tenantId: auth.tenantId,
+  });
   return NextResponse.json(file, { status: 201 });
 });
