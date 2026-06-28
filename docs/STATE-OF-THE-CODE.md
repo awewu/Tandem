@@ -1,15 +1,42 @@
 # Tandem 当前真实状态 (Single Source of Truth)
 
-> **生成**: 2026-05-20 · **基准 commit**: A2 cutover (`201aff8` 之后)
-> **取代**: `COMMERCIAL-READINESS-GAP.md` (2026-05-12) 的过时项 + 合并 `A2-PROGRESS.md` 终态
-> **维护**: 每次大变动后人工 refresh 此表; 当事实与下表不一致时, **以代码为准**, 改本文档
+> **刷新**: 2026-06-28 · **基准 commit**: `c47664b` (fix build) · 上游 `8118e47` (okr lifecycle)
+> **历史基线**: 2026-05-20 A2 cutover (下文 §1–§10 多为该期快照, 已过期约 5 周, 阅读时以 §0.1 为准)
+> **维护**: 每次大变动后人工 refresh; 当事实与下表不一致时, **以代码为准**, 改本文档
 
 ---
 
-## §0 一句话现状
+## §0.1 2026-06-28 真值刷新 (Beta 上线就绪 · 权威)
+
+> 本节为最新实测真值, 覆盖下方 2026-05-20 快照中冲突的旧表述。
+
+**验收门控 (全绿)**:
+- `tsc --noEmit` → **0 错** (含 vendor/paperclip 已清零)
+- `vitest run` → **1276 passed / 1 skipped (共 1277), 130 文件**
+- `NEXT_OUTPUT=standalone next build` → **成功** (修复 `app/admin/mcp-servers/page.tsx:172` 未转义引号阻塞项, commit `c47664b`)
+- VI: IM 模块仅 1 处 `bg-white` (开关滑块旋钮, 物理白, 放行) · 空架子 `NOT IMPLEMENTED` = 0 · 代码内 `db:push` 调用 = 0
+- 宪章红线: 双轨分离 ✅ · 宪法A (`lib/ontology/propose-action.ts:74-76` 以 `COMPANY_BRAIN_PERSONA_ID` 拦截中央AI做 proposer) ✅ · baseline-guard 走 `getActiveBrainVersion` ✅
+
+**Beta 部署 (目标主机 = 本 mac)**:
+- 部署包: `/Users/tiechuishan/Documents/Tandem AI/tandem-deploy.zip` · 42,466,694 bytes · 5276 条目 · SHA256 `678e7d466f3e5188285ff6dd6ea9310ccc97df6f464f89e6dd73045d5cff8dcd` (结构对齐 `package-deploy.ps1`, mac 用 rsync/zip 复刻)
+- **已上线**: `npx next start -H 0.0.0.0 -p 3000` 运行中 · Ready 261ms · `/login` 200 · 受保护 API 401 (auth gate 生效, 无 500) · PG `localhost:5432` 连通 · `.env.local` 含全部密钥
+- 启动脚本: 见 `docs/RUN-ON-MAC.md`
+
+**5-20 → 6-28 期间主要新增** (git log):
+- 搭子手抄 Shouchao 重度迭代 (对标 Notion: 块编辑/双链/语义检索/PDF·Word 导入提炼/跨笔记 Ask)
+- 中央AI: MCP server 注册表持久化 + Admin 配置 UI (B-002 通路, runToolLoop 经 4 道闸调 MCP) · 浮窗多模态传图 + 对话体验升级
+- OKR: 进度 SSOT 重构 + 客观风险 EVM + 健康看板三率/分布 (对标 Tita) + Objective 生命周期
+- 工作法周节奏驾驶舱 · 首页 AI 风险驾驶舱 · 组织架构 CRUD · 知识库外网抓取 · 具名专家子代理库
+- 邮件移动端/附件下载
+
+**§23 工程级基线 (200 人)**: 跨租户 P0 + P1-A/C 已修并有对抗性测试; 统一隔离层 `lib/multi-tenant/with-tenant-scope.ts` 已接 ~23 路由。剩余: P1-B 热路径 `list()` 下推 · P2-B `documents/drive/notifications/calendar` create 字段白名单。
+
+---
+
+## §0 一句话现状 (2026-05-20 快照, 已被 §0.1 更新)
 
 > **后端 ~60% 真**, **前端 shell 90% 全**, **故事链断点 = A3 跨模块 wire (3–4d)**.
-> P0 中 DB 持久化 ✅ / Docker ✅; **审计日志 + 备份 + edge auth secret 是剩余 P0 缺**.
+> P0 中 DB 持久化 ✅ / Docker ✅; 审计日志 + 备份已于 2026-05-21 补齐 (见 §10), edge secret 待复核.
 
 ---
 
