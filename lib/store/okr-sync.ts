@@ -49,6 +49,7 @@ export function mapServerCycle(c: Server.Cycle): Cycle {
 }
 
 /** 服务端 ObjectiveStatus ('abandoned') → 客户端 ('archived') */
+// 服务端 → 客户端: 仅 abandoned↔archived 改名, 其余 (draft/submitted/active/paused/completed) 同名直通.
 export function mapObjectiveStatus(s: Server.ObjectiveStatus): ObjectiveStatus {
   return s === 'abandoned' ? 'archived' : s;
 }
@@ -241,10 +242,11 @@ function realOwnerId(id?: string | null): string | undefined {
   return id && id.startsWith('user_') ? id : undefined;
 }
 
-/** 客户端 ObjectiveStatus → 服务端 ('draft' 回落 active, 'archived' → abandoned) */
-function clientObjStatusToServer(s?: ObjectiveStatus): Server.ObjectiveStatus {
+/** 客户端 → 服务端: archived→abandoned 改名; 其余 (draft/submitted/active/paused/completed) 同名直通. */
+// 修复: 旧实现把 draft 强制改成 active, 导致草稿经同步往返被静默丢失. (exported 供回归测试)
+export function clientObjStatusToServer(s?: ObjectiveStatus): Server.ObjectiveStatus {
+  if (!s) return 'active';
   if (s === 'archived') return 'abandoned';
-  if (s === 'draft' || !s) return 'active';
   return s as Server.ObjectiveStatus;
 }
 

@@ -119,10 +119,11 @@ const CONFIDENCE_FROM_CN: Record<string, Confidence> = {
 };
 
 const OBJ_STATUS_TO_CN: Record<ObjectiveStatus, string> = {
-  draft: '草稿', active: '进行中', paused: '暂停', completed: '已完成', archived: '已归档',
+  draft: '草稿', submitted: '待审批', active: '进行中', paused: '暂停', completed: '已完成', archived: '已归档',
 };
 const OBJ_STATUS_FROM_CN: Record<string, ObjectiveStatus> = {
   '草稿': 'draft', 'draft': 'draft',
+  '待审批': 'submitted', 'submitted': 'submitted', '审批中': 'submitted',
   '进行中': 'active', 'active': 'active', '激活': 'active',
   '暂停': 'paused', 'paused': 'paused',
   '已完成': 'completed', 'completed': 'completed', '完成': 'completed',

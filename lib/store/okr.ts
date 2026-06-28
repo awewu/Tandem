@@ -19,7 +19,8 @@ import { krProgress, objectiveProgress } from '../okr/progress';
 // 兼容字段：每个实体保留 titaId 便于与 Tita 数据来回切换
 
 export type Confidence = 'on-track' | 'at-risk' | 'off-track';
-export type ObjectiveStatus = 'draft' | 'active' | 'paused' | 'completed' | 'archived';
+// draft 草稿 → submitted 待审批 → active 进行中 → paused / completed / archived(服务端 abandoned).
+export type ObjectiveStatus = 'draft' | 'submitted' | 'active' | 'paused' | 'completed' | 'archived';
 export type KRType = 'numeric' | 'percentage' | 'milestone' | 'binary';
 export type CycleType = 'year' | 'half' | 'quarter' | 'month';
 export type Cadence = 'weekly' | 'biweekly' | 'monthly';

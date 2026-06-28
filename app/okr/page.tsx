@@ -42,6 +42,10 @@ import { AskBossButton } from '@/components/boss-ai';
 import { checkQuality } from '@/lib/okr/quality';
 import { calcObjectiveScore } from '@/lib/okr/scoring';
 import { objectivePulse, pulseLabel, summarizePulses, CADENCE_LABEL } from '@/lib/okr/cadence';
+import {
+  availableActions, applyTransition, TRANSITIONS,
+  type LifecycleAction, type LifecycleActor,
+} from '@/lib/okr/objective-lifecycle';
 import { useCurrentUserId, useAuthStore } from '@/lib/hooks/use-current-user';
 import {
   hydrateOkrFromApi,
@@ -59,11 +63,77 @@ const CONFIDENCE_META: Record<Confidence, { label: string; color: string; ring: 
   'off-track': { label: '严重偏离', color: 'bg-danger', ring: 'ring-danger/40', icon: AlertCircle },
 };
 const STATUS_LABEL: Record<ObjectiveStatus, string> = {
-  draft: '草稿', active: '进行中', paused: '暂停', completed: '已完成', archived: '已归档',
+  draft: '草稿', submitted: '待审批', active: '进行中', paused: '暂停', completed: '已完成', archived: '已归档',
+};
+// 审批漏斗状态视觉区分: 草稿/待审批用色块突出, 其余沿用默认 secondary.
+const STATUS_BADGE_CLASS: Partial<Record<ObjectiveStatus, string>> = {
+  draft: 'bg-muted text-muted-foreground border-dashed',
+  submitted: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30',
 };
 const KR_TYPE_LABEL: Record<KRType, string> = {
   numeric: '数值', percentage: '百分比', milestone: '里程碑', binary: '是否完成',
 };
+
+// 可审批角色 (employee 之外的管理序列) — 与 nav-modules.visibleTo 口径一致.
+const APPROVER_ROLES = ['manager', 'steward', 'admin', 'champion', 'owner'];
+
+// =============================================================
+// 审批漏斗动作条 (对标 Tita 目标审批): 草稿→提交→通过/打回.
+// owner 看到 提交/放弃; approver 看到 通过/打回; 角色叠加取并集.
+// 乐观更新 (updateObjective 立即改 + 记日志), 落库失败回滚.
+// =============================================================
+function ApprovalActions({ objective }: { objective: Objective }) {
+  const updateObjective = useOKRStore((s) => s.updateObjective);
+  const meUserId = useAuthStore((s) => s.user?.id);
+  const roles = useAuthStore((s) => s.user?.roles ?? []);
+  const [busy, setBusy] = useState<LifecycleAction | null>(null);
+
+  const isOwner = !!meUserId && objective.ownerId === meUserId;
+  const isApprover = roles.some((r) => APPROVER_ROLES.includes(r));
+
+  const acts = new Set<LifecycleAction>();
+  if (isOwner) availableActions(objective.status, 'owner' as LifecycleActor).forEach((a) => acts.add(a));
+  if (isApprover) availableActions(objective.status, 'approver' as LifecycleActor).forEach((a) => acts.add(a));
+  // 仅保留与审批漏斗强相关的动作 (提交/通过/打回); 暂停/完成/放弃走详情编辑表单, 不在动作条重复.
+  const FUNNEL: LifecycleAction[] = ['submit', 'approve', 'reject'];
+  const list = FUNNEL.filter((a) => acts.has(a));
+  if (list.length === 0) return null;
+
+  const run = async (action: LifecycleAction) => {
+    const to = applyTransition(action);
+    const prev = objective.status;
+    setBusy(action);
+    updateObjective(objective.id, { status: to });
+    try {
+      await persistUpdateObjective(objective.id, { status: to });
+    } catch (err: any) {
+      updateObjective(objective.id, { status: prev });
+      alert(`操作失败：${err?.message || err}`);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      {list.map((a) => {
+        const primary = a === 'submit' || a === 'approve';
+        return (
+          <Button
+            key={a}
+            size="sm"
+            variant={primary ? 'default' : 'outline'}
+            disabled={busy != null}
+            onClick={() => run(a)}
+            className="h-7 text-xs"
+          >
+            {busy === a ? '处理中…' : TRANSITIONS[a].label}
+          </Button>
+        );
+      })}
+    </div>
+  );
+}
 
 function ProgressBar({ value, confidence }: { value: number; confidence?: Confidence }) {
   const w = Math.max(0, Math.min(100, value));
@@ -452,7 +522,7 @@ export default function OKRPage() {
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-medium text-caption truncate">{obj.title}</span>
                 <ConfidencePill confidence={obj.confidence} />
-                <Badge variant="secondary" className="text-[10px]">{STATUS_LABEL[obj.status]}</Badge>
+                <Badge variant="secondary" className={cn('text-[10px]', STATUS_BADGE_CLASS[obj.status])}>{STATUS_LABEL[obj.status]}</Badge>
                 <PulseBadge pulse={pulseMap.get(obj.id)} />
                 {obj.tags.map((t) => (
                   <Badge key={t} variant="outline" className="text-[10px]">{t}</Badge>
@@ -555,7 +625,7 @@ export default function OKRPage() {
             </div>
             <div className="flex items-center gap-2 flex-wrap mt-2">
               <ConfidencePill confidence={selected.confidence} />
-              <Badge variant="secondary">{STATUS_LABEL[selected.status]}</Badge>
+              <Badge variant="secondary" className={cn(STATUS_BADGE_CLASS[selected.status])}>{STATUS_LABEL[selected.status]}</Badge>
               <PulseBadge pulse={pulseMap.get(selected.id)} />
               <Badge variant="outline" className="gap-1">
                 <User className="h-2.5 w-2.5" /> {ownerLabel(selected.ownerId)}
@@ -565,6 +635,9 @@ export default function OKRPage() {
                   <Tag className="h-2.5 w-2.5" />{t}
                 </Badge>
               ))}
+            </div>
+            <div className="mt-2">
+              <ApprovalActions objective={selected} />
             </div>
             <div className="mt-3">
               <div className="flex justify-between text-footnote mb-1">
@@ -1053,7 +1126,7 @@ export default function OKRPage() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium text-caption">{obj.title}</span>
                         <ConfidencePill confidence={obj.confidence} />
-                        <Badge variant="secondary" className="text-[10px]">{STATUS_LABEL[obj.status]}</Badge>
+                        <Badge variant="secondary" className={cn('text-[10px]', STATUS_BADGE_CLASS[obj.status])}>{STATUS_LABEL[obj.status]}</Badge>
                         <PulseBadge pulse={pulseMap.get(obj.id)} />
                       </div>
                       <div className="flex items-center gap-2 mt-1">

@@ -43,7 +43,10 @@ export interface Cycle {
 
 export type ObjectiveLevel = 'company' | 'team' | 'individual';
 
-export type ObjectiveStatus = 'active' | 'paused' | 'completed' | 'abandoned';
+// 生命周期 (对标 Tita 审批漏斗): draft 草稿 → submitted 待审批 → active 进行中
+// → paused 暂停 / completed 完成 / abandoned 放弃(客户端镜像为 archived).
+// 注意: draft/submitted 之前缺失, 导致草稿经同步往返被静默改写为 active (数据丢失). 已修复.
+export type ObjectiveStatus = 'draft' | 'submitted' | 'active' | 'paused' | 'completed' | 'abandoned';
 export type Confidence = 'on-track' | 'at-risk' | 'off-track';
 
 export interface Objective {
