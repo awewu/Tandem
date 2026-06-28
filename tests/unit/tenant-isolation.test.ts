@@ -314,6 +314,82 @@ describe('P2-B · persona PATCH 拒绝治理字段越权注入 (防 AI 授权提
   });
 });
 
+describe('P2-B · create 路由字段白名单 (拒绝 ...body 任意字段/跨租户/伪造 id 注入)', () => {
+  it('/api/documents POST: 注入 id/tenantId/archivedAt 被丢弃, tenantId 取鉴权上下文', async () => {
+    const { POST } = await import('@/app/api/documents/route');
+    const res = await POST(
+      jsonReq('http://test.local/api/documents', {
+        title: '我的文档',
+        type: 'doc',
+        // 攻击载荷: 伪造 id / 跨租户 / 注入软删字段 / 越权 owner
+        id: 'forged-id',
+        tenantId: 'other-tenant',
+        archivedAt: '2000-01-01',
+        ownerId: 'victim-user',
+      }),
+    );
+    expect(res.status).toBe(201);
+    const doc = await res.json();
+    expect(doc.tenantId).toBe('default');
+    expect(doc.id).not.toBe('forged-id');
+    expect(doc.archivedAt ?? null).toBeNull();
+    // ownerId 显式允许 body 指定 (协作场景), 但 tenant/id 不可伪造
+    expect(doc.title).toBe('我的文档');
+  });
+
+  it('/api/calendar POST: 注入 id/tenantId 被丢弃', async () => {
+    const { POST } = await import('@/app/api/calendar/route');
+    const res = await POST(
+      jsonReq('http://test.local/api/calendar', {
+        title: '周会',
+        startAt: '2026-07-01T02:00:00.000Z',
+        endAt: '2026-07-01T03:00:00.000Z',
+        id: 'forged-id',
+        tenantId: 'other-tenant',
+        archivedAt: '2000-01-01',
+      }),
+    );
+    expect(res.status).toBe(201);
+    const ev = await res.json();
+    expect(ev.tenantId).toBe('default');
+    expect(ev.id).not.toBe('forged-id');
+    expect(ev.archivedAt ?? null).toBeNull();
+  });
+
+  it('/api/notifications POST: 注入 id/tenantId 被丢弃', async () => {
+    const { POST } = await import('@/app/api/notifications/route');
+    const res = await POST(
+      jsonReq('http://test.local/api/notifications', {
+        userId: 'demo-user',
+        type: 'system',
+        title: '提醒',
+        id: 'forged-id',
+        tenantId: 'other-tenant',
+      }),
+    );
+    expect(res.status).toBe(201);
+    const n = await res.json();
+    expect(n.tenantId).toBe('default');
+    expect(n.id).not.toBe('forged-id');
+  });
+
+  it('/api/drive POST: 注入 id/tenantId 被丢弃', async () => {
+    const { POST } = await import('@/app/api/drive/route');
+    const res = await POST(
+      jsonReq('http://test.local/api/drive', {
+        name: '报告.pdf',
+        storageKey: 'k/report.pdf',
+        id: 'forged-id',
+        tenantId: 'other-tenant',
+      }),
+    );
+    expect(res.status).toBe(201);
+    const file = await res.json();
+    expect(file.tenantId).toBe('default');
+    expect(file.id).not.toBe('forged-id');
+  });
+});
+
 describe('P1 · documents/[id]/permissions 需要鉴权 (此前完全无 auth)', () => {
   it('未登录 (ALLOW_DEMO_AUTH=0) → 401, 不改 ACL', async () => {
     process.env.ALLOW_DEMO_AUTH = '0';
