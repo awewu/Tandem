@@ -169,7 +169,7 @@ export default function McpServersPage() {
 
       <div className="space-y-2">
         {servers.length === 0 && !draft && (
-          <p className="text-caption text-ink-secondary text-center py-8">还没有配置 MCP server。点"新增"接入第一个。</p>
+          <p className="text-caption text-ink-secondary text-center py-8">还没有配置 MCP server。点&ldquo;新增&rdquo;接入第一个。</p>
         )}
         {servers.map((s) => (
           <div key={s.name} className="rounded-2xl border border-hairline bg-surface-1 p-4 flex items-start justify-between gap-4">
