@@ -48,7 +48,8 @@ describe('transformMessageForWire · prompt caching', () => {
     const parts = wire.content as Array<Record<string, unknown>>;
     expect(parts).toHaveLength(3);
     expect(parts[0]).toEqual({ type: 'text', text: 'first' }); // 无 cache_control
-    expect(parts[1]).toEqual({ type: 'image_url', imageUrl: { url: 'http://x' } });
+    // 多模态修复: 内部 camelCase imageUrl 必须转成 OpenAI 线协议 snake_case image_url
+    expect(parts[1]).toEqual({ type: 'image_url', image_url: { url: 'http://x' } });
     expect(parts[2]).toEqual({
       type: 'text',
       text: 'last big block',

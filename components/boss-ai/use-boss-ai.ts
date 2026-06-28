@@ -15,14 +15,31 @@ import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
 
 export type BossAiFeedbackOutcome = 'pending' | 'adopted' | 'modified' | 'overruled';
 
+/** §思考轨迹 · 后端流来的一步真实工作 (查知识库 / 联网 / 多步推理 / 核对 OKR …) */
+export interface BossAiTraceStep {
+  /** 稳定 key, 用于 upsert (同 phase 覆盖) */
+  phase: string;
+  label: string;
+  detail?: string;
+  /** 真实调用的工具 (已转中文标签) */
+  tools?: string[];
+  /** §引用 chips · 联网来源 (title + url), 前端渲染为可点击链接 */
+  sources?: Array<{ title: string; url: string }>;
+  ts: number;
+}
+
 export interface BossAiMessage {
   role: 'user' | 'assistant';
   content: string;
+  /** §多模态 · 用户随消息附的图片 (data:image base64 或 http(s) url). 仅 user 消息有意义. */
+  images?: string[];
   createdAt: number;
   /** Stream 期间的临时标识, 完成后置 false */
   streaming?: boolean;
   /** 首字节前的进度提示 (正在查公司数据…); 有 content 后清空 */
   status?: string;
+  /** §思考轨迹 · 累积的工作步骤 (Gemini 式可见思考). 仅 assistant 消息有意义. */
+  steps?: BossAiTraceStep[];
   /** §CA-13 设施: 服务端 recordDecision 后的 decision.id, 客户端拿它去 POST /api/company-brain/feedback. */
   decisionId?: string;
   /** 本地 cache 的反馈状态, UI 高亮当前 outcome. 仅 assistant 消息有意义. */
@@ -94,6 +111,28 @@ class BossAiStore {
   private state: BossAiState = { open: false, sessionId: '', messages: [], streaming: false, error: null, pendingPrompt: null };
   private listeners = new Set<Listener>();
   private hydrated = false;
+  /** 当前流式请求的中止器 (用于"停止生成"); 非 React state, stop() 直接够得到. */
+  private abortController: AbortController | null = null;
+
+  setAbort(c: AbortController | null) {
+    this.abortController = c;
+  }
+
+  /** 停止当前流式生成: 中止 fetch, 保留已生成的部分内容. */
+  stop() {
+    if (!this.state.streaming) return;
+    this.abortController?.abort();
+    this.abortController = null;
+  }
+
+  /** 移除末尾的 assistant 消息 (重新生成时用; 让末位回到 user). */
+  removeLastAssistant() {
+    const msgs = this.state.messages.slice();
+    while (msgs.length > 0 && msgs[msgs.length - 1].role === 'assistant') msgs.pop();
+    this.state = { ...this.state, messages: msgs, error: null };
+    this.persist();
+    this.emit();
+  }
 
   hydrate() {
     if (this.hydrated) return;
@@ -121,7 +160,12 @@ class BossAiStore {
         LS_KEY,
         JSON.stringify({
           sessionId: this.state.sessionId,
-          messages: this.state.messages.slice(-50), // 最多存 50 条
+          // 最多存 50 条; 剥掉 data:image base64 (体积大易爆 quota), 仅保留 http(s) 图.
+          messages: this.state.messages.slice(-50).map((m) => {
+            if (!m.images || m.images.length === 0) return m;
+            const kept = m.images.filter((u) => u.startsWith('http'));
+            return kept.length > 0 ? { ...m, images: kept } : { ...m, images: undefined };
+          }),
         }),
       );
     } catch { /* quota */ }
@@ -189,14 +233,27 @@ class BossAiStore {
     this.emit();
   }
 
-  pushUserMessage(content: string) {
+  pushUserMessage(content: string, images?: string[]) {
+    const imgs = images && images.length > 0 ? images : undefined;
     this.state = {
       ...this.state,
-      messages: [...this.state.messages, { role: 'user', content, createdAt: Date.now() }],
+      messages: [...this.state.messages, { role: 'user', content, images: imgs, createdAt: Date.now() }],
       error: null,
     };
     this.persist();
     this.emit();
+  }
+
+  /** §编辑重发 · 改写某条 user 消息内容并截断其后所有消息 (准备重跑). 返回是否命中. */
+  truncateAndEditUser(createdAt: number, newText: string): boolean {
+    const idx = this.state.messages.findIndex((m) => m.createdAt === createdAt && m.role === 'user');
+    if (idx < 0) return false;
+    const kept = this.state.messages.slice(0, idx);
+    const edited: BossAiMessage = { ...this.state.messages[idx], content: newText };
+    this.state = { ...this.state, messages: [...kept, edited], error: null };
+    this.persist();
+    this.emit();
+    return true;
   }
 
   startAssistantMessage() {
@@ -213,6 +270,21 @@ class BossAiStore {
     const last = msgs[msgs.length - 1];
     if (!last || last.role !== 'assistant') return;
     msgs[msgs.length - 1] = { ...last, status };
+    this.state = { ...this.state, messages: msgs };
+    this.emit();
+  }
+
+  appendAssistantStep(step: BossAiTraceStep) {
+    const msgs = this.state.messages.slice();
+    const last = msgs[msgs.length - 1];
+    if (!last || last.role !== 'assistant') return;
+    // upsert by phase: 同一阶段重复发只保留最新
+    const prev = last.steps ?? [];
+    const idx = prev.findIndex((s) => s.phase === step.phase);
+    const steps = idx >= 0
+      ? prev.map((s, i) => (i === idx ? step : s))
+      : [...prev, step];
+    msgs[msgs.length - 1] = { ...last, steps };
     this.state = { ...this.state, messages: msgs };
     this.emit();
   }
@@ -304,25 +376,31 @@ export function useBossAi() {
     () => store.getState(),
   );
 
-  const send = useCallback(async (text: string, opts?: { currentPath?: string; currentTask?: string }) => {
-    const content = text.trim();
-    if (!content || state.streaming) return;
-    store.pushUserMessage(content);
+  // 公共流式核心: 假定末位已是 user 消息, 起一个 assistant 消息并消费 SSE.
+  // send / regenerate 共用; 支持 AbortController 停止生成 (保留已生成部分).
+  const runStream = useCallback(async (opts?: { currentPath?: string; currentTask?: string }) => {
     store.startAssistantMessage();
+    const controller = new AbortController();
+    store.setAbort(controller);
 
-    const messagesForApi = store.getState().messages
-      .filter((m) => m.role === 'user' || (m.role === 'assistant' && !m.streaming))
-      .map((m) => ({ role: m.role, content: m.content }));
+    const convo = store.getState().messages
+      .filter((m) => m.role === 'user' || (m.role === 'assistant' && !m.streaming));
+    const messagesForApi = convo.map((m) => ({ role: m.role, content: m.content }));
+    // §多模态 · 取最新一条 user 消息的图片随请求发出.
+    const lastUser = [...convo].reverse().find((m) => m.role === 'user');
+    const images = lastUser?.images;
 
     try {
       const res = await fetch('/api/boss-ai/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           messages: messagesForApi,
-          sessionId: state.sessionId,
+          sessionId: store.getState().sessionId,
           currentPath: opts?.currentPath,
           currentTask: opts?.currentTask,
+          images,
         }),
       });
       if (!res.ok || !res.body) {
@@ -348,12 +426,14 @@ export function useBossAi() {
             const payload = t.slice(5).trim();
             if (!payload) continue;
             try {
-              const json = JSON.parse(payload) as { content?: string; done?: boolean; error?: string; status?: string; decisionId?: string };
+              const json = JSON.parse(payload) as { content?: string; done?: boolean; error?: string; status?: string; decisionId?: string; step?: BossAiTraceStep };
+              if (json.step && typeof json.step.phase === 'string') store.appendAssistantStep(json.step);
               if (typeof json.status === 'string') store.setAssistantStatus(json.status);
               if (typeof json.content === 'string') store.appendAssistantDelta(json.content);
               if (json.error) lastError = json.error;
               if (json.done) {
                 store.endAssistantMessage(lastError, typeof json.decisionId === 'string' ? json.decisionId : undefined);
+                store.setAbort(null);
                 return;
               }
             } catch { /* ignore */ }
@@ -362,9 +442,52 @@ export function useBossAi() {
       }
       store.endAssistantMessage(lastError);
     } catch (err) {
-      store.endAssistantMessage((err as Error).message);
+      // 用户主动停止 (AbortError): 不当作错误, 保留已生成内容.
+      const aborted = (err as Error).name === 'AbortError';
+      if (aborted) {
+        const last = store.getState().messages.at(-1);
+        // 还没出任何字就被停 → 丢掉空 assistant 气泡, 否则保留部分内容.
+        if (last && last.role === 'assistant' && last.content.trim().length === 0) {
+          store.removeLastAssistant();
+        } else {
+          store.endAssistantMessage(undefined);
+        }
+      } else {
+        store.endAssistantMessage((err as Error).message);
+      }
+    } finally {
+      store.setAbort(null);
     }
-  }, [store, state.streaming, state.sessionId]);
+  }, [store]);
+
+  const send = useCallback(async (text: string, opts?: { currentPath?: string; currentTask?: string; images?: string[] }) => {
+    const content = text.trim();
+    const images = opts?.images;
+    // 允许"只发图不发字"; 但至少要有其一.
+    if ((!content && (!images || images.length === 0)) || store.getState().streaming) return;
+    store.pushUserMessage(content, images);
+    await runStream(opts);
+  }, [store, runStream]);
+
+  // 编辑重发: 改写某条历史 user 提问, 截断其后, 用新内容重跑.
+  const editAndResend = useCallback(async (createdAt: number, newText: string, opts?: { currentPath?: string }) => {
+    const content = newText.trim();
+    if (!content || store.getState().streaming) return;
+    if (!store.truncateAndEditUser(createdAt, content)) return;
+    await runStream(opts);
+  }, [store, runStream]);
+
+  // 重新生成: 丢弃末尾 assistant, 用同一个 user 提问再跑一次.
+  const regenerate = useCallback(async (opts?: { currentPath?: string; currentTask?: string }) => {
+    if (store.getState().streaming) return;
+    const msgs = store.getState().messages;
+    const lastUser = [...msgs].reverse().find((m) => m.role === 'user');
+    if (!lastUser) return;
+    store.removeLastAssistant();
+    await runStream(opts);
+  }, [store, runStream]);
+
+  const stop = useCallback(() => store.stop(), [store]);
 
   const askAbout = useCallback(
     (prompt: string, context?: { task?: string; autoSend?: boolean }) => store.askAbout(prompt, context),
@@ -388,8 +511,11 @@ export function useBossAi() {
     toggle: () => store.toggle(),
     newSession: () => store.newSession(),
     send,
+    regenerate,
+    editAndResend,
+    stop,
     askAbout,
     consumePendingPrompt,
     submitFeedback,
-  }), [state, store, send, askAbout, consumePendingPrompt, submitFeedback]);
+  }), [state, store, send, regenerate, editAndResend, stop, askAbout, consumePendingPrompt, submitFeedback]);
 }

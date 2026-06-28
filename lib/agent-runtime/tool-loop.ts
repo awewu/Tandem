@@ -28,8 +28,26 @@
  *   result.toolInvocations; // [{name, args, result}]
  */
 
-import type { ChatMessage, ScenarioTag, ToolSchema } from '@/lib/taf/provider/types';
+import type { ChatMessage, ContentPart, ScenarioTag, ToolSchema } from '@/lib/taf/provider/types';
 import { logger } from '@/lib/infra/logger';
+
+/**
+ * 多模态 (B 加厚): 把用户文本 + 可选图片拼成一条 user 消息 content.
+ *   - 无图片 → 返回纯字符串 (向后兼容, 现有调用方零变化)
+ *   - 有图片 → 返回 ContentPart[] = [文本, ...image_url], provider 层 (openai-compatible)
+ *             已支持把它发成 OpenAI vision 规范的 content 数组。
+ * 图片 url 可为 http(s) 链接或 data:image/*;base64 内联。空/无效项被过滤。
+ */
+export function buildUserContent(userQuery: string, userImages?: string[]): string | ContentPart[] {
+  const images = (userImages ?? [])
+    .map((u) => (typeof u === 'string' ? u.trim() : ''))
+    .filter((u) => u.length > 0 && (u.startsWith('http') || u.startsWith('data:image')));
+  if (images.length === 0) return userQuery;
+  return [
+    { type: 'text', text: userQuery },
+    ...images.map((url) => ({ type: 'image_url' as const, imageUrl: { url } })),
+  ];
+}
 
 export interface ToolInvocationRecord {
   toolCallId: string;
@@ -59,6 +77,12 @@ export interface ToolLoopInput {
   maxTokens?: number;
   /** ai trace id, 写入 metadata 关联 LlmUsageLog */
   aiTraceId?: string;
+  /**
+   * 多模态 (B 加厚): 随 userQuery 一起发给模型的图片 (http(s) 链接或 data:image base64).
+   * 需底座模型支持 vision; 不支持的模型会忽略或报错 (由 provider 决定).
+   * 留空 → 纯文本, 现有调用方零行为变化.
+   */
+  userImages?: string[];
   /**
    * 是否把已注册的 MCP server 工具一并下发给 LLM (B-002 通路).
    * 默认 false — 现有调用方零行为变化. 开启后:
@@ -148,7 +172,7 @@ export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult>
     // 2. 初始消息
     const messages: ChatMessage[] = [
       { role: 'system', content: input.systemPrompt },
-      { role: 'user', content: input.userQuery },
+      { role: 'user', content: buildUserContent(input.userQuery, input.userImages) },
     ];
 
     // 同一次 loop 内的工具结果缓存: key = skillId + 稳定序列化 args。
