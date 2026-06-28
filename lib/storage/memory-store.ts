@@ -316,6 +316,7 @@ export function createInMemoryStore(): TandemStore {
     approvals: new InMemoryRepository(),
     meetingBookings: new InMemoryRepository(),
     aiSettings: new InMemoryRepository(),
+    mcpServers: new InMemoryRepository(),
     pushSubscriptions: new InMemoryRepository(),
   };
 }

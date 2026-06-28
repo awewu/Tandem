@@ -433,6 +433,7 @@ export const NAV_MODULES: NavModule[] = [
         tabs: [
           { name: '使用 + 成本', href: '/admin/usage', visibleTo: ['admin'] },
           { name: 'TAF Skills', href: '/admin/tandem-skills', visibleTo: ['admin'] },
+          { name: 'MCP Server', href: '/admin/mcp-servers', visibleTo: ['admin'] },
           { name: 'AI 评估', href: '/admin/evals', visibleTo: ['admin', 'steward'] },
           { name: '定时任务', href: '/tasks', visibleTo: ['admin'] },
           { name: '系统日志', href: '/logs', visibleTo: ['admin'] },

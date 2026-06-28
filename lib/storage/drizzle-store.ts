@@ -1216,6 +1216,7 @@ export function createDrizzleStore(): TandemStore {
     approvals: new DrizzleKvRepository('approvals'),
     meetingBookings: new DrizzleKvRepository('meeting_bookings'),
     aiSettings: new DrizzleKvRepository('ai_settings'),
+    mcpServers: new DrizzleKvRepository('mcp_servers'),
     pushSubscriptions: new DrizzleKvRepository('push_subscriptions'),
   };
 }

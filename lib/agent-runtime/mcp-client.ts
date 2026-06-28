@@ -159,6 +159,33 @@ export async function liveCallMcpTool(
   }
 }
 
+/**
+ * 连接并发现某 live server 暴露的工具, 转成 ToolSchema[] (B-002 自动发现).
+ * 失败返回空数组 (best-effort, 不抛).
+ */
+export async function liveListMcpTools(
+  server: McpServerConfig,
+): Promise<Array<{ name: string; description: string; parameters: Record<string, unknown> }>> {
+  try {
+    const client = await connectClient(server);
+    const res = await client.listTools();
+    return (res.tools ?? []).map((t) => ({
+      name: t.name,
+      description: t.description ?? '',
+      parameters:
+        t.inputSchema && typeof t.inputSchema === 'object'
+          ? (t.inputSchema as Record<string, unknown>)
+          : { type: 'object', properties: {} },
+    }));
+  } catch (err) {
+    logger.warn(
+      { server: server.name, err: (err as Error).message },
+      '[mcp-client] listTools 失败 (跳过该 server 工具发现)',
+    );
+    return [];
+  }
+}
+
 /** 主动断开某 server (admin 后台关停时调) */
 export async function disconnectMcpServer(name: string): Promise<void> {
   const cached = cache.get(name);

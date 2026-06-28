@@ -176,7 +176,17 @@ function bootSync(): void {
     // AI 配置热重载: 从 DB AiSettings 覆盖路由器 provider (优先于 env)
     // 抽成 reloadAiSettingsIntoRouter() 供保存设置后即时调用 (见 PUT /api/admin/ai-settings),
     // 否则改配置要重启才生效 (boot 守卫只跑一次).
-    .then(() => reloadAiSettingsIntoRouter());
+    .then(() => reloadAiSettingsIntoRouter())
+    // B-002: 把 DB 中的 MCP server 记录同步进 mcp-bridge 内存注册表 (admin 保存后也会再调).
+    .then(async () => {
+      try {
+        const { syncMcpServersToRegistry } = await import('./settings/mcp-servers');
+        await syncMcpServersToRegistry();
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('[boot] MCP servers sync failed:', err);
+      }
+    });
 
   // 议事室 17min 硬上限闭环: 每 30 秒 sweep 活跃议事室, 超时自动 ESCALATE
   // (生产环境用 cron / job queue, V1 用 setInterval 简化)
