@@ -30,7 +30,9 @@ const nextConfig = {
     // 否则 pdfjs 内部动态 import('pdf.worker.mjs') 被改写到 .next/server/vendor-chunks/,
     // 而该 worker chunk 不会被输出 → "Setting up fake worker failed: Cannot find module".
     // 外置后 pdfjs 在 Node 下自行解析 worker, 服务端 PDF 抽取 (lib/infra/document-extract.ts) 恢复正常。
-    serverComponentsExternalPackages: ['pdfjs-dist'],
+    // @napi-rs/canvas 含原生 .node 二进制, 用于在 Node 端为 pdfjs 提供 DOMMatrix/Path2D/ImageData
+    // (见 lib/infra/document-extract.ts ensurePdfGlobals), 必须外置, 否则被 webpack 打包会丢二进制。
+    serverComponentsExternalPackages: ['pdfjs-dist', '@napi-rs/canvas'],
   },
   async rewrites() {
     return [
