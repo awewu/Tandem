@@ -30,13 +30,16 @@ export async function GET(req: NextRequest) {
   const assigneeId = url.searchParams.get('assigneeId');
 
   const store = getStore();
-  // 租户隔离统一收敛 (§23 P2-A): withTenantScope.list() 下推, 不再逐路由手写 tenantId 过滤.
-  let kpis = await withTenantScope(store.kpis, auth.tenantId).list();
-  if (cycleId) kpis = kpis.filter((k) => k.cycleId === cycleId);
-  if (scope) kpis = kpis.filter((k) => k.scope === scope);
-  if (level) kpis = kpis.filter((k) => k.level === level);
-  if (subjectId) kpis = kpis.filter((k) => k.subjectId === subjectId);
-  if (assigneeId) kpis = kpis.filter((k) => k.assigneeId === assigneeId);
+  // 租户隔离统一收敛 (§23 P2-A) + 热路径下推 (§23 P1-B, MANIFESTO §831):
+  //   filter 整体传入 list() → 存储层把 cycleId/assigneeId/tenantId 下推 SQL,
+  //   其余键走 repo 内 JS 兜底; 不再"加载租户全量 → 路由层逐条 .filter()"。
+  const filter: Partial<Kpi> = {};
+  if (cycleId) filter.cycleId = cycleId;
+  if (scope) filter.scope = scope;
+  if (level) filter.level = level;
+  if (subjectId) filter.subjectId = subjectId;
+  if (assigneeId) filter.assigneeId = assigneeId;
+  const kpis = await withTenantScope(store.kpis, auth.tenantId).list(filter);
 
   return NextResponse.json({ kpis });
 }

@@ -181,6 +181,17 @@ export default function OKRDashboardPage() {
     return counts;
   }, [cycleObjectives, activeCycle, keyResults]);
 
+  /** OKR 提交-审批漏斗 (对标 Tita): 草稿 → 待审批 → 进行中 → 已完成 */
+  const statusFunnel = useMemo(() => {
+    const c = { draft: 0, submitted: 0, active: 0, paused: 0, completed: 0, abandoned: 0 };
+    for (const o of cycleObjectives) {
+      const s = (o.status ?? 'active') as keyof typeof c;
+      if (s in c) c[s]++;
+      else c.active++;
+    }
+    return c;
+  }, [cycleObjectives]);
+
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="max-w-7xl mx-auto px-6 py-6">
@@ -294,6 +305,31 @@ export default function OKRDashboardPage() {
                 detail={`${rates.brokenDownObjectives} / ${rates.totalObjectives} 个 O 已拆到执行项`}
               />
             </div>
+
+            {/* OKR 提交-审批漏斗 — 对标 Tita */}
+            <Card className="mb-5">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-caption flex items-center gap-1.5">
+                  <Target className="h-4 w-4" />
+                  提交-审批漏斗
+                  <span className="text-[10px] font-normal text-muted-foreground">草稿 → 待审批 → 进行中 → 已完成</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Funnel
+                  stages={[
+                    { label: '草稿', value: statusFunnel.draft, color: 'bg-ink-tertiary' },
+                    { label: '待审批', value: statusFunnel.submitted, color: 'bg-info' },
+                    { label: '进行中', value: statusFunnel.active, color: 'bg-emerald-500' },
+                    { label: '已完成', value: statusFunnel.completed, color: 'bg-violet-500' },
+                  ]}
+                  aside={[
+                    { label: '暂停', value: statusFunnel.paused },
+                    { label: '已放弃', value: statusFunnel.abandoned },
+                  ]}
+                />
+              </CardContent>
+            </Card>
 
             {/* 客观进度风险 (时间基准线偏差) + 分布 */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
@@ -409,6 +445,49 @@ function RateCard({ label, rate, detail }: { label: string; rate: number; detail
         <div className="text-[10px] text-muted-foreground mt-1.5">{detail}</div>
       </CardContent>
     </Card>
+  );
+}
+
+function Funnel({
+  stages, aside,
+}: {
+  stages: { label: string; value: number; color: string }[];
+  aside: { label: string; value: number }[];
+}) {
+  const max = Math.max(1, ...stages.map((s) => s.value));
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+      <div className="flex-1 space-y-2">
+        {stages.map((s, i) => {
+          const prev = i > 0 ? stages[i - 1].value : null;
+          const conv = prev && prev > 0 ? Math.round((s.value / prev) * 100) : null;
+          return (
+            <div key={s.label} className="flex items-center gap-2">
+              <span className="w-12 text-[10px] text-muted-foreground text-right">{s.label}</span>
+              <div className="flex-1 h-5 bg-surface-3 rounded overflow-hidden">
+                <div
+                  className={`h-full ${s.color} transition-all flex items-center justify-end pr-1.5`}
+                  style={{ width: `${Math.max((s.value / max) * 100, s.value > 0 ? 8 : 0)}%` }}
+                >
+                  {s.value > 0 && <span className="text-[10px] font-mono text-white">{s.value}</span>}
+                </div>
+              </div>
+              <span className="w-12 text-[10px] text-muted-foreground">
+                {conv != null ? `${conv}%↓` : ''}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex gap-3 sm:flex-col sm:border-l sm:pl-3">
+        {aside.map((a) => (
+          <div key={a.label} className="text-center sm:text-left">
+            <div className="text-caption font-semibold tabular-nums">{a.value}</div>
+            <div className="text-[10px] text-muted-foreground">{a.label}</div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
