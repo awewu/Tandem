@@ -60,6 +60,14 @@ playwright-report/
 src-tauri/target/
 src-tauri/gen/
 
+# Tauri updater signing key (private — NEVER commit). Public key (updater-pubkey.txt) is safe to commit.
+src-tauri/updater.key
+src-tauri/updater.key.pub
+src-tauri/*.key
+
+# Desktop release artifacts served by /api/desktop/update
+/desktop-releases/
+
 # TS build cache
 tsconfig.tsbuildinfo
 .env.local.bak

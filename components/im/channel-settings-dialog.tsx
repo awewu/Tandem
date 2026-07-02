@@ -26,7 +26,7 @@ import {
   Trash2, X, Pencil,
 } from 'lucide-react';
 import type { ImChannel, ImMembership, ImMessage, ImMemberRole } from '@/lib/types/im';
-import { useOKRStore } from '@/lib/store';
+import { useOrgPeopleStore } from '@/lib/org/people-source';
 
 interface Props {
   open: boolean;
@@ -52,7 +52,7 @@ export function ChannelSettingsDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const people = useOKRStore((s) => s.people);
+  const people = useOrgPeopleStore((s) => s.people);
   const peopleById = useMemo(() => {
     const m = new Map<string, string>();
     for (const p of people) m.set(p.id, p.name);

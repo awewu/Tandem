@@ -192,6 +192,13 @@ function createInMemoryAuthStore(): AuthStore {
         const s = sessions.get(id);
         if (s) s.mfaVerified = true;
       },
+      async rotate(id, newRefreshTokenHash, newExpiresAt) {
+        const s = sessions.get(id);
+        if (s && !s.revokedAt) {
+          s.refreshTokenHash = newRefreshTokenHash;
+          s.expiresAt = newExpiresAt;
+        }
+      },
     },
     invites: {
       async create(input) {

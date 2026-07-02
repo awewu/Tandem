@@ -307,6 +307,11 @@ export interface AuthStore {
     revoke(id: string, reason: string): Promise<void>;
     revokeAllForUser(userId: string, reason: string): Promise<void>;
     markMfaVerified(id: string): Promise<void>;
+    /**
+     * 滑动续期: 轮换 refresh token hash + 顺延过期时间 (桌面端长会话 §desktop).
+     * 仅更新未撤销的活跃会话; 调用方负责校验有效性.
+     */
+    rotate(id: string, newRefreshTokenHash: string, newExpiresAt: string): Promise<void>;
   };
   invites: {
     create(input: Omit<AuthInvite, 'id' | 'usedCount' | 'redeemedAt'>): Promise<AuthInvite>;

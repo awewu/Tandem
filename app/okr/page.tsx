@@ -43,6 +43,7 @@ import { checkQuality } from '@/lib/okr/quality';
 import { calcObjectiveScore } from '@/lib/okr/scoring';
 import { objectivePulse, pulseLabel, summarizePulses, CADENCE_LABEL } from '@/lib/okr/cadence';
 import { useCurrentUserId, useAuthStore } from '@/lib/hooks/use-current-user';
+import { useOrgPeopleStore } from '@/lib/org/people-source';
 import {
   hydrateOkrFromApi,
   persistCreateObjective, persistUpdateObjective, persistDeleteObjective,
@@ -155,6 +156,22 @@ export default function OKRPage() {
 
   const { departments } = useOrgStore();
   const ministries = departments.flatMap((d) => d.ministries);
+
+  // 显示用人员列表: 真用户 (auth_user_extras / /api/org/users, 经 OrgPeople 合并) 优先,
+  // OKR fixture (含 'me') 仅补缺. 解决负责人显示成 user_xxx 原始 id 的问题.
+  const orgPeople = useOrgPeopleStore((s) => s.people);
+  const peopleForUi = useMemo<Person[]>(() => {
+    const seen = new Set<string>();
+    const out: Person[] = [];
+    for (const p of orgPeople) {
+      out.push({ id: p.id, name: p.name, ministryId: p.ministryId });
+      seen.add(p.id);
+    }
+    for (const p of people) {
+      if (!seen.has(p.id)) out.push(p);
+    }
+    return out;
+  }, [orgPeople, people]);
 
   // 真实登录用户 id (B4 Phase-2: 新建 OKR 默认归属当前用户, 保证落库后本人可见).
   const meUserId = useAuthStore((s) => s.user?.id);
@@ -1080,7 +1097,7 @@ export default function OKRPage() {
           editing={editing}
           setEditing={setEditing}
           onSave={saveEdit}
-          people={people}
+          people={peopleForUi}
           ministries={ministries}
           objectives={objectives}
           activeCycleId={activeCycleId}

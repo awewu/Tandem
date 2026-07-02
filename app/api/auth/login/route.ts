@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { login, AuthError } from '@/lib/auth/native';
-import { COOKIE_ACCESS, COOKIE_REFRESH, SESSION_COOKIE_OPTIONS } from '@/lib/auth/session';
+import { COOKIE_ACCESS, COOKIE_REFRESH, SESSION_COOKIE_OPTIONS, DESKTOP_SESSION_TTL_SEC } from '@/lib/auth/session';
 import { rateLimit, POLICIES, getClientIp } from '@/lib/infra/rate-limit';
 import { logger } from '@/lib/infra/logger';
 
@@ -40,10 +40,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'email + password required' }, { status: 400 });
   }
 
+  // §desktop: 桌面端 (Tauri 瘦客户端) 在登录请求上携带此 header → 7 天滑动长会话.
+  //   web 端不带 → 维持现状 (24h access).
+  const isDesktop = req.headers.get('x-tandem-client') === 'desktop';
+
   try {
     const result = await login({
       email: body.email,
       password: body.password,
+      longSession: isDesktop,
       deviceInfo: {
         userAgent: req.headers.get('user-agent') ?? undefined,
         ip: req.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? undefined,
@@ -61,12 +66,12 @@ export async function POST(req: NextRequest) {
 
     res.cookies.set(COOKIE_ACCESS, result.accessToken, {
       ...SESSION_COOKIE_OPTIONS,
-      maxAge: 24 * 60 * 60,
+      maxAge: isDesktop ? DESKTOP_SESSION_TTL_SEC : 24 * 60 * 60,
     });
     if (result.refreshToken) {
       res.cookies.set(COOKIE_REFRESH, result.refreshToken, {
         ...SESSION_COOKIE_OPTIONS,
-        maxAge: 30 * 24 * 3600,
+        maxAge: isDesktop ? DESKTOP_SESSION_TTL_SEC : 30 * 24 * 3600,
       });
     }
     return res;

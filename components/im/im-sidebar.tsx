@@ -10,11 +10,13 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
+import { usePersonNameResolver } from '@/lib/org/people-source';
 import { CreateChannelDialog } from '@/components/im/create-channel-dialog';
+import { StartDmDialog } from '@/components/im/start-dm-dialog';
 import { useHandoffPrefill } from '@/hooks/useHandoffPrefill';
 import { cn } from '@/lib/utils';
 import type { ImChannel, ImMembership } from '@/lib/types/im';
-import { Hash, Megaphone, Plus, Search, Bot, AtSign, MessageSquare, Users, Bookmark, BellDot } from 'lucide-react';
+import { Hash, Megaphone, Plus, Search, Bot, AtSign, MessageSquare, MessageSquarePlus, Users, Bookmark, BellDot } from 'lucide-react';
 
 type Channel = ImChannel & { unread?: number; membership?: ImMembership };
 
@@ -94,11 +96,13 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
   const searchParams = useSearchParams();
   const { user } = useCurrentUser();
   const ME = user?.id ?? 'demo-user';
+  const nameOf = usePersonNameResolver();
 
   const [channels, setChannels] = useState<Channel[]>([]);
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterGroup>('all');
   const [showCreate, setShowCreate] = useState(false);
+  const [showDm, setShowDm] = useState(false);
   const [handoffDraft, setHandoffDraft] = useState<{ name?: string; topic?: string } | null>(null);
 
   const activeId = searchParams?.get('ch') ?? null;
@@ -157,13 +161,13 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
     if (!search.trim()) return list;
     const q = search.toLowerCase();
     return list.filter((c) => {
-      const name = c.type === 'dm' ? (c.memberIds.find((m) => m !== ME) ?? '') : c.name;
+      const name = c.type === 'dm' ? nameOf(c.memberIds.find((m) => m !== ME)) : c.name;
       return (
         name.toLowerCase().includes(q) ||
         (c.lastMessagePreview ?? '').toLowerCase().includes(q)
       );
     });
-  }, [channels, search, activeFilter, ME]);
+  }, [channels, search, activeFilter, ME, nameOf]);
 
   // 各分组未读计数
   const groupCounts = useMemo(() => ({
@@ -190,6 +194,14 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
       <div className="flex flex-col items-center gap-1 py-2">
         <button
           type="button"
+          onClick={() => setShowDm(true)}
+          className="flex h-8 w-8 items-center justify-center rounded-md text-ink-secondary hover:bg-surface-3"
+          title="发起单聊"
+        >
+          <MessageSquarePlus className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
           onClick={() => setShowCreate(true)}
           className="flex h-8 w-8 items-center justify-center rounded-md text-ink-secondary hover:bg-surface-3"
           title="新建会话"
@@ -197,7 +209,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
           <Plus className="h-4 w-4" />
         </button>
         {filteredChannels.slice(0, 12).map((c) => {
-          const displayName = c.type === 'dm' ? (c.memberIds.find((m) => m !== ME) ?? '?') : c.name;
+          const displayName = c.type === 'dm' ? (nameOf(c.memberIds.find((m) => m !== ME)) || '?') : c.name;
           const u = unreadStyle(c);
           return (
             <button
@@ -226,6 +238,12 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
           prefillDraft={handoffDraft}
           onCreated={(id) => { void loadChannels(); selectChannel(id); }}
         />
+        <StartDmDialog
+          open={showDm}
+          onOpenChange={setShowDm}
+          currentUserId={ME}
+          onStarted={(id) => { void loadChannels(); selectChannel(id); }}
+        />
       </div>
     );
   }
@@ -242,14 +260,24 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
             </span>
           )}
         </span>
-        <button
-          type="button"
-          onClick={() => setShowCreate(true)}
-          className="flex h-6 w-6 items-center justify-center rounded-md text-ink-secondary hover:bg-surface-3 hover:text-ink-primary"
-          title="新建会话"
-        >
-          <Plus className="h-4 w-4" />
-        </button>
+        <div className="flex items-center gap-0.5">
+          <button
+            type="button"
+            onClick={() => setShowDm(true)}
+            className="flex h-6 w-6 items-center justify-center rounded-md text-ink-secondary hover:bg-surface-3 hover:text-ink-primary"
+            title="发起单聊"
+          >
+            <MessageSquarePlus className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowCreate(true)}
+            className="flex h-6 w-6 items-center justify-center rounded-md text-ink-secondary hover:bg-surface-3 hover:text-ink-primary"
+            title="新建会话"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       {/* 搜索框 */}
@@ -315,7 +343,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
           </div>
         )}
         {filteredChannels.map((c) => {
-          const displayName = c.type === 'dm' ? (c.memberIds.find((m) => m !== ME) ?? '私聊') : c.name;
+          const displayName = c.type === 'dm' ? (nameOf(c.memberIds.find((m) => m !== ME)) || '私聊') : c.name;
           const u = unreadStyle(c);
           const active = activeId === c.id;
 
@@ -369,6 +397,12 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
         currentUserId={ME}
         prefillDraft={handoffDraft}
         onCreated={(id) => { void loadChannels(); selectChannel(id); }}
+      />
+      <StartDmDialog
+        open={showDm}
+        onOpenChange={setShowDm}
+        currentUserId={ME}
+        onStarted={(id) => { void loadChannels(); selectChannel(id); }}
       />
     </div>
   );

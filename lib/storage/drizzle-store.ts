@@ -428,6 +428,15 @@ function createDrizzleAuthStore(): AuthStore {
         const s = await sessRepo.get(id);
         if (s) await sessRepo.update(id, { mfaVerified: true });
       },
+      async rotate(id, newRefreshTokenHash, newExpiresAt) {
+        const s = await sessRepo.get(id);
+        if (s && !s.revokedAt) {
+          await sessRepo.update(id, {
+            refreshTokenHash: newRefreshTokenHash,
+            expiresAt: newExpiresAt,
+          });
+        }
+      },
     },
     invites: {
       async create(input) {

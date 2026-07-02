@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 import { MessageReactions } from '@/components/im/message-reactions';
 import type { ImChannel, ImMembership, ImMessage } from '@/lib/types/im';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
+import { usePersonNameResolver } from '@/lib/org/people-source';
 import Link from 'next/link';
 import { useHandoffPrefill } from '@/hooks/useHandoffPrefill';
 import { Button } from '@/components/ui/button';
@@ -117,6 +118,7 @@ function ImInner() {
 
   const { user } = useCurrentUser();
   const ME = user?.id ?? 'demo-user';
+  const nameOf = usePersonNameResolver();
 
   // 监听 ChannelDetailPanel 个人名片"发消息"触发的 im:startDm 事件
   useEffect(() => {
@@ -375,12 +377,12 @@ function ImInner() {
               <div className="flex items-center gap-3 min-w-0">
                 <ConvAvatar
                   channel={activeChannel}
-                  name={activeChannel.type === 'dm' ? activeChannel.memberIds.find((m) => m !== ME) ?? '私聊' : activeChannel.name}
+                  name={activeChannel.type === 'dm' ? nameOf(activeChannel.memberIds.find((m) => m !== ME)) ?? '私聊' : activeChannel.name}
                 />
                 <div className="min-w-0">
                   <div className="truncate text-[14px] font-semibold text-ink-primary">
                     {activeChannel.type === 'dm'
-                      ? activeChannel.memberIds.find((m) => m !== ME) ?? '私聊'
+                      ? nameOf(activeChannel.memberIds.find((m) => m !== ME)) ?? '私聊'
                       : activeChannel.name}
                   </div>
                   {activeChannel.topic && (
@@ -440,6 +442,7 @@ function ImInner() {
                   prev={messages[idx - 1] ?? null}
                   members={members}
                   meId={ME}
+                  nameOf={nameOf}
                   isPinned={(activeChannel.pinnedMessageIds ?? []).includes(m.id)}
                   onSpawnRoom={() => spawnRoom(m.id)}
                   onPromote={() => promoteToMemory(m.id)}
@@ -789,6 +792,7 @@ function MessageRow({
   members,
   isPinned,
   meId,
+  nameOf,
   onSpawnRoom,
   onPromote,
   onRecall,
@@ -801,6 +805,7 @@ function MessageRow({
   members: ImMembership[];
   isPinned: boolean;
   meId: string;
+  nameOf: (id: string | null | undefined) => string;
   onSpawnRoom: () => void;
   onPromote: () => void;
   onRecall: () => void;
@@ -839,7 +844,7 @@ function MessageRow({
     return (
       <div className="my-2 flex justify-center text-[11px]">
         <div className="rounded-full border border-hairline bg-surface-3 px-3 py-1 text-ink-tertiary italic">
-          {msg.senderId === meId ? '你' : msg.senderId} 撤回了一条消息
+          {msg.senderId === meId ? '你' : nameOf(msg.senderId)} 撤回了一条消息
         </div>
       </div>
     );
@@ -869,9 +874,9 @@ function MessageRow({
             ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-white'
             : 'bg-gradient-to-br from-zinc-300 to-zinc-500 text-white'
         }`}
-        title={msg.senderId}
+        title={nameOf(msg.senderId)}
       >
-        {isPersona ? <Bot className="h-4 w-4" /> : msg.senderId.slice(0, 2).toUpperCase()}
+        {isPersona ? <Bot className="h-4 w-4" /> : nameOf(msg.senderId).slice(0, 2).toUpperCase()}
       </div>
       <div className={`max-w-[72%] min-w-0 ${isMe ? 'text-right' : ''}`}>
         {showSender && (
@@ -880,7 +885,7 @@ function MessageRow({
               isMe ? 'justify-end' : ''
             }`}
           >
-            <span className="font-medium text-ink-primary">{msg.senderId}</span>
+            <span className="font-medium text-ink-primary">{nameOf(msg.senderId)}</span>
             {isPersona && (
               <Badge
                 variant="outline"

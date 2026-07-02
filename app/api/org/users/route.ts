@@ -27,12 +27,13 @@ export async function GET(req: NextRequest) {
     // P1-2 (2026-05-22): auth.users.list 已实装 (memory-store + drizzle-store).
     // 不再 demo fallback, 直接走 store. 空表时返回空数组而不是 fixture.
     const raw = await store.auth.users.list({ tenantId: auth.tenantId });
-    let users: { id: string; email: string; name: string; departmentId: string | null; roles: string[] }[] = raw.map((u) => ({
+    let users: { id: string; email: string; name: string; departmentId: string | null; roles: string[]; disabled: boolean }[] = raw.map((u) => ({
       id: u.id,
       email: u.email,
       name: u.name,
       departmentId: u.departmentId ?? null,
       roles: u.roles ?? [],
+      disabled: u.disabled ?? false,
     }));
 
     if (role) users = users.filter((u) => u.roles.includes(role));

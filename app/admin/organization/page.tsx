@@ -13,15 +13,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import {
   Network, Building2, Users, Search, RefreshCw, AlertCircle,
   Plus, Pencil, Trash2, ChevronRight, ChevronDown, Upload, Download,
-  ShieldCheck, X,
+  ShieldCheck, X, KeyRound, UserX, UserCheck,
 } from 'lucide-react';
+import { INTERNAL_ROLES, EXTERNAL_ROLES, ROLE_LABELS } from '@/lib/auth/roles';
+
+// 可分配角色 (owner 公司主锁定, 不在此处授予/移除, 防误降级)
+const ASSIGNABLE_ROLES = [...INTERNAL_ROLES, ...EXTERNAL_ROLES].filter((r) => r !== 'owner');
 
 interface HrDept {
   id: string; name: string; parentId: string | null; headId: string | null;
   description: string; order: number; tenantId: string; createdAt: string; updatedAt: string;
 }
 interface OrgUser {
-  id: string; email: string; name: string; roles: string[];
+  id: string; email: string; name: string; roles: string[]; disabled?: boolean;
   departmentId?: string | null; jobTitle?: string | null; managerId?: string | null;
   employeeId?: string | null; hireDate?: string | null; workLocation?: string | null; phone?: string | null;
 }
@@ -144,15 +148,26 @@ function UserDialog({
   user: OrgUser | null; depts: HrDept[]; users: OrgUser[];
 }) {
   const [form, setForm] = useState<Partial<OrgUser>>({});
+  const [roles, setRoles] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   useEffect(() => {
-    if (open && user) setForm({ departmentId: user.departmentId ?? NONE_VALUE, jobTitle: user.jobTitle ?? '', managerId: user.managerId ?? NONE_VALUE, employeeId: user.employeeId ?? '', hireDate: user.hireDate ?? '', workLocation: user.workLocation ?? '', phone: user.phone ?? '' });
+    if (open && user) {
+      setForm({ departmentId: user.departmentId ?? NONE_VALUE, jobTitle: user.jobTitle ?? '', managerId: user.managerId ?? NONE_VALUE, employeeId: user.employeeId ?? '', hireDate: user.hireDate ?? '', workLocation: user.workLocation ?? '', phone: user.phone ?? '' });
+      setRoles(user.roles ?? []);
+    }
   }, [open, user]);
   const set = (k: keyof OrgUser, v: string) => setForm((p) => ({ ...p, [k]: v === NONE_VALUE ? null : (v || null) }));
+  const isOwner = (user?.roles ?? []).includes('owner');
+  const toggleRole = (r: string) =>
+    setRoles((prev) => (prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]));
   async function submit() {
     setSaving(true);
     try {
-      await onSave(form);
+      // owner 锁定: 始终保留原 owner 位, 只提交非空角色集 (至少 employee 兜底).
+      const base = roles.filter((r) => r !== 'owner');
+      const merged = isOwner ? ['owner', ...base] : base;
+      const finalRoles = merged.length > 0 ? Array.from(new Set(merged)) : ['employee'];
+      await onSave({ ...form, roles: finalRoles });
       onClose();
     } finally {
       setSaving(false);
@@ -204,10 +219,107 @@ function UserDialog({
             <label className="text-caption font-medium mb-1 block">手机</label>
             <Input value={form.phone ?? ''} onChange={(e) => set('phone', e.target.value)} placeholder="可选" />
           </div>
+          <div className="col-span-2">
+            <label className="text-caption font-medium mb-1 block">角色</label>
+            <div className="flex flex-wrap gap-1.5">
+              {isOwner && (
+                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 gap-1">
+                  <ShieldCheck className="h-3 w-3" />{ROLE_LABELS.owner}（锁定）
+                </Badge>
+              )}
+              {ASSIGNABLE_ROLES.map((r) => {
+                const active = roles.includes(r);
+                return (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => toggleRole(r)}
+                    className={`px-2 py-1 rounded-md border text-caption transition-colors ${active ? 'bg-primary/10 border-primary/40 text-primary font-medium' : 'bg-surface-1 border-border text-muted-foreground hover:bg-muted'}`}
+                  >
+                    {ROLE_LABELS[r as keyof typeof ROLE_LABELS] ?? r}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-footnote text-muted-foreground mt-1.5">点击切换角色；可多选。未选任何角色时默认为员工。</p>
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>取消</Button>
           <Button onClick={submit} disabled={saving}>{saving ? '保存中...' : '保存'}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// 重置密码弹窗
+function PasswordDialog({
+  open, onClose, onSave, user,
+}: {
+  open: boolean; onClose: () => void;
+  onSave: (newPassword: string) => Promise<void>;
+  user: OrgUser | null;
+}) {
+  const [pwd, setPwd] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [show, setShow] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => {
+    if (open) { setPwd(''); setConfirm(''); setShow(false); setErr(null); }
+  }, [open]);
+  const mismatch = confirm.length > 0 && pwd !== confirm;
+  const tooShort = pwd.length > 0 && pwd.length < 10;
+  async function submit() {
+    setErr(null);
+    if (pwd !== confirm) { setErr('两次输入的密码不一致'); return; }
+    setSaving(true);
+    try {
+      await onSave(pwd);
+      onClose();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : '重置失败');
+    } finally {
+      setSaving(false);
+    }
+  }
+  if (!user) return null;
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>重置密码 · {user.name}</DialogTitle></DialogHeader>
+        <div className="space-y-3 py-2">
+          <p className="text-footnote text-muted-foreground">
+            将为 <span className="font-mono">{user.email}</span> 设置新密码，保存后该员工所有会话将被强制登出。
+            请通过安全渠道告知其新密码。
+          </p>
+          <div>
+            <label className="text-caption font-medium mb-1 block">新密码 *</label>
+            <Input type={show ? 'text' : 'password'} value={pwd} onChange={(e) => setPwd(e.target.value)}
+              placeholder="至少 10 位，含大小写字母、数字、特殊字符" autoComplete="new-password" />
+            {tooShort && <p className="text-footnote text-rose-600 mt-1">密码至少 10 位</p>}
+          </div>
+          <div>
+            <label className="text-caption font-medium mb-1 block">确认新密码 *</label>
+            <Input type={show ? 'text' : 'password'} value={confirm} onChange={(e) => setConfirm(e.target.value)}
+              placeholder="再次输入" autoComplete="new-password" />
+            {mismatch && <p className="text-footnote text-rose-600 mt-1">两次输入不一致</p>}
+          </div>
+          <label className="flex items-center gap-2 text-caption text-muted-foreground cursor-pointer">
+            <input type="checkbox" checked={show} onChange={(e) => setShow(e.target.checked)} />显示密码
+          </label>
+          {err && (
+            <div className="flex items-center gap-2 rounded border border-rose-200 bg-rose-50 px-3 py-2 text-caption text-rose-700">
+              <AlertCircle className="h-4 w-4" />{err}
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>取消</Button>
+          <Button onClick={submit} disabled={saving || pwd.length < 10 || pwd !== confirm}>
+            {saving ? '保存中...' : '重置密码'}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -273,6 +385,8 @@ export default function AdminOrganizationPage() {
   const [deptDialog, setDeptDialog] = useState<{ open: boolean; initial?: HrDept | null; preParent?: string | null }>({ open: false });
   // user dialog
   const [userDialog, setUserDialog] = useState<{ open: boolean; user: OrgUser | null }>({ open: false, user: null });
+  // password reset dialog
+  const [pwdDialog, setPwdDialog] = useState<{ open: boolean; user: OrgUser | null }>({ open: false, user: null });
   // contact import
   const [importOpen, setImportOpen] = useState(false);
   // bulk invite
@@ -340,6 +454,25 @@ export default function AdminOrganizationPage() {
     const res = await fetch(`/api/org/users/${userDialog.user.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) });
     await assertOk(res);
     await load();
+  }
+
+  async function toggleDisabled(u: OrgUser) {
+    const next = !u.disabled;
+    if (!confirm(next ? `禁用「${u.name}」？该账号将无法登录，且现有会话被登出。` : `恢复「${u.name}」的登录权限？`)) return;
+    setError(null);
+    try {
+      const res = await fetch(`/api/org/users/${u.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ disabled: next }) });
+      await assertOk(res);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '操作失败');
+    }
+  }
+
+  async function resetPassword(newPassword: string) {
+    if (!pwdDialog.user) return;
+    const res = await fetch(`/api/org/users/${pwdDialog.user.id}/password`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ newPassword }) });
+    await assertOk(res);
   }
 
   return (
@@ -427,17 +560,17 @@ export default function AdminOrganizationPage() {
           </div>
 
           {/* 员工表格 */}
-          <div className="border rounded-lg overflow-hidden">
+          <div className="border rounded-lg overflow-x-auto">
             <table className="w-full text-caption">
               <thead>
                 <tr className="bg-muted/40 border-b">
-                  <th className="px-3 py-2 text-left font-medium">姓名</th>
-                  <th className="px-3 py-2 text-left font-medium">职务</th>
-                  <th className="px-3 py-2 text-left font-medium">部门</th>
-                  <th className="px-3 py-2 text-left font-medium hidden md:table-cell">直属上级</th>
-                  <th className="px-3 py-2 text-left font-medium hidden lg:table-cell">工号</th>
-                  <th className="px-3 py-2 text-left font-medium">角色</th>
-                  <th className="px-3 py-2 w-10" />
+                  <th className="px-3 py-2 text-left font-medium whitespace-nowrap w-[220px]">姓名</th>
+                  <th className="px-3 py-2 text-left font-medium whitespace-nowrap">职务</th>
+                  <th className="px-3 py-2 text-left font-medium whitespace-nowrap w-[140px]">部门</th>
+                  <th className="px-3 py-2 text-left font-medium whitespace-nowrap hidden md:table-cell">直属上级</th>
+                  <th className="px-3 py-2 text-left font-medium whitespace-nowrap hidden lg:table-cell">工号</th>
+                  <th className="px-3 py-2 text-left font-medium whitespace-nowrap min-w-[120px]">角色</th>
+                  <th className="px-3 py-2 w-28 text-right font-medium sticky right-0 bg-muted/40 shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.1)]">操作</th>
                 </tr>
               </thead>
               <tbody>
@@ -448,14 +581,19 @@ export default function AdminOrganizationPage() {
                 ) : filteredUsers.map((u) => {
                   const manager = users.find((m) => m.id === u.managerId);
                   return (
-                    <tr key={u.id} className="border-t hover:bg-muted/20 transition-colors">
-                      <td className="px-3 py-2">
-                        <div className="font-medium">{u.name}</div>
-                        <div className="text-footnote text-muted-foreground font-mono">{u.email}</div>
+                    <tr key={u.id} className={`border-t hover:bg-muted/20 transition-colors ${u.disabled ? 'opacity-60' : ''}`}>
+                      <td className="px-3 py-2 w-[220px]">
+                        <div className="font-medium flex items-center gap-1.5">
+                          <span className="truncate">{u.name}</span>
+                          {u.disabled && (
+                            <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 text-[10px] h-4 px-1 shrink-0">已禁用</Badge>
+                          )}
+                        </div>
+                        <div className="text-footnote text-muted-foreground font-mono truncate max-w-[200px]">{u.email}</div>
                       </td>
                       <td className="px-3 py-2 text-muted-foreground">{u.jobTitle || '-'}</td>
-                      <td className="px-3 py-2 text-muted-foreground truncate max-w-[140px]">
-                        {deptPath(u.departmentId, depts)}
+                      <td className="px-3 py-2 text-muted-foreground w-[140px]">
+                        <div className="truncate max-w-[140px]">{deptPath(u.departmentId, depts)}</div>
                       </td>
                       <td className="px-3 py-2 text-muted-foreground hidden md:table-cell">
                         {manager?.name || '-'}
@@ -463,7 +601,7 @@ export default function AdminOrganizationPage() {
                       <td className="px-3 py-2 text-muted-foreground font-mono text-footnote hidden lg:table-cell">
                         {u.employeeId || '-'}
                       </td>
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-2 min-w-[120px]">
                         <div className="flex flex-wrap gap-1">
                           {(u.roles ?? []).map((r) => {
                             const m = ROLE_LABEL[r] ?? { label: r, color: 'bg-surface-1 text-ink-primary border' };
@@ -476,12 +614,32 @@ export default function AdminOrganizationPage() {
                           })}
                         </div>
                       </td>
-                      <td className="px-2 py-2">
-                        <button
-                          className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
-                          title="编辑员工信息"
-                          onClick={() => setUserDialog({ open: true, user: u })}
-                        ><Pencil className="h-3.5 w-3.5" /></button>
+                      <td className="px-2 py-2 whitespace-nowrap sticky right-0 bg-background shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.1)]">
+                        <div className="flex items-center gap-1 justify-end">
+                          <button
+                            className="shrink-0 p-1.5 rounded-md border border-transparent hover:bg-muted hover:border-border text-muted-foreground hover:text-foreground"
+                            title="编辑员工信息"
+                            onClick={() => setUserDialog({ open: true, user: u })}
+                          ><Pencil className="h-4 w-4" /></button>
+                          <button
+                            className="shrink-0 p-1.5 rounded-md border border-transparent hover:bg-muted hover:border-border text-muted-foreground hover:text-foreground"
+                            title="重置密码"
+                            onClick={() => setPwdDialog({ open: true, user: u })}
+                          ><KeyRound className="h-4 w-4" /></button>
+                          {u.disabled ? (
+                            <button
+                              className="shrink-0 p-1.5 rounded-md border border-emerald-200 text-emerald-600 hover:bg-emerald-50"
+                              title="恢复账号"
+                              onClick={() => toggleDisabled(u)}
+                            ><UserCheck className="h-4 w-4" /></button>
+                          ) : (
+                            <button
+                              className="shrink-0 p-1.5 rounded-md border border-rose-200 text-rose-600 hover:bg-rose-50"
+                              title="禁用账号"
+                              onClick={() => toggleDisabled(u)}
+                            ><UserX className="h-4 w-4" /></button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -515,6 +673,12 @@ export default function AdminOrganizationPage() {
         user={userDialog.user}
         depts={depts}
         users={users}
+      />
+      <PasswordDialog
+        open={pwdDialog.open}
+        onClose={() => setPwdDialog({ open: false, user: null })}
+        onSave={resetPassword}
+        user={pwdDialog.user}
       />
     </div>
   );

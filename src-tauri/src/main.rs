@@ -23,7 +23,7 @@ use serde_json::{json, Value};
 use tauri::{
     menu::{MenuBuilder, MenuItemBuilder},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Manager, Window,
+    AppHandle, Emitter, Manager, Window,
 };
 use tauri_plugin_autostart::ManagerExt as AutostartManagerExt;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
@@ -216,6 +216,7 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
     let show_item = MenuItemBuilder::with_id("show", "打开 Tandem").build(app)?;
     let report_item = MenuItemBuilder::with_id("report", "记录 5min 日报").build(app)?;
     let okr_item = MenuItemBuilder::with_id("okr", "查看 OKR 进展").build(app)?;
+    let update_item = MenuItemBuilder::with_id("check-update", "检查更新").build(app)?;
     let quit_item = MenuItemBuilder::with_id("quit", "退出").build(app)?;
 
     let menu = MenuBuilder::new(app)
@@ -224,6 +225,7 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
         .item(&report_item)
         .item(&okr_item)
         .separator()
+        .item(&update_item)
         .item(&quit_item)
         .build()?;
 
@@ -241,6 +243,11 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
             }
             "okr" => {
                 let _ = tandem_navigate(app.clone(), "/okr".into());
+            }
+            "check-update" => {
+                // 唤起窗口并通知前端 DesktopUpdater 触发一次手动检查更新.
+                let _ = tandem_show_main(app.clone());
+                let _ = app.emit("tandem://check-update", ());
             }
             "quit" => {
                 app.exit(0);
@@ -339,6 +346,8 @@ fn main() {
             None,
         ))
         .plugin(tauri_plugin_store::Builder::new().build())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 on_window_close(window, api.clone());

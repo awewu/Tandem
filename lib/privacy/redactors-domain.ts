@@ -38,6 +38,8 @@ export interface RedactableUser {
   lastLoginIp?: string | null;
   lockedUntil?: string | null;
   failedLoginCount?: number;
+  /** 账号是否被禁用 (组织架构管理需读取以展示/切换状态). 无抹白规则 → 各视角可见. */
+  disabled?: boolean;
 }
 
 export const redactAuthUser: Redactor<RedactableUser> = buildRedactor<

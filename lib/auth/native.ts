@@ -26,6 +26,7 @@ import {
   signAccessToken,
   issueRefreshToken,
   hashRefreshToken,
+  DESKTOP_SESSION_TTL_SEC,
   type SessionPayload,
 } from './session';
 import { hashInviteCode, validateInvite, type InviteRecord } from './invite';
@@ -160,6 +161,8 @@ export interface LoginInput {
   email: string;
   password: string;
   deviceInfo?: { userAgent?: string; ip?: string };
+  /** §desktop: 桌面端登录 → 7 天滑动长会话 (web 端不传, 维持 24h). */
+  longSession?: boolean;
 }
 
 export async function login(input: LoginInput): Promise<AuthResult> {
@@ -230,7 +233,7 @@ export async function login(input: LoginInput): Promise<AuthResult> {
     (process.env.NODE_ENV === 'production' && process.env.REQUIRE_MFA_FOR_PRIVILEGED !== '0');
   const mfaEnrollmentRequired = isPrivileged && !mfa && mfaForcedOn;
 
-  const session = await issueSessionForUser(user, !requiresMfa, input.deviceInfo, mfaEnrollmentRequired);
+  const session = await issueSessionForUser(user, !requiresMfa, input.deviceInfo, mfaEnrollmentRequired, input.longSession);
 
   await audit({
     userId: user.id,
@@ -470,8 +473,12 @@ async function issueSessionForUser(
   mfaVerified: boolean,
   deviceInfo?: { userAgent?: string; ip?: string },
   pendingMfaEnroll = false,
+  longSession = false,
 ): Promise<AuthResult> {
-  const refresh = issueRefreshToken();
+  // §desktop: 长会话 → access JWT 与 refresh 均 7 天 (DB 会话 expiresAt 决定不活跃失效窗口).
+  const refreshTtlSec = longSession ? DESKTOP_SESSION_TTL_SEC : undefined;
+  const accessTtlSec = longSession ? DESKTOP_SESSION_TTL_SEC : undefined;
+  const refresh = issueRefreshToken(refreshTtlSec);
   const sessionStore = getSessionStore();
   const session = await sessionStore.create({
     userId: user.id,
@@ -491,7 +498,7 @@ async function issueSessionForUser(
     // P0-C: 特权未启 MFA → token 携带强制启用标记, middleware 据此拦截业务路由.
     pendingMfaEnroll,
     sid: session.id,
-  });
+  }, accessTtlSec);
 
   return {
     userId: user.id,
@@ -500,6 +507,69 @@ async function issueSessionForUser(
     refreshTokenExpiresAt: refresh.expiresAt,
     requiresMfa: !mfaVerified,
     pendingSessionId: !mfaVerified ? session.id : undefined,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// §desktop: 滑动续期 — 桌面端 keep-alive 调用, 轮换 refresh + 顺延 7 天.
+// ---------------------------------------------------------------------------
+
+export interface RefreshResult {
+  accessToken: string;
+  refreshToken: string;
+  refreshTokenExpiresAt: Date;
+}
+
+/**
+ * 凭 refresh token 续期会话 (滑动窗口).
+ *   - 校验 refresh hash 命中未撤销且未过期的会话
+ *   - 轮换 refresh token (旧的作废) + 顺延 expiresAt = now + 7 天
+ *   - 重新签发 access token (7 天)
+ * 失败抛 AuthError(401) → 调用方清 cookie 让用户重登.
+ */
+export async function refreshSession(
+  refreshToken: string,
+  deviceInfo?: { userAgent?: string; ip?: string },
+): Promise<RefreshResult> {
+  const sessionStore = getSessionStore();
+  const userStore = getUserStore();
+
+  const hash = hashRefreshToken(refreshToken);
+  const session = await sessionStore.findByRefreshHash(hash);
+  if (!session || session.revokedAt) {
+    throw new AuthError('invalid_session', '会话不存在或已撤销', 401);
+  }
+  if (new Date(session.expiresAt).getTime() <= Date.now()) {
+    throw new AuthError('session_expired', '会话已过期, 请重新登录', 401);
+  }
+
+  const user = await userStore.findById(session.userId);
+  if (!user || user.disabled) {
+    throw new AuthError('invalid_session', '账户异常', 401);
+  }
+
+  // 轮换 refresh + 滑动顺延 7 天
+  const next = issueRefreshToken(DESKTOP_SESSION_TTL_SEC);
+  await sessionStore.rotate(session.id, next.refreshTokenHash, next.expiresAt.toISOString());
+
+  const access = signAccessToken(
+    {
+      sub: user.id,
+      email: user.email,
+      roles: user.roles ?? [],
+      tenantId: user.tenantId ?? 'default',
+      mfa: session.mfaVerified,
+      sid: session.id,
+    },
+    DESKTOP_SESSION_TTL_SEC,
+  );
+
+  await audit({ userId: user.id, eventType: 'session_refreshed', ...deviceInfo });
+
+  return {
+    accessToken: access,
+    refreshToken: next.refreshToken,
+    refreshTokenExpiresAt: next.expiresAt,
   };
 }
 
@@ -559,9 +629,11 @@ interface NativeSessionStore {
     expiresAt: string;
   }): Promise<{ id: string; userId: string; expiresAt: string }>;
   findById(id: string): Promise<NativeSession | null>;
+  findByRefreshHash(hash: string): Promise<NativeSession | null>;
   revoke(id: string, reason: string): Promise<void>;
   revokeAllForUser(userId: string, reason: string): Promise<void>;
   markMfaVerified(id: string): Promise<void>;
+  rotate(id: string, newRefreshTokenHash: string, newExpiresAt: string): Promise<void>;
 }
 
 interface NativeSession {
