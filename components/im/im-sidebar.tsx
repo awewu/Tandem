@@ -118,9 +118,13 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
       const data = await res.json();
       const list: Channel[] = data.channels ?? [];
       setChannels(list);
-      // 首次加载自动选第一个
+      // 首次加载自动选第一个 — 仅桌面端 (md+).
+      // 移动端 SubSidebar 隐藏, /im 入口应停留在会话选择页, 不能自动跳进对话框.
       if (!activeId && list.length > 0) {
-        router.replace(`/im?ch=${list[0].id}`);
+        const isDesktop =
+          typeof window !== 'undefined' &&
+          window.matchMedia('(min-width: 768px)').matches;
+        if (isDesktop) router.replace(`/im?ch=${list[0].id}`);
       }
     } catch { /* ignore */ }
   }, [ME, activeId, router]);

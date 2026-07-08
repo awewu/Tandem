@@ -11,6 +11,7 @@ import { Suspense, useCallback, useState, useEffect, useMemo, useRef } from 'rea
 import { useSearchParams, useRouter } from 'next/navigation';
 import { CreateChannelDialog } from '@/components/im/create-channel-dialog';
 import { ChannelDetailPanel } from '@/components/im/channel-detail-panel';
+import { ImSidebar } from '@/components/im/im-sidebar';
 import { AgentModeToggle } from '@/components/im/agent-mode-toggle';
 import { AiTraceButton } from '@/components/im/ai-trace-button';
 import { CompanyBrainFeedbackButtons } from '@/components/im/company-brain-feedback';
@@ -21,7 +22,7 @@ import {
 } from '@/components/documents/mention-picker';
 import { cn } from '@/lib/utils';
 import { MessageReactions } from '@/components/im/message-reactions';
-import type { ImChannel, ImMembership, ImMessage } from '@/lib/types/im';
+import type { ImAttachment, ImChannel, ImMembership, ImMessage } from '@/lib/types/im';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { usePersonNameResolver } from '@/lib/org/people-source';
 import Link from 'next/link';
@@ -109,7 +110,7 @@ function ImInner() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showIdentityPicker, setShowIdentityPicker] = useState(false);
   const identityPickerRef = useRef<HTMLDivElement>(null);
-  const [attachments, setAttachments] = useState<{ name: string; size: number; dataUrl?: string }[]>([]);
+  const [attachments, setAttachments] = useState<{ name: string; size: number; dataUrl?: string; file: File }[]>([]);
   const [activeChannel, setActiveChannel] = useState<Channel | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -238,18 +239,55 @@ function ImInner() {
     }
   }
 
+  /**
+   * 上传单个附件到对象存储 (走 IM 专用预签名端点), 返回 ImAttachment.
+   * 失败抛错, 由 sendMessage 捕获统一提示.
+   */
+  async function uploadAttachment(chId: string, file: File): Promise<ImAttachment> {
+    const presignRes = await fetch(`/api/im/channels/${chId}/attachments/presign`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: 'upload', fileName: file.name, contentType: file.type }),
+    });
+    if (!presignRes.ok) {
+      const err = await presignRes.json().catch(() => ({}));
+      throw new Error(err.error ?? `预签名失败 (${presignRes.status})`);
+    }
+    const { uploadUrl, storageKey } = await presignRes.json();
+    const putRes = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: file.type ? { 'Content-Type': file.type } : undefined,
+      body: file,
+    });
+    if (!putRes.ok) throw new Error(`上传失败 (${putRes.status})`);
+    return {
+      kind: file.type.startsWith('image/') ? 'image' : 'file',
+      name: file.name,
+      size: file.size,
+      refId: storageKey,
+    };
+  }
+
   async function sendMessage() {
     if ((!input.trim() && attachments.length === 0) || !activeId || sending) return;
     setSending(true);
     try {
+      let uploaded: ImAttachment[] = [];
+      if (attachments.length > 0) {
+        try {
+          uploaded = await Promise.all(attachments.map((a) => uploadAttachment(activeId, a.file)));
+        } catch (e) {
+          window.alert(`附件上传失败: ${(e as Error).message}`);
+          return;
+        }
+      }
       const res = await fetch(`/api/im/channels/${activeId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           senderId: ME,
-          body: attachments.length > 0
-            ? `${input.trim()}${input.trim() ? '\n' : ''}${attachments.map((a) => `[附件: ${a.name}]`).join(' ')}`.trim()
-            : input,
+          body: input.trim(),
+          attachments: uploaded.length > 0 ? uploaded : undefined,
           senderKind: sendAsAgent ? 'persona' : 'user',
         }),
       });
@@ -342,11 +380,11 @@ function ImInner() {
       if (kind === 'image' && file.type.startsWith('image/')) {
         const reader = new FileReader();
         reader.onload = (ev) => {
-          setAttachments((prev) => [...prev, { name: file.name, size: file.size, dataUrl: ev.target?.result as string }]);
+          setAttachments((prev) => [...prev, { name: file.name, size: file.size, dataUrl: ev.target?.result as string, file }]);
         };
         reader.readAsDataURL(file);
       } else {
-        setAttachments((prev) => [...prev, { name: file.name, size: file.size }]);
+        setAttachments((prev) => [...prev, { name: file.name, size: file.size, file }]);
       }
     });
     e.target.value = '';
@@ -369,12 +407,33 @@ function ImInner() {
 
       {/* 消息流 + 右侧详情面板 并排容器 */}
       <div className="flex min-w-0 flex-1 overflow-hidden">
-      <main className="flex h-full min-w-0 flex-1 flex-col bg-surface-1">
+      {/* 移动端: 未选中会话时全屏"消息选择页" (桌面端会话列表在 SubSidebar) */}
+      {!activeId && (
+        <div className="flex h-full w-full flex-col bg-surface-1 md:hidden">
+          <Suspense fallback={null}>
+            <ImSidebar />
+          </Suspense>
+        </div>
+      )}
+      <main className={cn(
+        'flex h-full min-w-0 flex-1 flex-col bg-surface-1',
+        // 移动端未选会话时让位给上面的会话列表
+        !activeId && 'hidden md:flex',
+      )}>
         {activeChannel ? (
           <>
             {/* 顶部栏 */}
             <header className="flex shrink-0 items-center justify-between border-b border-hairline bg-surface-1 px-4 py-3">
               <div className="flex items-center gap-3 min-w-0">
+                <button
+                  type="button"
+                  onClick={() => router.push('/im')}
+                  className="-ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink-secondary hover:bg-surface-3 md:hidden"
+                  aria-label="返回消息列表"
+                  title="返回消息列表"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </button>
                 <ConvAvatar
                   channel={activeChannel}
                   name={activeChannel.type === 'dm' ? nameOf(activeChannel.memberIds.find((m) => m !== ME)) ?? '私聊' : activeChannel.name}
@@ -786,6 +845,79 @@ function formatRelative(iso: string): string {
   return new Date(iso).toLocaleDateString();
 }
 
+function formatSize(bytes?: number): string {
+  if (!bytes) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+/**
+ * 渲染单个附件. 图片/文件的实际字节存在对象存储, 这里通过 IM 预签名端点
+ * (mode: download) 按需换取短期 GET URL. 无 refId 时降级为文件名标签.
+ */
+function AttachmentView({ channelId, att }: { channelId: string; att: ImAttachment }) {
+  const [url, setUrl] = useState<string | null>(att.url ?? null);
+  const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
+
+  useEffect(() => {
+    if (att.url || !att.refId) return;
+    let cancelled = false;
+    setStatus('loading');
+    void fetch(`/api/im/channels/${channelId}/attachments/presign`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: 'download', storageKey: att.refId }),
+    })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((data) => {
+        if (!cancelled) { setUrl(data.url); setStatus('idle'); }
+      })
+      .catch(() => { if (!cancelled) setStatus('error'); });
+    return () => { cancelled = true; };
+  }, [channelId, att.url, att.refId]);
+
+  if (att.kind === 'image') {
+    if (status === 'error') {
+      return (
+        <div className="flex h-24 w-24 items-center justify-center rounded-lg border border-hairline bg-surface-3 text-[11px] text-ink-tertiary">
+          图片加载失败
+        </div>
+      );
+    }
+    if (!url) {
+      return <div className="h-24 w-24 animate-pulse rounded-lg bg-surface-3" />;
+    }
+    return (
+      <a href={url} target="_blank" rel="noopener noreferrer" className="block">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={url}
+          alt={att.name ?? '图片'}
+          className="max-h-56 max-w-[220px] rounded-lg border border-hairline object-cover"
+        />
+      </a>
+    );
+  }
+
+  return (
+    <a
+      href={url ?? undefined}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`flex items-center gap-2 rounded-lg border border-hairline bg-surface-2 px-3 py-2 text-[12px] transition hover:bg-surface-3 ${
+        url ? '' : 'pointer-events-none opacity-60'
+      }`}
+    >
+      <Paperclip className="h-4 w-4 shrink-0 text-ink-tertiary" />
+      <div className="min-w-0">
+        <div className="max-w-[160px] truncate text-ink-primary">{att.name ?? '附件'}</div>
+        {att.size ? <div className="text-[10px] text-ink-tertiary">{formatSize(att.size)}</div> : null}
+      </div>
+    </a>
+  );
+}
+
 function MessageRow({
   msg,
   prev,
@@ -943,6 +1075,15 @@ function MessageRow({
               );
             })()}
           </div>
+
+          {/* 附件: 图片缩略图 / 文件卡片 (通过预签名端点按需换取 GET URL) */}
+          {(msg.attachments ?? []).length > 0 && (
+            <div className={`mt-1.5 flex flex-wrap gap-2 ${isMe ? 'justify-end' : ''}`}>
+              {(msg.attachments ?? []).map((att, i) => (
+                <AttachmentView key={i} channelId={msg.channelId} att={att} />
+              ))}
+            </div>
+          )}
 
           {/* 差异化浮条: 落在气泡右下/左下角. 默认隐藏, hover 浮起.
               比起绝对定位 -top-3 的旧方案, 不再遮挡 sender 名 */}
