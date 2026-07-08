@@ -26,7 +26,7 @@ interface HrDept {
 }
 interface OrgUser {
   id: string; email: string; name: string; roles: string[]; disabled?: boolean;
-  departmentId?: string | null; jobTitle?: string | null; managerId?: string | null;
+  departmentId?: string | null; departmentName?: string | null; jobTitle?: string | null; managerId?: string | null;
   employeeId?: string | null; hireDate?: string | null; workLocation?: string | null; phone?: string | null;
 }
 interface BulkResult { row: number; email: string; ok: boolean; code?: string; error?: string; registerUrl?: string }
@@ -60,7 +60,7 @@ function deptPath(id: string | null | undefined, depts: HrDept[]): string {
   const parts: string[] = [];
   let cur = map.get(id);
   while (cur) { parts.unshift(cur.name); cur = cur.parentId ? map.get(cur.parentId) : undefined; }
-  return parts.join(' / ') || '-';
+  return parts.join(' / ') || id;
 }
 
 function collectDeptSubtreeIds(rootId: string, childrenMap: Map<string | null, HrDept[]>): Set<string> {
@@ -152,7 +152,7 @@ function UserDialog({
   const [saving, setSaving] = useState(false);
   useEffect(() => {
     if (open && user) {
-      setForm({ departmentId: user.departmentId ?? NONE_VALUE, jobTitle: user.jobTitle ?? '', managerId: user.managerId ?? NONE_VALUE, employeeId: user.employeeId ?? '', hireDate: user.hireDate ?? '', workLocation: user.workLocation ?? '', phone: user.phone ?? '' });
+      setForm({ name: user.name ?? '', departmentId: user.departmentId ?? NONE_VALUE, jobTitle: user.jobTitle ?? '', managerId: user.managerId ?? NONE_VALUE, employeeId: user.employeeId ?? '', hireDate: user.hireDate ?? '', workLocation: user.workLocation ?? '', phone: user.phone ?? '' });
       setRoles(user.roles ?? []);
     }
   }, [open, user]);
@@ -161,13 +161,15 @@ function UserDialog({
   const toggleRole = (r: string) =>
     setRoles((prev) => (prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]));
   async function submit() {
+    const nextName = (form.name ?? '').trim();
+    if (!nextName) return;
     setSaving(true);
     try {
       // owner 锁定: 始终保留原 owner 位, 只提交非空角色集 (至少 employee 兜底).
       const base = roles.filter((r) => r !== 'owner');
       const merged = isOwner ? ['owner', ...base] : base;
       const finalRoles = merged.length > 0 ? Array.from(new Set(merged)) : ['employee'];
-      await onSave({ ...form, roles: finalRoles });
+      await onSave({ ...form, name: nextName, roles: finalRoles });
       onClose();
     } finally {
       setSaving(false);
@@ -179,6 +181,10 @@ function UserDialog({
       <DialogContent className="max-w-lg">
         <DialogHeader><DialogTitle>编辑员工 · {user.name}</DialogTitle></DialogHeader>
         <div className="grid grid-cols-2 gap-3 py-2">
+          <div className="col-span-2">
+            <label className="text-caption font-medium mb-1 block">姓名</label>
+            <Input value={form.name ?? ''} onChange={(e) => set('name', e.target.value)} placeholder="请输入姓名" />
+          </div>
           <div className="col-span-2">
             <label className="text-caption font-medium mb-1 block">所属部门</label>
             <Select value={form.departmentId ?? NONE_VALUE} onValueChange={(v) => set('departmentId', v)}>
@@ -246,7 +252,7 @@ function UserDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>取消</Button>
-          <Button onClick={submit} disabled={saving}>{saving ? '保存中...' : '保存'}</Button>
+          <Button onClick={submit} disabled={saving || !(form.name ?? '').trim()}>{saving ? '保存中...' : '保存'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -381,6 +387,8 @@ export default function AdminOrganizationPage() {
   const [q, setQ] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [selectedDeptId, setSelectedDeptId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   // dept dialog
   const [deptDialog, setDeptDialog] = useState<{ open: boolean; initial?: HrDept | null; preParent?: string | null }>({ open: false });
   // user dialog
@@ -419,10 +427,23 @@ export default function AdminOrganizationPage() {
     return users.filter((u) => {
       if (roleFilter !== 'all' && !u.roles.includes(roleFilter)) return false;
       if (selectedDeptIds && (!u.departmentId || !selectedDeptIds.has(u.departmentId))) return false;
-      if (lc && !u.name.toLowerCase().includes(lc) && !u.email.toLowerCase().includes(lc) && !(u.jobTitle ?? '').toLowerCase().includes(lc)) return false;
+      if (lc && !u.name.toLowerCase().includes(lc) && !u.email.toLowerCase().includes(lc) && !(u.jobTitle ?? '').toLowerCase().includes(lc) && !(u.employeeId ?? '').toLowerCase().includes(lc) && !(u.departmentName ?? '').toLowerCase().includes(lc)) return false;
       return true;
     });
   }, [users, q, roleFilter, selectedDeptId, childrenMap]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [q, roleFilter, selectedDeptId, pageSize, users.length]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pageStart = filteredUsers.length === 0 ? 0 : (safePage - 1) * pageSize + 1;
+  const pageEnd = Math.min(safePage * pageSize, filteredUsers.length);
+  const pagedUsers = useMemo(() => {
+    const start = (safePage - 1) * pageSize;
+    return filteredUsers.slice(start, start + pageSize);
+  }, [filteredUsers, safePage, pageSize]);
 
   // dept CRUD
   async function saveDept(patch: Partial<HrDept>) {
@@ -561,16 +582,16 @@ export default function AdminOrganizationPage() {
 
           {/* 员工表格 */}
           <div className="border rounded-lg overflow-x-auto">
-            <table className="w-full text-caption">
+            <table className="w-full min-w-[980px] text-caption">
               <thead>
                 <tr className="bg-muted/40 border-b">
                   <th className="px-3 py-2 text-left font-medium whitespace-nowrap w-[220px]">姓名</th>
-                  <th className="px-3 py-2 text-left font-medium whitespace-nowrap">职务</th>
+                  <th className="px-3 py-2 text-left font-medium whitespace-nowrap w-[180px]">职务</th>
                   <th className="px-3 py-2 text-left font-medium whitespace-nowrap w-[140px]">部门</th>
                   <th className="px-3 py-2 text-left font-medium whitespace-nowrap hidden md:table-cell">直属上级</th>
                   <th className="px-3 py-2 text-left font-medium whitespace-nowrap hidden lg:table-cell">工号</th>
                   <th className="px-3 py-2 text-left font-medium whitespace-nowrap min-w-[120px]">角色</th>
-                  <th className="px-3 py-2 w-28 text-right font-medium sticky right-0 bg-muted/40 shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.1)]">操作</th>
+                  <th className="px-3 py-2 w-32 text-right font-medium whitespace-nowrap">操作</th>
                 </tr>
               </thead>
               <tbody>
@@ -578,7 +599,7 @@ export default function AdminOrganizationPage() {
                   <tr><td colSpan={7} className="py-10 text-center text-muted-foreground">加载中...</td></tr>
                 ) : filteredUsers.length === 0 ? (
                   <tr><td colSpan={7} className="py-10 text-center text-muted-foreground">暂无数据</td></tr>
-                ) : filteredUsers.map((u) => {
+                ) : pagedUsers.map((u) => {
                   const manager = users.find((m) => m.id === u.managerId);
                   return (
                     <tr key={u.id} className={`border-t hover:bg-muted/20 transition-colors ${u.disabled ? 'opacity-60' : ''}`}>
@@ -591,9 +612,11 @@ export default function AdminOrganizationPage() {
                         </div>
                         <div className="text-footnote text-muted-foreground font-mono truncate max-w-[200px]">{u.email}</div>
                       </td>
-                      <td className="px-3 py-2 text-muted-foreground">{u.jobTitle || '-'}</td>
+                      <td className="px-3 py-2 text-muted-foreground w-[180px]">
+                        <div className="truncate max-w-[180px]">{u.jobTitle || '-'}</div>
+                      </td>
                       <td className="px-3 py-2 text-muted-foreground w-[140px]">
-                        <div className="truncate max-w-[140px]">{deptPath(u.departmentId, depts)}</div>
+                        <div className="truncate max-w-[140px]">{u.departmentName ?? deptPath(u.departmentId, depts)}</div>
                       </td>
                       <td className="px-3 py-2 text-muted-foreground hidden md:table-cell">
                         {manager?.name || '-'}
@@ -614,7 +637,7 @@ export default function AdminOrganizationPage() {
                           })}
                         </div>
                       </td>
-                      <td className="px-2 py-2 whitespace-nowrap sticky right-0 bg-background shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.1)]">
+                      <td className="px-2 py-2 whitespace-nowrap">
                         <div className="flex items-center gap-1 justify-end">
                           <button
                             className="shrink-0 p-1.5 rounded-md border border-transparent hover:bg-muted hover:border-border text-muted-foreground hover:text-foreground"
@@ -646,6 +669,50 @@ export default function AdminOrganizationPage() {
                 })}
               </tbody>
             </table>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 mt-3 text-footnote text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <span>每页</span>
+              <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+                <SelectTrigger className="h-8 w-[76px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[10, 20, 50, 100].map((size) => (
+                    <SelectItem key={size} value={String(size)}>{size}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <span>条</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="tabular-nums">
+                {pageStart}-{pageEnd} / {filteredUsers.length}
+              </span>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={safePage <= 1}
+                >
+                  上一页
+                </Button>
+                <span className="min-w-[56px] text-center tabular-nums">
+                  {safePage} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={safePage >= totalPages}
+                >
+                  下一页
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </div>

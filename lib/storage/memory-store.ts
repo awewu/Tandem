@@ -119,6 +119,12 @@ function createInMemoryAuthStore(): AuthStore {
           lastLoginIp: null,
           emailVerifiedAt: input.emailVerifiedAt ?? null,
           departmentId: input.departmentId ?? null,
+          jobTitle: input.jobTitle ?? null,
+          managerId: input.managerId ?? null,
+          employeeId: input.employeeId ?? null,
+          hireDate: input.hireDate ?? null,
+          workLocation: input.workLocation ?? null,
+          phone: input.phone ?? null,
           orgId: input.orgId ?? null,
           membershipType: input.membershipType,
         };

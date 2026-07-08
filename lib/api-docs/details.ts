@@ -211,7 +211,7 @@ const OVERRIDES: Record<string, Partial<ApiEndpointDoc>> = {
       field('q', 'string', '按姓名或邮箱模糊搜索。'),
     ],
     responseFields: [
-      field('users', 'User[]', '用户列表。敏感字段如 passwordHash、mfaSecret 不会返回。'),
+      field('users', 'User[]', '用户列表。包含 id、email、name、roles、departmentId、departmentName、jobTitle、managerId、employeeId、hireDate、workLocation、phone；敏感字段如 passwordHash、mfaSecret 不会返回。'),
     ],
   },
   '/api/kpi': {

@@ -286,10 +286,16 @@ function createDrizzleAuthStore(): AuthStore {
           updatedAt: now,
         };
         const [inserted] = await db.insert(schema.user).values(row).returning();
-        if (input.departmentId || input.orgId || input.membershipType) {
+        if (input.departmentId || input.jobTitle || input.managerId || input.employeeId || input.hireDate || input.workLocation || input.phone || input.orgId || input.membershipType) {
           await extrasRepo.create({
             id,
             departmentId: input.departmentId ?? null,
+            jobTitle: input.jobTitle ?? null,
+            managerId: input.managerId ?? null,
+            employeeId: input.employeeId ?? null,
+            hireDate: input.hireDate ?? null,
+            workLocation: input.workLocation ?? null,
+            phone: input.phone ?? null,
             orgId: input.orgId ?? null,
             membershipType: input.membershipType,
           });
