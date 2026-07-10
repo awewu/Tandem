@@ -8,6 +8,7 @@
  */
 
 import { Suspense, useCallback, useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { CreateChannelDialog } from '@/components/im/create-channel-dialog';
 import { ChannelDetailPanel } from '@/components/im/channel-detail-panel';
@@ -51,6 +52,10 @@ import {
   Paperclip,
   AtSign,
   X,
+  ZoomIn,
+  ZoomOut,
+  RefreshCw,
+  Download,
 } from 'lucide-react';
 
 // Day 4-7: 升级 Channel/Message 类型 以含撤回 + 公告 + pinned
@@ -169,17 +174,22 @@ function ImInner() {
     );
     es.addEventListener('message', (e) => {
       try {
+        // 追加前先判断用户是否本就贴近底部; 若在上方翻历史则不打扰
+        const el = scrollRef.current;
+        const nearBottom = !el || el.scrollHeight - el.scrollTop - el.clientHeight < 150;
         const msg = JSON.parse((e as MessageEvent).data) as Message;
         setMessages((prev) => {
           if (prev.find((m) => m.id === msg.id)) return prev;
           return [...prev, msg];
         });
-        setTimeout(() => {
-          scrollRef.current?.scrollTo({
-            top: scrollRef.current.scrollHeight,
-            behavior: 'smooth',
-          });
-        }, 30);
+        if (nearBottom) {
+          setTimeout(() => {
+            scrollRef.current?.scrollTo({
+              top: scrollRef.current.scrollHeight,
+              behavior: 'smooth',
+            });
+          }, 30);
+        }
         // 保持已读
         void fetch(`/api/im/channels/${activeId}/read`, {
           method: 'POST',
@@ -373,6 +383,22 @@ function ImInner() {
     }
   }
 
+  /** 粘贴: 将剪贴板图片文件入队 (与选图一致走 attachments → 预签名上传闭环). */
+  function queuePastedImages(files: File[]) {
+    files.forEach((file) => {
+      const ext = (file.type.split('/')[1] || 'png').split('+')[0];
+      // 剪贴板图片常为统一名 'image.png', 重命名避免多张重名
+      const named = file.name && file.name !== 'image.png'
+        ? file
+        : new File([file], `pasted-${Date.now()}.${ext}`, { type: file.type });
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setAttachments((prev) => [...prev, { name: named.name, size: named.size, dataUrl: ev.target?.result as string, file: named }]);
+      };
+      reader.readAsDataURL(named);
+    });
+  }
+
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>, kind: 'image' | 'file') {
     const files = Array.from(e.target.files ?? []);
     if (!files.length) return;
@@ -403,7 +429,7 @@ function ImInner() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden bg-surface-1">
+    <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden bg-surface-1 md:h-full">
 
       {/* 消息流 + 右侧详情面板 并排容器 */}
       <div className="flex min-w-0 flex-1 overflow-hidden">
@@ -486,7 +512,7 @@ function ImInner() {
             )}
 
             {/* 消息流 */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain px-4 py-3">
               {messages.length === 0 && (
                 <div className="flex h-full flex-col items-center justify-center gap-2 text-ink-tertiary">
                   <div className="text-[32px]">💬</div>
@@ -660,8 +686,9 @@ function ImInner() {
                     value={input}
                     setValue={setInput}
                     onEnter={() => void sendMessage()}
+                    onPasteFiles={queuePastedImages}
                     disabled={sending}
-                    placeholder={sendAsAgent ? '以 AI 分身身份发言…' : '发送消息…'}
+                    placeholder={sendAsAgent ? '以 AI 分身身份发言…' : '发送消息（可直接粘贴图片）…'}
                   />
                 </div>
                 <Button
@@ -853,12 +880,106 @@ function formatSize(bytes?: number): string {
 }
 
 /**
+ * 图片灯箱. 通过 portal 挂到 document.body, 避免被带 transform/backdrop-filter
+ * 的祖先约束导致 fixed 不铺满视口. 支持滚轮/按钮缩放、复位、下载、打开原图.
+ */
+function ImageLightbox({ url, name, onClose }: { url: string; name?: string; onClose: () => void }) {
+  const [scale, setScale] = useState(1);
+  const clamp = (v: number) => Math.min(6, Math.max(0.2, +v.toFixed(2)));
+  const zoomIn = () => setScale((s) => clamp(s + 0.25));
+  const zoomOut = () => setScale((s) => clamp(s - 0.25));
+  const reset = () => setScale(1);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      else if (e.key === '+' || e.key === '=') zoomIn();
+      else if (e.key === '-') zoomOut();
+      else if (e.key === '0') reset();
+    };
+    window.addEventListener('keydown', onKey);
+    // 打开时锁滚动
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [onClose]);
+
+  const stop = (e: React.MouseEvent) => e.stopPropagation();
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[100] flex flex-col bg-black/85 backdrop-blur-sm"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      {/* 关闭 */}
+      <button
+        type="button"
+        onClick={onClose}
+        className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
+        aria-label="关闭预览 (Esc)"
+        title="关闭 (Esc)"
+      >
+        <X className="h-5 w-5" />
+      </button>
+
+      {/* 图片区: 滚轮缩放 */}
+      <div
+        className="flex flex-1 items-center justify-center overflow-auto p-8"
+        onClick={onClose}
+        onWheel={(e) => (e.deltaY < 0 ? zoomIn() : zoomOut())}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={url}
+          alt={name ?? '图片'}
+          onClick={stop}
+          style={{ transform: `scale(${scale})` }}
+          className="max-h-[85vh] max-w-[90vw] origin-center rounded-lg object-contain shadow-2xl transition-transform duration-100"
+        />
+      </div>
+
+      {/* 底部功能条 */}
+      <div
+        className="flex shrink-0 items-center justify-center gap-1.5 pb-6"
+        onClick={stop}
+      >
+        <div className="flex items-center gap-1 rounded-full bg-white/10 px-2 py-1.5 text-white backdrop-blur">
+          <button type="button" onClick={zoomOut} className="flex h-8 w-8 items-center justify-center rounded-full transition hover:bg-white/20" title="缩小 ( - )">
+            <ZoomOut className="h-4 w-4" />
+          </button>
+          <button type="button" onClick={reset} className="min-w-[52px] rounded-full px-2 text-[12px] tabular-nums transition hover:bg-white/20" title="复位 ( 0 )">
+            {Math.round(scale * 100)}%
+          </button>
+          <button type="button" onClick={zoomIn} className="flex h-8 w-8 items-center justify-center rounded-full transition hover:bg-white/20" title="放大 ( + )">
+            <ZoomIn className="h-4 w-4" />
+          </button>
+          <span className="mx-1 h-4 w-px bg-white/20" />
+          <button type="button" onClick={reset} className="flex h-8 w-8 items-center justify-center rounded-full transition hover:bg-white/20" title="复位">
+            <RefreshCw className="h-4 w-4" />
+          </button>
+          <a href={url} download={name} onClick={stop} className="flex h-8 w-8 items-center justify-center rounded-full transition hover:bg-white/20" title="下载原图">
+            <Download className="h-4 w-4" />
+          </a>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+/**
  * 渲染单个附件. 图片/文件的实际字节存在对象存储, 这里通过 IM 预签名端点
  * (mode: download) 按需换取短期 GET URL. 无 refId 时降级为文件名标签.
  */
 function AttachmentView({ channelId, att }: { channelId: string; att: ImAttachment }) {
   const [url, setUrl] = useState<string | null>(att.url ?? null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [preview, setPreview] = useState(false);
 
   useEffect(() => {
     if (att.url || !att.refId) return;
@@ -889,14 +1010,24 @@ function AttachmentView({ channelId, att }: { channelId: string; att: ImAttachme
       return <div className="h-24 w-24 animate-pulse rounded-lg bg-surface-3" />;
     }
     return (
-      <a href={url} target="_blank" rel="noopener noreferrer" className="block">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={url}
-          alt={att.name ?? '图片'}
-          className="max-h-56 max-w-[220px] rounded-lg border border-hairline object-cover"
-        />
-      </a>
+      <>
+        <button
+          type="button"
+          onClick={() => setPreview(true)}
+          className="block cursor-zoom-in overflow-hidden rounded-lg border border-hairline transition hover:opacity-90"
+          title="点击查看大图"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={url}
+            alt={att.name ?? '图片'}
+            className="max-h-56 max-w-[220px] object-cover"
+          />
+        </button>
+        {preview && (
+          <ImageLightbox url={url} name={att.name} onClose={() => setPreview(false)} />
+        )}
+      </>
     );
   }
 
@@ -954,6 +1085,8 @@ function MessageRow({
   // Day 4: recallable 用 Date.now(), SSR 和 CSR 时间不同会 hydration mismatch
   // → useState + useEffect 只在客户端 mount 后计算
   const [recallable, setRecallable] = useState(false);
+  const [reactionOpen, setReactionOpen] = useState(false);
+  const [reactionHover, setReactionHover] = useState(false);
   useEffect(() => {
     if (msg.deletedAt || msg.senderId !== meId) { setRecallable(false); return; }
     const ageMs = Date.now() - new Date(msg.createdAt).getTime();
@@ -995,9 +1128,12 @@ function MessageRow({
 
   const isPersona = msg.senderKind === 'persona';
   const isMe = msg.senderId === meId;
+  // 流式占位/正文任一存在才渲染气泡; 纯图片消息 (空正文 + 附件) 不显示空气泡
+  const isStreamingBubble = isPersona && !!msg.aiTraceId?.startsWith('imtrace_cb_') && !msg.body.includes('— 🏛️ CompanyBrain');
+  const showBubble = msg.body.trim().length > 0 || isStreamingBubble;
 
   return (
-    <div className={`cv-auto group mb-1 flex items-start gap-2.5 ${isMe ? 'flex-row-reverse' : ''}`}>
+    <div className={`group mb-1 flex items-start gap-2.5 ${isMe ? 'flex-row-reverse' : ''}`}>
       <div
         className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold shadow-soft-sm ${
           isPersona
@@ -1010,7 +1146,7 @@ function MessageRow({
       >
         {isPersona ? <Bot className="h-4 w-4" /> : nameOf(msg.senderId).slice(0, 2).toUpperCase()}
       </div>
-      <div className={`max-w-[72%] min-w-0 ${isMe ? 'text-right' : ''}`}>
+      <div className={`flex max-w-[72%] min-w-0 flex-col ${isMe ? 'items-end' : 'items-start'}`}>
         {showSender && (
           <div
             className={`mb-1 flex items-center gap-1.5 text-[10.5px] text-ink-secondary ${
@@ -1035,7 +1171,8 @@ function MessageRow({
             </span>
           </div>
         )}
-        <div className={`relative inline-block ${isMe ? 'text-left' : ''}`}>
+        <div className={`relative flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+          {showBubble && (
           <div
             className={`inline-block whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-[13.5px] leading-relaxed shadow-soft-sm ${
               isMe
@@ -1075,6 +1212,7 @@ function MessageRow({
               );
             })()}
           </div>
+          )}
 
           {/* 附件: 图片缩略图 / 文件卡片 (通过预签名端点按需换取 GET URL) */}
           {(msg.attachments ?? []).length > 0 && (
@@ -1088,15 +1226,17 @@ function MessageRow({
           {/* 差异化浮条: 落在气泡右下/左下角. 默认隐藏, hover 浮起.
               比起绝对定位 -top-3 的旧方案, 不再遮挡 sender 名 */}
           <div
-            className={`pointer-events-none absolute -bottom-3 ${
-              isMe ? 'left-2' : 'right-2'
-            } flex translate-y-1 gap-1 opacity-0 transition-all group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100`}
+            className={`pointer-events-none absolute -bottom-3 z-10 ${
+              isMe ? 'right-2' : 'left-2'
+            } flex w-max max-w-none flex-nowrap items-center gap-1 whitespace-nowrap translate-y-1 opacity-0 transition-all group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 ${
+              reactionOpen || reactionHover ? 'invisible' : ''
+            }`}
           >
             <button
               type="button"
               onClick={onSpawnRoom}
               disabled={!!msg.spawnedDecisionCardId}
-              className="flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-warning shadow-soft ring-1 ring-warning/30 transition hover:bg-warning/5 hover:shadow-soft-lg disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-warning shadow-soft ring-1 ring-warning/30 transition hover:bg-amber-50 hover:shadow-soft-lg disabled:cursor-not-allowed disabled:opacity-40"
               title="把这条消息变成议事室议题 (Tandem 差异化 — 普通 IM 没有)"
             >
               <Sparkles className="h-3 w-3" />
@@ -1117,7 +1257,7 @@ function MessageRow({
               type="button"
               onClick={onPin}
               className={`flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold shadow-soft transition hover:shadow-soft-lg ${
-                isPinned ? 'text-warning ring-1 ring-warning/30 hover:bg-warning/5' : 'text-ink-secondary ring-1 ring-hairline hover:bg-surface-3'
+                isPinned ? 'text-warning ring-1 ring-warning/30 hover:bg-amber-50' : 'text-ink-secondary ring-1 ring-hairline hover:bg-surface-3'
               }`}
               title={isPinned ? '取消置顶' : '置顶 (最多 5 条)'}
             >
@@ -1145,12 +1285,18 @@ function MessageRow({
           </div>
         </div>
         {/* 表情回应 (真闭环: /api/im/messages/:id/reactions 切换持久化到 ImMessage.reactions) */}
-        <div className={isMe ? 'flex justify-end' : ''}>
+        <div
+          className={isMe ? 'flex justify-end' : ''}
+          onMouseEnter={() => setReactionHover(true)}
+          onMouseLeave={() => setReactionHover(false)}
+        >
           <MessageReactions
             messageId={msg.id}
             reactions={msg.reactions}
             currentUserId={meId}
             onChanged={onReactionChange}
+            align={isMe ? 'right' : 'left'}
+            onOpenChange={setReactionOpen}
           />
         </div>
         {/* Day 4: 已读人数 (仅我发的消息显示) */}
@@ -1251,10 +1397,11 @@ function ImComposerInput(props: {
   value: string;
   setValue: React.Dispatch<React.SetStateAction<string>>;
   onEnter: () => void;
+  onPasteFiles?: (files: File[]) => void;
   disabled?: boolean;
   placeholder?: string;
 }) {
-  const { composerRef, value, setValue, onEnter, disabled, placeholder } = props;
+  const { composerRef, value, setValue, onEnter, onPasteFiles, disabled, placeholder } = props;
   const mention = useMentionTrigger({
     value,
     setValue: (v) => setValue(v),
@@ -1267,6 +1414,21 @@ function ImComposerInput(props: {
         ref={composerRef}
         value={value}
         onChange={mention.onChange}
+        onPaste={(e) => {
+          const items = e.clipboardData?.items;
+          if (!items) return;
+          const imgs: File[] = [];
+          for (const it of Array.from(items)) {
+            if (it.kind === 'file' && it.type.startsWith('image/')) {
+              const f = it.getAsFile();
+              if (f) imgs.push(f);
+            }
+          }
+          if (imgs.length > 0) {
+            e.preventDefault();
+            onPasteFiles?.(imgs);
+          }
+        }}
         onKeyDown={(e) => {
           // picker 接管 ↑↓⏎Esc, 不让 Input 默认 Enter 触发发送
           if (mention.open && ['ArrowDown', 'ArrowUp', 'Enter', 'Escape', 'Tab'].includes(e.key)) {

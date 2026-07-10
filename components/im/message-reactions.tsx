@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Smile } from 'lucide-react';
 
 const QUICK_EMOJIS = ['👍', '❤️', '😂', '🎉', '🚀', '👀', '🙏', '🔥'];
@@ -10,11 +10,36 @@ interface Props {
   reactions?: Record<string, string[]>;
   currentUserId: string;
   onChanged?: (next: Record<string, string[]>) => void;
+  /** 弹层展开方向: 右对齐消息传 'right' 避免弹层溢出被裁 */
+  align?: 'left' | 'right';
+  /** 弹层开合变化: 父级据此隐藏 hover 浮条, 避免与表情条冲突 */
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function MessageReactions({ messageId, reactions = {}, currentUserId, onChanged }: Props) {
+export function MessageReactions({ messageId, reactions = {}, currentUserId, onChanged, align = 'left', onOpenChange }: Props) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    onOpenChange?.(open);
+  }, [open, onOpenChange]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
 
   async function toggle(emoji: string) {
     if (busy) return;
@@ -57,7 +82,7 @@ export function MessageReactions({ messageId, reactions = {}, currentUserId, onC
           </button>
         );
       })}
-      <div className="relative">
+      <div className="relative" ref={pickerRef}>
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
@@ -67,14 +92,18 @@ export function MessageReactions({ messageId, reactions = {}, currentUserId, onC
           <Smile className="h-3 w-3" />
         </button>
         {open && (
-          <div className="absolute bottom-full left-0 mb-1 z-50 flex gap-0.5 rounded-md border border-hairline bg-surface-2 p-1 shadow-soft-lg">
+          <div
+            className={`absolute bottom-full mb-2 z-50 flex w-max gap-0.5 rounded-full border border-hairline bg-surface-1 px-1 py-0.5 shadow-soft-lg ${
+              align === 'right' ? 'right-0' : 'left-0'
+            }`}
+          >
             {QUICK_EMOJIS.map((e) => (
               <button
                 key={e}
                 type="button"
                 onClick={() => toggle(e)}
                 disabled={busy}
-                className="h-7 w-7 rounded hover:bg-surface-3 text-body"
+                className="flex h-6 w-6 items-center justify-center rounded-full text-[13px] leading-none transition hover:scale-110 hover:bg-surface-3"
               >
                 {e}
               </button>
