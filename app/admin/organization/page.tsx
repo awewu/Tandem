@@ -388,7 +388,7 @@ export default function AdminOrganizationPage() {
   const [roleFilter, setRoleFilter] = useState('all');
   const [selectedDeptId, setSelectedDeptId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(15);
   // dept dialog
   const [deptDialog, setDeptDialog] = useState<{ open: boolean; initial?: HrDept | null; preParent?: string | null }>({ open: false });
   // user dialog
@@ -497,26 +497,41 @@ export default function AdminOrganizationPage() {
   }
 
   return (
-    <div className="page-container py-8 md:py-10">
-      <header className="flex items-start justify-between gap-4 mb-6">
-        <div>
+    <div className="w-full max-w-none px-4 py-6 sm:px-5 lg:px-6 lg:py-8">
+      <header className="mb-4 flex flex-col gap-4 xl:flex-row xl:items-center">
+        <div className="shrink-0">
           <h1 className="text-title-3 font-semibold tracking-tight flex items-center gap-2">
             <Network className="h-6 w-6 text-primary" />
             组织架构管理
           </h1>
           <p className="text-caption text-muted-foreground mt-1">部门树 / 员工归属 / 汇报关系 / HR 数据维护</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 xl:flex-nowrap">
+          <div className="relative min-w-[180px] flex-1">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input placeholder="搜索姓名/邮箱/职务" value={q} onChange={(e) => setQ(e.target.value)} className="h-9 pl-8" />
+          </div>
+          <Select value={roleFilter} onValueChange={setRoleFilter}>
+            <SelectTrigger className="h-9 w-[120px] shrink-0"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部角色</SelectItem>
+              {Object.entries(ROLE_LABEL).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <span className="shrink-0 text-footnote text-muted-foreground tabular-nums">
+            {filteredUsers.length} / {users.length} 人
+            {selectedDeptId && <> / {depts.find((d) => d.id === selectedDeptId)?.name}</>}
+          </span>
+          <Button className="shrink-0" variant="outline" size="sm" onClick={() => setImportOpen(true)}>
             <Upload className="h-4 w-4 mr-1" />导入通讯录
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setBulkOpen((p) => !p)}>
+          <Button className="shrink-0" variant="outline" size="sm" onClick={() => setBulkOpen((p) => !p)}>
             <Upload className="h-4 w-4 mr-1" />批量邀请
           </Button>
-          <Button size="sm" onClick={() => setDeptDialog({ open: true, initial: null })}>
+          <Button className="shrink-0" size="sm" onClick={() => setDeptDialog({ open: true, initial: null })}>
             <Plus className="h-4 w-4 mr-1" />新建部门
           </Button>
-          <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+          <Button className="shrink-0" variant="outline" size="sm" onClick={load} disabled={loading}>
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
         </div>
@@ -528,9 +543,9 @@ export default function AdminOrganizationPage() {
         </div>
       )}
 
-      <div className="flex gap-4 items-start">
+      <div className="flex flex-col items-start gap-3 lg:flex-row">
         {/* 左侧：部门树 */}
-        <div className="w-72 shrink-0">
+        <div className="w-full shrink-0 lg:w-56">
           <div className="flex items-center justify-between mb-2">
             <span className="text-caption font-medium text-muted-foreground">部门 ({depts.length})</span>
             {selectedDeptId && (
@@ -560,38 +575,19 @@ export default function AdminOrganizationPage() {
         </div>
 
         {/* 右侧：员工列表 */}
-        <div className="flex-1 min-w-0">
-          {/* 宸ュ叿鏉?*/}
-          <div className="flex flex-wrap items-center gap-2 mb-3">
-            <div className="relative flex-1 min-w-[180px]">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <Input placeholder="搜索姓名/邮箱/职务" value={q} onChange={(e) => setQ(e.target.value)} className="pl-8 h-9" />
-            </div>
-            <Select value={roleFilter} onValueChange={setRoleFilter}>
-              <SelectTrigger className="w-[120px] h-9"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">全部角色</SelectItem>
-                {Object.entries(ROLE_LABEL).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <span className="text-footnote text-muted-foreground tabular-nums ml-auto">
-              {filteredUsers.length} / {users.length} 人
-              {selectedDeptId && <> / {depts.find((d) => d.id === selectedDeptId)?.name}</>}
-            </span>
-          </div>
-
+        <div className="min-w-0 w-full flex-1">
           {/* 员工表格 */}
           <div className="border rounded-lg overflow-x-auto">
             <table className="w-full min-w-[980px] text-caption">
               <thead>
                 <tr className="bg-muted/40 border-b">
-                  <th className="px-3 py-2 text-left font-medium whitespace-nowrap w-[220px]">姓名</th>
-                  <th className="px-3 py-2 text-left font-medium whitespace-nowrap w-[180px]">职务</th>
-                  <th className="px-3 py-2 text-left font-medium whitespace-nowrap w-[140px]">部门</th>
-                  <th className="px-3 py-2 text-left font-medium whitespace-nowrap hidden md:table-cell">直属上级</th>
-                  <th className="px-3 py-2 text-left font-medium whitespace-nowrap hidden lg:table-cell">工号</th>
-                  <th className="px-3 py-2 text-left font-medium whitespace-nowrap min-w-[120px]">角色</th>
-                  <th className="px-3 py-2 w-32 text-right font-medium whitespace-nowrap">操作</th>
+                  <th className="px-3 py-1.5 text-left font-medium whitespace-nowrap w-[220px]">姓名</th>
+                  <th className="px-3 py-1.5 text-left font-medium whitespace-nowrap w-[180px]">职务</th>
+                  <th className="px-3 py-1.5 text-left font-medium whitespace-nowrap w-[140px]">部门</th>
+                  <th className="px-3 py-1.5 text-left font-medium whitespace-nowrap hidden md:table-cell">直属上级</th>
+                  <th className="px-3 py-1.5 text-left font-medium whitespace-nowrap hidden lg:table-cell">工号</th>
+                  <th className="px-3 py-1.5 text-left font-medium whitespace-nowrap min-w-[120px]">角色</th>
+                  <th className="sticky right-0 z-20 w-32 border-l bg-muted px-3 py-1.5 text-right font-medium whitespace-nowrap shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.18)]">操作</th>
                 </tr>
               </thead>
               <tbody>
@@ -602,29 +598,29 @@ export default function AdminOrganizationPage() {
                 ) : pagedUsers.map((u) => {
                   const manager = users.find((m) => m.id === u.managerId);
                   return (
-                    <tr key={u.id} className={`border-t hover:bg-muted/20 transition-colors ${u.disabled ? 'opacity-60' : ''}`}>
-                      <td className="px-3 py-2 w-[220px]">
-                        <div className="font-medium flex items-center gap-1.5">
+                    <tr key={u.id} className={`group border-t hover:bg-muted/20 transition-colors ${u.disabled ? 'opacity-60' : ''}`}>
+                      <td className="px-3 py-1 w-[220px]">
+                        <div className="font-medium leading-4 flex items-center gap-1.5">
                           <span className="truncate">{u.name}</span>
                           {u.disabled && (
                             <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 text-[10px] h-4 px-1 shrink-0">已禁用</Badge>
                           )}
                         </div>
-                        <div className="text-footnote text-muted-foreground font-mono truncate max-w-[200px]">{u.email}</div>
+                        <div className="text-footnote leading-4 text-muted-foreground font-mono truncate max-w-[200px]">{u.email}</div>
                       </td>
-                      <td className="px-3 py-2 text-muted-foreground w-[180px]">
+                      <td className="px-3 py-1 text-muted-foreground w-[180px]">
                         <div className="truncate max-w-[180px]">{u.jobTitle || '-'}</div>
                       </td>
-                      <td className="px-3 py-2 text-muted-foreground w-[140px]">
+                      <td className="px-3 py-1 text-muted-foreground w-[140px]">
                         <div className="truncate max-w-[140px]">{u.departmentName ?? deptPath(u.departmentId, depts)}</div>
                       </td>
-                      <td className="px-3 py-2 text-muted-foreground hidden md:table-cell">
+                      <td className="px-3 py-1 text-muted-foreground hidden md:table-cell">
                         {manager?.name || '-'}
                       </td>
-                      <td className="px-3 py-2 text-muted-foreground font-mono text-footnote hidden lg:table-cell">
+                      <td className="px-3 py-1 text-muted-foreground font-mono text-footnote hidden lg:table-cell">
                         {u.employeeId || '-'}
                       </td>
-                      <td className="px-3 py-2 min-w-[120px]">
+                      <td className="px-3 py-1 min-w-[120px]">
                         <div className="flex flex-wrap gap-1">
                           {(u.roles ?? []).map((r) => {
                             const m = ROLE_LABEL[r] ?? { label: r, color: 'bg-surface-1 text-ink-primary border' };
@@ -637,7 +633,7 @@ export default function AdminOrganizationPage() {
                           })}
                         </div>
                       </td>
-                      <td className="px-2 py-2 whitespace-nowrap">
+                      <td className="sticky right-0 z-10 border-l bg-background px-2 py-1 whitespace-nowrap shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.18)] group-hover:bg-muted">
                         <div className="flex items-center gap-1 justify-end">
                           <button
                             className="shrink-0 p-1.5 rounded-md border border-transparent hover:bg-muted hover:border-border text-muted-foreground hover:text-foreground"
@@ -678,7 +674,7 @@ export default function AdminOrganizationPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {[10, 20, 50, 100].map((size) => (
+                  {[15, 20, 50, 100].map((size) => (
                     <SelectItem key={size} value={String(size)}>{size}</SelectItem>
                   ))}
                 </SelectContent>

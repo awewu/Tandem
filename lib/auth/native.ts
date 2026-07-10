@@ -613,6 +613,12 @@ export interface NativeUser {
   lastLoginIp?: string | null;
   emailVerifiedAt?: string | null;
   departmentId?: string | null;
+  employeeId?: string | null;
+  jobTitle?: string | null;
+  managerId?: string | null;
+  hireDate?: string | null;
+  workLocation?: string | null;
+  phone?: string | null;
   /** 所属组织 (企业微信上下游模型) */
   orgId?: string | null;
   /** 成员身份类型 */
