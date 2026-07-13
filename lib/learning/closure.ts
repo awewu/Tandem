@@ -168,8 +168,10 @@ export async function onLessonCompleted(input: ClosureInput): Promise<ClosureRes
   // ② Mode Proficiency 加分 (搭子闭环) — 真写 Persona
   if (lesson.rewardMode && lesson.rewardScore) {
     try {
+      // 分身编队 (B-037): 只加分到主分身 (kind!=='skill', 旧数据无 kind 视为主).
+      // 用 closure 自己的 store (保留可注入 mock 契约), 内联过滤而非全局 getPrimaryPersona.
       const personas = await store.personas.list({ userId: attempt.userId } as never);
-      const persona = personas[0];
+      const persona = personas.find((p) => (p as { kind?: string }).kind !== 'skill');
       if (persona) {
         const cur = persona.modeProficiency ?? {};
         const old = cur[lesson.rewardMode] ?? 0;

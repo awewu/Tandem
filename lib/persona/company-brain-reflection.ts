@@ -89,31 +89,45 @@ function heuristicProposedChanges(
   metrics: Awaited<ReturnType<typeof computeMetrics>>,
   current: CompanyBrainVersion | null,
 ): CompanyBrainReflectionReport['proposedChanges'] {
-  const overruleRate = metrics.overall.overruleRate;
+  // §数据飞轮 (2026-07-12): 阈值调整只据【显式】信号 (人工点击/议事选择), 不被"隐式默许采纳"带偏。
+  //   隐式采纳(无投诉)只证明"没人抱怨", 不等于"答对了" —— 用它放宽召回会让智能虚高。
+  //   需至少 MIN_EXPLICIT 条显式样本才据此调配置, 否则样本不足, 仅观察。
+  const MIN_EXPLICIT = 5;
+  const explicitDecided = metrics.overall.explicitDecided;
+  const overruleRate = metrics.overall.explicitOverruleRate;
+  const adoptionRate = metrics.overall.explicitAdoptionRate;
   const reasons: string[] = [];
   const proposed: CompanyBrainReflectionReport['proposedChanges'] = {
     rationale: '',
   };
 
-  // 推翻率高 → 收紧 baseline (降低 hardBlock 阈值, 让更多决策走议事/人工)
+  if (explicitDecided < MIN_EXPLICIT) {
+    reasons.push(
+      `显式反馈样本不足 (${explicitDecided} < ${MIN_EXPLICIT}), 本期不据隐式默许调整配置; 建议提升 @中央AI 使用率与显式反馈率以积累训练梯度。`,
+    );
+    proposed.rationale = reasons.join('\n');
+    return proposed;
+  }
+
+  // 显式推翻率高 → 收紧 baseline (降低 hardBlock 阈值, 让更多决策走议事/人工)
   if (overruleRate >= 0.3 && current) {
     const newHard = Math.max(0.3, current.baselineThresholds.hardBlock - 0.05);
     proposed.baselineThresholdsDiff = { hardBlock: newHard };
     reasons.push(
-      `推翻率 ${(overruleRate * 100).toFixed(0)}% 偏高, 建议下调 hardBlock 阈值 ${current.baselineThresholds.hardBlock} → ${newHard.toFixed(2)}, 让更多边界场景转人工`,
+      `显式推翻率 ${(overruleRate * 100).toFixed(0)}% 偏高 (${explicitDecided} 条显式样本), 建议下调 hardBlock 阈值 ${current.baselineThresholds.hardBlock} → ${newHard.toFixed(2)}, 让更多边界场景转人工`,
     );
   }
 
-  // 推翻率低 + 采纳率高 → 放宽召回, 多注入 Memory
+  // 显式推翻率低 + 显式采纳率高 → 放宽召回, 多注入 Memory
   if (
     overruleRate <= 0.1 &&
-    metrics.overall.adoptionRate >= 0.7 &&
+    adoptionRate >= 0.7 &&
     current &&
     current.topKMemoriesInjected < 20
   ) {
     proposed.topKMemoriesInjectedDiff = current.topKMemoriesInjected + 2;
     reasons.push(
-      `表现稳健 (采纳 ${(metrics.overall.adoptionRate * 100).toFixed(0)}% / 推翻 ${(overruleRate * 100).toFixed(0)}%), 建议把召回 Memory 数 ${current.topKMemoriesInjected} → ${current.topKMemoriesInjected + 2}, 提升回答深度`,
+      `显式信号稳健 (采纳 ${(adoptionRate * 100).toFixed(0)}% / 推翻 ${(overruleRate * 100).toFixed(0)}%, ${explicitDecided} 条显式样本), 建议把召回 Memory 数 ${current.topKMemoriesInjected} → ${current.topKMemoriesInjected + 2}, 提升回答深度`,
     );
   }
 

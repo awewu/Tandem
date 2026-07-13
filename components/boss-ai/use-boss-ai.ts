@@ -68,16 +68,38 @@ interface BossAiState {
   pendingPrompt: PendingPrompt | null;
 }
 
-const LS_KEY = 'tandem.bossAi.v1';
-
-function makeSessionId(): string {
-  return `boss-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+interface AiChatConfig {
+  /** localStorage 持久化 key (每个 target 独立线程) */
+  lsKey: string;
+  /** SSE 流式端点 (中央 AI / 分身) */
+  streamEndpoint: string;
+  /** sessionId 前缀 */
+  sessionPrefix: string;
+  /** 反馈回传端点 (仅中央 AI 有决策飞轮; 分身无) */
+  feedbackEndpoint?: string;
 }
 
-function loadInitial(): BossAiState {
+const COMPANY_CONFIG: AiChatConfig = {
+  lsKey: 'tandem.bossAi.v1',
+  streamEndpoint: '/api/boss-ai/stream',
+  sessionPrefix: 'boss',
+  feedbackEndpoint: '/api/company-brain/feedback',
+};
+
+const PERSONA_CONFIG: AiChatConfig = {
+  lsKey: 'tandem.personaChat.v1',
+  streamEndpoint: '/api/persona/stream',
+  sessionPrefix: 'persona',
+};
+
+function makeSessionId(prefix: string): string {
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function loadInitial(cfg: AiChatConfig): BossAiState {
   const fallback: BossAiState = {
     open: false,
-    sessionId: makeSessionId(),
+    sessionId: makeSessionId(cfg.sessionPrefix),
     messages: [],
     streaming: false,
     error: null,
@@ -85,7 +107,7 @@ function loadInitial(): BossAiState {
   };
   if (typeof window === 'undefined') return fallback;
   try {
-    const raw = window.localStorage.getItem(LS_KEY);
+    const raw = window.localStorage.getItem(cfg.lsKey);
     if (!raw) return fallback;
     const parsed = JSON.parse(raw) as Partial<BossAiState>;
     return {
@@ -107,12 +129,17 @@ function loadInitial(): BossAiState {
 // ──────────────────────────────────────────────────────────────────
 type Listener = () => void;
 
-class BossAiStore {
+class AiChatStore {
   private state: BossAiState = { open: false, sessionId: '', messages: [], streaming: false, error: null, pendingPrompt: null };
   private listeners = new Set<Listener>();
   private hydrated = false;
   /** 当前流式请求的中止器 (用于"停止生成"); 非 React state, stop() 直接够得到. */
   private abortController: AbortController | null = null;
+
+  constructor(private cfg: AiChatConfig) {}
+
+  /** 该 store 对应的流式端点 (中央 AI / 分身). */
+  get streamEndpoint(): string { return this.cfg.streamEndpoint; }
 
   setAbort(c: AbortController | null) {
     this.abortController = c;
@@ -137,7 +164,7 @@ class BossAiStore {
   hydrate() {
     if (this.hydrated) return;
     this.hydrated = true;
-    this.state = loadInitial();
+    this.state = loadInitial(this.cfg);
   }
 
   getState(): BossAiState {
@@ -157,7 +184,7 @@ class BossAiStore {
     if (typeof window === 'undefined') return;
     try {
       window.localStorage.setItem(
-        LS_KEY,
+        this.cfg.lsKey,
         JSON.stringify({
           sessionId: this.state.sessionId,
           // 最多存 50 条; 剥掉 data:image base64 (体积大易爆 quota), 仅保留 http(s) 图.
@@ -228,7 +255,7 @@ class BossAiStore {
   }
 
   newSession() {
-    this.state = { ...this.state, sessionId: makeSessionId(), messages: [], error: null };
+    this.state = { ...this.state, sessionId: makeSessionId(this.cfg.sessionPrefix), messages: [], error: null };
     this.persist();
     this.emit();
   }
@@ -320,7 +347,7 @@ class BossAiStore {
     const idx = this.state.messages.findIndex((m) => m.createdAt === messageCreatedAt && m.role === 'assistant');
     if (idx < 0) return false;
     const target = this.state.messages[idx];
-    if (!target.decisionId || target.feedbackSubmitting) return false;
+    if (!this.cfg.feedbackEndpoint || !target.decisionId || target.feedbackSubmitting) return false;
 
     // 乐观提交: 先标记 submitting (UI 锁住按钮)
     const msgsOpt = this.state.messages.slice();
@@ -329,7 +356,7 @@ class BossAiStore {
     this.emit();
 
     try {
-      const res = await fetch('/api/company-brain/feedback', {
+      const res = await fetch(this.cfg.feedbackEndpoint, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         credentials: 'include',
@@ -355,18 +382,21 @@ class BossAiStore {
   }
 }
 
-// SSR-safe singleton
-const _g = globalThis as typeof globalThis & { __tandem_boss_ai_store__?: BossAiStore };
-function getStore(): BossAiStore {
-  if (!_g.__tandem_boss_ai_store__) _g.__tandem_boss_ai_store__ = new BossAiStore();
-  return _g.__tandem_boss_ai_store__;
+// SSR-safe singletons (per config, keyed by lsKey)
+const _g = globalThis as typeof globalThis & { __tandem_ai_chat_stores__?: Map<string, AiChatStore> };
+function getStore(cfg: AiChatConfig): AiChatStore {
+  if (!_g.__tandem_ai_chat_stores__) _g.__tandem_ai_chat_stores__ = new Map();
+  const map = _g.__tandem_ai_chat_stores__;
+  let s = map.get(cfg.lsKey);
+  if (!s) { s = new AiChatStore(cfg); map.set(cfg.lsKey, s); }
+  return s;
 }
 
 // ──────────────────────────────────────────────────────────────────
 // React hook
 // ──────────────────────────────────────────────────────────────────
-export function useBossAi() {
-  const store = getStore();
+function useAiChat(cfg: AiChatConfig) {
+  const store = getStore(cfg);
   // Hydrate on first client render
   useEffect(() => { store.hydrate(); }, [store]);
 
@@ -391,7 +421,7 @@ export function useBossAi() {
     const images = lastUser?.images;
 
     try {
-      const res = await fetch('/api/boss-ai/stream', {
+      const res = await fetch(store.streamEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,
@@ -518,4 +548,14 @@ export function useBossAi() {
     consumePendingPrompt,
     submitFeedback,
   }), [state, store, send, regenerate, editAndResend, stop, askAbout, consumePendingPrompt, submitFeedback]);
+}
+
+/** 中央 AI (CompanyBrain) 会话 · 与右下 FAB 抽屉共享同一线程. */
+export function useBossAi() {
+  return useAiChat(COMPANY_CONFIG);
+}
+
+/** 我的分身 (Persona) 会话 · 搭子工作台专用, 独立线程. 走 /api/persona/stream (governed). */
+export function usePersonaChat() {
+  return useAiChat(PERSONA_CONFIG);
 }

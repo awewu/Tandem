@@ -267,21 +267,22 @@ export const NAV_MODULES: NavModule[] = [
         icon: Users,
         tabs: [
           { name: '分身主页', href: '/persona' },
+          // 分身编队 (B-037 M4): 从基础 Agent 模板 fork 技能分身, 组建战斗小组
+          { name: '技能分身', href: '/persona/squad' },
           { name: '训练台', href: '/persona/training' },
           { name: '养料仪表盘', href: '/persona/data-source' },
+          // 五阶段进化页内含「委托权限」tab, 故不再单列「实习权限」冗余入口 (页面保留做深链兜底)
           { name: '五阶段进化', href: '/persona/evolution' },
-          { name: '实习权限', href: '/persona/delegation' },
           { name: '代办审计', href: '/persona/me/proxy-actions' },
         ],
       },
       {
-        name: '自我画像与成长',
+        // 瘦身 (2026-07-13): 360°/9-Box 已归「组织」模块 (反馈评估组), 此处删除重复入口, 避免双入口。
+        name: '成长档案',
         href: '/persona/profile',
         icon: Grid3x3,
         tabs: [
           { name: '个人档案', href: '/persona/profile' },
-          { name: '360° 评估', href: '/360' },
-          { name: '9-Box 定位', href: '/nine-box' },
           { name: '我的技能', href: '/skills' },
           { name: '学习路径推荐', href: '/skills/learning' },
           { name: '我的复盘库', href: '/retros/me' },

@@ -18,6 +18,7 @@ export type AuditAction =
   | 'convergence.veto'
   // Persona
   | 'persona.create'
+  | 'persona.fork'                         // 分身编队 (B-037): 从 AgentTemplate fork 技能分身
   | 'persona.upgrade'
   | 'persona.admin_set_stage'
   | 'persona.downgrade'

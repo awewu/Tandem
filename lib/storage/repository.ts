@@ -80,6 +80,9 @@ export interface TandemStore {
   decisionCards: Repository<DecisionCard>;
   personas: Repository<Persona>;
 
+  /** 分身编队 (B-037): 基础 Agent 模板 (员工从此 fork 技能分身) */
+  agentTemplates: Repository<import('../types/agent-template').AgentTemplate>;
+
   /** §CA-13 (CENTRAL-AI-ARCHITECTURE) CompanyBrain 智能迭代闭环 */
   companyBrainDecisions: Repository<CompanyBrainDecision>;
   companyBrainVersions: Repository<CompanyBrainVersion>;

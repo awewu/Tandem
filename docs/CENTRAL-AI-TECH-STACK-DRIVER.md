@@ -662,8 +662,8 @@ ${baselineContext}
 | # | 改进 | 技术文件 | 工作量 |
 |---|---|---|---|
 | **CA-9** | Reflection loop | `lib/persona/reflection.ts` | 2-3 周 |
-| **CA-10** | Correction-based fine-tune | `lib/training/dataset-builder.ts` | 1-2 月 |
-| **CA-11** | Knowledge distillation | `lib/training/lora.ts` | 2-3 月 |
+| **CA-10** | Correction-based fine-tune · **L2 语料层 ✅ 已落** (adopt/veto → SFT/DPO 导出, 见 `docs/CA-11-IQ-SOVEREIGNTY.md`) | `lib/training/dataset-builder.ts` | ✅ 语料层落地 |
+| **CA-11** | Knowledge distillation (⏳ 待算力, 用 CA-10 语料 LoRA 微调本地模型) | `lib/training/lora.ts` (待建) | 2-3 月 |
 | **CA-12** | Multi-Agent Tandem | `lib/agent-runtime/multi-agent.ts` | 2-3 月 |
 
 ---

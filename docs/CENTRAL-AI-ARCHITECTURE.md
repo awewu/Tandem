@@ -69,7 +69,7 @@
 
 **判读**: 我们不是"在搭 Agent loop", 是**已有 3 个回路 (中/长/超长) 完整, 在精细化第 4 个 (微回路)**. 企业级 Agent 的价值主要在中/长/超长回路 — 个人 Agent 根本没这些维度.
 
-### Agent 的 18 件器官 (11 齐 + 3 待加深 + 4 缺)
+### Agent 的 18 件器官 (14 齐 + 1 实现中 + 1 待加深 + 2 缺 · 2026-07-12 校准)
 
 把现有所有"组件"重新定义为 Agent 的器官, 它们不是松散绑定, 是**通过 CompanyBrain 这个第一人称视角统一**的有机体:
 
@@ -85,16 +85,20 @@
 | 8 | **冲动控制 / 行为缓冲** | 前额叶抑制 | ProxyAction (24h 否决) | ✅ |
 | 9 | **超我 / 治理意识** | 社会规范 | promotion-flow 3 级签批 + Steward | ✅ |
 | 10 | **角色成长曲线** | 发育 | Persona 5 阶段进化 (newborn→partner) | ✅ |
-| 11 | **学习与进化层** | 神经可塑性 | CompanyBrain Decision Log + Reflection (CA-13) | 🟡 骨架已 / 实现中 |
-| 12 | **主循环精细化** | 多步思考 | 议事 multi-step ReAct (CA-5, Mastra) | ❌ **缺** · V2 补 |
-| 13 | **执行肢体** | 肢体运动 | Tool calling runtime / MCP (CA-6/7) | ❌ **缺** · V2 补 |
-| 14 | **习惯沉淀** | 程序性记忆 | Skill 库 + AI 自动生成 + promotion 签批 (路径 9) | ❌ **缺** · V3 补 |
-| 15 | **OKR Anchor 注入器** | 目标锚定 | CompanyBrain 每次回复前嵌入当前 active 公司 OKR + 战略主题 | ❌ **缺** · V1.5 必补 (2-3h) |
-| 16 | **OKR Drift 检测** | 目标偏离检测 | 检测 intent 是否偏离当前 OKR (不偏离→PASS, 边缘→SOFT_WARN, 远离→询问) | ❌ **缺** · V1.5 (1 周) |
+| 11 | **学习与进化层** | 神经可塑性 | CompanyBrain Decision Log + Reflection (CA-13) | 🟡 骨架已 / 实现中 (真学习归因 B-024 待补) |
+| 12 | **主循环精细化** | 多步思考 | 主回复路径多步推理 `lib/persona/company-brain-reasoning.ts` (召回→评估→风险→相关人) | ✅ **LIVE** (2026-06+; 全 Mastra 化仍待 V2) |
+| 13 | **执行肢体** | 肢体运动 | `runToolLoop` (tool-loop) + skillRegistry 只读工具 + `persona-act`/`personaActPass` 写动作 (经 proposeAction) + MCP bridge (`syncMcpServersToRegistry`/`includeMcpTools`) | ✅ **LIVE** (2026-06+) |
+| 14 | **习惯沉淀** | 程序性记忆 | Skill 库 + AI 自动生成 (`skill-proposal.ts`) + promotion 签批 (路径 9) | 🟡 骨架已 / 端到端待补 · V3 |
+| 15 | **OKR Anchor 注入器** | 目标锚定 | CompanyBrain 每次回复前嵌入当前 active 公司 OKR + 战略主题 (B-014) | ✅ **LIVE** |
+| 16 | **OKR Drift 检测** | 目标偏离检测 | 检测 intent 是否偏离当前 OKR (`okr-drift`, 主回复路径已接) | ✅ **LIVE** |
 | 17 | **个人 AI 产出 Capture 层** | 个人产出捕获 | IDE 插件 / 浏览器扩展捕获个人 AI 产出，反哺组织 | ❌ **缺** · V2 (1-2 月) |
-| 18 | **Skill Gateway 4 道闸** | 技能网关 | ① Baseline-Guard ② OKR Drift Detection ③ Data Scope ④ Action Scope | ❌ **缺** · V2-V3 (1-2 月) |
+| 18 | **Skill Gateway 4 道闸** | 技能网关 | ① Baseline-Guard ② OKR Drift ③ Data Scope ④ Action Scope (zone) — 四闸均有单测覆盖 | ✅ **LIVE** |
 
-**不是"从零造 Agent", 是"补齐已有 Agent 缺的 7 件器官"**. 缺的 7 件 (#12/#13/#14/#15/#16/#17/#18) 是 V1.5/V2/V3 路径的内容, 见 § 五 / § 六.
+> ⚠️ **2026-07-12 PT 校准 (代码事实 refresh)**: 上表 #12/#13/#15/#16/#18 此前长期标"❌缺", 但代码早已接线上线 (感知 pass `company-brain-perception`/`persona-perception` · 写动作 `persona-act` · 多步推理 `company-brain-reasoning` · MCP bridge · 四道闸单测), 文档滞后。本次据实改为 ✅ LIVE。**真正仍缺的是**: #11 真学习归因 (B-024, evolution 仍是计数器非归因诊断)、#14 Skill 端到端、#17 个人产出捕获。
+>
+> 🔒 **决策防火墙 (2026-07-12, Owner 定)**: 个人成长的**非审批**上下文 (手抄 / 拿捏 / 个人记事本) 绝不流入 OKR/议事等决策依赖。已在代码密封: `baseline-guard` 与 `memory.search`(CompositeRetriever) 决策召回只用 `status='active'` 且 `ownershipLevel!=='personal'` 的组织级记忆; 前端个人记事本注入标签改为"个人笔记(参考)"不再冒充"公司基线"。搭子工作台用个人分身"懂你", 但产出**最终方案**只调审批后企业知识库。回归测试见 `tests/unit/baseline-guard.test.ts` (决策防火墙用例)。
+
+**不是"从零造 Agent", 是"补齐已有 Agent 缺的器官"**. 现仍待补: #11 真学习归因 / #14 Skill 端到端 / #17 个人产出捕获 — 见 § 五 / § 六.
 
 ### Agent 的"大脑选择层"配置 (TAF Router 默认规则)
 
@@ -230,8 +234,8 @@
 | # | 改进 | 技术选型 | 工作量 |
 |---|---|---|---|
 | **CA-9** | **Reflection loop**: 每月 CompanyBrain 复盘上月决策准确率, 自动调阈值 | cron + analyse_governance_metrics | 2-3 周 |
-| **CA-10** | **Correction-based fine-tune**: 治理委员会推翻决策时, 案例写入 fine-tune dataset | dataset builder + nightly fine-tune | 1-2 月 |
-| **CA-11** | **Knowledge distillation**: 把 CompanyBrain 决策知识蒸馏到 hermes-4 / qwen-7b 本地模型 → "组织 IQ 离线化" | LoRA + 本地推理 | 2-3 月 |
+| **CA-10** | **Correction-based fine-tune** · **L2 语料层 ✅ 已落**: adopt/veto 信号 → SFT/DPO 导出 (`lib/training/dataset-builder.ts`, 见 `docs/CA-11-IQ-SOVEREIGNTY.md`) | dataset builder ✅ + nightly fine-tune ⏳ | ✅ 语料层落地 |
+| **CA-11** | **Knowledge distillation** (⏳ 待算力): 用 CA-10 语料把 CompanyBrain 决策知识蒸馏到 hermes-4 / qwen-7b 本地模型 → "组织 IQ 离线化" | LoRA + 本地推理 | 2-3 月 |
 | **CA-12** | **Multi-Agent Tandem**: 部门 Brain + Company Brain + Persona × N 协作议事 | LangGraph / CrewAI | 2-3 月 |
 
 ---

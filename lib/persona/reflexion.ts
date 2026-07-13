@@ -24,6 +24,7 @@
 
 import { getStore } from '../storage/repository';
 import { generateId } from '../storage/repository';
+import { getPrimaryPersona } from './persona-lookup';
 import { logger } from '../infra/logger';
 import type { DecisionCard } from '../types/decision-card';
 import type { Persona } from '../types/persona';
@@ -106,8 +107,7 @@ export async function reflectOnDecision(
     const store = getStore();
     let p = persona;
     if (!p) {
-      const personas = await store.personas.list({ userId: card.createdBy } as never);
-      p = personas[0];
+      p = (await getPrimaryPersona(card.createdBy)) ?? undefined;
     }
     if (!p || !p.learningActive) {
       return { reflected: false, trigger, reason: 'no-active-persona' };

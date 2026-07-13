@@ -228,12 +228,19 @@ export async function setSharedToPersona(
   ownerId: string,
   id: string,
   enabled: boolean,
+  targetPersonaIds?: string[],
 ): Promise<ShouchaoNote | null> {
   const existing = await getNote(ownerId, id);
   if (!existing) return null;
   const store = getStore();
+  // 方案丙: enabled 时记录定向 (空数组 = 喂全队); 关闭授权时清空定向。
+  const normalizedTargets =
+    enabled && Array.isArray(targetPersonaIds) && targetPersonaIds.length > 0
+      ? targetPersonaIds
+      : [];
   const updated = await store.shouchaoNotes.update(id, {
     sharedToPersona: enabled,
+    sharedToPersonaIds: normalizedTargets,
     updatedAt: nowIso(),
   });
   await audit(
@@ -243,7 +250,7 @@ export async function setSharedToPersona(
       targetId: id,
       targetType: 'shouchao_note',
       tenantId: existing.tenantId,
-      metadata: { enabled },
+      metadata: { enabled, targetPersonaIds: normalizedTargets.length ? normalizedTargets : null },
     },
   );
   return updated;
@@ -348,11 +355,19 @@ async function rankNotesByRelevance(
 export async function retrieveSharedNotesForPersona(
   ownerId: string,
   intent: string,
-  opts?: { topK?: number },
+  opts?: { topK?: number; personaId?: string },
 ): Promise<ShouchaoNote[]> {
   const store = getStore();
   const all = await store.shouchaoNotes.list({ ownerId } as Partial<ShouchaoNote>);
-  const shared = all.filter((n) => n.sharedToPersona && !n.deletedAt && !n.archived);
+  const personaId = opts?.personaId;
+  const shared = all.filter((n) => {
+    if (!n.sharedToPersona || n.deletedAt || n.archived) return false;
+    // 方案丙 (B-037): 空/未设定向 = 喂全队; 有定向仅当当前分身命中才进
+    // (无 personaId 上下文时, 定向笔记不进 — 避免专供某技能分身的笔记误灌其它分身)。
+    const targets = n.sharedToPersonaIds;
+    if (!targets || targets.length === 0) return true;
+    return personaId ? targets.includes(personaId) : false;
+  });
   if (shared.length === 0) return [];
 
   const topK = opts?.topK ?? PERSONA_CORPUS_TOP_K;

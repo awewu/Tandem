@@ -262,6 +262,7 @@ export function createInMemoryStore(): TandemStore {
     _storeKind: 'memory' as const,
     decisionCards: new InMemoryRepository(),
     personas: new InMemoryRepository(),
+    agentTemplates: new InMemoryRepository(),
     // §CA-13 CompanyBrain 智能迭代闭环
     companyBrainDecisions: new InMemoryRepository(),
     companyBrainVersions: new InMemoryRepository(),

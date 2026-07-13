@@ -472,6 +472,36 @@ V2 加入. 触发预警的信号:
 - ❌ "新业务必须先入 Memory 才能做" → Memory 是描述, 不是审批
 - ❌ "为了好看而堆 Memory 数量" → 质量而非数量
 
+### 9.3 决策防火墙 (2026-07-12, Owner 定) 🔒
+
+**铁律**: 个人成长的**非审批**上下文 (搭子手抄 / 拿捏训练 / 个人记事本) **绝不流入 OKR / 议事等决策依赖**。个人成长通道与企业决策通道之间有一道单向防火墙。
+
+```
+个人成长通道 (非审批)                   企业决策通道 (审批权威)
+ 手抄 + 拿捏 + 个人分身训练      ✕      OKR / 议事 / 中央AI 决策
+ = 训练搭子 + 个人成长 + 日常咨询   防火墙   = 只依赖【审批后】企业知识库
+        │                                        ▲
+        └─ 搭子分身"懂你"(styleProfile) ─最终方案─┘ 调审批后企业知识库
+```
+
+| 通道 | 数据 | 谁能用 | 代码密封点 |
+|---|---|---|---|
+| 个人成长 | 手抄 (`sharedToPersona` opt-in) / 个人级 Memory | 只喂**本人**搭子分身 | `shouchao/service.ts` 闸门; 前端注入标"个人笔记(参考)"非"公司基线" |
+| 企业决策 | 签批 Memory (`status='active'`, 非 personal) + 公司级已发布 KnowledgeNode | OKR / 议事 / 中央AI 感知/推理 pass | `baseline-guard` 与 `memory.search`(CompositeRetriever) 决策召回过滤 `status='active' && ownershipLevel!=='personal'` |
+
+**两条落地约束:**
+
+- 个人非审批笔记不得冒充"公司权威基线"— 前端 `getBaselineSystemPrompt` 标签为"个人笔记(参考,非公司审批基线)"。
+- 搭子工作台用个人分身负责"懂你", 但产出**最终方案**必须调审批后的企业知识库 (权威答案来自签批 Memory)。
+
+**禁忌:**
+
+- ❌ 把个人级 (`ownershipLevel='personal'`) 记忆放进 `baseline-guard` / `memory.search` 的决策召回集
+- ❌ 让手抄/拿捏的非审批产出进入 OKR check-in / 议事收敛的判断依据
+- ❌ 用"个人笔记"冒充"公司基线(必须遵守)"注入决策 prompt
+
+回归测试: `tests/unit/baseline-guard.test.ts` — "firewall: actor OWN personal memory is NOT used as baseline" / "non-active memory excluded"。
+
 ---
 
 ## 第十章: 数据迁移与导入导出

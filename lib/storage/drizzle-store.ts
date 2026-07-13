@@ -31,6 +31,7 @@ import type {
   KpiBonusPayout,
   KpiCausalLink,
 } from '../types/kpi';
+import type { AgentTemplate } from '../types/agent-template';
 import { generateId } from './repository';
 // DB-AUDIT P1 · classifier 提取到独立无 db-import 文件 (便于单测).
 import { classifyKvFilter } from './kv-filter';
@@ -1155,6 +1156,96 @@ function createKpiCausalLinkRepo(): import('./repository').Repository<KpiCausalL
 }
 
 // ---------------------------------------------------------------------------
+// AgentTemplate 强类型 Repository (分身编队 B-037)
+// ---------------------------------------------------------------------------
+
+type AgentTemplateRow = typeof schema.agentTemplate.$inferSelect;
+
+function rowToAgentTemplate(r: AgentTemplateRow): AgentTemplate {
+  return {
+    id: r.id,
+    tenantId: r.tenantId,
+    name: r.name,
+    specialty: r.specialty,
+    origin: r.origin as AgentTemplate['origin'],
+    externalRef: r.externalRef ?? undefined,
+    basePrompt: r.basePrompt,
+    defaultSkills: (r.defaultSkills as string[]) ?? [],
+    defaultKnowledgeTags: (r.defaultKnowledgeTags as string[]) ?? [],
+    status: r.status as AgentTemplate['status'],
+    createdBy: r.createdBy,
+    reviewedBy: r.reviewedBy ?? undefined,
+    createdAt: r.createdAt.toISOString(),
+    updatedAt: r.updatedAt.toISOString(),
+  };
+}
+
+function createAgentTemplateRepo(): import('./repository').Repository<AgentTemplate> {
+  const t = schema.agentTemplate;
+  return {
+    async get(id) {
+      const rows = await db.select().from(t).where(eq(t.id, id)).limit(1);
+      return rows[0] ? rowToAgentTemplate(rows[0]) : null;
+    },
+    async list(filter, opts) {
+      let q = db.select().from(t).$dynamic();
+      q = q.where(
+        and(
+          filter?.tenantId ? eq(t.tenantId, filter.tenantId as string) : undefined,
+          filter?.status ? eq(t.status, filter.status as string) : undefined,
+          filter?.specialty ? eq(t.specialty, filter.specialty as string) : undefined,
+          filter?.origin ? eq(t.origin, filter.origin as string) : undefined,
+        ),
+      );
+      q = q.orderBy(desc(t.updatedAt));
+      if (opts?.limit !== undefined) q = q.limit(opts.limit);
+      if (opts?.offset !== undefined) q = q.offset(opts.offset);
+      const rows = await q;
+      const all = rows.map(rowToAgentTemplate);
+      if (!filter || Object.keys(filter).length === 0) return all;
+      return all.filter((item) =>
+        Object.entries(filter).every(([k, v]) => (item as unknown as Record<string, unknown>)[k] === v),
+      );
+    },
+    async create(data) {
+      const id = data.id ?? generateId('tpl');
+      const now = new Date();
+      const row = {
+        ...data,
+        id,
+        externalRef: data.externalRef ?? null,
+        reviewedBy: data.reviewedBy ?? null,
+        defaultSkills: (data.defaultSkills ?? []) as string[],
+        defaultKnowledgeTags: (data.defaultKnowledgeTags ?? []) as string[],
+        createdAt: new Date(data.createdAt ?? now),
+        updatedAt: new Date(data.updatedAt ?? now),
+      } as typeof t.$inferInsert;
+      await db.insert(t).values(row).onConflictDoUpdate({
+        target: t.id,
+        set: { ...row, updatedAt: now },
+      });
+      return (await this.get(id))!;
+    },
+    async update(id, patch) {
+      const now = new Date();
+      const dbPatch: Partial<typeof t.$inferInsert> = { updatedAt: now };
+      const textFields = ['name', 'specialty', 'origin', 'externalRef', 'basePrompt', 'status', 'createdBy', 'reviewedBy', 'tenantId'] as const;
+      for (const f of textFields) {
+        if ((patch as Record<string, unknown>)[f] !== undefined)
+          (dbPatch as Record<string, unknown>)[f] = (patch as Record<string, unknown>)[f] ?? null;
+      }
+      if (patch.defaultSkills !== undefined) dbPatch.defaultSkills = patch.defaultSkills as string[];
+      if (patch.defaultKnowledgeTags !== undefined) dbPatch.defaultKnowledgeTags = patch.defaultKnowledgeTags as string[];
+      await db.update(t).set(dbPatch).where(eq(t.id, id));
+      return (await this.get(id))!;
+    },
+    async delete(id) {
+      await db.delete(t).where(eq(t.id, id));
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Drizzle Store 工厂
 // ---------------------------------------------------------------------------
 
@@ -1163,6 +1254,7 @@ export function createDrizzleStore(): TandemStore {
     _storeKind: 'prisma' as const, // 历史命名, 表示"已持久化"模式
     decisionCards: new DrizzleKvRepository('decision_cards'),
     personas: new DrizzleKvRepository('personas'),
+    agentTemplates: createAgentTemplateRepo(),
     // §CA-13 CompanyBrain 智能迭代闭环
     companyBrainDecisions: new DrizzleKvRepository('company_brain_decisions'),
     companyBrainVersions: new DrizzleKvRepository('company_brain_versions'),

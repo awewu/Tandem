@@ -15,6 +15,9 @@
  */
 
 import { getRouter } from '../boot';
+import { getStore } from '../storage/repository';
+import { getPrimaryPersona, listSkillPersonas } from './persona-lookup';
+import { governedChat } from '../governance/governed-chat';
 
 export interface ExpertMode {
   id: string;
@@ -110,4 +113,199 @@ export async function runExpertPanel(
   );
 
   return { topic: cleanTopic, drafts, latencyMs: Date.now() - t0 };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// M3 · 战斗小组编排 (分身编队 B-037): 主分身 dispatch 真实技能分身实体
+//
+// 与 runExpertPanel (同分身多"视角") 的本质差异:
+//   - 这里 dispatch 给员工**真实的技能分身实体** (kind='skill'), 各自带
+//     从 AgentTemplate fork 来的 basePrompt + 独立进化出的 styleProfile/stage。
+//   - 主分身 (班长) 汇总合稿; 草稿被采纳时调 recordSkillPersonaAdoption 回流 (独立进化燃料)。
+// 受控铁律不变: 只产草稿, 不写库、不对外、不拍板; 红区硬禁; 服务 OKR。
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface SquadDraft {
+  /** 起草的技能分身 id (采纳时用于回流 recordSkillPersonaAdoption) */
+  personaId: string;
+  specialty: string;
+  templateName?: string;
+  stage: string;
+  ok: boolean;
+  draft: string;
+  error?: string;
+}
+
+export interface SquadPanelResult {
+  topic: string;
+  userId: string;
+  /** 班长 (主分身) id, 用于合稿归属 */
+  primaryPersonaId: string | null;
+  drafts: SquadDraft[];
+  latencyMs: number;
+}
+
+/**
+ * 战斗小组并行起草: 主分身把议题派给员工的技能分身实体, 各起一份草稿。
+ * fail-soft: 单个分身失败不影响其它; 无技能分身或空议题返回空。有界 maxTokens。
+ * @param opts.personaIds 限定只用哪些技能分身 (缺省=全部技能分身)
+ */
+export async function runSquadPanel(
+  userId: string,
+  topic: string,
+  opts?: { personaIds?: string[]; tenantId?: string; maxTokensPerExpert?: number },
+): Promise<SquadPanelResult> {
+  const t0 = Date.now();
+  const cleanTopic = (topic ?? '').trim();
+  const primary = await getPrimaryPersona(userId);
+
+  let skills = await listSkillPersonas(userId);
+  if (opts?.personaIds && opts.personaIds.length > 0) {
+    const set = new Set(opts.personaIds);
+    skills = skills.filter((p) => set.has(p.id));
+  }
+
+  if (!cleanTopic || skills.length === 0) {
+    return {
+      topic: cleanTopic,
+      userId,
+      primaryPersonaId: primary?.id ?? null,
+      drafts: [],
+      latencyMs: Date.now() - t0,
+    };
+  }
+
+  const store = getStore();
+  const maxTokens = opts?.maxTokensPerExpert ?? 700;
+
+  const drafts = await Promise.all(
+    skills.map(async (persona): Promise<SquadDraft> => {
+      const specialty = persona.specialty ?? '通用';
+      try {
+        // 取模板 basePrompt (技能分身的专业人格基底)
+        let basePrompt = '';
+        let templateName: string | undefined;
+        if (persona.templateId) {
+          const tpl = await store.agentTemplates.get(persona.templateId);
+          if (tpl) {
+            basePrompt = tpl.basePrompt;
+            templateName = tpl.name;
+          }
+        }
+        const styleHint = `你的沟通风格: ${persona.styleProfile?.communicationStyle ?? 'analytical'}。`;
+        const basePersonaPrompt = [
+          CONTROLLED_PREAMBLE,
+          `你的专业域: ${specialty}${templateName ? ` (${templateName})` : ''}。`,
+          basePrompt ? `专业人格基线:\n${basePrompt}` : '',
+          styleHint,
+        ]
+          .filter(Boolean)
+          .join('\n\n');
+
+        // 走统一治理出口: 注入企业基线/OKR锚/价值观锚 + 手抄语料(方案丙按 personaId 定向) + 红线 HARD_BLOCK。
+        // 草稿阶段跳过输出闸 (合稿/交付时再治理), 但输入闸红线仍一票否决。
+        const gc = await governedChat({
+          actorUserId: userId,
+          personaId: persona.id,
+          intent: cleanTopic,
+          basePersonaPrompt,
+          messages: [
+            { role: 'user', content: `议题:\n${cleanTopic}\n\n请从你的专业域起一份草稿。` },
+          ],
+          agentKind: 'skill',
+          scenario: 'high_frequency',
+          temperature: 0.5,
+          maxTokens,
+          skipOutputGuard: true,
+          metadata: { userId, requestId: `squad-panel:${persona.id}` },
+        });
+        if (!gc.ok) {
+          return {
+            personaId: persona.id,
+            specialty,
+            templateName,
+            stage: persona.stage,
+            ok: false,
+            draft: '',
+            error: gc.blocked?.reasons.join('; ') ?? '被治理拦截',
+          };
+        }
+        const draft = (gc.answer ?? '').trim();
+        if (!draft) {
+          return { personaId: persona.id, specialty, templateName, stage: persona.stage, ok: false, draft: '', error: '空草稿' };
+        }
+        return { personaId: persona.id, specialty, templateName, stage: persona.stage, ok: true, draft };
+      } catch (e) {
+        return { personaId: persona.id, specialty, stage: persona.stage, ok: false, draft: '', error: (e as Error).message };
+      }
+    }),
+  );
+
+  return {
+    topic: cleanTopic,
+    userId,
+    primaryPersonaId: primary?.id ?? null,
+    drafts,
+    latencyMs: Date.now() - t0,
+  };
+}
+
+export interface ConsolidateResult {
+  ok: boolean;
+  consolidated: string;
+  /** 参与合稿 (草稿被纳入) 的技能分身 id — 供采纳回流 */
+  contributingPersonaIds: string[];
+  error?: string;
+}
+
+/**
+ * 主分身 (班长) 合稿: 把技能分身的多份草稿合成一份连贯、去重、可执行的合稿。
+ * 只合并 ok 的草稿; 无可用草稿返回 error。受控铁律不变 (只产文本)。
+ */
+export async function consolidateSquadDrafts(
+  userId: string,
+  topic: string,
+  drafts: SquadDraft[],
+  opts?: { maxTokens?: number },
+): Promise<ConsolidateResult> {
+  const oks = drafts.filter((d) => d.ok && d.draft.trim());
+  const contributingPersonaIds = oks.map((d) => d.personaId);
+  if (oks.length === 0) {
+    return { ok: false, consolidated: '', contributingPersonaIds: [], error: '无可合稿的草稿' };
+  }
+  const primary = await getPrimaryPersona(userId);
+  try {
+    const body = oks.map((d) => `【${d.specialty}】\n${d.draft}`).join('\n\n---\n\n');
+    // 合稿由主分身(班长)产出, 走统一治理出口: 企业基线 + 手抄语料(主分身口径) + 红线。
+    const gc = await governedChat({
+      actorUserId: userId,
+      personaId: primary?.id,
+      intent: topic,
+      basePersonaPrompt: `${CONTROLLED_PREAMBLE}\n\n你是主分身(班长), 负责把技能分身的多份草稿合成一份连贯、去重、可执行的合稿。保留各专业域要点, 明确标注分歧与取舍。`,
+      messages: [
+        { role: 'user', content: `议题:\n${topic}\n\n各技能分身草稿:\n${body}\n\n请合成一份合稿。` },
+      ],
+      agentKind: 'persona',
+      scenario: 'high_frequency',
+      temperature: 0.4,
+      maxTokens: opts?.maxTokens ?? 900,
+      skipOutputGuard: true,
+      metadata: { userId, requestId: `squad-consolidate:${userId}` },
+    });
+    if (!gc.ok) {
+      return {
+        ok: false,
+        consolidated: '',
+        contributingPersonaIds,
+        error: gc.blocked?.reasons.join('; ') ?? '合稿被治理拦截',
+      };
+    }
+    const consolidated = (gc.answer ?? '').trim();
+    if (!consolidated) {
+      return { ok: false, consolidated: '', contributingPersonaIds, error: '空合稿' };
+    }
+    return { ok: true, consolidated, contributingPersonaIds };
+  } catch (e) {
+    return { ok: false, consolidated: '', contributingPersonaIds, error: (e as Error).message };
+  }
 }

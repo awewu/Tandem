@@ -24,6 +24,8 @@ export const dynamic = 'force-dynamic';
 interface RequestBody {
   /** 用户提的问题 */
   query: string;
+  /** 分身编队 (B-037 M4): 训练哪个分身; 缺省=主分身(班长)。技能分身注入其模板专业基线。 */
+  personaId?: string;
   /** 训练养料摘要（前端从 /training-context 拿到后传过来；服务端不重新查，省一次 IO） */
   context?: {
     styleProfile?: {
@@ -143,14 +145,40 @@ export async function POST(req: NextRequest) {
 
         // §19.5 搭子受控铁律: persona 自有 prompt 先过统一卡点, 企业基线强制注入,
         // 命中企业红线 HARD_BLOCK 则转人工 (不进 LLM)。
-        const basePersonaPrompt = buildSystemPrompt(body.context);
+        let basePersonaPrompt = buildSystemPrompt(body.context);
+        let agentKind: 'persona' | 'skill' = 'persona';
+        let personaId: string | undefined;
+        // 分身编队 (B-037 M4): 若指定 personaId 且属本人, 训练该技能分身 (注入模板基线 + 手抄丙定向)。
+        if (typeof body.personaId === 'string' && body.personaId) {
+          try {
+            const { getStore } = await import('@/lib/storage/repository');
+            const store = getStore();
+            const p = await store.personas.get(body.personaId);
+            if (p && p.userId === auth.userId) {
+              personaId = p.id;
+              if (p.kind === 'skill') {
+                agentKind = 'skill';
+                if (p.templateId) {
+                  const tpl = await store.agentTemplates.get(p.templateId);
+                  if (tpl) {
+                    basePersonaPrompt =
+                      `你是 ${auth.userId} 的技能分身「${tpl.name}」(专业域: ${p.specialty ?? tpl.specialty})。\n` +
+                      `专业人格基线:\n${tpl.basePrompt}\n\n` +
+                      basePersonaPrompt;
+                  }
+                }
+              }
+            }
+          } catch { /* fail-soft: 解析失败退回主分身训练 */ }
+        }
         const { governPersonaOutput } = await import('@/lib/persona/govern-persona');
         const gov = await governPersonaOutput({
           actorUserId: auth.userId,
           intent: body.query.trim(),
           basePersonaPrompt,
-          agentKind: 'persona',
+          agentKind,
           toolName: 'persona-train',
+          personaId,
         });
         if (!gov.allowed) {
           send({ type: 'delta', content: `🚫 ${gov.blockReason ?? '命中企业红线, 已转人工。'}` });

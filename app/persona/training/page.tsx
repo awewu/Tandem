@@ -72,6 +72,17 @@ interface ChatMessage {
   feedback?: 'like' | 'dislike' | null;
 }
 
+const SPECIALTY_LABEL: Record<string, string> = {
+  finance: '财务', tech: '技术', pm: '产品', marketing: '营销', legal: '法务',
+  design: '设计', sales: '销售', hr: '人力', strategy: '战略',
+};
+function specialtyLabel(s: string | null | undefined): string {
+  if (!s) return '通用';
+  return SPECIALTY_LABEL[s] ?? s;
+}
+
+interface SkillPersonaLite { id: string; kind: string; specialty: string | null; stage: string }
+
 export default function PersonaTrainingPage() {
   const me = useCurrentUserId();
   const { toast } = useToast();
@@ -83,6 +94,35 @@ export default function PersonaTrainingPage() {
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
   const [streamingText, setStreamingText] = useState('');
+
+  // 分身编队 (B-037 M4): 训练对象切换 (null = 主分身/班长; 否则某技能分身 id)
+  const [skillPersonas, setSkillPersonas] = useState<SkillPersonaLite[]>([]);
+  const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(null);
+
+  // 载入我的技能分身 + 从 URL ?personaId 预选 (仅接受本人技能分身)
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      try {
+        const r = await fetch('/api/me/personas', { credentials: 'include', cache: 'no-store' });
+        if (!r.ok) return;
+        const d = await r.json();
+        if (cancel) return;
+        const skills = (d.skills ?? []) as SkillPersonaLite[];
+        setSkillPersonas(skills);
+        const pid = new URLSearchParams(window.location.search).get('personaId');
+        if (pid && skills.some((s) => s.id === pid)) setSelectedPersonaId(pid);
+      } catch { /* ignore, 退回主分身训练 */ }
+    })();
+    return () => { cancel = true; };
+  }, []);
+
+  const switchPersona = (id: string | null) => {
+    if (id === selectedPersonaId) return;
+    setSelectedPersonaId(id);
+    setMessages([]);
+    setStreamingText('');
+  };
 
   // 拉训练养料
   const loadCtx = useCallback(async () => {
@@ -141,7 +181,7 @@ export default function PersonaTrainingPage() {
       const res = await fetch('/api/ai/persona-train', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
-        body: JSON.stringify({ query: q, context: contextPayload }),
+        body: JSON.stringify({ query: q, context: contextPayload, personaId: selectedPersonaId ?? undefined }),
       });
       if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
 
@@ -252,6 +292,30 @@ export default function PersonaTrainingPage() {
           左侧透明展示分身从你哪些真实数据里学；右侧训练对话，标「像我 / 不像我」收集偏好信号。
         </p>
       </header>
+
+      {/* 分身编队 (B-037 M4): 训练对象切换 — 主分身(班长) / 各技能分身 */}
+      {skillPersonas.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-footnote text-muted-foreground mr-1">训练对象:</span>
+          <Button
+            size="sm"
+            variant={selectedPersonaId === null ? 'default' : 'outline'}
+            onClick={() => switchPersona(null)}
+          >
+            主分身（班长）
+          </Button>
+          {skillPersonas.map((s) => (
+            <Button
+              key={s.id}
+              size="sm"
+              variant={selectedPersonaId === s.id ? 'default' : 'outline'}
+              onClick={() => switchPersona(s.id)}
+            >
+              {specialtyLabel(s.specialty)} 分身
+            </Button>
+          ))}
+        </div>
+      )}
 
       {/* V1 诚实标签 */}
       <Card className="border-warning/20 bg-warning/5/40">

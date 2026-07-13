@@ -514,8 +514,8 @@ ${baselineContext}
 | # | 改进 | 技术选型 | 工作量 |
 |---|---|---|---|
 | **CA-9** | Reflection loop | cron | 2-3 周 |
-| **CA-10** | Correction-based fine-tune | dataset builder | 1-2 月 |
-| **CA-11** | Knowledge distillation | LoRA | 2-3 月 |
+| **CA-10** | Correction-based fine-tune · **L2 语料 ✅ 已落** | `lib/training/dataset-builder.ts` | ✅ 语料层落地 |
+| **CA-11** | Knowledge distillation (⏳ 待算力) | LoRA | 2-3 月 |
 | **CA-12** | Multi-Agent Tandem | LangGraph | 2-3 月 |
 
 ---

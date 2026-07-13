@@ -431,15 +431,18 @@ async function runSlowScans(): Promise<void> {
     console.warn('[boot] ontology action reconcile failed:', err);
   }
 
-  // CA-13 (2026-06-09 · 补漏): pending → ignored 慢扫
-  //   7 天没拿到反馈的决策标记 ignored, 否则月度反思的 adoptionRate 分母被 pending 永久污染.
+  // CA-13 + §数据飞轮 (2026-07-12): pending 慢扫解析
+  //   7 天无显式反馈的决策: 用户可见回复类 (im/boss_ai) 按"无投诉=默许"隐式采纳, 其余标 ignored.
+  //   否则月度反思的 adoptionRate 分母被 pending 永久污染, 且全 ignored 会把采纳率人为压低.
   //   boot 时机够用 (服务器经常重启); 真正生产部署可挂独立 cron 但 boot 是兜底.
   try {
-    const { markStaleDecisionsIgnored } = await import('./persona/company-brain-decision');
-    const r = await markStaleDecisionsIgnored(7);
-    if (r.ignored > 0) {
+    const { resolveStaleDecisionsImplicitly } = await import('./persona/company-brain-decision');
+    const r = await resolveStaleDecisionsImplicitly(7);
+    if (r.implicitAdopted > 0 || r.ignored > 0) {
       // eslint-disable-next-line no-console
-      console.info(`[boot] company-brain decision sweep: ${r.ignored} 条 7天+ pending 决策标记 ignored`);
+      console.info(
+        `[boot] company-brain decision sweep: ${r.implicitAdopted} 条隐式采纳 + ${r.ignored} 条 ignored (7天+ pending)`,
+      );
     }
   } catch (err) {
     // eslint-disable-next-line no-console

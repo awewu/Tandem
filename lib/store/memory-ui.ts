@@ -177,7 +177,10 @@ export const useMemoryStore = create<MemoryStore>()(
           .sort((a, b) => (a.priority === 'critical' ? -1 : 1) - (b.priority === 'critical' ? -1 : 1))
           .map((m) => `- [${m.category}/${m.priority}] ${m.title}\n  ${m.content}`)
           .join('\n');
-        return `# 公司基线（必须遵守）\n以下是公司层面注入的标准/共识/要求，请在所有回答中严格遵守：\n${sections}\n`;
+        // 防火墙 (Owner 2026-07-12): 这是【个人记事本】(个人非审批笔记), 不是公司权威基线。
+        // 不得冒充"公司基线（必须遵守）"——那会让个人成长上下文伪装成组织权威, 违反决策防火墙。
+        // 公司权威基线走 baseline-guard (仅已签批组织级 Memory)。
+        return `# 个人笔记（参考，非公司审批基线）\n以下是你自己记录的个人笔记，仅供参考，不代表公司审批过的标准/红线：\n${sections}\n`;
       },
       exportMemories: () => JSON.stringify(get().memories, null, 2),
       importMemories: (json) => {

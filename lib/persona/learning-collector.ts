@@ -14,6 +14,7 @@
 
 import { getStore } from '../storage/repository';
 import { checkUpgradeEligibility } from './evolution';
+import { getPrimaryPersona } from './persona-lookup';
 import type { DecisionCard } from '../types/decision-card';
 import type { Persona, StyleProfile } from '../types/persona';
 
@@ -26,8 +27,7 @@ const COMMUNICATION_EXAMPLES_CAP = 100;
 export async function ingestDecisionCard(card: DecisionCard): Promise<void> {
   const store = getStore();
   const userId = card.createdBy;
-  const personas = await store.personas.list({ userId } as never);
-  const persona = personas[0];
+  const persona = await getPrimaryPersona(userId);
   if (!persona || !persona.learningActive) return;
 
   const stats = persona.decisionHistory;

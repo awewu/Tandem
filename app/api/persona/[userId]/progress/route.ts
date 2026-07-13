@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
-import { getStore } from '@/lib/storage/repository';
+import { getPrimaryPersona } from '@/lib/persona/persona-lookup';
 import { computeStageProgress } from '@/lib/persona/learning-collector';
 
 /**
@@ -12,9 +12,7 @@ export async function GET(
   { params }: { params: { userId: string } }
 ) {
   await boot();
-  const store = getStore();
-  const list = await store.personas.list({ userId: params.userId } as never);
-  const persona = list[0];
+  const persona = await getPrimaryPersona(params.userId);
   if (!persona) {
     return NextResponse.json({ error: 'persona not found' }, { status: 404 });
   }

@@ -39,6 +39,7 @@ async function seedMemory(p: {
   ownerUserId?: string;
   ownerDepartmentId?: string;
   type?: MemoryEntry['type'];
+  status?: MemoryEntry['status'];
 }): Promise<void> {
   const store = getStore();
   const now = new Date().toISOString();
@@ -47,7 +48,7 @@ async function seedMemory(p: {
     type: p.type ?? 'sop',
     title: p.title,
     body: p.body,
-    status: 'active',
+    status: p.status ?? 'active',
     signers: [],
     referenceCount: 0,
     ownershipLevel: p.ownershipLevel,
@@ -181,6 +182,48 @@ describe('baseline-guard', () => {
       agentKind: 'persona',
     });
     expect(guard.hits.some((h) => h.memoryId === 'm-co-value')).toBe(true);
+  });
+
+  // ── 决策防火墙 (Owner 2026-07-12): 个人非审批记忆 / 非 active 状态不得成为决策基线 ──
+
+  it('firewall: actor OWN personal memory is NOT used as baseline (even when intent matches)', async () => {
+    // Alice 自己的个人记事本 — 可见性上她本人能看, 但 baseline-guard 决策场景必须排除,
+    // 防止个人成长的非审批笔记冒充组织基线污染决策。
+    await seedMemory({
+      id: 'm-alice-personal',
+      title: '客户数据出境 我的个人理解',
+      body: '客户数据出境 这是我自己记的个人笔记 未经任何审批',
+      ownershipLevel: 'personal',
+      ownerUserId: ACTOR,
+      type: 'redline',
+    });
+    const guard = await checkBaseline({
+      intent: '客户数据出境',
+      actorUserId: ACTOR,
+      agentKind: 'autonomous',
+    });
+    // 个人非审批笔记绝不进决策基线: 既不命中, 也不因此 HARD_BLOCK
+    expect(guard.hits.some((h) => h.memoryId === 'm-alice-personal')).toBe(false);
+    expect(guard.verdict).toBe('PASS');
+  });
+
+  it('firewall: non-active (inactive) company memory is excluded from baseline', async () => {
+    await seedMemory({
+      id: 'm-inactive-redline',
+      title: '客户数据出境',
+      body: '客户数据出境严禁',
+      ownershipLevel: 'company',
+      type: 'redline',
+      status: 'inactive',
+    });
+    const guard = await checkBaseline({
+      intent: '客户数据出境',
+      actorUserId: ACTOR,
+      agentKind: 'autonomous',
+    });
+    // 已归档 (inactive) 的记忆不再生效, 不得触发 HARD_BLOCK
+    expect(guard.hits.some((h) => h.memoryId === 'm-inactive-redline')).toBe(false);
+    expect(guard.verdict).toBe('PASS');
   });
 
   it('checkId is unique and starts with bg_', async () => {

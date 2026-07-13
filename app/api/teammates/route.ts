@@ -18,6 +18,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { getStore } from '@/lib/storage/repository';
+import { getPrimaryPersona } from '@/lib/persona/persona-lookup';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { REFLEXION_TAG } from '@/lib/persona/reflexion';
 import type { DecisionCard } from '@/lib/types/decision-card';
@@ -93,8 +94,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   // ── 我的搭子 ──
   try {
-    const personas = await store.personas.list({ userId: auth.userId } as never);
-    const persona = personas[0];
+    const persona = await getPrimaryPersona(auth.userId);
     if (persona) {
       // 近 30 天学到的教训数
       let lessonCount = 0;

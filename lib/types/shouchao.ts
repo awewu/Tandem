@@ -33,6 +33,12 @@ export interface ShouchaoNote {
    * 喂给【本人的】工作分身 (牛马搭子). 可随时关 / 撤回. 公司无入口、绝不进公司 Memory/OKR.
    */
   sharedToPersona?: boolean;
+  /**
+   * 分身编队 · 方案丙 (B-037 M4): 定向喂养。
+   * 空 / 未设 = 喂全队 (主分身 + 所有技能分身); 有值 = 只喂列出的技能分身 id。
+   * 仅当 sharedToPersona=true 生效; 关闭授权时清空。
+   */
+  sharedToPersonaIds?: string[];
   createdAt: string;
   updatedAt: string;
 }

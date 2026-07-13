@@ -96,11 +96,10 @@ export async function POST(
     // 已无 session 也 ok
   }
 
-  // -------- 4. 匿名化 Persona (如有) --------
+  // -------- 4. 匿名化 Persona (分身编队 B-037: 主分身 + 全部技能分身, §13 覆盖全部) --------
   const personas = await store.personas.list({ userId: targetId } as never);
-  const persona = personas[0];
   let personaAnonymized = false;
-  if (persona) {
+  for (const persona of personas) {
     await store.personas.update(persona.id, {
       learningActive: false,
       styleProfile: {
@@ -125,7 +124,8 @@ export async function POST(
       originalEmailHash: h.slice(0, 16),
       anonEmail,
       personaAnonymized,
-      personaId: persona?.id ?? null,
+      personaCount: personas.length,
+      personaIds: personas.map((p) => p.id),
       manifestoReference: 'section 13.2',
     },
   });

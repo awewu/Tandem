@@ -6,6 +6,28 @@
 
 ---
 
+## §0.3 2026-07-12 三次校准 (决策防火墙 + 器官事实 refresh · 最高优先)
+
+> 本节优先级高于 §0.2 / §0.1 / §1-§10。
+
+**当前实测门控**:
+- `tsc --noEmit` → **0 错** (忽略 vendor/paperclip)
+- `vitest run` → **1282 passed / 1 skipped, 129 文件** (较 §0.2 的 1280 增 2 · 新增决策防火墙回归)
+
+**决策防火墙 (Owner 2026-07-12 定, 已密封)** 🔒:
+- 铁律: 个人成长的**非审批**上下文 (手抄 / 拿捏 / 个人记事本) 绝不流入 OKR/议事等决策依赖。
+- 密封点1 `lib/memory/baseline-guard.ts` — 决策召回加过滤 `status==='active' && ownershipLevel!=='personal'`。
+- 密封点2 `lib/memory/retriever.ts` (`memory.search`/CompositeRetriever) — memMatches 排除 `personal`。
+- 密封点3 `lib/store/memory-ui.ts` (`getBaselineSystemPrompt`) — 个人记事本注入标签由"公司基线(必须遵守)"改为"个人笔记(参考,非公司审批基线)"。
+- 回归测试: `tests/unit/baseline-guard.test.ts` +2 (个人记忆不入基线 / 非active排除)。
+- 详见 `docs/KNOWLEDGE-ARCHITECTURE.md` §9.3。
+
+**中央AI 器官事实 refresh (`CENTRAL-AI-ARCHITECTURE.md` §二 已同步)**:
+- 此前长期标"❌缺"的 #12 主循环 / #13 执行肢体 / #15 OKR Anchor / #16 OKR Drift / #18 Skill Gateway 4闸 → **实测均已 LIVE** (感知/写动作/多步推理 pass + MCP bridge + 四闸单测), 文档已据实改 ✅。
+- **真正仍缺**: #11 真学习归因 (B-024, evolution 仍是计数器非归因诊断) · #14 Skill 端到端 · #17 个人产出捕获。
+
+---
+
 ## §0.2 2026-06-28 二次校准 (体检后, 最高优先)
 
 > 全面体检 (tsc + vitest + 遗留标记扫描) 后定点修正下方 §1/§3 旧快照中已过时的状态。本节优先级高于 §0.1 与 §1-§10。

@@ -3,6 +3,7 @@ import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { DATA_STEWARD_ROLES } from '@/lib/auth/roles';
 import { computeBossCaptureScore, checkUpgradeEligibility } from '@/lib/persona/evolution';
+import { getPrimaryPersona } from '@/lib/persona/persona-lookup';
 
 /**
  * 治理/身份/系统计算字段 — 不可经原始 PATCH 注入 (防越权):
@@ -45,9 +46,7 @@ export async function GET(req: NextRequest, { params }: { params: { userId: stri
   const gate = checkSelfOrPrivileged(auth, params.userId, false);
   if (gate) return gate;
   try {
-    const store = getStore();
-    const list = await store.personas.list({ userId: params.userId } as never);
-    const persona = list[0];
+    const persona = await getPrimaryPersona(params.userId);
     if (!persona) {
       return NextResponse.json({ error: 'persona not found' }, { status: 404 });
     }
@@ -71,8 +70,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { userId: st
   try {
     const body = await req.json();
     const store = getStore();
-    const list = await store.personas.list({ userId: params.userId } as never);
-    const persona = list[0];
+    const persona = await getPrimaryPersona(params.userId);
     if (!persona) {
       return NextResponse.json({ error: 'persona not found' }, { status: 404 });
     }
