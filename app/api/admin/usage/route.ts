@@ -26,6 +26,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const days = Math.max(1, Math.min(90, Number(url.searchParams.get('days') ?? '7')));
   const sinceMs = Date.now() - days * 86400_000;
   const since = new Date(sinceMs);
+  // postgres-js 无法把 JS Date 直接作为绑定参数序列化 (prod 报 ERR_INVALID_ARG_TYPE),
+  // 传 ISO 字符串并在 SQL 里显式 cast 成 timestamptz.
+  const sinceIso = since.toISOString();
 
   const { db } = await import('@/lib/infra/drizzle-client');
 
@@ -34,7 +37,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     db.execute(sql`
       SELECT "eventName", COUNT(*)::int AS cnt
       FROM "UsageEvent"
-      WHERE "createdAt" >= ${since}
+      WHERE "createdAt" >= ${sinceIso}::timestamptz
         AND "tenantId" = ${auth.tenantId}
       GROUP BY "eventName"
       ORDER BY cnt DESC
@@ -43,7 +46,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     db.execute(sql`
       SELECT "userId", COUNT(*)::int AS cnt
       FROM "UsageEvent"
-      WHERE "createdAt" >= ${since}
+      WHERE "createdAt" >= ${sinceIso}::timestamptz
         AND "tenantId" = ${auth.tenantId}
         AND "userId" IS NOT NULL
       GROUP BY "userId"
@@ -53,7 +56,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     db.execute(sql`
       SELECT to_char("createdAt", 'YYYY-MM-DD') AS day, COUNT(*)::int AS cnt
       FROM "UsageEvent"
-      WHERE "createdAt" >= ${since}
+      WHERE "createdAt" >= ${sinceIso}::timestamptz
         AND "tenantId" = ${auth.tenantId}
       GROUP BY day
       ORDER BY day
@@ -72,7 +75,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
         AVG("latencyMs")::int AS avg_latency_ms,
         SUM(CASE WHEN "success" THEN 0 ELSE 1 END)::int AS failures
       FROM "LlmUsageLog"
-      WHERE "createdAt" >= ${since}
+      WHERE "createdAt" >= ${sinceIso}::timestamptz
         AND "tenantId" = ${auth.tenantId}
       GROUP BY "provider"
       ORDER BY calls DESC
@@ -84,7 +87,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
         SUM("tokensIn" + "tokensOut")::int AS total_tokens,
         SUM("costMicroUsd")::bigint AS cost_micro_usd
       FROM "LlmUsageLog"
-      WHERE "createdAt" >= ${since}
+      WHERE "createdAt" >= ${sinceIso}::timestamptz
         AND "tenantId" = ${auth.tenantId}
       GROUP BY "scenario"
       ORDER BY cost_micro_usd DESC NULLS LAST
@@ -96,7 +99,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
         COUNT(*)::int AS calls,
         SUM("costMicroUsd")::bigint AS cost_micro_usd
       FROM "LlmUsageLog"
-      WHERE "createdAt" >= ${since}
+      WHERE "createdAt" >= ${sinceIso}::timestamptz
         AND "tenantId" = ${auth.tenantId}
       GROUP BY day
       ORDER BY day
@@ -104,7 +107,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     db.execute(sql`
       SELECT "errorMessage", COUNT(*)::int AS cnt
       FROM "LlmUsageLog"
-      WHERE "createdAt" >= ${since}
+      WHERE "createdAt" >= ${sinceIso}::timestamptz
         AND "tenantId" = ${auth.tenantId}
         AND "success" = false
       GROUP BY "errorMessage"
@@ -117,13 +120,13 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   const totalsRes = await db.execute(sql`
     SELECT
       (SELECT COUNT(*)::int FROM "UsageEvent"
-        WHERE "createdAt" >= ${since} AND "tenantId" = ${auth.tenantId}) AS total_events,
+        WHERE "createdAt" >= ${sinceIso}::timestamptz AND "tenantId" = ${auth.tenantId}) AS total_events,
       (SELECT COUNT(DISTINCT "userId")::int FROM "UsageEvent"
-        WHERE "createdAt" >= ${since} AND "tenantId" = ${auth.tenantId} AND "userId" IS NOT NULL) AS active_users,
+        WHERE "createdAt" >= ${sinceIso}::timestamptz AND "tenantId" = ${auth.tenantId} AND "userId" IS NOT NULL) AS active_users,
       (SELECT COUNT(*)::int FROM "LlmUsageLog"
-        WHERE "createdAt" >= ${since} AND "tenantId" = ${auth.tenantId}) AS total_llm_calls,
+        WHERE "createdAt" >= ${sinceIso}::timestamptz AND "tenantId" = ${auth.tenantId}) AS total_llm_calls,
       (SELECT COALESCE(SUM("costMicroUsd"), 0)::bigint FROM "LlmUsageLog"
-        WHERE "createdAt" >= ${since} AND "tenantId" = ${auth.tenantId}) AS total_cost_micro_usd
+        WHERE "createdAt" >= ${sinceIso}::timestamptz AND "tenantId" = ${auth.tenantId}) AS total_cost_micro_usd
   `);
 
   const totalsRow = ((totalsRes as { rows?: unknown[] }).rows?.[0] ?? {}) as Record<string, unknown>;
@@ -137,7 +140,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
         SUM(CASE WHEN "action" = 'boss_ai.answer' THEN 1 ELSE 0 END)::int AS answers,
         SUM(CASE WHEN "action" = 'boss_ai.rate_limited' THEN 1 ELSE 0 END)::int AS rate_limited
       FROM "AuditLog"
-      WHERE "timestamp" >= ${since}
+      WHERE "timestamp" >= ${sinceIso}::timestamptz
         AND "tenantId" = ${auth.tenantId}
         AND "action" IN ('boss_ai.ask', 'boss_ai.answer', 'boss_ai.rate_limited')
       GROUP BY "actorId"
@@ -147,7 +150,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     db.execute(sql`
       SELECT COUNT(*)::int AS cnt
       FROM "AuditLog"
-      WHERE "timestamp" >= ${since}
+      WHERE "timestamp" >= ${sinceIso}::timestamptz
         AND "tenantId" = ${auth.tenantId}
         AND "action" = 'boss_ai.rate_limited'
     `),
@@ -156,7 +159,7 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
         to_char("timestamp", 'YYYY-MM-DD') AS day,
         SUM(CASE WHEN "action" = 'boss_ai.ask' THEN 1 ELSE 0 END)::int AS asks
       FROM "AuditLog"
-      WHERE "timestamp" >= ${since}
+      WHERE "timestamp" >= ${sinceIso}::timestamptz
         AND "tenantId" = ${auth.tenantId}
         AND "action" = 'boss_ai.ask'
       GROUP BY day

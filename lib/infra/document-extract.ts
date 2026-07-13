@@ -62,8 +62,27 @@ function baseTitle(filename: string): string {
   return (filename || '').replace(/\.[^.]+$/, '').trim().slice(0, 60) || '导入的文档';
 }
 
+/**
+ * pdfjs-dist v5 在纯 Node 运行时仍引用浏览器 canvas 全局 (DOMMatrix / Path2D / ImageData)。
+ * Node 不提供这些 → 解析时抛 "DOMMatrix is not defined"。
+ * 用 pdfjs 自带的可选依赖 @napi-rs/canvas 把缺失的全局补上 (仅在首次缺失时注入)。
+ */
+async function ensurePdfGlobals(): Promise<void> {
+  const g = globalThis as Record<string, unknown>;
+  if (g.DOMMatrix && g.Path2D && g.ImageData) return;
+  try {
+    const canvas = (await import('@napi-rs/canvas')) as unknown as Record<string, unknown>;
+    if (!g.DOMMatrix && canvas.DOMMatrix) g.DOMMatrix = canvas.DOMMatrix;
+    if (!g.Path2D && canvas.Path2D) g.Path2D = canvas.Path2D;
+    if (!g.ImageData && canvas.ImageData) g.ImageData = canvas.ImageData;
+  } catch {
+    // 可选依赖缺失时静默: 文本型 PDF 多数仍能解析, 真失败会被外层 try/catch 诚实回传。
+  }
+}
+
 async function extractPdf(bytes: Uint8Array, filename: string): Promise<ExtractResult> {
   // legacy build 在纯 Node 下可用; 关闭 worker 避免 DOM 依赖
+  await ensurePdfGlobals();
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
   // @ts-expect-error legacy 类型与运行时入口存在差异
   const getDocument = pdfjs.getDocument ?? pdfjs.default?.getDocument;

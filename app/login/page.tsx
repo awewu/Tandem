@@ -16,6 +16,7 @@ import Link from 'next/link';
 import { Eye, EyeOff, ShieldCheck, KeyRound, HandHeart, Smile, Phone, QrCode, UserRound } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/lib/hooks/use-current-user';
+import { isTauri, desktopHeaders, refreshDesktopSession } from '@/lib/desktop/client';
 
 // useSearchParams() in a Client Component must be wrapped in <Suspense> for prerender.
 export default function LoginPage() {
@@ -43,6 +44,27 @@ function LoginInner() {
   const [pendingSessionId, setPendingSessionId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  // §desktop: 桌面端重开应用时, 先静默尝试用 7 天滑动会话续期, 成功则免登录直接进入.
+  const [recovering, setRecovering] = useState(isTauri());
+
+  useEffect(() => {
+    if (!isTauri()) return;
+    let cancelled = false;
+    void (async () => {
+      const ok = await refreshDesktopSession();
+      if (cancelled) return;
+      if (ok) {
+        await fetchMe();
+        router.replace(next);
+      } else {
+        setRecovering(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function submitCreds(e: React.FormEvent) {
     e.preventDefault();
@@ -52,7 +74,7 @@ function LoginInner() {
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...desktopHeaders() },
         body: JSON.stringify({ email, password }),
       });
       const data = await res.json();
@@ -99,6 +121,18 @@ function LoginInner() {
     } finally {
       setBusy(false);
     }
+  }
+
+  // §desktop: 静默续期中显示极简加载页, 避免重开应用时闪现登录表单.
+  if (recovering) {
+    return (
+      <main className="min-h-screen w-full flex flex-col items-center justify-center bg-white gap-4">
+        <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-[rgb(var(--brand-500))] text-white text-headline font-extrabold">
+          T
+        </span>
+        <p className="text-caption text-ink-tertiary">正在恢复会话…</p>
+      </main>
+    );
   }
 
   return (

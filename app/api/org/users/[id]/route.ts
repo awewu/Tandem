@@ -34,6 +34,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ error: 'not found' }, { status: 404 });
 
   await store.auth.users.update(params.id, patch as Parameters<typeof store.auth.users.update>[1]);
+
+  // 禁用账号时撤销其全部会话 → 现有各端立即登出 (与前端提示一致).
+  if (patch.disabled === true) {
+    await store.auth.sessions.revokeAllForUser(params.id, 'admin_disabled');
+  }
+
   const updated = await store.auth.users.findById(params.id);
   return NextResponse.json({ user: updated });
 }

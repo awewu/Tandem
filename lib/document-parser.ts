@@ -137,6 +137,19 @@ async function parsePdf(file: File): Promise<ParseResult> {
 }
 
 /**
+ * 清除 PostgreSQL text/jsonb 无法存储的 NUL 字节 (\u0000)。
+ * PDF/旧 Office 文本抽取常产出 NUL，落库 (Postgres) 时会直接报错 → HTTP 500。
+ * 本地 memory-store 不受影响，故必须在解析出口统一清洗 (对齐服务端 document-extract.ts)。
+ */
+function stripNul(text: string): string {
+  return text.replace(/\u0000/g, '');
+}
+
+function sanitize(result: ParseResult): ParseResult {
+  return { ...result, text: stripNul(result.text) };
+}
+
+/**
  * 解析单个文件为纯文本。失败 throw。
  * 自动根据扩展名分发到合适的 parser；未知扩展名按文本处理。
  */
@@ -144,15 +157,15 @@ export async function parseDocument(file: File): Promise<ParseResult> {
   const ext = (file.name.split('.').pop() || '').toLowerCase();
   switch (ext) {
     case 'docx':
-      return parseDocx(file);
+      return sanitize(await parseDocx(file));
     case 'xlsx':
     case 'xls':
     case 'ods':
-      return parseXlsx(file);
+      return sanitize(await parseXlsx(file));
     case 'pptx':
-      return parsePptx(file);
+      return sanitize(await parsePptx(file));
     case 'pdf':
-      return parsePdf(file);
+      return sanitize(await parsePdf(file));
     case 'doc':
       throw new Error('.doc（旧版 Word）不支持，请另存为 .docx 后再上传');
     case 'ppt':
@@ -160,11 +173,11 @@ export async function parseDocument(file: File): Promise<ParseResult> {
     default:
       if (PLAIN_EXTS.has(ext) || !ext) {
         const text = await readAsText(file);
-        return { text: text.trim(), format: 'plain', bytes: file.size };
+        return { text: stripNul(text.trim()), format: 'plain', bytes: file.size };
       }
       // 未识别扩展名仍尝试当文本读
       const text = await readAsText(file);
-      return { text: text.trim(), format: 'plain', bytes: file.size };
+      return { text: stripNul(text.trim()), format: 'plain', bytes: file.size };
   }
 }
 

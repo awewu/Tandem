@@ -82,6 +82,83 @@ npm run build:static           # produces dist/
 cargo check --manifest-path src-tauri/Cargo.toml
 ```
 
+## 登录持久化 (§desktop 长会话)
+
+桌面端登录后**默认保持登录**, 无需每次重开重输密码. 规则:
+
+- **保持登录**: 活跃使用期间永不掉线 (`components/desktop/desktop-session.tsx` 的 keep-alive 每 6h +
+  应用打开/窗口聚焦时调 `POST /api/auth/refresh` 滑动续期).
+- **一周不活跃 → 重登**: 会话窗口 7 天滑动 (`DESKTOP_SESSION_TTL_SEC`). 连续 7 天不开应用 → refresh
+  过期 → 下次打开回登录页.
+- **重开应用自动恢复**: 登录页 (`app/login/page.tsx`) 在 Tauri 内挂载时先静默 `refresh`, 成功则免登录
+  直接进入 (期间显示极简「正在恢复会话」加载页, 不闪登录表单).
+- **手动退出立即失效**: `POST /api/auth/logout` 撤销服务端会话 → refresh 失败 → 回登录页.
+
+实现要点 (web 端完全不受影响):
+
+- 桌面请求带 header `X-Tandem-Client: desktop` (`lib/desktop/client.ts` `desktopHeaders()`).
+- `app/api/auth/login` 见此 header → 签发 7 天 access JWT + 7 天滑动会话 (`longSession`); web 仍是 24h.
+- `app/api/auth/refresh` **仅认 desktop header** (web 端 403) → 轮换 refresh + 顺延 7 天 (`refreshSession`).
+
+## 自动更新 (§desktop 自托管 Tauri updater)
+
+更新包托管在**公司自己的 Tandem 服务器**上, 无需 GitHub Releases / 外网.
+
+### 一次性: 生成更新签名密钥
+
+```powershell
+# 生成密钥对 (私钥务必保密, 已被 .gitignore 排除)
+npx tauri signer generate -w src-tauri/updater.key
+# 把打印出的"公钥"内容存入 (公钥可公开, 给构建脚本读取):
+#   src-tauri/updater-pubkey.txt
+```
+
+私钥用于 build 时签名安装包, 通过环境变量传入:
+
+```powershell
+$env:TAURI_SIGNING_PRIVATE_KEY = Get-Content src-tauri/updater.key -Raw
+$env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = "<生成时设的密码>"
+```
+
+### 构建 (自动注入更新端点 + 公钥)
+
+```powershell
+# 指定公司服务器地址 (= 更新端点 host, 也是默认连接地址)
+$env:TANDEM_DEFAULT_SERVER_URL = "https://tandem.yourco.com"   # 或 http://192.168.x.x:3005
+npm run tauri:build
+```
+
+`npm run tauri:build` 会先跑 `scripts/gen-updater-config.mjs`, 从上述 env 生成
+`src-tauri/gen/updater.conf.json` (含 `endpoints` + `pubkey`), 再 `tauri build --config` 合并.
+未提供公钥时构建仍成功, 仅自动更新优雅禁用 (用 `npm run tauri:build:raw` 可跳过该步).
+
+### 发布新版本到服务器
+
+1. 提升 `src-tauri/tauri.conf.json` 的 `version` (及 `Cargo.toml`), 重新 `npm run tauri:build`.
+2. 把安装包 (`.exe`/`.msi`/`.app.tar.gz`/`.AppImage`) 及其 `.sig` 文件, 连同一份
+   `manifest.json`, 放到服务器的更新目录 (env `DESKTOP_RELEASE_DIR`, 默认 `<cwd>/desktop-releases`).
+
+`manifest.json` 示例:
+
+```json
+{
+  "version": "1.1.0",
+  "notes": "本次更新内容…",
+  "pubDate": "2026-06-30T00:00:00Z",
+  "platforms": {
+    "windows-x86_64": { "file": "Tandem_1.1.0_x64-setup.exe", "signature": "<.sig 文件内容>" }
+  }
+}
+```
+
+### 客户端更新体验
+
+- 启动后延迟自动静默检查; 有新版 → 右下角弹更新卡片 (`components/desktop/desktop-updater.tsx`).
+- 托盘菜单「检查更新」→ 手动检查 (无更新也给反馈).
+- 点「立即更新并重启」→ 下载 (带进度) → 安装 → `relaunch()` 重启加载新版本.
+- 服务端: `GET /api/desktop/update/{target}/{arch}/{version}` 比对 semver 返回 204 或更新 JSON;
+  安装包经 `GET /api/desktop/download/<file>` 流式下发 (两端点在 middleware 白名单内, 由签名保护).
+
 ## Notes
 
 - 桌面端 = 瘦客户端, 所以 **业务功能不需要在 Rust 里重写**. 加新业务 API 只改 `app/api/<name>/route.ts`,

@@ -19,6 +19,7 @@
  *                                       与 Person.ministryId 的 "可指向二级或一级" 完全一致)
  */
 
+import { useMemo } from 'react';
 import { create } from 'zustand';
 import type { PersonLike } from './ownership';
 
@@ -118,3 +119,21 @@ export const useOrgPeopleStore = create<OrgPeopleStore>((set, get) => ({
     }
   },
 }));
+
+/**
+ * 返回一个 (userId) => 显示名 的解析器, 数据源为 useOrgPeopleStore (真用户 + fixture 合并).
+ * 解析不到时回退原 id; 中央 AI (__company__) 显示为 CompanyBrain.
+ * hydrate 由根 layout 的 ApiHydrator 统一触发.
+ */
+export function usePersonNameResolver(): (id: string | null | undefined) => string {
+  const people = useOrgPeopleStore((s) => s.people);
+  return useMemo(() => {
+    const m = new Map<string, string>();
+    for (const p of people) m.set(p.id, p.name);
+    return (id: string | null | undefined): string => {
+      if (!id) return '—';
+      if (id === '__company__') return 'CompanyBrain';
+      return m.get(id) ?? id;
+    };
+  }, [people]);
+}

@@ -21,6 +21,8 @@ import { MobileViewportFixes } from '@/components/mobile-viewport-fixes';
 import { AppShell } from '@/components/app-shell';
 import { PageViewTracker } from '@/components/page-view-tracker';
 import { ClientErrorReporter } from '@/components/client-error-reporter';
+import { DesktopSession } from '@/components/desktop/desktop-session';
+import { DesktopUpdater } from '@/components/desktop/desktop-updater';
 
 // 字体策略 (2026-06-17 修订):
 //   不使用 next/font/google — Google Fonts CDN 在国内云主机/容器构建中频繁 ECONNRESET, 会 fail build.
@@ -71,6 +73,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <PageViewTracker />
             {/* §观测埋点 · 浏览器错误捕获 (window.onerror + unhandledrejection) */}
             <ClientErrorReporter />
+            {/* §desktop · 桌面端 (Tauri) 长会话 keep-alive (web 端空转) */}
+            <DesktopSession />
+            {/* §desktop · 桌面端自动更新检测 + 更新提示 (web 端空转) */}
+            <DesktopUpdater />
           </RightPaneProvider>
         </ThemeProvider>
       </body>

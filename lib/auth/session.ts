@@ -24,7 +24,16 @@ const SESSION_SECRET = (() => {
 })();
 
 const ACCESS_TOKEN_TTL_SEC = 24 * 60 * 60;     // 24 小时 (本地开发用, 生产环境建议改回 15 分钟)
-const REFRESH_TOKEN_TTL_SEC = 30 * 24 * 3600; // 30 天
+const REFRESH_TOKEN_TTL_SEC = 30 * 24 * 3600; // 30 天 (web 默认)
+
+/**
+ * 桌面端长会话 (§desktop): access JWT 与 refresh 均 7 天滑动.
+ *   - 活跃用户由桌面端 keep-alive 定期续期 → 永不掉线.
+ *   - 连续 7 天不活跃 (不开应用) → refresh 过期 → 重新登录.
+ *   - 手动退出 → 立即撤销会话.
+ * web 端不变 (24h access, 无自动续期端点 → 24h 后重登).
+ */
+export const DESKTOP_SESSION_TTL_SEC = 7 * 24 * 3600; // 7 天
 
 export interface SessionPayload {
   sub: string;                     // userId
@@ -61,12 +70,15 @@ function b64uDecode(s: string): Buffer {
 // JWT (HS256, 自研, 无依赖)
 // ---------------------------------------------------------------------------
 
-export function signAccessToken(payload: Omit<SessionPayload, 'iat' | 'exp'>): string {
+export function signAccessToken(
+  payload: Omit<SessionPayload, 'iat' | 'exp'>,
+  ttlSec: number = ACCESS_TOKEN_TTL_SEC,
+): string {
   const now = Math.floor(Date.now() / 1000);
   const full: SessionPayload = {
     ...payload,
     iat: now,
-    exp: now + ACCESS_TOKEN_TTL_SEC,
+    exp: now + ttlSec,
   };
   const header = b64u(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
   const body = b64u(JSON.stringify(full));
@@ -102,13 +114,13 @@ export interface RefreshTokenIssue {
   expiresAt: Date;
 }
 
-export function issueRefreshToken(): RefreshTokenIssue {
+export function issueRefreshToken(ttlSec: number = REFRESH_TOKEN_TTL_SEC): RefreshTokenIssue {
   const refreshToken = randomBytes(48).toString('base64url');
   const hash = createHmac('sha256', SESSION_SECRET).update(refreshToken).digest('hex');
   return {
     refreshToken,
     refreshTokenHash: hash,
-    expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_SEC * 1000),
+    expiresAt: new Date(Date.now() + ttlSec * 1000),
   };
 }
 

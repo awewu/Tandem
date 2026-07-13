@@ -116,6 +116,27 @@ if (-not (Test-Path $PdfWorker)) {
   throw "pdfjs-dist worker missing after copy: $PdfWorker"
 }
 
+# @napi-rs/canvas 是 pdfjs 内部 try/require 的可选依赖, nft 追踪不到 -> standalone 包缺失它,
+# 生产环境 pdfjs 拿不到 DOMMatrix/Path2D/ImageData -> PDF 抽取报 "DOMMatrix is not defined"
+# (lib/infra/document-extract.ts ensurePdfGlobals 需要它)。显式整目录复制 (含平台二进制子包),
+# 生产机与构建机同为 Windows x64, canvas-win32-x64-msvc 二进制兼容。
+Write-Step "Ensuring @napi-rs/canvas (DOMMatrix polyfill for pdfjs) is in package node_modules"
+$CanvasSrc = Join-Path $Repo "node_modules\@napi-rs"
+$CanvasDest = Join-Path $App "node_modules\@napi-rs"
+if (-not (Test-Path (Join-Path $CanvasSrc "canvas"))) {
+  throw "Missing $CanvasSrc\canvas. Run 'npm install' before packaging."
+}
+if (Test-Path $CanvasDest) { Remove-Item -LiteralPath $CanvasDest -Recurse -Force }
+& robocopy $CanvasSrc $CanvasDest /E /XF *.map /NFL /NDL /NJH /NJS | Out-Null
+if ($LASTEXITCODE -ge 8) {
+  throw "robocopy @napi-rs/canvas failed with exit code $LASTEXITCODE"
+}
+$LASTEXITCODE = 0
+$CanvasIndex = Join-Path $CanvasDest "canvas\index.js"
+if (-not (Test-Path $CanvasIndex)) {
+  throw "@napi-rs/canvas missing after copy: $CanvasIndex"
+}
+
 Write-Step "Creating zip"
 if (Test-Path $OutputZip) {
   Remove-Item -LiteralPath $OutputZip -Force
@@ -151,6 +172,7 @@ try {
     "app/.next/static/",
     "app/node_modules/",
     "app/node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs",
+    "app/node_modules/@napi-rs/canvas/index.js",
     "app/public/",
     "app/drizzle/",
     "app/lib/",

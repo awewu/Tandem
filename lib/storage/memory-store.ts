@@ -119,6 +119,12 @@ function createInMemoryAuthStore(): AuthStore {
           lastLoginIp: null,
           emailVerifiedAt: input.emailVerifiedAt ?? null,
           departmentId: input.departmentId ?? null,
+          jobTitle: input.jobTitle ?? null,
+          managerId: input.managerId ?? null,
+          employeeId: input.employeeId ?? null,
+          hireDate: input.hireDate ?? null,
+          workLocation: input.workLocation ?? null,
+          phone: input.phone ?? null,
           orgId: input.orgId ?? null,
           membershipType: input.membershipType,
         };
@@ -191,6 +197,13 @@ function createInMemoryAuthStore(): AuthStore {
       async markMfaVerified(id) {
         const s = sessions.get(id);
         if (s) s.mfaVerified = true;
+      },
+      async rotate(id, newRefreshTokenHash, newExpiresAt) {
+        const s = sessions.get(id);
+        if (s && !s.revokedAt) {
+          s.refreshTokenHash = newRefreshTokenHash;
+          s.expiresAt = newExpiresAt;
+        }
       },
     },
     invites: {

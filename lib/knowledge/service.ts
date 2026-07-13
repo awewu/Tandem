@@ -33,6 +33,15 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
+/**
+ * PostgreSQL 的 text/jsonb 不能存储 NUL 字节 (\u0000)。PDF/旧 Office 抽取的正文常含 NUL，
+ * 直接落库会让 INSERT 报错 → API 返回 500 (本地 memory-store 不受影响，仅生产暴露)。
+ * 在持久化出口统一清洗，确保任何调用方写入的 content 都是 Postgres 安全的。
+ */
+function stripNul(content: string): string {
+  return content.replace(/\u0000/g, '');
+}
+
 /** 列出某用户的全部知识节点 (排除软删墓碑). */
 export async function listNodes(ownerId: string): Promise<KnowledgeNode[]> {
   const store = getStore();
@@ -59,7 +68,7 @@ export async function createNode(input: CreateNodeInput): Promise<KnowledgeNode>
     name: input.name.trim() || (input.type === 'folder' ? '新建文件夹' : '未命名文件'),
     type: input.type,
     parentId: input.parentId ?? 'root',
-    content: input.type === 'file' ? (input.content ?? '') : undefined,
+    content: input.type === 'file' ? stripNul(input.content ?? '') : undefined,
     ownership: input.ownership,
     createdAt: ts,
     updatedAt: ts,
@@ -77,7 +86,7 @@ export async function updateNode(
   const store = getStore();
   const clean: Partial<KnowledgeNode> = { updatedAt: nowIso() };
   if (patch.name !== undefined) clean.name = patch.name.trim() || existing.name;
-  if (patch.content !== undefined) clean.content = patch.content;
+  if (patch.content !== undefined) clean.content = stripNul(patch.content);
   if (patch.parentId !== undefined) clean.parentId = patch.parentId;
   // ownership: 传 null 清除 (未分级), 传值则设置
   if ('ownership' in patch) clean.ownership = patch.ownership ?? undefined;

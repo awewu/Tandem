@@ -45,6 +45,10 @@ const PUBLIC_PREFIXES = [
   '/api/oidc/token',
   '/api/oidc/userinfo',
   '/api/oidc/logout',
+  // §desktop 自动更新: Tauri updater 的 HTTP 客户端 (Rust reqwest) 不携带 webview 会话 cookie,
+  //   故更新清单与安装包下载端点必须公开 (内容本身由签名校验保护, 非敏感).
+  '/api/desktop/update',
+  '/api/desktop/download',
 ];
 
 /** UI 公开路由前缀: 未登录也能访问 (登录注册自身、静态资源) */

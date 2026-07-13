@@ -12,6 +12,7 @@ import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { redactAuthUser, type RedactableUser } from '@/lib/privacy/redactors-domain';
 import { resolveScope } from '@/lib/privacy/redactor';
+import { listDepts } from '@/lib/org/departments';
 
 export async function GET(req: NextRequest) {
   await boot();
@@ -27,17 +28,36 @@ export async function GET(req: NextRequest) {
     // P1-2 (2026-05-22): auth.users.list 已实装 (memory-store + drizzle-store).
     // 不再 demo fallback, 直接走 store. 空表时返回空数组而不是 fixture.
     const raw = await store.auth.users.list({ tenantId: auth.tenantId });
-    let users: { id: string; email: string; name: string; departmentId: string | null; roles: string[] }[] = raw.map((u) => ({
-      id: u.id,
-      email: u.email,
-      name: u.name,
-      departmentId: u.departmentId ?? null,
-      roles: u.roles ?? [],
-    }));
+    const depts = await listDepts(auth.tenantId);
+    const deptById = new Map(depts.map((d) => [d.id, d]));
+    let users = raw.map((u) => {
+      const departmentId = u.departmentId ?? null;
+      return {
+        id: u.id,
+        email: u.email,
+        name: u.name,
+        departmentId,
+        departmentName: departmentId ? (deptById.get(departmentId)?.name ?? departmentId) : null,
+        jobTitle: u.jobTitle ?? null,
+        managerId: u.managerId ?? null,
+        employeeId: u.employeeId ?? null,
+        hireDate: u.hireDate ?? null,
+        workLocation: u.workLocation ?? null,
+        phone: u.phone ?? null,
+        roles: u.roles ?? [],
+        disabled: u.disabled ?? false,
+      };
+    });
 
     if (role) users = users.filter((u) => u.roles.includes(role));
     if (departmentId) users = users.filter((u) => u.departmentId === departmentId);
-    if (q) users = users.filter((u) => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q));
+    if (q) users = users.filter((u) => (
+      u.name.toLowerCase().includes(q) ||
+      u.email.toLowerCase().includes(q) ||
+      (u.jobTitle ?? '').toLowerCase().includes(q) ||
+      (u.employeeId ?? '').toLowerCase().includes(q) ||
+      (u.departmentName ?? '').toLowerCase().includes(q)
+    ));
 
     // EVO-7: 按视角抹白. 同事看不到 email/IP/锁定状态; 本人 + admin 看全.
     const ctx = {
