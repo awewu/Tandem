@@ -43,7 +43,7 @@ function nowIso(): string {
  */
 export async function listNotes(
   ownerId: string,
-  opts?: { q?: string; includeArchived?: boolean; notebookId?: string },
+  opts?: { q?: string; includeArchived?: boolean; notebookId?: string | null },
 ): Promise<ShouchaoNote[]> {
   const store = getStore();
   const all = await store.shouchaoNotes.list({ ownerId } as Partial<ShouchaoNote>);
@@ -52,7 +52,7 @@ export async function listNotes(
   const filtered = all.filter((n) => {
     if (n.deletedAt) return false; // 软删墓碑不出现在 UI
     if (!opts?.includeArchived && n.archived) return false;
-    if (nb === 'unfiled') {
+    if (nb === 'unfiled' || nb === null) {
       if (n.notebookId) return false;
     } else if (nb) {
       if (n.notebookId !== nb) return false;
