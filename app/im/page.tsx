@@ -939,7 +939,7 @@ function ImageLightbox({ url, name, onClose }: { url: string; name?: string; onC
           alt={name ?? '图片'}
           onClick={stop}
           style={{ transform: `scale(${scale})` }}
-          className="max-h-[85vh] max-w-[90vw] origin-center rounded-lg object-contain shadow-2xl transition-transform duration-100"
+          className="max-h-[85vh] max-w-[90vw] origin-center rounded-lg object-contain shadow-2xl transition-transform duration-fast"
         />
       </div>
 
@@ -1236,7 +1236,7 @@ function MessageRow({
               type="button"
               onClick={onSpawnRoom}
               disabled={!!msg.spawnedDecisionCardId}
-              className="flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-warning shadow-soft ring-1 ring-warning/30 transition hover:bg-amber-50 hover:shadow-soft-lg disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-warning shadow-soft ring-1 ring-warning/30 transition hover:bg-warning/10 hover:shadow-soft-lg disabled:cursor-not-allowed disabled:opacity-40"
               title="把这条消息变成议事室议题 (Tandem 差异化 — 普通 IM 没有)"
             >
               <Sparkles className="h-3 w-3" />
@@ -1257,7 +1257,7 @@ function MessageRow({
               type="button"
               onClick={onPin}
               className={`flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold shadow-soft transition hover:shadow-soft-lg ${
-                isPinned ? 'text-warning ring-1 ring-warning/30 hover:bg-amber-50' : 'text-ink-secondary ring-1 ring-hairline hover:bg-surface-3'
+                isPinned ? 'text-warning ring-1 ring-warning/30 hover:bg-warning/10' : 'text-ink-secondary ring-1 ring-hairline hover:bg-surface-3'
               }`}
               title={isPinned ? '取消置顶' : '置顶 (最多 5 条)'}
             >

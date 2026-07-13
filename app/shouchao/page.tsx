@@ -349,10 +349,12 @@ export default function ShouchaoPage() {
     const firstLine = lines[0].trim();
     const title = firstLine.length > 40 ? firstLine.slice(0, 40) : firstLine;
     try {
+      const defaultNotebookId =
+        notebookFilter && notebookFilter !== 'unfiled' ? notebookFilter : undefined;
       const r = await fetch('/api/shouchao/notes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, content: body, tags: [] }),
+        body: JSON.stringify({ title, content: body, tags: [], notebookId: defaultNotebookId }),
       });
       if (!r.ok) throw new Error('quick capture failed');
       const d = await r.json();
@@ -370,7 +372,7 @@ export default function ShouchaoPage() {
     } finally {
       setQuickBusy(false);
     }
-  }, [quick, quickBusy, showToast]);
+  }, [quick, quickBusy, showToast, notebookFilter]);
 
   // 冲洗离线队列: 成功后用服务端权威态刷新列表
   const flushOffline = useCallback(async () => {
@@ -776,6 +778,50 @@ export default function ShouchaoPage() {
             />
           </div>
 
+          {/* 知识库分组条 (对标 Get笔记 知识库) */}
+          <div className="mt-3 flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setNotebookFilter(null)}
+              className={`rounded-full px-2.5 py-1 text-footnote surface-interactive ${
+                notebookFilter === null ? 'bg-brand-500 text-white' : 'bg-surface-2 text-ink-secondary hover:bg-surface-3'
+              }`}
+            >
+              全部
+            </button>
+            <button
+              type="button"
+              onClick={() => setNotebookFilter('unfiled')}
+              className={`rounded-full px-2.5 py-1 text-footnote surface-interactive ${
+                notebookFilter === 'unfiled' ? 'bg-brand-500 text-white' : 'bg-surface-2 text-ink-secondary hover:bg-surface-3'
+              }`}
+            >
+              未分组
+            </button>
+            {notebooks.map((nb) => (
+              <button
+                key={nb.id}
+                type="button"
+                onClick={() => setNotebookFilter(nb.id)}
+                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-footnote surface-interactive ${
+                  notebookFilter === nb.id ? 'bg-brand-500 text-white' : 'bg-surface-2 text-ink-secondary hover:bg-surface-3'
+                }`}
+              >
+                {nb.icon && <span>{nb.icon}</span>}
+                {nb.name}
+                <span className={notebookFilter === nb.id ? 'text-white/70' : 'text-ink-tertiary'}>{nb.noteCount}</span>
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => void createNotebookPrompt()}
+              className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2.5 py-1 text-footnote text-ink-tertiary hover:border-brand-300 hover:text-brand-600 surface-interactive"
+              title="新建知识库"
+            >
+              <Plus className="h-3 w-3" /> 知识库
+            </button>
+          </div>
+
           {/* 问笔记 (跨笔记 AI 问答 · NotebookLM 式"第二大脑") */}
           <div className="mt-3">
             {!askOpen ? (
@@ -1069,6 +1115,23 @@ export default function ShouchaoPage() {
                   </div>
                 )}
 
+                {/* 知识库归属 */}
+                <div className="flex items-center gap-2">
+                  <NotebookPen className="h-3.5 w-3.5 text-ink-tertiary" />
+                  <select
+                    value={active?.notebookId ?? ''}
+                    onChange={(e) => void moveActiveToNotebook(e.target.value || null)}
+                    className="rounded-md border border-border bg-surface-1 px-2 py-1 text-footnote text-ink-secondary focus:border-brand-400 focus:outline-none"
+                  >
+                    <option value="">未分组</option>
+                    {notebooks.map((nb) => (
+                      <option key={nb.id} value={nb.id}>
+                        {nb.icon ? `${nb.icon} ` : ''}{nb.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 {/* 来源链接 */}
                 {sourceUrl && (
                   <a
@@ -1253,12 +1316,12 @@ export default function ShouchaoPage() {
       {voiceOpen && (
         <VoiceDialog
           onClose={() => setVoiceOpen(false)}
-          onTranscribed={async ({ text }) => {
+          onTranscribed={async ({ text, mode }) => {
             setVoiceOpen(false);
             const firstLine = text.split('\n').map((l) => l.trim()).find(Boolean) ?? '';
-            const title = firstLine.slice(0, 30) || '语音笔记';
-            await createNote({ title, content: text, tags: ['语音'] });
-            showToast('ok', '语音已转成笔记');
+            const title = firstLine.replace(/^#+\s*/, '').slice(0, 30) || (mode === 'meeting' ? '会议纪要' : '语音笔记');
+            await createNote({ title, content: text, tags: [mode === 'meeting' ? '会议纪要' : '语音'] });
+            showToast('ok', mode === 'meeting' ? '已生成会议纪要' : '语音已转成笔记');
           }}
           onError={(m) => showToast('err', m)}
         />
@@ -1548,13 +1611,14 @@ function VoiceDialog({
   onError,
 }: {
   onClose: () => void;
-  onTranscribed: (res: { text: string; polished: boolean }) => void;
+  onTranscribed: (res: { text: string; mode: 'note' | 'meeting' }) => void;
   onError: (msg: string) => void;
 }) {
   type Phase = 'idle' | 'recording' | 'recorded' | 'transcribing';
   const [phase, setPhase] = useState<Phase>('idle');
   const [elapsed, setElapsed] = useState(0);
   const [polish, setPolish] = useState(true);
+  const [mode, setMode] = useState<'note' | 'meeting'>('note');
   const [supported, setSupported] = useState(true);
 
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -1626,12 +1690,16 @@ function VoiceDialog({
     try {
       const fd = new FormData();
       fd.append('file', blob, 'audio.webm');
-      fd.append('polish', polish ? 'true' : 'false');
+      if (mode === 'meeting') {
+        fd.append('meeting', 'true');
+      } else {
+        fd.append('polish', polish ? 'true' : 'false');
+      }
       fd.append('language', 'zh');
       const r = await fetch('/api/shouchao/transcribe', { method: 'POST', body: fd });
       const d = await r.json().catch(() => ({}));
       if (!r.ok || !d.ok || !d.text) throw new Error(d.error ?? '转写失败');
-      onTranscribed({ text: d.text as string, polished: Boolean(d.polished) });
+      onTranscribed({ text: d.text as string, mode });
     } catch (e) {
       onError(e instanceof Error ? e.message : '转写失败');
       setPhase('recorded');
@@ -1661,9 +1729,31 @@ function VoiceDialog({
           </p>
         ) : (
           <>
-            <p className="mb-4 text-footnote text-ink-tertiary">
-              对着麦克风口述，停止后自动转写成文字。可选 AI 润色成结构化笔记。
+            <p className="mb-3 text-footnote text-ink-tertiary">
+              对着麦克风口述，停止后自动转写成文字。可整理成口述笔记或会议纪要。
             </p>
+
+            {/* 模式: 口述笔记 / 会议纪要 */}
+            <div className="mb-4 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setMode('note')}
+                className={`flex-1 rounded-lg border px-3 py-2 text-caption font-medium surface-interactive ${
+                  mode === 'note' ? 'border-brand-400 bg-brand-50 text-brand-700' : 'border-border text-ink-secondary hover:bg-surface-2'
+                }`}
+              >
+                口述笔记
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('meeting')}
+                className={`flex-1 rounded-lg border px-3 py-2 text-caption font-medium surface-interactive ${
+                  mode === 'meeting' ? 'border-brand-400 bg-brand-50 text-brand-700' : 'border-border text-ink-secondary hover:bg-surface-2'
+                }`}
+              >
+                会议纪要
+              </button>
+            </div>
 
             <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-border bg-surface-2 py-8">
               {phase === 'recording' ? (
@@ -1715,15 +1805,21 @@ function VoiceDialog({
               )}
             </div>
 
-            <label className="mt-4 flex items-center gap-2 text-caption text-ink-secondary">
-              <input
-                type="checkbox"
-                checked={polish}
-                onChange={(e) => setPolish(e.target.checked)}
-                className="accent-brand-500"
-              />
-              AI 润色（去口头语、修错别字、分段）
-            </label>
+            {mode === 'note' ? (
+              <label className="mt-4 flex items-center gap-2 text-caption text-ink-secondary">
+                <input
+                  type="checkbox"
+                  checked={polish}
+                  onChange={(e) => setPolish(e.target.checked)}
+                  className="accent-brand-500"
+                />
+                AI 润色（去口头语、修错别字、分段）
+              </label>
+            ) : (
+              <p className="mt-4 text-footnote text-ink-tertiary">
+                会议纪要模式：AI 会整理成摘要 / 讨论要点 / 决策 / 待办结构。
+              </p>
+            )}
           </>
         )}
 
