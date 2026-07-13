@@ -163,6 +163,11 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* app-shell 应用式布局: 文档层锁死满高, 滚动一律发生在内部容器 (main / 列表).
+       避免在非滚动区域 (导航栏 / 侧栏 / 输入区) 触发文档级回弹/拉动. */
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
     /* ── 移动端「像 App」基础重置 ──
        1) text-size-adjust: 阻止 iOS 横屏时自动放大正文字号 (布局会突然变形)
        2) tap-highlight: 去掉点击控件时的半透明灰蓝色块闪光 (网页感最强的来源) */
@@ -176,6 +181,9 @@
     /* overscroll: 关掉竖向滚动到顶/底时的橡皮筋回弹与下拉刷新 (PWA standalone 下尤其重要,
        否则一拉就露出白底, 暴露"这是网页"). 横向保留默认 (不破坏浏览器返回手势). */
     overscroll-behavior-y: none;
+    /* 与 html 一致锁死满高, 文档层不产生可滚动溢出 */
+    height: 100%;
+    overflow: hidden;
     /* 自托管 Noto Sans SC 置于首位 → 拉丁 + 中文全部用 Noto, 跨平台一致; 其后为系统兜底.
        注意: 不要在此链中加入未定义的 var(--font-*) — 未定义且无 fallback 的 var() 会使
        整条 font-family 在 computed-value 阶段失效, 回退到 Times New Roman (全站字体失灵). */
