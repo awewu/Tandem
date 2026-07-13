@@ -25,10 +25,8 @@ import type { Skill, SkillContext, SkillResult } from './registry';
 async function findProposerPersona(
   userId: string,
 ): Promise<{ id: string; delegationLevel?: string } | null> {
-  const { getStore } = await import('../../storage/repository');
-  const store = getStore();
-  const personas = await store.personas.list();
-  const p = personas.find((x) => x.userId === userId);
+  const { getPrimaryPersona } = await import('../../persona/persona-lookup');
+  const p = await getPrimaryPersona(userId);
   return p ? { id: p.id, delegationLevel: p.delegationLevel } : null;
 }
 

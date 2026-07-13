@@ -85,6 +85,7 @@
 | `COMPETITIVE-ANALYSIS-2026-05-30.md` | 竞品定位 + 销售 Q&A 脚本 |
 | `WECOM-FEATURE-MAPPING.md` | IM vs 企业微信功能映射 |
 | `TANDEM-vs-FEISHU-GAP-ANALYSIS.md` | Tandem vs 飞书差距 |
+| `COMPETITOR-TITA-2026-06.md` ★ | Tita 全模块对标 (~20 屏真实截图) + 4 阶段 gap + 差异化打法 + 分优先级路线图 (进度基准线风险算法/工作法设计) |
 
 ## 5. OKR 专题 (复盘去重后)
 

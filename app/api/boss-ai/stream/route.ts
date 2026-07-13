@@ -23,6 +23,7 @@ import { requireAuth } from '@/lib/auth/require-auth';
 import { buildCompanyBrainSystemPrompt } from '@/lib/persona/company-brain';
 import { deferAudit } from '@/lib/audit/defer';
 import { compactMessages } from '@/lib/agent-runtime/compaction';
+import { buildUserContent } from '@/lib/agent-runtime/tool-loop';
 import { rateLimit, POLICIES } from '@/lib/infra/rate-limit';
 import type { ChatMessage } from '@/lib/taf/provider/types';
 
@@ -34,11 +35,27 @@ interface IncomingMessage {
   content: string;
 }
 
+/** 工具内部名 → 给人看的中文标签 (思考轨迹里展示, 未知名原样回退). */
+const TOOL_LABELS: Record<string, string> = {
+  web_search: '联网搜索',
+  ai_okr_lookup: '查 OKR 实时进度',
+  ai_okr_risk: '核对 OKR 风险',
+  ai_decision_lookup: '查历史决议',
+  ai_initiative_lookup: '查行动项',
+  ai_checkin_lookup: '查 CheckIn 记录',
+  ai_memory_search: '检索公司记忆',
+};
+function friendlyTools(names: string[]): string[] {
+  return Array.from(new Set(names)).map((n) => TOOL_LABELS[n] ?? n);
+}
+
 interface RequestBody {
   messages?: IncomingMessage[];
   sessionId?: string;
   currentPath?: string;
   currentTask?: string;
+  /** §多模态 · 随最新一条 user 提问一起发的图片 (http(s) 链接或 data:image base64). */
+  images?: string[];
 }
 
 export async function POST(req: NextRequest): Promise<Response> {
@@ -52,10 +69,14 @@ export async function POST(req: NextRequest): Promise<Response> {
     return sseError('Invalid JSON body', 400);
   }
 
-  const { messages = [], sessionId, currentPath, currentTask } = body;
+  const { messages = [], sessionId, currentPath, currentTask, images } = body;
   if (messages.length === 0) {
     return sseError('messages 不能为空', 400);
   }
+  // §多模态 · 限制图片数量 (防 payload 失控), 只保留前 4 张合法图.
+  const userImages = Array.isArray(images)
+    ? images.filter((u) => typeof u === 'string' && (u.startsWith('http') || u.startsWith('data:image'))).slice(0, 4)
+    : [];
 
   // ── §0. 限流: 防失控成本 ──────────────────────────────────────
   //   per-user per-minute (突发限流) + per-user per-day (失控上限)
@@ -103,6 +124,18 @@ export async function POST(req: NextRequest): Promise<Response> {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`));
         } catch { /* ignore */ }
       };
+      // §思考轨迹 · 把后端真实的"查/搜/推理"过程流给前端 (Gemini 式可见思考).
+      //   phase 作为稳定 key 让前端 upsert; detail 为人话摘要; tools 为真实工具名;
+      //   sources 为联网引用 (title+url) → 前端渲染可点击 chips。
+      const emitStep = (
+        phase: string,
+        label: string,
+        detail?: string,
+        tools?: string[],
+        sources?: Array<{ title: string; url: string }>,
+      ) => {
+        send({ step: { phase, label, detail, tools, sources, ts: Date.now() } });
+      };
 
       const onAbort = () => {
         send({ done: true, aborted: true });
@@ -121,6 +154,7 @@ export async function POST(req: NextRequest): Promise<Response> {
           const baseSystemPrompt = await buildCompanyBrainSystemPrompt({ query: latestUserMessage });
           const contextAnchor = buildContextAnchor({ currentPath, currentTask, userId: auth.userId });
           systemPrompt = `${baseSystemPrompt}\n\n${contextAnchor}`;
+          emitStep('knowledge', '调取公司知识库', '已载入 OKR / SOP / 红线 / 历史决议');
         } catch (err) {
           send({ error: `CompanyBrain prompt 构建失败: ${(err as Error).message}` });
           send({ done: true });
@@ -134,6 +168,8 @@ export async function POST(req: NextRequest): Promise<Response> {
           if (ps.searched) {
             send({ status: '正在联网查证最新信息…' });
             systemPrompt = ps.revisedSystemPrompt;
+            const prov = ps.provider ? ` (${ps.provider})` : '';
+            emitStep('search', '联网查证最新信息', `命中 ${ps.log.resultCount} 条结果${prov}`, undefined, ps.sources);
           }
         } catch {
           /* preSearch 失败不阻塞主流程 */
@@ -151,6 +187,12 @@ export async function POST(req: NextRequest): Promise<Response> {
           if (reasoning.reasoned) {
             systemPrompt = reasoning.revisedSystemPrompt;
             s2Reasoned = true;
+            emitStep(
+              'reasoning',
+              '多步推理',
+              `${reasoning.log.stepsExecuted} 步推理`,
+              friendlyTools(reasoning.toolsUsed),
+            );
             deferAudit('output_guard.checked', auth.userId, {
               targetId: sessionId ?? 'no-session',
               targetType: 'company_brain_boss',
@@ -177,6 +219,12 @@ export async function POST(req: NextRequest): Promise<Response> {
           const perception = await companyBrainPerceptionPass(latestUserMessage, systemPrompt);
           if (perception.perceived) {
             systemPrompt = perception.revisedSystemPrompt;
+            emitStep(
+              'perception',
+              '核对 OKR / 决议实时进度',
+              `调用 ${perception.log.toolCallCount} 个只读工具`,
+              friendlyTools(perception.toolInvocations.map((t) => t.name)),
+            );
             deferAudit('output_guard.checked', auth.userId, {
               targetId: sessionId ?? 'no-session',
               targetType: 'company_brain_boss',
@@ -206,16 +254,25 @@ export async function POST(req: NextRequest): Promise<Response> {
           if (sh.hintCount > 0) {
             systemPrompt = sh.revisedSystemPrompt;
             selfHintCount = sh.hintCount;
+            emitStep('selfhint', '召回历史教训', `回放 ${sh.hintCount} 条过往自省`);
           }
         } catch {
           /* fail-soft */
         }
 
         // ── 4. Compaction + 起点审计 ──
+        // §多模态 · 把图片拼到最新一条 user 消息上 (其余消息保持纯文本).
+        const lastUserIdx = messages.map((m) => m.role).lastIndexOf('user');
         const rawChatMessages: ChatMessage[] = [
           // §B-003 · system prompt 上挂 ephemeral 缓存; Anthropic 命中后输入 token ~10% 计费
           { role: 'system', content: systemPrompt, cacheControl: 'ephemeral' },
-          ...messages.map((m) => ({ role: m.role, content: m.content })),
+          ...messages.map((m, i) => ({
+            role: m.role,
+            content:
+              i === lastUserIdx && userImages.length > 0
+                ? buildUserContent(m.content, userImages)
+                : m.content,
+          })),
         ];
         const compaction = await compactMessages(rawChatMessages);
         const chatMessages = compaction.messages;

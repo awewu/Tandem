@@ -34,7 +34,14 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   const svc = new CalendarService(ctx);
   // P0-A: tenantId/ownerId 一律取自鉴权上下文, 绝不接受 body 注入 (防跨租户写).
   const ev = await svc.create({
-    ...body,
+    title: body.title,
+    description: body.description,
+    startAt: body.startAt,
+    endAt: body.endAt,
+    timezone: body.timezone,
+    attendees: body.attendees,
+    location: body.location,
+    meetingUrl: body.meetingUrl,
     ownerId: body.ownerId ?? auth.userId,
     tenantId: auth.tenantId,
   });

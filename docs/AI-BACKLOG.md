@@ -118,15 +118,15 @@
 - **接入成本**: 3 (3-5 天)
 - **价值**: 4 (战略 — §19 落地的用户侧入口)
 - **优先级**: 0 (V2 起手)
-- **状态**: 待 sprint
+- **状态**: 🟡 复活并改造 (2026-07-13 · Knowledge 支柱改接手抄, 见 `docs/PERSONAL-AI-SHOUCHAO-SYNERGY.md` M2)
 - **拥有者**: TBD
 - **设计**:
   - `/persona/builder` 单页: 三 Tab (Instructions / Knowledge / Skills)
   - Instructions: 用户可覆盖 StyleProfile 自动学到的风格 (差量存 `personaInstructionOverride` 字段)
-  - Knowledge: 上传 md/pdf → 切片入 Memory 表 (type='persona_knowledge', ownerUserId 隔离)
+  - **Knowledge (改)**: **不再另造 md/pdf 上传**; 知识源 = **搭子手抄授权笔记** (复用 `setSharedToPersona` opt-in + `retrieveSharedNotesForPersona` 语义召回, 已在 `govern-persona` L4.5 注入)。Builder 里只做"哪些手抄已授权喂分身"的可视化开关面板, 消除与手抄重复造轮子 (见 spec P2)。
   - Skills: 勾选 `enabledSkills[]` (来源 = B-022 注册表)
   - 所有变更进 audit (`persona.builder.updated`)
-- **依赖**: B-022 (要有出站 skill 注册表才有得勾)
+- **依赖**: B-022 (要有出站 skill 注册表才有得勾) + 桥① 手抄→分身 (✅ 已落)
 
 #### B-022 · 出站 Skill 适配器 (Tandem 分身 → 外部 AIGC, 经 Skill Gateway)
 
@@ -497,12 +497,93 @@
 - **状态**: 观察
 - **依赖**: 需先有 B-007（agent-runtime adapter）才能干净切换
 
-#### B-013 · Agentic RAG / GraphRAG
+#### B-013 · Agentic RAG / GraphRAG（记忆图谱化 · 执行链 C）
 
-- **来源**: 2026-05 月报 L3
-- **接入成本**: 3
-- **价值**: 2（Memory 模块未来升级）
+- **来源**: 2026-05 月报 L3 → **2026-07 月报升级** (Glean permission-aware 知识图谱 · 行业优点 #2)
+- **解谁的痛**: 中央 AI / 分身 — 当前 memory.search 是平面相似度 (Jaccard/向量), 无法回答"这条决议牵动哪些 KR / 谁受影响 / 与哪条 Memory 冲突"这类关系型问题, 决策召回质量受限
+- **接入成本**: 3（1-2 周）
+- **价值**: 4（战略 — 放大四层签批知识护城河 + B-024 真学习的结构化底料）
+- **优先级**: +1
+- **状态**: 待评估（执行链 C, 同时命中行业优点 #2 图谱检索 + #3 真学习底料）
+- **拥有者**: Cascade
+- **备注**: 权限隔离已由**决策防火墙**解决 (baseline-guard + retriever 排除个人非审批记忆); 本条只补"图谱关系"层, 不重做权限
+
+---
+
+### 🔵 企业级同侪对标吸收 (2026-07 立项)
+
+> 来源: 2026-07 联网雷达 + `CENTRAL-AI-ENTERPRISE-EDGE.md` § 十二。7 条"该吸收优点"中, #2→B-013(升级) #3→B-024(已MVP) 已有条目; 下列 4 条为新建。Palantir/Glean/Sierra/Copilot 各占一角, 无人全占 — 补齐即放大护城河。
+
+#### B-033 · 扩宽 Action Registry (Ontology write-back 深度)
+
+- **来源**: 2026-07 月报 L3 (Palantir AIP action write-back) + 行业优点 #1/#4
+- **解谁的痛**: 中央 AI / 分身 — proposeAction 骨架就绪但可写动作少 (kr.checkin / objective.checkin 寥寥); "组织授权行动"雷声大雨点小, 决策难落地为真写回
+- **接入成本**: 4 (>2周, 逐个动作补)
+- **价值**: 4 (战略 — 把"能提议"变"能落地", 治理护城河的实弹)
+- **优先级**: 0
+- **状态**: 待评估
+- **拥有者**: TBD
+- **设计**: 盘点高频决策 → 注册对应 write action (含 zone/declaredActionScope) 入 actionRegistry; 全部经 proposeAction 4 闸 + 24h 否决; 覆盖 OKR/议事/知识/审批四域
+- **依赖**: B-017 (Skill Gateway 已落)
+
+#### B-034 · 跨 IM Bridge (Persona/CompanyBrain 在员工既有 IM 被召唤)
+
+- **来源**: 路径 10 (EDGE § 五) + 2026-07 月报 L4 (Copilot 嵌入工作流) + 行业优点 #5
+- **解谁的痛**: 员工 — 必须进 Tandem IM 才能用组织 AI = "另一个飞书"; 员工不愿离开微信/飞书/邮件既有工作流
+- **接入成本**: 4 (每渠道 3-5 天 bridge)
+- **价值**: 3 (粘性 + 认知红利, 非命脉)
+- **优先级**: -1 (V3, 命脉三条之后)
 - **状态**: 观察
+- **拥有者**: TBD
+- **设计**: webhook bridge, 首选微信 + Email + Slack; 召唤的是带组织视角的 CompanyBrain / 同事分身, 仍全程过 governedChat 治理
+- **依赖**: B-022 (出站 skill) 部分复用
+
+#### B-035 · 治理护栏对外叙事 + 合规包 (SOC2 / Audit Export)
+
+- **来源**: 2026-07 月报 L3 (Sierra guardrails 成卖点) + 行业优点 #6
+- **解谁的痛**: 销售 / Owner — Tandem 4 闸 + 24h 否决 + 决策防火墙比多数强, 但埋在实现里对外无叙事; 企业成交要看合规资质
+- **接入成本**: 3 (叙事 1 周 + 合规包分里程碑)
+- **价值**: 3 (成交前提 + 差异化叙事)
+- **优先级**: 0
+- **状态**: 观察
+- **拥有者**: TBD
+- **设计**: ① 4 闸/防火墙做成对外一页纸 + 产品内"治理可视化"看板 ② audit log 导出 (员工数据归属, 呼应 Hermes 文件级导出启发) ③ SOC2/等保路线图 (规模化阶段)
+- **依赖**: 无
+
+#### B-036 · CompanyBrain / DeptBrain 多脑编排 (CA-12)
+
+- **来源**: 2026-07 月报 L3 (Cognition/Writer 多 agent 编排) + 行业优点 #7 + CENTRAL-AI-ARCHITECTURE CA-12
+- **解谁的痛**: 组织 — 单一 CompanyBrain 覆盖全公司, 部门级专精不足; 大公司需"部门脑"分治 + 中央脑协调
+- **接入成本**: 4 (>2周)
+- **价值**: 3 (规模化阶段战略, 非当前命脉)
+- **优先级**: -1 (V3)
+- **状态**: 观察
+- **拥有者**: TBD
+- **设计**: DeptBrain 继承 CompanyBrain 治理, scope 到部门 Memory/OKR; 主 CompanyBrain 编排 + 冲突仲裁; 复用 subagent 范式 (EDGE § 十 启发⑥)
+- **依赖**: B-024 (真学习) 先兑现
+
+---
+
+### 🔴 战略级 · 分身编队 (Persona Squad · 拿捏) — 2026-07-13 立项
+
+> 愿景定稿见 `docs/PERSONA-SQUAD-ARCHITECTURE.md`。Owner 澄清: 每员工 1 主分身 + ≤5 个**完全独立**技能分身, 从公司/市场基础 Agent 模板 fork, 使用中各自独立进化, 主分身带领组成"战斗小组", OKR 工作台灵活调用。
+
+#### B-037 · 分身编队 (主分身 + 技能分身 + 基础 Agent 模板市场)
+
+- **来源**: 2026-07-13 Owner 澄清拿捏"炼分身"逻辑。三岔路决策: ①重(完全独立个体) ②外部import+公司内部市场 ③每人上限5。
+- **解谁的痛**: 员工 — 当前每人只有单一分身 (`personas.list({userId})[0]`), 无法按专业域养多个分身编队; expert-panel 只有临时视角非独立实体; 无基础 Agent 模板可 fork。
+- **接入成本**: 4 (>2周, 分 5 里程碑)
+- **价值**: 4 (战略级 — 拿捏模块核心进化, §16/§19 落地)
+- **状态**: 进 sprint (M1–M4 已落 2026-07-13; 仅剩 M5 外部市场·远期)
+- **拥有者**: Cascade
+- **里程碑** (详见 spec §八):
+  - **M1 数据模型** ✅ (2026-07-13): `AgentTemplate` 强类型表 (pgTable + 索引 + CHECK 约束 + 迁移 0010, 已应用真实 DB); `Persona` 加 `kind/parentPersonaId/templateId/specialty`; 存储三件套 + 单测。
+  - **M2 fork + 独立进化** ✅ (2026-07-13): `forkSkillPersona` (≤5 硬上限 + audit + event); `getPrimaryPersona`/`listSkillPersonas` 单一入口 (16 处调用点迁移, 防误取技能分身); `recordDecisionForPersona` 按 personaId 独立进化 + `recordSkillPersonaAdoption` (采纳合稿=正信号); anonymize 覆盖全部分身 (§13)。1321 单测零回归。
+  - **M3 编队** ✅ (2026-07-13): `runSquadPanel` 主分身 dispatch **真实技能分身实体** (各带模板 basePrompt + 独立 styleProfile/stage) 并行起草; `consolidateSquadDrafts` 主分身合稿 (含 contributingPersonaIds); `recordSquadAdoption` 采纳回流独立进化; `POST /api/me/squad-panel` (generate/consolidate/adopt) + rateLimit; 受控铁律不变。8 新单测, 1329 全量零回归。legacy `runExpertPanel` (同分身多视角) 保留向后兼容。
+  - **M4 工作台调用** ✅ (2026-07-13): 后端 API (`/api/agent-templates`·`/api/persona/fork`·`/api/me/personas`) + seed 5 内部模板 + 修 `/api/persona/stream` 第17调用点带 personaId; 手抄**方案丙**(定向喂养 `sharedToPersonaIds`, govern-persona/governedChat 串 personaId, 全链路); `runSquadPanel`/合稿升级走 `governedChat` (小组起草也吃手抄+基线+红线); UI: 拿捏瘦身 + Hub A「技能分身」页(市场/fork/名册)、训练台分身切换器(`/api/ai/persona-train` 带 personaId)、养料仪表盘手抄栏、搭子工作台「召唤战斗小组」(召唤→合稿→采纳回流)。产品分工: **拿捏建队/训队 · 搭子用队**。1340 单测零回归。
+  - **M5 外部市场** (远期): 外部公开市场 import 经 §19 出站 + skill-gateway 审查。
+- **边界/治理不变**: 所有分身过 4 闸 + proposeAction; 数据归公司/尊严归员工 (§13); 决策防火墙; 红区永不解锁; 中央 AI 永不当主分身。
+- **依赖**: 无 (M1 纯地基); M3 复用 expert-panel; M5 依赖 B-017/B-022 (Skill Gateway + 出站)。
 
 ---
 

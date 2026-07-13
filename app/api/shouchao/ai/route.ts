@@ -26,6 +26,12 @@ const PROMPTS: Record<ShouchaoAiAction, string> = {
     '你是中文写作助手。请把用户口述/草稿式的笔记整理成逻辑清晰、通顺的书面表达，保留全部信息与原意，不要新增事实。只输出整理后的正文。',
   tags:
     '你是标签助手。根据笔记内容生成 3-6 个精准的中文标签，用于检索归类。严格只输出 JSON 数组，如 ["产品","会议纪要","Q3规划"]，不要任何额外文字。',
+  review:
+    '你是一位资深的内容点评者。请从用户这条笔记里挑出真正有价值的「钻石」：指出哪些观点/表达/思路做得好，为什么好，值得保留和发扬。用鼓励但不敷衍的语气，2-4 条要点，中文，直接给点评，不要复述原文。',
+  challenge:
+    '你是用户的「诤友」。请像一个真诚而犀利的朋友一样，指出这条笔记在逻辑、论据、表达上的漏洞与含糊之处，并提出 2-4 个能把想法逼问得更清楚的关键反问。对事不对人，中文，直接给拷问，不要客套。',
+  sprout:
+    '你是善于联想的思考伙伴。请以用户这条笔记为「种子」，长出新的认知：给出 2-3 个跨领域的关联、类比或延伸思考（可涉及其它学科/案例/趋势），启发用户看到没想到的角度。中文，每条简明有洞察，不要空泛套话。',
 };
 
 export const POST = withErrorHandler(async (req: NextRequest) => {
@@ -37,7 +43,10 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   const content = typeof body.content === 'string' ? body.content.trim() : '';
 
   if (!action || !(action in PROMPTS)) {
-    return NextResponse.json({ ok: false, error: 'action 必须是 summarize|polish|tags' }, { status: 400 });
+    return NextResponse.json(
+      { ok: false, error: 'action 必须是 summarize|polish|tags|review|challenge|sprout' },
+      { status: 400 },
+    );
   }
   if (!content) {
     return NextResponse.json({ ok: false, error: 'content 必填' }, { status: 400 });
@@ -53,7 +62,8 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
         { role: 'user', content: content.slice(0, 8000) },
       ],
       scenario: action === 'summarize' ? 'long_context' : 'high_frequency',
-      temperature: action === 'polish' ? 0.4 : 0.3,
+      temperature:
+        action === 'polish' ? 0.4 : action === 'sprout' ? 0.8 : action === 'challenge' || action === 'review' ? 0.6 : 0.3,
       maxTokens: 800,
       metadata: { userId: auth.userId, requestId: `shouchao:${action}` },
     });

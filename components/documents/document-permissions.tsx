@@ -184,7 +184,7 @@ export function DocumentPermissions({ docId, ownerId, permissions, currentUserId
       <div className="mt-3 space-y-1.5 text-caption">
         <div className="flex items-center justify-between p-2 bg-white rounded border">
           <span className="flex items-center gap-1.5 truncate">
-            <Crown size={13} className="text-amber-500 shrink-0" />
+            <Crown size={13} className="text-warning shrink-0" />
             <span className="truncate">{label(ownerId)}</span>
           </span>
           <span className="text-ink-tertiary shrink-0">所有者</span>

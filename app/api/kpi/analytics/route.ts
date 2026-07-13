@@ -75,10 +75,8 @@ export async function GET(req: NextRequest) {
   if (!cycleId) return NextResponse.json({ error: 'cycleId required' }, { status: 400 });
 
   const store = getStore();
-  // 租户隔离统一收敛 (§23 P2-A).
-  const kpis = (await withTenantScope(store.kpis, auth.tenantId).list()).filter(
-    (k) => k.cycleId === cycleId,
-  );
+  // 租户隔离统一收敛 (§23 P2-A) + 热路径下推 (§23 P1-B): cycleId 传入 list() 下推 SQL.
+  const kpis = await withTenantScope(store.kpis, auth.tenantId).list({ cycleId });
   const subjects = await withTenantScope(store.kpiSubjects, auth.tenantId).list();
   const subjectById = new Map<string, KpiSubject>(subjects.map((s) => [s.id, s]));
 

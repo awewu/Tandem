@@ -41,6 +41,7 @@ import {
   Home,
 } from 'lucide-react';
 import { InsightsWidget } from '@/components/insights/insights-widget';
+import { RiskCockpit } from '@/components/dashboard/risk-cockpit';
 import { PendingRetrosCard } from '@/components/dashboard/pending-retros-card';
 import { WorkbenchAgentView } from '@/components/dashboard/workbench-agent-view';
 import type { LaunchpadAppWithBadge, LaunchpadCategory as LpCategory } from '@/lib/types/launchpad';
@@ -210,6 +211,9 @@ export default function HomePage() {
 
         {/* ──────────── Onboarding 3步新手引导 (Top-5 #5 采纳命门) ──────────── */}
         <OnboardingTour />
+
+        {/* ──────────── AI 风险驾驶舱 (置顶, 时间基准客观风险; 无风险/无周期自动隐藏) ──────────── */}
+        <RiskCockpit />
 
         {/* ──────────── §1 工作台 hero · 4 WorkbenchCards (左 2/3) + Launchpad (右 1/3) 等高并排 ──────────── */}
         <div className="grid gap-4 md:gap-6 lg:grid-cols-3 lg:items-stretch">

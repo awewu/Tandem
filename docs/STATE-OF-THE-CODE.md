@@ -1,15 +1,91 @@
 # Tandem 当前真实状态 (Single Source of Truth)
 
-> **生成**: 2026-05-20 · **基准 commit**: A2 cutover (`201aff8` 之后)
-> **取代**: `COMMERCIAL-READINESS-GAP.md` (2026-05-12) 的过时项 + 合并 `A2-PROGRESS.md` 终态
-> **维护**: 每次大变动后人工 refresh 此表; 当事实与下表不一致时, **以代码为准**, 改本文档
+> **刷新**: 2026-06-28 · **基准 commit**: `c47664b` (fix build) · 上游 `8118e47` (okr lifecycle)
+> **历史基线**: 2026-05-20 A2 cutover (下文 §1–§10 多为该期快照, 已过期约 5 周, 阅读时以 §0.1 为准)
+> **维护**: 每次大变动后人工 refresh; 当事实与下表不一致时, **以代码为准**, 改本文档
 
 ---
 
-## §0 一句话现状
+## §0.3 2026-07-12 三次校准 (决策防火墙 + 器官事实 refresh · 最高优先)
+
+> 本节优先级高于 §0.2 / §0.1 / §1-§10。
+
+**当前实测门控**:
+- `tsc --noEmit` → **0 错** (忽略 vendor/paperclip)
+- `vitest run` → **1282 passed / 1 skipped, 129 文件** (较 §0.2 的 1280 增 2 · 新增决策防火墙回归)
+
+**决策防火墙 (Owner 2026-07-12 定, 已密封)** 🔒:
+- 铁律: 个人成长的**非审批**上下文 (手抄 / 拿捏 / 个人记事本) 绝不流入 OKR/议事等决策依赖。
+- 密封点1 `lib/memory/baseline-guard.ts` — 决策召回加过滤 `status==='active' && ownershipLevel!=='personal'`。
+- 密封点2 `lib/memory/retriever.ts` (`memory.search`/CompositeRetriever) — memMatches 排除 `personal`。
+- 密封点3 `lib/store/memory-ui.ts` (`getBaselineSystemPrompt`) — 个人记事本注入标签由"公司基线(必须遵守)"改为"个人笔记(参考,非公司审批基线)"。
+- 回归测试: `tests/unit/baseline-guard.test.ts` +2 (个人记忆不入基线 / 非active排除)。
+- 详见 `docs/KNOWLEDGE-ARCHITECTURE.md` §9.3。
+
+**中央AI 器官事实 refresh (`CENTRAL-AI-ARCHITECTURE.md` §二 已同步)**:
+- 此前长期标"❌缺"的 #12 主循环 / #13 执行肢体 / #15 OKR Anchor / #16 OKR Drift / #18 Skill Gateway 4闸 → **实测均已 LIVE** (感知/写动作/多步推理 pass + MCP bridge + 四闸单测), 文档已据实改 ✅。
+- **真正仍缺**: #11 真学习归因 (B-024, evolution 仍是计数器非归因诊断) · #14 Skill 端到端 · #17 个人产出捕获。
+
+---
+
+## §0.2 2026-06-28 二次校准 (体检后, 最高优先)
+
+> 全面体检 (tsc + vitest + 遗留标记扫描) 后定点修正下方 §1/§3 旧快照中已过时的状态。本节优先级高于 §0.1 与 §1-§10。
+
+**当前实测门控**:
+- `tsc --noEmit` → **0 错**
+- `vitest run` → **1280 passed / 1 skipped (共 1281), 130 文件** (较 §0.1 的 1276 增 4)
+- 遗留标记 (NOT IMPLEMENTED/TODO) → 极少且均次要/设计性 (Tita 写入 NotImplemented · NextAuth 集成注释 · wechat-provider stub · convergence relatedKrTitles hydrate)
+
+**§1 旧表已过时 (实测已修)**:
+- P0-2 审计日志 → **✅** Drizzle `AuditLog` 表 + SHA-256 链 + `/api/audit/verify` (见 §3 行)
+- P0-4 备份/恢复 → **✅** `scripts/backup-pg.mjs` · `restore-pg.mjs` · `install-backup-cron.sh` · `backup-postgres.{sh,ps1}` 已存在
+- P0-6 edge secret → **✅** `lib/auth/session-edge.ts` `getSecret()` 生产环境缺密钥即 `throw`
+- **P0 已全部清零** (原估 1.7d 已完成)
+
+**§3 旧表已过时**:
+- `/admin/intranet` 后端 → **✅/⏸** 已有 `app/api/intranet/posts/*` (4 路由: posts CRUD + read + unread) + `/admin/intranet/page.tsx`; `/intranet/*` 子页 (channels/forum/leadership/town-hall/ethics) 已建
+- 首页 AI 风险驾驶舱 → **✅** `components/dashboard/risk-cockpit.tsx`
+- OKR → **✅** 进度 SSOT (`lib/okr/progress.ts`) + 客观风险 EVM (`lib/okr/risk.ts`) + 三率/分布 (`lib/okr/adoption.ts`) 接入 `/okr/dashboard`
+
+**真实仍开放 (非阻塞)**:
+- ~~§23 P1-B: 热路径 `list()` 下推~~ → **✅ 已修** (KPI 热路由 `kpi/route` `analytics` `bonus` 改 `.list().filter()` 为 `.list({cycleId,...})`, repo 已支持下推; 三种 repo 后端语义一致, 1280 测试全过)
+- OKR 缺"提交-审批"状态机 → 看板无法显示待提交/审批中漏斗 (需加 schema + 迁移, 见下方待评审)
+- (设计阶段) wechat OAuth provider · NextAuth session 集成 (`lib/multi-tenant/context.ts:52`)
+
+---
+
+## §0.1 2026-06-28 真值刷新 (Beta 上线就绪 · 权威)
+
+> 本节为最新实测真值, 覆盖下方 2026-05-20 快照中冲突的旧表述。
+
+**验收门控 (全绿)**:
+- `tsc --noEmit` → **0 错** (含 vendor/paperclip 已清零)
+- `vitest run` → **1276 passed / 1 skipped (共 1277), 130 文件**
+- `NEXT_OUTPUT=standalone next build` → **成功** (修复 `app/admin/mcp-servers/page.tsx:172` 未转义引号阻塞项, commit `c47664b`)
+- VI: IM 模块仅 1 处 `bg-white` (开关滑块旋钮, 物理白, 放行) · 空架子 `NOT IMPLEMENTED` = 0 · 代码内 `db:push` 调用 = 0
+- 宪章红线: 双轨分离 ✅ · 宪法A (`lib/ontology/propose-action.ts:74-76` 以 `COMPANY_BRAIN_PERSONA_ID` 拦截中央AI做 proposer) ✅ · baseline-guard 走 `getActiveBrainVersion` ✅
+
+**Beta 部署 (目标主机 = 本 mac)**:
+- 部署包: `/Users/tiechuishan/Documents/Tandem AI/tandem-deploy.zip` · 42,466,694 bytes · 5276 条目 · SHA256 `678e7d466f3e5188285ff6dd6ea9310ccc97df6f464f89e6dd73045d5cff8dcd` (结构对齐 `package-deploy.ps1`, mac 用 rsync/zip 复刻)
+- **已上线**: `npx next start -H 0.0.0.0 -p 3000` 运行中 · Ready 261ms · `/login` 200 · 受保护 API 401 (auth gate 生效, 无 500) · PG `localhost:5432` 连通 · `.env.local` 含全部密钥
+- 启动脚本: 见 `docs/RUN-ON-MAC.md`
+
+**5-20 → 6-28 期间主要新增** (git log):
+- 搭子手抄 Shouchao 重度迭代 (对标 Notion: 块编辑/双链/语义检索/PDF·Word 导入提炼/跨笔记 Ask)
+- 中央AI: MCP server 注册表持久化 + Admin 配置 UI (B-002 通路, runToolLoop 经 4 道闸调 MCP) · 浮窗多模态传图 + 对话体验升级
+- OKR: 进度 SSOT 重构 + 客观风险 EVM + 健康看板三率/分布 (对标 Tita) + Objective 生命周期
+- 工作法周节奏驾驶舱 · 首页 AI 风险驾驶舱 · 组织架构 CRUD · 知识库外网抓取 · 具名专家子代理库
+- 邮件移动端/附件下载
+
+**§23 工程级基线 (200 人)**: 跨租户 P0 + P1-A/C 已修并有对抗性测试; 统一隔离层 `lib/multi-tenant/with-tenant-scope.ts` 已接 ~23 路由。剩余: P1-B 热路径 `list()` 下推 · P2-B `documents/drive/notifications/calendar` create 字段白名单。
+
+---
+
+## §0 一句话现状 (2026-05-20 快照, 已被 §0.1 更新)
 
 > **后端 ~60% 真**, **前端 shell 90% 全**, **故事链断点 = A3 跨模块 wire (3–4d)**.
-> P0 中 DB 持久化 ✅ / Docker ✅; **审计日志 + 备份 + edge auth secret 是剩余 P0 缺**.
+> P0 中 DB 持久化 ✅ / Docker ✅; 审计日志 + 备份已于 2026-05-21 补齐 (见 §10), edge secret 待复核.
 
 ---
 
@@ -18,11 +94,11 @@
 | 编号 | 项 | gap doc 状态 | **当前真实** | 证据 |
 |---|---|:-:|:-:|---|
 | P0-1 | DB 持久化 (Drizzle+PG) | ❌ | **✅** | `lib/boot.ts:59-73` · `DATABASE_URL → DrizzleStore` |
-| P0-2 | 审计日志持久化 + SHA256 | ❌ | **⏸** 内存数组 + 非加密 hash | `lib/audit/log.ts:69-80` (注释自标 TODO) |
+| P0-2 | 审计日志持久化 + SHA256 | ❌ | **✅** (§0.2 校准) Drizzle 表 + SHA-256 链 | `/api/audit/verify` + `AuditLog` 表 |
 | P0-3 | Dockerfile + compose.prod | ❌ | **✅** | `Dockerfile` + `docker-compose.{db,prod,tandem}.yml` |
-| P0-4 | 数据备份与恢复脚本 | ❌ | **❌** | 仓库 grep 无任何 backup/restore 脚本 |
+| P0-4 | 数据备份与恢复脚本 | ❌ | **✅** (§0.2 校准) | `scripts/backup-pg.mjs` · `restore-pg.mjs` · `install-backup-cron.sh` |
 | P0-5 | 剩余 API auth gate | ⚠️ | **✅** A2.2 已覆盖 | `lib/auth/require-auth.ts` + 11 endpoint 接入 |
-| P0-6 | edge middleware secret 生产检查 | (新发现) | **❌** | `lib/auth/session-edge.ts:29-33` 无 production throw |
+| P0-6 | edge middleware secret 生产检查 | (新发现) | **✅** (§0.2 校准) | `lib/auth/session-edge.ts` getSecret() 生产缺密钥即 throw |
 
 ### P0 剩余工期估算
 
@@ -88,7 +164,7 @@
 | `/api/audit/verify` + Drizzle `AuditLog` 表 | SHA-256 链 + 跨重启保存 + verify endpoint | ✅ P0 audit-persist |
 | `/admin/baseline` | `/api/tandem/memory/*` (baseline 走 memory) | ⏸ 待验证 |
 | `/admin/steward` | `/api/tandem/memory/{promotion,downgrade}` + SLA 监控 | ✅ 3 tab 完整工作台 (升级/降级/SLA) |
-| `/admin/intranet` | (新加, 后端待补) | ❌ |
+| `/admin/intranet` | `/api/intranet/posts/*` (CRUD+read+unread) | ✅ (§0.2 校准) |
 | `/intranet/*` (7 个 stub) | seed 静态 | ⏸ 设计阶段 |
 | `/skills` `/skills/learning` `/admin/skills` `/admin/tandem-skills` | `/api/skills/*` + `/api/tandem-skills/*` | ✅ |
 | `/insights` | `/api/dashboard/stats` + `lib/insights/derive` | ✅ |

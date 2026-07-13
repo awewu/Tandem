@@ -80,6 +80,9 @@ export interface TandemStore {
   decisionCards: Repository<DecisionCard>;
   personas: Repository<Persona>;
 
+  /** 分身编队 (B-037): 基础 Agent 模板 (员工从此 fork 技能分身) */
+  agentTemplates: Repository<import('../types/agent-template').AgentTemplate>;
+
   /** §CA-13 (CENTRAL-AI-ARCHITECTURE) CompanyBrain 智能迭代闭环 */
   companyBrainDecisions: Repository<CompanyBrainDecision>;
   companyBrainVersions: Repository<CompanyBrainVersion>;
@@ -187,6 +190,9 @@ export interface TandemStore {
   /** 搭子手抄 · AI 笔记 (独立模块, KvStore-based) */
   shouchaoNotes: Repository<import('../types/shouchao').ShouchaoNote>;
 
+  /** 搭子手抄 · 知识库/主题分组 (对标 Get笔记 知识库) */
+  shouchaoNotebooks: Repository<import('../types/shouchao').ShouchaoNotebook>;
+
   /** 知识库 · 文件树节点 (后端持久化, 替代原纯前端 localStorage) */
   knowledgeNodes: Repository<import('../types/knowledge').KnowledgeNode>;
 
@@ -205,6 +211,9 @@ export interface TandemStore {
 
   /** AI 配置 (Admin UI 可热更新, 优先级高于 env) */
   aiSettings: Repository<import('../types/ai-settings').AiSettings>;
+
+  /** MCP server 注册表 (B-002, Admin UI 可配, 启动同步进 mcp-bridge 内存注册表) */
+  mcpServers: Repository<import('../types/mcp-server').McpServerRecord>;
 
   /** Web Push 订阅记录 */
   pushSubscriptions: Repository<import('../infra/web-push').PushSubscriptionRecord>;

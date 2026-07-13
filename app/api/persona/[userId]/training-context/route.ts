@@ -18,6 +18,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { getPrimaryPersona } from '@/lib/persona/persona-lookup';
 import { DATA_STEWARD_ROLES } from '@/lib/auth/roles';
 import type { CheckIn, TTI, KeyResult } from '@/lib/types/okr-tti';
 import type { MemoryEntry } from '@/lib/types/memory';
@@ -89,8 +90,7 @@ export async function GET(
     const store = getStore();
 
     // 1. 拉 persona（可能不存在 - 第一次的员工还没生成）
-    const personaList = await store.personas.list({ userId: params.userId } as never);
-    const persona = personaList[0] as Persona | undefined;
+    const persona = ((await getPrimaryPersona(params.userId)) ?? undefined) as Persona | undefined;
 
     // 2. 拉 check-ins（该 user 作为 author 的所有 kr-scoped check-in）
     const allCheckIns = (await store.checkIns.list()) as CheckIn[];

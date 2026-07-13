@@ -924,3 +924,47 @@ export const kpiCausalLink = pgTable(
     tenantIdx: index('KpiCausalLink_tenantId_idx').on(t.tenantId),
   }),
 );
+
+/**
+ * AgentTemplate · 分身编队 (B-037) 基础 Agent 模板 — 强类型表 (不走 KvStore)
+ *
+ * 公司资产: 员工从模板 fork 技能分身。双轨来源 (internal 策展 / external_market 引入)。
+ * 详见 docs/PERSONA-SQUAD-ARCHITECTURE.md §3.1 + 迁移 0010。
+ * CHECK 约束 (origin / status 枚举) 在迁移 SQL 中以幂等 DO 块施加。
+ */
+export const agentTemplate = pgTable(
+  'AgentTemplate',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    name: text('name').notNull(),
+    /** 专业域: design|pm|tech|marketing|strategy|finance|sales|hr|legal|... */
+    specialty: text('specialty').notNull(),
+    /** internal | external_market */
+    origin: text('origin').notNull().default('internal'),
+    /** 外部市场来源标识 (origin='external_market' 时) */
+    externalRef: text('externalRef'),
+    basePrompt: text('basePrompt').notNull(),
+    /** string[] 初始 enabledSkills */
+    defaultSkills: jsonb('defaultSkills').notNull().default([]),
+    /** string[] 知识/记忆检索标签 */
+    defaultKnowledgeTags: jsonb('defaultKnowledgeTags').notNull().default([]),
+    /** draft | published | archived */
+    status: text('status').notNull().default('draft'),
+    createdBy: text('createdBy').notNull(),
+    /** 外部 import 必填 (经 §19 出站 + skill-gateway 审查) */
+    reviewedBy: text('reviewedBy'),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+  },
+  (t) => ({
+    /** 市场列表主查询: 某租户下按状态 (published) 过滤 */
+    tenantStatusIdx: index('AgentTemplate_tenantId_status_idx').on(t.tenantId, t.status),
+    /** 按专业域浏览 */
+    tenantSpecialtyIdx: index('AgentTemplate_tenantId_specialty_idx').on(t.tenantId, t.specialty),
+    /** 外部来源审查队列 */
+    originIdx: index('AgentTemplate_origin_idx').on(t.origin, t.status),
+    /** 同租户模板名唯一 (策展库完整性, 防歧义 fork) */
+    nameUniq: uniqueIndex('AgentTemplate_tenantId_name_uniq').on(t.tenantId, t.name),
+  }),
+);

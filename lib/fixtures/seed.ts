@@ -10,6 +10,7 @@ import type { MemoryEntry } from '../types/memory';
 import type { Cycle, Objective, KeyResult, TTI } from '../types/okr-tti';
 import type { DecisionCard } from '../types/decision-card';
 import type { Kpi, KpiCycle, KpiSubject, KpiSnapshot, KpiScope } from '../types/kpi';
+import type { AgentTemplate } from '../types/agent-template';
 import { createChannel, sendMessage } from '../im/service';
 import { db, schema } from '../infra/drizzle-client';
 import { sql } from 'drizzle-orm';
@@ -576,6 +577,7 @@ export async function seedDevData(): Promise<void> {
 
   await seedLaunchpadIfEmpty();
   await seedExtraModulesIfEmpty();
+  await seedAgentTemplatesIfEmpty();
 }
 
 /**
@@ -1001,5 +1003,81 @@ export async function seedKpiDemoIfEmpty(): Promise<void> {
     console.info(`[seed] KPI balance-scorecard seeded: ${kpiSpecs.length} KPIs inserted`);
   } catch (err) {
     console.warn('[seed] KPI demo seed failed:', (err as Error).message);
+  }
+}
+
+/**
+ * 分身编队 (B-037 · M4): 起始基础 Agent 模板市场 (idempotent).
+ * 员工从这些已发布模板 fork 出技能分身。全部 origin='internal' (公司策展),
+ * 外部市场 (external_market) 走 M5 + §19 出站审查, 不在此 seed。
+ */
+export async function seedAgentTemplatesIfEmpty(): Promise<void> {
+  const s = getStore();
+  try {
+    const existing = await s.agentTemplates.list();
+    if (existing.some((t) => t.tenantId === 'default')) return;
+
+    const now = new Date().toISOString();
+    const defs: Array<Pick<AgentTemplate, 'name' | 'specialty' | 'basePrompt' | 'defaultSkills' | 'defaultKnowledgeTags'>> = [
+      {
+        name: '资深财务分析师',
+        specialty: 'finance',
+        basePrompt:
+          '你是一名资深财务分析师。擅长预算测算、ROI/回本周期评估、现金流与成本结构分析。给建议时先量化关键数字, 明确假设与敏感性, 保守稳健、不夸大收益。',
+        defaultSkills: [],
+        defaultKnowledgeTags: ['finance', 'budget', 'roi'],
+      },
+      {
+        name: '技术架构师',
+        specialty: 'tech',
+        basePrompt:
+          '你是一名技术架构师。擅长可行性评估、系统设计、依赖与风险识别、工作量与技术债权衡。给方案时标注关键风险与验证路径, 不过度设计。',
+        defaultSkills: [],
+        defaultKnowledgeTags: ['tech', 'architecture'],
+      },
+      {
+        name: '产品经理',
+        specialty: 'pm',
+        basePrompt:
+          '你是一名产品经理。擅长需求优先级、范围与排期、验收标准、用户价值取舍。给建议时先厘清目标用户与核心价值, 明确 MVP 边界与验收口径。',
+        defaultSkills: [],
+        defaultKnowledgeTags: ['pm', 'product'],
+      },
+      {
+        name: '增长营销专家',
+        specialty: 'marketing',
+        basePrompt:
+          '你是一名增长营销专家。擅长目标人群定位、卖点提炼、渠道与话术、转化漏斗与增长实验。建议须可度量、可实验, 不编造数据。',
+        defaultSkills: [],
+        defaultKnowledgeTags: ['marketing', 'growth'],
+      },
+      {
+        name: '法务合规顾问',
+        specialty: 'legal',
+        basePrompt:
+          '你是一名法务合规顾问。擅长合同要点、合规风险识别、条款取舍。仅提示风险与建议, 绝不替代正式法律意见; 涉及重大法律事项一律建议转专业律师。',
+        defaultSkills: [],
+        defaultKnowledgeTags: ['legal', 'compliance'],
+      },
+    ];
+
+    for (const d of defs) {
+      await s.agentTemplates.create({
+        tenantId: 'default',
+        name: d.name,
+        specialty: d.specialty,
+        origin: 'internal',
+        basePrompt: d.basePrompt,
+        defaultSkills: d.defaultSkills,
+        defaultKnowledgeTags: d.defaultKnowledgeTags,
+        status: 'published',
+        createdBy: 'admin@tandem.local',
+        createdAt: now,
+        updatedAt: now,
+      } as Omit<AgentTemplate, 'id'>);
+    }
+    console.info(`[seed] agent templates seeded: ${defs.length} published`);
+  } catch (err) {
+    console.warn('[seed] agent templates failed:', (err as Error).message);
   }
 }

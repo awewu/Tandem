@@ -22,13 +22,20 @@ export interface RoutingRule {
 }
 
 /**
- * 默认路由规则 (企业级中央AI: claude-opus-4-5 担任旗舰, 其余为梯级 fallback)
+ * 默认路由规则 (设计上: claude-opus-4-5 担任旗舰, 其余为梯级 fallback)
+ *
+ * ⚠️ 实际旗舰取决于配置 (诚实披露 · 见 docs/CA-11-IQ-SOVEREIGNTY.md):
+ *   createDefaultRouter() 只注册配了 apiKey 的 provider (index.ts:204)。
+ *   若未配 ANTHROPIC_API_KEY, claude-opus-4-5 **不会注册**, 所有 primary=opus 的场景
+ *   会 fall through 到第一个可用 fallback。当前生产 .env 只配了 DEEPSEEK_* →
+ *   **DeepSeek (deepseek-r1/v3) 才是事实上的旗舰**, 而非 Opus。要让 Opus 真上岗需补 key,
+ *   否则此处的 "旗舰" 仅是设计意图, 不代表运行时真实归因。
  *
  * 优先级策略:
  *   中央AI (tenant forceProvider) > 个人AI (user forceProvider) > 以下场景规则
  *
- * claude-opus-4-5: 200K ctx, vision, 强推理 — 企业关键决策专用
- * deepseek-v3:     高性价比推理兜底
+ * claude-opus-4-5: 200K ctx, vision, 强推理 — 需配 ANTHROPIC_API_KEY 才注册
+ * deepseek-v3:     高性价比推理兜底 (当前默认生效)
  * doubao-pro:      256K 长文档 / 高频低成本
  */
 export const DEFAULT_ROUTING_RULES: RoutingRule[] = [

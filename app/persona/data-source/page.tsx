@@ -10,9 +10,15 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   Database, ArrowLeft, Loader2, AlertTriangle, CheckSquare, Target,
-  BookOpen, ShieldOff, ShieldCheck, Gauge,
+  BookOpen, ShieldOff, ShieldCheck, Gauge, StickyNote,
 } from 'lucide-react';
 import { useCurrentUserId } from '@/lib/hooks/use-current-user';
+
+const SPECIALTY_LABEL: Record<string, string> = {
+  finance: '财务', tech: '技术', pm: '产品', marketing: '营销', legal: '法务',
+  design: '设计', sales: '销售', hr: '人力', strategy: '战略',
+};
+interface SharedNote { id: string; title: string; content?: string; sharedToPersonaIds?: string[] }
 
 interface TrainingContext {
   source: 'real' | 'empty';
@@ -32,6 +38,37 @@ export default function DataSourcePage() {
   const [learningActive, setLearningActive] = useState<boolean | null>(null);
   const [status, setStatus] = useState<'loading' | 'ok' | 'error'>('loading');
   const [toggling, setToggling] = useState(false);
+  // 分身编队 (B-037 M4): 已授权喂给分身的手抄 + 分身 id→专业域 (展示定向去向)
+  const [sharedNotes, setSharedNotes] = useState<SharedNote[]>([]);
+  const [personaSpecialty, setPersonaSpecialty] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!userId) return;
+    let cancel = false;
+    (async () => {
+      try {
+        const [nRes, pRes] = await Promise.all([
+          fetch('/api/shouchao/notes', { credentials: 'include', cache: 'no-store' }),
+          fetch('/api/me/personas', { credentials: 'include', cache: 'no-store' }),
+        ]);
+        if (cancel) return;
+        if (nRes.ok) {
+          const d = await nRes.json();
+          const notes = (d.notes ?? []) as Array<SharedNote & { sharedToPersona?: boolean }>;
+          setSharedNotes(notes.filter((n) => n.sharedToPersona));
+        }
+        if (pRes.ok) {
+          const d = await pRes.json();
+          const map: Record<string, string> = {};
+          for (const s of (d.skills ?? []) as Array<{ id: string; specialty: string | null }>) {
+            map[s.id] = SPECIALTY_LABEL[s.specialty ?? ''] ?? s.specialty ?? '分身';
+          }
+          setPersonaSpecialty(map);
+        }
+      } catch { /* fail-soft */ }
+    })();
+    return () => { cancel = true; };
+  }, [userId]);
 
   useEffect(() => {
     if (!userId) return;
@@ -129,6 +166,33 @@ export default function DataSourcePage() {
               >
                 {toggling ? <Loader2 className="h-4 w-4 animate-spin" /> : learningActive ? '暂停学习' : '恢复学习'}
               </button>
+            </div>
+          )}
+
+          {/* 分身编队 (B-037 M4): 已授权手抄养料 (方案丙 · 全队 or 定向到某技能分身) */}
+          {sharedNotes.length > 0 && (
+            <div className="surface-card p-4 space-y-2">
+              <h2 className="text-caption font-semibold text-ink-primary flex items-center gap-2">
+                <StickyNote className="h-4 w-4 text-brand-500" /> 已授权手抄养料 ({sharedNotes.length})
+              </h2>
+              <p className="text-footnote text-ink-tertiary">
+                来自「搭子手抄」你显式授权喂给分身的笔记 · 可在手抄里随时撤回
+              </p>
+              <ul className="divide-y divide-hairline">
+                {sharedNotes.map((n) => {
+                  const targets = n.sharedToPersonaIds ?? [];
+                  const scope =
+                    targets.length === 0
+                      ? '全队'
+                      : `定向: ${targets.map((t) => personaSpecialty[t] ?? '分身').join('、')}`;
+                  return (
+                    <li key={n.id} className="py-2 text-footnote flex items-center justify-between gap-2">
+                      <span className="truncate text-ink-primary">{n.title || '(无标题笔记)'}</span>
+                      <span className="shrink-0 rounded-full bg-surface-3 px-1.5 py-0.5 text-[10px] text-ink-tertiary">{scope}</span>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
           )}
 

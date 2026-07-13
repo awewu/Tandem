@@ -127,6 +127,46 @@ describe('proposePromotion · SLA + publicReview', () => {
     expect(days).toBeLessThan(1.1);
     expect(req.isEmergencyTrack).toBe(true);
   });
+
+  it('治理不变量: redline 提 team → 强制升 company (不许低级别绕过)', async () => {
+    const req = await proposePromotion({
+      materialId: 'mat_1',
+      proposedType: 'redline',
+      proposedTitle: 'Redline-资金红线',
+      proposedBody: 'X',
+      proposerId: 'u_alice',
+      level: 'team', // 试图用最低门槛绕过
+    });
+    expect(req.level).toBe('company');
+    // SLA 应为公司级 14 天, 而非 team 的 3 天
+    const slaDays = (new Date(req.slaDeadline!).getTime() - Date.now()) / 86400_000;
+    expect(slaDays).toBeGreaterThan(13.9);
+    expect(slaDays).toBeLessThan(14.1);
+  });
+
+  it('治理不变量: value 提 dept → 强制升 company', async () => {
+    const req = await proposePromotion({
+      materialId: 'mat_1',
+      proposedType: 'value',
+      proposedTitle: 'Value-诚信',
+      proposedBody: 'X',
+      proposerId: 'u_alice',
+      level: 'dept',
+    });
+    expect(req.level).toBe('company');
+  });
+
+  it('非宪法类型 (sop) 不被强制升级, 尊重传入 level', async () => {
+    const req = await proposePromotion({
+      materialId: 'mat_1',
+      proposedType: 'sop',
+      proposedTitle: 'SOP-X',
+      proposedBody: 'X',
+      proposerId: 'u_alice',
+      level: 'team',
+    });
+    expect(req.level).toBe('team');
+  });
 });
 
 // ---------------------------------------------------------------------------

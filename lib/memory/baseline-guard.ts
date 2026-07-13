@@ -227,7 +227,12 @@ export async function checkBaseline(input: BaselineCheckInput): Promise<Baseline
     departmentId: input.actorDepartmentId,
     isManagerOf: [], // V2: 从 org 服务取
   };
-  const visible = allMems.filter((m) => canViewMemory(m, viewer));
+  // 防火墙 (Owner 2026-07-12): baseline-guard 是"组织记忆的方向盘"(§5-6), 只用【已签批的组织级】记忆做基线。
+  // 个人非审批记事本 (ownershipLevel='personal') 与非 active 状态 (revising/inactive/deprecated) 一律排除,
+  // 防止"个人成长的非审批咨询"污染 OKR/议事等决策依赖。个人"懂你"上下文只走搭子 styleProfile + 手抄闸门。
+  const visible = allMems.filter(
+    (m) => m.status === 'active' && m.ownershipLevel !== 'personal' && canViewMemory(m, viewer),
+  );
 
   // 相似度计算: 优先 embedding cosine, 降级 Jaccard
   let scored: Array<{ mem: MemoryEntry; sim: number }> = [];

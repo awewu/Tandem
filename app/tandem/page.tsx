@@ -24,7 +24,7 @@
 import Link from 'next/link';
 import { Suspense, createContext, useContext, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useBossAi } from '@/components/boss-ai/use-boss-ai';
+import { useBossAi, usePersonaChat } from '@/components/boss-ai/use-boss-ai';
 import { ThreePlusOneSelector } from '@/components/decision-layer/ThreePlusOneSelector';
 import {
   AlertCircle,
@@ -49,6 +49,7 @@ import {
   Stamp,
   Target,
   TrendingUp,
+  Users,
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -101,6 +102,12 @@ const CARD_REGISTRY = {
     icon: Cpu,
     deepLink: { href: '/persona',        label: '去主分身工作台' },
   },
+  squad: {
+    title: '召唤战斗小组',
+    desc: '你 fork 的技能分身并行起草 → 主分身合稿 → 采纳回流进化',
+    icon: Users,
+    deepLink: { href: '/persona/squad',  label: '去拿捏组队' },
+  },
 } as const;
 type CardId = keyof typeof CARD_REGISTRY;
 
@@ -151,6 +158,21 @@ interface DraftCtx {
   pushDraft: (d: { title: string; body: string }) => void;
 }
 const DraftContext = createContext<DraftCtx>({ draft: null, pushDraft: () => {} });
+
+// ── 主舞台召唤对象 · 我的分身(默认) / 中央 AI ─────────────────────────
+type StageTarget = 'persona' | 'company';
+const StageTargetContext = createContext<{ target: StageTarget; setTarget: (t: StageTarget) => void }>({
+  target: 'persona',
+  setTarget: () => {},
+});
+const useStageTarget = () => useContext(StageTargetContext);
+/** 按当前召唤对象返回对应会话 hook (两 hook 恒调用, 满足 hooks 规则). */
+function useActiveChat() {
+  const { target } = useStageTarget();
+  const boss = useBossAi();
+  const persona = usePersonaChat();
+  return target === 'company' ? boss : persona;
+}
 const useTandemDraft = () => useContext(DraftContext);
 
 function useDashboardFetch(): DashboardCtx {
@@ -1323,7 +1345,22 @@ function HomeStage({
   onSummonPersona: () => void;
   onSummonDeliver: () => void;
 }) {
-  const { messages } = useBossAi();
+  const [target, setTarget] = useState<StageTarget>('persona');
+  return (
+    <StageTargetContext.Provider value={{ target, setTarget }}>
+      <HomeStageInner onSummonPersona={onSummonPersona} onSummonDeliver={onSummonDeliver} />
+    </StageTargetContext.Provider>
+  );
+}
+
+function HomeStageInner({
+  onSummonPersona,
+  onSummonDeliver,
+}: {
+  onSummonPersona: () => void;
+  onSummonDeliver: () => void;
+}) {
+  const { messages } = useActiveChat();
   const conversing = messages.length > 0;
   return (
     <>
@@ -1347,7 +1384,8 @@ function deriveTitle(text: string): string {
 
 // ── 内嵌对话流 ──────────────────────────────────────────────────────
 function ConversationStream() {
-  const { messages, streaming } = useBossAi();
+  const { target } = useStageTarget();
+  const { messages, streaming } = useActiveChat();
   const endRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -1356,7 +1394,7 @@ function ConversationStream() {
     <div className="mx-auto max-w-3xl px-4 md:px-6 py-6 space-y-4">
       <div className="flex items-center gap-2 text-caption text-tertiary">
         <Sparkles className="h-4 w-4 text-[rgb(var(--brand-500))]" />
-        <span>与搭子 / Tandem AI 的协作</span>
+        <span>{target === 'company' ? '与 Tandem AI (中央智囊) 的协作' : '与我的分身 (搭子) 的协作'}</span>
       </div>
       <GovernanceCard compact />
       {messages.map((m, i) => (
@@ -1444,7 +1482,8 @@ function MessageBubble({ m }: { m: import('@/components/boss-ai/use-boss-ai').Bo
 
 // ── 常驻指令框 ──────────────────────────────────────────────────────
 function CommandBox() {
-  const { send, streaming, messages, newSession } = useBossAi();
+  const { target, setTarget } = useStageTarget();
+  const { send, streaming, messages, newSession } = useActiveChat();
   const [input, setInput] = useState('');
 
   function submit() {
@@ -1460,8 +1499,37 @@ function CommandBox() {
       style={{ borderColor: 'rgb(var(--border-subtle))' }}
     >
       <div className="mx-auto max-w-3xl">
-        {messages.length > 0 && (
-          <div className="mb-1.5 flex justify-end">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <div
+            className="inline-flex items-center gap-0.5 rounded-full border p-0.5 surface-1"
+            style={{ borderColor: 'rgb(var(--border-subtle))' }}
+            role="tablist"
+            aria-label="召唤对象"
+          >
+            {([
+              { id: 'persona', label: '我的分身', icon: Bot },
+              { id: 'company', label: '中央 AI', icon: Sparkles },
+            ] as const).map((t) => {
+              const active = target === t.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setTarget(t.id)}
+                  className={cn(
+                    'inline-flex items-center gap-1 rounded-full px-3 py-1 text-footnote surface-interactive',
+                    active ? 'bg-[rgb(var(--brand-500))] text-white' : 'text-tertiary hover:text-primary',
+                  )}
+                >
+                  <t.icon className="h-3.5 w-3.5" />
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+          {messages.length > 0 && (
             <button
               type="button"
               onClick={newSession}
@@ -1469,8 +1537,8 @@ function CommandBox() {
             >
               新对话
             </button>
-          </div>
-        )}
+          )}
+        </div>
         <div className="flex items-end gap-2">
           <textarea
             value={input}
@@ -1481,7 +1549,9 @@ function CommandBox() {
                 submit();
               }
             }}
-            placeholder="跟搭子说一句话, 立即开干 · Enter 发送 / Shift+Enter 换行"
+            placeholder={target === 'company'
+              ? '问 Tandem AI (中央智囊) · Enter 发送 / Shift+Enter 换行'
+              : '跟我的分身(搭子)说一句话, 立即开干 · Enter 发送 / Shift+Enter 换行'}
             rows={1}
             maxLength={2000}
             className="flex-1 resize-none rounded-2xl border bg-[rgb(var(--surface-2))] px-4 py-2.5 text-caption text-primary placeholder:text-tertiary focus:outline-none focus:ring-2 focus:ring-[rgb(var(--brand-300))] max-h-32"
@@ -1654,6 +1724,7 @@ function CardStage({ card }: { card: CardId }) {
       {card === 'decision'  && <DecisionDraftStage />}
       {card === 'dialog'    && <DialogStage />}
       {card === 'panel'     && <ExpertPanelStage />}
+      {card === 'squad'     && <SquadStage />}
       {(card === 'document' || card === 'portfolio') && (
         <section className="surface-card-soft rounded-2xl p-6 shadow-soft-xs min-h-[200px]">
           <div className="flex items-center gap-2 text-caption text-tertiary mb-3">
@@ -1964,6 +2035,177 @@ function ExpertPanelStage() {
               <Send className="h-3.5 w-3.5" />
               合稿交付 ({selected.size} 份 → 交付坞)
             </button>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// 战斗小组 (分身编队 B-037 M4 · 决策 2A): 召唤我 fork 的技能分身并行起草 → 主分身合稿 → 采纳回流
+// ════════════════════════════════════════════════════════════════
+interface SquadDraftView {
+  personaId: string; specialty: string; templateName?: string; stage: string;
+  ok: boolean; draft: string; error?: string;
+}
+interface SquadResult {
+  ok: boolean;
+  drafts: SquadDraftView[];
+  primaryPersonaId: string | null;
+  consolidation?: { ok: boolean; consolidated: string; contributingPersonaIds: string[]; error?: string };
+  hint?: string;
+}
+const SQUAD_SPECIALTY: Record<string, string> = {
+  finance: '财务', tech: '技术', pm: '产品', marketing: '营销', legal: '法务',
+  design: '设计', sales: '销售', hr: '人力', strategy: '战略',
+};
+
+function SquadStage() {
+  const { pushDraft } = useTandemDraft();
+  const [topic, setTopic] = useState('');
+  const [result, setResult] = useState<SquadResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [adopting, setAdopting] = useState(false);
+  const [adopted, setAdopted] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const label = (s: string) => SQUAD_SPECIALTY[s] ?? s;
+
+  async function run() {
+    const t = topic.trim();
+    if (!t || loading) return;
+    setLoading(true); setErr(null); setResult(null); setAdopted(false);
+    try {
+      const res = await fetch('/api/me/squad-panel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: t, consolidate: true }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
+      setResult(data as SquadResult);
+    } catch (e) {
+      setErr((e as Error).message ?? '召唤失败');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function adopt() {
+    const ids = result?.consolidation?.contributingPersonaIds ?? [];
+    if (ids.length === 0 || adopting || adopted) return;
+    setAdopting(true);
+    try {
+      const res = await fetch('/api/me/squad-panel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'adopt', personaIds: ids }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) setAdopted(true);
+    } catch { /* ignore */ } finally {
+      setAdopting(false);
+    }
+  }
+
+  return (
+    <section className="surface-card rounded-2xl p-5 md:p-6 shadow-soft-xs space-y-4">
+      <div className="flex items-center gap-2 text-caption text-tertiary">
+        <Users className="h-4 w-4" />
+        <span>战斗小组 · 你的技能分身并行起草 → 主分身合稿 (受控, 不替你拍板/对外)</span>
+      </div>
+
+      <textarea
+        value={topic}
+        onChange={(e) => setTopic(e.target.value)}
+        placeholder="议题 · 例: 这个新项目要不要上, 让我的编队从各专业域给我草稿"
+        rows={3}
+        maxLength={2000}
+        className="w-full resize-y rounded-md border bg-[rgb(var(--surface-2))] px-3 py-2 text-body text-primary placeholder:text-tertiary focus:outline-none focus:ring-2 focus:ring-[rgb(var(--brand-300))]"
+        style={{ borderColor: 'rgb(var(--border-subtle))' }}
+      />
+
+      <button
+        type="button"
+        onClick={run}
+        disabled={!topic.trim() || loading}
+        className="inline-flex items-center gap-1.5 rounded-full bg-[rgb(var(--brand-500))] px-4 py-2 text-caption font-medium text-white hover:bg-[rgb(var(--brand-600))] disabled:opacity-40 surface-interactive"
+      >
+        <Users className="h-3.5 w-3.5" />
+        {loading ? '战斗小组起草 + 合稿中…' : '召唤战斗小组'}
+      </button>
+      {err && <p className="text-footnote text-[rgb(var(--semantic-danger))]">{err}</p>}
+
+      {result && result.drafts.length === 0 && (
+        <div className="surface-card-soft rounded-2xl p-4 text-caption text-tertiary">
+          {result.hint ?? '你还没有技能分身。'}
+          <Link href="/persona/squad" className="ml-1 underline underline-offset-2 text-[rgb(var(--brand-600))]">
+            去拿捏组队
+          </Link>
+        </div>
+      )}
+
+      {result && result.drafts.length > 0 && (
+        <div className="space-y-3 pt-1">
+          {result.drafts.map((d) => (
+            <div key={d.personaId} className="surface-card-soft rounded-2xl p-4 shadow-soft-xs">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-headline text-primary">{label(d.specialty)} 分身</span>
+                {d.ok ? (
+                  <button
+                    type="button"
+                    onClick={() => pushDraft({ title: `${topic.trim()} · ${label(d.specialty)}`, body: d.draft })}
+                    className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-footnote text-tertiary hover:bg-[rgb(var(--surface-2))] surface-interactive"
+                    style={{ borderColor: 'rgb(var(--border-subtle))' }}
+                  >
+                    <Send className="h-3 w-3 text-[rgb(var(--brand-500))]" /> 单独交付
+                  </button>
+                ) : (
+                  <span className="text-footnote text-[rgb(var(--semantic-danger))]">起草失败</span>
+                )}
+              </div>
+              {d.ok ? (
+                <div className="text-caption text-tertiary whitespace-pre-wrap leading-relaxed">{d.draft}</div>
+              ) : (
+                <p className="text-footnote text-tertiary">{d.error}</p>
+              )}
+            </div>
+          ))}
+
+          {result.consolidation?.ok && (
+            <div
+              className="surface-card-soft rounded-2xl p-4 shadow-soft-xs border"
+              style={{ borderColor: 'rgb(var(--brand-300))' }}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-headline text-primary">主分身合稿（班长）</span>
+                <button
+                  type="button"
+                  onClick={() => pushDraft({ title: topic.trim() || '战斗小组合稿', body: result.consolidation!.consolidated })}
+                  className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-footnote text-tertiary hover:bg-[rgb(var(--surface-2))] surface-interactive"
+                  style={{ borderColor: 'rgb(var(--border-subtle))' }}
+                >
+                  <Send className="h-3 w-3 text-[rgb(var(--brand-500))]" /> 交付到坞
+                </button>
+              </div>
+              <div className="text-caption text-tertiary whitespace-pre-wrap leading-relaxed">
+                {result.consolidation.consolidated}
+              </div>
+              <button
+                type="button"
+                onClick={adopt}
+                disabled={adopting || adopted}
+                className="mt-3 w-full inline-flex items-center justify-center gap-1.5 rounded-full bg-[rgb(var(--brand-500))] px-4 py-2 text-caption font-medium text-white hover:bg-[rgb(var(--brand-600))] disabled:opacity-40 surface-interactive"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                {adopted
+                  ? '已采纳 · 已回流各分身进化'
+                  : adopting
+                    ? '采纳中…'
+                    : `采纳合稿 (回流 ${result.consolidation.contributingPersonaIds.length} 个分身进化)`}
+              </button>
+            </div>
           )}
         </div>
       )}

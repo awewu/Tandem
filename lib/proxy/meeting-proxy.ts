@@ -51,10 +51,9 @@ export async function createMission(input: {
   authorizedZones?: Zone[];
   topicBlacklist?: string[];
 }): Promise<ProxyMission> {
-  // 校验 persona stage
-  const store = getStore();
-  const personas = await store.personas.list({ userId: input.userId } as never);
-  const persona = personas[0];
+  // 校验 persona stage (分身编队 B-037: 取主分身)
+  const { getPrimaryPersona } = await import('../persona/persona-lookup');
+  const persona = await getPrimaryPersona(input.userId);
   if (!persona) throw new Error('Persona not found');
   if (persona.stage !== 'deputy' && persona.stage !== 'partner') {
     throw new Error(`分身阶段 ${persona.stage} 不允许代参 (至少 deputy)`);
@@ -172,9 +171,8 @@ export async function completeMission(
 
   // 写入统一 ProxyAction 表 (拿捏闭环 ③)
   try {
-    const store = getStore();
-    const personas = await store.personas.list({ userId: m.userId } as never);
-    const persona = personas[0];
+    const { getPrimaryPersona } = await import('../persona/persona-lookup');
+    const persona = await getPrimaryPersona(m.userId);
     await createProxyAction({
       userId: m.userId,
       personaId: persona?.id ?? 'unknown',

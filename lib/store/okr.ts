@@ -8,6 +8,7 @@
  */
 
 import { create } from 'zustand';
+import { krProgress, objectiveProgress } from '../okr/progress';
 
 // #region 4 · OKR (UI layer; see lib/types/okr-tti.ts for server) ────
 // =============================================================
@@ -18,7 +19,8 @@ import { create } from 'zustand';
 // 兼容字段：每个实体保留 titaId 便于与 Tita 数据来回切换
 
 export type Confidence = 'on-track' | 'at-risk' | 'off-track';
-export type ObjectiveStatus = 'draft' | 'active' | 'paused' | 'completed' | 'archived';
+// draft 草稿 → submitted 待审批 → active 进行中 → paused / completed / archived(服务端 abandoned).
+export type ObjectiveStatus = 'draft' | 'submitted' | 'active' | 'paused' | 'completed' | 'archived';
 export type KRType = 'numeric' | 'percentage' | 'milestone' | 'binary';
 export type CycleType = 'year' | 'half' | 'quarter' | 'month';
 export type Cadence = 'weekly' | 'biweekly' | 'monthly';
@@ -155,6 +157,12 @@ export interface Initiative {
   priority: 'low' | 'medium' | 'high' | 'urgent';
   startDate?: number;
   dueDate?: number;
+  /**
+   * 工作法周锚点 (ms, 周起始 00:00). 把行动项"钉"到某一周计划执行.
+   * null/缺省 = backlog. 桶位 (本周/未来四周/遗留) 由 weekOf vs now 派生 (lib/okr/work-method.ts).
+   * 落库: Server.Initiative.weekOf (KV/JSON, 无迁移).
+   */
+  weekOf?: number;
   /** 预计/实际工时 (小时) */
   estimatedHours?: number;
   actualHours?: number;
@@ -291,20 +299,6 @@ interface OKRStore {
   getComments: (scope: 'objective' | 'kr' | 'initiative', scopeId: string) => OKRComment[];
   /** 获取实体的活动日志 (含后代) */
   getActivities: (scope: 'objective' | 'kr', scopeId: string) => OKRActivity[];
-}
-
-function calcKRProgress(kr: KeyResult): number {
-  if (kr.type === 'binary') {
-    return kr.currentValue >= 1 ? 100 : 0;
-  }
-  if (kr.type === 'milestone') {
-    return Math.max(0, Math.min(100, Math.round(kr.currentValue)));
-  }
-  // numeric / percentage
-  const span = kr.targetValue - kr.startValue;
-  if (span === 0) return kr.currentValue >= kr.targetValue ? 100 : 0;
-  const pct = ((kr.currentValue - kr.startValue) / span) * 100;
-  return Math.max(0, Math.min(100, Math.round(pct)));
 }
 
 const _now = () => Date.now();
@@ -566,21 +560,12 @@ export const useOKRStore = create<OKRStore>()(
       // ===== 计算 =====
       getKRProgress: (krId) => {
         const kr = get().keyResults.find((k) => k.id === krId);
-        return kr ? calcKRProgress(kr) : 0;
+        return kr ? krProgress(kr) : 0;
       },
       getObjectiveProgress: (objectiveId) => {
         const obj = get().objectives.find((o) => o.id === objectiveId);
         if (!obj) return 0;
-        if (obj.progressOverride != null) return obj.progressOverride;
-        const krs = get().keyResults.filter((k) => k.objectiveId === objectiveId);
-        if (krs.length === 0) return 0;
-        const totalWeight = krs.reduce((sum, k) => sum + (k.weight || 1), 0);
-        if (totalWeight === 0) return 0;
-        const weighted = krs.reduce(
-          (sum, k) => sum + calcKRProgress(k) * (k.weight || 1),
-          0
-        );
-        return Math.round(weighted / totalWeight);
+        return objectiveProgress(obj, get().keyResults);
       },
 
       // ===== Person.setCurrentUserId =====

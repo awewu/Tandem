@@ -46,6 +46,8 @@ import {
   FileUp,
   Mic,
   Square,
+  Camera,
+  Sprout,
 } from 'lucide-react';
 
 interface Note {
@@ -53,6 +55,7 @@ interface Note {
   title: string;
   content: string;
   tags: string[];
+  notebookId?: string;
   sourceUrl?: string;
   summary?: string;
   pinned?: boolean;
@@ -64,11 +67,32 @@ interface Note {
 
 type Toast = { kind: 'ok' | 'err'; text: string } | null;
 
+// AI 创作洞察元信息 (对标 Get笔记 点评/拷问/发芽)
+const INSIGHT_META: Record<
+  'review' | 'challenge' | 'sprout',
+  { label: string; hint: string }
+> = {
+  review: { label: '点评', hint: '挑出你记录里的亮点，指出哪里做得好' },
+  challenge: { label: '拷问', hint: '像诤友一样指出漏洞，逼问得更清楚' },
+  sprout: { label: '发芽', hint: '以这条为种子，长出跨领域的新认知' },
+};
+
+interface Notebook {
+  id: string;
+  name: string;
+  icon?: string;
+  noteCount: number;
+}
+
 export default function ShouchaoPage() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+
+  // 知识库分组 (对标 Get笔记 知识库). null=全部 / 'unfiled'=未分组 / id=某知识库
+  const [notebooks, setNotebooks] = useState<Notebook[]>([]);
+  const [notebookFilter, setNotebookFilter] = useState<string | null>(null);
 
   // 编辑草稿
   const [title, setTitle] = useState('');
@@ -85,9 +109,13 @@ export default function ShouchaoPage() {
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [aiBusy, setAiBusy] = useState<null | 'summarize' | 'polish' | 'tags'>(null);
+  // AI 创作洞察 (点评/拷问/发芽): 产出不改原文, 显示在面板, 可追加到正文
+  const [insightBusy, setInsightBusy] = useState<null | 'review' | 'challenge' | 'sprout'>(null);
+  const [insight, setInsight] = useState<{ action: 'review' | 'challenge' | 'sprout'; text: string } | null>(null);
   const [clipOpen, setClipOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [voiceOpen, setVoiceOpen] = useState(false);
+  const [photoOpen, setPhotoOpen] = useState(false);
   const [toast, setToast] = useState<Toast>(null);
 
   // 跨笔记 AI 问答 (Ask) · 问你的第二大脑
@@ -132,20 +160,43 @@ export default function ShouchaoPage() {
     setTimeout(() => setToast(null), 2600);
   }, []);
 
-  // ---- 列表加载 (debounced search) ----
-  const loadNotes = useCallback(async (q: string) => {
+  // ---- 列表加载 (debounced search + 知识库过滤) ----
+  const loadNotes = useCallback(
+    async (q: string) => {
+      try {
+        const params = new URLSearchParams();
+        if (q) params.set('q', q);
+        if (notebookFilter) params.set('notebook', notebookFilter);
+        const r = await fetch(`/api/shouchao/notes?${params.toString()}`);
+        if (r.ok) {
+          const d = await r.json();
+          setNotes(d.notes ?? []);
+        }
+      } catch {
+        /* ignore */
+      } finally {
+        setLoading(false);
+      }
+    },
+    [notebookFilter],
+  );
+
+  // ---- 知识库列表加载 ----
+  const loadNotebooks = useCallback(async () => {
     try {
-      const r = await fetch(`/api/shouchao/notes?q=${encodeURIComponent(q)}`);
+      const r = await fetch('/api/shouchao/notebooks');
       if (r.ok) {
         const d = await r.json();
-        setNotes(d.notes ?? []);
+        setNotebooks(d.notebooks ?? []);
       }
     } catch {
       /* ignore */
-    } finally {
-      setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    void loadNotebooks();
+  }, [loadNotebooks]);
 
   useEffect(() => {
     const t = setTimeout(() => void loadNotes(search), search ? 250 : 0);
@@ -163,6 +214,7 @@ export default function ShouchaoPage() {
     setPinned(!!n.pinned);
     setShared(!!n.sharedToPersona);
     setDirty(false);
+    setInsight(null);
     setOutgoing([]);
     setBacklinks([]);
     void loadLinks(n.id);
@@ -246,6 +298,44 @@ export default function ShouchaoPage() {
     } catch {
       showToast('err', '新建失败');
       return null;
+    }
+  }
+
+  // ---- 知识库: 新建 (轻量 prompt) ----
+  async function createNotebookPrompt() {
+    const name = window.prompt('新建知识库名称')?.trim();
+    if (!name) return;
+    try {
+      const r = await fetch('/api/shouchao/notebooks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      if (!r.ok) throw new Error('create failed');
+      await loadNotebooks();
+      showToast('ok', `已创建知识库「${name}」`);
+    } catch {
+      showToast('err', '创建知识库失败');
+    }
+  }
+
+  // ---- 知识库: 把当前笔记移入/移出 (null = 移出到未分组) ----
+  async function moveActiveToNotebook(notebookId: string | null) {
+    if (!activeId) return;
+    try {
+      const r = await fetch(`/api/shouchao/notes/${activeId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notebookId }),
+      });
+      if (!r.ok) throw new Error('move failed');
+      const d = await r.json();
+      const updated: Note = d.note;
+      setNotes((prev) => prev.map((n) => (n.id === updated.id ? updated : n)));
+      void loadNotebooks();
+      showToast('ok', notebookId ? '已移入知识库' : '已移出到未分组');
+    } catch {
+      showToast('err', '操作失败');
     }
   }
 
@@ -390,6 +480,41 @@ export default function ShouchaoPage() {
     } finally {
       setAiBusy(null);
     }
+  }
+
+  // ---- AI 创作洞察 (点评/拷问/发芽) · 产出不改原文, 显示在面板 ----
+  async function runInsight(action: 'review' | 'challenge' | 'sprout') {
+    if (!content.trim()) {
+      showToast('err', '正文为空');
+      return;
+    }
+    setInsightBusy(action);
+    setInsight(null);
+    try {
+      const r = await fetch('/api/shouchao/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, content }),
+      });
+      const d = await r.json();
+      if (!r.ok || !d.ok) throw new Error(d.error ?? 'AI 失败');
+      setInsight({ action, text: d.result ?? '' });
+    } catch (e) {
+      showToast('err', e instanceof Error ? e.message : 'AI 失败');
+    } finally {
+      setInsightBusy(null);
+    }
+  }
+
+  // 把洞察追加到正文末尾 (作为引用块), 让创作沉淀进笔记
+  function appendInsightToContent() {
+    if (!insight) return;
+    const label = INSIGHT_META[insight.action].label;
+    const block = `\n\n> **AI ${label}**\n>\n${insight.text.split('\n').map((l) => `> ${l}`).join('\n')}\n`;
+    setContent((prev) => prev + block);
+    markDirty();
+    setInsight(null);
+    showToast('ok', '已追加到正文');
   }
 
   // ---- 跨笔记 AI 问答 (Ask) · 问你的第二大脑 · SSE 流式 ----
@@ -609,6 +734,14 @@ export default function ShouchaoPage() {
                   title="语音转笔记 (录音后自动转写)"
                 >
                   <Mic className="h-3.5 w-3.5" /> 语音
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPhotoOpen(true)}
+                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-footnote text-ink-tertiary hover:bg-surface-2 hover:text-ink-secondary surface-interactive"
+                  title="拍照/图片转笔记 (识别图中文字)"
+                >
+                  <Camera className="h-3.5 w-3.5" /> 拍照
                 </button>
                 <button
                   type="button"
@@ -896,12 +1029,45 @@ export default function ShouchaoPage() {
             {/* sheet 体: 可滚动 */}
             <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
               <div className="space-y-4">
-                {/* AI 工具条 */}
+                {/* AI 工具条: 加工 (改写笔记) + 创作 (产出洞察不改原文) */}
                 <div className="flex flex-wrap items-center gap-2">
                   <AiButton icon={Sparkles} label="AI 总结" busy={aiBusy === 'summarize'} onClick={() => runAi('summarize')} />
                   <AiButton icon={Wand2} label="润色" busy={aiBusy === 'polish'} onClick={() => runAi('polish')} />
                   <AiButton icon={Tags} label="生成标签" busy={aiBusy === 'tags'} onClick={() => runAi('tags')} />
+                  <span className="h-4 w-px bg-border" />
+                  <AiButton icon={Sparkles} label="点评" busy={insightBusy === 'review'} onClick={() => runInsight('review')} />
+                  <AiButton icon={MessageCircleQuestion} label="拷问" busy={insightBusy === 'challenge'} onClick={() => runInsight('challenge')} />
+                  <AiButton icon={Sprout} label="发芽" busy={insightBusy === 'sprout'} onClick={() => runInsight('sprout')} />
                 </div>
+
+                {/* AI 创作洞察面板 (点评/拷问/发芽 · 不改原文) */}
+                {insight && (
+                  <div className="rounded-lg border border-brand-200 bg-brand-50/40 p-3">
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <span className="inline-flex items-center gap-1.5 text-footnote font-semibold text-brand-700">
+                        <Sprout className="h-3.5 w-3.5" /> AI {INSIGHT_META[insight.action].label}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={appendInsightToContent}
+                          className="rounded-md px-2 py-1 text-footnote font-medium text-brand-600 hover:bg-brand-100 surface-interactive"
+                        >
+                          追加到正文
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setInsight(null)}
+                          className="rounded-md p-1 text-ink-tertiary hover:bg-surface-2 hover:text-ink-secondary surface-interactive"
+                          aria-label="关闭"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                    <p className="whitespace-pre-wrap text-caption leading-relaxed text-ink-secondary">{insight.text}</p>
+                  </div>
+                )}
 
                 {/* 来源链接 */}
                 {sourceUrl && (
@@ -1093,6 +1259,21 @@ export default function ShouchaoPage() {
             const title = firstLine.slice(0, 30) || '语音笔记';
             await createNote({ title, content: text, tags: ['语音'] });
             showToast('ok', '语音已转成笔记');
+          }}
+          onError={(m) => showToast('err', m)}
+        />
+      )}
+
+      {/* 拍照记弹窗 (图片 OCR 转笔记) */}
+      {photoOpen && (
+        <PhotoDialog
+          onClose={() => setPhotoOpen(false)}
+          onRecognized={async ({ text }) => {
+            setPhotoOpen(false);
+            const firstLine = text.split('\n').map((l) => l.trim()).find(Boolean) ?? '';
+            const title = firstLine.replace(/^#+\s*/, '').slice(0, 30) || '拍照笔记';
+            await createNote({ title, content: text, tags: ['拍照'] });
+            showToast('ok', '图片已转成笔记');
           }}
           onError={(m) => showToast('err', m)}
         />
@@ -1553,6 +1734,154 @@ function VoiceDialog({
             className="rounded-lg border border-border px-4 py-2 text-caption text-ink-secondary hover:bg-surface-2 surface-interactive"
           >
             关闭
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PhotoDialog({
+  onClose,
+  onRecognized,
+  onError,
+}: {
+  onClose: () => void;
+  onRecognized: (res: { text: string }) => void;
+  onError: (msg: string) => void;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+
+  function pick(f: File | null | undefined) {
+    if (!f) return;
+    if (!/^image\//.test(f.type)) {
+      onError('请选择图片文件');
+      return;
+    }
+    setFile(f);
+    setPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(f);
+    });
+  }
+
+  useEffect(() => () => {
+    if (preview) URL.revokeObjectURL(preview);
+  }, [preview]);
+
+  async function go() {
+    if (!file || busy) return;
+    setBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const r = await fetch('/api/shouchao/ocr', { method: 'POST', body: fd });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok || !d.ok || !d.text) throw new Error(d.error ?? '识别失败');
+      onRecognized({ text: d.text as string });
+    } catch (e) {
+      onError(e instanceof Error ? e.message : '识别失败');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="w-full max-w-lg rounded-2xl bg-surface-1 p-6 shadow-soft-lg" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-3 flex items-center gap-2">
+          <Camera className="h-5 w-5 text-brand-500" />
+          <h2 className="text-headline font-bold text-ink-primary">拍照记</h2>
+        </div>
+        <p className="mb-3 text-footnote text-ink-tertiary">
+          拍课本/白板/文档/名片，AI 识别图中文字转成可编辑笔记。手机端可直接调用相机。
+        </p>
+
+        {preview ? (
+          <div className="overflow-hidden rounded-2xl border border-border">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={preview} alt="预览" className="max-h-64 w-full object-contain bg-surface-2" />
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragActive(true);
+            }}
+            onDragLeave={() => setDragActive(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragActive(false);
+              pick(e.dataTransfer.files?.[0]);
+            }}
+            className={`flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-4 py-8 text-center transition-colors ${
+              dragActive ? 'border-brand-400 bg-brand-50' : 'border-border hover:bg-surface-2'
+            }`}
+          >
+            <Camera className="h-6 w-6 text-ink-tertiary" />
+            <span className="text-caption text-ink-tertiary">点击选择图片，或拖拽到此处</span>
+            <span className="text-footnote text-ink-tertiary">PNG · JPG · WEBP（≤10MB）</span>
+          </button>
+        )}
+
+        {/* 相册选择 (通用) */}
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => pick(e.target.files?.[0])}
+        />
+        {/* 相机拍摄 (移动端 capture) */}
+        <input
+          ref={cameraRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={(e) => pick(e.target.files?.[0])}
+        />
+
+        <div className="mt-4 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => cameraRef.current?.click()}
+            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-caption font-medium text-ink-secondary hover:bg-surface-2 surface-interactive"
+          >
+            <Camera className="h-4 w-4" /> 拍照
+          </button>
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-caption font-medium text-ink-secondary hover:bg-surface-2 surface-interactive"
+          >
+            <FileUp className="h-4 w-4" /> 从相册选
+          </button>
+        </div>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-border px-4 py-2 text-caption text-ink-secondary hover:bg-surface-2 surface-interactive"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            onClick={() => void go()}
+            disabled={busy || !file}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-caption font-semibold text-white hover:bg-brand-600 disabled:opacity-50 surface-interactive"
+          >
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+            识别转笔记
           </button>
         </div>
       </div>

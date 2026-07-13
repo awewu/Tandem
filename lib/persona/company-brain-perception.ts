@@ -189,6 +189,9 @@ export async function companyBrainPerceptionPass(
       maxRounds: 5,
       maxTokens: 1200,
       aiTraceId: checkId,
+      // B-002: 中央 AI 感知 pass 可调已配置的外部 MCP server 工具 (经 4 道闸).
+      // 没配 MCP server 时 listMcpServers() 为空, 等价于不开启.
+      includeMcpTools: true,
     });
 
     const okInvocations = loop.toolInvocations.filter((t) => t.ok);

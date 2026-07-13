@@ -82,6 +82,15 @@ export interface DomainEventMap {
     auto: boolean;
     timestamp: number;
   };
+  /** 分身编队 (B-037 · M2): 员工从 AgentTemplate fork 出一个技能分身 */
+  'persona.skill-forked': {
+    userId: string;
+    skillPersonaId: string;
+    parentPersonaId: string;
+    templateId: string;
+    specialty: string;
+    timestamp: number;
+  };
 
   // ── OKR ──────────────────────────────────────────────────────
   'okr.kr-progressed': {

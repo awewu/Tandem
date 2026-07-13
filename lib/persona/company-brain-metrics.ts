@@ -27,13 +27,22 @@ export interface BrainMetricsBucket {
   overruled: number;
   ignored: number;
   pending: number;
-  /** (adopted + modified) / (total - pending) */
+  /** (adopted + modified) / (total - pending) — 含隐式默许, 用于看板总览 */
   adoptionRate: number;
   /** overruled / (total - pending) */
   overruleRate: number;
   avgCostMicroUsd: number;
   avgLatencyMs: number;
   avgCostUsd: number;
+  // ── §数据飞轮 (2026-07-12): 隐式/显式拆分, 反思循环阈值调整只认显式信号 ──
+  /** 隐式默许采纳数 (feedbackSource='implicit', 是 adopted 的子集) */
+  implicitAdopted: number;
+  /** 显式已决数 (adopted+modified+overruled 中 feedbackSource!=='implicit') */
+  explicitDecided: number;
+  /** 显式采纳率 = 显式(adopted+modified) / explicitDecided (无显式样本时为 0) */
+  explicitAdoptionRate: number;
+  /** 显式推翻率 = 显式 overruled / explicitDecided */
+  explicitOverruleRate: number;
 }
 
 export interface BrainMetricsReport {
@@ -68,6 +77,10 @@ function emptyBucket(): BrainMetricsBucket {
     avgCostMicroUsd: 0,
     avgLatencyMs: 0,
     avgCostUsd: 0,
+    implicitAdopted: 0,
+    explicitDecided: 0,
+    explicitAdoptionRate: 0,
+    explicitOverruleRate: 0,
   };
 }
 
@@ -77,17 +90,26 @@ function aggregate(decisions: CompanyBrainDecision[]): BrainMetricsBucket {
 
   let costSum = 0;
   let latSum = 0;
+  // 显式信号计数 (feedbackSource !== 'implicit'), 供反思循环调阈值 (不被隐式默许带偏)
+  let explicitAdopted = 0;
+  let explicitModified = 0;
+  let explicitOverruled = 0;
   for (const d of decisions) {
     b.total++;
+    const isImplicit = d.feedback.feedbackSource === 'implicit';
     switch (d.feedback.outcome) {
       case 'adopted':
         b.adopted++;
+        if (isImplicit) b.implicitAdopted++;
+        else explicitAdopted++;
         break;
       case 'modified':
         b.modified++;
+        if (!isImplicit) explicitModified++;
         break;
       case 'overruled':
         b.overruled++;
+        if (!isImplicit) explicitOverruled++;
         break;
       case 'ignored':
         b.ignored++;
@@ -106,6 +128,12 @@ function aggregate(decisions: CompanyBrainDecision[]): BrainMetricsBucket {
   b.avgCostMicroUsd = b.total > 0 ? Math.round(costSum / b.total) : 0;
   b.avgLatencyMs = b.total > 0 ? Math.round(latSum / b.total) : 0;
   b.avgCostUsd = b.avgCostMicroUsd / 10_000;
+
+  // 显式专用指标 (分母只含显式已决, 隐式默许不进分子分母 → 反思循环拿到真实人工信号梯度)
+  b.explicitDecided = explicitAdopted + explicitModified + explicitOverruled;
+  b.explicitAdoptionRate =
+    b.explicitDecided > 0 ? (explicitAdopted + explicitModified) / b.explicitDecided : 0;
+  b.explicitOverruleRate = b.explicitDecided > 0 ? explicitOverruled / b.explicitDecided : 0;
 
   return b;
 }

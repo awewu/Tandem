@@ -199,7 +199,7 @@ export default function AdminPersonasPage() {
                       {canDelegate ? (
                         <span className="ml-1 text-emerald-600">· 可 IM 代行</span>
                       ) : (
-                        <span className="ml-1 text-amber-600">· 不代行 (仅旁听/汇报)</span>
+                        <span className="ml-1 text-warning">· 不代行 (仅旁听/汇报)</span>
                       )}
                     </p>
                   </div>

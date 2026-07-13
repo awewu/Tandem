@@ -20,8 +20,9 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const q = url.searchParams.get('q') ?? undefined;
   const includeArchived = url.searchParams.get('archived') === '1';
+  const notebookId = url.searchParams.get('notebook') ?? undefined;
 
-  const notes = await listNotes(auth.userId, { q, includeArchived });
+  const notes = await listNotes(auth.userId, { q, includeArchived, notebookId });
   return NextResponse.json({ notes });
 }
 
@@ -34,6 +35,7 @@ export async function POST(req: NextRequest) {
     title?: string;
     content?: string;
     tags?: string[];
+    notebookId?: string;
     sourceUrl?: string;
     summary?: string;
   };
@@ -49,6 +51,7 @@ export async function POST(req: NextRequest) {
     title: body.title,
     content: body.content,
     tags: Array.isArray(body.tags) ? body.tags : [],
+    notebookId: typeof body.notebookId === 'string' ? body.notebookId : undefined,
     sourceUrl: body.sourceUrl,
     summary: body.summary,
   });

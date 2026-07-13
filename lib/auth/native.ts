@@ -393,7 +393,7 @@ function getInternalDomains(): string[] {
  * - 邮箱必须属于企业域名白名单 (INTERNAL_EMAIL_DOMAINS)
  * - 不需要邀请码：域名即凭证
  * - 自动分配 ['employee'] 角色，tenantId = 'default'
- * - 工号写入 departmentId 字段（临时用，待 HR 主数据接入后替换）
+ * - 工号写入 employeeId 字段，部门归属由 HR 组织架构维护
  */
 export async function registerWithSso(input: SsoRegisterInput): Promise<AuthResult> {
   const email = input.email.trim().toLowerCase();
@@ -429,7 +429,7 @@ export async function registerWithSso(input: SsoRegisterInput): Promise<AuthResu
     // §上下游: 企业邮箱域名白名单 = 内部员工身份, 归属上游本部组织 (anchor)
     orgId: ANCHOR_ORG_ID,
     membershipType: 'internal',
-    departmentId: input.employeeId ?? null,
+    employeeId: input.employeeId ?? null,
     emailVerifiedAt: new Date().toISOString(),
   });
   await userStore.savePasswordHash(user.id, hashPassword(input.password));
@@ -613,6 +613,12 @@ export interface NativeUser {
   lastLoginIp?: string | null;
   emailVerifiedAt?: string | null;
   departmentId?: string | null;
+  employeeId?: string | null;
+  jobTitle?: string | null;
+  managerId?: string | null;
+  hireDate?: string | null;
+  workLocation?: string | null;
+  phone?: string | null;
   /** 所属组织 (企业微信上下游模型) */
   orgId?: string | null;
   /** 成员身份类型 */

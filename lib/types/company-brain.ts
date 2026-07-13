@@ -85,6 +85,13 @@ export interface CompanyBrainFeedback {
   reason?: string;
   /** 推翻后的正确答案 (供 reflection 学习) */
   correctedOutput?: string;
+  /**
+   * 反馈来源 (2026-07-12 · 数据飞轮):
+   *   - 'explicit': 用户/治理委员会显式点击 👍/✏️/👎, 或议事选项选择 (高置信)
+   *   - 'implicit': 系统按"无显式反馈且无投诉"默认默许采纳 (低置信, 反思循环不据此调阈值)
+   * 缺省视为 'explicit' (向后兼容 V1 数据).
+   */
+  feedbackSource?: 'explicit' | 'implicit';
 }
 
 // ---------------------------------------------------------------------------

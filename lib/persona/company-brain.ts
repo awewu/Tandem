@@ -331,6 +331,8 @@ export interface PreSearchResult {
   extraMessages: Array<{ role: 'system' | 'user'; content: string }>;
   /** 命中 provider */
   provider?: string;
+  /** §引用 chips · 联网结果的来源 (title + url), 供前端渲染可点击引用 */
+  sources?: Array<{ title: string; url: string }>;
   /** 审计/日志 */
   log: {
     query: string;
@@ -526,6 +528,7 @@ export async function preSearchLayer(
       revisedSystemPrompt,
       extraMessages: [], // 已拼进 system prompt
       provider,
+      sources: results.map((r) => ({ title: r.title, url: r.url })),
       log: { query, triggerReason: heuristic.reason, resultCount: results.length, latencyMs: Date.now() - t0, checkId },
     };
   } catch (err) {

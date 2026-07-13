@@ -30,6 +30,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { COOKIE_ACCESS, verifyAccessToken } from '@/lib/auth/session';
 import { getStore } from '@/lib/storage/repository';
+import { getPrimaryPersona } from '@/lib/persona/persona-lookup';
 import { audit } from '@/lib/audit/log';
 
 export async function GET(req: NextRequest) {
@@ -61,8 +62,7 @@ export async function GET(req: NextRequest) {
   };
 
   // -------- persona (本人) --------
-  const personasOfUser = await store.personas.list({ userId } as never);
-  const persona = personasOfUser[0] ?? null;
+  const persona = await getPrimaryPersona(userId);
   const personaView = persona
     ? {
         id: persona.id,

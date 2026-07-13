@@ -174,81 +174,17 @@ function bootSync(): void {
       }
     })
     // AI 配置热重载: 从 DB AiSettings 覆盖路由器 provider (优先于 env)
+    // 抽成 reloadAiSettingsIntoRouter() 供保存设置后即时调用 (见 PUT /api/admin/ai-settings),
+    // 否则改配置要重启才生效 (boot 守卫只跑一次).
+    .then(() => reloadAiSettingsIntoRouter())
+    // B-002: 把 DB 中的 MCP server 记录同步进 mcp-bridge 内存注册表 (admin 保存后也会再调).
     .then(async () => {
       try {
-        const { getAiSettings } = await import('./settings/ai-settings');
-        const { OpenAICompatibleProvider } = await import('./taf');
-        const { PROVIDER_CONFIGS, GATEWAY_PROVIDER_NAME, buildGatewayConfig } = await import('./taf');
-        const s = await getAiSettings();
-        const router = _g.__tandem_router__;
-        if (!router) return;
-
-        // 中继站网关热重载 (优先于分家 provider): DB 配了 baseUrl+model 即覆盖 env, 并提为首选。
-        // DB 关闭 (gatewayEnabled=false) 时, 回退到 env 网关 (若有), 否则注销网关。
-        {
-          const envGateway = buildGatewayConfig();
-          const dbBaseUrl = (s.gatewayBaseUrl ?? '').trim();
-          const dbModel = (s.gatewayModel ?? '').trim();
-          const dbEnabled = s.gatewayEnabled !== false && Boolean(dbBaseUrl && dbModel);
-          if (dbEnabled) {
-            router.unregisterProvider(GATEWAY_PROVIDER_NAME);
-            router.registerProvider(
-              new OpenAICompatibleProvider({
-                name: GATEWAY_PROVIDER_NAME,
-                baseUrl: dbBaseUrl,
-                model: dbModel,
-                apiKey: (s.gatewayApiKey ?? '').trim() || 'PROXY_MANAGED',
-                capabilities: {
-                  chat: true,
-                  functionCalling: s.gatewayTools !== false,
-                  streaming: true,
-                  jsonMode: true,
-                  vision: true,
-                  maxContextTokens: 200_000,
-                  inputPriceRmbPerM: 0,
-                  outputPriceRmbPerM: 0,
-                },
-              }),
-            );
-            router.promoteToPrimary(GATEWAY_PROVIDER_NAME);
-          } else if (s.gatewayEnabled === false && !envGateway) {
-            router.unregisterProvider(GATEWAY_PROVIDER_NAME);
-          }
-        }
-
-        const overrides: Array<{ name: string; key: keyof typeof s; baseUrlKey: keyof typeof s; modelKey: keyof typeof s; defaultBaseUrl: string; defaultModel: string }> = [
-          { name: 'deepseek-v3',      key: 'deepseekApiKey',   baseUrlKey: 'deepseekBaseUrl',   modelKey: 'deepseekModel',   defaultBaseUrl: 'https://api.deepseek.com/v1',  defaultModel: 'deepseek-chat'     },
-          { name: 'deepseek-r1',      key: 'deepseekApiKey',   baseUrlKey: 'deepseekBaseUrl',   modelKey: 'deepseekR1Model', defaultBaseUrl: 'https://api.deepseek.com/v1',  defaultModel: 'deepseek-reasoner' },
-          { name: 'claude-opus-4-5',  key: 'anthropicApiKey',  baseUrlKey: 'anthropicBaseUrl',  modelKey: 'anthropicModel',  defaultBaseUrl: 'https://api.anthropic.com/v1', defaultModel: 'claude-opus-4-5'   },
-          { name: 'qwen-max',         key: 'qwenApiKey',       baseUrlKey: 'qwenBaseUrl',       modelKey: 'qwenModel',       defaultBaseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', defaultModel: 'qwen-max' },
-          { name: 'doubao-pro',       key: 'doubaoApiKey',     baseUrlKey: 'doubaoBaseUrl',     modelKey: 'doubaoModel',     defaultBaseUrl: 'https://ark.cn-beijing.volces.com/api/v3', defaultModel: 'doubao-1-5-pro-256k' },
-          { name: 'kimi-k2',          key: 'kimiApiKey',       baseUrlKey: 'kimiBaseUrl',       modelKey: 'kimiModel',       defaultBaseUrl: 'https://api.moonshot.cn/v1',   defaultModel: 'moonshot-v1-128k'  },
-        ];
-
-        for (const ov of overrides) {
-          const apiKey = (s[ov.key] as string | undefined) ?? '';
-          if (!apiKey) continue;
-          const baseUrl = (s[ov.baseUrlKey] as string | undefined) ?? ov.defaultBaseUrl;
-          const model = (s[ov.modelKey] as string | undefined) ?? ov.defaultModel;
-          const base = PROVIDER_CONFIGS[ov.name];
-          if (!base) continue;
-          router.unregisterProvider(ov.name);
-          router.registerProvider(new OpenAICompatibleProvider({ ...base, apiKey, baseUrl, model }));
-        }
-
-        const after = router.listProviders();
-        if (after.length > 0) {
-          const primary = router.getPrimaryOverride();
-          // eslint-disable-next-line no-console
-          console.info(
-            '[boot] LLM providers (after DB reload):',
-            after.join(', '),
-            primary ? `· 网关首选=${primary}` : '',
-          );
-        }
+        const { syncMcpServersToRegistry } = await import('./settings/mcp-servers');
+        await syncMcpServersToRegistry();
       } catch (err) {
         // eslint-disable-next-line no-console
-        console.warn('[boot] AI settings DB reload failed (using env):', err);
+        console.warn('[boot] MCP servers sync failed:', err);
       }
     });
 
@@ -270,6 +206,91 @@ function bootSync(): void {
 export async function boot(): Promise<void> {
   bootSync();
   if (_g.__tandem_seed_promise__) await _g.__tandem_seed_promise__;
+}
+
+/**
+ * 从 DB AiSettings 把 provider 重新注册进路由器 (覆盖 env, DB 优先).
+ *
+ * 既在 boot 链里跑一次, 也供 PUT /api/admin/ai-settings 保存后即时调用 —
+ * 否则 boot 守卫只跑一次, 改底座配置必须重启服务器才生效 (修复"保存即生效"假承诺).
+ * 幂等: 每次全量 unregister+register, 不会重复堆叠. 永不抛错 (失败回退 env).
+ */
+export async function reloadAiSettingsIntoRouter(): Promise<void> {
+  try {
+    const { getAiSettings } = await import('./settings/ai-settings');
+    const { OpenAICompatibleProvider } = await import('./taf');
+    const { PROVIDER_CONFIGS, GATEWAY_PROVIDER_NAME, buildGatewayConfig } = await import('./taf');
+    const s = await getAiSettings();
+    const router = _g.__tandem_router__;
+    if (!router) return;
+
+    // 中继站网关热重载 (优先于分家 provider): DB 配了 baseUrl+model 即覆盖 env, 并提为首选。
+    // DB 关闭 (gatewayEnabled=false) 时, 回退到 env 网关 (若有), 否则注销网关。
+    {
+      const envGateway = buildGatewayConfig();
+      const dbBaseUrl = (s.gatewayBaseUrl ?? '').trim();
+      const dbModel = (s.gatewayModel ?? '').trim();
+      const dbEnabled = s.gatewayEnabled !== false && Boolean(dbBaseUrl && dbModel);
+      if (dbEnabled) {
+        router.unregisterProvider(GATEWAY_PROVIDER_NAME);
+        router.registerProvider(
+          new OpenAICompatibleProvider({
+            name: GATEWAY_PROVIDER_NAME,
+            baseUrl: dbBaseUrl,
+            model: dbModel,
+            apiKey: (s.gatewayApiKey ?? '').trim() || 'PROXY_MANAGED',
+            capabilities: {
+              chat: true,
+              functionCalling: s.gatewayTools !== false,
+              streaming: true,
+              jsonMode: true,
+              vision: true,
+              maxContextTokens: 200_000,
+              inputPriceRmbPerM: 0,
+              outputPriceRmbPerM: 0,
+            },
+          }),
+        );
+        router.promoteToPrimary(GATEWAY_PROVIDER_NAME);
+      } else if (s.gatewayEnabled === false && !envGateway) {
+        router.unregisterProvider(GATEWAY_PROVIDER_NAME);
+      }
+    }
+
+    const overrides: Array<{ name: string; key: keyof typeof s; baseUrlKey: keyof typeof s; modelKey: keyof typeof s; defaultBaseUrl: string; defaultModel: string }> = [
+      { name: 'deepseek-v3',      key: 'deepseekApiKey',   baseUrlKey: 'deepseekBaseUrl',   modelKey: 'deepseekModel',   defaultBaseUrl: 'https://api.deepseek.com/v1',  defaultModel: 'deepseek-chat'     },
+      { name: 'deepseek-r1',      key: 'deepseekApiKey',   baseUrlKey: 'deepseekBaseUrl',   modelKey: 'deepseekR1Model', defaultBaseUrl: 'https://api.deepseek.com/v1',  defaultModel: 'deepseek-reasoner' },
+      { name: 'claude-opus-4-5',  key: 'anthropicApiKey',  baseUrlKey: 'anthropicBaseUrl',  modelKey: 'anthropicModel',  defaultBaseUrl: 'https://api.anthropic.com/v1', defaultModel: 'claude-opus-4-5'   },
+      { name: 'qwen-max',         key: 'qwenApiKey',       baseUrlKey: 'qwenBaseUrl',       modelKey: 'qwenModel',       defaultBaseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', defaultModel: 'qwen-max' },
+      { name: 'doubao-pro',       key: 'doubaoApiKey',     baseUrlKey: 'doubaoBaseUrl',     modelKey: 'doubaoModel',     defaultBaseUrl: 'https://ark.cn-beijing.volces.com/api/v3', defaultModel: 'doubao-1-5-pro-256k' },
+      { name: 'kimi-k2',          key: 'kimiApiKey',       baseUrlKey: 'kimiBaseUrl',       modelKey: 'kimiModel',       defaultBaseUrl: 'https://api.moonshot.cn/v1',   defaultModel: 'moonshot-v1-128k'  },
+    ];
+
+    for (const ov of overrides) {
+      const apiKey = (s[ov.key] as string | undefined) ?? '';
+      if (!apiKey) continue;
+      const baseUrl = (s[ov.baseUrlKey] as string | undefined) ?? ov.defaultBaseUrl;
+      const model = (s[ov.modelKey] as string | undefined) ?? ov.defaultModel;
+      const base = PROVIDER_CONFIGS[ov.name];
+      if (!base) continue;
+      router.unregisterProvider(ov.name);
+      router.registerProvider(new OpenAICompatibleProvider({ ...base, apiKey, baseUrl, model }));
+    }
+
+    const after = router.listProviders();
+    if (after.length > 0) {
+      const primary = router.getPrimaryOverride();
+      // eslint-disable-next-line no-console
+      console.info(
+        '[boot] LLM providers (after DB reload):',
+        after.join(', '),
+        primary ? `· 网关首选=${primary}` : '',
+      );
+    }
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('[boot] AI settings DB reload failed (using env):', err);
+  }
 }
 
 function startConvergenceTickLoop(): void {
@@ -410,15 +431,18 @@ async function runSlowScans(): Promise<void> {
     console.warn('[boot] ontology action reconcile failed:', err);
   }
 
-  // CA-13 (2026-06-09 · 补漏): pending → ignored 慢扫
-  //   7 天没拿到反馈的决策标记 ignored, 否则月度反思的 adoptionRate 分母被 pending 永久污染.
+  // CA-13 + §数据飞轮 (2026-07-12): pending 慢扫解析
+  //   7 天无显式反馈的决策: 用户可见回复类 (im/boss_ai) 按"无投诉=默许"隐式采纳, 其余标 ignored.
+  //   否则月度反思的 adoptionRate 分母被 pending 永久污染, 且全 ignored 会把采纳率人为压低.
   //   boot 时机够用 (服务器经常重启); 真正生产部署可挂独立 cron 但 boot 是兜底.
   try {
-    const { markStaleDecisionsIgnored } = await import('./persona/company-brain-decision');
-    const r = await markStaleDecisionsIgnored(7);
-    if (r.ignored > 0) {
+    const { resolveStaleDecisionsImplicitly } = await import('./persona/company-brain-decision');
+    const r = await resolveStaleDecisionsImplicitly(7);
+    if (r.implicitAdopted > 0 || r.ignored > 0) {
       // eslint-disable-next-line no-console
-      console.info(`[boot] company-brain decision sweep: ${r.ignored} 条 7天+ pending 决策标记 ignored`);
+      console.info(
+        `[boot] company-brain decision sweep: ${r.implicitAdopted} 条隐式采纳 + ${r.ignored} 条 ignored (7天+ pending)`,
+      );
     }
   } catch (err) {
     // eslint-disable-next-line no-console

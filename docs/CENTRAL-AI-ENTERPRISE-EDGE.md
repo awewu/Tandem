@@ -565,10 +565,50 @@ npx tandem export-memory --user=alice --output=./mem-bundle/
 
 ---
 
+## 十二、企业级同侪对标 (2026-07 · 把镜头从个人 Agent 抬到企业 Agent)
+
+> **背景**: 本文档 § 二到 § 十 全部在拆**个人 Agent** (Claude Code/Codex/OpenHands/Manus/Hermes)。但 Tandem 中央 AI 的真正竞争位不是它们, 而是**企业级 Agent 同侪** —— Palantir AIP / Glean / Sierra / Microsoft Copilot 这一层。2026 H1 行业演进 (见 `AI-RADAR.md` 2026-07 月报) 反而**验证**了这条路线: 企业 agent 平台正集体演化为"operational control plane", 而"组织级治理 + 决策闭环 + 真学习"恰是胜负手。
+>
+> **证据边界**: 平台数据来自公开报道/榜单 (Futurum / digitalapplied 等), 具体以官方为准。
+
+### 12.1 · 同侪拆解 (企业 Agent 层)
+
+| 平台 | 做法核心 | Tandem 对照 |
+|---|---|---|
+| **Palantir AIP** | Ontology (本体) + Decisions-as-data 闭环 + Action write-back 写回真实业务系统 | **最像的强者** — Tandem 已同源 (ontology/actions + CA-13 决策飞轮), 验证路线正确; 差距在 action 覆盖面窄 |
+| **Glean** (ARR $200M, $7.2B) | permission-aware 联邦检索 + 知识图谱 + agent, 权限贯穿检索 | 四层签批知识 + 决策防火墙已解**权限隔离**; 但检索仍是 Jaccard/向量, **缺图谱** → 执行链 C |
+| **Sierra** | 面向客户 agent + 强 guardrails + 可审计 | 印证护栏是硬需求; Tandem 4 闸 + 24h 否决更狠, 但**是内部实现细节, 未变对外卖点** |
+| **Microsoft Copilot / Agent stack** | 深嵌 M365 工作流 + Graph 连接器, 无处不在 | 印证"嵌入既有工作流"价值 → 对应路径 10 跨 IM 未做 |
+| **Cognition / Writer / Sana** | 企业知识 + 工作流自动化 + 多 agent 编排 | 多 agent 编排是趋势 → 对应 CA-12 部门 Brain |
+
+### 12.2 · 7 条"该吸收的优点" (行业同侪各占一角, 无人全占)
+
+按杠杆排序; 已登记进 `AI-BACKLOG.md`。
+
+1. **Ontology + Action write-back 深度 (Palantir)** — 决策直接写回真实系统并留痕。Tandem 有 proposeAction 骨架但覆盖窄 → **B-033 扩宽 action registry**。
+2. **permission-aware 知识图谱检索 (Glean)** — 检索携带权限 + 图谱关系 → **B-013 GraphRAG (升"待评估", 执行链 C)**。
+3. **真学习闭环成明牌卖点 (Hermes/Manus/Palantir)** — "越用越懂组织" → **B-024 (已 MVP, 需从计数器到真归因兑现)**。
+4. **组织内 Action 执行力** — 不卷桌面 computer-use (个人主权/无组织效力), 但组织内写动作要更全 → 并入 **B-033**。
+5. **嵌入既有工作流 / 跨 IM 召唤 (Copilot)** — 员工不搬家 → **B-034 跨 IM bridge (路径 10)**。
+6. **Guardrails 作为产品卖点 (Sierra)** — 护栏/可审计是成交前提 → **B-035 治理护栏对外叙事 + 合规包 (SOC2/audit export)**。
+7. **多 agent 编排 (Cognition/Writer)** — 主 agent + 专精子 agent → **B-036 CompanyBrain/DeptBrain 多脑编排 (CA-12)**。
+
+### 12.3 · 护城河结论 (升级版)
+
+> **旧叙事** (§ 八): "Tandem 做到了个人 agent 架构上做不到的 9 件组织级事情。"
+>
+> **升级叙事** (2026-07): 在**企业 Agent 同侪**里, **只有 Tandem 把 [OKR 灵魂 + 四层签批知识 + 治理飞轮 + 会进化的员工分身] 四者长在一个第一人称组织体里**。Palantir 有闭环没员工分身, Glean 有图谱没治理飞轮, Sierra 有护栏没组织记忆 —— **没人四样全占**。
+
+**别去卷的**: 桌面执行力 / 通用 reasoning / 工具调用次数 (已被模型层商品化)。
+**该守死的三条命脉**: ① B-024 真学习 (最大"叙事 vs 事实"缺口) ② 组织授权行动 + 治理 (已领先, 加宽 + 变卖点) ③ 四层签批知识 + GraphRAG (防污染已封, 图谱化放大)。
+
+---
+
 ## 十一、修订记录
 
 | 日期 | 作者 | 修订内容 |
 |---|---|---|
 | 2026-05-27 PT 22:00 | Owner 提问 / Cascade 起草 | 首版: 5 个 SOTA agent 拆解 + 10 维对标 + 7 条企业级路径 + 3 项 V1.5 推荐 |
+| 2026-07-13 | Owner 提问 / Cascade 联网 | 新增 § 十二 "企业级同侪对标" (Palantir/Glean/Sierra/Copilot 层) + 7 条该吸收优点 (登记 B-013 升级 + B-033~B-036) + 护城河升级叙事。配套 `AI-RADAR.md` 2026-07 月报 |
 | 2026-05-27 PT 22:30 | Owner 给出一手 URL / Cascade 拉取分析 | 升级 7 → 9 条企业级超越路径 (新增跨 IM 接入 + Skills 自动生成); 新增 § 十 "OpenClaw + Hermes Agent 深度启发" (6 条启发, 全部基于一手资料而非猜测) |
 | 2026-05-27 PT 22:45 | Owner 重大校准 | 否定"组件集合 / Tandem 落后 / Single-shot 矮化"叙事. **Tandem 是企业级 Agent, 跟个人 agent 不同物种**. § 三 对标表判读 + § 六 维度 + § 七 ③ + § 八 三句话 全部按"4 时间尺度回路 + 14 器官"框架重写, 跟 `CENTRAL-AI-ARCHITECTURE.md` § 二 一致 |

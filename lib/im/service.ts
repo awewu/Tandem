@@ -810,8 +810,8 @@ async function invokePersonaReply(input: InvokePersonaInput): Promise<void> {
 
   try {
     const store = getStore();
-    const personas = await store.personas.list();
-    let persona = personas.find((p) => p.userId === input.targetUserId);
+    const { getPrimaryPersona } = await import('../persona/persona-lookup');
+    let persona = await getPrimaryPersona(input.targetUserId);
     if (!persona) {
       // 真实注册用户从未被创建 Persona (createPersona 未接入注册/登录流程),
       // 首次代行时按 newborn 阶段自动建档. 后续 observe_only/report_only 门控

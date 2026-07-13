@@ -119,6 +119,12 @@ function createInMemoryAuthStore(): AuthStore {
           lastLoginIp: null,
           emailVerifiedAt: input.emailVerifiedAt ?? null,
           departmentId: input.departmentId ?? null,
+          jobTitle: input.jobTitle ?? null,
+          managerId: input.managerId ?? null,
+          employeeId: input.employeeId ?? null,
+          hireDate: input.hireDate ?? null,
+          workLocation: input.workLocation ?? null,
+          phone: input.phone ?? null,
           orgId: input.orgId ?? null,
           membershipType: input.membershipType,
         };
@@ -256,6 +262,7 @@ export function createInMemoryStore(): TandemStore {
     _storeKind: 'memory' as const,
     decisionCards: new InMemoryRepository(),
     personas: new InMemoryRepository(),
+    agentTemplates: new InMemoryRepository(),
     // §CA-13 CompanyBrain 智能迭代闭环
     companyBrainDecisions: new InMemoryRepository(),
     companyBrainVersions: new InMemoryRepository(),
@@ -316,6 +323,7 @@ export function createInMemoryStore(): TandemStore {
     organizations: new InMemoryRepository(),
     authApplications: new InMemoryRepository(),
     shouchaoNotes: new InMemoryRepository(),
+    shouchaoNotebooks: new InMemoryRepository(),
     knowledgeNodes: new InMemoryRepository(),
     governanceProjects: new InMemoryRepository(),
     governanceTemplates: new InMemoryRepository(),
@@ -323,6 +331,7 @@ export function createInMemoryStore(): TandemStore {
     approvals: new InMemoryRepository(),
     meetingBookings: new InMemoryRepository(),
     aiSettings: new InMemoryRepository(),
+    mcpServers: new InMemoryRepository(),
     pushSubscriptions: new InMemoryRepository(),
   };
 }

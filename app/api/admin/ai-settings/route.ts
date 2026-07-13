@@ -4,7 +4,7 @@
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { boot } from '@/lib/boot';
+import { boot, reloadAiSettingsIntoRouter } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { getAiSettings, upsertAiSettings, maskAiSettings } from '@/lib/settings/ai-settings';
 import type { AiSettingsPatch } from '@/lib/types/ai-settings';
@@ -39,5 +39,7 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
   }
 
   const updated = await upsertAiSettings(patch, auth.userId, auth.tenantId);
+  // 即时把新配置注入路由器 — 否则要重启才生效 (boot 守卫只跑一次). 失败不阻断保存.
+  await reloadAiSettingsIntoRouter();
   return NextResponse.json({ settings: maskAiSettings(updated) });
 }

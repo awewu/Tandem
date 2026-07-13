@@ -50,9 +50,17 @@ export interface ProposeInput {
   isEmergencyTrack?: boolean;
 }
 
+/**
+ * 治理不变量: redline/value 是宪法级内容 (进 baseline-guard 影响全员 AI 出口),
+ * 强制走公司级签批 (ceo+clevel+steward), 不允许用低级别 (team/dept) 绕过。
+ */
+const CONSTITUTIONAL_TYPES: ReadonlyArray<ProposeInput['proposedType']> = ['redline', 'value'];
+
 export async function proposePromotion(input: ProposeInput): Promise<MemoryPromotionRequest> {
   const store = getStore();
-  const level = input.level ?? 'team';
+  const level: PromotionLevel = CONSTITUTIONAL_TYPES.includes(input.proposedType)
+    ? 'company'
+    : (input.level ?? 'team');
   const reviewDays = input.isEmergencyTrack ? EMERGENCY_REVIEW_DAYS : PROMOTION_REVIEW_DAYS[level];
   const slaDays = PROMOTION_SLA_DAYS[level];
   const now = Date.now();

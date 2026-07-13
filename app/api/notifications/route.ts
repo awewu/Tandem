@@ -28,6 +28,17 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   const ctx = createAppContext();
   const svc = new NotificationService(ctx);
   // P0-A: tenantId 一律取自鉴权上下文, 绝不接受 body 注入 (防跨租户写).
-  const n = await svc.create({ ...body, tenantId: auth.tenantId });
+  const n = await svc.create({
+    userId: body.userId,
+    type: body.type,
+    title: body.title,
+    body: body.body,
+    data: body.data,
+    priority: body.priority,
+    channel: body.channel,
+    sourceId: body.sourceId,
+    sourceType: body.sourceType,
+    tenantId: auth.tenantId,
+  });
   return NextResponse.json(n, { status: 201 });
 });

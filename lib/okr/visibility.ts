@@ -22,6 +22,16 @@ import type { TandemStore } from '../storage/repository';
 export const OKR_BOSS_ROLES = ['owner', 'admin'] as const;
 /** 看本部门的角色 */
 export const OKR_DEPT_LEADER_ROLES = ['manager', 'steward'] as const;
+/**
+ * 目标审批漏斗中可作为 approver (通过/打回/暂停/完成) 的角色.
+ * 与前端 app/okr/page.tsx ApprovalActions 口径一致 (单一真值, 防散落字面量).
+ */
+export const OKR_APPROVER_ROLES = ['manager', 'steward', 'admin', 'champion', 'owner'] as const;
+
+/** 该角色集是否含 approver 权限 */
+export function hasOkrApproverRole(roles: string[]): boolean {
+  return roles.some((r) => OKR_APPROVER_ROLES.includes(r as never));
+}
 
 /**
  * 解析调用方可见的 OKR ownerId 集合.

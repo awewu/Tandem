@@ -8,6 +8,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { boot, getStore } from '@/lib/boot';
+import { getPrimaryPersona } from '@/lib/persona/persona-lookup';
 import { createFeedback, recalcBossCaptureScore } from '@/lib/persona/feedback';
 import { deferAudit } from '@/lib/audit/defer';
 
@@ -55,8 +56,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     });
 
     // 重新计算 bossCaptureScore
-    const personas = await store.personas.list({ userId: auth.userId } as never);
-    const persona = personas[0];
+    const persona = await getPrimaryPersona(auth.userId);
     let newScore: number | undefined;
     if (persona) {
       newScore = await recalcBossCaptureScore(persona);

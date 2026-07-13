@@ -17,6 +17,7 @@
  */
 
 import { getStore } from '../storage/repository';
+import { getPrimaryPersona } from './persona-lookup';
 import { getRouter } from '../boot';
 import type { StyleProfile } from '../types/persona';
 import type { ChatMessage } from '../taf/provider/types';
@@ -66,8 +67,7 @@ export async function mimicCommunication(input: MimicryInput): Promise<MimicryDr
   }
 
   const store = getStore();
-  const list = await store.personas.list({ userId: input.userId } as never);
-  const persona = list[0];
+  const persona = await getPrimaryPersona(input.userId);
   if (!persona) throw new Error(`Persona for ${input.userId} not found`);
 
   if (persona.stage !== 'deputy' && persona.stage !== 'partner') {

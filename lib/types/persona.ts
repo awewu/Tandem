@@ -115,7 +115,27 @@ export interface Persona {
    * 红区 (奖金正式下发 / 离职辅导) 永远不解锁, 必须 human-only.
    */
   enabledSkills?: string[];
+
+  // ── 分身编队 (B-037 · M1, docs/PERSONA-SQUAD-ARCHITECTURE.md) ──────────
+  /**
+   * 分身类型. 默认 'primary' (向后兼容: 旧数据无此字段 = 主分身).
+   *   primary — 每员工恰好 1 个, 是"班长", 带领技能分身。
+   *   skill   — 技能分身, 从 AgentTemplate fork, 挂 parentPersonaId, 独立进化。
+   */
+  kind?: PersonaKind;
+  /** kind='skill' 时指向主分身 id */
+  parentPersonaId?: string;
+  /** fork 来源的 AgentTemplate id */
+  templateId?: string;
+  /** 技能分身的专业域 (来自模板 specialty) */
+  specialty?: string;
 }
+
+/** 分身类型 (B-037): 主分身 / 技能分身 */
+export type PersonaKind = 'primary' | 'skill';
+
+/** 每员工技能分身硬上限 (Owner 决策 ③) */
+export const MAX_SKILL_PERSONAS_PER_USER = 5;
 
 /** 阶段 → 委托级别默认映射 */
 export const STAGE_TO_DEFAULT_DELEGATION: Record<PersonaStage, DelegationLevel> = {

@@ -55,6 +55,8 @@ export interface GovernedChatInput {
   intent: string;
   /** persona 自有 prompt (身份/阶段/代行边界 L3 + 风格 L5); autonomous/skill 可空 */
   basePersonaPrompt?: string;
+  /** 分身编队 (B-037 M4): 产出所属分身 id, 透传给输入闸供手抄语料定向过滤 */
+  personaId?: string;
   /** 对话消息 (不含治理 system; governedChat 会在最前插入治理 system) */
   messages: ChatMessage[];
   /** 调用类型, 默认 persona */
@@ -124,6 +126,7 @@ export async function governedChat(input: GovernedChatInput): Promise<GovernedCh
     agentKind,
     toolName: input.toolName,
     injectOkr: input.injectOkr,
+    personaId: input.personaId,
   });
 
   // L0 红线 HARD_BLOCK → 拦截 (任何 failMode 都拦)

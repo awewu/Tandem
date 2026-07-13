@@ -53,8 +53,51 @@ export const MemorySearchSkill: Skill<{ query: string; limit?: number }, unknown
   },
   async execute({ query, limit = 5 }) {
     const retriever = new CompositeRetriever();
-    const results = await retriever.search(query, limit);
+    // §GraphRAG M1: AI 工具调用开启 1 跳图谱扩展, 拿到关系相关记忆 (同 KR / supersedes / 共标签)。
+    const results = await retriever.search(query, limit, { expandGraph: true });
     return { ok: true, data: results, tokensUsed: 200 + results.length * 50 };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// memory.related · 关系型召回 (GraphRAG M1, 绿区, 代行允许)
+//   回答"这个 KR / 决议 / OKR 牵动哪些组织记忆" — 平面相似度答不了的关系型问题。
+// ---------------------------------------------------------------------------
+
+export const MemoryRelatedSkill: Skill<{ entityId: string; limit?: number }, unknown[]> = {
+  id: 'memory.related',
+  description: '按实体 ID (KR-N / OBJ-N / conv-xxx / kpi-xxx) 找关联的组织记忆 (关系型召回, 非关键词)',
+  tags: ['memory', '知识', '图谱', 'graphrag', '关系', 'kr', 'okr', '决议'],
+  zone: 'green',
+  proxyAllowed: true,
+  estimatedTokens: 400,
+  schema: {
+    type: 'function',
+    function: {
+      name: 'memory_related',
+      description: '按实体 ID 找牵动的组织记忆, 例如"KR-3 沉淀过哪些 SOP/案例/决议"',
+      parameters: {
+        type: 'object',
+        properties: {
+          entityId: { type: 'string', description: '实体 ID, 如 KR-3 / OBJ-1 / conv-abc / kpi-xx' },
+          limit: { type: 'number', description: '返回结果数, 默认 10' },
+        },
+        required: ['entityId'],
+      },
+    },
+  },
+  async execute({ entityId, limit = 10 }) {
+    const { findRelatedByEntity } = await import('../../memory/graph');
+    const memories = await getStore().memories.list();
+    const results = findRelatedByEntity(entityId, memories, { maxResults: limit }).map((m) => ({
+      id: m.id,
+      title: m.title,
+      body: m.body,
+      type: m.type,
+      ownershipLevel: m.ownershipLevel,
+      referenceCount: m.referenceCount ?? 0,
+    }));
+    return { ok: true, data: results, tokensUsed: 150 + results.length * 40 };
   },
 };
 
@@ -255,9 +298,8 @@ export const PersonaGetSkill: Skill<{ userId: string }, unknown> = {
     },
   },
   async execute({ userId }) {
-    const store = getStore();
-    const list = await store.personas.list({ userId } as never);
-    return { ok: true, data: list[0] ?? null };
+    const { getPrimaryPersona } = await import('../../persona/persona-lookup');
+    return { ok: true, data: (await getPrimaryPersona(userId)) ?? null };
   },
 };
 
@@ -864,6 +906,7 @@ export const CrossRollupSkill: Skill<{ cycleId?: string }, unknown> = {
 
 export function registerBuiltinSkills(): void {
   skillRegistry.register(MemorySearchSkill);
+  skillRegistry.register(MemoryRelatedSkill);
   skillRegistry.register(DecisionCardListSkill);
   skillRegistry.register(OkrReadSkill);
   skillRegistry.register(OkrHealthDigestSkill);

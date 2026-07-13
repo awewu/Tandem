@@ -9,6 +9,7 @@
 import type {
   ChatChunk,
   ChatMessage,
+  ContentPart,
   ChatRequest,
   ChatResponse,
   LLMProvider,
@@ -47,10 +48,23 @@ export function buildResponseFormat(rf: ChatRequest['responseFormat']): Record<s
   };
 }
 
+/**
+ * 把内部 ContentPart 转成 OpenAI 线协议格式.
+ *   - { type:'text', text } 原样
+ *   - { type:'image_url', imageUrl:{url} } → { type:'image_url', image_url:{url} }
+ *     (内部用 camelCase, OpenAI vision 规范要求 snake_case 的 image_url; 不转则被 API 拒/忽略)
+ */
+function partToWire(p: ContentPart): Record<string, unknown> {
+  if (p.type === 'image_url') {
+    return { type: 'image_url', image_url: { url: p.imageUrl.url } };
+  }
+  return { type: 'text', text: p.text };
+}
+
 export function transformMessageForWire(m: ChatMessage): Record<string, unknown> {
   const wire: Record<string, unknown> = {
     role: m.role,
-    content: m.content,
+    content: Array.isArray(m.content) ? m.content.map(partToWire) : m.content,
   };
   if (m.name !== undefined) wire.name = m.name;
   if (m.toolCallId !== undefined) wire.tool_call_id = m.toolCallId;
@@ -60,13 +74,12 @@ export function transformMessageForWire(m: ChatMessage): Record<string, unknown>
     if (typeof m.content === 'string') {
       wire.content = [{ type: 'text', text: m.content, cache_control: { type: 'ephemeral' } }];
     } else if (Array.isArray(m.content) && m.content.length > 0) {
-      // 仅在最后一个 part 上挂 cache_control (Anthropic 官方推荐)
-      const parts = m.content.map((p, i, arr) => {
-        if (i === arr.length - 1 && p.type === 'text') {
-          return { ...p, cache_control: { type: 'ephemeral' } };
-        }
-        return p;
-      });
+      // 先转线协议, 再在最后一个 part 上挂 cache_control (Anthropic 官方推荐)
+      const parts = m.content.map(partToWire);
+      const last = parts[parts.length - 1];
+      if (last && last.type === 'text') {
+        parts[parts.length - 1] = { ...last, cache_control: { type: 'ephemeral' } };
+      }
       wire.content = parts;
     }
   }

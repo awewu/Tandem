@@ -34,6 +34,11 @@ export interface GovernPersonaInput {
   toolName?: string;
   /** 是否注入 OKR 锚 (默认 true) */
   injectOkr?: boolean;
+  /**
+   * 分身编队 (B-037 M4): 当前产出所属分身 id (主分身或技能分身)。
+   * 用于手抄语料方案丙定向过滤 — 定向到某技能分身的笔记只喂该分身。
+   */
+  personaId?: string;
 }
 
 export interface GovernPersonaResult {
@@ -135,7 +140,9 @@ export async function governPersonaOutput(
   let shouchaoCorpus = '';
   try {
     const { retrieveSharedNotesForPersona } = await import('../shouchao/service');
-    const notes = await retrieveSharedNotesForPersona(input.actorUserId, input.intent);
+    const notes = await retrieveSharedNotesForPersona(input.actorUserId, input.intent, {
+      personaId: input.personaId,
+    });
     if (notes.length > 0) {
       shouchaoCorpus = [
         '【个人手抄语料 · 员工本人授权 (来自"搭子手抄", 仅本人可控, 可随时撤回)】',

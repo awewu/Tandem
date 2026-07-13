@@ -31,7 +31,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (error) return error;
   try {
     const body = await req.json();
-    const allowed = ['title', 'status', 'dueDate', 'decisionCardIds'];
+    const allowed = ['title', 'status', 'dueDate', 'decisionCardIds', 'weekOf'];
     const patch: Record<string, unknown> = {};
     for (const k of allowed) if (k in body) patch[k] = body[k];
     const store = getStore();

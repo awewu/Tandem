@@ -116,6 +116,8 @@ export async function setFeedback(
       feedbackAt: feedback.feedbackAt ?? new Date().toISOString(),
       reason: feedback.reason?.slice(0, 500),
       correctedOutput: feedback.correctedOutput?.slice(0, 1000),
+      // 显式反馈 (用户点击 / 议事选项 / admin) 默认高置信 explicit; 隐式解析走 resolveStaleDecisionsImplicitly.
+      feedbackSource: feedback.feedbackSource ?? 'explicit',
     },
   };
   await store.companyBrainDecisions.update(decisionId, updated);
@@ -301,30 +303,65 @@ export async function recordMeetingAdviceOutcome(
 }
 
 /**
- * 把超过 N 天没反馈的 pending 决策标记为 'ignored' (避免 metrics 永远算不出来)
- * 由 boot 慢扫定期触发.
+ * 用户可见回复类 context: 员工真看到了中央 AI 的回答. "看到且 N 天无显式反馈且无投诉"
+ * 是天然的默许信号 → 隐式采纳 (feedbackSource='implicit', 低置信). 其余 context (无端用户
+ * 反馈通道 / 由治理流程判定) 仍按超期无反馈标 'ignored'.
  */
-export async function markStaleDecisionsIgnored(staleDays = 7): Promise<{ ignored: number }> {
+const IMPLICIT_ADOPT_CONTEXTS: ReadonlySet<CompanyBrainDecisionContext> = new Set<CompanyBrainDecisionContext>([
+  'im_reply',
+  'boss_ai_reply',
+]);
+
+/**
+ * §数据飞轮 (2026-07-12): 解析超期 pending 决策.
+ *
+ * 旧行为把所有超期 pending 一律标 'ignored' —— 但 ignored 计入 adoptionRate 分母不计分子,
+ * 而 im/boss_ai 回复绝大多数无人显式点反馈 → 全变 ignored → 采纳率被人为压低, 反思循环拿不到
+ * 正向梯度 (智能永远"看起来很差"). 修正: 对用户可见回复类 context, "看到且无投诉" 视为隐式采纳
+ * (标 feedbackSource='implicit', 反思循环阈值调整只认 explicit, 不被隐式信号带偏 — 见 metrics).
+ *
+ * 由 boot 慢扫定期触发. 永不抛错.
+ */
+export async function resolveStaleDecisionsImplicitly(
+  staleDays = 7,
+): Promise<{ implicitAdopted: number; ignored: number }> {
   const store = getStore();
   const all = await store.companyBrainDecisions.list();
   const cutoff = new Date(Date.now() - staleDays * 24 * 60 * 60 * 1000).toISOString();
 
+  let implicitAdopted = 0;
   let ignored = 0;
   for (const d of all) {
-    if (d.feedback.outcome === 'pending' && d.createdAt < cutoff) {
+    if (d.feedback.outcome !== 'pending' || d.createdAt >= cutoff) continue;
+    const now = new Date().toISOString();
+    if (IMPLICIT_ADOPT_CONTEXTS.has(d.context)) {
+      await store.companyBrainDecisions.update(d.id, {
+        ...d,
+        feedback: {
+          outcome: 'adopted',
+          feedbackAt: now,
+          reason: `隐式默许: ${staleDays} 天无显式反馈且无投诉, 默认采纳`,
+          feedbackSource: 'implicit',
+        },
+      });
+      implicitAdopted++;
+    } else {
       await store.companyBrainDecisions.update(d.id, {
         ...d,
         feedback: {
           outcome: 'ignored',
-          feedbackAt: new Date().toISOString(),
+          feedbackAt: now,
           reason: `自动标记: ${staleDays} 天无反馈`,
         },
       });
       ignored++;
     }
   }
-  if (ignored > 0) {
-    logger.info({ ignored, staleDays }, '[company-brain-decision] auto-marked stale as ignored');
+  if (implicitAdopted > 0 || ignored > 0) {
+    logger.info(
+      { implicitAdopted, ignored, staleDays },
+      '[company-brain-decision] stale decisions resolved (implicit-adopt + ignored)',
+    );
   }
-  return { ignored };
+  return { implicitAdopted, ignored };
 }

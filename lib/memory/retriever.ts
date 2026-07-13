@@ -11,6 +11,7 @@ import type { MemoryRetriever, MemorySearchResult } from '../convergence/decisio
 import { getStore } from '../storage/repository';
 import type { MemoryEntry, Material } from '../types/memory';
 import { embed, cosineSim, isEmbeddingConfigured } from '../infra/embedding';
+import { expandNeighbors } from './graph';
 
 /** 性能护栏: 单次最多对多少条候选做向量计算 (其余走 Jaccard 兜底) */
 const SEMANTIC_EVAL_CAP = 80;
@@ -155,8 +156,21 @@ export interface MemoryMatch extends MemorySearchResult {
   source: 'memory';
 }
 
+export interface CompositeSearchOptions {
+  /**
+   * §GraphRAG M1 (执行链 C · 2026-07-13): 对命中的组织级记忆做 1 跳确定性图谱扩展,
+   * 补入关系相关记忆 (supersedes 链 / 同 KR-OKR-决议实体 / 共标签)。默认 false,
+   * 保持既有调用方行为不变; 中央 AI / 分身的 memory.search 工具开启以获得关系型召回。
+   */
+  expandGraph?: boolean;
+}
+
 export class CompositeRetriever {
-  async search(query: string, limit = 5): Promise<(MaterialMatch | MemoryMatch)[]> {
+  async search(
+    query: string,
+    limit = 5,
+    opts: CompositeSearchOptions = {},
+  ): Promise<(MaterialMatch | MemoryMatch)[]> {
     const store = getStore();
     const [materials, memories] = await Promise.all([
       store.materials.list(),
@@ -172,8 +186,11 @@ export class CompositeRetriever {
       source: 'material' as const,
     }));
 
+    // 防火墙 (Owner 2026-07-12): memory.search = "公司知识库", 只返回【已签批的组织级】记忆。
+    // 个人非审批记事本 (ownershipLevel='personal') 不属于公司知识库, 排除以防个人成长咨询
+    // 经中央 AI 感知/推理 pass 污染 OKR/议事等决策依赖。
     const memMatches = memories
-      .filter((m: MemoryEntry) => m.status === 'active')
+      .filter((m: MemoryEntry) => m.status === 'active' && m.ownershipLevel !== 'personal')
       .map((m: MemoryEntry) => ({
         id: m.id,
         title: m.title,
@@ -182,10 +199,33 @@ export class CompositeRetriever {
         source: 'memory' as const,
       }));
 
-    return [...matMatches, ...memMatches]
+    const base = [...matMatches, ...memMatches]
       .filter((s) => s.similarity > 0.05)
       .sort((a, b) => b.similarity - a.similarity)
       .slice(0, limit);
+
+    if (!opts.expandGraph) return base;
+
+    // §GraphRAG 1 跳扩展: 用命中的 memory 作种子拉关系相关记忆, 邻居分 = 种子分 × 边权 × 0.5。
+    const seedIds = base.filter((b) => b.source === 'memory').map((b) => b.id);
+    if (seedIds.length === 0) return base;
+    const neighbors = expandNeighbors(seedIds, memories, { maxNeighbors: limit });
+    const seenIds = new Set(base.map((b) => b.id));
+    const seedScoreById = new Map(base.map((b) => [b.id, b.similarity]));
+    const expanded: MemoryMatch[] = [];
+    for (const nb of neighbors) {
+      if (seenIds.has(nb.memory.id)) continue;
+      const seedScore = seedScoreById.get(nb.viaSeedId) ?? 0.3;
+      expanded.push({
+        id: nb.memory.id,
+        title: nb.memory.title,
+        body: nb.memory.body,
+        similarity: seedScore * nb.weight * 0.5,
+        source: 'memory' as const,
+      });
+      seenIds.add(nb.memory.id);
+    }
+    return [...base, ...expanded].sort((a, b) => b.similarity - a.similarity).slice(0, limit * 2);
   }
 }
 

@@ -20,6 +20,7 @@ import type {
   Review360CycleDef,
   Person,
 } from '@/lib/store';
+import { krProgress as calcKRProgress } from '@/lib/okr/progress';
 
 export type InsightSeverity = 'info' | 'warning' | 'critical' | 'positive';
 export type InsightCategory =
@@ -59,15 +60,6 @@ export interface InsightInput {
 }
 
 const DAY = 24 * 60 * 60 * 1000;
-
-function calcKRProgress(kr: KeyResult): number {
-  if (kr.type === 'binary') return kr.currentValue >= 1 ? 100 : 0;
-  if (kr.type === 'milestone') return Math.max(0, Math.min(100, Math.round(kr.currentValue)));
-  const span = kr.targetValue - kr.startValue;
-  if (span === 0) return kr.currentValue >= kr.targetValue ? 100 : 0;
-  const pct = ((kr.currentValue - kr.startValue) / span) * 100;
-  return Math.max(0, Math.min(100, Math.round(pct)));
-}
 
 function nameOf(people: Person[], id: string): string {
   return people.find((p) => p.id === id)?.name ?? id;

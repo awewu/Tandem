@@ -31,6 +31,7 @@ import {
   canUpgradeStage,
 } from '../types/persona';
 import { getStore, generateId } from '../storage/repository';
+import { getPrimaryPersona } from './persona-lookup';
 import { audit } from '../audit/log';
 import { eventBus } from '../events/bus';
 
@@ -53,6 +54,7 @@ export async function createPersona(userId: string): Promise<Persona> {
   const initial: Omit<Persona, 'id'> = {
     userId,
     schemaVersion: 'tandem.v1',
+    kind: 'primary',
     stage: 'newborn',
     stageEnteredAt: now,
     delegationLevel: STAGE_TO_DEFAULT_DELEGATION.newborn,
@@ -101,11 +103,25 @@ export async function recordDecision(
   userId: string,
   meta: { selectedByAi: boolean; vetoed: boolean; selectedOption?: 'A' | 'B' | 'C' | 'D' }
 ): Promise<Persona> {
-  const store = getStore();
-  const personas = await store.personas.list({ userId } as never);
-  const persona = personas[0];
+  const persona = await getPrimaryPersona(userId);
   if (!persona) {
     throw new Error(`Persona not found for user ${userId}`);
+  }
+  return recordDecisionForPersona(persona.id, meta);
+}
+
+/**
+ * 决议归档时更新指定分身 (主/技能) 的统计与风格 — 独立进化核心 (B-037 M2).
+ * 每个技能分身有自己的 decisionHistory/styleProfile/stage, 经此按 personaId 独立累积。
+ */
+export async function recordDecisionForPersona(
+  personaId: string,
+  meta: { selectedByAi: boolean; vetoed: boolean; selectedOption?: 'A' | 'B' | 'C' | 'D' }
+): Promise<Persona> {
+  const store = getStore();
+  const persona = await store.personas.get(personaId);
+  if (!persona) {
+    throw new Error(`Persona ${personaId} not found`);
   }
 
   const h = persona.decisionHistory;
@@ -130,6 +146,30 @@ export async function recordDecision(
     styleProfile: newStyle,
     updatedAt: new Date().toISOString(),
   });
+}
+
+/**
+ * 技能分身"被主分身采纳合稿" = 一次正向决策信号 (B-037 M2, spec §六.1).
+ * 采纳 = AI 草稿被用 → totalDecisions++ + aiAssisted++ (不计否决), 拉低 vetoRate,
+ * 推动 stage 渐进。未被采纳不调用此函数 (只是不加分, 不计负分)。
+ * 这是技能分身"越被用越进化"的燃料, 防止其因决议量天然少而永远升不了级。
+ */
+export async function recordSkillPersonaAdoption(skillPersonaId: string): Promise<Persona> {
+  return recordDecisionForPersona(skillPersonaId, { selectedByAi: true, vetoed: false });
+}
+
+/**
+ * 战斗小组合稿被采纳 → 批量给参与的技能分身回流采纳信号 (B-037 M3)。
+ * fail-soft: 单个分身回流失败不影响其它 (例: 分身已被归档删除)。
+ */
+export async function recordSquadAdoption(skillPersonaIds: string[]): Promise<void> {
+  for (const id of skillPersonaIds) {
+    try {
+      await recordSkillPersonaAdoption(id);
+    } catch {
+      /* fail-soft: 单个采纳回流失败不阻断其它 */
+    }
+  }
 }
 
 function updateStyleFromChoice(
@@ -281,8 +321,7 @@ export async function adminSetPersonaStage(
   opts: { actorUserId: string; delegationLevel?: DelegationLevel },
 ): Promise<Persona> {
   const store = getStore();
-  const list = await store.personas.list({ userId } as never);
-  let persona = list[0];
+  let persona = await getPrimaryPersona(userId);
   if (!persona) {
     persona = await createPersona(userId);
   }

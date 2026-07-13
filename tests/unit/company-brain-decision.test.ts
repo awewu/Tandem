@@ -8,7 +8,7 @@ import {
   recordDecision,
   setFeedback,
   listDecisions,
-  markStaleDecisionsIgnored,
+  resolveStaleDecisionsImplicitly,
   recordMeetingAdviceOutcome,
   getDecisionByRefId,
 } from '@/lib/persona/company-brain-decision';
@@ -140,8 +140,8 @@ describe('CompanyBrain Decision · CA-13 闭环', () => {
     expect(pendingIm.length).toBe(1);
   });
 
-  it('markStaleDecisionsIgnored 把超期 pending 标 ignored', async () => {
-    // 手工塞 1 条 8 天前的 pending decision
+  it('resolveStaleDecisionsImplicitly: 用户可见回复(im_reply)超期→隐式采纳', async () => {
+    // 手工塞 1 条 8 天前的 pending im_reply
     const store = getStore();
     const oldDate = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString();
     await store.companyBrainDecisions.create({
@@ -162,11 +162,67 @@ describe('CompanyBrain Decision · CA-13 闭环', () => {
       feedback: { outcome: 'pending' },
       brainVersion: 1,
     });
-    const r = await markStaleDecisionsIgnored(7);
-    expect(r.ignored).toBeGreaterThanOrEqual(1);
+    const r = await resolveStaleDecisionsImplicitly(7);
+    expect(r.implicitAdopted).toBeGreaterThanOrEqual(1);
     const stale = await store.companyBrainDecisions.get('cbd_stale_1');
+    // 无投诉 = 默许采纳, 标 implicit (低置信)
+    expect(stale!.feedback.outcome).toBe('adopted');
+    expect(stale!.feedback.feedbackSource).toBe('implicit');
+    expect(stale!.feedback.reason).toContain('隐式默许');
+  });
+
+  it('resolveStaleDecisionsImplicitly: 非用户可见 context(baseline_arbitration)超期→ignored', async () => {
+    const store = getStore();
+    const oldDate = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString();
+    await store.companyBrainDecisions.create({
+      id: 'cbd_stale_arb',
+      createdAt: oldDate,
+      tenantId: 'default',
+      context: 'baseline_arbitration',
+      inputSummary: 'arb',
+      retrievedMemoryIds: [],
+      outputSummary: 'arb answer',
+      modelUsed: 'm',
+      providerUsed: 'p',
+      scenario: 's',
+      tokensIn: 0,
+      tokensOut: 0,
+      costMicroUsd: 0,
+      latencyMs: 0,
+      feedback: { outcome: 'pending' },
+      brainVersion: 1,
+    });
+    const r = await resolveStaleDecisionsImplicitly(7);
+    expect(r.ignored).toBeGreaterThanOrEqual(1);
+    const stale = await store.companyBrainDecisions.get('cbd_stale_arb');
     expect(stale!.feedback.outcome).toBe('ignored');
-    expect(stale!.feedback.reason).toContain('7 天无反馈');
+    expect(stale!.feedback.feedbackSource).toBeUndefined();
+  });
+
+  it('metrics: 隐式采纳计入 implicitAdopted, 但不进 explicitDecided', async () => {
+    const store = getStore();
+    const oldDate = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString();
+    // 1 条隐式采纳 (超期 im_reply)
+    await store.companyBrainDecisions.create({
+      id: 'cbd_imp_1', createdAt: oldDate, tenantId: 'default', context: 'im_reply',
+      inputSummary: 'q', retrievedMemoryIds: [], outputSummary: 'a', modelUsed: 'm',
+      providerUsed: 'p', scenario: 's', tokensIn: 1, tokensOut: 1, costMicroUsd: 1, latencyMs: 1,
+      feedback: { outcome: 'pending' }, brainVersion: 1,
+    });
+    await resolveStaleDecisionsImplicitly(7);
+    // 1 条显式采纳
+    const exp = await recordDecision({
+      context: 'im_reply', inputSummary: 'q2', outputSummary: 'a2', modelUsed: 'm',
+      providerUsed: 'p', scenario: 's', tokensIn: 1, tokensOut: 1, costMicroUsd: 1, latencyMs: 1,
+    });
+    await setFeedback(exp!.id, { outcome: 'adopted', feedbackBy: 'u' });
+
+    const report = await computeMetrics({ windowDays: 30 });
+    expect(report.overall.adopted).toBe(2);
+    expect(report.overall.implicitAdopted).toBe(1);
+    // 显式已决只含显式那条
+    expect(report.overall.explicitDecided).toBe(1);
+    expect(report.overall.explicitAdoptionRate).toBeCloseTo(1);
   });
 
   it('computeMetrics 算采纳率/推翻率', async () => {

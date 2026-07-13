@@ -46,9 +46,8 @@ export async function GET(
     return NextResponse.json({ error: 'cycle_not_found' }, { status: 404 });
   }
 
-  const payouts = (await withTenantScope(store.kpiBonusPayouts, auth.tenantId).list()).filter(
-    (p) => p.cycleId === cycleId,
-  );
+  // §23 P1-B 热路径下推: cycleId 传入 list() 推 SQL (repo 已支持 cycleId+tenantId).
+  const payouts = await withTenantScope(store.kpiBonusPayouts, auth.tenantId).list({ cycleId });
   payouts.sort((a, b) => b.finalBonus - a.finalBonus);
   return NextResponse.json({ payouts });
 }
@@ -93,9 +92,9 @@ export async function POST(
     }
 
     // 拿 KPI 数据 (仅 bonus scope)
-    const allKpis = (await withTenantScope(store.kpis, auth.tenantId).list()).filter(
+    // §23 P1-B 热路径下推: cycleId 传入 list() 推 SQL; scope/assignee 走 JS 兜底.
+    const allKpis = (await withTenantScope(store.kpis, auth.tenantId).list({ cycleId })).filter(
       (k) =>
-        k.cycleId === cycleId &&
         k.scope === 'bonus' &&
         (!restrictAssignee || k.assigneeId === restrictAssignee),
     );
@@ -140,9 +139,8 @@ export async function POST(
     }
 
     // 已有 payouts (用于 upsert)
-    const existing = (await withTenantScope(store.kpiBonusPayouts, auth.tenantId).list()).filter(
-      (p) => p.cycleId === cycleId,
-    );
+    // §23 P1-B 热路径下推: cycleId 传入 list() 推 SQL.
+    const existing = await withTenantScope(store.kpiBonusPayouts, auth.tenantId).list({ cycleId });
     const existingByAssignee = new Map(existing.map((p) => [p.assigneeId, p]));
 
     const now = new Date().toISOString();

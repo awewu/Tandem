@@ -35,6 +35,7 @@ import {
   Workflow,
   Clock3,
   CalendarDays,
+  CalendarCheck,
   Users,
   Bot,
   Cpu,
@@ -122,7 +123,7 @@ export const NAV_MODULES: NavModule[] = [
     tagline: '围绕 OKR 推进, 战略执行与目标达成的核心基座',
     icon: Target,
     visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
-    pathPrefixes: ['/okr', '/insights', '/analytics', '/kpi', '/tti', '/report'],
+    pathPrefixes: ['/okr', '/work-method', '/insights', '/analytics', '/kpi', '/tti', '/report'],
     items: [
       // KPI = BSC 底线绩效结果 (年度硬指标, 100% 才达标, 与奖金挂钩; KPI 只关联 BSC). 只读.
       { name: '绩效记分卡',         href: '/kpi',              icon: BarChart3,      group: 'KPI · BSC 底线绩效' },
@@ -130,6 +131,7 @@ export const NAV_MODULES: NavModule[] = [
       { name: 'TTI（Target to Improve）牵引', href: '/tti',     icon: Activity,       group: '目标与关键成果法 OKR' },
       // 目标管理 (精简为符合 Tita 极简逻辑 of 3步流程)
       { name: '我的目标与对齐',    href: '/okr?owner=me',     icon: Target,         group: '目标与关键成果法 OKR' },
+      { name: '工作法 · 周节奏',   href: '/work-method',      icon: CalendarCheck,  group: '目标与关键成果法 OKR' },
       { name: 'OKR 5 层级联树',    href: '/okr/cascade',      icon: Network,        group: '目标与关键成果法 OKR' },
       // 双入口: 战略项目走三省六部执行协同 (主高亮归 Tandem 议事模块, 此处仅可点直达).
       { name: '战略项目 · 三省六部', href: '/governance/three-departments', icon: Network, group: '目标与关键成果法 OKR' },
@@ -265,21 +267,22 @@ export const NAV_MODULES: NavModule[] = [
         icon: Users,
         tabs: [
           { name: '分身主页', href: '/persona' },
+          // 分身编队 (B-037 M4): 从基础 Agent 模板 fork 技能分身, 组建战斗小组
+          { name: '技能分身', href: '/persona/squad' },
           { name: '训练台', href: '/persona/training' },
           { name: '养料仪表盘', href: '/persona/data-source' },
+          // 五阶段进化页内含「委托权限」tab, 故不再单列「实习权限」冗余入口 (页面保留做深链兜底)
           { name: '五阶段进化', href: '/persona/evolution' },
-          { name: '实习权限', href: '/persona/delegation' },
           { name: '代办审计', href: '/persona/me/proxy-actions' },
         ],
       },
       {
-        name: '自我画像与成长',
+        // 瘦身 (2026-07-13): 360°/9-Box 已归「组织」模块 (反馈评估组), 此处删除重复入口, 避免双入口。
+        name: '成长档案',
         href: '/persona/profile',
         icon: Grid3x3,
         tabs: [
           { name: '个人档案', href: '/persona/profile' },
-          { name: '360° 评估', href: '/360' },
-          { name: '9-Box 定位', href: '/nine-box' },
           { name: '我的技能', href: '/skills' },
           { name: '学习路径推荐', href: '/skills/learning' },
           { name: '我的复盘库', href: '/retros/me' },
@@ -431,6 +434,7 @@ export const NAV_MODULES: NavModule[] = [
         tabs: [
           { name: '使用 + 成本', href: '/admin/usage', visibleTo: ['admin'] },
           { name: 'TAF Skills', href: '/admin/tandem-skills', visibleTo: ['admin'] },
+          { name: 'MCP Server', href: '/admin/mcp-servers', visibleTo: ['admin'] },
           { name: 'AI 评估', href: '/admin/evals', visibleTo: ['admin', 'steward'] },
           { name: '定时任务', href: '/tasks', visibleTo: ['admin'] },
           { name: '系统日志', href: '/logs', visibleTo: ['admin'] },

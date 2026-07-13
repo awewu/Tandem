@@ -78,6 +78,48 @@
 
 ---
 
+## 2026-07 月报（H1 2026 追赶版 · 联网刷新）
+
+**扫描人**: Tandem Owner + Cascade（联网检索）
+**用时**: 40 分钟
+**总结一句话**: H1 2026 是"能力收敛 + 1M 上下文白菜价 + agent loop 成为 API 原生原语"的分水岭 —— 单纯"会推理/会调工具"已被模型层商品化，Tandem 的护城河进一步被逼到**组织级治理 + 会进化的分身 + 四层签批知识**这三条命脉上。
+**证据边界**: 下述版本/跑分来自公开报道与第三方榜单（futurumgroup / digitalapplied / tesorb / presenc 等），**具体以各官方文档为准**；国内模型另有 china-flagship 专题待补。
+
+### L1 模型层（2026 H1 已发生）
+
+- **OpenAI GPT-5.5 "Spud"** (2026-04-23) — **影响: 高**。首个全重训基座 + omnimodal，**agent-first** 定位；Terminal-Bench 2.0 82.7%（agentic 终端 SOTA），1M 上下文；**Codex 升级为通用 computer-use agent**，同日上 GitHub Copilot/Cursor/AWS。动作: 我们 `agentic` 场景可评估其为 tool-loop 主力候选。
+- **Anthropic Claude Opus 4.7** (2026-04-16) — **影响: 高**。SWE-bench Pro 64.3% / SWE-bench Verified 87.6%，新增 task budgets / `/ultrareview` / Auto 模式；~6 周点发布节奏 + 向后兼容 API。另有 **Claude Mythos**（gated 网安预览）与传闻中的 Opus 5/Claude 5（7 月前概率高）。**坑**: 新 tokenizer 同输入多产 ~35% token，成本口径要复核。
+- **Google Gemini 3.1 Pro / Deep Think** — **影响: 中**。GPQA Diamond 94.3%（科学推理 SOTA），1M 上下文默认；推出 **Antigravity** agent 平台 + Gemini CLI。国内不稳定，V2 国际化再评估。
+- **DeepSeek V4 (Flash/Pro)** (2026-04-24) — **影响: 高**。~1.6T MoE、1M 上下文、**开源**；V4-Flash 输出 **$0.28/1M**（价格地板），**华为 Ascend 950 day-zero 适配**。动作: 复核我们 DeepSeek provider 版本，**自托管/国产化路线成本骤降**（呼应 B-009）。
+- **格局判读**: 前沿"五分天下"—— Anthropic(编码) / OpenAI(agentic 终端) / Google(科学推理) / xAI(2M 上下文) / DeepSeek(成本)，**无单一模型全赢**。5 月起转季度节奏。国内 GLM-5.1(8h 长任务)/MiniMax M2.7(自进化)/Kimi K2.6(最快开源 SOTA) 已属前沿级。
+
+### L2 能力层
+
+- **Reasoning-effort 路由成默认控制面** — **影响: 高**。各家都有推理档位旋钮。动作: 复核 TAF `reasoning_complex`/`agentic` 是否显式吃推理档（议事 3+1、灰区仲裁、B-024 归因应吃满）。
+- **1M 上下文经济化 + agent loop 成 API 原生** — **影响: 高**。团队不再自己写 scaffold。动作: 复评 B-006（长上下文，从"观察"升"待评估"）；tool-loop 底座对齐原生 agent 语义。
+- **structured outputs 生产级可靠** — **影响: 中**。呼应既有 B-004，应推广到所有 LLM 调用点。
+
+### L3 范式层
+
+- **企业 agent 平台 → "operational control plane"**（Futurum）— **影响: 高**。Microsoft/Salesforce/ServiceNow 领跑，Palantir/SAP/UiPath 跟进。这正是 Tandem 中央 AI 的同侪层。动作: 见 `CENTRAL-AI-ENTERPRISE-EDGE.md` 新增"企业级同侪对标"章节。
+- **permission-aware 知识图谱**（Glean ARR 翻倍到 $200M，$7.2B 估值，与 Copilot 争企业知识主权）— **影响: 高**。检索携带权限 + 图谱关系。动作: **执行链 C — B-013 GraphRAG 从"观察"升"待评估"**（我们决策防火墙已解权限隔离，缺图谱化）。
+- **生产级 agent 标配 SOC2 / SSO / audit log / human-in-the-loop**（Sierra/Agentforce/Copilot Studio/Lindy）— **影响: 中**。印证治理/护栏是企业成交前提。动作: 把 Tandem 4 闸 + 24h 否决 + 决策防火墙**变成对外卖点**（登记 backlog）。
+
+### L4 应用层
+
+- **Codex / Claude Code / Antigravity 代理式开发普及** — **影响: 低（间接）**。"AI 同事"认知红利继续利好 Persona/Skill 范式。
+- **飞书/钉钉 AI 助手深化** — **影响: 中**。"员工不搬家"仍是软肋 → 呼应路径 10 跨 IM（登记 backlog）。
+
+### 本月动作
+
+- [x] 联网刷新雷达至 H1 2026（本报告）
+- [x] `CENTRAL-AI-ENTERPRISE-EDGE.md` 增补"企业级同侪对标"章节
+- [x] 7 条该吸收优点登记进 `AI-BACKLOG.md`（B-013 升级 + B-033~B-036 新建）
+- [ ] 执行链 C：B-013 GraphRAG 记忆升级（同时命中行业优点 #2 图谱检索 + #3 真学习底料）
+- [ ] 复核 TAF provider 版本口径（GPT-5.5 / Opus 4.7 / DeepSeek V4）与 reasoning 档位映射
+
+---
+
 ## 2026-05 月报（初版示例 · 由首次建档时填入）
 
 **扫描人**: Tandem Owner + Cascade  

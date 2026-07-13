@@ -189,7 +189,7 @@ export function PwaInstallGuide() {
       ].join(' ')}
     >
       <div className="mx-auto flex max-w-md items-center gap-3 rounded-2xl border border-border bg-surface-1/95 px-4 py-3 shadow-soft-lg backdrop-blur">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
           {kind === 'enable-push' ? <Bell className="h-4 w-4" /> : <Download className="h-4 w-4" />}
         </span>
 
