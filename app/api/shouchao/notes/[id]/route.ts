@@ -42,6 +42,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     title: typeof body.title === 'string' ? body.title : undefined,
     content: typeof body.content === 'string' ? body.content : undefined,
     tags: Array.isArray(body.tags) ? (body.tags as string[]) : undefined,
+    // notebookId: 字符串 = 移入知识库; null/'' = 移出到未分组; undefined = 不改
+    notebookId:
+      body.notebookId === null || typeof body.notebookId === 'string'
+        ? (body.notebookId as string | null)
+        : undefined,
     sourceUrl: typeof body.sourceUrl === 'string' ? body.sourceUrl : undefined,
     summary: typeof body.summary === 'string' ? body.summary : undefined,
     pinned: typeof body.pinned === 'boolean' ? body.pinned : undefined,

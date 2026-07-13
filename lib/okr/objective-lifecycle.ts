@@ -70,6 +70,40 @@ export function applyTransition(action: LifecycleAction): ObjectiveStatus {
   return TRANSITIONS[action].to;
 }
 
+/**
+ * 反查: 给定 (来源状态 → 目标状态), 返回对应的合法动作, 无匹配返回 null.
+ * (from,to) 组合在 TRANSITIONS + 多来源扩展下唯一, 故可无歧义反查.
+ * 供服务端据"目标状态变更"推断动作再做角色校验 (客户端只发 status, 不发 action).
+ */
+export function findLifecycleAction(
+  from: ObjectiveStatus,
+  to: ObjectiveStatus,
+): LifecycleAction | null {
+  for (const action of Object.keys(TRANSITIONS) as LifecycleAction[]) {
+    if (TRANSITIONS[action].to === to && sourcesFor(action).includes(from)) {
+      return action;
+    }
+  }
+  return null;
+}
+
+/**
+ * 服务端权威校验: 给定状态变更 (from→to) 与执行者持有的角色集, 判定是否放行.
+ *   - invalid_transition: (from,to) 不是任何合法生命周期迁移.
+ *   - forbidden: 是合法迁移, 但执行者角色无权触发 (例: owner 试图自己 approve).
+ * 单一真值, 与前端 ApprovalActions 走同一状态机, 杜绝"闸只在前端"。
+ */
+export function authorizeStatusChange(
+  from: ObjectiveStatus,
+  to: ObjectiveStatus,
+  actors: LifecycleActor[],
+): { ok: true; action: LifecycleAction } | { ok: false; reason: 'invalid_transition' | 'forbidden' } {
+  const action = findLifecycleAction(from, to);
+  if (!action) return { ok: false, reason: 'invalid_transition' };
+  const allowed = actors.some((a) => canTransition(action, from, a));
+  return allowed ? { ok: true, action } : { ok: false, reason: 'forbidden' };
+}
+
 /** 当前状态 + 角色下可执行的全部动作 (供 UI 渲染按钮). */
 export function availableActions(
   current: ObjectiveStatus,

@@ -47,7 +47,7 @@ export function RiskCockpit() {
   // 全部在轨 → 极简正向条
   if (!cockpit.hasRisk) {
     return (
-      <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 px-4 py-3 flex items-center gap-2.5">
+      <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 px-4 py-3 flex items-center gap-2.5">
         <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
         <span className="text-caption text-emerald-800">
           AI 风险扫描:本周期 {cockpit.totalActiveObjectives} 个目标全部在轨 · 填写率 {cockpit.coverage}%

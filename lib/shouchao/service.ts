@@ -7,7 +7,7 @@
 
 import { getStore, generateId } from '../storage/repository';
 import { audit } from '../audit/log';
-import type { ShouchaoNote } from '../types/shouchao';
+import type { ShouchaoNote, ShouchaoNotebook } from '../types/shouchao';
 import { embed, cosineSim, isEmbeddingConfigured } from '../infra/embedding';
 
 export interface CreateNoteInput {
@@ -16,6 +16,7 @@ export interface CreateNoteInput {
   title?: string;
   content?: string;
   tags?: string[];
+  notebookId?: string;
   sourceUrl?: string;
   summary?: string;
 }
@@ -24,6 +25,8 @@ export interface UpdateNoteInput {
   title?: string;
   content?: string;
   tags?: string[];
+  /** '' 或 null 表示移出知识库 (回到未分组) */
+  notebookId?: string | null;
   sourceUrl?: string;
   summary?: string;
   pinned?: boolean;
@@ -34,17 +37,26 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
-/** 列出某用户的全部笔记 (按 pinned + updatedAt 倒序), 支持关键词过滤. */
+/**
+ * 列出某用户的全部笔记 (按 pinned + updatedAt 倒序), 支持关键词过滤.
+ * notebookId 过滤: 'unfiled' = 仅未分组; 具体 id = 仅该知识库; 缺省 = 全部.
+ */
 export async function listNotes(
   ownerId: string,
-  opts?: { q?: string; includeArchived?: boolean },
+  opts?: { q?: string; includeArchived?: boolean; notebookId?: string },
 ): Promise<ShouchaoNote[]> {
   const store = getStore();
   const all = await store.shouchaoNotes.list({ ownerId } as Partial<ShouchaoNote>);
   const q = (opts?.q ?? '').trim().toLowerCase();
+  const nb = opts?.notebookId;
   const filtered = all.filter((n) => {
     if (n.deletedAt) return false; // 软删墓碑不出现在 UI
     if (!opts?.includeArchived && n.archived) return false;
+    if (nb === 'unfiled') {
+      if (n.notebookId) return false;
+    } else if (nb) {
+      if (n.notebookId !== nb) return false;
+    }
     if (!q) return true;
     const hay = `${n.title}\n${n.content}\n${(n.tags ?? []).join(' ')}`.toLowerCase();
     return hay.includes(q);
@@ -72,6 +84,7 @@ export async function createNote(input: CreateNoteInput): Promise<ShouchaoNote> 
     title: (input.title ?? '').trim() || '未命名笔记',
     content: input.content ?? '',
     tags: input.tags ?? [],
+    notebookId: input.notebookId || undefined,
     sourceUrl: input.sourceUrl,
     summary: input.summary,
     pinned: false,
@@ -94,6 +107,7 @@ export async function updateNote(
   if (patch.title !== undefined) clean.title = patch.title.trim() || '未命名笔记';
   if (patch.content !== undefined) clean.content = patch.content;
   if (patch.tags !== undefined) clean.tags = patch.tags;
+  if (patch.notebookId !== undefined) clean.notebookId = patch.notebookId || undefined;
   if (patch.sourceUrl !== undefined) clean.sourceUrl = patch.sourceUrl;
   if (patch.summary !== undefined) clean.summary = patch.summary;
   if (patch.pinned !== undefined) clean.pinned = patch.pinned;
@@ -111,6 +125,98 @@ export async function deleteNote(ownerId: string, id: string): Promise<boolean> 
   const store = getStore();
   const ts = nowIso();
   await store.shouchaoNotes.update(id, { deletedAt: ts, updatedAt: ts });
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// 知识库/主题分组 (对标 Get笔记 知识库). 个人资产, ownerId 隔离.
+// ---------------------------------------------------------------------------
+
+export interface NotebookWithCount extends ShouchaoNotebook {
+  /** 该知识库下未删除笔记数 (含归档) */
+  noteCount: number;
+}
+
+/** 列出某用户的全部知识库 (按创建时间升序), 附带笔记数. */
+export async function listNotebooks(ownerId: string): Promise<NotebookWithCount[]> {
+  const store = getStore();
+  const [books, notes] = await Promise.all([
+    store.shouchaoNotebooks.list({ ownerId } as Partial<ShouchaoNotebook>),
+    store.shouchaoNotes.list({ ownerId } as Partial<ShouchaoNote>),
+  ]);
+  const counts = new Map<string, number>();
+  for (const n of notes) {
+    if (n.deletedAt || !n.notebookId) continue;
+    counts.set(n.notebookId, (counts.get(n.notebookId) ?? 0) + 1);
+  }
+  return books
+    .filter((b) => !b.deletedAt)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+    .map((b) => ({ ...b, noteCount: counts.get(b.id) ?? 0 }));
+}
+
+export async function createNotebook(
+  ownerId: string,
+  tenantId: string,
+  name: string,
+  icon?: string,
+): Promise<ShouchaoNotebook> {
+  const store = getStore();
+  const ts = nowIso();
+  return store.shouchaoNotebooks.create({
+    id: generateId('scnb'),
+    ownerId,
+    tenantId,
+    name: name.trim() || '未命名知识库',
+    icon: icon?.trim() || undefined,
+    createdAt: ts,
+    updatedAt: ts,
+  });
+}
+
+async function getNotebook(ownerId: string, id: string): Promise<ShouchaoNotebook | null> {
+  const store = getStore();
+  const nb = await store.shouchaoNotebooks.get(id);
+  if (!nb || nb.ownerId !== ownerId || nb.deletedAt) return null;
+  return nb;
+}
+
+/** 重命名/改图标 — 仅 owner. 返回 null 表示不存在或无权. */
+export async function updateNotebook(
+  ownerId: string,
+  id: string,
+  patch: { name?: string; icon?: string },
+): Promise<ShouchaoNotebook | null> {
+  const existing = await getNotebook(ownerId, id);
+  if (!existing) return null;
+  const store = getStore();
+  const clean: Partial<ShouchaoNotebook> = { updatedAt: nowIso() };
+  if (patch.name !== undefined) clean.name = patch.name.trim() || '未命名知识库';
+  if (patch.icon !== undefined) clean.icon = patch.icon.trim() || undefined;
+  return store.shouchaoNotebooks.update(id, clean);
+}
+
+/**
+ * 删除知识库 = 软删知识库 + 把其下笔记的 notebookId 清空 (回到未分组, 不删笔记).
+ * 仅 owner. 返回 false 表示不存在或无权.
+ */
+export async function deleteNotebook(ownerId: string, id: string): Promise<boolean> {
+  const existing = await getNotebook(ownerId, id);
+  if (!existing) return false;
+  const store = getStore();
+  const ts = nowIso();
+  const notes = await store.shouchaoNotes.list({ ownerId } as Partial<ShouchaoNote>);
+  await Promise.all(
+    notes
+      .filter((n) => n.notebookId === id && !n.deletedAt)
+      .map((n) => store.shouchaoNotes.update(n.id, { notebookId: undefined, updatedAt: ts })),
+  );
+  await store.shouchaoNotebooks.update(id, { deletedAt: ts, updatedAt: ts });
+  await audit('shouchao.notebook_deleted', ownerId, {
+    targetId: id,
+    targetType: 'shouchao_notebook',
+    tenantId: existing.tenantId,
+  });
   return true;
 }
 
@@ -198,6 +304,7 @@ export async function pushChanges(
         title: inc.title,
         content: inc.content,
         tags: inc.tags,
+        notebookId: inc.notebookId,
         sourceUrl: inc.sourceUrl,
         summary: inc.summary,
         pinned: inc.pinned,

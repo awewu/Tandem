@@ -6,6 +6,8 @@ import {
   isPreActive,
   STATUS_LABEL,
   TRANSITIONS,
+  findLifecycleAction,
+  authorizeStatusChange,
 } from '@/lib/okr/objective-lifecycle';
 import { mapObjectiveStatus, clientObjStatusToServer } from '@/lib/store/okr-sync';
 import type { ObjectiveStatus as ServerObjectiveStatus } from '@/lib/types/okr-tti';
@@ -78,6 +80,71 @@ describe('objective-lifecycle · 审批漏斗状态机', () => {
       expect(rule.from).not.toBe(rule.to);
       expect(rule.actors.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('objective-lifecycle · findLifecycleAction (from,to 反查动作)', () => {
+  it('唯一映射每个合法 (from,to) 对', () => {
+    expect(findLifecycleAction('draft', 'submitted')).toBe('submit');
+    expect(findLifecycleAction('submitted', 'active')).toBe('approve');
+    expect(findLifecycleAction('submitted', 'draft')).toBe('reject');
+    expect(findLifecycleAction('active', 'paused')).toBe('pause');
+    expect(findLifecycleAction('paused', 'active')).toBe('resume');
+    expect(findLifecycleAction('active', 'completed')).toBe('complete');
+    expect(findLifecycleAction('paused', 'completed')).toBe('complete');
+    expect(findLifecycleAction('active', 'archived')).toBe('archive');
+    expect(findLifecycleAction('paused', 'archived')).toBe('archive');
+    expect(findLifecycleAction('draft', 'archived')).toBe('archive');
+  });
+
+  it('非法 (from,to) 对返回 null', () => {
+    expect(findLifecycleAction('draft', 'active')).toBeNull();      // 跳过审批
+    expect(findLifecycleAction('completed', 'active')).toBeNull();  // 完成不可复活
+    expect(findLifecycleAction('active', 'submitted')).toBeNull();
+    expect(findLifecycleAction('active', 'draft')).toBeNull();
+    expect(findLifecycleAction('draft', 'draft' as never)).toBeNull();
+  });
+});
+
+describe('objective-lifecycle · authorizeStatusChange (服务端权威校验)', () => {
+  it('owner 提交草稿 → 放行', () => {
+    const r = authorizeStatusChange('draft', 'submitted', ['owner']);
+    expect(r).toEqual({ ok: true, action: 'submit' });
+  });
+
+  it('approver 通过待审批 → 放行', () => {
+    const r = authorizeStatusChange('submitted', 'active', ['approver']);
+    expect(r).toEqual({ ok: true, action: 'approve' });
+  });
+
+  it('仅 owner 身份不能自审通过 (submitted→active) → forbidden', () => {
+    expect(authorizeStatusChange('submitted', 'active', ['owner'])).toEqual({
+      ok: false, reason: 'forbidden',
+    });
+  });
+
+  it('owner 直接跳过审批 draft→active → invalid_transition (根治绕过审批漏斗)', () => {
+    expect(authorizeStatusChange('draft', 'active', ['owner', 'approver'])).toEqual({
+      ok: false, reason: 'invalid_transition',
+    });
+  });
+
+  it('无任何角色 → forbidden (即便迁移本身合法)', () => {
+    expect(authorizeStatusChange('draft', 'submitted', [])).toEqual({
+      ok: false, reason: 'forbidden',
+    });
+  });
+
+  it('owner 同时是 approver 时可通过 (角色取并集)', () => {
+    expect(authorizeStatusChange('submitted', 'active', ['owner', 'approver'])).toEqual({
+      ok: true, action: 'approve',
+    });
+  });
+
+  it('垃圾目标状态 → invalid_transition (防注入非法 status)', () => {
+    expect(authorizeStatusChange('active', 'hacked' as never, ['owner'])).toEqual({
+      ok: false, reason: 'invalid_transition',
+    });
   });
 });
 

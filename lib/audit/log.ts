@@ -148,6 +148,7 @@ export type AuditAction =
   // 搭子手抄 · 员工本人闸门 (个人笔记 → 工作分身, opt-in, 可撤回)
   | 'shouchao.shared_to_persona'          // 本人开启: 某条笔记授权喂给工作分身
   | 'shouchao.unshared_from_persona'      // 本人撤回: 关闭授权 / 从分身语料移除
+  | 'shouchao.notebook_deleted'           // 删除知识库 (软删 + 其下笔记回到未分组)
   // BSC 战略地图因果链 (B-019)
   | 'kpi.causal_link.create'     // 建因果链
   | 'kpi.causal_link.update'     // 改 strength/hypothesis

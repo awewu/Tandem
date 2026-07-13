@@ -372,7 +372,7 @@ function ThinkingTrace({ steps, streaming }: { steps: BossAiTraceStep[]; streami
   useEffect(() => { if (!streaming) setExpanded(false); }, [streaming]);
 
   return (
-    <div className="mb-1.5 w-[85%] overflow-hidden rounded-xl border border-[rgb(var(--border-subtle))] bg-[rgb(var(--surface-1))]">
+    <div className="mb-1.5 w-[85%] overflow-hidden rounded-2xl border border-[rgb(var(--border-subtle))] bg-[rgb(var(--surface-1))]">
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}

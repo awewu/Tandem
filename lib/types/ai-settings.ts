@@ -66,6 +66,12 @@ export interface AiSettings {
   sttApiUrl?: string;
   sttApiKey?: string;
 
+  /** 图片 OCR · 对标 Get笔记 拍照记/智能拍书. OpenAI 兼容 vision chat completions 协议 */
+  ocrProvider?: 'openai' | 'none';
+  ocrModel?: string;
+  ocrApiUrl?: string;
+  ocrApiKey?: string;
+
   /** Web 搜索 */
   tavilyApiKey?: string;
   braveSearchApiKey?: string;

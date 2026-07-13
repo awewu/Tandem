@@ -323,6 +323,7 @@ export function createInMemoryStore(): TandemStore {
     organizations: new InMemoryRepository(),
     authApplications: new InMemoryRepository(),
     shouchaoNotes: new InMemoryRepository(),
+    shouchaoNotebooks: new InMemoryRepository(),
     knowledgeNodes: new InMemoryRepository(),
     governanceProjects: new InMemoryRepository(),
     governanceTemplates: new InMemoryRepository(),

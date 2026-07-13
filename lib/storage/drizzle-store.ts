@@ -1316,6 +1316,7 @@ export function createDrizzleStore(): TandemStore {
     organizations: new DrizzleKvRepository('organizations'),
     authApplications: new DrizzleKvRepository('auth_applications'),
     shouchaoNotes: new DrizzleKvRepository('shouchao_notes'),
+    shouchaoNotebooks: new DrizzleKvRepository('shouchao_notebooks'),
     knowledgeNodes: new DrizzleKvRepository('knowledge_nodes'),
     governanceProjects: new DrizzleKvRepository('governance_projects'),
     governanceTemplates: new DrizzleKvRepository('governance_templates'),

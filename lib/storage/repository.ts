@@ -190,6 +190,9 @@ export interface TandemStore {
   /** 搭子手抄 · AI 笔记 (独立模块, KvStore-based) */
   shouchaoNotes: Repository<import('../types/shouchao').ShouchaoNote>;
 
+  /** 搭子手抄 · 知识库/主题分组 (对标 Get笔记 知识库) */
+  shouchaoNotebooks: Repository<import('../types/shouchao').ShouchaoNotebook>;
+
   /** 知识库 · 文件树节点 (后端持久化, 替代原纯前端 localStorage) */
   knowledgeNodes: Repository<import('../types/knowledge').KnowledgeNode>;
 

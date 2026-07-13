@@ -55,6 +55,10 @@ function fromEnv(): Partial<AiSettings> {
     sttModel: env('STT_MODEL'),
     sttApiUrl: env('STT_API_URL'),
     sttApiKey: env('STT_API_KEY') ?? env('OPENAI_API_KEY'),
+    ocrProvider: (env('OCR_PROVIDER') as AiSettings['ocrProvider']) ?? 'none',
+    ocrModel: env('OCR_MODEL'),
+    ocrApiUrl: env('OCR_API_URL'),
+    ocrApiKey: env('OCR_API_KEY') ?? env('OPENAI_API_KEY'),
     tavilyApiKey: env('TAVILY_API_KEY'),
     braveSearchApiKey: env('BRAVE_SEARCH_API_KEY'),
     smtpHost: env('SMTP_HOST'),
@@ -140,6 +144,7 @@ export function maskAiSettings(s: Partial<AiSettings>): Partial<AiSettings> {
   const KEY_FIELDS: (keyof AiSettings)[] = [
     'gatewayApiKey', 'deepseekApiKey', 'anthropicApiKey', 'qwenApiKey',
     'doubaoApiKey', 'kimiApiKey', 'embeddingApiKey',
+    'sttApiKey', 'ocrApiKey',
     'tavilyApiKey', 'braveSearchApiKey', 'smtpPass',
   ];
   const out = { ...s };

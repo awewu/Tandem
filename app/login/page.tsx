@@ -127,7 +127,7 @@ function LoginInner() {
   if (recovering) {
     return (
       <main className="min-h-screen w-full flex flex-col items-center justify-center bg-white gap-4">
-        <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-[rgb(var(--brand-500))] text-white text-headline font-extrabold">
+        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgb(var(--brand-500))] text-white text-headline font-extrabold">
           T
         </span>
         <p className="text-caption text-ink-tertiary">正在恢复会话…</p>

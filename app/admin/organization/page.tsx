@@ -229,7 +229,7 @@ function UserDialog({
             <label className="text-caption font-medium mb-1 block">角色</label>
             <div className="flex flex-wrap gap-1.5">
               {isOwner && (
-                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 gap-1">
+                <Badge variant="outline" className="bg-warning/5 text-warning border-warning gap-1">
                   <ShieldCheck className="h-3 w-3" />{ROLE_LABELS.owner}（锁定）
                 </Badge>
               )}

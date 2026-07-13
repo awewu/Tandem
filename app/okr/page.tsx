@@ -46,6 +46,7 @@ import {
   availableActions, applyTransition, TRANSITIONS,
   type LifecycleAction, type LifecycleActor,
 } from '@/lib/okr/objective-lifecycle';
+import { hasOkrApproverRole } from '@/lib/okr/visibility';
 import { useCurrentUserId, useAuthStore } from '@/lib/hooks/use-current-user';
 import { useOrgPeopleStore } from '@/lib/org/people-source';
 import {
@@ -69,14 +70,11 @@ const STATUS_LABEL: Record<ObjectiveStatus, string> = {
 // 审批漏斗状态视觉区分: 草稿/待审批用色块突出, 其余沿用默认 secondary.
 const STATUS_BADGE_CLASS: Partial<Record<ObjectiveStatus, string>> = {
   draft: 'bg-muted text-muted-foreground border-dashed',
-  submitted: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30',
+  submitted: 'bg-warning/15 text-warning dark:text-warning border-warning/30',
 };
 const KR_TYPE_LABEL: Record<KRType, string> = {
   numeric: '数值', percentage: '百分比', milestone: '里程碑', binary: '是否完成',
 };
-
-// 可审批角色 (employee 之外的管理序列) — 与 nav-modules.visibleTo 口径一致.
-const APPROVER_ROLES = ['manager', 'steward', 'admin', 'champion', 'owner'];
 
 // =============================================================
 // 审批漏斗动作条 (对标 Tita 目标审批): 草稿→提交→通过/打回.
@@ -90,7 +88,7 @@ function ApprovalActions({ objective }: { objective: Objective }) {
   const [busy, setBusy] = useState<LifecycleAction | null>(null);
 
   const isOwner = !!meUserId && objective.ownerId === meUserId;
-  const isApprover = roles.some((r) => APPROVER_ROLES.includes(r));
+  const isApprover = hasOkrApproverRole(roles);
 
   const acts = new Set<LifecycleAction>();
   if (isOwner) availableActions(objective.status, 'owner' as LifecycleActor).forEach((a) => acts.add(a));
@@ -126,7 +124,7 @@ function ApprovalActions({ objective }: { objective: Objective }) {
             variant={primary ? 'default' : 'outline'}
             disabled={busy != null}
             onClick={() => run(a)}
-            className="h-7 text-xs"
+            className="h-7 text-footnote"
           >
             {busy === a ? '处理中…' : TRANSITIONS[a].label}
           </Button>
