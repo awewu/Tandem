@@ -43,6 +43,41 @@
       "when": 1748671200000,
       "tag": "0005_kpi_typed_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1782046934374,
+      "tag": "0006_db_audit_hardening",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1782046934375,
+      "tag": "0007_kv_hot_collection_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1782046934376,
+      "tag": "0008_user_profile_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1782046934377,
+      "tag": "0009_document_spawned_refs",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1782046934378,
+      "tag": "0010_agent_templates",
+      "breakpoints": true
     }
   ]
 }

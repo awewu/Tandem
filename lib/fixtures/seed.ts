@@ -32,6 +32,11 @@ export async function seedDevData(): Promise<void> {
       if (count > 0) {
         // eslint-disable-next-line no-console
         console.info(`[seed] skipped (KvStore already has ${count} rows)`);
+        // 幂等补种: 主 seed 跳过时, 后加的模块 (launchpad / 扩展模块 / 分身模板 B-037)
+        // 仍需有机会写入既有库。各函数自带空表守卫, 重复调用安全。
+        await seedLaunchpadIfEmpty();
+        await seedExtraModulesIfEmpty();
+        await seedAgentTemplatesIfEmpty();
         return;
       }
     } catch {
