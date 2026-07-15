@@ -23,6 +23,8 @@ import { PageViewTracker } from '@/components/page-view-tracker';
 import { ClientErrorReporter } from '@/components/client-error-reporter';
 import { DesktopSession } from '@/components/desktop/desktop-session';
 import { DesktopUpdater } from '@/components/desktop/desktop-updater';
+import { CapacitorShell } from '@/components/capacitor-shell';
+import { MobileSession } from '@/components/mobile/mobile-session';
 
 // 字体策略 (2026-06-17 修订):
 //   不使用 next/font/google — Google Fonts CDN 在国内云主机/容器构建中频繁 ECONNRESET, 会 fail build.
@@ -77,6 +79,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <DesktopSession />
             {/* §desktop · 桌面端自动更新检测 + 更新提示 (web 端空转) */}
             <DesktopUpdater />
+            {/* §mobile · 移动端 (Capacitor) 原生适配: 返回键、状态栏、安全区域、外链 (web 端空转) */}
+            <CapacitorShell />
+            {/* §mobile · 移动端 (Capacitor) 长会话 keep-alive (web 端空转) */}
+            <MobileSession />
           </RightPaneProvider>
         </ThemeProvider>
       </body>

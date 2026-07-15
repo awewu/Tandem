@@ -17,6 +17,7 @@ import { Eye, EyeOff, ShieldCheck, KeyRound, HandHeart, Smile, Phone, QrCode, Us
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/lib/hooks/use-current-user';
 import { isTauri, desktopHeaders, refreshDesktopSession } from '@/lib/desktop/client';
+import { isCapacitor, capacitorHeaders, refreshMobileSession } from '@/lib/capacitor/client';
 
 // useSearchParams() in a Client Component must be wrapped in <Suspense> for prerender.
 export default function LoginPage() {
@@ -44,25 +45,42 @@ function LoginInner() {
   const [pendingSessionId, setPendingSessionId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  // §desktop: 桌面端重开应用时, 先静默尝试用 7 天滑动会话续期, 成功则免登录直接进入.
-  const [recovering, setRecovering] = useState(isTauri());
+  // §desktop / §mobile: 桌面端或移动端重开应用时, 先静默尝试用长会话续期, 成功则免登录直接进入.
+  const [recovering, setRecovering] = useState(isTauri() || isCapacitor());
 
   useEffect(() => {
-    if (!isTauri()) return;
-    let cancelled = false;
-    void (async () => {
-      const ok = await refreshDesktopSession();
-      if (cancelled) return;
-      if (ok) {
-        await fetchMe();
-        router.replace(next);
-      } else {
-        setRecovering(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    if (isTauri()) {
+      let cancelled = false;
+      void (async () => {
+        const ok = await refreshDesktopSession();
+        if (cancelled) return;
+        if (ok) {
+          await fetchMe();
+          router.replace(next);
+        } else {
+          setRecovering(false);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }
+    if (isCapacitor()) {
+      let cancelled = false;
+      void (async () => {
+        const ok = await refreshMobileSession();
+        if (cancelled) return;
+        if (ok) {
+          await fetchMe();
+          router.replace(next);
+        } else {
+          setRecovering(false);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -74,7 +92,7 @@ function LoginInner() {
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...desktopHeaders() },
+        headers: { 'Content-Type': 'application/json', ...desktopHeaders(), ...capacitorHeaders() },
         body: JSON.stringify({ email, password }),
       });
       const data = await res.json();

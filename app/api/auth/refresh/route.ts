@@ -11,8 +11,8 @@ import {
 /**
  * POST /api/auth/refresh
  *
- * §desktop 长会话滑动续期端点.
- *   - 仅桌面端 (header x-tandem-client: desktop) 可用 → web 端维持 24h 现状, 无自动续期.
+ * §desktop / §mobile 长会话滑动续期端点.
+ *   - 仅桌面端 (x-tandem-client: desktop) 或移动端 (x-tandem-client: mobile) 可用 → web 端维持 24h 现状.
  *   - 凭 tandem_rt cookie 续期: 轮换 refresh + 顺延 7 天, 重发 access.
  *   - 续期失败 (会话过期 / 已撤销 / 手动退出) → 清 cookie + 401, 客户端跳登录页.
  *
@@ -21,9 +21,10 @@ import {
 export async function POST(req: NextRequest) {
   await boot();
 
-  // 仅桌面端长会话. web 端没有 keep-alive 调用方, 直接拒绝以维持 24h 策略.
-  if (req.headers.get('x-tandem-client') !== 'desktop') {
-    return NextResponse.json({ ok: false, error: 'desktop_only' }, { status: 403 });
+  // 仅桌面端 / 移动端长会话. web 端没有 keep-alive 调用方, 直接拒绝以维持 24h 策略.
+  const clientKind = req.headers.get('x-tandem-client');
+  if (clientKind !== 'desktop' && clientKind !== 'mobile') {
+    return NextResponse.json({ ok: false, error: 'native_only' }, { status: 403 });
   }
 
   const refreshToken = req.cookies.get(COOKIE_REFRESH)?.value;

@@ -12,6 +12,7 @@
 
 import { useEffect, useState } from 'react';
 import { Bell, BellOff, Loader2, AlertTriangle } from 'lucide-react';
+import { isCapacitor } from '@/lib/capacitor/client';
 
 type State = 'checking' | 'unsupported' | 'denied' | 'off' | 'on' | 'busy';
 
@@ -30,6 +31,10 @@ export function PushSubscribeToggle() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (isCapacitor()) {
+      setState('unsupported');
+      return;
+    }
     if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
       setState('unsupported');
       return;

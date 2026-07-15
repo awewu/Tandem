@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { isCapacitor } from '@/lib/capacitor/client';
 
 /**
  * PWA Service Worker 注册 + 自动更新提示.
@@ -9,6 +10,7 @@ import { useEffect } from 'react';
 export function PwaRegister() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (isCapacitor()) return;
     if (!('serviceWorker' in navigator)) return;
     if (process.env.NODE_ENV !== 'production') return;
     navigator.serviceWorker
