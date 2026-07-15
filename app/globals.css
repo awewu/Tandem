@@ -652,3 +652,23 @@
 #tandem-shell-main {
   transition: padding-right 240ms cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+/* =============================================================
+   Capacitor 移动端安全区域适配
+   WebView 在 viewport-fit=cover 模式下会延伸到状态栏/刘海屏下方.
+   is-capacitor 类由 CapacitorShell 组件在运行时注入.
+
+   --capacitor-status-bar-height: 由 CapacitorShell 在运行时通过
+   StatusBar.getInfo().height 动态设置 (Android 原生像素值).
+   未设置时 fallback 到 env(safe-area-inset-top, 0px).
+   ============================================================= */
+html.is-capacitor {
+  --capacitor-status-bar-height: env(safe-area-inset-top, 0px);
+}
+
+/* 独立 app 路由 (/login, /register, /shouchao, /hub) 的 main 容器
+   这些路由无 MobileTopBar, main 元素带 h-dvh, 需要单独加顶部安全区.
+   内部驾驶舱路由的 main 带 flex-1 (非 h-dvh), 其顶部安全区由 MobileTopBar 处理. */
+html.is-capacitor main#tandem-shell-main.h-dvh {
+  padding-top: var(--capacitor-status-bar-height);
+}

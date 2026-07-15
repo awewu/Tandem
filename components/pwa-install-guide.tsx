@@ -15,6 +15,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { Download, Share, Plus, Bell, X, Loader2 } from 'lucide-react';
+import { isCapacitor } from '@/lib/capacitor/client';
 
 type Kind = 'android-install' | 'ios-install' | 'enable-push' | null;
 
@@ -80,9 +81,15 @@ export function PwaInstallGuide() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
+  // Capacitor WebView 内不显示 PWA 安装引导 (原生 App 已安装)
+  useEffect(() => {
+    if (isCapacitor()) return;
+  }, []);
+
   // 捕获 Android 的 beforeinstallprompt
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (isCapacitor()) return;
     const onPrompt = (e: Event) => {
       e.preventDefault();
       setDeferred(e as BeforeInstallPromptEvent);
@@ -177,6 +184,7 @@ export function PwaInstallGuide() {
     }
   }, [dismiss]);
 
+  if (isCapacitor()) return null;
   if (!kind) return null;
 
   return (
