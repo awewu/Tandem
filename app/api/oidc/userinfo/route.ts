@@ -8,6 +8,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { verifyAccessToken } from '@/lib/oidc/tokens';
 import { buildClaimsForUserId } from '@/lib/oidc/claims';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -42,10 +43,14 @@ async function handle(req: NextRequest): Promise<NextResponse> {
   return NextResponse.json(claims, { headers: { 'Cache-Control': 'no-store' } });
 }
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   return handle(req);
 }
 
-export async function POST(req: NextRequest) {
+export const GET = withApiLog(GETApiHandler, { route: '/api/oidc/userinfo' });
+
+async function POSTApiHandler(req: NextRequest) {
   return handle(req);
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/oidc/userinfo' });

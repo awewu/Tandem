@@ -14,8 +14,9 @@ import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { listProxyActionsForUser } from '@/lib/persona/proxy-actions';
 import type { ProxyActionStatus } from '@/lib/types/proxy-action';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -31,3 +32,5 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({ ok: true, actions });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/persona/proxy-actions' });

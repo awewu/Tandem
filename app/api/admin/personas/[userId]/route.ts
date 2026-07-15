@@ -11,6 +11,7 @@ import { boot } from '@/lib/boot';
 import { requireAuth, requireRole } from '@/lib/auth/require-auth';
 import { adminSetPersonaStage } from '@/lib/persona/evolution';
 import type { PersonaStage, DelegationLevel } from '@/lib/types/persona';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 const VALID_STAGES: PersonaStage[] = ['newborn', 'apprentice', 'assistant', 'deputy', 'partner'];
 const VALID_LEVELS: DelegationLevel[] = [
@@ -22,7 +23,7 @@ const VALID_LEVELS: DelegationLevel[] = [
   'cross_company',
 ];
 
-export async function PATCH(req: NextRequest, { params }: { params: { userId: string } }) {
+async function PATCHApiHandler(req: NextRequest, { params }: { params: { userId: string } }) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -57,3 +58,5 @@ export async function PATCH(req: NextRequest, { params }: { params: { userId: st
     return NextResponse.json({ ok: false, error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const PATCH = withApiLog(PATCHApiHandler, { route: '/api/admin/personas/[userId]' });

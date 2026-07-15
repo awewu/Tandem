@@ -9,10 +9,11 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { listNotes, createNote } from '@/lib/shouchao/service';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   await boot();
@@ -26,7 +27,9 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ notes });
 }
 
-export async function POST(req: NextRequest) {
+export const GET = withApiLog(GETApiHandler, { route: '/api/shouchao/notes' });
+
+async function POSTApiHandler(req: NextRequest) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   await boot();
@@ -57,3 +60,5 @@ export async function POST(req: NextRequest) {
   });
   return NextResponse.json({ note }, { status: 201 });
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/shouchao/notes' });

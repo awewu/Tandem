@@ -13,12 +13,13 @@ import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { rateLimit, POLICIES } from '@/lib/infra/rate-limit';
 import { runExpertPanel, EXPERT_MODES } from '@/lib/persona/expert-panel';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const dynamic = 'force-dynamic';
 
 const VALID_MODES = new Set(EXPERT_MODES.map((m) => m.id));
 
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -59,3 +60,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/me/expert-panel' });

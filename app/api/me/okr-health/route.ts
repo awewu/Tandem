@@ -13,10 +13,11 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { analyzeOkrHealth } from '@/lib/persona/company-brain-reflection';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -49,3 +50,5 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/me/okr-health' });

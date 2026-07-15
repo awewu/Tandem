@@ -1,4 +1,5 @@
 import { withErrorHandler } from "@/lib/api/error-middleware";
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 const rooms = [
   { id: "room-a", name: "小会议室 A", capacity: 6, status: "available" as const, nextBooking: undefined },
@@ -6,6 +7,8 @@ const rooms = [
   { id: "room-c", name: "视频会议室 C", capacity: 8, status: "available" as const },
 ];
 
-export const GET = withErrorHandler(async () => {
+const GETApiHandler = withErrorHandler(async () => {
   return Response.json({ rooms });
 });
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/meetings/rooms' });

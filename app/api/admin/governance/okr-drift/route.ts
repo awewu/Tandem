@@ -13,6 +13,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requireAuth, requireRole } from '@/lib/auth/require-auth';
 import { getAuditLog } from '@/lib/audit/log';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 
@@ -29,7 +30,7 @@ interface DriftEntry {
   intentPreview?: string;
 }
 
-export async function GET(req: NextRequest): Promise<NextResponse> {
+async function GETApiHandler(req: NextRequest): Promise<NextResponse> {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -92,3 +93,5 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     entries,
   });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/admin/governance/okr-drift' });

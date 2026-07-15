@@ -25,6 +25,7 @@ import { boot } from '@/lib/boot';
 import { getStore } from '@/lib/storage/repository';
 import { requireAuth } from '@/lib/auth/require-auth';
 import type { MemoryEntry, MemoryType } from '@/lib/types/memory';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 const UI_CAT_TO_TYPE: Record<string, MemoryType> = {
   requirement: 'lesson',
@@ -33,7 +34,7 @@ const UI_CAT_TO_TYPE: Record<string, MemoryType> = {
   context: 'case',
 };
 
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -85,3 +86,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/tandem/memory' });

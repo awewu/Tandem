@@ -14,6 +14,7 @@ import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import { OKR_BOSS_ROLES, hasOkrApproverRole } from '@/lib/okr/visibility';
 import { authorizeStatusChange, type LifecycleActor } from '@/lib/okr/objective-lifecycle';
 import type { ObjectiveStatus as ClientObjectiveStatus } from '@/lib/store/okr';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 function isBoss(roles: string[]): boolean {
   return roles.some((r) => OKR_BOSS_ROLES.includes(r as never));
@@ -27,7 +28,7 @@ function toLifecycleStatus(s: string): ClientObjectiveStatus {
   return (s === 'abandoned' ? 'archived' : s) as ClientObjectiveStatus;
 }
 
-export async function PATCH(
+async function PATCHApiHandler(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
@@ -104,7 +105,9 @@ export async function PATCH(
   }
 }
 
-export async function DELETE(
+export const PATCH = withApiLog(PATCHApiHandler, { route: '/api/tandem-okr/[id]' });
+
+async function DELETEApiHandler(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
@@ -133,3 +136,5 @@ export async function DELETE(
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const DELETE = withApiLog(DELETEApiHandler, { route: '/api/tandem-okr/[id]' });

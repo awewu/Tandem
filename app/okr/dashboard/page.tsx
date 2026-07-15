@@ -23,6 +23,7 @@ import {
   krsPerObjectiveDist,
 } from '@/lib/okr/adoption';
 import { buildDeptIndex, resolveOwner } from '@/lib/org/ownership';
+import { useOwnerDirectory } from '@/lib/org/use-owner-directory';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -52,8 +53,9 @@ interface DeptStats {
 }
 
 export default function OKRDashboardPage() {
-  const { cycles, objectives, keyResults, initiatives, people } = useOKRStore();
+  const { cycles, objectives, keyResults, initiatives } = useOKRStore();
   const { departments } = useOrgStore();
+  const { people, nameOf } = useOwnerDirectory();
 
   const [cycleId, setCycleId] = useState<string>(() =>
     cycles.find((c) => c.isActive)?.id ?? cycles[0]?.id ?? ''
@@ -145,10 +147,10 @@ export default function OKRDashboardPage() {
     () => cycleObjectives.map((o) => ({
       o,
       progress: objectiveProgress(o, keyResults),
-      ownerName: people.find((p) => p.id === o.ownerId)?.name ?? o.ownerId,
+      ownerName: nameOf(o.ownerId),
       deptName: ownerToDept.get(o.ownerId)?.deptName ?? '—',
     })),
-    [cycleObjectives, keyResults, people, ownerToDept]
+    [cycleObjectives, keyResults, nameOf, ownerToDept]
   );
 
   const topLagging = [...allWithProg].sort((a, b) => a.progress - b.progress).slice(0, 5);

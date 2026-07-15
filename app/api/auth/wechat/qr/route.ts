@@ -6,10 +6,11 @@
 import { NextResponse } from 'next/server';
 import { boot } from '@/lib/boot';
 import { createWechatQr, WechatLoginError } from '@/lib/auth/wechat-login';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 
-export async function GET() {
+async function GETApiHandler() {
   await boot();
   try {
     const ticket = await createWechatQr();
@@ -21,3 +22,5 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/auth/wechat/qr' });

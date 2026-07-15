@@ -8,10 +8,11 @@ import { boot, reloadAiSettingsIntoRouter } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { getAiSettings, upsertAiSettings, maskAiSettings } from '@/lib/settings/ai-settings';
 import type { AiSettingsPatch } from '@/lib/types/ai-settings';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 
-export async function GET(req: NextRequest): Promise<NextResponse> {
+async function GETApiHandler(req: NextRequest): Promise<NextResponse> {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -23,7 +24,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   return NextResponse.json({ settings: maskAiSettings(settings) });
 }
 
-export async function PUT(req: NextRequest): Promise<NextResponse> {
+export const GET = withApiLog(GETApiHandler, { route: '/api/admin/ai-settings' });
+
+async function PUTApiHandler(req: NextRequest): Promise<NextResponse> {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -43,3 +46,5 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
   await reloadAiSettingsIntoRouter();
   return NextResponse.json({ settings: maskAiSettings(updated) });
 }
+
+export const PUT = withApiLog(PUTApiHandler, { route: '/api/admin/ai-settings' });

@@ -6,8 +6,9 @@ import { requireAuth } from "@/lib/auth/require-auth";
 import { audit } from "@/lib/audit/log";
 import { withTenantScope } from "@/lib/multi-tenant/with-tenant-scope";
 import type { Approval } from "@/lib/types/approval";
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export const GET = withErrorHandler(async (req: NextRequest) => {
+const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -18,7 +19,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   return Response.json({ approvals: scoped });
 });
 
-export const POST = withErrorHandler(async (req: NextRequest) => {
+export const GET = withApiLog(GETApiHandler, { route: '/api/approvals' });
+
+const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -45,3 +48,5 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   });
   return Response.json(apv, { status: 201 });
 });
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/approvals' });

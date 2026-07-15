@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { buildDeptIndex, resolveOwner, formatOwnerLabel } from '@/lib/org/ownership';
+import {
+  buildDeptIndex,
+  resolveOwner,
+  formatOwnerDisplay,
+  formatOwnerLabel,
+} from '@/lib/org/ownership';
 import type { Department } from '@/lib/types/governance';
 
 const M = (id: string, name: string) => ({
@@ -127,5 +132,23 @@ describe('formatOwnerLabel', () => {
   it('没 dept 时即使 includeDept 也只返回 name', () => {
     const r = resolveOwner('p4', { people, deptIndex: idx });
     expect(formatOwnerLabel(r, { includeDept: true })).toBe('赵六');
+  });
+});
+
+describe('formatOwnerDisplay', () => {
+  const idx = buildDeptIndex(deps);
+
+  it('person 和 team 使用明确的界面名称', () => {
+    const person = resolveOwner('person:p1', { people, deptIndex: idx });
+    const team = resolveOwner('team:m-fe', { people, deptIndex: idx });
+    expect(formatOwnerDisplay('person:p1', person)).toBe('张三');
+    expect(formatOwnerDisplay('team:m-fe', team)).toBe('[团队] 前端组');
+  });
+
+  it('未知和空负责人不泄露原始 id', () => {
+    const missing = resolveOwner('user_missing_123', { people, deptIndex: idx });
+    const empty = resolveOwner('', { people, deptIndex: idx });
+    expect(formatOwnerDisplay('user_missing_123', missing)).toBe('未知人员');
+    expect(formatOwnerDisplay('', empty)).toBe('未指派');
   });
 });

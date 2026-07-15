@@ -11,6 +11,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { subscribeIm, getChannelIfMember } from '@/lib/im/service';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -19,7 +20,7 @@ interface Params {
   params: { id: string };
 }
 
-export async function GET(req: NextRequest, { params }: Params) {
+async function GETApiHandler(req: NextRequest, { params }: Params) {
   await boot();
   // 访问控制: 必须登录且为频道成员才能订阅实时消息流 (防未鉴权/跨频道/跨租户 IDOR).
   const auth = requireAuth(req);
@@ -95,3 +96,5 @@ export async function GET(req: NextRequest, { params }: Params) {
     },
   });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/im/channels/[id]/stream' });

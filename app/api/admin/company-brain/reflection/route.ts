@@ -16,10 +16,11 @@ import {
   listReflections,
   approveReflection,
 } from '@/lib/persona/company-brain-reflection';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 
-export async function GET(req: NextRequest): Promise<NextResponse> {
+async function GETApiHandler(req: NextRequest): Promise<NextResponse> {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -35,7 +36,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   return NextResponse.json({ reports });
 }
 
-export async function POST(req: NextRequest): Promise<NextResponse> {
+export const GET = withApiLog(GETApiHandler, { route: '/api/admin/company-brain/reflection' });
+
+async function POSTApiHandler(req: NextRequest): Promise<NextResponse> {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -72,7 +75,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   return NextResponse.json({ ok: true, report });
 }
 
-export async function PATCH(req: NextRequest): Promise<NextResponse> {
+export const POST = withApiLog(POSTApiHandler, { route: '/api/admin/company-brain/reflection' });
+
+async function PATCHApiHandler(req: NextRequest): Promise<NextResponse> {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -100,3 +105,5 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
   }
   return NextResponse.json({ ok: true, report: updated });
 }
+
+export const PATCH = withApiLog(PATCHApiHandler, { route: '/api/admin/company-brain/reflection' });

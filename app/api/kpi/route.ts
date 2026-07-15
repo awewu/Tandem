@@ -16,8 +16,9 @@ import { hasKpiPermission } from '@/lib/auth/kpi-perms';
 import { audit } from '@/lib/audit/log';
 import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import { KPI_LEVEL_ORDER, type Kpi, type KpiLevel, type KpiScope } from '@/lib/types/kpi';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -44,7 +45,9 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ kpis });
 }
 
-export async function POST(req: NextRequest) {
+export const GET = withApiLog(GETApiHandler, { route: '/api/kpi' });
+
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -136,3 +139,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/kpi' });

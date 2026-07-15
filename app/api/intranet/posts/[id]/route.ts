@@ -10,8 +10,9 @@ import { requireAuth, requireRole } from '@/lib/auth/require-auth';
 import { DATA_STEWARD_ROLES } from '@/lib/auth/roles';
 import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import type { IntranetPost } from '@/lib/types/intranet-post';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+async function GETApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -27,6 +28,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/intranet/posts/[id]' });
 
 async function loadAndAuthorize(
   req: NextRequest,
@@ -47,7 +50,7 @@ async function loadAndAuthorize(
   return { post, tenantId: auth.tenantId, userId: auth.userId };
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+async function PATCHApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
   const r = await loadAndAuthorize(req, params.id);
   if ('error' in r) return r.error;
@@ -80,7 +83,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export const PATCH = withApiLog(PATCHApiHandler, { route: '/api/intranet/posts/[id]' });
+
+async function DELETEApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
   const r = await loadAndAuthorize(req, params.id);
   if ('error' in r) return r.error;
@@ -95,3 +100,5 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const DELETE = withApiLog(DELETEApiHandler, { route: '/api/intranet/posts/[id]' });

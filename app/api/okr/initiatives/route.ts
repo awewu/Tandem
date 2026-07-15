@@ -11,8 +11,9 @@ import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import { syncKrFromInitiatives } from '@/lib/okr/execution-rollup';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -31,7 +32,9 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
+export const GET = withApiLog(GETApiHandler, { route: '/api/okr/initiatives' });
+
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -79,3 +82,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/okr/initiatives' });

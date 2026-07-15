@@ -35,6 +35,7 @@ import {
   History,
 } from 'lucide-react';
 import type { Kpi, KpiCycle, KpiManualEntry, KpiSubject, KpiScope } from '@/lib/types/kpi';
+import { useOwnerDirectory } from '@/lib/org/use-owner-directory';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -51,6 +52,7 @@ const SCOPE_LABEL: Record<KpiScope, { label: string; color: string; icon: typeof
 
 export default function KpiManualEntryPage() {
   const me = useCurrentUserId();
+  const { nameOf } = useOwnerDirectory();
   const [cycles, setCycles] = useState<KpiCycle[]>([]);
   const [subjects, setSubjects] = useState<KpiSubject[]>([]);
   const [kpis, setKpis] = useState<Kpi[]>([]);
@@ -284,8 +286,8 @@ export default function KpiManualEntryPage() {
                           <span className="font-mono">{subjectCode(k.subjectId)}</span>
                           <span>· {cycleName(k.cycleId)}</span>
                         </div>
-                        <div className="text-footnote text-muted-foreground mt-0.5 font-mono">
-                          assignee: {k.assigneeId}
+                        <div className="text-footnote text-muted-foreground mt-0.5">
+                          承担人: {nameOf(k.assigneeId)}
                         </div>
                       </button>
                     </li>
@@ -319,7 +321,7 @@ export default function KpiManualEntryPage() {
                     </div>
                     <div>
                       <div className="text-footnote text-muted-foreground">承担人</div>
-                      <div className="font-mono text-footnote">{selected.assigneeId}</div>
+                      <div className="text-footnote">{nameOf(selected.assigneeId)}</div>
                     </div>
                     <div>
                       <div className="text-footnote text-muted-foreground">起始 / 目标</div>

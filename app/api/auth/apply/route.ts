@@ -12,8 +12,9 @@ import { boot } from '@/lib/boot';
 import { submitApplication, ApplicationError } from '@/lib/auth/applications';
 import { rateLimit, getClientIp } from '@/lib/infra/rate-limit';
 import { logger } from '@/lib/infra/logger';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   const ip = getClientIp(req.headers);
   const rl = await rateLimit({ key: `auth-apply:${ip}`, limit: 3, windowSec: 3600 });
@@ -61,3 +62,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/auth/apply' });

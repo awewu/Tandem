@@ -17,6 +17,7 @@ import {
 } from '@/lib/settings/mcp-servers';
 import { maskKey } from '@/lib/settings/ai-settings';
 import type { McpServerRecord } from '@/lib/types/mcp-server';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 
@@ -33,7 +34,7 @@ function mask(r: McpServerRecord): McpServerRecord {
   return { ...r, authHeader: r.authHeader ? maskKey(r.authHeader) : r.authHeader };
 }
 
-export async function GET(req: NextRequest): Promise<NextResponse> {
+async function GETApiHandler(req: NextRequest): Promise<NextResponse> {
   await boot();
   const auth = requireAdmin(req);
   if (auth instanceof NextResponse) return auth;
@@ -41,7 +42,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   return NextResponse.json({ servers: records.map(mask) });
 }
 
-export async function PUT(req: NextRequest): Promise<NextResponse> {
+export const GET = withApiLog(GETApiHandler, { route: '/api/admin/mcp-servers' });
+
+async function PUTApiHandler(req: NextRequest): Promise<NextResponse> {
   await boot();
   const auth = requireAdmin(req);
   if (auth instanceof NextResponse) return auth;
@@ -67,7 +70,9 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
   return NextResponse.json({ server: mask(updated) });
 }
 
-export async function DELETE(req: NextRequest): Promise<NextResponse> {
+export const PUT = withApiLog(PUTApiHandler, { route: '/api/admin/mcp-servers' });
+
+async function DELETEApiHandler(req: NextRequest): Promise<NextResponse> {
   await boot();
   const auth = requireAdmin(req);
   if (auth instanceof NextResponse) return auth;
@@ -76,3 +81,5 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
   const ok = await deleteMcpServerRecord(name, auth.tenantId);
   return NextResponse.json({ ok });
 }
+
+export const DELETE = withApiLog(DELETEApiHandler, { route: '/api/admin/mcp-servers' });

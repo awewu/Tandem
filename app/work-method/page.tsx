@@ -25,6 +25,7 @@ import { objectiveScheduleRisk, type RiskBand } from '@/lib/okr/risk';
 import { startOfWeek, buildWorkMethod } from '@/lib/okr/work-method';
 import { persistUpdateInitiative, hydrateOkrFromApi } from '@/lib/store/okr-sync';
 import type { Initiative } from '@/lib/store';
+import { useOwnerDirectory } from '@/lib/org/use-owner-directory';
 
 const BAND_STYLE: Record<RiskBand, { text: string; bg: string; label: string }> = {
   'on-track': { text: 'text-emerald-700', bg: 'bg-emerald-100', label: '在轨' },
@@ -33,7 +34,8 @@ const BAND_STYLE: Record<RiskBand, { text: string; bg: string; label: string }> 
 };
 
 export default function WorkMethodPage() {
-  const { cycles, objectives, keyResults, initiatives, people, currentUserId, updateInitiative } = useOKRStore();
+  const { cycles, objectives, keyResults, initiatives, currentUserId, updateInitiative } = useOKRStore();
+  const { people, nameOf } = useOwnerDirectory();
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => setNow(Date.now()), []);
 
@@ -73,9 +75,6 @@ export default function WorkMethodPage() {
     () => (selected && now != null ? objectiveScheduleRisk(selected, activeCycle, keyResults, now) : null),
     [selected, activeCycle, keyResults, now],
   );
-
-  const ownerName = (id: string) =>
-    people.find((p) => p.id === id || `person:${p.id}` === id)?.name ?? id;
 
   /** 落库: 钉到本周 / 移回 backlog。乐观更新 → PATCH → hydrate 收敛。 */
   async function setWeek(init: Initiative, weekOf: number | null) {
@@ -130,7 +129,7 @@ export default function WorkMethodPage() {
       {ownerObjectives.length === 0 ? (
         <div className="card-elevated p-10 text-center">
           <Target className="h-10 w-10 mx-auto text-ink-tertiary" />
-          <div className="mt-3 text-headline text-ink-primary">{ownerName(effectiveOwner)} 本周期暂无 Objective</div>
+          <div className="mt-3 text-headline text-ink-primary">{nameOf(effectiveOwner)} 本周期暂无 Objective</div>
           <Link href="/okr" className="mt-3 inline-flex items-center gap-1 text-caption text-brand-600 hover:text-brand-700">
             去创建 OKR <ArrowRight className="h-3.5 w-3.5" />
           </Link>
@@ -225,7 +224,7 @@ export default function WorkMethodPage() {
                 items={view?.thisWeekFocus ?? []}
                 emptyHint="本周暂无安排 · 从右下「未来/待规划」钉过来"
                 now={now}
-                ownerName={ownerName}
+                ownerName={nameOf}
                 action={{ icon: PinOff, label: '移出本周', onClick: (i) => setWeek(i, null) }}
               />
             </section>
@@ -241,7 +240,7 @@ export default function WorkMethodPage() {
                 items={[...(view?.buckets['next-4-weeks'] ?? []), ...(view?.buckets.later ?? []), ...(view?.buckets.backlog ?? [])]}
                 emptyHint="暂无待规划行动项 · 去 OKR 给 KR 添加行动项"
                 now={now}
-                ownerName={ownerName}
+                ownerName={nameOf}
                 action={{ icon: Pin, label: '钉到本周', onClick: (i) => setWeek(i, startOfWeek(now)) }}
               />
             </section>

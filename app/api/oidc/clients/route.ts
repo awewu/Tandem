@@ -8,13 +8,14 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requireAuth, requireRole } from '@/lib/auth/require-auth';
 import { listClients, createClient, publicClientView } from '@/lib/oidc/clients';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const SSO_ADMIN_ROLES = ['owner', 'admin'];
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -24,7 +25,9 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ clients: clients.map(publicClientView) });
 }
 
-export async function POST(req: NextRequest) {
+export const GET = withApiLog(GETApiHandler, { route: '/api/oidc/clients' });
+
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -54,3 +57,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: (err as Error).message }, { status: 400 });
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/oidc/clients' });

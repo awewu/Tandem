@@ -63,6 +63,7 @@ import { ExcelImportExport } from '@/components/kpi/ExcelImportExport';
 import { BscDistributionPanel } from '@/components/kpi/BscDistributionPanel';
 import { StrategyMapPanel } from '@/components/kpi/StrategyMapPanel';
 import { assessBscBalance, computeBscDistribution } from '@/lib/kpi/bsc-validation';
+import { useOwnerDirectory } from '@/lib/org/use-owner-directory';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -135,6 +136,7 @@ const EMPTY_KPI_FORM: KpiFormState = {
 // ---------------------------------------------------------------------------
 
 export default function KpiSetupPage() {
+  const { nameOf } = useOwnerDirectory();
   const [cycles, setCycles] = useState<KpiCycle[]>([]);
   const [subjects, setSubjects] = useState<KpiSubject[]>([]);
   const [kpis, setKpis] = useState<Kpi[]>([]);
@@ -703,8 +705,8 @@ export default function KpiSetupPage() {
                                   {sc.label}
                                 </Badge>
                               </td>
-                              <td className="px-4 py-2.5 text-footnote font-mono text-muted-foreground">
-                                {k.assigneeId}
+                              <td className="px-4 py-2.5 text-footnote text-muted-foreground">
+                                {nameOf(k.assigneeId)}
                               </td>
                               <td className="px-4 py-2.5 text-right tabular-nums">
                                 {k.startValue.toLocaleString()} →{' '}

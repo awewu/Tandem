@@ -8,8 +8,9 @@ import { requireAuth, requireRole } from '@/lib/auth/require-auth';
 import { createAppContext } from '@/lib/repositories/app-context-factory';
 import { LaunchpadService } from '@/lib/services/launchpad-service';
 import { boot } from '@/lib/boot';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export const GET = withErrorHandler(async (req: NextRequest) => {
+const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -28,7 +29,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   return NextResponse.json({ apps: enriched });
 });
 
-export const POST = withErrorHandler(async (req: NextRequest) => {
+export const GET = withApiLog(GETApiHandler, { route: '/api/admin/launchpad' });
+
+const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -42,3 +45,5 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   await svc.reorder(body.orderMap);
   return NextResponse.json({ ok: true });
 });
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/admin/launchpad' });

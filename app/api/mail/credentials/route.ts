@@ -16,6 +16,7 @@ import {
   DEFAULT_SMTP_PORT,
   DEFAULT_IMAP_PORT,
 } from '@/lib/infra/email';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 const COLLECTION = 'user_email_creds';
 
@@ -41,7 +42,7 @@ function getKvRepo(collection: string) {
   return new (proto.constructor as any)(collection);
 }
 
-export const GET = withErrorHandler(async (req: NextRequest) => {
+const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
 
@@ -70,7 +71,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   });
 });
 
-export const POST = withErrorHandler(async (req: NextRequest) => {
+export const GET = withApiLog(GETApiHandler, { route: '/api/mail/credentials' });
+
+const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
 
@@ -119,7 +122,9 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   return NextResponse.json({ ok: true, message: '凭据已保存' });
 });
 
-export const DELETE = withErrorHandler(async (req: NextRequest) => {
+export const POST = withApiLog(POSTApiHandler, { route: '/api/mail/credentials' });
+
+const DELETEApiHandler = withErrorHandler(async (req: NextRequest) => {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
 
@@ -128,3 +133,5 @@ export const DELETE = withErrorHandler(async (req: NextRequest) => {
 
   return NextResponse.json({ ok: true, message: '凭据已删除' });
 });
+
+export const DELETE = withApiLog(DELETEApiHandler, { route: '/api/mail/credentials' });

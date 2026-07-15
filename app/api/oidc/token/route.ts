@@ -26,6 +26,7 @@ import { signIdToken, signAccessToken, ACCESS_TOKEN_TTL_SEC } from '@/lib/oidc/t
 import { buildClaimsForUserId } from '@/lib/oidc/claims';
 import { rateLimit, getClientIp } from '@/lib/infra/rate-limit';
 import type { OAuthClient } from '@/lib/oidc/types';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -67,7 +68,7 @@ function authenticateClient(client: OAuthClient, clientSecret: string | null): b
   return verifySecret(clientSecret, client.secretHash);
 }
 
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   const ip = getClientIp(req.headers);
   const rl = await rateLimit({ key: `oidc-token:${ip}`, limit: 60, windowSec: 60, failClosed: true });
@@ -230,3 +231,5 @@ export async function POST(req: NextRequest) {
 
   return err('unsupported_grant_type', `grant_type ${grantType} not supported`);
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/oidc/token' });

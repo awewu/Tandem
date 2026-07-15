@@ -7,8 +7,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { getOrCreateDm } from '@/lib/im/service';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   // meId 始终取自登录身份, 禁止客户端冒充他人发起私聊.
   const auth = requireAuth(req);
@@ -36,3 +37,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/im/dm' });

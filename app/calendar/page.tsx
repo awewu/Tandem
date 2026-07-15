@@ -11,6 +11,7 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useCalendarStore, type EventInstance, fmtMonthCN } from '@/lib/store/calendar';
 import { useOKRStore } from '@/lib/store/okr';
+import { useOwnerDirectory } from '@/lib/org/use-owner-directory';
 import { checkReminders, sendReminderEmail } from '@/lib/calendar/email-bridge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,7 +32,8 @@ export default function CalendarPage() {
   const {
     calendars, events, toggleCalendarVisibility, addEvent, deleteEvent,
   } = useCalendarStore();
-  const { cycles, keyResults, checkIns, objectives, people } = useOKRStore();
+  const { cycles, keyResults, checkIns, objectives } = useOKRStore();
+  const { nameOf } = useOwnerDirectory();
 
   const [view, setView] = useState<ViewMode>('month');
   const [year, setYear] = useState(0);
@@ -91,7 +93,7 @@ export default function CalendarPage() {
       const d = typeof kr.dueDate === 'number' ? kr.dueDate : Date.parse(kr.dueDate as unknown as string);
       if (Number.isNaN(d)) continue;
       const objTitle = objectives.find((o) => o.id === kr.objectiveId)?.title || '';
-      const ownerName = people.find((p) => p.id === kr.ownerId)?.name || '';
+      const ownerName = nameOf(kr.ownerId);
       addEvent({
         calendarId: okrCalId,
         title: `KR截止: ${kr.title || '(无标题)'}`,
@@ -111,7 +113,7 @@ export default function CalendarPage() {
       if (!ci || !ci.createdAt) continue;
       const d = typeof ci.createdAt === 'number' ? ci.createdAt : Date.parse(ci.createdAt as unknown as string);
       if (Number.isNaN(d)) continue;
-      const authorName = people.find((p) => p.id === ci.authorId)?.name || '';
+      const authorName = nameOf(ci.authorId);
       addEvent({
         calendarId: okrCalId,
         title: `${ci.scope === 'objective' ? 'O' : 'KR'} Check-in`,
@@ -150,7 +152,7 @@ export default function CalendarPage() {
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cycles, keyResults, checkIns, objectives, people, year]);
+  }, [cycles, keyResults, checkIns, objectives, nameOf, year]);
 
   const goPrev = () => {
     if (view === 'month') {

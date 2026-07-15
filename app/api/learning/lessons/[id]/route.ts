@@ -10,8 +10,9 @@ import { requireAuth, requireRole } from '@/lib/auth/require-auth';
 import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import { DATA_STEWARD_ROLES } from '@/lib/auth/roles';
 import type { Lesson } from '@/lib/learning/types';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+async function GETApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -26,6 +27,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/learning/lessons/[id]' });
 
 async function loadAndAuthorize(
   req: NextRequest,
@@ -43,7 +46,7 @@ async function loadAndAuthorize(
   return { lesson, userId: auth.userId, tenantId: auth.tenantId };
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+async function PATCHApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
   const r = await loadAndAuthorize(req, params.id);
   if ('error' in r) return r.error;
@@ -71,7 +74,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export const PATCH = withApiLog(PATCHApiHandler, { route: '/api/learning/lessons/[id]' });
+
+async function DELETEApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
   const r = await loadAndAuthorize(req, params.id);
   if ('error' in r) return r.error;
@@ -83,3 +88,5 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const DELETE = withApiLog(DELETEApiHandler, { route: '/api/learning/lessons/[id]' });

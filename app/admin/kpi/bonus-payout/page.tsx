@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { TrustBanner } from '@/components/trust-banner';
 import type { KpiBonusPayout, KpiCycle } from '@/lib/types/kpi';
+import { useOwnerDirectory } from '@/lib/org/use-owner-directory';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -57,6 +58,7 @@ interface Kpi {
 // ---------------------------------------------------------------------------
 
 export default function KpiBonusPayoutPage() {
+  const { nameOf } = useOwnerDirectory();
   const [cycles, setCycles] = useState<KpiCycle[]>([]);
   const [kpis, setKpis] = useState<Kpi[]>([]);
   const [payouts, setPayouts] = useState<KpiBonusPayout[]>([]);
@@ -322,7 +324,7 @@ export default function KpiBonusPayoutPage() {
               {gateInfo.frozen
                 .map(
                   (f) =>
-                    `${userMap[f.assigneeId]?.name ?? f.assigneeId} (OKR ${Math.round(f.okrProgress * 100)}%, 冻结 ${Math.round(f.finalBonus).toLocaleString()} 元)`,
+                    `${userMap[f.assigneeId]?.name ?? nameOf(f.assigneeId)} (OKR ${Math.round(f.okrProgress * 100)}%, 冻结 ${Math.round(f.finalBonus).toLocaleString()} 元)`,
                 )
                 .join('; ')}
             </div>
@@ -485,13 +487,11 @@ export default function KpiBonusPayoutPage() {
                         <td className="px-4 py-2">
                           <div className="flex flex-col">
                             <span className="text-caption">
-                              {userMap[a]?.name ?? userMap[a]?.email ?? (
-                                <span className="font-mono text-muted-foreground">{a}</span>
-                              )}
+                              {userMap[a]?.name ?? nameOf(a)}
                             </span>
-                            {(userMap[a]?.name || userMap[a]?.email) && (
-                              <span className="font-mono text-[10px] text-muted-foreground">
-                                {a}
+                            {userMap[a]?.email && (
+                              <span className="text-[10px] text-muted-foreground">
+                                {userMap[a]?.email}
                               </span>
                             )}
                           </div>

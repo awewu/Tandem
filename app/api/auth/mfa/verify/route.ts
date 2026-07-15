@@ -3,6 +3,7 @@ import { boot } from '@/lib/boot';
 import { completeMfa, AuthError } from '@/lib/auth/native';
 import { COOKIE_ACCESS, SESSION_COOKIE_OPTIONS } from '@/lib/auth/session';
 import { rateLimit, getClientIp } from '@/lib/infra/rate-limit';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /**
  * POST /api/auth/mfa/verify
@@ -10,7 +11,7 @@ import { rateLimit, getClientIp } from '@/lib/infra/rate-limit';
  *
  * 登录第二阶段, 提交 TOTP 或恢复码.
  */
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   const ip = getClientIp(req.headers);
   const rl = await rateLimit({ key: `mfa-verify:${ip}`, limit: 10, windowSec: 3600, failClosed: true });
@@ -59,3 +60,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/auth/mfa/verify' });

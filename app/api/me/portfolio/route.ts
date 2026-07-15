@@ -12,6 +12,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot, getStore } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import type { CheckIn, KeyResult } from '@/lib/types/okr-tti';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,7 +24,7 @@ interface PortfolioItem {
   date: string;
 }
 
-export async function GET(req: NextRequest): Promise<NextResponse> {
+async function GETApiHandler(req: NextRequest): Promise<NextResponse> {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -110,3 +111,5 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   return NextResponse.json({ items });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/me/portfolio' });

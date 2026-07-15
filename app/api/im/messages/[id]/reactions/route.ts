@@ -3,11 +3,12 @@ import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { getStore } from '@/lib/storage/repository';
 import { getChannelIfMember } from '@/lib/im/service';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /**
  * POST   /api/im/messages/:id/reactions   { emoji }   · 切换 (有则移除, 无则添加)
  */
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+async function POSTApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -32,3 +33,5 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const updated = await store.imMessages.update(params.id, { reactions });
   return NextResponse.json({ message: updated });
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/im/messages/[id]/reactions' });

@@ -30,14 +30,7 @@ import {
   Trash2, Clock, User, Users, AlertCircle, ListChecks, Heart, X,
 } from 'lucide-react';
 import { InsightsWidget } from '@/components/insights/insights-widget';
-
-interface OrgUser {
-  id: string;
-  name: string;
-  email: string;
-  departmentId: string | null;
-  roles: string[];
-}
+import { useOwnerDirectory } from '@/lib/org/use-owner-directory';
 
 const CADENCE_LABEL: Record<OneOnOneCadence, string> = {
   weekly: '每周',
@@ -60,6 +53,7 @@ export default function OneOnOnePage() {
     loadFromApi,
   } = useOneOnOneStore();
   const { keyResults, objectives } = useOKRStore();
+  const { people, nameOf } = useOwnerDirectory();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
@@ -69,24 +63,18 @@ export default function OneOnOnePage() {
 
   // 拉真实用户数据 (替代 demo 'me')
   const [realUser, setRealUser] = useState<{ id: string; name: string } | null>(null);
-  const [realPeople, setRealPeople] = useState<OrgUser[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const [meRes, usersRes] = await Promise.all([
-          fetch('/api/auth/me', { credentials: 'include' }),
-          fetch('/api/org/users', { credentials: 'include' }),
-        ]);
+        const meRes = await fetch('/api/auth/me', { credentials: 'include' });
         if (cancelled) return;
         const meJson = await meRes.json().catch(() => ({}));
-        const usersJson = await usersRes.json().catch(() => ({}));
         if (meJson?.user) {
           setRealUser({ id: meJson.user.id, name: meJson.user.name });
         }
-        setRealPeople((usersJson.users ?? []) as OrgUser[]);
         // 加载真实 1on1 会议
         await loadFromApi();
       } catch {
@@ -99,7 +87,6 @@ export default function OneOnOnePage() {
   }, [loadFromApi]);
 
   const ME = realUser?.id ?? '';
-  const people = realPeople;
 
   // 分组: 即将 / 已完成 / 取消
   const grouped = useMemo(() => {
@@ -115,12 +102,6 @@ export default function OneOnOnePage() {
   }, [meetings]);
 
   const selected = meetings.find((m) => m.id === selectedId) ?? null;
-  const personById = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const p of people) m.set(p.id, p.name);
-    return m;
-  }, [people]);
-
   return (
     <div className="flex flex-col md:flex-row h-screen bg-slate-50">
       {/* 左: 列表 */}
@@ -155,7 +136,7 @@ export default function OneOnOnePage() {
               items={grouped.upcoming}
               selectedId={selectedId}
               onSelect={setSelectedId}
-              personById={personById}
+              nameOf={nameOf}
               nowMs={nowMs}
               currentUserId={ME}
             />
@@ -167,7 +148,7 @@ export default function OneOnOnePage() {
               items={grouped.done}
               selectedId={selectedId}
               onSelect={setSelectedId}
-              personById={personById}
+              nameOf={nameOf}
               nowMs={nowMs}
               currentUserId={ME}
             />
@@ -179,7 +160,7 @@ export default function OneOnOnePage() {
               items={grouped.other}
               selectedId={selectedId}
               onSelect={setSelectedId}
-              personById={personById}
+              nameOf={nameOf}
               nowMs={nowMs}
               currentUserId={ME}
             />
@@ -206,7 +187,7 @@ export default function OneOnOnePage() {
           <MeetingDetail
             key={selected.id}
             meeting={selected}
-            personById={personById}
+            nameOf={nameOf}
             people={people}
             keyResults={keyResults}
             objectives={objectives}
@@ -250,14 +231,14 @@ export default function OneOnOnePage() {
 // 左侧分组列表
 // -----------------------------------------------------------------------------
 function MeetingSection({
-  title, icon: Icon, items, selectedId, onSelect, personById, nowMs, currentUserId,
+  title, icon: Icon, items, selectedId, onSelect, nameOf, nowMs, currentUserId,
 }: {
   title: string;
   icon: React.ElementType;
   items: OneOnOneMeeting[];
   selectedId: string | null;
   onSelect: (id: string) => void;
-  personById: Map<string, string>;
+  nameOf: (id: string) => string;
   nowMs: number;
   currentUserId: string;
 }) {
@@ -285,7 +266,7 @@ function MeetingSection({
               <div className="flex items-center gap-1.5 min-w-0">
                 <User className="h-3 w-3 text-slate-400 shrink-0" />
                 <span className="text-footnote font-medium truncate">
-                  {personById.get(other) ?? other}
+                  {nameOf(other)}
                 </span>
               </div>
               <Badge className={`text-[9px] h-4 px-1.5 ${meta.color} hover:${meta.color}`}>
@@ -436,11 +417,11 @@ function NewMeetingForm({
 // 详情面板
 // -----------------------------------------------------------------------------
 function MeetingDetail({
-  meeting, personById, people, keyResults, objectives, currentUserId,
+  meeting, nameOf, people, keyResults, objectives, currentUserId,
   onUpdate, onDelete, onAddAction, onToggleAction, onRemoveAction, onPromoteAction,
 }: {
   meeting: OneOnOneMeeting;
-  personById: Map<string, string>;
+  nameOf: (id: string) => string;
   people: { id: string; name: string }[];
   keyResults: { id: string; objectiveId: string; title: string }[];
   objectives: { id: string; title: string }[];
@@ -457,8 +438,8 @@ function MeetingDetail({
   const [actionAssignee, setActionAssignee] = useState(meeting.reportId);
 
   const isManager = currentUserId === meeting.managerId;
-  const managerName = personById.get(meeting.managerId) ?? meeting.managerId;
-  const reportName = personById.get(meeting.reportId) ?? meeting.reportId;
+  const managerName = nameOf(meeting.managerId);
+  const reportName = nameOf(meeting.reportId);
   const meta = STATUS_META[meeting.status];
 
   const availableKRs = keyResults.map((kr) => {
@@ -689,7 +670,7 @@ function MeetingDetail({
                 {a.text}
               </div>
               <Badge variant="outline" className="text-[9px] h-4">
-                {personById.get(a.assigneeId) ?? a.assigneeId}
+                {nameOf(a.assigneeId)}
               </Badge>
               {a.dueDate && (
                 <span className="text-[10px] text-muted-foreground">

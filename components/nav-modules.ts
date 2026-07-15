@@ -437,6 +437,8 @@ export const NAV_MODULES: NavModule[] = [
           { name: 'MCP Server', href: '/admin/mcp-servers', visibleTo: ['admin'] },
           { name: 'AI 评估', href: '/admin/evals', visibleTo: ['admin', 'steward'] },
           { name: '定时任务', href: '/tasks', visibleTo: ['admin'] },
+          { name: '接口日志', href: '/admin/api-logs', visibleTo: ['admin', 'steward'] },
+          { name: '业务日志', href: '/admin/business-logs', visibleTo: ['admin', 'steward'] },
           { name: '系统日志', href: '/logs', visibleTo: ['admin'] },
         ],
       },

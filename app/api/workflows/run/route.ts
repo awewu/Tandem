@@ -1,6 +1,7 @@
 import { spawn } from 'child_process';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { NextResponse } from 'next/server';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -118,7 +119,7 @@ function runHermesStreaming(
   });
 }
 
-export async function POST(req: Request) {
+async function POSTApiHandler(req: Request) {
   const auth = requireAuth(req as any);
   if (auth instanceof NextResponse) return auth;
   let payload: RunPayload;
@@ -250,3 +251,5 @@ export async function POST(req: Request) {
     },
   });
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/workflows/run' });

@@ -5,6 +5,7 @@ import { getStore } from '@/lib/storage/repository';
 import { decrypt } from '@/lib/infra/crypto';
 import { moveMessages } from '@/lib/integrations/email-tier1';
 import type { EmailCredentials } from '@/lib/integrations/email-tier1';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,7 +22,7 @@ function buildCreds(userId: string, c: any): EmailCredentials {
 }
 
 // POST /api/mail/move  { uids: number[], from: string, to: string }
-export const POST = withErrorHandler(async (req: NextRequest) => {
+const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   const body = await req.json();
@@ -34,3 +35,5 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   await moveMessages(buildCreds(auth.userId, creds), { uids, from, to });
   return NextResponse.json({ ok: true });
 });
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/mail/move' });

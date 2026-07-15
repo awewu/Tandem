@@ -13,8 +13,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { getAuditLog, type AuditAction } from '@/lib/audit/log';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   await boot();
@@ -46,3 +47,5 @@ export async function GET(req: NextRequest) {
     entries,
   });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/audit' });

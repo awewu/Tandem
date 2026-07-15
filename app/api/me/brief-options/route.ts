@@ -17,8 +17,9 @@ import { requireAuth } from '@/lib/auth/require-auth';
 import { generatePersonaBriefOptions, type PersonaBriefContext } from '@/lib/decision-layer/adapters/persona-brief';
 import { StoreBackedMemoryRetriever } from '@/lib/memory/retriever';
 import { deferAudit } from '@/lib/audit/defer';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -108,3 +109,5 @@ export async function GET(req: NextRequest) {
     );
   }
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/me/brief-options' });

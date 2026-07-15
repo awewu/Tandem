@@ -11,10 +11,11 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { getDecisionByRefId } from '@/lib/persona/company-brain-decision';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 
-export async function GET(
+async function GETApiHandler(
   req: NextRequest,
   { params }: { params: { messageId: string } }
 ): Promise<NextResponse> {
@@ -41,3 +42,5 @@ export async function GET(
     },
   });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/company-brain/by-message/[messageId]' });

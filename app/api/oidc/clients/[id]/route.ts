@@ -9,13 +9,14 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requireAuth, requireRole } from '@/lib/auth/require-auth';
 import { updateClient, deleteClient, rotateSecret, getClient, publicClientView } from '@/lib/oidc/clients';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const SSO_ADMIN_ROLES = ['owner', 'admin'];
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+async function PATCHApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -51,7 +52,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export const PATCH = withApiLog(PATCHApiHandler, { route: '/api/oidc/clients/[id]' });
+
+async function DELETEApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -62,3 +65,5 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   await deleteClient(params.id, auth.tenantId);
   return NextResponse.json({ ok: true });
 }
+
+export const DELETE = withApiLog(DELETEApiHandler, { route: '/api/oidc/clients/[id]' });

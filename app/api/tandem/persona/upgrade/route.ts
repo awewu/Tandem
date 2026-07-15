@@ -16,8 +16,9 @@ import {
   upgradeStage,
 } from '@/lib/persona/evolution';
 import type { GrowthArea } from '@/lib/types/persona';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const url = new URL(req.url);
   const personaId = url.searchParams.get('personaId');
@@ -35,7 +36,9 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ persona, check });
 }
 
-export async function POST(req: NextRequest) {
+export const GET = withApiLog(GETApiHandler, { route: '/api/tandem/persona/upgrade' });
+
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   try {
     const body = await req.json();
@@ -69,6 +72,8 @@ export async function POST(req: NextRequest) {
   }
 }
 
+export const POST = withApiLog(POSTApiHandler, { route: '/api/tandem/persona/upgrade' });
+
 /**
  * DELETE /api/tandem/persona/upgrade?personaId=xxx
  *
@@ -76,7 +81,7 @@ export async function POST(req: NextRequest) {
  * 下一轮 cron 不会重复弹出 (hasPending 判断).
  * 员工可以在稍后手动触发升级按钮.
  */
-export async function DELETE(req: NextRequest) {
+async function DELETEApiHandler(req: NextRequest) {
   await boot();
   const url = new URL(req.url);
   const personaId = url.searchParams.get('personaId');
@@ -101,3 +106,5 @@ export async function DELETE(req: NextRequest) {
   });
   return NextResponse.json({ persona: updated });
 }
+
+export const DELETE = withApiLog(DELETEApiHandler, { route: '/api/tandem/persona/upgrade' });

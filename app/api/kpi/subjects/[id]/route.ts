@@ -11,8 +11,9 @@ import { requireAuth } from '@/lib/auth/require-auth';
 import { hasKpiPermission } from '@/lib/auth/kpi-perms';
 import { audit } from '@/lib/audit/log';
 import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+async function GETApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -24,7 +25,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   return NextResponse.json({ subject });
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export const GET = withApiLog(GETApiHandler, { route: '/api/kpi/subjects/[id]' });
+
+async function PATCHApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -92,7 +95,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(req: NextRequest) {
+export const PATCH = withApiLog(PATCHApiHandler, { route: '/api/kpi/subjects/[id]' });
+
+async function DELETEApiHandler(req: NextRequest) {
   // 物理删除一律拒绝, CHARTER §2.4 软删除规则
   void req;
   return NextResponse.json(
@@ -103,3 +108,5 @@ export async function DELETE(req: NextRequest) {
     { status: 405 },
   );
 }
+
+export const DELETE = withApiLog(DELETEApiHandler, { route: '/api/kpi/subjects/[id]' });

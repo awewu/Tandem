@@ -4,6 +4,7 @@ import { withErrorHandler } from '@/lib/api/error-middleware';
 import { createAppContext } from '@/lib/repositories/app-context-factory';
 import { DriveService } from '@/lib/services/drive-service';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /**
  * POST /api/drive/presign
@@ -13,7 +14,7 @@ import { requireAuth } from '@/lib/auth/require-auth';
  * §T6 客户端不直传后端, 走 S3/MinIO 预签名 URL.
  * 上传成功后客户端再 POST /api/drive 提交文件元数据.
  */
-export const POST = withErrorHandler(async (req: NextRequest) => {
+const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -51,3 +52,5 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
 
   return NextResponse.json({ error: 'mode must be upload | download' }, { status: 400 });
 });
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/drive/presign' });

@@ -3,6 +3,7 @@ import { boot } from '@/lib/boot';
 import { registerWithInvite, AuthError } from '@/lib/auth/native';
 import { COOKIE_ACCESS, COOKIE_REFRESH, SESSION_COOKIE_OPTIONS } from '@/lib/auth/session';
 import { rateLimit, getClientIp } from '@/lib/infra/rate-limit';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /**
  * POST /api/auth/register
@@ -11,7 +12,7 @@ import { rateLimit, getClientIp } from '@/lib/infra/rate-limit';
  *
  * 邀请制注册. 注册即登录, 颁发 access + refresh cookie.
  */
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   const ip = getClientIp(req.headers);
   const rl = await rateLimit({ key: `register:${ip}`, limit: 10, windowSec: 3600, failClosed: true });
@@ -98,6 +99,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/auth/register' });
 
 function extractDeviceInfo(req: NextRequest) {
   return {

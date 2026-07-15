@@ -11,12 +11,13 @@ import { boot, getStore } from '@/lib/boot';
 import { getPrimaryPersona } from '@/lib/persona/persona-lookup';
 import { createFeedback, recalcBossCaptureScore } from '@/lib/persona/feedback';
 import { deferAudit } from '@/lib/audit/defer';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 interface Params {
   params: { id: string };
 }
 
-export async function POST(req: NextRequest, { params }: Params) {
+async function POSTApiHandler(req: NextRequest, { params }: Params) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -84,3 +85,5 @@ export async function POST(req: NextRequest, { params }: Params) {
     );
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/persona/proxy-actions/[id]/feedback' });

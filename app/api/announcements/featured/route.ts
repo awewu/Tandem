@@ -11,13 +11,16 @@ import {
   LATEST_NEWS,
   FEATURED_ARCHIVE,
 } from '@/lib/intranet/featured';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const dynamic = 'force-static';
 
-export async function GET() {
+async function GETApiHandler() {
   return NextResponse.json({
     slides: HERO_SLIDES,
     news: LATEST_NEWS,
     archive: FEATURED_ARCHIVE,
   });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/announcements/featured' });

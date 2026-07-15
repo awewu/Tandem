@@ -15,7 +15,7 @@
  * Edge runtime: \u4f9d\u8d56 lib/auth/session-edge.ts (Web Crypto), \u4e0d\u80fd import Node crypto.
  */
 
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextResponse, type NextFetchEvent, type NextRequest } from 'next/server';
 import { verifyAccessTokenEdge } from '@/lib/auth/session-edge';
 import { canAccessPath, FORBIDDEN_REDIRECT } from '@/lib/auth/module-scope';
 import { hasExternalRole, hasInternalRole } from '@/lib/auth/roles';
@@ -25,6 +25,7 @@ const EXTERNAL_HOME = '/hub';
 
 const COOKIE_ACCESS = 'tandem_at';
 const HEADER_REQ_ID = 'x-request-id';
+const API_LOG_INGEST_PATH = '/api/internal/api-log-ingest';
 
 /** Edge-safe 16-hex request id (Web Crypto). */
 function genReqId(): string {
@@ -49,6 +50,8 @@ const PUBLIC_PREFIXES = [
   //   故更新清单与安装包下载端点必须公开 (内容本身由签名校验保护, 非敏感).
   '/api/desktop/update',
   '/api/desktop/download',
+  // Middleware 直接拦截的 401/403 通过签名内网请求写入接口日志.
+  API_LOG_INGEST_PATH,
 ];
 
 /** UI 公开路由前缀: 未登录也能访问 (登录注册自身、静态资源) */
@@ -96,7 +99,86 @@ function isMfaEnrollAllowedUi(path: string): boolean {
   return MFA_ENROLL_ALLOWED_UI_PREFIXES.some((p) => path.startsWith(p));
 }
 
-export async function middleware(req: NextRequest) {
+function apiLogSecret(): string {
+  return process.env.API_LOG_INGEST_SECRET
+    || process.env.BUSINESS_LOG_INGEST_SECRET
+    || process.env.NEXTAUTH_SECRET
+    || process.env.SESSION_SECRET
+    || 'dev-only-api-log-ingest-secret';
+}
+
+async function hmacHex(value: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(apiLogSecret()),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(value));
+  return Array.from(new Uint8Array(signature), (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+async function persistBlockedRequest(
+  req: NextRequest,
+  input: {
+    requestId: string;
+    statusCode: number;
+    reason: string;
+    actorId?: string;
+    actorType?: string;
+    tenantId?: string;
+  },
+): Promise<void> {
+  const path = req.nextUrl.pathname;
+  const parts = path.split('/').filter(Boolean);
+  const body = JSON.stringify({
+    requestId: input.requestId,
+    tenantId: input.tenantId ?? 'default',
+    actorId: input.actorId ?? 'anonymous',
+    actorType: input.actorType ?? 'anonymous',
+    source: 'middleware',
+    category: parts[1] ?? 'system',
+    operation: `${req.method.toUpperCase()} ${path}`,
+    action: 'access_denied',
+    method: req.method.toUpperCase(),
+    path,
+    route: path,
+    statusCode: input.statusCode,
+    outcome: 'denied',
+    level: 'warn',
+    durationMs: 0,
+    summary: `${req.method.toUpperCase()} ${path} denied (${input.statusCode})`,
+    details: {
+      reason: input.reason,
+      userAgent: req.headers.get('user-agent')?.slice(0, 256) ?? null,
+    },
+    createdAt: new Date().toISOString(),
+  });
+  const timestamp = String(Date.now());
+  const signature = await hmacHex(`${timestamp}.${body}`);
+  const url = new URL(API_LOG_INGEST_PATH, req.url);
+  await fetch(url, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-log-timestamp': timestamp,
+      'x-api-log-signature': signature,
+    },
+    body,
+  });
+}
+
+function logBlockedRequest(
+  event: NextFetchEvent,
+  req: NextRequest,
+  input: Parameters<typeof persistBlockedRequest>[1],
+): void {
+  event.waitUntil(persistBlockedRequest(req, input).catch(() => undefined));
+}
+
+export async function middleware(req: NextRequest, event: NextFetchEvent) {
   const path = req.nextUrl.pathname;
 
   // 请求 ID: 复用上游 trace id, 或生成新的
@@ -177,6 +259,14 @@ export async function middleware(req: NextRequest) {
   if (payload) {
     // P0-C: 特权未启 MFA → 拦截所有业务 API (MFA 启用/登出 API 在 /api/auth/* 白名单已放行).
     if (payload.pendingMfaEnroll) {
+      logBlockedRequest(event, req, {
+        requestId: reqId,
+        statusCode: 403,
+        reason: 'mfa_enrollment_required',
+        actorId: payload.sub,
+        actorType: 'user',
+        tenantId: payload.tenantId,
+      });
       return withReqId(
         NextResponse.json(
           {
@@ -189,6 +279,14 @@ export async function middleware(req: NextRequest) {
       );
     }
     if (!canAccessPath(payload.roles ?? [], path)) {
+      logBlockedRequest(event, req, {
+        requestId: reqId,
+        statusCode: 403,
+        reason: 'forbidden_module',
+        actorId: payload.sub,
+        actorType: 'user',
+        tenantId: payload.tenantId,
+      });
       return withReqId(
         NextResponse.json(
           {
@@ -207,9 +305,17 @@ export async function middleware(req: NextRequest) {
   }
 
   if (isDemoAllowed()) {
+    baseHeaders.set('x-tandem-user-id', 'demo-user');
+    baseHeaders.set('x-tandem-tenant-id', 'default');
+    baseHeaders.set('x-tandem-roles', 'admin');
     return withReqId(NextResponse.next({ request: { headers: baseHeaders } }));
   }
 
+  logBlockedRequest(event, req, {
+    requestId: reqId,
+    statusCode: 401,
+    reason: 'unauthenticated',
+  });
   return withReqId(
     NextResponse.json(
       { error: 'unauthenticated', hint: 'login required', requestId: reqId },

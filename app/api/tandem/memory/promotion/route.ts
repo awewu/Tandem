@@ -19,8 +19,9 @@ import {
   type SignerRole,
 } from '@/lib/memory/promotion-flow';
 import type { PromotionLevel } from '@/lib/types/memory';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const url = new URL(req.url);
   const status = url.searchParams.get('status');
@@ -34,7 +35,9 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ promotions });
 }
 
-export async function POST(req: NextRequest) {
+export const GET = withApiLog(GETApiHandler, { route: '/api/tandem/memory/promotion' });
+
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   try {
     const body = await req.json();
@@ -61,7 +64,9 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function PATCH(req: NextRequest) {
+export const POST = withApiLog(POSTApiHandler, { route: '/api/tandem/memory/promotion' });
+
+async function PATCHApiHandler(req: NextRequest) {
   await boot();
   try {
     const body = await req.json();
@@ -94,3 +99,5 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: (err as Error).message }, { status: 400 });
   }
 }
+
+export const PATCH = withApiLog(PATCHApiHandler, { route: '/api/tandem/memory/promotion' });

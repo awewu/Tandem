@@ -5,8 +5,9 @@ import { boot } from '@/lib/boot';
 import { createAppContext } from '@/lib/repositories/app-context-factory';
 import { DocumentService } from '@/lib/services/document-service';
 import { docAccess } from '@/lib/documents/access';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export const GET = withErrorHandler(async (req: NextRequest) => {
+const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -27,7 +28,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   return NextResponse.json({ documents });
 });
 
-export const POST = withErrorHandler(async (req: NextRequest) => {
+export const GET = withApiLog(GETApiHandler, { route: '/api/documents' });
+
+const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -45,3 +48,5 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   });
   return NextResponse.json(doc, { status: 201 });
 });
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/documents' });

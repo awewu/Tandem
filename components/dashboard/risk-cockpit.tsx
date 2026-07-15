@@ -18,9 +18,11 @@ import Link from 'next/link';
 import { ShieldAlert, ShieldCheck, ArrowRight, AlertTriangle, Clock } from 'lucide-react';
 import { useOKRStore } from '@/lib/store';
 import { computeRiskCockpit } from '@/lib/okr/cockpit';
+import { useOwnerDirectory } from '@/lib/org/use-owner-directory';
 
 export function RiskCockpit() {
-  const { cycles, objectives, keyResults, initiatives, people } = useOKRStore();
+  const { cycles, objectives, keyResults, initiatives } = useOKRStore();
+  const { people, nameOf } = useOwnerDirectory();
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => setNow(Date.now()), []);
 
@@ -40,9 +42,6 @@ export function RiskCockpit() {
   if (!cockpit || cockpit.activeCycleId == null || cockpit.totalActiveObjectives === 0) {
     return null;
   }
-
-  const ownerName = (ownerId: string) =>
-    people.find((p) => p.id === ownerId || `person:${p.id}` === ownerId)?.name ?? ownerId;
 
   // 全部在轨 → 极简正向条
   if (!cockpit.hasRisk) {
@@ -111,7 +110,7 @@ export function RiskCockpit() {
                   >
                     {r.title}
                   </Link>
-                  <span className="text-ink-tertiary shrink-0">· {ownerName(r.ownerId)}</span>
+                  <span className="text-ink-tertiary shrink-0">· {nameOf(r.ownerId)}</span>
                   <span className="ml-auto text-footnote text-ink-tertiary shrink-0">
                     落后基准 <strong className="text-danger">{r.variance}%</strong>
                   </span>

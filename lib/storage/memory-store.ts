@@ -16,6 +16,7 @@ import type {
   AuthEvent,
 } from './repository';
 import { generateId } from './repository';
+import { instrumentBusinessRepositories } from '@/lib/business-log/repository';
 
 function paginate<T>(rows: T[], opts?: ListOptions): T[] {
   if (!opts) return rows;
@@ -258,7 +259,7 @@ function createInMemoryAuthStore(): AuthStore {
 }
 
 export function createInMemoryStore(): TandemStore {
-  return {
+  return instrumentBusinessRepositories({
     _storeKind: 'memory' as const,
     decisionCards: new InMemoryRepository(),
     personas: new InMemoryRepository(),
@@ -333,5 +334,5 @@ export function createInMemoryStore(): TandemStore {
     aiSettings: new InMemoryRepository(),
     mcpServers: new InMemoryRepository(),
     pushSubscriptions: new InMemoryRepository(),
-  };
+  });
 }

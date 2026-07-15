@@ -4,6 +4,7 @@ import { requireAuth } from '@/lib/auth/require-auth';
 import { DATA_STEWARD_ROLES } from '@/lib/auth/roles';
 import { computeBossCaptureScore, checkUpgradeEligibility } from '@/lib/persona/evolution';
 import { getPrimaryPersona } from '@/lib/persona/persona-lookup';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /**
  * 治理/身份/系统计算字段 — 不可经原始 PATCH 注入 (防越权):
@@ -39,7 +40,7 @@ function checkSelfOrPrivileged(
   return NextResponse.json({ error: 'forbidden' }, { status: 403 });
 }
 
-export async function GET(req: NextRequest, { params }: { params: { userId: string } }) {
+async function GETApiHandler(req: NextRequest, { params }: { params: { userId: string } }) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -61,7 +62,9 @@ export async function GET(req: NextRequest, { params }: { params: { userId: stri
   }
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { userId: string } }) {
+export const GET = withApiLog(GETApiHandler, { route: '/api/persona/[userId]' });
+
+async function PATCHApiHandler(req: NextRequest, { params }: { params: { userId: string } }) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -86,3 +89,5 @@ export async function PATCH(req: NextRequest, { params }: { params: { userId: st
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const PATCH = withApiLog(PATCHApiHandler, { route: '/api/persona/[userId]' });

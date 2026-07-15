@@ -6,11 +6,12 @@ import { requireAuth } from "@/lib/auth/require-auth";
 import { withTenantScope } from "@/lib/multi-tenant/with-tenant-scope";
 import { audit } from "@/lib/audit/log";
 import type { ApprovalStatus } from "@/lib/types/approval";
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 const ADMIN_ROLES = ["admin", "owner"];
 const DECIDABLE: ApprovalStatus[] = ["approved", "rejected"];
 
-export const PATCH = withErrorHandler(
+const PATCHApiHandler = withErrorHandler(
   async (req: NextRequest, { params }: { params: { id: string } }) => {
     await boot();
     const auth = requireAuth(req);
@@ -54,3 +55,5 @@ export const PATCH = withErrorHandler(
     return Response.json(updated);
   },
 );
+
+export const PATCH = withApiLog(PATCHApiHandler, { route: '/api/approvals/[id]' });

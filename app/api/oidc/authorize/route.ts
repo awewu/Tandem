@@ -18,6 +18,7 @@ import { getClient, isRedirectUriAllowed } from '@/lib/oidc/clients';
 import { issueAuthCode } from '@/lib/oidc/store';
 import { SUPPORTED_SCOPES } from '@/lib/oidc/types';
 import { resolveIssuer } from '@/lib/oidc/discovery';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -35,7 +36,7 @@ function redirectError(
   return NextResponse.redirect(u.toString());
 }
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const { searchParams } = new URL(req.url);
 
@@ -127,3 +128,5 @@ export async function GET(req: NextRequest) {
   if (state) out.searchParams.set('state', state);
   return NextResponse.redirect(out.toString());
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/oidc/authorize' });

@@ -1,12 +1,13 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { waitAgent } from '@/lib/taf/agent/spawn';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /**
  * POST /api/agent/wait
  * Body: { agentId: string, timeoutMs?: number }
  */
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   const body = (await req.json().catch(() => ({}))) as {
     agentId?: string;
@@ -21,3 +22,5 @@ export async function POST(req: NextRequest) {
   }
   return NextResponse.json({ ok: true, ...result });
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/agent/wait' });

@@ -34,6 +34,7 @@ import {
   type InsightSeverity,
   type InsightCategory,
 } from '@/lib/insights/derive';
+import { useOwnerDirectory } from '@/lib/org/use-owner-directory';
 
 const SEV_STYLES: Record<InsightSeverity, { dot: string; text: string }> = {
   critical: { dot: 'bg-danger', text: 'text-danger' },
@@ -82,6 +83,7 @@ export function InsightsWidget({
   const okr = useOKRStore();
   const oneOnOne = useOneOnOneStore();
   const r360 = useReview360Store();
+  const { people, ownerNameById } = useOwnerDirectory();
 
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => setNow(Date.now()), []);
@@ -95,7 +97,8 @@ export function InsightsWidget({
       meetings: oneOnOne.meetings,
       submissions: r360.submissions,
       cycles360: r360.cycles,
-      people: okr.people,
+      people,
+      ownerNameById,
       now,
     });
     return all.filter((i) => {
@@ -118,7 +121,7 @@ export function InsightsWidget({
       }
       return true;
     });
-  }, [now, okr.objectives, okr.keyResults, okr.checkIns, okr.people, oneOnOne.meetings, r360.submissions, r360.cycles, severities, categories, personId]);
+  }, [now, okr.objectives, okr.keyResults, okr.checkIns, people, ownerNameById, oneOnOne.meetings, r360.submissions, r360.cycles, severities, categories, personId]);
 
   const shown = insights.slice(0, limit);
   const remaining = insights.length - shown.length;

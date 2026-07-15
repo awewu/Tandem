@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { createSSEStream, broadcast } from "@/lib/realtime/sse-channel";
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export function GET(req: NextRequest) {
+function GETApiHandler(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const channel = searchParams.get("channel");
   if (!channel) return new Response("Missing channel", { status: 400 });
@@ -16,8 +17,12 @@ export function GET(req: NextRequest) {
   });
 }
 
-export async function POST(req: NextRequest) {
+export const GET = withApiLog(GETApiHandler, { route: '/api/realtime' });
+
+async function POSTApiHandler(req: NextRequest) {
   const { channel, payload } = await req.json();
   broadcast(channel, payload);
   return Response.json({ ok: true });
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/realtime' });

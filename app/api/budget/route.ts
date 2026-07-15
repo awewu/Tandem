@@ -2,12 +2,13 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { budgetTracker } from '@/lib/taf/budget/tracker';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /**
  * GET /api/budget?scope=tenant:default      → 查询剩余
  * POST /api/budget    Body: { scope, limit, resetHours? }  → 设置预算
  */
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   await boot();
@@ -22,7 +23,9 @@ export async function GET(req: NextRequest) {
   });
 }
 
-export async function POST(req: NextRequest) {
+export const GET = withApiLog(GETApiHandler, { route: '/api/budget' });
+
+async function POSTApiHandler(req: NextRequest) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   await boot();
@@ -37,3 +40,5 @@ export async function POST(req: NextRequest) {
   budgetTracker.setLimit(body.scope, body.limit, body.resetHours);
   return NextResponse.json({ ok: true, scope: body.scope, limit: body.limit });
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/budget' });

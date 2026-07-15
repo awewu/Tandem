@@ -23,6 +23,7 @@ import { DATA_STEWARD_ROLES } from '@/lib/auth/roles';
 import type { CheckIn, TTI, KeyResult } from '@/lib/types/okr-tti';
 import type { MemoryEntry } from '@/lib/types/memory';
 import type { Persona } from '@/lib/types/persona';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 const MAX_CHECKINS = 10;
 const MAX_TTIS = 10;
@@ -76,7 +77,7 @@ function checkSelfOrPrivileged(
   return NextResponse.json({ error: 'forbidden' }, { status: 403 });
 }
 
-export async function GET(
+async function GETApiHandler(
   req: NextRequest,
   { params }: { params: { userId: string } },
 ) {
@@ -164,3 +165,5 @@ export async function GET(
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/persona/[userId]/training-context' });

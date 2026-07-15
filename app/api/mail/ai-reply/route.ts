@@ -8,6 +8,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { withErrorHandler } from '@/lib/api/error-middleware';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 interface Body {
   originalText?: unknown;
@@ -15,7 +16,7 @@ interface Body {
   tone?: unknown;
 }
 
-export const POST = withErrorHandler(async (req: NextRequest) => {
+const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
 
@@ -68,3 +69,5 @@ ${text}`;
     return NextResponse.json({ ok: false, error: 'AI 生成失败' }, { status: 500 });
   }
 });
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/mail/ai-reply' });

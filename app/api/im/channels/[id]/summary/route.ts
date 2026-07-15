@@ -6,8 +6,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot, getRouter } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { getChannelMessages, getChannelIfMember } from '@/lib/im/service';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function POST(
+async function POSTApiHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -56,3 +57,5 @@ export async function POST(
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/im/channels/[id]/summary' });

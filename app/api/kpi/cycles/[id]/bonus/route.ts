@@ -30,8 +30,9 @@ import { audit } from '@/lib/audit/log';
 import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import { computeBonusPayout, type KpiBonusPayout } from '@/lib/types/kpi';
 import { resolveOkrCycle } from '@/lib/domain/cycle/performance-cycle';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function GET(
+async function GETApiHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -52,7 +53,9 @@ export async function GET(
   return NextResponse.json({ payouts });
 }
 
-export async function POST(
+export const GET = withApiLog(GETApiHandler, { route: '/api/kpi/cycles/[id]/bonus' });
+
+async function POSTApiHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -244,3 +247,5 @@ export async function POST(
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/kpi/cycles/[id]/bonus' });

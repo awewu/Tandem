@@ -15,6 +15,7 @@ import { requireAuth } from '@/lib/auth/require-auth';
 import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import { OKR_BOSS_ROLES } from '@/lib/okr/visibility';
 import type { Confidence } from '@/lib/types/okr-tti';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 function isBoss(roles: string[]): boolean {
   return roles.some((r) => OKR_BOSS_ROLES.includes(r as never));
@@ -45,7 +46,7 @@ async function guard(req: NextRequest, id: string) {
   return { auth, store, kr, keyResults };
 }
 
-export async function PATCH(
+async function PATCHApiHandler(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
@@ -81,7 +82,9 @@ export async function PATCH(
   }
 }
 
-export async function DELETE(
+export const PATCH = withApiLog(PATCHApiHandler, { route: '/api/okr/key-results/[id]' });
+
+async function DELETEApiHandler(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
@@ -96,3 +99,5 @@ export async function DELETE(
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const DELETE = withApiLog(DELETEApiHandler, { route: '/api/okr/key-results/[id]' });

@@ -10,6 +10,7 @@ import { requireAuth } from '@/lib/auth/require-auth';
 import { getStore, generateId } from '@/lib/storage/repository';
 import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import type { BitableColumn } from '@/lib/types/bitable';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 interface TemplateSpec {
   name: string;
@@ -123,7 +124,7 @@ function buildTemplates(): TemplateSpec[] {
   ];
 }
 
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -154,3 +155,5 @@ export async function POST(req: NextRequest) {
   }
   return NextResponse.json({ ok: true, created, skipped: existingNames.size });
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/bitable/seed-templates' });

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot, getRouter } from '@/lib/boot';
 import { getStore } from '@/lib/storage/repository';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,7 +17,7 @@ export const dynamic = 'force-dynamic';
  *   es.addEventListener('token', e => append(e.data));
  *   es.addEventListener('done', () => es.close());
  */
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+async function GETApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   await boot();
@@ -82,3 +83,5 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     },
   });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/convergence/[id]/stream' });

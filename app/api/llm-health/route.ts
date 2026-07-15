@@ -9,8 +9,9 @@
 
 import { NextResponse } from 'next/server';
 import { boot, getRouter } from '@/lib/boot';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function GET() {
+async function GETApiHandler() {
   await boot();
   const router = getRouter();
   const registered = router.listProviders();
@@ -29,3 +30,5 @@ export async function GET() {
 
   return NextResponse.json(summary);
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/llm-health' });

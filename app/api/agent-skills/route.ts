@@ -13,6 +13,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { loadSkills, getLoadedSkills, getSkillBody, buildSkillsSystemPrompt } from '@/lib/skills/registry';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 let _booted = false;
 async function ensureLoaded() {
@@ -21,7 +22,7 @@ async function ensureLoaded() {
   _booted = true;
 }
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   await ensureLoaded();
@@ -56,3 +57,5 @@ export async function GET(req: NextRequest) {
     }),
   });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/agent-skills' });

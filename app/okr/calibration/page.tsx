@@ -42,6 +42,7 @@ import {
   Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useOwnerDirectory } from '@/lib/org/use-owner-directory';
 
 const DRIFT_META = {
   high: { label: '高偏差', tone: 'text-danger', bg: 'bg-danger/5 ring-danger/30' },
@@ -61,7 +62,8 @@ function OkrCalibrationPageInner() {
   const searchParams = useSearchParams();
   const currentUserId = useCurrentUserId();
 
-  const { cycles, objectives, keyResults, people, updateObjective, activeCycleId } = useOKRStore();
+  const { cycles, objectives, keyResults, updateObjective, activeCycleId } = useOKRStore();
+  const { ownerNameById } = useOwnerDirectory();
   const meetings = useOneOnOneStore((s) => s.meetings);
 
   const cycleIdFromUrl = searchParams.get('cycleId');
@@ -77,12 +79,6 @@ function OkrCalibrationPageInner() {
     return Array.from(ids);
   }, [meetings, currentUserId]);
 
-  const ownerNameMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const p of people) map[p.id] = p.name;
-    return map;
-  }, [people]);
-
   // grid 派生 (随 store 变化重算)
   const grid = useMemo(
     () =>
@@ -92,9 +88,9 @@ function OkrCalibrationPageInner() {
         subordinateIds,
         allObjectives: objectives,
         allKrs: keyResults,
-        ownerNameMap,
+        ownerNameMap: ownerNameById,
       }),
-    [currentUserId, cycleId, subordinateIds, objectives, keyResults, ownerNameMap],
+    [currentUserId, cycleId, subordinateIds, objectives, keyResults, ownerNameById],
   );
 
   // 编辑态: objectiveId → managerScore (本地缓冲, 未保存)
@@ -392,7 +388,7 @@ function OkrCalibrationPageInner() {
                       )}
                     >
                       <td className="px-4 py-2.5 text-ink-primary">
-                        {row.ownerName ?? row.ownerId}
+                        {row.ownerName ?? '未知人员'}
                       </td>
                       <td className="px-4 py-2.5">
                         <Link
@@ -462,7 +458,7 @@ function OkrCalibrationPageInner() {
                             'w-20 rounded-md border bg-surface-1 px-2 py-1 text-right tabular-nums outline-none focus:border-[rgb(var(--brand-500))] focus:ring-2 focus:ring-[rgb(var(--brand-500))/0.2]',
                             isDirty ? 'border-warning' : 'border-border',
                           )}
-                          aria-label={`${row.ownerName ?? row.ownerId} - ${row.objectiveTitle} 校准分`}
+                          aria-label={`${row.ownerName ?? '未知人员'} - ${row.objectiveTitle} 校准分`}
                         />
                       </td>
                     </tr>

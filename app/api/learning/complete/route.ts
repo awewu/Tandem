@@ -20,6 +20,7 @@ import { boot, getStore } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import type { Lesson, LessonAttempt } from '@/lib/learning/types';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 
@@ -29,7 +30,7 @@ interface CompleteBody {
   userId?: string;
 }
 
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -107,3 +108,5 @@ export async function POST(req: NextRequest) {
     warnings: closure.warnings,
   });
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/learning/complete' });

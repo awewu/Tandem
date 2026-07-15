@@ -37,6 +37,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { KPI_LEVEL_LABEL, type KpiCycle, type KpiLevel } from '@/lib/types/kpi';
+import { useOwnerDirectory } from '@/lib/org/use-owner-directory';
 
 /** byLevel (Record<level, count>) → "公司 4 · 事业部 16 · 个人 180" (仅非零) */
 function levelBreakdown(byLevel: Record<string, number>): string {
@@ -182,6 +183,7 @@ const VIEW_KEYS = [
 // ---------------------------------------------------------------------------
 
 export default function KpiAnalyticsPage() {
+  const { nameOf } = useOwnerDirectory();
   const [cycles, setCycles] = useState<KpiCycle[]>([]);
   const [cycleId, setCycleId] = useState<string>('');
   const [data, setData] = useState<Views>({});
@@ -260,7 +262,7 @@ export default function KpiAnalyticsPage() {
   }, [refresh]);
 
   const userName = (id: string) =>
-    userMap[id]?.name ?? userMap[id]?.email ?? id;
+    userMap[id]?.name ?? userMap[id]?.email ?? nameOf(id);
 
   // ---------------------------------------------------------------------------
   // Render

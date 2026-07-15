@@ -19,6 +19,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { withErrorHandler } from '@/lib/api/error-middleware';
 import { verifyAccessToken, COOKIE_ACCESS } from '@/lib/auth/session';
 import { track } from '@/lib/analytics/track';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 interface TrackBody {
   eventName?: string;
@@ -26,7 +27,7 @@ interface TrackBody {
   sessionId?: string;
 }
 
-export const POST = withErrorHandler(async (req: NextRequest) => {
+const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
   let body: TrackBody = {};
   try {
     body = (await req.json()) as TrackBody;
@@ -63,3 +64,5 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
 
   return NextResponse.json({ ok: true });
 });
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/analytics/track' });

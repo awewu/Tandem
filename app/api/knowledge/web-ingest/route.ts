@@ -15,6 +15,7 @@ import { boot, getRouter } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { getAiSettings } from '@/lib/settings/ai-settings';
 import { createNode, listNodes } from '@/lib/knowledge/service';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -34,7 +35,7 @@ async function fetchPageText(url: string): Promise<string> {
   }
 }
 
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -110,3 +111,5 @@ export async function POST(req: NextRequest) {
   const ok = results.filter((r) => r.ok).length;
   return NextResponse.json({ ok: true, processed: results.length, saved: ok, results });
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/knowledge/web-ingest' });

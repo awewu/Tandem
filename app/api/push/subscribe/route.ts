@@ -8,10 +8,11 @@ import { requireAuth } from '@/lib/auth/require-auth';
 import { isWebPushConfigured } from '@/lib/infra/web-push';
 import { getStore } from '@/lib/storage/repository';
 import type { PushSubscriptionRecord } from '@/lib/infra/web-push';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 
-export async function POST(req: NextRequest): Promise<NextResponse> {
+async function POSTApiHandler(req: NextRequest): Promise<NextResponse> {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -49,7 +50,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   return NextResponse.json({ ok: true, id: record.id });
 }
 
-export async function DELETE(req: NextRequest): Promise<NextResponse> {
+export const POST = withApiLog(POSTApiHandler, { route: '/api/push/subscribe' });
+
+async function DELETEApiHandler(req: NextRequest): Promise<NextResponse> {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -72,3 +75,5 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
   }
   return NextResponse.json({ ok: true });
 }
+
+export const DELETE = withApiLog(DELETEApiHandler, { route: '/api/push/subscribe' });

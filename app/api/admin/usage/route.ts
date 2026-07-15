@@ -13,10 +13,11 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { withErrorHandler } from '@/lib/api/error-middleware';
 import { requireAuth, requireRole } from '@/lib/auth/require-auth';
 import { sql } from 'drizzle-orm';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const dynamic = 'force-dynamic';
 
-export const GET = withErrorHandler(async (req: NextRequest) => {
+const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   const forbid = requireRole(auth, ['admin', 'owner']);
@@ -197,6 +198,8 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     },
   });
 });
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/admin/usage' });
 
 function rowsOf(result: unknown): unknown[] {
   if (Array.isArray(result)) return result;

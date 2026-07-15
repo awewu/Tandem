@@ -27,6 +27,7 @@ import { requireAuth, requireRole } from '@/lib/auth/require-auth';
 import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import { classifyNineBox, type NineBoxCell } from '@/lib/types/okr-tti';
 import { computeKpiCompletion } from '@/lib/types/kpi';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 interface SuggestionAction {
   kind: 'decision_card' | 'persona_upgrade';
@@ -135,7 +136,7 @@ const CELL_ACTIONS: Record<
   ],
 };
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -235,3 +236,5 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({ suggestions, total: suggestions.length });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/nine-box/suggestions' });

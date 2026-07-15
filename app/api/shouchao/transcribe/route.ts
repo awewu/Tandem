@@ -19,6 +19,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { transcribe, isSttConfigured } from '@/lib/infra/transcribe';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 export const maxDuration = 120;
@@ -43,7 +44,7 @@ const MEETING_SYSTEM = [
   '规则：忠于原文，不编造未提及的事实；修正明显错别字；去掉口水词。直接输出纪要，不要解释你做了什么。',
 ].join('\n');
 
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   await boot();
@@ -114,3 +115,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, text: result.text, mode: 'raw', polished: false });
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/shouchao/transcribe' });

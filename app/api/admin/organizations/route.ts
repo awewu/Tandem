@@ -15,10 +15,11 @@ import {
   OrgError,
 } from '@/lib/auth/organizations';
 import type { OrganizationCategory } from '@/lib/types/organization';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 const VALID_CATEGORIES: OrganizationCategory[] = ['dealer', 'supplier', 'store', 'contractor', 'partner'];
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -29,7 +30,9 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ ok: true, items });
 }
 
-export async function POST(req: NextRequest) {
+export const GET = withApiLog(GETApiHandler, { route: '/api/admin/organizations' });
+
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -69,3 +72,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/admin/organizations' });

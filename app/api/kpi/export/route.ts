@@ -12,12 +12,13 @@ import { boot, getStore } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import { buildSheet, KPI_COLUMNS } from '@/lib/kpi/excel';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 // 额外只读列, import 时忽略
 const EXPORT_EXTRA_COLUMNS = ['currentValue', 'dataSource', 'createdAt'] as const;
 const ALL_COLUMNS = [...KPI_COLUMNS, ...EXPORT_EXTRA_COLUMNS] as const;
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -68,3 +69,5 @@ export async function GET(req: NextRequest) {
     },
   });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/kpi/export' });

@@ -13,10 +13,11 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { getNote, getOutgoingLinks, getBacklinks } from '@/lib/shouchao/service';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+async function GETApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   await boot();
@@ -38,3 +39,5 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
   return NextResponse.json({ outgoing, backlinks });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/shouchao/notes/[id]/links' });

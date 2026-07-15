@@ -21,6 +21,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot, getRouter } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { searchNotesForAsk } from '@/lib/shouchao/service';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -37,7 +38,7 @@ const SYSTEM_PROMPT = `你是用户的私人笔记助手 (第二大脑)。请【
 - 回答用简洁清晰的中文。引用某条笔记时，在句末用 [n] 标注片段编号（n 为片段前的编号），便于用户溯源。
 - 不要寒暄，直接给答案。`;
 
-export async function POST(req: NextRequest): Promise<Response> {
+async function POSTApiHandler(req: NextRequest): Promise<Response> {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth; // 401
 
@@ -130,3 +131,5 @@ export async function POST(req: NextRequest): Promise<Response> {
     },
   });
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/shouchao/ask' });

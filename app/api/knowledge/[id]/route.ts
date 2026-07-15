@@ -13,6 +13,7 @@ import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { updateNode, deleteNode, moveNode } from '@/lib/knowledge/service';
 import type { KnowledgeOwnership } from '@/lib/types/knowledge';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -25,7 +26,7 @@ interface PatchBody {
   ownership?: KnowledgeOwnership | null;
 }
 
-export async function PATCH(
+async function PATCHApiHandler(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
@@ -58,7 +59,9 @@ export async function PATCH(
   return NextResponse.json({ node });
 }
 
-export async function DELETE(
+export const PATCH = withApiLog(PATCHApiHandler, { route: '/api/knowledge/[id]' });
+
+async function DELETEApiHandler(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
@@ -70,3 +73,5 @@ export async function DELETE(
   if (count === 0) return NextResponse.json({ error: '节点不存在或无权限' }, { status: 404 });
   return NextResponse.json({ ok: true, deleted: count });
 }
+
+export const DELETE = withApiLog(DELETEApiHandler, { route: '/api/knowledge/[id]' });

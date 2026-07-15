@@ -12,8 +12,9 @@ import { boot } from '@/lib/boot';
 import { requireAuth, requireRole } from '@/lib/auth/require-auth';
 import { inviteDownstreamMember, OrgError } from '@/lib/auth/organizations';
 import { isRole, type Role } from '@/lib/auth/roles';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function POST(
+async function POSTApiHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -61,3 +62,5 @@ export async function POST(
     return NextResponse.json({ ok: false, error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/admin/organizations/[id]/invite' });

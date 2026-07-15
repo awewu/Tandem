@@ -9,13 +9,14 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { withErrorHandler } from '@/lib/api/error-middleware';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 interface Body {
   eventId?: unknown;
   notes?: unknown;
 }
 
-export const POST = withErrorHandler(async (req: NextRequest) => {
+const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
 
@@ -69,3 +70,5 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     });
   }
 });
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/calendar/meeting-retro' });

@@ -11,8 +11,9 @@ import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { DATA_STEWARD_ROLES } from '@/lib/auth/roles';
 import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+async function POSTApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -57,7 +58,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 }
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export const POST = withApiLog(POSTApiHandler, { route: '/api/360/cycles/[id]/assignments' });
+
+async function GETApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -67,3 +70,5 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   const mine = all.filter((a) => a.raterId === auth.userId || a.subjectId === auth.userId);
   return NextResponse.json({ assignments: mine });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/360/cycles/[id]/assignments' });

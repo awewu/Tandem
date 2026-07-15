@@ -16,6 +16,7 @@ import {
   GovernanceError,
   type LinkKind,
 } from '@/lib/governance/projects';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 const WRITERS = ['manager', 'admin', 'owner', 'champion', 'steward'];
 
@@ -24,7 +25,7 @@ function parseKind(raw: unknown): LinkKind | null {
   return null;
 }
 
-export async function POST(
+async function POSTApiHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -67,7 +68,9 @@ export async function POST(
   }
 }
 
-export async function DELETE(
+export const POST = withApiLog(POSTApiHandler, { route: '/api/governance/projects/[id]/links' });
+
+async function DELETEApiHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -101,3 +104,5 @@ export async function DELETE(
     return NextResponse.json({ ok: false, error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const DELETE = withApiLog(DELETEApiHandler, { route: '/api/governance/projects/[id]/links' });

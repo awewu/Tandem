@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useOKRStore, type Initiative } from '@/lib/store';
 import { Plus, Trash2, Check, Circle, AlertTriangle, X, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useOwnerDirectory } from '@/lib/org/use-owner-directory';
 
 interface Props {
   scope: 'kr' | 'objective';
@@ -27,7 +28,7 @@ const PRIORITY_OPTIONS: { v: Initiative['priority']; label: string; cls: string 
 
 export function OKRInitiatives({ scope, scopeId }: Props) {
   const initiatives = useOKRStore((s) => s.initiatives.filter((i) => i.scope === scope && i.scopeId === scopeId));
-  const people = useOKRStore((s) => s.people);
+  const { nameOf } = useOwnerDirectory();
   const currentUserId = useOKRStore((s) => s.currentUserId);
   const addInitiative = useOKRStore((s) => s.addInitiative);
   const updateInitiative = useOKRStore((s) => s.updateInitiative);
@@ -114,7 +115,7 @@ export function OKRInitiatives({ scope, scopeId }: Props) {
 
       <div className="space-y-1">
         {sorted.map((init) => {
-          const owner = people.find((p) => p.id === init.ownerId);
+          const ownerName = nameOf(init.ownerId);
           const status = STATUS_OPTIONS.find((s) => s.v === init.status)!;
           const priority = PRIORITY_OPTIONS.find((p) => p.v === init.priority)!;
           const StatusIcon = status.icon;
@@ -151,11 +152,9 @@ export function OKRInitiatives({ scope, scopeId }: Props) {
                 {priority.label}
               </span>
               {overdue && <span className="text-[10px] text-danger shrink-0">逾期</span>}
-              {owner && (
-                <span className="text-[10px] text-muted-foreground shrink-0" title={owner.name}>
-                  {owner.name.slice(0, 1)}
-                </span>
-              )}
+              <span className="text-[10px] text-muted-foreground shrink-0" title={ownerName}>
+                {ownerName.slice(0, 1)}
+              </span>
               <button
                 onClick={() => deleteInitiative(init.id)}
                 className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-danger shrink-0"

@@ -7,8 +7,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { listTemplateVersions } from '@/lib/governance/projects';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function GET(
+async function GETApiHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -20,3 +21,5 @@ export async function GET(
   const versions = await listTemplateVersions(id);
   return NextResponse.json({ ok: true, versions });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/governance/projects/[id]/versions' });

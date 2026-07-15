@@ -9,10 +9,11 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { sendPhoneCode, PhoneLoginError } from '@/lib/auth/phone-login';
 import { rateLimit, POLICIES, getClientIp } from '@/lib/infra/rate-limit';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   await boot();
 
   const ip = getClientIp(req.headers);
@@ -41,3 +42,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/auth/phone/send-code' });

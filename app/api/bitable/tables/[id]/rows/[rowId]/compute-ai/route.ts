@@ -15,8 +15,9 @@ import { requireAuth } from '@/lib/auth/require-auth';
 import { getStore } from '@/lib/storage/repository';
 import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import { computeAiCellsForRow } from '@/lib/services/bitable-ai-compute';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function POST(
+async function POSTApiHandler(
   req: NextRequest,
   { params }: { params: { id: string; rowId: string } },
 ) {
@@ -46,3 +47,5 @@ export async function POST(
     return NextResponse.json({ error: msg }, { status });
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/bitable/tables/[id]/rows/[rowId]/compute-ai' });

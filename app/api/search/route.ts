@@ -4,10 +4,11 @@ import { createAppContext } from '@/lib/repositories/app-context-factory';
 import { DocumentService } from '@/lib/services/document-service';
 import { CalendarService } from '@/lib/services/calendar-service';
 import { DriveService } from '@/lib/services/drive-service';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const dynamic = 'force-dynamic';
 
-export const GET = withErrorHandler(async (req: Request) => {
+const GETApiHandler = withErrorHandler(async (req: Request) => {
   const { searchParams } = new URL(req.url);
   const q = (searchParams.get('q') ?? '').toLowerCase().trim();
   const typesParam = searchParams.get('types') ?? 'all';
@@ -53,3 +54,5 @@ export const GET = withErrorHandler(async (req: Request) => {
   results.sort((a, b) => String(b.matchedAt).localeCompare(String(a.matchedAt)));
   return NextResponse.json({ query: q, types, total: results.length, results: results.slice(0, 50) });
 });
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/search' });

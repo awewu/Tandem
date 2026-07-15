@@ -4,6 +4,7 @@ import { login, AuthError } from '@/lib/auth/native';
 import { COOKIE_ACCESS, COOKIE_REFRESH, SESSION_COOKIE_OPTIONS, DESKTOP_SESSION_TTL_SEC } from '@/lib/auth/session';
 import { rateLimit, POLICIES, getClientIp } from '@/lib/infra/rate-limit';
 import { logger } from '@/lib/infra/logger';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /**
  * POST /api/auth/login
@@ -11,7 +12,7 @@ import { logger } from '@/lib/infra/logger';
  *
  * §T10 防暴力: per-IP sliding window 限流 (默认 5/h, env 可调)
  */
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   const ip = getClientIp(req.headers);
   const rl = await rateLimit({ key: `login:${ip}`, ...POLICIES.login() });
@@ -86,3 +87,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/auth/login' });

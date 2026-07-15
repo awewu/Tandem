@@ -11,6 +11,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { withErrorHandler } from '@/lib/api/error-middleware';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { safeFetch, SsrfBlockedError } from '@/lib/infra/ssrf-guard';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 
@@ -48,7 +49,7 @@ function htmlToText(html: string): string {
     .trim();
 }
 
-export const POST = withErrorHandler(async (req: NextRequest) => {
+const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
 
@@ -95,3 +96,5 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     return NextResponse.json({ ok: false, error: friendly }, { status: 502 });
   }
 });
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/shouchao/clip' });

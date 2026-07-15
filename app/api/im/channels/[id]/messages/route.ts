@@ -9,12 +9,13 @@ import { getChannelMessages, sendMessage, getChannelIfMember } from '@/lib/im/se
 import { requireAuth } from '@/lib/auth/require-auth';
 import { rateLimit, POLICIES } from '@/lib/infra/rate-limit';
 import { deferAudit } from '@/lib/audit/defer';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 interface Params {
   params: { id: string };
 }
 
-export async function GET(req: NextRequest, { params }: Params) {
+async function GETApiHandler(req: NextRequest, { params }: Params) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -28,7 +29,9 @@ export async function GET(req: NextRequest, { params }: Params) {
   return NextResponse.json({ messages });
 }
 
-export async function POST(req: NextRequest, { params }: Params) {
+export const GET = withApiLog(GETApiHandler, { route: '/api/im/channels/[id]/messages' });
+
+async function POSTApiHandler(req: NextRequest, { params }: Params) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -73,3 +76,5 @@ export async function POST(req: NextRequest, { params }: Params) {
     );
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/im/channels/[id]/messages' });

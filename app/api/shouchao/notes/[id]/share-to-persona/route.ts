@@ -11,10 +11,11 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { setSharedToPersona } from '@/lib/shouchao/service';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+async function POSTApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   await boot();
@@ -38,3 +39,5 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (!note) return NextResponse.json({ error: 'not_found' }, { status: 404 });
   return NextResponse.json({ note });
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/shouchao/notes/[id]/share-to-persona' });

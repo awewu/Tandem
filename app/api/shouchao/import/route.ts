@@ -23,6 +23,7 @@ import { requireAuth } from '@/lib/auth/require-auth';
 import { createNote } from '@/lib/shouchao/service';
 import { extractDocument, MAX_FILE_BYTES } from '@/lib/infra/document-extract';
 import { safeFetch, SsrfBlockedError } from '@/lib/infra/ssrf-guard';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -93,7 +94,7 @@ const DISTILL_SYSTEM = [
   '- 忠于原文，不编造原文没有的事实。',
 ].join('\n');
 
-export const POST = withErrorHandler(async (req: NextRequest) => {
+const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   await boot();
@@ -230,3 +231,5 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     return NextResponse.json({ ok: false, error: `提炼失败：${msg}` }, { status: 503 });
   }
 });
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/shouchao/import' });

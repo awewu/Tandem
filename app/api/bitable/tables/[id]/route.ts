@@ -4,8 +4,9 @@ import { requireAuth } from '@/lib/auth/require-auth';
 import { getStore, generateId } from '@/lib/storage/repository';
 import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import type { BitableColumn } from '@/lib/types/bitable';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+async function GETApiHandler(_req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
   const auth = requireAuth(_req);
   if (auth instanceof NextResponse) return auth;
@@ -17,6 +18,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   return NextResponse.json({ table });
 }
 
+export const GET = withApiLog(GETApiHandler, { route: '/api/bitable/tables/[id]' });
+
 /**
  * D-02: PATCH 用于增删改列 (columns) 与基本属性 (name/description).
  * Body 形态:
@@ -25,7 +28,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
  *   - { updateColumn: { id, ...partial } }
  *   - { removeColumnId: string }
  */
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+async function PATCHApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -79,7 +82,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   return NextResponse.json({ table: updated });
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export const PATCH = withApiLog(PATCHApiHandler, { route: '/api/bitable/tables/[id]' });
+
+async function DELETEApiHandler(_req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
   const auth = requireAuth(_req);
   if (auth instanceof NextResponse) return auth;
@@ -92,3 +97,5 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   await tables.delete(params.id);
   return NextResponse.json({ ok: true });
 }
+
+export const DELETE = withApiLog(DELETEApiHandler, { route: '/api/bitable/tables/[id]' });

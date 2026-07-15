@@ -15,6 +15,7 @@ import {
   decryptSecret,
 } from '@/lib/auth/mfa';
 import QRCode from 'qrcode';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /**
  * POST /api/auth/mfa/setup
@@ -23,7 +24,7 @@ import QRCode from 'qrcode';
  *   1. 不带 totpCode  → 生成 secret, 返回 otpauthUri + recoveryCodes (一次)
  *      (此时不写库, 客户端拿着 secret 让用户扫码)
  *   2. 带 { secretBase32, totpCode } → 校验 totpCode 后入库 */
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   const at = req.cookies.get(COOKIE_ACCESS)?.value;
   const payload = at ? verifyAccessToken(at) : null;
@@ -90,10 +91,12 @@ export async function POST(req: NextRequest) {
   return res;
 }
 
+export const POST = withApiLog(POSTApiHandler, { route: '/api/auth/mfa/setup' });
+
 /**
  * GET /api/auth/mfa/setup
  * 查询当前 MFA 状态 */
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const at = req.cookies.get(COOKIE_ACCESS)?.value;
   const payload = at ? verifyAccessToken(at) : null;
@@ -106,6 +109,8 @@ export async function GET(req: NextRequest) {
     sessionMfaVerified: payload.mfa,
   });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/auth/mfa/setup' });
 
 /**
  * 触发触发: 解密一次自检 (仅 dev 用, 生产移除)

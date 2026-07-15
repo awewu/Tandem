@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { readManifest, compareVersions } from '@/lib/desktop/releases';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /**
  * GET /api/desktop/update/{{target}}/{{arch}}/{{current_version}}
@@ -20,7 +21,7 @@ function originOf(req: NextRequest): string {
   return new URL(req.url).origin;
 }
 
-export async function GET(
+async function GETApiHandler(
   req: NextRequest,
   { params }: { params: { target: string; arch: string; version: string } },
 ) {
@@ -51,3 +52,5 @@ export async function GET(
     signature: platform.signature,
   });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/desktop/update/[target]/[arch]/[version]' });

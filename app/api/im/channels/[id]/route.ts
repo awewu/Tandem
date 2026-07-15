@@ -11,8 +11,9 @@ import { boot } from '@/lib/boot';
 import { getStore } from '@/lib/storage/repository';
 import { updateChannelMeta, dissolveChannel, transferOwner } from '@/lib/im/service';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function GET(
+async function GETApiHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -33,7 +34,9 @@ export async function GET(
   return NextResponse.json({ channel });
 }
 
-export async function PATCH(
+export const GET = withApiLog(GETApiHandler, { route: '/api/im/channels/[id]' });
+
+async function PATCHApiHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -57,8 +60,10 @@ export async function PATCH(
   }
 }
 
+export const PATCH = withApiLog(PATCHApiHandler, { route: '/api/im/channels/[id]' });
+
 /** DELETE /api/im/channels/:id   解散群 (owner only) */
-export async function DELETE(
+async function DELETEApiHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -74,8 +79,10 @@ export async function DELETE(
   }
 }
 
+export const DELETE = withApiLog(DELETEApiHandler, { route: '/api/im/channels/[id]' });
+
 /** PUT /api/im/channels/:id   { newOwnerId } 转让群主 (owner only) */
-export async function PUT(
+async function PUTApiHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -92,3 +99,5 @@ export async function PUT(
     return NextResponse.json({ error: (err as Error).message }, { status: 400 });
   }
 }
+
+export const PUT = withApiLog(PUTApiHandler, { route: '/api/im/channels/[id]' });

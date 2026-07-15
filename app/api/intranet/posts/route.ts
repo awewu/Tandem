@@ -12,10 +12,11 @@ import { requireRole } from '@/lib/auth/require-auth';
 import { DATA_STEWARD_ROLES } from '@/lib/auth/roles';
 import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import type { IntranetPost, IntranetPostType } from '@/lib/types/intranet-post';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 const VALID_TYPES: IntranetPostType[] = ['announcement', 'policy', 'event', 'benefit'];
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -49,7 +50,9 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
+export const GET = withApiLog(GETApiHandler, { route: '/api/intranet/posts' });
+
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -95,3 +98,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/intranet/posts' });

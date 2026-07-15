@@ -8,6 +8,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { syncKrFromInitiatives } from '@/lib/okr/execution-rollup';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 async function authorize(initiativeId: string, requesterId: string, demo: boolean) {
   const store = getStore();
@@ -23,7 +24,7 @@ async function authorize(initiativeId: string, requesterId: string, demo: boolea
   return { init };
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+async function PATCHApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -54,7 +55,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export const PATCH = withApiLog(PATCHApiHandler, { route: '/api/okr/initiatives/[id]' });
+
+async function DELETEApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -77,3 +80,5 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   }
   return NextResponse.json({ ok: true, execRollup });
 }
+
+export const DELETE = withApiLog(DELETEApiHandler, { route: '/api/okr/initiatives/[id]' });

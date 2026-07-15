@@ -9,8 +9,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requireAuth, requireRole } from '@/lib/auth/require-auth';
 import { rejectApplication, ApplicationError } from '@/lib/auth/applications';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function POST(
+async function POSTApiHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -45,3 +46,5 @@ export async function POST(
     return NextResponse.json({ ok: false, error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/admin/user-applications/[id]/reject' });

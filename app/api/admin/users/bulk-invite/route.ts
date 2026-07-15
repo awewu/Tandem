@@ -18,6 +18,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot, getStore } from '@/lib/boot';
 import { COOKIE_ACCESS, verifyAccessToken } from '@/lib/auth/session';
 import { generateInviteCode, defaultExpiry } from '@/lib/auth/invite';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 interface InviteRow {
   email: string;
@@ -89,7 +90,7 @@ async function parseExcel(buffer: Buffer): Promise<InviteRow[]> {
     .filter((r): r is InviteRow => r !== null);
 }
 
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   const at = req.cookies.get(COOKIE_ACCESS)?.value;
   const payload = at ? verifyAccessToken(at) : null;
@@ -178,3 +179,5 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ ok: true, results, summary });
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/admin/users/bulk-invite' });

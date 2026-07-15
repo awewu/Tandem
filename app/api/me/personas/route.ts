@@ -11,6 +11,7 @@ import { requireAuth } from '@/lib/auth/require-auth';
 import { getPrimaryPersona, listSkillPersonas } from '@/lib/persona/persona-lookup';
 import { MAX_SKILL_PERSONAS_PER_USER } from '@/lib/types/persona';
 import type { Persona } from '@/lib/types/persona';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,7 +29,7 @@ function view(p: Persona) {
   };
 }
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -46,3 +47,5 @@ export async function GET(req: NextRequest) {
     remaining: Math.max(0, MAX_SKILL_PERSONAS_PER_USER - skills.length),
   });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/me/personas' });

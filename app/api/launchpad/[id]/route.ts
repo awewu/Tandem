@@ -10,8 +10,9 @@ import { createAppContext } from '@/lib/repositories/app-context-factory';
 import { LaunchpadService } from '@/lib/services/launchpad-service';
 import { boot } from '@/lib/boot';
 import type { LaunchpadApp } from '@/lib/types/launchpad';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export const GET = withErrorHandler(async (req: NextRequest, { params }: { params: { id: string } }) => {
+const GETApiHandler = withErrorHandler(async (req: NextRequest, { params }: { params: { id: string } }) => {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -23,7 +24,9 @@ export const GET = withErrorHandler(async (req: NextRequest, { params }: { param
   return NextResponse.json({ app });
 });
 
-export const PATCH = withErrorHandler(async (req: NextRequest, { params }: { params: { id: string } }) => {
+export const GET = withApiLog(GETApiHandler, { route: '/api/launchpad/[id]' });
+
+const PATCHApiHandler = withErrorHandler(async (req: NextRequest, { params }: { params: { id: string } }) => {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -42,7 +45,9 @@ export const PATCH = withErrorHandler(async (req: NextRequest, { params }: { par
   return NextResponse.json({ app });
 });
 
-export const DELETE = withErrorHandler(async (req: NextRequest, { params }: { params: { id: string } }) => {
+export const PATCH = withApiLog(PATCHApiHandler, { route: '/api/launchpad/[id]' });
+
+const DELETEApiHandler = withErrorHandler(async (req: NextRequest, { params }: { params: { id: string } }) => {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -52,3 +57,5 @@ export const DELETE = withErrorHandler(async (req: NextRequest, { params }: { pa
   await svc.delete(params.id);
   return NextResponse.json({ ok: true });
 });
+
+export const DELETE = withApiLog(DELETEApiHandler, { route: '/api/launchpad/[id]' });

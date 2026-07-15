@@ -9,6 +9,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { withErrorHandler } from '@/lib/api/error-middleware';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 interface Body {
   text?: unknown;
@@ -25,7 +26,7 @@ interface NLPEvent {
   description?: string;
 }
 
-export const POST = withErrorHandler(async (req: NextRequest) => {
+const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
 
@@ -111,6 +112,8 @@ JSON 字段：
     return NextResponse.json({ ok: false, error: 'AI 解析失败' }, { status: 500 });
   }
 });
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/calendar/nlp-create' });
 
 function addHour(time: string): string {
   const [h, m] = time.split(':').map(Number);

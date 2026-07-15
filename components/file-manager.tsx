@@ -344,7 +344,9 @@ export function FileManager({
   // === 删除 ===
   const handleDelete = (ids: string[]) => {
     if (ids.length === 0) return;
-    if (window.confirm(`确定删除选中的 ${ids.length} 项？此操作不可撤销。`)) {
+    const containsFolder = ids.some((id) => nodes.find((node) => node.id === id)?.type === 'folder');
+    const folderWarning = containsFolder ? ' 文件夹内的全部资料也会一起删除。' : '';
+    if (window.confirm(`确定删除选中的 ${ids.length} 项？${folderWarning}此操作不可撤销。`)) {
       onDelete(ids);
       setSelectedIds(new Set());
     }
@@ -733,13 +735,13 @@ export function FileManager({
             <Button
               variant="ghost"
               size="sm"
-              className="flex-1 h-7 text-footnote"
+              className="h-7 min-w-0 flex-1 px-1 text-footnote"
               onClick={() => setCreatingFolder(true)}
             >
               <Plus className="h-3 w-3 mr-1" /> 新建
             </Button>
             {onUpload && (
-              <label className="flex-1">
+              <label className="min-w-0 flex-1">
                 <input
                   type="file"
                   multiple
@@ -752,11 +754,22 @@ export function FileManager({
                     }
                   }}
                 />
-                <Button variant="ghost" size="sm" className="w-full h-7 text-footnote" asChild>
+                <Button variant="ghost" size="sm" className="h-7 w-full px-1 text-footnote" asChild>
                   <span><UploadIcon className="h-3 w-3 mr-1" /> 上传</span>
                 </Button>
               </label>
             )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 min-w-0 flex-1 px-1 text-footnote text-danger hover:text-danger"
+              disabled={selectedIds.size === 0}
+              onClick={() => handleDelete(Array.from(selectedIds))}
+              title={selectedIds.size > 0 ? `删除选中的 ${selectedIds.size} 项` : '请先选择要删除的资料'}
+              aria-label={selectedIds.size > 0 ? `删除选中的 ${selectedIds.size} 项` : '删除资料'}
+            >
+              <Trash2 className="mr-1 h-3 w-3" /> 删除
+            </Button>
           </div>
           {creatingFolder && (
             <div className="px-2 py-1.5 border-b bg-background">

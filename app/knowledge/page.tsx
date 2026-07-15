@@ -5,7 +5,16 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { type KNode, useChatStore } from '@/lib/store';
 import { FileManager, type FMNode } from '@/components/file-manager';
+import {
+  KnowledgeSpreadsheetEditor,
+  KnowledgeSpreadsheetPreview,
+} from '@/components/knowledge-spreadsheet';
 import { parseDocument, SUPPORTED_ACCEPT } from '@/lib/document-parser';
+import {
+  isSpreadsheetFilename,
+  parseSpreadsheetContent,
+  writeSpreadsheetFile,
+} from '@/lib/knowledge/spreadsheet-content';
 import { Save, Download, ArrowRightLeft, Building2, Users, User, Lock } from 'lucide-react';
 
 /**
@@ -110,20 +119,30 @@ export default function KnowledgePage() {
     [reload],
   );
 
-  const deleteNode = useCallback(
-    async (id: string) => {
-      await fetch(`/api/knowledge/${encodeURIComponent(id)}`, { method: 'DELETE', credentials: 'include' });
-      await reload();
-    },
-    [reload],
-  );
-
   const deleteNodes = useCallback(
     async (ids: string[]) => {
-      await Promise.allSettled(
-        ids.map((id) => fetch(`/api/knowledge/${encodeURIComponent(id)}`, { method: 'DELETE', credentials: 'include' })),
-      );
+      setUploadStatus(`正在删除 ${ids.length} 项…`);
+      const results = await Promise.all(ids.map(async (id) => {
+        try {
+          const response = await fetch(`/api/knowledge/${encodeURIComponent(id)}`, {
+            method: 'DELETE',
+            credentials: 'include',
+          });
+          if (!response.ok) return { ok: false, deleted: 0 };
+          const body = await response.json() as { deleted?: number };
+          return { ok: true, deleted: Math.max(1, body.deleted ?? 1) };
+        } catch {
+          return { ok: false, deleted: 0 };
+        }
+      }));
+      const success = results.filter((result) => result.ok).length;
+      const deleted = results.reduce((sum, result) => sum + result.deleted, 0);
+      const failed = results.length - success;
       await reload();
+      setUploadStatus(failed === 0
+        ? `已删除 ${deleted} 项`
+        : `删除完成：成功 ${success}，失败 ${failed}`);
+      window.setTimeout(() => setUploadStatus(''), 4000);
     },
     [reload],
   );
@@ -200,8 +219,7 @@ export default function KnowledgePage() {
   };
 
   const handleDelete = (ids: string[]) => {
-    if (ids.length === 1) deleteNode(ids[0]);
-    else deleteNodes(ids);
+    void deleteNodes(ids);
     if (ids.includes(editingId || '')) setEditingId(null);
   };
 
@@ -253,11 +271,18 @@ export default function KnowledgePage() {
   };
 
   const downloadNode = (node: KNode) => {
-    const blob = new Blob([node.content || ''], { type: 'text/plain' });
+    const spreadsheet = isSpreadsheetFilename(node.name)
+      ? parseSpreadsheetContent(node.content || '')
+      : null;
+    const blob = spreadsheet
+      ? new Blob([writeSpreadsheetFile(spreadsheet)], {
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        })
+      : new Blob([node.content || ''], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = node.name;
+    a.download = spreadsheet ? node.name.replace(/\.(xls|ods)$/i, '.xlsx') : node.name;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -369,10 +394,14 @@ export default function KnowledgePage() {
             {k.content && (
               <div className="pt-2 border-t">
                 <div className="text-footnote font-medium mb-1.5">预览</div>
-                <pre className="text-[10px] font-mono whitespace-pre-wrap break-words bg-muted/40 p-2 rounded max-h-64 overflow-auto leading-relaxed">
-                  {k.content.slice(0, 1500)}
-                  {k.content.length > 1500 && '\n…'}
-                </pre>
+                {isSpreadsheetFilename(k.name) && parseSpreadsheetContent(k.content) ? (
+                  <KnowledgeSpreadsheetPreview value={k.content} />
+                ) : (
+                  <pre className="text-[10px] font-mono whitespace-pre-wrap break-words bg-muted/40 p-2 rounded max-h-64 overflow-auto leading-relaxed">
+                    {k.content.slice(0, 1500)}
+                    {k.content.length > 1500 && '\n…'}
+                  </pre>
+                )}
               </div>
             )}
           </>
@@ -388,6 +417,7 @@ export default function KnowledgePage() {
       setEditingId(null);
       return null;
     }
+    const spreadsheet = isSpreadsheetFilename(k.name) && parseSpreadsheetContent(editContent);
     return (
       <div className="flex flex-col h-full">
         <div className="flex items-center justify-between px-4 h-11 border-b">
@@ -399,12 +429,16 @@ export default function KnowledgePage() {
             </Button>
           </div>
         </div>
-        <Textarea
-          value={editContent}
-          onChange={(e) => setEditContent(e.target.value)}
-          className="flex-1 font-mono text-footnote resize-none border-0 rounded-none focus-visible:ring-0"
-          placeholder="文件内容..."
-        />
+        {spreadsheet ? (
+          <KnowledgeSpreadsheetEditor value={editContent} onChange={setEditContent} />
+        ) : (
+          <Textarea
+            value={editContent}
+            onChange={(e) => setEditContent(e.target.value)}
+            className="flex-1 font-mono text-footnote resize-none border-0 rounded-none focus-visible:ring-0"
+            placeholder="文件内容..."
+          />
+        )}
       </div>
     );
   }

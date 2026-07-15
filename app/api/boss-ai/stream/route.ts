@@ -26,6 +26,7 @@ import { compactMessages } from '@/lib/agent-runtime/compaction';
 import { buildUserContent } from '@/lib/agent-runtime/tool-loop';
 import { rateLimit, POLICIES } from '@/lib/infra/rate-limit';
 import type { ChatMessage } from '@/lib/taf/provider/types';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -58,7 +59,7 @@ interface RequestBody {
   images?: string[];
 }
 
-export async function POST(req: NextRequest): Promise<Response> {
+async function POSTApiHandler(req: NextRequest): Promise<Response> {
   const auth = requireAuth(req);
   if (!('userId' in auth)) return auth; // 401
 
@@ -479,11 +480,13 @@ export async function POST(req: NextRequest): Promise<Response> {
   });
 }
 
+export const POST = withApiLog(POSTApiHandler, { route: '/api/boss-ai/stream' });
+
 /**
  * GET /api/boss-ai/stream · 仅做 health probe (返回当前 CompanyBrain 路由信息)
  * 客户端首屏可调用此端点确认 provider 在线.
  */
-export async function GET(req: NextRequest): Promise<Response> {
+async function GETApiHandler(req: NextRequest): Promise<Response> {
   const auth = requireAuth(req);
   if (!('userId' in auth)) return auth;
 
@@ -498,6 +501,8 @@ export async function GET(req: NextRequest): Promise<Response> {
     { headers: { 'Content-Type': 'application/json' } },
   );
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/boss-ai/stream' });
 
 // ──────────────────────────────────────────────────────────────────
 // helpers

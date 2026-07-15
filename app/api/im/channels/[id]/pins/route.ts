@@ -7,8 +7,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { togglePinMessage } from '@/lib/im/service';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function POST(
+async function POSTApiHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -34,3 +35,5 @@ export async function POST(
     );
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/im/channels/[id]/pins' });

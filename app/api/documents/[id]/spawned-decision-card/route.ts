@@ -23,12 +23,13 @@ import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { audit } from '@/lib/audit/log';
 import { createAppContext } from '@/lib/repositories/app-context-factory';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 interface Params {
   params: { id: string };
 }
 
-export async function PATCH(req: NextRequest, { params }: Params) {
+async function PATCHApiHandler(req: NextRequest, { params }: Params) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
 
@@ -85,3 +86,5 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     { status: 200 },
   );
 }
+
+export const PATCH = withApiLog(PATCHApiHandler, { route: '/api/documents/[id]/spawned-decision-card' });

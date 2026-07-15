@@ -3,8 +3,9 @@ import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { createAppContext } from '@/lib/repositories/app-context-factory';
 import { docAccess } from '@/lib/documents/access';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+async function GETApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -14,6 +15,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   if (doc.tenantId !== auth.tenantId) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   return NextResponse.json({ ...doc, ...docAccess(auth, doc) });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/documents/[id]' });
 
 async function applyUpdate(
   req: NextRequest,
@@ -41,15 +44,19 @@ async function applyUpdate(
   return NextResponse.json(updated);
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+async function PUTApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   return applyUpdate(req, params);
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export const PUT = withApiLog(PUTApiHandler, { route: '/api/documents/[id]' });
+
+async function PATCHApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   return applyUpdate(req, params);
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export const PATCH = withApiLog(PATCHApiHandler, { route: '/api/documents/[id]' });
+
+async function DELETEApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -64,3 +71,5 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   await documentRepo.softDelete(params.id);
   return NextResponse.json({ ok: true });
 }
+
+export const DELETE = withApiLog(DELETEApiHandler, { route: '/api/documents/[id]' });

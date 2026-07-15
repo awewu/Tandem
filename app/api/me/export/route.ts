@@ -32,8 +32,9 @@ import { COOKIE_ACCESS, verifyAccessToken } from '@/lib/auth/session';
 import { getStore } from '@/lib/storage/repository';
 import { getPrimaryPersona } from '@/lib/persona/persona-lookup';
 import { audit } from '@/lib/audit/log';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
 
   // -------- 鉴权 --------
@@ -224,3 +225,5 @@ export async function GET(req: NextRequest) {
     },
   });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/me/export' });

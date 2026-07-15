@@ -5,6 +5,7 @@ import { requireAuth } from '@/lib/auth/require-auth';
 import { COOKIE_ACCESS, COOKIE_REFRESH } from '@/lib/auth/session';
 import { rateLimit, POLICIES, getClientIp } from '@/lib/infra/rate-limit';
 import { logger } from '@/lib/infra/logger';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /**
  * POST /api/auth/change-password
@@ -16,7 +17,7 @@ import { logger } from '@/lib/infra/logger';
  *   - 成功后撤销全部会话 → 清 cookie, 客户端需重新登录
  *   - per-IP 限流复用 login 策略, 防爆破
  */
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   await boot();
 
   const auth = requireAuth(req);
@@ -71,3 +72,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/auth/change-password' });

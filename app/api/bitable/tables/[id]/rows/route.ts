@@ -2,8 +2,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { getStore, generateId } from '@/lib/storage/repository';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+async function POSTApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -27,7 +28,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   return NextResponse.json({ row, table: updated });
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export const POST = withApiLog(POSTApiHandler, { route: '/api/bitable/tables/[id]/rows' });
+
+async function PATCHApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -45,3 +48,5 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const updated = await store.bitableTables.update(params.id, { rows, updatedAt: now });
   return NextResponse.json({ table: updated });
 }
+
+export const PATCH = withApiLog(PATCHApiHandler, { route: '/api/bitable/tables/[id]/rows' });

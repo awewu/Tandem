@@ -3,6 +3,7 @@ import { boot } from '@/lib/boot';
 import { COOKIE_ACCESS, verifyAccessToken } from '@/lib/auth/session';
 import { getStore } from '@/lib/storage/repository';
 import { generateInviteCode, defaultExpiry } from '@/lib/auth/invite';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /**
  * POST /api/auth/invite
@@ -11,7 +12,7 @@ import { generateInviteCode, defaultExpiry } from '@/lib/auth/invite';
  * 仅 admin / manager 角色可创建邀请码.
  * 返回明文邀请码 (仅一次, 务必给受邀者).
  */
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   const at = req.cookies.get(COOKIE_ACCESS)?.value;
   const payload = at ? verifyAccessToken(at) : null;
@@ -58,11 +59,13 @@ export async function POST(req: NextRequest) {
   });
 }
 
+export const POST = withApiLog(POSTApiHandler, { route: '/api/auth/invite' });
+
 /**
  * GET /api/auth/invite
  * 列出当前用户发出的邀请码 (不返回明文)
  */
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const at = req.cookies.get(COOKIE_ACCESS)?.value;
   const payload = at ? verifyAccessToken(at) : null;
@@ -81,3 +84,5 @@ export async function GET(req: NextRequest) {
     })),
   });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/auth/invite' });

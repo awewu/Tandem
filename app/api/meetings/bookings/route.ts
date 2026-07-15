@@ -4,8 +4,9 @@ import { getStore } from "@/lib/storage/repository";
 import { withErrorHandler } from "@/lib/api/error-middleware";
 import { requireAuth } from "@/lib/auth/require-auth";
 import type { MeetingBooking } from "@/lib/types/meeting-booking";
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export const GET = withErrorHandler(async (req: NextRequest) => {
+const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -14,7 +15,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   return Response.json({ bookings: list });
 });
 
-export const POST = withErrorHandler(async (req: NextRequest) => {
+export const GET = withApiLog(GETApiHandler, { route: '/api/meetings/bookings' });
+
+const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -38,3 +41,5 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   });
   return Response.json(booking, { status: 201 });
 });
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/meetings/bookings' });

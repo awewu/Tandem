@@ -17,12 +17,13 @@ import { boot } from '@/lib/boot';
 import { promoteImMessageToMemory, getChannelIfMember } from '@/lib/im/service';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { getStore } from '@/lib/storage/repository';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 interface Params {
   params: { id: string };
 }
 
-export async function POST(req: NextRequest, { params }: Params) {
+async function POSTApiHandler(req: NextRequest, { params }: Params) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -45,3 +46,5 @@ export async function POST(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/im/messages/[id]/promote-to-memory' });

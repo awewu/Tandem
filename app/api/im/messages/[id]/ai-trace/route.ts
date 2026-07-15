@@ -21,10 +21,11 @@ import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { getStore } from '@/lib/storage/repository';
 import { getChannelIfMember } from '@/lib/im/service';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 
-export async function GET(
+async function GETApiHandler(
   req: NextRequest,
   { params }: { params: { id: string } }
 ): Promise<NextResponse> {
@@ -116,3 +117,5 @@ export async function GET(
     trace: Object.keys(trace).length > 0 ? trace : null,
   });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/im/messages/[id]/ai-trace' });

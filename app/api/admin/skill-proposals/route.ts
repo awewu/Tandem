@@ -16,10 +16,11 @@ import { detectPatterns } from '@/lib/skills/pattern-detector';
 import { generateSkillProposal, reviewSkillProposal } from '@/lib/skills/skill-proposal';
 import { getStore } from '@/lib/storage/repository';
 import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 
-export async function GET(req: NextRequest): Promise<NextResponse> {
+async function GETApiHandler(req: NextRequest): Promise<NextResponse> {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -43,7 +44,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   return NextResponse.json({ proposals: all, total: all.length });
 }
 
-export async function POST(req: NextRequest): Promise<NextResponse> {
+export const GET = withApiLog(GETApiHandler, { route: '/api/admin/skill-proposals' });
+
+async function POSTApiHandler(req: NextRequest): Promise<NextResponse> {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -99,7 +102,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   });
 }
 
-export async function PATCH(req: NextRequest): Promise<NextResponse> {
+export const POST = withApiLog(POSTApiHandler, { route: '/api/admin/skill-proposals' });
+
+async function PATCHApiHandler(req: NextRequest): Promise<NextResponse> {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -132,3 +137,5 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
   }
   return NextResponse.json({ ok: true, proposal: updated });
 }
+
+export const PATCH = withApiLog(PATCHApiHandler, { route: '/api/admin/skill-proposals' });

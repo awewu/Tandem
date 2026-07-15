@@ -13,10 +13,11 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requireAuth, requireRole } from '@/lib/auth/require-auth';
 import { setOptimizationProposalStatus } from '@/lib/persona/company-brain-reflection';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 
-export async function PATCH(req: NextRequest): Promise<NextResponse> {
+async function PATCHApiHandler(req: NextRequest): Promise<NextResponse> {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -55,3 +56,5 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
   }
   return NextResponse.json({ ok: true, report: updated });
 }
+
+export const PATCH = withApiLog(PATCHApiHandler, { route: '/api/admin/company-brain/reflection/proposal' });

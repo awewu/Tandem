@@ -2,12 +2,13 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { getPrimaryPersona } from '@/lib/persona/persona-lookup';
 import { computeStageProgress } from '@/lib/persona/learning-collector';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /**
  * GET /api/persona/[userId]/progress
  * 返回 Persona 的阶段进化进度 (用于 StageProgressDashboard)
  */
-export async function GET(
+async function GETApiHandler(
   _req: NextRequest,
   { params }: { params: { userId: string } }
 ) {
@@ -24,3 +25,5 @@ export async function GET(
     bossCaptureScore: persona.bossCaptureScore,
   });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/persona/[userId]/progress' });

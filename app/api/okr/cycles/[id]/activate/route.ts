@@ -14,8 +14,9 @@ import { getStore } from '@/lib/storage/repository';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import { eventBus } from '@/lib/events/bus';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function POST(
+async function POSTApiHandler(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
@@ -62,3 +63,5 @@ export async function POST(
 
   return NextResponse.json({ cycle: updated, previousCycleId: previousActive?.id ?? null });
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/okr/cycles/[id]/activate' });

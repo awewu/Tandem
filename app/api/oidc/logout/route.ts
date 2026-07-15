@@ -10,11 +10,12 @@ import { COOKIE_ACCESS, COOKIE_REFRESH } from '@/lib/auth/session';
 import { getClient, isPostLogoutRedirectAllowed } from '@/lib/oidc/clients';
 import { verifyRs256 } from '@/lib/oidc/tokens';
 import { resolveIssuer } from '@/lib/oidc/discovery';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const { searchParams } = new URL(req.url);
   // 反代后 req.url 的 origin 是内部监听地址 (0.0.0.0:3000); 用对外公网基址.
@@ -46,3 +47,5 @@ export async function GET(req: NextRequest) {
   res.cookies.delete(COOKIE_REFRESH);
   return res;
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/oidc/logout' });

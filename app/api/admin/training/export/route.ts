@@ -20,13 +20,14 @@ import {
   sftToJsonl,
   dpoToJsonl,
 } from '@/lib/training/dataset-builder';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const ALLOWED_ROLES = ['owner', 'admin'];
 
-export async function GET(req: NextRequest): Promise<NextResponse> {
+async function GETApiHandler(req: NextRequest): Promise<NextResponse> {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -74,3 +75,5 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     hint: '加 ?format=sft 或 ?format=dpo 下载对应 JSONL; ?implicit=1 纳入隐式; ?lessons=1 导出个人教训(personal)',
   });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/admin/training/export' });

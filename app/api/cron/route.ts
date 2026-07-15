@@ -2,6 +2,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 import { runHermes, parseTable } from '@/lib/hermes-cli';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 interface CronJob {
   id: string;
@@ -53,7 +54,7 @@ function parseCronBlocks(stdout: string): CronJob[] {
   return jobs;
 }
 
-export async function GET() {
+async function GETApiHandler() {
   try {
     const { stdout, stderr, code } = await runHermes(['cron', 'list']);
     if (/no scheduled jobs/i.test(stdout)) {
@@ -74,7 +75,9 @@ export async function GET() {
   }
 }
 
-export async function POST(req: Request) {
+export const GET = withApiLog(GETApiHandler, { route: '/api/cron' });
+
+async function POSTApiHandler(req: Request) {
   try {
     const { name, schedule, prompt, skills } = await req.json();
     if (typeof schedule !== 'string' || !schedule.trim()) {
@@ -100,3 +103,5 @@ export async function POST(req: Request) {
     return Response.json({ success: false, error: err?.message }, { status: 500 });
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/cron' });

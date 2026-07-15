@@ -21,10 +21,11 @@ import { requireAuth, requireRole } from '@/lib/auth/require-auth';
 import { DATA_STEWARD_ROLES } from '@/lib/auth/roles';
 import type { GenerateLessonInput } from '@/lib/learning/types';
 import { generateLesson } from '@/lib/learning/generate';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 const VALID_SOURCE_TYPES: GenerateLessonInput['sourceType'][] = ['memory', 'material', 'document'];
 
-export async function POST(req: NextRequest): Promise<NextResponse> {
+async function POSTApiHandler(req: NextRequest): Promise<NextResponse> {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -57,3 +58,5 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     modelUsed: result.modelUsed,
   });
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/learning/generate' });

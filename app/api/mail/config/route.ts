@@ -18,6 +18,7 @@ import {
   DEFAULT_SMTP_PORT,
   DEFAULT_IMAP_PORT,
 } from '@/lib/infra/email';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -26,7 +27,7 @@ function isAdmin(roles: string[]): boolean {
   return roles.some((r) => ['owner', 'admin'].includes(r));
 }
 
-export async function GET(req: NextRequest): Promise<NextResponse> {
+async function GETApiHandler(req: NextRequest): Promise<NextResponse> {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -46,7 +47,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   });
 }
 
-export async function PUT(req: NextRequest): Promise<NextResponse> {
+export const GET = withApiLog(GETApiHandler, { route: '/api/mail/config' });
+
+async function PUTApiHandler(req: NextRequest): Promise<NextResponse> {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -85,3 +88,5 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
     isAdmin: true,
   });
 }
+
+export const PUT = withApiLog(PUTApiHandler, { route: '/api/mail/config' });

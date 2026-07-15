@@ -230,6 +230,92 @@ export const auditLog = pgTable(
 );
 
 /**
+ * ApiLog · HTTP 接口访问日志
+ *
+ * 记录方法、路由、状态码、耗时和脱敏请求上下文。业务动作写入 BusinessLog。
+ */
+export const apiLog = pgTable(
+  'ApiLog',
+  {
+    id: text('id').primaryKey(),
+    requestId: text('requestId'),
+    tenantId: text('tenantId').notNull().default('default'),
+    actorId: text('actorId').notNull().default('anonymous'),
+    actorType: text('actorType').notNull().default('anonymous'),
+    source: text('source').notNull().default('api'),
+    category: text('category').notNull().default('system'),
+    operation: text('operation').notNull(),
+    action: text('action').notNull(),
+    method: text('method').notNull(),
+    path: text('path').notNull(),
+    route: text('route'),
+    targetType: text('targetType'),
+    targetId: text('targetId'),
+    statusCode: integer('statusCode').notNull(),
+    outcome: text('outcome').notNull(),
+    level: text('level').notNull().default('info'),
+    durationMs: integer('durationMs'),
+    summary: text('summary').notNull(),
+    requestData: jsonb('requestData'),
+    details: jsonb('details'),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantCreatedIdx: index('ApiLog_tenant_created_idx').on(t.tenantId, t.createdAt),
+    tenantActorIdx: index('ApiLog_tenant_actor_idx').on(t.tenantId, t.actorId, t.createdAt),
+    tenantRouteIdx: index('ApiLog_tenant_route_idx').on(t.tenantId, t.route, t.createdAt),
+    tenantOutcomeIdx: index('ApiLog_tenant_outcome_idx').on(t.tenantId, t.outcome, t.createdAt),
+    requestIdx: index('ApiLog_requestId_idx').on(t.requestId),
+  }),
+);
+
+/**
+ * BusinessLog · 可检索领域业务日志
+ *
+ * 与 AuditLog 的职责不同:
+ * - AuditLog 保存少量、不可篡改的合规证据;
+ * - BusinessLog 保存领域动作及其业务对象, 供运营查询和 AI 检索;
+ * - ApiLog 独立保存 HTTP 接口访问, 不混入本表.
+ *
+ * details 在写入前必须经过 lib/business-log/redact.ts 脱敏.
+ */
+export const businessLog = pgTable(
+  'BusinessLog',
+  {
+    id: text('id').primaryKey(),
+    requestId: text('requestId'),
+    tenantId: text('tenantId').notNull().default('default'),
+    actorId: text('actorId').notNull().default('anonymous'),
+    actorType: text('actorType').notNull().default('anonymous'),
+    kind: text('kind').notNull(),
+    source: text('source').notNull().default('domain'),
+    category: text('category').notNull().default('system'),
+    operation: text('operation').notNull(),
+    action: text('action').notNull(),
+    method: text('method'),
+    path: text('path'),
+    route: text('route'),
+    targetType: text('targetType'),
+    targetId: text('targetId'),
+    statusCode: integer('statusCode'),
+    outcome: text('outcome').notNull(),
+    level: text('level').notNull().default('info'),
+    durationMs: integer('durationMs'),
+    summary: text('summary').notNull(),
+    requestData: jsonb('requestData'),
+    details: jsonb('details'),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => ({
+    tenantCreatedIdx: index('BusinessLog_tenant_created_idx').on(t.tenantId, t.createdAt),
+    tenantActorIdx: index('BusinessLog_tenant_actor_idx').on(t.tenantId, t.actorId, t.createdAt),
+    tenantOperationIdx: index('BusinessLog_tenant_operation_idx').on(t.tenantId, t.operation, t.createdAt),
+    tenantOutcomeIdx: index('BusinessLog_tenant_outcome_idx').on(t.tenantId, t.outcome, t.createdAt),
+    requestIdx: index('BusinessLog_requestId_idx').on(t.requestId),
+  }),
+);
+
+/**
  * UsageEvent · 用户行为埋点
  *
  * 用途: 自用阶段 30+ 同事每天产生的使用数据 → 产品决策原料

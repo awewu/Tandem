@@ -14,8 +14,9 @@ import { boot } from '@/lib/boot';
 import { getStore } from '@/lib/storage/repository';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { derivePendingRetros, topPendingRetros } from '@/lib/decisions/cadence';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) {
@@ -32,3 +33,5 @@ export async function GET(req: NextRequest) {
     total: retros.length,
   });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/me/retro-pending' });

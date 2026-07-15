@@ -21,12 +21,13 @@ import {
   BUCKET_ATTACHMENTS,
 } from '@/lib/infra/s3-client';
 import { generateId } from '@/lib/storage/repository';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 interface Params {
   params: { id: string };
 }
 
-export async function POST(req: NextRequest, { params }: Params) {
+async function POSTApiHandler(req: NextRequest, { params }: Params) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -86,3 +87,5 @@ export async function POST(req: NextRequest, { params }: Params) {
     { status: 400 },
   );
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/im/channels/[id]/attachments/presign' });

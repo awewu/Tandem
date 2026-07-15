@@ -4,6 +4,7 @@ import { requireAuth } from '@/lib/auth/require-auth';
 import { isEmailConfigured, sendEmail } from '@/lib/infra/email';
 import { getStore } from '@/lib/storage/repository';
 import { decrypt } from '@/lib/infra/crypto';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 interface Body {
   to?: unknown;
@@ -31,7 +32,7 @@ function getKvRepo(collection: string) {
   return new (proto.constructor as any)(collection);
 }
 
-export const POST = withErrorHandler(async (req: NextRequest) => {
+const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
 
@@ -141,3 +142,5 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   }
   return NextResponse.json({ ok: true, messageId: result.messageId });
 });
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/mail/send' });

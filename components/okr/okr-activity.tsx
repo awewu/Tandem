@@ -6,6 +6,7 @@ import {
   Archive, CheckCircle2, UserCheck, AlertCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useOwnerDirectory } from '@/lib/org/use-owner-directory';
 
 interface Props {
   scope: 'objective' | 'kr';
@@ -43,7 +44,7 @@ function timeAgo(t: number): string {
 
 export function OKRActivityFeed({ scope, scopeId, limit }: Props) {
   const activities = useOKRStore((s) => s.getActivities(scope, scopeId));
-  const people = useOKRStore((s) => s.people);
+  const { nameOf } = useOwnerDirectory();
   const list = limit ? activities.slice(0, limit) : activities;
 
   if (list.length === 0) {
@@ -61,7 +62,6 @@ export function OKRActivityFeed({ scope, scopeId, limit }: Props) {
         {list.map((a) => {
           const meta = ACTION_META[a.action];
           const Icon = meta.icon;
-          const actor = people.find((p) => p.id === a.actorId);
           return (
             <div key={a.id} className="flex items-start gap-2 text-footnote py-1.5">
               <div className={cn('w-6 h-6 shrink-0 rounded-full flex items-center justify-center', meta.cls)}>
@@ -69,7 +69,7 @@ export function OKRActivityFeed({ scope, scopeId, limit }: Props) {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-caption">
-                  <span className="font-medium">{actor?.name || '系统'}</span>{' '}
+                  <span className="font-medium">{nameOf(a.actorId)}</span>{' '}
                   <span className="text-muted-foreground">{a.summary}</span>
                 </div>
                 <div className="text-[11px] text-muted-foreground mt-0.5">

@@ -4,6 +4,7 @@ import { useOKRStore } from '@/lib/store';
 import { Eye, Users, Plus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
+import { useOwnerDirectory } from '@/lib/org/use-owner-directory';
 
 interface Props {
   scope: 'objective' | 'kr';
@@ -13,7 +14,7 @@ interface Props {
 export function OKRWatchers({ scope, scopeId }: Props) {
   const obj = useOKRStore((s) => scope === 'objective' ? s.objectives.find((o) => o.id === scopeId) : null);
   const kr = useOKRStore((s) => scope === 'kr' ? s.keyResults.find((k) => k.id === scopeId) : null);
-  const people = useOKRStore((s) => s.people);
+  const { people, nameOf } = useOwnerDirectory();
   const currentUserId = useOKRStore((s) => s.currentUserId);
   const toggleWatcher = useOKRStore((s) => s.toggleWatcher);
   const toggleCollaborator = useOKRStore((s) => s.toggleCollaborator);
@@ -55,13 +56,13 @@ export function OKRWatchers({ scope, scopeId }: Props) {
           <div className="flex flex-wrap gap-1">
             {watchers.map((id) => {
               const p = people.find((x) => x.id === id);
-              if (!p) return null;
+              const displayName = p?.name ?? nameOf(id);
               return (
-                <span key={id} className="px-1.5 py-0.5 rounded bg-muted text-footnote flex items-center gap-1" title={p.name}>
+                <span key={id} className="px-1.5 py-0.5 rounded bg-muted text-footnote flex items-center gap-1" title={displayName}>
                   <span className="w-4 h-4 rounded-full bg-background flex items-center justify-center text-[9px]">
-                    {p.name.slice(0, 1)}
+                    {displayName.slice(0, 1)}
                   </span>
-                  {p.name}
+                  {displayName}
                 </span>
               );
             })}
@@ -95,10 +96,10 @@ export function OKRWatchers({ scope, scopeId }: Props) {
         <div className="flex flex-wrap gap-1">
           {collaborators.map((id) => {
             const p = people.find((x) => x.id === id);
-            if (!p) return null;
+            const displayName = p?.name ?? nameOf(id);
             return (
               <span key={id} className="group px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 dark:bg-blue-950/40 text-footnote flex items-center gap-1">
-                {p.name}
+                {displayName}
                 <button
                   onClick={() => toggleCollaborator(scope, scopeId, id)}
                   className="opacity-50 group-hover:opacity-100 hover:text-danger"

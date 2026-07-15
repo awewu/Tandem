@@ -9,8 +9,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requireAuth, requireRole } from '@/lib/auth/require-auth';
 import { getAuditLog } from '@/lib/audit/log';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -21,3 +22,5 @@ export async function GET(req: NextRequest) {
   const result = await log.verify(auth.tenantId);
   return NextResponse.json(result);
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/audit/verify' });

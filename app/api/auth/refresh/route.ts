@@ -7,6 +7,7 @@ import {
   SESSION_COOKIE_OPTIONS,
   DESKTOP_SESSION_TTL_SEC,
 } from '@/lib/auth/session';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /**
  * POST /api/auth/refresh
@@ -18,7 +19,7 @@ import {
  *
  * 此路由在 middleware PUBLIC_PREFIXES (/api/auth/) 白名单内, 不需要有效 access token 即可访问.
  */
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   await boot();
 
   // 仅桌面端 / 移动端长会话. web 端没有 keep-alive 调用方, 直接拒绝以维持 24h 策略.
@@ -58,3 +59,5 @@ export async function POST(req: NextRequest) {
     return res;
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/auth/refresh' });

@@ -16,6 +16,7 @@ import { boot } from '@/lib/boot';
 import { requireAuth, requireRole } from '@/lib/auth/require-auth';
 import { getStore } from '@/lib/storage/repository';
 import type { CompanyBrainDecisionContext, CompanyBrainFeedbackOutcome } from '@/lib/types/company-brain';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -36,7 +37,7 @@ interface ScenarioStats {
   models: Record<string, number>;
 }
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -125,3 +126,5 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({ summary, scenarios: stats });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/admin/skill-evals' });

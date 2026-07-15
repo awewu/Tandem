@@ -20,8 +20,9 @@ export const dynamic = 'force-dynamic';
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { getStore } from '@/lib/storage/repository';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const url = new URL(req.url);
   const status = url.searchParams.get('status');
@@ -73,3 +74,5 @@ export async function GET(req: NextRequest) {
     count: memories.length,
   });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/tandem/memory/list' });

@@ -12,10 +12,11 @@ import {
   GovernanceError,
 } from '@/lib/governance/projects';
 import type { Department } from '@/lib/types/governance';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 const WRITERS = ['manager', 'admin', 'owner', 'champion', 'steward'];
 
-export async function GET(
+async function GETApiHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -34,7 +35,9 @@ export async function GET(
   return NextResponse.json({ ok: true, template });
 }
 
-export async function PUT(
+export const GET = withApiLog(GETApiHandler, { route: '/api/governance/projects/[id]/template' });
+
+async function PUTApiHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -72,3 +75,5 @@ export async function PUT(
     return NextResponse.json({ ok: false, error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const PUT = withApiLog(PUTApiHandler, { route: '/api/governance/projects/[id]/template' });

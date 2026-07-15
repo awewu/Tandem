@@ -28,6 +28,7 @@ import {
   type KpiLevel,
   type KpiSubject,
 } from '@/lib/types/kpi';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /** 全量层级键 (小→大), 枚举驱动防止再漏 system/business_unit */
 const ALL_LEVELS = (Object.keys(KPI_LEVEL_ORDER) as KpiLevel[]).sort(
@@ -63,7 +64,7 @@ function weightedCompletion(bonusKpis: Kpi[]): number {
   return totalW > 0 ? sum / totalW : 0;
 }
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -268,3 +269,5 @@ export async function GET(req: NextRequest) {
       );
   }
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/kpi/analytics' });

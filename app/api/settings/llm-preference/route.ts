@@ -23,8 +23,9 @@ import {
   upsertPreference,
 } from '@/lib/settings/llm-preference';
 import { deferAudit } from '@/lib/audit/defer';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -58,7 +59,9 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function PUT(req: NextRequest) {
+export const GET = withApiLog(GETApiHandler, { route: '/api/settings/llm-preference' });
+
+async function PUTApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -124,3 +127,5 @@ export async function PUT(req: NextRequest) {
     );
   }
 }
+
+export const PUT = withApiLog(PUTApiHandler, { route: '/api/settings/llm-preference' });

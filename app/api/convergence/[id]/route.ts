@@ -4,6 +4,7 @@ import type { ConvergenceEvent } from '@/lib/convergence';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { getStore } from '@/lib/storage/repository';
 import type { DecisionCard } from '@/lib/types/decision-card';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /**
  * 议题上下文水合: 把 DecisionCard 上的 materialRefs / relatedKr / relatedTti (ID)
@@ -54,7 +55,7 @@ interface Params {
  * GET /api/convergence/[id]
  * 查询议事室当前状态 + 关联 DecisionCard
  */
-export async function GET(req: NextRequest, { params }: Params) {
+async function GETApiHandler(req: NextRequest, { params }: Params) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   try {
@@ -74,13 +75,15 @@ export async function GET(req: NextRequest, { params }: Params) {
   }
 }
 
+export const GET = withApiLog(GETApiHandler, { route: '/api/convergence/[id]' });
+
 /**
  * POST /api/convergence/[id]
  * 派发事件 (PICK_OPTION / COMMIT / VETO / ESCALATE / DELIBERATION_INPUT / TICK)
  *
  * Body: { event: ConvergenceEvent }
  */
-export async function POST(req: NextRequest, { params }: Params) {
+async function POSTApiHandler(req: NextRequest, { params }: Params) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   try {
@@ -111,3 +114,5 @@ export async function POST(req: NextRequest, { params }: Params) {
     );
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/convergence/[id]' });

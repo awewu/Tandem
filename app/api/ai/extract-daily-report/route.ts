@@ -15,6 +15,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot, getRouter } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import type { ChatMessage } from '@/lib/taf/provider/types';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -66,7 +67,7 @@ const SYSTEM_PROMPT = `你是企业 OKR 教练助手。员工会用自然语言�
 3. 如果员工描述很模糊或没有实质进展，suggestedValue 可以等于 currentValue（不变）。
 4. 中文输出。`;
 
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
 
@@ -174,6 +175,8 @@ export async function POST(req: NextRequest) {
     },
   });
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/ai/extract-daily-report' });
 
 function jsonError(message: string, status: number): Response {
   return NextResponse.json({ error: message }, { status });

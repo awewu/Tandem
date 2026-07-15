@@ -31,6 +31,7 @@ import {
   type KpiLevel,
   type KpiScope,
 } from '@/lib/types/kpi';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -82,7 +83,7 @@ const BU_WEIGHTS: Record<string, number> = { 'FIN.REV': 35, 'FIN.GP': 20, 'CUST.
 const INDIV_WEIGHTS: Record<string, number> = { 'FIN.REV': 40, 'CUST.NPS': 35, 'GROW.SKILL': 25 };
 const MONITOR_CODES = ['PROC.OTD', 'PROC.QA', 'GROW.RETAIN'];
 
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -414,3 +415,5 @@ export async function POST(req: NextRequest) {
     },
   });
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/admin/seed-ruihe' });

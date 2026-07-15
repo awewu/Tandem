@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { boot } from '@/lib/boot';
 import { getStore } from '@/lib/storage/repository';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+async function GETApiHandler(_req: Request, { params }: { params: { id: string } }) {
   await boot();
   const s = getStore();
   const n = await s.notifications.get(params.id);
@@ -10,7 +11,9 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   return NextResponse.json(n);
 }
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export const GET = withApiLog(GETApiHandler, { route: '/api/notifications/[id]' });
+
+async function PATCHApiHandler(req: Request, { params }: { params: { id: string } }) {
   await boot();
   const s = getStore();
   const body = await req.json();
@@ -18,9 +21,13 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   return NextResponse.json(n);
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export const PATCH = withApiLog(PATCHApiHandler, { route: '/api/notifications/[id]' });
+
+async function DELETEApiHandler(_req: Request, { params }: { params: { id: string } }) {
   await boot();
   const s = getStore();
   await s.notifications.delete(params.id);
   return NextResponse.json({ ok: true });
 }
+
+export const DELETE = withApiLog(DELETEApiHandler, { route: '/api/notifications/[id]' });

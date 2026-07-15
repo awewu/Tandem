@@ -12,10 +12,11 @@ import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { pullChanges, pushChanges } from '@/lib/shouchao/service';
 import type { ShouchaoNote } from '@/lib/types/shouchao';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   await boot();
@@ -26,7 +27,9 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(result);
 }
 
-export async function POST(req: NextRequest) {
+export const GET = withApiLog(GETApiHandler, { route: '/api/shouchao/sync' });
+
+async function POSTApiHandler(req: NextRequest) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   await boot();
@@ -42,3 +45,5 @@ export async function POST(req: NextRequest) {
   const notes = await pushChanges(auth.userId, auth.tenantId, changes);
   return NextResponse.json({ notes, serverTime: new Date().toISOString() });
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/shouchao/sync' });

@@ -23,6 +23,7 @@ import { requireAuth } from '@/lib/auth/require-auth';
 import { REFLEXION_TAG } from '@/lib/persona/reflexion';
 import type { DecisionCard } from '@/lib/types/decision-card';
 import type { MemoryEntry } from '@/lib/types/memory';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 
@@ -43,7 +44,7 @@ interface TeammateCard {
   status: 'active' | 'disabled';
 }
 
-export async function GET(req: NextRequest): Promise<NextResponse> {
+async function GETApiHandler(req: NextRequest): Promise<NextResponse> {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -151,3 +152,5 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     generatedAt: new Date().toISOString(),
   });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/teammates' });

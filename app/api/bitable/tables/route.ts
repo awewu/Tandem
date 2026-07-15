@@ -3,8 +3,9 @@ import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { getStore } from '@/lib/storage/repository';
 import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -14,7 +15,9 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ tables: mine });
 }
 
-export async function POST(req: NextRequest) {
+export const GET = withApiLog(GETApiHandler, { route: '/api/bitable/tables' });
+
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -42,3 +45,5 @@ export async function POST(req: NextRequest) {
   });
   return NextResponse.json({ table: created });
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/bitable/tables' });

@@ -2,13 +2,14 @@ import { NextResponse } from 'next/server';
 import { boot } from '@/lib/boot';
 import { getStore } from '@/lib/storage/repository';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /**
  * GET /api/dashboard/stats
  *
  * Tandem 主页统计 (聚合 in-memory store).
  */
-export async function GET(req: Request) {
+async function GETApiHandler(req: Request) {
   const auth = requireAuth(req as any);
   if (auth instanceof NextResponse) return auth;
   await boot();
@@ -93,3 +94,5 @@ export async function GET(req: Request) {
       })),
   });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/dashboard/stats' });

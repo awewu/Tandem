@@ -29,10 +29,11 @@ import { COOKIE_ACCESS, verifyAccessToken } from '@/lib/auth/session';
 import { getStore } from '@/lib/storage/repository';
 import { audit } from '@/lib/audit/log';
 import { revokeAllSessions } from '@/lib/auth/native';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 const ADMIN_ROLES = new Set(['admin', 'owner', 'manager']);
 
-export async function POST(
+async function POSTApiHandler(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
@@ -139,3 +140,5 @@ export async function POST(
     sessionsRevoked: true,
   });
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/admin/users/[id]/anonymize' });

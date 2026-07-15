@@ -8,8 +8,9 @@ import { requireAuth } from '@/lib/auth/require-auth';
 import { createAppContext } from '@/lib/repositories/app-context-factory';
 import { LaunchpadService, type ViewerCtx } from '@/lib/services/launchpad-service';
 import { boot } from '@/lib/boot';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export const POST = withErrorHandler(async (req: NextRequest, { params }: { params: { id: string } }) => {
+const POSTApiHandler = withErrorHandler(async (req: NextRequest, { params }: { params: { id: string } }) => {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -26,3 +27,5 @@ export const POST = withErrorHandler(async (req: NextRequest, { params }: { para
   if (!result) return NextResponse.json({ error: 'not found or forbidden' }, { status: 404 });
   return NextResponse.json(result);
 });
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/launchpad/[id]/click' });

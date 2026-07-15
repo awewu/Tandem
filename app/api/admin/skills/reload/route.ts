@@ -15,8 +15,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { reloadSkillRegistry } from '@/lib/taf/skills/reload';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -34,7 +35,9 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function GET(req: NextRequest) {
+export const POST = withApiLog(POSTApiHandler, { route: '/api/admin/skills/reload' });
+
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -53,3 +56,5 @@ export async function GET(req: NextRequest) {
   }));
   return NextResponse.json({ count: all.length, skills: all });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/admin/skills/reload' });

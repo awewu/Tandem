@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import { useOKRStore } from '@/lib/store';
 import { Send, ThumbsUp, Heart, Smile, Trash2, AtSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useOwnerDirectory } from '@/lib/org/use-owner-directory';
 
 interface Props {
   scope: 'objective' | 'kr' | 'initiative';
@@ -14,7 +15,7 @@ const REACTIONS = ['👍', '🎉', '❤️', '🔥', '💡'];
 
 export function OKRComments({ scope, scopeId }: Props) {
   const comments = useOKRStore((s) => s.getComments(scope, scopeId));
-  const people = useOKRStore((s) => s.people);
+  const { people, nameOf } = useOwnerDirectory();
   const currentUserId = useOKRStore((s) => s.currentUserId);
   const addComment = useOKRStore((s) => s.addComment);
   const deleteComment = useOKRStore((s) => s.deleteComment);
@@ -129,7 +130,7 @@ export function OKRComments({ scope, scopeId }: Props) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 text-footnote text-muted-foreground">
-                    <span className="font-medium text-foreground">{author?.name || '未知'}</span>
+                    <span className="font-medium text-foreground">{author?.name || nameOf(c.authorId)}</span>
                     <span>{new Date(c.createdAt).toLocaleString('zh-CN', { hour12: false })}</span>
                     {c.editedAt && <span>(已编辑)</span>}
                     {c.authorId === currentUserId && (

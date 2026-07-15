@@ -25,6 +25,7 @@
 import { useMemo } from 'react';
 import { useOKRStore, useOrgStore } from '@/lib/store';
 import { buildDeptIndex, resolveOwner as resolveOwnerSSOT } from '@/lib/org/ownership';
+import { useOwnerDirectory } from '@/lib/org/use-owner-directory';
 import { objectiveProgress } from '@/lib/okr/progress';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -50,8 +51,9 @@ const DEPT_COLORS = [
 ];
 
 export function OKRAlignmentTree({ selectedId, cycleId, onSelect }: Props) {
-  const { objectives, keyResults, people } = useOKRStore();
+  const { objectives, keyResults } = useOKRStore();
   const { departments } = useOrgStore();
+  const { people, nameOf } = useOwnerDirectory();
 
   // ministry/department → 索引 (Ownership SSOT)
   const deptIndex = useMemo(() => buildDeptIndex(departments), [departments]);
@@ -191,7 +193,7 @@ export function OKRAlignmentTree({ selectedId, cycleId, onSelect }: Props) {
                 ) : (
                   <User className="h-2.5 w-2.5" />
                 )}
-                <span>{owner.name}</span>
+                <span>{nameOf(obj.ownerId)}</span>
                 {owner.deptName && (
                   <>
                     <span className="text-slate-300">·</span>

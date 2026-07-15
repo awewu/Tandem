@@ -14,11 +14,12 @@ import { boot } from '@/lib/boot';
 import { listSpecialists } from '@/lib/agent-runtime/agent-definitions';
 import { spawnSpecialist } from '@/lib/agent-runtime/subagent';
 import { audit } from '@/lib/audit/log';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
 
@@ -36,7 +37,9 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ ok: true, specialists, count: specialists.length });
 }
 
-export async function POST(req: NextRequest) {
+export const GET = withApiLog(GETApiHandler, { route: '/api/agent/specialists' });
+
+async function POSTApiHandler(req: NextRequest) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
 
@@ -98,3 +101,5 @@ export async function POST(req: NextRequest) {
     error: result.error,
   });
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/agent/specialists' });

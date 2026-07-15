@@ -43,6 +43,7 @@ import {
 } from 'lucide-react';
 import { computeKpiCompletion, type Kpi, type KpiCycle, type KpiSubject } from '@/lib/types/kpi';
 import { Stat } from '@/components/ui/stat';
+import { useOwnerDirectory } from '@/lib/org/use-owner-directory';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -91,6 +92,7 @@ const DATA_SOURCE_LABEL: Record<string, { label: string; icon: typeof Database }
 // ---------------------------------------------------------------------------
 
 export default function KpiHealthDashboardPage() {
+  const { nameOf } = useOwnerDirectory();
   const [cycles, setCycles] = useState<KpiCycle[]>([]);
   const [subjects, setSubjects] = useState<KpiSubject[]>([]);
   const [kpis, setKpis] = useState<Kpi[]>([]);
@@ -448,7 +450,7 @@ export default function KpiHealthDashboardPage() {
                             {ds.label}
                           </span>
                         )}
-                        <span className="font-mono truncate">{kpi.assigneeId}</span>
+                        <span className="truncate">{nameOf(kpi.assigneeId)}</span>
                       </div>
                     </div>
                   );

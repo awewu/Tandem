@@ -3,6 +3,7 @@ import { boot } from '@/lib/boot';
 import { getStore } from '@/lib/storage/repository';
 import { membershipKey } from '@/lib/types/im';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /**
  * PATCH /api/im/channels/:id/agent-mode
@@ -10,7 +11,7 @@ import { requireAuth } from '@/lib/auth/require-auth';
  *
  * §T15 切换本频道内"分身/真人"模式. 仅本人可改自己的 membership.
  */
-export async function PATCH(
+async function PATCHApiHandler(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
@@ -45,3 +46,5 @@ export async function PATCH(
 
   return NextResponse.json({ membership: updated });
 }
+
+export const PATCH = withApiLog(PATCHApiHandler, { route: '/api/im/channels/[id]/agent-mode' });

@@ -6,6 +6,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot, getStore } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { deleteDeptTree, updateDept } from '@/lib/org/departments';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,7 +17,7 @@ function canManageOrg(roles: string[] | undefined): boolean {
   return (roles ?? []).some((r) => ORG_ADMIN_ROLES.has(r));
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+async function PATCHApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -38,7 +39,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export const PATCH = withApiLog(PATCHApiHandler, { route: '/api/org/departments/[id]' });
+
+async function DELETEApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -59,3 +62,5 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     return NextResponse.json({ error: message }, { status: message.includes('not found') ? 404 : 400 });
   }
 }
+
+export const DELETE = withApiLog(DELETEApiHandler, { route: '/api/org/departments/[id]' });

@@ -25,6 +25,7 @@ import { canManualEntry } from '@/lib/auth/kpi-perms';
 import { audit } from '@/lib/audit/log';
 import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import type { KpiManualEntry } from '@/lib/types/kpi';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 function operatorRoleFromAuth(roles: string[]): 'finance' | 'hr' | 'internal_staff' {
   // SSOT 角色 → KPI 审计 operatorRole 标签 (kpi.ts). 'steward' 即 HR/数据管家.
@@ -33,7 +34,7 @@ function operatorRoleFromAuth(roles: string[]): 'finance' | 'hr' | 'internal_sta
   return 'internal_staff';
 }
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -52,7 +53,9 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ entries });
 }
 
-export async function POST(req: NextRequest) {
+export const GET = withApiLog(GETApiHandler, { route: '/api/kpi/manual-entry' });
+
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -142,3 +145,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/kpi/manual-entry' });

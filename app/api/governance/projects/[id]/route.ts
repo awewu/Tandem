@@ -12,10 +12,11 @@ import {
   GovernanceError,
 } from '@/lib/governance/projects';
 import type { GovernanceProjectStatus } from '@/lib/types/governance';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 const WRITERS = ['manager', 'admin', 'owner', 'champion', 'steward'];
 
-export async function PATCH(
+async function PATCHApiHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -66,7 +67,9 @@ export async function PATCH(
   }
 }
 
-export async function DELETE(
+export const PATCH = withApiLog(PATCHApiHandler, { route: '/api/governance/projects/[id]' });
+
+async function DELETEApiHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -90,3 +93,5 @@ export async function DELETE(
     return NextResponse.json({ ok: false, error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const DELETE = withApiLog(DELETEApiHandler, { route: '/api/governance/projects/[id]' });

@@ -48,7 +48,7 @@ import {
 } from '@/lib/okr/objective-lifecycle';
 import { hasOkrApproverRole } from '@/lib/okr/visibility';
 import { useCurrentUserId, useAuthStore } from '@/lib/hooks/use-current-user';
-import { useOrgPeopleStore } from '@/lib/org/people-source';
+import { useOwnerDirectory } from '@/lib/org/use-owner-directory';
 import {
   hydrateOkrFromApi,
   persistCreateObjective, persistUpdateObjective, persistDeleteObjective,
@@ -224,22 +224,7 @@ export default function OKRPage() {
 
   const { departments } = useOrgStore();
   const ministries = departments.flatMap((d) => d.ministries);
-
-  // 显示用人员列表: 真用户 (auth_user_extras / /api/org/users, 经 OrgPeople 合并) 优先,
-  // OKR fixture (含 'me') 仅补缺. 解决负责人显示成 user_xxx 原始 id 的问题.
-  const orgPeople = useOrgPeopleStore((s) => s.people);
-  const peopleForUi = useMemo<Person[]>(() => {
-    const seen = new Set<string>();
-    const out: Person[] = [];
-    for (const p of orgPeople) {
-      out.push({ id: p.id, name: p.name, ministryId: p.ministryId });
-      seen.add(p.id);
-    }
-    for (const p of people) {
-      if (!seen.has(p.id)) out.push(p);
-    }
-    return out;
-  }, [orgPeople, people]);
+  const { people: peopleForUi, nameOf: ownerLabel } = useOwnerDirectory();
 
   // 真实登录用户 id (B4 Phase-2: 新建 OKR 默认归属当前用户, 保证落库后本人可见).
   const meUserId = useAuthStore((s) => s.user?.id);
@@ -317,15 +302,6 @@ export default function OKRPage() {
     return map;
   }, [cycleObjectives, activeCycle, keyResults, checkIns]);
   const pulseSummary = useMemo(() => summarizePulses(Array.from(pulseMap.values())), [pulseMap]);
-
-  // Owner 显示名
-  const ownerLabel = (id: string): string => {
-    if (id?.startsWith('team:')) {
-      const minId = id.slice(5);
-      return `[团队] ${ministries.find((m) => m.id === minId)?.name || minId}`;
-    }
-    return people.find((p) => p.id === id)?.name || id || '—';
-  };
 
   // 全部标签
   const allTags = useMemo(() => {
@@ -1069,7 +1045,7 @@ export default function OKRPage() {
             <SelectTrigger className="hidden md:flex h-7 w-32 text-footnote"><SelectValue placeholder="所有负责人" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">所有负责人</SelectItem>
-              {people.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+              {peopleForUi.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
               {ministries.map((m) => <SelectItem key={`team:${m.id}`} value={`team:${m.id}`}>[团队] {m.name}</SelectItem>)}
             </SelectContent>
           </Select>

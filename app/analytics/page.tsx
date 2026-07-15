@@ -31,12 +31,14 @@ import {
   type OrgMetrics,
 } from '@/lib/insights/derive';
 import { buildDeptIndex, resolveOwner } from '@/lib/org/ownership';
+import { useOwnerDirectory } from '@/lib/org/use-owner-directory';
 
 export default function AnalyticsPage() {
   const okr = useOKRStore();
   const oneOnOne = useOneOnOneStore();
   const r360 = useReview360Store();
   const org = useOrgStore();
+  const { people, ownerNameById } = useOwnerDirectory();
 
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => setNow(Date.now()), []);
@@ -50,12 +52,13 @@ export default function AnalyticsPage() {
       meetings: oneOnOne.meetings,
       submissions: r360.submissions,
       cycles360: r360.cycles,
-      people: okr.people,
+      people,
+      ownerNameById,
       now,
     };
     const insights = generateInsights(input);
     return computeOrgMetrics(input, insights);
-  }, [now, okr.objectives, okr.keyResults, okr.checkIns, okr.people, oneOnOne.meetings, r360.submissions, r360.cycles]);
+  }, [now, okr.objectives, okr.keyResults, okr.checkIns, people, ownerNameById, oneOnOne.meetings, r360.submissions, r360.cycles]);
 
   // 部门维度 OKR 健康 (走 Ownership SSOT, 修 bug: 原逻辑只看 person.ministryId, 不能解 'team:X' / 'person:X')
   const deptHealth = useMemo(() => {
@@ -71,7 +74,7 @@ export default function AnalyticsPage() {
     const deptIndex = buildDeptIndex(deptSrc);
     const byKey = new Map<string, { name: string; total: number; onTrack: number; progressSum: number }>();
     for (const o of okr.objectives) {
-      const owner = resolveOwner(o.ownerId, { people: okr.people, deptIndex });
+      const owner = resolveOwner(o.ownerId, { people, deptIndex });
       const key = owner.ministryId ?? owner.deptId ?? 'unknown';
       const name = owner.ministryName ?? owner.deptName ?? '未归属';
       const krs = okr.keyResults.filter((k) => k.objectiveId === o.id);
@@ -98,7 +101,7 @@ export default function AnalyticsPage() {
         avg: Math.round(v.progressSum / Math.max(1, v.total)),
       }))
       .sort((a, b) => b.total - a.total);
-  }, [now, okr.objectives, okr.keyResults, okr.people, org.departments]);
+  }, [now, okr.objectives, okr.keyResults, people, org.departments, org.hrDepts]);
 
   return (
     <div className="page-container section-y space-y-6">

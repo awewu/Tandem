@@ -130,6 +130,23 @@ export function formatOwnerLabel(owner: ResolvedOwner, opts?: { includeDept?: bo
   return `[${owner.deptName}] ${owner.name}`;
 }
 
+/**
+ * 面向用户的负责人文案. resolveOwner 保留原始 id 便于内部诊断, UI 则绝不泄露原始 id.
+ */
+export function formatOwnerDisplay(
+  ownerId: string | undefined | null,
+  owner: ResolvedOwner,
+): string {
+  if (!ownerId) return '未指派';
+  if (ownerId === 'system') return '系统';
+  if (ownerId === '__company__') return 'CompanyBrain';
+  if (owner.kind === 'person') return owner.name;
+  if (owner.kind === 'team') {
+    return owner.deptId ? `[团队] ${owner.name}` : '未知团队';
+  }
+  return '未知人员';
+}
+
 /** 从 person.ministryId 反查所属一级部门. 用于部门统计. */
 export function resolvePersonDept(
   person: PersonLike,

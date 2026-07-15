@@ -13,6 +13,7 @@ import { boot } from '@/lib/boot';
 import { getStore } from '@/lib/storage/repository';
 import { requireAuth } from '@/lib/auth/require-auth';
 import type { MemoryEntry, MemoryType } from '@/lib/types/memory';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 const UI_CAT_TO_TYPE: Record<string, MemoryType> = {
   requirement: 'lesson',
@@ -32,7 +33,7 @@ function canMutate(
   return false;
 }
 
-export async function GET(
+async function GETApiHandler(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
@@ -56,7 +57,9 @@ export async function GET(
   return NextResponse.json({ memory: entry });
 }
 
-export async function PATCH(
+export const GET = withApiLog(GETApiHandler, { route: '/api/tandem/memory/[id]' });
+
+async function PATCHApiHandler(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
@@ -106,7 +109,9 @@ export async function PATCH(
   }
 }
 
-export async function DELETE(
+export const PATCH = withApiLog(PATCHApiHandler, { route: '/api/tandem/memory/[id]' });
+
+async function DELETEApiHandler(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
@@ -125,3 +130,5 @@ export async function DELETE(
   await store.memories.delete(params.id);
   return NextResponse.json({ ok: true });
 }
+
+export const DELETE = withApiLog(DELETEApiHandler, { route: '/api/tandem/memory/[id]' });

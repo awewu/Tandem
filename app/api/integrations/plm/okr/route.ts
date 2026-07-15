@@ -4,6 +4,7 @@ import { verifyAccessToken } from '@/lib/oidc/tokens';
 import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import { resolveOkrVisibleOwnerIds } from '@/lib/okr/visibility';
 import type { AuthContext } from '@/lib/auth/require-auth';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -14,7 +15,7 @@ function bearer(req: NextRequest): string | null {
   return null;
 }
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const token = bearer(req);
   if (!token) {
@@ -72,3 +73,5 @@ export async function GET(req: NextRequest) {
     cycles,
   });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/integrations/plm/okr' });

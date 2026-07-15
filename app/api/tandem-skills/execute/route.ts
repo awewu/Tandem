@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { skillRegistry } from '@/lib/taf/skills';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /**
  * POST /api/tandem-skills/execute
@@ -14,7 +15,7 @@ import { requireAuth } from '@/lib/auth/require-auth';
  * 请求体注入 — 否则任何登录用户可传 body.userId=他人 冒充执行 (skill 内
  * data-scope 用 ctx.userId), 或传 body.tenantId 跨租户。body 仅决定 skillId/args/isProxy。
  */
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   await boot();
@@ -37,3 +38,5 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json(result, { status: result.ok ? 200 : 400 });
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/tandem-skills/execute' });

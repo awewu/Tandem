@@ -19,6 +19,7 @@ import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { analyzeReflexionPatterns, REFLEXION_TAG } from '@/lib/persona/reflexion';
 import type { MemoryEntry } from '@/lib/types/memory';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 
@@ -32,7 +33,7 @@ interface RecentLesson {
   skillId?: string;
 }
 
-export async function GET(req: NextRequest): Promise<NextResponse> {
+async function GETApiHandler(req: NextRequest): Promise<NextResponse> {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -102,3 +103,5 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     );
   }
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/persona/me/reflexion-log' });

@@ -18,6 +18,7 @@ import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { createAppContext } from '@/lib/repositories/app-context-factory';
 import { reviewDocument } from '@/lib/persona/document-review';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 interface Params {
   params: { id: string };
@@ -25,7 +26,7 @@ interface Params {
 
 export const runtime = 'nodejs';
 
-export async function POST(req: NextRequest, { params }: Params): Promise<NextResponse> {
+async function POSTApiHandler(req: NextRequest, { params }: Params): Promise<NextResponse> {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
 
@@ -49,3 +50,5 @@ export async function POST(req: NextRequest, { params }: Params): Promise<NextRe
 
   return NextResponse.json(review);
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/documents/[id]/review' });

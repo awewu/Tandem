@@ -5,6 +5,7 @@ import { classifyNineBox } from '@/lib/types/okr-tti';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { computeKpiCompletion } from '@/lib/types/kpi';
 import { resolveCycleScope } from '@/lib/domain/cycle/performance-cycle';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /**
  * GET /api/nine-box?cycleId=...
@@ -18,7 +19,7 @@ import { resolveCycleScope } from '@/lib/domain/cycle/performance-cycle';
  *
  * P1-4 (2026-05-22): 横轴改成 360+TTI 均分 (与 CHARTER 一致).
  */
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   try {
@@ -154,3 +155,5 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/nine-box' });

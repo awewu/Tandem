@@ -28,6 +28,7 @@ import { compactMessages } from '@/lib/agent-runtime/compaction';
 import { buildUserContent } from '@/lib/agent-runtime/tool-loop';
 import { rateLimit, POLICIES } from '@/lib/infra/rate-limit';
 import type { ChatMessage } from '@/lib/taf/provider/types';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -47,7 +48,7 @@ interface RequestBody {
   personaId?: string;
 }
 
-export async function POST(req: NextRequest): Promise<Response> {
+async function POSTApiHandler(req: NextRequest): Promise<Response> {
   const auth = requireAuth(req);
   if (!('userId' in auth)) return auth; // 401
 
@@ -329,6 +330,8 @@ export async function POST(req: NextRequest): Promise<Response> {
     },
   });
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/persona/stream' });
 
 function sseError(message: string, status: number): Response {
   const encoder = new TextEncoder();

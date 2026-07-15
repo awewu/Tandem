@@ -410,5 +410,27 @@ export async function audit(
     tenantId?: string;
   }
 ): Promise<AuditEntry> {
-  return getAuditLog().append(action, actorId, options ?? {});
+  const entry = await getAuditLog().append(action, actorId, options ?? {});
+  // 关键审计动作同时进入可检索业务日志。AuditLog 负责防篡改证据,
+  // BusinessLog 负责领域事件查询与 AI 上下文, 两者不互相替代。
+  void import('@/lib/business-log/service').then(({ deferBusinessLog }) => {
+    deferBusinessLog({
+      requestId: typeof options?.metadata?.requestId === 'string' ? options.metadata.requestId : null,
+      tenantId: options?.tenantId ?? 'default',
+      actorId,
+      actorType: actorId === 'system' ? 'system' : 'user',
+      source: 'audit',
+      category: action.split('.')[0] ?? 'system',
+      operation: action,
+      action: action.split('.').at(-1) ?? action,
+      targetType: options?.targetType ?? null,
+      targetId: options?.targetId ?? null,
+      outcome: 'success',
+      level: 'info',
+      summary: `${action} completed`,
+      details: options?.metadata ?? null,
+      createdAt: entry.timestamp,
+    });
+  }).catch(() => undefined);
+  return entry;
 }

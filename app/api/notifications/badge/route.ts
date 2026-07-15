@@ -3,6 +3,7 @@ import { withErrorHandler } from '@/lib/api/error-middleware';
 import { createAppContext } from '@/lib/repositories/app-context-factory';
 import { NotificationService } from '@/lib/services/notification-service';
 import { cacheGetOrLoad } from '@/lib/infra/cache';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +13,7 @@ export const dynamic = 'force-dynamic';
  * §T6 缓存策略: 30s TTL (Redis-first, InMemory fallback)
  * 失效路径: NotificationService.create / markRead 调用 cacheDel(`badge:${userId}`)
  */
-export const GET = withErrorHandler(async (req: Request) => {
+const GETApiHandler = withErrorHandler(async (req: Request) => {
   const { searchParams } = new URL(req.url);
   const userId = searchParams.get('userId');
   if (!userId || userId.trim().length === 0) {
@@ -25,3 +26,5 @@ export const GET = withErrorHandler(async (req: Request) => {
   });
   return NextResponse.json({ unreadCount: count });
 });
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/notifications/badge' });

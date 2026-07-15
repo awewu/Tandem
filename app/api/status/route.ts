@@ -1,4 +1,5 @@
 import { runHermes } from '@/lib/hermes-cli';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -155,7 +156,7 @@ function parseStatus(stdout: string): HermesStatus {
   return status;
 }
 
-export async function GET() {
+async function GETApiHandler() {
   try {
     const { stdout, stderr, code } = await runHermes(['status'], 15000);
     if (code !== 0 && !stdout) {
@@ -173,3 +174,5 @@ export async function GET() {
     );
   }
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/status' });

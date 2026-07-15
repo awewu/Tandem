@@ -9,8 +9,9 @@ import { createAppContext } from '@/lib/repositories/app-context-factory';
 import { LaunchpadService, type ViewerCtx } from '@/lib/services/launchpad-service';
 import { boot } from '@/lib/boot';
 import type { LaunchpadApp } from '@/lib/types/launchpad';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export const GET = withErrorHandler(async (req: NextRequest) => {
+const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -24,7 +25,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   return NextResponse.json({ apps });
 });
 
-export const POST = withErrorHandler(async (req: NextRequest) => {
+export const GET = withApiLog(GETApiHandler, { route: '/api/launchpad' });
+
+const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -53,3 +56,5 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   });
   return NextResponse.json({ app }, { status: 201 });
 });
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/launchpad' });

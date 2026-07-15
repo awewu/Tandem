@@ -394,7 +394,7 @@ function KrNode({
     <div className="ml-4 rounded-md border border-border bg-surface-1 overflow-hidden">
       <button
         onClick={onToggle}
-        className="flex w-full items-center gap-3 px-4 py-3 surface-interactive hover:bg-surface-2 transition-colors duration-fast"
+        className="flex w-full items-center gap-3 px-4 py-3 text-left surface-interactive hover:bg-surface-2 transition-colors duration-fast"
       >
         {expanded ? (
           <ChevronDown className="h-3.5 w-3.5 text-ink-tertiary" />

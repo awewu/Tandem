@@ -8,6 +8,7 @@ import { getStore, boot } from '@/lib/boot';
 import { requireAuth, requireRole } from '@/lib/auth/require-auth';
 import { DATA_STEWARD_ROLES } from '@/lib/auth/roles';
 import type { Review360Cycle, Review360Question } from '@/lib/types/review-360';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 const DEFAULT_QUESTIONS: Review360Question[] = [
   { id: 'q-perf', dimension: '业绩', prompt: '工作交付质量与效率如何?', rated: true, qualitative: false },
@@ -20,7 +21,7 @@ const DEFAULT_QUESTIONS: Review360Question[] = [
   { id: 'q-values', dimension: '价值观', prompt: '价值观一致度?', rated: true, qualitative: false },
 ];
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -30,7 +31,9 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ cycles: all });
 }
 
-export async function POST(req: NextRequest) {
+export const GET = withApiLog(GETApiHandler, { route: '/api/360/cycles' });
+
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -73,3 +76,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/360/cycles' });

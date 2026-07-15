@@ -3,6 +3,7 @@ import { boot } from '@/lib/boot';
 import { getStore } from '@/lib/storage/repository';
 import { rateLimit, getClientIp } from '@/lib/infra/rate-limit';
 import { submitApplication, ApplicationError } from '@/lib/auth/applications';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /**
  * POST /api/partner/apply
@@ -14,7 +15,7 @@ import { submitApplication, ApplicationError } from '@/lib/auth/applications';
  *   此前本入口仅写一条 partner_apply 审计、未入队列 → 管理员看不到 (断头路 D), 现已接通。
  * Body: { name, company, email, reason }
  */
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   const ip = getClientIp(req.headers);
   const rl = await rateLimit({ key: `partner-apply:${ip}`, limit: 5, windowSec: 3600 });
@@ -67,3 +68,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/partner/apply' });

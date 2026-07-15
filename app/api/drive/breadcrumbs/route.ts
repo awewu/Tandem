@@ -2,10 +2,11 @@
 import { withErrorHandler } from '@/lib/api/error-middleware';
 import { createAppContext } from '@/lib/repositories/app-context-factory';
 import { DriveService } from '@/lib/services/drive-service';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const dynamic = 'force-dynamic';
 
-export const GET = withErrorHandler(async (req: Request) => {
+const GETApiHandler = withErrorHandler(async (req: Request) => {
   const { searchParams } = new URL(req.url);
   const folderId = searchParams.get('folderId');
   if (!folderId) return NextResponse.json({ breadcrumbs: [] });
@@ -18,3 +19,5 @@ export const GET = withErrorHandler(async (req: Request) => {
   const breadcrumbs = [{ id: 'root', name: '云盘' }, { id: f.id, name: f.name }];
   return NextResponse.json({ breadcrumbs });
 });
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/drive/breadcrumbs' });

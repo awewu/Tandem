@@ -5,6 +5,7 @@ import { requireAuth } from '@/lib/auth/require-auth';
 import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import { applyTemplate, type TemplateId } from '@/lib/skills/decision-card-templates';
 import { deferAudit } from '@/lib/audit/defer';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /**
  * POST /api/convergence
@@ -13,7 +14,7 @@ import { deferAudit } from '@/lib/audit/defer';
  * Q2 KR 软绑定守门 (PRODUCT-DEFINITION decision #2):
  *   primaryKrId XOR noKrReason 必须非空; 理由 ≥ 10 字符.
  */
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   try {
@@ -98,11 +99,13 @@ export async function POST(req: NextRequest) {
   }
 }
 
+export const POST = withApiLog(POSTApiHandler, { route: '/api/convergence' });
+
 /**
  * GET /api/convergence
  * 列出最近的议事室 (按 createdAt 倒序)
  */
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   try {
@@ -120,3 +123,5 @@ export async function GET(req: NextRequest) {
     );
   }
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/convergence' });

@@ -32,6 +32,7 @@ import {
   generateBulkCreateOptions,
   type BulkCreateInput,
 } from '@/lib/services/okr-bulk-create';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -43,7 +44,7 @@ interface RequestBody {
   maxDepartments?: number;
 }
 
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
 
@@ -94,3 +95,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/okr/bulk-create/options' });

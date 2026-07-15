@@ -239,6 +239,8 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
 
   { group: '邮件、内网、治理与审计', path: '/api/audit', methods: ['GET'], auth: 'auth' },
   { group: '邮件、内网、治理与审计', path: '/api/audit/verify', methods: ['GET'], auth: 'role' },
+  { group: '邮件、内网、治理与审计', path: '/api/api-logs', methods: ['GET'], auth: 'role' },
+  { group: '邮件、内网、治理与审计', path: '/api/business-logs', methods: ['GET'], auth: 'role' },
   { group: '邮件、内网、治理与审计', path: '/api/governance/projects', methods: ['GET', 'POST'], auth: 'role' },
   { group: '邮件、内网、治理与审计', path: '/api/governance/projects/{id}', methods: ['DELETE', 'PATCH'], auth: 'role' },
   { group: '邮件、内网、治理与审计', path: '/api/governance/projects/{id}/links', methods: ['DELETE', 'POST'], auth: 'role' },

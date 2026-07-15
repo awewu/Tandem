@@ -5,6 +5,7 @@ import { getStore } from '@/lib/storage/repository';
 import { decrypt } from '@/lib/infra/crypto';
 import { fetchAttachment } from '@/lib/integrations/email-tier1';
 import type { EmailCredentials } from '@/lib/integrations/email-tier1';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,7 +22,7 @@ function buildCreds(userId: string, c: any): EmailCredentials {
 }
 
 // GET /api/mail/attachment?uid=123&filename=report.pdf&folder=INBOX
-export const GET = withErrorHandler(async (req: NextRequest) => {
+const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   const { searchParams } = new URL(req.url);
@@ -42,3 +43,5 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     },
   });
 });
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/mail/attachment' });

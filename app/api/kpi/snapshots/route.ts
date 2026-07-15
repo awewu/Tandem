@@ -17,12 +17,13 @@ import { boot, getStore } from '@/lib/boot';
 import { requireAuth, requireRole } from '@/lib/auth/require-auth';
 import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import type { KpiSnapshot } from '@/lib/types/kpi';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 function ymd(d: Date = new Date()): string {
   return d.toISOString().slice(0, 10);
 }
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -47,7 +48,9 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ snapshots: filtered, total: filtered.length });
 }
 
-export async function POST(req: NextRequest) {
+export const GET = withApiLog(GETApiHandler, { route: '/api/kpi/snapshots' });
+
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -108,3 +111,5 @@ export async function POST(req: NextRequest) {
     snapshotsSkippedExisting: skipped,
   });
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/kpi/snapshots' });

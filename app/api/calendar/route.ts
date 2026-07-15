@@ -4,8 +4,9 @@ import { requireAuth } from '@/lib/auth/require-auth';
 import { createAppContext } from '@/lib/repositories/app-context-factory';
 import { CalendarService } from '@/lib/services/calendar-service';
 import { boot } from '@/lib/boot';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export const GET = withErrorHandler(async (req: NextRequest) => {
+const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -25,7 +26,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   return NextResponse.json({ events });
 });
 
-export const POST = withErrorHandler(async (req: NextRequest) => {
+export const GET = withApiLog(GETApiHandler, { route: '/api/calendar' });
+
+const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -47,3 +50,5 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   });
   return NextResponse.json(ev, { status: 201 });
 });
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/calendar' });

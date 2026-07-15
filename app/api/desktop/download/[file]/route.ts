@@ -3,6 +3,7 @@ import { createReadStream } from 'node:fs';
 import { promises as fs } from 'node:fs';
 import { Readable } from 'node:stream';
 import { resolveReleaseFile } from '@/lib/desktop/releases';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /**
  * GET /api/desktop/download/<file>
@@ -12,7 +13,7 @@ import { resolveReleaseFile } from '@/lib/desktop/releases';
  */
 export const dynamic = 'force-dynamic';
 
-export async function GET(
+async function GETApiHandler(
   _req: NextRequest,
   { params }: { params: { file: string } },
 ) {
@@ -44,3 +45,5 @@ export async function GET(
     },
   });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/desktop/download/[file]' });

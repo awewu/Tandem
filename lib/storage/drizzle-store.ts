@@ -35,6 +35,7 @@ import type { AgentTemplate } from '../types/agent-template';
 import { generateId } from './repository';
 // DB-AUDIT P1 · classifier 提取到独立无 db-import 文件 (便于单测).
 import { classifyKvFilter } from './kv-filter';
+import { instrumentBusinessRepositories } from '@/lib/business-log/repository';
 
 const kv = schema.kvStore;
 
@@ -1250,7 +1251,7 @@ function createAgentTemplateRepo(): import('./repository').Repository<AgentTempl
 // ---------------------------------------------------------------------------
 
 export function createDrizzleStore(): TandemStore {
-  return {
+  return instrumentBusinessRepositories({
     _storeKind: 'prisma' as const, // 历史命名, 表示"已持久化"模式
     decisionCards: new DrizzleKvRepository('decision_cards'),
     personas: new DrizzleKvRepository('personas'),
@@ -1326,5 +1327,5 @@ export function createDrizzleStore(): TandemStore {
     aiSettings: new DrizzleKvRepository('ai_settings'),
     mcpServers: new DrizzleKvRepository('mcp_servers'),
     pushSubscriptions: new DrizzleKvRepository('push_subscriptions'),
-  };
+  });
 }

@@ -9,6 +9,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot, getStore } from '@/lib/boot';
 import { requireAuth, requireRole } from '@/lib/auth/require-auth';
 import type { PersonaStage, DelegationLevel } from '@/lib/types/persona';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 interface PersonaRow {
   userId: string;
@@ -21,7 +22,7 @@ interface PersonaRow {
   hasPersona: boolean;
 }
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -56,3 +57,5 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/admin/personas' });

@@ -9,8 +9,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { recallMessage } from '@/lib/im/service';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function PATCH(
+async function PATCHApiHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -32,3 +33,5 @@ export async function PATCH(
     );
   }
 }
+
+export const PATCH = withApiLog(PATCHApiHandler, { route: '/api/im/messages/[id]' });

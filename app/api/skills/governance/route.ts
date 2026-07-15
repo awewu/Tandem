@@ -3,6 +3,7 @@ import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { DATA_STEWARD_ROLES } from '@/lib/auth/roles';
 import { listSkillRecords, submitForReview, reviewSkill, suspendSkill } from '@/lib/taf/skills/governance';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /**
  * GET  /api/skills/governance              · 列出所有 Skill 治理记录
@@ -11,7 +12,7 @@ import { listSkillRecords, submitForReview, reviewSkill, suspendSkill } from '@/
  *   action='review'   治理委员会审批 (approve/reject/request-changes)
  *   action='suspend'  紧急下线 (admin only)
  */
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -19,7 +20,9 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ records });
 }
 
-export async function POST(req: NextRequest) {
+export const GET = withApiLog(GETApiHandler, { route: '/api/skills/governance' });
+
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -69,3 +72,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: (err as Error).message }, { status: 400 });
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/skills/governance' });

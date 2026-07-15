@@ -9,8 +9,9 @@ import { boot } from '@/lib/boot';
 import { getStore } from '@/lib/storage/repository';
 import { requireAuth, requireRole } from '@/lib/auth/require-auth';
 import { computeOkrKpiConsistency } from '@/lib/domain/analytics/okr-kpi-consistency';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   const forbidden = requireRole(auth, ['manager', 'admin', 'champion', 'steward']);
@@ -30,3 +31,5 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/analytics/okr-kpi-consistency' });

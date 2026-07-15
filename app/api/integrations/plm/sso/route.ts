@@ -2,6 +2,7 @@ import { createHmac } from 'crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot, getStore } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -42,7 +43,7 @@ function mapStudioRoles(roles: string[]): string[] {
   return Array.from(out);
 }
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -74,3 +75,5 @@ export async function GET(req: NextRequest) {
   callback.searchParams.set('state', stateFor(next));
   return NextResponse.redirect(callback.toString());
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/integrations/plm/sso' });

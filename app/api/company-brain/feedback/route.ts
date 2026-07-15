@@ -20,13 +20,14 @@ import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { setFeedback } from '@/lib/persona/company-brain-decision';
 import { deferAudit } from '@/lib/audit/defer';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 
 const ALLOWED_OUTCOMES = ['adopted', 'modified', 'overruled', 'ignored'] as const;
 type Outcome = (typeof ALLOWED_OUTCOMES)[number];
 
-export async function POST(req: NextRequest): Promise<NextResponse> {
+async function POSTApiHandler(req: NextRequest): Promise<NextResponse> {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -79,3 +80,5 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   return NextResponse.json({ ok: true, decision: updated });
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/company-brain/feedback' });

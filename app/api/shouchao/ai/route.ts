@@ -11,6 +11,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { withErrorHandler } from '@/lib/api/error-middleware';
 import { requireAuth } from '@/lib/auth/require-auth';
 import type { ShouchaoAiAction } from '@/lib/types/shouchao';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 
@@ -34,7 +35,7 @@ const PROMPTS: Record<ShouchaoAiAction, string> = {
     '你是善于联想的思考伙伴。请以用户这条笔记为「种子」，长出新的认知：给出 2-3 个跨领域的关联、类比或延伸思考（可涉及其它学科/案例/趋势），启发用户看到没想到的角度。中文，每条简明有洞察，不要空泛套话。',
 };
 
-export const POST = withErrorHandler(async (req: NextRequest) => {
+const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
 
@@ -90,3 +91,5 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
     return NextResponse.json({ ok: false, error: `AI 服务暂时不可用：${msg}` }, { status: 503 });
   }
 });
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/shouchao/ai' });

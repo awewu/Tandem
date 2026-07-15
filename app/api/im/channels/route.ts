@@ -15,8 +15,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { createChannel, listMyChannels } from '@/lib/im/service';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -24,7 +25,9 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ channels });
 }
 
-export async function POST(req: NextRequest) {
+export const GET = withApiLog(GETApiHandler, { route: '/api/im/channels' });
+
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -62,3 +65,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/im/channels' });

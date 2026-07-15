@@ -32,6 +32,8 @@ import {
 import { hashInviteCode, validateInvite, type InviteRecord } from './invite';
 import { encryptSecret, decryptSecret, verifyTotp, verifyRecoveryCode } from './mfa';
 import { getStore } from '../storage/repository';
+import { getBusinessLogContext } from '../business-log/context';
+import { deferBusinessLog } from '../business-log/service';
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCK_DURATION_MS = 15 * 60 * 1000;
@@ -678,4 +680,26 @@ async function audit(event: {
   metadata?: Record<string, unknown>;
 }): Promise<void> {
   await getStore().auth.events.append(event);
+  const context = getBusinessLogContext();
+  let tenantId = context?.tenantId ?? 'default';
+  if (event.userId && (!context || context.actorId === 'anonymous')) {
+    tenantId = (await getUserStore().findById(event.userId))?.tenantId ?? tenantId;
+  }
+  const failed = event.eventType.includes('failed') || event.eventType.includes('locked');
+  deferBusinessLog({
+    requestId: context?.requestId ?? null,
+    tenantId,
+    actorId: event.userId ?? context?.actorId ?? 'anonymous',
+    actorType: event.userId || context?.actorId ? 'user' : 'anonymous',
+    source: 'domain',
+    category: 'auth',
+    operation: `auth.${event.eventType}`,
+    action: event.eventType,
+    targetType: event.userId ? 'user' : 'account',
+    targetId: event.userId ?? null,
+    outcome: failed ? 'failure' : 'success',
+    level: failed ? 'warn' : 'info',
+    summary: `认证事件 ${event.eventType}`,
+    details: { email: event.email, metadata: event.metadata },
+  });
 }

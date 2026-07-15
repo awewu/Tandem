@@ -19,6 +19,7 @@ import {
   computeBossCaptureScore,
 } from '@/lib/persona/evolution';
 import { deriveSigningAuthority } from '@/lib/governance/signing-authority';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 const VETO_WINDOW_MS = 24 * 60 * 60 * 1000;
 const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -30,7 +31,7 @@ const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
  * 新行为: 强制走 requireAuth, userId 锁定为 session 主体.
  *         保留 demo 模式下 `?userId=demo-user` 兼容 e2e/dev.
  */
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -225,4 +226,6 @@ export async function GET(req: NextRequest) {
     },
   });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/me/dashboard' });
 

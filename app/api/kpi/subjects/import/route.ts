@@ -30,6 +30,7 @@ import {
   type RowResult,
 } from '@/lib/kpi/excel';
 import type { KpiSubject } from '@/lib/types/kpi';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 interface SubjectPayload {
   code: string;
@@ -45,7 +46,7 @@ interface SubjectPayload {
 const SCOPES = new Set(['bonus', 'monitor']);
 const MEASURES = new Set(['numeric', 'percentage', 'currency', 'count']);
 
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -259,3 +260,5 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json(summary);
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/kpi/subjects/import' });

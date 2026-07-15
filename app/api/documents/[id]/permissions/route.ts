@@ -3,6 +3,7 @@ import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { createAppContext } from '@/lib/repositories/app-context-factory';
 import { docAccess } from '@/lib/documents/access';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /**
  * PATCH /api/documents/[id]/permissions
@@ -11,7 +12,7 @@ import { docAccess } from '@/lib/documents/access';
  * 鉴权: 必须登录; 跨租户视同不存在; 仅 owner / 有 write 权限者 / demo 可改 ACL / 锁.
  * 白名单: 仅接受 read/write/publicAccess/isLocked, 防 body 注入其他文档字段.
  */
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+async function PATCHApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     await boot();
     const auth = requireAuth(req);
@@ -50,3 +51,5 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const PATCH = withApiLog(PATCHApiHandler, { route: '/api/documents/[id]/permissions' });

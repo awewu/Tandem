@@ -21,6 +21,7 @@ import { boot, getRouter, getStore } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import type { ChatMessage } from '@/lib/taf/provider/types';
 import type { CheckIn, KeyResult } from '@/lib/types/okr-tti';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -97,7 +98,7 @@ const SYSTEM_PROMPT = `你是企业 OKR 周报教练。员工把过去一周的�
 3. 中文输出；语气克制、基于事实，不要堆形容词。
 4. 如果一周没有任何 check-in，summary 直接说"本周无填报记录"。`;
 
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
 
@@ -257,6 +258,8 @@ export async function POST(req: NextRequest) {
     },
   });
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/ai/weekly-recap' });
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -2,12 +2,13 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { skillRegistry } from '@/lib/taf/skills';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /**
  * GET /api/tandem-skills?q=<query>&limit=5
  * 列出或检索 Tandem skill registry
  */
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   await boot();
@@ -30,3 +31,5 @@ export async function GET(req: NextRequest) {
     })),
   });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/tandem-skills' });

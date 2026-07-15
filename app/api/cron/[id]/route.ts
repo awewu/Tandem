@@ -2,6 +2,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 import { runHermes } from '@/lib/hermes-cli';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 const SAFE_ID = /^[A-Za-z0-9_\-]+$/;
 type Action = 'remove' | 'run' | 'pause' | 'resume';
@@ -21,15 +22,19 @@ async function cronAction(action: Action, id: string) {
   }
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+async function DELETEApiHandler(_req: Request, { params }: { params: { id: string } }) {
   return cronAction('remove', params.id);
 }
 
-export async function POST(_req: Request, { params }: { params: { id: string } }) {
+export const DELETE = withApiLog(DELETEApiHandler, { route: '/api/cron/[id]' });
+
+async function POSTApiHandler(_req: Request, { params }: { params: { id: string } }) {
   return cronAction('run', params.id);
 }
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export const POST = withApiLog(POSTApiHandler, { route: '/api/cron/[id]' });
+
+async function PATCHApiHandler(req: Request, { params }: { params: { id: string } }) {
   try {
     const { action } = await req.json();
     if (action !== 'pause' && action !== 'resume') {
@@ -40,3 +45,5 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     return Response.json({ success: false, error: err?.message }, { status: 500 });
   }
 }
+
+export const PATCH = withApiLog(PATCHApiHandler, { route: '/api/cron/[id]' });

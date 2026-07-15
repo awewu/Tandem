@@ -11,11 +11,12 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot, getStore } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { hashPassword, evaluatePassword } from '@/lib/auth/password';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+async function POSTApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -54,3 +55,5 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   return NextResponse.json({ ok: true });
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/org/users/[id]/password' });

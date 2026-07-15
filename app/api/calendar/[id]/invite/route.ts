@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server';
 import { boot } from '@/lib/boot';
 import { getStore } from '@/lib/storage/repository';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /**
  * POST /api/calendar/[id]/invite
  * Body: { userIds: string[] }
  * 向会议添加参与者，并发送通知
  */
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+async function POSTApiHandler(req: Request, { params }: { params: { id: string } }) {
   try {
     await boot();
     const s = getStore();
@@ -45,3 +46,5 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/calendar/[id]/invite' });

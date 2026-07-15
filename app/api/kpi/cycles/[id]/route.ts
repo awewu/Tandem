@@ -15,8 +15,9 @@ import { requireAuth } from '@/lib/auth/require-auth';
 import { hasKpiPermission } from '@/lib/auth/kpi-perms';
 import { audit } from '@/lib/audit/log';
 import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+async function GETApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -29,7 +30,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   return NextResponse.json({ cycle });
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export const GET = withApiLog(GETApiHandler, { route: '/api/kpi/cycles/[id]' });
+
+async function PATCHApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -103,7 +106,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export const PATCH = withApiLog(PATCHApiHandler, { route: '/api/kpi/cycles/[id]' });
+
+async function DELETEApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -138,3 +143,5 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   await cycles.delete(params.id);
   return NextResponse.json({ ok: true });
 }
+
+export const DELETE = withApiLog(DELETEApiHandler, { route: '/api/kpi/cycles/[id]' });

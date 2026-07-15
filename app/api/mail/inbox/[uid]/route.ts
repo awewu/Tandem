@@ -11,6 +11,7 @@ import { getStore } from '@/lib/storage/repository';
 import { decrypt } from '@/lib/infra/crypto';
 import { fetchMessageByUid } from '@/lib/integrations/email-tier1';
 import type { EmailCredentials } from '@/lib/integrations/email-tier1';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 function getKvRepo(collection: string) {
   const store = getStore();
@@ -20,7 +21,7 @@ function getKvRepo(collection: string) {
 
 export const dynamic = 'force-dynamic';
 
-export const GET = withErrorHandler(async (req: NextRequest, { params }: { params: { uid: string } }) => {
+const GETApiHandler = withErrorHandler(async (req: NextRequest, { params }: { params: { uid: string } }) => {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
 
@@ -68,6 +69,8 @@ export const GET = withErrorHandler(async (req: NextRequest, { params }: { param
   }
   return NextResponse.json(message);
 });
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/mail/inbox/[uid]' });
 
 function inferImapHost(smtpHost: string): string {
   const map: Record<string, string> = {

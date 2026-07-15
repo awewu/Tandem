@@ -16,6 +16,7 @@ import {
   addRule,
   archiveRule,
 } from '@/lib/persona/constitution';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 function checkSelfOrPrivileged(
   auth: ReturnType<typeof requireAuth>,
@@ -30,7 +31,7 @@ function checkSelfOrPrivileged(
   return NextResponse.json({ error: 'forbidden' }, { status: 403 });
 }
 
-export async function GET(req: NextRequest, { params }: { params: { userId: string } }) {
+async function GETApiHandler(req: NextRequest, { params }: { params: { userId: string } }) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -45,7 +46,9 @@ export async function GET(req: NextRequest, { params }: { params: { userId: stri
   }
 }
 
-export async function POST(req: NextRequest, { params }: { params: { userId: string } }) {
+export const GET = withApiLog(GETApiHandler, { route: '/api/persona/[userId]/constitution' });
+
+async function POSTApiHandler(req: NextRequest, { params }: { params: { userId: string } }) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -68,7 +71,9 @@ export async function POST(req: NextRequest, { params }: { params: { userId: str
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { userId: string } }) {
+export const POST = withApiLog(POSTApiHandler, { route: '/api/persona/[userId]/constitution' });
+
+async function DELETEApiHandler(req: NextRequest, { params }: { params: { userId: string } }) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -93,3 +98,5 @@ export async function DELETE(req: NextRequest, { params }: { params: { userId: s
     return NextResponse.json({ error: (err as Error).message }, { status: 400 });
   }
 }
+
+export const DELETE = withApiLog(DELETEApiHandler, { route: '/api/persona/[userId]/constitution' });

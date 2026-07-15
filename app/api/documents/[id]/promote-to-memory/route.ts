@@ -23,12 +23,13 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { promoteDocumentToMemory } from '@/lib/services/document-promotion';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 interface Params {
   params: { id: string };
 }
 
-export async function POST(req: NextRequest, { params }: Params) {
+async function POSTApiHandler(req: NextRequest, { params }: Params) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
 
@@ -69,3 +70,5 @@ export async function POST(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: msg }, { status: code });
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/documents/[id]/promote-to-memory' });

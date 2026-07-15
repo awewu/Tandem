@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic';
 import { sql } from 'drizzle-orm';
 import { db } from '@/lib/infra/drizzle-client';
 import { logger } from '@/lib/infra/logger';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /**
  * /api/health · liveness + readiness 探针
@@ -83,7 +84,7 @@ async function checkLlm(): Promise<CheckResult> {
 
 const startedAt = Date.now();
 
-export async function GET() {
+async function GETApiHandler() {
   const [database, redis, storage, llm] = await Promise.all([
     checkDb(),
     checkRedis(),
@@ -120,3 +121,5 @@ export async function GET() {
 
   return Response.json(body, { status: allOk ? 200 : 503 });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/health' });

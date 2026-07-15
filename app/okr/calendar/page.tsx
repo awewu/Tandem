@@ -22,6 +22,7 @@ import {
   Calendar as CalendarIcon, ChevronLeft, ChevronRight, Target,
   CheckCircle2, AlertTriangle, MessageSquare,
 } from 'lucide-react';
+import { useOwnerDirectory } from '@/lib/org/use-owner-directory';
 
 const CONF_DOT: Record<string, string> = {
   'on-track': 'bg-emerald-500',
@@ -43,7 +44,8 @@ interface CellEvent {
 }
 
 export default function OKRCalendarPage() {
-  const { cycles, objectives, keyResults, checkIns, people } = useOKRStore();
+  const { cycles, objectives, keyResults, checkIns } = useOKRStore();
+  const { nameOf } = useOwnerDirectory();
   const [year, setYear] = useState<number>(0);
   const [month, setMonth] = useState<number>(0); // 0-11
   const [todayMs, setTodayMs] = useState<number>(0);
@@ -54,12 +56,6 @@ export default function OKRCalendarPage() {
     setMonth(now.getMonth());
     setTodayMs(new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime());
   }, []);
-
-  const personById = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const p of people) m.set(p.id, p.name);
-    return m;
-  }, [people]);
 
   const objectiveById = useMemo(() => {
     const m = new Map<string, string>();
@@ -91,7 +87,7 @@ export default function OKRCalendarPage() {
       push(day, {
         type: 'kr-due',
         label: kr.title || '(无标题)',
-        meta: `${objectiveById.get(kr.objectiveId) ?? ''} · ${personById.get(kr.ownerId) ?? ''}`,
+        meta: `${objectiveById.get(kr.objectiveId) ?? ''} · ${nameOf(kr.ownerId)}`,
         href: `/okr?o=${kr.objectiveId}`,
         confidence: kr.confidence || undefined,
       });
@@ -111,7 +107,7 @@ export default function OKRCalendarPage() {
       push(day, {
         type: 'checkin',
         label: `${ci.scope === 'objective' ? 'O' : 'KR'} check-in: ${targetTitle ?? ''}`,
-        meta: `${personById.get(ci.authorId) ?? ''} · ${(ci.progressAfter ?? 0)}%`,
+        meta: `${nameOf(ci.authorId)} · ${(ci.progressAfter ?? 0)}%`,
       });
     }
 
@@ -133,7 +129,7 @@ export default function OKRCalendarPage() {
     }
 
     return map;
-  }, [year, month, keyResults, checkIns, cycles, objectiveById, personById]);
+  }, [year, month, keyResults, checkIns, cycles, objectiveById, nameOf]);
 
   /** 月份数据 */
   const monthGrid = useMemo(() => {

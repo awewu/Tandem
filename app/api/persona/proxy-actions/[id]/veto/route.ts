@@ -10,8 +10,9 @@ import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { vetoProxyAction } from '@/lib/persona/proxy-actions';
 import { getStore } from '@/lib/storage/repository';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+async function POSTApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -48,3 +49,5 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     );
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/persona/proxy-actions/[id]/veto' });

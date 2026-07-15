@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { getStore } from '@/lib/storage/repository';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /**
  * GET /api/auth/me
@@ -11,7 +12,7 @@ import { getStore } from '@/lib/storage/repository';
  * 返回 demo 用户, 与服务端各 API 路由的鉴权上下文保持一致 —— 否则客户端
  * useCurrentUser 在 demo 模式下永远拿不到用户, 导致"我创建的文档却看不到删除/管理"。
  */
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth; // 401
@@ -45,3 +46,5 @@ export async function GET(req: NextRequest) {
     },
   });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/auth/me' });

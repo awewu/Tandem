@@ -19,6 +19,7 @@ import type {
   CompanyBrainDecisionContext,
   CompanyBrainFeedbackOutcome,
 } from '@/lib/types/company-brain';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 
@@ -40,7 +41,7 @@ const ALLOWED_OUTCOMES: CompanyBrainFeedbackOutcome[] = [
   'ignored',
 ];
 
-export async function GET(req: NextRequest): Promise<NextResponse> {
+async function GETApiHandler(req: NextRequest): Promise<NextResponse> {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -84,3 +85,5 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     decisions,
   });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/admin/company-brain/decisions' });

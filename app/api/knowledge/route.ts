@@ -12,11 +12,12 @@ import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { listNodes, createNode } from '@/lib/knowledge/service';
 import type { KnowledgeOwnership } from '@/lib/types/knowledge';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   await boot();
@@ -24,6 +25,8 @@ export async function GET(req: NextRequest) {
   const nodes = await listNodes(auth.userId);
   return NextResponse.json({ nodes });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/knowledge' });
 
 interface CreateBody {
   name?: string;
@@ -33,7 +36,7 @@ interface CreateBody {
   ownership?: KnowledgeOwnership;
 }
 
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   await boot();
@@ -57,3 +60,5 @@ export async function POST(req: NextRequest) {
   });
   return NextResponse.json({ node }, { status: 201 });
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/knowledge' });

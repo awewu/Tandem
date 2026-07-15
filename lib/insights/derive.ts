@@ -55,14 +55,20 @@ export interface InsightInput {
   submissions: Review360Submission[];
   cycles360: Review360CycleDef[];
   people: Person[];
+  /** ownerId -> 界面显示名, 由统一组织人员目录注入 (含 person:/team: 前缀). */
+  ownerNameById?: Record<string, string>;
   /** 现在时间 (ms), 由 client 传入 */
   now: number;
 }
 
 const DAY = 24 * 60 * 60 * 1000;
 
-function nameOf(people: Person[], id: string): string {
-  return people.find((p) => p.id === id)?.name ?? id;
+function nameOf(input: InsightInput, id: string): string {
+  const personId = id.startsWith('person:') ? id.slice(7) : id;
+  return input.ownerNameById?.[id]
+    ?? input.ownerNameById?.[personId]
+    ?? input.people.find((p) => p.id === personId)?.name
+    ?? '未知人员';
 }
 
 // ---------------------------------------------------------------------------
@@ -88,7 +94,7 @@ function detectOKRRisks(input: InsightInput): Insight[] {
       category: 'okr-risk',
       severity,
       title: `OKR 落后风险: ${obj.title}`,
-      detail: `负责人 ${nameOf(input.people, obj.ownerId)} · 平均进度 ${avg.toFixed(
+      detail: `负责人 ${nameOf(input, obj.ownerId)} · 平均进度 ${avg.toFixed(
         0
       )}% · 信心 ${obj.confidence}. 建议立即 check-in 并在 1on1 上同步.`,
       refs: [{ type: 'objective', id: obj.id, label: obj.title }],
@@ -123,7 +129,7 @@ function detectStaleOKRs(input: InsightInput): Insight[] {
         category: 'okr-stale',
         severity: days > 30 ? 'warning' : 'info',
         title: `${days} 天无 check-in: ${obj.title}`,
-        detail: `负责人 ${nameOf(input.people, obj.ownerId)} 已连续 ${days} 天未更新. 数据可能失真.`,
+        detail: `负责人 ${nameOf(input, obj.ownerId)} 已连续 ${days} 天未更新. 数据可能失真.`,
         refs: [{ type: 'objective', id: obj.id, label: obj.title }],
         actions: [{ label: '催更', href: `/okr#obj-${obj.id}` }],
       });
@@ -147,7 +153,7 @@ function detectLeading(input: InsightInput): Insight[] {
         category: 'okr-leading',
         severity: 'positive',
         title: `领先案例: ${obj.title}`,
-        detail: `${nameOf(input.people, obj.ownerId)} 已完成 ${avg.toFixed(
+        detail: `${nameOf(input, obj.ownerId)} 已完成 ${avg.toFixed(
           0
         )}%. 建议在月度复盘中分享方法论.`,
         refs: [{ type: 'objective', id: obj.id, label: obj.title }],
@@ -177,7 +183,7 @@ function detect1on1Cadence(input: InsightInput): Insight[] {
         id: `1on1-gap-${v.managerId}-${v.reportId}`,
         category: '1on1-cadence',
         severity: days >= 60 ? 'warning' : 'info',
-        title: `1on1 断档 ${days} 天: ${nameOf(input.people, v.managerId)} → ${nameOf(input.people, v.reportId)}`,
+        title: `1on1 断档 ${days} 天: ${nameOf(input, v.managerId)} → ${nameOf(input, v.reportId)}`,
         detail: `上次 1on1 已是 ${days} 天前. 建议本周内补一次.`,
         refs: [
           { type: 'person', id: v.managerId },
@@ -213,7 +219,7 @@ function detectMoodDrop(input: InsightInput): Insight[] {
         id: `mood-${reportId}`,
         category: '1on1-mood',
         severity: avg < 2 ? 'critical' : 'warning',
-        title: `干劲走低: ${nameOf(input.people, reportId)}`,
+        title: `干劲走低: ${nameOf(input, reportId)}`,
         detail: `最近 ${recent.length} 次 1on1 平均干劲 ${avg.toFixed(1)}/5. 建议主管主动介入.`,
         refs: [{ type: 'person', id: reportId }],
         actions: [{ label: '约谈', href: `/1on1?reportId=${reportId}` }],
@@ -239,10 +245,10 @@ function detectOverdueActions(input: InsightInput): Insight[] {
         category: '1on1-action-overdue',
         severity: days > 7 ? 'warning' : 'info',
         title: `Action 逾期 ${days} 天: ${a.text}`,
-        detail: `1on1 任务 (${nameOf(input.people, m.managerId)} ↔ ${nameOf(
-          input.people,
+        detail: `1on1 任务 (${nameOf(input, m.managerId)} ↔ ${nameOf(
+          input,
           m.reportId
-        )}) · 负责人 ${nameOf(input.people, a.assigneeId)}.`,
+        )}) · 负责人 ${nameOf(input, a.assigneeId)}.`,
         refs: [{ type: 'meeting', id: m.id }],
         actions: [{ label: '打开 1on1', href: '/1on1' }],
       });
@@ -295,7 +301,7 @@ function detectThemes360(input: InsightInput): Insight[] {
       id: `360-theme-${subjectId}`,
       category: '360-theme',
       severity: 'info',
-      title: `360 反馈主题: ${nameOf(input.people, subjectId)}`,
+      title: `360 反馈主题: ${nameOf(input, subjectId)}`,
       detail: top.map(([k, n]) => `${k} ×${n}`).join(' · '),
       refs: [{ type: 'person', id: subjectId }],
       actions: [{ label: '查看 360', href: '/360' }],
@@ -330,7 +336,7 @@ function detectCrossLink(input: InsightInput, existing: Insight[]): Insight[] {
       id: `cross-${personId}`,
       category: 'cross-link',
       severity: 'critical',
-      title: `双重风险: ${nameOf(input.people, personId)} OKR 落后 + 1on1 失联`,
+      title: `双重风险: ${nameOf(input, personId)} OKR 落后 + 1on1 失联`,
       detail: `OKR 风险与 1on1 节奏 / 干劲信号同时出现, 建议优先介入.`,
       refs: [{ type: 'person', id: personId }],
       actions: [

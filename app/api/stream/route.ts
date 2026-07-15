@@ -1,9 +1,10 @@
 import { spawn } from 'child_process';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function POST(req: Request) {
+async function POSTApiHandler(req: Request) {
   const { messages, model, skills, systemPrompt, temperature } = await req.json().catch(() => ({}));
 
   const encoder = new TextEncoder();
@@ -166,3 +167,5 @@ export async function POST(req: Request) {
     },
   });
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/stream' });

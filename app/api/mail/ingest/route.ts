@@ -17,6 +17,7 @@ import { withErrorHandler } from '@/lib/api/error-middleware';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { digestEmailMessage, ingestEmailIntoCorporateMemory } from '@/lib/services/email-ai-brain';
 import type { EmailMessage } from '@/lib/integrations/email-tier1';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 interface Body {
   from?: unknown;
@@ -32,7 +33,7 @@ function asList(v: unknown): string[] {
   return [];
 }
 
-export const POST = withErrorHandler(async (req: NextRequest) => {
+const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
 
@@ -64,3 +65,5 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
 
   return NextResponse.json({ ok: true, digest, originId, promotionId });
 });
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/mail/ingest' });

@@ -11,6 +11,7 @@ import { getStore } from '@/lib/storage/repository';
 import { decrypt } from '@/lib/infra/crypto';
 import { fetchInbox, updateMessageFlags, deleteMessages, saveDraft } from '@/lib/integrations/email-tier1';
 import type { EmailCredentials } from '@/lib/integrations/email-tier1';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 function getKvRepo(collection: string) {
   const store = getStore();
@@ -46,7 +47,7 @@ function buildEmailCreds(userId: string, creds: any): EmailCredentials {
   };
 }
 
-export const GET = withErrorHandler(async (req: NextRequest) => {
+const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
 
@@ -79,7 +80,9 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
   }
 });
 
-export const POST = withErrorHandler(async (req: NextRequest) => {
+export const GET = withApiLog(GETApiHandler, { route: '/api/mail/inbox' });
+
+const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
 
@@ -104,7 +107,9 @@ export const POST = withErrorHandler(async (req: NextRequest) => {
   return NextResponse.json({ ok: true });
 });
 
-export const PUT = withErrorHandler(async (req: NextRequest) => {
+export const POST = withApiLog(POSTApiHandler, { route: '/api/mail/inbox' });
+
+const PUTApiHandler = withErrorHandler(async (req: NextRequest) => {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
 
@@ -129,7 +134,9 @@ export const PUT = withErrorHandler(async (req: NextRequest) => {
   return NextResponse.json({ ok: true, uid });
 });
 
-export const DELETE = withErrorHandler(async (req: NextRequest) => {
+export const PUT = withApiLog(PUTApiHandler, { route: '/api/mail/inbox' });
+
+const DELETEApiHandler = withErrorHandler(async (req: NextRequest) => {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
 
@@ -152,6 +159,8 @@ export const DELETE = withErrorHandler(async (req: NextRequest) => {
   await deleteMessages(emailCreds, { uids, folder });
   return NextResponse.json({ ok: true });
 });
+
+export const DELETE = withApiLog(DELETEApiHandler, { route: '/api/mail/inbox' });
 
 /**
  * 根据 SMTP 主机自动推断 IMAP 主机

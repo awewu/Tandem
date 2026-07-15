@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic';
 import { runHermes } from '@/lib/hermes-cli';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { NextResponse } from 'next/server';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 interface HermesSkill {
   name: string;
@@ -51,7 +52,7 @@ function parseSkillsList(stdout: string): HermesSkill[] {
   return skills;
 }
 
-export async function GET(req: Request) {
+async function GETApiHandler(req: Request) {
   const auth = requireAuth(req as any);
   if (auth instanceof NextResponse) return auth;
   try {
@@ -71,3 +72,5 @@ export async function GET(req: Request) {
     );
   }
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/skills' });

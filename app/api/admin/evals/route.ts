@@ -23,6 +23,7 @@ import {
   buildBossAiPersonaSuite,
   type SuiteReport,
 } from '@/lib/evals';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -33,7 +34,7 @@ const _g = globalThis as typeof globalThis & {
   __tandem_last_eval_at__?: string;
 };
 
-export async function GET(req: NextRequest): Promise<NextResponse> {
+async function GETApiHandler(req: NextRequest): Promise<NextResponse> {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   const roleErr = requireRole(auth, ['admin', 'steward']);
@@ -45,7 +46,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   });
 }
 
-export async function POST(req: NextRequest): Promise<NextResponse> {
+export const GET = withApiLog(GETApiHandler, { route: '/api/admin/evals' });
+
+async function POSTApiHandler(req: NextRequest): Promise<NextResponse> {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   const roleErr = requireRole(auth, ['admin', 'steward']);
@@ -106,3 +109,5 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   return NextResponse.json({ reports });
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/admin/evals' });

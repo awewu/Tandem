@@ -10,6 +10,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getStore, boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { strip1on1ForRequester } from '@/lib/auth/strip';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 async function loadAndAuthorize(
   id: string,
@@ -27,7 +28,7 @@ async function loadAndAuthorize(
   return { meeting };
 }
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+async function GETApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -42,7 +43,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   });
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export const GET = withApiLog(GETApiHandler, { route: '/api/1on1/[id]' });
+
+async function PATCHApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -97,7 +100,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export const PATCH = withApiLog(PATCHApiHandler, { route: '/api/1on1/[id]' });
+
+async function DELETEApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -113,3 +118,5 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   await store.oneOnOneMeetings.delete(params.id);
   return NextResponse.json({ ok: true });
 }
+
+export const DELETE = withApiLog(DELETEApiHandler, { route: '/api/1on1/[id]' });

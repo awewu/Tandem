@@ -13,6 +13,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { ocrImage, isOcrConfigured } from '@/lib/infra/ocr';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -21,7 +22,7 @@ export const maxDuration = 60;
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const ALLOWED = /^image\/(png|jpe?g|webp|gif|bmp|heic|heif)$/i;
 
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   await boot();
@@ -65,3 +66,5 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ ok: true, text: result.text });
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/shouchao/ocr' });

@@ -14,8 +14,9 @@ import { requireAuth } from '@/lib/auth/require-auth';
 import { boot, getRouter } from '@/lib/boot';
 import { getTenantAiPolicy, upsertTenantAiPolicy } from '@/lib/settings/tenant-ai-policy';
 import { deferAudit } from '@/lib/audit/defer';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -32,7 +33,9 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function PUT(req: NextRequest) {
+export const GET = withApiLog(GETApiHandler, { route: '/api/settings/tenant-ai-policy' });
+
+async function PUTApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -78,3 +81,5 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ ok: false, error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const PUT = withApiLog(PUTApiHandler, { route: '/api/settings/tenant-ai-policy' });

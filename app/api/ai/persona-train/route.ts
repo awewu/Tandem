@@ -17,6 +17,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot, getRouter } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import type { ChatMessage } from '@/lib/taf/provider/types';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -101,7 +102,7 @@ function buildSystemPrompt(ctx: RequestBody['context']): string {
   return parts.join('\n');
 }
 
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
 
@@ -238,3 +239,5 @@ export async function POST(req: NextRequest) {
     },
   });
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/ai/persona-train' });

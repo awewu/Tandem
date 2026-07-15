@@ -14,8 +14,9 @@ import {
   getChannelIfMember,
 } from '@/lib/im/service';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function GET(
+async function GETApiHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -30,7 +31,9 @@ export async function GET(
   return NextResponse.json({ members });
 }
 
-export async function POST(
+export const GET = withApiLog(GETApiHandler, { route: '/api/im/channels/[id]/members' });
+
+async function POSTApiHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -57,7 +60,9 @@ export async function POST(
   }
 }
 
-export async function DELETE(
+export const POST = withApiLog(POSTApiHandler, { route: '/api/im/channels/[id]/members' });
+
+async function DELETEApiHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -85,7 +90,9 @@ export async function DELETE(
   }
 }
 
-export async function PATCH(
+export const DELETE = withApiLog(DELETEApiHandler, { route: '/api/im/channels/[id]/members' });
+
+async function PATCHApiHandler(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -124,3 +131,5 @@ export async function PATCH(
     );
   }
 }
+
+export const PATCH = withApiLog(PATCHApiHandler, { route: '/api/im/channels/[id]/members' });

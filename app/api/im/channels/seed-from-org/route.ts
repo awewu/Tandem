@@ -16,8 +16,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { seedDepartmentChannels, type DepartmentSpec } from '@/lib/im/service';
 import { requireAuth, requireRole } from '@/lib/auth/require-auth';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   // 管理员专属: 必须登录且为 owner/admin, operator 取自登录身份.
   const auth = requireAuth(req);
@@ -50,3 +51,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/im/channels/seed-from-org' });

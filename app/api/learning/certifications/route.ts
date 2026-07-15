@@ -7,10 +7,11 @@ import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { getStore } from '@/lib/storage/repository';
 import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(req: NextRequest): Promise<NextResponse> {
+async function GETApiHandler(req: NextRequest): Promise<NextResponse> {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -29,3 +30,5 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   return NextResponse.json({ certifications: certs });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/learning/certifications' });

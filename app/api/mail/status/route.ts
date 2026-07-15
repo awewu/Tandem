@@ -10,10 +10,11 @@ import { withErrorHandler } from '@/lib/api/error-middleware';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { isEmailConfigured } from '@/lib/infra/email';
 import { getStore } from '@/lib/storage/repository';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const dynamic = 'force-dynamic';
 
-export const GET = withErrorHandler(async (req: NextRequest) => {
+const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
 
@@ -61,3 +62,5 @@ export const GET = withErrorHandler(async (req: NextRequest) => {
     inbound: { configured: false, note: 'IMAP 收件功能 V2 计划中' },
   });
 });
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/mail/status' });

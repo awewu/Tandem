@@ -2,8 +2,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { logout } from '@/lib/auth/native';
 import { COOKIE_ACCESS, COOKIE_REFRESH, verifyAccessToken } from '@/lib/auth/session';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   const accessToken = req.cookies.get(COOKIE_ACCESS)?.value;
   const payload = accessToken ? verifyAccessToken(accessToken) : null;
@@ -21,3 +22,5 @@ export async function POST(req: NextRequest) {
   res.cookies.delete(COOKIE_REFRESH);
   return res;
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/auth/logout' });

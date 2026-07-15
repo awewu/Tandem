@@ -10,6 +10,7 @@ import { boot, getStore } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { listDepts, type HrDept } from '@/lib/org/departments';
 import type { AuthUser } from '@/lib/storage/repository';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -153,7 +154,7 @@ function resolveManager(value: string | undefined, usersByEmail: Map<string, Aut
   return byName.length === 1 ? byName[0].id : undefined;
 }
 
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -247,3 +248,5 @@ export async function POST(req: NextRequest) {
     },
   });
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/org/users/import' });

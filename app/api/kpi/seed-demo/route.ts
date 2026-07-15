@@ -22,6 +22,7 @@ import { boot, getStore } from '@/lib/boot';
 import { requireAuth, requireRole } from '@/lib/auth/require-auth';
 import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import type { Kpi, KpiCycle, KpiLevel, KpiSubject } from '@/lib/types/kpi';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 const FISCAL_YEAR = 2026;
 const CYCLE_NAME = 'FY2026 (Demo)';
@@ -119,7 +120,7 @@ const KPI_SPECS: KpiSpec[] = [
   { subjectCode: 'HR.RETAIN', assignee: 'bu-product', title: '智能产品事业部·组织能力指数', startValue: 75, targetValue: 90,    weight: 20, scope: 'bonus', level: 'business_unit', completion: 0.87 },
 ];
 
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -282,3 +283,5 @@ export async function POST(req: NextRequest) {
     ],
   });
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/kpi/seed-demo' });

@@ -3,6 +3,7 @@ import { boot, getRouter } from '@/lib/boot';
 import { spawnAgent, spawnAgentAsync } from '@/lib/taf/agent/spawn';
 import { audit } from '@/lib/audit/log';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /**
  * POST /api/agent/spawn
@@ -20,7 +21,7 @@ import { requireAuth } from '@/lib/auth/require-auth';
  *   isProxy?: boolean
  * }
  */
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   // P0-A/P0-未鉴权: spawn 会烧 LLM 预算, 必须登录; 身份取自鉴权上下文, 不接受 body 注入.
   const auth = requireAuth(req);
@@ -74,3 +75,5 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ ok: true, ...result });
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/agent/spawn' });

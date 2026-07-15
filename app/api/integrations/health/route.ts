@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { boot, getStore } from '@/lib/boot';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /**
  * GET /api/integrations/health
@@ -35,7 +36,7 @@ async function ping(url: string, timeoutMs = 3000): Promise<{ ok: boolean; laten
   }
 }
 
-export async function GET() {
+async function GETApiHandler() {
   const checks: HealthCheck[] = [];
 
   // === LLM ===
@@ -138,3 +139,5 @@ export async function GET() {
 
   return NextResponse.json({ summary, checks });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/integrations/health' });

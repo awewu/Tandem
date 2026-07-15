@@ -14,6 +14,7 @@ import { requireAuth } from '@/lib/auth/require-auth';
 import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import { OKR_BOSS_ROLES } from '@/lib/okr/visibility';
 import type { Confidence } from '@/lib/types/okr-tti';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 function isBoss(roles: string[]): boolean {
   return roles.some((r) => OKR_BOSS_ROLES.includes(r as never));
@@ -23,7 +24,7 @@ function toRiskStatus(c: Confidence): 'on_track' | 'at_risk' | 'off_track' {
   return c === 'at-risk' ? 'at_risk' : c === 'off-track' ? 'off_track' : 'on_track';
 }
 
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -71,3 +72,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/okr/key-results' });

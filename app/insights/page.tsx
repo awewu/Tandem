@@ -35,6 +35,7 @@ import {
   type InsightCategory,
 } from '@/lib/insights/derive';
 import { Stat } from '@/components/ui/stat';
+import { useOwnerDirectory } from '@/lib/org/use-owner-directory';
 
 const SEV_COLORS: Record<InsightSeverity, { bg: string; text: string; ring: string; label: string }> = {
   critical: { bg: 'bg-danger/5', text: 'text-danger', ring: 'ring-danger/20', label: '严重' },
@@ -69,6 +70,7 @@ export default function InsightsPage() {
   const okr = useOKRStore();
   const oneOnOne = useOneOnOneStore();
   const r360 = useReview360Store();
+  const { people, ownerNameById } = useOwnerDirectory();
 
   const [now, setNow] = useState<number | null>(null);
   const [severityFilter, setSeverityFilter] = useState<InsightSeverity | 'all'>('all');
@@ -87,10 +89,11 @@ export default function InsightsPage() {
       meetings: oneOnOne.meetings,
       submissions: r360.submissions,
       cycles360: r360.cycles,
-      people: okr.people,
+      people,
+      ownerNameById,
       now,
     });
-  }, [now, okr.objectives, okr.keyResults, okr.checkIns, okr.people, oneOnOne.meetings, r360.submissions, r360.cycles]);
+  }, [now, okr.objectives, okr.keyResults, okr.checkIns, people, ownerNameById, oneOnOne.meetings, r360.submissions, r360.cycles]);
 
   const counts = useMemo(() => {
     const out: Record<InsightSeverity, number> = { critical: 0, warning: 0, info: 0, positive: 0 };

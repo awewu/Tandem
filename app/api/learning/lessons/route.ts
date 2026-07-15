@@ -11,11 +11,12 @@ import { requireAuth, requireRole } from '@/lib/auth/require-auth';
 import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import { DATA_STEWARD_ROLES } from '@/lib/auth/roles';
 import type { Lesson, LessonCategory, LessonRequirement } from '@/lib/learning/types';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 const VALID_CATEGORIES: LessonCategory[] = ['onboarding', 'compliance', 'products', 'processes', 'tracks'];
 const VALID_REQUIREMENTS: LessonRequirement[] = ['mandatory_once', 'mandatory_quarterly', 'recommended', 'elective'];
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -47,7 +48,9 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
+export const GET = withApiLog(GETApiHandler, { route: '/api/learning/lessons' });
+
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -95,3 +98,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/learning/lessons' });

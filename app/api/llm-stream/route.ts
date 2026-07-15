@@ -1,4 +1,4 @@
-/**
+import { withApiLog } from '@/lib/api-log/with-api-log';/**
  * OpenAI 兼容协议代理端点 + Team Token 路由
  *
  * 两条路径:
@@ -47,7 +47,7 @@ function resolveApiKey(baseURL: string, clientKey?: string): string {
   return '';
 }
 
-export async function POST(req: Request) {
+async function POSTApiHandler(req: Request) {
   let body: RequestBody;
   try {
     body = (await req.json()) as RequestBody;
@@ -223,6 +223,8 @@ export async function POST(req: Request) {
     },
   });
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/llm-stream' });
 
 // ---------------------------------------------------------------------------
 // Team Token 路径 — 走 TAF Router chatStream (服务端持有 key)

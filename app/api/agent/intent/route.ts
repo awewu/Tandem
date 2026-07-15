@@ -14,6 +14,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { loadSkills, getLoadedSkills } from '@/lib/skills/registry';
 import { boot, getRouter } from '@/lib/boot';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 interface Match {
   intent: string;
@@ -202,7 +203,7 @@ async function ensureSkills() {
   _booted = true;
 }
 
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
 
@@ -264,6 +265,8 @@ export async function POST(req: NextRequest) {
     query,
   });
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/agent/intent' });
 
 // ---------------------------------------------------------------------------
 // LLM 兜底意图理解

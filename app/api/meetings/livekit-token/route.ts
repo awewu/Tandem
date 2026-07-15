@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { issueLiveKitToken, isLiveKitConfigured } from '@/lib/infra/livekit';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /**
  * POST /api/meetings/livekit-token
@@ -9,7 +10,7 @@ import { issueLiveKitToken, isLiveKitConfigured } from '@/lib/infra/livekit';
  *
  * 返回 LiveKit 客户端连接所需的 wsUrl + 短 TTL token.
  */
-export async function POST(req: NextRequest) {
+async function POSTApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -37,3 +38,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }
+
+export const POST = withApiLog(POSTApiHandler, { route: '/api/meetings/livekit-token' });

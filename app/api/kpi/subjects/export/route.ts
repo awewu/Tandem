@@ -13,8 +13,9 @@ import { requireAuth } from '@/lib/auth/require-auth';
 import { hasKpiPermission } from '@/lib/auth/kpi-perms';
 import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import { buildSheet, SUBJECT_COLUMNS } from '@/lib/kpi/excel';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export async function GET(req: NextRequest) {
+async function GETApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -50,3 +51,5 @@ export async function GET(req: NextRequest) {
     },
   });
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/kpi/subjects/export' });

@@ -1,4 +1,5 @@
 import { runHermes } from '@/lib/hermes-cli';
+import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -45,7 +46,7 @@ function parseLine(line: string, idx: number): LogLine | null {
   return null;
 }
 
-export async function GET(req: Request) {
+async function GETApiHandler(req: Request) {
   const url = new URL(req.url);
   const logName = url.searchParams.get('log') || 'agent'; // agent | errors | gateway | list
   const lines = url.searchParams.get('lines') || '100';
@@ -90,3 +91,5 @@ export async function GET(req: Request) {
     );
   }
 }
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/logs' });
