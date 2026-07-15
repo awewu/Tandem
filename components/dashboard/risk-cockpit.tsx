@@ -100,7 +100,7 @@ export function RiskCockpit() {
           {cockpit.topRisks.length > 0 && (
             <ul className="mt-3 space-y-1.5">
               {cockpit.topRisks.slice(0, 3).map((r) => (
-                <li key={r.objectiveId} className="flex items-center gap-2 text-caption">
+                <li key={r.objectiveId} className="flex min-w-0 items-center gap-2 text-caption">
                   <AlertTriangle
                     className={`h-3.5 w-3.5 shrink-0 ${r.band === 'off-track' ? 'text-danger' : 'text-warning'}`}
                   />

@@ -49,16 +49,25 @@ function LoginInner() {
   const [recovering, setRecovering] = useState(isTauri() || isCapacitor());
 
   useEffect(() => {
+    const withRecoverTimeout = (task: Promise<boolean>) => Promise.race([
+      task,
+      new Promise<boolean>((resolve) => window.setTimeout(() => resolve(false), 3500)),
+    ]);
+
     if (isTauri()) {
       let cancelled = false;
       void (async () => {
-        const ok = await refreshDesktopSession();
-        if (cancelled) return;
-        if (ok) {
-          await fetchMe();
-          router.replace(next);
-        } else {
-          setRecovering(false);
+        try {
+          const ok = await withRecoverTimeout(refreshDesktopSession());
+          if (cancelled) return;
+          if (ok) {
+            await fetchMe();
+            router.replace(next);
+          } else {
+            setRecovering(false);
+          }
+        } catch {
+          if (!cancelled) setRecovering(false);
         }
       })();
       return () => {
@@ -68,13 +77,17 @@ function LoginInner() {
     if (isCapacitor()) {
       let cancelled = false;
       void (async () => {
-        const ok = await refreshMobileSession();
-        if (cancelled) return;
-        if (ok) {
-          await fetchMe();
-          router.replace(next);
-        } else {
-          setRecovering(false);
+        try {
+          const ok = await withRecoverTimeout(refreshMobileSession());
+          if (cancelled) return;
+          if (ok) {
+            await fetchMe();
+            router.replace(next === '/' ? '/im' : next);
+          } else {
+            setRecovering(false);
+          }
+        } catch {
+          if (!cancelled) setRecovering(false);
         }
       })();
       return () => {
@@ -92,6 +105,7 @@ function LoginInner() {
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json', ...desktopHeaders(), ...capacitorHeaders() },
         body: JSON.stringify({ email, password }),
       });
@@ -108,7 +122,7 @@ function LoginInner() {
         router.push('/settings/security?enrollMfa=1&reason=privileged_role');
       } else {
         await fetchMe();
-        router.push(next);
+        router.replace(next);
       }
     } finally {
       setBusy(false);
@@ -135,7 +149,7 @@ function LoginInner() {
         return;
       }
       await fetchMe();
-      router.push(next);
+      router.replace(next);
     } finally {
       setBusy(false);
     }
@@ -597,7 +611,7 @@ function PhoneLoginPanel() {
       });
       const data = await res.json();
       if (!res.ok || !data.ok) { setErr(data.error ?? '登录失败'); return; }
-      router.push(next);
+      router.replace(next);
     } catch (e) { setErr((e as Error).message); }
     finally { setBusy(false); }
   }
@@ -676,7 +690,7 @@ function WechatLoginPanel() {
         timer = setInterval(async () => {
           const pr = await fetch(`/api/auth/wechat/poll?ticket=${encodeURIComponent(data.ticket)}`);
           const pd = await pr.json();
-          if (pd.ok && pd.status === 'confirmed') { if (timer) clearInterval(timer); router.push(next); }
+          if (pd.ok && pd.status === 'confirmed') { if (timer) clearInterval(timer); router.replace(next); }
           if (pd.ok && pd.status === 'expired') { if (timer) clearInterval(timer); setState('error'); setHint('二维码已过期, 请刷新'); }
         }, 2000);
       } catch {

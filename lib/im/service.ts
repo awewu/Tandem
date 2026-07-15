@@ -375,6 +375,28 @@ export async function recallMessage(
   return updated;
 }
 
+export async function updateOwnMessageAttachments(
+  messageId: string,
+  userId: string,
+  attachments: ImAttachment[],
+): Promise<ImMessage> {
+  const store = getStore();
+  const msg = await store.imMessages.get(messageId);
+  if (!msg) throw new Error('message not found');
+  if (msg.senderId !== userId) throw new Error('not your message');
+
+  const channel = await store.imChannels.get(msg.channelId);
+  if (!channel) throw new Error('channel gone');
+  const membership = await store.imMemberships.get(membershipKey(channel.id, userId));
+  if (!membership) throw new Error('not a member of this channel');
+
+  const updated = await store.imMessages.update(messageId, { attachments });
+  if (!updated) throw new Error('update failed');
+
+  broadcast({ type: 'message_updated', channelId: channel.id, message: updated });
+  return updated;
+}
+
 /** 添加成员 (owner/admin 操作) */
 export async function addChannelMember(
   channelId: string,

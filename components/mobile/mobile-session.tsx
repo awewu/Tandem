@@ -12,16 +12,19 @@
  */
 
 import { useEffect, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import { isCapacitor, refreshMobileSession } from '@/lib/capacitor/client';
 
 const REFRESH_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const FOCUS_THROTTLE_MS = 5 * 60 * 1000;
 
 export function MobileSession() {
-  const lastRefreshRef = useRef(0);
+  const pathname = usePathname() ?? '';
+  const lastRefreshRef = useRef(Date.now());
 
   useEffect(() => {
     if (!isCapacitor()) return;
+    if (pathname === '/login' || pathname.startsWith('/login/') || pathname === '/register' || pathname.startsWith('/register/')) return;
 
     let cancelled = false;
 
@@ -30,8 +33,6 @@ export function MobileSession() {
       lastRefreshRef.current = Date.now();
       void refreshMobileSession();
     };
-
-    doRefresh();
 
     const interval = setInterval(doRefresh, REFRESH_INTERVAL_MS);
 
@@ -50,7 +51,7 @@ export function MobileSession() {
       window.removeEventListener('focus', onActive);
       document.removeEventListener('visibilitychange', onActive);
     };
-  }, []);
+  }, [pathname]);
 
   return null;
 }

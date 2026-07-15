@@ -45,6 +45,7 @@ import { RiskCockpit } from '@/components/dashboard/risk-cockpit';
 import { PendingRetrosCard } from '@/components/dashboard/pending-retros-card';
 import { WorkbenchAgentView } from '@/components/dashboard/workbench-agent-view';
 import type { LaunchpadAppWithBadge, LaunchpadCategory as LpCategory } from '@/lib/types/launchpad';
+import { isCapacitor } from '@/lib/capacitor/client';
 
 /**
  * Homepage — 3-section layout (企业内网 已迁出为左侧独立模块 /intranet):
@@ -84,6 +85,12 @@ export default function HomePage() {
   const [launchpadApps, setLaunchpadApps] = useState<LaunchpadAppWithBadge[]>([]);
   const router = useRouter();
   const { open: openRightPane, close: closeRightPane } = useRightPane();
+  const capacitorApp = isCapacitor();
+
+  useEffect(() => {
+    if (!capacitorApp) return;
+    router.replace('/im');
+  }, [capacitorApp, router]);
 
   function previewDecision(d: DashboardStats['recentDecisions'][number]) {
     openRightPane({
@@ -156,6 +163,7 @@ export default function HomePage() {
   }
 
   useEffect(() => {
+    if (capacitorApp) return;
     let cancelled = false;
     fetch('/api/launchpad', { credentials: 'include', cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
@@ -166,9 +174,10 @@ export default function HomePage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [capacitorApp]);
 
   useEffect(() => {
+    if (capacitorApp) return;
     let cancelled = false;
     async function load() {
       try {
@@ -190,7 +199,7 @@ export default function HomePage() {
       clearInterval(id);
       clearInterval(tick);
     };
-  }, []);
+  }, [capacitorApp]);
 
   const greeting = greetingForHour(now.getHours());
   const weekday = now.toLocaleDateString('zh-CN', { weekday: 'long' });
@@ -202,6 +211,14 @@ export default function HomePage() {
       : null;
 
   const inTimePct = stats ? Math.round(stats.decisionCards.inTimeRate * 100) : null;
+
+  if (capacitorApp) {
+    return (
+      <div className="flex h-full items-center justify-center bg-surface-1 text-caption text-ink-tertiary">
+        正在进入 IM…
+      </div>
+    );
+  }
 
   return (
     <div className="h-full overflow-auto bg-gradient-to-b from-surface-1 to-surface-2/50">

@@ -477,7 +477,11 @@ export function ChannelDetailPanel({ channel, currentUserId, onChanged, onClose,
 
   return (
     <>
-      <aside className="flex h-full w-[270px] shrink-0 flex-col border-l border-hairline bg-surface-1">
+      <div
+        className="fixed bottom-0 left-0 right-0 top-[calc(44px+var(--capacitor-effective-top-inset,0px))] z-40 bg-black/20 md:hidden"
+        onClick={onClose}
+      />
+      <aside className="fixed bottom-0 right-0 top-[calc(44px+var(--capacitor-effective-top-inset,0px))] z-50 flex w-[86vw] max-w-[320px] shrink-0 flex-col border-l border-hairline bg-surface-1 shadow-2xl md:static md:z-auto md:h-full md:w-[270px] md:max-w-none md:shadow-none">
         {/* ── 顶部标题 ── */}
         <div className="flex h-14 shrink-0 items-center justify-between border-b border-hairline px-3">
           <span className="text-[13px] font-semibold text-ink-primary">聊天信息</span>

@@ -12,13 +12,13 @@
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { boot } from '@/lib/boot';
+import { boot, bootHotPath } from '@/lib/boot';
 import { createChannel, listMyChannels } from '@/lib/im/service';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { withApiLog } from '@/lib/api-log/with-api-log';
 
 async function GETApiHandler(req: NextRequest) {
-  await boot();
+  bootHotPath();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   const channels = await listMyChannels(auth.userId, auth.tenantId);

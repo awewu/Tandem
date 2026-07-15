@@ -16,19 +16,22 @@ import type { CapacitorConfig } from '@capacitor/cli';
  * 连接页在无网络 / 服务器不可达时显示错误页 + 重试.
  */
 const serverUrl = process.env.TANDEM_MOBILE_SERVER_URL ?? 'http://10.0.2.2:3005';
+const isHttp = serverUrl.startsWith('http://');
 
 const config: CapacitorConfig = {
   appId: 'local.tandem.mobile',
   appName: 'Tandem',
   webDir: 'dist/mobile',
   server: {
-    androidScheme: 'https',
+    // HTTP 开发环境用 http scheme, 避免 https origin 下 cookie domain 不匹配导致登录失败.
+    // 生产环境强制 https.
+    androidScheme: isHttp ? 'http' : 'https',
     url: serverUrl,
-    cleartext: serverUrl.startsWith('http://'),
+    cleartext: isHttp,
     errorPath: 'offline.html',
   },
   android: {
-    allowMixedContent: serverUrl.startsWith('http://'),
+    allowMixedContent: isHttp,
     backgroundColor: '#0E0E0E',
   },
   ios: {
@@ -36,13 +39,13 @@ const config: CapacitorConfig = {
   },
   plugins: {
     StatusBar: {
-      style: 'DEFAULT',
+      style: 'DARK',
       backgroundColor: '#0E0E0E',
-      overlaysWebView: false,
+      overlaysWebView: true,
     },
     Keyboard: {
-      resize: 'native',
-      resizeOnFullScreen: true,
+      resize: 'none',
+      resizeOnFullScreen: false,
       style: 'DARK',
     },
   },

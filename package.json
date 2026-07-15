@@ -34,6 +34,7 @@
     "mobile:copy": "node scripts/build-mobile-bootstrap.mjs && npx cap copy",
     "mobile:sync": "node scripts/build-mobile-bootstrap.mjs && npx cap sync",
     "mobile:dev": "cross-env TANDEM_MOBILE_SERVER_URL=http://10.0.2.2:3005 node scripts/build-mobile-bootstrap.mjs && cross-env TANDEM_MOBILE_SERVER_URL=http://10.0.2.2:3005 npx cap run android",
+    "mobile:android:lan": "powershell -ExecutionPolicy Bypass -File scripts/mobile-android-lan-debug.ps1",
     "mobile:build:android": "cross-env TANDEM_MOBILE_SERVER_URL=https://ai.rhautt.com node scripts/build-mobile-bootstrap.mjs && cross-env TANDEM_MOBILE_SERVER_URL=https://ai.rhautt.com npx cap build android",
     "mobile:open:android": "npx cap open android",
     "postinstall": "node scripts/copy-pdf-worker.mjs",

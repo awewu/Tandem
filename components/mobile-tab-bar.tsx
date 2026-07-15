@@ -135,12 +135,12 @@ export function MobileTabBar() {
       <nav
         aria-label="底部导航"
         className={cn(
-          'md:hidden',
+          'mobile-tab-bar md:hidden',
           'fixed inset-x-0 bottom-0 z-40',
           'flex items-stretch',
-          'border-t border-slate-200/80 bg-white',
-          'pb-[env(safe-area-inset-bottom,0px)]',
-          'h-[56px]',
+          'border-t border-slate-200/80 bg-white transition-[transform,opacity] duration-200',
+          'pb-[var(--capacitor-safe-area-bottom,env(safe-area-inset-bottom,0px))]',
+          'h-[calc(56px+var(--capacitor-safe-area-bottom,env(safe-area-inset-bottom,0px)))]',
           'dark:bg-[rgb(var(--rheem-charcoal))] dark:border-white/10',
         )}
       >
@@ -155,12 +155,12 @@ export function MobileTabBar() {
     <nav
       aria-label="底部导航"
       className={cn(
-        'md:hidden',
+        'mobile-tab-bar md:hidden',
         'fixed inset-x-0 bottom-0 z-40',
         'flex items-stretch',
-        'border-t border-slate-200/80 bg-white',
-        'pb-[env(safe-area-inset-bottom,0px)]',
-        'h-[56px]',
+        'border-t border-slate-200/80 bg-white transition-[transform,opacity] duration-200',
+        'pb-[var(--capacitor-safe-area-bottom,env(safe-area-inset-bottom,0px))]',
+        'h-[calc(56px+var(--capacitor-safe-area-bottom,env(safe-area-inset-bottom,0px)))]',
         'dark:bg-[rgb(var(--rheem-charcoal))] dark:border-white/10',
       )}
     >

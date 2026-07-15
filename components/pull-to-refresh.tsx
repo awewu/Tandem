@@ -23,6 +23,7 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, ArrowDown } from 'lucide-react';
+import { isCapacitor } from '@/lib/capacitor/client';
 
 type RefreshFn = () => void | Promise<void>;
 
@@ -38,7 +39,7 @@ export function PullToRefreshProvider({ children }: { children: ReactNode }) {
   return (
     <PullToRefreshContext.Provider value={{ register }}>
       {children}
-      <MobilePullToRefresh handlerRef={handlerRef} />
+      {!isCapacitor() && <MobilePullToRefresh handlerRef={handlerRef} />}
     </PullToRefreshContext.Provider>
   );
 }

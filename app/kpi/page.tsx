@@ -510,7 +510,7 @@ export function KpiContent() {
   const renderHealthBar = () => (
     <Card>
       <CardContent className="py-3 px-4">
-        <div className="flex items-center gap-6 flex-wrap">
+        <div className="flex min-w-0 flex-wrap items-center gap-3 sm:gap-6">
           <span className="text-footnote text-muted-foreground font-medium">指标健康度分布</span>
           <span className="inline-flex items-center gap-1.5 text-caption">
             <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block" />
@@ -527,7 +527,7 @@ export function KpiContent() {
             <span className="text-rose-700 font-medium">{offTrackCount}</span>
             <span className="text-muted-foreground text-footnote">落后 &lt;60%</span>
           </span>
-          <div className="ml-auto flex h-3 w-48 rounded-full overflow-hidden">
+          <div className="h-3 w-full rounded-full overflow-hidden sm:ml-auto sm:w-48">
             {bonusKpis.length > 0 && <>
               <div className="bg-emerald-500 transition-all" style={{ width: `${(onTrackCount / bonusKpis.length) * 100}%` }} />
               <div className="bg-warning transition-all" style={{ width: `${(atRiskCount / bonusKpis.length) * 100}%` }} />
@@ -547,18 +547,18 @@ export function KpiContent() {
         if (list.length === 0) return null;
         const Icon = meta.icon;
         return (
-          <section key={p} className="space-y-2">
-            <div className="flex items-center gap-2">
+          <section key={p} className="min-w-0 space-y-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
               <span className={`p-1 rounded ${meta.bg} ${meta.color}`}>
                 <Icon className="h-4 w-4" />
               </span>
               <h3 className="text-caption font-semibold">{meta.label}</h3>
-              <p className="text-footnote text-muted-foreground font-normal">{meta.desc}</p>
-              <Badge variant="outline" className="ml-auto text-footnote">{list.length}项指标</Badge>
+              <p className="min-w-0 flex-1 text-footnote font-normal text-muted-foreground">{meta.desc}</p>
+              <Badge variant="outline" className="shrink-0 text-footnote sm:ml-auto">{list.length}项指标</Badge>
             </div>
-            <Card>
-              <div className="overflow-x-auto">
-                <table className="w-full text-caption">
+            <Card className="min-w-0 overflow-hidden">
+              <div className="max-w-full overflow-x-auto">
+                <table className="min-w-[760px] w-full text-caption">
                   <thead>
                     <tr className="border-b text-footnote text-muted-foreground">
                       <th className="text-left px-3 py-2 font-medium w-[28%]">指标名称</th>
@@ -897,25 +897,26 @@ export function KpiContent() {
   // ---------------------------------------------------------------------------
 
   return (
-    <div className="container mx-auto max-w-6xl p-6 space-y-4">
+    <div className="mx-auto w-full max-w-6xl min-w-0 space-y-4 overflow-x-hidden px-4 py-4 sm:px-6 md:p-6">
       {/* Header */}
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-headline font-semibold tracking-tight flex items-center gap-2">
+      <header className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+        <div className="min-w-0">
+          <h1 className="flex min-w-0 items-center gap-2 text-headline font-semibold tracking-tight">
             <BarChart3 className="h-5 w-5 text-primary" />
-            平衡记分卡 · KPI 绩效达成
+            <span className="min-w-0">平衡记分卡 · KPI 绩效达成</span>
           </h1>
-          <div className="text-caption text-muted-foreground mt-1 flex items-center gap-2">
-            <span>战略四维度度量 · 每周一 04:00 由 ERP/对账端口周度自动对账拉取</span>
+          <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-caption text-muted-foreground">
+            <span className="min-w-0 break-words">战略四维度度量 · 每周一 04:00 由 ERP/对账端口周度自动对账拉取</span>
             <Badge variant="secondary" className="bg-slate-100 text-slate-700 border-none flex items-center gap-1 text-[10px] py-0 px-1.5">
               <Database className="h-2.5 w-2.5" />周度对账
             </Badge>
             <span className="text-footnote opacity-60">CHARTER-KPI-TTI §2.1</span>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Tabs value={view} onValueChange={handleViewChange}>
-            <TabsList className="h-8">
+        <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto">
+          <Tabs value={view} onValueChange={handleViewChange} className="min-w-0 flex-1 sm:flex-none">
+            <div className="max-w-full overflow-x-auto pb-1 sm:overflow-visible sm:pb-0">
+            <TabsList className="h-8 min-w-max">
               <TabsTrigger value="individual" className="text-footnote px-3">
                 <Target className="h-3 w-3 mr-1" />个人
               </TabsTrigger>
@@ -929,8 +930,9 @@ export function KpiContent() {
                 <BarChart3 className="h-3 w-3 mr-1" />事业部
               </TabsTrigger>
             </TabsList>
+            </div>
           </Tabs>
-          <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
+          <Button variant="outline" size="sm" className="shrink-0" onClick={() => void load()} disabled={loading}>
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
         </div>
@@ -946,9 +948,9 @@ export function KpiContent() {
 
       {/* 周期选择 */}
       <Card>
-        <CardContent className="py-3 px-4 flex items-center gap-4 flex-wrap">
+        <CardContent className="flex min-w-0 flex-wrap items-center gap-3 px-4 py-3">
           <Select value={activeCycleId ?? ''} onValueChange={setActiveCycleId}>
-            <SelectTrigger className="w-64 h-8 text-caption">
+            <SelectTrigger className="h-8 w-full min-w-0 text-caption sm:w-64">
               <SelectValue placeholder="选择考核周期" />
             </SelectTrigger>
             <SelectContent>

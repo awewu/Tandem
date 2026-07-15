@@ -37,6 +37,10 @@ interface AiSettingsForm {
   embeddingModel: string;
   embeddingApiUrl: string;
   embeddingApiKey: string;
+  sttProvider: string;
+  sttModel: string;
+  sttApiUrl: string;
+  sttApiKey: string;
   tavilyApiKey: string;
   braveSearchApiKey: string;
   webSearchEnabled: string;   // 'true'|'false'|''
@@ -58,6 +62,7 @@ const EMPTY: AiSettingsForm = {
   kimiApiKey: '', kimiBaseUrl: '', kimiModel: '',
   hermesBaseUrl: '', hermesModel: '',
   embeddingProvider: '', embeddingModel: '', embeddingApiUrl: '', embeddingApiKey: '',
+  sttProvider: '', sttModel: '', sttApiUrl: '', sttApiKey: '',
   tavilyApiKey: '', braveSearchApiKey: '', webSearchEnabled: '', webLearnEnabled: '',
   smtpHost: '', smtpPort: '', smtpUser: '',
   smtpPass: '', smtpFrom: '', smtpSecure: '',
@@ -457,6 +462,27 @@ export default function AiSettingsPage() {
         <Field label="模型名" field="embeddingModel" form={form} onChange={onChange} placeholder="BAAI/bge-m3" />
         <Field label="API URL" field="embeddingApiUrl" form={form} onChange={onChange} placeholder="https://api.siliconflow.cn/v1/embeddings" />
         <Field label="API Key" field="embeddingApiKey" form={form} onChange={onChange} isKey />
+      </Section>
+
+      <Section title="语音转写 (STT)" badge="Whisper 兼容">
+        <div className="md:col-span-2 text-footnote text-ink-secondary -mb-1">
+          IM 语音转文字、手抄语音转笔记都走这里。推荐直接填 OpenAI Whisper 兼容接口。
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-footnote text-ink-secondary font-medium">Provider</label>
+          <select
+            value={form.sttProvider}
+            onChange={(e) => onChange('sttProvider', e.target.value)}
+            className="rounded-md border border-hairline bg-surface-1 px-3 py-1.5 text-caption text-ink-primary focus:outline-none focus:ring-1 focus:ring-brand-500"
+          >
+            <option value="">沿用环境变量</option>
+            <option value="none">关闭 (none)</option>
+            <option value="openai">OpenAI 兼容 (openai)</option>
+          </select>
+        </div>
+        <Field label="模型名" field="sttModel" form={form} onChange={onChange} placeholder="whisper-1" />
+        <Field label="API URL" field="sttApiUrl" form={form} onChange={onChange} placeholder="https://api.openai.com/v1/audio/transcriptions" />
+        <Field label="API Key" field="sttApiKey" form={form} onChange={onChange} isKey />
       </Section>
 
       <Section title="Web 搜索 · 外网学习">

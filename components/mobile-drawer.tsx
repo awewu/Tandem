@@ -77,6 +77,17 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
     router.replace('/login');
   }
 
+  function handleDrawerLink(href: string) {
+    return (event: React.MouseEvent<HTMLAnchorElement>) => {
+      event.preventDefault();
+      if (typeof window !== 'undefined' && window.history.state?.__tandemOverlay) {
+        window.history.replaceState(null, '', window.location.href);
+      }
+      router.push(href);
+      onClose();
+    };
+  }
+
   const userInitial = (user?.name?.[0] || user?.email?.[0] || 'T').toUpperCase();
 
   return (
@@ -104,7 +115,7 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
           'shadow-2xl',
           'flex flex-col',
           'transition-transform ease-out',
-          'pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)]',
+          'pt-[var(--capacitor-effective-top-inset,0px)] pb-[var(--capacitor-safe-area-bottom,env(safe-area-inset-bottom,0px))]',
           open ? 'translate-x-0' : '-translate-x-full',
         )}
       >
@@ -125,7 +136,7 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
           <div className="shrink-0 border-b border-slate-200/80 px-3 py-3 dark:border-white/10">
             <Link
               href="/persona"
-              onClick={onClose}
+              onClick={handleDrawerLink('/persona')}
               className="flex items-center gap-3 rounded-lg p-2 hover:bg-slate-100 dark:hover:bg-white/5"
             >
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[rgb(var(--brand-500))] text-[15px] font-semibold text-white">
@@ -143,7 +154,7 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
             <div className="mt-2 grid grid-cols-3 gap-1.5">
               <Link
                 href="/persona/training"
-                onClick={onClose}
+                onClick={handleDrawerLink('/persona/training')}
                 className="flex flex-col items-center gap-1 rounded-md py-2 text-[11px] text-ink-secondary hover:bg-slate-100 dark:hover:bg-white/5"
                 title="训练我的 AI 分身"
               >
@@ -152,7 +163,7 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
               </Link>
               <Link
                 href="/persona/me/proxy-actions"
-                onClick={onClose}
+                onClick={handleDrawerLink('/persona/me/proxy-actions')}
                 className="flex flex-col items-center gap-1 rounded-md py-2 text-[11px] text-ink-secondary hover:bg-slate-100 dark:hover:bg-white/5"
                 title="我的分身代办"
               >
@@ -161,7 +172,7 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
               </Link>
               <Link
                 href="/settings"
-                onClick={onClose}
+                onClick={handleDrawerLink('/settings')}
                 className="flex flex-col items-center gap-1 rounded-md py-2 text-[11px] text-ink-secondary hover:bg-slate-100 dark:hover:bg-white/5"
               >
                 <Settings className="h-4 w-4" />
@@ -195,7 +206,7 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
                 {items.length === 0 ? (
                   <Link
                     href={m.pathPrefixes[0]}
-                    onClick={onClose}
+                    onClick={handleDrawerLink(m.pathPrefixes[0])}
                     className={cn(
                       'flex items-center gap-2 rounded-md px-3 py-2 text-[13.5px] text-ink-primary',
                       'hover:bg-slate-100 dark:hover:bg-white/5',
@@ -213,7 +224,7 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
                         <li key={`${m.id}-${it.href}-${it.name}`}>
                           <Link
                             href={it.href}
-                            onClick={onClose}
+                            onClick={handleDrawerLink(it.href)}
                             className={cn(
                               'flex items-center gap-2 rounded-md px-3 py-2 text-[13.5px]',
                               'hover:bg-slate-100 dark:hover:bg-white/5',

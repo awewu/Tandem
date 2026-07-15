@@ -46,9 +46,9 @@ export function MobileTopBar() {
         className={cn(
           'md:hidden',
           'sticky top-0 z-30',
-          'flex h-11 items-center px-3',
+          'flex h-[calc(44px+var(--capacitor-effective-top-inset,0px))] items-center px-3',
           'border-b border-slate-200/80 bg-white',
-          'pt-[var(--capacitor-status-bar-height,env(safe-area-inset-top,0px))]',
+          'pt-[var(--capacitor-effective-top-inset,0px)]',
           'dark:bg-[rgb(var(--rheem-charcoal))] dark:border-white/10',
         )}
       >

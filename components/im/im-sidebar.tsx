@@ -8,6 +8,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { usePersonNameResolver } from '@/lib/org/people-source';
@@ -189,7 +190,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
   );
 
   function selectChannel(id: string) {
-    router.push(`/im?ch=${id}`);
+    router.replace(`/im?ch=${encodeURIComponent(id)}`);
   }
 
   if (collapsed) {
@@ -352,10 +353,10 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
           const active = activeId === c.id;
 
           return (
-            <button
+            <Link
               key={c.id}
-              type="button"
-              onClick={() => selectChannel(c.id)}
+              href={`/im?ch=${encodeURIComponent(c.id)}`}
+              scroll={false}
               className={cn(
                 'flex w-full items-center gap-2.5 px-2 py-2 text-left transition-colors',
                 active
@@ -390,7 +391,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
                   )}
                 </div>
               </div>
-            </button>
+            </Link>
           );
         })}
       </div>

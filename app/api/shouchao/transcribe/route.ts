@@ -16,7 +16,7 @@
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { boot } from '@/lib/boot';
+import { bootHotPath } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { transcribe, isSttConfigured } from '@/lib/infra/transcribe';
 import { withApiLog } from '@/lib/api-log/with-api-log';
@@ -47,7 +47,7 @@ const MEETING_SYSTEM = [
 async function POSTApiHandler(req: NextRequest) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
-  await boot();
+  bootHotPath();
 
   if (!(await isSttConfigured())) {
     return NextResponse.json(

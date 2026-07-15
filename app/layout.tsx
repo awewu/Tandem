@@ -25,6 +25,7 @@ import { DesktopSession } from '@/components/desktop/desktop-session';
 import { DesktopUpdater } from '@/components/desktop/desktop-updater';
 import { CapacitorShell } from '@/components/capacitor-shell';
 import { MobileSession } from '@/components/mobile/mobile-session';
+import { MobilePreviewDebugPanel } from '@/components/mobile/mobile-preview-debug-panel';
 
 // 字体策略 (2026-06-17 修订):
 //   不使用 next/font/google — Google Fonts CDN 在国内云主机/容器构建中频繁 ECONNRESET, 会 fail build.
@@ -52,9 +53,8 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  // 软键盘弹起时 resize 布局视口 (而非悬浮遮挡), 固定底部输入条/发送键不被盖住.
-  // 安卓 Chrome 完整支持; iOS 由 MobileViewportFixes 的 focus 滚入兜底.
-  interactiveWidget: 'resizes-content',
+  // 软键盘弹起时不压缩整个应用壳; 由 MobileViewportFixes 负责隐藏底栏并滚动聚焦输入框.
+  interactiveWidget: 'overlays-content',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -83,6 +83,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <CapacitorShell />
             {/* §mobile · 移动端 (Capacitor) 长会话 keep-alive (web 端空转) */}
             <MobileSession />
+            <MobilePreviewDebugPanel />
           </RightPaneProvider>
         </ThemeProvider>
       </body>

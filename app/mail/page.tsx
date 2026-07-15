@@ -93,10 +93,10 @@ function MailInner() {
   }
 
   return (
-    <div className="h-full flex flex-col md:px-8">
+    <div className="h-full min-w-0 flex flex-col md:px-8">
       {/* Header */}
-      <header className="px-6 pt-6 pb-3">
-        <div className="flex items-end justify-between gap-4">
+      <header className="px-4 pt-4 pb-3 sm:px-6 sm:pt-6">
+        <div className="flex items-start justify-between gap-3">
           <div>
             <h1 className="text-title-2 text-ink-primary flex items-center gap-2">
               <Mail className="h-6 w-6 text-[rgb(var(--brand-600))]" />
@@ -108,7 +108,7 @@ function MailInner() {
           </div>
           <Link
             href="/settings/email"
-            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-caption font-medium text-ink-secondary hover:text-ink-primary hover:bg-surface-2 surface-interactive"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-caption font-medium text-ink-secondary hover:text-ink-primary hover:bg-surface-2 surface-interactive"
           >
             <Settings className="h-3.5 w-3.5" />
             邮箱设置
@@ -136,7 +136,7 @@ function MailInner() {
       </header>
 
       {/* Body */}
-      <div className="flex-1 overflow-auto p-6">
+      <div className="min-w-0 flex-1 overflow-auto px-4 py-4 sm:p-6">
         {tab === 'inbox' ? (
           <InboxView folder={params.get('folder') || 'INBOX'} onCompose={startCompose} />
         ) : (
@@ -851,8 +851,8 @@ function ComposeView({
   }
 
   return (
-    <div className="max-w-3xl space-y-4">
-      <div className="space-y-3 rounded-lg border border-border bg-[rgb(var(--surface-1))] p-5 shadow-soft-sm">
+    <div className="w-full max-w-3xl min-w-0 space-y-4">
+      <div className="space-y-3 rounded-lg border border-border bg-[rgb(var(--surface-1))] p-4 shadow-soft-sm sm:p-5">
         <Field label="收件人" hint="支持多个, 用逗号或空格分隔">
           <Input
             value={to}
@@ -988,18 +988,18 @@ function ComposeView({
         </div>
       )}
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-1 text-footnote" onClick={handleAiReply} disabled={aiReplyLoading || !bodyText.trim()}>
+      <div className="flex flex-col gap-2 pb-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+          <Button variant="outline" size="sm" className="min-w-0 gap-1 text-footnote" onClick={handleAiReply} disabled={aiReplyLoading || !bodyText.trim()}>
             <Bot className="h-3.5 w-3.5" />
             {aiReplyLoading ? '生成中...' : 'AI 回复'}
           </Button>
-          <Button variant="outline" size="sm" className="gap-1 text-footnote" onClick={handleAiReview} disabled={reviewLoading || !bodyText.trim()}>
+          <Button variant="outline" size="sm" className="min-w-0 gap-1 text-footnote" onClick={handleAiReview} disabled={reviewLoading || !bodyText.trim()}>
             <ShieldCheck className="h-3.5 w-3.5" />
             {reviewLoading ? '审校中...' : 'AI 审校'}
           </Button>
         </div>
-        <Button variant="outline" onClick={async () => {
+        <Button variant="outline" className="w-full justify-center sm:w-auto" onClick={async () => {
           if (!subject.trim() && !bodyText.trim()) {
             setFeedback({ ok: false, msg: '主题或正文至少填一个' });
             return;
@@ -1033,7 +1033,7 @@ function ComposeView({
           <FileText className="h-4 w-4 mr-1.5" />
           {busy ? '保存中...' : '存草稿'}
         </Button>
-        <Button onClick={handleSend} disabled={busy || !canSend} className="rheem-btn-pill">
+        <Button onClick={handleSend} disabled={busy || !canSend} className="w-full justify-center sm:w-auto rheem-btn-pill">
           <Send className="h-4 w-4 mr-1.5" />
           {busy ? '发送中...' : canSend ? '立即发送' : 'SMTP 未配置'}
         </Button>

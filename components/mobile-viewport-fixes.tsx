@@ -3,9 +3,8 @@
 /**
  * MobileViewportFixes · iOS 软键盘兜底
  *
- * 安卓靠 viewport 的 interactive-widget=resizes-content 自动处理键盘遮挡;
- * iOS Safari 不 resize 布局视口, 键盘会悬浮盖住底部输入框. 这里用 visualViewport +
- * focusin 兜底: 输入框聚焦后, 等键盘动画落定, 把它滚动到可视区中部.
+ * 移动端软键盘弹出时, 不压缩整个应用壳; 隐藏底部导航并只做就近滚动.
+ * 避免 scrollIntoView(center) 把表单整体顶上去, 造成键盘上方大块留白.
  *
  * 仅在支持 visualViewport 且为触摸设备时生效, 不影响桌面.
  */
@@ -16,27 +15,90 @@ export function MobileViewportFixes() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const vv = window.visualViewport;
-    if (!vv) return;
+    const root = document.documentElement;
+    let focusedEditable: HTMLElement | null = null;
+    let clearTimer: number | undefined;
+
+    function isEditable(el: HTMLElement | null): el is HTMLElement {
+      if (!el) return false;
+      const tag = el.tagName;
+      return tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable || tag === 'SELECT';
+    }
+
+    function updateKeyboardInset() {
+      if (root.dataset.mobilePreviewKeyboard === 'true') return;
+      if (!vv) {
+        root.style.setProperty('--visual-keyboard-inset', '0px');
+        root.style.setProperty('--visual-viewport-height', `${window.innerHeight}px`);
+        return;
+      }
+      const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      root.style.setProperty('--visual-keyboard-inset', `${Math.round(inset)}px`);
+      root.style.setProperty('--visual-viewport-height', `${Math.round(vv.height)}px`);
+    }
+
+    function isInsideFixedComposer(el: HTMLElement | null): boolean {
+      return Boolean(el?.closest('.im-composer-bar'));
+    }
+
+    function scrollFocusedIntoView() {
+      if (!focusedEditable || isInsideFixedComposer(focusedEditable)) return;
+      try {
+        focusedEditable.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      } catch {
+        /* ignore */
+      }
+    }
+
+    function markKeyboardOpen() {
+      updateKeyboardInset();
+      root.classList.add('keyboard-open');
+    }
+
+    function maybeMarkKeyboardClosed() {
+      window.clearTimeout(clearTimer);
+      clearTimer = window.setTimeout(() => {
+        if (root.dataset.mobilePreviewKeyboard === 'true') return;
+        if (isEditable(document.activeElement as HTMLElement | null)) return;
+        root.classList.remove('keyboard-open');
+        root.style.setProperty('--visual-keyboard-inset', '0px');
+        root.style.setProperty('--visual-viewport-height', `${window.innerHeight}px`);
+        focusedEditable = null;
+      }, 120);
+    }
 
     function onFocusIn(e: FocusEvent) {
       const el = e.target as HTMLElement | null;
-      if (!el) return;
-      const tag = el.tagName;
-      const editable =
-        tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable || tag === 'SELECT';
-      if (!editable) return;
-      // 等键盘弹出与布局稳定 (iOS 键盘动画 ~300ms)
-      window.setTimeout(() => {
-        try {
-          el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-        } catch {
-          /* ignore */
-        }
-      }, 320);
+      if (!isEditable(el)) return;
+      focusedEditable = el;
+      markKeyboardOpen();
+      window.setTimeout(scrollFocusedIntoView, 320);
+    }
+
+    function onFocusOut() {
+      maybeMarkKeyboardClosed();
+    }
+
+    function onViewportResize() {
+      if (!focusedEditable || !vv) return;
+      updateKeyboardInset();
+      const keyboardLikelyOpen = vv.height < window.innerHeight - 120;
+      if (keyboardLikelyOpen) markKeyboardOpen();
+      window.setTimeout(scrollFocusedIntoView, 80);
     }
 
     document.addEventListener('focusin', onFocusIn);
-    return () => document.removeEventListener('focusin', onFocusIn);
+    document.addEventListener('focusout', onFocusOut);
+    vv?.addEventListener('resize', onViewportResize);
+    return () => {
+      window.clearTimeout(clearTimer);
+      root.classList.remove('keyboard-open');
+      root.style.setProperty('--visual-keyboard-inset', '0px');
+      root.style.setProperty('--visual-viewport-height', `${window.innerHeight}px`);
+      document.removeEventListener('focusin', onFocusIn);
+      document.removeEventListener('focusout', onFocusOut);
+      vv?.removeEventListener('resize', onViewportResize);
+    };
   }, []);
 
   return null;

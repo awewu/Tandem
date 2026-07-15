@@ -103,6 +103,10 @@ export interface ImAttachment {
   refId?: string;
   /** 摘要预览 */
   preview?: string;
+  /** 大文件两阶段发送: pending/uploading 表示占位, done 表示可下载, error 表示上传失败 */
+  uploadStatus?: 'pending' | 'uploading' | 'done' | 'error';
+  uploadProgress?: number;
+  uploadError?: string;
 }
 
 export interface ImMessage {

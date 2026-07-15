@@ -16,7 +16,6 @@ import { ImSidebar } from '@/components/im/im-sidebar';
 import { AgentModeToggle } from '@/components/im/agent-mode-toggle';
 import { AiTraceButton } from '@/components/im/ai-trace-button';
 import { CompanyBrainFeedbackButtons } from '@/components/im/company-brain-feedback';
-import { VoiceInputButton } from '@/components/voice-input-button';
 import {
   DocumentMentionPicker,
   useMentionTrigger,
@@ -50,7 +49,6 @@ import {
   Smile,
   Image,
   Paperclip,
-  AtSign,
   X,
   ZoomIn,
   ZoomOut,
@@ -61,6 +59,16 @@ import {
 // Day 4-7: 升级 Channel/Message 类型 以含撤回 + 公告 + pinned
 type Channel = ImChannel & { unread?: number };
 type Message = ImMessage;
+
+type ComposerAttachment = {
+  id: string;
+  name: string;
+  size: number;
+  dataUrl?: string;
+  file: File;
+  uploadProgress?: number;
+  uploadStatus?: 'queued' | 'uploading' | 'done' | 'error';
+};
 
 /**
  * 决议型已读语义 (符合 MANIFESTO 附录 C 反例清单):
@@ -115,16 +123,64 @@ function ImInner() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showIdentityPicker, setShowIdentityPicker] = useState(false);
   const identityPickerRef = useRef<HTMLDivElement>(null);
-  const [attachments, setAttachments] = useState<{ name: string; size: number; dataUrl?: string; file: File }[]>([]);
+  const [attachments, setAttachments] = useState<ComposerAttachment[]>([]);
   const [activeChannel, setActiveChannel] = useState<Channel | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const composerRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    document.documentElement.classList.toggle('im-chat-open', Boolean(activeId));
+    return () => document.documentElement.classList.remove('im-chat-open');
+  }, [activeId]);
+
   const { user } = useCurrentUser();
   const ME = user?.id ?? 'demo-user';
   const nameOf = usePersonNameResolver();
+  const hasActiveUploads = sending && attachments.some((a) => a.uploadStatus === 'queued' || a.uploadStatus === 'uploading');
+
+  function confirmLeaveDuringUpload(): boolean {
+    if (!hasActiveUploads) return true;
+    return window.confirm('还有文件传输中，返回会导致传输失败。确定要返回吗？');
+  }
+
+  function closeActiveChat() {
+    if (!confirmLeaveDuringUpload()) return;
+    setShowSettings(false);
+    setShowEmojiPicker(false);
+    setShowIdentityPicker(false);
+    setActiveChannel(null);
+    setMessages([]);
+    router.replace('/im', { scroll: false });
+  }
+
+  useEffect(() => {
+    if (!hasActiveUploads) return;
+
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '还有文件传输中，离开会导致传输失败。';
+    };
+
+    const onPopState = () => {
+      const shouldLeave = window.confirm('还有文件传输中，返回会导致传输失败。确定要返回吗？');
+      if (shouldLeave) {
+        window.setTimeout(() => window.history.back(), 0);
+        return;
+      }
+      window.history.pushState({ __tandemImUploadGuard: true }, '', window.location.href);
+    };
+
+    window.history.pushState({ __tandemImUploadGuard: true }, '', window.location.href);
+    window.addEventListener('beforeunload', onBeforeUnload);
+    window.addEventListener('popstate', onPopState);
+
+    return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload);
+      window.removeEventListener('popstate', onPopState);
+    };
+  }, [hasActiveUploads]);
 
   // 监听 ChannelDetailPanel 个人名片"发消息"触发的 im:startDm 事件
   useEffect(() => {
@@ -151,12 +207,41 @@ function ImInner() {
 
   // -- messages --
   async function loadMessages(chId: string) {
-    const res = await fetch(`/api/im/channels/${chId}/messages?limit=200`);
+    const res = await fetch(`/api/im/channels/${chId}/messages?limit=200`, { cache: 'no-store' });
     const data = await res.json();
     setMessages(data.messages ?? []);
     setTimeout(() => {
       scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
     }, 30);
+    void fetch(`/api/im/channels/${chId}/read`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: ME }),
+    });
+  }
+
+  async function refreshMessages(chId: string) {
+    const el = scrollRef.current;
+    const nearBottom = !el || el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+    const res = await fetch(`/api/im/channels/${chId}/messages?limit=200`, { cache: 'no-store' });
+    if (!res.ok) return;
+    const data = await res.json();
+    const serverMessages = (data.messages ?? []) as Message[];
+
+    setMessages((prev) => {
+      const optimisticMessages = prev.filter((m) => m.id.startsWith('temp-'));
+      return [...serverMessages, ...optimisticMessages];
+    });
+
+    if (nearBottom) {
+      setTimeout(() => {
+        scrollRef.current?.scrollTo({
+          top: scrollRef.current.scrollHeight,
+          behavior: 'smooth',
+        });
+      }, 30);
+    }
+
     void fetch(`/api/im/channels/${chId}/read`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -209,7 +294,16 @@ function ImInner() {
       } catch { /* ignore */ }
     });
     es.addEventListener('channel', () => { /* ImSidebar 自行轮询 */ });
-    return () => es.close();
+
+    const poll = window.setInterval(() => {
+      if (document.visibilityState === 'hidden') return;
+      void refreshMessages(activeId);
+    }, 4000);
+
+    return () => {
+      window.clearInterval(poll);
+      es.close();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId, ME]);
 
@@ -249,11 +343,80 @@ function ImInner() {
     }
   }
 
+  function readFileAsDataUrl(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (event) => resolve(String(event.target?.result ?? ''));
+      reader.onerror = () => reject(reader.error ?? new Error('读取图片失败'));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function isImageAttachment(file: File, dataUrl?: string): boolean {
+    return (
+      file.type.startsWith('image/') ||
+      dataUrl?.startsWith('data:image/') ||
+      /\.(png|jpe?g|gif|webp|bmp|heic|heif)$/i.test(file.name)
+    );
+  }
+
+  function makeAttachmentId(file: File): string {
+    return `${file.name}-${file.size}-${file.lastModified}-${Math.random().toString(36).slice(2)}`;
+  }
+
+  function updateAttachmentProgress(id: string, progress: number, status: ComposerAttachment['uploadStatus']) {
+    setAttachments((prev) => prev.map((item) => (
+      item.id === id ? { ...item, uploadProgress: progress, uploadStatus: status } : item
+    )));
+  }
+
+  function putFileWithProgress(
+    uploadUrl: string,
+    file: File,
+    onProgress?: (progress: number) => void,
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('PUT', uploadUrl);
+      if (file.type) xhr.setRequestHeader('Content-Type', file.type);
+      xhr.upload.onprogress = (event) => {
+        if (!event.lengthComputable || !onProgress) return;
+        onProgress(Math.max(1, Math.min(99, Math.round((event.loaded / event.total) * 100))));
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          onProgress?.(100);
+          resolve();
+        } else {
+          reject(new Error(`上传失败 (${xhr.status})`));
+        }
+      };
+      xhr.onerror = () => reject(new Error('上传失败: 网络连接异常'));
+      xhr.onabort = () => reject(new Error('上传已取消'));
+      xhr.send(file);
+    });
+  }
+
   /**
    * 上传单个附件到对象存储 (走 IM 专用预签名端点), 返回 ImAttachment.
    * 失败抛错, 由 sendMessage 捕获统一提示.
    */
-  async function uploadAttachment(chId: string, file: File): Promise<ImAttachment> {
+  async function uploadAttachment(
+    chId: string,
+    attachment: ComposerAttachment,
+    onProgress?: (id: string, progress: number, status: ComposerAttachment['uploadStatus']) => void,
+  ): Promise<ImAttachment> {
+    const { file, dataUrl } = attachment;
+    if (isImageAttachment(file, dataUrl)) {
+      onProgress?.(attachment.id, 100, 'done');
+      return {
+        kind: 'image',
+        name: file.name,
+        size: file.size,
+        url: dataUrl ?? await readFileAsDataUrl(file),
+      };
+    }
+
     const presignRes = await fetch(`/api/im/channels/${chId}/attachments/presign`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -261,15 +424,23 @@ function ImInner() {
     });
     if (!presignRes.ok) {
       const err = await presignRes.json().catch(() => ({}));
+      const errorMessage = String(err.error ?? '');
+      if (errorMessage.includes('object storage not configured') && isImageAttachment(file, dataUrl)) {
+        const inlineUrl = dataUrl ?? await readFileAsDataUrl(file);
+        return {
+          kind: 'image',
+          name: file.name,
+          size: file.size,
+          url: inlineUrl,
+        };
+      }
       throw new Error(err.error ?? `预签名失败 (${presignRes.status})`);
     }
     const { uploadUrl, storageKey } = await presignRes.json();
-    const putRes = await fetch(uploadUrl, {
-      method: 'PUT',
-      headers: file.type ? { 'Content-Type': file.type } : undefined,
-      body: file,
+    onProgress?.(attachment.id, 1, 'uploading');
+    await putFileWithProgress(uploadUrl, file, (progress) => {
+      onProgress?.(attachment.id, progress, progress >= 100 ? 'done' : 'uploading');
     });
-    if (!putRes.ok) throw new Error(`上传失败 (${putRes.status})`);
     return {
       kind: file.type.startsWith('image/') ? 'image' : 'file',
       name: file.name,
@@ -278,35 +449,100 @@ function ImInner() {
     };
   }
 
+  async function updateMessageAttachments(messageId: string, nextAttachments: ImAttachment[]): Promise<Message | null> {
+    const res = await fetch(`/api/im/messages/${messageId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'update_attachments', attachments: nextAttachments }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json().catch(() => ({}));
+    return data.message as Message | null;
+  }
+
   async function sendMessage() {
-    if ((!input.trim() && attachments.length === 0) || !activeId || sending) return;
+    const text = input.trim();
+    if ((!text && attachments.length === 0) || !activeId || sending) return;
+
+    const queuedAttachments = attachments;
+    const placeholderAttachments: ImAttachment[] = queuedAttachments.length > 0
+      ? queuedAttachments.map((a) => ({
+        kind: isImageAttachment(a.file, a.dataUrl) ? 'image' : 'file',
+        name: a.name,
+        size: a.size,
+        url: a.dataUrl,
+        uploadStatus: 'uploading',
+        uploadProgress: 0,
+      }))
+      : [];
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const optimisticMessage: Message = {
+      id: tempId,
+      channelId: activeId,
+      senderId: ME,
+      senderKind: sendAsAgent ? 'persona' : 'user',
+      body: text,
+      mentions: [],
+      attachments: placeholderAttachments.length > 0 ? placeholderAttachments : undefined,
+      createdAt: new Date().toISOString(),
+    };
+
     setSending(true);
+    setInput('');
+    setMessages((prev) => [...prev, optimisticMessage]);
+    setTimeout(() => {
+      scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+    }, 30);
+
+    let serverMessage: Message | null = null;
     try {
-      let uploaded: ImAttachment[] = [];
-      if (attachments.length > 0) {
-        try {
-          uploaded = await Promise.all(attachments.map((a) => uploadAttachment(activeId, a.file)));
-        } catch (e) {
-          window.alert(`附件上传失败: ${(e as Error).message}`);
-          return;
-        }
-      }
       const res = await fetch(`/api/im/channels/${activeId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           senderId: ME,
-          body: input.trim(),
-          attachments: uploaded.length > 0 ? uploaded : undefined,
+          body: text,
+          attachments: placeholderAttachments.length > 0 ? placeholderAttachments : undefined,
           senderKind: sendAsAgent ? 'persona' : 'user',
         }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
+        setMessages((prev) => prev.filter((m) => m.id !== tempId));
+        setInput(text);
         window.alert(`发送失败: ${err.error ?? res.statusText}`);
-      } else {
-        setInput('');
+        return;
+      }
+
+      const data = await res.json().catch(() => ({}));
+      serverMessage = data.message as Message | null;
+      if (serverMessage) {
+        const confirmedMessage = serverMessage;
+        setMessages((prev) => prev.map((m) => (m.id === tempId ? confirmedMessage : m)));
+      }
+
+      if (queuedAttachments.length === 0 || !serverMessage) {
         setAttachments([]);
+        return;
+      }
+
+      try {
+        queuedAttachments.forEach((a) => updateAttachmentProgress(a.id, 0, 'queued'));
+        const uploaded = await Promise.all(queuedAttachments.map((a) => uploadAttachment(activeId, a, updateAttachmentProgress)));
+        const doneAttachments = uploaded.map((att) => ({ ...att, uploadStatus: 'done' as const, uploadProgress: 100 }));
+        const updated = await updateMessageAttachments(serverMessage.id, doneAttachments);
+        if (updated) setMessages((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
+        setAttachments([]);
+      } catch (e) {
+        queuedAttachments.forEach((a) => updateAttachmentProgress(a.id, a.uploadProgress ?? 0, 'error'));
+        const failedAttachments = placeholderAttachments.map((att) => ({
+          ...att,
+          uploadStatus: 'error' as const,
+          uploadError: (e as Error).message,
+        }));
+        const updated = await updateMessageAttachments(serverMessage.id, failedAttachments);
+        if (updated) setMessages((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
+        window.alert(`附件上传失败: ${(e as Error).message}`);
       }
     } finally {
       setSending(false);
@@ -393,7 +629,7 @@ function ImInner() {
         : new File([file], `pasted-${Date.now()}.${ext}`, { type: file.type });
       const reader = new FileReader();
       reader.onload = (ev) => {
-        setAttachments((prev) => [...prev, { name: named.name, size: named.size, dataUrl: ev.target?.result as string, file: named }]);
+        setAttachments((prev) => [...prev, { id: makeAttachmentId(named), name: named.name, size: named.size, dataUrl: ev.target?.result as string, file: named }]);
       };
       reader.readAsDataURL(named);
     });
@@ -406,11 +642,11 @@ function ImInner() {
       if (kind === 'image' && file.type.startsWith('image/')) {
         const reader = new FileReader();
         reader.onload = (ev) => {
-          setAttachments((prev) => [...prev, { name: file.name, size: file.size, dataUrl: ev.target?.result as string, file }]);
+          setAttachments((prev) => [...prev, { id: makeAttachmentId(file), name: file.name, size: file.size, dataUrl: ev.target?.result as string, file }]);
         };
         reader.readAsDataURL(file);
       } else {
-        setAttachments((prev) => [...prev, { name: file.name, size: file.size, file }]);
+        setAttachments((prev) => [...prev, { id: makeAttachmentId(file), name: file.name, size: file.size, file }]);
       }
     });
     e.target.value = '';
@@ -429,7 +665,7 @@ function ImInner() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden bg-surface-1 md:h-full">
+    <div className="im-page-root flex h-full min-h-0 w-full min-w-0 overflow-hidden bg-surface-1">
 
       {/* 消息流 + 右侧详情面板 并排容器 */}
       <div className="flex min-w-0 flex-1 overflow-hidden">
@@ -442,18 +678,18 @@ function ImInner() {
         </div>
       )}
       <main className={cn(
-        'flex h-full min-w-0 flex-1 flex-col bg-surface-1',
+        'flex h-full min-w-0 flex-1 flex-col overflow-hidden bg-surface-1',
         // 移动端未选会话时让位给上面的会话列表
         !activeId && 'hidden md:flex',
       )}>
         {activeChannel ? (
           <>
             {/* 顶部栏 */}
-            <header className="flex shrink-0 items-center justify-between border-b border-hairline bg-surface-1 px-4 py-3">
+            <header className="flex min-w-0 shrink-0 items-center justify-between gap-2 border-b border-hairline bg-surface-1 px-3 py-2.5 sm:px-4 sm:py-3">
               <div className="flex items-center gap-3 min-w-0">
                 <button
                   type="button"
-                  onClick={() => router.push('/im')}
+                  onClick={closeActiveChat}
                   className="-ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink-secondary hover:bg-surface-3 md:hidden"
                   aria-label="返回消息列表"
                   title="返回消息列表"
@@ -512,7 +748,7 @@ function ImInner() {
             )}
 
             {/* 消息流 */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain px-4 py-3">
+            <div ref={scrollRef} className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-3 sm:px-4">
               {messages.length === 0 && (
                 <div className="flex h-full flex-col items-center justify-center gap-2 text-ink-tertiary">
                   <div className="text-[32px]">💬</div>
@@ -542,33 +778,60 @@ function ImInner() {
             </div>
 
             {/* 输入区 */}
-            <footer className="shrink-0 border-t border-hairline bg-surface-1">
+            <footer className="im-composer-bar shrink-0 border-t border-hairline bg-surface-1 shadow-[0_-4px_16px_rgba(15,23,42,0.06)] md:shadow-none">
               {/* 附件预览条 */}
               {attachments.length > 0 && (
                 <div className="flex flex-wrap gap-2 px-4 pt-2">
-                  {attachments.map((a, i) => (
-                    <div key={i} className="group relative flex items-center gap-1.5 rounded-lg border border-hairline bg-surface-3 px-2.5 py-1.5">
-                      {a.dataUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={a.dataUrl} alt={a.name} className="h-8 w-8 rounded object-cover" />
-                      ) : (
-                        <Paperclip className="h-4 w-4 shrink-0 text-ink-tertiary" />
-                      )}
-                      <span className="max-w-[120px] truncate text-[11px] text-ink-primary">{a.name}</span>
-                      <button
-                        type="button"
-                        onClick={() => setAttachments((prev) => prev.filter((_, j) => j !== i))}
-                        className="ml-0.5 text-ink-tertiary hover:text-ink-primary"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
+                  {attachments.map((a) => {
+                    const progress = a.uploadProgress ?? 0;
+                    const isUploading = a.uploadStatus === 'queued' || a.uploadStatus === 'uploading';
+                    const isError = a.uploadStatus === 'error';
+                    return (
+                      <div key={a.id} className="group relative overflow-hidden rounded-lg border border-hairline bg-surface-3 px-2.5 py-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded">
+                            {a.dataUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={a.dataUrl} alt={a.name} className="h-8 w-8 object-cover" />
+                            ) : (
+                              <Paperclip className="h-4 w-4 text-ink-tertiary" />
+                            )}
+                            {isUploading && (
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/35 text-[10px] font-semibold text-white">
+                                {progress}%
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="max-w-[120px] truncate text-[11px] text-ink-primary">{a.name}</div>
+                            {(isUploading || isError) && (
+                              <div className={cn('text-[10px]', isError ? 'text-danger' : 'text-ink-tertiary')}>
+                                {isError ? '上传失败' : `上传中 ${progress}%`}
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            disabled={isUploading}
+                            onClick={() => setAttachments((prev) => prev.filter((item) => item.id !== a.id))}
+                            className="ml-0.5 text-ink-tertiary hover:text-ink-primary disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                        {isUploading && (
+                          <div className="absolute inset-x-0 bottom-0 h-0.5 bg-surface-4">
+                            <div className="h-full bg-brand-500 transition-[width] duration-150" style={{ width: `${progress}%` }} />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
               {/* 工具条 */}
-              <div className="flex items-center gap-0.5 px-3 pt-2">
+              <div className="flex min-w-0 items-center gap-0.5 overflow-visible px-3 pt-2">
                 {/* 表情 */}
                 <div className="relative">
                   <button
@@ -626,36 +889,19 @@ function ImInner() {
                   onChange={(e) => handleFileSelect(e, 'file')}
                 />
 
-                {/* @成员 */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setInput((cur) => cur + '@');
-                    composerRef.current?.focus();
-                  }}
-                  className="flex h-8 w-8 items-center justify-center rounded-md text-ink-secondary hover:bg-surface-3 hover:text-ink-primary"
-                  title="@成员"
-                >
-                  <AtSign className="h-4 w-4" />
-                </button>
-
-                {/* 语音 */}
-                <VoiceInputButton
-                  onText={(text) => setInput((cur) => (cur ? `${cur} ${text}` : text))}
-                  disabled={sending}
-                />
+                {/* @成员与语音入口暂时下线。 */}
 
               </div>
 
               {/* 身份选择器 + 输入框 + 发送 */}
-              <div className="flex items-end gap-2 px-3 pb-3 pt-1.5">
+              <div className="flex min-w-0 items-center gap-2 px-3 pb-[calc(10px+var(--capacitor-safe-area-bottom,env(safe-area-inset-bottom,0px)))] pt-1.5 md:pb-3">
 
                 {/* 身份切换器 */}
                 <div ref={identityPickerRef} className="relative shrink-0">
                   <button
                     type="button"
                     onClick={() => setShowIdentityPicker((v) => !v)}
-                    className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[12px] font-medium transition ${
+                    className={`flex h-9 items-center gap-1.5 rounded-lg border px-2.5 text-[12px] font-medium transition ${
                       sendAsAgent
                         ? 'border-brand-300 bg-brand-50 text-brand-700 hover:bg-brand-100'
                         : 'border-hairline bg-surface-3 text-ink-primary hover:bg-surface-3'
@@ -680,7 +926,7 @@ function ImInner() {
                   )}
                 </div>
 
-                <div className="flex flex-1 items-center rounded-lg border border-hairline bg-surface-1 px-3 py-2 transition focus-within:border-brand-400 focus-within:ring-1 focus-within:ring-brand-100">
+                <div className="flex h-9 min-w-0 flex-1 items-center rounded-lg border border-hairline bg-surface-1 px-3 py-1 transition focus-within:border-brand-400 focus-within:ring-1 focus-within:ring-brand-100">
                   <ImComposerInput
                     composerRef={composerRef}
                     value={input}
@@ -694,7 +940,7 @@ function ImInner() {
                 <Button
                   onClick={sendMessage}
                   disabled={sending || (!input.trim() && attachments.length === 0)}
-                  className="h-9 gap-1 rounded-lg bg-brand-600 px-4 text-[13px] text-white transition hover:bg-brand-700 disabled:bg-surface-3 disabled:text-ink-tertiary"
+                  className="h-9 shrink-0 gap-1 rounded-lg bg-brand-600 px-3 text-[13px] text-white transition hover:bg-brand-700 disabled:bg-surface-3 disabled:text-ink-tertiary sm:px-4"
                 >
                   <Send className="h-3.5 w-3.5" />
                   发送
@@ -842,7 +1088,7 @@ function EmojiPicker({ onPick, onClose }: { onPick: (e: string) => void; onClose
   return (
     <div
       ref={ref}
-      className="absolute bottom-10 left-0 z-50 w-64 rounded-2xl border border-hairline bg-surface-2 p-2 shadow-soft-lg"
+      className="absolute bottom-10 left-0 z-[70] w-64 max-w-[calc(100vw-24px)] rounded-2xl border border-hairline bg-surface-2 p-2 shadow-soft-lg"
     >
       <div className="grid grid-cols-10 gap-0.5">
         {EMOJI_LIST.map((em) => (
@@ -998,6 +1244,33 @@ function AttachmentView({ channelId, att }: { channelId: string; att: ImAttachme
     return () => { cancelled = true; };
   }, [channelId, att.url, att.refId]);
 
+  if (att.uploadStatus === 'pending' || att.uploadStatus === 'uploading') {
+    return (
+      <div className="flex min-w-[160px] items-center gap-2 rounded-lg border border-hairline bg-surface-2 px-3 py-2 text-[12px] text-ink-secondary">
+        <Paperclip className="h-4 w-4 shrink-0 text-ink-tertiary" />
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-ink-primary">{att.name ?? '附件'}</div>
+          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-4">
+            <div className="h-full bg-brand-500" style={{ width: `${att.uploadProgress ?? 0}%` }} />
+          </div>
+          <div className="mt-0.5 text-[10px] text-ink-tertiary">上传中 {att.uploadProgress ?? 0}%</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (att.uploadStatus === 'error') {
+    return (
+      <div className="flex min-w-[160px] items-center gap-2 rounded-lg border border-danger/30 bg-danger/5 px-3 py-2 text-[12px] text-danger">
+        <Paperclip className="h-4 w-4 shrink-0" />
+        <div className="min-w-0">
+          <div className="truncate">{att.name ?? '附件'}</div>
+          <div className="text-[10px]">上传失败{att.uploadError ? `: ${att.uploadError}` : ''}</div>
+        </div>
+      </div>
+    );
+  }
+
   if (att.kind === 'image') {
     if (status === 'error') {
       return (
@@ -1118,7 +1391,7 @@ function MessageRow({
   if (msg.senderKind === 'system') {
     return (
       <div className="my-3 flex justify-center text-[11px]">
-        <div className="flex items-center gap-1.5 rounded-full border border-hairline bg-surface-2 px-3 py-1 text-ink-secondary shadow-soft-sm">
+        <div className="im-mobile-break-anywhere max-w-full flex items-center gap-1.5 rounded-full border border-hairline bg-surface-2 px-3 py-1 text-ink-secondary shadow-soft-sm">
           <Info className="h-3 w-3 text-ink-tertiary" />
           {renderInline(msg.body, onMentionPersona)}
         </div>
@@ -1133,7 +1406,7 @@ function MessageRow({
   const showBubble = msg.body.trim().length > 0 || isStreamingBubble;
 
   return (
-    <div className={`group mb-1 flex items-start gap-2.5 ${isMe ? 'flex-row-reverse' : ''}`}>
+    <div className={`group mb-1 flex w-full min-w-0 items-start gap-2 ${isMe ? 'flex-row-reverse' : ''}`}>
       <div
         className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold shadow-soft-sm ${
           isPersona
@@ -1146,7 +1419,7 @@ function MessageRow({
       >
         {isPersona ? <Bot className="h-4 w-4" /> : nameOf(msg.senderId).slice(0, 2).toUpperCase()}
       </div>
-      <div className={`flex max-w-[72%] min-w-0 flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+      <div className={`flex max-w-[78%] min-w-0 flex-col sm:max-w-[72%] ${isMe ? 'items-end' : 'items-start'}`}>
         {showSender && (
           <div
             className={`mb-1 flex items-center gap-1.5 text-[10.5px] text-ink-secondary ${
@@ -1174,7 +1447,7 @@ function MessageRow({
         <div className={`relative flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
           {showBubble && (
           <div
-            className={`inline-block whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-[13.5px] leading-relaxed shadow-soft-sm ${
+            className={`im-mobile-break-anywhere inline-block max-w-full whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-[13.5px] leading-relaxed shadow-soft-sm ${
               isMe
                 ? 'bg-gradient-to-br from-amber-500 to-orange-500 text-white'
                 : isPersona
@@ -1228,7 +1501,7 @@ function MessageRow({
           <div
             className={`pointer-events-none absolute -bottom-3 z-10 ${
               isMe ? 'right-2' : 'left-2'
-            } flex w-max max-w-none flex-nowrap items-center gap-1 whitespace-nowrap translate-y-1 opacity-0 transition-all group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 ${
+            } hidden w-max max-w-none flex-nowrap items-center gap-1 whitespace-nowrap translate-y-1 opacity-0 transition-all group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 md:flex ${
               reactionOpen || reactionHover ? 'invisible' : ''
             }`}
           >
@@ -1441,7 +1714,7 @@ function ImComposerInput(props: {
         }}
         placeholder={placeholder}
         disabled={disabled}
-        className="border-0 bg-transparent p-0 text-[13.5px] shadow-none focus-visible:ring-0"
+        className="h-7 min-w-0 border-0 bg-transparent p-0 text-[13px] leading-7 shadow-none focus-visible:ring-0"
       />
       <DocumentMentionPicker
         open={mention.open}

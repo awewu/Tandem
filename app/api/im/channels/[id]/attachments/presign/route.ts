@@ -36,13 +36,6 @@ async function POSTApiHandler(req: NextRequest, { params }: Params) {
   const channel = await getChannelIfMember(channelId, auth.userId, auth.tenantId);
   if (!channel) return NextResponse.json({ error: 'not found' }, { status: 404 });
 
-  if (!getS3()) {
-    return NextResponse.json(
-      { error: 'object storage not configured' },
-      { status: 503 },
-    );
-  }
-
   const body = (await req.json().catch(() => ({}))) as {
     mode?: 'upload' | 'download';
     fileName?: string;
@@ -52,6 +45,8 @@ async function POSTApiHandler(req: NextRequest, { params }: Params) {
 
   const tenantId = auth.tenantId ?? 'default';
   const keyPrefix = `im/${tenantId}/${channelId}/`;
+  const objectStorageAvailable = Boolean(getS3());
+  const allowDevObjectStore = process.env.NODE_ENV !== 'production';
 
   if (body.mode === 'upload') {
     if (!body.fileName) {
@@ -59,6 +54,16 @@ async function POSTApiHandler(req: NextRequest, { params }: Params) {
     }
     const safeName = body.fileName.replace(/[^\w.\-]/g, '_').slice(0, 200);
     const storageKey = `${keyPrefix}${Date.now()}-${generateId()}-${safeName}`;
+    if (!objectStorageAvailable) {
+      if (!allowDevObjectStore) {
+        return NextResponse.json(
+          { error: 'object storage not configured' },
+          { status: 503 },
+        );
+      }
+      const uploadUrl = `/api/im/attachments/dev-object?key=${encodeURIComponent(storageKey)}`;
+      return NextResponse.json({ uploadUrl, storageKey, expiresInSec: 900 });
+    }
     const uploadUrl = await presignUpload(storageKey, {
       bucket: BUCKET_ATTACHMENTS,
       contentType: body.contentType,
@@ -74,6 +79,16 @@ async function POSTApiHandler(req: NextRequest, { params }: Params) {
     // 防跨频道 IDOR: storageKey 必须属于当前频道前缀
     if (!body.storageKey.startsWith(keyPrefix)) {
       return NextResponse.json({ error: 'not found' }, { status: 404 });
+    }
+    if (!objectStorageAvailable) {
+      if (!allowDevObjectStore) {
+        return NextResponse.json(
+          { error: 'object storage not configured' },
+          { status: 503 },
+        );
+      }
+      const url = `/api/im/attachments/dev-object?key=${encodeURIComponent(body.storageKey)}`;
+      return NextResponse.json({ url, expiresInSec: 900 });
     }
     const url = await presignDownload(body.storageKey, {
       bucket: BUCKET_ATTACHMENTS,

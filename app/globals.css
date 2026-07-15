@@ -655,20 +655,71 @@
 
 /* =============================================================
    Capacitor 移动端安全区域适配
-   WebView 在 viewport-fit=cover 模式下会延伸到状态栏/刘海屏下方.
-   is-capacitor 类由 CapacitorShell 组件在运行时注入.
 
-   --capacitor-status-bar-height: 由 CapacitorShell 在运行时通过
-   StatusBar.getInfo().height 动态设置 (Android 原生像素值).
-   未设置时 fallback 到 env(safe-area-inset-top, 0px).
+   统一策略: WebView overlay 状态栏, 页面 CSS 负责安全区.
+   这样顶部栏背景可以铺到状态栏背后, 但标题/按钮内容从状态栏下方开始.
    ============================================================= */
-html.is-capacitor {
+:root {
   --capacitor-status-bar-height: env(safe-area-inset-top, 0px);
+  --capacitor-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --capacitor-effective-top-inset: 0px;
+  --visual-keyboard-inset: 0px;
+  --visual-viewport-height: 100dvh;
 }
 
-/* 独立 app 路由 (/login, /register, /shouchao, /hub) 的 main 容器
-   这些路由无 MobileTopBar, main 元素带 h-dvh, 需要单独加顶部安全区.
-   内部驾驶舱路由的 main 带 flex-1 (非 h-dvh), 其顶部安全区由 MobileTopBar 处理. */
-html.is-capacitor main#tandem-shell-main.h-dvh {
-  padding-top: var(--capacitor-status-bar-height);
+html.is-capacitor.capacitor-overlay-statusbar {
+  /* Android WebView 上 env(safe-area-inset-top) 经常为 0；原生注入偶尔也会晚到。
+     Capacitor overlay 状态栏下先给 24px 兜底，等 MainActivity 注入真实值后再覆盖。 */
+  --capacitor-effective-top-inset: max(var(--capacitor-status-bar-height), 24px);
+}
+
+html.is-capacitor.capacitor-overlay-statusbar main#tandem-shell-main.h-dvh {
+  padding-top: var(--capacitor-effective-top-inset);
+}
+
+html.keyboard-open main#tandem-shell-main {
+  padding-bottom: 0 !important;
+}
+
+html.keyboard-open .mobile-tab-bar {
+  pointer-events: none;
+  transform: translateY(110%);
+  opacity: 0;
+}
+
+@media (max-width: 767px) {
+  html.im-chat-open main#tandem-shell-main {
+    padding-bottom: 0 !important;
+  }
+
+  html.im-chat-open .im-page-root {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: calc(44px + var(--capacitor-effective-top-inset, 0px));
+    bottom: 0;
+    z-index: 35;
+    height: auto;
+    max-height: none;
+  }
+
+  html.im-chat-open.keyboard-open .im-page-root {
+    bottom: var(--visual-keyboard-inset, 0px);
+  }
+
+  html.im-chat-open.keyboard-open .im-composer-bar > div:last-child {
+    padding-bottom: 10px !important;
+  }
+
+  html.im-chat-open .mobile-tab-bar,
+  html.im-chat-open .boss-ai-fab {
+    pointer-events: none;
+    transform: translateY(110%);
+    opacity: 0;
+  }
+
+  .im-mobile-break-anywhere {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
 }

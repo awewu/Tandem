@@ -209,6 +209,15 @@ export async function boot(): Promise<void> {
 }
 
 /**
+ * 热路径轻启动:
+ * 仅保证 store/router/orchestrator 已同步初始化, 不等待 seed / AI 设置 / MCP 同步链。
+ * 适用于 IM 列表、轻量 badge 等首屏接口, 避免被慢启动链路长期阻塞。
+ */
+export function bootHotPath(): void {
+  bootSync();
+}
+
+/**
  * 从 DB AiSettings 把 provider 重新注册进路由器 (覆盖 env, DB 优先).
  *
  * 既在 boot 链里跑一次, 也供 PUT /api/admin/ai-settings 保存后即时调用 —
