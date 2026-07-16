@@ -39,6 +39,7 @@ export default function AppRail() {
         fetched,
         unauthenticated: error === 'unauthenticated' || !user,
         email: user?.email,
+        permissions: user?.permissions,
       }),
     [fetched, user, error],
   );

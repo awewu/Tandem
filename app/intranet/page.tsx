@@ -143,7 +143,7 @@ function LatestNewsRow({ items }: { items: IntranetPost[] }) {
                   {p.title}
                 </h4>
                 <p className="mt-1 text-footnote text-ink-tertiary">
-                  {fmtPublishDate(p.publishedAt)} · {p.publishedBy}
+                  {fmtPublishDate(p.publishedAt)} · {p.publishedByName ?? '未知人员'}
                 </p>
               </div>
             </Link>
@@ -181,8 +181,10 @@ function FeaturedArchive({ post }: { post: IntranetPost }) {
         href={`/intranet/posts/${post.id}`}
         className="card-elevated p-5 flex flex-col sm:flex-row gap-5 surface-interactive group"
       >
-        <div className="shrink-0 flex h-32 w-full sm:w-44 items-center justify-center rounded-lg bg-gradient-to-br from-brand-50 via-amber-50 to-emerald-50 text-5xl">
-          {TYPE_EMOJI[post.type]}
+        <div className="shrink-0 flex h-32 w-full sm:w-44 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-brand-50 via-amber-50 to-emerald-50 text-5xl">
+          {post.coverImage ? (
+            <img src={post.coverImage} alt="" className="h-full w-full object-cover" />
+          ) : TYPE_EMOJI[post.type]}
         </div>
         <div className="flex-1 min-w-0">
           <span className="inline-block rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold text-brand-700">
@@ -197,7 +199,7 @@ function FeaturedArchive({ post }: { post: IntranetPost }) {
             </p>
           )}
           <p className="mt-2 text-footnote text-ink-tertiary">
-            {fmtPublishDate(post.publishedAt)} · {post.publishedBy}
+            {fmtPublishDate(post.publishedAt)} · {post.publishedByName ?? '未知人员'}
           </p>
         </div>
       </Link>

@@ -1,6 +1,6 @@
 /**
- * POST /api/intranet/posts/[id]/read   — 标记当前用户已读 (强制已读用)
- * GET  /api/intranet/posts/[id]/read   — 返回 { read: boolean }
+ * POST /api/intranet/posts/[id]/read   — { kind:'view'|'ack' } 阅读/强制确认
+ * GET  /api/intranet/posts/[id]/read   — 返回 { viewed, read }
  *
  * P3-10 强制已读追踪.
  */
@@ -16,15 +16,27 @@ async function POSTApiHandler(req: NextRequest, { params }: { params: { id: stri
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   try {
+    const body = await req.json().catch(() => ({})) as { kind?: 'view' | 'ack' };
+    const kind = body.kind === 'view' ? 'view' : 'ack';
     const store = getStore();
     const posts = withTenantScope(store.intranetPosts, auth.tenantId);
     const post = await posts.get(params.id);
     if (!post) {
       return NextResponse.json({ error: 'not found' }, { status: 404 });
     }
-    if (!post.readBy.includes(auth.userId)) {
+    const viewedBy = post.viewedBy ?? [];
+    if (kind === 'view' && !viewedBy.includes(auth.userId)) {
+      await posts.update(params.id, {
+        viewedBy: [...viewedBy, auth.userId],
+        updatedAt: new Date().toISOString(),
+      });
+    } else if (kind === 'ack' && !post.readBy.includes(auth.userId)) {
       const readBy = [...post.readBy, auth.userId];
-      await posts.update(params.id, { readBy, updatedAt: new Date().toISOString() });
+      await posts.update(params.id, {
+        readBy,
+        viewedBy: viewedBy.includes(auth.userId) ? viewedBy : [...viewedBy, auth.userId],
+        updatedAt: new Date().toISOString(),
+      });
     }
     return NextResponse.json({ ok: true });
   } catch (err) {
@@ -44,7 +56,10 @@ async function GETApiHandler(req: NextRequest, { params }: { params: { id: strin
     if (!post) {
       return NextResponse.json({ error: 'not found' }, { status: 404 });
     }
-    return NextResponse.json({ read: post.readBy.includes(auth.userId) });
+    return NextResponse.json({
+      viewed: (post.viewedBy ?? []).includes(auth.userId),
+      read: post.readBy.includes(auth.userId),
+    });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }

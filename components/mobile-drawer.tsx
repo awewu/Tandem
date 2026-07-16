@@ -32,6 +32,7 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
         fetched,
         unauthenticated: error === 'unauthenticated' || !user,
         email: user?.email,
+        permissions: user?.permissions,
       }),
     [fetched, user, error],
   );

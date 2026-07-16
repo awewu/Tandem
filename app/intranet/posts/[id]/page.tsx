@@ -10,7 +10,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Megaphone, FileLock, PartyPopper, Gift, Calendar, User, Loader2, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Megaphone, FileLock, PartyPopper, Gift, Calendar, User, Loader2, CheckCircle2, ExternalLink, FileText } from 'lucide-react';
 import type { IntranetPost } from '@/lib/types/intranet-post';
 import { TYPE_TO_CATEGORY, CATEGORY_LABEL, fmtPublishDate, type IntranetCategory } from '@/lib/intranet/post-view';
 
@@ -38,6 +38,12 @@ export default function IntranetPostPage() {
         setPost(j.post as IntranetPost);
         setRead(Boolean(j.read));
         setStatus('ok');
+        void fetch(`/api/intranet/posts/${id}/read`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ kind: 'view' }),
+        });
       })
       .catch(() => setStatus('notfound'));
   }, [id]);
@@ -46,7 +52,12 @@ export default function IntranetPostPage() {
     if (acking) return;
     setAcking(true);
     try {
-      const r = await fetch(`/api/intranet/posts/${id}/read`, { method: 'POST', credentials: 'include' });
+      const r = await fetch(`/api/intranet/posts/${id}/read`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ kind: 'ack' }),
+      });
       if (r.ok) setRead(true);
     } finally {
       setAcking(false);
@@ -55,7 +66,7 @@ export default function IntranetPostPage() {
 
   if (status === 'loading') {
     return (
-      <div className="page-container py-10 max-w-3xl">
+      <div className="page-container py-10 max-w-6xl">
         <BackToIntranet />
         <div className="card-elevated mt-6 p-12 flex items-center justify-center text-ink-tertiary">
           <Loader2 className="h-5 w-5 animate-spin mr-2" /> 加载中…
@@ -66,7 +77,7 @@ export default function IntranetPostPage() {
 
   if (status === 'notfound' || !post) {
     return (
-      <div className="page-container py-10 max-w-3xl md:py-10">
+      <div className="page-container py-10 max-w-6xl md:py-10">
         <BackToIntranet />
         <div className="card-elevated mt-6 p-12 text-center">
           <p className="text-headline text-ink-primary">条目不存在或已下架</p>
@@ -81,13 +92,24 @@ export default function IntranetPostPage() {
   const cat = TYPE_TO_CATEGORY[post.type];
   const meta = CAT_META[cat];
   const Icon = meta.icon;
+  const displayAttachments = (post.attachments ?? []).map((attachment, index) => (
+    typeof attachment === 'string'
+      ? {
+          id: `legacy-${index}`,
+          name: attachment.split('/').pop() ?? `附件 ${index + 1}`,
+          mimeType: attachment.toLowerCase().includes('.pdf') ? 'application/pdf' : 'image/jpeg',
+          size: 0,
+          url: attachment,
+        }
+      : attachment
+  ));
 
   return (
-    <div className="page-container py-10 max-w-3xl">
+    <div className="page-container py-10 max-w-6xl">
       <BackToIntranet />
 
       <article className="mt-6 card-elevated p-8 space-y-6">
-        <header className="space-y-3">
+        <header className="max-w-4xl space-y-3">
           <div className="inline-flex items-center gap-1.5">
             <span className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-semibold ${meta.tone}`}>
               <Icon className="h-3 w-3" />
@@ -109,16 +131,41 @@ export default function IntranetPostPage() {
             </span>
             <span className="inline-flex items-center gap-1">
               <User className="h-3 w-3" />
-              {post.publishedBy}
+              {post.publishedByName ?? '未知人员'}
             </span>
           </div>
         </header>
 
-        <div className="border-t border-border pt-6">
-          <p className="text-body text-ink-primary leading-relaxed whitespace-pre-wrap">
-            {post.body}
-          </p>
-        </div>
+        {post.body && (
+          <div className="max-w-4xl border-t border-border pt-6">
+            <p className="text-body text-ink-primary leading-relaxed whitespace-pre-wrap">{post.body}</p>
+          </div>
+        )}
+
+        {displayAttachments.length > 0 && (
+          <section className="space-y-6 border-t border-border pt-6">
+            {displayAttachments.map((attachment) => (
+              <div key={attachment.id} className="overflow-hidden rounded-md border bg-surface-1">
+                {attachment.mimeType === 'application/pdf' && (
+                  <div className="flex items-center justify-between gap-3 border-b bg-surface-2 px-3 py-2">
+                    <span className="inline-flex min-w-0 items-center gap-2 text-caption font-medium text-ink-primary">
+                      <FileText className="h-4 w-4 shrink-0" />
+                      <span className="truncate">{attachment.name}</span>
+                    </span>
+                    <a href={attachment.url} target="_blank" rel="noreferrer" className="inline-flex shrink-0 items-center gap-1 text-footnote text-brand-600 hover:underline">
+                      单独打开 <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  </div>
+                )}
+                {attachment.mimeType === 'application/pdf' ? (
+                  <iframe src={attachment.url} title={attachment.name} className="h-[70vh] min-h-[520px] w-full bg-white" />
+                ) : (
+                  <img src={attachment.url} alt={attachment.name} className="mx-auto h-auto w-full object-contain md:w-4/5" loading="lazy" />
+                )}
+              </div>
+            ))}
+          </section>
+        )}
 
         {post.tags && post.tags.length > 0 && (
           <div className="flex flex-wrap gap-1.5">

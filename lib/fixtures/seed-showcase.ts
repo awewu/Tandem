@@ -516,21 +516,21 @@ async function seedIntranet(ids: IdMap): Promise<void> {
     {
       type: 'announcement', title: '恒热 Everhot · 2026 Q2 启动: 华东增长第一', body: '## 季度目标\n营收 2.4 亿 / NPS 55 / 经销商 120 家。各部门 OKR 已对齐, 共同冲刺!',
       summary: 'Q2 启动, 三大北极星指标对齐。', mandatoryRead: false, readBy: [ids.ceo, ids.coo].filter(Boolean),
-      publishedAt: ago(12), publishedBy: ids.ceo, tags: ['Q2-2026'], tenantId: TENANT, createdAt: ago(12), updatedAt: ago(12),
+      publishedAt: ago(12), publishedBy: ids.ceo, publishedByName: '何恒', tags: ['Q2-2026'], tenantId: TENANT, createdAt: ago(12), updatedAt: ago(12),
     },
     {
       type: 'policy', title: '差旅与报销新政 (2026 版)', body: '## 要点\n- 单程 500km 内优先高铁二等座\n- 报销 7 个工作日内提交\n- 超标需主管 + 财务双签',
       summary: '差旅标准与报销时限更新, 全员需知晓。', mandatoryRead: true, readBy: [ids.finance].filter(Boolean),
-      publishedAt: ago(20), publishedBy: ids.hr, tags: ['制度', '财务'], tenantId: TENANT, createdAt: ago(20), updatedAt: ago(20),
+      publishedAt: ago(20), publishedBy: ids.hr, publishedByName: '何娟', tags: ['制度', '财务'], tenantId: TENANT, createdAt: ago(20), updatedAt: ago(20),
     },
     {
       type: 'event', title: '里程碑: 第 100 家经销商签约', body: '本月我们迎来第 100 家经销商加入恒热大家庭, 渠道网络再上台阶! 🎉',
-      summary: '渠道破百, 历史性时刻。', mandatoryRead: false, readBy: [], publishedAt: ago(5), publishedBy: ids.salesvp,
+      summary: '渠道破百, 历史性时刻。', mandatoryRead: false, readBy: [], publishedAt: ago(5), publishedBy: ids.salesvp, publishedByName: '李伟',
       tags: ['里程碑', '渠道'], tenantId: TENANT, createdAt: ago(5), updatedAt: ago(5),
     },
     {
       type: 'benefit', title: '夏季福利: 全员体检 + 高温补贴', body: '7 月起安排年度体检, 一线生产岗位发放高温补贴, 详情见 HR 通知。',
-      summary: '夏季员工关怀上线。', mandatoryRead: false, readBy: [], publishedAt: ago(2), publishedBy: ids.hr,
+      summary: '夏季员工关怀上线。', mandatoryRead: false, readBy: [], publishedAt: ago(2), publishedBy: ids.hr, publishedByName: '何娟',
       tags: ['福利', '关怀'], tenantId: TENANT, createdAt: ago(2), updatedAt: ago(2),
     },
   ];

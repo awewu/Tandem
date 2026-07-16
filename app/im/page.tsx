@@ -29,7 +29,9 @@ import Link from 'next/link';
 import { useHandoffPrefill } from '@/hooks/useHandoffPrefill';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { insertTextAtSelection, messageBodyForSend } from '@/lib/im/composer-text';
 import {
   Hash,
   Megaphone,
@@ -127,7 +129,7 @@ function ImInner() {
   const [activeChannel, setActiveChannel] = useState<Channel | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
-  const composerRef = useRef<HTMLInputElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -461,7 +463,7 @@ function ImInner() {
   }
 
   async function sendMessage() {
-    const text = input.trim();
+    const text = messageBodyForSend(input);
     if ((!text && attachments.length === 0) || !activeId || sending) return;
 
     const queuedAttachments = attachments;
@@ -894,7 +896,7 @@ function ImInner() {
               </div>
 
               {/* 身份选择器 + 输入框 + 发送 */}
-              <div className="flex min-w-0 items-center gap-2 px-3 pb-[calc(10px+var(--capacitor-safe-area-bottom,env(safe-area-inset-bottom,0px)))] pt-1.5 md:pb-3">
+              <div className="flex min-w-0 items-end gap-2 px-3 pb-[calc(10px+var(--capacitor-safe-area-bottom,env(safe-area-inset-bottom,0px)))] pt-1.5 md:pb-3">
 
                 {/* 身份切换器 */}
                 <div ref={identityPickerRef} className="relative shrink-0">
@@ -926,7 +928,7 @@ function ImInner() {
                   )}
                 </div>
 
-                <div className="flex h-9 min-w-0 flex-1 items-center rounded-lg border border-hairline bg-surface-1 px-3 py-1 transition focus-within:border-brand-400 focus-within:ring-1 focus-within:ring-brand-100">
+                <div className="flex min-h-9 max-h-[132px] min-w-0 flex-1 items-end rounded-lg border border-hairline bg-surface-1 px-3 py-1 transition focus-within:border-brand-400 focus-within:ring-1 focus-within:ring-brand-100">
                   <ImComposerInput
                     composerRef={composerRef}
                     value={input}
@@ -1666,7 +1668,7 @@ function renderInline(
  * 也支持新的 @<文件名> 文档引用 (插入 [[doc:id|title]], 走 router preprocess).
  */
 function ImComposerInput(props: {
-  composerRef: React.RefObject<HTMLInputElement>;
+  composerRef: React.RefObject<HTMLTextAreaElement>;
   value: string;
   setValue: React.Dispatch<React.SetStateAction<string>>;
   onEnter: () => void;
@@ -1681,10 +1683,20 @@ function ImComposerInput(props: {
     inputRef: composerRef,
   });
 
+  useEffect(() => {
+    const el = composerRef.current;
+    if (!el) return;
+    el.style.height = '0px';
+    const nextHeight = Math.max(28, Math.min(el.scrollHeight, 120));
+    el.style.height = `${nextHeight}px`;
+    el.style.overflowY = el.scrollHeight > 120 ? 'auto' : 'hidden';
+  }, [composerRef, value]);
+
   return (
     <>
-      <Input
+      <Textarea
         ref={composerRef}
+        rows={1}
         value={value}
         onChange={mention.onChange}
         onPaste={(e) => {
@@ -1698,15 +1710,33 @@ function ImComposerInput(props: {
             }
           }
           if (imgs.length > 0) {
+            const pastedText = e.clipboardData.getData('text/plain');
             e.preventDefault();
             onPasteFiles?.(imgs);
+            if (pastedText) {
+              const result = insertTextAtSelection(
+                value,
+                pastedText,
+                e.currentTarget.selectionStart,
+                e.currentTarget.selectionEnd,
+              );
+              setValue(result.value);
+              queueMicrotask(() => {
+                const el = composerRef.current;
+                if (!el) return;
+                el.focus();
+                el.setSelectionRange(result.caret, result.caret);
+              });
+            }
           }
         }}
         onKeyDown={(e) => {
-          // picker 接管 ↑↓⏎Esc, 不让 Input 默认 Enter 触发发送
+          // picker 接管 ↑↓⏎Esc, 不让编辑器默认 Enter 触发发送
           if (mention.open && ['ArrowDown', 'ArrowUp', 'Enter', 'Escape', 'Tab'].includes(e.key)) {
+            if (e.key === 'Enter' || e.key === 'Tab') e.preventDefault();
             return;
           }
+          if (e.nativeEvent.isComposing) return;
           if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             onEnter();
@@ -1714,7 +1744,7 @@ function ImComposerInput(props: {
         }}
         placeholder={placeholder}
         disabled={disabled}
-        className="h-7 min-w-0 border-0 bg-transparent p-0 text-[13px] leading-7 shadow-none focus-visible:ring-0"
+        className="max-h-[120px] min-h-7 min-w-0 resize-none overflow-y-hidden border-0 bg-transparent px-0 py-1 text-[13px] leading-5 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
       />
       <DocumentMentionPicker
         open={mention.open}

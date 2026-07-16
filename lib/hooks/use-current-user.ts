@@ -24,6 +24,7 @@ export interface AuthUser {
   email: string;
   name: string;
   roles: string[];
+  permissions?: string[];
   tenantId: string;
   mfaVerified?: boolean;
 }

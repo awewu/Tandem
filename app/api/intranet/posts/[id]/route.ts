@@ -6,11 +6,11 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getStore, boot } from '@/lib/boot';
-import { requireAuth, requireRole } from '@/lib/auth/require-auth';
-import { DATA_STEWARD_ROLES } from '@/lib/auth/roles';
+import { requireAuth, requirePermission } from '@/lib/auth/require-auth';
 import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import type { IntranetPost } from '@/lib/types/intranet-post';
 import { withApiLog } from '@/lib/api-log/with-api-log';
+import { resolveIntranetPublisherName } from '@/lib/intranet/publisher-name';
 
 async function GETApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
@@ -23,7 +23,13 @@ async function GETApiHandler(req: NextRequest, { params }: { params: { id: strin
     if (!post || !post.publishedAt || post.archivedAt) {
       return NextResponse.json({ error: 'not found' }, { status: 404 });
     }
-    return NextResponse.json({ post, read: post.readBy.includes(auth.userId) });
+    const publisher = await store.auth.users.findById(post.publishedBy);
+    const publisherNames = new Map<string, string>();
+    if (publisher) publisherNames.set(publisher.id, publisher.name);
+    return NextResponse.json({
+      post: { ...post, publishedByName: resolveIntranetPublisherName(post, publisherNames) },
+      read: post.readBy.includes(auth.userId),
+    });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
@@ -40,7 +46,7 @@ async function loadAndAuthorize(
 > {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return { error: auth };
-  const forbidden = requireRole(auth, [...DATA_STEWARD_ROLES, 'champion']);
+  const forbidden = await requirePermission(auth, 'intranet.manage');
   if (forbidden) return { error: forbidden };
   const store = getStore();
   const post = await withTenantScope(store.intranetPosts, auth.tenantId).get(postId);
@@ -56,9 +62,17 @@ async function PATCHApiHandler(req: NextRequest, { params }: { params: { id: str
   if ('error' in r) return r.error;
   try {
     const body = await req.json();
-    const allowed = ['title', 'body', 'summary', 'mandatoryRead', 'attachments', 'tags'];
+    const allowed = ['title', 'body', 'summary', 'coverImage', 'mandatoryRead', 'attachments', 'tags'];
     const patch: Partial<IntranetPost> = { updatedAt: new Date().toISOString() };
     for (const k of allowed) if (k in body) (patch as Record<string, unknown>)[k] = body[k];
+    if ('coverImage' in body) {
+      const cover = typeof body.coverImage === 'string' ? body.coverImage.trim() : '';
+      const allowedCover = !cover || cover.startsWith('https://') || cover.startsWith('/') || /^data:image\/(webp|jpeg|png);base64,/.test(cover);
+      if (!allowedCover || cover.length > 2_000_000) {
+        return NextResponse.json({ error: 'invalid cover image' }, { status: 400 });
+      }
+      patch.coverImage = cover || undefined;
+    }
 
     // 发布草稿
     if (body.publish === true && !r.post.publishedAt) {

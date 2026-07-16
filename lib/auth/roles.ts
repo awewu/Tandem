@@ -16,6 +16,7 @@ export const INTERNAL_ROLES = [
   'employee',  // 普通员工 (默认)
   'steward',   // HR / 数据管家 (绩效数据治理 · 兼治理审核)
   'champion',  // 业务冠军 / 推广大使
+  'intranet_editor', // 仅管理企业内网内容，不授予其它后台权限
   'finance',   // 财务 (KPI 通道 C 补录: 财务口径指标 · CHARTER-KPI §2.4)
   'internal_staff', // 内勤 (KPI 通道 C 补录: ERP 未覆盖的人工指标)
 ] as const;
@@ -55,7 +56,9 @@ export function hasExternalRole(roles: readonly string[]): boolean {
 
 /** 任一 role 是内部角色 → 该用户被视为正式员工 */
 export function hasInternalRole(roles: readonly string[]): boolean {
-  return roles.some((r) => INTERNAL_SET.has(r));
+  // 动态角色由数据库维护，不会出现在编译期枚举中。只要不是明确的外部
+  // 角色，就按内部角色处理；角色分配接口会保证编码确实存在且已启用。
+  return roles.some((r) => INTERNAL_SET.has(r) || !EXTERNAL_SET.has(r));
 }
 
 /** Demo / 测试 fallback 用的全角色集 (生产不可达) */
@@ -83,7 +86,8 @@ export const ROLE_LABELS: Record<Role, string> = {
   manager: '主管',
   employee: '员工',
   steward: 'HR / 管家',
-  champion: '冠军',
+  champion: '推广大使',
+  intranet_editor: '内网内容编辑',
   finance: '财务',
   internal_staff: '内勤',
   guest: '访客',
@@ -105,3 +109,10 @@ export const ROLE_LABELS: Record<Role, string> = {
  * 注: 'hr' / 'governance' 旧字面量统一收敛到 steward (steward 定义即 HR/数据管家).
  */
 export const DATA_STEWARD_ROLES: Role[] = ['owner', 'admin', 'steward'];
+
+/** 企业内网内容管理：数据管家 + 推广大使 + 专职内网编辑。 */
+export const INTRANET_EDITOR_ROLES: Role[] = [
+  ...DATA_STEWARD_ROLES,
+  'champion',
+  'intranet_editor',
+];

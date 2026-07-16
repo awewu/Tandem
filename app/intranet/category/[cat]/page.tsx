@@ -132,7 +132,7 @@ export default function IntranetCategoryPage() {
                 <div className="flex-1 min-w-0">
                   <p className="text-body text-ink-primary line-clamp-2">{it.title}</p>
                   <p className="mt-0.5 text-footnote text-ink-tertiary">
-                    {fmtPublishDate(it.publishedAt)} · {it.publishedBy}
+                    {fmtPublishDate(it.publishedAt)} · {it.publishedByName ?? '未知人员'}
                     {it.mandatoryRead && ' · 强制已读'}
                   </p>
                 </div>

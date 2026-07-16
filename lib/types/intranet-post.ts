@@ -13,6 +13,15 @@
 
 export type IntranetPostType = 'announcement' | 'policy' | 'event' | 'benefit';
 
+export interface IntranetAttachment {
+  id: string;
+  name: string;
+  mimeType: 'application/pdf' | 'image/jpeg' | 'image/png' | 'image/webp';
+  size: number;
+  /** 鉴权后的站内读取地址 */
+  url: string;
+}
+
 export interface IntranetPost {
   id: string;
   type: IntranetPostType;
@@ -21,18 +30,24 @@ export interface IntranetPost {
   body: string;
   /** 摘要 (可由 AI 生成或手填; 列表页展示用) */
   summary?: string;
+  /** 16:9 封面图；支持 https URL、站内路径或压缩后的 data URL */
+  coverImage?: string;
   /** 强制已读 (政策类常用); true 时 readBy 为已读用户 id 集合 */
   mandatoryRead: boolean;
   /** 已读用户 id 列表 */
   readBy: string[];
+  /** 打开过文章详情的用户 id 列表；与强制已读确认分开统计 */
+  viewedBy?: string[];
   /** 发布时间 ISO; null = 草稿 */
   publishedAt: string | null;
   /** 发布人 (admin/HR userId) */
   publishedBy: string;
+  /** 发布时姓名快照；账号迁移或离职后仍保留历史署名 */
+  publishedByName?: string;
   /** 取消发布时间 (软删除) */
   archivedAt?: string | null;
-  /** 附件 URL 列表 (Drive 链接) */
-  attachments?: string[];
+  /** 正文附件，按数组顺序在详情页内嵌展示 */
+  attachments?: Array<IntranetAttachment | string>;
   /** 标签 (e.g. ['Q4-2026', '工程部']) */
   tags?: string[];
   tenantId: string;

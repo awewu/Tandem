@@ -248,6 +248,7 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
   { group: '邮件、内网、治理与审计', path: '/api/governance/projects/{id}/versions', methods: ['GET'], auth: 'auth' },
   { group: '邮件、内网、治理与审计', path: '/api/governance/projects/{id}/versions/rollback', methods: ['POST'], auth: 'role' },
   { group: '邮件、内网、治理与审计', path: '/api/intranet/posts', methods: ['GET', 'POST'], auth: 'role' },
+  { group: '邮件、内网、治理与审计', path: '/api/intranet/assets', methods: ['GET', 'POST', 'PUT'], auth: 'role' },
   { group: '邮件、内网、治理与审计', path: '/api/intranet/posts/{id}', methods: ['DELETE', 'GET', 'PATCH'], auth: 'role' },
   { group: '邮件、内网、治理与审计', path: '/api/intranet/posts/{id}/read', methods: ['GET', 'POST'], auth: 'auth' },
   { group: '邮件、内网、治理与审计', path: '/api/intranet/posts/unread', methods: ['GET'], auth: 'auth' },

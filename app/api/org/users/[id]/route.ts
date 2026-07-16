@@ -3,7 +3,8 @@
  */
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot, getStore } from '@/lib/boot';
-import { requireAuth } from '@/lib/auth/require-auth';
+import { requireAuth, requirePermission } from '@/lib/auth/require-auth';
+import { roleKeysExist } from '@/lib/auth/role-definitions';
 import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
@@ -16,8 +17,8 @@ async function PATCHApiHandler(req: NextRequest, { params }: { params: { id: str
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
-  if (!auth.roles?.includes('admin') && !auth.roles?.includes('hr'))
-    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  const forbidden = await requirePermission(auth, 'users.manage');
+  if (forbidden) return forbidden;
 
   const body = await req.json().catch(() => ({}));
   const patch: Partial<Record<PatchKey, unknown>> = {};
@@ -26,6 +27,14 @@ async function PATCHApiHandler(req: NextRequest, { params }: { params: { id: str
   }
   if (Object.keys(patch).length === 0)
     return NextResponse.json({ error: 'no fields to update' }, { status: 400 });
+
+  if (Array.isArray(patch.roles)) {
+    const roleKeys = patch.roles.filter((value): value is string => typeof value === 'string');
+    if (roleKeys.length !== patch.roles.length || !(await roleKeysExist(auth.tenantId, roleKeys))) {
+      return NextResponse.json({ error: '包含不存在或已停用的角色' }, { status: 400 });
+    }
+    patch.roles = Array.from(new Set(roleKeys));
+  }
 
   const store = getStore();
   // 租户隔离: store.auth.users 是 auth 子存储 (findById/update), 非 TandemStore Repository<T>,

@@ -50,6 +50,27 @@ export const user = pgTable('User', {
   deletedAt: timestamp('deletedAt', { precision: 3, mode: 'date' }),
 });
 
+export const roleDefinition = pgTable(
+  'RoleDefinition',
+  {
+    key: text('key').notNull(),
+    name: text('name').notNull(),
+    description: text('description').notNull().default(''),
+    kind: text('kind').notNull().default('internal'),
+    permissions: text('permissions').array().notNull().default([]),
+    system: boolean('system').notNull().default(false),
+    enabled: boolean('enabled').notNull().default(true),
+    sortOrder: integer('sortOrder').notNull().default(0),
+    tenantId: text('tenantId').notNull().default('default'),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.tenantId, t.key] }),
+    tenantEnabledIdx: index('RoleDefinition_tenant_enabled_idx').on(t.tenantId, t.enabled),
+  }),
+);
+
 export const document = pgTable(
   'Document',
   {

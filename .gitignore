@@ -55,6 +55,7 @@ scripts/fixtures/
 test-results/
 playwright-report/
 .auth/
+.data/
 
 # Tauri Rust build output
 src-tauri/target/

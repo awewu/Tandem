@@ -35,8 +35,8 @@ import {
 } from 'lucide-react';
 import {
   NAV_MODULES,
-  ALL_ROLES,
   isVisible,
+  resolveNavRoles,
   type Role,
 } from '@/components/nav-modules';
 import { useCurrentUser, useAuthStore } from '@/lib/hooks/use-current-user';
@@ -98,15 +98,10 @@ export function CommandPalette() {
   const fetched = useAuthStore((s) => s.fetched);
 
   // Same role logic as AppRail/SubSidebar.
-  const userRoles: Role[] = useMemo(() => {
-    if (!fetched) return ['employee'];
-    if (authError === 'unauthenticated' || !user) return ALL_ROLES;
-    const roles = (user.roles ?? []).filter((x): x is Role =>
-      typeof x === 'string' && (ALL_ROLES as string[]).includes(x),
-    );
-    if (user.email === 'admin@tandem.local' && roles.length === 0) return ALL_ROLES;
-    return roles.length > 0 ? roles : ['employee'];
-  }, [fetched, user, authError]);
+  const userRoles: Role[] = useMemo(() => resolveNavRoles(user?.roles, {
+    fetched, unauthenticated: authError === 'unauthenticated' || !user,
+    email: user?.email, permissions: user?.permissions,
+  }), [fetched, user, authError]);
 
   // Derive nav commands from NAV_MODULES (single source of truth).
   const navCommands: CommandItem[] = useMemo(() => {

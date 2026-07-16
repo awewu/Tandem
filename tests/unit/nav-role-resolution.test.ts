@@ -49,4 +49,11 @@ describe('resolveNavRoles', () => {
   it('空角色非外部 → employee', () => {
     expect(resolveNavRoles([], { fetched: true })).toEqual(['employee']);
   });
+
+  it('数据库自定义角色按权限获得内网管理导航', () => {
+    expect(resolveNavRoles(['custom_editor'], {
+      fetched: true,
+      permissions: ['intranet.manage'],
+    })).toContain('intranet_editor');
+  });
 });

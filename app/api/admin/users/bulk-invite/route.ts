@@ -19,6 +19,7 @@ import { boot, getStore } from '@/lib/boot';
 import { COOKIE_ACCESS, verifyAccessToken } from '@/lib/auth/session';
 import { generateInviteCode, defaultExpiry } from '@/lib/auth/invite';
 import { withApiLog } from '@/lib/api-log/with-api-log';
+import { listRoleDefinitions, permissionsForRoles } from '@/lib/auth/role-definitions';
 
 interface InviteRow {
   email: string;
@@ -37,16 +38,19 @@ interface InviteResult {
   error?: string;
 }
 
-const VALID_ROLES = new Set(['admin', 'champion', 'steward', 'manager', 'employee']);
-
-function normalizeRoles(input: unknown): string[] {
+function normalizeRoles(input: unknown, validRoles?: ReadonlySet<string>): string[] {
+  const allowed = (role: string) => !validRoles || validRoles.has(role);
   if (!input) return ['employee'];
-  if (Array.isArray(input)) return input.filter((r): r is string => typeof r === 'string' && VALID_ROLES.has(r));
+  if (Array.isArray(input)) {
+    const roles = input.filter((r): r is string => typeof r === 'string' && allowed(r));
+    return roles.length > 0 ? roles : ['employee'];
+  }
   if (typeof input === 'string') {
-    return input
+    const roles = input
       .split(/[;,\s]+/)
       .map((s) => s.trim().toLowerCase())
-      .filter((r) => VALID_ROLES.has(r));
+      .filter(allowed);
+    return roles.length > 0 ? roles : ['employee'];
   }
   return ['employee'];
 }
@@ -95,9 +99,10 @@ async function POSTApiHandler(req: NextRequest) {
   const at = req.cookies.get(COOKIE_ACCESS)?.value;
   const payload = at ? verifyAccessToken(at) : null;
   if (!payload) return NextResponse.json({ ok: false, error: 'unauthenticated' }, { status: 401 });
-  if (!payload.roles.some((r) => r === 'admin' || r === 'champion')) {
-    return NextResponse.json({ ok: false, error: '需要 admin / champion 角色' }, { status: 403 });
-  }
+  const actorPermissions = await permissionsForRoles(payload.tenantId, payload.roles);
+  if (!payload.roles.includes('owner') && !actorPermissions.includes('users.manage'))
+    return NextResponse.json({ ok: false, error: '需要人员账号管理权限' }, { status: 403 });
+  const validRoles = new Set((await listRoleDefinitions(payload.tenantId)).filter((role) => role.key !== 'owner').map((role) => role.key));
 
   let rows: InviteRow[] = [];
   let dryRun = false;
@@ -133,6 +138,8 @@ async function POSTApiHandler(req: NextRequest) {
   } catch (err) {
     return NextResponse.json({ ok: false, error: `解析失败: ${(err as Error).message}` }, { status: 400 });
   }
+
+  rows = rows.map((row) => ({ ...row, presetRoles: normalizeRoles(row.presetRoles, validRoles) }));
 
   if (rows.length === 0) return NextResponse.json({ ok: false, error: '没有有效行' }, { status: 400 });
   if (rows.length > 500) return NextResponse.json({ ok: false, error: '单批最多 500 行' }, { status: 400 });

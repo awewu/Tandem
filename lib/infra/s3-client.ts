@@ -103,3 +103,36 @@ export async function deleteObject(key: string, bucket: string = BUCKET_DRIVE): 
   if (!s3) throw new Error('S3 not configured');
   await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
 }
+
+/** 由应用服务代理上传，适合浏览器无法直连内网 MinIO 的场景。 */
+export async function putObject(
+  key: string,
+  body: Uint8Array,
+  opts: { bucket?: string; contentType?: string } = {},
+): Promise<void> {
+  const s3 = getS3();
+  if (!s3) throw new Error('S3 not configured');
+  const bucket = opts.bucket ?? BUCKET_DRIVE;
+  await ensureBucket(bucket);
+  await s3.send(new PutObjectCommand({
+    Bucket: bucket,
+    Key: key,
+    Body: body,
+    ContentType: opts.contentType,
+  }));
+}
+
+/** 由应用服务代理读取，避免把 MinIO 内部地址暴露给浏览器。 */
+export async function getObject(
+  key: string,
+  bucket: string = BUCKET_DRIVE,
+): Promise<{ body: Uint8Array; contentType?: string }> {
+  const s3 = getS3();
+  if (!s3) throw new Error('S3 not configured');
+  const result = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+  if (!result.Body) throw new Error('empty object');
+  return {
+    body: await result.Body.transformToByteArray(),
+    contentType: result.ContentType,
+  };
+}

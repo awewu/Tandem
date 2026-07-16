@@ -65,6 +65,7 @@ export function postToHeroSlide(p: IntranetPost): HeroSlide {
     category,
     eyebrow: `${CATEGORY_LABEL[category]}${p.mandatoryRead ? ' · 强制已读' : ''}`,
     title: p.title,
+    imageUrl: p.coverImage,
     bgGradient: TYPE_GRADIENT[p.type],
     href: `/intranet/posts/${p.id}`,
   };

@@ -4,18 +4,12 @@
  */
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
-import { requireAuth } from '@/lib/auth/require-auth';
+import { requireAuth, requirePermission } from '@/lib/auth/require-auth';
 import { listDepts, createDept } from '@/lib/org/departments';
 import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-const ORG_ADMIN_ROLES = new Set(['owner', 'admin', 'steward', 'champion', 'hr']);
-
-function canManageOrg(roles: string[] | undefined): boolean {
-  return (roles ?? []).some((r) => ORG_ADMIN_ROLES.has(r));
-}
 
 async function GETApiHandler(req: NextRequest) {
   await boot();
@@ -31,9 +25,8 @@ async function POSTApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
-  if (!canManageOrg(auth.roles)) {
-    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
-  }
+  const forbidden = await requirePermission(auth, 'organization.manage');
+  if (forbidden) return forbidden;
   const body = await req.json().catch(() => ({}));
   if (!body.name?.trim()) return NextResponse.json({ error: 'name required' }, { status: 400 });
   try {

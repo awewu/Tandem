@@ -93,6 +93,8 @@ Copy-Item -LiteralPath ".next\static" -Destination (Join-Path $App ".next\static
 Copy-Item -LiteralPath "public" -Destination (Join-Path $App "public") -Recurse -Force
 Copy-Item -LiteralPath "drizzle" -Destination (Join-Path $App "drizzle") -Recurse -Force
 Copy-Item -LiteralPath "drizzle.config.ts" -Destination (Join-Path $App "drizzle.config.ts") -Force
+New-Item -ItemType Directory -Path (Join-Path $App "scripts") -Force | Out-Null
+Copy-Item -LiteralPath "scripts\apply-migrations.mjs" -Destination (Join-Path $App "scripts\apply-migrations.mjs") -Force
 
 # pdfjs-dist 已在 next.config.js 外置 (serverComponentsExternalPackages). nft 能追踪 pdf.mjs,
 # 但 pdf.mjs 内部对 worker 的动态 import 是变量路径, nft 无法跟踪 -> standalone 缺 pdf.worker.mjs,
@@ -137,6 +139,22 @@ if (-not (Test-Path $CanvasIndex)) {
   throw "@napi-rs/canvas missing after copy: $CanvasIndex"
 }
 
+# 独立迁移执行器不属于 Next.js 路由依赖图，standalone 不会自动追踪 pg。
+# 显式复制 pg 及其纯 JS 运行时依赖，确保部署机可直接执行 scripts/apply-migrations.mjs。
+Write-Step "Ensuring pg runtime for deployment migrations"
+$PgPackages = @(
+  "pg", "pg-cloudflare", "pg-connection-string", "pg-int8", "pg-pool",
+  "pg-protocol", "pg-types", "pgpass", "postgres-array", "postgres-bytea",
+  "postgres-date", "postgres-interval", "split2", "xtend"
+)
+foreach ($pkg in $PgPackages) {
+  $src = Join-Path $Repo "node_modules\$pkg"
+  $dest = Join-Path $App "node_modules\$pkg"
+  if (-not (Test-Path $src)) { throw "Missing migration dependency: $src" }
+  if (Test-Path $dest) { Remove-Item -LiteralPath $dest -Recurse -Force }
+  Copy-Item -LiteralPath $src -Destination $dest -Recurse -Force
+}
+
 Write-Step "Creating zip"
 if (Test-Path $OutputZip) {
   Remove-Item -LiteralPath $OutputZip -Force
@@ -173,12 +191,14 @@ try {
     "app/node_modules/",
     "app/node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs",
     "app/node_modules/@napi-rs/canvas/index.js",
+    "app/node_modules/pg/package.json",
     "app/public/",
     "app/drizzle/",
     "app/lib/",
     "app/docs/",
     "app/skills/",
-    "app/drizzle.config.ts"
+    "app/drizzle.config.ts",
+    "app/scripts/apply-migrations.mjs"
   )
   $names = $zip.Entries | ForEach-Object { $_.FullName -replace "\\", "/" }
   foreach ($item in $needed) {

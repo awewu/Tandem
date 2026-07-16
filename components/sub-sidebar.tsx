@@ -20,9 +20,9 @@ import { useCurrentUser, useAuthStore } from '@/lib/hooks/use-current-user';
 import { PanelLeftClose, PanelLeft } from 'lucide-react';
 import {
   NAV_MODULES,
-  ALL_ROLES,
   isVisible,
   activeModuleId,
+  resolveNavRoles,
   type Role,
 } from './nav-modules';
 import { ImSidebar } from '@/components/im/im-sidebar';
@@ -62,15 +62,10 @@ function SubSidebarInner() {
     }
   }, [open]);
 
-  const userRoles: Role[] = useMemo(() => {
-    if (!fetched) return ['employee'];
-    if (error === 'unauthenticated' || !user) return ALL_ROLES;
-    const roles = (user.roles ?? []).filter((x): x is Role =>
-      typeof x === 'string' && (ALL_ROLES as string[]).includes(x),
-    );
-    if (user.email === 'admin@tandem.local' && roles.length === 0) return ALL_ROLES;
-    return roles.length > 0 ? roles : ['employee'];
-  }, [fetched, user, error]);
+  const userRoles: Role[] = useMemo(() => resolveNavRoles(user?.roles, {
+    fetched, unauthenticated: error === 'unauthenticated' || !user,
+    email: user?.email, permissions: user?.permissions,
+  }), [fetched, user, error]);
 
   // Hide the entire two-level shell on auth routes (login, register).
   // Layout still renders <SubSidebar/>, but it returns null here.

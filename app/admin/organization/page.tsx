@@ -15,10 +15,6 @@ import {
   Plus, Pencil, Trash2, ChevronRight, ChevronDown, Upload, Download,
   ShieldCheck, X, KeyRound, UserX, UserCheck,
 } from 'lucide-react';
-import { INTERNAL_ROLES, EXTERNAL_ROLES, ROLE_LABELS } from '@/lib/auth/roles';
-
-// 可分配角色 (owner 公司主锁定, 不在此处授予/移除, 防误降级)
-const ASSIGNABLE_ROLES = [...INTERNAL_ROLES, ...EXTERNAL_ROLES].filter((r) => r !== 'owner');
 
 interface HrDept {
   id: string; name: string; parentId: string | null; headId: string | null;
@@ -31,12 +27,17 @@ interface OrgUser {
 }
 interface BulkResult { row: number; email: string; ok: boolean; code?: string; error?: string; registerUrl?: string }
 interface ImportResult { row: number; email: string; ok: boolean; action?: string; error?: string }
+interface RoleDefinition {
+  key: string; name: string; description: string; kind: 'internal' | 'external';
+  permissions: string[]; system: boolean; enabled: boolean; sortOrder: number;
+}
+interface PermissionOption { key: string; label: string; description: string }
 
 const NONE_VALUE = '__none__';
 
 const ROLE_LABEL: Record<string, { label: string; color: string }> = {
   admin:    { label: 'Admin',    color: 'bg-rose-50 text-rose-700 border-rose-200' },
-  champion: { label: 'Champion', color: 'bg-violet-50 text-violet-700 border-violet-200' },
+  champion: { label: '推广大使', color: 'bg-violet-50 text-violet-700 border-violet-200' },
   steward:  { label: 'Steward',  color: 'bg-warning/5 text-warning border-warning/20' },
   manager:  { label: '主管',     color: 'bg-sky-50 text-sky-700 border-sky-200' },
   hr:       { label: 'HR',       color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
@@ -141,11 +142,11 @@ function DeptDialog({
 
 // 员工编辑弹窗
 function UserDialog({
-  open, onClose, onSave, user, depts, users,
+  open, onClose, onSave, user, depts, users, roleDefinitions,
 }: {
   open: boolean; onClose: () => void;
   onSave: (patch: Partial<OrgUser>) => Promise<void>;
-  user: OrgUser | null; depts: HrDept[]; users: OrgUser[];
+  user: OrgUser | null; depts: HrDept[]; users: OrgUser[]; roleDefinitions: RoleDefinition[];
 }) {
   const [form, setForm] = useState<Partial<OrgUser>>({});
   const [roles, setRoles] = useState<string[]>([]);
@@ -230,19 +231,19 @@ function UserDialog({
             <div className="flex flex-wrap gap-1.5">
               {isOwner && (
                 <Badge variant="outline" className="bg-warning/5 text-warning border-warning gap-1">
-                  <ShieldCheck className="h-3 w-3" />{ROLE_LABELS.owner}（锁定）
+                  <ShieldCheck className="h-3 w-3" />{roleDefinitions.find((role) => role.key === 'owner')?.name ?? '公司主'}（锁定）
                 </Badge>
               )}
-              {ASSIGNABLE_ROLES.map((r) => {
-                const active = roles.includes(r);
+              {roleDefinitions.filter((role) => role.enabled && role.key !== 'owner').map((role) => {
+                const active = roles.includes(role.key);
                 return (
                   <button
-                    key={r}
+                    key={role.key}
                     type="button"
-                    onClick={() => toggleRole(r)}
+                    onClick={() => toggleRole(role.key)}
                     className={`px-2 py-1 rounded-md border text-caption transition-colors ${active ? 'bg-primary/10 border-primary/40 text-primary font-medium' : 'bg-surface-1 border-border text-muted-foreground hover:bg-muted'}`}
                   >
-                    {ROLE_LABELS[r as keyof typeof ROLE_LABELS] ?? r}
+                    {role.name}
                   </button>
                 );
               })}
@@ -253,6 +254,139 @@ function UserDialog({
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>取消</Button>
           <Button onClick={submit} disabled={saving || !(form.name ?? '').trim()}>{saving ? '保存中...' : '保存'}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function RoleManagerDialog({
+  open, onClose, roles, permissionCatalog, onChanged,
+}: {
+  open: boolean; onClose: () => void; roles: RoleDefinition[];
+  permissionCatalog: PermissionOption[]; onChanged: () => Promise<void>;
+}) {
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [form, setForm] = useState<Partial<RoleDefinition>>({});
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const selected = roles.find((role) => role.key === selectedKey) ?? null;
+
+  const edit = useCallback((role: RoleDefinition | null) => {
+    setSelectedKey(role?.key ?? null);
+    setForm(role ? { ...role, permissions: [...role.permissions] } : {
+      key: '', name: '', description: '', kind: 'internal', permissions: [], enabled: true,
+    });
+    setError(null);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const current = roles.find((role) => role.key === selectedKey);
+    edit(current ?? roles[0] ?? null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  function togglePermission(key: string) {
+    setForm((previous) => {
+      const permissions = previous.permissions ?? [];
+      return { ...previous, permissions: permissions.includes(key) ? permissions.filter((item) => item !== key) : [...permissions, key] };
+    });
+  }
+
+  async function save() {
+    setSaving(true); setError(null);
+    try {
+      const isNew = !selected;
+      const url = isNew ? '/api/admin/roles' : `/api/admin/roles/${encodeURIComponent(selected.key)}`;
+      const res = await fetch(url, {
+        method: isNew ? 'POST' : 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      await assertOk(res);
+      await onChanged();
+      if (isNew) {
+        const body = await res.json().catch(() => null);
+        setSelectedKey(body?.role?.key ?? null);
+      }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '保存失败');
+    } finally { setSaving(false); }
+  }
+
+  async function remove() {
+    if (!selected || !confirm(`删除角色「${selected.name}」？`)) return;
+    setSaving(true); setError(null);
+    try {
+      const res = await fetch(`/api/admin/roles/${encodeURIComponent(selected.key)}`, { method: 'DELETE' });
+      await assertOk(res);
+      await onChanged();
+      edit(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : '删除失败');
+    } finally { setSaving(false); }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(value) => !value && onClose()}>
+      <DialogContent className="max-w-4xl">
+        <DialogHeader><DialogTitle>角色与权限</DialogTitle></DialogHeader>
+        <div className="grid min-h-[460px] grid-cols-[220px_minmax(0,1fr)] overflow-hidden rounded-md border">
+          <div className="border-r bg-muted/20 p-2">
+            <Button variant="outline" size="sm" className="mb-2 w-full" onClick={() => edit(null)}>
+              <Plus className="mr-1 h-4 w-4" />新建角色
+            </Button>
+            <div className="space-y-1 overflow-y-auto">
+              {roles.map((role) => (
+                <button key={role.key} type="button" onClick={() => edit(role)}
+                  className={`w-full rounded px-2 py-2 text-left text-caption ${selectedKey === role.key ? 'bg-primary/10 text-primary' : 'hover:bg-muted'}`}>
+                  <span className="block font-medium">{role.name}</span>
+                  <span className="block truncate text-footnote text-muted-foreground">{role.key}{role.enabled ? '' : ' · 已停用'}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-4 p-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-caption font-medium">角色名称</label>
+                <Input value={form.name ?? ''} onChange={(event) => setForm((value) => ({ ...value, name: event.target.value }))} placeholder="例如：内网审核员" />
+              </div>
+              <div>
+                <label className="mb-1 block text-caption font-medium">角色编码</label>
+                <Input value={form.key ?? ''} disabled={!!selected} onChange={(event) => setForm((value) => ({ ...value, key: event.target.value }))} placeholder="例如：intranet_reviewer" />
+              </div>
+              <div className="col-span-2">
+                <label className="mb-1 block text-caption font-medium">说明</label>
+                <Input value={form.description ?? ''} onChange={(event) => setForm((value) => ({ ...value, description: event.target.value }))} placeholder="说明这个角色负责什么" />
+              </div>
+              <div>
+                <label className="mb-1 block text-caption font-medium">人员类型</label>
+                <Input value={form.kind === 'external' ? '外部协作者' : '内部人员'} disabled />
+              </div>
+              <label className="flex items-center gap-2 self-end pb-2 text-caption">
+                <input type="checkbox" checked={form.enabled !== false} disabled={selected?.key === 'owner'} onChange={(event) => setForm((value) => ({ ...value, enabled: event.target.checked }))} />
+                启用角色
+              </label>
+            </div>
+            <div>
+              <div className="mb-2 text-caption font-medium">权限</div>
+              <div className="grid grid-cols-2 gap-2">
+                {permissionCatalog.map((permission) => (
+                  <label key={permission.key} className="flex min-h-[58px] items-start gap-2 rounded border p-2.5 hover:bg-muted/30">
+                    <input className="mt-0.5" type="checkbox" checked={(form.permissions ?? []).includes(permission.key)} onChange={() => togglePermission(permission.key)} />
+                    <span><span className="block text-caption font-medium">{permission.label}</span><span className="block text-footnote text-muted-foreground">{permission.description}</span></span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            {error && <div className="text-caption text-rose-700">{error}</div>}
+          </div>
+        </div>
+        <DialogFooter className="flex-row justify-between sm:justify-between">
+          <div>{selected && !selected.system && <Button variant="outline" onClick={remove} disabled={saving}><Trash2 className="mr-1 h-4 w-4" />删除</Button>}</div>
+          <div className="flex gap-2"><Button variant="outline" onClick={onClose}>关闭</Button><Button onClick={save} disabled={saving || !form.name || !form.key}>{saving ? '保存中...' : '保存'}</Button></div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -382,6 +516,8 @@ function DeptNode({
 export default function AdminOrganizationPage() {
   const [depts, setDepts] = useState<HrDept[]>([]);
   const [users, setUsers] = useState<OrgUser[]>([]);
+  const [roleDefinitions, setRoleDefinitions] = useState<RoleDefinition[]>([]);
+  const [permissionCatalog, setPermissionCatalog] = useState<PermissionOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState('');
@@ -399,18 +535,30 @@ export default function AdminOrganizationPage() {
   const [importOpen, setImportOpen] = useState(false);
   // bulk invite
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [rolesOpen, setRolesOpen] = useState(false);
+
+  const loadRoles = useCallback(async () => {
+    const response = await fetch('/api/admin/roles', { cache: 'no-store' });
+    await assertOk(response);
+    const body = await response.json();
+    setRoleDefinitions(body.roles ?? []);
+    setPermissionCatalog(body.permissionCatalog ?? []);
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [dr, ur] = await Promise.all([
+      const [dr, ur, rr] = await Promise.all([
         fetch('/api/org/departments', { cache: 'no-store' }),
         fetch('/api/org/users', { cache: 'no-store' }),
+        fetch('/api/admin/roles', { cache: 'no-store' }),
       ]);
-      if (!dr.ok || !ur.ok) throw new Error('加载失败');
-      const [dj, uj] = await Promise.all([dr.json(), ur.json()]);
+      if (!dr.ok || !ur.ok || !rr.ok) throw new Error('加载失败');
+      const [dj, uj, rj] = await Promise.all([dr.json(), ur.json(), rr.json()]);
       setDepts(dj.depts ?? []);
       setUsers(uj.users ?? []);
+      setRoleDefinitions(rj.roles ?? []);
+      setPermissionCatalog(rj.permissionCatalog ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : '加载失败');
     } finally { setLoading(false); }
@@ -419,6 +567,7 @@ export default function AdminOrganizationPage() {
   useEffect(() => { void load(); }, [load]);
 
   const childrenMap = useMemo(() => buildDeptChildren(depts), [depts]);
+  const roleByKey = useMemo(() => new Map(roleDefinitions.map((role) => [role.key, role])), [roleDefinitions]);
   const rootDepts = childrenMap.get(null) ?? [];
 
   const filteredUsers = useMemo(() => {
@@ -515,7 +664,7 @@ export default function AdminOrganizationPage() {
             <SelectTrigger className="h-9 w-[120px] shrink-0"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">全部角色</SelectItem>
-              {Object.entries(ROLE_LABEL).map(([k, v]) => <SelectItem key={k} value={k}>{v.label}</SelectItem>)}
+              {roleDefinitions.map((role) => <SelectItem key={role.key} value={role.key}>{role.name}</SelectItem>)}
             </SelectContent>
           </Select>
           <span className="shrink-0 text-footnote text-muted-foreground tabular-nums">
@@ -527,6 +676,9 @@ export default function AdminOrganizationPage() {
           </Button>
           <Button className="shrink-0" variant="outline" size="sm" onClick={() => setBulkOpen((p) => !p)}>
             <Upload className="h-4 w-4 mr-1" />批量邀请
+          </Button>
+          <Button className="shrink-0" variant="outline" size="sm" onClick={() => setRolesOpen(true)}>
+            <ShieldCheck className="h-4 w-4 mr-1" />角色权限
           </Button>
           <Button className="shrink-0" size="sm" onClick={() => setDeptDialog({ open: true, initial: null })}>
             <Plus className="h-4 w-4 mr-1" />新建部门
@@ -623,7 +775,8 @@ export default function AdminOrganizationPage() {
                       <td className="px-3 py-1 min-w-[120px]">
                         <div className="flex flex-wrap gap-1">
                           {(u.roles ?? []).map((r) => {
-                            const m = ROLE_LABEL[r] ?? { label: r, color: 'bg-surface-1 text-ink-primary border' };
+                            const builtIn = ROLE_LABEL[r];
+                            const m = builtIn ?? { label: roleByKey.get(r)?.name ?? r, color: 'bg-surface-1 text-ink-primary border' };
                             return (
                               <Badge key={r} variant="outline" className={`${m.color} text-[10px] gap-0.5 h-4 px-1`}>
                                 {(r === 'admin' || r === 'champion') && <ShieldCheck className="h-2.5 w-2.5" />}
@@ -736,6 +889,14 @@ export default function AdminOrganizationPage() {
         user={userDialog.user}
         depts={depts}
         users={users}
+        roleDefinitions={roleDefinitions}
+      />
+      <RoleManagerDialog
+        open={rolesOpen}
+        onClose={() => setRolesOpen(false)}
+        roles={roleDefinitions}
+        permissionCatalog={permissionCatalog}
+        onChanged={loadRoles}
       />
       <PasswordDialog
         open={pwdDialog.open}

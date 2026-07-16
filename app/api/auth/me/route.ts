@@ -3,6 +3,8 @@ import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { getStore } from '@/lib/storage/repository';
 import { withApiLog } from '@/lib/api-log/with-api-log';
+import { permissionsForRoles } from '@/lib/auth/role-definitions';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 
 /**
  * GET /api/auth/me
@@ -25,6 +27,7 @@ async function GETApiHandler(req: NextRequest) {
         email: auth.email,
         name: 'Demo Admin',
         roles: auth.roles,
+        permissions: [...PERMISSIONS],
         tenantId: auth.tenantId,
         mfaVerified: auth.mfaVerified,
       },
@@ -34,6 +37,7 @@ async function GETApiHandler(req: NextRequest) {
   const user = await getStore().auth.users.findById(auth.userId);
   if (!user) return NextResponse.json({ ok: false, error: 'user not found' }, { status: 404 });
 
+  const permissions = await permissionsForRoles(auth.tenantId, user.roles ?? []);
   return NextResponse.json({
     ok: true,
     user: {
@@ -41,6 +45,7 @@ async function GETApiHandler(req: NextRequest) {
       email: user.email,
       name: user.name,
       roles: user.roles ?? [],
+      permissions,
       tenantId: user.tenantId ?? 'default',
       mfaVerified: auth.mfaVerified,
     },

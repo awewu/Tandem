@@ -15,21 +15,16 @@ import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useCurrentUser, useAuthStore } from '@/lib/hooks/use-current-user';
-import { NAV_MODULES, activeModuleId, ALL_ROLES, isVisible, type Role } from './nav-modules';
+import { NAV_MODULES, activeModuleId, isVisible, resolveNavRoles, type Role } from './nav-modules';
 
 export default function HubTabs() {
   const pathname = usePathname() ?? '';
   const { user, error } = useCurrentUser();
   const fetched = useAuthStore((s) => s.fetched);
-  const userRoles: Role[] = useMemo(() => {
-    if (!fetched) return ['employee'];
-    if (error === 'unauthenticated' || !user) return ALL_ROLES;
-    const roles = (user.roles ?? []).filter(
-      (x): x is Role => typeof x === 'string' && (ALL_ROLES as string[]).includes(x),
-    );
-    if (user.email === 'admin@tandem.local' && roles.length === 0) return ALL_ROLES;
-    return roles.length > 0 ? roles : ['employee'];
-  }, [fetched, user, error]);
+  const userRoles: Role[] = useMemo(() => resolveNavRoles(user?.roles, {
+    fetched, unauthenticated: error === 'unauthenticated' || !user,
+    email: user?.email, permissions: user?.permissions,
+  }), [fetched, user, error]);
 
   const mod = NAV_MODULES.find((m) => m.id === activeModuleId(pathname));
   const hubs = (mod?.items ?? []).filter((it) => Array.isArray(it.tabs) && it.tabs.length > 0);

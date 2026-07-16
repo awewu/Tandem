@@ -4,25 +4,19 @@
  */
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot, getStore } from '@/lib/boot';
-import { requireAuth } from '@/lib/auth/require-auth';
+import { requireAuth, requirePermission } from '@/lib/auth/require-auth';
 import { deleteDeptTree, updateDept } from '@/lib/org/departments';
 import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const ORG_ADMIN_ROLES = new Set(['owner', 'admin', 'steward', 'champion', 'hr']);
-
-function canManageOrg(roles: string[] | undefined): boolean {
-  return (roles ?? []).some((r) => ORG_ADMIN_ROLES.has(r));
-}
-
 async function PATCHApiHandler(req: NextRequest, { params }: { params: { id: string } }) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
-  if (!canManageOrg(auth.roles))
-    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  const forbidden = await requirePermission(auth, 'organization.manage');
+  if (forbidden) return forbidden;
   const body = await req.json().catch(() => ({}));
   try {
     const dept = await updateDept(params.id, auth.tenantId, {
@@ -45,8 +39,8 @@ async function DELETEApiHandler(req: NextRequest, { params }: { params: { id: st
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
-  if (!canManageOrg(auth.roles))
-    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+  const forbidden = await requirePermission(auth, 'organization.manage');
+  if (forbidden) return forbidden;
   try {
     const deletedIds = await deleteDeptTree(params.id, auth.tenantId);
     const store = getStore();

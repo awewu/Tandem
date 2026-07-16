@@ -136,8 +136,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
   useEffect(() => {
     const id = setInterval(() => void loadChannels(), 10_000);
     return () => clearInterval(id);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loadChannels]);
 
   // 监听 SSE unread 事件 (跨频道) — 当 activeId 变化时重建
   useEffect(() => {

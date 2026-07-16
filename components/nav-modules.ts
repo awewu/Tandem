@@ -55,10 +55,10 @@ import {
   Network,
 } from 'lucide-react';
 
-export type Role = 'employee' | 'manager' | 'steward' | 'admin' | 'champion' | 'owner' | 'partner';
+export type Role = 'employee' | 'manager' | 'steward' | 'admin' | 'champion' | 'intranet_editor' | 'owner' | 'partner';
 
 /** 内部员工角色集合（不含合作伙伴） */
-export const INTERNAL_ROLES: Role[] = ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'];
+export const INTERNAL_ROLES: Role[] = ['employee', 'manager', 'steward', 'admin', 'champion', 'intranet_editor', 'owner'];
 /** 合作伙伴可见的模块/功能 */
 export const PARTNER_ALLOWED_MODULES = ['dazi', 'settings'] as const;
 
@@ -339,7 +339,7 @@ export const NAV_MODULES: NavModule[] = [
     fullLabel: '企业内网 · 公告与大事记',
     tagline: '同一频道听公司心跳, 不再错过关键播报',
     icon: Megaphone,
-    visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
+    visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'intranet_editor', 'owner'],
     pathPrefixes: ['/intranet'],
     // /intranet 全部导航走 app/intranet/layout.tsx 的横向 IntranetSubnav.
     // SubSidebar 在此模块不渲染 (items=[] 时 sub-sidebar.tsx 返回 null).
@@ -373,7 +373,7 @@ export const NAV_MODULES: NavModule[] = [
     tagline: 'Steward 守护治理, 让规则可解释可追溯',
     icon: Wrench,
     pathPrefixes: ['/admin', '/mcp', '/tasks', '/logs', '/design', '/api-docs'],
-    visibleTo: ['admin', 'steward', 'champion', 'owner'],
+    visibleTo: ['admin', 'steward', 'champion', 'intranet_editor', 'owner'],
     // 6-Hub 重构 (同拿捏范式): 二级栏放 6 个 Hub, 各组子页走页内 <HubTabs> (按角色过滤).
     items: [
       {
@@ -419,9 +419,9 @@ export const NAV_MODULES: NavModule[] = [
         name: '内容管理',
         href: '/admin/intranet',
         icon: Megaphone,
-        visibleTo: ['admin', 'champion'],
+        visibleTo: ['admin', 'champion', 'intranet_editor'],
         tabs: [
-          { name: 'Intranet 编辑', href: '/admin/intranet', visibleTo: ['admin', 'champion'] },
+          { name: 'Intranet 编辑', href: '/admin/intranet', visibleTo: ['admin', 'champion', 'intranet_editor'] },
           { name: 'Launchpad 管理', href: '/admin/launchpad', visibleTo: ['admin', 'champion'] },
           { name: 'Baseline', href: '/admin/baseline', visibleTo: ['admin', 'champion'] },
         ],
@@ -482,7 +482,7 @@ export const NAV_MODULES: NavModule[] = [
   },
 ];
 
-export const ALL_ROLES: Role[] = ['owner', 'admin', 'champion', 'steward', 'manager', 'employee', 'partner'];
+export const ALL_ROLES: Role[] = ['owner', 'admin', 'champion', 'intranet_editor', 'steward', 'manager', 'employee', 'partner'];
 
 /** auth 外部角色 (lib/auth/roles.ts EXTERNAL_ROLES). nav 只用 'partner' 表达外部视图. */
 const EXTERNAL_AUTH_ROLES = new Set(['guest', 'partner', 'contractor']);
@@ -503,7 +503,7 @@ export function isVisible(scopeRoles: Role[] | undefined, userRoles: Role[]): bo
  */
 export function resolveNavRoles(
   authRoles: readonly string[] | undefined,
-  opts?: { fetched?: boolean; unauthenticated?: boolean; email?: string },
+  opts?: { fetched?: boolean; unauthenticated?: boolean; email?: string; permissions?: readonly string[] },
 ): Role[] {
   if (opts && opts.fetched === false) return ['employee'];
   if (opts?.unauthenticated) return ALL_ROLES;
@@ -511,7 +511,12 @@ export function resolveNavRoles(
     (x): x is Role => typeof x === 'string' && (ALL_ROLES as string[]).includes(x),
   );
   if (opts?.email === 'admin@tandem.local' && known.length === 0) return ALL_ROLES;
-  if (known.length > 0) return known;
+  const resolved = [...known];
+  const permissions = new Set(opts?.permissions ?? []);
+  // 数据库自定义角色通过权限映射到既有导航视图；服务端仍按具体权限鉴权。
+  if (permissions.has('intranet.manage') && !resolved.includes('intranet_editor')) resolved.push('intranet_editor');
+  if ((permissions.has('organization.manage') || permissions.has('users.manage') || permissions.has('roles.manage')) && !resolved.includes('manager')) resolved.push('manager');
+  if (resolved.length > 0) return resolved;
   if ((authRoles ?? []).some((r) => EXTERNAL_AUTH_ROLES.has(r))) return ['partner'];
   return ['employee'];
 }

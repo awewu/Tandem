@@ -19,6 +19,7 @@ export interface HeroSlide {
   category: 'milestone' | 'announcement' | 'welfare' | 'policy';
   eyebrow: string;
   title: string;
+  imageUrl?: string;
   /** Tailwind gradient classes, e.g. 'from-brand-600 via-brand-500 to-amber-400' */
   bgGradient: string;
   href: string;
@@ -63,6 +64,9 @@ export function HeroCarousel({
         <div
           className={`relative ${heightClass} bg-gradient-to-br ${slide.bgGradient}`}
         >
+          {slide.imageUrl && (
+            <img src={slide.imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          )}
           {/* subtle dot pattern */}
           <div
             aria-hidden
@@ -71,7 +75,7 @@ export function HeroCarousel({
           {/* gradient overlay for legibility */}
           <div
             aria-hidden
-            className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/60 via-black/20 to-transparent"
+            className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-black/5"
           />
 
           <div className="relative h-full flex flex-col justify-end p-6 sm:p-8 text-white">

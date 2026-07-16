@@ -18,6 +18,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { COOKIE_ACCESS, verifyAccessToken } from './session';
 import { DEMO_FULL_ROLES } from './roles';
 import { verifyAccessTokenForApiSync } from '@/lib/oidc/tokens';
+import { permissionsForRoles } from './role-definitions';
+import type { Permission } from './permissions';
 
 export interface AuthContext {
   userId: string;
@@ -148,4 +150,15 @@ export function requireRole(
     return NextResponse.json({ error: 'forbidden', requires: allowed }, { status: 403 });
   }
   return null;
+}
+
+/** 数据库权限守卫。owner 永远保留全部权限，避免误配置锁死管理后台。 */
+export async function requirePermission(
+  ctx: AuthContext,
+  permission: Permission,
+): Promise<NextResponse | null> {
+  if (ctx.demo || ctx.roles.includes('owner')) return null;
+  const permissions = await permissionsForRoles(ctx.tenantId, ctx.roles);
+  if (permissions.includes(permission)) return null;
+  return NextResponse.json({ error: 'forbidden', requiresPermission: permission }, { status: 403 });
 }

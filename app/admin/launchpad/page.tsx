@@ -31,7 +31,7 @@ const CATEGORY_META: Record<LaunchpadCategory, { label: string; icon: typeof Bri
 const ROLE_OPTIONS: { value: string; label: string; group: '内部员工' | '外部协作' }[] = [
   { value: 'owner', label: 'Owner', group: '内部员工' },
   { value: 'admin', label: '管理员', group: '内部员工' },
-  { value: 'champion', label: 'Champion', group: '内部员工' },
+  { value: 'champion', label: '推广大使', group: '内部员工' },
   { value: 'steward', label: 'Steward', group: '内部员工' },
   { value: 'manager', label: '经理', group: '内部员工' },
   { value: 'employee', label: '员工', group: '内部员工' },

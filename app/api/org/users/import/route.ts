@@ -7,7 +7,8 @@
  */
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot, getStore } from '@/lib/boot';
-import { requireAuth } from '@/lib/auth/require-auth';
+import { requireAuth, requirePermission } from '@/lib/auth/require-auth';
+import { listRoleDefinitions } from '@/lib/auth/role-definitions';
 import { listDepts, type HrDept } from '@/lib/org/departments';
 import type { AuthUser } from '@/lib/storage/repository';
 import { withApiLog } from '@/lib/api-log/with-api-log';
@@ -36,13 +37,6 @@ interface ImportResult {
   error?: string;
 }
 
-const MANAGER_ROLES = new Set(['owner', 'admin', 'steward', 'champion', 'hr']);
-const VALID_ROLES = new Set(['owner', 'admin', 'champion', 'steward', 'manager', 'employee', 'hr']);
-
-function canImportContacts(roles: string[] | undefined): boolean {
-  return (roles ?? []).some((r) => MANAGER_ROLES.has(r));
-}
-
 function cell(row: Record<string, unknown>, names: string[]): string {
   for (const name of names) {
     const value = row[name];
@@ -56,7 +50,7 @@ function normalizeRoles(value: string): string[] | undefined {
   const roles = value
     .split(/[;,\s]+/)
     .map((r) => r.trim().toLowerCase())
-    .filter((r) => VALID_ROLES.has(r));
+    .filter(Boolean);
   return roles.length > 0 ? roles : undefined;
 }
 
@@ -158,7 +152,9 @@ async function POSTApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
-  if (!canImportContacts(auth.roles)) return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
+  const forbidden = await requirePermission(auth, 'users.manage');
+  if (forbidden) return forbidden;
+  const validRoles = new Set((await listRoleDefinitions(auth.tenantId)).filter((role) => role.key !== 'owner').map((role) => role.key));
 
   const form = await req.formData().catch(() => null);
   if (!form) return NextResponse.json({ ok: false, error: 'file required' }, { status: 400 });
@@ -219,6 +215,11 @@ async function POSTApiHandler(req: NextRequest) {
     }
     if (managerId && managerId === user.id) {
       results.push({ row: i + 1, email, ok: false, error: '直属上级不能是本人' });
+      continue;
+    }
+    const invalidRoles = (row.roles ?? []).filter((role) => !validRoles.has(role));
+    if (invalidRoles.length > 0) {
+      results.push({ row: i + 1, email, ok: false, error: `角色不存在、已停用或不可分配: ${invalidRoles.join(', ')}` });
       continue;
     }
 

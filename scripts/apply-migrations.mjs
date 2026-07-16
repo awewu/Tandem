@@ -9,14 +9,23 @@
  */
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 
-const DIR = 'drizzle/migrations';
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const DIR = join(ROOT, 'drizzle', 'migrations');
 
 // Load .env / .env.local manually (no dotenv dep needed)
 // Match Next.js precedence: .env.local overrides .env
-for (const f of ['.env.local', '.env']) {
+for (const f of [
+  join(ROOT, '.env.local'),
+  join(ROOT, '.env.production'),
+  join(ROOT, '.env'),
+  join(ROOT, '..', '.env.local'),
+  join(ROOT, '..', '.env.production'),
+  join(ROOT, '..', '.env'),
+]) {
   if (!existsSync(f)) continue;
   for (const line of readFileSync(f, 'utf8').split(/\r?\n/)) {
     const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
@@ -68,7 +77,7 @@ const sha256 = (s) => createHash('sha256').update(s).digest('hex');
  */
 const isTolerable = (msg) =>
   /already exists|duplicate|relation .* exists|does not exist/i.test(msg) ||
-  /已存在|不存在|重复/.test(msg);
+  /已存在|已经存在|不存在|重复/.test(msg);
 
 const files = readdirSync(DIR).filter((f) => f.endsWith('.sql')).sort();
 let count = 0;
