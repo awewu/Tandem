@@ -284,7 +284,7 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
       setRecurEndDate(ruleEnd?.type === 'date' ? ruleEnd.date : '');
       setRecurCount(ruleEnd?.type === 'count' ? ruleEnd.count : 10);
       setRecurWeekdays(nextWeekdays);
-      setMutationScope('single');
+      setMutationScope(editing.seriesId ? 'series' : 'single');
     } else {
       const base = defaultStartDate(initialDate);
       const end = new Date(base.getTime() + 30 * 60 * 1000);

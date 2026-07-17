@@ -3,6 +3,7 @@ skills/review_test/
 
 /node_modules
 /.next
+/.next-dev
 /out
 /dist
 .env

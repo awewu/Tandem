@@ -8,7 +8,7 @@
  * 集成: OKR due / Check-in / Cycle 自动同步 (cal-okr)
  */
 
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useCalendarStore, type CalendarEvent, type EventInstance, fmtMonthCN } from '@/lib/store/calendar';
 import { useOKRStore } from '@/lib/store/okr';
 import { useOwnerDirectory } from '@/lib/org/use-owner-directory';
@@ -56,6 +56,20 @@ interface CalendarActivityItem {
   occurredAt: string;
 }
 
+interface ImReminderMeeting {
+  id: string;
+  title: string;
+  startAt: string;
+  endAt: string;
+  location?: string | null;
+  meetingUrl?: string | null;
+  status: string;
+  ownerId: string;
+  organizer?: { id: string; name: string; email: string };
+  attendeeUsers?: Array<{ id: string; name: string; email: string }>;
+  hasConflict?: boolean;
+}
+
 export default function CalendarPage() {
   const {
     calendars, events, toggleCalendarVisibility, addEvent, deleteEvent, replaceManagedEvents,
@@ -89,6 +103,13 @@ export default function CalendarPage() {
   const [activityItems, setActivityItems] = useState<CalendarActivityItem[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityError, setActivityError] = useState('');
+  const [imReminderOpen, setImReminderOpen] = useState(false);
+  const [imReminderEventId, setImReminderEventId] = useState('');
+  const [imReminderSending, setImReminderSending] = useState(false);
+  const [imReminderLoading, setImReminderLoading] = useState(false);
+  const [imReminderError, setImReminderError] = useState('');
+  const [imReminderResult, setImReminderResult] = useState<{ channelId: string; channelName: string; reused: boolean } | null>(null);
+  const [imReminderMeetings, setImReminderMeetings] = useState<ImReminderMeeting[]>([]);
 
   // 初始化
   useEffect(() => {
@@ -296,6 +317,17 @@ export default function CalendarPage() {
   const currentDate = selectedDate || new Date(year, month, 1);
   const monthLabel = year === 0 ? '加载中...' : fmtMonthCN(year, month);
 
+  useEffect(() => {
+    if (!imReminderOpen) return;
+    if (imReminderMeetings.length === 0) {
+      if (imReminderEventId) setImReminderEventId('');
+      return;
+    }
+    if (!imReminderMeetings.some((event) => event.id === imReminderEventId)) {
+      setImReminderEventId(imReminderMeetings[0].id);
+    }
+  }, [imReminderEventId, imReminderMeetings, imReminderOpen]);
+
   const handleEventClick = (instance: EventInstance) => {
     const event = events.find((item) => item.id === instance.eventId);
     if (event?.serverManaged && event.createdBy !== user?.id) {
@@ -330,6 +362,66 @@ export default function CalendarPage() {
     setEditorEventId(undefined);
     setEditorOpen(true);
   };
+
+  const openImReminderDialog = () => {
+    setImReminderError('');
+    setImReminderResult(null);
+    setImReminderEventId('');
+    setImReminderOpen(true);
+    void loadImReminderMeetings();
+  };
+
+  async function loadImReminderMeetings() {
+    setImReminderLoading(true);
+    setImReminderError('');
+    try {
+      const response = await fetchWithTimeout('/api/calendar/im-reminder', {
+        credentials: 'include',
+        cache: 'no-store',
+      }, CALENDAR_REQUEST_TIMEOUT_MS);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error?.message ?? data.error ?? '可提醒会议读取失败');
+      const next = Array.isArray(data.events) ? data.events : [];
+      setImReminderMeetings(next);
+      setImReminderEventId(next[0]?.id ?? '');
+    } catch (error) {
+      setImReminderMeetings([]);
+      setImReminderEventId('');
+      setImReminderError(error instanceof Error ? error.message : '可提醒会议读取失败');
+    } finally {
+      setImReminderLoading(false);
+    }
+  }
+
+  async function handleImReminderConfirm() {
+    if (!imReminderEventId) {
+      setImReminderError('请先选择一个会议');
+      return;
+    }
+    setImReminderSending(true);
+    setImReminderError('');
+    setImReminderResult(null);
+    try {
+      const response = await fetchWithTimeout('/api/calendar/im-reminder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ eventId: imReminderEventId }),
+      }, CALENDAR_REQUEST_TIMEOUT_MS);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error?.message ?? data.error ?? 'IM 提醒发送失败');
+      if (!data.channel?.id) throw new Error('IM 群创建成功但未返回群 ID，请刷新后重试');
+      setImReminderResult({
+        channelId: data.channel.id,
+        channelName: data.channel?.name ?? '会议群',
+        reused: data.reused === true,
+      });
+    } catch (error) {
+      setImReminderError(error instanceof Error ? error.message : 'IM 提醒发送失败');
+    } finally {
+      setImReminderSending(false);
+    }
+  }
 
   // 自然语言快速创建
   async function handleNlpCreate() {
@@ -431,16 +523,7 @@ export default function CalendarPage() {
             variant="outline"
             className="w-full gap-1 text-caption"
             size="sm"
-            onClick={() => {
-              const upcoming = events
-                .filter((e) => e.type === 'meeting' && e.startTime > Date.now())
-                .sort((a, b) => a.startTime - b.startTime)[0];
-              if (upcoming) {
-                alert(`[IM 提醒] 已触发:\n即将发送会议提醒到 IM:\n${upcoming.title}\n${new Date(upcoming.startTime).toLocaleString('zh-CN')}`);
-              } else {
-                alert('暂无即将到来的会议可提醒');
-              }
-            }}
+            onClick={openImReminderDialog}
           >
             <MessageSquare className="h-3.5 w-3.5" />
             IM 提醒参会人
@@ -631,6 +714,121 @@ export default function CalendarPage() {
         editEventId={editorEventId}
         onSaved={refreshManagedEvents}
       />
+
+      <Dialog open={imReminderOpen} onOpenChange={(open) => {
+        setImReminderOpen(open);
+        if (!open) {
+          setImReminderError('');
+          setImReminderResult(null);
+        }
+      }}>
+        <DialogContent className="sm:max-w-2xl max-h-[82vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageSquare className="h-4 w-4" />
+              IM 提醒参会人
+            </DialogTitle>
+            <DialogDescription>
+              先选择一个你发起或参与的会议，系统会创建或复用会议 IM 群，并发送参会提醒。
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            {imReminderMeetings.length === 0 ? (
+              <div className="rounded-lg border border-dashed p-6 text-center text-caption text-muted-foreground">
+                {imReminderLoading ? '正在读取可提醒会议...' : '暂无可提醒的会议。已取消会议和订阅他人的日程不会显示在这里。'}
+              </div>
+            ) : (
+              <div className="max-h-[46vh] overflow-y-auto rounded-lg border bg-background">
+                <div className="divide-y">
+                  {imReminderMeetings.map((event) => {
+                    const selected = event.id === imReminderEventId;
+                    const internalCount = event.attendeeUsers?.length ?? 0;
+                    const startTime = new Date(event.startAt).getTime();
+                    const endTime = new Date(event.endAt).getTime();
+                    return (
+                      <button
+                        key={event.id}
+                        type="button"
+                        className={cn(
+                          'w-full p-3 text-left transition-colors hover:bg-muted/40',
+                          selected && 'bg-brand-50/80',
+                        )}
+                        onClick={() => {
+                          setImReminderEventId(event.id);
+                          setImReminderError('');
+                          setImReminderResult(null);
+                        }}
+                      >
+                        <div className="flex items-start gap-3">
+                          <span className={cn(
+                            'mt-1 h-3.5 w-3.5 rounded-full border',
+                            selected ? 'border-brand-500 bg-brand-500 shadow-[inset_0_0_0_3px_white]' : 'border-muted-foreground/40',
+                          )} />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-medium">{event.title}</span>
+                              {event.hasConflict && (
+                                <span className="rounded-full bg-warning/10 px-2 py-0.5 text-[11px] text-warning">
+                                  时间冲突
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-1 text-caption text-muted-foreground">
+                              {new Date(startTime).toLocaleString('zh-CN')} - {new Date(endTime).toLocaleString('zh-CN')}
+                            </div>
+                            <div className="mt-1 text-[11px] text-muted-foreground">
+                              地点/会议方式：{event.location || event.meetingUrl || '未填写'} · 系统内参会人：{internalCount} 人
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {imReminderError && (
+              <div className="rounded-md border border-danger/30 bg-danger/5 px-3 py-2 text-caption text-danger">
+                {imReminderError}
+              </div>
+            )}
+            {imReminderResult && (
+              <div className="rounded-md border border-brand-200 bg-brand-50 px-3 py-2 text-caption text-brand-700">
+                已{imReminderResult.reused ? '复用' : '创建'} IM 群「{imReminderResult.channelName}」，并发送参会提醒。
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2">
+              {imReminderResult?.channelId && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    window.location.href = `/im?ch=${encodeURIComponent(imReminderResult.channelId)}`;
+                  }}
+                >
+                  打开 IM 群
+                </Button>
+              )}
+              <Button type="button" variant="outline" size="sm" onClick={() => setImReminderOpen(false)}>
+                关闭
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                className="bg-brand-500 hover:bg-brand-600 text-white"
+                disabled={imReminderSending || imReminderMeetings.length === 0}
+                onClick={handleImReminderConfirm}
+              >
+                {imReminderSending ? '发送中...' : '确认提醒'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={activityOpen} onOpenChange={setActivityOpen}>
         <DialogContent className="sm:max-w-3xl max-h-[82vh] overflow-hidden">
