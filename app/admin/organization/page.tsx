@@ -3,7 +3,7 @@
  */
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -151,6 +151,9 @@ function UserDialog({
   const [form, setForm] = useState<Partial<OrgUser>>({});
   const [roles, setRoles] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const managerPickerRef = useRef<HTMLDivElement | null>(null);
+  const [managerPickerOpen, setManagerPickerOpen] = useState(false);
+  const [managerSearch, setManagerSearch] = useState('');
   useEffect(() => {
     if (open && user) {
       setForm({ name: user.name ?? '', departmentId: user.departmentId ?? NONE_VALUE, jobTitle: user.jobTitle ?? '', managerId: user.managerId ?? NONE_VALUE, employeeId: user.employeeId ?? '', hireDate: user.hireDate ?? '', workLocation: user.workLocation ?? '', phone: user.phone ?? '' });
@@ -159,6 +162,58 @@ function UserDialog({
   }, [open, user]);
   const set = (k: keyof OrgUser, v: string) => setForm((p) => ({ ...p, [k]: v === NONE_VALUE ? null : (v || null) }));
   const isOwner = (user?.roles ?? []).includes('owner');
+  const managerCandidates = useMemo(
+    () => users.filter((u) => u.id !== user?.id && !u.disabled),
+    [user?.id, users],
+  );
+  const managerLabel = useMemo(() => {
+    const managerId = form.managerId;
+    if (!managerId || managerId === NONE_VALUE) return '无';
+    return managerCandidates.find((u) => u.id === managerId)?.name ?? '未知人员';
+  }, [form.managerId, managerCandidates]);
+  const managerItems = useMemo(
+    (): Array<{ value: string; label: string; hint?: string }> => [
+      { value: NONE_VALUE, label: '无' },
+      ...managerCandidates.map((u) => ({
+        value: u.id,
+        label: u.name,
+        hint: [u.departmentName, u.jobTitle].filter(Boolean).join(' · '),
+      })),
+    ],
+    [managerCandidates],
+  );
+  const filteredManagerItems = useMemo(() => {
+    const q = managerSearch.trim().toLowerCase();
+    if (!q || q === managerLabel.toLowerCase()) return managerItems;
+    return managerItems.filter((item) =>
+      item.label.toLowerCase().includes(q) ||
+      item.value.toLowerCase().includes(q) ||
+      (item.hint ?? '').toLowerCase().includes(q),
+    );
+  }, [managerItems, managerLabel, managerSearch]);
+
+  useEffect(() => {
+    if (!managerPickerOpen) setManagerSearch(managerLabel);
+  }, [managerLabel, managerPickerOpen]);
+
+  useEffect(() => {
+    if (!managerPickerOpen) return;
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (managerPickerRef.current?.contains(target)) return;
+      setManagerPickerOpen(false);
+      setManagerSearch(managerLabel);
+    };
+    document.addEventListener('pointerdown', closeOnOutsidePointer);
+    return () => document.removeEventListener('pointerdown', closeOnOutsidePointer);
+  }, [managerLabel, managerPickerOpen]);
+
+  function chooseManager(value: string) {
+    set('managerId', value);
+    setManagerPickerOpen(false);
+  }
+
   const toggleRole = (r: string) =>
     setRoles((prev) => (prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]));
   async function submit() {
@@ -202,13 +257,57 @@ function UserDialog({
           </div>
           <div>
             <label className="text-caption font-medium mb-1 block">直属上级</label>
-            <Select value={form.managerId ?? NONE_VALUE} onValueChange={(v) => set('managerId', v)}>
-              <SelectTrigger><SelectValue placeholder="无" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NONE_VALUE}>无</SelectItem>
-                {users.filter((u) => u.id !== user.id).map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <div ref={managerPickerRef} className="relative">
+              <Input
+                value={managerPickerOpen ? managerSearch : managerLabel}
+                onChange={(e) => {
+                  setManagerSearch(e.target.value);
+                  setManagerPickerOpen(true);
+                }}
+                onFocus={() => {
+                  setManagerSearch('');
+                  setManagerPickerOpen(true);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    setManagerPickerOpen(false);
+                    return;
+                  }
+                  if (e.key === 'Enter' && filteredManagerItems[0]) {
+                    e.preventDefault();
+                    chooseManager(filteredManagerItems[0].value);
+                  }
+                }}
+                placeholder="输入姓名搜索"
+                className="pr-8"
+              />
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              {managerPickerOpen && (
+                <div className="absolute left-0 right-0 z-50 mt-1 max-h-64 overflow-auto rounded-md border border-border bg-popover py-1 text-popover-foreground shadow-lg">
+                  {filteredManagerItems.length === 0 ? (
+                    <div className="px-3 py-2 text-caption text-muted-foreground">没有匹配的上级</div>
+                  ) : (
+                    filteredManagerItems.map((item) => {
+                      const active = (form.managerId ?? NONE_VALUE) === item.value;
+                      return (
+                        <button
+                          key={item.value}
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => chooseManager(item.value)}
+                          className={`block w-full px-3 py-2 text-left text-caption ${
+                            active ? 'bg-primary/10 text-primary' : 'hover:bg-muted'
+                          }`}
+                        >
+                          <span className="block">{item.label}</span>
+                          {item.hint && <span className="block text-footnote text-muted-foreground">{item.hint}</span>}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </div>
           </div>
           <div>
             <label className="text-caption font-medium mb-1 block">工号</label>

@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import { and, desc, eq, gte, ilike, lte, or, sql, type SQL } from 'drizzle-orm';
 import { logger } from '@/lib/infra/logger';
 import { redactBusinessLogData } from '@/lib/business-log/redact';
+import { isDatabaseMode } from '@/lib/infra/storage-mode';
 import type { ApiLogEntry, ApiLogInput, ApiLogQuery, ApiLogQueryResult } from './types';
 
 const MEMORY_LIMIT = Math.max(100, Number(process.env.API_LOG_MEMORY_MAX ?? 5_000));
@@ -51,7 +52,7 @@ function remember(entry: ApiLogEntry): void {
 export async function appendApiLog(input: ApiLogInput): Promise<ApiLogEntry> {
   const entry = normalize(input);
   remember(entry);
-  if (process.env.DATABASE_URL) {
+  if (isDatabaseMode()) {
     try {
       const { db, schema } = await import('@/lib/infra/drizzle-client');
       await db.insert(schema.apiLog).values({ ...entry, createdAt: new Date(entry.createdAt) });
@@ -106,7 +107,7 @@ function matches(entry: ApiLogEntry, query: ApiLogQuery): boolean {
 export async function queryApiLogs(query: ApiLogQuery): Promise<ApiLogQueryResult> {
   const limit = Math.max(1, Math.min(200, query.limit ?? 50));
   const offset = Math.max(0, Math.min(10_000, query.offset ?? 0));
-  if (process.env.DATABASE_URL) {
+  if (isDatabaseMode()) {
     try {
       const { db, schema } = await import('@/lib/infra/drizzle-client');
       const a = schema.apiLog;

@@ -20,7 +20,8 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
-import { useCurrentUserId } from '@/lib/hooks/use-current-user';
+import { useAuthStore, useCurrentUserId } from '@/lib/hooks/use-current-user';
+import { krProgress, objectiveProgress } from '@/lib/okr/progress';
 import {
   Clock,
   Sparkles,
@@ -39,6 +40,7 @@ import {
   ShieldAlert,
   Activity,
   RefreshCw,
+  ChevronDown,
 } from 'lucide-react';
 
 type Mood = 'happy' | 'neutral' | 'sad';
@@ -100,11 +102,16 @@ export default function ReportPage() {
 function ReportPageInner() {
   const { toast } = useToast();
   const store = useOKRStore();
-  const currentUserId = useCurrentUserId();
+  const legacyCurrentUserId = useCurrentUserId();
+  const authUserId = useAuthStore((s) => s.user?.id);
+  const currentUserId = authUserId ?? legacyCurrentUserId;
   const {
     cycles,
     objectives,
     keyResults,
+    checkIns,
+    initiatives,
+    activities,
     activeCycleId,
     updateKeyResult,
     addCheckIn,
@@ -113,11 +120,42 @@ function ReportPageInner() {
   // ===== 当前周期的 OKRs =====
   const activeCycle = useMemo(() => cycles.find((c) => c.id === activeCycleId), [cycles, activeCycleId]);
   const cycleObjectives = useMemo(() => objectives.filter((o) => o.cycleId === activeCycleId), [objectives, activeCycleId]);
-  const cycleKrs = useMemo(() => keyResults.filter((k) => cycleObjectives.some(o => o.id === k.objectiveId)), [keyResults, cycleObjectives]);
+  const myOwnerIds = useMemo(
+    () => new Set([legacyCurrentUserId, authUserId, authUserId ? `person:${authUserId}` : null].filter(Boolean) as string[]),
+    [authUserId, legacyCurrentUserId],
+  );
+  const myObjectiveIds = useMemo(
+    () => new Set(cycleObjectives.filter((o) => myOwnerIds.has(o.ownerId)).map((o) => o.id)),
+    [cycleObjectives, myOwnerIds],
+  );
+  const cycleKrs = useMemo(
+    () =>
+      keyResults.filter(
+        (k) =>
+          cycleObjectives.some((o) => o.id === k.objectiveId) &&
+          (myOwnerIds.has(k.ownerId) ||
+            (k.collaborators ?? []).some((id) => myOwnerIds.has(id)) ||
+            myObjectiveIds.has(k.objectiveId)),
+      ),
+    [keyResults, cycleObjectives, myOwnerIds, myObjectiveIds],
+  );
+  const objectiveGroups = useMemo(
+    () =>
+      cycleObjectives
+        .map((objective) => ({
+          objective,
+          progress: objectiveProgress(objective, keyResults),
+          krs: cycleKrs.filter((kr) => kr.objectiveId === objective.id),
+        }))
+        .filter((group) => group.krs.length > 0),
+    [cycleObjectives, cycleKrs, keyResults],
+  );
 
   // ===== 页面交互状态 =====
   const [selectedKrId, setSelectedKrId] = useState<string>('');
-  const [rawInput, setRawInput] = useState<string>('');
+  const [openObjectiveIds, setOpenObjectiveIds] = useState<Set<string>>(() => new Set());
+  const [openKrIds, setOpenKrIds] = useState<Set<string>>(() => new Set());
+  const [rawInputs, setRawInputs] = useState<Record<string, string>>({});
   const [mood, setMood] = useState<Mood>('happy');
   const [isAnalyzing, setIsAnlyzing] = useState<boolean>(false);
   const [analysisResult, setAnalysisResult] = useState<null | {
@@ -134,30 +172,71 @@ function ReportPageInner() {
   const [streamingText, setStreamingText] = useState<string>('');
   const [isPushing, setIsPushing] = useState<boolean>(false);
   const [pushedSuccess, setPushSuccess] = useState<boolean>(false);
+  const [isSubmittingReport, setIsSubmittingReport] = useState<boolean>(false);
+  const [isGeneratingDraft, setIsGeneratingDraft] = useState<boolean>(false);
+  const [submittedReportAt, setSubmittedReportAt] = useState<number | null>(null);
+  const [generatedDraftAt, setGeneratedDraftAt] = useState<number | null>(null);
 
   const selectedKr = useMemo(() => cycleKrs.find(k => k.id === selectedKrId) ?? null, [cycleKrs, selectedKrId]);
+  const selectedRawInput = selectedKrId ? rawInputs[selectedKrId] ?? '' : '';
+  const filledKrEntries = useMemo(
+    () =>
+      cycleKrs
+        .map((kr) => ({ kr, input: rawInputs[kr.id]?.trim() ?? '' }))
+        .filter((entry) => entry.input.length > 0),
+    [cycleKrs, rawInputs],
+  );
+  const todayStart = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  }, []);
+  const todayEnd = todayStart + 86_400_000;
 
   /** §P4 OKR 联动: 支持 ?krId=xxx URL 参数, mobile OKR 列表点 "写进展" 跳过来直接锚定 */
   const searchParams = useSearchParams();
   const urlKrId = searchParams.get('krId');
 
-  // 当可用 KR 变化时, 默认选中第一个; 若 URL 带 krId 且有效, 优先用之
+  // 当 URL 带 krId 且有效时直接展开对应 KR；普通进入页面时保持列表收起。
   useEffect(() => {
-    if (urlKrId && cycleKrs.some(k => k.id === urlKrId)) {
-      setSelectedKrId(urlKrId);
-      return;
+    const urlKr = urlKrId ? cycleKrs.find(k => k.id === urlKrId) : null;
+    if (urlKr) {
+      setSelectedKrId(urlKr.id);
+      setOpenObjectiveIds((prev) => new Set(prev).add(urlKr.objectiveId));
+      setOpenKrIds((prev) => new Set(prev).add(urlKr.id));
     }
-    if (cycleKrs.length > 0 && !selectedKrId) {
-      setSelectedKrId(cycleKrs[0].id);
-    }
-  }, [cycleKrs, selectedKrId, urlKrId]);
+  }, [cycleKrs, urlKrId]);
+
+  const toggleObjectivePanel = (objectiveId: string) => {
+    setOpenObjectiveIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(objectiveId)) {
+        next.delete(objectiveId);
+      } else {
+        next.add(objectiveId);
+      }
+      return next;
+    });
+  };
+
+  const toggleKrPanel = (krId: string) => {
+    setOpenKrIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(krId)) {
+        next.delete(krId);
+      } else {
+        next.add(krId);
+      }
+      return next;
+    });
+  };
 
   // ===== AI 动态问题引导逻辑 =====
   const aiPrompt = useMemo(() => {
     if (!selectedKr) {
       return {
-        question: '哈啰 张伟！我看你今天还没有锚定任何 OKR 关键结果。你本周负责的「核心系统可用性 SLA」属于关注区。今天在这方面有什么推进吗？',
-        hint: '在下方写下你今天的碎碎念，不管多凌乱，搭子 AI 都能帮你自动对齐目标并生成 Action Plan。',
+        question: '先展开一个 Objective，再选择今天有进展的 KR 填写内容。',
+        hint: '可以同时打开多个 KR 分别填写；点击「提炼此 KR」后，AI 会只针对当前 KR 生成 Action Plan 并给出进度建议。',
       };
     }
     const currentPct = selectedKr.targetValue > 0 ? (selectedKr.currentValue / selectedKr.targetValue) * 100 : 0;
@@ -177,8 +256,11 @@ function ReportPageInner() {
   }, [selectedKr]);
 
   // ===== 调用真实 LLM 提炼日报（SSE 流式 + 失败自动降级） =====
-  const handleAiAnalyze = async () => {
-    if (!rawInput.trim() || !selectedKr) return;
+  const handleAiAnalyze = async (krId = selectedKrId) => {
+    const kr = cycleKrs.find((item) => item.id === krId) ?? null;
+    const input = rawInputs[krId] ?? '';
+    if (!input.trim() || !kr) return;
+    setSelectedKrId(kr.id);
     setIsAnlyzing(true);
     setAnalysisResult(null);
     setStreamingText('');
@@ -189,15 +271,15 @@ function ReportPageInner() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
         body: JSON.stringify({
-          rawInput: rawInput.trim(),
+          rawInput: input.trim(),
           kr: {
-            id: selectedKr.id,
-            title: selectedKr.title,
-            startValue: selectedKr.startValue,
-            targetValue: selectedKr.targetValue,
-            currentValue: selectedKr.currentValue,
-            unit: selectedKr.unit ?? null,
-            confidence: selectedKr.confidence,
+            id: kr.id,
+            title: kr.title,
+            startValue: kr.startValue,
+            targetValue: kr.targetValue,
+            currentValue: kr.currentValue,
+            unit: kr.unit ?? null,
+            confidence: kr.confidence,
           },
           mood,
         }),
@@ -245,7 +327,7 @@ function ReportPageInner() {
                     achievements: Array.isArray(partial.achievements) ? partial.achievements.map(String) : [],
                     blockers: Array.isArray(partial.blockers) ? partial.blockers.map(String) : [],
                     nextSteps: Array.isArray(partial.nextSteps) ? partial.nextSteps.map(String) : [],
-                    suggestedValue: typeof partial.suggestedValue === 'number' ? partial.suggestedValue : selectedKr.currentValue,
+                    suggestedValue: typeof partial.suggestedValue === 'number' ? partial.suggestedValue : kr.currentValue,
                     suggestedConfidence: ['on-track', 'at-risk', 'off-track'].includes(partial.suggestedConfidence) ? partial.suggestedConfidence : 'on-track',
                     explanation: partial.explanation || '正在通过 AI 提炼...',
                     source: 'llm',
@@ -326,7 +408,7 @@ function ReportPageInner() {
       }
 
       // 推流成功后清空输入
-      setRawInput('');
+      setRawInputs((prev) => ({ ...prev, [selectedKr.id]: '' }));
     } catch (e) {
       // 回滚 store
       updateKeyResult(selectedKr.id, snapshot);
@@ -337,12 +419,240 @@ function ReportPageInner() {
     }
   };
 
+  const handleSubmitDailyReport = async () => {
+    if (filledKrEntries.length === 0) {
+      toast({ title: '还没有可提交的内容', description: '请先展开 KR，填写今天的进展。' });
+      return;
+    }
+
+    setIsSubmittingReport(true);
+    setSubmittedReportAt(null);
+
+    try {
+      for (const { kr, input } of filledKrEntries) {
+        const progress = krProgress(kr);
+        const res = await fetch('/api/okr/checkins', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            scope: 'kr',
+            scopeId: kr.id,
+            progressBefore: progress,
+            progressAfter: progress,
+            confidenceBefore: kr.confidence,
+            confidenceAfter: kr.confidence,
+            achievements: input,
+            mood,
+            currentValue: kr.currentValue,
+          }),
+        });
+
+        if (!res.ok) {
+          const text = await res.text().catch(() => '');
+          throw new Error(`「${kr.title}」提交失败：HTTP ${res.status} ${text.slice(0, 120)}`);
+        }
+      }
+
+      const submittedIds = new Set(filledKrEntries.map(({ kr }) => kr.id));
+      setRawInputs((prev) => {
+        const next = { ...prev };
+        for (const id of Array.from(submittedIds)) delete next[id];
+        return next;
+      });
+      setSubmittedReportAt(Date.now());
+      toast({
+        variant: 'success',
+        title: '今日日报已提交',
+        description: `已保存 ${filledKrEntries.length} 条 KR 进展记录。需要更新进度的 KR，可继续单独提炼并推流。`,
+      });
+    } catch (e) {
+      toast({ variant: 'destructive', title: '日报提交失败', description: (e as Error).message });
+    } finally {
+      setIsSubmittingReport(false);
+    }
+  };
+
+  const handleGenerateDailyDraft = async () => {
+    if (cycleKrs.length === 0) {
+      toast({ title: '暂无可匹配的 KR', description: '当前周期内没有属于你的 KR。' });
+      return;
+    }
+
+    setIsGeneratingDraft(true);
+
+    try {
+      const krById = new Map(cycleKrs.map((kr) => [kr.id, kr]));
+      const res = await fetch('/api/ai/daily-report-draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`HTTP ${res.status}: ${text.slice(0, 160)}`);
+      }
+      const data = await res.json() as {
+        drafts?: Record<string, string>;
+        sources?: Partial<Record<'okr' | 'im' | 'mail', number>>;
+      };
+      const drafts = new Map(
+        Object.entries(data.drafts ?? {}).filter(([krId, text]) => krById.has(krId) && text.trim()),
+      );
+
+      if (drafts.size === 0) {
+        toast({
+          title: '今天还没有可生成的系统操作',
+          description: '没有找到今日 OKR、IM 或邮件内容。可以先手动填写，或者稍后再生成。',
+        });
+        return;
+      }
+
+      setRawInputs((prev) => {
+        const next = { ...prev };
+        for (const [krId, generated] of Array.from(drafts.entries())) {
+          const existing = next[krId]?.trim();
+          next[krId] = existing ? `${existing}\n${generated}` : generated;
+        }
+        return next;
+      });
+      setOpenKrIds((prev) => {
+        const next = new Set(prev);
+        for (const krId of Array.from(drafts.keys())) next.add(krId);
+        return next;
+      });
+      setOpenObjectiveIds((prev) => {
+        const next = new Set(prev);
+        for (const krId of Array.from(drafts.keys())) {
+          const kr = krById.get(krId);
+          if (kr) next.add(kr.objectiveId);
+        }
+        return next;
+      });
+      setSelectedKrId(Array.from(drafts.keys())[0] ?? selectedKrId);
+      setSubmittedReportAt(null);
+      setGeneratedDraftAt(Date.now());
+      toast({
+        variant: 'success',
+        title: '已生成日报草稿',
+        description: `已根据今日 OKR / IM / 邮件匹配到 ${drafts.size} 个 KR，请快速确认后提交。`,
+      });
+    } catch (e) {
+      toast({ variant: 'destructive', title: '生成草稿失败', description: (e as Error).message });
+    } finally {
+      setIsGeneratingDraft(false);
+    }
+  };
+
   /** §P2 mobile sticky CTA: 根据当前阶段显示主操作, 防止键盘挡住 + 滚动卷走 */
-  const stickyState: 'idle' | 'analyze' | 'push' | 'done' =
+  const stickyState: 'idle' | 'analyze' | 'push' | 'done' | 'submit' =
     pushedSuccess ? 'done'
     : analysisResult ? 'push'
-    : (selectedKrId && rawInput.trim().length > 0) ? 'analyze'
+    : (selectedKrId && selectedRawInput.trim().length > 0) ? 'analyze'
+    : filledKrEntries.length > 0 ? 'submit'
     : 'idle';
+
+  const renderKrPanel = (kr: (typeof cycleKrs)[number]) => {
+    const isSelected = kr.id === selectedKrId;
+    const isOpen = openKrIds.has(kr.id);
+    const pct = kr.targetValue > 0 ? (kr.currentValue / kr.targetValue) * 100 : 0;
+    const krInput = rawInputs[kr.id] ?? '';
+
+    return (
+      <div
+        key={kr.id}
+        className={cn(
+          "w-full text-left rounded border text-footnote transition-all",
+          isSelected || isOpen
+            ? "bg-white border-primary/40 ring-1 ring-primary/20 shadow-soft-sm"
+            : "bg-white hover:bg-muted/50 border-slate-100"
+        )}
+      >
+        <button
+          type="button"
+          onClick={() => toggleKrPanel(kr.id)}
+          className="w-full p-2.5 text-left"
+          aria-expanded={isOpen}
+        >
+          <div className="flex items-start justify-between gap-2 font-medium">
+            <span className="flex min-w-0 items-start gap-1.5">
+              <Target className={cn("mt-0.5 h-3.5 w-3.5 shrink-0", isSelected || isOpen ? "text-[rgb(var(--brand-500))]" : "text-slate-400")} />
+              <span className="line-clamp-2 leading-snug">{kr.title}</span>
+            </span>
+            <span className="flex shrink-0 items-center gap-1.5">
+              <span className="font-semibold tabular-nums text-slate-600">{Math.round(pct)}%</span>
+              <ChevronDown
+                className={cn(
+                  "h-3.5 w-3.5 text-slate-400 transition-transform",
+                  isOpen && "rotate-180 text-[rgb(var(--brand-500))]",
+                )}
+              />
+            </span>
+          </div>
+          <div className="mt-1.5 flex items-center gap-3 text-[10px] text-muted-foreground">
+            <span>当前: {kr.currentValue}/{kr.targetValue} {kr.unit ?? ''}</span>
+            <span className={cn(
+              "font-medium",
+              kr.confidence === 'on-track' ? 'text-emerald-600' : kr.confidence === 'at-risk' ? 'text-warning' : 'text-rose-600'
+            )}>
+              {kr.confidence === 'on-track' ? '正常' : kr.confidence === 'at-risk' ? '有卡点' : '严重落后'}
+            </span>
+            {krInput.trim() && !isSelected && (
+              <span className="ml-auto rounded-full bg-emerald-50 px-1.5 py-0.5 font-medium text-emerald-700">
+                已填写
+              </span>
+            )}
+          </div>
+        </button>
+        {isOpen && (
+          <div className="border-t border-slate-100 bg-slate-50/70 p-2.5">
+            <Textarea
+              value={krInput}
+              spellCheck={false}
+              onClick={(e) => e.stopPropagation()}
+              onFocus={() => {
+                setSelectedKrId(kr.id);
+                setPushSuccess(false);
+              }}
+              onChange={(e) =>
+                {
+                  setSubmittedReportAt(null);
+                  setGeneratedDraftAt(null);
+                  setRawInputs((prev) => ({ ...prev, [kr.id]: e.target.value }));
+                }
+              }
+              placeholder="写下今天围绕这个 KR 做了什么、遇到什么阻碍、下一步准备做什么..."
+              className="min-h-[96px] bg-white text-footnote leading-relaxed font-sans placeholder:opacity-60 text-slate-800"
+            />
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <p className="text-[10px] text-muted-foreground">
+                只会提炼当前展开的 KR。
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                disabled={!krInput.trim() || isAnalyzing}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void handleAiAnalyze(kr.id);
+                }}
+              >
+                {isAnalyzing && isSelected ? (
+                  <>
+                    <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                    AI 正在对账...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-3 w-3 mr-1" />
+                    提炼此 KR
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-4 md:px-6 md:py-6 space-y-4 pb-24 md:pb-4">
@@ -368,42 +678,102 @@ function ReportPageInner() {
           <Card>
             <CardContent className="p-5 space-y-4">
               <div className="space-y-1.5">
-                <label className="text-footnote font-semibold text-slate-700 block">1. 锚定本工作关联的 OKR 关键结果 (必选)</label>
-                <div className="grid grid-cols-1 gap-2 max-h-[160px] overflow-y-auto pr-1 border rounded-md p-2 bg-slate-50/50">
-                  {cycleKrs.length === 0 ? (
+                <div className="flex items-center justify-between gap-3">
+                  <label className="text-footnote font-semibold text-slate-700 block">
+                    1. 按 Objective / KR 分别填写今日进展
+                  </label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void handleGenerateDailyDraft()}
+                    disabled={isGeneratingDraft || isSubmittingReport || isAnalyzing || isPushing}
+                    className="shrink-0"
+                  >
+                    {isGeneratingDraft ? (
+                      <>
+                        <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                        生成中...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-3.5 w-3.5 mr-1" />
+                        AI 生成草稿
+                      </>
+                    )}
+                  </Button>
+                </div>
+                {generatedDraftAt && (
+                  <p className="text-[11px] text-emerald-700">
+                    已根据今日系统操作生成草稿，请确认后提交。
+                  </p>
+                )}
+                <div className="grid grid-cols-1 gap-3 max-h-[460px] overflow-y-auto pr-1 border rounded-md p-2 bg-slate-50/50">
+                  {objectiveGroups.length === 0 ? (
                     <p className="text-footnote text-muted-foreground text-center py-4">当前考核周期内无属于你的 O/KR 指标，请在后台配置。</p>
                   ) : (
-                    cycleKrs.map(kr => {
-                      const isSelected = kr.id === selectedKrId;
-                      const pct = kr.targetValue > 0 ? (kr.currentValue / kr.targetValue) * 100 : 0;
+                    objectiveGroups.map(({ objective, progress, krs }) => {
+                      const isObjectiveOpen = openObjectiveIds.has(objective.id);
+                      const filledCount = krs.filter((kr) => (rawInputs[kr.id] ?? '').trim()).length;
+
                       return (
-                        <button
-                          key={kr.id}
-                          onClick={() => { setSelectedKrId(kr.id); setPushSuccess(false); setAnalysisResult(null); }}
+                        <section
+                          key={objective.id}
                           className={cn(
-                            "w-full text-left p-2.5 rounded border text-footnote flex flex-col gap-1 transition-all",
-                            isSelected
-                              ? "bg-primary/5 border-primary/40 ring-1 ring-primary/20 shadow-soft-sm"
-                              : "bg-white hover:bg-muted/50 border-slate-100"
+                            "rounded-md border bg-white transition-all",
+                            isObjectiveOpen ? "border-slate-200 shadow-soft-sm" : "border-slate-200 hover:border-slate-300",
                           )}
                         >
-                          <div className="flex items-center justify-between font-medium">
-                            <span className="flex items-center gap-1.5 truncate">
-                              <Target className={cn("h-3.5 w-3.5 shrink-0", isSelected ? "text-[rgb(var(--brand-500))]" : "text-slate-400")} />
-                              {kr.title}
-                            </span>
-                            <span className="font-semibold tabular-nums text-slate-600">{Math.round(pct)}%</span>
-                          </div>
-                          <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
-                            <span>当前: {kr.currentValue}/{kr.targetValue} {kr.unit ?? ''}</span>
-                            <span className={cn(
-                              "font-medium",
-                              kr.confidence === 'on-track' ? 'text-emerald-600' : kr.confidence === 'at-risk' ? 'text-warning' : 'text-rose-600'
-                            )}>
-                              {kr.confidence === 'on-track' ? '正常' : kr.confidence === 'at-risk' ? '有卡点' : '严重落后'}
-                            </span>
-                          </div>
-                        </button>
+                          <button
+                            type="button"
+                            onClick={() => toggleObjectivePanel(objective.id)}
+                            className="w-full border-b border-slate-100 bg-slate-50/80 px-3 py-2.5 text-left"
+                            aria-expanded={isObjectiveOpen}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                  Objective
+                                </p>
+                                <h3 className="mt-0.5 line-clamp-2 text-[13px] font-semibold leading-snug text-slate-800">
+                                  {objective.title}
+                                </h3>
+                                {objective.description && (
+                                  <p className="mt-1 line-clamp-2 text-[11px] leading-normal text-muted-foreground">
+                                    {objective.description}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex shrink-0 items-center gap-1.5">
+                                {filledCount > 0 && (
+                                  <Badge variant="outline" className="bg-emerald-50 text-[10px] font-medium text-emerald-700">
+                                    已写 {filledCount}
+                                  </Badge>
+                                )}
+                                <Badge variant="outline" className="bg-white text-[10px] font-medium">
+                                  {krs.length} KR
+                                </Badge>
+                                <ChevronDown
+                                  className={cn(
+                                    "h-4 w-4 text-slate-400 transition-transform",
+                                    isObjectiveOpen && "rotate-180 text-[rgb(var(--brand-500))]",
+                                  )}
+                                />
+                              </div>
+                            </div>
+                            <div className="mt-2 flex items-center gap-2">
+                              <Progress value={progress} className="h-1.5 flex-1 bg-slate-100" />
+                              <span className="w-9 text-right text-[10px] font-semibold tabular-nums text-slate-500">
+                                {progress}%
+                              </span>
+                            </div>
+                          </button>
+                          {isObjectiveOpen && (
+                            <div className="space-y-2 p-2">
+                              {krs.map((kr) => renderKrPanel(kr))}
+                            </div>
+                          )}
+                        </section>
                       );
                     })
                   )}
@@ -421,21 +791,10 @@ function ReportPageInner() {
                 </div>
               </div>
 
-              {/* 日志记录区 */}
-              <div className="space-y-1.5">
-                <label className="text-footnote font-semibold text-slate-700 block">2. 今日日常工作碎碎念（不限格式）</label>
-                <Textarea
-                  value={rawInput}
-                  onChange={(e) => setRawInput(e.target.value)}
-                  placeholder="e.g. 今天排查了一下可用性低的问题，终于把那个历史遗留核心接口 SLA 给重构好了，可用性目前测算了一下，丟包率直接没了，看来本周目标没问题了。下午还开会讨论了..."
-                  className="min-h-[120px] text-footnote leading-relaxed font-sans placeholder:opacity-60 text-slate-800"
-                />
-              </div>
-
               {/* 团队心流状态 */}
               <div className="flex items-center justify-between gap-4 border-t pt-3 flex-wrap">
                 <div className="flex items-center gap-2">
-                  <span className="text-footnote font-semibold text-slate-700">3. 今日心流状态</span>
+                  <span className="text-footnote font-semibold text-slate-700">2. 今日心流状态</span>
                   <div className="flex items-center gap-1.5">
                     {(['happy', 'neutral', 'sad'] as const).map(m => {
                       const isActive = mood === m;
@@ -460,24 +819,36 @@ function ReportPageInner() {
                   </div>
                 </div>
 
-                <Button
-                  onClick={handleAiAnalyze}
-                  disabled={!selectedKrId || !rawInput.trim() || isAnalyzing}
-                  size="sm"
-                  className="ml-auto"
-                >
-                  {isAnalyzing ? (
-                    <>
-                      <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-                      AI 正在对账中...
-                    </>
+                <div className="ml-auto flex items-center gap-3">
+                  {submittedReportAt ? (
+                    <span className="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-medium text-emerald-700">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      今日日报已提交
+                    </span>
                   ) : (
-                    <>
-                      <Sparkles className="h-3 w-3 mr-1" />
-                      AI 智能提炼 & 对齐
-                    </>
+                    <p className="hidden sm:block text-[11px] text-muted-foreground">
+                      已填写 {filledKrEntries.length} 个 KR
+                    </p>
                   )}
-                </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => void handleSubmitDailyReport()}
+                    disabled={filledKrEntries.length === 0 || isSubmittingReport || isAnalyzing || isPushing}
+                  >
+                    {isSubmittingReport ? (
+                      <>
+                        <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                        正在提交...
+                      </>
+                    ) : (
+                      <>
+                        <CheckSquare className="h-3.5 w-3.5 mr-1" />
+                        提交今日日报
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -682,7 +1053,7 @@ function ReportPageInner() {
           )}
           {stickyState === 'analyze' && (
             <Button
-              onClick={handleAiAnalyze}
+              onClick={() => void handleAiAnalyze()}
               disabled={isAnalyzing}
               className="w-full h-11 text-[13.5px] font-medium"
             >
@@ -711,6 +1082,19 @@ function ReportPageInner() {
               <CheckCircle2 className="h-4 w-4" />
               <span>已更新 OKR 进度</span>
             </div>
+          )}
+          {stickyState === 'submit' && (
+            <Button
+              onClick={() => void handleSubmitDailyReport()}
+              disabled={isSubmittingReport || isAnalyzing || isPushing}
+              className="w-full h-11 text-[13.5px] font-medium"
+            >
+              {isSubmittingReport ? (
+                <><RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" />正在提交...</>
+              ) : (
+                <><CheckSquare className="h-3.5 w-3.5 mr-1.5" />提交今日日报 ({filledKrEntries.length})</>
+              )}
+            </Button>
           )}
         </div>
       </div>

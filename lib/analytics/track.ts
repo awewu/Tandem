@@ -15,7 +15,9 @@
  *   await trackLlm({ scenario, provider, model, tokensIn, tokensOut, latencyMs, userId });
  */
 
-const PERSIST_ENABLED = !!process.env.DATABASE_URL;
+import { isDatabaseMode } from '@/lib/infra/storage-mode';
+
+const PERSIST_ENABLED = isDatabaseMode();
 
 function genId(prefix: 'ev' | 'llm'): string {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;

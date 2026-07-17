@@ -12,7 +12,7 @@
  *
  * 数据源:
  *   - currentUserId 当 managerId
- *   - 下属: useOneOnOneStore.meetings 按 managerId === currentUserId 推 reportId
+ *   - 下属: 组织架构 users.managerId 汇报链
  *   - 全部 Objective + KR + Person 来自 useOKRStore
  *   - active cycle 默认 + URL ?cycleId 覆盖
  *
@@ -22,8 +22,8 @@
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useOKRStore, useOneOnOneStore } from '@/lib/store';
-import { useCurrentUserId } from '@/lib/hooks/use-current-user';
+import { useOKRStore } from '@/lib/store';
+import { useAuthStore } from '@/lib/hooks/use-current-user';
 import {
   buildCalibrationGrid,
   saveCalibrations,
@@ -60,24 +60,31 @@ export default function OkrCalibrationPage() {
 
 function OkrCalibrationPageInner() {
   const searchParams = useSearchParams();
-  const currentUserId = useCurrentUserId();
+  const currentUserId = useAuthStore((s) => s.user?.id) ?? 'me';
 
   const { cycles, objectives, keyResults, updateObjective, activeCycleId } = useOKRStore();
-  const { ownerNameById } = useOwnerDirectory();
-  const meetings = useOneOnOneStore((s) => s.meetings);
+  const { ownerNameById, people } = useOwnerDirectory();
 
   const cycleIdFromUrl = searchParams.get('cycleId');
   const cycleId = cycleIdFromUrl ?? activeCycleId ?? cycles[0]?.id ?? '';
   const cycle = cycles.find((c) => c.id === cycleId);
 
-  // 派生下属: 1on1 meetings 中 managerId === currentUserId 的 reportId 集合
+  // 派生下属: 组织架构 users.managerId 汇报链 (直属 + 多级下属)
   const subordinateIds = useMemo(() => {
     const ids = new Set<string>();
-    for (const m of meetings) {
-      if (m.managerId === currentUserId) ids.add(m.reportId);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const person of people) {
+        if (!person.managerId) continue;
+        if (person.managerId !== currentUserId && !ids.has(person.managerId)) continue;
+        if (person.id === currentUserId || ids.has(person.id)) continue;
+        ids.add(person.id);
+        changed = true;
+      }
     }
     return Array.from(ids);
-  }, [meetings, currentUserId]);
+  }, [people, currentUserId]);
 
   // grid 派生 (随 store 变化重算)
   const grid = useMemo(
@@ -282,11 +289,11 @@ function OkrCalibrationPageInner() {
           <Users className="mx-auto h-10 w-10 text-ink-tertiary" />
           <div className="text-headline text-ink-primary">没有下属在该周期</div>
           <p className="text-caption text-ink-secondary max-w-md mx-auto">
-            校准的前提是: 你是某员工的 1on1 manager. 去{' '}
-            <Link href="/1on1" className="text-[rgb(var(--brand-600))] underline">
-              /1on1
+            校准的前提是: 组织架构里有员工把你设为直属上级. 去{' '}
+            <Link href="/admin/organization" className="text-[rgb(var(--brand-600))] underline">
+              组织架构
             </Link>{' '}
-            建立 manager-report 关系, 系统会自动识别你的下属.
+            维护员工的直属上级后, 系统会自动识别你的下属.
           </p>
         </div>
       )}
@@ -392,7 +399,7 @@ function OkrCalibrationPageInner() {
                       </td>
                       <td className="px-4 py-2.5">
                         <Link
-                          href={`/okr?o=${row.objectiveId}`}
+                          href={`/okr?owner=${encodeURIComponent(row.ownerId)}&o=${encodeURIComponent(row.objectiveId)}`}
                           className="text-ink-primary hover:text-[rgb(var(--brand-600))] line-clamp-2"
                           title={row.reasoning}
                         >

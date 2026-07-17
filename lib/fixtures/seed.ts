@@ -13,6 +13,7 @@ import type { Kpi, KpiCycle, KpiSubject, KpiSnapshot, KpiScope } from '../types/
 import type { AgentTemplate } from '../types/agent-template';
 import { createChannel, sendMessage } from '../im/service';
 import { db, schema } from '../infra/drizzle-client';
+import { isDatabaseMode } from '../infra/storage-mode';
 import { sql } from 'drizzle-orm';
 
 let _seeded = false;
@@ -23,7 +24,7 @@ export async function seedDevData(): Promise<void> {
   const s = getStore();
 
   // §T6 幂等保护: 持久化模式下若 KvStore 已有数据, 跳过 seed (重启不重复)
-  if (process.env.DATABASE_URL) {
+  if (isDatabaseMode()) {
     try {
       const existing = await db
         .select({ c: sql<number>`count(*)` })
@@ -46,7 +47,7 @@ export async function seedDevData(): Promise<void> {
 
   // 先创建用户 (FK 外键约束要求 createdById 必须存在)
   // §T2 仅在 PostgreSQL 模式下执行；InMemory 模式不需要 User 表
-  if (process.env.DATABASE_URL) {
+  if (isDatabaseMode()) {
     try {
       const now = new Date();
       const users = [

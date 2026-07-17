@@ -596,6 +596,11 @@
   }
   .animate-hero-marquee { animation: hero-marquee 40s linear infinite; }
 
+  .im-mobile-break-anywhere {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
   /* Shimmer · subtle radial light sweep behind the slogan */
   @keyframes hero-shimmer {
     0%, 100% { opacity: 0.35; transform: translateX(-30%); }
@@ -718,8 +723,4 @@ html.keyboard-open .mobile-tab-bar {
     opacity: 0;
   }
 
-  .im-mobile-break-anywhere {
-    overflow-wrap: anywhere;
-    word-break: break-word;
-  }
 }

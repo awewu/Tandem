@@ -950,14 +950,33 @@ export function KpiContent() {
       <Card>
         <CardContent className="flex min-w-0 flex-wrap items-center gap-3 px-4 py-3">
           <Select value={activeCycleId ?? ''} onValueChange={setActiveCycleId}>
-            <SelectTrigger className="h-8 w-full min-w-0 text-caption sm:w-64">
-              <SelectValue placeholder="选择考核周期" />
+            <SelectTrigger className="h-8 w-full min-w-0 gap-2 overflow-hidden text-caption sm:w-[360px]">
+              {activeCycle ? (
+                <span className="flex min-w-0 flex-1 items-center justify-center gap-2">
+                  <span className="min-w-0 truncate">
+                    {activeCycle.name} · FY{activeCycle.fiscalYear}
+                  </span>
+                  {activeCycle.status === 'active' && (
+                    <span className="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold leading-none text-emerald-700">
+                      进行中
+                    </span>
+                  )}
+                </span>
+              ) : (
+                <SelectValue placeholder="选择考核周期" />
+              )}
             </SelectTrigger>
             <SelectContent>
               {cycles.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
-                  {c.name} · FY{c.fiscalYear}
-                  {c.status === 'active' && <Badge className="ml-2 text-footnote" variant="outline">进行中</Badge>}
+                  <span className="inline-flex items-center gap-2">
+                    <span>{c.name} · FY{c.fiscalYear}</span>
+                    {c.status === 'active' && (
+                      <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold leading-none text-emerald-700">
+                        进行中
+                      </span>
+                    )}
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>

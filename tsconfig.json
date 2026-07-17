@@ -16,6 +16,6 @@
     "plugins": [{ "name": "next" }],
     "paths": { "@/*": ["./*"] }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", "_backup_e_*", "dist", ".next", "vendor", "android", "ios"]
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", ".next-dev/types/**/*.ts"],
+  "exclude": ["node_modules", "_backup_e_*", "dist", ".next", ".next-dev", "vendor", "android", "ios"]
 }

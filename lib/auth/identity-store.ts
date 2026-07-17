@@ -12,6 +12,7 @@
 
 import { createHmac } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
+import { isDatabaseMode } from '@/lib/infra/storage-mode';
 
 const COLL_OTP = 'auth_phone_otp';
 const COLL_PHONE = 'auth_phone_binding';
@@ -25,7 +26,7 @@ const OTP_SALT = process.env.NEXTAUTH_SECRET ?? 'tandem-otp-dev-salt';
 
 const mem = new Map<string, unknown>();
 const memKey = (collection: string, id: string) => `${collection}:${id}`;
-const isDbBacked = () => !!process.env.DATABASE_URL;
+const isDbBacked = () => isDatabaseMode();
 
 async function kvGet<T>(collection: string, id: string): Promise<T | null> {
   if (isDbBacked()) {

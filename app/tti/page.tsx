@@ -27,7 +27,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useCurrentUserId } from '@/lib/hooks/use-current-user';
+import { useCurrentUser, useCurrentUserId } from '@/lib/hooks/use-current-user';
 import {
   Sparkles,
   Target,
@@ -62,6 +62,7 @@ interface KeyResult {
   objectiveId: string;
   title: string;
   ownerId: string;
+  coOwnerIds?: string[];
   type: 'numeric' | 'percentage' | 'milestone' | 'binary';
   startValue: number;
   currentValue: number;
@@ -70,6 +71,15 @@ interface KeyResult {
   weight: number;
   confidence: Confidence;
   status: string;
+}
+
+interface ServerKeyResult extends Omit<KeyResult, 'type'> {
+  type?: KeyResult['type'];
+  measureType?: KeyResult['type'];
+}
+
+interface ServerObjective extends Objective {
+  keyResults?: ServerKeyResult[];
 }
 
 interface CheckIn {
@@ -171,6 +181,7 @@ const EMPTY_FORM: FormState = {
 
 export default function TtiPage() {
   const me = useCurrentUserId();
+  const { user } = useCurrentUser();
   const [objectives, setObjectives] = useState<Objective[]>([]);
   const [krs, setKrs] = useState<KeyResult[]>([]);
   const [checkInsByKr, setCheckInsByKr] = useState<Record<string, CheckIn[]>>({});
@@ -183,19 +194,28 @@ export default function TtiPage() {
     setLoading(true);
     setError(null);
     try {
-      const [ro, rk] = await Promise.all([
-        fetch('/api/okr/objectives', { cache: 'no-store' }),
-        fetch('/api/okr/keyresults', { cache: 'no-store' }),
-      ]);
-      // /api/okr/keyresults may not exist; fall back to filtering all KRs through objective endpoint
-      const [jo, jk] = await Promise.all([ro.json().catch(() => ({})), rk.ok ? rk.json() : Promise.resolve({})]);
-      const objs: Objective[] = (jo.objectives ?? []).filter((o: Objective) => o.ownerId === me);
-      let allKrs: KeyResult[] = jk.keyResults ?? [];
-      if (allKrs.length === 0) {
-        // Fallback: server may embed KRs in objectives response
-        allKrs = (jo.objectives ?? []).flatMap((o: { keyResults?: KeyResult[] }) => o.keyResults ?? []);
-      }
-      const myKrs = allKrs.filter((k) => k.ownerId === me);
+      const r = await fetch('/api/tandem-okr', {
+        cache: 'no-store',
+        credentials: 'include',
+      });
+      const jo = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(jo.error ?? `HTTP ${r.status}`);
+
+      const ownerIds = new Set([me, user?.id].filter(Boolean));
+      const serverObjs = (jo.objectives ?? []) as ServerObjective[];
+      const allKrs: KeyResult[] = serverObjs
+        .flatMap((o) => o.keyResults ?? [])
+        .map((k) => ({
+          ...k,
+          type: k.type ?? k.measureType ?? 'numeric',
+        }));
+      const myKrs = allKrs.filter(
+        (k) => ownerIds.has(k.ownerId) || (k.coOwnerIds ?? []).some((id) => ownerIds.has(id)),
+      );
+      const myObjectiveIds = new Set(myKrs.map((k) => k.objectiveId));
+      const objs: Objective[] = serverObjs.filter(
+        (o) => ownerIds.has(o.ownerId) || myObjectiveIds.has(o.id),
+      );
       setObjectives(objs);
       setKrs(myKrs);
     } catch (e) {
@@ -203,7 +223,7 @@ export default function TtiPage() {
     } finally {
       setLoading(false);
     }
-  }, [me]);
+  }, [me, user?.id]);
 
   const loadCheckIns = useCallback(async (krId: string) => {
     try {

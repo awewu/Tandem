@@ -22,6 +22,8 @@ export interface PersonLike {
   name: string;
   /** 兼容字段: ministry.id 或 department.id */
   ministryId?: string;
+  /** 直属上级用户 id; 用于页面级可见范围 */
+  managerId?: string | null;
 }
 
 export type OwnerKind = 'person' | 'team' | 'unknown';

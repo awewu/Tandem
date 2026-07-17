@@ -502,14 +502,20 @@ export default function KpiSetupPage() {
               </div>
             </div>
           ) : (
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="min-w-[280px]">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
+              <div className="w-full min-w-0 lg:max-w-[360px]">
                 <Select
                   value={activeCycleId ?? ''}
                   onValueChange={(v) => setActiveCycleId(v)}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="选择周期" />
+                  <SelectTrigger className="overflow-hidden">
+                    {activeCycle ? (
+                      <span className="min-w-0 truncate">
+                        {activeCycle.name} · FY{activeCycle.fiscalYear}
+                      </span>
+                    ) : (
+                      <SelectValue placeholder="选择周期" />
+                    )}
                   </SelectTrigger>
                   <SelectContent>
                     {cycles.map((c) => (
@@ -523,20 +529,25 @@ export default function KpiSetupPage() {
 
               {activeCycle && (
                 <>
-                  <Badge variant="outline" className={STATUS_LABEL[activeCycle.status].color}>
-                    {activeCycle.status !== 'draft' && <Lock className="h-3 w-3 mr-1" />}
-                    {STATUS_LABEL[activeCycle.status].label}
-                  </Badge>
-                  <span className="text-footnote text-muted-foreground">
-                    {activeCycle.startDate.slice(0, 10)} → {activeCycle.endDate.slice(0, 10)}
-                  </span>
-                  {activeCycle.targetsLockedAt && (
+                  <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 pt-0.5">
+                    <Badge
+                      variant="outline"
+                      className={`${STATUS_LABEL[activeCycle.status].color} h-7 gap-1 px-2.5`}
+                    >
+                      {activeCycle.status !== 'draft' && <Lock className="h-3 w-3" />}
+                      {STATUS_LABEL[activeCycle.status].label}
+                    </Badge>
                     <span className="text-footnote text-muted-foreground">
-                      锁定于 {activeCycle.targetsLockedAt.slice(0, 10)}
+                      {activeCycle.startDate.slice(0, 10)} → {activeCycle.endDate.slice(0, 10)}
                     </span>
-                  )}
+                    {activeCycle.targetsLockedAt && (
+                      <span className="text-footnote text-muted-foreground">
+                        锁定于 {activeCycle.targetsLockedAt.slice(0, 10)}
+                      </span>
+                    )}
+                  </div>
 
-                  <div className="ml-auto flex items-center gap-2">
+                  <div className="flex items-center gap-2 lg:ml-auto">
                     {activeCycle.status === 'draft' && (
                       <Button
                         variant="outline"

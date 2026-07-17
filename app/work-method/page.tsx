@@ -13,11 +13,11 @@
  *   - 下属切换复用现有 people; check-in 深链到 /okr 复用既有弹窗 (不重复造)
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   Target, CalendarRange, CalendarCheck, Inbox, ArrowRight, ArrowLeft,
-  Pin, PinOff, AlertTriangle, ClipboardCheck, User, ChevronDown,
+  Pin, PinOff, AlertTriangle, ClipboardCheck, User,
 } from 'lucide-react';
 import { useOKRStore } from '@/lib/store';
 import { krProgress, objectiveProgress } from '@/lib/okr/progress';
@@ -26,6 +26,7 @@ import { startOfWeek, buildWorkMethod } from '@/lib/okr/work-method';
 import { persistUpdateInitiative, hydrateOkrFromApi } from '@/lib/store/okr-sync';
 import type { Initiative } from '@/lib/store';
 import { useOwnerDirectory } from '@/lib/org/use-owner-directory';
+import { useCurrentUser } from '@/lib/hooks/use-current-user';
 
 const BAND_STYLE: Record<RiskBand, { text: string; bg: string; label: string }> = {
   'on-track': { text: 'text-emerald-700', bg: 'bg-emerald-100', label: '在轨' },
@@ -35,6 +36,7 @@ const BAND_STYLE: Record<RiskBand, { text: string; bg: string; label: string }> 
 
 export default function WorkMethodPage() {
   const { cycles, objectives, keyResults, initiatives, currentUserId, updateInitiative } = useOKRStore();
+  const { user } = useCurrentUser();
   const { people, nameOf } = useOwnerDirectory();
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => setNow(Date.now()), []);
@@ -43,16 +45,97 @@ export default function WorkMethodPage() {
 
   // 查看对象 (本人 / 下属) — 默认本人
   const [ownerId, setOwnerId] = useState<string>('');
-  const effectiveOwner = ownerId || currentUserId;
+  const [ownerSearch, setOwnerSearch] = useState('');
+  const [ownerPickerOpen, setOwnerPickerOpen] = useState(false);
+  const ownerPickerRef = useRef<HTMLDivElement | null>(null);
+  const selfOwnerIds = useMemo(() => {
+    const ids = [currentUserId, user?.id].filter(Boolean) as string[];
+    return new Set(ids.flatMap((id) => [id, `person:${id}`]));
+  }, [currentUserId, user?.id]);
+  const effectiveOwner = ownerId || user?.id || currentUserId;
+  const effectiveOwnerIds = useMemo(
+    () => new Set([effectiveOwner, `person:${effectiveOwner}`]),
+    [effectiveOwner],
+  );
+
+  const visibleOwnerIds = useMemo(() => {
+    const canViewAll = user?.roles?.some((role) => role === 'owner' || role === 'admin') ?? false;
+    if (canViewAll) return new Set(people.map((p) => p.id));
+
+    const rootIds = new Set([currentUserId, user?.id].filter(Boolean) as string[]);
+    const visible = new Set(rootIds);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const p of people) {
+        if (!p.managerId || !visible.has(p.managerId) || visible.has(p.id)) continue;
+        visible.add(p.id);
+        changed = true;
+      }
+    }
+    return visible;
+  }, [currentUserId, people, user?.id, user?.roles]);
+
+  const peopleOptions = useMemo(() => {
+    const scoped = people.filter((p) => visibleOwnerIds.has(p.id) && !(user?.id && p.id === 'me'));
+    if (!user?.id || scoped.some((p) => p.id === user.id)) return scoped;
+    return [{ id: user.id, name: user.name || user.email || '我' }, ...scoped];
+  }, [people, user?.email, user?.id, user?.name, visibleOwnerIds]);
+
+  const ownerLabel = useMemo(() => {
+    const hit = peopleOptions.find((p) => p.id === effectiveOwner);
+    if (!hit) return nameOf(effectiveOwner);
+    return selfOwnerIds.has(hit.id) && hit.name !== '我' ? `${hit.name}（我）` : hit.name;
+  }, [effectiveOwner, nameOf, peopleOptions, selfOwnerIds]);
+
+  useEffect(() => {
+    if (!ownerPickerOpen) setOwnerSearch(ownerLabel);
+  }, [ownerLabel, ownerPickerOpen]);
+
+  useEffect(() => {
+    if (!ownerPickerOpen) return;
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (ownerPickerRef.current?.contains(target)) return;
+      setOwnerPickerOpen(false);
+      setOwnerSearch(ownerLabel);
+    };
+    document.addEventListener('pointerdown', closeOnOutsidePointer);
+    return () => document.removeEventListener('pointerdown', closeOnOutsidePointer);
+  }, [ownerLabel, ownerPickerOpen]);
+
+  const filteredPeopleOptions = useMemo(() => {
+    const q = ownerSearch.trim().toLowerCase();
+    if (!q || q === ownerLabel.toLowerCase()) return peopleOptions;
+    return peopleOptions.filter((p) => {
+      const label = selfOwnerIds.has(p.id) && p.name !== '我' ? `${p.name}（我）` : p.name;
+      return label.toLowerCase().includes(q) || p.id.toLowerCase().includes(q);
+    });
+  }, [ownerLabel, ownerSearch, peopleOptions, selfOwnerIds]);
+
+  function chooseOwner(id: string) {
+    setOwnerId(id === user?.id || id === currentUserId ? '' : id);
+    setSelectedId('');
+    setOwnerPickerOpen(false);
+  }
 
   const ownerObjectives = useMemo(
-    () =>
-      objectives.filter(
-        (o) =>
-          (!activeCycle || o.cycleId === activeCycle.id) &&
-          (o.ownerId === effectiveOwner || o.ownerId === `person:${effectiveOwner}`),
-      ),
-    [objectives, activeCycle, effectiveOwner],
+    () => {
+      return objectives.filter((o) => {
+        if (activeCycle && o.cycleId !== activeCycle.id) return false;
+        const ownerMatch = effectiveOwnerIds.has(o.ownerId);
+        const krMatch = keyResults.some(
+          (k) =>
+            k.objectiveId === o.id &&
+            (effectiveOwnerIds.has(k.ownerId) ||
+              (k.collaborators ?? []).some((id) => effectiveOwnerIds.has(id))),
+        );
+        if (ownerMatch || krMatch) return true;
+        return false;
+      });
+    },
+    [objectives, activeCycle, effectiveOwnerIds, keyResults],
   );
 
   const [selectedId, setSelectedId] = useState<string>('');
@@ -109,19 +192,55 @@ export default function WorkMethodPage() {
         <label className="inline-flex items-center gap-2 text-caption text-ink-secondary">
           <User className="h-3.5 w-3.5" />
           查看
-          <div className="relative">
-            <select
-              value={effectiveOwner}
-              onChange={(e) => { setOwnerId(e.target.value); setSelectedId(''); }}
-              className="appearance-none rounded-md border border-border bg-surface-1 pl-2.5 pr-7 py-1.5 text-caption text-ink-primary"
-            >
-              {people.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.id === currentUserId ? `${p.name}（我）` : p.name}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-ink-tertiary" />
+          <div ref={ownerPickerRef} className="relative w-52">
+            <input
+              value={ownerPickerOpen ? ownerSearch : ownerLabel}
+              onChange={(e) => {
+                setOwnerSearch(e.target.value);
+                setOwnerPickerOpen(true);
+              }}
+              onFocus={() => {
+                setOwnerSearch('');
+                setOwnerPickerOpen(true);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  setOwnerPickerOpen(false);
+                  return;
+                }
+                if (e.key === 'Enter' && filteredPeopleOptions[0]) {
+                  e.preventDefault();
+                  chooseOwner(filteredPeopleOptions[0].id);
+                }
+              }}
+              placeholder="输入姓名搜索"
+              className="w-full rounded-md border border-border bg-surface-1 px-2.5 py-1.5 text-caption text-ink-primary outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
+            />
+            {ownerPickerOpen && (
+              <div className="absolute right-0 z-20 mt-1 max-h-72 w-full overflow-auto rounded-md border border-border bg-surface-1 py-1 shadow-lg">
+                {filteredPeopleOptions.length === 0 ? (
+                  <div className="px-3 py-2 text-footnote text-ink-tertiary">没有匹配的人</div>
+                ) : (
+                  filteredPeopleOptions.map((p) => {
+                    const label = selfOwnerIds.has(p.id) && p.name !== '我' ? `${p.name}（我）` : p.name;
+                    const active = p.id === effectiveOwner;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => chooseOwner(p.id)}
+                        className={`block w-full px-3 py-2 text-left text-caption ${
+                          active ? 'bg-brand-50 text-brand-700' : 'text-ink-primary hover:bg-surface-3'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            )}
           </div>
         </label>
       </header>

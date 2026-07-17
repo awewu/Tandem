@@ -17,6 +17,7 @@ import { registerBuiltinTriggers } from './workflows/builtin-triggers';
 import { initObservability } from './infra/observability';
 import { bootstrapOwnerIfMissing } from './auth/bootstrap';
 import { enforceProductionGuard } from './infra/production-guard';
+import { isDatabaseMode } from './infra/storage-mode';
 import { withCronLock } from './infra/leader';
 
 // 单例 (挂 globalThis 防 Next.js dev HMR 重置)
@@ -35,7 +36,7 @@ const _g = globalThis as typeof globalThis & BootGlobals;
  * 多次调用幂等. 不触发 seed.
  */
 function bootSync(): void {
-  const useDb = !!process.env.DATABASE_URL;
+  const useDb = isDatabaseMode();
   const existingStore = (_g as Record<string, unknown>)['__tandem_store__'];
   // §T6: DATABASE_URL → Drizzle+PG (持久化); 否则 InMemory (重启清空)
   const expectedKind = useDb ? 'prisma' : 'memory';

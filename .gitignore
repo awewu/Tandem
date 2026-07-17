@@ -85,6 +85,7 @@ tsconfig.tsbuildinfo
 ~$*.docx
 
 .env.local.inmem
+.dev-memory
 
 # 本地 health probe 临时输出 (smoke-* / health-check 脚本生成, 不入提交)
 .health.txt

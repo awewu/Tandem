@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic';
 import { sql } from 'drizzle-orm';
 import { db } from '@/lib/infra/drizzle-client';
 import { logger } from '@/lib/infra/logger';
+import { isDatabaseMode } from '@/lib/infra/storage-mode';
 import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /**
@@ -26,7 +27,7 @@ type CheckResult = {
 };
 
 async function checkDb(): Promise<CheckResult> {
-  if (!process.env.DATABASE_URL) return { ok: true, error: 'not configured (in-memory mode)' };
+  if (!isDatabaseMode()) return { ok: true, error: 'not configured (in-memory mode)' };
   const t0 = Date.now();
   try {
     await db.execute(sql`SELECT 1`);

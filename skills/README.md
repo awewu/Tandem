@@ -30,6 +30,7 @@ skills/<skill-id>/
 | `nine-box-action` | 9-box 落点 → 决策建议 | 主管季度 calibration |
 | `audit-verify` | 审计链完整性校验 | 合规审查 / 季度内审 |
 | `decision-card-template` | 议事室 5 步从 skill 模板启动 | 用户开新议事室时 |
+| `speed-up-next-dev` | 提升本地 Next.js 调试速度 | 本地 dev 慢 / 热更新卡 / `.next` 缓存异常 |
 
 ## 开发 Skill
 

@@ -227,7 +227,8 @@ export default function OKRPage() {
   const { people: peopleForUi, nameOf: ownerLabel } = useOwnerDirectory();
 
   // 真实登录用户 id (B4 Phase-2: 新建 OKR 默认归属当前用户, 保证落库后本人可见).
-  const meUserId = useAuthStore((s) => s.user?.id);
+  const meUser = useAuthStore((s) => s.user);
+  const meUserId = meUser?.id;
 
   // ===== 视图状态 =====
   const [selectedObjId, setSelectedObjId] = useState<string | null>(null);
@@ -243,6 +244,117 @@ export default function OKRPage() {
   const [filterStatus, setFilterStatus] = useState<string>('');
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const ownerFilterInitializedRef = useRef(false);
+  const ownerFilterPickerRef = useRef<HTMLDivElement | null>(null);
+  const [ownerFilterOpen, setOwnerFilterOpen] = useState(false);
+  const [ownerFilterSearch, setOwnerFilterSearch] = useState('');
+
+  useEffect(() => {
+    if (ownerFilterInitializedRef.current) return;
+    if (!meUserId) return;
+    const params = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search);
+    const ownerParam = params?.get('owner') ?? null;
+    const objectiveParam = params?.get('o') ?? null;
+    if (objectiveParam) setSelectedObjId(objectiveParam);
+    if (ownerParam === 'all') {
+      setFilterOwner('');
+    } else if (ownerParam && ownerParam !== 'me') {
+      setFilterOwner(ownerParam);
+    } else if (objectiveParam) {
+      const objectiveOwner = objectives.find((o) => o.id === objectiveParam)?.ownerId;
+      setFilterOwner(objectiveOwner?.startsWith('person:') ? objectiveOwner.slice(7) : objectiveOwner ?? meUserId);
+    } else {
+      setFilterOwner(meUserId);
+    }
+    ownerFilterInitializedRef.current = true;
+  }, [meUserId, objectives]);
+
+  const canViewAllOwners = meUser?.roles?.some((role) => role === 'owner' || role === 'admin') ?? false;
+
+  const visibleOwnerIds = useMemo(() => {
+    if (canViewAllOwners) return new Set(peopleForUi.map((p) => p.id));
+    const visible = new Set([meUserId].filter(Boolean) as string[]);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const p of peopleForUi) {
+        if (!p.managerId || !visible.has(p.managerId) || visible.has(p.id)) continue;
+        visible.add(p.id);
+        changed = true;
+      }
+    }
+    return visible;
+  }, [canViewAllOwners, meUserId, peopleForUi]);
+
+  const ownerFilterOptions = useMemo(() => {
+    const scoped = peopleForUi.filter((p) => visibleOwnerIds.has(p.id) && !(meUserId && p.id === 'me'));
+    if (!meUserId || scoped.some((p) => p.id === meUserId)) return scoped;
+    return [{ id: meUserId, name: meUser?.name || meUser?.email || '我' } as Person, ...scoped];
+  }, [meUser?.email, meUser?.name, meUserId, peopleForUi, visibleOwnerIds]);
+
+  const ownerFilterItems = useMemo(() => {
+    const personItems = ownerFilterOptions.map((p) => ({
+      value: p.id,
+      label: p.id === meUserId && p.name !== '我' ? `${p.name}（我）` : p.name,
+    }));
+    const allItem = canViewAllOwners ? [{ value: '__all__', label: '所有负责人' }] : [];
+    const teamItems = canViewAllOwners
+      ? ministries.map((m) => ({ value: `team:${m.id}`, label: `[团队] ${m.name}` }))
+      : [];
+    return [...allItem, ...personItems, ...teamItems];
+  }, [canViewAllOwners, meUserId, ministries, ownerFilterOptions]);
+
+  const ownerFilterLabel = useMemo(() => {
+    if (!filterOwner) return canViewAllOwners ? '所有负责人' : '我的 OKR';
+    return ownerFilterItems.find((item) => item.value === filterOwner)?.label ?? ownerLabel(filterOwner);
+  }, [canViewAllOwners, filterOwner, ownerFilterItems, ownerLabel]);
+
+  useEffect(() => {
+    if (!ownerFilterOpen) setOwnerFilterSearch(ownerFilterLabel);
+  }, [ownerFilterLabel, ownerFilterOpen]);
+
+  useEffect(() => {
+    if (!ownerFilterOpen) return;
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (ownerFilterPickerRef.current?.contains(target)) return;
+      setOwnerFilterOpen(false);
+      setOwnerFilterSearch(ownerFilterLabel);
+    };
+    document.addEventListener('pointerdown', closeOnOutsidePointer);
+    return () => document.removeEventListener('pointerdown', closeOnOutsidePointer);
+  }, [ownerFilterLabel, ownerFilterOpen]);
+
+  const filteredOwnerFilterItems = useMemo(() => {
+    const q = ownerFilterSearch.trim().toLowerCase();
+    if (!q || q === ownerFilterLabel.toLowerCase()) return ownerFilterItems;
+    return ownerFilterItems.filter((item) =>
+      item.label.toLowerCase().includes(q) || item.value.toLowerCase().includes(q),
+    );
+  }, [ownerFilterItems, ownerFilterLabel, ownerFilterSearch]);
+
+  function chooseOwnerFilter(value: string) {
+    if (value === '__all__' && !canViewAllOwners) return;
+    if (value !== '__all__' && !value.startsWith('team:') && !visibleOwnerIds.has(value)) return;
+    if (value.startsWith('team:') && !canViewAllOwners) return;
+    setFilterOwner(value === '__all__' ? '' : value);
+    setOwnerFilterOpen(false);
+  }
+
+  useEffect(() => {
+    if (!ownerFilterInitializedRef.current || !meUserId) return;
+    if (!filterOwner && canViewAllOwners) return;
+    if (!filterOwner && !canViewAllOwners) {
+      setFilterOwner(meUserId);
+      return;
+    }
+    if (filterOwner.startsWith('team:')) {
+      if (!canViewAllOwners) setFilterOwner(meUserId);
+      return;
+    }
+    if (filterOwner && !visibleOwnerIds.has(filterOwner)) setFilterOwner(meUserId);
+  }, [canViewAllOwners, filterOwner, meUserId, visibleOwnerIds]);
 
   // ===== 当前周期下的 Objectives =====
   const cycleObjectives = useMemo(
@@ -251,7 +363,7 @@ export default function OKRPage() {
   );
   const filteredObjectives = useMemo(() => {
     return cycleObjectives.filter((o) => {
-      if (filterOwner && o.ownerId !== filterOwner) return false;
+      if (filterOwner && o.ownerId !== filterOwner && o.ownerId !== `person:${filterOwner}`) return false;
       if (filterTag && !o.tags.includes(filterTag)) return false;
       if (filterConfidence && o.confidence !== filterConfidence) return false;
       if (filterStatus && o.status !== filterStatus) return false;
@@ -1041,14 +1153,56 @@ export default function OKRPage() {
         <div className="flex items-center gap-2 flex-wrap md:flex-wrap">
           <Filter className="h-3.5 w-3.5 text-muted-foreground" />
           <Input placeholder="搜索目标标题/描述..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-7 w-48 text-footnote" />
-          <Select value={filterOwner || '__all__'} onValueChange={(v) => setFilterOwner(v === '__all__' ? '' : v)}>
-            <SelectTrigger className="hidden md:flex h-7 w-32 text-footnote"><SelectValue placeholder="所有负责人" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">所有负责人</SelectItem>
-              {peopleForUi.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-              {ministries.map((m) => <SelectItem key={`team:${m.id}`} value={`team:${m.id}`}>[团队] {m.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <div ref={ownerFilterPickerRef} className="relative hidden md:block w-36">
+            <input
+              value={ownerFilterOpen ? ownerFilterSearch : ownerFilterLabel}
+              onChange={(e) => {
+                setOwnerFilterSearch(e.target.value);
+                setOwnerFilterOpen(true);
+              }}
+              onFocus={() => {
+                setOwnerFilterSearch('');
+                setOwnerFilterOpen(true);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  setOwnerFilterOpen(false);
+                  return;
+                }
+                if (e.key === 'Enter' && filteredOwnerFilterItems[0]) {
+                  e.preventDefault();
+                  chooseOwnerFilter(filteredOwnerFilterItems[0].value);
+                }
+              }}
+              placeholder="搜索负责人"
+              className="h-7 w-full rounded-md border border-input bg-background px-3 text-footnote outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10"
+            />
+            {ownerFilterOpen && (
+              <div className="absolute left-0 z-30 mt-1 max-h-72 w-56 overflow-auto rounded-md border border-border bg-popover py-1 text-popover-foreground shadow-lg">
+                {filteredOwnerFilterItems.length === 0 ? (
+                  <div className="px-3 py-2 text-footnote text-muted-foreground">没有匹配的负责人</div>
+                ) : (
+                  filteredOwnerFilterItems.map((item) => {
+                    const active = (filterOwner || '__all__') === item.value;
+                    return (
+                      <button
+                        key={item.value}
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => chooseOwnerFilter(item.value)}
+                        className={cn(
+                          'block w-full px-3 py-2 text-left text-footnote',
+                          active ? 'bg-primary/10 text-primary' : 'hover:bg-muted',
+                        )}
+                      >
+                        {item.label}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </div>
           <Select value={filterConfidence || '__all__'} onValueChange={(v) => setFilterConfidence(v === '__all__' ? '' : v)}>
             <SelectTrigger className="hidden md:flex h-7 w-28 text-footnote"><SelectValue placeholder="所有信心" /></SelectTrigger>
             <SelectContent>

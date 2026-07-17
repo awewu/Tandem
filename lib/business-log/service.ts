@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { and, desc, eq, gte, ilike, lte, or, sql, type SQL } from 'drizzle-orm';
 import { logger } from '@/lib/infra/logger';
+import { isDatabaseMode } from '@/lib/infra/storage-mode';
 import { redactBusinessLogData } from './redact';
 import type {
   BusinessLogEntry,
@@ -51,7 +52,7 @@ export async function appendBusinessLog(input: BusinessLogInput): Promise<Busine
   const entry = normalize(input);
   remember(entry);
 
-  if (process.env.DATABASE_URL) {
+  if (isDatabaseMode()) {
     try {
       const { db, schema } = await import('@/lib/infra/drizzle-client');
       await db.insert(schema.businessLog).values({
@@ -131,7 +132,7 @@ export async function queryBusinessLogs(query: BusinessLogQuery): Promise<Busine
   const limit = Math.max(1, Math.min(200, query.limit ?? 50));
   const offset = Math.max(0, Math.min(10_000, query.offset ?? 0));
 
-  if (process.env.DATABASE_URL) {
+  if (isDatabaseMode()) {
     try {
       const { db, schema } = await import('@/lib/infra/drizzle-client');
       const b = schema.businessLog;

@@ -1,6 +1,7 @@
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import { db } from '@/lib/infra/drizzle-client';
 import { roleDefinition } from '@/lib/infra/drizzle-schema';
+import { isDatabaseMode } from '@/lib/infra/storage-mode';
 import type { Permission } from './permissions';
 
 export interface RoleDefinition {
@@ -52,7 +53,7 @@ export async function listRoleDefinitions(tenantId: string, includeDisabled = fa
 export async function permissionsForRoles(tenantId: string, roles: readonly string[]): Promise<Permission[]> {
   if (roles.length === 0) return [];
   // Vitest 的 memory store 有意不配置 PostgreSQL；仍使用与迁移完全一致的默认权限。
-  if (!process.env.DATABASE_URL) return defaultPermissionsForRoles(roles);
+  if (!isDatabaseMode()) return defaultPermissionsForRoles(roles);
   await ensureDefaultRoleDefinitions(tenantId);
   const rows = await db.select({ permissions: roleDefinition.permissions }).from(roleDefinition).where(and(
     eq(roleDefinition.tenantId, tenantId),

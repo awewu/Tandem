@@ -30,7 +30,7 @@ const PAGES = [
   '/nine-box',
 ];
 
-const BASE_URL = process.env.PREWARM_BASE_URL ?? 'http://localhost:3000';
+const BASE_URL = process.env.PREWARM_BASE_URL ?? 'http://localhost:3005';
 const TIMEOUT_MS = 30_000;
 
 console.log('Tandem · 预热主页面，触发本地按需编译...');

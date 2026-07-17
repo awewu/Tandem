@@ -1,3 +1,8 @@
+const isTauri = process.env.TAURI === '1';
+const isStandalone = process.env.NEXT_OUTPUT === 'standalone';
+const devDistDir = process.env.NEXT_DIST_DIR;
+const shouldPoll = process.env.NEXT_WEBPACK_POLL === '1';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -5,8 +10,8 @@ const nextConfig = {
   // 功能与 web 端 100% 等价. 桌面打包不再静态导出整个应用, 仅打入 scripts/build-desktop-bootstrap.mjs
   // 生成的连接网关页 (dist/index.html). 因此 TAURI=1 静态导出分支已不再用于桌面构建, 保留仅作兜底.
   // Web standalone 自包含部署 / dev undefined.
-  output: process.env.TAURI === '1' ? 'export' : process.env.NEXT_OUTPUT === 'standalone' ? 'standalone' : undefined,
-  distDir: process.env.TAURI === '1' ? 'dist' : '.next',
+  output: isTauri ? 'export' : isStandalone ? 'standalone' : undefined,
+  distDir: isTauri ? 'dist' : devDistDir || '.next',
   // When TAURI=1, scripts/build-static.mjs temporarily moves app/api/ out
   // of the way so static export does not see the dynamic API routes.
   // Dev server must NOT be running during the static build (file locks).
@@ -15,7 +20,7 @@ const nextConfig = {
   },
   // Performance optimizations for dev mode
   webpack: (config, { dev }) => {
-    if (dev) {
+    if (dev && shouldPoll) {
       config.watchOptions = {
         poll: 1000,
         aggregateTimeout: 300,

@@ -142,6 +142,27 @@ function ImInner() {
   const nameOf = usePersonNameResolver();
   const hasActiveUploads = sending && attachments.some((a) => a.uploadStatus === 'queued' || a.uploadStatus === 'uploading');
 
+  function isTempMessage(message: Message): boolean {
+    return message.id.startsWith('temp-');
+  }
+
+  function isSameOutgoingMessage(a: Message, b: Message): boolean {
+    const aAttachments = a.attachments ?? [];
+    const bAttachments = b.attachments ?? [];
+    return (
+      a.channelId === b.channelId &&
+      a.senderId === b.senderId &&
+      (a.senderKind ?? 'user') === (b.senderKind ?? 'user') &&
+      a.body === b.body &&
+      aAttachments.length === bAttachments.length &&
+      aAttachments.every((att, index) => (
+        att.kind === bAttachments[index]?.kind &&
+        att.name === bAttachments[index]?.name &&
+        att.size === bAttachments[index]?.size
+      ))
+    );
+  }
+
   function confirmLeaveDuringUpload(): boolean {
     if (!hasActiveUploads) return true;
     return window.confirm('还有文件传输中，返回会导致传输失败。确定要返回吗？');
@@ -231,7 +252,9 @@ function ImInner() {
     const serverMessages = (data.messages ?? []) as Message[];
 
     setMessages((prev) => {
-      const optimisticMessages = prev.filter((m) => m.id.startsWith('temp-'));
+      const optimisticMessages = prev.filter(
+        (m) => isTempMessage(m) && !serverMessages.some((serverMsg) => isSameOutgoingMessage(m, serverMsg))
+      );
       return [...serverMessages, ...optimisticMessages];
     });
 
@@ -267,7 +290,7 @@ function ImInner() {
         const msg = JSON.parse((e as MessageEvent).data) as Message;
         setMessages((prev) => {
           if (prev.find((m) => m.id === msg.id)) return prev;
-          return [...prev, msg];
+          return [...prev.filter((m) => !(isTempMessage(m) && isSameOutgoingMessage(m, msg))), msg];
         });
         if (nearBottom) {
           setTimeout(() => {
@@ -520,7 +543,12 @@ function ImInner() {
       serverMessage = data.message as Message | null;
       if (serverMessage) {
         const confirmedMessage = serverMessage;
-        setMessages((prev) => prev.map((m) => (m.id === tempId ? confirmedMessage : m)));
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === confirmedMessage.id)) {
+            return prev.filter((m) => m.id !== tempId);
+          }
+          return prev.map((m) => (m.id === tempId ? confirmedMessage : m));
+        });
       }
 
       if (queuedAttachments.length === 0 || !serverMessage) {

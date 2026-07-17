@@ -179,7 +179,9 @@ export interface AuditEntry {
  * 持久化开关 · 仅在 DATABASE_URL 配置时启用 Drizzle 持久化.
  * 缺失时回退为纯内存模式 (适合 e2e / dev 无 DB 环境).
  */
-const PERSIST_ENABLED = !!process.env.DATABASE_URL;
+import { isDatabaseMode } from '@/lib/infra/storage-mode';
+
+const PERSIST_ENABLED = isDatabaseMode();
 
 /**
  * B5: 内存 entries 环形缓冲上限. 防长 uptime 进程内 entries 数组无界增长.

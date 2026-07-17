@@ -16,8 +16,9 @@ import { DrizzleDriveFileRepository } from './drizzle-drive-repo';
 import { DrizzleNotificationRepository } from './drizzle-notification-repo';
 import { InMemoryLaunchpadRepository } from './memory-launchpad-repo';
 import { DrizzleLaunchpadRepository } from './drizzle-launchpad-repo';
+import { isDatabaseMode } from '@/lib/infra/storage-mode';
 
-const USE_DB = !!process.env.DATABASE_URL;
+const USE_DB = isDatabaseMode();
 
 // 模块级单例 — seed 和 API 请求共享同一数据存储
 const _memDocumentRepo = new InMemoryDocumentRepository();

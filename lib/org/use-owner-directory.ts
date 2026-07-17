@@ -25,7 +25,7 @@ export function useOwnerDirectory() {
     const result: PersonLike[] = [];
     const seen = new Set<string>();
     for (const p of orgPeople) {
-      result.push({ id: p.id, name: p.name, ministryId: p.ministryId });
+      result.push({ id: p.id, name: p.name, ministryId: p.ministryId, managerId: p.managerId });
       seen.add(p.id);
     }
     for (const p of fixturePeople) {

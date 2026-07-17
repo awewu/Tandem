@@ -25,6 +25,7 @@ import type { PersonLike } from './ownership';
 
 export interface OrgPerson extends PersonLike {
   email?: string;
+  managerId?: string | null;
   /** 来源标记: 'auth' = 真用户, 'fixture' = zustand 兜底 */
   source: 'auth' | 'fixture';
 }
@@ -34,6 +35,7 @@ interface AuthUserRow {
   name: string;
   email?: string | null;
   departmentId?: string | null;
+  managerId?: string | null;
 }
 
 /** 把 auth user 行转 OrgPerson */
@@ -43,6 +45,7 @@ function authToPerson(u: AuthUserRow): OrgPerson {
     name: u.name,
     email: u.email ?? undefined,
     ministryId: u.departmentId ?? undefined,
+    managerId: u.managerId ?? null,
     source: 'auth',
   };
 }
