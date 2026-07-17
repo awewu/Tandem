@@ -5,7 +5,7 @@
  * so stale PWA caches cannot bypass redirects or login checks.
  */
 
-const CACHE_NAME = 'tandem-v3';
+const CACHE_NAME = 'tandem-v4';
 const OFFLINE_URL = '/offline.html';
 const APP_SHELL = ['/manifest.webmanifest', '/icon-192.png', '/icon-512.png', OFFLINE_URL];
 
@@ -46,10 +46,24 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Next 应用代码必须 network-first。开发环境 chunk URL 可复用，cache-first
+  // 会让浏览器在代码更新后继续执行旧页面。
+  if (url.origin === self.location.origin && url.pathname.startsWith('/_next/static/')) {
+    event.respondWith(
+      fetch(event.request)
+        .then((res) => {
+          const copy = res.clone();
+          if (res.ok) caches.open(CACHE_NAME).then((c) => c.put(event.request, copy)).catch(() => undefined);
+          return res;
+        })
+        .catch(() => caches.match(event.request)),
+    );
+    return;
+  }
+
   const isStaticAsset =
     url.origin === self.location.origin &&
     (
-      url.pathname.startsWith('/_next/static/') ||
       url.pathname.startsWith('/brand/') ||
       url.pathname === '/manifest.webmanifest' ||
       url.pathname === '/favicon.ico' ||
