@@ -31,12 +31,23 @@ async function GETApiHandler(req: NextRequest, { params }: Params) {
   const userId = auth.userId;
 
   const encoder = new TextEncoder();
+  let closed = false;
+  let unsubscribe: (() => void) | null = null;
+  let heartbeat: ReturnType<typeof setInterval> | null = null;
+  const cleanup = () => {
+    if (closed) return;
+    closed = true;
+    if (heartbeat) clearInterval(heartbeat);
+    unsubscribe?.();
+  };
   const stream = new ReadableStream({
     start(controller) {
       const sendComment = (note: string) => {
+        if (closed) return;
         controller.enqueue(encoder.encode(`: ${note}\n\n`));
       };
       const sendEvent = (eventName: string, data: unknown) => {
+        if (closed) return;
         controller.enqueue(
           encoder.encode(`event: ${eventName}\ndata: ${JSON.stringify(data)}\n\n`)
         );
@@ -46,44 +57,51 @@ async function GETApiHandler(req: NextRequest, { params }: Params) {
       sendComment(`im stream open · channel=${channelId} user=${userId}`);
 
       // 心跳, 防代理超时
-      const heartbeat = setInterval(() => {
+      heartbeat = setInterval(() => {
         try {
           sendComment(`heartbeat ${Date.now()}`);
         } catch {
-          /* closed */
+          cleanup();
         }
       }, 25_000);
 
-      const unsubscribe = subscribeIm((evt) => {
-        if (evt.type === 'message' && evt.channelId === channelId) {
-          sendEvent('message', evt.message);
-        } else if (evt.type === 'message_updated' && evt.channelId === channelId) {
-          // Day 4: 撤回 / 编辑 推送
-          sendEvent('message_updated', evt.message);
-        } else if (
-          evt.type === 'unread_changed' &&
-          evt.channelId === channelId &&
-          evt.userId === userId
-        ) {
-          sendEvent('unread', { unread: evt.unread });
-        } else if (
-          evt.type === 'channel_updated' &&
-          evt.channelId === channelId
-        ) {
-          sendEvent('channel', evt.channel);
+      unsubscribe = subscribeIm((evt) => {
+        try {
+          if (evt.type === 'message' && evt.channelId === channelId) {
+            sendEvent('message', evt.message);
+          } else if (evt.type === 'message_updated' && evt.channelId === channelId) {
+            // Day 4: 撤回 / 编辑 推送
+            sendEvent('message_updated', evt.message);
+          } else if (
+            evt.type === 'unread_changed' &&
+            evt.channelId === channelId &&
+            evt.userId === userId
+          ) {
+            sendEvent('unread', { unread: evt.unread });
+          } else if (
+            evt.type === 'channel_updated' &&
+            evt.channelId === channelId
+          ) {
+            sendEvent('channel', evt.channel);
+          }
+        } catch {
+          cleanup();
         }
       });
 
       // 客户端断开时清理
       req.signal.addEventListener('abort', () => {
-        clearInterval(heartbeat);
-        unsubscribe();
+        cleanup();
         try {
           controller.close();
         } catch {
           /* noop */
         }
       });
+    },
+    cancel() {
+      // Next/代理在某些断连路径只触发 stream cancel, 不一定触发 request abort。
+      cleanup();
     },
   });
 

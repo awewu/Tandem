@@ -13,7 +13,7 @@
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { HermesHealth } from '@/components/hermes-health';
 import { useCurrentUser, useAuthStore } from '@/lib/hooks/use-current-user';
@@ -28,6 +28,11 @@ import {
 import { ImSidebar } from '@/components/im/im-sidebar';
 
 const STORAGE_KEY = 'tandem.sub-sidebar.open';
+const IM_WIDTH_KEY = 'tandem.im-sidebar.width';
+const IM_SIDEBAR_COLLAPSED_WIDTH = 48;
+const IM_SIDEBAR_MAX_WIDTH = 520;
+const IM_SIDEBAR_DEFAULT_WIDTH = 360;
+const IM_SIDEBAR_COLLAPSE_THRESHOLD = 72;
 
 export default function SubSidebar() {
   // useSearchParams() 必须在 Suspense 边界内, 否则静态预渲染 (next build) 会因 CSR bailout 失败.
@@ -43,13 +48,25 @@ function SubSidebarInner() {
   const searchParams = useSearchParams();
   const { user, error } = useCurrentUser();
   const fetched = useAuthStore((s) => s.fetched);
+  const sidebarRef = useRef<HTMLElement | null>(null);
+  const imDragWidthRef = useRef(IM_SIDEBAR_DEFAULT_WIDTH);
 
   const [open, setOpen] = useState(true);
+  const [imWidth, setImWidth] = useState(IM_SIDEBAR_DEFAULT_WIDTH);
+  const [resizingIm, setResizingIm] = useState(false);
   // Hydrate collapse pref from localStorage (client-only)
   useEffect(() => {
     try {
       const v = window.localStorage.getItem(STORAGE_KEY);
       if (v === '0') setOpen(false);
+    } catch {
+      /* no-op */
+    }
+    try {
+      const storedWidth = Number(window.localStorage.getItem(IM_WIDTH_KEY));
+      if (Number.isFinite(storedWidth)) {
+        setImWidth(Math.min(IM_SIDEBAR_MAX_WIDTH, Math.max(IM_SIDEBAR_COLLAPSED_WIDTH, storedWidth)));
+      }
     } catch {
       /* no-op */
     }
@@ -61,6 +78,42 @@ function SubSidebarInner() {
       /* no-op */
     }
   }, [open]);
+
+  useEffect(() => {
+    if (!resizingIm) return;
+
+    const onPointerMove = (event: PointerEvent) => {
+      const left = sidebarRef.current?.getBoundingClientRect().left ?? 0;
+      const rawWidth = event.clientX - left;
+      imDragWidthRef.current = rawWidth;
+      const nextWidth = Math.min(IM_SIDEBAR_MAX_WIDTH, Math.max(IM_SIDEBAR_COLLAPSED_WIDTH, rawWidth));
+      setImWidth(nextWidth);
+      setOpen(nextWidth > IM_SIDEBAR_COLLAPSE_THRESHOLD);
+      try {
+        window.localStorage.setItem(IM_WIDTH_KEY, String(nextWidth));
+      } catch {
+        /* no-op */
+      }
+    };
+    const onPointerUp = () => {
+      const shouldCollapse = imDragWidthRef.current <= IM_SIDEBAR_COLLAPSE_THRESHOLD;
+      setOpen(!shouldCollapse);
+      if (shouldCollapse) setImWidth(IM_SIDEBAR_COLLAPSED_WIDTH);
+      setResizingIm(false);
+    };
+
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp, { once: true });
+
+    return () => {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+    };
+  }, [resizingIm]);
 
   const userRoles: Role[] = useMemo(() => resolveNavRoles(user?.roles, {
     fetched, unauthenticated: error === 'unauthenticated' || !user,
@@ -87,15 +140,31 @@ function SubSidebarInner() {
   }
 
   const label = isImModule ? 'IM · 消息' : (activeModule?.fullLabel ?? '');
+  const toggleOpen = () => {
+    setOpen((currentOpen) => {
+      if (isImModule && !currentOpen && imWidth <= IM_SIDEBAR_COLLAPSE_THRESHOLD) {
+        setImWidth(IM_SIDEBAR_DEFAULT_WIDTH);
+        try {
+          window.localStorage.setItem(IM_WIDTH_KEY, String(IM_SIDEBAR_DEFAULT_WIDTH));
+        } catch {
+          /* no-op */
+        }
+      }
+      return !currentOpen;
+    });
+  };
 
   return (
     <aside
+      ref={sidebarRef}
       className={cn(
         // Semantic tokens — flips correctly in dark mode.
-        'flex h-full shrink-0 flex-col border-r border-border bg-[rgb(var(--surface-1))]',
+        'relative flex h-full shrink-0 flex-col border-r border-border bg-[rgb(var(--surface-1))]',
         'transition-[width] duration-base ease-standard',
-        open ? 'w-60' : 'w-12',
+        !isImModule && (open ? 'w-60' : 'w-12'),
+        resizingIm && 'transition-none',
       )}
+      style={isImModule ? { width: open || resizingIm ? imWidth : IM_SIDEBAR_COLLAPSED_WIDTH } : undefined}
       aria-label={label}
     >
       {/* Header */}
@@ -116,7 +185,7 @@ function SubSidebarInner() {
         )}
         <button
           type="button"
-          onClick={() => setOpen((v) => !v)}
+          onClick={toggleOpen}
           className="rounded-md p-1 text-ink-secondary hover:bg-surface-3 hover:text-ink-primary surface-interactive"
           aria-label={open ? '收起子导航' : '展开子导航'}
           title={open ? '收起 (⌘B)' : '展开 (⌘B)'}
@@ -217,6 +286,24 @@ function SubSidebarInner() {
         <div className="border-t border-border p-2">
           <HermesHealth compact />
         </div>
+      )}
+      {isImModule && (
+        <button
+          type="button"
+          aria-label="拖动调整会话栏宽度"
+          title="拖动调整会话栏宽度"
+          onPointerDown={(event) => {
+            event.preventDefault();
+            imDragWidthRef.current = sidebarRef.current?.getBoundingClientRect().width ?? imWidth;
+            setResizingIm(true);
+          }}
+          className={cn(
+            'absolute bottom-0 right-[-4px] top-0 z-20 hidden w-2 cursor-col-resize md:block',
+            'after:absolute after:bottom-0 after:left-1/2 after:top-0 after:w-px after:-translate-x-1/2 after:bg-transparent',
+            'hover:after:bg-[rgb(var(--brand-500))]',
+            resizingIm && 'after:bg-[rgb(var(--brand-500))]',
+          )}
+        />
       )}
     </aside>
   );

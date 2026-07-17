@@ -323,7 +323,7 @@ function ImInner() {
     const poll = window.setInterval(() => {
       if (document.visibilityState === 'hidden') return;
       void refreshMessages(activeId);
-    }, 4000);
+    }, 30_000);
 
     return () => {
       window.clearInterval(poll);

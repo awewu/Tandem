@@ -132,20 +132,14 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
 
   useEffect(() => { void loadChannels(); }, [loadChannels]);
 
-  // 每 10s 轮询未读
+  // 兜底刷新会话列表。实时消息由主聊天区 SSE 承接, 这里降低后台压力。
   useEffect(() => {
-    const id = setInterval(() => void loadChannels(), 10_000);
+    const id = setInterval(() => {
+      if (document.visibilityState === 'hidden') return;
+      void loadChannels();
+    }, 30_000);
     return () => clearInterval(id);
   }, [loadChannels]);
-
-  // 监听 SSE unread 事件 (跨频道) — 当 activeId 变化时重建
-  useEffect(() => {
-    if (!activeId) return;
-    const es = new EventSource(`/api/im/channels/${activeId}/stream?userId=${ME}`);
-    es.addEventListener('unread', () => void loadChannels());
-    es.addEventListener('channel', () => void loadChannels());
-    return () => es.close();
-  }, [activeId, ME, loadChannels]);
 
   const filteredChannels = useMemo(() => {
     let list = channels;

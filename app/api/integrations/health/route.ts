@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { boot, getStore } from '@/lib/boot';
 import { withApiLog } from '@/lib/api-log/with-api-log';
+import { isYonyouTokenConfigured } from '@/lib/integrations/yonyou-token';
 
 /**
  * GET /api/integrations/health
@@ -15,7 +16,7 @@ import { withApiLog } from '@/lib/api-log/with-api-log';
 
 interface HealthCheck {
   name: string;
-  category: 'oss' | 'llm' | 'sso' | 'storage' | 'self-built';
+  category: 'oss' | 'llm' | 'sso' | 'storage' | 'self-built' | 'erp';
   configured: boolean;
   reachable?: boolean;
   latencyMs?: number;
@@ -112,6 +113,15 @@ async function GETApiHandler() {
       error: r.error,
     });
   }
+
+  checks.push({
+    name: 'Yonyou ERP access_token',
+    category: 'erp',
+    configured: isYonyouTokenConfigured(),
+    note: isYonyouTokenConfigured()
+      ? '配置已存在；用 /api/integrations/yonyou/token 做受控连通性探测'
+      : '配置 YONYOU_ERP_BASE_URL / YONYOU_ERP_APP_KEY / YONYOU_ERP_APP_SECRET 后启用',
+  });
 
   // === Storage ===
   checks.push({

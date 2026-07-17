@@ -161,9 +161,9 @@ export async function getChannelMessages(
   options: { limit?: number; before?: string } = {}
 ): Promise<ImMessage[]> {
   const store = getStore();
-  const all = await store.imMessages.list();
+  const all = await store.imMessages.list({ channelId });
   let msgs = all
-    .filter((m) => m.channelId === channelId && !m.deletedAt)
+    .filter((m) => !m.deletedAt)
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   if (options.before) {
     msgs = msgs.filter((m) => m.createdAt < options.before!);

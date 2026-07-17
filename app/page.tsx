@@ -541,6 +541,9 @@ function resolveLaunchpadIcon(name: string): React.ComponentType<{ className?: s
 
 const PLM_SSO_URL = 'https://studio.rhautt.com/api/auth/sso?next=%2F';
 const STRAT_SSO_URL = 'https://strat.rhautt.com/api/auth/tandem?next=%2Fcommand';
+const YONYOU_SSO_URL = '/api/integrations/yonyou/sso';
+const YONYOU_SSO_URL_API = '/api/integrations/yonyou/sso/url';
+const AFTER_SALES_URL = 'https://service.rhenext.com/';
 
 function LaunchpadSection({
   apps,
@@ -595,14 +598,43 @@ function LaunchpadTile({ app, recommended }: { app: LaunchpadAppWithBadge; recom
   // url 约定: '#xxx' = 接口预留待接入 (点击不跳转); '/xxx' = 站内导航; 其余 = 外部新窗口.
   const isPlm = /PLM/i.test(app.name);
   const isStrat = /StratOS|战略/i.test(app.name);
-  const ssoUrl = isPlm ? PLM_SSO_URL : isStrat ? STRAT_SSO_URL : null;
+  const isYonyouErp = /YonSuite|Youngsuite/i.test(app.name);
+  const isAfterSales = /售后/.test(app.name);
+  const ssoUrl = isPlm
+    ? PLM_SSO_URL
+    : isStrat
+      ? STRAT_SSO_URL
+      : isYonyouErp
+        ? YONYOU_SSO_URL
+        : isAfterSales
+          ? AFTER_SALES_URL
+          : null;
   const resolvedUrl = ssoUrl ?? app.url;
   const pending = resolvedUrl.startsWith('#');
-  const internal = resolvedUrl.startsWith('/');
 
   async function handleClick(e: React.MouseEvent) {
     e.preventDefault();
     if (pending) return; // 待接入: 接口已预留, 待 /admin/launchpad 填真实地址
+    if (isYonyouErp) {
+      try {
+        const r = await fetch(YONYOU_SSO_URL_API, {
+          credentials: 'include',
+          cache: 'no-store',
+        });
+        if (r.ok) {
+          const d = await r.json();
+          if (d?.url) {
+            window.location.assign(d.url);
+            return;
+          }
+        }
+      } catch {
+        /* fall through to server redirect endpoint */
+      }
+      window.location.assign(resolvedUrl);
+      return;
+    }
+
     let target = resolvedUrl;
     try {
       const r = await fetch(`/api/launchpad/${app.id}/click`, {
@@ -617,8 +649,7 @@ function LaunchpadTile({ app, recommended }: { app: LaunchpadAppWithBadge; recom
     } catch {
       /* fall through with app.url */
     }
-    if (internal) window.location.href = target;
-    else window.open(target, '_blank', 'noopener');
+    window.open(target, '_blank', 'noopener');
   }
 
   const NamedIcon = resolveLaunchpadIcon(app.name);
@@ -628,9 +659,9 @@ function LaunchpadTile({ app, recommended }: { app: LaunchpadAppWithBadge; recom
   return (
     <a
       href={resolvedUrl}
-      target={ssoUrl ? '_blank' : undefined}
-      rel={ssoUrl ? 'noopener' : undefined}
-      onClick={ssoUrl ? undefined : handleClick}
+      target={pending || isYonyouErp ? undefined : '_blank'}
+      rel={pending || isYonyouErp ? undefined : 'noopener'}
+      onClick={handleClick}
       className="rheem-tile group"
       title={pending ? `${app.name} · 接口预留, 待接入` : app.description || app.name}
       aria-disabled={pending}
