@@ -175,6 +175,7 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
   const [recurCount, setRecurCount] = useState(10);
   const [recurWeekdays, setRecurWeekdays] = useState<number[]>([]);
   const [mutationScope, setMutationScope] = useState<CalendarMutationScope>('single');
+  const [createImReminder, setCreateImReminder] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [formError, setFormError] = useState('');
@@ -183,6 +184,7 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
   const [jobStatus, setJobStatus] = useState<JobStatus | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pollErrorCountRef = useRef(0);
+  const createImReminderAfterSaveRef = useRef(false);
 
   useEffect(() => () => { if (pollTimerRef.current) clearTimeout(pollTimerRef.current); }, []);
 
@@ -200,6 +202,20 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
       clearTimeout(pollTimerRef.current);
       pollTimerRef.current = null;
     }
+  }, []);
+
+  const sendImReminderForEvent = useCallback(async (eventId: string) => {
+    const response = await fetchWithTimeout('/api/calendar/im-reminder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ eventId }),
+    }, CALENDAR_MUTATION_TIMEOUT_MS);
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.error?.message ?? data.error ?? 'IM 群提醒发送失败');
+    }
+    return data;
   }, []);
 
   const pollJobStatus = useCallback(async (jobId: string) => {
@@ -231,8 +247,25 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
           pollTimerRef.current = null;
           if (data.status === 'completed') {
             try { await onSaved?.(); } catch { /* refresh failed, not critical */ }
-            if (data.result?.warnings?.length) {
-              setFormError(`日程已保存，但邮件发送有警告：${data.result.warnings.join('；')}`);
+            const warnings = Array.isArray(data.result?.warnings) ? data.result.warnings : [];
+            if (createImReminderAfterSaveRef.current) {
+              const eventId = data.result?.events?.[0]?.id;
+              if (!eventId) {
+                setFormError('日程已创建，但未返回可用于建立 IM 群聊的日程 ID。');
+                setSaving(false);
+                return;
+              }
+              try {
+                await sendImReminderForEvent(eventId);
+              } catch (error) {
+                setFormError(`日程已创建，但 IM 群聊提醒失败：${error instanceof Error ? error.message : '未知错误'}`);
+                setSaving(false);
+                return;
+              }
+            }
+            if (warnings.length) {
+              const prefix = createImReminderAfterSaveRef.current ? '日程已保存，IM 群聊提醒已发送' : '日程已保存';
+              setFormError(`${prefix}，但邮件发送有警告：${warnings.join('；')}`);
             } else {
               onClose();
             }
@@ -250,7 +283,7 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
       }
     };
     void poll();
-  }, [onClose, onSaved]);
+  }, [onClose, onSaved, sendImReminderForEvent]);
 
   // 初始化表单
   useEffect(() => {
@@ -285,6 +318,7 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
       setRecurCount(ruleEnd?.type === 'count' ? ruleEnd.count : 10);
       setRecurWeekdays(nextWeekdays);
       setMutationScope(editing.seriesId ? 'series' : 'single');
+      setCreateImReminder(false);
     } else {
       const base = defaultStartDate(initialDate);
       const end = new Date(base.getTime() + 30 * 60 * 1000);
@@ -311,10 +345,12 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
       setRecurCount(10);
       setRecurWeekdays([base.getDay()]);
       setMutationScope('single');
+      setCreateImReminder(false);
     }
     setFormError('');
     setPrepResult(null);
     setJobStatus(null);
+    createImReminderAfterSaveRef.current = false;
     stopPolling();
   }, [open, editing, initialDate, writableCals, stopPolling]);
 
@@ -404,6 +440,7 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
     setJobStatus(null);
     stopPolling();
     pollErrorCountRef.current = 0;
+    createImReminderAfterSaveRef.current = !editing && type === 'meeting' && createImReminder;
 
     let startedAsyncJob = false;
     try {
@@ -767,6 +804,23 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
             <div className={FORM_ROW_CLASS}>
               <Label className={FORM_LABEL_CLASS}>成员</Label>
               <div className="min-w-0 flex-1"><AttendeePicker value={attendees} onChange={setAttendees} showLabel={false} /></div>
+            </div>
+          )}
+
+          {!editing && type === 'meeting' && (
+            <div className={FORM_ROW_CLASS}>
+              <Label className={FORM_LABEL_CLASS}>IM</Label>
+              <div className="min-w-0 flex-1 rounded-lg border border-brand-200/70 bg-brand-50/40 px-3 py-2.5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="text-body font-medium text-ink-primary">创建后建立 IM 群聊并通知</div>
+                    <p className="text-caption leading-5 text-muted-foreground">
+                      勾选后，日程创建完成会为系统内参会人创建或复用 IM 群，并发送参会提醒；外部邮箱不会入群。
+                    </p>
+                  </div>
+                  <Switch checked={createImReminder} onCheckedChange={setCreateImReminder} />
+                </div>
+              </div>
             </div>
           )}
 
