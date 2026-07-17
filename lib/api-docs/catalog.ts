@@ -134,7 +134,12 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
   { group: 'OKR、KPI 与绩效', path: '/api/tti', methods: ['GET', 'POST'], auth: 'auth' },
 
   { group: '协作、IM 与日程', path: '/api/calendar', methods: ['GET', 'POST'], auth: 'auth' },
+  { group: '协作、IM 与日程', path: '/api/calendar/{id}', methods: ['DELETE', 'PATCH'], auth: 'auth' },
   { group: '协作、IM 与日程', path: '/api/calendar/{id}/invite', methods: ['POST'], auth: 'middleware' },
+  { group: '协作、IM 与日程', path: '/api/calendar/attendees', methods: ['GET'], auth: 'auth' },
+  { group: '协作、IM 与日程', path: '/api/calendar/reminders/process', methods: ['POST'], auth: 'auth' },
+  { group: '协作、IM 与日程', path: '/api/calendar/subscriptions', methods: ['GET', 'POST'], auth: 'auth' },
+  { group: '协作、IM 与日程', path: '/api/calendar/subscriptions/{id}', methods: ['PATCH'], auth: 'auth' },
   { group: '协作、IM 与日程', path: '/api/calendar/meeting-prep', methods: ['POST'], auth: 'auth' },
   { group: '协作、IM 与日程', path: '/api/calendar/meeting-retro', methods: ['POST'], auth: 'auth' },
   { group: '协作、IM 与日程', path: '/api/calendar/nlp-create', methods: ['POST'], auth: 'auth' },

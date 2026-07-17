@@ -9,29 +9,58 @@
  */
 
 import { useEffect, useMemo, useState, useCallback } from 'react';
-import { useCalendarStore, type EventInstance, fmtMonthCN } from '@/lib/store/calendar';
+import { useCalendarStore, type CalendarEvent, type EventInstance, fmtMonthCN } from '@/lib/store/calendar';
 import { useOKRStore } from '@/lib/store/okr';
 import { useOwnerDirectory } from '@/lib/org/use-owner-directory';
-import { checkReminders, sendReminderEmail } from '@/lib/calendar/email-bridge';
+import { useCurrentUser } from '@/lib/hooks/use-current-user';
+import { fetchWithTimeout } from '@/lib/http/fetch-with-timeout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   ChevronLeft, ChevronRight, Plus, Sparkles, Wand2,
   LayoutGrid, Columns3, List, Eye, EyeOff,
-  ShieldCheck, MessageSquare,
+  ShieldCheck, MessageSquare, History, RefreshCw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import MonthView from '@/components/calendar/month-view';
 import WeekView from '@/components/calendar/week-view';
 import DayView from '@/components/calendar/day-view';
 import EventEditor from '@/components/calendar/event-editor';
+import CalendarSubscriptionPanel from '@/components/calendar/subscription-panel';
+import UpcomingEvents from '@/components/calendar/upcoming-events';
 
 type ViewMode = 'month' | 'week' | 'day';
 
+const CALENDAR_REQUEST_TIMEOUT_MS = 15_000;
+const ACTIVITY_PAGE_SIZE = 10;
+
+interface CalendarActivityItem {
+  id: string;
+  actorId: string;
+  actorEmail?: string;
+  actorName?: string;
+  action: string;
+  targetType: 'event' | 'subscription';
+  targetId: string;
+  eventId?: string;
+  eventTitle?: string;
+  scope?: 'single' | 'future' | 'series';
+  attendeeEmails?: string[];
+  attendeeUsers?: Array<{ id: string; name: string; email: string }>;
+  targetUserId?: string;
+  subscriberId?: string;
+  detailPermission?: string;
+  status?: string;
+  metadata?: Record<string, unknown>;
+  occurredAt: string;
+}
+
 export default function CalendarPage() {
   const {
-    calendars, events, toggleCalendarVisibility, addEvent, deleteEvent,
+    calendars, events, toggleCalendarVisibility, addEvent, deleteEvent, replaceManagedEvents,
   } = useCalendarStore();
+  const { user } = useCurrentUser();
   const { cycles, keyResults, checkIns, objectives } = useOKRStore();
   const { nameOf } = useOwnerDirectory();
 
@@ -53,6 +82,13 @@ export default function CalendarPage() {
   // 智能时间建议
   const [smartSuggestions, setSmartSuggestions] = useState<Array<{ startTime: number; endTime: number; reason: string }> | null>(null);
   const [showSmartTime, setShowSmartTime] = useState(false);
+  const [subscribedTargetId, setSubscribedTargetId] = useState<string | null>(null);
+  const [activityOpen, setActivityOpen] = useState(false);
+  const [activityPage, setActivityPage] = useState(1);
+  const [activityTotal, setActivityTotal] = useState(0);
+  const [activityItems, setActivityItems] = useState<CalendarActivityItem[]>([]);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activityError, setActivityError] = useState('');
 
   // 初始化
   useEffect(() => {
@@ -62,18 +98,76 @@ export default function CalendarPage() {
     setTodayMs(new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime());
   }, []);
 
-  // 提醒轮询 (每 60 秒检查一次, 到期发邮件通知)
-  useEffect(() => {
-    if (events.length === 0) return;
-    const timer = setInterval(() => {
-      const fired = checkReminders(events);
-      for (const f of fired) {
-        const ev = events.find((e) => e.id === f.eventId);
-        if (ev) sendReminderEmail(ev, f.minutesBefore).catch(() => {});
+  const refreshManagedEvents = useCallback(async () => {
+    if (!user?.id) return;
+    const ownResponse = await fetchWithTimeout('/api/calendar', { credentials: 'include', cache: 'no-store' }, CALENDAR_REQUEST_TIMEOUT_MS);
+    if (!ownResponse.ok) return;
+    const ownData = await ownResponse.json().catch(() => ({}));
+    let managed = mapApiEvents(ownData.events ?? [], 'cal-personal');
+    if (subscribedTargetId) {
+      const subscribedResponse = await fetchWithTimeout(`/api/calendar?ownerId=${encodeURIComponent(subscribedTargetId)}`, { credentials: 'include', cache: 'no-store' }, CALENDAR_REQUEST_TIMEOUT_MS);
+      if (subscribedResponse.ok) {
+        const subscribedData = await subscribedResponse.json().catch(() => ({}));
+        managed = [...managed, ...mapApiEvents(subscribedData.events ?? [], 'cal-meetings')];
       }
-    }, 60_000);
+    }
+    replaceManagedEvents(managed);
+  }, [replaceManagedEvents, subscribedTargetId, user?.id]);
+
+  useEffect(() => {
+    void refreshManagedEvents().catch(() => undefined);
+  }, [refreshManagedEvents]);
+
+  const loadActivity = useCallback(async (page = activityPage) => {
+    if (!user?.id) return;
+    setActivityLoading(true);
+    setActivityError('');
+    try {
+      const response = await fetchWithTimeout(
+        `/api/calendar/activity?page=${page}&pageSize=${ACTIVITY_PAGE_SIZE}`,
+        { credentials: 'include', cache: 'no-store' },
+        CALENDAR_REQUEST_TIMEOUT_MS,
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error?.message ?? data.error ?? '日程记录读取失败');
+      setActivityItems(Array.isArray(data.items) ? data.items : []);
+      setActivityTotal(Number(data.total ?? 0));
+      setActivityPage(Number(data.page ?? page));
+    } catch (error) {
+      setActivityError(error instanceof Error ? error.message : '日程记录读取失败');
+    } finally {
+      setActivityLoading(false);
+    }
+  }, [activityPage, user?.id]);
+
+  useEffect(() => {
+    if (activityOpen) void loadActivity(activityPage);
+  }, [activityOpen, activityPage, loadActivity]);
+
+  useEffect(() => {
+    const refreshOnFocus = () => void refreshManagedEvents().catch(() => undefined);
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') void refreshManagedEvents().catch(() => undefined);
+    };
+    window.addEventListener('focus', refreshOnFocus);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => {
+      window.removeEventListener('focus', refreshOnFocus);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
+  }, [refreshManagedEvents]);
+
+  // 提醒轮询只触发站内通知任务，不发送提醒邮件。
+  useEffect(() => {
+    if (!user?.id) return;
+    const processReminders = () => fetch('/api/calendar/reminders/process', {
+      method: 'POST',
+      credentials: 'include',
+    }).catch(() => undefined);
+    void processReminders();
+    const timer = setInterval(processReminders, 60_000);
     return () => clearInterval(timer);
-  }, [events]);
+  }, [user?.id]);
 
   // 自动同步 OKR 数据 → CalendarEvent (cal-okr)
   useEffect(() => {
@@ -203,12 +297,28 @@ export default function CalendarPage() {
   const monthLabel = year === 0 ? '加载中...' : fmtMonthCN(year, month);
 
   const handleEventClick = (instance: EventInstance) => {
+    const event = events.find((item) => item.id === instance.eventId);
+    if (event?.serverManaged && event.createdBy !== user?.id) {
+      alert([
+        event.title,
+        `${new Date(event.startTime).toLocaleString('zh-CN')} - ${new Date(event.endTime).toLocaleString('zh-CN')}`,
+        event.location,
+        event.description,
+        event.attendeeEmails?.length ? `参会人: ${formatEventAttendees(event)}` : '',
+        event.organizer ? `发起人: ${formatPerson(event.organizer.name, event.organizer.email)}` : `发起人: ${event.createdBy}`,
+        event.reminders?.length ? `提醒: ${describeReminder(event.reminders[0].minutesBefore)}` : '提醒: 无',
+        event.recurrenceRule ? `重复: ${describeRecurrence(event.recurrenceRule)}` : '重复: 不重复',
+        event.hasConflict ? '时间冲突' : '',
+      ].filter(Boolean).join('\n'));
+      return;
+    }
     setEditorEventId(instance.eventId);
     setEditorDate(undefined);
     setEditorOpen(true);
   };
 
   const handleCellClick = (date: Date) => {
+    if (new Date(date).setHours(0, 0, 0, 0) < new Date().setHours(0, 0, 0, 0)) return;
     setSelectedDate(new Date(date));
     setEditorDate(new Date(date));
     setEditorEventId(undefined);
@@ -234,13 +344,25 @@ export default function CalendarPage() {
       });
       const json = await res.json().catch(() => ({}));
       if (json.ok && json.event) {
-        addEvent({
-          ...json.event,
-          calendarId: 'cal-personal',
-          createdBy: 'me',
-          status: 'confirmed',
-          reminders: [{ minutesBefore: 15 }],
-        } as any);
+        const createResponse = await fetch('/api/calendar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            title: json.event.title,
+            description: json.event.description,
+            startAt: new Date(json.event.startTime).toISOString(),
+            endAt: new Date(json.event.endTime).toISOString(),
+            location: json.event.location,
+            attendeeEmails: Array.isArray(json.event.attendees) ? json.event.attendees : [],
+            reminderMinutes: 15,
+          }),
+        });
+        if (!createResponse.ok) {
+          const error = await createResponse.json().catch(() => ({}));
+          throw new Error(error.error?.message ?? '创建失败');
+        }
+        await refreshManagedEvents();
         setNlpText('');
       } else {
         alert(json.error || '解析失败');
@@ -294,17 +416,12 @@ export default function CalendarPage() {
               now.setMinutes(0, 0, 0);
               now.setHours(now.getHours() + 1);
               const end = new Date(now.getTime() + 2 * 60 * 60 * 1000);
-              addEvent({
-                calendarId: 'cal-personal',
+              void createQuickManagedEvent({
                 title: '🔒 深度工作 (Focus Time)',
                 startTime: now.getTime(),
                 endTime: end.getTime(),
-                isAllDay: false,
-                type: 'custom',
-                createdBy: 'me',
-                status: 'confirmed',
-                reminders: [{ minutesBefore: 5 }],
-              } as any);
+                reminderMinutes: 5,
+              });
             }}
           >
             <ShieldCheck className="h-3.5 w-3.5" />
@@ -354,6 +471,12 @@ export default function CalendarPage() {
 
           {/* 今日 upcoming */}
           <UpcomingEvents />
+          <CalendarSubscriptionPanel
+            currentUserId={user?.id ?? ''}
+            selectedTargetId={subscribedTargetId}
+            onViewTarget={setSubscribedTargetId}
+            onChanged={refreshManagedEvents}
+          />
         </div>
       </aside>
 
@@ -393,6 +516,19 @@ export default function CalendarPage() {
             <Button variant="ghost" size="sm" className="gap-1 text-caption" onClick={handleSmartTime}>
               <Wand2 className="h-3.5 w-3.5" />
               智能时间
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1 text-caption"
+              onClick={() => {
+                setActivityPage(1);
+                setActivityOpen(true);
+              }}
+            >
+              <History className="h-3.5 w-3.5" />
+              日程记录
             </Button>
 
             <div className="w-px h-5 bg-border mx-1" />
@@ -493,40 +629,249 @@ export default function CalendarPage() {
         onClose={() => setEditorOpen(false)}
         initialDate={editorDate}
         editEventId={editorEventId}
+        onSaved={refreshManagedEvents}
       />
+
+      <Dialog open={activityOpen} onOpenChange={setActivityOpen}>
+        <DialogContent className="sm:max-w-3xl max-h-[82vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="h-4 w-4" />
+              日程记录
+            </DialogTitle>
+            <DialogDescription>
+              记录创建、修改、取消和订阅动作；可用来对照邮件实际到达时间。
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-caption text-muted-foreground">
+              共 {activityTotal} 条 · 第 {activityPage}/{Math.max(1, Math.ceil(activityTotal / ACTIVITY_PAGE_SIZE))} 页
+            </div>
+            <Button type="button" variant="outline" size="sm" onClick={() => void loadActivity(activityPage)} disabled={activityLoading}>
+              <RefreshCw className={cn('h-3.5 w-3.5 mr-1', activityLoading && 'animate-spin')} />
+              刷新
+            </Button>
+          </div>
+
+          {activityError && (
+            <div className="rounded-md border border-danger/30 bg-danger/5 px-3 py-2 text-caption text-danger">
+              {activityError}
+            </div>
+          )}
+
+          <div className="min-h-[320px] max-h-[52vh] overflow-y-auto rounded-lg border">
+            {activityLoading && activityItems.length === 0 ? (
+              <div className="h-48 flex items-center justify-center text-caption text-muted-foreground">读取中...</div>
+            ) : activityItems.length === 0 ? (
+              <div className="h-48 flex items-center justify-center text-caption text-muted-foreground">暂无日程记录</div>
+            ) : (
+              <div className="divide-y">
+                {activityItems.map((item) => (
+                  <div key={item.id} className="p-3 hover:bg-muted/30 transition-colors">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-700">
+                            {activityActionLabel(item.action)}
+                          </span>
+                          {item.scope && (
+                            <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+                              {activityScopeLabel(item.scope)}
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-1 font-medium truncate">
+                          {activityTitle(item)}
+                        </div>
+                        <div className="mt-1 text-caption text-muted-foreground">
+                          操作人：{formatActivityActor(item)}
+                        </div>
+                        {item.attendeeEmails?.length ? (
+                          <div className="mt-1 break-words text-[11px] text-muted-foreground">
+                            参会人：{formatActivityAttendees(item)}
+                          </div>
+                        ) : null}
+                        {(item.subscriberId || item.targetUserId) && (
+                          <div className="mt-1 text-[11px] text-muted-foreground truncate">
+                            订阅人：{item.subscriberId || '-'} · 被订阅人：{item.targetUserId || '-'}
+                          </div>
+                        )}
+                      </div>
+                      <div className="shrink-0 text-right text-caption text-muted-foreground">
+                        <div>{formatActivityTime(item.occurredAt)}</div>
+                        <div className="text-[11px]">{new Date(item.occurredAt).toLocaleTimeString('zh-CN')}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={activityLoading || activityPage <= 1}
+              onClick={() => setActivityPage((page) => Math.max(1, page - 1))}
+            >
+              上一页
+            </Button>
+            <div className="text-caption text-muted-foreground">
+              每页 {ACTIVITY_PAGE_SIZE} 条
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={activityLoading || activityPage >= Math.max(1, Math.ceil(activityTotal / ACTIVITY_PAGE_SIZE))}
+              onClick={() => setActivityPage((page) => page + 1)}
+            >
+              下一页
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
+
+  async function createQuickManagedEvent(input: { title: string; startTime: number; endTime: number; reminderMinutes: number }) {
+    const response = await fetch('/api/calendar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        title: input.title,
+        startAt: new Date(input.startTime).toISOString(),
+        endAt: new Date(input.endTime).toISOString(),
+        reminderMinutes: input.reminderMinutes,
+      }),
+    });
+    if (response.ok) await refreshManagedEvents();
+  }
 }
 
-/** 今日 upcoming 小部件 */
-function UpcomingEvents() {
-  const { getUpcomingEvents, calendars } = useCalendarStore();
-  const upcoming = useMemo(() => getUpcomingEvents(5), [getUpcomingEvents]);
+function mapApiEvents(events: Array<Record<string, any>>, calendarId: string): CalendarEvent[] {
+  return events.map((event) => ({
+    id: event.id,
+    calendarId,
+    title: event.title,
+    description: event.description ?? undefined,
+    location: event.location ?? undefined,
+    startTime: new Date(event.startAt).getTime(),
+    endTime: new Date(event.endAt).getTime(),
+    isAllDay: event.allDay === true,
+    type: 'meeting',
+    attendees: event.attendeeEmails ?? [],
+    attendeeEmails: event.attendeeEmails ?? [],
+    attendeeUsers: Array.isArray(event.attendeeUsers) ? event.attendeeUsers : [],
+    externalAttendeeEmails: event.externalAttendeeEmails ?? [],
+    reminders: event.reminderMinutes === null || event.reminderMinutes === undefined
+      ? undefined
+      : [{ minutesBefore: event.reminderMinutes }],
+    recurrenceRule: event.recurringRule ?? undefined,
+    seriesId: event.seriesId ?? undefined,
+    hasConflict: event.hasConflict === true,
+    visibility: event.visibility,
+    organizer: event.organizer,
+    createdBy: event.ownerId,
+    createdAt: new Date(event.createdAt).getTime(),
+    updatedAt: new Date(event.updatedAt).getTime(),
+    status: event.status,
+    color: calendarId === 'cal-meetings' ? 'bg-violet-500' : 'bg-blue-500',
+    serverManaged: true,
+  }));
+}
 
-  if (upcoming.length === 0) return null;
+function describeReminder(minutes: number): string {
+  if (minutes === 0) return '准时';
+  if (minutes % 1440 === 0) return `提前 ${minutes / 1440} 天`;
+  if (minutes % 60 === 0) return `提前 ${minutes / 60} 小时`;
+  return `提前 ${minutes} 分钟`;
+}
 
-  return (
-    <div className="mt-4">
-      <h3 className="text-caption font-semibold text-muted-foreground mb-2 uppercase tracking-wider">即将到来</h3>
-      <div className="space-y-1.5">
-        {upcoming.map((ev) => {
-          const cal = calendars.find((c) => c.id === ev.calendarId);
-          const date = new Date(ev.startTime);
-          const isToday = new Date().toDateString() === date.toDateString();
-          return (
-            <div key={ev.instanceId} className="text-caption px-2 py-1.5 rounded-md bg-muted/50">
-              <div className="flex items-center gap-1.5">
-                <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', cal?.color || 'bg-slate-400')} />
-                <span className="font-medium truncate">{ev.title}</span>
-              </div>
-              <div className="text-muted-foreground mt-0.5 pl-3">
-                {isToday ? '今天' : `${date.getMonth() + 1}/${date.getDate()}`}
-                {!ev.isAllDay && ` · ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
+function describeRecurrence(rule: NonNullable<CalendarEvent['recurrenceRule']>): string {
+  const frequency = { daily: '每天', weekly: '每周', monthly: '每月', weekdays: '工作日', custom: '自定义' }[rule.frequency];
+  const interval = rule.interval > 1 ? `，间隔 ${rule.interval}` : '';
+  const ending = rule.end.type === 'count'
+    ? `，共 ${rule.end.count} 次`
+    : rule.end.type === 'date'
+      ? `，至 ${rule.end.date}`
+      : '，永不结束';
+  return `${frequency}${interval}${ending}`;
+}
+
+function formatEventAttendees(event: CalendarEvent): string {
+  const usersByEmail = new Map(
+    (event.attendeeUsers ?? []).map((person) => [person.email.trim().toLowerCase(), person]),
   );
+  return Array.from(new Set((event.attendeeEmails ?? []).map((email) => email.trim().toLowerCase()).filter(Boolean)))
+    .map((email) => {
+      const user = usersByEmail.get(email);
+      return user ? formatPerson(user.name, user.email) : email;
+    })
+    .join(', ');
+}
+
+function formatPerson(name: string | undefined, email: string): string {
+  const trimmedName = name?.trim();
+  const trimmedEmail = email.trim();
+  return trimmedName && trimmedName !== trimmedEmail ? `${trimmedName} (${trimmedEmail})` : trimmedEmail;
+}
+
+function formatActivityActor(item: CalendarActivityItem): string {
+  if (item.actorEmail) return formatPerson(item.actorName, item.actorEmail);
+  return item.actorName || item.actorId;
+}
+
+function formatActivityAttendees(item: CalendarActivityItem): string {
+  const usersByEmail = new Map(
+    (item.attendeeUsers ?? []).map((person) => [person.email.trim().toLowerCase(), person]),
+  );
+  return Array.from(new Set((item.attendeeEmails ?? []).map((email) => email.trim().toLowerCase()).filter(Boolean)))
+    .map((email) => {
+      const user = usersByEmail.get(email);
+      return user ? formatPerson(user.name, user.email) : email;
+    })
+    .join(', ');
+}
+
+function activityActionLabel(action: string): string {
+  const labels: Record<string, string> = {
+    'event.created': '创建日程',
+    'event.updated': '修改日程',
+    'event.cancelled': '取消日程',
+    'subscription.created': '创建订阅',
+    'subscription.cancelled': '取消订阅',
+    'subscription.approved': '同意详情',
+    'subscription.rejected': '拒绝详情',
+    'subscription.revoked': '撤销详情',
+  };
+  return labels[action] ?? action;
+}
+
+function activityScopeLabel(scope: 'single' | 'future' | 'series'): string {
+  return scope === 'single' ? '仅本次' : scope === 'future' ? '本次及以后' : '整个重复日程';
+}
+
+function activityTitle(item: CalendarActivityItem): string {
+  if (item.targetType === 'event') return item.eventTitle || item.eventId || item.targetId;
+  if (item.action === 'subscription.created') return '订阅了他人的日程';
+  if (item.action === 'subscription.cancelled') return '取消了日程订阅';
+  return '处理了日程详情权限';
+}
+
+function formatActivityTime(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
 }

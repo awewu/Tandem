@@ -16,6 +16,8 @@ describe('business log', () => {
   it('redacts secrets, PII, and free-form content', () => {
     const result = redactBusinessLogData({
       password: 'plain-secret',
+      smtpPass: 'mail-secret',
+      smtpPassEncrypted: 'encrypted-mail-secret',
       accessToken: 'bearer-secret',
       email: 'alice@example.com',
       phone: '13812345678',
@@ -25,6 +27,8 @@ describe('business log', () => {
     const serialized = JSON.stringify(result);
     expect(serialized).not.toContain('plain-secret');
     expect(serialized).not.toContain('bearer-secret');
+    expect(serialized).not.toContain('mail-secret');
+    expect(serialized).not.toContain('encrypted-mail-secret');
     expect(serialized).not.toContain('confidential business content');
     expect(serialized).not.toContain('alice@example.com');
     expect(serialized).not.toContain('13812345678');

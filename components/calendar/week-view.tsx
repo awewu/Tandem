@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { useCalendarStore, type EventInstance, fmtTime, fmtDateCN, getWeekRange } from '@/lib/store/calendar';
 import { cn } from '@/lib/utils';
+import { AlertTriangle } from 'lucide-react';
 
 interface WeekViewProps {
   date: Date;
@@ -82,6 +83,7 @@ export default function WeekView({ date, todayMs, onEventClick, onCellClick }: W
 
           {/* 7 天列 */}
           {days.map((d) => {
+            const isPast = d.dateMs < todayMs;
             const dayEvents = (eventsByDay.get(d.dateMs) ?? [])
               .filter((e) => !e.isAllDay)
               .sort((a, b) => a.startTime - b.startTime);
@@ -91,10 +93,11 @@ export default function WeekView({ date, todayMs, onEventClick, onCellClick }: W
               <div
                 key={d.dateMs}
                 className={cn(
-                  'bg-background relative cursor-pointer hover:bg-muted/20',
+                  'bg-background relative',
+                  isPast ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-muted/20',
                   d.isToday && 'bg-warning/[0.03] border-warning/10'
                 )}
-                onClick={() => onCellClick(new Date(d.dateMs))}
+                onClick={() => !isPast && onCellClick(new Date(d.dateMs))}
               >
                 {/* 全天事件 */}
                 {allDayEvents.length > 0 && (
@@ -144,6 +147,7 @@ export default function WeekView({ date, todayMs, onEventClick, onCellClick }: W
                         onClick={(e) => { e.stopPropagation(); onEventClick(ev); }}
                       >
                         <div className="font-medium truncate">{ev.title}</div>
+                        {ev.hasConflict && <div className="flex items-center gap-0.5 text-[9px] font-medium"><AlertTriangle className="h-2.5 w-2.5" />时间冲突</div>}
                         {height > 24 && (
                           <div className="text-[9px] opacity-80 truncate">
                             {fmtTime(ev.startTime)} - {fmtTime(ev.endTime)}

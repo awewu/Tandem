@@ -17,37 +17,13 @@ import {
   DEFAULT_IMAP_PORT,
 } from '@/lib/infra/email';
 import { withApiLog } from '@/lib/api-log/with-api-log';
-
-const COLLECTION = 'user_email_creds';
-
-interface EmailCreds {
-  id: string;
-  smtpHost: string;
-  smtpPort: number;
-  smtpSecure: boolean;
-  smtpUser: string;
-  smtpPassEncrypted: string;
-  imapHost?: string;
-  imapPort?: number;
-  imapSecure?: boolean;
-  imapUser?: string;
-  imapPassEncrypted?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-function getKvRepo(collection: string) {
-  const store = getStore();
-  const proto = Object.getPrototypeOf(store.decisionCards);
-  return new (proto.constructor as any)(collection);
-}
+import type { PersonalEmailCredentials } from '@/lib/email/global-email-config';
 
 const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
 
-  const kvRepo = getKvRepo(COLLECTION);
-  const creds = await kvRepo.get(auth.userId) as EmailCreds | null;
+  const creds = await getStore().userEmailCredentials.get(auth.userId);
 
   if (!creds) {
     return NextResponse.json({ configured: false });
@@ -80,8 +56,10 @@ const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
   const body = await req.json().catch(() => ({}));
   // 用户只能填写邮箱地址与密码; 主机/端口/SSL 由系统强制 (不接受客户端值).
   const { smtpUser, smtpPass, imapUser, imapPass } = body;
+  const kvRepo = getStore().userEmailCredentials;
+  const existing = await kvRepo.get(auth.userId);
 
-  if (!smtpUser || !smtpPass) {
+  if (!smtpUser || (!smtpPass && !existing?.smtpPassEncrypted)) {
     return NextResponse.json(
       { error: '邮箱地址与密码必填' },
       { status: 400 },
@@ -93,26 +71,26 @@ const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
   const smtpPort = Number(settings.smtpPort) || DEFAULT_SMTP_PORT;
   const imapPort = Number(settings.imapPort) || DEFAULT_IMAP_PORT;
 
-  const kvRepo = getKvRepo(COLLECTION);
-  const existing = await kvRepo.get(auth.userId) as EmailCreds | null;
   const now = new Date().toISOString();
 
   // IMAP 用户名默认与 SMTP 邮箱一致.
   const resolvedImapUser = imapUser || smtpUser;
   const resolvedImapPass = imapPass || smtpPass;
 
-  const creds: EmailCreds = {
+  const creds: PersonalEmailCredentials = {
     id: auth.userId,
     smtpHost: FIXED_SMTP_HOST,
     smtpPort,
     smtpSecure: true,
     smtpUser,
-    smtpPassEncrypted: encrypt(smtpPass),
+    smtpPassEncrypted: smtpPass ? encrypt(smtpPass) : existing!.smtpPassEncrypted,
     imapHost: FIXED_IMAP_HOST,
     imapPort,
     imapSecure: true,
     imapUser: resolvedImapUser,
-    imapPassEncrypted: encrypt(resolvedImapPass),
+    imapPassEncrypted: imapPass || smtpPass
+      ? encrypt(resolvedImapPass)
+      : (existing?.imapPassEncrypted ?? existing!.smtpPassEncrypted),
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   };
@@ -128,8 +106,7 @@ const DELETEApiHandler = withErrorHandler(async (req: NextRequest) => {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
 
-  const kvRepo = getKvRepo(COLLECTION);
-  await kvRepo.delete(auth.userId);
+  await getStore().userEmailCredentials.delete(auth.userId);
 
   return NextResponse.json({ ok: true, message: '凭据已删除' });
 });

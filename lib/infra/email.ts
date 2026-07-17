@@ -15,6 +15,7 @@
 
 import nodemailer from 'nodemailer';
 import { logger } from './logger';
+import { appendSentMessage } from '@/lib/integrations/email-tier1';
 
 /**
  * 企业邮箱固定主机 (网易企业邮箱 · 杭州节点).
@@ -31,6 +32,22 @@ interface AttachmentInput {
   contentType?: string;
 }
 
+export interface EmailSmtpTransport {
+  host: string;
+  port: number;
+  secure: boolean;
+  user: string;
+  pass: string;
+}
+
+export interface EmailImapTransport {
+  host: string;
+  port: number;
+  secure: boolean;
+  user: string;
+  pass: string;
+}
+
 interface SendEmailInput {
   to: string | string[];
   subject: string;
@@ -40,14 +57,10 @@ interface SendEmailInput {
   bcc?: string | string[];
   replyTo?: string;
   attachments?: AttachmentInput[];
-  /** V2 个人 SMTP 凭据 (优先级高于全局 env) */
-  personalSmtp?: {
-    host: string;
-    port: number;
-    secure: boolean;
-    user: string;
-    pass: string;
-  };
+  /** 已解析的个人或全局 SMTP 凭据 (优先级高于 env). */
+  smtp?: EmailSmtpTransport;
+  /** 已解析的 IMAP 凭据; SMTP 成功后用于尽力写入已发送文件夹. */
+  imap?: EmailImapTransport;
 }
 
 let transporter: nodemailer.Transporter | null = null;
@@ -71,19 +84,19 @@ function getTransporter(): nodemailer.Transporter | null {
   return transporter;
 }
 
-export async function sendEmail(input: SendEmailInput): Promise<{ ok: boolean; messageId?: string; error?: string }> {
+export async function sendEmail(input: SendEmailInput): Promise<{ ok: boolean; messageId?: string; error?: string; warning?: string }> {
   const t = getTransporter();
   try {
     let transporter: nodemailer.Transporter;
 
-    if (input.personalSmtp) {
+    if (input.smtp) {
       transporter = nodemailer.createTransport({
-        host: input.personalSmtp.host,
-        port: input.personalSmtp.port,
-        secure: input.personalSmtp.secure,
+        host: input.smtp.host,
+        port: input.smtp.port,
+        secure: input.smtp.secure,
         auth: {
-          user: input.personalSmtp.user,
-          pass: input.personalSmtp.pass,
+          user: input.smtp.user,
+          pass: input.smtp.pass,
         },
       });
     } else if (t) {
@@ -93,8 +106,8 @@ export async function sendEmail(input: SendEmailInput): Promise<{ ok: boolean; m
       return { ok: false, error: 'SMTP not configured' };
     }
 
-    const fromAddress = input.personalSmtp
-      ? input.personalSmtp.user
+    const fromAddress = input.smtp
+      ? input.smtp.user
       : (process.env.SMTP_FROM ?? `Tandem <${process.env.SMTP_USER}>`);
 
     const info = await transporter.sendMail({
@@ -112,7 +125,35 @@ export async function sendEmail(input: SendEmailInput): Promise<{ ok: boolean; m
         contentType: a.contentType,
       })),
     });
-    logger.info({ messageId: info.messageId, to: input.to, personal: !!input.personalSmtp }, '[email] sent');
+    logger.info({ messageId: info.messageId, to: input.to, configuredSmtp: !!input.smtp }, '[email] sent');
+    if (input.imap) {
+      const toList = Array.isArray(input.to) ? input.to : [input.to];
+      const ccList = Array.isArray(input.cc) ? input.cc : input.cc ? [input.cc] : undefined;
+      const bccList = Array.isArray(input.bcc) ? input.bcc : input.bcc ? [input.bcc] : undefined;
+      void appendSentMessage(
+        {
+          imap: {
+            host: input.imap.host,
+            port: input.imap.port,
+            secure: input.imap.secure,
+            auth: { user: input.imap.user, pass: input.imap.pass },
+          },
+        },
+        {
+          from: fromAddress,
+          to: toList,
+          cc: ccList,
+          bcc: bccList,
+          subject: input.subject,
+          text: input.text,
+          html: input.html,
+        },
+      )
+        .then((uid) => logger.info({ uid, to: input.to }, '[email] sent-folder appended'))
+        .catch((err) => {
+          logger.warn({ err: (err as Error).message, to: input.to }, '[email] sent-folder append failed');
+        });
+    }
     return { ok: true, messageId: info.messageId };
   } catch (err) {
     logger.warn({ err: (err as Error).message, to: input.to }, '[email] send failed');

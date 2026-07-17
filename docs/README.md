@@ -18,6 +18,8 @@
 | [PRODUCT-DEFINITION.md](./PRODUCT-DEFINITION.md) | 事半 / 拿捏 双模块产品定义 + 14 决策 |
 | [PRODUCT-SPIRIT.md](./PRODUCT-SPIRIT.md) | 创造价值 / 赢得尊重 / 快乐工作 三段精神 + AI-Navigator 定位 |
 | [PRODUCT-NARRATIVE.md](./PRODUCT-NARRATIVE.md) | **对外讲故事的权威源 (2026-05-27 重校准)** · 全栈自建 + AI 一等公民 |
+| [SCHEDULE-PRD.md](./SCHEDULE-PRD.md) | 日程管理需求基线 · 创建 / 重复 / 邀请 / 提醒 / 订阅 / 权限 |
+| [SCHEDULE-IMPLEMENTATION-PROMPT.md](./SCHEDULE-IMPLEMENTATION-PROMPT.md) | 日程管理实现窗口话术 · 给另一个实现会话使用 |
 | [CHARTER-FOUR-PILLARS.md](./CHARTER-FOUR-PILLARS.md) | **四大基础板块必须超越飞书 (2026-05-27)** · IM/文档/日历/邮箱 30 条独家能力 + 防变形条款 |
 | [CENTRAL-AI-ARCHITECTURE.md](./CENTRAL-AI-ARCHITECTURE.md) | **中央 AI 真实状态 + 演进路径 (2026-05-27)** · V1.0 诊断 + V1.5/V2/V3 12 个里程碑 |
 | [CENTRAL-AI-ENTERPRISE-EDGE.md](./CENTRAL-AI-ENTERPRISE-EDGE.md) | **企业级智能体超越路径 (2026-05-27)** · Claude Code/Codex/OpenHands/Manus/Hermes-agent 对标 + 7 条企业级超越路径 |

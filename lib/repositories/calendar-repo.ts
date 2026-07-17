@@ -5,6 +5,8 @@ export interface CalendarEventRepository {
   findByOwner(ownerId: string, range?: { from: Date; to: Date }): Promise<CalendarEvent[]>;
   findByAttendee(userId: string, range?: { from: Date; to: Date }): Promise<CalendarEvent[]>;
   create(draft: Omit<CalendarEvent, 'id'> & { id?: string }): Promise<CalendarEvent>;
+  update(id: string, patch: Partial<CalendarEvent>): Promise<CalendarEvent>;
+  findBySeries(seriesId: string): Promise<CalendarEvent[]>;
   updateTime(id: string, startAt: string, endAt: string): Promise<CalendarEvent>;
   addAttendees(id: string, userIds: string[]): Promise<CalendarEvent>;
   removeAttendees(id: string, userIds: string[]): Promise<CalendarEvent>;

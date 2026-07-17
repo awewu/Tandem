@@ -71,6 +71,13 @@ export interface Repository<T extends { id: string }> {
   delete(id: string): Promise<void>;
 }
 
+export interface TenantLockedRepository<T extends { id: string }> extends Repository<T> {
+  withTenantMutation<R>(
+    tenantId: string,
+    mutation: (repository: Repository<T>) => Promise<R>,
+  ): Promise<R>;
+}
+
 // ---------------------------------------------------------------------------
 // 业务 Repository 集合 (Tandem 数据访问层)
 // ---------------------------------------------------------------------------
@@ -217,6 +224,14 @@ export interface TandemStore {
 
   /** Web Push 订阅记录 */
   pushSubscriptions: Repository<import('../infra/web-push').PushSubscriptionRecord>;
+
+  /** 租户级全局邮箱与用户级个人邮箱凭据 */
+  globalEmailConfigs: TenantLockedRepository<import('../email/global-email-config').GlobalEmailConfig>;
+  userEmailCredentials: Repository<import('../email/global-email-config').PersonalEmailCredentials>;
+
+  /** 日程异步创建任务 (保存进度 / 断点续传) */
+  calendarJobs: Repository<import('../calendar/job-store').CalendarJob>;
+  calendarActivityLogs: Repository<import('../calendar/activity-log').CalendarActivityLog>;
 }
 
 // ---------------------------------------------------------------------------

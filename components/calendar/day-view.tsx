@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { useCalendarStore, type EventInstance, fmtTime, getDayRange } from '@/lib/store/calendar';
 import { cn } from '@/lib/utils';
+import { AlertTriangle } from 'lucide-react';
 
 interface DayViewProps {
   date: Date;
@@ -19,6 +20,7 @@ export default function DayView({ date, todayMs, onEventClick, onCellClick }: Da
   const allEvents = useCalendarStore((s) => s.events);
   const allCalendars = useCalendarStore((s) => s.calendars);
   const isToday = date.getTime() === todayMs;
+  const isPast = date.getTime() < todayMs;
 
   const { events, allDayEvents } = useMemo(() => {
     const { start, end } = getDayRange(date);
@@ -71,7 +73,10 @@ export default function DayView({ date, todayMs, onEventClick, onCellClick }: Da
 
       {/* 时间轴 */}
       <div className="flex-1 overflow-y-auto">
-        <div className="relative min-h-[960px] bg-background" onClick={() => onCellClick(date)}>
+        <div
+          className={cn('relative min-h-[960px] bg-background', isPast && 'cursor-not-allowed opacity-60')}
+          onClick={() => !isPast && onCellClick(date)}
+        >
           {HOURS.map((h) => (
             <div key={h} className="flex h-16 border-b border-dashed border-border/40">
               <div className="w-14 shrink-0 text-right pr-2 pt-1">
@@ -103,7 +108,14 @@ export default function DayView({ date, todayMs, onEventClick, onCellClick }: Da
                 }}
                 onClick={(e) => { e.stopPropagation(); onEventClick(ev); }}
               >
-                <div className="font-medium truncate">{ev.title}</div>
+                <div className="flex items-center gap-1 font-medium">
+                  <span className="truncate">{ev.title}</span>
+                  {ev.hasConflict && (
+                    <span className="inline-flex shrink-0 items-center gap-0.5 text-[10px]">
+                      <AlertTriangle className="h-3 w-3" />时间冲突
+                    </span>
+                  )}
+                </div>
                 {height > 32 && (
                   <div className="text-[10px] opacity-80">
                     {fmtTime(ev.startTime)} - {fmtTime(ev.endTime)}

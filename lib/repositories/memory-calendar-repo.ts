@@ -14,6 +14,16 @@ export class InMemoryCalendarEventRepository implements CalendarEventRepository 
     const ev = { ...(draft as CalendarEvent), id: draft.id ?? genId() };
     this.data.set(ev.id, ev); return ev;
   }
+  async update(id: string, patch: Partial<CalendarEvent>): Promise<CalendarEvent> {
+    const event = this.data.get(id); if (!event) throw new Error('not found');
+    Object.assign(event, patch);
+    return event;
+  }
+  async findBySeries(seriesId: string): Promise<CalendarEvent[]> {
+    return Array.from(this.data.values())
+      .filter((event) => event.seriesId === seriesId)
+      .sort((a, b) => a.startAt.localeCompare(b.startAt));
+  }
   async updateTime(id: string, startAt: string, endAt: string): Promise<CalendarEvent> {
     const e = this.data.get(id); if (!e) throw new Error('not found');
     e.startAt = startAt; e.endAt = endAt; e.updatedAt = new Date().toISOString(); return e;

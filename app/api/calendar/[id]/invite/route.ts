@@ -1,50 +1,34 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
-import { getStore } from '@/lib/storage/repository';
+import { requireAuth } from '@/lib/auth/require-auth';
+import { withErrorHandler } from '@/lib/api/error-middleware';
 import { withApiLog } from '@/lib/api-log/with-api-log';
+import { createCalendarService } from '@/lib/calendar/service-factory';
+import { getStore } from '@/lib/storage/repository';
 
-/**
- * POST /api/calendar/[id]/invite
- * Body: { userIds: string[] }
- * 向会议添加参与者，并发送通知
- */
-async function POSTApiHandler(req: Request, { params }: { params: { id: string } }) {
-  try {
-    await boot();
-    const s = getStore();
-    const ev = await s.calendarEvents.get(params.id);
-    if (!ev) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-
-    const body = await req.json();
-    const userIds: string[] = body.userIds ?? [];
-    const current = new Set(ev.attendees ?? []);
-    userIds.forEach((uid) => current.add(uid));
-
-    const updated = await s.calendarEvents.update(params.id, {
-      attendees: Array.from(current),
-    });
-
-    // 发送邀请通知
-    for (const uid of userIds) {
-      if (!ev.attendees?.includes(uid)) {
-        await s.notifications.create({
-          userId: uid,
-          type: 'reminder',
-          title: `会议邀请: ${ev.title}`,
-          body: `你被邀请参加 ${new Date(ev.startAt).toLocaleString()} 的会议`,
-          data: { eventId: ev.id, inviter: ev.ownerId },
-          priority: 'normal',
-          channel: 'in-app',
-          tenantId: ev.tenantId,
-          createdAt: new Date().toISOString(),
-        } as any);
-      }
-    }
-
-    return NextResponse.json({ event: updated, invited: userIds });
-  } catch (err) {
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
-  }
-}
+const POSTApiHandler = withErrorHandler(async (req: NextRequest, { params }: { params: { id: string } }) => {
+  await boot();
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
+  const body = await req.json();
+  const userIds: string[] = Array.isArray(body.userIds)
+    ? body.userIds.filter((value: unknown): value is string => typeof value === 'string')
+    : [];
+  const service = createCalendarService(auth.userId);
+  const event = await service.getById(params.id);
+  const users = await getStore().auth.users.list({ tenantId: auth.tenantId });
+  const usersById = new Map(users.filter((user) => !user.disabled).map((user) => [user.id, user]));
+  const invited = Array.from(new Set<string>(userIds)).filter((userId) => usersById.has(userId));
+  const attendeeEmails = Array.from(new Set([
+    ...(event?.attendeeEmails ?? []),
+    ...(event?.attendees ?? []).map((userId) => usersById.get(userId)?.email).filter((email): email is string => !!email),
+    ...invited.map((userId) => usersById.get(userId)!.email),
+  ]));
+  const [updated] = await service.updateManaged(params.id, auth.userId, 'single', {
+    ownerEmail: auth.email,
+    attendeeEmails,
+  });
+  return NextResponse.json({ event: updated, invited, warnings: service.getDeliveryWarnings() });
+});
 
 export const POST = withApiLog(POSTApiHandler, { route: '/api/calendar/[id]/invite' });

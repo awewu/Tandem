@@ -342,8 +342,8 @@ describe('P2-B · create 路由字段白名单 (拒绝 ...body 任意字段/跨�
     const res = await POST(
       jsonReq('http://test.local/api/calendar', {
         title: '周会',
-        startAt: '2026-07-01T02:00:00.000Z',
-        endAt: '2026-07-01T03:00:00.000Z',
+        startAt: '2099-07-01T02:00:00.000Z',
+        endAt: '2099-07-01T03:00:00.000Z',
         id: 'forged-id',
         tenantId: 'other-tenant',
         archivedAt: '2000-01-01',

@@ -21,8 +21,13 @@ import {
   Trash2,
   Eye,
   EyeOff,
+  Pencil,
+  Plus,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 
 interface MailStatus {
   configured: boolean;
@@ -49,6 +54,84 @@ interface MailConfig {
   isAdmin: boolean;
 }
 
+type EmailProvider = 'netease' | 'qq' | 'custom';
+
+interface GlobalEmailConfig {
+  id: string;
+  name: string;
+  provider: EmailProvider;
+  domains: string[];
+  smtpHost: string;
+  smtpPort: number;
+  smtpSecure: boolean;
+  smtpUser: string;
+  imapHost: string;
+  imapPort: number;
+  imapSecure: boolean;
+  enabled: boolean;
+  isDefault: boolean;
+  hasPassword: boolean;
+}
+
+interface GlobalEmailForm {
+  name: string;
+  provider: EmailProvider;
+  domains: string;
+  smtpHost: string;
+  smtpPort: string;
+  smtpSecure: boolean;
+  smtpUser: string;
+  smtpPass: string;
+  imapHost: string;
+  imapPort: string;
+  imapSecure: boolean;
+  enabled: boolean;
+  isDefault: boolean;
+}
+
+const PROVIDER_PRESETS: Record<Exclude<EmailProvider, 'custom'>, Pick<GlobalEmailForm, 'name' | 'smtpHost' | 'smtpPort' | 'smtpSecure' | 'imapHost' | 'imapPort' | 'imapSecure'>> = {
+  netease: {
+    name: '网易企业邮箱',
+    smtpHost: 'smtphz.qiye.163.com',
+    smtpPort: '465',
+    smtpSecure: true,
+    imapHost: 'imaphz.qiye.163.com',
+    imapPort: '993',
+    imapSecure: true,
+  },
+  qq: {
+    name: 'QQ 邮箱',
+    smtpHost: 'smtp.qq.com',
+    smtpPort: '465',
+    smtpSecure: true,
+    imapHost: 'imap.qq.com',
+    imapPort: '993',
+    imapSecure: true,
+  },
+};
+
+function newGlobalEmailForm(): GlobalEmailForm {
+  return {
+    provider: 'netease',
+    domains: '',
+    smtpUser: '',
+    smtpPass: '',
+    enabled: true,
+    isDefault: false,
+    ...PROVIDER_PRESETS.netease,
+  };
+}
+
+function responseErrorMessage(data: unknown, fallback: string): string {
+  if (!data || typeof data !== 'object') return fallback;
+  const error = (data as { error?: unknown }).error;
+  if (typeof error === 'string') return error;
+  if (error && typeof error === 'object' && typeof (error as { message?: unknown }).message === 'string') {
+    return (error as { message: string }).message;
+  }
+  return fallback;
+}
+
 export default function EmailSettingsPage() {
   const [status, setStatus] = useState<MailStatus | null>(null);
   const [personalCreds, setPersonalCreds] = useState<PersonalCreds | null>(null);
@@ -65,10 +148,13 @@ export default function EmailSettingsPage() {
     imapPass: '',
   });
   const [showPass, setShowPass] = useState(false);
-
-  // 管理员全局端口配置
-  const [portForm, setPortForm] = useState({ smtpPort: '', imapPort: '' });
-  const [portSaving, setPortSaving] = useState(false);
+  const [globalConfigs, setGlobalConfigs] = useState<GlobalEmailConfig[]>([]);
+  const [globalLoading, setGlobalLoading] = useState(true);
+  const [globalEditorOpen, setGlobalEditorOpen] = useState(false);
+  const [editingGlobalId, setEditingGlobalId] = useState<string | null>(null);
+  const [globalForm, setGlobalForm] = useState<GlobalEmailForm>(newGlobalEmailForm);
+  const [globalSaving, setGlobalSaving] = useState(false);
+  const [showGlobalPass, setShowGlobalPass] = useState(false);
 
   useEffect(() => {
     fetch('/api/mail/status', { credentials: 'include' })
@@ -78,11 +164,10 @@ export default function EmailSettingsPage() {
 
     fetch('/api/mail/config', { credentials: 'include' })
       .then((r) => r.json())
-      .then((data: MailConfig) => {
-        setConfig(data);
-        setPortForm({ smtpPort: String(data.smtpPort), imapPort: String(data.imapPort) });
-      })
+      .then((data: MailConfig) => setConfig(data))
       .catch(() => {});
+
+    void refreshGlobalConfigs();
 
     fetch('/api/mail/credentials', { credentials: 'include' })
       .then((r) => r.json())
@@ -102,28 +187,112 @@ export default function EmailSettingsPage() {
       .finally(() => setCredsLoading(false));
   }, []);
 
-  async function handleSavePorts() {
-    setPortSaving(true);
+  async function refreshGlobalConfigs() {
+    try {
+      const res = await fetch('/api/mail/global-configs', { credentials: 'include' });
+      if (res.status === 403) return;
+      const data = await res.json();
+      if (res.ok) setGlobalConfigs(data.configs ?? []);
+    } catch {
+      setGlobalConfigs([]);
+    } finally {
+      setGlobalLoading(false);
+    }
+  }
+
+  async function refreshMailStatus() {
+    try {
+      const res = await fetch('/api/mail/status', { credentials: 'include' });
+      if (res.ok) setStatus(await res.json());
+    } catch {
+      // 状态卡保持最近一次成功结果，不影响配置保存。
+    }
+  }
+
+  function openNewGlobalConfig() {
+    setEditingGlobalId(null);
+    setGlobalForm({ ...newGlobalEmailForm(), isDefault: globalConfigs.length === 0 });
+    setShowGlobalPass(false);
+    setGlobalEditorOpen(true);
+  }
+
+  function openEditGlobalConfig(item: GlobalEmailConfig) {
+    setEditingGlobalId(item.id);
+    setGlobalForm({
+      name: item.name,
+      provider: item.provider,
+      domains: item.domains.join(', '),
+      smtpHost: item.smtpHost,
+      smtpPort: String(item.smtpPort),
+      smtpSecure: item.smtpSecure,
+      smtpUser: item.smtpUser,
+      smtpPass: '',
+      imapHost: item.imapHost,
+      imapPort: String(item.imapPort),
+      imapSecure: item.imapSecure,
+      enabled: item.enabled,
+      isDefault: item.isDefault,
+    });
+    setShowGlobalPass(false);
+    setGlobalEditorOpen(true);
+  }
+
+  function applyProviderPreset(provider: EmailProvider) {
+    setGlobalForm((current) => provider === 'custom'
+      ? { ...current, provider }
+      : { ...current, provider, ...PROVIDER_PRESETS[provider] });
+  }
+
+  async function handleSaveGlobal(e: React.FormEvent) {
+    e.preventDefault();
+    setGlobalSaving(true);
     setFeedback(null);
     try {
-      const res = await fetch('/api/mail/config', {
-        method: 'PUT',
+      const res = await fetch(editingGlobalId
+        ? `/api/mail/global-configs/${editingGlobalId}`
+        : '/api/mail/global-configs', {
+        method: editingGlobalId ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify(portForm),
+        body: JSON.stringify({
+          ...globalForm,
+          domains: globalForm.domains.split(/[,，;；\s]+/).filter(Boolean),
+          smtpPort: Number(globalForm.smtpPort),
+          imapPort: Number(globalForm.imapPort),
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setFeedback({ ok: false, msg: data.error ?? '端口保存失败' });
+        setFeedback({ ok: false, msg: responseErrorMessage(data, '全局邮箱配置保存失败') });
         return;
       }
-      setConfig(data);
-      setPortForm({ smtpPort: String(data.smtpPort), imapPort: String(data.imapPort) });
-      setFeedback({ ok: true, msg: '全局端口配置已保存' });
+      setGlobalEditorOpen(false);
+      setFeedback({ ok: true, msg: editingGlobalId ? '全局邮箱配置已更新' : '全局邮箱配置已创建' });
+      await Promise.all([refreshGlobalConfigs(), refreshMailStatus()]);
     } catch (err) {
       setFeedback({ ok: false, msg: (err as Error).message });
     } finally {
-      setPortSaving(false);
+      setGlobalSaving(false);
+    }
+  }
+
+  async function handleDeleteGlobal(item: GlobalEmailConfig) {
+    if (!confirm(`确定要删除“${item.name}”吗？`)) return;
+    setFeedback(null);
+    try {
+      const res = await fetch(`/api/mail/global-configs/${item.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setFeedback({ ok: false, msg: responseErrorMessage(data, '全局邮箱配置删除失败') });
+        return;
+      }
+      setFeedback({ ok: true, msg: '全局邮箱配置已删除' });
+      await Promise.all([refreshGlobalConfigs(), refreshMailStatus()]);
+    } catch (err) {
+      setFeedback({ ok: false, msg: (err as Error).message });
     }
   }
 
@@ -140,7 +309,7 @@ export default function EmailSettingsPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setFeedback({ ok: false, msg: data.error ?? '保存失败' });
+        setFeedback({ ok: false, msg: responseErrorMessage(data, '保存失败') });
         return;
       }
       setFeedback({ ok: true, msg: '个人邮箱凭据已保存' });
@@ -328,56 +497,85 @@ export default function EmailSettingsPage() {
         </CardContent>
       </Card>
 
-      {/* 全局端口配置 (管理员可改) */}
+      {/* 租户级全局邮箱配置 (管理员 CRUD) */}
       {config?.isAdmin && (
         <Card>
           <CardContent className="p-5 space-y-4">
-            <div>
-              <h2 className="text-headline text-ink-primary flex items-center gap-2">
-                <Server className="h-4 w-4" />
-                全局端口配置（管理员）
-              </h2>
-              <p className="mt-0.5 text-caption text-ink-tertiary">
-                主机固定为 {config.smtpHost} / {config.imapHost}，SSL 始终启用。此处仅调整全局端口，对所有用户生效。
-              </p>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <label className="text-footnote text-ink-tertiary">SMTP 端口</label>
-                <input
-                  className="w-full mt-1 rounded-md border border-border bg-[rgb(var(--surface-2))] px-3 py-2 text-caption"
-                  type="number"
-                  min={1}
-                  max={65535}
-                  placeholder="465"
-                  value={portForm.smtpPort}
-                  onChange={(e) => setPortForm({ ...portForm, smtpPort: e.target.value })}
-                />
+                <h2 className="text-headline text-ink-primary flex items-center gap-2">
+                  <Server className="h-4 w-4" />
+                  全局邮箱配置
+                </h2>
+                <p className="mt-0.5 text-caption text-ink-tertiary">
+                  按发件人邮箱域名匹配；未匹配时使用默认配置
+                </p>
               </div>
-              <div>
-                <label className="text-footnote text-ink-tertiary">IMAP 端口</label>
-                <input
-                  className="w-full mt-1 rounded-md border border-border bg-[rgb(var(--surface-2))] px-3 py-2 text-caption"
-                  type="number"
-                  min={1}
-                  max={65535}
-                  placeholder="993"
-                  value={portForm.imapPort}
-                  onChange={(e) => setPortForm({ ...portForm, imapPort: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="pt-1">
               <button
                 type="button"
-                onClick={handleSavePorts}
-                disabled={portSaving}
-                className="inline-flex items-center gap-1.5 rounded-md bg-[rgb(var(--brand-600))] px-4 py-2 text-footnote font-medium text-white hover:bg-[rgb(var(--brand-700))] disabled:opacity-50 disabled:cursor-not-allowed surface-interactive"
+                onClick={openNewGlobalConfig}
+                className="inline-flex items-center gap-1.5 rounded-md bg-[rgb(var(--brand-600))] px-3 py-2 text-footnote font-medium text-white hover:bg-[rgb(var(--brand-700))] surface-interactive"
               >
-                <Save className="h-3.5 w-3.5" />
-                {portSaving ? '保存中...' : '保存端口配置'}
+                <Plus className="h-3.5 w-3.5" />
+                新建配置
               </button>
             </div>
+
+            {globalLoading ? (
+              <div className="rounded-md border border-border bg-surface-2 px-4 py-5 text-center text-caption text-ink-tertiary">
+                加载中...
+              </div>
+            ) : globalConfigs.length === 0 ? (
+              <div className="rounded-md border border-dashed border-border px-4 py-6 text-center text-caption text-ink-tertiary">
+                暂无全局邮箱配置
+              </div>
+            ) : (
+              <div className="divide-y divide-border rounded-md border border-border">
+                {globalConfigs.map((item) => (
+                  <div key={item.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-caption font-semibold text-ink-primary">{item.name}</span>
+                        {item.isDefault && (
+                          <span className="rounded-sm bg-[rgb(var(--brand-50))] px-1.5 py-0.5 text-footnote font-medium text-[rgb(var(--brand-700))]">
+                            默认
+                          </span>
+                        )}
+                        <span className={`rounded-sm px-1.5 py-0.5 text-footnote ${item.enabled ? 'bg-emerald-50 text-emerald-700' : 'bg-surface-2 text-ink-tertiary'}`}>
+                          {item.enabled ? '已启用' : '已停用'}
+                        </span>
+                      </div>
+                      <p className="break-all text-footnote text-ink-secondary">
+                        {item.smtpUser} · {item.smtpHost}:{item.smtpPort}
+                      </p>
+                      <p className="break-words text-footnote text-ink-tertiary">
+                        域名：{item.domains.length > 0 ? item.domains.join('、') : '未指定（仅作为默认回退）'}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => openEditGlobalConfig(item)}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-ink-tertiary hover:bg-surface-2 hover:text-ink-primary"
+                        title="编辑配置"
+                        aria-label={`编辑 ${item.name}`}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleDeleteGlobal(item)}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-ink-tertiary hover:bg-danger/5 hover:text-danger"
+                        title="删除配置"
+                        aria-label={`删除 ${item.name}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -389,10 +587,10 @@ export default function EmailSettingsPage() {
             <div>
               <h2 className="text-headline text-ink-primary flex items-center gap-2">
                 <Server className="h-4 w-4" />
-                全局 SMTP (系统级)
+                当前生效的 SMTP
               </h2>
               <p className="mt-0.5 text-caption text-ink-tertiary">
-                管理员配置的系统级发件，未绑定个人邮箱时使用
+                个人邮箱优先，其次按域名匹配全局配置，最后使用默认配置
               </p>
             </div>
             {status === null ? null : status.global?.host ? (
@@ -442,6 +640,194 @@ export default function EmailSettingsPage() {
           </p>
         </CardContent>
       </Card>
+
+      <Dialog open={globalEditorOpen} onOpenChange={setGlobalEditorOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{editingGlobalId ? '编辑全局邮箱配置' : '新建全局邮箱配置'}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSaveGlobal} className="space-y-5">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label className="text-footnote text-ink-tertiary">配置名称</label>
+                <input
+                  required
+                  className="mt-1 w-full rounded-md border border-border bg-[rgb(var(--surface-2))] px-3 py-2 text-caption"
+                  value={globalForm.name}
+                  onChange={(e) => setGlobalForm({ ...globalForm, name: e.target.value })}
+                  placeholder="例如：网易企业邮箱"
+                />
+              </div>
+              <div>
+                <label className="text-footnote text-ink-tertiary">服务商</label>
+                <Select value={globalForm.provider} onValueChange={(value) => applyProviderPreset(value as EmailProvider)}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="netease">网易企业邮箱</SelectItem>
+                    <SelectItem value="qq">QQ 邮箱</SelectItem>
+                    <SelectItem value="custom">自定义</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-footnote text-ink-tertiary">匹配邮箱域名</label>
+              <input
+                className="mt-1 w-full rounded-md border border-border bg-[rgb(var(--surface-2))] px-3 py-2 text-caption"
+                value={globalForm.domains}
+                onChange={(e) => setGlobalForm({ ...globalForm, domains: e.target.value })}
+                placeholder="rhenext.com, rheem.com"
+              />
+              <p className="mt-1 text-footnote text-ink-tertiary">多个域名使用逗号或空格分隔，同一域名只能分配给一个已启用配置。</p>
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-footnote font-semibold text-ink-secondary">SMTP 发件</h3>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_8rem]">
+                <div>
+                  <label className="text-footnote text-ink-tertiary">主机</label>
+                  <input
+                    required
+                    className="mt-1 w-full rounded-md border border-border bg-[rgb(var(--surface-2))] px-3 py-2 text-caption"
+                    value={globalForm.smtpHost}
+                    onChange={(e) => setGlobalForm({ ...globalForm, smtpHost: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="text-footnote text-ink-tertiary">端口</label>
+                  <input
+                    required
+                    type="number"
+                    min={1}
+                    max={65535}
+                    className="mt-1 w-full rounded-md border border-border bg-[rgb(var(--surface-2))] px-3 py-2 text-caption"
+                    value={globalForm.smtpPort}
+                    onChange={(e) => setGlobalForm({ ...globalForm, smtpPort: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="text-footnote text-ink-tertiary">发件账号</label>
+                  <input
+                    required
+                    type="email"
+                    className="mt-1 w-full rounded-md border border-border bg-[rgb(var(--surface-2))] px-3 py-2 text-caption"
+                    value={globalForm.smtpUser}
+                    onChange={(e) => setGlobalForm({ ...globalForm, smtpUser: e.target.value })}
+                    placeholder="mailer@example.com"
+                  />
+                </div>
+                <div>
+                  <label className="text-footnote text-ink-tertiary">密码 / 授权码</label>
+                  <div className="relative">
+                    <input
+                      required={!editingGlobalId}
+                      type={showGlobalPass ? 'text' : 'password'}
+                      className="mt-1 w-full rounded-md border border-border bg-[rgb(var(--surface-2))] px-3 py-2 pr-10 text-caption"
+                      value={globalForm.smtpPass}
+                      onChange={(e) => setGlobalForm({ ...globalForm, smtpPass: e.target.value })}
+                      placeholder={editingGlobalId ? '留空则不修改' : '邮箱密码或授权码'}
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-tertiary hover:text-ink-primary"
+                      onClick={() => setShowGlobalPass(!showGlobalPass)}
+                      aria-label={showGlobalPass ? '隐藏密码' : '显示密码'}
+                    >
+                      {showGlobalPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <label className="flex items-center justify-between rounded-md border border-border px-3 py-2.5 text-caption text-ink-secondary">
+                SMTP 使用 SSL/TLS
+                <Switch
+                  checked={globalForm.smtpSecure}
+                  onCheckedChange={(checked) => setGlobalForm({ ...globalForm, smtpSecure: checked })}
+                />
+              </label>
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-footnote font-semibold text-ink-secondary">IMAP 收件</h3>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_8rem]">
+                <div>
+                  <label className="text-footnote text-ink-tertiary">主机</label>
+                  <input
+                    required
+                    className="mt-1 w-full rounded-md border border-border bg-[rgb(var(--surface-2))] px-3 py-2 text-caption"
+                    value={globalForm.imapHost}
+                    onChange={(e) => setGlobalForm({ ...globalForm, imapHost: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="text-footnote text-ink-tertiary">端口</label>
+                  <input
+                    required
+                    type="number"
+                    min={1}
+                    max={65535}
+                    className="mt-1 w-full rounded-md border border-border bg-[rgb(var(--surface-2))] px-3 py-2 text-caption"
+                    value={globalForm.imapPort}
+                    onChange={(e) => setGlobalForm({ ...globalForm, imapPort: e.target.value })}
+                  />
+                </div>
+              </div>
+              <label className="flex items-center justify-between rounded-md border border-border px-3 py-2.5 text-caption text-ink-secondary">
+                IMAP 使用 SSL/TLS
+                <Switch
+                  checked={globalForm.imapSecure}
+                  onCheckedChange={(checked) => setGlobalForm({ ...globalForm, imapSecure: checked })}
+                />
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="flex items-center justify-between rounded-md border border-border px-3 py-2.5 text-caption text-ink-secondary">
+                启用配置
+                <Switch
+                  checked={globalForm.enabled}
+                  onCheckedChange={(checked) => setGlobalForm({
+                    ...globalForm,
+                    enabled: checked,
+                    isDefault: checked ? globalForm.isDefault : false,
+                  })}
+                />
+              </label>
+              <label className="flex items-center justify-between rounded-md border border-border px-3 py-2.5 text-caption text-ink-secondary">
+                设为默认
+                <Switch
+                  checked={globalForm.isDefault}
+                  disabled={!globalForm.enabled}
+                  onCheckedChange={(checked) => setGlobalForm({ ...globalForm, isDefault: checked })}
+                />
+              </label>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setGlobalEditorOpen(false)}
+                className="rounded-md border border-border px-4 py-2 text-footnote font-medium text-ink-secondary hover:bg-surface-2"
+              >
+                取消
+              </button>
+              <button
+                type="submit"
+                disabled={globalSaving}
+                className="inline-flex items-center gap-1.5 rounded-md bg-[rgb(var(--brand-600))] px-4 py-2 text-footnote font-medium text-white hover:bg-[rgb(var(--brand-700))] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Save className="h-3.5 w-3.5" />
+                {globalSaving ? '保存中...' : '保存配置'}
+              </button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

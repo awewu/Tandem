@@ -8,6 +8,7 @@ const MAX_STRING = 512;
 const SECRET_KEYS = [
   'password', 'passwd', 'secret', 'token', 'authorization', 'cookie', 'apikey', 'credential',
   'privatekey', 'mfasecret', 'otp', 'verificationcode', 'recoverycode', 'invitecode',
+  'smtppass', 'imappass',
 ];
 const CONTENT_KEYS = [
   'body', 'content', 'document', 'file', 'html', 'markdown', 'message', 'prompt', 'raw', 'text',

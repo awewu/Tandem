@@ -109,6 +109,11 @@ export const calendarEvent = pgTable(
     recurringRule: jsonb('recurringRule'),
     ownerId: text('ownerId').notNull(),
     attendees: text('attendees').array().notNull().default([]),
+    attendeeEmails: text('attendeeEmails').array().notNull().default([]),
+    externalAttendeeEmails: text('externalAttendeeEmails').array().notNull().default([]),
+    reminderMinutes: integer('reminderMinutes'),
+    seriesId: text('seriesId'),
+    recurrenceIndex: integer('recurrenceIndex'),
     location: text('location'),
     meetingUrl: text('meetingUrl'),
     calendarSource: text('calendarSource').notNull().default('manual'),
@@ -121,6 +126,45 @@ export const calendarEvent = pgTable(
   (t) => ({
     ownerIdx: index('CalendarEvent_ownerId_idx').on(t.ownerId),
     startIdx: index('CalendarEvent_startAt_idx').on(t.startAt),
+    seriesIdx: index('CalendarEvent_seriesId_idx').on(t.seriesId),
+    tenantStartIdx: index('CalendarEvent_tenant_start_idx').on(t.tenantId, t.startAt),
+  }),
+);
+
+export const calendarReminder = pgTable(
+  'CalendarReminder',
+  {
+    id: text('id').primaryKey(),
+    eventId: text('eventId').notNull(),
+    userId: text('userId').notNull(),
+    remindAt: timestamp('remindAt', { precision: 3, mode: 'date' }).notNull(),
+    status: text('status').notNull().default('pending'),
+    tenantId: text('tenantId').notNull().default('default'),
+    firedAt: timestamp('firedAt', { precision: 3, mode: 'date' }),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+  },
+  (t) => ({
+    eventIdx: index('CalendarReminder_eventId_idx').on(t.eventId),
+    userDueIdx: index('CalendarReminder_user_due_idx').on(t.tenantId, t.userId, t.status, t.remindAt),
+  }),
+);
+
+export const calendarSubscription = pgTable(
+  'CalendarSubscription',
+  {
+    id: text('id').primaryKey(),
+    subscriberId: text('subscriberId').notNull(),
+    targetUserId: text('targetUserId').notNull(),
+    status: text('status').notNull().default('subscribed'),
+    detailPermission: text('detailPermission').notNull().default('not_requested'),
+    tenantId: text('tenantId').notNull().default('default'),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+  },
+  (t) => ({
+    relationUniq: uniqueIndex('CalendarSubscription_relation_uniq').on(t.tenantId, t.subscriberId, t.targetUserId),
+    targetIdx: index('CalendarSubscription_target_idx').on(t.tenantId, t.targetUserId),
   }),
 );
 

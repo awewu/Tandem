@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useCalendarStore, type CalendarEvent, type EventType, type EventStatus, type RecurrenceRule } from '@/lib/store/calendar';
-import { sendCalendarInvite } from '@/lib/calendar/email-bridge';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useCalendarStore, type CalendarEvent, type EventType, type EventStatus } from '@/lib/store/calendar';
+import type { CalendarMutationScope, CalendarRecurrenceRule, RecurrenceFrequency } from '@/lib/types/calendar-management';
+import { fetchWithTimeout, isRequestTimeoutError } from '@/lib/http/fetch-with-timeout';
+import { AttendeePicker } from '@/components/calendar/attendee-picker';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,13 +12,15 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar as CalendarIcon, Clock, MapPin, Trash2, Copy, X, Users, ClipboardList } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { Trash2, Copy, X, ClipboardList, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 
 interface EventEditorProps {
   open: boolean;
   onClose: () => void;
   initialDate?: Date; // 新建时默认日期
   editEventId?: string; // 编辑时传入
+  onSaved?: () => void | Promise<void>;
 }
 
 const EVENT_TYPES: { value: EventType; label: string }[] = [
@@ -36,6 +40,40 @@ const REMINDER_OPTIONS = [
   { value: 120, label: '提前 2 小时' },
   { value: 1440, label: '提前 1 天' },
 ];
+
+const DURATION_OPTIONS = [
+  { value: '15', label: '15分钟' },
+  { value: '30', label: '30分钟' },
+  { value: '45', label: '45分钟' },
+  { value: '60', label: '1小时' },
+  { value: '120', label: '2小时' },
+  { value: '180', label: '3小时' },
+  { value: 'custom', label: '选择结束时间' },
+] as const;
+
+type RecurrencePreset = 'none' | 'daily' | 'weekdays' | 'weekly' | 'biweekly' | 'monthly' | 'custom';
+
+const CALENDAR_MUTATION_TIMEOUT_MS = 90_000;
+const FORM_ROW_CLASS = 'flex items-start gap-3';
+const FORM_LABEL_CLASS = 'w-16 shrink-0 pt-2.5 text-body font-medium text-ink-primary';
+const FORM_LABEL_MUTED_CLASS = 'w-16 shrink-0 pt-2.5 text-caption font-medium text-muted-foreground';
+
+interface JobProgressStep {
+  key: string;
+  label: string;
+  status: 'pending' | 'in_progress' | 'done' | 'failed';
+  detail?: string;
+}
+
+interface JobStatus {
+  jobId: string;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'partial';
+  steps: JobProgressStep[];
+  completedSteps: number;
+  totalSteps: number;
+  error?: string;
+  result?: { events: CalendarEvent[]; warnings: string[] };
+}
 
 // 会议复盘子组件 (必须在 EventEditor 之前定义)
 function MeetingRetroButton({ eventId, eventEndTime }: { eventId: string; eventEndTime: number }) {
@@ -66,6 +104,7 @@ function MeetingRetroButton({ eventId, eventEndTime }: { eventId: string; eventE
   return (
     <>
       <Button
+        type="button"
         variant="outline"
         size="sm"
         className="flex-1 gap-1 text-caption"
@@ -107,9 +146,9 @@ function MeetingRetroButton({ eventId, eventEndTime }: { eventId: string; eventE
   );
 }
 
-export default function EventEditor({ open, onClose, initialDate, editEventId }: EventEditorProps) {
-  const { calendars, events, addEvent, updateEvent, deleteEvent, duplicateEvent } = useCalendarStore();
-  const writableCals = calendars.filter((c) => c.type !== 'okr_sync');
+export default function EventEditor({ open, onClose, initialDate, editEventId, onSaved }: EventEditorProps) {
+  const { calendars, events, updateEvent, deleteEvent, duplicateEvent } = useCalendarStore();
+  const writableCals = useMemo(() => calendars.filter((c) => c.type !== 'okr_sync'), [calendars]);
 
   const editing = editEventId ? events.find((e) => e.id === editEventId) : undefined;
 
@@ -121,14 +160,31 @@ export default function EventEditor({ open, onClose, initialDate, editEventId }:
   const [startTime, setStartTime] = useState('09:00');
   const [endDate, setEndDate] = useState('');
   const [endTime, setEndTime] = useState('10:00');
+  const [durationValue, setDurationValue] = useState<string>('30');
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<EventStatus>('confirmed');
   const [reminderMins, setReminderMins] = useState<number>(15);
-  const [attendees, setAttendees] = useState<string>('');
+  const [attendees, setAttendees] = useState<string[]>([]);
+  const [recurrencePreset, setRecurrencePreset] = useState<RecurrencePreset>('none');
   const [hasRecurrence, setHasRecurrence] = useState(false);
-  const [recurFreq, setRecurFreq] = useState<RecurrenceRule['frequency']>('weekly');
+  const [recurFreq, setRecurFreq] = useState<RecurrenceFrequency>('weekly');
   const [recurInterval, setRecurInterval] = useState(1);
+  const [recurEndType, setRecurEndType] = useState<'never' | 'date' | 'count'>('count');
+  const [recurEndDate, setRecurEndDate] = useState('');
+  const [recurCount, setRecurCount] = useState(10);
+  const [recurWeekdays, setRecurWeekdays] = useState<number[]>([]);
+  const [mutationScope, setMutationScope] = useState<CalendarMutationScope>('single');
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [formError, setFormError] = useState('');
+
+  // Async job progress state
+  const [jobStatus, setJobStatus] = useState<JobStatus | null>(null);
+  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollErrorCountRef = useRef(0);
+
+  useEffect(() => () => { if (pollTimerRef.current) clearTimeout(pollTimerRef.current); }, []);
 
   // 会议自动准备
   const [prepLoading, setPrepLoading] = useState(false);
@@ -138,6 +194,63 @@ export default function EventEditor({ open, onClose, initialDate, editEventId }:
     suggestedAgenda: Array<{ item: string; durationMin: number }>;
     relatedMaterials: string[];
   } | null>(null);
+
+  const stopPolling = useCallback(() => {
+    if (pollTimerRef.current) {
+      clearTimeout(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+  }, []);
+
+  const pollJobStatus = useCallback(async (jobId: string) => {
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/calendar/jobs/${jobId}`, { credentials: 'include' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const message = data.error?.message ?? data.error ?? '保存任务状态读取失败';
+          setJobStatus((current) => current ? { ...current, status: 'failed', error: message } : {
+            jobId,
+            status: 'failed',
+            steps: [],
+            completedSteps: 0,
+            totalSteps: 5,
+            error: message,
+          });
+          setFormError(message);
+          setSaving(false);
+          pollTimerRef.current = null;
+          return;
+        }
+        pollErrorCountRef.current = 0;
+        setJobStatus(data);
+        if (data.status === 'running' || data.status === 'pending') {
+          pollTimerRef.current = setTimeout(poll, 800);
+        } else {
+          // Completed, failed, or partial — stop polling
+          pollTimerRef.current = null;
+          if (data.status === 'completed') {
+            try { await onSaved?.(); } catch { /* refresh failed, not critical */ }
+            if (data.result?.warnings?.length) {
+              setFormError(`日程已保存，但邮件发送有警告：${data.result.warnings.join('；')}`);
+            } else {
+              onClose();
+            }
+          } else if (data.status === 'partial') {
+            setFormError(`部分步骤失败：${data.error ?? '未知错误'}。可点击"重试"从断点继续。`);
+          } else {
+            setFormError(data.error ?? '保存失败，可点击"重试"重新开始。');
+          }
+          setSaving(false);
+        }
+      } catch {
+        pollErrorCountRef.current += 1;
+        setFormError(`正在等待保存结果，网络已重试 ${pollErrorCountRef.current} 次。`);
+        pollTimerRef.current = setTimeout(poll, 1500);
+      }
+    };
+    void poll();
+  }, [onClose, onSaved]);
 
   // 初始化表单
   useEffect(() => {
@@ -151,19 +264,30 @@ export default function EventEditor({ open, onClose, initialDate, editEventId }:
       setStartTime(fmtTimeInput(editing.startTime));
       setEndDate(fmtDateInput(editing.endTime));
       setEndTime(fmtTimeInput(editing.endTime));
+      setDurationValue(durationValueFor(editing.startTime, editing.endTime));
       setLocation(editing.location || '');
       setDescription(editing.description || '');
       setStatus(editing.status);
       setReminderMins(editing.reminders?.[0]?.minutesBefore ?? 15);
-      setAttendees(editing.attendees?.join(', ') ?? '');
-      setHasRecurrence(!!editing.recurrence);
-      setRecurFreq(editing.recurrence?.frequency ?? 'weekly');
-      setRecurInterval(editing.recurrence?.interval ?? 1);
+      setAttendees(editing.attendeeEmails ?? editing.attendees ?? []);
+      const legacyFrequency = editing.recurrence?.frequency;
+      const nextHasRecurrence = !!editing.recurrenceRule || !!editing.recurrence;
+      const nextFreq = editing.recurrenceRule?.frequency ?? (legacyFrequency === 'yearly' ? 'monthly' : legacyFrequency) ?? 'weekly';
+      const nextInterval = editing.recurrenceRule?.interval ?? editing.recurrence?.interval ?? 1;
+      const nextWeekdays = editing.recurrenceRule?.weekdays ?? [];
+      setHasRecurrence(nextHasRecurrence);
+      setRecurrencePreset(inferRecurrencePreset(nextHasRecurrence, nextFreq, nextInterval, nextWeekdays, fmtDateInput(editing.startTime)));
+      setRecurFreq(nextFreq);
+      setRecurInterval(nextInterval);
+      const ruleEnd = editing.recurrenceRule?.end;
+      setRecurEndType(ruleEnd?.type ?? 'count');
+      setRecurEndDate(ruleEnd?.type === 'date' ? ruleEnd.date : '');
+      setRecurCount(ruleEnd?.type === 'count' ? ruleEnd.count : 10);
+      setRecurWeekdays(nextWeekdays);
+      setMutationScope('single');
     } else {
-      const base = initialDate || new Date();
-      base.setMinutes(0, 0, 0);
-      if (base.getHours() < 9) base.setHours(9);
-      const end = new Date(base.getTime() + 60 * 60 * 1000);
+      const base = defaultStartDate(initialDate);
+      const end = new Date(base.getTime() + 30 * 60 * 1000);
       setTitle('');
       setCalendarId(writableCals[0]?.id || '');
       setType('meeting');
@@ -172,17 +296,30 @@ export default function EventEditor({ open, onClose, initialDate, editEventId }:
       setStartTime(fmtTimeInput(base.getTime()));
       setEndDate(fmtDateInput(end.getTime()));
       setEndTime(fmtTimeInput(end.getTime()));
+      setDurationValue('30');
       setLocation('');
       setDescription('');
       setStatus('confirmed');
       setReminderMins(15);
-      setAttendees('');
+      setAttendees([]);
+      setRecurrencePreset('none');
       setHasRecurrence(false);
       setRecurFreq('weekly');
       setRecurInterval(1);
+      setRecurEndType('count');
+      setRecurEndDate(fmtDateInput(base.getTime() + 30 * 24 * 60 * 60 * 1000));
+      setRecurCount(10);
+      setRecurWeekdays([base.getDay()]);
+      setMutationScope('single');
     }
+    setFormError('');
     setPrepResult(null);
-  }, [open, editing, initialDate, writableCals]);
+    setJobStatus(null);
+    stopPolling();
+  }, [open, editing, initialDate, writableCals, stopPolling]);
+
+  // Cleanup polling on unmount
+  useEffect(() => () => stopPolling(), [stopPolling]);
 
   async function handleMeetingPrep() {
     if (!editing) return;
@@ -205,29 +342,46 @@ export default function EventEditor({ open, onClose, initialDate, editEventId }:
     }
   }
 
-  function handleSave() {
+  async function handleSave() {
+    if (!title.trim()) {
+      setFormError('请填写日程标题');
+      return;
+    }
     const startMs = parseDateTime(startDate, startTime);
     const endMs = isAllDay
-      ? new Date(endDate).setHours(23, 59, 59, 999)
-      : parseDateTime(endDate, endTime);
+      ? new Date(startDate).setHours(23, 59, 59, 999)
+      : durationValue === 'custom'
+        ? parseDateTime(endDate, endTime)
+        : startMs + Number(durationValue) * 60_000;
 
     if (Number.isNaN(startMs) || Number.isNaN(endMs) || startMs >= endMs) {
-      alert('时间格式有误或结束时间早于开始时间');
+      setFormError('时间格式有误或结束时间早于开始时间');
+      return;
+    }
+    if (!isAllDay && startMs < Date.now()) {
+      setFormError('开始时间不能早于当前时间');
+      return;
+    }
+    if (startDate < fmtDateInput(Date.now())) {
+      setFormError('不能在过去日期创建或移动日程');
       return;
     }
 
-    // 冲突检测：检查与其他事件的时间重叠
-    const conflicts = events.filter((e) => {
-      if (editing && e.id === editing.id) return false;
-      if (e.status === 'cancelled') return false;
-      return startMs < e.endTime && endMs > e.startTime;
-    });
-    if (conflicts.length > 0 && !confirm(`检测到 ${conflicts.length} 个时间冲突:\n${conflicts.map((c) => `• ${c.title} (${new Date(c.startTime).toLocaleString('zh-CN', { hour: '2-digit', minute: '2-digit' })}-${new Date(c.endTime).toLocaleString('zh-CN', { hour: '2-digit', minute: '2-digit' })})`).join('\n')}\n\n仍要保存吗？`)) {
-      return;
-    }
+    const recurrence: CalendarRecurrenceRule | null = hasRecurrence ? {
+      frequency: recurFreq,
+      interval: recurInterval,
+      weekdays: recurFreq === 'weekly' || recurFreq === 'custom' ? recurWeekdays : undefined,
+      end: recurEndType === 'date'
+        ? { type: 'date', date: recurEndDate || defaultRecurrenceEndDate(startDate) }
+        : recurEndType === 'count'
+          ? { type: 'count', count: recurCount }
+          : { type: 'never' },
+    } : null;
+    const recurrenceChanged = !editing || !sameRecurrence(recurrence, editing.recurrenceRule ?? null);
+    const attendeesChanged = !editing || !sameEmailSet(attendees, editing.attendeeEmails ?? editing.attendees ?? []);
 
     const payload: Partial<CalendarEvent> = {
-      title: title.trim() || '(无标题)',
+      title: title.trim(),
       calendarId,
       type,
       isAllDay,
@@ -236,45 +390,148 @@ export default function EventEditor({ open, onClose, initialDate, editEventId }:
       location: location.trim() || undefined,
       description: description.trim() || undefined,
       status,
-      attendees: attendees.trim()
-        ? attendees.split(/[,;\s]+/).filter(Boolean)
-        : undefined,
+      attendees,
+      attendeeEmails: attendees,
       reminders: reminderMins >= 0 ? [{ minutesBefore: reminderMins }] : undefined,
-      recurrence: hasRecurrence
-        ? { frequency: recurFreq, interval: recurInterval }
+      recurrence: hasRecurrence && ['daily', 'weekly', 'monthly'].includes(recurFreq)
+        ? { frequency: recurFreq as 'daily' | 'weekly' | 'monthly', interval: recurInterval }
         : undefined,
+      recurrenceRule: recurrence ?? undefined,
     };
 
-    if (editing) {
-      const hadAttendees = (editing.attendees?.length ?? 0) > 0;
-      updateEvent(editing.id, payload);
-      // 如果是 meeting 且有 attendees, 发送更新通知
-      if (type === 'meeting' && (hadAttendees || (payload.attendees && payload.attendees.length > 0))) {
-        const updatedEvent = { ...editing, ...payload } as CalendarEvent;
-        sendCalendarInvite({ event: updatedEvent, method: 'UPDATE' }).catch(() => {});
+    setSaving(true);
+    setFormError('');
+    setJobStatus(null);
+    stopPolling();
+    pollErrorCountRef.current = 0;
+
+    let startedAsyncJob = false;
+    try {
+      if (!editing) {
+        // NEW event: use async job with progress bar
+        const response = await fetch('/api/calendar/jobs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            title: title.trim(),
+            description: description.trim() || null,
+            startAt: new Date(startMs).toISOString(),
+            endAt: new Date(endMs).toISOString(),
+            location: location.trim() || null,
+            attendeeEmails: type === 'meeting' ? attendees : [],
+            reminderMinutes: reminderMins,
+            recurrence: recurrenceChanged ? recurrence : undefined,
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error?.message ?? data.error ?? '提交失败');
+        if (data.jobId) {
+          startedAsyncJob = true;
+          setJobStatus({ jobId: data.jobId, status: 'pending', steps: [], completedSteps: 0, totalSteps: 5 });
+          void pollJobStatus(data.jobId);
+        }
+      } else if (editing.serverManaged) {
+        // EDIT server-managed event: still use PATCH synchronously (shorter operation)
+        const response = await fetchWithTimeout(`/api/calendar/${editing.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            title: title.trim(),
+            description: description.trim() || null,
+            startAt: new Date(startMs).toISOString(),
+            endAt: new Date(endMs).toISOString(),
+            location: location.trim() || null,
+            attendeeEmails: attendeesChanged ? (type === 'meeting' ? attendees : []) : undefined,
+            reminderMinutes: reminderMins,
+            recurrence: recurrenceChanged ? recurrence : undefined,
+            scope: mutationScope,
+          }),
+        }, CALENDAR_MUTATION_TIMEOUT_MS);
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error?.message ?? data.error ?? '保存失败');
+        try { await onSaved?.(); } catch { alert('日程已保存，但列表刷新失败，请刷新页面查看。'); }
+        if (Array.isArray(data.warnings) && data.warnings.length > 0) {
+          alert(`日程已保存，但邮件发送失败：${data.warnings.join('；')}`);
+        }
+        onClose();
+      } else {
+        updateEvent(editing.id, payload);
+        onClose();
       }
-    } else {
-      const newEvent = addEvent({
-        ...payload,
-        createdBy: 'me',
-      } as Omit<CalendarEvent, 'id' | 'createdAt' | 'updatedAt'>);
-      // 新建 meeting 且有 attendees → 发邀请
-      if (type === 'meeting' && newEvent.attendees && newEvent.attendees.length > 0) {
-        sendCalendarInvite({ event: newEvent, method: 'REQUEST' }).catch(() => {});
-      }
+    } catch (error) {
+      setFormError(isRequestTimeoutError(error)
+        ? '保存请求超时，无法确认是否已保存。请检查网络后刷新日程再重试。'
+        : error instanceof Error ? error.message : '保存失败');
+    } finally {
+      if (!startedAsyncJob) setSaving(false);
     }
-    onClose();
   }
 
-  function handleDelete() {
+  async function handleRetryJob() {
+    if (!jobStatus) return;
+    setSaving(true);
+    setFormError('');
+    stopPolling();
+    try {
+      const res = await fetch(`/api/calendar/jobs/${jobStatus.jobId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'resume' }),
+      });
+      if (!res.ok) throw new Error('重试请求失败');
+      await pollJobStatus(jobStatus.jobId);
+    } catch (err) {
+      setSaving(false);
+      setFormError(err instanceof Error ? err.message : '重试失败');
+    }
+  }
+
+  async function handleDelete() {
     if (!editing) return;
-    if (confirm('确定删除此事件？')) {
-      // 删除 meeting 且有 attendees → 发取消通知
-      if (editing.type === 'meeting' && editing.attendees && editing.attendees.length > 0) {
-        sendCalendarInvite({ event: { ...editing, status: 'cancelled' }, method: 'CANCEL' }).catch(() => {});
+    if (confirm('确定取消此日程？')) {
+      setDeleting(true);
+      setFormError('');
+      setJobStatus(null);
+      stopPolling();
+      try {
+        if (editing.serverManaged) {
+          const response = await fetchWithTimeout(`/api/calendar/${editing.id}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ scope: mutationScope }),
+          }, CALENDAR_MUTATION_TIMEOUT_MS);
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(data.error?.message ?? data.error ?? '取消失败');
+          const cancelledEvents = Array.isArray(data.events) ? data.events : [];
+          if (cancelledEvents.length > 0) {
+            cancelledEvents.forEach((event: { id?: unknown }) => {
+              if (typeof event.id === 'string') deleteEvent(event.id);
+            });
+          } else {
+            deleteEvent(editing.id);
+          }
+          void Promise.resolve(onSaved?.()).catch(() => undefined);
+          if (Array.isArray(data.warnings) && data.warnings.length > 0) {
+            alert(`日程已取消，但邮件发送失败：${data.warnings.join('；')}`);
+          }
+        } else {
+          deleteEvent(editing.id);
+        }
+        onClose();
+      } catch (error) {
+        if (isRequestTimeoutError(error)) {
+          void Promise.resolve(onSaved?.()).catch(() => undefined);
+        }
+        setFormError(isRequestTimeoutError(error)
+          ? '取消请求等待时间过长，已刷新日程状态。若该日程仍显示，请稍后再点一次取消。'
+          : error instanceof Error ? error.message : '取消失败');
+      } finally {
+        setDeleting(false);
       }
-      deleteEvent(editing.id);
-      onClose();
     }
   }
 
@@ -285,10 +542,114 @@ export default function EventEditor({ open, onClose, initialDate, editEventId }:
   }
 
   const selectedCal = calendars.find((c) => c.id === calendarId);
+  const startTimeOptions = useMemo(() => {
+    const options = buildStartTimeOptions(startDate);
+    return options.includes(startTime) ? options : [startTime, ...options].filter(Boolean).sort();
+  }, [startDate, startTime]);
+  const computedEndMs = (() => {
+    const startMs = parseDateTime(startDate, startTime);
+    if (Number.isNaN(startMs)) return NaN;
+    if (isAllDay) return new Date(startDate).setHours(23, 59, 59, 999);
+    return durationValue === 'custom'
+      ? parseDateTime(endDate, endTime)
+      : startMs + Number(durationValue) * 60_000;
+  })();
+
+  function handleStartDateChange(value: string) {
+    const options = buildStartTimeOptions(value);
+    const nextDate = options.length > 0 ? value : fmtDateInput(new Date(value).getTime() + 24 * 60 * 60 * 1000);
+    const nextOptions = options.length > 0 ? options : buildStartTimeOptions(nextDate);
+    const nextTime = nextOptions.includes(startTime) ? startTime : nextOptions[0] ?? '00:00';
+    setStartDate(nextDate);
+    setStartTime(nextTime);
+    if (recurrencePreset === 'weekly' || recurrencePreset === 'biweekly' || (recurrencePreset === 'custom' && recurFreq === 'weekly')) {
+      setRecurWeekdays([weekdayOfDateInput(nextDate)]);
+    }
+    if (recurrencePreset === 'custom' && !recurEndDate) {
+      setRecurEndDate(defaultRecurrenceEndDate(nextDate));
+    }
+    if (durationValue === 'custom') {
+      ensureCustomEndAfterStart(nextDate, nextTime);
+    }
+  }
+
+  function handleStartTimeChange(value: string) {
+    setStartTime(value);
+    if (durationValue === 'custom') ensureCustomEndAfterStart(startDate, value);
+  }
+
+  function handleDurationChange(value: string) {
+    setDurationValue(value);
+    if (value === 'custom') {
+      const startMs = parseDateTime(startDate, startTime);
+      const fallbackEnd = Number.isNaN(startMs) ? Date.now() + 30 * 60_000 : startMs + 30 * 60_000;
+      const currentEnd = parseDateTime(endDate, endTime);
+      const nextEnd = Number.isNaN(currentEnd) || currentEnd <= startMs ? fallbackEnd : currentEnd;
+      setEndDate(fmtDateInput(nextEnd));
+      setEndTime(fmtTimeInput(nextEnd));
+    }
+  }
+
+  function ensureCustomEndAfterStart(date: string, time: string) {
+    const startMs = parseDateTime(date, time);
+    const currentEnd = parseDateTime(endDate, endTime);
+    if (!Number.isNaN(startMs) && (Number.isNaN(currentEnd) || currentEnd <= startMs)) {
+      const nextEnd = startMs + 30 * 60_000;
+      setEndDate(fmtDateInput(nextEnd));
+      setEndTime(fmtTimeInput(nextEnd));
+    }
+  }
+
+  function handleRecurrencePresetChange(value: RecurrencePreset) {
+    setRecurrencePreset(value);
+    if (value === 'none') {
+      setHasRecurrence(false);
+      return;
+    }
+
+    const startWeekday = weekdayOfDateInput(startDate);
+    setHasRecurrence(true);
+    setRecurEndType(value === 'custom' ? 'date' : 'never');
+    setRecurEndDate((current) => current || defaultRecurrenceEndDate(startDate));
+    if (value === 'daily') {
+      setRecurFreq('daily');
+      setRecurInterval(1);
+      setRecurWeekdays([]);
+    } else if (value === 'weekdays') {
+      setRecurFreq('weekdays');
+      setRecurInterval(1);
+      setRecurWeekdays([]);
+    } else if (value === 'weekly') {
+      setRecurFreq('weekly');
+      setRecurInterval(1);
+      setRecurWeekdays([startWeekday]);
+    } else if (value === 'biweekly') {
+      setRecurFreq('weekly');
+      setRecurInterval(2);
+      setRecurWeekdays([startWeekday]);
+    } else if (value === 'monthly') {
+      setRecurFreq('monthly');
+      setRecurInterval(1);
+      setRecurWeekdays([]);
+    } else {
+      setRecurFreq((current) => (current === 'weekdays' || current === 'custom' ? 'daily' : current));
+      setRecurInterval((current) => Math.max(1, current || 1));
+      if (recurFreq === 'weekly') setRecurWeekdays([startWeekday]);
+    }
+  }
+
+  function handleCustomRecurrenceUnitChange(value: RecurrenceFrequency) {
+    setRecurFreq(value);
+    if (value === 'weekly') setRecurWeekdays([weekdayOfDateInput(startDate)]);
+    else setRecurWeekdays([]);
+  }
+
+  const recurrenceOptions = buildRecurrenceOptions(startDate);
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-hidden p-0">
+        <div className="max-h-[90vh] overflow-y-auto px-6 py-6 [scrollbar-gutter:stable]">
         <DialogHeader>
           <DialogTitle className="text-title-3">
             {editing ? '编辑事件' : '新建事件'}
@@ -297,20 +658,21 @@ export default function EventEditor({ open, onClose, initialDate, editEventId }:
 
         <div className="space-y-4 mt-2">
           {/* 标题 */}
-          <div>
+          <div className={FORM_ROW_CLASS}>
+            <Label className={FORM_LABEL_CLASS}>标题</Label>
             <Input
               placeholder="添加标题"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="text-title-3 font-medium"
+              className="flex-1 text-title-3 font-medium"
               autoFocus
             />
           </div>
 
           {/* 日历 + 类型 */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-caption text-muted-foreground mb-1.5 block">日历</Label>
+          <div className={FORM_ROW_CLASS}>
+            <Label className={FORM_LABEL_CLASS}>日历</Label>
+            <div className="min-w-0 flex-1">
               <Select value={calendarId} onValueChange={setCalendarId}>
                 <SelectTrigger>
                   <SelectValue />
@@ -327,8 +689,10 @@ export default function EventEditor({ open, onClose, initialDate, editEventId }:
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label className="text-caption text-muted-foreground mb-1.5 block">类型</Label>
+          </div>
+          <div className={FORM_ROW_CLASS}>
+            <Label className={FORM_LABEL_CLASS}>类型</Label>
+            <div className="min-w-0 flex-1">
               <Select value={type} onValueChange={(v) => setType(v as EventType)}>
                 <SelectTrigger>
                   <SelectValue />
@@ -343,55 +707,72 @@ export default function EventEditor({ open, onClose, initialDate, editEventId }:
           </div>
 
           {/* 全天开关 */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-              <Label className="text-body font-medium">全天</Label>
+          <div className="flex items-center gap-3">
+            <Label className="w-16 shrink-0 text-body font-medium text-ink-primary">全天</Label>
+            <div className="flex flex-1 justify-end">
+              <Switch checked={isAllDay} onCheckedChange={setIsAllDay} />
             </div>
-            <Switch checked={isAllDay} onCheckedChange={setIsAllDay} />
           </div>
 
           {/* 时间 */}
-          <div className="flex items-start gap-2">
-            <Clock className="h-4 w-4 text-muted-foreground mt-2.5" />
+          <div className={FORM_ROW_CLASS}>
+            <Label className={FORM_LABEL_CLASS}>时间</Label>
             <div className="flex-1 space-y-2">
               <div className="flex items-center gap-2">
-                <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="flex-1" />
+                <Input type="date" min={fmtDateInput(Date.now())} value={startDate} onChange={(e) => handleStartDateChange(e.target.value)} className="flex-1" />
                 {!isAllDay && (
-                  <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="w-28" />
+                  <Select value={startTime} onValueChange={handleStartTimeChange}>
+                    <SelectTrigger className="w-28">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {startTimeOptions.map((time) => (
+                        <SelectItem key={time} value={time}>{time}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 )}
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-caption text-muted-foreground w-6">到</span>
-                <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="flex-1" />
-                {!isAllDay && (
-                  <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="w-28" />
-                )}
-              </div>
+              {!isAllDay && (
+                <div className="space-y-2">
+                  <Select value={durationValue} onValueChange={handleDurationChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="选择时长" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DURATION_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {durationValue === 'custom' && (
+                    <div className="flex items-center gap-2">
+                      <span className="w-12 shrink-0 text-caption text-muted-foreground">结束</span>
+                      <Input type="date" min={startDate || fmtDateInput(Date.now())} value={endDate} onChange={(e) => setEndDate(e.target.value)} className="flex-1" />
+                      <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="w-28" />
+                    </div>
+                  )}
+                  {durationValue !== 'custom' && !Number.isNaN(computedEndMs) && (
+                    <p className="text-[11px] text-muted-foreground">
+                      预计结束：{new Date(computedEndMs).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
           {/* 参会人 (仅 meeting 类型显示) */}
           {type === 'meeting' && (
-            <div className="flex items-start gap-2">
-              <Users className="h-4 w-4 text-muted-foreground mt-2.5" />
-              <div className="flex-1 space-y-1">
-                <Input
-                  placeholder="参会人邮箱, 用逗号或空格分隔"
-                  value={attendees}
-                  onChange={(e) => setAttendees(e.target.value)}
-                  className="flex-1"
-                />
-                <p className="text-[10px] text-muted-foreground">
-                  保存后自动发送 ICS 日历邀请邮件
-                </p>
-              </div>
+            <div className={FORM_ROW_CLASS}>
+              <Label className={FORM_LABEL_CLASS}>成员</Label>
+              <div className="min-w-0 flex-1"><AttendeePicker value={attendees} onChange={setAttendees} showLabel={false} /></div>
             </div>
           )}
 
           {/* 地点 */}
-          <div className="flex items-start gap-2">
-            <MapPin className="h-4 w-4 text-muted-foreground mt-2.5" />
+          <div className={FORM_ROW_CLASS}>
+            <Label className={FORM_LABEL_CLASS}>地点</Label>
             <Input
               placeholder="添加地点"
               value={location}
@@ -401,16 +782,21 @@ export default function EventEditor({ open, onClose, initialDate, editEventId }:
           </div>
 
           {/* 描述 */}
-          <Textarea
-            placeholder="添加备注..."
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={3}
-          />
+          <div className={FORM_ROW_CLASS}>
+            <Label className={FORM_LABEL_CLASS}>备注</Label>
+            <Textarea
+              placeholder="添加备注..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              className="flex-1"
+            />
+          </div>
 
           {/* 提醒 */}
-          <div>
-            <Label className="text-caption text-muted-foreground mb-1.5 block">提醒</Label>
+          <div className={FORM_ROW_CLASS}>
+            <Label className={FORM_LABEL_CLASS}>提醒</Label>
+            <div className="min-w-0 flex-1">
             <Select
               value={String(reminderMins)}
               onValueChange={(v) => setReminderMins(Number(v))}
@@ -424,47 +810,108 @@ export default function EventEditor({ open, onClose, initialDate, editEventId }:
                 ))}
               </SelectContent>
             </Select>
+            </div>
           </div>
 
           {/* 重复 */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-body font-medium">重复</Label>
-              <Switch checked={hasRecurrence} onCheckedChange={setHasRecurrence} />
+            <div className={FORM_ROW_CLASS}>
+              <Label className={FORM_LABEL_CLASS}>重复</Label>
+              <Select value={recurrencePreset} onValueChange={(value) => handleRecurrencePresetChange(value as RecurrencePreset)}>
+                <SelectTrigger className="flex-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {recurrenceOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            {hasRecurrence && (
-              <div className="grid grid-cols-2 gap-2 pl-4">
-                <Select value={recurFreq} onValueChange={(v) => setRecurFreq(v as RecurrenceRule['frequency'])}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="daily">每天</SelectItem>
-                    <SelectItem value="weekly">每周</SelectItem>
-                    <SelectItem value="monthly">每月</SelectItem>
-                    <SelectItem value="yearly">每年</SelectItem>
-                  </SelectContent>
-                </Select>
-                <div className="flex items-center gap-2">
-                  <span className="text-caption text-muted-foreground">每</span>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={99}
-                    value={recurInterval}
-                    onChange={(e) => setRecurInterval(Math.max(1, Number(e.target.value)))}
-                    className="w-16"
-                  />
-                  <span className="text-caption text-muted-foreground">
-                    {recurFreq === 'daily' ? '天' : recurFreq === 'weekly' ? '周' : recurFreq === 'monthly' ? '月' : '年'}
-                  </span>
+            {recurrencePreset === 'custom' && (
+              <div className="space-y-3 pl-[76px]">
+                <div className="flex items-center gap-3">
+                  <Label className={FORM_LABEL_MUTED_CLASS}>频率</Label>
+                  <Select value={String(recurInterval)} onValueChange={(value) => setRecurInterval(Math.max(1, Number(value)))}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 12 }, (_, index) => index + 1).map((value) => (
+                        <SelectItem key={value} value={String(value)}>每 {value}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={recurFreq === 'weekly' || recurFreq === 'monthly' ? recurFreq : 'daily'} onValueChange={(value) => handleCustomRecurrenceUnitChange(value as RecurrenceFrequency)}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="daily">天</SelectItem>
+                      <SelectItem value="weekly">周</SelectItem>
+                      <SelectItem value="monthly">月</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {recurFreq === 'weekly' && (
+                  <div className="grid grid-cols-7 gap-1">
+                    {['日', '一', '二', '三', '四', '五', '六'].map((label, day) => (
+                      <button
+                        key={day}
+                        type="button"
+                        className={recurWeekdays.includes(day)
+                          ? 'h-8 rounded border border-brand-500 bg-brand-500 text-caption text-white'
+                          : 'h-8 rounded border text-caption hover:bg-muted'}
+                        onClick={() => setRecurWeekdays((current) => current.includes(day)
+                          ? current.filter((item) => item !== day)
+                          : [...current, day].sort())}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className="flex items-center gap-3">
+                  <Label className={FORM_LABEL_MUTED_CLASS}>结束于</Label>
+                  <Select value={recurEndType} onValueChange={(value) => setRecurEndType(value as typeof recurEndType)}>
+                    <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="date">某天</SelectItem>
+                      <SelectItem value="never">永不结束</SelectItem>
+                      <SelectItem value="count">指定次数</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {recurEndType === 'date' ? (
+                    <Input type="date" min={startDate} value={recurEndDate || defaultRecurrenceEndDate(startDate)} onChange={(event) => setRecurEndDate(event.target.value)} className="flex-1" />
+                  ) : recurEndType === 'count' ? (
+                    <Input type="number" min={1} max={366} value={recurCount} onChange={(event) => setRecurCount(Math.max(1, Number(event.target.value)))} className="flex-1" />
+                  ) : <div className="flex-1" />}
                 </div>
               </div>
             )}
           </div>
 
+          {editing?.seriesId && (
+            <div className={FORM_ROW_CLASS}>
+              <Label className={FORM_LABEL_CLASS}>变更范围</Label>
+              <div className="min-w-0 flex-1">
+              <Select value={mutationScope} onValueChange={(value) => setMutationScope(value as CalendarMutationScope)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="single">仅本次日程</SelectItem>
+                  <SelectItem value="future">本次及以后日程</SelectItem>
+                  <SelectItem value="series">整个重复日程</SelectItem>
+                </SelectContent>
+              </Select>
+              </div>
+            </div>
+          )}
+
           {/* 状态 */}
-          {editing && (
-            <div>
-              <Label className="text-caption text-muted-foreground mb-1.5 block">状态</Label>
+          {editing && !editing.serverManaged && (
+            <div className={FORM_ROW_CLASS}>
+              <Label className={FORM_LABEL_CLASS}>状态</Label>
+              <div className="min-w-0 flex-1">
               <Select value={status} onValueChange={(v) => setStatus(v as EventStatus)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -473,14 +920,16 @@ export default function EventEditor({ open, onClose, initialDate, editEventId }:
                   <SelectItem value="cancelled">已取消</SelectItem>
                 </SelectContent>
               </Select>
+              </div>
             </div>
           )}
 
           {/* 会议自动准备 & 复盘 (仅 meeting 编辑模式) */}
-          {editing && type === 'meeting' && (
+          {editing && !editing.serverManaged && type === 'meeting' && (
             <div className="space-y-2 pt-2 border-t">
               <div className="flex items-center gap-2">
                 <Button
+                  type="button"
                   variant="outline"
                   size="sm"
                   className="flex-1 gap-1 text-caption"
@@ -524,29 +973,91 @@ export default function EventEditor({ open, onClose, initialDate, editEventId }:
           )}
         </div>
 
+        {formError && (
+          <div className="mt-4 rounded-md border border-danger/30 bg-danger/5 px-3 py-2 text-caption text-danger">
+            {formError}
+          </div>
+        )}
+
+        {/* 进度条 (异步作业) */}
+        {jobStatus && (
+          <div className="mt-4 rounded-md border border-blue-200 bg-blue-50/30 p-3 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-caption font-medium text-blue-800">保存进度</span>
+              <span className="text-caption text-blue-700">
+                {jobStatus.completedSteps}/{jobStatus.totalSteps}
+                {jobStatus.status === 'running' && ' · 进行中...'}
+                {jobStatus.status === 'completed' && ' · 已完成'}
+                {jobStatus.status === 'partial' && ' · 部分失败'}
+                {jobStatus.status === 'failed' && ' · 失败'}
+              </span>
+            </div>
+            <Progress value={jobStatus.totalSteps > 0 ? (jobStatus.completedSteps / jobStatus.totalSteps) * 100 : 0} className="h-2" />
+            <div className="space-y-1">
+              {(jobStatus.steps.length > 0 ? jobStatus.steps : [
+                { key: 'validating', label: '校验日程', status: 'pending' as const, detail: undefined },
+                { key: 'creating_events', label: '写入日程到参会人', status: 'pending' as const, detail: undefined },
+                { key: 'creating_reminders', label: '生成提醒任务', status: 'pending' as const, detail: undefined },
+                { key: 'sending_emails', label: '发送邮件通知', status: 'pending' as const, detail: undefined },
+                { key: 'finalizing', label: '完成', status: 'pending' as const, detail: undefined },
+              ]).map((step) => (
+                <div key={step.key} className="flex items-center gap-2 text-caption">
+                  {step.status === 'done' ? (
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                  ) : step.status === 'in_progress' ? (
+                    <Loader2 className="h-3.5 w-3.5 text-blue-600 shrink-0 animate-spin" />
+                  ) : step.status === 'failed' ? (
+                    <AlertCircle className="h-3.5 w-3.5 text-rose-600 shrink-0" />
+                  ) : (
+                    <div className="h-3.5 w-3.5 rounded-full border border-muted-foreground/30 shrink-0" />
+                  )}
+                  <span className={step.status === 'done' ? 'text-emerald-700' : step.status === 'in_progress' ? 'text-blue-700 font-medium' : step.status === 'failed' ? 'text-rose-700' : 'text-muted-foreground'}>
+                    {step.label}
+                  </span>
+                  {step.detail && (
+                    <span className="text-muted-foreground text-[11px]">· {step.detail}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+            {(jobStatus.status === 'partial' || jobStatus.status === 'failed') && (
+              <div className="flex items-center gap-2 pt-1">
+                <Button type="button" size="sm" variant="outline" onClick={handleRetryJob} disabled={saving || deleting} className="text-caption">
+                  {saving ? '重试中...' : '从断点重试'}
+                </Button>
+                <span className="text-[11px] text-muted-foreground">已完成的步骤不会重复执行</span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* 底部操作 */}
         <div className="flex items-center justify-between mt-6 pt-4 border-t">
           <div className="flex items-center gap-1">
             {editing && (
               <>
-                <Button variant="ghost" size="sm" onClick={handleDelete} className="text-rose-500 hover:text-rose-600">
-                  <Trash2 className="h-4 w-4" />
+                <Button type="button" variant="ghost" size="sm" onClick={handleDelete} disabled={saving || deleting} className="text-rose-500 hover:text-rose-600" title="取消日程">
+                  {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                  {deleting && <span className="ml-1 text-caption">取消中...</span>}
                 </Button>
-                <Button variant="ghost" size="sm" onClick={handleDuplicate}>
-                  <Copy className="h-4 w-4" />
-                </Button>
+                {!editing.serverManaged && (
+                  <Button type="button" variant="ghost" size="sm" onClick={handleDuplicate} disabled={saving || deleting} title="复制事件">
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                )}
               </>
             )}
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={onClose}>
+            <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={(saving && !jobStatus) || deleting}>
               <X className="h-4 w-4 mr-1" />
               取消
             </Button>
-            <Button size="sm" onClick={handleSave} className="bg-blue-600 hover:bg-blue-700 text-white">
-              {editing ? '保存' : '创建'}
+            <Button type="button" size="sm" onClick={handleSave} disabled={saving || deleting || jobStatus?.status === 'completed'} className="bg-blue-600 hover:bg-blue-700 text-white">
+              {deleting ? '取消中...' : jobStatus?.status === 'completed' ? '已创建' : saving ? (jobStatus ? '处理中...' : '保存中...') : editing ? '保存' : '创建'}
             </Button>
           </div>
+        </div>
         </div>
       </DialogContent>
     </Dialog>
@@ -566,4 +1077,116 @@ function fmtTimeInput(ms: number): string {
 
 function parseDateTime(dateStr: string, timeStr: string): number {
   return new Date(`${dateStr}T${timeStr}`).getTime();
+}
+
+function defaultStartDate(initialDate?: Date): Date {
+  const now = new Date();
+  const selected = initialDate ? new Date(initialDate) : new Date(now);
+  const selectedDay = new Date(selected).setHours(0, 0, 0, 0);
+  const today = new Date(now).setHours(0, 0, 0, 0);
+  if (selectedDay <= today) return nextHalfHour(now);
+  selected.setHours(9, 0, 0, 0);
+  return selected;
+}
+
+function nextHalfHour(value: Date): Date {
+  const next = new Date(value);
+  next.setSeconds(0, 0);
+  const minutes = next.getMinutes();
+  const add = minutes === 0 || minutes === 30 ? 0 : minutes < 30 ? 30 - minutes : 60 - minutes;
+  next.setMinutes(minutes + add);
+  if (next.getTime() <= value.getTime()) next.setMinutes(next.getMinutes() + 30);
+  return next;
+}
+
+function buildStartTimeOptions(dateStr: string): string[] {
+  const selectedDay = new Date(`${dateStr}T00:00`).setHours(0, 0, 0, 0);
+  const now = new Date();
+  const today = new Date(now).setHours(0, 0, 0, 0);
+  const nextStart = nextHalfHour(now);
+  if (selectedDay === today && new Date(nextStart).setHours(0, 0, 0, 0) > today) return [];
+  const minTime = selectedDay === today ? fmtTimeInput(nextStart.getTime()) : '00:00';
+  const options: string[] = [];
+  for (let hour = 0; hour < 24; hour += 1) {
+    for (const minute of [0, 30]) {
+      const time = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+      if (selectedDay !== today || time >= minTime) options.push(time);
+    }
+  }
+  return options;
+}
+
+function buildRecurrenceOptions(dateStr: string): Array<{ value: RecurrencePreset; label: string }> {
+  const weekday = weekdayLabel(weekdayOfDateInput(dateStr));
+  const day = dayOfMonthInput(dateStr);
+  return [
+    { value: 'none', label: '不重复' },
+    { value: 'daily', label: '每天' },
+    { value: 'weekdays', label: '每个工作日' },
+    { value: 'weekly', label: `每周 (${weekday})` },
+    { value: 'biweekly', label: `每两周 (${weekday})` },
+    { value: 'monthly', label: `每月 (${day})日` },
+    { value: 'custom', label: '自定义' },
+  ];
+}
+
+function inferRecurrencePreset(
+  hasRecurrence: boolean,
+  frequency: RecurrenceFrequency,
+  interval: number,
+  weekdays: number[],
+  dateStr: string,
+): RecurrencePreset {
+  if (!hasRecurrence) return 'none';
+  const startWeekday = weekdayOfDateInput(dateStr);
+  const normalizedDays = [...weekdays].sort((a, b) => a - b);
+  const isStartWeekdayOnly = normalizedDays.length === 0 || (normalizedDays.length === 1 && normalizedDays[0] === startWeekday);
+  if (frequency === 'daily' && interval === 1) return 'daily';
+  if (frequency === 'weekdays' && interval === 1) return 'weekdays';
+  if (frequency === 'weekly' && interval === 1 && isStartWeekdayOnly) return 'weekly';
+  if (frequency === 'weekly' && interval === 2 && isStartWeekdayOnly) return 'biweekly';
+  if (frequency === 'monthly' && interval === 1) return 'monthly';
+  return 'custom';
+}
+
+function weekdayOfDateInput(dateStr: string): number {
+  const date = new Date(`${dateStr}T00:00`);
+  return Number.isNaN(date.getTime()) ? new Date().getDay() : date.getDay();
+}
+
+function dayOfMonthInput(dateStr: string): number {
+  const date = new Date(`${dateStr}T00:00`);
+  return Number.isNaN(date.getTime()) ? new Date().getDate() : date.getDate();
+}
+
+function weekdayLabel(day: number): string {
+  return ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][day] ?? '周日';
+}
+
+function defaultRecurrenceEndDate(dateStr: string): string {
+  const base = new Date(`${dateStr}T00:00`);
+  const date = Number.isNaN(base.getTime()) ? new Date() : base;
+  date.setDate(date.getDate() + 7);
+  return fmtDateInput(date.getTime());
+}
+
+function durationValueFor(startMs: number, endMs: number): string {
+  const minutes = Math.round((endMs - startMs) / 60_000);
+  return DURATION_OPTIONS.some((option) => option.value === String(minutes)) ? String(minutes) : 'custom';
+}
+
+function sameRecurrence(left: CalendarRecurrenceRule | null, right: CalendarRecurrenceRule | null): boolean {
+  if (left === null || right === null) return left === right;
+  if (left.frequency !== right.frequency || left.interval !== right.interval || left.end.type !== right.end.type) return false;
+  const leftDays = [...(left.weekdays ?? [])].sort((a, b) => a - b);
+  const rightDays = [...(right.weekdays ?? [])].sort((a, b) => a - b);
+  if (leftDays.join(',') !== rightDays.join(',')) return false;
+  if (left.end.type === 'date' && right.end.type === 'date') return left.end.date === right.end.date;
+  if (left.end.type === 'count' && right.end.type === 'count') return left.end.count === right.end.count;
+  return true;
+}
+
+function sameEmailSet(left: string[], right: string[]): boolean {
+  const normalize = (values: string[]) => Array.from(new Set(values.map((value) => value.trim().toLowerCase()))).sort();
+  return normalize(left).join(',') === normalize(right).join(',');
 }

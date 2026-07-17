@@ -1,26 +1,26 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell, Check, X, MessageSquare, Calendar, FileText, HardDrive } from "lucide-react";
+import { Bell, Check, X, MessageSquare, Calendar, FileText } from "lucide-react";
 import { useCurrentUserId } from "@/lib/hooks/use-current-user";
 import { PushSubscribeToggle } from "@/components/PushSubscribeToggle";
 
 interface Notification {
   id: string;
   title: string;
-  message: string;
-  type: "document" | "calendar" | "drive" | "system";
+  body?: string | null;
+  type: "mention" | "system" | "reminder" | "approval";
   userId: string;
-  read: boolean;
-  dismissed: boolean;
+  readAt?: string | null;
+  dismissedAt?: string | null;
   createdAt: string;
 }
 
 const typeIcon = {
-  document: FileText,
-  calendar: Calendar,
-  drive: HardDrive,
+  mention: MessageSquare,
   system: MessageSquare,
+  reminder: Calendar,
+  approval: FileText,
 };
 
 export default function NotificationsPage() {
@@ -45,7 +45,7 @@ export default function NotificationsPage() {
       body: JSON.stringify({ read: true }),
     });
     setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+      prev.map((n) => (n.id === id ? { ...n, readAt: new Date().toISOString() } : n))
     );
   }
 
@@ -58,7 +58,7 @@ export default function NotificationsPage() {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
   }
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const unreadCount = notifications.filter((n) => !n.readAt).length;
 
   if (loading) return <div className="p-8 text-ink-secondary">加载中...</div>;
 
@@ -84,19 +84,19 @@ export default function NotificationsPage() {
             <div
               key={n.id}
               className={`flex items-start gap-3 p-4 border rounded-lg transition ${
-                n.read ? "bg-white" : "bg-info/10 border-info/30"
+                n.readAt ? "bg-white" : "bg-info/10 border-info/30"
               }`}
             >
               <Icon size={20} className="text-ink-secondary mt-0.5" />
               <div className="flex-1">
                 <div className="font-medium">{n.title}</div>
-                <div className="text-caption text-ink-secondary">{n.message}</div>
+                <div className="text-caption text-ink-secondary">{n.body}</div>
                 <div className="text-footnote text-ink-tertiary mt-1">
                   {new Date(n.createdAt).toLocaleString()}
                 </div>
               </div>
               <div className="flex gap-1">
-                {!n.read && (
+                {!n.readAt && (
                   <button onClick={() => markRead(n.id)} className="p-2 text-success hover:bg-success/5 rounded" title="标记已读">
                     <Check size={16} />
                   </button>

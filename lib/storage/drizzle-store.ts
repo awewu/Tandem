@@ -9,11 +9,13 @@
  * §T6: 后续热表按需升级, Repository<T> 接口保持稳定.
  */
 
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { and, eq, sql, desc, asc, gte, lte, isNull } from 'drizzle-orm';
 import { db, schema } from '../infra/drizzle-client';
 import type {
   ListOptions,
   Repository,
+  TenantLockedRepository,
   TandemStore,
   AuthStore,
   AuthUser,
@@ -38,6 +40,12 @@ import { classifyKvFilter } from './kv-filter';
 import { instrumentBusinessRepositories } from '@/lib/business-log/repository';
 
 const kv = schema.kvStore;
+type DrizzleTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+const kvTransactionContext = new AsyncLocalStorage<DrizzleTransaction>();
+
+function kvDb(): typeof db | DrizzleTransaction {
+  return kvTransactionContext.getStore() ?? db;
+}
 
 export { SAFE_KEY_RE, classifyKvFilter } from './kv-filter';
 
@@ -49,7 +57,7 @@ class DrizzleKvRepository<T extends { id: string }> implements Repository<T> {
   constructor(private readonly collection: string) {}
 
   async get(id: string): Promise<T | null> {
-    const rows = await db
+    const rows = await kvDb()
       .select()
       .from(kv)
       .where(and(eq(kv.collection, this.collection), eq(kv.id, id)))
@@ -82,7 +90,7 @@ class DrizzleKvRepository<T extends { id: string }> implements Repository<T> {
 
     const where = conds.length === 1 ? conds[0] : and(...conds);
 
-    let q = db.select().from(kv).where(where).orderBy(desc(kv.updatedAt)).$dynamic();
+    let q = kvDb().select().from(kv).where(where).orderBy(desc(kv.updatedAt)).$dynamic();
     if (opts && cls.canPushLimit) {
       if (opts.limit !== undefined) q = q.limit(opts.limit);
       if (opts.offset !== undefined) q = q.offset(opts.offset);
@@ -109,7 +117,7 @@ class DrizzleKvRepository<T extends { id: string }> implements Repository<T> {
     // C1: 把 data.tenantId 落到 tenantId 列 (历史只写 JSONB, 列恒为 'default' → 索引死).
     const tenantId =
       ((item as Record<string, unknown>).tenantId as string | undefined) ?? 'default';
-    await db
+    await kvDb()
       .insert(kv)
       .values({ collection: this.collection, id, data: item as object, tenantId })
       .onConflictDoUpdate({
@@ -126,7 +134,7 @@ class DrizzleKvRepository<T extends { id: string }> implements Repository<T> {
     // C1: 写更新时保持 tenantId 列与 JSONB 同步.
     const tenantId =
       ((updated as Record<string, unknown>).tenantId as string | undefined) ?? 'default';
-    await db
+    await kvDb()
       .update(kv)
       .set({ data: updated as object, tenantId, updatedAt: new Date() })
       .where(and(eq(kv.collection, this.collection), eq(kv.id, id)));
@@ -134,7 +142,22 @@ class DrizzleKvRepository<T extends { id: string }> implements Repository<T> {
   }
 
   async delete(id: string): Promise<void> {
-    await db.delete(kv).where(and(eq(kv.collection, this.collection), eq(kv.id, id)));
+    await kvDb().delete(kv).where(and(eq(kv.collection, this.collection), eq(kv.id, id)));
+  }
+}
+
+class DrizzleTenantLockedKvRepository<T extends { id: string }>
+  extends DrizzleKvRepository<T>
+  implements TenantLockedRepository<T>
+{
+  async withTenantMutation<R>(
+    tenantId: string,
+    mutation: (repository: Repository<T>) => Promise<R>,
+  ): Promise<R> {
+    return db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext('global_email_configs'), hashtext(${tenantId}))`);
+      return kvTransactionContext.run(tx, () => mutation(this));
+    });
   }
 }
 
@@ -1327,5 +1350,9 @@ export function createDrizzleStore(): TandemStore {
     aiSettings: new DrizzleKvRepository('ai_settings'),
     mcpServers: new DrizzleKvRepository('mcp_servers'),
     pushSubscriptions: new DrizzleKvRepository('push_subscriptions'),
+    globalEmailConfigs: new DrizzleTenantLockedKvRepository('global_email_configs'),
+    userEmailCredentials: new DrizzleKvRepository('user_email_creds'),
+    calendarJobs: new DrizzleKvRepository('calendar_jobs'),
+    calendarActivityLogs: new DrizzleKvRepository('calendar_activity_logs'),
   });
 }

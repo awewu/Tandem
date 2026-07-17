@@ -8,6 +8,7 @@
 import type {
   ListOptions,
   Repository,
+  TenantLockedRepository,
   TandemStore,
   AuthStore,
   AuthUser,
@@ -61,6 +62,25 @@ class InMemoryRepository<T extends { id: string }> implements Repository<T> {
 
   async delete(id: string): Promise<void> {
     this.data.delete(id);
+  }
+}
+
+class InMemoryTenantLockedRepository<T extends { id: string }>
+  extends InMemoryRepository<T>
+  implements TenantLockedRepository<T>
+{
+  private mutationTails = new Map<string, Promise<unknown>>();
+
+  withTenantMutation<R>(
+    tenantId: string,
+    mutation: (repository: Repository<T>) => Promise<R>,
+  ): Promise<R> {
+    const previous = this.mutationTails.get(tenantId) ?? Promise.resolve();
+    const current = previous.catch(() => undefined).then(() => mutation(this));
+    this.mutationTails.set(tenantId, current);
+    return current.finally(() => {
+      if (this.mutationTails.get(tenantId) === current) this.mutationTails.delete(tenantId);
+    });
   }
 }
 
@@ -334,5 +354,9 @@ export function createInMemoryStore(): TandemStore {
     aiSettings: new InMemoryRepository(),
     mcpServers: new InMemoryRepository(),
     pushSubscriptions: new InMemoryRepository(),
+    globalEmailConfigs: new InMemoryTenantLockedRepository(),
+    userEmailCredentials: new InMemoryRepository(),
+    calendarJobs: new InMemoryRepository(),
+    calendarActivityLogs: new InMemoryRepository(),
   });
 }

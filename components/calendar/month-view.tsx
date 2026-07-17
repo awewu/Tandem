@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { useCalendarStore, type EventInstance, fmtTime } from '@/lib/store/calendar';
 import { cn } from '@/lib/utils';
+import { AlertTriangle } from 'lucide-react';
 
 interface MonthViewProps {
   year: number;
@@ -76,6 +77,7 @@ export default function MonthView({ year, month, todayMs, onEventClick, onCellCl
       <div className="grid grid-cols-7 gap-px flex-1 bg-border">
         {cells.map((cell, idx) => {
           const isToday = cell.dateMs === todayMs;
+          const isPast = cell.dateMs < todayMs;
           const inMonth = cell.day !== null && isInMonth(cell.dateMs);
           const dayEvents = cell.day !== null ? (eventsByDay.get(cell.day) ?? []) : [];
 
@@ -83,11 +85,12 @@ export default function MonthView({ year, month, todayMs, onEventClick, onCellCl
             <div
               key={idx}
               className={cn(
-                'min-h-[100px] bg-background p-1 cursor-pointer transition-colors hover:bg-muted/30',
+                'min-h-[100px] bg-background p-1 transition-colors',
+                isPast ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-muted/30',
                 !inMonth && 'bg-muted/20',
                 isToday && 'bg-warning/5 border-warning/10'
               )}
-              onClick={() => onCellClick(new Date(cell.dateMs))}
+              onClick={() => !isPast && onCellClick(new Date(cell.dateMs))}
             >
               <div className={cn(
                 'text-caption font-medium w-6 h-6 flex items-center justify-center rounded-full mb-1',
@@ -111,6 +114,7 @@ export default function MonthView({ year, month, todayMs, onEventClick, onCellCl
                       <span className="text-[9px] opacity-70 shrink-0">{fmtTime(ev.startTime)}</span>
                     )}
                     <span className="truncate">{ev.title}</span>
+                    {ev.hasConflict && <AlertTriangle className="h-2.5 w-2.5 shrink-0" aria-label="时间冲突" />}
                   </button>
                 ))}
                 {dayEvents.length > 3 && (

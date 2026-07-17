@@ -12,6 +12,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { CalendarRecurrenceRule, CalendarUser } from '@/lib/types/calendar-management';
 
 // ═══════════════════════════════════════════════════════════
 // 类型定义
@@ -57,6 +58,15 @@ export interface CalendarEvent {
   color?: string; // 覆盖日历颜色
   // 参会人 (邮箱列表, meeting 类型用)
   attendees?: string[];
+  attendeeEmails?: string[];
+  externalAttendeeEmails?: string[];
+  seriesId?: string;
+  recurrenceRule?: CalendarRecurrenceRule;
+  hasConflict?: boolean;
+  visibility?: 'busy' | 'full';
+  organizer?: CalendarUser;
+  attendeeUsers?: CalendarUser[];
+  serverManaged?: boolean;
   // 系统关联
   linkedObjectiveId?: string;
   linkedKrId?: string;
@@ -93,6 +103,10 @@ export interface EventInstance {
   linkedMeetingId?: string;
   status: EventStatus;
   reminders?: { minutesBefore: number }[];
+  seriesId?: string;
+  recurrenceRule?: CalendarRecurrenceRule;
+  hasConflict?: boolean;
+  visibility?: 'busy' | 'full';
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -114,6 +128,7 @@ interface CalendarStore {
   updateEvent: (id: string, patch: Partial<CalendarEvent>) => void;
   deleteEvent: (id: string) => void;
   duplicateEvent: (id: string) => CalendarEvent | null;
+  replaceManagedEvents: (events: CalendarEvent[]) => void;
 
   // 查询
   getEventsInRange: (start: number, end: number) => EventInstance[];
@@ -269,6 +284,10 @@ function toInstance(
     linkedMeetingId: event.linkedMeetingId,
     status: event.status,
     reminders: event.reminders,
+    seriesId: event.seriesId,
+    recurrenceRule: event.recurrenceRule,
+    hasConflict: event.hasConflict,
+    visibility: event.visibility,
   };
 }
 
@@ -348,6 +367,13 @@ export const useCalendarStore = create<CalendarStore>()(
         set((s) => ({ events: [...s.events, copy] }));
         return copy;
       },
+      replaceManagedEvents: (managedEvents) =>
+        set((state) => ({
+          events: [
+            ...state.events.filter((event) => !event.serverManaged),
+            ...managedEvents.map((event) => ({ ...event, serverManaged: true })),
+          ],
+        })),
 
       // ===== 查询 =====
       getEventsInRange: (start, end) => {
@@ -378,7 +404,7 @@ export const useCalendarStore = create<CalendarStore>()(
     }),
     {
       name: '铁山-calendar-store',
-      version: 1,
+      version: 2,
     }
   )
 );

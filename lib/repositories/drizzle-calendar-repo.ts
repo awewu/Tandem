@@ -21,6 +21,11 @@ function toDomain(row: typeof t.$inferSelect): CalendarEvent {
     recurringRule: row.recurringRule as Record<string, unknown> | null,
     ownerId: row.ownerId,
     attendees: row.attendees,
+    attendeeEmails: row.attendeeEmails,
+    externalAttendeeEmails: row.externalAttendeeEmails,
+    reminderMinutes: row.reminderMinutes,
+    seriesId: row.seriesId,
+    recurrenceIndex: row.recurrenceIndex,
     location: row.location,
     meetingUrl: row.meetingUrl,
     calendarSource: row.calendarSource as CalendarEvent['calendarSource'],
@@ -69,6 +74,11 @@ export class DrizzleCalendarEventRepository implements CalendarEventRepository {
       recurringRule: (draft.recurringRule ?? null) as object | null,
       ownerId: draft.ownerId,
       attendees: draft.attendees ?? [],
+      attendeeEmails: draft.attendeeEmails ?? [],
+      externalAttendeeEmails: draft.externalAttendeeEmails ?? [],
+      reminderMinutes: draft.reminderMinutes ?? null,
+      seriesId: draft.seriesId ?? null,
+      recurrenceIndex: draft.recurrenceIndex ?? null,
       location: draft.location ?? null,
       meetingUrl: draft.meetingUrl ?? null,
       calendarSource: draft.calendarSource ?? 'manual',
@@ -80,6 +90,42 @@ export class DrizzleCalendarEventRepository implements CalendarEventRepository {
     };
     const [inserted] = await db.insert(t).values(row).returning();
     return toDomain(inserted);
+  }
+
+  async update(id: string, patch: Partial<CalendarEvent>): Promise<CalendarEvent> {
+    const [row] = await db
+      .update(t)
+      .set({
+        title: patch.title,
+        description: patch.description,
+        startAt: patch.startAt ? new Date(patch.startAt) : undefined,
+        endAt: patch.endAt ? new Date(patch.endAt) : undefined,
+        timezone: patch.timezone,
+        allDay: patch.allDay,
+        recurringRule: patch.recurringRule as object | null | undefined,
+        ownerId: patch.ownerId,
+        attendees: patch.attendees,
+        attendeeEmails: patch.attendeeEmails,
+        externalAttendeeEmails: patch.externalAttendeeEmails,
+        reminderMinutes: patch.reminderMinutes,
+        seriesId: patch.seriesId,
+        recurrenceIndex: patch.recurrenceIndex,
+        location: patch.location,
+        meetingUrl: patch.meetingUrl,
+        calendarSource: patch.calendarSource,
+        externalId: patch.externalId,
+        status: patch.status,
+        tenantId: patch.tenantId,
+        updatedAt: new Date(),
+      })
+      .where(eq(t.id, id))
+      .returning();
+    return toDomain(row);
+  }
+
+  async findBySeries(seriesId: string): Promise<CalendarEvent[]> {
+    const rows = await db.select().from(t).where(eq(t.seriesId, seriesId)).orderBy(asc(t.startAt));
+    return rows.map(toDomain);
   }
 
   async updateTime(id: string, startAt: string, endAt: string): Promise<CalendarEvent> {

@@ -52,6 +52,11 @@ export interface CalendarEvent {
   recurringRule?: Record<string, unknown> | null; // RRULE JSON
   ownerId: string;
   attendees: string[];    // User.id[]
+  attendeeEmails?: string[];
+  externalAttendeeEmails?: string[];
+  reminderMinutes?: number | null;
+  seriesId?: string | null;
+  recurrenceIndex?: number | null;
   location?: string | null;
   meetingUrl?: string | null;
   calendarSource: 'manual' | 'feishu' | 'google' | 'outlook';

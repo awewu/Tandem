@@ -331,6 +331,46 @@ export async function saveDraft(
   }
 }
 
+export async function appendSentMessage(
+  cred: Pick<EmailCredentials, 'imap'>,
+  options: { from: string; to: string[]; subject: string; text?: string; html?: string; cc?: string[]; bcc?: string[] }
+): Promise<string> {
+  const client = new ImapFlow({
+    host: cred.imap.host,
+    port: cred.imap.port,
+    secure: cred.imap.secure,
+    auth: cred.imap.auth,
+    logger: false,
+  });
+
+  try {
+    await client.connect();
+    const resolved = await resolveMailbox(client, 'sent');
+    const headers = [
+      `From: ${sanitizeHeader(options.from)}`,
+      `To: ${options.to.map(sanitizeHeader).join(', ')}`,
+      options.cc?.length ? `Cc: ${options.cc.map(sanitizeHeader).join(', ')}` : '',
+      options.bcc?.length ? `Bcc: ${options.bcc.map(sanitizeHeader).join(', ')}` : '',
+      `Subject: ${sanitizeHeader(options.subject)}`,
+      `Date: ${new Date().toUTCString()}`,
+      'MIME-Version: 1.0',
+      options.html ? 'Content-Type: text/html; charset=utf-8' : 'Content-Type: text/plain; charset=utf-8',
+    ].filter(Boolean);
+    const rawMessage = [...headers, '', options.html ?? options.text ?? ''].join('\r\n');
+    const response = await client.append(resolved, rawMessage, ['\\Seen']);
+    return response && response.uid ? response.uid.toString() : '';
+  } catch (err) {
+    logger.warn({ err }, '[imap] append sent message failed');
+    throw err;
+  } finally {
+    await client.logout();
+  }
+}
+
+function sanitizeHeader(value: string): string {
+  return value.replace(/[\r\n]+/g, ' ').trim();
+}
+
 export async function deleteMessages(
   cred: EmailCredentials,
   options: { uids: number[]; folder?: string }

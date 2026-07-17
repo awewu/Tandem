@@ -11,6 +11,7 @@ import { requireAuth } from '@/lib/auth/require-auth';
 import { isEmailConfigured } from '@/lib/infra/email';
 import { getStore } from '@/lib/storage/repository';
 import { withApiLog } from '@/lib/api-log/with-api-log';
+import { listGlobalEmailConfigs, selectGlobalEmailConfig } from '@/lib/email/global-email-config';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,13 +19,7 @@ const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
 
-  console.log('[status debug] SMTP_HOST:', JSON.stringify(process.env.SMTP_HOST));
-  console.log('[status debug] SMTP_USER:', JSON.stringify(process.env.SMTP_USER));
-  console.log('[status debug] SMTP_PASS:', JSON.stringify(process.env.SMTP_PASS));
-
   const globalConfigured = isEmailConfigured();
-  console.log('[status debug] isEmailConfigured:', globalConfigured);
-
   const globalFrom = globalConfigured
     ? (process.env.SMTP_FROM ?? `Tandem <${process.env.SMTP_USER}>`)
     : null;
@@ -32,10 +27,7 @@ const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
   // 查询个人绑定
   let personal: { host: string; port: number; user: string } | null = null;
   try {
-    const store = getStore();
-    const proto = Object.getPrototypeOf(store.decisionCards);
-    const kvRepo = new (proto.constructor as any)('user_email_creds');
-    const creds = await kvRepo.get(auth.userId);
+    const creds = await getStore().userEmailCredentials.get(auth.userId);
     if (creds && creds.smtpHost && creds.smtpUser) {
       personal = {
         host: creds.smtpHost,
@@ -47,18 +39,42 @@ const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
     // 无个人凭据
   }
 
-  // 当前生效的 SMTP: 优先个人, 再全局
+  const selectedGlobal = selectGlobalEmailConfig(
+    await listGlobalEmailConfigs(auth.tenantId),
+    auth.email,
+  );
+  const global = selectedGlobal
+    ? {
+        id: selectedGlobal.id,
+        name: selectedGlobal.name,
+        domains: selectedGlobal.domains,
+        host: selectedGlobal.smtpHost,
+        port: selectedGlobal.smtpPort,
+        fromAddress: selectedGlobal.smtpUser,
+      }
+    : globalConfigured
+      ? {
+          id: 'env',
+          name: '环境变量 SMTP',
+          domains: [],
+          host: process.env.SMTP_HOST!,
+          port: Number(process.env.SMTP_PORT ?? 587),
+          fromAddress: globalFrom!,
+        }
+      : null;
+
+  // 当前生效的 SMTP: 优先个人, 再按域名匹配/默认全局配置.
   const effective = personal
     ? { mode: 'personal' as const, host: personal.host, port: personal.port, fromAddress: personal.user }
-    : globalConfigured
-      ? { mode: 'global' as const, host: process.env.SMTP_HOST!, port: Number(process.env.SMTP_PORT ?? 587), fromAddress: globalFrom! }
+    : global
+      ? { mode: 'global' as const, host: global.host, port: global.port, fromAddress: global.fromAddress }
       : null;
 
   return NextResponse.json({
     configured: !!effective,
     effective,
     personal: personal ? { host: personal.host, port: personal.port, user: personal.user } : null,
-    global: globalConfigured ? { host: process.env.SMTP_HOST ?? null, port: Number(process.env.SMTP_PORT ?? 587), fromAddress: globalFrom } : null,
+    global,
     inbound: { configured: false, note: 'IMAP 收件功能 V2 计划中' },
   });
 });
