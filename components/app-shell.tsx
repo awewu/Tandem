@@ -21,6 +21,7 @@ import { MobileTabBar } from '@/components/mobile-tab-bar';
 import { CommandPalette } from '@/components/command-palette';
 import { KeyboardShortcuts } from '@/components/keyboard-shortcuts';
 import { BossAiMount } from '@/components/boss-ai';
+import { ReminderRuntime } from '@/components/reminder-runtime';
 import { ApiHydrator } from '@/components/api-hydrator';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { PullToRefreshProvider } from '@/components/pull-to-refresh';
@@ -104,6 +105,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
       <CommandPalette />
       <KeyboardShortcuts />
+      <ReminderRuntime />
       {/* §灵魂入口 · Tandem AI = 老板的搭子 · 全应用浮动问老板 · ⌘J */}
       <BossAiMount />
     </PullToRefreshProvider>

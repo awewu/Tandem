@@ -21,6 +21,8 @@ import { InMemoryCalendarReminderRepository } from './memory-calendar-reminder-r
 import { InMemoryCalendarSubscriptionRepository } from './memory-calendar-subscription-repo';
 import { DrizzleCalendarReminderRepository } from './drizzle-calendar-reminder-repo';
 import { DrizzleCalendarSubscriptionRepository } from './drizzle-calendar-subscription-repo';
+import { InMemoryReminderTaskRepository } from './memory-reminder-task-repo';
+import { DrizzleReminderTaskRepository } from './drizzle-reminder-task-repo';
 
 const USE_DB = isDatabaseMode();
 
@@ -32,6 +34,7 @@ const _memNotificationRepo = new InMemoryNotificationRepository();
 const _memLaunchpadRepo = new InMemoryLaunchpadRepository();
 const _memCalendarReminderRepo = new InMemoryCalendarReminderRepository();
 const _memCalendarSubscriptionRepo = new InMemoryCalendarSubscriptionRepository();
+const _memReminderTaskRepo = new InMemoryReminderTaskRepository();
 
 const _pgDocumentRepo = USE_DB ? new DrizzleDocumentRepository() : null;
 const _pgCalendarRepo = USE_DB ? new DrizzleCalendarEventRepository() : null;
@@ -40,6 +43,7 @@ const _pgNotificationRepo = USE_DB ? new DrizzleNotificationRepository() : null;
 const _pgLaunchpadRepo = USE_DB ? new DrizzleLaunchpadRepository() : null;
 const _pgCalendarReminderRepo = USE_DB ? new DrizzleCalendarReminderRepository() : null;
 const _pgCalendarSubscriptionRepo = USE_DB ? new DrizzleCalendarSubscriptionRepository() : null;
+const _pgReminderTaskRepo = USE_DB ? new DrizzleReminderTaskRepository() : null;
 
 export function createAppContext(): ApplicationContext {
   if (USE_DB) {
@@ -51,6 +55,7 @@ export function createAppContext(): ApplicationContext {
       launchpadRepo: _pgLaunchpadRepo!,
       calendarReminderRepo: _pgCalendarReminderRepo!,
       calendarSubscriptionRepo: _pgCalendarSubscriptionRepo!,
+      reminderTaskRepo: _pgReminderTaskRepo!,
     };
   }
 
@@ -62,6 +67,7 @@ export function createAppContext(): ApplicationContext {
     launchpadRepo: _memLaunchpadRepo,
     calendarReminderRepo: _memCalendarReminderRepo,
     calendarSubscriptionRepo: _memCalendarSubscriptionRepo,
+    reminderTaskRepo: _memReminderTaskRepo,
   };
 }
 

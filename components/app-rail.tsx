@@ -15,7 +15,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useCurrentUser, useAuthStore } from '@/lib/hooks/use-current-user';
 import {
@@ -32,6 +32,7 @@ export default function AppRail() {
   const pathname = usePathname();
   const { user, error } = useCurrentUser();
   const fetched = useAuthStore((s) => s.fetched);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const userRoles: Role[] = useMemo(
     () =>
@@ -47,6 +48,34 @@ export default function AppRail() {
   // Hide rail on auth routes (full-screen login/register).
   const isAuthRoute =
     pathname === '/login' || pathname === '/register' || pathname?.startsWith('/login/') || pathname?.startsWith('/register/');
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    const refreshBadge = async () => {
+      try {
+        const res = await fetch('/api/notifications/badge', { credentials: 'include', cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json().catch(() => ({}));
+        if (!cancelled && typeof data.unreadCount === 'number') setUnreadCount(data.unreadCount);
+      } catch {
+        /* fail-soft */
+      }
+    };
+    const onUnread = (event: Event) => {
+      const detail = (event as CustomEvent<{ unreadCount?: number }>).detail;
+      if (typeof detail?.unreadCount === 'number') setUnreadCount(detail.unreadCount);
+    };
+    window.addEventListener('tandem:notifications:unread', onUnread);
+    void refreshBadge();
+    const timer = setInterval(refreshBadge, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+      window.removeEventListener('tandem:notifications:unread', onUnread);
+    };
+  }, [user?.id]);
+
   if (isAuthRoute) return null;
 
   const visibleModules = NAV_MODULES.filter((m) => isVisible(m.visibleTo, userRoles));
@@ -98,6 +127,11 @@ export default function AppRail() {
                   />
                 )}
                 <Icon className="h-[18px] w-[18px] shrink-0" />
+                {m.id === 'notifications' && unreadCount > 0 && (
+                  <span className="absolute right-1.5 top-1 rounded-full bg-[rgb(var(--brand-500))] px-1.5 py-0.5 text-[9px] font-semibold leading-none text-white">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
                 <span className="text-[10px] font-medium leading-tight tracking-wide">
                   {m.label}
                 </span>

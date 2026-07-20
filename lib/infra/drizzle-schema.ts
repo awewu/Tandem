@@ -262,6 +262,37 @@ export const notification = pgTable(
   }),
 );
 
+export const reminderTask = pgTable(
+  'ReminderTask',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    userId: text('userId').notNull(),
+    sourceType: text('sourceType').notNull(),
+    sourceId: text('sourceId').notNull(),
+    dedupeKey: text('dedupeKey').notNull(),
+    title: text('title').notNull(),
+    body: text('body').notNull().default(''),
+    url: text('url'),
+    remindAt: timestamp('remindAt', { precision: 3, mode: 'date' }).notNull(),
+    channels: text('channels').array().notNull().default(['in_app']),
+    priority: text('priority').notNull().default('normal'),
+    status: text('status').notNull().default('pending'),
+    retryCount: integer('retryCount').notNull().default(0),
+    lastError: text('lastError'),
+    processingAt: timestamp('processingAt', { precision: 3, mode: 'date' }),
+    sentAt: timestamp('sentAt', { precision: 3, mode: 'date' }),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+  },
+  (t) => ({
+    dedupeUniq: uniqueIndex('ReminderTask_tenant_dedupe_uniq').on(t.tenantId, t.dedupeKey),
+    userDueIdx: index('ReminderTask_user_due_idx').on(t.tenantId, t.userId, t.status, t.remindAt),
+    sourceIdx: index('ReminderTask_source_idx').on(t.tenantId, t.sourceType, t.sourceId),
+    dueIdx: index('ReminderTask_due_idx').on(t.status, t.remindAt),
+  }),
+);
+
 /**
  * AuditLog · 不可篡改审计链
  *

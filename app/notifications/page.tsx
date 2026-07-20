@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Bell, Check, X, MessageSquare, Calendar, FileText } from "lucide-react";
 import { useCurrentUserId } from "@/lib/hooks/use-current-user";
 import { PushSubscribeToggle } from "@/components/PushSubscribeToggle";
@@ -14,6 +15,7 @@ interface Notification {
   readAt?: string | null;
   dismissedAt?: string | null;
   createdAt: string;
+  data?: Record<string, unknown> | null;
 }
 
 const typeIcon = {
@@ -25,6 +27,7 @@ const typeIcon = {
 
 export default function NotificationsPage() {
   const currentUserId = useCurrentUserId();
+  const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -34,6 +37,9 @@ export default function NotificationsPage() {
       .then((r) => r.json())
       .then((data) => {
         setNotifications(data.notifications ?? []);
+        if (typeof data.unreadCount === "number") {
+          window.dispatchEvent(new CustomEvent("tandem:notifications:unread", { detail: { unreadCount: data.unreadCount } }));
+        }
         setLoading(false);
       });
   }, [currentUserId]);
@@ -47,6 +53,7 @@ export default function NotificationsPage() {
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, readAt: new Date().toISOString() } : n))
     );
+    window.dispatchEvent(new CustomEvent("tandem:notifications:unread", { detail: { unreadCount: Math.max(0, unreadCount - 1) } }));
   }
 
   async function dismiss(id: string) {
@@ -56,6 +63,7 @@ export default function NotificationsPage() {
       body: JSON.stringify({ dismissed: true }),
     });
     setNotifications((prev) => prev.filter((n) => n.id !== id));
+    window.dispatchEvent(new CustomEvent("tandem:notifications:unread", { detail: { unreadCount: Math.max(0, unreadCount - (notifications.find((n) => n.id === id)?.readAt ? 0 : 1)) } }));
   }
 
   const unreadCount = notifications.filter((n) => !n.readAt).length;
@@ -96,6 +104,11 @@ export default function NotificationsPage() {
                 </div>
               </div>
               <div className="flex gap-1">
+                {typeof n.data?.url === "string" && (
+                  <button onClick={() => router.push(n.data?.url as string)} className="px-2 py-1 text-caption text-info hover:bg-info/5 rounded" title="查看来源">
+                    查看
+                  </button>
+                )}
                 {!n.readAt && (
                   <button onClick={() => markRead(n.id)} className="p-2 text-success hover:bg-success/5 rounded" title="标记已读">
                     <Check size={16} />

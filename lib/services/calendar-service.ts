@@ -5,6 +5,7 @@ import type { CalendarMutationScope, CalendarRecurrenceRule, CalendarUser } from
 import type { CalendarJob, CalendarJobResult } from '@/lib/calendar/job-store';
 import { getCalendarJobStore } from '@/lib/calendar/job-store';
 import { recordCalendarActivity } from '@/lib/calendar/activity-log';
+import { ReminderEngine } from './reminder-engine';
 
 export interface CreateEventCommand {
   title: string;
@@ -74,7 +75,7 @@ export interface SubscribedCalendarViewEvent extends CalendarViewEvent {
 
 type CalendarApplicationContext = Pick<
   ApplicationContext,
-  'calendarRepo' | 'notificationRepo' | 'calendarReminderRepo' | 'calendarSubscriptionRepo'
+  'calendarRepo' | 'notificationRepo' | 'calendarReminderRepo' | 'calendarSubscriptionRepo' | 'reminderTaskRepo'
 >;
 
 export class CalendarService {
@@ -518,6 +519,7 @@ export class CalendarService {
 
     if (shouldRescheduleReminders) {
       await this.ctx.calendarReminderRepo.cancelByEventIds(targets.map((event) => event.id));
+      await this.cancelReminderTasksForEvents(targets);
     }
     if (patch.recurrence !== undefined && (scope !== 'single' || !anchor.seriesId)) {
       const materializationStart = scope === 'series' && targets[0]
@@ -642,6 +644,7 @@ export class CalendarService {
       cancelled.push(await this.ctx.calendarRepo.update(event.id, { status: 'cancelled', updatedAt: nowIso }));
     }
     await this.ctx.calendarReminderRepo.cancelByEventIds(targets.map((event) => event.id));
+    await this.cancelReminderTasksForEvents(targets);
     await recordCalendarActivity({
       tenantId: anchor.tenantId,
       actorId,
@@ -728,30 +731,23 @@ export class CalendarService {
   }
 
   async processDueReminders(userId: string, tenantId: string): Promise<CalendarEvent[]> {
-    const now = this.deps.now?.() ?? new Date();
-    const pending = await this.ctx.calendarReminderRepo.list({ userId, tenantId, status: 'pending' });
+    const result = await new ReminderEngine(this.ctx, this.deps).processDue({ userId, tenantId });
     const firedEvents: CalendarEvent[] = [];
-    for (const task of pending.filter((item) => new Date(item.remindAt) <= now)) {
-      const event = await this.ctx.calendarRepo.findById(task.eventId);
-      if (!event || event.status === 'cancelled') {
-        await this.ctx.calendarReminderRepo.cancelByEventIds([task.eventId]);
-        continue;
+    for (const delivered of result.delivered) {
+      if (delivered.task.sourceType !== 'calendar_event') continue;
+      const event = await this.ctx.calendarRepo.findById(delivered.task.sourceId);
+      if (event) {
+        const legacyTasks = await this.ctx.calendarReminderRepo.list({
+          eventId: event.id,
+          userId: delivered.task.userId,
+          tenantId,
+          status: 'pending',
+        });
+        for (const task of legacyTasks) {
+          await this.ctx.calendarReminderRepo.markFired(task.id, delivered.task.sentAt ?? new Date().toISOString());
+        }
+        firedEvents.push(event);
       }
-      await this.ctx.notificationRepo.create({
-        userId,
-        type: 'reminder',
-        title: `日程提醒: ${event.title}`,
-        body: `${new Date(event.startAt).toLocaleString('zh-CN')} 开始${event.location ? ` · ${event.location}` : ''}`,
-        data: { eventId: event.id, url: '/calendar' },
-        priority: 'high',
-        channel: 'in-app',
-        sourceId: event.id,
-        sourceType: 'calendar_event',
-        tenantId,
-        createdAt: now.toISOString(),
-      });
-      await this.ctx.calendarReminderRepo.markFired(task.id, now.toISOString());
-      firedEvents.push(event);
     }
     return firedEvents;
   }
@@ -796,6 +792,26 @@ export class CalendarService {
         createdAt: nowIso,
         updatedAt: nowIso,
       });
+      await new ReminderEngine(this.ctx, this.deps).schedule({
+        tenantId: event.tenantId,
+        userId,
+        sourceType: 'calendar_event',
+        sourceId: event.id,
+        dedupeKey: `calendar_event:${event.id}:${userId}`,
+        title: `日程提醒: ${event.title}`,
+        body: `${new Date(event.startAt).toLocaleString('zh-CN')} 开始${event.location ? ` · ${event.location}` : ''}`,
+        url: '/calendar',
+        remindAt,
+        channels: ['in_app', 'toast', 'web_push'],
+        priority: 'high',
+      });
+    }
+  }
+
+  private async cancelReminderTasksForEvents(events: CalendarEvent[]): Promise<void> {
+    const engine = new ReminderEngine(this.ctx, this.deps);
+    for (const event of events) {
+      await engine.cancelBySource(event.tenantId, 'calendar_event', event.id);
     }
   }
 

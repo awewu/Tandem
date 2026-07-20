@@ -5,7 +5,7 @@ import { boot } from '@/lib/boot';
 import { createAppContext } from '@/lib/repositories/app-context-factory';
 import { NotificationService } from '@/lib/services/notification-service';
 import { withApiLog } from '@/lib/api-log/with-api-log';
-import { createCalendarService } from '@/lib/calendar/service-factory';
+import { ReminderEngine } from '@/lib/services/reminder-engine';
 
 const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
   await boot();
@@ -16,7 +16,7 @@ const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
   const unreadOnly = searchParams.get('unread') === 'true';
   const ctx = createAppContext();
   const svc = new NotificationService(ctx);
-  await createCalendarService().processDueReminders(auth.userId, auth.tenantId);
+  await new ReminderEngine(ctx).processDue({ userId: auth.userId, tenantId: auth.tenantId });
   // Tenant isolation: scope reads to caller's tenant.
   const notifs = await svc.list(userId, { unreadOnly, tenantId: auth.tenantId });
   const unreadCount = await svc.countUnread(userId);

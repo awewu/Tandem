@@ -10,6 +10,7 @@ import type { NotificationRepository } from './notification-repo';
 import type { LaunchpadRepository } from './launchpad-repo';
 import type { CalendarReminderRepository } from './calendar-reminder-repo';
 import type { CalendarSubscriptionRepository } from './calendar-subscription-repo';
+import type { ReminderTaskRepository } from './reminder-task-repo';
 
 export interface ApplicationContext {
   documentRepo: DocumentRepository;
@@ -18,5 +19,6 @@ export interface ApplicationContext {
   notificationRepo: NotificationRepository;
   calendarReminderRepo: CalendarReminderRepository;
   calendarSubscriptionRepo: CalendarSubscriptionRepository;
+  reminderTaskRepo: ReminderTaskRepository;
   launchpadRepo: LaunchpadRepository;
 }

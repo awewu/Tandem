@@ -53,6 +53,7 @@ import {
   Store,
   GraduationCap,
   Network,
+  Bell,
 } from 'lucide-react';
 
 export type Role = 'employee' | 'manager' | 'steward' | 'admin' | 'champion' | 'intranet_editor' | 'owner' | 'partner';
@@ -114,6 +115,19 @@ export const NAV_MODULES: NavModule[] = [
     icon: Home,
     pathPrefixes: ['/'],
     items: [], // home has no sub-sidebar
+  },
+
+  {
+    id: 'notifications',
+    label: '通知',
+    fullLabel: '通知 · 提醒中心',
+    tagline: '日程 / OKR / 审批等提醒统一进入这里',
+    icon: Bell,
+    visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
+    pathPrefixes: ['/notifications'],
+    items: [
+      { name: '消息中心', href: '/notifications', icon: Bell, group: '提醒中心' },
+    ],
   },
 
   {

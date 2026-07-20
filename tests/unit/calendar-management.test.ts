@@ -5,6 +5,7 @@ import { InMemoryCalendarEventRepository } from '@/lib/repositories/memory-calen
 import { InMemoryNotificationRepository } from '@/lib/repositories/memory-notification-repo';
 import { InMemoryCalendarReminderRepository } from '@/lib/repositories/memory-calendar-reminder-repo';
 import { InMemoryCalendarSubscriptionRepository } from '@/lib/repositories/memory-calendar-subscription-repo';
+import { InMemoryReminderTaskRepository } from '@/lib/repositories/memory-reminder-task-repo';
 import { CalendarSubscriptionService } from '@/lib/services/calendar-subscription-service';
 import { listCalendarActivities } from '@/lib/calendar/activity-log';
 import { createInMemoryStore } from '@/lib/storage/memory-store';
@@ -33,6 +34,7 @@ function createService(
     notificationRepo: new InMemoryNotificationRepository(),
     calendarReminderRepo: new InMemoryCalendarReminderRepository(),
     calendarSubscriptionRepo: new InMemoryCalendarSubscriptionRepository(),
+    reminderTaskRepo: new InMemoryReminderTaskRepository(),
   };
 
   const service = new CalendarService(ctx, {
@@ -330,7 +332,7 @@ describe('CalendarService', () => {
       type: 'reminder',
       title: '日程提醒: 即将开始的会议',
     });
-    expect(await ctx.calendarReminderRepo.list({ status: 'fired' })).toHaveLength(1);
+    expect(await ctx.reminderTaskRepo.list({ status: 'sent' })).toHaveLength(1);
     expect(sentEmails).toHaveLength(0);
   });
 
@@ -421,7 +423,7 @@ describe('CalendarService', () => {
 
     await service.updateManaged(event.id, 'owner-1', 'single', { title: '新标题' });
 
-    expect(await ctx.calendarReminderRepo.list({ status: 'fired' })).toHaveLength(1);
+    expect(await ctx.reminderTaskRepo.list({ status: 'sent' })).toHaveLength(1);
     expect(await ctx.calendarReminderRepo.list({ status: 'pending' })).toHaveLength(0);
   });
 
