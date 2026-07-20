@@ -250,14 +250,22 @@ export default function TtiPage() {
   // Form ops
   // ---------------------------------------------------------------------------
 
-  const getForm = (krId: string): FormState => forms[krId] ?? EMPTY_FORM;
+  const emptyFormFor = (krId: string): FormState => ({
+    ...EMPTY_FORM,
+    confidenceAfter: krs.find((kr) => kr.id === krId)?.confidence ?? 'on-track',
+  });
+  const getForm = (krId: string): FormState => forms[krId] ?? emptyFormFor(krId);
   const setForm = (krId: string, patch: Partial<FormState>) =>
-    setForms((prev) => ({ ...prev, [krId]: { ...(prev[krId] ?? EMPTY_FORM), ...patch } }));
+    setForms((prev) => ({
+      ...prev,
+      [krId]: { ...(prev[krId] ?? emptyFormFor(krId)), ...patch },
+    }));
 
   const submitCheckIn = async (kr: KeyResult) => {
     const f = getForm(kr.id);
-    const newVal = parseFloat(f.currentValue);
-    if (Number.isNaN(newVal)) {
+    const enteredValue = f.currentValue.trim();
+    const newVal = enteredValue === '' ? kr.currentValue : Number(enteredValue);
+    if (!Number.isFinite(newVal)) {
       setForm(kr.id, { error: '请填写实际进度数值' });
       return;
     }
@@ -282,13 +290,14 @@ export default function TtiPage() {
           achievements: f.achievements || undefined,
           blockers: f.blockers || undefined,
           nextSteps: f.nextSteps || undefined,
-          currentValue: newVal,
+          currentValue: enteredValue === '' ? undefined : newVal,
         }),
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error ?? `HTTP ${r.status}`);
       setForm(kr.id, {
         ...EMPTY_FORM,
+        confidenceAfter: f.confidenceAfter,
         ok: '已记录 · 不需要审批',
       });
       // refresh
@@ -461,7 +470,6 @@ export default function TtiPage() {
                           <Label className="text-footnote flex items-center gap-1.5">
                             <TrendingUp className="h-3.5 w-3.5 text-sky-600" />
                             实际进度 · 当前数值
-                            <span className="text-rose-500">*</span>
                           </Label>
                           <Input
                             type="number"
@@ -525,7 +533,7 @@ export default function TtiPage() {
                       <div className="flex justify-end">
                         <Button
                           onClick={() => void submitCheckIn(kr)}
-                          disabled={f.submitting || !f.currentValue}
+                          disabled={f.submitting}
                         >
                           {f.submitting ? '记录中…' : '记录本期进展'}
                         </Button>
