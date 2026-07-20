@@ -1,4 +1,4 @@
-CREATE TABLE "ReminderTask" (
+CREATE TABLE IF NOT EXISTS "ReminderTask" (
 	"id" text PRIMARY KEY NOT NULL,
 	"tenantId" text DEFAULT 'default' NOT NULL,
 	"userId" text NOT NULL,
@@ -20,10 +20,10 @@ CREATE TABLE "ReminderTask" (
 	"updatedAt" timestamp (3) NOT NULL
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX "ReminderTask_tenant_dedupe_uniq" ON "ReminderTask" USING btree ("tenantId", "dedupeKey");
+CREATE UNIQUE INDEX IF NOT EXISTS "ReminderTask_tenant_dedupe_uniq" ON "ReminderTask" USING btree ("tenantId", "dedupeKey");
 --> statement-breakpoint
-CREATE INDEX "ReminderTask_user_due_idx" ON "ReminderTask" USING btree ("tenantId", "userId", "status", "remindAt");
+CREATE INDEX IF NOT EXISTS "ReminderTask_user_due_idx" ON "ReminderTask" USING btree ("tenantId", "userId", "status", "remindAt");
 --> statement-breakpoint
-CREATE INDEX "ReminderTask_source_idx" ON "ReminderTask" USING btree ("tenantId", "sourceType", "sourceId");
+CREATE INDEX IF NOT EXISTS "ReminderTask_source_idx" ON "ReminderTask" USING btree ("tenantId", "sourceType", "sourceId");
 --> statement-breakpoint
-CREATE INDEX "ReminderTask_due_idx" ON "ReminderTask" USING btree ("status", "remindAt");
+CREATE INDEX IF NOT EXISTS "ReminderTask_due_idx" ON "ReminderTask" USING btree ("status", "remindAt");

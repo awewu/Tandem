@@ -42,10 +42,22 @@ async function routePropose(
     return { ok: false, error: '未找到本人分身, 无法提议代行写动作 (须先有 Persona)', tokensUsed: 50 };
   }
 
+  const actionInput =
+    actionId === 'kr.checkin' && input && typeof input === 'object'
+      ? {
+          ...(input as Record<string, unknown>),
+          achievements:
+            typeof (input as Record<string, unknown>).achievements === 'string' &&
+            ((input as Record<string, unknown>).achievements as string).trim()
+              ? (input as Record<string, unknown>).achievements
+              : (reason?.trim() || '由搭子提议更新 KR 进展'),
+        }
+      : input;
+
   const { proposeAction } = await import('../../ontology');
   const res = await proposeAction({
     actionId,
-    input,
+    input: actionInput,
     proposerPersonaId: persona.id,
     onBehalfOfUserId: ctx.userId,
     tenantId: ctx.tenantId,

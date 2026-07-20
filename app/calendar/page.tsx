@@ -124,12 +124,12 @@ export default function CalendarPage() {
     const ownResponse = await fetchWithTimeout('/api/calendar', { credentials: 'include', cache: 'no-store' }, CALENDAR_REQUEST_TIMEOUT_MS);
     if (!ownResponse.ok) return;
     const ownData = await ownResponse.json().catch(() => ({}));
-    let managed = mapApiEvents(ownData.events ?? [], 'cal-personal');
+    let managed = mapApiEvents(ownData.events ?? [], 'cal-personal', 'own');
     if (subscribedTargetId) {
       const subscribedResponse = await fetchWithTimeout(`/api/calendar?ownerId=${encodeURIComponent(subscribedTargetId)}`, { credentials: 'include', cache: 'no-store' }, CALENDAR_REQUEST_TIMEOUT_MS);
       if (subscribedResponse.ok) {
         const subscribedData = await subscribedResponse.json().catch(() => ({}));
-        managed = [...managed, ...mapApiEvents(subscribedData.events ?? [], 'cal-meetings')];
+        managed = [...managed, ...mapApiEvents(subscribedData.events ?? [], 'cal-subscribed', 'subscribed')];
       }
     }
     replaceManagedEvents(managed);
@@ -686,6 +686,7 @@ export default function CalendarPage() {
               year={year}
               month={month}
               todayMs={todayMs}
+              currentUserId={user?.id ?? ''}
               onEventClick={handleEventClick}
               onCellClick={handleCellClick}
             />
@@ -951,36 +952,41 @@ export default function CalendarPage() {
   }
 }
 
-function mapApiEvents(events: Array<Record<string, any>>, calendarId: string): CalendarEvent[] {
-  return events.map((event) => ({
-    id: event.id,
-    calendarId,
-    title: event.title,
-    description: event.description ?? undefined,
-    location: event.location ?? undefined,
-    startTime: new Date(event.startAt).getTime(),
-    endTime: new Date(event.endAt).getTime(),
-    isAllDay: event.allDay === true,
-    type: 'meeting',
-    attendees: event.attendeeEmails ?? [],
-    attendeeEmails: event.attendeeEmails ?? [],
-    attendeeUsers: Array.isArray(event.attendeeUsers) ? event.attendeeUsers : [],
-    externalAttendeeEmails: event.externalAttendeeEmails ?? [],
-    reminders: event.reminderMinutes === null || event.reminderMinutes === undefined
-      ? undefined
-      : [{ minutesBefore: event.reminderMinutes }],
-    recurrenceRule: event.recurringRule ?? undefined,
-    seriesId: event.seriesId ?? undefined,
-    hasConflict: event.hasConflict === true,
-    visibility: event.visibility,
-    organizer: event.organizer,
-    createdBy: event.ownerId,
-    createdAt: new Date(event.createdAt).getTime(),
-    updatedAt: new Date(event.updatedAt).getTime(),
-    status: event.status,
-    color: calendarId === 'cal-meetings' ? 'bg-violet-500' : 'bg-blue-500',
-    serverManaged: true,
-  }));
+function mapApiEvents(events: Array<Record<string, any>>, calendarId: string, sourceKind: 'own' | 'subscribed'): CalendarEvent[] {
+  return events.map((event) => {
+    const attendeeEmails = Array.isArray(event.attendeeEmails) ? event.attendeeEmails : [];
+    const attendeeUsers = Array.isArray(event.attendeeUsers) ? event.attendeeUsers : [];
+    const isMeeting = attendeeEmails.length > 0 || attendeeUsers.length > 0 || Boolean(event.meetingUrl);
+    return {
+      id: event.id,
+      calendarId,
+      title: event.title,
+      description: event.description ?? undefined,
+      location: event.location ?? undefined,
+      startTime: new Date(event.startAt).getTime(),
+      endTime: new Date(event.endAt).getTime(),
+      isAllDay: event.allDay === true,
+      type: isMeeting ? 'meeting' : 'custom',
+      attendees: attendeeEmails,
+      attendeeEmails,
+      attendeeUsers,
+      externalAttendeeEmails: event.externalAttendeeEmails ?? [],
+      reminders: event.reminderMinutes === null || event.reminderMinutes === undefined
+        ? undefined
+        : [{ minutesBefore: event.reminderMinutes }],
+      recurrenceRule: event.recurringRule ?? undefined,
+      seriesId: event.seriesId ?? undefined,
+      hasConflict: event.hasConflict === true,
+      visibility: event.visibility,
+      organizer: event.organizer,
+      createdBy: event.ownerId,
+      createdAt: new Date(event.createdAt).getTime(),
+      updatedAt: new Date(event.updatedAt).getTime(),
+      status: event.status,
+      color: sourceKind === 'subscribed' ? 'bg-slate-400' : isMeeting ? 'bg-violet-500' : 'bg-blue-500',
+      serverManaged: true,
+    };
+  });
 }
 
 function describeReminder(minutes: number): string {

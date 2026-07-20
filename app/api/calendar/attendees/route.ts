@@ -11,12 +11,13 @@ async function GETApiHandler(req: NextRequest) {
   const query = (req.nextUrl.searchParams.get('q') ?? '').trim().toLowerCase();
   const limitParam = Number(req.nextUrl.searchParams.get('limit') ?? '30');
   const limit = Number.isFinite(limitParam) ? Math.min(500, Math.max(1, Math.floor(limitParam))) : 30;
-  const users = (await getStore().auth.users.list({ tenantId: auth.tenantId }))
+  const matchedUsers = (await getStore().auth.users.list({ tenantId: auth.tenantId }))
     .filter((user) => !user.disabled && user.id !== auth.userId)
-    .filter((user) => !query || user.name.toLowerCase().includes(query) || user.email.toLowerCase().includes(query))
+    .filter((user) => !query || user.name.toLowerCase().includes(query) || user.email.toLowerCase().includes(query));
+  const users = matchedUsers
     .slice(0, limit)
     .map((user) => ({ id: user.id, name: user.name, email: user.email }));
-  return NextResponse.json({ users });
+  return NextResponse.json({ users, total: matchedUsers.length, limit });
 }
 
 export const GET = withApiLog(GETApiHandler, { route: '/api/calendar/attendees' });

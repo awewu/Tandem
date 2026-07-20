@@ -55,7 +55,7 @@ async function PATCHApiHandler(
     if (typeof body.cycleId === 'string') patch.cycleId = body.cycleId;
     if (typeof body.ownerId === 'string') patch.ownerId = body.ownerId;
     if (typeof body.level === 'string') patch.level = body.level;
-    if ('parentObjectiveId' in body) patch.parentObjectiveId = body.parentObjectiveId ?? undefined;
+    if ('parentObjectiveId' in body) patch.parentObjectiveId = body.parentObjectiveId ?? null;
     if (typeof body.visibility === 'string') patch.visibility = body.visibility;
     if (typeof body.weight === 'number') patch.weight = body.weight;
     if (typeof body.confidence === 'string') patch.confidence = body.confidence;

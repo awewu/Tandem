@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic';
  * GET /api/notifications/badge
  *
  * §T6 缓存策略: 30s TTL (Redis-first, InMemory fallback)
- * 失效路径: NotificationService.create / markRead 调用 cacheDel(`badge:${userId}`)
+ * 失效路径: NotificationService.create / markRead / markDismissed 调用 cacheDel(`badge:${userId}`)
  */
 const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
   const auth = requireAuth(req);
@@ -24,7 +24,7 @@ const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
   await new ReminderEngine(ctx).processDue({ userId, tenantId: auth.tenantId });
   const count = await cacheGetOrLoad(`badge:${userId}`, 30, async () => {
     const svc = new NotificationService(ctx);
-    return svc.countUnread(userId);
+    return svc.countUnread(userId, { tenantId: auth.tenantId });
   });
   return NextResponse.json({ unreadCount: count });
 });

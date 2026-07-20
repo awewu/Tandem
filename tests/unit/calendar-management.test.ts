@@ -551,6 +551,38 @@ describe('CalendarService', () => {
     expect(sentJob.steps.find((step) => step.key === 'sending_emails')?.status).toBe('done');
   });
 
+  it('does not fail async calendar creation when generic reminder storage is unavailable', async () => {
+    const { service, ctx } = createService();
+    const originalFindByDedupeKey = ctx.reminderTaskRepo.findByDedupeKey.bind(ctx.reminderTaskRepo);
+    ctx.reminderTaskRepo.findByDedupeKey = async () => {
+      throw new Error('ReminderTask table is unavailable');
+    };
+    const { getCalendarJobStore } = await import('@/lib/calendar/job-store');
+    const store = getCalendarJobStore();
+
+    const job = await store.create({
+      title: '提醒表异常也保存',
+      startAt: '2026-07-17T09:00:00+08:00',
+      endAt: '2026-07-17T10:00:00+08:00',
+      ownerId: 'owner-1',
+      ownerEmail: 'owner@example.com',
+      ownerName: 'Owner',
+      tenantId: 'tenant-1',
+      attendeeEmails: ['colleague@example.com'],
+      reminderMinutes: 15,
+    });
+
+    await service.createManagedAsync(job);
+
+    const finalJob = await store.get(job.id);
+    expect(finalJob?.status).toBe('completed');
+    expect(finalJob?.steps.find((step) => step.key === 'creating_reminders')?.status).toBe('done');
+    expect(finalJob?.result?.warnings.some((warning) => warning.includes('提醒任务暂未生成'))).toBe(true);
+    expect(await service.listForUser('user-2', 'tenant-1')).toHaveLength(1);
+
+    ctx.reminderTaskRepo.findByDedupeKey = originalFindByDedupeKey;
+  });
+
   it('resumes an async job from the last checkpoint after a simulated failure', async () => {
     const { service, ctx, sentEmails } = createService();
     const { getCalendarJobStore } = await import('@/lib/calendar/job-store');

@@ -23,6 +23,8 @@ const VALID_CONFIDENCE: Confidence[] = ['on-track', 'at-risk', 'off-track'];
 
 export interface KrCheckinInput {
   krId: string;
+  /** 已有 check-in id; 传入则修改原记录, 不新增 */
+  checkInId?: string;
   /** 最新进度数值 (写回 KR.currentValue); 缺省则不改数值 */
   currentValue?: number;
   /** 信心度 (写回 KR.confidence + checkIn.confidenceAfter) */
@@ -34,6 +36,8 @@ export interface KrCheckinInput {
   blockers?: string | null;
   nextSteps?: string | null;
   mood?: 'happy' | 'neutral' | 'sad' | null;
+  visibility?: CheckIn['visibility'];
+  viewerIds?: string[];
 }
 
 export interface KrCheckinResult {
@@ -67,12 +71,25 @@ export const KrCheckinAction: ActionType<KrCheckinInput, KrCheckinResult> = {
 
     // submission criteria (业务前置, 超出原 API 的纯类型校验)
     const errors: string[] = [];
+    const achievements = typeof input.achievements === 'string' ? input.achievements.trim() : '';
     if (kr.status === 'abandoned') errors.push('KR 已废弃, 不可 check-in');
+    if (!achievements) errors.push('推进事项必填');
     if (input.currentValue !== undefined && !Number.isFinite(input.currentValue)) {
       errors.push('currentValue 必须是有限数值');
     }
+    if (input.currentValue !== undefined && input.currentValue < 0) {
+      errors.push('currentValue 不能小于 0');
+    }
     if (input.confidenceAfter !== undefined && !VALID_CONFIDENCE.includes(input.confidenceAfter)) {
       errors.push(`confidenceAfter 非法: ${input.confidenceAfter}`);
+    }
+    if (input.checkInId !== undefined) {
+      const existing = await getStore().checkIns.get(input.checkInId);
+      if (!existing || existing.scope !== 'kr' || existing.scopeId !== input.krId) {
+        errors.push('checkIn 不存在或不属于该 KR');
+      } else if (existing.authorId !== ctx.actorUserId && !ctx.demo) {
+        errors.push('只能修改自己的填报记录');
+      }
     }
     return errors.length ? { ok: false, errors, code: 'invalid' } : { ok: true, errors: [] };
   },
@@ -82,23 +99,43 @@ export const KrCheckinAction: ActionType<KrCheckinInput, KrCheckinResult> = {
     const kr = await store.keyResults.get(input.krId);
     const currentValueBefore = kr?.currentValue ?? 0;
     const now = new Date().toISOString();
+    const normalizedAchievements = input.achievements?.trim() ?? null;
+    const normalizedBlockers = input.blockers?.trim() || null;
+    const normalizedNextSteps = input.nextSteps?.trim() || null;
+    const normalizedVisibility = input.visibility ?? 'private';
+    const normalizedViewerIds = Array.from(new Set((input.viewerIds ?? []).filter(Boolean)));
 
-    const checkIn = await store.checkIns.create({
-      scope: 'kr',
-      scopeId: input.krId,
-      authorId: ctx.actorUserId,
-      progressBefore: typeof input.progressBefore === 'number' ? input.progressBefore : 0,
-      progressAfter: typeof input.progressAfter === 'number' ? input.progressAfter : 0,
-      confidenceBefore: input.confidenceBefore ?? 'on-track',
-      confidenceAfter: input.confidenceAfter ?? 'on-track',
-      achievements: input.achievements ?? null,
-      blockers: input.blockers ?? null,
-      nextSteps: input.nextSteps ?? null,
-      mood: input.mood ?? null,
-      // P0-B: check-in 继承父 KR 的租户, 保证多租户读隔离.
-      tenantId: kr?.tenantId ?? 'default',
-      createdAt: now,
-    });
+    const checkIn = input.checkInId
+      ? await store.checkIns.update(input.checkInId, {
+          progressBefore: typeof input.progressBefore === 'number' ? input.progressBefore : 0,
+          progressAfter: typeof input.progressAfter === 'number' ? input.progressAfter : 0,
+          confidenceBefore: input.confidenceBefore ?? 'on-track',
+          confidenceAfter: input.confidenceAfter ?? 'on-track',
+          achievements: normalizedAchievements,
+          blockers: normalizedBlockers,
+          nextSteps: normalizedNextSteps,
+          mood: input.mood ?? null,
+          visibility: normalizedVisibility,
+          viewerIds: normalizedViewerIds,
+        })
+      : await store.checkIns.create({
+          scope: 'kr',
+          scopeId: input.krId,
+          authorId: ctx.actorUserId,
+          progressBefore: typeof input.progressBefore === 'number' ? input.progressBefore : 0,
+          progressAfter: typeof input.progressAfter === 'number' ? input.progressAfter : 0,
+          confidenceBefore: input.confidenceBefore ?? 'on-track',
+          confidenceAfter: input.confidenceAfter ?? 'on-track',
+          achievements: normalizedAchievements,
+          blockers: normalizedBlockers,
+          nextSteps: normalizedNextSteps,
+          mood: input.mood ?? null,
+          visibility: normalizedVisibility,
+          viewerIds: normalizedViewerIds,
+          // P0-B: check-in 继承父 KR 的租户, 保证多租户读隔离.
+          tenantId: kr?.tenantId ?? 'default',
+          createdAt: now,
+        });
 
     let currentValueAfter: number | null = null;
     if (typeof input.currentValue === 'number' || typeof input.confidenceAfter === 'string') {

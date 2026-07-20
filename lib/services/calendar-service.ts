@@ -90,6 +90,10 @@ export class CalendarService {
     return [...this.deliveryWarnings];
   }
 
+  private addDeliveryWarning(message: string): void {
+    if (!this.deliveryWarnings.includes(message)) this.deliveryWarnings.push(message);
+  }
+
   async list(opts?: { ownerId?: string; from?: Date; to?: Date; tenantId?: string }): Promise<CalendarEvent[]> {
     const events = opts?.ownerId
       ? await this.ctx.calendarRepo.findByOwner(opts.ownerId, opts.from && opts.to ? { from: opts.from, to: opts.to } : undefined)
@@ -776,42 +780,53 @@ export class CalendarService {
 
   private async createReminderTasks(event: CalendarEvent, nowIso: string, preserveFired = false): Promise<void> {
     if (event.reminderMinutes === null || event.reminderMinutes === undefined || event.status === 'cancelled') return;
-    const remindAt = new Date(new Date(event.startAt).getTime() - event.reminderMinutes * 60_000).toISOString();
-    const firedUsers = preserveFired
-      ? new Set((await this.ctx.calendarReminderRepo.list({ eventId: event.id, status: 'fired' })).map((task) => task.userId))
-      : new Set<string>();
-    for (const userId of [event.ownerId, ...event.attendees]) {
-      if (firedUsers.has(userId)) continue;
-      await this.ctx.calendarReminderRepo.create({
-        eventId: event.id,
-        userId,
-        remindAt,
-        status: 'pending',
-        tenantId: event.tenantId,
-        firedAt: null,
-        createdAt: nowIso,
-        updatedAt: nowIso,
-      });
-      await new ReminderEngine(this.ctx, this.deps).schedule({
-        tenantId: event.tenantId,
-        userId,
-        sourceType: 'calendar_event',
-        sourceId: event.id,
-        dedupeKey: `calendar_event:${event.id}:${userId}`,
-        title: `日程提醒: ${event.title}`,
-        body: `${new Date(event.startAt).toLocaleString('zh-CN')} 开始${event.location ? ` · ${event.location}` : ''}`,
-        url: '/calendar',
-        remindAt,
-        channels: ['in_app', 'toast', 'web_push'],
-        priority: 'high',
-      });
+    try {
+      const remindAt = new Date(new Date(event.startAt).getTime() - event.reminderMinutes * 60_000).toISOString();
+      const firedUsers = preserveFired
+        ? new Set((await this.ctx.calendarReminderRepo.list({ eventId: event.id, status: 'fired' })).map((task) => task.userId))
+        : new Set<string>();
+      const reminderEngine = new ReminderEngine(this.ctx, this.deps);
+      for (const userId of [event.ownerId, ...event.attendees]) {
+        if (firedUsers.has(userId)) continue;
+        await this.ctx.calendarReminderRepo.create({
+          eventId: event.id,
+          userId,
+          remindAt,
+          status: 'pending',
+          tenantId: event.tenantId,
+          firedAt: null,
+          createdAt: nowIso,
+          updatedAt: nowIso,
+        });
+        await reminderEngine.schedule({
+          tenantId: event.tenantId,
+          userId,
+          sourceType: 'calendar_event',
+          sourceId: event.id,
+          dedupeKey: `calendar_event:${event.id}:${userId}`,
+          title: `日程提醒: ${event.title}`,
+          body: `${new Date(event.startAt).toLocaleString('zh-CN')} 开始${event.location ? ` · ${event.location}` : ''}`,
+          url: '/calendar',
+          remindAt,
+          channels: ['in_app', 'toast', 'web_push'],
+          priority: 'high',
+        });
+      }
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      this.addDeliveryWarning(`提醒任务暂未生成，日程已保存；请稍后重试或联系管理员检查提醒中心配置。${detail}`);
     }
   }
 
   private async cancelReminderTasksForEvents(events: CalendarEvent[]): Promise<void> {
     const engine = new ReminderEngine(this.ctx, this.deps);
     for (const event of events) {
-      await engine.cancelBySource(event.tenantId, 'calendar_event', event.id);
+      try {
+        await engine.cancelBySource(event.tenantId, 'calendar_event', event.id);
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        this.addDeliveryWarning(`提醒任务暂未同步取消，日程状态已更新；请稍后重试或联系管理员检查提醒中心配置。${detail}`);
+      }
     }
   }
 
@@ -836,15 +851,15 @@ export class CalendarService {
 
   private async deliverEmail(message: CalendarEmailMessage): Promise<boolean> {
     if (!this.deps.sendEmail) {
-      this.deliveryWarnings.push('email service is unavailable');
+      this.addDeliveryWarning('email service is unavailable');
       return false;
     }
     const result = await this.deps.sendEmail(message);
     if (!result.ok) {
-      this.deliveryWarnings.push(result.error || 'email delivery failed');
+      this.addDeliveryWarning(result.error || 'email delivery failed');
       return false;
     }
-    if (result.warning) this.deliveryWarnings.push(result.warning);
+    if (result.warning) this.addDeliveryWarning(result.warning);
     return true;
   }
 }

@@ -34,6 +34,8 @@ export interface ObjectiveCheckinInput {
   blockers?: string | null;
   nextSteps?: string | null;
   mood?: 'happy' | 'neutral' | 'sad' | null;
+  visibility?: CheckIn['visibility'];
+  viewerIds?: string[];
 }
 
 export interface ObjectiveCheckinResult {
@@ -78,6 +80,8 @@ export const ObjectiveCheckinAction: ActionType<ObjectiveCheckinInput, Objective
     const obj = await store.objectives.get(input.objectiveId);
     const confidenceBefore = (obj?.confidence ?? null) as Confidence | null;
     const now = new Date().toISOString();
+    const normalizedVisibility = input.visibility ?? 'private';
+    const normalizedViewerIds = Array.from(new Set((input.viewerIds ?? []).filter(Boolean)));
 
     const checkIn = await store.checkIns.create({
       scope: 'objective',
@@ -91,6 +95,8 @@ export const ObjectiveCheckinAction: ActionType<ObjectiveCheckinInput, Objective
       blockers: input.blockers ?? null,
       nextSteps: input.nextSteps ?? null,
       mood: input.mood ?? null,
+      visibility: normalizedVisibility,
+      viewerIds: normalizedViewerIds,
       // P0-B: check-in 继承父 Objective 的租户, 保证多租户读隔离.
       tenantId: obj?.tenantId ?? 'default',
       createdAt: now,

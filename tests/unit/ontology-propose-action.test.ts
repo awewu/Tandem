@@ -43,7 +43,7 @@ function kr(p: Partial<KeyResult> & Pick<KeyResult, 'id' | 'title' | 'objectiveI
 function propose(extra?: { vetoWindowMs?: number }) {
   return proposeAction({
     actionId: 'kr.checkin',
-    input: { krId: 'kr-1', currentValue: 40, confidenceAfter: 'at-risk', progressAfter: 40 },
+    input: { krId: 'kr-1', currentValue: 40, confidenceAfter: 'at-risk', progressAfter: 40, achievements: '员工分身代起草进度更新' },
     proposerPersonaId: 'persona_u-1',
     onBehalfOfUserId: 'u-1',
     tenantId: 'default',
@@ -152,7 +152,7 @@ describe('ON-2 · proposeAction 决策调配', () => {
   it('宪法 A: 中央 AI persona 作为 proposer → 硬拒, 不进队列', async () => {
     const r = await proposeAction({
       actionId: 'kr.checkin',
-      input: { krId: 'kr-1', currentValue: 40 },
+      input: { krId: 'kr-1', currentValue: 40, achievements: '中央 AI 尝试更新' },
       proposerPersonaId: COMPANY_BRAIN_PERSONA_ID,
       onBehalfOfUserId: 'u-1',
       tenantId: 'default',
@@ -166,7 +166,7 @@ describe('ON-2 · proposeAction 决策调配', () => {
   it('宪法 A: 分身替他人发起 (cross-user) → 拒', async () => {
     const r = await proposeAction({
       actionId: 'kr.checkin',
-      input: { krId: 'kr-1', currentValue: 40 },
+      input: { krId: 'kr-1', currentValue: 40, achievements: '跨用户尝试更新' },
       proposerPersonaId: 'persona_u-1', // u-1 的分身
       onBehalfOfUserId: 'u-2',           // 却想替 u-2 发起
       tenantId: 'default',
@@ -178,7 +178,7 @@ describe('ON-2 · proposeAction 决策调配', () => {
   it('proposer 分身不存在 → 拒', async () => {
     const r = await proposeAction({
       actionId: 'kr.checkin',
-      input: { krId: 'kr-1', currentValue: 40 },
+      input: { krId: 'kr-1', currentValue: 40, achievements: '幽灵分身尝试更新' },
       proposerPersonaId: 'persona_ghost',
       onBehalfOfUserId: 'ghost',
       tenantId: 'default',

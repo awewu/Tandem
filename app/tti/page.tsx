@@ -39,6 +39,12 @@ import {
   CheckCircle2,
   AlertCircle,
   Compass,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Pencil,
+  Trash2,
+  X,
 } from 'lucide-react';
 import { TrustBanner } from '@/components/trust-banner';
 
@@ -107,6 +113,8 @@ const CONFIDENCE_META: Record<Confidence, { label: string; color: string }> = {
   'off-track': { label: '严重偏离', color: 'bg-rose-50 text-rose-700 border-rose-200' },
 };
 
+const HISTORY_PAGE_SIZE = 5;
+
 /** TTI 健康度: 60-70% 健康, >90% 警告"目标定低了". 与 KPI 完全不同. */
 function ttiHealth(progressPct: number): {
   label: string;
@@ -149,11 +157,30 @@ function progressOf(kr: KeyResult): number {
   return Math.round(Math.max(0, Math.min(1.5, r)) * 100);
 }
 
+function currentValueFromProgress(kr: KeyResult, progressPct: number): string {
+  if (kr.targetValue === kr.startValue) {
+    return (progressPct >= 100 ? kr.targetValue : kr.startValue).toString();
+  }
+  const value = kr.startValue + (progressPct / 100) * (kr.targetValue - kr.startValue);
+  return Number.isInteger(value) ? value.toString() : Number(value.toFixed(2)).toString();
+}
+
+function sanitizeProgressValue(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed === '') return '';
+  if (trimmed.startsWith('-')) return trimmed === '-' ? '' : '0';
+  const numeric = Number(trimmed);
+  return Number.isFinite(numeric) && numeric < 0 ? '0' : value;
+}
+
 // ---------------------------------------------------------------------------
 // Per-KR form state
 // ---------------------------------------------------------------------------
 
 interface FormState {
+  checkInId?: string | null;
+  progressBefore?: number | null;
+  confidenceBefore?: Confidence | null;
   currentValue: string;
   confidenceAfter: Confidence;
   achievements: string;
@@ -165,6 +192,9 @@ interface FormState {
 }
 
 const EMPTY_FORM: FormState = {
+  checkInId: null,
+  progressBefore: null,
+  confidenceBefore: null,
   currentValue: '',
   confidenceAfter: 'on-track',
   achievements: '',
@@ -188,6 +218,9 @@ export default function TtiPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [forms, setForms] = useState<Record<string, FormState>>({});
+  const [deletingCheckInId, setDeletingCheckInId] = useState<string | null>(null);
+  const [historyExpandedByKr, setHistoryExpandedByKr] = useState<Record<string, boolean>>({});
+  const [historyPageByKr, setHistoryPageByKr] = useState<Record<string, number>>({});
 
   const load = useCallback(async () => {
     if (!me) return;
@@ -263,15 +296,25 @@ export default function TtiPage() {
 
   const submitCheckIn = async (kr: KeyResult) => {
     const f = getForm(kr.id);
+    const achievements = f.achievements.trim();
+    if (!achievements) {
+      setForm(kr.id, { error: '请填写推进事项' });
+      return;
+    }
     const enteredValue = f.currentValue.trim();
     const newVal = enteredValue === '' ? kr.currentValue : Number(enteredValue);
     if (!Number.isFinite(newVal)) {
       setForm(kr.id, { error: '请填写实际进度数值' });
       return;
     }
+    if (newVal < 0) {
+      setForm(kr.id, { currentValue: '0', error: '实际进度不能小于 0' });
+      return;
+    }
     setForm(kr.id, { submitting: true, error: null, ok: null });
     try {
-      const beforeProgress = progressOf(kr);
+      const isEditing = Boolean(f.checkInId);
+      const beforeProgress = f.progressBefore ?? progressOf(kr);
       const afterProgress = (() => {
         if (kr.targetValue === kr.startValue) return newVal >= kr.targetValue ? 100 : 0;
         const r = (newVal - kr.startValue) / (kr.targetValue - kr.startValue);
@@ -283,13 +326,14 @@ export default function TtiPage() {
         body: JSON.stringify({
           scope: 'kr',
           scopeId: kr.id,
+          checkInId: f.checkInId ?? undefined,
           progressBefore: beforeProgress,
           progressAfter: afterProgress,
-          confidenceBefore: kr.confidence,
+          confidenceBefore: f.confidenceBefore ?? kr.confidence,
           confidenceAfter: f.confidenceAfter,
-          achievements: f.achievements || undefined,
-          blockers: f.blockers || undefined,
-          nextSteps: f.nextSteps || undefined,
+          achievements,
+          blockers: f.blockers.trim() || undefined,
+          nextSteps: f.nextSteps.trim() || undefined,
           currentValue: enteredValue === '' ? undefined : newVal,
         }),
       });
@@ -298,13 +342,40 @@ export default function TtiPage() {
       setForm(kr.id, {
         ...EMPTY_FORM,
         confidenceAfter: f.confidenceAfter,
-        ok: '已记录 · 不需要审批',
+        ok: isEditing ? '已更新 · 不需要审批' : '已记录 · 不需要审批',
       });
+      setHistoryExpandedByKr((prev) => ({ ...prev, [kr.id]: true }));
+      setHistoryPageByKr((prev) => ({ ...prev, [kr.id]: 1 }));
       // refresh
       await load();
       await loadCheckIns(kr.id);
     } catch (e) {
       setForm(kr.id, { submitting: false, error: (e as Error).message });
+    }
+  };
+
+  const deleteCheckIn = async (kr: KeyResult, checkIn: CheckIn) => {
+    if (deletingCheckInId) return;
+    if (!confirm('确认删除这条 TTI 填报记录？删除后会按剩余最近记录回算当前进度。')) return;
+    setDeletingCheckInId(checkIn.id);
+    setForm(kr.id, { error: null, ok: null });
+    try {
+      const r = await fetch(`/api/okr/checkins?id=${encodeURIComponent(checkIn.id)}`, {
+        method: 'DELETE',
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error ?? `HTTP ${r.status}`);
+      const isEditingDeleted = getForm(kr.id).checkInId === checkIn.id;
+      setForm(kr.id, isEditingDeleted
+        ? { ...EMPTY_FORM, confidenceAfter: kr.confidence, ok: '已删除填报记录' }
+        : { ok: '已删除填报记录' });
+      setHistoryPageByKr((prev) => ({ ...prev, [kr.id]: 1 }));
+      await load();
+      await loadCheckIns(kr.id);
+    } catch (e) {
+      setForm(kr.id, { error: (e as Error).message });
+    } finally {
+      setDeletingCheckInId(null);
     }
   };
 
@@ -405,6 +476,14 @@ export default function TtiPage() {
                   const health = ttiHealth(progress);
                   const conf = CONFIDENCE_META[kr.confidence];
                   const recent = checkInsByKr[kr.id] ?? [];
+                  const historyTotalPages = Math.max(1, Math.ceil(recent.length / HISTORY_PAGE_SIZE));
+                  const requestedHistoryPage = historyPageByKr[kr.id] ?? 1;
+                  const historyPage = Math.min(Math.max(requestedHistoryPage, 1), historyTotalPages);
+                  const historyExpanded = historyExpandedByKr[kr.id] ?? recent.length <= HISTORY_PAGE_SIZE;
+                  const pagedRecent = recent.slice(
+                    (historyPage - 1) * HISTORY_PAGE_SIZE,
+                    historyPage * HISTORY_PAGE_SIZE,
+                  );
                   return (
                     <div key={kr.id} className="border rounded-lg p-4 space-y-4">
                       {/* KR 头部 + 进度 */}
@@ -440,12 +519,14 @@ export default function TtiPage() {
                           <Label className="text-footnote flex items-center gap-1.5">
                             <Zap className="h-3.5 w-3.5 text-emerald-600" />
                             推进事项 · 本期取得了什么
+                            <span className="text-rose-600">*</span>
                           </Label>
                           <Textarea
+                            required
                             rows={3}
                             value={f.achievements}
                             onChange={(e) =>
-                              setForm(kr.id, { achievements: e.target.value })
+                              setForm(kr.id, { achievements: e.target.value, error: null })
                             }
                             placeholder="例: 完成了 3 次客户访谈, 拿到了 2 个内部 align"
                           />
@@ -473,8 +554,20 @@ export default function TtiPage() {
                           </Label>
                           <Input
                             type="number"
+                            min={0}
                             value={f.currentValue}
-                            onChange={(e) => setForm(kr.id, { currentValue: e.target.value })}
+                            onKeyDown={(e) => {
+                              if (e.key === '-') e.preventDefault();
+                            }}
+                            onChange={(e) => {
+                              const value = sanitizeProgressValue(e.currentTarget.value);
+                              if (value !== e.currentTarget.value) e.currentTarget.value = value;
+                              setForm(kr.id, { currentValue: value, error: null });
+                            }}
+                            onBlur={(e) => {
+                              const value = sanitizeProgressValue(e.currentTarget.value);
+                              if (value !== f.currentValue) setForm(kr.id, { currentValue: value });
+                            }}
                             placeholder={kr.currentValue.toString()}
                           />
                         </div>
@@ -529,6 +622,27 @@ export default function TtiPage() {
                           {f.ok}
                         </div>
                       )}
+                      {f.checkInId && (
+                        <div className="text-caption text-sky-700 bg-sky-50 px-3 py-2 rounded-md flex items-center gap-2">
+                          <Pencil className="h-4 w-4" />
+                          正在修改已填报记录
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="ml-auto h-7 px-2 text-sky-700 hover:text-sky-800"
+                            onClick={() =>
+                              setForm(kr.id, {
+                                ...EMPTY_FORM,
+                                confidenceAfter: kr.confidence,
+                              })
+                            }
+                          >
+                            <X className="h-3.5 w-3.5 mr-1" />
+                            取消修改
+                          </Button>
+                        </div>
+                      )}
 
                       <div className="flex justify-end">
                         <Button
@@ -539,50 +653,160 @@ export default function TtiPage() {
                         </Button>
                       </div>
 
-                      {/* 历史 check-in (近 3 次) */}
+                      {/* 历史 check-in：默认收纳, 每页 5 条 */}
                       {recent.length > 0 && (
                         <div className="border-t pt-3">
-                          <div className="text-footnote text-muted-foreground mb-2">
-                            近期填报 · {recent.length} 次
+                          <div className="mb-2 flex items-center gap-2">
+                            <button
+                              type="button"
+                              className="flex min-w-0 items-center gap-1.5 text-footnote text-muted-foreground hover:text-foreground"
+                              onClick={() =>
+                                setHistoryExpandedByKr((prev) => ({
+                                  ...prev,
+                                  [kr.id]: !(prev[kr.id] ?? recent.length <= HISTORY_PAGE_SIZE),
+                                }))
+                              }
+                            >
+                              <ChevronDown
+                                className={`h-3.5 w-3.5 transition-transform ${historyExpanded ? '' : '-rotate-90'}`}
+                              />
+                              <span>近期填报 · {recent.length} 次</span>
+                              {recent.length > HISTORY_PAGE_SIZE && historyExpanded && (
+                                <span className="text-[11px] text-muted-foreground">
+                                  第 {historyPage} / {historyTotalPages} 页
+                                </span>
+                              )}
+                            </button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="ml-auto h-7 px-2 text-footnote"
+                              onClick={() =>
+                                setHistoryExpandedByKr((prev) => ({
+                                  ...prev,
+                                  [kr.id]: !(prev[kr.id] ?? recent.length <= HISTORY_PAGE_SIZE),
+                                }))
+                              }
+                            >
+                              {historyExpanded ? '收起' : '展开'}
+                            </Button>
                           </div>
-                          <ul className="space-y-2">
-                            {recent.slice(0, 3).map((c) => (
-                              <li
-                                key={c.id}
-                                className="text-footnote text-muted-foreground border-l-2 pl-3 py-1"
-                              >
-                                <div className="flex items-center gap-2">
-                                  <span className="tabular-nums">
-                                    {c.progressBefore}% → <strong>{c.progressAfter}%</strong>
-                                  </span>
-                                  <Badge
-                                    variant="outline"
-                                    className={`${CONFIDENCE_META[c.confidenceAfter].color} text-footnote`}
+                          {historyExpanded && (
+                            <>
+                              <ul className="space-y-2">
+                                {pagedRecent.map((c) => (
+                                  <li
+                                    key={c.id}
+                                    className="text-footnote text-muted-foreground border-l-2 pl-3 py-1"
                                   >
-                                    {CONFIDENCE_META[c.confidenceAfter].label}
-                                  </Badge>
-                                  <span className="ml-auto">
-                                    {new Date(c.createdAt).toLocaleDateString()}
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span className="tabular-nums">
+                                        {c.progressBefore}% → <strong>{c.progressAfter}%</strong>
+                                      </span>
+                                      <Badge
+                                        variant="outline"
+                                        className={`${CONFIDENCE_META[c.confidenceAfter].color} text-footnote`}
+                                      >
+                                        {CONFIDENCE_META[c.confidenceAfter].label}
+                                      </Badge>
+                                      <span className="ml-auto">
+                                        {new Date(c.createdAt).toLocaleDateString()}
+                                      </span>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 px-2"
+                                        onClick={() =>
+                                          setForm(kr.id, {
+                                            checkInId: c.id,
+                                            progressBefore: c.progressBefore,
+                                            confidenceBefore: c.confidenceBefore,
+                                            currentValue: currentValueFromProgress(kr, c.progressAfter),
+                                            confidenceAfter: c.confidenceAfter,
+                                            achievements: c.achievements ?? '',
+                                            blockers: c.blockers ?? '',
+                                            nextSteps: c.nextSteps ?? '',
+                                            error: null,
+                                            ok: null,
+                                          })
+                                        }
+                                      >
+                                        <Pencil className="h-3.5 w-3.5 mr-1" />
+                                        修改
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 px-2 text-rose-600 hover:text-rose-700"
+                                        disabled={deletingCheckInId === c.id}
+                                        onClick={() => void deleteCheckIn(kr, c)}
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5 mr-1" />
+                                        {deletingCheckInId === c.id ? '删除中…' : '删除'}
+                                      </Button>
+                                    </div>
+                                    {c.achievements && (
+                                      <div className="mt-1">
+                                        <span className="text-emerald-700">取得:</span> {c.achievements}
+                                      </div>
+                                    )}
+                                    {c.blockers && (
+                                      <div className="mt-0.5">
+                                        <span className="text-warning">障碍:</span> {c.blockers}
+                                      </div>
+                                    )}
+                                    {c.nextSteps && (
+                                      <div className="mt-0.5">
+                                        <span className="text-primary">下一步:</span> {c.nextSteps}
+                                      </div>
+                                    )}
+                                  </li>
+                                ))}
+                              </ul>
+                              {recent.length > HISTORY_PAGE_SIZE && (
+                                <div className="mt-3 flex items-center justify-end gap-2 text-footnote text-muted-foreground">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 px-2"
+                                    disabled={historyPage <= 1}
+                                    onClick={() =>
+                                      setHistoryPageByKr((prev) => ({
+                                        ...prev,
+                                        [kr.id]: Math.max(1, historyPage - 1),
+                                      }))
+                                    }
+                                  >
+                                    <ChevronLeft className="h-3.5 w-3.5 mr-1" />
+                                    上一页
+                                  </Button>
+                                  <span className="tabular-nums">
+                                    {historyPage} / {historyTotalPages}
                                   </span>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 px-2"
+                                    disabled={historyPage >= historyTotalPages}
+                                    onClick={() =>
+                                      setHistoryPageByKr((prev) => ({
+                                        ...prev,
+                                        [kr.id]: Math.min(historyTotalPages, historyPage + 1),
+                                      }))
+                                    }
+                                  >
+                                    下一页
+                                    <ChevronRight className="h-3.5 w-3.5 ml-1" />
+                                  </Button>
                                 </div>
-                                {c.achievements && (
-                                  <div className="mt-1">
-                                    <span className="text-emerald-700">取得:</span> {c.achievements}
-                                  </div>
-                                )}
-                                {c.blockers && (
-                                  <div className="mt-0.5">
-                                    <span className="text-warning">障碍:</span> {c.blockers}
-                                  </div>
-                                )}
-                                {c.nextSteps && (
-                                  <div className="mt-0.5">
-                                    <span className="text-primary">下一步:</span> {c.nextSteps}
-                                  </div>
-                                )}
-                              </li>
-                            ))}
-                          </ul>
+                              )}
+                            </>
+                          )}
                         </div>
                       )}
                     </div>

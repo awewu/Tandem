@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ToastAction } from '@/components/ui/toast';
 import { useToast } from '@/hooks/use-toast';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
+import { getReminderToastDurationMs } from '@/lib/reminders/toast-duration';
 
 interface PollResponse {
   unreadCount?: number;
@@ -44,10 +45,14 @@ export function ReminderRuntime() {
           toast({
             title: item.title,
             description: item.body ?? '',
+            duration: getReminderToastDurationMs(item.body),
             action: item.url ? (
               <ToastAction
                 altText="查看"
-                onClick={() => router.push(item.url ?? '/notifications')}
+                onClick={() => {
+                  void markNotificationRead(item.notificationId);
+                  router.push(item.url ?? '/notifications');
+                }}
               >
                 查看
               </ToastAction>
@@ -71,4 +76,23 @@ export function ReminderRuntime() {
   }, [router, toast, user?.id]);
 
   return null;
+}
+
+async function markNotificationRead(notificationId?: string) {
+  if (!notificationId) return;
+  try {
+    await fetch(`/api/notifications/${encodeURIComponent(notificationId)}`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ read: true }),
+    });
+    const response = await fetch('/api/notifications/badge', { credentials: 'include', cache: 'no-store' });
+    const data = await response.json().catch(() => ({})) as { unreadCount?: number };
+    if (typeof data.unreadCount === 'number') {
+      window.dispatchEvent(new CustomEvent('tandem:notifications:unread', { detail: { unreadCount: data.unreadCount } }));
+    }
+  } catch {
+    /* fail-soft: viewing still navigates even when ack sync fails */
+  }
 }

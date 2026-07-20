@@ -19,7 +19,7 @@ const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
     userId: auth.userId,
   });
   const notificationService = new NotificationService(ctx);
-  const unreadCount = await notificationService.countUnread(auth.userId);
+  const unreadCount = await notificationService.countUnread(auth.userId, { tenantId: auth.tenantId });
   const recentReminderNotifications = await notificationService.list(auth.userId, {
     tenantId: auth.tenantId,
     limit: 50,

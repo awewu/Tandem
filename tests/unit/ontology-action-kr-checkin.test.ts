@@ -46,7 +46,7 @@ describe('ON-1 · kr.checkin action', () => {
   it('owner check-in: 主写 + KR 同步 + rollup lineage', async () => {
     const r = await executeAction<KrCheckinResult>(
       'kr.checkin',
-      { krId: 'kr-1', currentValue: 30, confidenceAfter: 'at-risk', progressBefore: 0, progressAfter: 30 },
+      { krId: 'kr-1', currentValue: 30, confidenceAfter: 'at-risk', progressBefore: 0, progressAfter: 30, achievements: '完成客户拜访' },
       HUMAN,
     );
     expect(r.ok).toBe(true);
@@ -81,7 +81,7 @@ describe('ON-1 · kr.checkin action', () => {
     const seen: unknown[] = [];
     const off = eventBus.on('okr.kr-progressed', async (p) => { seen.push(p); });
     try {
-      await executeAction('kr.checkin', { krId: 'kr-1', currentValue: 50, progressAfter: 50 }, HUMAN);
+      await executeAction('kr.checkin', { krId: 'kr-1', currentValue: 50, progressAfter: 50, achievements: '推进到 50' }, HUMAN);
     } finally {
       off();
     }
@@ -102,7 +102,7 @@ describe('ON-1 · kr.checkin action', () => {
   });
 
   it('submission criteria: demo 模式放行非 owner', async () => {
-    const r = await executeAction('kr.checkin', { krId: 'kr-1', currentValue: 10 }, { actorUserId: 'admin', isProxy: false, demo: true });
+    const r = await executeAction('kr.checkin', { krId: 'kr-1', currentValue: 10, achievements: 'demo 推进事项' }, { actorUserId: 'admin', isProxy: false, demo: true });
     expect(r.ok).toBe(true);
   });
 
@@ -110,6 +110,20 @@ describe('ON-1 · kr.checkin action', () => {
     const r = await executeAction('kr.checkin', { krId: 'kr-1', currentValue: Number.NaN }, HUMAN);
     expect(r.ok).toBe(false);
     expect(r.blocked?.code).toBe('invalid');
+  });
+
+  it('submission criteria: currentValue 为负数 → invalid', async () => {
+    const r = await executeAction('kr.checkin', { krId: 'kr-1', currentValue: -1 }, HUMAN);
+    expect(r.ok).toBe(false);
+    expect(r.blocked?.code).toBe('invalid');
+    expect(await getStore().checkIns.list()).toHaveLength(0);
+  });
+
+  it('submission criteria: 推进事项为空 → invalid', async () => {
+    const r = await executeAction('kr.checkin', { krId: 'kr-1', achievements: '   ' }, HUMAN);
+    expect(r.ok).toBe(false);
+    expect(r.blocked?.code).toBe('invalid');
+    expect(await getStore().checkIns.list()).toHaveLength(0);
   });
 
   it('submission criteria: 非法 confidence → invalid', async () => {
@@ -128,7 +142,7 @@ describe('ON-1 · kr.checkin action', () => {
   it('动作闸 fail-closed: AI 代行 (isProxy, 无 commit 委托) 被拦在 gate', async () => {
     const r = await executeAction(
       'kr.checkin',
-      { krId: 'kr-1', currentValue: 30 },
+      { krId: 'kr-1', currentValue: 30, achievements: 'AI 代行推进事项' },
       { actorUserId: 'u-1', isProxy: true, delegationLevel: 'report_only' },
     );
     expect(r.ok).toBe(false);
@@ -144,9 +158,43 @@ describe('ON-1 · kr.checkin action', () => {
   });
 
   it('只改信心度不改数值: currentValueAfter=null, KR.confidence 更新', async () => {
-    const r = await executeAction<KrCheckinResult>('kr.checkin', { krId: 'kr-1', confidenceAfter: 'off-track' }, HUMAN);
+    const r = await executeAction<KrCheckinResult>('kr.checkin', { krId: 'kr-1', confidenceAfter: 'off-track', achievements: '风险升级' }, HUMAN);
     expect(r.ok).toBe(true);
     expect(r.result!.currentValueAfter).toBeNull();
     expect((await getStore().keyResults.get('kr-1'))!.confidence).toBe('off-track');
+  });
+
+  it('已填报 check-in 可修改: 更新原记录, 不新增记录', async () => {
+    const created = await executeAction<KrCheckinResult>(
+      'kr.checkin',
+      { krId: 'kr-1', currentValue: 30, confidenceAfter: 'at-risk', progressBefore: 0, progressAfter: 30, achievements: '初次推进' },
+      HUMAN,
+    );
+    expect(created.ok).toBe(true);
+
+    const updated = await executeAction<KrCheckinResult>(
+      'kr.checkin',
+      {
+        checkInId: created.result!.checkIn.id,
+        krId: 'kr-1',
+        currentValue: 45,
+        confidenceAfter: 'on-track',
+        progressBefore: 0,
+        progressAfter: 45,
+        achievements: '修改后的推进事项',
+        blockers: '已解除阻碍',
+        nextSteps: '继续跟进',
+      },
+      HUMAN,
+    );
+
+    expect(updated.ok).toBe(true);
+    const checkIns = await getStore().checkIns.list();
+    expect(checkIns).toHaveLength(1);
+    expect(checkIns[0].id).toBe(created.result!.checkIn.id);
+    expect(checkIns[0].achievements).toBe('修改后的推进事项');
+    expect(checkIns[0].blockers).toBe('已解除阻碍');
+    expect(checkIns[0].nextSteps).toBe('继续跟进');
+    expect((await getStore().keyResults.get('kr-1'))!.currentValue).toBe(45);
   });
 });

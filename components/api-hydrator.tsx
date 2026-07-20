@@ -12,6 +12,7 @@
  */
 
 import { useEffect, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import { useOneOnOneStore, useReview360Store, useMemoryStore, useOrgStore, useOKRStore, type Memory } from '@/lib/store';
 import { hydrateOkrFromApi } from '@/lib/store/okr-sync';
 import { useOrgPeopleStore } from '@/lib/org/people-source';
@@ -35,6 +36,7 @@ function entryToUiMemory(e: any): Memory {
 }
 
 export function ApiHydrator() {
+  const pathname = usePathname() ?? '';
   const load1on1 = useOneOnOneStore((s) => s.loadFromApi);
   const hydrated1 = useOneOnOneStore((s) => s._hydrated);
   const load360 = useReview360Store((s) => s.loadFromApi);
@@ -51,6 +53,15 @@ export function ApiHydrator() {
   const user = useAuthStore((s) => s.user);
   const memHydratedRef = useRef(false);
   const okrHydratedRef = useRef(false);
+  const shouldHydratePeopleSignals =
+    pathname === '/1on1' ||
+    pathname.startsWith('/1on1/') ||
+    pathname === '/360' ||
+    pathname.startsWith('/360/') ||
+    pathname === '/analytics' ||
+    pathname.startsWith('/analytics/') ||
+    pathname === '/insights' ||
+    pathname.startsWith('/insights/');
 
   // P1-1: 拉个人 memory 注入 zustand, 供 /chat baseline system prompt 用
   useEffect(() => {
@@ -73,11 +84,11 @@ export function ApiHydrator() {
   }, [user?.id, hydrateMemories]);
 
   useEffect(() => {
+    if (!shouldHydratePeopleSignals) return;
     // hydrate once
-    if (!hydrated1) void load1on1();
-    if (!hydrated360) void load360();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (!hydrated1) void load1on1().catch((err) => console.warn('[api-hydrator] 1on1 hydrate skipped:', err));
+    if (!hydrated360) void load360().catch((err) => console.warn('[api-hydrator] 360 hydrate skipped:', err));
+  }, [shouldHydratePeopleSignals, hydrated1, hydrated360, load1on1, load360]);
 
   // OKR 数据收敛 (B4 + 2026-06-17 去 localStorage): DB 是唯一真值, 登录后从后端拉取
   // objectives/keyResults/cycles/checkIns/initiatives. 写操作走 okr-sync.ts persist* helper.
@@ -92,7 +103,7 @@ export function ApiHydrator() {
     if (!user?.id || orgHydrated) return;
     void hydrateOrg();
     if (!hrDeptsHydrated) void hydrateHrDepts();
-  }, [user?.id, orgHydrated, hydrateOrg]);
+  }, [user?.id, orgHydrated, hydrateOrg, hrDeptsHydrated, hydrateHrDepts]);
 
   // E-pragma (2026-05-31): OrgPeople = 真用户 + fixture 合并
   useEffect(() => {

@@ -29,6 +29,7 @@ export function AttendeePicker({ value, onChange, showLabel = true }: AttendeePi
   const [draftEmails, setDraftEmails] = useState<string[]>(selectedEmails);
   const [search, setSearch] = useState('');
   const [options, setOptions] = useState<AttendeeOption[]>([]);
+  const [totalOptions, setTotalOptions] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -47,6 +48,7 @@ export function AttendeePicker({ value, onChange, showLabel = true }: AttendeePi
       setError('');
       try {
         const params = new URLSearchParams();
+        params.set('limit', '500');
         const keyword = search.trim();
         if (keyword) params.set('q', keyword);
         const res = await fetch(`/api/calendar/attendees${params.size ? `?${params}` : ''}`, {
@@ -56,9 +58,11 @@ export function AttendeePicker({ value, onChange, showLabel = true }: AttendeePi
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error?.message ?? data.error ?? '联系人加载失败');
         setOptions(Array.isArray(data.users) ? data.users : []);
+        setTotalOptions(typeof data.total === 'number' ? data.total : Array.isArray(data.users) ? data.users.length : 0);
       } catch (err) {
         if (controller.signal.aborted) return;
         setOptions([]);
+        setTotalOptions(0);
         setError(err instanceof Error ? err.message : '联系人加载失败');
       } finally {
         if (!controller.signal.aborted) setLoading(false);
@@ -181,8 +185,8 @@ export function AttendeePicker({ value, onChange, showLabel = true }: AttendeePi
             <DialogTitle>选择成员</DialogTitle>
           </DialogHeader>
           <div className="flex h-[620px] max-h-[82vh] flex-col">
-            <div className="grid min-h-0 flex-1 grid-cols-[1fr_1.1fr]">
-              <div className="flex min-w-0 flex-col border-r bg-surface-2 p-5">
+            <div className="grid min-h-0 flex-1 grid-cols-[1fr_1.1fr] overflow-hidden">
+              <div className="flex min-w-0 flex-col overflow-hidden border-r bg-surface-2 p-5">
                 <div className="relative">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
@@ -197,10 +201,10 @@ export function AttendeePicker({ value, onChange, showLabel = true }: AttendeePi
                     <Users className="h-4 w-4 text-muted-foreground" />
                     我的联系人
                   </div>
-                  <span className="text-caption text-muted-foreground">{options.length}</span>
+                  <span className="text-caption text-muted-foreground">{options.length < totalOptions ? `${options.length}/${totalOptions}` : totalOptions}</span>
                 </div>
 
-                <ScrollArea className="mt-3 min-h-0 flex-1 pr-2">
+                <div className="mt-3 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-2 [scrollbar-gutter:stable]">
                   <div className="space-y-1">
                     {loading && (
                       <div className="flex items-center justify-center gap-2 py-10 text-caption text-muted-foreground">
@@ -261,10 +265,10 @@ export function AttendeePicker({ value, onChange, showLabel = true }: AttendeePi
                       </button>
                     )}
                   </div>
-                </ScrollArea>
+                </div>
               </div>
 
-              <div className="flex min-w-0 flex-col bg-background p-6">
+              <div className="flex min-w-0 flex-col overflow-hidden bg-background p-6">
                 <div className="text-headline font-medium">
                   {draftEmails.length > 0 ? `已选择 ${draftEmails.length} 人` : '请选择联系人'}
                 </div>
@@ -307,7 +311,7 @@ export function AttendeePicker({ value, onChange, showLabel = true }: AttendeePi
               </div>
             </div>
 
-            <div className="relative z-10 flex items-center justify-end gap-3 border-t bg-background px-8 py-4 shadow-[0_-8px_24px_rgba(15,23,42,0.04)]">
+            <div className="relative z-10 flex shrink-0 items-center justify-end gap-3 border-t bg-background px-8 py-4 shadow-[0_-8px_24px_rgba(15,23,42,0.04)]">
               <Button type="button" variant="outline" className="min-w-28" onClick={() => setOpen(false)}>
                 取消
               </Button>

@@ -125,6 +125,8 @@ export function mapServerCheckIn(c: Server.CheckIn): CheckIn {
     blockers: c.blockers ?? undefined,
     nextSteps: c.nextSteps ?? undefined,
     mood: c.mood ?? undefined,
+    visibility: c.visibility ?? undefined,
+    viewerIds: Array.isArray(c.viewerIds) ? c.viewerIds : undefined,
     createdAt: toMs(c.createdAt),
   };
 }
@@ -258,7 +260,7 @@ function clientVisibilityToServer(v?: Objective['visibility']): Server.Objective
 function objectiveToBody(o: Partial<Objective>): Record<string, unknown> {
   return {
     cycleId: o.cycleId,
-    parentObjectiveId: o.parentId ?? undefined,
+    parentObjectiveId: 'parentId' in o ? (o.parentId ?? null) : undefined,
     ownerId: realOwnerId(o.ownerId),
     title: o.title,
     description: o.description,
@@ -382,6 +384,10 @@ export async function persistUpdateInitiative(
   await postJson(`/api/okr/initiatives/${encodeURIComponent(id)}`, body, 'PATCH');
 }
 
+export async function persistDeleteInitiative(id: string): Promise<void> {
+  await postJson(`/api/okr/initiatives/${encodeURIComponent(id)}`, {}, 'DELETE');
+}
+
 /**
  * 提交 check-in 到后端 (/api/okr/checkins → executeAction kr.checkin / objective.checkin).
  * KR check-in 需要 currentValue (绝对测量值); 弹窗只收 progressAfter(%), 故按 KR 的
@@ -401,6 +407,8 @@ export async function persistCreateCheckIn(
     blockers: payload.blockers,
     nextSteps: payload.nextSteps,
     mood: payload.mood,
+    visibility: payload.visibility,
+    viewerIds: payload.viewerIds,
   };
   if (payload.scope === 'kr') {
     const kr = useOKRStore.getState().keyResults.find((k) => k.id === payload.scopeId);
