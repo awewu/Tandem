@@ -41,6 +41,7 @@ import type {
   CompanyBrainEvalCase,
   CompanyBrainReflectionReport,
 } from '../types/company-brain';
+import type { EvalTrace, EvalAttribution } from '../types/eval';
 import type { OneOnOneMeeting, OneOnOneActionItem } from '../types/one-on-one';
 import type {
   Review360Cycle,
@@ -95,6 +96,9 @@ export interface TandemStore {
   companyBrainVersions: Repository<CompanyBrainVersion>;
   companyBrainEvalCases: Repository<CompanyBrainEvalCase>;
   companyBrainReflections: Repository<CompanyBrainReflectionReport>;
+  /** P0 Eval / Trace-Grading 台 (评估 + #11 因果归因) */
+  evalTraces: Repository<EvalTrace>;
+  evalAttributions: Repository<EvalAttribution>;
   origins: Repository<Origin>;
   materials: Repository<Material>;
   memories: Repository<MemoryEntry>;

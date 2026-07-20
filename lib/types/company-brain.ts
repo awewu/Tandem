@@ -295,6 +295,10 @@ export interface CompanyBrainReflectionReport {
   /** 中央 AI 读 OKR 真值产出的优化方向提议; 缺省/无承压目标时为空数组 */
   optimizationProposals?: OkrOptimizationProposal[];
 
+  // ----- #11 学习归因汇总 (P0 Eval · 被 acknowledged 的 OKR 预警之后 KR 是否改善) -----
+  /** hindsight 归因 pass 汇总; 无样本时缺省 */
+  attributionSummary?: import('./eval').AttributionSummary;
+
   // ----- 签批状态 -----
   /** pending: 待 Owner/治理委员会签批 / approved: 已应用 / rejected: 已拒绝 */
   approvalStatus: 'pending' | 'approved' | 'rejected';

@@ -283,7 +283,7 @@ function UserDialog({
               />
               <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               {managerPickerOpen && (
-                <div className="absolute left-0 right-0 z-50 mt-1 max-h-64 overflow-auto rounded-md border border-border bg-popover py-1 text-popover-foreground shadow-lg">
+                <div className="absolute left-0 right-0 z-50 mt-1 max-h-64 overflow-auto rounded-md border border-border bg-popover py-1 text-popover-foreground shadow-soft-lg">
                   {filteredManagerItems.length === 0 ? (
                     <div className="px-3 py-2 text-caption text-muted-foreground">没有匹配的上级</div>
                   ) : (

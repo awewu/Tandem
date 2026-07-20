@@ -289,6 +289,9 @@ export function createInMemoryStore(): TandemStore {
     companyBrainVersions: new InMemoryRepository(),
     companyBrainEvalCases: new InMemoryRepository(),
     companyBrainReflections: new InMemoryRepository(),
+    // P0 Eval / Trace-Grading 台
+    evalTraces: new InMemoryRepository(),
+    evalAttributions: new InMemoryRepository(),
     origins: new InMemoryRepository(),
     materials: new InMemoryRepository(),
     memories: new InMemoryRepository(),

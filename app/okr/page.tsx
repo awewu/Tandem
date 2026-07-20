@@ -1178,7 +1178,7 @@ export default function OKRPage() {
               className="h-7 w-full rounded-md border border-input bg-background px-3 text-footnote outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/10"
             />
             {ownerFilterOpen && (
-              <div className="absolute left-0 z-30 mt-1 max-h-72 w-56 overflow-auto rounded-md border border-border bg-popover py-1 text-popover-foreground shadow-lg">
+              <div className="absolute left-0 z-30 mt-1 max-h-72 w-56 overflow-auto rounded-md border border-border bg-popover py-1 text-popover-foreground shadow-soft-lg">
                 {filteredOwnerFilterItems.length === 0 ? (
                   <div className="px-3 py-2 text-footnote text-muted-foreground">没有匹配的负责人</div>
                 ) : (

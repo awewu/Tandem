@@ -249,7 +249,7 @@ function DebugPanelInner() {
     >
       <div className="flex h-10 items-center gap-2 border-b border-border px-3">
         <Bug className="h-4 w-4 text-primary" />
-        <span className="text-xs font-semibold">移动端预览</span>
+        <span className="text-footnote font-semibold">移动端预览</span>
         <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-ink-secondary">DEV</span>
         <button
           type="button"
@@ -265,19 +265,19 @@ function DebugPanelInner() {
       {!collapsed && (
         <div className="max-h-[min(78dvh,680px)] space-y-3 overflow-y-auto p-3">
           <div className="space-y-2">
-            <div className="flex items-center justify-between gap-3 text-xs">
+            <div className="flex items-center justify-between gap-3 text-footnote">
               <span>普通移动 H5</span>
               <span className="rounded bg-success/10 px-1.5 py-0.5 text-[10px] font-medium text-success">已启用</span>
             </div>
-            <label className="flex items-center justify-between gap-3 text-xs">
+            <label className="flex items-center justify-between gap-3 text-footnote">
               <span>Capacitor App</span>
               <Switch checked={simulateCapacitor} onCheckedChange={setSimulateCapacitor} />
             </label>
-            <label className="flex items-center justify-between gap-3 text-xs">
+            <label className="flex items-center justify-between gap-3 text-footnote">
               <span>键盘打开</span>
               <Switch checked={simulateKeyboard} onCheckedChange={setSimulateKeyboard} />
             </label>
-            <label className="flex items-center justify-between gap-3 text-xs">
+            <label className="flex items-center justify-between gap-3 text-footnote">
               <span>IM 聊天打开</span>
               <Switch checked={simulateImChat} onCheckedChange={setSimulateImChat} />
             </label>

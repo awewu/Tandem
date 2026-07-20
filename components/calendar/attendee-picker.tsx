@@ -151,7 +151,7 @@ export function AttendeePicker({ value, onChange, showLabel = true }: AttendeePi
               }}
               onBlur={addInlineEmail}
               placeholder={inlinePlaceholder}
-              className="min-w-[150px] flex-[1_0_160px] border-0 bg-transparent px-1 text-sm outline-none placeholder:text-muted-foreground"
+              className="min-w-[150px] flex-[1_0_160px] border-0 bg-transparent px-1 text-caption outline-none placeholder:text-muted-foreground"
             />
             {inputValue.trim() && !canAddInlineEmail && (
               <span className="hidden shrink-0 text-[11px] text-muted-foreground sm:inline">回车添加邮箱</span>
@@ -176,7 +176,7 @@ export function AttendeePicker({ value, onChange, showLabel = true }: AttendeePi
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-[820px] gap-0 overflow-hidden p-0 sm:rounded-xl">
+        <DialogContent className="max-w-[820px] gap-0 overflow-hidden p-0 sm:rounded-2xl">
           <DialogHeader className="sr-only">
             <DialogTitle>选择成员</DialogTitle>
           </DialogHeader>
@@ -189,7 +189,7 @@ export function AttendeePicker({ value, onChange, showLabel = true }: AttendeePi
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
                     placeholder="搜索"
-                    className="h-11 rounded-lg border-0 bg-background pl-9 shadow-sm focus-visible:ring-brand-300"
+                    className="h-11 rounded-lg border-0 bg-background pl-9 shadow-soft-sm focus-visible:ring-brand-300"
                   />
                 </div>
                 <div className="mt-5 flex items-center justify-between text-body">
@@ -238,7 +238,7 @@ export function AttendeePicker({ value, onChange, showLabel = true }: AttendeePi
                             {initials(option.name || option.email)}
                           </span>
                           <span className="min-w-0 flex-1">
-                            <span className="block truncate text-sm font-medium">{option.name || option.email}</span>
+                            <span className="block truncate text-caption font-medium">{option.name || option.email}</span>
                             <span className="block truncate text-[11px] text-muted-foreground">{option.email}</span>
                           </span>
                           <span className={cn(
@@ -257,7 +257,7 @@ export function AttendeePicker({ value, onChange, showLabel = true }: AttendeePi
                         onClick={addSearchEmailToDraft}
                       >
                         <UserPlus className="h-4 w-4" />
-                        <span className="min-w-0 flex-1 truncate text-sm">添加外部联系人：{normalizeEmail(search)}</span>
+                        <span className="min-w-0 flex-1 truncate text-caption">添加外部联系人：{normalizeEmail(search)}</span>
                       </button>
                     )}
                   </div>
@@ -265,14 +265,14 @@ export function AttendeePicker({ value, onChange, showLabel = true }: AttendeePi
               </div>
 
               <div className="flex min-w-0 flex-col bg-background p-6">
-                <div className="text-lg font-medium">
+                <div className="text-headline font-medium">
                   {draftEmails.length > 0 ? `已选择 ${draftEmails.length} 人` : '请选择联系人'}
                 </div>
                 <ScrollArea className="mt-5 min-h-0 flex-1 pr-2">
                   {draftEmails.length === 0 ? (
                     <div className="flex h-[420px] flex-col items-center justify-center text-center text-muted-foreground">
                       <Mail className="mb-3 h-10 w-10 text-slate-300" />
-                      <div className="text-sm">从左侧联系人列表选择成员</div>
+                      <div className="text-caption">从左侧联系人列表选择成员</div>
                       <div className="mt-1 text-[11px]">也可以在搜索框输入完整邮箱添加外部联系人</div>
                     </div>
                   ) : (
@@ -285,7 +285,7 @@ export function AttendeePicker({ value, onChange, showLabel = true }: AttendeePi
                               {initials(option?.name || email)}
                             </span>
                             <span className="min-w-0 flex-1">
-                              <span className="block truncate text-sm font-medium">{option ? formatPerson(option.name, email) : email}</span>
+                              <span className="block truncate text-caption font-medium">{option ? formatPerson(option.name, email) : email}</span>
                               <span className="block truncate text-[11px] text-muted-foreground">{email}</span>
                             </span>
                             <Button

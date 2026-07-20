@@ -217,7 +217,7 @@ export default function WorkMethodPage() {
               className="w-full rounded-md border border-border bg-surface-1 px-2.5 py-1.5 text-caption text-ink-primary outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
             />
             {ownerPickerOpen && (
-              <div className="absolute right-0 z-20 mt-1 max-h-72 w-full overflow-auto rounded-md border border-border bg-surface-1 py-1 shadow-lg">
+              <div className="absolute right-0 z-20 mt-1 max-h-72 w-full overflow-auto rounded-md border border-border bg-surface-1 py-1 shadow-soft-lg">
                 {filteredPeopleOptions.length === 0 ? (
                   <div className="px-3 py-2 text-footnote text-ink-tertiary">没有匹配的人</div>
                 ) : (

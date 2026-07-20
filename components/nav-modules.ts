@@ -137,7 +137,7 @@ export const NAV_MODULES: NavModule[] = [
     tagline: '围绕 OKR 推进, 战略执行与目标达成的核心基座',
     icon: Target,
     visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
-    pathPrefixes: ['/okr', '/work-method', '/insights', '/analytics', '/kpi', '/tti', '/report'],
+    pathPrefixes: ['/okr', '/work-method', '/insights', '/analytics', '/kpi', '/tti', '/report', '/story-chain'],
     items: [
       // KPI = BSC 底线绩效结果 (年度硬指标, 100% 才达标, 与奖金挂钩; KPI 只关联 BSC). 只读.
       { name: '绩效记分卡',         href: '/kpi',              icon: BarChart3,      group: 'KPI · BSC 底线绩效' },
@@ -158,6 +158,7 @@ export const NAV_MODULES: NavModule[] = [
       { name: 'FP&A 经营推演',     href: '/okr/fpa',          icon: Building2,      group: '经营推演 FP&A' },
       // 分析洞察
       { name: 'AI 智能信号',       href: '/insights',         icon: SparklesAlias,  group: '分析洞察' },
+      { name: '故事链 provenance', href: '/story-chain',      icon: Network,        group: '分析洞察' },
       { name: '组织分析',          href: '/analytics',        icon: Grid3x3,        group: '分析洞察', visibleTo: ['manager', 'steward', 'admin', 'champion'] },
     ],
   },
@@ -450,6 +451,7 @@ export const NAV_MODULES: NavModule[] = [
           { name: 'TAF Skills', href: '/admin/tandem-skills', visibleTo: ['admin'] },
           { name: 'MCP Server', href: '/admin/mcp-servers', visibleTo: ['admin'] },
           { name: 'AI 评估', href: '/admin/evals', visibleTo: ['admin', 'steward'] },
+          { name: 'Trace 评估台 · 归因', href: '/admin/eval', visibleTo: ['admin', 'steward'] },
           { name: '定时任务', href: '/tasks', visibleTo: ['admin'] },
           { name: '接口日志', href: '/admin/api-logs', visibleTo: ['admin', 'steward'] },
           { name: '业务日志', href: '/admin/business-logs', visibleTo: ['admin', 'steward'] },
