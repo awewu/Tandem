@@ -6,6 +6,30 @@
 
 ---
 
+## §0.4 2026-07-20 四次校准 (故事链 A3 wire 实测已闭环 + Phase 3 可信护栏落地 · 最高优先)
+
+> 本节优先级高于 §0.3/§0.2/§0.1/§1-§10。以**代码实测**为准, 覆盖下方 §5 (2026-06-28 快照) 已过时表述。
+
+**当前实测门控**:
+- `tsc --noEmit` → **0 错** (忽略 vendor/paperclip)
+- `vitest run` (新增部分): eval(17) + attribution(5) + guardrail(16) + agent-runtime(17) 全绿
+
+**§5 故事链断点 — 实测已全部消除 (docs 曾滞后 3 周)**:
+- ① 议事 → DecisionCard: ✅ (原本就通)
+- ② DecisionCard → Material → Memory 签批: ✅ `/memories` **已切真 API** (`/api/tandem/memory/list?ownershipLevel=personal` + POST/PATCH/DELETE CRUD, 非 zustand demo); 待签在首页 Inbox `promotionsAwaitingMySignature` 暴露 (深链 `/memories?id=`)
+- ③ Memory → Persona 引用: ✅ `/api/persona/[id]/training-context` 返回 `memoryReferences`, 训练台 (`app/persona/training`) 展示
+- ④ Persona → 1on1 ActionItem → Initiative: ✅ `promoteActionItem` (A3.1) → `POST /api/okr/initiatives` (建真 Initiative + `syncKrFromInitiatives` 执行 rollup) + `PATCH /api/1on1/action-items/[id]` 回填 `linkedInitiativeId`
+- ⑤ 1on1/360 → 9-box: ✅ (P1-4) 纵轴 = KPI 加权完成率 (bonus scope, weight 加权); 横轴 = (TTI 完成率 + 360 均分)/2 — 非旧表所述"仍是 TTI"
+
+**结论**: 故事链 A3 跨模块 wire **已闭环** (§5 表格的 ⏸ 均已 ✅)。仍可做的是**净增值**"端到端故事链可视化" (把 决议→Memory→分身→KR 串成一屏 provenance), 属增强非补洞。
+
+**Phase 3 可信护栏 (2026-07-20 新增, commit f8087db)**:
+- `lib/guardrail/{patterns,index}.ts` — PII 脱敏 + 越狱检测 + 间接注入中和 (纯正则/零依赖/fail-open)
+- `runToolLoop` 默认接入 (所有 AI pass 自动受保护) + `ToolLoopHooks` before/afterToolCall 生命周期
+- guardrail findings 接入 eval trace meta + `guardrail-clean` grader (攻击面可观测)
+
+---
+
 ## §0.3 2026-07-12 三次校准 (决策防火墙 + 器官事实 refresh · 最高优先)
 
 > 本节优先级高于 §0.2 / §0.1 / §1-§10。

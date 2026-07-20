@@ -76,10 +76,10 @@
 
 ## §5 分期路线 (勾选进度)
 
-- [ ] **Phase 1 · 评估先行 (基石)**: Eval/trace-grading 台 + 全 agent 路径 trace 埋点。
-- [ ] **Phase 2 · 学习真闭环**: #11 hindsight 归因 pass (用评估台度量其有效性) + 手抄/知识库 agentic 检索 (充分上下文 Agent)。
-- [ ] **Phase 3 · 可信护栏**: Guardrail 层 + 注入防御 + Hook 生命周期。
-- [ ] **Phase 4 · 点亮 + 深化**: A3 故事链 UI wire + Memory 因果/时间图 (MAGMA-lite) + 本体安全维度 + 编排拓扑门控。
+- [x] **Phase 1 · 评估先行 (基石)**: Eval/trace-grading 台 + 全 agent 路径 trace 埋点。 ✅ (2026-07-20)
+- [~] **Phase 2 · 学习真闭环**: #11 hindsight 归因 pass ✅ (2026-07-20); 手抄/知识库 agentic 检索 (充分上下文 Agent) ⏳ 未做。
+- [x] **Phase 3 · 可信护栏**: Guardrail 层 (PII/越狱/间接注入) + Hook 生命周期 ✅ (2026-07-20, f8087db); 本体安全维度 (marking/purpose) ⏳ 未做。
+- [~] **Phase 4 · 点亮 + 深化**: A3 故事链 UI wire ✅ **实测已闭环** (见 STATE-OF-THE-CODE §0.4); Memory 因果/时间图 (MAGMA-lite) + 本体安全维度 + 编排拓扑门控 ⏳ 未做。净增值待办: 端到端故事链 provenance 可视化 (一屏串 决议→Memory→分身→KR)。
 
 ---
 
