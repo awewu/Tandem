@@ -492,6 +492,17 @@ export async function generateReflection(
     const skillProposals = analyzeSkillPromotion(metrics, 3);
     const optimizationProposals = [...okrProposals, ...skillProposals];
 
+    // #11 学习归因 (P0 Eval): 回溯被治理 acknowledged 的 OKR 预警之后 KR 是否改善。
+    //   best-effort, 失败 attributionSummary 缺省; useLlm 时补 hindsight 诊断。
+    let attributionSummary: CompanyBrainReflectionReport['attributionSummary'];
+    try {
+      const { runAttributionPass } = await import('./attribution');
+      const s = await runAttributionPass({ windowDays, tenantId, enrichWithLlm: !!input.useLlm });
+      if (s.samples > 0) attributionSummary = s;
+    } catch (err) {
+      logger.warn({ err: (err as Error).message }, '[reflection] attribution pass failed');
+    }
+
     const now = new Date().toISOString();
     const report: CompanyBrainReflectionReport = {
       id: `cbref_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
@@ -505,6 +516,7 @@ export async function generateReflection(
       failurePatterns,
       proposedChanges,
       optimizationProposals,
+      attributionSummary,
       approvalStatus: 'pending',
     };
 

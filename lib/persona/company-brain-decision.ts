@@ -16,6 +16,7 @@ import type {
 import type { DecisionCard } from '@/lib/types/decision-card';
 import { getStore } from '@/lib/storage/repository';
 import { logger } from '@/lib/infra/logger';
+import { recordEvalTraceSafe } from '@/lib/eval/service';
 import {
   DEFAULT_BRAIN_VERSION_NUMBER,
 } from '@/lib/types/company-brain';
@@ -87,6 +88,25 @@ export async function recordDecision(input: RecordDecisionInput): Promise<Compan
     };
 
     await store.companyBrainDecisions.create(decision);
+
+    // P0 Eval: 采集 decision trace (fail-soft). linkedDecisionId 供归因 pass 反查。
+    await recordEvalTraceSafe({
+      traceId: input.aiTraceId ?? decision.id,
+      tenantId: decision.tenantId,
+      kind: 'decision',
+      actorUserId: '__company__',
+      isProxy: false,
+      inputSummary: decision.inputSummary,
+      toolInvocations: [],
+      finalOutputSummary: decision.outputSummary,
+      roundsExecuted: 0,
+      finishedNaturally: true,
+      tokensUsed: (input.tokensIn ?? 0) + (input.tokensOut ?? 0),
+      latencyMs: input.latencyMs ?? 0,
+      triggerReason: `context=${decision.context}`,
+      linkedDecisionId: decision.id,
+    });
+
     return decision;
   } catch (err) {
     logger.warn({ err: (err as Error).message }, '[company-brain-decision] record failed');

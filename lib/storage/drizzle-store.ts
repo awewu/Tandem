@@ -1284,6 +1284,9 @@ export function createDrizzleStore(): TandemStore {
     companyBrainVersions: new DrizzleKvRepository('company_brain_versions'),
     companyBrainEvalCases: new DrizzleKvRepository('company_brain_eval_cases'),
     companyBrainReflections: new DrizzleKvRepository('company_brain_reflections'),
+    // P0 Eval / Trace-Grading 台 (kvStore, 零 DDL)
+    evalTraces: new DrizzleKvRepository('eval_traces'),
+    evalAttributions: new DrizzleKvRepository('eval_attributions'),
     origins: new DrizzleKvRepository('origins'),
     materials: new DrizzleKvRepository('materials'),
     memories: new DrizzleKvRepository('memories'),

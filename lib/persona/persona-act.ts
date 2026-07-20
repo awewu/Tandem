@@ -16,6 +16,7 @@
  */
 
 import { PERSONA_WRITE_SKILL_IDS } from '../taf/skills/persona-write';
+import { recordEvalTraceSafe } from '../eval/service';
 
 /** act pass 工具集: 先 okr.read 定位 KR, 再提议写动作 (全经 proposeAction 治理)。 */
 export const PERSONA_ACT_TOOLSET = ['okr.read', ...PERSONA_WRITE_SKILL_IDS] as const;
@@ -152,6 +153,42 @@ export async function personaActPass(
       if (rec.status === 'rejected' || !inv.ok) rejected.push(rec);
       else proposals.push(rec);
     }
+
+    // P0 Eval: 采集 act trace (fail-soft). rejectedRed = 越权升红计数; linkedKrIds 从写工具 args 提取。
+    const rejectedRed = rejected.filter((r) => r.zone === 'red').length;
+    const linkedKrIds = Array.from(
+      new Set(
+        loop.toolInvocations
+          .filter((inv) => writeIds.has(inv.name))
+          .flatMap((inv) => {
+            const a = inv.args as { krId?: unknown; objectiveId?: unknown };
+            return [a?.krId, a?.objectiveId].filter((v): v is string => typeof v === 'string');
+          }),
+      ),
+    );
+    await recordEvalTraceSafe({
+      traceId: checkId,
+      tenantId: opts?.tenantId ?? 'default',
+      kind: 'act',
+      actorUserId,
+      isProxy: true,
+      inputSummary: query,
+      toolInvocations: loop.toolInvocations.map((inv) => ({
+        name: inv.name,
+        ok: inv.ok,
+        cached: inv.cached,
+        error: inv.error,
+        latencyMs: inv.latencyMs,
+      })),
+      finalOutputSummary: loop.finalMessage,
+      roundsExecuted: loop.roundsExecuted,
+      finishedNaturally: loop.finishedNaturally,
+      tokensUsed: loop.totalTokensUsed,
+      latencyMs: loop.totalLatencyMs,
+      triggerReason: gate.reason,
+      meta: { rejectedRed, proposalCount: proposals.length },
+      linkedKrIds: linkedKrIds.length > 0 ? linkedKrIds : undefined,
+    });
 
     return {
       acted: proposals.length > 0 || rejected.length > 0,

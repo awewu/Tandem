@@ -27,6 +27,7 @@
  */
 
 import { COMPANY_BRAIN_USER_ID } from './company-brain';
+import { recordEvalTraceSafe } from '@/lib/eval/service';
 
 /**
  * 只读深推理工具白名单。
@@ -148,6 +149,25 @@ export async function companyBrainReasoningPass(
     const toolsUsed = result.trace
       .filter((s) => s.toolCall?.name)
       .map((s) => s.toolCall!.name);
+
+    // P0 Eval: 采集 reasoning trace (fail-soft)
+    await recordEvalTraceSafe({
+      traceId,
+      tenantId: 'default',
+      kind: 'reasoning',
+      actorUserId: opts?.actorUserId ?? COMPANY_BRAIN_USER_ID,
+      isProxy: false,
+      inputSummary: query,
+      toolInvocations: result.trace
+        .filter((s) => s.toolCall?.name)
+        .map((s) => ({ name: s.toolCall!.name, ok: s.status !== 'failed', latencyMs: s.latencyMs })),
+      finalOutputSummary: result.finalAnswer,
+      roundsExecuted: result.stepsExecuted,
+      finishedNaturally: result.finishedNaturally,
+      tokensUsed: result.totalTokensUsed,
+      latencyMs: result.totalLatencyMs,
+      triggerReason: gate.reason,
+    });
 
     // 一个工具都没调到 → 没收集到真值, 不注入简报 (避免拿模型臆测当事实)
     if (toolsUsed.length === 0 || !result.finalAnswer.trim()) {

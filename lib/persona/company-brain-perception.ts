@@ -21,6 +21,7 @@
  */
 
 import { COMPANY_BRAIN_USER_ID } from './company-brain';
+import { recordEvalTraceSafe } from '@/lib/eval/service';
 
 /** 只读感知工具白名单 (全部 green · proxyAllowed · 无副作用) */
 export const PERCEPTION_TOOLSET = [
@@ -192,6 +193,29 @@ export async function companyBrainPerceptionPass(
       // B-002: 中央 AI 感知 pass 可调已配置的外部 MCP server 工具 (经 4 道闸).
       // 没配 MCP server 时 listMcpServers() 为空, 等价于不开启.
       includeMcpTools: true,
+    });
+
+    // P0 Eval: 采集 perception trace (fail-soft, 不阻塞主流程)
+    await recordEvalTraceSafe({
+      traceId: checkId,
+      tenantId: 'default',
+      kind: 'perception',
+      actorUserId: COMPANY_BRAIN_USER_ID,
+      isProxy: false,
+      inputSummary: query,
+      toolInvocations: loop.toolInvocations.map((t) => ({
+        name: t.name,
+        ok: t.ok,
+        cached: t.cached,
+        error: t.error,
+        latencyMs: t.latencyMs,
+      })),
+      finalOutputSummary: loop.finalMessage,
+      roundsExecuted: loop.roundsExecuted,
+      finishedNaturally: loop.finishedNaturally,
+      tokensUsed: loop.totalTokensUsed,
+      latencyMs: loop.totalLatencyMs,
+      triggerReason: gate.reason,
     });
 
     const okInvocations = loop.toolInvocations.filter((t) => t.ok);
