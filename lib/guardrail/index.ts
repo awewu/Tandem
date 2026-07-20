@@ -112,13 +112,13 @@ export function redactPii(text: string): string {
 }
 
 /** 汇总 findings 按类别计数 (供 eval trace meta 记录)。 */
-export function summarizeFindings(findings: GuardrailFinding[]): {
+export function summarizeFindings(findings: GuardrailFinding[] | null | undefined): {
   injection: number;
   jailbreak: number;
   pii: number;
 } {
   const s = { injection: 0, jailbreak: 0, pii: 0 };
-  for (const f of findings) s[f.category] += f.count;
+  for (const f of findings ?? []) s[f.category] += f.count;
   return s;
 }
 
