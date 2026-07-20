@@ -22,6 +22,7 @@
 
 import { COMPANY_BRAIN_USER_ID } from './company-brain';
 import { recordEvalTraceSafe } from '@/lib/eval/service';
+import { summarizeFindings } from '@/lib/guardrail';
 
 /** 只读感知工具白名单 (全部 green · proxyAllowed · 无副作用) */
 export const PERCEPTION_TOOLSET = [
@@ -216,6 +217,10 @@ export async function companyBrainPerceptionPass(
       tokensUsed: loop.totalTokensUsed,
       latencyMs: loop.totalLatencyMs,
       triggerReason: gate.reason,
+      meta: (() => {
+        const g = summarizeFindings(loop.guardrailFindings);
+        return { guardrailInjection: g.injection, guardrailJailbreak: g.jailbreak, guardrailPii: g.pii };
+      })(),
     });
 
     const okInvocations = loop.toolInvocations.filter((t) => t.ok);

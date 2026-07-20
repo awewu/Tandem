@@ -17,6 +17,7 @@
 
 import { PERSONA_WRITE_SKILL_IDS } from '../taf/skills/persona-write';
 import { recordEvalTraceSafe } from '../eval/service';
+import { summarizeFindings } from '../guardrail';
 
 /** act pass 工具集: 先 okr.read 定位 KR, 再提议写动作 (全经 proposeAction 治理)。 */
 export const PERSONA_ACT_TOOLSET = ['okr.read', ...PERSONA_WRITE_SKILL_IDS] as const;
@@ -186,7 +187,16 @@ export async function personaActPass(
       tokensUsed: loop.totalTokensUsed,
       latencyMs: loop.totalLatencyMs,
       triggerReason: gate.reason,
-      meta: { rejectedRed, proposalCount: proposals.length },
+      meta: (() => {
+        const g = summarizeFindings(loop.guardrailFindings);
+        return {
+          rejectedRed,
+          proposalCount: proposals.length,
+          guardrailInjection: g.injection,
+          guardrailJailbreak: g.jailbreak,
+          guardrailPii: g.pii,
+        };
+      })(),
       linkedKrIds: linkedKrIds.length > 0 ? linkedKrIds : undefined,
     });
 
