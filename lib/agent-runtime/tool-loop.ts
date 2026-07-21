@@ -282,11 +282,13 @@ export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult>
       const content = typeof assistantMsg.content === 'string' ? assistantMsg.content : '';
       const toolCalls = assistantMsg.toolCalls;
 
-      // 把 assistant message 加入历史 (tool_calls 也跟着)
+      // 把 assistant message 加入历史 (tool_calls 也跟着)。
+      // §思考态: DeepSeek thinking 模型带 tool_calls 的轮必须把 reasoning_content 原样回传, 否则下一轮 400。
       messages.push({
         role: 'assistant',
         content,
         ...(toolCalls ? { toolCalls } : {}),
+        ...(assistantMsg.reasoningContent ? { reasoningContent: assistantMsg.reasoningContent } : {}),
       });
 
       // 没工具调用 → LLM 已收敛

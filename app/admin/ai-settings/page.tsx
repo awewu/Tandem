@@ -45,6 +45,8 @@ interface AiSettingsForm {
   braveSearchApiKey: string;
   webSearchEnabled: string;   // 'true'|'false'|''
   webLearnEnabled: string;    // 'true'|'false'|''
+  offTopicNudgeEnabled: string; // 'true'|'false'|''
+  offTopicNudgeText: string;
   smtpHost: string;
   smtpPort: string;
   smtpUser: string;
@@ -64,6 +66,7 @@ const EMPTY: AiSettingsForm = {
   embeddingProvider: '', embeddingModel: '', embeddingApiUrl: '', embeddingApiKey: '',
   sttProvider: '', sttModel: '', sttApiUrl: '', sttApiKey: '',
   tavilyApiKey: '', braveSearchApiKey: '', webSearchEnabled: '', webLearnEnabled: '',
+  offTopicNudgeEnabled: '', offTopicNudgeText: '',
   smtpHost: '', smtpPort: '', smtpUser: '',
   smtpPass: '', smtpFrom: '', smtpSecure: '',
 };
@@ -505,6 +508,24 @@ export default function AiSettingsPage() {
         {form.webLearnEnabled === 'true' && (
           <WebIngestTrigger />
         )}
+      </Section>
+
+      <Section title="中央 AI 行为" badge="闲聊软引导">
+        <div className="md:col-span-2 text-footnote text-ink-secondary -mb-1">
+          员工与中央 AI 聊与工作无关的话题时 (中午吃啥/周末去哪), 默认友好放行。
+          开启后会在这类回复末尾轻轻附一句引导回工作的话 (不强制、不拦截)。
+        </div>
+        <div className="md:col-span-2">
+          <Toggle
+            label="闲聊后软引导回工作"
+            desc="默认关。开启后闲聊/无关话题的回复末尾附一句软提示 (如: 需要看看你这周 KR 进度吗?)"
+            value={form.offTopicNudgeEnabled}
+            onChange={(v) => onChange('offTopicNudgeEnabled', v)}
+          />
+        </div>
+        <div className="md:col-span-2">
+          <Field label="自定义引导话术 (留空用默认)" field="offTopicNudgeText" form={form} onChange={onChange} placeholder="聊得开心～ 顺便，需要我帮你看看这周的 KR 进度吗？" />
+        </div>
       </Section>
 
       <Section title="邮件 (SMTP)">

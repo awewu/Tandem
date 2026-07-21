@@ -19,9 +19,10 @@ describe('B-001 · DeepSeek-R1 接入', () => {
     expect(cfg).toBeDefined();
     expect(cfg.name).toBe('deepseek-r1');
     expect(cfg.baseUrl).toContain('deepseek');
-    // R1 限制
-    expect(cfg.capabilities.functionCalling).toBe(false);
-    expect(cfg.capabilities.jsonMode).toBe(false);
+    // §思考态升级 (DeepSeek-V3.2): deepseek-reasoner 已支持 thinking-in-tool-use
+    //   → function calling + JSON 输出均开启 (推理与工具轮用同一思考模型)。
+    expect(cfg.capabilities.functionCalling).toBe(true);
+    expect(cfg.capabilities.jsonMode).toBe(true);
     expect(cfg.capabilities.streaming).toBe(true);
     expect(cfg.capabilities.maxContextTokens).toBeGreaterThanOrEqual(64_000);
   });

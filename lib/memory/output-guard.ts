@@ -37,6 +37,11 @@ export interface OutputGuardInput {
   source: string;
   /** ref id (im message / boss session 等), 用于审计追踪 */
   refId?: string;
+  /**
+   * §治理倒置 · 公司层 OKR 锚上下文 (buildOkrAnchorContext 的输出).
+   * 传入则出口镜片据此判断回答"服务/偏离/冲突"哪个 OKR; 不传则 checkOutput 内部自取 (fail-soft).
+   */
+  okrContext?: string;
 }
 
 export interface OutputGuardHit {
@@ -45,8 +50,18 @@ export interface OutputGuardHit {
   conflict: string;
 }
 
+export type OutputAlignment = '服务' | '偏离' | '冲突' | '无关';
+
 export interface OutputGuardDecision {
   verdict: OutputVerdict;
+  /** §治理倒置 · 回答与公司 OKR 的对齐判定 (服务/偏离/冲突/无关) */
+  alignment?: OutputAlignment;
+  /** §治理倒置 · 回答主要服务的 OKR 简述 (alignment='服务' 时填) */
+  servesOkr?: string;
+  /** §治理倒置 · 偏离点简述 (alignment='偏离' 时填) */
+  driftPoint?: string;
+  /** §引用后处理 · 回答所基于的公司 Memory (供前端渲染来源 chips; 不强制入口引用) */
+  citedMemories?: Array<{ id: string; title: string }>;
   hits: OutputGuardHit[];
   reasons: string[];
   /** HARD_CONFLICT 时, 给 LLM 重写用的提示词 */
@@ -105,7 +120,23 @@ export async function checkOutput(input: OutputGuardInput): Promise<OutputGuardD
     { topK: TOP_K_MEMORIES },
   ).map((r) => r.memory);
 
+  // §治理倒置 · 取公司层 OKR 锚, 让出口镜片判断回答"服务/偏离/冲突"哪个 OKR。
+  //   优先用调用方传入的 (省一次构建); 否则内部自取。fail-soft: 失败则退化为纯 Memory 裁判。
+  let okrContext = input.okrContext ?? '';
+  if (!okrContext) {
+    try {
+      const { buildOkrAnchorContext } = await import('@/lib/persona/company-brain');
+      okrContext = await buildOkrAnchorContext();
+    } catch {
+      /* fail-soft: 无 OKR 上下文, 仅做 Memory 冲突裁判 */
+    }
+  }
+
   let verdict: OutputVerdict = 'PASS';
+  let alignment: OutputAlignment | undefined;
+  let servesOkr: string | undefined;
+  let driftPoint: string | undefined;
+  const citedMemories: Array<{ id: string; title: string }> = [];
   const hits: OutputGuardHit[] = [];
   const reasons: string[] = [];
   let suggestedRevision: string | undefined;
@@ -122,16 +153,26 @@ export async function checkOutput(input: OutputGuardInput): Promise<OutputGuardD
       .join('\n\n---\n\n');
 
     const systemPrompt = [
-      '你是 Tandem 的"输出矫正镜片". 审核中央 AI 给员工的回答是否与公司 Memory (基线知识/红线/价值观) 冲突.',
+      '你是 Tandem 的"输出对齐镜片". 中央 AI 已先自由推理给出回答; 你的职责是在交付前, 按公司 Memory (基线知识/红线/价值观) 与公司 OKR 复核对齐, 而不是重写它的分析。',
       '',
-      '判定标准:',
+      '两个维度分别判定:',
+      '① Memory 冲突 (verdict):',
       '- HARD_CONFLICT: 回答直接违反公司红线, 或与公司 Memory 关键事实/立场明显矛盾 → 必须改写或拒交',
-      '- SOFT_DRIFT:    回答未引用任何相关 Memory, 或部分偏离但未矛盾 → 加脚注提醒',
+      '- SOFT_DRIFT:    回答与相关 Memory 部分偏离但未矛盾, 或该引据而未据 → 加脚注提醒',
       '- PASS:          回答与 Memory 一致, 或与所有 Memory 无关',
+      '② OKR 对齐 (alignment):',
+      '- 服务: 回答明确推进某个公司 OKR → servesOkr 填该目标简述',
+      '- 偏离: 回答与公司 OKR 方向不一致或分散资源 → driftPoint 填偏离点',
+      '- 冲突: 回答会损害某个公司 OKR (此时 verdict 应至少 SOFT_DRIFT)',
+      '- 无关: 回答与 OKR 无直接关系 (寒暄/事实查询等), 不必强行关联',
       '',
       '只输出 JSON, 严格 schema:',
       '{',
       '  "verdict": "PASS" | "SOFT_DRIFT" | "HARD_CONFLICT",',
+      '  "alignment": "服务" | "偏离" | "冲突" | "无关",',
+      '  "servesOkr": "<alignment=服务 时填该 OKR 简述; 否则空字符串>",',
+      '  "driftPoint": "<alignment=偏离/冲突 时填偏离点; 否则空字符串>",',
+      '  "groundedIn": ["M1", "M3"],  // 回答实际基于哪几条 Memory (无则空数组)',
       '  "conflicts": [{"memoryRef": "M1", "conflict": "<简述冲突点>"}],',
       '  "suggestedRevision": "<若 HARD_CONFLICT, 一句话改写指引; 否则空字符串>"',
       '}',
@@ -146,6 +187,9 @@ export async function checkOutput(input: OutputGuardInput): Promise<OutputGuardD
       '',
       `## 相关公司 Memory (top ${top.length})`,
       memoriesText,
+      '',
+      '## 公司层 OKR 锚 (用于 alignment 判定)',
+      okrContext || '(暂无 OKR 上下文, alignment 可判"无关")',
       '',
       '判定:',
     ].join('\n');
@@ -165,11 +209,35 @@ export async function checkOutput(input: OutputGuardInput): Promise<OutputGuardD
     const content = typeof rawContent === 'string' ? rawContent : '{}';
     const judged = JSON.parse(content) as {
       verdict?: string;
+      alignment?: string;
+      servesOkr?: string;
+      driftPoint?: string;
+      groundedIn?: string[];
       conflicts?: Array<{ memoryRef?: string; conflict?: string }>;
       suggestedRevision?: string;
     };
 
-    const v = judged.verdict;
+    // §引用后处理: 把 judge 标出的 groundedIn (M1/M3...) 映回真实 Memory, 供前端展示来源 chips。
+    if (Array.isArray(judged.groundedIn)) {
+      for (const ref of judged.groundedIn) {
+        const idx = parseInt(String(ref).replace('M', ''), 10) - 1;
+        if (idx >= 0 && idx < top.length) {
+          citedMemories.push({ id: top[idx].id, title: top[idx].title });
+        }
+      }
+    }
+
+    const a = judged.alignment;
+    if (a === '服务' || a === '偏离' || a === '冲突' || a === '无关') {
+      alignment = a;
+      if (a === '服务' && judged.servesOkr?.trim()) servesOkr = judged.servesOkr.trim();
+      if ((a === '偏离' || a === '冲突') && judged.driftPoint?.trim()) driftPoint = judged.driftPoint.trim();
+    }
+    // OKR 冲突至少升级为 SOFT_DRIFT (不因 Memory 判 PASS 就放过 OKR 损害)
+    let okrForcedSoft = false;
+    if (a === '冲突' && judged.verdict !== 'HARD_CONFLICT') okrForcedSoft = true;
+
+    const v = okrForcedSoft ? 'SOFT_DRIFT' : judged.verdict;
     if (v === 'HARD_CONFLICT' || v === 'SOFT_DRIFT') {
       verdict = v;
       const conflicts = judged.conflicts ?? [];
@@ -216,6 +284,10 @@ export async function checkOutput(input: OutputGuardInput): Promise<OutputGuardD
 
   const decision: OutputGuardDecision = {
     verdict,
+    alignment,
+    servesOkr,
+    driftPoint,
+    citedMemories: citedMemories.length > 0 ? citedMemories : undefined,
     hits,
     reasons,
     checkId,
@@ -234,8 +306,22 @@ export async function checkOutput(input: OutputGuardInput): Promise<OutputGuardD
       suggestedRevision ?? '回答需与上述公司 Memory 立场一致, 并明确引用 (例: "根据公司 Memory \'XXX\', ...")',
     ].join('\n');
   }
-  if (verdict === 'SOFT_DRIFT' && hits.length > 0) {
-    decision.footnote = `\n\n_⚠️ 输出矫正提示: 与公司 Memory 「${hits.map((h) => h.title).join('、')}」存在偏离, 请以公司 Memory 为准_`;
+  if (verdict === 'SOFT_DRIFT') {
+    const parts: string[] = [];
+    if (hits.length > 0) {
+      parts.push(`与公司 Memory 「${hits.map((h) => h.title).join('、')}」存在偏离, 请以公司 Memory 为准`);
+    }
+    if (alignment === '偏离' && driftPoint) {
+      parts.push(`OKR 偏离: ${driftPoint}`);
+    } else if (alignment === '冲突' && driftPoint) {
+      parts.push(`可能损害公司 OKR: ${driftPoint}`);
+    }
+    if (parts.length > 0) {
+      decision.footnote = `\n\n_⚠️ 出口对齐提示: ${parts.join('; ')}_`;
+    }
+  } else if (verdict === 'PASS' && alignment === '服务' && servesOkr) {
+    // 服务 OKR 时附一条正向脚注, 让员工看见"这条建议在推进哪个目标"
+    decision.footnote = `\n\n_✅ 服务 OKR: ${servesOkr}_`;
   }
 
   return decision;

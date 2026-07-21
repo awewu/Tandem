@@ -69,6 +69,9 @@ export function transformMessageForWire(m: ChatMessage): Record<string, unknown>
   if (m.name !== undefined) wire.name = m.name;
   if (m.toolCallId !== undefined) wire.tool_call_id = m.toolCallId;
   if (m.toolCalls !== undefined) wire.tool_calls = m.toolCalls;
+  // §思考态回传: DeepSeek thinking 模型要求带 tool_calls 的轮把 reasoning_content 原样回传, 否则 400。
+  // 其余 provider 不识别该字段, 直接忽略 (向后兼容)。
+  if (m.reasoningContent !== undefined) wire.reasoning_content = m.reasoningContent;
 
   if (m.cacheControl === 'ephemeral') {
     if (typeof m.content === 'string') {
@@ -189,6 +192,9 @@ export class OpenAICompatibleProvider implements LLMProvider {
           delta: {
             role: choice.delta.role as never,
             content: choice.delta.content,
+            ...(choice.delta.reasoning_content
+              ? { reasoningContent: choice.delta.reasoning_content }
+              : {}),
             toolCalls: choice.delta.tool_calls?.map((tc) => ({
               id: tc.id ?? '',
               type: 'function' as const,
@@ -271,6 +277,9 @@ export class OpenAICompatibleProvider implements LLMProvider {
           type: 'function' as const,
           function: { name: tc.function.name, arguments: tc.function.arguments },
         })),
+        ...(choice.message.reasoning_content
+          ? { reasoningContent: choice.message.reasoning_content }
+          : {}),
       },
       finishReason: choice.finish_reason as never,
       usage: {
@@ -295,6 +304,7 @@ interface OpenAIChatResponse {
     message: {
       role: string;
       content: string | null;
+      reasoning_content?: string | null;
       tool_calls?: { id: string; type: string; function: { name: string; arguments: string } }[];
     };
     finish_reason: string;
@@ -307,6 +317,7 @@ interface OpenAIStreamChunk {
     delta: {
       role?: string;
       content?: string;
+      reasoning_content?: string;
       tool_calls?: {
         id?: string;
         type?: string;

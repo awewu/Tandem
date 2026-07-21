@@ -223,6 +223,9 @@ export interface TandemStore {
   /** AI 配置 (Admin UI 可热更新, 优先级高于 env) */
   aiSettings: Repository<import('../types/ai-settings').AiSettings>;
 
+  /** 业务红线硬拒清单 (Admin 录入页 /admin/hard-refuse 热更新; 单 doc/租户) */
+  hardRefuseConfig: Repository<import('../governance/hard-refuse-redlines').HardRefuseConfigRecord>;
+
   /** MCP server 注册表 (B-002, Admin UI 可配, 启动同步进 mcp-bridge 内存注册表) */
   mcpServers: Repository<import('../types/mcp-server').McpServerRecord>;
 

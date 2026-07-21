@@ -31,6 +31,16 @@ export interface DecisionOption {
   citedMemory?: string[];    // Memory IDs (SOP / case)
   novelInsight?: string;     // 仅 D 选项必填
   humanOnly?: boolean;       // D 选项强制 true
+
+  // §议事出口对齐裁判 (output-guard) 结果 · 仅 Option B 填 (与 BossAI/IM 三门统一)
+  outputGuardVerdict?: 'PASS' | 'SOFT_DRIFT' | 'HARD_CONFLICT';
+  outputGuardCheckId?: string;
+  /** 回答与公司 OKR 的对齐判定 */
+  okrAlignment?: '服务' | '偏离' | '冲突' | '无关';
+  /** okrAlignment='服务' 时: 主要服务的 OKR 简述 */
+  servesOkr?: string;
+  /** okrAlignment='偏离'/'冲突' 时: 偏离点简述 */
+  driftPoint?: string;
 }
 
 export interface ActionItem {

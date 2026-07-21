@@ -22,7 +22,8 @@ export type CompanyBrainDecisionContext =
   | 'meeting_advice'        // 议事室公司视角
   | 'retrospective_draft'   // 7天后自动复盘草稿 (2026-06-09 补燃料, 与 meeting_advice 不同 LLM 调用, 不同决策)
   | 'document_review'       // 文档评审
-  | 'memory_promotion';     // Memory 升级建议
+  | 'memory_promotion'      // Memory 升级建议
+  | 'boss_ai_megaplan';     // BossAI 四方案输出 (SOP/最佳实践/AI推荐/个人补充), 选定即天然采纳信号
 
 export type CompanyBrainFeedbackOutcome =
   | 'pending'   // 待反馈 (默认)

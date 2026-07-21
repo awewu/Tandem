@@ -414,6 +414,7 @@ export const NAV_MODULES: NavModule[] = [
         tabs: [
           { name: 'CompanyBrain 看板', href: '/admin/company-brain', visibleTo: ['steward', 'admin', 'champion'] },
           { name: 'OKR 主航道偏离', href: '/admin/governance/okr-drift', visibleTo: ['steward', 'admin', 'champion'] },
+          { name: '红线硬拒', href: '/admin/hard-refuse', visibleTo: ['admin', 'champion'] },
         ],
       },
       {

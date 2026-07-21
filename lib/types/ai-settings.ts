@@ -80,6 +80,14 @@ export interface AiSettings {
   /** 主动爬取学习开关: 允许 AI 定时/按需抓取外部网页存入公司知识库 */
   webLearnEnabled?: boolean;
 
+  /**
+   * 闲聊软引导 (off-topic nudge): 开启后, 员工与中央 AI 聊与工作无关的话题时,
+   * 回复末尾附一句轻量引导回工作 (默认关, 避免打扰).
+   */
+  offTopicNudgeEnabled?: boolean;
+  /** 自定义引导话术 (留空用默认) */
+  offTopicNudgeText?: string;
+
   /** SMTP 邮件 */
   smtpHost?: string;
   smtpPort?: string;

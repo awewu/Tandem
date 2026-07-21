@@ -111,7 +111,13 @@ export const PROVIDER_CONFIGS: Record<string, ProviderConfig> = {
       outputPriceRmbPerM: 2.0,
     },
   },
-  // §B-001 · DeepSeek-R1 推理模型 · 议事/OKR 推演专用 · 性价比最高的强推理
+  // §B-001 · DeepSeek reasoner (thinking) 模型 · 议事/OKR 推演专用 · 性价比最高的强推理
+  // §思考态升级 (2026-07 核实): deepseek-reasoner 已升级到 DeepSeek-V3.2 thinking 模式,
+  //   首次支持「思考中调工具」(thinking-in-tool-use) + JSON 输出 + function calling。
+  //   因此这里开启 functionCalling/jsonMode: 让「推理」与「工具轮」用同一个既会推理又会调工具的
+  //   模型 (消灭旧路由里工具轮被迫降级到非思考模型的荒诞)。
+  //   ⚠️ 约束: thinking 模式带 tool_calls 的轮必须把 reasoning_content 原样回传, 否则 API 400 —
+  //   已在 ChatMessage.reasoningContent + openai-compatible 序列化 + tool-loop 跨轮保留处兜住。
   'deepseek-r1': {
     name: 'deepseek-r1',
     baseUrl: envOr('DEEPSEEK_BASE_URL', 'https://api.deepseek.com/v1'),
@@ -119,11 +125,11 @@ export const PROVIDER_CONFIGS: Record<string, ProviderConfig> = {
     apiKey: envOr('DEEPSEEK_API_KEY'),
     capabilities: {
       chat: true,
-      functionCalling: false,    // R1 当前不支持 function calling
+      functionCalling: true,     // V3.2 thinking 模式支持 function calling (thinking-in-tool-use)
       streaming: true,
-      jsonMode: false,           // R1 当前不支持 json mode (走 prompt 约束)
+      jsonMode: true,            // V3.2 支持 JSON 输出
       vision: false,
-      maxContextTokens: 64_000,
+      maxContextTokens: 128_000,
       inputPriceRmbPerM: 4.0,    // ~$0.55/M × 7.2
       outputPriceRmbPerM: 16.0,  // ~$2.19/M × 7.2 (含 reasoning tokens)
     },

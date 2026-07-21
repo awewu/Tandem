@@ -61,9 +61,9 @@ describe('CompanyBrain · manifesto 注入', () => {
     expect(prompt).toMatch(/humanOnly|D 选项/);
   });
 
-  it('身份约束必须明示"任何建议回答服务哪个 OKR" (灵魂第 4 条)', async () => {
+  it('提示词仍引导"服务哪个 OKR" (灵魂第 4 条 · 治理倒置后为软引导, 硬判定移至 output-guard)', async () => {
     const prompt = await buildCompanyBrainSystemPrompt();
-    expect(prompt).toMatch(/这服务\/不服务哪个 OKR/);
+    expect(prompt).toMatch(/服务哪个 OKR/);
   });
 
   it('注入顺序: 定位 → 灵魂 → 战略红线 → 身份约束 → OKR 上下文', async () => {

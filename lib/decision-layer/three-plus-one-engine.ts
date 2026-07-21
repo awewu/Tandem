@@ -396,42 +396,100 @@ ${caseHints || '(无)'}
       },
     ];
 
+    // §B-004 · 严格 schema 输出, 消灭 JSON.parse 失败 + 字段缺失 (首次 + 冲突重写复用)
+    const responseFormat = {
+      type: 'json_schema' as const,
+      name: 'three_plus_one_option_b',
+      strict: true,
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['description', 'reasoning', 'confidence', 'risk', 'timelineDays'],
+        properties: {
+          description: { type: 'string' },
+          reasoning: { type: 'string' },
+          confidence: { type: 'number', minimum: 0, maximum: 1 },
+          risk: { type: 'string', enum: ['low', 'medium', 'high'] },
+          timelineDays: { type: 'number', minimum: 1, maximum: 365 },
+        },
+      },
+    };
+
     try {
       const res = await this.router.chat({
         messages,
         scenario: 'reasoning_complex',
-        // §B-004 · 严格 schema 输出, 消灭 JSON.parse 失败 + 字段缺失
-        responseFormat: {
-          type: 'json_schema',
-          name: 'three_plus_one_option_b',
-          strict: true,
-          schema: {
-            type: 'object',
-            additionalProperties: false,
-            required: ['description', 'reasoning', 'confidence', 'risk', 'timelineDays'],
-            properties: {
-              description: { type: 'string' },
-              reasoning: { type: 'string' },
-              confidence: { type: 'number', minimum: 0, maximum: 1 },
-              risk: { type: 'string', enum: ['low', 'medium', 'high'] },
-              timelineDays: { type: 'number', minimum: 1, maximum: 365 },
-            },
-          },
-        },
+        responseFormat,
         temperature: 0.7,
       });
       const parsed = JSON.parse(
         typeof res.message.content === 'string' ? res.message.content : '{}'
       );
+      let description: string = parsed.description ?? '(LLM 未返回 description)';
+      let reasoning: string | undefined = parsed.reasoning;
+      const confidence = clamp(Number(parsed.confidence) || 0.5, 0, 1);
+      const risk: 'low' | 'medium' | 'high' = ['low', 'medium', 'high'].includes(parsed.risk) ? parsed.risk : 'medium';
+      const timelineDays = parsed.timelineDays;
+
+      // §问题二 · 议事出口对齐裁判 (output-guard) —— 与 BossAI/IM 三门统一。
+      //   Option B 生成后, 交付前用公司 Memory + OKR 复核: HARD_CONFLICT 重写一次;
+      //   SOFT_DRIFT/服务 附脚注; 结构化结果挂到 option 上供前端展示。fail-soft: 出错不阻塞议事。
+      const og: Partial<DecisionOption> = {};
+      try {
+        const { checkOutput } = await import('../memory/output-guard');
+        const responseText = [description, reasoning].filter(Boolean).join('\n\n');
+        const guard = await checkOutput({
+          query: `${ctx.title}. ${ctx.description}`,
+          response: responseText,
+          actorUserId: ctx.actorUserId ?? '__company__',
+          source: 'company_brain_council',
+          refId: ctx.cardId,
+          okrContext,
+        });
+
+        if (guard.verdict === 'HARD_CONFLICT' && guard.revisionPrompt) {
+          try {
+            const retry = await this.router.chat({
+              messages: [
+                ...messages,
+                { role: 'assistant', content: JSON.stringify({ description, reasoning, confidence, risk, timelineDays }) },
+                { role: 'user', content: guard.revisionPrompt },
+              ],
+              scenario: 'reasoning_complex',
+              responseFormat,
+              temperature: 0.4,
+            });
+            const revised = JSON.parse(typeof retry.message.content === 'string' ? retry.message.content : '{}');
+            if (revised.description) {
+              description = revised.description;
+              reasoning = revised.reasoning ?? reasoning;
+              warnings.push(`Option B 出口裁判命中 Memory 冲突, 已按公司基线矫正 (checkId=${guard.checkId})`);
+            }
+          } catch {
+            warnings.push(`Option B 出口裁判冲突重写失败, 保留原方案并告警 (checkId=${guard.checkId})`);
+          }
+        }
+
+        og.outputGuardVerdict = guard.verdict;
+        og.outputGuardCheckId = guard.checkId;
+        if (guard.alignment) og.okrAlignment = guard.alignment;
+        if (guard.servesOkr) og.servesOkr = guard.servesOkr;
+        if (guard.driftPoint) og.driftPoint = guard.driftPoint;
+        if (guard.footnote) reasoning = `${reasoning ?? ''}${guard.footnote}`;
+      } catch {
+        /* output-guard fail-soft: 不阻塞议事决策生成 */
+      }
+
       return {
         id: 'B',
         type: 'AGENT_REASONING',
-        description: parsed.description ?? '(LLM 未返回 description)',
-        reasoning: parsed.reasoning,
-        confidence: clamp(Number(parsed.confidence) || 0.5, 0, 1),
-        risk: ['low', 'medium', 'high'].includes(parsed.risk) ? parsed.risk : 'medium',
-        timelineDays: parsed.timelineDays,
+        description,
+        reasoning,
+        confidence,
+        risk,
+        timelineDays,
         citedMemory: [...sops.map((s) => s.id), ...cases.map((c) => c.id)],
+        ...og,
       };
     } catch (err) {
       warnings.push(`B 选项 LLM 失败: ${(err as Error).message}`);

@@ -864,7 +864,8 @@ async function invokePersonaReply(input: InvokePersonaInput): Promise<void> {
       `风格: 决策速度=${persona.styleProfile.decisionSpeed}, ` +
       `风险偏好=${persona.styleProfile.riskAppetite}, ` +
       `沟通风格=${persona.styleProfile.communicationStyle}. ` +
-      `严格遵守委托级别: 不做超出权限的承诺. 只回 1-3 句话, 简洁.`;
+      `严格遵守委托级别: 不做超出权限的承诺. 简洁为主, 简单问题一两句话即可; ` +
+      `遇到需要判断的问题可给出简短的方向/判断框架, 不必强行压成一句话.`;
 
     // 解析用户 LLM 偏好 (个人AI > 中央AI > 路由器内置规则)
     let forceProvider: string | null = null;
@@ -917,7 +918,7 @@ async function invokePersonaReply(input: InvokePersonaInput): Promise<void> {
       scenario: 'persona_dialogue',
       forceProvider: forceProvider ?? undefined,
       cacheControlSystem: true,
-      maxTokens: 200,
+      maxTokens: 400,
       metadata: { userId: input.targetUserId, requestId: aiTraceId },
       refId: input.triggeringMessage.id,
       outputGuardSource: 'im.persona_reply',
@@ -1126,6 +1127,30 @@ async function invokeCompanyBrainReply(input: InvokePersonaInput): Promise<void>
     if (!channelRow) return;
     const channelId = channelRow.id;
 
+    // §红线硬拒 (回答三档·第三档) · 确定性快检, 命中直接转人工, 不进 LLM
+    try {
+      const { matchHardRefuseLive } = await import('../governance/hard-refuse-service');
+      const rf = await matchHardRefuseLive(input.triggeringMessage.body, channelRow.tenantId ?? 'default');
+      if (rf.hit) {
+        await sendMessage({
+          channelId,
+          senderId: COMPANY_BRAIN_USER_ID,
+          senderKind: 'persona',
+          body: `🚫 这个问题涉及**${rf.label}**, 属于我不能替公司拍板的红线范围。\n\n${rf.redirect}`,
+          parentMessageId: input.triggeringMessage.id,
+          aiTraceId,
+        });
+        const { deferAudit } = await import('../audit/defer');
+        deferAudit('boss_ai.hard_refused', input.triggeringMessage.senderId, {
+          targetType: 'im_company_brain',
+          metadata: { topicId: rf.topicId, label: rf.label },
+        });
+        return;
+      }
+    } catch {
+      /* 红线快检失败不阻塞正常回答 (fail-open) */
+    }
+
     // §P1 流式打字: 先发空 placeholder, 让前端立刻显示"打字中"气泡
     const placeholder = await sendMessage({
       channelId,
@@ -1290,7 +1315,19 @@ async function invokeCompanyBrainReply(input: InvokePersonaInput): Promise<void>
     // §Output Guard · 输出矫正镜片 (Open-Read / Governed-Output / Locked-Write 三段闸的"出口"段)
     // 让 LLM 答案在交付员工前过一次"是否与公司 Memory/红线冲突"裁判. HARD_CONFLICT → 重写一次.
     let footnote = '';
+    // §快慢双轨: 简单问题走快道 (跳过 LLM critique); 复杂/决策类 或 长回答 才跑完整出口对齐裁判。
+    let runCritique = false;
+    // §闲聊软引导: 快道 = 简单/闲聊话题; 或出口裁判判 alignment='无关' → 视为 off-topic。
+    let offTopicByAlignment = false;
     if (buffer.trim().length >= 20) {
+      try {
+        const { shouldFullCritique } = await import('../persona/answer-pipeline');
+        runCritique = shouldFullCritique(input.triggeringMessage.body, buffer.length).full;
+      } catch {
+        runCritique = true;
+      }
+    }
+    if (runCritique) {
       try {
         const { checkOutput } = await import('../memory/output-guard');
         const verdict = await checkOutput({
@@ -1329,12 +1366,28 @@ async function invokeCompanyBrainReply(input: InvokePersonaInput): Promise<void>
             // 重写失败 → 保留原 buffer, 加警告脚注 (而不是拒交)
             footnote = `\n\n_⚠️ 中央 AI 输出与公司 Memory 存在偏离 (output_guard checkId=${verdict.checkId}), 请谨慎采纳_`;
           }
-        } else if (verdict.verdict === 'SOFT_DRIFT' && verdict.footnote) {
+        } else if (verdict.footnote) {
+          // SOFT_DRIFT 偏离脚注, 或 PASS+服务 OKR 的正向脚注 (治理倒置出口对齐提示)
           footnote = verdict.footnote;
+        }
+        if (verdict.alignment === '无关') offTopicByAlignment = true;
+        // §引用后处理 · 回答生成后附来源 (基于 output-guard 标出的 groundedIn Memory)
+        if (verdict.citedMemories && verdict.citedMemories.length > 0) {
+          const cites = verdict.citedMemories.map((c) => `《${c.title}》`).join('、');
+          footnote += `\n\n_📎 引用: ${cites}_`;
         }
       } catch {
         /* output-guard 自身失败不阻断 (fail-soft) */
       }
+    }
+
+    // §闲聊软引导 (默认关, admin 可开): off-topic 回复末尾附一句引导回工作。
+    try {
+      const offTopic = !runCritique || offTopicByAlignment;
+      const { maybeOffTopicNudge } = await import('../persona/off-topic-nudge');
+      footnote += await maybeOffTopicNudge(offTopic, channelRow.tenantId ?? 'default');
+    } catch {
+      /* nudge 失败不阻断回复 (fail-soft) */
     }
 
     const latencyMs = Date.now() - startedAt;

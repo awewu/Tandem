@@ -355,6 +355,7 @@ export function createInMemoryStore(): TandemStore {
     approvals: new InMemoryRepository(),
     meetingBookings: new InMemoryRepository(),
     aiSettings: new InMemoryRepository(),
+    hardRefuseConfig: new InMemoryRepository(),
     mcpServers: new InMemoryRepository(),
     pushSubscriptions: new InMemoryRepository(),
     globalEmailConfigs: new InMemoryTenantLockedRepository(),

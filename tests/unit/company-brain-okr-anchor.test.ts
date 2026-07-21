@@ -198,7 +198,7 @@ describe('§B-014 · OKR Anchor 注入器', () => {
     expect(prompt).toContain('CompanyBrain');
     expect(prompt).toContain('提升客户满意度'); // OKR 注入
     expect(prompt).toContain('客户第一原则'); // Memory 注入
-    expect(prompt).toContain('服务/不服务'); // 身份约束
+    expect(prompt).toContain('身份约束'); // 身份约束段仍在 (治理倒置后 OKR 服务判定移至 output-guard)
     expect(prompt).toContain('2026 Q2'); // 周期信息
   });
 

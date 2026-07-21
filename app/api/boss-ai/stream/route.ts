@@ -148,6 +148,27 @@ async function POSTApiHandler(req: NextRequest): Promise<Response> {
       //   t0 必须包含整个 systemPrompt 构建 + S2/S1 + 流式生成的总耗时 (不只是 LLM 推理).
       const t0 = Date.now();
       try {
+        // ── 0. §红线硬拒 (回答三档·第三档) · 确定性快检, 命中直接转人工, 不进 LLM ──
+        try {
+          const { matchHardRefuseLive } = await import('@/lib/governance/hard-refuse-service');
+          const rf = await matchHardRefuseLive(userQuestion, auth.tenantId);
+          if (rf.hit) {
+            const msg = `🚫 这个问题涉及**${rf.label}**, 属于我不能替公司拍板的红线范围。\n\n${rf.redirect}`;
+            send({ content: msg });
+            fullResponse = msg;
+            deferAudit('boss_ai.hard_refused', auth.userId, {
+              targetId: sessionId ?? 'no-session',
+              targetType: 'boss_ai_session',
+              metadata: { topicId: rf.topicId, label: rf.label, questionPreview: userQuestion.slice(0, 200) },
+              tenantId: auth.tenantId,
+            });
+            send({ done: true, length: fullResponse.length, hardRefused: true });
+            return;
+          }
+        } catch {
+          /* 红线快检失败不阻塞正常回答 (fail-open) */
+        }
+
         // ── 1. 构建 systemPrompt (Memory rerank) · 先回 status 让前端立刻有反馈 ──
         send({ status: '正在调取公司知识库…' });
         let systemPrompt: string;
@@ -309,9 +330,21 @@ async function POSTApiHandler(req: NextRequest): Promise<Response> {
           }
         }
 
-        // §Output Guard · 出口矫正镜片 (Open-Read / Governed-Output / Locked-Write 三段闸)
-        // 流式答案推完后, 用公司 Memory 裁判一遍, HARD_CONFLICT 追加矫正块.
+        // §Output Guard · 出口对齐镜片 (Open-Read / Governed-Output / Locked-Write 三段闸)
+        // §快慢双轨: 简单问题走快道 (跳过 LLM critique, 仅靠入口红线快检兜底);
+        //   复杂/决策类 或 长回答 才跑完整出口对齐裁判 (服务/偏离/冲突 + 冲突 revise)。
+        let runCritique = false;
+        // §闲聊软引导: 快道 = 简单/闲聊; 或出口裁判 alignment='无关' → off-topic。
+        let offTopicByAlignment = false;
         if (!req.signal.aborted && fullResponse.trim().length >= 20) {
+          try {
+            const { shouldFullCritique } = await import('@/lib/persona/answer-pipeline');
+            runCritique = shouldFullCritique(userQuestion, fullResponse.length).full;
+          } catch {
+            runCritique = true; // 判定失败保守跑全环
+          }
+        }
+        if (runCritique) {
           try {
             const { checkOutput } = await import('@/lib/memory/output-guard');
             const verdict = await checkOutput({
@@ -350,12 +383,42 @@ async function POSTApiHandler(req: NextRequest): Promise<Response> {
                 send({ content: warn });
                 fullResponse += warn;
               }
-            } else if (verdict.verdict === 'SOFT_DRIFT' && verdict.footnote) {
+            } else if (verdict.footnote) {
+              // SOFT_DRIFT 偏离脚注, 或 PASS+服务 OKR 的正向脚注 (治理倒置出口对齐提示)
               send({ content: verdict.footnote });
               fullResponse += verdict.footnote;
             }
+            if (verdict.alignment === '无关') offTopicByAlignment = true;
+            // §引用后处理 · 回答生成后附来源 chips (基于 output-guard 标出的 groundedIn Memory)
+            if (verdict.citedMemories && verdict.citedMemories.length > 0) {
+              emitStep(
+                'citation',
+                '引用来源',
+                `基于 ${verdict.citedMemories.length} 条公司记忆`,
+                undefined,
+                verdict.citedMemories.map((c) => ({
+                  title: c.title,
+                  url: `/memories?highlight=${encodeURIComponent(c.id)}`,
+                })),
+              );
+            }
           } catch {
             /* output-guard 自身失败不阻断 (fail-soft) */
+          }
+        }
+
+        // §闲聊软引导 (默认关, admin 可开): off-topic 回复末尾附一句引导回工作。
+        if (!req.signal.aborted) {
+          try {
+            const offTopic = !runCritique || offTopicByAlignment;
+            const { maybeOffTopicNudge } = await import('@/lib/persona/off-topic-nudge');
+            const nudge = await maybeOffTopicNudge(offTopic, auth.tenantId);
+            if (nudge) {
+              send({ content: nudge });
+              fullResponse += nudge;
+            }
+          } catch {
+            /* nudge 失败不阻断 (fail-soft) */
           }
         }
 
@@ -524,9 +587,10 @@ function buildContextAnchor(args: {
   lines.push('');
   lines.push(
     '【回答原则】你是老板的分身, 永远在线. 同事方向不明就问你. ' +
-      '请用第一人称代表老板回答, 简短(≤300字), 务实, 优先指向当前 OKR. ' +
+      '请用第一人称代表老板回答, 务实, 优先指向当前 OKR. ' +
+      '按问题复杂度自由展开: 简单问题简短直接, 复杂/决策类问题给出推理链、方向、优先级与判断框架, 不必强行压到几百字. ' +
       '如果问题需要具体数据/同事确认, 明确说"我建议你去 X 页面看 / 跟 Y 同事确认". ' +
-      '不编造数据, 不替员工签字; 但要给出方向、优先级、判断框架.',
+      '不编造数据, 不替员工签字.',
   );
   return lines.join('\n');
 }

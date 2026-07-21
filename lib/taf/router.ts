@@ -332,8 +332,9 @@ export class TandemRouter {
 
     // ⚠️ 带 tools 的请求绝不能路由到不支持 function calling 的 provider:
     //   否则模型要么报错要么静默忽略 tools → 工具循环拿 0 工具 → 上层 (S1 感知 /
-    //   S2 议事参谋) fail-soft 返空 = "精致的假"。例: reasoning_complex 首选 fallback
-    //   deepseek-r1 (functionCalling=false), 不过滤则 tool 请求会先打到它。
+    //   S2 议事参谋) fail-soft 返空 = "精致的假"。
+    //   §思考态升级后 deepseek-r1 (deepseek-reasoner V3.2) 已支持 function calling, 工具轮与
+    //   推理用同一思考模型; 此过滤仍保留以挡未来其它不支持 FC 的 provider (如某些纯推理端点)。
     //   只过滤"已注册且不支持"的; 未注册名留着 (调用循环里自然 skip)。
     if (requireFunctionCalling) {
       candidates = candidates.filter((name) => {

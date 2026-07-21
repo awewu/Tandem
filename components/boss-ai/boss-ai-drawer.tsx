@@ -9,7 +9,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { Sparkles, X, Plus, Send, AlertCircle, Loader2, MapPin, ThumbsUp, Pencil, ThumbsDown, ChevronDown, ChevronRight, Database, Globe, Brain, Target, Lightbulb, Check, Square, RotateCcw, ImagePlus } from 'lucide-react';
+import { Sparkles, X, Plus, Send, AlertCircle, Loader2, MapPin, ThumbsUp, Pencil, ThumbsDown, ChevronDown, ChevronRight, Database, Globe, Brain, Target, Lightbulb, Check, Square, RotateCcw, ImagePlus, BookOpen, Layers, FileText, Sparkle, User } from 'lucide-react';
 import { useBossAi, type BossAiMessage, type BossAiTraceStep, type BossAiFeedbackOutcome } from './use-boss-ai';
 import { getExamplePrompts, getPathLabel } from './example-prompts';
 import { useBackDismiss } from '@/lib/hooks/use-back-dismiss';
@@ -23,6 +23,88 @@ export function BossAiDrawer() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // §四方案模式 (megaplan) · 用户主动开启; 开启时提交走 /api/boss-ai/megaplan 而非普通对话
+  const [megaplanMode, setMegaplanMode] = useState(false);
+  const [megaplan, setMegaplan] = useState<MegaplanState | null>(null);
+
+  async function runMegaplan(query: string) {
+    setMegaplan({ query, loading: true, schemes: [], selected: null });
+    try {
+      const res = await fetch('/api/boss-ai/megaplan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        cache: 'no-store',
+        body: JSON.stringify({ query, currentPath: pathname ?? undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setMegaplan({ query, loading: false, schemes: [], selected: null, error: data.error ?? '生成失败' });
+        return;
+      }
+      if (data.hardRefused) {
+        setMegaplan({ query, loading: false, schemes: [], selected: null, error: data.message });
+        return;
+      }
+      setMegaplan({ query, loading: false, schemes: data.schemes ?? [], decisionId: data.decisionId, selected: null });
+    } catch (err) {
+      setMegaplan({ query, loading: false, schemes: [], selected: null, error: (err as Error).message });
+    }
+  }
+
+  async function selectMegaplan(schemeId: string, personalSupplement?: string) {
+    setMegaplan((prev) => (prev ? { ...prev, selected: schemeId } : prev));
+    try {
+      const res = await fetch('/api/boss-ai/megaplan/select', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          decisionId: megaplan?.decisionId,
+          schemeId,
+          query: megaplan?.query,
+          personalSupplement,
+        }),
+      });
+      // 个人补充: 接住返回的 materialId, 供后续「申请入库」使用
+      if (schemeId === 'personal') {
+        const data = await res.json().catch(() => ({} as { materialId?: string }));
+        setMegaplan((prev) =>
+          prev ? { ...prev, personalMaterialId: data.materialId, personalSupplement } : prev,
+        );
+      }
+    } catch {
+      /* 反馈失败静默 (UI 已标记 selected) */
+    }
+  }
+
+  // 方案 C: 个人补充主动「申请进公司知识库」→ 发起 team 级签批 (不自动发起)
+  async function promotePersonal() {
+    const st = megaplan;
+    if (!st || !(st.personalSupplement ?? '').trim()) return;
+    setMegaplan((prev) => (prev ? { ...prev, promoteStatus: 'promoting', promoteError: undefined } : prev));
+    try {
+      const res = await fetch('/api/boss-ai/megaplan/promote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          materialId: st.personalMaterialId,
+          query: st.query,
+          supplement: st.personalSupplement,
+        }),
+      });
+      const data = await res.json().catch(() => ({} as { error?: string }));
+      if (!res.ok) {
+        setMegaplan((prev) => (prev ? { ...prev, promoteStatus: 'error', promoteError: data.error ?? '申请失败' } : prev));
+        return;
+      }
+      setMegaplan((prev) => (prev ? { ...prev, promoteStatus: 'done' } : prev));
+    } catch (e) {
+      setMegaplan((prev) => (prev ? { ...prev, promoteStatus: 'error', promoteError: (e as Error).message } : prev));
+    }
+  }
 
   // 读文件为 data URL; 限 4 张, 单张 ≤ 5MB, 仅 image/*.
   async function addFiles(files: FileList | null) {
@@ -89,6 +171,13 @@ export function BossAiDrawer() {
     const text = input;
     const imgs = pendingImages;
     if (!text.trim() && imgs.length === 0) return;
+    // §四方案模式: 提交走 megaplan (不进普通对话流)
+    if (megaplanMode) {
+      if (!text.trim() || megaplan?.loading) return;
+      setInput('');
+      void runMegaplan(text.trim());
+      return;
+    }
     setInput('');
     setPendingImages([]);
     void send(text, { currentPath: pathname ?? undefined, images: imgs.length > 0 ? imgs : undefined });
@@ -169,7 +258,7 @@ export function BossAiDrawer() {
 
         {/* ── 消息区 (滚动) ──────────────────────────────── */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-          {!hasMessages ? (
+          {!hasMessages && !megaplan ? (
             <EmptyState
               prompts={examplePrompts}
               pathLabel={pathLabel}
@@ -187,6 +276,14 @@ export function BossAiDrawer() {
                 onEdit={(text) => void editAndResend(m.createdAt, text, { currentPath: pathname ?? undefined })}
               />
             ))
+          )}
+          {megaplan && (
+            <MegaplanPanel
+              state={megaplan}
+              onSelect={selectMegaplan}
+              onPromote={promotePersonal}
+              onClose={() => setMegaplan(null)}
+            />
           )}
           {error && (
             <div className="flex items-start gap-2 rounded-lg border border-danger/30 bg-danger/5 p-3 text-caption text-danger">
@@ -232,6 +329,27 @@ export function BossAiDrawer() {
             hidden
             onChange={(e) => { void addFiles(e.target.files); e.target.value = ''; }}
           />
+          {/* §四方案模式开关 · 开启后提问输出 SOP / 最佳实践 / AI推荐 / 个人补充 四张对照卡 */}
+          <div className="mb-2 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setMegaplanMode((v) => !v)}
+              aria-pressed={megaplanMode}
+              title="四方案模式: 一次给出 SOP / 最佳实践 / AI推荐 / 个人补充 四套方案"
+              className={
+                'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 transition surface-interactive ' +
+                (megaplanMode
+                  ? 'bg-[rgb(var(--brand-500))] text-white ring-transparent'
+                  : 'text-ink-secondary ring-[rgb(var(--border-subtle))] hover:bg-[rgb(var(--surface-2))]')
+              }
+            >
+              <Layers className="h-3 w-3" />
+              四方案
+            </button>
+            {megaplanMode && (
+              <span className="text-[10px] text-ink-tertiary">开启后: 一问出 4 套方案 (费 3 次算力)</span>
+            )}
+          </div>
           <div className="relative flex items-end gap-2">
             <button
               type="button"
@@ -256,7 +374,7 @@ export function BossAiDrawer() {
               rows={2}
               maxLength={2000}
               disabled={streaming}
-              placeholder={streaming ? '正在思考...' : '问点什么? Enter 发送, Shift+Enter 换行'}
+              placeholder={streaming ? '正在思考...' : megaplanMode ? '四方案模式 · 输入一个决策问题, 一次出 4 套方案' : '问点什么? Enter 发送, Shift+Enter 换行'}
               className={
                 'flex-1 resize-none rounded-lg border bg-[rgb(var(--surface-2))] px-3 py-2 ' +
                 'text-body text-ink-primary placeholder:text-ink-tertiary ' +
@@ -363,6 +481,7 @@ const PHASE_ICON: Record<string, React.ReactNode> = {
   reasoning: <Brain className="h-3.5 w-3.5" />,
   perception: <Target className="h-3.5 w-3.5" />,
   selfhint: <Lightbulb className="h-3.5 w-3.5" />,
+  citation: <BookOpen className="h-3.5 w-3.5" />,
 };
 
 function ThinkingTrace({ steps, streaming }: { steps: BossAiTraceStep[]; streaming: boolean }) {
@@ -600,6 +719,205 @@ function FeedbackRow({
           </button>
         );
       })}
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────
+// §四方案 (megaplan) · SOP / 最佳实践 / AI推荐 / 个人补充 四张对照卡
+// ──────────────────────────────────────────────────────────────────
+interface MegaplanScheme {
+  id: 'sop' | 'best_practice' | 'ai' | 'personal';
+  title: string;
+  content: string;
+  sources?: Array<{ title: string; url: string }>;
+  editable?: boolean;
+}
+interface MegaplanState {
+  query: string;
+  loading: boolean;
+  schemes: MegaplanScheme[];
+  decisionId?: string;
+  selected: string | null;
+  error?: string;
+  // 方案 C: 个人补充入库申请
+  personalMaterialId?: string;
+  personalSupplement?: string;
+  promoteStatus?: 'promoting' | 'done' | 'error';
+  promoteError?: string;
+}
+
+const SCHEME_ICON: Record<string, React.ReactNode> = {
+  sop: <FileText className="h-3.5 w-3.5" />,
+  best_practice: <Globe className="h-3.5 w-3.5" />,
+  ai: <Sparkle className="h-3.5 w-3.5" />,
+  personal: <User className="h-3.5 w-3.5" />,
+};
+
+function MegaplanPanel({
+  state,
+  onSelect,
+  onPromote,
+  onClose,
+}: {
+  state: MegaplanState;
+  onSelect: (schemeId: string, personalSupplement?: string) => void;
+  onPromote: () => void;
+  onClose: () => void;
+}) {
+  const [personalDraft, setPersonalDraft] = useState('');
+
+  return (
+    <div className="rounded-2xl border border-[rgb(var(--border-subtle))] bg-[rgb(var(--surface-1))] p-3">
+      <div className="mb-2 flex items-start gap-2">
+        <Layers className="mt-0.5 h-4 w-4 shrink-0 text-[rgb(var(--brand-500))]" />
+        <div className="min-w-0 flex-1">
+          <p className="text-footnote font-medium text-ink-primary">四方案 · 对照选择</p>
+          <p className="truncate text-[10px] text-ink-tertiary">{state.query}</p>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="关闭四方案"
+          className="rounded-md p-1 text-ink-tertiary hover:bg-[rgb(var(--surface-2))] surface-interactive"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      {state.loading && (
+        <div className="flex items-center gap-2 py-6 text-caption text-ink-tertiary">
+          <Loader2 className="h-4 w-4 animate-spin text-[rgb(var(--brand-500))]" />
+          正在并行生成 4 套方案 …
+        </div>
+      )}
+
+      {state.error && (
+        <div className="flex items-start gap-2 rounded-lg border border-danger/30 bg-danger/5 p-2.5 text-caption text-danger">
+          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+          <p className="min-w-0 break-words whitespace-pre-wrap">{state.error}</p>
+        </div>
+      )}
+
+      {!state.loading && !state.error && (
+        <div className="space-y-2">
+          {state.schemes.map((s) => {
+            const chosen = state.selected === s.id;
+            const muted = state.selected !== null && !chosen;
+            return (
+              <div
+                key={s.id}
+                className={
+                  'rounded-2xl border p-2.5 transition ' +
+                  (chosen
+                    ? 'border-[rgb(var(--brand-400))] bg-[rgb(var(--brand-50))]'
+                    : 'border-[rgb(var(--border-subtle))] bg-[rgb(var(--surface-1))]') +
+                  (muted ? ' opacity-50' : '')
+                }
+              >
+                <div className="mb-1 flex items-center gap-1.5">
+                  <span className="text-[rgb(var(--brand-500))]">{SCHEME_ICON[s.id]}</span>
+                  <span className="text-footnote font-medium text-ink-primary">{s.title}</span>
+                  {chosen && <Check className="ml-auto h-3.5 w-3.5 text-[rgb(var(--brand-600))]" />}
+                </div>
+
+                {s.editable ? (
+                  <>
+                    <textarea
+                      value={personalDraft}
+                      onChange={(e) => setPersonalDraft(e.target.value)}
+                      disabled={state.selected !== null}
+                      rows={2}
+                      maxLength={2000}
+                      placeholder="你自己的判断 / 补充 (AI 不代写; 保存后进草稿, 需签批才入公司记忆)"
+                      className="w-full resize-none rounded-lg border bg-[rgb(var(--surface-2))] px-2 py-1.5 text-caption text-ink-primary placeholder:text-ink-tertiary focus:outline-none focus:ring-2 focus:ring-[rgb(var(--brand-300))]"
+                      style={{ borderColor: 'rgb(var(--border-subtle))' }}
+                    />
+                    {state.selected === null && (
+                      <button
+                        type="button"
+                        disabled={!personalDraft.trim()}
+                        onClick={() => onSelect('personal', personalDraft.trim())}
+                        className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-[rgb(var(--brand-500))] px-2.5 py-0.5 text-[10px] font-medium text-white hover:bg-[rgb(var(--brand-600))] disabled:opacity-40 surface-interactive"
+                      >
+                        <Check className="h-3 w-3" />
+                        保存并采纳
+                      </button>
+                    )}
+                    {/* 方案 C: 已采纳个人补充后, 可主动申请进公司知识库 (发起签批) */}
+                    {chosen && (
+                      <div className="mt-1.5">
+                        {state.promoteStatus === 'done' ? (
+                          <p className="inline-flex items-center gap-1 text-[10px] font-medium text-[rgb(var(--brand-600))]">
+                            <Check className="h-3 w-3" />
+                            已申请入库 · 待 team 级签批
+                          </p>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              disabled={state.promoteStatus === 'promoting'}
+                              onClick={onPromote}
+                              title="把这条个人判断申请沉淀为公司知识 (需 team_leader + steward 签批才入公司记忆)"
+                              className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-medium text-ink-secondary ring-1 ring-[rgb(var(--border-subtle))] hover:bg-[rgb(var(--brand-50))] hover:text-[rgb(var(--brand-600))] disabled:opacity-40 surface-interactive"
+                            >
+                              {state.promoteStatus === 'promoting'
+                                ? <Loader2 className="h-3 w-3 animate-spin" />
+                                : <BookOpen className="h-3 w-3" />}
+                              申请进公司知识库
+                            </button>
+                            {state.promoteStatus === 'error' && (
+                              <p className="mt-1 text-[10px] text-danger">{state.promoteError ?? '申请失败'}</p>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <p className="whitespace-pre-wrap break-words text-caption leading-relaxed text-ink-secondary">
+                      {s.content}
+                    </p>
+                    {s.sources && s.sources.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {s.sources.map((src, i) => (
+                          <a
+                            key={`${src.url}-${i}`}
+                            href={src.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title={`${src.title}\n${src.url}`}
+                            className="inline-flex max-w-[160px] items-center gap-1 truncate rounded-full bg-[rgb(var(--surface-2))] px-1.5 py-0.5 text-[10px] text-ink-secondary ring-1 ring-[rgb(var(--border-subtle))] hover:text-[rgb(var(--brand-600))] surface-interactive"
+                          >
+                            <Globe className="h-2.5 w-2.5 shrink-0" aria-hidden />
+                            <span className="truncate">{src.title || src.url}</span>
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                    {state.selected === null && (
+                      <button
+                        type="button"
+                        onClick={() => onSelect(s.id)}
+                        className="mt-1.5 inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-medium text-ink-secondary ring-1 ring-[rgb(var(--border-subtle))] hover:bg-[rgb(var(--brand-50))] hover:text-[rgb(var(--brand-600))] surface-interactive"
+                      >
+                        <Check className="h-3 w-3" />
+                        采纳此方案
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })}
+          {state.selected !== null && (
+            <p className="pt-1 text-[10px] text-ink-tertiary">
+              已记录你的选择 · 进入中央 AI 月度反思学习 (CA-13)
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

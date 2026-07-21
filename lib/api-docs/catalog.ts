@@ -54,6 +54,7 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
   { group: '认证与账号', path: '/api/auth/wechat/qr', methods: ['GET'], auth: 'public' },
 
   { group: '管理后台', path: '/api/admin/ai-settings', methods: ['GET', 'PUT'], auth: 'auth' },
+  { group: '管理后台', path: '/api/admin/hard-refuse', methods: ['GET', 'PUT'], auth: 'role' },
   { group: '管理后台', path: '/api/admin/company-brain', methods: ['GET'], auth: 'auth' },
   { group: '管理后台', path: '/api/admin/company-brain/decisions', methods: ['GET'], auth: 'role' },
   { group: '管理后台', path: '/api/admin/company-brain/metrics', methods: ['GET'], auth: 'role' },
@@ -198,6 +199,9 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
   { group: 'AI、Agent 与技能', path: '/api/ai/persona-train', methods: ['POST'], auth: 'auth' },
   { group: 'AI、Agent 与技能', path: '/api/ai/weekly-recap', methods: ['POST'], auth: 'auth' },
   { group: 'AI、Agent 与技能', path: '/api/boss-ai/stream', methods: ['GET', 'POST'], auth: 'auth' },
+  { group: 'AI、Agent 与技能', path: '/api/boss-ai/megaplan', methods: ['POST'], auth: 'auth' },
+  { group: 'AI、Agent 与技能', path: '/api/boss-ai/megaplan/select', methods: ['POST'], auth: 'auth' },
+  { group: 'AI、Agent 与技能', path: '/api/boss-ai/megaplan/promote', methods: ['POST'], auth: 'auth' },
   { group: 'AI、Agent 与技能', path: '/api/company-brain/by-message/{messageId}', methods: ['GET'], auth: 'auth' },
   { group: 'AI、Agent 与技能', path: '/api/company-brain/feedback', methods: ['POST'], auth: 'auth' },
   { group: 'AI、Agent 与技能', path: '/api/llm-stream', methods: ['POST'], auth: 'middleware' },

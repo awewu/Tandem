@@ -125,6 +125,8 @@ export type AuditAction =
   | 'boss_ai.ask'                // 同事提问
   | 'boss_ai.answer'             // 中央 AI 回答完成
   | 'boss_ai.rate_limited'       // 触发限流 (突发或日上限)
+  | 'boss_ai.hard_refused'       // 命中业务红线硬拒 (薪资/裁员/法律/对外承诺/资金), 转人工
+  | 'hard_refuse.config_updated' // Admin 更新业务红线清单 (/admin/hard-refuse)
   | 'im.rate_limited'            // IM 发消息触发限流 (spam guard)
   | 'persona_brief.options_generated' // 3+1 通用化 · 主分身 brief 4 选项产出
   | 'persona_brief.option_picked'     // 员工挑了 A/B/C/D 哪一个

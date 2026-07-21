@@ -20,6 +20,14 @@ export interface ChatMessage {
   toolCallId?: string;
   toolCalls?: ToolCall[];
   /**
+   * §思考态 (DeepSeek V3.2 thinking-in-tool-use) · 模型的链式思考内容 (reasoning_content).
+   *
+   * DeepSeek reasoner (thinking mode) 在带 tool_calls 的 assistant 轮里返回此字段, 且规范要求:
+   * 若该轮执行了 tool call, 后续所有请求必须把 reasoning_content 原样回传, 否则 API 返回 400。
+   * 因此 tool-loop 跨轮保留本字段, provider 序列化时按需回传 (仅 thinking 模型识别, 其余忽略)。
+   */
+  reasoningContent?: string;
+  /**
    * §B-003 Anthropic Prompt Caching · ephemeral 标记
    *
    * 当走 Claude (含 OpenRouter / Bedrock OpenAI-compat 代理) 时, 该消息内容会以
