@@ -5,7 +5,7 @@ import { boot } from '@/lib/boot';
 import { createAppContext } from '@/lib/repositories/app-context-factory';
 import { NotificationService } from '@/lib/services/notification-service';
 import { withApiLog } from '@/lib/api-log/with-api-log';
-import { createCalendarService } from '@/lib/calendar/service-factory';
+import { ReminderEngine } from '@/lib/services/reminder-engine';
 
 const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
   await boot();
@@ -14,13 +14,28 @@ const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const userId = auth.userId;
   const unreadOnly = searchParams.get('unread') === 'true';
+  const page = clampInt(searchParams.get('page'), 1, 1, 10_000);
+  const pageSize = clampInt(searchParams.get('pageSize'), 20, 1, 100);
   const ctx = createAppContext();
   const svc = new NotificationService(ctx);
-  await createCalendarService().processDueReminders(auth.userId, auth.tenantId);
+  await new ReminderEngine(ctx).processDue({ userId: auth.userId, tenantId: auth.tenantId });
   // Tenant isolation: scope reads to caller's tenant.
-  const notifs = await svc.list(userId, { unreadOnly, tenantId: auth.tenantId });
-  const unreadCount = await svc.countUnread(userId);
-  return NextResponse.json({ notifications: notifs, unreadCount });
+  const total = await svc.count(userId, { unreadOnly, tenantId: auth.tenantId });
+  const notifs = await svc.list(userId, {
+    unreadOnly,
+    tenantId: auth.tenantId,
+    limit: pageSize,
+    offset: (page - 1) * pageSize,
+  });
+  const unreadCount = await svc.countUnread(userId, { tenantId: auth.tenantId });
+  return NextResponse.json({
+    notifications: notifs,
+    unreadCount,
+    total,
+    page,
+    pageSize,
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+  });
 });
 
 export const GET = withApiLog(GETApiHandler, { route: '/api/notifications' });
@@ -49,3 +64,9 @@ const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
 });
 
 export const POST = withApiLog(POSTApiHandler, { route: '/api/notifications' });
+
+function clampInt(value: string | null, fallback: number, min: number, max: number): number {
+  const parsed = Number(value ?? fallback);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, Math.floor(parsed)));
+}

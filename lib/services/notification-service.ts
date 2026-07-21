@@ -17,14 +17,18 @@ export interface CreateNotificationCommand {
 }
 
 export class NotificationService {
-  constructor(private ctx: ApplicationContext) {}
+  constructor(private ctx: Pick<ApplicationContext, 'notificationRepo'>) {}
 
-  async list(userId: string, opts?: { unreadOnly?: boolean; tenantId?: string }): Promise<Notification[]> {
+  async list(userId: string, opts?: { unreadOnly?: boolean; includeDismissed?: boolean; limit?: number; offset?: number; tenantId?: string }): Promise<Notification[]> {
     return this.ctx.notificationRepo.findByUser(userId, opts);
   }
 
-  async countUnread(userId: string): Promise<number> {
-    return this.ctx.notificationRepo.countUnread(userId);
+  async countUnread(userId: string, opts?: { tenantId?: string; includeDismissed?: boolean }): Promise<number> {
+    return this.ctx.notificationRepo.countUnread(userId, opts);
+  }
+
+  async count(userId: string, opts?: { unreadOnly?: boolean; includeDismissed?: boolean; tenantId?: string }): Promise<number> {
+    return this.ctx.notificationRepo.countByUser(userId, opts);
   }
 
   async create(cmd: CreateNotificationCommand): Promise<Notification> {

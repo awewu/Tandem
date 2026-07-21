@@ -1,25 +1,29 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useCalendarStore, type EventInstance, fmtTime } from '@/lib/store/calendar';
 import { cn } from '@/lib/utils';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertTriangle } from 'lucide-react';
 
 interface MonthViewProps {
   year: number;
   month: number; // 0-11
   todayMs: number;
+  currentUserId?: string;
   onEventClick: (instance: EventInstance) => void;
   onCellClick: (date: Date) => void;
 }
 
 const WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日'];
+const MAX_VISIBLE_MONTH_EVENTS = 4;
 
-export default function MonthView({ year, month, todayMs, onEventClick, onCellClick }: MonthViewProps) {
+export default function MonthView({ year, month, todayMs, currentUserId, onEventClick, onCellClick }: MonthViewProps) {
   const getEventsInRange = useCalendarStore((s) => s.getEventsInRange);
   // 订阅原始 events / calendars, 否则新增事件或切换可见性时 useMemo 不会重算 (函数引用恒定)。
   const allEvents = useCalendarStore((s) => s.events);
   const allCalendars = useCalendarStore((s) => s.calendars);
+  const [expandedDay, setExpandedDay] = useState<{ dateMs: number; events: EventInstance[] } | null>(null);
 
   const { cells, eventsByDay, monthStart, monthEnd } = useMemo(() => {
     const first = new Date(year, month, 1);
@@ -99,36 +103,178 @@ export default function MonthView({ year, month, todayMs, onEventClick, onCellCl
                 {cell.day !== null ? cell.day : new Date(cell.dateMs).getDate()}
               </div>
 
-              <div className="space-y-0.5">
-                {dayEvents.slice(0, 3).map((ev) => (
-                  <button
+              <div className="space-y-0.5 overflow-hidden">
+                {dayEvents.slice(0, MAX_VISIBLE_MONTH_EVENTS).map((ev) => (
+                  <EventPill
                     key={ev.instanceId}
-                    className={cn(
-                      'w-full text-left text-[10px] px-1.5 py-0.5 rounded truncate flex items-center gap-1 transition-opacity hover:opacity-80',
-                      ev.status === 'cancelled' && 'opacity-40 line-through'
-                    )}
-                    style={{ backgroundColor: getColorBg(ev.color) }}
-                    onClick={(e) => { e.stopPropagation(); onEventClick(ev); }}
-                  >
-                    {!ev.isAllDay && (
-                      <span className="text-[9px] opacity-70 shrink-0">{fmtTime(ev.startTime)}</span>
-                    )}
-                    <span className="truncate">{ev.title}</span>
-                    {ev.hasConflict && <AlertTriangle className="h-2.5 w-2.5 shrink-0" aria-label="时间冲突" />}
-                  </button>
+                    event={ev}
+                    currentUserId={currentUserId}
+                    onClick={onEventClick}
+                  />
                 ))}
-                {dayEvents.length > 3 && (
-                  <div className="text-[9px] text-muted-foreground pl-1.5">
-                    +{dayEvents.length - 3} 更多
-                  </div>
+                {dayEvents.length > MAX_VISIBLE_MONTH_EVENTS && (
+                  <button
+                    type="button"
+                    className="w-full rounded px-1.5 py-0.5 text-left text-[9px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setExpandedDay({ dateMs: cell.dateMs, events: dayEvents });
+                    }}
+                  >
+                    +{dayEvents.length - MAX_VISIBLE_MONTH_EVENTS} 更多，查看全部
+                  </button>
                 )}
               </div>
             </div>
           );
         })}
       </div>
+
+      <Dialog open={expandedDay !== null} onOpenChange={(open) => !open && setExpandedDay(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {expandedDay ? formatDayTitle(expandedDay.dateMs) : '当天日程'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[60vh] space-y-2 overflow-y-auto pr-1">
+            {expandedDay?.events.map((ev) => (
+              <EventPill
+                key={ev.instanceId}
+                event={ev}
+                currentUserId={currentUserId}
+                expanded
+                onClick={(event) => {
+                  setExpandedDay(null);
+                  onEventClick(event);
+                }}
+              />
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
+}
+
+function EventPill({
+  event,
+  currentUserId,
+  expanded = false,
+  onClick,
+}: {
+  event: EventInstance;
+  currentUserId?: string;
+  expanded?: boolean;
+  onClick: (instance: EventInstance) => void;
+}) {
+  const meta = getEventMeta(event, currentUserId);
+  return (
+    <button
+      type="button"
+      className={cn(
+        'w-full min-w-0 text-left transition-opacity hover:opacity-85',
+        expanded
+          ? 'rounded-lg border px-2.5 py-2 shadow-soft-xs'
+          : 'rounded px-1.5 py-0.5 text-[10px]',
+        event.status === 'cancelled' && 'opacity-40 line-through',
+      )}
+      style={{
+        backgroundColor: expanded ? meta.softBg : meta.bg,
+        borderColor: meta.border,
+        color: expanded ? meta.text : '#fff',
+      }}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick(event);
+      }}
+    >
+      <div className={cn('flex min-w-0 items-center gap-1', expanded && 'gap-2')}>
+        <span
+          className={cn(
+            'shrink-0 rounded px-1 font-semibold leading-4',
+            expanded ? 'text-[10px]' : 'text-[8px]',
+          )}
+          style={{
+            backgroundColor: expanded ? meta.bg : 'rgba(255,255,255,0.24)',
+            color: '#fff',
+          }}
+        >
+          {meta.badge}
+        </span>
+        {!event.isAllDay && (
+          <span className={cn('shrink-0 opacity-80', expanded ? 'text-[11px]' : 'text-[9px]')}>
+            {fmtTime(event.startTime)}
+          </span>
+        )}
+        <span className={cn('min-w-0 flex-1 truncate', expanded && 'text-sm font-medium')}>
+          {event.title}
+        </span>
+        {event.hasConflict && <AlertTriangle className={cn('shrink-0', expanded ? 'h-3.5 w-3.5' : 'h-2.5 w-2.5')} aria-label="时间冲突" />}
+      </div>
+      {expanded && (
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] opacity-75">
+          <span>{meta.label}</span>
+          <span>{fmtTime(event.startTime)} - {fmtTime(event.endTime)}</span>
+          {event.location && <span className="truncate">地点：{event.location}</span>}
+        </div>
+      )}
+    </button>
+  );
+}
+
+function getEventMeta(event: EventInstance, currentUserId?: string): {
+  badge: string;
+  label: string;
+  bg: string;
+  softBg: string;
+  border: string;
+  text: string;
+} {
+  if (event.sourceKind === 'subscribed' || event.calendarId === 'cal-subscribed') {
+    return {
+      badge: '订',
+      label: '订阅日程',
+      bg: '#64748b',
+      softBg: '#f1f5f9',
+      border: '#cbd5e1',
+      text: '#334155',
+    };
+  }
+  if (event.sourceKind === 'okr' || event.calendarId === 'cal-okr' || event.type === 'okr_due' || event.type === 'checkin' || event.type === 'cycle') {
+    return {
+      badge: 'OKR',
+      label: 'OKR 同步',
+      bg: '#10b981',
+      softBg: '#ecfdf5',
+      border: '#a7f3d0',
+      text: '#065f46',
+    };
+  }
+  if (event.type === 'meeting') {
+    const isOwner = currentUserId && event.createdBy === currentUserId;
+    return {
+      badge: isOwner ? '我' : '参',
+      label: isOwner ? '我发起的会议' : '我参与的会议',
+      bg: '#8b5cf6',
+      softBg: '#f5f3ff',
+      border: '#ddd6fe',
+      text: '#5b21b6',
+    };
+  }
+  return {
+    badge: '日',
+    label: '我的日程',
+    bg: getColorBg(event.color || 'bg-blue-500'),
+    softBg: '#eff6ff',
+    border: '#bfdbfe',
+    text: '#1d4ed8',
+  };
+}
+
+function formatDayTitle(dateMs: number): string {
+  const date = new Date(dateMs);
+  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日全部日程`;
 }
 
 function getColorBg(twClass: string): string {

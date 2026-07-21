@@ -32,14 +32,14 @@ test.describe('OKR KR Check-in API 流程', () => {
         scope: 'kr',
         scopeId: krId,
         currentValue: 1,
-        confidence: 'on-track',
-        notes: 'e2e check-in test',
+        confidenceAfter: 'on-track',
+        achievements: 'e2e check-in test',
       },
     });
     expect(res.status()).toBe(200);
     const body = await res.json();
     expect(body).toHaveProperty('checkIn');
-    expect(body.checkIn.keyResultId).toBe(krId);
+    expect(body.checkIn.scopeId).toBe(krId);
     // rolledUp 可以为空数组 (若 KR 无父 Objective)，但字段必须存在
     expect(body).toHaveProperty('rolledUp');
     expect(Array.isArray(body.rolledUp)).toBe(true);
@@ -48,7 +48,13 @@ test.describe('OKR KR Check-in API 流程', () => {
   test('check-in 后 GET /api/tandem-okr → KR currentValue 已更新', async ({ request }) => {
     // 先做一次 check-in
     await request.post('/api/okr/checkins', {
-      data: { scope: 'kr', scopeId: krId, currentValue: 42, confidence: 'at-risk', notes: 'e2e value update' },
+      data: {
+        scope: 'kr',
+        scopeId: krId,
+        currentValue: 42,
+        confidenceAfter: 'at-risk',
+        achievements: 'e2e value update',
+      },
     });
 
     const r = await request.get('/api/tandem-okr');

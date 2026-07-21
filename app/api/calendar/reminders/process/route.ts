@@ -10,7 +10,7 @@ const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   const events = await createCalendarService().processDueReminders(auth.userId, auth.tenantId);
-  return NextResponse.json({ processed: events.length });
+  return NextResponse.json({ processed: events.length, sent: events.length, failed: 0 });
 });
 
 export const POST = withApiLog(POSTApiHandler, { route: '/api/calendar/reminders/process' });

@@ -1,6 +1,7 @@
 /**
  * GET  /api/okr/checkins?scope=objective|kr&scopeId=...   — list check-ins
  * POST /api/okr/checkins
+ * DELETE /api/okr/checkins?id=...
  *   body: { scope, scopeId, progressBefore, progressAfter, confidenceBefore,
  *           confidenceAfter, achievements, blockers, nextSteps, mood }
  *   authorId 强制 = sessionUser.id
@@ -19,6 +20,33 @@ import { requireAuth } from '@/lib/auth/require-auth';
 import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import { executeAction, type KrCheckinResult, type ObjectiveCheckinResult } from '@/lib/ontology';
 import { withApiLog } from '@/lib/api-log/with-api-log';
+import { propagateRollupFromKr } from '@/lib/okr/rollup';
+
+function currentValueFromProgress(
+  startValue: number,
+  targetValue: number,
+  progressPct: number,
+): number {
+  if (targetValue === startValue) return progressPct >= 100 ? targetValue : startValue;
+  const value = startValue + (progressPct / 100) * (targetValue - startValue);
+  return Number(value.toFixed(6));
+}
+
+function normalizeViewerIds(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return Array.from(new Set(value.map(String).map((v) => v.trim()).filter(Boolean)));
+}
+
+function normalizeVisibility(value: unknown): 'private' | 'selected' | 'public' {
+  return value === 'selected' || value === 'public' ? value : 'private';
+}
+
+function canViewDailyCheckIn(checkIn: { authorId: string; visibility?: string | null; viewerIds?: unknown }, viewerId: string): boolean {
+  if (checkIn.authorId === viewerId) return true;
+  if (checkIn.visibility === 'public') return true;
+  if (checkIn.visibility === 'selected') return normalizeViewerIds(checkIn.viewerIds).includes(viewerId);
+  return false;
+}
 
 async function GETApiHandler(req: NextRequest) {
   await boot();
@@ -28,8 +56,10 @@ async function GETApiHandler(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const scope = searchParams.get('scope');
     const scopeId = searchParams.get('scopeId');
+    const feed = searchParams.get('feed');
     // P0-B 多租户读隔离: 经 withTenantScope 统一收敛 (§23 P2-A; 继承自父 KR/Objective 的 tenantId).
     let all = await withTenantScope(getStore().checkIns, auth.tenantId).list();
+    if (feed === 'visible-daily') all = all.filter((c) => canViewDailyCheckIn(c, auth.userId));
     if (scope) all = all.filter((c) => c.scope === scope);
     if (scopeId) all = all.filter((c) => c.scopeId === scopeId);
     all.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
@@ -62,6 +92,7 @@ async function POSTApiHandler(req: NextRequest) {
         'kr.checkin',
         {
           krId: scopeId,
+          checkInId: body.checkInId,
           currentValue: body.currentValue,
           confidenceAfter: body.confidenceAfter,
           confidenceBefore: body.confidenceBefore,
@@ -71,6 +102,8 @@ async function POSTApiHandler(req: NextRequest) {
           blockers: body.blockers,
           nextSteps: body.nextSteps,
           mood: body.mood,
+          visibility: normalizeVisibility(body.visibility),
+          viewerIds: normalizeViewerIds(body.viewerIds),
         },
         { actorUserId: auth.userId, isProxy: false, demo: auth.demo },
       );
@@ -99,10 +132,12 @@ async function POSTApiHandler(req: NextRequest) {
         progressBefore: body.progressBefore,
         progressAfter: body.progressAfter,
         achievements: body.achievements,
-        blockers: body.blockers,
-        nextSteps: body.nextSteps,
-        mood: body.mood,
-      },
+      blockers: body.blockers,
+      nextSteps: body.nextSteps,
+      mood: body.mood,
+      visibility: normalizeVisibility(body.visibility),
+      viewerIds: normalizeViewerIds(body.viewerIds),
+    },
       { actorUserId: auth.userId, isProxy: false, demo: auth.demo },
     );
     if (!r.ok) {
@@ -121,3 +156,50 @@ async function POSTApiHandler(req: NextRequest) {
 }
 
 export const POST = withApiLog(POSTApiHandler, { route: '/api/okr/checkins' });
+
+async function DELETEApiHandler(req: NextRequest) {
+  await boot();
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+    if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 });
+
+    const store = getStore();
+    const checkIns = withTenantScope(store.checkIns, auth.tenantId);
+    const existing = await checkIns.get(id);
+    if (!existing) return NextResponse.json({ error: 'check-in not found' }, { status: 404 });
+    if (existing.authorId !== auth.userId && !auth.demo) {
+      return NextResponse.json({ error: '只能删除自己的填报记录' }, { status: 403 });
+    }
+
+    let rolledUp: unknown[] = [];
+    await checkIns.delete(id);
+
+    if (existing.scope === 'kr') {
+      const kr = await store.keyResults.get(existing.scopeId);
+      if (kr) {
+        const remaining = (await checkIns.list())
+          .filter((c) => c.scope === 'kr' && c.scopeId === existing.scopeId)
+          .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+        const latest = remaining[0];
+        const currentValue = latest
+          ? currentValueFromProgress(kr.startValue, kr.targetValue, latest.progressAfter)
+          : kr.startValue;
+        await store.keyResults.update(existing.scopeId, {
+          currentValue,
+          confidence: latest?.confidenceAfter ?? existing.confidenceBefore,
+          updatedAt: new Date().toISOString(),
+        });
+        rolledUp = await propagateRollupFromKr(existing.scopeId, store);
+      }
+    }
+
+    return NextResponse.json({ ok: true, deletedId: id, rolledUp });
+  } catch (err) {
+    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+  }
+}
+
+export const DELETE = withApiLog(DELETEApiHandler, { route: '/api/okr/checkins' });

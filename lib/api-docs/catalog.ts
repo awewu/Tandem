@@ -140,6 +140,8 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
   { group: '协作、IM 与日程', path: '/api/calendar/attendees', methods: ['GET'], auth: 'auth' },
   { group: '协作、IM 与日程', path: '/api/calendar/reminders/process', methods: ['POST'], auth: 'auth' },
   { group: '协作、IM 与日程', path: '/api/calendar/im-reminder', methods: ['POST'], auth: 'auth' },
+  { group: '协作、IM 与日程', path: '/api/reminders/process', methods: ['POST'], auth: 'auth' },
+  { group: '协作、IM 与日程', path: '/api/reminders/poll', methods: ['GET'], auth: 'auth' },
   { group: '协作、IM 与日程', path: '/api/calendar/subscriptions', methods: ['GET', 'POST'], auth: 'auth' },
   { group: '协作、IM 与日程', path: '/api/calendar/subscriptions/{id}', methods: ['PATCH'], auth: 'auth' },
   { group: '协作、IM 与日程', path: '/api/calendar/meeting-prep', methods: ['POST'], auth: 'auth' },

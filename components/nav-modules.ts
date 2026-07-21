@@ -53,6 +53,7 @@ import {
   Store,
   GraduationCap,
   Network,
+  Bell,
 } from 'lucide-react';
 
 export type Role = 'employee' | 'manager' | 'steward' | 'admin' | 'champion' | 'intranet_editor' | 'owner' | 'partner';
@@ -432,13 +433,13 @@ export const NAV_MODULES: NavModule[] = [
         name: '系统运维',
         href: '/admin/usage',
         icon: Activity,
-        visibleTo: ['admin', 'steward'],
+        visibleTo: ['admin', 'steward', 'champion', 'owner'],
         tabs: [
           { name: '使用 + 成本', href: '/admin/usage', visibleTo: ['admin'] },
           { name: 'TAF Skills', href: '/admin/tandem-skills', visibleTo: ['admin'] },
           { name: 'MCP Server', href: '/admin/mcp-servers', visibleTo: ['admin'] },
-          { name: 'AI 评估', href: '/admin/evals', visibleTo: ['admin', 'steward'] },
-          { name: 'Trace 评估台 · 归因', href: '/admin/eval', visibleTo: ['admin', 'steward'] },
+          { name: 'AI 评估', href: '/admin/evals', visibleTo: ['admin', 'steward', 'champion', 'owner'] },
+          { name: 'Trace 评估台 · 归因', href: '/admin/eval', visibleTo: ['admin', 'steward', 'champion', 'owner'] },
           { name: '定时任务', href: '/tasks', visibleTo: ['admin'] },
           { name: '接口日志', href: '/admin/api-logs', visibleTo: ['admin', 'steward'] },
           { name: '业务日志', href: '/admin/business-logs', visibleTo: ['admin', 'steward'] },
@@ -468,6 +469,19 @@ export const NAV_MODULES: NavModule[] = [
     // /atlas 独立栏, items=[] 不走 SubSidebar (页内自有栏目网格).
     pathPrefixes: ['/atlas'],
     items: [],
+  },
+
+  {
+    id: 'notifications',
+    label: '通知',
+    fullLabel: '通知 · 提醒中心',
+    tagline: '日程 / OKR / 审批等提醒统一进入这里',
+    icon: Bell,
+    visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
+    pathPrefixes: ['/notifications'],
+    items: [
+      { name: '消息中心', href: '/notifications', icon: Bell, group: '提醒中心' },
+    ],
   },
 
   {

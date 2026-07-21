@@ -140,6 +140,10 @@ export interface CheckIn {
   nextSteps?: string;
   /** 个人心情/干劲状态 (Weekdone 高级版) */
   mood?: 'happy' | 'neutral' | 'sad';
+  /** 日报可见范围：private=仅作者, selected=指定人, public=全员 */
+  visibility?: 'private' | 'selected' | 'public';
+  /** visibility=selected 时可见的用户 ID 列表；作者本人始终可见 */
+  viewerIds?: string[];
   createdAt: number;
   titaId?: string;
 }

@@ -22,7 +22,7 @@ async function POSTApiHandler(req: NextRequest): Promise<NextResponse> {
   await boot();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
-  const roleErr = requireRole(auth, ['admin', 'steward', 'champion']);
+  const roleErr = requireRole(auth, ['admin', 'steward', 'champion', 'owner']);
   if (roleErr) return roleErr;
 
   let body: { kind?: unknown; limit?: unknown; includeLlm?: unknown } = {};

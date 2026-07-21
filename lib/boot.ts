@@ -28,6 +28,7 @@ type BootGlobals = {
   __tandem_orchestrator__?: ConvergenceOrchestrator | null;
   __tandem_tick_interval__?: ReturnType<typeof setInterval> | null;
   __tandem_retro_interval__?: ReturnType<typeof setInterval> | null;
+  __tandem_reminder_interval__?: ReturnType<typeof setInterval> | null;
 };
 const _g = globalThis as typeof globalThis & BootGlobals;
 
@@ -192,6 +193,7 @@ function bootSync(): void {
   // 议事室 17min 硬上限闭环: 每 30 秒 sweep 活跃议事室, 超时自动 ESCALATE
   // (生产环境用 cron / job queue, V1 用 setInterval 简化)
   startConvergenceTickLoop();
+  startReminderQueueLoop();
 
   // 注册跨域事件订阅者 (lib/events/subscribers.ts · 幂等)
   // 任何 service A 影响 service B 必须经此, 不允许 service A 直接 await service B
@@ -301,6 +303,25 @@ export async function reloadAiSettingsIntoRouter(): Promise<void> {
     // eslint-disable-next-line no-console
     console.warn('[boot] AI settings DB reload failed (using env):', err);
   }
+}
+
+function startReminderQueueLoop(): void {
+  if (_g.__tandem_reminder_interval__) return;
+  _g.__tandem_reminder_interval__ = setInterval(() => {
+    void withCronLock('reminder-queue', 25_000, async () => {
+      const { createAppContext } = await import('./repositories/app-context-factory');
+      const { ReminderEngine } = await import('./services/reminder-engine');
+      const result = await new ReminderEngine(createAppContext()).processDue({ limit: 200 });
+      if (result.processed > 0) {
+        // eslint-disable-next-line no-console
+        console.info(`[boot] reminder queue: processed=${result.processed}, sent=${result.sent}, failed=${result.failed}`);
+      }
+    }).catch((err: unknown) => {
+      // eslint-disable-next-line no-console
+      console.warn('[boot] reminder queue failed:', err);
+    });
+  }, 30 * 1000);
+  unrefIfPossible(_g.__tandem_reminder_interval__);
 }
 
 function startConvergenceTickLoop(): void {

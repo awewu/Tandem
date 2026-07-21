@@ -5,6 +5,7 @@ import { InMemoryCalendarEventRepository } from '@/lib/repositories/memory-calen
 import { InMemoryNotificationRepository } from '@/lib/repositories/memory-notification-repo';
 import { InMemoryCalendarReminderRepository } from '@/lib/repositories/memory-calendar-reminder-repo';
 import { InMemoryCalendarSubscriptionRepository } from '@/lib/repositories/memory-calendar-subscription-repo';
+import { InMemoryReminderTaskRepository } from '@/lib/repositories/memory-reminder-task-repo';
 import { CalendarSubscriptionService } from '@/lib/services/calendar-subscription-service';
 import { listCalendarActivities } from '@/lib/calendar/activity-log';
 import { createInMemoryStore } from '@/lib/storage/memory-store';
@@ -33,6 +34,7 @@ function createService(
     notificationRepo: new InMemoryNotificationRepository(),
     calendarReminderRepo: new InMemoryCalendarReminderRepository(),
     calendarSubscriptionRepo: new InMemoryCalendarSubscriptionRepository(),
+    reminderTaskRepo: new InMemoryReminderTaskRepository(),
   };
 
   const service = new CalendarService(ctx, {
@@ -330,7 +332,7 @@ describe('CalendarService', () => {
       type: 'reminder',
       title: '日程提醒: 即将开始的会议',
     });
-    expect(await ctx.calendarReminderRepo.list({ status: 'fired' })).toHaveLength(1);
+    expect(await ctx.reminderTaskRepo.list({ status: 'sent' })).toHaveLength(1);
     expect(sentEmails).toHaveLength(0);
   });
 
@@ -421,7 +423,7 @@ describe('CalendarService', () => {
 
     await service.updateManaged(event.id, 'owner-1', 'single', { title: '新标题' });
 
-    expect(await ctx.calendarReminderRepo.list({ status: 'fired' })).toHaveLength(1);
+    expect(await ctx.reminderTaskRepo.list({ status: 'sent' })).toHaveLength(1);
     expect(await ctx.calendarReminderRepo.list({ status: 'pending' })).toHaveLength(0);
   });
 
@@ -547,6 +549,38 @@ describe('CalendarService', () => {
       item.steps.find((step) => step.key === 'sending_emails')?.status === 'done'
     );
     expect(sentJob.steps.find((step) => step.key === 'sending_emails')?.status).toBe('done');
+  });
+
+  it('does not fail async calendar creation when generic reminder storage is unavailable', async () => {
+    const { service, ctx } = createService();
+    const originalFindByDedupeKey = ctx.reminderTaskRepo.findByDedupeKey.bind(ctx.reminderTaskRepo);
+    ctx.reminderTaskRepo.findByDedupeKey = async () => {
+      throw new Error('ReminderTask table is unavailable');
+    };
+    const { getCalendarJobStore } = await import('@/lib/calendar/job-store');
+    const store = getCalendarJobStore();
+
+    const job = await store.create({
+      title: '提醒表异常也保存',
+      startAt: '2026-07-17T09:00:00+08:00',
+      endAt: '2026-07-17T10:00:00+08:00',
+      ownerId: 'owner-1',
+      ownerEmail: 'owner@example.com',
+      ownerName: 'Owner',
+      tenantId: 'tenant-1',
+      attendeeEmails: ['colleague@example.com'],
+      reminderMinutes: 15,
+    });
+
+    await service.createManagedAsync(job);
+
+    const finalJob = await store.get(job.id);
+    expect(finalJob?.status).toBe('completed');
+    expect(finalJob?.steps.find((step) => step.key === 'creating_reminders')?.status).toBe('done');
+    expect(finalJob?.result?.warnings.some((warning) => warning.includes('提醒任务暂未生成'))).toBe(true);
+    expect(await service.listForUser('user-2', 'tenant-1')).toHaveLength(1);
+
+    ctx.reminderTaskRepo.findByDedupeKey = originalFindByDedupeKey;
   });
 
   it('resumes an async job from the last checkpoint after a simulated failure', async () => {

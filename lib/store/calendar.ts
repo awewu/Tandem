@@ -18,7 +18,7 @@ import type { CalendarRecurrenceRule, CalendarUser } from '@/lib/types/calendar-
 // 类型定义
 // ═══════════════════════════════════════════════════════════
 
-export type CalendarType = 'personal' | 'team' | 'okr_sync' | 'external';
+export type CalendarType = 'personal' | 'team' | 'okr_sync' | 'external' | 'subscription';
 
 export interface TandemCalendar {
   id: string;
@@ -97,6 +97,11 @@ export interface EventInstance {
   calendarId: string;
   recurrence?: RecurrenceRule;
   attendees?: string[];
+  attendeeEmails?: string[];
+  attendeeUsers?: CalendarUser[];
+  organizer?: CalendarUser;
+  createdBy: string;
+  sourceKind?: 'own' | 'subscribed' | 'okr' | 'local';
   linkedObjectiveId?: string;
   linkedKrId?: string;
   linkedConvergenceId?: string;
@@ -175,7 +180,26 @@ function defaultCalendars(): TandemCalendar[] {
       createdAt: now,
       updatedAt: now,
     },
+    {
+      id: 'cal-subscribed',
+      name: '订阅日程',
+      type: 'subscription',
+      color: 'bg-slate-400',
+      ownerId: 'me',
+      isVisible: true,
+      createdAt: now,
+      updatedAt: now,
+    },
   ];
+}
+
+function mergeDefaultCalendars(calendars: TandemCalendar[] | undefined): TandemCalendar[] {
+  const current = Array.isArray(calendars) ? calendars : [];
+  const byId = new Map(current.map((calendar) => [calendar.id, calendar]));
+  for (const calendar of defaultCalendars()) {
+    if (!byId.has(calendar.id)) byId.set(calendar.id, calendar);
+  }
+  return Array.from(byId.values());
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -288,6 +312,17 @@ function toInstance(
     recurrenceRule: event.recurrenceRule,
     hasConflict: event.hasConflict,
     visibility: event.visibility,
+    attendeeEmails: event.attendeeEmails,
+    attendeeUsers: event.attendeeUsers,
+    organizer: event.organizer,
+    createdBy: event.createdBy,
+    sourceKind: event.calendarId === 'cal-okr'
+      ? 'okr'
+      : event.calendarId === 'cal-subscribed'
+        ? 'subscribed'
+        : event.serverManaged
+          ? 'own'
+          : 'local',
   };
 }
 
@@ -378,7 +413,7 @@ export const useCalendarStore = create<CalendarStore>()(
       // ===== 查询 =====
       getEventsInRange: (start, end) => {
         const visibleCalIds = new Set(
-          get().calendars.filter((c) => c.isVisible).map((c) => c.id)
+          mergeDefaultCalendars(get().calendars).filter((c) => c.isVisible).map((c) => c.id)
         );
         const events = get().events.filter(
           (e) => visibleCalIds.has(e.calendarId) && e.status !== 'cancelled'
@@ -404,7 +439,14 @@ export const useCalendarStore = create<CalendarStore>()(
     }),
     {
       name: '铁山-calendar-store',
-      version: 2,
+      version: 3,
+      migrate: (persisted) => {
+        const state = persisted as Partial<CalendarStore> | undefined;
+        return {
+          ...state,
+          calendars: mergeDefaultCalendars(state?.calendars),
+        } as CalendarStore;
+      },
     }
   )
 );
@@ -489,7 +531,7 @@ export function eventTypeLabel(type: EventType): string {
 /** type 对应的 lucide 颜色类 */
 export function eventTypeColor(type: EventType): string {
   const map: Record<EventType, string> = {
-    meeting: 'bg-blue-500',
+    meeting: 'bg-violet-500',
     task: 'bg-amber-500',
     reminder: 'bg-rose-500',
     okr_due: 'bg-emerald-500',

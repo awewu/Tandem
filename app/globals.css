@@ -692,6 +692,17 @@ html.keyboard-open .mobile-tab-bar {
   opacity: 0;
 }
 
+/* 实心红底统一白字。浅红底如 bg-danger/10 不命中，仍可用于告警提示块。 */
+[class~="bg-primary"],
+[class~="bg-danger"],
+[class~="bg-destructive"],
+[class~="bg-red-500"],
+[class~="bg-red-600"],
+[class~="bg-rose-500"],
+[class~="bg-rose-600"] {
+  color: #fff !important;
+}
+
 @media (max-width: 767px) {
   html.im-chat-open main#tandem-shell-main {
     padding-bottom: 0 !important;

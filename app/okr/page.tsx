@@ -269,7 +269,8 @@ export default function OKRPage() {
     ownerFilterInitializedRef.current = true;
   }, [meUserId, objectives]);
 
-  const canViewAllOwners = meUser?.roles?.some((role) => role === 'owner' || role === 'admin') ?? false;
+  // OKR 在同租户内公开可读; 写权限仍由后端 owner/admin 路由校验.
+  const canViewAllOwners = true;
 
   const visibleOwnerIds = useMemo(() => {
     if (canViewAllOwners) return new Set(peopleForUi.map((p) => p.id));
@@ -362,23 +363,86 @@ export default function OKRPage() {
     [objectives, activeCycleId]
   );
   const filteredObjectives = useMemo(() => {
+    const q = search.trim().toLowerCase();
     return cycleObjectives.filter((o) => {
-      if (filterOwner && o.ownerId !== filterOwner && o.ownerId !== `person:${filterOwner}`) return false;
+      const owner = ownerLabel(o.ownerId).toLowerCase();
+      if (q) {
+        if (
+          !o.title.toLowerCase().includes(q) &&
+          !(o.description || '').toLowerCase().includes(q) &&
+          !owner.includes(q) &&
+          !o.ownerId.toLowerCase().includes(q) &&
+          !o.id.toLowerCase().includes(q)
+        ) {
+          return false;
+        }
+      } else if (filterOwner && o.ownerId !== filterOwner && o.ownerId !== `person:${filterOwner}`) {
+        return false;
+      }
       if (filterTag && !o.tags.includes(filterTag)) return false;
       if (filterConfidence && o.confidence !== filterConfidence) return false;
       if (filterStatus && o.status !== filterStatus) return false;
-      if (search) {
-        const q = search.toLowerCase();
-        if (!o.title.toLowerCase().includes(q) && !(o.description || '').toLowerCase().includes(q)) {
-          return false;
-        }
-      }
       return true;
     });
-  }, [cycleObjectives, filterOwner, filterTag, filterConfidence, filterStatus, search]);
+  }, [cycleObjectives, filterOwner, filterTag, filterConfidence, filterStatus, search, ownerLabel]);
+
+  const treeObjectiveIds = useMemo(() => {
+    const ids = new Set<string>();
+    const filteredIds = new Set(filteredObjectives.map((o) => o.id));
+    const byId = new Map(cycleObjectives.map((o) => [o.id, o]));
+    for (const obj of filteredObjectives) {
+      const hasVisibleChild = cycleObjectives.some((o) => filteredIds.has(o.id) && o.parentId === obj.id);
+      if (!obj.parentId && !hasVisibleChild) continue;
+      ids.add(obj.id);
+      let parentId = obj.parentId || null;
+      const visited = new Set<string>();
+      while (parentId && !visited.has(parentId)) {
+        visited.add(parentId);
+        const parent = byId.get(parentId);
+        if (!parent) break;
+        ids.add(parent.id);
+        parentId = parent.parentId || null;
+      }
+    }
+    return ids;
+  }, [cycleObjectives, filteredObjectives]);
+  const objectiveById = useMemo(() => new Map(cycleObjectives.map((o) => [o.id, o])), [cycleObjectives]);
+  const childCountByObjective = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const o of cycleObjectives) {
+      if (!o.parentId) continue;
+      map.set(o.parentId, (map.get(o.parentId) ?? 0) + 1);
+    }
+    return map;
+  }, [cycleObjectives]);
+  const objectivePathLabel = (obj: Objective) => {
+    const parts: string[] = [];
+    const visited = new Set<string>();
+    let parentId = obj.parentId || null;
+    while (parentId && !visited.has(parentId)) {
+      visited.add(parentId);
+      const parent = objectiveById.get(parentId);
+      if (!parent) {
+        parts.unshift('未找到上级');
+        break;
+      }
+      parts.unshift(parent.title);
+      parentId = parent.parentId || null;
+    }
+    return parts.length > 0 ? parts.join(' / ') : '顶层目标';
+  };
 
   const selected = objectives.find((o) => o.id === selectedObjId) || null;
   const selectedKRs = keyResults.filter((k) => k.objectiveId === selectedObjId);
+  useEffect(() => {
+    if (filteredObjectives.length === 0) {
+      if (selectedObjId) setSelectedObjId(null);
+      return;
+    }
+    if (!selectedObjId || !filteredObjectives.some((o) => o.id === selectedObjId)) {
+      setSelectedObjId(filteredObjectives[0].id);
+    }
+  }, [filteredObjectives, selectedObjId]);
   const selectedCheckIns = useMemo(() => {
     if (!selected) return [];
     const krIds = new Set(selectedKRs.map((k) => k.id));
@@ -423,11 +487,29 @@ export default function OKRPage() {
   }, [objectives]);
 
   // ===== 创建/编辑弹窗 =====
-  const [editing, setEditing] = useState<{ kind: 'objective'; data: Partial<Objective> } | { kind: 'kr'; data: Partial<KeyResult> } | null>(null);
+  const [editing, setEditing] = useState<
+    | { kind: 'objective'; data: Partial<Objective>; focus?: 'alignment' }
+    | { kind: 'kr'; data: Partial<KeyResult> }
+    | null
+  >(null);
   const [checkinFor, setCheckinFor] = useState<{ scope: 'objective' | 'kr'; scopeId: string } | null>(null);
 
+  // B4 Phase-2: 落库 — 创建/编辑写后端, 再 hydrate 收敛到服务端真值 (含服务端 id).
+  // 失败时弹错并保留弹窗内容, 不丢用户输入.
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const openEditDialog = (
+    next:
+      | { kind: 'objective'; data: Partial<Objective>; focus?: 'alignment' }
+      | { kind: 'kr'; data: Partial<KeyResult> },
+  ) => {
+    setSaveError(null);
+    setEditing(next);
+  };
+
   const startNewObjective = (parentId?: string | null) => {
-    setEditing({
+    openEditDialog({
       kind: 'objective',
       data: {
         title: '', description: '', cycleId: activeCycleId,
@@ -437,9 +519,9 @@ export default function OKRPage() {
       },
     });
   };
-  const startEditObjective = (obj: Objective) => setEditing({ kind: 'objective', data: { ...obj } });
+  const startEditObjective = (obj: Objective, focus?: 'alignment') => openEditDialog({ kind: 'objective', data: { ...obj }, focus });
   const startNewKR = (objectiveId: string) => {
-    setEditing({
+    openEditDialog({
       kind: 'kr',
       data: {
         objectiveId, title: '', ownerId: meUserId || people[0]?.id || 'me',
@@ -448,22 +530,23 @@ export default function OKRPage() {
       },
     });
   };
-  const startEditKR = (kr: KeyResult) => setEditing({ kind: 'kr', data: { ...kr } });
+  const startEditKR = (kr: KeyResult) => openEditDialog({ kind: 'kr', data: { ...kr } });
 
-  // B4 Phase-2: 落库 — 创建/编辑写后端, 再 hydrate 收敛到服务端真值 (含服务端 id).
-  // 失败时弹错并保留弹窗内容, 不丢用户输入.
-  const [saving, setSaving] = useState(false);
   const saveEdit = async () => {
     if (!editing || saving) return;
     setSaving(true);
+    setSaveError(null);
     try {
       if (editing.kind === 'objective') {
         const d = editing.data;
-        if (!d.title?.trim()) { alert('目标标题必填'); return; }
+        if (!d.title?.trim()) { setSaveError('目标标题必填'); return; }
         if ('id' in d && d.id) {
           await persistUpdateObjective(d.id, d);
-          await hydrateOkrFromApi(true);
+          useOKRStore.getState().updateObjective(d.id, d);
           setSelectedObjId(d.id);
+          setEditing(null);
+          void hydrateOkrFromApi(true);
+          return;
         } else {
           const newId = await persistCreateObjective(d);
           await hydrateOkrFromApi(true);
@@ -471,14 +554,14 @@ export default function OKRPage() {
         }
       } else {
         const d = editing.data;
-        if (!d.title?.trim()) { alert('KR 标题必填'); return; }
+        if (!d.title?.trim()) { setSaveError('KR 标题必填'); return; }
         if ('id' in d && d.id) await persistUpdateKeyResult(d.id, d);
         else await persistCreateKeyResult(d);
         await hydrateOkrFromApi(true);
       }
       setEditing(null);
     } catch (err: any) {
-      alert(`保存失败：${err?.message || err}`);
+      setSaveError(`保存失败：${err?.message || err}`);
     } finally {
       setSaving(false);
     }
@@ -586,12 +669,12 @@ export default function OKRPage() {
 
   // ===== 渲染：树视图 =====
   const renderTree = (parentId: string | null, depth = 0): React.ReactNode => {
-    const children = filteredObjectives.filter((o) => (o.parentId || null) === parentId);
+    const children = cycleObjectives.filter((o) => treeObjectiveIds.has(o.id) && (o.parentId || null) === parentId);
     return children.map((obj) => {
-      const isExpanded = expanded.has(obj.id);
       const objKRs = keyResults.filter((k) => k.objectiveId === obj.id);
-      const subChildren = filteredObjectives.filter((o) => o.parentId === obj.id);
+      const subChildren = cycleObjectives.filter((o) => treeObjectiveIds.has(o.id) && o.parentId === obj.id);
       const hasChildren = subChildren.length > 0;
+      const isExpanded = expanded.has(obj.id) || (!!search.trim() && hasChildren);
       const progress = getObjectiveProgress(obj.id);
       const isSelected = obj.id === selectedObjId;
       return (
@@ -1152,7 +1235,7 @@ export default function OKRPage() {
         {/* 过滤条 (mobile 仅显示搜索 + 视图切换, 其他隐藏) */}
         <div className="flex items-center gap-2 flex-wrap md:flex-wrap">
           <Filter className="h-3.5 w-3.5 text-muted-foreground" />
-          <Input placeholder="搜索目标标题/描述..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-7 w-48 text-footnote" />
+          <Input placeholder="全员搜索目标 / 描述 / 负责人..." value={search} onChange={(e) => setSearch(e.target.value)} className="h-7 w-48 text-footnote" />
           <div ref={ownerFilterPickerRef} className="relative hidden md:block w-36">
             <input
               value={ownerFilterOpen ? ownerFilterSearch : ownerFilterLabel}
@@ -1245,42 +1328,108 @@ export default function OKRPage() {
           {filteredObjectives.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-muted-foreground gap-2 text-caption">
               <Target className="h-10 w-10 opacity-30" />
-              <div>当前周期没有目标</div>
-              <Button size="sm" onClick={() => startNewObjective()}>
-                <Plus className="h-3 w-3 mr-1" /> 新建第一个目标
-              </Button>
+              <div>{cycleObjectives.length === 0 ? '当前周期没有目标' : '没有匹配的目标'}</div>
+              {cycleObjectives.length === 0 ? (
+                <Button size="sm" onClick={() => startNewObjective()}>
+                  <Plus className="h-3 w-3 mr-1" /> 新建第一个目标
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setSearch('');
+                    setFilterTag('');
+                    setFilterConfidence('');
+                    setFilterStatus('');
+                    setFilterOwner('');
+                  }}
+                >
+                  清空筛选
+                </Button>
+              )}
             </div>
           ) : view === 'tree' ? (
-            <div className="space-y-1">{renderTree(null, 0)}</div>
+            treeObjectiveIds.size > 0 ? (
+              <div className="space-y-1">{renderTree(null, 0)}</div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-64 rounded-lg border border-dashed bg-muted/20 text-muted-foreground gap-3 text-caption">
+                <Network className="h-10 w-10 opacity-30" />
+                <div className="text-center">
+                  <div className="font-medium text-foreground">当前筛选下暂无对齐关系</div>
+                  <div className="mt-1 text-footnote">
+                    这些目标都是顶层目标，或筛选后只剩单层目标；需要在目标编辑里选择“上级目标”后才会形成对齐树。
+                  </div>
+                </div>
+                <Button size="sm" variant="outline" onClick={() => setView('list')}>
+                  查看目标列表
+                </Button>
+              </div>
+            )
           ) : (
-            <div className="space-y-1">
+            <div className="overflow-hidden rounded-lg border">
+              <div className="grid grid-cols-[minmax(0,1fr)_110px] gap-3 border-b bg-muted/40 px-3 py-2 text-[11px] font-medium text-muted-foreground md:grid-cols-[minmax(220px,1.3fr)_120px_90px_130px] lg:grid-cols-[minmax(260px,1.4fr)_minmax(180px,0.9fr)_120px_90px_130px]">
+                <span>目标</span>
+                <span className="hidden lg:block">对齐路径</span>
+                <span className="hidden md:block">负责人</span>
+                <span className="hidden md:block">结构</span>
+                <span className="text-right">进度</span>
+              </div>
               {filteredObjectives.map((obj) => {
                 const objKRs = keyResults.filter((k) => k.objectiveId === obj.id);
                 const progress = getObjectiveProgress(obj.id);
+                const childCount = childCountByObjective.get(obj.id) ?? 0;
+                const pathLabel = objectivePathLabel(obj);
                 return (
                   <div
                     key={obj.id}
                     className={cn(
-                      'flex items-start gap-2 px-2 py-2 rounded cursor-pointer border',
-                      obj.id === selectedObjId ? 'bg-primary/5 border-primary/30' : 'border-transparent hover:bg-muted/50'
+                      'grid grid-cols-[minmax(0,1fr)_110px] gap-3 border-b px-3 py-3 cursor-pointer transition-colors last:border-b-0 md:grid-cols-[minmax(220px,1.3fr)_120px_90px_130px] lg:grid-cols-[minmax(260px,1.4fr)_minmax(180px,0.9fr)_120px_90px_130px]',
+                      obj.id === selectedObjId ? 'bg-primary/5' : 'hover:bg-muted/40'
                     )}
                     onClick={() => setSelectedObjId(obj.id)}
                   >
-                    <Target className="h-4 w-4 text-primary mt-0.5" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium text-caption">{obj.title}</span>
+                    <div className="min-w-0">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <ListChecks className="h-4 w-4 shrink-0 text-primary" />
+                        <span className="truncate text-caption font-medium">{obj.title}</span>
+                      </div>
+                      {obj.description && (
+                        <div className="mt-1 line-clamp-1 text-[11px] text-muted-foreground">{obj.description}</div>
+                      )}
+                      <div className="mt-1 flex items-center gap-2 flex-wrap">
                         <ConfidencePill confidence={obj.confidence} />
                         <Badge variant="secondary" className={cn('text-[10px]', STATUS_BADGE_CLASS[obj.status])}>{STATUS_LABEL[obj.status]}</Badge>
                         <PulseBadge pulse={pulseMap.get(obj.id)} />
                       </div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <div className="flex-1"><ProgressBar value={progress} confidence={obj.confidence} /></div>
-                        <span className="text-footnote tabular-nums w-10 text-right text-muted-foreground">{progress}%</span>
-                      </div>
-                      <div className="text-[11px] text-muted-foreground mt-1">
-                        {ownerLabel(obj.ownerId)} · {objKRs.length} KR
-                      </div>
+                    </div>
+                    <div className="hidden min-w-0 items-center lg:flex">
+                      <button
+                        type="button"
+                        className="inline-flex min-w-0 items-center gap-1 rounded-md px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                        title={`修改对齐：${pathLabel}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedObjId(obj.id);
+                          startEditObjective(obj, 'alignment');
+                        }}
+                      >
+                        <Network className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{pathLabel}</span>
+                      </button>
+                    </div>
+                    <div className="hidden items-center text-[11px] text-muted-foreground md:flex">
+                      <User className="mr-1 h-3 w-3" />
+                      {ownerLabel(obj.ownerId)}
+                    </div>
+                    <div className="hidden items-center gap-2 text-[11px] text-muted-foreground md:flex">
+                      <span>{objKRs.length} KR</span>
+                      <span>·</span>
+                      <span>{childCount} 子目标</span>
+                    </div>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <div className="flex-1"><ProgressBar value={progress} confidence={obj.confidence} /></div>
+                      <span className="w-10 text-right text-footnote tabular-nums text-muted-foreground">{progress}%</span>
                     </div>
                   </div>
                 );
@@ -1298,6 +1447,8 @@ export default function OKRPage() {
           editing={editing}
           setEditing={setEditing}
           onSave={saveEdit}
+          saving={saving}
+          saveError={saveError}
           people={peopleForUi}
           ministries={ministries}
           objectives={objectives}
@@ -1353,11 +1504,13 @@ export default function OKRPage() {
 // =============================================================
 function EditDialog({
   editing, setEditing, onSave,
-  people, ministries, objectives, activeCycleId, ownerLabel, onAddPerson,
+  saving, saveError, people, ministries, objectives, activeCycleId, ownerLabel, onAddPerson,
 }: {
-  editing: { kind: 'objective'; data: Partial<Objective> } | { kind: 'kr'; data: Partial<KeyResult> };
+  editing: { kind: 'objective'; data: Partial<Objective>; focus?: 'alignment' } | { kind: 'kr'; data: Partial<KeyResult> };
   setEditing: (e: any) => void;
   onSave: () => void;
+  saving: boolean;
+  saveError: string | null;
   people: Person[];
   ministries: { id: string; name: string }[];
   objectives: Objective[];
@@ -1370,9 +1523,29 @@ function EditDialog({
   const setField = (k: string, v: any) =>
     setEditing({ ...editing, data: { ...data, [k]: v } });
 
-  const objCandidates = objectives.filter(
+  const cycleObjCandidates = objectives.filter(
     (o) => o.cycleId === activeCycleId && o.id !== data.id
   );
+  const allObjCandidates = objectives.filter((o) => o.id !== data.id);
+  const objCandidates = cycleObjCandidates.length > 0 ? cycleObjCandidates : allObjCandidates;
+  const candidateScopeText = cycleObjCandidates.length > 0 ? '当前周期' : '全部周期';
+  const [alignmentOpen, setAlignmentOpen] = useState(isObj && editing.focus === 'alignment');
+  const [alignmentSearch, setAlignmentSearch] = useState('');
+  const filteredObjCandidates = useMemo(() => {
+    const q = alignmentSearch.trim().toLowerCase();
+    if (!q) return objCandidates;
+    return objCandidates.filter((o) => {
+      const owner = ownerLabel(o.ownerId).toLowerCase();
+      return (
+        o.title.toLowerCase().includes(q) ||
+        owner.includes(q) ||
+        o.ownerId.toLowerCase().includes(q) ||
+        o.id.toLowerCase().includes(q)
+      );
+    });
+  }, [alignmentSearch, objCandidates, ownerLabel]);
+  const selectedParent = objCandidates.find((o) => o.id === data.parentId) || null;
+  const selectedParentLabel = selectedParent ? `${ownerLabel(selectedParent.ownerId)} · ${selectedParent.title}` : '无（顶层）';
 
   // FP&A 锚定: 拉取 BSC KPI 候选 (供 KR.targetKpiId 选择), 仅 KR 编辑时
   const [kpiOptions, setKpiOptions] = useState<{ id: string; title: string; unit?: string | null }[]>([]);
@@ -1396,8 +1569,8 @@ function EditDialog({
 
   return (
     <div className="fixed inset-0 z-40 bg-black/40 flex items-center justify-center p-4" onClick={() => setEditing(null)}>
-      <Card className="w-full max-w-lg max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
-        <CardHeader className="flex flex-row items-center justify-between">
+      <Card className="flex w-full max-w-2xl max-h-[90vh] flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <CardHeader className="flex flex-row items-center justify-between shrink-0">
           <CardTitle className="text-body">
             {isObj ? (data.id ? '编辑目标' : '新建目标') : (data.id ? '编辑 KR' : '新建 KR')}
           </CardTitle>
@@ -1405,7 +1578,7 @@ function EditDialog({
             <X className="h-4 w-4" />
           </Button>
         </CardHeader>
-        <CardContent className="space-y-3 text-caption">
+        <CardContent className="min-h-0 flex-1 space-y-3 overflow-y-auto text-caption">
           <div>
             <label className="text-footnote font-medium text-muted-foreground">{isObj ? '目标标题' : 'KR 标题'} *</label>
             <Input value={data.title || ''} onChange={(e) => setField('title', e.target.value)} className="mt-1" />
@@ -1465,13 +1638,92 @@ function EditDialog({
                 </div>
                 <div>
                   <label className="text-footnote font-medium text-muted-foreground">上级目标（对齐）</label>
-                  <Select value={data.parentId || '__none__'} onValueChange={(v) => setField('parentId', v === '__none__' ? null : v)}>
-                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">无（顶层）</SelectItem>
-                      {objCandidates.map((o) => <SelectItem key={o.id} value={o.id}>{o.title}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <div
+                    className="relative mt-1"
+                    onBlur={(e) => {
+                      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setAlignmentOpen(false);
+                    }}
+                  >
+                    <button
+                      type="button"
+                      className="flex h-10 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-left text-footnote transition-colors hover:bg-muted/50"
+                      onClick={() => {
+                        setAlignmentOpen((v) => {
+                          if (!v) setAlignmentSearch('');
+                          return !v;
+                        });
+                      }}
+                    >
+                      <span className="group relative min-w-0 flex-1">
+                        <span className="block truncate">{selectedParentLabel}</span>
+                        {selectedParent && (
+                          <span className="pointer-events-none absolute left-0 top-full z-50 mt-1 hidden w-80 max-w-[min(80vw,20rem)] whitespace-normal break-words rounded-md border bg-popover p-2 text-[11px] leading-relaxed text-popover-foreground shadow-lg group-hover:block">
+                            {selectedParentLabel}
+                          </span>
+                        )}
+                      </span>
+                      <ChevronDown className={cn('h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform', alignmentOpen && 'rotate-180')} />
+                    </button>
+                    {alignmentOpen && (
+                      <div className="absolute left-0 right-0 z-50 mt-1 rounded-md border bg-popover p-2 text-popover-foreground shadow-lg">
+                        <Input
+                          value={alignmentSearch}
+                          onChange={(e) => setAlignmentSearch(e.target.value)}
+                          placeholder={`${candidateScopeText} · 输入姓名 / 目标标题搜索`}
+                          className="h-8 text-footnote"
+                          autoFocus
+                        />
+                        <div className="mt-2 max-h-36 overscroll-contain overflow-auto">
+                          <button
+                            type="button"
+                            className={cn(
+                              'block w-full px-3 py-2 text-left text-footnote transition-colors',
+                              !data.parentId ? 'bg-primary/10 text-primary' : 'hover:bg-muted',
+                            )}
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => {
+                              setField('parentId', null);
+                              setAlignmentSearch('');
+                              setAlignmentOpen(false);
+                            }}
+                          >
+                            无（顶层）
+                          </button>
+                          {filteredObjCandidates.length === 0 ? (
+                            <div className="px-3 py-3 text-footnote text-muted-foreground">
+                              {objCandidates.length === 0 ? '暂无可选择的上级目标' : '没有匹配的上级目标'}
+                            </div>
+                          ) : (
+                            filteredObjCandidates.map((o) => {
+                              const label = `${ownerLabel(o.ownerId)} · ${o.title}`;
+                              return (
+                                <button
+                                  key={o.id}
+                                  type="button"
+                                  className={cn(
+                                    'group relative block w-full px-3 py-2 text-left text-footnote transition-colors',
+                                    data.parentId === o.id ? 'bg-primary/10 text-primary' : 'hover:bg-muted',
+                                  )}
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onClick={() => {
+                                    setField('parentId', o.id);
+                                    setAlignmentSearch('');
+                                    setAlignmentOpen(false);
+                                  }}
+                                >
+                                  <span className="block truncate font-medium">{o.title}</span>
+                                  <span className="block truncate text-[11px] text-muted-foreground">{ownerLabel(o.ownerId)}</span>
+                                  <span className="mt-1 hidden whitespace-normal break-words rounded-md border bg-background p-2 text-[11px] leading-relaxed text-popover-foreground shadow-sm group-hover:block">
+                                    {label}
+                                  </span>
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
               <div>
@@ -1577,11 +1829,19 @@ function EditDialog({
             />
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" size="sm" onClick={() => setEditing(null)}>取消</Button>
-            <Button size="sm" onClick={onSave}><Save className="h-3 w-3 mr-1" /> 保存</Button>
-          </div>
         </CardContent>
+        <div className="flex shrink-0 items-center justify-end gap-2 border-t bg-background px-6 py-3">
+          {saveError && (
+            <div className="mr-auto text-footnote text-danger">
+              {saveError}
+            </div>
+          )}
+          <Button variant="outline" size="sm" disabled={saving} onClick={() => setEditing(null)}>取消</Button>
+          <Button size="sm" disabled={saving} onClick={onSave}>
+            <Save className="h-3 w-3 mr-1" />
+            {saving ? '保存中…' : '保存'}
+          </Button>
+        </div>
       </Card>
     </div>
   );

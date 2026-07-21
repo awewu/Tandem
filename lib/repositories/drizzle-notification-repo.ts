@@ -36,17 +36,22 @@ export class DrizzleNotificationRepository implements NotificationRepository {
 
   async findByUser(
     userId: string,
-    opts?: { unreadOnly?: boolean; limit?: number; tenantId?: string },
+    opts?: { unreadOnly?: boolean; includeDismissed?: boolean; limit?: number; offset?: number; tenantId?: string },
   ): Promise<Notification[]> {
     const conds = [eq(t.userId, userId)];
     if (opts?.unreadOnly) conds.push(isNull(t.readAt));
+    if (!opts?.includeDismissed) conds.push(isNull(t.dismissedAt));
     if (opts?.tenantId) conds.push(eq(t.tenantId, opts.tenantId));
     const q = db
       .select()
       .from(t)
       .where(and(...conds))
       .orderBy(desc(t.createdAt));
-    const rows = opts?.limit ? await q.limit(opts.limit) : await q;
+    const rows = opts?.limit
+      ? await q.limit(opts.limit).offset(opts.offset ?? 0)
+      : opts?.offset
+        ? await q.offset(opts.offset)
+        : await q;
     return rows.map(toDomain);
   }
 
@@ -90,11 +95,19 @@ export class DrizzleNotificationRepository implements NotificationRepository {
     return toDomain(row);
   }
 
-  async countUnread(userId: string): Promise<number> {
+  async countUnread(userId: string, opts?: { tenantId?: string; includeDismissed?: boolean }): Promise<number> {
+    return this.countByUser(userId, { ...opts, unreadOnly: true });
+  }
+
+  async countByUser(userId: string, opts?: { unreadOnly?: boolean; includeDismissed?: boolean; tenantId?: string }): Promise<number> {
+    const conds = [eq(t.userId, userId)];
+    if (opts?.tenantId) conds.push(eq(t.tenantId, opts.tenantId));
+    if (!opts?.includeDismissed) conds.push(isNull(t.dismissedAt));
+    if (opts?.unreadOnly) conds.push(isNull(t.readAt));
     const [row] = await db
       .select({ c: count() })
       .from(t)
-      .where(and(eq(t.userId, userId), isNull(t.readAt)));
+      .where(and(...conds));
     return Number(row?.c ?? 0);
   }
 
