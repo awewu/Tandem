@@ -89,12 +89,19 @@ export default function MonthView({ year, month, todayMs, currentUserId, onEvent
             <div
               key={idx}
               className={cn(
-                'min-h-[100px] bg-background p-1 transition-colors',
+                'min-h-[74px] bg-background p-0.5 transition-colors sm:min-h-[100px] sm:p-1',
                 isPast ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-muted/30',
                 !inMonth && 'bg-muted/20',
                 isToday && 'bg-warning/5 border-warning/10'
               )}
-              onClick={() => !isPast && onCellClick(new Date(cell.dateMs))}
+              onClick={() => {
+                if (isPast) return;
+                if (dayEvents.length > 0) {
+                  setExpandedDay({ dateMs: cell.dateMs, events: dayEvents });
+                  return;
+                }
+                onCellClick(new Date(cell.dateMs));
+              }}
             >
               <div className={cn(
                 'text-caption font-medium w-6 h-6 flex items-center justify-center rounded-full mb-1',
@@ -104,18 +111,31 @@ export default function MonthView({ year, month, todayMs, currentUserId, onEvent
               </div>
 
               <div className="space-y-0.5 overflow-hidden">
-                {dayEvents.slice(0, MAX_VISIBLE_MONTH_EVENTS).map((ev) => (
+                {dayEvents.slice(0, MAX_VISIBLE_MONTH_EVENTS).map((ev, eventIndex) => (
                   <EventPill
                     key={ev.instanceId}
                     event={ev}
                     currentUserId={currentUserId}
+                    className={eventIndex > 0 ? 'hidden sm:block' : undefined}
                     onClick={onEventClick}
                   />
                 ))}
+                {dayEvents.length > 1 && (
+                  <button
+                    type="button"
+                    className="block w-full truncate rounded px-1 py-0.5 text-left text-[9px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground sm:hidden"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setExpandedDay({ dateMs: cell.dateMs, events: dayEvents });
+                    }}
+                  >
+                    还有 {dayEvents.length - 1} 项
+                  </button>
+                )}
                 {dayEvents.length > MAX_VISIBLE_MONTH_EVENTS && (
                   <button
                     type="button"
-                    className="w-full rounded px-1.5 py-0.5 text-left text-[9px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+                    className="hidden w-full rounded px-1.5 py-0.5 text-left text-[9px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground sm:block"
                     onClick={(e) => {
                       e.stopPropagation();
                       setExpandedDay({ dateMs: cell.dateMs, events: dayEvents });
@@ -161,11 +181,13 @@ function EventPill({
   event,
   currentUserId,
   expanded = false,
+  className,
   onClick,
 }: {
   event: EventInstance;
   currentUserId?: string;
   expanded?: boolean;
+  className?: string;
   onClick: (instance: EventInstance) => void;
 }) {
   const meta = getEventMeta(event, currentUserId);
@@ -176,8 +198,9 @@ function EventPill({
         'w-full min-w-0 text-left transition-opacity hover:opacity-85',
         expanded
           ? 'rounded-lg border px-2.5 py-2 shadow-soft-xs'
-          : 'rounded px-1.5 py-0.5 text-[10px]',
+          : 'rounded-md px-1 py-0.5 text-[10px] shadow-[inset_2px_0_0_rgba(255,255,255,0.45)] sm:rounded sm:px-1.5',
         event.status === 'cancelled' && 'opacity-40 line-through',
+        className,
       )}
       style={{
         backgroundColor: expanded ? meta.softBg : meta.bg,
@@ -189,11 +212,11 @@ function EventPill({
         onClick(event);
       }}
     >
-      <div className={cn('flex min-w-0 items-center gap-1', expanded && 'gap-2')}>
+      <div className={cn(expanded ? 'flex min-w-0 items-center gap-2' : 'min-w-0 sm:flex sm:items-center sm:gap-1')}>
         <span
           className={cn(
             'shrink-0 rounded px-1 font-semibold leading-4',
-            expanded ? 'text-[10px]' : 'text-[8px]',
+            expanded ? 'text-[10px]' : 'hidden text-[8px] sm:inline-block',
           )}
           style={{
             backgroundColor: expanded ? meta.bg : 'rgba(255,255,255,0.24)',
@@ -202,16 +225,21 @@ function EventPill({
         >
           {meta.badge}
         </span>
-        {!event.isAllDay && (
-          <span className={cn('shrink-0 opacity-80', expanded ? 'text-[11px]' : 'text-[9px]')}>
+        {!event.isAllDay && expanded && (
+          <span className="shrink-0 text-[11px] opacity-80">
             {fmtTime(event.startTime)}
           </span>
         )}
-        <span className={cn('min-w-0 flex-1 truncate', expanded && 'text-sm font-medium')}>
+        <span className={cn('min-w-0 truncate', expanded ? 'flex-1 text-sm font-medium' : 'block font-medium leading-3 sm:flex-1')}>
           {event.title}
         </span>
         {event.hasConflict && <AlertTriangle className={cn('shrink-0', expanded ? 'h-3.5 w-3.5' : 'h-2.5 w-2.5')} aria-label="时间冲突" />}
       </div>
+      {!expanded && !event.isAllDay && (
+        <div className="mt-0.5 truncate text-[9px] leading-3 opacity-85 sm:hidden">
+          {fmtTime(event.startTime)}
+        </div>
+      )}
       {expanded && (
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] opacity-75">
           <span>{meta.label}</span>

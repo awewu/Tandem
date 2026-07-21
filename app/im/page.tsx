@@ -716,7 +716,7 @@ function ImInner() {
           <>
             {/* 顶部栏 */}
             <header className="flex min-w-0 shrink-0 items-center justify-between gap-2 border-b border-hairline bg-surface-1 px-3 py-2.5 sm:px-4 sm:py-3">
-              <div className="flex items-center gap-3 min-w-0">
+              <div className="flex min-w-0 flex-1 items-center gap-3">
                 <button
                   type="button"
                   onClick={closeActiveChat}
@@ -741,7 +741,7 @@ function ImInner() {
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex shrink-0 items-center gap-2">
                 <AgentModeToggle
                   channelId={activeChannel.id}
                   initialMode={members.find((m) => m.userId === ME)?.agentMode ?? 'manual'}

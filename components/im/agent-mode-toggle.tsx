@@ -67,14 +67,14 @@ export function AgentModeToggle({ channelId, initialMode = 'manual', onChanged }
   const Icon = Meta.icon;
 
   return (
-    <div className="relative">
+    <div className="relative shrink-0">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         disabled={busy}
         title={Meta.desc}
         className={cn(
-          'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-footnote font-medium transition',
+          'inline-flex h-8 min-w-[58px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 py-1 text-footnote font-medium transition',
           Meta.cls,
           busy && 'opacity-50 cursor-not-allowed',
         )}

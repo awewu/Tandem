@@ -20,7 +20,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import {
   ChevronLeft, ChevronRight, Plus, Sparkles, Wand2,
   LayoutGrid, Columns3, List, Eye, EyeOff,
-  ShieldCheck, MessageSquare, History, RefreshCw,
+  ShieldCheck, MessageSquare, History, RefreshCw, PanelLeft,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import MonthView from '@/components/calendar/month-view';
@@ -110,6 +110,7 @@ export default function CalendarPage() {
   const [imReminderError, setImReminderError] = useState('');
   const [imReminderResult, setImReminderResult] = useState<{ channelId: string; channelName: string; reused: boolean } | null>(null);
   const [imReminderMeetings, setImReminderMeetings] = useState<ImReminderMeeting[]>([]);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   // 初始化
   useEffect(() => {
@@ -485,164 +486,182 @@ export default function CalendarPage() {
     }
   }
 
+  const renderSidebarContent = () => (
+    <>
+      <div className="p-3 border-b space-y-2">
+        <Button
+          className="w-full gap-1 bg-brand-500 hover:bg-brand-600 text-white"
+          size="sm"
+          onClick={() => {
+            setMobileSidebarOpen(false);
+            handleNewEvent();
+          }}
+        >
+          <Plus className="h-4 w-4" />
+          新建事件
+        </Button>
+        <Button
+          variant="outline"
+          className="w-full gap-1 text-caption"
+          size="sm"
+          onClick={() => {
+            setMobileSidebarOpen(false);
+            const now = new Date();
+            now.setMinutes(0, 0, 0);
+            now.setHours(now.getHours() + 1);
+            const end = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+            void createQuickManagedEvent({
+              title: '🔒 深度工作 (Focus Time)',
+              startTime: now.getTime(),
+              endTime: end.getTime(),
+              reminderMinutes: 5,
+            });
+          }}
+        >
+          <ShieldCheck className="h-3.5 w-3.5" />
+          创建 Focus Time
+        </Button>
+        <Button
+          variant="outline"
+          className="w-full gap-1 text-caption"
+          size="sm"
+          onClick={() => {
+            setMobileSidebarOpen(false);
+            openImReminderDialog();
+          }}
+        >
+          <MessageSquare className="h-3.5 w-3.5" />
+          IM 提醒参会人
+        </Button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-3">
+        <h3 className="text-caption font-semibold text-muted-foreground mb-2 uppercase tracking-wider">我的日历</h3>
+        <div className="space-y-1">
+          {calendars.map((cal) => (
+            <button
+              key={cal.id}
+              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-body hover:bg-muted transition-colors"
+              onClick={() => toggleCalendarVisibility(cal.id)}
+            >
+              {cal.isVisible ? (
+                <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+              ) : (
+                <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+              )}
+              <span className={cn('h-2.5 w-2.5 rounded-full shrink-0', cal.color)} />
+              <span className={cn('truncate', !cal.isVisible && 'text-muted-foreground line-through')}>
+                {cal.name}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <UpcomingEvents />
+        <CalendarSubscriptionPanel
+          currentUserId={user?.id ?? ''}
+          selectedTargetId={subscribedTargetId}
+          onViewTarget={setSubscribedTargetId}
+          onChanged={refreshManagedEvents}
+        />
+      </div>
+    </>
+  );
+
   return (
     <div className="h-[calc(100vh-64px)] flex flex-col md:flex-row bg-background">
       {/* 左侧边栏 — 日历列表 + 快速入口 */}
-      <aside className="w-56 border-r bg-muted/20 flex flex-col shrink-0">
-        <div className="p-3 border-b space-y-2">
-          <Button
-            className="w-full gap-1 bg-brand-500 hover:bg-brand-600 text-white"
-            size="sm"
-            onClick={handleNewEvent}
-          >
-            <Plus className="h-4 w-4" />
-            新建事件
-          </Button>
-          <Button
-            variant="outline"
-            className="w-full gap-1 text-caption"
-            size="sm"
-            onClick={() => {
-              // 一键创建 2 小时 Focus Time（今天剩余时间中找空档）
-              const now = new Date();
-              now.setMinutes(0, 0, 0);
-              now.setHours(now.getHours() + 1);
-              const end = new Date(now.getTime() + 2 * 60 * 60 * 1000);
-              void createQuickManagedEvent({
-                title: '🔒 深度工作 (Focus Time)',
-                startTime: now.getTime(),
-                endTime: end.getTime(),
-                reminderMinutes: 5,
-              });
-            }}
-          >
-            <ShieldCheck className="h-3.5 w-3.5" />
-            创建 Focus Time
-          </Button>
-          <Button
-            variant="outline"
-            className="w-full gap-1 text-caption"
-            size="sm"
-            onClick={openImReminderDialog}
-          >
-            <MessageSquare className="h-3.5 w-3.5" />
-            IM 提醒参会人
-          </Button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-3">
-          <h3 className="text-caption font-semibold text-muted-foreground mb-2 uppercase tracking-wider">我的日历</h3>
-          <div className="space-y-1">
-            {calendars.map((cal) => (
-              <button
-                key={cal.id}
-                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-body hover:bg-muted transition-colors"
-                onClick={() => toggleCalendarVisibility(cal.id)}
-              >
-                {cal.isVisible ? (
-                  <Eye className="h-3.5 w-3.5 text-muted-foreground" />
-                ) : (
-                  <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
-                )}
-                <span className={cn('h-2.5 w-2.5 rounded-full shrink-0', cal.color)} />
-                <span className={cn('truncate', !cal.isVisible && 'text-muted-foreground line-through')}>
-                  {cal.name}
-                </span>
-              </button>
-            ))}
-          </div>
-
-          {/* 今日 upcoming */}
-          <UpcomingEvents />
-          <CalendarSubscriptionPanel
-            currentUserId={user?.id ?? ''}
-            selectedTargetId={subscribedTargetId}
-            onViewTarget={setSubscribedTargetId}
-            onChanged={refreshManagedEvents}
-          />
-        </div>
+      <aside className="hidden w-56 border-r bg-muted/20 md:flex md:flex-col md:shrink-0">
+        {renderSidebarContent()}
       </aside>
 
       {/* 主区域 */}
       <main className="flex-1 flex flex-col min-w-0">
         {/* 工具栏 */}
-        <div className="shrink-0 border-b px-4 py-2 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={goPrev}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={goToday}>
-              今天
-            </Button>
-            <Button variant="outline" size="sm" onClick={goNext}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-            <h1 className="text-title-3 font-semibold ml-2">{monthLabel}</h1>
+        <div className="shrink-0 border-b px-3 py-2 sm:px-4">
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
+              <Button variant="outline" size="sm" className="h-9 w-9 p-0 md:hidden" onClick={() => setMobileSidebarOpen(true)} title="日历设置">
+                <PanelLeft className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="sm" onClick={goPrev}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="sm" onClick={goToday}>
+                今天
+              </Button>
+              <Button variant="outline" size="sm" onClick={goNext}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <h1 className="min-w-0 truncate text-title-3 font-semibold sm:ml-2">{monthLabel}</h1>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-1 rounded-md bg-muted/30 p-0.5 sm:gap-2 sm:bg-transparent sm:p-0">
+              <Button
+                variant={view === 'month' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => setView('month')}
+                className="h-8 gap-1 px-2 sm:h-9 sm:px-3"
+              >
+                <LayoutGrid className="h-4 w-4" />
+                月
+              </Button>
+              <Button
+                variant={view === 'week' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => setView('week')}
+                className="h-8 gap-1 px-2 sm:h-9 sm:px-3"
+              >
+                <Columns3 className="h-4 w-4" />
+                周
+              </Button>
+              <Button
+                variant={view === 'day' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => setView('day')}
+                className="h-8 gap-1 px-2 sm:h-9 sm:px-3"
+              >
+                <List className="h-4 w-4" />
+                日
+              </Button>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="mt-2 flex min-w-0 flex-col gap-2 lg:mt-0 lg:flex-row lg:items-center lg:justify-end">
             {/* 自然语言快速创建 */}
-            <div className="flex items-center gap-1 bg-muted/30 rounded-md px-2 py-1">
+            <div className="flex min-w-0 items-center gap-1 rounded-md bg-muted/30 px-2 py-1">
               <Sparkles className="h-3.5 w-3.5 text-info" />
               <Input
                 placeholder="自然语言创建: 明天下午3点跟张伟开会"
                 value={nlpText}
                 onChange={(e) => setNlpText(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleNlpCreate()}
-                className="h-7 w-64 border-0 bg-transparent text-caption focus-visible:ring-0 focus-visible:ring-offset-0 px-1"
+                className="h-7 min-w-0 flex-1 border-0 bg-transparent px-1 text-caption focus-visible:ring-0 focus-visible:ring-offset-0 sm:w-64 sm:flex-none"
               />
               <Button variant="ghost" size="sm" className="h-6 px-2 text-caption" onClick={handleNlpCreate} disabled={nlpBusy}>
                 {nlpBusy ? '...' : '创建'}
               </Button>
             </div>
 
-            <Button variant="ghost" size="sm" className="gap-1 text-caption" onClick={handleSmartTime}>
-              <Wand2 className="h-3.5 w-3.5" />
-              智能时间
-            </Button>
+            <div className="flex min-w-0 items-center gap-1 overflow-x-auto pb-0.5 sm:gap-2 sm:overflow-visible sm:pb-0">
+              <Button variant="ghost" size="sm" className="shrink-0 gap-1 text-caption" onClick={handleSmartTime}>
+                <Wand2 className="h-3.5 w-3.5" />
+                智能时间
+              </Button>
 
-            <Button
-              variant="ghost"
-              size="sm"
-              className="gap-1 text-caption"
-              onClick={() => {
-                setActivityPage(1);
-                setActivityOpen(true);
-              }}
-            >
-              <History className="h-3.5 w-3.5" />
-              日程记录
-            </Button>
-
-            <div className="w-px h-5 bg-border mx-1" />
-
-            <Button
-              variant={view === 'month' ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => setView('month')}
-              className="gap-1"
-            >
-              <LayoutGrid className="h-4 w-4" />
-              月
-            </Button>
-            <Button
-              variant={view === 'week' ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => setView('week')}
-              className="gap-1"
-            >
-              <Columns3 className="h-4 w-4" />
-              周
-            </Button>
-            <Button
-              variant={view === 'day' ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => setView('day')}
-              className="gap-1"
-            >
-              <List className="h-4 w-4" />
-              日
-            </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="shrink-0 gap-1 text-caption"
+                onClick={() => {
+                  setActivityPage(1);
+                  setActivityOpen(true);
+                }}
+              >
+                <History className="h-3.5 w-3.5" />
+                日程记录
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -656,11 +675,11 @@ export default function CalendarPage() {
                 关闭
               </Button>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 overflow-x-auto pb-1">
               {smartSuggestions.map((s, i) => (
                 <button
                   key={i}
-                  className="text-caption px-2.5 py-1.5 rounded-md bg-white border border-info/30 hover:bg-info/10 transition-colors text-left"
+                  className="shrink-0 text-caption px-2.5 py-1.5 rounded-md bg-white border border-info/30 hover:bg-info/10 transition-colors text-left"
                   onClick={() => {
                     setSelectedDate(new Date(s.startTime));
                     setEditorDate(new Date(s.startTime));
@@ -707,6 +726,17 @@ export default function CalendarPage() {
           )}
         </div>
       </main>
+
+      <Dialog open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
+        <DialogContent className="max-h-[86vh] w-[calc(100vw-2rem)] overflow-hidden p-0 sm:max-w-sm md:hidden">
+          <DialogHeader className="border-b px-4 py-3">
+            <DialogTitle>日历设置</DialogTitle>
+          </DialogHeader>
+          <div className="flex max-h-[calc(86vh-56px)] flex-col overflow-hidden bg-muted/20">
+            {renderSidebarContent()}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <EventEditor
         open={editorOpen}
@@ -832,8 +862,8 @@ export default function CalendarPage() {
       </Dialog>
 
       <Dialog open={activityOpen} onOpenChange={setActivityOpen}>
-        <DialogContent className="sm:max-w-3xl max-h-[82vh] overflow-hidden">
-          <DialogHeader>
+        <DialogContent className="flex max-h-[calc(100dvh-8rem)] w-[calc(100vw-1rem)] flex-col gap-0 overflow-hidden p-0 sm:max-h-[82vh] sm:max-w-3xl">
+          <DialogHeader className="shrink-0 px-5 pb-3 pt-5 sm:px-6 sm:pt-6">
             <DialogTitle className="flex items-center gap-2">
               <History className="h-4 w-4" />
               日程记录
@@ -843,7 +873,7 @@ export default function CalendarPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex shrink-0 items-center justify-between gap-2 px-5 pb-3 sm:px-6">
             <div className="text-caption text-muted-foreground">
               共 {activityTotal} 条 · 第 {activityPage}/{Math.max(1, Math.ceil(activityTotal / ACTIVITY_PAGE_SIZE))} 页
             </div>
@@ -854,12 +884,12 @@ export default function CalendarPage() {
           </div>
 
           {activityError && (
-            <div className="rounded-md border border-danger/30 bg-danger/5 px-3 py-2 text-caption text-danger">
+            <div className="mx-5 mb-3 rounded-md border border-danger/30 bg-danger/5 px-3 py-2 text-caption text-danger sm:mx-6">
               {activityError}
             </div>
           )}
 
-          <div className="min-h-[320px] max-h-[52vh] overflow-y-auto rounded-lg border">
+          <div className="mx-5 min-h-0 flex-1 overflow-y-auto rounded-lg border sm:mx-6">
             {activityLoading && activityItems.length === 0 ? (
               <div className="h-48 flex items-center justify-center text-caption text-muted-foreground">读取中...</div>
             ) : activityItems.length === 0 ? (
@@ -908,7 +938,7 @@ export default function CalendarPage() {
             )}
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="mt-3 flex shrink-0 items-center justify-between border-t bg-background px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 sm:px-6 sm:pb-4">
             <Button
               type="button"
               variant="outline"

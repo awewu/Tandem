@@ -52,9 +52,9 @@ export default function WeekView({ date, todayMs, onEventClick, onCellClick }: W
   }, [events]);
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col h-full min-w-0 overflow-x-auto overflow-y-hidden">
       {/* 头部 */}
-      <div className="grid grid-cols-8 gap-px border-b bg-border shrink-0">
+      <div className="grid min-w-[680px] grid-cols-8 gap-px border-b bg-border shrink-0 sm:min-w-0">
         <div className="bg-background py-2 px-2 text-caption text-muted-foreground" /> {/* 时间列 */}
         {days.map((d) => (
           <div
@@ -70,7 +70,7 @@ export default function WeekView({ date, todayMs, onEventClick, onCellClick }: W
       </div>
 
       {/* 时间网格 */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="min-w-[680px] flex-1 overflow-y-auto sm:min-w-0">
         <div className="grid grid-cols-8 gap-px bg-border min-h-[960px]">
           {/* 时间标签列 */}
           <div className="bg-background">
