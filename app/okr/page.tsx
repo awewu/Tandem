@@ -1783,8 +1783,7 @@ function EditDialog({
               </div>
               {/* FP&A 锚定: KR → BSC KPI 数据契约桥 (三省六部推演用, 选填) */}
               <div className="rounded-md border border-dashed border-brand-200 bg-brand-50/40 dark:bg-brand-900/10 p-3 space-y-2">
-                <div className="text-footnote font-medium text-brand-700 dark:text-brand-600 flex items-center gap-1 flex-wrap">
-                  <Network className="h-3 w-3" /> FP&amp;A 锚定 · 这个 KR 推动哪个 BSC 指标
+                <div className="text-footnote font-medium text-brand-700 dark:text-brand-600 flex items-center gap-1 flex-wrap">                  <Network className="h-3 w-3" /> FP&amp;A 锚定 · 这个 KR 推动哪个 BSC 指标
                   <span className="text-[10px] font-normal text-muted-foreground">三省六部推演用 · 选填</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">

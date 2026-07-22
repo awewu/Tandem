@@ -59,7 +59,7 @@ export interface CalendarEvent {
   recurrenceIndex?: number | null;
   location?: string | null;
   meetingUrl?: string | null;
-  calendarSource: 'manual' | 'feishu' | 'google' | 'outlook';
+  calendarSource: 'manual' | 'feishu' | 'google' | 'outlook' | 'netease';
   externalId?: string | null;
   status: 'confirmed' | 'tentative' | 'cancelled';
   tenantId: string;

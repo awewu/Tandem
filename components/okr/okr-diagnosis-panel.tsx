@@ -33,8 +33,7 @@ interface Props {
 const SEVERITY_TINT: Record<OKRSuggestion['severity'], string> = {
   error: 'border-danger/30 bg-danger/5/70 dark:bg-danger/20',
   warning: 'border-warning/30 bg-warning/5/70 dark:bg-warning/20',
-  info: 'border-info/40 bg-info/10 dark:bg-info/40',
-};
+  info: 'border-info/40 bg-info/10 dark:bg-info/40',};
 
 export function OKRDiagnosisPanel({ cycleId, onApply, proactivePrompt }: Props) {
   const cycle = useOKRStore((s) => s.cycles.find((c) => c.id === cycleId));
@@ -66,8 +65,7 @@ export function OKRDiagnosisPanel({ cycleId, onApply, proactivePrompt }: Props) 
   return (
     <div className="space-y-2">
       <div className="text-caption font-medium flex items-center gap-1.5">
-        <Sparkles size={14} className="text-brand-700" />
-        AI 纠偏建议
+        <Sparkles size={14} className="text-brand-700" />        AI 纠偏建议
         <span className="text-[10px] text-muted-foreground font-normal">
           · 至多 3 条 · 全部由你点击决定是否执行
         </span>

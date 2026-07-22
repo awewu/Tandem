@@ -25,6 +25,7 @@ const ROUTES = [
   '/kpi',
   '/tandem',
   '/im',
+  '/mail',
   '/analytics',
   '/report/weekly',
   '/mcp',

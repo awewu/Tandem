@@ -141,7 +141,6 @@ function getColorBg(twClass: string): string {
     'bg-brand-500': 'rgb(var(--brand-500))',
     'bg-warning': 'rgb(var(--warning))',
     'bg-danger': 'rgb(var(--danger))',
-    'bg-surface-3': 'rgb(var(--muted-foreground))',
-  };
+    'bg-surface-3': 'rgb(var(--muted-foreground))',  };
   return map[twClass] || 'rgb(var(--muted-foreground))';
 }

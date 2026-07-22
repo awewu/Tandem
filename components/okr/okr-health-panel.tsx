@@ -11,8 +11,7 @@ const ICON: Record<HealthIssue['severity'], any> = {
 const CLS: Record<HealthIssue['severity'], string> = {
   error: 'text-danger bg-danger/5 border-danger/20 dark:bg-danger/30',
   warning: 'text-warning bg-warning/5 border-warning/20 dark:bg-warning/30',
-  info: 'text-info bg-info/10 border-info/30 dark:bg-info/40',
-};
+  info: 'text-info bg-info/10 border-info/30 dark:bg-info/40',};
 
 interface Props {
   cycleId: string;

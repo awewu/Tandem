@@ -435,6 +435,7 @@ export const NAV_MODULES: NavModule[] = [
         tabs: [
           { name: 'Intranet 编辑', href: '/admin/intranet', visibleTo: ['admin', 'champion', 'intranet_editor'] },
           { name: 'Launchpad 管理', href: '/admin/launchpad', visibleTo: ['admin', 'champion'] },
+          { name: '移动端功能', href: '/admin/mobile-features', visibleTo: ['admin', 'owner'] },
           { name: 'Baseline', href: '/admin/baseline', visibleTo: ['admin', 'champion'] },
         ],
       },

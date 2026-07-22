@@ -50,6 +50,7 @@
 | `CENTRAL-AI-DRIVER-MAP.md` | 中央 AI 驱动全模块复盘 (介入各模块详解) |
 | `CENTRAL-AI-TECH-STACK-DRIVER.md` | 中央 AI 技术栈驱动全模块分析 (5 层技术栈) |
 | `CENTRAL-AI-ENTERPRISE-EDGE.md` | 中央 AI 企业边界 (G2 数据红线) |
+| `MOBILE-APP-SCOPE-AND-DASHBOARD.md` | 移动端 App 收敛基线: 首页看板 + 中央 AI + 少数高频入口 + PC 勾选控制 |
 | `ONTOLOGY-CENTRAL-BRAIN.md` | 本体层与统一决策调配施工图 (Palantir 式 Ontology+Action 层 · ON-0..ON-3) |
 | `AGENT-FRAMEWORK.md` | Agent 分层 (Layer 1-4) |
 | `KNOWLEDGE-ARCHITECTURE.md` | Memory 4 层 ownership |

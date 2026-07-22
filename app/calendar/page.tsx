@@ -33,6 +33,7 @@ import UpcomingEvents from '@/components/calendar/upcoming-events';
 type ViewMode = 'month' | 'week' | 'day';
 
 const CALENDAR_REQUEST_TIMEOUT_MS = 15_000;
+const CALENDAR_SYNC_TIMEOUT_MS = 75_000;
 const ACTIVITY_PAGE_SIZE = 10;
 
 interface CalendarActivityItem {
@@ -111,6 +112,9 @@ export default function CalendarPage() {
   const [imReminderResult, setImReminderResult] = useState<{ channelId: string; channelName: string; reused: boolean } | null>(null);
   const [imReminderMeetings, setImReminderMeetings] = useState<ImReminderMeeting[]>([]);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [neteaseSyncing, setNeteaseSyncing] = useState(false);
+  const [neteaseSyncMessage, setNeteaseSyncMessage] = useState('');
+  const [neteaseSyncError, setNeteaseSyncError] = useState('');
 
   // 初始化
   useEffect(() => {
@@ -486,6 +490,38 @@ export default function CalendarPage() {
     }
   }
 
+  async function handleNeteaseSync() {
+    if (neteaseSyncing) return;
+    setNeteaseSyncing(true);
+    setNeteaseSyncMessage('');
+    setNeteaseSyncError('');
+    try {
+      const visibleRange = year > 0
+        ? {
+            from: new Date(year, month, 1).toISOString(),
+            to: new Date(year, month + 1, 1).toISOString(),
+          }
+        : {};
+      const response = await fetchWithTimeout('/api/calendar/sync/netease', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        cache: 'no-store',
+        body: JSON.stringify(visibleRange),
+      }, CALENDAR_SYNC_TIMEOUT_MS);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error?.message ?? data.error ?? '网易邮箱日程同步失败');
+      }
+      setNeteaseSyncMessage(`已同步网易日程：新增 ${Number(data.created ?? 0)}，更新 ${Number(data.updated ?? 0)}，跳过 ${Number(data.skipped ?? 0)}`);
+      await refreshManagedEvents();
+    } catch (error) {
+      setNeteaseSyncError(error instanceof Error ? error.message : '网易邮箱日程同步失败');
+    } finally {
+      setNeteaseSyncing(false);
+    }
+  }
+
   const renderSidebarContent = () => (
     <>
       <div className="p-3 border-b space-y-2">
@@ -533,24 +569,37 @@ export default function CalendarPage() {
           <MessageSquare className="h-3.5 w-3.5" />
           IM 提醒参会人
         </Button>
+        <Button
+          variant="outline"
+          className="w-full gap-1 text-caption"
+          size="sm"
+          onClick={() => {
+            setMobileSidebarOpen(false);
+            void handleNeteaseSync();
+          }}
+          disabled={neteaseSyncing}
+        >
+          <RefreshCw className={cn('h-3.5 w-3.5', neteaseSyncing && 'animate-spin')} />
+          {neteaseSyncing ? '同步中' : '同步网易日程'}
+        </Button>
       </div>
 
       <div className="flex-1 overflow-y-auto p-3">
-        <h3 className="text-caption font-semibold text-muted-foreground mb-2 uppercase tracking-wider">我的日历</h3>
+        <h3 className="text-caption font-semibold text-ink-tertiary mb-2 uppercase tracking-wider">我的日历</h3>
         <div className="space-y-1">
           {calendars.map((cal) => (
             <button
               key={cal.id}
-              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-body hover:bg-muted transition-colors"
+              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-body hover:bg-surface-2 transition-colors"
               onClick={() => toggleCalendarVisibility(cal.id)}
             >
               {cal.isVisible ? (
-                <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                <Eye className="h-3.5 w-3.5 text-ink-tertiary" />
               ) : (
-                <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+                <EyeOff className="h-3.5 w-3.5 text-ink-tertiary" />
               )}
               <span className={cn('h-2.5 w-2.5 rounded-full shrink-0', cal.color)} />
-              <span className={cn('truncate', !cal.isVisible && 'text-muted-foreground line-through')}>
+              <span className={cn('truncate', !cal.isVisible && 'text-ink-tertiary line-through')}>
                 {cal.name}
               </span>
             </button>
@@ -569,9 +618,9 @@ export default function CalendarPage() {
   );
 
   return (
-    <div className="h-[calc(100vh-64px)] flex flex-col md:flex-row bg-background">
+    <div className="h-[calc(100vh-64px)] flex flex-col md:flex-row bg-gradient-to-b from-surface-1 to-surface-2/50">
       {/* 左侧边栏 — 日历列表 + 快速入口 */}
-      <aside className="hidden w-56 border-r bg-muted/20 md:flex md:flex-col md:shrink-0">
+      <aside className="hidden w-56 border-r bg-surface-2/50 md:flex md:flex-col md:shrink-0">
         {renderSidebarContent()}
       </aside>
 
@@ -596,7 +645,7 @@ export default function CalendarPage() {
               <h1 className="min-w-0 truncate text-title-3 font-semibold sm:ml-2">{monthLabel}</h1>
             </div>
 
-            <div className="flex shrink-0 items-center gap-1 rounded-md bg-muted/30 p-0.5 sm:gap-2 sm:bg-transparent sm:p-0">
+            <div className="flex shrink-0 items-center gap-1 rounded-md bg-surface-2 p-0.5 sm:gap-2 sm:bg-transparent sm:p-0">
               <Button
                 variant={view === 'month' ? 'secondary' : 'ghost'}
                 size="sm"
@@ -629,7 +678,7 @@ export default function CalendarPage() {
 
           <div className="mt-2 flex min-w-0 flex-col gap-2 lg:mt-0 lg:flex-row lg:items-center lg:justify-end">
             {/* 自然语言快速创建 */}
-            <div className="flex min-w-0 items-center gap-1 rounded-md bg-muted/30 px-2 py-1">
+            <div className="flex min-w-0 items-center gap-1 rounded-md bg-surface-2 px-2 py-1">
               <Sparkles className="h-3.5 w-3.5 text-info" />
               <Input
                 placeholder="自然语言创建: 明天下午3点跟张伟开会"
@@ -653,6 +702,17 @@ export default function CalendarPage() {
                 variant="ghost"
                 size="sm"
                 className="shrink-0 gap-1 text-caption"
+                onClick={() => void handleNeteaseSync()}
+                disabled={neteaseSyncing}
+              >
+                <RefreshCw className={cn('h-3.5 w-3.5', neteaseSyncing && 'animate-spin')} />
+                {neteaseSyncing ? '同步中' : '同步网易日程'}
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                className="shrink-0 gap-1 text-caption"
                 onClick={() => {
                   setActivityPage(1);
                   setActivityOpen(true);
@@ -664,6 +724,15 @@ export default function CalendarPage() {
             </div>
           </div>
         </div>
+
+        {(neteaseSyncMessage || neteaseSyncError) && (
+          <div className={cn(
+            'shrink-0 border-b px-4 py-2 text-caption',
+            neteaseSyncError ? 'bg-warning/5 text-warning' : 'bg-emerald-50 text-emerald-700',
+          )}>
+            {neteaseSyncError || neteaseSyncMessage}
+          </div>
+        )}
 
         {/* 智能时间建议面板 */}
         {showSmartTime && smartSuggestions && (
@@ -689,7 +758,7 @@ export default function CalendarPage() {
                   }}
                 >
                   <div className="font-medium">{new Date(s.startTime).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
-                  <div className="text-[10px] text-muted-foreground">{s.reason}</div>
+                  <div className="text-[10px] text-ink-tertiary">{s.reason}</div>
                 </button>
               ))}
             </div>
@@ -699,7 +768,7 @@ export default function CalendarPage() {
         {/* 视图区域 */}
         <div className="flex-1 overflow-hidden">
           {year === 0 ? (
-            <div className="h-full flex items-center justify-center text-muted-foreground">加载中...</div>
+            <div className="h-full flex items-center justify-center text-ink-tertiary">加载中...</div>
           ) : view === 'month' ? (
             <MonthView
               year={year}
@@ -732,7 +801,7 @@ export default function CalendarPage() {
           <DialogHeader className="border-b px-4 py-3">
             <DialogTitle>日历设置</DialogTitle>
           </DialogHeader>
-          <div className="flex max-h-[calc(86vh-56px)] flex-col overflow-hidden bg-muted/20">
+          <div className="flex max-h-[calc(86vh-56px)] flex-col overflow-hidden bg-surface-2/50">
             {renderSidebarContent()}
           </div>
         </DialogContent>
@@ -766,11 +835,11 @@ export default function CalendarPage() {
 
           <div className="space-y-3">
             {imReminderMeetings.length === 0 ? (
-              <div className="rounded-lg border border-dashed p-6 text-center text-caption text-muted-foreground">
+              <div className="rounded-lg border border-dashed p-6 text-center text-caption text-ink-tertiary">
                 {imReminderLoading ? '正在读取可提醒会议...' : '暂无可提醒的会议。已取消会议和订阅他人的日程不会显示在这里。'}
               </div>
             ) : (
-              <div className="max-h-[46vh] overflow-y-auto rounded-lg border bg-background">
+              <div className="max-h-[46vh] overflow-y-auto rounded-lg border bg-surface-1">
                 <div className="divide-y">
                   {imReminderMeetings.map((event) => {
                     const selected = event.id === imReminderEventId;
@@ -782,7 +851,7 @@ export default function CalendarPage() {
                         key={event.id}
                         type="button"
                         className={cn(
-                          'w-full p-3 text-left transition-colors hover:bg-muted/40',
+                          'w-full p-3 text-left transition-colors hover:bg-surface-2',
                           selected && 'bg-brand-50/80',
                         )}
                         onClick={() => {
@@ -805,10 +874,10 @@ export default function CalendarPage() {
                                 </span>
                               )}
                             </div>
-                            <div className="mt-1 text-caption text-muted-foreground">
+                            <div className="mt-1 text-caption text-ink-secondary">
                               {new Date(startTime).toLocaleString('zh-CN')} - {new Date(endTime).toLocaleString('zh-CN')}
                             </div>
-                            <div className="mt-1 text-[11px] text-muted-foreground">
+                            <div className="mt-1 text-[11px] text-ink-tertiary">
                               地点/会议方式：{event.location || event.meetingUrl || '未填写'} · 系统内参会人：{internalCount} 人
                             </div>
                           </div>
@@ -874,7 +943,7 @@ export default function CalendarPage() {
           </DialogHeader>
 
           <div className="flex shrink-0 items-center justify-between gap-2 px-5 pb-3 sm:px-6">
-            <div className="text-caption text-muted-foreground">
+            <div className="text-caption text-ink-secondary">
               共 {activityTotal} 条 · 第 {activityPage}/{Math.max(1, Math.ceil(activityTotal / ACTIVITY_PAGE_SIZE))} 页
             </div>
             <Button type="button" variant="outline" size="sm" onClick={() => void loadActivity(activityPage)} disabled={activityLoading}>
@@ -891,13 +960,13 @@ export default function CalendarPage() {
 
           <div className="mx-5 min-h-0 flex-1 overflow-y-auto rounded-lg border sm:mx-6">
             {activityLoading && activityItems.length === 0 ? (
-              <div className="h-48 flex items-center justify-center text-caption text-muted-foreground">读取中...</div>
+              <div className="h-48 flex items-center justify-center text-caption text-ink-tertiary">读取中...</div>
             ) : activityItems.length === 0 ? (
-              <div className="h-48 flex items-center justify-center text-caption text-muted-foreground">暂无日程记录</div>
+              <div className="h-48 flex items-center justify-center text-caption text-ink-tertiary">暂无日程记录</div>
             ) : (
               <div className="divide-y">
                 {activityItems.map((item) => (
-                  <div key={item.id} className="p-3 hover:bg-muted/30 transition-colors">
+                  <div key={item.id} className="p-3 hover:bg-surface-2 transition-colors">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
@@ -905,7 +974,7 @@ export default function CalendarPage() {
                             {activityActionLabel(item.action)}
                           </span>
                           {item.scope && (
-                            <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+                            <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] text-ink-secondary">
                               {activityScopeLabel(item.scope)}
                             </span>
                           )}
@@ -913,21 +982,21 @@ export default function CalendarPage() {
                         <div className="mt-1 font-medium truncate">
                           {activityTitle(item)}
                         </div>
-                        <div className="mt-1 text-caption text-muted-foreground">
+                        <div className="mt-1 text-caption text-ink-secondary">
                           操作人：{formatActivityActor(item)}
                         </div>
                         {item.attendeeEmails?.length ? (
-                          <div className="mt-1 break-words text-[11px] text-muted-foreground">
+                          <div className="mt-1 break-words text-[11px] text-ink-tertiary">
                             参会人：{formatActivityAttendees(item)}
                           </div>
                         ) : null}
                         {(item.subscriberId || item.targetUserId) && (
-                          <div className="mt-1 text-[11px] text-muted-foreground truncate">
+                          <div className="mt-1 text-[11px] text-ink-tertiary truncate">
                             订阅人：{item.subscriberId || '-'} · 被订阅人：{item.targetUserId || '-'}
                           </div>
                         )}
                       </div>
-                      <div className="shrink-0 text-right text-caption text-muted-foreground">
+                      <div className="shrink-0 text-right text-caption text-ink-tertiary">
                         <div>{formatActivityTime(item.occurredAt)}</div>
                         <div className="text-[11px]">{new Date(item.occurredAt).toLocaleTimeString('zh-CN')}</div>
                       </div>
@@ -938,7 +1007,7 @@ export default function CalendarPage() {
             )}
           </div>
 
-          <div className="mt-3 flex shrink-0 items-center justify-between border-t bg-background px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 sm:px-6 sm:pb-4">
+          <div className="mt-3 flex shrink-0 items-center justify-between border-t bg-surface-1 px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 sm:px-6 sm:pb-4">
             <Button
               type="button"
               variant="outline"
@@ -948,7 +1017,7 @@ export default function CalendarPage() {
             >
               上一页
             </Button>
-            <div className="text-caption text-muted-foreground">
+            <div className="text-caption text-ink-secondary">
               每页 {ACTIVITY_PAGE_SIZE} 条
             </div>
             <Button
@@ -1013,8 +1082,7 @@ function mapApiEvents(events: Array<Record<string, any>>, calendarId: string, so
       createdAt: new Date(event.createdAt).getTime(),
       updatedAt: new Date(event.updatedAt).getTime(),
       status: event.status,
-      color: sourceKind === 'subscribed' ? 'bg-surface-3' : isMeeting ? 'bg-brand-500' : 'bg-info',
-      serverManaged: true,
+      color: sourceKind === 'subscribed' ? 'bg-surface-3' : isMeeting ? 'bg-brand-500' : 'bg-info',      serverManaged: true,
     };
   });
 }

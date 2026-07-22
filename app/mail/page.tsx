@@ -30,6 +30,7 @@ import {
   ArrowLeft,
   FileText,
   Star,
+  KeyRound,
 } from 'lucide-react';
 import { Download, FolderInput } from 'lucide-react';
 import { Reply, ReplyAll, Forward, Bold, Italic, Underline, List, ListOrdered, Link2 } from 'lucide-react';
@@ -37,6 +38,7 @@ import PageTabs from '@/components/page-tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useHandoffPrefill } from '@/hooks/useHandoffPrefill';
 import { useCalendarStore } from '@/lib/store/calendar';
 import { useContactStore } from '@/lib/store/contacts';
@@ -62,6 +64,7 @@ function MailInner() {
   const params = useSearchParams();
   const [tab, setTab] = useState<'inbox' | 'compose'>('inbox');
   const [status, setStatus] = useState<MailStatus | null>(null);
+  const [mailGuideOpen, setMailGuideOpen] = useState(false);
   /** Tandem 转交草稿: 仅在收到 handoff 时有值, 一次性预填给 ComposeView */
   const [handoffDraft, setHandoffDraft] = useState<{ subject: string; body: string } | null>(null);
   /** 回复 / 转发草稿: 由收件箱详情页触发, 预填 ComposeView (含收件人/抄送/HTML 引用) */
@@ -80,6 +83,14 @@ function MailInner() {
       .catch(() => setStatus(null));
   }, []);
 
+  useEffect(() => {
+    if (status === null || status.configured) return;
+    const key = 'tandem-mail-password-guide-seen';
+    if (window.sessionStorage.getItem(key)) return;
+    window.sessionStorage.setItem(key, '1');
+    setMailGuideOpen(true);
+  }, [status]);
+
   useHandoffPrefill('mail', (p) => {
     setHandoffDraft({ subject: p.title, body: p.body });
     setTab('compose');
@@ -93,26 +104,36 @@ function MailInner() {
   }
 
   return (
-    <div className="h-full min-w-0 flex flex-col md:px-8">
+    <div className="h-full min-w-0 flex flex-col overflow-x-hidden md:px-8">
       {/* Header */}
       <header className="px-4 pt-4 pb-3 sm:px-6 sm:pt-6">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h1 className="text-title-2 text-ink-primary flex items-center gap-2">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-title-2 text-ink-primary flex min-w-0 items-center gap-2">
               <Mail className="h-6 w-6 text-[rgb(var(--brand-600))]" />
               邮箱
             </h1>
-            <p className="mt-1 text-caption text-ink-tertiary">
+            <p className="mt-1 text-caption text-ink-tertiary break-words">
               对外沟通的正式通道 · 出站走 SMTP, 收件 V2 接入 IMAP
             </p>
           </div>
-          <Link
-            href="/settings/email"
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-caption font-medium text-ink-secondary hover:text-ink-primary hover:bg-surface-2 surface-interactive"
-          >
-            <Settings className="h-3.5 w-3.5" />
-            邮箱设置
-          </Link>
+          <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row">
+            <button
+              type="button"
+              onClick={() => setMailGuideOpen(true)}
+              className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-caption font-medium text-ink-secondary hover:text-ink-primary hover:bg-surface-2 surface-interactive"
+            >
+              <KeyRound className="h-3.5 w-3.5" />
+              配置引导
+            </button>
+            <Link
+              href="/settings/email"
+              className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-caption font-medium text-ink-secondary hover:text-ink-primary hover:bg-surface-2 surface-interactive"
+            >
+              <Settings className="h-3.5 w-3.5" />
+              邮箱设置
+            </Link>
+          </div>
         </div>
 
         {/* Status pill */}
@@ -123,20 +144,34 @@ function MailInner() {
             </span>
           ) : status.configured ? (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-3 py-1 text-footnote font-medium text-success">
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              {status.effective?.mode === 'personal' ? '个人邮箱' : '全局 SMTP'} · {status.effective?.fromAddress}
+              <CheckCircle2 className="h-3.5 w-3.5" />              {status.effective?.mode === 'personal' ? '个人邮箱' : '全局 SMTP'} · {status.effective?.fromAddress}
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-warning/5 px-3 py-1 text-footnote font-medium text-warning">
-              <AlertCircle className="h-3.5 w-3.5" />
+            <span className="inline-flex max-w-full items-start gap-1.5 rounded-full bg-warning/5 px-3 py-1 text-footnote font-medium text-warning im-mobile-break-anywhere">
+              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               SMTP 未配置 · 请先绑定个人邮箱
             </span>
           )}
         </div>
       </header>
 
+      <div className="px-4 sm:px-6">
+        <PageTabs
+          tabs={[
+            { id: 'inbox', label: '收件箱', icon: Inbox },
+            { id: 'compose', label: '写邮件', icon: Send },
+          ]}
+          active={tab}
+          onChange={(id) => {
+            setTab(id === 'compose' ? 'compose' : 'inbox');
+            if (id === 'compose') setComposeDraft(null);
+          }}
+          className="rounded-md border border-border"
+        />
+      </div>
+
       {/* Body */}
-      <div className="min-w-0 flex-1 overflow-auto px-4 py-4 sm:p-6">
+      <div className="min-w-0 flex-1 overflow-auto overflow-x-hidden px-4 py-4 sm:p-6">
         {tab === 'inbox' ? (
           <InboxView folder={params.get('folder') || 'INBOX'} onCompose={startCompose} />
         ) : (
@@ -148,6 +183,41 @@ function MailInner() {
           />
         )}
       </div>
+
+      <Dialog open={mailGuideOpen} onOpenChange={setMailGuideOpen}>
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-title-3">
+              <KeyRound className="h-5 w-5 text-[rgb(var(--brand-600))]" />
+              绑定邮箱密码后才能收信
+            </DialogTitle>
+            <DialogDescription>
+              系统需要你自己的公司邮箱地址和邮箱密码，才能读取收件箱，并把网易企业邮箱日程同步到系统日程。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 text-caption text-ink-secondary">
+            <div className="rounded-md border border-border bg-surface-2 p-3">
+              <p className="font-medium text-ink-primary">什么时候需要填写？</p>
+              <p className="mt-1">第一次使用收件箱、发邮件、同步邮箱日程时都需要先绑定。绑定后不用每次重复输入。</p>
+            </div>
+            <div className="rounded-md border border-border bg-surface-2 p-3">
+              <p className="font-medium text-ink-primary">填什么密码？</p>
+              <p className="mt-1">按当前公司邮箱策略，先使用你平时登录网易企业邮箱的账号和密码；这里不强制要求客户端授权密码。</p>
+            </div>
+            <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:justify-end">
+              <Button variant="outline" onClick={() => setMailGuideOpen(false)}>
+                稍后再说
+              </Button>
+              <Button asChild>
+                <Link href="/settings/email">
+                  <Settings className="mr-1.5 h-4 w-4" />
+                  去绑定邮箱
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -253,7 +323,6 @@ function InboxView({ folder = 'INBOX', onCompose }: { folder?: string; onCompose
       const flaggedParam = isStarred ? '&flagged=true' : '';
       const res = await fetch(`/api/mail/inbox?page=${pageNum}&limit=20&folder=${encodeURIComponent(apiFolder)}${flaggedParam}`, { credentials: 'include' });
       const data = await res.json();
-      console.log('[inbox frontend] response:', data);
       if (!res.ok) {
         setError(typeof data.error === 'string' ? data.error : '加载失败');
         return;
@@ -462,8 +531,8 @@ function InboxView({ folder = 'INBOX', onCompose }: { folder?: string; onCompose
 
   if (selectedUid !== null) {
     return (
-      <div className="max-w-3xl space-y-4">
-        <div className="flex items-center gap-2">
+      <div className="max-w-3xl min-w-0 space-y-4">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => { setSelectedUid(null); setDetail(null); setError(null); }}>
             <ArrowLeft className="h-3.5 w-3.5 mr-1" />
             返回列表
@@ -490,8 +559,7 @@ function InboxView({ folder = 'INBOX', onCompose }: { folder?: string; onCompose
         )}
         {detail && (
           <Button variant="outline" size="sm" onClick={() => batchMark([detail.uid], { flagged: !detail.flags.includes('\\Flagged') })} disabled={marking}>
-            <Star className={`h-3.5 w-3.5 mr-1 ${detail.flags.includes('\\Flagged') ? 'fill-yellow-400 text-warning' : ''}`} />
-            {detail.flags.includes('\\Flagged') ? '取消星标' : '标记星标'}
+            <Star className={`h-3.5 w-3.5 mr-1 ${detail.flags.includes('\\Flagged') ? 'fill-yellow-400 text-warning' : ''}`} />            {detail.flags.includes('\\Flagged') ? '取消星标' : '标记星标'}
           </Button>
         )}
         {detail && MOVE_TARGETS.map((t) => (
@@ -502,30 +570,30 @@ function InboxView({ folder = 'INBOX', onCompose }: { folder?: string; onCompose
         ))}
       </div>
         {aiSummary && (
-          <div className="rounded-md border border-info/30 bg-info/10/50 p-3">
-            <div className="flex items-center justify-between mb-1.5">
+          <div className="min-w-0 rounded-md border border-info/30 bg-info/10/50 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
               <span className="inline-flex items-center gap-1.5 text-footnote font-medium text-info">
                 <Sparkles className="h-3.5 w-3.5" />
                 AI 摘要
               </span>
               <button className="text-[10px] text-ink-tertiary hover:text-ink-primary" onClick={() => setAiSummary(null)}>关闭</button>
             </div>
-            <pre className="whitespace-pre-wrap text-caption text-ink-primary font-sans">{aiSummary}</pre>
+            <pre className="whitespace-pre-wrap break-words text-caption text-ink-primary font-sans">{aiSummary}</pre>
           </div>
         )}
         {detailLoading ? (
           <Card><CardContent className="p-8 text-center text-caption text-ink-tertiary">加载中...</CardContent></Card>
         ) : detail ? (
-          <Card>
-            <CardContent className="p-5 space-y-4">
+          <Card className="min-w-0 overflow-hidden">
+            <CardContent className="min-w-0 space-y-4 p-4 sm:p-5">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <h2 className="text-headline text-ink-primary break-words">{detail.subject}</h2>
-                  <div className="mt-1 text-caption text-ink-secondary">
-                    <span className="font-medium">{detail.from[0]?.name || detail.from[0]?.address}</span>
+                  <div className="mt-1 text-caption text-ink-secondary break-words">
+                    <span className="font-medium break-words">{detail.from[0]?.name || detail.from[0]?.address}</span>
                     <span className="text-ink-tertiary ml-1">&lt;{detail.from[0]?.address}&gt;</span>
                   </div>
-                  <div className="text-footnote text-ink-tertiary mt-0.5">
+                  <div className="text-footnote text-ink-tertiary mt-0.5 break-words">
                     收件人: {detail.to.map((t) => t.address).join(', ')}
                   </div>
                   <div className="text-footnote text-ink-tertiary">
@@ -540,19 +608,19 @@ function InboxView({ folder = 'INBOX', onCompose }: { folder?: string; onCompose
                       key={att.filename}
                       href={`/api/mail/attachment?uid=${detail.uid}&filename=${encodeURIComponent(att.filename)}&folder=${encodeURIComponent(folder === 'starred' ? 'INBOX' : folder)}`}
                       download={att.filename}
-                      className="inline-flex items-center gap-1 rounded-md bg-surface-2 px-2 py-1 text-footnote text-ink-secondary hover:bg-surface-3 hover:text-ink-primary transition-colors"
+                      className="inline-flex max-w-full items-center gap-1 rounded-md bg-surface-2 px-2 py-1 text-footnote text-ink-secondary hover:bg-surface-3 hover:text-ink-primary transition-colors"
                     >
                       <Download className="h-3 w-3" />
-                      {att.filename} ({(att.size / 1024).toFixed(1)} KB)
+                      <span className="min-w-0 truncate">{att.filename} ({(att.size / 1024).toFixed(1)} KB)</span>
                     </a>
                   ))}
                 </div>
               )}
-              <div className="border-t border-border pt-4">
+              <div className="min-w-0 overflow-x-auto border-t border-border pt-4">
                 {detail.htmlBody ? (
-                  <div className="prose prose-sm max-w-none text-ink-primary" dangerouslySetInnerHTML={{ __html: detail.htmlBody }} />
+                  <div className="prose prose-sm max-w-none text-ink-primary im-mobile-break-anywhere" dangerouslySetInnerHTML={{ __html: detail.htmlBody }} />
                 ) : detail.textBody ? (
-                  <pre className="whitespace-pre-wrap text-caption text-ink-primary font-sans">{detail.textBody}</pre>
+                  <pre className="whitespace-pre-wrap break-words text-caption text-ink-primary font-sans">{detail.textBody}</pre>
                 ) : (
                   <p className="text-caption text-ink-tertiary">（无正文内容）</p>
                 )}
@@ -567,21 +635,53 @@ function InboxView({ folder = 'INBOX', onCompose }: { folder?: string; onCompose
   }
 
   return (
-    <div className="max-w-3xl space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-headline text-ink-primary flex items-center gap-2">
+    <div className="max-w-3xl min-w-0 space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-headline text-ink-primary flex min-w-0 items-center gap-2">
           <label.icon className="h-4 w-4" />
           {label.title}
         </h2>
-        <Button variant="outline" size="sm" onClick={() => loadEmails()} disabled={loading}>
-          <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loading ? 'animate-spin' : ''}`} />
-          刷新
-        </Button>
+        <div className="grid w-full grid-cols-2 gap-2 sm:w-auto sm:flex sm:items-center">
+          <Button asChild variant={folder === 'INBOX' ? 'secondary' : 'outline'} size="sm" className="gap-1">
+            <Link href="/mail">
+              <Inbox className="h-3.5 w-3.5" />
+              收件箱
+            </Link>
+          </Button>
+          <Button asChild variant={folder === 'starred' ? 'secondary' : 'outline'} size="sm" className="gap-1">
+            <Link href="/mail?folder=starred">
+              <Star className="h-3.5 w-3.5" />
+              星标
+            </Link>
+          </Button>
+          <Button asChild variant={folder.toLowerCase() === 'drafts' ? 'secondary' : 'outline'} size="sm" className="gap-1">
+            <Link href="/mail?folder=drafts">
+              <FileText className="h-3.5 w-3.5" />
+              草稿
+            </Link>
+          </Button>
+          <Button asChild variant={folder.toLowerCase() === 'sent' ? 'secondary' : 'outline'} size="sm" className="gap-1">
+            <Link href="/mail?folder=sent">
+              <Send className="h-3.5 w-3.5" />
+              已发送
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="sm" className="gap-1">
+            <Link href="/mail?tab=compose">
+              <Send className="h-3.5 w-3.5" />
+              写邮件
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1" onClick={() => loadEmails()} disabled={loading}>
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+            刷新
+          </Button>
+        </div>
       </div>
 
       {selectedUids.size > 0 && (
-        <div className="flex items-center gap-2 rounded-md bg-surface-2 px-3 py-2">
-          <span className="text-caption text-ink-secondary">已选 {selectedUids.size} 封</span>
+        <div className="flex flex-wrap items-center gap-2 rounded-md bg-surface-2 px-3 py-2">
+          <span className="w-full text-caption text-ink-secondary sm:w-auto">已选 {selectedUids.size} 封</span>
           <Button variant="outline" size="sm" onClick={() => batchMark(Array.from(selectedUids), { seen: true })} disabled={marking}>标记已读</Button>
           <Button variant="outline" size="sm" onClick={() => batchMark(Array.from(selectedUids), { flagged: true })} disabled={marking}>标记星标</Button>
           <Button variant="outline" size="sm" onClick={() => batchMark(Array.from(selectedUids), { flagged: false })} disabled={marking}>取消星标</Button>
@@ -611,13 +711,13 @@ function InboxView({ folder = 'INBOX', onCompose }: { folder?: string; onCompose
       )}
 
       {error && (
-        <div className="rounded-md bg-warning/5 px-3 py-2 text-caption text-warning flex items-start gap-2">
+        <div className="rounded-md bg-warning/5 px-3 py-2 text-caption text-warning flex flex-wrap items-start gap-2">
           <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-          <span className="flex-1">{error}</span>
+          <span className="min-w-0 flex-1 break-words">{error}</span>
           {/^(未绑定|.*请先配置)/.test(error) && (
             <Link
               href="/settings/email"
-              className="shrink-0 inline-flex items-center gap-1 rounded-md bg-warning/10 px-2 py-0.5 font-medium text-warning hover:bg-warning/20 surface-interactive"
+              className="inline-flex shrink-0 items-center gap-1 rounded-md bg-warning/10 px-2 py-0.5 font-medium text-warning hover:bg-warning/20 surface-interactive"
             >
               <Settings className="h-3.5 w-3.5" /> 去配置邮箱
             </Link>
@@ -638,11 +738,11 @@ function InboxView({ folder = 'INBOX', onCompose }: { folder?: string; onCompose
             <div
               key={email.uid}
               onClick={() => openDetail(email.uid)}
-              className={`cv-auto rounded-md border p-3 cursor-pointer hover:bg-surface-2 transition-colors ${
+              className={`cv-auto min-w-0 rounded-md border p-3 cursor-pointer hover:bg-surface-2 transition-colors ${
                 email.seen ? 'border-border bg-[rgb(var(--surface-1))]' : 'border-[rgb(var(--brand-500))]/30 bg-[rgb(var(--brand-50))]/50'
               }`}
             >
-              <div className="flex items-start gap-3">
+              <div className="flex min-w-0 items-start gap-3">
                 <input
                   type="checkbox"
                   checked={selectedUids.has(email.uid)}
@@ -656,7 +756,7 @@ function InboxView({ folder = 'INBOX', onCompose }: { folder?: string; onCompose
                   className="mt-1 shrink-0"
                 />
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex min-w-0 items-center gap-2">
                     {!email.seen && <span className="h-2 w-2 rounded-full bg-[rgb(var(--brand-600))] shrink-0" />}
                     <span className="text-caption font-medium text-ink-primary truncate">
                       {email.from[0]?.name || email.from[0]?.address || '未知发件人'}
@@ -666,15 +766,14 @@ function InboxView({ folder = 'INBOX', onCompose }: { folder?: string; onCompose
                     {email.subject}
                   </div>
                 </div>
-                <div className="shrink-0 flex items-center gap-2">
+                <div className="shrink-0 flex flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-2">
                   <button
                     onClick={(e) => { e.stopPropagation(); batchMark([email.uid], { flagged: !email.flags.includes('\\Flagged') }); }}
                     className="p-1 rounded hover:bg-surface-2"
                     disabled={marking}
                   >
-                    <Star className={`h-4 w-4 ${email.flags.includes('\\Flagged') ? 'fill-yellow-400 text-warning' : 'text-ink-tertiary'}`} />
-                  </button>
-                  <div className="text-footnote text-ink-tertiary">
+                    <Star className={`h-4 w-4 ${email.flags.includes('\\Flagged') ? 'fill-yellow-400 text-warning' : 'text-ink-tertiary'}`} />                  </button>
+                  <div className="text-right text-[10px] leading-tight text-ink-tertiary sm:text-footnote">
                     {formatDate(email.date)}
                   </div>
                 </div>
@@ -852,7 +951,7 @@ function ComposeView({
 
   return (
     <div className="w-full max-w-3xl min-w-0 space-y-4">
-      <div className="space-y-3 rounded-lg border border-border bg-[rgb(var(--surface-1))] p-4 shadow-soft-sm sm:p-5">
+      <div className="min-w-0 space-y-3 rounded-lg border border-border bg-[rgb(var(--surface-1))] p-4 shadow-soft-sm sm:p-5">
         <Field label="收件人" hint="支持多个, 用逗号或空格分隔">
           <Input
             value={to}
@@ -862,12 +961,12 @@ function ComposeView({
           />
           {/* 外部联系人智能档案提示 */}
           {contact && (
-            <div className="flex items-center gap-2 mt-1.5 text-[11px] text-ink-secondary bg-surface-2 rounded px-2 py-1">
-              <UserCircle className="h-3.5 w-3.5 text-brand-500" />
-              <span className="font-medium">{contact.name || contact.email}</span>
+            <div className="flex min-w-0 flex-wrap items-center gap-2 mt-1.5 text-[11px] text-ink-secondary bg-surface-2 rounded px-2 py-1">
+              <UserCircle className="h-3.5 w-3.5 shrink-0 text-brand-500" />
+              <span className="min-w-0 font-medium break-words">{contact.name || contact.email}</span>
               {contact.company && <span className="text-ink-tertiary">· {contact.company}</span>}
               {contact.role && <span className="text-ink-tertiary">· {contact.role}</span>}
-              <span className="text-ink-tertiary ml-auto">互动 {contact.interactionCount} 次</span>
+              <span className="text-ink-tertiary sm:ml-auto">互动 {contact.interactionCount} 次</span>
             </div>
           )}
         </Field>
@@ -888,9 +987,9 @@ function ComposeView({
           />
         </Field>
         <Field label="正文" hint="富文本 · 支持加粗/斜体/下划线/列表/链接">
-          <div className="rounded-md border border-border bg-[rgb(var(--surface-1))] focus-within:ring-2 focus-within:ring-[rgb(var(--brand-500))/.25] focus-within:border-[rgb(var(--brand-500))]">
+          <div className="min-w-0 overflow-hidden rounded-md border border-border bg-[rgb(var(--surface-1))] focus-within:ring-2 focus-within:ring-[rgb(var(--brand-500))/.25] focus-within:border-[rgb(var(--brand-500))]">
             {/* 工具栏 */}
-            <div className="flex items-center gap-0.5 border-b border-border px-2 py-1">
+            <div className="flex items-center gap-0.5 overflow-x-auto border-b border-border px-2 py-1">
               <ToolbarBtn label="加粗" onClick={() => exec('bold')}><Bold className="h-3.5 w-3.5" /></ToolbarBtn>
               <ToolbarBtn label="斜体" onClick={() => exec('italic')}><Italic className="h-3.5 w-3.5" /></ToolbarBtn>
               <ToolbarBtn label="下划线" onClick={() => exec('underline')}><Underline className="h-3.5 w-3.5" /></ToolbarBtn>
@@ -908,17 +1007,17 @@ function ComposeView({
               suppressContentEditableWarning
               onInput={syncBody}
               data-placeholder="写下你想说的..."
-              className="mail-editor min-h-[220px] max-h-[460px] overflow-auto px-3 py-2 text-body text-ink-primary focus:outline-none prose prose-sm max-w-none"
+              className="mail-editor min-h-[220px] max-h-[460px] min-w-0 overflow-auto px-3 py-2 text-body text-ink-primary focus:outline-none prose prose-sm max-w-none im-mobile-break-anywhere"
             />
           </div>
         </Field>
 
         {/* AI 回复草稿 */}
         {aiReplyDraft && (
-          <div className="rounded-md border border-info/30 bg-info/10/50 p-3 space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-footnote font-medium text-info">
-                <Bot className="h-3.5 w-3.5" />
+          <div className="min-w-0 rounded-md border border-info/30 bg-info/10/50 p-3 space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex min-w-0 items-center gap-1.5 text-footnote font-medium text-info">
+                <Bot className="h-3.5 w-3.5 shrink-0" />
                 AI 回复草稿
               </div>
               <div className="flex items-center gap-1">
@@ -940,7 +1039,7 @@ function ComposeView({
                 </Button>
               </div>
             </div>
-            <div className="text-caption text-ink-primary whitespace-pre-wrap">{aiReplyDraft}</div>
+            <div className="text-caption text-ink-primary whitespace-pre-wrap break-words">{aiReplyDraft}</div>
           </div>
         )}
 
@@ -949,9 +1048,8 @@ function ComposeView({
           <div className="rounded-md border border-border p-3 space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
-                <ShieldCheck className={`h-4 w-4 ${reviewResult.isSafe ? 'text-success' : 'text-warning'}`} />
-                <span className="text-footnote font-medium">AI 审校 · {reviewResult.score}分</span>
-                <span className="text-footnote text-ink-tertiary">{reviewResult.summary}</span>
+                <ShieldCheck className={`h-4 w-4 ${reviewResult.isSafe ? 'text-success' : 'text-warning'}`} />                <span className="text-footnote font-medium">AI 审校 · {reviewResult.score}分</span>
+                <span className="min-w-0 text-footnote text-ink-tertiary break-words">{reviewResult.summary}</span>
               </div>
               <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px]" onClick={() => setReviewResult(null)}>
                 关闭
@@ -960,13 +1058,13 @@ function ComposeView({
             {reviewResult.issues.length > 0 && (
               <ul className="space-y-1">
                 {reviewResult.issues.map((issue, i) => (
-                  <li key={i} className={`text-[11px] rounded px-2 py-1 ${
+                  <li key={i} className={`text-[11px] rounded px-2 py-1 break-words ${
                     issue.severity === 'critical' ? 'bg-danger/5 text-danger' :
                     issue.severity === 'warning' ? 'bg-warning/5 text-warning' :
                     'bg-surface-2 text-ink-secondary'
                   }`}>
                     <span className="font-medium">[{issue.category}]</span> {issue.message}
-                    {issue.suggestion && <span className="ml-1 text-ink-tertiary">→ {issue.suggestion}</span>}
+                    {issue.suggestion && <span className="ml-1 text-ink-tertiary break-words">→ {issue.suggestion}</span>}
                   </li>
                 ))}
               </ul>
@@ -984,12 +1082,12 @@ function ComposeView({
           }
         >
           {feedback.ok ? <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" /> : <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />}
-          <span>{feedback.msg}</span>
+          <span className="min-w-0 break-words">{feedback.msg}</span>
         </div>
       )}
 
       <div className="flex flex-col gap-2 pb-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+        <div className="grid min-w-0 grid-cols-2 gap-2 sm:flex sm:items-center">
           <Button variant="outline" size="sm" className="min-w-0 gap-1 text-footnote" onClick={handleAiReply} disabled={aiReplyLoading || !bodyText.trim()}>
             <Bot className="h-3.5 w-3.5" />
             {aiReplyLoading ? '生成中...' : 'AI 回复'}

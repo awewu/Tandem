@@ -50,8 +50,7 @@ export function OKRComments({ scope, scopeId }: Props) {
     parts.push({ text: body.slice(last), isMention: false });
     return parts.map((p, i) =>
       p.isMention
-        ? <span key={i} className="text-info bg-info/10 dark:bg-info/40 rounded px-0.5">{p.text}</span>
-        : <span key={i}>{p.text}</span>
+        ? <span key={i} className="text-info bg-info/10 dark:bg-info/40 rounded px-0.5">{p.text}</span>        : <span key={i}>{p.text}</span>
     );
   };
 
@@ -92,8 +91,7 @@ export function OKRComments({ scope, scopeId }: Props) {
                   <button
                     key={p.id}
                     onClick={() => { setDraft((d) => d + (d.endsWith(' ') || d === '' ? '' : ' ') + '@' + p.name + ' '); setShowMentionMenu(false); }}
-                    className="text-footnote px-2 py-0.5 rounded bg-info/15 text-info hover:bg-info/20"
-                  >
+                    className="text-footnote px-2 py-0.5 rounded bg-info/15 text-info hover:bg-info/20"                  >
                     @{p.name}
                   </button>
                 ))}
@@ -151,8 +149,7 @@ export function OKRComments({ scope, scopeId }: Props) {
                         onClick={() => toggleReaction(c.id, emoji, currentUserId)}
                         className={cn(
                           'text-footnote px-1.5 py-0.5 rounded border',
-                          userIds.includes(currentUserId) ? 'bg-info/15 border-info/40' : 'border-transparent hover:bg-muted',
-                        )}
+                          userIds.includes(currentUserId) ? 'bg-info/15 border-info/40' : 'border-transparent hover:bg-muted',                        )}
                       >
                         {emoji} {userIds.length}
                       </button>

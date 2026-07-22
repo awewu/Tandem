@@ -118,8 +118,7 @@ function momChip(curr: number | null, prev: number | null): React.ReactNode {
   if (curr === null || prev === null) return <span className="text-ink-tertiary text-[10px]">—</span>;
   const diff = curr - prev;
   if (diff === 0) {
-    return <span className="text-[10px] text-ink-tertiary">持平</span>;
-  }
+    return <span className="text-[10px] text-ink-tertiary">持平</span>;  }
   if (diff > 0) {
     return <span className="text-[10px] text-success font-medium">+{diff} pp</span>;
   }
@@ -200,8 +199,7 @@ export function OKRMonthlyComparison({ objective, cycle, keyResults, checkIns }:
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-1.5 text-caption font-semibold">
-            <TrendingUp className="h-4 w-4 text-info" />
-            月度 Plan vs Actual + MoM 环比
+            <TrendingUp className="h-4 w-4 text-info" />            月度 Plan vs Actual + MoM 环比
           </div>
           <div className="text-[11px] text-muted-foreground mt-0.5">
             {cycle.name} · {buckets.length} 月 · 按月末 check-in 快照聚合
@@ -357,8 +355,7 @@ export function OKRMonthlyComparison({ objective, cycle, keyResults, checkIns }:
       )}
 
       {/* 说明 */}
-      <div className="rounded-md border border-dashed border-border bg-surface-2/60 p-3 text-[11px] text-ink-secondary space-y-1">
-        <div>
+      <div className="rounded-md border border-dashed border-border bg-surface-2/60 p-3 text-[11px] text-ink-secondary space-y-1">        <div>
           <span className="font-medium">📐 Plan:</span>{' '}
           cycle 内线性期望 (时间占比).{' '}
           <span className="font-medium ml-2">📊 Actual:</span>{' '}

@@ -177,6 +177,9 @@ export interface TandemStore {
   /** 企业 AI 治理策略 (中央AI token 开关 / 配额 / 白名单) */
   tenantAiPolicies: Repository<import('../types/tenant-ai-policy').TenantAiPolicy>;
 
+  /** 移动端 App 功能开关 (PC 管理后台控制 Android/iOS 可见功能) */
+  mobileFeatureConfigs: Repository<import('../types/mobile-features').MobileFeatureConfig>;
+
   /** WorkspaceManifest (tandem.workspace.md declarative governance, 借鉴 CLAUDE.md/AGENTS.md) */
   workspaceManifests: Repository<import('../types/workspace-manifest').WorkspaceManifest>;
 

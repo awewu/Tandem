@@ -287,8 +287,7 @@ function getEventMeta(event: EventInstance, currentUserId?: string): {
       bg: 'rgb(var(--brand-500))',
       softBg: 'rgb(var(--brand-50))',
       border: 'rgb(var(--brand-200))',
-      text: 'rgb(var(--brand-700))',
-    };
+      text: 'rgb(var(--brand-700))',    };
   }
   return {
     badge: '日',
@@ -296,8 +295,7 @@ function getEventMeta(event: EventInstance, currentUserId?: string): {
     bg: getColorBg(event.color || 'bg-info'),
     softBg: 'rgb(var(--info) / 0.1)',
     border: 'rgb(var(--info) / 0.3)',
-    text: 'rgb(var(--info))',
-  };
+    text: 'rgb(var(--info))',  };
 }
 
 function formatDayTitle(dateMs: number): string {
@@ -312,7 +310,6 @@ function getColorBg(twClass: string): string {
     'bg-brand-500': 'rgb(var(--brand-500))',
     'bg-warning': 'rgb(var(--warning))',
     'bg-danger': 'rgb(var(--danger))',
-    'bg-surface-3': 'rgb(var(--muted-foreground))',
-  };
+    'bg-surface-3': 'rgb(var(--muted-foreground))',  };
   return map[twClass] || 'rgb(var(--muted-foreground))';
 }

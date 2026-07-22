@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCurrentUserId } from '@/lib/hooks/use-current-user';
@@ -13,12 +13,14 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
+  Search,
 } from 'lucide-react';
 import {
   KR_BINDING_REASON_MIN_LENGTH,
   validateOkrAnchor,
   type DecisionCard,
 } from '@/lib/types/decision-card';
+import { cn } from '@/lib/utils';
 
 interface KeyResult {
   id: string;
@@ -32,6 +34,12 @@ interface ObjectiveWithKrs {
   title: string;
   level: string;
   keyResults: KeyResult[];
+}
+
+interface KrPickerItem extends KeyResult {
+  objectiveId: string;
+  objectiveTitle: string;
+  objectiveLevel: string;
 }
 
 /**
@@ -69,6 +77,7 @@ function ConvergencePageInner() {
   const [krMode, setKrMode] = useState<'select' | 'escape'>('select');
   const [primaryKrId, setPrimaryKrId] = useState('');
   const [noKrReason, setNoKrReason] = useState('');
+  const [krQuery, setKrQuery] = useState('');
 
   useEffect(() => {
     void Promise.all([refreshList(), loadOkrTree()]);
@@ -113,6 +122,16 @@ function ConvergencePageInner() {
     primaryKrId: krMode === 'select' ? primaryKrId : null,
     noKrReason: krMode === 'escape' ? noKrReason : null,
   });
+  const krOptions = useMemo<KrPickerItem[]>(() => {
+    return objectives.flatMap((obj) =>
+      obj.keyResults.map((kr) => ({
+        ...kr,
+        objectiveId: obj.id,
+        objectiveTitle: obj.title,
+        objectiveLevel: obj.level,
+      })),
+    );
+  }, [objectives]);
 
   const formValid = title.trim().length > 0 && krValidation.ok;
 
@@ -258,29 +277,19 @@ function ConvergencePageInner() {
             </div>
 
             {krMode === 'select' ? (
-              objectives.length === 0 ? (
+              krOptions.length === 0 ? (
                 <p className="rounded-md border border-dashed border-border bg-surface-2 px-3 py-2 text-caption text-ink-tertiary">
                   暂无 KR 可选 · 先去 <Link href="/okr" className="text-brand-600 underline">/okr</Link> 创建, 或切到「无关 KR」
                 </p>
               ) : (
-                <select
-                  aria-label="选择关联的 Key Result"
-                  className="w-full rounded-md border border-border bg-surface-1 px-3 py-2 text-body outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
-                  value={primaryKrId}
-                  onChange={(e) => setPrimaryKrId(e.target.value)}
+                <KrPicker
+                  items={krOptions}
+                  selectedId={primaryKrId}
+                  query={krQuery}
+                  onQueryChange={setKrQuery}
+                  onSelect={setPrimaryKrId}
                   disabled={creating}
-                >
-                  <option value="">— 选择 KR —</option>
-                  {objectives.map((obj) => (
-                    <optgroup key={obj.id} label={`${obj.level === 'company' ? '🏢' : obj.level === 'team' ? '👥' : '👤'}  ${obj.title}`}>
-                      {obj.keyResults.map((kr) => (
-                        <option key={kr.id} value={kr.id}>
-                          {kr.riskStatus === 'on_track' ? '🟢' : kr.riskStatus === 'at_risk' ? '🟡' : '🔴'} {kr.title}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </select>
+                />
               )
             ) : (
               <>
@@ -408,6 +417,128 @@ function DecisionStateIcon({ state }: { state: string }) {
       {m.icon}
     </span>
   );
+}
+
+function KrPicker({
+  items,
+  selectedId,
+  query,
+  onQueryChange,
+  onSelect,
+  disabled,
+}: {
+  items: KrPickerItem[];
+  selectedId: string;
+  query: string;
+  onQueryChange: (query: string) => void;
+  onSelect: (id: string) => void;
+  disabled?: boolean;
+}) {
+  const selected = items.find((item) => item.id === selectedId);
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter((item) => {
+      const haystack = `${item.title} ${item.objectiveTitle} ${item.ownerId} ${riskLabel(item.riskStatus)}`.toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [items, query]);
+
+  return (
+    <div className="rounded-2xl border border-border bg-surface-1 p-3 shadow-soft-sm">
+      <div className="mb-2 flex min-w-0 items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-caption font-medium text-ink-primary">选择关联 KR</div>
+          <div className="mt-0.5 truncate text-footnote text-ink-tertiary">
+            {selected ? `${selected.title} · ${selected.objectiveTitle}` : '请选择一个 KR 作为本次议事锚点'}
+          </div>
+        </div>
+        {selected && (
+          <button
+            type="button"
+            onClick={() => onSelect('')}
+            disabled={disabled}
+            className="shrink-0 rounded-full border px-2.5 py-1 text-footnote text-ink-secondary hover:bg-surface-2 disabled:opacity-50"
+          >
+            清除
+          </button>
+        )}
+      </div>
+
+      <div className="relative mb-2">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-tertiary" />
+        <input
+          value={query}
+          onChange={(e) => onQueryChange(e.target.value)}
+          disabled={disabled}
+          placeholder="筛选 KR / Objective / 负责人 / 状态..."
+          className="w-full rounded-xl border border-border bg-surface-2 py-2 pl-8 pr-3 text-caption text-ink-primary outline-none placeholder:text-ink-tertiary focus:border-brand-300 focus:ring-2 focus:ring-brand-100 disabled:opacity-60"
+        />
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="rounded-xl border border-dashed bg-surface-2 px-3 py-4 text-center text-footnote text-ink-tertiary">
+          没有匹配的 KR
+        </div>
+      ) : (
+        <div className="max-h-72 space-y-1 overflow-y-auto pr-1">
+          {filtered.map((item) => {
+            const active = item.id === selectedId;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => onSelect(item.id)}
+                disabled={disabled}
+                className={cn(
+                  'flex w-full min-w-0 items-start gap-3 rounded-xl border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+                  active
+                    ? 'border-brand-300 bg-brand-50 text-brand-800'
+                    : 'border-transparent bg-surface-2 text-ink-primary hover:border-brand-200 hover:bg-brand-50/40',
+                )}
+              >
+                <span className={cn('mt-1 h-2.5 w-2.5 shrink-0 rounded-full', riskDotClass(item.riskStatus))} />
+                <span className="min-w-0 flex-1">
+                  <span className="block break-words text-caption font-medium leading-snug">{item.title}</span>
+                  <span className="mt-0.5 block break-words text-footnote text-ink-tertiary">
+                    {levelLabel(item.objectiveLevel)} · {item.objectiveTitle}
+                  </span>
+                </span>
+                <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-footnote', riskBadgeClass(item.riskStatus))}>
+                  {riskLabel(item.riskStatus)}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function levelLabel(level: string): string {
+  if (level === 'company') return '公司';
+  if (level === 'team') return '团队';
+  if (level === 'person') return '个人';
+  return level || '目标';
+}
+
+function riskLabel(status: KeyResult['riskStatus']): string {
+  if (status === 'on_track') return '在轨';
+  if (status === 'at_risk') return '风险';
+  return '偏离';
+}
+
+function riskDotClass(status: KeyResult['riskStatus']): string {
+  if (status === 'on_track') return 'bg-success';
+  if (status === 'at_risk') return 'bg-warning';
+  return 'bg-danger';
+}
+
+function riskBadgeClass(status: KeyResult['riskStatus']): string {
+  if (status === 'on_track') return 'bg-success/10 text-success';
+  if (status === 'at_risk') return 'bg-warning/10 text-warning';
+  return 'bg-danger/10 text-danger';
 }
 
 function formatDate(iso: string): string {

@@ -134,7 +134,11 @@ describe('CalendarService', () => {
     ]);
     expect(sentEmails[0].subject).toBe('【日程通知】项目同步会');
 
-    const activities = await listCalendarActivities({ tenantId: 'tenant-1' });
+    const activities = await listCalendarActivities({
+      tenantId: 'tenant-1',
+      viewerId: 'owner-1',
+      viewerEmail: 'owner@example.com',
+    });
     expect(activities.items[0]).toMatchObject({
       action: 'event.created',
       eventTitle: '项目同步会',
@@ -184,7 +188,11 @@ describe('CalendarService', () => {
 
     expect(events).toHaveLength(1);
     expect(await ctx.calendarRepo.findById(events[0].id)).not.toBeNull();
-    expect(await listCalendarActivities({ tenantId: 'tenant-1' })).toMatchObject({ total: 0 });
+    expect(await listCalendarActivities({
+      tenantId: 'tenant-1',
+      viewerId: 'owner-1',
+      viewerEmail: 'owner@example.com',
+    })).toMatchObject({ total: 0 });
   });
 
   it('updates the selected and future instances and reschedules pending reminders', async () => {
@@ -240,7 +248,11 @@ describe('CalendarService', () => {
     expect(await ctx.calendarReminderRepo.list({ status: 'cancelled' })).toHaveLength(4);
     expect(sentEmails.at(-1)?.subject).toBe('【日程取消】评审会');
     expect(sentEmails.at(-1)?.to).toEqual(['colleague@example.com']);
-    const activities = await listCalendarActivities({ tenantId: 'tenant-1' });
+    const activities = await listCalendarActivities({
+      tenantId: 'tenant-1',
+      viewerId: 'owner-1',
+      viewerEmail: 'owner@example.com',
+    });
     expect(activities.items.find((item) => item.action === 'event.cancelled')).toMatchObject({
       action: 'event.cancelled',
       eventTitle: '评审会',
@@ -304,7 +316,11 @@ describe('CalendarService', () => {
     await subscriptions.cancel(subscription.id, 'owner-1');
     await expect(service.listSubscribedCalendar('owner-1', 'user-2', 'tenant-1'))
       .rejects.toMatchObject({ code: 'FORBIDDEN' });
-    const activities = await listCalendarActivities({ tenantId: 'tenant-1' });
+    const activities = await listCalendarActivities({
+      tenantId: 'tenant-1',
+      viewerId: 'owner-1',
+      viewerEmail: 'owner@example.com',
+    });
     expect(activities.items.map((item) => item.action)).toEqual(expect.arrayContaining([
       'subscription.created',
       'subscription.approved',
