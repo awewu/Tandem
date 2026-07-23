@@ -28,6 +28,7 @@ deployment-packages/
 .claude/
 .codex/
 data/test-data-output/
+docs/dev/
 packages/generated-client/
 contracts/openapi/*.json
 pnpm-lock.yaml
