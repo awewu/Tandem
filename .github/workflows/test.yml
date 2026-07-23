@@ -29,7 +29,7 @@ jobs:
       - name: TypeScript typecheck
         run: npx tsc --noEmit
 
-      - name: CHARTER-UI-V1 ratchet (no new raw color violations)
+      - name: CHARTER-UI-V2 ratchet (no raw palette color / inline hex violations)
         run: node scripts/check-ui-charter.mjs --strict
 
       - name: Vitest unit tests

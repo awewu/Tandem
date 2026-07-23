@@ -39,9 +39,9 @@ jobs:
       - run: npm run lint --if-present
 
   ui-charter:
-    # CHARTER-UI-V1 ratchet · 2026-05-31 全量清零后入 CI
-    # PR 上任何 raw token (text-sm/bg-red-NNN/shadow-md/rounded-xl/缺响应断点 ...)
-    # 直接 fail merge. 配套 codemod 见 scripts/codemod-charter-tokens.mjs.
+    # CHARTER-UI-V2 ratchet · 2026-07-23 升级: 覆盖全 22 色 Tailwind 调色板 + 内联 hex 色值
+    # PR 上任何 raw token (全调色板色/内联 #hex/text-sm/shadow-md/rounded-xl/缺响应断点 ...)
+    # 直接 fail merge. 配套 codemod 见 scripts/codemod-raw-palette-v2.mjs; 深度审计见 scripts/audit-raw-palette.mjs.
     name: UI Charter (strict)
     runs-on: ubuntu-latest
     steps:

@@ -1590,7 +1590,7 @@ function WelcomeStage({
           <Sparkles className="h-4 w-4" />
           <span>搭子 · 个人工作台</span>
         </div>
-        <h1 className="text-title-1 text-white">
+        <h1 className="text-title-2 text-white">
           搭子, 今天我们干什么?
         </h1>
         <p className="mt-3 text-body text-white/90 max-w-2xl">
@@ -1634,7 +1634,7 @@ function WelcomeStage({
                 <Clock className="h-5 w-5" />
               </div>
               <div className="min-w-0">
-                <h3 className="text-title-3 text-primary group-hover:text-[rgb(var(--brand-700))]">5min 智能日报</h3>
+                <h3 className="text-body font-medium text-primary group-hover:text-[rgb(var(--brand-700))]">5min 智能日报</h3>
                 <p className="mt-1 text-caption text-tertiary">和分身一起过今天的推进 · 自动回填 KR 进度</p>
               </div>
             </div>
@@ -1648,7 +1648,7 @@ function WelcomeStage({
                 <History className="h-5 w-5" />
               </div>
               <div className="min-w-0">
-                <h3 className="text-title-3 text-primary group-hover:text-[rgb(var(--brand-700))]">本周回顾</h3>
+                <h3 className="text-body font-medium text-primary group-hover:text-[rgb(var(--brand-700))]">本周回顾</h3>
                 <p className="mt-1 text-caption text-tertiary">复盘本周节奏 · 沉淀进展与下周重点</p>
               </div>
             </div>
@@ -1674,7 +1674,7 @@ function WelcomeStage({
                     <Icon className="h-5 w-5" />
                   </div>
                   <div className="min-w-0">
-                    <h3 className="text-title-3 text-primary group-hover:text-[rgb(var(--brand-700))]">{c.title}</h3>
+                    <h3 className="text-body font-medium text-primary group-hover:text-[rgb(var(--brand-700))]">{c.title}</h3>
                     <p className="mt-1 text-caption text-tertiary">{c.desc}</p>
                   </div>
                 </div>
@@ -1715,7 +1715,7 @@ function CardStage({ card }: { card: CardId }) {
             <Icon className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <h1 className="text-title-2 text-primary">{meta.title}</h1>
+            <h1 className="text-title-3 text-primary">{meta.title}</h1>
             <p className="mt-1 text-caption text-primary">{meta.desc}</p>
           </div>
         </div>

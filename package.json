@@ -16,6 +16,7 @@
     "lint": "next lint",
     "lint:ui-charter": "node scripts/check-ui-charter.mjs",
     "lint:ui-charter:strict": "node scripts/check-ui-charter.mjs --strict",
+    "audit:raw-palette": "node scripts/audit-raw-palette.mjs",
     "lint:dead-code": "node scripts/scan-unused.mjs",
     "lint:dead-code:strict": "node scripts/scan-unused.mjs --strict",
     "check:api-logs": "node scripts/business-log-routes.mjs check",
