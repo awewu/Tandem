@@ -41,7 +41,7 @@ log "===== 瑞诺瓦开发环境启动 ====="
 check_node_deps
 
 # 清理已有占用端口（避免 Turbopack/Next.js 端口冲突）
-for port in 5500 5000 5001 5002 5003 5005 5011 5012 5013 5014 5015 5016; do
+for port in 5500 5000 5001 5002 5005 5011 5012 5013 5014 5015; do
   stop_port "$port"
 done
 
@@ -54,14 +54,12 @@ start_bg "portal-5005" "cd '$ROOT' && pnpm --filter public-portal dev --port 500
 start_bg "dealer-5000" "cd '$ROOT' && pnpm --filter dealer-workbench dev --port 5000"
 start_bg "diagnosis-5001" "cd '$ROOT' && pnpm --filter consumer-diagnosis dev --port 5001"
 start_bg "customer-5002" "cd '$ROOT' && pnpm --filter customer-portal dev --port 5002"
-start_bg "designer-5003" "cd '$ROOT' && pnpm --filter designer-workbench dev --port 5003"
 
 # 3. 控制台
 start_bg "nexus-5010" "cd '$ROOT' && pnpm --filter nexus-console dev --port 5010"
 start_bg "brand-5012" "cd '$ROOT' && pnpm --filter brand-console dev --port 5012"
 
 # 4. 产品底座
-start_bg "product-5016" "cd '$ROOT' && pnpm --filter product-catalog dev --port 5016"
 
 # 5. 品牌站矩阵
 start_bg "everhot-5011" "cd '$ROOT' && pnpm --filter everhot-cn dev --port 5011"
@@ -78,7 +76,6 @@ declare -A URLS=(
   [5000]="http://localhost:5000/"
   [5001]="http://localhost:5001/"
   [5002]="http://localhost:5002/"
-  [5003]="http://localhost:5003/"
   [5005]="http://localhost:5005/"
   [5010]="http://localhost:5010/"
   [5011]="http://localhost:5011/"
@@ -86,10 +83,9 @@ declare -A URLS=(
   [5013]="http://localhost:5013/"
   [5014]="http://localhost:5014/"
   [5015]="http://localhost:5015/"
-  [5016]="http://localhost:5016/"
 )
 
-for port in 5500 5000 5001 5002 5003 5005 5010 5011 5012 5013 5014 5015 5016; do
+for port in 5500 5000 5001 5002 5005 5010 5011 5012 5013 5014 5015; do
   url="${URLS[$port]}"
   status="--"
   for i in $(seq 1 30); do
@@ -107,8 +103,6 @@ log "===== 启动完成 ====="
 echo ""
 echo "常用入口："
 echo "  统一门户/登录: http://localhost:5000/hub"
-echo "  产品目录底座:  http://localhost:5016"
 echo "  AI 问诊:       http://localhost:5001"
-echo "  设计师工作台:  http://localhost:5003"
 echo ""
 echo "停止所有服务: ./scripts/dev-stop-all.sh"

@@ -152,7 +152,7 @@ const MODULES = Object.freeze({
     productIndependenceLevel: PRODUCT_INDEPENDENCE_LEVEL,
     standaloneDomainStrategy: STANDALONE_DOMAIN_STRATEGY,
     standaloneAppShellMode: STANDALONE_APP_SHELL_MODE,
-    targetApp: 'apps/rysnova-bim-workbench',
+    targetApp: 'apps/dealer-workbench',
     objectStoragePrefix: 'rysnova-bim/',
     analyticsNamespace: 'rysnova-bim',
     futureDatabaseStrategy: PRODUCT_DATABASE_STRATEGY,
@@ -182,7 +182,7 @@ const MODULES = Object.freeze({
     standaloneProductization: Object.freeze({
       launchable: true,
       aliases: ['/rysnova-bim', '/rysnova-bim-bim', '/rysnova-bim-workbench'],
-      targetApp: 'apps/rysnova-bim-workbench',
+      targetApp: 'apps/dealer-workbench',
       appShellMode: STANDALONE_APP_SHELL_MODE,
       domainStrategy: STANDALONE_DOMAIN_STRATEGY,
       standaloneDomainTargets: ['pending-dedicated-rysnova-bim-domain-or-subdomain'],

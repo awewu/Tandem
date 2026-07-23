@@ -11,8 +11,7 @@
         "currentSurface": "public/index-ready.html",
         "compatibilitySurface": "public/index.html",
         "embeddedProductModules": [
-          "consumer-diagnosis",
-          "rysnova-bim-workbench"
+          "consumer-diagnosis"
         ]
       }
     }

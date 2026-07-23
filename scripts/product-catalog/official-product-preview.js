@@ -64,10 +64,6 @@ async function postForm(url, values, headers = {}) {
   });
 }
 
-function mergeUnique(first, second) {
-  return [...new Set([...(first || []), ...(second || [])])];
-}
-
 async function crawlRheem() {
   const listings = [
     { segment: '9', label: 'residential', url: `${OFFICIAL_SOURCES.Rheem}/product/9.html` },
@@ -94,7 +90,6 @@ async function crawlRheem() {
       name: detail.title || product.name,
       description: detail.description,
       price: detail.price.min === null ? product.price : detail.price,
-      imageUrls: mergeUnique(product.imageUrls, detail.imageUrls),
       documents: detail.documents,
     });
   }
@@ -138,7 +133,6 @@ async function crawlEverhot() {
       ...product,
       name: detail.title || product.name,
       description: detail.description,
-      imageUrls: mergeUnique(product.imageUrls, detail.imageUrls),
     });
   }
   return products;
@@ -153,7 +147,6 @@ function toPreviewRecord(brand, product, fetchedAt) {
     officialModel: product.model,
     category,
     description: product.description,
-    image: product.imageUrls?.[0],
     price: product.price?.min,
     parameters: Object.keys(product.parameters || {}).length ? product.parameters : null,
     sourceUrl: product.sourceUrl,
@@ -188,7 +181,6 @@ function toPreviewRecord(brand, product, fetchedAt) {
       fetchedAt,
       sourceId: product.sourceId,
       price: product.price || null,
-      imageUrls: product.imageUrls || [],
       documents: product.documents || [],
       rawExtracted: product.raw || {},
       dataQualityWarnings: product.warnings || [],
@@ -246,7 +238,7 @@ function renderReport(payload) {
     '',
     '- 官网未公开的型号、价格或结构化参数保持为空，不推测、不补造。',
     '- Ruud 官网存在 1 处页面标题与隐藏参数表名称冲突，已保留原文并写入数据警告。',
-    '- 图片只记录官网 URL，本阶段不下载、不写入 DAM。',
+    '- 图片不抓取、不记录 URL、不下载、不写入 DAM。',
     '',
     '## 导入闸口',
     '',

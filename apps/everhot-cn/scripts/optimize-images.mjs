@@ -6,8 +6,9 @@
 import sharp from 'sharp';
 import { readdirSync, statSync, existsSync } from 'node:fs';
 import { join, extname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = new URL('../public/assets/img', import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL('../public/assets/img', import.meta.url));
 const FORCE = process.argv.includes('--force');
 const MAX_W = 1200, QUALITY = 80;
 const exts = new Set(['.png', '.jpg', '.jpeg']);

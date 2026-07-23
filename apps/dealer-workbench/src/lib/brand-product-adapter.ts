@@ -15,6 +15,12 @@ export type BrandSiteSummary = {
   publishCapability?: BrandPublishCapability;
 };
 
+export type BrandSiteEnvironmentLink = {
+  key: 'testing' | 'production';
+  label: '测试环境' | '生产环境';
+  url: string;
+};
+
 export type BrandPublishCapability = {
   supported: boolean;
   mode: 'static-backup' | 'unsupported';
@@ -135,9 +141,15 @@ export type BrandProductConsoleData = {
 const PRODUCT_PAGE_SIZE = '100';
 
 const BRAND_PRODUCT_TENANTS: Record<string, string | undefined> = {
-  everhot: process.env.NEXT_PUBLIC_EVERHOT_TENANT_ID,
-  rheem: process.env.NEXT_PUBLIC_RHEEM_TENANT_ID,
-  ruud: process.env.NEXT_PUBLIC_RUUD_TENANT_ID,
+  everhot: process.env.NEXT_PUBLIC_EVERHOT_TENANT_ID || 'e5e40000-0000-4000-8000-000000000001',
+  rheem: process.env.NEXT_PUBLIC_RHEEM_TENANT_ID || '4aee0000-0000-4000-8000-000000000001',
+  ruud: process.env.NEXT_PUBLIC_RUUD_TENANT_ID || '7aad0000-0000-4000-8000-000000000001',
+};
+
+const BRAND_SITE_ENVIRONMENT_FALLBACKS: Record<string, { testing: string; production: string }> = {
+  rheem: { testing: 'http://localhost:5014/', production: 'https://www.rheem.com.cn/' },
+  ruud: { testing: 'http://localhost:5015/', production: 'https://www.ruud.com.cn/' },
+  everhot: { testing: 'http://localhost:5011/', production: 'https://www.everhot.com.cn/' },
 };
 
 const WRITE_ROLES = new Set(['platform_admin', 'hq_admin', 'brand_admin']);
@@ -160,6 +172,26 @@ export function normalizeBrandCode(input: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9-]+/g, '-')
     .replace(/^-+|-+$/g, '');
+}
+
+export function resolveBrandSiteEnvironmentLinks(
+  site: Pick<BrandSiteSummary, 'code' | 'developmentUrl' | 'productionUrl'> | null,
+  brandCodeInput: string
+): BrandSiteEnvironmentLink[] {
+  const brandCode = normalizeBrandCode(site?.code || brandCodeInput);
+  const fallback = BRAND_SITE_ENVIRONMENT_FALLBACKS[brandCode];
+  return [
+    {
+      key: 'testing',
+      label: '测试环境',
+      url: normalizeRuntimeUrl(site?.developmentUrl || fallback?.testing || ''),
+    },
+    {
+      key: 'production',
+      label: '生产环境',
+      url: normalizeRuntimeUrl(site?.productionUrl || fallback?.production || ''),
+    },
+  ];
 }
 
 export async function loadBrandProductConsoleData(
@@ -867,6 +899,12 @@ function splitBadges(value: string): string[] {
 
 function text(value: unknown): string {
   return typeof value === 'string' ? value.trim() : value == null ? '' : String(value).trim();
+}
+
+function normalizeRuntimeUrl(value: unknown): string {
+  const url = text(value);
+  if (!url) return '';
+  return /\/$/.test(url) ? url : `${url}/`;
 }
 
 function slug(value: string): string {

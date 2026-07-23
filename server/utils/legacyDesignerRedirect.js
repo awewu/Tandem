@@ -1,5 +1,5 @@
-const DESIGNER_VIEWER_PORT = process.env.DESIGNER_WORKBENCH_PORT || '4003';
-const DESIGNER_VIEWER_PATH = '/viewer';
+const DESIGNER_VIEWER_PORT = '';
+const DESIGNER_VIEWER_PATH = '/index-ready.html';
 const LEGACY_DESIGNER_QUERY_KEYS = Object.freeze([
   'projectId',
   'project_id',
@@ -46,8 +46,8 @@ function preservedDesignerQuery(sourceQuery) {
 
 function buildLegacyDesignerRedirectTarget(req) {
   const target = new URL(DESIGNER_VIEWER_PATH, `${requestProtocol(req)}://${requestHost(req)}`);
-  target.port = DESIGNER_VIEWER_PORT;
   target.search = preservedDesignerQuery(queryFromRequest(req));
+  target.hash = 'capabilities';
   return target.toString();
 }
 

@@ -206,6 +206,9 @@ button { cursor:pointer; }
   padding: 12px 8px 18px;
 }
 .workbench-subnav-list a {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   min-height: 38px;
   display: flex;
   align-items: center;
@@ -216,17 +219,23 @@ button { cursor:pointer; }
   font-size: 14px;
   font-weight: 500;
   text-decoration: none;
+  overflow: hidden;
+}
+.workbench-subnav-list a svg {
+  flex: 0 0 auto;
 }
 .workbench-subnav-list a:hover {
   background: var(--surface-2);
   color: var(--t-primary);
 }
 .workbench-subnav-list a.is-active {
-  background: var(--brand-tint);
-  color: var(--brand-700);
+  background: var(--brand);
+  color: #fff;
   font-weight: 700;
 }
 .workbench-subnav-list a span {
+  flex: 1 1 auto;
+  display: block;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -252,8 +261,107 @@ button { cursor:pointer; }
   color: var(--t-primary);
 }
 .workbench-subnav-icon-list a.is-active {
-  background: var(--brand-tint);
-  color: var(--brand-700);
+  background: var(--brand);
+  color: #fff;
+}
+.account-menu-wrap {
+  position: relative;
+  width: 100%;
+  padding: 8px 0 10px;
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+.account-trigger {
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.10);
+  color: rgba(255,255,255,0.82);
+  font-size: 13px;
+  font-weight: 700;
+}
+.account-trigger:hover,
+.account-trigger:focus-visible {
+  background: rgba(255,255,255,0.16);
+  color: #fff;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(78,154,61,0.20);
+}
+.account-version {
+  font-size: 9px;
+  line-height: 1;
+  color: rgba(255,255,255,0.24);
+}
+.account-menu {
+  position: fixed;
+  left: 52px;
+  bottom: 14px;
+  z-index: 80;
+  width: 244px;
+  padding: 12px 8px 10px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  box-shadow: var(--sh-modal);
+  color: var(--t-primary);
+}
+.account-menu-profile {
+  padding: 4px 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.account-menu-name {
+  font-size: 14px;
+  line-height: 1.35;
+  font-weight: 800;
+  color: var(--t-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account-menu-contact,
+.account-menu-role {
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--t-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account-menu-actions {
+  display: grid;
+  gap: 2px;
+  padding-top: 8px;
+}
+.account-menu-actions a,
+.account-menu-actions button {
+  width: 100%;
+  min-height: 34px;
+  border: 0;
+  border-radius: var(--r-lg);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 10px;
+  background: transparent;
+  color: var(--t-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+}
+.account-menu-actions a:hover,
+.account-menu-actions button:hover {
+  background: var(--surface-2);
+  color: var(--t-primary);
+}
+.account-menu-actions button {
+  color: var(--danger);
 }
 .embedded-workspace {
   height: calc(100vh - 48px);

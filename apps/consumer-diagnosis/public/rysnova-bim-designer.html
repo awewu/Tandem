@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="refresh" content="0; url=http://localhost:5003/viewer">
+  <meta http-equiv="refresh" content="0; url=/index-ready.html#capabilities">
   <title>Rysnova BIM Designer Redirect</title>
   <link rel="stylesheet" href="/css/rhautt-comfort-tokens.css">
 </head>
 <body class="rc-scope" data-brand="rysnova">
   <p>Redirecting to Rysnova BIM Viewer...</p>
   <p>Powered by Rysnova</p>
-  <p><a id="redirect-link" href="http://localhost:5003/viewer">Open viewer</a></p>
+  <p><a id="redirect-link" href="/index-ready.html#capabilities">Open capabilities</a></p>
   <script>
     (function () {
       var preservedKeys = [
@@ -30,8 +30,7 @@
       ];
 
       function buildRedirectUrl(currentLocation) {
-        var target = new URL('/viewer', currentLocation.origin);
-        target.port = '4003';
+        var target = new URL('/index-ready.html#capabilities', currentLocation.origin);
         var incoming = new URLSearchParams(currentLocation.search);
         var outgoing = new URLSearchParams();
 

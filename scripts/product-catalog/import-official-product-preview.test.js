@@ -17,7 +17,6 @@ function previewProduct() {
       sourceDomain: 'rheem.com.cn',
       sourceUrl: 'https://rheem.com.cn/product/9/91.html',
       fetchedAt: '2026-07-16T00:00:00.000Z',
-      imageUrls: [],
       documents: [],
       rawExtracted: {},
       dataQualityWarnings: [],
@@ -50,6 +49,7 @@ test('builds active API DTO without overwriting authored fields', () => {
   assert.equal(dto.spec.manuallyVerified, true);
   assert.equal(dto.meta.operatorNote, 'keep');
   assert.equal(dto.meta.officialSource.sourceUrl, 'https://rheem.com.cn/product/9/91.html');
+  assert.equal('imageUrls' in dto.meta.officialSource, false);
   assert.equal('positioning' in dto, false);
   assert.equal('assetRefs' in dto, false);
   assert.equal('costPrice' in dto, false);

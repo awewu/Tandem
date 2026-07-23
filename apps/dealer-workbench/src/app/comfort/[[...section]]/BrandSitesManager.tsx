@@ -133,8 +133,16 @@ export default function BrandSitesManager({ brandCode }: { brandCode: string }) 
   const [creating, setCreating] = useState(false);
 
   const filteredSites = useMemo(() => {
-    if (activeBrand === 'all') return sites;
-    return sites.filter((site) => site.code === activeBrand);
+    const selectedSites = activeBrand === 'all'
+      ? sites
+      : sites.filter((site) => site.code === activeBrand);
+    return [...selectedSites].sort((left, right) => {
+      const archivedOrder = Number(Boolean(left.deletedAt)) - Number(Boolean(right.deletedAt));
+      if (archivedOrder) return archivedOrder;
+      const sortOrder = Number(left.sortOrder || 0) - Number(right.sortOrder || 0);
+      if (sortOrder) return sortOrder;
+      return (left.nameCn || left.nameEn || left.code).localeCompare(right.nameCn || right.nameEn || right.code);
+    });
   }, [activeBrand, sites]);
 
   const filterOptions = useMemo(() => {
@@ -363,7 +371,7 @@ export default function BrandSitesManager({ brandCode }: { brandCode: string }) 
                               <span>未配置</span>
                             )}
                             <small>
-                              生产 {site.productionUrl ? '已配置' : '未配置'} · 开发{' '}
+                              生产环境 {site.productionUrl ? '已配置' : '未配置'} · 测试环境{' '}
                               {site.developmentUrl ? '已配置' : '未配置'}
                             </small>
                           </div>
@@ -967,7 +975,7 @@ function SiteDialog({
                 <option value="external">外部站</option>
               </select>
             </Field>
-            <Field label="开发 URL">
+            <Field label="测试环境 URL">
               <input
                 className="input"
                 type="url"
@@ -975,7 +983,7 @@ function SiteDialog({
                 onChange={(event) => setField('developmentUrl', event.target.value)}
               />
             </Field>
-            <Field label="生产 URL">
+            <Field label="生产环境 URL">
               <input
                 className="input"
                 type="url"

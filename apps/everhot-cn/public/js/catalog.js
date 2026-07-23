@@ -8,8 +8,10 @@
 (function () {
   var BASE = '';
   function e(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-  var SITE_PRODUCTS_API = '/api/v2/sites/everhot/products?locale=zh-CN';
-  var LEGACY_PRODUCTS_API = '/api/v2/brand/everhot/products?locale=zh-CN';
+  var RUNTIME_SITE_CODE = window.EVERHOT_SITE_CODE || 'everhot';
+  var RUNTIME_API_BASE = window.EVERHOT_API_BASE || '';
+  var RUNTIME_PRODUCTS_API = '/api/v2/sites/' + RUNTIME_SITE_CODE + '/products?locale=zh-CN';
+  var LEGACY_PRODUCTS_API = '/api/v2/brand/' + RUNTIME_SITE_CODE + '/products?locale=zh-CN';
 
   function installCatalog(){
     window.EVERHOT_PRODUCTS = Array.isArray(window.EVERHOT_PRODUCTS) ? window.EVERHOT_PRODUCTS : [];
@@ -21,6 +23,12 @@
   function setRuntimeStatus(status){
     window.EVERHOT_PRODUCTS_STATUS = status;
     try{ window.dispatchEvent(new CustomEvent('everhot-products-status',{detail:{status:status}})); }catch(_){}
+  }
+  function isLocalRuntime(){
+    if(window.EVERHOT_RUNTIME_PRODUCTS === true) return true;
+    if(window.EVERHOT_RUNTIME_PRODUCTS === false) return false;
+    var host = location && location.hostname ? location.hostname : '';
+    return host === 'localhost' || host === '127.0.0.1' || host === '::1';
   }
   function fetchJson(url){
     return fetch(url, { cache:'no-store' }).then(function(res){
@@ -36,20 +44,29 @@
     return fetchJson(apiBase + primary).then(accept)
       .catch(function(){ return fetchJson(apiBase + legacy).then(accept); });
   }
+  function normalizeRuntimeProduct(product){
+    var copy = {};
+    Object.keys(product || {}).forEach(function(key){ copy[key] = product[key]; });
+    copy.slug = String(product && (product.slug || product.sku) || '');
+    copy.tagline = product && (product.tagline || product.summary) || '';
+    copy.image = product && (product.image || (product.mainImage && product.mainImage.url)) || '';
+    return copy;
+  }
   function loadRuntimeProducts(){
     if(window.EVERHOT_PRODUCTS_READY) return window.EVERHOT_PRODUCTS_READY;
+    if(!isLocalRuntime()){ installCatalog(); setRuntimeStatus('static'); return Promise.resolve(false); }
     if(!window.fetch){ installCatalog(); setRuntimeStatus('fallback'); return Promise.resolve(false); }
     setRuntimeStatus('loading');
-    var apiBase = window.EVERHOT_API_BASE || '';
-    window.EVERHOT_PRODUCTS_READY = fetchWithLegacy(apiBase, SITE_PRODUCTS_API, LEGACY_PRODUCTS_API, function(json){
+    var apiBase = RUNTIME_API_BASE;
+    window.EVERHOT_PRODUCTS_READY = fetchWithLegacy(apiBase, RUNTIME_PRODUCTS_API, LEGACY_PRODUCTS_API, function(json){
       return !!(json && json.data && Array.isArray(json.data.items));
     })
       .then(function(json){
         var items = json && json.data && json.data.items;
         if(Array.isArray(items)){
-          window.EVERHOT_PRODUCTS = items;
+          window.EVERHOT_PRODUCTS = items.map(normalizeRuntimeProduct).filter(function(p){ return p.slug; });
           installCatalog();
-          setRuntimeStatus(items.length ? 'runtime' : 'empty');
+          setRuntimeStatus(window.EVERHOT_PRODUCTS.length ? 'runtime' : 'empty');
           return true;
         }
         installCatalog();
@@ -60,19 +77,19 @@
     return window.EVERHOT_PRODUCTS_READY;
   }
   function loadRuntimeProduct(slug){
-    if(!slug || !window.fetch) return Promise.resolve(null);
+    if(!slug || !isLocalRuntime() || !window.fetch) return Promise.resolve(null);
     var found = window.EVERHOT_CATALOG && window.EVERHOT_CATALOG.one(slug);
     if(found) return Promise.resolve(found);
-    var apiBase = window.EVERHOT_API_BASE || '';
+    var apiBase = RUNTIME_API_BASE;
     var suffix = encodeURIComponent(slug) + '?locale=zh-CN';
     return fetchWithLegacy(
       apiBase,
-      '/api/v2/sites/everhot/products/' + suffix,
-      '/api/v2/brand/everhot/products/' + suffix,
+      '/api/v2/sites/' + RUNTIME_SITE_CODE + '/products/' + suffix,
+      '/api/v2/brand/' + RUNTIME_SITE_CODE + '/products/' + suffix,
       function(json){ return !!(json && json.data && typeof json.data === 'object'); }
     )
       .then(function(json){
-        var item = json && json.data;
+        var item = normalizeRuntimeProduct(json && json.data);
         if(!item) return null;
         var list = Array.isArray(window.EVERHOT_PRODUCTS) ? window.EVERHOT_PRODUCTS.slice() : [];
         list = list.filter(function(p){ return p.slug !== item.slug; });

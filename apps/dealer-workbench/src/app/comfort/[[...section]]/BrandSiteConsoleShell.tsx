@@ -8,6 +8,7 @@ import {
   ChevronDown,
   Check,
   ExternalLink,
+  EyeOff,
   Image,
   Plus,
   PackagePlus,
@@ -22,7 +23,7 @@ import {
   X,
 } from 'lucide-react';
 import { PageHeader } from '@rhautt/ui';
-import { auth, brandSites } from '../../../lib/api';
+import { auth, brandSites, siteProductAssignments } from '../../../lib/api';
 import {
   archiveBrandProduct,
   blankNewProductDraft,
@@ -35,6 +36,7 @@ import {
   loadBrandProductConsoleData,
   normalizeBrandCode,
   reorderBrandProductDetailImages,
+  resolveBrandSiteEnvironmentLinks,
   saveBrandProductRow,
   saveBrandStructuredContent,
   structuredDraftFromProductRow,
@@ -49,6 +51,9 @@ import {
 
 type SiteStatus = 'active' | 'inactive';
 type DeliveryType = 'self_hosted' | 'external';
+type ContentTab = 'products' | 'materials';
+type TaxonomyOption = { code: string; label: string };
+type AssignmentStatus = 'draft' | 'published' | 'hidden';
 
 type BrandSite = {
   id: string;
@@ -69,6 +74,20 @@ type BrandSite = {
   publishCapability?: BrandPublishCapability;
 };
 
+type WebsiteShelfAssignment = {
+  id: string;
+  productTenantId: string;
+  productId: string;
+  publicSlug: string;
+  websiteCategory: string | null;
+  menuGroup: string | null;
+  displayOrder: number;
+  isFeatured: boolean;
+  status: AssignmentStatus;
+  siteTitle: string | null;
+  siteSummary: string | null;
+};
+
 const KNOWN_BRANDS: Record<string, Pick<BrandSite, 'code' | 'nameCn' | 'nameEn' | 'appKey' | 'sortOrder'>> = {
   rheem: { code: 'rheem', nameCn: '瑞美', nameEn: 'Rheem', appKey: 'rheem-cn', sortOrder: 10 },
   ruud: { code: 'ruud', nameCn: '瑞德', nameEn: 'Ruud', appKey: 'ruud-cn', sortOrder: 20 },
@@ -83,6 +102,7 @@ const PRODUCT_COLUMNS = [
   '系统',
   '菜单分类',
   '状态',
+  '官网货架',
   '排序',
   '图片',
   '官网内容',
@@ -96,9 +116,71 @@ const UNSUPPORTED_PUBLISH: BrandPublishCapability = {
   reason: '该品牌尚未配置服务端静态备份流程',
 };
 
-function displayUrl(site: BrandSite) {
-  return site.productionUrl || site.resolvedUrl || site.developmentUrl || '';
-}
+const TAXONOMY_LABELS: Record<string, string> = {
+  home: '家庭',
+  villa: '别墅',
+  commercial: '商用',
+  project: '工程项目',
+  dealer: '经销商',
+  ecommerce: '电商',
+  direct: '直营',
+  premium_upgrade: '高端改善',
+  essential: '刚需',
+  retrofit: '存量改造',
+  new_build: '新装',
+  east_villa: '华东别墅',
+  south_humid: '南方潮湿区',
+  north_heating: '北方采暖区',
+  tier1_city: '一线城市',
+  res_new_decoration: '新房精装',
+  res_villa: '别墅大宅',
+  res_retrofit: '旧房改造',
+  res_apartment: '公寓刚需',
+  com_office: '办公写字楼',
+  com_hospitality: '酒店/民宿',
+  com_public: '学校/医院/公建',
+  com_retail: '商业综合体/门店',
+  com_industrial: '工业厂房/园区',
+};
+
+const MOCK_SITE_MATERIALS = [
+  {
+    key: 'home-hero',
+    name: '首页 Hero 主视觉',
+    type: '图片 / 标题文案',
+    location: '首页首屏',
+    owner: '品牌运营',
+    status: '模拟数据',
+    note: '展示官网首页主图、标题和行动入口的占位流程。',
+  },
+  {
+    key: 'brand-story',
+    name: '品牌故事图文',
+    type: '图文模块',
+    location: '品牌介绍',
+    owner: '市场内容',
+    status: '模拟数据',
+    note: '用于模拟品牌故事图片、段落摘要和官网落点。',
+  },
+  {
+    key: 'service-banner',
+    name: '服务入口 Banner',
+    type: '图片 / 链接',
+    location: '服务与支持',
+    owner: '售后服务',
+    status: '模拟数据',
+    note: '用于模拟售后服务、保修注册和支持入口素材。',
+  },
+  {
+    key: 'footer-cert',
+    name: '页脚资质素材',
+    type: '证书 / Logo',
+    location: '全站页脚',
+    owner: '合规运营',
+    status: '模拟数据',
+    note: '用于模拟备案、授权、认证和 Powered by Rysnova 信息。',
+  },
+];
 
 function statusMeta(site: BrandSite) {
   if (site.deletedAt) return { label: '已归档', className: 'badge-grey' };
@@ -127,6 +209,25 @@ function fallbackSite(code: string): BrandSite {
   };
 }
 
+function assignmentItems(payload: unknown): WebsiteShelfAssignment[] {
+  const data = (payload as any)?.data ?? payload;
+  if (Array.isArray(data?.items)) return data.items;
+  if (Array.isArray(data)) return data;
+  return [];
+}
+
+function slugValue(value: string) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function rowTenantId(row: BrandProductRow) {
+  return String((row.raw as any)?.tenantId || (row.raw as any)?.tenant_id || '').trim();
+}
+
 export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string }) {
   const normalizedBrandCode = normalizeBrandCode(decodeMaybe(brandCode));
   const [data, setData] = useState<BrandProductConsoleData | null>(null);
@@ -143,7 +244,12 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
   const [imageActionId, setImageActionId] = useState('');
   const [actionFeedback, setActionFeedback] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
   const [rowFeedback, setRowFeedback] = useState<Record<string, { tone: 'success' | 'error'; text: string }>>({});
+  const [shelfAssignments, setShelfAssignments] = useState<WebsiteShelfAssignment[]>([]);
+  const [shelfLoading, setShelfLoading] = useState(false);
+  const [shelfError, setShelfError] = useState('');
+  const [shelfBusyProductId, setShelfBusyProductId] = useState('');
   const [showCreate, setShowCreate] = useState(false);
+  const [activeContentTab, setActiveContentTab] = useState<ContentTab>('products');
   const [createDraft, setCreateDraft] = useState<BrandProductEditDraft>(() => blankNewProductDraft(normalizedBrandCode));
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
@@ -156,13 +262,28 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
 
   const load = useCallback(async () => {
     setIsLoading(true);
+    setShelfLoading(true);
     setError('');
+    setShelfError('');
     try {
-      setData(await loadBrandProductConsoleData(normalizedBrandCode));
+      const nextData = await loadBrandProductConsoleData(normalizedBrandCode);
+      setData(nextData);
+      if (!nextData.site) {
+        setShelfAssignments([]);
+        return;
+      }
+      try {
+        const result = await siteProductAssignments.list(nextData.site.code || normalizedBrandCode);
+        setShelfAssignments(assignmentItems(result));
+      } catch (e) {
+        setShelfAssignments([]);
+        setShelfError((e as Error).message || '官网货架状态加载失败。');
+      }
     } catch (e) {
       setError((e as Error).message || '品牌官网产品数据加载失败。');
     } finally {
       setIsLoading(false);
+      setShelfLoading(false);
     }
   }, [normalizedBrandCode]);
 
@@ -198,7 +319,10 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
 
   const meta = statusMeta(site);
   const publishCapability = site.publishCapability || UNSUPPORTED_PUBLISH;
-  const url = displayUrl(site);
+  const environmentLinks = useMemo(
+    () => resolveBrandSiteEnvironmentLinks(data?.site || site, normalizedBrandCode),
+    [data?.site, normalizedBrandCode, site]
+  );
   const visibleProducts = useMemo(() => {
     const query = keyword.trim().toLowerCase();
     const rows = data?.products || [];
@@ -210,6 +334,13 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
         .includes(query)
     );
   }, [data, keyword]);
+  const assignmentByProductId = useMemo(() => {
+    const map = new Map<string, WebsiteShelfAssignment>();
+    for (const assignment of shelfAssignments) {
+      if (assignment.productId) map.set(assignment.productId, assignment);
+    }
+    return map;
+  }, [shelfAssignments]);
 
   const taxonomyCount = useMemo(() => {
     if (!data?.taxonomy) return 0;
@@ -339,6 +470,76 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
       setActionFeedback({ tone: 'error', text: (e as Error).message || '产品状态更新失败。' });
     } finally {
       setActionProductId('');
+    }
+  }
+
+  async function publishWebsiteShelf(row: BrandProductRow) {
+    if (!canWrite) return;
+    const siteCode = site.code || normalizedBrandCode;
+    const existing = assignmentByProductId.get(row.id);
+    setShelfBusyProductId(row.id);
+    setRowFeedback((current) => ({ ...current, [`${row.id}:shelf`]: { tone: 'success', text: '官网货架发布中...' } }));
+    try {
+      let assignmentId = existing?.id || '';
+      if (!assignmentId) {
+        const created = await siteProductAssignments.create(siteCode, {
+          productId: row.id,
+          productTenantId: rowTenantId(row),
+          publicSlug: slugValue(row.publicSlug || row.sku || row.id),
+          websiteCategory: row.websiteMenuCategory || row.category || null,
+          menuGroup: row.system || null,
+          displayOrder: row.sortOrder || 0,
+          isFeatured: false,
+          siteTitle: row.name || null,
+          siteSummary: row.category || null,
+        });
+        assignmentId = String(created?.id || '').trim();
+      }
+      if (!assignmentId) throw new Error('官网货架分配未返回 ID，无法发布。');
+      await siteProductAssignments.publish(siteCode, assignmentId);
+      await load();
+      setRowFeedback((current) => ({ ...current, [`${row.id}:shelf`]: { tone: 'success', text: '已上架到当前官网。' } }));
+      window.setTimeout(() => {
+        setRowFeedback((current) => {
+          const next = { ...current };
+          delete next[`${row.id}:shelf`];
+          return next;
+        });
+      }, 2400);
+    } catch (e) {
+      setRowFeedback((current) => ({
+        ...current,
+        [`${row.id}:shelf`]: { tone: 'error', text: (e as Error).message || '官网货架发布失败。' },
+      }));
+    } finally {
+      setShelfBusyProductId('');
+    }
+  }
+
+  async function hideWebsiteShelf(row: BrandProductRow) {
+    if (!canWrite) return;
+    const assignment = assignmentByProductId.get(row.id);
+    if (!assignment) return;
+    setShelfBusyProductId(row.id);
+    setRowFeedback((current) => ({ ...current, [`${row.id}:shelf`]: { tone: 'success', text: '官网货架隐藏中...' } }));
+    try {
+      await siteProductAssignments.hide(site.code || normalizedBrandCode, assignment.id);
+      await load();
+      setRowFeedback((current) => ({ ...current, [`${row.id}:shelf`]: { tone: 'success', text: '已从当前官网下架。' } }));
+      window.setTimeout(() => {
+        setRowFeedback((current) => {
+          const next = { ...current };
+          delete next[`${row.id}:shelf`];
+          return next;
+        });
+      }, 2400);
+    } catch (e) {
+      setRowFeedback((current) => ({
+        ...current,
+        [`${row.id}:shelf`]: { tone: 'error', text: (e as Error).message || '官网货架隐藏失败。' },
+      }));
+    } finally {
+      setShelfBusyProductId('');
     }
   }
 
@@ -498,16 +699,24 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
                 {site.deliveryType === 'self_hosted' ? '自建站' : '外部站'}
               </span>
             </SummaryItem>
-            <SummaryItem label="官网地址">
-              {url ? (
-                <a href={url} target="_blank" rel="noopener noreferrer">
-                  <span>{url}</span>
-                  <ExternalLink size={13} />
-                </a>
-              ) : (
-                <span className="muted-value">未配置</span>
-              )}
-            </SummaryItem>
+            {environmentLinks.map((environment) => (
+              <SummaryItem key={environment.key} label={environment.label}>
+                {environment.url ? (
+                  <a
+                    className="environment-link"
+                    href={environment.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`打开${environment.label}`}
+                  >
+                    <span>{environment.url}</span>
+                    <ExternalLink size={13} />
+                  </a>
+                ) : (
+                  <span className="muted-value">未配置</span>
+                )}
+              </SummaryItem>
+            ))}
             <SummaryItem label="应用标识">
               <span>{site.appKey || '未绑定'}</span>
             </SummaryItem>
@@ -549,10 +758,38 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           <div className="brand-product-head">
             <div>
               <p className="t-label">产品库</p>
-              <h2>{site.nameCn || site.nameEn || site.code} 官网产品</h2>
+              <div className="brand-product-title-row">
+                <h2>{site.nameCn || site.nameEn || site.code} 官网产品</h2>
+                <div className="brand-content-switch" aria-label="官网内容类型切换">
+                  <button
+                    type="button"
+                    className={activeContentTab === 'products' ? 'is-active' : undefined}
+                    aria-pressed={activeContentTab === 'products'}
+                    onClick={() => setActiveContentTab('products')}
+                  >
+                    产品
+                  </button>
+                  <button
+                    type="button"
+                    className={activeContentTab === 'materials' ? 'is-active' : undefined}
+                    aria-pressed={activeContentTab === 'materials'}
+                    onClick={() => setActiveContentTab('materials')}
+                  >
+                    其他素材
+                  </button>
+                </div>
+              </div>
             </div>
-            <span className="pill-brand">5000 原生适配器</span>
+            <div className="brand-product-head-actions">
+              <a className="btn btn-outline btn-sm" href={`/comfort/sites/${site.code}/library`}>
+                <PackagePlus size={13} />
+                官网上架设置
+              </a>
+              <span className="pill-brand">5000 原生适配器</span>
+            </div>
           </div>
+          {activeContentTab === 'products' ? (
+            <>
           <div className="brand-product-toolbar">
             <div className="brand-product-search">
               <Search size={15} />
@@ -564,6 +801,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
               />
             </div>
             <span className="pill-neutral">{data?.apiCalls.join(' · ')}</span>
+            {shelfError && <span className="row-feedback error">{shelfError}</span>}
           </div>
           {showCreate && canWrite && (
             <ProductCreatePanel
@@ -621,6 +859,10 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
                       savingStructured={savingStructuredId === product.id}
                       feedback={rowFeedback[product.id]}
                       structuredFeedback={rowFeedback[`${product.id}:structured`]}
+                      shelfAssignment={assignmentByProductId.get(product.id)}
+                      shelfLoading={shelfLoading}
+                      shelfBusy={shelfBusyProductId === product.id}
+                      shelfFeedback={rowFeedback[`${product.id}:shelf`]}
                       onChange={(patch) => updateDraft(product.id, patch)}
                       onStructuredChange={(patch) => updateStructuredDraft(product.id, patch)}
                       onSave={() => saveRow(product)}
@@ -633,6 +875,8 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
                       actionBusy={actionProductId === product.id}
                       onToggleStatus={() => toggleStatus(product)}
                       onArchive={() => archiveProduct(product)}
+                      onPublishShelf={() => publishWebsiteShelf(product)}
+                      onHideShelf={() => hideWebsiteShelf(product)}
                       imageBusy={imageActionId.startsWith(`${product.id}:`)}
                       onUploadMainImage={(file) => uploadMainImage(product, file)}
                       onDeleteMainImage={() => deleteMainImage(product)}
@@ -650,6 +894,10 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
               </tbody>
             </table>
           </div>
+            </>
+          ) : (
+            <SiteMaterialMockPanel />
+          )}
         </section>
       </div>
 
@@ -774,7 +1022,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
         }
         .brand-console-summary {
           display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
+          grid-template-columns: repeat(5, minmax(0, 1fr));
           overflow: hidden;
         }
         .summary-item {
@@ -855,6 +1103,42 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           font-size: 18px;
           line-height: 1.25;
         }
+        .brand-product-title-row,
+        .brand-product-head-actions {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+        .brand-content-switch {
+          display: inline-flex;
+          align-items: center;
+          gap: 2px;
+          padding: 2px;
+          border: 1px solid var(--border);
+          border-radius: var(--r-sm);
+          background: var(--surface-2);
+        }
+        .brand-content-switch button {
+          min-height: 28px;
+          padding: 0 10px;
+          border: 0;
+          border-radius: calc(var(--r-sm) - 2px);
+          color: var(--t-secondary);
+          background: transparent;
+          font-size: 12px;
+          font-weight: 800;
+          cursor: pointer;
+        }
+        .brand-content-switch button:hover {
+          color: var(--t-strong);
+          background: var(--surface-1);
+        }
+        .brand-content-switch button.is-active {
+          color: #fff;
+          background: var(--brand);
+          box-shadow: var(--sh-xs);
+        }
         .brand-product-toolbar {
           display: flex;
           align-items: center;
@@ -876,6 +1160,53 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
         }
         .brand-product-table {
           min-width: 1480px;
+        }
+        .site-material-panel {
+          display: grid;
+          gap: 14px;
+          padding: 16px;
+          border-top: 1px solid var(--border);
+          background: var(--surface-2);
+        }
+        .site-material-panel-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+        }
+        .site-material-panel-head h3 {
+          margin: 2px 0 0;
+          color: var(--t-strong);
+          font-size: 16px;
+        }
+        .site-material-grid {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 10px;
+        }
+        .site-material-item {
+          display: grid;
+          gap: 9px;
+          min-height: 132px;
+          padding: 14px;
+          border: 1px solid var(--border);
+          border-radius: var(--r-sm);
+          background: var(--surface-1);
+        }
+        .site-material-item strong {
+          color: var(--t-strong);
+          font-size: 14px;
+        }
+        .site-material-item span {
+          color: var(--t-secondary);
+          font-size: 12px;
+        }
+        .site-material-item-actions {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          margin-top: auto;
         }
         .brand-product-table tr.is-dirty td {
           background: rgba(78, 154, 61, 0.05);
@@ -913,6 +1244,22 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           display: grid;
           gap: 3px;
         }
+        .product-title-edit {
+          gap: 6px;
+        }
+        .product-title-edit-row {
+          min-width: 0;
+          display: grid;
+          grid-template-columns: 34px minmax(0, 1fr);
+          align-items: center;
+          gap: 6px;
+        }
+        .edit-field-caption {
+          color: var(--t-tertiary);
+          font-size: 11px;
+          font-weight: 800;
+          white-space: nowrap;
+        }
         .brand-product-main-cell strong {
           color: var(--t-primary);
           font-size: 13px;
@@ -929,6 +1276,8 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           min-width: 128px;
           padding: 5px 8px;
           font-size: 12px;
+          border-color: color-mix(in srgb, var(--border) 75%, var(--brand) 25%);
+          background: color-mix(in srgb, var(--surface-1) 92%, var(--brand-50) 8%);
         }
         .inline-edit-input.compact {
           min-width: 88px;
@@ -963,6 +1312,16 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
         }
         .product-status-actions .btn-danger {
           color: var(--danger);
+        }
+        .website-shelf-cell {
+          min-width: 118px;
+          display: grid;
+          gap: 6px;
+          align-items: start;
+        }
+        .website-shelf-cell .btn {
+          width: max-content;
+          white-space: nowrap;
         }
         .image-asset-cell {
           min-width: 240px;
@@ -1185,29 +1544,61 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
         .taxonomy-options {
           display: flex;
           align-items: center;
-          gap: 6px;
+          gap: 7px;
           flex-wrap: wrap;
         }
         .taxonomy-chip {
+          position: relative;
           display: inline-flex;
           align-items: center;
-          gap: 5px;
-          min-height: 24px;
-          padding: 2px 7px;
+          gap: 6px;
+          min-height: 28px;
+          padding: 4px 9px 4px 7px;
           border: 1px solid var(--border);
           border-radius: 999px;
-          color: var(--t-secondary);
-          background: var(--surface-2);
-          font-size: 11px;
+          color: var(--t-primary);
+          background: var(--surface-1);
+          box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+          font-size: 12px;
           font-weight: 700;
+          cursor: pointer;
+          transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease, color 0.16s ease;
+        }
+        .taxonomy-chip:hover {
+          border-color: var(--brand-100);
+          background: var(--brand-50);
         }
         .taxonomy-chip.selected {
           color: var(--brand);
           background: var(--brand-50);
-          border-color: var(--brand-100);
+          border-color: color-mix(in srgb, var(--brand) 42%, var(--brand-100));
+          box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 28%, transparent);
+        }
+        .taxonomy-chip.is-disabled {
+          cursor: default;
+          opacity: 0.78;
         }
         .taxonomy-chip input {
-          margin: 0;
+          position: absolute;
+          opacity: 0;
+          pointer-events: none;
+        }
+        .taxonomy-check {
+          width: 16px;
+          height: 16px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid var(--border);
+          border-radius: 50%;
+          color: transparent;
+          background: var(--surface-2);
+          flex: 0 0 auto;
+        }
+        .taxonomy-chip.selected .taxonomy-check {
+          color: #fff;
+          border-color: var(--brand);
+          background: var(--brand);
         }
         @media (max-width: 1100px) {
           .brand-console-hero,
@@ -1232,7 +1623,8 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           .brand-console-modules,
           .structured-grid,
           .structured-field-grid,
-          .taxonomy-grid {
+          .taxonomy-grid,
+          .site-material-grid {
             grid-template-columns: 1fr;
           }
           .summary-item,
@@ -1242,6 +1634,10 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           }
           .brand-product-toolbar {
             align-items: stretch;
+            flex-direction: column;
+          }
+          .brand-product-head {
+            align-items: flex-start;
             flex-direction: column;
           }
           .brand-product-search {
@@ -1260,6 +1656,37 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
   );
 }
 
+function SiteMaterialMockPanel() {
+  return (
+    <div className="site-material-panel" aria-label="其他官网素材">
+      <div className="site-material-panel-head">
+        <div>
+          <p className="t-label">其他素材</p>
+          <h3>官网非产品素材</h3>
+          <p>当前仅用于验证运营流程，未接入真实 DAM、生产素材库或官网发布流程。</p>
+        </div>
+        <span className="pill-neutral">当前为模拟数据</span>
+      </div>
+      <div className="site-material-grid">
+        {MOCK_SITE_MATERIALS.map((item) => (
+          <article className="site-material-item" key={item.key}>
+            <strong>{item.name}</strong>
+            <span>{item.type} · {item.location}</span>
+            <small>责任方：{item.owner}</small>
+            <p>{item.note}</p>
+            <div className="site-material-item-actions">
+              <span className="badge badge-grey">{item.status}</span>
+              <button type="button" className="btn btn-outline btn-sm" disabled title="真实 DAM 接入不在本次范围">
+                待接入
+              </button>
+            </div>
+          </article>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ProductRow({
   product,
   canWrite,
@@ -1271,6 +1698,10 @@ function ProductRow({
   savingStructured,
   feedback,
   structuredFeedback,
+  shelfAssignment,
+  shelfLoading,
+  shelfBusy,
+  shelfFeedback,
   onChange,
   onStructuredChange,
   onSave,
@@ -1281,6 +1712,8 @@ function ProductRow({
   actionBusy,
   onToggleStatus,
   onArchive,
+  onPublishShelf,
+  onHideShelf,
   imageBusy,
   onUploadMainImage,
   onDeleteMainImage,
@@ -1296,6 +1729,10 @@ function ProductRow({
   savingStructured: boolean;
   feedback?: { tone: 'success' | 'error'; text: string };
   structuredFeedback?: { tone: 'success' | 'error'; text: string };
+  shelfAssignment?: WebsiteShelfAssignment;
+  shelfLoading: boolean;
+  shelfBusy: boolean;
+  shelfFeedback?: { tone: 'success' | 'error'; text: string };
   onChange: (patch: Partial<BrandProductEditDraft>) => void;
   onStructuredChange: (patch: Partial<BrandStructuredContentDraft>) => void;
   onSave: () => void;
@@ -1306,6 +1743,8 @@ function ProductRow({
   actionBusy: boolean;
   onToggleStatus: () => void;
   onArchive: () => void;
+  onPublishShelf: () => void;
+  onHideShelf: () => void;
   imageBusy: boolean;
   onUploadMainImage: (file: File | null) => void;
   onDeleteMainImage: () => void;
@@ -1315,6 +1754,8 @@ function ProductRow({
   const structuredDirty =
     canWrite && isDirtyStructuredContentDraft(product, String(product.raw.brand || ''), structuredDraft);
   const status = productStatusMeta(product.status);
+  const shelfMeta = websiteShelfMeta(shelfAssignment?.status);
+  const canHideShelf = shelfAssignment?.status === 'published';
   return (
     <>
     <tr className={dirty || structuredDirty ? 'is-dirty' : undefined}>
@@ -1334,12 +1775,14 @@ function ProductRow({
       </td>
       <td>
         <div className="brand-product-main-cell">
+          <span className="edit-field-caption">名称</span>
           <EditableField
             canWrite={canWrite}
             value={draft.name}
             fallback="缺少名称"
             onChange={(name) => onChange({ ...draft, name })}
           />
+          <span className="edit-field-caption">型号</span>
           <EditableField
             canWrite={canWrite}
             value={draft.model}
@@ -1377,6 +1820,29 @@ function ProductRow({
         <span className={`badge ${status.className}`}>
           {status.label}
         </span>
+      </td>
+      <td>
+        <div className="website-shelf-cell">
+          <span className={`badge ${shelfMeta.className}`} data-testid={`website-shelf-status-${product.sku}`}>
+            {shelfMeta.label}
+          </span>
+          {canWrite ? (
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={canHideShelf ? onHideShelf : onPublishShelf}
+              disabled={shelfBusy || shelfLoading}
+              title={canHideShelf ? '从当前品牌官网隐藏' : '发布到当前品牌官网'}
+              data-testid={`website-shelf-action-${product.sku}`}
+            >
+              {canHideShelf ? <EyeOff size={13} /> : <Rocket size={13} />}
+              {canHideShelf ? '下架' : '上架'}
+            </button>
+          ) : (
+            <span className="muted-value">只读</span>
+          )}
+          {shelfFeedback && <span className={`row-feedback ${shelfFeedback.tone}`}>{shelfFeedback.text}</span>}
+        </div>
       </td>
       <td>
         <EditableField
@@ -1847,30 +2313,33 @@ function TaxonomyPicker({
 }: {
   label: string;
   canWrite: boolean;
-  options: string[];
+  options: TaxonomyOption[];
   selected: string[];
   onChange: (values: string[]) => void;
 }) {
-  const visibleOptions = options.length ? options : selected;
+  const visibleOptions = options.length ? options : selected.map((code) => ({ code, label: taxonomyDisplayLabel(code) }));
   return (
     <div className="taxonomy-picker">
       <strong>{label}</strong>
       <div className="taxonomy-options">
         {visibleOptions.length ? (
           visibleOptions.map((option) => {
-            const checked = selected.includes(option);
+            const checked = selected.includes(option.code);
             return (
-              <label className={checked ? 'taxonomy-chip selected' : 'taxonomy-chip'} key={option}>
+              <label className={`${checked ? 'taxonomy-chip selected' : 'taxonomy-chip'}${canWrite ? '' : ' is-disabled'}`} key={option.code}>
                 <input
                   type="checkbox"
                   checked={checked}
                   disabled={!canWrite}
                   onChange={(event) => {
-                    if (event.target.checked) onChange([...selected, option]);
-                    else onChange(selected.filter((item) => item !== option));
+                    if (event.target.checked) onChange([...selected, option.code]);
+                    else onChange(selected.filter((item) => item !== option.code));
                   }}
                 />
-                <span>{option}</span>
+                <span className="taxonomy-check" aria-hidden="true">
+                  <Check size={11} />
+                </span>
+                <span>{option.label}</span>
               </label>
             );
           })
@@ -1882,26 +2351,35 @@ function TaxonomyPicker({
   );
 }
 
-function taxonomyTermGroups(taxonomy: Record<string, unknown>): Record<string, string[]> {
+function taxonomyTermGroups(taxonomy: Record<string, unknown>): Record<string, TaxonomyOption[]> {
   const keys = ['targetSegments', 'channels', 'userPersonas', 'markets', 'applicationScenarios'];
-  return keys.reduce<Record<string, string[]>>((groups, key) => {
+  return keys.reduce<Record<string, TaxonomyOption[]>>((groups, key) => {
     groups[key] = taxonomyOptions(taxonomy[key]);
     return groups;
   }, {});
 }
 
-function taxonomyOptions(value: unknown): string[] {
+function taxonomyOptions(value: unknown): TaxonomyOption[] {
   if (!Array.isArray(value)) return [];
   return value
     .map((item) => {
-      if (typeof item === 'string') return item.trim();
+      if (typeof item === 'string') {
+        const code = item.trim();
+        return code ? { code, label: taxonomyDisplayLabel(code) } : null;
+      }
       if (item && typeof item === 'object') {
         const record = item as Record<string, unknown>;
-        return String(record.value || record.code || record.key || record.name || record.label || '').trim();
+        const code = String(record.code || record.value || record.key || record.name || record.label || '').trim();
+        const label = String(record.label || record.name || '').trim() || taxonomyDisplayLabel(code);
+        return code ? { code, label } : null;
       }
-      return '';
+      return null;
     })
-    .filter(Boolean);
+    .filter((option): option is TaxonomyOption => Boolean(option));
+}
+
+function taxonomyDisplayLabel(code: string) {
+  return TAXONOMY_LABELS[code] || code;
 }
 
 function taxonomyLabel(key: string) {
@@ -2023,6 +2501,13 @@ function productStatusMeta(status: string) {
   if (status === 'archived') return { label: '已归档', className: 'badge-grey' };
   return { label: '下架', className: 'badge-warning' };
 }
+
+function websiteShelfMeta(status?: AssignmentStatus) {
+  if (status === 'published') return { label: '已上架', className: 'badge-success' };
+  if (status === 'hidden') return { label: '已下架', className: 'badge-warning' };
+  return { label: '未上架', className: 'badge-grey' };
+}
+
 function ProductCreatePanel({
   draft,
   error,

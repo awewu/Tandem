@@ -81,7 +81,6 @@ function parseRheemListing(html, listingUrl, segment) {
       name,
       model: textOf(item.querySelector('.parameter')) || null,
       price: parsePrice(textOf(item.querySelector('.price'))),
-      imageUrls: [sameHostUrl(item.querySelector('img')?.getAttribute('src'), listingUrl)].filter(Boolean),
       raw: { segment },
     });
   }
@@ -93,9 +92,6 @@ function parseRheemDetail(html, sourceUrl) {
   const title = textOf(document.querySelector('.shopShow .fl .title'));
   const description = cleanText(document.querySelector('.shopShow .fl .text pre')?.textContent);
   const price = parsePrice(textOf(document.querySelector('.shopShow .fl .price')));
-  const imageUrls = [...document.querySelectorAll('.shopShow img, .detail img')]
-    .map((image) => sameHostUrl(image.getAttribute('src'), sourceUrl))
-    .filter(Boolean);
   const documents = [...document.querySelectorAll('.detailList2 .list > div')]
     .map((item) => ({
       name: textOf(item.querySelector('span')),
@@ -106,7 +102,6 @@ function parseRheemDetail(html, sourceUrl) {
     title: title || null,
     description: description || null,
     price,
-    imageUrls: [...new Set(imageUrls)],
     documents,
   };
 }
@@ -119,9 +114,6 @@ function parseRuudPage(html, sourceUrl, pageKey) {
 
   const highlights = [...root.querySelectorAll('.productInfo .right p span')]
     .map(textOf)
-    .filter(Boolean);
-  const imageUrls = [...root.querySelectorAll('.productInfo img, .content > p img')]
-    .map((image) => sameHostUrl(image.getAttribute('src'), sourceUrl))
     .filter(Boolean);
   const parameters = {};
   for (const row of root.querySelectorAll('.tables li')) {
@@ -145,7 +137,6 @@ function parseRuudPage(html, sourceUrl, pageKey) {
       model: parameters['型号']?.join(' / ') || null,
       description: highlights.join('；') || null,
       highlights,
-      imageUrls: [...new Set(imageUrls)],
       parameters,
       warnings,
       raw: { pageKey, tableName },
@@ -164,7 +155,6 @@ function parseEverhotList(payload, listingUrl) {
     name: cleanText(item.name),
     model: cleanText(item.model) || null,
     price: parsePrice(item.price),
-    imageUrls: [sameHostUrl(item.img, listingUrl)].filter(Boolean),
     raw: item,
   }));
 }
@@ -176,13 +166,9 @@ function parseEverhotDetail(html, sourceUrl) {
   const description = cleanText(
     root.querySelector('.text pre, .text, .product_text, .detailText')?.textContent
   );
-  const imageUrls = [...root.querySelectorAll('img')]
-    .map((image) => sameHostUrl(image.getAttribute('src'), sourceUrl))
-    .filter(Boolean);
   return {
     title: title || null,
     description: description || null,
-    imageUrls: [...new Set(imageUrls)],
   };
 }
 

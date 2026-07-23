@@ -80,7 +80,6 @@ function buildDto(product, tenantId, existing) {
         fetchedAt: product.meta.fetchedAt,
         importedAt: new Date().toISOString(),
         price: product.meta.price,
-        imageUrls: product.meta.imageUrls,
         documents: product.meta.documents,
         rawExtracted: product.meta.rawExtracted,
         dataQualityWarnings: product.meta.dataQualityWarnings,

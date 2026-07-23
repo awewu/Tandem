@@ -7,10 +7,11 @@ const API = process.env.NEXT_PUBLIC_API_URL || '';
 
 export async function apiFetch(path: string, opts: RequestInit = {}) {
   const token = typeof window !== 'undefined' ? (getToken() || localStorage.getItem('token')) : null;
+  const hasBody = opts.body !== undefined && opts.body !== null;
   const res = await fetch(`${API}${path}`, {
     credentials: 'include',
     headers: {
-      'Content-Type': 'application/json',
+      ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(opts.headers || {}),
     },
@@ -39,6 +40,7 @@ export const auth = {
   login: (phone: string, password: string) =>
     apiFetch('/api/v2/auth/login', { method: 'POST', body: JSON.stringify({ phone, password }) }),
   me: () => apiFetch('/api/v2/auth/me'),
+  logout: () => apiFetch('/api/v2/auth/logout', { method: 'POST' }),
 };
 
 // 管理员账号管理（后端 @Roles: platform_admin / hq_admin / dealer_admin）

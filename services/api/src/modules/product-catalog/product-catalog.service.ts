@@ -133,17 +133,18 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
       .replace(/^-+|-+$/g, '');
   }
 
-  private everhotMeta(product: ProductEntity): Record<string, any> {
-    const meta = (product.meta as any)?.everhot;
+  private brandMeta(product: ProductEntity): Record<string, any> {
+    const brand = String(product.brand || 'everhot').trim().toLowerCase();
+    const meta = (product.meta as any)?.[brand];
     return meta && typeof meta === 'object' && !Array.isArray(meta) ? meta : {};
   }
 
   private publicSlug(product: ProductEntity): string {
-    return this.normalizePublicSlug(this.everhotMeta(product).slug || product.sku);
+    return this.normalizePublicSlug(this.brandMeta(product).slug || product.sku);
   }
 
   private displayOrder(product: ProductEntity): number {
-    const n = Number(this.everhotMeta(product).displayOrder ?? 0);
+    const n = Number(this.brandMeta(product).displayOrder ?? 0);
     return Number.isInteger(n) && n >= 0 ? n : 0;
   }
 
@@ -205,7 +206,7 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
   }
 
   private publicProductProjection(product: ProductEntity, locale: string, content?: ProductContentEntity | null) {
-    const meta = this.everhotMeta(product);
+    const meta = this.brandMeta(product);
     const positioning = sanitizePositioning(product.positioning ?? EMPTY_POSITIONING);
     const imageRefs = this.publicImageRefs(product);
     const gallery = imageRefs.gallery.length ? imageRefs.gallery : this.publicGallery(meta.gallery);
@@ -217,6 +218,7 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
       displayOrder: this.displayOrder(product),
       model: meta.model || (product.spec as any)?.officialModel || product.sku,
       name: content?.name || meta.name || product.name,
+      websiteCategory: meta.websiteCategory || meta.websiteCategoryCode || meta.cat || product.category,
       cat: meta.cat || product.category,
       sys: meta.sys || '',
       series: meta.series || '',
@@ -251,15 +253,15 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
     excludeId?: string,
   ): Promise<void> {
     const slug = this.normalizePublicSlug(slugInput);
-    if (!slug) throw new BadRequestException('Everhot 产品 slug 必填');
+    if (!slug) throw new BadRequestException(`${brand} 产品 slug 必填`);
     const qb = repo
       .createQueryBuilder('p')
       .where('p.tenant_id = :tenantId', { tenantId })
       .andWhere('p.brand = :brand', { brand })
-      .andWhere("COALESCE(NULLIF(p.meta->'everhot'->>'slug', ''), p.sku) = :slug", { slug });
+      .andWhere("COALESCE(NULLIF(p.meta -> :brand ->> 'slug', ''), p.sku) = :slug", { slug, brand });
     if (excludeId) qb.andWhere('p.id <> :excludeId', { excludeId });
     const conflict = await qb.getOne();
-    if (conflict) throw new BadRequestException(`Everhot 产品 slug 已存在：${slug}`);
+    if (conflict) throw new BadRequestException(`${brand} 产品 slug 已存在：${slug}`);
   }
 
   async list(query: Record<string, unknown>) {
@@ -274,7 +276,7 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
       else qb.andWhere("p.status <> 'archived'");
       if (query.q) {
         qb.andWhere(
-          "(p.name ILIKE :q OR p.sku ILIKE :q OR p.brand ILIKE :q OR COALESCE(p.spec->>'officialModel', '') ILIKE :q OR COALESCE(p.meta->'everhot'->>'slug', '') ILIKE :q OR COALESCE(p.meta->'everhot'->>'series', '') ILIKE :q OR COALESCE(p.meta->'everhot'->>'tagline', '') ILIKE :q)",
+          "(p.name ILIKE :q OR p.sku ILIKE :q OR p.brand ILIKE :q OR COALESCE(p.spec->>'officialModel', '') ILIKE :q OR COALESCE(p.meta -> p.brand ->> 'slug', '') ILIKE :q OR COALESCE(p.meta -> p.brand ->> 'series', '') ILIKE :q OR COALESCE(p.meta -> p.brand ->> 'tagline', '') ILIKE :q)",
           { q: `%${String(query.q).trim()}%` },
         );
       }
@@ -285,7 +287,7 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
       });
       qb
         .orderBy(
-          "CASE WHEN p.meta->'everhot'->>'displayOrder' ~ '^[0-9]+$' THEN (p.meta->'everhot'->>'displayOrder')::int ELSE 0 END",
+          "CASE WHEN p.meta -> p.brand ->> 'displayOrder' ~ '^[0-9]+$' THEN (p.meta -> p.brand ->> 'displayOrder')::int ELSE 0 END",
           'ASC',
         )
         .addOrderBy('p.name', 'ASC')
@@ -465,7 +467,7 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
       }
       patch.brand = tenantBrand;
       const base = { ...(existing ?? {}), ...patch };
-      await this.assertBrandSlugUnique(repo, tenantId, tenantBrand, (base.meta as any)?.everhot?.slug || base.sku, existing?.id);
+      await this.assertBrandSlugUnique(repo, tenantId, tenantBrand, (base.meta as any)?.[tenantBrand]?.slug || base.sku, existing?.id);
       // MDM-lite product_key（P4）：缺失时自动回填（新行/历史行均覆盖），显式传入优先。
       if (!base.productKey && base.name) base.productKey = computeProductKey(base.name, base.category);
       const saved = await repo.save(repo.create(base));
@@ -500,7 +502,7 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
         repo,
         tenantId,
         String(before.brand || ''),
-        (patch.meta as any)?.everhot?.slug || this.publicSlug(before),
+        (patch.meta as any)?.[String(before.brand || '')]?.slug || this.publicSlug(before),
         before.id,
       );
       const saved = await repo.save(repo.create({ ...before, ...patch, id, tenantId, sku: before.sku, brand: before.brand }));
@@ -887,7 +889,7 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
             .where('p.tenant_id = :tenantId', { tenantId })
             .andWhere('p.brand = :brand', { brand })
             .andWhere('p.status = :status', { status: 'active' })
-            .andWhere("(p.sku = :sku OR COALESCE(NULLIF(p.meta->'everhot'->>'slug', ''), p.sku) = :slug)", { sku, slug })
+            .andWhere("(p.sku = :sku OR COALESCE(NULLIF(p.meta -> :brand ->> 'slug', ''), p.sku) = :slug)", { sku, slug, brand })
             .getOne();
           if (!product) return { success: true, data: null };
           const content = await this.fetchContentForLocale(manager, tenantId, product.id, locale);
@@ -903,7 +905,7 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
       .where('p.tenant_id = :tenantId', { tenantId })
       .andWhere('p.brand = :brand', { brand })
       .andWhere('p.status = :status', { status: 'active' })
-      .andWhere("(p.sku = :sku OR COALESCE(NULLIF(p.meta->'everhot'->>'slug', ''), p.sku) = :slug)", { sku, slug })
+      .andWhere("(p.sku = :sku OR COALESCE(NULLIF(p.meta -> :brand ->> 'slug', ''), p.sku) = :slug)", { sku, slug, brand })
       .getOne();
     if (!product) return { success: true, data: null };
     return { success: true, data: this.projectLocalized(product, null, locale) };
@@ -917,7 +919,7 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
       .where('p.tenant_id = :tenantId', { tenantId })
       .andWhere('p.brand = :brand', { brand })
       .andWhere('p.status = :status', { status: 'active' })
-      .andWhere("(p.sku = :sku OR COALESCE(NULLIF(p.meta->'everhot'->>'slug', ''), p.sku) = :slug)", { sku, slug })
+      .andWhere("(p.sku = :sku OR COALESCE(NULLIF(p.meta -> :brand ->> 'slug', ''), p.sku) = :slug)", { sku, slug, brand })
       .getOne();
     const product = ProductCatalogService.UUID_RE.test(tenantId)
       ? await withRlsTransaction(this.ds, (manager) => findProduct(manager.getRepository(ProductEntity)), { tenantId } as TenantScope)

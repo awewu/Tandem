@@ -25,12 +25,12 @@ test('preserves Ruud parameter-table conflicts as warnings', () => {
   assert.deepEqual(product.parameters['名称'], ['水控中心']);
 });
 
-test('excludes off-domain assets from official product details', () => {
+test('does not keep image URLs from official product details', () => {
   const detail = parseRheemDetail(
     '<div class="shopShow"><img src="/official.jpg"><div class="fl"><div class="title">产品</div></div></div><div class="detail"><img src="https://vendor.example/qr.png"></div>',
     'https://rheem.com.cn/product/9/91.html'
   );
-  assert.deepEqual(detail.imageUrls, ['https://rheem.com.cn/official.jpg']);
+  assert.equal('imageUrls' in detail, false);
 });
 
 test('parses Everhot public API records and price ranges', () => {

@@ -80,7 +80,7 @@ const CLUSTERS: Cluster[] = [
     modules: [
       { key: 'accounts', app: 'dealer', name: '账号管理', desc: '后台开户 · 角色权限 · 停用启用 · 重置密码', port: WORKBENCH_PORTS.dealer, path: '/accounts', color: '#4E9A3D',
         roles: ['platform_admin', 'hq_admin', 'dealer_admin'],
-        features: [{ label: '账号列表', path: '/accounts' }, { label: '新建账号', path: '/accounts' }] },
+        features: [{ label: '账号列表', path: '/accounts' }, { label: '角色分配', path: '/accounts' }] },
     ],
   },
 ];

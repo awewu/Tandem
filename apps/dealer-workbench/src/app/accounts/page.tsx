@@ -27,6 +27,11 @@ const STATUS_LABEL: Record<string, string> = { active: '正常', inactive: '停�
 const STATUS_COLOR: Record<string, string> = { active: '#16a34a', inactive: '#9ca3af', suspended: '#dc2626' };
 
 const BRAND_ADMINS = ['platform_admin', 'hq_admin'];
+const PHONE_PATTERN = /^1[3-9]\d{9}$/;
+
+function displayPhone(user: AdminUser) {
+  return user.identifierMasked && user.identifierMasked !== '***' ? user.identifierMasked : '未绑定手机号';
+}
 
 export default function AccountsPage() {
   const [role, setRole] = useState<string | null>(null);
@@ -40,6 +45,7 @@ export default function AccountsPage() {
   const [fStatus, setFStatus] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [resetFor, setResetFor] = useState<AdminUser | null>(null);
+  const [editRoleFor, setEditRoleFor] = useState<AdminUser | null>(null);
 
   const manageableRoles = role && BRAND_ADMINS.includes(role) ? ALL_ROLES : DEALER_ROLES;
 
@@ -122,7 +128,7 @@ export default function AccountsPage() {
       <main style={{ maxWidth: 1160, margin: '0 auto', padding: '24px 32px' }}>
         {/* 筛选 */}
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
-          <input value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && load()} placeholder="搜索姓名 / 标识" style={{ ...input, width: 220 }} />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && load()} placeholder="搜索姓名 / 手机号" style={{ ...input, width: 220 }} />
           <select value={fRole} onChange={(e) => setFRole(e.target.value)} style={input}>
             <option value="">全部角色</option>
             {ALL_ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
@@ -143,7 +149,7 @@ export default function AccountsPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5 }}>
             <thead>
               <tr style={{ background: '#F0F3EE', textAlign: 'left', color: '#4b5563' }}>
-                <th style={th}>姓名</th><th style={th}>标识</th><th style={th}>角色</th><th style={th}>状态</th><th style={th}>最近登录</th><th style={th}>操作</th>
+                <th style={th}>姓名</th><th style={th}>手机号</th><th style={th}>角色</th><th style={th}>状态</th><th style={th}>最近登录</th><th style={th}>操作</th>
               </tr>
             </thead>
             <tbody>
@@ -154,12 +160,9 @@ export default function AccountsPage() {
               ) : users.map((u) => (
                 <tr key={u.id} style={{ borderTop: '1px solid #f0f0f0' }}>
                   <td style={td}>{u.name}{u.isLocked && <span style={{ marginLeft: 6, fontSize: 11, color: '#dc2626' }}>🔒锁定</span>}</td>
-                  <td style={{ ...td, fontFamily: 'monospace', color: '#6b7280' }}>{u.identifierMasked}</td>
+                  <td style={{ ...td, fontFamily: 'monospace', color: '#6b7280' }}>{displayPhone(u)}</td>
                   <td style={td}>
-                    <select value={u.role} onChange={(e) => updateUser(u, { role: e.target.value })} style={{ ...input, padding: '4px 8px', fontSize: 12.5 }}>
-                      {manageableRoles.includes(u.role) ? null : <option value={u.role}>{ROLE_LABEL[u.role] || u.role}</option>}
-                      {manageableRoles.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
-                    </select>
+                    <span style={roleBadge}>{ROLE_LABEL[u.role] || u.role}</span>
                   </td>
                   <td style={td}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -172,10 +175,14 @@ export default function AccountsPage() {
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       {u.status === 'active'
                         ? <button onClick={() => updateUser(u, { status: 'inactive' })} style={btnMini}>停用</button>
-                        : <button onClick={() => updateUser(u, { status: 'active' })} style={{ ...btnMini, color: '#16a34a', borderColor: '#16a34a' }}>启用</button>}
+                        : null}
+                      {u.status === 'inactive'
+                        ? <button onClick={() => updateUser(u, { status: 'active' })} style={{ ...btnMini, color: '#16a34a', borderColor: '#16a34a' }}>启用</button>
+                        : null}
                       {u.status !== 'suspended'
                         ? <button onClick={() => updateUser(u, { status: 'suspended' })} style={{ ...btnMini, color: '#dc2626', borderColor: '#fca5a5' }}>封禁</button>
-                        : null}
+                        : <button onClick={() => updateUser(u, { status: 'active' })} style={{ ...btnMini, color: '#16a34a', borderColor: '#16a34a' }}>解除封禁</button>}
+                      <button onClick={() => setEditRoleFor(u)} style={btnMini}>修改角色</button>
                       <button onClick={() => setResetFor(u)} style={btnMini}>重置密码</button>
                     </div>
                   </td>
@@ -187,23 +194,26 @@ export default function AccountsPage() {
       </main>
 
       {showCreate && <CreateModal roles={manageableRoles} onClose={() => setShowCreate(false)} onDone={() => { setShowCreate(false); flash('账号已创建'); load(); }} onError={setErr} />}
+      {editRoleFor && <RoleModal user={editRoleFor} roles={manageableRoles} onClose={() => setEditRoleFor(null)} onDone={() => { setEditRoleFor(null); flash('角色已更新'); load(); }} onError={setErr} />}
       {resetFor && <ResetModal user={resetFor} onClose={() => setResetFor(null)} onDone={() => { setResetFor(null); flash('密码已重置'); }} onError={setErr} />}
     </div>
   );
 }
 
 function CreateModal({ roles, onClose, onDone, onError }: { roles: string[]; onClose: () => void; onDone: () => void; onError: (m: string) => void }) {
-  const [identifier, setIdentifier] = useState('');
+  const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [r, setR] = useState(roles[0] || 'sales');
   const [busy, setBusy] = useState(false);
-  const isBrandRole = ['platform_admin', 'hq_admin', 'brand_admin', 'regional_manager'].includes(r);
 
   async function submit() {
-    if (!identifier || !password) { onError('账号与密码必填'); return; }
+    if (!PHONE_PATTERN.test(phone)) { onError('请输入正确的手机号'); return; }
+    if (!name.trim()) { onError('姓名必填'); return; }
+    if (!r) { onError('请选择角色'); return; }
+    if (password.length < 8) { onError('初始密码至少8位'); return; }
     setBusy(true); onError('');
-    try { await adminUsers.create({ identifier, name, password, role: r }); onDone(); }
+    try { await adminUsers.create({ identifier: phone, phone, name, password, role: r }); onDone(); }
     catch (e) { onError((e as Error).message || '创建失败'); }
     finally { setBusy(false); }
   }
@@ -211,8 +221,8 @@ function CreateModal({ roles, onClose, onDone, onError }: { roles: string[]; onC
   return (
     <Overlay onClose={onClose}>
       <h3 style={{ margin: '0 0 16px', fontSize: 17, fontWeight: 800 }}>新建账号</h3>
-      <Field label={isBrandRole ? '企业邮箱（品牌员工须用 @rhautt.com/.local）' : '手机号 / 邮箱'}>
-        <input value={identifier} onChange={(e) => setIdentifier(e.target.value)} placeholder={isBrandRole ? 'name@rhautt.com' : '手机号或邮箱'} style={input} autoFocus />
+      <Field label="手机号">
+        <input value={phone} onChange={(e) => setPhone(e.target.value.trim())} placeholder="请输入手机号" style={input} autoFocus />
       </Field>
       <Field label="姓名"><input value={name} onChange={(e) => setName(e.target.value)} placeholder="显示名称" style={input} /></Field>
       <Field label="角色">
@@ -224,6 +234,35 @@ function CreateModal({ roles, onClose, onDone, onError }: { roles: string[]; onC
       <div style={{ display: 'flex', gap: 10, marginTop: 18, justifyContent: 'flex-end' }}>
         <button onClick={onClose} style={btnGhost}>取消</button>
         <button onClick={submit} disabled={busy} style={btnPrimary}>{busy ? '创建中…' : '创建'}</button>
+      </div>
+    </Overlay>
+  );
+}
+
+function RoleModal({ user, roles, onClose, onDone, onError }: { user: AdminUser; roles: string[]; onClose: () => void; onDone: () => void; onError: (m: string) => void }) {
+  const [r, setR] = useState(user.role);
+  const [busy, setBusy] = useState(false);
+  const allowedRoles = roles.includes(user.role) ? roles : [user.role, ...roles];
+
+  async function submit() {
+    setBusy(true); onError('');
+    try { await adminUsers.update(user.id, { role: r }); onDone(); }
+    catch (e) { onError((e as Error).message || '角色更新失败'); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <Overlay onClose={onClose}>
+      <h3 style={{ margin: '0 0 8px', fontSize: 17, fontWeight: 800 }}>修改角色</h3>
+      <p style={{ margin: '0 0 16px', fontSize: 13, color: '#6b7280' }}>账号：{user.name}（{displayPhone(user)}）</p>
+      <Field label="角色">
+        <select value={r} onChange={(e) => setR(e.target.value)} style={input}>
+          {allowedRoles.map((x) => <option key={x} value={x}>{ROLE_LABEL[x] || x}</option>)}
+        </select>
+      </Field>
+      <div style={{ display: 'flex', gap: 10, marginTop: 18, justifyContent: 'flex-end' }}>
+        <button onClick={onClose} style={btnGhost}>取消</button>
+        <button onClick={submit} disabled={busy || r === user.role} style={{ ...btnPrimary, opacity: busy || r === user.role ? 0.6 : 1 }}>{busy ? '保存中…' : '确认保存'}</button>
       </div>
     </Overlay>
   );
@@ -242,7 +281,7 @@ function ResetModal({ user, onClose, onDone, onError }: { user: AdminUser; onClo
   return (
     <Overlay onClose={onClose}>
       <h3 style={{ margin: '0 0 8px', fontSize: 17, fontWeight: 800 }}>重置密码</h3>
-      <p style={{ margin: '0 0 16px', fontSize: 13, color: '#6b7280' }}>为「{user.name}」（{user.identifierMasked}）设置新密码。</p>
+      <p style={{ margin: '0 0 16px', fontSize: 13, color: '#6b7280' }}>为「{user.name}」（{displayPhone(user)}）设置新密码。</p>
       <Field label="新密码（≥8位）"><input type="text" value={pwd} onChange={(e) => setPwd(e.target.value)} placeholder="至少8位" style={input} autoFocus /></Field>
       <div style={{ display: 'flex', gap: 10, marginTop: 18, justifyContent: 'flex-end' }}>
         <button onClick={onClose} style={btnGhost}>取消</button>
@@ -272,6 +311,7 @@ function Center({ children }: { children: React.ReactNode }) {
 const input: React.CSSProperties = { border: '1px solid #d1d5db', borderRadius: 8, padding: '8px 12px', fontSize: 13.5, background: '#fff', color: '#111', outline: 'none' };
 const th: React.CSSProperties = { padding: '12px 16px', fontWeight: 600, fontSize: 12.5 };
 const td: React.CSSProperties = { padding: '11px 16px', verticalAlign: 'middle' };
+const roleBadge: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', minHeight: 28, border: '1px solid #d1d5db', borderRadius: 8, padding: '4px 10px', fontSize: 12.5, background: '#fff' };
 const btnPrimary: React.CSSProperties = { background: '#4E9A3D', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 16px', fontSize: 13.5, fontWeight: 700, cursor: 'pointer' };
 const btnGhost: React.CSSProperties = { background: '#fff', color: '#374151', border: '1px solid #d1d5db', borderRadius: 8, padding: '8px 14px', fontSize: 13.5, cursor: 'pointer' };
 const btnMini: React.CSSProperties = { background: '#fff', color: '#374151', border: '1px solid #d1d5db', borderRadius: 6, padding: '4px 10px', fontSize: 12, cursor: 'pointer' };

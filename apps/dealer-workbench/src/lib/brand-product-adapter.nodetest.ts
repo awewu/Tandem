@@ -9,6 +9,7 @@ import {
   draftFromProductRow,
   isDirtyStructuredContentDraft,
   isDirtyProductDraft,
+  resolveBrandSiteEnvironmentLinks,
   structuredDraftFromProductRow,
   type BrandProductRow,
 } from './brand-product-adapter';
@@ -134,6 +135,30 @@ test('brand product writes fail closed for read-only sessions', () => {
   assert.equal(canWriteBrandProducts({ role: 'sales', permissions: [] }), false);
   assert.equal(canWriteBrandProducts({ role: 'brand_admin', permissions: [] }), true);
   assert.equal(canWriteBrandProducts({ role: 'viewer', permissions: ['product-catalog:write'] }), true);
+});
+
+test('brand site environment links use exact labels and Everhot local fallback', () => {
+  const links = resolveBrandSiteEnvironmentLinks(
+    { code: 'everhot', developmentUrl: null, productionUrl: 'https://www.everhot.com.cn' },
+    'everhot'
+  );
+
+  assert.deepEqual(
+    links.map((link) => link.label),
+    ['测试环境', '生产环境']
+  );
+  assert.equal(links.find((link) => link.key === 'testing')?.url, 'http://localhost:5011/');
+  assert.equal(links.find((link) => link.key === 'production')?.url, 'https://www.everhot.com.cn/');
+});
+
+test('brand site environment links prefer current site development URL over fallback', () => {
+  const links = resolveBrandSiteEnvironmentLinks(
+    { code: 'rheem', developmentUrl: 'http://localhost:5999', productionUrl: null },
+    'rheem'
+  );
+
+  assert.equal(links.find((link) => link.key === 'testing')?.url, 'http://localhost:5999/');
+  assert.equal(links.find((link) => link.key === 'production')?.url, 'https://www.rheem.com.cn/');
 });
 
 test('structured website content payload edits rich fields and preserves unrelated metadata shape', () => {

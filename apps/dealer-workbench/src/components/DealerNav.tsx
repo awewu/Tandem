@@ -2,9 +2,18 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ChevronLeft, ChevronRight, Package, Megaphone, UsersRound } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  LogOut,
+  Megaphone,
+  Package,
+  UserRound,
+  UsersRound,
+} from 'lucide-react';
+import { clearToken } from '@rhautt/shared-auth';
 import { WORKBENCH_NAV, navItemForPath } from '../lib/workbench-navigation';
-import { brandSites } from '../lib/api';
+import { auth, brandSites } from '../lib/api';
 
 const MOBILE = [
   { href: '/products', label: '产品', icon: Package },
@@ -22,11 +31,45 @@ type BrandSiteNavItem = {
   deletedAt: string | null;
 };
 
+type AccountProfile = {
+  name?: string;
+  email?: string;
+  phone?: string;
+  identifier?: string;
+  role?: string;
+};
+
+const ROLE_LABEL: Record<string, string> = {
+  brand_admin: '品牌管理员',
+  platform_admin: '平台超管',
+  hq_admin: '总部管理员',
+  regional_manager: '区域经理',
+  dealer_admin: '经销商管理员',
+  store_manager: '门店经理',
+  designer: '设计师',
+  sales: '销售',
+  engineer: '工程师',
+  installer: '安装工',
+  customer: '客户',
+};
+
+function readCachedProfile(): AccountProfile | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const cached = localStorage.getItem('user');
+    return cached ? JSON.parse(cached) : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function DealerNav() {
   const path = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [search, setSearch] = useState('');
   const [siteNavItems, setSiteNavItems] = useState<BrandSiteNavItem[]>([]);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [profile, setProfile] = useState<AccountProfile | null>(null);
   const activeItem = navItemForPath(path);
   const currentHref = `${path || ''}${search}`;
 
@@ -34,7 +77,36 @@ export default function DealerNav() {
     const stored = localStorage.getItem('rhautt-subnav-collapsed');
     if (stored) setCollapsed(stored === 'true');
     setSearch(window.location.search);
+  }, [path]);
+
+  useEffect(() => {
+    const cached = readCachedProfile();
+    if (cached) setProfile(cached);
+
+    let cancelled = false;
+    auth.me()
+      .then((me) => {
+        if (cancelled) return;
+        setProfile(me);
+        localStorage.setItem('user', JSON.stringify(me));
+      })
+      .catch(() => {
+        if (!cancelled && !cached) setProfile(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  useEffect(() => {
+    if (!accountOpen) return;
+    const close = (event: MouseEvent) => {
+      if (!(event.target as Element | null)?.closest('.account-menu-wrap')) setAccountOpen(false);
+    };
+    window.addEventListener('click', close);
+    return () => window.removeEventListener('click', close);
+  }, [accountOpen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -77,9 +149,31 @@ export default function DealerNav() {
 
   function isChildSelected(href: string) {
     const childPath = href.split('?')[0];
-    if (href === '/products?module=catalog' && path === '/products' && !search) return true;
+    if (childPath === '/products' && path === '/products') {
+      const childModule = new URLSearchParams(href.split('?')[1] || '').get('module') || 'catalog';
+      return (new URLSearchParams(search).get('module') || 'catalog') === childModule;
+    }
     return href.includes('?') ? currentHref === href : path === childPath;
   }
+
+  function rememberChildSearch(href: string) {
+    if (typeof window === 'undefined') return;
+    setSearch(new URL(href, window.location.href).search);
+  }
+
+  async function logout() {
+    await auth.logout().catch(() => {});
+    await fetch('/api/session/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
+    clearToken();
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '/';
+  }
+
+  const accountName = profile?.name || '未命名账户';
+  const accountContact = profile?.email || profile?.phone || profile?.identifier || '未绑定联系方式';
+  const roleLabel = (profile?.role && ROLE_LABEL[profile.role]) || profile?.role || '未分配角色';
+  const initials = accountName.trim().slice(0, 1).toUpperCase() || 'U';
 
   const activeChildren =
     activeItem.key === 'brand-sites'
@@ -151,9 +245,37 @@ export default function DealerNav() {
           {items}
         </nav>
 
-        {/* Version dot */}
-        <div style={{ padding: '12px 0', fontSize: 9, color: 'rgba(255,255,255,0.2)', textAlign: 'center' }}>
-          v2
+        <div className="account-menu-wrap">
+          {accountOpen && (
+            <div className="account-menu" role="menu" aria-label="账户菜单">
+              <div className="account-menu-profile">
+                <div className="account-menu-name">{accountName}</div>
+                <div className="account-menu-contact">{accountContact}</div>
+                <div className="account-menu-role">{roleLabel}</div>
+              </div>
+
+              <div className="account-menu-actions">
+                <button type="button" role="menuitem" onClick={logout}>
+                  <LogOut size={15} />
+                  <span>退出登录</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          <button
+            type="button"
+            className="account-trigger"
+            aria-label="展开账户菜单"
+            aria-expanded={accountOpen}
+            onClick={(event) => {
+              event.stopPropagation();
+              setAccountOpen((open) => !open);
+            }}
+          >
+            {profile ? initials : <UserRound size={17} />}
+          </button>
+          <div className="account-version">v2</div>
         </div>
       </aside>
 
@@ -185,6 +307,7 @@ export default function DealerNav() {
                     href={child.href}
                     title={child.label}
                     className={selected ? 'is-active' : undefined}
+                    onClick={() => rememberChildSearch(child.href)}
                   >
                     <ChildIcon size={16} strokeWidth={selected ? 2.3 : 1.8} />
                     <span>{child.label}</span>
@@ -208,6 +331,7 @@ export default function DealerNav() {
                   title={child.label}
                   aria-label={child.label}
                   className={selected ? 'is-active' : undefined}
+                  onClick={() => rememberChildSearch(child.href)}
                 >
                   <ChildIcon size={17} strokeWidth={selected ? 2.4 : 1.8} />
                 </Link>

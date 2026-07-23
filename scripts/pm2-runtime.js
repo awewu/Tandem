@@ -22,12 +22,9 @@ const commandArgs = {
     'dealer-workbench-dev',
     'consumer-diagnosis-dev',
     'customer-portal-dev',
-    'designer-workbench-dev',
-    'rysnova-bim-workbench-dev',
     'public-portal-dev',
     'nexus-console-dev',
     'brand-console-dev',
-    'product-catalog-dev',
   ],
 };
 

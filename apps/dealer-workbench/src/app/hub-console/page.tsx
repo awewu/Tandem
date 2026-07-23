@@ -142,7 +142,7 @@ const CLUSTERS: ConsoleCluster[] = [
         icon: ShieldCheck,
         children: [
           { key: 'list', label: '账号列表', path: '/accounts' },
-          { key: 'create', label: '新建账号', path: '/accounts' },
+          { key: 'role-assignment', label: '角色分配', path: '/accounts' },
         ],
       },
     ],

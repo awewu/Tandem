@@ -57,15 +57,24 @@ async function main() {
          AND COALESCE(meta->'officialSource'->>'sourceDomain', '') NOT IN
              ('rheem.com.cn', 'ruud.com.cn', 'everhot.com.cn')
     `);
+    const { rows: productsWithImageUrls } = await client.query(`
+      SELECT sku
+        FROM rhautt_nexus.products
+       WHERE sku ~ '^(RHEEM|RUUD|EVERHOT)-CN-'
+         AND meta->'officialSource' ? 'imageUrls'
+    `);
     const total = summary.reduce((sum, row) => sum + row.products, 0);
     const verified = summary.reduce((sum, row) => sum + row.with_official_source, 0);
+    const active = summary.reduce((sum, row) => sum + row.active, 0);
     const result = {
       verifiedAt: new Date().toISOString(),
       total,
       summary,
       duplicateTenantSkus: duplicates,
       invalidSources,
-      passed: total === 69 && verified === 69 && duplicates.length === 0 && invalidSources.length === 0,
+      productsWithImageUrls,
+      passed: total === 69 && active === 69 && verified === 69
+        && duplicates.length === 0 && invalidSources.length === 0 && productsWithImageUrls.length === 0,
     };
     fs.writeFileSync(RESULT_PATH, `${JSON.stringify(result, null, 2)}\n`, 'utf8');
     console.log(JSON.stringify(result, null, 2));

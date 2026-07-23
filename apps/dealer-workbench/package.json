@@ -8,7 +8,8 @@
     "dev": "node scripts/dev-logged.js",
     "dev:raw": "next dev --port 5000 --webpack",
     "build": "next build --webpack",
-    "start": "next start --port 5000"
+    "start": "next start --port 5000",
+    "smoke:local-5011:e2e": "node scripts/smoke-local-5011-e2e.js"
   },
   "dependencies": {
     "@rhautt/shared-auth": "workspace:*",

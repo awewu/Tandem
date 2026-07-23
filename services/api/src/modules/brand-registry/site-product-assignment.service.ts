@@ -6,12 +6,18 @@ import { DataSource, EntityManager } from 'typeorm';
 import type { JwtPayload } from '../auth/auth.service';
 import { withRlsTransaction } from '../common/rls';
 import { AuditLogEntity } from '../governance/governance.entity';
-import { ProductEntity } from '../product-catalog/product-catalog.entity';
 import { ProductCatalogService } from '../product-catalog/product-catalog.service';
 import { BrandSiteEntity, SiteProductAssignmentEntity } from './brand-site.entity';
 
 const CODE_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const BRAND_SITE_CODES: readonly string[] = ['rheem', 'ruud', 'everhot'];
+const GROUP_SITE_CODE = 'rhautt-group';
+const SUPPORTED_ASSIGNMENT_BRANDS = BRAND_SITE_CODES;
+const PRODUCT_IMAGE_PLACEHOLDER = {
+  role: 'placeholder',
+  url: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360"%3E%3Crect width="640" height="360" fill="%23f4f6f8"/%3E%3Cpath d="M238 212h164l-50-62-42 46-28-30-44 46Z" fill="%23ccd3da"/%3E%3Ccircle cx="250" cy="135" r="18" fill="%23ccd3da"/%3E%3C/svg%3E',
+};
 
 export interface SiteProductAssignmentInput {
   productId?: string;
@@ -43,6 +49,84 @@ export function resolvePublicSiteTenant(siteCode: string): string | undefined {
   return process.env[`SITE_${key}_TENANT_ID`] || process.env[`${key}_TENANT_ID`];
 }
 
+export function assertSiteProductBrandAllowed(siteCodeInput: unknown, productBrandInput: unknown) {
+  const siteCode = normalizeSiteCode(siteCodeInput);
+  const productBrand = String(productBrandInput || '').trim().toLowerCase();
+  if (BRAND_SITE_CODES.includes(siteCode) && productBrand !== siteCode) {
+    throw new BadRequestException(`Invalid site/product brand combination: ${siteCode} site only accepts ${siteCode} products`);
+  }
+  if (siteCode === GROUP_SITE_CODE && !SUPPORTED_ASSIGNMENT_BRANDS.includes(productBrand)) {
+    throw new BadRequestException(`Invalid site/product brand combination: ${GROUP_SITE_CODE} only accepts rheem, ruud, or everhot products`);
+  }
+}
+
+function text(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function record(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function positiveInteger(value: unknown): number | null {
+  const n = Number(value);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+const PUBLIC_SITE_PRODUCT_FIELDS = [
+  'brand', 'category', 'slug', 'sku', 'displayOrder', 'model', 'name',
+  'websiteCategory', 'cat', 'sys', 'series', 'tagline', 'tags', 'badges',
+  'en', 'icon', 'image', 'mainImage', 'gallery', 'specImage', 'specs',
+  'features', 'highlights', 'certs', 'faqs', 'locale', 'positioning',
+  'marketing', 'seo', 'jsonLd',
+] as const;
+
+function publicProductFields(product: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(
+    PUBLIC_SITE_PRODUCT_FIELDS
+      .filter((field) => product[field] !== undefined)
+      .map((field) => [field, product[field]]),
+  );
+}
+
+export function projectSiteProductDisplay(
+  siteCode: string,
+  assignment: Partial<SiteProductAssignmentEntity>,
+  product: Record<string, unknown>,
+) {
+  const safeProduct = publicProductFields(product);
+  const mainImage = record(safeProduct.mainImage);
+  const mainImageUrl = text(mainImage.url);
+  const brandMetaImage = text(safeProduct.image);
+  const resolvedMainImage = mainImageUrl
+    ? { ...mainImage, url: mainImageUrl }
+    : brandMetaImage
+      ? { role: 'main', url: brandMetaImage }
+      : PRODUCT_IMAGE_PLACEHOLDER;
+  const websiteCategory = text(assignment.websiteCategory)
+    || text(safeProduct.websiteCategory)
+    || text(safeProduct.cat)
+    || text(safeProduct.category);
+  const displayOrder = positiveInteger(assignment.displayOrder)
+    ?? positiveInteger(safeProduct.displayOrder)
+    ?? 0;
+
+  return {
+    ...safeProduct,
+    siteCode,
+    slug: text(assignment.publicSlug) || text(safeProduct.slug) || text(safeProduct.sku),
+    name: text(assignment.siteTitle) || text(safeProduct.name),
+    summary: text(assignment.siteSummary) || text(safeProduct.tagline) || text(safeProduct.category),
+    websiteCategory,
+    menuGroup: text(assignment.menuGroup) || text(safeProduct.sys),
+    displayOrder,
+    image: mainImageUrl || brandMetaImage || PRODUCT_IMAGE_PLACEHOLDER.url,
+    mainImage: resolvedMainImage,
+    isFeatured: Boolean(assignment.isFeatured),
+    siteMeta: record(assignment.siteMeta),
+  };
+}
+
 @Injectable()
 export class SiteProductAssignmentService {
   constructor(
@@ -61,7 +145,7 @@ export class SiteProductAssignmentService {
     }, this.scope(user));
   }
 
-  create(user: JwtPayload, siteCode: string, input: SiteProductAssignmentInput) {
+  async create(user: JwtPayload, siteCode: string, input: SiteProductAssignmentInput) {
     const productId = String(input.productId || '').trim();
     const productTenantId = String(input.productTenantId || user.tenantId).trim();
     if (!UUID_RE.test(productId) || !UUID_RE.test(productTenantId)) {
@@ -69,12 +153,11 @@ export class SiteProductAssignmentService {
     }
     this.assertProductTenantAccess(user, productTenantId);
     const publicSlug = normalizePublicSlug(input.publicSlug);
+    const product = await this.findActiveProduct(productTenantId, productId);
+    if (!product) throw new NotFoundException('Product does not exist or is archived');
     return withRlsTransaction(this.ds, async (em) => {
       const site = await this.findSite(em, user.tenantId, siteCode);
-      const product = await em.getRepository(ProductEntity).findOneBy({
-        id: productId, tenantId: productTenantId, status: 'active',
-      } as any);
-      if (!product) throw new NotFoundException('产品不存在或已归档');
+      assertSiteProductBrandAllowed(site.code, product.brand);
       const repo = em.getRepository(SiteProductAssignmentEntity);
       const existing = await repo.createQueryBuilder('assignment')
         .where('assignment.tenantId = :tenantId', { tenantId: user.tenantId })
@@ -166,18 +249,22 @@ export class SiteProductAssignmentService {
     const publicSlug = normalizePublicSlug(publicSlugInput);
     const tenantId = resolvePublicSiteTenant(siteCode);
     if (!tenantId || !UUID_RE.test(tenantId)) throw new NotFoundException('网站未配置公开租户');
-    const assignment = await withRlsTransaction(this.ds, async (em) => {
+    const assignments = await withRlsTransaction(this.ds, async (em) => {
       const site = await this.findSite(em, tenantId, siteCode);
       return em.getRepository(SiteProductAssignmentEntity).createQueryBuilder('assignment')
         .where('assignment.tenantId = :tenantId', { tenantId })
         .andWhere('assignment.siteId = :siteId', { siteId: site.id })
         .andWhere('assignment.status = :status', { status: 'published' })
         .andWhere('assignment.deletedAt IS NULL')
-        .andWhere('lower(assignment.publicSlug) = :publicSlug', { publicSlug })
-        .getOne();
+        .orderBy('assignment.displayOrder', 'ASC')
+        .addOrderBy('assignment.createdAt', 'ASC')
+        .take(500)
+        .getMany();
     }, { tenantId });
+    const assignment = assignments[0];
     if (!assignment) throw new NotFoundException('产品不存在');
-    const [item] = await this.hydrate(siteCode, [assignment], locale);
+    const items = await this.hydrate(siteCode, assignments, locale);
+    const item = items.find((row) => String(row.slug || '').toLowerCase() === publicSlug);
     if (!item) throw new NotFoundException('产品不存在或已归档');
     return { success: true, data: item };
   }
@@ -194,18 +281,7 @@ export class SiteProductAssignmentService {
       const product = hydrated.get(assignment.productId);
       if (!product) return [];
       const { productId: _productId, ...publicProduct } = product;
-      return [{
-        ...publicProduct,
-        siteCode,
-        slug: assignment.publicSlug,
-        name: assignment.siteTitle || publicProduct.name,
-        summary: assignment.siteSummary || publicProduct.tagline || '',
-        websiteCategory: assignment.websiteCategory,
-        menuGroup: assignment.menuGroup,
-        displayOrder: assignment.displayOrder,
-        isFeatured: assignment.isFeatured,
-        siteMeta: assignment.siteMeta,
-      }];
+      return [projectSiteProductDisplay(siteCode, assignment, publicProduct)];
     });
   }
 
@@ -240,6 +316,12 @@ export class SiteProductAssignmentService {
     if (!['platform_admin', 'hq_admin'].includes(user.role) && productTenantId !== user.tenantId) {
       throw new ForbiddenException('品牌账号不可分配其他品牌租户的产品');
     }
+  }
+
+  private async findActiveProduct(productTenantId: string, productId: string) {
+    const result = await this.products.get(productId, productTenantId);
+    const product = result.data;
+    return product.status === 'active' ? product : null;
   }
 
   private async findSite(em: EntityManager, tenantId: string, siteCode: string) {

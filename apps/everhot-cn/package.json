@@ -8,6 +8,7 @@
     "start": "node scripts/serve.js --port 5011",
     "geo": "node scripts/geo-build.js --site everhot",
     "audit": "node scripts/link-audit.js",
+    "smoke:runtime-products": "node scripts/smoke-runtime-products.mjs",
     "gen:subtypes": "node scripts/gen-subtype-pages.mjs",
     "sync:products": "node scripts/sync-products-to-nexus.mjs",
     "sync:images": "node scripts/sync-product-images-to-dam.mjs",

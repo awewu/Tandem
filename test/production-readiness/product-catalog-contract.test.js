@@ -428,10 +428,14 @@ describe('Issue 07 - Everhot runtime product consumers and E2E readiness', () =>
   const service = read(`${MODULE_DIR}/product-catalog.service.ts`);
 
   test('catalog.js owns a single same-origin runtime loader with loading/fallback/empty states', () => {
-    expect(catalog).toContain("RUNTIME_PRODUCTS_API = '/api/v2/brand/everhot/products?locale=zh-CN'");
+    expect(catalog).toContain("RUNTIME_SITE_CODE = window.EVERHOT_SITE_CODE || 'everhot'");
+    expect(catalog).toContain("RUNTIME_PRODUCTS_API = '/api/v2/sites/' + RUNTIME_SITE_CODE + '/products?locale=zh-CN'");
+    expect(catalog).toContain("LEGACY_PRODUCTS_API = '/api/v2/brand/' + RUNTIME_SITE_CODE + '/products?locale=zh-CN'");
     expect(catalog).toContain('window.EVERHOT_PRODUCTS_READY');
     expect(catalog).toContain('window.EVERHOT_LOAD_PRODUCTS');
     expect(catalog).toContain('window.EVERHOT_LOAD_PRODUCT');
+    expect(catalog).toContain('isLocalRuntime');
+    expect(catalog).toContain('normalizeRuntimeProduct');
     expect(catalog).toContain('setRuntimeStatus');
     expect(catalog).toContain('loadingState');
     expect(catalog).toContain('runtimeNotice');
@@ -551,10 +555,11 @@ describe('Issue 01 · Everhot 基础产品 CRUD 闭环', () => {
 
   test('后端以 product-catalog 为唯一产品事实源，并校验 Everhot 公开 slug 唯一', () => {
     expect(service).toContain('assertBrandSlugUnique');
-    expect(service).toContain("COALESCE(NULLIF(p.meta->'everhot'->>'slug', ''), p.sku) = :slug");
-    expect(service).toContain('Everhot 产品 slug 已存在');
+    expect(service).toContain("COALESCE(NULLIF(p.meta -> :brand ->> 'slug', ''), p.sku) = :slug");
+    expect(service).toContain('${brand} 产品 slug 已存在');
     expect(route).toContain("nexus('/product-catalog/devices'");
-    expect(route).toContain('method: \'DELETE\'');
+    expect(route).toContain('export async function DELETE');
+    expect(route).toContain("status: 'archived'");
     expect(route).not.toContain('/brand-content/');
   });
 
@@ -574,7 +579,7 @@ describe('Issue 01 · Everhot 基础产品 CRUD 闭环', () => {
     expect(service).toContain('model: meta.model');
     expect(service).toContain('tags: Array.isArray(meta.tags)');
     expect(service).toContain('getBrandProductLocalized');
-    expect(service).toContain("p.sku = :sku OR COALESCE(NULLIF(p.meta->'everhot'->>'slug', ''), p.sku) = :slug");
+    expect(service).toContain("p.sku = :sku OR COALESCE(NULLIF(p.meta -> :brand ->> 'slug', ''), p.sku) = :slug");
     const projection = service.slice(service.indexOf('private publicProductProjection'), service.indexOf('private async assertBrandSlugUnique'));
     expect(projection).not.toContain('costPrice');
     expect(projection).not.toContain('listPrice');
@@ -586,7 +591,9 @@ describe('Issue 01 · Everhot 基础产品 CRUD 闭环', () => {
   });
 
   test('Everhot 官网 catalog 运行时读取公开 API，失败时保留 products-data 静态兜底', () => {
-    expect(catalog).toContain('/api/v2/brand/everhot/products?locale=zh-CN');
+    expect(catalog).toContain('/api/v2/sites/');
+    expect(catalog).toContain('/api/v2/brand/');
+    expect(catalog).toContain('RUNTIME_SITE_CODE');
     expect(catalog).toContain('loadRuntimeProducts');
     expect(catalog).toContain('installCatalog');
     expect(catalog).toContain('loadingState');
@@ -617,7 +624,7 @@ describe('Issue 04 · Everhot 产品主图与详情图片闭环', () => {
     expect(pub).toContain('StreamableFile');
     expect(service).toContain('getPublicProductImage');
     expect(service).toContain("p.status = :status");
-    expect(service).toContain("['main', 'detail', 'card'].includes(r.role)");
+    expect(service).toContain("['main', 'detail', 'card', 'icon'].includes(r.role)");
     expect(fileSvc).toContain('getPublicActiveArtifact');
     expect(fileSvc).toContain("status: 'active'");
   });
@@ -638,7 +645,8 @@ describe('Issue 04 · Everhot 产品主图与详情图片闭环', () => {
 
   test('官网优先消费公开主图与有序 gallery，并保留旧图片映射 fallback', () => {
     expect(service).toContain('mainImage: imageRefs.main');
-    expect(service).toContain('gallery: imageRefs.gallery');
+    expect(service).toContain('const gallery = imageRefs.gallery.length');
+    expect(service).toContain('gallery,');
     expect(catalog).toContain('function imgSrc');
     expect(catalog).toContain('window.EVERHOT_PRODUCT_IMAGES');
     expect(catalog).toContain('function galleryImgs');

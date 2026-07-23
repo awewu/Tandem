@@ -6,7 +6,6 @@ import {
   FolderOpen,
   Globe2,
   Megaphone,
-  MonitorCog,
   Package,
   PenTool,
   Radio,
@@ -101,7 +100,6 @@ export const WORKBENCH_NAV: WorkbenchNavItem[] = [
     group: 1,
     children: [
       { key: 'account-list', label: '账号列表', href: '/accounts', icon: UsersRound },
-      { key: 'account-create', label: '新建账号', href: '/accounts', icon: MonitorCog },
     ],
   },
 ];

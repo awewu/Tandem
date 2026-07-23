@@ -3,7 +3,8 @@
 import { Archive, Check, EyeOff, Pencil, Plus, RefreshCw, Save, Star, X } from 'lucide-react';
 import { PageHeader } from '@rhautt/ui';
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import { products, siteProductAssignments } from '../../../lib/api';
+import { auth, products, siteProductAssignments } from '../../../lib/api';
+import { canWriteBrandProducts } from '../../../lib/brand-product-adapter';
 
 type AssignmentStatus = 'draft' | 'published' | 'hidden';
 
@@ -42,6 +43,9 @@ type ProductOption = {
   sku: string;
   name: string;
   model: string;
+  category: string;
+  menuGroup: string;
+  summary: string;
   slug: string;
 };
 
@@ -54,10 +58,17 @@ const SITE_OPTIONS = [
 
 const PRODUCT_BRANDS = ['rheem', 'ruud', 'everhot'] as const;
 const BRAND_PRODUCT_TENANTS: Record<string, string | undefined> = {
-  rheem: process.env.NEXT_PUBLIC_RHEEM_TENANT_ID,
-  ruud: process.env.NEXT_PUBLIC_RUUD_TENANT_ID,
-  everhot: process.env.NEXT_PUBLIC_EVERHOT_TENANT_ID,
+  rheem: process.env.NEXT_PUBLIC_RHEEM_TENANT_ID || '4aee0000-0000-4000-8000-000000000001',
+  ruud: process.env.NEXT_PUBLIC_RUUD_TENANT_ID || '7aad0000-0000-4000-8000-000000000001',
+  everhot: process.env.NEXT_PUBLIC_EVERHOT_TENANT_ID || 'e5e40000-0000-4000-8000-000000000001',
 };
+
+function brandLabel(brand: string | null | undefined) {
+  if (brand === 'rheem') return '瑞美 Rheem';
+  if (brand === 'ruud') return '瑞德 Ruud';
+  if (brand === 'everhot') return '恒热 Everhot';
+  return '未指定品牌';
+}
 
 const EMPTY_DRAFT: AssignmentDraft = {
   productTenantId: '', productId: '', publicSlug: '', websiteCategory: '', menuGroup: '',
@@ -103,6 +114,8 @@ function statusLabel(status: AssignmentStatus) {
 function productOption(raw: Record<string, any>, brand: string): ProductOption {
   const brandMeta = raw.meta?.[brand] || {};
   const model = String(raw.spec?.officialModel || raw.model || raw.sku || '').trim();
+  const category = String(brandMeta.websiteCategory || brandMeta.category || raw.websiteCategory || raw.category || '').trim();
+  const menuGroup = String(brandMeta.menuGroup || brandMeta.menu || raw.system || raw.sys || '').trim();
   return {
     id: String(raw.id || raw._id || '').trim(),
     tenantId: String(raw.tenantId || BRAND_PRODUCT_TENANTS[brand] || '').trim(),
@@ -110,6 +123,9 @@ function productOption(raw: Record<string, any>, brand: string): ProductOption {
     sku: String(raw.sku || '').trim(),
     name: String(brandMeta.name || raw.name || model).trim(),
     model,
+    category,
+    menuGroup,
+    summary: String(brandMeta.summary || brandMeta.tagline || raw.tagline || category || '').trim(),
     slug: String(brandMeta.slug || raw.sku || raw.name || '').trim().toLowerCase()
       .replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, ''),
   };
@@ -131,6 +147,7 @@ export default function SiteProductShelfManager({ siteCode }: { siteCode: string
   const [productOptions, setProductOptions] = useState<ProductOption[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
   const [productError, setProductError] = useState('');
+  const [canWrite, setCanWrite] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -144,6 +161,20 @@ export default function SiteProductShelfManager({ siteCode }: { siteCode: string
       setLoading(false);
     }
   }, [siteCode]);
+
+  useEffect(() => {
+    let cancelled = false;
+    auth.me()
+      .then((me) => {
+        if (!cancelled) setCanWrite(canWriteBrandProducts(me));
+      })
+      .catch(() => {
+        if (!cancelled) setCanWrite(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     setShowCreate(false);
@@ -201,6 +232,7 @@ export default function SiteProductShelfManager({ siteCode }: { siteCode: string
 
   async function create(event: FormEvent) {
     event.preventDefault();
+    if (!canWrite) return;
     setBusyId('create');
     setError('');
     try {
@@ -218,7 +250,7 @@ export default function SiteProductShelfManager({ siteCode }: { siteCode: string
 
   async function save(event: FormEvent) {
     event.preventDefault();
-    if (!editing) return;
+    if (!canWrite || !editing) return;
     setBusyId(editing.id);
     setError('');
     try {
@@ -234,6 +266,7 @@ export default function SiteProductShelfManager({ siteCode }: { siteCode: string
   }
 
   async function changeStatus(row: Assignment, action: 'publish' | 'hide') {
+    if (!canWrite) return;
     setBusyId(row.id);
     setError('');
     try {
@@ -248,6 +281,7 @@ export default function SiteProductShelfManager({ siteCode }: { siteCode: string
   }
 
   async function archive(row: Assignment) {
+    if (!canWrite) return;
     if (!window.confirm(`确认从官网货架归档 ${row.siteTitle || row.publicSlug}？`)) return;
     setBusyId(row.id);
     setError('');
@@ -263,6 +297,7 @@ export default function SiteProductShelfManager({ siteCode }: { siteCode: string
   }
 
   function beginEdit(row: Assignment) {
+    if (!canWrite) return;
     setEditing(row);
     setEditDraft(draftFromAssignment(row));
   }
@@ -279,7 +314,11 @@ export default function SiteProductShelfManager({ siteCode }: { siteCode: string
         <div><p className="t-label">官网产品货架</p><h2>产品分配</h2></div>
         <div className="site-shelf-head-actions">
           <button type="button" className="btn btn-outline btn-sm" onClick={load} disabled={loading}><RefreshCw size={14} /> 刷新</button>
-          <button type="button" className="btn btn-brand btn-sm" onClick={() => setShowCreate(true)}><Plus size={14} /> 添加产品</button>
+          {canWrite ? (
+            <button type="button" className="btn btn-brand btn-sm" onClick={() => setShowCreate(true)}><Plus size={14} /> 添加产品</button>
+          ) : (
+            <span className="badge badge-grey">只读查看</span>
+          )}
         </div>
       </header>
 
@@ -294,7 +333,7 @@ export default function SiteProductShelfManager({ siteCode }: { siteCode: string
 
       {error && <div className="site-shelf-notice error" role="alert">{error}</div>}
       {message && <div className="site-shelf-notice success" role="status">{message}</div>}
-      {showCreate && (
+      {showCreate && canWrite && (
         <AssignmentForm
           title="添加产品到当前官网"
           draft={createDraft}
@@ -317,7 +356,10 @@ export default function SiteProductShelfManager({ siteCode }: { siteCode: string
             productId: product.id,
             productTenantId: product.tenantId,
             publicSlug: current.publicSlug || product.slug,
+            websiteCategory: current.websiteCategory || product.category,
+            menuGroup: current.menuGroup || product.menuGroup,
             siteTitle: current.siteTitle || product.name,
+            siteSummary: current.siteSummary || product.summary,
           }))}
           onChange={setCreateDraft}
           onSubmit={create}
@@ -336,23 +378,29 @@ export default function SiteProductShelfManager({ siteCode }: { siteCode: string
             ) : items.map((row) => (
               <tr key={row.id}>
                 <td><div className="site-shelf-primary"><strong>{row.siteTitle || row.publicSlug}</strong><span>/{row.publicSlug}</span>{row.isFeatured && <small><Star size={12} fill="currentColor" /> 官网精选</small>}</div></td>
-                <td><div className="site-shelf-product"><strong>{row.brand || '未指定品牌'}</strong><code>{row.productId}</code></div></td>
+                <td><div className="site-shelf-product"><strong>{brandLabel(row.brand)}</strong><code>{row.productId}</code></div></td>
                 <td><div className="site-shelf-product"><span>{row.websiteCategory || '未设置分类'}</span><small>{row.menuGroup || '未设置菜单分组'}</small></div></td>
                 <td><span className={`badge site-shelf-status status-${row.status}`}>{statusLabel(row.status)}</span></td>
                 <td>{row.displayOrder}</td>
-                <td><div className="site-shelf-row-actions">
-                  <button type="button" title="编辑" aria-label={`编辑 ${row.publicSlug}`} onClick={() => beginEdit(row)} disabled={Boolean(busyId)}><Pencil size={14} /></button>
-                  {row.status !== 'published' && <button type="button" title="发布" aria-label={`发布 ${row.publicSlug}`} onClick={() => changeStatus(row, 'publish')} disabled={Boolean(busyId)}><Check size={14} /></button>}
-                  {row.status === 'published' && <button type="button" title="隐藏" aria-label={`隐藏 ${row.publicSlug}`} onClick={() => changeStatus(row, 'hide')} disabled={Boolean(busyId)}><EyeOff size={14} /></button>}
-                  <button type="button" title="归档" aria-label={`归档 ${row.publicSlug}`} onClick={() => archive(row)} disabled={Boolean(busyId)}><Archive size={14} /></button>
-                </div></td>
+                <td>
+                  {canWrite ? (
+                    <div className="site-shelf-row-actions">
+                      <button type="button" title="编辑" aria-label={`编辑 ${row.publicSlug}`} onClick={() => beginEdit(row)} disabled={Boolean(busyId)}><Pencil size={14} /></button>
+                      {row.status !== 'published' && <button type="button" title="发布" aria-label={`发布 ${row.publicSlug}`} onClick={() => changeStatus(row, 'publish')} disabled={Boolean(busyId)}><Check size={14} /></button>}
+                      {row.status === 'published' && <button type="button" title="隐藏" aria-label={`隐藏 ${row.publicSlug}`} onClick={() => changeStatus(row, 'hide')} disabled={Boolean(busyId)}><EyeOff size={14} /></button>}
+                      <button type="button" title="归档" aria-label={`归档 ${row.publicSlug}`} onClick={() => archive(row)} disabled={Boolean(busyId)}><Archive size={14} /></button>
+                    </div>
+                  ) : (
+                    <span className="site-shelf-readonly">无写入权限</span>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      {editing && (
+      {editing && canWrite && (
         <div className="site-shelf-dialog-backdrop" role="presentation" onMouseDown={() => setEditing(null)}>
           <div className="site-shelf-dialog" role="dialog" aria-modal="true" aria-labelledby="site-shelf-edit-title" onMouseDown={(event) => event.stopPropagation()}>
             <AssignmentForm title="编辑官网展示" draft={editDraft} busy={busyId === editing.id} onChange={setEditDraft} onSubmit={save} onCancel={() => setEditing(null)} />
@@ -384,6 +432,7 @@ export default function SiteProductShelfManager({ siteCode }: { siteCode: string
         .site-shelf-row-actions button { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface-1); color: var(--t-secondary); cursor: pointer; }
         .site-shelf-row-actions button:hover { border-color: var(--brand); color: var(--brand); }
         .site-shelf-row-actions button:disabled { opacity: .45; cursor: not-allowed; }
+        .site-shelf-readonly { color: var(--t-tertiary); font-size: 12px; white-space: nowrap; }
         .site-shelf-status.status-published { color: var(--success); background: var(--success-bg); }
         .site-shelf-status.status-hidden { color: var(--warning); background: var(--warning-bg); }
         .site-shelf-status.status-draft { color: var(--t-secondary); background: var(--surface-3); }
@@ -407,6 +456,7 @@ export default function SiteProductShelfManager({ siteCode }: { siteCode: string
         .site-shelf-product-option { min-width: 0; display: grid; gap: 3px; padding: 10px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface-1); color: var(--t-secondary); text-align: left; cursor: pointer; }
         .site-shelf-product-option:hover, .site-shelf-product-option.is-selected { border-color: var(--brand); background: var(--brand-soft); }
         .site-shelf-product-option strong { overflow: hidden; color: var(--t-strong); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+        .site-shelf-product-option small { color: var(--brand); font-size: 11px; font-weight: 800; }
         .site-shelf-product-option span { font-size: 11px; }
         .site-shelf-product-help { margin: 0; color: var(--t-tertiary); font-size: 12px; }
         .site-shelf-product-help.error { color: var(--danger); }
@@ -452,12 +502,12 @@ function AssignmentForm({
       <div className="site-shelf-form-head"><h3 id="site-shelf-edit-title">{title}</h3><button type="button" className="site-shelf-icon-button" title="关闭" aria-label="关闭" onClick={onCancel}><X size={17} /></button></div>
       {includeProduct && <div className="site-shelf-product-picker">
         {siteCode === 'rhautt-group' ? <div className="site-shelf-brand-picker" aria-label="产品品牌">
-          {PRODUCT_BRANDS.map((brand) => <button key={brand} type="button" className={selectedBrand === brand ? 'is-active' : undefined} onClick={() => onBrandChange?.(brand)}>{brand === 'rheem' ? '瑞美 Rheem' : brand === 'ruud' ? '瑞德 Ruud' : '恒热 Everhot'}</button>)}
+          {PRODUCT_BRANDS.map((brand) => <button key={brand} type="button" className={selectedBrand === brand ? 'is-active' : undefined} onClick={() => onBrandChange?.(brand)}>{brandLabel(brand)}</button>)}
         </div> : <p className="site-shelf-product-help">正在显示当前官网可选的 {selectedBrand} 在架产品。</p>}
         <label className="site-shelf-product-search">搜索现有产品<input className="input" value={productQuery || ''} onChange={(event) => onProductQueryChange?.(event.target.value)} placeholder="SKU、产品名称、型号或系列" /></label>
         {productError ? <p className="site-shelf-product-help error">{productError}</p> : productsLoading ? <p className="site-shelf-product-help">正在加载产品...</p> : productOptions.length ? <div className="site-shelf-product-options">
           {productOptions.map((product) => <button key={`${product.tenantId}:${product.id}`} type="button" className={`site-shelf-product-option${draft.productId === product.id ? ' is-selected' : ''}`} onClick={() => onProductSelect?.(product)}>
-            <strong>{product.name || product.model || product.sku}</strong><span>{product.sku}{product.model && product.model !== product.sku ? ` · ${product.model}` : ''}</span>
+            <small>{brandLabel(product.brand)}</small><strong>{product.name || product.model || product.sku}</strong><span>{product.sku}{product.model && product.model !== product.sku ? ` · ${product.model}` : ''}{product.category ? ` · ${product.category}` : ''}</span>
           </button>)}
         </div> : <p className="site-shelf-product-help">没有匹配的在架产品，请检查品牌租户配置或使用高级输入。</p>}
         {draft.productId && <p className="site-shelf-product-help">已选择产品：{productOptions.find((product) => product.id === draft.productId)?.sku || draft.productId}</p>}
