@@ -537,7 +537,7 @@ export function ChannelDetailPanel({ channel, currentUserId, onChanged, onClose,
                   {!editingAnn ? (
                     <>
                       {channel.announcement
-                        ? <div className="rounded-lg bg-brand-50 p-2.5 text-[12px] leading-relaxed text-ink-primary whitespace-pre-wrap line-clamp-4">{channel.announcement}</div>
+                        ? <div className="rounded-lg bg-brand-50 p-2.5 text-[12px] leading-relaxed text-ink-primary whitespace-pre-wrap break-words">{channel.announcement}</div>
                         : <p className="text-[12px] text-ink-tertiary">暂无公告</p>}
                       {isAdmin && (
                         <button type="button"

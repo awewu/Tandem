@@ -865,7 +865,7 @@ export async function seedLaunchpadIfEmpty(): Promise<void> {
       { ...base, category: 'business', name: '创新匠台 PLM', description: '产品全生命周期 · 研发协同',
         url: '/api/integrations/plm/sso', ssoMode: 'redirect-token', order: 1, recommendKeywords: ['plm', '研发', '产品', '生命周期', '匠台'] },
       { ...base, category: 'business', name: '瑞诺瓦 AI 问诊', description: 'AI 智能诊断 · 健康问询',
-        url: '#renova-ai', order: 2, recommendKeywords: ['ai', '问诊', '诊断', '瑞诺瓦', 'renova'] },
+        url: 'https://rhautt.com/pain-diagnosis.html', order: 2, recommendKeywords: ['ai', '问诊', '诊断', '瑞诺瓦', 'renova'] },
       { ...base, category: 'business', name: 'Youngsuite ERP', description: '采购 · 财务 · 供应链',
         url: '#youngsuite-erp', order: 3, recommendKeywords: ['erp', '财务', '采购', '供应链', 'youngsuite'] },
       { ...base, category: 'business', name: '售后系统', description: '工单 · 客诉 · 维保',

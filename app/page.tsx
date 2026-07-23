@@ -541,6 +541,7 @@ function resolveLaunchpadIcon(name: string): React.ComponentType<{ className?: s
 
 const PLM_SSO_URL = 'https://studio.rhautt.com/api/auth/sso?next=%2F';
 const STRAT_SSO_URL = 'https://strat.rhautt.com/api/auth/tandem?next=%2Fcommand';
+const RENOVA_AI_URL = 'https://rhautt.com/pain-diagnosis.html';
 const YONYOU_SSO_URL = '/api/integrations/yonyou/sso';
 const YONYOU_SSO_URL_API = '/api/integrations/yonyou/sso/url';
 const AFTER_SALES_URL = 'https://service.rhenext.com/';
@@ -598,17 +599,20 @@ function LaunchpadTile({ app, recommended }: { app: LaunchpadAppWithBadge; recom
   // url 约定: '#xxx' = 接口预留待接入 (点击不跳转); '/xxx' = 站内导航; 其余 = 外部新窗口.
   const isPlm = /PLM/i.test(app.name);
   const isStrat = /StratOS|战略/i.test(app.name);
+  const isRenovaAi = /瑞诺瓦|问诊|renova/i.test(app.name);
   const isYonyouErp = /YonSuite|Youngsuite/i.test(app.name);
   const isAfterSales = /售后/.test(app.name);
   const ssoUrl = isPlm
     ? PLM_SSO_URL
     : isStrat
       ? STRAT_SSO_URL
-      : isYonyouErp
-        ? YONYOU_SSO_URL
-        : isAfterSales
-          ? AFTER_SALES_URL
-          : null;
+      : isRenovaAi
+        ? RENOVA_AI_URL
+        : isYonyouErp
+          ? YONYOU_SSO_URL
+          : isAfterSales
+            ? AFTER_SALES_URL
+            : null;
   const resolvedUrl = ssoUrl ?? app.url;
   const pending = resolvedUrl.startsWith('#');
 

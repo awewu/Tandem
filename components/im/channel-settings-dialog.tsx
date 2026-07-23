@@ -378,7 +378,7 @@ export function ChannelSettingsDialog({
                 <>
                   {channel.announcement ? (
                     <div className="rounded-md border bg-warning/5/40 p-3">
-                      <div className="whitespace-pre-wrap text-caption">{channel.announcement}</div>
+                      <div className="whitespace-pre-wrap break-words text-caption">{channel.announcement}</div>
                       {channel.announcementUpdatedAt && (
                         <div className="mt-2 pt-2 border-t border-warning/20/50 text-[10px] text-muted-foreground">
                           {peopleById.get(channel.announcementUpdatedBy ?? '') ?? channel.announcementUpdatedBy}
