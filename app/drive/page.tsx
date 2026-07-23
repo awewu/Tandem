@@ -1,102 +1,278 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useCurrentUserId } from "@/lib/hooks/use-current-user";
-import { Folder, File, HardDrive, Plus, Trash2, MoveRight } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useCurrentUser } from "@/lib/hooks/use-current-user";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { DriveShareDialog, type DriveShareItem } from "@/components/drive/drive-share-dialog";
+import {
+  Folder, File as FileIcon, HardDrive, Plus, Trash2, Upload, Download,
+  Share2, Pencil, Scissors, ClipboardPaste, ChevronRight, X,
+} from "lucide-react";
 
-interface DriveFile {
+interface DriveItem {
   id: string;
   name: string;
-  type: "folder" | "file";
+  isFolder: boolean;
   parentId: string | null;
   ownerId: string;
+  mimeType: string;
+  size: number;
   updatedAt: string;
+  nodeRole?: string | null;
+  permissions?: { read?: string[]; write?: string[] };
+}
+
+interface Crumb { id: string; name: string; }
+
+function fmtSize(n: number): string {
+  if (!n) return "";
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
 export default function DrivePage() {
-  const currentUserId = useCurrentUserId();
-  const [files, setFiles] = useState<DriveFile[]>([]);
+  const { user } = useCurrentUser();
+  const me = user?.id;
+  const [parent, setParent] = useState<string | null>(null); // null = root
+  const [items, setItems] = useState<DriveItem[]>([]);
+  const [crumbs, setCrumbs] = useState<Crumb[]>([{ id: "root", name: "我的工作云盘" }]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: "", type: "file" as "folder" | "file" });
+  const [error, setError] = useState<string | null>(null);
+  const [newFolder, setNewFolder] = useState("");
+  const [showNewFolder, setShowNewFolder] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [clipboard, setClipboard] = useState<DriveItem | null>(null);
+  const [shareTarget, setShareTarget] = useState<DriveShareItem | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    fetch("/api/drive")
-      .then((r) => r.json())
-      .then((data) => {
-        setFiles(data.files ?? []);
-        setLoading(false);
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const url = parent ? `/api/drive?parentId=${encodeURIComponent(parent)}` : "/api/drive";
+      const r = await fetch(url, { credentials: "include", cache: "no-store" });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const j = await r.json();
+      const list: DriveItem[] = Array.isArray(j.files) ? j.files : [];
+      list.sort((a, b) => (a.isFolder === b.isFolder ? a.name.localeCompare(b.name) : a.isFolder ? -1 : 1));
+      setItems(list);
+      const cr = await fetch(`/api/drive/breadcrumbs?folderId=${encodeURIComponent(parent ?? "root")}`, {
+        credentials: "include", cache: "no-store",
       });
-  }, []);
+      if (cr.ok) {
+        const cj = await cr.json();
+        if (Array.isArray(cj.breadcrumbs) && cj.breadcrumbs.length > 0) setCrumbs(cj.breadcrumbs);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "加载失败");
+    } finally {
+      setLoading(false);
+    }
+  }, [parent]);
 
-  async function createFile(e: React.FormEvent) {
-    e.preventDefault();
-    const res = await fetch("/api/drive", {
+  useEffect(() => { void load(); }, [load]);
+
+  async function createFolder() {
+    const name = newFolder.trim();
+    if (!name) return;
+    const r = await fetch("/api/drive", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: form.name,
-        type: form.type,
-        ownerId: currentUserId,
-        tenantId: "default",
-        parentId: null,
-      }),
+      credentials: "include",
+      body: JSON.stringify({ name, isFolder: true, parentId: parent, storageKey: "" }),
     });
-    const f = await res.json();
-    setFiles((prev) => [f, ...prev]);
-    setShowForm(false);
-    setForm({ name: "", type: "file" });
+    if (!r.ok) { setError("新建文件夹失败（可能无写权限）"); return; }
+    setNewFolder("");
+    setShowNewFolder(false);
+    void load();
   }
 
-  async function deleteFile(id: string) {
-    await fetch(`/api/drive/${id}`, { method: "DELETE" });
-    setFiles((prev) => prev.filter((f) => f.id !== id));
+  async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploading(true);
+    setError(null);
+    try {
+      const presign = await fetch("/api/drive/presign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ mode: "upload", fileName: file.name, contentType: file.type, parentId: parent }),
+      });
+      if (!presign.ok) {
+        const j = await presign.json().catch(() => ({}));
+        throw new Error(j?.error?.message ?? j?.error ?? "对象存储未配置或无写权限");
+      }
+      const { uploadUrl, storageKey } = await presign.json();
+      const put = await fetch(uploadUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type || "application/octet-stream" } });
+      if (!put.ok) throw new Error(`上传失败 HTTP ${put.status}`);
+      const meta = await fetch("/api/drive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ name: file.name, storageKey, size: file.size, mimeType: file.type || "application/octet-stream", parentId: parent, isFolder: false }),
+      });
+      if (!meta.ok) throw new Error("提交元数据失败");
+      void load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "上传失败");
+    } finally {
+      setUploading(false);
+    }
   }
 
-  if (loading) return <div className="p-8 text-ink-secondary">加载中...</div>;
+  async function download(item: DriveItem) {
+    try {
+      const r = await fetch("/api/drive/presign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ mode: "download", fileId: item.id }),
+      });
+      if (!r.ok) { setError("下载失败（对象存储未配置或无权限）"); return; }
+      const { url } = await r.json();
+      window.open(url, "_blank");
+    } catch {
+      setError("下载失败");
+    }
+  }
+
+  async function rename(item: DriveItem) {
+    const name = window.prompt("重命名为：", item.name);
+    if (!name || name.trim() === item.name) return;
+    const r = await fetch(`/api/drive/${item.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include",
+      body: JSON.stringify({ name: name.trim() }),
+    });
+    if (!r.ok) { setError("改名失败（无写权限）"); return; }
+    void load();
+  }
+
+  async function remove(item: DriveItem) {
+    if (!window.confirm(`删除「${item.name}」？`)) return;
+    const r = await fetch(`/api/drive/${item.id}`, { method: "DELETE", credentials: "include" });
+    if (!r.ok) { setError("删除失败（无写权限）"); return; }
+    void load();
+  }
+
+  async function pasteHere() {
+    if (!clipboard) return;
+    const r = await fetch(`/api/drive/${clipboard.id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include",
+      body: JSON.stringify({ parentId: parent }),
+    });
+    if (!r.ok) { setError("移动失败（无目标写权限）"); return; }
+    setClipboard(null);
+    void load();
+  }
+
+  function openFolder(item: DriveItem) {
+    if (item.isFolder) setParent(item.id);
+  }
+
+  function navCrumb(c: Crumb) {
+    setParent(c.id === "root" ? null : c.id);
+  }
+
+  const isOwner = (item: DriveItem) => item.ownerId === me;
 
   return (
     <div className="p-6 max-w-5xl mx-auto md:px-8">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <h1 className="text-title-3 font-bold flex items-center gap-2">
-          <HardDrive size={24} /> 云盘
+          <HardDrive size={22} /> 我的工作云盘
         </h1>
-        <button onClick={() => setShowForm(true)} className="flex items-center gap-1 px-3 py-2 bg-brand-500 text-white rounded hover:bg-brand-600">
-          <Plus size={16} /> 新建
-        </button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => setShowNewFolder((v) => !v)}>
+            <Plus size={15} className="mr-1" /> 新建文件夹
+          </Button>
+          <Button size="sm" disabled={uploading} onClick={() => fileInputRef.current?.click()}>
+            <Upload size={15} className="mr-1" /> {uploading ? "上传中…" : "上传文件"}
+          </Button>
+          <input ref={fileInputRef} type="file" className="hidden" onChange={onUpload} aria-label="上传文件" />
+        </div>
       </div>
 
-      {showForm && (
-        <form onSubmit={createFile} className="mb-6 p-4 border rounded-lg bg-surface-2 space-y-3">
-          <input required placeholder="名称" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full p-2 border rounded" />
-          <select aria-label="类型" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as "folder" | "file" })} className="w-full p-2 border rounded">
-            <option value="file">文件</option>
-            <option value="folder">文件夹</option>
-          </select>
-          <div className="flex gap-2">
-            <button type="submit" className="px-4 py-2 bg-brand-500 text-white rounded hover:bg-brand-600">创建</button>
-            <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 border rounded hover:bg-surface-3">取消</button>
-          </div>
-        </form>
+      {/* 面包屑 */}
+      <div className="flex items-center flex-wrap gap-1 text-caption text-muted-foreground mb-3">
+        {crumbs.map((c, i) => (
+          <span key={c.id} className="flex items-center gap-1">
+            {i > 0 && <ChevronRight size={13} />}
+            <button
+              className={i === crumbs.length - 1 ? "font-medium text-foreground" : "hover:text-foreground"}
+              onClick={() => navCrumb(c)}
+            >
+              {c.name}
+            </button>
+          </span>
+        ))}
+      </div>
+
+      {showNewFolder && (
+        <div className="flex gap-2 mb-4">
+          <Input autoFocus value={newFolder} onChange={(e) => setNewFolder(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && createFolder()} placeholder="文件夹名称" className="max-w-xs" />
+          <Button size="sm" onClick={createFolder}>创建</Button>
+          <Button size="sm" variant="outline" onClick={() => { setShowNewFolder(false); setNewFolder(""); }}>取消</Button>
+        </div>
       )}
 
-      <div className="grid gap-2">
-        {files.map((f) => (
-          <div key={f.id} className="flex items-center gap-3 p-3 border rounded-lg hover:bg-surface-2 transition">
-            {f.type === "folder" ? <Folder size={20} className="text-warning" /> : <File size={20} className="text-info" />}
-            <div className="flex-1">
-              <div className="font-medium">{f.name}</div>
-              <div className="text-footnote text-ink-tertiary">{new Date(f.updatedAt).toLocaleString()}</div>
-            </div>
-            <button aria-label="删除" onClick={() => deleteFile(f.id)} className="p-2 text-danger hover:bg-danger/5 rounded">
-              <Trash2 size={16} />
-            </button>
+      {clipboard && (
+        <div className="flex items-center justify-between px-3 py-2 mb-3 rounded-md bg-info/10 border border-info/20 text-caption">
+          <span>移动「{clipboard.name}」到当前文件夹？</span>
+          <div className="flex gap-2">
+            <Button size="sm" onClick={pasteHere}><ClipboardPaste size={14} className="mr-1" />粘贴到此</Button>
+            <Button size="sm" variant="ghost" onClick={() => setClipboard(null)}><X size={14} /></Button>
           </div>
-        ))}
-        {files.length === 0 && (
-          <div className="text-center text-ink-tertiary py-12">云盘为空，点击上方按钮创建</div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {error && <div className="text-footnote text-danger mb-3">{error}</div>}
+
+      {loading ? (
+        <div className="text-ink-secondary py-8">加载中…</div>
+      ) : (
+        <div className="grid gap-1.5">
+          {items.map((f) => (
+            <div key={f.id} className="flex items-center gap-3 p-2.5 border rounded-lg hover:bg-surface-2 transition group">
+              <button className="flex items-center gap-3 flex-1 min-w-0 text-left" onClick={() => openFolder(f)} disabled={!f.isFolder}>
+                {f.isFolder ? <Folder size={19} className="text-warning shrink-0" /> : <FileIcon size={19} className="text-info shrink-0" />}
+                <div className="min-w-0">
+                  <div className="font-medium truncate">{f.name}</div>
+                  <div className="text-footnote text-ink-tertiary">
+                    {new Date(f.updatedAt).toLocaleDateString()} {fmtSize(f.size)}
+                    {f.nodeRole && <span className="ml-1 text-info">· {f.nodeRole}</span>}
+                  </div>
+                </div>
+              </button>
+              <div className="flex items-center gap-0.5 opacity-60 group-hover:opacity-100">
+                {!f.isFolder && (
+                  <button aria-label="下载" title="下载" onClick={() => download(f)} className="p-1.5 hover:bg-surface-3 rounded"><Download size={15} /></button>
+                )}
+                {isOwner(f) && (
+                  <button aria-label="共享" title="共享" onClick={() => setShareTarget(f)} className="p-1.5 hover:bg-surface-3 rounded"><Share2 size={15} /></button>
+                )}
+                <button aria-label="改名" title="改名" onClick={() => rename(f)} className="p-1.5 hover:bg-surface-3 rounded"><Pencil size={15} /></button>
+                <button aria-label="移动" title="移动" onClick={() => setClipboard(f)} className="p-1.5 hover:bg-surface-3 rounded"><Scissors size={15} /></button>
+                <button aria-label="删除" title="删除" onClick={() => remove(f)} className="p-1.5 text-danger hover:bg-danger/5 rounded"><Trash2 size={15} /></button>
+              </div>
+            </div>
+          ))}
+          {items.length === 0 && (
+            <div className="text-center text-ink-tertiary py-12">此文件夹为空</div>
+          )}
+        </div>
+      )}
+
+      <DriveShareDialog
+        open={!!shareTarget}
+        onOpenChange={(v) => { if (!v) setShareTarget(null); }}
+        file={shareTarget}
+        onSaved={load}
+      />
     </div>
   );
 }

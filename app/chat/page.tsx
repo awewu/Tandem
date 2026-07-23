@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useChatStore, useAgentStore, useMemoryStore, PRESET_AGENTS } from '@/lib/store';
+import { useChatStore, useAgentStore, PRESET_AGENTS } from '@/lib/store';
 import { Send, Plus, Trash2, Bot, User, AlertCircle, Sparkles, Palette, Package, Target, Megaphone, Code, PenLine, BarChart3, Users, ThumbsUp, ThumbsDown, Star, Shield, Link2, ArrowLeft, History, Brain } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { startChatStream, startLLMStream } from '@/lib/hermes-api';
@@ -50,10 +50,6 @@ function ChatPageInner() {
   const setStreaming = useChatStore((s) => s.setStreaming);
   const updateConversation = useChatStore((s) => s.updateConversation);
   const { agents } = useAgentStore();
-  const getBaselineSystemPrompt = useMemoryStore((s) => s.getBaselineSystemPrompt);
-  const activeMemoryCount = useMemoryStore((s) =>
-    s.memories.filter((m) => m.isActive && (m.priority === 'critical' || m.priority === 'high')).length
-  );
   const activeConv = conversations.find((c) => c.id === activeId);
   const [input, setInput] = useState('');
   const [selectedAgentId, setSelectedAgentId] = useState<string>('');
@@ -124,9 +120,9 @@ function ChatPageInner() {
     const useTeam = agent.provider?.type === 'team' && !!agent.provider.teamProvider;
     const useProxy = !useTeam && agent.provider?.type === 'openai-compatible' && !!agent.provider.baseURL;
 
-    // 注入企业基线（active 且 critical/high 的 memory）+ Agent 自身 systemPrompt
-    const baseline = getBaselineSystemPrompt();
-    const composedSystemPrompt = [baseline, agent.systemPrompt].filter((s) => s && s.trim()).join('\n\n');
+    // 个人语料注入由服务端「搭子手抄」persona feed 负责 (sharedToPersona, 本人 opt-in);
+    // 此处仅传 Agent 自身 systemPrompt, 不再走已废弃的客户端个人记事本基线。
+    const composedSystemPrompt = agent.systemPrompt ?? '';
 
     const payload = useTeam
       ? {
@@ -524,15 +520,6 @@ function ChatPageInner() {
               )}
             </SelectContent>
           </Select>
-          {activeMemoryCount > 0 && (
-            <span
-              className="ml-auto inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
-              title={`${activeMemoryCount} 条公司基线（critical/high）正在自动注入到每次对话`}
-            >
-              <Shield className="h-3 w-3" />
-              基线 {activeMemoryCount} 条已注入
-            </span>
-          )}
         </div>
 
         <ScrollArea ref={scrollRef} className="flex-1 p-4">

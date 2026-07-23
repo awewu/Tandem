@@ -487,7 +487,9 @@ V2 加入. 触发预警的信号:
 | 通道 | 数据 | 谁能用 | 代码密封点 |
 |---|---|---|---|
 | 个人成长 | 手抄 (`sharedToPersona` opt-in) / 个人级 Memory | 只喂**本人**搭子分身 | `shouchao/service.ts` 闸门; 前端注入标"个人笔记(参考)"非"公司基线" |
-| 企业决策 | 签批 Memory (`status='active'`, 非 personal) + 公司级已发布 KnowledgeNode | OKR / 议事 / 中央AI 感知/推理 pass | `baseline-guard` 与 `memory.search`(CompositeRetriever) 决策召回过滤 `status='active' && ownershipLevel!=='personal'` |
+| 企业决策 | 签批 Memory (`status='active'`, 非 personal) | OKR / 议事 / 中央AI 感知/推理 pass | `baseline-guard` 与 `memory.search`(CompositeRetriever) 决策召回过滤 `status='active' && ownershipLevel!=='personal'` |
+
+> ⚠️ **修正 (2026-07-21)**: 早期本表曾列"公司级已发布 KnowledgeNode"入企业决策通道 —— **该能力未实现**。`/knowledge` 的 `KnowledgeNode` (`lib/knowledge/service.ts`) 按 `ownerId` 隔离、仅个人可见, 无 published 概念, 也无任何 baseline-guard / memory.search / company-brain 消费方。**唯一进入 AI 决策的企业知识是签批后的 `MemoryEntry`**。`/knowledge` 上的 company/department/team ownership 标签仅为个人整理分类, 不构成公司发布 (见 `KNOWLEDGE-MEMORY-EVOLUTION-2026-07-21.md` §8.3)。
 
 **两条落地约束:**
 

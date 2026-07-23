@@ -7,8 +7,9 @@
 
 import { getStore, generateId } from '../storage/repository';
 import { audit } from '../audit/log';
-import type { ShouchaoNote, ShouchaoNotebook } from '../types/shouchao';
+import type { ShouchaoNote, ShouchaoNotebook, ShouchaoAttachment } from '../types/shouchao';
 import { embed, cosineSim, isEmbeddingConfigured } from '../infra/embedding';
+import { upsertEmbedding, deleteEmbedding, searchEmbeddings } from '../infra/vector-store';
 
 export interface CreateNoteInput {
   ownerId: string;
@@ -19,6 +20,14 @@ export interface CreateNoteInput {
   notebookId?: string;
   sourceUrl?: string;
   summary?: string;
+  /** 父页面 id (Notion 式嵌套) */
+  parentId?: string;
+  /** 页面图标 emoji */
+  icon?: string;
+  /** 封面图 URL */
+  coverUrl?: string;
+  /** 文件附件 id 列表 */
+  attachments?: string[];
 }
 
 export interface UpdateNoteInput {
@@ -31,6 +40,11 @@ export interface UpdateNoteInput {
   summary?: string;
   pinned?: boolean;
   archived?: boolean;
+  /** '' 或 null 表示移到顶层 (无父页面) */
+  parentId?: string | null;
+  icon?: string;
+  coverUrl?: string;
+  attachments?: string[];
 }
 
 function nowIso(): string {
@@ -77,7 +91,7 @@ export async function getNote(ownerId: string, id: string): Promise<ShouchaoNote
 export async function createNote(input: CreateNoteInput): Promise<ShouchaoNote> {
   const store = getStore();
   const ts = nowIso();
-  return store.shouchaoNotes.create({
+  const note = await store.shouchaoNotes.create({
     id: generateId('sc'),
     ownerId: input.ownerId,
     tenantId: input.tenantId,
@@ -87,11 +101,18 @@ export async function createNote(input: CreateNoteInput): Promise<ShouchaoNote> 
     notebookId: input.notebookId || undefined,
     sourceUrl: input.sourceUrl,
     summary: input.summary,
+    parentId: input.parentId || undefined,
+    icon: input.icon || undefined,
+    coverUrl: input.coverUrl || undefined,
+    attachments: input.attachments && input.attachments.length ? input.attachments : undefined,
     pinned: false,
     archived: false,
     createdAt: ts,
     updatedAt: ts,
   });
+  // A3: 增量向量 (fire-and-forget, 未启用/失败静默降级)
+  void syncNoteVector(note);
+  return note;
 }
 
 /** 更新笔记 — 仅 owner 可改. 返回 null 表示不存在或无权. */
@@ -112,7 +133,18 @@ export async function updateNote(
   if (patch.summary !== undefined) clean.summary = patch.summary;
   if (patch.pinned !== undefined) clean.pinned = patch.pinned;
   if (patch.archived !== undefined) clean.archived = patch.archived;
-  return store.shouchaoNotes.update(id, clean);
+  if (patch.parentId !== undefined) clean.parentId = patch.parentId || undefined;
+  if (patch.icon !== undefined) clean.icon = patch.icon || undefined;
+  if (patch.coverUrl !== undefined) clean.coverUrl = patch.coverUrl || undefined;
+  if (patch.attachments !== undefined) {
+    clean.attachments = patch.attachments.length ? patch.attachments : undefined;
+  }
+  const updated = await store.shouchaoNotes.update(id, clean);
+  // A3: 内容变更时刷新向量 (fire-and-forget)
+  if (updated && (patch.title !== undefined || patch.content !== undefined || patch.tags !== undefined)) {
+    void syncNoteVector(updated);
+  }
+  return updated;
 }
 
 /**
@@ -125,7 +157,24 @@ export async function deleteNote(ownerId: string, id: string): Promise<boolean> 
   const store = getStore();
   const ts = nowIso();
   await store.shouchaoNotes.update(id, { deletedAt: ts, updatedAt: ts });
+  // A3: 软删同步移除向量 (fire-and-forget)
+  void deleteEmbedding('shouchao_note', id);
   return true;
+}
+
+/** A3: 把一条笔记的向量写入统一检索层. 未启用/失败均静默 (承 megaplan C6). */
+async function syncNoteVector(note: ShouchaoNote): Promise<void> {
+  try {
+    await upsertEmbedding({
+      entityType: 'shouchao_note',
+      entityId: note.id,
+      tenantId: note.tenantId,
+      ownerId: note.ownerId,
+      text: `${note.title}\n${note.content}\n${(note.tags ?? []).join(' ')}`,
+    });
+  } catch {
+    /* 非致命 */
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -417,7 +466,34 @@ async function rankNotesByRelevance(
     return notes.map((note) => ({ note, score: 0 }));
   }
 
-  // 1) 语义优先
+  // 0) pgvector ANN 统一检索层 (A3). 命中则用之; 未启用返回 null → 落下方内存 cosine。
+  //    隐私关键: ANN 按 ownerId 检索本人全部笔记, 但结果必须与传入 notes 子集求交,
+  //    以保住调用方的过滤语义 (如 persona 只喂 sharedToPersona 子集, 不能漏进未授权笔记)。
+  try {
+    const owner = notes[0]?.ownerId;
+    const tenant = notes[0]?.tenantId;
+    if (owner && tenant) {
+      const hits = await searchEmbeddings({
+        queryText: q,
+        tenantId: tenant,
+        entityType: 'shouchao_note',
+        ownerId: owner,
+        topK: Math.max(20, notes.length),
+        minSim: SEMANTIC_MIN_SIM,
+      });
+      if (hits) {
+        const inSet = new Map(notes.map((n) => [n.id, n]));
+        const ranked = hits
+          .map((h) => ({ note: inSet.get(h.entityId), score: h.sim }))
+          .filter((x): x is { note: ShouchaoNote; score: number } => !!x.note);
+        if (ranked.length > 0) return ranked;
+      }
+    }
+  } catch {
+    // 向量层异常 → 落内存 cosine / Jaccard
+  }
+
+  // 1) 语义优先 (内存 cosine, 无 pgvector 时的兜底)
   if (await isEmbeddingConfigured()) {
     try {
       const qv = await embed(q);
@@ -609,4 +685,52 @@ export async function searchNotesForAsk(
   return matched.length > 0
     ? matched
     : [...active].sort(byRecent).slice(0, Math.min(3, topK)).map((n) => ({ note: n, score: 0 }));
+}
+
+// ---------------------------------------------------------------------------
+// 文件附件 (图片/文档原件) · 对标 Notion 的图片块 + 附件. 个人资产, ownerId 隔离.
+//   原件存对象存储 (S3/MinIO, BUCKET_ATTACHMENTS), 本表只存元数据 + storageKey.
+//   内嵌图片走稳定 serving URL /api/shouchao/attachments/{id}; 文件附件记在 note.attachments[].
+// ---------------------------------------------------------------------------
+
+export interface CreateAttachmentInput {
+  ownerId: string;
+  tenantId: string;
+  storageKey: string;
+  name: string;
+  mime: string;
+  size: number;
+  noteId?: string;
+}
+
+export async function createAttachment(input: CreateAttachmentInput): Promise<ShouchaoAttachment> {
+  const store = getStore();
+  return store.shouchaoAttachments.create({
+    id: generateId('sca'),
+    ownerId: input.ownerId,
+    tenantId: input.tenantId,
+    storageKey: input.storageKey,
+    name: input.name,
+    mime: input.mime,
+    size: input.size,
+    noteId: input.noteId,
+    createdAt: nowIso(),
+  });
+}
+
+/** 取附件元数据 — 仅 owner 可见. 返回 null 表示不存在/无权/已删. */
+export async function getAttachment(ownerId: string, id: string): Promise<ShouchaoAttachment | null> {
+  const store = getStore();
+  const att = await store.shouchaoAttachments.get(id);
+  if (!att || att.ownerId !== ownerId || att.deletedAt) return null;
+  return att;
+}
+
+/** 软删附件 (打墓碑). 原件 blob 由清理任务异步回收, 此处只置不可见. */
+export async function deleteAttachment(ownerId: string, id: string): Promise<boolean> {
+  const existing = await getAttachment(ownerId, id);
+  if (!existing) return false;
+  const store = getStore();
+  await store.shouchaoAttachments.update(id, { deletedAt: nowIso() });
+  return true;
 }

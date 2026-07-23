@@ -11,6 +11,7 @@ import type { MemoryRetriever, MemorySearchResult } from '../convergence/decisio
 import { getStore } from '../storage/repository';
 import type { MemoryEntry, Material } from '../types/memory';
 import { embed, cosineSim, isEmbeddingConfigured } from '../infra/embedding';
+import { searchEmbeddings } from '../infra/vector-store';
 import { expandNeighbors } from './graph';
 
 /** 性能护栏: 单次最多对多少条候选做向量计算 (其余走 Jaccard 兜底) */
@@ -87,6 +88,34 @@ async function rankSemantic(
   limit: number,
 ): Promise<MemorySearchResult[]> {
   if (entries.length === 0) return [];
+
+  // 0) pgvector ANN 统一检索层 (A3). 未启用返回 null → 落下方内存 cosine / Jaccard。
+  //    安全: 结果与传入 entries 求交, 保住调用方的可见性/类型过滤; 命中不足则回退。
+  try {
+    const tenantId = (entries[0] as { orgId?: string }).orgId ?? 'default';
+    const hits = await searchEmbeddings({
+      queryText: query,
+      tenantId,
+      entityType: 'memory',
+      topK: Math.max(limit * 4, 20),
+      minSim: SEMANTIC_MIN_SIM,
+    });
+    if (hits) {
+      const inSet = new Map(entries.map((e) => [e.id, e]));
+      const ranked = hits
+        .map((h) => {
+          const e = inSet.get(h.entityId);
+          return e ? { id: e.id, title: e.title, body: e.body, similarity: applyRefBoost(h.sim, e) } : null;
+        })
+        .filter((x): x is MemorySearchResult => !!x)
+        .sort((a, b) => b.similarity - a.similarity)
+        .slice(0, limit);
+      if (ranked.length > 0) return ranked;
+    }
+  } catch {
+    // 向量层异常 → 落内存 cosine / Jaccard
+  }
+
   if (await isEmbeddingConfigured()) {
     try {
       const qv = await embed(query);

@@ -18,12 +18,17 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { BrandLogo } from '@/components/brand-logo';
 import { enqueue as enqueueOffline, flushQueue } from '@/lib/shouchao/offline-queue';
 import { BlockEditor } from '@/components/shouchao/block-editor';
+import { PageTree } from '@/components/shouchao/page-tree';
+import { DistillPanel } from '@/components/shouchao/distill-panel';
 import {
   NotebookPen,
   Plus,
+  PanelLeft,
+  Database,
   Search,
   Trash2,
   Link2,
@@ -61,6 +66,10 @@ interface Note {
   pinned?: boolean;
   archived?: boolean;
   sharedToPersona?: boolean;
+  parentId?: string;
+  icon?: string;
+  coverUrl?: string;
+  attachments?: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -93,6 +102,13 @@ export default function ShouchaoPage() {
   // 知识库分组 (对标 Get笔记 知识库). null=全部 / 'unfiled'=未分组 / id=某知识库
   const [notebooks, setNotebooks] = useState<Notebook[]>([]);
   const [notebookFilter, setNotebookFilter] = useState<string | null>(null);
+  // 页面树侧栏 (Notion 式嵌套导航) 开关
+  const [treeOpen, setTreeOpen] = useState(true);
+  // 数据库 (对标 Notion databases) 列表
+  const [databases, setDatabases] = useState<Array<{ id: string; name: string; icon?: string }>>([]);
+  // A2 个人蒸馏"整理建议"面板开关
+  const [distillOpen, setDistillOpen] = useState(false);
+  const router = useRouter();
 
   // 编辑草稿
   const [title, setTitle] = useState('');
@@ -194,9 +210,24 @@ export default function ShouchaoPage() {
     }
   }, []);
 
+  // ---- 数据库 (Notion databases): 加载列表 ----
+  const loadDatabases = useCallback(async () => {
+    try {
+      const r = await fetch('/api/shouchao/databases', { credentials: 'include', cache: 'no-store' });
+      if (!r.ok) return;
+      const d = await r.json();
+      setDatabases(
+        (d.databases ?? []).map((x: { id: string; name: string; icon?: string }) => ({ id: x.id, name: x.name, icon: x.icon })),
+      );
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   useEffect(() => {
     void loadNotebooks();
-  }, [loadNotebooks]);
+    void loadDatabases();
+  }, [loadNotebooks, loadDatabases]);
 
   useEffect(() => {
     const t = setTimeout(() => void loadNotes(search), search ? 250 : 0);
@@ -287,6 +318,8 @@ export default function ShouchaoPage() {
           content: seed?.content ?? '',
           tags: seed?.tags ?? [],
           sourceUrl: seed?.sourceUrl,
+          parentId: seed?.parentId,
+          icon: seed?.icon,
         }),
       });
       if (!r.ok) throw new Error('create failed');
@@ -316,6 +349,23 @@ export default function ShouchaoPage() {
       showToast('ok', `已创建知识库「${name}」`);
     } catch {
       showToast('err', '创建知识库失败');
+    }
+  }
+
+  // ---- 数据库: 新建并跳转 ----
+  async function createDatabase() {
+    try {
+      const r = await fetch('/api/shouchao/databases', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ name: '未命名数据库' }),
+      });
+      if (!r.ok) throw new Error('create failed');
+      const d = await r.json();
+      router.push(`/shouchao/db/${d.database.id}`);
+    } catch {
+      showToast('err', '创建数据库失败');
     }
   }
 
@@ -684,13 +734,40 @@ export default function ShouchaoPage() {
             </div>
           </div>
         </div>
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-1 px-3 py-1.5 text-caption font-medium text-ink-secondary hover:bg-surface-2 hover:text-ink-primary surface-interactive"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" /> 返回 Tandem
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setTreeOpen((v) => !v)}
+            title={treeOpen ? '隐藏页面树' : '显示页面树'}
+            className={`hidden rounded-md border border-border p-1.5 surface-interactive md:inline-flex ${treeOpen ? 'bg-brand-50 text-brand-600' : 'bg-surface-1 text-ink-tertiary hover:bg-surface-2'}`}
+          >
+            <PanelLeft className="h-4 w-4" />
+          </button>
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-1 px-3 py-1.5 text-caption font-medium text-ink-secondary hover:bg-surface-2 hover:text-ink-primary surface-interactive"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> 返回 Tandem
+          </Link>
+        </div>
       </header>
+
+      <div className="flex min-h-0 flex-1">
+      {/* ── 页面树侧栏 (Notion 式嵌套导航, md+ 显示) ── */}
+      {treeOpen && (
+        <aside className="hidden w-60 shrink-0 flex-col overflow-hidden border-r border-border bg-surface-1/60 md:flex">
+          <PageTree
+            notes={notes}
+            activeId={activeId}
+            onSelect={(id) => {
+              const n = notes.find((x) => x.id === id);
+              if (n) selectNote(n);
+            }}
+            onAddChild={(parentId) => void createNote({ parentId })}
+            onAddRoot={() => void createNote()}
+          />
+        </aside>
+      )}
 
       {/* ── 单列卡片流 (Get 式: 速记框置顶 + 卡片瀑布) ── */}
       <main className="min-h-0 flex-1 overflow-y-auto">
@@ -819,6 +896,39 @@ export default function ShouchaoPage() {
               title="新建知识库"
             >
               <Plus className="h-3 w-3" /> 知识库
+            </button>
+          </div>
+
+          {/* 数据库条 (对标 Notion databases) */}
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <span className="inline-flex items-center gap-1 text-footnote text-ink-tertiary">
+              <Database className="h-3.5 w-3.5" /> 数据库
+            </span>
+            {databases.map((db) => (
+              <Link
+                key={db.id}
+                href={`/shouchao/db/${db.id}`}
+                className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-footnote text-ink-secondary hover:bg-surface-3 surface-interactive"
+              >
+                {db.icon && <span>{db.icon}</span>}
+                {db.name}
+              </Link>
+            ))}
+            <button
+              type="button"
+              onClick={() => void createDatabase()}
+              className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2.5 py-1 text-footnote text-ink-tertiary hover:border-brand-300 hover:text-brand-600 surface-interactive"
+              title="新建数据库"
+            >
+              <Plus className="h-3 w-3" /> 数据库
+            </button>
+            <button
+              type="button"
+              onClick={() => setDistillOpen(true)}
+              className="ml-auto inline-flex items-center gap-1 rounded-full border border-brand-200 bg-brand-50/40 px-2.5 py-1 text-footnote font-medium text-brand-600 hover:bg-brand-50 surface-interactive"
+              title="让 AI 整理你已授权的笔记（仅个人范围）"
+            >
+              <Sparkles className="h-3 w-3" /> 整理建议
             </button>
           </div>
 
@@ -998,6 +1108,10 @@ export default function ShouchaoPage() {
           )}
         </div>
       </main>
+      </div>
+
+      {/* A2 · 整理建议面板 (个人蒸馏) */}
+      {distillOpen && <DistillPanel onClose={() => setDistillOpen(false)} />}
 
       {/* ── 滑出式编辑 sheet (Get 式: 卡片点开从右侧覆盖) ── */}
       {active && (
@@ -1220,6 +1334,27 @@ export default function ShouchaoPage() {
                           markDirty();
                         }}
                         placeholder="开始记录，按 “/” 选择块类型…"
+                        onUploadImage={async (file) => {
+                          const fd = new FormData();
+                          fd.append('file', file);
+                          if (activeId) fd.append('noteId', activeId);
+                          try {
+                            const res = await fetch('/api/shouchao/attachments', {
+                              method: 'POST',
+                              body: fd,
+                              credentials: 'include',
+                            });
+                            const data = await res.json().catch(() => ({}));
+                            if (!res.ok || !data.ok) {
+                              showToast('err', data.error || '图片上传失败');
+                              return null;
+                            }
+                            return { url: data.attachment.url as string, alt: data.attachment.name as string };
+                          } catch {
+                            showToast('err', '图片上传失败');
+                            return null;
+                          }
+                        }}
                       />
                     </div>
                   ) : (

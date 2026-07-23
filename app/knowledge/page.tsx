@@ -352,7 +352,7 @@ export default function KnowledgePage() {
 
         {/* Q1 ownership 选择器 */}
         <div className="pt-2 border-t space-y-1.5">
-          <div className="text-footnote font-medium">知识归属 (Memory ownership)</div>
+          <div className="text-footnote font-medium">整理标签 (仅个人分类)</div>
           <div className="flex flex-wrap gap-1">
             {(['unset', 'company', 'department', 'team', 'personal'] as const).map((lvl) => {
               const meta = OWNERSHIP_META[lvl];
@@ -377,7 +377,7 @@ export default function KnowledgePage() {
             })}
           </div>
           <p className="text-[10px] text-muted-foreground">
-            企业/部门/团队/个人 4 级 · 与 /memories 同语义 · 影响 Persona 调用时的可见性
+            仅用于你个人整理分类，<span className="font-medium text-warning">不等于公司发布</span>：此处文件仅你自己可见，不会进入中央 AI 决策依据。需要设为全员权威知识，请到<span className="font-medium">「组织记忆」</span>走签批流程。
           </p>
         </div>
 
@@ -448,7 +448,7 @@ export default function KnowledgePage() {
       <FileManager
         nodes={fmNodes}
         rootId="root"
-        title="知识库"
+        title="我的资料库"
         onCreateFolder={handleCreateFolder}
         onRename={handleRename}
         onDelete={handleDelete}

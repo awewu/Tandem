@@ -54,6 +54,7 @@ import {
   GraduationCap,
   Network,
   Bell,
+  NotebookPen,
 } from 'lucide-react';
 
 export type Role = 'employee' | 'manager' | 'steward' | 'admin' | 'champion' | 'intranet_editor' | 'owner' | 'partner';
@@ -211,13 +212,20 @@ export const NAV_MODULES: NavModule[] = [
     icon: BookOpen,
     visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
     // /search 移除 (⌘K Command Palette 已覆盖全局搜索)
-    pathPrefixes: ['/documents', '/knowledge', '/memories', '/drive', '/bitable'],
+    // group 小标题明示权威分层, 化解 IA 混淆 (见 docs/KNOWLEDGE-MEMORY-EVOLUTION-2026-07-21.md §8).
+    // 三棵文件树按语义层收敛于本模块 (一处看全所有资料):
+    //   个人层 = 「我的资料库(搭子手抄)」/shouchao (私人, 仅自己可见; 保留独立 app 入口, 一份数据双入口).
+    //   工作层 = 「我的工作云盘」/drive (组织架构化, 带 ACL, 可被 AI 蒸馏 → 组织记忆).
+    //   记忆层 = 「组织记忆」/memories (签批后喂 AI).
+    // 遗留 /knowledge (knowledgeNodes) 退役中, 数据并入个人层.
+    pathPrefixes: ['/knowledge-hub', '/documents', '/memories', '/drive', '/bitable', '/shouchao'],
     items: [
-      { name: '文档协作',     href: '/documents', icon: FileText },
-      { name: '组织记忆（需审批）', href: '/memories',  icon: Brain },
-      { name: '知识图谱',     href: '/knowledge', icon: Database },
-      { name: '多维表格',     href: '/bitable',   icon: LayoutGrid },
-      { name: '云盘',         href: '/drive',     icon: HardDrive },
+      { name: '知识导航',     href: '/knowledge-hub', icon: Compass },
+      { name: '我的资料库（搭子手抄）', href: '/shouchao', icon: NotebookPen, group: '私人空间' },
+      { name: '组织记忆（需审批）', href: '/memories', icon: Brain,   group: '公司权威 · 签批后喂 AI' },
+      { name: '文档协作',     href: '/documents', icon: FileText,   group: '协作产出' },
+      { name: '多维表格',     href: '/bitable',   icon: LayoutGrid, group: '协作产出' },
+      { name: '我的工作云盘', href: '/drive',     icon: HardDrive,  group: '工作云盘' },
     ],
   },
 
@@ -415,6 +423,7 @@ export const NAV_MODULES: NavModule[] = [
         tabs: [
           { name: 'CompanyBrain 看板', href: '/admin/company-brain', visibleTo: ['steward', 'admin', 'champion'] },
           { name: 'OKR 主航道偏离', href: '/admin/governance/okr-drift', visibleTo: ['steward', 'admin', 'champion'] },
+          { name: '云盘蒸馏审阅', href: '/admin/drive-distillation', visibleTo: ['steward', 'admin', 'champion'] },
           { name: '红线硬拒', href: '/admin/hard-refuse', visibleTo: ['admin', 'champion'] },
         ],
       },

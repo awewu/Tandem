@@ -1,14 +1,16 @@
-﻿import { NextResponse } from 'next/server';
+﻿import { NextResponse, type NextRequest } from 'next/server';
 import { withErrorHandler } from '@/lib/api/error-middleware';
+import { requireAuth } from '@/lib/auth/require-auth';
 import { createAppContext } from '@/lib/repositories/app-context-factory';
 import { DocumentService } from '@/lib/services/document-service';
 import { CalendarService } from '@/lib/services/calendar-service';
 import { DriveService } from '@/lib/services/drive-service';
+import { resolveDriveActor } from '@/lib/drive/actor';
 import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const dynamic = 'force-dynamic';
 
-const GETApiHandler = withErrorHandler(async (req: Request) => {
+const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const q = (searchParams.get('q') ?? '').toLowerCase().trim();
   const typesParam = searchParams.get('types') ?? 'all';
@@ -42,11 +44,16 @@ const GETApiHandler = withErrorHandler(async (req: Request) => {
   }
 
   if (types.includes('drive')) {
-    const svc = new DriveService(ctx);
-    const files = await svc.list();
-    for (const f of files) {
-      if (f.name.toLowerCase().includes(q)) {
-        results.push({ type: 'driveFile', id: f.id, title: f.name, snippet: f.mimeType, matchedAt: f.updatedAt });
+    // Drive 走 ACL: 需鉴权; 未登录则跳过 drive 结果 (不整体 401, 保持 doc/calendar 搜索可用).
+    const auth = requireAuth(req);
+    if (!(auth instanceof NextResponse)) {
+      const actor = await resolveDriveActor(auth);
+      const svc = new DriveService(ctx);
+      const files = await svc.list({ tenantId: auth.tenantId }, actor);
+      for (const f of files) {
+        if (f.name.toLowerCase().includes(q)) {
+          results.push({ type: 'driveFile', id: f.id, title: f.name, snippet: f.mimeType, matchedAt: f.updatedAt });
+        }
       }
     }
   }

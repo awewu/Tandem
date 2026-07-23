@@ -32,6 +32,13 @@ import {
   Plus,
   Trash2,
   GripVertical,
+  Image as ImageIcon,
+  Loader2,
+  Table as TableIcon,
+  Info,
+  ChevronRight,
+  ChevronDown,
+  Plus as PlusIcon,
 } from 'lucide-react';
 
 import {
@@ -55,18 +62,39 @@ const BLOCK_MENU: Array<{ type: BlockType; label: string; Icon: typeof Type }> =
   { type: 'ol', label: '有序列表', Icon: ListOrdered },
   { type: 'todo', label: '待办', Icon: CheckSquare },
   { type: 'quote', label: '引用', Icon: Quote },
+  { type: 'callout', label: '标注框', Icon: Info },
+  { type: 'table', label: '表格', Icon: TableIcon },
+  { type: 'toggle', label: '折叠', Icon: ChevronRight },
   { type: 'code', label: '代码', Icon: Code },
   { type: 'hr', label: '分割线', Icon: Minus },
 ];
+
+/** callout 变体 → 图标/配色 */
+const CALLOUT_STYLE: Record<string, { emoji: string; cls: string }> = {
+  NOTE: { emoji: '📝', cls: 'border-brand-300 bg-brand-50/50' },
+  TIP: { emoji: '💡', cls: 'border-emerald-300 bg-emerald-50/50' },
+  IMPORTANT: { emoji: '❗', cls: 'border-violet-300 bg-violet-50/50' },
+  WARNING: { emoji: '⚠️', cls: 'border-warning/30 bg-warning/5/50' },
+  CAUTION: { emoji: '🛑', cls: 'border-danger/30 bg-danger/5/50' },
+};
 
 interface BlockEditorProps {
   /** 受控: Markdown 字符串 */
   value: string;
   onChange: (markdown: string) => void;
   placeholder?: string;
+  /**
+   * 上传图片 → 返回稳定 serving URL. 提供时块菜单才出现“图片”项.
+   * 返回 null = 上传失败 (组件不插入图片块).
+   */
+  onUploadImage?: (file: File) => Promise<{ url: string; alt?: string } | null>;
 }
 
-export function BlockEditor({ value, onChange, placeholder }: BlockEditorProps) {
+export function BlockEditor({ value, onChange, placeholder, onUploadImage }: BlockEditorProps) {
+  // 图片上传: 隐藏 file input + 待插入目标块 + 上传中标记
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const pendingImageBlockRef = useRef<string | null>(null);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [blocks, setBlocks] = useState<Block[]>(() => parseMarkdown(value));
   // 防止外部 value 与内部循环互相打架: 仅当外部 value 与当前序列化结果不同才重建
   const lastSerialized = useRef<string>(serializeBlocks(blocks));
@@ -114,8 +142,88 @@ export function BlockEditor({ value, onChange, placeholder }: BlockEditorProps) 
 
   const setType = (id: string, type: BlockType) => {
     setMenuFor(null);
-    commit(blocks.map((b) => (b.id === id ? { ...b, type } : b)));
-    focusAfter.current = id;
+    // 图片块需先选文件上传, 不能空切: 交给 pickImageFor 走上传流程
+    if (type === 'image') {
+      pickImageFor(id);
+      return;
+    }
+    commit(blocks.map((b) => (b.id === id ? seedBlockType(b, type) : b)));
+    focusAfter.current = type === 'table' || type === 'toggle' ? null : id;
+  };
+
+  // 切换到复合块时初始化其专属数据
+  const seedBlockType = (b: Block, type: BlockType): Block => {
+    if (type === 'table') {
+      return { ...b, type, text: '', rows: b.rows ?? [['列 1', '列 2'], ['', '']] };
+    }
+    if (type === 'callout') {
+      return { ...b, type, calloutVariant: b.calloutVariant ?? 'NOTE' };
+    }
+    if (type === 'toggle') {
+      return { ...b, type, text: b.text || '折叠标题', body: b.body ?? '', open: b.open ?? true };
+    }
+    return { ...b, type };
+  };
+
+  // ---- table 编辑 ----
+  const updateTableCell = (id: string, r: number, c: number, val: string) => {
+    commit(
+      blocks.map((b) => {
+        if (b.id !== id || !b.rows) return b;
+        const rows = b.rows.map((row) => [...row]);
+        rows[r][c] = val;
+        return { ...b, rows };
+      }),
+    );
+  };
+  const addTableRow = (id: string) => {
+    commit(
+      blocks.map((b) => {
+        if (b.id !== id || !b.rows) return b;
+        const cols = b.rows[0]?.length ?? 1;
+        return { ...b, rows: [...b.rows, Array(cols).fill('')] };
+      }),
+    );
+  };
+  const addTableCol = (id: string) => {
+    commit(
+      blocks.map((b) => {
+        if (b.id !== id || !b.rows) return b;
+        return { ...b, rows: b.rows.map((row, i) => [...row, i === 0 ? `列 ${row.length + 1}` : '']) };
+      }),
+    );
+  };
+
+  // 记住"要把上传结果写进哪个块", 打开文件选择器
+  const pickImageFor = (blockId: string) => {
+    setMenuFor(null);
+    pendingImageBlockRef.current = blockId;
+    imageInputRef.current?.click();
+  };
+
+  // 选好图片 → 上传 → 把目标块变成 image 块 (src=serving URL)
+  const handleImageFile = async (file: File | null | undefined) => {
+    const blockId = pendingImageBlockRef.current;
+    pendingImageBlockRef.current = null;
+    if (imageInputRef.current) imageInputRef.current.value = '';
+    if (!file || !blockId || !onUploadImage) return;
+    setUploadingId(blockId);
+    try {
+      const res = await onUploadImage(file);
+      if (!res) return;
+      const alt = res.alt ?? file.name.replace(/\.[^.]+$/, '');
+      setBlocks((prev) => {
+        const next = prev.map((b) =>
+          b.id === blockId ? { ...b, type: 'image' as BlockType, text: '', src: res.url, alt } : b,
+        );
+        const md = serializeBlocks(next);
+        lastSerialized.current = md;
+        onChange(md);
+        return next;
+      });
+    } finally {
+      setUploadingId(null);
+    }
   };
 
   const removeBlock = (id: string) => {
@@ -255,6 +363,15 @@ export function BlockEditor({ value, onChange, placeholder }: BlockEditorProps) 
                   <Icon className="h-3.5 w-3.5" /> {label}
                 </button>
               ))}
+              {onUploadImage && (
+                <button
+                  type="button"
+                  onClick={() => setType(block.id, 'image')}
+                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-caption text-ink-secondary hover:bg-surface-2"
+                >
+                  <ImageIcon className="h-3.5 w-3.5" /> 图片
+                </button>
+              )}
             </div>
           )}
 
@@ -266,6 +383,132 @@ export function BlockEditor({ value, onChange, placeholder }: BlockEditorProps) 
                 <button type="button" onClick={() => removeBlock(block.id)} className="ml-2 text-ink-tertiary opacity-0 group-hover:opacity-100 hover:text-danger">
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
+              </div>
+            ) : block.type === 'image' ? (
+              <div className="group/img relative py-1">
+                {block.src ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={block.src}
+                    alt={block.alt ?? ''}
+                    className="max-h-[70vh] w-auto max-w-full rounded-lg border border-border"
+                  />
+                ) : (
+                  <div className="flex h-24 items-center justify-center rounded-lg border border-dashed border-border text-caption text-ink-tertiary">
+                    图片缺失
+                  </div>
+                )}
+                <input
+                  value={block.alt ?? ''}
+                  onChange={(e) => updateBlock(block.id, { alt: e.target.value })}
+                  placeholder="图注 / 替代文字…"
+                  className="mt-1 w-full bg-transparent text-caption text-ink-tertiary placeholder:text-ink-tertiary focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeBlock(block.id)}
+                  title="删除图片"
+                  className="absolute right-2 top-2 rounded-md bg-surface-1/80 p-1 text-ink-tertiary opacity-0 transition-opacity group-hover/img:opacity-100 hover:text-danger"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : block.type === 'callout' ? (
+              <div className={`flex items-start gap-2 rounded-lg border-l-4 px-3 py-2 ${(CALLOUT_STYLE[block.calloutVariant ?? 'NOTE'] ?? CALLOUT_STYLE.NOTE).cls}`}>
+                <button
+                  type="button"
+                  title="切换标注类型"
+                  onClick={() => {
+                    const order = ['NOTE', 'TIP', 'IMPORTANT', 'WARNING', 'CAUTION'] as const;
+                    const cur = order.indexOf((block.calloutVariant ?? 'NOTE') as typeof order[number]);
+                    updateBlock(block.id, { calloutVariant: order[(cur + 1) % order.length] });
+                  }}
+                  className="mt-0.5 shrink-0 text-body leading-none"
+                >
+                  {(CALLOUT_STYLE[block.calloutVariant ?? 'NOTE'] ?? CALLOUT_STYLE.NOTE).emoji}
+                </button>
+                <textarea
+                  ref={(el) => { inputRefs.current[block.id] = el; }}
+                  value={block.text}
+                  rows={1}
+                  onChange={(e) => {
+                    updateBlock(block.id, { text: e.target.value });
+                    e.currentTarget.style.height = 'auto';
+                    e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
+                  }}
+                  onKeyDown={(e) => handleKeyDown(e, block, idx)}
+                  placeholder="标注内容…"
+                  className="w-full resize-none bg-transparent text-body leading-relaxed text-ink-primary placeholder:text-ink-tertiary focus:outline-none"
+                />
+                <button type="button" onClick={() => removeBlock(block.id)} title="删除" className="mt-0.5 shrink-0 text-ink-tertiary opacity-0 transition-opacity group-hover:opacity-100 hover:text-danger">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : block.type === 'toggle' ? (
+              <div className="rounded-lg">
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => updateBlock(block.id, { open: !block.open })}
+                    className="shrink-0 rounded p-0.5 text-ink-tertiary hover:bg-surface-2"
+                    title={block.open ? '折叠' : '展开'}
+                  >
+                    {block.open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  </button>
+                  <input
+                    value={block.text}
+                    onChange={(e) => updateBlock(block.id, { text: e.target.value })}
+                    placeholder="折叠标题…"
+                    className="w-full bg-transparent text-body font-medium text-ink-primary placeholder:text-ink-tertiary focus:outline-none"
+                  />
+                  <button type="button" onClick={() => removeBlock(block.id)} title="删除" className="shrink-0 text-ink-tertiary opacity-0 transition-opacity group-hover:opacity-100 hover:text-danger">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                {block.open && (
+                  <textarea
+                    value={block.body ?? ''}
+                    rows={2}
+                    onChange={(e) => {
+                      updateBlock(block.id, { body: e.target.value });
+                      e.currentTarget.style.height = 'auto';
+                      e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
+                    }}
+                    placeholder="折叠内容…"
+                    className="ml-5 mt-1 w-[calc(100%-1.25rem)] resize-none rounded-md border border-border bg-surface-1 p-2 text-body leading-relaxed text-ink-secondary placeholder:text-ink-tertiary focus:border-brand-400 focus:outline-none"
+                  />
+                )}
+              </div>
+            ) : block.type === 'table' ? (
+              <div className="group/tbl relative overflow-x-auto py-1">
+                <table className="w-full border-collapse text-caption">
+                  <tbody>
+                    {(block.rows ?? []).map((row, r) => (
+                      <tr key={r}>
+                        {row.map((cell, c) => (
+                          <td key={c} className="border border-border p-0">
+                            <input
+                              value={cell}
+                              onChange={(e) => updateTableCell(block.id, r, c, e.target.value)}
+                              className={`w-full min-w-[5rem] bg-transparent px-2 py-1 text-ink-primary focus:bg-brand-50/40 focus:outline-none ${r === 0 ? 'font-semibold' : ''}`}
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="mt-1 flex items-center gap-2">
+                  <button type="button" onClick={() => addTableRow(block.id)} className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-footnote text-ink-tertiary hover:bg-surface-2 hover:text-ink-secondary">
+                    <PlusIcon className="h-3 w-3" /> 行
+                  </button>
+                  <button type="button" onClick={() => addTableCol(block.id)} className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-footnote text-ink-tertiary hover:bg-surface-2 hover:text-ink-secondary">
+                    <PlusIcon className="h-3 w-3" /> 列
+                  </button>
+                  <button type="button" onClick={() => removeBlock(block.id)} className="ml-auto inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-footnote text-ink-tertiary hover:text-danger">
+                    <Trash2 className="h-3 w-3" /> 删表
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="flex items-start gap-1.5">
@@ -326,6 +569,22 @@ export function BlockEditor({ value, onChange, placeholder }: BlockEditorProps) 
           }`}
         />
       )}
+
+      {/* 上传中提示 */}
+      {uploadingId && (
+        <div className="flex items-center gap-2 px-2 py-1 text-caption text-ink-tertiary">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" /> 图片上传中…
+        </div>
+      )}
+
+      {/* 图片上传隐藏输入 (由块菜单"图片"触发) */}
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => void handleImageFile(e.target.files?.[0])}
+      />
     </div>
   );
 }

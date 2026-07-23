@@ -41,6 +41,8 @@ async function POSTApiHandler(req: NextRequest) {
     notebookId?: string;
     sourceUrl?: string;
     summary?: string;
+    parentId?: string;
+    icon?: string;
   };
   try {
     body = await req.json();
@@ -57,6 +59,8 @@ async function POSTApiHandler(req: NextRequest) {
     notebookId: typeof body.notebookId === 'string' ? body.notebookId : undefined,
     sourceUrl: body.sourceUrl,
     summary: body.summary,
+    parentId: typeof body.parentId === 'string' ? body.parentId : undefined,
+    icon: typeof body.icon === 'string' ? body.icon : undefined,
   });
   return NextResponse.json({ note }, { status: 201 });
 }

@@ -29,6 +29,20 @@ export interface ShouchaoNote {
   pinned?: boolean;
   archived?: boolean;
   /**
+   * 父页面 id (Notion 式无限嵌套). 空 = 顶层.
+   * 与 notebookId 正交: notebookId 是"归类到哪个知识库", parentId 是"挂在哪个页面下".
+   */
+  parentId?: string;
+  /** 页面图标 (emoji, 如 "📝") */
+  icon?: string;
+  /** 页面封面图 URL (附件 serving URL 或外链) */
+  coverUrl?: string;
+  /**
+   * 文件附件 id 列表 (指向 ShouchaoAttachment). 内嵌图片直接写在正文 markdown 里,
+   * 这里记录的是"附件抽屉"里展示、可下载原件的文件.
+   */
+  attachments?: string[];
+  /**
    * 软删墓碑. 设置后该笔记在 UI/列表不可见, 但保留供多设备增量同步传播删除.
    * (云端同步: 客户端按 updatedAt 拉变更, deletedAt 让"删除"也能同步出去)
    */
@@ -60,10 +74,39 @@ export interface ShouchaoNotebook {
   name: string;
   /** 可选 emoji 图标, 便于快速辨识 (如 "📚") */
   icon?: string;
+  /** 父知识库 id (支持知识库分层树). 空 = 顶层. */
+  parentId?: string;
   /** 软删墓碑 (与笔记同构, 供多设备同步传播删除) */
   deletedAt?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * 搭子手抄 · 文件附件 (图片/文档原件). 个人资产, 按 ownerId 隔离.
+ *
+ * 原件存对象存储 (S3/MinIO, BUCKET_ATTACHMENTS), 本记录只存元数据 + storageKey.
+ * 内嵌图片: 正文 markdown 写 ![alt](/api/shouchao/attachments/{id}) 稳定 serving URL;
+ * 文件附件: 记在 ShouchaoNote.attachments[] 里, 编辑器"附件抽屉"展示、可下载原件.
+ * 存储: KvStore collection='shouchao_attachments' (无迁移, 幂等).
+ */
+export interface ShouchaoAttachment {
+  id: string;
+  ownerId: string;
+  tenantId: string;
+  /** 对象存储 key (BUCKET_ATTACHMENTS 内) */
+  storageKey: string;
+  /** 原始文件名 */
+  name: string;
+  /** MIME 类型 (如 image/png, application/pdf) */
+  mime: string;
+  /** 字节数 */
+  size: number;
+  /** 关联笔记 (上传时未必已知, 可后续回填) */
+  noteId?: string;
+  /** 软删墓碑 */
+  deletedAt?: string;
+  createdAt: string;
 }
 
 /**

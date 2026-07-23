@@ -207,7 +207,7 @@ function EventPill({
             {fmtTime(event.startTime)}
           </span>
         )}
-        <span className={cn('min-w-0 flex-1 truncate', expanded && 'text-sm font-medium')}>
+        <span className={cn('min-w-0 flex-1 truncate', expanded && 'text-body font-medium')}>
           {event.title}
         </span>
         {event.hasConflict && <AlertTriangle className={cn('shrink-0', expanded ? 'h-3.5 w-3.5' : 'h-2.5 w-2.5')} aria-label="时间冲突" />}

@@ -29,6 +29,7 @@ async function GETApiHandler(req: NextRequest) {
   const type = url.searchParams.get('type');
   const ownershipLevel = url.searchParams.get('ownershipLevel');
   const ownerUserId = url.searchParams.get('ownerUserId');
+  const ownerDepartmentId = url.searchParams.get('ownerDepartmentId');
   /** detail=1 时返回 body+tags+priority+parentId+uiCategory 等完整字段 (个人记事本用) */
   const detail = url.searchParams.get('detail') === '1';
   const limit = Math.max(1, Math.min(500, Number(url.searchParams.get('limit') ?? '100')));
@@ -39,6 +40,7 @@ async function GETApiHandler(req: NextRequest) {
   if (type) memories = memories.filter((m) => m.type === type);
   if (ownershipLevel) memories = memories.filter((m) => m.ownershipLevel === ownershipLevel);
   if (ownerUserId) memories = memories.filter((m) => m.ownerUserId === ownerUserId);
+  if (ownerDepartmentId) memories = memories.filter((m) => m.ownerDepartmentId === ownerDepartmentId);
 
   memories = memories.slice(0, limit);
   return NextResponse.json({
@@ -66,6 +68,9 @@ async function GETApiHandler(req: NextRequest) {
           type: m.type,
           title: m.title,
           status: m.status,
+          ownershipLevel: m.ownershipLevel,
+          ownerDepartmentId: m.ownerDepartmentId ?? null,
+          tags: m.tags ?? [],
           referenceCount: m.referenceCount ?? 0,
           createdAt: m.createdAt,
           updatedAt: m.updatedAt,

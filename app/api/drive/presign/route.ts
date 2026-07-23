@@ -4,6 +4,7 @@ import { withErrorHandler } from '@/lib/api/error-middleware';
 import { createAppContext } from '@/lib/repositories/app-context-factory';
 import { DriveService } from '@/lib/services/drive-service';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { resolveDriveActor } from '@/lib/drive/actor';
 import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /**
@@ -24,21 +25,23 @@ const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
     fileName?: string;
     contentType?: string;
     fileId?: string;
+    parentId?: string | null;
   };
 
   const ctx = createAppContext();
   const svc = new DriveService(ctx);
+  const actor = await resolveDriveActor(auth);
 
   if (body.mode === 'upload') {
     if (!body.fileName) {
       return NextResponse.json({ error: 'fileName required' }, { status: 400 });
     }
     const result = await svc.requestUpload({
-      ownerId: auth.userId,
       fileName: body.fileName,
       contentType: body.contentType,
       tenantId: auth.tenantId,
-    });
+      parentId: body.parentId ?? null,
+    }, actor);
     return NextResponse.json(result);
   }
 
@@ -46,7 +49,7 @@ const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
     if (!body.fileId) {
       return NextResponse.json({ error: 'fileId required' }, { status: 400 });
     }
-    const result = await svc.requestDownload(body.fileId, auth.userId);
+    const result = await svc.requestDownload(body.fileId, actor);
     return NextResponse.json(result);
   }
 

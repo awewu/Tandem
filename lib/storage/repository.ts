@@ -204,8 +204,23 @@ export interface TandemStore {
   /** 搭子手抄 · 知识库/主题分组 (对标 Get笔记 知识库) */
   shouchaoNotebooks: Repository<import('../types/shouchao').ShouchaoNotebook>;
 
+  /** 搭子手抄 · 文件附件元数据 (原件存 S3/MinIO, 本表存元数据 + storageKey) */
+  shouchaoAttachments: Repository<import('../types/shouchao').ShouchaoAttachment>;
+
+  /** 搭子手抄 · 数据库定义 (对标 Notion databases: 属性 + 视图) */
+  shouchaoDatabases: Repository<import('../types/shouchao-db').ShouchaoDatabase>;
+
+  /** 搭子手抄 · 数据库行数据 */
+  shouchaoRows: Repository<import('../types/shouchao-db').ShouchaoRow>;
+
+  /** 搭子手抄 · 个人蒸馏候选 (A2, 纯个人域, 只进本人分身) */
+  shouchaoDistillCandidates: Repository<import('../types/shouchao-distillation').ShouchaoDistillCandidate>;
+
   /** 知识库 · 文件树节点 (后端持久化, 替代原纯前端 localStorage) */
   knowledgeNodes: Repository<import('../types/knowledge').KnowledgeNode>;
+
+  /** 组织云盘 · AI 蒸馏候选 (Phase D · 人做 proposer 前的 AI 草稿) */
+  driveDistillationCandidates: Repository<import('../types/drive-distillation').DriveDistillationCandidate>;
 
   /** 三省六部项目治理 · 战略项目实体 (Phase 2) */
   governanceProjects: Repository<import('../types/governance').GovernanceProject>;

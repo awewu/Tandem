@@ -14,6 +14,7 @@
 import { getStore, generateId } from '../storage/repository';
 import { audit } from '../audit/log';
 import { eventBus } from '../events/bus';
+import { upsertEmbedding } from '../infra/vector-store';
 import type {
   MemoryEntry,
   MemoryPromotionRequest,
@@ -237,6 +238,15 @@ async function materializePromotion(req: MemoryPromotionRequest): Promise<Memory
     targetType: 'memory',
     metadata: { promotionId: req.id, level: req.level ?? 'company' },
   });
+
+  // A3: 组织记忆物化即写入统一向量层 (fire-and-forget, 未配/失败静默; 承 C6)
+  void upsertEmbedding({
+    entityType: 'memory',
+    entityId: entry.id,
+    tenantId: (entry as { orgId?: string }).orgId ?? 'default',
+    ownerId: null,
+    text: `${entry.title}\n${entry.body}`,
+  }).catch(() => {});
 
   // 跨域事件广播: Persona / OKR cascade / Notification 可订阅
   try {

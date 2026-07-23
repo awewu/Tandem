@@ -23,7 +23,6 @@ import type { DecisionCard } from '../types/decision-card';
 import type { MemoryEntry } from '../types/memory';
 import type { Persona } from '../types/persona';
 import type { IntranetPost } from '../types/intranet-post';
-import type { KnowledgeNode } from '../types/knowledge';
 import type { Kpi } from '../types/kpi';
 
 const TENANT = 'default';
@@ -105,7 +104,7 @@ export async function seedShowcaseIfEmpty(): Promise<void> {
   // 第二批 (各 phase 自带 exists 守卫, 可安全重入)
   await seedPersonas(ids);
   await seedIntranet(ids);
-  await seedKnowledge(ids);
+  // seedKnowledge 已弃用: 「我的资料库」(knowledge_nodes) 退役, 私人记事本统一由「搭子手抄」承接。
   await seedDocsAndCalendar(ids);
   await seedKpiRoster(ids);
   await seedDownstream(ids);
@@ -540,37 +539,6 @@ async function seedIntranet(ids: IdMap): Promise<void> {
   }
   void now;
   console.info(`[seed:showcase] Intranet: ${n} 帖`);
-}
-
-// ---------------------------------------------------------------------------
-// Phase 8 · Knowledge 知识库 (CEO 的文件树) — /knowledge
-// ---------------------------------------------------------------------------
-
-async function seedKnowledge(ids: IdMap): Promise<void> {
-  const s = getStore();
-  if (!s.knowledgeNodes || !ids.ceo) return;
-  const now = new Date().toISOString();
-  try {
-    const existing = await s.knowledgeNodes.list({ ownerId: ids.ceo } as never);
-    if (existing.some((n) => n.name === '产品资料')) { console.info('[seed:showcase] Knowledge: 已存在, 跳过'); return; }
-    const folder = await s.knowledgeNodes.create({
-      ownerId: ids.ceo, tenantId: TENANT, name: '产品资料', type: 'folder', parentId: 'root',
-      ownership: 'company', createdAt: now, updatedAt: now,
-    } as Omit<KnowledgeNode, 'id'>);
-    const files: Array<{ name: string; content: string }> = [
-      { name: '中央热水机型规格.md', content: '# 中央热水机 EH-300\n- 容量: 300L\n- 能效: 一级\n- 噪音: < 45dB' },
-      { name: '竞品对比.md', content: '# 竞品对比\n恒热 Everhot vs A 品牌 vs B 品牌: 能效/价格/质保对比表。' },
-    ];
-    for (const f of files) {
-      await s.knowledgeNodes.create({
-        ownerId: ids.ceo, tenantId: TENANT, name: f.name, type: 'file', parentId: folder.id,
-        content: f.content, ownership: 'company', createdAt: now, updatedAt: now,
-      } as Omit<KnowledgeNode, 'id'>);
-    }
-    console.info('[seed:showcase] Knowledge: 1 文件夹 + 2 文件');
-  } catch (err) {
-    console.warn('[seed:showcase] knowledge 失败:', (err as Error).message);
-  }
 }
 
 // ---------------------------------------------------------------------------

@@ -31,6 +31,7 @@ interface MemoryArtifact {
   type: 'sop' | 'case' | 'redline' | 'value' | 'lesson';
   title: string;
   status: 'active' | 'revising' | 'inactive' | 'deprecated';
+  ownershipLevel?: 'company' | 'department' | 'team' | 'personal';
   referenceCount: number;
   createdAt: string;
   updatedAt: string;
@@ -56,7 +57,9 @@ export function TandemMemoryDigest() {
       const r = await fetch('/api/tandem/memory/list?status=active&limit=20', { cache: 'no-store' });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const j = await r.json();
-      setItems(j.memories ?? []);
+      // 组织记忆只展示公司权威记忆; 个人记事本已归位「搭子手抄」, 绝不在此出现。
+      const list: MemoryArtifact[] = Array.isArray(j.memories) ? j.memories : [];
+      setItems(list.filter((m) => m.ownershipLevel !== 'personal'));
     } catch (e) {
       setError(e instanceof Error ? e.message : '加载失败');
     } finally {

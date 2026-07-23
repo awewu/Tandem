@@ -544,7 +544,7 @@ export async function seedDevData(): Promise<void> {
       ownerId: 'demo-user',
       tenantId: 'default',
       storageKey: 'brand-manual-v1.pdf',
-    });
+    }, { id: 'demo-user', roles: ['admin'] });
 
     await drvSvc.create({
       name: '产品资料',
@@ -555,7 +555,7 @@ export async function seedDevData(): Promise<void> {
       tenantId: 'default',
       storageKey: 'folder-product',
       isFolder: true,
-    });
+    }, { id: 'demo-user', roles: ['admin'] });
 
     await notifSvc.create({
       userId: 'demo-user',

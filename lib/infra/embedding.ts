@@ -43,6 +43,16 @@ export async function isEmbeddingConfigured(): Promise<boolean> {
   return provider !== 'none';
 }
 
+/**
+ * 当前 embedding provider/model 标识 — 供 vector-store 做"同模型命名空间"隔离
+ * (不同模型维度不同, 只在同 model 内比对)。provider='none' 时返回 null。
+ */
+export async function getEmbeddingModelInfo(): Promise<{ provider: string; model: string } | null> {
+  const { provider, model } = await resolveEmbedConfig();
+  if (provider === 'none') return null;
+  return { provider, model };
+}
+
 export async function embed(text: string): Promise<number[] | null> {
   const cfg = await resolveEmbedConfig();
   if (cfg.provider === 'none') return null;

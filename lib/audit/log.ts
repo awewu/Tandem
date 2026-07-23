@@ -151,6 +151,10 @@ export type AuditAction =
   | 'shouchao.shared_to_persona'          // 本人开启: 某条笔记授权喂给工作分身
   | 'shouchao.unshared_from_persona'      // 本人撤回: 关闭授权 / 从分身语料移除
   | 'shouchao.notebook_deleted'           // 删除知识库 (软删 + 其下笔记回到未分组)
+  // 搭子手抄 · 个人蒸馏 (A2, 纯个人域, 只进本人分身)
+  | 'shouchao.distill_scanned'            // 扫描本人授权笔记产蒸馏建议
+  | 'shouchao.distill_applied'            // 应用某条蒸馏建议 (如互加双链)
+  | 'shouchao.distill_dismissed'          // 忽略某条蒸馏建议
   // BSC 战略地图因果链 (B-019)
   | 'kpi.causal_link.create'     // 建因果链
   | 'kpi.causal_link.update'     // 改 strength/hypothesis

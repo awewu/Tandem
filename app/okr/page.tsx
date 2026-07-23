@@ -1657,7 +1657,7 @@ function EditDialog({
                       <span className="group relative min-w-0 flex-1">
                         <span className="block truncate">{selectedParentLabel}</span>
                         {selectedParent && (
-                          <span className="pointer-events-none absolute left-0 top-full z-50 mt-1 hidden w-80 max-w-[min(80vw,20rem)] whitespace-normal break-words rounded-md border bg-popover p-2 text-[11px] leading-relaxed text-popover-foreground shadow-lg group-hover:block">
+                          <span className="pointer-events-none absolute left-0 top-full z-50 mt-1 hidden w-80 max-w-[min(80vw,20rem)] whitespace-normal break-words rounded-md border bg-popover p-2 text-[11px] leading-relaxed text-popover-foreground shadow-soft-lg group-hover:block">
                             {selectedParentLabel}
                           </span>
                         )}
@@ -1665,7 +1665,7 @@ function EditDialog({
                       <ChevronDown className={cn('h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform', alignmentOpen && 'rotate-180')} />
                     </button>
                     {alignmentOpen && (
-                      <div className="absolute left-0 right-0 z-50 mt-1 rounded-md border bg-popover p-2 text-popover-foreground shadow-lg">
+                      <div className="absolute left-0 right-0 z-50 mt-1 rounded-md border bg-popover p-2 text-popover-foreground shadow-soft-lg">
                         <Input
                           value={alignmentSearch}
                           onChange={(e) => setAlignmentSearch(e.target.value)}
@@ -1713,7 +1713,7 @@ function EditDialog({
                                 >
                                   <span className="block truncate font-medium">{o.title}</span>
                                   <span className="block truncate text-[11px] text-muted-foreground">{ownerLabel(o.ownerId)}</span>
-                                  <span className="mt-1 hidden whitespace-normal break-words rounded-md border bg-background p-2 text-[11px] leading-relaxed text-popover-foreground shadow-sm group-hover:block">
+                                  <span className="mt-1 hidden whitespace-normal break-words rounded-md border bg-background p-2 text-[11px] leading-relaxed text-popover-foreground shadow-soft-sm group-hover:block">
                                     {label}
                                   </span>
                                 </button>

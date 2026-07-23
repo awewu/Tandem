@@ -3,13 +3,14 @@ import type { ApplicationContext } from '@/lib/repositories/app-context';
 import type { DriveFile } from '@/lib/types/feishu-catchup';
 import { presignUpload, presignDownload, deleteObject, getS3, BUCKET_DRIVE } from '@/lib/infra/s3-client';
 import { generateId } from '@/lib/storage/repository';
+import { canRead, canWrite, buildAncestorChain, type DriveAclUser } from '@/lib/drive/acl';
 
 export interface CreateDriveFileCommand {
   name: string;
   mimeType?: string;
   size?: number;
   parentId?: string | null;
-  ownerId: string;
+  ownerId?: string;
   tenantId?: string;
   storageKey: string;
   isFolder?: boolean;
@@ -18,26 +19,68 @@ export interface CreateDriveFileCommand {
 export class DriveService {
   constructor(private ctx: ApplicationContext) {}
 
-  async list(opts?: { parentId?: string | null; ownerId?: string; tenantId?: string }): Promise<DriveFile[]> {
-    return this.ctx.driveRepo.list(opts);
+  /** 载入目标节点的祖先链 (自身在前) — 用于 ACL 继承解析. 一次性建租户索引, 避免 N+1. */
+  private async loadChain(id: string, tenantId: string): Promise<DriveFile[]> {
+    const all = await this.ctx.driveRepo.list({ tenantId });
+    const byId = new Map(all.map((f) => [f.id, f]));
+    return buildAncestorChain(id, byId);
   }
 
-  async getById(id: string): Promise<DriveFile | null> {
-    return this.ctx.driveRepo.findById(id);
+  private isAdmin(actor: DriveAclUser): boolean {
+    return (actor.roles ?? []).some((r) => r === 'admin' || r === 'owner');
   }
 
-  async create(cmd: CreateDriveFileCommand): Promise<DriveFile> {
+  /** 列出 parentId 下当前用户可读的子节点 (已经 ACL 过滤). */
+  async list(
+    opts: { parentId?: string | null; ownerId?: string; tenantId: string },
+    actor: DriveAclUser,
+  ): Promise<DriveFile[]> {
+    const all = await this.ctx.driveRepo.list({ tenantId: opts.tenantId });
+    const byId = new Map(all.map((f) => [f.id, f]));
+    const inScope = all.filter((f) => {
+      if (f.deletedAt) return false;
+      if (opts.parentId !== undefined && (f.parentId ?? null) !== (opts.parentId ?? null)) return false;
+      if (opts.ownerId && f.ownerId !== opts.ownerId) return false;
+      return true;
+    });
+    return inScope.filter((f) => canRead(buildAncestorChain(f.id, byId), actor));
+  }
+
+  async getById(id: string, actor: DriveAclUser): Promise<DriveFile | null> {
+    const f = await this.ctx.driveRepo.findById(id);
+    if (!f) return null;
+    const chain = await this.loadChain(id, f.tenantId);
+    if (!canRead(chain, actor)) throw new ForbiddenError('No read permission');
+    return f;
+  }
+
+  /** 面包屑 (root → 目标) — 仅当用户对目标可读时返回, 否则 []. */
+  async breadcrumbs(id: string, tenantId: string, actor: DriveAclUser): Promise<Array<{ id: string; name: string }>> {
+    const chain = await this.loadChain(id, tenantId);
+    if (chain.length === 0 || !canRead(chain, actor)) return [];
+    // chain 自身在前, 反转为 root → 目标
+    return chain.slice().reverse().map((f) => ({ id: f.id, name: f.name }));
+  }
+
+  async create(cmd: CreateDriveFileCommand, actor: DriveAclUser): Promise<DriveFile> {
     if (!cmd.name.trim()) throw new ValidationError('name is required');
+    const tenantId = cmd.tenantId ?? 'default';
+    const parentId = cmd.parentId ?? null;
+    if (parentId) {
+      const parentChain = await this.loadChain(parentId, tenantId);
+      if (parentChain.length === 0) throw new NotFoundError('DriveFile', parentId);
+      if (!canWrite(parentChain, actor)) throw new ForbiddenError('No write permission on parent');
+    }
     return this.ctx.driveRepo.create({
       name: cmd.name.trim(),
       mimeType: cmd.mimeType ?? 'application/octet-stream',
       size: cmd.size ?? 0,
-      parentId: cmd.parentId ?? null,
-      ownerId: cmd.ownerId,
-      tenantId: cmd.tenantId ?? 'default',
+      parentId,
+      ownerId: cmd.ownerId ?? actor.id,
+      tenantId,
       storageKey: cmd.storageKey,
       storageUrl: null,
-      permissions: { read: [cmd.ownerId] },
+      permissions: {}, // 留空 = 继承父目录 ACL (owner 恒可读写)
       version: 1,
       isFolder: cmd.isFolder ?? false,
       createdAt: new Date().toISOString(),
@@ -45,10 +88,11 @@ export class DriveService {
     });
   }
 
-  async delete(id: string, actorId: string): Promise<void> {
+  async delete(id: string, actor: DriveAclUser): Promise<void> {
     const f = await this.ctx.driveRepo.findById(id);
     if (!f) throw new NotFoundError('DriveFile', id);
-    if (f.ownerId !== actorId) throw new ForbiddenError('Only owner can delete');
+    const chain = await this.loadChain(id, f.tenantId);
+    if (f.ownerId !== actor.id && !canWrite(chain, actor)) throw new ForbiddenError('No write permission');
     await this.ctx.driveRepo.softDelete(id);
     // §T6 软删后异步清理 S3 (失败不阻塞业务)
     if (!f.isFolder && f.storageKey && getS3()) {
@@ -56,27 +100,59 @@ export class DriveService {
     }
   }
 
-  async move(id: string, parentId: string | null, actorId: string): Promise<DriveFile> {
+  async move(id: string, parentId: string | null, actor: DriveAclUser): Promise<DriveFile> {
     const f = await this.ctx.driveRepo.findById(id);
     if (!f) throw new NotFoundError('DriveFile', id);
-    if (f.ownerId !== actorId) throw new ForbiddenError();
+    const chain = await this.loadChain(id, f.tenantId);
+    if (f.ownerId !== actor.id && !canWrite(chain, actor)) throw new ForbiddenError('No write permission');
+    if (parentId) {
+      const parentChain = await this.loadChain(parentId, f.tenantId);
+      if (parentChain.length === 0) throw new NotFoundError('DriveFile', parentId);
+      if (!canWrite(parentChain, actor)) throw new ForbiddenError('No write permission on target');
+    }
     return this.ctx.driveRepo.move(id, parentId);
+  }
+
+  async rename(id: string, name: string, actor: DriveAclUser): Promise<DriveFile> {
+    if (!name.trim()) throw new ValidationError('name is required');
+    const f = await this.ctx.driveRepo.findById(id);
+    if (!f) throw new NotFoundError('DriveFile', id);
+    const chain = await this.loadChain(id, f.tenantId);
+    if (f.ownerId !== actor.id && !canWrite(chain, actor)) throw new ForbiddenError('No write permission');
+    return this.ctx.driveRepo.rename(id, name.trim());
+  }
+
+  /** 共享 (改 ACL) — 仅 owner 或 admin/owner 角色可改, 避免协作者篡改共享面. */
+  async updatePermissions(
+    id: string,
+    permissions: DriveFile['permissions'],
+    actor: DriveAclUser,
+  ): Promise<DriveFile> {
+    const f = await this.ctx.driveRepo.findById(id);
+    if (!f) throw new NotFoundError('DriveFile', id);
+    if (f.ownerId !== actor.id && !this.isAdmin(actor)) {
+      throw new ForbiddenError('Only owner or admin can change sharing');
+    }
+    return this.ctx.driveRepo.updatePermissions(id, permissions ?? {});
   }
 
   /**
    * 申请上传 URL · 返回预签名 PUT URL + 待回调 storageKey.
    * 客户端: PUT 文件到 uploadUrl, 然后 POST /api/drive 提交元数据 (用 storageKey).
    */
-  async requestUpload(opts: {
-    ownerId: string;
-    fileName: string;
-    contentType?: string;
-    tenantId?: string;
-  }): Promise<{ uploadUrl: string; storageKey: string; bucket: string; expiresInSec: number }> {
+  async requestUpload(
+    opts: { fileName: string; contentType?: string; tenantId?: string; parentId?: string | null },
+    actor: DriveAclUser,
+  ): Promise<{ uploadUrl: string; storageKey: string; bucket: string; expiresInSec: number }> {
     if (!getS3()) throw new ValidationError('object storage not configured');
     const tenantId = opts.tenantId ?? 'default';
+    if (opts.parentId) {
+      const parentChain = await this.loadChain(opts.parentId, tenantId);
+      if (parentChain.length === 0) throw new NotFoundError('DriveFile', opts.parentId);
+      if (!canWrite(parentChain, actor)) throw new ForbiddenError('No write permission on parent');
+    }
     const safeName = opts.fileName.replace(/[^\w.\-]/g, '_').slice(0, 200);
-    const storageKey = `${tenantId}/${opts.ownerId}/${Date.now()}-${generateId()}-${safeName}`;
+    const storageKey = `${tenantId}/${actor.id}/${Date.now()}-${generateId()}-${safeName}`;
     const uploadUrl = await presignUpload(storageKey, {
       contentType: opts.contentType,
       expiresInSec: 900,
@@ -84,14 +160,13 @@ export class DriveService {
     return { uploadUrl, storageKey, bucket: BUCKET_DRIVE, expiresInSec: 900 };
   }
 
-  /** 申请下载 URL · 校验权限后返回预签名 GET URL. */
-  async requestDownload(id: string, actorId: string): Promise<{ url: string; expiresInSec: number }> {
+  /** 申请下载 URL · 校验 ACL 后返回预签名 GET URL. */
+  async requestDownload(id: string, actor: DriveAclUser): Promise<{ url: string; expiresInSec: number }> {
     const f = await this.ctx.driveRepo.findById(id);
     if (!f) throw new NotFoundError('DriveFile', id);
     if (f.isFolder) throw new ValidationError('folders cannot be downloaded');
-    const allowed =
-      f.ownerId === actorId || (f.permissions?.read ?? []).includes(actorId);
-    if (!allowed) throw new ForbiddenError('No read permission');
+    const chain = await this.loadChain(id, f.tenantId);
+    if (!canRead(chain, actor)) throw new ForbiddenError('No read permission');
     if (!getS3()) throw new ValidationError('object storage not configured');
     const url = await presignDownload(f.storageKey, { expiresInSec: 900 });
     return { url, expiresInSec: 900 };

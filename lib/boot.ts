@@ -188,6 +188,34 @@ function bootSync(): void {
         // eslint-disable-next-line no-console
         console.warn('[boot] MCP servers sync failed:', err);
       }
+    })
+    // 组织云盘: 幂等 provision 部门树 + 确保对象存储 bucket 存在 (fail-soft)
+    .then(async () => {
+      try {
+        const { ensureBucket, BUCKET_DRIVE, getS3 } = await import('./infra/s3-client');
+        if (getS3()) await ensureBucket(BUCKET_DRIVE);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('[boot] ensure drive bucket failed:', err);
+      }
+      try {
+        const { provisionOrgDrive } = await import('./drive/provision');
+        const { listDepts } = await import('./org/departments');
+        const { createAppContext } = await import('./repositories/app-context-factory');
+        const depts = isDatabaseMode() ? await listDepts('default') : [];
+        const r = await provisionOrgDrive({
+          tenantId: 'default',
+          depts,
+          repo: createAppContext().driveRepo,
+        });
+        if (r.created.length > 0) {
+          // eslint-disable-next-line no-console
+          console.info(`[boot] org drive provisioned: ${r.created.length} 目录 (company_share + dept_root)`);
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn('[boot] org drive provision failed:', err);
+      }
     });
 
   // 议事室 17min 硬上限闭环: 每 30 秒 sweep 活跃议事室, 超时自动 ESCALATE

@@ -54,6 +54,13 @@ async function PATCHApiHandler(req: NextRequest, { params }: { params: { id: str
     summary: typeof body.summary === 'string' ? body.summary : undefined,
     pinned: typeof body.pinned === 'boolean' ? body.pinned : undefined,
     archived: typeof body.archived === 'boolean' ? body.archived : undefined,
+    // parentId: 字符串 = 挂到某页面下; null/'' = 移到顶层; undefined = 不改
+    parentId:
+      body.parentId === null || typeof body.parentId === 'string'
+        ? (body.parentId as string | null)
+        : undefined,
+    icon: typeof body.icon === 'string' ? body.icon : undefined,
+    coverUrl: typeof body.coverUrl === 'string' ? body.coverUrl : undefined,
   });
   if (!note) return NextResponse.json({ error: 'not_found' }, { status: 404 });
   return NextResponse.json({ note });
