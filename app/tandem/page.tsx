@@ -233,6 +233,18 @@ function TandemPageInner() {
 
   const dashCtx = useDashboardFetch();
 
+  // 行动坞可拖拽宽度 (240–560px, localStorage 持久化)
+  const [dockWidth, setDockWidth] = useState(320);
+  useEffect(() => {
+    const saved = Number(localStorage.getItem('tandem:dock-width'));
+    if (saved >= 240 && saved <= 560) setDockWidth(saved);
+  }, []);
+  const handleDockResize = (w: number) => {
+    const clamped = Math.min(560, Math.max(240, w));
+    setDockWidth(clamped);
+    try { localStorage.setItem('tandem:dock-width', String(clamped)); } catch { /* ignore */ }
+  };
+
   return (
    <DashboardContext.Provider value={dashCtx}>
    <DraftContext.Provider value={{ draft, pushDraft }}>
@@ -260,6 +272,8 @@ function TandemPageInner() {
           side="right"
           tab={DOCK_TABS.find((t) => t.id === dockTab) ?? null}
           onClose={() => setDockTab(null)}
+          width={dockWidth}
+          onResize={handleDockResize}
         />
         <SummonRail
           side="right"
@@ -427,21 +441,59 @@ interface SummonPanelProps {
   side: 'left' | 'right';
   tab: SummonTab | null;
   onClose: () => void;
+  width?: number;
+  onResize?: (w: number) => void;
 }
 
-function SummonPanel({ side, tab, onClose }: SummonPanelProps) {
+function SummonPanel({ side, tab, onClose, width = 280, onResize }: SummonPanelProps) {
   if (!tab) return null;
   const Icon = tab.icon;
   const CloseIcon = side === 'left' ? ChevronLeft : ChevronRight;
+
+  function startResize(e: React.PointerEvent) {
+    if (!onResize) return;
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = width;
+    const move = (ev: PointerEvent) => {
+      // 右侧面板把手在左缘: 向左拖 = 变宽
+      const delta = side === 'right' ? startX - ev.clientX : ev.clientX - startX;
+      onResize(startW + delta);
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+    };
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  }
+
   return (
     <aside
       aria-label={`${tab.label} 召唤面板`}
       className={cn(
-        'hidden md:flex w-[280px] shrink-0 flex-col overflow-hidden surface-1',
+        'relative hidden md:flex shrink-0 flex-col overflow-hidden surface-1',
         side === 'left' ? 'border-r' : 'border-l',
       )}
-      style={{ borderColor: 'rgb(var(--border-subtle))' }}
+      style={{ width, borderColor: 'rgb(var(--border-subtle))' }}
     >
+      {onResize && (
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="拖拽调整面板宽度"
+          onPointerDown={startResize}
+          className={cn(
+            'absolute top-0 z-20 h-full w-1.5 cursor-col-resize touch-none transition-colors',
+            'hover:bg-[rgb(var(--brand-300))] active:bg-[rgb(var(--brand-500))]',
+            side === 'right' ? 'left-0 -translate-x-1/2' : 'right-0 translate-x-1/2',
+          )}
+        />
+      )}
       <header
         className="flex items-center justify-between border-b px-4 py-3"
         style={{ borderColor: 'rgb(var(--border-subtle))' }}
@@ -1583,21 +1635,20 @@ function WelcomeStage({
   onSummonDeliver: () => void;
 }) {
   return (
-    <div className="mx-auto max-w-4xl px-4 md:px-6 py-6 md:py-8 space-y-6">
+    <div className="mx-auto max-w-4xl px-4 md:px-6 py-4 md:py-5 space-y-4">
       {/* Hero · 欢迎我的搭子 */}
-      <section className="hero-ink rounded-3xl p-6 md:p-8 shadow-soft-lg">
-        <div className="flex items-center gap-2 text-white/90 text-caption mb-3">
+      <section className="hero-ink rounded-2xl p-4 md:p-5 shadow-soft-lg">
+        <div className="flex items-center gap-2 text-white/90 text-caption mb-1.5">
           <Sparkles className="h-4 w-4" />
           <span>搭子 · 个人工作台</span>
         </div>
-        <h1 className="text-title-2 text-white">
+        <h1 className="text-title-3 text-white">
           搭子, 今天我们干什么?
         </h1>
-        <p className="mt-3 text-body text-white/90 max-w-2xl">
-          这里是你和「我的搭子」(你的 AI 分身) 的协作主舞台。<br />
-          选一件事开始 — 搭子陪你, Tandem AI (中央智囊) 兜底。
+        <p className="mt-1.5 text-caption text-white/90 max-w-2xl">
+          你和「我的搭子」(AI 分身) 的协作主舞台 — 选一件事开始, Tandem AI 兜底。
         </p>
-        <div className="mt-6 flex flex-wrap gap-3">
+        <div className="mt-3 flex flex-wrap gap-2">
           <button
             type="button"
             onClick={onSummonPersona}
@@ -1623,8 +1674,8 @@ function WelcomeStage({
 
       {/* 每日推进 · 每天和分身一起完成的固定仪式 (从事半迁来; 日报回填 KR check-in) */}
       <section>
-        <h2 className="text-headline text-primary mb-3">每日推进</h2>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <h2 className="text-headline text-primary mb-2">每日推进</h2>
+        <div className="grid gap-2.5 sm:grid-cols-2">
           <Link
             href="/report"
             className="group surface-card rounded-2xl p-4 shadow-soft-xs surface-interactive hover:shadow-soft-sm"
@@ -1634,7 +1685,7 @@ function WelcomeStage({
                 <Clock className="h-5 w-5" />
               </div>
               <div className="min-w-0">
-                <h3 className="text-body font-medium text-primary group-hover:text-[rgb(var(--brand-700))]">5min 智能日报</h3>
+                <h3 className="text-body font-medium text-primary">5min 智能日报</h3>
                 <p className="mt-1 text-caption text-tertiary">和分身一起过今天的推进 · 自动回填 KR 进度</p>
               </div>
             </div>
@@ -1648,7 +1699,7 @@ function WelcomeStage({
                 <History className="h-5 w-5" />
               </div>
               <div className="min-w-0">
-                <h3 className="text-body font-medium text-primary group-hover:text-[rgb(var(--brand-700))]">本周回顾</h3>
+                <h3 className="text-body font-medium text-primary">本周回顾</h3>
                 <p className="mt-1 text-caption text-tertiary">复盘本周节奏 · 沉淀进展与下周重点</p>
               </div>
             </div>
@@ -1658,8 +1709,8 @@ function WelcomeStage({
 
       {/* 启动协作 · 入口卡, 进入后通过 ?card= 在本舞台展开 */}
       <section>
-        <h2 className="text-headline text-primary mb-3">今天先做点什么</h2>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <h2 className="text-headline text-primary mb-2">今天先做点什么</h2>
+        <div className="grid gap-2.5 sm:grid-cols-2">
           {(Object.keys(CARD_REGISTRY) as CardId[]).map((id) => {
             const c = CARD_REGISTRY[id];
             const Icon = c.icon;
@@ -1674,7 +1725,7 @@ function WelcomeStage({
                     <Icon className="h-5 w-5" />
                   </div>
                   <div className="min-w-0">
-                    <h3 className="text-body font-medium text-primary group-hover:text-[rgb(var(--brand-700))]">{c.title}</h3>
+                    <h3 className="text-body font-medium text-primary">{c.title}</h3>
                     <p className="mt-1 text-caption text-tertiary">{c.desc}</p>
                   </div>
                 </div>
@@ -1684,8 +1735,8 @@ function WelcomeStage({
         </div>
       </section>
 
-      <footer className="text-footnote text-tertiary text-center pt-2">
-        搭子 · 个人工作台 · 今日驾驶舱 + 主舞台 + 行动坞 · 你 ↔ 搭子 ↔ Tandem AI 三层协作
+      <footer className="text-footnote text-tertiary text-center pt-1">
+        搭子 · 你 ↔ 搭子 ↔ Tandem AI 三层协作
       </footer>
     </div>
   );
