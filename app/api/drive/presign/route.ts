@@ -5,6 +5,7 @@ import { createAppContext } from '@/lib/repositories/app-context-factory';
 import { DriveService } from '@/lib/services/drive-service';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { resolveDriveActor } from '@/lib/drive/actor';
+import { ensureDriveOrgScope, isInDriveOrgScope } from '@/lib/drive/org-scope';
 import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /**
@@ -31,16 +32,27 @@ const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
   const ctx = createAppContext();
   const svc = new DriveService(ctx);
   const actor = await resolveDriveActor(auth);
+  const scope = await ensureDriveOrgScope({ tenantId: auth.tenantId, userId: auth.userId, actor, repo: ctx.driveRepo });
 
   if (body.mode === 'upload') {
     if (!body.fileName) {
       return NextResponse.json({ error: 'fileName required' }, { status: 400 });
     }
+    const parentId = body.parentId ?? scope.rootFolderId;
+    if (!parentId) {
+      return NextResponse.json({ error: 'current user has no department drive scope', scope }, { status: 409 });
+    }
+    if (body.parentId) {
+      const all = await ctx.driveRepo.list({ tenantId: auth.tenantId });
+      if (!isInDriveOrgScope(all, body.parentId, scope)) {
+        return NextResponse.json({ error: 'folder is outside current department scope', scope }, { status: 403 });
+      }
+    }
     const result = await svc.requestUpload({
       fileName: body.fileName,
       contentType: body.contentType,
       tenantId: auth.tenantId,
-      parentId: body.parentId ?? null,
+      parentId,
     }, actor);
     return NextResponse.json(result);
   }
@@ -48,6 +60,10 @@ const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
   if (body.mode === 'download') {
     if (!body.fileId) {
       return NextResponse.json({ error: 'fileId required' }, { status: 400 });
+    }
+    const all = await ctx.driveRepo.list({ tenantId: auth.tenantId });
+    if (!isInDriveOrgScope(all, body.fileId, scope)) {
+      return NextResponse.json({ error: 'file is outside current department scope', scope }, { status: 403 });
     }
     const result = await svc.requestDownload(body.fileId, actor);
     return NextResponse.json(result);

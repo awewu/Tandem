@@ -263,10 +263,10 @@ function getEventMeta(event: EventInstance, currentUserId?: string): {
     return {
       badge: '订',
       label: '订阅日程',
-      bg: 'rgb(var(--muted-foreground))',
-      softBg: 'rgb(var(--muted))',
-      border: 'rgb(var(--border))',
-      text: 'rgb(var(--ink-secondary))',
+      bg: 'rgb(var(--info))',
+      softBg: 'rgb(var(--info) / 0.1)',
+      border: 'rgb(var(--info) / 0.3)',
+      text: 'rgb(var(--info))',
     };
   }
   if (event.sourceKind === 'okr' || event.calendarId === 'cal-okr' || event.type === 'okr_due' || event.type === 'checkin' || event.type === 'cycle') {
@@ -279,6 +279,16 @@ function getEventMeta(event: EventInstance, currentUserId?: string): {
       text: 'rgb(var(--success))',
     };
   }
+  if (event.calendarId === 'cal-netease') {
+    return {
+      badge: '网',
+      label: '网易同步',
+      bg: 'rgb(var(--brand-500))',
+      softBg: 'rgb(var(--brand-50))',
+      border: 'rgb(var(--brand-200))',
+      text: 'rgb(var(--brand-700))',
+    };
+  }
   if (event.type === 'meeting') {
     const isOwner = currentUserId && event.createdBy === currentUserId;
     return {
@@ -287,7 +297,8 @@ function getEventMeta(event: EventInstance, currentUserId?: string): {
       bg: 'rgb(var(--brand-500))',
       softBg: 'rgb(var(--brand-50))',
       border: 'rgb(var(--brand-200))',
-      text: 'rgb(var(--brand-700))',    };
+      text: 'rgb(var(--brand-700))',
+    };
   }
   return {
     badge: '日',
@@ -295,7 +306,8 @@ function getEventMeta(event: EventInstance, currentUserId?: string): {
     bg: getColorBg(event.color || 'bg-info'),
     softBg: 'rgb(var(--info) / 0.1)',
     border: 'rgb(var(--info) / 0.3)',
-    text: 'rgb(var(--info))',  };
+    text: 'rgb(var(--info))',
+  };
 }
 
 function formatDayTitle(dateMs: number): string {
@@ -310,6 +322,7 @@ function getColorBg(twClass: string): string {
     'bg-brand-500': 'rgb(var(--brand-500))',
     'bg-warning': 'rgb(var(--warning))',
     'bg-danger': 'rgb(var(--danger))',
-    'bg-surface-3': 'rgb(var(--muted-foreground))',  };
+    'bg-surface-3': 'rgb(var(--muted-foreground))',
+  };
   return map[twClass] || 'rgb(var(--muted-foreground))';
 }

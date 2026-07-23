@@ -134,6 +134,7 @@ interface CalendarStore {
   deleteEvent: (id: string) => void;
   duplicateEvent: (id: string) => CalendarEvent | null;
   replaceManagedEvents: (events: CalendarEvent[]) => void;
+  replaceOkrEvents: (events: Array<Omit<CalendarEvent, 'id' | 'createdAt' | 'updatedAt'>>) => void;
 
   // 查询
   getEventsInRange: (start: number, end: number) => EventInstance[];
@@ -155,6 +156,16 @@ function defaultCalendars(): TandemCalendar[] {
       name: '我的日程',
       type: 'personal',
       color: 'bg-blue-500',
+      ownerId: 'me',
+      isVisible: true,
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: 'cal-netease',
+      name: '网易同步',
+      type: 'external',
+      color: 'bg-indigo-500',
       ownerId: 'me',
       isVisible: true,
       createdAt: now,
@@ -184,7 +195,7 @@ function defaultCalendars(): TandemCalendar[] {
       id: 'cal-subscribed',
       name: '订阅日程',
       type: 'subscription',
-      color: 'bg-slate-400',
+      color: 'bg-sky-500',
       ownerId: 'me',
       isVisible: true,
       createdAt: now,
@@ -211,33 +222,43 @@ function expandRecurrence(
   rangeStart: number,
   rangeEnd: number
 ): EventInstance[] {
-  if (!event.recurrence) {
-    if (event.startTime >= rangeStart && event.startTime <= rangeEnd) {
+  const interval = Number(event.recurrence?.interval ?? 0);
+  if (!event.recurrence || !Number.isFinite(interval) || interval < 1) {
+    if (event.endTime >= rangeStart && event.startTime <= rangeEnd) {
       return [toInstance(event, event.startTime)];
     }
     return [];
   }
 
-  const { frequency, interval, endDate, count, byDay } = event.recurrence;
+  const { frequency, endDate, count, byDay } = event.recurrence;
   const instances: EventInstance[] = [];
   const duration = event.endTime - event.startTime;
+  const maxIterations = Math.max(1, Math.min(count ?? 500, 500));
 
   let current = event.startTime;
   let instanceCount = 0;
   const maxEnd = Math.min(rangeEnd, endDate ?? Infinity);
+  let guard = 0;
 
   // 先找到 rangeStart 之后的第一个实例
   while (current < rangeStart) {
+    const previous = current;
     current = nextOccurrence(current, frequency, interval, byDay);
+    guard++;
+    if (current <= previous || guard > maxIterations) return [];
     if (current > maxEnd || (count && instanceCount >= count)) break;
   }
 
-  while (current <= maxEnd && (!count || instanceCount < count)) {
+  guard = 0;
+  while (current <= maxEnd && (!count || instanceCount < count) && guard < maxIterations) {
     if (current >= rangeStart) {
       instances.push(toInstance(event, current, duration));
       instanceCount++;
     }
+    const previous = current;
     current = nextOccurrence(current, frequency, interval, byDay);
+    guard++;
+    if (current <= previous) break;
   }
 
   return instances;
@@ -326,6 +347,27 @@ function toInstance(
   };
 }
 
+function buildOkrEventId(event: Omit<CalendarEvent, 'id' | 'createdAt' | 'updatedAt'>, index: number): string {
+  const basis = [
+    event.type,
+    event.linkedObjectiveId,
+    event.linkedKrId,
+    event.title,
+    event.startTime,
+    event.endTime,
+    index,
+  ].filter((value) => value !== undefined && value !== null).join(':');
+  return `okr-${hashString(basis)}`;
+}
+
+function hashString(value: string): string {
+  let hash = 0;
+  for (let index = 0; index < value.length; index++) {
+    hash = ((hash << 5) - hash + value.charCodeAt(index)) | 0;
+  }
+  return Math.abs(hash).toString(36);
+}
+
 // ═══════════════════════════════════════════════════════════
 // Zustand Store
 // ═══════════════════════════════════════════════════════════
@@ -409,6 +451,21 @@ export const useCalendarStore = create<CalendarStore>()(
             ...managedEvents.map((event) => ({ ...event, serverManaged: true })),
           ],
         })),
+      replaceOkrEvents: (okrEvents) =>
+        set((state) => {
+          const now = _now();
+          return {
+            events: [
+              ...state.events.filter((event) => !(event.calendarId === 'cal-okr' && !event.externalSource)),
+              ...okrEvents.map((event, index) => ({
+                id: buildOkrEventId(event, index),
+                ...event,
+                createdAt: now,
+                updatedAt: now,
+              })),
+            ],
+          };
+        }),
 
       // ===== 查询 =====
       getEventsInRange: (start, end) => {
@@ -439,7 +496,15 @@ export const useCalendarStore = create<CalendarStore>()(
     }),
     {
       name: '铁山-calendar-store',
-      version: 3,
+      version: 4,
+      merge: (persisted, current) => {
+        const state = persisted as Partial<CalendarStore> | undefined;
+        return {
+          ...current,
+          ...state,
+          calendars: mergeDefaultCalendars(state?.calendars),
+        } as CalendarStore;
+      },
       migrate: (persisted) => {
         const state = persisted as Partial<CalendarStore> | undefined;
         return {

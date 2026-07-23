@@ -61,7 +61,7 @@ export default function DayView({ date, todayMs, onEventClick, onCellClick }: Da
                   'text-caption px-2 py-1 rounded-md truncate w-full text-left',
                   ev.status === 'cancelled' && 'opacity-40 line-through'
                 )}
-                style={{ backgroundColor: getColorBg(ev.color), color: '#fff' }}
+                style={{ backgroundColor: getColorBg(ev.color), color: 'rgb(var(--surface-1))' }}
                 onClick={(e) => { e.stopPropagation(); onEventClick(ev); }}
               >
                 {ev.title}
@@ -104,7 +104,7 @@ export default function DayView({ date, todayMs, onEventClick, onCellClick }: Da
                   top: `${top}px`,
                   height: `${height}px`,
                   backgroundColor: getColorBg(ev.color),
-                  color: '#fff',
+                  color: 'rgb(var(--surface-1))',
                 }}
                 onClick={(e) => { e.stopPropagation(); onEventClick(ev); }}
               >
@@ -141,6 +141,7 @@ function getColorBg(twClass: string): string {
     'bg-brand-500': 'rgb(var(--brand-500))',
     'bg-warning': 'rgb(var(--warning))',
     'bg-danger': 'rgb(var(--danger))',
-    'bg-surface-3': 'rgb(var(--muted-foreground))',  };
+    'bg-surface-3': 'rgb(var(--muted-foreground))',
+  };
   return map[twClass] || 'rgb(var(--muted-foreground))';
 }

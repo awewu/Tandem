@@ -16,7 +16,8 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getStore, boot } from '@/lib/boot';
-import { requireAuth } from '@/lib/auth/require-auth';
+import { requireAuth, type AuthContext } from '@/lib/auth/require-auth';
+import { DATA_STEWARD_ROLES } from '@/lib/auth/roles';
 import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import { executeAction, type KrCheckinResult, type ObjectiveCheckinResult } from '@/lib/ontology';
 import { withApiLog } from '@/lib/api-log/with-api-log';
@@ -48,6 +49,29 @@ function canViewDailyCheckIn(checkIn: { authorId: string; visibility?: string | 
   return false;
 }
 
+function hasAnyRole(roles: readonly string[], allowed: readonly string[]): boolean {
+  return roles.some((role) => allowed.includes(role));
+}
+
+async function filterVisibleDailyCheckIns<T extends { authorId: string; visibility?: string | null; viewerIds?: unknown }>(
+  checkIns: T[],
+  auth: AuthContext,
+): Promise<T[]> {
+  if (auth.demo || hasAnyRole(auth.roles, DATA_STEWARD_ROLES)) return checkIns;
+
+  if (auth.roles.includes('manager')) {
+    const users = await getStore().auth.users.list({ tenantId: auth.tenantId });
+    const directReportIds = new Set(
+      users
+        .filter((user) => user.managerId === auth.userId && !user.disabled)
+        .map((user) => user.id),
+    );
+    return checkIns.filter((c) => directReportIds.has(c.authorId) || canViewDailyCheckIn(c, auth.userId));
+  }
+
+  return checkIns.filter((c) => canViewDailyCheckIn(c, auth.userId));
+}
+
 async function GETApiHandler(req: NextRequest) {
   await boot();
   const auth = requireAuth(req);
@@ -59,7 +83,7 @@ async function GETApiHandler(req: NextRequest) {
     const feed = searchParams.get('feed');
     // P0-B 多租户读隔离: 经 withTenantScope 统一收敛 (§23 P2-A; 继承自父 KR/Objective 的 tenantId).
     let all = await withTenantScope(getStore().checkIns, auth.tenantId).list();
-    if (feed === 'visible-daily') all = all.filter((c) => canViewDailyCheckIn(c, auth.userId));
+    if (feed === 'visible-daily') all = await filterVisibleDailyCheckIns(all, auth);
     if (scope) all = all.filter((c) => c.scope === scope);
     if (scopeId) all = all.filter((c) => c.scopeId === scopeId);
     all.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));

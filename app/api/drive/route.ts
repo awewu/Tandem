@@ -5,7 +5,7 @@ import { boot } from '@/lib/boot';
 import { createAppContext } from '@/lib/repositories/app-context-factory';
 import { DriveService } from '@/lib/services/drive-service';
 import { resolveDriveActor } from '@/lib/drive/actor';
-import { ensurePersonalHome } from '@/lib/drive/provision';
+import { ensureDriveOrgScope, isInDriveOrgScope } from '@/lib/drive/org-scope';
 import { withApiLog } from '@/lib/api-log/with-api-log';
 
 const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
@@ -18,17 +18,33 @@ const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
   const ctx = createAppContext();
   const svc = new DriveService(ctx);
   const actor = await resolveDriveActor(auth);
-  // 首次访问懒建个人主目录 (幂等, fail-soft).
-  try {
-    await ensurePersonalHome({
-      tenantId: auth.tenantId,
-      userId: auth.userId,
-      departmentId: actor.departmentId,
-      repo: ctx.driveRepo,
-    });
-  } catch {/* fail-soft: 不阻塞列表 */}
-  const files = await svc.list({ parentId: parentId ?? null, ownerId, tenantId: auth.tenantId }, actor);
-  return NextResponse.json({ files });
+  const scope = await ensureDriveOrgScope({ tenantId: auth.tenantId, userId: auth.userId, actor, repo: ctx.driveRepo });
+  const effectiveParentId = parentId ?? scope.rootFolderId;
+  if (!effectiveParentId) return NextResponse.json({ files: [], scope });
+  const all = await ctx.driveRepo.list({ tenantId: auth.tenantId });
+  if (parentId) {
+    if (!isInDriveOrgScope(all, parentId, scope)) {
+      return NextResponse.json({ error: 'folder is outside current department scope', scope }, { status: 403 });
+    }
+  }
+  const files = await svc.list({ parentId: effectiveParentId, ownerId, tenantId: auth.tenantId }, actor);
+  const childCountByParent = new Map<string, number>();
+  for (const item of all) {
+    if (item.deletedAt || !item.parentId) continue;
+    childCountByParent.set(item.parentId, (childCountByParent.get(item.parentId) ?? 0) + 1);
+  }
+  const filesWithDeleteState = files.map((file) => {
+    const childCount = file.isFolder ? childCountByParent.get(file.id) ?? 0 : 0;
+    const hasDeleteRole = (actor.roles ?? []).some((role) => role === 'admin' || role === 'owner') || file.ownerId === actor.id;
+    const canDelete = hasDeleteRole && (!file.isFolder || childCount === 0);
+    const deleteDisabledReason = canDelete
+      ? null
+      : !hasDeleteRole
+      ? '仅管理员或创建者可删除'
+      : '文件夹不为空，不能删除';
+    return { ...file, childCount, canDelete, deleteDisabledReason };
+  });
+  return NextResponse.json({ files: filesWithDeleteState, scope });
 });
 
 export const GET = withApiLog(GETApiHandler, { route: '/api/drive' });
@@ -41,12 +57,23 @@ const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
   const ctx = createAppContext();
   const svc = new DriveService(ctx);
   const actor = await resolveDriveActor(auth);
+  const scope = await ensureDriveOrgScope({ tenantId: auth.tenantId, userId: auth.userId, actor, repo: ctx.driveRepo });
+  const parentId = body.parentId ?? scope.rootFolderId;
+  if (!parentId) {
+    return NextResponse.json({ error: 'current user has no department drive scope', scope }, { status: 409 });
+  }
+  if (body.parentId) {
+    const all = await ctx.driveRepo.list({ tenantId: auth.tenantId });
+    if (!isInDriveOrgScope(all, body.parentId, scope)) {
+      return NextResponse.json({ error: 'folder is outside current department scope', scope }, { status: 403 });
+    }
+  }
   // P0-A: tenantId 一律取自鉴权上下文, 绝不接受 body 注入 (防跨租户写).
   const file = await svc.create({
     name: body.name,
     mimeType: body.mimeType,
     size: body.size,
-    parentId: body.parentId ?? null,
+    parentId,
     storageKey: body.storageKey,
     isFolder: body.isFolder,
     ownerId: auth.userId,

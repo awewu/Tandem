@@ -134,7 +134,7 @@ export function DriveShareDialog({
         <DialogHeader>
           <DialogTitle>共享「{file?.name}」</DialogTitle>
           <DialogDescription>
-            设置谁可以访问。可读=能看/下载；可读写=还能改名/移动/上传到此。owner 恒可读写。
+            设置谁可以访问。共享不会改变文件所在部门；跨部门对象应从共享入口访问。可读=能看/下载；可读写=还能改名/移动/上传到此，删除仍按创建者/管理员规则判断。
           </DialogDescription>
         </DialogHeader>
 

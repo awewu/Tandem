@@ -10,6 +10,7 @@ import { requireAuth } from '@/lib/auth/require-auth';
 import { getStore } from '@/lib/storage/repository';
 import { encrypt } from '@/lib/infra/crypto';
 import { getAiSettings } from '@/lib/settings/ai-settings';
+import { neteaseCalendarSyncStateId } from '@/lib/calendar/sync-state';
 import {
   FIXED_SMTP_HOST,
   FIXED_IMAP_HOST,
@@ -107,6 +108,16 @@ const DELETEApiHandler = withErrorHandler(async (req: NextRequest) => {
   if (auth instanceof NextResponse) return auth;
 
   await getStore().userEmailCredentials.delete(auth.userId);
+  const syncStateRepo = getStore().calendarSyncStates;
+  const syncState = await syncStateRepo.get(neteaseCalendarSyncStateId(auth.userId));
+  if (syncState?.autoEnabled) {
+    await syncStateRepo.update(syncState.id, {
+      autoEnabled: false,
+      status: 'idle',
+      lastError: '邮箱凭据已删除，网易日程自动同步已停止。',
+      updatedAt: new Date().toISOString(),
+    });
+  }
 
   return NextResponse.json({ ok: true, message: '凭据已删除' });
 });

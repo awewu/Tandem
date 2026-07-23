@@ -85,6 +85,7 @@ function intersects(a: Set<string>, b: Set<string>): boolean {
 export function canRead(chain: DriveNodeLike[], user: DriveAclUser): boolean {
   const node = chain[0];
   if (!node) return false;
+  if ((user.roles ?? []).some((r) => r === 'admin' || r === 'owner')) return true;
   if (node.ownerId === user.id) return true;
   const { read } = resolveEffectivePermissions(chain);
   return intersects(read, userPrincipals(user));
@@ -96,6 +97,7 @@ export function canRead(chain: DriveNodeLike[], user: DriveAclUser): boolean {
 export function canWrite(chain: DriveNodeLike[], user: DriveAclUser): boolean {
   const node = chain[0];
   if (!node) return false;
+  if ((user.roles ?? []).some((r) => r === 'admin' || r === 'owner')) return true;
   if (node.ownerId === user.id) return true;
   const { write } = resolveEffectivePermissions(chain);
   return intersects(write, userPrincipals(user));

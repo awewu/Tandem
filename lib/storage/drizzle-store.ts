@@ -1364,5 +1364,6 @@ export function createDrizzleStore(): TandemStore {
     userEmailCredentials: new DrizzleKvRepository('user_email_creds'),
     calendarJobs: new DrizzleKvRepository('calendar_jobs'),
     calendarActivityLogs: new DrizzleKvRepository('calendar_activity_logs'),
+    calendarSyncStates: new DrizzleKvRepository('calendar_sync_states'),
   });
 }

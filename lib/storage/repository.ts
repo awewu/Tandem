@@ -257,6 +257,7 @@ export interface TandemStore {
   /** 日程异步创建任务 (保存进度 / 断点续传) */
   calendarJobs: Repository<import('../calendar/job-store').CalendarJob>;
   calendarActivityLogs: Repository<import('../calendar/activity-log').CalendarActivityLog>;
+  calendarSyncStates: Repository<import('../calendar/sync-state').CalendarSyncState>;
 }
 
 // ---------------------------------------------------------------------------

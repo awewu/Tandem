@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { type KNode, useChatStore } from '@/lib/store';
@@ -15,7 +16,7 @@ import {
   parseSpreadsheetContent,
   writeSpreadsheetFile,
 } from '@/lib/knowledge/spreadsheet-content';
-import { Save, Download, ArrowRightLeft, Building2, Users, User, Lock } from 'lucide-react';
+import { Save, Download, ArrowRightLeft, Building2, Users, User, Lock, ArrowLeft } from 'lucide-react';
 
 /**
  * Q1 (2026-05-10) Memory ownership 4 级 — 给文档分级 (公司/部门/团队/个人).
@@ -32,7 +33,8 @@ const OWNERSHIP_META: Record<OwnershipLevel | 'unset', { label: string; icon: Re
   department: { label: '部门',   icon: Users,     tone: 'bg-info/10 text-info' },
   team:       { label: '团队',   icon: Users,     tone: 'bg-info/15 text-info' },
   personal:   { label: '个人',   icon: Lock,      tone: 'bg-surface-3 text-ink-secondary' },
-  unset:      { label: '未分级', icon: User,      tone: 'bg-muted text-muted-foreground' },};
+  unset:      { label: '未分级', icon: User,      tone: 'bg-muted text-muted-foreground' },
+};
 
 export default function KnowledgePage() {
   // ── 后端持久化 (替代原 zustand-persist/localStorage): 数据落库, 跨设备不丢 ──
@@ -324,7 +326,7 @@ export default function KnowledgePage() {
         <div className="flex items-start gap-2">
           <div className="flex-1 min-w-0">
             <div className="font-medium break-all">{k.name}</div>
-            <div className="text-footnote text-ink-tertiary mt-0.5">
+            <div className="text-footnote text-muted-foreground mt-0.5">
               {k.type === 'folder' ? '文件夹' : (n.ext || '文件').toUpperCase()}
             </div>
           </div>
@@ -332,17 +334,17 @@ export default function KnowledgePage() {
 
         <div className="space-y-1.5 text-footnote">
           <div className="flex justify-between">
-            <span className="text-ink-tertiary">创建时间</span>
+            <span className="text-muted-foreground">创建时间</span>
             <span>{new Date(k.createdAt).toLocaleString('zh-CN')}</span>
           </div>
           {n.size != null && (
             <div className="flex justify-between">
-              <span className="text-ink-tertiary">大小</span>
+              <span className="text-muted-foreground">大小</span>
               <span>{(n.size / 1024).toFixed(1)} KB</span>
             </div>
           )}
           <div className="flex justify-between">
-            <span className="text-ink-tertiary">位置</span>
+            <span className="text-muted-foreground">位置</span>
             <span className="font-mono text-[10px] truncate ml-2">
               {k.parentId === 'root' ? '/' : `…/${nodes.find((x) => x.id === k.parentId)?.name || '?'}`}
             </span>
@@ -366,7 +368,7 @@ export default function KnowledgePage() {
                     })
                   }
                   className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] transition-colors ${
-                    current ? meta.tone + ' ring-1 ring-current' : 'bg-surface-2 text-ink-tertiary hover:bg-surface-3'
+                    current ? meta.tone + ' ring-1 ring-current' : 'bg-muted text-muted-foreground hover:bg-accent'
                   }`}
                 >
                   <Icon className="h-2.5 w-2.5" />
@@ -376,7 +378,8 @@ export default function KnowledgePage() {
             })}
           </div>
           <p className="text-[10px] text-muted-foreground">
-            仅用于你个人整理分类，<span className="font-medium text-warning">不等于公司发布</span>：此处文件仅你自己可见，不会进入中央 AI 决策依据。需要设为全员权威知识，请到<span className="font-medium">「组织记忆」</span>走签批流程。          </p>
+            仅用于你个人整理分类，<span className="font-medium text-warning">不等于公司发布</span>：此处文件仅你自己可见，不会进入中央 AI 决策依据。需要设为全员权威知识，请到<span className="font-medium">「组织记忆」</span>走签批流程。
+          </p>
         </div>
 
         {k.type === 'file' && (
@@ -395,7 +398,7 @@ export default function KnowledgePage() {
                 {isSpreadsheetFilename(k.name) && parseSpreadsheetContent(k.content) ? (
                   <KnowledgeSpreadsheetPreview value={k.content} />
                 ) : (
-                  <pre className="text-[10px] font-mono whitespace-pre-wrap break-words bg-surface-2 p-2 rounded max-h-64 overflow-auto leading-relaxed">
+                  <pre className="text-[10px] font-mono whitespace-pre-wrap break-words bg-muted/40 p-2 rounded max-h-64 overflow-auto leading-relaxed">
                     {k.content.slice(0, 1500)}
                     {k.content.length > 1500 && '\n…'}
                   </pre>
@@ -446,7 +449,7 @@ export default function KnowledgePage() {
       <FileManager
         nodes={fmNodes}
         rootId="root"
-        title="我的资料库"
+        title="手抄文件管理"
         onCreateFolder={handleCreateFolder}
         onRename={handleRename}
         onDelete={handleDelete}
@@ -457,6 +460,13 @@ export default function KnowledgePage() {
         renderDetails={renderDetails}
         toolbarExtra={
           <>
+            <Link
+              href="/shouchao"
+              className="inline-flex h-7 items-center gap-1 rounded-md border border-border bg-surface-1 px-2 text-[11px] font-medium text-ink-secondary hover:bg-surface-2 hover:text-ink-primary surface-interactive"
+              title="返回搭子手抄"
+            >
+              <ArrowLeft className="h-3 w-3" /> 手抄
+            </Link>
             {/* Q1 Ownership 筛选 */}
             <div className="flex items-center gap-0.5 ml-1 border-l pl-1.5">
               {(['all', 'company', 'department', 'team', 'personal', 'unset'] as const).map((f) => {
@@ -473,7 +483,7 @@ export default function KnowledgePage() {
                     className={`inline-flex items-center gap-0.5 rounded px-1.5 h-7 text-[11px] transition-colors ${
                       active
                         ? (meta?.tone ?? 'bg-foreground text-background') + ' ring-1 ring-current'
-                        : 'hover:bg-surface-2 text-ink-tertiary'
+                        : 'hover:bg-accent text-muted-foreground'
                     }`}
                   >
                     {Icon && <Icon className="h-2.5 w-2.5" />}

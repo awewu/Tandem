@@ -278,18 +278,6 @@ function TandemPageInner() {
 
   const dashCtx = useDashboardFetch();
 
-  // 行动坞可拖拽宽度 (240–560px, localStorage 持久化)
-  const [dockWidth, setDockWidth] = useState(320);
-  useEffect(() => {
-    const saved = Number(localStorage.getItem('tandem:dock-width'));
-    if (saved >= 240 && saved <= 560) setDockWidth(saved);
-  }, []);
-  const handleDockResize = (w: number) => {
-    const clamped = Math.min(560, Math.max(240, w));
-    setDockWidth(clamped);
-    try { localStorage.setItem('tandem:dock-width', String(clamped)); } catch { /* ignore */ }
-  };
-
   return (
    <DashboardContext.Provider value={dashCtx}>
    <DraftContext.Provider value={{ draft, pushDraft }}>
@@ -324,8 +312,6 @@ function TandemPageInner() {
           width={dockWidth}
           onResize={setDockWidth}
           onClose={() => setDockTab(null)}
-          width={dockWidth}
-          onResize={handleDockResize}
         />
         <SummonRail
           side="right"
@@ -594,16 +580,14 @@ interface SummonPanelProps {
   width: number;
   onResize: (width: number) => void;
   onClose: () => void;
-  width?: number;
-  onResize?: (w: number) => void;
 }
 
-function SummonPanel({ side, tab, onClose, width = 280, onResize }: SummonPanelProps) {  if (!tab) return null;
+function SummonPanel({ side, tab, onClose, width, onResize }: SummonPanelProps) {
+  if (!tab) return null;
   const Icon = tab.icon;
   const CloseIcon = side === 'left' ? ChevronLeft : ChevronRight;
 
   function startResize(e: React.PointerEvent) {
-    if (!onResize) return;
     e.preventDefault();
     const startX = e.clientX;
     const startW = width;
@@ -628,23 +612,23 @@ function SummonPanel({ side, tab, onClose, width = 280, onResize }: SummonPanelP
     <aside
       aria-label={`${tab.label} 召唤面板`}
       className={cn(
-        'relative hidden md:flex shrink-0 flex-col overflow-hidden surface-1',        side === 'left' ? 'border-r' : 'border-l',
+        'relative hidden md:flex shrink-0 flex-col overflow-hidden surface-1',
+        side === 'left' ? 'border-r' : 'border-l',
       )}
       style={{ width, borderColor: 'rgb(var(--border-subtle))' }}
     >
-      {onResize && (
-        <div
-          role="separator"
-          aria-orientation="vertical"
-          aria-label="拖拽调整面板宽度"
-          onPointerDown={startResize}
-          className={cn(
-            'absolute top-0 z-20 h-full w-1.5 cursor-col-resize touch-none transition-colors',
-            'hover:bg-[rgb(var(--brand-300))] active:bg-[rgb(var(--brand-500))]',
-            side === 'right' ? 'left-0 -translate-x-1/2' : 'right-0 translate-x-1/2',
-          )}
-        />
-      )}      <header
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="拖拽调整面板宽度"
+        onPointerDown={startResize}
+        className={cn(
+          'absolute top-0 z-20 h-full w-1.5 cursor-col-resize touch-none transition-colors',
+          'hover:bg-[rgb(var(--brand-300))] active:bg-[rgb(var(--brand-500))]',
+          side === 'right' ? 'left-0 -translate-x-1/2' : 'right-0 translate-x-1/2',
+        )}
+      />
+      <header
         className="flex items-center justify-between border-b px-4 py-3"
         style={{ borderColor: 'rgb(var(--border-subtle))' }}
       >

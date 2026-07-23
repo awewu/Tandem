@@ -12,11 +12,12 @@
  * 100% 派生自 useOKRStore + useOrgStore. 0 schema 改动.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useOKRStore, useOrgStore, type Objective, type KeyResult } from '@/lib/store';
 import { objectiveProgress } from '@/lib/okr/progress';
 import { objectiveScheduleRisk, type RiskBand } from '@/lib/okr/risk';
+import { hydrateOkrFromApi } from '@/lib/store/okr-sync';
 import {
   computeAdoptionRates,
   objectivesPerPersonDist,
@@ -39,6 +40,8 @@ const RISK_COLORS: Record<string, string> = {
   'off-track': 'bg-danger/10 text-danger',
 };
 
+const OBJECTIVE_SOURCE_TAGS = new Set(['公司', '部门', '团队', '个人']);
+
 interface DeptStats {
   id: string;
   name: string;
@@ -60,6 +63,19 @@ export default function OKRDashboardPage() {
   const [cycleId, setCycleId] = useState<string>(() =>
     cycles.find((c) => c.isActive)?.id ?? cycles[0]?.id ?? ''
   );
+
+  useEffect(() => {
+    void hydrateOkrFromApi();
+    const onFocus = () => { void hydrateOkrFromApi(); };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, []);
+
+  useEffect(() => {
+    const activeCycleId = cycles.find((c) => c.isActive)?.id ?? cycles[0]?.id ?? '';
+    if (!activeCycleId) return;
+    if (!cycleId || !cycles.some((c) => c.id === cycleId)) setCycleId(activeCycleId);
+  }, [cycleId, cycles]);
 
   const cycleObjectives = useMemo(
     () => objectives.filter((o) => o.cycleId === cycleId),
@@ -89,43 +105,66 @@ export default function OKRDashboardPage() {
 
   /** 部门统计 */
   const deptStats = useMemo<DeptStats[]>(() => {
-    const stats: DeptStats[] = [];
+    const byDept = new Map<string, DeptStats & { ownerIds: Set<string> }>();
+
+    const getObjectiveDept = (o: Objective) => {
+      const di = ownerToDept.get(o.ownerId);
+      if (di?.deptId && di.deptName) {
+        return { id: di.deptId, name: di.deptName };
+      }
+      const importedDept = (o.tags ?? []).find((tag) => tag && !OBJECTIVE_SOURCE_TAGS.has(tag));
+      if (importedDept) return { id: `import:${importedDept}`, name: importedDept };
+      return { id: 'unassigned', name: '未关联部门' };
+    };
+
+    const ensure = (id: string, name: string, level: 'department' | 'team' = 'department') => {
+      if (!byDept.has(id)) {
+        byDept.set(id, {
+          id,
+          name,
+          level,
+          objectives: [],
+          avgProgress: 0,
+          atRiskCount: 0,
+          offTrackCount: 0,
+          onTrackCount: 0,
+          memberCount: 0,
+          ownerIds: new Set<string>(),
+        });
+      }
+      return byDept.get(id)!;
+    };
+
     for (const d of departments) {
-      const deptOs = cycleObjectives.filter((o) => {
-        const di = ownerToDept.get(o.ownerId);
-        return di?.deptId === d.id;
-      });
       const memberCount = people.filter((p) => {
         const di = ownerToDept.get(p.id);
         return di?.deptId === d.id;
       }).length;
-
-      let avgProg = 0;
-      let atRisk = 0;
-      let offTrack = 0;
-      let onTrack = 0;
-      for (const o of deptOs) {
-        const prog = objectiveProgress(o, keyResults);
-        avgProg += prog;
-        if (o.confidence === 'at-risk') atRisk++;
-        else if (o.confidence === 'off-track') offTrack++;
-        else onTrack++;
-      }
-      avgProg = deptOs.length > 0 ? Math.round(avgProg / deptOs.length) : 0;
-
-      stats.push({
-        id: d.id,
-        name: d.name,
-        level: 'department',
-        objectives: deptOs,
-        avgProgress: avgProg,
-        atRiskCount: atRisk,
-        offTrackCount: offTrack,
-        onTrackCount: onTrack,
-        memberCount,
-      });
+      ensure(d.id, d.name).memberCount = memberCount;
     }
-    return stats.sort((a, b) => b.objectives.length - a.objectives.length);
+
+    for (const o of cycleObjectives) {
+      const dept = getObjectiveDept(o);
+      const stats = ensure(dept.id, dept.name);
+      stats.objectives.push(o);
+      stats.ownerIds.add(o.ownerId);
+      if (o.confidence === 'at-risk') stats.atRiskCount++;
+      else if (o.confidence === 'off-track') stats.offTrackCount++;
+      else stats.onTrackCount++;
+    }
+
+    return Array.from(byDept.values())
+      .map(({ ownerIds, ...stats }) => ({
+        ...stats,
+        memberCount: stats.memberCount || ownerIds.size,
+        avgProgress: stats.objectives.length > 0
+          ? Math.round(
+              stats.objectives.reduce((sum, o) => sum + objectiveProgress(o, keyResults), 0) /
+                stats.objectives.length,
+            )
+          : 0,
+      }))
+      .sort((a, b) => b.objectives.length - a.objectives.length);
   }, [departments, cycleObjectives, ownerToDept, keyResults, people]);
 
   /** 跨部门对齐统计 */
@@ -148,7 +187,10 @@ export default function OKRDashboardPage() {
       o,
       progress: objectiveProgress(o, keyResults),
       ownerName: nameOf(o.ownerId),
-      deptName: ownerToDept.get(o.ownerId)?.deptName ?? '—',
+      deptName:
+        ownerToDept.get(o.ownerId)?.deptName ??
+        (o.tags ?? []).find((tag) => tag && !OBJECTIVE_SOURCE_TAGS.has(tag)) ??
+        '—',
     })),
     [cycleObjectives, keyResults, nameOf, ownerToDept]
   );

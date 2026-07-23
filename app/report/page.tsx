@@ -17,6 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
@@ -218,6 +219,7 @@ function ReportPageInner() {
   const [viewerSelectOpen, setViewerSelectOpen] = useState(false);
   const [visibleReports, setVisibleReports] = useState<CheckIn[]>([]);
   const [visibleReportsLoading, setVisibleReportsLoading] = useState(false);
+  const [reportAuthorSearch, setReportAuthorSearch] = useState('');
 
   const selectedKr = useMemo(() => cycleKrs.find(k => k.id === selectedKrId) ?? null, [cycleKrs, selectedKrId]);
   const selectedRawInput = selectedKrId ? rawInputs[selectedKrId] ?? '' : '';
@@ -258,6 +260,28 @@ function ReportPageInner() {
       return name.includes(keyword) || id.includes(keyword);
     });
   }, [viewerOptions, viewerSearch]);
+  const normalizedReportSearch = reportAuthorSearch.trim().toLowerCase();
+  const searchedReportPeople = useMemo(() => {
+    if (!normalizedReportSearch) return [];
+    return people.filter((person) => {
+      const name = person.name.toLowerCase();
+      const id = person.id.toLowerCase();
+      return name.includes(normalizedReportSearch) || id.includes(normalizedReportSearch);
+    });
+  }, [normalizedReportSearch, people]);
+  const searchedReportOwnerIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const person of searchedReportPeople) {
+      ids.add(person.id);
+      ids.add(`person:${person.id}`);
+    }
+    return ids;
+  }, [searchedReportPeople]);
+  const searchedReportPersonLabel = useMemo(() => {
+    if (searchedReportPeople.length === 0) return '';
+    if (searchedReportPeople.length === 1) return searchedReportPeople[0].name;
+    return `${searchedReportPeople[0].name} 等 ${searchedReportPeople.length} 人`;
+  }, [searchedReportPeople]);
   const visibleReportItems = useMemo(
     () =>
       visibleReports
@@ -267,6 +291,32 @@ function ReportPageInner() {
         })),
     [keyResults, visibleReports],
   );
+  const filteredVisibleReportItems = useMemo(() => {
+    const keyword = normalizedReportSearch;
+    if (!keyword) return visibleReportItems;
+    return visibleReportItems.filter(({ report, kr }) => {
+      const authorName = nameOf(report.authorId).toLowerCase();
+      const authorId = report.authorId.toLowerCase();
+      const krTitle = kr?.title.toLowerCase() ?? '';
+      const normalizedAuthorId = authorId.startsWith('person:') ? authorId.slice('person:'.length) : authorId;
+      const matchedPerson =
+        searchedReportOwnerIds.has(report.authorId) ||
+        searchedReportOwnerIds.has(normalizedAuthorId) ||
+        searchedReportOwnerIds.has(`person:${normalizedAuthorId}`);
+      return matchedPerson || authorName.includes(keyword) || authorId.includes(keyword) || krTitle.includes(keyword);
+    });
+  }, [nameOf, normalizedReportSearch, searchedReportOwnerIds, visibleReportItems]);
+  const searchedOkrSnapshotItems = useMemo(() => {
+    if (!normalizedReportSearch || searchedReportOwnerIds.size === 0) return [];
+    return cycleObjectives
+      .filter((objective) => searchedReportOwnerIds.has(objective.ownerId))
+      .map((objective) => ({
+        objective,
+        progress: objectiveProgress(objective, keyResults),
+        krs: keyResults.filter((kr) => kr.objectiveId === objective.id),
+      }))
+      .filter((item) => item.krs.length > 0);
+  }, [cycleObjectives, keyResults, normalizedReportSearch, searchedReportOwnerIds]);
 
   /** §P4 OKR 联动: 支持 ?krId=xxx URL 参数, mobile OKR 列表点 "写进展" 跳过来直接锚定 */
   const searchParams = useSearchParams();
@@ -823,6 +873,25 @@ function ReportPageInner() {
           <p className="mt-1 text-[12.5px] md:text-caption text-ink-tertiary leading-relaxed">
             写下今天的进展, AI 帮你提炼成 Action Plan, 一键推流到 OKR 进度.
           </p>
+          <div className="relative mt-3 w-full max-w-[320px]">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={reportAuthorSearch}
+              onChange={(event) => setReportAuthorSearch(event.target.value)}
+              placeholder="输入姓名查看日报/周报"
+              className="h-8 rounded-md border-border bg-surface-1 pl-8 pr-8 text-[12px]"
+            />
+            {reportAuthorSearch && (
+              <button
+                type="button"
+                onClick={() => setReportAuthorSearch('')}
+                className="absolute right-2 top-1/2 inline-flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-ink-tertiary hover:bg-surface-2 hover:text-ink-secondary"
+                aria-label="清空姓名筛选"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
         </div>
         {activeCycle && (
           <Badge variant="outline" className="shrink-0 h-6 text-[11px] bg-white border-border font-medium">
@@ -1390,7 +1459,11 @@ function ReportPageInner() {
               <div className="flex items-center justify-between gap-2">
                 <div>
                   <p className="text-footnote font-bold text-ink-primary">可见日报</p>
-                  <p className="text-[10px] text-muted-foreground">你提交的，以及别人授权给你看的日报内容。</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {searchedReportPersonLabel
+                      ? `当前查看：${searchedReportPersonLabel}`
+                      : '你提交的，以及别人授权给你看的日报内容。'}
+                  </p>
                 </div>
                 <Button
                   type="button"
@@ -1403,13 +1476,56 @@ function ReportPageInner() {
                   {visibleReportsLoading ? <RefreshCw className="h-3 w-3 animate-spin" /> : '刷新'}
                 </Button>
               </div>
-              {visibleReportItems.length === 0 ? (
-                <div className="rounded-md border border-dashed border-border py-6 text-center text-[11px] text-muted-foreground">
-                  暂无可见日报
-                </div>
+              {filteredVisibleReportItems.length === 0 ? (
+                searchedOkrSnapshotItems.length > 0 ? (
+                  <div className="max-h-[360px] space-y-2 overflow-y-auto pr-1">
+                    <div className="rounded-md border border-dashed border-border bg-surface-2/70 px-3 py-2 text-[11px] text-muted-foreground">
+                      暂无日报/周报记录，以下为导入 OKR/KR 快照。
+                    </div>
+                    {searchedOkrSnapshotItems.slice(0, 8).map(({ objective, progress, krs }) => (
+                      <article key={objective.id} className="rounded-md border border-border bg-surface-2/60 p-3 text-[11px]">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="line-clamp-2 font-semibold text-ink-primary">{objective.title}</p>
+                            <p className="mt-0.5 text-[10px] text-muted-foreground">
+                              {nameOf(objective.ownerId)} · {krs.length} KR
+                            </p>
+                          </div>
+                          <Badge variant="outline" className="shrink-0 bg-white text-[10px]">
+                            OKR 快照
+                          </Badge>
+                        </div>
+                        <div className="mt-2 flex items-center gap-2">
+                          <Progress value={progress} className="h-1.5 flex-1 bg-surface-3" />
+                          <span className="w-9 text-right text-[10px] font-semibold tabular-nums text-ink-tertiary">
+                            {progress}%
+                          </span>
+                        </div>
+                        <div className="mt-2 space-y-1.5">
+                          {krs.slice(0, 3).map((kr) => (
+                            <div key={kr.id} className="rounded border border-border bg-surface-1 px-2 py-1.5">
+                              <p className="line-clamp-2 text-ink-secondary">{kr.title}</p>
+                              <p className="mt-0.5 text-[10px] text-muted-foreground">
+                                {kr.currentValue}/{kr.targetValue}{kr.unit ?? ''}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-md border border-dashed border-border py-6 text-center text-[11px] text-muted-foreground">
+                    {normalizedReportSearch
+                      ? searchedReportPeople.length > 0
+                        ? '该员工暂无可见日报/周报记录'
+                        : '未找到匹配的员工'
+                      : '暂无可见日报'}
+                  </div>
+                )
               ) : (
                 <div className="max-h-[360px] space-y-2 overflow-y-auto pr-1">
-                  {visibleReportItems.slice(0, 20).map(({ report, kr }) => (
+                  {filteredVisibleReportItems.slice(0, 20).map(({ report, kr }) => (
                     <article key={report.id} className="rounded-md border border-border bg-surface-2/60 p-3 text-[11px]">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">

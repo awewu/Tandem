@@ -23,6 +23,8 @@ function toDomain(row: typeof t.$inferSelect): DriveFile {
     permissions: (row.permissions ?? {}) as DriveFile['permissions'],
     version: row.version,
     isFolder: row.isFolder,
+    nodeRole: row.nodeRole as DriveFile['nodeRole'],
+    distillable: row.distillable,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null,
@@ -69,6 +71,8 @@ export class DrizzleDriveFileRepository implements DriveFileRepository {
       permissions: (draft.permissions ?? {}) as object,
       version: draft.version ?? 1,
       isFolder: draft.isFolder ?? false,
+      nodeRole: draft.nodeRole ?? null,
+      distillable: draft.distillable ?? true,
       createdAt: draft.createdAt ? new Date(draft.createdAt) : now,
       updatedAt: now,
     };

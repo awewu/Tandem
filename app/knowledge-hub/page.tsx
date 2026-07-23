@@ -78,7 +78,7 @@ export default function KnowledgeHubPage() {
       <div>
         <h1 className="text-title-2 font-semibold text-ink-primary">知识导航 · 我想做什么</h1>
         <p className="mt-1 text-caption text-muted-foreground">
-          按你的意图选入口, 不用猜"该放哪"。
+          按你的意图选入口, 不用猜「该放哪」。
         </p>
       </div>
 
@@ -92,7 +92,7 @@ export default function KnowledgeHubPage() {
             是签批后全员权威、并进入中央 AI 决策依据的知识。其余模块是它的
             <span className="font-medium">上游原料</span>、
             <span className="font-medium">个人空间</span> 或
-            <span className="font-medium">数据工具</span> —— 在那里设"公司"标签
+            <span className="font-medium">数据工具</span> —— 在那里设「公司」标签
             <span className="font-semibold text-warning">不等于公司发布</span>。
           </div>
         </CardContent>

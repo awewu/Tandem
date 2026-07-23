@@ -744,6 +744,12 @@ export default function ShouchaoPage() {
             <PanelLeft className="h-4 w-4" />
           </button>
           <Link
+            href="/knowledge"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-1 px-3 py-1.5 text-caption font-medium text-ink-secondary hover:bg-surface-2 hover:text-ink-primary surface-interactive"
+          >
+            <FileText className="h-3.5 w-3.5" /> 文件管理
+          </Link>
+          <Link
             href="/"
             className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-1 px-3 py-1.5 text-caption font-medium text-ink-secondary hover:bg-surface-2 hover:text-ink-primary surface-interactive"
           >

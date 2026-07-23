@@ -368,5 +368,6 @@ export function createInMemoryStore(): TandemStore {
     userEmailCredentials: new InMemoryRepository(),
     calendarJobs: new InMemoryRepository(),
     calendarActivityLogs: new InMemoryRepository(),
+    calendarSyncStates: new InMemoryRepository(),
   });
 }
