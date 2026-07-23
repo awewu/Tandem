@@ -588,7 +588,7 @@ function ChatPageInner() {
                           aria-label="赞同"
                           className={cn(
                             'p-1 rounded hover:bg-muted transition-colors',
-                            m.rating === 'up' && 'text-emerald-600 bg-emerald-500/10'
+                            m.rating === 'up' && 'text-success bg-success/10'
                           )}
                         >
                           <ThumbsUp className="h-3.5 w-3.5" />
@@ -600,7 +600,7 @@ function ChatPageInner() {
                           aria-label="不准确"
                           className={cn(
                             'p-1 rounded hover:bg-muted transition-colors',
-                            m.rating === 'down' && 'text-rose-600 bg-rose-500/10'
+                            m.rating === 'down' && 'text-danger bg-danger/10'
                           )}
                         >
                           <ThumbsDown className="h-3.5 w-3.5" />

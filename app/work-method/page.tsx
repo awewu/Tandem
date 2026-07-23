@@ -30,9 +30,9 @@ import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 const BAND_STYLE: Record<RiskBand, { text: string; bg: string; label: string }> = {
-  'on-track': { text: 'text-emerald-700', bg: 'bg-emerald-100', label: '在轨' },
+  'on-track': { text: 'text-success', bg: 'bg-success/15', label: '在轨' },
   'at-risk': { text: 'text-warning', bg: 'bg-warning/10', label: '预警' },
-  'off-track': { text: 'text-danger', bg: 'bg-rose-100', label: '滞后' },
+  'off-track': { text: 'text-danger', bg: 'bg-danger/10', label: '滞后' },
 };
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -1059,7 +1059,7 @@ function InitiativeList({
         const done = i.status === 'done';
         return (
           <li key={i.id} className="group flex items-center gap-2 rounded-md border border-border px-2.5 py-2">
-            <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${done ? 'bg-emerald-500' : overdue ? 'bg-danger' : 'bg-brand-400'}`} />
+            <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${done ? 'bg-success' : overdue ? 'bg-danger' : 'bg-brand-400'}`} />
             <div className="flex-1 min-w-0">
               <div className={`text-caption truncate ${done ? 'text-ink-tertiary line-through' : 'text-ink-primary'}`}>{i.title}</div>
               <div className="text-footnote text-ink-tertiary flex items-center gap-2">

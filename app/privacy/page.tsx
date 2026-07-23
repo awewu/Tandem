@@ -26,7 +26,7 @@ export default async function PrivacyPage() {
   const md = await loadPrivacyPolicy();
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white py-10">
+    <main className="min-h-screen bg-gradient-to-b from-surface-2 to-white py-10">
       <article className="mx-auto max-w-3xl px-6 py-8 prose prose-slate prose-sm md:prose-base">
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{md}</ReactMarkdown>
       </article>

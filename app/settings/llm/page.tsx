@@ -177,12 +177,12 @@ export default function LlmSettingsPage() {
             <h2 className="mb-2 font-semibold">已注册的 Provider</h2>
             <div className="flex flex-wrap gap-2">
               {available.length === 0 ? (
-                <span className="text-caption text-rose-600">⚠️ 没有可用的 LLM provider，请先配置 API key</span>
+                <span className="text-caption text-danger">⚠️ 没有可用的 LLM provider，请先配置 API key</span>
               ) : (
                 available.map((p) => (
                   <span
                     key={p}
-                    className="rounded-full bg-emerald-50 px-3 py-1 text-footnote font-medium text-emerald-700"
+                    className="rounded-full bg-success/10 px-3 py-1 text-footnote font-medium text-success"
                   >
                     {p}
                   </span>
@@ -260,8 +260,8 @@ export default function LlmSettingsPage() {
             >
               {saving ? '保存中…' : '保存'}
             </button>
-            {msg && <span className="text-caption text-emerald-600">{msg}</span>}
-            {err && <span className="text-caption text-rose-600">⚠️ {err}</span>}
+            {msg && <span className="text-caption text-success">{msg}</span>}
+            {err && <span className="text-caption text-danger">⚠️ {err}</span>}
           </div>
 
           {pref && (
@@ -297,7 +297,7 @@ export default function LlmSettingsPage() {
                   title={policy.allowPersonalAiTokens ? '点击关闭个人AI token' : '点击开启个人AI token'}
                   aria-label={policy.allowPersonalAiTokens ? '关闭个人AI token 共享' : '开启个人AI token 共享'}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    policy.allowPersonalAiTokens ? 'bg-emerald-500' : 'bg-surface-2'
+                    policy.allowPersonalAiTokens ? 'bg-success' : 'bg-surface-2'
                   }`}
                 >
                   <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
@@ -347,8 +347,8 @@ export default function LlmSettingsPage() {
                 </div>
               </div>
 
-              {policyMsg && <p className="text-caption text-emerald-600">{policyMsg}</p>}
-              {policyErr && <p className="text-caption text-rose-600">⚠️ {policyErr}</p>}
+              {policyMsg && <p className="text-caption text-success">{policyMsg}</p>}
+              {policyErr && <p className="text-caption text-danger">⚠️ {policyErr}</p>}
             </div>
           )}
         </div>

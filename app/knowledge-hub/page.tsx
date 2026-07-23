@@ -31,10 +31,10 @@ const AUTHORITY_META: Record<
   IntentCard['authority'],
   { label: string; tone: string }
 > = {
-  company: { label: '公司权威 · 签批后喂 AI', tone: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  company: { label: '公司权威 · 签批后喂 AI', tone: 'bg-success/10 text-success border-success/30' },
   material: { label: '共创原料 · 可申请升级', tone: 'bg-info/10 text-info border-info/20' },
-  tool: { label: '数据工具', tone: 'bg-violet-50 text-violet-700 border-violet-200' },
-  personal: { label: '仅自己可见 · 不喂 AI', tone: 'bg-slate-100 text-slate-600 border-slate-200' },
+  tool: { label: '数据工具', tone: 'bg-brand-50 text-brand-700 border-brand-200' },
+  personal: { label: '仅自己可见 · 不喂 AI', tone: 'bg-surface-3 text-ink-secondary border-border' },
 };
 
 const CARDS: IntentCard[] = [
@@ -83,10 +83,10 @@ export default function KnowledgeHubPage() {
       </div>
 
       {/* 唯一规则提示 */}
-      <Card className="border-emerald-200 bg-emerald-50/50">
+      <Card className="border-success/30 bg-success/10">
         <CardContent className="flex items-start gap-3 py-4">
-          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
-          <div className="text-caption text-emerald-900">
+          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-success" />
+          <div className="text-caption text-success">
             <span className="font-semibold">一条规则:</span> 只有
             <span className="font-semibold">「组织记忆」</span>
             是签批后全员权威、并进入中央 AI 决策依据的知识。其余模块是它的
@@ -108,7 +108,7 @@ export default function KnowledgeHubPage() {
               <Card
                 className={
                   highlight
-                    ? 'h-full border-emerald-300 transition-shadow hover:shadow-soft'
+                    ? 'h-full border-success/40 transition-shadow hover:shadow-soft'
                     : 'h-full transition-shadow hover:shadow-soft'
                 }
               >
@@ -117,7 +117,7 @@ export default function KnowledgeHubPage() {
                     <span
                       className={
                         highlight
-                          ? 'flex h-9 w-9 items-center justify-center rounded-md bg-emerald-100 text-emerald-700'
+                          ? 'flex h-9 w-9 items-center justify-center rounded-md bg-success/15 text-success'
                           : 'flex h-9 w-9 items-center justify-center rounded-md bg-surface-3 text-ink-secondary'
                       }
                     >
@@ -149,9 +149,9 @@ export default function KnowledgeHubPage() {
         <CardContent className="space-y-2 py-4 text-footnote text-muted-foreground">
           <div className="font-medium text-ink-primary">记不住?就记 3 类:</div>
           <div>
-            <span className="font-medium text-emerald-700">① 公司权威</span> = 组织记忆(签批后喂 AI,唯一权威) ·
+            <span className="font-medium text-success">① 公司权威</span> = 组织记忆(签批后喂 AI,唯一权威) ·
             <span className="font-medium text-info"> ② 协作产出</span> = 文档协作 + 多维表格(团队一起做) ·
-            <span className="font-medium text-slate-600"> ③ 个人文件</span> = 云盘(只有自己看)
+            <span className="font-medium text-ink-secondary"> ③ 个人文件</span> = 云盘(只有自己看)
           </div>
           <div className="border-t pt-2">
             <span className="font-medium">两个常见纠结:</span>

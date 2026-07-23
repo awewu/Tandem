@@ -285,7 +285,7 @@ export default function OkrCascadePage() {
           <div className="flex flex-wrap gap-4 text-footnote text-ink-secondary">
             <Legend icon={Building2} label="Objective (O)" tone="text-info" />
             <Legend icon={Target} label="Key Result (KR)" tone="text-success" />
-            <Legend icon={Sparkles} label="Initiative (跨季度)" tone="text-purple-600" />
+            <Legend icon={Sparkles} label="Initiative (跨季度)" tone="text-brand-700" />
             <Legend icon={Sparkles} label="DecisionCard (议事)" tone="text-brand-600" />
             <Legend icon={ListChecks} label="ActionItem (任务)" tone="text-ink-secondary" />
           </div>
@@ -436,7 +436,7 @@ function KrNode({
               </p>
               {initiatives.map((init) => (
                 <div key={init.id} className="ml-6 flex items-center gap-2 px-2 py-1 text-caption text-ink-secondary">
-                  <Sparkles className="h-3 w-3 text-purple-500" />
+                  <Sparkles className="h-3 w-3 text-brand-700" />
                   <span className="flex-1 truncate">{init.title}</span>
                   <InitiativeBadge status={init.status} />
                 </div>

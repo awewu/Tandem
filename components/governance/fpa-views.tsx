@@ -100,9 +100,9 @@ const LEVEL_LABEL: Record<KpiLite['level'], string> = {
 };
 
 const BALANCE_BADGE = {
-  healthy: { label: '四维均衡', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  healthy: { label: '四维均衡', cls: 'bg-success/10 text-success border-success/30' },
   warning: { label: '配比预警', cls: 'bg-warning/5 text-warning border-warning/20' },
-  imbalanced: { label: '战略失衡', cls: 'bg-rose-50 text-rose-700 border-rose-200' },
+  imbalanced: { label: '战略失衡', cls: 'bg-danger/5 text-danger border-danger/30' },
 } as const;
 
 // ===========================================================================
@@ -165,7 +165,7 @@ export function CostCenterBscView() {
     <div className="flex-1 overflow-auto p-6">
       <div className="max-w-5xl mx-auto space-y-4">
         <div className="flex items-center gap-2 flex-wrap">
-          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+          <Badge variant="outline" className="bg-success/10 text-success border-success/30">
             尚书 · 执行 · 成本中心
           </Badge>
           <span className="text-footnote text-muted-foreground">
@@ -175,7 +175,7 @@ export function CostCenterBscView() {
         </div>
 
         {error && (
-          <Card><CardContent className="p-4 text-rose-600 text-caption">加载失败: {error}</CardContent></Card>
+          <Card><CardContent className="p-4 text-danger text-caption">加载失败: {error}</CardContent></Card>
         )}
 
         {!error && units.length === 0 && (
@@ -453,7 +453,7 @@ export function FpaRehearsalView() {
         )}
 
         {error && (
-          <Card><CardContent className="p-4 text-rose-600 text-caption">加载失败: {error}</CardContent></Card>
+          <Card><CardContent className="p-4 text-danger text-caption">加载失败: {error}</CardContent></Card>
         )}
 
         {!error && anchoredKRs.length === 0 && (
@@ -485,15 +485,15 @@ export function FpaRehearsalView() {
 }
 
 const CONF_BADGE = {
-  'on-track': { label: '达标', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  'on-track': { label: '达标', cls: 'bg-success/10 text-success border-success/30' },
   'at-risk': { label: '有风险', cls: 'bg-warning/5 text-warning border-warning/20' },
-  'off-track': { label: '不达', cls: 'bg-rose-50 text-rose-700 border-rose-200' },
+  'off-track': { label: '不达', cls: 'bg-danger/5 text-danger border-danger/30' },
 } as const;
 
 const CALIB_ACTION = {
-  increase: { label: '上调强度', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', Icon: ArrowUp },
-  decrease: { label: '下调强度', cls: 'bg-rose-50 text-rose-700 border-rose-200', Icon: ArrowDown },
-  hold: { label: '维持/验证', cls: 'bg-sky-50 text-sky-700 border-sky-200', Icon: Check },
+  increase: { label: '上调强度', cls: 'bg-success/10 text-success border-success/30', Icon: ArrowUp },
+  decrease: { label: '下调强度', cls: 'bg-danger/5 text-danger border-danger/30', Icon: ArrowDown },
+  hold: { label: '维持/验证', cls: 'bg-info/10 text-info border-info/30', Icon: Check },
   review: { label: '人工复核', cls: 'bg-warning/5 text-warning border-warning/20', Icon: Eye },
 } as const;
 
@@ -513,10 +513,10 @@ function CalibrationPanel({
   onApply: (s: StrengthCalibration) => void;
 }) {
   return (
-    <Card className="border-violet-200 bg-violet-50/30 dark:bg-violet-900/10">
+    <Card className="border-brand-200 bg-brand-50/30 dark:bg-brand-900/10">
       <CardHeader className="pb-2">
         <CardTitle className="text-caption flex items-center gap-1.5">
-          <Scale className="w-4 h-4 text-violet-600" />
+          <Scale className="w-4 h-4 text-brand-700" />
           差异校准 · 真值 vs 推演 → 因果链强度建议
         </CardTitle>
         <p className="text-[11px] text-muted-foreground">
@@ -528,7 +528,7 @@ function CalibrationPanel({
       </CardHeader>
       <CardContent className="space-y-2">
         {applyError && (
-          <div className="text-[11px] text-rose-600">应用失败: {applyError}</div>
+          <div className="text-[11px] text-danger">应用失败: {applyError}</div>
         )}
         {calibration.suggestions.map((s) => {
           const meta = CALIB_ACTION[s.action];
@@ -549,7 +549,7 @@ function CalibrationPanel({
                 {s.action !== 'review' && (
                   <div className="text-[10px] text-muted-foreground tabular-nums">
                     强度 {s.currentStrength.toFixed(2)}
-                    {s.delta !== 0 && <> → <span className="text-violet-600 font-medium">{s.suggestedStrength.toFixed(2)}</span></>}
+                    {s.delta !== 0 && <> → <span className="text-brand-700 font-medium">{s.suggestedStrength.toFixed(2)}</span></>}
                     {' · '}下游真值 {fmt(s.evidence.actualValue)} vs 推演 {fmt(s.evidence.projectedValue)}
                     {' '}(差 {(s.evidence.variancePct * 100).toFixed(1)}%)
                   </div>
@@ -615,15 +615,15 @@ function ProjectionCard({ p }: { p: KpiProjection }) {
       <CardContent className="space-y-2">
         {/* 量程条: 现值(实) → 投影(虚) → 目标 */}
         <div className="relative h-2.5 rounded-full bg-muted">
-          <div className="absolute h-full rounded-full bg-sky-400/70" style={{ width: `${pos(p.currentValue)}%` }} />
+          <div className="absolute h-full rounded-full bg-info/30" style={{ width: `${pos(p.currentValue)}%` }} />
           <div
-            className="absolute h-full rounded-full border-r-2 border-violet-500"
+            className="absolute h-full rounded-full border-r-2 border-brand-500"
             style={{ width: `${pos(p.projectedValue)}%` }}
           />
         </div>
         <div className="flex items-center justify-between text-[11px] tabular-nums text-muted-foreground">
           <span>现值 {fmt(p.currentValue)}</span>
-          <span className="text-violet-600 font-medium">推演末值 {fmt(p.projectedValue)}</span>
+          <span className="text-brand-700 font-medium">推演末值 {fmt(p.projectedValue)}</span>
           <span>目标 {fmt(p.targetValue)}</span>
         </div>
         {p.gap > 0 ? (
@@ -631,7 +631,7 @@ function ProjectionCard({ p }: { p: KpiProjection }) {
             <TrendingUp className="w-3 h-3" /> 距目标还差 {fmt(p.gap)}
           </div>
         ) : (
-          <div className="text-[11px] text-emerald-700 flex items-center gap-1">
+          <div className="text-[11px] text-success flex items-center gap-1">
             <TrendingUp className="w-3 h-3" /> 推演可达标 (超出 {fmt(-p.gap)})
           </div>
         )}
@@ -644,8 +644,8 @@ function ProjectionCard({ p }: { p: KpiProjection }) {
               className={cn(
                 'text-[10px] font-normal',
                 c.kind === 'okr'
-                  ? 'bg-violet-50 text-violet-700 border-violet-200'
-                  : 'bg-sky-50 text-sky-700 border-sky-200',
+                  ? 'bg-brand-50 text-brand-700 border-brand-200'
+                  : 'bg-info/10 text-info border-info/30',
               )}
             >
               {c.kind === 'okr' ? 'KR' : '传导'} · {c.source} {c.value >= 0 ? '+' : ''}{fmt(c.value)}

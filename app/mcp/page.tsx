@@ -40,14 +40,14 @@ import {
 
 const CATEGORY_META: Record<string, { label: string; icon: React.ElementType; color: string }> = {
   web: { label: 'Web', icon: Globe, color: 'bg-info' },
-  system: { label: 'System', icon: Terminal, color: 'bg-slate-500' },
-  code: { label: 'Code', icon: Code2, color: 'bg-emerald-500' },
-  media: { label: 'Media', icon: Image, color: 'bg-pink-500' },
-  agent: { label: 'Agent', icon: Network, color: 'bg-purple-500' },
+  system: { label: 'System', icon: Terminal, color: 'bg-ink-tertiary' },
+  code: { label: 'Code', icon: Code2, color: 'bg-success' },
+  media: { label: 'Media', icon: Image, color: 'bg-brand-500' },
+  agent: { label: 'Agent', icon: Network, color: 'bg-brand-500' },
   productivity: { label: 'Productivity', icon: ListTodo, color: 'bg-warning' },
-  messaging: { label: 'Messaging', icon: MessageCircle, color: 'bg-cyan-500' },
-  ml: { label: 'ML', icon: Zap, color: 'bg-orange-500' },
-  iot: { label: 'IoT', icon: Home, color: 'bg-teal-500' },
+  messaging: { label: 'Messaging', icon: MessageCircle, color: 'bg-info' },
+  ml: { label: 'ML', icon: Zap, color: 'bg-warning' },
+  iot: { label: 'IoT', icon: Home, color: 'bg-success' },
 };
 
 const TOOL_ICONS: Record<string, React.ElementType> = {
@@ -184,7 +184,7 @@ export default function MCPPage() {
                   >
                     <div
                       className={`h-8 w-8 rounded-md flex items-center justify-center text-white shrink-0 ${
-                        s.enabled ? 'bg-success' : 'bg-slate-400'
+                        s.enabled ? 'bg-success' : 'bg-surface-3'
                       }`}
                     >
                       <Network className="h-4 w-4" />

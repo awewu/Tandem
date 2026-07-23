@@ -45,12 +45,12 @@ const KIND_META: Record<ChannelKind, {
   needsDepartment: boolean;
   needsEndDate: boolean;
 }> = {
-  group:        { label: '普通群',     description: '通用多人群, 任意拉成员',           icon: Users,       color: 'text-violet-600 bg-violet-50',  needsDepartment: false, needsEndDate: false },
-  department:   { label: '部门群',     description: '按部门组织, HR seed 自动包含全员', icon: Building2,   color: 'text-blue-600 bg-blue-50',      needsDepartment: true,  needsEndDate: false },
-  team:         { label: '团队群',     description: '部门下的小组 (Department parent)', icon: UsersRound, color: 'text-cyan-600 bg-cyan-50',      needsDepartment: true,  needsEndDate: false },
+  group:        { label: '普通群',     description: '通用多人群, 任意拉成员',           icon: Users,       color: 'text-brand-700 bg-brand-50',  needsDepartment: false, needsEndDate: false },
+  department:   { label: '部门群',     description: '按部门组织, HR seed 自动包含全员', icon: Building2,   color: 'text-info bg-info/10',      needsDepartment: true,  needsEndDate: false },
+  team:         { label: '团队群',     description: '部门下的小组 (Department parent)', icon: UsersRound, color: 'text-info bg-info/10',      needsDepartment: true,  needsEndDate: false },
   project:      { label: '项目群',     description: '临时项目协作, 到期自动归档',       icon: Briefcase,   color: 'text-warning bg-warning/5',    needsDepartment: false, needsEndDate: true },
-  cross_dept:   { label: '跨部门协同', description: '双方部门 leader 协商建立',         icon: Network,     color: 'text-fuchsia-600 bg-fuchsia-50', needsDepartment: true,  needsEndDate: false },
-  announcement: { label: '公告频道',   description: '全员/部门公告 (只读流)',           icon: Megaphone,   color: 'text-rose-600 bg-rose-50',      needsDepartment: false, needsEndDate: false },
+  cross_dept:   { label: '跨部门协同', description: '双方部门 leader 协商建立',         icon: Network,     color: 'text-brand-700 bg-brand-50', needsDepartment: true,  needsEndDate: false },
+  announcement: { label: '公告频道',   description: '全员/部门公告 (只读流)',           icon: Megaphone,   color: 'text-danger bg-danger/5',      needsDepartment: false, needsEndDate: false },
 };
 
 interface Props {

@@ -84,8 +84,8 @@ export function ContextPanel({
                     </span>
                     <span>{Math.round(pct * 100)}%</span>
                   </div>
-                  <div className="mt-1 h-1 rounded-full bg-slate-100">
-                    <div className="h-full rounded-full bg-blue-500" style={{ width: `${pct * 100}%` }} />
+                  <div className="mt-1 h-1 rounded-full bg-surface-3">
+                    <div className="h-full rounded-full bg-info" style={{ width: `${pct * 100}%` }} />
                   </div>
                 </div>
               );
@@ -127,7 +127,7 @@ function Section({
       <div className="mb-2 flex items-center gap-1 text-footnote font-medium text-muted-foreground">
         <Icon className="h-3 w-3" />
         {title}
-        <span className="text-slate-400">({count})</span>
+        <span className="text-ink-tertiary">({count})</span>
       </div>
       <div className="space-y-1.5">{children}</div>
     </div>

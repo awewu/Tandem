@@ -73,11 +73,11 @@ interface Props {
 // ─── helpers ───────────────────────────────────────────────
 
 const PALETTE = [
-  'from-amber-400 to-orange-500',
-  'from-emerald-400 to-teal-500',
-  'from-sky-400 to-blue-500',
-  'from-violet-400 to-purple-500',
-  'from-pink-400 to-rose-500',
+  'from-warning/30 to-warning',
+  'from-success/30 to-success',
+  'from-info/30 to-info',
+  'from-brand-400 to-brand-500',
+  'from-brand-300 to-danger',
 ];
 function avatarColor(id: string) { return PALETTE[(id.codePointAt(0) ?? 0) % PALETTE.length]; }
 
@@ -466,7 +466,7 @@ export function ChannelDetailPanel({ channel, currentUserId, onChanged, onClose,
   }
 
   function confColor(c: string) {
-    if (c === 'on-track') return 'bg-emerald-500';
+    if (c === 'on-track') return 'bg-success';
     if (c === 'at-risk') return 'bg-warning';
     return 'bg-danger';
   }
@@ -584,7 +584,7 @@ export function ChannelDetailPanel({ channel, currentUserId, onChanged, onClose,
                           </div>
                           {RoleIcon && (
                             <span className="absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-surface-1 shadow-soft-xs">
-                              <RoleIcon className={`h-2.5 w-2.5 ${m.role === 'owner' ? 'text-warning' : 'text-blue-500'}`} />
+                              <RoleIcon className={`h-2.5 w-2.5 ${m.role === 'owner' ? 'text-warning' : 'text-info'}`} />
                             </span>
                           )}
                         </div>

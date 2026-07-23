@@ -94,7 +94,7 @@ function HeatCellDot({ count, intensity, small }: { count: number; intensity: nu
   return (
     <div
       ref={ref}
-      className={`${size} rounded mx-auto bg-emerald-500`}
+      className={`${size} rounded mx-auto bg-success`}
       title={`${count} 个决议`}
     />
   );

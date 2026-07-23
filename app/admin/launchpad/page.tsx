@@ -22,8 +22,8 @@ type AppWithStats = LaunchpadApp & { stats: LaunchpadStats };
 
 const CATEGORY_META: Record<LaunchpadCategory, { label: string; icon: typeof Briefcase; cls: string }> = {
   business: { label: '业务系统', icon: Briefcase, cls: 'bg-info/10 text-info' },
-  comm: { label: '通讯协同', icon: MessagesSquare, cls: 'bg-emerald-100 text-emerald-700' },
-  learning: { label: '学习工具', icon: GraduationCap, cls: 'bg-purple-100 text-purple-700' },
+  comm: { label: '通讯协同', icon: MessagesSquare, cls: 'bg-success/15 text-success' },
+  learning: { label: '学习工具', icon: GraduationCap, cls: 'bg-brand-100 text-brand-700' },
   custom: { label: '自定义', icon: Sparkles, cls: 'bg-warning/10 text-warning' },
 };
 
@@ -121,7 +121,7 @@ export default function LaunchpadAdminPage() {
           <h1 className="text-title-3 font-bold flex items-center gap-2">
             <LayoutGrid className="h-6 w-6 text-brand-600" /> Launchpad 跳板配置
           </h1>
-          <p className="text-caption text-slate-500 mt-1">
+          <p className="text-caption text-ink-tertiary mt-1">
             3 分类 · 部门权限 · SSO 一键 · AI 今日推荐 · 使用统计
           </p>
         </div>
@@ -138,14 +138,14 @@ export default function LaunchpadAdminPage() {
       </header>
 
       {loading ? (
-        <div className="flex items-center justify-center py-12 text-slate-400">
+        <div className="flex items-center justify-center py-12 text-ink-tertiary">
           <Loader2 className="h-6 w-6 animate-spin" />
         </div>
       ) : apps.length === 0 ? (
-        <div className="rounded-2xl border-2 border-dashed border-slate-200 p-12 text-center">
-          <LayoutGrid className="h-12 w-12 mx-auto text-slate-300 mb-3" />
-          <p className="text-slate-500">尚未配置任何跳板卡片</p>
-          <p className="text-footnote text-slate-400 mt-1">点击右上角&ldquo;新建&rdquo;添加 ERP/CRM/IM/Wiki 等系统</p>
+        <div className="rounded-2xl border-2 border-dashed border-border p-12 text-center">
+          <LayoutGrid className="h-12 w-12 mx-auto text-ink-tertiary mb-3" />
+          <p className="text-ink-tertiary">尚未配置任何跳板卡片</p>
+          <p className="text-footnote text-ink-tertiary mt-1">点击右上角&ldquo;新建&rdquo;添加 ERP/CRM/IM/Wiki 等系统</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -167,23 +167,23 @@ export default function LaunchpadAdminPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-slate-900">{app.name}</span>
+                      <span className="font-semibold text-ink-primary">{app.name}</span>
                       <span className={`text-footnote px-2 py-0.5 rounded-full ${meta.cls}`}>{meta.label}</span>
                       {app.ssoMode !== 'none' && (
-                        <span className="text-footnote px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">
+                        <span className="text-footnote px-2 py-0.5 rounded-full bg-brand-100 text-brand-700">
                           SSO · {app.ssoMode}
                         </span>
                       )}
                       {app.visibleTo.length > 0 && (
-                        <span className="text-footnote px-2 py-0.5 rounded-full bg-rose-50 text-rose-600">
+                        <span className="text-footnote px-2 py-0.5 rounded-full bg-danger/5 text-danger">
                           限 {app.visibleTo.length} 个部门
                         </span>
                       )}
                     </div>
-                    <div className="text-footnote text-slate-500 mt-1 truncate">
+                    <div className="text-footnote text-ink-tertiary mt-1 truncate">
                       {app.url} {app.description ? `· ${app.description}` : ''}
                     </div>
-                    <div className="flex items-center gap-3 mt-1.5 text-footnote text-slate-400">
+                    <div className="flex items-center gap-3 mt-1.5 text-footnote text-ink-tertiary">
                       <span className="inline-flex items-center gap-1">
                         <TrendingUp className="h-3 w-3" />
                         累计 {app.stats.totalClicks} 次 · {app.stats.uniqueUsers} 人 · 近 7 天 {app.stats.last7DaysClicks} 次
@@ -195,7 +195,7 @@ export default function LaunchpadAdminPage() {
                       type="button"
                       onClick={() => move(app.id, -1)}
                       disabled={idx === 0 || busy === app.id}
-                      className="p-2 rounded hover:bg-slate-100 disabled:opacity-30"
+                      className="p-2 rounded hover:bg-surface-3 disabled:opacity-30"
                       title="上移"
                     >
                       <ArrowUp className="h-4 w-4" />
@@ -204,7 +204,7 @@ export default function LaunchpadAdminPage() {
                       type="button"
                       onClick={() => move(app.id, 1)}
                       disabled={idx === arr.length - 1 || busy === app.id}
-                      className="p-2 rounded hover:bg-slate-100 disabled:opacity-30"
+                      className="p-2 rounded hover:bg-surface-3 disabled:opacity-30"
                       title="下移"
                     >
                       <ArrowDown className="h-4 w-4" />
@@ -213,13 +213,13 @@ export default function LaunchpadAdminPage() {
                       type="button"
                       onClick={() => toggleStatus(app)}
                       disabled={busy === app.id}
-                      className="p-2 rounded hover:bg-slate-100"
+                      className="p-2 rounded hover:bg-surface-3"
                       title={app.status === 'active' ? '禁用' : '启用'}
                     >
                       {app.status === 'active' ? (
-                        <Power className="h-4 w-4 text-emerald-600" />
+                        <Power className="h-4 w-4 text-success" />
                       ) : (
-                        <PowerOff className="h-4 w-4 text-slate-400" />
+                        <PowerOff className="h-4 w-4 text-ink-tertiary" />
                       )}
                     </button>
                     <button
@@ -228,7 +228,7 @@ export default function LaunchpadAdminPage() {
                         setEditingId(app.id);
                         setShowForm(true);
                       }}
-                      className="px-3 py-1.5 text-footnote font-medium rounded hover:bg-slate-100"
+                      className="px-3 py-1.5 text-footnote font-medium rounded hover:bg-surface-3"
                     >
                       编辑
                     </button>
@@ -236,7 +236,7 @@ export default function LaunchpadAdminPage() {
                       type="button"
                       onClick={() => remove(app.id)}
                       disabled={busy === app.id}
-                      className="p-2 rounded hover:bg-rose-50 text-rose-600"
+                      className="p-2 rounded hover:bg-danger/5 text-danger"
                       title="删除"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -329,9 +329,9 @@ function LaunchpadForm({
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+        <div className="p-6 border-b border-border flex items-center justify-between">
           <h2 className="text-headline font-bold">{editing ? '编辑跳板卡片' : '新建跳板卡片'}</h2>
-          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600">
+          <button type="button" onClick={onClose} className="text-ink-tertiary hover:text-ink-secondary">
             ✕
           </button>
         </div>
@@ -341,7 +341,7 @@ function LaunchpadForm({
               value={form.name ?? ''}
               onChange={(e) => update('name', e.target.value)}
               placeholder="金蝶 ERP / 钉钉 / 公司 Wiki ..."
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-caption"
+              className="w-full px-3 py-2 border border-border rounded-lg text-caption"
             />
           </Field>
           <Field label="链接 URL *">
@@ -349,7 +349,7 @@ function LaunchpadForm({
               value={form.url ?? ''}
               onChange={(e) => update('url', e.target.value)}
               placeholder="https://..."
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-caption"
+              className="w-full px-3 py-2 border border-border rounded-lg text-caption"
             />
           </Field>
           <Field label="分类 *">
@@ -357,7 +357,7 @@ function LaunchpadForm({
               aria-label="分类"
               value={form.category ?? 'business'}
               onChange={(e) => update('category', e.target.value as LaunchpadCategory)}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-caption bg-white"
+              className="w-full px-3 py-2 border border-border rounded-lg text-caption bg-white"
             >
               <option value="business">业务系统 (ERP/CRM/财务)</option>
               <option value="comm">通讯协同 (IM/会议)</option>
@@ -370,7 +370,7 @@ function LaunchpadForm({
               value={form.description ?? ''}
               onChange={(e) => update('description', e.target.value)}
               placeholder="客户关系 · 销售机会跟进"
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-caption"
+              className="w-full px-3 py-2 border border-border rounded-lg text-caption"
             />
           </Field>
           <Field label="图标 URL（可空）">
@@ -378,7 +378,7 @@ function LaunchpadForm({
               value={form.iconUrl ?? ''}
               onChange={(e) => update('iconUrl', e.target.value)}
               placeholder="https://.../icon.png"
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-caption"
+              className="w-full px-3 py-2 border border-border rounded-lg text-caption"
             />
           </Field>
           <Field label="SSO 模式">
@@ -386,7 +386,7 @@ function LaunchpadForm({
               aria-label="SSO 模式"
               value={form.ssoMode ?? 'none'}
               onChange={(e) => update('ssoMode', e.target.value as LaunchpadApp['ssoMode'])}
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-caption bg-white"
+              className="w-full px-3 py-2 border border-border rounded-lg text-caption bg-white"
             >
               <option value="none">无 SSO（直接跳转）</option>
               <option value="oidc">OIDC（OpenID Connect）</option>
@@ -402,7 +402,7 @@ function LaunchpadForm({
                 update('visibleTo', e.target.value.split(',').map((s) => s.trim()).filter(Boolean))
               }
               placeholder="dept-sales,dept-finance"
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-caption"
+              className="w-full px-3 py-2 border border-border rounded-lg text-caption"
             />
           </Field>
           <Field label="可见角色（不选=不限角色都可见）">
@@ -410,7 +410,7 @@ function LaunchpadForm({
               selected={form.visibleToRoles ?? []}
               onChange={(roles) => update('visibleToRoles', roles)}
             />
-            <p className="text-footnote text-slate-400 mt-1.5">
+            <p className="text-footnote text-ink-tertiary mt-1.5">
               授权给「外部协作」角色 (合作伙伴/经销商/申请注册人) 后, 该应用会出现在他们的外部首页 (/hub)。
             </p>
           </Field>
@@ -421,18 +421,18 @@ function LaunchpadForm({
                 update('recommendKeywords', e.target.value.split(',').map((s) => s.trim()).filter(Boolean))
               }
               placeholder="销售,客户,商机,sales,crm"
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-caption"
+              className="w-full px-3 py-2 border border-border rounded-lg text-caption"
             />
-            <p className="text-footnote text-slate-400 mt-1">
+            <p className="text-footnote text-ink-tertiary mt-1">
               当用户的 OKR/Initiative 文本中出现这些关键词，会被 AI 推荐到首页
             </p>
           </Field>
         </div>
-        <div className="p-6 border-t border-slate-100 flex justify-end gap-2">
+        <div className="p-6 border-t border-border flex justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-caption rounded-lg border border-slate-200 hover:bg-slate-50"
+            className="px-4 py-2 text-caption rounded-lg border border-border hover:bg-surface-2"
           >
             取消
           </button>
@@ -453,7 +453,7 @@ function LaunchpadForm({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="text-footnote font-medium text-slate-700">{label}</span>
+      <span className="text-footnote font-medium text-ink-secondary">{label}</span>
       <div className="mt-1">{children}</div>
     </label>
   );
@@ -474,7 +474,7 @@ function RoleChips({
     <div className="space-y-2.5">
       {groups.map((g) => (
         <div key={g}>
-          <span className="block text-footnote font-medium text-slate-500 mb-1">{g}</span>
+          <span className="block text-footnote font-medium text-ink-tertiary mb-1">{g}</span>
           <div className="flex flex-wrap gap-1.5">
             {ROLE_OPTIONS.filter((r) => r.group === g).map((r) => {
               const on = selected.includes(r.value);
@@ -487,7 +487,7 @@ function RoleChips({
                   className={
                     on
                       ? 'px-2.5 py-1 rounded-full text-footnote font-medium border border-brand-500 bg-brand-50 text-brand-700'
-                      : 'px-2.5 py-1 rounded-full text-footnote font-medium border border-slate-200 text-slate-600 hover:border-slate-300'
+                      : 'px-2.5 py-1 rounded-full text-footnote font-medium border border-border text-ink-secondary hover:border-border'
                   }
                 >
                   {r.label}

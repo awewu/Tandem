@@ -177,7 +177,7 @@ export default function DocumentsPage() {
           <button onClick={() => createDoc("sheet")} className="flex items-center gap-1 px-3 py-2 bg-success text-white rounded hover:bg-success">
             <Plus size={16} /> 表格
           </button>
-          <button onClick={() => createDoc("slide")} className="flex items-center gap-1 px-3 py-2 bg-orange-600 text-white rounded hover:bg-orange-700">
+          <button onClick={() => createDoc("slide")} className="flex items-center gap-1 px-3 py-2 bg-warning/80 text-white rounded hover:bg-warning/70">
             <Plus size={16} /> 幻灯片
           </button>
         </div>
@@ -219,7 +219,7 @@ export default function DocumentsPage() {
                 <button
                   type="button"
                   onClick={(e) => deleteDoc(e, doc)}
-                  className="p-2 rounded hover:bg-rose-50 text-rose-400"
+                  className="p-2 rounded hover:bg-danger/5 text-danger"
                   title="删除文档"
                   aria-label={`删除 ${doc.title}`}
                 >

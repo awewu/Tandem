@@ -27,13 +27,13 @@ const AGENT_ICONS: Record<string, React.ElementType> = {
 };
 
 const AGENT_CATEGORIES: Record<string, { label: string; color: string }> = {
-  'agent-designer': { label: '设计', color: 'bg-pink-500' },
+  'agent-designer': { label: '设计', color: 'bg-brand-500' },
   'agent-pm': { label: '产品', color: 'bg-info' },
-  'agent-strategy': { label: '战略', color: 'bg-purple-500' },
-  'agent-marketing': { label: '市场', color: 'bg-orange-500' },
+  'agent-strategy': { label: '战略', color: 'bg-brand-500' },
+  'agent-marketing': { label: '市场', color: 'bg-warning' },
   'agent-tech-lead': { label: '技术', color: 'bg-success' },
-  'agent-writer': { label: '文案', color: 'bg-yellow-500' },
-  'agent-data-analyst': { label: '数据', color: 'bg-cyan-500' },
+  'agent-writer': { label: '文案', color: 'bg-warning' },
+  'agent-data-analyst': { label: '数据', color: 'bg-info' },
   'agent-hr': { label: '人事', color: 'bg-danger' },
 };
 
@@ -171,7 +171,7 @@ export default function AgentsPage() {
       rating: '4.9',
       calls: '1,280',
       icon: Coins,
-      color: 'text-rose-500 bg-rose-50 border-rose-200',
+      color: 'text-danger bg-danger/5 border-danger/30',
       docPreset: '【战略对账单 · SLA 异常审查】\n\n当前可用性: 99.95% (本周目标: 99.99%)\n昨日丢包率: 0.08% (超额卡点)\n服务器带宽均值: 450Mbps (预算超额 15%)\n\n异常诊断报告：\n1. 核心链路发现由于老接口冗余重试导致的连接暴涨，引起 CPU 15% 虚高。\n2. 丢包主要集中在 14:00-16:00 获客买量高峰段。',
       aiInitialMsg: '哈啰！我是公司配置的 SLA 优化专家。我已经加载了左侧的可用性报告。检测到昨日丢包率 0.08% 属于考核红区，你可以写下任何重构或改进思路（例如“下午完成了老接口重构并拦截了异常报错”），我会帮你自动估算 SLA 指标回推建议并一键沉淀。',
     },
@@ -182,7 +182,7 @@ export default function AgentsPage() {
       rating: '4.8',
       calls: '840',
       icon: Package,
-      color: 'text-indigo-500 bg-indigo-50 border-indigo-200',
+      color: 'text-info bg-info/10 border-info/30',
       docPreset: '# 【PRD 草稿 · 5min 日报 ↔ OKR 智能推流】\n\n## 1. 业务痛点\n当前员工写周报痛苦，拉进度条反人性，主管无法通过干瘪百分比快速对账卡点。\n\n## 2. 解决方案\n引入 AI 每日 5 分钟引导，提炼 Action Plan 反向推流更新，仪表盘实时报警。',
       aiInitialMsg: '我是你的 PRD 智能工作搭子。我已经就位。我们可以针对左侧的 PRD 大纲进行方案深化（例如：“增加一个 24h 人工否决窗口”），我会实时帮你补全用例和交互大纲！',
     },
@@ -193,7 +193,7 @@ export default function AgentsPage() {
       rating: '4.7',
       calls: '620',
       icon: ShieldCheck,
-      color: 'text-sky-500 bg-sky-50 border-sky-200',
+      color: 'text-info bg-info/10 border-info/30',
       docPreset: '【标准数据采购合同 · 风险条款审查草稿】\n\n第一条：乙方授权甲方使用其商业数据库，采购总额 15 万元。\n\n第六条（免责）：若由于不可抗力或系统故障导致数据授权中断，乙方不承担任何赔偿责任，且不退还已支付款项。\n\n第十二条（生物信息）：乙方有权静默采集并监控甲方使用人员的屏幕活动和声纹等生物特征以做合规审计。',
       aiInitialMsg: '你好！我是公司法务专家。我已经对左侧合同进行了首轮诊断。第十二条违反了我们产品宪章 §13.2 的“尊严归员工，不监控生物特征与考勤活动”的底层红线！建议将该条删除或改写。你可以让我出具改写补丁。',
     },
@@ -324,12 +324,12 @@ ${warRoomDoc}
   };
 
   return (
-    <div className="flex h-full bg-slate-50/50">
+    <div className="flex h-full bg-surface-2/50">
       {/* 侧边栏 (自创 Agent 工作台列表) */}
       <div className="w-72 border-r bg-white flex flex-col shrink-0">
         <div className="p-3 border-b flex items-center justify-between">
           <Tabs value={viewTab} onValueChange={(v) => { setViewTab(v as 'market' | 'workshop'); setActiveWarRoomAgentId(null); }} className="w-full">
-            <TabsList className="grid grid-cols-2 h-8 w-full p-0.5 bg-slate-100">
+            <TabsList className="grid grid-cols-2 h-8 w-full p-0.5 bg-surface-3">
               <TabsTrigger value="market" className="text-[11px] h-7">🏢 智能体超市</TabsTrigger>
               <TabsTrigger value="workshop" className="text-[11px] h-7">⚙️ 自创 Agent</TabsTrigger>
             </TabsList>
@@ -352,10 +352,10 @@ ${warRoomDoc}
                       "w-full text-left p-2.5 rounded-lg border text-footnote flex flex-col gap-1 transition-all",
                       isSelected
                         ? "bg-primary/5 border-primary/40 ring-1 ring-primary/20 shadow-soft-sm"
-                        : "bg-white hover:bg-muted/40 border-slate-100"
+                        : "bg-white hover:bg-muted/40 border-border"
                     )}
                   >
-                    <div className="flex items-center gap-1.5 font-semibold text-slate-800">
+                    <div className="flex items-center gap-1.5 font-semibold text-ink-primary">
                       <Icon className="h-3.5 w-3.5 text-primary" />
                       {a.name.slice(0, 10)}...
                     </div>
@@ -404,13 +404,13 @@ ${warRoomDoc}
             return (
               <div className="flex-1 flex flex-col h-full overflow-hidden bg-white animate-fade-in">
                 {/* 作战室 Header */}
-                <header className="px-5 py-3 border-b flex items-center justify-between bg-slate-50/50">
+                <header className="px-5 py-3 border-b flex items-center justify-between bg-surface-2/50">
                   <div className="flex items-center gap-2">
                     <span className={cn('p-1.5 rounded-lg border', agent.color)}>
                       <agent.icon className="h-4 w-4" />
                     </span>
                     <div>
-                      <h2 className="text-footnote font-bold text-slate-800">{agent.name}作战工作台</h2>
+                      <h2 className="text-footnote font-bold text-ink-primary">{agent.name}作战工作台</h2>
                       <p className="text-[10px] text-muted-foreground flex items-center gap-1.5 mt-0.5">
                         <span>公司托管专家</span>
                         <span>·</span>
@@ -420,11 +420,11 @@ ${warRoomDoc}
                   </div>
                   <div className="flex items-center gap-2">
                     {pushedSuccess ? (
-                      <Badge className="bg-emerald-500 hover:bg-emerald-500 text-white text-[10px] h-8 px-3 animate-bounce">
+                      <Badge className="bg-success hover:bg-success text-white text-[10px] h-8 px-3 animate-bounce">
                         🚀 决议沉淀成功！已入库
                       </Badge>
                     ) : (
-                      <Button size="sm" onClick={handlePushDecision} className="h-8 text-footnote bg-indigo-600 hover:bg-indigo-700">
+                      <Button size="sm" onClick={handlePushDecision} className="h-8 text-footnote bg-info/80 hover:bg-info/70">
                         <Save className="h-3.5 w-3.5 mr-1" />
                         一键沉淀为决议卡 (Decision Card)
                       </Button>
@@ -438,8 +438,8 @@ ${warRoomDoc}
                 {/* 作战室主体：双分屏布局 */}
                 <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 overflow-hidden">
                   {/* 左侧：工作实体画布 (Editable Text Area) */}
-                  <div className="border-r flex flex-col overflow-hidden bg-slate-50/20">
-                    <div className="px-4 py-2 border-b bg-slate-50/40 text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1.5">
+                  <div className="border-r flex flex-col overflow-hidden bg-surface-2/20">
+                    <div className="px-4 py-2 border-b bg-surface-2/40 text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1.5">
                       <CheckSquare className="h-3 w-3 text-primary" />
                       当前业务工作草稿 (支持编辑修改)
                     </div>
@@ -452,8 +452,8 @@ ${warRoomDoc}
 
                   {/* 右侧：AI 讨论流 */}
                   <div className="flex flex-col overflow-hidden bg-white">
-                    <div className="px-4 py-2 border-b bg-slate-50/40 text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1.5">
-                      <Sparkles className="h-3 w-3 text-indigo-500" />
+                    <div className="px-4 py-2 border-b bg-surface-2/40 text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1.5">
+                      <Sparkles className="h-3 w-3 text-info" />
                       AI 联合对账与审查建议流
                     </div>
                     {/* 消息历史 */}
@@ -462,15 +462,15 @@ ${warRoomDoc}
                         {warRoomChat.map((msg, i) => (
                           <div key={i} className={cn('flex items-start gap-2.5 text-footnote', msg.role === 'user' ? 'justify-end' : '')}>
                             {msg.role === 'assistant' && (
-                              <span className={cn('p-1 rounded bg-indigo-100 text-indigo-700 shrink-0 mt-0.5')}>
+                              <span className={cn('p-1 rounded bg-info/15 text-info shrink-0 mt-0.5')}>
                                 <agent.icon className="h-3.5 w-3.5" />
                               </span>
                             )}
                             <div className={cn(
                               'p-3 rounded-lg max-w-[85%] leading-relaxed',
                               msg.role === 'user'
-                                ? 'bg-slate-900 text-white font-medium'
-                                : 'bg-slate-100 text-slate-800'
+                                ? 'bg-ink-primary text-white font-medium'
+                                : 'bg-surface-3 text-ink-primary'
                             )}>
                               {msg.content}
                             </div>
@@ -478,12 +478,12 @@ ${warRoomDoc}
                         ))}
                         {isAnlyzing && streamingText && (
                           <div className="flex items-start gap-2.5 text-footnote animate-pulse">
-                            <span className="p-1 rounded bg-indigo-100 text-indigo-700 shrink-0 mt-0.5">
+                            <span className="p-1 rounded bg-info/15 text-info shrink-0 mt-0.5">
                               <agent.icon className="h-3.5 w-3.5" />
                             </span>
-                            <div className="p-3 rounded-lg max-w-[85%] leading-relaxed bg-slate-100 text-slate-800 whitespace-pre-wrap font-mono">
+                            <div className="p-3 rounded-lg max-w-[85%] leading-relaxed bg-surface-3 text-ink-primary whitespace-pre-wrap font-mono">
                               {streamingText}
-                              <span className="inline-block w-1.5 h-3 ml-0.5 bg-indigo-500 animate-pulse align-middle" />
+                              <span className="inline-block w-1.5 h-3 ml-0.5 bg-info animate-pulse align-middle" />
                             </div>
                           </div>
                         )}
@@ -491,7 +491,7 @@ ${warRoomDoc}
                     </ScrollArea>
 
                     {/* 输入发送框 */}
-                    <div className="p-4 border-t flex items-center gap-2 bg-slate-50/30">
+                    <div className="p-4 border-t flex items-center gap-2 bg-surface-2/30">
                       <Input
                         value={warRoomInput}
                         onChange={(e) => setWarRoomInput(e.target.value)}
@@ -656,7 +656,7 @@ ${warRoomDoc}
                       模型配置
                     </label>
                     {currentProvider.type === 'team' ? (
-                      <Badge className="text-[10px] bg-violet-600 hover:bg-violet-600">🏢 Team Token</Badge>
+                      <Badge className="text-[10px] bg-brand-600 hover:bg-brand-600">🏢 Team Token</Badge>
                     ) : currentProvider.type === 'openai-compatible' ? (
                       <Badge variant="default" className="text-[10px]">
                         🔑 {PROVIDER_PRESETS.find((p) => p.key === currentProvider.presetKey)?.badge ?? '个人 Key'}
@@ -688,7 +688,7 @@ ${warRoomDoc}
                             className={cn(
                               'flex-1 py-2 flex items-center justify-center gap-1.5 font-medium transition-colors',
                               providerTab === 'team'
-                                ? 'bg-violet-600 text-white'
+                                ? 'bg-brand-600 text-white'
                                 : 'bg-muted/50 text-muted-foreground hover:bg-muted'
                             )}
                           >
@@ -730,17 +730,17 @@ ${warRoomDoc}
                                     className={cn(
                                       'flex flex-col items-start gap-0.5 rounded-lg border px-3 py-2.5 text-left transition-all',
                                       active
-                                        ? 'border-violet-500 bg-violet-50 dark:bg-violet-950/30'
-                                        : 'border-border bg-muted/30 hover:border-violet-300'
+                                        ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/30'
+                                        : 'border-border bg-muted/30 hover:border-brand-300'
                                     )}
                                   >
-                                    <span className={cn('text-footnote font-semibold', active ? 'text-violet-700 dark:text-violet-300' : '')}>
+                                    <span className={cn('text-footnote font-semibold', active ? 'text-brand-700 dark:text-brand-600' : '')}>
                                       {p.label}
                                     </span>
                                     {p.description && (
                                       <span className="text-[10px] text-muted-foreground leading-tight">{p.description}</span>
                                     )}
-                                    {active && <span className="text-[10px] text-violet-600 font-medium mt-0.5">✓ 已选</span>}
+                                    {active && <span className="text-[10px] text-brand-700 font-medium mt-0.5">✓ 已选</span>}
                                   </button>
                                 );
                               })}
@@ -835,7 +835,7 @@ ${warRoomDoc}
             <div className="flex items-start justify-between">
               <div>
                 <h2 className="text-headline font-semibold flex items-center gap-2">
-                  <Sparkles className="h-5 w-5 text-indigo-500" />
+                  <Sparkles className="h-5 w-5 text-info" />
                   AI 智能体超市
                 </h2>
                 <p className="text-footnote text-muted-foreground mt-1">
@@ -862,7 +862,7 @@ ${warRoomDoc}
                           <Icon className="h-5 w-5" />
                         </span>
                         <div>
-                          <CardTitle className="text-caption font-bold text-slate-800">{a.name}</CardTitle>
+                          <CardTitle className="text-caption font-bold text-ink-primary">{a.name}</CardTitle>
                           <p className="text-[10px] text-muted-foreground mt-0.5">每周对账活跃 · {a.calls}次召唤</p>
                         </div>
                       </div>
@@ -871,7 +871,7 @@ ${warRoomDoc}
                       <p className="text-[11px] text-muted-foreground leading-relaxed">
                         {a.desc}
                       </p>
-                      <Button size="sm" className="w-full text-footnote h-8 bg-indigo-600 hover:bg-indigo-700 mt-2">
+                      <Button size="sm" className="w-full text-footnote h-8 bg-info/80 hover:bg-info/70 mt-2">
                         <Sparkles className="mr-1 h-3.5 w-3.5" /> 召唤进入作战室
                       </Button>
                     </CardContent>

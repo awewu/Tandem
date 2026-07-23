@@ -56,7 +56,7 @@ export default function TownHallPage() {
       <section className="grid sm:grid-cols-2 gap-4">
         <Link
           href="/intranet/forum?room=ceo-feedback"
-          className="card-elevated p-5 group surface-interactive bg-gradient-to-br from-slate-800 via-slate-700 to-brand-700 text-white"
+          className="card-elevated p-5 group surface-interactive bg-gradient-to-br from-ink-primary via-ink-secondary to-brand-700 text-white"
         >
           <Inbox className="h-6 w-6 mb-3" />
           <h3 className="text-headline font-bold">匿名意见箱</h3>

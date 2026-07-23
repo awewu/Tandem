@@ -41,7 +41,7 @@ export default function EmployeeSsoRegisterPage() {
   }
 
   return (
-    <main className="min-h-screen flex flex-col md:flex-row items-center justify-center bg-gradient-to-br from-slate-50 to-amber-50 dark:from-background dark:to-background px-4">
+    <main className="min-h-screen flex flex-col md:flex-row items-center justify-center bg-gradient-to-br from-surface-2 to-warning/10 dark:from-background dark:to-background px-4">
       <Card className="w-full max-w-md">
         <CardHeader>
           <div className="flex items-center gap-2 mb-1">

@@ -166,15 +166,15 @@ interface BtnProps {
 function FeedbackBtn({ icon, label, active, muted, loading, onClick, color }: BtnProps) {
   const colorClass = active
     ? color === 'emerald'
-      ? 'bg-emerald-100 text-emerald-800 ring-emerald-400/80'
+      ? 'bg-success/15 text-success ring-success/50'
       : color === 'amber'
       ? 'bg-warning/10 text-warning ring-warning/50/80'
-      : 'bg-rose-100 text-rose-800 ring-rose-400/80'
+      : 'bg-danger/10 text-danger ring-danger/50'
     : color === 'emerald'
-    ? 'text-emerald-700 ring-emerald-300/80 hover:bg-emerald-50'
+    ? 'text-success ring-success/40 hover:bg-success/10'
     : color === 'amber'
     ? 'text-warning ring-warning/30/80 hover:bg-warning/5'
-    : 'text-rose-700 ring-rose-300/80 hover:bg-rose-50';
+    : 'text-danger ring-danger/40 hover:bg-danger/5';
 
   return (
     <button

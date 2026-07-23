@@ -70,22 +70,22 @@ import { useOwnerDirectory } from '@/lib/org/use-owner-directory';
 // ---------------------------------------------------------------------------
 
 const LEVEL_LABEL: Record<KpiLevel, { label: string; color: string }> = {
-  company: { label: '公司级', color: 'bg-violet-50 text-violet-700 border-violet-200' },
-  business_unit: { label: '事业部', color: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
-  system: { label: '体系', color: 'bg-cyan-50 text-cyan-700 border-cyan-200' },
+  company: { label: '公司级', color: 'bg-brand-50 text-brand-700 border-brand-200' },
+  business_unit: { label: '事业部', color: 'bg-info/10 text-info border-info/30' },
+  system: { label: '体系', color: 'bg-info/10 text-info border-info/30' },
   department: { label: '部门级', color: 'bg-warning/5 text-warning border-warning/20' },
-  individual: { label: '个人级', color: 'bg-sky-50 text-sky-700 border-sky-200' },
+  individual: { label: '个人级', color: 'bg-info/10 text-info border-info/30' },
 };
 
 const SCOPE_LABEL: Record<KpiScope, { label: string; color: string; icon: typeof Coins }> = {
-  bonus: { label: '考核', color: 'bg-rose-50 text-rose-700 border-rose-200', icon: Coins },
-  monitor: { label: '监控', color: 'bg-sky-50 text-sky-700 border-sky-200', icon: Activity },
+  bonus: { label: '考核', color: 'bg-danger/5 text-danger border-danger/30', icon: Coins },
+  monitor: { label: '监控', color: 'bg-info/10 text-info border-info/30', icon: Activity },
 };
 
 const STATUS_LABEL: Record<KpiCycle['status'], { label: string; color: string }> = {
   draft: { label: '草稿', color: 'bg-surface-1 text-ink-primary border' },
-  active: { label: '已激活 (锁定)', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  closed: { label: '已关闭', color: 'bg-rose-50 text-rose-700 border-rose-200' },
+  active: { label: '已激活 (锁定)', color: 'bg-success/10 text-success border-success/30' },
+  closed: { label: '已关闭', color: 'bg-danger/5 text-danger border-danger/30' },
 };
 
 // ---------------------------------------------------------------------------
@@ -455,8 +455,8 @@ export default function KpiSetupPage() {
       </header>
 
       {error && (
-        <Card className="border-rose-200 bg-rose-50">
-          <CardContent className="py-3 text-caption text-rose-700 flex items-center gap-2">
+        <Card className="border-danger/30 bg-danger/5">
+          <CardContent className="py-3 text-caption text-danger flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />
             加载失败: {error}
           </CardContent>
@@ -750,7 +750,7 @@ export default function KpiSetupPage() {
                                   disabled={isLocked}
                                   title={isLocked ? '周期已锁定' : '删除'}
                                 >
-                                  <Trash2 className="h-3.5 w-3.5 text-rose-500" />
+                                  <Trash2 className="h-3.5 w-3.5 text-danger" />
                                 </Button>
                               </td>
                             </tr>
@@ -779,7 +779,7 @@ export default function KpiSetupPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="fy">
-                  财年 <span className="text-rose-500">*</span>
+                  财年 <span className="text-danger">*</span>
                 </Label>
                 <Input
                   id="fy"
@@ -827,7 +827,7 @@ export default function KpiSetupPage() {
               </div>
             </div>
             {submitError && (
-              <div className="text-caption text-rose-600 bg-rose-50 px-3 py-2 rounded-md flex items-center gap-1.5">
+              <div className="text-caption text-danger bg-danger/5 px-3 py-2 rounded-md flex items-center gap-1.5">
                 <AlertCircle className="h-4 w-4" />
                 {submitError}
               </div>
@@ -859,7 +859,7 @@ export default function KpiSetupPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>
-                  科目 <span className="text-rose-500">*</span>
+                  科目 <span className="text-danger">*</span>
                 </Label>
                 <Select
                   value={kpiForm.subjectId}
@@ -880,7 +880,7 @@ export default function KpiSetupPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>
-                  层级 <span className="text-rose-500">*</span>
+                  层级 <span className="text-danger">*</span>
                 </Label>
                 <Select
                   value={kpiForm.level}
@@ -904,7 +904,7 @@ export default function KpiSetupPage() {
 
             <div className="space-y-1.5">
               <Label>
-                标题 <span className="text-rose-500">*</span>
+                标题 <span className="text-danger">*</span>
               </Label>
               <Input
                 value={kpiForm.title}
@@ -926,7 +926,7 @@ export default function KpiSetupPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>
-                  scope <span className="text-rose-500">*</span>
+                  scope <span className="text-danger">*</span>
                 </Label>
                 <Select
                   value={kpiForm.scope}
@@ -969,7 +969,7 @@ export default function KpiSetupPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>
-                  承担人 (userId / deptId) <span className="text-rose-500">*</span>
+                  承担人 (userId / deptId) <span className="text-danger">*</span>
                 </Label>
                 <Input
                   value={kpiForm.assigneeId}
@@ -1019,7 +1019,7 @@ export default function KpiSetupPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>
-                  目标值 <span className="text-rose-500">*</span>
+                  目标值 <span className="text-danger">*</span>
                 </Label>
                 <Input
                   type="number"
@@ -1051,7 +1051,7 @@ export default function KpiSetupPage() {
             </div>
 
             {submitError && (
-              <div className="text-caption text-rose-600 bg-rose-50 px-3 py-2 rounded-md flex items-center gap-1.5">
+              <div className="text-caption text-danger bg-danger/5 px-3 py-2 rounded-md flex items-center gap-1.5">
                 <AlertCircle className="h-4 w-4" />
                 {submitError}
               </div>

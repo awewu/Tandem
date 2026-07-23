@@ -91,39 +91,39 @@ function krProgress(kr: KeyResult): number {
 }
 
 function varianceChip(plan: number, actual: number | null): React.ReactNode {
-  if (actual === null) return <span className="text-slate-400 text-[10px]">—</span>;
+  if (actual === null) return <span className="text-ink-tertiary text-[10px]">—</span>;
   const diff = actual - plan;
   if (Math.abs(diff) < 3) {
     return (
-      <Badge variant="outline" className="gap-0.5 text-[10px] border-slate-300 text-slate-600">
+      <Badge variant="outline" className="gap-0.5 text-[10px] border-border text-ink-secondary">
         <Minus className="h-2.5 w-2.5" /> 同步
       </Badge>
     );
   }
   if (diff > 0) {
     return (
-      <Badge className="gap-0.5 text-[10px] bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
+      <Badge className="gap-0.5 text-[10px] bg-success/15 text-success hover:bg-success/15">
         <ArrowUp className="h-2.5 w-2.5" /> +{diff}
       </Badge>
     );
   }
   return (
-    <Badge className="gap-0.5 text-[10px] bg-rose-100 text-rose-800 hover:bg-rose-100">
+    <Badge className="gap-0.5 text-[10px] bg-danger/10 text-danger hover:bg-danger/10">
       <ArrowDown className="h-2.5 w-2.5" /> {diff}
     </Badge>
   );
 }
 
 function momChip(curr: number | null, prev: number | null): React.ReactNode {
-  if (curr === null || prev === null) return <span className="text-slate-400 text-[10px]">—</span>;
+  if (curr === null || prev === null) return <span className="text-ink-tertiary text-[10px]">—</span>;
   const diff = curr - prev;
   if (diff === 0) {
-    return <span className="text-[10px] text-slate-500">持平</span>;
+    return <span className="text-[10px] text-ink-tertiary">持平</span>;
   }
   if (diff > 0) {
-    return <span className="text-[10px] text-emerald-700 font-medium">+{diff} pp</span>;
+    return <span className="text-[10px] text-success font-medium">+{diff} pp</span>;
   }
-  return <span className="text-[10px] text-rose-700 font-medium">{diff} pp</span>;
+  return <span className="text-[10px] text-danger font-medium">{diff} pp</span>;
 }
 
 export function OKRMonthlyComparison({ objective, cycle, keyResults, checkIns }: Props) {
@@ -200,7 +200,7 @@ export function OKRMonthlyComparison({ objective, cycle, keyResults, checkIns }:
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-1.5 text-caption font-semibold">
-            <TrendingUp className="h-4 w-4 text-blue-600" />
+            <TrendingUp className="h-4 w-4 text-info" />
             月度 Plan vs Actual + MoM 环比
           </div>
           <div className="text-[11px] text-muted-foreground mt-0.5">
@@ -243,9 +243,9 @@ export function OKRMonthlyComparison({ objective, cycle, keyResults, checkIns }:
             <tbody>
               {/* Plan 行 (线性期望) */}
               <tr className="border-b">
-                <td className="py-1.5 pr-3 text-slate-600">计划 Plan</td>
+                <td className="py-1.5 pr-3 text-ink-secondary">计划 Plan</td>
                 {buckets.map((b) => (
-                  <td key={b.key} className="text-center py-1.5 px-2 tabular-nums text-slate-600">
+                  <td key={b.key} className="text-center py-1.5 px-2 tabular-nums text-ink-secondary">
                     {planAtMonthEnd(cycle, b.endMs)}%
                   </td>
                 ))}
@@ -261,7 +261,7 @@ export function OKRMonthlyComparison({ objective, cycle, keyResults, checkIns }:
                     }`}
                   >
                     {actual === null ? (
-                      <span className="text-slate-300">—</span>
+                      <span className="text-ink-tertiary">—</span>
                     ) : (
                       `${actual}%`
                     )}
@@ -270,7 +270,7 @@ export function OKRMonthlyComparison({ objective, cycle, keyResults, checkIns }:
               </tr>
               {/* Variance 行 */}
               <tr className="border-b">
-                <td className="py-1.5 pr-3 text-slate-600">偏差 Var</td>
+                <td className="py-1.5 pr-3 text-ink-secondary">偏差 Var</td>
                 {objectiveActuals.map((actual, i) => (
                   <td key={buckets[i].key} className="text-center py-1.5 px-2">
                     {varianceChip(planAtMonthEnd(cycle, buckets[i].endMs), actual)}
@@ -279,11 +279,11 @@ export function OKRMonthlyComparison({ objective, cycle, keyResults, checkIns }:
               </tr>
               {/* MoM 行 */}
               <tr>
-                <td className="py-1.5 pr-3 text-slate-600">环比 MoM</td>
+                <td className="py-1.5 pr-3 text-ink-secondary">环比 MoM</td>
                 {objectiveActuals.map((actual, i) => (
                   <td key={buckets[i].key} className="text-center py-1.5 px-2">
                     {i === 0 ? (
-                      <span className="text-[10px] text-slate-400">—</span>
+                      <span className="text-[10px] text-ink-tertiary">—</span>
                     ) : (
                       momChip(actual, objectiveActuals[i - 1])
                     )}
@@ -342,7 +342,7 @@ export function OKRMonthlyComparison({ objective, cycle, keyResults, checkIns }:
                           key={buckets[i].key}
                           className={`text-center py-1.5 px-2 tabular-nums ${
                             i === currentMonthIdx ? 'bg-warning/5' : ''
-                          } ${v === null ? 'text-slate-300' : ''}`}
+                          } ${v === null ? 'text-ink-tertiary' : ''}`}
                         >
                           {v === null ? '—' : `${v}%`}
                         </td>
@@ -357,7 +357,7 @@ export function OKRMonthlyComparison({ objective, cycle, keyResults, checkIns }:
       )}
 
       {/* 说明 */}
-      <div className="rounded-md border border-dashed border-slate-200 bg-slate-50/60 p-3 text-[11px] text-slate-600 space-y-1">
+      <div className="rounded-md border border-dashed border-border bg-surface-2/60 p-3 text-[11px] text-ink-secondary space-y-1">
         <div>
           <span className="font-medium">📐 Plan:</span>{' '}
           cycle 内线性期望 (时间占比).{' '}
@@ -370,7 +370,7 @@ export function OKRMonthlyComparison({ objective, cycle, keyResults, checkIns }:
           <span className="font-medium ml-2">🔁 MoM:</span>{' '}
           本月末 Actual − 上月末 Actual (pp = percentage point).
         </div>
-        <div className="text-slate-500 italic">
+        <div className="text-ink-tertiary italic">
           数据源 = checkIns (零新字段). KR 行无 check-in 的月份留空.
         </div>
       </div>

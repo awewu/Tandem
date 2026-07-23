@@ -370,7 +370,7 @@ export default function EmailSettingsPage() {
       </header>
 
       {feedback && (
-        <div className={`rounded-md p-3 text-caption ${feedback.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-warning/5 text-warning'}`}>
+        <div className={`rounded-md p-3 text-caption ${feedback.ok ? 'bg-success/10 text-success' : 'bg-warning/5 text-warning'}`}>
           {feedback.msg}
         </div>
       )}
@@ -393,7 +393,7 @@ export default function EmailSettingsPage() {
                 加载中...
               </span>
             ) : personalCreds?.configured ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-footnote font-medium text-emerald-700">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-3 py-1 text-footnote font-medium text-success">
                 <CheckCircle2 className="h-3.5 w-3.5" />
                 已绑定 · {personalCreds.smtp?.user}
               </span>
@@ -541,7 +541,7 @@ export default function EmailSettingsPage() {
                             默认
                           </span>
                         )}
-                        <span className={`rounded-sm px-1.5 py-0.5 text-footnote ${item.enabled ? 'bg-emerald-50 text-emerald-700' : 'bg-surface-2 text-ink-tertiary'}`}>
+                        <span className={`rounded-sm px-1.5 py-0.5 text-footnote ${item.enabled ? 'bg-success/10 text-success' : 'bg-surface-2 text-ink-tertiary'}`}>
                           {item.enabled ? '已启用' : '已停用'}
                         </span>
                       </div>
@@ -594,7 +594,7 @@ export default function EmailSettingsPage() {
               </p>
             </div>
             {status === null ? null : status.global?.host ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-footnote font-medium text-emerald-700">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-3 py-1 text-footnote font-medium text-success">
                 <CheckCircle2 className="h-3.5 w-3.5" />
                 已配置
               </span>

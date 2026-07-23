@@ -73,9 +73,9 @@ export function StageProgressDashboard({
               <span className="font-medium">拿捏度</span>
               <span>{(bossCaptureScore * 100).toFixed(0)} / 100</span>
             </div>
-            <div className="h-2 overflow-hidden rounded bg-slate-100">
+            <div className="h-2 overflow-hidden rounded bg-surface-3">
               <div
-                className="h-full bg-gradient-to-r from-emerald-400 to-purple-500"
+                className="h-full bg-gradient-to-r from-success/30 to-brand-500"
                 data-pct={Math.round(bossCaptureScore * 100)}
                 style={{ width: `${Math.round(bossCaptureScore * 100)}%` }}
               />
@@ -126,11 +126,11 @@ export function StageProgressDashboard({
                 </ul>
               </div>
             ) : (
-              <div className="space-y-2 rounded border border-emerald-200 bg-emerald-50 p-3">
-                <p className="text-caption font-medium text-emerald-800">
+              <div className="space-y-2 rounded border border-success/30 bg-success/10 p-3">
+                <p className="text-caption font-medium text-success">
                   ✨ 全部条件达成! 你可以确认升级到下一阶段.
                 </p>
-                <p className="text-footnote text-emerald-700">
+                <p className="text-footnote text-success">
                   Tandem autonomy 守门: 升级必须由员工本人主动确认, AI 不会自动升级.
                 </p>
                 <Button onClick={onConfirmUpgrade} size="sm">
@@ -201,13 +201,13 @@ function CriterionRow({
           {icon}
           {label}
         </span>
-        <span className={met ? 'text-emerald-600' : 'text-muted-foreground'}>
+        <span className={met ? 'text-success' : 'text-muted-foreground'}>
           {current}{unit} / {inverted ? '≤ ' : ''}{required}{unit}
         </span>
       </div>
-      <div className="h-1.5 overflow-hidden rounded bg-slate-100">
+      <div className="h-1.5 overflow-hidden rounded bg-surface-3">
         <div
-          className={`h-full ${met ? 'bg-emerald-500' : 'bg-warning/50'}`}
+          className={`h-full ${met ? 'bg-success' : 'bg-warning/50'}`}
           style={{ width: `${pct}%` }}
         />
       </div>

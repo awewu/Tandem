@@ -164,13 +164,13 @@ export function SeedFromOrgDialog({ open, onOpenChange, currentUserId, onSeeded 
         {result ? (
           <div className="flex-1 overflow-y-auto space-y-3 py-2">
             {result.created.length > 0 && (
-              <div className="rounded-md border border-emerald-200 bg-emerald-50/60 p-2.5 space-y-1">
-                <div className="flex items-center gap-1.5 text-footnote font-semibold text-emerald-800">
+              <div className="rounded-md border border-success/30 bg-success/10 p-2.5 space-y-1">
+                <div className="flex items-center gap-1.5 text-footnote font-semibold text-success">
                   <CheckCircle2 className="h-3.5 w-3.5" />
                   新建 {result.created.length} 个群
                 </div>
                 {result.created.map((c) => (
-                  <div key={c.channelId} className="text-[11px] text-emerald-700 pl-5">
+                  <div key={c.channelId} className="text-[11px] text-success pl-5">
                     ✓ {c.name}
                   </div>
                 ))}
@@ -228,7 +228,7 @@ export function SeedFromOrgDialog({ open, onOpenChange, currentUserId, onSeeded 
                     />
                     <Icon
                       className={`h-3.5 w-3.5 shrink-0 ${
-                        r.level === 'department' ? 'text-blue-600' : 'text-ink-secondary'
+                        r.level === 'department' ? 'text-info' : 'text-ink-secondary'
                       }`}
                     />
                     <div className="flex-1 min-w-0">

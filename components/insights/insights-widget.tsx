@@ -39,8 +39,8 @@ import { useOwnerDirectory } from '@/lib/org/use-owner-directory';
 const SEV_STYLES: Record<InsightSeverity, { dot: string; text: string }> = {
   critical: { dot: 'bg-danger', text: 'text-danger' },
   warning: { dot: 'bg-warning', text: 'text-warning' },
-  info: { dot: 'bg-blue-500', text: 'text-blue-700' },
-  positive: { dot: 'bg-emerald-500', text: 'text-emerald-700' },
+  info: { dot: 'bg-info', text: 'text-info' },
+  positive: { dot: 'bg-success', text: 'text-success' },
 };
 
 const CAT_ICON: Record<InsightCategory, React.ComponentType<{ className?: string }>> = {
@@ -136,7 +136,7 @@ export function InsightsWidget({
     return (
       <div className="card-elevated p-5">
         <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-emerald-500" />
+          <Sparkles className="h-4 w-4 text-success" />
           <div className="text-headline text-ink-primary">{title}</div>
         </div>
         <div className="mt-2 text-caption text-ink-tertiary">

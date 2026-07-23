@@ -132,7 +132,7 @@ export function ContactsTree({ currentUserId, onSelectPerson, onCreateDeptChanne
                   ) : (
                     <ChevronRight className="h-3 w-3 text-ink-secondary shrink-0" />
                   )}
-                  <Building2 className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                  <Building2 className="h-3.5 w-3.5 text-info shrink-0" />
                   <span className="text-[12.5px] font-medium text-ink-primary truncate">
                     {dept.name}
                   </span>
@@ -238,7 +238,7 @@ function MinistryNode({
         ) : (
           <ChevronRight className="h-3 w-3 text-ink-tertiary shrink-0" />
         )}
-        <UsersRound className="h-3 w-3 text-cyan-600 shrink-0" />
+        <UsersRound className="h-3 w-3 text-info shrink-0" />
         <span className="text-[11.5px] text-ink-primary truncate">{ministry.name}</span>
         <span className="ml-1 text-[10px] text-ink-tertiary tabular-nums">{ministryPeople.length}</span>
       </button>
@@ -271,7 +271,7 @@ function PersonRow({
     <button
       type="button"
       onClick={() => onSelectPerson(person.id)}
-      className="group flex w-full items-center gap-2 rounded px-1.5 py-1 text-left hover:bg-violet-50"
+      className="group flex w-full items-center gap-2 rounded px-1.5 py-1 text-left hover:bg-brand-50"
       title={`私聊 ${person.name}`}
     >
       {person.avatarUrl ? (

@@ -29,7 +29,7 @@ const MODE_META: Record<Mode, { label: string; icon: React.ElementType; cls: str
   'agent-auto': {
     label: '分身',
     icon: Bot,
-    cls: 'bg-violet-50 text-violet-700 border-violet-400',
+    cls: 'bg-brand-50 text-brand-700 border-brand-400',
     desc: '分身全自动代答（受组织记忆约束）',
   },
 };
@@ -107,7 +107,7 @@ export function AgentModeToggle({ channelId, initialMode = 'manual', onChanged }
               );
             })}
             {mode === 'agent-auto' && (
-              <div className="px-2 py-1 text-[11px] text-violet-700 border-t border-hairline mt-1 pt-2">
+              <div className="px-2 py-1 text-[11px] text-brand-700 border-t border-hairline mt-1 pt-2">
                 ⏱ 默认 2h 后自动恢复真人模式
               </div>
             )}

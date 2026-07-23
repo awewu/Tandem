@@ -116,8 +116,8 @@ function MeetingRetroButton({ eventId, eventEndTime }: { eventId: string; eventE
         {loading ? '复盘中...' : isPast ? '会议复盘' : '待结束'}
       </Button>
       {result && (
-        <div className="rounded-md border border-emerald-200 bg-emerald-50/40 p-2.5 space-y-2 text-caption">
-          <div className="font-medium text-emerald-800">会议纪要</div>
+        <div className="rounded-md border border-success/30 bg-success/10 p-2.5 space-y-2 text-caption">
+          <div className="font-medium text-success">会议纪要</div>
           <p className="text-ink-secondary">{result.summary}</p>
           {result.decisions.length > 0 && (
             <div>
@@ -997,8 +997,8 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
               </div>
 
               {prepResult && (
-                <div className="rounded-md border border-blue-200 bg-blue-50/40 p-2.5 space-y-2 text-caption">
-                  <div className="font-medium text-blue-800">会前准备材料</div>
+                <div className="rounded-md border border-info/30 bg-info/10 p-2.5 space-y-2 text-caption">
+                  <div className="font-medium text-info">会前准备材料</div>
                   <p className="text-ink-secondary">{prepResult.context}</p>
                   {prepResult.keyPoints.length > 0 && (
                     <div>
@@ -1035,10 +1035,10 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
 
         {/* 进度条 (异步作业) */}
         {jobStatus && (
-          <div className="mt-4 rounded-md border border-blue-200 bg-blue-50/30 p-3 space-y-2.5">
+          <div className="mt-4 rounded-md border border-info/30 bg-info/10 p-3 space-y-2.5">
             <div className="flex items-center justify-between">
-              <span className="text-caption font-medium text-blue-800">保存进度</span>
-              <span className="text-caption text-blue-700">
+              <span className="text-caption font-medium text-info">保存进度</span>
+              <span className="text-caption text-info">
                 {jobStatus.completedSteps}/{jobStatus.totalSteps}
                 {jobStatus.status === 'running' && ' · 进行中...'}
                 {jobStatus.status === 'completed' && ' · 已完成'}
@@ -1057,15 +1057,15 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
               ]).map((step) => (
                 <div key={step.key} className="flex items-center gap-2 text-caption">
                   {step.status === 'done' ? (
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                    <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0" />
                   ) : step.status === 'in_progress' ? (
-                    <Loader2 className="h-3.5 w-3.5 text-blue-600 shrink-0 animate-spin" />
+                    <Loader2 className="h-3.5 w-3.5 text-info shrink-0 animate-spin" />
                   ) : step.status === 'failed' ? (
-                    <AlertCircle className="h-3.5 w-3.5 text-rose-600 shrink-0" />
+                    <AlertCircle className="h-3.5 w-3.5 text-danger shrink-0" />
                   ) : (
                     <div className="h-3.5 w-3.5 rounded-full border border-muted-foreground/30 shrink-0" />
                   )}
-                  <span className={step.status === 'done' ? 'text-emerald-700' : step.status === 'in_progress' ? 'text-blue-700 font-medium' : step.status === 'failed' ? 'text-rose-700' : 'text-muted-foreground'}>
+                  <span className={step.status === 'done' ? 'text-success' : step.status === 'in_progress' ? 'text-info font-medium' : step.status === 'failed' ? 'text-danger' : 'text-muted-foreground'}>
                     {step.label}
                   </span>
                   {step.detail && (
@@ -1090,7 +1090,7 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
           <div className="flex items-center gap-1">
             {editing && (
               <>
-                <Button type="button" variant="ghost" size="sm" onClick={handleDelete} disabled={saving || deleting} className="text-rose-500 hover:text-rose-600" title="取消日程">
+                <Button type="button" variant="ghost" size="sm" onClick={handleDelete} disabled={saving || deleting} className="text-danger hover:text-danger" title="取消日程">
                   {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                   {deleting && <span className="ml-1 text-caption">取消中...</span>}
                 </Button>
@@ -1107,7 +1107,7 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
               <X className="h-4 w-4 mr-1" />
               取消
             </Button>
-            <Button type="button" size="sm" onClick={handleSave} disabled={saving || deleting || jobStatus?.status === 'completed'} className="bg-blue-600 hover:bg-blue-700 text-white">
+            <Button type="button" size="sm" onClick={handleSave} disabled={saving || deleting || jobStatus?.status === 'completed'} className="bg-info/80 hover:bg-info/70 text-white">
               {deleting ? '取消中...' : jobStatus?.status === 'completed' ? '已创建' : saving ? (jobStatus ? '处理中...' : '保存中...') : editing ? '保存' : '创建'}
             </Button>
           </div>

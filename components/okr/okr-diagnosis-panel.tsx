@@ -33,7 +33,7 @@ interface Props {
 const SEVERITY_TINT: Record<OKRSuggestion['severity'], string> = {
   error: 'border-danger/30 bg-danger/5/70 dark:bg-danger/20',
   warning: 'border-warning/30 bg-warning/5/70 dark:bg-warning/20',
-  info: 'border-blue-300 bg-blue-50/70 dark:bg-blue-950/20',
+  info: 'border-info/40 bg-info/10 dark:bg-info/40',
 };
 
 export function OKRDiagnosisPanel({ cycleId, onApply, proactivePrompt }: Props) {
@@ -56,7 +56,7 @@ export function OKRDiagnosisPanel({ cycleId, onApply, proactivePrompt }: Props) 
 
   if (suggestions.length === 0 && !proactivePrompt) {
     return (
-      <div className="border border-dashed border-emerald-300 rounded-lg p-3 text-footnote text-emerald-700 dark:text-emerald-300 flex items-center gap-2 bg-emerald-50/40 dark:bg-emerald-950/20">
+      <div className="border border-dashed border-success/40 rounded-lg p-3 text-footnote text-success dark:text-success flex items-center gap-2 bg-success/10 dark:bg-success/40">
         <ShieldCheck size={14} />
         <span>无紧急纠偏建议。继续保持当前节奏。</span>
       </div>
@@ -66,7 +66,7 @@ export function OKRDiagnosisPanel({ cycleId, onApply, proactivePrompt }: Props) 
   return (
     <div className="space-y-2">
       <div className="text-caption font-medium flex items-center gap-1.5">
-        <Sparkles size={14} className="text-purple-600" />
+        <Sparkles size={14} className="text-brand-700" />
         AI 纠偏建议
         <span className="text-[10px] text-muted-foreground font-normal">
           · 至多 3 条 · 全部由你点击决定是否执行
@@ -99,7 +99,7 @@ export function OKRDiagnosisPanel({ cycleId, onApply, proactivePrompt }: Props) 
           </div>
         ))}
         {proactivePrompt && (
-          <div className="border border-purple-200 rounded-lg p-2.5 flex items-start gap-3 bg-purple-50/60 dark:bg-purple-950/20">
+          <div className="border border-brand-200 rounded-lg p-2.5 flex items-start gap-3 bg-brand-50/60 dark:bg-brand-900/20">
             <div className="flex-1 min-w-0 space-y-0.5">
               <div className="text-footnote font-medium">
                 顺便一问 · 「{proactivePrompt.objectiveTitle}」最近怎么样？

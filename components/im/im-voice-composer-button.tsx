@@ -179,7 +179,7 @@ export function ImVoiceComposerButton({
         'flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all',
         active
           ? 'scale-110 bg-[rgb(var(--brand-500))] text-white shadow-soft-lg shadow-[rgb(var(--brand-500))]/30'
-          : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/10 dark:text-white/75 dark:hover:bg-white/15',
+          : 'bg-surface-3 text-ink-secondary hover:bg-surface-3 dark:bg-white/10 dark:text-white/75 dark:hover:bg-white/15',
         disabled && 'cursor-not-allowed opacity-50',
         className,
       )}

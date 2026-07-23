@@ -213,7 +213,7 @@ export function AttendeePicker({ value, onChange, showLabel = true }: AttendeePi
                       </div>
                     )}
                     {!loading && error && (
-                      <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-caption text-rose-700">
+                      <div className="rounded-lg border border-danger/30 bg-danger/5 px-3 py-2 text-caption text-danger">
                         {error}
                       </div>
                     )}
@@ -237,7 +237,7 @@ export function AttendeePicker({ value, onChange, showLabel = true }: AttendeePi
                         >
                           <span className={cn(
                             'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-caption font-medium',
-                            selected ? 'bg-brand-600 text-white' : 'bg-background text-slate-600'
+                            selected ? 'bg-brand-600 text-white' : 'bg-background text-ink-secondary'
                           )}>
                             {initials(option.name || option.email)}
                           </span>
@@ -247,7 +247,7 @@ export function AttendeePicker({ value, onChange, showLabel = true }: AttendeePi
                           </span>
                           <span className={cn(
                             'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border',
-                            selected ? 'border-brand-600 bg-brand-600 text-white' : 'border-slate-300 bg-background'
+                            selected ? 'border-brand-600 bg-brand-600 text-white' : 'border-border bg-background'
                           )}>
                             {selected && <Check className="h-3.5 w-3.5" />}
                           </span>
@@ -275,7 +275,7 @@ export function AttendeePicker({ value, onChange, showLabel = true }: AttendeePi
                 <ScrollArea className="mt-5 min-h-0 flex-1 pr-2">
                   {draftEmails.length === 0 ? (
                     <div className="flex h-[420px] flex-col items-center justify-center text-center text-muted-foreground">
-                      <Mail className="mb-3 h-10 w-10 text-slate-300" />
+                      <Mail className="mb-3 h-10 w-10 text-ink-tertiary" />
                       <div className="text-caption">从左侧联系人列表选择成员</div>
                       <div className="mt-1 text-[11px]">也可以在搜索框输入完整邮箱添加外部联系人</div>
                     </div>
@@ -284,7 +284,7 @@ export function AttendeePicker({ value, onChange, showLabel = true }: AttendeePi
                       {draftEmails.map((email) => {
                         const option = optionByEmail.get(email);
                         return (
-                          <div key={email} className="flex items-center gap-3 rounded-lg border bg-slate-50/70 px-3 py-2.5">
+                          <div key={email} className="flex items-center gap-3 rounded-lg border bg-surface-2/70 px-3 py-2.5">
                             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-caption font-medium text-brand-700">
                               {initials(option?.name || email)}
                             </span>
@@ -296,7 +296,7 @@ export function AttendeePicker({ value, onChange, showLabel = true }: AttendeePi
                               type="button"
                               variant="ghost"
                               size="icon"
-                              className="h-7 w-7 shrink-0 text-muted-foreground hover:text-rose-600"
+                              className="h-7 w-7 shrink-0 text-muted-foreground hover:text-danger"
                               onClick={() => toggleDraftEmail(email)}
                               aria-label={`移除 ${email}`}
                             >

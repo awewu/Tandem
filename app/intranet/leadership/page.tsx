@@ -73,7 +73,7 @@ export default function LeadershipPage() {
         {LEADERS.map((l) => (
           <li key={l.id} className="card-elevated p-5 surface-interactive hover:border-brand-200">
             <div className="flex items-center gap-3 mb-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-slate-700 to-slate-900 text-white font-bold">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-ink-secondary to-ink-primary text-white font-bold">
                 {l.initial}
               </div>
               <div className="min-w-0">

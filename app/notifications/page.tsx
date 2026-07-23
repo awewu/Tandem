@@ -178,7 +178,7 @@ export default function NotificationsPage() {
         <div className="mt-6 flex items-center justify-between rounded-lg border bg-white px-4 py-3 text-caption text-ink-secondary">
           <button
             type="button"
-            className="rounded px-3 py-1.5 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded px-3 py-1.5 hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-40"
             disabled={page <= 1 || loading}
             onClick={() => loadNotifications(page - 1)}
           >
@@ -189,7 +189,7 @@ export default function NotificationsPage() {
           </span>
           <button
             type="button"
-            className="rounded px-3 py-1.5 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded px-3 py-1.5 hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-40"
             disabled={page >= totalPages || loading}
             onClick={() => loadNotifications(page + 1)}
           >

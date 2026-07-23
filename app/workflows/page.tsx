@@ -38,9 +38,9 @@ interface FlowEdge {
 
 const NODE_COLORS: Record<NodeType, string> = {
   trigger: 'bg-info',
-  agent: 'bg-purple-500',
-  tool: 'bg-orange-500',
-  condition: 'bg-yellow-500',
+  agent: 'bg-brand-500',
+  tool: 'bg-warning',
+  condition: 'bg-warning',
   output: 'bg-success',
 };
 
@@ -504,7 +504,7 @@ export default function WorkflowsPage() {
           <Button
             variant="default"
             size="sm"
-            className="w-full justify-start bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+            className="w-full justify-start bg-gradient-to-r from-brand-600 to-info/80 hover:from-brand-700 hover:to-info/70 text-white"
             onClick={() => setShowTemplates(!showTemplates)}
           >
             <Sparkles className="mr-2 h-4 w-4" />
@@ -612,7 +612,7 @@ export default function WorkflowsPage() {
             const status = rs?.status || 'idle';
             const ring =
               status === 'running'
-                ? 'ring-2 ring-yellow-400 ring-offset-2 ring-offset-background animate-pulse'
+                ? 'ring-2 ring-warning/50 ring-offset-2 ring-offset-background animate-pulse'
                 : status === 'done'
                   ? 'ring-2 ring-success/50 ring-offset-2 ring-offset-background'
                   : status === 'error'
@@ -664,7 +664,7 @@ export default function WorkflowsPage() {
               <div className="flex items-center gap-2 text-caption font-medium">
                 <TerminalIcon className="h-4 w-4" />
                 Execution Log
-                {running && <Loader2 className="h-3 w-3 animate-spin text-yellow-500" />}
+                {running && <Loader2 className="h-3 w-3 animate-spin text-warning" />}
               </div>
               <div className="flex items-center gap-2 text-footnote text-muted-foreground">
                 <span>
@@ -699,7 +699,7 @@ export default function WorkflowsPage() {
                         l.includes('[error]') && 'text-danger',
                         l.includes('[end]') && 'text-success font-semibold',
                         l.includes('[start]') && 'text-info font-semibold',
-                        l.includes('[run]') && 'text-yellow-600',
+                        l.includes('[run]') && 'text-warning',
                         l.includes('[done]') && 'text-success'
                       )}
                     >

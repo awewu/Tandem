@@ -20,8 +20,8 @@ import type { DecisionCard } from '@/lib/types';
 
 const STATE_META: Record<string, { label: string; className: string }> = {
   DIVERGE: { label: '审议中', className: 'bg-info/10 text-info' },
-  CONVERGE: { label: '收敛中', className: 'bg-purple-100 text-purple-700' },
-  COMMIT: { label: '已生效', className: 'bg-emerald-100 text-emerald-700' },
+  CONVERGE: { label: '收敛中', className: 'bg-brand-100 text-brand-700' },
+  COMMIT: { label: '已生效', className: 'bg-success/15 text-success' },
   ESCALATED: { label: '已升级', className: 'bg-warning/10 text-warning' },
   VETOED: { label: '已否决', className: 'bg-danger/10 text-danger' },
 };

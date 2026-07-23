@@ -200,17 +200,17 @@ export default function AdminOrganizationsPage() {
           </Button>
 
           {lastCode && (
-            <div className="rounded border border-emerald-300 bg-emerald-50 p-3">
-              <p className="mb-1 text-footnote text-emerald-700">
+            <div className="rounded border border-success/40 bg-success/10 p-3">
+              <p className="mb-1 text-footnote text-success">
                 ⚠️ 此邀请码仅显示一次, 请立即复制并发给下游成员:
               </p>
               <div className="flex items-center gap-2 rounded bg-white p-2">
                 <code className="flex-1 text-headline font-bold tracking-widest">{lastCode}</code>
                 <Button size="sm" variant="outline" onClick={copyCode}>
-                  {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+                  {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
                 </Button>
               </div>
-              <p className="mt-2 text-footnote text-emerald-700">
+              <p className="mt-2 text-footnote text-success">
                 注册链接:{' '}
                 <code className="text-[10px]">
                   {typeof window !== 'undefined' ? window.location.origin : ''}/register?invite={lastCode}
@@ -234,7 +234,7 @@ export default function AdminOrganizationsPage() {
               <Loader2 className="h-4 w-4 animate-spin" /> 加载中…
             </p>
           ) : error ? (
-            <p className="text-caption text-rose-600">加载失败: {error}</p>
+            <p className="text-caption text-danger">加载失败: {error}</p>
           ) : orgs.length === 0 ? (
             <p className="text-caption text-muted-foreground">尚无下游组织, 用上方表单新建。</p>
           ) : (
@@ -256,8 +256,8 @@ export default function AdminOrganizationsPage() {
                         variant="outline"
                         className={
                           o.status === 'active'
-                            ? 'border-emerald-300 text-emerald-700 text-[10px]'
-                            : 'border-rose-300 text-rose-700 text-[10px]'
+                            ? 'border-success/40 text-success text-[10px]'
+                            : 'border-danger/40 text-danger text-[10px]'
                         }
                       >
                         {o.status === 'active' ? '启用中' : '已停用'}
@@ -277,7 +277,7 @@ export default function AdminOrganizationsPage() {
                           邀请成员
                         </Button>
                         <Button size="sm" variant="ghost" onClick={() => void suspend(o.id)}>
-                          <Ban className="mr-1 h-3.5 w-3.5 text-rose-500" />
+                          <Ban className="mr-1 h-3.5 w-3.5 text-danger" />
                           停用
                         </Button>
                       </div>

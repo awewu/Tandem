@@ -49,15 +49,15 @@ const KIND_LABEL: Record<ProxyAction['kind'], string> = {
 const STATUS_BADGE: Record<ProxyAction['status'], { label: string; cls: string }> = {
   drafted: { label: '草稿待确认', cls: 'bg-info/10 text-info' },
   awaiting_veto: { label: '24h 否决窗口', cls: 'bg-warning/10 text-warning' },
-  executed: { label: '已执行', cls: 'bg-emerald-100 text-emerald-800' },
-  vetoed: { label: '已否决', cls: 'bg-rose-100 text-rose-800' },
+  executed: { label: '已执行', cls: 'bg-success/15 text-success' },
+  vetoed: { label: '已否决', cls: 'bg-danger/10 text-danger' },
   expired: { label: '已过期', cls: 'bg-surface-1 text-ink-primary' },
 };
 
 const ZONE_BADGE: Record<ProxyAction['zone'], { label: string; cls: string }> = {
-  green: { label: '🟢 绿区', cls: 'text-emerald-700' },
+  green: { label: '🟢 绿区', cls: 'text-success' },
   yellow: { label: '🟡 黄区', cls: 'text-warning' },
-  red: { label: '🔴 红区', cls: 'text-rose-700' },
+  red: { label: '🔴 红区', cls: 'text-danger' },
 };
 
 function timeRemaining(iso?: string): string {
@@ -216,7 +216,7 @@ export default function ProxyActionsPage() {
 
       {loading && <div className="py-8 text-center text-caption text-ink-secondary">加载中…</div>}
       {err && (
-        <div className="rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-caption text-rose-700">
+        <div className="rounded-md border border-danger/30 bg-danger/5 px-4 py-3 text-caption text-danger">
           错误: {err}
         </div>
       )}
@@ -259,7 +259,7 @@ export default function ProxyActionsPage() {
                     <p className="mt-1 line-clamp-2 text-caption text-ink-secondary">{a.body}</p>
                   )}
                   {a.vetoReason && (
-                    <p className="mt-2 text-footnote text-rose-700">
+                    <p className="mt-2 text-footnote text-danger">
                       否决理由: {a.vetoReason}
                     </p>
                   )}
@@ -281,7 +281,7 @@ export default function ProxyActionsPage() {
                       <button
                         disabled={busyId === a.id}
                         onClick={() => confirm(a.id)}
-                        className="rounded-md bg-emerald-600 px-3 py-1.5 text-footnote font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                        className="rounded-md bg-success/80 px-3 py-1.5 text-footnote font-medium text-white hover:bg-success/70 disabled:opacity-50"
                       >
                         立即确认
                       </button>
@@ -290,7 +290,7 @@ export default function ProxyActionsPage() {
                       <button
                         disabled={busyId === a.id}
                         onClick={() => veto(a.id)}
-                        className="rounded-md border border-rose-300 px-3 py-1.5 text-footnote font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                        className="rounded-md border border-danger/40 px-3 py-1.5 text-footnote font-medium text-danger hover:bg-danger/5 disabled:opacity-50"
                       >
                         否决
                       </button>
@@ -307,7 +307,7 @@ export default function ProxyActionsPage() {
                     <button
                       disabled={feedbackBusy[a.id]}
                       onClick={() => submitFeedback(a.id, 'thumbs_up')}
-                      className="flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 text-footnote text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+                      className="flex items-center gap-1 rounded-md bg-success/10 px-2 py-1 text-footnote text-success hover:bg-success/15 disabled:opacity-50"
                       title="点赞 - 这次代行符合我的风格"
                     >
                       👍 有用
@@ -315,14 +315,14 @@ export default function ProxyActionsPage() {
                     <button
                       disabled={feedbackBusy[a.id]}
                       onClick={() => submitFeedback(a.id, 'thumbs_down')}
-                      className="flex items-center gap-1 rounded-md bg-rose-50 px-2 py-1 text-footnote text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                      className="flex items-center gap-1 rounded-md bg-danger/5 px-2 py-1 text-footnote text-danger hover:bg-danger/10 disabled:opacity-50"
                       title="点踩 - 这次代行需要改进"
                     >
                       👎 需改进
                     </button>
                   </div>
                   {feedbackOk[a.id] && (
-                    <span className="text-footnote text-emerald-600">✓ bossCaptureScore 已更新</span>
+                    <span className="text-footnote text-success">✓ bossCaptureScore 已更新</span>
                   )}
                 </div>
               )}

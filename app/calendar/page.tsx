@@ -1013,7 +1013,7 @@ function mapApiEvents(events: Array<Record<string, any>>, calendarId: string, so
       createdAt: new Date(event.createdAt).getTime(),
       updatedAt: new Date(event.updatedAt).getTime(),
       status: event.status,
-      color: sourceKind === 'subscribed' ? 'bg-slate-400' : isMeeting ? 'bg-violet-500' : 'bg-blue-500',
+      color: sourceKind === 'subscribed' ? 'bg-surface-3' : isMeeting ? 'bg-brand-500' : 'bg-info',
       serverManaged: true,
     };
   });

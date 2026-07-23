@@ -17,17 +17,17 @@ interface Props {
 
 const ACTION_META: Record<OKRActivity['action'], { icon: any; cls: string }> = {
   'create':    { icon: Plus,         cls: 'text-success bg-success/5 dark:bg-success/30' },
-  'update':    { icon: Edit3,        cls: 'text-blue-600 bg-blue-50 dark:bg-blue-950/30' },
+  'update':    { icon: Edit3,        cls: 'text-info bg-info/10 dark:bg-info/40' },
   'delete':    { icon: Trash2,       cls: 'text-danger bg-danger/5 dark:bg-danger/30' },
-  'check-in':  { icon: AlertCircle,  cls: 'text-orange-600 bg-orange-50 dark:bg-orange-950/30' },
-  'comment':   { icon: MessageSquare,cls: 'text-purple-600 bg-purple-50 dark:bg-purple-950/30' },
-  'reaction':  { icon: Award,        cls: 'text-pink-600 bg-pink-50 dark:bg-pink-950/30' },
+  'check-in':  { icon: AlertCircle,  cls: 'text-warning bg-warning/10 dark:bg-warning/40' },
+  'comment':   { icon: MessageSquare,cls: 'text-brand-700 bg-brand-50 dark:bg-brand-900/30' },
+  'reaction':  { icon: Award,        cls: 'text-brand-700 bg-brand-50 dark:bg-brand-900/30' },
   'score':     { icon: Award,        cls: 'text-warning bg-warning/5 dark:bg-warning/30' },
-  'review':    { icon: BookOpen,     cls: 'text-indigo-600 bg-indigo-50 dark:bg-indigo-950/30' },
-  'reassign':  { icon: UserCheck,    cls: 'text-cyan-600 bg-cyan-50 dark:bg-cyan-950/30' },
-  'complete':  { icon: CheckCircle2, cls: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30' },
-  'archive':   { icon: Archive,      cls: 'text-slate-600 bg-slate-50 dark:bg-slate-950/30' },
-  'reopen':    { icon: RotateCcw,    cls: 'text-yellow-600 bg-yellow-50 dark:bg-yellow-950/30' },
+  'review':    { icon: BookOpen,     cls: 'text-info bg-info/10 dark:bg-info/40' },
+  'reassign':  { icon: UserCheck,    cls: 'text-info bg-info/10 dark:bg-info/40' },
+  'complete':  { icon: CheckCircle2, cls: 'text-success bg-success/10 dark:bg-success/40' },
+  'archive':   { icon: Archive,      cls: 'text-ink-secondary bg-surface-2 dark:bg-ink-primary/30' },
+  'reopen':    { icon: RotateCcw,    cls: 'text-warning bg-warning/10 dark:bg-warning/35' },
 };
 
 function timeAgo(t: number): string {

@@ -105,7 +105,7 @@ function CreateDialog({
         <DialogHeader><DialogTitle>注册 SSO 接入方</DialogTitle></DialogHeader>
         <div className="space-y-3 py-2">
           {error && (
-            <div className="flex items-center gap-2 text-caption text-rose-700 bg-rose-50 border border-rose-200 rounded px-3 py-2">
+            <div className="flex items-center gap-2 text-caption text-danger bg-danger/5 border border-danger/30 rounded px-3 py-2">
               <AlertCircle className="h-4 w-4" />{error}
             </div>
           )}
@@ -261,7 +261,7 @@ export default function AdminSsoPage() {
       </Card>
 
       {error && (
-        <div className="mb-4 flex items-center gap-2 text-caption text-rose-700 bg-rose-50 border border-rose-200 rounded px-3 py-2">
+        <div className="mb-4 flex items-center gap-2 text-caption text-danger bg-danger/5 border border-danger/30 rounded px-3 py-2">
           <AlertCircle className="h-4 w-4" />{error}
         </div>
       )}
@@ -288,7 +288,7 @@ export default function AdminSsoPage() {
                         <ShieldCheck className="h-2.5 w-2.5" />受信
                       </Badge>
                     )}
-                    {c.disabled && <Badge variant="outline" className="text-[10px] h-4 px-1 text-rose-600 border-rose-200">已停用</Badge>}
+                    {c.disabled && <Badge variant="outline" className="text-[10px] h-4 px-1 text-danger border-danger/30">已停用</Badge>}
                   </div>
                   {c.description && <p className="text-caption text-muted-foreground mt-0.5">{c.description}</p>}
                   <div className="mt-2 space-y-1">
@@ -315,10 +315,10 @@ export default function AdminSsoPage() {
                     </Button>
                   )}
                   <Button variant="outline" size="sm" onClick={() => toggleDisabled(c)} title={c.disabled ? '启用' : '停用'}>
-                    <Power className={`h-3.5 w-3.5 ${c.disabled ? 'text-emerald-600' : 'text-rose-600'}`} />
+                    <Power className={`h-3.5 w-3.5 ${c.disabled ? 'text-success' : 'text-danger'}`} />
                   </Button>
                   <Button variant="outline" size="sm" onClick={() => remove(c)} title="删除">
-                    <Trash2 className="h-3.5 w-3.5 text-rose-600" />
+                    <Trash2 className="h-3.5 w-3.5 text-danger" />
                   </Button>
                 </div>
               </div>

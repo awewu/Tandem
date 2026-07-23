@@ -195,12 +195,12 @@ function WebIngestTrigger() {
         {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <BookOpen className="h-3.5 w-3.5" />}
         {busy ? '抓取中…' : '开始抓取并存入知识库'}
       </button>
-      {err && <p className="text-footnote text-rose-600">{err}</p>}
+      {err && <p className="text-footnote text-danger">{err}</p>}
       {result && (
         <div className="text-footnote text-ink-secondary space-y-1">
           <p className="font-medium text-ink-primary">完成：{result.saved}/{result.processed} 条已存入知识库</p>
           {result.results.map((r, i) => (
-            <div key={i} className={`flex items-start gap-1.5 ${r.ok ? 'text-emerald-700' : 'text-rose-600'}`}>
+            <div key={i} className={`flex items-start gap-1.5 ${r.ok ? 'text-success' : 'text-danger'}`}>
               <span>{r.ok ? '✓' : '✗'}</span>
               <span className="truncate">{r.title ?? r.url}</span>
             </div>
@@ -354,18 +354,18 @@ export default function AiSettingsPage() {
               </span>
             )}
           </div>
-          {healthErr && <p className="text-footnote text-rose-600">{healthErr}</p>}
+          {healthErr && <p className="text-footnote text-danger">{healthErr}</p>}
           {health && Object.keys(health.providers).length === 0 && (
             <p className="text-footnote text-ink-secondary">当前没有已注册的模型 provider — 请先在下方填好 Key/Base URL 并保存。</p>
           )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {health && Object.entries(health.providers).map(([name, h]) => (
-              <div key={name} className={`flex items-center justify-between rounded-md border px-3 py-1.5 text-footnote ${h.healthy ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-rose-500/30 bg-rose-500/5'}`}>
+              <div key={name} className={`flex items-center justify-between rounded-md border px-3 py-1.5 text-footnote ${h.healthy ? 'border-success/30 bg-success/5' : 'border-danger/30 bg-danger/5'}`}>
                 <span className="font-mono text-ink-primary">{name}</span>
                 {h.healthy ? (
-                  <span className="text-emerald-700 dark:text-emerald-400">✓ {h.latencyMs}ms</span>
+                  <span className="text-success dark:text-success">✓ {h.latencyMs}ms</span>
                 ) : (
-                  <span className="text-rose-600 truncate max-w-[55%]" title={h.error}>✗ {h.error ?? '不可达'}</span>
+                  <span className="text-danger truncate max-w-[55%]" title={h.error}>✗ {h.error ?? '不可达'}</span>
                 )}
               </div>
             ))}

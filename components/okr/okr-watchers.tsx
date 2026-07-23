@@ -98,7 +98,7 @@ export function OKRWatchers({ scope, scopeId }: Props) {
             const p = people.find((x) => x.id === id);
             const displayName = p?.name ?? nameOf(id);
             return (
-              <span key={id} className="group px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 dark:bg-blue-950/40 text-footnote flex items-center gap-1">
+              <span key={id} className="group px-1.5 py-0.5 rounded bg-info/10 text-info dark:bg-info/40 text-footnote flex items-center gap-1">
                 {displayName}
                 <button
                   onClick={() => toggleCollaborator(scope, scopeId, id)}

@@ -43,7 +43,7 @@ export default function SearchPage() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="搜索文档、日程、文件..."
-          className="flex-1 p-3 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-1 p-3 border rounded-lg outline-none focus:ring-2 focus:ring-info"
         />
         <button
           type="submit"

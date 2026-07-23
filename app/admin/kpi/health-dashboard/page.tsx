@@ -59,10 +59,10 @@ function healthOf(completion: number): Health {
 
 const HEALTH_COLOR: Record<Health, { bar: string; text: string; bg: string; border: string; label: string }> = {
   green: {
-    bar: 'bg-emerald-500',
-    text: 'text-emerald-700',
-    bg: 'bg-emerald-50',
-    border: 'border-emerald-200',
+    bar: 'bg-success',
+    text: 'text-success',
+    bg: 'bg-success/10',
+    border: 'border-success/30',
     label: '健康',
   },
   amber: {
@@ -73,10 +73,10 @@ const HEALTH_COLOR: Record<Health, { bar: string; text: string; bg: string; bord
     label: '警戒',
   },
   red: {
-    bar: 'bg-rose-500',
-    text: 'text-rose-700',
-    bg: 'bg-rose-50',
-    border: 'border-rose-200',
+    bar: 'bg-danger',
+    text: 'text-danger',
+    bg: 'bg-danger/5',
+    border: 'border-danger/30',
     label: '风险',
   },
 };
@@ -269,8 +269,8 @@ export default function KpiHealthDashboardPage() {
       </header>
 
       {error && (
-        <Card className="border-rose-200 bg-rose-50">
-          <CardContent className="py-3 text-caption text-rose-700 flex items-center gap-2">
+        <Card className="border-danger/30 bg-danger/5">
+          <CardContent className="py-3 text-caption text-danger flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />
             {error}
           </CardContent>

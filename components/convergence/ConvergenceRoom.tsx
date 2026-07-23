@@ -44,10 +44,10 @@ const OPTION_META: Record<
   string,
   { icon: typeof Sparkles; color: string; label: string }
 > = {
-  A: { icon: BookOpen, color: 'text-blue-600', label: 'A · SOP 直执行' },
-  B: { icon: Sparkles, color: 'text-purple-600', label: 'B · AI 推演' },
+  A: { icon: BookOpen, color: 'text-info', label: 'A · SOP 直执行' },
+  B: { icon: Sparkles, color: 'text-brand-700', label: 'B · AI 推演' },
   C: { icon: History, color: 'text-warning', label: 'C · 历史案例' },
-  D: { icon: Lightbulb, color: 'text-emerald-600', label: 'D · 你的原创' },
+  D: { icon: Lightbulb, color: 'text-success', label: 'D · 你的原创' },
 };
 
 interface DeliberationRecord {
@@ -308,7 +308,7 @@ function TimerBadge({ minutes, seconds, elapsed }: { minutes: number; seconds: n
           ? 'bg-danger/10 text-danger'
           : warn
           ? 'bg-warning/10 text-warning'
-          : 'bg-emerald-100 text-emerald-700'
+          : 'bg-success/15 text-success'
       }`}
     >
       <Clock className="h-4 w-4" />
@@ -340,7 +340,7 @@ function OptionRow({
   return (
     <div
       className={`rounded-lg border p-4 transition-all ${
-        selected ? 'border-blue-500 bg-blue-50/50 shadow-soft-sm' : 'border-border'
+        selected ? 'border-info bg-info/10 shadow-soft-sm' : 'border-border'
       }`}
     >
       <div className="flex items-start gap-3">
@@ -391,13 +391,13 @@ function ConfidencePill({ confidence, risk }: { confidence: number; risk: string
   const pct = Math.round(confidence * 100);
   const riskColor =
     risk === 'low'
-      ? 'bg-emerald-100 text-emerald-700'
+      ? 'bg-success/15 text-success'
       : risk === 'medium'
       ? 'bg-warning/10 text-warning'
       : 'bg-danger/10 text-danger';
   return (
     <div className="flex gap-1 text-footnote">
-      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-700">
+      <span className="rounded-full bg-surface-3 px-2 py-0.5 text-ink-secondary">
         信心 {pct}%
       </span>
       <span className={`rounded-full px-2 py-0.5 ${riskColor}`}>风险 {risk}</span>
@@ -417,7 +417,7 @@ function BannerCard({
   children: React.ReactNode;
 }) {
   const colorMap = {
-    success: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+    success: 'border-success/30 bg-success/10 text-success',
     warn: 'border-warning/20 bg-warning/5 text-warning',
     error: 'border-danger/20 bg-danger/5 text-danger',
   };

@@ -36,7 +36,7 @@ const URGENCY_BADGE: Record<Urgency, { label: string; cls: string }> = {
   },
   overdue: {
     label: '逾期',
-    cls: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30',
+    cls: 'bg-danger/5 text-danger border-danger/30 dark:bg-danger/40',
   },
 };
 

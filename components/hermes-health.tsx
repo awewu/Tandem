@@ -37,7 +37,7 @@ export function HermesHealth({ compact = false }: { compact?: boolean }) {
   const dot =
     status === 'ok' ? 'bg-success' :
     status === 'error' ? 'bg-danger' :
-    'bg-yellow-500 animate-pulse';
+    'bg-warning animate-pulse';
 
   if (compact) {
     return (

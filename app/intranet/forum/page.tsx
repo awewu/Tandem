@@ -81,7 +81,7 @@ function ForumInner() {
                   href={c.href}
                   className={
                     isAnon
-                      ? 'block card-elevated p-4 surface-interactive bg-gradient-to-br from-slate-800 via-slate-700 to-brand-700 text-white'
+                      ? 'block card-elevated p-4 surface-interactive bg-gradient-to-br from-ink-primary via-ink-secondary to-brand-700 text-white'
                       : 'block card-elevated p-4 surface-interactive hover:border-brand-200'
                   }
                 >

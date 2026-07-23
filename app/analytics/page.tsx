@@ -166,7 +166,7 @@ export default function AnalyticsPage() {
               <SignalBar label="严重" value={metrics.insightCounts.critical} max={Math.max(1, ...Object.values(metrics.insightCounts))} color="bg-danger" />
               <SignalBar label="注意" value={metrics.insightCounts.warning} max={Math.max(1, ...Object.values(metrics.insightCounts))} color="bg-warning" />
               <SignalBar label="信息" value={metrics.insightCounts.info} max={Math.max(1, ...Object.values(metrics.insightCounts))} color="bg-info" />
-              <SignalBar label="正向" value={metrics.insightCounts.positive} max={Math.max(1, ...Object.values(metrics.insightCounts))} color="bg-emerald-500" />
+              <SignalBar label="正向" value={metrics.insightCounts.positive} max={Math.max(1, ...Object.values(metrics.insightCounts))} color="bg-success" />
             </div>
             <div className="mt-3 text-footnote text-ink-tertiary">
               详情见 <a href="/insights" className="text-brand-600 hover:underline">/insights</a>
@@ -234,7 +234,7 @@ export default function AnalyticsPage() {
                           <div className="h-2 bg-surface-3 rounded overflow-hidden">
                             <div
                               className={`h-full ${
-                                d.avg >= 70 ? 'bg-emerald-500' : d.avg >= 40 ? 'bg-warning' : 'bg-danger'
+                                d.avg >= 70 ? 'bg-success' : d.avg >= 40 ? 'bg-warning' : 'bg-danger'
                               }`}
                               style={{ width: `${d.avg}%` }}
                             />
@@ -268,7 +268,7 @@ function KpiCard({
 }) {
   const toneColor =
     tone === 'good'
-      ? 'text-emerald-600'
+      ? 'text-success'
       : tone === 'warn'
       ? 'text-warning'
       : 'text-danger';

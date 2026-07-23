@@ -119,8 +119,8 @@ export default function NineBoxPage() {
       </div>
 
       {error && (
-        <Card className="border-rose-200 bg-rose-50/40">
-          <CardContent className="flex items-center gap-2 py-3 text-caption text-rose-700">
+        <Card className="border-danger/30 bg-danger/5">
+          <CardContent className="flex items-center gap-2 py-3 text-caption text-danger">
             <AlertTriangle className="h-4 w-4" /> 加载失败: {error} (已 fallback 到 demo 数据)
           </CardContent>
         </Card>
@@ -213,9 +213,9 @@ function Stat({
 }) {
   const cls =
     accent === 'rose'
-      ? 'text-rose-600'
+      ? 'text-danger'
       : accent === 'emerald'
-      ? 'text-emerald-600'
+      ? 'text-success'
       : 'text-foreground';
   return (
     <Card>

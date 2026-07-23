@@ -84,7 +84,7 @@ function RegisterInner() {
   }
 
   return (
-    <main className="min-h-screen flex flex-col md:flex-row items-center justify-center bg-gradient-to-br from-slate-50 to-amber-50 px-4">
+    <main className="min-h-screen flex flex-col md:flex-row items-center justify-center bg-gradient-to-br from-surface-2 to-warning/10 px-4">
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>使用邀请码注册 Tandem</CardTitle>
@@ -143,11 +143,11 @@ function RegisterInner() {
                   className={`h-1.5 flex-1 rounded ${
                     i <= strength
                       ? strength >= 3
-                        ? 'bg-emerald-500'
+                        ? 'bg-success'
                         : strength === 2
                         ? 'bg-warning/50'
-                        : 'bg-rose-400'
-                      : 'bg-slate-200'
+                        : 'bg-danger/30'
+                      : 'bg-surface-3'
                   }`}
                 />
               ))}
@@ -158,10 +158,10 @@ function RegisterInner() {
               </p>
             )}
 
-            {error && <p className="text-caption text-rose-600">{error}</p>}
+            {error && <p className="text-caption text-danger">{error}</p>}
 
             {/* PIPL/GDPR consent */}
-            <label className="flex items-start gap-2 rounded border bg-slate-50 p-2.5 text-footnote leading-relaxed text-slate-700 cursor-pointer hover:bg-slate-100 transition">
+            <label className="flex items-start gap-2 rounded border bg-surface-2 p-2.5 text-footnote leading-relaxed text-ink-secondary cursor-pointer hover:bg-surface-3 transition">
               <input
                 type="checkbox"
                 checked={consented}
@@ -175,7 +175,7 @@ function RegisterInner() {
                   href="/privacy"
                   target="_blank"
                   rel="noreferrer"
-                  className="text-emerald-700 underline"
+                  className="text-success underline"
                 >
                   《Tandem 隐私政策》 ({PRIVACY_POLICY_VERSION})
                 </a>{' '}·
@@ -194,7 +194,7 @@ function RegisterInner() {
               </Link>
             </p>
 
-            <div className="rounded border bg-emerald-50 p-2 text-footnote text-emerald-800">
+            <div className="rounded border bg-success/10 p-2 text-footnote text-success">
               💚 Tandem 私有化: 注册数据 100% 在你公司内, 离开网络也能用. 自研身份系统, 不依赖任何第三方.
             </div>
           </form>

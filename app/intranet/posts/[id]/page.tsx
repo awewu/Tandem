@@ -116,7 +116,7 @@ export default function IntranetPostPage() {
               {CATEGORY_LABEL[cat]}
             </span>
             {post.mandatoryRead && (
-              <span className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-semibold bg-rose-50 text-rose-700">
+              <span className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-semibold bg-danger/5 text-danger">
                 强制已读
               </span>
             )}
@@ -186,7 +186,7 @@ export default function IntranetPostPage() {
                 type="button"
                 onClick={ackRead}
                 disabled={acking}
-                className="inline-flex items-center gap-1.5 rounded-md bg-rose-600 px-4 py-2 text-caption font-medium text-white hover:bg-rose-700 disabled:opacity-50 surface-interactive"
+                className="inline-flex items-center gap-1.5 rounded-md bg-danger/80 px-4 py-2 text-caption font-medium text-white hover:bg-danger/70 disabled:opacity-50 surface-interactive"
               >
                 <CheckCircle2 className="h-4 w-4" /> {acking ? '提交中…' : '我已知晓'}
               </button>

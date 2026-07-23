@@ -59,9 +59,9 @@ export default function BitableHomePage() {
     <div className="max-w-5xl mx-auto p-6">
       <div className="mb-6">
         <h1 className="text-title-3 font-bold flex items-center gap-2">
-          <TableIcon className="h-6 w-6 text-emerald-600" /> 多维表格 (Bitable)
+          <TableIcon className="h-6 w-6 text-success" /> 多维表格 (Bitable)
         </h1>
-        <p className="text-caption text-slate-500 mt-1">轻量飞书 Bitable 替代 · 表格 / 看板 / 日历视图</p>
+        <p className="text-caption text-ink-tertiary mt-1">轻量飞书 Bitable 替代 · 表格 / 看板 / 日历视图</p>
       </div>
 
       <div className="mb-6 flex gap-2">
@@ -83,9 +83,9 @@ export default function BitableHomePage() {
       </div>
 
       {loading ? (
-        <div className="text-center py-12 text-slate-400">加载中…</div>
+        <div className="text-center py-12 text-ink-tertiary">加载中…</div>
       ) : tables.length === 0 ? (
-        <div className="text-center py-12 text-slate-400 text-caption space-y-3">
+        <div className="text-center py-12 text-ink-tertiary text-caption space-y-3">
           <div>还没有表格。新建一个，或一键载入示例模板。</div>
           <Button variant="outline" onClick={seedTemplates} disabled={seeding}>
             {seeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <TableIcon className="h-4 w-4" />}
@@ -98,11 +98,11 @@ export default function BitableHomePage() {
             <Link
               key={t.id}
               href={`/bitable/${t.id}`}
-              className="block rounded-lg border border-slate-200 bg-white p-4 hover:border-emerald-400 hover:shadow-soft transition"
+              className="block rounded-lg border border-border bg-white p-4 hover:border-success/50 hover:shadow-soft transition"
             >
               <div className="font-semibold">{t.name}</div>
-              {t.description && <div className="text-footnote text-slate-500 mt-1">{t.description}</div>}
-              <div className="mt-3 flex items-center justify-between text-footnote text-slate-400">
+              {t.description && <div className="text-footnote text-ink-tertiary mt-1">{t.description}</div>}
+              <div className="mt-3 flex items-center justify-between text-footnote text-ink-tertiary">
                 <span>{t.columns.length} 列 · {t.rows.length} 行</span>
                 <span>{new Date(t.updatedAt).toLocaleDateString()}</span>
               </div>

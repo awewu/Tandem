@@ -206,7 +206,7 @@ export function DriveShareDialog({
               {read.map((p) => (
                 <Badge key={p} variant="secondary" className="gap-1">
                   {labelFor(p, depts)}
-                  {write.includes(p) && <span className="text-[10px] text-emerald-600">·写</span>}
+                  {write.includes(p) && <span className="text-[10px] text-success">·写</span>}
                   <button aria-label="移除" onClick={() => removePrincipal(p)} className="ml-0.5 hover:text-danger">
                     <X className="h-3 w-3" />
                   </button>

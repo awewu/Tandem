@@ -55,15 +55,15 @@ import {
 import { cn } from '@/lib/utils';
 
 const PILLAR_BADGE: Record<GovernancePillar, string> = {
-  decision: 'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-900/20 dark:text-violet-300',
+  decision: 'bg-brand-50 text-brand-700 border-brand-200 dark:bg-brand-900/20 dark:text-brand-600',
   review: 'bg-warning/10 text-warning border-warning/30 dark:bg-warning/15 dark:text-warning',
-  execution: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300',
+  execution: 'bg-success/10 text-success border-success/30 dark:bg-success/50 dark:text-success',
 };
 
 const RACI_BADGE: Record<RaciTag, string> = {
-  R: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  A: 'bg-rose-50 text-rose-700 border-rose-200',
-  C: 'bg-sky-50 text-sky-700 border-sky-200',
+  R: 'bg-success/10 text-success border-success/30',
+  A: 'bg-danger/5 text-danger border-danger/30',
+  C: 'bg-info/10 text-info border-info/30',
   I: 'bg-warning/10 text-warning border-warning/30',
   O: 'bg-muted text-muted-foreground border-border',
 };
@@ -194,9 +194,9 @@ export default function ThreeDepartmentsPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Hero · 概念锚定 */}
-      <header className="border-b bg-gradient-to-r from-violet-50/60 via-amber-50/40 to-emerald-50/40 dark:from-violet-900/10 dark:via-amber-900/5 dark:to-emerald-900/10 px-6 py-3">
+      <header className="border-b bg-gradient-to-r from-brand-50/60 via-warning/10 to-success/10 dark:from-brand-900/10 dark:via-warning/50 dark:to-success/50 px-6 py-3">
         <div className="max-w-6xl mx-auto flex flex-wrap items-center gap-3">
-          <Network className="w-5 h-5 text-violet-600 shrink-0" />
+          <Network className="w-5 h-5 text-brand-700 shrink-0" />
           <div className="flex-1 min-w-[280px]">
             <div className="text-caption font-semibold flex items-center gap-2 flex-wrap">
               治理层级 · 执行协同
@@ -207,7 +207,7 @@ export default function ThreeDepartmentsPage() {
             <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
               <strong>事业项目 / 重大公司级工作 / 执行项目组</strong>的协同骨架 · 事业部 (提案) →
               企业决策层 (审议) → 执行 BU (落地) · 锚定 OKR 战略执行 ·{' '}
-              <Link href="/admin/organization" className="text-violet-600 hover:underline">
+              <Link href="/admin/organization" className="text-brand-700 hover:underline">
                 员工部门 (HR) →
               </Link>
             </p>
@@ -782,7 +782,7 @@ function NewProjectDialog({
             </Select>
           </div>
           {error && (
-            <p className="text-footnote text-rose-600 bg-rose-50 dark:bg-rose-900/10 px-2 py-1.5 rounded">
+            <p className="text-footnote text-danger bg-danger/5 dark:bg-danger/50 px-2 py-1.5 rounded">
               {error}
             </p>
           )}
@@ -906,7 +906,7 @@ function LinksDrawer({
         <div className="flex items-center justify-between px-4 py-3 border-b">
           <div>
             <div className="text-caption font-semibold flex items-center gap-2">
-              <LinkIcon className="w-4 h-4 text-violet-600" />
+              <LinkIcon className="w-4 h-4 text-brand-700" />
               闭环看板
             </div>
             <div className="text-[11px] text-muted-foreground mt-0.5 truncate max-w-[280px]">
@@ -943,7 +943,7 @@ function LinksDrawer({
                     className="flex items-center justify-between px-2 py-1.5 rounded bg-muted/40 text-footnote"
                   >
                     <span className="flex items-center gap-1.5 min-w-0">
-                      <TargetIcon className="w-3 h-3 shrink-0 text-emerald-600" />
+                      <TargetIcon className="w-3 h-3 shrink-0 text-success" />
                       <span className="truncate">{o?.title ?? id}</span>
                       {!o && (
                         <Badge variant="outline" className="text-[9px]">
@@ -994,7 +994,7 @@ function LinksDrawer({
             {okrItems.length === 0 && (
               <p className="text-[10px] text-muted-foreground mt-2">
                 还没创建 OKR ?{' '}
-                <Link href="/okr" className="text-violet-600 hover:underline">
+                <Link href="/okr" className="text-brand-700 hover:underline">
                   去 /okr →
                 </Link>
               </p>
@@ -1019,7 +1019,7 @@ function LinksDrawer({
                     className="flex items-center justify-between px-2 py-1.5 rounded bg-muted/40 text-footnote"
                   >
                     <span className="flex items-center gap-1.5 min-w-0">
-                      <GitMerge className="w-3 h-3 shrink-0 text-violet-600" />
+                      <GitMerge className="w-3 h-3 shrink-0 text-brand-700" />
                       <span className="truncate">{d?.title ?? id}</span>
                       {d?.state && (
                         <Badge variant="outline" className="text-[9px]">
@@ -1075,7 +1075,7 @@ function LinksDrawer({
             {decisionPool.length === 0 && (
               <p className="text-[10px] text-muted-foreground mt-2">
                 还没有议事室 ?{' '}
-                <Link href="/convergence" className="text-violet-600 hover:underline">
+                <Link href="/convergence" className="text-brand-700 hover:underline">
                   去 /convergence →
                 </Link>
               </p>

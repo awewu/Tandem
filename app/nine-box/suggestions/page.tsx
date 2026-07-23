@@ -83,20 +83,20 @@ type CardCreateState =
 
 const CELL_META: Record<Cell, { label: string; emoji: string; color: string }> = {
   star: { label: '明星', emoji: '⭐', color: 'bg-warning/5 text-warning border-warning/20' },
-  high_performer: { label: '高产', emoji: '🚀', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  risk_burnout: { label: '风险枯萎', emoji: '⚠️', color: 'bg-rose-50 text-rose-700 border-rose-200' },
-  rising_talent: { label: '升星人才', emoji: '🌱', color: 'bg-sky-50 text-sky-700 border-sky-200' },
+  high_performer: { label: '高产', emoji: '🚀', color: 'bg-success/10 text-success border-success/30' },
+  risk_burnout: { label: '风险枯萎', emoji: '⚠️', color: 'bg-danger/5 text-danger border-danger/30' },
+  rising_talent: { label: '升星人才', emoji: '🌱', color: 'bg-info/10 text-info border-info/30' },
   core: { label: '核心力量', emoji: '🧱', color: 'bg-surface-1 text-ink-primary border' },
   plateau: { label: '平台期', emoji: '➖', color: 'bg-surface-1 text-ink-secondary border' },
-  mismatch: { label: '人岗错位', emoji: '🔄', color: 'bg-violet-50 text-violet-700 border-violet-200' },
+  mismatch: { label: '人岗错位', emoji: '🔄', color: 'bg-brand-50 text-brand-700 border-brand-200' },
   low_engagement: { label: '投入不足', emoji: '😴', color: 'bg-warning/5 text-warning border-warning/20' },
-  must_intervene: { label: '必须干预', emoji: '🚨', color: 'bg-rose-100 text-rose-800 border-rose-300' },
+  must_intervene: { label: '必须干预', emoji: '🚨', color: 'bg-danger/10 text-danger border-danger/40' },
 };
 
 const PRIORITY_META: Record<Priority, { label: string; color: string; rank: number }> = {
-  urgent: { label: '紧急', color: 'bg-rose-100 text-rose-800 border-rose-300', rank: 0 },
+  urgent: { label: '紧急', color: 'bg-danger/10 text-danger border-danger/40', rank: 0 },
   high: { label: '高', color: 'bg-warning/5 text-warning border-warning/20', rank: 1 },
-  medium: { label: '中', color: 'bg-sky-50 text-sky-700 border-sky-200', rank: 2 },
+  medium: { label: '中', color: 'bg-info/10 text-info border-info/30', rank: 2 },
   low: { label: '低', color: 'bg-surface-1 text-ink-secondary border', rank: 3 },
 };
 
@@ -234,8 +234,8 @@ export default function NineBoxSuggestionsPage() {
       </header>
 
       {error && (
-        <Card className="border-rose-200 bg-rose-50">
-          <CardContent className="py-3 text-caption text-rose-700 flex items-center gap-2">
+        <Card className="border-danger/30 bg-danger/5">
+          <CardContent className="py-3 text-caption text-danger flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />
             {error}
           </CardContent>
@@ -350,7 +350,7 @@ export default function NineBoxSuggestionsPage() {
                         <div className="flex items-center gap-2">
                           <Icon
                             className={`h-4 w-4 ${
-                              a.kind === 'persona_upgrade' ? 'text-warning' : 'text-rose-600'
+                              a.kind === 'persona_upgrade' ? 'text-warning' : 'text-danger'
                             }`}
                           />
                           <span className="font-medium text-caption">{a.title}</span>
@@ -366,7 +366,7 @@ export default function NineBoxSuggestionsPage() {
                           </div>
                         )}
                         {cardState.status === 'error' && (
-                          <div className="text-footnote text-rose-600">
+                          <div className="text-footnote text-danger">
                             创建失败: {cardState.message}
                           </div>
                         )}
@@ -383,7 +383,7 @@ export default function NineBoxSuggestionsPage() {
                         ) : cardState.status === 'ok' ? (
                           <a
                             href={`/convergence/${cardState.cardId}`}
-                            className="text-caption text-emerald-700 inline-flex items-center gap-1 hover:underline"
+                            className="text-caption text-success inline-flex items-center gap-1 hover:underline"
                           >
                             <CheckCircle2 className="h-3.5 w-3.5" />
                             进议事室

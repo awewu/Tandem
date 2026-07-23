@@ -111,7 +111,7 @@ function TabItem({ tab, pathname }: { tab: Tab; pathname: string }) {
         'text-[10px] font-medium transition-colors',
         active
           ? 'text-ink-primary dark:text-white'
-          : 'text-slate-400 dark:text-white/40',
+          : 'text-ink-tertiary dark:text-white/40',
       )}
     >
       <Icon className="h-[22px] w-[22px]" strokeWidth={active ? 2.2 : 1.8} />
@@ -138,7 +138,7 @@ export function MobileTabBar() {
           'mobile-tab-bar md:hidden',
           'fixed inset-x-0 bottom-0 z-40',
           'flex items-stretch',
-          'border-t border-slate-200/80 bg-white transition-[transform,opacity] duration-200',
+          'border-t border-border/80 bg-white transition-[transform,opacity] duration-200',
           'pb-[var(--capacitor-safe-area-bottom,env(safe-area-inset-bottom,0px))]',
           'h-[calc(56px+var(--capacitor-safe-area-bottom,env(safe-area-inset-bottom,0px)))]',
           'dark:bg-[rgb(var(--rheem-charcoal))] dark:border-white/10',
@@ -158,7 +158,7 @@ export function MobileTabBar() {
         'mobile-tab-bar md:hidden',
         'fixed inset-x-0 bottom-0 z-40',
         'flex items-stretch',
-        'border-t border-slate-200/80 bg-white transition-[transform,opacity] duration-200',
+        'border-t border-border/80 bg-white transition-[transform,opacity] duration-200',
         'pb-[var(--capacitor-safe-area-bottom,env(safe-area-inset-bottom,0px))]',
         'h-[calc(56px+var(--capacitor-safe-area-bottom,env(safe-area-inset-bottom,0px)))]',
         'dark:bg-[rgb(var(--rheem-charcoal))] dark:border-white/10',
@@ -192,7 +192,7 @@ export function MobileTabBar() {
         <span
           className={cn(
             'pb-1 text-[10px] font-medium leading-none',
-            centerActive ? 'text-ink-primary' : 'text-slate-400',
+            centerActive ? 'text-ink-primary' : 'text-ink-tertiary',
           )}
         >
           日报

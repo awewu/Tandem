@@ -127,14 +127,14 @@ interface Consistency {
 }
 
 function scoreColor(score: number): string {
-  if (score >= 50) return 'text-rose-600';
+  if (score >= 50) return 'text-danger';
   if (score >= 25) return 'text-warning';
-  return 'text-emerald-600';
+  return 'text-success';
 }
 function scoreBg(score: number): string {
-  if (score >= 50) return 'bg-rose-500';
+  if (score >= 50) return 'bg-danger';
   if (score >= 25) return 'bg-warning';
-  return 'bg-emerald-500';
+  return 'bg-success';
 }
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 const yuan = (n: number) => `${Math.round(n).toLocaleString()} 元`;
@@ -211,8 +211,8 @@ export default function CrossRollupPage() {
       </div>
 
       {error && (
-        <Card className="border-rose-200">
-          <CardContent className="py-4 text-rose-600 text-footnote flex items-center gap-2">
+        <Card className="border-danger/30">
+          <CardContent className="py-4 text-danger text-footnote flex items-center gap-2">
             <AlertTriangle className="w-4 h-4" /> {error}
           </CardContent>
         </Card>
@@ -274,10 +274,10 @@ export default function CrossRollupPage() {
                   <div
                     className={`text-title1 font-bold tabular-nums ${
                       consistency.summary.consistencyScore >= 60
-                        ? 'text-emerald-600'
+                        ? 'text-success'
                         : consistency.summary.consistencyScore >= 30
                         ? 'text-warning'
-                        : 'text-rose-600'
+                        : 'text-danger'
                     }`}
                   >
                     {consistency.summary.consistencyScore}
@@ -380,7 +380,7 @@ export default function CrossRollupPage() {
                       <Badge variant="outline" className="text-caption2 flex-shrink-0">
                         {p.businessUnit}
                       </Badge>
-                      <Badge variant="outline" className="text-caption2 flex-shrink-0 border-sky-200 text-sky-700">
+                      <Badge variant="outline" className="text-caption2 flex-shrink-0 border-info/30 text-info">
                         {CELL_LABEL[p.cell] ?? p.cell}
                       </Badge>
                     </div>

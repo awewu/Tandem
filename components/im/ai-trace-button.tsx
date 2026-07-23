@@ -79,7 +79,7 @@ export function AiTraceButton({ messageId }: { messageId: string }) {
       <button
         type="button"
         onClick={handleOpen}
-        className="flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-indigo-700 shadow-soft ring-1 ring-indigo-300/80 transition hover:bg-indigo-50 hover:shadow-soft-lg"
+        className="flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-info shadow-soft ring-1 ring-info/40 transition hover:bg-info/10 hover:shadow-soft-lg"
         title="AI 回复透明化 (Tandem 差异化 — 飞书 AI 是黑盒)"
       >
         <Search className="h-3 w-3" />
@@ -117,7 +117,7 @@ export function AiTraceButton({ messageId }: { messageId: string }) {
             )}
 
             {err && (
-              <div className="rounded-md bg-rose-50 px-3 py-2 text-[12px] text-rose-700">
+              <div className="rounded-md bg-danger/5 px-3 py-2 text-[12px] text-danger">
                 ⚠️ {err}
               </div>
             )}
@@ -153,10 +153,10 @@ export function AiTraceButton({ messageId }: { messageId: string }) {
                     <dd className="text-ink-primary">{data.trace.latencyMs?.toLocaleString() ?? 0} ms</dd>
 
                     <dt className="text-ink-secondary">成本估算</dt>
-                    <dd className="text-emerald-700">{fmtCost(data.trace.costUsd)}</dd>
+                    <dd className="text-success">{fmtCost(data.trace.costUsd)}</dd>
 
                     <dt className="text-ink-secondary">状态</dt>
-                    <dd className={data.trace.success ? 'text-emerald-700' : 'text-rose-700'}>
+                    <dd className={data.trace.success ? 'text-success' : 'text-danger'}>
                       {data.trace.success ? '✓ 成功' : `✗ 失败 ${data.trace.errorMessage ?? ''}`}
                     </dd>
 

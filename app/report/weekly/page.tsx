@@ -275,12 +275,12 @@ export default function WeeklyRecapPage() {
             <StatCard
               label="累计进度增量"
               value={`${data.stats.progressIncrement >= 0 ? '+' : ''}${data.stats.progressIncrement}`}
-              color={data.stats.progressIncrement >= 0 ? 'text-emerald-600' : 'text-rose-600'}
+              color={data.stats.progressIncrement >= 0 ? 'text-success' : 'text-danger'}
             />
             <StatCard
               label="卡点条数"
               value={String(data.stats.blockersCount)}
-              color={data.stats.blockersCount > 0 ? 'text-warning' : 'text-emerald-600'}
+              color={data.stats.blockersCount > 0 ? 'text-warning' : 'text-success'}
             />
           </div>
 
@@ -288,10 +288,10 @@ export default function WeeklyRecapPage() {
           <Card>
             <CardContent className="p-5 space-y-4">
               <div className="flex items-center gap-2">
-                <span className="text-caption font-semibold text-slate-800">AI 周报汇总</span>
+                <span className="text-caption font-semibold text-ink-primary">AI 周报汇总</span>
                 {data.summary === '' && loading ? (
-                  <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-indigo-600">
-                    <span className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                  <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-info">
+                    <span className="h-1.5 w-1.5 rounded-full bg-info animate-pulse" />
                     流式生成中
                   </span>
                 ) : (
@@ -300,7 +300,7 @@ export default function WeeklyRecapPage() {
                     className={cn(
                       'ml-auto text-[10px] border',
                       data.source === 'llm'
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        ? 'bg-success/10 text-success border-success/30'
                         : 'bg-warning/5 text-warning border-warning/20',
                     )}
                     title={data.reason}
@@ -311,24 +311,24 @@ export default function WeeklyRecapPage() {
               </div>
 
               {data.summary === '' && loading ? (
-                <pre className="text-[11px] leading-relaxed text-slate-700 whitespace-pre-wrap font-mono max-h-[320px] overflow-y-auto bg-slate-50 rounded p-3 border border-slate-100">
+                <pre className="text-[11px] leading-relaxed text-ink-secondary whitespace-pre-wrap font-mono max-h-[320px] overflow-y-auto bg-surface-2 rounded p-3 border border-border">
                   {streamingText || '正在等待 LLM 首个 token…'}
-                  <span className="inline-block w-1.5 h-3 ml-0.5 bg-indigo-500 animate-pulse align-middle" />
+                  <span className="inline-block w-1.5 h-3 ml-0.5 bg-info animate-pulse align-middle" />
                 </pre>
               ) : (
                 <>
-                  <p className="text-caption text-slate-800 leading-relaxed">{data.summary}</p>
+                  <p className="text-caption text-ink-primary leading-relaxed">{data.summary}</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-footnote">
-                    <Section icon={<TrendingUp className="h-3.5 w-3.5 text-emerald-500" />} title="Highlights · 亮点">
+                    <Section icon={<TrendingUp className="h-3.5 w-3.5 text-success" />} title="Highlights · 亮点">
                       {data.highlights}
                     </Section>
                     <Section icon={<AlertTriangle className="h-3.5 w-3.5 text-warning" />} title="Concerns · 关注">
                       {data.concerns}
                     </Section>
-                    <Section icon={<AlertCircle className="h-3.5 w-3.5 text-rose-500" />} title="Blockers · 卡点">
+                    <Section icon={<AlertCircle className="h-3.5 w-3.5 text-danger" />} title="Blockers · 卡点">
                       {data.blockers}
                     </Section>
-                    <Section icon={<Zap className="h-3.5 w-3.5 text-indigo-500" />} title="Next Week · 下周重点">
+                    <Section icon={<Zap className="h-3.5 w-3.5 text-info" />} title="Next Week · 下周重点">
                       {data.nextWeekFocus}
                     </Section>
                   </div>
@@ -341,8 +341,8 @@ export default function WeeklyRecapPage() {
           {data.checkIns.length > 0 && (
             <Card>
               <CardContent className="p-0">
-                <div className="px-5 py-3 border-b flex items-center gap-2 text-footnote font-semibold text-slate-800 bg-slate-50/50">
-                  <CheckSquare className="h-3.5 w-3.5 text-indigo-600" />
+                <div className="px-5 py-3 border-b flex items-center gap-2 text-footnote font-semibold text-ink-primary bg-surface-2/50">
+                  <CheckSquare className="h-3.5 w-3.5 text-info" />
                   本周行动项计划 (AP) 智能核销对账
                 </div>
                 <div className="p-4 space-y-3">
@@ -355,21 +355,21 @@ export default function WeeklyRecapPage() {
                       return (
                         <div key={c.id} className="p-3 rounded border text-footnote flex items-start gap-4">
                           <div className="space-y-1 flex-1">
-                            <div className="font-bold text-slate-800">{c.krTitle}</div>
+                            <div className="font-bold text-ink-primary">{c.krTitle}</div>
                             {c.achievements && (
-                              <p className="text-[11px] text-slate-600 flex items-center gap-1">
-                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                              <p className="text-[11px] text-ink-secondary flex items-center gap-1">
+                                <span className="h-1.5 w-1.5 rounded-full bg-success shrink-0" />
                                 成果：{c.achievements}
                               </p>
                             )}
                             {c.nextSteps && (
-                              <p className="text-[11px] text-slate-500 flex items-center gap-1">
-                                <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 shrink-0" />
+                              <p className="text-[11px] text-ink-tertiary flex items-center gap-1">
+                                <span className="h-1.5 w-1.5 rounded-full bg-info/30 shrink-0" />
                                 计划：{c.nextSteps}
                               </p>
                             )}
                           </div>
-                          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] self-center shrink-0">
+                          <Badge variant="outline" className="bg-success/10 text-success border-success/30 text-[10px] self-center shrink-0">
                             已自动核销对账
                           </Badge>
                         </div>
@@ -407,7 +407,7 @@ export default function WeeklyRecapPage() {
                           <td className="px-3 py-2 text-right tabular-nums">{k.checkIns}</td>
                           <td className={cn(
                             'px-3 py-2 text-right tabular-nums font-medium',
-                            k.progressDelta >= 0 ? 'text-emerald-600' : 'text-rose-600',
+                            k.progressDelta >= 0 ? 'text-success' : 'text-danger',
                           )}>
                             {k.progressDelta >= 0 ? '+' : ''}{k.progressDelta}
                           </td>
@@ -438,7 +438,7 @@ export default function WeeklyRecapPage() {
                   {data.checkIns.map((c) => (
                     <div key={c.id} className="px-5 py-3 text-footnote space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-slate-800">{c.krTitle}</span>
+                        <span className="font-medium text-ink-primary">{c.krTitle}</span>
                         <span className="text-muted-foreground">
                           {c.progressBefore} → {c.progressAfter}
                         </span>
@@ -448,10 +448,10 @@ export default function WeeklyRecapPage() {
                         </span>
                       </div>
                       {c.achievements && (
-                        <DetailLine label="成果" text={c.achievements} color="text-emerald-700" />
+                        <DetailLine label="成果" text={c.achievements} color="text-success" />
                       )}
                       {c.blockers && <DetailLine label="卡点" text={c.blockers} color="text-warning" />}
-                      {c.nextSteps && <DetailLine label="下一步" text={c.nextSteps} color="text-indigo-700" />}
+                      {c.nextSteps && <DetailLine label="下一步" text={c.nextSteps} color="text-info" />}
                     </div>
                   ))}
                 </div>
@@ -483,7 +483,7 @@ function StatCard({ label, value, sub, color }: { label: string; value: string; 
 function Section({ icon, title, children }: { icon: React.ReactNode; title: string; children: string[] }) {
   return (
     <div className="space-y-1.5">
-      <p className="font-semibold flex items-center gap-1 text-slate-700">
+      <p className="font-semibold flex items-center gap-1 text-ink-secondary">
         {icon}
         {title}
       </p>
@@ -491,8 +491,8 @@ function Section({ icon, title, children }: { icon: React.ReactNode; title: stri
         <p className="text-[11px] text-muted-foreground pl-4">—</p>
       ) : (
         children.map((line, i) => (
-          <p key={i} className="text-[11px] text-slate-600 pl-4">
-            <CornerDownRight className="h-3 w-3 inline text-slate-400 mr-1" />
+          <p key={i} className="text-[11px] text-ink-secondary pl-4">
+            <CornerDownRight className="h-3 w-3 inline text-ink-tertiary mr-1" />
             {line}
           </p>
         ))
@@ -504,10 +504,10 @@ function Section({ icon, title, children }: { icon: React.ReactNode; title: stri
 function ConfidencePill({ v }: { v: string }) {
   const cls =
     v === 'on-track'
-      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+      ? 'bg-success/10 text-success border-success/30'
       : v === 'at-risk'
         ? 'bg-warning/5 text-warning border-warning/20'
-        : 'bg-rose-50 text-rose-700 border-rose-200';
+        : 'bg-danger/5 text-danger border-danger/30';
   const label = v === 'on-track' ? '正常' : v === 'at-risk' ? '关注' : '落后';
   return (
     <span className={cn('inline-flex items-center px-1.5 py-0 rounded border text-[10px]', cls)}>{label}</span>
@@ -516,7 +516,7 @@ function ConfidencePill({ v }: { v: string }) {
 
 function DetailLine({ label, text, color }: { label: string; text: string; color: string }) {
   return (
-    <p className="text-[11px] text-slate-600 pl-3 flex items-start gap-1.5">
+    <p className="text-[11px] text-ink-secondary pl-3 flex items-start gap-1.5">
       <span className={cn('font-semibold shrink-0', color)}>{label}:</span>
       <span className="whitespace-pre-wrap">{text}</span>
     </p>

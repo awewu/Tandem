@@ -361,7 +361,7 @@ export default function PersonaTrainingPage() {
               {/* 总览 */}
               <Card>
                 <CardContent className="p-4 space-y-2">
-                  <div className="flex items-center gap-2 text-footnote font-semibold text-slate-700">
+                  <div className="flex items-center gap-2 text-footnote font-semibold text-ink-secondary">
                     <Database className="h-3.5 w-3.5 text-primary" />
                     分身当前学习的真实数据
                     <Button
@@ -376,15 +376,15 @@ export default function PersonaTrainingPage() {
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-center pt-1">
                     <div className="space-y-0.5">
-                      <div className="text-headline font-bold tabular-nums text-slate-800">{ctx.totals.checkIns}</div>
+                      <div className="text-headline font-bold tabular-nums text-ink-primary">{ctx.totals.checkIns}</div>
                       <div className="text-[10px] text-muted-foreground">日报 check-in</div>
                     </div>
                     <div className="space-y-0.5">
-                      <div className="text-headline font-bold tabular-nums text-slate-800">{ctx.totals.ttis}</div>
+                      <div className="text-headline font-bold tabular-nums text-ink-primary">{ctx.totals.ttis}</div>
                       <div className="text-[10px] text-muted-foreground">TTI 填报</div>
                     </div>
                     <div className="space-y-0.5">
-                      <div className="text-headline font-bold tabular-nums text-slate-800">{ctx.totals.memories}</div>
+                      <div className="text-headline font-bold tabular-nums text-ink-primary">{ctx.totals.memories}</div>
                       <div className="text-[10px] text-muted-foreground">个人 Memory</div>
                     </div>
                   </div>
@@ -409,16 +409,16 @@ export default function PersonaTrainingPage() {
                 <Card>
                   <CardContent className="p-0">
                     <div className="px-4 py-2 border-b text-[10px] font-semibold text-muted-foreground uppercase flex items-center gap-1.5">
-                      <CheckSquare className="h-3 w-3 text-emerald-500" />
+                      <CheckSquare className="h-3 w-3 text-success" />
                       日报 check-in 养料（{ctx.recentCheckIns.length} 条）
                     </div>
                     <div className="divide-y max-h-[260px] overflow-y-auto">
                       {ctx.recentCheckIns.map((c) => (
                         <div key={c.id} className="px-4 py-2.5 text-[11px] space-y-1">
-                          <div className="font-medium text-slate-800">{c.krTitle}</div>
+                          <div className="font-medium text-ink-primary">{c.krTitle}</div>
                           {c.achievements && (
                             <p className="text-muted-foreground">
-                              <span className="text-emerald-600 font-semibold mr-1">成果:</span>
+                              <span className="text-success font-semibold mr-1">成果:</span>
                               {c.achievements}
                             </p>
                           )}
@@ -430,7 +430,7 @@ export default function PersonaTrainingPage() {
                           )}
                           {c.nextSteps && (
                             <p className="text-muted-foreground">
-                              <span className="text-indigo-600 font-semibold mr-1">下一步:</span>
+                              <span className="text-info font-semibold mr-1">下一步:</span>
                               {c.nextSteps}
                             </p>
                           )}
@@ -449,7 +449,7 @@ export default function PersonaTrainingPage() {
                       <Target className="h-3 w-3 text-primary" />
                       TTI 填报养料（{ctx.recentTtis.length} 条）
                     </div>
-                    <ul className="px-4 py-2 space-y-1 text-[11px] text-slate-700">
+                    <ul className="px-4 py-2 space-y-1 text-[11px] text-ink-secondary">
                       {ctx.recentTtis.map((t) => (
                         <li key={t.id} className="truncate">· {t.title}</li>
                       ))}
@@ -463,10 +463,10 @@ export default function PersonaTrainingPage() {
                 <Card>
                   <CardContent className="p-0">
                     <div className="px-4 py-2 border-b text-[10px] font-semibold text-muted-foreground uppercase flex items-center gap-1.5">
-                      <BookOpen className="h-3 w-3 text-indigo-500" />
+                      <BookOpen className="h-3 w-3 text-info" />
                       个人 Memory 养料（{ctx.memoryReferences.length} 条）
                     </div>
-                    <ul className="px-4 py-2 space-y-1 text-[11px] text-slate-700">
+                    <ul className="px-4 py-2 space-y-1 text-[11px] text-ink-secondary">
                       {ctx.memoryReferences.map((m) => (
                         <li key={m.id} className="truncate">
                           <Badge variant="outline" className="mr-1.5 text-[9px]">{m.type}</Badge>
@@ -490,8 +490,8 @@ export default function PersonaTrainingPage() {
         <div className="lg:col-span-7">
           <Card className="flex flex-col h-[640px]">
             <div className="px-4 py-2 border-b flex items-center gap-2">
-              <Sparkles className="h-3.5 w-3.5 text-indigo-500" />
-              <span className="text-footnote font-semibold text-slate-800">训练对话</span>
+              <Sparkles className="h-3.5 w-3.5 text-info" />
+              <span className="text-footnote font-semibold text-ink-primary">训练对话</span>
               <Badge variant="outline" className="ml-auto text-[10px]">
                 场景: persona_dialogue
               </Badge>
@@ -516,7 +516,7 @@ export default function PersonaTrainingPage() {
                     )}
                   >
                     {m.role === 'assistant' && (
-                      <span className="p-1 rounded bg-indigo-100 text-indigo-700 shrink-0 mt-0.5">
+                      <span className="p-1 rounded bg-info/15 text-info shrink-0 mt-0.5">
                         <Brain className="h-3 w-3" />
                       </span>
                     )}
@@ -524,19 +524,19 @@ export default function PersonaTrainingPage() {
                       className={cn(
                         'p-3 rounded-lg max-w-[80%] leading-relaxed',
                         m.role === 'user'
-                          ? 'bg-slate-900 text-white font-medium'
-                          : 'bg-slate-100 text-slate-800',
+                          ? 'bg-ink-primary text-white font-medium'
+                          : 'bg-surface-3 text-ink-primary',
                       )}
                     >
                       <div className="whitespace-pre-wrap">{m.content}</div>
                       {m.role === 'assistant' && (
-                        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-200/70">
+                        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/70">
                           <Badge
                             variant="outline"
                             className={cn(
                               'text-[9px]',
                               m.source === 'llm'
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                ? 'bg-success/10 text-success border-success/30'
                                 : 'bg-warning/5 text-warning border-warning/20',
                             )}
                           >
@@ -549,8 +549,8 @@ export default function PersonaTrainingPage() {
                               onClick={() => handleFeedback(m.id, 'like')}
                               disabled={m.feedback !== null && m.feedback !== undefined}
                               className={cn(
-                                'p-1 rounded hover:bg-emerald-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed',
-                                m.feedback === 'like' && 'bg-emerald-100 text-emerald-700',
+                                'p-1 rounded hover:bg-success/15 transition-colors disabled:opacity-60 disabled:cursor-not-allowed',
+                                m.feedback === 'like' && 'bg-success/15 text-success',
                               )}
                               title="像我的风格"
                             >
@@ -561,8 +561,8 @@ export default function PersonaTrainingPage() {
                               onClick={() => handleFeedback(m.id, 'dislike')}
                               disabled={m.feedback !== null && m.feedback !== undefined}
                               className={cn(
-                                'p-1 rounded hover:bg-rose-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed',
-                                m.feedback === 'dislike' && 'bg-rose-100 text-rose-700',
+                                'p-1 rounded hover:bg-danger/10 transition-colors disabled:opacity-60 disabled:cursor-not-allowed',
+                                m.feedback === 'dislike' && 'bg-danger/10 text-danger',
                               )}
                               title="不像我"
                             >
@@ -577,12 +577,12 @@ export default function PersonaTrainingPage() {
 
                 {streaming && (
                   <div className="flex items-start gap-2 text-footnote">
-                    <span className="p-1 rounded bg-indigo-100 text-indigo-700 shrink-0 mt-0.5">
+                    <span className="p-1 rounded bg-info/15 text-info shrink-0 mt-0.5">
                       <Brain className="h-3 w-3 animate-pulse" />
                     </span>
-                    <div className="p-3 rounded-lg max-w-[80%] bg-slate-100 text-slate-800 leading-relaxed whitespace-pre-wrap">
+                    <div className="p-3 rounded-lg max-w-[80%] bg-surface-3 text-ink-primary leading-relaxed whitespace-pre-wrap">
                       {streamingText || '正在等待 LLM 首个 token…'}
-                      <span className="inline-block w-1.5 h-3 ml-0.5 bg-indigo-500 animate-pulse align-middle" />
+                      <span className="inline-block w-1.5 h-3 ml-0.5 bg-info animate-pulse align-middle" />
                     </div>
                   </div>
                 )}

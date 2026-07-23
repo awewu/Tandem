@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * §CHARTER-UI-V1 lint · 扫描 raw Tailwind 违规
+ * §CHARTER-UI-V2 lint · 扫描 raw Tailwind 违规 + 内联 hex 色值
  *
  * 不依赖 ESLint plugin (零安装). 直接 ripgrep-style 扫 *.tsx.
  *
@@ -16,6 +16,7 @@
  * 维护:
  *   - 每条规则 = { pattern, hint }
  *   - allowlist 是已知遗留, 应逐步清零
+ *   - V2 (2026-07-23): 覆盖全 Tailwind 调色板 (20+ 色) + 内联 hex 色值
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -30,28 +31,24 @@ const HINT = args.has('--fix-hint');
 // ─────────────────────────────────────────────────────────────────────
 const RULES = [
   {
-    name: 'no-raw-zinc-color',
-    pattern: /\b(?:text|bg|border|ring)-zinc-\d+/g,
-    hint: '走 text-ink-{primary,secondary,tertiary} / surface-card / border via CSS var',
+    name: 'no-raw-palette-color',
+    pattern: /\b(?:text|bg|border|ring|from|to|via)-(?:blue|violet|cyan|slate|sky|emerald|rose|purple|indigo|fuchsia|pink|orange|teal|lime|green|red|amber|yellow|gray|grey|neutral|stone|zinc)-\d+/g,
+    hint: '走 design tokens: text-ink-* / text-{success,danger,warning,info} / bg-surface-* / bg-{success,danger,warning,info}/* / bg-brand-* / border-border / ring-* (charter §1.4)',
     severity: 'error',
   },
   {
-    name: 'no-raw-red-semantic',
-    pattern: /\b(?:text|bg|border)-red-\d+/g,
-    hint: '走 text-danger / bg-danger/5 / border-danger (charter §1.4 semantic)',
+    name: 'no-inline-hex-color',
+    pattern: /#[0-9a-fA-F]{6}\b/g,
+    hint: '走 CSS variable: rgb(var(--info)) / rgb(var(--success)) / rgb(var(--brand-500)) 等 (charter §1.4). 注意: Next.js viewport themeColor hex 豁免.',
     severity: 'error',
-  },
-  {
-    name: 'no-raw-green-semantic',
-    pattern: /\b(?:text|bg|border)-green-\d+/g,
-    hint: '走 text-success / bg-success/5 (charter §1.4)',
-    severity: 'error',
-  },
-  {
-    name: 'no-raw-amber-semantic',
-    pattern: /\b(?:text|bg|border)-amber-\d+/g,
-    hint: '走 text-warning / bg-warning/5 (charter §1.4)',
-    severity: 'error',
+    allowlist: new Set([
+      'app/layout.tsx',
+      'app/shouchao/layout.tsx',
+      'app/hub/layout.tsx',
+      'app/design/page.tsx',
+      'app/api/integrations/yonyou/sso/route.ts',
+      'components/capacitor-shell.tsx',
+    ]),
   },
   {
     name: 'no-raw-text-size',

@@ -39,18 +39,18 @@ const RATER_LABEL: Record<Review360RaterType, string> = {
 };
 
 const RATER_COLOR: Record<Review360RaterType, string> = {
-  self: 'bg-violet-100 text-violet-700',
+  self: 'bg-brand-100 text-brand-700',
   manager: 'bg-info/10 text-info',
-  peer: 'bg-emerald-100 text-emerald-700',
+  peer: 'bg-success/15 text-success',
   report: 'bg-warning/10 text-warning',
-  cross: 'bg-slate-100 text-slate-700',
+  cross: 'bg-surface-3 text-ink-secondary',
 };
 
 export default function Review360Page() {
   const [tab, setTab] = useState<'cycles' | 'todo' | 'received'>('todo');
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-surface-2">
       <div className="max-w-5xl mx-auto px-6 py-6">
         <div className="mb-5">
           <h1 className="text-title-3 font-semibold flex items-center gap-2">
@@ -198,15 +198,15 @@ function TodoTab() {
       {myDone.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-caption text-emerald-700">已完成 ({myDone.length})</CardTitle>
+            <CardTitle className="text-caption text-success">已完成 ({myDone.length})</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1">
             {myDone.map((a) => {
               const c = cycleById.get(a.cycleId);
               return (
-                <div key={a.id} className="border rounded p-2 text-footnote flex items-center justify-between bg-emerald-50/30">
+                <div key={a.id} className="border rounded p-2 text-footnote flex items-center justify-between bg-success/10">
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                    <CheckCircle2 className="h-3.5 w-3.5 text-success" />
                     {personById.get(a.subjectId) ?? a.subjectId}
                   </div>
                   <span className="text-[10px] text-muted-foreground">{c?.name}</span>
@@ -261,7 +261,7 @@ function ReviewForm({
             <p className="text-footnote text-muted-foreground mt-1">{cycle.name}</p>
           </div>
           {assignment.raterType === 'peer' && cycle.anonymizePeers && (
-            <Badge className="bg-slate-100 text-slate-700 gap-1">
+            <Badge className="bg-surface-3 text-ink-secondary gap-1">
               <Lock className="h-3 w-3" /> 匿名提交
             </Badge>
           )}
@@ -311,7 +311,7 @@ function ReviewForm({
 
         <div className="space-y-3 pt-2">
           <div>
-            <Label className="text-footnote text-emerald-700">✓ 整体优势 (必填)</Label>
+            <Label className="text-footnote text-success">✓ 整体优势 (必填)</Label>
             <Textarea
               value={strengths}
               onChange={(e) => setStrengths(e.target.value)}
@@ -321,7 +321,7 @@ function ReviewForm({
             />
           </div>
           <div>
-            <Label className="text-footnote text-rose-700">→ 整体改进点 (必填, 建设性)</Label>
+            <Label className="text-footnote text-danger">→ 整体改进点 (必填, 建设性)</Label>
             <Textarea
               value={improvements}
               onChange={(e) => setImprovements(e.target.value)}
@@ -440,13 +440,13 @@ function ReceivedTab() {
 
               {/* 优势 + 改进点 */}
               <div className="grid md:grid-cols-2 gap-3">
-                <div className="border rounded p-3 bg-emerald-50/30">
-                  <div className="text-footnote font-semibold text-emerald-700 mb-2">
+                <div className="border rounded p-3 bg-success/10">
+                  <div className="text-footnote font-semibold text-success mb-2">
                     ✓ 大家点赞的优势 ({subs.length} 条)
                   </div>
                   <div className="space-y-1.5 text-footnote">
                     {subs.map((s, i) => (
-                      <div key={s.id} className="border-b border-emerald-200/50 pb-1 last:border-b-0">
+                      <div key={s.id} className="border-b border-success/30 pb-1 last:border-b-0">
                         <span className="text-[10px] text-muted-foreground">
                           {cycle.anonymizePeers && s.raterType === 'peer'
                             ? '匿名平级'
@@ -457,13 +457,13 @@ function ReceivedTab() {
                     ))}
                   </div>
                 </div>
-                <div className="border rounded p-3 bg-rose-50/30">
-                  <div className="text-footnote font-semibold text-rose-700 mb-2">
+                <div className="border rounded p-3 bg-danger/5">
+                  <div className="text-footnote font-semibold text-danger mb-2">
                     → 建设性改进点 ({subs.length} 条)
                   </div>
                   <div className="space-y-1.5 text-footnote">
                     {subs.map((s) => (
-                      <div key={s.id} className="border-b border-rose-200/50 pb-1 last:border-b-0">
+                      <div key={s.id} className="border-b border-danger/30 pb-1 last:border-b-0">
                         <span className="text-[10px] text-muted-foreground">
                           {cycle.anonymizePeers && s.raterType === 'peer'
                             ? '匿名平级'
@@ -504,11 +504,11 @@ function DimensionSummary({
       <div className="space-y-1.5">
         {stats.map((s) => {
           const pct = (s.avg / 5) * 100;
-          const color = s.avg >= 4 ? 'bg-emerald-500' : s.avg >= 3 ? 'bg-warning' : 'bg-rose-500';
+          const color = s.avg >= 4 ? 'bg-success' : s.avg >= 3 ? 'bg-warning' : 'bg-danger';
           return (
             <div key={s.dim} className="flex items-center gap-2 text-footnote">
               <span className="w-16 shrink-0">{s.dim}</span>
-              <div className="flex-1 h-2.5 bg-slate-200 rounded overflow-hidden">
+              <div className="flex-1 h-2.5 bg-surface-3 rounded overflow-hidden">
                 <div className={`h-full ${color}`} style={{ width: `${pct}%` }} />
               </div>
               <span className="font-mono w-14 text-right">
@@ -717,7 +717,7 @@ function CyclesTab() {
               {activeAssigns.map((a) => (
                 <div key={a.id} className="flex items-center gap-2 text-footnote border rounded px-2 py-1.5 bg-white">
                   {a.submitted ? (
-                    <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
+                    <CheckCircle2 className="h-3 w-3 text-success shrink-0" />
                   ) : (
                     <AlertCircle className="h-3 w-3 text-warning shrink-0" />
                   )}

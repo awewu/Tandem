@@ -23,7 +23,7 @@ import { getLogs, type LogLine } from '@/lib/hermes-api';
 const LEVEL_COLORS: Record<string, string> = {
   INFO: 'bg-info/10 text-info dark:bg-info dark:text-info',
   DEBUG: 'bg-surface-3 text-ink-primary dark:bg-surface-3 dark:text-ink-tertiary',
-  WARNING: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+  WARNING: 'bg-warning/15 text-warning dark:bg-warning/40 dark:text-warning/70',
   ERROR: 'bg-danger/10 text-danger dark:bg-danger dark:text-danger',
   CRITICAL: 'bg-danger/20 text-danger dark:bg-danger dark:text-danger',
   UNKNOWN: 'bg-muted text-muted-foreground',
@@ -203,7 +203,7 @@ export default function LogsPage() {
             {loading && <Loader2 size={14} className="animate-spin" />}
             {filtered.length} entries shown ({logs.length} loaded)
             {!paused && <span className="text-footnote">· refreshing every {POLL_MS / 1000}s</span>}
-            {paused && <span className="text-footnote text-yellow-600">· paused</span>}
+            {paused && <span className="text-footnote text-warning">· paused</span>}
           </CardTitle>
         </CardHeader>
         <CardContent className="flex-1 min-h-0 p-0">

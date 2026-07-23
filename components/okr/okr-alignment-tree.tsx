@@ -41,13 +41,13 @@ interface Props {
 }
 
 const DEPT_COLORS = [
-  'bg-blue-50 border-blue-200 text-blue-900',
-  'bg-emerald-50 border-emerald-200 text-emerald-900',
-  'bg-violet-50 border-violet-200 text-violet-900',
+  'bg-info/10 border-info/30 text-info',
+  'bg-success/10 border-success/30 text-success',
+  'bg-brand-50 border-brand-200 text-brand-700',
   'bg-warning/5 border-warning/20 text-warning',
-  'bg-rose-50 border-rose-200 text-rose-900',
-  'bg-cyan-50 border-cyan-200 text-cyan-900',
-  'bg-lime-50 border-lime-200 text-lime-900',
+  'bg-danger/5 border-danger/30 text-danger',
+  'bg-info/10 border-info/30 text-info',
+  'bg-success/10 border-success/30 text-success',
 ];
 
 export function OKRAlignmentTree({ selectedId, cycleId, onSelect }: Props) {
@@ -121,8 +121,8 @@ export function OKRAlignmentTree({ selectedId, cycleId, onSelect }: Props) {
     const progress = objectiveProgress(obj, keyResults);
     const owner = resolveOwnerSSOT(obj.ownerId, { people, deptIndex });
     const color = owner.deptId
-      ? deptColor.get(owner.deptId) ?? 'bg-slate-50 border-slate-200 text-slate-900'
-      : 'bg-slate-50 border-slate-200 text-slate-900';
+      ? deptColor.get(owner.deptId) ?? 'bg-surface-2 border-border text-ink-primary'
+      : 'bg-surface-2 border-border text-ink-primary';
     const children = childrenMap.get(obj.id) ?? [];
 
     // 跨部门警告: 父和子 ownerId deptId 不同
@@ -139,15 +139,15 @@ export function OKRAlignmentTree({ selectedId, cycleId, onSelect }: Props) {
 
     // Confidence = 'on-track' | 'at-risk' | 'off-track'
     const confColor =
-      obj.confidence === 'on-track' ? 'bg-emerald-500' :
-      obj.confidence === 'at-risk' ? 'bg-warning' : 'bg-rose-500';
+      obj.confidence === 'on-track' ? 'bg-success' :
+      obj.confidence === 'at-risk' ? 'bg-warning' : 'bg-danger';
 
     return (
       <div key={obj.id} className="relative">
         <div
           className={`flex items-start gap-2 rounded-md border-l-2 p-2 transition ${color} ${
             dimmed ? 'opacity-40' : ''
-          } ${isSelected ? 'ring-2 ring-blue-400 ring-offset-1' : ''}`}
+          } ${isSelected ? 'ring-2 ring-info/50 ring-offset-1' : ''}`}
           style={{ marginLeft: depth * 20 }}
         >
           {crossDeptWarn && (
@@ -155,7 +155,7 @@ export function OKRAlignmentTree({ selectedId, cycleId, onSelect }: Props) {
               className="mt-0.5 shrink-0"
               title="跨部门对齐 · 上下级属不同部门"
             >
-              <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
+              <AlertTriangle className="h-3.5 w-3.5 text-danger" />
             </div>
           )}
 
@@ -176,12 +176,12 @@ export function OKRAlignmentTree({ selectedId, cycleId, onSelect }: Props) {
                   </Badge>
                 )}
                 {obj.confidence === 'off-track' && (
-                  <Badge variant="outline" className="h-4 text-[9px] border-rose-300 text-rose-700">
+                  <Badge variant="outline" className="h-4 text-[9px] border-danger/40 text-danger">
                     偏离
                   </Badge>
                 )}
                 {obj.confidence === 'on-track' && obj.status === 'active' && (
-                  <Badge variant="outline" className="h-4 text-[9px] border-emerald-300 text-emerald-700">
+                  <Badge variant="outline" className="h-4 text-[9px] border-success/40 text-success">
                     在轨
                   </Badge>
                 )}
@@ -196,7 +196,7 @@ export function OKRAlignmentTree({ selectedId, cycleId, onSelect }: Props) {
                 <span>{nameOf(obj.ownerId)}</span>
                 {owner.deptName && (
                   <>
-                    <span className="text-slate-300">·</span>
+                    <span className="text-ink-tertiary">·</span>
                     <Building2 className="h-2.5 w-2.5" />
                     <span>{owner.deptName}</span>
                   </>
@@ -208,8 +208,8 @@ export function OKRAlignmentTree({ selectedId, cycleId, onSelect }: Props) {
                 <div className="flex-1 h-1 bg-white/70 rounded-full overflow-hidden">
                   <div
                     className={`h-full ${
-                      progress >= 70 ? 'bg-emerald-500' :
-                      progress >= 40 ? 'bg-warning' : 'bg-rose-500'
+                      progress >= 70 ? 'bg-success' :
+                      progress >= 40 ? 'bg-warning' : 'bg-danger'
                     }`}
                     style={{ width: `${progress}%` }}
                   />
@@ -222,7 +222,7 @@ export function OKRAlignmentTree({ selectedId, cycleId, onSelect }: Props) {
           </div>
 
           {children.length > 0 && (
-            <ChevronRight className="h-3 w-3 mt-1 text-slate-400 shrink-0" />
+            <ChevronRight className="h-3 w-3 mt-1 text-ink-tertiary shrink-0" />
           )}
         </div>
 
@@ -254,7 +254,7 @@ export function OKRAlignmentTree({ selectedId, cycleId, onSelect }: Props) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-1.5 text-caption font-semibold">
-            <Network className="h-4 w-4 text-violet-600" />
+            <Network className="h-4 w-4 text-brand-700" />
             跨部门对齐树
           </div>
           <div className="text-[11px] text-muted-foreground mt-0.5">
@@ -263,17 +263,17 @@ export function OKRAlignmentTree({ selectedId, cycleId, onSelect }: Props) {
         </div>
         <div className="flex items-center gap-2 text-[10px]">
           <span className="flex items-center gap-1">
-            <AlertTriangle className="h-3 w-3 text-rose-600" />
+            <AlertTriangle className="h-3 w-3 text-danger" />
             跨部门
           </span>
           <span className="flex items-center gap-1 text-muted-foreground">
-            <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" /> &ge; 70%
+            <span className="inline-block h-2 w-2 rounded-full bg-success" /> &ge; 70%
           </span>
           <span className="flex items-center gap-1 text-muted-foreground">
             <span className="inline-block h-2 w-2 rounded-full bg-warning" /> 40-69%
           </span>
           <span className="flex items-center gap-1 text-muted-foreground">
-            <span className="inline-block h-2 w-2 rounded-full bg-rose-500" /> &lt; 40%
+            <span className="inline-block h-2 w-2 rounded-full bg-danger" /> &lt; 40%
           </span>
         </div>
       </div>
@@ -306,7 +306,7 @@ export function OKRAlignmentTree({ selectedId, cycleId, onSelect }: Props) {
       )}
 
       {/* 说明 */}
-      <div className="rounded-md border border-dashed border-slate-200 bg-slate-50/60 p-2.5 text-[10.5px] text-slate-600">
+      <div className="rounded-md border border-dashed border-border bg-surface-2/60 p-2.5 text-[10.5px] text-ink-secondary">
         <strong>💡 怎么用:</strong> 点节点 → 右侧详情联动 | 高亮链路 = 选中 O 的祖+孙 |
         红三角 ⚠️ = 子 O 跟父 O 不同部门 (公司战略沟通风险点, 该季复盘重点)
       </div>

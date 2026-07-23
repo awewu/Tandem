@@ -41,10 +41,10 @@ interface MemoryRow {
 interface Dept { id: string; name: string; }
 
 const TYPE_META: Record<MemType, { label: string; icon: React.ElementType; color: string }> = {
-  sop: { label: 'SOP', icon: BookOpen, color: 'bg-sky-100 text-sky-800 border-sky-200' },
+  sop: { label: 'SOP', icon: BookOpen, color: 'bg-info/15 text-info border-info/30' },
   case: { label: '案例', icon: Lightbulb, color: 'bg-warning/10 text-warning border-warning/20' },
-  redline: { label: '红线', icon: AlertTriangle, color: 'bg-rose-100 text-rose-800 border-rose-200' },
-  value: { label: '价值观', icon: Heart, color: 'bg-violet-100 text-violet-800 border-violet-200' },
+  redline: { label: '红线', icon: AlertTriangle, color: 'bg-danger/10 text-danger border-danger/30' },
+  value: { label: '价值观', icon: Heart, color: 'bg-brand-100 text-brand-700 border-brand-200' },
   lesson: { label: '教训', icon: TrendingUp, color: 'bg-surface-1 text-ink-primary border' },
 };
 
@@ -199,7 +199,7 @@ export function MemoryBrowser() {
         {loading ? (
           <div className="text-footnote text-muted-foreground py-8 text-center">加载中…</div>
         ) : error ? (
-          <div className="text-footnote text-rose-700 bg-rose-50 border border-rose-200 rounded px-3 py-2">
+          <div className="text-footnote text-danger bg-danger/5 border border-danger/30 rounded px-3 py-2">
             加载失败: {error} · <button onClick={() => void load()} className="underline">重试</button>
           </div>
         ) : total === 0 ? (

@@ -41,9 +41,9 @@ const CADENCE_LABEL: Record<OneOnOneCadence, string> = {
 
 const STATUS_META: Record<OneOnOneStatus, { label: string; color: string }> = {
   scheduled: { label: '已排期', color: 'bg-info/10 text-info' },
-  completed: { label: '已完成', color: 'bg-emerald-100 text-emerald-700' },
-  cancelled: { label: '已取消', color: 'bg-slate-100 text-slate-500' },
-  'no-show': { label: '缺席', color: 'bg-rose-100 text-rose-700' },
+  completed: { label: '已完成', color: 'bg-success/15 text-success' },
+  cancelled: { label: '已取消', color: 'bg-surface-3 text-ink-tertiary' },
+  'no-show': { label: '缺席', color: 'bg-danger/10 text-danger' },
 };
 
 export default function OneOnOnePage() {
@@ -103,13 +103,13 @@ export default function OneOnOnePage() {
 
   const selected = meetings.find((m) => m.id === selectedId) ?? null;
   return (
-    <div className="flex flex-col md:flex-row h-screen bg-slate-50">
+    <div className="flex flex-col md:flex-row h-screen bg-surface-2">
       {/* 左: 列表 */}
       <aside className="w-80 border-r bg-white flex flex-col">
         <div className="border-b px-4 py-3 flex items-center justify-between">
           <div>
             <div className="text-caption font-semibold flex items-center gap-1.5">
-              <MessageSquare className="h-4 w-4 text-violet-600" />
+              <MessageSquare className="h-4 w-4 text-brand-700" />
               1on1 对话
             </div>
             <div className="text-[10px] text-muted-foreground mt-0.5">
@@ -212,7 +212,7 @@ export default function OneOnOnePage() {
         ) : (
           <div className="flex h-full items-center justify-center">
             <div className="text-center">
-              <MessageSquare className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+              <MessageSquare className="h-12 w-12 text-ink-tertiary mx-auto mb-3" />
               <div className="text-caption text-muted-foreground">
                 左侧选一次 1on1 查看详情
               </div>
@@ -244,7 +244,7 @@ function MeetingSection({
 }) {
   return (
     <div className="border-b last:border-b-0">
-      <div className="px-4 py-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1 bg-slate-50/60">
+      <div className="px-4 py-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1 bg-surface-2/60">
         <Icon className="h-2.5 w-2.5" />
         {title} ({items.length})
       </div>
@@ -258,13 +258,13 @@ function MeetingSection({
             key={m.id}
             type="button"
             onClick={() => onSelect(m.id)}
-            className={`w-full border-b border-slate-100 px-4 py-2.5 text-left transition hover:bg-muted/50 ${
-              isSelected ? 'bg-violet-50/60' : ''
+            className={`w-full border-b border-border px-4 py-2.5 text-left transition hover:bg-muted/50 ${
+              isSelected ? 'bg-brand-50/60' : ''
             }`}
           >
             <div className="flex items-start justify-between gap-2 mb-0.5">
               <div className="flex items-center gap-1.5 min-w-0">
-                <User className="h-3 w-3 text-slate-400 shrink-0" />
+                <User className="h-3 w-3 text-ink-tertiary shrink-0" />
                 <span className="text-footnote font-medium truncate">
                   {nameOf(other)}
                 </span>
@@ -372,7 +372,7 @@ function NewMeetingForm({
                 onClick={() => setCadence(c)}
                 className={`flex-1 h-8 rounded text-footnote transition ${
                   cadence === c
-                    ? 'bg-violet-600 text-white'
+                    ? 'bg-brand-600 text-white'
                     : 'bg-muted/50 hover:bg-muted'
                 }`}
               >
@@ -600,13 +600,13 @@ function MeetingDetail({
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-caption flex items-center gap-1.5">
-            <MessageSquare className="h-4 w-4 text-violet-600" />
+            <MessageSquare className="h-4 w-4 text-brand-700" />
             会议记录 · 三段式
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div>
-            <Label className="text-[11px] text-emerald-700">✓ 进展 (Progress)</Label>
+            <Label className="text-[11px] text-success">✓ 进展 (Progress)</Label>
             <Textarea
               value={meeting.noteProgress ?? ''}
               onChange={(e) => onUpdate({ noteProgress: e.target.value })}
@@ -616,7 +616,7 @@ function MeetingDetail({
             />
           </div>
           <div>
-            <Label className="text-[11px] text-rose-700">⚠️ 障碍 (Blockers)</Label>
+            <Label className="text-[11px] text-danger">⚠️ 障碍 (Blockers)</Label>
             <Textarea
               value={meeting.noteBlockers ?? ''}
               onChange={(e) => onUpdate({ noteBlockers: e.target.value })}
@@ -642,7 +642,7 @@ function MeetingDetail({
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-caption flex items-center gap-1.5">
-            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+            <CheckCircle2 className="h-4 w-4 text-success" />
             Action Items ({meeting.actionItems.length})
           </CardTitle>
         </CardHeader>
@@ -661,9 +661,9 @@ function MeetingDetail({
                 aria-label={a.done ? '取消完成' : '标记完成'}
               >
                 {a.done ? (
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  <CheckCircle2 className="h-4 w-4 text-success" />
                 ) : (
-                  <Circle className="h-4 w-4 text-slate-400" />
+                  <Circle className="h-4 w-4 text-ink-tertiary" />
                 )}
               </button>
               <div className={`flex-1 min-w-0 ${a.done ? 'line-through text-muted-foreground' : ''}`}>
@@ -681,7 +681,7 @@ function MeetingDetail({
               {a.linkedInitiativeId ? (
                 <Badge
                   variant="outline"
-                  className="text-[9px] h-4 border-emerald-300 bg-emerald-50 text-emerald-700"
+                  className="text-[9px] h-4 border-success/40 bg-success/10 text-success"
                   title={`已提升为 Initiative (${a.linkedInitiativeId.slice(0, 8)})`}
                 >
                   <Target className="h-2.5 w-2.5 mr-0.5" />已入 KR
@@ -764,7 +764,7 @@ function MeetingDetail({
         <Card className="border-warning/30 bg-warning/5">
           <CardHeader className="pb-2">
             <CardTitle className="text-caption flex items-center gap-1.5">
-              <Heart className="h-4 w-4 text-rose-500" />
+              <Heart className="h-4 w-4 text-danger" />
               主管私密区 · 仅主管可见
             </CardTitle>
           </CardHeader>
@@ -779,7 +779,7 @@ function MeetingDetail({
                     onClick={() => onUpdate({ moodScore: meeting.moodScore === n ? undefined : n })}
                     className={`h-8 w-8 rounded text-caption transition ${
                       meeting.moodScore === n
-                        ? 'bg-rose-500 text-white'
+                        ? 'bg-danger text-white'
                         : 'bg-white border hover:bg-muted'
                     }`}
                   >

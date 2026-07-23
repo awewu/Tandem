@@ -37,14 +37,14 @@ if [ -n "$SUSPICIOUS" ]; then
 fi
 echo "  ✓ 无可疑砍页"
 
-# 3. CHARTER-UI-V1 ratchet · 不许 allowlist 外的文件引入 raw color 违规
-echo "  [3/3] CHARTER-UI-V1 ratchet (raw color 违规) ..."
+# 3. CHARTER-UI-V2 ratchet · 不许 allowlist 外的文件引入 raw color 违规
+echo "  [3/3] CHARTER-UI-V2 ratchet (raw color + inline hex 违规) ..."
 node scripts/check-ui-charter.mjs --strict > /dev/null 2>&1
 UI_EXIT=$?
 if [ "$UI_EXIT" -ne 0 ]; then
   echo ""
-  echo "  ❌ UI 宪章: allowlist 外的文件有 raw color 违规"
-  echo "     看详情: npm run lint:ui-charter -- --fix-hint"
+  echo "  ❌ UI 宪章: allowlist 外的文件有 raw color / inline hex 违规"
+  echo "     看详情: node scripts/check-ui-charter.mjs --fix-hint"
   echo "     合规规则: docs/CHARTER-UI-V1.md §1.4 / §1.5"
   echo "     (强制提交: git commit --no-verify + commit msg 说明 + 登记 §5 事故档案)"
   exit 1

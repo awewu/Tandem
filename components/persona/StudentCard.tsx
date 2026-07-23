@@ -249,7 +249,7 @@ function MajorChip({ active, emoji, label, score, onClick }: MajorChipProps) {
       {stars !== null ? (
         <span
           className="mt-0.5 font-mono text-[10px] leading-none"
-          style={{ color: active ? '#FFD966' : 'rgb(var(--brand-300))' }}
+          style={{ color: active ? 'rgb(var(--warning))' : 'rgb(var(--brand-300))' }}
         >
           {'★'.repeat(stars)}
           <span style={{ color: 'rgba(255,255,255,0.2)' }}>

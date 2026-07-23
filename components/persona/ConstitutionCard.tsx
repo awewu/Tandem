@@ -101,11 +101,11 @@ export function PersonaConstitutionCard({ userId, className }: Props) {
   }
 
   return (
-    <Card className={cn('border-indigo-200 bg-indigo-50/30', className)}>
+    <Card className={cn('border-info/30 bg-info/10', className)}>
       <CardContent className="p-4 space-y-3">
         <div className="flex items-center gap-2">
-          <ShieldCheck className="h-4 w-4 text-indigo-600" />
-          <h2 className="text-caption font-semibold text-slate-800">价值观锚 · 不可妥协原则</h2>
+          <ShieldCheck className="h-4 w-4 text-info" />
+          <h2 className="text-caption font-semibold text-ink-primary">价值观锚 · 不可妥协原则</h2>
           <Badge variant="outline" className="text-[10px] tabular-nums">
             {active.length}/{MAX_ACTIVE_RULES}
           </Badge>
@@ -132,12 +132,12 @@ export function PersonaConstitutionCard({ userId, className }: Props) {
                 key={rule.id}
                 className="flex items-start gap-2 rounded-lg border bg-white px-3 py-2 text-footnote"
               >
-                <span className="font-bold tabular-nums text-indigo-600 mt-0.5">{idx + 1}.</span>
-                <span className="flex-1 text-slate-800 leading-relaxed">{rule.text}</span>
+                <span className="font-bold tabular-nums text-info mt-0.5">{idx + 1}.</span>
+                <span className="flex-1 text-ink-primary leading-relaxed">{rule.text}</span>
                 <button
                   type="button"
                   onClick={() => handleArchive(rule)}
-                  className="p-1 rounded hover:bg-rose-50 text-muted-foreground hover:text-rose-600 transition-colors shrink-0"
+                  className="p-1 rounded hover:bg-danger/5 text-muted-foreground hover:text-danger transition-colors shrink-0"
                   title="归档此原则"
                 >
                   <Archive className="h-3.5 w-3.5" />
@@ -169,7 +169,7 @@ export function PersonaConstitutionCard({ userId, className }: Props) {
             </Button>
           </div>
           {overLength && (
-            <p className="flex items-center gap-1 text-[10px] text-rose-600">
+            <p className="flex items-center gap-1 text-[10px] text-danger">
               <AlertTriangle className="h-3 w-3" />
               超长 ({input.trim().length}/{MAX_RULE_TEXT_LENGTH})，请精简
             </p>
@@ -182,7 +182,7 @@ export function PersonaConstitutionCard({ userId, className }: Props) {
             <button
               type="button"
               onClick={() => setShowArchived((v) => !v)}
-              className="flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-slate-700 transition-colors"
+              className="flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-ink-secondary transition-colors"
             >
               <History className="h-3 w-3" />
               归档历史 ({archived.length}) {showArchived ? '收起' : '展开'}

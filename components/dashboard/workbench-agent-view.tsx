@@ -118,12 +118,12 @@ interface PendingRetros {
 // ===========================================================================
 
 const KIND_ICON: Record<RowKind, { icon: typeof Sparkles; tint: string }> = {
-  'memory-signature': { icon: Stamp, tint: 'text-purple-600' },
+  'memory-signature': { icon: Stamp, tint: 'text-brand-700' },
   'persona-upgrade': { icon: TrendingUp, tint: 'text-brand-600' },
-  'kr-at-risk': { icon: AlertCircle, tint: 'text-rose-600' },
-  'tti-progress': { icon: Target, tint: 'text-blue-600' },
+  'kr-at-risk': { icon: AlertCircle, tint: 'text-danger' },
+  'tti-progress': { icon: Target, tint: 'text-info' },
   'veto-window': { icon: Clock, tint: 'text-warning' },
-  'retro-pending': { icon: History, tint: 'text-emerald-600' },
+  'retro-pending': { icon: History, tint: 'text-success' },
 };
 
 const STATE_BADGE: Record<
@@ -132,8 +132,8 @@ const STATE_BADGE: Record<
 > = {
   waiting: {
     label: 'Waiting',
-    cls: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30',
-    dot: 'bg-rose-500',
+    cls: 'bg-danger/5 text-danger border-danger/30 dark:bg-danger/40',
+    dot: 'bg-danger',
   },
   running: {
     label: 'Running',
@@ -142,8 +142,8 @@ const STATE_BADGE: Record<
   },
   done: {
     label: 'Done',
-    cls: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30',
-    dot: 'bg-emerald-500',
+    cls: 'bg-success/10 text-success border-success/30 dark:bg-success/40',
+    dot: 'bg-success',
   },
 };
 
@@ -310,7 +310,7 @@ export function WorkbenchAgentView() {
   if (rows.length === 0) {
     return (
       <div className="card-elevated p-8 text-center space-y-2">
-        <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+        <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-success/10 text-success">
           <CheckCircle2 className="h-5 w-5" />
         </div>
         <p className="text-body text-ink-primary font-medium">
@@ -333,7 +333,7 @@ export function WorkbenchAgentView() {
         </h3>
         <span className="text-footnote text-ink-tertiary">
           {waitingCount > 0 && (
-            <span className="text-rose-700">{waitingCount} Waiting</span>
+            <span className="text-danger">{waitingCount} Waiting</span>
           )}
           {waitingCount > 0 && runningCount > 0 && <span> · </span>}
           {runningCount > 0 && (

@@ -203,7 +203,7 @@ export function ExcelImportExport({
                 <button
                   type="button"
                   onClick={reset}
-                  className="text-rose-500 hover:underline"
+                  className="text-danger hover:underline"
                   disabled={busy}
                 >
                   <X className="h-3 w-3 inline" />
@@ -213,7 +213,7 @@ export function ExcelImportExport({
             )}
 
             {error && (
-              <div className="text-caption text-rose-600 bg-rose-50 px-3 py-2 rounded-md flex items-center gap-1.5">
+              <div className="text-caption text-danger bg-danger/5 px-3 py-2 rounded-md flex items-center gap-1.5">
                 <AlertCircle className="h-4 w-4" />
                 {error}
               </div>
@@ -222,10 +222,10 @@ export function ExcelImportExport({
             {summary && (
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-caption">
-                  <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                  <Badge variant="outline" className="bg-success/10 text-success border-success/30">
                     ok {summary.ok}
                   </Badge>
-                  <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200">
+                  <Badge variant="outline" className="bg-danger/5 text-danger border-danger/30">
                     failed {summary.failed}
                   </Badge>
                   <Badge variant="outline">合计 {summary.total}</Badge>
@@ -234,25 +234,25 @@ export function ExcelImportExport({
                       预览 (未落库)
                     </Badge>
                   ) : (
-                    <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                    <Badge variant="outline" className="bg-success/10 text-success border-success/30">
                       已落库
                     </Badge>
                   )}
                 </div>
 
                 {summary.failed > 0 && (
-                  <div className="border border-rose-200 bg-rose-50 rounded-md p-2 max-h-64 overflow-y-auto">
-                    <div className="text-footnote text-rose-700 font-medium mb-1">失败行明细:</div>
+                  <div className="border border-danger/30 bg-danger/5 rounded-md p-2 max-h-64 overflow-y-auto">
+                    <div className="text-footnote text-danger font-medium mb-1">失败行明细:</div>
                     <table className="w-full text-footnote">
                       <tbody>
                         {summary.rows
                           .filter((r) => !r.ok)
                           .map((r) => (
-                            <tr key={r.row} className="border-b border-rose-200/50 last:border-0">
-                              <td className="py-1 pr-2 font-mono text-rose-700 align-top w-12">
+                            <tr key={r.row} className="border-b border-danger/30 last:border-0">
+                              <td className="py-1 pr-2 font-mono text-danger align-top w-12">
                                 行 {r.row}
                               </td>
-                              <td className="py-1 text-rose-700">
+                              <td className="py-1 text-danger">
                                 {r.errors.map((er, i) => (
                                   <div key={i}>· {er}</div>
                                 ))}
@@ -265,7 +265,7 @@ export function ExcelImportExport({
                 )}
 
                 {committed && summary.ok > 0 && (
-                  <div className="text-caption text-emerald-700 bg-emerald-50 px-3 py-2 rounded-md flex items-center gap-1.5">
+                  <div className="text-caption text-success bg-success/10 px-3 py-2 rounded-md flex items-center gap-1.5">
                     <CheckCircle2 className="h-4 w-4" />
                     {summary.ok} 条 {label} 已导入
                   </div>

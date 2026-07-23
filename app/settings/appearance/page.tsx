@@ -207,7 +207,7 @@ export default function AppearancePage() {
           {/* Preview cards */}
           <div className="grid sm:grid-cols-2 gap-4 max-w-2xl">
             <div className="rounded-lg border border-border p-6 bg-white">
-              <p className="text-footnote text-slate-500 mb-3">亮底预览</p>
+              <p className="text-footnote text-ink-tertiary mb-3">亮底预览</p>
               <div className="flex items-center justify-center min-h-[120px]">
                 <BrandLogo variant={variant} theme={logoTheme} size={variant === 'mark' ? 64 : 36} />
               </div>

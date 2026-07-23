@@ -122,7 +122,7 @@ function MailInner() {
               加载中...
             </span>
           ) : status.configured ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-footnote font-medium text-emerald-700">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-3 py-1 text-footnote font-medium text-success">
               <CheckCircle2 className="h-3.5 w-3.5" />
               {status.effective?.mode === 'personal' ? '个人邮箱' : '全局 SMTP'} · {status.effective?.fromAddress}
             </span>
@@ -490,7 +490,7 @@ function InboxView({ folder = 'INBOX', onCompose }: { folder?: string; onCompose
         )}
         {detail && (
           <Button variant="outline" size="sm" onClick={() => batchMark([detail.uid], { flagged: !detail.flags.includes('\\Flagged') })} disabled={marking}>
-            <Star className={`h-3.5 w-3.5 mr-1 ${detail.flags.includes('\\Flagged') ? 'fill-yellow-400 text-yellow-400' : ''}`} />
+            <Star className={`h-3.5 w-3.5 mr-1 ${detail.flags.includes('\\Flagged') ? 'fill-yellow-400 text-warning' : ''}`} />
             {detail.flags.includes('\\Flagged') ? '取消星标' : '标记星标'}
           </Button>
         )}
@@ -672,7 +672,7 @@ function InboxView({ folder = 'INBOX', onCompose }: { folder?: string; onCompose
                     className="p-1 rounded hover:bg-surface-2"
                     disabled={marking}
                   >
-                    <Star className={`h-4 w-4 ${email.flags.includes('\\Flagged') ? 'fill-yellow-400 text-yellow-400' : 'text-ink-tertiary'}`} />
+                    <Star className={`h-4 w-4 ${email.flags.includes('\\Flagged') ? 'fill-yellow-400 text-warning' : 'text-ink-tertiary'}`} />
                   </button>
                   <div className="text-footnote text-ink-tertiary">
                     {formatDate(email.date)}
@@ -949,7 +949,7 @@ function ComposeView({
           <div className="rounded-md border border-border p-3 space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
-                <ShieldCheck className={`h-4 w-4 ${reviewResult.isSafe ? 'text-emerald-500' : 'text-warning'}`} />
+                <ShieldCheck className={`h-4 w-4 ${reviewResult.isSafe ? 'text-success' : 'text-warning'}`} />
                 <span className="text-footnote font-medium">AI 审校 · {reviewResult.score}分</span>
                 <span className="text-footnote text-ink-tertiary">{reviewResult.summary}</span>
               </div>
@@ -979,8 +979,8 @@ function ComposeView({
         <div
           className={
             feedback.ok
-              ? 'rounded-md bg-emerald-50 px-3 py-2 text-caption text-emerald-700 flex items-start gap-2'
-              : 'rounded-md bg-rose-50 px-3 py-2 text-caption text-rose-700 flex items-start gap-2'
+              ? 'rounded-md bg-success/10 px-3 py-2 text-caption text-success flex items-start gap-2'
+              : 'rounded-md bg-danger/5 px-3 py-2 text-caption text-danger flex items-start gap-2'
           }
         >
           {feedback.ok ? <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" /> : <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />}

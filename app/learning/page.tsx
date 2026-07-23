@@ -297,8 +297,8 @@ function HeroStat({
 }) {
   const accent = {
     danger: 'rgb(var(--brand-300))',
-    info: '#60A5FA',
-    success: 'rgb(74, 222, 128)',
+    info: 'rgb(var(--info))',
+    success: 'rgb(var(--success))',
   }[tone];
   return (
     <div

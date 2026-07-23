@@ -61,7 +61,7 @@ import {
 // =============================================================
 const CONFIDENCE_META: Record<Confidence, { label: string; color: string; ring: string; icon: React.ElementType }> = {
   'on-track': { label: '正常', color: 'bg-success', ring: 'ring-success/40', icon: CheckCircle2 },
-  'at-risk': { label: '有风险', color: 'bg-yellow-500', ring: 'ring-yellow-500/40', icon: AlertTriangle },
+  'at-risk': { label: '有风险', color: 'bg-warning', ring: 'ring-warning/40', icon: AlertTriangle },
   'off-track': { label: '严重偏离', color: 'bg-danger', ring: 'ring-danger/40', icon: AlertCircle },
 };
 const STATUS_LABEL: Record<ObjectiveStatus, string> = {
@@ -205,7 +205,7 @@ function ConfidencePill({ confidence }: { confidence: Confidence }) {
   const Icon = meta.icon;
   return (
     <Badge variant="outline" className="gap-1 text-[10px]">
-      <Icon className={cn('h-2.5 w-2.5', confidence === 'on-track' ? 'text-success' : confidence === 'at-risk' ? 'text-yellow-600' : 'text-danger')} />
+      <Icon className={cn('h-2.5 w-2.5', confidence === 'on-track' ? 'text-success' : confidence === 'at-risk' ? 'text-warning' : 'text-danger')} />
       {meta.label}
     </Badge>
   );
@@ -1215,7 +1215,7 @@ export default function OKRPage() {
             <span className="h-2 w-2 rounded-full bg-success" /> {cycleStats.onTrack}
           </span>
           <span className="flex items-center gap-1" title="信心：有风险">
-            <span className="h-2 w-2 rounded-full bg-yellow-500" /> {cycleStats.atRisk}
+            <span className="h-2 w-2 rounded-full bg-warning" /> {cycleStats.atRisk}
           </span>
           <span className="flex items-center gap-1" title="信心：严重偏离">
             <span className="h-2 w-2 rounded-full bg-danger" /> {cycleStats.offTrack}
@@ -1782,8 +1782,8 @@ function EditDialog({
                 />
               </div>
               {/* FP&A 锚定: KR → BSC KPI 数据契约桥 (三省六部推演用, 选填) */}
-              <div className="rounded-md border border-dashed border-violet-200 bg-violet-50/40 dark:bg-violet-900/10 p-3 space-y-2">
-                <div className="text-footnote font-medium text-violet-700 dark:text-violet-300 flex items-center gap-1 flex-wrap">
+              <div className="rounded-md border border-dashed border-brand-200 bg-brand-50/40 dark:bg-brand-900/10 p-3 space-y-2">
+                <div className="text-footnote font-medium text-brand-700 dark:text-brand-600 flex items-center gap-1 flex-wrap">
                   <Network className="h-3 w-3" /> FP&amp;A 锚定 · 这个 KR 推动哪个 BSC 指标
                   <span className="text-[10px] font-normal text-muted-foreground">三省六部推演用 · 选填</span>
                 </div>

@@ -205,7 +205,7 @@ function EventPill({
       style={{
         backgroundColor: expanded ? meta.softBg : meta.bg,
         borderColor: meta.border,
-        color: expanded ? meta.text : '#fff',
+        color: expanded ? meta.text : 'rgb(255,255,255)',
       }}
       onClick={(e) => {
         e.stopPropagation();
@@ -220,7 +220,7 @@ function EventPill({
           )}
           style={{
             backgroundColor: expanded ? meta.bg : 'rgba(255,255,255,0.24)',
-            color: '#fff',
+            color: 'rgb(255,255,255)',
           }}
         >
           {meta.badge}
@@ -263,20 +263,20 @@ function getEventMeta(event: EventInstance, currentUserId?: string): {
     return {
       badge: '订',
       label: '订阅日程',
-      bg: '#64748b',
-      softBg: '#f1f5f9',
-      border: '#cbd5e1',
-      text: '#334155',
+      bg: 'rgb(var(--muted-foreground))',
+      softBg: 'rgb(var(--muted))',
+      border: 'rgb(var(--border))',
+      text: 'rgb(var(--ink-secondary))',
     };
   }
   if (event.sourceKind === 'okr' || event.calendarId === 'cal-okr' || event.type === 'okr_due' || event.type === 'checkin' || event.type === 'cycle') {
     return {
       badge: 'OKR',
       label: 'OKR 同步',
-      bg: '#10b981',
-      softBg: '#ecfdf5',
-      border: '#a7f3d0',
-      text: '#065f46',
+      bg: 'rgb(var(--success))',
+      softBg: 'rgb(var(--success) / 0.1)',
+      border: 'rgb(var(--success) / 0.3)',
+      text: 'rgb(var(--success))',
     };
   }
   if (event.type === 'meeting') {
@@ -284,19 +284,19 @@ function getEventMeta(event: EventInstance, currentUserId?: string): {
     return {
       badge: isOwner ? '我' : '参',
       label: isOwner ? '我发起的会议' : '我参与的会议',
-      bg: '#8b5cf6',
-      softBg: '#f5f3ff',
-      border: '#ddd6fe',
-      text: '#5b21b6',
+      bg: 'rgb(var(--brand-500))',
+      softBg: 'rgb(var(--brand-50))',
+      border: 'rgb(var(--brand-200))',
+      text: 'rgb(var(--brand-700))',
     };
   }
   return {
     badge: '日',
     label: '我的日程',
-    bg: getColorBg(event.color || 'bg-blue-500'),
-    softBg: '#eff6ff',
-    border: '#bfdbfe',
-    text: '#1d4ed8',
+    bg: getColorBg(event.color || 'bg-info'),
+    softBg: 'rgb(var(--info) / 0.1)',
+    border: 'rgb(var(--info) / 0.3)',
+    text: 'rgb(var(--info))',
   };
 }
 
@@ -307,13 +307,12 @@ function formatDayTitle(dateMs: number): string {
 
 function getColorBg(twClass: string): string {
   const map: Record<string, string> = {
-    'bg-blue-500': '#3b82f6',
-    'bg-emerald-500': '#10b981',
-    'bg-violet-500': '#8b5cf6',
-    ['bg-' + 'amber-500']: '#f59e0b',
-    'bg-rose-500': '#f43f5e',
-    'bg-cyan-500': '#06b6d4',
-    'bg-slate-400': '#94a3b8',
+    'bg-info': 'rgb(var(--info))',
+    'bg-success': 'rgb(var(--success))',
+    'bg-brand-500': 'rgb(var(--brand-500))',
+    'bg-warning': 'rgb(var(--warning))',
+    'bg-danger': 'rgb(var(--danger))',
+    'bg-surface-3': 'rgb(var(--muted-foreground))',
   };
-  return map[twClass] || '#94a3b8';
+  return map[twClass] || 'rgb(var(--muted-foreground))';
 }

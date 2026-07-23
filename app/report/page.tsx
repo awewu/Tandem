@@ -722,7 +722,7 @@ function ReportPageInner() {
           "w-full text-left rounded border text-footnote transition-all",
           isSelected || isOpen
             ? "bg-white border-primary/40 ring-1 ring-primary/20 shadow-soft-sm"
-            : "bg-white hover:bg-muted/50 border-slate-100"
+            : "bg-white hover:bg-muted/50 border-border"
         )}
       >
         <button
@@ -733,14 +733,14 @@ function ReportPageInner() {
         >
           <div className="flex items-start justify-between gap-2 font-medium">
             <span className="flex min-w-0 items-start gap-1.5">
-              <Target className={cn("mt-0.5 h-3.5 w-3.5 shrink-0", isSelected || isOpen ? "text-[rgb(var(--brand-500))]" : "text-slate-400")} />
+              <Target className={cn("mt-0.5 h-3.5 w-3.5 shrink-0", isSelected || isOpen ? "text-[rgb(var(--brand-500))]" : "text-ink-tertiary")} />
               <span className="line-clamp-2 leading-snug">{kr.title}</span>
             </span>
             <span className="flex shrink-0 items-center gap-1.5">
-              <span className="font-semibold tabular-nums text-slate-600">{Math.round(pct)}%</span>
+              <span className="font-semibold tabular-nums text-ink-secondary">{Math.round(pct)}%</span>
               <ChevronDown
                 className={cn(
-                  "h-3.5 w-3.5 text-slate-400 transition-transform",
+                  "h-3.5 w-3.5 text-ink-tertiary transition-transform",
                   isOpen && "rotate-180 text-[rgb(var(--brand-500))]",
                 )}
               />
@@ -750,19 +750,19 @@ function ReportPageInner() {
             <span>当前: {kr.currentValue}/{kr.targetValue} {kr.unit ?? ''}</span>
             <span className={cn(
               "font-medium",
-              kr.confidence === 'on-track' ? 'text-emerald-600' : kr.confidence === 'at-risk' ? 'text-warning' : 'text-rose-600'
+              kr.confidence === 'on-track' ? 'text-success' : kr.confidence === 'at-risk' ? 'text-warning' : 'text-danger'
             )}>
               {kr.confidence === 'on-track' ? '正常' : kr.confidence === 'at-risk' ? '有卡点' : '严重落后'}
             </span>
             {krInput.trim() && !isSelected && (
-              <span className="ml-auto rounded-full bg-emerald-50 px-1.5 py-0.5 font-medium text-emerald-700">
+              <span className="ml-auto rounded-full bg-success/10 px-1.5 py-0.5 font-medium text-success">
                 已填写
               </span>
             )}
           </div>
         </button>
         {isOpen && (
-          <div className="border-t border-slate-100 bg-slate-50/70 p-2.5">
+          <div className="border-t border-border bg-surface-2/70 p-2.5">
             <Textarea
               value={krInput}
               spellCheck={false}
@@ -779,7 +779,7 @@ function ReportPageInner() {
                 }
               }
               placeholder="写下今天围绕这个 KR 做了什么、遇到什么阻碍、下一步准备做什么..."
-              className="min-h-[96px] bg-white text-footnote leading-relaxed font-sans placeholder:opacity-60 text-slate-800"
+              className="min-h-[96px] bg-white text-footnote leading-relaxed font-sans placeholder:opacity-60 text-ink-primary"
             />
             <div className="mt-2 flex items-center justify-between gap-2">
               <p className="text-[10px] text-muted-foreground">
@@ -825,7 +825,7 @@ function ReportPageInner() {
           </p>
         </div>
         {activeCycle && (
-          <Badge variant="outline" className="shrink-0 h-6 text-[11px] bg-white border-slate-200 font-medium">
+          <Badge variant="outline" className="shrink-0 h-6 text-[11px] bg-white border-border font-medium">
             {activeCycle.name}
           </Badge>
         )}
@@ -838,7 +838,7 @@ function ReportPageInner() {
             <CardContent className="p-5 space-y-4">
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-3">
-                  <label className="text-footnote font-semibold text-slate-700 block">
+                  <label className="text-footnote font-semibold text-ink-secondary block">
                     1. 按 Objective / KR 分别填写今日进展
                   </label>
                   <Button
@@ -863,11 +863,11 @@ function ReportPageInner() {
                   </Button>
                 </div>
                 {generatedDraftAt && (
-                  <p className="text-[11px] text-emerald-700">
+                  <p className="text-[11px] text-success">
                     已根据今日系统操作生成草稿，请确认后提交。
                   </p>
                 )}
-                <div className="grid grid-cols-1 gap-3 max-h-[460px] overflow-y-auto pr-1 border rounded-md p-2 bg-slate-50/50">
+                <div className="grid grid-cols-1 gap-3 max-h-[460px] overflow-y-auto pr-1 border rounded-md p-2 bg-surface-2/50">
                   {objectiveGroups.length === 0 ? (
                     <p className="text-footnote text-muted-foreground text-center py-4">当前考核周期内无属于你的 O/KR 指标，请在后台配置。</p>
                   ) : (
@@ -880,13 +880,13 @@ function ReportPageInner() {
                           key={objective.id}
                           className={cn(
                             "rounded-md border bg-white transition-all",
-                            isObjectiveOpen ? "border-slate-200 shadow-soft-sm" : "border-slate-200 hover:border-slate-300",
+                            isObjectiveOpen ? "border-border shadow-soft-sm" : "border-border hover:border-border",
                           )}
                         >
                           <button
                             type="button"
                             onClick={() => toggleObjectivePanel(objective.id)}
-                            className="w-full border-b border-slate-100 bg-slate-50/80 px-3 py-2.5 text-left"
+                            className="w-full border-b border-border bg-surface-2/80 px-3 py-2.5 text-left"
                             aria-expanded={isObjectiveOpen}
                           >
                             <div className="flex items-start justify-between gap-3">
@@ -894,7 +894,7 @@ function ReportPageInner() {
                                 <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                                   Objective
                                 </p>
-                                <h3 className="mt-0.5 line-clamp-2 text-[13px] font-semibold leading-snug text-slate-800">
+                                <h3 className="mt-0.5 line-clamp-2 text-[13px] font-semibold leading-snug text-ink-primary">
                                   {objective.title}
                                 </h3>
                                 {objective.description && (
@@ -905,7 +905,7 @@ function ReportPageInner() {
                               </div>
                               <div className="flex shrink-0 items-center gap-1.5">
                                 {filledCount > 0 && (
-                                  <Badge variant="outline" className="bg-emerald-50 text-[10px] font-medium text-emerald-700">
+                                  <Badge variant="outline" className="bg-success/10 text-[10px] font-medium text-success">
                                     已写 {filledCount}
                                   </Badge>
                                 )}
@@ -914,15 +914,15 @@ function ReportPageInner() {
                                 </Badge>
                                 <ChevronDown
                                   className={cn(
-                                    "h-4 w-4 text-slate-400 transition-transform",
+                                    "h-4 w-4 text-ink-tertiary transition-transform",
                                     isObjectiveOpen && "rotate-180 text-[rgb(var(--brand-500))]",
                                   )}
                                 />
                               </div>
                             </div>
                             <div className="mt-2 flex items-center gap-2">
-                              <Progress value={progress} className="h-1.5 flex-1 bg-slate-100" />
-                              <span className="w-9 text-right text-[10px] font-semibold tabular-nums text-slate-500">
+                              <Progress value={progress} className="h-1.5 flex-1 bg-surface-3" />
+                              <span className="w-9 text-right text-[10px] font-semibold tabular-nums text-ink-tertiary">
                                 {progress}%
                               </span>
                             </div>
@@ -940,7 +940,7 @@ function ReportPageInner() {
               </div>
 
               {/* AI 问题引导 — Apple HIG 风格 quote card */}
-              <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3 flex items-start gap-2.5">
+              <div className="rounded-lg border border-border bg-surface-2/60 p-3 flex items-start gap-2.5">
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-ink-primary text-white">
                   <Brain className="h-3.5 w-3.5" />
                 </span>
@@ -953,7 +953,7 @@ function ReportPageInner() {
               <div className="space-y-3 border-t pt-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-footnote font-semibold text-slate-700">2. 谁可以看我的日报</p>
+                    <p className="text-footnote font-semibold text-ink-secondary">2. 谁可以看我的日报</p>
                     <p className="text-[11px] text-muted-foreground">作者本人始终可见；指定的人进入日报页可看到这条内容。</p>
                   </div>
                   {reportVisibility === 'selected' && (
@@ -979,7 +979,7 @@ function ReportPageInner() {
                         "rounded-md border px-3 py-2 text-left transition",
                         reportVisibility === item.value
                           ? "border-primary/50 bg-primary/5 text-ink-primary"
-                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
+                          : "border-border bg-white text-ink-secondary hover:bg-surface-2",
                       )}
                     >
                       <div className="text-[12px] font-semibold">{item.label}</div>
@@ -992,7 +992,7 @@ function ReportPageInner() {
                     <button
                       type="button"
                       onClick={() => setViewerSelectOpen((open) => !open)}
-                      className="flex h-9 w-full items-center justify-between rounded-md border border-slate-200 bg-white px-3 text-left text-[12px] text-slate-700 transition hover:bg-slate-50"
+                      className="flex h-9 w-full items-center justify-between rounded-md border border-border bg-white px-3 text-left text-[12px] text-ink-secondary transition hover:bg-surface-2"
                       aria-expanded={viewerSelectOpen}
                     >
                       <span className={cn(selectedReportViewers.length === 0 && "text-muted-foreground")}>
@@ -1002,7 +1002,7 @@ function ReportPageInner() {
                       </span>
                       <ChevronDown
                         className={cn(
-                          "h-3.5 w-3.5 text-slate-400 transition",
+                          "h-3.5 w-3.5 text-ink-tertiary transition",
                           viewerSelectOpen && "rotate-180",
                         )}
                       />
@@ -1026,14 +1026,14 @@ function ReportPageInner() {
                     )}
 
                     {viewerSelectOpen && (
-                      <div className="absolute left-0 right-0 z-20 rounded-md border border-slate-200 bg-white p-2 shadow-soft-lg">
+                      <div className="absolute left-0 right-0 z-20 rounded-md border border-border bg-white p-2 shadow-soft-lg">
                         <div className="relative">
-                          <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                          <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-tertiary" />
                           <input
                             value={viewerSearch}
                             onChange={(e) => setViewerSearch(e.target.value)}
                             placeholder="搜索姓名或账号"
-                            className="h-8 w-full rounded-md border border-slate-200 bg-slate-50 pl-7 pr-2 text-[12px] outline-none focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                            className="h-8 w-full rounded-md border border-border bg-surface-2 pl-7 pr-2 text-[12px] outline-none focus:border-info/40 focus:bg-white focus:ring-2 focus:ring-info/20"
                           />
                         </div>
                         {viewerOptions.length === 0 ? (
@@ -1053,7 +1053,7 @@ function ReportPageInner() {
                                     "flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-[12px] transition",
                                     checked
                                       ? "bg-primary/10 text-primary"
-                                      : "text-slate-700 hover:bg-slate-50",
+                                      : "text-ink-secondary hover:bg-surface-2",
                                   )}
                                 >
                                   <span className="min-w-0 truncate">{person.name}</span>
@@ -1062,7 +1062,7 @@ function ReportPageInner() {
                                       "flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px]",
                                       checked
                                         ? "border-primary bg-primary text-white"
-                                        : "border-slate-300 bg-white text-transparent",
+                                        : "border-border bg-white text-transparent",
                                     )}
                                   >
                                     ✓
@@ -1081,7 +1081,7 @@ function ReportPageInner() {
               {/* 团队心流状态 */}
               <div className="flex items-center justify-between gap-4 border-t pt-3 flex-wrap">
                 <div className="flex items-center gap-2">
-                  <span className="text-footnote font-semibold text-slate-700">3. 今日心流状态</span>
+                  <span className="text-footnote font-semibold text-ink-secondary">3. 今日心流状态</span>
                   <div className="flex items-center gap-1.5">
                     {(['happy', 'neutral', 'sad'] as const).map(m => {
                       const isActive = mood === m;
@@ -1095,7 +1095,7 @@ function ReportPageInner() {
                             "h-9 w-9 rounded-full border flex items-center justify-center transition-colors",
                             isActive
                               ? "bg-ink-primary border-ink-primary text-white"
-                              : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
+                              : "bg-white border-border text-ink-tertiary hover:bg-surface-2"
                           )}
                           title={label}
                         >
@@ -1108,7 +1108,7 @@ function ReportPageInner() {
 
                 <div className="ml-auto flex items-center gap-3">
                   {submittedReportAt ? (
-                    <span className="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-medium text-emerald-700">
+                    <span className="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-medium text-success">
                       <CheckCircle2 className="h-3.5 w-3.5" />
                       今日日报已提交
                     </span>
@@ -1145,29 +1145,29 @@ function ReportPageInner() {
         <div className="lg:col-span-5 space-y-4">
           {!analysisResult ? (
             isAnalyzing && streamingText ? (
-              <Card className="border-indigo-100 bg-indigo-50/20">
+              <Card className="border-info/20 bg-info/10">
                 <CardContent className="p-5 space-y-3">
                   <div className="flex items-center gap-2">
-                    <span className="p-1 rounded bg-indigo-100 text-indigo-700">
+                    <span className="p-1 rounded bg-info/15 text-info">
                       <Brain className="h-4 w-4 animate-pulse" />
                     </span>
-                    <span className="text-footnote font-semibold text-slate-800">AI 思考中（流式输出）</span>
-                    <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-indigo-600">
-                      <span className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                    <span className="text-footnote font-semibold text-ink-primary">AI 思考中（流式输出）</span>
+                    <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-info">
+                      <span className="h-1.5 w-1.5 rounded-full bg-info animate-pulse" />
                       正在生成
                     </span>
                   </div>
-                  <pre className="text-[11px] leading-relaxed text-slate-700 whitespace-pre-wrap font-mono max-h-[280px] overflow-y-auto bg-white/60 rounded p-3 border border-slate-100">
+                  <pre className="text-[11px] leading-relaxed text-ink-secondary whitespace-pre-wrap font-mono max-h-[280px] overflow-y-auto bg-white/60 rounded p-3 border border-border">
                     {streamingText}
-                    <span className="inline-block w-1.5 h-3 ml-0.5 bg-indigo-500 animate-pulse align-middle" />
+                    <span className="inline-block w-1.5 h-3 ml-0.5 bg-info animate-pulse align-middle" />
                   </pre>
                 </CardContent>
               </Card>
             ) : (
-              <Card className="border-dashed border-slate-200">
+              <Card className="border-dashed border-border">
                 <CardContent className="py-24 text-center space-y-3">
-                  <Brain className="h-8 w-8 text-indigo-300 mx-auto" />
-                  <p className="text-footnote font-semibold text-slate-700">等待 AI 提炼</p>
+                  <Brain className="h-8 w-8 text-info/70 mx-auto" />
+                  <p className="text-footnote font-semibold text-ink-secondary">等待 AI 提炼</p>
                   <p className="text-[10px] text-muted-foreground max-w-[240px] mx-auto leading-normal">
                     锚定 KR 后写下今日进展，点击「AI 智能提炼 &amp; 对齐」即可。
                     未配置 LLM 时会进入降级模式（基于关键词的规则提取）。
@@ -1177,18 +1177,18 @@ function ReportPageInner() {
             )
           ) : (
             <Card className={cn(
-              "border-indigo-100 transition-all shadow-soft animate-fade-in-up",
-              pushedSuccess ? "bg-emerald-50/30 border-emerald-100 animate-pulse" : "bg-indigo-50/20"
+              "border-info/20 transition-all shadow-soft animate-fade-in-up",
+              pushedSuccess ? "bg-success/10 border-success/20 animate-pulse" : "bg-info/10"
             )}>
               <CardContent className="p-5 space-y-4">
                 <div className="flex items-center gap-2">
                   <span className={cn(
                     "p-1 rounded shrink-0",
-                    pushedSuccess ? "bg-emerald-100 text-emerald-800" : "bg-indigo-100 text-indigo-700"
+                    pushedSuccess ? "bg-success/15 text-success" : "bg-info/15 text-info"
                   )}>
                     {pushedSuccess ? <CheckCircle2 className="h-4 w-4" /> : <Brain className="h-4 w-4" />}
                   </span>
-                  <span className="text-footnote font-bold text-slate-800">
+                  <span className="text-footnote font-bold text-ink-primary">
                     {pushedSuccess ? '已推流到 OKR' : 'AI 提炼结果'}
                   </span>
                   <Badge
@@ -1196,7 +1196,7 @@ function ReportPageInner() {
                     className={cn(
                       'ml-auto text-[10px] border',
                       analysisResult.source === 'llm'
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        ? 'bg-success/10 text-success border-success/30'
                         : 'bg-warning/5 text-warning border-warning/20',
                     )}
                     title={analysisResult.reason}
@@ -1208,19 +1208,19 @@ function ReportPageInner() {
                 </div>
 
                 {/* 1. AI 提取 AP (Action Plan) */}
-                <div className="space-y-2.5 text-footnote text-slate-800 border-b pb-3">
+                <div className="space-y-2.5 text-footnote text-ink-primary border-b pb-3">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-[11px] text-muted-foreground">AI 生成的是草稿，可先修改再提交。</p>
                     {!pushedSuccess && (
-                      <Badge variant="outline" className="text-[10px] bg-white text-indigo-700 border-indigo-100">
+                      <Badge variant="outline" className="text-[10px] bg-white text-info border-info/20">
                         可编辑
                       </Badge>
                     )}
                   </div>
 
                   <label className="space-y-1 block">
-                    <span className="font-semibold flex items-center gap-1 text-slate-700">
-                      <CheckSquare className="h-3.5 w-3.5 text-emerald-500" />
+                    <span className="font-semibold flex items-center gap-1 text-ink-secondary">
+                      <CheckSquare className="h-3.5 w-3.5 text-success" />
                       Achievements (今日增量成果):
                     </span>
                     <Textarea
@@ -1247,8 +1247,8 @@ function ReportPageInner() {
                   </label>
 
                   <label className="space-y-1 block">
-                    <span className="font-semibold flex items-center gap-1 text-slate-700">
-                      <Zap className="h-3.5 w-3.5 text-indigo-500" />
+                    <span className="font-semibold flex items-center gap-1 text-ink-secondary">
+                      <Zap className="h-3.5 w-3.5 text-info" />
                       Next Steps (下一步行动计划/AP):
                     </span>
                     <Textarea
@@ -1263,18 +1263,18 @@ function ReportPageInner() {
 
                 {/* 2. 反向推流建议区 */}
                 <div className="space-y-3">
-                  <div className="bg-white rounded-md p-3 border border-slate-100 shadow-soft-sm space-y-3">
+                  <div className="bg-white rounded-md p-3 border border-border shadow-soft-sm space-y-3">
                     <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Suggested OKR Alignment (对账进度变化)</p>
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
-                        <p className="text-footnote font-medium text-slate-800 truncate max-w-[200px]">{selectedKr?.title}</p>
+                        <p className="text-footnote font-medium text-ink-primary truncate max-w-[200px]">{selectedKr?.title}</p>
                         <p className="text-[10px] text-muted-foreground">
                           当前进度: {selectedKr?.currentValue}/{selectedKr?.targetValue} {selectedKr?.unit} · {Math.round(currentProgressPct)}%
                         </p>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
                         <span className="text-footnote font-semibold tabular-nums text-muted-foreground">{selectedKr?.currentValue}</span>
-                        <ArrowRight className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                        <ArrowRight className="h-3.5 w-3.5 text-ink-tertiary shrink-0" />
                         <span className="text-caption font-bold tabular-nums text-primary">{analysisResult.suggestedValue}</span>
                         <span className="text-[10px] font-medium text-primary">({selectedKr?.unit})</span>
                       </div>
@@ -1289,7 +1289,7 @@ function ReportPageInner() {
                           max={selectedKr ? Math.max(selectedKr.startValue, selectedKr.targetValue) : undefined}
                           step="0.01"
                           onChange={(e) => updateSuggestedValue(e.target.value)}
-                          className="h-8 w-full rounded-md border border-slate-200 bg-white px-2 text-[12px] text-slate-800 outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                          className="h-8 w-full rounded-md border border-border bg-white px-2 text-[12px] text-ink-primary outline-none focus:border-info/40 focus:ring-2 focus:ring-info/20"
                         />
                       </label>
                       <label className="space-y-1">
@@ -1302,7 +1302,7 @@ function ReportPageInner() {
                             max={100}
                             step={1}
                             onChange={(e) => updateSuggestedPercent(e.target.value)}
-                            className="h-8 w-full rounded-md border border-slate-200 bg-white px-2 pr-6 text-[12px] text-slate-800 outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                            className="h-8 w-full rounded-md border border-border bg-white px-2 pr-6 text-[12px] text-ink-primary outline-none focus:border-info/40 focus:ring-2 focus:ring-info/20"
                           />
                           <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">%</span>
                         </div>
@@ -1312,7 +1312,7 @@ function ReportPageInner() {
                         <select
                           value={analysisResult.suggestedConfidence}
                           onChange={(e) => updateAnalysisResult({ suggestedConfidence: e.target.value as AnalysisConfidence })}
-                          className="h-8 w-full rounded-md border border-slate-200 bg-white px-2 text-[12px] text-slate-800 outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                          className="h-8 w-full rounded-md border border-border bg-white px-2 text-[12px] text-ink-primary outline-none focus:border-info/40 focus:ring-2 focus:ring-info/20"
                         >
                           {CONFIDENCE_OPTIONS.map((item) => (
                             <option key={item.value} value={item.value}>{item.label}</option>
@@ -1321,9 +1321,9 @@ function ReportPageInner() {
                       </label>
                     </div>
                     {/* 进度条动画对比 */}
-                    <div className="relative h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                    <div className="relative h-1.5 w-full bg-surface-3 rounded-full overflow-hidden">
                       <div
-                        className="absolute left-0 top-0 h-full bg-slate-300 transition-all"
+                        className="absolute left-0 top-0 h-full bg-surface-3 transition-all"
                         style={{
                           transitionDuration: 'var(--duration-base)',
                           transitionTimingFunction: 'var(--ease-standard)',
@@ -1353,7 +1353,7 @@ function ReportPageInner() {
                   </label>
 
                   {pushedSuccess ? (
-                    <div className="flex items-center justify-center gap-2 rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3 text-[13px] font-medium text-emerald-800">
+                    <div className="flex items-center justify-center gap-2 rounded-lg bg-success/10 border border-success/30 px-4 py-3 text-[13px] font-medium text-success">
                       <CheckCircle2 className="h-4 w-4" />
                       OKR 进度已更新
                     </div>
@@ -1385,11 +1385,11 @@ function ReportPageInner() {
               </CardContent>
             </Card>
           )}
-          <Card className="border-slate-200 bg-white">
+          <Card className="border-border bg-white">
             <CardContent className="p-5 space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <p className="text-footnote font-bold text-slate-800">可见日报</p>
+                  <p className="text-footnote font-bold text-ink-primary">可见日报</p>
                   <p className="text-[10px] text-muted-foreground">你提交的，以及别人授权给你看的日报内容。</p>
                 </div>
                 <Button
@@ -1404,16 +1404,16 @@ function ReportPageInner() {
                 </Button>
               </div>
               {visibleReportItems.length === 0 ? (
-                <div className="rounded-md border border-dashed border-slate-200 py-6 text-center text-[11px] text-muted-foreground">
+                <div className="rounded-md border border-dashed border-border py-6 text-center text-[11px] text-muted-foreground">
                   暂无可见日报
                 </div>
               ) : (
                 <div className="max-h-[360px] space-y-2 overflow-y-auto pr-1">
                   {visibleReportItems.slice(0, 20).map(({ report, kr }) => (
-                    <article key={report.id} className="rounded-md border border-slate-100 bg-slate-50/60 p-3 text-[11px]">
+                    <article key={report.id} className="rounded-md border border-border bg-surface-2/60 p-3 text-[11px]">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="truncate font-semibold text-slate-800">
+                          <p className="truncate font-semibold text-ink-primary">
                             {kr?.title ?? (report.scope === 'objective' ? 'Objective 日报' : 'KR 日报')}
                           </p>
                           <p className="mt-0.5 text-[10px] text-muted-foreground">
@@ -1425,13 +1425,13 @@ function ReportPageInner() {
                         </Badge>
                       </div>
                       {report.achievements && (
-                        <p className="mt-2 whitespace-pre-wrap leading-relaxed text-slate-700">{report.achievements}</p>
+                        <p className="mt-2 whitespace-pre-wrap leading-relaxed text-ink-secondary">{report.achievements}</p>
                       )}
                       {report.blockers && (
                         <p className="mt-2 whitespace-pre-wrap leading-relaxed text-warning">卡点：{report.blockers}</p>
                       )}
                       {report.nextSteps && (
-                        <p className="mt-2 whitespace-pre-wrap leading-relaxed text-slate-600">下一步：{report.nextSteps}</p>
+                        <p className="mt-2 whitespace-pre-wrap leading-relaxed text-ink-secondary">下一步：{report.nextSteps}</p>
                       )}
                     </article>
                   ))}
@@ -1444,7 +1444,7 @@ function ReportPageInner() {
 
       {/* §P2 移动端 sticky CTA · md+ 隐藏 · safe-area 适配 */}
       <div className="md:hidden fixed bottom-16 inset-x-0 z-30 px-3 pb-[max(env(safe-area-inset-bottom),0.5rem)] pointer-events-none">
-        <div className="pointer-events-auto rounded-2xl bg-white/95 backdrop-blur-md shadow-[0_-2px_24px_rgba(0,0,0,0.06)] border border-slate-200/70 p-2.5">
+        <div className="pointer-events-auto rounded-2xl bg-white/95 backdrop-blur-md shadow-[0_-2px_24px_rgba(0,0,0,0.06)] border border-border/70 p-2.5">
           {stickyState === 'idle' && (
             <div className="flex items-center justify-center gap-1.5 py-2 text-[12px] text-ink-tertiary">
               <Target className="h-3.5 w-3.5" />
@@ -1478,7 +1478,7 @@ function ReportPageInner() {
             </Button>
           )}
           {stickyState === 'done' && (
-            <div className="flex items-center justify-center gap-1.5 py-2.5 text-[13px] font-medium text-emerald-700">
+            <div className="flex items-center justify-center gap-1.5 py-2.5 text-[13px] font-medium text-success">
               <CheckCircle2 className="h-4 w-4" />
               <span>已更新 OKR 进度</span>
             </div>

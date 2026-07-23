@@ -36,11 +36,11 @@ interface PermissionOption { key: string; label: string; description: string }
 const NONE_VALUE = '__none__';
 
 const ROLE_LABEL: Record<string, { label: string; color: string }> = {
-  admin:    { label: 'Admin',    color: 'bg-rose-50 text-rose-700 border-rose-200' },
-  champion: { label: '推广大使', color: 'bg-violet-50 text-violet-700 border-violet-200' },
+  admin:    { label: 'Admin',    color: 'bg-danger/5 text-danger border-danger/30' },
+  champion: { label: '推广大使', color: 'bg-brand-50 text-brand-700 border-brand-200' },
   steward:  { label: 'Steward',  color: 'bg-warning/5 text-warning border-warning/20' },
-  manager:  { label: '主管',     color: 'bg-sky-50 text-sky-700 border-sky-200' },
-  hr:       { label: 'HR',       color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  manager:  { label: '主管',     color: 'bg-info/10 text-info border-info/30' },
+  hr:       { label: 'HR',       color: 'bg-success/10 text-success border-success/30' },
   employee: { label: '员工',     color: 'bg-surface-1 text-ink-primary border' },
 };
 
@@ -480,7 +480,7 @@ function RoleManagerDialog({
                 ))}
               </div>
             </div>
-            {error && <div className="text-caption text-rose-700">{error}</div>}
+            {error && <div className="text-caption text-danger">{error}</div>}
           </div>
         </div>
         <DialogFooter className="flex-row justify-between sm:justify-between">
@@ -537,19 +537,19 @@ function PasswordDialog({
             <label className="text-caption font-medium mb-1 block">新密码 *</label>
             <Input type={show ? 'text' : 'password'} value={pwd} onChange={(e) => setPwd(e.target.value)}
               placeholder="至少 10 位，含大小写字母、数字、特殊字符" autoComplete="new-password" />
-            {tooShort && <p className="text-footnote text-rose-600 mt-1">密码至少 10 位</p>}
+            {tooShort && <p className="text-footnote text-danger mt-1">密码至少 10 位</p>}
           </div>
           <div>
             <label className="text-caption font-medium mb-1 block">确认新密码 *</label>
             <Input type={show ? 'text' : 'password'} value={confirm} onChange={(e) => setConfirm(e.target.value)}
               placeholder="再次输入" autoComplete="new-password" />
-            {mismatch && <p className="text-footnote text-rose-600 mt-1">两次输入不一致</p>}
+            {mismatch && <p className="text-footnote text-danger mt-1">两次输入不一致</p>}
           </div>
           <label className="flex items-center gap-2 text-caption text-muted-foreground cursor-pointer">
             <input type="checkbox" checked={show} onChange={(e) => setShow(e.target.checked)} />显示密码
           </label>
           {err && (
-            <div className="flex items-center gap-2 rounded border border-rose-200 bg-rose-50 px-3 py-2 text-caption text-rose-700">
+            <div className="flex items-center gap-2 rounded border border-danger/30 bg-danger/5 px-3 py-2 text-caption text-danger">
               <AlertCircle className="h-4 w-4" />{err}
             </div>
           )}
@@ -599,7 +599,7 @@ function DeptNode({
         <div className="hidden group-hover:flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
           <button title="新增子部门" className="p-0.5 rounded hover:bg-muted" onClick={() => onAddChild(dept.id)}><Plus className="h-3 w-3" /></button>
           <button title="编辑" className="p-0.5 rounded hover:bg-muted" onClick={() => onEdit(dept)}><Pencil className="h-3 w-3" /></button>
-          <button title="删除" className="p-0.5 rounded hover:bg-rose-100 text-rose-600" onClick={() => onDelete(dept)}><Trash2 className="h-3 w-3" /></button>
+          <button title="删除" className="p-0.5 rounded hover:bg-danger/10 text-danger" onClick={() => onDelete(dept)}><Trash2 className="h-3 w-3" /></button>
         </div>
       </div>
       {open && children.map((c) => (
@@ -789,7 +789,7 @@ export default function AdminOrganizationPage() {
       </header>
 
       {error && (
-        <div className="mb-4 flex items-center gap-2 text-caption text-rose-700 bg-rose-50 border border-rose-200 rounded px-3 py-2">
+        <div className="mb-4 flex items-center gap-2 text-caption text-danger bg-danger/5 border border-danger/30 rounded px-3 py-2">
           <AlertCircle className="h-4 w-4" />{error}
         </div>
       )}
@@ -854,7 +854,7 @@ export default function AdminOrganizationPage() {
                         <div className="font-medium leading-4 flex items-center gap-1.5">
                           <span className="truncate">{u.name}</span>
                           {u.disabled && (
-                            <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 text-[10px] h-4 px-1 shrink-0">已禁用</Badge>
+                            <Badge variant="outline" className="bg-danger/5 text-danger border-danger/30 text-[10px] h-4 px-1 shrink-0">已禁用</Badge>
                           )}
                         </div>
                         <div className="text-footnote leading-4 text-muted-foreground font-mono truncate max-w-[200px]">{u.email}</div>
@@ -899,13 +899,13 @@ export default function AdminOrganizationPage() {
                           ><KeyRound className="h-4 w-4" /></button>
                           {u.disabled ? (
                             <button
-                              className="shrink-0 p-1.5 rounded-md border border-emerald-200 text-emerald-600 hover:bg-emerald-50"
+                              className="shrink-0 p-1.5 rounded-md border border-success/30 text-success hover:bg-success/10"
                               title="恢复账号"
                               onClick={() => toggleDisabled(u)}
                             ><UserCheck className="h-4 w-4" /></button>
                           ) : (
                             <button
-                              className="shrink-0 p-1.5 rounded-md border border-rose-200 text-rose-600 hover:bg-rose-50"
+                              className="shrink-0 p-1.5 rounded-md border border-danger/30 text-danger hover:bg-danger/5"
                               title="禁用账号"
                               onClick={() => toggleDisabled(u)}
                             ><UserX className="h-4 w-4" /></button>
@@ -1084,14 +1084,14 @@ function ImportContactsDialog({
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
           />
           {err && (
-            <div className="flex items-center gap-2 rounded border border-rose-200 bg-rose-50 px-3 py-2 text-caption text-rose-700">
+            <div className="flex items-center gap-2 rounded border border-danger/30 bg-danger/5 px-3 py-2 text-caption text-danger">
               <AlertCircle className="h-4 w-4" />{err}
             </div>
           )}
           {summary && (
             <div className="flex flex-wrap items-center gap-2 text-caption">
-              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">成功 {summary.ok}</Badge>
-              {summary.failed > 0 && <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200">失败 {summary.failed}</Badge>}
+              <Badge variant="outline" className="bg-success/10 text-success border-success/30">成功 {summary.ok}</Badge>
+              {summary.failed > 0 && <Badge variant="outline" className="bg-danger/5 text-danger border-danger/30">失败 {summary.failed}</Badge>}
               <span className="text-muted-foreground">共 {summary.total} 行 / {summary.dryRun ? '试运行' : '已导入'}</span>
               {results && <Button size="sm" variant="ghost" onClick={downloadResults}><Download className="h-3.5 w-3.5 mr-1" />下载结果</Button>}
             </div>
@@ -1156,11 +1156,11 @@ function BulkInviteCard({ onSuccess }: { onSuccess?: () => void }) {
         <Button size="sm" disabled={!file || busy} onClick={() => void upload(false)}>{busy ? '生成中...' : '正式生成'}</Button>
         {results && <Button size="sm" variant="ghost" onClick={downloadResults}><Download className="h-3.5 w-3.5 mr-1" />下载结果</Button>}
       </div>
-      {err && <div className="mt-2 text-footnote text-rose-700 flex items-center gap-1"><AlertCircle className="h-3.5 w-3.5" />{err}</div>}
+      {err && <div className="mt-2 text-footnote text-danger flex items-center gap-1"><AlertCircle className="h-3.5 w-3.5" />{err}</div>}
       {summary && (
         <div className="mt-2 flex items-center gap-2 text-footnote">
-          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">成功 {summary.ok}</Badge>
-          {summary.failed > 0 && <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200">失败 {summary.failed}</Badge>}
+          <Badge variant="outline" className="bg-success/10 text-success border-success/30">成功 {summary.ok}</Badge>
+          {summary.failed > 0 && <Badge variant="outline" className="bg-danger/5 text-danger border-danger/30">失败 {summary.failed}</Badge>}
           <span className="text-muted-foreground">共 {summary.total} 行 / {summary.dryRun ? '试运行' : '已生成'}</span>
         </div>
       )}

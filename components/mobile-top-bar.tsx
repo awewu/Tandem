@@ -47,7 +47,7 @@ export function MobileTopBar() {
           'md:hidden',
           'sticky top-0 z-30',
           'flex h-[calc(44px+var(--capacitor-effective-top-inset,0px))] items-center px-3',
-          'border-b border-slate-200/80 bg-white',
+          'border-b border-border/80 bg-white',
           'pt-[var(--capacitor-effective-top-inset,0px)]',
           'dark:bg-[rgb(var(--rheem-charcoal))] dark:border-white/10',
         )}
@@ -56,7 +56,7 @@ export function MobileTopBar() {
           type="button"
           onClick={() => { haptic('light'); setDrawerOpen(true); }}
           aria-label="打开导航"
-          className="flex h-11 w-11 items-center justify-center -ml-2 rounded-md text-ink-secondary hover:bg-slate-100 dark:text-white/75 dark:hover:bg-white/10"
+          className="flex h-11 w-11 items-center justify-center -ml-2 rounded-md text-ink-secondary hover:bg-surface-3 dark:text-white/75 dark:hover:bg-white/10"
         >
           <Menu className="h-[22px] w-[22px]" strokeWidth={2} />
         </button>

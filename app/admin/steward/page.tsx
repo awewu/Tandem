@@ -76,9 +76,9 @@ interface DowngradeRequest {
 // ---------- Constants ----------
 
 const LEVEL_LABEL: Record<string, { label: string; color: string }> = {
-  team: { label: 'Lv1 团队', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  team: { label: 'Lv1 团队', color: 'bg-success/10 text-success border-success/30' },
   dept: { label: 'Lv2 部门', color: 'bg-warning/5 text-warning border-warning/20' },
-  company: { label: 'Lv3 公司', color: 'bg-rose-50 text-rose-700 border-rose-200' },
+  company: { label: 'Lv3 公司', color: 'bg-danger/5 text-danger border-danger/30' },
 };
 
 const LEVEL_REQUIRED_ROLES: Record<string, string[]> = {
@@ -115,7 +115,7 @@ export default function StewardWorkbenchPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5 text-violet-600" />
+            <Shield className="h-5 w-5 text-brand-700" />
             Steward 工作台 · 知识治理官
           </CardTitle>
           <p className="mt-1 text-caption text-muted-foreground">
@@ -311,10 +311,10 @@ function PromotionCard({
                 variant="outline"
                 className={
                   p.status === 'approved'
-                    ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                    ? 'border-success/40 bg-success/10 text-success'
                     : p.status === 'rejected'
-                    ? 'border-rose-300 bg-rose-50 text-rose-700'
-                    : 'border-slate-200 text-slate-600'
+                    ? 'border-danger/40 bg-danger/5 text-danger'
+                    : 'border-border text-ink-secondary'
                 }
               >
                 {p.status}
@@ -335,7 +335,7 @@ function PromotionCard({
               <span
                 className={
                   slaInfo.overdue
-                    ? 'flex items-center gap-1 font-medium text-rose-600'
+                    ? 'flex items-center gap-1 font-medium text-danger'
                     : 'flex items-center gap-1 text-warning'
                 }
               >
@@ -347,7 +347,7 @@ function PromotionCard({
         </div>
 
         {/* 签字进度 */}
-        <div className="mt-3 grid gap-2 rounded-md border bg-slate-50/50 p-2 sm:grid-cols-2">
+        <div className="mt-3 grid gap-2 rounded-md border bg-surface-2/50 p-2 sm:grid-cols-2">
           <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground sm:col-span-2">
             签字进度 · {LEVEL_LABEL[level].label} 需要 {required.length} 人
           </div>
@@ -359,9 +359,9 @@ function PromotionCard({
                 className="flex items-center gap-2 rounded-sm border bg-white px-2 py-1 text-footnote"
               >
                 {signed ? (
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                  <CheckCircle2 className="h-3.5 w-3.5 text-success" />
                 ) : (
-                  <XCircle className="h-3.5 w-3.5 text-slate-300" />
+                  <XCircle className="h-3.5 w-3.5 text-ink-tertiary" />
                 )}
                 <span className="font-medium">{ROLE_LABEL[r] ?? r}</span>
                 {signed && (
@@ -393,7 +393,7 @@ function PromotionCard({
               : '—'}
           </span>
           {isPending && (
-            <Button size="sm" variant="ghost" onClick={onReject} className="h-7 text-rose-600">
+            <Button size="sm" variant="ghost" onClick={onReject} className="h-7 text-danger">
               拒绝
             </Button>
           )}
@@ -522,7 +522,7 @@ function DowngradesPanel({ signerId }: { signerId: string }) {
             <Card key={d.id}>
               <CardContent className="pt-4">
                 <div className="mb-2 flex items-center gap-2">
-                  <TrendingDown className="h-4 w-4 text-rose-500" />
+                  <TrendingDown className="h-4 w-4 text-danger" />
                   <span className="font-medium">Memory: {d.memoryId}</span>
                   <Badge variant="outline" className="text-[10px]">
                     触发: {d.proposedBy === 'ai' ? 'AI 扫描' : d.proposedBy}
@@ -532,7 +532,7 @@ function DowngradesPanel({ signerId }: { signerId: string }) {
                     className={
                       d.status === 'proposed' || d.status === 'under_review'
                         ? 'border-warning/30 bg-warning/5 text-warning'
-                        : 'border-slate-200'
+                        : 'border-border'
                     }
                   >
                     {d.status}
@@ -568,7 +568,7 @@ function DowngradesPanel({ signerId }: { signerId: string }) {
                   </div>
                 )}
                 {d.decision && (
-                  <div className="mt-2 rounded-sm border bg-emerald-50/50 p-2 text-[11px]">
+                  <div className="mt-2 rounded-sm border bg-success/10 p-2 text-[11px]">
                     决议: {d.status} · 由 {d.decision.by} 于{' '}
                     {new Date(d.decision.decidedAt).toLocaleString()}
                     {d.decision.note && ` · ${d.decision.note}`}
@@ -625,10 +625,10 @@ function SlaPanel() {
       </Card>
 
       {overdue.length > 0 && (
-        <Card className="border-rose-200">
+        <Card className="border-danger/30">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-body">
-              <AlertTriangle className="h-4 w-4 text-rose-600" />
+              <AlertTriangle className="h-4 w-4 text-danger" />
               已逾期 (cron 下一轮 10min 内自动 escalate +1 级)
             </CardTitle>
           </CardHeader>
@@ -639,7 +639,7 @@ function SlaPanel() {
               return (
                 <div
                   key={p.id}
-                  className="flex items-center justify-between rounded border bg-rose-50/30 px-3 py-2 text-caption"
+                  className="flex items-center justify-between rounded border bg-danger/5 px-3 py-2 text-caption"
                 >
                   <div className="min-w-0 flex-1">
                     <span className="font-medium">{p.proposedTitle}</span>
@@ -649,7 +649,7 @@ function SlaPanel() {
                     {LEVEL_LABEL[lvl].label}
                   </Badge>
                   {sla && (
-                    <span className="ml-2 text-footnote font-medium text-rose-600">
+                    <span className="ml-2 text-footnote font-medium text-danger">
                       逾期 {sla.label}
                     </span>
                   )}
@@ -711,7 +711,7 @@ function Stat({
 }) {
   const cls =
     accent === 'rose'
-      ? 'text-rose-600'
+      ? 'text-danger'
       : accent === 'amber'
       ? 'text-warning'
       : 'text-foreground';

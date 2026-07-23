@@ -181,7 +181,7 @@ function FeaturedArchive({ post }: { post: IntranetPost }) {
         href={`/intranet/posts/${post.id}`}
         className="card-elevated p-5 flex flex-col sm:flex-row gap-5 surface-interactive group"
       >
-        <div className="shrink-0 flex h-32 w-full sm:w-44 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-brand-50 via-amber-50 to-emerald-50 text-5xl">
+        <div className="shrink-0 flex h-32 w-full sm:w-44 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-brand-50 via-warning/10 to-success/10 text-5xl">
           {post.coverImage ? (
             <img src={post.coverImage} alt="" className="h-full w-full object-cover" />
           ) : TYPE_EMOJI[post.type]}
@@ -273,7 +273,7 @@ function CeoWeeklyPromo() {
       href="/intranet/town-hall"
       className="block rounded-2xl overflow-hidden shadow-soft-md group"
     >
-      <div className="relative bg-gradient-to-br from-slate-800 via-slate-700 to-brand-700 p-5 text-white">
+      <div className="relative bg-gradient-to-br from-ink-primary via-ink-secondary to-brand-700 p-5 text-white">
         <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_80%_30%,white_1px,transparent_1px)] [background-size:18px_18px]" />
         <div className="relative">
           <span className="text-footnote uppercase tracking-wider opacity-80">

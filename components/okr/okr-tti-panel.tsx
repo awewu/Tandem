@@ -81,10 +81,10 @@ export function OKRTtiPanel({ ownerId, cycle, keyResults }: Props) {
       <section>
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-caption font-medium flex items-center gap-1.5">
-            <Sparkles size={14} className="text-orange-500" />
+            <Sparkles size={14} className="text-warning" />
             TTI · 成长软轨
           </h3>
-          <span className="text-[11px] rounded bg-orange-50 px-2 py-0.5 text-orange-700 font-mono">
+          <span className="text-[11px] rounded bg-warning/10 px-2 py-0.5 text-warning font-mono">
             §4 永不挂奖金 · 60-70% = 健康
           </span>
         </div>
@@ -109,7 +109,7 @@ export function OKRTtiPanel({ ownerId, cycle, keyResults }: Props) {
       {/* KR Plan vs Actual 月度对比 */}
       <section>
         <h3 className="text-caption font-medium flex items-center gap-1.5 mb-2">
-          <Target size={14} className="text-emerald-500" />
+          <Target size={14} className="text-success" />
           KR · Plan vs Actual (本周期)
         </h3>
         {!cycle ? (
@@ -146,7 +146,7 @@ export function OKRTtiPanel({ ownerId, cycle, keyResults }: Props) {
       {/* M2 月度对比表预告 */}
       <section className="border-2 border-dashed rounded p-4 text-footnote">
         <p className="font-medium mb-1 inline-flex items-center gap-1.5">
-          <TrendingUp size={12} className="text-blue-500" />
+          <TrendingUp size={12} className="text-info" />
           月度对比 / 同比环比 (M2 上线)
         </p>
         <p className="text-muted-foreground">
@@ -162,11 +162,11 @@ function TtiRow({ tti }: { tti: PrismaTti }) {
   const isHealthy = rate >= 0.6 && rate <= 0.8;
   const isOverEasy = rate > 0.9;
   const tone = isHealthy
-    ? 'border-emerald-300 bg-emerald-50/50'
+    ? 'border-success/40 bg-success/10'
     : isOverEasy
     ? 'border-warning/30 bg-warning/5/50'
     : rate >= 0.4
-    ? 'border-orange-200 bg-orange-50/30'
+    ? 'border-warning/30 bg-warning/10'
     : 'border-danger/20 bg-danger/5/30';
   const note = isOverEasy
     ? '⚠ 设得过低 (过于轻松)'
@@ -194,12 +194,12 @@ function TtiRow({ tti }: { tti: PrismaTti }) {
       {/* 60-70% green band 进度条 */}
       <div className="relative h-2 rounded-full bg-muted overflow-hidden">
         <div
-          className="absolute top-0 bottom-0 bg-emerald-500/15"
+          className="absolute top-0 bottom-0 bg-success/15"
           style={{ left: '60%', width: '20%' }}
         />
         <div
           className={`h-full transition-all ${
-            isHealthy ? 'bg-emerald-500' : isOverEasy ? 'bg-warning' : 'bg-orange-400'
+            isHealthy ? 'bg-success' : isOverEasy ? 'bg-warning' : 'bg-warning/30'
           }`}
           style={{ width: `${Math.min(100, rate * 100)}%` }}
         />
@@ -232,7 +232,7 @@ function KrRow({ kr, cycle }: { kr: KeyResult; cycle: ZustandCycle }) {
   const behind = variancePct < -5;
   const Icon = ahead ? TrendingUp : behind ? TrendingDown : Minus;
   const color = ahead
-    ? 'text-emerald-600'
+    ? 'text-success'
     : behind
     ? 'text-danger'
     : 'text-muted-foreground';

@@ -260,7 +260,7 @@ export function OKRRetrospective({ objectiveId }: Props) {
       {/* M2 提示 */}
       <div className="border-2 border-dashed rounded p-3 text-footnote">
         <div className="font-medium mb-1 inline-flex items-center gap-1.5">
-          <CheckCircle2 size={12} className="text-emerald-500" />
+          <CheckCircle2 size={12} className="text-success" />
           复盘后 (M2 联动)
         </div>
         <ul className="list-disc list-inside space-y-0.5 text-muted-foreground">

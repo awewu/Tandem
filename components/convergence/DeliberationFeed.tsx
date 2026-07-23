@@ -98,7 +98,7 @@ function CommentItem({ comment, isOwn }: { comment: DeliberationComment; isOwn: 
     <div className={`flex gap-2 ${isOwn ? 'flex-row-reverse' : ''}`}>
       <div
         className={`inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-footnote font-semibold ${
-          comment.isAi ? 'bg-purple-100 text-purple-700' : 'bg-slate-200 text-slate-700'
+          comment.isAi ? 'bg-brand-100 text-brand-700' : 'bg-surface-3 text-ink-secondary'
         }`}
       >
         {comment.isAi ? 'AI' : (comment.userName ?? comment.userId).slice(0, 1)}
@@ -106,12 +106,12 @@ function CommentItem({ comment, isOwn }: { comment: DeliberationComment; isOwn: 
       <div className={`max-w-[75%] ${isOwn ? 'text-right' : ''}`}>
         <div className="text-footnote text-muted-foreground">
           {comment.userName ?? comment.userId}
-          {comment.isAi && <span className="ml-1 text-purple-600">· AI</span>}
+          {comment.isAi && <span className="ml-1 text-brand-700">· AI</span>}
           <span className="ml-2">{formatTime(comment.timestamp)}</span>
         </div>
         <div
           className={`mt-1 rounded-lg px-3 py-2 text-caption ${
-            isOwn ? 'bg-blue-100 text-blue-900' : 'bg-slate-100'
+            isOwn ? 'bg-info/15 text-info' : 'bg-surface-3'
           }`}
         >
           {comment.comment}

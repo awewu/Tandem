@@ -122,17 +122,17 @@ export default function AdminInvitePage() {
           <Button onClick={create}>生成邀请码</Button>
 
           {lastCode && (
-            <div className="rounded border border-emerald-300 bg-emerald-50 p-3">
-              <p className="mb-1 text-footnote text-emerald-700">
+            <div className="rounded border border-success/40 bg-success/10 p-3">
+              <p className="mb-1 text-footnote text-success">
                 ⚠️ 此邀请码仅显示一次, 请立即复制并发给受邀者:
               </p>
               <div className="flex items-center gap-2 rounded bg-white p-2">
                 <code className="flex-1 text-headline font-bold tracking-widest">{lastCode}</code>
                 <Button size="sm" variant="outline" onClick={copy}>
-                  {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+                  {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
                 </Button>
               </div>
-              <p className="mt-2 text-footnote text-emerald-700">
+              <p className="mt-2 text-footnote text-success">
                 注册链接: {' '}
                 <code className="text-[10px]">
                   {typeof window !== 'undefined' ? window.location.origin : ''}/register?invite={lastCode}

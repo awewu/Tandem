@@ -16,14 +16,14 @@ const CELL_META: Record<NineBoxCell, { title: string; sub: string; bg: string; t
   star: {
     title: '⭐ 明星',
     sub: '高 KPI · 高 TTI',
-    bg: 'bg-emerald-100',
-    textColor: 'text-emerald-900',
+    bg: 'bg-success/15',
+    textColor: 'text-success',
   },
   high_performer: {
     title: '🚀 高产',
     sub: '高 KPI · 中 TTI',
-    bg: 'bg-emerald-50',
-    textColor: 'text-emerald-800',
+    bg: 'bg-success/10',
+    textColor: 'text-success',
   },
   risk_burnout: {
     title: '⚠️ 枯萎风险',
@@ -34,26 +34,26 @@ const CELL_META: Record<NineBoxCell, { title: string; sub: string; bg: string; t
   rising_talent: {
     title: '🌱 升星人才',
     sub: '中 KPI · 高 TTI',
-    bg: 'bg-emerald-50',
-    textColor: 'text-emerald-800',
+    bg: 'bg-success/10',
+    textColor: 'text-success',
   },
   core: {
     title: '🧱 核心力量',
     sub: '中 KPI · 中 TTI',
-    bg: 'bg-slate-50',
-    textColor: 'text-slate-800',
+    bg: 'bg-surface-2',
+    textColor: 'text-ink-primary',
   },
   plateau: {
     title: '➖ 平台期',
     sub: '中 KPI · 低 TTI',
-    bg: 'bg-slate-100',
-    textColor: 'text-slate-700',
+    bg: 'bg-surface-3',
+    textColor: 'text-ink-secondary',
   },
   mismatch: {
     title: '🔄 人岗不匹配',
     sub: '低 KPI · 高 TTI',
-    bg: 'bg-blue-50',
-    textColor: 'text-blue-800',
+    bg: 'bg-info/10',
+    textColor: 'text-info',
   },
   low_engagement: {
     title: '😴 投入不足',
@@ -160,7 +160,7 @@ function PersonChip({ person }: { person: PersonInBox }) {
         person.ttiScore * 100
       )}%)`}
     >
-      <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-slate-300 text-[10px] font-semibold text-white">
+      <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-surface-3 text-[10px] font-semibold text-white">
         {initial}
       </span>
       <span>{person.name}</span>

@@ -13,16 +13,16 @@ interface Props {
 
 const STATUS_OPTIONS: { v: Initiative['status']; label: string; cls: string; icon: any }[] = [
   { v: 'todo', label: '待办', cls: 'text-muted-foreground', icon: Circle },
-  { v: 'in-progress', label: '进行中', cls: 'text-blue-600', icon: Clock },
+  { v: 'in-progress', label: '进行中', cls: 'text-info', icon: Clock },
   { v: 'done', label: '已完成', cls: 'text-success', icon: Check },
   { v: 'blocked', label: '阻塞', cls: 'text-danger', icon: AlertTriangle },
   { v: 'cancelled', label: '取消', cls: 'text-muted-foreground line-through', icon: X },
 ];
 
 const PRIORITY_OPTIONS: { v: Initiative['priority']; label: string; cls: string }[] = [
-  { v: 'low', label: '低', cls: 'bg-gray-100 text-gray-700' },
-  { v: 'medium', label: '中', cls: 'bg-blue-100 text-blue-700' },
-  { v: 'high', label: '高', cls: 'bg-orange-100 text-orange-700' },
+  { v: 'low', label: '低', cls: 'bg-surface-3 text-ink-secondary' },
+  { v: 'medium', label: '中', cls: 'bg-info/15 text-info' },
+  { v: 'high', label: '高', cls: 'bg-warning/15 text-warning' },
   { v: 'urgent', label: '紧急', cls: 'bg-danger/10 text-danger' },
 ];
 

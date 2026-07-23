@@ -194,7 +194,7 @@ export function DocumentPermissions({ docId, ownerId, permissions, currentUserId
           <div key={id} className="flex items-center justify-between p-2 bg-white rounded border gap-2">
             <span className="flex items-center gap-1.5 truncate flex-1">
               {role === "write" ? (
-                <Pencil size={13} className="text-emerald-600 shrink-0" />
+                <Pencil size={13} className="text-success shrink-0" />
               ) : (
                 <Eye size={13} className="text-ink-tertiary shrink-0" />
               )}
@@ -216,7 +216,7 @@ export function DocumentPermissions({ docId, ownerId, permissions, currentUserId
                   type="button"
                   onClick={() => removeCollaborator(id)}
                   disabled={busy}
-                  className="p-1 rounded hover:bg-rose-50 text-rose-500"
+                  className="p-1 rounded hover:bg-danger/5 text-danger"
                   title="移除协作者"
                 >
                   <X size={13} />
@@ -242,7 +242,7 @@ export function DocumentPermissions({ docId, ownerId, permissions, currentUserId
         />
       )}
 
-      {error && <div className="mt-2 text-[11px] text-rose-600">{error}</div>}
+      {error && <div className="mt-2 text-[11px] text-danger">{error}</div>}
     </div>
   );
 }

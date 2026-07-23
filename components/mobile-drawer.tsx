@@ -120,13 +120,13 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
           open ? 'translate-x-0' : '-translate-x-full',
         )}
       >
-        <header className="flex h-12 shrink-0 items-center justify-between border-b border-slate-200/80 px-4 dark:border-white/10">
+        <header className="flex h-12 shrink-0 items-center justify-between border-b border-border/80 px-4 dark:border-white/10">
           <span className="text-[15px] font-semibold text-ink-primary">全部导航</span>
           <button
             type="button"
             onClick={onClose}
             aria-label="关闭"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-slate-600 hover:bg-slate-100 dark:text-white/75 dark:hover:bg-white/10"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-ink-secondary hover:bg-surface-3 dark:text-white/75 dark:hover:bg-white/10"
           >
             <X className="h-5 w-5" />
           </button>
@@ -134,11 +134,11 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
 
         {/* §P6 用户区: 头像 + Persona 训练入口 + 设置 + 退出 */}
         {user && (
-          <div className="shrink-0 border-b border-slate-200/80 px-3 py-3 dark:border-white/10">
+          <div className="shrink-0 border-b border-border/80 px-3 py-3 dark:border-white/10">
             <Link
               href="/persona"
               onClick={handleDrawerLink('/persona')}
-              className="flex items-center gap-3 rounded-lg p-2 hover:bg-slate-100 dark:hover:bg-white/5"
+              className="flex items-center gap-3 rounded-lg p-2 hover:bg-surface-3 dark:hover:bg-white/5"
             >
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[rgb(var(--brand-500))] text-[15px] font-semibold text-white">
                 {userInitial}
@@ -156,7 +156,7 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
               <Link
                 href="/persona/training"
                 onClick={handleDrawerLink('/persona/training')}
-                className="flex flex-col items-center gap-1 rounded-md py-2 text-[11px] text-ink-secondary hover:bg-slate-100 dark:hover:bg-white/5"
+                className="flex flex-col items-center gap-1 rounded-md py-2 text-[11px] text-ink-secondary hover:bg-surface-3 dark:hover:bg-white/5"
                 title="训练我的 AI 分身"
               >
                 <Sparkles className="h-4 w-4" />
@@ -165,7 +165,7 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
               <Link
                 href="/persona/me/proxy-actions"
                 onClick={handleDrawerLink('/persona/me/proxy-actions')}
-                className="flex flex-col items-center gap-1 rounded-md py-2 text-[11px] text-ink-secondary hover:bg-slate-100 dark:hover:bg-white/5"
+                className="flex flex-col items-center gap-1 rounded-md py-2 text-[11px] text-ink-secondary hover:bg-surface-3 dark:hover:bg-white/5"
                 title="我的分身代办"
               >
                 <ShieldCheck className="h-4 w-4" />
@@ -174,7 +174,7 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
               <Link
                 href="/settings"
                 onClick={handleDrawerLink('/settings')}
-                className="flex flex-col items-center gap-1 rounded-md py-2 text-[11px] text-ink-secondary hover:bg-slate-100 dark:hover:bg-white/5"
+                className="flex flex-col items-center gap-1 rounded-md py-2 text-[11px] text-ink-secondary hover:bg-surface-3 dark:hover:bg-white/5"
               >
                 <Settings className="h-4 w-4" />
                 设置
@@ -199,8 +199,8 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
             return (
               <section key={m.id} className="mb-4">
                 <div className="flex items-center gap-2 px-2 pb-1.5">
-                  <Icon className="h-4 w-4 text-slate-500" />
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  <Icon className="h-4 w-4 text-ink-tertiary" />
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-tertiary">
                     {m.fullLabel}
                   </span>
                 </div>
@@ -210,8 +210,8 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
                     onClick={handleDrawerLink(m.pathPrefixes[0])}
                     className={cn(
                       'flex items-center gap-2 rounded-md px-3 py-2 text-[13.5px] text-ink-primary',
-                      'hover:bg-slate-100 dark:hover:bg-white/5',
-                      pathname?.startsWith(m.pathPrefixes[0]) && 'bg-slate-100 dark:bg-white/5 font-medium',
+                      'hover:bg-surface-3 dark:hover:bg-white/5',
+                      pathname?.startsWith(m.pathPrefixes[0]) && 'bg-surface-3 dark:bg-white/5 font-medium',
                     )}
                   >
                     打开
@@ -228,9 +228,9 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
                             onClick={handleDrawerLink(it.href)}
                             className={cn(
                               'flex items-center gap-2 rounded-md px-3 py-2 text-[13.5px]',
-                              'hover:bg-slate-100 dark:hover:bg-white/5',
+                              'hover:bg-surface-3 dark:hover:bg-white/5',
                               active
-                                ? 'bg-slate-100 dark:bg-white/5 font-medium text-ink-primary'
+                                ? 'bg-surface-3 dark:bg-white/5 font-medium text-ink-primary'
                                 : 'text-ink-secondary',
                             )}
                           >

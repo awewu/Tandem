@@ -20,7 +20,7 @@ export interface HeroSlide {
   eyebrow: string;
   title: string;
   imageUrl?: string;
-  /** Tailwind gradient classes, e.g. 'from-brand-600 via-brand-500 to-amber-400' */
+  /** Tailwind gradient classes, e.g. 'from-brand-600 via-brand-500 to-warning/30' */
   bgGradient: string;
   href: string;
 }

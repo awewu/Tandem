@@ -196,7 +196,7 @@ export default function DocumentEditorPage() {
             type="button"
             onClick={runReview}
             disabled={busy === 'review'}
-            className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-sky-700 ring-1 ring-sky-300/80 transition hover:bg-sky-50 disabled:opacity-40"
+            className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-info ring-1 ring-info/40 transition hover:bg-info/10 disabled:opacity-40"
             title="让中央 AI 评审清晰度/缺漏/风险/建议下一步 (不改文档, 仅参谋)"
           >
             <ScanSearch className="h-3 w-3" />
@@ -223,7 +223,7 @@ export default function DocumentEditorPage() {
             type="button"
             onClick={promoteToMemory}
             disabled={busy === 'promote'}
-            className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-violet-700 ring-1 ring-violet-300/80 transition hover:bg-violet-50 disabled:opacity-40"
+            className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-brand-700 ring-1 ring-brand-300/80 transition hover:bg-brand-50 disabled:opacity-40"
             title={
               doc.spawnedPromotionId
                 ? '本文档已发起 Memory 升级, 点击查看签批进度'
@@ -246,7 +246,7 @@ export default function DocumentEditorPage() {
           {(doc.canDelete ?? (isAdmin || user?.id === doc.ownerId)) && (
             <button
               onClick={deleteDoc}
-              className="p-2 rounded hover:bg-rose-50 text-rose-500"
+              className="p-2 rounded hover:bg-danger/5 text-danger"
               title="删除文档"
             >
               <Trash2 size={18} />
@@ -255,7 +255,7 @@ export default function DocumentEditorPage() {
         </div>
       </div>
       {actionMsg && (
-        <div className="px-4 py-1.5 text-[11px] text-rose-700 bg-rose-50 border-b border-rose-200">
+        <div className="px-4 py-1.5 text-[11px] text-danger bg-danger/5 border-b border-danger/30">
           {actionMsg}
         </div>
       )}
@@ -275,7 +275,7 @@ export default function DocumentEditorPage() {
           {doc.spawnedPromotionId && (
             <Link
               href={`/memories?promotionId=${doc.spawnedPromotionId}`}
-              className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 font-medium text-violet-700 hover:bg-violet-100"
+              className="inline-flex items-center gap-1 rounded-full border border-brand-200 bg-brand-50 px-2 py-0.5 font-medium text-brand-700 hover:bg-brand-100"
             >
               <Brain className="h-2.5 w-2.5" />
               Memory 升级签批
@@ -297,9 +297,9 @@ export default function DocumentEditorPage() {
         <div className="w-80 border-l p-4 bg-surface-2 overflow-auto space-y-4">
           {/* DOC-3 评审结果 — 仅 advisory, 不替员工决定下一步 (宪法 A) */}
           {review && (
-            <div className="rounded-md border border-sky-200 bg-white p-3 space-y-2">
+            <div className="rounded-md border border-info/30 bg-white p-3 space-y-2">
               <div className="flex items-center justify-between">
-                <h3 className="font-medium text-caption flex items-center gap-1 text-sky-700">
+                <h3 className="font-medium text-caption flex items-center gap-1 text-info">
                   <ScanSearch size={14} /> AI 评审
                 </h3>
                 <span className="text-[10px] text-ink-tertiary">
@@ -330,26 +330,26 @@ export default function DocumentEditorPage() {
               )}
               {review.risks.length > 0 && (
                 <div>
-                  <div className="text-[10px] text-rose-600 mb-0.5 flex items-center gap-1">
+                  <div className="text-[10px] text-danger mb-0.5 flex items-center gap-1">
                     <AlertTriangle size={10} /> 风险
                   </div>
                   <ul className="text-[11px] space-y-0.5">
                     {review.risks.map((r, i) => (
-                      <li key={i} className="text-rose-700">· {r}</li>
+                      <li key={i} className="text-danger">· {r}</li>
                     ))}
                   </ul>
                 </div>
               )}
               {review.suggestedActions.length > 0 && (
                 <div>
-                  <div className="text-[10px] text-emerald-600 mb-1 flex items-center gap-1">
+                  <div className="text-[10px] text-success mb-1 flex items-center gap-1">
                     <CheckCircle2 size={10} /> 建议下一步 (人工决定)
                   </div>
                   <div className="flex flex-wrap gap-1">
                     {review.suggestedActions.map((a) => (
                       <span
                         key={a}
-                        className="text-[10px] px-1.5 py-0.5 rounded border border-emerald-200 bg-emerald-50 text-emerald-700"
+                        className="text-[10px] px-1.5 py-0.5 rounded border border-success/30 bg-success/10 text-success"
                       >
                         {ACTION_LABEL[a]}
                       </span>

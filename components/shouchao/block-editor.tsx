@@ -72,8 +72,8 @@ const BLOCK_MENU: Array<{ type: BlockType; label: string; Icon: typeof Type }> =
 /** callout 变体 → 图标/配色 */
 const CALLOUT_STYLE: Record<string, { emoji: string; cls: string }> = {
   NOTE: { emoji: '📝', cls: 'border-brand-300 bg-brand-50/50' },
-  TIP: { emoji: '💡', cls: 'border-emerald-300 bg-emerald-50/50' },
-  IMPORTANT: { emoji: '❗', cls: 'border-violet-300 bg-violet-50/50' },
+  TIP: { emoji: '💡', cls: 'border-success/40 bg-success/10' },
+  IMPORTANT: { emoji: '❗', cls: 'border-brand-300 bg-brand-50/50' },
   WARNING: { emoji: '⚠️', cls: 'border-warning/30 bg-warning/5/50' },
   CAUTION: { emoji: '🛑', cls: 'border-danger/30 bg-danger/5/50' },
 };

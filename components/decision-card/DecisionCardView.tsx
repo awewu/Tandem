@@ -6,9 +6,9 @@ import { CheckCircle2, XCircle, AlertTriangle, Clock, FileText, Link2 } from 'lu
 import type { DecisionCard } from '@/lib/types';
 
 const STATE_META: Record<string, { label: string; className: string; icon: typeof CheckCircle2 }> = {
-  DIVERGE: { label: '审议中', className: 'bg-blue-100 text-blue-700', icon: Clock },
-  CONVERGE: { label: '收敛中', className: 'bg-purple-100 text-purple-700', icon: Clock },
-  COMMIT: { label: '已生效', className: 'bg-emerald-100 text-emerald-700', icon: CheckCircle2 },
+  DIVERGE: { label: '审议中', className: 'bg-info/15 text-info', icon: Clock },
+  CONVERGE: { label: '收敛中', className: 'bg-brand-100 text-brand-700', icon: Clock },
+  COMMIT: { label: '已生效', className: 'bg-success/15 text-success', icon: CheckCircle2 },
   ESCALATED: { label: '已升级', className: 'bg-warning/10 text-warning', icon: AlertTriangle },
   VETOED: { label: '已否决', className: 'bg-danger/10 text-danger', icon: XCircle },
 };

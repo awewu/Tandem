@@ -58,7 +58,7 @@ export function DelegationConsole({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5 text-emerald-600" />
+            <ShieldCheck className="h-5 w-5 text-success" />
             代行授权控制台
           </CardTitle>
           <p className="mt-1 text-caption text-muted-foreground">
@@ -113,7 +113,7 @@ export function DelegationConsole({
             </p>
             <div className="flex flex-wrap gap-1.5">
               {DEFAULT_BLACKLIST.map((t) => (
-                <Badge key={t} variant="outline" className="bg-rose-50 text-rose-700">
+                <Badge key={t} variant="outline" className="bg-danger/5 text-danger">
                   <Lock className="mr-1 h-3 w-3" />
                   {t}
                 </Badge>
@@ -183,9 +183,9 @@ export function DelegationConsole({
       </Card>
 
       {/* Kill Switch */}
-      <Card className="border-rose-200">
+      <Card className="border-danger/30">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-rose-700">
+          <CardTitle className="flex items-center gap-2 text-danger">
             <AlertTriangle className="h-5 w-5" />
             紧急停止 · Kill Switch
           </CardTitle>

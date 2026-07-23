@@ -42,8 +42,8 @@ import { useOwnerDirectory } from '@/lib/org/use-owner-directory';
 // ---------------------------------------------------------------------------
 
 const SCOPE_LABEL: Record<KpiScope, { label: string; color: string; icon: typeof Coins }> = {
-  bonus: { label: '考核', color: 'bg-rose-50 text-rose-700 border-rose-200', icon: Coins },
-  monitor: { label: '监控', color: 'bg-sky-50 text-sky-700 border-sky-200', icon: Activity },
+  bonus: { label: '考核', color: 'bg-danger/5 text-danger border-danger/30', icon: Coins },
+  monitor: { label: '监控', color: 'bg-info/10 text-info border-info/30', icon: Activity },
 };
 
 // ---------------------------------------------------------------------------
@@ -239,8 +239,8 @@ export default function KpiManualEntryPage() {
       </Card>
 
       {error && (
-        <Card className="border-rose-200 bg-rose-50">
-          <CardContent className="py-3 text-caption text-rose-700 flex items-center gap-2">
+        <Card className="border-danger/30 bg-danger/5">
+          <CardContent className="py-3 text-caption text-danger flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />
             {error}
           </CardContent>
@@ -364,7 +364,7 @@ export default function KpiManualEntryPage() {
                 <CardContent className="space-y-3">
                   <div className="space-y-1.5">
                     <Label>
-                      新数值 (toValue) <span className="text-rose-500">*</span>
+                      新数值 (toValue) <span className="text-danger">*</span>
                     </Label>
                     <Input
                       type="number"
@@ -379,7 +379,7 @@ export default function KpiManualEntryPage() {
                   </div>
                   <div className="space-y-1.5">
                     <Label>
-                      原因 (reason) <span className="text-rose-500">*</span>
+                      原因 (reason) <span className="text-danger">*</span>
                     </Label>
                     <Textarea
                       rows={2}
@@ -398,13 +398,13 @@ export default function KpiManualEntryPage() {
                   </div>
 
                   {submitError && (
-                    <div className="text-caption text-rose-600 bg-rose-50 px-3 py-2 rounded-md flex items-center gap-1.5">
+                    <div className="text-caption text-danger bg-danger/5 px-3 py-2 rounded-md flex items-center gap-1.5">
                       <AlertCircle className="h-4 w-4" />
                       {submitError}
                     </div>
                   )}
                   {submitOk && (
-                    <div className="text-caption text-emerald-700 bg-emerald-50 px-3 py-2 rounded-md flex items-center gap-1.5">
+                    <div className="text-caption text-success bg-success/10 px-3 py-2 rounded-md flex items-center gap-1.5">
                       <CheckCircle2 className="h-4 w-4" />
                       {submitOk}
                     </div>

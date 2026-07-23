@@ -56,16 +56,16 @@ function formatRelative(iso: string): string {
 function ConvAvatar({ channel, name, collapsed }: { channel: Channel; name: string; collapsed?: boolean }) {
   const size = collapsed ? 'h-8 w-8' : 'h-9 w-9';
   const palette = [
-    'from-amber-400 to-orange-500',
-    'from-emerald-400 to-teal-500',
-    'from-sky-400 to-blue-500',
-    'from-violet-400 to-purple-500',
-    'from-pink-400 to-rose-500',
-    'from-cyan-400 to-sky-500',
+    'from-warning/30 to-warning',
+    'from-success/30 to-success',
+    'from-info/30 to-info',
+    'from-brand-400 to-brand-500',
+    'from-brand-300 to-danger',
+    'from-info/30 to-info',
   ];
   if (channel.type === 'announcement') {
     return (
-      <div className={`${size} flex shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-rose-400 to-rose-500 text-white`}>
+      <div className={`${size} flex shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-danger/30 to-danger text-white`}>
         <Megaphone className={collapsed ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
       </div>
     );
@@ -77,7 +77,7 @@ function ConvAvatar({ channel, name, collapsed }: { channel: Channel; name: stri
         {name.slice(0, 2)}
         {/* 分身在群里发言过 → 小机器人角标 */}
         {channel.lastMessagePreview?.includes('[AI分身]') && (
-          <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-violet-500 ring-1 ring-white">
+          <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-brand-500 ring-1 ring-white">
             <Bot className="h-2 w-2 text-white" />
           </span>
         )}
@@ -219,12 +219,12 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
             >
               <ConvAvatar channel={c} name={displayName} collapsed />
               {u.show === 'urgent' && (
-                <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-rose-500 px-0.5 text-[8px] font-bold text-white">
+                <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-danger px-0.5 text-[8px] font-bold text-white">
                   {(u.count ?? 0) > 9 ? '9+' : u.count}
                 </span>
               )}
               {u.show === 'subtle' && (
-                <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-emerald-400 ring-1 ring-white" />
+                <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-success/30 ring-1 ring-white" />
               )}
             </button>
           );
@@ -253,7 +253,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
         <span className="text-[13px] font-semibold text-ink-primary">
           消息
           {totalUnread > 0 && (
-            <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white">
+            <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[9px] font-bold text-white">
               {totalUnread > 99 ? '99+' : totalUnread}
             </span>
           )}
@@ -315,7 +315,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
                 {cnt > 0 && (
                   <span className={cn(
                     'inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-0.5 text-[9px] font-bold',
-                    active ? 'bg-brand-500 text-white' : 'bg-rose-500 text-white',
+                    active ? 'bg-brand-500 text-white' : 'bg-danger text-white',
                   )}>
                     {cnt > 99 ? '99+' : cnt}
                   </span>
@@ -375,12 +375,12 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
                     {c.lastMessagePreview ?? ''}
                   </span>
                   {u.show === 'urgent' && (
-                    <span className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white">
+                    <span className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-danger px-1 text-[9px] font-bold text-white">
                       {(u.count ?? 0) > 99 ? '99+' : u.count}
                     </span>
                   )}
                   {u.show === 'subtle' && (
-                    <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-400" />
+                    <span className="h-2 w-2 shrink-0 rounded-full bg-success/30" />
                   )}
                 </div>
               </div>

@@ -86,8 +86,8 @@ const EMPTY_FORM: SubjectFormState = {
 };
 
 const SCOPE_LABEL: Record<Scope, { label: string; color: string; icon: typeof Coins }> = {
-  bonus: { label: '考核 (bonus)', color: 'bg-rose-50 text-rose-700 border-rose-200', icon: Coins },
-  monitor: { label: '监控 (monitor)', color: 'bg-sky-50 text-sky-700 border-sky-200', icon: Activity },
+  bonus: { label: '考核 (bonus)', color: 'bg-danger/5 text-danger border-danger/30', icon: Coins },
+  monitor: { label: '监控 (monitor)', color: 'bg-info/10 text-info border-info/30', icon: Activity },
 };
 
 const MEASURE_LABEL: Record<Measure, string> = {
@@ -314,7 +314,7 @@ export default function KpiSubjectsPage() {
       {/* 统计 + 控制 */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3 text-caption">
-          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+          <Badge variant="outline" className="bg-success/10 text-success border-success/30">
             启用 {active}
           </Badge>
           <Badge variant="outline" className="bg-surface-1 text-ink-secondary border">
@@ -335,8 +335,8 @@ export default function KpiSubjectsPage() {
       </div>
 
       {error && (
-        <Card className="border-rose-200 bg-rose-50">
-          <CardContent className="py-3 text-caption text-rose-700 flex items-center gap-2">
+        <Card className="border-danger/30 bg-danger/5">
+          <CardContent className="py-3 text-caption text-danger flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />
             加载失败: {error}
           </CardContent>
@@ -393,12 +393,12 @@ export default function KpiSubjectsPage() {
                             className={cn(
                               'ml-2 text-[10px] py-0 px-1 border',
                               s.bscPerspective === 'financial'
-                                ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                ? 'bg-danger/5 text-danger border-danger/30'
                                 : s.bscPerspective === 'customer'
                                   ? 'bg-warning/5 text-warning border-warning/20'
                                   : s.bscPerspective === 'process'
-                                    ? 'bg-sky-50 text-sky-700 border-sky-200'
-                                    : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                    ? 'bg-info/10 text-info border-info/30'
+                                    : 'bg-success/10 text-success border-success/30'
                             )}
                           >
                             {s.bscPerspective === 'financial'
@@ -435,7 +435,7 @@ export default function KpiSubjectsPage() {
                       </td>
                       <td className="px-4 py-2.5">
                         {s.active ? (
-                          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-footnote">
+                          <Badge variant="outline" className="bg-success/10 text-success border-success/30 text-footnote">
                             启用
                           </Badge>
                         ) : (
@@ -462,7 +462,7 @@ export default function KpiSubjectsPage() {
                           {s.active ? (
                             <Archive className="h-3.5 w-3.5" />
                           ) : (
-                            <ArchiveRestore className="h-3.5 w-3.5 text-emerald-600" />
+                            <ArchiveRestore className="h-3.5 w-3.5 text-success" />
                           )}
                         </Button>
                       </td>
@@ -498,7 +498,7 @@ export default function KpiSubjectsPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="code">
-                  编码 <span className="text-rose-500">*</span>
+                  编码 <span className="text-danger">*</span>
                 </Label>
                 <Input
                   id="code"
@@ -534,7 +534,7 @@ export default function KpiSubjectsPage() {
 
             <div className="space-y-1.5">
               <Label htmlFor="name">
-                名称 <span className="text-rose-500">*</span>
+                名称 <span className="text-danger">*</span>
               </Label>
               <Input
                 id="name"
@@ -582,7 +582,7 @@ export default function KpiSubjectsPage() {
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="scope">
-                  默认 scope <span className="text-rose-500">*</span>
+                  默认 scope <span className="text-danger">*</span>
                 </Label>
                 <Select
                   value={form.defaultScope}
@@ -599,7 +599,7 @@ export default function KpiSubjectsPage() {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="measure">
-                  度量 <span className="text-rose-500">*</span>
+                  度量 <span className="text-danger">*</span>
                 </Label>
                 <Select
                   value={form.defaultMeasureType}
@@ -628,7 +628,7 @@ export default function KpiSubjectsPage() {
             </div>
 
             {submitError && (
-              <div className="text-caption text-rose-600 flex items-center gap-1.5 bg-rose-50 px-3 py-2 rounded-md">
+              <div className="text-caption text-danger flex items-center gap-1.5 bg-danger/5 px-3 py-2 rounded-md">
                 <AlertCircle className="h-4 w-4" />
                 {submitError}
               </div>

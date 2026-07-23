@@ -34,9 +34,9 @@ import {
 import { Stat } from '@/components/ui/stat';
 
 const RISK_COLORS: Record<string, string> = {
-  'on-track': 'bg-emerald-100 text-emerald-700',
+  'on-track': 'bg-success/15 text-success',
   'at-risk': 'bg-warning/10 text-warning',
-  'off-track': 'bg-rose-100 text-rose-700',
+  'off-track': 'bg-danger/10 text-danger',
 };
 
 interface DeptStats {
@@ -195,7 +195,7 @@ export default function OKRDashboardPage() {
   }, [cycleObjectives]);
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-surface-2">
       <div className="max-w-7xl mx-auto px-6 py-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -248,10 +248,10 @@ export default function OKRDashboardPage() {
               <TrendingUp
                 className={`h-8 w-8 opacity-30 ${
                   overallAvg >= 60
-                    ? 'text-emerald-600'
+                    ? 'text-success'
                     : overallAvg >= 30
                     ? 'text-warning'
-                    : 'text-rose-600'
+                    : 'text-danger'
                 }`}
               />
             </CardContent>
@@ -276,7 +276,7 @@ export default function OKRDashboardPage() {
                 format="integer"
                 hint="父子异部门 = 沟通重点"
               />
-              <Network className="h-8 w-8 text-violet-600 opacity-30" />
+              <Network className="h-8 w-8 text-brand-700 opacity-30" />
             </CardContent>
           </Card>
         </div>
@@ -322,8 +322,8 @@ export default function OKRDashboardPage() {
                   stages={[
                     { label: '草稿', value: statusFunnel.draft, color: 'bg-ink-tertiary' },
                     { label: '待审批', value: statusFunnel.submitted, color: 'bg-info' },
-                    { label: '进行中', value: statusFunnel.active, color: 'bg-emerald-500' },
-                    { label: '已完成', value: statusFunnel.completed, color: 'bg-violet-500' },
+                    { label: '进行中', value: statusFunnel.active, color: 'bg-success' },
+                    { label: '已完成', value: statusFunnel.completed, color: 'bg-brand-500' },
                   ]}
                   aside={[
                     { label: '暂停', value: statusFunnel.paused },
@@ -344,9 +344,9 @@ export default function OKRDashboardPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-1.5">
-                  <RiskLine label="在轨" count={scheduleRisk['on-track']} color="bg-emerald-500" />
+                  <RiskLine label="在轨" count={scheduleRisk['on-track']} color="bg-success" />
                   <RiskLine label="预警" count={scheduleRisk['at-risk']} color="bg-warning" />
-                  <RiskLine label="落后" count={scheduleRisk['off-track']} color="bg-rose-500" />
+                  <RiskLine label="落后" count={scheduleRisk['off-track']} color="bg-danger" />
                 </CardContent>
               </Card>
 
@@ -357,10 +357,10 @@ export default function OKRDashboardPage() {
                 <CardContent>
                   <DistBar
                     segments={[
-                      { label: '未设置', value: distObj.none, color: 'bg-slate-300' },
-                      { label: '1 个', value: distObj.one, color: 'bg-emerald-400' },
+                      { label: '未设置', value: distObj.none, color: 'bg-surface-3' },
+                      { label: '1 个', value: distObj.one, color: 'bg-success/30' },
                       { label: '2-4 个', value: distObj.twoToFour, color: 'bg-info' },
-                      { label: '5+ 个', value: distObj.fivePlus, color: 'bg-rose-400' },
+                      { label: '5+ 个', value: distObj.fivePlus, color: 'bg-danger/30' },
                     ]}
                     unit="人"
                   />
@@ -374,10 +374,10 @@ export default function OKRDashboardPage() {
                 <CardContent>
                   <DistBar
                     segments={[
-                      { label: '未设置', value: distKr.none, color: 'bg-slate-300' },
+                      { label: '未设置', value: distKr.none, color: 'bg-surface-3' },
                       { label: '1-2 个', value: distKr.oneToTwo, color: 'bg-warning' },
-                      { label: '3-5 个', value: distKr.threeToFive, color: 'bg-emerald-400' },
-                      { label: '5+ 个', value: distKr.fivePlus, color: 'bg-rose-400' },
+                      { label: '3-5 个', value: distKr.threeToFive, color: 'bg-success/30' },
+                      { label: '5+ 个', value: distKr.fivePlus, color: 'bg-danger/30' },
                     ]}
                     unit="个 O"
                   />
@@ -409,7 +409,7 @@ export default function OKRDashboardPage() {
             <div className="grid md:grid-cols-3 gap-4">
               <TopList
                 title="🚨 落后 Top 5"
-                titleColor="text-rose-700"
+                titleColor="text-danger"
                 items={topLagging}
                 metric="progress"
               />
@@ -421,7 +421,7 @@ export default function OKRDashboardPage() {
               />
               <TopList
                 title="🚀 领先 Top 5"
-                titleColor="text-emerald-700"
+                titleColor="text-success"
                 items={topLeading}
                 metric="progress"
               />
@@ -434,14 +434,14 @@ export default function OKRDashboardPage() {
 }
 
 function RateCard({ label, rate, detail }: { label: string; rate: number; detail: string }) {
-  const color = rate >= 60 ? 'bg-emerald-500' : rate >= 30 ? 'bg-warning' : 'bg-rose-500';
-  const textColor = rate >= 60 ? 'text-emerald-600' : rate >= 30 ? 'text-warning' : 'text-rose-600';
+  const color = rate >= 60 ? 'bg-success' : rate >= 30 ? 'bg-warning' : 'bg-danger';
+  const textColor = rate >= 60 ? 'text-success' : rate >= 30 ? 'text-warning' : 'text-danger';
   return (
     <Card>
       <CardContent className="p-4">
         <div className="text-caption text-muted-foreground">{label}</div>
         <div className={`text-title-3 font-semibold tabular-nums mt-0.5 ${textColor}`}>{rate}%</div>
-        <div className="h-1.5 bg-slate-200 rounded overflow-hidden mt-2">
+        <div className="h-1.5 bg-surface-3 rounded overflow-hidden mt-2">
           <div className={`h-full ${color} transition-all`} style={{ width: `${rate}%` }} />
         </div>
         <div className="text-[10px] text-muted-foreground mt-1.5">{detail}</div>
@@ -512,7 +512,7 @@ function DistBar({
   const total = segments.reduce((s, x) => s + x.value, 0);
   return (
     <div>
-      <div className="flex h-3 rounded overflow-hidden bg-slate-100">
+      <div className="flex h-3 rounded overflow-hidden bg-surface-3">
         {total === 0 ? (
           <div className="flex-1" />
         ) : (
@@ -542,10 +542,10 @@ function DistBar({
 }
 
 function DeptRow({ stats }: { stats: DeptStats }) {
-  const progColor = stats.avgProgress >= 60 ? 'bg-emerald-500'
-    : stats.avgProgress >= 30 ? 'bg-warning' : 'bg-rose-500';
+  const progColor = stats.avgProgress >= 60 ? 'bg-success'
+    : stats.avgProgress >= 30 ? 'bg-warning' : 'bg-danger';
   return (
-    <div className="border rounded p-3 hover:bg-slate-50/60 transition">
+    <div className="border rounded p-3 hover:bg-surface-2/60 transition">
       <div className="flex items-start justify-between mb-1.5">
         <div>
           <div className="text-caption font-semibold flex items-center gap-1.5">
@@ -568,7 +568,7 @@ function DeptRow({ stats }: { stats: DeptStats }) {
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <div className="flex-1 h-2 bg-slate-200 rounded overflow-hidden">
+        <div className="flex-1 h-2 bg-surface-3 rounded overflow-hidden">
           <div
             className={`h-full ${progColor} transition-all`}
             style={{ width: `${stats.avgProgress}%` }}

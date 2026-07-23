@@ -78,11 +78,11 @@ export default function PartnerJoinPage() {
   }
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-violet-50 via-white to-slate-50 dark:from-violet-950/20 dark:via-background dark:to-background px-4 py-12 md:px-8">
+    <main className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-brand-50 via-white to-surface-2 dark:from-brand-900/20 dark:via-background dark:to-background px-4 py-12 md:px-8">
 
       {/* Logo / 标题区 */}
       <div className="mb-8 text-center">
-        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-violet-600 text-white mb-4 shadow-soft-lg">
+        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-brand-600 text-white mb-4 shadow-soft-lg">
           <Bot className="w-7 h-7" />
         </div>
         <h1 className="text-title-3 font-bold tracking-tight">合作伙伴入口</h1>
@@ -97,24 +97,24 @@ export default function PartnerJoinPage() {
           <div className="grid grid-cols-3 gap-3 mb-6">
             {PARTNER_FEATURES.map(({ icon: Icon, label, desc }) => (
               <div key={label} className="flex flex-col items-center text-center p-3 rounded-2xl border bg-card gap-1.5">
-                <Icon className="w-5 h-5 text-violet-500" />
+                <Icon className="w-5 h-5 text-brand-700" />
                 <span className="text-footnote font-medium">{label}</span>
                 <span className="text-[10px] text-muted-foreground">{desc}</span>
               </div>
             ))}
           </div>
 
-          <Card className="border-violet-200 dark:border-violet-800">
+          <Card className="border-brand-200 dark:border-brand-800">
             <CardHeader className="pb-3">
               <CardTitle className="text-body flex items-center gap-2">
-                <Ticket className="w-4 h-4 text-violet-500" />
+                <Ticket className="w-4 h-4 text-brand-700" />
                 已有邀请码
-                <Badge className="bg-violet-100 text-violet-700 dark:bg-violet-900 dark:text-violet-300 text-[10px]">推荐</Badge>
+                <Badge className="bg-brand-100 text-brand-700 dark:bg-brand-900 dark:text-brand-600 text-[10px]">推荐</Badge>
               </CardTitle>
               <p className="text-footnote text-muted-foreground">由公司业务或运营团队发放，直接开通账号</p>
             </CardHeader>
             <CardContent>
-              <Button className="w-full bg-violet-600 hover:bg-violet-700" onClick={() => setMode('invite')}>
+              <Button className="w-full bg-brand-600 hover:bg-brand-700" onClick={() => setMode('invite')}>
                 使用邀请码注册 <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
             </CardContent>
@@ -137,7 +137,7 @@ export default function PartnerJoinPage() {
 
           <p className="text-center text-footnote text-muted-foreground">
             内部员工？
-            <a href="/register/employee" className="text-violet-600 hover:underline ml-1">使用企业邮箱直接注册 →</a>
+            <a href="/register/employee" className="text-brand-700 hover:underline ml-1">使用企业邮箱直接注册 →</a>
           </p>
         </div>
       )}
@@ -164,7 +164,7 @@ export default function PartnerJoinPage() {
                 <Input type="password" placeholder="8位以上，含数字与字母" value={invPassword} onChange={e => setInvPassword(e.target.value)} required />
               </Field>
               {error && <p className="text-footnote text-destructive">{error}</p>}
-              <Button type="submit" className="w-full bg-violet-600 hover:bg-violet-700" disabled={busy}>
+              <Button type="submit" className="w-full bg-brand-600 hover:bg-brand-700" disabled={busy}>
                 {busy ? '注册中...' : '注册并进入'}
               </Button>
               <p className="text-[11px] text-muted-foreground text-center">

@@ -27,9 +27,9 @@ import { INTRANET_POST_TYPE_LABELS } from '@/lib/types/intranet-post';
 
 const TYPE_COLOR: Record<IntranetPostType, string> = {
   announcement: 'bg-warning/5 text-warning border-warning/20',
-  policy: 'bg-rose-50 text-rose-700 border-rose-200',
+  policy: 'bg-danger/5 text-danger border-danger/30',
   event: 'bg-info/10 text-info border-info/30',
-  benefit: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  benefit: 'bg-success/10 text-success border-success/30',
 };
 
 export default function IntranetAdminPage() {
@@ -123,8 +123,8 @@ export default function IntranetAdminPage() {
       </header>
 
       {error && (
-        <Card className="border-rose-200 bg-rose-50">
-          <CardContent className="py-3 text-caption text-rose-700 flex items-center gap-2">
+        <Card className="border-danger/30 bg-danger/5">
+          <CardContent className="py-3 text-caption text-danger flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />
             {error}
           </CardContent>
@@ -266,7 +266,7 @@ function PostRow({ post, onEdit, onChanged }: { post: IntranetPost; onEdit: () =
             <div className="max-w-sm truncate font-medium">{post.title}</div>
             {post.summary && <div className="mt-0.5 max-w-sm truncate text-footnote text-muted-foreground">{post.summary}</div>}
             {post.mandatoryRead && (
-              <Badge variant="outline" className="mt-0.5 border-rose-200 bg-rose-50 text-[9px] text-rose-700">强制已读</Badge>
+              <Badge variant="outline" className="mt-0.5 border-danger/30 bg-danger/5 text-[9px] text-danger">强制已读</Badge>
             )}
           </div>
         </div>
@@ -282,7 +282,7 @@ function PostRow({ post, onEdit, onChanged }: { post: IntranetPost; onEdit: () =
         ) : isDraft ? (
           <Badge variant="outline" className="bg-warning/5 text-warning text-[10px]">草稿</Badge>
         ) : (
-          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 text-[10px]">已发布</Badge>
+          <Badge variant="outline" className="bg-success/10 text-success text-[10px]">已发布</Badge>
         )}
       </td>
       <td className="px-4 py-2.5 text-footnote text-muted-foreground tabular-nums">
@@ -299,7 +299,7 @@ function PostRow({ post, onEdit, onChanged }: { post: IntranetPost; onEdit: () =
             <Eye className="h-3 w-3 mr-0.5" />编辑
           </Button>
           {isDraft && !isArchived && (
-            <Button size="sm" variant="ghost" className="h-7 text-footnote text-emerald-700"
+            <Button size="sm" variant="ghost" className="h-7 text-footnote text-success"
               onClick={() => void patch({ publish: true })} disabled={busy}>
               <Send className="h-3 w-3 mr-0.5" />发布
             </Button>
@@ -568,7 +568,7 @@ function PostEditor({
         </div>
 
         {err && (
-          <div className="text-footnote text-rose-700 bg-rose-50 border border-rose-200 rounded px-3 py-2 flex items-center gap-2">
+          <div className="text-footnote text-danger bg-danger/5 border border-danger/30 rounded px-3 py-2 flex items-center gap-2">
             <AlertCircle className="h-3.5 w-3.5" />{err}
           </div>
         )}

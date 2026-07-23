@@ -149,7 +149,7 @@ export default function CompanyBrainAdminPage() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center text-slate-500">
+      <div className="flex h-screen items-center justify-center text-ink-tertiary">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" /> 加载 CompanyBrain 看板...
       </div>
     );
@@ -157,7 +157,7 @@ export default function CompanyBrainAdminPage() {
 
   if (err) {
     return (
-      <div className="p-8 text-rose-700">
+      <div className="p-8 text-danger">
         <AlertTriangle className="inline h-5 w-5" /> 加载失败: {err}
       </div>
     );
@@ -166,21 +166,21 @@ export default function CompanyBrainAdminPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-6">
       {/* 头部 */}
-      <header className="rounded-2xl bg-gradient-to-br from-violet-50 to-purple-50/40 p-6 ring-1 ring-violet-200/80">
+      <header className="rounded-2xl bg-gradient-to-br from-brand-50 to-brand-50/40 p-6 ring-1 ring-brand-200/80">
         <div className="flex items-start gap-4">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-soft">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-brand-600 text-white shadow-soft">
             <Brain className="h-7 w-7" />
           </div>
           <div className="flex-1">
-            <h1 className="text-headline font-bold text-violet-900">
+            <h1 className="text-headline font-bold text-brand-700">
               🏛️ CompanyBrain · 中央 AI 看板
             </h1>
-            <p className="mt-1 text-[12.5px] text-violet-700/80">
+            <p className="mt-1 text-[12.5px] text-brand-700/80">
               {head?.persona.name} · 阶段 {head?.persona.stage} · {head?.trainingData.companyMemoryCount} 条公司层 Memory ·{' '}
               路由 <code className="rounded bg-white/60 px-1.5 py-0.5 font-mono text-[11px]">{head?.routing.primaryProvider}</code>
               {head?.routing.fallbacks?.length ? ` → ${head.routing.fallbacks.join(' / ')}` : ''}
             </p>
-            <p className="mt-1.5 text-[11px] text-violet-600/70">
+            <p className="mt-1.5 text-[11px] text-brand-700/70">
               架构文档: <Link className="underline" href="/docs/CENTRAL-AI-ARCHITECTURE.md">CENTRAL-AI-ARCHITECTURE.md</Link> · 灵魂层:{' '}
               <Link className="underline" href="/docs/OKR-DRIVEN-ARCHITECTURE.md">OKR-DRIVEN-ARCHITECTURE.md</Link>
             </p>
@@ -207,13 +207,13 @@ export default function CompanyBrainAdminPage() {
 
       {/* byContext */}
       {metrics && Object.keys(metrics.byContext).length > 0 && (
-        <section className="rounded-2xl bg-white p-5 ring-1 ring-slate-200/80">
-          <h2 className="mb-3 flex items-center gap-2 text-caption font-bold text-slate-800">
-            <TrendingUp className="h-4 w-4 text-violet-600" /> 按场景分桶
+        <section className="rounded-2xl bg-white p-5 ring-1 ring-border/80">
+          <h2 className="mb-3 flex items-center gap-2 text-caption font-bold text-ink-primary">
+            <TrendingUp className="h-4 w-4 text-brand-700" /> 按场景分桶
           </h2>
           <table className="w-full text-[12px]">
             <thead>
-              <tr className="border-b text-left text-slate-500">
+              <tr className="border-b text-left text-ink-tertiary">
                 <th className="py-1.5 font-medium">场景</th>
                 <th className="font-medium">总数</th>
                 <th className="font-medium">采纳率</th>
@@ -225,12 +225,12 @@ export default function CompanyBrainAdminPage() {
             <tbody>
               {Object.entries(metrics.byContext).map(([ctx, b]) => (
                 <tr key={ctx} className={`border-b last:border-0 ${b.total === 0 ? 'opacity-40' : ''}`}>
-                  <td className="py-1.5 font-medium text-slate-700">{CTX_LABEL[ctx] ?? ctx}</td>
-                  <td className="text-slate-600">{b.total}</td>
-                  <td className="text-emerald-700">{pct(b.adoptionRate)}</td>
-                  <td className="text-rose-700">{pct(b.overruleRate)}</td>
-                  <td className="text-slate-600">{usd(b.avgCostMicroUsd)}</td>
-                  <td className="text-slate-600">{b.avgLatencyMs} ms</td>
+                  <td className="py-1.5 font-medium text-ink-secondary">{CTX_LABEL[ctx] ?? ctx}</td>
+                  <td className="text-ink-secondary">{b.total}</td>
+                  <td className="text-success">{pct(b.adoptionRate)}</td>
+                  <td className="text-danger">{pct(b.overruleRate)}</td>
+                  <td className="text-ink-secondary">{usd(b.avgCostMicroUsd)}</td>
+                  <td className="text-ink-secondary">{b.avgLatencyMs} ms</td>
                 </tr>
               ))}
             </tbody>
@@ -241,14 +241,14 @@ export default function CompanyBrainAdminPage() {
       {/* byBrainVersion + dailyTrend  */}
       {metrics && (
         <div className="grid gap-3 md:grid-cols-2">
-          <section className="rounded-2xl bg-white p-5 ring-1 ring-slate-200/80">
-            <h2 className="mb-3 text-caption font-bold text-slate-800">按版本对比</h2>
+          <section className="rounded-2xl bg-white p-5 ring-1 ring-border/80">
+            <h2 className="mb-3 text-caption font-bold text-ink-primary">按版本对比</h2>
             {Object.keys(metrics.byBrainVersion).length === 0 ? (
-              <p className="text-[12px] text-slate-400">暂无数据</p>
+              <p className="text-[12px] text-ink-tertiary">暂无数据</p>
             ) : (
               <table className="w-full text-[12px]">
                 <thead>
-                  <tr className="border-b text-left text-slate-500">
+                  <tr className="border-b text-left text-ink-tertiary">
                     <th className="py-1.5 font-medium">版本</th>
                     <th className="font-medium">总数</th>
                     <th className="font-medium">采纳率</th>
@@ -258,10 +258,10 @@ export default function CompanyBrainAdminPage() {
                 <tbody>
                   {Object.entries(metrics.byBrainVersion).map(([v, b]) => (
                     <tr key={v} className="border-b last:border-0">
-                      <td className="py-1.5 font-mono text-slate-700">{v}</td>
-                      <td className="text-slate-600">{b.total}</td>
-                      <td className="text-emerald-700">{pct(b.adoptionRate)}</td>
-                      <td className="text-rose-700">{pct(b.overruleRate)}</td>
+                      <td className="py-1.5 font-mono text-ink-secondary">{v}</td>
+                      <td className="text-ink-secondary">{b.total}</td>
+                      <td className="text-success">{pct(b.adoptionRate)}</td>
+                      <td className="text-danger">{pct(b.overruleRate)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -269,22 +269,22 @@ export default function CompanyBrainAdminPage() {
             )}
           </section>
 
-          <section className="rounded-2xl bg-white p-5 ring-1 ring-slate-200/80">
-            <h2 className="mb-3 text-caption font-bold text-slate-800">近 30 天采纳率趋势</h2>
+          <section className="rounded-2xl bg-white p-5 ring-1 ring-border/80">
+            <h2 className="mb-3 text-caption font-bold text-ink-primary">近 30 天采纳率趋势</h2>
             <div className="flex h-24 items-end gap-[2px]">
               {metrics.dailyTrend.map((d, i) => {
                 const h = d.total > 0 ? Math.max(6, d.adoptionRate * 100) : 4;
                 return (
                   <div
                     key={d.date}
-                    className={`flex-1 rounded-t ${d.total > 0 ? 'bg-emerald-400' : 'bg-slate-100'}`}
+                    className={`flex-1 rounded-t ${d.total > 0 ? 'bg-success/30' : 'bg-surface-3'}`}
                     style={{ height: `${h}%` }}
                     title={`${d.date} · 总 ${d.total} · 采纳率 ${pct(d.adoptionRate)} · 推翻率 ${pct(d.overruleRate)}`}
                   />
                 );
               })}
             </div>
-            <div className="mt-1 flex justify-between text-[10px] text-slate-400">
+            <div className="mt-1 flex justify-between text-[10px] text-ink-tertiary">
               <span>{metrics.dailyTrend[0]?.date}</span>
               <span>{metrics.dailyTrend[metrics.dailyTrend.length - 1]?.date}</span>
             </div>
@@ -313,10 +313,10 @@ export default function CompanyBrainAdminPage() {
       )}
 
       {/* Recent Decisions */}
-      <section className="rounded-2xl bg-white p-5 ring-1 ring-slate-200/80">
-        <h2 className="mb-3 text-caption font-bold text-slate-800">最近 20 条决策</h2>
+      <section className="rounded-2xl bg-white p-5 ring-1 ring-border/80">
+        <h2 className="mb-3 text-caption font-bold text-ink-primary">最近 20 条决策</h2>
         {decisions.length === 0 ? (
-          <p className="text-[12px] text-slate-400">
+          <p className="text-[12px] text-ink-tertiary">
             暂无数据. 在 IM 里 @CompanyBrain 触发首次记录.
           </p>
         ) : (
@@ -325,25 +325,25 @@ export default function CompanyBrainAdminPage() {
               <li key={d.id} className="py-2.5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
-                      <span className="rounded bg-violet-50 px-1.5 py-0.5 font-mono text-violet-700">
+                    <div className="flex items-center gap-1.5 text-[11px] text-ink-tertiary">
+                      <span className="rounded bg-brand-50 px-1.5 py-0.5 font-mono text-brand-700">
                         {CTX_LABEL[d.context] ?? d.context}
                       </span>
                       <span>·</span>
                       <span>{new Date(d.createdAt).toLocaleString('zh-CN')}</span>
                       <span>·</span>
-                      <span className="font-mono text-[10.5px] text-slate-400">{d.modelUsed}</span>
+                      <span className="font-mono text-[10.5px] text-ink-tertiary">{d.modelUsed}</span>
                       <span>·</span>
-                      <span className="text-slate-500">{usd(d.costMicroUsd)} / {d.latencyMs}ms</span>
+                      <span className="text-ink-tertiary">{usd(d.costMicroUsd)} / {d.latencyMs}ms</span>
                     </div>
-                    <p className="mt-1 truncate text-[12.5px] text-slate-700">
-                      <span className="text-slate-400">Q:</span> {d.inputSummary}
+                    <p className="mt-1 truncate text-[12.5px] text-ink-secondary">
+                      <span className="text-ink-tertiary">Q:</span> {d.inputSummary}
                     </p>
-                    <p className="truncate text-[12.5px] text-slate-600">
-                      <span className="text-slate-400">A:</span> {d.outputSummary}
+                    <p className="truncate text-[12.5px] text-ink-secondary">
+                      <span className="text-ink-tertiary">A:</span> {d.outputSummary}
                     </p>
                     {d.feedback.reason && (
-                      <p className="mt-1 truncate text-[11.5px] italic text-rose-600">
+                      <p className="mt-1 truncate text-[11.5px] italic text-danger">
                         反馈: {d.feedback.reason}
                       </p>
                     )}
@@ -352,7 +352,7 @@ export default function CompanyBrainAdminPage() {
                         <button
                           type="button"
                           onClick={() => void submitFeedback(d.id, 'adopted')}
-                          className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[10.5px] font-medium text-emerald-700 ring-1 ring-emerald-300/60 hover:bg-emerald-50"
+                          className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[10.5px] font-medium text-success ring-1 ring-success/40 hover:bg-success/10"
                         >
                           <ThumbsUp className="h-2.5 w-2.5" /> 采纳
                         </button>
@@ -366,7 +366,7 @@ export default function CompanyBrainAdminPage() {
                         <button
                           type="button"
                           onClick={() => void submitFeedback(d.id, 'overruled')}
-                          className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[10.5px] font-medium text-rose-700 ring-1 ring-rose-300/60 hover:bg-rose-50"
+                          className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[10.5px] font-medium text-danger ring-1 ring-danger/40 hover:bg-danger/5"
                         >
                           <ThumbsDown className="h-2.5 w-2.5" /> 推翻
                         </button>
@@ -384,7 +384,7 @@ export default function CompanyBrainAdminPage() {
       {/* CA-13 + ON-3 · 月度反思报告 (生成 / 签批 / OKR 优化提议处置) */}
       <ReflectionSection />
 
-      <footer className="pt-2 text-center text-[10.5px] text-slate-400">
+      <footer className="pt-2 text-center text-[10.5px] text-ink-tertiary">
         §CA-13 (CENTRAL-AI-ARCHITECTURE.md) · 灵魂层第6条 闭环互动相互赋能 · {metrics?.windowStart.slice(0, 10)} → {metrics?.windowEnd.slice(0, 10)}
       </footer>
     </div>
@@ -403,11 +403,11 @@ function KpiCard({
   tone: 'slate' | 'emerald' | 'rose' | 'amber' | 'indigo';
 }) {
   const toneClass = {
-    slate: 'bg-white text-slate-800 ring-slate-200',
-    emerald: 'bg-emerald-50/50 text-emerald-900 ring-emerald-200',
-    rose: 'bg-rose-50/50 text-rose-900 ring-rose-200',
+    slate: 'bg-white text-ink-primary ring-border',
+    emerald: 'bg-success/10 text-success ring-success/30',
+    rose: 'bg-danger/5 text-danger ring-danger/30',
     amber: 'bg-warning/5/50 text-warning ring-warning/20',
-    indigo: 'bg-indigo-50/50 text-indigo-900 ring-indigo-200',
+    indigo: 'bg-info/10 text-info ring-info/30',
   }[tone];
 
   return (
@@ -452,9 +452,9 @@ interface ReflectionReport {
 }
 
 function confidenceTone(c: string): string {
-  if (c === 'off-track') return 'bg-rose-50 text-rose-700 ring-rose-200';
+  if (c === 'off-track') return 'bg-danger/5 text-danger ring-danger/30';
   if (c === 'at-risk') return 'bg-warning/10 text-warning ring-warning/30';
-  return 'bg-slate-50 text-slate-600 ring-slate-200';
+  return 'bg-surface-2 text-ink-secondary ring-border';
 }
 
 function ReflectionSection() {
@@ -545,18 +545,18 @@ function ReflectionSection() {
   }
 
   return (
-    <section className="rounded-2xl bg-white p-5 ring-1 ring-slate-200/80">
+    <section className="rounded-2xl bg-white p-5 ring-1 ring-border/80">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-caption font-bold text-slate-800">
-          <Sparkles className="h-4 w-4 text-violet-600" /> 月度反思 · 优化提议
-          <span className="rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-600">
+        <h2 className="flex items-center gap-2 text-caption font-bold text-ink-primary">
+          <Sparkles className="h-4 w-4 text-brand-700" /> 月度反思 · 优化提议
+          <span className="rounded-full bg-brand-50 px-1.5 py-0.5 text-[10px] font-medium text-brand-700">
             CA-13 + ON-3
           </span>
         </h2>
         <button
           onClick={generate}
           disabled={busy === 'generate'}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-[12px] font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-[12px] font-medium text-white hover:bg-brand-700 disabled:opacity-50"
         >
           {busy === 'generate' ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -567,29 +567,29 @@ function ReflectionSection() {
         </button>
       </div>
 
-      <p className="mb-3 text-[11px] text-slate-500">
+      <p className="mb-3 text-[11px] text-ink-tertiary">
         中央 AI 以<strong>参谋</strong>身份产出建议: 一类调<em>自身配置</em>(签批后即生效为新版本),
         一类是<em>组织 OKR 优化方向</em>(仅供治理决策, 处置<strong>绝不</strong>自动改 OKR)。
       </p>
 
       {err && (
-        <p className="mb-3 rounded-lg bg-rose-50 px-3 py-2 text-[11.5px] text-rose-700">{err}</p>
+        <p className="mb-3 rounded-lg bg-danger/5 px-3 py-2 text-[11.5px] text-danger">{err}</p>
       )}
 
       {loading ? (
-        <p className="text-[12px] text-slate-400">
+        <p className="text-[12px] text-ink-tertiary">
           <Loader2 className="mr-1 inline h-3.5 w-3.5 animate-spin" /> 加载反思报告...
         </p>
       ) : reports.length === 0 ? (
-        <p className="text-[12px] text-slate-400">
+        <p className="text-[12px] text-ink-tertiary">
           暂无反思报告. 点「生成反思」基于近 30 天决策 + OKR 健康生成一份.
         </p>
       ) : (
         <ul className="space-y-4">
           {reports.map((r) => (
-            <li key={r.id} className="rounded-2xl bg-slate-50/60 p-4 ring-1 ring-slate-200/60">
+            <li key={r.id} className="rounded-2xl bg-surface-2/60 p-4 ring-1 ring-border/60">
               <div className="flex items-start justify-between gap-3">
-                <div className="text-[11px] text-slate-500">
+                <div className="text-[11px] text-ink-tertiary">
                   <span className="font-mono">{r.id}</span> ·{' '}
                   {new Date(r.createdAt).toLocaleString('zh-CN')} · 决策{' '}
                   {r.metricsSummary.decisionsCount} · 采纳 {pct(r.metricsSummary.adoptionRate)} · 推翻{' '}
@@ -600,19 +600,19 @@ function ReflectionSection() {
 
               {/* 配置调整建议 (调 AI 自己) */}
               {r.proposedChanges.rationale && (
-                <div className="mt-2 rounded-lg bg-white p-3 text-[11.5px] ring-1 ring-slate-200/70">
-                  <div className="mb-1 font-semibold text-slate-700">自身配置调整建议</div>
-                  <p className="whitespace-pre-wrap text-slate-600">{r.proposedChanges.rationale}</p>
+                <div className="mt-2 rounded-lg bg-white p-3 text-[11.5px] ring-1 ring-border/70">
+                  <div className="mb-1 font-semibold text-ink-secondary">自身配置调整建议</div>
+                  <p className="whitespace-pre-wrap text-ink-secondary">{r.proposedChanges.rationale}</p>
                   {(r.proposedChanges.baselineThresholdsDiff ||
                     typeof r.proposedChanges.topKMemoriesInjectedDiff === 'number') && (
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
                       {r.proposedChanges.baselineThresholdsDiff?.hardBlock !== undefined && (
-                        <span className="rounded bg-indigo-50 px-1.5 py-0.5 font-mono text-[10.5px] text-indigo-700">
+                        <span className="rounded bg-info/10 px-1.5 py-0.5 font-mono text-[10.5px] text-info">
                           hardBlock → {r.proposedChanges.baselineThresholdsDiff.hardBlock}
                         </span>
                       )}
                       {typeof r.proposedChanges.topKMemoriesInjectedDiff === 'number' && (
-                        <span className="rounded bg-indigo-50 px-1.5 py-0.5 font-mono text-[10.5px] text-indigo-700">
+                        <span className="rounded bg-info/10 px-1.5 py-0.5 font-mono text-[10.5px] text-info">
                           topK → {r.proposedChanges.topKMemoriesInjectedDiff}
                         </span>
                       )}
@@ -624,19 +624,19 @@ function ReflectionSection() {
               {/* ON-3 · OKR 优化方向提议 (组织层, advisory) */}
               {r.optimizationProposals && r.optimizationProposals.length > 0 && (
                 <div className="mt-2.5">
-                  <div className="mb-1.5 flex items-center gap-1.5 text-[11.5px] font-semibold text-slate-700">
-                    <Target className="h-3.5 w-3.5 text-rose-500" /> OKR 优化方向提议 (参谋建议 · 不自动改 OKR)
+                  <div className="mb-1.5 flex items-center gap-1.5 text-[11.5px] font-semibold text-ink-secondary">
+                    <Target className="h-3.5 w-3.5 text-danger" /> OKR 优化方向提议 (参谋建议 · 不自动改 OKR)
                   </div>
                   <ul className="space-y-2">
                     {r.optimizationProposals.map((p) => (
                       <li
                         key={p.id}
-                        className="rounded-lg bg-white p-3 text-[11.5px] ring-1 ring-slate-200/70"
+                        className="rounded-lg bg-white p-3 text-[11.5px] ring-1 ring-border/70"
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5">
-                              <span className="font-medium text-slate-800">{p.title}</span>
+                              <span className="font-medium text-ink-primary">{p.title}</span>
                               <span
                                 className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ring-1 ${confidenceTone(
                                   p.metrics.confidence,
@@ -645,12 +645,12 @@ function ReflectionSection() {
                                 {p.metrics.confidence} · {p.metrics.progressPct}%
                               </span>
                             </div>
-                            <p className="mt-1 text-slate-600">{p.recommendation}</p>
-                            <p className="mt-0.5 text-[10.5px] text-slate-400">{p.rationale}</p>
+                            <p className="mt-1 text-ink-secondary">{p.recommendation}</p>
+                            <p className="mt-0.5 text-[10.5px] text-ink-tertiary">{p.rationale}</p>
                             {p.promotionRequestId && (
                               <a
                                 href="/admin/steward"
-                                className="mt-1 inline-flex items-center gap-1 rounded-md bg-violet-50 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 ring-1 ring-violet-200/70 hover:bg-violet-100"
+                                className="mt-1 inline-flex items-center gap-1 rounded-md bg-brand-50 px-1.5 py-0.5 text-[10px] font-medium text-brand-700 ring-1 ring-brand-200/70 hover:bg-brand-100"
                                 title={`Memory 升级签批 ${p.promotionRequestId}`}
                               >
                                 <ExternalLink className="h-2.5 w-2.5" /> 已发起 Memory 沉淀 · 去三级签批台账
@@ -662,14 +662,14 @@ function ReflectionSection() {
                               <button
                                 onClick={() => disposeProposal(r.id, p.id, 'acknowledged')}
                                 disabled={busy === `prop_${p.id}`}
-                                className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2 py-1 text-[10.5px] font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                                className="inline-flex items-center gap-1 rounded-md bg-success/80 px-2 py-1 text-[10.5px] font-medium text-white hover:bg-success/70 disabled:opacity-50"
                               >
                                 <Check className="h-3 w-3" /> 采纳关注
                               </button>
                               <button
                                 onClick={() => disposeProposal(r.id, p.id, 'dismissed')}
                                 disabled={busy === `prop_${p.id}`}
-                                className="inline-flex items-center gap-1 rounded-md bg-slate-200 px-2 py-1 text-[10.5px] font-medium text-slate-700 hover:bg-slate-300 disabled:opacity-50"
+                                className="inline-flex items-center gap-1 rounded-md bg-surface-3 px-2 py-1 text-[10.5px] font-medium text-ink-secondary hover:bg-surface-3 disabled:opacity-50"
                               >
                                 <X className="h-3 w-3" /> 不予处理
                               </button>
@@ -678,8 +678,8 @@ function ReflectionSection() {
                             <span
                               className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                                 p.status === 'acknowledged'
-                                  ? 'bg-emerald-100 text-emerald-800'
-                                  : 'bg-slate-100 text-slate-500'
+                                  ? 'bg-success/15 text-success'
+                                  : 'bg-surface-3 text-ink-tertiary'
                               }`}
                             >
                               {p.status === 'acknowledged' ? '已采纳关注' : '已不予处理'}
@@ -698,21 +698,21 @@ function ReflectionSection() {
                   <button
                     onClick={() => approve(r.id, true)}
                     disabled={busy === `approve_${r.id}`}
-                    className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-[11.5px] font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                    className="inline-flex items-center gap-1 rounded-lg bg-success/80 px-3 py-1.5 text-[11.5px] font-medium text-white hover:bg-success/70 disabled:opacity-50"
                   >
                     <Check className="h-3.5 w-3.5" /> 签批通过 (应用配置)
                   </button>
                   <button
                     onClick={() => approve(r.id, false)}
                     disabled={busy === `approve_${r.id}`}
-                    className="inline-flex items-center gap-1 rounded-lg bg-slate-200 px-3 py-1.5 text-[11.5px] font-medium text-slate-700 hover:bg-slate-300 disabled:opacity-50"
+                    className="inline-flex items-center gap-1 rounded-lg bg-surface-3 px-3 py-1.5 text-[11.5px] font-medium text-ink-secondary hover:bg-surface-3 disabled:opacity-50"
                   >
                     <X className="h-3.5 w-3.5" /> 拒绝
                   </button>
                 </div>
               )}
               {r.resultingVersionId && (
-                <p className="mt-2 text-[10.5px] text-emerald-700">
+                <p className="mt-2 text-[10.5px] text-success">
                   已生成新版本: <span className="font-mono">{r.resultingVersionId}</span>
                 </p>
               )}
@@ -727,8 +727,8 @@ function ReflectionSection() {
 function ApprovalBadge({ status }: { status: 'pending' | 'approved' | 'rejected' }) {
   const map = {
     pending: { bg: 'bg-warning/10', text: 'text-warning', label: '待签批' },
-    approved: { bg: 'bg-emerald-100', text: 'text-emerald-800', label: '已签批' },
-    rejected: { bg: 'bg-slate-100', text: 'text-slate-500', label: '已拒绝' },
+    approved: { bg: 'bg-success/15', text: 'text-success', label: '已签批' },
+    rejected: { bg: 'bg-surface-3', text: 'text-ink-tertiary', label: '已拒绝' },
   }[status];
   return (
     <span className={`shrink-0 rounded-full ${map.bg} px-2 py-0.5 text-[10.5px] font-semibold ${map.text}`}>
@@ -739,11 +739,11 @@ function ApprovalBadge({ status }: { status: 'pending' | 'approved' | 'rejected'
 
 function OutcomeBadge({ outcome }: { outcome: string }) {
   const map: Record<string, { bg: string; text: string; label: string }> = {
-    pending: { bg: 'bg-slate-100', text: 'text-slate-600', label: '待反馈' },
-    adopted: { bg: 'bg-emerald-100', text: 'text-emerald-800', label: '采纳' },
+    pending: { bg: 'bg-surface-3', text: 'text-ink-secondary', label: '待反馈' },
+    adopted: { bg: 'bg-success/15', text: 'text-success', label: '采纳' },
     modified: { bg: 'bg-warning/10', text: 'text-warning', label: '修改' },
-    overruled: { bg: 'bg-rose-100', text: 'text-rose-800', label: '推翻' },
-    ignored: { bg: 'bg-slate-100', text: 'text-slate-500', label: '忽略' },
+    overruled: { bg: 'bg-danger/10', text: 'text-danger', label: '推翻' },
+    ignored: { bg: 'bg-surface-3', text: 'text-ink-tertiary', label: '忽略' },
   };
   const c = map[outcome] ?? map.pending;
   return (

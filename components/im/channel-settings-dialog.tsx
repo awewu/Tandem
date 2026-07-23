@@ -292,13 +292,13 @@ export function ChannelSettingsDialog({
                 const RoleIcon = m.role === 'owner' ? Crown : m.role === 'admin' ? Shield : null;
                 const roleColor =
                   m.role === 'owner' ? 'text-warning' :
-                  m.role === 'admin' ? 'text-blue-600' : 'text-muted-foreground';
+                  m.role === 'admin' ? 'text-info' : 'text-muted-foreground';
                 return (
                   <div
                     key={m.id}
                     className="flex items-center gap-2 rounded-md border p-2 hover:bg-muted/30"
                   >
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-slate-400 to-slate-600 text-[11px] font-semibold uppercase text-white">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-ink-tertiary to-ink-secondary text-[11px] font-semibold uppercase text-white">
                       {(name[0] ?? '?').toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -358,7 +358,7 @@ export function ChannelSettingsDialog({
                         disabled={busy}
                         className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-footnote hover:bg-accent disabled:opacity-50"
                       >
-                        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-400 text-[9px] font-semibold uppercase text-white">
+                        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-surface-3 text-[9px] font-semibold uppercase text-white">
                           {(p.name[0] ?? '?').toUpperCase()}
                         </div>
                         <span className="flex-1">{p.name}</span>

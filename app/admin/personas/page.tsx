@@ -130,7 +130,7 @@ export default function AdminPersonasPage() {
               <Loader2 className="h-4 w-4 animate-spin" /> 加载中…
             </p>
           ) : error ? (
-            <p className="text-caption text-rose-600">加载失败: {error}</p>
+            <p className="text-caption text-danger">加载失败: {error}</p>
           ) : filtered.length === 0 ? (
             <p className="text-caption text-muted-foreground">无匹配用户。</p>
           ) : (
@@ -188,7 +188,7 @@ export default function AdminPersonasPage() {
                           {savingId === r.userId ? (
                             <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
                           ) : savedId === r.userId ? (
-                            <Check className="mr-1 h-3.5 w-3.5 text-emerald-600" />
+                            <Check className="mr-1 h-3.5 w-3.5 text-success" />
                           ) : null}
                           保存
                         </Button>
@@ -197,7 +197,7 @@ export default function AdminPersonasPage() {
                     <p className="mt-1 text-[11px] text-muted-foreground">
                       {meta.blurb} · 委托级别 {meta.defaultDelegation}
                       {canDelegate ? (
-                        <span className="ml-1 text-emerald-600">· 可 IM 代行</span>
+                        <span className="ml-1 text-success">· 可 IM 代行</span>
                       ) : (
                         <span className="ml-1 text-warning">· 不代行 (仅旁听/汇报)</span>
                       )}

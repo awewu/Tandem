@@ -108,9 +108,9 @@ interface CheckIn {
 // ---------------------------------------------------------------------------
 
 const CONFIDENCE_META: Record<Confidence, { label: string; color: string }> = {
-  'on-track': { label: '正常', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  'on-track': { label: '正常', color: 'bg-success/10 text-success border-success/30' },
   'at-risk': { label: '有风险', color: 'bg-warning/5 text-warning border-warning/20' },
-  'off-track': { label: '严重偏离', color: 'bg-rose-50 text-rose-700 border-rose-200' },
+  'off-track': { label: '严重偏离', color: 'bg-danger/5 text-danger border-danger/30' },
 };
 
 const HISTORY_PAGE_SIZE = 5;
@@ -131,20 +131,20 @@ function ttiHealth(progressPct: number): {
   if (progressPct >= 60) {
     return {
       label: '健康',
-      color: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      color: 'bg-success/10 text-success border-success/30',
       hint: '60-70% 是 TTI 的"健康区间" — 说明目标有合理挑战且在推进.',
     };
   }
   if (progressPct >= 40) {
     return {
       label: '需关注',
-      color: 'bg-sky-50 text-sky-700 border-sky-200',
+      color: 'bg-info/10 text-info border-info/30',
       hint: '进度不达 60% — 检查是否需要调整推进事项或求助.',
     };
   }
   return {
     label: '滞后',
-    color: 'bg-rose-50 text-rose-700 border-rose-200',
+    color: 'bg-danger/5 text-danger border-danger/30',
     hint: 'TTI 是软目标, 不发奖金. 但若长期滞后, 可考虑下个周期重设方向.',
   };
 }
@@ -426,8 +426,8 @@ export default function TtiPage() {
       </div>
 
       {error && (
-        <Card className="border-rose-200 bg-rose-50">
-          <CardContent className="py-3 text-caption text-rose-700 flex items-center gap-2">
+        <Card className="border-danger/30 bg-danger/5">
+          <CardContent className="py-3 text-caption text-danger flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />
             {error}
           </CardContent>
@@ -517,9 +517,9 @@ export default function TtiPage() {
                         {/* 推进事项 (本期取得了什么) */}
                         <div className="space-y-1.5">
                           <Label className="text-footnote flex items-center gap-1.5">
-                            <Zap className="h-3.5 w-3.5 text-emerald-600" />
+                            <Zap className="h-3.5 w-3.5 text-success" />
                             推进事项 · 本期取得了什么
-                            <span className="text-rose-600">*</span>
+                            <span className="text-danger">*</span>
                           </Label>
                           <Textarea
                             required
@@ -549,7 +549,7 @@ export default function TtiPage() {
                         {/* 实际进度 */}
                         <div className="space-y-1.5">
                           <Label className="text-footnote flex items-center gap-1.5">
-                            <TrendingUp className="h-3.5 w-3.5 text-sky-600" />
+                            <TrendingUp className="h-3.5 w-3.5 text-info" />
                             实际进度 · 当前数值
                           </Label>
                           <Input
@@ -575,7 +575,7 @@ export default function TtiPage() {
                         {/* 信心度 */}
                         <div className="space-y-1.5">
                           <Label className="text-footnote flex items-center gap-1.5">
-                            <Activity className="h-3.5 w-3.5 text-violet-600" />
+                            <Activity className="h-3.5 w-3.5 text-brand-700" />
                             信心度
                           </Label>
                           <Select
@@ -611,26 +611,26 @@ export default function TtiPage() {
                       </div>
 
                       {f.error && (
-                        <div className="text-caption text-rose-600 bg-rose-50 px-3 py-2 rounded-md flex items-center gap-1.5">
+                        <div className="text-caption text-danger bg-danger/5 px-3 py-2 rounded-md flex items-center gap-1.5">
                           <AlertCircle className="h-4 w-4" />
                           {f.error}
                         </div>
                       )}
                       {f.ok && (
-                        <div className="text-caption text-emerald-700 bg-emerald-50 px-3 py-2 rounded-md flex items-center gap-1.5">
+                        <div className="text-caption text-success bg-success/10 px-3 py-2 rounded-md flex items-center gap-1.5">
                           <CheckCircle2 className="h-4 w-4" />
                           {f.ok}
                         </div>
                       )}
                       {f.checkInId && (
-                        <div className="text-caption text-sky-700 bg-sky-50 px-3 py-2 rounded-md flex items-center gap-2">
+                        <div className="text-caption text-info bg-info/10 px-3 py-2 rounded-md flex items-center gap-2">
                           <Pencil className="h-4 w-4" />
                           正在修改已填报记录
                           <Button
                             type="button"
                             variant="ghost"
                             size="sm"
-                            className="ml-auto h-7 px-2 text-sky-700 hover:text-sky-800"
+                            className="ml-auto h-7 px-2 text-info hover:text-info"
                             onClick={() =>
                               setForm(kr.id, {
                                 ...EMPTY_FORM,
@@ -740,7 +740,7 @@ export default function TtiPage() {
                                         type="button"
                                         variant="ghost"
                                         size="sm"
-                                        className="h-7 px-2 text-rose-600 hover:text-rose-700"
+                                        className="h-7 px-2 text-danger hover:text-danger"
                                         disabled={deletingCheckInId === c.id}
                                         onClick={() => void deleteCheckIn(kr, c)}
                                       >
@@ -750,7 +750,7 @@ export default function TtiPage() {
                                     </div>
                                     {c.achievements && (
                                       <div className="mt-1">
-                                        <span className="text-emerald-700">取得:</span> {c.achievements}
+                                        <span className="text-success">取得:</span> {c.achievements}
                                       </div>
                                     )}
                                     {c.blockers && (

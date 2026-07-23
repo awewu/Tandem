@@ -26,7 +26,7 @@ interface Awareness {
   user: { name: string; color: string };
 }
 
-const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+const COLORS = ['rgb(var(--success))', 'rgb(var(--info))', 'rgb(var(--warning))', 'rgb(var(--danger))', 'rgb(var(--brand-500))', 'rgb(var(--brand-300))'];
 
 export function CollabTextarea({ docId, userName, fallback, onLocalChange }: Props) {
   const [text, setText] = useState(fallback);
@@ -122,17 +122,17 @@ export function CollabTextarea({ docId, userName, fallback, onLocalChange }: Pro
 
   return (
     <div className="relative w-full h-full">
-      <div className="absolute top-1 right-2 z-10 flex items-center gap-2 text-[11px] text-slate-500">
+      <div className="absolute top-1 right-2 z-10 flex items-center gap-2 text-[11px] text-ink-tertiary">
         {phase === 'connected' ? (
-          <span className="inline-flex items-center gap-1 text-emerald-600">
+          <span className="inline-flex items-center gap-1 text-success">
             <Wifi className="h-3 w-3" /> 实时
           </span>
         ) : phase === 'fallback' ? (
-          <span className="inline-flex items-center gap-1 text-slate-400" title="未配置 YJS_WS_URL, 走本地编辑">
+          <span className="inline-flex items-center gap-1 text-ink-tertiary" title="未配置 YJS_WS_URL, 走本地编辑">
             <WifiOff className="h-3 w-3" /> 本地
           </span>
         ) : (
-          <span className="text-slate-400">…</span>
+          <span className="text-ink-tertiary">…</span>
         )}
         {peers.length > 1 && (
           <span className="inline-flex items-center gap-1">

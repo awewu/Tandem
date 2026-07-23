@@ -18,7 +18,7 @@ interface KRTrendProps {
 
 type Props = ObjectiveTrendProps | KRTrendProps;
 
-const CONF_COLOR = ['#dc2626', '#ca8a04', '#16a34a']; // off / at-risk / on-track
+const CONF_COLOR = ['rgb(var(--danger))', 'rgb(var(--warning))', 'rgb(var(--success))']; // off / at-risk / on-track
 
 export function OKRTrendChart(props: Props) {
   const { width = 320, height = 120 } = props;
@@ -55,8 +55,8 @@ export function OKRTrendChart(props: Props) {
     <svg width={width} height={height} className="overflow-visible">
       {/* 背景网格：50% / 70% 参考线 */}
       <line x1={pad} y1={pad + innerH * 0.5} x2={pad + innerW} y2={pad + innerH * 0.5} stroke="currentColor" strokeWidth={0.5} strokeDasharray="2 2" opacity={0.2} />
-      <line x1={pad} y1={pad + innerH * 0.3} x2={pad + innerW} y2={pad + innerH * 0.3} stroke="#16a34a" strokeWidth={0.5} strokeDasharray="2 2" opacity={0.5} />
-      <text x={pad + innerW + 2} y={pad + innerH * 0.3 + 3} fontSize={9} fill="#16a34a" opacity={0.8}>70</text>
+      <line x1={pad} y1={pad + innerH * 0.3} x2={pad + innerW} y2={pad + innerH * 0.3} stroke="rgb(var(--success))" strokeWidth={0.5} strokeDasharray="2 2" opacity={0.5} />
+      <text x={pad + innerW + 2} y={pad + innerH * 0.3 + 3} fontSize={9} fill="rgb(var(--success))" opacity={0.8}>70</text>
       <text x={pad - 6} y={pad + 4} fontSize={9} fill="currentColor" textAnchor="end" opacity={0.5}>100</text>
       <text x={pad - 6} y={pad + innerH + 4} fontSize={9} fill="currentColor" textAnchor="end" opacity={0.5}>0</text>
 

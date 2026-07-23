@@ -105,30 +105,30 @@ interface ContextMenuState {
 // 文件扩展名 → 图标映射
 function getFileIcon(node: FMNode, className = '') {
   if (node.type === 'folder') {
-    return <FolderIcon className={cn('text-blue-500', className)} />;
+    return <FolderIcon className={cn('text-info', className)} />;
   }
   const ext = (node.ext || node.name.split('.').pop() || '').toLowerCase();
   const iconClass = cn('shrink-0', className);
   if (['xlsx', 'xls', 'csv', 'ods'].includes(ext))
     return <FileSpreadsheet className={cn('text-success', iconClass)} />;
   if (['docx', 'doc', 'odt', 'rtf'].includes(ext))
-    return <FileText className={cn('text-blue-600', iconClass)} />;
+    return <FileText className={cn('text-info', iconClass)} />;
   if (['pptx', 'ppt', 'odp'].includes(ext))
-    return <FileType className={cn('text-orange-500', iconClass)} />;
+    return <FileType className={cn('text-warning', iconClass)} />;
   if (['pdf'].includes(ext))
     return <FileText className={cn('text-danger', iconClass)} />;
   if (['md', 'markdown', 'txt', 'log', 'json', 'yaml', 'yml', 'xml', 'html'].includes(ext))
-    return <FileText className={cn('text-slate-500', iconClass)} />;
+    return <FileText className={cn('text-ink-tertiary', iconClass)} />;
   if (['js', 'ts', 'tsx', 'jsx', 'py', 'rs', 'go', 'java', 'c', 'cpp', 'h', 'sql'].includes(ext))
-    return <FileCode className={cn('text-purple-600', iconClass)} />;
+    return <FileCode className={cn('text-brand-700', iconClass)} />;
   if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp'].includes(ext))
-    return <FileImage className={cn('text-pink-500', iconClass)} />;
+    return <FileImage className={cn('text-brand-700', iconClass)} />;
   if (['zip', 'rar', 'tar', 'gz', '7z'].includes(ext))
     return <FileArchive className={cn('text-warning', iconClass)} />;
   if (['mp4', 'mov', 'avi', 'mkv', 'webm'].includes(ext))
-    return <FileVideo className={cn('text-fuchsia-500', iconClass)} />;
+    return <FileVideo className={cn('text-brand-700', iconClass)} />;
   if (['mp3', 'wav', 'flac', 'ogg', 'm4a'].includes(ext))
-    return <FileAudio className={cn('text-cyan-500', iconClass)} />;
+    return <FileAudio className={cn('text-info', iconClass)} />;
   return <FileText className={cn('text-muted-foreground', iconClass)} />;
 }
 
@@ -524,7 +524,7 @@ export function FileManager({
             ) : (
               <span className="w-3" />
             )}
-            {isExpanded ? <FolderOpen className="h-3.5 w-3.5 text-blue-500" /> : <FolderIcon className="h-3.5 w-3.5 text-blue-500" />}
+            {isExpanded ? <FolderOpen className="h-3.5 w-3.5 text-info" /> : <FolderIcon className="h-3.5 w-3.5 text-info" />}
             <span className="truncate">{node.name}</span>
           </div>
           {isExpanded && hasChildren && (
@@ -818,7 +818,7 @@ export function FileManager({
                     onDragLeave={() => setDropTargetId(null)}
                     onDrop={(e) => handleFolderDrop(e, rootId)}
                   >
-                    <FolderOpen className="h-3.5 w-3.5 text-blue-500" />
+                    <FolderOpen className="h-3.5 w-3.5 text-info" />
                     <span className="font-medium">{title || root.name}</span>
                   </div>
                 );

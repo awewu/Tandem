@@ -40,8 +40,8 @@ import { useOwnerDirectory } from '@/lib/org/use-owner-directory';
 const SEV_COLORS: Record<InsightSeverity, { bg: string; text: string; ring: string; label: string }> = {
   critical: { bg: 'bg-danger/5', text: 'text-danger', ring: 'ring-danger/20', label: '严重' },
   warning: { bg: 'bg-warning/5', text: 'text-warning', ring: 'ring-warning/20', label: '注意' },
-  info: { bg: 'bg-info/10', text: 'text-info', ring: 'ring-blue-200', label: '信息' },
-  positive: { bg: 'bg-emerald-50', text: 'text-emerald-700', ring: 'ring-emerald-200', label: '正向' },
+  info: { bg: 'bg-info/10', text: 'text-info', ring: 'ring-info/30', label: '信息' },
+  positive: { bg: 'bg-success/10', text: 'text-success', ring: 'ring-success/30', label: '正向' },
 };
 
 const CAT_ICONS: Record<InsightCategory, React.ComponentType<{ className?: string }>> = {
@@ -194,7 +194,7 @@ export default function InsightsPage() {
         <div className="card-elevated p-10 text-center text-ink-tertiary">加载中…</div>
       ) : filtered.length === 0 ? (
         <div className="card-elevated p-10 text-center">
-          <CheckCircle2 className="h-10 w-10 mx-auto text-emerald-500" />
+          <CheckCircle2 className="h-10 w-10 mx-auto text-success" />
           <div className="mt-3 text-headline text-ink-primary">没有需要关注的信号</div>
           <div className="mt-1 text-caption text-ink-tertiary">
             {insights.length === 0

@@ -939,7 +939,7 @@ function ImInner() {
                   >
                     {sendAsAgent
                       ? <Bot className="h-3.5 w-3.5 shrink-0" />
-                      : <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white bg-gradient-to-br from-amber-400 to-orange-500`}>{ME.slice(0, 1).toUpperCase()}</span>
+                      : <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white bg-gradient-to-br from-warning/30 to-warning`}>{ME.slice(0, 1).toUpperCase()}</span>
                     }
                     <span className="hidden sm:inline">{sendAsAgent ? 'AI 分身' : '真人'}</span>
                     <svg className="h-3 w-3 shrink-0 text-current opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6"/></svg>
@@ -1011,15 +1011,15 @@ function ImInner() {
 
 function ConvAvatar({ channel, name }: { channel: Channel; name: string }) {
   const palette = [
-    'from-amber-400 to-orange-500',
-    'from-emerald-400 to-teal-500',
-    'from-sky-400 to-blue-500',
-    'from-violet-400 to-purple-500',
-    'from-pink-400 to-rose-500',
+    'from-warning/30 to-warning',
+    'from-success/30 to-success',
+    'from-info/30 to-info',
+    'from-brand-400 to-brand-500',
+    'from-brand-300 to-danger',
   ];
   if (channel.type === 'announcement') {
     return (
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-400 to-rose-500 text-white">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-danger/30 to-danger text-white">
         <Megaphone className="h-5 w-5" />
       </div>
     );
@@ -1071,28 +1071,28 @@ function IdentityPickerDropdown({
         onClick={() => onSelect(false)}
         className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-surface-3 ${!sendAsAgent ? 'bg-surface-3' : ''}`}
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-[11px] font-bold text-white">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-warning/30 to-warning text-[11px] font-bold text-white">
           {meId.slice(0, 2).toUpperCase()}
         </span>
         <div className="min-w-0 flex-1">
           <div className="text-[13px] font-medium text-ink-primary truncate">{meId}</div>
           <div className="text-[11px] text-ink-secondary">真人 · 以我自己的身份发言</div>
         </div>
-        {!sendAsAgent && <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-400" />}
+        {!sendAsAgent && <span className="h-2 w-2 shrink-0 rounded-full bg-success/30" />}
       </button>
       <button
         type="button"
         onClick={() => onSelect(true)}
-        className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-violet-50 ${sendAsAgent ? 'bg-violet-50' : ''}`}
+        className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-brand-50 ${sendAsAgent ? 'bg-brand-50' : ''}`}
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-400 to-purple-500 text-white">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-500 text-white">
           <Bot className="h-4 w-4" />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="text-[13px] font-medium text-violet-800">AI 分身</div>
-          <div className="text-[11px] text-violet-500">让我的分身代我在群里发言</div>
+          <div className="text-[13px] font-medium text-brand-700">AI 分身</div>
+          <div className="text-[11px] text-brand-700">让我的分身代我在群里发言</div>
         </div>
-        {sendAsAgent && <span className="h-2 w-2 shrink-0 rounded-full bg-violet-400" />}
+        {sendAsAgent && <span className="h-2 w-2 shrink-0 rounded-full bg-brand-400" />}
       </button>
     </div>
   );
@@ -1440,10 +1440,10 @@ function MessageRow({
       <div
         className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold shadow-soft-sm ${
           isPersona
-            ? 'bg-gradient-to-br from-violet-400 to-purple-500 text-white'
+            ? 'bg-gradient-to-br from-brand-400 to-brand-500 text-white'
             : isMe
-            ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-white'
-            : 'bg-gradient-to-br from-zinc-300 to-zinc-500 text-white'
+            ? 'bg-gradient-to-br from-warning/30 to-warning text-white'
+            : 'bg-gradient-to-br from-surface-3 to-ink-tertiary text-white'
         }`}
         title={nameOf(msg.senderId)}
       >
@@ -1460,7 +1460,7 @@ function MessageRow({
             {isPersona && (
               <Badge
                 variant="outline"
-                className="h-4 border-violet-300 bg-violet-50 px-1 text-[9px] font-medium text-violet-700"
+                className="h-4 border-brand-300 bg-brand-50 px-1 text-[9px] font-medium text-brand-700"
               >
                 AI 分身
               </Badge>
@@ -1479,9 +1479,9 @@ function MessageRow({
           <div
             className={`im-mobile-break-anywhere inline-block max-w-full whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-[13.5px] leading-relaxed shadow-soft-sm ${
               isMe
-                ? 'bg-gradient-to-br from-amber-500 to-orange-500 text-white'
+                ? 'bg-gradient-to-br from-warning to-warning text-white'
                 : isPersona
-                ? 'border border-violet-200/80 bg-gradient-to-br from-violet-50 to-purple-50/40 text-violet-900'
+                ? 'border border-brand-200/80 bg-gradient-to-br from-brand-50 to-brand-50/40 text-brand-700'
                 : 'bg-surface-2 text-ink-primary ring-1 ring-hairline'
             }`}
           >
@@ -1495,12 +1495,12 @@ function MessageRow({
                 // §SSE-UX: 优先显示后端分阶段进度文案 (statusText), 无则回退通用 "思考中"
                 const statusLabel = msg.statusText?.trim() || 'CompanyBrain 思考中';
                 return (
-                  <span className="inline-flex items-center gap-1.5 text-violet-500/80">
+                  <span className="inline-flex items-center gap-1.5 text-brand-700/80">
                     <span className="text-[11px]">{statusLabel}</span>
                     <span className="inline-flex gap-0.5">
-                      <span className="h-1 w-1 animate-bounce rounded-full bg-violet-400 [animation-delay:-0.3s]" />
-                      <span className="h-1 w-1 animate-bounce rounded-full bg-violet-400 [animation-delay:-0.15s]" />
-                      <span className="h-1 w-1 animate-bounce rounded-full bg-violet-400" />
+                      <span className="h-1 w-1 animate-bounce rounded-full bg-brand-400 [animation-delay:-0.3s]" />
+                      <span className="h-1 w-1 animate-bounce rounded-full bg-brand-400 [animation-delay:-0.15s]" />
+                      <span className="h-1 w-1 animate-bounce rounded-full bg-brand-400" />
                     </span>
                   </span>
                 );
@@ -1509,7 +1509,7 @@ function MessageRow({
                 <>
                   {renderInline(msg.body, onMentionPersona)}
                   {isStreaming && !bodyEmpty && (
-                    <span className="ml-0.5 inline-block w-[6px] animate-pulse text-violet-500/70">▍</span>
+                    <span className="ml-0.5 inline-block w-[6px] animate-pulse text-brand-700/70">▍</span>
                   )}
                 </>
               );
@@ -1549,7 +1549,7 @@ function MessageRow({
               type="button"
               onClick={onPromote}
               disabled={!!msg.spawnedPromotionId}
-              className="flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-violet-700 shadow-soft ring-1 ring-violet-300/80 transition hover:bg-violet-50 hover:shadow-soft-lg disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-brand-700 shadow-soft ring-1 ring-brand-300/80 transition hover:bg-brand-50 hover:shadow-soft-lg disabled:cursor-not-allowed disabled:opacity-40"
               title="沉淀为 Memory 升级提议 (三级签批) — 差异化 §2.2 第 3 条"
             >
               <Brain className="h-3 w-3" />
@@ -1578,7 +1578,7 @@ function MessageRow({
               <button
                 type="button"
                 onClick={onRecall}
-                className="flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-rose-700 shadow-soft ring-1 ring-rose-300/80 transition hover:bg-rose-50 hover:shadow-soft-lg"
+                className="flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-danger shadow-soft ring-1 ring-danger/40 transition hover:bg-danger/5 hover:shadow-soft-lg"
                 title="撤回 (2 分钟内 有效)"
               >
                 <Trash2 className="h-3 w-3" />
@@ -1630,7 +1630,7 @@ function MessageRow({
             {msg.spawnedPromotionId && (
               <Link
                 href={`/memories?promotionId=${msg.spawnedPromotionId}`}
-                className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700 transition hover:bg-violet-100"
+                className="inline-flex items-center gap-1 rounded-full border border-brand-200 bg-brand-50 px-2 py-0.5 text-[10px] font-medium text-brand-700 transition hover:bg-brand-100"
               >
                 <Brain className="h-2.5 w-2.5" />
                 Memory 升级提议中
@@ -1662,9 +1662,9 @@ function renderInline(
     const [userId, kind = 'notify'] = ref.split(':');
     const cls =
       kind === 'persona'
-        ? 'bg-violet-100 text-violet-700'
+        ? 'bg-brand-100 text-brand-700'
         : kind === 'assign'
-        ? 'bg-rose-100 text-rose-700'
+        ? 'bg-danger/10 text-danger'
         : kind === 'consult'
         ? 'bg-info/10 text-info'
         : 'bg-surface-3 text-ink-primary';

@@ -87,21 +87,21 @@ function HorizontalBar({
 // ---------------------------------------------------------------------------
 
 const HEALTH_COLOR: Record<string, string> = {
-  green: 'bg-emerald-500',
+  green: 'bg-success',
   amber: 'bg-warning',
-  red: 'bg-rose-500',
+  red: 'bg-danger',
 };
 
 const HEALTH_BADGE: Record<string, string> = {
-  green: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  green: 'bg-success/10 text-success border-success/30',
   amber: 'bg-warning/5 text-warning border-warning/20',
-  red: 'bg-rose-50 text-rose-700 border-rose-200',
+  red: 'bg-danger/5 text-danger border-danger/30',
 };
 
 const GRADE_BADGE: Record<string, string> = {
-  high: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  mid: 'bg-sky-50 text-sky-700 border-sky-200',
-  low: 'bg-rose-50 text-rose-700 border-rose-200',
+  high: 'bg-success/10 text-success border-success/30',
+  mid: 'bg-info/10 text-info border-info/30',
+  low: 'bg-danger/5 text-danger border-danger/30',
 };
 
 interface Views {
@@ -298,8 +298,8 @@ export default function KpiAnalyticsPage() {
       </header>
 
       {error && (
-        <Card className="border-rose-200 bg-rose-50">
-          <CardContent className="py-3 text-caption text-rose-700 flex items-center gap-2">
+        <Card className="border-danger/30 bg-danger/5">
+          <CardContent className="py-3 text-caption text-danger flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />
             {error}
           </CardContent>
@@ -371,7 +371,7 @@ export default function KpiAnalyticsPage() {
                 <div className="space-y-1">
                   <div className="flex items-center gap-3 text-footnote text-muted-foreground">
                     <span className="flex items-center gap-1">
-                      <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />
+                      <span className="inline-block w-2 h-2 rounded-full bg-success" />
                       绿 {cs.green}
                     </span>
                     <span className="flex items-center gap-1">
@@ -379,14 +379,14 @@ export default function KpiAnalyticsPage() {
                       黄 {cs.amber}
                     </span>
                     <span className="flex items-center gap-1">
-                      <span className="inline-block w-2 h-2 rounded-full bg-rose-500" />
+                      <span className="inline-block w-2 h-2 rounded-full bg-danger" />
                       红 {cs.red}
                     </span>
                   </div>
                   <div className="h-3 rounded-full overflow-hidden flex">
-                    <div className="bg-emerald-500" style={{ width: `${greenPct}%` }} />
+                    <div className="bg-success" style={{ width: `${greenPct}%` }} />
                     <div className="bg-warning" style={{ width: `${amberPct}%` }} />
-                    <div className="bg-rose-500" style={{ width: `${redPct}%` }} />
+                    <div className="bg-danger" style={{ width: `${redPct}%` }} />
                   </div>
                 </div>
               </CardContent>
@@ -463,7 +463,7 @@ export default function KpiAnalyticsPage() {
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-body flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-rose-600" />
+                  <AlertTriangle className="h-4 w-4 text-danger" />
                   红色 KPI 清单 (完成率 &lt; 60%)
                   <Badge variant="outline" className="ml-2 text-footnote">
                     {data.riskList.risks.length}
@@ -480,7 +480,7 @@ export default function KpiAnalyticsPage() {
                     {data.riskList.risks.slice(0, 20).map((r) => (
                       <li
                         key={r.id}
-                        className="flex items-center justify-between gap-2 text-caption border-l-2 border-rose-300 pl-2 py-0.5"
+                        className="flex items-center justify-between gap-2 text-caption border-l-2 border-danger/40 pl-2 py-0.5"
                       >
                         <div className="min-w-0 flex-1 truncate">
                           <span className="font-mono text-footnote text-muted-foreground mr-1">
@@ -533,7 +533,7 @@ export default function KpiAnalyticsPage() {
                       {lvl.orphan > 0 && (
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">无父级 (孤儿)</span>
-                          <span className="text-rose-700 font-semibold">{lvl.orphan}</span>
+                          <span className="text-danger font-semibold">{lvl.orphan}</span>
                         </div>
                       )}
                       {lvl.uncascaded > 0 && (
@@ -625,16 +625,16 @@ export default function KpiAnalyticsPage() {
                 <CardHeader className="pb-2">
                   <CardTitle className="text-body flex items-center gap-2">
                     {data.weightValidation.ok ? (
-                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                      <CheckCircle2 className="h-4 w-4 text-success" />
                     ) : (
-                      <XCircle className="h-4 w-4 text-rose-600" />
+                      <XCircle className="h-4 w-4 text-danger" />
                     )}
                     权重 = 100 校验
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2 text-caption">
                   {data.weightValidation.ok ? (
-                    <p className="text-emerald-700">
+                    <p className="text-success">
                       所有 assignee 的 bonus KPI 权重之和 = 100 ✓
                     </p>
                   ) : (
@@ -642,10 +642,10 @@ export default function KpiAnalyticsPage() {
                       {data.weightValidation.violations.map((v) => (
                         <li
                           key={v.assigneeId}
-                          className="flex justify-between border-l-2 border-rose-300 pl-2"
+                          className="flex justify-between border-l-2 border-danger/40 pl-2"
                         >
                           <span>{userName(v.assigneeId)}</span>
-                          <span className="tabular-nums text-rose-700">
+                          <span className="tabular-nums text-danger">
                             {v.totalWeight} / {v.expected}
                           </span>
                         </li>

@@ -25,12 +25,12 @@ import {
 import { useOwnerDirectory } from '@/lib/org/use-owner-directory';
 
 const CONF_DOT: Record<string, string> = {
-  'on-track': 'bg-emerald-500',
+  'on-track': 'bg-success',
   'at-risk': 'bg-warning',
-  'off-track': 'bg-rose-500',
+  'off-track': 'bg-danger',
 };
 function dotColor(confidence?: string | null) {
-  return (confidence && CONF_DOT[confidence]) || 'bg-slate-400';
+  return (confidence && CONF_DOT[confidence]) || 'bg-surface-3';
 }
 
 const WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日'];
@@ -172,7 +172,7 @@ export default function OKRCalendarPage() {
   }, [eventsByDay]);
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-surface-2">
       <div className="max-w-6xl mx-auto px-6 py-6">
         <div className="flex items-center justify-between mb-5">
           <div>
@@ -223,7 +223,7 @@ export default function OKRCalendarPage() {
             <div className="grid grid-cols-7 gap-1">
               {(monthGrid ?? []).map((day, idx) => {
                 if (day === null) {
-                  return <div key={`e-${idx}`} className="min-h-[88px] rounded bg-slate-50/40" />;
+                  return <div key={`e-${idx}`} className="min-h-[88px] rounded bg-surface-2/40" />;
                 }
                 const cellMs = year === 0 ? 0 : new Date(year, month, day).getTime();
                 const isToday = todayMs > 0 && cellMs === todayMs;
@@ -236,12 +236,12 @@ export default function OKRCalendarPage() {
                       isToday
                         ? 'border-warning/50 bg-warning/5'
                         : isPast
-                        ? 'border-slate-200 bg-slate-50/30'
-                        : 'border-slate-200 bg-white hover:bg-slate-50'
+                        ? 'border-border bg-surface-2/30'
+                        : 'border-border bg-white hover:bg-surface-2'
                     }`}
                   >
                     <div className={`text-[11px] font-medium mb-0.5 ${
-                      isToday ? 'text-warning' : isPast ? 'text-slate-400' : 'text-slate-700'
+                      isToday ? 'text-warning' : isPast ? 'text-ink-tertiary' : 'text-ink-secondary'
                     }`}>
                       {day}
                     </div>
@@ -269,7 +269,7 @@ export default function OKRCalendarPage() {
           </CardHeader>
           <CardContent className="text-[11px] grid grid-cols-2 md:grid-cols-4 gap-2">
             <div className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              <span className="h-2 w-2 rounded-full bg-success" />
               KR 截止 (在轨)
             </div>
             <div className="flex items-center gap-1.5">
@@ -277,15 +277,15 @@ export default function OKRCalendarPage() {
               KR 截止 (风险)
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-rose-500" />
+              <span className="h-2 w-2 rounded-full bg-danger" />
               KR 截止 (落后)
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-slate-400" />
+              <span className="h-2 w-2 rounded-full bg-surface-3" />
               Check-in 提交
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-violet-500" />
+              <span className="h-2 w-2 rounded-full bg-brand-500" />
               周期开始/结束
             </div>
             <div className="flex items-center gap-1.5">
@@ -314,8 +314,8 @@ function CellEventRow({ ev }: { ev: CellEvent }) {
   }
   if (ev.type === 'checkin') {
     return (
-      <div className="flex items-center gap-1 text-[9px] truncate text-slate-500">
-        <span className="h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0" />
+      <div className="flex items-center gap-1 text-[9px] truncate text-ink-tertiary">
+        <span className="h-1.5 w-1.5 rounded-full bg-surface-3 shrink-0" />
         <span className="truncate">✓ check-in</span>
       </div>
     );
@@ -323,8 +323,8 @@ function CellEventRow({ ev }: { ev: CellEvent }) {
   // cycle-start / cycle-end
   return (
     <div className="flex items-center gap-1 text-[9px] truncate">
-      <span className="h-1.5 w-1.5 rounded-full bg-violet-500 shrink-0" />
-      <span className="truncate font-medium text-violet-700" title={ev.label}>
+      <span className="h-1.5 w-1.5 rounded-full bg-brand-500 shrink-0" />
+      <span className="truncate font-medium text-brand-700" title={ev.label}>
         {ev.label}
       </span>
     </div>

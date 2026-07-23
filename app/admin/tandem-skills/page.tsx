@@ -101,9 +101,9 @@ function SkillCard({ skill }: { skill: SkillItem }) {
           <span>
             AI 代行:{' '}
             {skill.proxyAllowed ? (
-              <span className="text-emerald-600">允许</span>
+              <span className="text-success">允许</span>
             ) : (
-              <span className="text-rose-600">禁止</span>
+              <span className="text-danger">禁止</span>
             )}
           </span>
         </div>
@@ -114,9 +114,9 @@ function SkillCard({ skill }: { skill: SkillItem }) {
 
 function ZoneBadge({ zone }: { zone: 'green' | 'yellow' | 'red' }) {
   const styles = {
-    green: 'bg-emerald-100 text-emerald-700',
+    green: 'bg-success/15 text-success',
     yellow: 'bg-warning/10 text-warning',
-    red: 'bg-rose-100 text-rose-700',
+    red: 'bg-danger/10 text-danger',
   };
   const labels = { green: '绿区', yellow: '黄区', red: '红区' };
   return (

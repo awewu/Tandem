@@ -62,13 +62,13 @@ export function UpgradeProposalBanner({
 
   const cls =
     change.color === 'rose'
-      ? 'border-rose-300 bg-gradient-to-br from-rose-50 via-white to-rose-50'
-      : 'border-warning/30 bg-gradient-to-br from-amber-50 via-white to-amber-50';
+      ? 'border-danger/40 bg-gradient-to-br from-danger/5 via-white to-danger/5'
+      : 'border-warning/30 bg-gradient-to-br from-warning/10 via-white to-warning/10';
   const iconCls =
-    change.color === 'rose' ? 'text-rose-600' : 'text-warning';
+    change.color === 'rose' ? 'text-danger' : 'text-warning';
   const confirmBtnCls =
     change.color === 'rose'
-      ? 'bg-rose-600 hover:bg-rose-700 text-white'
+      ? 'bg-danger/80 hover:bg-danger/70 text-white'
       : 'bg-warning hover:bg-warning text-white';
 
   async function confirmUpgrade() {
@@ -113,25 +113,25 @@ export function UpgradeProposalBanner({
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1 rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink-secondary">
                 <Sparkles className="h-3 w-3" /> autonomy 守门
               </span>
-              <span className="inline-flex items-center gap-1 text-[10px] text-slate-500">
+              <span className="inline-flex items-center gap-1 text-[10px] text-ink-tertiary">
                 <Bot className="h-3 w-3" /> 由 cron 识别 ·{' '}
                 {new Date(proposal.identifiedAt).toLocaleString()}
               </span>
             </div>
-            <h3 className="mt-1 text-caption font-semibold text-slate-900">
+            <h3 className="mt-1 text-caption font-semibold text-ink-primary">
               {change.title}
             </h3>
-            <p className="mt-1 text-[12px] leading-relaxed text-slate-700">
+            <p className="mt-1 text-[12px] leading-relaxed text-ink-secondary">
               {change.desc}
             </p>
           </div>
         </div>
 
-        <div className="rounded-md border border-white/70 bg-white/70 px-3 py-2 text-[11px] text-slate-600">
-          <strong className="text-slate-800">宪章 §15:</strong> 升级必须由员工本人确认,
+        <div className="rounded-md border border-white/70 bg-white/70 px-3 py-2 text-[11px] text-ink-secondary">
+          <strong className="text-ink-primary">宪章 §15:</strong> 升级必须由员工本人确认,
           AI 不会自动扩张实习权限 (代行边界). 点「暂不升级」不会降档, 只会关掉本次提醒 —
           你可以之后在「进化进度」页随时手动触发.
         </div>

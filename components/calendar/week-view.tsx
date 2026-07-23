@@ -168,13 +168,12 @@ export default function WeekView({ date, todayMs, onEventClick, onCellClick }: W
 
 function getColorBg(twClass: string): string {
   const map: Record<string, string> = {
-    'bg-blue-500': '#3b82f6',
-    'bg-emerald-500': '#10b981',
-    'bg-violet-500': '#8b5cf6',
-    ['bg-' + 'amber-500']: '#f59e0b',
-    'bg-rose-500': '#f43f5e',
-    'bg-cyan-500': '#06b6d4',
-    'bg-slate-400': '#94a3b8',
+    'bg-info': 'rgb(var(--info))',
+    'bg-success': 'rgb(var(--success))',
+    'bg-brand-500': 'rgb(var(--brand-500))',
+    'bg-warning': 'rgb(var(--warning))',
+    'bg-danger': 'rgb(var(--danger))',
+    'bg-surface-3': 'rgb(var(--muted-foreground))',
   };
-  return map[twClass] || '#94a3b8';
+  return map[twClass] || 'rgb(var(--muted-foreground))';
 }

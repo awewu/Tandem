@@ -25,7 +25,7 @@ export default function UpcomingEvents() {
           return (
             <div key={ev.instanceId} className="text-caption px-2 py-1.5 rounded-md bg-muted/50">
               <div className="flex items-center gap-1.5">
-                <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', cal?.color || 'bg-slate-400')} />
+                <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', cal?.color || 'bg-surface-3')} />
                 <span className="font-medium truncate">{ev.title}</span>
               </div>
               <div className="text-muted-foreground mt-0.5 pl-3">

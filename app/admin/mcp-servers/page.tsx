@@ -176,7 +176,7 @@ export default function McpServersPage() {
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-caption font-semibold text-ink-primary font-mono">{s.name}</span>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${s.enabled ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400' : 'bg-surface-3 text-ink-secondary'}`}>{s.enabled ? '已启用' : '已停用'}</span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${s.enabled ? 'bg-success/15 text-success dark:text-success' : 'bg-surface-3 text-ink-secondary'}`}>{s.enabled ? '已启用' : '已停用'}</span>
                 <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-surface-3 text-ink-secondary font-mono">{s.transport} · {s.mode}</span>
                 {s.requireBaselineGuard && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-brand-500/10 text-brand-600 inline-flex items-center gap-0.5"><ShieldCheck className="w-3 h-3" /> 守门</span>}
               </div>
@@ -188,7 +188,7 @@ export default function McpServersPage() {
             </div>
             <div className="flex items-center gap-1 shrink-0">
               <button onClick={() => setDraft({ ...s, authHeader: '' })} className="px-3 py-1.5 rounded-md border border-hairline text-footnote text-ink-primary hover:bg-surface-2">编辑</button>
-              <button onClick={() => remove(s.name)} className="p-1.5 rounded-md border border-hairline text-rose-600 hover:bg-rose-500/10"><Trash2 className="w-4 h-4" /></button>
+              <button onClick={() => remove(s.name)} className="p-1.5 rounded-md border border-hairline text-danger hover:bg-danger/10"><Trash2 className="w-4 h-4" /></button>
             </div>
           </div>
         ))}

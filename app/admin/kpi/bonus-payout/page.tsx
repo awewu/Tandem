@@ -305,8 +305,8 @@ export default function KpiBonusPayoutPage() {
       </TrustBanner>
 
       {error && (
-        <Card className="border-rose-200 bg-rose-50">
-          <CardContent className="py-3 text-caption text-rose-700 flex items-center gap-2">
+        <Card className="border-danger/30 bg-danger/5">
+          <CardContent className="py-3 text-caption text-danger flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />
             {error}
           </CardContent>
@@ -358,8 +358,8 @@ export default function KpiBonusPayoutPage() {
               variant="outline"
               className={
                 activeCycle.status === 'closed'
-                  ? 'bg-rose-50 text-rose-700 border-rose-200'
-                  : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  ? 'bg-danger/5 text-danger border-danger/30'
+                  : 'bg-success/10 text-success border-success/30'
               }
             >
               {activeCycle.status === 'closed' && <Lock className="h-3 w-3 mr-1" />}
@@ -464,10 +464,10 @@ export default function KpiBonusPayoutPage() {
                   const wcPct = Math.round(wc * 100);
                   const wcColor =
                     wc >= 1.0
-                      ? 'text-emerald-700'
+                      ? 'text-success'
                       : wc >= 0.85
                       ? 'text-warning'
-                      : 'text-rose-700';
+                      : 'text-danger';
                   return (
                     <Fragment key={a}>
                       <tr className="border-b">
@@ -532,7 +532,7 @@ export default function KpiBonusPayoutPage() {
                           {p?.committed && (
                             <Badge
                               variant="outline"
-                              className="bg-emerald-50 text-emerald-700 border-emerald-200 text-footnote"
+                              className="bg-success/10 text-success border-success/30 text-footnote"
                             >
                               <CheckCircle2 className="h-3 w-3 mr-1" />
                               已下发

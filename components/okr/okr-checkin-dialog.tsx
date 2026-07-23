@@ -130,30 +130,30 @@ export function OkrCheckinDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[480px] rounded-3xl border-slate-200/80 bg-white p-6 shadow-soft-xl">
-        <DialogHeader className="space-y-1.5 pb-2 border-b border-slate-100">
-          <DialogTitle className="text-title-3 font-bold text-slate-900 flex items-center gap-2">
-            <Target className="h-5 w-5 text-indigo-500 shrink-0" />
+      <DialogContent className="sm:max-w-[480px] rounded-3xl border-border/80 bg-white p-6 shadow-soft-xl">
+        <DialogHeader className="space-y-1.5 pb-2 border-b border-border">
+          <DialogTitle className="text-title-3 font-bold text-ink-primary flex items-center gap-2">
+            <Target className="h-5 w-5 text-info shrink-0" />
             快速 OKR Check-in 与 IM 广播
           </DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 pt-3.5">
           <div>
-            <Label className="text-[11.5px] font-semibold uppercase tracking-wider text-slate-400">
+            <Label className="text-[11.5px] font-semibold uppercase tracking-wider text-ink-tertiary">
               当前对齐的关键结果 (KR)
             </Label>
-            <div className="mt-1 text-[13.5px] font-medium text-slate-800 leading-snug bg-slate-50 border border-slate-100 p-3 rounded-2xl">
+            <div className="mt-1 text-[13.5px] font-medium text-ink-primary leading-snug bg-surface-2 border border-border p-3 rounded-2xl">
               {kr.title}
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label className="text-[11.5px] font-semibold uppercase tracking-wider text-slate-400">
+              <Label className="text-[11.5px] font-semibold uppercase tracking-wider text-ink-tertiary">
                 最新进度数值 ({kr.unit || '无单位'})
               </Label>
-              <div className="text-[10px] text-slate-400">
+              <div className="text-[10px] text-ink-tertiary">
                 值域: {kr.startValue} ~ {kr.targetValue}
               </div>
               <Input
@@ -162,25 +162,25 @@ export function OkrCheckinDialog({
                 value={checkinValue}
                 onChange={(e) => setCheckinValue(parseFloat(e.target.value) || 0)}
                 required
-                className="h-10 rounded-2xl border-slate-200 focus:border-warning/50 focus:ring-warning/10"
+                className="h-10 rounded-2xl border-border focus:border-warning/50 focus:ring-warning/10"
               />
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-[11.5px] font-semibold uppercase tracking-wider text-slate-400">
+              <Label className="text-[11.5px] font-semibold uppercase tracking-wider text-ink-tertiary">
                 信心度评准 (Confidence)
               </Label>
-              <div className="text-[10px] text-slate-400">
+              <div className="text-[10px] text-ink-tertiary">
                 当前状态评级
               </div>
               <Select
                 value={checkinConfidence}
                 onValueChange={(val: any) => setCheckinConfidence(val)}
               >
-                <SelectTrigger className="h-10 rounded-2xl border-slate-200">
+                <SelectTrigger className="h-10 rounded-2xl border-border">
                   <SelectValue placeholder="选择信心度" />
                 </SelectTrigger>
-                <SelectContent className="rounded-2xl border-slate-100">
+                <SelectContent className="rounded-2xl border-border">
                   <SelectItem value="on-track" className="rounded-md">🟢 正常 (On-track)</SelectItem>
                   <SelectItem value="at-risk" className="rounded-md">🟡 有风险 (At-risk)</SelectItem>
                   <SelectItem value="off-track" className="rounded-md">🔴 严重偏离 (Off-track)</SelectItem>
@@ -190,39 +190,39 @@ export function OkrCheckinDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-[11.5px] font-semibold uppercase tracking-wider text-slate-400">
+            <Label className="text-[11.5px] font-semibold uppercase tracking-wider text-ink-tertiary">
               ✨ 本阶段进展 (Achievements)
             </Label>
             <Textarea
               value={checkinAchievements}
               onChange={(e) => setCheckinAchievements(e.target.value)}
               placeholder="完成了哪些里程碑？达成了哪些合作？(建议分行填写...)"
-              className="rounded-2xl border-slate-200 focus:border-warning/50 focus:ring-warning/10 min-h-[70px] text-[13px]"
+              className="rounded-2xl border-border focus:border-warning/50 focus:ring-warning/10 min-h-[70px] text-[13px]"
               required
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-[11.5px] font-semibold uppercase tracking-wider text-slate-400">
+            <Label className="text-[11.5px] font-semibold uppercase tracking-wider text-ink-tertiary">
               ⚠️ 遇到哪些阻碍 & 困难 (Blockers)
             </Label>
             <Textarea
               value={checkinBlockers}
               onChange={(e) => setCheckinBlockers(e.target.value)}
               placeholder="是否需要团队/主管协调资源解决？无阻碍可不填。"
-              className="rounded-2xl border-slate-200 focus:border-warning/50 focus:ring-warning/10 min-h-[60px] text-[13px]"
+              className="rounded-2xl border-border focus:border-warning/50 focus:ring-warning/10 min-h-[60px] text-[13px]"
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-[11.5px] font-semibold uppercase tracking-wider text-slate-400">
+            <Label className="text-[11.5px] font-semibold uppercase tracking-wider text-ink-tertiary">
               📅 下一步行动计划 (Next Steps)
             </Label>
             <Textarea
               value={checkinNextSteps}
               onChange={(e) => setCheckinNextSteps(e.target.value)}
               placeholder="接下来的工作方向或具体任务安排..."
-              className="rounded-2xl border-slate-200 focus:border-warning/50 focus:ring-warning/10 min-h-[60px] text-[13px]"
+              className="rounded-2xl border-border focus:border-warning/50 focus:ring-warning/10 min-h-[60px] text-[13px]"
               required
             />
           </div>
@@ -233,14 +233,14 @@ export function OkrCheckinDialog({
               variant="outline"
               disabled={checkinSubmitting}
               onClick={() => onOpenChange(false)}
-              className="h-10 px-5 rounded-full border-slate-200 font-medium text-slate-700"
+              className="h-10 px-5 rounded-full border-border font-medium text-ink-secondary"
             >
               取消
             </Button>
             <Button
               type="submit"
               disabled={checkinSubmitting}
-              className="h-10 px-6 rounded-full bg-slate-900 text-white hover:bg-slate-800 font-medium shadow-soft-sm gap-1.5"
+              className="h-10 px-6 rounded-full bg-ink-primary text-white hover:bg-ink-primary font-medium shadow-soft-sm gap-1.5"
             >
               {checkinSubmitting ? (
                 <>

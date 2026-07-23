@@ -75,7 +75,7 @@ export default function OkrDriftAdminPage() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center text-slate-500">
+      <div className="flex h-screen items-center justify-center text-ink-tertiary">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" /> 加载 OKR Drift 看板...
       </div>
     );
@@ -83,7 +83,7 @@ export default function OkrDriftAdminPage() {
 
   if (err) {
     return (
-      <div className="p-8 text-rose-700">
+      <div className="p-8 text-danger">
         <AlertTriangle className="inline h-5 w-5" /> 加载失败: {err}
       </div>
     );
@@ -96,9 +96,9 @@ export default function OkrDriftAdminPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-6">
       {/* 头部 */}
-      <header className="rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50/40 p-6 ring-1 ring-warning/20/80">
+      <header className="rounded-2xl bg-gradient-to-br from-warning/10 to-warning/10 p-6 ring-1 ring-warning/20/80">
         <div className="flex items-start gap-4">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-soft">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-warning to-warning/80 text-white shadow-soft">
             <Target className="h-7 w-7" />
           </div>
           <div className="flex-1">
@@ -133,10 +133,10 @@ export default function OkrDriftAdminPage() {
 
       {/* 双栏: 按来源 + 日趋势 */}
       <div className="grid gap-3 md:grid-cols-2">
-        <section className="rounded-2xl bg-white p-5 ring-1 ring-slate-200/80">
-          <h2 className="mb-3 text-caption font-bold text-slate-800">按来源分桶</h2>
+        <section className="rounded-2xl bg-white p-5 ring-1 ring-border/80">
+          <h2 className="mb-3 text-caption font-bold text-ink-primary">按来源分桶</h2>
           {Object.keys(data.bySource).length === 0 ? (
-            <p className="text-[12px] text-slate-400">暂无 drift 数据</p>
+            <p className="text-[12px] text-ink-tertiary">暂无 drift 数据</p>
           ) : (
             <ul className="space-y-2">
               {Object.entries(data.bySource)
@@ -147,14 +147,14 @@ export default function OkrDriftAdminPage() {
                   return (
                     <li key={src}>
                       <div className="flex justify-between text-[12px]">
-                        <span className="font-medium text-slate-700">{SOURCE_LABEL[src] ?? src}</span>
-                        <span className="text-slate-500">
+                        <span className="font-medium text-ink-secondary">{SOURCE_LABEL[src] ?? src}</span>
+                        <span className="text-ink-tertiary">
                           {count} · {pct.toFixed(0)}%
                         </span>
                       </div>
-                      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-3">
                         <div
-                          className="h-full bg-gradient-to-r from-amber-400 to-orange-500"
+                          className="h-full bg-gradient-to-r from-warning/30 to-warning"
                           style={{ width: `${pct}%` }}
                         />
                       </div>
@@ -165,10 +165,10 @@ export default function OkrDriftAdminPage() {
           )}
         </section>
 
-        <section className="rounded-2xl bg-white p-5 ring-1 ring-slate-200/80">
-          <h2 className="mb-3 text-caption font-bold text-slate-800">日趋势</h2>
+        <section className="rounded-2xl bg-white p-5 ring-1 ring-border/80">
+          <h2 className="mb-3 text-caption font-bold text-ink-primary">日趋势</h2>
           {data.dailyTrend.length === 0 ? (
-            <p className="text-[12px] text-slate-400">暂无 drift 数据</p>
+            <p className="text-[12px] text-ink-tertiary">暂无 drift 数据</p>
           ) : (
             <>
               <div className="flex h-24 items-end gap-[3px]">
@@ -181,7 +181,7 @@ export default function OkrDriftAdminPage() {
                   />
                 ))}
               </div>
-              <div className="mt-1 flex justify-between text-[10px] text-slate-400">
+              <div className="mt-1 flex justify-between text-[10px] text-ink-tertiary">
                 <span>{data.dailyTrend[0]?.date}</span>
                 <span>{data.dailyTrend[data.dailyTrend.length - 1]?.date}</span>
               </div>
@@ -191,12 +191,12 @@ export default function OkrDriftAdminPage() {
       </div>
 
       {/* 明细 */}
-      <section className="rounded-2xl bg-white p-5 ring-1 ring-slate-200/80">
-        <h2 className="mb-3 text-caption font-bold text-slate-800">
+      <section className="rounded-2xl bg-white p-5 ring-1 ring-border/80">
+        <h2 className="mb-3 text-caption font-bold text-ink-primary">
           Drift 明细 ({data.entries.length})
         </h2>
         {data.entries.length === 0 ? (
-          <div className="rounded-md bg-emerald-50 p-4 text-[12.5px] text-emerald-800">
+          <div className="rounded-md bg-success/10 p-4 text-[12.5px] text-success">
             ✅ 尚无 OKR drift 记录. 这可能意味着:
             <ul className="ml-4 mt-1 list-disc">
               <li>所有 Persona / CompanyBrain 输出都对齐了公司 OKR (好);</li>
@@ -210,23 +210,23 @@ export default function OkrDriftAdminPage() {
               <li key={e.id} className="py-2.5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                    <div className="flex items-center gap-1.5 text-[11px] text-ink-tertiary">
                       <span className="rounded bg-warning/5 px-1.5 py-0.5 font-mono text-warning">
                         {SOURCE_LABEL[e.source ?? ''] ?? e.source ?? '?'}
                       </span>
                       <span>·</span>
                       <span>{new Date(e.timestamp).toLocaleString('zh-CN')}</span>
                       <span>·</span>
-                      <span className="font-mono text-[10.5px] text-slate-400">
+                      <span className="font-mono text-[10.5px] text-ink-tertiary">
                         actor {e.actorId}
                       </span>
                       <span>·</span>
-                      <span className="text-rose-600">
+                      <span className="text-danger">
                         分 {(e.alignmentScore ?? 0).toFixed(3)} / {e.okrCount ?? 0} OKR
                       </span>
                     </div>
                     {e.intentPreview && (
-                      <p className="mt-1 text-[12.5px] italic text-slate-700">
+                      <p className="mt-1 text-[12.5px] italic text-ink-secondary">
                         “{e.intentPreview}”
                       </p>
                     )}
@@ -235,7 +235,7 @@ export default function OkrDriftAdminPage() {
                         {e.topHits.slice(0, 3).map((h, i) => (
                           <span
                             key={i}
-                            className="rounded-full bg-slate-100 px-2 py-0.5 text-[10.5px] text-slate-600"
+                            className="rounded-full bg-surface-3 px-2 py-0.5 text-[10.5px] text-ink-secondary"
                           >
                             {h.keyResultTitle ?? h.objectiveTitle} ·{' '}
                             <span className="font-mono">{(h.similarity ?? 0).toFixed(2)}</span>
@@ -251,7 +251,7 @@ export default function OkrDriftAdminPage() {
         )}
       </section>
 
-      <footer className="pt-2 text-center text-[10.5px] text-slate-400">
+      <footer className="pt-2 text-center text-[10.5px] text-ink-tertiary">
         §B-015 (OKR-DRIVEN-ARCHITECTURE.md · §三第2条) · 灵魂层第 2 条 整体能力提升 + 约束聚焦
       </footer>
     </div>
@@ -271,8 +271,8 @@ function Kpi({
 }) {
   const c = {
     amber: 'bg-warning/5/50 text-warning ring-warning/20',
-    rose: 'bg-rose-50/50 text-rose-900 ring-rose-200',
-    indigo: 'bg-indigo-50/50 text-indigo-900 ring-indigo-200',
+    rose: 'bg-danger/5 text-danger ring-danger/30',
+    indigo: 'bg-info/10 text-info ring-info/30',
   }[tone];
   return (
     <div className={`rounded-2xl p-4 ring-1 ${c}`}>
