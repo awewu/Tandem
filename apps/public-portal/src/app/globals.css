@@ -1,0 +1,429 @@
+/* ══════════════════════════════════════════
+   Rhautt® Design System v1.0
+   Earth Day, Every Day.
+   Reliable. Sustainable. Intelligent.
+   ══════════════════════════════════════════ */
+/* ── 自托管字体（本地 woff2 · 无 Google 依赖 · 中国大陆可靠）──
+   Inter = 正文拉丁字体；Poppins = 展示/标题字体。中文由系统字体回退渲染。*/
+@font-face { font-family: 'InterLocal';   font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/inter-v20-latin-regular.woff2') format('woff2'); }
+@font-face { font-family: 'InterLocal';   font-style: normal; font-weight: 500; font-display: swap; src: url('/fonts/inter-v20-latin-500.woff2') format('woff2'); }
+@font-face { font-family: 'InterLocal';   font-style: normal; font-weight: 600; font-display: swap; src: url('/fonts/inter-v20-latin-600.woff2') format('woff2'); }
+@font-face { font-family: 'InterLocal';   font-style: normal; font-weight: 700; font-display: swap; src: url('/fonts/inter-v20-latin-700.woff2') format('woff2'); }
+@font-face { font-family: 'PoppinsLocal'; font-style: normal; font-weight: 500; font-display: swap; src: url('/fonts/poppins-v24-latin-500.woff2') format('woff2'); }
+@font-face { font-family: 'PoppinsLocal'; font-style: normal; font-weight: 600; font-display: swap; src: url('/fonts/poppins-v24-latin-600.woff2') format('woff2'); }
+@font-face { font-family: 'PoppinsLocal'; font-style: normal; font-weight: 700; font-display: swap; src: url('/fonts/poppins-v24-latin-700.woff2') format('woff2'); }
+
+:root {
+  /* ── 品牌基础要素（SYNCED FROM packages/tokens/rhautt.css · 唯一源 brand-registry.json）
+     勿在此改值：改品牌色须改 rhautt.css / brand-registry，再同步至此 ── */
+  --brand-primary:    #C41F1E;   /* Rhautt 官方红（VI 规范）*/
+  --brand-primary-dk: #8B1414;   /* Rhautt 深红 */
+  --brand-navy:       #1B365D;   /* 保留 token，全站不使用 */
+  --brand-ink:        #1E1E1E;   /* Ruud Hero 炭灰（非蓝墨）*/
+  --brand-surface:    #F0EBE3;   /* Ruud 暖米灰底面（非纯白）*/
+  --brand-border:     #DDE0DC;   /* 暖边框 */
+
+  /* ── 品牌轴色（映射到中心 token，页面勿硬编码 hex）── */
+  /* ★ 配比 D（2026-07-04 拍板）：暖中性78 / 绿8 / 橙5 / 暖银灰3 / 暖炭3 / 黄2 / 红1(仅logo)。
+     UI 内不用红——红映射为绿，红仅作品牌识别锚点（logo），永不与绿相邻。
+     黄只在绿底/深底做数据尖峰（白底禁用文字黄，不与红相邻）。*/
+  --rh-red:    #3E7C2F;                   /* UI 内“红”一律走绿（草绿深一档，白字可读）*/
+  --rh-red-dk: #2F5E24;                   /* 更深草绿（白字可读）*/
+  /* ── Ruud 官方二级色板（Brand Toolkit RHM5839A）── */
+  --ruud-orange: #F26729;  /* PMS 165 C */
+  --ruud-yellow: #FFD200;  /* PMS 109 C */
+  --ruud-steel:  #3F585A;  /* Steel Blue */
+  --ruud-teal:   #007681;  /* PMS 7474 C */
+  --rh-cyan:   #007681;   /* 技术 accent 收敛为官方 Teal（非主轴，极少量）*/
+  /* ★ 暖色点缀（Ruud 橙）：仅用于「能量 / 热度 / 活力」的极少量高亮，绝不大面积、不与绿并置成红绿感 */
+  --rh-warm:      #F26729;  /* Ruud 橙 · 能量/热度点缀 */
+  --rh-warm-soft: #FDEEE4;  /* 暖橙浅底 */
+  --rh-warm-dk:   #D2551C;  /* 暖橙深（hover/白字可读）*/
+  --rh-yellow:     #FFD200; /* 活力黄 PMS 109C · 仅绿底/深底/图表的能量尖峰（白底文字禁用）*/
+  --rh-steel-warm: #8A8F8B; /* 暖银灰 · 仪表/金属质感细节（非冷钢灰）*/
+  /* ★ 全站唯一绿（浅色系）：中绿 accent + 浅绿底 + 浅绿线，同一种绿的不同明度，不设第二种绿。*/
+  --rh-green:       #4E9A3D;   /* 唯一品牌绿 · 温暖草绿 accent + CTA + 描边（白字可读）*/
+  --rh-green-soft:  #EDF4E3;   /* 浅草绿底 · section 浅色块（暖版）*/
+  --rh-green-line:  #CFE3BB;   /* 浅草绿描边 */
+  --rh-green-2:   #3E7C2F;   /* 中草绿段（白字可读，深一档）*/
+  --rh-green-dk:  #2F5E24;   /* 深草绿段（白字可读，更深）*/
+
+  /* ── 数据通道色（可视化专用）── */
+  --rh-temp:   #EF4444;   /* 温度 */
+  --rh-humid:  #50C8E8;   /* 湿度（复用青）*/
+  --rh-air:    #16A34A;   /* 新风/CO₂（复用绿）*/
+  --rh-clean:  #8B5CF6;   /* 净化/PM2.5 */
+  --rh-noise:  #64748B;   /* 噪音 */
+
+  /* ── 状态色 ── */
+  --rh-ok:     #16A34A;
+  --rh-warn:   #FF9800;
+  --rh-alert:  #8B0E04;
+
+  /* ── 表面色（映射中心 token）── */
+  --rh-s1:    #FFFFFF;             /* 纯白（卡片内容区）*/
+  --rh-s2:    var(--brand-surface); /* 暖米灰（section 底色）*/
+  /* ★ 设计标准：全站禁用纯黑 / 岩黑（#000~#1A）与冷钢灰。最深色属暖色体系（暖炭/石墨），与暖砂底面、品牌红同源，靠密度与暖调体现厚重。*/
+  --rh-dark:    #241F1B;           /* 最深表面 · 暖炭（唯一允许的最深色，暖调）*/
+  --rh-dark-2:  #322A24;           /* 分层深色 · 暖石墨（比 --rh-dark 略浅，用于叠层）*/
+  --rh-navy:  var(--brand-navy);    /* 保留 token，全站不使用 */
+
+  /* ── 文字 ── */
+  --rh-t1: #09090B;
+  --rh-t2: #52525B;
+  --rh-t3: #A1A1AA;
+  --rh-t4: #D4D4D8;
+
+  /* ── 边框（工程发丝线，更硬更清晰）── */
+  --rh-border:   #C9CFCB;
+  --rh-border-2: #AEB5B1;
+
+  /* ── 阴影（锐利、非弥散 PPT 软影）── */
+  --rh-sh-sm: 0 1px 2px rgba(9,9,11,0.10);
+  --rh-sh-md: 0 3px 10px rgba(9,9,11,0.13);
+  --rh-sh-lg: 0 10px 30px rgba(9,9,11,0.18);
+
+  /* ── 字体（自托管系统字体栈，无 Google Fonts 构建依赖 · 中国大陆可靠）── */
+  --font-inter: 'InterLocal', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+  --font-bebas: 'PoppinsLocal', 'InterLocal', 'Segoe UI', var(--font-inter);  /* 展示字体：自托管 Poppins */
+  --rh-font:    var(--font-inter), 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --rh-display: var(--font-bebas), 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --rh-mono:    'JetBrains Mono', 'Menlo', monospace;
+
+  /* ── 圆角（锐利工程边缘，去 PPT 软糖感）── */
+  --rh-r-sm: 2px;
+  --rh-r-md: 3px;
+  --rh-r-lg: 4px;
+  --rh-r-xl: 6px;
+  --rh-r-pill: 999px;
+
+  /* ── 动画 ── */
+  --rh-ease: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
+body { font-family: var(--rh-font); background: var(--rh-s1); color: var(--rh-t1); line-height: 1.58; font-feature-settings: 'kern' 1, 'liga' 1; }
+h1, h2, h3 { text-wrap: balance; }
+a { color: inherit; text-decoration: none; }
+button { cursor: pointer; font-family: inherit; }
+
+/* ── 跳到主内容（无障碍）── */
+.rh-skip {
+  position: absolute; left: 8px; top: -48px; z-index: 100;
+  background: var(--rh-green); color: #fff; padding: 10px 16px;
+  border-radius: var(--rh-r-md); font-size: 13px; font-weight: 600;
+  transition: top 150ms var(--rh-ease);
+}
+.rh-skip:focus { top: 8px; }
+
+/* ── 展示字体（Bebas Neue）── */
+.rh-display { font-family: var(--rh-display); letter-spacing: 0.02em; }
+
+/* ── 卡片 ── */
+.rh-card {
+  background: var(--rh-s1);
+  border: 1px solid var(--rh-border);
+  border-radius: var(--rh-r-lg);
+  box-shadow: var(--rh-sh-sm);
+  transition: box-shadow 200ms var(--rh-ease);
+}
+.rh-card:hover { box-shadow: var(--rh-sh-md); }
+.rh-card-dark {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--rh-r-lg);
+  transition: background 200ms;
+}
+.rh-card-dark:hover { background: rgba(255,255,255,0.08); }
+
+/* ── 按钮 ── */
+.rh-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 12px 24px; border-radius: var(--rh-r-md);
+  font-size: 14px; font-weight: 600; border: none;
+  transition: all 150ms var(--rh-ease); cursor: pointer; white-space: nowrap;
+}
+/* 主 CTA = 唯一品牌绿 */
+.rh-btn-brand { background: var(--rh-green); color: #fff; }
+.rh-btn-brand:hover { background: #3E7C2F; box-shadow: 0 6px 18px rgba(242,103,41,0.32); transform: translateY(-1px); }
+/* 次级行动 = 深墨（A.O. Smith 式克制对比，不再用青）*/
+.rh-btn-cta  { background: var(--rh-dark); color: #fff; }
+.rh-btn-cta:hover { background: #000; }
+.rh-btn-ghost { background: rgba(255,255,255,0.08); color: #fff; border: 1px solid rgba(255,255,255,0.15); }
+.rh-btn-ghost:hover { background: rgba(255,255,255,0.14); }
+.rh-btn-outline { background: var(--rh-s1); color: var(--rh-t1); border: 1px solid var(--rh-border-2); }
+.rh-btn-outline:hover { background: var(--rh-s2); }
+
+/* ── 徽章 ── */
+.rh-badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+.rh-badge-auth { background: var(--rh-green-soft); color: var(--rh-green-2); }
+.rh-badge-own  { background: rgba(22,163,74,0.08); color: var(--rh-green); }
+.rh-badge-steel { background: rgba(63,88,90,0.12); color: var(--ruud-steel); }
+
+/* ── Section ── */
+.rh-section      { padding: 80px 32px; }
+.rh-section-dark { padding: 80px 32px; background: var(--rh-dark); color: #fff; }
+.rh-container    { max-width: 1200px; margin: 0 auto; }
+.rh-eyebrow {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--rh-t3); margin-bottom: 8px;
+}
+.rh-section-dark .rh-eyebrow { color: rgba(255,255,255,0.35); }
+
+/* ── Earth Day accent ── */
+.rh-earth { color: var(--rh-green); }
+.rh-cyan  { color: var(--rh-cyan); }
+.rh-red   { color: var(--rh-red); }
+
+/* ── Fade in ── */
+@keyframes rh-fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.rh-animate { animation: rh-fade-up 350ms var(--rh-ease) both; }
+
+/* ── 滚动进场（纯 CSS · 无 JS · 渐进增强）──
+   现代浏览器用 scroll-driven animation 做克制的进场；
+   不支持则内容默认完全可见，零副作用。*/
+@keyframes rh-reveal-in {
+  from { opacity: 0; transform: translateY(26px); }
+  to   { opacity: 1; transform: none; }
+}
+.rh-reveal { opacity: 1; }
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .rh-reveal {
+      opacity: 0;
+      animation: rh-reveal-in linear both;
+      animation-timeline: view();
+      animation-range: entry 2% cover 22%;
+    }
+  }
+}
+
+.rh-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.rh-grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; }
+.rh-grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; }
+.rh-grid-6 { display: grid; grid-template-columns: repeat(6,1fr); gap: 12px; }
+
+/* 产品分类快速入口 */
+.rh-cat-item {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; padding: 20px 16px; border-radius: var(--rh-r-lg);
+  border: 1px solid var(--rh-border); background: var(--rh-s1);
+  cursor: pointer; transition: all 150ms var(--rh-ease); text-align: center;
+  color: var(--rh-t1); text-decoration: none;
+}
+.rh-cat-item:hover { border-color: var(--rh-green-line); box-shadow: var(--rh-sh-md); transform: translateY(-3px); }
+
+/* 品牌轴线（单一绿）*/
+.rh-red-line { height: 3px; background: var(--rh-green); width: 100%; }
+
+/* 首页任务带格子 */
+.rh-task-cell { transition: background 150ms; }
+.rh-task-cell:hover { background: var(--rh-s2); }
+
+/* ══════════════ Ruud SI 图形元素（官方 Brand Toolkit）══════════════ */
+/* Bolt Frame —— 六边形装置（六边），承载图标/编号/图片 */
+.rh-bolt-frame {
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center;
+  clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+  /* 拉丝钢倒角六边形（Ruud 金属 VI）：径向高光 + 线性拉丝 + 内倒角明暗 */
+  background:
+    radial-gradient(120% 100% at 32% 22%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0) 42%),
+    repeating-linear-gradient(115deg, rgba(255,255,255,0.05) 0 2px, rgba(0,0,0,0.05) 2px 4px),
+    linear-gradient(150deg, #dfe4e6 0%, #aeb6b8 34%, #7d8688 62%, #b9c0c2 100%);
+  color: var(--rh-dark);
+  font-family: var(--rh-display); letter-spacing: 0.04em;
+  box-shadow:
+    inset 0 1px 2px rgba(255,255,255,0.6),
+    inset 0 -2px 3px rgba(0,0,0,0.16);
+}
+/* 红色实心变体（品牌主色器件）*/
+.rh-bolt-frame--red {
+  background:
+    radial-gradient(120% 100% at 32% 22%, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0) 44%),
+    linear-gradient(150deg, var(--rh-green) 0%, var(--rh-green-2) 52%, var(--rh-green-dk) 100%);
+  color: #fff;
+  box-shadow: inset 0 1px 2px rgba(255,255,255,0.30), inset 0 -2px 4px rgba(0,0,0,0.22);
+}
+.rh-bolt-frame--ghost { background: var(--rh-green-soft); color: var(--rh-green-2); box-shadow: none; }
+.rh-bolt-frame--steel { background: var(--ruud-steel); color: #fff; }
+/* 可持续变体：拉丝钢基底 + 内嵌绿色能量描边 */
+.rh-bolt-frame--eco::after {
+  content: ""; position: absolute; inset: 8%;
+  clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+  border: 1.5px solid var(--rh-green);
+  box-shadow: 0 0 8px rgba(78,154,61,0.55);
+  opacity: 0.85; pointer-events: none;
+}
+/* Reliability Bolt —— 可靠性螺栓（小六边铆点）*/
+.rh-bolt {
+  display: inline-block; width: 12px; height: 12px; background: var(--rh-red);
+  clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+}
+/* Metallic Bar —— 金属条 */
+.rh-metallic-bar {
+  height: 5px; border-radius: 3px;
+  background: linear-gradient(90deg,#6b7477 0%,#c3cacc 22%,#eef2f3 48%,#aeb6b8 72%,#6b7477 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), inset 0 -1px 0 rgba(0,0,0,0.25);
+}
+/* Rugged Texture —— 粗犷纹理（深色区背景）*/
+.rh-rugged {
+  background-image:
+    repeating-linear-gradient(45deg, rgba(255,255,255,0.03) 0 2px, transparent 2px 7px),
+    repeating-linear-gradient(-45deg, rgba(0,0,0,0.22) 0 2px, transparent 2px 7px);
+}
+/* Power Plate —— 力量铭牌 */
+.rh-power-plate {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 14px; border-radius: 4px; background: var(--rh-green); color: #fff;
+  font-family: var(--rh-display); letter-spacing: 0.08em; text-transform: uppercase; font-size: 13px;
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,0.18), 0 6px 16px rgba(78,154,61,0.28);
+}
+.rh-power-plate::before, .rh-power-plate::after {
+  content: ''; width: 7px; height: 7px; background: rgba(255,255,255,0.85); flex-shrink: 0;
+  clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+}
+
+/* 资源卡 */
+.rh-resource-card {
+  padding: 24px; border-radius: var(--rh-r-lg);
+  border: 1px solid var(--rh-border); background: var(--rh-s2);
+  transition: all 150ms var(--rh-ease);
+}
+.rh-resource-card:hover { background: var(--rh-s1); box-shadow: var(--rh-sh-md); }
+
+/* 产品卡 */
+.rh-product-card {
+  border-radius: var(--rh-r-lg); overflow: hidden;
+  border: 1px solid var(--rh-border); background: var(--rh-s1);
+  transition: box-shadow 150ms var(--rh-ease);
+}
+.rh-product-card:hover { box-shadow: var(--rh-sh-md); }
+
+/* ── Hover 工具类（替代 JS onMouseEnter，SSR 友好）── */
+
+/* 品类大图块 hover */
+.rh-cat-block-dark:hover  { background: var(--rh-green-line) !important; }
+.rh-cat-block-light:hover { background: #eeeeee !important; }
+
+/* 卡片 hover：轻抬升 + 柔和绿描边 + 加深阴影（premium lift）*/
+.rh-card-hover {
+  transition: transform 240ms var(--rh-ease), box-shadow 240ms var(--rh-ease), border-color 240ms var(--rh-ease);
+}
+.rh-card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--rh-sh-lg) !important;
+  border-color: var(--rh-green-line) !important;
+}
+.rh-card-hover-green:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--rh-sh-lg) !important;
+  border-color: var(--rh-green-line) !important;
+}
+
+/* 导航链接 hover（单一绿）*/
+.rh-nav-link:hover {
+  color: var(--rh-green) !important;
+  border-bottom-color: var(--rh-green) !important;
+}
+
+/* 下拉菜单 hover 展开 */
+.rh-nav-dropdown:hover .rh-nav-dropdown__panel {
+  display: flex !important;
+}
+.rh-nav-dropdown__panel a:hover {
+  background: var(--rh-green-soft);
+  color: var(--rh-green-2) !important;
+}
+
+/* 页脚链接 hover */
+.rh-footer-link:hover { color: var(--rh-green) !important; }
+
+/* 品牌矩阵卡 hover */
+.rh-brand-card {
+  transition: transform 240ms var(--rh-ease), box-shadow 240ms var(--rh-ease), border-color 240ms var(--rh-ease);
+}
+.rh-brand-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--rh-sh-lg) !important;
+  border-color: var(--rh-green-line) !important;
+}
+
+/* ── 移动端汉堡菜单（纯 CSS checkbox 模式，无 JS）── */
+.rh-mobile-toggle { display: none; }
+.rh-mobile-menu-btn {
+  display: none;
+  flex-direction: column; justify-content: center; gap: 5px;
+  width: 44px; height: 44px; padding: 10px;
+  cursor: pointer; border: none; background: transparent;
+}
+.rh-mobile-menu-btn span {
+  display: block; height: 2px; width: 100%;
+  background: var(--rh-dark); transition: transform 200ms var(--rh-ease), opacity 200ms;
+}
+.rh-mobile-panel { display: none; }
+
+/* ── 工程证据 · 规格芯片与仪表级数字 ──
+   可靠/专业不靠形容词：参数用等宽芯片呈现，数字用表格数字对齐（仪表感）*/
+.rh-spec-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--rh-mono); font-size: 11px; font-weight: 700;
+  letter-spacing: 0.05em; color: var(--rh-green-dk);
+  background: var(--rh-green-soft); border: 1px solid var(--rh-green-line);
+  border-radius: 4px; padding: 4px 10px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.rh-display, .rh-stat {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+@media (max-width: 900px) {
+  /* 隐藏桌面导航，显示汉堡 */
+  .rh-nav-desktop { display: none !important; }
+  .rh-mobile-menu-btn { display: flex; margin-left: auto; }
+
+  /* checkbox 勾选时展开面板 */
+  .rh-mobile-toggle:checked ~ .rh-mobile-panel {
+    display: block;
+    position: absolute; left: 0; right: 0; top: 100%;
+    background: #fff; border-top: 1px solid var(--rh-border);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.12);
+    z-index: 99;
+  }
+  .rh-mobile-panel a {
+    display: block; padding: 15px 24px;
+    font-size: 15px; font-weight: 600; color: var(--rh-t1);
+    border-bottom: 1px solid var(--rh-border);
+    text-decoration: none;
+  }
+  .rh-mobile-panel a:active { color: var(--rh-red); }
+
+  /* 汉堡 → X 动画 */
+  .rh-mobile-toggle:checked ~ .rh-mobile-menu-btn span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+  .rh-mobile-toggle:checked ~ .rh-mobile-menu-btn span:nth-child(2) { opacity: 0; }
+  .rh-mobile-toggle:checked ~ .rh-mobile-menu-btn span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+}
+
+@media (max-width: 768px) {
+  .rh-section, .rh-section-dark { padding: 60px 20px; }
+  .rh-hide-mobile { display: none !important; }
+  .rh-grid-5 { grid-template-columns: 1fr 1fr !important; }
+  .rh-grid-4 { grid-template-columns: 1fr 1fr !important; }
+  .rh-grid-2, .rh-grid-3, .rh-grid-6 { grid-template-columns: 1fr !important; }
+
+  /* Hero 斜切 → 垂直堆叠 */
+  .rh-hero-split { flex-direction: column !important; }
+  .rh-hero-split > div:first-child {
+    width: 100% !important; clip-path: none !important;
+    padding: 64px 24px !important;
+  }
+  .rh-hero-split > div:last-child { min-height: 200px; }
+
+  /* 双列品类块 → 单列 */
+  .rh-two-col { grid-template-columns: 1fr !important; }
+}

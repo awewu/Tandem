@@ -1,0 +1,247 @@
+name: Quality Gates
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  # ========== L0: 架构 / 数据治理门禁 ==========
+  architecture-governance:
+    name: L0 - Architecture & Data Governance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: API source type-check (services/api)
+        run: npx tsc --noEmit
+        working-directory: services/api
+
+      - name: Target API boot smoke (DI wiring)
+        run: npm run guard:target-api-boot-smoke
+
+      - name: PostgreSQL schema / RLS / transaction-outbox contracts
+        run: |
+          npm run guard:postgres-target-schema
+          npm run guard:postgres-rls-behavior
+          npm run guard:postgres-transaction-outbox
+          npm run guard:workflow-outbox-contract
+
+      - name: Strangler route-target map & target readiness
+        run: |
+          npm run guard:route-target-map
+          npm run guard:target-dependencies
+          npm run guard:trunk-migration
+
+      # 权限/账户/命名/宪章治理 —— 纯静态源校验（无需 DB/在制品），防止「模块入 boundary 却漏登记权限域」
+      # 「署名/命名漂移」「把规划写成已建成」等治理漂移在 CI 之外悄悄落地（此前仅靠人工手动 guard，故反复出问题）。
+      - name: Permission / account / naming / charter governance (anti-drift)
+        run: |
+          npm run guard:permission-domain
+          npm run guard:nexus-naming
+          npm run guard:charter-maturity
+
+      # NOTE: guard:postgres-staging-smoke 与 guard:target-architecture 暂未纳入门禁——
+      # 二者依赖在制品（staging 证据 / nx.json 脚手架）。待其恢复后追加到上面两步。
+
+      - name: Governance gate summary
+        if: failure()
+        run: echo "::error::L0 架构/数据治理门禁未通过（RLS / outbox / 绞杀路由映射 / DI 启动）"
+
+  # ========== L1: 代码级门禁 ==========
+  lint-and-format:
+    name: L1 - Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: ESLint Check
+        run: |
+          npm run lint -- --max-warnings=10 || exit 1
+      
+      - name: Prettier Check
+        run: |
+          npx prettier --check "**/*.{js,jsx,ts,tsx,json,css,md}" || exit 1
+      
+      - name: Generate Lint Report
+        if: failure()
+        run: |
+          echo "::error::L1 代码质量门禁未通过"
+          echo "请修复: ESLint错误或Prettier格式问题"
+
+  # ========== L2: 单元测试门禁 ==========
+  unit-tests:
+    name: L2 - Unit Tests
+    runs-on: ubuntu-latest
+    needs: lint-and-format
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run Unit Tests
+        run: |
+          npm run test:unit -- --coverage --coverageThreshold='{"global":{"branches":80,"functions":80,"lines":80,"statements":80}}' || exit 1
+      
+      - name: Run Production Readiness Tests
+        run: |
+          npm run test:production-readiness || exit 1
+        env:
+          NODE_ENV: test
+          JWT_SECRET: test-secret-ci
+
+      - name: Run Architecture and Integrity Harness
+        run: |
+          npm run harness:all || exit 1
+
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage/
+
+  # ========== L3: 集成测试门禁 ==========
+  integration-tests:
+    name: L3 - Integration Tests
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    services:
+      server:
+        image: node:18
+        ports:
+          - 3000:3000
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Start Server
+        run: |
+          npm start &
+          sleep 5
+      
+      - name: API Health Check
+        run: |
+          curl -f http://localhost:3000/api/health || exit 1
+      
+      - name: Run API Tests
+        run: |
+          npm run test:api || exit 1
+        env:
+          NODE_ENV: test
+          JWT_SECRET: test-secret-ci
+      
+      - name: Check API Response Time
+        run: |
+          RESPONSE_TIME=$(curl -w "%{time_total}" -o /dev/null -s http://localhost:3000/api/health)
+          if (( $(echo "$RESPONSE_TIME > 0.2" | bc -l) )); then
+            echo "::error::API响应时间 $RESPONSE_TIME 超过200ms阈值"
+            exit 1
+          fi
+          echo "API响应时间: ${RESPONSE_TIME}s ✅"
+
+  # ========== L4: 性能测试门禁 (Nightly) ==========
+  performance-tests:
+    name: L4 - Performance Tests
+    runs-on: ubuntu-latest
+    needs: integration-tests
+    if: github.event.schedule == '0 2 * * *'  # 每天凌晨2点运行
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run Performance Tests
+        run: |
+          npm start &
+          sleep 8
+          npm run perf:baseline 2>&1 | tee performance-report.txt
+      
+      - name: Parse Performance Results
+        run: |
+          test -f audit/perf-baseline.json || exit 1
+          node -e "const r=require('./audit/perf-baseline.json'); const health=r.results.find(x=>x.title.includes('/api/health')); if(!health) process.exit(1); console.log('Health baseline:', health)"
+      
+      - name: Upload Performance Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-report
+          path: performance-report.txt
+
+  # ========== 综合质量报告 ==========
+  quality-report:
+    name: Quality Summary
+    runs-on: ubuntu-latest
+    needs: [lint-and-format, unit-tests, integration-tests]
+    if: always()
+    steps:
+      - name: Generate Report
+        run: |
+          echo "# 质量门禁报告" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # L1 状态
+          if [ "${{ needs.lint-and-format.result }}" == "success" ]; then
+            echo "✅ L1 - 代码质量门禁: 通过" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ L1 - 代码质量门禁: 失败" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # L2 状态
+          if [ "${{ needs.unit-tests.result }}" == "success" ]; then
+            echo "✅ L2 - 单元测试门禁: 通过 (覆盖率>80%)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ L2 - 单元测试门禁: 失败" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # L3 状态
+          if [ "${{ needs.integration-tests.result }}" == "success" ]; then
+            echo "✅ L3 - 集成测试门禁: 通过 (API响应<200ms)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ L3 - 集成测试门禁: 失败" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "提交: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "分支: ${{ github.ref }}" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="refresh" content="0; url=http://localhost:5003/viewer">
+  <title>Rysnova BIM Designer Redirect</title>
+  <link rel="stylesheet" href="/css/rhautt-comfort-tokens.css">
+</head>
+<body class="rc-scope" data-brand="rysnova">
+  <p>Redirecting to Rysnova BIM Viewer...</p>
+  <p>Powered by Rysnova</p>
+  <p><a id="redirect-link" href="http://localhost:5003/viewer">Open viewer</a></p>
+  <script>
+    (function () {
+      var preservedKeys = [
+        'projectId',
+        'project_id',
+        'project',
+        'contractId',
+        'contract_id',
+        'contract',
+        'opportunityId',
+        'opportunity_id',
+        'opportunity',
+        'artifactId',
+        'artifact_id',
+        'artifact',
+        'id'
+      ];
+
+      function buildRedirectUrl(currentLocation) {
+        var target = new URL('/viewer', currentLocation.origin);
+        target.port = '4003';
+        var incoming = new URLSearchParams(currentLocation.search);
+        var outgoing = new URLSearchParams();
+
+        preservedKeys.forEach(function (key) {
+          incoming.getAll(key).forEach(function (value) {
+            if (value) outgoing.append(key, value);
+          });
+        });
+
+        target.search = outgoing.toString();
+        return target.toString();
+      }
+
+      var redirectUrl = buildRedirectUrl(window.location);
+      window.__rysnovaLegacyDesignerRedirect = {
+        preservedKeys: preservedKeys,
+        target: redirectUrl,
+        buildRedirectUrl: buildRedirectUrl
+      };
+      document.getElementById('redirect-link').href = redirectUrl;
+      window.location.replace(redirectUrl);
+    })();
+  </script>
+</body>
+</html>

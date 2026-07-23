@@ -1,0 +1,14 @@
+{
+  "name": "ui",
+  "projectType": "library",
+  "sourceRoot": "packages/ui/src",
+  "tags": ["scope:shared", "type:ui"],
+  "targets": {
+    "build": {
+      "executor": "target-scaffold",
+      "options": {
+        "status": "scaffold-only"
+      }
+    }
+  }
+}

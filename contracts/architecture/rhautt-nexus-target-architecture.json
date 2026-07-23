@@ -1,0 +1,424 @@
+{
+  "platform": "Rhautt Nexus / 瑞合数智枢纽",
+  "status": "target-contract-not-production-trunk",
+  "generatedFor": "瑞诺瓦AI舒适家 production trunk rewrite",
+  "nonCompletionRule": "This contract proves the target architecture boundary only. It is not Nx/Next/Nest production implementation proof.",
+  "engineeringGovernance": {
+    "immutable": true,
+    "technologyStack": {
+      "locked": true,
+      "frontend": ["Nx", "pnpm", "TypeScript", "Next.js", "React"],
+      "backend": ["TypeScript", "NestJS", "Fastify", "TypeORM"],
+      "dataAndWorkflow": ["PostgreSQL", "MongoDB", "Redis", "Object Storage", "Temporal", "Outbox"],
+      "legacyCompatibilityOnly": ["Express", "JavaScript"],
+      "newBusinessLogicInLegacyTrunk": false,
+      "changeRequiresCharterAmendmentAndOwnerApproval": true
+    },
+    "frontendDataAccess": {
+      "directDatabaseAccess": false,
+      "databaseCredentialsAllowed": false,
+      "databaseDriversOrOrmsAllowed": false,
+      "approvedAccessPath": "OpenAPI-declared /api/v2 backend APIs via packages/contracts generated client",
+      "objectStorageAccess": "backend-mediated or backend-issued scoped time-limited URL only"
+    },
+    "developmentProcess": {
+      "mandatory": true,
+      "phases": [
+        "requirements-and-owner-confirmation",
+        "openapi-and-dto-contract-freeze",
+        "contract-tests",
+        "backend-implementation",
+        "unit-and-integration-tests",
+        "staging-or-shadow-validation",
+        "traffic-cutover",
+        "legacy-route-retirement",
+        "guards-readiness-and-evidence-archive"
+      ],
+      "skipPhaseAllowed": false,
+      "contractAfterImplementationAllowed": false,
+      "longTermDualWriteAllowed": false
+    }
+  },
+  "frontend": {
+    "workspace": {
+      "primary": "Nx",
+      "alternative": null,
+      "packageManagerTarget": "pnpm",
+      "language": "TypeScript",
+      "frameworks": [
+        "Next.js",
+        "React"
+      ],
+      "graphRequired": true,
+      "affectedBuildRequired": true
+    },
+    "apps": [
+      {
+        "id": "public-portal",
+        "targetPath": "apps/public-portal",
+        "currentSurface": "public/index-ready.html",
+        "compatibilitySurface": "public/index.html",
+        "audience": "C-end consumers and partners",
+        "style": "consumer-portal",
+        "brandBoundary": "Rhautt / 瑞合瑞德 group portal; preserve group introduction and brand relationships",
+        "productionEntry": "/",
+        "embeddedProductModules": [
+          "consumer-diagnosis",
+          "rysnova-bim-workbench"
+        ]
+      },
+      {
+        "id": "consumer-diagnosis",
+        "targetPath": "apps/consumer-diagnosis",
+        "currentSurface": "public/pain-diagnosis.html",
+        "audience": "C-end homeowners",
+        "style": "consumer-consultation",
+        "brandBoundary": "瑞诺瓦 AI 问诊; portal-embedded and standalone-launchable; do not convert to enterprise dashboard",
+        "productionEntry": "/pain-diagnosis.html",
+        "productModuleId": "rysnova-consumer-system",
+        "moduleNamespace": "rysnova",
+        "dataNamespace": "rysnova",
+        "apiNamespace": "/api/v2/diagnosis",
+        "deploymentModel": {
+          "portalEmbedded": true,
+          "standaloneLaunchable": true,
+          "embeddedEntry": "/pain-diagnosis.html",
+          "standaloneAliases": [
+            "/rysnova",
+            "/rysnova-ai",
+            "/rysnova-diagnosis"
+          ],
+          "poweredBy": "Powered by Rhautt Comfort",
+          "externalDomainProofRequired": true,
+          "standaloneAppShellMode": "independent-product-app-shell",
+          "standaloneDomainStrategy": "dedicated-domain-or-subdomain-required",
+          "standaloneDomainTargets": [
+            "pending-dedicated-rysnova-domain-or-subdomain"
+          ]
+        },
+        "dataBoundary": {
+          "postgresRegistry": "rhautt_nexus.product_modules",
+          "deploymentRegistry": "rhautt_nexus.product_module_deployments",
+          "dataPartitionRegistry": "rhautt_nexus.product_module_data_partitions",
+          "objectStoragePrefix": "rysnova/",
+          "analyticsNamespace": "rysnova",
+          "futureDatabaseStrategy": "namespace-extractable-shared-ledger",
+          "currentDataMode": "shared-foundation-product-domain-partitioned",
+          "futureDataMode": "standalone-database-extractable",
+          "ownedPostgresTables": [
+            "customers",
+            "opportunities",
+            "quotations"
+          ],
+          "ownedMongoNamespaces": [
+            "DiagnosisReport.moduleNamespace=rysnova"
+          ],
+          "standaloneDatabaseTarget": "rysnova-owned-postgres-schema-plus-mongodb-namespace",
+          "extractionProofRequired": true,
+          "futureStandaloneProductReady": true,
+          "independentDatabaseReady": true,
+          "productIndependenceLevel": "portal-embedded-and-standalone-extractable",
+          "standaloneDomainStrategy": "dedicated-domain-or-subdomain-required",
+          "standaloneAppShellMode": "independent-product-app-shell",
+          "standalonePostgresSchema": "rysnova",
+          "standaloneMongoDatabase": "rysnova_documents",
+          "standaloneObjectStorageBucket": "rysnova-product-artifacts",
+          "extractionPlan": "extract-by-product_data_namespace-moduleNamespace-dataNamespace-objectStoragePrefix"
+        },
+        "productIndependenceLevel": "portal-embedded-and-standalone-extractable",
+        "standaloneDomainStrategy": "dedicated-domain-or-subdomain-required",
+        "standaloneAppShellMode": "independent-product-app-shell",
+        "standalonePostgresSchema": "rysnova",
+        "standaloneMongoDatabase": "rysnova_documents",
+        "standaloneObjectStorageBucket": "rysnova-product-artifacts",
+        "extractionPlan": "extract-by-product_data_namespace-moduleNamespace-dataNamespace-objectStoragePrefix"
+      },
+      {
+        "id": "customer-portal",
+        "targetPath": "apps/customer-portal",
+        "currentSurface": "public/customer-view.html",
+        "audience": "signed or in-progress customers",
+        "style": "customer-lifecycle",
+        "brandBoundary": "customer-visible project progress only; hide internal business fields",
+        "productionEntry": "/customer-view.html"
+      },
+      {
+        "id": "dealer-workbench",
+        "targetPath": "apps/dealer-workbench",
+        "currentSurface": "public/business-console.html",
+        "audience": "dealer, store, staff, headquarters users",
+        "style": "enterprise-workbench",
+        "brandBoundary": "multi-tenant business console and staff portal",
+        "productionEntry": "/business-console.html"
+      },
+      {
+        "id": "designer-workbench",
+        "targetPath": "apps/designer-workbench",
+        "currentSurface": "public/designer.html",
+        "audience": "sales designers and dealer designers",
+        "style": "enterprise-design-tool",
+        "brandBoundary": "2D layout, device placement, BOM, quotation, customer share",
+        "productionEntry": "/designer.html"
+      },
+      {
+        "id": "rysnova-bim-workbench",
+        "targetPath": "apps/rysnova-bim-workbench",
+        "currentSurface": "public/rysnova-bim-designer.html",
+        "audience": "technical support and engineering deepening teams",
+        "style": "engineering-workbench",
+        "brandBoundary": "Rysnova BIM, drawing, schematic, standards, quantity takeoff, technical handoff; portal-embedded and standalone-launchable",
+        "productionEntry": "/rysnova-bim-designer.html",
+        "productModuleId": "rysnova-bim-engineering-support",
+        "moduleNamespace": "rysnova-bim",
+        "dataNamespace": "rysnova-bim",
+        "apiNamespace": "/api/v2/rysnova-bim",
+        "deploymentModel": {
+          "portalEmbedded": true,
+          "standaloneLaunchable": true,
+          "embeddedEntry": "/rysnova-bim-designer.html",
+          "standaloneAliases": [
+            "/rysnova-bim",
+            "/rysnova-bim-bim",
+            "/rysnova-bim-workbench"
+          ],
+          "poweredBy": "Powered by Rhautt Comfort",
+          "externalDomainProofRequired": true,
+          "standaloneAppShellMode": "independent-product-app-shell",
+          "standaloneDomainStrategy": "dedicated-domain-or-subdomain-required",
+          "standaloneDomainTargets": [
+            "pending-dedicated-rysnova-bim-domain-or-subdomain"
+          ]
+        },
+        "dataBoundary": {
+          "postgresRegistry": "rhautt_nexus.product_modules",
+          "deploymentRegistry": "rhautt_nexus.product_module_deployments",
+          "dataPartitionRegistry": "rhautt_nexus.product_module_data_partitions",
+          "objectStoragePrefix": "rysnova-bim/",
+          "analyticsNamespace": "rysnova-bim",
+          "futureDatabaseStrategy": "namespace-extractable-shared-ledger",
+          "currentDataMode": "shared-foundation-product-domain-partitioned",
+          "futureDataMode": "standalone-database-extractable",
+          "ownedPostgresTables": [
+            "file_artifacts",
+            "quotations"
+          ],
+          "ownedMongoNamespaces": [
+            "RysnovaArtifact.moduleNamespace=rysnova-bim"
+          ],
+          "standaloneDatabaseTarget": "rysnova-bim-owned-postgres-schema-plus-mongodb-namespace",
+          "extractionProofRequired": true,
+          "futureStandaloneProductReady": true,
+          "independentDatabaseReady": true,
+          "productIndependenceLevel": "portal-embedded-and-standalone-extractable",
+          "standaloneDomainStrategy": "dedicated-domain-or-subdomain-required",
+          "standaloneAppShellMode": "independent-product-app-shell",
+          "standalonePostgresSchema": "rysnova-bim",
+          "standaloneMongoDatabase": "rysnova-bim_documents",
+          "standaloneObjectStorageBucket": "rysnova-bim-product-artifacts",
+          "extractionPlan": "extract-by-data_namespace-moduleNamespace-objectStoragePrefix-artifactHashes"
+        },
+        "productIndependenceLevel": "portal-embedded-and-standalone-extractable",
+        "standaloneDomainStrategy": "dedicated-domain-or-subdomain-required",
+        "standaloneAppShellMode": "independent-product-app-shell",
+        "standalonePostgresSchema": "rysnova-bim",
+        "standaloneMongoDatabase": "rysnova-bim_documents",
+        "standaloneObjectStorageBucket": "rysnova-bim-product-artifacts",
+        "extractionPlan": "extract-by-data_namespace-moduleNamespace-objectStoragePrefix-artifactHashes"
+      }
+    ],
+    "packages": [
+      {
+        "id": "engines",
+        "targetPath": "packages/engines",
+        "allowedConsumers": [
+          "apps/*",
+          "services/api"
+        ],
+        "purpose": "shared calculation-engine surface (Strangler chokepoint); target consumes engines via @rhautt/engines instead of deep relative requires into server/core"
+      },
+      {
+        "id": "ui",
+        "targetPath": "packages/ui",
+        "allowedConsumers": [
+          "apps/*"
+        ],
+        "purpose": "shared enterprise and consumer UI components"
+      },
+      {
+        "id": "contracts",
+        "targetPath": "packages/contracts",
+        "sourceOfTruth": "contracts/openapi/rhautt-nexus-v2.openapi.json",
+        "generatedClient": "packages/generated-client/src/rhauttNexusClient.ts",
+        "allowedConsumers": [
+          "apps/*",
+          "services/api"
+        ],
+        "purpose": "OpenAPI generated client and DTO schema"
+      },
+      {
+        "id": "domain",
+        "targetPath": "packages/domain",
+        "allowedConsumers": [
+          "apps/*",
+          "services/api"
+        ],
+        "purpose": "tenant, role, brand hierarchy, product system packs, lifecycle constants"
+      },
+      {
+        "id": "visual-system",
+        "targetPath": "packages/visual-system",
+        "allowedConsumers": [
+          "apps/*"
+        ],
+        "purpose": "Rhautt group portal, 瑞诺瓦 C-end, enterprise workbench, Rysnova design tokens"
+      }
+    ],
+    "dependencyRules": [
+      "apps must not import from other apps",
+      "apps must call production APIs through packages/contracts generated clients",
+      "consumer apps must not import enterprise-only workbench modules",
+      "enterprise workbench apps must not rewrite C-end portal brand narrative",
+      "React/Vite compatibility surface remains candidate-only until contract and navigation gates promote it"
+    ]
+  },
+  "backend": {
+    "service": {
+      "id": "api",
+      "targetPath": "services/api",
+      "language": "TypeScript",
+      "framework": "NestJS",
+      "httpAdapter": "Fastify",
+      "architecture": "DDD modular monolith",
+      "currentCompatibilityTrunk": "Express/JavaScript production compatibility trunk"
+    },
+    "modules": [
+      "auth",
+      "tenant",
+      "crm",
+      "diagnosis",
+      "product-catalog",
+      "quote",
+      "design",
+      "rysnova-bim",
+      "delivery",
+      "lifecycle",
+      "analytics",
+      "governance",
+      "file-artifact",
+      "notification",
+      "workflow"
+    ],
+    "moduleRules": [
+      "every production API must have a module owner",
+      "every production API must be represented in OpenAPI before frontend use",
+      "tenant scope, audit, authz, and error code handling are mandatory for write APIs",
+      "module boundaries must map to production route catalog groups",
+      "do not split microservices before domain, tenant, workflow, and test boundaries are stable"
+    ]
+  },
+  "dataAndWorkflow": {
+    "postgresql": {
+      "role": "core relational ledger",
+      "requiredCapabilities": [
+        "RLS",
+        "tenant-aware schema",
+        "audit log",
+        "outbox events"
+      ],
+      "currentEvidence": "evidence/database/postgres-target-schema-report.json"
+    },
+    "mongodb": {
+      "role": "diagnosis, design, BIM, drawing, and solution documents",
+      "currentEvidence": "server/models and Mongo compatibility repositories"
+    },
+    "redis": {
+      "role": "cache, session, rate-limit, short-lived job state",
+      "currentEvidence": "dependency only; production smoke still required"
+    },
+    "objectStorage": {
+      "role": "PDF, DWG, DXF, BIM, renderings, quotations, acceptance photos",
+      "currentEvidence": "evidence/object-storage/rysnova-bim-object-storage-smoke.json"
+    },
+    "temporalOutbox": {
+      "role": "durable workflows and reliable event delivery",
+      "currentEvidence": "evidence/workflow/workflow-outbox-contract-report.json"
+    }
+  },
+  "productBoundaries": {
+    "rhauttComfort": "Rhautt Comfort / 瑞合瑞德暖通科技集团 is group expression，不是软件名",
+    "softwareName": "Rhautt Nexus / 瑞合数智枢纽",
+    "consumerSystemBrand": "瑞诺瓦",
+    "equipmentBrands": [
+      "Rheem",
+      "Ruud",
+      "Everhot"
+    ],
+    "iotBoundary": "lifecycle_handoff_only"
+  },
+  "requiredEvidenceBeforeProductionClaim": [
+    "actual nx.json or turbo.json with project graph",
+    "apps/* and packages/* target projects implemented",
+    "services/api NestJS + Fastify boot proof",
+    "OpenAPI generated client wired into production apps",
+    "PostgreSQL staging migration with RLS proof",
+    "Temporal worker runtime proof",
+    "external object storage smoke",
+    "staging network capacity proof",
+    "clean npm run guard:all proof"
+  ],
+  "crossBoardTopology": {
+    "principle": "两大板块物理隔离交易(OLTP)，统一契约打通分析与选用(OLAP/同步)；跨板块交互必须流畅、标准一致、易维护",
+    "databases": {
+      "foundationMasterDb": {
+        "owner": "Rhautt Nexus control plane",
+        "form": "dedicated PostgreSQL cluster",
+        "role": "single source of truth for master/reference data: tenant tree, dealer, store, identity, brand-registry, audit, product_module registry",
+        "writeScope": "foundation-only (MDM single writer)"
+      },
+      "enablementDb": {
+        "owner": "board-2 瑞诺瓦/Rysnova",
+        "form": "dedicated PostgreSQL (RLS multi-tenant) + MongoDB documents",
+        "role": "diagnosis/CRM/BIM transactions and documents for 500+ dealer tenants"
+      },
+      "brandProductDbs": {
+        "owner": "board-1 brand sites + group portal",
+        "form": "per-brand independent online product DB (system of record) + content/DAM",
+        "role": "authoritative SKU/params/price/launch per equipment brand"
+      },
+      "analyticsWarehouse": {
+        "owner": "group HQ",
+        "form": "dedicated analytics DB / warehouse (OLAP)",
+        "role": "cross-board aggregated analytics; read-only; de-identified; never on an OLTP primary",
+        "status": "locked-target"
+      }
+    },
+    "rules": [
+      "no cross-board direct DB connection and no cross-board JOIN",
+      "all cross-board interaction goes through published OpenAPI contracts + unified event envelope (versioned via schema registry)",
+      "master data is written only by the foundation; boards hold read-only replicas or CDC subscriptions",
+      "brand product DB is the authoritative source; product-catalog syncs a read-only selectable catalog to 瑞诺瓦 via API/CDC (PRD 4.5 tier-1 verified)",
+      "analytics flows one-way via CDC/ELT into the warehouse; HQ sees aggregated/de-identified only"
+    ],
+    "standards": {
+      "globalIds": "tenant_id/dealer_id/store_id/product_id/brand_id are platform-wide identical; master IDs minted by foundation",
+      "sharedDataDictionary": "amount unit, currency, UTC timestamps, enums, admin-region codes defined once and referenced by all DBs",
+      "syncSemantics": "CDC/ELT idempotent, replayable, watermark + reconciliation",
+      "migration": "versioned expand-contract zero-downtime migrations gated in CI"
+    },
+    "industrialOps": {
+      "oltpOlapSplit": "per-DB primary + read replica; reporting on replica/warehouse only",
+      "ha": "primary-replica + automatic failover; per-board connection pooling (pgbouncer)",
+      "dr": "multi-AZ, defined RPO/RTO, PITR + periodic restore drills",
+      "security": "encryption at rest + PII column-level encryption + audit; board-2 RLS; analytics de-identified",
+      "extractable": "namespace-extractable per board/product domain for future split or standalone deploy"
+    },
+    "acceptance": [
+      "no cross-board direct connection strings (guard-checked)",
+      "master data single-writer proven by test",
+      "brand->catalog sync reconciliation report",
+      "HQ analytics sourced from warehouse, cross-tenant plaintext unreachable (tested)",
+      "HA failover + PITR restore drills evidenced"
+    ]
+  },
+  "updatedAt": "2026-07-14"
+}

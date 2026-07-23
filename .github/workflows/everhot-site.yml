@@ -1,0 +1,53 @@
+name: Everhot Site Gates
+
+# 恒热 Everhot 静态站质量门禁：JS 语法、子类型页生成、GEO 元数据、链接审计（零断链）。
+# 仅在 everhot 站相关改动时触发，快速反馈、不阻塞其它服务。
+
+on:
+  push:
+    paths:
+      - 'apps/everhot-cn/**'
+      - '.github/workflows/everhot-site.yml'
+  pull_request:
+    paths:
+      - 'apps/everhot-cn/**'
+      - '.github/workflows/everhot-site.yml'
+
+jobs:
+  everhot-static-gates:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/everhot-cn
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: JS 语法检查（public/js/*.js）
+        run: |
+          set -e
+          for f in public/js/*.js; do
+            echo "check $f"
+            node --check "$f"
+          done
+
+      - name: 生成子类型页
+        run: npm run gen:subtypes
+
+      - name: GEO 元数据构建
+        run: npm run geo
+
+      - name: 链接审计（零断链门禁）
+        run: npm run audit
+
+      - name: 校验无未提交产物（生成需与仓库一致）
+        run: |
+          if ! git diff --quiet; then
+            echo "::error::生成产物与仓库不一致，请在本地跑 npm run gen:subtypes && npm run geo 后提交"
+            git --no-pager diff --stat
+            exit 1
+          fi

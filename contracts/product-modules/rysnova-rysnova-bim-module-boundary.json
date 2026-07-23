@@ -1,0 +1,302 @@
+{
+  "platform": "Rhautt Nexus / 瑞合数智枢纽",
+  "updatedAt": "2026-06-06",
+  "principle": "瑞诺瓦和 Rysnova 是可嵌入 Rhautt 官网、也可独立上线和独立产品化发展的模块体系；Rhautt Comfort 只作为集团支撑方，以 Powered by Rhautt Comfort 表达，不占模块主 logo 位。",
+  "independenceModel": {
+    "portalEmbedded": "Rhautt 官网可以调用瑞诺瓦和 Rysnova 入口，但不得把它们降级为官网普通页面。",
+    "standaloneLaunch": "瑞诺瓦和 Rysnova 必须保留独立域名、独立应用 shell、独立数据命名空间、独立 API owner 和独立运营分析的能力。",
+    "dataEvolution": "共享多租户底座可以继续复用 tenant/dealer/store/user/audit/outbox/objectStorage/workflow；产品域数据必须通过 module/product namespace 标识，未来可按 namespace 拆库、迁移或独立上线。",
+    "ownershipRule": "Rhautt 官网只是生态承载和入口，不拥有瑞诺瓦或 Rysnova 的产品域；两个模块都必须能被官网调用，也必须能作为独立产品单独发展。",
+    "databaseIndependence": "PostgreSQL 目标主库必须保留 product_modules 注册表；MongoDB 文档库必须保留 moduleNamespace/dataNamespace；对象存储必须使用产品前缀。未来瑞诺瓦或 Rysnova 可以按 dataNamespace、objectStoragePrefix、apiNamespace 和 standaloneAliases 迁移为独立数据库、独立应用和独立域名。",
+    "currentDataMode": "当前允许共享 tenant/dealer/store/user/audit/outbox/workflow 基础表，但业务记录必须按 productModuleId、productNamespace、productDataNamespace、moduleNamespace 和 dataNamespace 分区。",
+    "futureDataMode": "未来单独发展时，瑞诺瓦和 Rysnova 可以按 product_data_namespace、MongoDB namespace、objectStoragePrefix、apiNamespace 和 standaloneAliases 迁出为独立 PostgreSQL schema / 独立 Mongo namespace / 独立对象存储前缀 / 独立部署域名。",
+    "deploymentRegistry": "PostgreSQL 目标主库必须保留 product_module_deployments，用于同时登记 Rhautt 官网嵌入模式和 standalone 独立部署模式，且 standalone 模式必须要求外部域名/部署证明。",
+    "dataPartitionRegistry": "PostgreSQL 目标主库必须保留 product_module_data_partitions，用于登记 moduleNamespace、dataNamespace、productDataNamespace、MongoDB namespace、objectStoragePrefix 和 extractionStrategy，保证未来按产品域拆库、迁移和独立分析。",
+    "runtimeTruth": "当前系统只承担 IoT lifecycle handoff，不直接承担实时控制平台。"
+  },
+  "sharedFoundation": {
+    "allowed": [
+      "tenant",
+      "dealer",
+      "store",
+      "identity",
+      "audit",
+      "outbox",
+      "objectStorage",
+      "lifecycleHandoff"
+    ],
+    "forbidden": [
+      "统一成 Rhautt Comfort UI shell",
+      "把 Rhautt Comfort 写成模块产品名",
+      "把瑞诺瓦写成设备品牌",
+      "把 Rysnova 写成 C 端问诊"
+    ]
+  },
+  "modules": [
+    {
+      "id": "rysnova-consumer-system",
+      "displayName": "瑞诺瓦",
+      "moduleKind": "consumer-comfort-system-brand",
+      "namespace": "rysnova",
+      "dataNamespace": "rysnova",
+      "apiNamespace": "/api/v2/diagnosis",
+      "productIndependenceLevel": "portal-embedded-and-standalone-extractable",
+      "standaloneDomainStrategy": "dedicated-domain-or-subdomain-required",
+      "standaloneAppShellMode": "independent-product-app-shell",
+      "standalonePostgresSchema": "rysnova",
+      "standaloneMongoDatabase": "rysnova_documents",
+      "standaloneObjectStorageBucket": "rysnova-product-artifacts",
+      "extractionPlan": "extract-by-product_data_namespace-moduleNamespace-dataNamespace-objectStoragePrefix",
+      "entrySurfaces": [
+        "public/pain-diagnosis.html",
+        "public/customer-share.html"
+      ],
+      "standaloneAliases": [
+        "/rysnova",
+        "/rysnova-ai",
+        "/rysnova-diagnosis"
+      ],
+      "embeddedInRhauttPortal": true,
+      "standaloneLaunchable": true,
+      "logoPolicy": {
+        "currentPlaceholder": "Rheem equipment-brand wordmark placeholder",
+        "gatedLocalLogo": "public/images/rheem-logo.svg",
+        "productionLogoGate": "Do not use public/images/rheem-logo.svg until an approved Rheem brand package asset is installed.",
+        "poweredBy": "Powered by Rhautt Comfort",
+        "forbiddenPrimaryLogo": [
+          "Rhautt Comfort",
+          "瑞诺瓦AI舒适家"
+        ]
+      },
+      "portalIntegration": {
+        "embeddedInRhauttPortal": true,
+        "embeddedEntry": "/pain-diagnosis.html",
+        "customerEntry": "/customer-share.html"
+      },
+      "standaloneProductization": {
+        "launchable": true,
+        "aliases": [
+          "/rysnova",
+          "/rysnova-ai",
+          "/rysnova-diagnosis"
+        ],
+        "targetApp": "apps/consumer-diagnosis",
+        "appShellMode": "independent-product-app-shell",
+        "domainStrategy": "dedicated-domain-or-subdomain-required",
+        "standaloneDomainTargets": [
+          "pending-dedicated-rysnova-domain-or-subdomain"
+        ],
+        "externalDomainProofRequired": true,
+        "databaseExtractionReady": true
+      },
+      "dataDomain": {
+        "postgresRegistry": "rhautt_nexus.product_modules",
+        "deploymentRegistry": "rhautt_nexus.product_module_deployments",
+        "dataPartitionRegistry": "rhautt_nexus.product_module_data_partitions",
+        "productIndependenceLevel": "portal-embedded-and-standalone-extractable",
+        "standaloneDomainStrategy": "dedicated-domain-or-subdomain-required",
+        "standaloneAppShellMode": "independent-product-app-shell",
+        "futureDatabaseStrategy": "namespace-extractable-shared-ledger",
+        "currentDataMode": "shared-foundation-product-domain-partitioned",
+        "futureDataMode": "standalone-database-extractable",
+        "sharedFoundationTables": [
+          "tenants",
+          "dealers",
+          "stores",
+          "users",
+          "audit_logs",
+          "outbox_events",
+          "workflow_instances",
+          "workflow_steps"
+        ],
+        "ownedPostgresTables": [
+          "customers",
+          "opportunities",
+          "quotations"
+        ],
+        "ownedMongoNamespaces": [
+          "DiagnosisReport.moduleNamespace=rysnova"
+        ],
+        "objectStoragePrefix": "rysnova/",
+        "analyticsNamespace": "rysnova",
+        "mongodbNamespace": "DiagnosisReport.moduleNamespace=rysnova",
+        "postgresPartitionKey": "product_data_namespace",
+        "standalonePostgresSchema": "rysnova",
+        "standaloneMongoDatabase": "rysnova_documents",
+        "standaloneObjectStorageBucket": "rysnova-product-artifacts",
+        "standaloneDatabaseTarget": "rysnova-owned-postgres-schema-plus-mongodb-namespace",
+        "extractionPlan": "extract-by-product_data_namespace-moduleNamespace-dataNamespace-objectStoragePrefix",
+        "extractionProofRequired": true,
+        "futureStandaloneProductReady": true,
+        "independentDatabaseReady": true,
+        "mongodbModels": [
+          "DiagnosisReport",
+          "CustomerV2",
+          "Opportunity",
+          "QuotationV2"
+        ],
+        "primaryModel": "DiagnosisReport",
+        "source": "rysnova-ai-diagnosis",
+        "legacySourceCompatibility": [
+          "rysnova-ai-diagnosis"
+        ],
+        "channel": "rysnova-public-diagnosis",
+        "legacyChannelCompatibility": [
+          "rysnova-public-diagnosis"
+        ],
+        "standaloneKeys": [
+          "moduleId",
+          "moduleDeploymentMode",
+          "moduleNamespace",
+          "dataNamespace",
+          "productModuleId",
+          "productDeploymentMode",
+          "productNamespace",
+          "productDataNamespace",
+          "sourceSurface",
+          "shareTokenHash"
+        ]
+      },
+      "apiDomain": [
+        "/api/v2/diagnosis/public/complete",
+        "/api/v2/diagnosis/public/reports/{reportId}",
+        "/api/v2/diagnosis/complete"
+      ],
+      "productEvolution": [
+        "独立 C 端问诊站点",
+        "独立客户方案报告",
+        "独立三档方案和视觉包",
+        "可继续配置 Rheem / Ruud / Everhot 设备品牌"
+      ]
+    },
+    {
+      "id": "rysnova-bim-engineering-support",
+      "displayName": "Rysnova",
+      "moduleKind": "engineering-bim-technical-support",
+      "namespace": "rysnova-bim",
+      "dataNamespace": "rysnova-bim",
+      "apiNamespace": "/api/v2/rysnova-bim",
+      "productIndependenceLevel": "portal-embedded-and-standalone-extractable",
+      "standaloneDomainStrategy": "dedicated-domain-or-subdomain-required",
+      "standaloneAppShellMode": "independent-product-app-shell",
+      "standalonePostgresSchema": "rysnova-bim",
+      "standaloneMongoDatabase": "rysnova-bim_documents",
+      "standaloneObjectStorageBucket": "rysnova-bim-product-artifacts",
+      "extractionPlan": "extract-by-data_namespace-moduleNamespace-objectStoragePrefix-artifactHashes",
+      "entrySurfaces": [
+        "public/rysnova-bim-designer.html"
+      ],
+      "standaloneAliases": [
+        "/rysnova-bim",
+        "/rysnova-bim-bim",
+        "/rysnova-bim-workbench"
+      ],
+      "embeddedInRhauttPortal": true,
+      "standaloneLaunchable": true,
+      "logoPolicy": {
+        "currentPlaceholder": "public/images/ruud-logo.svg",
+        "poweredBy": "Powered by Rhautt Comfort",
+        "forbiddenPrimaryLogo": [
+          "Rhautt Comfort",
+          "瑞诺瓦AI舒适家"
+        ]
+      },
+      "portalIntegration": {
+        "embeddedInRhauttPortal": true,
+        "embeddedEntry": "/rysnova-bim-designer.html"
+      },
+      "standaloneProductization": {
+        "launchable": true,
+        "aliases": [
+          "/rysnova-bim",
+          "/rysnova-bim-bim",
+          "/rysnova-bim-workbench"
+        ],
+        "targetApp": "apps/rysnova-bim-workbench",
+        "appShellMode": "independent-product-app-shell",
+        "domainStrategy": "dedicated-domain-or-subdomain-required",
+        "standaloneDomainTargets": [
+          "pending-dedicated-rysnova-bim-domain-or-subdomain"
+        ],
+        "externalDomainProofRequired": true,
+        "databaseExtractionReady": true
+      },
+      "dataDomain": {
+        "postgresRegistry": "rhautt_nexus.product_modules",
+        "deploymentRegistry": "rhautt_nexus.product_module_deployments",
+        "dataPartitionRegistry": "rhautt_nexus.product_module_data_partitions",
+        "productIndependenceLevel": "portal-embedded-and-standalone-extractable",
+        "standaloneDomainStrategy": "dedicated-domain-or-subdomain-required",
+        "standaloneAppShellMode": "independent-product-app-shell",
+        "futureDatabaseStrategy": "namespace-extractable-shared-ledger",
+        "currentDataMode": "shared-foundation-product-domain-partitioned",
+        "futureDataMode": "standalone-database-extractable",
+        "sharedFoundationTables": [
+          "tenants",
+          "dealers",
+          "stores",
+          "users",
+          "audit_logs",
+          "outbox_events",
+          "workflow_instances",
+          "workflow_steps"
+        ],
+        "ownedPostgresTables": [
+          "file_artifacts",
+          "quotations"
+        ],
+        "ownedMongoNamespaces": [
+          "RysnovaArtifact.moduleNamespace=rysnova-bim"
+        ],
+        "objectStoragePrefix": "rysnova-bim/",
+        "analyticsNamespace": "rysnova-bim",
+        "mongodbNamespace": "RysnovaArtifact.moduleNamespace=rysnova-bim",
+        "postgresPartitionKey": "product_data_namespace",
+        "standalonePostgresSchema": "rysnova-bim",
+        "standaloneMongoDatabase": "rysnova-bim_documents",
+        "standaloneObjectStorageBucket": "rysnova-bim-product-artifacts",
+        "standaloneDatabaseTarget": "rysnova-bim-owned-postgres-schema-plus-mongodb-namespace",
+        "extractionPlan": "extract-by-data_namespace-moduleNamespace-objectStoragePrefix-artifactHashes",
+        "extractionProofRequired": true,
+        "futureStandaloneProductReady": true,
+        "independentDatabaseReady": true,
+        "mongodbModels": [
+          "RysnovaArtifact",
+          "QuotationV2"
+        ],
+        "primaryModel": "RysnovaArtifact",
+        "source": "rysnova-bim",
+        "standaloneKeys": [
+          "moduleId",
+          "moduleDeploymentMode",
+          "moduleNamespace",
+          "dataNamespace",
+          "productModuleId",
+          "productDeploymentMode",
+          "productNamespace",
+          "productDataNamespace",
+          "artifactId",
+          "objectKey",
+          "contentHash",
+          "inputsHash"
+        ]
+      },
+      "apiDomain": [
+        "/api/v2/rysnova-bim/artifacts",
+        "/api/v2/rysnova-bim/artifacts/{artifactId}/approval",
+        "/api/v2/rysnova-bim/artifacts/{artifactId}/integrity",
+        "/api/v2/rysnova-bim/projects/{projectId}/customer-package",
+        "/api/v2/rysnova-bim/projects/{projectId}/visual-artifacts",
+        "/api/v2/rysnova-bim/projects/{projectId}/deliverable-artifacts",
+        "/api/v2/rysnova-bim/projects/{projectId}/signoff-package",
+        "/api/v2/rysnova-bim/projects/{projectId}/deepening-package"
+      ],
+      "productEvolution": [
+        "独立 BIM / 图纸深化工作台",
+        "独立对象存储 artifact 体系",
+        "独立标准校核和审批流",
+        "可嵌入经销商技术支持体系"
+      ]
+    }
+  ]
+}

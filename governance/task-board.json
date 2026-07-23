@@ -1,0 +1,801 @@
+{
+  "platform": "Rhautt Nexus / 瑞合数智枢纽",
+  "goal": "Locked goal: build Rhautt Nexus / 瑞合数智枢纽 as the production-grade digital platform backbone for 瑞合瑞德暖通科技集团, covering public portal, 瑞诺瓦 AI diagnosis, customer project portal, designer workbench, Rysnova technical support, employee portal, business console, multi-tenant backend, data foundation, and IoT lifecycle handoff only.",
+  "updatedAt": "2026-06-18",
+  "owner": "orchestrator-chief",
+  "status": "active",
+  "tasks": [
+    {
+      "id": "NX-DEL-001",
+      "owner": "orchestrator-chief",
+      "title": "Lock production delivery goal",
+      "status": "done",
+      "evidence": [
+        "docs/RHAUTT-NEXUS-PRODUCTION-DELIVERY-GOAL.md"
+      ]
+    },
+    {
+      "id": "NX-DEL-002",
+      "owner": "orchestrator-chief",
+      "title": "Launch development group control board",
+      "status": "done",
+      "evidence": [
+        "docs/RHAUTT-NEXUS-DEVELOPMENT-GROUP-LAUNCH-BOARD.md",
+        "governance/task-board.json"
+      ]
+    },
+    {
+      "id": "NX-DEL-003",
+      "owner": "orchestrator-chief",
+      "title": "Maintain goal-to-evidence matrix for every locked delivery requirement",
+      "status": "done",
+      "evidence": [
+        "docs/RHAUTT-NEXUS-GOAL-EVIDENCE-MATRIX.md",
+        "scripts/agent-guards/delivery-goal-check.js"
+      ]
+    },
+    {
+      "id": "NX-DEL-004",
+      "owner": "orchestrator-chief",
+      "title": "Publish concise locked goal sheet for execution alignment",
+      "status": "done",
+      "evidence": [
+        "docs/RHAUTT-NEXUS-LOCKED-GOAL.md",
+        "scripts/agent-guards/delivery-goal-check.js"
+      ]
+    },
+    {
+      "id": "NX-DEL-005",
+      "owner": "orchestrator-chief",
+      "title": "Lock machine-readable production delivery goal for automated guard enforcement",
+      "status": "done",
+      "evidence": [
+        "governance/locked-goal.json",
+        "scripts/agent-guards/delivery-goal-check.js",
+        "docs/RHAUTT-NEXUS-LOCKED-GOAL.md",
+        "docs/RHAUTT-NEXUS-PRODUCTION-DELIVERY-GOAL.md",
+        "docs/RHAUTT-NEXUS-GOAL-EVIDENCE-MATRIX.md"
+      ]
+    },
+    {
+      "id": "NX-TEST-001",
+      "owner": "test-harness-builder",
+      "title": "Add delivery goal guard and include it in guard:all",
+      "status": "done",
+      "evidence": [
+        "scripts/agent-guards/delivery-goal-check.js",
+        "package.json"
+      ]
+    },
+    {
+      "id": "NX-PRD-001",
+      "owner": "prd-charter-monitor",
+      "title": "Replace authoritative unnamed-platform placeholders with 瑞诺瓦AI舒适家",
+      "status": "done",
+      "evidence": [
+        "docs/PROJECT-CHARTER-AND-PRD.md",
+        "docs/FULL-REWRITE-START-DECISION-RECORD.md"
+      ]
+    },
+    {
+      "id": "NX-LEG-001",
+      "owner": "legacy-fusion-migrator",
+      "title": "Select first legacy migration batch for quote, CRM, delivery, Rysnova, and lifecycle",
+      "status": "done",
+      "evidence": [
+        "audit/legacy-fusion-registry.json",
+        "server/modules/productionRouteCatalog.js",
+        "services/api/src/modules/auth",
+        "services/api/src/modules/tenant",
+        "services/api/src/modules/crm",
+        "services/api/src/modules/quote"
+      ]
+    },
+    {
+      "id": "NX-LIT-001",
+      "owner": "solution-design-rysnova-bim-director",
+      "title": "Define Rysnova artifact contract for drawings, BIM, schematic, BOM, and standards checks",
+      "status": "done",
+      "evidence": [
+        "docs/RHAUTT-NEXUS-RYSNOVA-ARTIFACT-CONTRACT.md",
+        "server/modules/rysnova-bim/rysnova-bim-artifact.service.js",
+        "server/modules/rysnova-bim/rysnova-bim.routes.js",
+        "server/models/RysnovaArtifact.js",
+        "test/production-readiness/rysnova-bim-artifact-service.test.js"
+      ]
+    },
+    {
+      "id": "NX-LIFE-001",
+      "owner": "customer-project-lifecycle-director",
+      "title": "Define customer project state model through IoT lifecycle handoff",
+      "status": "done",
+      "evidence": [
+        "docs/RHAUTT-NEXUS-CUSTOMER-LIFECYCLE-STATE-MODEL.md",
+        "server/modules/lifecycle/lifecycle.service.js",
+        "server/modules/lifecycle/lifecycle.routes.js",
+        "server/models/LifecycleLink.js",
+        "test/production-readiness/lifecycle-service.test.js"
+      ]
+    },
+    {
+      "id": "NX-REL-001",
+      "owner": "test-harness-builder",
+      "title": "Track release evidence gaps for staging capacity, visual, tenant isolation, SBOM, provenance, rollback, and backup restore",
+      "status": "active",
+      "evidence": [
+        "evidence/release-evidence.json"
+      ]
+    },
+    {
+      "id": "NX-VIS-001",
+      "owner": "ui-vi-director",
+      "title": "Regenerate browser visual acceptance for all 10 active C-end and enterprise pages",
+      "status": "active",
+      "evidence": [
+        "scripts/agent-guards/browser-visual-acceptance.js",
+        "audit/browser-visual-acceptance-report.json",
+        "audit/browser-visual-acceptance-report.md",
+        "evidence/visual/README.md"
+      ],
+      "blockedBy": [
+        "Browser launch permission or reachable staging/local URL is required for a valid 10-page current run"
+      ]
+    },
+    {
+      "id": "NX-DATA-001",
+      "owner": "data-platform-architect",
+      "title": "Add deterministic backup restore drill for tenant records and lifecycle handoff data",
+      "status": "done",
+      "evidence": [
+        "scripts/release/backup-restore-drill.js",
+        "evidence/operations/backup-restore-drill.json",
+        "evidence/operations/backup-restore-drill.md",
+        "docs/DATABASE-BACKEND-ARCHITECTURE.md"
+      ]
+    },
+    {
+      "id": "NX-DATA-002",
+      "owner": "data-platform-architect",
+      "title": "Guard PostgreSQL/RLS target business ledger contract plus transaction/outbox atomicity simulation",
+      "status": "done",
+      "evidence": [
+        "database/postgres/migrations/001_rhautt_nexus_core_ledger.sql",
+        "database/postgres/harness/target-schema-contract.json",
+        "scripts/agent-guards/postgres-target-schema-check.js",
+        "scripts/agent-guards/postgres-rls-behavior-check.js",
+        "scripts/agent-guards/postgres-transaction-outbox-check.js",
+        "evidence/database/postgres-target-schema-report.json",
+        "evidence/database/postgres-target-schema-report.md",
+        "evidence/database/postgres-rls-behavior-report.json",
+        "evidence/database/postgres-rls-behavior-report.md",
+        "evidence/database/postgres-transaction-outbox-report.json",
+        "evidence/database/postgres-transaction-outbox-report.md"
+      ],
+      "remainingProof": [
+        "Staging-applied PostgreSQL migration",
+        "Real PostgreSQL RLS integration tests",
+        "Real PostgreSQL transaction proof for business write plus outbox write"
+      ]
+    },
+    {
+      "id": "NX-BE-002",
+      "owner": "backend-platform-builder",
+      "title": "Guard Temporal and Outbox target workflow contract plus local deterministic replay smoke",
+      "status": "done",
+      "evidence": [
+        "contracts/workflow/rhautt-nexus-workflow-outbox-contract.json",
+        "docs/RHAUTT-NEXUS-WORKFLOW-OUTBOX-CONTRACT.md",
+        "scripts/agent-guards/workflow-outbox-contract-check.js",
+        "scripts/release/workflow-replay-smoke.js",
+        "server/models/OutboxEvent.js",
+        "server/modules/outbox/outbox.service.js",
+        "test/production-readiness/outbox-service.test.js",
+        "evidence/workflow/workflow-outbox-contract-report.json",
+        "evidence/workflow/workflow-outbox-contract-report.md",
+        "evidence/workflow/workflow-replay-smoke.json",
+        "evidence/workflow/workflow-replay-smoke.md"
+      ],
+      "remainingProof": [
+        "Production Temporal worker runtime proof",
+        "Staging PostgreSQL transaction proof for business write plus outbox write",
+        "External queue/worker delivery proof"
+      ]
+    },
+    {
+      "id": "NX-ARCH-001",
+      "owner": "architecture-governor",
+      "title": "Guard target Nx/Turborepo frontend graph and NestJS/Fastify backend module boundary",
+      "status": "done",
+      "evidence": [
+        "nx.json",
+        "pnpm-workspace.yaml",
+        "tsconfig.base.json",
+        "apps/public-portal/project.json",
+        "apps/consumer-diagnosis/project.json",
+        "apps/customer-portal/project.json",
+        "apps/dealer-workbench/project.json",
+        "apps/designer-workbench/project.json",
+        "apps/rysnova-bim-workbench/project.json",
+        "packages/ui/project.json",
+        "packages/contracts/project.json",
+        "packages/domain/project.json",
+        "packages/visual-system/project.json",
+        "services/api/project.json",
+        "services/api/src/modules/module-boundary.ts",
+        "contracts/architecture/rhautt-nexus-target-architecture.json",
+        "scripts/agent-guards/target-architecture-contract-check.js",
+        "evidence/architecture/target-architecture-contract-report.json",
+        "evidence/architecture/target-architecture-contract-report.md",
+        "evidence/release-evidence.json",
+        "package.json"
+      ]
+    },
+    {
+      "id": "NX-ARCH-002",
+      "owner": "backend-platform-builder",
+      "title": "Install target Next/Nx/NestJS/Fastify dependencies and produce boot-proof eligibility",
+      "status": "done",
+      "evidence": [
+        "scripts/agent-guards/target-dependency-readiness-check.js",
+        "evidence/architecture/target-dependency-readiness-report.json",
+        "evidence/architecture/target-dependency-readiness-report.md",
+        "evidence/release-evidence.json",
+        "evidence/architecture/target-api-boot-smoke.json"
+      ],
+      "blockedBy": [
+        "npm install failed with getaddrinfo ENOTFOUND registry.npmjs.org",
+        "require_escalated npm install was rejected by approval system with 503 Service Unavailable"
+      ]
+    },
+    {
+      "id": "NX-CONTRACT-001",
+      "owner": "frontend-contract-auditor",
+      "title": "Harden OpenAPI business schemas for analytics, audit, lifecycle, Rysnova, and React candidate status",
+      "status": "done",
+      "evidence": [
+        "contracts/openapi/rhautt-nexus-v2.openapi.json",
+        "packages/generated-client/src/rhauttNexusClient.ts",
+        "test/production-readiness/openapi-contract.test.js",
+        "evidence/contracts/openapi-generated-client.md"
+      ]
+    },
+    {
+      "id": "NX-PRD-002",
+      "owner": "prd-charter-monitor",
+      "title": "Remove pre-Nexus naming drift and guard key docs plus generated evolution reports",
+      "status": "done",
+      "evidence": [
+        "README.md",
+        "docs/BACKEND-DATA-LANGUAGE-HIGHEST-STANDARD.md",
+        "docs/ARCHITECTURE-DECISION-MATRIX-2026-06-05.md",
+        "docs/FULL-REWRITE-DATA-API-CONTRACT-DRAFT.md",
+        "docs/SOFTWARE-NAMING-CANDIDATES.md",
+        "audit/auto-evolution-loop.js",
+        "scripts/agent-guards/nexus-naming-check.js"
+      ]
+    },
+    {
+      "id": "NX-LIT-002",
+      "owner": "rysnova-bim-engineering-builder",
+      "title": "Connect Rysnova artifact contract to object storage adapter and export integrity checks",
+      "status": "done",
+      "evidence": [
+        "server/modules/rysnova-bim/artifact-storage.adapter.js",
+        "server/modules/rysnova-bim/rysnova-bim-artifact.service.js",
+        "server/modules/rysnova-bim/rysnova-bim.routes.js",
+        "contracts/openapi/rhautt-nexus-v2.openapi.json",
+        "packages/generated-client/src/rhauttNexusClient.ts",
+        "test/production-readiness/rysnova-bim-artifact-service.test.js",
+        "test/production-readiness/v2-routes.test.js",
+        "docs/RHAUTT-NEXUS-RYSNOVA-ARTIFACT-CONTRACT.md"
+      ]
+    },
+    {
+      "id": "NX-LIT-003",
+      "owner": "rysnova-bim-engineering-builder",
+      "title": "Add Rysnova object-storage smoke evidence gate without treating local or missing external smoke as final launch proof",
+      "status": "done",
+      "evidence": [
+        "scripts/release/rysnova-bim-object-storage-smoke.js",
+        "scripts/agent-guards/object-storage-evidence-check.js",
+        "evidence/object-storage/README.md",
+        "evidence/object-storage/rysnova-bim-object-storage-smoke.json",
+        "evidence/object-storage/rysnova-bim-object-storage-smoke.md",
+        "evidence/release-evidence.json",
+        "package.json"
+      ],
+      "remainingProof": [
+        "External S3/OSS/MinIO-compatible PUT/GET/verify smoke must pass",
+        "rysnova-bimObjectStorage.status must become passed-external-current-run",
+        "finalLaunchObjectStorageProof must become true only with externalRoundTrip true and finalLaunchEligible true",
+        "Evidence must not leak raw endpoint, bucket, access key, or secret"
+      ]
+    },
+    {
+      "id": "NX-SRE-001",
+      "owner": "sre-guardian",
+      "title": "Add operational observability baseline with request/trace IDs, SLO snapshot, and error-budget metrics",
+      "status": "done",
+      "evidence": [
+        "server/middleware/requestContext.js",
+        "server/modules/observability/observability.service.js",
+        "server/modules/health/health.service.js",
+        "server/modules/health/health.routes.js",
+        "contracts/openapi/rhautt-nexus-v2.openapi.json",
+        "packages/generated-client/src/rhauttNexusClient.ts",
+        "test/production-readiness/health-and-seed.test.js",
+        "audit/operational-readiness-report.json",
+        "audit/system-integrity-report.json"
+      ]
+    },
+    {
+      "id": "NX-SRE-002",
+      "owner": "test-harness-builder",
+      "title": "Add customer project portal capacity scenario for 100000+ homeowner lifecycle read path",
+      "status": "done",
+      "evidence": [
+        "audit/capacity-inprocess-test.js",
+        "audit/capacity-load-test.js",
+        "audit/capacity-inprocess-report.json",
+        "scripts/agent-guards/capacity-evidence-check.js",
+        "evidence/capacity/README.md",
+        "evidence/release-evidence.json"
+      ],
+      "remainingProof": [
+        "CAPACITY_BASE_URL=<staging-url> npm run perf:capacity must be rerun in staging-mongodb mode with the customer-project-portal scenario",
+        "stagingNetworkCapacity.status must become passed-staging-current-run",
+        "stagingNetworkCapacity.evidenceMode must become staging-mongodb",
+        "stagingNetworkCapacity.finalLaunchCapacityProof must become true",
+        "audit/capacity-load-report.json summary.failed must be 0"
+      ]
+    },
+    {
+      "id": "NX-LIFE-002",
+      "owner": "iot-lifecycle-architect",
+      "title": "Extend lifecycle handoff into installed asset capability registry and service-plan transitions",
+      "status": "done",
+      "evidence": [
+        "server/modules/lifecycle/lifecycle.service.js",
+        "contracts/openapi/rhautt-nexus-v2.openapi.json",
+        "test/production-readiness/lifecycle-service.test.js"
+      ]
+    },
+    {
+      "id": "NX-DATA-003",
+      "owner": "data-platform-architect",
+      "title": "Guard Redis cache/session/rate-limit/task-status boundary without treating Redis as business truth source",
+      "status": "done",
+      "evidence": [
+        "contracts/cache/rhautt-nexus-redis-cache-boundary.json",
+        "scripts/agent-guards/redis-cache-boundary-check.js",
+        "evidence/cache/README.md",
+        "evidence/cache/redis-cache-boundary-report.json",
+        "evidence/cache/redis-cache-boundary-report.md",
+        "test/production-readiness/redis-cache-boundary.test.js",
+        "evidence/release-evidence.json",
+        "package.json"
+      ],
+      "remainingProof": [
+        "Redis staging smoke with configured REDIS_URL",
+        "Redis TLS/ACL/secret management proof",
+        "Redis-backed session/rate-limit/task-status integration proof if enabled",
+        "Redis unavailable degradation drill in staging"
+      ]
+    },
+    {
+      "id": "NX-DATA-004",
+      "owner": "data-platform-architect",
+      "title": "Add PostgreSQL staging migration/RLS smoke launch gate without claiming local simulation as final database proof",
+      "status": "done",
+      "evidence": [
+        "scripts/release/postgres-staging-smoke.js",
+        "scripts/agent-guards/postgres-staging-smoke-check.js",
+        "evidence/database/postgres-staging-smoke-report.json",
+        "evidence/database/postgres-staging-smoke-report.md",
+        "evidence/database/README.md",
+        "evidence/release-evidence.json",
+        "package.json"
+      ],
+      "remainingProof": [
+        "POSTGRES_STAGING_URL=<staging-postgres-url> npm run release:postgres-staging:smoke must pass against a real staging PostgreSQL database",
+        "postgresStagingSmoke.status must become passed-staging-current-run",
+        "postgresStagingSmoke.finalLaunchDatabaseProof must become true only after real staging pass"
+      ]
+    },
+    {
+      "id": "NX-DATA-005",
+      "owner": "data-platform-architect",
+      "title": "Add Redis runtime smoke launch gate without claiming local cache boundary simulation as final Redis proof",
+      "status": "done",
+      "evidence": [
+        "scripts/release/redis-runtime-smoke.js",
+        "scripts/agent-guards/redis-runtime-smoke-check.js",
+        "evidence/cache/redis-runtime-smoke.json",
+        "evidence/cache/redis-runtime-smoke.md",
+        "evidence/cache/README.md",
+        "evidence/release-evidence.json",
+        "package.json"
+      ],
+      "remainingProof": [
+        "REDIS_STAGING_URL=<redis-url> npm run release:redis-runtime:smoke must pass against a real Redis runtime",
+        "Redis runtime proof must include connect/ping, tenant-scoped keys, TTL proof, cross-tenant miss, no business truth key, and lifecycle_handoff_only boundary",
+        "TLS/rediss or Redis TLS posture must be observed",
+        "ACL/secret configuration must be observed",
+        "Redis unavailable degradation drill must be recorded with REDIS_DEGRADATION_DRILL_PROOF=passed",
+        "redisRuntimeSmoke.finalLaunchRedisProof must become true only after real runtime, security, and degradation proof"
+      ]
+    },
+    {
+      "id": "NX-BE-003",
+      "owner": "backend-platform-builder",
+      "title": "Add Temporal runtime smoke launch gate without claiming local replay as production worker proof",
+      "status": "done",
+      "evidence": [
+        "scripts/release/temporal-runtime-smoke.js",
+        "scripts/agent-guards/temporal-runtime-smoke-check.js",
+        "evidence/workflow/temporal-runtime-smoke.json",
+        "evidence/workflow/temporal-runtime-smoke.md",
+        "evidence/workflow/README.md",
+        "evidence/release-evidence.json",
+        "package.json"
+      ],
+      "remainingProof": [
+        "TEMPORAL_ADDRESS=<temporal-address> npm run release:temporal-runtime:smoke must pass against a real Temporal namespace",
+        "A deployed 瑞诺瓦AI舒适家 Temporal worker must execute workflow tasks on the declared task queue",
+        "temporalRuntimeSmoke.status must become passed-runtime-current-run",
+        "temporalRuntimeSmoke.finalLaunchWorkflowProof must become true only after real runtime and worker proof"
+      ]
+    },
+    {
+      "id": "NX-AGENT-001",
+      "owner": "orchestrator-chief",
+      "title": "Add auditable multi-agent run ledger and guard integration so development-group progress is inspectable",
+      "status": "done",
+      "evidence": [
+        "governance/agent-runs.json",
+        "scripts/agent-guards/agent-run-ledger-check.js",
+        "scripts/agent-guards/ai-control-plane-check.js",
+        "server/modules/governance/governance.routes.js",
+        "server/modules/governance/governance.service.js",
+        "contracts/openapi/rhautt-nexus-v2.openapi.json",
+        "packages/generated-client/src/rhauttNexusClient.ts",
+        "public/business-console.html",
+        "audit/agent-progress-board.md",
+        "test/production-readiness/v2-routes.test.js",
+        "test/production-readiness/visual-surface-contract.test.js",
+        "package.json",
+        "audit/ai-control-plane-report.json"
+      ],
+      "remainingProof": [
+        "This ledger is an auditable orchestration mechanism, not proof of independent parallel model execution",
+        "Each lane still requires its own implementation, staging, visual, capacity, security, and runtime evidence before production completion can be claimed"
+      ]
+    },
+    {
+      "id": "NX-DIAG-001",
+      "owner": "solution-design-rysnova-bim-director",
+      "title": "Unify 瑞诺瓦 AI diagnosis three-tier keys and return three visual artifacts per tier in the v2 contract",
+      "status": "done",
+      "evidence": [
+        "server/modules/diagnosis/diagnosis.service.js",
+        "server/modules/solution-visuals/solution-visual-package.service.js",
+        "contracts/openapi/rhautt-nexus-v2.openapi.json",
+        "packages/generated-client/src/rhauttNexusClient.ts",
+        "test/production-readiness/diagnosis-service.test.js",
+        "test/production-readiness/visual-surface-contract.test.js",
+        "test/production-readiness/openapi-contract.test.js"
+      ],
+      "remainingProof": [
+        "Browser visual acceptance must still verify the C-end diagnosis page renders the new visualPackages gracefully",
+        "Rysnova production artifacts still need external object-storage proof before final customer download launch"
+      ]
+    },
+    {
+      "id": "NX-CONTRACT-002",
+      "owner": "quote-cost-governor",
+      "title": "Expose v2 contract approval, signature, payment, and delivery-start APIs through OpenAPI and generated client",
+      "status": "done",
+      "evidence": [
+        "server/modules/contracts/contracts.service.js",
+        "server/modules/contracts/contracts.routes.js",
+        "contracts/openapi/rhautt-nexus-v2.openapi.json",
+        "packages/generated-client/src/rhauttNexusClient.ts",
+        "test/production-readiness/contracts-service.test.js",
+        "test/production-readiness/v2-routes.test.js",
+        "test/production-readiness/openapi-contract.test.js"
+      ],
+      "remainingProof": [
+        "Designer workbench now has active production UI binding; remaining frontend surfaces should continue to bind generated contract methods where their workflow requires signing or delivery actions",
+        "Staging database and workflow runtime proof are still required before final launch"
+      ]
+    },
+    {
+      "id": "NX-CONTRACT-003",
+      "owner": "frontend-contract-auditor",
+      "title": "Bind designer quote modal to v2 contract creation, signature, deposit payment, and delivery-start lifecycle handoff",
+      "status": "done",
+      "evidence": [
+        "public/designer.html",
+        "contracts/openapi/rhautt-nexus-v2.openapi.json",
+        "packages/generated-client/src/rhauttNexusClient.ts",
+        "test/production-readiness/visual-surface-contract.test.js",
+        "test/production-readiness/contracts-service.test.js",
+        "test/production-readiness/v2-routes.test.js",
+        "scripts/agent-guards/frontend-api-contract-check.js"
+      ],
+      "verifiedBy": [
+        "node --check /private/tmp/designer-app-script.js",
+        "npx jest test/production-readiness/visual-surface-contract.test.js test/production-readiness/contracts-service.test.js test/production-readiness/v2-routes.test.js --runInBand",
+        "npm run guard:frontend-api-contract"
+      ],
+      "remainingProof": [
+        "Browser visual evidence should be refreshed in an allowed browser execution environment after this modal change",
+        "Real staging database, electronic signature provider, payment evidence provider, and Temporal worker proof are still required before final launch"
+      ]
+    },
+    {
+      "id": "NX-QUOTE-002",
+      "owner": "quote-cost-governor",
+      "title": "Require JWT tenant scope for persisted BOM quotation writes and reads",
+      "status": "done",
+      "evidence": [
+        "server/routes/quotation-v2.js",
+        "server/modules/quotation/quotation.service.js",
+        "test/production-readiness/quotation-v2-bom.test.js",
+        "test/production-readiness/quotation-v2-persistence.test.js",
+        "scripts/agent-guards/route-owner-check.js",
+        "scripts/agent-guards/frontend-api-contract-check.js"
+      ],
+      "verifiedBy": [
+        "node --check server/routes/quotation-v2.js",
+        "npx jest test/production-readiness/quotation-v2-bom.test.js test/production-readiness/quotation-v2-persistence.test.js --runInBand",
+        "npm run guard:routes",
+        "npm run guard:frontend-api-contract"
+      ],
+      "remainingProof": [
+        "Real staging Mongo/PostgreSQL persistence proof is still required before final launch",
+        "Designer UI should continue moving from embedded contract quote payload toward persisted quotation IDs once staging persistence is available"
+      ]
+    },
+    {
+      "id": "NX-DIAG-002",
+      "owner": "frontend-contract-auditor",
+      "title": "Close 瑞诺瓦 public diagnosis report chain from C-end completion to customer share readback and three visual artifacts",
+      "status": "done",
+      "evidence": [
+        "server/models/DiagnosisReport.js",
+        "server/modules/diagnosis/diagnosis.service.js",
+        "server/modules/diagnosis/diagnosis.routes.js",
+        "public/customer-share.html",
+        "contracts/openapi/rhautt-nexus-v2.openapi.json",
+        "packages/generated-client/src/rhauttNexusClient.ts",
+        "test/production-readiness/diagnosis-service.test.js",
+        "test/production-readiness/v2-routes.test.js",
+        "test/production-readiness/openapi-contract.test.js",
+        "test/production-readiness/visual-surface-contract.test.js",
+        "scripts/agent-guards/frontend-api-contract-check.js"
+      ],
+      "verifiedBy": [
+        "npx jest test/production-readiness/diagnosis-service.test.js test/production-readiness/v2-routes.test.js test/production-readiness/openapi-contract.test.js test/production-readiness/visual-surface-contract.test.js --runInBand",
+        "npm run test:production-readiness",
+        "npm run test:contracts",
+        "npm run guard:generated-client",
+        "npm run guard:frontend-api-contract",
+        "npm run guard:active-page-static",
+        "npm run guard:routes",
+        "npm run guard:catalog",
+        "npm run guard:agent-runs",
+        "npm run harness:ai-control"
+      ],
+      "remainingProof": [
+        "Current browser visual evidence is stale for public/pain-diagnosis.html and public/customer-share.html because Playwright Chromium cannot launch inside the current sandbox and the escalated rerun request was rejected by approval infrastructure",
+        "Final production launch still requires a successful non-sandbox browser visual run plus staging/runtime evidence"
+      ]
+    },
+    {
+      "id": "NX-PROD-001",
+      "owner": "product-domain-critic",
+      "title": "Add product-domain critic lane to challenge 瑞诺瓦AI舒适家 against full comfort-home operating-system depth",
+      "status": "active",
+      "evidence": [
+        ".claude/agents/product-domain-critic.md",
+        "governance/agent-runs.json",
+        "audit/feature-granularity-harness.js",
+        "audit/feature-granularity-report.json",
+        "docs/PROJECT-CHARTER-AND-PRD.md"
+      ],
+      "remainingProof": [
+        "Fresh competitor and industry evidence should be refreshed when network/source access is available",
+        "Critique findings must become owned implementation tasks rather than standalone analysis notes",
+        "Designer, Rysnova, lifecycle, quote, and UI/VI gaps must be traced into active guard or test evidence"
+      ]
+    },
+    {
+      "id": "NX-HVAC-001",
+      "owner": "hvac-standards-auditor",
+      "title": "Add HVAC standards auditor lane for hot water, heating, whole-air, water purification, fresh air, air conditioning, and smart control governance",
+      "status": "active",
+      "evidence": [
+        ".claude/agents/hvac-standards-auditor.md",
+        "governance/agent-runs.json",
+        "docs/COMFORT-HOME-STANDARDS-MATRIX.md",
+        "docs/RHAUTT-NEXUS-RYSNOVA-ARTIFACT-CONTRACT.md",
+        "scripts/agent-guards/standards-metadata-check.js"
+      ],
+      "remainingProof": [
+        "Detailed calculation engines and system-pack standard metadata still need deeper validation",
+        "Current standards baseline must be periodically rechecked against latest official standards and product certification sources",
+        "Design, quote, Rysnova, and lifecycle outputs must expose standards evidence as blockers, warnings, or advisory optimization"
+      ]
+    },
+    {
+      "id": "NX-ANALYTICS-001",
+      "owner": "frontend-contract-auditor",
+      "title": "Bind business console dashboard to v2 tenant-scoped analytics overview with explicit legacy fallback",
+      "status": "done",
+      "evidence": [
+        "public/business-console.html",
+        "server/modules/analytics/analytics.routes.js",
+        "server/modules/analytics/analytics.service.js",
+        "contracts/openapi/rhautt-nexus-v2.openapi.json",
+        "packages/generated-client/src/rhauttNexusClient.ts",
+        "test/production-readiness/visual-surface-contract.test.js",
+        "test/production-readiness/analytics-service.test.js",
+        "test/production-readiness/v2-routes.test.js",
+        "scripts/agent-guards/frontend-api-contract-check.js",
+        "scripts/agent-guards/active-page-static-acceptance.js"
+      ],
+      "verifiedBy": [
+        "node --check /private/tmp/business-console-script.js",
+        "npx jest test/production-readiness/visual-surface-contract.test.js test/production-readiness/analytics-service.test.js test/production-readiness/v2-routes.test.js --runInBand",
+        "npm run guard:frontend-api-contract",
+        "npm run guard:active-page-static"
+      ],
+      "remainingProof": [
+        "Browser visual evidence should be refreshed in an allowed browser execution environment after the business-console analytics change",
+        "Real staging PostgreSQL/MongoDB tenant isolation and HQ rollup proof are still required before final launch",
+        "React candidate service layer remains outside production navigation until API contract alignment is complete"
+      ]
+    },
+    {
+      "id": "NX-MODULE-001",
+      "owner": "prd-charter-monitor",
+      "title": "Lock 瑞诺瓦 and Rysnova as independent modules that work inside the Rhautt portal and remain standalone-launchable",
+      "status": "done",
+      "evidence": [
+        "contracts/product-modules/rysnova-rysnova-bim-module-boundary.json",
+        "contracts/architecture/rhautt-nexus-target-architecture.json",
+        "scripts/agent-guards/module-independence-check.js",
+        "scripts/agent-guards/target-architecture-contract-check.js",
+        "scripts/release/product-module-standalone-smoke.js",
+        "scripts/agent-guards/product-module-standalone-smoke-check.js",
+        "evidence/architecture/product-module-standalone-smoke.json",
+        "evidence/architecture/product-module-standalone-smoke.md",
+        "apps/consumer-diagnosis/project.json",
+        "apps/consumer-diagnosis/README.md",
+        "apps/rysnova-bim-workbench/project.json",
+        "apps/rysnova-bim-workbench/README.md",
+        "public/pain-diagnosis.html",
+        "public/customer-share.html",
+        "public/rysnova-bim-designer.html",
+        "public/images/rheem-logo.svg",
+        "public/images/ruud-logo.svg",
+        "server/models/DiagnosisReport.js",
+        "server/models/RysnovaArtifact.js",
+        "server/modules/diagnosis/diagnosis.service.js",
+        "server/modules/rysnova-bim/rysnova-bim-artifact.service.js",
+        "docs/PRODUCT-PORTAL-ARCHITECTURE.md",
+        "test/production-readiness/visual-surface-contract.test.js",
+        "server/modules/productModules/product-module-registry.js",
+        "server/models/CustomerV2.js",
+        "server/models/Opportunity.js",
+        "server/models/QuotationV2.js",
+        "server/modules/crm/crm.service.js",
+        "server/modules/quotation/quotation.service.js",
+        "PRD-CURRENT.md",
+        "contracts/openapi/rhautt-nexus-v2.openapi.json",
+        "packages/generated-client/src/rhauttNexusClient.ts",
+        "test/production-readiness/production-app-module-aliases.test.js",
+        "test/production-readiness/multitenant-models.test.js",
+        "test/production-readiness/quotation-v2-persistence.test.js"
+      ],
+      "verifiedBy": [
+        "npm run guard:module-independence",
+        "npm run guard:all:nonvisual",
+        "npm run test:production-readiness",
+        "npm run guard:active-page-static",
+        "npm run guard:portal-architecture",
+        "npm run guard:ui-vi",
+        "npm run guard:nexus-naming",
+        "npx jest test/production-readiness/visual-surface-contract.test.js test/production-readiness/diagnosis-service.test.js test/production-readiness/rysnova-bim-artifact-service.test.js test/production-readiness/v2-routes.test.js --runInBand",
+        "Browser DOM verification for http://localhost:3100/pain-diagnosis.html and /rysnova-bim-designer.html",
+        "npx jest test/production-readiness/diagnosis-service.test.js test/production-readiness/quotation-v2-persistence.test.js test/production-readiness/multitenant-models.test.js test/production-readiness/openapi-contract.test.js --runInBand",
+        "npx jest test/production-readiness/visual-surface-contract.test.js test/production-readiness/diagnosis-service.test.js test/production-readiness/v2-routes.test.js test/production-readiness/production-app-module-aliases.test.js --runInBand",
+        "npm run guard:database",
+        "npm run guard:target-architecture",
+        "npm run release:product-modules:standalone-smoke",
+        "npm run guard:product-modules:standalone-smoke",
+        "npm run guard:generated-client",
+        "npm run sbom:generate",
+        "npm run release:provenance"
+      ],
+      "remainingProof": [
+        "Replace current Rheem wordmark placeholder and Ruud placeholder logo with final authorized 瑞诺瓦 and Rysnova brand assets when approved; do not use public/images/rheem-logo.svg until approved Rheem package asset is installed",
+        "Standalone deployment smoke is currently local/in-process alias proof plus target-app metadata; final standalone-domain proof still requires PRODUCT_MODULE_STANDALONE_BASE_URL or deployed-domain evidence",
+        "Real staging database migration must include moduleId/moduleDeploymentMode and productModuleId/productDeploymentMode indexes before final production rollout",
+        "The currently running http://localhost:3100 process is stale for /rysnova-bim and must be restarted with current code before runtime alias proof can be claimed",
+        "Browser visual evidence remains stale because Playwright Chromium is blocked by macOS MachPort permission in this environment"
+      ]
+    },
+    {
+      "id": "NX-ARCH-003",
+      "owner": "architecture-governor",
+      "title": "Split production app composition from runtime service startup",
+      "status": "done",
+      "evidence": [
+        "server-production.js",
+        "server/modules/productionAppFactory.js",
+        "server/modules/runtimeServices.js",
+        "scripts/agent-guards/trunk-migration-check.js",
+        "scripts/agent-guards/portal-architecture-check.js",
+        "test/production-readiness/production-app-factory.test.js",
+        "test/production-readiness/runtime-route-modules.test.js",
+        "test/production-readiness/architecture-harness-security.test.js"
+      ],
+      "verifiedBy": [
+        "npx jest test/production-readiness/runtime-route-modules.test.js test/production-readiness/production-app-factory.test.js --runInBand",
+        "npm run guard:trunk-migration",
+        "npm run guard:portal-architecture",
+        "npm run harness:arch",
+        "npm run harness:integrity",
+        "npm run harness:all",
+        "npm run guard:all:nonvisual",
+        "npm run test:production-readiness"
+      ],
+      "remainingProof": [
+        "Fresh runtime smoke on a restarted server is still required before claiming current localhost alias proof",
+        "Full guard:all remains blocked until browser visual acceptance can be refreshed"
+      ]
+    },
+    {
+      "id": "NX-UI-002",
+      "owner": "ui-vi-director",
+      "title": "Refactor 瑞诺瓦 AI diagnosis into a C-end home comfort checkup experience",
+      "status": "pending-browser-visual",
+      "evidence": [
+        "docs/RYSNOVA-AI-DIAGNOSIS-C-END-UI-VI-ARCHITECTURE.md",
+        "scripts/agent-guards/rysnova-diagnosis-cend-ui-vi-check.js",
+        "audit/rysnova-diagnosis-cend-ui-vi-report.json",
+        "audit/rysnova-diagnosis-cend-ui-vi-report.md",
+        "evidence/release-evidence.json"
+      ],
+      "remainingProof": [
+        "npm run guard:rysnova-diagnosis-ui-vi must continue passing after any further edits",
+        "Browser visual desktop/mobile acceptance for /pain-diagnosis.html still requires non-sandbox Playwright run"
+      ],
+      "verifiedBy": [
+        "npm run guard:rysnova-diagnosis-ui-vi (24/24 passed 2026-06-18)",
+        "npm run guard:active-page-static (10/10 passed 2026-06-18)",
+        "npm run guard:delivery-goal:nonvisual"
+      ]
+    },
+    {
+      "id": "NX-TEST-002",
+      "owner": "test-harness-builder",
+      "title": "Promote 瑞诺瓦 C-end UI/VI guard into guard:all after approved refactor passes",
+      "status": "blocked-until-NX-UI-002-pass",
+      "evidence": [
+        "package.json",
+        "scripts/agent-guards/rysnova-diagnosis-cend-ui-vi-check.js",
+        "evidence/release-evidence.json"
+      ],
+      "blockedBy": [
+        "NX-UI-002 browser visual acceptance still required before guard:all promotion"
+      ],
+      "remainingProof": [
+        "Add npm run guard:rysnova-diagnosis-ui-vi into guard:all and guard:all:nonvisual after strict guard passes",
+        "Run guard:all or document environment blocker honestly if browser visual launch is unavailable"
+      ]
+    }
+  ]
+}

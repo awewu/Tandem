@@ -1,0 +1,748 @@
+/**
+ * Multi-Brand System Controller (4 Brands)
+ * Rheem + 恒热(HengRe) + 瑞诺瓦 + 瑞德(Ruud)
+ *
+ * Brand Mapping:
+ * - Rheem: 热水器 (Water Heaters)
+ * - 恒热 HengRe: 高端中央热水 (Premium Central Hot Water)
+ * - 瑞诺瓦: 净水/软水 (Water Treatment)
+ * - 瑞德 Ruud: 空气品类 (Air/HVAC)
+ *
+ * Usage:
+ * - 热水器: <body data-brand="rheem">
+ * - 中央热水: <body data-brand="hengRe">
+ * - 净水软水: <body data-brand="rysnova">
+ * - 空调新风: <body data-brand="ruud">
+ */
+
+/* ========================================
+   BRAND VARIABLES MAPPING
+   ======================================== */
+
+/* Rheem - 热水器 */
+[data-brand="rheem"] {
+  --brand-primary: #E4002B;
+  --brand-primary-dark: #A00F28;
+  --brand-primary-light: #E8455F;
+  --brand-secondary: #4A4A4A;
+  --brand-accent: #E31837;
+  --brand-font-headline: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  --brand-font-body: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  --brand-logo-path: '/images/rheem-logo.png';
+  --brand-name: 'Rheem';
+  --brand-name-en: 'Rheem';
+  --brand-tagline: 'Rheem 热水设备';
+}
+
+/* 恒热 HengRe - 高端中央热水 */
+[data-brand="hengRe"] {
+  --brand-primary: #B8860B;
+  --brand-primary-dark: #8B6914;
+  --brand-primary-light: #D4A84B;
+  --brand-secondary: #2C2C2C;
+  --brand-accent: #CD853F;
+  --brand-font-headline: 'Microsoft YaHei', 'PingFang SC', serif;
+  --brand-font-body: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  --brand-logo-path: '/images/hengRe-logo.png';
+  --brand-name: '恒热';
+  --brand-name-en: 'HengRe';
+  --brand-tagline: '恒热中央热水专家';
+}
+
+/* 瑞诺瓦 - 净水/软水 */
+[data-brand="rysnova"] {
+  --brand-primary: #0066CC;
+  --brand-primary-dark: #004C99;
+  --brand-primary-light: #3399FF;
+  --brand-secondary: #5A7A96;
+  --brand-accent: #00A8E8;
+  --brand-font-headline: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  --brand-font-body: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  --brand-logo-path: '/images/rysnova-logo.png';
+  --brand-name: '瑞诺瓦';
+  --brand-name-en: '瑞诺瓦';
+  --brand-tagline: '纯净生活守护者';
+}
+
+/* 瑞德 Ruud - 空气品类 */
+[data-brand="ruud"] {
+  --brand-primary: #E4002B;
+  --brand-primary-dark: #76232F;
+  --brand-primary-light: #FF1A44;
+  --brand-secondary: #3F585A;
+  --brand-accent: #F26729;
+  --brand-font-headline: 'A Love of Thunder', 'Impact', sans-serif;
+  --brand-font-body: 'Roboto', -apple-system, sans-serif;
+  --brand-logo-path: '/images/ruud-logo.png';
+  --brand-name: '瑞德';
+  --brand-name-en: 'Ruud';
+  --brand-tagline: 'Rely on Ruud™';
+}
+
+/* ========================================
+   PRODUCT-SPECIFIC BRAND CLASSES
+   ======================================== */
+
+/* Rheem - 热水器 */
+.water-product,
+.water-heater,
+.gas-water-heater,
+.electric-water-heater,
+.solar-water-heater {
+  --product-brand: 'rheem';
+  --brand-primary: #E4002B;
+  --brand-primary-dark: #A00F28;
+  --brand-accent: #E31837;
+}
+
+/* 恒热 HengRe - 高端中央热水 */
+.hot-water-system,
+.central-hot-water,
+.heat-pump-water-heater,
+.high-end-boiler {
+  --product-brand: 'hengRe';
+  --brand-primary: #B8860B;
+  --brand-primary-dark: #8B6914;
+  --brand-accent: #CD853F;
+}
+
+/* 瑞诺瓦 - 净水/软水 */
+.water-treatment,
+.water-purifier,
+.central-purifier,
+.terminal-purifier,
+.softener,
+.water-softener {
+  --product-brand: 'rysnova';
+  --brand-primary: #0066CC;
+  --brand-primary-dark: #004C99;
+  --brand-accent: #00A8E8;
+}
+
+/* 瑞德 Ruud - 空气品类 */
+.air-product,
+.hvac-system,
+.air-conditioner,
+.heat-pump,
+.fresh-air-system,
+.five-constant-system {
+  --product-brand: 'ruud';
+  --brand-primary: #E4002B;
+  --brand-primary-dark: #76232F;
+  --brand-accent: #F26729;
+}
+
+/* ========================================
+   DYNAMIC BRAND COMPONENTS
+   ======================================== */
+
+/* Brand Header - Dynamic */
+.brand-header-dynamic {
+  display: flex;
+  align-items: center;
+  padding: 16px 24px;
+  background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-dark) 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.brand-header-dynamic .brand-logo {
+  height: 48px;
+  width: auto;
+  margin-right: 16px;
+}
+
+.brand-header-dynamic .brand-title {
+  font-family: var(--brand-font-headline);
+  font-size: 24px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.brand-header-dynamic .brand-tagline {
+  font-family: var(--brand-font-body);
+  font-size: 12px;
+  opacity: 0.9;
+  margin-left: 8px;
+}
+
+/* Dynamic Primary Button */
+.btn-brand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 28px;
+  background: var(--brand-primary);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-family: var(--brand-font-body);
+  font-size: 16px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.btn-brand:hover {
+  background: var(--brand-primary-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+}
+
+/* Water Product Button - Rheem Style */
+.btn-water {
+  --btn-color: #E4002B;
+  background: linear-gradient(135deg, #E4002B 0%, #A00F28 100%);
+}
+
+.btn-water:hover {
+  background: linear-gradient(135deg, #A00F28 0%, #E4002B 100%);
+}
+
+/* Air Product Button - Ruud Style */
+.btn-air {
+  --btn-color: #E4002B;
+  background: linear-gradient(135deg, #E4002B 0%, #76232F 100%);
+  position: relative;
+}
+
+.btn-air::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.05'/%3E%3C/svg%3E");
+  pointer-events: none;
+}
+
+/* ========================================
+   PRODUCT CATEGORY STYLING
+   ======================================== */
+
+/* Rheem - 热水器卡片 */
+.system-card-water,
+.system-card-rheem {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 16px;
+  border-left: 4px solid #E4002B;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  position: relative;
+}
+
+.system-card-water::before,
+.system-card-rheem::before {
+  content: '🔥';
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-size: 24px;
+  opacity: 0.3;
+}
+
+.system-card-water .system-title,
+.system-card-rheem .system-title {
+  color: #E4002B;
+  font-family: 'Microsoft YaHei', sans-serif;
+  font-weight: bold;
+}
+
+/* 恒热 HengRe - 高端中央热水卡片 */
+.system-card-hengRe,
+.system-card-premium-heat {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 16px;
+  border-left: 4px solid #B8860B;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  position: relative;
+}
+
+.system-card-hengRe::before,
+.system-card-premium-heat::before {
+  content: '♨️';
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-size: 24px;
+  opacity: 0.4;
+}
+
+.system-card-hengRe .system-title,
+.system-card-premium-heat .system-title {
+  color: #B8860B;
+  font-family: 'Microsoft YaHei', serif;
+  font-weight: bold;
+}
+
+/* 瑞诺瓦 - 净水/软水卡片 */
+.system-card-rysnova,
+.system-card-water-treatment {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 16px;
+  border-left: 4px solid #0066CC;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  position: relative;
+}
+
+.system-card-rysnova::before,
+.system-card-water-treatment::before {
+  content: '💧';
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-size: 24px;
+  opacity: 0.4;
+}
+
+.system-card-rysnova .system-title,
+.system-card-water-treatment .system-title {
+  color: #0066CC;
+  font-family: 'Microsoft YaHei', sans-serif;
+  font-weight: bold;
+}
+
+/* 瑞德 Ruud - 空气系统卡片 */
+.system-card-air,
+.system-card-ruud {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 16px;
+  border-left: 4px solid #E4002B;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  position: relative;
+}
+
+.system-card-air::before,
+.system-card-ruud::before {
+  content: '⬡';
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-size: 32px;
+  color: #E4002B;
+  opacity: 0.1;
+}
+
+.system-card-air .system-title,
+.system-card-ruud .system-title {
+  color: #E4002B;
+  font-family: 'A Love of Thunder', 'Impact', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ========================================
+   BRAND-SPECIFIC TAGS
+   ======================================== */
+
+/* Rheem - 热水器标签 */
+.tag-rheem,
+.tag-water {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  background: rgba(228, 0, 43, 0.1);
+  color: #E4002B;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid rgba(228, 0, 43, 0.3);
+}
+
+/* 恒热 HengRe - 高端中央热水标签 */
+.tag-hengRe,
+.tag-premium-heat {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  background: linear-gradient(135deg, #B8860B 0%, #8B6914 100%);
+  color: white;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(184, 134, 11, 0.3);
+}
+
+/* 瑞诺瓦 - 净水软水标签 */
+.tag-rysnova,
+.tag-purifier,
+.tag-softener {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  background: rgba(0, 102, 204, 0.1);
+  color: #0066CC;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid rgba(0, 102, 204, 0.3);
+}
+.tag-rysnova::before,
+.tag-purifier::before,
+.tag-softener::before {
+  content: '💧';
+  margin-right: 4px;
+}
+
+/* 瑞德 Ruud - 空气品类标签 */
+.tag-ruud,
+.tag-air {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 16px;
+  background: #E4002B;
+  color: white;
+  border-radius: 2px;
+  font-family: 'A Love of Thunder', sans-serif;
+  font-size: 12px;
+  font-weight: bold;
+  text-transform: uppercase;
+  clip-path: polygon(0 0, 100% 0, 95% 100%, 0 100%);
+}
+
+/* ========================================
+   MULTI-BRAND LAYOUT (4 Brands)
+   ======================================== */
+
+/* Four Brand Container */
+.multi-brand-container,
+.four-brand-container {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  padding: 24px;
+}
+
+/* Rheem - 热水器区块 */
+.rheem-section,
+.water-heater-section {
+  background: linear-gradient(135deg, #FFF5F5 0%, #FFFFFF 100%);
+  border-radius: 16px;
+  padding: 24px;
+  border: 2px solid #E4002B;
+}
+
+.rheem-section .section-header,
+.water-heater-section .section-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 3px solid #E4002B;
+}
+
+.rheem-section .section-title,
+.water-heater-section .section-title {
+  color: #E4002B;
+  font-family: 'Microsoft YaHei', sans-serif;
+  font-size: 24px;
+  font-weight: bold;
+  margin-left: 12px;
+}
+
+/* 恒热 HengRe - 高端中央热水区块 */
+.hengRe-section,
+.premium-heat-section {
+  background: linear-gradient(135deg, #FFFAF0 0%, #FFFFFF 100%);
+  border-radius: 16px;
+  padding: 24px;
+  border: 2px solid #B8860B;
+  position: relative;
+}
+
+.hengRe-section::before,
+.premium-heat-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.6' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  border-radius: 16px;
+}
+
+.hengRe-section .section-header,
+.premium-heat-section .section-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 3px solid #B8860B;
+  position: relative;
+  z-index: 1;
+}
+
+.hengRe-section .section-title,
+.premium-heat-section .section-title {
+  color: #B8860B;
+  font-family: 'Microsoft YaHei', serif;
+  font-size: 24px;
+  font-weight: bold;
+  margin-left: 12px;
+}
+
+/* 瑞诺瓦 - 净水软水区块 */
+.rysnova-section,
+.water-treatment-section {
+  background: linear-gradient(135deg, #F0F8FF 0%, #FFFFFF 100%);
+  border-radius: 16px;
+  padding: 24px;
+  border: 2px solid #0066CC;
+  position: relative;
+}
+
+.rysnova-section::before,
+.water-treatment-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.5' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  border-radius: 16px;
+}
+
+.rysnova-section .section-header,
+.water-treatment-section .section-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 3px solid #0066CC;
+  position: relative;
+  z-index: 1;
+}
+
+.rysnova-section .section-title,
+.water-treatment-section .section-title {
+  color: #0066CC;
+  font-family: 'Microsoft YaHei', sans-serif;
+  font-size: 24px;
+  font-weight: bold;
+  margin-left: 12px;
+}
+
+/* 瑞德 Ruud - 空气系统区块 */
+.ruud-section,
+.air-section {
+  background: linear-gradient(135deg, #FFF0F3 0%, #FFFFFF 100%);
+  border-radius: 16px;
+  padding: 24px;
+  border: 2px solid #E4002B;
+  position: relative;
+}
+
+.ruud-section::before,
+.air-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  border-radius: 16px;
+}
+
+.ruud-section .section-header,
+.air-section .section-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 3px solid #E4002B;
+  position: relative;
+  z-index: 1;
+}
+
+.ruud-section .section-title,
+.air-section .section-title {
+  color: #E4002B;
+  font-family: 'A Love of Thunder', 'Impact', sans-serif;
+  font-size: 24px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-left: 12px;
+}
+
+/* Water Section - Legacy (for backward compatibility) */
+.water-section {
+  background: linear-gradient(135deg, #FFF5F5 0%, #FFFFFF 100%);
+  border-radius: 16px;
+  padding: 24px;
+  border: 2px solid #E4002B;
+}
+
+.water-section .section-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 3px solid #E4002B;
+}
+
+.water-section .section-title {
+  color: #E4002B;
+  font-family: 'Microsoft YaHei', sans-serif;
+  font-size: 24px;
+  font-weight: bold;
+  margin-left: 12px;
+}
+
+/* ========================================
+   BRAND ICONS & DECORATIONS
+   ======================================== */
+
+/* Rheem - 热水器图标 */
+.icon-rheem,
+.icon-water {
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, #E4002B 0%, #A00F28 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 24px;
+}
+.icon-rheem::before,
+.icon-water::before {
+  content: '🔥';
+}
+
+/* 恒热 HengRe - 高端热水图标 */
+.icon-hengRe,
+.icon-premium-heat {
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, #B8860B 0%, #8B6914 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 24px;
+  position: relative;
+}
+.icon-hengRe::before,
+.icon-premium-heat::before {
+  content: '♨️';
+}
+.icon-hengRe::after,
+.icon-premium-heat::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 16px;
+  height: 16px;
+  background: #FFD700;
+  border-radius: 50%;
+  border: 2px solid white;
+}
+
+/* 瑞诺瓦 - 净水图标 */
+.icon-rysnova,
+.icon-purifier {
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, #0066CC 0%, #004C99 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 24px;
+}
+.icon-rysnova::before,
+.icon-purifier::before {
+  content: '💧';
+}
+
+/* 瑞德 Ruud - 空气系统图标 */
+.icon-ruud,
+.icon-air {
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, #E4002B 0%, #76232F 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 24px;
+  position: relative;
+}
+
+.icon-ruud::after,
+.icon-air::after {
+  content: '⬡';
+  position: absolute;
+  font-size: 56px;
+  opacity: 0.15;
+  color: white;
+}
+
+/* ========================================
+   PRINT STYLES - 4 Brands
+   ======================================== */
+@media print {
+  /* Rheem */
+  .rheem-section,
+  .water-heater-section,
+  .water-section,
+  .system-card-rheem,
+  .system-card-water {
+    border-color: #E4002B !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* 恒热 HengRe */
+  .hengRe-section,
+  .premium-heat-section,
+  .system-card-hengRe,
+  .system-card-premium-heat {
+    border-color: #B8860B !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* 瑞诺瓦 */
+  .rysnova-section,
+  .water-treatment-section,
+  .system-card-rysnova,
+  .system-card-water-treatment {
+    border-color: #0066CC !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* 瑞德 Ruud */
+  .ruud-section,
+  .air-section,
+  .system-card-ruud,
+  .system-card-air {
+    border-color: #E4002B !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

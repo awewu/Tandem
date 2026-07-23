@@ -1,0 +1,4 @@
+interface:
+  display_name: "Rheem VI UI Designer"
+  short_description: "Guide Rheem-branded VI and product UI work"
+  default_prompt: "Use $rheem-vi-ui-designer to design or review a Rheem-branded product UI."

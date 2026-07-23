@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@rhautt-nexus/ui": ["packages/ui/src/index.ts"],
+      "@rhautt-nexus/contracts": ["packages/contracts/src/index.ts"],
+      "@rhautt-nexus/domain": ["packages/domain/src/index.ts"],
+      "@rhautt-nexus/domain/hvac-kernels": ["packages/domain/hvac-kernels/index.d.ts"],
+      "@rhautt-nexus/visual-system": ["packages/visual-system/src/index.ts"]
+    }
+  }
+}

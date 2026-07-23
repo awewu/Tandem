@@ -1,0 +1,14 @@
+{
+  "name": "visual-system",
+  "projectType": "library",
+  "sourceRoot": "packages/visual-system/src",
+  "tags": ["scope:shared", "type:visual-system"],
+  "targets": {
+    "build": {
+      "executor": "target-scaffold",
+      "options": {
+        "status": "scaffold-only"
+      }
+    }
+  }
+}

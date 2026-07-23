@@ -1,0 +1,26 @@
+{
+  "_README": "产品图片来源清单（可后期替换的单一事实源）。每个条目：slug→{pages,alt,note,owned?}。",
+  "_dam_pipeline_2026-07-01": "已接入 Nexus DAM：sync-product-images-to-dam.mjs 把图入库(file-artifact)、回写 products.meta.imageArtifactId；fetch-product-images-from-dam.mjs 构建期拉回并重生成 product-images.js。默认仅上传本清单中标了 \"owned\": true 的自有/授权白底图；当前占位图未标 owned，需 --include-placeholders 才会入库(仅 dev)。换授权图后：在对应 slug 加 \"owned\": true 即随构建自动入库。",
+  "_workflow": "1) 编辑本文件的 pages（产品页 URL，按优先级排序）；2) 运行 node apps/everhot-cn/scripts/fetch-product-images.mjs；脚本会抓取每页主图，存到 public/assets/img/products/<slug>.<ext>，并生成 public/js/product-images.js 映射。抓取失败的产品自动回退到 SVG 矢量插画（product-art.js）。",
+  "_replace_later": "替换为自有实拍图：把图片放到 public/assets/img/products/<slug>.<ext>，或在 products-data.js 给该产品设置 image 字段（优先级最高）；无需改动渲染代码。",
+  "_license": "pages 指向第三方（瑞美）站点，抓取图片用于集团品牌站开发占位。正式上线前须替换为拥有授权的自有素材，或确认集团内素材使用授权。note 字段记录来源与授权状态。",
+  "_finding_2026-06-29": "实测：瑞美 .cn 产品页 og:image / 正文图多为带『瑞美/Rheem』字样的营销海报与参数表图，不是干净的产品白底渲染图，直接用会出现竞品品牌字样（品牌混淆+版权问题）。因此默认不落库抓取结果，product-images.js 保持空映射、由 SVG 矢量插画渲染。本管线已验证可端到端工作；后续接入【自有实拍/授权白底图】时：把图片放入 public/assets/img/products/<slug>.<ext> 或在 products-data.js 设 image 字段即可，无需改代码。",
+  "_image_dir": "apps/everhot-cn/public/assets/img/products",
+  "_output_map": "apps/everhot-cn/public/js/product-images.js",
+  "products": {
+    "everwarm-c26": { "image": "https://www.rheem.com.cn/upload/ueditor/image/20210519/1621408453892701.jpg", "pages": ["https://www.rheem.com.cn/product/9/40.html"], "alt": "EverWarm 冷凝壁挂炉", "note": "来源:瑞美双冷凝炉 XCLUSIVE 产品主图；集团品牌" },
+    "everwarm-pro": { "image": "https://www.rheem.com.cn/upload/ueditor/image/20210519/1621408453892701.jpg", "pages": ["https://www.rheem.com.cn/product/9/40.html"], "alt": "EverWarm Pro 纯采暖壁挂炉", "note": "来源:瑞美双冷凝炉；集团品牌" },
+    "everduo-x12": { "image": "https://www.rheem.com.cn/upload/ueditor/image/20230628/1687889097793191.jpg", "pages": ["https://www.rheem.com.cn/product/9/64.html"], "alt": "EverDuo 采暖热水一体机", "note": "来源:瑞美 X-pro 采暖热水两用炉产品主图；集团品牌" },
+    "everair-r200": { "image": "https://www.rheem.com.cn/upload/ueditor/image/20221014/1665739789822812.jpg", "pages": ["https://www.rheem.com.cn/product/9/62.html"], "alt": "EverAir 家用空气能热水器", "note": "来源:瑞美维拉 Vela 零冷水空气能；集团品牌" },
+    "everair-pro": { "image": "https://www.rheem.com.cn/upload/ueditor/image/20220921/1663748391403835.jpg", "pages": ["https://www.rheem.com.cn/product/9/49.html"], "alt": "EverAir Pro 商用空气能机组", "note": "来源:瑞美奥丁 Odin 一体式空气能产品主图；集团品牌" },
+    "evertank-v100": { "image": "https://www.rheem.com.cn/upload/ueditor/image/20210409/1617964964682948.jpg", "pages": ["https://www.rheem.com.cn/product/9/31.html"], "alt": "EverTank 容积式燃气热水器", "note": "来源:瑞美 RGS-PDV 燃气容积式产品主图；集团品牌" },
+    "evertank-max": { "image": "https://www.rheem.com.cn/upload/ueditor/image/20210409/1617964571120764.jpg", "pages": ["https://www.rheem.com.cn/product/9/28.html"], "alt": "EverTank Max 大容积储热水箱", "note": "来源:瑞美 RGS-PV 燃气容积式产品主图；集团品牌" },
+    "everflow-z16": { "pages": ["https://www.rheem.com.cn/product/9/87.html"], "alt": "EverFlow 零冷水燃气热水器", "note": "来源:瑞美 GTD 静音小鲸鱼 水气双核 恒温±0.5℃；恒热(四川)同集团运营，设计占位，后台可替换" },
+    "everelec-80": { "pages": ["https://www.rheem.com.cn/product/9/86.html"], "alt": "EverElec 速热电热水器", "note": "来源:瑞美 小蓝星活水电热水器 CSFH080；同集团，设计占位" },
+    "evermax-c500": { "pages": ["https://www.rheem.com.cn/product/10/12.html"], "alt": "EverMax 商用燃气热水炉", "note": "来源:瑞美 Triton 商用冷凝燃气容积式；同集团，设计占位" },
+    "everstation": { "pages": ["https://www.rheem.com.cn/product/10/14.html"], "alt": "EverStation 楼宇集中热水站", "note": "来源:瑞美 G100-C 商用燃气容积式；同集团，设计占位" },
+    "everheat-pro": { "pages": ["https://www.rheem.com.cn/product/10/92.html"], "alt": "EverHeat Pro 商用风冷热泵机组", "note": "来源:瑞美 RHPC-LV 商用变频热泵；同集团，设计占位" },
+    "everboiler": { "pages": ["https://www.rheem.com.cn/product/10/90.html"], "alt": "EverBoiler 商用燃气采暖炉", "note": "来源:瑞美 CBD-99kW 商用壁挂炉；同集团，设计占位" },
+    "everguard": { "pages": ["https://www.rheem.com.cn/product/10/69.html"], "alt": "EverGuard 串联备用系统", "note": "来源:瑞美 GHE-R 商用冷凝低氮容积式；同集团，设计占位" }
+  }
+}

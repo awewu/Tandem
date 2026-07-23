@@ -1,0 +1,10 @@
+/* Everhot 品牌站 VI tokens — everhot.com.cn */
+:root {
+  --brand-primary:    #E4002B;
+  --brand-primary-dk: #A50016;
+  --brand-ink:        #1A1A1A;
+  --brand-surface:    #FAFAFA;
+  --brand-border:     #E5E5E5;
+  --brand-font:       "Microsoft YaHei","PingFang SC",Helvetica,Arial,sans-serif;
+  --brand-radius:     4px;
+}

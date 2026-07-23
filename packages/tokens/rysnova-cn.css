@@ -1,0 +1,11 @@
+/* 瑞诺瓦 C端 VI tokens — rysnova.com.cn */
+:root {
+  --brand-primary:    #0066CC;
+  --brand-primary-dk: #004C99;
+  --brand-accent:     #3399FF;
+  --brand-ink:        #1A1A1A;
+  --brand-surface:    #F0F6FF;
+  --brand-border:     #D6E8FF;
+  --brand-font:       "Microsoft YaHei","PingFang SC",Helvetica,Arial,sans-serif;
+  --brand-radius:     8px;
+}

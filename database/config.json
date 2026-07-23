@@ -1,0 +1,9 @@
+{
+  "logo": "/images/rheem-logo.png",
+  "primaryColor": "#C41230",
+  "fontFamily": "Source Han Sans",
+  "logRetentionDays": 30,
+  "syncIntervalMinutes": 5,
+  "baseDiscount": 0.85,
+  "minMargin": 0.25
+}

@@ -1,0 +1,759 @@
+/**
+ * CSS重构 - Inline Styles迁移文件
+ * 将71处inline styles迁移到此外部CSS文件
+ */
+
+/* ========================================
+   pain-diagnosis.html 样式迁移
+   ======================================== */
+
+/* 网格布局 */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+/* 表单组间距 */
+.form-group-mt {
+  margin-top: 20px;
+}
+
+/* 弹性布局 */
+.flex-wrap-gap {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+/* 文本居中 */
+.text-center {
+  text-align: center;
+}
+
+/* 上边距 */
+.mt-30 {
+  margin-top: 30px;
+}
+
+/* margin-top: 20px */
+.mt-20 {
+  margin-top: 20px;
+}
+
+/* 辅助文字颜色 */
+.text-muted {
+  color: #666;
+}
+
+/* 按钮间距 */
+.btn-gap {
+  margin-left: 10px;
+}
+
+/* 置信度标签 */
+.confidence-tag {
+  color: #E4002B;
+  margin-left: 10px;
+}
+
+/* 推理说明 */
+.reason-text {
+  color: #666;
+  font-size: 0.9em;
+  margin-top: 5px;
+}
+
+/* 系统卡片头部 */
+.system-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* 强制推荐标记 */
+.forced-badge {
+  color: #22c55e;
+}
+
+/* 品牌标签 */
+.brand-tag {
+  color: #E4002B;
+  font-weight: bold;
+}
+
+/* 系统描述 */
+.system-desc {
+  color: #666;
+  margin: 10px 0;
+}
+
+/* 产品标签容器 */
+.product-tags {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+/* 单个产品标签 */
+.product-tag {
+  background: #f0f4ff;
+  padding: 5px 10px;
+  border-radius: 15px;
+  font-size: 0.9em;
+}
+
+/* 价格显示 */
+.price-display {
+  margin-top: 10px;
+  color: #dc2626;
+  font-weight: bold;
+}
+
+/* 报价明细项 */
+.quote-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 15px 0;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+/* 解决的痛点 */
+.solved-pains {
+  color: #666;
+  font-size: 0.9em;
+  margin-top: 5px;
+}
+
+/* 报价金额 */
+.quote-amount {
+  font-weight: bold;
+  color: #dc2626;
+}
+
+/* ========================================
+   solution-view.html 样式迁移
+   ======================================== */
+
+/* 右对齐文本 */
+.text-right {
+  text-align: right;
+}
+
+/* SVG图表容器 */
+.svg-chart {
+  width: 100%;
+  height: 100%;
+  max-height: 500px;
+}
+
+/* SVG图表容器 */
+.svg-chart {
+  width: 100%;
+  height: 100%;
+  max-height: 500px;
+}
+
+/* ========================================
+   通用工具类
+   ======================================== */
+
+/* 弹性布局工具 */
+.flex {
+  display: flex;
+}
+
+.flex-between {
+  display: flex;
+  justify-content: space-between;
+}
+
+.flex-between-center {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* 间距工具 */
+.gap-10 {
+  gap: 10px;
+}
+
+.gap-20 {
+  gap: 20px;
+}
+
+/* 字体大小 */
+.font-large {
+  font-size: 1.2em;
+}
+
+/* 边框和分隔线 */
+.border-top {
+  border-top: 2px solid #e0e0e0;
+}
+
+.pt-20 {
+  padding-top: 20px;
+}
+
+/* 背景色 */
+.bg-gray {
+  background: #f0f0f0;
+}
+
+/* 透明度 */
+.opacity-low {
+  opacity: 0.4;
+}
+
+/* 文本颜色 */
+.text-dark {
+  color: #333;
+}
+
+/* 光标样式 */
+.cursor-not-allowed {
+  cursor: not-allowed;
+}
+
+/* ========================================
+   pain-diagnosis.html 补充样式
+   ======================================== */
+
+/* 下边距 */
+.mb-20 {
+  margin-bottom: 20px;
+}
+
+/* 内边距 */
+.p-40 {
+  padding: 40px;
+}
+
+/* 垂直外边距 */
+.my-15 {
+  margin: 15px 0;
+}
+
+/* 品牌颜色 */
+.text-brand {
+  color: #E4002B;
+}
+
+/* 绿色成功色 */
+.text-success {
+  color: #22c55e;
+}
+
+/* 红色价格色 */
+.text-price {
+  color: #dc2626;
+  font-weight: bold;
+}
+
+/* 卡片头部弹性布局 */
+.card-header-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* 产品标签容器 - 内联 */
+.inline-tags {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+/* 产品标签 - 内联 */
+.inline-tag {
+  background: #f0f4ff;
+  padding: 5px 10px;
+  border-radius: 15px;
+  font-size: 0.9em;
+}
+
+/* 系统描述 */
+.sys-description {
+  color: #666;
+  margin: 10px 0;
+}
+
+/* 系统卡片 */
+.system-card-item {
+  margin-bottom: 15px;
+  border-bottom: 1px solid #e0e0e0;
+  padding: 15px 0;
+}
+
+.system-card-item:last-child {
+  border-bottom: none;
+}
+
+/* 系统卡片内容 */
+.system-card-content {
+  display: flex;
+  justify-content: space-between;
+}
+
+/* 系统信息 */
+.system-info {
+  flex: 1;
+}
+
+/* 系统痛点描述 */
+.system-pains {
+  color: #666;
+  font-size: 0.9em;
+  margin-top: 5px;
+}
+
+/* 置信度标签 */
+.confidence-label {
+  color: #E4002B;
+  margin-left: 10px;
+}
+
+/* 推理文本 */
+.reason-desc {
+  color: #666;
+  font-size: 0.9em;
+  margin-top: 5px;
+}
+
+/* ========================================
+   login.html 样式
+   ======================================== */
+
+/* 第二行角色选择 */
+.role-select-second {
+  margin-top: 12px;
+}
+
+/* 客户入口按钮容器 */
+.customer-entry {
+  margin-top: 12px;
+  text-align: center;
+}
+
+/* 客户入口链接 */
+.customer-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #E4002B 0%, #C20025 100%);
+  color: white;
+  border-radius: 8px;
+  text-decoration: none;
+  font-size: 14px;
+  transition: all 0.3s;
+}
+
+.customer-link:hover {
+  opacity: 0.9;
+}
+
+/* Logo图片 */
+.logo-img {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  margin-bottom: 16px;
+}
+
+/* ========================================
+   designer.html 返佣面板样式
+   ======================================== */
+
+/* 返佣面板容器 */
+.commission-panel {
+  margin-top: 20px;
+  background: linear-gradient(135deg, #E4002B 0%, #C20025 100%);
+  color: white;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+/* 返佣面板头部 */
+.commission-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+/* 返佣图标 */
+.commission-icon {
+  font-size: 24px;
+}
+
+/* 返佣标题 */
+.commission-title {
+  font-weight: bold;
+  font-size: 16px;
+}
+
+/* 返佣副标题 */
+.commission-subtitle {
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+/* 返佣详情 */
+.commission-details {
+  background: rgba(255,255,255,0.2);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+/* 返佣行 */
+.commission-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.commission-row:last-child {
+  margin-bottom: 0;
+  border-top: 1px dashed rgba(255,255,255,0.3);
+  padding-top: 8px;
+  margin-top: 8px;
+}
+
+/* 返佣标签 */
+.commission-label {
+  font-size: 13px;
+}
+
+/* 返佣数值 */
+.commission-value {
+  font-weight: bold;
+}
+
+/* 返佣金额高亮 */
+.commission-amount {
+  font-weight: bold;
+  color: #ffd700;
+  font-size: 18px;
+}
+
+/* 返佣比例高亮 */
+.commission-rate {
+  font-weight: bold;
+  color: #ffd700;
+}
+
+/* 统计卡片容器 */
+.commission-stats {
+  display: flex;
+  gap: 8px;
+}
+
+/* 统计卡片 */
+.commission-stat {
+  flex: 1;
+  background: rgba(255,255,255,0.15);
+  border-radius: 8px;
+  padding: 10px;
+  text-align: center;
+}
+
+/* 统计标签 */
+.commission-stat-label {
+  font-size: 11px;
+  opacity: 0.8;
+  margin-bottom: 4px;
+}
+
+/* 统计数值 */
+.commission-stat-value {
+  font-weight: bold;
+  font-size: 16px;
+}
+
+/* 返佣规则 */
+.commission-rules {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(255,255,255,0.3);
+  font-size: 11px;
+  opacity: 0.8;
+  line-height: 1.6;
+}
+
+/* ========================================
+   quick-lock.html 样式
+   ======================================== */
+
+/* 客户入口区域 */
+.view-diagrams-section {
+  margin-top: 24px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+}
+
+/* 标题 */
+.section-title {
+  margin-bottom: 12px;
+  color: #333;
+}
+
+/* 描述文本 */
+.section-desc {
+  color: #666;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+/* 步骤导航 */
+.step-nav {
+  margin-top: 24px;
+  text-align: center;
+}
+
+/* 步骤链接 */
+.step-link {
+  margin-left: 12px;
+}
+
+/* ========================================
+   solution-view.html 表格样式
+   ======================================== */
+
+/* 表格基础样式 */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+/* 表格单元格 */
+.table-cell {
+  padding: 12px 15px;
+  text-align: left;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+/* 价格单元格 */
+.price-cell {
+  text-align: right;
+}
+
+/* 表头 */
+.table-header {
+  background: #f8f9fa;
+  font-weight: 600;
+}
+
+/* ========================================
+   通用工具类补充
+   ======================================== */
+
+/* 隐藏元素 */
+.hidden {
+  display: none !important;
+}
+
+/* 显示元素 */
+.block {
+  display: block;
+}
+
+/* 弹性容器 */
+.flex {
+  display: flex;
+}
+
+/* 列方向弹性布局 */
+.flex-col {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 居中对齐 */
+.items-center {
+  align-items: center;
+}
+
+/* 两端对齐 */
+.justify-between {
+  justify-content: space-between;
+}
+
+/* 自动外边距 */
+.ml-auto {
+  margin-left: auto;
+}
+
+/* 右外边距 */
+.mr-12 {
+  margin-right: 12px;
+}
+
+/* 上外边距 */
+.mt-10 {
+  margin-top: 10px;
+}
+
+.mt-12 {
+  margin-top: 12px;
+}
+
+/* 内边距 */
+.p-10 {
+  padding: 10px;
+}
+
+.p-12 {
+  padding: 12px;
+}
+
+.p-16 {
+  padding: 16px;
+}
+
+/* 圆角 */
+.rounded-4 {
+  border-radius: 4px;
+}
+
+.rounded-8 {
+  border-radius: 8px;
+}
+
+.rounded-10 {
+  border-radius: 10px;
+}
+
+.rounded-12 {
+  border-radius: 12px;
+}
+
+/* 边框 */
+.border {
+  border: 1px solid #ddd;
+}
+
+.border-b {
+  border-bottom: 1px solid #e0e0e0;
+}
+
+/* 背景色 */
+.bg-white {
+  background: white;
+}
+
+.bg-light {
+  background: #f8f9fa;
+}
+
+/* 字体大小 */
+.text-xs {
+  font-size: 11px;
+}
+
+.text-sm {
+  font-size: 12px;
+}
+
+.text-base {
+  font-size: 14px;
+}
+
+.text-lg {
+  font-size: 16px;
+}
+
+.text-xl {
+  font-size: 18px;
+}
+
+/* 字体粗细 */
+.font-normal {
+  font-weight: normal;
+}
+
+.font-medium {
+  font-weight: 500;
+}
+
+.font-semibold {
+  font-weight: 600;
+}
+
+.font-bold {
+  font-weight: bold;
+}
+
+/* 文本颜色 */
+.text-white {
+  color: white;
+}
+
+.text-gray {
+  color: #666;
+}
+
+.text-light-gray {
+  color: #888;
+}
+
+.text-dark {
+  color: #333;
+}
+
+/* 透明度 */
+.opacity-90 {
+  opacity: 0.9;
+}
+
+/* 行高 */
+.leading-relaxed {
+  line-height: 1.6;
+}
+
+
+/* ============================================
+   自动迁移的内联样式 - 2026-04-11
+   ============================================ */
+
+.flex { display: flex; }
+.hidden { display: none; }
+.relative { position: relative; }
+.absolute { position: absolute; }
+.text-center { text-align: center; }
+.w-full { width: 100%; }
+.h-full { height: 100%; }
+.cursor-pointer { cursor: pointer; }
+.overflow-hidden { overflow: hidden; }
+.rounded { border-radius: 8px; }
+.rounded-full { border-radius: 50%; }
+.shadow { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+.p-0 { padding: 0; }
+.m-0 { margin: 0; }
+.text-primary { color: var(--color-primary); }
+.bg-white { background: #fff; }
+.font-bold { font-weight: bold; }
+.text-sm { font-size: 14px; }
+.text-base { font-size: 16px; }
+.gap-2 { gap: 10px; }
+.gap-4 { gap: 16px; }
+.justify-center { justify-content: center; }
+.justify-between { justify-content: space-between; }
+.items-center { align-items: center; }
+.flex-col { flex-direction: column; }
+.flex-1 { flex: 1; }
+.z-100 { z-index: 100; }
+.z-1000 { z-index: 1000; }
+.opacity-0 { opacity: 0; }
+.opacity-100 { opacity: 1; }
+.transition { transition: all 0.3s ease; }
+.transform { transform: translate(-50%, -50%); }
+.pointer-none { pointer-events: none; }
+.select-none { -webkit-user-select: none; user-select: none; }

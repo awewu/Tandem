@@ -1,0 +1,91 @@
+{
+  "platform": "Rhautt Nexus / 瑞合数智枢纽",
+  "updatedAt": "2026-06-06",
+  "owner": "orchestrator-chief",
+  "findings": [
+    {
+      "id": "QF-001",
+      "priority": "P0",
+      "area": "product-boundary",
+      "finding": "Historical documents still contain unnamed-platform wording after 瑞诺瓦AI舒适家 was selected.",
+      "owner": "prd-charter-monitor",
+      "status": "active",
+      "requiredEvidence": [
+        "guard:nexus-naming",
+        "guard:delivery-goal"
+      ]
+    },
+    {
+      "id": "QF-002",
+      "priority": "P1",
+      "area": "release-evidence",
+      "finding": "Staging/network load proof, SBOM, provenance, and rollback drill are not yet complete.",
+      "owner": "test-harness-builder",
+      "status": "active",
+      "requiredEvidence": [
+        "perf:capacity",
+        "sbom:generate",
+        "release:provenance",
+        "release:rollback:drill"
+      ]
+    },
+    {
+      "id": "QF-003",
+      "priority": "P1",
+      "area": "legacy-fusion",
+      "finding": "105 HTML files are classified, but migration-candidate assets still need replacement evidence by domain.",
+      "owner": "legacy-fusion-migrator",
+      "status": "active",
+      "requiredEvidence": [
+        "harness:legacy-fusion"
+      ]
+    },
+    {
+      "id": "QF-004",
+      "priority": "P1",
+      "area": "rysnova-bim-artifacts",
+      "finding": "Rysnova now has a production v2 artifact contract, but object storage adapter and export integrity checks still need implementation.",
+      "owner": "rysnova-bim-engineering-builder",
+      "status": "active",
+      "requiredEvidence": [
+        "test:artifacts",
+        "object storage artifact evidence"
+      ]
+    },
+    {
+      "id": "QF-005",
+      "priority": "P1",
+      "area": "customer-lifecycle",
+      "finding": "Customer lifecycle now has a project state model and v2 state route, but installed asset capability registry and service-plan transitions need deeper tests.",
+      "owner": "iot-lifecycle-architect",
+      "status": "active",
+      "requiredEvidence": [
+        "test:customer-lifecycle",
+        "test:tenant-isolation"
+      ]
+    },
+    {
+      "id": "QF-006",
+      "priority": "P0",
+      "area": "rysnova-cend-ui-vi",
+      "finding": "瑞诺瓦 AI 问诊当前仍像 AI 工具页/内部工作台，不符合 C 端家庭舒适系统体检定位。",
+      "owner": "ui-vi-director",
+      "status": "resolved-pending-browser-visual",
+      "sourceTask": "NX-UI-002",
+      "blockerCount": 0,
+      "blockerIds": [],
+      "requiredEvidence": [
+        "guard:rysnova-diagnosis-ui-vi",
+        "guard:browser-visual",
+        "audit/rysnova-diagnosis-cend-ui-vi-report.json",
+        "audit/rysnova-diagnosis-cend-ui-vi-report.md"
+      ],
+      "closeCriteria": [
+        "User-approved UI/VI refactor applied to public/pain-diagnosis.html",
+        "guard:rysnova-diagnosis-ui-vi passes with zero blocker failures",
+        "Desktop and mobile browser visual acceptance for /pain-diagnosis.html is refreshed",
+        "Diagnosis APIs, visualPackages, customer report, and share chain remain intact"
+      ]
+    }
+  ]
+}

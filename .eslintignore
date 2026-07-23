@@ -1,0 +1,47 @@
+# Build outputs
+.next
+out
+dist
+build
+
+# Dependencies
+node_modules
+
+# Archives and legacy (not maintained)
+_archive
+archive
+legacy
+backups
+commercial-hvac-design
+desktop
+docker
+experiments
+frontend
+middleware
+production-config
+server
+
+# Evidence and generated reports
+evidence
+reports
+audit
+logs
+
+# Temporary files
+tmp
+*.tmp
+
+# Tests (not covered by tsconfig.eslint.json, out of W-BIM scope)
+test
+tests
+*.test.js
+*.test.ts
+*.spec.js
+*.spec.ts
+
+# Large generated data
+data
+test-data
+
+# Training PPT tooling (standalone utility scripts, not part of app tsconfig)
+training-ppt

@@ -1,0 +1,5715 @@
+{
+  "meta": {
+    "version": 1,
+    "createdAt": "2026-04-23T03:35:40.153Z",
+    "updatedAt": "2026-04-23T03:49:14.094Z"
+  },
+  "journeys": {
+    "RHM-2026-001": {
+      "caseId": "RHM-2026-001",
+      "customerId": "C0001",
+      "customer": {
+        "name": "张建国",
+        "phone": "13501234567",
+        "city": "上海",
+        "source": "小区地推",
+        "gender": "男",
+        "age": 52
+      },
+      "profile": {
+        "houseType": "别墅",
+        "area": 280,
+        "floors": 3,
+        "basement": true,
+        "budget": 200000,
+        "familySize": 4,
+        "hasElderly": true,
+        "hasInfant": false
+      },
+      "currentStage": "design",
+      "status": "closed-won",
+      "createdAt": "2026-04-23T03:35:40.154Z",
+      "updatedAt": "2026-04-23T03:49:14.094Z",
+      "stages": {
+        "diagnosis": {
+          "status": "completed",
+          "startedAt": "2026-03-08T21:13:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.156Z",
+          "responsible": "王磊",
+          "data": {
+            "painPoints": [
+              "地下室返潮严重",
+              "冬季采暖不均匀",
+              "老人房睡眠空气差"
+            ],
+            "houseType": "别墅",
+            "area": 280,
+            "budget": 200000,
+            "priorities": [
+              "舒适体验",
+              "节能环保",
+              "空气质量"
+            ]
+          },
+          "notes": "问诊完成，识别3个核心痛点"
+        },
+        "lockin": {
+          "status": "completed",
+          "startedAt": "2026-03-11T22:30:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.157Z",
+          "responsible": "王磊",
+          "data": {
+            "lockinActions": [
+              "上门勘查",
+              "3D呈现",
+              "案例展示",
+              "老客户推荐"
+            ],
+            "competitors": [
+              "大金",
+              "日立"
+            ],
+            "clientTier": "premium",
+            "confidence": 0.95
+          },
+          "notes": "锁客成功率 95%"
+        },
+        "deal": {
+          "status": "completed",
+          "startedAt": "2026-03-25T23:56:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.167Z",
+          "responsible": "王磊",
+          "data": {
+            "contractNo": "RHM-CT-2026-0001",
+            "contractDate": "2026-03-25T23:56:00.000Z",
+            "finalAmount": 190373,
+            "paymentSchedule": {
+              "downPayment": 57111,
+              "midPayment": 95186,
+              "finalPayment": 38074
+            },
+            "selectedTier": "premium",
+            "systems": [
+              "五恒系统",
+              "全屋净水系统",
+              "中央热水系统",
+              "智能控制系统"
+            ]
+          },
+          "notes": "合同签订，金额 ¥190,373"
+        },
+        "design": {
+          "status": "in_progress",
+          "startedAt": "2026-03-28T17:08:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.168Z",
+          "responsible": "测试设计师",
+          "data": {
+            "drawings": [
+              "cad-plan.dwg",
+              "3d-render.png",
+              "pipe-layout.pdf",
+              "electrical-diagram.pdf"
+            ],
+            "revisions": 2,
+            "designHours": 17,
+            "clientConfirmed": true,
+            "confirmedAt": "2026-04-03T00:26:00.000Z"
+          },
+          "notes": "自动化测试推进"
+        },
+        "technical": {
+          "status": "completed",
+          "startedAt": "2026-04-04T16:24:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.168Z",
+          "responsible": "赵工",
+          "data": {
+            "loadCalculation": {
+              "heatingLoad": 25200,
+              "coolingLoad": 30800,
+              "hotWaterLoad": 280
+            },
+            "systemSelection": [
+              {
+                "name": "五恒系统",
+                "brand": "瑞美尊享",
+                "price": 120000,
+                "model": "RH-X9"
+              },
+              {
+                "name": "全屋净水系统",
+                "brand": "瑞美Plus",
+                "price": 25000,
+                "model": "RH-P7"
+              },
+              {
+                "name": "中央热水系统",
+                "brand": "瑞美Plus",
+                "price": 35000,
+                "model": "RH-W7"
+              },
+              {
+                "name": "智能控制系统",
+                "brand": "瑞美Smart",
+                "price": 20000,
+                "model": "RH-S5"
+              }
+            ],
+            "energyEfficiency": {
+              "COP": 4.2,
+              "EER": 3.8,
+              "annualEnergySaving": "35%"
+            },
+            "compliance": [
+              "GB 50736-2012",
+              "GB 50189-2015",
+              "ISO 50001"
+            ],
+            "technicalReview": {
+              "reviewer": "钱工",
+              "passedAt": "2026-04-06T18:30:00.000Z"
+            }
+          },
+          "notes": "技术评审通过，冷负荷30800W/热负荷25200W"
+        },
+        "construction": {
+          "status": "completed",
+          "startedAt": "2026-04-08T15:28:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.170Z",
+          "responsible": "孙师傅",
+          "data": {
+            "startDate": "2026-04-08T15:28:00.000Z",
+            "endDate": "2026-04-19T00:23:00.000Z",
+            "workDays": 10,
+            "team": [
+              "孙师傅",
+              "水电工李师傅",
+              "弱电工老周"
+            ],
+            "milestones": [
+              {
+                "date": "2026-04-08T15:28:00.000Z",
+                "event": "进场开工",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-11T00:40:00.000Z",
+                "event": "管路预埋",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-13T00:14:00.000Z",
+                "event": "主机吊装",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-16T00:45:00.000Z",
+                "event": "末端安装",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-18T00:49:00.000Z",
+                "event": "系统调试",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-19T00:23:00.000Z",
+                "event": "竣工验收",
+                "status": "done"
+              }
+            ],
+            "issues": [],
+            "safetyIncidents": 0,
+            "clientAcceptance": {
+              "signedBy": "张建国",
+              "signedAt": "2026-04-19T00:23:00.000Z",
+              "rating": 4.983581893633498
+            }
+          },
+          "notes": "施工完成10天，零安全事故"
+        },
+        "quotation": {
+          "status": "completed",
+          "startedAt": "2026-03-25T23:56:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.170Z",
+          "responsible": "王磊",
+          "data": {
+            "items": [
+              {
+                "category": "设备",
+                "name": "五恒系统",
+                "model": "RH-X9",
+                "brand": "瑞美尊享",
+                "qty": 1,
+                "unitPrice": 120000,
+                "amount": 120000
+              },
+              {
+                "category": "设备",
+                "name": "全屋净水系统",
+                "model": "RH-P7",
+                "brand": "瑞美Plus",
+                "qty": 1,
+                "unitPrice": 25000,
+                "amount": 25000
+              },
+              {
+                "category": "设备",
+                "name": "中央热水系统",
+                "model": "RH-W7",
+                "brand": "瑞美Plus",
+                "qty": 1,
+                "unitPrice": 35000,
+                "amount": 35000
+              },
+              {
+                "category": "设备",
+                "name": "智能控制系统",
+                "model": "RH-S5",
+                "brand": "瑞美Smart",
+                "qty": 1,
+                "unitPrice": 20000,
+                "amount": 20000
+              },
+              {
+                "category": "辅材",
+                "name": "管路材料/配件",
+                "model": "套",
+                "brand": "国标",
+                "qty": 1,
+                "unitPrice": 33600,
+                "amount": 33600
+              },
+              {
+                "category": "安装",
+                "name": "安装人工费",
+                "model": "㎡",
+                "brand": "自营",
+                "qty": 280,
+                "unitPrice": 150,
+                "amount": 42000
+              },
+              {
+                "category": "服务",
+                "name": "系统调试+验收",
+                "model": "次",
+                "brand": "自营",
+                "qty": 1,
+                "unitPrice": 3000,
+                "amount": 3000
+              }
+            ],
+            "subtotal": 278600,
+            "discount": 22288,
+            "finalTotal": 190373,
+            "promotionApplied": [
+              "套餐优惠85折",
+              "老客户推荐-¥1000"
+            ],
+            "paymentTerms": "30%首付 / 50%进场款 / 20%尾款",
+            "warranty": {
+              "equipment": "5年整机",
+              "installation": "2年施工",
+              "service": "10年全国联保"
+            }
+          },
+          "notes": "报价明细 7 项，最终金额 ¥190,373"
+        }
+      },
+      "timeline": [
+        {
+          "timestamp": "2026-04-23T03:35:40.154Z",
+          "stage": "system",
+          "event": "journey_created",
+          "actor": "system",
+          "detail": "客户旅程创建"
+        },
+        {
+          "timestamp": "2026-03-08T21:45:00.000Z",
+          "stage": "diagnosis",
+          "event": "communication_logged",
+          "actor": "张建国",
+          "detail": "电话沟通：首次咨询"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.156Z",
+          "stage": "diagnosis",
+          "event": "stage_completed",
+          "actor": "王磊",
+          "detail": "问诊完成，识别3个核心痛点"
+        },
+        {
+          "timestamp": "2026-03-11T22:23:00.000Z",
+          "stage": "lockin",
+          "event": "communication_logged",
+          "actor": "王磊",
+          "detail": "上门沟通：上门现场勘查"
+        },
+        {
+          "timestamp": "2026-03-16T03:30:00.000Z",
+          "stage": "lockin",
+          "event": "communication_logged",
+          "actor": "王磊",
+          "detail": "微信沟通：方案初稿发送"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.157Z",
+          "stage": "lockin",
+          "event": "stage_completed",
+          "actor": "王磊",
+          "detail": "锁客成功率 95%"
+        },
+        {
+          "timestamp": "2026-03-25T23:56:00.000Z",
+          "stage": "deal",
+          "event": "communication_logged",
+          "actor": "王磊",
+          "detail": "上门沟通：合同签订"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.167Z",
+          "stage": "deal",
+          "event": "stage_completed",
+          "actor": "王磊",
+          "detail": "合同签订，金额 ¥190,373"
+        },
+        {
+          "timestamp": "2026-03-28T17:27:00.000Z",
+          "stage": "design",
+          "event": "communication_logged",
+          "actor": "张扬",
+          "detail": "微信沟通：方案深化设计"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.168Z",
+          "stage": "design",
+          "event": "stage_completed",
+          "actor": "张扬",
+          "detail": "设计完成，别墅280㎡，4大系统"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.168Z",
+          "stage": "technical",
+          "event": "stage_completed",
+          "actor": "赵工",
+          "detail": "技术评审通过，冷负荷30800W/热负荷25200W"
+        },
+        {
+          "timestamp": "2026-04-08T15:28:00.000Z",
+          "stage": "construction",
+          "event": "communication_logged",
+          "actor": "孙师傅",
+          "detail": "现场沟通：施工进场"
+        },
+        {
+          "timestamp": "2026-04-13T23:55:00.000Z",
+          "stage": "construction",
+          "event": "communication_logged",
+          "actor": "孙师傅",
+          "detail": "微信沟通：施工进度汇报"
+        },
+        {
+          "timestamp": "2026-04-19T00:23:00.000Z",
+          "stage": "construction",
+          "event": "communication_logged",
+          "actor": "孙师傅",
+          "detail": "现场沟通：竣工验收"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.170Z",
+          "stage": "construction",
+          "event": "stage_completed",
+          "actor": "孙师傅",
+          "detail": "施工完成10天，零安全事故"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.170Z",
+          "stage": "quotation",
+          "event": "stage_completed",
+          "actor": "王磊",
+          "detail": "报价明细 7 项，最终金额 ¥190,373"
+        },
+        {
+          "timestamp": "2026-04-21T18:10:00.000Z",
+          "stage": "quotation",
+          "event": "communication_logged",
+          "actor": "王磊",
+          "detail": "电话沟通：48小时回访"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.172Z",
+          "stage": "system",
+          "event": "journey_closed",
+          "actor": "system",
+          "detail": "旅程关闭：closed-won - 顺利交付，客户满意度4.9分"
+        },
+        {
+          "timestamp": "2026-04-23T03:49:14.091Z",
+          "stage": "quotation",
+          "event": "communication_logged",
+          "actor": "测试机器人",
+          "detail": "微信沟通：自动化测试回访"
+        },
+        {
+          "timestamp": "2026-04-23T03:49:14.094Z",
+          "stage": "design",
+          "event": "stage_in_progress",
+          "actor": "测试设计师",
+          "detail": "自动化测试推进"
+        }
+      ],
+      "communications": [
+        {
+          "id": "COMM-1776915340155-185",
+          "timestamp": "2026-03-08T21:45:00.000Z",
+          "channel": "电话",
+          "direction": "inbound",
+          "from": "张建国",
+          "to": "王磊",
+          "topic": "首次咨询",
+          "content": "客户来电咨询，上海别墅业主，主要痛点：地下室返潮严重、冬季采暖不均匀、老人房睡眠空气差。预算约20万",
+          "sentiment": "positive",
+          "nextAction": "邀约上门问诊",
+          "nextActionAt": "2026-03-11T22:53:00.000Z",
+          "stage": "diagnosis"
+        },
+        {
+          "id": "COMM-1776915340156-905",
+          "timestamp": "2026-03-11T22:23:00.000Z",
+          "channel": "上门",
+          "direction": "outbound",
+          "from": "王磊",
+          "to": "张建国",
+          "topic": "上门现场勘查",
+          "content": "上门勘查，测量房屋尺寸，确认施工条件。客户对高端定制方案表现出强烈兴趣",
+          "sentiment": "positive",
+          "nextAction": "3D方案呈现",
+          "nextActionAt": "2026-03-18T21:39:00.000Z",
+          "stage": "lockin"
+        },
+        {
+          "id": "COMM-1776915340156-448",
+          "timestamp": "2026-03-16T03:30:00.000Z",
+          "channel": "微信",
+          "direction": "outbound",
+          "from": "王磊",
+          "to": "张建国",
+          "topic": "方案初稿发送",
+          "content": "已发送定制方案初稿PDF。方案包含：五恒系统+全屋净水+中央热水+智能控制",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "lockin"
+        },
+        {
+          "id": "COMM-1776915340167-651",
+          "timestamp": "2026-03-25T23:56:00.000Z",
+          "channel": "上门",
+          "direction": "outbound",
+          "from": "王磊",
+          "to": "张建国",
+          "topic": "合同签订",
+          "content": "合同签订完成，方案金额¥190,373，首付30%：¥57,111",
+          "sentiment": "closed",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "deal"
+        },
+        {
+          "id": "COMM-1776915340168-865",
+          "timestamp": "2026-03-28T17:27:00.000Z",
+          "channel": "微信",
+          "direction": "outbound",
+          "from": "张扬",
+          "to": "张建国",
+          "topic": "方案深化设计",
+          "content": "开始深化设计：CAD图纸 + 3D效果图 + 管路排布图，预计3天完成",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "design"
+        },
+        {
+          "id": "COMM-1776915340169-586",
+          "timestamp": "2026-04-08T15:28:00.000Z",
+          "channel": "现场",
+          "direction": "outbound",
+          "from": "孙师傅",
+          "to": "张建国",
+          "topic": "施工进场",
+          "content": "施工队伍进场，预计工期10天。已完成材料到场检验、安全交底",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "construction"
+        },
+        {
+          "id": "COMM-1776915340169-540",
+          "timestamp": "2026-04-13T23:55:00.000Z",
+          "channel": "微信",
+          "direction": "outbound",
+          "from": "孙师傅",
+          "to": "张建国",
+          "topic": "施工进度汇报",
+          "content": "主机吊装完成，管路预埋完成60%，现场照片已上传。下周进入精装配合阶段",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "construction"
+        },
+        {
+          "id": "COMM-1776915340169-507",
+          "timestamp": "2026-04-19T00:23:00.000Z",
+          "channel": "现场",
+          "direction": "outbound",
+          "from": "孙师傅",
+          "to": "张建国",
+          "topic": "竣工验收",
+          "content": "设备调试完成，系统压力测试通过，客户签字验收",
+          "sentiment": "closed",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "construction"
+        },
+        {
+          "id": "COMM-1776915340171-344",
+          "timestamp": "2026-04-21T18:10:00.000Z",
+          "channel": "电话",
+          "direction": "outbound",
+          "from": "王磊",
+          "to": "张建国",
+          "topic": "48小时回访",
+          "content": "系统运行良好，客户反馈舒适度提升明显。已安排3个月上门保养",
+          "sentiment": "positive",
+          "nextAction": "季度上门保养",
+          "nextActionAt": "2026-07-21T17:21:00.000Z",
+          "stage": "quotation"
+        },
+        {
+          "id": "COMM-1776916154091-235",
+          "timestamp": "2026-04-23T03:49:14.091Z",
+          "channel": "微信",
+          "direction": "outbound",
+          "from": "测试机器人",
+          "to": "张建国",
+          "topic": "自动化测试回访",
+          "content": "这是自动化测试新增的沟通记录, 验证 UI 模态框接入的 API 可用",
+          "sentiment": "neutral",
+          "nextAction": "等待客户回复",
+          "nextActionAt": "2026-04-24T03:49:14.075Z",
+          "stage": "quotation"
+        }
+      ],
+      "attachments": [],
+      "nextFollowUp": "2026-04-24T03:49:14.075Z",
+      "closedAt": "2026-04-23T03:35:40.172Z",
+      "closeReason": "顺利交付，客户满意度4.9分"
+    },
+    "RHM-2026-002": {
+      "caseId": "RHM-2026-002",
+      "customerId": "C0002",
+      "customer": {
+        "name": "李丽娜",
+        "phone": "13602345678",
+        "city": "杭州",
+        "source": "老客户推荐",
+        "gender": "女",
+        "age": 35
+      },
+      "profile": {
+        "houseType": "大平层",
+        "area": 180,
+        "floors": 1,
+        "basement": false,
+        "budget": 120000,
+        "familySize": 3,
+        "hasElderly": false,
+        "hasInfant": true
+      },
+      "currentStage": "quotation",
+      "status": "closed-won",
+      "createdAt": "2026-04-23T03:35:40.172Z",
+      "updatedAt": "2026-04-23T03:35:40.178Z",
+      "stages": {
+        "diagnosis": {
+          "status": "completed",
+          "startedAt": "2026-03-05T22:45:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.173Z",
+          "responsible": "刘婷",
+          "data": {
+            "painPoints": [
+              "婴儿房空气质量",
+              "夏季空调噪音",
+              "热水不稳定"
+            ],
+            "houseType": "大平层",
+            "area": 180,
+            "budget": 120000,
+            "priorities": [
+              "舒适体验",
+              "节能环保",
+              "空气质量"
+            ]
+          },
+          "notes": "问诊完成，识别3个核心痛点"
+        },
+        "lockin": {
+          "status": "completed",
+          "startedAt": "2026-03-08T22:06:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.174Z",
+          "responsible": "刘婷",
+          "data": {
+            "lockinActions": [
+              "上门勘查",
+              "3D呈现",
+              "案例展示",
+              "老客户推荐"
+            ],
+            "competitors": [
+              "大金",
+              "日立"
+            ],
+            "clientTier": "comfort",
+            "confidence": 0.9
+          },
+          "notes": "锁客成功率 90%"
+        },
+        "deal": {
+          "status": "completed",
+          "startedAt": "2026-03-22T23:38:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.175Z",
+          "responsible": "刘婷",
+          "data": {
+            "contractNo": "RHM-CT-2026-0002",
+            "contractDate": "2026-03-22T23:38:00.000Z",
+            "finalAmount": 108905,
+            "paymentSchedule": {
+              "downPayment": 32671,
+              "midPayment": 54452,
+              "finalPayment": 21781
+            },
+            "selectedTier": "comfort",
+            "systems": [
+              "中央空调",
+              "新风系统",
+              "中央热水系统",
+              "全屋净水系统"
+            ]
+          },
+          "notes": "合同签订，金额 ¥108,905"
+        },
+        "design": {
+          "status": "completed",
+          "startedAt": "2026-03-25T17:38:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.175Z",
+          "responsible": "李薇",
+          "data": {
+            "drawings": [
+              "cad-plan.dwg",
+              "3d-render.png",
+              "pipe-layout.pdf",
+              "electrical-diagram.pdf"
+            ],
+            "revisions": 2,
+            "designHours": 17,
+            "clientConfirmed": true,
+            "confirmedAt": "2026-03-31T00:36:00.000Z"
+          },
+          "notes": "设计完成，大平层180㎡，4大系统"
+        },
+        "technical": {
+          "status": "completed",
+          "startedAt": "2026-04-01T16:45:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.176Z",
+          "responsible": "钱工",
+          "data": {
+            "loadCalculation": {
+              "heatingLoad": 13500,
+              "coolingLoad": 19800,
+              "hotWaterLoad": 210
+            },
+            "systemSelection": [
+              {
+                "name": "中央空调",
+                "brand": "瑞美舒适款",
+                "price": 55000,
+                "model": "RH-A7"
+              },
+              {
+                "name": "新风系统",
+                "brand": "瑞美",
+                "price": 22000,
+                "model": "RH-F5"
+              },
+              {
+                "name": "中央热水系统",
+                "brand": "瑞美",
+                "price": 18000,
+                "model": "RH-W5"
+              },
+              {
+                "name": "全屋净水系统",
+                "brand": "瑞美",
+                "price": 12000,
+                "model": "RH-P3"
+              }
+            ],
+            "energyEfficiency": {
+              "COP": 4.2,
+              "EER": 3.8,
+              "annualEnergySaving": "35%"
+            },
+            "compliance": [
+              "GB 50736-2012",
+              "GB 50189-2015",
+              "ISO 50001"
+            ],
+            "technicalReview": {
+              "reviewer": "赵工",
+              "passedAt": "2026-04-03T18:02:00.000Z"
+            }
+          },
+          "notes": "技术评审通过，冷负荷19800W/热负荷13500W"
+        },
+        "construction": {
+          "status": "completed",
+          "startedAt": "2026-04-05T15:07:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.178Z",
+          "responsible": "吴师傅",
+          "data": {
+            "startDate": "2026-04-05T15:07:00.000Z",
+            "endDate": "2026-04-16T00:36:00.000Z",
+            "workDays": 10,
+            "team": [
+              "吴师傅",
+              "水电工李师傅",
+              "弱电工老周"
+            ],
+            "milestones": [
+              {
+                "date": "2026-04-05T15:07:00.000Z",
+                "event": "进场开工",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-08T00:56:00.000Z",
+                "event": "管路预埋",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-10T00:57:00.000Z",
+                "event": "主机吊装",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-13T00:55:00.000Z",
+                "event": "末端安装",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-15T00:38:00.000Z",
+                "event": "系统调试",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-16T00:36:00.000Z",
+                "event": "竣工验收",
+                "status": "done"
+              }
+            ],
+            "issues": [],
+            "safetyIncidents": 0,
+            "clientAcceptance": {
+              "signedBy": "李丽娜",
+              "signedAt": "2026-04-16T00:36:00.000Z",
+              "rating": 4.851290887614743
+            }
+          },
+          "notes": "施工完成10天，零安全事故"
+        },
+        "quotation": {
+          "status": "completed",
+          "startedAt": "2026-03-22T23:38:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.178Z",
+          "responsible": "刘婷",
+          "data": {
+            "items": [
+              {
+                "category": "设备",
+                "name": "中央空调",
+                "model": "RH-A7",
+                "brand": "瑞美舒适款",
+                "qty": 1,
+                "unitPrice": 55000,
+                "amount": 55000
+              },
+              {
+                "category": "设备",
+                "name": "新风系统",
+                "model": "RH-F5",
+                "brand": "瑞美",
+                "qty": 1,
+                "unitPrice": 22000,
+                "amount": 22000
+              },
+              {
+                "category": "设备",
+                "name": "中央热水系统",
+                "model": "RH-W5",
+                "brand": "瑞美",
+                "qty": 1,
+                "unitPrice": 18000,
+                "amount": 18000
+              },
+              {
+                "category": "设备",
+                "name": "全屋净水系统",
+                "model": "RH-P3",
+                "brand": "瑞美",
+                "qty": 1,
+                "unitPrice": 12000,
+                "amount": 12000
+              },
+              {
+                "category": "辅材",
+                "name": "管路材料/配件",
+                "model": "套",
+                "brand": "国标",
+                "qty": 1,
+                "unitPrice": 21600,
+                "amount": 21600
+              },
+              {
+                "category": "安装",
+                "name": "安装人工费",
+                "model": "㎡",
+                "brand": "自营",
+                "qty": 180,
+                "unitPrice": 150,
+                "amount": 27000
+              },
+              {
+                "category": "服务",
+                "name": "系统调试+验收",
+                "model": "次",
+                "brand": "自营",
+                "qty": 1,
+                "unitPrice": 3000,
+                "amount": 3000
+              }
+            ],
+            "subtotal": 158600,
+            "discount": 12688,
+            "finalTotal": 108905,
+            "promotionApplied": [
+              "套餐优惠85折",
+              "老客户推荐-¥1000"
+            ],
+            "paymentTerms": "30%首付 / 50%进场款 / 20%尾款",
+            "warranty": {
+              "equipment": "5年整机",
+              "installation": "2年施工",
+              "service": "10年全国联保"
+            }
+          },
+          "notes": "报价明细 7 项，最终金额 ¥108,905"
+        }
+      },
+      "timeline": [
+        {
+          "timestamp": "2026-04-23T03:35:40.172Z",
+          "stage": "system",
+          "event": "journey_created",
+          "actor": "system",
+          "detail": "客户旅程创建"
+        },
+        {
+          "timestamp": "2026-03-05T22:27:00.000Z",
+          "stage": "diagnosis",
+          "event": "communication_logged",
+          "actor": "李丽娜",
+          "detail": "电话沟通：首次咨询"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.173Z",
+          "stage": "diagnosis",
+          "event": "stage_completed",
+          "actor": "刘婷",
+          "detail": "问诊完成，识别3个核心痛点"
+        },
+        {
+          "timestamp": "2026-03-08T22:39:00.000Z",
+          "stage": "lockin",
+          "event": "communication_logged",
+          "actor": "刘婷",
+          "detail": "上门沟通：上门现场勘查"
+        },
+        {
+          "timestamp": "2026-03-13T03:41:00.000Z",
+          "stage": "lockin",
+          "event": "communication_logged",
+          "actor": "刘婷",
+          "detail": "微信沟通：方案初稿发送"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.174Z",
+          "stage": "lockin",
+          "event": "stage_completed",
+          "actor": "刘婷",
+          "detail": "锁客成功率 90%"
+        },
+        {
+          "timestamp": "2026-03-22T23:38:00.000Z",
+          "stage": "deal",
+          "event": "communication_logged",
+          "actor": "刘婷",
+          "detail": "上门沟通：合同签订"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.175Z",
+          "stage": "deal",
+          "event": "stage_completed",
+          "actor": "刘婷",
+          "detail": "合同签订，金额 ¥108,905"
+        },
+        {
+          "timestamp": "2026-03-25T17:33:00.000Z",
+          "stage": "design",
+          "event": "communication_logged",
+          "actor": "李薇",
+          "detail": "微信沟通：方案深化设计"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.175Z",
+          "stage": "design",
+          "event": "stage_completed",
+          "actor": "李薇",
+          "detail": "设计完成，大平层180㎡，4大系统"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.176Z",
+          "stage": "technical",
+          "event": "stage_completed",
+          "actor": "钱工",
+          "detail": "技术评审通过，冷负荷19800W/热负荷13500W"
+        },
+        {
+          "timestamp": "2026-04-05T15:07:00.000Z",
+          "stage": "construction",
+          "event": "communication_logged",
+          "actor": "吴师傅",
+          "detail": "现场沟通：施工进场"
+        },
+        {
+          "timestamp": "2026-04-10T23:16:00.000Z",
+          "stage": "construction",
+          "event": "communication_logged",
+          "actor": "吴师傅",
+          "detail": "微信沟通：施工进度汇报"
+        },
+        {
+          "timestamp": "2026-04-16T00:36:00.000Z",
+          "stage": "construction",
+          "event": "communication_logged",
+          "actor": "吴师傅",
+          "detail": "现场沟通：竣工验收"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.178Z",
+          "stage": "construction",
+          "event": "stage_completed",
+          "actor": "吴师傅",
+          "detail": "施工完成10天，零安全事故"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.178Z",
+          "stage": "quotation",
+          "event": "stage_completed",
+          "actor": "刘婷",
+          "detail": "报价明细 7 项，最终金额 ¥108,905"
+        },
+        {
+          "timestamp": "2026-04-18T18:31:00.000Z",
+          "stage": "quotation",
+          "event": "communication_logged",
+          "actor": "刘婷",
+          "detail": "电话沟通：48小时回访"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.179Z",
+          "stage": "system",
+          "event": "journey_closed",
+          "actor": "system",
+          "detail": "旅程关闭：closed-won - 顺利交付，客户满意度4.7分"
+        }
+      ],
+      "communications": [
+        {
+          "id": "COMM-1776915340172-693",
+          "timestamp": "2026-03-05T22:27:00.000Z",
+          "channel": "电话",
+          "direction": "inbound",
+          "from": "李丽娜",
+          "to": "刘婷",
+          "topic": "首次咨询",
+          "content": "客户来电咨询，杭州大平层业主，主要痛点：婴儿房空气质量、夏季空调噪音、热水不稳定。预算约12万",
+          "sentiment": "positive",
+          "nextAction": "邀约上门问诊",
+          "nextActionAt": "2026-03-08T22:23:00.000Z",
+          "stage": "diagnosis"
+        },
+        {
+          "id": "COMM-1776915340173-591",
+          "timestamp": "2026-03-08T22:39:00.000Z",
+          "channel": "上门",
+          "direction": "outbound",
+          "from": "刘婷",
+          "to": "李丽娜",
+          "topic": "上门现场勘查",
+          "content": "上门勘查，测量房屋尺寸，确认施工条件。客户对舒适型方案表现出强烈兴趣",
+          "sentiment": "positive",
+          "nextAction": "3D方案呈现",
+          "nextActionAt": "2026-03-15T21:33:00.000Z",
+          "stage": "lockin"
+        },
+        {
+          "id": "COMM-1776915340174-853",
+          "timestamp": "2026-03-13T03:41:00.000Z",
+          "channel": "微信",
+          "direction": "outbound",
+          "from": "刘婷",
+          "to": "李丽娜",
+          "topic": "方案初稿发送",
+          "content": "已发送定制方案初稿PDF。方案包含：中央空调+新风+热水系统",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "lockin"
+        },
+        {
+          "id": "COMM-1776915340174-751",
+          "timestamp": "2026-03-22T23:38:00.000Z",
+          "channel": "上门",
+          "direction": "outbound",
+          "from": "刘婷",
+          "to": "李丽娜",
+          "topic": "合同签订",
+          "content": "合同签订完成，方案金额¥108,905，首付30%：¥32,671",
+          "sentiment": "closed",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "deal"
+        },
+        {
+          "id": "COMM-1776915340175-522",
+          "timestamp": "2026-03-25T17:33:00.000Z",
+          "channel": "微信",
+          "direction": "outbound",
+          "from": "李薇",
+          "to": "李丽娜",
+          "topic": "方案深化设计",
+          "content": "开始深化设计：CAD图纸 + 3D效果图 + 管路排布图，预计3天完成",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "design"
+        },
+        {
+          "id": "COMM-1776915340176-614",
+          "timestamp": "2026-04-05T15:07:00.000Z",
+          "channel": "现场",
+          "direction": "outbound",
+          "from": "吴师傅",
+          "to": "李丽娜",
+          "topic": "施工进场",
+          "content": "施工队伍进场，预计工期10天。已完成材料到场检验、安全交底",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "construction"
+        },
+        {
+          "id": "COMM-1776915340177-739",
+          "timestamp": "2026-04-10T23:16:00.000Z",
+          "channel": "微信",
+          "direction": "outbound",
+          "from": "吴师傅",
+          "to": "李丽娜",
+          "topic": "施工进度汇报",
+          "content": "主机吊装完成，管路预埋完成60%，现场照片已上传。下周进入精装配合阶段",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "construction"
+        },
+        {
+          "id": "COMM-1776915340177-908",
+          "timestamp": "2026-04-16T00:36:00.000Z",
+          "channel": "现场",
+          "direction": "outbound",
+          "from": "吴师傅",
+          "to": "李丽娜",
+          "topic": "竣工验收",
+          "content": "设备调试完成，系统压力测试通过，客户签字验收",
+          "sentiment": "closed",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "construction"
+        },
+        {
+          "id": "COMM-1776915340178-659",
+          "timestamp": "2026-04-18T18:31:00.000Z",
+          "channel": "电话",
+          "direction": "outbound",
+          "from": "刘婷",
+          "to": "李丽娜",
+          "topic": "48小时回访",
+          "content": "系统运行良好，客户反馈舒适度提升明显。已安排3个月上门保养",
+          "sentiment": "positive",
+          "nextAction": "季度上门保养",
+          "nextActionAt": "2026-07-18T17:39:00.000Z",
+          "stage": "quotation"
+        }
+      ],
+      "attachments": [],
+      "nextFollowUp": "2026-07-18T17:39:00.000Z",
+      "closedAt": "2026-04-23T03:35:40.179Z",
+      "closeReason": "顺利交付，客户满意度4.7分"
+    },
+    "RHM-2026-003": {
+      "caseId": "RHM-2026-003",
+      "customerId": "C0003",
+      "customer": {
+        "name": "王志强",
+        "phone": "13703456789",
+        "city": "苏州",
+        "source": "抖音广告",
+        "gender": "男",
+        "age": 41
+      },
+      "profile": {
+        "houseType": "联排",
+        "area": 220,
+        "floors": 3,
+        "basement": true,
+        "budget": 150000,
+        "familySize": 4,
+        "hasElderly": true,
+        "hasInfant": false
+      },
+      "currentStage": "quotation",
+      "status": "closed-won",
+      "createdAt": "2026-04-23T03:35:40.179Z",
+      "updatedAt": "2026-04-23T03:35:40.187Z",
+      "stages": {
+        "diagnosis": {
+          "status": "completed",
+          "startedAt": "2026-03-01T22:30:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.180Z",
+          "responsible": "陈浩",
+          "data": {
+            "painPoints": [
+              "地暖效果差",
+              "多楼层温差大",
+              "地下室异味"
+            ],
+            "houseType": "联排",
+            "area": 220,
+            "budget": 150000,
+            "priorities": [
+              "舒适体验",
+              "节能环保",
+              "空气质量"
+            ]
+          },
+          "notes": "问诊完成，识别3个核心痛点"
+        },
+        "lockin": {
+          "status": "completed",
+          "startedAt": "2026-03-04T23:48:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.181Z",
+          "responsible": "陈浩",
+          "data": {
+            "lockinActions": [
+              "上门勘查",
+              "3D呈现",
+              "案例展示",
+              "老客户推荐"
+            ],
+            "competitors": [
+              "大金",
+              "日立"
+            ],
+            "clientTier": "comfort",
+            "confidence": 0.8
+          },
+          "notes": "锁客成功率 80%"
+        },
+        "deal": {
+          "status": "completed",
+          "startedAt": "2026-03-18T23:25:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.182Z",
+          "responsible": "陈浩",
+          "data": {
+            "contractNo": "RHM-CT-2026-0003",
+            "contractDate": "2026-03-18T23:25:00.000Z",
+            "finalAmount": 142050,
+            "paymentSchedule": {
+              "downPayment": 42615,
+              "midPayment": 71025,
+              "finalPayment": 28410
+            },
+            "selectedTier": "comfort",
+            "systems": [
+              "中央空调",
+              "新风系统",
+              "中央热水系统",
+              "全屋净水系统"
+            ]
+          },
+          "notes": "合同签订，金额 ¥142,050"
+        },
+        "design": {
+          "status": "completed",
+          "startedAt": "2026-03-21T17:27:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.183Z",
+          "responsible": "张扬",
+          "data": {
+            "drawings": [
+              "cad-plan.dwg",
+              "3d-render.png",
+              "pipe-layout.pdf",
+              "electrical-diagram.pdf"
+            ],
+            "revisions": 2,
+            "designHours": 16,
+            "clientConfirmed": true,
+            "confirmedAt": "2026-03-27T00:16:00.000Z"
+          },
+          "notes": "设计完成，联排220㎡，4大系统"
+        },
+        "technical": {
+          "status": "completed",
+          "startedAt": "2026-03-28T16:54:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.184Z",
+          "responsible": "赵工",
+          "data": {
+            "loadCalculation": {
+              "heatingLoad": 19800,
+              "coolingLoad": 24200,
+              "hotWaterLoad": 280
+            },
+            "systemSelection": [
+              {
+                "name": "中央空调",
+                "brand": "瑞美舒适款",
+                "price": 55000,
+                "model": "RH-A7"
+              },
+              {
+                "name": "新风系统",
+                "brand": "瑞美",
+                "price": 22000,
+                "model": "RH-F5"
+              },
+              {
+                "name": "中央热水系统",
+                "brand": "瑞美",
+                "price": 18000,
+                "model": "RH-W5"
+              },
+              {
+                "name": "全屋净水系统",
+                "brand": "瑞美",
+                "price": 12000,
+                "model": "RH-P3"
+              }
+            ],
+            "energyEfficiency": {
+              "COP": 4.2,
+              "EER": 3.8,
+              "annualEnergySaving": "35%"
+            },
+            "compliance": [
+              "GB 50736-2012",
+              "GB 50189-2015",
+              "ISO 50001"
+            ],
+            "technicalReview": {
+              "reviewer": "钱工",
+              "passedAt": "2026-03-30T18:51:00.000Z"
+            }
+          },
+          "notes": "技术评审通过，冷负荷24200W/热负荷19800W"
+        },
+        "construction": {
+          "status": "completed",
+          "startedAt": "2026-04-01T15:03:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.186Z",
+          "responsible": "孙师傅",
+          "data": {
+            "startDate": "2026-04-01T15:03:00.000Z",
+            "endDate": "2026-04-12T00:39:00.000Z",
+            "workDays": 10,
+            "team": [
+              "孙师傅",
+              "水电工李师傅",
+              "弱电工老周"
+            ],
+            "milestones": [
+              {
+                "date": "2026-04-01T15:03:00.000Z",
+                "event": "进场开工",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-04T00:04:00.000Z",
+                "event": "管路预埋",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-06T00:44:00.000Z",
+                "event": "主机吊装",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-09T00:43:00.000Z",
+                "event": "末端安装",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-11T00:28:00.000Z",
+                "event": "系统调试",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-12T00:39:00.000Z",
+                "event": "竣工验收",
+                "status": "done"
+              }
+            ],
+            "issues": [],
+            "safetyIncidents": 0,
+            "clientAcceptance": {
+              "signedBy": "王志强",
+              "signedAt": "2026-04-12T00:39:00.000Z",
+              "rating": 4.957220026681189
+            }
+          },
+          "notes": "施工完成10天，零安全事故"
+        },
+        "quotation": {
+          "status": "completed",
+          "startedAt": "2026-03-18T23:25:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.186Z",
+          "responsible": "陈浩",
+          "data": {
+            "items": [
+              {
+                "category": "设备",
+                "name": "中央空调",
+                "model": "RH-A7",
+                "brand": "瑞美舒适款",
+                "qty": 1,
+                "unitPrice": 55000,
+                "amount": 55000
+              },
+              {
+                "category": "设备",
+                "name": "新风系统",
+                "model": "RH-F5",
+                "brand": "瑞美",
+                "qty": 1,
+                "unitPrice": 22000,
+                "amount": 22000
+              },
+              {
+                "category": "设备",
+                "name": "中央热水系统",
+                "model": "RH-W5",
+                "brand": "瑞美",
+                "qty": 1,
+                "unitPrice": 18000,
+                "amount": 18000
+              },
+              {
+                "category": "设备",
+                "name": "全屋净水系统",
+                "model": "RH-P3",
+                "brand": "瑞美",
+                "qty": 1,
+                "unitPrice": 12000,
+                "amount": 12000
+              },
+              {
+                "category": "辅材",
+                "name": "管路材料/配件",
+                "model": "套",
+                "brand": "国标",
+                "qty": 1,
+                "unitPrice": 26400,
+                "amount": 26400
+              },
+              {
+                "category": "安装",
+                "name": "安装人工费",
+                "model": "㎡",
+                "brand": "自营",
+                "qty": 220,
+                "unitPrice": 150,
+                "amount": 33000
+              },
+              {
+                "category": "服务",
+                "name": "系统调试+验收",
+                "model": "次",
+                "brand": "自营",
+                "qty": 1,
+                "unitPrice": 3000,
+                "amount": 3000
+              }
+            ],
+            "subtotal": 169400,
+            "discount": 13552,
+            "finalTotal": 142050,
+            "promotionApplied": [
+              "套餐优惠85折",
+              "老客户推荐-¥1000"
+            ],
+            "paymentTerms": "30%首付 / 50%进场款 / 20%尾款",
+            "warranty": {
+              "equipment": "5年整机",
+              "installation": "2年施工",
+              "service": "10年全国联保"
+            }
+          },
+          "notes": "报价明细 7 项，最终金额 ¥142,050"
+        }
+      },
+      "timeline": [
+        {
+          "timestamp": "2026-04-23T03:35:40.179Z",
+          "stage": "system",
+          "event": "journey_created",
+          "actor": "system",
+          "detail": "客户旅程创建"
+        },
+        {
+          "timestamp": "2026-03-01T22:37:00.000Z",
+          "stage": "diagnosis",
+          "event": "communication_logged",
+          "actor": "王志强",
+          "detail": "电话沟通：首次咨询"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.180Z",
+          "stage": "diagnosis",
+          "event": "stage_completed",
+          "actor": "陈浩",
+          "detail": "问诊完成，识别3个核心痛点"
+        },
+        {
+          "timestamp": "2026-03-04T23:13:00.000Z",
+          "stage": "lockin",
+          "event": "communication_logged",
+          "actor": "陈浩",
+          "detail": "上门沟通：上门现场勘查"
+        },
+        {
+          "timestamp": "2026-03-09T03:47:00.000Z",
+          "stage": "lockin",
+          "event": "communication_logged",
+          "actor": "陈浩",
+          "detail": "微信沟通：方案初稿发送"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.181Z",
+          "stage": "lockin",
+          "event": "stage_completed",
+          "actor": "陈浩",
+          "detail": "锁客成功率 80%"
+        },
+        {
+          "timestamp": "2026-03-18T23:25:00.000Z",
+          "stage": "deal",
+          "event": "communication_logged",
+          "actor": "陈浩",
+          "detail": "上门沟通：合同签订"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.182Z",
+          "stage": "deal",
+          "event": "stage_completed",
+          "actor": "陈浩",
+          "detail": "合同签订，金额 ¥142,050"
+        },
+        {
+          "timestamp": "2026-03-21T17:26:00.000Z",
+          "stage": "design",
+          "event": "communication_logged",
+          "actor": "张扬",
+          "detail": "微信沟通：方案深化设计"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.183Z",
+          "stage": "design",
+          "event": "stage_completed",
+          "actor": "张扬",
+          "detail": "设计完成，联排220㎡，4大系统"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.184Z",
+          "stage": "technical",
+          "event": "stage_completed",
+          "actor": "赵工",
+          "detail": "技术评审通过，冷负荷24200W/热负荷19800W"
+        },
+        {
+          "timestamp": "2026-04-01T15:03:00.000Z",
+          "stage": "construction",
+          "event": "communication_logged",
+          "actor": "孙师傅",
+          "detail": "现场沟通：施工进场"
+        },
+        {
+          "timestamp": "2026-04-06T23:10:00.000Z",
+          "stage": "construction",
+          "event": "communication_logged",
+          "actor": "孙师傅",
+          "detail": "微信沟通：施工进度汇报"
+        },
+        {
+          "timestamp": "2026-04-12T00:39:00.000Z",
+          "stage": "construction",
+          "event": "communication_logged",
+          "actor": "孙师傅",
+          "detail": "现场沟通：竣工验收"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.186Z",
+          "stage": "construction",
+          "event": "stage_completed",
+          "actor": "孙师傅",
+          "detail": "施工完成10天，零安全事故"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.186Z",
+          "stage": "quotation",
+          "event": "stage_completed",
+          "actor": "陈浩",
+          "detail": "报价明细 7 项，最终金额 ¥142,050"
+        },
+        {
+          "timestamp": "2026-04-14T18:06:00.000Z",
+          "stage": "quotation",
+          "event": "communication_logged",
+          "actor": "陈浩",
+          "detail": "电话沟通：48小时回访"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.188Z",
+          "stage": "system",
+          "event": "journey_closed",
+          "actor": "system",
+          "detail": "旅程关闭：closed-won - 顺利交付，客户满意度4.7分"
+        }
+      ],
+      "communications": [
+        {
+          "id": "COMM-1776915340180-149",
+          "timestamp": "2026-03-01T22:37:00.000Z",
+          "channel": "电话",
+          "direction": "inbound",
+          "from": "王志强",
+          "to": "陈浩",
+          "topic": "首次咨询",
+          "content": "客户来电咨询，苏州联排业主，主要痛点：地暖效果差、多楼层温差大、地下室异味。预算约15万",
+          "sentiment": "positive",
+          "nextAction": "邀约上门问诊",
+          "nextActionAt": "2026-03-04T23:02:00.000Z",
+          "stage": "diagnosis"
+        },
+        {
+          "id": "COMM-1776915340181-56",
+          "timestamp": "2026-03-04T23:13:00.000Z",
+          "channel": "上门",
+          "direction": "outbound",
+          "from": "陈浩",
+          "to": "王志强",
+          "topic": "上门现场勘查",
+          "content": "上门勘查，测量房屋尺寸，确认施工条件。客户对舒适型方案表现出强烈兴趣",
+          "sentiment": "positive",
+          "nextAction": "3D方案呈现",
+          "nextActionAt": "2026-03-11T21:33:00.000Z",
+          "stage": "lockin"
+        },
+        {
+          "id": "COMM-1776915340181-164",
+          "timestamp": "2026-03-09T03:47:00.000Z",
+          "channel": "微信",
+          "direction": "outbound",
+          "from": "陈浩",
+          "to": "王志强",
+          "topic": "方案初稿发送",
+          "content": "已发送定制方案初稿PDF。方案包含：中央空调+新风+热水系统",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "lockin"
+        },
+        {
+          "id": "COMM-1776915340181-379",
+          "timestamp": "2026-03-18T23:25:00.000Z",
+          "channel": "上门",
+          "direction": "outbound",
+          "from": "陈浩",
+          "to": "王志强",
+          "topic": "合同签订",
+          "content": "合同签订完成，方案金额¥142,050，首付30%：¥42,615",
+          "sentiment": "closed",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "deal"
+        },
+        {
+          "id": "COMM-1776915340183-390",
+          "timestamp": "2026-03-21T17:26:00.000Z",
+          "channel": "微信",
+          "direction": "outbound",
+          "from": "张扬",
+          "to": "王志强",
+          "topic": "方案深化设计",
+          "content": "开始深化设计：CAD图纸 + 3D效果图 + 管路排布图，预计3天完成",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "design"
+        },
+        {
+          "id": "COMM-1776915340184-723",
+          "timestamp": "2026-04-01T15:03:00.000Z",
+          "channel": "现场",
+          "direction": "outbound",
+          "from": "孙师傅",
+          "to": "王志强",
+          "topic": "施工进场",
+          "content": "施工队伍进场，预计工期10天。已完成材料到场检验、安全交底",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "construction"
+        },
+        {
+          "id": "COMM-1776915340185-589",
+          "timestamp": "2026-04-06T23:10:00.000Z",
+          "channel": "微信",
+          "direction": "outbound",
+          "from": "孙师傅",
+          "to": "王志强",
+          "topic": "施工进度汇报",
+          "content": "主机吊装完成，管路预埋完成60%，现场照片已上传。下周进入精装配合阶段",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "construction"
+        },
+        {
+          "id": "COMM-1776915340185-193",
+          "timestamp": "2026-04-12T00:39:00.000Z",
+          "channel": "现场",
+          "direction": "outbound",
+          "from": "孙师傅",
+          "to": "王志强",
+          "topic": "竣工验收",
+          "content": "设备调试完成，系统压力测试通过，客户签字验收",
+          "sentiment": "closed",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "construction"
+        },
+        {
+          "id": "COMM-1776915340187-568",
+          "timestamp": "2026-04-14T18:06:00.000Z",
+          "channel": "电话",
+          "direction": "outbound",
+          "from": "陈浩",
+          "to": "王志强",
+          "topic": "48小时回访",
+          "content": "系统运行良好，客户反馈舒适度提升明显。已安排3个月上门保养",
+          "sentiment": "positive",
+          "nextAction": "季度上门保养",
+          "nextActionAt": "2026-07-14T17:39:00.000Z",
+          "stage": "quotation"
+        }
+      ],
+      "attachments": [],
+      "nextFollowUp": "2026-07-14T17:39:00.000Z",
+      "closedAt": "2026-04-23T03:35:40.188Z",
+      "closeReason": "顺利交付，客户满意度4.7分"
+    },
+    "RHM-2026-004": {
+      "caseId": "RHM-2026-004",
+      "customerId": "C0004",
+      "customer": {
+        "name": "陈美玲",
+        "phone": "13804567890",
+        "city": "上海",
+        "source": "设计师推荐",
+        "gender": "女",
+        "age": 38
+      },
+      "profile": {
+        "houseType": "平层",
+        "area": 140,
+        "floors": 1,
+        "basement": false,
+        "budget": 80000,
+        "familySize": 3,
+        "hasElderly": false,
+        "hasInfant": false
+      },
+      "currentStage": "quotation",
+      "status": "closed-won",
+      "createdAt": "2026-04-23T03:35:40.188Z",
+      "updatedAt": "2026-04-23T03:35:40.196Z",
+      "stages": {
+        "diagnosis": {
+          "status": "completed",
+          "startedAt": "2026-02-26T22:48:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.189Z",
+          "responsible": "林芳",
+          "data": {
+            "painPoints": [
+              "新风系统选型",
+              "节能环保",
+              "智能控制"
+            ],
+            "houseType": "平层",
+            "area": 140,
+            "budget": 80000,
+            "priorities": [
+              "舒适体验",
+              "节能环保",
+              "空气质量"
+            ]
+          },
+          "notes": "问诊完成，识别3个核心痛点"
+        },
+        "lockin": {
+          "status": "completed",
+          "startedAt": "2026-03-01T23:09:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.191Z",
+          "responsible": "林芳",
+          "data": {
+            "lockinActions": [
+              "上门勘查",
+              "3D呈现",
+              "案例展示",
+              "老客户推荐"
+            ],
+            "competitors": [
+              "大金",
+              "日立"
+            ],
+            "clientTier": "comfort",
+            "confidence": 0.75
+          },
+          "notes": "锁客成功率 75%"
+        },
+        "deal": {
+          "status": "completed",
+          "startedAt": "2026-03-15T23:14:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.192Z",
+          "responsible": "林芳",
+          "data": {
+            "contractNo": "RHM-CT-2026-0004",
+            "contractDate": "2026-03-15T23:14:00.000Z",
+            "finalAmount": 76487,
+            "paymentSchedule": {
+              "downPayment": 22946,
+              "midPayment": 38243,
+              "finalPayment": 15297
+            },
+            "selectedTier": "comfort",
+            "systems": [
+              "中央空调",
+              "新风系统",
+              "中央热水系统",
+              "全屋净水系统"
+            ]
+          },
+          "notes": "合同签订，金额 ¥76,487"
+        },
+        "design": {
+          "status": "completed",
+          "startedAt": "2026-03-18T17:24:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.192Z",
+          "responsible": "李薇",
+          "data": {
+            "drawings": [
+              "cad-plan.dwg",
+              "3d-render.png",
+              "pipe-layout.pdf",
+              "electrical-diagram.pdf"
+            ],
+            "revisions": 2,
+            "designHours": 17,
+            "clientConfirmed": true,
+            "confirmedAt": "2026-03-24T00:40:00.000Z"
+          },
+          "notes": "设计完成，平层140㎡，4大系统"
+        },
+        "technical": {
+          "status": "completed",
+          "startedAt": "2026-03-25T16:37:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.193Z",
+          "responsible": "钱工",
+          "data": {
+            "loadCalculation": {
+              "heatingLoad": 10500,
+              "coolingLoad": 15400,
+              "hotWaterLoad": 210
+            },
+            "systemSelection": [
+              {
+                "name": "中央空调",
+                "brand": "瑞美舒适款",
+                "price": 55000,
+                "model": "RH-A7"
+              },
+              {
+                "name": "新风系统",
+                "brand": "瑞美",
+                "price": 22000,
+                "model": "RH-F5"
+              },
+              {
+                "name": "中央热水系统",
+                "brand": "瑞美",
+                "price": 18000,
+                "model": "RH-W5"
+              },
+              {
+                "name": "全屋净水系统",
+                "brand": "瑞美",
+                "price": 12000,
+                "model": "RH-P3"
+              }
+            ],
+            "energyEfficiency": {
+              "COP": 4.2,
+              "EER": 3.8,
+              "annualEnergySaving": "35%"
+            },
+            "compliance": [
+              "GB 50736-2012",
+              "GB 50189-2015",
+              "ISO 50001"
+            ],
+            "technicalReview": {
+              "reviewer": "赵工",
+              "passedAt": "2026-03-27T18:21:00.000Z"
+            }
+          },
+          "notes": "技术评审通过，冷负荷15400W/热负荷10500W"
+        },
+        "construction": {
+          "status": "completed",
+          "startedAt": "2026-03-29T15:31:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.195Z",
+          "responsible": "吴师傅",
+          "data": {
+            "startDate": "2026-03-29T15:31:00.000Z",
+            "endDate": "2026-04-09T00:13:00.000Z",
+            "workDays": 10,
+            "team": [
+              "吴师傅",
+              "水电工李师傅",
+              "弱电工老周"
+            ],
+            "milestones": [
+              {
+                "date": "2026-03-29T15:31:00.000Z",
+                "event": "进场开工",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-01T00:04:00.000Z",
+                "event": "管路预埋",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-03T00:52:00.000Z",
+                "event": "主机吊装",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-06T00:44:00.000Z",
+                "event": "末端安装",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-08T00:50:00.000Z",
+                "event": "系统调试",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-09T00:13:00.000Z",
+                "event": "竣工验收",
+                "status": "done"
+              }
+            ],
+            "issues": [],
+            "safetyIncidents": 0,
+            "clientAcceptance": {
+              "signedBy": "陈美玲",
+              "signedAt": "2026-04-09T00:13:00.000Z",
+              "rating": 4.690102400807086
+            }
+          },
+          "notes": "施工完成10天，零安全事故"
+        },
+        "quotation": {
+          "status": "completed",
+          "startedAt": "2026-03-15T23:14:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.195Z",
+          "responsible": "林芳",
+          "data": {
+            "items": [
+              {
+                "category": "设备",
+                "name": "中央空调",
+                "model": "RH-A7",
+                "brand": "瑞美舒适款",
+                "qty": 1,
+                "unitPrice": 55000,
+                "amount": 55000
+              },
+              {
+                "category": "设备",
+                "name": "新风系统",
+                "model": "RH-F5",
+                "brand": "瑞美",
+                "qty": 1,
+                "unitPrice": 22000,
+                "amount": 22000
+              },
+              {
+                "category": "设备",
+                "name": "中央热水系统",
+                "model": "RH-W5",
+                "brand": "瑞美",
+                "qty": 1,
+                "unitPrice": 18000,
+                "amount": 18000
+              },
+              {
+                "category": "设备",
+                "name": "全屋净水系统",
+                "model": "RH-P3",
+                "brand": "瑞美",
+                "qty": 1,
+                "unitPrice": 12000,
+                "amount": 12000
+              },
+              {
+                "category": "辅材",
+                "name": "管路材料/配件",
+                "model": "套",
+                "brand": "国标",
+                "qty": 1,
+                "unitPrice": 16800,
+                "amount": 16800
+              },
+              {
+                "category": "安装",
+                "name": "安装人工费",
+                "model": "㎡",
+                "brand": "自营",
+                "qty": 140,
+                "unitPrice": 150,
+                "amount": 21000
+              },
+              {
+                "category": "服务",
+                "name": "系统调试+验收",
+                "model": "次",
+                "brand": "自营",
+                "qty": 1,
+                "unitPrice": 3000,
+                "amount": 3000
+              }
+            ],
+            "subtotal": 147800,
+            "discount": 11824,
+            "finalTotal": 76487,
+            "promotionApplied": [
+              "套餐优惠85折",
+              "老客户推荐-¥1000"
+            ],
+            "paymentTerms": "30%首付 / 50%进场款 / 20%尾款",
+            "warranty": {
+              "equipment": "5年整机",
+              "installation": "2年施工",
+              "service": "10年全国联保"
+            }
+          },
+          "notes": "报价明细 7 项，最终金额 ¥76,487"
+        }
+      },
+      "timeline": [
+        {
+          "timestamp": "2026-04-23T03:35:40.188Z",
+          "stage": "system",
+          "event": "journey_created",
+          "actor": "system",
+          "detail": "客户旅程创建"
+        },
+        {
+          "timestamp": "2026-02-26T22:44:00.000Z",
+          "stage": "diagnosis",
+          "event": "communication_logged",
+          "actor": "陈美玲",
+          "detail": "电话沟通：首次咨询"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.189Z",
+          "stage": "diagnosis",
+          "event": "stage_completed",
+          "actor": "林芳",
+          "detail": "问诊完成，识别3个核心痛点"
+        },
+        {
+          "timestamp": "2026-03-01T23:11:00.000Z",
+          "stage": "lockin",
+          "event": "communication_logged",
+          "actor": "林芳",
+          "detail": "上门沟通：上门现场勘查"
+        },
+        {
+          "timestamp": "2026-03-06T04:51:00.000Z",
+          "stage": "lockin",
+          "event": "communication_logged",
+          "actor": "林芳",
+          "detail": "微信沟通：方案初稿发送"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.191Z",
+          "stage": "lockin",
+          "event": "stage_completed",
+          "actor": "林芳",
+          "detail": "锁客成功率 75%"
+        },
+        {
+          "timestamp": "2026-03-15T23:14:00.000Z",
+          "stage": "deal",
+          "event": "communication_logged",
+          "actor": "林芳",
+          "detail": "上门沟通：合同签订"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.192Z",
+          "stage": "deal",
+          "event": "stage_completed",
+          "actor": "林芳",
+          "detail": "合同签订，金额 ¥76,487"
+        },
+        {
+          "timestamp": "2026-03-18T17:54:00.000Z",
+          "stage": "design",
+          "event": "communication_logged",
+          "actor": "李薇",
+          "detail": "微信沟通：方案深化设计"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.192Z",
+          "stage": "design",
+          "event": "stage_completed",
+          "actor": "李薇",
+          "detail": "设计完成，平层140㎡，4大系统"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.193Z",
+          "stage": "technical",
+          "event": "stage_completed",
+          "actor": "钱工",
+          "detail": "技术评审通过，冷负荷15400W/热负荷10500W"
+        },
+        {
+          "timestamp": "2026-03-29T15:31:00.000Z",
+          "stage": "construction",
+          "event": "communication_logged",
+          "actor": "吴师傅",
+          "detail": "现场沟通：施工进场"
+        },
+        {
+          "timestamp": "2026-04-03T23:22:00.000Z",
+          "stage": "construction",
+          "event": "communication_logged",
+          "actor": "吴师傅",
+          "detail": "微信沟通：施工进度汇报"
+        },
+        {
+          "timestamp": "2026-04-09T00:13:00.000Z",
+          "stage": "construction",
+          "event": "communication_logged",
+          "actor": "吴师傅",
+          "detail": "现场沟通：竣工验收"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.195Z",
+          "stage": "construction",
+          "event": "stage_completed",
+          "actor": "吴师傅",
+          "detail": "施工完成10天，零安全事故"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.195Z",
+          "stage": "quotation",
+          "event": "stage_completed",
+          "actor": "林芳",
+          "detail": "报价明细 7 项，最终金额 ¥76,487"
+        },
+        {
+          "timestamp": "2026-04-11T18:35:00.000Z",
+          "stage": "quotation",
+          "event": "communication_logged",
+          "actor": "林芳",
+          "detail": "电话沟通：48小时回访"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.197Z",
+          "stage": "system",
+          "event": "journey_closed",
+          "actor": "system",
+          "detail": "旅程关闭：closed-won - 顺利交付，客户满意度5.0分"
+        }
+      ],
+      "communications": [
+        {
+          "id": "COMM-1776915340189-271",
+          "timestamp": "2026-02-26T22:44:00.000Z",
+          "channel": "电话",
+          "direction": "inbound",
+          "from": "陈美玲",
+          "to": "林芳",
+          "topic": "首次咨询",
+          "content": "客户来电咨询，上海平层业主，主要痛点：新风系统选型、节能环保、智能控制。预算约8万",
+          "sentiment": "positive",
+          "nextAction": "邀约上门问诊",
+          "nextActionAt": "2026-03-01T23:08:00.000Z",
+          "stage": "diagnosis"
+        },
+        {
+          "id": "COMM-1776915340190-754",
+          "timestamp": "2026-03-01T23:11:00.000Z",
+          "channel": "上门",
+          "direction": "outbound",
+          "from": "林芳",
+          "to": "陈美玲",
+          "topic": "上门现场勘查",
+          "content": "上门勘查，测量房屋尺寸，确认施工条件。客户对舒适型方案表现出强烈兴趣",
+          "sentiment": "positive",
+          "nextAction": "3D方案呈现",
+          "nextActionAt": "2026-03-08T21:09:00.000Z",
+          "stage": "lockin"
+        },
+        {
+          "id": "COMM-1776915340190-504",
+          "timestamp": "2026-03-06T04:51:00.000Z",
+          "channel": "微信",
+          "direction": "outbound",
+          "from": "林芳",
+          "to": "陈美玲",
+          "topic": "方案初稿发送",
+          "content": "已发送定制方案初稿PDF。方案包含：中央空调+新风+热水系统",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "lockin"
+        },
+        {
+          "id": "COMM-1776915340191-288",
+          "timestamp": "2026-03-15T23:14:00.000Z",
+          "channel": "上门",
+          "direction": "outbound",
+          "from": "林芳",
+          "to": "陈美玲",
+          "topic": "合同签订",
+          "content": "合同签订完成，方案金额¥76,487，首付30%：¥22,946",
+          "sentiment": "closed",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "deal"
+        },
+        {
+          "id": "COMM-1776915340192-409",
+          "timestamp": "2026-03-18T17:54:00.000Z",
+          "channel": "微信",
+          "direction": "outbound",
+          "from": "李薇",
+          "to": "陈美玲",
+          "topic": "方案深化设计",
+          "content": "开始深化设计：CAD图纸 + 3D效果图 + 管路排布图，预计3天完成",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "design"
+        },
+        {
+          "id": "COMM-1776915340193-547",
+          "timestamp": "2026-03-29T15:31:00.000Z",
+          "channel": "现场",
+          "direction": "outbound",
+          "from": "吴师傅",
+          "to": "陈美玲",
+          "topic": "施工进场",
+          "content": "施工队伍进场，预计工期10天。已完成材料到场检验、安全交底",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "construction"
+        },
+        {
+          "id": "COMM-1776915340194-450",
+          "timestamp": "2026-04-03T23:22:00.000Z",
+          "channel": "微信",
+          "direction": "outbound",
+          "from": "吴师傅",
+          "to": "陈美玲",
+          "topic": "施工进度汇报",
+          "content": "主机吊装完成，管路预埋完成60%，现场照片已上传。下周进入精装配合阶段",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "construction"
+        },
+        {
+          "id": "COMM-1776915340194-186",
+          "timestamp": "2026-04-09T00:13:00.000Z",
+          "channel": "现场",
+          "direction": "outbound",
+          "from": "吴师傅",
+          "to": "陈美玲",
+          "topic": "竣工验收",
+          "content": "设备调试完成，系统压力测试通过，客户签字验收",
+          "sentiment": "closed",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "construction"
+        },
+        {
+          "id": "COMM-1776915340196-97",
+          "timestamp": "2026-04-11T18:35:00.000Z",
+          "channel": "电话",
+          "direction": "outbound",
+          "from": "林芳",
+          "to": "陈美玲",
+          "topic": "48小时回访",
+          "content": "系统运行良好，客户反馈舒适度提升明显。已安排3个月上门保养",
+          "sentiment": "positive",
+          "nextAction": "季度上门保养",
+          "nextActionAt": "2026-07-11T17:24:00.000Z",
+          "stage": "quotation"
+        }
+      ],
+      "attachments": [],
+      "nextFollowUp": "2026-07-11T17:24:00.000Z",
+      "closedAt": "2026-04-23T03:35:40.197Z",
+      "closeReason": "顺利交付，客户满意度5.0分"
+    },
+    "RHM-2026-005": {
+      "caseId": "RHM-2026-005",
+      "customerId": "C0005",
+      "customer": {
+        "name": "刘国栋",
+        "phone": "13905678901",
+        "city": "南京",
+        "source": "展厅体验",
+        "gender": "男",
+        "age": 48
+      },
+      "profile": {
+        "houseType": "独栋",
+        "area": 350,
+        "floors": 3,
+        "basement": true,
+        "budget": 280000,
+        "familySize": 5,
+        "hasElderly": true,
+        "hasInfant": true
+      },
+      "currentStage": "quotation",
+      "status": "closed-won",
+      "createdAt": "2026-04-23T03:35:40.197Z",
+      "updatedAt": "2026-04-23T03:35:40.208Z",
+      "stages": {
+        "diagnosis": {
+          "status": "completed",
+          "startedAt": "2026-03-03T22:12:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.199Z",
+          "responsible": "王磊",
+          "data": {
+            "painPoints": [
+              "全屋恒温恒湿",
+              "泳池恒温",
+              "高端品质"
+            ],
+            "houseType": "独栋",
+            "area": 350,
+            "budget": 280000,
+            "priorities": [
+              "舒适体验",
+              "节能环保",
+              "空气质量"
+            ]
+          },
+          "notes": "问诊完成，识别3个核心痛点"
+        },
+        "lockin": {
+          "status": "completed",
+          "startedAt": "2026-03-06T23:15:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.201Z",
+          "responsible": "王磊",
+          "data": {
+            "lockinActions": [
+              "上门勘查",
+              "3D呈现",
+              "案例展示",
+              "老客户推荐"
+            ],
+            "competitors": [
+              "大金",
+              "日立"
+            ],
+            "clientTier": "premium",
+            "confidence": 0.88
+          },
+          "notes": "锁客成功率 88%"
+        },
+        "deal": {
+          "status": "completed",
+          "startedAt": "2026-03-20T23:46:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.202Z",
+          "responsible": "王磊",
+          "data": {
+            "contractNo": "RHM-CT-2026-0005",
+            "contractDate": "2026-03-20T23:46:00.000Z",
+            "finalAmount": 262928,
+            "paymentSchedule": {
+              "downPayment": 78878,
+              "midPayment": 131464,
+              "finalPayment": 52585
+            },
+            "selectedTier": "premium",
+            "systems": [
+              "五恒系统",
+              "全屋净水系统",
+              "中央热水系统",
+              "智能控制系统"
+            ]
+          },
+          "notes": "合同签订，金额 ¥262,928"
+        },
+        "design": {
+          "status": "completed",
+          "startedAt": "2026-03-23T17:15:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.203Z",
+          "responsible": "张扬",
+          "data": {
+            "drawings": [
+              "cad-plan.dwg",
+              "3d-render.png",
+              "pipe-layout.pdf",
+              "electrical-diagram.pdf"
+            ],
+            "revisions": 2,
+            "designHours": 20,
+            "clientConfirmed": true,
+            "confirmedAt": "2026-03-29T00:36:00.000Z"
+          },
+          "notes": "设计完成，独栋350㎡，4大系统"
+        },
+        "technical": {
+          "status": "completed",
+          "startedAt": "2026-03-30T16:18:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.204Z",
+          "responsible": "赵工",
+          "data": {
+            "loadCalculation": {
+              "heatingLoad": 31500,
+              "coolingLoad": 38500,
+              "hotWaterLoad": 350
+            },
+            "systemSelection": [
+              {
+                "name": "五恒系统",
+                "brand": "瑞美尊享",
+                "price": 120000,
+                "model": "RH-X9"
+              },
+              {
+                "name": "全屋净水系统",
+                "brand": "瑞美Plus",
+                "price": 25000,
+                "model": "RH-P7"
+              },
+              {
+                "name": "中央热水系统",
+                "brand": "瑞美Plus",
+                "price": 35000,
+                "model": "RH-W7"
+              },
+              {
+                "name": "智能控制系统",
+                "brand": "瑞美Smart",
+                "price": 20000,
+                "model": "RH-S5"
+              }
+            ],
+            "energyEfficiency": {
+              "COP": 4.2,
+              "EER": 3.8,
+              "annualEnergySaving": "35%"
+            },
+            "compliance": [
+              "GB 50736-2012",
+              "GB 50189-2015",
+              "ISO 50001"
+            ],
+            "technicalReview": {
+              "reviewer": "钱工",
+              "passedAt": "2026-04-01T18:16:00.000Z"
+            }
+          },
+          "notes": "技术评审通过，冷负荷38500W/热负荷31500W"
+        },
+        "construction": {
+          "status": "completed",
+          "startedAt": "2026-04-03T15:15:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.207Z",
+          "responsible": "孙师傅",
+          "data": {
+            "startDate": "2026-04-03T15:15:00.000Z",
+            "endDate": "2026-04-14T00:57:00.000Z",
+            "workDays": 10,
+            "team": [
+              "孙师傅",
+              "水电工李师傅",
+              "弱电工老周"
+            ],
+            "milestones": [
+              {
+                "date": "2026-04-03T15:15:00.000Z",
+                "event": "进场开工",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-06T00:52:00.000Z",
+                "event": "管路预埋",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-08T00:49:00.000Z",
+                "event": "主机吊装",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-11T00:32:00.000Z",
+                "event": "末端安装",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-13T00:01:00.000Z",
+                "event": "系统调试",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-14T00:57:00.000Z",
+                "event": "竣工验收",
+                "status": "done"
+              }
+            ],
+            "issues": [],
+            "safetyIncidents": 0,
+            "clientAcceptance": {
+              "signedBy": "刘国栋",
+              "signedAt": "2026-04-14T00:57:00.000Z",
+              "rating": 4.700822050190524
+            }
+          },
+          "notes": "施工完成10天，零安全事故"
+        },
+        "quotation": {
+          "status": "completed",
+          "startedAt": "2026-03-20T23:46:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.207Z",
+          "responsible": "王磊",
+          "data": {
+            "items": [
+              {
+                "category": "设备",
+                "name": "五恒系统",
+                "model": "RH-X9",
+                "brand": "瑞美尊享",
+                "qty": 1,
+                "unitPrice": 120000,
+                "amount": 120000
+              },
+              {
+                "category": "设备",
+                "name": "全屋净水系统",
+                "model": "RH-P7",
+                "brand": "瑞美Plus",
+                "qty": 1,
+                "unitPrice": 25000,
+                "amount": 25000
+              },
+              {
+                "category": "设备",
+                "name": "中央热水系统",
+                "model": "RH-W7",
+                "brand": "瑞美Plus",
+                "qty": 1,
+                "unitPrice": 35000,
+                "amount": 35000
+              },
+              {
+                "category": "设备",
+                "name": "智能控制系统",
+                "model": "RH-S5",
+                "brand": "瑞美Smart",
+                "qty": 1,
+                "unitPrice": 20000,
+                "amount": 20000
+              },
+              {
+                "category": "辅材",
+                "name": "管路材料/配件",
+                "model": "套",
+                "brand": "国标",
+                "qty": 1,
+                "unitPrice": 42000,
+                "amount": 42000
+              },
+              {
+                "category": "安装",
+                "name": "安装人工费",
+                "model": "㎡",
+                "brand": "自营",
+                "qty": 350,
+                "unitPrice": 150,
+                "amount": 52500
+              },
+              {
+                "category": "服务",
+                "name": "系统调试+验收",
+                "model": "次",
+                "brand": "自营",
+                "qty": 1,
+                "unitPrice": 3000,
+                "amount": 3000
+              }
+            ],
+            "subtotal": 297500,
+            "discount": 23800,
+            "finalTotal": 262928,
+            "promotionApplied": [
+              "套餐优惠85折",
+              "老客户推荐-¥1000"
+            ],
+            "paymentTerms": "30%首付 / 50%进场款 / 20%尾款",
+            "warranty": {
+              "equipment": "5年整机",
+              "installation": "2年施工",
+              "service": "10年全国联保"
+            }
+          },
+          "notes": "报价明细 7 项，最终金额 ¥262,928"
+        }
+      },
+      "timeline": [
+        {
+          "timestamp": "2026-04-23T03:35:40.197Z",
+          "stage": "system",
+          "event": "journey_created",
+          "actor": "system",
+          "detail": "客户旅程创建"
+        },
+        {
+          "timestamp": "2026-03-03T22:39:00.000Z",
+          "stage": "diagnosis",
+          "event": "communication_logged",
+          "actor": "刘国栋",
+          "detail": "电话沟通：首次咨询"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.199Z",
+          "stage": "diagnosis",
+          "event": "stage_completed",
+          "actor": "王磊",
+          "detail": "问诊完成，识别3个核心痛点"
+        },
+        {
+          "timestamp": "2026-03-06T23:08:00.000Z",
+          "stage": "lockin",
+          "event": "communication_logged",
+          "actor": "王磊",
+          "detail": "上门沟通：上门现场勘查"
+        },
+        {
+          "timestamp": "2026-03-11T03:04:00.000Z",
+          "stage": "lockin",
+          "event": "communication_logged",
+          "actor": "王磊",
+          "detail": "微信沟通：方案初稿发送"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.201Z",
+          "stage": "lockin",
+          "event": "stage_completed",
+          "actor": "王磊",
+          "detail": "锁客成功率 88%"
+        },
+        {
+          "timestamp": "2026-03-20T23:46:00.000Z",
+          "stage": "deal",
+          "event": "communication_logged",
+          "actor": "王磊",
+          "detail": "上门沟通：合同签订"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.202Z",
+          "stage": "deal",
+          "event": "stage_completed",
+          "actor": "王磊",
+          "detail": "合同签订，金额 ¥262,928"
+        },
+        {
+          "timestamp": "2026-03-23T17:11:00.000Z",
+          "stage": "design",
+          "event": "communication_logged",
+          "actor": "张扬",
+          "detail": "微信沟通：方案深化设计"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.203Z",
+          "stage": "design",
+          "event": "stage_completed",
+          "actor": "张扬",
+          "detail": "设计完成，独栋350㎡，4大系统"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.204Z",
+          "stage": "technical",
+          "event": "stage_completed",
+          "actor": "赵工",
+          "detail": "技术评审通过，冷负荷38500W/热负荷31500W"
+        },
+        {
+          "timestamp": "2026-04-03T15:15:00.000Z",
+          "stage": "construction",
+          "event": "communication_logged",
+          "actor": "孙师傅",
+          "detail": "现场沟通：施工进场"
+        },
+        {
+          "timestamp": "2026-04-08T23:41:00.000Z",
+          "stage": "construction",
+          "event": "communication_logged",
+          "actor": "孙师傅",
+          "detail": "微信沟通：施工进度汇报"
+        },
+        {
+          "timestamp": "2026-04-14T00:57:00.000Z",
+          "stage": "construction",
+          "event": "communication_logged",
+          "actor": "孙师傅",
+          "detail": "现场沟通：竣工验收"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.207Z",
+          "stage": "construction",
+          "event": "stage_completed",
+          "actor": "孙师傅",
+          "detail": "施工完成10天，零安全事故"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.207Z",
+          "stage": "quotation",
+          "event": "stage_completed",
+          "actor": "王磊",
+          "detail": "报价明细 7 项，最终金额 ¥262,928"
+        },
+        {
+          "timestamp": "2026-04-16T18:36:00.000Z",
+          "stage": "quotation",
+          "event": "communication_logged",
+          "actor": "王磊",
+          "detail": "电话沟通：48小时回访"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.209Z",
+          "stage": "system",
+          "event": "journey_closed",
+          "actor": "system",
+          "detail": "旅程关闭：closed-won - 顺利交付，客户满意度4.9分"
+        }
+      ],
+      "communications": [
+        {
+          "id": "COMM-1776915340198-731",
+          "timestamp": "2026-03-03T22:39:00.000Z",
+          "channel": "电话",
+          "direction": "inbound",
+          "from": "刘国栋",
+          "to": "王磊",
+          "topic": "首次咨询",
+          "content": "客户来电咨询，南京独栋业主，主要痛点：全屋恒温恒湿、泳池恒温、高端品质。预算约28万",
+          "sentiment": "positive",
+          "nextAction": "邀约上门问诊",
+          "nextActionAt": "2026-03-06T23:02:00.000Z",
+          "stage": "diagnosis"
+        },
+        {
+          "id": "COMM-1776915340200-836",
+          "timestamp": "2026-03-06T23:08:00.000Z",
+          "channel": "上门",
+          "direction": "outbound",
+          "from": "王磊",
+          "to": "刘国栋",
+          "topic": "上门现场勘查",
+          "content": "上门勘查，测量房屋尺寸，确认施工条件。客户对高端定制方案表现出强烈兴趣",
+          "sentiment": "positive",
+          "nextAction": "3D方案呈现",
+          "nextActionAt": "2026-03-13T21:58:00.000Z",
+          "stage": "lockin"
+        },
+        {
+          "id": "COMM-1776915340200-954",
+          "timestamp": "2026-03-11T03:04:00.000Z",
+          "channel": "微信",
+          "direction": "outbound",
+          "from": "王磊",
+          "to": "刘国栋",
+          "topic": "方案初稿发送",
+          "content": "已发送定制方案初稿PDF。方案包含：五恒系统+全屋净水+中央热水+智能控制",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "lockin"
+        },
+        {
+          "id": "COMM-1776915340202-976",
+          "timestamp": "2026-03-20T23:46:00.000Z",
+          "channel": "上门",
+          "direction": "outbound",
+          "from": "王磊",
+          "to": "刘国栋",
+          "topic": "合同签订",
+          "content": "合同签订完成，方案金额¥262,928，首付30%：¥78,878",
+          "sentiment": "closed",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "deal"
+        },
+        {
+          "id": "COMM-1776915340203-290",
+          "timestamp": "2026-03-23T17:11:00.000Z",
+          "channel": "微信",
+          "direction": "outbound",
+          "from": "张扬",
+          "to": "刘国栋",
+          "topic": "方案深化设计",
+          "content": "开始深化设计：CAD图纸 + 3D效果图 + 管路排布图，预计3天完成",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "design"
+        },
+        {
+          "id": "COMM-1776915340205-917",
+          "timestamp": "2026-04-03T15:15:00.000Z",
+          "channel": "现场",
+          "direction": "outbound",
+          "from": "孙师傅",
+          "to": "刘国栋",
+          "topic": "施工进场",
+          "content": "施工队伍进场，预计工期10天。已完成材料到场检验、安全交底",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "construction"
+        },
+        {
+          "id": "COMM-1776915340206-455",
+          "timestamp": "2026-04-08T23:41:00.000Z",
+          "channel": "微信",
+          "direction": "outbound",
+          "from": "孙师傅",
+          "to": "刘国栋",
+          "topic": "施工进度汇报",
+          "content": "主机吊装完成，管路预埋完成60%，现场照片已上传。下周进入精装配合阶段",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "construction"
+        },
+        {
+          "id": "COMM-1776915340206-402",
+          "timestamp": "2026-04-14T00:57:00.000Z",
+          "channel": "现场",
+          "direction": "outbound",
+          "from": "孙师傅",
+          "to": "刘国栋",
+          "topic": "竣工验收",
+          "content": "设备调试完成，系统压力测试通过，客户签字验收",
+          "sentiment": "closed",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "construction"
+        },
+        {
+          "id": "COMM-1776915340208-505",
+          "timestamp": "2026-04-16T18:36:00.000Z",
+          "channel": "电话",
+          "direction": "outbound",
+          "from": "王磊",
+          "to": "刘国栋",
+          "topic": "48小时回访",
+          "content": "系统运行良好，客户反馈舒适度提升明显。已安排3个月上门保养",
+          "sentiment": "positive",
+          "nextAction": "季度上门保养",
+          "nextActionAt": "2026-07-16T17:19:00.000Z",
+          "stage": "quotation"
+        }
+      ],
+      "attachments": [],
+      "nextFollowUp": "2026-07-16T17:19:00.000Z",
+      "closedAt": "2026-04-23T03:35:40.209Z",
+      "closeReason": "顺利交付，客户满意度4.9分"
+    },
+    "RHM-2026-006": {
+      "caseId": "RHM-2026-006",
+      "customerId": "C0006",
+      "customer": {
+        "name": "赵敏",
+        "phone": "13106789012",
+        "city": "无锡",
+        "source": "线上咨询",
+        "gender": "女",
+        "age": 32
+      },
+      "profile": {
+        "houseType": "叠拼",
+        "area": 200,
+        "floors": 2,
+        "basement": false,
+        "budget": 100000,
+        "familySize": 3,
+        "hasElderly": false,
+        "hasInfant": true
+      },
+      "currentStage": "quotation",
+      "status": "closed-won",
+      "createdAt": "2026-04-23T03:35:40.209Z",
+      "updatedAt": "2026-04-23T03:35:40.226Z",
+      "stages": {
+        "diagnosis": {
+          "status": "completed",
+          "startedAt": "2026-02-22T22:44:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.211Z",
+          "responsible": "刘婷",
+          "data": {
+            "painPoints": [
+              "母婴房空气洁净",
+              "除湿需求",
+              "24小时热水"
+            ],
+            "houseType": "叠拼",
+            "area": 200,
+            "budget": 100000,
+            "priorities": [
+              "舒适体验",
+              "节能环保",
+              "空气质量"
+            ]
+          },
+          "notes": "问诊完成，识别3个核心痛点"
+        },
+        "lockin": {
+          "status": "completed",
+          "startedAt": "2026-02-25T23:57:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.214Z",
+          "responsible": "刘婷",
+          "data": {
+            "lockinActions": [
+              "上门勘查",
+              "3D呈现",
+              "案例展示",
+              "老客户推荐"
+            ],
+            "competitors": [
+              "大金",
+              "日立"
+            ],
+            "clientTier": "comfort",
+            "confidence": 0.7
+          },
+          "notes": "锁客成功率 70%"
+        },
+        "deal": {
+          "status": "completed",
+          "startedAt": "2026-03-11T23:55:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.218Z",
+          "responsible": "刘婷",
+          "data": {
+            "contractNo": "RHM-CT-2026-0006",
+            "contractDate": "2026-03-11T23:55:00.000Z",
+            "finalAmount": 91905,
+            "paymentSchedule": {
+              "downPayment": 27571,
+              "midPayment": 45952,
+              "finalPayment": 18381
+            },
+            "selectedTier": "comfort",
+            "systems": [
+              "中央空调",
+              "新风系统",
+              "中央热水系统",
+              "全屋净水系统"
+            ]
+          },
+          "notes": "合同签订，金额 ¥91,905"
+        },
+        "design": {
+          "status": "completed",
+          "startedAt": "2026-03-14T17:55:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.220Z",
+          "responsible": "李薇",
+          "data": {
+            "drawings": [
+              "cad-plan.dwg",
+              "3d-render.png",
+              "pipe-layout.pdf",
+              "electrical-diagram.pdf"
+            ],
+            "revisions": 2,
+            "designHours": 16,
+            "clientConfirmed": true,
+            "confirmedAt": "2026-03-20T00:58:00.000Z"
+          },
+          "notes": "设计完成，叠拼200㎡，4大系统"
+        },
+        "technical": {
+          "status": "completed",
+          "startedAt": "2026-03-21T16:24:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.221Z",
+          "responsible": "钱工",
+          "data": {
+            "loadCalculation": {
+              "heatingLoad": 18000,
+              "coolingLoad": 22000,
+              "hotWaterLoad": 210
+            },
+            "systemSelection": [
+              {
+                "name": "中央空调",
+                "brand": "瑞美舒适款",
+                "price": 55000,
+                "model": "RH-A7"
+              },
+              {
+                "name": "新风系统",
+                "brand": "瑞美",
+                "price": 22000,
+                "model": "RH-F5"
+              },
+              {
+                "name": "中央热水系统",
+                "brand": "瑞美",
+                "price": 18000,
+                "model": "RH-W5"
+              },
+              {
+                "name": "全屋净水系统",
+                "brand": "瑞美",
+                "price": 12000,
+                "model": "RH-P3"
+              }
+            ],
+            "energyEfficiency": {
+              "COP": 4.2,
+              "EER": 3.8,
+              "annualEnergySaving": "35%"
+            },
+            "compliance": [
+              "GB 50736-2012",
+              "GB 50189-2015",
+              "ISO 50001"
+            ],
+            "technicalReview": {
+              "reviewer": "赵工",
+              "passedAt": "2026-03-23T18:08:00.000Z"
+            }
+          },
+          "notes": "技术评审通过，冷负荷22000W/热负荷18000W"
+        },
+        "construction": {
+          "status": "completed",
+          "startedAt": "2026-03-25T15:50:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.224Z",
+          "responsible": "吴师傅",
+          "data": {
+            "startDate": "2026-03-25T15:50:00.000Z",
+            "endDate": "2026-04-05T00:18:00.000Z",
+            "workDays": 10,
+            "team": [
+              "吴师傅",
+              "水电工李师傅",
+              "弱电工老周"
+            ],
+            "milestones": [
+              {
+                "date": "2026-03-25T15:50:00.000Z",
+                "event": "进场开工",
+                "status": "done"
+              },
+              {
+                "date": "2026-03-28T00:22:00.000Z",
+                "event": "管路预埋",
+                "status": "done"
+              },
+              {
+                "date": "2026-03-30T00:58:00.000Z",
+                "event": "主机吊装",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-02T00:16:00.000Z",
+                "event": "末端安装",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-04T00:53:00.000Z",
+                "event": "系统调试",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-05T00:18:00.000Z",
+                "event": "竣工验收",
+                "status": "done"
+              }
+            ],
+            "issues": [],
+            "safetyIncidents": 0,
+            "clientAcceptance": {
+              "signedBy": "赵敏",
+              "signedAt": "2026-04-05T00:18:00.000Z",
+              "rating": 4.7321084640386974
+            }
+          },
+          "notes": "施工完成10天，零安全事故"
+        },
+        "quotation": {
+          "status": "completed",
+          "startedAt": "2026-03-11T23:55:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.225Z",
+          "responsible": "刘婷",
+          "data": {
+            "items": [
+              {
+                "category": "设备",
+                "name": "中央空调",
+                "model": "RH-A7",
+                "brand": "瑞美舒适款",
+                "qty": 1,
+                "unitPrice": 55000,
+                "amount": 55000
+              },
+              {
+                "category": "设备",
+                "name": "新风系统",
+                "model": "RH-F5",
+                "brand": "瑞美",
+                "qty": 1,
+                "unitPrice": 22000,
+                "amount": 22000
+              },
+              {
+                "category": "设备",
+                "name": "中央热水系统",
+                "model": "RH-W5",
+                "brand": "瑞美",
+                "qty": 1,
+                "unitPrice": 18000,
+                "amount": 18000
+              },
+              {
+                "category": "设备",
+                "name": "全屋净水系统",
+                "model": "RH-P3",
+                "brand": "瑞美",
+                "qty": 1,
+                "unitPrice": 12000,
+                "amount": 12000
+              },
+              {
+                "category": "辅材",
+                "name": "管路材料/配件",
+                "model": "套",
+                "brand": "国标",
+                "qty": 1,
+                "unitPrice": 24000,
+                "amount": 24000
+              },
+              {
+                "category": "安装",
+                "name": "安装人工费",
+                "model": "㎡",
+                "brand": "自营",
+                "qty": 200,
+                "unitPrice": 150,
+                "amount": 30000
+              },
+              {
+                "category": "服务",
+                "name": "系统调试+验收",
+                "model": "次",
+                "brand": "自营",
+                "qty": 1,
+                "unitPrice": 3000,
+                "amount": 3000
+              }
+            ],
+            "subtotal": 164000,
+            "discount": 13120,
+            "finalTotal": 91905,
+            "promotionApplied": [
+              "套餐优惠85折",
+              "老客户推荐-¥1000"
+            ],
+            "paymentTerms": "30%首付 / 50%进场款 / 20%尾款",
+            "warranty": {
+              "equipment": "5年整机",
+              "installation": "2年施工",
+              "service": "10年全国联保"
+            }
+          },
+          "notes": "报价明细 7 项，最终金额 ¥91,905"
+        }
+      },
+      "timeline": [
+        {
+          "timestamp": "2026-04-23T03:35:40.209Z",
+          "stage": "system",
+          "event": "journey_created",
+          "actor": "system",
+          "detail": "客户旅程创建"
+        },
+        {
+          "timestamp": "2026-02-22T22:21:00.000Z",
+          "stage": "diagnosis",
+          "event": "communication_logged",
+          "actor": "赵敏",
+          "detail": "电话沟通：首次咨询"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.211Z",
+          "stage": "diagnosis",
+          "event": "stage_completed",
+          "actor": "刘婷",
+          "detail": "问诊完成，识别3个核心痛点"
+        },
+        {
+          "timestamp": "2026-02-25T23:31:00.000Z",
+          "stage": "lockin",
+          "event": "communication_logged",
+          "actor": "刘婷",
+          "detail": "上门沟通：上门现场勘查"
+        },
+        {
+          "timestamp": "2026-03-02T04:35:00.000Z",
+          "stage": "lockin",
+          "event": "communication_logged",
+          "actor": "刘婷",
+          "detail": "微信沟通：方案初稿发送"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.214Z",
+          "stage": "lockin",
+          "event": "stage_completed",
+          "actor": "刘婷",
+          "detail": "锁客成功率 70%"
+        },
+        {
+          "timestamp": "2026-03-11T23:55:00.000Z",
+          "stage": "deal",
+          "event": "communication_logged",
+          "actor": "刘婷",
+          "detail": "上门沟通：合同签订"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.218Z",
+          "stage": "deal",
+          "event": "stage_completed",
+          "actor": "刘婷",
+          "detail": "合同签订，金额 ¥91,905"
+        },
+        {
+          "timestamp": "2026-03-14T17:00:00.000Z",
+          "stage": "design",
+          "event": "communication_logged",
+          "actor": "李薇",
+          "detail": "微信沟通：方案深化设计"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.220Z",
+          "stage": "design",
+          "event": "stage_completed",
+          "actor": "李薇",
+          "detail": "设计完成，叠拼200㎡，4大系统"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.221Z",
+          "stage": "technical",
+          "event": "stage_completed",
+          "actor": "钱工",
+          "detail": "技术评审通过，冷负荷22000W/热负荷18000W"
+        },
+        {
+          "timestamp": "2026-03-25T15:50:00.000Z",
+          "stage": "construction",
+          "event": "communication_logged",
+          "actor": "吴师傅",
+          "detail": "现场沟通：施工进场"
+        },
+        {
+          "timestamp": "2026-03-30T23:24:00.000Z",
+          "stage": "construction",
+          "event": "communication_logged",
+          "actor": "吴师傅",
+          "detail": "微信沟通：施工进度汇报"
+        },
+        {
+          "timestamp": "2026-04-05T00:18:00.000Z",
+          "stage": "construction",
+          "event": "communication_logged",
+          "actor": "吴师傅",
+          "detail": "现场沟通：竣工验收"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.224Z",
+          "stage": "construction",
+          "event": "stage_completed",
+          "actor": "吴师傅",
+          "detail": "施工完成10天，零安全事故"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.225Z",
+          "stage": "quotation",
+          "event": "stage_completed",
+          "actor": "刘婷",
+          "detail": "报价明细 7 项，最终金额 ¥91,905"
+        },
+        {
+          "timestamp": "2026-04-07T18:24:00.000Z",
+          "stage": "quotation",
+          "event": "communication_logged",
+          "actor": "刘婷",
+          "detail": "电话沟通：48小时回访"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.226Z",
+          "stage": "system",
+          "event": "journey_closed",
+          "actor": "system",
+          "detail": "旅程关闭：closed-won - 顺利交付，客户满意度4.8分"
+        }
+      ],
+      "communications": [
+        {
+          "id": "COMM-1776915340210-101",
+          "timestamp": "2026-02-22T22:21:00.000Z",
+          "channel": "电话",
+          "direction": "inbound",
+          "from": "赵敏",
+          "to": "刘婷",
+          "topic": "首次咨询",
+          "content": "客户来电咨询，无锡叠拼业主，主要痛点：母婴房空气洁净、除湿需求、24小时热水。预算约10万",
+          "sentiment": "positive",
+          "nextAction": "邀约上门问诊",
+          "nextActionAt": "2026-02-25T23:07:00.000Z",
+          "stage": "diagnosis"
+        },
+        {
+          "id": "COMM-1776915340212-22",
+          "timestamp": "2026-02-25T23:31:00.000Z",
+          "channel": "上门",
+          "direction": "outbound",
+          "from": "刘婷",
+          "to": "赵敏",
+          "topic": "上门现场勘查",
+          "content": "上门勘查，测量房屋尺寸，确认施工条件。客户对舒适型方案表现出强烈兴趣",
+          "sentiment": "positive",
+          "nextAction": "3D方案呈现",
+          "nextActionAt": "2026-03-04T22:28:00.000Z",
+          "stage": "lockin"
+        },
+        {
+          "id": "COMM-1776915340213-602",
+          "timestamp": "2026-03-02T04:35:00.000Z",
+          "channel": "微信",
+          "direction": "outbound",
+          "from": "刘婷",
+          "to": "赵敏",
+          "topic": "方案初稿发送",
+          "content": "已发送定制方案初稿PDF。方案包含：中央空调+新风+热水系统",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "lockin"
+        },
+        {
+          "id": "COMM-1776915340218-159",
+          "timestamp": "2026-03-11T23:55:00.000Z",
+          "channel": "上门",
+          "direction": "outbound",
+          "from": "刘婷",
+          "to": "赵敏",
+          "topic": "合同签订",
+          "content": "合同签订完成，方案金额¥91,905，首付30%：¥27,571",
+          "sentiment": "closed",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "deal"
+        },
+        {
+          "id": "COMM-1776915340219-546",
+          "timestamp": "2026-03-14T17:00:00.000Z",
+          "channel": "微信",
+          "direction": "outbound",
+          "from": "李薇",
+          "to": "赵敏",
+          "topic": "方案深化设计",
+          "content": "开始深化设计：CAD图纸 + 3D效果图 + 管路排布图，预计3天完成",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "design"
+        },
+        {
+          "id": "COMM-1776915340222-285",
+          "timestamp": "2026-03-25T15:50:00.000Z",
+          "channel": "现场",
+          "direction": "outbound",
+          "from": "吴师傅",
+          "to": "赵敏",
+          "topic": "施工进场",
+          "content": "施工队伍进场，预计工期10天。已完成材料到场检验、安全交底",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "construction"
+        },
+        {
+          "id": "COMM-1776915340222-596",
+          "timestamp": "2026-03-30T23:24:00.000Z",
+          "channel": "微信",
+          "direction": "outbound",
+          "from": "吴师傅",
+          "to": "赵敏",
+          "topic": "施工进度汇报",
+          "content": "主机吊装完成，管路预埋完成60%，现场照片已上传。下周进入精装配合阶段",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "construction"
+        },
+        {
+          "id": "COMM-1776915340223-789",
+          "timestamp": "2026-04-05T00:18:00.000Z",
+          "channel": "现场",
+          "direction": "outbound",
+          "from": "吴师傅",
+          "to": "赵敏",
+          "topic": "竣工验收",
+          "content": "设备调试完成，系统压力测试通过，客户签字验收",
+          "sentiment": "closed",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "construction"
+        },
+        {
+          "id": "COMM-1776915340226-892",
+          "timestamp": "2026-04-07T18:24:00.000Z",
+          "channel": "电话",
+          "direction": "outbound",
+          "from": "刘婷",
+          "to": "赵敏",
+          "topic": "48小时回访",
+          "content": "系统运行良好，客户反馈舒适度提升明显。已安排3个月上门保养",
+          "sentiment": "positive",
+          "nextAction": "季度上门保养",
+          "nextActionAt": "2026-07-07T17:49:00.000Z",
+          "stage": "quotation"
+        }
+      ],
+      "attachments": [],
+      "nextFollowUp": "2026-07-07T17:49:00.000Z",
+      "closedAt": "2026-04-23T03:35:40.226Z",
+      "closeReason": "顺利交付，客户满意度4.8分"
+    },
+    "RHM-2026-007": {
+      "caseId": "RHM-2026-007",
+      "customerId": "C0007",
+      "customer": {
+        "name": "孙建平",
+        "phone": "13207890123",
+        "city": "宁波",
+        "source": "老客户推荐",
+        "gender": "男",
+        "age": 55
+      },
+      "profile": {
+        "houseType": "大平层",
+        "area": 260,
+        "floors": 1,
+        "basement": false,
+        "budget": 180000,
+        "familySize": 4,
+        "hasElderly": true,
+        "hasInfant": false
+      },
+      "currentStage": "quotation",
+      "status": "closed-won",
+      "createdAt": "2026-04-23T03:35:40.227Z",
+      "updatedAt": "2026-04-23T03:35:40.242Z",
+      "stages": {
+        "diagnosis": {
+          "status": "completed",
+          "startedAt": "2026-03-06T22:42:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.229Z",
+          "responsible": "陈浩",
+          "data": {
+            "painPoints": [
+              "呼吸系统敏感",
+              "春秋季过敏",
+              "安静舒适"
+            ],
+            "houseType": "大平层",
+            "area": 260,
+            "budget": 180000,
+            "priorities": [
+              "舒适体验",
+              "节能环保",
+              "空气质量"
+            ]
+          },
+          "notes": "问诊完成，识别3个核心痛点"
+        },
+        "lockin": {
+          "status": "completed",
+          "startedAt": "2026-03-09T22:54:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.232Z",
+          "responsible": "陈浩",
+          "data": {
+            "lockinActions": [
+              "上门勘查",
+              "3D呈现",
+              "案例展示",
+              "老客户推荐"
+            ],
+            "competitors": [
+              "大金",
+              "日立"
+            ],
+            "clientTier": "premium",
+            "confidence": 0.85
+          },
+          "notes": "锁客成功率 85%"
+        },
+        "deal": {
+          "status": "completed",
+          "startedAt": "2026-03-23T23:12:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.233Z",
+          "responsible": "陈浩",
+          "data": {
+            "contractNo": "RHM-CT-2026-0007",
+            "contractDate": "2026-03-23T23:12:00.000Z",
+            "finalAmount": 171135,
+            "paymentSchedule": {
+              "downPayment": 51340,
+              "midPayment": 85567,
+              "finalPayment": 34227
+            },
+            "selectedTier": "premium",
+            "systems": [
+              "五恒系统",
+              "全屋净水系统",
+              "中央热水系统",
+              "智能控制系统"
+            ]
+          },
+          "notes": "合同签订，金额 ¥171,135"
+        },
+        "design": {
+          "status": "completed",
+          "startedAt": "2026-03-26T17:10:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.235Z",
+          "responsible": "张扬",
+          "data": {
+            "drawings": [
+              "cad-plan.dwg",
+              "3d-render.png",
+              "pipe-layout.pdf",
+              "electrical-diagram.pdf"
+            ],
+            "revisions": 2,
+            "designHours": 21,
+            "clientConfirmed": true,
+            "confirmedAt": "2026-04-01T00:41:00.000Z"
+          },
+          "notes": "设计完成，大平层260㎡，4大系统"
+        },
+        "technical": {
+          "status": "completed",
+          "startedAt": "2026-04-02T16:56:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.236Z",
+          "responsible": "赵工",
+          "data": {
+            "loadCalculation": {
+              "heatingLoad": 19500,
+              "coolingLoad": 28600,
+              "hotWaterLoad": 280
+            },
+            "systemSelection": [
+              {
+                "name": "五恒系统",
+                "brand": "瑞美尊享",
+                "price": 120000,
+                "model": "RH-X9"
+              },
+              {
+                "name": "全屋净水系统",
+                "brand": "瑞美Plus",
+                "price": 25000,
+                "model": "RH-P7"
+              },
+              {
+                "name": "中央热水系统",
+                "brand": "瑞美Plus",
+                "price": 35000,
+                "model": "RH-W7"
+              },
+              {
+                "name": "智能控制系统",
+                "brand": "瑞美Smart",
+                "price": 20000,
+                "model": "RH-S5"
+              }
+            ],
+            "energyEfficiency": {
+              "COP": 4.2,
+              "EER": 3.8,
+              "annualEnergySaving": "35%"
+            },
+            "compliance": [
+              "GB 50736-2012",
+              "GB 50189-2015",
+              "ISO 50001"
+            ],
+            "technicalReview": {
+              "reviewer": "钱工",
+              "passedAt": "2026-04-04T18:45:00.000Z"
+            }
+          },
+          "notes": "技术评审通过，冷负荷28600W/热负荷19500W"
+        },
+        "construction": {
+          "status": "completed",
+          "startedAt": "2026-04-06T15:54:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.240Z",
+          "responsible": "孙师傅",
+          "data": {
+            "startDate": "2026-04-06T15:54:00.000Z",
+            "endDate": "2026-04-17T00:30:00.000Z",
+            "workDays": 10,
+            "team": [
+              "孙师傅",
+              "水电工李师傅",
+              "弱电工老周"
+            ],
+            "milestones": [
+              {
+                "date": "2026-04-06T15:54:00.000Z",
+                "event": "进场开工",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-09T00:12:00.000Z",
+                "event": "管路预埋",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-11T00:51:00.000Z",
+                "event": "主机吊装",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-14T00:08:00.000Z",
+                "event": "末端安装",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-16T00:12:00.000Z",
+                "event": "系统调试",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-17T00:30:00.000Z",
+                "event": "竣工验收",
+                "status": "done"
+              }
+            ],
+            "issues": [],
+            "safetyIncidents": 0,
+            "clientAcceptance": {
+              "signedBy": "孙建平",
+              "signedAt": "2026-04-17T00:30:00.000Z",
+              "rating": 4.92180953934247
+            }
+          },
+          "notes": "施工完成10天，零安全事故"
+        },
+        "quotation": {
+          "status": "completed",
+          "startedAt": "2026-03-23T23:12:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.241Z",
+          "responsible": "陈浩",
+          "data": {
+            "items": [
+              {
+                "category": "设备",
+                "name": "五恒系统",
+                "model": "RH-X9",
+                "brand": "瑞美尊享",
+                "qty": 1,
+                "unitPrice": 120000,
+                "amount": 120000
+              },
+              {
+                "category": "设备",
+                "name": "全屋净水系统",
+                "model": "RH-P7",
+                "brand": "瑞美Plus",
+                "qty": 1,
+                "unitPrice": 25000,
+                "amount": 25000
+              },
+              {
+                "category": "设备",
+                "name": "中央热水系统",
+                "model": "RH-W7",
+                "brand": "瑞美Plus",
+                "qty": 1,
+                "unitPrice": 35000,
+                "amount": 35000
+              },
+              {
+                "category": "设备",
+                "name": "智能控制系统",
+                "model": "RH-S5",
+                "brand": "瑞美Smart",
+                "qty": 1,
+                "unitPrice": 20000,
+                "amount": 20000
+              },
+              {
+                "category": "辅材",
+                "name": "管路材料/配件",
+                "model": "套",
+                "brand": "国标",
+                "qty": 1,
+                "unitPrice": 31200,
+                "amount": 31200
+              },
+              {
+                "category": "安装",
+                "name": "安装人工费",
+                "model": "㎡",
+                "brand": "自营",
+                "qty": 260,
+                "unitPrice": 150,
+                "amount": 39000
+              },
+              {
+                "category": "服务",
+                "name": "系统调试+验收",
+                "model": "次",
+                "brand": "自营",
+                "qty": 1,
+                "unitPrice": 3000,
+                "amount": 3000
+              }
+            ],
+            "subtotal": 273200,
+            "discount": 21856,
+            "finalTotal": 171135,
+            "promotionApplied": [
+              "套餐优惠85折",
+              "老客户推荐-¥1000"
+            ],
+            "paymentTerms": "30%首付 / 50%进场款 / 20%尾款",
+            "warranty": {
+              "equipment": "5年整机",
+              "installation": "2年施工",
+              "service": "10年全国联保"
+            }
+          },
+          "notes": "报价明细 7 项，最终金额 ¥171,135"
+        }
+      },
+      "timeline": [
+        {
+          "timestamp": "2026-04-23T03:35:40.227Z",
+          "stage": "system",
+          "event": "journey_created",
+          "actor": "system",
+          "detail": "客户旅程创建"
+        },
+        {
+          "timestamp": "2026-03-06T22:37:00.000Z",
+          "stage": "diagnosis",
+          "event": "communication_logged",
+          "actor": "孙建平",
+          "detail": "电话沟通：首次咨询"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.229Z",
+          "stage": "diagnosis",
+          "event": "stage_completed",
+          "actor": "陈浩",
+          "detail": "问诊完成，识别3个核心痛点"
+        },
+        {
+          "timestamp": "2026-03-09T22:29:00.000Z",
+          "stage": "lockin",
+          "event": "communication_logged",
+          "actor": "陈浩",
+          "detail": "上门沟通：上门现场勘查"
+        },
+        {
+          "timestamp": "2026-03-14T03:50:00.000Z",
+          "stage": "lockin",
+          "event": "communication_logged",
+          "actor": "陈浩",
+          "detail": "微信沟通：方案初稿发送"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.232Z",
+          "stage": "lockin",
+          "event": "stage_completed",
+          "actor": "陈浩",
+          "detail": "锁客成功率 85%"
+        },
+        {
+          "timestamp": "2026-03-23T23:12:00.000Z",
+          "stage": "deal",
+          "event": "communication_logged",
+          "actor": "陈浩",
+          "detail": "上门沟通：合同签订"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.233Z",
+          "stage": "deal",
+          "event": "stage_completed",
+          "actor": "陈浩",
+          "detail": "合同签订，金额 ¥171,135"
+        },
+        {
+          "timestamp": "2026-03-26T17:54:00.000Z",
+          "stage": "design",
+          "event": "communication_logged",
+          "actor": "张扬",
+          "detail": "微信沟通：方案深化设计"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.235Z",
+          "stage": "design",
+          "event": "stage_completed",
+          "actor": "张扬",
+          "detail": "设计完成，大平层260㎡，4大系统"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.236Z",
+          "stage": "technical",
+          "event": "stage_completed",
+          "actor": "赵工",
+          "detail": "技术评审通过，冷负荷28600W/热负荷19500W"
+        },
+        {
+          "timestamp": "2026-04-06T15:54:00.000Z",
+          "stage": "construction",
+          "event": "communication_logged",
+          "actor": "孙师傅",
+          "detail": "现场沟通：施工进场"
+        },
+        {
+          "timestamp": "2026-04-11T23:53:00.000Z",
+          "stage": "construction",
+          "event": "communication_logged",
+          "actor": "孙师傅",
+          "detail": "微信沟通：施工进度汇报"
+        },
+        {
+          "timestamp": "2026-04-17T00:30:00.000Z",
+          "stage": "construction",
+          "event": "communication_logged",
+          "actor": "孙师傅",
+          "detail": "现场沟通：竣工验收"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.240Z",
+          "stage": "construction",
+          "event": "stage_completed",
+          "actor": "孙师傅",
+          "detail": "施工完成10天，零安全事故"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.241Z",
+          "stage": "quotation",
+          "event": "stage_completed",
+          "actor": "陈浩",
+          "detail": "报价明细 7 项，最终金额 ¥171,135"
+        },
+        {
+          "timestamp": "2026-04-19T18:58:00.000Z",
+          "stage": "quotation",
+          "event": "communication_logged",
+          "actor": "陈浩",
+          "detail": "电话沟通：48小时回访"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.243Z",
+          "stage": "system",
+          "event": "journey_closed",
+          "actor": "system",
+          "detail": "旅程关闭：closed-won - 顺利交付，客户满意度4.9分"
+        }
+      ],
+      "communications": [
+        {
+          "id": "COMM-1776915340228-112",
+          "timestamp": "2026-03-06T22:37:00.000Z",
+          "channel": "电话",
+          "direction": "inbound",
+          "from": "孙建平",
+          "to": "陈浩",
+          "topic": "首次咨询",
+          "content": "客户来电咨询，宁波大平层业主，主要痛点：呼吸系统敏感、春秋季过敏、安静舒适。预算约18万",
+          "sentiment": "positive",
+          "nextAction": "邀约上门问诊",
+          "nextActionAt": "2026-03-09T22:30:00.000Z",
+          "stage": "diagnosis"
+        },
+        {
+          "id": "COMM-1776915340229-535",
+          "timestamp": "2026-03-09T22:29:00.000Z",
+          "channel": "上门",
+          "direction": "outbound",
+          "from": "陈浩",
+          "to": "孙建平",
+          "topic": "上门现场勘查",
+          "content": "上门勘查，测量房屋尺寸，确认施工条件。客户对高端定制方案表现出强烈兴趣",
+          "sentiment": "positive",
+          "nextAction": "3D方案呈现",
+          "nextActionAt": "2026-03-16T21:46:00.000Z",
+          "stage": "lockin"
+        },
+        {
+          "id": "COMM-1776915340230-31",
+          "timestamp": "2026-03-14T03:50:00.000Z",
+          "channel": "微信",
+          "direction": "outbound",
+          "from": "陈浩",
+          "to": "孙建平",
+          "topic": "方案初稿发送",
+          "content": "已发送定制方案初稿PDF。方案包含：五恒系统+全屋净水+中央热水+智能控制",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "lockin"
+        },
+        {
+          "id": "COMM-1776915340232-229",
+          "timestamp": "2026-03-23T23:12:00.000Z",
+          "channel": "上门",
+          "direction": "outbound",
+          "from": "陈浩",
+          "to": "孙建平",
+          "topic": "合同签订",
+          "content": "合同签订完成，方案金额¥171,135，首付30%：¥51,340",
+          "sentiment": "closed",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "deal"
+        },
+        {
+          "id": "COMM-1776915340234-493",
+          "timestamp": "2026-03-26T17:54:00.000Z",
+          "channel": "微信",
+          "direction": "outbound",
+          "from": "张扬",
+          "to": "孙建平",
+          "topic": "方案深化设计",
+          "content": "开始深化设计：CAD图纸 + 3D效果图 + 管路排布图，预计3天完成",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "design"
+        },
+        {
+          "id": "COMM-1776915340237-138",
+          "timestamp": "2026-04-06T15:54:00.000Z",
+          "channel": "现场",
+          "direction": "outbound",
+          "from": "孙师傅",
+          "to": "孙建平",
+          "topic": "施工进场",
+          "content": "施工队伍进场，预计工期10天。已完成材料到场检验、安全交底",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "construction"
+        },
+        {
+          "id": "COMM-1776915340238-892",
+          "timestamp": "2026-04-11T23:53:00.000Z",
+          "channel": "微信",
+          "direction": "outbound",
+          "from": "孙师傅",
+          "to": "孙建平",
+          "topic": "施工进度汇报",
+          "content": "主机吊装完成，管路预埋完成60%，现场照片已上传。下周进入精装配合阶段",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "construction"
+        },
+        {
+          "id": "COMM-1776915340239-845",
+          "timestamp": "2026-04-17T00:30:00.000Z",
+          "channel": "现场",
+          "direction": "outbound",
+          "from": "孙师傅",
+          "to": "孙建平",
+          "topic": "竣工验收",
+          "content": "设备调试完成，系统压力测试通过，客户签字验收",
+          "sentiment": "closed",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "construction"
+        },
+        {
+          "id": "COMM-1776915340242-369",
+          "timestamp": "2026-04-19T18:58:00.000Z",
+          "channel": "电话",
+          "direction": "outbound",
+          "from": "陈浩",
+          "to": "孙建平",
+          "topic": "48小时回访",
+          "content": "系统运行良好，客户反馈舒适度提升明显。已安排3个月上门保养",
+          "sentiment": "positive",
+          "nextAction": "季度上门保养",
+          "nextActionAt": "2026-07-19T17:14:00.000Z",
+          "stage": "quotation"
+        }
+      ],
+      "attachments": [],
+      "nextFollowUp": "2026-07-19T17:14:00.000Z",
+      "closedAt": "2026-04-23T03:35:40.243Z",
+      "closeReason": "顺利交付，客户满意度4.9分"
+    },
+    "RHM-2026-008": {
+      "caseId": "RHM-2026-008",
+      "customerId": "C0008",
+      "customer": {
+        "name": "周雪",
+        "phone": "13308901234",
+        "city": "合肥",
+        "source": "小红书",
+        "gender": "女",
+        "age": 29
+      },
+      "profile": {
+        "houseType": "平层",
+        "area": 110,
+        "floors": 1,
+        "basement": false,
+        "budget": 60000,
+        "familySize": 2,
+        "hasElderly": false,
+        "hasInfant": false
+      },
+      "currentStage": "quotation",
+      "status": "closed-won",
+      "createdAt": "2026-04-23T03:35:40.244Z",
+      "updatedAt": "2026-04-23T03:35:40.259Z",
+      "stages": {
+        "diagnosis": {
+          "status": "completed",
+          "startedAt": "2026-02-16T22:14:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.246Z",
+          "responsible": "林芳",
+          "data": {
+            "painPoints": [
+              "预算有限",
+              "基础舒适",
+              "安装便捷"
+            ],
+            "houseType": "平层",
+            "area": 110,
+            "budget": 60000,
+            "priorities": [
+              "舒适体验",
+              "节能环保",
+              "空气质量"
+            ]
+          },
+          "notes": "问诊完成，识别3个核心痛点"
+        },
+        "lockin": {
+          "status": "completed",
+          "startedAt": "2026-02-19T23:03:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.249Z",
+          "responsible": "林芳",
+          "data": {
+            "lockinActions": [
+              "上门勘查",
+              "3D呈现",
+              "案例展示",
+              "老客户推荐"
+            ],
+            "competitors": [
+              "大金",
+              "日立"
+            ],
+            "clientTier": "basic",
+            "confidence": 0.65
+          },
+          "notes": "锁客成功率 65%"
+        },
+        "deal": {
+          "status": "completed",
+          "startedAt": "2026-03-06T00:04:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.251Z",
+          "responsible": "林芳",
+          "data": {
+            "contractNo": "RHM-CT-2026-0008",
+            "contractDate": "2026-03-06T00:04:00.000Z",
+            "finalAmount": 57824,
+            "paymentSchedule": {
+              "downPayment": 17347,
+              "midPayment": 28912,
+              "finalPayment": 11564
+            },
+            "selectedTier": "basic",
+            "systems": [
+              "中央空调",
+              "新风系统"
+            ]
+          },
+          "notes": "合同签订，金额 ¥57,824"
+        },
+        "design": {
+          "status": "completed",
+          "startedAt": "2026-03-08T17:46:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.253Z",
+          "responsible": "李薇",
+          "data": {
+            "drawings": [
+              "cad-plan.dwg",
+              "3d-render.png",
+              "pipe-layout.pdf",
+              "electrical-diagram.pdf"
+            ],
+            "revisions": 2,
+            "designHours": 16,
+            "clientConfirmed": true,
+            "confirmedAt": "2026-03-14T00:58:00.000Z"
+          },
+          "notes": "设计完成，平层110㎡，2大系统"
+        },
+        "technical": {
+          "status": "completed",
+          "startedAt": "2026-03-15T16:09:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.254Z",
+          "responsible": "钱工",
+          "data": {
+            "loadCalculation": {
+              "heatingLoad": 8250,
+              "coolingLoad": 12100,
+              "hotWaterLoad": 140
+            },
+            "systemSelection": [
+              {
+                "name": "中央空调",
+                "brand": "瑞美基础款",
+                "price": 35000,
+                "model": "RH-A5"
+              },
+              {
+                "name": "新风系统",
+                "brand": "瑞美",
+                "price": 15000,
+                "model": "RH-F3"
+              }
+            ],
+            "energyEfficiency": {
+              "COP": 4.2,
+              "EER": 3.8,
+              "annualEnergySaving": "35%"
+            },
+            "compliance": [
+              "GB 50736-2012",
+              "GB 50189-2015",
+              "ISO 50001"
+            ],
+            "technicalReview": {
+              "reviewer": "赵工",
+              "passedAt": "2026-03-17T18:48:00.000Z"
+            }
+          },
+          "notes": "技术评审通过，冷负荷12100W/热负荷8250W"
+        },
+        "construction": {
+          "status": "completed",
+          "startedAt": "2026-03-19T15:58:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.257Z",
+          "responsible": "吴师傅",
+          "data": {
+            "startDate": "2026-03-19T15:58:00.000Z",
+            "endDate": "2026-03-30T00:53:00.000Z",
+            "workDays": 10,
+            "team": [
+              "吴师傅",
+              "水电工李师傅",
+              "弱电工老周"
+            ],
+            "milestones": [
+              {
+                "date": "2026-03-19T15:58:00.000Z",
+                "event": "进场开工",
+                "status": "done"
+              },
+              {
+                "date": "2026-03-22T00:17:00.000Z",
+                "event": "管路预埋",
+                "status": "done"
+              },
+              {
+                "date": "2026-03-24T00:32:00.000Z",
+                "event": "主机吊装",
+                "status": "done"
+              },
+              {
+                "date": "2026-03-27T00:35:00.000Z",
+                "event": "末端安装",
+                "status": "done"
+              },
+              {
+                "date": "2026-03-29T00:11:00.000Z",
+                "event": "系统调试",
+                "status": "done"
+              },
+              {
+                "date": "2026-03-30T00:53:00.000Z",
+                "event": "竣工验收",
+                "status": "done"
+              }
+            ],
+            "issues": [],
+            "safetyIncidents": 0,
+            "clientAcceptance": {
+              "signedBy": "周雪",
+              "signedAt": "2026-03-30T00:53:00.000Z",
+              "rating": 4.851320506086897
+            }
+          },
+          "notes": "施工完成10天，零安全事故"
+        },
+        "quotation": {
+          "status": "completed",
+          "startedAt": "2026-03-06T00:04:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.258Z",
+          "responsible": "林芳",
+          "data": {
+            "items": [
+              {
+                "category": "设备",
+                "name": "中央空调",
+                "model": "RH-A5",
+                "brand": "瑞美基础款",
+                "qty": 1,
+                "unitPrice": 35000,
+                "amount": 35000
+              },
+              {
+                "category": "设备",
+                "name": "新风系统",
+                "model": "RH-F3",
+                "brand": "瑞美",
+                "qty": 1,
+                "unitPrice": 15000,
+                "amount": 15000
+              },
+              {
+                "category": "辅材",
+                "name": "管路材料/配件",
+                "model": "套",
+                "brand": "国标",
+                "qty": 1,
+                "unitPrice": 13200,
+                "amount": 13200
+              },
+              {
+                "category": "安装",
+                "name": "安装人工费",
+                "model": "㎡",
+                "brand": "自营",
+                "qty": 110,
+                "unitPrice": 150,
+                "amount": 16500
+              },
+              {
+                "category": "服务",
+                "name": "系统调试+验收",
+                "model": "次",
+                "brand": "自营",
+                "qty": 1,
+                "unitPrice": 3000,
+                "amount": 3000
+              }
+            ],
+            "subtotal": 82700,
+            "discount": 6616,
+            "finalTotal": 57824,
+            "promotionApplied": [
+              "套餐优惠85折",
+              "老客户推荐-¥1000"
+            ],
+            "paymentTerms": "30%首付 / 50%进场款 / 20%尾款",
+            "warranty": {
+              "equipment": "5年整机",
+              "installation": "2年施工",
+              "service": "10年全国联保"
+            }
+          },
+          "notes": "报价明细 5 项，最终金额 ¥57,824"
+        }
+      },
+      "timeline": [
+        {
+          "timestamp": "2026-04-23T03:35:40.244Z",
+          "stage": "system",
+          "event": "journey_created",
+          "actor": "system",
+          "detail": "客户旅程创建"
+        },
+        {
+          "timestamp": "2026-02-16T22:42:00.000Z",
+          "stage": "diagnosis",
+          "event": "communication_logged",
+          "actor": "周雪",
+          "detail": "电话沟通：首次咨询"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.246Z",
+          "stage": "diagnosis",
+          "event": "stage_completed",
+          "actor": "林芳",
+          "detail": "问诊完成，识别3个核心痛点"
+        },
+        {
+          "timestamp": "2026-02-19T23:54:00.000Z",
+          "stage": "lockin",
+          "event": "communication_logged",
+          "actor": "林芳",
+          "detail": "上门沟通：上门现场勘查"
+        },
+        {
+          "timestamp": "2026-02-24T04:36:00.000Z",
+          "stage": "lockin",
+          "event": "communication_logged",
+          "actor": "林芳",
+          "detail": "微信沟通：方案初稿发送"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.249Z",
+          "stage": "lockin",
+          "event": "stage_completed",
+          "actor": "林芳",
+          "detail": "锁客成功率 65%"
+        },
+        {
+          "timestamp": "2026-03-06T00:04:00.000Z",
+          "stage": "deal",
+          "event": "communication_logged",
+          "actor": "林芳",
+          "detail": "上门沟通：合同签订"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.251Z",
+          "stage": "deal",
+          "event": "stage_completed",
+          "actor": "林芳",
+          "detail": "合同签订，金额 ¥57,824"
+        },
+        {
+          "timestamp": "2026-03-08T17:18:00.000Z",
+          "stage": "design",
+          "event": "communication_logged",
+          "actor": "李薇",
+          "detail": "微信沟通：方案深化设计"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.253Z",
+          "stage": "design",
+          "event": "stage_completed",
+          "actor": "李薇",
+          "detail": "设计完成，平层110㎡，2大系统"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.254Z",
+          "stage": "technical",
+          "event": "stage_completed",
+          "actor": "钱工",
+          "detail": "技术评审通过，冷负荷12100W/热负荷8250W"
+        },
+        {
+          "timestamp": "2026-03-19T15:58:00.000Z",
+          "stage": "construction",
+          "event": "communication_logged",
+          "actor": "吴师傅",
+          "detail": "现场沟通：施工进场"
+        },
+        {
+          "timestamp": "2026-03-24T23:57:00.000Z",
+          "stage": "construction",
+          "event": "communication_logged",
+          "actor": "吴师傅",
+          "detail": "微信沟通：施工进度汇报"
+        },
+        {
+          "timestamp": "2026-03-30T00:53:00.000Z",
+          "stage": "construction",
+          "event": "communication_logged",
+          "actor": "吴师傅",
+          "detail": "现场沟通：竣工验收"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.257Z",
+          "stage": "construction",
+          "event": "stage_completed",
+          "actor": "吴师傅",
+          "detail": "施工完成10天，零安全事故"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.258Z",
+          "stage": "quotation",
+          "event": "stage_completed",
+          "actor": "林芳",
+          "detail": "报价明细 5 项，最终金额 ¥57,824"
+        },
+        {
+          "timestamp": "2026-04-01T18:55:00.000Z",
+          "stage": "quotation",
+          "event": "communication_logged",
+          "actor": "林芳",
+          "detail": "电话沟通：48小时回访"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.260Z",
+          "stage": "system",
+          "event": "journey_closed",
+          "actor": "system",
+          "detail": "旅程关闭：closed-won - 顺利交付，客户满意度4.8分"
+        }
+      ],
+      "communications": [
+        {
+          "id": "COMM-1776915340245-897",
+          "timestamp": "2026-02-16T22:42:00.000Z",
+          "channel": "电话",
+          "direction": "inbound",
+          "from": "周雪",
+          "to": "林芳",
+          "topic": "首次咨询",
+          "content": "客户来电咨询，合肥平层业主，主要痛点：预算有限、基础舒适、安装便捷。预算约6万",
+          "sentiment": "positive",
+          "nextAction": "邀约上门问诊",
+          "nextActionAt": "2026-02-19T23:23:00.000Z",
+          "stage": "diagnosis"
+        },
+        {
+          "id": "COMM-1776915340247-292",
+          "timestamp": "2026-02-19T23:54:00.000Z",
+          "channel": "上门",
+          "direction": "outbound",
+          "from": "林芳",
+          "to": "周雪",
+          "topic": "上门现场勘查",
+          "content": "上门勘查，测量房屋尺寸，确认施工条件。客户对舒适型方案表现出强烈兴趣",
+          "sentiment": "positive",
+          "nextAction": "3D方案呈现",
+          "nextActionAt": "2026-02-26T22:35:00.000Z",
+          "stage": "lockin"
+        },
+        {
+          "id": "COMM-1776915340248-448",
+          "timestamp": "2026-02-24T04:36:00.000Z",
+          "channel": "微信",
+          "direction": "outbound",
+          "from": "林芳",
+          "to": "周雪",
+          "topic": "方案初稿发送",
+          "content": "已发送定制方案初稿PDF。方案包含：中央空调+新风+热水系统",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "lockin"
+        },
+        {
+          "id": "COMM-1776915340250-40",
+          "timestamp": "2026-03-06T00:04:00.000Z",
+          "channel": "上门",
+          "direction": "outbound",
+          "from": "林芳",
+          "to": "周雪",
+          "topic": "合同签订",
+          "content": "合同签订完成，方案金额¥57,824，首付30%：¥17,347",
+          "sentiment": "closed",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "deal"
+        },
+        {
+          "id": "COMM-1776915340252-356",
+          "timestamp": "2026-03-08T17:18:00.000Z",
+          "channel": "微信",
+          "direction": "outbound",
+          "from": "李薇",
+          "to": "周雪",
+          "topic": "方案深化设计",
+          "content": "开始深化设计：CAD图纸 + 3D效果图 + 管路排布图，预计3天完成",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "design"
+        },
+        {
+          "id": "COMM-1776915340255-263",
+          "timestamp": "2026-03-19T15:58:00.000Z",
+          "channel": "现场",
+          "direction": "outbound",
+          "from": "吴师傅",
+          "to": "周雪",
+          "topic": "施工进场",
+          "content": "施工队伍进场，预计工期10天。已完成材料到场检验、安全交底",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "construction"
+        },
+        {
+          "id": "COMM-1776915340256-600",
+          "timestamp": "2026-03-24T23:57:00.000Z",
+          "channel": "微信",
+          "direction": "outbound",
+          "from": "吴师傅",
+          "to": "周雪",
+          "topic": "施工进度汇报",
+          "content": "主机吊装完成，管路预埋完成60%，现场照片已上传。下周进入精装配合阶段",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "construction"
+        },
+        {
+          "id": "COMM-1776915340257-723",
+          "timestamp": "2026-03-30T00:53:00.000Z",
+          "channel": "现场",
+          "direction": "outbound",
+          "from": "吴师傅",
+          "to": "周雪",
+          "topic": "竣工验收",
+          "content": "设备调试完成，系统压力测试通过，客户签字验收",
+          "sentiment": "closed",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "construction"
+        },
+        {
+          "id": "COMM-1776915340259-278",
+          "timestamp": "2026-04-01T18:55:00.000Z",
+          "channel": "电话",
+          "direction": "outbound",
+          "from": "林芳",
+          "to": "周雪",
+          "topic": "48小时回访",
+          "content": "系统运行良好，客户反馈舒适度提升明显。已安排3个月上门保养",
+          "sentiment": "positive",
+          "nextAction": "季度上门保养",
+          "nextActionAt": "2026-07-01T17:16:00.000Z",
+          "stage": "quotation"
+        }
+      ],
+      "attachments": [],
+      "nextFollowUp": "2026-07-01T17:16:00.000Z",
+      "closedAt": "2026-04-23T03:35:40.260Z",
+      "closeReason": "顺利交付，客户满意度4.8分"
+    },
+    "RHM-2026-009": {
+      "caseId": "RHM-2026-009",
+      "customerId": "C0009",
+      "customer": {
+        "name": "黄伟",
+        "phone": "13409012345",
+        "city": "上海",
+        "source": "地产样板间",
+        "gender": "男",
+        "age": 45
+      },
+      "profile": {
+        "houseType": "联排",
+        "area": 240,
+        "floors": 3,
+        "basement": true,
+        "budget": 160000,
+        "familySize": 4,
+        "hasElderly": false,
+        "hasInfant": false
+      },
+      "currentStage": "quotation",
+      "status": "closed-won",
+      "createdAt": "2026-04-23T03:35:40.261Z",
+      "updatedAt": "2026-04-23T03:35:40.280Z",
+      "stages": {
+        "diagnosis": {
+          "status": "completed",
+          "startedAt": "2026-02-28T22:37:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.263Z",
+          "responsible": "王磊",
+          "data": {
+            "painPoints": [
+              "多层水压不稳",
+              "地下室潮湿",
+              "系统联动"
+            ],
+            "houseType": "联排",
+            "area": 240,
+            "budget": 160000,
+            "priorities": [
+              "舒适体验",
+              "节能环保",
+              "空气质量"
+            ]
+          },
+          "notes": "问诊完成，识别3个核心痛点"
+        },
+        "lockin": {
+          "status": "completed",
+          "startedAt": "2026-03-03T23:37:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.267Z",
+          "responsible": "王磊",
+          "data": {
+            "lockinActions": [
+              "上门勘查",
+              "3D呈现",
+              "案例展示",
+              "老客户推荐"
+            ],
+            "competitors": [
+              "大金",
+              "日立"
+            ],
+            "clientTier": "comfort",
+            "confidence": 0.78
+          },
+          "notes": "锁客成功率 78%"
+        },
+        "deal": {
+          "status": "completed",
+          "startedAt": "2026-03-17T23:22:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.270Z",
+          "responsible": "王磊",
+          "data": {
+            "contractNo": "RHM-CT-2026-0009",
+            "contractDate": "2026-03-17T23:22:00.000Z",
+            "finalAmount": 147827,
+            "paymentSchedule": {
+              "downPayment": 44348,
+              "midPayment": 73913,
+              "finalPayment": 29565
+            },
+            "selectedTier": "comfort",
+            "systems": [
+              "中央空调",
+              "新风系统",
+              "中央热水系统",
+              "全屋净水系统"
+            ]
+          },
+          "notes": "合同签订，金额 ¥147,827"
+        },
+        "design": {
+          "status": "completed",
+          "startedAt": "2026-03-20T17:34:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.272Z",
+          "responsible": "张扬",
+          "data": {
+            "drawings": [
+              "cad-plan.dwg",
+              "3d-render.png",
+              "pipe-layout.pdf",
+              "electrical-diagram.pdf"
+            ],
+            "revisions": 2,
+            "designHours": 18,
+            "clientConfirmed": true,
+            "confirmedAt": "2026-03-26T00:46:00.000Z"
+          },
+          "notes": "设计完成，联排240㎡，4大系统"
+        },
+        "technical": {
+          "status": "completed",
+          "startedAt": "2026-03-27T16:53:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.273Z",
+          "responsible": "赵工",
+          "data": {
+            "loadCalculation": {
+              "heatingLoad": 21600,
+              "coolingLoad": 26400,
+              "hotWaterLoad": 280
+            },
+            "systemSelection": [
+              {
+                "name": "中央空调",
+                "brand": "瑞美舒适款",
+                "price": 55000,
+                "model": "RH-A7"
+              },
+              {
+                "name": "新风系统",
+                "brand": "瑞美",
+                "price": 22000,
+                "model": "RH-F5"
+              },
+              {
+                "name": "中央热水系统",
+                "brand": "瑞美",
+                "price": 18000,
+                "model": "RH-W5"
+              },
+              {
+                "name": "全屋净水系统",
+                "brand": "瑞美",
+                "price": 12000,
+                "model": "RH-P3"
+              }
+            ],
+            "energyEfficiency": {
+              "COP": 4.2,
+              "EER": 3.8,
+              "annualEnergySaving": "35%"
+            },
+            "compliance": [
+              "GB 50736-2012",
+              "GB 50189-2015",
+              "ISO 50001"
+            ],
+            "technicalReview": {
+              "reviewer": "钱工",
+              "passedAt": "2026-03-29T18:19:00.000Z"
+            }
+          },
+          "notes": "技术评审通过，冷负荷26400W/热负荷21600W"
+        },
+        "construction": {
+          "status": "completed",
+          "startedAt": "2026-03-31T15:19:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.278Z",
+          "responsible": "孙师傅",
+          "data": {
+            "startDate": "2026-03-31T15:19:00.000Z",
+            "endDate": "2026-04-11T00:24:00.000Z",
+            "workDays": 10,
+            "team": [
+              "孙师傅",
+              "水电工李师傅",
+              "弱电工老周"
+            ],
+            "milestones": [
+              {
+                "date": "2026-03-31T15:19:00.000Z",
+                "event": "进场开工",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-03T00:28:00.000Z",
+                "event": "管路预埋",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-05T00:58:00.000Z",
+                "event": "主机吊装",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-08T00:55:00.000Z",
+                "event": "末端安装",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-10T00:33:00.000Z",
+                "event": "系统调试",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-11T00:24:00.000Z",
+                "event": "竣工验收",
+                "status": "done"
+              }
+            ],
+            "issues": [],
+            "safetyIncidents": 0,
+            "clientAcceptance": {
+              "signedBy": "黄伟",
+              "signedAt": "2026-04-11T00:24:00.000Z",
+              "rating": 4.953725787894153
+            }
+          },
+          "notes": "施工完成10天，零安全事故"
+        },
+        "quotation": {
+          "status": "completed",
+          "startedAt": "2026-03-17T23:22:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.279Z",
+          "responsible": "王磊",
+          "data": {
+            "items": [
+              {
+                "category": "设备",
+                "name": "中央空调",
+                "model": "RH-A7",
+                "brand": "瑞美舒适款",
+                "qty": 1,
+                "unitPrice": 55000,
+                "amount": 55000
+              },
+              {
+                "category": "设备",
+                "name": "新风系统",
+                "model": "RH-F5",
+                "brand": "瑞美",
+                "qty": 1,
+                "unitPrice": 22000,
+                "amount": 22000
+              },
+              {
+                "category": "设备",
+                "name": "中央热水系统",
+                "model": "RH-W5",
+                "brand": "瑞美",
+                "qty": 1,
+                "unitPrice": 18000,
+                "amount": 18000
+              },
+              {
+                "category": "设备",
+                "name": "全屋净水系统",
+                "model": "RH-P3",
+                "brand": "瑞美",
+                "qty": 1,
+                "unitPrice": 12000,
+                "amount": 12000
+              },
+              {
+                "category": "辅材",
+                "name": "管路材料/配件",
+                "model": "套",
+                "brand": "国标",
+                "qty": 1,
+                "unitPrice": 28800,
+                "amount": 28800
+              },
+              {
+                "category": "安装",
+                "name": "安装人工费",
+                "model": "㎡",
+                "brand": "自营",
+                "qty": 240,
+                "unitPrice": 150,
+                "amount": 36000
+              },
+              {
+                "category": "服务",
+                "name": "系统调试+验收",
+                "model": "次",
+                "brand": "自营",
+                "qty": 1,
+                "unitPrice": 3000,
+                "amount": 3000
+              }
+            ],
+            "subtotal": 174800,
+            "discount": 13984,
+            "finalTotal": 147827,
+            "promotionApplied": [
+              "套餐优惠85折",
+              "老客户推荐-¥1000"
+            ],
+            "paymentTerms": "30%首付 / 50%进场款 / 20%尾款",
+            "warranty": {
+              "equipment": "5年整机",
+              "installation": "2年施工",
+              "service": "10年全国联保"
+            }
+          },
+          "notes": "报价明细 7 项，最终金额 ¥147,827"
+        }
+      },
+      "timeline": [
+        {
+          "timestamp": "2026-04-23T03:35:40.261Z",
+          "stage": "system",
+          "event": "journey_created",
+          "actor": "system",
+          "detail": "客户旅程创建"
+        },
+        {
+          "timestamp": "2026-02-28T22:09:00.000Z",
+          "stage": "diagnosis",
+          "event": "communication_logged",
+          "actor": "黄伟",
+          "detail": "电话沟通：首次咨询"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.263Z",
+          "stage": "diagnosis",
+          "event": "stage_completed",
+          "actor": "王磊",
+          "detail": "问诊完成，识别3个核心痛点"
+        },
+        {
+          "timestamp": "2026-03-03T23:09:00.000Z",
+          "stage": "lockin",
+          "event": "communication_logged",
+          "actor": "王磊",
+          "detail": "上门沟通：上门现场勘查"
+        },
+        {
+          "timestamp": "2026-03-08T04:51:00.000Z",
+          "stage": "lockin",
+          "event": "communication_logged",
+          "actor": "王磊",
+          "detail": "微信沟通：方案初稿发送"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.267Z",
+          "stage": "lockin",
+          "event": "stage_completed",
+          "actor": "王磊",
+          "detail": "锁客成功率 78%"
+        },
+        {
+          "timestamp": "2026-03-17T23:22:00.000Z",
+          "stage": "deal",
+          "event": "communication_logged",
+          "actor": "王磊",
+          "detail": "上门沟通：合同签订"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.270Z",
+          "stage": "deal",
+          "event": "stage_completed",
+          "actor": "王磊",
+          "detail": "合同签订，金额 ¥147,827"
+        },
+        {
+          "timestamp": "2026-03-20T17:18:00.000Z",
+          "stage": "design",
+          "event": "communication_logged",
+          "actor": "张扬",
+          "detail": "微信沟通：方案深化设计"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.272Z",
+          "stage": "design",
+          "event": "stage_completed",
+          "actor": "张扬",
+          "detail": "设计完成，联排240㎡，4大系统"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.273Z",
+          "stage": "technical",
+          "event": "stage_completed",
+          "actor": "赵工",
+          "detail": "技术评审通过，冷负荷26400W/热负荷21600W"
+        },
+        {
+          "timestamp": "2026-03-31T15:19:00.000Z",
+          "stage": "construction",
+          "event": "communication_logged",
+          "actor": "孙师傅",
+          "detail": "现场沟通：施工进场"
+        },
+        {
+          "timestamp": "2026-04-05T23:50:00.000Z",
+          "stage": "construction",
+          "event": "communication_logged",
+          "actor": "孙师傅",
+          "detail": "微信沟通：施工进度汇报"
+        },
+        {
+          "timestamp": "2026-04-11T00:24:00.000Z",
+          "stage": "construction",
+          "event": "communication_logged",
+          "actor": "孙师傅",
+          "detail": "现场沟通：竣工验收"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.278Z",
+          "stage": "construction",
+          "event": "stage_completed",
+          "actor": "孙师傅",
+          "detail": "施工完成10天，零安全事故"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.279Z",
+          "stage": "quotation",
+          "event": "stage_completed",
+          "actor": "王磊",
+          "detail": "报价明细 7 项，最终金额 ¥147,827"
+        },
+        {
+          "timestamp": "2026-04-13T18:49:00.000Z",
+          "stage": "quotation",
+          "event": "communication_logged",
+          "actor": "王磊",
+          "detail": "电话沟通：48小时回访"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.281Z",
+          "stage": "system",
+          "event": "journey_closed",
+          "actor": "system",
+          "detail": "旅程关闭：closed-won - 顺利交付，客户满意度4.7分"
+        }
+      ],
+      "communications": [
+        {
+          "id": "COMM-1776915340262-942",
+          "timestamp": "2026-02-28T22:09:00.000Z",
+          "channel": "电话",
+          "direction": "inbound",
+          "from": "黄伟",
+          "to": "王磊",
+          "topic": "首次咨询",
+          "content": "客户来电咨询，上海联排业主，主要痛点：多层水压不稳、地下室潮湿、系统联动。预算约16万",
+          "sentiment": "positive",
+          "nextAction": "邀约上门问诊",
+          "nextActionAt": "2026-03-03T23:06:00.000Z",
+          "stage": "diagnosis"
+        },
+        {
+          "id": "COMM-1776915340265-879",
+          "timestamp": "2026-03-03T23:09:00.000Z",
+          "channel": "上门",
+          "direction": "outbound",
+          "from": "王磊",
+          "to": "黄伟",
+          "topic": "上门现场勘查",
+          "content": "上门勘查，测量房屋尺寸，确认施工条件。客户对舒适型方案表现出强烈兴趣",
+          "sentiment": "positive",
+          "nextAction": "3D方案呈现",
+          "nextActionAt": "2026-03-10T21:11:00.000Z",
+          "stage": "lockin"
+        },
+        {
+          "id": "COMM-1776915340266-846",
+          "timestamp": "2026-03-08T04:51:00.000Z",
+          "channel": "微信",
+          "direction": "outbound",
+          "from": "王磊",
+          "to": "黄伟",
+          "topic": "方案初稿发送",
+          "content": "已发送定制方案初稿PDF。方案包含：中央空调+新风+热水系统",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "lockin"
+        },
+        {
+          "id": "COMM-1776915340269-741",
+          "timestamp": "2026-03-17T23:22:00.000Z",
+          "channel": "上门",
+          "direction": "outbound",
+          "from": "王磊",
+          "to": "黄伟",
+          "topic": "合同签订",
+          "content": "合同签订完成，方案金额¥147,827，首付30%：¥44,348",
+          "sentiment": "closed",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "deal"
+        },
+        {
+          "id": "COMM-1776915340271-460",
+          "timestamp": "2026-03-20T17:18:00.000Z",
+          "channel": "微信",
+          "direction": "outbound",
+          "from": "张扬",
+          "to": "黄伟",
+          "topic": "方案深化设计",
+          "content": "开始深化设计：CAD图纸 + 3D效果图 + 管路排布图，预计3天完成",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "design"
+        },
+        {
+          "id": "COMM-1776915340274-130",
+          "timestamp": "2026-03-31T15:19:00.000Z",
+          "channel": "现场",
+          "direction": "outbound",
+          "from": "孙师傅",
+          "to": "黄伟",
+          "topic": "施工进场",
+          "content": "施工队伍进场，预计工期10天。已完成材料到场检验、安全交底",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "construction"
+        },
+        {
+          "id": "COMM-1776915340275-247",
+          "timestamp": "2026-04-05T23:50:00.000Z",
+          "channel": "微信",
+          "direction": "outbound",
+          "from": "孙师傅",
+          "to": "黄伟",
+          "topic": "施工进度汇报",
+          "content": "主机吊装完成，管路预埋完成60%，现场照片已上传。下周进入精装配合阶段",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "construction"
+        },
+        {
+          "id": "COMM-1776915340276-143",
+          "timestamp": "2026-04-11T00:24:00.000Z",
+          "channel": "现场",
+          "direction": "outbound",
+          "from": "孙师傅",
+          "to": "黄伟",
+          "topic": "竣工验收",
+          "content": "设备调试完成，系统压力测试通过，客户签字验收",
+          "sentiment": "closed",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "construction"
+        },
+        {
+          "id": "COMM-1776915340280-12",
+          "timestamp": "2026-04-13T18:49:00.000Z",
+          "channel": "电话",
+          "direction": "outbound",
+          "from": "王磊",
+          "to": "黄伟",
+          "topic": "48小时回访",
+          "content": "系统运行良好，客户反馈舒适度提升明显。已安排3个月上门保养",
+          "sentiment": "positive",
+          "nextAction": "季度上门保养",
+          "nextActionAt": "2026-07-13T17:34:00.000Z",
+          "stage": "quotation"
+        }
+      ],
+      "attachments": [],
+      "nextFollowUp": "2026-07-13T17:34:00.000Z",
+      "closedAt": "2026-04-23T03:35:40.281Z",
+      "closeReason": "顺利交付，客户满意度4.7分"
+    },
+    "RHM-2026-010": {
+      "caseId": "RHM-2026-010",
+      "customerId": "C0010",
+      "customer": {
+        "name": "郭家辉",
+        "phone": "13510123456",
+        "city": "苏州",
+        "source": "展会",
+        "gender": "男",
+        "age": 50
+      },
+      "profile": {
+        "houseType": "独栋",
+        "area": 420,
+        "floors": 4,
+        "basement": true,
+        "budget": 350000,
+        "familySize": 6,
+        "hasElderly": true,
+        "hasInfant": true
+      },
+      "currentStage": "quotation",
+      "status": "closed-won",
+      "createdAt": "2026-04-23T03:35:40.283Z",
+      "updatedAt": "2026-04-23T03:35:40.301Z",
+      "stages": {
+        "diagnosis": {
+          "status": "completed",
+          "startedAt": "2026-03-07T22:07:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.285Z",
+          "responsible": "刘婷",
+          "data": {
+            "painPoints": [
+              "三代同堂差异化需求",
+              "独立分区控制",
+              "能耗可视化"
+            ],
+            "houseType": "独栋",
+            "area": 420,
+            "budget": 350000,
+            "priorities": [
+              "舒适体验",
+              "节能环保",
+              "空气质量"
+            ]
+          },
+          "notes": "问诊完成，识别3个核心痛点"
+        },
+        "lockin": {
+          "status": "completed",
+          "startedAt": "2026-03-10T22:38:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.288Z",
+          "responsible": "刘婷",
+          "data": {
+            "lockinActions": [
+              "上门勘查",
+              "3D呈现",
+              "案例展示",
+              "老客户推荐"
+            ],
+            "competitors": [
+              "大金",
+              "日立"
+            ],
+            "clientTier": "premium",
+            "confidence": 0.92
+          },
+          "notes": "锁客成功率 92%"
+        },
+        "deal": {
+          "status": "completed",
+          "startedAt": "2026-03-24T23:02:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.291Z",
+          "responsible": "刘婷",
+          "data": {
+            "contractNo": "RHM-CT-2026-0010",
+            "contractDate": "2026-03-24T23:02:00.000Z",
+            "finalAmount": 331299,
+            "paymentSchedule": {
+              "downPayment": 99389,
+              "midPayment": 165649,
+              "finalPayment": 66259
+            },
+            "selectedTier": "premium",
+            "systems": [
+              "五恒系统",
+              "全屋净水系统",
+              "中央热水系统",
+              "智能控制系统"
+            ]
+          },
+          "notes": "合同签订，金额 ¥331,299"
+        },
+        "design": {
+          "status": "completed",
+          "startedAt": "2026-03-27T17:31:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.293Z",
+          "responsible": "李薇",
+          "data": {
+            "drawings": [
+              "cad-plan.dwg",
+              "3d-render.png",
+              "pipe-layout.pdf",
+              "electrical-diagram.pdf"
+            ],
+            "revisions": 2,
+            "designHours": 23,
+            "clientConfirmed": true,
+            "confirmedAt": "2026-04-02T00:09:00.000Z"
+          },
+          "notes": "设计完成，独栋420㎡，4大系统"
+        },
+        "technical": {
+          "status": "completed",
+          "startedAt": "2026-04-03T16:59:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.294Z",
+          "responsible": "钱工",
+          "data": {
+            "loadCalculation": {
+              "heatingLoad": 37800,
+              "coolingLoad": 46200,
+              "hotWaterLoad": 420
+            },
+            "systemSelection": [
+              {
+                "name": "五恒系统",
+                "brand": "瑞美尊享",
+                "price": 120000,
+                "model": "RH-X9"
+              },
+              {
+                "name": "全屋净水系统",
+                "brand": "瑞美Plus",
+                "price": 25000,
+                "model": "RH-P7"
+              },
+              {
+                "name": "中央热水系统",
+                "brand": "瑞美Plus",
+                "price": 35000,
+                "model": "RH-W7"
+              },
+              {
+                "name": "智能控制系统",
+                "brand": "瑞美Smart",
+                "price": 20000,
+                "model": "RH-S5"
+              }
+            ],
+            "energyEfficiency": {
+              "COP": 4.2,
+              "EER": 3.8,
+              "annualEnergySaving": "35%"
+            },
+            "compliance": [
+              "GB 50736-2012",
+              "GB 50189-2015",
+              "ISO 50001"
+            ],
+            "technicalReview": {
+              "reviewer": "赵工",
+              "passedAt": "2026-04-05T18:26:00.000Z"
+            }
+          },
+          "notes": "技术评审通过，冷负荷46200W/热负荷37800W"
+        },
+        "construction": {
+          "status": "completed",
+          "startedAt": "2026-04-07T15:20:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.299Z",
+          "responsible": "吴师傅",
+          "data": {
+            "startDate": "2026-04-07T15:20:00.000Z",
+            "endDate": "2026-04-18T00:44:00.000Z",
+            "workDays": 10,
+            "team": [
+              "吴师傅",
+              "水电工李师傅",
+              "弱电工老周"
+            ],
+            "milestones": [
+              {
+                "date": "2026-04-07T15:20:00.000Z",
+                "event": "进场开工",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-10T00:00:00.000Z",
+                "event": "管路预埋",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-12T00:46:00.000Z",
+                "event": "主机吊装",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-15T00:10:00.000Z",
+                "event": "末端安装",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-17T00:34:00.000Z",
+                "event": "系统调试",
+                "status": "done"
+              },
+              {
+                "date": "2026-04-18T00:44:00.000Z",
+                "event": "竣工验收",
+                "status": "done"
+              }
+            ],
+            "issues": [],
+            "safetyIncidents": 0,
+            "clientAcceptance": {
+              "signedBy": "郭家辉",
+              "signedAt": "2026-04-18T00:44:00.000Z",
+              "rating": 4.545123795672909
+            }
+          },
+          "notes": "施工完成10天，零安全事故"
+        },
+        "quotation": {
+          "status": "completed",
+          "startedAt": "2026-03-24T23:02:00.000Z",
+          "completedAt": "2026-04-23T03:35:40.300Z",
+          "responsible": "刘婷",
+          "data": {
+            "items": [
+              {
+                "category": "设备",
+                "name": "五恒系统",
+                "model": "RH-X9",
+                "brand": "瑞美尊享",
+                "qty": 1,
+                "unitPrice": 120000,
+                "amount": 120000
+              },
+              {
+                "category": "设备",
+                "name": "全屋净水系统",
+                "model": "RH-P7",
+                "brand": "瑞美Plus",
+                "qty": 1,
+                "unitPrice": 25000,
+                "amount": 25000
+              },
+              {
+                "category": "设备",
+                "name": "中央热水系统",
+                "model": "RH-W7",
+                "brand": "瑞美Plus",
+                "qty": 1,
+                "unitPrice": 35000,
+                "amount": 35000
+              },
+              {
+                "category": "设备",
+                "name": "智能控制系统",
+                "model": "RH-S5",
+                "brand": "瑞美Smart",
+                "qty": 1,
+                "unitPrice": 20000,
+                "amount": 20000
+              },
+              {
+                "category": "辅材",
+                "name": "管路材料/配件",
+                "model": "套",
+                "brand": "国标",
+                "qty": 1,
+                "unitPrice": 50400,
+                "amount": 50400
+              },
+              {
+                "category": "安装",
+                "name": "安装人工费",
+                "model": "㎡",
+                "brand": "自营",
+                "qty": 420,
+                "unitPrice": 150,
+                "amount": 63000
+              },
+              {
+                "category": "服务",
+                "name": "系统调试+验收",
+                "model": "次",
+                "brand": "自营",
+                "qty": 1,
+                "unitPrice": 3000,
+                "amount": 3000
+              }
+            ],
+            "subtotal": 316400,
+            "discount": 25312,
+            "finalTotal": 291088,
+            "promotionApplied": [
+              "套餐优惠85折",
+              "老客户推荐-¥1000"
+            ],
+            "paymentTerms": "30%首付 / 50%进场款 / 20%尾款",
+            "warranty": {
+              "equipment": "5年整机",
+              "installation": "2年施工",
+              "service": "10年全国联保"
+            }
+          },
+          "notes": "报价明细 7 项，最终金额 ¥291,088"
+        }
+      },
+      "timeline": [
+        {
+          "timestamp": "2026-04-23T03:35:40.283Z",
+          "stage": "system",
+          "event": "journey_created",
+          "actor": "system",
+          "detail": "客户旅程创建"
+        },
+        {
+          "timestamp": "2026-03-07T22:21:00.000Z",
+          "stage": "diagnosis",
+          "event": "communication_logged",
+          "actor": "郭家辉",
+          "detail": "电话沟通：首次咨询"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.285Z",
+          "stage": "diagnosis",
+          "event": "stage_completed",
+          "actor": "刘婷",
+          "detail": "问诊完成，识别3个核心痛点"
+        },
+        {
+          "timestamp": "2026-03-10T22:11:00.000Z",
+          "stage": "lockin",
+          "event": "communication_logged",
+          "actor": "刘婷",
+          "detail": "上门沟通：上门现场勘查"
+        },
+        {
+          "timestamp": "2026-03-15T03:41:00.000Z",
+          "stage": "lockin",
+          "event": "communication_logged",
+          "actor": "刘婷",
+          "detail": "微信沟通：方案初稿发送"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.288Z",
+          "stage": "lockin",
+          "event": "stage_completed",
+          "actor": "刘婷",
+          "detail": "锁客成功率 92%"
+        },
+        {
+          "timestamp": "2026-03-24T23:02:00.000Z",
+          "stage": "deal",
+          "event": "communication_logged",
+          "actor": "刘婷",
+          "detail": "上门沟通：合同签订"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.291Z",
+          "stage": "deal",
+          "event": "stage_completed",
+          "actor": "刘婷",
+          "detail": "合同签订，金额 ¥331,299"
+        },
+        {
+          "timestamp": "2026-03-27T17:38:00.000Z",
+          "stage": "design",
+          "event": "communication_logged",
+          "actor": "李薇",
+          "detail": "微信沟通：方案深化设计"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.293Z",
+          "stage": "design",
+          "event": "stage_completed",
+          "actor": "李薇",
+          "detail": "设计完成，独栋420㎡，4大系统"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.294Z",
+          "stage": "technical",
+          "event": "stage_completed",
+          "actor": "钱工",
+          "detail": "技术评审通过，冷负荷46200W/热负荷37800W"
+        },
+        {
+          "timestamp": "2026-04-07T15:20:00.000Z",
+          "stage": "construction",
+          "event": "communication_logged",
+          "actor": "吴师傅",
+          "detail": "现场沟通：施工进场"
+        },
+        {
+          "timestamp": "2026-04-12T23:07:00.000Z",
+          "stage": "construction",
+          "event": "communication_logged",
+          "actor": "吴师傅",
+          "detail": "微信沟通：施工进度汇报"
+        },
+        {
+          "timestamp": "2026-04-18T00:44:00.000Z",
+          "stage": "construction",
+          "event": "communication_logged",
+          "actor": "吴师傅",
+          "detail": "现场沟通：竣工验收"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.299Z",
+          "stage": "construction",
+          "event": "stage_completed",
+          "actor": "吴师傅",
+          "detail": "施工完成10天，零安全事故"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.300Z",
+          "stage": "quotation",
+          "event": "stage_completed",
+          "actor": "刘婷",
+          "detail": "报价明细 7 项，最终金额 ¥291,088"
+        },
+        {
+          "timestamp": "2026-04-20T18:16:00.000Z",
+          "stage": "quotation",
+          "event": "communication_logged",
+          "actor": "刘婷",
+          "detail": "电话沟通：48小时回访"
+        },
+        {
+          "timestamp": "2026-04-23T03:35:40.302Z",
+          "stage": "system",
+          "event": "journey_closed",
+          "actor": "system",
+          "detail": "旅程关闭：closed-won - 顺利交付，客户满意度4.8分"
+        }
+      ],
+      "communications": [
+        {
+          "id": "COMM-1776915340284-288",
+          "timestamp": "2026-03-07T22:21:00.000Z",
+          "channel": "电话",
+          "direction": "inbound",
+          "from": "郭家辉",
+          "to": "刘婷",
+          "topic": "首次咨询",
+          "content": "客户来电咨询，苏州独栋业主，主要痛点：三代同堂差异化需求、独立分区控制、能耗可视化。预算约35万",
+          "sentiment": "positive",
+          "nextAction": "邀约上门问诊",
+          "nextActionAt": "2026-03-10T22:28:00.000Z",
+          "stage": "diagnosis"
+        },
+        {
+          "id": "COMM-1776915340286-707",
+          "timestamp": "2026-03-10T22:11:00.000Z",
+          "channel": "上门",
+          "direction": "outbound",
+          "from": "刘婷",
+          "to": "郭家辉",
+          "topic": "上门现场勘查",
+          "content": "上门勘查，测量房屋尺寸，确认施工条件。客户对高端定制方案表现出强烈兴趣",
+          "sentiment": "positive",
+          "nextAction": "3D方案呈现",
+          "nextActionAt": "2026-03-17T21:31:00.000Z",
+          "stage": "lockin"
+        },
+        {
+          "id": "COMM-1776915340287-744",
+          "timestamp": "2026-03-15T03:41:00.000Z",
+          "channel": "微信",
+          "direction": "outbound",
+          "from": "刘婷",
+          "to": "郭家辉",
+          "topic": "方案初稿发送",
+          "content": "已发送定制方案初稿PDF。方案包含：五恒系统+全屋净水+中央热水+智能控制",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "lockin"
+        },
+        {
+          "id": "COMM-1776915340290-626",
+          "timestamp": "2026-03-24T23:02:00.000Z",
+          "channel": "上门",
+          "direction": "outbound",
+          "from": "刘婷",
+          "to": "郭家辉",
+          "topic": "合同签订",
+          "content": "合同签订完成，方案金额¥331,299，首付30%：¥99,389",
+          "sentiment": "closed",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "deal"
+        },
+        {
+          "id": "COMM-1776915340292-844",
+          "timestamp": "2026-03-27T17:38:00.000Z",
+          "channel": "微信",
+          "direction": "outbound",
+          "from": "李薇",
+          "to": "郭家辉",
+          "topic": "方案深化设计",
+          "content": "开始深化设计：CAD图纸 + 3D效果图 + 管路排布图，预计3天完成",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "design"
+        },
+        {
+          "id": "COMM-1776915340295-1",
+          "timestamp": "2026-04-07T15:20:00.000Z",
+          "channel": "现场",
+          "direction": "outbound",
+          "from": "吴师傅",
+          "to": "郭家辉",
+          "topic": "施工进场",
+          "content": "施工队伍进场，预计工期10天。已完成材料到场检验、安全交底",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "construction"
+        },
+        {
+          "id": "COMM-1776915340296-326",
+          "timestamp": "2026-04-12T23:07:00.000Z",
+          "channel": "微信",
+          "direction": "outbound",
+          "from": "吴师傅",
+          "to": "郭家辉",
+          "topic": "施工进度汇报",
+          "content": "主机吊装完成，管路预埋完成60%，现场照片已上传。下周进入精装配合阶段",
+          "sentiment": "positive",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "construction"
+        },
+        {
+          "id": "COMM-1776915340297-145",
+          "timestamp": "2026-04-18T00:44:00.000Z",
+          "channel": "现场",
+          "direction": "outbound",
+          "from": "吴师傅",
+          "to": "郭家辉",
+          "topic": "竣工验收",
+          "content": "设备调试完成，系统压力测试通过，客户签字验收",
+          "sentiment": "closed",
+          "nextAction": null,
+          "nextActionAt": null,
+          "stage": "construction"
+        },
+        {
+          "id": "COMM-1776915340301-749",
+          "timestamp": "2026-04-20T18:16:00.000Z",
+          "channel": "电话",
+          "direction": "outbound",
+          "from": "刘婷",
+          "to": "郭家辉",
+          "topic": "48小时回访",
+          "content": "系统运行良好，客户反馈舒适度提升明显。已安排3个月上门保养",
+          "sentiment": "positive",
+          "nextAction": "季度上门保养",
+          "nextActionAt": "2026-07-20T17:59:00.000Z",
+          "stage": "quotation"
+        }
+      ],
+      "attachments": [],
+      "nextFollowUp": "2026-07-20T17:59:00.000Z",
+      "closedAt": "2026-04-23T03:35:40.302Z",
+      "closeReason": "顺利交付，客户满意度4.8分"
+    }
+  }
+}

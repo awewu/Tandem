@@ -1,0 +1,91 @@
+{
+  "projectName": "某住宅小区A栋12F-1201",
+  "buildingInfo": {
+    "name": "某住宅小区A栋",
+    "area": 120,
+    "type": "住宅"
+  },
+  "revitVersion": "2024",
+  "devices": [
+    {
+      "id": "AC-OD-01",
+      "type": "ac-outdoor",
+      "name": "空调外机",
+      "position": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "model": "RH-OD120",
+      "power": 10,
+      "brand": "Rheem",
+      "checksum": "50ffc4d53f17a3e2c8d73854763099ab",
+      "modifiedAt": "2026-04-26T06:25:46.568Z"
+    },
+    {
+      "id": "AC-IN-01",
+      "type": "ac-indoor",
+      "name": "客厅风管机",
+      "position": {
+        "x": 5000,
+        "y": 3000,
+        "z": 2700
+      },
+      "model": "RHI-36T",
+      "power": 3.5,
+      "brand": "Rheem",
+      "checksum": "ea13e07772dac419d45690d311ef9254",
+      "modifiedAt": "2026-04-26T06:25:46.568Z"
+    },
+    {
+      "id": "AC-IN-02",
+      "type": "ac-indoor",
+      "name": "主卧风管机",
+      "position": {
+        "x": 8500,
+        "y": 5500,
+        "z": 2700
+      },
+      "model": "RHI-25T",
+      "power": 2.5,
+      "brand": "Rheem",
+      "checksum": "456df41205712d9ebdd4ec76d50f44a3",
+      "modifiedAt": "2026-04-26T06:25:46.569Z"
+    },
+    {
+      "id": "WH-01",
+      "type": "water-heater",
+      "name": "燃气热水器",
+      "position": {
+        "x": 200,
+        "y": 8000,
+        "z": 1500
+      },
+      "model": "RGE-80",
+      "power": 2,
+      "brand": "Rheem",
+      "checksum": "873c88aeff545adc8e3f8170ce79f6ab",
+      "modifiedAt": "2026-04-26T06:25:46.568Z"
+    },
+    {
+      "id": "FA-01",
+      "type": "fresh-unit",
+      "name": "新风机",
+      "position": {
+        "x": 6000,
+        "y": 4000,
+        "z": 2700
+      },
+      "model": "FRESH-350",
+      "power": 0.3,
+      "brand": "Rheem",
+      "checksum": "4aac1cbf0cb07f9d042a280713bd2608",
+      "modifiedAt": "2026-04-26T06:25:46.569Z"
+    }
+  ],
+  "pipes": [],
+  "projectId": "RH-1777184746567-qasiq1",
+  "version": 4,
+  "createdAt": "2026-04-26T06:25:46.567Z",
+  "modifiedAt": "2026-04-26T06:25:46.570Z"
+}

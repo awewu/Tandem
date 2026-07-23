@@ -1,0 +1,47 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "lib": ["ES2020"],
+    "outDir": "./dist",
+    "rootDir": "./",
+    "strict": true,
+    "esModuleInterop": true,
+    "allowJs": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "moduleResolution": "node",
+    "allowSyntheticDefaultImports": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "types": ["node", "jest"]
+  },
+  "include": [
+    "server/**/*.js",
+    "server/**/*.ts",
+    "src/**/*.js",
+    "src/**/*.ts",
+    "server-production.js"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "public",
+    "test",
+    "*.test.js",
+    "*.spec.js",
+    "*.test.ts",
+    "*.spec.ts",
+    "_archive",
+    "archive",
+    "legacy",
+    "experiments",
+    "hammer-reports"
+  ]
+}

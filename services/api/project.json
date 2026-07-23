@@ -1,0 +1,16 @@
+{
+  "name": "api",
+  "projectType": "application",
+  "sourceRoot": "services/api/src",
+  "tags": ["scope:backend", "runtime:nest-fastify-target", "type:api"],
+  "targets": {
+    "build": {
+      "executor": "target-scaffold",
+      "options": {
+        "status": "scaffold-only",
+        "framework": "NestJS",
+        "httpAdapter": "Fastify"
+      }
+    }
+  }
+}

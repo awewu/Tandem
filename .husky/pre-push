@@ -1,0 +1,23 @@
+#!/bin/sh
+# 🔨 Hammer Pre-Push Hook
+# 在推送前自动运行完整验证 (L1-L9: 全部层级)
+
+. "$(dirname "$0")/_/husky.sh"
+
+echo "🔨 Hammer: Running pre-push validation..."
+echo "   This will take 30-60 seconds..."
+
+# 标准模式完整验证
+node hammer.js --mode=normal
+
+if [ $? -ne 0 ]; then
+    echo ""
+    echo "❌ Hammer validation failed. Push aborted."
+    echo "💡 Fix the issues above before pushing."
+    echo "💡 Or use 'git push --no-verify' to bypass (not recommended)"
+    exit 1
+fi
+
+echo ""
+echo "✅ Hammer validation passed. Proceeding with push..."
+exit 0

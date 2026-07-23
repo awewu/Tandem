@@ -1,0 +1,920 @@
+{
+  "id": "fixture-two-floor-riser",
+  "description": "Two-floor viewer acceptance fixture: 2F equipment -> 2F horizontal pipe -> riser -> 1F horizontal pipe -> 1F equipment.",
+  "projectInputs": {
+    "name": "Two-floor riser acceptance fixture",
+    "city": "Shanghai"
+  },
+  "buildingInputs": {
+    "area": 180,
+    "floors": 2,
+    "floorHeight": 3,
+    "roomCount": 6
+  },
+  "systemInputs": {
+    "coolingSystem": "VRF + fresh air",
+    "heatingSystem": "Radiant floor heating"
+  },
+  "acceptancePath": [
+    "equipment-2f-indoor",
+    "pipe-2f-horizontal",
+    "pipe-vertical-riser",
+    "pipe-1f-horizontal",
+    "equipment-1f-utility"
+  ],
+  "expectedVerticalSegment": {
+    "componentId": "pipe-vertical-riser",
+    "axis": "y",
+    "minDeltaM": 2.4,
+    "fromFloor": 2,
+    "toFloor": 1
+  },
+  "model": {
+    "id": "model-two-floor-riser",
+    "sourceType": "generated",
+    "modelType": "parametric-hvac",
+    "modelVersion": 1,
+    "draftId": "draft-two-floor-riser",
+    "projectId": "project-two-floor-riser",
+    "generatedAt": "2026-07-21T00:00:00.000Z",
+    "layers": [
+      {
+        "systemKey": "cooling",
+        "label": "Cooling piping",
+        "componentIds": [
+          "equipment-2f-indoor",
+          "pipe-2f-horizontal",
+          "pipe-vertical-riser",
+          "pipe-1f-horizontal",
+          "equipment-1f-utility"
+        ]
+      },
+      {
+        "systemKey": "freshAir",
+        "label": "Fixture protected components",
+        "componentIds": [
+          "equipment-locked-service"
+        ]
+      }
+    ],
+    "components": [
+      {
+        "id": "building-outline-two-floor",
+        "draftId": "draft-two-floor-riser",
+        "modelId": "model-two-floor-riser",
+        "modelSourceId": null,
+        "sourceTemplateId": null,
+        "type": "building-outline",
+        "category": "envelope",
+        "systemKey": "envelope",
+        "modelVersion": 1,
+        "version": 1,
+        "name": "Two-floor building outline",
+        "displayName": "Two-floor building outline",
+        "geometry": {
+          "kind": "box",
+          "x": 0,
+          "y": 3,
+          "z": 0,
+          "width": 12,
+          "height": 6,
+          "depth": 8
+        },
+        "dimensions": {
+          "width": 12,
+          "height": 6,
+          "depth": 8
+        },
+        "position": {
+          "x": 0,
+          "y": 3,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "visibility": "visible",
+        "locked": true,
+        "floor": 1,
+        "elevation": 0,
+        "installHeight": 0,
+        "businessMetadata": {
+          "helper": true,
+          "locked": true
+        },
+        "bomMetadata": {
+          "excluded": true
+        },
+        "status": "active"
+      },
+      {
+        "id": "equipment-2f-indoor",
+        "draftId": "draft-two-floor-riser",
+        "modelId": "model-two-floor-riser",
+        "modelSourceId": null,
+        "sourceTemplateId": "fixture-equipment",
+        "type": "equipment",
+        "category": "hvac-equipment",
+        "systemKey": "cooling",
+        "modelVersion": 1,
+        "version": 1,
+        "name": "2F indoor unit",
+        "displayName": "2F indoor unit",
+        "geometry": {
+          "kind": "box",
+          "x": -4,
+          "y": 3.45,
+          "z": -2,
+          "width": 1.4,
+          "height": 0.45,
+          "depth": 0.8
+        },
+        "dimensions": {
+          "width": 1.4,
+          "height": 0.45,
+          "depth": 0.8,
+          "length": 1.4
+        },
+        "position": {
+          "x": -4,
+          "y": 3.45,
+          "z": -2
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "visibility": "visible",
+        "locked": false,
+        "floor": 2,
+        "elevation": 3.45,
+        "installHeight": 0.45,
+        "businessMetadata": {
+          "bomMappable": true,
+          "floor": 2,
+          "installHeight": 0.45,
+          "capacityKw": 5.6,
+          "connectionDirection": "riser"
+        },
+        "bomMetadata": {
+          "bomMappable": true,
+          "bomCategory": "hvac-equipment",
+          "bomSkuHint": "VRF_INDOOR",
+          "quantity": 1,
+          "unit": "set"
+        },
+        "status": "active"
+      },
+      {
+        "id": "pipe-2f-horizontal",
+        "draftId": "draft-two-floor-riser",
+        "modelId": "model-two-floor-riser",
+        "modelSourceId": null,
+        "sourceTemplateId": "fixture-pipe",
+        "type": "pipe-route",
+        "category": "pipe",
+        "systemKey": "cooling",
+        "modelVersion": 1,
+        "version": 1,
+        "name": "2F horizontal refrigerant pipe",
+        "displayName": "2F horizontal refrigerant pipe",
+        "geometry": {
+          "kind": "polyline",
+          "diameterMm": 22,
+          "points": [
+            {
+              "x": -3.3,
+              "y": 3.45,
+              "z": -2
+            },
+            {
+              "x": 0,
+              "y": 3.45,
+              "z": -2
+            },
+            {
+              "x": 0,
+              "y": 3.45,
+              "z": 0
+            }
+          ]
+        },
+        "dimensions": {
+          "diameterMm": 22,
+          "estimatedLengthM": 5.3
+        },
+        "position": {
+          "x": -1.65,
+          "y": 3.45,
+          "z": -1
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "visibility": "visible",
+        "locked": false,
+        "floor": 2,
+        "elevation": 3.45,
+        "installHeight": 0.45,
+        "businessMetadata": {
+          "bomMappable": true,
+          "floor": 2,
+          "estimatedLengthM": 5.3,
+          "material": "copper",
+          "insulationMm": 20
+        },
+        "bomMetadata": {
+          "bomMappable": true,
+          "bomCategory": "pipe",
+          "bomSkuHint": "REFRIGERANT_PIPE_PAIR",
+          "quantity": 5.3,
+          "unit": "m",
+          "estimatedLengthM": 5.3
+        },
+        "status": "active"
+      },
+      {
+        "id": "pipe-vertical-riser",
+        "draftId": "draft-two-floor-riser",
+        "modelId": "model-two-floor-riser",
+        "modelSourceId": null,
+        "sourceTemplateId": "fixture-riser",
+        "type": "pipe-route",
+        "category": "pipe",
+        "systemKey": "cooling",
+        "modelVersion": 1,
+        "version": 1,
+        "name": "Vertical riser",
+        "displayName": "Vertical riser",
+        "geometry": {
+          "kind": "polyline",
+          "diameterMm": 28,
+          "points": [
+            {
+              "x": 0,
+              "y": 3.45,
+              "z": 0
+            },
+            {
+              "x": 0,
+              "y": 0.95,
+              "z": 0
+            }
+          ]
+        },
+        "dimensions": {
+          "diameterMm": 28,
+          "estimatedLengthM": 2.5
+        },
+        "position": {
+          "x": 0,
+          "y": 2.2,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "visibility": "visible",
+        "locked": false,
+        "floor": 1,
+        "elevation": 0.95,
+        "installHeight": 0.95,
+        "businessMetadata": {
+          "bomMappable": true,
+          "fromFloor": 2,
+          "toFloor": 1,
+          "estimatedLengthM": 2.5,
+          "material": "copper",
+          "insulationMm": 25,
+          "acceptanceCritical": true
+        },
+        "bomMetadata": {
+          "bomMappable": true,
+          "bomCategory": "pipe",
+          "bomSkuHint": "VERTICAL_RISER",
+          "quantity": 2.5,
+          "unit": "m",
+          "estimatedLengthM": 2.5
+        },
+        "status": "active"
+      },
+      {
+        "id": "pipe-1f-horizontal",
+        "draftId": "draft-two-floor-riser",
+        "modelId": "model-two-floor-riser",
+        "modelSourceId": null,
+        "sourceTemplateId": "fixture-pipe",
+        "type": "pipe-route",
+        "category": "pipe",
+        "systemKey": "cooling",
+        "modelVersion": 1,
+        "version": 1,
+        "name": "1F horizontal refrigerant pipe",
+        "displayName": "1F horizontal refrigerant pipe",
+        "geometry": {
+          "kind": "polyline",
+          "diameterMm": 22,
+          "points": [
+            {
+              "x": 0,
+              "y": 0.95,
+              "z": 0
+            },
+            {
+              "x": 2.8,
+              "y": 0.95,
+              "z": 0
+            },
+            {
+              "x": 3.4,
+              "y": 0.95,
+              "z": 2.4
+            }
+          ]
+        },
+        "dimensions": {
+          "diameterMm": 22,
+          "estimatedLengthM": 5.2
+        },
+        "position": {
+          "x": 1.7,
+          "y": 0.95,
+          "z": 1.2
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "visibility": "visible",
+        "locked": false,
+        "floor": 1,
+        "elevation": 0.95,
+        "installHeight": 0.95,
+        "businessMetadata": {
+          "bomMappable": true,
+          "floor": 1,
+          "estimatedLengthM": 5.2,
+          "material": "copper",
+          "insulationMm": 20
+        },
+        "bomMetadata": {
+          "bomMappable": true,
+          "bomCategory": "pipe",
+          "bomSkuHint": "REFRIGERANT_PIPE_PAIR",
+          "quantity": 5.2,
+          "unit": "m",
+          "estimatedLengthM": 5.2
+        },
+        "status": "active"
+      },
+      {
+        "id": "pipe-logical-two-floor-route",
+        "draftId": "draft-two-floor-riser",
+        "modelId": "model-two-floor-riser",
+        "modelSourceId": null,
+        "sourceTemplateId": "fixture-logical-route",
+        "type": "pipe-route",
+        "category": "pipe",
+        "systemKey": "cooling",
+        "modelVersion": 1,
+        "version": 1,
+        "name": "Logical two-floor refrigerant route",
+        "displayName": "Logical two-floor refrigerant route",
+        "geometry": {
+          "kind": "polyline",
+          "diameterMm": 18,
+          "points": [
+            {
+              "x": -3.3,
+              "y": 3.45,
+              "z": -2
+            },
+            {
+              "x": 0,
+              "y": 3.45,
+              "z": -2
+            },
+            {
+              "x": 0,
+              "y": 3.45,
+              "z": 0
+            },
+            {
+              "x": 0,
+              "y": 0.95,
+              "z": 0
+            },
+            {
+              "x": 2.8,
+              "y": 0.95,
+              "z": 0
+            },
+            {
+              "x": 3.4,
+              "y": 0.95,
+              "z": 2.4
+            }
+          ]
+        },
+        "route": {
+          "kind": "logical-route",
+          "coordinateSystem": {
+            "planeAxes": ["x", "z"],
+            "elevationAxis": "y",
+            "ySemantics": "absolute-model-elevation-m"
+          },
+          "points": [
+            {
+              "x": -3.3,
+              "y": 3.45,
+              "z": -2
+            },
+            {
+              "x": 0,
+              "y": 3.45,
+              "z": -2
+            },
+            {
+              "x": 0,
+              "y": 3.45,
+              "z": 0
+            },
+            {
+              "x": 0,
+              "y": 0.95,
+              "z": 0
+            },
+            {
+              "x": 2.8,
+              "y": 0.95,
+              "z": 0
+            },
+            {
+              "x": 3.4,
+              "y": 0.95,
+              "z": 2.4
+            }
+          ],
+          "floors": [
+            {
+              "floor": 2,
+              "floorId": "floor-2",
+              "pointIndexes": [0, 1, 2],
+              "elevationMin": 3,
+              "elevationMax": 6
+            },
+            {
+              "floor": 1,
+              "floorId": "floor-1",
+              "pointIndexes": [3, 4, 5],
+              "elevationMin": 0,
+              "elevationMax": 3
+            }
+          ],
+          "crossFloorTransitions": [
+            {
+              "kind": "riser",
+              "fromFloor": 2,
+              "toFloor": 1,
+              "startPointIndex": 2,
+              "endPointIndex": 3,
+              "sourceFloorId": "floor-2",
+              "targetFloorId": "floor-1",
+              "sourceElevation": 3.45,
+              "targetElevation": 0.95,
+              "x": 0,
+              "z": 0,
+              "installHeight": 0.45,
+              "createdAt": "2026-07-21T00:00:00.000Z"
+            }
+          ],
+          "systemKey": "cooling",
+          "routeType": "pipe-route",
+          "size": {
+            "diameterMm": 18
+          },
+          "material": "copper",
+          "insulation": {
+            "thicknessMm": 20,
+            "material": "rubber"
+          },
+          "bendRadius": null,
+          "endpointRefs": {},
+          "visibility": "visible",
+          "locked": false,
+          "lockState": "unlocked",
+          "bomMapping": {
+            "bomMappable": false,
+            "bomCategory": "pipe",
+            "unit": "m",
+            "measurementKey": "estimatedLengthM",
+            "quantity": 13
+          },
+          "summary": {
+            "pointCount": 6,
+            "floorCount": 2,
+            "transitionCount": 1,
+            "totalLengthM": 13
+          }
+        },
+        "dimensions": {
+          "diameterMm": 18,
+          "estimatedLengthM": 13
+        },
+        "position": {
+          "x": 0,
+          "y": 3.45,
+          "z": -2
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "visibility": "visible",
+        "locked": false,
+        "floor": 2,
+        "elevation": 3.45,
+        "installHeight": 0.45,
+        "businessMetadata": {
+          "bomMappable": false,
+          "floor": 2,
+          "estimatedLengthM": 13,
+          "material": "copper",
+          "insulationMm": 20,
+          "acceptanceLogicalRoute": true
+        },
+        "bomMetadata": {
+          "bomMappable": false,
+          "bomCategory": "pipe",
+          "bomSkuHint": "LOGICAL_ROUTE_ACCEPTANCE",
+          "quantity": 0,
+          "unit": "m",
+          "estimatedLengthM": 13
+        },
+        "status": "active"
+      },
+      {
+        "id": "equipment-1f-utility",
+        "draftId": "draft-two-floor-riser",
+        "modelId": "model-two-floor-riser",
+        "modelSourceId": null,
+        "sourceTemplateId": "fixture-equipment",
+        "type": "equipment",
+        "category": "hvac-equipment",
+        "systemKey": "cooling",
+        "modelVersion": 1,
+        "version": 1,
+        "name": "1F utility outdoor unit",
+        "displayName": "1F utility outdoor unit",
+        "geometry": {
+          "kind": "box",
+          "x": 3.8,
+          "y": 0.95,
+          "z": 2.7,
+          "width": 1.8,
+          "height": 1.2,
+          "depth": 0.9
+        },
+        "dimensions": {
+          "width": 1.8,
+          "height": 1.2,
+          "depth": 0.9,
+          "length": 1.8
+        },
+        "position": {
+          "x": 3.8,
+          "y": 0.95,
+          "z": 2.7
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "visibility": "visible",
+        "locked": false,
+        "floor": 1,
+        "elevation": 0.95,
+        "installHeight": 0.95,
+        "businessMetadata": {
+          "bomMappable": true,
+          "floor": 1,
+          "installHeight": 0.95,
+          "capacityKw": 11.2,
+          "connectionDirection": "riser"
+        },
+        "bomMetadata": {
+          "bomMappable": true,
+          "bomCategory": "hvac-equipment",
+          "bomSkuHint": "VRF_OUTDOOR",
+          "quantity": 1,
+          "unit": "set"
+        },
+        "status": "active"
+      },
+      {
+        "id": "equipment-locked-service",
+        "draftId": "draft-two-floor-riser",
+        "modelId": "model-two-floor-riser",
+        "modelSourceId": null,
+        "sourceTemplateId": "fixture-equipment",
+        "type": "equipment",
+        "category": "hvac-equipment",
+        "systemKey": "freshAir",
+        "modelVersion": 1,
+        "version": 1,
+        "name": "Locked service component",
+        "displayName": "Locked service component",
+        "geometry": {
+          "kind": "box",
+          "x": -4,
+          "y": 0.95,
+          "z": 2.5,
+          "width": 1.2,
+          "height": 0.6,
+          "depth": 0.8
+        },
+        "dimensions": {
+          "width": 1.2,
+          "height": 0.6,
+          "depth": 0.8,
+          "length": 1.2
+        },
+        "position": {
+          "x": -4,
+          "y": 0.95,
+          "z": 2.5
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "visibility": "visible",
+        "locked": true,
+        "floor": 1,
+        "elevation": 0.95,
+        "installHeight": 0.95,
+        "businessMetadata": {
+          "bomMappable": true,
+          "locked": true,
+          "acceptanceProtected": true
+        },
+        "bomMetadata": {
+          "bomMappable": true,
+          "bomCategory": "hvac-equipment",
+          "bomSkuHint": "LOCKED_SERVICE",
+          "quantity": 1,
+          "unit": "set"
+        },
+        "status": "active"
+      },
+      {
+        "id": "duct-1f-rectangular",
+        "draftId": "draft-two-floor-riser",
+        "modelId": "model-two-floor-riser",
+        "modelSourceId": null,
+        "sourceTemplateId": "fixture-duct",
+        "type": "duct-route",
+        "category": "duct",
+        "systemKey": "freshAir",
+        "modelVersion": 1,
+        "version": 1,
+        "name": "1F rectangular fresh-air duct",
+        "displayName": "1F rectangular fresh-air duct",
+        "geometry": {
+          "kind": "polyline",
+          "width": 360,
+          "height": 220,
+          "points": [
+            {
+              "x": -4.2,
+              "y": 2.4,
+              "z": -3
+            },
+            {
+              "x": -1.2,
+              "y": 2.4,
+              "z": -3
+            },
+            {
+              "x": -1.2,
+              "y": 2.4,
+              "z": -1.4
+            }
+          ]
+        },
+        "dimensions": {
+          "width": 360,
+          "height": 220,
+          "estimatedLengthM": 4.6
+        },
+        "position": {
+          "x": -2.7,
+          "y": 2.4,
+          "z": -2.2
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "visibility": "visible",
+        "locked": false,
+        "floor": 1,
+        "elevation": 2.4,
+        "installHeight": 2.4,
+        "businessMetadata": {
+          "bomMappable": true,
+          "floor": 1,
+          "estimatedLengthM": 4.6,
+          "material": "galvanized-steel",
+          "acceptanceRectangularDuct": true
+        },
+        "bomMetadata": {
+          "bomMappable": true,
+          "bomCategory": "duct",
+          "bomSkuHint": "RECTANGULAR_FRESH_AIR_DUCT",
+          "quantity": 4.6,
+          "unit": "m",
+          "estimatedLengthM": 4.6
+        },
+        "status": "active"
+      },
+      {
+        "id": "pipe-locked-service-route",
+        "draftId": "draft-two-floor-riser",
+        "modelId": "model-two-floor-riser",
+        "modelSourceId": null,
+        "sourceTemplateId": "fixture-locked-pipe",
+        "type": "pipe-route",
+        "category": "pipe",
+        "systemKey": "heating",
+        "modelVersion": 1,
+        "version": 1,
+        "name": "Locked service route",
+        "displayName": "Locked service route",
+        "geometry": {
+          "kind": "polyline",
+          "diameterMm": 25,
+          "points": [
+            {
+              "x": -4.4,
+              "y": 0.95,
+              "z": 1.2
+            },
+            {
+              "x": -2.4,
+              "y": 0.95,
+              "z": 1.2
+            },
+            {
+              "x": -2.4,
+              "y": 0.95,
+              "z": 3.2
+            }
+          ]
+        },
+        "dimensions": {
+          "diameterMm": 25,
+          "estimatedLengthM": 4
+        },
+        "position": {
+          "x": -3.4,
+          "y": 0.95,
+          "z": 2.2
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "visibility": "visible",
+        "locked": true,
+        "floor": 1,
+        "elevation": 0.95,
+        "installHeight": 0.95,
+        "businessMetadata": {
+          "bomMappable": true,
+          "floor": 1,
+          "estimatedLengthM": 4,
+          "acceptanceLockedRoute": true
+        },
+        "bomMetadata": {
+          "bomMappable": true,
+          "bomCategory": "pipe",
+          "bomSkuHint": "LOCKED_SERVICE_ROUTE",
+          "quantity": 4,
+          "unit": "m",
+          "estimatedLengthM": 4
+        },
+        "status": "active"
+      },
+      {
+        "id": "ifc-protected-equipment",
+        "draftId": "draft-two-floor-riser",
+        "modelId": "model-two-floor-riser",
+        "modelSourceId": "ifc-source-protected",
+        "sourceTemplateId": null,
+        "type": "equipment",
+        "category": "hvac-equipment",
+        "systemKey": "freshAir",
+        "modelVersion": 1,
+        "version": 1,
+        "name": "IFC protected source geometry",
+        "displayName": "IFC protected source geometry",
+        "geometry": {
+          "kind": "box",
+          "x": 4.4,
+          "y": 3.45,
+          "z": -2.8,
+          "width": 1,
+          "height": 0.8,
+          "depth": 0.8
+        },
+        "dimensions": {
+          "width": 1,
+          "height": 0.8,
+          "depth": 0.8,
+          "length": 1
+        },
+        "position": {
+          "x": 4.4,
+          "y": 3.45,
+          "z": -2.8
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "visibility": "visible",
+        "locked": true,
+        "floor": 2,
+        "elevation": 3.45,
+        "installHeight": 0.45,
+        "businessMetadata": {
+          "sourceType": "artifact",
+          "modelType": "ifc",
+          "editLocked": true,
+          "acceptanceProtectedSource": true
+        },
+        "bomMetadata": {
+          "excluded": true
+        },
+        "status": "active"
+      }
+    ],
+    "componentSummary": {
+      "total": 11,
+      "byType": {
+        "building-outline": 1,
+        "equipment": 4,
+        "pipe-route": 5,
+        "duct-route": 1
+      },
+      "bySystem": {
+        "envelope": 1,
+        "cooling": 6,
+        "freshAir": 3,
+        "heating": 1
+      },
+      "byStatus": {
+        "active": 7
+      },
+      "bomMappableComponentIds": [
+        "equipment-2f-indoor",
+        "pipe-2f-horizontal",
+        "pipe-vertical-riser",
+        "pipe-1f-horizontal",
+        "equipment-1f-utility",
+        "equipment-locked-service"
+      ]
+    },
+    "inputs": {
+      "project": {
+        "name": "Two-floor riser acceptance fixture",
+        "city": "Shanghai"
+      },
+      "building": {
+        "area": 180,
+        "floors": 2,
+        "floorHeight": 3,
+        "roomCount": 6
+      },
+      "systems": {
+        "coolingSystem": "VRF + fresh air",
+        "heatingSystem": "Radiant floor heating"
+      }
+    }
+  }
+}

@@ -1,0 +1,4702 @@
+[
+  {
+    "id": 1,
+    "customerNo": "CUST-2026-0001",
+    "name": "赵静",
+    "phone": "15520181908",
+    "wechat": "wx_13564077399",
+    "source": "ads",
+    "status": "completed",
+    "tags": [
+      "别墅客户",
+      "低意向",
+      "价格敏感"
+    ],
+    "profile": {
+      "area": 135,
+      "rooms": "3室2厅",
+      "houseType": "apartment",
+      "budget": 85800,
+      "family": {
+        "members": 4,
+        "children": 1,
+        "elderly": 1
+      },
+      "preferences": {
+        "style": "现代",
+        "priority": "静音",
+        "timeline": "3个月内"
+      }
+    },
+    "assignedSalesId": 17,
+    "assignedStoreId": 3,
+    "painPoints": [],
+    "lastContactAt": "2026-03-22T07:01:59.209Z",
+    "createdAt": "2026-03-21T07:01:59.209Z",
+    "notes": [
+      {
+        "date": "2026-04-03T07:01:59.209Z",
+        "content": "客户咨询暖气方案",
+        "author": "黄杰"
+      },
+      {
+        "date": "2026-04-09T07:01:59.209Z",
+        "content": "已预约上门量房",
+        "author": "黄杰"
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "customerNo": "CUST-2026-0002",
+    "name": "周宇",
+    "phone": "17264166880",
+    "wechat": "wx_14769123884",
+    "source": "online",
+    "status": "completed",
+    "tags": [
+      "别墅客户",
+      "低意向",
+      "价格敏感"
+    ],
+    "profile": {
+      "area": 280,
+      "rooms": "5室3厅",
+      "houseType": "villa",
+      "budget": 142200,
+      "family": {
+        "members": 4,
+        "children": 1,
+        "elderly": 2
+      },
+      "preferences": {
+        "style": "现代",
+        "priority": "静音",
+        "timeline": "3个月内"
+      }
+    },
+    "assignedSalesId": 16,
+    "assignedStoreId": 1,
+    "painPoints": [],
+    "lastContactAt": "2026-04-20T07:01:59.209Z",
+    "createdAt": "2026-02-25T08:01:59.209Z",
+    "notes": [
+      {
+        "date": "2026-03-28T07:01:59.209Z",
+        "content": "客户咨询暖气方案",
+        "author": "何强"
+      },
+      {
+        "date": "2026-04-07T07:01:59.209Z",
+        "content": "已预约上门量房",
+        "author": "何强"
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "customerNo": "CUST-2026-0003",
+    "name": "郭瑞",
+    "phone": "16874259687",
+    "wechat": "wx_16860732139",
+    "source": "ads",
+    "status": "contracted",
+    "tags": [
+      "别墅客户",
+      "中意向",
+      "价格敏感"
+    ],
+    "profile": {
+      "area": 120,
+      "rooms": "3室2厅",
+      "houseType": "apartment",
+      "budget": 68000,
+      "family": {
+        "members": 4,
+        "children": 0,
+        "elderly": 0
+      },
+      "preferences": {
+        "style": "现代",
+        "priority": "智能",
+        "timeline": "3个月内"
+      }
+    },
+    "assignedSalesId": 17,
+    "assignedStoreId": 3,
+    "painPoints": [],
+    "lastContactAt": "2026-03-23T07:01:59.209Z",
+    "createdAt": "2026-03-03T08:01:59.209Z",
+    "notes": [
+      {
+        "date": "2026-04-01T07:01:59.209Z",
+        "content": "客户咨询暖气方案",
+        "author": "黄杰"
+      },
+      {
+        "date": "2026-04-17T07:01:59.209Z",
+        "content": "已预约上门量房",
+        "author": "黄杰"
+      }
+    ]
+  },
+  {
+    "id": 4,
+    "customerNo": "CUST-2026-0004",
+    "name": "高昊",
+    "phone": "16621928904",
+    "wechat": "wx_16792907903",
+    "source": "online",
+    "status": "completed",
+    "tags": [
+      "商用客户",
+      "低意向",
+      "预算充足"
+    ],
+    "profile": {
+      "area": 89,
+      "rooms": "2室2厅",
+      "houseType": "apartment",
+      "budget": 54600,
+      "family": {
+        "members": 2,
+        "children": 1,
+        "elderly": 2
+      },
+      "preferences": {
+        "style": "简约",
+        "priority": "舒适",
+        "timeline": "一年内"
+      }
+    },
+    "assignedSalesId": 17,
+    "assignedStoreId": 3,
+    "painPoints": [],
+    "lastContactAt": "2026-04-04T07:01:59.209Z",
+    "createdAt": "2026-03-05T08:01:59.209Z",
+    "notes": [
+      {
+        "date": "2026-04-06T07:01:59.209Z",
+        "content": "客户咨询暖气方案",
+        "author": "黄杰"
+      },
+      {
+        "date": "2026-04-19T07:01:59.209Z",
+        "content": "已预约上门量房",
+        "author": "黄杰"
+      }
+    ]
+  },
+  {
+    "id": 5,
+    "customerNo": "CUST-2026-0005",
+    "name": "马娜",
+    "phone": "18790636322",
+    "wechat": "wx_16508062503",
+    "source": "online",
+    "status": "new",
+    "tags": [
+      "别墅客户",
+      "高意向",
+      "预算充足"
+    ],
+    "profile": {
+      "area": 135,
+      "rooms": "3室2厅",
+      "houseType": "apartment",
+      "budget": 62400,
+      "family": {
+        "members": 6,
+        "children": 2,
+        "elderly": 1
+      },
+      "preferences": {
+        "style": "现代",
+        "priority": "智能",
+        "timeline": "半年内"
+      }
+    },
+    "assignedSalesId": 16,
+    "assignedStoreId": 1,
+    "painPoints": [],
+    "lastContactAt": "2026-04-03T07:01:59.209Z",
+    "createdAt": "2026-01-30T08:01:59.209Z",
+    "notes": [
+      {
+        "date": "2026-04-02T07:01:59.209Z",
+        "content": "客户咨询暖气方案",
+        "author": "何强"
+      },
+      {
+        "date": "2026-04-11T07:01:59.209Z",
+        "content": "已预约上门量房",
+        "author": "何强"
+      }
+    ]
+  },
+  {
+    "id": 6,
+    "customerNo": "CUST-2026-0006",
+    "name": "王杰",
+    "phone": "13510332606",
+    "wechat": "wx_17223226688",
+    "source": "online",
+    "status": "new",
+    "tags": [
+      "别墅客户",
+      "高意向",
+      "预算充足"
+    ],
+    "profile": {
+      "area": 120,
+      "rooms": "3室2厅",
+      "houseType": "apartment",
+      "budget": 74800,
+      "family": {
+        "members": 5,
+        "children": 0,
+        "elderly": 1
+      },
+      "preferences": {
+        "style": "欧式",
+        "priority": "节能",
+        "timeline": "1个月内"
+      }
+    },
+    "assignedSalesId": 16,
+    "assignedStoreId": 1,
+    "painPoints": [],
+    "lastContactAt": "2026-04-09T07:01:59.209Z",
+    "createdAt": "2026-02-17T08:01:59.209Z",
+    "notes": [
+      {
+        "date": "2026-04-20T07:01:59.209Z",
+        "content": "客户咨询暖气方案",
+        "author": "何强"
+      },
+      {
+        "date": "2026-04-06T07:01:59.209Z",
+        "content": "已预约上门量房",
+        "author": "何强"
+      }
+    ]
+  },
+  {
+    "id": 7,
+    "customerNo": "CUST-2026-0007",
+    "name": "赵宇",
+    "phone": "16681038827",
+    "wechat": "wx_16168575312",
+    "source": "ads",
+    "status": "quoting",
+    "tags": [
+      "商用客户",
+      "高意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 120,
+      "rooms": "3室2厅",
+      "houseType": "apartment",
+      "budget": 95200,
+      "family": {
+        "members": 5,
+        "children": 2,
+        "elderly": 1
+      },
+      "preferences": {
+        "style": "中式",
+        "priority": "智能",
+        "timeline": "半年内"
+      }
+    },
+    "assignedSalesId": 18,
+    "assignedStoreId": 5,
+    "painPoints": [],
+    "lastContactAt": "2026-03-23T07:01:59.209Z",
+    "createdAt": "2026-04-04T07:01:59.209Z",
+    "notes": [
+      {
+        "date": "2026-04-03T07:01:59.209Z",
+        "content": "客户咨询暖气方案",
+        "author": "高丽"
+      },
+      {
+        "date": "2026-04-06T07:01:59.209Z",
+        "content": "已预约上门量房",
+        "author": "高丽"
+      }
+    ]
+  },
+  {
+    "id": 8,
+    "customerNo": "CUST-2026-0008",
+    "name": "何秀英",
+    "phone": "14147408121",
+    "wechat": "wx_16302863485",
+    "source": "partner",
+    "status": "completed",
+    "tags": [
+      "公寓客户",
+      "低意向",
+      "价格敏感"
+    ],
+    "profile": {
+      "area": 200,
+      "rooms": "办公空间",
+      "houseType": "commercial",
+      "budget": 132000,
+      "family": {
+        "members": 2,
+        "children": 2,
+        "elderly": 1
+      },
+      "preferences": {
+        "style": "欧式",
+        "priority": "智能",
+        "timeline": "一年内"
+      }
+    },
+    "assignedSalesId": 16,
+    "assignedStoreId": 1,
+    "painPoints": [],
+    "lastContactAt": "2026-04-21T07:01:59.209Z",
+    "createdAt": "2026-02-23T08:01:59.209Z",
+    "notes": [
+      {
+        "date": "2026-04-12T07:01:59.209Z",
+        "content": "客户咨询暖气方案",
+        "author": "何强"
+      },
+      {
+        "date": "2026-04-13T07:01:59.209Z",
+        "content": "已预约上门量房",
+        "author": "何强"
+      }
+    ]
+  },
+  {
+    "id": 9,
+    "customerNo": "CUST-2026-0009",
+    "name": "陈明",
+    "phone": "19734391801",
+    "wechat": "wx_18157922244",
+    "source": "referral",
+    "status": "diagnosed",
+    "tags": [
+      "公寓客户",
+      "中意向",
+      "价格敏感"
+    ],
+    "profile": {
+      "area": 350,
+      "rooms": "6室4厅",
+      "houseType": "villa",
+      "budget": 178200,
+      "family": {
+        "members": 4,
+        "children": 2,
+        "elderly": 1
+      },
+      "preferences": {
+        "style": "现代",
+        "priority": "静音",
+        "timeline": "1个月内"
+      }
+    },
+    "assignedSalesId": 16,
+    "assignedStoreId": 1,
+    "painPoints": [],
+    "lastContactAt": "2026-03-29T07:01:59.210Z",
+    "createdAt": "2026-04-09T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-03-30T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "何强"
+      },
+      {
+        "date": "2026-04-09T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "何强"
+      }
+    ]
+  },
+  {
+    "id": 10,
+    "customerNo": "CUST-2026-0010",
+    "name": "徐明",
+    "phone": "14923414849",
+    "wechat": "wx_13703081757",
+    "source": "referral",
+    "status": "quoting",
+    "tags": [
+      "公寓客户",
+      "高意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 200,
+      "rooms": "办公空间",
+      "houseType": "commercial",
+      "budget": 156000,
+      "family": {
+        "members": 3,
+        "children": 1,
+        "elderly": 0
+      },
+      "preferences": {
+        "style": "欧式",
+        "priority": "静音",
+        "timeline": "一年内"
+      }
+    },
+    "assignedSalesId": 16,
+    "assignedStoreId": 1,
+    "painPoints": [],
+    "lastContactAt": "2026-04-21T07:01:59.210Z",
+    "createdAt": "2026-02-01T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-03-27T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "何强"
+      },
+      {
+        "date": "2026-04-10T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "何强"
+      }
+    ]
+  },
+  {
+    "id": 11,
+    "customerNo": "CUST-2026-0011",
+    "name": "孙芳",
+    "phone": "13220168455",
+    "wechat": "wx_13784902929",
+    "source": "referral",
+    "status": "contracted",
+    "tags": [
+      "别墅客户",
+      "中意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 150,
+      "rooms": "4室2厅",
+      "houseType": "apartment",
+      "budget": 88000,
+      "family": {
+        "members": 3,
+        "children": 0,
+        "elderly": 2
+      },
+      "preferences": {
+        "style": "欧式",
+        "priority": "智能",
+        "timeline": "一年内"
+      }
+    },
+    "assignedSalesId": 18,
+    "assignedStoreId": 5,
+    "painPoints": [],
+    "lastContactAt": "2026-04-07T07:01:59.210Z",
+    "createdAt": "2026-02-21T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-03-22T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "高丽"
+      },
+      {
+        "date": "2026-04-14T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "高丽"
+      }
+    ]
+  },
+  {
+    "id": 12,
+    "customerNo": "CUST-2026-0012",
+    "name": "林秀英",
+    "phone": "17442412443",
+    "wechat": "wx_19806386600",
+    "source": "walkin",
+    "status": "contracted",
+    "tags": [
+      "别墅客户",
+      "高意向",
+      "价格敏感"
+    ],
+    "profile": {
+      "area": 135,
+      "rooms": "3室2厅",
+      "houseType": "apartment",
+      "budget": 93600,
+      "family": {
+        "members": 3,
+        "children": 0,
+        "elderly": 2
+      },
+      "preferences": {
+        "style": "现代",
+        "priority": "舒适",
+        "timeline": "一年内"
+      }
+    },
+    "assignedSalesId": 16,
+    "assignedStoreId": 1,
+    "painPoints": [],
+    "lastContactAt": "2026-04-02T07:01:59.210Z",
+    "createdAt": "2026-02-18T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-03-24T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "何强"
+      },
+      {
+        "date": "2026-04-09T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "何强"
+      }
+    ]
+  },
+  {
+    "id": 13,
+    "customerNo": "CUST-2026-0013",
+    "name": "吴敏",
+    "phone": "19819147458",
+    "wechat": "wx_18429120276",
+    "source": "online",
+    "status": "quoting",
+    "tags": [
+      "公寓客户",
+      "中意向",
+      "价格敏感"
+    ],
+    "profile": {
+      "area": 280,
+      "rooms": "5室3厅",
+      "houseType": "villa",
+      "budget": 126400,
+      "family": {
+        "members": 2,
+        "children": 2,
+        "elderly": 0
+      },
+      "preferences": {
+        "style": "现代",
+        "priority": "智能",
+        "timeline": "1个月内"
+      }
+    },
+    "assignedSalesId": 17,
+    "assignedStoreId": 3,
+    "painPoints": [],
+    "lastContactAt": "2026-04-04T07:01:59.210Z",
+    "createdAt": "2026-04-17T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-06T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "黄杰"
+      },
+      {
+        "date": "2026-04-10T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "黄杰"
+      }
+    ]
+  },
+  {
+    "id": 14,
+    "customerNo": "CUST-2026-0014",
+    "name": "马雨",
+    "phone": "18499501022",
+    "wechat": "wx_17748149834",
+    "source": "referral",
+    "status": "negotiating",
+    "tags": [
+      "别墅客户",
+      "高意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 450,
+      "rooms": "7室5厅",
+      "houseType": "villa",
+      "budget": 268000,
+      "family": {
+        "members": 3,
+        "children": 1,
+        "elderly": 2
+      },
+      "preferences": {
+        "style": "简约",
+        "priority": "节能",
+        "timeline": "1个月内"
+      }
+    },
+    "assignedSalesId": 17,
+    "assignedStoreId": 3,
+    "painPoints": [],
+    "lastContactAt": "2026-04-06T07:01:59.210Z",
+    "createdAt": "2026-03-21T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-03-24T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "黄杰"
+      },
+      {
+        "date": "2026-04-06T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "黄杰"
+      }
+    ]
+  },
+  {
+    "id": 15,
+    "customerNo": "CUST-2026-0015",
+    "name": "周敏",
+    "phone": "16220847169",
+    "wechat": "wx_18459617553",
+    "source": "online",
+    "status": "new",
+    "tags": [
+      "公寓客户",
+      "低意向",
+      "价格敏感"
+    ],
+    "profile": {
+      "area": 350,
+      "rooms": "6室4厅",
+      "houseType": "villa",
+      "budget": 198000,
+      "family": {
+        "members": 4,
+        "children": 1,
+        "elderly": 1
+      },
+      "preferences": {
+        "style": "中式",
+        "priority": "智能",
+        "timeline": "半年内"
+      }
+    },
+    "assignedSalesId": 16,
+    "assignedStoreId": 1,
+    "painPoints": [],
+    "lastContactAt": "2026-04-15T07:01:59.210Z",
+    "createdAt": "2026-03-07T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-07T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "何强"
+      },
+      {
+        "date": "2026-04-17T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "何强"
+      }
+    ]
+  },
+  {
+    "id": 16,
+    "customerNo": "CUST-2026-0016",
+    "name": "李磊",
+    "phone": "16973585690",
+    "wechat": "wx_14586762064",
+    "source": "ads",
+    "status": "diagnosed",
+    "tags": [
+      "商用客户",
+      "低意向",
+      "预算充足"
+    ],
+    "profile": {
+      "area": 150,
+      "rooms": "4室2厅",
+      "houseType": "apartment",
+      "budget": 88000,
+      "family": {
+        "members": 4,
+        "children": 1,
+        "elderly": 2
+      },
+      "preferences": {
+        "style": "欧式",
+        "priority": "舒适",
+        "timeline": "1个月内"
+      }
+    },
+    "assignedSalesId": 17,
+    "assignedStoreId": 3,
+    "painPoints": [],
+    "lastContactAt": "2026-03-26T07:01:59.210Z",
+    "createdAt": "2026-03-09T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-13T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "黄杰"
+      },
+      {
+        "date": "2026-04-13T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "黄杰"
+      }
+    ]
+  },
+  {
+    "id": 17,
+    "customerNo": "CUST-2026-0017",
+    "name": "朱浩",
+    "phone": "14933082535",
+    "wechat": "wx_14493695683",
+    "source": "walkin",
+    "status": "quoting",
+    "tags": [
+      "商用客户",
+      "中意向",
+      "价格敏感"
+    ],
+    "profile": {
+      "area": 350,
+      "rooms": "6室4厅",
+      "houseType": "villa",
+      "budget": 178200,
+      "family": {
+        "members": 2,
+        "children": 2,
+        "elderly": 0
+      },
+      "preferences": {
+        "style": "简约",
+        "priority": "舒适",
+        "timeline": "3个月内"
+      }
+    },
+    "assignedSalesId": 17,
+    "assignedStoreId": 3,
+    "painPoints": [],
+    "lastContactAt": "2026-04-12T07:01:59.210Z",
+    "createdAt": "2026-02-11T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-02T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "黄杰"
+      },
+      {
+        "date": "2026-04-08T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "黄杰"
+      }
+    ]
+  },
+  {
+    "id": 18,
+    "customerNo": "CUST-2026-0018",
+    "name": "何飞",
+    "phone": "17686084513",
+    "wechat": "wx_13336754934",
+    "source": "online",
+    "status": "quoting",
+    "tags": [
+      "商用客户",
+      "高意向",
+      "预算充足"
+    ],
+    "profile": {
+      "area": 135,
+      "rooms": "3室2厅",
+      "houseType": "apartment",
+      "budget": 85800,
+      "family": {
+        "members": 5,
+        "children": 0,
+        "elderly": 2
+      },
+      "preferences": {
+        "style": "欧式",
+        "priority": "舒适",
+        "timeline": "一年内"
+      }
+    },
+    "assignedSalesId": 17,
+    "assignedStoreId": 3,
+    "painPoints": [],
+    "lastContactAt": "2026-03-30T07:01:59.210Z",
+    "createdAt": "2026-04-08T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-12T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "黄杰"
+      },
+      {
+        "date": "2026-04-17T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "黄杰"
+      }
+    ]
+  },
+  {
+    "id": 19,
+    "customerNo": "CUST-2026-0019",
+    "name": "何雨",
+    "phone": "15880274071",
+    "wechat": "wx_17511366214",
+    "source": "referral",
+    "status": "contracted",
+    "tags": [
+      "公寓客户",
+      "低意向",
+      "价格敏感"
+    ],
+    "profile": {
+      "area": 350,
+      "rooms": "6室4厅",
+      "houseType": "villa",
+      "budget": 158400,
+      "family": {
+        "members": 5,
+        "children": 1,
+        "elderly": 1
+      },
+      "preferences": {
+        "style": "中式",
+        "priority": "智能",
+        "timeline": "3个月内"
+      }
+    },
+    "assignedSalesId": 17,
+    "assignedStoreId": 3,
+    "painPoints": [],
+    "lastContactAt": "2026-04-13T07:01:59.210Z",
+    "createdAt": "2026-01-26T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-03-24T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "黄杰"
+      },
+      {
+        "date": "2026-04-06T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "黄杰"
+      }
+    ]
+  },
+  {
+    "id": 20,
+    "customerNo": "CUST-2026-0020",
+    "name": "朱芳",
+    "phone": "14436587947",
+    "wechat": "wx_19746452724",
+    "source": "ads",
+    "status": "new",
+    "tags": [
+      "商用客户",
+      "高意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 150,
+      "rooms": "4室2厅",
+      "houseType": "apartment",
+      "budget": 114400,
+      "family": {
+        "members": 4,
+        "children": 2,
+        "elderly": 2
+      },
+      "preferences": {
+        "style": "欧式",
+        "priority": "静音",
+        "timeline": "1个月内"
+      }
+    },
+    "assignedSalesId": 18,
+    "assignedStoreId": 5,
+    "painPoints": [],
+    "lastContactAt": "2026-04-07T07:01:59.210Z",
+    "createdAt": "2026-01-24T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-03-24T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "高丽"
+      },
+      {
+        "date": "2026-04-07T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "高丽"
+      }
+    ]
+  },
+  {
+    "id": 21,
+    "customerNo": "CUST-2026-0021",
+    "name": "胡华",
+    "phone": "18901720072",
+    "wechat": "wx_13323836133",
+    "source": "online",
+    "status": "contacted",
+    "tags": [
+      "公寓客户",
+      "中意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 200,
+      "rooms": "办公空间",
+      "houseType": "commercial",
+      "budget": 180000,
+      "family": {
+        "members": 6,
+        "children": 0,
+        "elderly": 2
+      },
+      "preferences": {
+        "style": "现代",
+        "priority": "静音",
+        "timeline": "3个月内"
+      }
+    },
+    "assignedSalesId": 18,
+    "assignedStoreId": 5,
+    "painPoints": [],
+    "lastContactAt": "2026-04-18T07:01:59.210Z",
+    "createdAt": "2026-03-26T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-02T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "高丽"
+      },
+      {
+        "date": "2026-04-06T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "高丽"
+      }
+    ]
+  },
+  {
+    "id": 22,
+    "customerNo": "CUST-2026-0022",
+    "name": "陈昊",
+    "phone": "19447492872",
+    "wechat": "wx_18894248358",
+    "source": "partner",
+    "status": "new",
+    "tags": [
+      "公寓客户",
+      "低意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 120,
+      "rooms": "3室2厅",
+      "houseType": "apartment",
+      "budget": 54400,
+      "family": {
+        "members": 5,
+        "children": 2,
+        "elderly": 0
+      },
+      "preferences": {
+        "style": "欧式",
+        "priority": "舒适",
+        "timeline": "半年内"
+      }
+    },
+    "assignedSalesId": 17,
+    "assignedStoreId": 3,
+    "painPoints": [],
+    "lastContactAt": "2026-04-16T07:01:59.210Z",
+    "createdAt": "2026-04-06T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-12T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "黄杰"
+      },
+      {
+        "date": "2026-04-13T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "黄杰"
+      }
+    ]
+  },
+  {
+    "id": 23,
+    "customerNo": "CUST-2026-0023",
+    "name": "杨雨",
+    "phone": "16609252053",
+    "wechat": "wx_18404290822",
+    "source": "online",
+    "status": "diagnosed",
+    "tags": [
+      "公寓客户",
+      "高意向",
+      "预算充足"
+    ],
+    "profile": {
+      "area": 280,
+      "rooms": "5室3厅",
+      "houseType": "villa",
+      "budget": 189600,
+      "family": {
+        "members": 6,
+        "children": 0,
+        "elderly": 2
+      },
+      "preferences": {
+        "style": "简约",
+        "priority": "节能",
+        "timeline": "半年内"
+      }
+    },
+    "assignedSalesId": 18,
+    "assignedStoreId": 5,
+    "painPoints": [],
+    "lastContactAt": "2026-04-14T07:01:59.210Z",
+    "createdAt": "2026-03-14T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-03-28T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "高丽"
+      },
+      {
+        "date": "2026-04-13T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "高丽"
+      }
+    ]
+  },
+  {
+    "id": 24,
+    "customerNo": "CUST-2026-0024",
+    "name": "郭杰",
+    "phone": "14993832170",
+    "wechat": "wx_19974072471",
+    "source": "referral",
+    "status": "contracted",
+    "tags": [
+      "别墅客户",
+      "中意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 120,
+      "rooms": "3室2厅",
+      "houseType": "apartment",
+      "budget": 88400,
+      "family": {
+        "members": 5,
+        "children": 0,
+        "elderly": 2
+      },
+      "preferences": {
+        "style": "欧式",
+        "priority": "节能",
+        "timeline": "3个月内"
+      }
+    },
+    "assignedSalesId": 17,
+    "assignedStoreId": 3,
+    "painPoints": [],
+    "lastContactAt": "2026-04-05T07:01:59.210Z",
+    "createdAt": "2026-02-21T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-19T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "黄杰"
+      },
+      {
+        "date": "2026-04-20T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "黄杰"
+      }
+    ]
+  },
+  {
+    "id": 25,
+    "customerNo": "CUST-2026-0025",
+    "name": "黄雨",
+    "phone": "19286460636",
+    "wechat": "wx_16344150438",
+    "source": "referral",
+    "status": "new",
+    "tags": [
+      "商用客户",
+      "低意向",
+      "价格敏感"
+    ],
+    "profile": {
+      "area": 450,
+      "rooms": "7室5厅",
+      "houseType": "villa",
+      "budget": 268000,
+      "family": {
+        "members": 6,
+        "children": 2,
+        "elderly": 2
+      },
+      "preferences": {
+        "style": "现代",
+        "priority": "静音",
+        "timeline": "1个月内"
+      }
+    },
+    "assignedSalesId": 17,
+    "assignedStoreId": 3,
+    "painPoints": [],
+    "lastContactAt": "2026-04-12T07:01:59.210Z",
+    "createdAt": "2026-03-24T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-11T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "黄杰"
+      },
+      {
+        "date": "2026-04-19T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "黄杰"
+      }
+    ]
+  },
+  {
+    "id": 26,
+    "customerNo": "CUST-2026-0026",
+    "name": "徐宇",
+    "phone": "15729598930",
+    "wechat": "wx_19844468732",
+    "source": "online",
+    "status": "quoting",
+    "tags": [
+      "别墅客户",
+      "高意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 200,
+      "rooms": "办公空间",
+      "houseType": "commercial",
+      "budget": 168000,
+      "family": {
+        "members": 4,
+        "children": 2,
+        "elderly": 2
+      },
+      "preferences": {
+        "style": "中式",
+        "priority": "静音",
+        "timeline": "1个月内"
+      }
+    },
+    "assignedSalesId": 16,
+    "assignedStoreId": 1,
+    "painPoints": [],
+    "lastContactAt": "2026-04-13T07:01:59.210Z",
+    "createdAt": "2026-04-18T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-03-24T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "何强"
+      },
+      {
+        "date": "2026-04-14T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "何强"
+      }
+    ]
+  },
+  {
+    "id": 27,
+    "customerNo": "CUST-2026-0027",
+    "name": "张磊",
+    "phone": "17983974168",
+    "wechat": "wx_13503913373",
+    "source": "ads",
+    "status": "diagnosed",
+    "tags": [
+      "商用客户",
+      "高意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 280,
+      "rooms": "5室3厅",
+      "houseType": "villa",
+      "budget": 189600,
+      "family": {
+        "members": 5,
+        "children": 1,
+        "elderly": 0
+      },
+      "preferences": {
+        "style": "中式",
+        "priority": "舒适",
+        "timeline": "半年内"
+      }
+    },
+    "assignedSalesId": 17,
+    "assignedStoreId": 3,
+    "painPoints": [],
+    "lastContactAt": "2026-04-04T07:01:59.210Z",
+    "createdAt": "2026-04-09T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-17T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "黄杰"
+      },
+      {
+        "date": "2026-04-16T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "黄杰"
+      }
+    ]
+  },
+  {
+    "id": 28,
+    "customerNo": "CUST-2026-0028",
+    "name": "郭欣",
+    "phone": "16722915786",
+    "wechat": "wx_15257072280",
+    "source": "ads",
+    "status": "quoting",
+    "tags": [
+      "公寓客户",
+      "高意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 89,
+      "rooms": "2室2厅",
+      "houseType": "apartment",
+      "budget": 42000,
+      "family": {
+        "members": 5,
+        "children": 2,
+        "elderly": 2
+      },
+      "preferences": {
+        "style": "中式",
+        "priority": "智能",
+        "timeline": "一年内"
+      }
+    },
+    "assignedSalesId": 16,
+    "assignedStoreId": 1,
+    "painPoints": [],
+    "lastContactAt": "2026-03-27T07:01:59.210Z",
+    "createdAt": "2026-02-23T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-03-26T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "何强"
+      },
+      {
+        "date": "2026-04-06T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "何强"
+      }
+    ]
+  },
+  {
+    "id": 29,
+    "customerNo": "CUST-2026-0029",
+    "name": "周浩",
+    "phone": "15277461130",
+    "wechat": "wx_13975009081",
+    "source": "partner",
+    "status": "negotiating",
+    "tags": [
+      "商用客户",
+      "中意向",
+      "价格敏感"
+    ],
+    "profile": {
+      "area": 280,
+      "rooms": "5室3厅",
+      "houseType": "villa",
+      "budget": 126400,
+      "family": {
+        "members": 4,
+        "children": 1,
+        "elderly": 0
+      },
+      "preferences": {
+        "style": "现代",
+        "priority": "智能",
+        "timeline": "一年内"
+      }
+    },
+    "assignedSalesId": 18,
+    "assignedStoreId": 5,
+    "painPoints": [],
+    "lastContactAt": "2026-04-14T07:01:59.210Z",
+    "createdAt": "2026-04-16T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-16T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "高丽"
+      },
+      {
+        "date": "2026-04-19T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "高丽"
+      }
+    ]
+  },
+  {
+    "id": 30,
+    "customerNo": "CUST-2026-0030",
+    "name": "何鹏",
+    "phone": "16185519440",
+    "wechat": "wx_18292220078",
+    "source": "ads",
+    "status": "contacted",
+    "tags": [
+      "别墅客户",
+      "中意向",
+      "价格敏感"
+    ],
+    "profile": {
+      "area": 135,
+      "rooms": "3室2厅",
+      "houseType": "apartment",
+      "budget": 70200,
+      "family": {
+        "members": 6,
+        "children": 2,
+        "elderly": 1
+      },
+      "preferences": {
+        "style": "中式",
+        "priority": "节能",
+        "timeline": "半年内"
+      }
+    },
+    "assignedSalesId": 18,
+    "assignedStoreId": 5,
+    "painPoints": [],
+    "lastContactAt": "2026-04-03T07:01:59.210Z",
+    "createdAt": "2026-03-06T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-18T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "高丽"
+      },
+      {
+        "date": "2026-04-15T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "高丽"
+      }
+    ]
+  },
+  {
+    "id": 31,
+    "customerNo": "CUST-2026-0031",
+    "name": "孙伟",
+    "phone": "13373146751",
+    "wechat": "wx_13786201924",
+    "source": "referral",
+    "status": "diagnosed",
+    "tags": [
+      "商用客户",
+      "中意向",
+      "预算充足"
+    ],
+    "profile": {
+      "area": 135,
+      "rooms": "3室2厅",
+      "houseType": "apartment",
+      "budget": 85800,
+      "family": {
+        "members": 5,
+        "children": 2,
+        "elderly": 2
+      },
+      "preferences": {
+        "style": "欧式",
+        "priority": "舒适",
+        "timeline": "一年内"
+      }
+    },
+    "assignedSalesId": 17,
+    "assignedStoreId": 3,
+    "painPoints": [],
+    "lastContactAt": "2026-03-28T07:01:59.210Z",
+    "createdAt": "2026-04-17T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-03T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "黄杰"
+      },
+      {
+        "date": "2026-04-17T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "黄杰"
+      }
+    ]
+  },
+  {
+    "id": 32,
+    "customerNo": "CUST-2026-0032",
+    "name": "罗昊",
+    "phone": "14605015661",
+    "wechat": "wx_13161453563",
+    "source": "ads",
+    "status": "completed",
+    "tags": [
+      "商用客户",
+      "中意向",
+      "价格敏感"
+    ],
+    "profile": {
+      "area": 350,
+      "rooms": "6室4厅",
+      "houseType": "villa",
+      "budget": 198000,
+      "family": {
+        "members": 4,
+        "children": 1,
+        "elderly": 1
+      },
+      "preferences": {
+        "style": "现代",
+        "priority": "智能",
+        "timeline": "半年内"
+      }
+    },
+    "assignedSalesId": 18,
+    "assignedStoreId": 5,
+    "painPoints": [],
+    "lastContactAt": "2026-03-31T07:01:59.210Z",
+    "createdAt": "2026-04-09T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-16T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "高丽"
+      },
+      {
+        "date": "2026-04-11T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "高丽"
+      }
+    ]
+  },
+  {
+    "id": 33,
+    "customerNo": "CUST-2026-0033",
+    "name": "孙华",
+    "phone": "17981638449",
+    "wechat": "wx_18655105887",
+    "source": "partner",
+    "status": "contacted",
+    "tags": [
+      "公寓客户",
+      "中意向",
+      "预算充足"
+    ],
+    "profile": {
+      "area": 200,
+      "rooms": "办公空间",
+      "houseType": "commercial",
+      "budget": 180000,
+      "family": {
+        "members": 6,
+        "children": 2,
+        "elderly": 2
+      },
+      "preferences": {
+        "style": "简约",
+        "priority": "静音",
+        "timeline": "一年内"
+      }
+    },
+    "assignedSalesId": 16,
+    "assignedStoreId": 1,
+    "painPoints": [],
+    "lastContactAt": "2026-03-24T07:01:59.210Z",
+    "createdAt": "2026-04-07T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-03-26T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "何强"
+      },
+      {
+        "date": "2026-04-12T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "何强"
+      }
+    ]
+  },
+  {
+    "id": 34,
+    "customerNo": "CUST-2026-0034",
+    "name": "吴芳",
+    "phone": "16619487769",
+    "wechat": "wx_15305860281",
+    "source": "online",
+    "status": "diagnosed",
+    "tags": [
+      "商用客户",
+      "中意向",
+      "预算充足"
+    ],
+    "profile": {
+      "area": 150,
+      "rooms": "4室2厅",
+      "houseType": "apartment",
+      "budget": 132000,
+      "family": {
+        "members": 6,
+        "children": 1,
+        "elderly": 1
+      },
+      "preferences": {
+        "style": "欧式",
+        "priority": "静音",
+        "timeline": "3个月内"
+      }
+    },
+    "assignedSalesId": 18,
+    "assignedStoreId": 5,
+    "painPoints": [],
+    "lastContactAt": "2026-04-09T07:01:59.210Z",
+    "createdAt": "2026-04-19T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-03-22T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "高丽"
+      },
+      {
+        "date": "2026-04-14T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "高丽"
+      }
+    ]
+  },
+  {
+    "id": 35,
+    "customerNo": "CUST-2026-0035",
+    "name": "高娜",
+    "phone": "16198091974",
+    "wechat": "wx_16439218110",
+    "source": "ads",
+    "status": "diagnosed",
+    "tags": [
+      "别墅客户",
+      "低意向",
+      "预算充足"
+    ],
+    "profile": {
+      "area": 135,
+      "rooms": "3室2厅",
+      "houseType": "apartment",
+      "budget": 62400,
+      "family": {
+        "members": 6,
+        "children": 0,
+        "elderly": 1
+      },
+      "preferences": {
+        "style": "欧式",
+        "priority": "智能",
+        "timeline": "3个月内"
+      }
+    },
+    "assignedSalesId": 16,
+    "assignedStoreId": 1,
+    "painPoints": [],
+    "lastContactAt": "2026-03-22T07:01:59.210Z",
+    "createdAt": "2026-04-03T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-03-31T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "何强"
+      },
+      {
+        "date": "2026-04-10T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "何强"
+      }
+    ]
+  },
+  {
+    "id": 36,
+    "customerNo": "CUST-2026-0036",
+    "name": "杨涛",
+    "phone": "17727547802",
+    "wechat": "wx_15934597342",
+    "source": "ads",
+    "status": "negotiating",
+    "tags": [
+      "商用客户",
+      "中意向",
+      "预算充足"
+    ],
+    "profile": {
+      "area": 200,
+      "rooms": "办公空间",
+      "houseType": "commercial",
+      "budget": 168000,
+      "family": {
+        "members": 2,
+        "children": 1,
+        "elderly": 2
+      },
+      "preferences": {
+        "style": "简约",
+        "priority": "节能",
+        "timeline": "1个月内"
+      }
+    },
+    "assignedSalesId": 18,
+    "assignedStoreId": 5,
+    "painPoints": [],
+    "lastContactAt": "2026-04-16T07:01:59.210Z",
+    "createdAt": "2026-03-17T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-20T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "高丽"
+      },
+      {
+        "date": "2026-04-11T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "高丽"
+      }
+    ]
+  },
+  {
+    "id": 37,
+    "customerNo": "CUST-2026-0037",
+    "name": "孙雨",
+    "phone": "18916523165",
+    "wechat": "wx_19686941325",
+    "source": "walkin",
+    "status": "quoting",
+    "tags": [
+      "公寓客户",
+      "中意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 450,
+      "rooms": "7室5厅",
+      "houseType": "villa",
+      "budget": 294800,
+      "family": {
+        "members": 5,
+        "children": 0,
+        "elderly": 0
+      },
+      "preferences": {
+        "style": "中式",
+        "priority": "节能",
+        "timeline": "1个月内"
+      }
+    },
+    "assignedSalesId": 18,
+    "assignedStoreId": 5,
+    "painPoints": [],
+    "lastContactAt": "2026-03-29T07:01:59.210Z",
+    "createdAt": "2026-04-14T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-03-27T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "高丽"
+      },
+      {
+        "date": "2026-04-14T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "高丽"
+      }
+    ]
+  },
+  {
+    "id": 38,
+    "customerNo": "CUST-2026-0038",
+    "name": "杨欣",
+    "phone": "13565182529",
+    "wechat": "wx_15553238426",
+    "source": "walkin",
+    "status": "new",
+    "tags": [
+      "商用客户",
+      "低意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 89,
+      "rooms": "2室2厅",
+      "houseType": "apartment",
+      "budget": 50400,
+      "family": {
+        "members": 4,
+        "children": 1,
+        "elderly": 1
+      },
+      "preferences": {
+        "style": "现代",
+        "priority": "智能",
+        "timeline": "3个月内"
+      }
+    },
+    "assignedSalesId": 16,
+    "assignedStoreId": 1,
+    "painPoints": [],
+    "lastContactAt": "2026-04-19T07:01:59.210Z",
+    "createdAt": "2026-04-01T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-03-23T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "何强"
+      },
+      {
+        "date": "2026-04-08T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "何强"
+      }
+    ]
+  },
+  {
+    "id": 39,
+    "customerNo": "CUST-2026-0039",
+    "name": "周超",
+    "phone": "17896675836",
+    "wechat": "wx_18759036833",
+    "source": "walkin",
+    "status": "negotiating",
+    "tags": [
+      "公寓客户",
+      "高意向",
+      "价格敏感"
+    ],
+    "profile": {
+      "area": 350,
+      "rooms": "6室4厅",
+      "houseType": "villa",
+      "budget": 297000,
+      "family": {
+        "members": 6,
+        "children": 2,
+        "elderly": 0
+      },
+      "preferences": {
+        "style": "简约",
+        "priority": "舒适",
+        "timeline": "3个月内"
+      }
+    },
+    "assignedSalesId": 16,
+    "assignedStoreId": 1,
+    "painPoints": [],
+    "lastContactAt": "2026-03-23T07:01:59.210Z",
+    "createdAt": "2026-02-28T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-03-31T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "何强"
+      },
+      {
+        "date": "2026-04-16T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "何强"
+      }
+    ]
+  },
+  {
+    "id": 40,
+    "customerNo": "CUST-2026-0040",
+    "name": "张丽",
+    "phone": "18593492065",
+    "wechat": "wx_17558538610",
+    "source": "walkin",
+    "status": "diagnosed",
+    "tags": [
+      "公寓客户",
+      "低意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 200,
+      "rooms": "办公空间",
+      "houseType": "commercial",
+      "budget": 108000,
+      "family": {
+        "members": 4,
+        "children": 2,
+        "elderly": 1
+      },
+      "preferences": {
+        "style": "欧式",
+        "priority": "智能",
+        "timeline": "1个月内"
+      }
+    },
+    "assignedSalesId": 17,
+    "assignedStoreId": 3,
+    "painPoints": [],
+    "lastContactAt": "2026-03-25T07:01:59.210Z",
+    "createdAt": "2026-02-11T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-11T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "黄杰"
+      },
+      {
+        "date": "2026-04-18T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "黄杰"
+      }
+    ]
+  },
+  {
+    "id": 41,
+    "customerNo": "CUST-2026-0041",
+    "name": "李涛",
+    "phone": "19548624126",
+    "wechat": "wx_18412360297",
+    "source": "partner",
+    "status": "contacted",
+    "tags": [
+      "别墅客户",
+      "低意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 350,
+      "rooms": "6室4厅",
+      "houseType": "villa",
+      "budget": 217800,
+      "family": {
+        "members": 4,
+        "children": 1,
+        "elderly": 2
+      },
+      "preferences": {
+        "style": "现代",
+        "priority": "静音",
+        "timeline": "1个月内"
+      }
+    },
+    "assignedSalesId": 17,
+    "assignedStoreId": 3,
+    "painPoints": [],
+    "lastContactAt": "2026-04-19T07:01:59.210Z",
+    "createdAt": "2026-01-24T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-20T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "黄杰"
+      },
+      {
+        "date": "2026-04-08T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "黄杰"
+      }
+    ]
+  },
+  {
+    "id": 42,
+    "customerNo": "CUST-2026-0042",
+    "name": "林欣",
+    "phone": "18205272853",
+    "wechat": "wx_18543224602",
+    "source": "partner",
+    "status": "contacted",
+    "tags": [
+      "别墅客户",
+      "高意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 120,
+      "rooms": "3室2厅",
+      "houseType": "apartment",
+      "budget": 81600,
+      "family": {
+        "members": 6,
+        "children": 2,
+        "elderly": 2
+      },
+      "preferences": {
+        "style": "现代",
+        "priority": "节能",
+        "timeline": "3个月内"
+      }
+    },
+    "assignedSalesId": 16,
+    "assignedStoreId": 1,
+    "painPoints": [],
+    "lastContactAt": "2026-04-14T07:01:59.210Z",
+    "createdAt": "2026-02-13T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-06T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "何强"
+      },
+      {
+        "date": "2026-04-12T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "何强"
+      }
+    ]
+  },
+  {
+    "id": 43,
+    "customerNo": "CUST-2026-0043",
+    "name": "林敏",
+    "phone": "13284385577",
+    "wechat": "wx_17851182188",
+    "source": "partner",
+    "status": "quoting",
+    "tags": [
+      "公寓客户",
+      "低意向",
+      "预算充足"
+    ],
+    "profile": {
+      "area": 150,
+      "rooms": "4室2厅",
+      "houseType": "apartment",
+      "budget": 123200,
+      "family": {
+        "members": 4,
+        "children": 2,
+        "elderly": 1
+      },
+      "preferences": {
+        "style": "简约",
+        "priority": "舒适",
+        "timeline": "1个月内"
+      }
+    },
+    "assignedSalesId": 17,
+    "assignedStoreId": 3,
+    "painPoints": [],
+    "lastContactAt": "2026-03-22T07:01:59.210Z",
+    "createdAt": "2026-01-23T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-03T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "黄杰"
+      },
+      {
+        "date": "2026-04-18T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "黄杰"
+      }
+    ]
+  },
+  {
+    "id": 44,
+    "customerNo": "CUST-2026-0044",
+    "name": "罗艳",
+    "phone": "14883922638",
+    "wechat": "wx_16661699011",
+    "source": "partner",
+    "status": "completed",
+    "tags": [
+      "公寓客户",
+      "中意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 280,
+      "rooms": "5室3厅",
+      "houseType": "villa",
+      "budget": 173800,
+      "family": {
+        "members": 6,
+        "children": 2,
+        "elderly": 1
+      },
+      "preferences": {
+        "style": "欧式",
+        "priority": "静音",
+        "timeline": "一年内"
+      }
+    },
+    "assignedSalesId": 18,
+    "assignedStoreId": 5,
+    "painPoints": [],
+    "lastContactAt": "2026-03-31T07:01:59.210Z",
+    "createdAt": "2026-03-27T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-07T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "高丽"
+      },
+      {
+        "date": "2026-04-14T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "高丽"
+      }
+    ]
+  },
+  {
+    "id": 45,
+    "customerNo": "CUST-2026-0045",
+    "name": "李雨",
+    "phone": "14109981355",
+    "wechat": "wx_13913906768",
+    "source": "online",
+    "status": "negotiating",
+    "tags": [
+      "公寓客户",
+      "中意向",
+      "价格敏感"
+    ],
+    "profile": {
+      "area": 135,
+      "rooms": "3室2厅",
+      "houseType": "apartment",
+      "budget": 62400,
+      "family": {
+        "members": 3,
+        "children": 1,
+        "elderly": 1
+      },
+      "preferences": {
+        "style": "现代",
+        "priority": "静音",
+        "timeline": "半年内"
+      }
+    },
+    "assignedSalesId": 17,
+    "assignedStoreId": 3,
+    "painPoints": [],
+    "lastContactAt": "2026-04-11T07:01:59.210Z",
+    "createdAt": "2026-01-30T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-03-25T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "黄杰"
+      },
+      {
+        "date": "2026-04-17T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "黄杰"
+      }
+    ]
+  },
+  {
+    "id": 46,
+    "customerNo": "CUST-2026-0046",
+    "name": "罗雨",
+    "phone": "15874371597",
+    "wechat": "wx_16287813695",
+    "source": "referral",
+    "status": "contracted",
+    "tags": [
+      "别墅客户",
+      "中意向",
+      "预算充足"
+    ],
+    "profile": {
+      "area": 280,
+      "rooms": "5室3厅",
+      "houseType": "villa",
+      "budget": 221200,
+      "family": {
+        "members": 6,
+        "children": 0,
+        "elderly": 0
+      },
+      "preferences": {
+        "style": "中式",
+        "priority": "智能",
+        "timeline": "1个月内"
+      }
+    },
+    "assignedSalesId": 18,
+    "assignedStoreId": 5,
+    "painPoints": [],
+    "lastContactAt": "2026-04-12T07:01:59.210Z",
+    "createdAt": "2026-03-26T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-04T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "高丽"
+      },
+      {
+        "date": "2026-04-20T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "高丽"
+      }
+    ]
+  },
+  {
+    "id": 47,
+    "customerNo": "CUST-2026-0047",
+    "name": "李超",
+    "phone": "14818496359",
+    "wechat": "wx_18516372764",
+    "source": "online",
+    "status": "negotiating",
+    "tags": [
+      "公寓客户",
+      "低意向",
+      "预算充足"
+    ],
+    "profile": {
+      "area": 350,
+      "rooms": "6室4厅",
+      "houseType": "villa",
+      "budget": 178200,
+      "family": {
+        "members": 6,
+        "children": 0,
+        "elderly": 0
+      },
+      "preferences": {
+        "style": "现代",
+        "priority": "静音",
+        "timeline": "3个月内"
+      }
+    },
+    "assignedSalesId": 18,
+    "assignedStoreId": 5,
+    "painPoints": [],
+    "lastContactAt": "2026-04-14T07:01:59.210Z",
+    "createdAt": "2026-01-26T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-03-31T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "高丽"
+      },
+      {
+        "date": "2026-04-11T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "高丽"
+      }
+    ]
+  },
+  {
+    "id": 48,
+    "customerNo": "CUST-2026-0048",
+    "name": "王静",
+    "phone": "15390992763",
+    "wechat": "wx_15267988060",
+    "source": "ads",
+    "status": "new",
+    "tags": [
+      "公寓客户",
+      "中意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 150,
+      "rooms": "4室2厅",
+      "houseType": "apartment",
+      "budget": 132000,
+      "family": {
+        "members": 5,
+        "children": 0,
+        "elderly": 0
+      },
+      "preferences": {
+        "style": "欧式",
+        "priority": "静音",
+        "timeline": "一年内"
+      }
+    },
+    "assignedSalesId": 16,
+    "assignedStoreId": 1,
+    "painPoints": [],
+    "lastContactAt": "2026-04-08T07:01:59.210Z",
+    "createdAt": "2026-03-11T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-10T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "何强"
+      },
+      {
+        "date": "2026-04-07T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "何强"
+      }
+    ]
+  },
+  {
+    "id": 49,
+    "customerNo": "CUST-2026-0049",
+    "name": "朱杰",
+    "phone": "16324106697",
+    "wechat": "wx_19986977786",
+    "source": "ads",
+    "status": "completed",
+    "tags": [
+      "商用客户",
+      "高意向",
+      "预算充足"
+    ],
+    "profile": {
+      "area": 150,
+      "rooms": "4室2厅",
+      "houseType": "apartment",
+      "budget": 114400,
+      "family": {
+        "members": 4,
+        "children": 2,
+        "elderly": 1
+      },
+      "preferences": {
+        "style": "中式",
+        "priority": "智能",
+        "timeline": "3个月内"
+      }
+    },
+    "assignedSalesId": 18,
+    "assignedStoreId": 5,
+    "painPoints": [],
+    "lastContactAt": "2026-03-24T07:01:59.210Z",
+    "createdAt": "2026-02-01T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-10T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "高丽"
+      },
+      {
+        "date": "2026-04-11T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "高丽"
+      }
+    ]
+  },
+  {
+    "id": 50,
+    "customerNo": "CUST-2026-0050",
+    "name": "孙艳",
+    "phone": "18613768048",
+    "wechat": "wx_16124619448",
+    "source": "referral",
+    "status": "completed",
+    "tags": [
+      "商用客户",
+      "高意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 280,
+      "rooms": "5室3厅",
+      "houseType": "villa",
+      "budget": 142200,
+      "family": {
+        "members": 2,
+        "children": 2,
+        "elderly": 0
+      },
+      "preferences": {
+        "style": "中式",
+        "priority": "节能",
+        "timeline": "3个月内"
+      }
+    },
+    "assignedSalesId": 18,
+    "assignedStoreId": 5,
+    "painPoints": [],
+    "lastContactAt": "2026-04-01T07:01:59.210Z",
+    "createdAt": "2026-03-13T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-08T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "高丽"
+      },
+      {
+        "date": "2026-04-14T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "高丽"
+      }
+    ]
+  },
+  {
+    "id": 51,
+    "customerNo": "CUST-2026-0051",
+    "name": "吴飞",
+    "phone": "18862959468",
+    "wechat": "wx_14152000515",
+    "source": "walkin",
+    "status": "contracted",
+    "tags": [
+      "商用客户",
+      "高意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 150,
+      "rooms": "4室2厅",
+      "houseType": "apartment",
+      "budget": 132000,
+      "family": {
+        "members": 2,
+        "children": 2,
+        "elderly": 2
+      },
+      "preferences": {
+        "style": "中式",
+        "priority": "舒适",
+        "timeline": "半年内"
+      }
+    },
+    "assignedSalesId": 18,
+    "assignedStoreId": 5,
+    "painPoints": [],
+    "lastContactAt": "2026-04-10T07:01:59.210Z",
+    "createdAt": "2026-01-21T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-11T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "高丽"
+      },
+      {
+        "date": "2026-04-08T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "高丽"
+      }
+    ]
+  },
+  {
+    "id": 52,
+    "customerNo": "CUST-2026-0052",
+    "name": "杨伟",
+    "phone": "16395174507",
+    "wechat": "wx_19757636367",
+    "source": "walkin",
+    "status": "contacted",
+    "tags": [
+      "商用客户",
+      "高意向",
+      "价格敏感"
+    ],
+    "profile": {
+      "area": 150,
+      "rooms": "4室2厅",
+      "houseType": "apartment",
+      "budget": 88000,
+      "family": {
+        "members": 5,
+        "children": 2,
+        "elderly": 1
+      },
+      "preferences": {
+        "style": "中式",
+        "priority": "节能",
+        "timeline": "1个月内"
+      }
+    },
+    "assignedSalesId": 18,
+    "assignedStoreId": 5,
+    "painPoints": [],
+    "lastContactAt": "2026-04-04T07:01:59.210Z",
+    "createdAt": "2026-03-29T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-01T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "高丽"
+      },
+      {
+        "date": "2026-04-10T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "高丽"
+      }
+    ]
+  },
+  {
+    "id": 53,
+    "customerNo": "CUST-2026-0053",
+    "name": "徐军",
+    "phone": "18804407239",
+    "wechat": "wx_16457023031",
+    "source": "online",
+    "status": "negotiating",
+    "tags": [
+      "别墅客户",
+      "低意向",
+      "预算充足"
+    ],
+    "profile": {
+      "area": 150,
+      "rooms": "4室2厅",
+      "houseType": "apartment",
+      "budget": 105600,
+      "family": {
+        "members": 6,
+        "children": 2,
+        "elderly": 2
+      },
+      "preferences": {
+        "style": "中式",
+        "priority": "智能",
+        "timeline": "半年内"
+      }
+    },
+    "assignedSalesId": 17,
+    "assignedStoreId": 3,
+    "painPoints": [],
+    "lastContactAt": "2026-04-12T07:01:59.210Z",
+    "createdAt": "2026-03-15T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-15T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "黄杰"
+      },
+      {
+        "date": "2026-04-08T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "黄杰"
+      }
+    ]
+  },
+  {
+    "id": 54,
+    "customerNo": "CUST-2026-0054",
+    "name": "黄强",
+    "phone": "14459752509",
+    "wechat": "wx_19887356271",
+    "source": "partner",
+    "status": "new",
+    "tags": [
+      "商用客户",
+      "高意向",
+      "价格敏感"
+    ],
+    "profile": {
+      "area": 150,
+      "rooms": "4室2厅",
+      "houseType": "apartment",
+      "budget": 88000,
+      "family": {
+        "members": 6,
+        "children": 1,
+        "elderly": 1
+      },
+      "preferences": {
+        "style": "中式",
+        "priority": "舒适",
+        "timeline": "一年内"
+      }
+    },
+    "assignedSalesId": 18,
+    "assignedStoreId": 5,
+    "painPoints": [],
+    "lastContactAt": "2026-04-10T07:01:59.210Z",
+    "createdAt": "2026-02-12T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-12T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "高丽"
+      },
+      {
+        "date": "2026-04-18T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "高丽"
+      }
+    ]
+  },
+  {
+    "id": 55,
+    "customerNo": "CUST-2026-0055",
+    "name": "李涛",
+    "phone": "18373001404",
+    "wechat": "wx_17722493542",
+    "source": "ads",
+    "status": "diagnosed",
+    "tags": [
+      "公寓客户",
+      "中意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 450,
+      "rooms": "7室5厅",
+      "houseType": "villa",
+      "budget": 241200,
+      "family": {
+        "members": 6,
+        "children": 1,
+        "elderly": 1
+      },
+      "preferences": {
+        "style": "中式",
+        "priority": "节能",
+        "timeline": "3个月内"
+      }
+    },
+    "assignedSalesId": 17,
+    "assignedStoreId": 3,
+    "painPoints": [],
+    "lastContactAt": "2026-04-02T07:01:59.210Z",
+    "createdAt": "2026-03-21T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-03-29T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "黄杰"
+      },
+      {
+        "date": "2026-04-11T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "黄杰"
+      }
+    ]
+  },
+  {
+    "id": 56,
+    "customerNo": "CUST-2026-0056",
+    "name": "黄伟",
+    "phone": "13995563727",
+    "wechat": "wx_19358745018",
+    "source": "walkin",
+    "status": "new",
+    "tags": [
+      "公寓客户",
+      "中意向",
+      "价格敏感"
+    ],
+    "profile": {
+      "area": 280,
+      "rooms": "5室3厅",
+      "houseType": "villa",
+      "budget": 173800,
+      "family": {
+        "members": 6,
+        "children": 2,
+        "elderly": 2
+      },
+      "preferences": {
+        "style": "简约",
+        "priority": "舒适",
+        "timeline": "3个月内"
+      }
+    },
+    "assignedSalesId": 18,
+    "assignedStoreId": 5,
+    "painPoints": [],
+    "lastContactAt": "2026-04-12T07:01:59.210Z",
+    "createdAt": "2026-03-08T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-16T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "高丽"
+      },
+      {
+        "date": "2026-04-13T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "高丽"
+      }
+    ]
+  },
+  {
+    "id": 57,
+    "customerNo": "CUST-2026-0057",
+    "name": "李婷",
+    "phone": "18292624381",
+    "wechat": "wx_14555972265",
+    "source": "walkin",
+    "status": "negotiating",
+    "tags": [
+      "商用客户",
+      "中意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 135,
+      "rooms": "3室2厅",
+      "houseType": "apartment",
+      "budget": 93600,
+      "family": {
+        "members": 2,
+        "children": 1,
+        "elderly": 0
+      },
+      "preferences": {
+        "style": "现代",
+        "priority": "舒适",
+        "timeline": "半年内"
+      }
+    },
+    "assignedSalesId": 17,
+    "assignedStoreId": 3,
+    "painPoints": [],
+    "lastContactAt": "2026-03-27T07:01:59.210Z",
+    "createdAt": "2026-03-25T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-13T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "黄杰"
+      },
+      {
+        "date": "2026-04-09T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "黄杰"
+      }
+    ]
+  },
+  {
+    "id": 58,
+    "customerNo": "CUST-2026-0058",
+    "name": "吴鹏",
+    "phone": "17705517651",
+    "wechat": "wx_17249613208",
+    "source": "referral",
+    "status": "negotiating",
+    "tags": [
+      "公寓客户",
+      "高意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 150,
+      "rooms": "4室2厅",
+      "houseType": "apartment",
+      "budget": 123200,
+      "family": {
+        "members": 3,
+        "children": 1,
+        "elderly": 0
+      },
+      "preferences": {
+        "style": "简约",
+        "priority": "节能",
+        "timeline": "一年内"
+      }
+    },
+    "assignedSalesId": 16,
+    "assignedStoreId": 1,
+    "painPoints": [],
+    "lastContactAt": "2026-04-17T07:01:59.210Z",
+    "createdAt": "2026-02-03T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-03-23T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "何强"
+      },
+      {
+        "date": "2026-04-20T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "何强"
+      }
+    ]
+  },
+  {
+    "id": 59,
+    "customerNo": "CUST-2026-0059",
+    "name": "马勇",
+    "phone": "17950310259",
+    "wechat": "wx_13753840625",
+    "source": "online",
+    "status": "quoting",
+    "tags": [
+      "商用客户",
+      "中意向",
+      "价格敏感"
+    ],
+    "profile": {
+      "area": 89,
+      "rooms": "2室2厅",
+      "houseType": "apartment",
+      "budget": 50400,
+      "family": {
+        "members": 6,
+        "children": 1,
+        "elderly": 2
+      },
+      "preferences": {
+        "style": "现代",
+        "priority": "节能",
+        "timeline": "3个月内"
+      }
+    },
+    "assignedSalesId": 18,
+    "assignedStoreId": 5,
+    "painPoints": [],
+    "lastContactAt": "2026-03-22T07:01:59.210Z",
+    "createdAt": "2026-04-10T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-06T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "高丽"
+      },
+      {
+        "date": "2026-04-15T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "高丽"
+      }
+    ]
+  },
+  {
+    "id": 60,
+    "customerNo": "CUST-2026-0060",
+    "name": "马敏",
+    "phone": "14863962322",
+    "wechat": "wx_16593058441",
+    "source": "online",
+    "status": "contacted",
+    "tags": [
+      "别墅客户",
+      "中意向",
+      "价格敏感"
+    ],
+    "profile": {
+      "area": 450,
+      "rooms": "7室5厅",
+      "houseType": "villa",
+      "budget": 268000,
+      "family": {
+        "members": 4,
+        "children": 0,
+        "elderly": 0
+      },
+      "preferences": {
+        "style": "现代",
+        "priority": "智能",
+        "timeline": "一年内"
+      }
+    },
+    "assignedSalesId": 17,
+    "assignedStoreId": 3,
+    "painPoints": [],
+    "lastContactAt": "2026-04-10T07:01:59.210Z",
+    "createdAt": "2026-04-19T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-03-27T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "黄杰"
+      },
+      {
+        "date": "2026-04-14T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "黄杰"
+      }
+    ]
+  },
+  {
+    "id": 61,
+    "customerNo": "CUST-2026-0061",
+    "name": "林洋",
+    "phone": "16352379937",
+    "wechat": "wx_18100300792",
+    "source": "online",
+    "status": "new",
+    "tags": [
+      "公寓客户",
+      "高意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 280,
+      "rooms": "5室3厅",
+      "houseType": "villa",
+      "budget": 205400,
+      "family": {
+        "members": 3,
+        "children": 1,
+        "elderly": 0
+      },
+      "preferences": {
+        "style": "现代",
+        "priority": "静音",
+        "timeline": "一年内"
+      }
+    },
+    "assignedSalesId": 17,
+    "assignedStoreId": 3,
+    "painPoints": [],
+    "lastContactAt": "2026-04-16T07:01:59.210Z",
+    "createdAt": "2026-01-24T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-20T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "黄杰"
+      },
+      {
+        "date": "2026-04-15T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "黄杰"
+      }
+    ]
+  },
+  {
+    "id": 62,
+    "customerNo": "CUST-2026-0062",
+    "name": "朱欣",
+    "phone": "16506266239",
+    "wechat": "wx_17197599879",
+    "source": "online",
+    "status": "contracted",
+    "tags": [
+      "别墅客户",
+      "高意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 150,
+      "rooms": "4室2厅",
+      "houseType": "apartment",
+      "budget": 132000,
+      "family": {
+        "members": 5,
+        "children": 1,
+        "elderly": 1
+      },
+      "preferences": {
+        "style": "欧式",
+        "priority": "舒适",
+        "timeline": "3个月内"
+      }
+    },
+    "assignedSalesId": 16,
+    "assignedStoreId": 1,
+    "painPoints": [],
+    "lastContactAt": "2026-04-17T07:01:59.210Z",
+    "createdAt": "2026-01-22T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-03-22T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "何强"
+      },
+      {
+        "date": "2026-04-17T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "何强"
+      }
+    ]
+  },
+  {
+    "id": 63,
+    "customerNo": "CUST-2026-0063",
+    "name": "罗轩",
+    "phone": "19955182539",
+    "wechat": "wx_15103208423",
+    "source": "walkin",
+    "status": "new",
+    "tags": [
+      "商用客户",
+      "高意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 200,
+      "rooms": "办公空间",
+      "houseType": "commercial",
+      "budget": 180000,
+      "family": {
+        "members": 3,
+        "children": 0,
+        "elderly": 0
+      },
+      "preferences": {
+        "style": "简约",
+        "priority": "节能",
+        "timeline": "1个月内"
+      }
+    },
+    "assignedSalesId": 17,
+    "assignedStoreId": 3,
+    "painPoints": [],
+    "lastContactAt": "2026-04-14T07:01:59.210Z",
+    "createdAt": "2026-01-30T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-03T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "黄杰"
+      },
+      {
+        "date": "2026-04-13T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "黄杰"
+      }
+    ]
+  },
+  {
+    "id": 64,
+    "customerNo": "CUST-2026-0064",
+    "name": "马涛",
+    "phone": "19952492544",
+    "wechat": "wx_15573077420",
+    "source": "walkin",
+    "status": "quoting",
+    "tags": [
+      "商用客户",
+      "低意向",
+      "价格敏感"
+    ],
+    "profile": {
+      "area": 89,
+      "rooms": "2室2厅",
+      "houseType": "apartment",
+      "budget": 46200,
+      "family": {
+        "members": 2,
+        "children": 0,
+        "elderly": 0
+      },
+      "preferences": {
+        "style": "现代",
+        "priority": "静音",
+        "timeline": "3个月内"
+      }
+    },
+    "assignedSalesId": 17,
+    "assignedStoreId": 3,
+    "painPoints": [],
+    "lastContactAt": "2026-04-04T07:01:59.210Z",
+    "createdAt": "2026-02-26T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-03-30T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "黄杰"
+      },
+      {
+        "date": "2026-04-09T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "黄杰"
+      }
+    ]
+  },
+  {
+    "id": 65,
+    "customerNo": "CUST-2026-0065",
+    "name": "胡洋",
+    "phone": "18714865654",
+    "wechat": "wx_15780720081",
+    "source": "walkin",
+    "status": "contracted",
+    "tags": [
+      "商用客户",
+      "高意向",
+      "价格敏感"
+    ],
+    "profile": {
+      "area": 350,
+      "rooms": "6室4厅",
+      "houseType": "villa",
+      "budget": 198000,
+      "family": {
+        "members": 2,
+        "children": 1,
+        "elderly": 2
+      },
+      "preferences": {
+        "style": "现代",
+        "priority": "静音",
+        "timeline": "一年内"
+      }
+    },
+    "assignedSalesId": 16,
+    "assignedStoreId": 1,
+    "painPoints": [],
+    "lastContactAt": "2026-04-02T07:01:59.210Z",
+    "createdAt": "2026-04-19T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-05T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "何强"
+      },
+      {
+        "date": "2026-04-09T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "何强"
+      }
+    ]
+  },
+  {
+    "id": 66,
+    "customerNo": "CUST-2026-0066",
+    "name": "刘强",
+    "phone": "13728625634",
+    "wechat": "wx_15382255690",
+    "source": "ads",
+    "status": "quoting",
+    "tags": [
+      "公寓客户",
+      "中意向",
+      "预算充足"
+    ],
+    "profile": {
+      "area": 150,
+      "rooms": "4室2厅",
+      "houseType": "apartment",
+      "budget": 70400,
+      "family": {
+        "members": 2,
+        "children": 0,
+        "elderly": 2
+      },
+      "preferences": {
+        "style": "欧式",
+        "priority": "静音",
+        "timeline": "半年内"
+      }
+    },
+    "assignedSalesId": 16,
+    "assignedStoreId": 1,
+    "painPoints": [],
+    "lastContactAt": "2026-04-05T07:01:59.210Z",
+    "createdAt": "2026-02-15T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-02T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "何强"
+      },
+      {
+        "date": "2026-04-20T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "何强"
+      }
+    ]
+  },
+  {
+    "id": 67,
+    "customerNo": "CUST-2026-0067",
+    "name": "徐娜",
+    "phone": "18195014547",
+    "wechat": "wx_16249775262",
+    "source": "partner",
+    "status": "diagnosed",
+    "tags": [
+      "公寓客户",
+      "中意向",
+      "预算充足"
+    ],
+    "profile": {
+      "area": 150,
+      "rooms": "4室2厅",
+      "houseType": "apartment",
+      "budget": 96800,
+      "family": {
+        "members": 4,
+        "children": 1,
+        "elderly": 0
+      },
+      "preferences": {
+        "style": "现代",
+        "priority": "节能",
+        "timeline": "一年内"
+      }
+    },
+    "assignedSalesId": 18,
+    "assignedStoreId": 5,
+    "painPoints": [],
+    "lastContactAt": "2026-04-19T07:01:59.210Z",
+    "createdAt": "2026-02-01T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-03-31T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "高丽"
+      },
+      {
+        "date": "2026-04-07T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "高丽"
+      }
+    ]
+  },
+  {
+    "id": 68,
+    "customerNo": "CUST-2026-0068",
+    "name": "吴秀英",
+    "phone": "15600316239",
+    "wechat": "wx_15514019407",
+    "source": "ads",
+    "status": "completed",
+    "tags": [
+      "商用客户",
+      "中意向",
+      "价格敏感"
+    ],
+    "profile": {
+      "area": 120,
+      "rooms": "3室2厅",
+      "houseType": "apartment",
+      "budget": 102000,
+      "family": {
+        "members": 3,
+        "children": 2,
+        "elderly": 0
+      },
+      "preferences": {
+        "style": "现代",
+        "priority": "节能",
+        "timeline": "1个月内"
+      }
+    },
+    "assignedSalesId": 17,
+    "assignedStoreId": 3,
+    "painPoints": [],
+    "lastContactAt": "2026-04-10T07:01:59.210Z",
+    "createdAt": "2026-02-21T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-16T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "黄杰"
+      },
+      {
+        "date": "2026-04-08T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "黄杰"
+      }
+    ]
+  },
+  {
+    "id": 69,
+    "customerNo": "CUST-2026-0069",
+    "name": "李欣",
+    "phone": "19771952962",
+    "wechat": "wx_15618882054",
+    "source": "referral",
+    "status": "negotiating",
+    "tags": [
+      "公寓客户",
+      "中意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 120,
+      "rooms": "3室2厅",
+      "houseType": "apartment",
+      "budget": 88400,
+      "family": {
+        "members": 2,
+        "children": 1,
+        "elderly": 0
+      },
+      "preferences": {
+        "style": "简约",
+        "priority": "节能",
+        "timeline": "1个月内"
+      }
+    },
+    "assignedSalesId": 16,
+    "assignedStoreId": 1,
+    "painPoints": [],
+    "lastContactAt": "2026-04-13T07:01:59.210Z",
+    "createdAt": "2026-03-29T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-03T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "何强"
+      },
+      {
+        "date": "2026-04-06T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "何强"
+      }
+    ]
+  },
+  {
+    "id": 70,
+    "customerNo": "CUST-2026-0070",
+    "name": "马鹏",
+    "phone": "13662983252",
+    "wechat": "wx_13823905732",
+    "source": "partner",
+    "status": "diagnosed",
+    "tags": [
+      "公寓客户",
+      "低意向",
+      "预算充足"
+    ],
+    "profile": {
+      "area": 350,
+      "rooms": "6室4厅",
+      "houseType": "villa",
+      "budget": 277200,
+      "family": {
+        "members": 2,
+        "children": 0,
+        "elderly": 2
+      },
+      "preferences": {
+        "style": "现代",
+        "priority": "智能",
+        "timeline": "3个月内"
+      }
+    },
+    "assignedSalesId": 18,
+    "assignedStoreId": 5,
+    "painPoints": [],
+    "lastContactAt": "2026-03-29T07:01:59.210Z",
+    "createdAt": "2026-02-09T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-01T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "高丽"
+      },
+      {
+        "date": "2026-04-07T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "高丽"
+      }
+    ]
+  },
+  {
+    "id": 71,
+    "customerNo": "CUST-2026-0071",
+    "name": "马华",
+    "phone": "16975179919",
+    "wechat": "wx_18524909464",
+    "source": "walkin",
+    "status": "new",
+    "tags": [
+      "商用客户",
+      "中意向",
+      "价格敏感"
+    ],
+    "profile": {
+      "area": 450,
+      "rooms": "7室5厅",
+      "houseType": "villa",
+      "budget": 348400,
+      "family": {
+        "members": 6,
+        "children": 2,
+        "elderly": 0
+      },
+      "preferences": {
+        "style": "中式",
+        "priority": "智能",
+        "timeline": "一年内"
+      }
+    },
+    "assignedSalesId": 18,
+    "assignedStoreId": 5,
+    "painPoints": [],
+    "lastContactAt": "2026-04-13T07:01:59.210Z",
+    "createdAt": "2026-01-26T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-03T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "高丽"
+      },
+      {
+        "date": "2026-04-06T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "高丽"
+      }
+    ]
+  },
+  {
+    "id": 72,
+    "customerNo": "CUST-2026-0072",
+    "name": "刘涛",
+    "phone": "19649644399",
+    "wechat": "wx_17539937990",
+    "source": "walkin",
+    "status": "contracted",
+    "tags": [
+      "商用客户",
+      "中意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 350,
+      "rooms": "6室4厅",
+      "houseType": "villa",
+      "budget": 198000,
+      "family": {
+        "members": 6,
+        "children": 0,
+        "elderly": 1
+      },
+      "preferences": {
+        "style": "简约",
+        "priority": "静音",
+        "timeline": "半年内"
+      }
+    },
+    "assignedSalesId": 16,
+    "assignedStoreId": 1,
+    "painPoints": [],
+    "lastContactAt": "2026-04-21T07:01:59.210Z",
+    "createdAt": "2026-04-10T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-04T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "何强"
+      },
+      {
+        "date": "2026-04-12T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "何强"
+      }
+    ]
+  },
+  {
+    "id": 73,
+    "customerNo": "CUST-2026-0073",
+    "name": "高勇",
+    "phone": "14831345454",
+    "wechat": "wx_17414992096",
+    "source": "online",
+    "status": "negotiating",
+    "tags": [
+      "商用客户",
+      "高意向",
+      "预算充足"
+    ],
+    "profile": {
+      "area": 135,
+      "rooms": "3室2厅",
+      "houseType": "apartment",
+      "budget": 78000,
+      "family": {
+        "members": 5,
+        "children": 0,
+        "elderly": 2
+      },
+      "preferences": {
+        "style": "欧式",
+        "priority": "静音",
+        "timeline": "1个月内"
+      }
+    },
+    "assignedSalesId": 17,
+    "assignedStoreId": 3,
+    "painPoints": [],
+    "lastContactAt": "2026-04-06T07:01:59.210Z",
+    "createdAt": "2026-02-14T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-03T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "黄杰"
+      },
+      {
+        "date": "2026-04-12T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "黄杰"
+      }
+    ]
+  },
+  {
+    "id": 74,
+    "customerNo": "CUST-2026-0074",
+    "name": "朱艳",
+    "phone": "19412846192",
+    "wechat": "wx_13108247606",
+    "source": "walkin",
+    "status": "contacted",
+    "tags": [
+      "别墅客户",
+      "低意向",
+      "价格敏感"
+    ],
+    "profile": {
+      "area": 135,
+      "rooms": "3室2厅",
+      "houseType": "apartment",
+      "budget": 93600,
+      "family": {
+        "members": 4,
+        "children": 2,
+        "elderly": 0
+      },
+      "preferences": {
+        "style": "中式",
+        "priority": "舒适",
+        "timeline": "半年内"
+      }
+    },
+    "assignedSalesId": 18,
+    "assignedStoreId": 5,
+    "painPoints": [],
+    "lastContactAt": "2026-04-19T07:01:59.210Z",
+    "createdAt": "2026-02-05T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-05T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "高丽"
+      },
+      {
+        "date": "2026-04-19T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "高丽"
+      }
+    ]
+  },
+  {
+    "id": 75,
+    "customerNo": "CUST-2026-0075",
+    "name": "李艳",
+    "phone": "16723684479",
+    "wechat": "wx_17318334404",
+    "source": "partner",
+    "status": "contracted",
+    "tags": [
+      "商用客户",
+      "低意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 89,
+      "rooms": "2室2厅",
+      "houseType": "apartment",
+      "budget": 46200,
+      "family": {
+        "members": 3,
+        "children": 2,
+        "elderly": 1
+      },
+      "preferences": {
+        "style": "简约",
+        "priority": "静音",
+        "timeline": "半年内"
+      }
+    },
+    "assignedSalesId": 18,
+    "assignedStoreId": 5,
+    "painPoints": [],
+    "lastContactAt": "2026-03-29T07:01:59.210Z",
+    "createdAt": "2026-03-20T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-03-31T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "高丽"
+      },
+      {
+        "date": "2026-04-12T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "高丽"
+      }
+    ]
+  },
+  {
+    "id": 76,
+    "customerNo": "CUST-2026-0076",
+    "name": "张强",
+    "phone": "13329367327",
+    "wechat": "wx_13161723351",
+    "source": "walkin",
+    "status": "new",
+    "tags": [
+      "公寓客户",
+      "高意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 120,
+      "rooms": "3室2厅",
+      "houseType": "apartment",
+      "budget": 61200,
+      "family": {
+        "members": 3,
+        "children": 1,
+        "elderly": 0
+      },
+      "preferences": {
+        "style": "简约",
+        "priority": "节能",
+        "timeline": "半年内"
+      }
+    },
+    "assignedSalesId": 18,
+    "assignedStoreId": 5,
+    "painPoints": [],
+    "lastContactAt": "2026-04-17T07:01:59.210Z",
+    "createdAt": "2026-02-25T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-01T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "高丽"
+      },
+      {
+        "date": "2026-04-14T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "高丽"
+      }
+    ]
+  },
+  {
+    "id": 77,
+    "customerNo": "CUST-2026-0077",
+    "name": "胡明",
+    "phone": "13659270725",
+    "wechat": "wx_13248810423",
+    "source": "walkin",
+    "status": "completed",
+    "tags": [
+      "别墅客户",
+      "中意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 280,
+      "rooms": "5室3厅",
+      "houseType": "villa",
+      "budget": 126400,
+      "family": {
+        "members": 5,
+        "children": 0,
+        "elderly": 2
+      },
+      "preferences": {
+        "style": "中式",
+        "priority": "静音",
+        "timeline": "1个月内"
+      }
+    },
+    "assignedSalesId": 18,
+    "assignedStoreId": 5,
+    "painPoints": [],
+    "lastContactAt": "2026-03-29T07:01:59.210Z",
+    "createdAt": "2026-03-05T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-03-23T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "高丽"
+      },
+      {
+        "date": "2026-04-11T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "高丽"
+      }
+    ]
+  },
+  {
+    "id": 78,
+    "customerNo": "CUST-2026-0078",
+    "name": "孙明",
+    "phone": "17802706366",
+    "wechat": "wx_19682582744",
+    "source": "ads",
+    "status": "negotiating",
+    "tags": [
+      "商用客户",
+      "低意向",
+      "价格敏感"
+    ],
+    "profile": {
+      "area": 450,
+      "rooms": "7室5厅",
+      "houseType": "villa",
+      "budget": 402000,
+      "family": {
+        "members": 4,
+        "children": 0,
+        "elderly": 1
+      },
+      "preferences": {
+        "style": "简约",
+        "priority": "节能",
+        "timeline": "3个月内"
+      }
+    },
+    "assignedSalesId": 18,
+    "assignedStoreId": 5,
+    "painPoints": [],
+    "lastContactAt": "2026-03-31T07:01:59.210Z",
+    "createdAt": "2026-03-17T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-17T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "高丽"
+      },
+      {
+        "date": "2026-04-14T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "高丽"
+      }
+    ]
+  },
+  {
+    "id": 79,
+    "customerNo": "CUST-2026-0079",
+    "name": "胡婷",
+    "phone": "19985580514",
+    "wechat": "wx_13400974719",
+    "source": "walkin",
+    "status": "negotiating",
+    "tags": [
+      "别墅客户",
+      "低意向",
+      "价格敏感"
+    ],
+    "profile": {
+      "area": 450,
+      "rooms": "7室5厅",
+      "houseType": "villa",
+      "budget": 375200,
+      "family": {
+        "members": 6,
+        "children": 1,
+        "elderly": 2
+      },
+      "preferences": {
+        "style": "中式",
+        "priority": "舒适",
+        "timeline": "3个月内"
+      }
+    },
+    "assignedSalesId": 16,
+    "assignedStoreId": 1,
+    "painPoints": [],
+    "lastContactAt": "2026-03-24T07:01:59.210Z",
+    "createdAt": "2026-04-10T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-19T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "何强"
+      },
+      {
+        "date": "2026-04-09T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "何强"
+      }
+    ]
+  },
+  {
+    "id": 80,
+    "customerNo": "CUST-2026-0080",
+    "name": "何明",
+    "phone": "16422817658",
+    "wechat": "wx_17184655009",
+    "source": "walkin",
+    "status": "quoting",
+    "tags": [
+      "别墅客户",
+      "低意向",
+      "价格敏感"
+    ],
+    "profile": {
+      "area": 135,
+      "rooms": "3室2厅",
+      "houseType": "apartment",
+      "budget": 70200,
+      "family": {
+        "members": 4,
+        "children": 1,
+        "elderly": 1
+      },
+      "preferences": {
+        "style": "简约",
+        "priority": "节能",
+        "timeline": "一年内"
+      }
+    },
+    "assignedSalesId": 17,
+    "assignedStoreId": 3,
+    "painPoints": [],
+    "lastContactAt": "2026-04-16T07:01:59.210Z",
+    "createdAt": "2026-04-10T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-10T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "黄杰"
+      },
+      {
+        "date": "2026-04-11T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "黄杰"
+      }
+    ]
+  },
+  {
+    "id": 81,
+    "customerNo": "CUST-2026-0081",
+    "name": "孙雨",
+    "phone": "14172549776",
+    "wechat": "wx_16214539733",
+    "source": "ads",
+    "status": "negotiating",
+    "tags": [
+      "公寓客户",
+      "中意向",
+      "预算充足"
+    ],
+    "profile": {
+      "area": 280,
+      "rooms": "5室3厅",
+      "houseType": "villa",
+      "budget": 126400,
+      "family": {
+        "members": 3,
+        "children": 0,
+        "elderly": 0
+      },
+      "preferences": {
+        "style": "简约",
+        "priority": "节能",
+        "timeline": "1个月内"
+      }
+    },
+    "assignedSalesId": 17,
+    "assignedStoreId": 3,
+    "painPoints": [],
+    "lastContactAt": "2026-04-21T07:01:59.210Z",
+    "createdAt": "2026-04-01T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-18T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "黄杰"
+      },
+      {
+        "date": "2026-04-06T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "黄杰"
+      }
+    ]
+  },
+  {
+    "id": 82,
+    "customerNo": "CUST-2026-0082",
+    "name": "罗华",
+    "phone": "18138036760",
+    "wechat": "wx_18223595858",
+    "source": "walkin",
+    "status": "new",
+    "tags": [
+      "公寓客户",
+      "低意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 120,
+      "rooms": "3室2厅",
+      "houseType": "apartment",
+      "budget": 95200,
+      "family": {
+        "members": 2,
+        "children": 2,
+        "elderly": 0
+      },
+      "preferences": {
+        "style": "现代",
+        "priority": "智能",
+        "timeline": "半年内"
+      }
+    },
+    "assignedSalesId": 16,
+    "assignedStoreId": 1,
+    "painPoints": [],
+    "lastContactAt": "2026-04-01T07:01:59.210Z",
+    "createdAt": "2026-02-16T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-03-23T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "何强"
+      },
+      {
+        "date": "2026-04-06T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "何强"
+      }
+    ]
+  },
+  {
+    "id": 83,
+    "customerNo": "CUST-2026-0083",
+    "name": "李欣",
+    "phone": "18831096242",
+    "wechat": "wx_16878800256",
+    "source": "referral",
+    "status": "contracted",
+    "tags": [
+      "公寓客户",
+      "中意向",
+      "价格敏感"
+    ],
+    "profile": {
+      "area": 280,
+      "rooms": "5室3厅",
+      "houseType": "villa",
+      "budget": 205400,
+      "family": {
+        "members": 2,
+        "children": 2,
+        "elderly": 1
+      },
+      "preferences": {
+        "style": "简约",
+        "priority": "智能",
+        "timeline": "3个月内"
+      }
+    },
+    "assignedSalesId": 18,
+    "assignedStoreId": 5,
+    "painPoints": [],
+    "lastContactAt": "2026-03-25T07:01:59.210Z",
+    "createdAt": "2026-02-05T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-20T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "高丽"
+      },
+      {
+        "date": "2026-04-15T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "高丽"
+      }
+    ]
+  },
+  {
+    "id": 84,
+    "customerNo": "CUST-2026-0084",
+    "name": "张超",
+    "phone": "14125135912",
+    "wechat": "wx_18978075535",
+    "source": "ads",
+    "status": "contracted",
+    "tags": [
+      "公寓客户",
+      "高意向",
+      "价格敏感"
+    ],
+    "profile": {
+      "area": 280,
+      "rooms": "5室3厅",
+      "houseType": "villa",
+      "budget": 126400,
+      "family": {
+        "members": 2,
+        "children": 2,
+        "elderly": 1
+      },
+      "preferences": {
+        "style": "简约",
+        "priority": "节能",
+        "timeline": "一年内"
+      }
+    },
+    "assignedSalesId": 16,
+    "assignedStoreId": 1,
+    "painPoints": [],
+    "lastContactAt": "2026-03-30T07:01:59.210Z",
+    "createdAt": "2026-02-28T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-17T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "何强"
+      },
+      {
+        "date": "2026-04-18T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "何强"
+      }
+    ]
+  },
+  {
+    "id": 85,
+    "customerNo": "CUST-2026-0085",
+    "name": "张静",
+    "phone": "13718674750",
+    "wechat": "wx_15658067847",
+    "source": "referral",
+    "status": "new",
+    "tags": [
+      "公寓客户",
+      "低意向",
+      "预算充足"
+    ],
+    "profile": {
+      "area": 89,
+      "rooms": "2室2厅",
+      "houseType": "apartment",
+      "budget": 42000,
+      "family": {
+        "members": 3,
+        "children": 2,
+        "elderly": 2
+      },
+      "preferences": {
+        "style": "简约",
+        "priority": "节能",
+        "timeline": "半年内"
+      }
+    },
+    "assignedSalesId": 18,
+    "assignedStoreId": 5,
+    "painPoints": [],
+    "lastContactAt": "2026-04-07T07:01:59.210Z",
+    "createdAt": "2026-03-28T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-03-22T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "高丽"
+      },
+      {
+        "date": "2026-04-17T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "高丽"
+      }
+    ]
+  },
+  {
+    "id": 86,
+    "customerNo": "CUST-2026-0086",
+    "name": "徐洋",
+    "phone": "15907044050",
+    "wechat": "wx_16432706331",
+    "source": "online",
+    "status": "negotiating",
+    "tags": [
+      "别墅客户",
+      "中意向",
+      "预算充足"
+    ],
+    "profile": {
+      "area": 135,
+      "rooms": "3室2厅",
+      "houseType": "apartment",
+      "budget": 109200,
+      "family": {
+        "members": 6,
+        "children": 1,
+        "elderly": 1
+      },
+      "preferences": {
+        "style": "现代",
+        "priority": "静音",
+        "timeline": "半年内"
+      }
+    },
+    "assignedSalesId": 18,
+    "assignedStoreId": 5,
+    "painPoints": [],
+    "lastContactAt": "2026-04-12T07:01:59.210Z",
+    "createdAt": "2026-02-25T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-07T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "高丽"
+      },
+      {
+        "date": "2026-04-17T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "高丽"
+      }
+    ]
+  },
+  {
+    "id": 87,
+    "customerNo": "CUST-2026-0087",
+    "name": "黄婷",
+    "phone": "15507572022",
+    "wechat": "wx_15743081352",
+    "source": "partner",
+    "status": "quoting",
+    "tags": [
+      "别墅客户",
+      "低意向",
+      "预算充足"
+    ],
+    "profile": {
+      "area": 350,
+      "rooms": "6室4厅",
+      "houseType": "villa",
+      "budget": 217800,
+      "family": {
+        "members": 6,
+        "children": 2,
+        "elderly": 1
+      },
+      "preferences": {
+        "style": "欧式",
+        "priority": "智能",
+        "timeline": "3个月内"
+      }
+    },
+    "assignedSalesId": 17,
+    "assignedStoreId": 3,
+    "painPoints": [],
+    "lastContactAt": "2026-04-06T07:01:59.210Z",
+    "createdAt": "2026-04-06T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-03-26T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "黄杰"
+      },
+      {
+        "date": "2026-04-13T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "黄杰"
+      }
+    ]
+  },
+  {
+    "id": 88,
+    "customerNo": "CUST-2026-0088",
+    "name": "徐婷",
+    "phone": "19189491612",
+    "wechat": "wx_14574240810",
+    "source": "walkin",
+    "status": "contracted",
+    "tags": [
+      "别墅客户",
+      "中意向",
+      "预算充足"
+    ],
+    "profile": {
+      "area": 350,
+      "rooms": "6室4厅",
+      "houseType": "villa",
+      "budget": 277200,
+      "family": {
+        "members": 6,
+        "children": 1,
+        "elderly": 2
+      },
+      "preferences": {
+        "style": "现代",
+        "priority": "舒适",
+        "timeline": "半年内"
+      }
+    },
+    "assignedSalesId": 17,
+    "assignedStoreId": 3,
+    "painPoints": [],
+    "lastContactAt": "2026-04-15T07:01:59.210Z",
+    "createdAt": "2026-01-27T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-03-22T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "黄杰"
+      },
+      {
+        "date": "2026-04-08T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "黄杰"
+      }
+    ]
+  },
+  {
+    "id": 89,
+    "customerNo": "CUST-2026-0089",
+    "name": "王洋",
+    "phone": "13459486943",
+    "wechat": "wx_18706537054",
+    "source": "ads",
+    "status": "completed",
+    "tags": [
+      "公寓客户",
+      "中意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 350,
+      "rooms": "6室4厅",
+      "houseType": "villa",
+      "budget": 178200,
+      "family": {
+        "members": 6,
+        "children": 0,
+        "elderly": 2
+      },
+      "preferences": {
+        "style": "现代",
+        "priority": "舒适",
+        "timeline": "3个月内"
+      }
+    },
+    "assignedSalesId": 17,
+    "assignedStoreId": 3,
+    "painPoints": [],
+    "lastContactAt": "2026-04-07T07:01:59.210Z",
+    "createdAt": "2026-03-17T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-16T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "黄杰"
+      },
+      {
+        "date": "2026-04-09T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "黄杰"
+      }
+    ]
+  },
+  {
+    "id": 90,
+    "customerNo": "CUST-2026-0090",
+    "name": "朱瑞",
+    "phone": "16865314883",
+    "wechat": "wx_16921962877",
+    "source": "online",
+    "status": "diagnosed",
+    "tags": [
+      "公寓客户",
+      "中意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 450,
+      "rooms": "7室5厅",
+      "houseType": "villa",
+      "budget": 214400,
+      "family": {
+        "members": 6,
+        "children": 1,
+        "elderly": 1
+      },
+      "preferences": {
+        "style": "中式",
+        "priority": "舒适",
+        "timeline": "3个月内"
+      }
+    },
+    "assignedSalesId": 18,
+    "assignedStoreId": 5,
+    "painPoints": [],
+    "lastContactAt": "2026-03-29T07:01:59.210Z",
+    "createdAt": "2026-01-31T08:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-03-24T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "高丽"
+      },
+      {
+        "date": "2026-04-11T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "高丽"
+      }
+    ]
+  },
+  {
+    "id": 91,
+    "customerNo": "CUST-2026-0091",
+    "name": "林丽",
+    "phone": "16588306040",
+    "wechat": "wx_16463712862",
+    "source": "referral",
+    "status": "completed",
+    "tags": [
+      "别墅客户",
+      "低意向",
+      "预算充足"
+    ],
+    "profile": {
+      "area": 280,
+      "rooms": "5室3厅",
+      "houseType": "villa",
+      "budget": 237000,
+      "family": {
+        "members": 5,
+        "children": 2,
+        "elderly": 2
+      },
+      "preferences": {
+        "style": "中式",
+        "priority": "舒适",
+        "timeline": "3个月内"
+      }
+    },
+    "assignedSalesId": 18,
+    "assignedStoreId": 5,
+    "painPoints": [],
+    "lastContactAt": "2026-04-12T07:01:59.210Z",
+    "createdAt": "2026-03-31T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-13T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "高丽"
+      },
+      {
+        "date": "2026-04-19T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "高丽"
+      }
+    ]
+  },
+  {
+    "id": 92,
+    "customerNo": "CUST-2026-0092",
+    "name": "孙丽",
+    "phone": "17711783245",
+    "wechat": "wx_14654899693",
+    "source": "online",
+    "status": "quoting",
+    "tags": [
+      "公寓客户",
+      "低意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 89,
+      "rooms": "2室2厅",
+      "houseType": "apartment",
+      "budget": 63000,
+      "family": {
+        "members": 4,
+        "children": 2,
+        "elderly": 2
+      },
+      "preferences": {
+        "style": "简约",
+        "priority": "静音",
+        "timeline": "3个月内"
+      }
+    },
+    "assignedSalesId": 16,
+    "assignedStoreId": 1,
+    "painPoints": [],
+    "lastContactAt": "2026-04-05T07:01:59.210Z",
+    "createdAt": "2026-03-24T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-01T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "何强"
+      },
+      {
+        "date": "2026-04-16T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "何强"
+      }
+    ]
+  },
+  {
+    "id": 93,
+    "customerNo": "CUST-2026-0093",
+    "name": "李军",
+    "phone": "14922092760",
+    "wechat": "wx_13908452559",
+    "source": "partner",
+    "status": "completed",
+    "tags": [
+      "公寓客户",
+      "高意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 120,
+      "rooms": "3室2厅",
+      "houseType": "apartment",
+      "budget": 74800,
+      "family": {
+        "members": 3,
+        "children": 1,
+        "elderly": 2
+      },
+      "preferences": {
+        "style": "简约",
+        "priority": "静音",
+        "timeline": "1个月内"
+      }
+    },
+    "assignedSalesId": 16,
+    "assignedStoreId": 1,
+    "painPoints": [],
+    "lastContactAt": "2026-04-20T07:01:59.210Z",
+    "createdAt": "2026-03-22T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-06T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "何强"
+      },
+      {
+        "date": "2026-04-12T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "何强"
+      }
+    ]
+  },
+  {
+    "id": 94,
+    "customerNo": "CUST-2026-0094",
+    "name": "杨浩",
+    "phone": "14151780744",
+    "wechat": "wx_15581822134",
+    "source": "partner",
+    "status": "new",
+    "tags": [
+      "别墅客户",
+      "高意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 450,
+      "rooms": "7室5厅",
+      "houseType": "villa",
+      "budget": 321600,
+      "family": {
+        "members": 2,
+        "children": 1,
+        "elderly": 1
+      },
+      "preferences": {
+        "style": "欧式",
+        "priority": "静音",
+        "timeline": "1个月内"
+      }
+    },
+    "assignedSalesId": 16,
+    "assignedStoreId": 1,
+    "painPoints": [],
+    "lastContactAt": "2026-04-20T07:01:59.210Z",
+    "createdAt": "2026-03-24T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-04T07:01:59.210Z",
+        "content": "客户咨询暖气方案",
+        "author": "何强"
+      },
+      {
+        "date": "2026-04-06T07:01:59.210Z",
+        "content": "已预约上门量房",
+        "author": "何强"
+      }
+    ]
+  },
+  {
+    "id": 95,
+    "customerNo": "CUST-2026-0095",
+    "name": "朱洋",
+    "phone": "16979128997",
+    "wechat": "wx_15973656885",
+    "source": "online",
+    "status": "completed",
+    "tags": [
+      "商用客户",
+      "中意向",
+      "价格敏感"
+    ],
+    "profile": {
+      "area": 450,
+      "rooms": "7室5厅",
+      "houseType": "villa",
+      "budget": 321600,
+      "family": {
+        "members": 2,
+        "children": 1,
+        "elderly": 0
+      },
+      "preferences": {
+        "style": "中式",
+        "priority": "节能",
+        "timeline": "1个月内"
+      }
+    },
+    "assignedSalesId": 16,
+    "assignedStoreId": 1,
+    "painPoints": [],
+    "lastContactAt": "2026-03-28T07:01:59.210Z",
+    "createdAt": "2026-04-13T07:01:59.210Z",
+    "notes": [
+      {
+        "date": "2026-04-04T07:01:59.211Z",
+        "content": "客户咨询暖气方案",
+        "author": "何强"
+      },
+      {
+        "date": "2026-04-11T07:01:59.211Z",
+        "content": "已预约上门量房",
+        "author": "何强"
+      }
+    ]
+  },
+  {
+    "id": 96,
+    "customerNo": "CUST-2026-0096",
+    "name": "张华",
+    "phone": "13202333194",
+    "wechat": "wx_17393553598",
+    "source": "partner",
+    "status": "quoting",
+    "tags": [
+      "商用客户",
+      "低意向",
+      "预算充足"
+    ],
+    "profile": {
+      "area": 280,
+      "rooms": "5室3厅",
+      "houseType": "villa",
+      "budget": 158000,
+      "family": {
+        "members": 4,
+        "children": 2,
+        "elderly": 0
+      },
+      "preferences": {
+        "style": "简约",
+        "priority": "节能",
+        "timeline": "3个月内"
+      }
+    },
+    "assignedSalesId": 16,
+    "assignedStoreId": 1,
+    "painPoints": [],
+    "lastContactAt": "2026-04-12T07:01:59.211Z",
+    "createdAt": "2026-03-15T07:01:59.211Z",
+    "notes": [
+      {
+        "date": "2026-04-05T07:01:59.211Z",
+        "content": "客户咨询暖气方案",
+        "author": "何强"
+      },
+      {
+        "date": "2026-04-06T07:01:59.211Z",
+        "content": "已预约上门量房",
+        "author": "何强"
+      }
+    ]
+  },
+  {
+    "id": 97,
+    "customerNo": "CUST-2026-0097",
+    "name": "罗涛",
+    "phone": "14770356881",
+    "wechat": "wx_17168136800",
+    "source": "ads",
+    "status": "quoting",
+    "tags": [
+      "商用客户",
+      "低意向",
+      "价格敏感"
+    ],
+    "profile": {
+      "area": 350,
+      "rooms": "6室4厅",
+      "houseType": "villa",
+      "budget": 158400,
+      "family": {
+        "members": 4,
+        "children": 2,
+        "elderly": 1
+      },
+      "preferences": {
+        "style": "简约",
+        "priority": "节能",
+        "timeline": "1个月内"
+      }
+    },
+    "assignedSalesId": 16,
+    "assignedStoreId": 1,
+    "painPoints": [],
+    "lastContactAt": "2026-03-25T07:01:59.211Z",
+    "createdAt": "2026-04-08T07:01:59.211Z",
+    "notes": [
+      {
+        "date": "2026-04-16T07:01:59.211Z",
+        "content": "客户咨询暖气方案",
+        "author": "何强"
+      },
+      {
+        "date": "2026-04-09T07:01:59.211Z",
+        "content": "已预约上门量房",
+        "author": "何强"
+      }
+    ]
+  },
+  {
+    "id": 98,
+    "customerNo": "CUST-2026-0098",
+    "name": "朱雨",
+    "phone": "17689288814",
+    "wechat": "wx_18116537761",
+    "source": "walkin",
+    "status": "quoting",
+    "tags": [
+      "公寓客户",
+      "低意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 89,
+      "rooms": "2室2厅",
+      "houseType": "apartment",
+      "budget": 54600,
+      "family": {
+        "members": 6,
+        "children": 0,
+        "elderly": 2
+      },
+      "preferences": {
+        "style": "中式",
+        "priority": "舒适",
+        "timeline": "1个月内"
+      }
+    },
+    "assignedSalesId": 17,
+    "assignedStoreId": 3,
+    "painPoints": [],
+    "lastContactAt": "2026-03-26T07:01:59.211Z",
+    "createdAt": "2026-04-19T07:01:59.211Z",
+    "notes": [
+      {
+        "date": "2026-03-29T07:01:59.211Z",
+        "content": "客户咨询暖气方案",
+        "author": "黄杰"
+      },
+      {
+        "date": "2026-04-08T07:01:59.211Z",
+        "content": "已预约上门量房",
+        "author": "黄杰"
+      }
+    ]
+  },
+  {
+    "id": 99,
+    "customerNo": "CUST-2026-0099",
+    "name": "林芳",
+    "phone": "14496444250",
+    "wechat": "wx_13522200096",
+    "source": "referral",
+    "status": "diagnosed",
+    "tags": [
+      "公寓客户",
+      "高意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 135,
+      "rooms": "3室2厅",
+      "houseType": "apartment",
+      "budget": 117000,
+      "family": {
+        "members": 5,
+        "children": 0,
+        "elderly": 0
+      },
+      "preferences": {
+        "style": "欧式",
+        "priority": "舒适",
+        "timeline": "3个月内"
+      }
+    },
+    "assignedSalesId": 17,
+    "assignedStoreId": 3,
+    "painPoints": [],
+    "lastContactAt": "2026-04-06T07:01:59.211Z",
+    "createdAt": "2026-02-27T08:01:59.211Z",
+    "notes": [
+      {
+        "date": "2026-04-16T07:01:59.211Z",
+        "content": "客户咨询暖气方案",
+        "author": "黄杰"
+      },
+      {
+        "date": "2026-04-13T07:01:59.211Z",
+        "content": "已预约上门量房",
+        "author": "黄杰"
+      }
+    ]
+  },
+  {
+    "id": 100,
+    "customerNo": "CUST-2026-0100",
+    "name": "徐伟",
+    "phone": "16367487392",
+    "wechat": "wx_19337664100",
+    "source": "ads",
+    "status": "negotiating",
+    "tags": [
+      "公寓客户",
+      "低意向",
+      "预算有限"
+    ],
+    "profile": {
+      "area": 89,
+      "rooms": "2室2厅",
+      "houseType": "apartment",
+      "budget": 42000,
+      "family": {
+        "members": 6,
+        "children": 0,
+        "elderly": 2
+      },
+      "preferences": {
+        "style": "欧式",
+        "priority": "节能",
+        "timeline": "半年内"
+      }
+    },
+    "assignedSalesId": 16,
+    "assignedStoreId": 1,
+    "painPoints": [],
+    "lastContactAt": "2026-03-26T07:01:59.211Z",
+    "createdAt": "2026-03-03T08:01:59.211Z",
+    "notes": [
+      {
+        "date": "2026-03-30T07:01:59.211Z",
+        "content": "客户咨询暖气方案",
+        "author": "何强"
+      },
+      {
+        "date": "2026-04-09T07:01:59.211Z",
+        "content": "已预约上门量房",
+        "author": "何强"
+      }
+    ]
+  }
+]

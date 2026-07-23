@@ -1,0 +1,79 @@
+{
+  "platform": "Rhautt Nexus / 瑞合数智枢纽",
+  "model": "5-domain permission & navigation view over charter boards + data planes",
+  "charterSection": "1.2.2",
+  "designDoc": "docs/ADMIN-PERMISSION-DOMAINS-AND-RLS.md",
+  "note": "This is the presentation/permission view. It does NOT change data-plane write ownership (see charter 1.3). A module is OWNED by exactly one domain; other domains may only CONSUME it.",
+  "domains": {
+    "D0": {
+      "name": "平台与系统",
+      "board": "底座",
+      "ownedModules": ["auth", "entitlement", "tenant", "governance", "notification", "workflow", "mdm", "compliance", "analytics"],
+      "dataPlane": ["底座主库", "分析数仓"],
+      "rlsKey": "platform-role",
+      "roles": ["platform_admin", "sre", "security", "compliance", "hq_ops"]
+    },
+    "D1": {
+      "name": "品牌管理",
+      "board": "板块一",
+      "ownedModules": ["brand", "file-artifact"],
+      "dataPlane": ["品牌运营库"],
+      "rlsKey": "tenant=hq + brand_scope",
+      "roles": ["brand_ops", "hq_marketing"],
+      "secondLevelSites": ["集团官网", "Rheem 中国站", "Ruud 中国站", "Everhot 恒热官网"],
+      "note": "各品牌网站为本域的二级模块（站点级权限 brand_scope），统一在品牌管理下治理"
+    },
+    "D2": {
+      "name": "产品",
+      "board": "板块一",
+      "ownedModules": ["product-catalog"],
+      "dataPlane": ["品牌运营库"],
+      "rlsKey": "tenant=hq + product_line_scope",
+      "roles": ["product_manager", "brand_ops"],
+      "note": "产品作为独立一级域：全系产品、规格、SKU、系统包主数据"
+    },
+    "D3": {
+      "name": "用户与体验",
+      "board": "横切·C端获客",
+      "ownedModules": ["ingress", "diagnosis"],
+      "dataPlane": ["赋能库", "公域暂存租户"],
+      "rlsKey": "anonymous/public-tenant",
+      "trustBoundary": "anonymous",
+      "roles": ["anonymous", "hq_marketing"],
+      "rules": {
+        "anonymousCannotWriteOperationalTables": true,
+        "boundToDomain": "D4"
+      }
+    },
+    "D4": {
+      "name": "客户与赋能",
+      "board": "板块二",
+      "ownedModules": ["crm", "quote", "design", "rysnova-bim", "ai-design", "delivery", "lifecycle", "aftersales"],
+      "dataPlane": ["赋能库", "mongodb", "object-storage"],
+      "rlsKey": "tenant+dealer+store+role",
+      "trustBoundary": "bound-tenant",
+      "roles": ["dealer_admin", "sales", "designer", "delivery", "customer"]
+    },
+    "D5": {
+      "name": "推广与增长",
+      "board": "板块三",
+      "ownedModules": ["growth"],
+      "dataPlane": ["增长库"],
+      "rlsKey": "tenant=hq + hq_marketing",
+      "roles": ["hq_marketing", "brand_ops"],
+      "rules": {
+        "aiOutputRequiresApprovalStatus": true
+      }
+    }
+  },
+  "crossDomainConsumers": {
+    "notification": ["D3", "D4", "D5"],
+    "analytics": ["D1", "D2", "D4", "D5"],
+    "file-artifact": ["D2", "D4"],
+    "product-catalog": ["D3", "D4"]
+  },
+  "plannedModules": ["brand", "ingress"],
+  "domainToDomainMigrations": [
+    { "from": "D3", "to": "D4", "trigger": ["lead.assigned", "lead.converted"], "note": "留资成交单向迁入，保留获客归因，PIPL 二次同意" }
+  ]
+}

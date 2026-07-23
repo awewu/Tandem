@@ -1,0 +1,145 @@
+{
+  "platform": "Rhautt Nexus / 瑞合数智枢纽",
+  "updatedAt": "2026-06-23",
+  "principle": "Rheem / Ruud / Everhot 是设备品牌，不是系统品牌。每个设备品牌拥有独立的品牌站（brand-site），可被瑞合瑞德集团官网导流和嵌入，也可独立域名部署。品牌站与集团官网、瑞诺瓦 AI 问诊、兄弟品牌站之间保持可互转的链接关系，但各品牌站保持独立品牌表达、独立域名策略和独立内容资产。",
+  "independenceModel": {
+    "portalEmbedded": "瑞合瑞德集团官网可在品牌矩阵区域展示 Rheem / Ruud / Everhot 入口，但不得把设备品牌站降级为官网普通子页面。",
+    "standaloneLaunch": "每个设备品牌站必须保留独立域名、独立应用 shell、独立品牌内容和独立运营分析的能力。",
+    "crossLinkPolicy": "集团官网 ↔ 设备品牌站 ↔ 瑞诺瓦 AI 问诊之间可自由互转；设备品牌站之间可互相链接，但各站保持主品牌为第一视觉。",
+    "ownershipRule": "瑞合瑞德官网负责集团层面品牌授权关系展示，不拥有 Rheem / Ruud / Everhot 的品牌内容；各品牌站内容归各自品牌所有。",
+    "currentDataMode": "品牌站以内容展示为主，当前不直接进入 Rhautt Nexus 交易/CRM 数据闭环；留资和问诊统一回流到瑞诺瓦 AI 问诊。",
+    "futureDataMode": "品牌站产品数据、案例数据可接入 product-catalog 模块，但仍以品牌 namespace 分区。",
+    "deploymentRegistry": "PostgreSQL 目标主库 product_modules 注册设备品牌站身份、namespace、目标域名和 cross-link 关系。"
+  },
+  "modules": [
+    {
+      "id": "rheem-cn-brand-site",
+      "displayName": "Rheem 中国",
+      "moduleKind": "equipment-brand-site",
+      "namespace": "rheem-cn",
+      "dataNamespace": "rheem-cn",
+      "productIndependenceLevel": "portal-linked-and-standalone-brand-site",
+      "standaloneDomainStrategy": "dedicated-domain-required",
+      "standaloneAppShellMode": "independent-brand-site-shell",
+      "targetDomain": "rheem.com.cn",
+      "embeddedInRhauttPortal": true,
+      "standaloneLaunchable": true,
+      "entrySurfaces": [
+        "apps/rheem-cn/public/index.html"
+      ],
+      "portalIntegration": {
+        "embeddedInRhauttPortal": true,
+        "embeddedEntry": "/rheem-cn/index.html",
+        "groupPortalLink": "/index-ready.html"
+      },
+      "crossLinks": {
+        "groupPortal": "apps/public-portal",
+        "consumerSystem": "apps/consumer-diagnosis",
+        "siblingBrandSites": [
+          "apps/ruud-cn",
+          "apps/everhot-cn"
+        ]
+      },
+      "logoPolicy": {
+        "primaryLogo": "Rheem wordmark",
+        "poweredBy": "Powered by Rhautt Comfort",
+        "forbiddenPrimaryLogo": [
+          "Rhautt Comfort",
+          "瑞诺瓦"
+        ]
+      },
+      "dataDomain": {
+        "postgresRegistry": "rhautt_nexus.product_modules",
+        "objectStoragePrefix": "rheem-cn/",
+        "analyticsNamespace": "rheem-cn",
+        "futureCatalogIntegration": "product-catalog.equipmentBrand=rheem"
+      }
+    },
+    {
+      "id": "ruud-cn-brand-site",
+      "displayName": "Ruud 中国",
+      "moduleKind": "equipment-brand-site",
+      "namespace": "ruud-cn",
+      "dataNamespace": "ruud-cn",
+      "productIndependenceLevel": "portal-linked-and-standalone-brand-site",
+      "standaloneDomainStrategy": "dedicated-domain-required",
+      "standaloneAppShellMode": "independent-brand-site-shell",
+      "targetDomain": "ruud.com.cn",
+      "embeddedInRhauttPortal": true,
+      "standaloneLaunchable": true,
+      "entrySurfaces": [
+        "apps/ruud-cn/public/index.html"
+      ],
+      "portalIntegration": {
+        "embeddedInRhauttPortal": true,
+        "embeddedEntry": "/ruud-cn/index.html",
+        "groupPortalLink": "/index-ready.html"
+      },
+      "crossLinks": {
+        "groupPortal": "apps/public-portal",
+        "consumerSystem": "apps/consumer-diagnosis",
+        "siblingBrandSites": [
+          "apps/rheem-cn",
+          "apps/everhot-cn"
+        ]
+      },
+      "logoPolicy": {
+        "primaryLogo": "Ruud wordmark",
+        "poweredBy": "Powered by Rhautt Comfort",
+        "forbiddenPrimaryLogo": [
+          "Rhautt Comfort",
+          "瑞诺瓦"
+        ]
+      },
+      "dataDomain": {
+        "postgresRegistry": "rhautt_nexus.product_modules",
+        "objectStoragePrefix": "ruud-cn/",
+        "analyticsNamespace": "ruud-cn",
+        "futureCatalogIntegration": "product-catalog.equipmentBrand=ruud"
+      }
+    },
+    {
+      "id": "everhot-cn-brand-site",
+      "displayName": "Everhot 中国",
+      "moduleKind": "equipment-brand-site",
+      "namespace": "everhot-cn",
+      "dataNamespace": "everhot-cn",
+      "productIndependenceLevel": "portal-linked-and-standalone-brand-site",
+      "standaloneDomainStrategy": "dedicated-domain-required",
+      "standaloneAppShellMode": "independent-brand-site-shell",
+      "targetDomain": "everhot.com.cn",
+      "embeddedInRhauttPortal": true,
+      "standaloneLaunchable": true,
+      "entrySurfaces": [
+        "apps/everhot-cn/public/index.html"
+      ],
+      "portalIntegration": {
+        "embeddedInRhauttPortal": true,
+        "embeddedEntry": "/everhot-cn/index.html",
+        "groupPortalLink": "/index-ready.html"
+      },
+      "crossLinks": {
+        "groupPortal": "apps/public-portal",
+        "consumerSystem": "apps/consumer-diagnosis",
+        "siblingBrandSites": [
+          "apps/rheem-cn",
+          "apps/ruud-cn"
+        ]
+      },
+      "logoPolicy": {
+        "primaryLogo": "Everhot wordmark",
+        "poweredBy": "Powered by Rhautt Comfort",
+        "forbiddenPrimaryLogo": [
+          "Rhautt Comfort",
+          "瑞诺瓦"
+        ]
+      },
+      "dataDomain": {
+        "postgresRegistry": "rhautt_nexus.product_modules",
+        "objectStoragePrefix": "everhot-cn/",
+        "analyticsNamespace": "everhot-cn",
+        "futureCatalogIntegration": "product-catalog.equipmentBrand=everhot"
+      }
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "name": "engines",
+  "projectType": "library",
+  "sourceRoot": "packages/engines/src",
+  "tags": ["scope:shared", "type:engines"],
+  "targets": {
+    "build": {
+      "executor": "target-scaffold",
+      "options": {
+        "status": "scaffold-only"
+      }
+    }
+  }
+}

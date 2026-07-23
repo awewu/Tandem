@@ -1,0 +1,15 @@
+{
+  "name": "contracts",
+  "projectType": "library",
+  "sourceRoot": "packages/contracts/src",
+  "tags": ["scope:shared", "type:contracts"],
+  "targets": {
+    "build": {
+      "executor": "target-scaffold",
+      "options": {
+        "status": "scaffold-only",
+        "sourceOfTruth": "contracts/openapi/rhautt-nexus-v2.openapi.json"
+      }
+    }
+  }
+}

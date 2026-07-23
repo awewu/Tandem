@@ -1,0 +1,3450 @@
+[
+  {
+    "id": "HT-001",
+    "name": "标准两居室-89㎡",
+    "type": "apartment",
+    "area": 89,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 2,
+      "bathrooms": 1,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 1
+    },
+    "layout": "两室一厅一厨一卫一阳台",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "young_couple",
+      "small_family"
+    ],
+    "commonPainPoints": [
+      "hot_water_insufficient",
+      "cooling_uneven"
+    ],
+    "model3D": "/models/ht-001.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-002",
+    "name": "紧凑三居室-110㎡",
+    "type": "apartment",
+    "area": 110,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 3,
+      "bathrooms": 1,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 1
+    },
+    "layout": "三室一厅一厨一卫一阳台",
+    "features": {
+      "hasWestExposure": false,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "family_with_child",
+      "three_generation"
+    ],
+    "commonPainPoints": [
+      "hot_water_insufficient",
+      "cooling_uneven",
+      "air_quality"
+    ],
+    "model3D": "/models/ht-002.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-003",
+    "name": "舒适三居室-128㎡",
+    "type": "apartment",
+    "area": 128,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 3,
+      "bathrooms": 2,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "三室两厅一厨两卫双阳台",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "family_with_child",
+      "middle_class"
+    ],
+    "commonPainPoints": [
+      "hot_water_insufficient",
+      "cooling_uneven",
+      "water_quality"
+    ],
+    "model3D": "/models/ht-003.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-004",
+    "name": "大平层-150㎡",
+    "type": "apartment",
+    "area": 150,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 3,
+      "bathrooms": 2,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "三室两厅一厨两卫双阳台",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "high_income",
+      "comfort_pursuit"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "air_quality",
+      "water_quality",
+      "noise"
+    ],
+    "model3D": "/models/ht-004.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-005",
+    "name": "豪华大平层-180㎡",
+    "type": "apartment",
+    "area": 180,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 4,
+      "bathrooms": 3,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 3
+    },
+    "layout": "四室两厅一厨三卫三阳台",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "high_income",
+      "luxury_pursuit"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "air_quality",
+      "water_quality",
+      "comfort_comprehensive"
+    ],
+    "model3D": "/models/ht-005.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-006",
+    "name": "复式公寓-140㎡",
+    "type": "duplex",
+    "area": 140,
+    "floors": 2,
+    "rooms": {
+      "bedrooms": 3,
+      "bathrooms": 2,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "复式三室两厅一厨两卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": true,
+      "hasDuplex": true
+    },
+    "targetDemographics": [
+      "young_professional",
+      "design_pursuit"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "hot_water_pressure",
+      "temperature_zoning"
+    ],
+    "model3D": "/models/ht-006.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-007",
+    "name": "联排别墅-200㎡",
+    "type": "townhouse",
+    "area": 200,
+    "floors": 3,
+    "rooms": {
+      "bedrooms": 4,
+      "bathrooms": 3,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2,
+      "garage": 1
+    },
+    "layout": "三层四室三厅一厨三卫一车库",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "high_income",
+      "family_with_child"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "hot_water_insufficient",
+      "temperature_zoning",
+      "air_quality"
+    ],
+    "model3D": "/models/ht-007.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-008",
+    "name": "独栋别墅-300㎡",
+    "type": "villa",
+    "area": 300,
+    "floors": 3,
+    "rooms": {
+      "bedrooms": 5,
+      "bathrooms": 4,
+      "livingRooms": 3,
+      "kitchens": 2,
+      "balconies": 3,
+      "garage": 2
+    },
+    "layout": "三层五室四厅两厨四卫双车库",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": true,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "high_income",
+      "luxury_pursuit"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "hot_water_insufficient",
+      "temperature_zoning",
+      "air_quality",
+      "water_quality",
+      "comfort_comprehensive"
+    ],
+    "model3D": "/models/ht-008.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-009",
+    "name": "小户型一居室-55㎡",
+    "type": "apartment",
+    "area": 55,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 1,
+      "bathrooms": 1,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 1
+    },
+    "layout": "一室一厅一厨一卫一阳台",
+    "features": {
+      "hasWestExposure": false,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "single",
+      "young_couple"
+    ],
+    "commonPainPoints": [
+      "hot_water_insufficient",
+      "cooling_efficiency"
+    ],
+    "model3D": "/models/ht-009.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-010",
+    "name": "标准三居室-95㎡",
+    "type": "apartment",
+    "area": 95,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 3,
+      "bathrooms": 1,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 1
+    },
+    "layout": "三室一厅一厨一卫一阳台",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "family_with_child",
+      "economy_pursuit"
+    ],
+    "commonPainPoints": [
+      "hot_water_insufficient",
+      "cooling_uneven"
+    ],
+    "model3D": "/models/ht-010.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-011",
+    "name": "改善型四居室-135㎡",
+    "type": "apartment",
+    "area": 135,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 4,
+      "bathrooms": 2,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "四室一厅一厨两卫双阳台",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "three_generation",
+      "family_with_child"
+    ],
+    "commonPainPoints": [
+      "hot_water_insufficient",
+      "cooling_uneven",
+      "air_quality"
+    ],
+    "model3D": "/models/ht-011.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-012",
+    "name": "LOFT公寓-60㎡",
+    "type": "loft",
+    "area": 60,
+    "floors": 2,
+    "rooms": {
+      "bedrooms": 1,
+      "bathrooms": 1,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 1
+    },
+    "layout": "LOFT一室一厅一厨一卫一阳台",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": true,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "young_professional",
+      "single"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "hot_water_pressure"
+    ],
+    "model3D": "/models/ht-012.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-013",
+    "name": "双拼别墅-250㎡",
+    "type": "townhouse",
+    "area": 250,
+    "floors": 3,
+    "rooms": {
+      "bedrooms": 4,
+      "bathrooms": 3,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 3,
+      "garage": 1
+    },
+    "layout": "三层四室三厅一厨三卫一车库",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": true,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "high_income",
+      "family_with_child"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "hot_water_insufficient",
+      "temperature_zoning",
+      "air_quality"
+    ],
+    "model3D": "/models/ht-013.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-014",
+    "name": "叠拼别墅-180㎡",
+    "type": "duplex",
+    "area": 180,
+    "floors": 2,
+    "rooms": {
+      "bedrooms": 3,
+      "bathrooms": 2,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "叠拼三室两厅一厨两卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": true
+    },
+    "targetDemographics": [
+      "middle_class",
+      "family_with_child"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "hot_water_insufficient",
+      "temperature_zoning"
+    ],
+    "model3D": "/models/ht-014.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-015",
+    "name": "两居室-75㎡",
+    "type": "apartment",
+    "area": 75,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 2,
+      "bathrooms": 1,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 1
+    },
+    "layout": "两室一厅一厨一卫一阳台",
+    "features": {
+      "hasWestExposure": false,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "young_couple",
+      "economy_pursuit"
+    ],
+    "commonPainPoints": [
+      "hot_water_insufficient",
+      "cooling_efficiency"
+    ],
+    "model3D": "/models/ht-015.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-016",
+    "name": "三居室-105㎡",
+    "type": "apartment",
+    "area": 105,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 3,
+      "bathrooms": 1,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 1
+    },
+    "layout": "三室一厅一厨一卫一阳台",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "family_with_child",
+      "middle_class"
+    ],
+    "commonPainPoints": [
+      "hot_water_insufficient",
+      "cooling_uneven"
+    ],
+    "model3D": "/models/ht-016.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-017",
+    "name": "四居室-145㎡",
+    "type": "apartment",
+    "area": 145,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 4,
+      "bathrooms": 2,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "四室一厅一厨两卫双阳台",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "three_generation",
+      "middle_class"
+    ],
+    "commonPainPoints": [
+      "hot_water_insufficient",
+      "cooling_uneven",
+      "air_quality"
+    ],
+    "model3D": "/models/ht-017.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-018",
+    "name": "五居室-165㎡",
+    "type": "apartment",
+    "area": 165,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 5,
+      "bathrooms": 2,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "五室两厅一厨两卫双阳台",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "three_generation",
+      "high_income"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "hot_water_insufficient",
+      "air_quality",
+      "temperature_zoning"
+    ],
+    "model3D": "/models/ht-018.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-019",
+    "name": "一居室-45㎡",
+    "type": "apartment",
+    "area": 45,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 1,
+      "bathrooms": 1,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 0
+    },
+    "layout": "一室一厅一厨一卫",
+    "features": {
+      "hasWestExposure": false,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "single",
+      "economy_pursuit"
+    ],
+    "commonPainPoints": [
+      "hot_water_insufficient",
+      "cooling_efficiency"
+    ],
+    "model3D": "/models/ht-019.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-020",
+    "name": "两居室-65㎡",
+    "type": "apartment",
+    "area": 65,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 2,
+      "bathrooms": 1,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 1
+    },
+    "layout": "两室一厅一厨一卫一阳台",
+    "features": {
+      "hasWestExposure": false,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "young_couple",
+      "economy_pursuit"
+    ],
+    "commonPainPoints": [
+      "hot_water_insufficient",
+      "cooling_efficiency"
+    ],
+    "model3D": "/models/ht-020.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-021",
+    "name": "三居室-115㎡",
+    "type": "apartment",
+    "area": 115,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 3,
+      "bathrooms": 1,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 1
+    },
+    "layout": "三室一厅一厨一卫一阳台",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "family_with_child",
+      "middle_class"
+    ],
+    "commonPainPoints": [
+      "hot_water_insufficient",
+      "cooling_uneven"
+    ],
+    "model3D": "/models/ht-021.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-022",
+    "name": "三居室-120㎡",
+    "type": "apartment",
+    "area": 120,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 3,
+      "bathrooms": 2,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 1
+    },
+    "layout": "三室一厅一厨两卫一阳台",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "family_with_child",
+      "middle_class"
+    ],
+    "commonPainPoints": [
+      "hot_water_insufficient",
+      "cooling_uneven"
+    ],
+    "model3D": "/models/ht-022.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-023",
+    "name": "四居室-155㎡",
+    "type": "apartment",
+    "area": 155,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 4,
+      "bathrooms": 2,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "四室两厅一厨两卫双阳台",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "three_generation",
+      "high_income"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "hot_water_insufficient",
+      "air_quality"
+    ],
+    "model3D": "/models/ht-023.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-024",
+    "name": "四居室-160㎡",
+    "type": "apartment",
+    "area": 160,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 4,
+      "bathrooms": 2,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "四室两厅一厨两卫双阳台",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "three_generation",
+      "high_income"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "hot_water_insufficient",
+      "air_quality"
+    ],
+    "model3D": "/models/ht-024.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-025",
+    "name": "五居室-190㎡",
+    "type": "apartment",
+    "area": 190,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 5,
+      "bathrooms": 3,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "五室两厅一厨三卫双阳台",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "three_generation",
+      "high_income"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "hot_water_insufficient",
+      "air_quality",
+      "temperature_zoning"
+    ],
+    "model3D": "/models/ht-025.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-026",
+    "name": "LOFT-85㎡",
+    "type": "loft",
+    "area": 85,
+    "floors": 2,
+    "rooms": {
+      "bedrooms": 2,
+      "bathrooms": 1,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 1
+    },
+    "layout": "LOFT两室一厅一厨一卫一阳台",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": true,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "young_professional",
+      "design_pursuit"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "hot_water_pressure"
+    ],
+    "model3D": "/models/ht-026.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-027",
+    "name": "LOFT-100㎡",
+    "type": "loft",
+    "area": 100,
+    "floors": 2,
+    "rooms": {
+      "bedrooms": 2,
+      "bathrooms": 2,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 1
+    },
+    "layout": "LOFT两室两厅一厨两卫一阳台",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": true,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "young_professional",
+      "design_pursuit"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "hot_water_pressure"
+    ],
+    "model3D": "/models/ht-027.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-028",
+    "name": "联排别墅-220㎡",
+    "type": "townhouse",
+    "area": 220,
+    "floors": 3,
+    "rooms": {
+      "bedrooms": 4,
+      "bathrooms": 3,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2,
+      "garage": 1
+    },
+    "layout": "三层四室三厅一厨三卫一车库",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": true,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "high_income",
+      "family_with_child"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "hot_water_insufficient",
+      "temperature_zoning",
+      "air_quality"
+    ],
+    "model3D": "/models/ht-028.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-029",
+    "name": "独栋别墅-350㎡",
+    "type": "villa",
+    "area": 350,
+    "floors": 3,
+    "rooms": {
+      "bedrooms": 5,
+      "bathrooms": 4,
+      "livingRooms": 3,
+      "kitchens": 2,
+      "balconies": 4,
+      "garage": 2
+    },
+    "layout": "三层五室四厅两厨四卫双车库",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": true,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "high_income",
+      "luxury_pursuit"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "hot_water_insufficient",
+      "temperature_zoning",
+      "air_quality",
+      "water_quality",
+      "comfort_comprehensive"
+    ],
+    "model3D": "/models/ht-029.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-030",
+    "name": "独栋别墅-400㎡",
+    "type": "villa",
+    "area": 400,
+    "floors": 3,
+    "rooms": {
+      "bedrooms": 6,
+      "bathrooms": 5,
+      "livingRooms": 4,
+      "kitchens": 2,
+      "balconies": 4,
+      "garage": 2
+    },
+    "layout": "三层六室五厅两厨五卫双车库",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": true,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "high_income",
+      "luxury_pursuit"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "hot_water_insufficient",
+      "temperature_zoning",
+      "air_quality",
+      "water_quality",
+      "comfort_comprehensive"
+    ],
+    "model3D": "/models/ht-030.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-031",
+    "name": "两居室-80㎡",
+    "type": "apartment",
+    "area": 80,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 2,
+      "bathrooms": 1,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 1
+    },
+    "layout": "两室一厅一厨一卫一阳台",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "young_couple",
+      "middle_class"
+    ],
+    "commonPainPoints": [
+      "hot_water_insufficient",
+      "cooling_uneven"
+    ],
+    "model3D": "/models/ht-031.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-032",
+    "name": "三居室-100㎡",
+    "type": "apartment",
+    "area": 100,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 3,
+      "bathrooms": 1,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 1
+    },
+    "layout": "三室一厅一厨一卫一阳台",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "family_with_child",
+      "economy_pursuit"
+    ],
+    "commonPainPoints": [
+      "hot_water_insufficient",
+      "cooling_uneven"
+    ],
+    "model3D": "/models/ht-032.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-033",
+    "name": "三居室-108㎡",
+    "type": "apartment",
+    "area": 108,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 3,
+      "bathrooms": 1,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 1
+    },
+    "layout": "三室一厅一厨一卫一阳台",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "family_with_child",
+      "middle_class"
+    ],
+    "commonPainPoints": [
+      "hot_water_insufficient",
+      "cooling_uneven"
+    ],
+    "model3D": "/models/ht-033.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-034",
+    "name": "四居室-130㎡",
+    "type": "apartment",
+    "area": 130,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 4,
+      "bathrooms": 2,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "四室一厅一厨两卫双阳台",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "three_generation",
+      "middle_class"
+    ],
+    "commonPainPoints": [
+      "hot_water_insufficient",
+      "cooling_uneven",
+      "air_quality"
+    ],
+    "model3D": "/models/ht-034.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-035",
+    "name": "四居室-140㎡",
+    "type": "apartment",
+    "area": 140,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 4,
+      "bathrooms": 2,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "四室两厅一厨两卫双阳台",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "three_generation",
+      "high_income"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "hot_water_insufficient",
+      "air_quality"
+    ],
+    "model3D": "/models/ht-035.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-036",
+    "name": "叠拼-200㎡",
+    "type": "duplex",
+    "area": 200,
+    "floors": 2,
+    "rooms": {
+      "bedrooms": 4,
+      "bathrooms": 2,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "叠拼四室两厅一厨两卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": true
+    },
+    "targetDemographics": [
+      "middle_class",
+      "family_with_child"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "hot_water_insufficient",
+      "temperature_zoning"
+    ],
+    "model3D": "/models/ht-036.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-037",
+    "name": "叠拼-220㎡",
+    "type": "duplex",
+    "area": 220,
+    "floors": 2,
+    "rooms": {
+      "bedrooms": 4,
+      "bathrooms": 3,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "叠拼四室两厅一厨三卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": true
+    },
+    "targetDemographics": [
+      "high_income",
+      "family_with_child"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "hot_water_insufficient",
+      "temperature_zoning",
+      "air_quality"
+    ],
+    "model3D": "/models/ht-037.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-038",
+    "name": "双拼-280㎡",
+    "type": "townhouse",
+    "area": 280,
+    "floors": 3,
+    "rooms": {
+      "bedrooms": 5,
+      "bathrooms": 3,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 3,
+      "garage": 2
+    },
+    "layout": "三层五室三厅一厨三卫双车库",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": true,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "high_income",
+      "family_with_child"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "hot_water_insufficient",
+      "temperature_zoning",
+      "air_quality"
+    ],
+    "model3D": "/models/ht-038.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-039",
+    "name": "双拼-320㎡",
+    "type": "townhouse",
+    "area": 320,
+    "floors": 3,
+    "rooms": {
+      "bedrooms": 5,
+      "bathrooms": 4,
+      "livingRooms": 3,
+      "kitchens": 2,
+      "balconies": 3,
+      "garage": 2
+    },
+    "layout": "三层五室四厅两厨四卫双车库",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": true,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "high_income",
+      "luxury_pursuit"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "hot_water_insufficient",
+      "temperature_zoning",
+      "air_quality",
+      "water_quality"
+    ],
+    "model3D": "/models/ht-039.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-040",
+    "name": "联排-260㎡",
+    "type": "townhouse",
+    "area": 260,
+    "floors": 3,
+    "rooms": {
+      "bedrooms": 4,
+      "bathrooms": 3,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2,
+      "garage": 1
+    },
+    "layout": "三层四室三厅一厨三卫一车库",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": true,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "high_income",
+      "family_with_child"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "hot_water_insufficient",
+      "temperature_zoning",
+      "air_quality"
+    ],
+    "model3D": "/models/ht-040.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-041",
+    "name": "一居室-50㎡",
+    "type": "apartment",
+    "area": 50,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 1,
+      "bathrooms": 1,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 1
+    },
+    "layout": "一室一厅一厨一卫一阳台",
+    "features": {
+      "hasWestExposure": false,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "single",
+      "economy_pursuit"
+    ],
+    "commonPainPoints": [
+      "hot_water_insufficient",
+      "cooling_efficiency"
+    ],
+    "model3D": "/models/ht-041.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-042",
+    "name": "两居室-70㎡",
+    "type": "apartment",
+    "area": 70,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 2,
+      "bathrooms": 1,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 1
+    },
+    "layout": "两室一厅一厨一卫一阳台",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "young_couple",
+      "economy_pursuit"
+    ],
+    "commonPainPoints": [
+      "hot_water_insufficient",
+      "cooling_efficiency"
+    ],
+    "model3D": "/models/ht-042.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-043",
+    "name": "两居室-78㎡",
+    "type": "apartment",
+    "area": 78,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 2,
+      "bathrooms": 1,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 1
+    },
+    "layout": "两室一厅一厨一卫一阳台",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "young_couple",
+      "middle_class"
+    ],
+    "commonPainPoints": [
+      "hot_water_insufficient",
+      "cooling_uneven"
+    ],
+    "model3D": "/models/ht-043.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-044",
+    "name": "三居室-92㎡",
+    "type": "apartment",
+    "area": 92,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 3,
+      "bathrooms": 1,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 1
+    },
+    "layout": "三室一厅一厨一卫一阳台",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "family_with_child",
+      "economy_pursuit"
+    ],
+    "commonPainPoints": [
+      "hot_water_insufficient",
+      "cooling_uneven"
+    ],
+    "model3D": "/models/ht-044.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-045",
+    "name": "三居室-98㎡",
+    "type": "apartment",
+    "area": 98,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 3,
+      "bathrooms": 1,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 1
+    },
+    "layout": "三室一厅一厨一卫一阳台",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "family_with_child",
+      "middle_class"
+    ],
+    "commonPainPoints": [
+      "hot_water_insufficient",
+      "cooling_uneven"
+    ],
+    "model3D": "/models/ht-045.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-046",
+    "name": "四居室-125㎡",
+    "type": "apartment",
+    "area": 125,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 4,
+      "bathrooms": 2,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "四室一厅一厨两卫双阳台",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "three_generation",
+      "middle_class"
+    ],
+    "commonPainPoints": [
+      "hot_water_insufficient",
+      "cooling_uneven",
+      "air_quality"
+    ],
+    "model3D": "/models/ht-046.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-047",
+    "name": "四居室-138㎡",
+    "type": "apartment",
+    "area": 138,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 4,
+      "bathrooms": 2,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "四室两厅一厨两卫双阳台",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "three_generation",
+      "high_income"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "hot_water_insufficient",
+      "air_quality"
+    ],
+    "model3D": "/models/ht-047.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-048",
+    "name": "大平层-170㎡",
+    "type": "apartment",
+    "area": 170,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 4,
+      "bathrooms": 3,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "四室两厅一厨三卫双阳台",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "high_income",
+      "comfort_pursuit"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "air_quality",
+      "water_quality",
+      "comfort_comprehensive"
+    ],
+    "model3D": "/models/ht-048.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-049",
+    "name": "大平层-200㎡",
+    "type": "apartment",
+    "area": 200,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 4,
+      "bathrooms": 3,
+      "livingRooms": 3,
+      "kitchens": 2,
+      "balconies": 3
+    },
+    "layout": "四室三厅两厨三卫三阳台",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "high_income",
+      "luxury_pursuit"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "air_quality",
+      "water_quality",
+      "comfort_comprehensive"
+    ],
+    "model3D": "/models/ht-049.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-050",
+    "name": "大平层-230㎡",
+    "type": "apartment",
+    "area": 230,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 5,
+      "bathrooms": 4,
+      "livingRooms": 3,
+      "kitchens": 2,
+      "balconies": 3
+    },
+    "layout": "五室三厅两厨四卫三阳台",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "high_income",
+      "luxury_pursuit"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "air_quality",
+      "water_quality",
+      "comfort_comprehensive"
+    ],
+    "model3D": "/models/ht-050.glb",
+    "createdAt": "2026-04-22"
+  },
+  {
+    "id": "HT-051",
+    "name": "单身公寓-Loft 35㎡",
+    "type": "compact",
+    "area": 35,
+    "floors": 2,
+    "rooms": {
+      "bedrooms": 1,
+      "bathrooms": 1,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 1
+    },
+    "layout": "1室1厅1卫",
+    "features": {
+      "hasWestExposure": false,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "single",
+      "student"
+    ],
+    "commonPainPoints": [
+      "hot_water_insufficient"
+    ],
+    "model3D": "/models/ht-051.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-052",
+    "name": "青年公寓 40㎡",
+    "type": "compact",
+    "area": 40,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 1,
+      "bathrooms": 1,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 1
+    },
+    "layout": "1室1厅1卫",
+    "features": {
+      "hasWestExposure": false,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "single",
+      "young_couple"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven"
+    ],
+    "model3D": "/models/ht-052.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-053",
+    "name": "一居室 42㎡",
+    "type": "compact",
+    "area": 42,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 1,
+      "bathrooms": 1,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 1
+    },
+    "layout": "1室1厅1卫",
+    "features": {
+      "hasWestExposure": false,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "single"
+    ],
+    "commonPainPoints": [
+      "humidity"
+    ],
+    "model3D": "/models/ht-053.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-054",
+    "name": "小一居 45㎡",
+    "type": "compact",
+    "area": 45,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 1,
+      "bathrooms": 1,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 1
+    },
+    "layout": "1室1厅1卫",
+    "features": {
+      "hasWestExposure": false,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "single",
+      "young_couple"
+    ],
+    "commonPainPoints": [
+      "noise",
+      "cooling_uneven"
+    ],
+    "model3D": "/models/ht-054.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-055",
+    "name": "紧凑两居 48㎡",
+    "type": "compact",
+    "area": 48,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 2,
+      "bathrooms": 1,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 1
+    },
+    "layout": "2室1厅1卫",
+    "features": {
+      "hasWestExposure": false,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "young_couple"
+    ],
+    "commonPainPoints": [
+      "hot_water_insufficient",
+      "cooling_uneven"
+    ],
+    "model3D": "/models/ht-055.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-056",
+    "name": "小复式 50㎡",
+    "type": "compact",
+    "area": 50,
+    "floors": 2,
+    "rooms": {
+      "bedrooms": 1,
+      "bathrooms": 1,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 1
+    },
+    "layout": "1室1厅1卫",
+    "features": {
+      "hasWestExposure": false,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "single"
+    ],
+    "commonPainPoints": [
+      "humidity"
+    ],
+    "model3D": "/models/ht-056.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-057",
+    "name": "精致两居 52㎡",
+    "type": "compact",
+    "area": 52,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 2,
+      "bathrooms": 1,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 1
+    },
+    "layout": "2室1厅1卫",
+    "features": {
+      "hasWestExposure": false,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "young_couple"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven"
+    ],
+    "model3D": "/models/ht-057.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-058",
+    "name": "小户两居 55㎡",
+    "type": "compact",
+    "area": 55,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 2,
+      "bathrooms": 1,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 1
+    },
+    "layout": "2室1厅1卫",
+    "features": {
+      "hasWestExposure": false,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "young_couple",
+      "small_family"
+    ],
+    "commonPainPoints": [
+      "hot_water_insufficient"
+    ],
+    "model3D": "/models/ht-058.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-059",
+    "name": "舒适两居 75㎡",
+    "type": "apartment",
+    "area": 75,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 2,
+      "bathrooms": 1,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 1
+    },
+    "layout": "2室1厅1卫",
+    "features": {
+      "hasWestExposure": false,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "young_couple",
+      "small_family"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "humidity"
+    ],
+    "model3D": "/models/ht-059.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-060",
+    "name": "现代三居 95㎡",
+    "type": "apartment",
+    "area": 95,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 3,
+      "bathrooms": 1,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 1
+    },
+    "layout": "3室1厅1卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "small_family"
+    ],
+    "commonPainPoints": [
+      "hot_water_insufficient",
+      "cooling_uneven"
+    ],
+    "model3D": "/models/ht-060.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-061",
+    "name": "精装三居 100㎡",
+    "type": "apartment",
+    "area": 100,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 3,
+      "bathrooms": 2,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "3室1厅2卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "small_family"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "air_quality"
+    ],
+    "model3D": "/models/ht-061.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-062",
+    "name": "改善三居 110㎡",
+    "type": "apartment",
+    "area": 110,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 3,
+      "bathrooms": 2,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "3室1厅2卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "family_with_kids"
+    ],
+    "commonPainPoints": [
+      "noise",
+      "humidity"
+    ],
+    "model3D": "/models/ht-062.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-063",
+    "name": "舒适三居 118㎡",
+    "type": "apartment",
+    "area": 118,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 3,
+      "bathrooms": 2,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "3室1厅2卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "family_with_kids"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "air_quality"
+    ],
+    "model3D": "/models/ht-063.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-064",
+    "name": "南北通透三居 125㎡",
+    "type": "apartment",
+    "area": 125,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 3,
+      "bathrooms": 2,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "3室1厅2卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "family_with_kids"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven"
+    ],
+    "model3D": "/models/ht-064.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-065",
+    "name": "改善四居 135㎡",
+    "type": "apartment",
+    "area": 135,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 4,
+      "bathrooms": 2,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "4室1厅2卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "family_with_kids",
+      "three_generations"
+    ],
+    "commonPainPoints": [
+      "hot_water_insufficient",
+      "cooling_uneven"
+    ],
+    "model3D": "/models/ht-065.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-066",
+    "name": "大平层四居 145㎡",
+    "type": "apartment",
+    "area": 145,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 4,
+      "bathrooms": 2,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "4室2厅2卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "three_generations"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "humidity"
+    ],
+    "model3D": "/models/ht-066.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-067",
+    "name": "高端大平层 158㎡",
+    "type": "apartment",
+    "area": 158,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 4,
+      "bathrooms": 3,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "4室2厅3卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "three_generations",
+      "high_net_worth"
+    ],
+    "commonPainPoints": [
+      "air_quality",
+      "noise"
+    ],
+    "model3D": "/models/ht-067.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-068",
+    "name": "改善型四居 168㎡",
+    "type": "apartment",
+    "area": 168,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 4,
+      "bathrooms": 3,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "4室2厅3卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "three_generations",
+      "high_net_worth"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "air_quality"
+    ],
+    "model3D": "/models/ht-068.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-069",
+    "name": "豪华大平层 180㎡",
+    "type": "mansion",
+    "area": 180,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 4,
+      "bathrooms": 3,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "4室2厅3卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "high_net_worth"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "air_quality"
+    ],
+    "model3D": "/models/ht-069.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-070",
+    "name": "尊享大平层 200㎡",
+    "type": "mansion",
+    "area": 200,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 4,
+      "bathrooms": 3,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "4室2厅3卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "high_net_worth"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "humidity"
+    ],
+    "model3D": "/models/ht-070.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-071",
+    "name": "私享大平层 220㎡",
+    "type": "mansion",
+    "area": 220,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 4,
+      "bathrooms": 4,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "4室2厅4卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "high_net_worth",
+      "three_generations"
+    ],
+    "commonPainPoints": [
+      "hot_water_insufficient",
+      "air_quality"
+    ],
+    "model3D": "/models/ht-071.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-072",
+    "name": "至尊大平层 250㎡",
+    "type": "mansion",
+    "area": 250,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 5,
+      "bathrooms": 4,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "5室2厅4卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "high_net_worth"
+    ],
+    "commonPainPoints": [
+      "air_quality",
+      "noise"
+    ],
+    "model3D": "/models/ht-072.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-073",
+    "name": "璀璨大平层 280㎡",
+    "type": "mansion",
+    "area": 280,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 5,
+      "bathrooms": 4,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "5室2厅4卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "high_net_worth"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "air_quality"
+    ],
+    "model3D": "/models/ht-073.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-074",
+    "name": "总裁大平层 320㎡",
+    "type": "mansion",
+    "area": 320,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 5,
+      "bathrooms": 5,
+      "livingRooms": 3,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "5室3厅5卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "high_net_worth",
+      "executive"
+    ],
+    "commonPainPoints": [
+      "air_quality",
+      "noise",
+      "humidity"
+    ],
+    "model3D": "/models/ht-074.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-075",
+    "name": "巅峰大平层 360㎡",
+    "type": "mansion",
+    "area": 360,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 6,
+      "bathrooms": 5,
+      "livingRooms": 3,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "6室3厅5卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "high_net_worth",
+      "executive"
+    ],
+    "commonPainPoints": [
+      "air_quality",
+      "humidity"
+    ],
+    "model3D": "/models/ht-075.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-076",
+    "name": "艺术大平层 380㎡",
+    "type": "mansion",
+    "area": 380,
+    "floors": 1,
+    "rooms": {
+      "bedrooms": 6,
+      "bathrooms": 5,
+      "livingRooms": 3,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "6室3厅5卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "high_net_worth"
+    ],
+    "commonPainPoints": [
+      "air_quality",
+      "cooling_uneven"
+    ],
+    "model3D": "/models/ht-076.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-077",
+    "name": "空中别墅顶层 200㎡",
+    "type": "penthouse",
+    "area": 200,
+    "floors": 2,
+    "rooms": {
+      "bedrooms": 4,
+      "bathrooms": 3,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "4室2厅3卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": true
+    },
+    "targetDemographics": [
+      "high_net_worth"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "air_quality"
+    ],
+    "model3D": "/models/ht-077.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-078",
+    "name": "复式顶层 240㎡",
+    "type": "penthouse",
+    "area": 240,
+    "floors": 2,
+    "rooms": {
+      "bedrooms": 4,
+      "bathrooms": 4,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "4室2厅4卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": true
+    },
+    "targetDemographics": [
+      "high_net_worth"
+    ],
+    "commonPainPoints": [
+      "hot_water_insufficient",
+      "humidity"
+    ],
+    "model3D": "/models/ht-078.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-079",
+    "name": "空中花园顶层 280㎡",
+    "type": "penthouse",
+    "area": 280,
+    "floors": 2,
+    "rooms": {
+      "bedrooms": 5,
+      "bathrooms": 4,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "5室2厅4卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": true
+    },
+    "targetDemographics": [
+      "high_net_worth",
+      "three_generations"
+    ],
+    "commonPainPoints": [
+      "air_quality",
+      "cooling_uneven"
+    ],
+    "model3D": "/models/ht-079.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-080",
+    "name": "璀璨顶层 320㎡",
+    "type": "penthouse",
+    "area": 320,
+    "floors": 2,
+    "rooms": {
+      "bedrooms": 5,
+      "bathrooms": 5,
+      "livingRooms": 3,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "5室3厅5卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": true
+    },
+    "targetDemographics": [
+      "high_net_worth",
+      "executive"
+    ],
+    "commonPainPoints": [
+      "air_quality",
+      "noise",
+      "humidity"
+    ],
+    "model3D": "/models/ht-080.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-081",
+    "name": "至尊顶层 380㎡",
+    "type": "penthouse",
+    "area": 380,
+    "floors": 2,
+    "rooms": {
+      "bedrooms": 6,
+      "bathrooms": 5,
+      "livingRooms": 3,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "6室3厅5卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": true
+    },
+    "targetDemographics": [
+      "high_net_worth",
+      "executive"
+    ],
+    "commonPainPoints": [
+      "air_quality",
+      "cooling_uneven"
+    ],
+    "model3D": "/models/ht-081.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-082",
+    "name": "空中宫殿 500㎡",
+    "type": "penthouse",
+    "area": 500,
+    "floors": 3,
+    "rooms": {
+      "bedrooms": 6,
+      "bathrooms": 6,
+      "livingRooms": 3,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "6室3厅6卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": true
+    },
+    "targetDemographics": [
+      "high_net_worth",
+      "executive"
+    ],
+    "commonPainPoints": [
+      "air_quality",
+      "humidity",
+      "cooling_uneven"
+    ],
+    "model3D": "/models/ht-082.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-083",
+    "name": "小复式三居 100㎡",
+    "type": "duplex",
+    "area": 100,
+    "floors": 2,
+    "rooms": {
+      "bedrooms": 3,
+      "bathrooms": 2,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "3室1厅2卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": true
+    },
+    "targetDemographics": [
+      "young_couple",
+      "small_family"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "humidity"
+    ],
+    "model3D": "/models/ht-083.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-084",
+    "name": "小跃层 120㎡",
+    "type": "duplex",
+    "area": 120,
+    "floors": 2,
+    "rooms": {
+      "bedrooms": 3,
+      "bathrooms": 2,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "3室1厅2卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": true
+    },
+    "targetDemographics": [
+      "small_family"
+    ],
+    "commonPainPoints": [
+      "hot_water_insufficient"
+    ],
+    "model3D": "/models/ht-084.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-085",
+    "name": "舒适跃层 140㎡",
+    "type": "duplex",
+    "area": 140,
+    "floors": 2,
+    "rooms": {
+      "bedrooms": 3,
+      "bathrooms": 2,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "3室2厅2卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": true
+    },
+    "targetDemographics": [
+      "family_with_kids"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "humidity"
+    ],
+    "model3D": "/models/ht-085.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-086",
+    "name": "改善跃层 160㎡",
+    "type": "duplex",
+    "area": 160,
+    "floors": 2,
+    "rooms": {
+      "bedrooms": 4,
+      "bathrooms": 3,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "4室2厅3卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": true
+    },
+    "targetDemographics": [
+      "family_with_kids",
+      "three_generations"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "air_quality"
+    ],
+    "model3D": "/models/ht-086.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-087",
+    "name": "尊享跃层 180㎡",
+    "type": "duplex",
+    "area": 180,
+    "floors": 2,
+    "rooms": {
+      "bedrooms": 4,
+      "bathrooms": 3,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "4室2厅3卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": true
+    },
+    "targetDemographics": [
+      "three_generations"
+    ],
+    "commonPainPoints": [
+      "hot_water_insufficient",
+      "cooling_uneven"
+    ],
+    "model3D": "/models/ht-087.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-088",
+    "name": "空中跃层 220㎡",
+    "type": "duplex",
+    "area": 220,
+    "floors": 2,
+    "rooms": {
+      "bedrooms": 4,
+      "bathrooms": 3,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "4室2厅3卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": true
+    },
+    "targetDemographics": [
+      "three_generations",
+      "high_net_worth"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "air_quality"
+    ],
+    "model3D": "/models/ht-088.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-089",
+    "name": "璀璨跃层 250㎡",
+    "type": "duplex",
+    "area": 250,
+    "floors": 2,
+    "rooms": {
+      "bedrooms": 5,
+      "bathrooms": 4,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "5室2厅4卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": true
+    },
+    "targetDemographics": [
+      "three_generations",
+      "high_net_worth"
+    ],
+    "commonPainPoints": [
+      "air_quality",
+      "humidity"
+    ],
+    "model3D": "/models/ht-089.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-090",
+    "name": "至尊跃层 280㎡",
+    "type": "duplex",
+    "area": 280,
+    "floors": 2,
+    "rooms": {
+      "bedrooms": 5,
+      "bathrooms": 4,
+      "livingRooms": 3,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "5室3厅4卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": true
+    },
+    "targetDemographics": [
+      "high_net_worth"
+    ],
+    "commonPainPoints": [
+      "air_quality",
+      "cooling_uneven"
+    ],
+    "model3D": "/models/ht-090.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-091",
+    "name": "入门联排 180㎡",
+    "type": "townhouse",
+    "area": 180,
+    "floors": 3,
+    "rooms": {
+      "bedrooms": 4,
+      "bathrooms": 3,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "4室2厅3卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "family_with_kids"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "humidity"
+    ],
+    "model3D": "/models/ht-091.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-092",
+    "name": "舒适联排 220㎡",
+    "type": "townhouse",
+    "area": 220,
+    "floors": 3,
+    "rooms": {
+      "bedrooms": 4,
+      "bathrooms": 3,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "4室2厅3卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "family_with_kids",
+      "three_generations"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "humidity"
+    ],
+    "model3D": "/models/ht-092.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-093",
+    "name": "尊享联排 280㎡",
+    "type": "townhouse",
+    "area": 280,
+    "floors": 3,
+    "rooms": {
+      "bedrooms": 5,
+      "bathrooms": 4,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "5室2厅4卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "three_generations",
+      "high_net_worth"
+    ],
+    "commonPainPoints": [
+      "air_quality",
+      "humidity",
+      "noise"
+    ],
+    "model3D": "/models/ht-093.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-094",
+    "name": "璀璨联排 320㎡",
+    "type": "townhouse",
+    "area": 320,
+    "floors": 3,
+    "rooms": {
+      "bedrooms": 5,
+      "bathrooms": 4,
+      "livingRooms": 3,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "5室3厅4卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "three_generations",
+      "high_net_worth"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "air_quality"
+    ],
+    "model3D": "/models/ht-094.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-095",
+    "name": "至尊联排 380㎡",
+    "type": "townhouse",
+    "area": 380,
+    "floors": 4,
+    "rooms": {
+      "bedrooms": 6,
+      "bathrooms": 5,
+      "livingRooms": 3,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "6室3厅5卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "high_net_worth",
+      "executive"
+    ],
+    "commonPainPoints": [
+      "air_quality",
+      "humidity"
+    ],
+    "model3D": "/models/ht-095.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-096",
+    "name": "入门独栋别墅 280㎡",
+    "type": "single_family",
+    "area": 280,
+    "floors": 2,
+    "rooms": {
+      "bedrooms": 4,
+      "bathrooms": 3,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "4室2厅3卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": true,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "high_net_worth"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "humidity"
+    ],
+    "model3D": "/models/ht-096.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-097",
+    "name": "舒适独栋 350㎡",
+    "type": "single_family",
+    "area": 350,
+    "floors": 2,
+    "rooms": {
+      "bedrooms": 5,
+      "bathrooms": 4,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "5室2厅4卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": true,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "high_net_worth",
+      "three_generations"
+    ],
+    "commonPainPoints": [
+      "air_quality",
+      "humidity"
+    ],
+    "model3D": "/models/ht-097.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-098",
+    "name": "尊享独栋 420㎡",
+    "type": "single_family",
+    "area": 420,
+    "floors": 3,
+    "rooms": {
+      "bedrooms": 5,
+      "bathrooms": 4,
+      "livingRooms": 3,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "5室3厅4卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": true,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "high_net_worth"
+    ],
+    "commonPainPoints": [
+      "air_quality",
+      "humidity",
+      "noise"
+    ],
+    "model3D": "/models/ht-098.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-099",
+    "name": "璀璨独栋 500㎡",
+    "type": "single_family",
+    "area": 500,
+    "floors": 3,
+    "rooms": {
+      "bedrooms": 6,
+      "bathrooms": 5,
+      "livingRooms": 3,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "6室3厅5卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": true,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "high_net_worth",
+      "executive"
+    ],
+    "commonPainPoints": [
+      "air_quality",
+      "humidity",
+      "cooling_uneven"
+    ],
+    "model3D": "/models/ht-099.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-100",
+    "name": "至尊独栋 600㎡",
+    "type": "single_family",
+    "area": 600,
+    "floors": 3,
+    "rooms": {
+      "bedrooms": 7,
+      "bathrooms": 6,
+      "livingRooms": 4,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "7室4厅6卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": true,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "high_net_worth",
+      "executive"
+    ],
+    "commonPainPoints": [
+      "air_quality",
+      "humidity",
+      "cooling_uneven"
+    ],
+    "model3D": "/models/ht-100.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-101",
+    "name": "中式院墅 220㎡",
+    "type": "courtyard",
+    "area": 220,
+    "floors": 2,
+    "rooms": {
+      "bedrooms": 4,
+      "bathrooms": 3,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "4室2厅3卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": true,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "three_generations",
+      "high_net_worth"
+    ],
+    "commonPainPoints": [
+      "humidity",
+      "air_quality"
+    ],
+    "model3D": "/models/ht-101.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-102",
+    "name": "新中式合院 280㎡",
+    "type": "courtyard",
+    "area": 280,
+    "floors": 2,
+    "rooms": {
+      "bedrooms": 4,
+      "bathrooms": 3,
+      "livingRooms": 2,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "4室2厅3卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": true,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "three_generations",
+      "high_net_worth"
+    ],
+    "commonPainPoints": [
+      "humidity",
+      "cooling_uneven"
+    ],
+    "model3D": "/models/ht-102.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-103",
+    "name": "私享合院 350㎡",
+    "type": "courtyard",
+    "area": 350,
+    "floors": 2,
+    "rooms": {
+      "bedrooms": 5,
+      "bathrooms": 4,
+      "livingRooms": 3,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "5室3厅4卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": true,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "high_net_worth"
+    ],
+    "commonPainPoints": [
+      "humidity",
+      "air_quality"
+    ],
+    "model3D": "/models/ht-103.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-104",
+    "name": "尊享合院 400㎡",
+    "type": "courtyard",
+    "area": 400,
+    "floors": 2,
+    "rooms": {
+      "bedrooms": 5,
+      "bathrooms": 4,
+      "livingRooms": 3,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "5室3厅4卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": true,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "high_net_worth",
+      "executive"
+    ],
+    "commonPainPoints": [
+      "humidity",
+      "air_quality",
+      "cooling_uneven"
+    ],
+    "model3D": "/models/ht-104.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-105",
+    "name": "至尊合院 450㎡",
+    "type": "courtyard",
+    "area": 450,
+    "floors": 3,
+    "rooms": {
+      "bedrooms": 6,
+      "bathrooms": 5,
+      "livingRooms": 3,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "6室3厅5卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": true,
+      "hasLoft": false,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "high_net_worth",
+      "executive"
+    ],
+    "commonPainPoints": [
+      "humidity",
+      "air_quality",
+      "noise"
+    ],
+    "model3D": "/models/ht-105.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-106",
+    "name": "工业风 LOFT 50㎡",
+    "type": "loft",
+    "area": 50,
+    "floors": 2,
+    "rooms": {
+      "bedrooms": 1,
+      "bathrooms": 1,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 1
+    },
+    "layout": "1室1厅1卫",
+    "features": {
+      "hasWestExposure": false,
+      "hasBasement": false,
+      "hasLoft": true,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "single",
+      "creative"
+    ],
+    "commonPainPoints": [
+      "hot_water_insufficient",
+      "cooling_uneven"
+    ],
+    "model3D": "/models/ht-106.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-107",
+    "name": "复式 LOFT 65㎡",
+    "type": "loft",
+    "area": 65,
+    "floors": 2,
+    "rooms": {
+      "bedrooms": 1,
+      "bathrooms": 1,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 1
+    },
+    "layout": "1室1厅1卫",
+    "features": {
+      "hasWestExposure": false,
+      "hasBasement": false,
+      "hasLoft": true,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "young_couple",
+      "creative"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "humidity"
+    ],
+    "model3D": "/models/ht-107.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-108",
+    "name": "艺术 LOFT 80㎡",
+    "type": "loft",
+    "area": 80,
+    "floors": 2,
+    "rooms": {
+      "bedrooms": 2,
+      "bathrooms": 2,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 1
+    },
+    "layout": "2室1厅2卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": true,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "young_couple",
+      "creative"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "air_quality"
+    ],
+    "model3D": "/models/ht-108.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-109",
+    "name": "复式 LOFT 100㎡",
+    "type": "loft",
+    "area": 100,
+    "floors": 2,
+    "rooms": {
+      "bedrooms": 2,
+      "bathrooms": 2,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "2室1厅2卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": true,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "young_couple"
+    ],
+    "commonPainPoints": [
+      "hot_water_insufficient",
+      "cooling_uneven"
+    ],
+    "model3D": "/models/ht-109.glb",
+    "createdAt": "2026-04-26"
+  },
+  {
+    "id": "HT-110",
+    "name": "高端 LOFT 120㎡",
+    "type": "loft",
+    "area": 120,
+    "floors": 2,
+    "rooms": {
+      "bedrooms": 3,
+      "bathrooms": 2,
+      "livingRooms": 1,
+      "kitchens": 1,
+      "balconies": 2
+    },
+    "layout": "3室1厅2卫",
+    "features": {
+      "hasWestExposure": true,
+      "hasBasement": false,
+      "hasLoft": true,
+      "hasDuplex": false
+    },
+    "targetDemographics": [
+      "family_with_kids",
+      "creative"
+    ],
+    "commonPainPoints": [
+      "cooling_uneven",
+      "air_quality"
+    ],
+    "model3D": "/models/ht-110.glb",
+    "createdAt": "2026-04-26"
+  }
+]

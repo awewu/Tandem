@@ -1,0 +1,124 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-text: #101828;
+  --color-muted: #596067;
+  --color-subtle: #94979C;
+  --color-accent: #4E9A3D;
+  --color-card-bg: #fff;
+  --color-card-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+
+:root {
+  --ink: #101828; --ink-2: #596067; --ink-3: #94979C; --ink-5: #D6DADD;
+  --bg: #F4F2EE; --surface: #FFFFFF; --surface-hover: #EAE6DF;
+  /* Rhautt 品牌绿(唯一 UI accent);红仅作 logo */
+  --brand: #4E9A3D; --brand-hover: #3E7C2F; --brand-subtle: #EDF4E3; --brand-logo: #C41F1E;
+  --success: #16A34A; --warning: #EF6820; --error: #DC2626; --info: #2563EB;
+  --r: 4px; --border: 1px solid #C9CFCB;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Roboto', 'PingFang SC', 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* ── 布局 ── */
+.dw-page { max-width: 1120px; margin: 0 auto; padding: 28px 24px 64px; }
+.dw-auth { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+.dw-topbar { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; }
+.dw-grid { display: grid; grid-template-columns: 380px 1fr; gap: 20px; align-items: start; }
+@media (max-width: 860px) { .dw-grid { grid-template-columns: 1fr; } }
+
+.dw-card { background: var(--surface); border: var(--border); border-radius: var(--r); padding: 20px 22px; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+.dw-h1 { font-size: 22px; font-weight: 800; letter-spacing: -.02em; color: var(--ink); }
+.dw-h2 { font-size: 15px; font-weight: 700; color: var(--ink); margin-bottom: 12px; }
+.dw-sub { font-size: 13px; color: var(--ink-3); margin-top: 4px; }
+.dw-link { font-size: 13px; color: var(--brand); text-decoration: none; }
+.dw-label { display: block; font-size: 12px; font-weight: 600; color: var(--ink-3); margin: 12px 0 6px; text-transform: none; }
+
+.dw-input { width: 100%; padding: 10px 12px; border: var(--border); border-radius: 8px; font-size: 14px; color: var(--ink); background: #fff; margin-bottom: 4px; font-family: inherit; }
+.dw-input:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-subtle); }
+
+.dw-btn { padding: 10px 16px; border-radius: 8px; border: var(--border); background: #fff; color: var(--ink); font-size: 14px; font-weight: 600; cursor: pointer; transition: .15s; }
+.dw-btn:hover:not(:disabled) { background: var(--surface-hover); }
+.dw-btn:disabled { opacity: .5; cursor: not-allowed; }
+.dw-btn-primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+.dw-btn-primary:hover:not(:disabled) { background: var(--brand-hover); }
+.dw-btn-warn { background: var(--warning); border-color: var(--warning); color: #fff; }
+.dw-err { color: var(--error); font-size: 13px; margin: 8px 0; }
+.dw-empty { color: var(--ink-3); font-size: 14px; padding: 48px 12px; text-align: center; }
+.dw-empty-sm { color: var(--ink-3); font-size: 13px; }
+
+/* ── 系统选择 chips ── */
+.dw-sys-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.dw-chip { padding: 9px 4px; border: var(--border); border-radius: 8px; background: #fff; font-size: 13px; font-weight: 600; color: var(--ink-2); cursor: pointer; transition: .15s; }
+.dw-chip:hover { background: var(--surface-hover); }
+.dw-chip.on { background: var(--brand-subtle); border-color: var(--brand); color: var(--brand); }
+
+/* ── 负荷 ── */
+.dw-loadrow { display: flex; align-items: baseline; gap: 24px; flex-wrap: wrap; }
+.dw-num { font-size: 30px; font-weight: 800; letter-spacing: -.02em; }
+.dw-unit { font-size: 13px; color: var(--ink-3); }
+.dw-tag { font-size: 12px; color: var(--ink-3); background: var(--surface-hover); padding: 4px 8px; border-radius: 6px; }
+
+/* ── 五恒维度 ── */
+.dw-dims { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+@media (max-width: 620px) { .dw-dims { grid-template-columns: repeat(2, 1fr); } }
+.dw-dim { border: var(--border); border-radius: 8px; padding: 10px; text-align: center; }
+.dw-dim-label { font-size: 14px; font-weight: 700; }
+.dw-dim-status { font-size: 12px; font-weight: 600; margin: 3px 0; }
+.dw-dim-basis { font-size: 11px; color: var(--ink-3); line-height: 1.35; }
+.dw-dim.ok { border-color: #BBF7D0; background: #F0FDF4; } .dw-dim.ok .dw-dim-status { color: var(--success); }
+.dw-dim.no { border-color: #FECACA; background: #FEF2F2; } .dw-dim.no .dw-dim-status { color: var(--error); }
+.dw-dim.na .dw-dim-status { color: var(--ink-3); }
+
+/* ── 校验闸 ── */
+.dw-gate { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 8px; font-size: 14px; font-weight: 600; }
+.dw-gate-dot { width: 10px; height: 10px; border-radius: 50%; }
+.dw-gate.pass { background: #F0FDF4; color: #15803D; } .dw-gate.pass .dw-gate-dot { background: var(--success); }
+.dw-gate.block { background: #FEF2F2; color: #B91C1C; } .dw-gate.block .dw-gate-dot { background: var(--error); }
+.dw-checks { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.dw-check { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.dw-check-badge { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 5px; text-transform: uppercase; }
+.dw-check-badge.pass { background: #DCFCE7; color: #15803D; }
+.dw-check-badge.fail { background: #FEE2E2; color: #B91C1C; }
+.dw-check-badge.warn { background: #FEF3C7; color: #B45309; }
+.dw-check-key { font-weight: 600; color: var(--ink-2); }
+.dw-check-detail { color: var(--ink-3); }
+
+.dw-disclaimer { margin-top: 16px; font-size: 12px; color: var(--ink-3); line-height: 1.6; padding: 10px 12px; background: var(--surface-hover); border-radius: 8px; }
+
+/* ── 签章流 ── */
+.dw-signflow { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+.dw-steps { display: flex; gap: 10px; margin-bottom: 4px; }
+.dw-step { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-3); }
+.dw-step.done { color: var(--ink); }
+.dw-step.cur { color: var(--brand); font-weight: 700; }
+.dw-step-dot { width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; border: 1px solid var(--ink-5); }
+.dw-step.done .dw-step-dot { background: var(--brand); color: #fff; border-color: var(--brand); }
+.dw-override { display: flex; flex-direction: column; gap: 8px; width: 100%; align-items: flex-start; padding: 12px; border: 1px dashed var(--warning); border-radius: 8px; background: #FFFBEB; }
+.dw-check-inline { display: flex; gap: 8px; font-size: 13px; color: var(--ink-2); line-height: 1.5; align-items: flex-start; }
+.dw-released { color: var(--success); font-weight: 600; font-size: 14px; }
+
+/* ── M12 同步状态 ── */
+.dw-sync-counts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
+.dw-sync-count { border: var(--border); border-radius: 8px; padding: 12px; text-align: center; }
+.dw-sync-count-n { font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
+.dw-sync-count-l { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+.dw-sync-count.in_sync { border-color: #BBF7D0; background: #F0FDF4; } .dw-sync-count.in_sync .dw-sync-count-n { color: var(--success); }
+.dw-sync-count.stale { border-color: #FECACA; background: #FEF2F2; } .dw-sync-count.stale .dw-sync-count-n { color: var(--error); }
+.dw-sync-count.proposed_change { border-color: #FDE68A; background: #FFFBEB; } .dw-sync-count.proposed_change .dw-sync-count-n { color: var(--warning); }
+
+.dw-sync-list { display: flex; flex-direction: column; gap: 10px; }
+.dw-sync-item { border: var(--border); border-radius: 8px; padding: 12px 14px; }
+.dw-sync-item-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dw-sync-badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 5px; }
+.dw-sync-badge.in_sync { background: #DCFCE7; color: #15803D; }
+.dw-sync-badge.stale { background: #FEE2E2; color: #B91C1C; }
+.dw-sync-badge.proposed_change { background: #FEF3C7; color: #B45309; }
+.dw-sync-artifact { font-weight: 600; color: var(--ink); font-size: 13px; }
+.dw-sync-ver { font-size: 12px; color: var(--ink-3); }
+.dw-sync-item-meta { font-size: 11px; color: var(--ink-3); margin-top: 6px; }
+.dw-sync-proposal { margin-top: 8px; font-size: 11px; background: var(--surface-hover); border-radius: 6px; padding: 8px 10px; overflow-x: auto; color: var(--ink-2); }
+.dw-sync-actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }

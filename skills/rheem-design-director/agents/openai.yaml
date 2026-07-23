@@ -1,0 +1,4 @@
+interface:
+  display_name: "Rheem Design Director"
+  short_description: "Coordinate Rheem VI, UI, code, and visual QA"
+  default_prompt: "Use $rheem-design-director to plan and govern a Rheem-branded product design workflow."

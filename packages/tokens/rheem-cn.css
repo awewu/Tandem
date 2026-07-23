@@ -1,0 +1,11 @@
+/* Rheem 中国品牌站 VI tokens — rheem.com.cn */
+:root {
+  --brand-primary:    #E4002B;
+  --brand-primary-dk: #A50016;
+  --brand-navy:       #1B365D;
+  --brand-ink:        #101C28;
+  --brand-surface:    #F8F8F8;
+  --brand-border:     #DFE2E4;
+  --brand-font:       "Rheem Sans",Helvetica,Arial,sans-serif;
+  --brand-radius:     4px;
+}

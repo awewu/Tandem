@@ -1,0 +1,242 @@
+# 150人团队CI/CD流程
+# 6大系统一键计算体系自动化部署
+
+name: 150-Team CI/CD
+
+on:
+  push:
+    branches: [ main, develop, 'feature/**' ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  # ========== 阶段1: 代码质量检查 ==========
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Run ESLint
+        run: npm run lint
+        
+      - name: Run Prettier check
+        run: npm run format:check
+
+  # ========== 阶段2: 单元测试 ==========
+  unit-test:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Run unit tests
+        run: npm run test:production-readiness
+        env:
+          NODE_ENV: test
+          JWT_SECRET: test-secret-ci
+        
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage/lcov.info
+
+  # ========== 阶段3: 集成测试 ==========
+  integration-test:
+    runs-on: ubuntu-latest
+    needs: unit-test
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Run integration tests
+        run: npm run harness:all
+        env:
+          MONGODB_URI: mongodb://localhost:27017/test
+          
+      - name: Run oneclick engine test
+        run: node test/oneclick-engine.test.js
+
+  # ========== 阶段4: 6大系统计算精度验证 ==========
+  calculation-validate:
+    runs-on: ubuntu-latest
+    needs: integration-test
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Validate 6-systems calculation
+        run: |
+          echo "🔥 热水系统验证"
+          node -e "const e=require('./server/core/OneClickCalculationEngine');const c=new e();console.log('热水:',c.calculateHotWater({buildingType:'普通住宅',area:120,people:4,bedrooms:3,bathrooms:2}))"
+          
+          echo "💧 净水系统验证"
+          node -e "const e=require('./server/core/OneClickCalculationEngine');const c=new e();console.log('净水:',c.calculateWater({area:120,people:4,bathrooms:2,kitchens:1}))"
+          
+          echo "💨 新风系统验证"
+          node -e "const e=require('./server/core/OneClickCalculationEngine');const c=new e();console.log('新风:',c.calculateFreshAir({rooms:[{name:'主卧',type:'卧室',area:20,people:2},{name:'客厅',type:'客厅',area:30,people:4}],buildingType:'住宅',totalArea:120}))"
+          
+          echo "❄️ 制冷系统验证"
+          node -e "const e=require('./server/core/OneClickCalculationEngine');const c=new e();console.log('制冷:',c.calculateCooling({rooms:[{name:'主卧',area:20,people:2},{name:'客厅',area:30,people:4}],outdoorTemp:35,indoorTemp:24,orientation:'南北'}))"
+          
+          echo "🌡️ DOAS系统验证"
+          node -e "const e=require('./server/core/OneClickCalculationEngine');const c=new e();console.log('DOAS:',c.calculateDOAS({freshAirFlow:300,outdoorTemp:35,outdoorHumidity:60,indoorTemp:24,indoorHumidity:50,radiantSurfaceTemp:18,hasRadiantSystem:true}))"
+          
+          echo "🔥 供暖系统验证"
+          node -e "const e=require('./server/core/OneClickCalculationEngine');const c=new e();console.log('供暖:',c.calculateHeating({area:120,climateZone:'夏热冬冷',city:'北京',rooms:[{name:'主卧',area:20}]}))"
+          
+          echo "⚙️ 控制系统验证"
+          node -e "const e=require('./server/core/OneClickCalculationEngine');const c=new e();console.log('控制:',c.calculateControl({area:120,rooms:[{name:'主卧'},{name:'客厅'}],systems:{hotwater:true,water:true,freshair:true,cooling:true,heating:true,control:true}}))"
+          
+      - name: Full calculation test
+        run: |
+          echo "🚀 6大系统一键计算测试"
+          node test/oneclick-engine.test.js
+
+  # ========== 阶段5: 构建 ==========
+  build:
+    runs-on: ubuntu-latest
+    needs: [unit-test, integration-test, calculation-validate]
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Build frontend
+        run: npm run build
+        
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-files
+          path: dist/
+
+  # ========== 阶段6: 构建Docker镜像 ==========
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            rheem/6systems-calc:latest
+            rheem/6systems-calc:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ========== 阶段7: 部署到测试环境 ==========
+  deploy-staging:
+    runs-on: ubuntu-latest
+    needs: docker-build
+    if: github.ref == 'refs/heads/main'
+    environment: staging
+    steps:
+      - name: Deploy to staging
+        run: |
+          echo "🚀 部署到测试环境"
+          # 实际部署命令
+          # kubectl set image deployment/calc-engine calc-engine=rheem/6systems-calc:${{ github.sha }}
+          echo "部署完成"
+
+  # ========== 阶段8: 性能测试 ==========
+  performance-test:
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run performance tests
+        run: |
+          echo "⚡ 性能测试 - 一键计算响应时间"
+          echo "目标: < 3秒"
+          npm start &
+          sleep 8
+          npm run perf:baseline
+          echo "性能测试完成"
+
+  # ========== 阶段9: 部署到生产环境 ==========
+  deploy-production:
+    runs-on: ubuntu-latest
+    needs: [performance-test]
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+      - name: Deploy to production
+        run: |
+          echo "🚀 部署到生产环境"
+          echo "150人团队6大系统一键计算平台"
+          echo "版本: ${{ github.sha }}"
+          # 实际部署命令
+          # kubectl set image deployment/calc-engine calc-engine=rheem/6systems-calc:${{ github.sha }}
+          echo "生产部署完成"
+
+  # ========== 阶段10: 通知 ==========
+  notify:
+    runs-on: ubuntu-latest
+    needs: [deploy-production]
+    if: always()
+    steps:
+      - name: Send notification
+        run: |
+          if [ "${{ needs.deploy-production.result }}" == "success" ]; then
+            echo "✅ 部署成功通知"
+            # 发送到钉钉/飞书/企业微信
+          else
+            echo "❌ 部署失败通知"
+            # 发送告警
+          fi

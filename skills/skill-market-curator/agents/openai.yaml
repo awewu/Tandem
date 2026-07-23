@@ -1,0 +1,4 @@
+interface:
+  display_name: "Skill Market Curator"
+  short_description: "Find, evaluate, and retain useful public skills"
+  default_prompt: "Use $skill-market-curator to find the best public skills for my workflow and help me decide what to keep."

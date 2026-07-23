@@ -1,0 +1,117 @@
+version: '3.8'
+
+services:
+  # ── MongoDB 持久化存储 ────────────────────────────────────────────
+  mongodb:
+    image: mongo:6-jammy
+    container_name: rysnova-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: rysnova
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-rysnova2026}
+      MONGO_INITDB_DATABASE: rysnova-hvac
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - rysnova-net
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── PostgreSQL（NestJS API 数据层）──────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: rysnova-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-rhautt}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rhautt2026}
+      POSTGRES_DB: ${POSTGRES_DB:-rhautt_nexus}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - rysnova-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rhautt}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── NestJS API 服务（BIM / CRM / 报价 等原生模块）───────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: rysnova-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: 3300
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-rhautt}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rhautt2026}
+      POSTGRES_DB: ${POSTGRES_DB:-rhautt_nexus}
+      MONGODB_URI: mongodb://rysnova:${MONGO_PASSWORD:-rysnova2026}@mongodb:27017/rysnova-hvac?authSource=admin
+    ports:
+      - "3300:3300"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    networks:
+      - rysnova-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3300/api/v2/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # ── 瑞诺瓦主应用（单体 Node.js）────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rysnova-app
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      MONGODB_URI: mongodb://rysnova:${MONGO_PASSWORD:-rysnova2026}@mongodb:27017/rysnova-hvac?authSource=admin
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+    volumes:
+      - ./logs:/app/logs
+      - ./uploads:/app/uploads
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - rysnova-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  mongodb_data:
+    driver: local
+  postgres_data:
+    driver: local
+
+networks:
+  rysnova-net:
+    driver: bridge

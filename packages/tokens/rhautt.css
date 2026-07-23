@@ -1,0 +1,11 @@
+/* 瑞合瑞德集团 VI tokens — rhautt.com */
+:root {
+  --brand-primary:    #E4002B;
+  --brand-primary-dk: #76232F;
+  --brand-navy:       #1B365D;
+  --brand-ink:        #101C28;
+  --brand-surface:    #F8F8F8;
+  --brand-border:     #DFE2E4;
+  --brand-font:       "Microsoft YaHei","PingFang SC",Helvetica,Arial,sans-serif;
+  --brand-radius:     4px;
+}

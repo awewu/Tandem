@@ -1,0 +1,18 @@
+{
+  "name": "rysnova-bim-workbench",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": { "dev": "next dev --port 4004 --webpack", "build": "next build --webpack", "start": "next start --port 4004", "typecheck": "tsc --noEmit" },
+  "dependencies": {
+    "@rhautt/shared-auth": "workspace:*",
+    "@rhautt/bim-viewer": "workspace:*",
+    "next": "^16.2.7",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "three": "^0.175.0",
+    "web-ifc": "0.0.68",
+    "@thatopen/components": "^2.4.0",
+    "@thatopen/components-front": "^2.4.0"
+  },
+  "devDependencies": { "@types/react": "^18.2.15", "@types/react-dom": "^18.2.7", "typescript": "^5.0.2" }
+}

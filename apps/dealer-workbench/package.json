@@ -1,0 +1,36 @@
+{
+  "name": "dealer-workbench",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "copy-wasm": "node scripts/copy-wasm.js",
+    "prebuild": "node scripts/copy-wasm.js",
+    "dev": "node scripts/dev-logged.js",
+    "dev:raw": "next dev --port 5000 --webpack",
+    "build": "next build --webpack",
+    "start": "next start --port 5000"
+  },
+  "dependencies": {
+    "@rhautt/shared-auth": "workspace:*",
+    "@rhautt/ui": "workspace:*",
+    "@rhautt/bim-viewer": "workspace:*",
+    "@hello-pangea/dnd": "^16.6.0",
+    "@react-three/drei": "^9.88.17",
+    "@react-three/fiber": "^8.15.19",
+    "konva": "^9.3.6",
+    "lucide-react": "^1.18.0",
+    "next": "^16.2.7",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-konva": "^18.2.10",
+    "recharts": "^3.8.1",
+    "swr": "^2.4.1",
+    "three": "^0.175.0",
+    "web-ifc": "^0.0.77"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.15",
+    "@types/react-dom": "^18.2.7",
+    "typescript": "^5.0.2"
+  }
+}

@@ -1,0 +1,103 @@
+{
+  "generatedAt": "2026-06-30T05:32:00.838Z",
+  "report": [
+    {
+      "slug": "everwarm-c26",
+      "status": "cached",
+      "file": "everwarm-c26.jpg"
+    },
+    {
+      "slug": "everwarm-pro",
+      "status": "cached",
+      "file": "everwarm-pro.jpg"
+    },
+    {
+      "slug": "everduo-x12",
+      "status": "cached",
+      "file": "everduo-x12.jpg"
+    },
+    {
+      "slug": "everair-r200",
+      "status": "cached",
+      "file": "everair-r200.jpg"
+    },
+    {
+      "slug": "everair-pro",
+      "status": "cached",
+      "file": "everair-pro.jpg"
+    },
+    {
+      "slug": "evertank-v100",
+      "status": "cached",
+      "file": "evertank-v100.jpg"
+    },
+    {
+      "slug": "evertank-max",
+      "status": "cached",
+      "file": "evertank-max.jpg"
+    },
+    {
+      "slug": "everflow-z16",
+      "status": "fetched",
+      "page": "https://www.rheem.com.cn/product/9/87.html",
+      "image": "https://www.rheem.com.cn/upload/ueditor/image/20250613/1749782546507382.jpg",
+      "bytes": 372672,
+      "type": "image/jpeg",
+      "note": "来源:瑞美 GTD 静音小鲸鱼 水气双核 恒温±0.5℃；恒热(四川)同集团运营，设计占位，后台可替换"
+    },
+    {
+      "slug": "everelec-80",
+      "status": "fetched",
+      "page": "https://www.rheem.com.cn/product/9/86.html",
+      "image": "https://www.rheem.com.cn/upload/ueditor/image/20250613/1749781631552599.jpg",
+      "bytes": 326276,
+      "type": "image/jpeg",
+      "note": "来源:瑞美 小蓝星活水电热水器 CSFH080；同集团，设计占位"
+    },
+    {
+      "slug": "evermax-c500",
+      "status": "fetched",
+      "page": "https://www.rheem.com.cn/product/10/12.html",
+      "image": "https://www.rheem.com.cn/upload/ueditor/image/20210105/1609841628975810.jpg",
+      "bytes": 128929,
+      "type": "image/jpeg",
+      "note": "来源:瑞美 Triton 商用冷凝燃气容积式；同集团，设计占位"
+    },
+    {
+      "slug": "everstation",
+      "status": "fetched",
+      "page": "https://www.rheem.com.cn/product/10/14.html",
+      "image": "https://www.rheem.com.cn/upload/ueditor/image/20211223/1640253184704435.jpg",
+      "bytes": 191914,
+      "type": "image/jpeg",
+      "note": "来源:瑞美 G100-C 商用燃气容积式；同集团，设计占位"
+    },
+    {
+      "slug": "everheat-pro",
+      "status": "fetched",
+      "page": "https://www.rheem.com.cn/product/10/92.html",
+      "image": "https://www.rheem.com.cn/upload/ueditor/image/20260227/1772173150182454.jpg",
+      "bytes": 296966,
+      "type": "image/jpeg",
+      "note": "来源:瑞美 RHPC-LV 商用变频热泵；同集团，设计占位"
+    },
+    {
+      "slug": "everboiler",
+      "status": "fetched",
+      "page": "https://www.rheem.com.cn/product/10/90.html",
+      "image": "https://www.rheem.com.cn/upload/ueditor/image/20250826/1756198019746189.jpg",
+      "bytes": 330266,
+      "type": "image/jpeg",
+      "note": "来源:瑞美 CBD-99kW 商用壁挂炉；同集团，设计占位"
+    },
+    {
+      "slug": "everguard",
+      "status": "fetched",
+      "page": "https://www.rheem.com.cn/product/10/69.html",
+      "image": "https://www.rheem.com.cn/upload/ueditor/image/20220829/1661739603709967.jpg",
+      "bytes": 497214,
+      "type": "image/jpeg",
+      "note": "来源:瑞美 GHE-R 商用冷凝低氮容积式；同集团，设计占位"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+/* Lithnova 储能品牌站 VI tokens — lithnova.com.cn */
+:root {
+  --brand-primary:    #0A7C4A;
+  --brand-primary-dk: #075C36;
+  --brand-accent:     #2ECC71;
+  --brand-ink:        #14201A;
+  --brand-surface:    #F4FBF7;
+  --brand-border:     #D6EAE0;
+  --brand-font:       "Microsoft YaHei","PingFang SC",Helvetica,Arial,sans-serif;
+  --brand-radius:     6px;
+}

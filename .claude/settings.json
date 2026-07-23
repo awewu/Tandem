@@ -1,0 +1,63 @@
+{
+  "hooks": [
+    {
+      "matcher": "Edit|Write",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "npx prettier --write \"$CLAUDE_FILE_PATHS\""
+        }
+      ]
+    },
+    {
+      "matcher": "Edit",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "if [[ \"$CLAUDE_FILE_PATHS\" =~ \\.(js|jsx|ts|tsx)$ ]]; then npx eslint --fix \"$CLAUDE_FILE_PATHS\" 2>/dev/null || echo '⚠️ ESLint warnings - please review'; fi"
+        }
+      ]
+    },
+    {
+      "matcher": "Write",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "echo \"✅ File saved: $CLAUDE_FILE_PATHS\""
+        }
+      ]
+    }
+  ],
+  "slash_commands": {
+    "test": {
+      "description": "运行项目测试套件",
+      "command": "npm test"
+    },
+    "dev": {
+      "description": "启动开发服务器",
+      "command": "npm run dev"
+    },
+    "lint": {
+      "description": "运行代码检查",
+      "command": "npm run lint"
+    },
+    "build": {
+      "description": "构建生产版本",
+      "command": "npm run build"
+    },
+    "harness": {
+      "description": "运行架构与系统完整性检查",
+      "command": "npm run harness:all"
+    },
+    "prod-test": {
+      "description": "运行生产就绪测试套件",
+      "command": "npm run test:production-readiness"
+    }
+  },
+  "model_preferences": {
+    "complex_reasoning": "claude-3-5-sonnet-20241022",
+    "code_generation": "claude-3-5-sonnet-20241022",
+    "high_frequency": "claude-3-haiku-20240307",
+    "default": "claude-3-5-sonnet-20241022"
+  }
+}

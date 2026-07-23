@@ -1,0 +1,85 @@
+{
+  "name": "rheem-comfort-home-desktop",
+  "version": "2.0.0",
+  "description": "瑞美舒适家居系统设计平台 - 桌面应用",
+  "main": "electron-main.js",
+  "author": "瑞美中国",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "pack": "electron-builder --dir",
+    "dist": "npm run build:win"
+  },
+  "build": {
+    "appId": "com.rheem.design.platform",
+    "productName": "瑞美舒适家居系统设计平台",
+    "copyright": "Copyright © 2024 瑞美中国",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "server-production.js",
+      "electron-main.js",
+      "preload.js",
+      "server/**/*",
+      "public/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "server/core",
+        "to": "server/core"
+      },
+      {
+        "from": "public",
+        "to": "public"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "assets/icon.ico",
+      "publisherName": "瑞美中国"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "瑞美舒适家居",
+      "include": "installer.nsh"
+    },
+    "portable": {
+      "artifactName": "瑞美舒适家居系统-v${version}-便携版.exe"
+    },
+    "mac": {
+      "target": ["dmg", "zip"],
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.productivity"
+    }
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.0.0"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "bcryptjs": "^2.4.3",
+    "crypto": "^1.0.1"
+  }
+}

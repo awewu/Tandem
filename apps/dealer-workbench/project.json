@@ -1,0 +1,15 @@
+{
+  "name": "dealer-workbench",
+  "projectType": "application",
+  "sourceRoot": "apps/dealer-workbench/src",
+  "tags": ["scope:enterprise", "surface:workbench", "runtime:react-target"],
+  "targets": {
+    "build": {
+      "executor": "target-scaffold",
+      "options": {
+        "status": "scaffold-only",
+        "currentSurface": "public/business-console.html"
+      }
+    }
+  }
+}

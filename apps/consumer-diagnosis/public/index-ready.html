@@ -1,0 +1,2081 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#E4002B">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <link rel="stylesheet" href="/css/rheem-official-tokens.css">
+  <link rel="stylesheet" href="/css/rhautt-comfort-tokens.css">
+  <title>瑞合瑞德集团 · 瑞诺瓦舒适家 · Rheem·Ruud·Everhot 授权设备品牌</title>
+  <link rel="stylesheet" href="/inline-styles-refactored.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', sans-serif;
+      background: var(--gray-50);
+      color: var(--text-primary);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
+      font-feature-settings: 'kern' 1, 'liga' 1;
+    }
+
+    :root {
+      /* === 品牌色系 === */
+      --rheem-red: var(--rheem-color-red);
+      --rheem-red-dark: var(--rheem-color-red-deep);
+      --rysnova-blue: #0066CC;
+      --rysnova-blue-light: #3399FF;
+      --gold: #B8860B;
+      --gold-light: #D4A945;
+
+      /* === 中性灰阶（10 级） === */
+      --gray-50:  #fafafa;
+      --gray-100: #f4f4f5;
+      --gray-200: #e8e8ec;
+      --gray-300: #d4d4da;
+      --gray-400: #a1a1aa;
+      --gray-500: #71717a;
+      --gray-600: #52525b;
+      --gray-700: #3f3f46;
+      --gray-800: #27272a;
+      --gray-900: #18181b;
+
+      /* === 文字色 === */
+      --text-primary:   var(--gray-900);
+      --text-secondary: var(--gray-600);
+      --text-muted:     var(--gray-400);
+
+      /* === 表面色 === */
+      --warm-bg:   #fff7f4;
+      --warm-card: #ffffff;
+      --border:    var(--gray-200);
+      --border-strong: var(--gray-300);
+
+      /* === 阴影系统（4 层） === */
+      --shadow-xs: 0 1px 2px rgba(0,0,0,0.04);
+      --shadow-sm: 0 2px 8px rgba(15,23,42,0.04), 0 1px 2px rgba(15,23,42,0.06);
+      --shadow-md: 0 8px 24px rgba(15,23,42,0.08), 0 2px 6px rgba(15,23,42,0.04);
+      --shadow-lg: 0 24px 48px rgba(15,23,42,0.10), 0 4px 12px rgba(15,23,42,0.05);
+      --shadow-glow-red: 0 16px 40px rgba(228,0,43,0.18);
+      --shadow-glow-blue: 0 16px 40px rgba(0,102,204,0.18);
+
+      /* === 间距栅格（8px base） === */
+      --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
+      --sp-5: 20px; --sp-6: 24px; --sp-8: 32px; --sp-10: 40px;
+      --sp-12: 48px; --sp-16: 64px; --sp-20: 80px; --sp-24: 96px;
+
+      /* === 圆角 === */
+      --radius-sm: 8px;  --radius-md: 12px; --radius-lg: 16px;
+      --radius-xl: 20px; --radius-2xl: 28px; --radius-full: 9999px;
+
+      /* === 过渡曲线 === */
+      --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+      --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    /* === 滚动渐入动画基础类 === */
+    .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.7s var(--ease-out), transform 0.7s var(--ease-out); }
+    .reveal.in { opacity: 1; transform: translateY(0); }
+
+    /* === 选中文本品牌色 === */
+    ::selection { background: var(--rysnova-blue); color: white; }
+
+    /* ==================== 顶栏 ==================== */
+    .topbar {
+      height: 72px;
+      background: rgba(255,255,255,0.85);
+      backdrop-filter: saturate(180%) blur(16px);
+      -webkit-backdrop-filter: saturate(180%) blur(16px);
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; padding: 0 32px;
+      box-shadow: var(--shadow-sm);
+      transition: height 0.3s var(--ease-out),
+                  background-color 0.3s var(--ease-out),
+                  box-shadow 0.3s var(--ease-out);
+    }
+    /* 滚动收缩态：高度压缩 + 更深阴影 + 更不透明 */
+    .topbar.is-scrolled {
+      height: 60px;
+      background: rgba(255,255,255,0.95);
+      box-shadow: var(--shadow-md);
+    }
+    .topbar.is-scrolled .brand-logo img { height: 40px; }
+    .brand-logo { display: flex; align-items: center; text-decoration: none; gap: 12px; }
+    .brand-logo img { height: 48px; display: block; transition: height 0.3s var(--ease-out); }
+    .brand-divider {
+      width: 1px; height: 32px; background: var(--border); margin: 0 4px;
+    }
+    .brand-tagline {
+      display: flex; flex-direction: column; line-height: 1.2;
+    }
+    .brand-tagline .tag-zh {
+      font-size: 13px; font-weight: 700; color: #0066CC; letter-spacing: 1px;
+    }
+    .brand-tagline .tag-en {
+      font-size: 10px; font-weight: 500; color: var(--text-muted); letter-spacing: 2px; text-transform: uppercase; margin-top: 2px;
+    }
+    .top-nav { margin-left: 48px; display: flex; gap: 28px; align-items: center; }
+    .top-nav > a, .top-nav > .nav-dropdown > .nav-trigger {
+      color: var(--text-secondary); text-decoration: none; font-size: 14px;
+      transition: color 0.2s; cursor: pointer; background: none; border: none;
+      padding: 0; font-family: inherit; font-weight: 500;
+    }
+    .top-nav > a:hover, .top-nav > .nav-dropdown > .nav-trigger:hover { color: var(--rheem-red); }
+    .top-nav > .nav-dropdown > .nav-trigger::after {
+      content: ' ▾'; font-size: 10px; opacity: 0.6; margin-left: 2px;
+    }
+
+    /* About 集团 mega-menu */
+    .nav-dropdown { position: relative; }
+    .nav-dropdown:hover .nav-mega { display: block; }
+    .nav-mega {
+      display: none; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+      margin-top: 12px; background: white; border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-lg); min-width: 460px; padding: 24px;
+      z-index: 200; animation: megaIn 0.25s var(--ease-out);
+      border: 1px solid var(--gray-200);
+    }
+    @keyframes megaIn { from { opacity: 0; transform: translateX(-50%) translateY(-8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+    .nav-mega::before {
+      content: ''; position: absolute; top: -6px; left: 50%; transform: translateX(-50%) rotate(45deg);
+      width: 12px; height: 12px; background: white;
+      border-left: 1px solid var(--gray-200); border-top: 1px solid var(--gray-200);
+    }
+    .nav-mega-title {
+      font-size: 16px; font-weight: 800; color: var(--text-primary); margin-bottom: 4px;
+    }
+    .nav-mega-title small {
+      display: block; font-size: 11px; font-weight: 600; color: var(--rysnova-blue);
+      letter-spacing: 2px; margin-top: 4px;
+    }
+    .nav-mega-tagline {
+      font-size: 12px; color: var(--text-muted); margin-bottom: 16px; line-height: 1.6;
+    }
+    .nav-mega-section {
+      padding-top: 16px; border-top: 1px solid var(--gray-100);
+    }
+    .nav-mega-section-title {
+      font-size: 11px; font-weight: 700; color: var(--text-muted);
+      letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 10px;
+    }
+    .nav-mega-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 14px;
+    }
+    .nav-mega-link {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border-radius: var(--radius-md); cursor: pointer;
+      color: var(--text-secondary); text-decoration: none; font-size: 13px; font-weight: 500;
+      transition: all 0.2s; background: none; border: none; text-align: left;
+      font-family: inherit; width: 100%;
+    }
+    .nav-mega-link:hover {
+      background: var(--warm-bg); color: var(--rheem-red);
+    }
+    .nav-mega-link .nm-ico { font-size: 16px; }
+    .nav-mega-cta {
+      display: block; padding: 12px 16px; background: var(--rheem-red); color: white;
+      text-align: center; border-radius: var(--radius-md); font-size: 13px; font-weight: 700;
+      text-decoration: none; transition: all 0.2s; margin-top: 12px;
+    }
+    .nav-mega-cta:hover { background: var(--rheem-red-dark); transform: translateY(-1px); }
+    .top-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+    .btn-primary {
+      padding: 10px 22px; background: var(--rheem-red); color: white; border: none;
+      border-radius: 24px; font-size: 14px; font-weight: 600; cursor: pointer;
+      text-decoration: none; transition: all 0.2s;
+    }
+    .btn-primary:hover { background: var(--rheem-red-dark); transform: translateY(-1px); box-shadow: var(--shadow-md); }
+    /* AI 问诊 CTA —— 蓝色品牌识别，保持克制可信 */
+    .btn-rysnova {
+      display: inline-flex; align-items: center; gap: 10px;
+      padding: 10px 18px 10px 12px;
+      background: linear-gradient(135deg, #3399FF 0%, #0066CC 100%);
+      color: white; border: none; border-radius: 28px;
+      font-size: 14px; font-weight: 700; cursor: pointer;
+      text-decoration: none; transition: all 0.25s;
+      box-shadow: 0 4px 12px rgba(0,102,204,0.3);
+      position: relative;
+    }
+    .btn-rysnova:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 20px rgba(0,102,204,0.4);
+      background: linear-gradient(135deg, #0066CC 0%, #004C99 100%);
+    }
+    .btn-rysnova .free-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 4px 10px; background: #FFD700; color: #1a1a1a;
+      border-radius: 14px; font-size: 11px; font-weight: 800;
+      letter-spacing: 0.5px; box-shadow: 0 2px 6px rgba(255,215,0,0.4);
+    }
+    .btn-rysnova .ai-icon {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 22px; height: 22px; background: rgba(255,255,255,0.2);
+      border-radius: 50%; font-size: 12px;
+    }
+    .btn-rysnova .free-pulse {
+      position: absolute; top: -4px; right: -4px;
+      width: 10px; height: 10px; background: #FF4444;
+      border-radius: 50%; box-shadow: 0 0 0 0 rgba(255,68,68,0.7);
+      animation: freePulse 2s infinite;
+    }
+    @keyframes freePulse {
+      0% { box-shadow: 0 0 0 0 rgba(255,68,68,0.7); }
+      70% { box-shadow: 0 0 0 8px rgba(255,68,68,0); }
+      100% { box-shadow: 0 0 0 0 rgba(255,68,68,0); }
+    }
+    /* 二级功能按钮（设计师 / Rysnova BIM）—— 与 AI 问诊同级别 */
+    .btn-action {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 9px 16px; background: white; color: var(--text-primary);
+      border: 1px solid var(--border); border-radius: 22px;
+      font-size: 13px; font-weight: 700; text-decoration: none;
+      transition: all 0.2s; white-space: nowrap;
+    }
+    .btn-action:hover {
+      transform: translateY(-1px); border-color: var(--action-color, var(--rheem-red));
+      color: var(--action-color, var(--rheem-red));
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    }
+    .btn-action .ba-icon { font-size: 14px; }
+    .action-designer { --action-color: #7b1fa2; }
+    .action-bim      { --action-color: var(--rheem-color-red); }
+    .action-customer { --action-color: #00875a; }
+
+    /* 员工入口 —— 进入后台登录 */
+    .btn-staff {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 9px 16px; background: #1a1a1a; color: white;
+      border-radius: 22px; font-size: 13px; font-weight: 700;
+      text-decoration: none; transition: all 0.2s; white-space: nowrap;
+    }
+    .btn-staff:hover { background: #333; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.18); }
+    .btn-staff .lock-icon { font-size: 11px; opacity: 0.85; }
+
+    .btn-ghost {
+      padding: 8px 16px; color: var(--text-secondary); font-size: 13px; text-decoration: none;
+      border-radius: 6px; transition: all 0.2s;
+    }
+    .btn-ghost:hover { background: #f3f3f3; color: var(--rheem-red); }
+
+    /* ==================== Hero ==================== */
+    .hero {
+      position: relative; padding: 80px 32px 100px;
+      background:
+        radial-gradient(ellipse at 20% 30%, rgba(228,0,43,0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 70%, rgba(212,169,69,0.08) 0%, transparent 50%),
+        linear-gradient(180deg, #fff7f4 0%, #fafafa 100%);
+      overflow: hidden;
+    }
+    .hero-inner {
+      max-width: 1240px; margin: 0 auto;
+      display: grid; grid-template-columns: 1.1fr 1fr;
+      gap: 48px; align-items: stretch;
+    }
+    /* 左栏垂直三段：品牌条顶 / 标题块中 / 信任条底 */
+    .hero-col {
+      display: flex; flex-direction: column;
+      min-height: 100%;
+    }
+    .hero-mid {
+      flex: 1;
+      display: flex; flex-direction: column; justify-content: center;
+      padding: 24px 0;
+    }
+    /* 品牌证书条 + 三个品牌门牌卡 */
+    .brand-bar {
+      display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px;
+    }
+    .brand-bar-eyebrow {
+      font-size: 10.5px; font-weight: 700; color: var(--gold); letter-spacing: 1.8px;
+      text-transform: uppercase;
+    }
+    .brand-bar-eyebrow::before { content: '★ '; }
+    .brand-cards {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+      max-width: 520px;
+    }
+    .brand-card {
+      display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+      padding: 9px 11px; background: white; border: 1px solid var(--border);
+      border-radius: 10px; cursor: pointer; text-decoration: none;
+      transition: all 0.25s; position: relative; overflow: hidden;
+      text-align: left;
+    }
+    .brand-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: var(--brand-color, #999);
+    }
+    .brand-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+      border-color: var(--brand-color, #999);
+    }
+    .brand-card-name {
+      font-size: 14px; font-weight: 800; color: var(--brand-color, #1a1a1a);
+      letter-spacing: -0.3px; line-height: 1.1;
+    }
+    .brand-card-since {
+      font-size: 10px; font-weight: 700; color: var(--text-muted); letter-spacing: 1px;
+    }
+    .brand-card-tagline {
+      font-size: 11px; color: var(--text-secondary); margin-top: 2px;
+    }
+    .brand-card-arrow {
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      color: var(--brand-color, #999); font-size: 14px; opacity: 0;
+      transition: all 0.2s;
+    }
+    .brand-card:hover .brand-card-arrow { opacity: 1; right: 8px; }
+    .bc-rhautt   { --brand-color: #1B365D; }
+    .bc-rheem    { --brand-color: var(--rheem-color-red); }
+    .bc-ruud     { --brand-color: var(--rheem-color-red); }
+    .bc-everhot  { --brand-color: #B8860B; }
+    .bc-rysnova  { --brand-color: #0066CC; }
+    .bc-lithnova { --brand-color: #0A7C4A; }
+    .hero h1 {
+      font-size: 44px; font-weight: 900; line-height: 1.08; color: var(--text-primary);
+      margin-bottom: 16px; letter-spacing: -1px;
+    }
+    .hero h1 em { color: var(--rheem-red); font-style: normal; }
+    .hero-sub { font-size: 15.5px; color: var(--text-secondary); margin-bottom: 24px; max-width: 480px; line-height: 1.65; }
+    .hero-sub strong { color: var(--rheem-red); font-weight: 800; }
+    .hero-cta { display: flex; gap: 12px; margin-bottom: 28px; flex-wrap: wrap; }
+    .btn-cta-primary {
+      display: inline-flex; align-items: center; gap: 10px;
+      padding: 16px 32px;
+      background: linear-gradient(135deg, #3399FF 0%, #0066CC 100%);
+      color: white; border: none; border-radius: 30px;
+      font-size: 16px; font-weight: 700; cursor: pointer;
+      text-decoration: none; transition: all 0.25s;
+      box-shadow: 0 8px 24px rgba(0,102,204,0.35);
+    }
+    .btn-cta-primary:hover {
+      background: linear-gradient(135deg, #0066CC 0%, #004C99 100%);
+      transform: translateY(-2px);
+      box-shadow: 0 12px 32px rgba(0,102,204,0.45);
+    }
+    .btn-cta-primary .rysnova-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 3px 10px; background: rgba(255,255,255,0.22); border-radius: 12px;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
+    }
+    .btn-cta-ghost {
+      padding: 16px 32px; background: white; color: var(--text-primary); border: 2px solid var(--border);
+      border-radius: 30px; font-size: 16px; font-weight: 600; cursor: pointer;
+      text-decoration: none; transition: all 0.25s;
+    }
+    .btn-cta-ghost:hover { border-color: var(--rheem-red); color: var(--rheem-red); }
+
+    .hero-trust { display: flex; gap: 28px; padding-top: 18px; border-top: 1px solid var(--border); }
+    .trust-item { display: flex; flex-direction: column; }
+    .trust-num { font-size: 22px; font-weight: 800; color: var(--rheem-red); line-height: 1; letter-spacing: -0.5px; }
+    .trust-label { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+    .hero-visual {
+      /* 纵向 5:6 · 与左侧文字栏高度自然对齐（±560px） */
+      position: relative; aspect-ratio: 5/6; width: 100%; max-width: 460px; justify-self: end;
+      border-radius: 22px; box-shadow: var(--shadow-lg); overflow: hidden;
+      background: #1a1a1a;
+      animation: heroFadeIn 0.8s ease-out;
+    }
+    @keyframes heroFadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ===== 5 大系统轮播 ===== */
+    .hero-carousel { position: absolute; inset: 0; }
+    .hero-slide {
+      position: absolute; inset: 0;
+      background-size: cover; background-position: center;
+      opacity: 0; transition: opacity 1s ease;
+    }
+    .hero-slide.active { opacity: 1; }
+    .hero-slide::after {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.05) 40%, rgba(0,0,0,0.75) 100%);
+    }
+    /* 现代家居场景·明亮干净（Unsplash） */
+    .slide-1 { background-image: url('https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?w=900&q=80&auto=format&fit=crop'), linear-gradient(135deg,#ffb088 0%,#d84315 100%); }      /* 恒温：现代明亮客厅 */
+    .slide-2 { background-image: url('https://images.unsplash.com/photo-1556909172-54557c7e4fb7?w=900&q=80&auto=format&fit=crop'), linear-gradient(135deg,#7fc7e6 0%,#0288d1 100%); }       /* 恒湿：明亮浴室 */
+    .slide-3 { background-image: url('https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=900&q=80&auto=format&fit=crop'), linear-gradient(135deg,#a5d8c8 0%,#388e3c 100%); }       /* 恒氧：清晨阳光卧室 */
+    .slide-4 { background-image: url('https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=900&q=80&auto=format&fit=crop'), linear-gradient(135deg,#cdb6e6 0%,#5e35b1 100%); }       /* 恒洁：极简白客厅 */
+    .slide-5 { background-image: url('https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=900&q=80&auto=format&fit=crop'), linear-gradient(135deg,#9b8fc8 0%,#311b92 100%); }       /* 恒静：静谧卧室 */
+
+    .slide-label {
+      position: absolute; bottom: 56px; left: 24px; right: 24px;
+      color: white; z-index: 2;
+    }
+    .slide-label .sl-eyebrow {
+      display: inline-block; padding: 3px 10px; background: rgba(255,255,255,0.22);
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: white;
+      border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: 1.5px;
+      margin-bottom: 10px;
+    }
+    .slide-label .sl-title {
+      display: block; font-size: 26px; font-weight: 900;
+      letter-spacing: -0.5px; margin-bottom: 4px;
+      text-shadow: 0 2px 14px rgba(0,0,0,0.55);
+    }
+    .slide-label .sl-desc {
+      display: block; font-size: 12.5px; font-weight: 500;
+      opacity: 0.92; text-shadow: 0 1px 4px rgba(0,0,0,0.5); line-height: 1.5;
+    }
+
+    .carousel-dots {
+      position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 8px; z-index: 3;
+    }
+    .carousel-dots .dot {
+      width: 8px; height: 8px; background: rgba(255,255,255,0.4);
+      border: none; border-radius: 50%; cursor: pointer; padding: 0;
+      transition: all 0.4s;
+    }
+    .carousel-dots .dot.active {
+      width: 28px; background: white; border-radius: 4px;
+    }
+    .hero-floating {
+      position: absolute; padding: 12px 18px; background: white; border-radius: 16px;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);
+      font-size: 13px; font-weight: 600; z-index: 2;
+      animation: float 4s ease-in-out infinite;
+    }
+    .hero-floating::before {
+      content: ''; display: inline-block; width: 8px; height: 8px;
+      background: #16a34a; border-radius: 50%; margin-right: 8px;
+      box-shadow: 0 0 0 0 rgba(22,163,74,0.6); animation: livePulse 1.5s ease-out infinite;
+      vertical-align: middle;
+    }
+    @keyframes livePulse {
+      0%   { box-shadow: 0 0 0 0 rgba(22,163,74,0.6); }
+      100% { box-shadow: 0 0 0 8px rgba(22,163,74,0); }
+    }
+    @keyframes float {
+      0%,100% { transform: translateY(0); }
+      50%     { transform: translateY(-6px); }
+    }
+    .hero-floating-1 { top: 8%; left: -28px; animation-delay: 0s; }
+    .hero-floating-1 strong { color: var(--rheem-red); display: block; font-size: 18px; margin-top: 2px; }
+    .hero-floating-2 { bottom: 12%; right: -28px; animation-delay: -2s; }
+    .hero-floating-2 strong { color: #16a34a; display: block; font-size: 18px; margin-top: 2px; }
+
+    /* ==================== 通用区块 ==================== */
+    section { padding: 80px 32px; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    .section-head { text-align: center; margin-bottom: 56px; }
+    .section-eyebrow {
+      font-size: 13px; font-weight: 700; letter-spacing: 2px; color: var(--rheem-red);
+      text-transform: uppercase; margin-bottom: 12px;
+    }
+    .section-title { font-size: 38px; font-weight: 800; color: var(--text-primary); margin-bottom: 14px; letter-spacing: -0.8px; line-height: 1.2; }
+    .section-subtitle { font-size: 16px; color: var(--text-secondary); max-width: 640px; margin: 0 auto; line-height: 1.7; }
+
+    /* ==================== 痛点 vs 解法 ==================== */
+    .pain-vs-solution { background: white; }
+    .pain-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+    .pain-card {
+      background: var(--warm-bg); border-radius: 20px; padding: 28px; transition: all 0.3s;
+      border: 1px solid transparent;
+    }
+    .pain-card:hover { border-color: var(--rheem-red); transform: translateY(-4px); box-shadow: var(--shadow-md); }
+    .pain-icon { font-size: 40px; margin-bottom: 16px; }
+    .pain-title { font-size: 18px; font-weight: 700; color: var(--text-primary); margin-bottom: 12px; }
+    .pain-before {
+      padding: 10px 14px; background: rgba(220,38,38,0.06); border-radius: 10px;
+      font-size: 13px; color: #b91c1c; margin-bottom: 8px;
+    }
+    .pain-before::before { content: '😣 '; }
+    .pain-after {
+      padding: 10px 14px; background: rgba(22,163,74,0.06); border-radius: 10px;
+      font-size: 13px; color: #15803d;
+    }
+    .pain-after::before { content: '✨ '; }
+
+    /* ==================== 真实案例 ==================== */
+    .cases { background: linear-gradient(180deg, #fff 0%, #fafafa 100%); }
+    .case-filter-bar {
+      max-width: 980px; margin: 0 auto 36px;
+      background: white; border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 18px 22px;
+      box-shadow: var(--shadow-sm);
+    }
+    .case-filter-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 8px 0; border-bottom: 1px dashed var(--gray-100);
+    }
+    .case-filter-row:last-child { border-bottom: none; }
+    .case-filter-label {
+      font-size: 12px; font-weight: 700; color: var(--text-muted);
+      letter-spacing: 1.5px; min-width: 56px; flex-shrink: 0;
+    }
+    .case-filter-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+    .case-tab {
+      padding: 6px 14px; background: var(--gray-50); border: 1px solid transparent;
+      border-radius: var(--radius-full); cursor: pointer; font-size: 13px;
+      color: var(--text-secondary); transition: all 0.2s var(--ease-out);
+      user-select: none;
+    }
+    .case-tab:hover { background: var(--warm-bg); color: var(--rheem-red); }
+    .case-tab.active {
+      background: var(--rheem-red); color: white; border-color: var(--rheem-red);
+      box-shadow: var(--shadow-glow-red);
+    }
+    .case-result-meta {
+      text-align: center; font-size: 13px; color: var(--text-muted);
+      margin-bottom: 24px;
+    }
+    .case-result-meta strong { color: var(--rheem-red); }
+    .case-empty {
+      grid-column: 1 / -1; text-align: center; padding: 60px 20px;
+      color: var(--text-muted); font-size: 15px;
+    }
+    .case-empty-ico { font-size: 56px; margin-bottom: 12px; }
+    .case-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+    .case-card {
+      background: white; border-radius: 20px; overflow: hidden; cursor: pointer;
+      box-shadow: var(--shadow-sm); transition: all 0.3s; border: 1px solid var(--border);
+    }
+    .case-card:hover { transform: translateY(-6px); box-shadow: var(--shadow-md); border-color: var(--rheem-red); }
+    .case-card:hover .case-play { transform: translate(-50%,-50%) scale(1.1); background: var(--rheem-red); }
+    .case-image {
+      aspect-ratio: 4/3; position: relative; overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .case-image img {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      object-fit: cover; transition: transform 0.5s; z-index: 1;
+    }
+    .case-card:hover .case-image img { transform: scale(1.05); }
+    .case-image::after {
+      content: ''; position: absolute; inset: 0; z-index: 2;
+      background: linear-gradient(180deg, rgba(0,0,0,0) 40%, rgba(0,0,0,0.55) 100%);
+      pointer-events: none;
+    }
+    /* 变位为背景底色（img 加载失败时兑底） */
+    .case-image-1 { background: linear-gradient(135deg, var(--rheem-color-red) 0%, var(--rheem-color-red-deep) 100%); }
+    .case-image-2 { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+    .case-image-3 { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+    .case-image-4 { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+    .case-image-5 { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
+    .case-image-6 { background: linear-gradient(135deg, #30cfd0 0%, #330867 100%); }
+    .case-tag {
+      position: absolute; top: 12px; left: 12px; padding: 5px 12px; z-index: 3;
+      background: rgba(255,255,255,0.95); border-radius: 12px;
+      font-size: 11px; font-weight: 700; color: var(--rheem-red);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    .case-video-badge {
+      position: absolute; top: 12px; right: 12px; z-index: 3;
+      padding: 5px 10px; background: rgba(0,0,0,0.6); color: white;
+      border-radius: 12px; font-size: 11px; font-weight: 700;
+      display: inline-flex; align-items: center; gap: 4px;
+      backdrop-filter: blur(8px);
+    }
+    .case-play {
+      position: absolute; left: 50%; top: 50%; z-index: 4;
+      width: 64px; height: 64px; border-radius: 50%; border: 3px solid white;
+      background: rgba(228,0,43,0.85); color: white; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transform: translate(-50%,-50%); font-size: 22px; padding-left: 4px;
+      transition: all 0.3s; box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+    }
+    .case-play:hover { background: var(--rheem-red); transform: translate(-50%,-50%) scale(1.15); }
+    .case-image-caption {
+      position: absolute; left: 16px; bottom: 12px; z-index: 3;
+      color: white; font-size: 12px; font-weight: 600; text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+    }
+    .case-body { padding: 22px; }
+    .case-title { font-size: 17px; font-weight: 700; color: var(--text-primary); margin-bottom: 10px; }
+    .case-meta { display: flex; gap: 16px; margin-bottom: 14px; font-size: 12px; color: var(--text-muted); }
+    .case-meta span::before { content: ''; display: inline-block; width: 4px; height: 4px; background: var(--rheem-red); border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+    .case-quote {
+      padding: 12px 14px; background: var(--warm-bg); border-radius: 10px;
+      font-size: 13px; color: var(--text-secondary); font-style: italic;
+      border-left: 3px solid var(--rheem-red); margin-bottom: 14px;
+    }
+    .case-quote::before { content: '"'; color: var(--rheem-red); font-size: 22px; font-weight: 700; vertical-align: -6px; margin-right: 4px; }
+    .case-quote::after { content: '"'; color: var(--rheem-red); font-size: 22px; font-weight: 700; vertical-align: -6px; margin-left: 2px; }
+    .case-footer { display: flex; justify-content: space-between; align-items: center; }
+    .case-price { font-size: 16px; font-weight: 800; color: var(--rheem-red); }
+    .case-price small { font-size: 11px; color: var(--text-muted); font-weight: 400; margin-left: 4px; }
+    .case-cta { font-size: 13px; color: var(--rheem-red); text-decoration: none; font-weight: 600; }
+
+    /* ==================== 评价墙 ==================== */
+    .reviews { background: var(--warm-bg); }
+    .review-stats {
+      display: flex; justify-content: center; gap: 48px; margin-bottom: 48px;
+      padding: 24px; background: white; border-radius: 16px; max-width: 800px; margin-left: auto; margin-right: auto;
+      box-shadow: var(--shadow-sm);
+    }
+    .review-stat { text-align: center; }
+    .review-stat-num { font-size: 32px; font-weight: 800; color: var(--rheem-red); }
+    .review-stat-label { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+    .review-stars { color: var(--gold); font-size: 24px; letter-spacing: 2px; }
+
+    .review-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+    .review-card {
+      background: white; border-radius: 16px; padding: 24px;
+      box-shadow: var(--shadow-sm); transition: all 0.3s;
+    }
+    .review-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+    .review-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .review-avatar {
+      width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      color: white; font-weight: 700; font-size: 16px; flex-shrink: 0;
+    }
+    .av-1 { background: linear-gradient(135deg, var(--rheem-color-red), #C20025); }
+    .av-2 { background: linear-gradient(135deg, #f093fb, #f5576c); }
+    .av-3 { background: linear-gradient(135deg, #4facfe, #00f2fe); }
+    .av-4 { background: linear-gradient(135deg, #fa709a, #fee140); }
+    .av-5 { background: linear-gradient(135deg, #43e97b, #38f9d7); }
+    .av-6 { background: linear-gradient(135deg, #30cfd0, #330867); }
+    .review-user { flex: 1; }
+    .review-name { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+    .review-meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .review-rating { color: var(--gold); font-size: 14px; letter-spacing: 1px; margin-bottom: 10px; }
+    .review-product {
+      display: inline-block; padding: 3px 10px; background: var(--warm-bg);
+      border-radius: 10px; font-size: 11px; color: var(--rheem-red); font-weight: 600; margin-bottom: 12px;
+    }
+    .review-content { font-size: 13px; color: var(--text-secondary); line-height: 1.7; }
+    .review-photos { display: flex; gap: 6px; margin-top: 12px; }
+    .review-photo {
+      width: 60px; height: 60px; border-radius: 8px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 22px; color: white;
+    }
+
+    /* ==================== 系统能力 ==================== */
+    .capabilities { background: white; }
+    .cap-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+    .cap-card {
+      padding: 26px 22px; border-radius: 20px; transition: all 0.3s; cursor: pointer;
+      border: 1px solid var(--border); background: white;
+      position: relative; overflow: hidden;
+    }
+    .cap-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: var(--cap-color, var(--rheem-red)); opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .cap-card:hover { transform: translateY(-6px); box-shadow: var(--shadow-md); border-color: var(--cap-color, var(--rheem-red)); }
+    .cap-card:hover::before { opacity: 1; }
+    .cap-icon { width: 56px; height: 56px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 28px; margin-bottom: 16px; }
+    .cap-card-1 { --cap-color: var(--rheem-color-red); }
+    .cap-card-2 { --cap-color: #1B365D; }
+    .cap-card-3 { --cap-color: #10b981; }
+    .cap-card-4 { --cap-color: #B8860B; }
+    .cap-icon-1 { background: linear-gradient(135deg, rgba(228,0,43,0.1), rgba(228,0,43,0.05)); color: var(--rheem-red); }
+    .cap-icon-2 { background: linear-gradient(135deg, rgba(59,130,246,0.1), rgba(59,130,246,0.05)); color: #1B365D; }
+    .cap-icon-3 { background: linear-gradient(135deg, rgba(16,185,129,0.1), rgba(16,185,129,0.05)); color: #10b981; }
+    .cap-icon-4 { background: linear-gradient(135deg, rgba(184,134,11,0.12), rgba(184,134,11,0.05)); color: #B8860B; }
+    .cap-brand-tag {
+      display: inline-block; padding: 2px 8px; background: var(--cap-color, #999);
+      color: white; border-radius: 8px; font-size: 10px; font-weight: 800;
+      letter-spacing: 1px; margin-bottom: 8px;
+    }
+    .cap-name { font-size: 18px; font-weight: 800; color: var(--text-primary); margin-bottom: 6px; line-height: 1.3; }
+    .cap-desc { font-size: 13px; color: var(--text-secondary); margin-bottom: 14px; line-height: 1.7; }
+    .cap-list { list-style: none; }
+    .cap-list li {
+      padding: 8px 0; font-size: 13px; color: var(--text-secondary);
+      border-top: 1px dashed var(--border); display: flex; align-items: center; gap: 8px;
+    }
+    .cap-list li::before { content: '✓'; color: var(--rheem-red); font-weight: 700; }
+
+    /* ==================== 服务承诺 ==================== */
+    .promise {
+      background:
+        radial-gradient(ellipse at 80% 20%, rgba(228,0,43,0.15) 0%, transparent 50%),
+        radial-gradient(ellipse at 20% 80%, rgba(212,169,69,0.10) 0%, transparent 50%),
+        linear-gradient(135deg, #18181b 0%, #2a1518 100%);
+      color: white; position: relative; overflow: hidden;
+    }
+    .promise::before {
+      content: ''; position: absolute; inset: 0; opacity: 0.4;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+      mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
+      -webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
+      pointer-events: none;
+    }
+    .promise > .container { position: relative; z-index: 1; }
+    .promise .section-title { color: white; }
+    .promise .section-subtitle { color: rgba(255,255,255,0.7); }
+    .promise .section-eyebrow { color: var(--gold); }
+    .promise-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
+    .promise-card { text-align: center; padding: 24px; }
+    .promise-icon { font-size: 48px; margin-bottom: 16px; }
+    .promise-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; color: white; }
+    .promise-desc { font-size: 13px; color: rgba(255,255,255,0.7); line-height: 1.7; }
+
+    /* ==================== 最终CTA ==================== */
+    .final-cta {
+      background:
+        radial-gradient(ellipse at top, rgba(228,0,43,0.1) 0%, transparent 60%),
+        var(--warm-bg);
+      text-align: center;
+    }
+    .final-cta h2 { font-size: 40px; font-weight: 800; margin-bottom: 16px; }
+    .final-cta h2 em { color: #0066CC; font-style: normal; }
+    .final-cta p { font-size: 17px; color: var(--text-secondary); margin-bottom: 32px; }
+    .final-cta .hero-cta { justify-content: center; }
+
+    /* ==================== 视频模态框 ==================== */
+    .video-modal {
+      display: none; position: fixed; inset: 0; z-index: 1000;
+      background: rgba(0,0,0,0.85); backdrop-filter: blur(8px);
+      align-items: center; justify-content: center; padding: 24px;
+    }
+    .video-modal.active { display: flex; }
+    .video-modal-content {
+      background: #111; border-radius: 16px; max-width: 960px; width: 100%;
+      overflow: hidden; box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+      animation: modalIn 0.3s ease;
+    }
+    @keyframes modalIn { from { transform: scale(0.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .video-modal-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 16px 24px; background: linear-gradient(180deg, rgba(0,0,0,0.6), transparent);
+      color: white;
+    }
+    .video-modal-header h3 { font-size: 16px; font-weight: 700; }
+    .video-modal-close {
+      background: rgba(255,255,255,0.1); color: white; border: none;
+      width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 18px;
+    }
+    .video-modal-close:hover { background: rgba(255,255,255,0.2); }
+    .video-modal video, .video-modal .video-placeholder {
+      width: 100%; aspect-ratio: 16/9; background: #000; display: block;
+    }
+    .video-placeholder {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      color: white; gap: 16px; padding: 40px;
+      background-size: cover; background-position: center;
+    }
+    .video-placeholder-icon { font-size: 64px; opacity: 0.7; }
+    .video-placeholder-msg { font-size: 17px; font-weight: 600; text-align: center; }
+    .video-placeholder-sub { font-size: 13px; opacity: 0.7; text-align: center; max-width: 480px; }
+    .video-placeholder-cta {
+      margin-top: 8px; padding: 12px 24px; background: var(--rheem-red); color: white;
+      border-radius: 24px; font-size: 14px; font-weight: 700; text-decoration: none;
+    }
+
+    /* ==================== Footer ==================== */
+    footer {
+      background: var(--gray-900); color: rgba(255,255,255,0.55);
+      padding: 64px 32px 32px; font-size: 13px;
+    }
+    .footer-grid {
+      max-width: 1200px; margin: 0 auto;
+      display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 48px;
+      padding-bottom: 40px;
+    }
+    .footer-brand .footer-logo {
+      display: inline-flex; align-items: center; gap: 12px; margin-bottom: 16px;
+    }
+    .footer-brand .footer-logo img { height: 44px; filter: brightness(1.1); }
+    .footer-brand p { color: rgba(255,255,255,0.6); line-height: 1.8; max-width: 320px; margin-bottom: 20px; }
+    .footer-cert { display: flex; gap: 8px; flex-wrap: wrap; }
+    .footer-cert span {
+      padding: 4px 10px; background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1); border-radius: 6px;
+      font-size: 11px; color: rgba(255,255,255,0.7); font-weight: 600;
+    }
+    .footer-col h5 {
+      color: white; font-size: 13px; font-weight: 700;
+      letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 16px;
+    }
+    .footer-col ul { list-style: none; }
+    .footer-col ul li { margin-bottom: 10px; }
+    .footer-col a {
+      color: rgba(255,255,255,0.6); text-decoration: none;
+      font-size: 13px; transition: color 0.2s;
+    }
+    .footer-col a:hover { color: white; }
+    .footer-contact-item { display: flex; gap: 8px; margin-bottom: 12px; align-items: flex-start; }
+    .footer-contact-item .fc-ico { color: var(--gold-light); flex-shrink: 0; margin-top: 2px; }
+    .footer-contact-item span { color: rgba(255,255,255,0.7); font-size: 13px; line-height: 1.6; }
+    .footer-bottom {
+      max-width: 1200px; margin: 0 auto;
+      padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.08);
+      display: flex; justify-content: space-between; align-items: center;
+      color: rgba(255,255,255,0.4); font-size: 12px; flex-wrap: wrap; gap: 12px;
+    }
+    .footer-bottom-links a { color: rgba(255,255,255,0.5); text-decoration: none; margin-left: 16px; }
+    .footer-bottom-links a:hover { color: white; }
+
+    @media (max-width: 968px) {
+      .footer-grid { grid-template-columns: 1fr; gap: 32px; }
+    }
+
+    /* ==================== 响应式 ==================== */
+    /* 中等屏：隐藏二级动作按钮文字，只留 icon */
+    @media (max-width: 1280px) {
+      .btn-action { padding: 9px 12px; font-size: 0; gap: 0; }
+      .btn-action .ba-icon { font-size: 16px; }
+    }
+    @media (max-width: 968px) {
+      .hero-inner { grid-template-columns: 1fr; gap: 32px; }
+      .hero-visual { max-width: 340px; aspect-ratio: 4/5; margin: 0 auto; }
+      .hero h1 { font-size: 34px; }
+      .pain-grid, .case-grid, .review-grid, .cap-grid, .promise-grid { grid-template-columns: 1fr; }
+      .top-nav { display: none; }
+      .btn-action { display: none; }  /* 移动端隐藏二级动作项 */
+      .hero-trust { flex-wrap: wrap; gap: 20px; }
+      section { padding: 56px 20px; }
+      .section-title { font-size: 28px; }
+    }
+    @media (max-width: 1100px) and (min-width: 969px) {
+      .pain-grid, .case-grid, .review-grid { grid-template-columns: repeat(2, 1fr); }
+      .promise-grid, .cap-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body class="rc-scope rc-consumer-portal" data-brand="rheem">
+
+  <!-- ==================== 顶栏 ==================== -->
+  <header class="topbar">
+    <a href="/" class="brand-logo" aria-label="Rhautt 瑞合瑞德">
+      <img src="/images/rysnova-logo.jpg" alt="Rysnova">
+    </a>
+    <nav class="top-nav">
+      <a href="#cases">真实案例</a>
+      <a href="#reviews">用户口碑</a>
+      <a href="#capabilities">系统能力</a>
+      <a href="#promise">服务承诺</a>
+      <div class="nav-dropdown">
+        <button type="button" class="nav-trigger">关于我们</button>
+        <div class="nav-mega" role="menu">
+          <div class="nav-mega-title">瑞合瑞德集团 <small>RHAUTT GROUP</small></div>
+          <div class="nav-mega-tagline">Rheem · Ruud · Everhot 三大百年品牌中国授权运营方 · 服务全国 3,200+ 家庭</div>
+
+          <div class="nav-mega-section">
+            <div class="nav-mega-section-title">集团信息</div>
+            <div class="nav-mega-grid">
+              <button type="button" class="nav-mega-link" onclick="openGroupAbout('intro')"><span class="nm-ico">🏢</span>集团介绍</button>
+              <button type="button" class="nav-mega-link" onclick="openGroupAbout('brands')"><span class="nm-ico">🏆</span>品牌矩阵</button>
+              <button type="button" class="nav-mega-link" onclick="openGroupAbout('network')"><span class="nm-ico">📍</span>全国布局</button>
+              <button type="button" class="nav-mega-link" onclick="openGroupAbout('certs')"><span class="nm-ico">📜</span>资质荣誉</button>
+              <button type="button" class="nav-mega-link" onclick="openGroupAbout('careers')"><span class="nm-ico">💼</span>加入我们</button>
+              <button type="button" class="nav-mega-link" onclick="openGroupAbout('contact')"><span class="nm-ico">📞</span>联系我们</button>
+            </div>
+          </div>
+
+          <a href="javascript:void(0)" class="nav-mega-cta" onclick="openGroupAbout('intro')">
+            🏢 了解瑞合瑞德集团完整故事 →
+          </a>
+        </div>
+      </div>
+    </nav>
+    <div class="top-actions">
+      <a href="/pain-diagnosis.html" class="btn-rysnova" title="瑞诺瓦 AI 暖通问诊 · 形成初步系统方案">
+        <span class="free-pulse"></span>
+        <span class="ai-icon">AI</span>
+        <span class="free-badge">问诊</span>
+        <span>瑞诺瓦 AI 暖通问诊</span>
+      </a>
+      <a href="/designer.html" class="btn-action action-designer" title="设计师工作台 · 专业负荷计算 / 3D 渲染 / 设备选型">
+        <span class="ba-icon">🎨</span> 设计师工作台
+      </a>
+      <a href="/rysnova-bim-designer.html" class="btn-action action-bim" title="Rysnova BIM 平台 · 3D 暖通专业设计">
+        <span class="ba-icon">🏗️</span> Rysnova BIM
+      </a>
+      <a href="/customer-view.html" class="btn-action action-customer" title="签约客户入口 · 查看项目进度 / 施工阶段 / 验收状态">
+        <span class="ba-icon">🏠</span> 我的项目
+      </a>
+      <a href="http://localhost:5000/" class="btn-staff" title="员工后台登录 · 按角色自动跳转到对应工作台（销售/设计/管理/技术/客服）">
+        <span class="lock-icon">🔐</span> 员工入口
+      </a>
+    </div>
+  </header>
+
+  <!-- ==================== Hero ==================== -->
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="hero-col">
+        <div class="brand-bar">
+          <span class="brand-bar-eyebrow">集团 · 三大授权品牌 · 两大自主品牌 · 点击了解传承</span>
+          <div class="brand-cards">
+            <button type="button" class="brand-card bc-rhautt" onclick="openBrand('rhautt')">
+              <span class="brand-card-name">Rhautt</span>
+              <span class="brand-card-since">集团品牌</span>
+              <span class="brand-card-tagline">Comfort Group</span>
+              <span class="brand-card-arrow">→</span>
+            </button>
+            <button type="button" class="brand-card bc-rheem" onclick="openBrand('rheem')">
+              <span class="brand-card-name">Rheem</span>
+              <span class="brand-card-since">授权设备品牌</span>
+              <span class="brand-card-tagline">美国百年热水专家</span>
+              <span class="brand-card-arrow">→</span>
+            </button>
+            <button type="button" class="brand-card bc-ruud" onclick="openBrand('ruud')">
+              <span class="brand-card-name">Ruud</span>
+              <span class="brand-card-since">授权设备品牌</span>
+              <span class="brand-card-tagline">热水器发明者</span>
+              <span class="brand-card-arrow">→</span>
+            </button>
+            <button type="button" class="brand-card bc-everhot" onclick="openBrand('everhot')">
+              <span class="brand-card-name">Everhot</span>
+              <span class="brand-card-since">百年传承</span>
+              <span class="brand-card-tagline">中央水系统·为爱恒热</span>
+              <span class="brand-card-arrow">→</span>
+            </button>
+            <button type="button" class="brand-card bc-rysnova" onclick="openBrand('rysnova')">
+              <span class="brand-card-name">瑞诺瓦舒适家</span>
+              <span class="brand-card-since">自主平台品牌</span>
+              <span class="brand-card-tagline">全屋舒适 AI 问诊</span>
+              <span class="brand-card-arrow">→</span>
+            </button>
+            <button type="button" class="brand-card bc-lithnova" onclick="openBrand('lithnova')">
+              <span class="brand-card-name">瓦瑞储能</span>
+              <span class="brand-card-since">自主设备品牌</span>
+              <span class="brand-card-tagline">Lithnova 新能源储能</span>
+              <span class="brand-card-arrow">→</span>
+            </button>
+          </div>
+        </div>
+        <div class="hero-mid">
+        <h1>让每一口呼吸<br>都是<em>家的享受</em></h1>
+        <p class="hero-sub">瑞诺瓦全屋舒适系统 · 智能新风 · 全屋净水 —— 用一套系统方案管理温度、湿度、空气、水质与运行体验。已服务全国 <strong>3,200+</strong> 家庭。</p>
+        <div class="hero-cta">
+          <a href="/pain-diagnosis.html" class="btn-cta-primary">
+            <span class="rysnova-badge">瑞诺瓦舒适家</span>
+            <span>进入 AI 设计问诊 →</span>
+          </a>
+          <button type="button" class="btn-cta-ghost" onclick="openVideo('hero','瑞美舒适家 · 30 秒系统介绍')" style="display:inline-flex;align-items:center;gap:8px;">
+            <span style="display:inline-flex;width:28px;height:28px;background:var(--rheem-red);color:white;border-radius:50%;align-items:center;justify-content:center;font-size:11px;padding-left:2px;">▶</span>
+            30 秒看系统介绍
+          </button>
+        </div>
+        </div>
+        <div class="hero-trust">
+          <div class="trust-item"><div class="trust-num">3,200+</div><div class="trust-label">已交付家庭</div></div>
+          <div class="trust-item"><div class="trust-num">98.6%</div><div class="trust-label">客户满意度</div></div>
+          <div class="trust-item"><div class="trust-num">10年</div><div class="trust-label">核心部件保修</div></div>
+          <div class="trust-item"><div class="trust-num">24/7</div><div class="trust-label">IOT 远程守护</div></div>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <div class="hero-carousel" id="heroCarousel">
+          <div class="hero-slide slide-1 active" role="img" aria-label="恒温场景">
+            <div class="slide-label">
+              <span class="sl-eyebrow">五大系统 · 1/5</span>
+              <span class="sl-title">恒温 · 22℃</span>
+              <span class="sl-desc">全屋温差 ≤2℃ · 辐射冷暖 · 无吹风感</span>
+            </div>
+          </div>
+          <div class="hero-slide slide-2" role="img" aria-label="恒湿场景">
+            <div class="slide-label">
+              <span class="sl-eyebrow">五大系统 · 2/5</span>
+              <span class="sl-title">恒湿 · 50%</span>
+              <span class="sl-desc">智能锁定 40-60% · 告别回南天发霉 / 干燥腔闷</span>
+            </div>
+          </div>
+          <div class="hero-slide slide-3" role="img" aria-label="恒氧场景">
+            <div class="slide-label">
+              <span class="sl-eyebrow">五大系统 · 3/5</span>
+              <span class="sl-title">恒氧 · 鲜气不断</span>
+              <span class="sl-desc">每小时 1 次全屋换气 · CO₂ 实时监测</span>
+            </div>
+          </div>
+          <div class="hero-slide slide-4" role="img" aria-label="恒洁场景">
+            <div class="slide-label">
+              <span class="sl-eyebrow">五大系统 · 4/5</span>
+              <span class="sl-title">恒洁 · PM2.5 &lt; 5</span>
+              <span class="sl-desc">HEPA H13 医用级过滤 · TVOC 甲醛分解</span>
+            </div>
+          </div>
+          <div class="hero-slide slide-5" role="img" aria-label="恒静场景">
+            <div class="slide-label">
+              <span class="sl-eyebrow">五大系统 · 5/5</span>
+              <span class="sl-title">恒静 · 32 dB</span>
+              <span class="sl-desc">接近图书馆静音 · 夜间不听见主机运行</span>
+            </div>
+          </div>
+          <div class="carousel-dots" id="heroDots">
+            <button type="button" class="dot active" data-i="0" aria-label="恒温"></button>
+            <button type="button" class="dot" data-i="1" aria-label="恒湿"></button>
+            <button type="button" class="dot" data-i="2" aria-label="恒氧"></button>
+            <button type="button" class="dot" data-i="3" aria-label="恒洁"></button>
+            <button type="button" class="dot" data-i="4" aria-label="恒静"></button>
+          </div>
+        </div>
+        <div class="hero-floating hero-floating-1">实时恒温<strong>22℃</strong></div>
+        <div class="hero-floating hero-floating-2">PM2.5<strong>&lt; 5 μg/m³</strong></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== 痛点 vs 解法 ==================== -->
+  <section class="pain-vs-solution">
+    <div class="container">
+      <div class="section-head">
+        <div class="section-eyebrow">为什么选择瑞诺瓦舒适家</div>
+        <h2 class="section-title">你家的烦恼，我们都听过</h2>
+        <p class="section-subtitle">每一条痛点，都源自 3,200+ 真实业主的反馈。瑞诺瓦不是堆砌设备，而是以系统方案把热水、采暖、空气、水质和智能控制一条条解决掉。</p>
+      </div>
+      <div class="pain-grid">
+        <div class="pain-card">
+          <div class="pain-icon">🥶</div>
+          <h3 class="pain-title">忽冷忽热，老人小孩反复感冒</h3>
+          <div class="pain-before">传统空调：直吹冷风，温度过山车，关机半小时回潮</div>
+          <div class="pain-after">五恒系统：辐射制冷+地暖，全屋温差 ≤2℃，从清晨到深夜恒温</div>
+        </div>
+        <div class="pain-card">
+          <div class="pain-icon">😷</div>
+          <h3 class="pain-title">关窗闷、开窗脏、雾霾天不敢呼吸</h3>
+          <div class="pain-before">传统通风：开窗即脏，PM2.5/CO₂ 超标，孩子鼻炎反复</div>
+          <div class="pain-after">智能新风：每小时 1 次全屋换气，PM2.5 过滤 99%，CO₂ 实时监测</div>
+        </div>
+        <div class="pain-card">
+          <div class="pain-icon">💧</div>
+          <h3 class="pain-title">回南天发霉，干燥天嗓子疼</h3>
+          <div class="pain-before">传统除湿：买除湿机东搬西搬，加湿器细菌喷一脸</div>
+          <div class="pain-after">恒湿控制：全屋湿度锁定 40-60%，告别衣柜霉斑和干裂嘴唇</div>
+        </div>
+        <div class="pain-card">
+          <div class="pain-icon">🚿</div>
+          <h3 class="pain-title">洗澡水忽冷忽热，老房水压差</h3>
+          <div class="pain-before">传统热水器：等水 5 分钟，多人洗澡水温骤降</div>
+          <div class="pain-after">瑞美热水系统：恒温 ±0.5℃，多点同时出水不打架</div>
+        </div>
+        <div class="pain-card">
+          <div class="pain-icon">🔇</div>
+          <h3 class="pain-title">主机外机吵到邻居投诉</h3>
+          <div class="pain-before">传统主机：50dB 起步，夜里听得清清楚楚</div>
+          <div class="pain-after">瑞美静音主机：32dB 接近图书馆，邻里关系守住</div>
+        </div>
+        <div class="pain-card">
+          <div class="pain-icon">💸</div>
+          <h3 class="pain-title">电费爆表，舒适不起</h3>
+          <div class="pain-before">老空调+电热水器：夏季电费 1500+/月</div>
+          <div class="pain-after">瑞美一体化系统：节能 35%，10 年省回半套设备</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== 真实案例 ==================== -->
+  <section class="cases" id="cases">
+    <div class="container">
+      <div class="section-head">
+        <div class="section-eyebrow">已落地的家</div>
+        <h2 class="section-title">看看别人的家，是怎么变的</h2>
+        <p class="section-subtitle">从 89 平刚需房到 380 平大平层，每一种户型我们都做过。点击查看完整方案、施工图纸和业主深度访谈。</p>
+      </div>
+      <div class="case-filter-bar">
+        <div class="case-filter-row">
+          <span class="case-filter-label">户型</span>
+          <div class="case-filter-pills" data-group="size">
+            <button type="button" class="case-tab active" data-value="all">全部</button>
+            <button type="button" class="case-tab" data-value="small">90㎡以下</button>
+            <button type="button" class="case-tab" data-value="medium">90-160㎡</button>
+            <button type="button" class="case-tab" data-value="large">160-280㎡</button>
+            <button type="button" class="case-tab" data-value="villa">别墅大平层</button>
+          </div>
+        </div>
+        <div class="case-filter-row">
+          <span class="case-filter-label">系统</span>
+          <div class="case-filter-pills" data-group="system">
+            <button type="button" class="case-tab active" data-value="all">全部</button>
+            <button type="button" class="case-tab" data-value="5heng">五恒</button>
+            <button type="button" class="case-tab" data-value="fresh">新风</button>
+            <button type="button" class="case-tab" data-value="water">净水</button>
+            <button type="button" class="case-tab" data-value="floor">地暖</button>
+            <button type="button" class="case-tab" data-value="hotwater">中央热水</button>
+          </div>
+        </div>
+        <div class="case-filter-row">
+          <span class="case-filter-label">品牌</span>
+          <div class="case-filter-pills" data-group="brand">
+            <button type="button" class="case-tab active" data-value="all">全部</button>
+            <button type="button" class="case-tab" data-value="rheem">🔴 Rheem 瑞美</button>
+            <button type="button" class="case-tab" data-value="ruud">🟥 Ruud</button>
+            <button type="button" class="case-tab" data-value="everhot">🟡 Everhot</button>
+          </div>
+        </div>
+      </div>
+      <div class="case-result-meta" id="caseResultMeta">显示全部 <strong>6</strong> 个案例</div>
+      <div class="case-grid" id="case-grid">
+        <a class="case-card" data-size="small" data-systems="5heng water" data-brands="rheem" href="/customer-view.html">
+          <div class="case-image case-image-1">
+            <img src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&q=80&auto=format&fit=crop" alt="上海徐汇 89㎡ 三代同堂改造现场" loading="lazy" onerror="this.style.display='none'">
+            <span class="case-tag">89㎡ · 二室一厅</span>
+            <span class="case-video-badge">📹 业主访谈</span>
+            <button class="case-play" type="button" onclick="event.preventDefault();event.stopPropagation();openVideo('case1','上海徐汇 89㎡ · 三代同堂改造 · 业主访谈')" aria-label="播放业主访谈视频">&#9658;</button>
+            <span class="case-image-caption">📍 徐汇区 · 老房改造 · 2024.06 交付</span>
+          </div>
+          <div class="case-body">
+            <div class="case-title">上海·徐汇老破小逆袭：3 代同堂的舒适改造</div>
+            <div class="case-meta"><span>瑞美热水</span><span>新风</span><span>地暖</span></div>
+            <div class="case-quote">老人不再半夜咳，孩子鼻炎都好了，最值的一笔装修投资</div>
+            <div class="case-footer">
+              <div class="case-price">¥6.8万 <small>含设备+安装</small></div>
+              <span class="case-cta">查看完整方案 →</span>
+            </div>
+          </div>
+        </a>
+        <a class="case-card" data-size="medium" data-systems="5heng fresh" data-brands="ruud" href="/customer-view.html">
+          <div class="case-image case-image-2">
+            <img src="https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=800&q=80&auto=format&fit=crop" alt="杭州未来科技城 128㎡ 现代客厅" loading="lazy" onerror="this.style.display='none'">
+            <span class="case-tag">128㎡ · 三室两厅</span>
+            <span class="case-video-badge">📹 实拍实记</span>
+            <button class="case-play" type="button" onclick="event.preventDefault();event.stopPropagation();openVideo('case2','杭州 128㎡ · 五恒系统安装实拍')" aria-label="播放安装实拍视频">&#9658;</button>
+            <span class="case-image-caption">📍 未来科技城 · 新房装修 · 2024.09 交付</span>
+          </div>
+          <div class="case-body">
+            <div class="case-title">杭州·未来科技城刚需家庭：年轻人的舒适生活</div>
+            <div class="case-meta"><span>五恒系统</span><span>全屋净水</span></div>
+            <div class="case-quote">入住第一晚就感受到不同，从此再也回不去普通空调的日子</div>
+            <div class="case-footer">
+              <div class="case-price">¥12.6万 <small>含设备+安装</small></div>
+              <span class="case-cta">查看完整方案 →</span>
+            </div>
+          </div>
+        </a>
+        <a class="case-card" data-size="medium" data-systems="5heng water fresh" data-brands="rheem ruud" href="/customer-view.html">
+          <div class="case-image case-image-3">
+            <img src="https://images.unsplash.com/photo-1502672023488-70e25813eb80?w=800&q=80&auto=format&fit=crop" alt="深圳南山学区房 156㎡ 儿童房" loading="lazy" onerror="this.style.display='none'">
+            <span class="case-tag">156㎡ · 四室两厅</span>
+            <span class="case-video-badge">📹 安装过程</span>
+            <button class="case-play" type="button" onclick="event.preventDefault();event.stopPropagation();openVideo('case3','深圳 156㎡ · 孩子鼻炎隔绝的全屋新风')" aria-label="播放安装过程视频">&#9658;</button>
+            <span class="case-image-caption">📍 南山区 · 学区房 · 2024.03 交付</span>
+          </div>
+          <div class="case-body">
+            <div class="case-title">深圳·南山学区房：用呼吸守护孩子成长</div>
+            <div class="case-meta"><span>五恒系统</span><span>智能新风</span><span>恒湿</span></div>
+            <div class="case-quote">两个孩子的鼻炎药停了快一年了，每月电费比预想还低 200 块</div>
+            <div class="case-footer">
+              <div class="case-price">¥16.8万 <small>含设备+安装</small></div>
+              <span class="case-cta">查看完整方案 →</span>
+            </div>
+          </div>
+        </a>
+        <a class="case-card" data-size="large" data-systems="5heng fresh water hotwater" data-brands="ruud everhot" href="/customer-view.html">
+          <div class="case-image case-image-4">
+            <img src="https://images.unsplash.com/photo-1565182999561-18d7dc61c393?w=800&q=80&auto=format&fit=crop" alt="北京朝阳 218㎡ 大平层客厅" loading="lazy" onerror="this.style.display='none'">
+            <span class="case-tag">218㎡ · 大平层</span>
+            <span class="case-video-badge">📹 360° 漫游</span>
+            <button class="case-play" type="button" onclick="event.preventDefault();event.stopPropagation();openVideo('case4','北京朝阳 218㎡ · 360° 全屋五恒漫游')" aria-label="播放 360 °漫游视频">&#9658;</button>
+            <span class="case-image-caption">📍 朝阳区 · 老房改造 · 2023.11 交付</span>
+          </div>
+          <div class="case-body">
+            <div class="case-title">北京·朝阳大平层：老人健康+回南天告别霉味</div>
+            <div class="case-meta"><span>五恒</span><span>地暖</span><span>新风</span><span>软净</span></div>
+            <div class="case-quote">回南天柜子里再没有霉斑，老父亲的关节炎也好转了</div>
+            <div class="case-footer">
+              <div class="case-price">¥24.6万 <small>含设备+安装</small></div>
+              <span class="case-cta">查看完整方案 →</span>
+            </div>
+          </div>
+        </a>
+        <a class="case-card" data-size="villa" data-systems="5heng fresh water floor hotwater" data-brands="ruud everhot" href="/customer-view.html">
+          <div class="case-image case-image-5">
+            <img src="https://images.unsplash.com/photo-1600210492493-0946911123ea?w=800&q=80&auto=format&fit=crop" alt="苏州阳澄湖 380㎡ 联排别墅" loading="lazy" onerror="this.style.display='none'">
+            <span class="case-tag">380㎡ · 联排别墅</span>
+            <span class="case-video-badge">📹 设计师导览</span>
+            <button class="case-play" type="button" onclick="event.preventDefault();event.stopPropagation();openVideo('case5','苏州阳澄湖 380㎡ 联排 · 设计师亲身导览')" aria-label="播放设计师导览视频">&#9658;</button>
+            <span class="case-image-caption">📍 阳澄湖 · 联排别墅 · 2024.07 交付</span>
+          </div>
+          <div class="case-body">
+            <div class="case-title">苏州·阳澄湖联排别墅：三代同堂的舒适密码</div>
+            <div class="case-meta"><span>全屋五恒</span><span>泳池恒温</span><span>地源热泵</span></div>
+            <div class="case-quote">设计师 3 次上门量房+夜间噪声测试，专业到打消所有顾虑</div>
+            <div class="case-footer">
+              <div class="case-price">¥58万 <small>含设备+安装</small></div>
+              <span class="case-cta">查看完整方案 →</span>
+            </div>
+          </div>
+        </a>
+        <a class="case-card" data-size="villa" data-systems="5heng water hotwater floor" data-brands="rheem everhot" href="/customer-view.html">
+          <div class="case-image case-image-6">
+            <img src="https://images.unsplash.com/photo-1567767292278-a4f21aa2d36e?w=800&q=80&auto=format&fit=crop" alt="成都麓湖 280㎡ 顶跃复式主卧" loading="lazy" onerror="this.style.display='none'">
+            <span class="case-tag">280㎡ · 顶跃复式</span>
+            <span class="case-video-badge">📹 智能家居</span>
+            <button class="case-play" type="button" onclick="event.preventDefault();event.stopPropagation();openVideo('case6','成都麓湖 280㎡ 顶跃 · 智能家居场景演示')" aria-label="播放智能家居视频">&#9658;</button>
+            <span class="case-image-caption">📍 麓湖 · 顶跃复式 · 2024.05 交付</span>
+          </div>
+          <div class="case-body">
+            <div class="case-title">成都·麓湖顶跃：把"度假感"装进每一天</div>
+            <div class="case-meta"><span>五恒</span><span>智能控制</span><span>全屋净水</span></div>
+            <div class="case-quote">朋友来家做客都问空调在哪里——根本看不见，舒适感却拉满</div>
+            <div class="case-footer">
+              <div class="case-price">¥36万 <small>含设备+安装</small></div>
+              <span class="case-cta">查看完整方案 →</span>
+            </div>
+          </div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== 评价墙 ==================== -->
+  <section class="reviews" id="reviews">
+    <div class="container">
+      <div class="section-head">
+        <div class="section-eyebrow">真实用户口碑</div>
+        <h2 class="section-title">3,200 个家庭，把它推荐给了朋友</h2>
+        <p class="section-subtitle">下面是没有过滤的真实评价，包括我们做得好的和需要改进的——好产品不怕被检视。</p>
+      </div>
+      <div class="review-stats">
+        <div class="review-stat">
+          <div class="review-stars">★★★★★</div>
+          <div class="review-stat-num">4.9 / 5.0</div>
+          <div class="review-stat-label">综合评分</div>
+        </div>
+        <div class="review-stat">
+          <div class="review-stat-num">98.6%</div>
+          <div class="review-stat-label">推荐率</div>
+        </div>
+        <div class="review-stat">
+          <div class="review-stat-num">3,184</div>
+          <div class="review-stat-label">真实评价数</div>
+        </div>
+        <div class="review-stat">
+          <div class="review-stat-num">7 天</div>
+          <div class="review-stat-label">平均响应时长</div>
+        </div>
+      </div>
+      <div class="review-grid">
+        <div class="review-card">
+          <div class="review-head">
+            <div class="review-avatar av-1">王</div>
+            <div class="review-user">
+              <div class="review-name">王先生 · 上海徐汇</div>
+              <div class="review-meta">实名认证 · 入住 1 年 3 个月</div>
+            </div>
+          </div>
+          <div class="review-rating">★★★★★</div>
+          <span class="review-product">五恒系统 + 新风</span>
+          <div class="review-content">老人家有慢性支气管炎，住进来这一年咳嗽次数明显减少。最让我惊讶的是夏天电费：之前老空调一个月 1500，现在五恒系统才 800 左右。设计师上门量房 3 次，每次都给老人解释清楚，态度真好。</div>
+          <div class="review-photos">
+            <div class="review-photo case-image-1">📸</div>
+            <div class="review-photo case-image-3">📸</div>
+            <div class="review-photo case-image-5">📸</div>
+          </div>
+        </div>
+        <div class="review-card">
+          <div class="review-head">
+            <div class="review-avatar av-2">李</div>
+            <div class="review-user">
+              <div class="review-name">李女士 · 杭州萧山</div>
+              <div class="review-meta">实名认证 · 入住 8 个月</div>
+            </div>
+          </div>
+          <div class="review-rating">★★★★★</div>
+          <span class="review-product">五恒 + 地暖 + 全屋净水</span>
+          <div class="review-content">两个孩子之前都有过敏性鼻炎，每年春秋两季药不离手。装了五恒+新风之后，去年整个春天都没怎么用药！厨房直饮水也终于解决，再也不用扛桶装水了。安装师傅很专业，墙体打孔位置都先和我确认。</div>
+          <div class="review-photos">
+            <div class="review-photo case-image-2">📸</div>
+            <div class="review-photo case-image-4">📸</div>
+          </div>
+        </div>
+        <div class="review-card">
+          <div class="review-head">
+            <div class="review-avatar av-3">张</div>
+            <div class="review-user">
+              <div class="review-name">张女士 · 北京朝阳</div>
+              <div class="review-meta">实名认证 · 入住 2 年</div>
+            </div>
+          </div>
+          <div class="review-rating">★★★★★</div>
+          <span class="review-product">大平层全屋五恒</span>
+          <div class="review-content">回南天的痛苦只有南方人懂。装了恒湿之后，柜子里的衣服包包再也没有发霉过！客厅 80 平，温差感觉不到。唯一缺点是初期投入确实不便宜，但用 10 年算下来电费省的钱+健康收益，绝对值。</div>
+          <div class="review-photos">
+            <div class="review-photo case-image-6">📸</div>
+            <div class="review-photo case-image-1">📸</div>
+            <div class="review-photo case-image-3">📸</div>
+          </div>
+        </div>
+        <div class="review-card">
+          <div class="review-head">
+            <div class="review-avatar av-4">陈</div>
+            <div class="review-user">
+              <div class="review-name">陈先生 · 深圳南山</div>
+              <div class="review-meta">实名认证 · 入住 11 个月</div>
+            </div>
+          </div>
+          <div class="review-rating">★★★★★</div>
+          <span class="review-product">学区房五恒</span>
+          <div class="review-content">买之前对比了威能、大金，最后选瑞美主要因为：1）AI 痛点问诊很专业，把我家所有问题都问到了；2）报价透明，每一项都列得清清楚楚；3）施工进度天天微信群同步图片。住进来后空气质量肉眼可见地好。</div>
+        </div>
+        <div class="review-card">
+          <div class="review-head">
+            <div class="review-avatar av-5">周</div>
+            <div class="review-user">
+              <div class="review-name">周女士 · 苏州工业园</div>
+              <div class="review-meta">实名认证 · 入住 6 个月</div>
+            </div>
+          </div>
+          <div class="review-rating">★★★★☆</div>
+          <span class="review-product">联排别墅全屋系统</span>
+          <div class="review-content">体验非常好，恒温恒湿真的不是宣传话术，是真实感受。扣一星是因为前期沟通时报价单有几项后来又微调了，虽然解释得通但希望第一次就能给死价。售后倒是真心快，7×24 IOT 监控，主机有异常自动派工单。</div>
+          <div class="review-photos">
+            <div class="review-photo case-image-5">📸</div>
+            <div class="review-photo case-image-2">📸</div>
+          </div>
+        </div>
+        <div class="review-card">
+          <div class="review-head">
+            <div class="review-avatar av-6">吴</div>
+            <div class="review-user">
+              <div class="review-name">吴先生 · 成都麓湖</div>
+              <div class="review-meta">实名认证 · 入住 1 年</div>
+            </div>
+          </div>
+          <div class="review-rating">★★★★★</div>
+          <span class="review-product">顶跃五恒 + 智能控制</span>
+          <div class="review-content">朋友来家做客都问"你家空调在哪儿？"——根本看不见，全是隐藏式辐射板和地暖。手机一键场景化（睡眠/会客/度假），这才是真正的智能家居。设计师推荐方案时主动告诉我哪些可以省，没有套路。</div>
+          <div class="review-photos">
+            <div class="review-photo case-image-4">📸</div>
+            <div class="review-photo case-image-6">📸</div>
+            <div class="review-photo case-image-2">📸</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== 系统能力 ==================== -->
+  <section class="capabilities" id="capabilities">
+    <div class="container">
+      <div class="section-head">
+        <div class="section-eyebrow">四大核心系统 · 三大品牌矩阵</div>
+        <h2 class="section-title">一套方案，解决你家的所有舒适问题</h2>
+        <p class="section-subtitle">从主流家庭到大宅别墅，每张卡片对应一条品牌产品线 —— AI 痛点问诊先听你家的故事，再给定制方案。</p>
+      </div>
+      <div class="cap-grid">
+        <div class="cap-card cap-card-1">
+          <span class="cap-brand-tag">RHEEM · RUUD</span>
+          <div class="cap-icon cap-icon-1">🌡️</div>
+          <div class="cap-name">瑞诺瓦全屋舒适系统</div>
+          <div class="cap-desc">恒温·恒湿·恒氧·恒洁·恒静，把设备配置、空间设计和交付服务合成一套系统。</div>
+          <ul class="cap-list">
+            <li>全屋温差 ≤2℃，无吹风感</li>
+            <li>湿度 40-60% 智能锁定</li>
+            <li>每小时 1 次全屋换气</li>
+            <li>32dB 静音主机</li>
+            <li>10 年核心部件保修</li>
+          </ul>
+        </div>
+        <div class="cap-card cap-card-2">
+          <span class="cap-brand-tag">RHEEM</span>
+          <div class="cap-icon cap-icon-2">💧</div>
+          <div class="cap-name">瑞美水系统</div>
+          <div class="cap-desc">主流家庭热水+净水+软水套装，喝得放心、洗得舒服。</div>
+          <ul class="cap-list">
+            <li>恒温热水 ±0.5℃</li>
+            <li>多点出水互不影响</li>
+            <li>5 级超滤+RO 反渗透</li>
+            <li>软水保护管道+皮肤</li>
+            <li>美国 Rheem 百年技术</li>
+          </ul>
+        </div>
+        <div class="cap-card cap-card-3">
+          <span class="cap-brand-tag">RUUD</span>
+          <div class="cap-icon cap-icon-3">🌬️</div>
+          <div class="cap-name">瑞德空气系统</div>
+          <div class="cap-desc">空调 + 新风 + 净化，告别雾霾、宠物毛、装修味。</div>
+          <ul class="cap-list">
+            <li>PM2.5 过滤 99%</li>
+            <li>CO₂ 实时监测</li>
+            <li>HEPA H13 医用级滤网</li>
+            <li>TVOC 甲醛分解</li>
+            <li>智能联动新风+空调</li>
+          </ul>
+        </div>
+        <div class="cap-card cap-card-4">
+          <span class="cap-brand-tag">EVERHOT</span>
+          <div class="cap-icon cap-icon-4">🛁</div>
+          <div class="cap-name">恒热墅级中央热水</div>
+          <div class="cap-desc">大宅/别墅专属，中央热水升级版，任意龙头瞬时恒温零等待。</div>
+          <ul class="cap-list">
+            <li>±0.5℃ 全屋恒温精度</li>
+            <li>多点同时出水不打架</li>
+            <li>循环回水·秒到末端</li>
+            <li>软水·净化一体化</li>
+            <li>Everhot 百年中央水血脉</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== 服务承诺 ==================== -->
+  <section class="promise" id="promise">
+    <div class="container">
+      <div class="section-head">
+        <div class="section-eyebrow">放心交给瑞美</div>
+        <h2 class="section-title">从设计到 10 年后，我们都在</h2>
+        <p class="section-subtitle">不只是卖设备，而是一份长期承诺。</p>
+      </div>
+      <div class="promise-grid">
+        <div class="promise-card">
+          <div class="promise-icon">🛡️</div>
+          <div class="promise-title">10 年核心保修</div>
+          <div class="promise-desc">主机、热泵、关键阀件 10 年维保承诺，按合同服务边界执行。</div>
+        </div>
+        <div class="promise-card">
+          <div class="promise-icon">📡</div>
+          <div class="promise-title">7×24 IOT 守护</div>
+          <div class="promise-desc">Econet 远程监控，故障预警自动派工单，平均响应 4 小时。</div>
+        </div>
+        <div class="promise-card">
+          <div class="promise-icon">🎓</div>
+          <div class="promise-title">持证安装团队</div>
+          <div class="promise-desc">全部师傅持瑞美原厂认证证书，5 年以上经验。</div>
+        </div>
+        <div class="promise-card">
+          <div class="promise-icon">💬</div>
+          <div class="promise-title">7 天无理由</div>
+          <div class="promise-desc">主机安装后 7 天内不满意，无条件拆除全额退款。</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== 最终CTA ==================== -->
+  <section class="final-cta">
+    <div class="container">
+      <div style="display:inline-flex;align-items:center;gap:10px;padding:8px 16px;background:rgba(0,102,204,0.08);border-radius:20px;margin-bottom:20px;">
+        <img src="/images/rysnova-logo.jpg" alt="Rysnova" style="height:24px;">
+        <span style="font-size:13px;color:#0066CC;font-weight:700;letter-spacing:0.5px;">瑞诺瓦 · AI 设计问诊</span>
+      </div>
+      <h2>不知道哪种系统适合？<br>让 <em>瑞诺瓦舒适家 AI</em> 先帮你梳理需求</h2>
+      <p>先完成需求问诊，再由设计师结合户型、预算和设备品牌做方案深化。</p>
+      <div class="hero-cta">
+        <a href="/pain-diagnosis.html" class="btn-cta-primary">
+          <span class="rysnova-badge">瑞诺瓦舒适家</span>
+          <span>进入 AI 设计问诊 →</span>
+        </a>
+        <a href="/customer-view.html" class="btn-cta-ghost">📞 预约设计师上门</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== Footer ==================== -->
+  <footer>
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a href="/" class="footer-logo">
+          <img src="/images/rysnova-logo.jpg" alt="Rysnova">
+        </a>
+        <p>瑞合瑞德暖通科技集团旗下瑞诺瓦舒适家系统品牌 —— 以 Rheem · Ruud · Everhot 授权设备品牌构建全屋舒适方案，已服务全国 3,200+ 家庭。</p>
+        <div class="footer-cert">
+          <span>🏆 ISO 9001</span>
+          <span>🛡️ 10年质保</span>
+          <span>📡 IOT 认证</span>
+          <span>🇺🇸 美国原厂</span>
+        </div>
+      </div>
+
+      <div class="footer-col">
+        <h5>产品体系</h5>
+        <ul>
+          <li><a href="#capabilities">瑞诺瓦全屋舒适系统</a></li>
+          <li><a href="#capabilities">瑞美水系统</a></li>
+          <li><a href="#capabilities">瑞德空气系统</a></li>
+          <li><a href="#capabilities">恒热墅级中央热水</a></li>
+          <li><a href="/rysnova-bim-designer.html">Rysnova BIM 设计</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col">
+        <h5>了解我们</h5>
+        <ul>
+          <li><a href="#cases">真实案例</a></li>
+          <li><a href="#reviews">用户口碑</a></li>
+          <li><a href="#promise">服务承诺</a></li>
+          <li><a href="/pain-diagnosis.html">AI 需求问诊</a></li>
+          <li><a href="/customer-view.html">预约设计师上门</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col">
+        <h5>联系方式</h5>
+        <div class="footer-contact-item"><span class="fc-ico">📞</span><span>400-888-XXXX<br><small style="opacity:0.6">7×24 小时客服</small></span></div>
+        <div class="footer-contact-item"><span class="fc-ico">💬</span><span>微信公众号<br><small style="opacity:0.6">瑞诺瓦舒适家</small></span></div>
+        <div class="footer-contact-item"><span class="fc-ico">📍</span><span>全国 60+ 城市<br><small style="opacity:0.6">线下体验中心</small></span></div>
+        <div class="footer-contact-item"><span class="fc-ico">👤</span><span><a href="/staff-portal.html" style="color:rgba(255,255,255,0.7);text-decoration:underline">员工 / 经销商入口</a></span></div>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <div>© 2026 瑞合瑞德暖通科技集团 · 瑞诺瓦舒适家系统品牌
+        <!-- P2-3 · §0.1：技术来源署名（赋能线认可署名，指向真实技术子公司，兼实力佐证） -->
+        <span class="powered-by-rysnova" title="瑞诺瓦 · 瑞合瑞德集团技术子公司 · verified 精算引擎驱动" style="margin-left:14px;opacity:0.72;letter-spacing:0.04em">Powered by Rysnova</span>
+      </div>
+      <div class="footer-bottom-links">
+        <a href="#">隐私政策</a>
+        <a href="#">用户协议</a>
+        <a href="#">服务条款</a>
+        <a href="#">蜀ICP备 XXXXXX 号</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ==================== 视频模态框 ==================== -->
+  <div class="video-modal" id="videoModal" role="dialog" aria-modal="true" aria-labelledby="videoModalTitle" onclick="if(event.target===this)closeVideo()">
+    <div class="video-modal-content">
+      <div class="video-modal-header">
+        <h3 id="videoModalTitle">视频介绍</h3>
+        <button type="button" class="video-modal-close" onclick="closeVideo()" aria-label="关闭">×</button>
+      </div>
+      <div id="videoModalBody"></div>
+    </div>
+  </div>
+
+  <!-- ==================== 集团介绍模态框 ==================== -->
+  <div class="video-modal" id="groupModal" role="dialog" aria-modal="true" onclick="if(event.target===this)closeGroup()">
+    <div class="video-modal-content group-modal-content">
+      <div class="group-modal-hero">
+        <button type="button" class="video-modal-close" onclick="closeGroup()" aria-label="关闭">×</button>
+        <span class="gm-eyebrow">RHAUTT GROUP</span>
+        <h2 class="gm-title">瑞合瑞德集团</h2>
+        <p class="gm-tagline">Rheem · Ruud · Everhot 三大百年品牌中国授权运营方</p>
+        <div class="gm-stats">
+          <div><strong>3,200+</strong><span>已交付家庭</span></div>
+          <div><strong>60+</strong><span>覆盖城市</span></div>
+          <div><strong>20年</strong><span>中国深耕</span></div>
+          <div><strong>3</strong><span>国际品牌</span></div>
+        </div>
+      </div>
+      <div class="group-modal-tabs" id="groupTabs">
+        <button type="button" class="gm-tab active" data-tab="intro">集团介绍</button>
+        <button type="button" class="gm-tab" data-tab="brands">品牌矩阵</button>
+        <button type="button" class="gm-tab" data-tab="network">全国布局</button>
+        <button type="button" class="gm-tab" data-tab="certs">资质荣誉</button>
+        <button type="button" class="gm-tab" data-tab="careers">加入我们</button>
+        <button type="button" class="gm-tab" data-tab="contact">联系我们</button>
+      </div>
+      <div class="group-modal-body" id="groupBody"></div>
+    </div>
+  </div>
+
+  <style>
+    .group-modal-content { max-width: 820px; background: white; }
+    .group-modal-hero {
+      position: relative; padding: 48px 40px 36px;
+      background:
+        radial-gradient(ellipse at 80% 20%, rgba(228,0,43,0.25) 0%, transparent 50%),
+        radial-gradient(ellipse at 20% 80%, rgba(0,102,204,0.20) 0%, transparent 50%),
+        linear-gradient(135deg, #18181b 0%, #2a1518 100%);
+      color: white;
+    }
+    .group-modal-hero .gm-eyebrow {
+      font-size: 11px; font-weight: 700; letter-spacing: 4px; color: var(--gold-light);
+    }
+    .group-modal-hero .gm-title {
+      font-size: 36px; font-weight: 900; margin: 8px 0 6px; letter-spacing: -0.5px;
+    }
+    .group-modal-hero .gm-tagline {
+      font-size: 14px; opacity: 0.85; margin-bottom: 24px;
+    }
+    .gm-stats {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+      padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.15);
+    }
+    .gm-stats > div { display: flex; flex-direction: column; }
+    .gm-stats strong {
+      font-size: 22px; font-weight: 800; color: var(--gold-light);
+    }
+    .gm-stats span { font-size: 11px; opacity: 0.7; margin-top: 2px; }
+    .group-modal-tabs {
+      display: flex; gap: 4px; padding: 16px 24px 0; overflow-x: auto;
+      border-bottom: 1px solid var(--gray-200); background: var(--gray-50);
+    }
+    .gm-tab {
+      padding: 12px 16px; background: none; border: none; cursor: pointer;
+      font-size: 13px; font-weight: 600; color: var(--text-secondary);
+      border-bottom: 2px solid transparent; white-space: nowrap;
+      font-family: inherit; transition: all 0.2s;
+    }
+    .gm-tab:hover { color: var(--rheem-red); }
+    .gm-tab.active { color: var(--rheem-red); border-bottom-color: var(--rheem-red); }
+    .group-modal-body { padding: 28px 40px 36px; max-height: 50vh; overflow-y: auto; }
+    .group-modal-body h4 { font-size: 16px; font-weight: 800; color: var(--text-primary); margin-bottom: 12px; }
+    .group-modal-body p { font-size: 14px; color: var(--text-secondary); line-height: 1.85; margin-bottom: 16px; }
+    .gm-card-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 18px; }
+    .gm-card {
+      padding: 14px 16px; background: var(--gray-50); border-radius: var(--radius-md);
+      border-left: 3px solid var(--rheem-red);
+    }
+    .gm-card strong { display: block; font-size: 14px; color: var(--text-primary); margin-bottom: 4px; }
+    .gm-card span { font-size: 12px; color: var(--text-muted); }
+    .gm-cert-list, .gm-city-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
+    .gm-cert-list span, .gm-city-list span {
+      padding: 5px 12px; background: var(--gray-100); border-radius: var(--radius-full);
+      font-size: 12px; color: var(--text-secondary); font-weight: 500;
+    }
+    .gm-cert-list span::before { content: '🏆 '; }
+
+    @media (max-width: 968px) {
+      .gm-stats { grid-template-columns: repeat(2, 1fr); }
+      .gm-card-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+
+  <!-- ==================== 品牌详情模态框 ==================== -->
+  <div class="video-modal" id="brandModal" role="dialog" aria-modal="true" onclick="if(event.target===this)closeBrand()">
+    <div class="video-modal-content brand-modal-content">
+      <div class="brand-modal-hero" id="brandModalHero">
+        <button type="button" class="video-modal-close" onclick="closeBrand()" aria-label="关闭" style="position:absolute;top:16px;right:16px;">×</button>
+      </div>
+      <div class="brand-modal-body" id="brandModalBody"></div>
+    </div>
+  </div>
+
+  <style>
+    .brand-modal-content { max-width: 720px; background: white; }
+    .brand-modal-hero {
+      position: relative; padding: 40px 32px 28px; color: white;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .brand-modal-hero .bm-name { font-size: 36px; font-weight: 900; letter-spacing: -0.5px; }
+    .brand-modal-hero .bm-since { font-size: 12px; font-weight: 700; letter-spacing: 3px; opacity: 0.85; }
+    .brand-modal-hero .bm-tagline { font-size: 16px; font-weight: 600; opacity: 0.95; margin-top: 4px; }
+    .brand-modal-body { padding: 28px 32px 32px; color: var(--text-primary); }
+    .brand-modal-body h4 { font-size: 14px; font-weight: 700; color: var(--text-muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; }
+    .brand-modal-body p { font-size: 14px; color: var(--text-secondary); line-height: 1.8; margin-bottom: 18px; }
+    .bm-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 22px; padding: 16px; background: #fafafa; border-radius: 12px; }
+    .bm-stat { text-align: center; }
+    .bm-stat-num { font-size: 22px; font-weight: 800; color: var(--bm-color, var(--rheem-color-red)); }
+    .bm-stat-label { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .bm-products { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+    .bm-product {
+      padding: 5px 12px; background: var(--bm-bg, rgba(228,0,43,0.08));
+      color: var(--bm-color, var(--rheem-color-red)); border-radius: 12px; font-size: 12px; font-weight: 600;
+    }
+    .bm-cta {
+      display: inline-block; padding: 12px 28px; background: var(--bm-color, var(--rheem-color-red));
+      color: white; border-radius: 24px; font-size: 14px; font-weight: 700; text-decoration: none;
+      margin-right: 8px;
+    }
+    .bm-cta-ghost {
+      display: inline-block; padding: 12px 24px; background: white;
+      color: var(--bm-color, var(--rheem-color-red)); border: 1px solid var(--bm-color, var(--rheem-color-red));
+      border-radius: 24px; font-size: 14px; font-weight: 600; text-decoration: none;
+    }
+  </style>
+
+  <script>
+    // ===== 视频源配置（key → {src, poster}）=====
+    // 当前提供 1 个产品介绍占位视频；其它案例回退为"视频上线中"占位（保留商务承诺感）
+    const VIDEO_SOURCES = {
+      hero: {
+        // Big Buck Bunny CC0 演示流（可换成自有 CDN 视频）
+        src: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4',
+        poster: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1200&q=80&auto=format&fit=crop'
+      }
+      // 其它案例视频上线后在此补 src，即可自动生效
+    };
+    const PLACEHOLDER_POSTERS = {
+      case1: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1200&q=80&auto=format&fit=crop',
+      case2: 'https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=1200&q=80&auto=format&fit=crop',
+      case3: 'https://images.unsplash.com/photo-1502672023488-70e25813eb80?w=1200&q=80&auto=format&fit=crop',
+      case4: 'https://images.unsplash.com/photo-1565182999561-18d7dc61c393?w=1200&q=80&auto=format&fit=crop',
+      case5: 'https://images.unsplash.com/photo-1600210492493-0946911123ea?w=1200&q=80&auto=format&fit=crop',
+      case6: 'https://images.unsplash.com/photo-1567767292278-a4f21aa2d36e?w=1200&q=80&auto=format&fit=crop'
+    };
+
+    function openVideo(key, title) {
+      const modal = document.getElementById('videoModal');
+      const body  = document.getElementById('videoModalBody');
+      document.getElementById('videoModalTitle').textContent = title || '视频介绍';
+      const v = VIDEO_SOURCES[key];
+      if (v) {
+        body.innerHTML = `<video controls autoplay poster="${v.poster}" preload="metadata">
+            <source src="${v.src}" type="video/mp4">您的浏览器不支持视频播放
+          </video>`;
+      } else {
+        const poster = PLACEHOLDER_POSTERS[key] || '';
+        body.innerHTML = `<div class="video-placeholder" style="background-image:linear-gradient(rgba(0,0,0,0.6),rgba(0,0,0,0.7)),url('${poster}')">
+            <div class="video-placeholder-icon">🎬</div>
+            <div class="video-placeholder-msg">该案例视频正在剪辑中，预计 7 天内上线</div>
+            <div class="video-placeholder-sub">想看更多此户型/系统的施工实拍？预约设计师上门，我们将赠送同户型业主访谈完整版（约 8 分钟）。</div>
+            <a href="/customer-view.html" class="video-placeholder-cta">📞 预约获得完整视频</a>
+          </div>`;
+      }
+      modal.classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+    function closeVideo() {
+      const modal = document.getElementById('videoModal');
+      modal.classList.remove('active');
+      document.getElementById('videoModalBody').innerHTML = '';  // 停止播放
+      document.body.style.overflow = '';
+    }
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeVideo(); closeBrand(); closeGroup(); } });
+
+    // ===== 三大品牌详情 =====
+    const BRANDS = {
+      rhautt: {
+        color: '#1B365D', bgGrad: 'linear-gradient(135deg,#2C4A7C 0%,#0F2240 100%)',
+        name: 'Rhautt Comfort Group', since: '集团品牌',
+        tagline: '瑞合瑞德暖通科技集团',
+        story: '瑞合瑞德暖通科技集团（Rhautt Comfort Group）是 Rheem、Ruud 品牌在华授权运营主体，同时孵化 Everhot、瑞诺瓦、Lithnova 等自主品牌。集团以"舒适家"为核心战略，覆盖全屋热水、采暖、空气、水质与新能源储能五大系统，旗下业务横跨品牌运营、AI 设计平台与新能源设备。',
+        stats: [['5大系统','全屋舒适覆盖'],['5个品牌','集团品牌矩阵'],['3,200+','已服务家庭']],
+        products: ['品牌授权运营','AI 设计平台','新能源储能','全屋舒适解决方案'],
+        site: 'https://rhautt.com',
+        localSite: '/'
+      },
+      rheem: {
+        color: '#E4002B', bgGrad: 'linear-gradient(135deg,#E63946 0%,#9d0e26 100%)',
+        name: 'Rheem Water', since: '授权水系统设备品牌', tagline: '美国百年热水专家',
+        story: 'Rheem 由 Richard 与 Donald Rheem 兄弟于 1925 年在美国加州创立，至今已 100 年。作为全球热水器与暖通领域的领导品牌之一，Rheem 在 13 个国家设有研发与制造基地，年产能超过 700 万台，覆盖全球 70+ 国家与地区的家庭与商用市场。',
+        stats: [['100年','全球技术沉淀'],['70+','服务国家'],['700万','年产能'] ],
+        products: ['热水器','空气能热泵','商用热水','智能控制'],
+        site: 'https://www.rheem.com',
+        localSite: '/rheem-cn/index.html'
+      },
+      ruud: {
+        color: '#E4002B', bgGrad: 'linear-gradient(135deg,#FF1744 0%,#B0001E 100%)',
+        name: 'Ruud Air', since: 'SINCE 1889', tagline: '全球热水器发明者',
+        story: '挪威裔工程师 Edwin Ruud 于 1889 年在美国匹兹堡发明了全球第一台自动燃气热水器，因此被誉为"现代热水器之父"。Ruud 品牌承袭这份发明者基因，以工程师文化驱动产品迭代，在北美专业暖通市场占有率长期位列前三，是工程领域指定品牌。',
+        stats: [['136年','发明者血脉'],['全球首创','自动燃气热水器'],['Top 3','北美专业市场']],
+        products: ['空调','新风系统','热水器','商用暖通'],
+        site: 'https://www.ruud.com',
+        localSite: '/ruud-cn/index.html'
+      },
+      everhot: {
+        color: '#B8860B', bgGrad: 'linear-gradient(135deg,#D4A945 0%,#8C6510 100%)',
+        name: 'Everhot', since: '百年传承 · For Ever Love',
+        tagline: '中央水系统 · 为爱恒热',
+        story: 'Everhot 源自欧洲百年中央热水技术血脉，专注大户型/别墅级中央水系统，以"为爱恒热（Ever Hot for Love）"为品牌哲学。提供从中央热水、循环回水、软水净化到地暖一体化的高端解决方案，让大宅型家庭在任意龙头瞬时获得 ±0.5℃ 的恒温热水。',
+        stats: [['±0.5℃','恒温精度'],['零等待','即开即热'],['10年','整机保修']],
+        products: ['中央热水主机','循环回水系统','软水净化','地暖一体化'],
+        site: 'https://rheem-everhot.com/',
+        localSite: '/everhot-cn/index.html'
+      },
+      rysnova: {
+        color: '#0066CC', bgGrad: 'linear-gradient(135deg,#3399FF 0%,#004C99 100%)',
+        name: '瑞诺瓦舒适家', since: '自主平台品牌',
+        tagline: '全屋舒适 AI 设计问诊',
+        story: '瑞诺瓦（Rysnova）是瑞合瑞德集团自主孵化的智能服务平台品牌，以中立第三方工具身份面向 C 端业主。通过 AI 问诊引擎，将热水、采暖、空气、水质与智能控制五大系统需求精准转化为可执行方案，已服务全国 3,200+ 家庭，是集团面向消费者的核心数字入口。',
+        stats: [['3,200+','已服务家庭'],['5大系统','一站配置'],['AI驱动','精准方案匹配']],
+        products: ['AI 设计问诊','五恒方案精算','BIM 暖通设计','在线报价系统'],
+        site: 'https://rysnova.com.cn',
+        localSite: '/pain-diagnosis.html'
+      },
+      lithnova: {
+        color: '#0A7C4A', bgGrad: 'linear-gradient(135deg,#2ECC71 0%,#075C36 100%)',
+        name: 'Lithnova 瓦瑞储能', since: '自主设备品牌 · 新能源',
+        tagline: '新能源储能系统专家',
+        story: 'Lithnova 是瑞合瑞德集团孵化的独立新能源储能设备品牌，聚焦家用与商用储能产品系列。以"稳储·善能·智联"为品牌方向，为全屋舒适系统提供绿色能源保障，覆盖光储一体、备用电源、峰谷套利等场景，与 Everhot、Rheem 水暖设备形成低碳舒适生态闭环。',
+        stats: [['零碳目标','绿色储能'],['光储一体','全场景覆盖'],['智联生态','与暖通协同']],
+        products: ['家用储能系统','商用储能柜','光储一体方案','智能能源管理'],
+        site: 'https://lithnova.com.cn',
+        localSite: '/lithnova-cn/index.html'
+      }
+    };
+
+    function openBrand(key) {
+      const b = BRANDS[key]; if (!b) return;
+      const modal = document.getElementById('brandModal');
+      const hero = document.getElementById('brandModalHero');
+      const body = document.getElementById('brandModalBody');
+      hero.style.background = b.bgGrad;
+      hero.innerHTML = `
+        <button type="button" class="video-modal-close" onclick="closeBrand()" aria-label="关闭" style="position:absolute;top:16px;right:16px;">×</button>
+        <span class="bm-since">${b.since}</span>
+        <span class="bm-name">${b.name}</span>
+        <span class="bm-tagline">${b.tagline}</span>`;
+      body.style.setProperty('--bm-color', b.color);
+      body.style.setProperty('--bm-bg', b.color + '1a');
+      body.innerHTML = `
+        <h4>品牌故事</h4>
+        <p>${b.story}</p>
+        <div class="bm-stats">
+          ${b.stats.map(([n,l])=>`<div class="bm-stat"><div class="bm-stat-num" style="color:${b.color}">${n}</div><div class="bm-stat-label">${l}</div></div>`).join('')}
+        </div>
+        <h4>核心产品线</h4>
+        <div class="bm-products">${b.products.map(p=>`<span class="bm-product" style="background:${b.color}1a;color:${b.color}">${p}</span>`).join('')}</div>
+        <a href="/pain-diagnosis.html" class="bm-cta" style="background:${b.color}">进入 AI 问诊配置 ${b.name} 方案</a>
+        <a href="${b.localSite}" class="bm-cta-ghost" style="color:${b.color};border-color:${b.color}">进入 ${b.name} 中国独立品牌站</a>
+        <a href="${b.site}" target="_blank" rel="noopener" class="bm-cta-ghost" style="color:${b.color};border-color:${b.color}">访问全球品牌官网 ↗</a>`;
+      modal.classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+    function closeBrand() {
+      document.getElementById('brandModal').classList.remove('active');
+      document.body.style.overflow = '';
+    }
+
+    // ===== 顶栏滚动收缩 =====
+    (function initTopbarShrink() {
+      const bar = document.querySelector('.topbar');
+      if (!bar) return;
+      const THRESHOLD = 40;
+      let ticking = false;
+      const onScroll = () => {
+        if (ticking) return;
+        ticking = true;
+        requestAnimationFrame(() => {
+          bar.classList.toggle('is-scrolled', window.scrollY > THRESHOLD);
+          ticking = false;
+        });
+      };
+      window.addEventListener('scroll', onScroll, { passive: true });
+      onScroll();
+    })();
+
+    // ===== 关于瑞合瑞德集团 =====
+    const GROUP_TABS = {
+      intro: () => `
+        <h4>关于瑞合瑞德集团 RHAUTT GROUP</h4>
+        <p>瑞合瑞德集团是暖通科技集团，前身为美国 Rheem 集团在华全资子公司，目前独家授权运营 Rheem、Ruud、Everhot 等设备品牌。集团旗下"瑞诺瓦舒适家"是面向终端家庭的系统品牌，融合授权设备品牌的产品矩阵，提供从舒适设计、产品供应到安装维保的全链路服务。</p>
+        <p>20 年中国深耕，3,200+ 家庭交付，60+ 城市覆盖，集团坚信"<strong>每一口呼吸，都是家的享受</strong>"——把全屋温度、湿度、空气、水质、声音都做到极致。</p>
+        <div class="gm-card-grid">
+          <div class="gm-card"><strong>🏛 集团总部</strong><span>四川成都 · 西部暖通产业核心枢纽</span></div>
+          <div class="gm-card"><strong>👥 团队规模</strong><span>1,200+ 员工 · 380+ 认证设计师</span></div>
+          <div class="gm-card"><strong>🏭 生产基地</strong><span>对接美国/欧洲 13 国工厂</span></div>
+          <div class="gm-card"><strong>📡 IOT 平台</strong><span>Econet 自研 · 24/7 远程监控</span></div>
+        </div>`,
+      brands: () => `
+        <h4>三大授权品牌矩阵</h4>
+        <p>每个品牌深耕一个细分领域，组合起来构成"<strong>覆盖全屋舒适所有维度</strong>"的产品体系。</p>
+        <div class="gm-card-grid">
+          <div class="gm-card" style="border-left-color:var(--rheem-color-red)"><strong>🔴 Rheem 瑞美</strong><span>美国百年热水专家 · 主流家庭热水/净水/软水</span></div>
+          <div class="gm-card" style="border-left-color:var(--rheem-color-red)"><strong>🟥 Ruud</strong><span>全球热水器发明者 · 五恒空调/新风/净化</span></div>
+          <div class="gm-card" style="border-left-color:#B8860B"><strong>🟡 Everhot 恒热 (百年传承)</strong><span>大宅级中央水系统 · 为爱恒热</span></div>
+          <div class="gm-card" style="border-left-color:#0066CC"><strong>🔵 瑞诺瓦（系统品牌）</strong><span>瑞诺瓦舒适家 · AI 问诊 · 全屋舒适系统方案</span></div>
+        </div>
+        <p style="font-size:13px;color:var(--text-muted)">点击 hero 区品牌门牌卡可查看每个品牌的详细故事与产品线。</p>`,
+      network: () => `
+        <h4>全国布局 · 60+ 城市直营网络</h4>
+        <p>集团总部位于四川成都，以西南为大本营向全国辐射：在全国 60+ 城市拥有<strong>直营体验中心 + 授权服务网点</strong>双层网络。一线城市直营覆盖率 100%，新一线城市 90%，重点二线城市 80%。所有直营店统一执行集团技术标准 + 服务 SLA。</p>
+        <h4 style="margin-top:18px">已覆盖城市</h4>
+        <div class="gm-city-list">
+          <span>📍 北京</span><span>📍 上海</span><span>📍 广州</span><span>📍 深圳</span>
+          <span>📍 杭州</span><span>📍 苏州</span><span>📍 南京</span><span>📍 成都</span>
+          <span>📍 重庆</span><span>📍 武汉</span><span>📍 长沙</span><span>📍 西安</span>
+          <span>📍 青岛</span><span>📍 厦门</span><span>📍 宁波</span><span>📍 天津</span>
+          <span>📍 ...另 44 城</span>
+        </div>`,
+      certs: () => `
+        <h4>资质荣誉</h4>
+        <p>集团及旗下三大品牌持有完整的产品认证、质量体系认证、行业荣誉，是大型工程项目的指定供应商。</p>
+        <div class="gm-cert-list">
+          <span>ISO 9001 质量管理体系</span>
+          <span>ISO 14001 环境管理体系</span>
+          <span>ISO 45001 职业健康安全</span>
+          <span>3C 强制认证</span>
+          <span>美国 AHRI 认证</span>
+          <span>能效一级 A++</span>
+          <span>HEPA H13 医用级</span>
+          <span>10 年整机质保</span>
+          <span>中国质量协会会员</span>
+          <span>国家高新技术企业</span>
+        </div>
+        <h4 style="margin-top:18px">行业荣誉</h4>
+        <p>2023 - 2025 连续三年荣获"中国舒适家居行业领军品牌"、"消费者最信赖暖通品牌 TOP 5"、"年度卓越服务商"。</p>`,
+      careers: () => `
+        <h4>加入瑞合瑞德</h4>
+        <p>我们正在招募对舒适生活有热情的伙伴，与三大百年品牌一同成长。</p>
+        <div class="gm-card-grid">
+          <div class="gm-card" style="border-left-color:#0066CC"><strong>🎨 暖通设计师</strong><span>负荷计算 / 3D 渲染 / Rysnova BIM 出图</span></div>
+          <div class="gm-card" style="border-left-color:#0066CC"><strong>📊 销售顾问</strong><span>痛点问诊 / 方案沟通 / 客户陪伴</span></div>
+          <div class="gm-card" style="border-left-color:#0066CC"><strong>🔧 技术工程师</strong><span>安装督导 / 调试验收 / 售后维保</span></div>
+          <div class="gm-card" style="border-left-color:#0066CC"><strong>💻 数字化产品</strong><span>AI / IOT / SaaS 平台研发</span></div>
+        </div>
+        <p>简历投递：<strong>hr@rhautt-group.com</strong> · 电话 400-888-XXXX 转 6</p>`,
+      contact: () => `
+        <h4>联系瑞合瑞德</h4>
+        <div class="gm-card-grid">
+          <div class="gm-card"><strong>📞 全国客服</strong><span>400-888-XXXX (7×24)</span></div>
+          <div class="gm-card"><strong>📧 商务合作</strong><span>partner@rhautt-group.com</span></div>
+          <div class="gm-card"><strong>🤝 经销加盟</strong><span>franchise@rhautt-group.com</span></div>
+          <div class="gm-card"><strong>📰 媒体联络</strong><span>pr@rhautt-group.com</span></div>
+          <div class="gm-card"><strong>🏛 集团总部</strong><span>四川省成都市高新区天府软件园 XX 大厦</span></div>
+          <div class="gm-card"><strong>💬 微信公众号</strong><span>瑞诺瓦舒适家</span></div>
+        </div>
+        <p style="font-size:13px;color:var(--text-muted)">需要 1 对 1 设计咨询？建议预约设计师上门，完成问诊、方案和现场勘测衔接。</p>`
+    };
+
+    function openGroupAbout(tab) {
+      const modal = document.getElementById('groupModal');
+      const tabs  = document.querySelectorAll('#groupTabs .gm-tab');
+      tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+      document.getElementById('groupBody').innerHTML = (GROUP_TABS[tab] || GROUP_TABS.intro)();
+      modal.classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+    function closeGroup() {
+      document.getElementById('groupModal').classList.remove('active');
+      document.body.style.overflow = '';
+    }
+    document.querySelectorAll('#groupTabs .gm-tab').forEach(t => {
+      t.addEventListener('click', () => openGroupAbout(t.dataset.tab));
+    });
+
+    // ===== 滚动渐入动画（IntersectionObserver） =====
+    (function initScrollReveal() {
+      // 自动给关键区块的子卡片打上 .reveal 类
+      const targets = [
+        ...document.querySelectorAll('.pain-card'),
+        ...document.querySelectorAll('.case-card'),
+        ...document.querySelectorAll('.review-card'),
+        ...document.querySelectorAll('.cap-card'),
+        ...document.querySelectorAll('.promise-card'),
+        ...document.querySelectorAll('.section-head'),
+      ];
+      targets.forEach((el, i) => {
+        el.classList.add('reveal');
+        el.style.transitionDelay = (i % 6) * 60 + 'ms';
+      });
+      if (!('IntersectionObserver' in window)) {
+        targets.forEach(el => el.classList.add('in'));
+        return;
+      }
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            e.target.classList.add('in');
+            io.unobserve(e.target);
+          }
+        });
+      }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+      targets.forEach(el => io.observe(el));
+    })();
+
+    // ===== 数字计数动画 =====
+    (function initCountUp() {
+      const els = document.querySelectorAll('.trust-num, .review-stat-num');
+      if (!els.length || !('IntersectionObserver' in window)) return;
+      const animate = (el) => {
+        const text = el.textContent.trim();
+        const match = text.match(/^([\d.,]+)(.*)$/);
+        if (!match) return;
+        const target = parseFloat(match[1].replace(/,/g, ''));
+        const suffix = match[2];
+        const isFloat = match[1].includes('.');
+        const duration = 1400;
+        const start = performance.now();
+        const startVal = 0;
+        const tick = (now) => {
+          const p = Math.min((now - start) / duration, 1);
+          const eased = 1 - Math.pow(1 - p, 3);  // easeOutCubic
+          const v = startVal + (target - startVal) * eased;
+          const display = isFloat ? v.toFixed(1) : Math.round(v).toLocaleString();
+          el.textContent = display + suffix;
+          if (p < 1) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      };
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          if (e.isIntersecting) { animate(e.target); io.unobserve(e.target); }
+        });
+      }, { threshold: 0.5 });
+      els.forEach(el => io.observe(el));
+    })();
+
+    // ===== Hero 5 大系统轮播 =====
+    (function initHeroCarousel() {
+      const slides = document.querySelectorAll('.hero-slide');
+      const dots   = document.querySelectorAll('#heroDots .dot');
+      if (!slides.length) return;
+      let cur = 0, timer;
+      const SLIDE_MS = 4500;
+      function show(i) {
+        cur = (i + slides.length) % slides.length;
+        slides.forEach((s, idx) => s.classList.toggle('active', idx === cur));
+        dots.forEach((d, idx)   => d.classList.toggle('active', idx === cur));
+      }
+      function start() { stop(); timer = setInterval(() => show(cur + 1), SLIDE_MS); }
+      function stop()  { if (timer) clearInterval(timer); }
+      dots.forEach((d, idx) => d.addEventListener('click', () => { show(idx); start(); }));
+      // 鼠标悬停暂停
+      const carousel = document.getElementById('heroCarousel');
+      if (carousel) {
+        carousel.addEventListener('mouseenter', stop);
+        carousel.addEventListener('mouseleave', start);
+      }
+      start();
+    })();
+
+    // ===== 案例三维筛选（户型 × 系统 × 品牌） =====
+    (function initCaseFilter() {
+      const groups = document.querySelectorAll('.case-filter-pills');
+      if (!groups.length) return;
+      const grid = document.getElementById('case-grid');
+      const cards = grid.querySelectorAll('.case-card');
+      const meta = document.getElementById('caseResultMeta');
+      const total = cards.length;
+      const state = { size: 'all', system: 'all', brand: 'all' };
+
+      // 空结果占位
+      let emptyEl = document.createElement('div');
+      emptyEl.className = 'case-empty';
+      emptyEl.innerHTML = '<div class="case-empty-ico">🔍</div>没有匹配当前筛选的案例。<br><small>试着放宽某一个维度，或重置筛选。</small>';
+      emptyEl.style.display = 'none';
+      grid.appendChild(emptyEl);
+
+      const tagMatch = (cardAttr, filterValue) => {
+        if (filterValue === 'all') return true;
+        if (!cardAttr) return false;
+        return cardAttr.split(/\s+/).includes(filterValue);
+      };
+
+      const apply = () => {
+        let visible = 0;
+        cards.forEach(card => {
+          const ok =
+            (state.size === 'all' || card.dataset.size === state.size) &&
+            tagMatch(card.dataset.systems, state.system) &&
+            tagMatch(card.dataset.brands, state.brand);
+          card.style.display = ok ? '' : 'none';
+          if (ok) visible++;
+        });
+        emptyEl.style.display = visible === 0 ? 'block' : 'none';
+        if (meta) {
+          if (visible === total) {
+            meta.innerHTML = `显示全部 <strong>${total}</strong> 个案例`;
+          } else {
+            meta.innerHTML = `已筛选出 <strong>${visible}</strong> / ${total} 个案例`;
+          }
+        }
+      };
+
+      groups.forEach(group => {
+        const groupName = group.dataset.group;
+        group.addEventListener('click', (e) => {
+          const btn = e.target.closest('.case-tab');
+          if (!btn) return;
+          group.querySelectorAll('.case-tab').forEach(t => t.classList.remove('active'));
+          btn.classList.add('active');
+          state[groupName] = btn.dataset.value;
+          apply();
+        });
+      });
+
+      apply();
+    })();
+
+    // 平滑滚动到锚点
+    document.querySelectorAll('a[href^="#"]').forEach(link => {
+      link.addEventListener('click', (e) => {
+        const target = document.querySelector(link.getAttribute('href'));
+        if (target) {
+          e.preventDefault();
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
+  </script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then(r => console.log('[PWA] SW registered, scope:', r.scope))
+          .catch(e => console.warn('[PWA] SW registration failed:', e));
+      });
+    }
+  </script>
+</body>
+</html>

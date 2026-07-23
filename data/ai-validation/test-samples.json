@@ -1,0 +1,3188 @@
+[
+  {
+    "id": "d7d70c46-4ab9-49e2-9c84-81e853eea0b0",
+    "index": 1,
+    "houseType": "villa",
+    "area": 174,
+    "floors": 3,
+    "bathrooms": 3,
+    "hasWestExposure": false,
+    "hasBasement": false,
+    "hasChildren": true,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.967Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "736bc221-c130-48ba-ac7e-2febd666588f",
+    "index": 2,
+    "houseType": "duplex",
+    "area": 200,
+    "floors": 4,
+    "bathrooms": 1,
+    "hasWestExposure": true,
+    "hasBasement": true,
+    "hasChildren": false,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.967Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "65e32368-ab64-4dc7-9017-1a9e1fdf7aba",
+    "index": 3,
+    "houseType": "townhouse",
+    "area": 166,
+    "floors": 1,
+    "bathrooms": 1,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [
+        "tag_01"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.967Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "bd858f71-5273-4a7f-87a6-21902fccb254",
+    "index": 4,
+    "houseType": "duplex",
+    "area": 228,
+    "floors": 2,
+    "bathrooms": 1,
+    "hasWestExposure": false,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [
+        "tag_02"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.967Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "6c19eab9-eb8e-4503-a03e-46153e5a7ef5",
+    "index": 5,
+    "houseType": "villa",
+    "area": 197,
+    "floors": 2,
+    "bathrooms": 2,
+    "hasWestExposure": true,
+    "hasBasement": true,
+    "hasChildren": false,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [
+        "tag_11"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.967Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "d19ae016-5045-4335-a711-bf63d9f6464b",
+    "index": 6,
+    "houseType": "apartment",
+    "area": 162,
+    "floors": 5,
+    "bathrooms": 3,
+    "hasWestExposure": false,
+    "hasBasement": false,
+    "hasChildren": true,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [
+        "tag_01",
+        "tag_12"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.967Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "c6b61e17-b0ea-40f6-bdb1-0a04c13b1d11",
+    "index": 7,
+    "houseType": "duplex",
+    "area": 75,
+    "floors": 4,
+    "bathrooms": 2,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": true,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [
+        "tag_22"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.967Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "80e22faf-37f0-4b2d-8cc7-1c3d1d925c3e",
+    "index": 8,
+    "houseType": "duplex",
+    "area": 183,
+    "floors": 5,
+    "bathrooms": 2,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [
+        "tag_02",
+        "tag_33"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.967Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "0fa9cd24-063e-4015-ba0a-a588414a51b7",
+    "index": 9,
+    "houseType": "duplex",
+    "area": 79,
+    "floors": 1,
+    "bathrooms": 1,
+    "hasWestExposure": true,
+    "hasBasement": true,
+    "hasChildren": false,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [
+        "tag_01"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "8c85b1b0-6d57-405b-80e4-5dc3f7bbba0c",
+    "index": 10,
+    "houseType": "duplex",
+    "area": 74,
+    "floors": 1,
+    "bathrooms": 3,
+    "hasWestExposure": false,
+    "hasBasement": false,
+    "hasChildren": true,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [
+        "tag_11"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "44c1954e-ae35-4a09-ac81-19ac45f2612b",
+    "index": 11,
+    "houseType": "villa",
+    "area": 229,
+    "floors": 4,
+    "bathrooms": 3,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "ae20a7ca-93a3-4258-8658-33b302bc1e3f",
+    "index": 12,
+    "houseType": "duplex",
+    "area": 254,
+    "floors": 3,
+    "bathrooms": 3,
+    "hasWestExposure": false,
+    "hasBasement": true,
+    "hasChildren": true,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [
+        "tag_01",
+        "tag_02",
+        "tag_12"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "5eb8eb84-457e-4a1e-9b0a-64b016fbf827",
+    "index": 13,
+    "houseType": "villa",
+    "area": 97,
+    "floors": 5,
+    "bathrooms": 1,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "f7e550f1-adc6-40fa-b76a-cf35920b69e2",
+    "index": 14,
+    "houseType": "apartment",
+    "area": 60,
+    "floors": 1,
+    "bathrooms": 3,
+    "hasWestExposure": false,
+    "hasBasement": true,
+    "hasChildren": true,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [
+        "tag_22"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "0c56f6f3-1cbf-4c48-9137-6e535bf2f6a4",
+    "index": 15,
+    "houseType": "townhouse",
+    "area": 212,
+    "floors": 1,
+    "bathrooms": 2,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": true,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [
+        "tag_01",
+        "tag_11"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "4c5c4dfe-18c3-450c-8c02-99e7c973a960",
+    "index": 16,
+    "houseType": "apartment",
+    "area": 159,
+    "floors": 4,
+    "bathrooms": 2,
+    "hasWestExposure": false,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [
+        "tag_02",
+        "tag_33"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "8c796339-5cd7-451a-b3a7-b52eebe0f3e9",
+    "index": 17,
+    "houseType": "apartment",
+    "area": 66,
+    "floors": 2,
+    "bathrooms": 1,
+    "hasWestExposure": false,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "b6efac18-a7fe-4177-830a-b6713f1d33a0",
+    "index": 18,
+    "houseType": "duplex",
+    "area": 84,
+    "floors": 1,
+    "bathrooms": 2,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [
+        "tag_01",
+        "tag_12"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "826efb4e-6213-4847-bcff-a1e13ea3ad70",
+    "index": 19,
+    "houseType": "apartment",
+    "area": 62,
+    "floors": 1,
+    "bathrooms": 2,
+    "hasWestExposure": false,
+    "hasBasement": false,
+    "hasChildren": true,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "24fefd31-96f4-4f61-b90f-a5de89682cc8",
+    "index": 20,
+    "houseType": "duplex",
+    "area": 249,
+    "floors": 4,
+    "bathrooms": 3,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [
+        "tag_02",
+        "tag_11"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "e86fee1c-6a8e-4e28-9dae-e53e0463bfce",
+    "index": 21,
+    "houseType": "townhouse",
+    "area": 63,
+    "floors": 2,
+    "bathrooms": 1,
+    "hasWestExposure": false,
+    "hasBasement": true,
+    "hasChildren": true,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [
+        "tag_01",
+        "tag_22"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "698af3f3-e3f9-4d7d-8f2a-e24e160d98d2",
+    "index": 22,
+    "houseType": "townhouse",
+    "area": 92,
+    "floors": 5,
+    "bathrooms": 2,
+    "hasWestExposure": true,
+    "hasBasement": true,
+    "hasChildren": false,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "7d8846d4-2622-4782-b217-04cfdffae252",
+    "index": 23,
+    "houseType": "villa",
+    "area": 90,
+    "floors": 4,
+    "bathrooms": 3,
+    "hasWestExposure": false,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "89d491a9-ac36-470b-9feb-5e718926ce23",
+    "index": 24,
+    "houseType": "duplex",
+    "area": 188,
+    "floors": 5,
+    "bathrooms": 2,
+    "hasWestExposure": true,
+    "hasBasement": true,
+    "hasChildren": false,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [
+        "tag_01",
+        "tag_02",
+        "tag_12",
+        "tag_33"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "a062a02b-fc8e-4eb9-9a23-19ad90e94950",
+    "index": 25,
+    "houseType": "duplex",
+    "area": 176,
+    "floors": 5,
+    "bathrooms": 3,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": true,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [
+        "tag_11"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "a9a2f9c6-4a46-4252-a224-5154739c6a3f",
+    "index": 26,
+    "houseType": "apartment",
+    "area": 258,
+    "floors": 1,
+    "bathrooms": 3,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": true,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "1344727b-cd14-4169-8167-62b89776e36d",
+    "index": 27,
+    "houseType": "duplex",
+    "area": 105,
+    "floors": 1,
+    "bathrooms": 2,
+    "hasWestExposure": false,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [
+        "tag_01"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "a3c8a3e4-33c2-4b6c-8b00-83e74064ae19",
+    "index": 28,
+    "houseType": "apartment",
+    "area": 167,
+    "floors": 4,
+    "bathrooms": 2,
+    "hasWestExposure": false,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [
+        "tag_02",
+        "tag_22"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "09cbf075-0575-4d21-87aa-c96be7fd1d8b",
+    "index": 29,
+    "houseType": "villa",
+    "area": 151,
+    "floors": 3,
+    "bathrooms": 3,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "db76fe8c-2f18-4bbe-b246-50184c306f11",
+    "index": 30,
+    "houseType": "duplex",
+    "area": 168,
+    "floors": 3,
+    "bathrooms": 2,
+    "hasWestExposure": false,
+    "hasBasement": true,
+    "hasChildren": false,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [
+        "tag_01",
+        "tag_11",
+        "tag_12"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "38ca14ce-e341-40ba-84c2-43a509b5e3e8",
+    "index": 31,
+    "houseType": "villa",
+    "area": 171,
+    "floors": 3,
+    "bathrooms": 1,
+    "hasWestExposure": true,
+    "hasBasement": true,
+    "hasChildren": false,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "d10c563a-3cef-4b61-b67e-80a55d4ba832",
+    "index": 32,
+    "houseType": "duplex",
+    "area": 222,
+    "floors": 3,
+    "bathrooms": 2,
+    "hasWestExposure": false,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [
+        "tag_02",
+        "tag_33"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "7ea63c9c-33b1-4972-afe6-f17d2d4d6cd4",
+    "index": 33,
+    "houseType": "duplex",
+    "area": 60,
+    "floors": 5,
+    "bathrooms": 2,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [
+        "tag_01"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "ef753219-4875-469b-b6ee-aaaf66509b5c",
+    "index": 34,
+    "houseType": "duplex",
+    "area": 124,
+    "floors": 1,
+    "bathrooms": 1,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "c99a6a19-31ca-4964-9c18-d9c7f733174c",
+    "index": 35,
+    "houseType": "townhouse",
+    "area": 211,
+    "floors": 4,
+    "bathrooms": 2,
+    "hasWestExposure": false,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [
+        "tag_11",
+        "tag_22"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "1aebcdb7-aa19-4230-bc7d-f11eec9fd3d6",
+    "index": 36,
+    "houseType": "duplex",
+    "area": 179,
+    "floors": 2,
+    "bathrooms": 2,
+    "hasWestExposure": false,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [
+        "tag_01",
+        "tag_02",
+        "tag_12"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "049e82bf-6857-4345-98b1-9e9f8d899374",
+    "index": 37,
+    "houseType": "apartment",
+    "area": 253,
+    "floors": 2,
+    "bathrooms": 2,
+    "hasWestExposure": false,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "b6761e9f-d123-4cd0-9e78-e7be7ecdbead",
+    "index": 38,
+    "houseType": "villa",
+    "area": 80,
+    "floors": 5,
+    "bathrooms": 2,
+    "hasWestExposure": false,
+    "hasBasement": true,
+    "hasChildren": false,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "b8e60ac2-6681-4b94-92a8-2c036de0e34c",
+    "index": 39,
+    "houseType": "villa",
+    "area": 212,
+    "floors": 3,
+    "bathrooms": 1,
+    "hasWestExposure": false,
+    "hasBasement": false,
+    "hasChildren": true,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [
+        "tag_01"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "bce37d90-fa7f-409b-b8d3-132d2a027f22",
+    "index": 40,
+    "houseType": "apartment",
+    "area": 146,
+    "floors": 2,
+    "bathrooms": 2,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [
+        "tag_02",
+        "tag_11",
+        "tag_33"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "3e03f3e6-2691-44c3-8249-38c2cc2d38f4",
+    "index": 41,
+    "houseType": "villa",
+    "area": 91,
+    "floors": 2,
+    "bathrooms": 1,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "78f9162c-9d45-4a4f-b67f-f0ae0edd7b2c",
+    "index": 42,
+    "houseType": "villa",
+    "area": 99,
+    "floors": 2,
+    "bathrooms": 2,
+    "hasWestExposure": false,
+    "hasBasement": true,
+    "hasChildren": false,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [
+        "tag_01",
+        "tag_12",
+        "tag_22"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "c86ed500-4243-4d12-af44-e53f47d3a03b",
+    "index": 43,
+    "houseType": "villa",
+    "area": 181,
+    "floors": 1,
+    "bathrooms": 3,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": true,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "50c365d2-00b2-45a9-9cf4-4449ea9025b9",
+    "index": 44,
+    "houseType": "apartment",
+    "area": 224,
+    "floors": 5,
+    "bathrooms": 3,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [
+        "tag_02"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "9a9da63f-d44a-4313-80ce-2d41180c0e52",
+    "index": 45,
+    "houseType": "townhouse",
+    "area": 237,
+    "floors": 2,
+    "bathrooms": 1,
+    "hasWestExposure": false,
+    "hasBasement": false,
+    "hasChildren": true,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [
+        "tag_01",
+        "tag_11"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "0b048eed-e257-4bee-8cf4-1161d5c50442",
+    "index": 46,
+    "houseType": "villa",
+    "area": 111,
+    "floors": 4,
+    "bathrooms": 1,
+    "hasWestExposure": false,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "dd66266b-f057-4e39-80b5-65113ad0fd89",
+    "index": 47,
+    "houseType": "apartment",
+    "area": 85,
+    "floors": 1,
+    "bathrooms": 3,
+    "hasWestExposure": false,
+    "hasBasement": false,
+    "hasChildren": true,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "16996643-4d61-45d3-938a-84bb66b6a2f0",
+    "index": 48,
+    "houseType": "villa",
+    "area": 143,
+    "floors": 2,
+    "bathrooms": 2,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [
+        "tag_01",
+        "tag_02",
+        "tag_12",
+        "tag_33"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "ef52a0aa-bf9c-4c9e-b512-35cd933011c7",
+    "index": 49,
+    "houseType": "duplex",
+    "area": 157,
+    "floors": 1,
+    "bathrooms": 2,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [
+        "tag_22"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "90c62312-6ce2-4429-a66d-b35a5b474a3d",
+    "index": 50,
+    "houseType": "apartment",
+    "area": 145,
+    "floors": 2,
+    "bathrooms": 3,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": true,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [
+        "tag_11"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "0bdf51a0-1473-411e-93a6-ede362da34f1",
+    "index": 51,
+    "houseType": "apartment",
+    "area": 158,
+    "floors": 4,
+    "bathrooms": 1,
+    "hasWestExposure": false,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [
+        "tag_01"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "c3640879-276c-4c1b-9d60-8dfe9edd0838",
+    "index": 52,
+    "houseType": "townhouse",
+    "area": 239,
+    "floors": 2,
+    "bathrooms": 1,
+    "hasWestExposure": true,
+    "hasBasement": true,
+    "hasChildren": false,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [
+        "tag_02"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "e1413d72-3e55-4be4-8f0f-b7806c8f21a5",
+    "index": 53,
+    "houseType": "apartment",
+    "area": 85,
+    "floors": 5,
+    "bathrooms": 3,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "e29fac95-e65f-4df8-8942-671ff56882f0",
+    "index": 54,
+    "houseType": "villa",
+    "area": 200,
+    "floors": 2,
+    "bathrooms": 2,
+    "hasWestExposure": false,
+    "hasBasement": false,
+    "hasChildren": true,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [
+        "tag_01",
+        "tag_12"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "31d3d745-9dcc-4b1e-8643-680f030c756a",
+    "index": 55,
+    "houseType": "villa",
+    "area": 150,
+    "floors": 3,
+    "bathrooms": 3,
+    "hasWestExposure": true,
+    "hasBasement": true,
+    "hasChildren": true,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [
+        "tag_11"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "d6055d11-70ee-4a26-889f-c145a2e5d79f",
+    "index": 56,
+    "houseType": "apartment",
+    "area": 236,
+    "floors": 4,
+    "bathrooms": 3,
+    "hasWestExposure": false,
+    "hasBasement": false,
+    "hasChildren": true,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [
+        "tag_02",
+        "tag_22",
+        "tag_33"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "35c23eef-7c1c-4694-b834-c5754c68f822",
+    "index": 57,
+    "houseType": "duplex",
+    "area": 243,
+    "floors": 3,
+    "bathrooms": 3,
+    "hasWestExposure": true,
+    "hasBasement": true,
+    "hasChildren": true,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [
+        "tag_01"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "77cf0fac-b15b-431c-ac3b-815c0d6a0ee3",
+    "index": 58,
+    "houseType": "duplex",
+    "area": 93,
+    "floors": 4,
+    "bathrooms": 2,
+    "hasWestExposure": true,
+    "hasBasement": true,
+    "hasChildren": true,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "bb6df5f9-af47-4a20-8084-a6040dde4913",
+    "index": 59,
+    "houseType": "townhouse",
+    "area": 175,
+    "floors": 5,
+    "bathrooms": 3,
+    "hasWestExposure": false,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "01a21972-1bc0-478a-a9b6-e150348a63c3",
+    "index": 60,
+    "houseType": "apartment",
+    "area": 242,
+    "floors": 1,
+    "bathrooms": 3,
+    "hasWestExposure": false,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [
+        "tag_01",
+        "tag_02",
+        "tag_11",
+        "tag_12"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "7fee7967-ea9a-47a1-aded-ecd7e9be2828",
+    "index": 61,
+    "houseType": "apartment",
+    "area": 107,
+    "floors": 1,
+    "bathrooms": 3,
+    "hasWestExposure": true,
+    "hasBasement": true,
+    "hasChildren": false,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "6fa73817-38db-4c35-906d-022f9f0733bf",
+    "index": 62,
+    "houseType": "duplex",
+    "area": 141,
+    "floors": 5,
+    "bathrooms": 1,
+    "hasWestExposure": true,
+    "hasBasement": true,
+    "hasChildren": true,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "0101c99f-4a0f-4d89-946a-5ed7ce048bcc",
+    "index": 63,
+    "houseType": "duplex",
+    "area": 126,
+    "floors": 2,
+    "bathrooms": 1,
+    "hasWestExposure": false,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [
+        "tag_01",
+        "tag_22"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "8cc4e4a1-5b01-4e1c-8051-9ce089efce18",
+    "index": 64,
+    "houseType": "duplex",
+    "area": 171,
+    "floors": 3,
+    "bathrooms": 2,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [
+        "tag_02",
+        "tag_33"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "45970bbf-3d55-4ba0-8bdf-28481c02525b",
+    "index": 65,
+    "houseType": "villa",
+    "area": 189,
+    "floors": 5,
+    "bathrooms": 2,
+    "hasWestExposure": false,
+    "hasBasement": true,
+    "hasChildren": false,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [
+        "tag_11"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "14469e10-100d-4fa9-b06b-43ba05a5c05e",
+    "index": 66,
+    "houseType": "apartment",
+    "area": 209,
+    "floors": 3,
+    "bathrooms": 2,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [
+        "tag_01",
+        "tag_12"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "497813a6-6463-418a-8391-0cc6c0cbe1d5",
+    "index": 67,
+    "houseType": "townhouse",
+    "area": 204,
+    "floors": 4,
+    "bathrooms": 3,
+    "hasWestExposure": false,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "5488ec7c-3fed-4c23-84aa-b350469a34f2",
+    "index": 68,
+    "houseType": "apartment",
+    "area": 91,
+    "floors": 2,
+    "bathrooms": 2,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": true,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [
+        "tag_02"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "043c4255-f49e-49aa-bb96-e758b883d324",
+    "index": 69,
+    "houseType": "villa",
+    "area": 130,
+    "floors": 5,
+    "bathrooms": 3,
+    "hasWestExposure": false,
+    "hasBasement": false,
+    "hasChildren": true,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [
+        "tag_01"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "b7cb7e28-4c37-451a-b347-063144c3eedc",
+    "index": 70,
+    "houseType": "townhouse",
+    "area": 108,
+    "floors": 2,
+    "bathrooms": 2,
+    "hasWestExposure": true,
+    "hasBasement": true,
+    "hasChildren": false,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [
+        "tag_11",
+        "tag_22"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "91173395-e76a-47e6-aa55-7686f4d85bca",
+    "index": 71,
+    "houseType": "villa",
+    "area": 132,
+    "floors": 3,
+    "bathrooms": 1,
+    "hasWestExposure": false,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "5a884e8c-d181-4966-86cb-5cf31ece7515",
+    "index": 72,
+    "houseType": "townhouse",
+    "area": 182,
+    "floors": 2,
+    "bathrooms": 2,
+    "hasWestExposure": false,
+    "hasBasement": false,
+    "hasChildren": true,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [
+        "tag_01",
+        "tag_02",
+        "tag_12",
+        "tag_33"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "aa05a326-30c8-4309-9405-b7f74bfc22f0",
+    "index": 73,
+    "houseType": "apartment",
+    "area": 135,
+    "floors": 5,
+    "bathrooms": 2,
+    "hasWestExposure": false,
+    "hasBasement": false,
+    "hasChildren": true,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "484a27d6-b89a-4190-9bc0-13f29700450a",
+    "index": 74,
+    "houseType": "villa",
+    "area": 116,
+    "floors": 4,
+    "bathrooms": 1,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "9199c9d3-4e9e-42d1-8f45-f6fd35e1f721",
+    "index": 75,
+    "houseType": "apartment",
+    "area": 186,
+    "floors": 2,
+    "bathrooms": 2,
+    "hasWestExposure": true,
+    "hasBasement": true,
+    "hasChildren": true,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [
+        "tag_01",
+        "tag_11"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "f103e46c-5dc8-4bb8-a44f-c097cee2d741",
+    "index": 76,
+    "houseType": "duplex",
+    "area": 175,
+    "floors": 2,
+    "bathrooms": 1,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [
+        "tag_02"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "9533db20-bdcc-47ac-b6bc-bcfe185366c6",
+    "index": 77,
+    "houseType": "villa",
+    "area": 141,
+    "floors": 4,
+    "bathrooms": 3,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": true,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [
+        "tag_22"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "ffdc414d-1170-4afe-937d-38f660b1951c",
+    "index": 78,
+    "houseType": "villa",
+    "area": 97,
+    "floors": 2,
+    "bathrooms": 2,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": true,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [
+        "tag_01",
+        "tag_12"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "b08fefc8-123c-4db7-a4cb-f87f70f1bd29",
+    "index": 79,
+    "houseType": "duplex",
+    "area": 133,
+    "floors": 4,
+    "bathrooms": 3,
+    "hasWestExposure": true,
+    "hasBasement": true,
+    "hasChildren": false,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "0c137ed6-70d8-4842-90ec-6044e9d76cbb",
+    "index": 80,
+    "houseType": "apartment",
+    "area": 86,
+    "floors": 5,
+    "bathrooms": 3,
+    "hasWestExposure": false,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [
+        "tag_02",
+        "tag_11",
+        "tag_33"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "4d30854f-79b5-4f6e-82c9-c768c599e22a",
+    "index": 81,
+    "houseType": "townhouse",
+    "area": 182,
+    "floors": 1,
+    "bathrooms": 3,
+    "hasWestExposure": false,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [
+        "tag_01"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "8cd19bf7-b675-4530-b4c0-6ac3189cecd0",
+    "index": 82,
+    "houseType": "villa",
+    "area": 226,
+    "floors": 2,
+    "bathrooms": 1,
+    "hasWestExposure": false,
+    "hasBasement": true,
+    "hasChildren": false,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "41130007-e0b4-499b-b0d2-7cd81c7de969",
+    "index": 83,
+    "houseType": "townhouse",
+    "area": 91,
+    "floors": 1,
+    "bathrooms": 3,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "dcd3b2cc-41c8-4523-99e3-3c45ea891981",
+    "index": 84,
+    "houseType": "apartment",
+    "area": 78,
+    "floors": 3,
+    "bathrooms": 2,
+    "hasWestExposure": true,
+    "hasBasement": true,
+    "hasChildren": false,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [
+        "tag_01",
+        "tag_02",
+        "tag_12",
+        "tag_22"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "7e0adf21-f22b-4e51-9c8d-0e96fe1f363f",
+    "index": 85,
+    "houseType": "villa",
+    "area": 192,
+    "floors": 3,
+    "bathrooms": 3,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [
+        "tag_11"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "0a544981-7517-4bc8-b5cd-03247836a084",
+    "index": 86,
+    "houseType": "apartment",
+    "area": 167,
+    "floors": 1,
+    "bathrooms": 3,
+    "hasWestExposure": false,
+    "hasBasement": false,
+    "hasChildren": true,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "c2b21f9f-9272-4f84-8905-534f9fe27662",
+    "index": 87,
+    "houseType": "apartment",
+    "area": 135,
+    "floors": 2,
+    "bathrooms": 3,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [
+        "tag_01"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "f10205ca-c8ea-4bbf-8721-41cf82eb89ed",
+    "index": 88,
+    "houseType": "duplex",
+    "area": 95,
+    "floors": 1,
+    "bathrooms": 1,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [
+        "tag_02",
+        "tag_33"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "30cb2b5d-1ad0-434a-86d5-5d6de4acc5db",
+    "index": 89,
+    "houseType": "townhouse",
+    "area": 89,
+    "floors": 2,
+    "bathrooms": 2,
+    "hasWestExposure": false,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "05b8a0be-b84c-4f9c-ae5e-2178db72bb0e",
+    "index": 90,
+    "houseType": "duplex",
+    "area": 218,
+    "floors": 2,
+    "bathrooms": 1,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [
+        "tag_01",
+        "tag_11",
+        "tag_12"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "d92ae8ef-744b-47e0-b6d2-d8291dd31aa7",
+    "index": 91,
+    "houseType": "apartment",
+    "area": 128,
+    "floors": 2,
+    "bathrooms": 2,
+    "hasWestExposure": false,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [
+        "tag_22"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "6e0a3f37-9c4a-4a81-b8dd-130d075ad5ff",
+    "index": 92,
+    "houseType": "townhouse",
+    "area": 135,
+    "floors": 1,
+    "bathrooms": 3,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [
+        "tag_02"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "d3ac54ac-2d1a-4801-b695-dfb97f7d51b9",
+    "index": 93,
+    "houseType": "villa",
+    "area": 122,
+    "floors": 2,
+    "bathrooms": 2,
+    "hasWestExposure": false,
+    "hasBasement": true,
+    "hasChildren": true,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [
+        "tag_01"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "147eb41b-2b2a-45e2-a54a-f748bcd66763",
+    "index": 94,
+    "houseType": "apartment",
+    "area": 184,
+    "floors": 2,
+    "bathrooms": 2,
+    "hasWestExposure": false,
+    "hasBasement": true,
+    "hasChildren": true,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "653ad6b3-3568-40c0-9e33-7b6542dd705c",
+    "index": 95,
+    "houseType": "apartment",
+    "area": 173,
+    "floors": 2,
+    "bathrooms": 3,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": true,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [
+        "tag_11"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "887c709b-a51a-4074-8ef5-5c9efd694323",
+    "index": 96,
+    "houseType": "villa",
+    "area": 85,
+    "floors": 3,
+    "bathrooms": 2,
+    "hasWestExposure": false,
+    "hasBasement": true,
+    "hasChildren": true,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [
+        "tag_01",
+        "tag_02",
+        "tag_12",
+        "tag_33"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "af37601f-e7c3-4c24-8b06-622260265e25",
+    "index": 97,
+    "houseType": "villa",
+    "area": 82,
+    "floors": 4,
+    "bathrooms": 1,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "bf01fa3b-23e2-4749-9d11-1399d595f62e",
+    "index": 98,
+    "houseType": "duplex",
+    "area": 186,
+    "floors": 3,
+    "bathrooms": 2,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": true,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [
+        "tag_22"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "fbdad03d-47c2-4495-b9ff-151669971af1",
+    "index": 99,
+    "houseType": "townhouse",
+    "area": 175,
+    "floors": 5,
+    "bathrooms": 1,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": false,
+    "hasElderly": false,
+    "groundTruth": {
+      "painPoints": [
+        "tag_01"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  },
+  {
+    "id": "c55f5c6a-e913-4351-b6a2-600a1af8b7a5",
+    "index": 100,
+    "houseType": "apartment",
+    "area": 107,
+    "floors": 4,
+    "bathrooms": 2,
+    "hasWestExposure": true,
+    "hasBasement": false,
+    "hasChildren": true,
+    "hasElderly": true,
+    "groundTruth": {
+      "painPoints": [
+        "tag_02",
+        "tag_11"
+      ],
+      "expectedRecommendations": []
+    },
+    "aiPrediction": {
+      "painPoints": [],
+      "confidence": 0
+    },
+    "validation": {
+      "correct": false,
+      "falsePositive": [],
+      "falseNegative": [],
+      "accuracy": 0
+    },
+    "metadata": {
+      "createdAt": "2026-04-10T04:37:46.968Z",
+      "source": "generated"
+    }
+  }
+]

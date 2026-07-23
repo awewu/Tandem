@@ -1,0 +1,307 @@
+name: rhautt-nexus
+
+x-runtime: &runtime
+  image: rhautt-nexus:${IMAGE_TAG:-local}
+  build:
+    context: ../..
+    dockerfile: deploy/linux/Dockerfile
+    args:
+      NEXT_PUBLIC_APP_BRAND_URL: https://manage.rhautt.com
+      NEXT_PUBLIC_APP_DIAGNOSIS_URL: https://rhautt.com
+      NEXT_PUBLIC_DIAGNOSIS_URL: https://rhautt.com
+  restart: unless-stopped
+  env_file:
+    - .env
+  environment: &runtime-environment
+    NODE_ENV: production
+    HOST: 0.0.0.0
+    POSTGRES_HOST: ${POSTGRES_HOST:-113.249.110.37}
+    POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+    POSTGRES_USER: ${POSTGRES_USER:-postgres}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    POSTGRES_DB: ${POSTGRES_DB:-rhautt_nexus}
+    POSTGRES_SYNCHRONIZE: 'false'
+    MONGODB_URI: mongodb://rysnova:${MONGO_PASSWORD:?MONGO_PASSWORD is required}@mongodb:27017/rysnova-hvac?authSource=admin
+    REQUIRE_MONGODB: 'true'
+    REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD is required}@redis:6379/0
+    JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+    PHONE_HASH_SECRET: ${PHONE_HASH_SECRET:?PHONE_HASH_SECRET is required}
+    PII_ENCRYPTION_KEY: ${PII_ENCRYPTION_KEY:?PII_ENCRYPTION_KEY is required}
+  networks:
+    - nexus
+  depends_on:
+    mongodb:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+x-next: &next
+  <<: *runtime
+  depends_on:
+    api:
+      condition: service_healthy
+
+services:
+  postgres-tools:
+    image: postgres:18-bookworm
+    profiles: ["tools"]
+    env_file:
+      - .env
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST:-113.249.110.37}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-rhautt_nexus}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - ./backups:/backups
+    networks:
+      - nexus
+
+  mongodb:
+    image: mongo:7-jammy
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: rysnova
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:?MONGO_PASSWORD is required}
+      MONGO_INITDB_DATABASE: rysnova-hvac
+    volumes:
+      - mongodb-data:/data/db
+    networks:
+      - nexus
+    healthcheck:
+      test: ['CMD', 'mongosh', '--quiet', '--eval', "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command:
+      [
+        'redis-server',
+        '--appendonly',
+        'yes',
+        '--requirepass',
+        '${REDIS_PASSWORD:?REDIS_PASSWORD is required}',
+      ]
+    volumes:
+      - redis-data:/data
+    networks:
+      - nexus
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$$REDIS_PASSWORD" ping | grep PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+
+  api:
+    <<: *runtime
+    command: ['node', 'dist/services/api/main.js']
+    environment:
+      <<: *runtime-environment
+      PORT: 3300
+      API_PORT: 3300
+    ports:
+      - '${APP_BIND_IP:-127.0.0.1}:3300:3300'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3300/api/v2/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    volumes:
+      - uploads:/app/uploads
+      - storage:/app/storage
+      - logs:/app/logs
+
+  legacy-api:
+    <<: *runtime
+    command: ['node', 'server-production.js']
+    environment:
+      <<: *runtime-environment
+      PORT: 3000
+      RHAUTT_RUNTIME_PROFILE: ${RHAUTT_RUNTIME_PROFILE:-full}
+      LEGACY_V2_INPROCESS: 'false'
+      NESTJS_URL: http://api:3300
+    ports:
+      - '${APP_BIND_IP:-127.0.0.1}:3000:3000'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    volumes:
+      - uploads:/app/uploads
+      - storage:/app/storage
+      - logs:/app/logs
+
+  dealer-workbench:
+    <<: *next
+    command: ['pnpm', '--filter', 'dealer-workbench', 'start']
+    environment:
+      <<: *runtime-environment
+      API_URL: http://api:3300
+      PORT: 4000
+    ports:
+      - '${APP_BIND_IP:-127.0.0.1}:4000:4000'
+
+  consumer-diagnosis:
+    <<: *next
+    command: ['pnpm', '--filter', 'consumer-diagnosis', 'start']
+    environment:
+      <<: *runtime-environment
+      API_URL: http://api:3300
+      PORT: 4001
+    ports:
+      - '${APP_BIND_IP:-127.0.0.1}:4001:4001'
+
+  customer-portal:
+    <<: *next
+    command: ['pnpm', '--filter', 'customer-portal', 'start']
+    environment:
+      <<: *runtime-environment
+      API_URL: http://api:3300
+      PORT: 4002
+    ports:
+      - '${APP_BIND_IP:-127.0.0.1}:4002:4002'
+
+  designer-workbench:
+    <<: *next
+    command: ['pnpm', '--filter', 'designer-workbench', 'start']
+    environment:
+      <<: *runtime-environment
+      API_PROXY_TARGET: http://api:3300
+      PORT: 4003
+    ports:
+      - '${APP_BIND_IP:-127.0.0.1}:4003:4003'
+
+  rysnova-bim-workbench:
+    <<: *next
+    command: ['pnpm', '--filter', 'rysnova-bim-workbench', 'start']
+    environment:
+      <<: *runtime-environment
+      API_PROXY_TARGET: http://api:3300
+      PORT: 4004
+    ports:
+      - '${APP_BIND_IP:-127.0.0.1}:4004:4004'
+
+  public-portal:
+    <<: *next
+    command: ['pnpm', '--filter', 'public-portal', 'start']
+    environment:
+      <<: *runtime-environment
+      API_URL: http://api:3300
+      PORT: 4005
+    ports:
+      - '${APP_BIND_IP:-127.0.0.1}:4005:4005'
+
+  nexus-console:
+    <<: *next
+    command: ['pnpm', '--filter', 'nexus-console', 'start']
+    environment:
+      <<: *runtime-environment
+      NEXUS_API_URL: http://api:3300
+      PORT: 4010
+    ports:
+      - '${APP_BIND_IP:-127.0.0.1}:4010:4010'
+
+  everhot-cn:
+    <<: *runtime
+    command: ['node', 'apps/everhot-cn/scripts/serve.js', '--port', '4011']
+    environment:
+      <<: *runtime-environment
+      PORT: 4011
+      NEXUS_API_ORIGIN: http://api:3300
+    ports:
+      - '${APP_BIND_IP:-127.0.0.1}:4011:4011'
+
+  brand-console:
+    <<: *next
+    command: ['pnpm', '--filter', 'brand-console', 'start']
+    environment:
+      <<: *runtime-environment
+      PORT: 4012
+      NEXUS_API_URL: http://api:3300
+      NEXUS_API_PREFIX: /api/v2
+      BRAND_CONSOLE_AUTH_MODE: dev
+      BRAND_CONSOLE_USER: ${BRAND_CONSOLE_USER:-admin}
+      BRAND_CONSOLE_PASSWORD: ${BRAND_CONSOLE_PASSWORD:?BRAND_CONSOLE_PASSWORD is required}
+      SSO_REDIRECT_URI: ${BRAND_CONSOLE_PUBLIC_URL:-https://manage.rhautt.com}/api/session/callback
+    ports:
+      - '${APP_BIND_IP:-127.0.0.1}:4012:4012'
+
+  lithnova-cn:
+    <<: *runtime
+    command: ['node', 'apps/lithnova-cn/scripts/serve.js', '--port', '4013']
+    environment:
+      <<: *runtime-environment
+      PORT: 4013
+    ports:
+      - '${APP_BIND_IP:-127.0.0.1}:4013:4013'
+
+  rheem-cn:
+    <<: *runtime
+    command: ['node', 'apps/rheem-cn/scripts/serve.js', '--port', '4014']
+    environment:
+      <<: *runtime-environment
+      PORT: 4014
+      SITE_GROUP_URL: https://rhautt.com
+      SITE_DIAGNOSIS_URL: https://rhautt.com
+      SITE_EVERHOT_URL: https://www.everhot.com.cn
+      SITE_RHEEM_URL: https://www.rheem.com.cn
+      SITE_RUUD_URL: https://www.ruud.com.cn
+    ports:
+      - '${APP_BIND_IP:-127.0.0.1}:4014:4014'
+
+  ruud-cn:
+    <<: *runtime
+    command: ['node', 'apps/ruud-cn/scripts/serve.js', '--port', '4015']
+    environment:
+      <<: *runtime-environment
+      PORT: 4015
+      SITE_GROUP_URL: https://rhautt.com
+      SITE_DIAGNOSIS_URL: https://rhautt.com
+      SITE_EVERHOT_URL: https://www.everhot.com.cn
+      SITE_RHEEM_URL: https://www.rheem.com.cn
+      SITE_RUUD_URL: https://www.ruud.com.cn
+    ports:
+      - '${APP_BIND_IP:-127.0.0.1}:4015:4015'
+
+  product-catalog:
+    <<: *next
+    command: ['pnpm', '--filter', 'product-catalog', 'start']
+    environment:
+      <<: *runtime-environment
+      API_PROXY_TARGET: http://api:3300
+      PORT: 4016
+    ports:
+      - '${APP_BIND_IP:-127.0.0.1}:4016:4016'
+
+volumes:
+  mongodb-data:
+  redis-data:
+  uploads:
+  storage:
+  logs:
+
+networks:
+  nexus:
+    driver: bridge

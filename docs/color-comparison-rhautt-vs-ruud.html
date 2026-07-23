@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>色彩翻译对照 · Ruud → Rhautt（立项汇报材料）</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: #F7F5F2; color: #09090B; padding: 48px clamp(20px, 5vw, 72px); line-height: 1.6;
+  }
+  h1 { font-size: 26px; letter-spacing: -0.01em; }
+  .sub { font-size: 13px; color: #52525B; margin: 6px 0 40px; }
+  h2 { font-size: 15px; letter-spacing: 0.12em; text-transform: uppercase; color: #3E7C2F; margin: 48px 0 18px; }
+  .note { font-size: 12px; color: #A1A1AA; margin-top: 8px; }
+
+  /* ── 迷你 Hero 复刻 ── */
+  .heroes { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .hero-mock { border: 1px solid #C9CFCB; border-radius: 6px; overflow: hidden; background: #fff; }
+  .hero-mock .label { padding: 10px 16px; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; border-bottom: 1px solid #C9CFCB; display:flex; justify-content:space-between; }
+  .stage { position: relative; height: 240px; display: flex; }
+  .stage .left { width: 52%; padding: 34px 28px; display: flex; flex-direction: column; justify-content: center; gap: 10px; clip-path: polygon(0 0, 100% 0, 88% 100%, 0 100%); position: relative; z-index: 2; }
+  .stage .right { flex: 1; display: flex; align-items: center; justify-content: center; margin-left: -8%; }
+  .bar { height: 10px; border-radius: 2px; }
+  .dot-ring { width: 90px; height: 90px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 20px; }
+
+  /* Ruud 版 */
+  .ruud .left  { background: #fff; }
+  .ruud .right { background: linear-gradient(150deg, #1E1E1E 0%, #2B2B2B 100%); }
+  .ruud .dot-ring { border: 3px solid #C8102E; color: #fff; }
+  .ruud .cta { background: #C8102E; }
+
+  /* Rhautt 版 */
+  .rha .left  { background: #fff; }
+  .rha .right { background: linear-gradient(150deg, #4E9A3D 0%, #3E7C2F 52%, #2F5E24 100%); }
+  .rha .dot-ring { border: 3px solid rgba(255,255,255,0.85); color: #fff; border-top-color: #F26729; }
+  .rha .cta { background: #4E9A3D; }
+
+  .cta { width: 88px; height: 24px; border-radius: 3px; }
+  .t-line { background: #09090B; width: 70%; height: 14px; border-radius: 2px; }
+  .t-line.short { width: 45%; height: 14px; }
+  .t-sub { background: #D4D4D8; width: 80%; height: 7px; border-radius: 2px; }
+
+  /* ── 色板映射 ── */
+  table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #C9CFCB; border-radius: 6px; overflow: hidden; font-size: 13px; }
+  th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid #E4E4E7; vertical-align: middle; }
+  th { background: #F0EBE3; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #52525B; }
+  .chip { display: inline-flex; align-items: center; gap: 8px; font-family: 'Menlo', monospace; font-size: 11.5px; }
+  .sw { width: 26px; height: 26px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.12); flex-shrink: 0; }
+  .arrow { color: #F26729; font-weight: 800; text-align: center; }
+  .role { font-weight: 700; }
+  .logic { font-size: 12px; color: #52525B; }
+
+  /* ── 配比条 ── */
+  .ratio { display: flex; height: 44px; border-radius: 6px; overflow: hidden; border: 1px solid #C9CFCB; font-size: 11px; font-weight: 700; color: #fff; margin-bottom: 10px; }
+  .ratio div { display: flex; align-items: center; justify-content: center; white-space: nowrap; overflow: hidden; }
+  .ratio-label { font-size: 12px; font-weight: 700; margin: 18px 0 6px; }
+
+  footer { margin-top: 56px; font-size: 11px; color: #A1A1AA; border-top: 1px solid #C9CFCB; padding-top: 14px; }
+  @media print { body { padding: 24px; } }
+</style>
+</head>
+<body>
+
+<h1>色彩翻译对照：Ruud → Rhautt</h1>
+<p class="sub">立项基准：功能架构学 aosmith.com · 调性学 ruud.com（去暗黑）· 以可持续的绿承重、更活泼 —— 本图说明"只换一个承重色"的最小改动路径。</p>
+
+<h2>01 · Hero 构图对照（同一语法，换承重色）</h2>
+<div class="heroes">
+  <div class="hero-mock ruud">
+    <div class="label"><span>RUUD.COM</span><span style="color:#C8102E">红承重 + 黑衬底</span></div>
+    <div class="stage">
+      <div class="left">
+        <div class="t-line"></div><div class="t-line short"></div>
+        <div class="t-sub"></div><div class="t-sub" style="width:60%"></div>
+        <div class="cta"></div>
+      </div>
+      <div class="right"><div class="dot-ring">—</div></div>
+    </div>
+  </div>
+  <div class="hero-mock rha">
+    <div class="label"><span>RHAUTT.COM</span><span style="color:#3E7C2F">绿承重 + 暖白衬底</span></div>
+    <div class="stage">
+      <div class="left">
+        <div class="t-line"></div><div class="t-line short" style="background:#4E9A3D"></div>
+        <div class="t-sub"></div><div class="t-sub" style="width:60%"></div>
+        <div class="cta"></div>
+      </div>
+      <div class="right"><div class="dot-ring">4.8</div></div>
+    </div>
+  </div>
+</div>
+<p class="note">共同语法：左白文字区 + 斜切分割 + 右侧饱和色块 + 仪表元素。差异仅为承重色（红→绿）与衬底（黑→暖白/绿渐变）。</p>
+
+<h2>02 · 逐角色色板映射</h2>
+<table>
+  <tr><th style="width:16%">角色</th><th style="width:30%">Ruud（Brand Toolkit RHM5839A）</th><th style="width:4%"></th><th style="width:30%">Rhautt（globals.css token）</th><th>翻译逻辑</th></tr>
+  <tr>
+    <td class="role">承重主色</td>
+    <td><span class="chip"><span class="sw" style="background:#C8102E"></span>Ruud 红 PMS 186C #C8102E</span></td>
+    <td class="arrow">→</td>
+    <td><span class="chip"><span class="sw" style="background:#4E9A3D"></span>#4E9A3D</span> <span class="chip"><span class="sw" style="background:#3E7C2F"></span>#3E7C2F</span> <span class="chip"><span class="sw" style="background:#2F5E24"></span>#2F5E24</span></td>
+    <td class="logic">核心置换：力量感由绿的饱和度+深度梯度继承，获得"可持续"语义</td>
+  </tr>
+  <tr>
+    <td class="role">Hero 承重面</td>
+    <td><span class="chip"><span class="sw" style="background:#1E1E1E"></span>炭黑 #1E1E1E（大面积）</span></td>
+    <td class="arrow">→</td>
+    <td><span class="chip"><span class="sw" style="background:linear-gradient(150deg,#4E9A3D,#2F5E24)"></span>绿渐变色块</span> <span class="chip"><span class="sw" style="background:#241F1B"></span>暖炭 #241F1B 仅小面积</span></td>
+    <td class="logic">去暗黑：黑衬红 → 暖白衬绿；深色只留工具条/报告卡/页脚</td>
+  </tr>
+  <tr>
+    <td class="role">页面底面</td>
+    <td><span class="chip"><span class="sw" style="background:#F0EBE3"></span>暖米灰 #F0EBE3</span></td>
+    <td class="arrow">＝</td>
+    <td><span class="chip"><span class="sw" style="background:#F0EBE3"></span>--rh-s2 原值继承</span></td>
+    <td class="logic">同源保留——Ruud 调性"暖"的秘密</td>
+  </tr>
+  <tr>
+    <td class="role">能量点缀</td>
+    <td><span class="chip"><span class="sw" style="background:#F26729"></span>Ruud 橙 PMS 165C #F26729</span></td>
+    <td class="arrow">＝</td>
+    <td><span class="chip"><span class="sw" style="background:#F26729"></span>--rh-warm 原值继承（≤3%）</span></td>
+    <td class="logic">同源保留——活泼感来源：表盘尖/箭头/热线</td>
+  </tr>
+  <tr>
+    <td class="role">活力黄</td>
+    <td><span class="chip"><span class="sw" style="background:#FFD200"></span>PMS 109C #FFD200</span></td>
+    <td class="arrow">⛔</td>
+    <td><span class="chip"><span class="sw" style="background:#fff"></span>token 封存未启用</span></td>
+    <td class="logic">黄+橙+绿同屏易滑向促销感</td>
+  </tr>
+  <tr>
+    <td class="role">二级技术色</td>
+    <td><span class="chip"><span class="sw" style="background:#3F585A"></span>Steel #3F585A</span> <span class="chip"><span class="sw" style="background:#007681"></span>Teal #007681</span></td>
+    <td class="arrow">↓</td>
+    <td><span class="chip"><span class="sw" style="background:#007681"></span>Teal 降权为极少量技术 accent</span></td>
+    <td class="logic">维持单绿主轴</td>
+  </tr>
+  <tr>
+    <td class="role">红的去向</td>
+    <td><span class="chip"><span class="sw" style="background:#C8102E"></span>全站主角</span></td>
+    <td class="arrow">→</td>
+    <td><span class="chip"><span class="sw" style="background:#C41F1E"></span>UI 0% · 仅品牌 logo 图内（Rhautt VI 红 #C41F1E 限印刷）</span></td>
+    <td class="logic">避免红绿相冲；logo 红反成识别锚点</td>
+  </tr>
+</table>
+
+<h2>03 · 版面配比对照</h2>
+<div class="ratio-label">RUUD.COM（观察值）</div>
+<div class="ratio">
+  <div style="width:62%;background:#F0EBE3;color:#52525B">暖米灰/白 ≈ 62%</div>
+  <div style="width:22%;background:#1E1E1E">炭黑 ≈ 22%</div>
+  <div style="width:13%;background:#C8102E">红 ≈ 13%</div>
+  <div style="width:3%;background:#F26729">3%</div>
+</div>
+<div class="ratio-label">RHAUTT.COM（现站）</div>
+<div class="ratio">
+  <div style="width:88%;background:#F0EBE3;color:#52525B">暖中性（米灰/白/墨字） ≈ 88%</div>
+  <div style="width:10%;background:#4E9A3D">绿 ≈ 10%</div>
+  <div style="width:2%;background:#F26729">2%</div>
+</div>
+<p class="note">Rhautt 将 Ruud 的「炭黑 22%」几乎全部归还给暖中性——这就是"去暗黑、更活泼"的量化表达；绿与橙的克制配比保证"可靠专业"不滑向促销感。</p>
+
+<h2>04 · 配比提案推演（2026-07-04 议题）</h2>
+
+<div class="ratio-label">A · 现行（单绿主轴）</div>
+<div class="ratio">
+  <div style="width:88%;background:#F0EBE3;color:#52525B">暖中性 88%</div>
+  <div style="width:10%;background:#4E9A3D">绿 10%</div>
+  <div style="width:2%;background:#F26729">2%</div>
+</div>
+
+<div class="ratio-label">B · 提案（暖中性70 / 橙10 / 红5 / 绿5 / 银灰3 / 黑1）</div>
+<div class="ratio">
+  <div style="width:70%;background:#F0EBE3;color:#52525B">暖中性 70%</div>
+  <div style="width:10%;background:#F26729">橙 10%</div>
+  <div style="width:5%;background:#C41F1E">红5</div>
+  <div style="width:5%;background:#4E9A3D">绿5</div>
+  <div style="width:3%;background:#AEB5B1;color:#52525B">灰</div>
+  <div style="width:1%;background:#241F1B"></div>
+</div>
+<p class="note" style="color:#C41F1E">⚠ 风险1：红5% + 绿5% 等权并置 = 红绿相冲（下方测试）。⚠ 风险2：高饱和暖色的感知权重约为面积的 2–3 倍——橙10%+红5% 的视觉响度 ≈ 35%，进入促销带（万和/万家乐区间），"可靠专业"人设失守。</p>
+
+<div style="display:flex;gap:24px;align-items:center;margin:14px 0 6px">
+  <div style="display:flex">
+    <div style="width:72px;height:44px;background:#C41F1E;border-radius:4px 0 0 4px"></div>
+    <div style="width:72px;height:44px;background:#4E9A3D;border-radius:0 4px 4px 0"></div>
+  </div>
+  <span class="logic">← 红绿等权并置测试：两色直接相邻即产生"圣诞感/警示感"，这正是当初把 UI 红映射为绿的原因。</span>
+</div>
+
+<div class="ratio-label">C · 调优版（保留提案意图：更暖、更活泼、红有存在感）</div>
+<div class="ratio">
+  <div style="width:79%;background:#F0EBE3;color:#52525B">暖中性 79%</div>
+  <div style="width:6%;background:#F26729">橙 6%</div>
+  <div style="width:8%;background:#4E9A3D">绿 8%</div>
+  <div style="width:3%;background:#8A8F8B;color:#fff">灰3</div>
+  <div style="width:3%;background:#241F1B">黑3</div>
+  <div style="width:1%;background:#C41F1E"></div>
+</div>
+<p class="note">C 的逻辑：橙升到 6%（热情/活泼↑，仍在促销线下）；绿 8% 保住承重与"节能"人设；红 1% 只做识别锚点（logo + 极少量品牌细节线，永不与绿相邻）；银灰暖化后 3% 用于仪表/金属质感；黑（暖炭）3% 用于工具条/页脚。高饱和色总响度可控在 ≈20%。</p>
+
+<div class="ratio-label">D · 启用黄（PMS 109C）版：暖中性78 / 绿8 / 橙5 / 灰3 / 黑3 / 黄2 / 红1</div>
+<div class="ratio">
+  <div style="width:78%;background:#F0EBE3;color:#52525B">暖中性 78%</div>
+  <div style="width:8%;background:#4E9A3D">绿 8%</div>
+  <div style="width:5%;background:#F26729">橙5</div>
+  <div style="width:3%;background:#8A8F8B;color:#fff">灰</div>
+  <div style="width:3%;background:#241F1B"></div>
+  <div style="width:2%;background:#FFD200;color:#6b5600">黄</div>
+  <div style="width:1%;background:#C41F1E"></div>
+</div>
+
+<div style="display:flex;gap:24px;align-items:center;margin:14px 0 6px;flex-wrap:wrap">
+  <div style="display:flex;align-items:center;justify-content:center;width:150px;height:52px;background:linear-gradient(150deg,#4E9A3D,#2F5E24);border-radius:4px">
+    <span style="color:#FFD200;font-weight:800;font-size:15px">COP 4.8 ▲</span>
+  </div>
+  <div style="display:flex;align-items:center;justify-content:center;width:150px;height:52px;background:#fff;border:1px solid #C9CFCB;border-radius:4px">
+    <span style="color:#FFD200;font-weight:800;font-size:15px;text-shadow:0 0 1px rgba(0,0,0,0.1)">COP 4.8 ▲</span>
+  </div>
+  <span class="logic">← 黄的铁律：<b>只在绿底/深底上出现</b>（左：能量感强、可读）；白底上禁用（右：发虚、廉价）。且黄不与红相邻（红+黄=清仓甩卖联想）。</span>
+</div>
+<p class="note">黄的授权场景：绿色 Hero 块上的能量高亮（数据尖峰/关键词下划线）、深底图表的峰值标记、工程安全黄细节（拉链线/警示纹，极小量）。黄 2% 从橙的份额中让渡，高饱和总响度维持 ≈20% 不变。</p>
+
+<footer>
+  Token 事实源：apps/public-portal/src/app/globals.css（--rh-*）← brand-registry.json ·
+  Ruud 色值依据其 Brand Toolkit（RHM5839A，已录入 token 注释）· 2026-07-04 · Rhautt Comfort Group 立项汇报材料
+</footer>
+
+</body>
+</html>

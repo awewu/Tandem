@@ -1,0 +1,509 @@
+{
+  "generatedAt": "2026-04-21T07:01:59.234Z",
+  "stats": {
+    "users": 24,
+    "stores": 8,
+    "customers": 100,
+    "projects": 100,
+    "logs": 1024
+  },
+  "roleDistribution": {
+    "super_admin": 3,
+    "hq_admin": 3,
+    "hq_ops": 3,
+    "store_admin": 3,
+    "designer": 3,
+    "sales": 3,
+    "tech_support": 3,
+    "construction_mgr": 3
+  },
+  "projectStageDistribution": {
+    "completed": 7,
+    "diagnosis": 19,
+    "design": 16,
+    "approval": 15,
+    "construction": 12,
+    "quotation": 16,
+    "contract": 15
+  },
+  "sampleUsers": [
+    {
+      "id": 1,
+      "phone": "13570359411",
+      "password": "123456",
+      "role": "super_admin",
+      "name": "吴飞",
+      "title": "超级管理员",
+      "storeIds": [],
+      "status": "active",
+      "avatar": "/avatars/super_admin_1.png",
+      "profile": {
+        "expertise": "技术方案",
+        "experience": "6年",
+        "certifications": [
+          "Rheem认证"
+        ]
+      },
+      "stats": {
+        "projects": 20,
+        "customers": 92,
+        "revenue": 4059818
+      },
+      "createdAt": "2025-09-18T07:01:59.208Z"
+    },
+    {
+      "id": 2,
+      "phone": "16383461034",
+      "password": "123456",
+      "role": "super_admin",
+      "name": "张欣",
+      "title": "超级管理员",
+      "storeIds": [],
+      "status": "active",
+      "avatar": "/avatars/super_admin_2.png",
+      "profile": {
+        "expertise": "客户服务",
+        "experience": "9年",
+        "certifications": [
+          "Rheem认证"
+        ]
+      },
+      "stats": {
+        "projects": 19,
+        "customers": 69,
+        "revenue": 1925299
+      },
+      "createdAt": "2025-04-28T07:01:59.208Z"
+    },
+    {
+      "id": 3,
+      "phone": "13385608659",
+      "password": "123456",
+      "role": "super_admin",
+      "name": "胡杰",
+      "title": "超级管理员",
+      "storeIds": [],
+      "status": "active",
+      "avatar": "/avatars/super_admin_3.png",
+      "profile": {
+        "expertise": "暖通设计",
+        "experience": "7年",
+        "certifications": [
+          "Rheem认证",
+          "Ruud认证"
+        ]
+      },
+      "stats": {
+        "projects": 35,
+        "customers": 23,
+        "revenue": 4127246
+      },
+      "createdAt": "2025-10-22T07:01:59.208Z"
+    }
+  ],
+  "sampleProjects": [
+    {
+      "id": 1,
+      "projectNo": "PRJ-2026-00001",
+      "customerId": 1,
+      "customerName": "赵静",
+      "salesId": 17,
+      "designerId": 14,
+      "constructionMgrId": 23,
+      "status": "completed",
+      "progress": 100,
+      "diagnosis": {
+        "painPoints": [
+          {
+            "id": "air_stuffy",
+            "name": "房间闷，空气不流通",
+            "category": "空气",
+            "severity": 2
+          },
+          {
+            "id": "ac_draft",
+            "name": "空调直吹不舒服",
+            "category": "舒适",
+            "severity": 3
+          },
+          {
+            "id": "bathroom_cold",
+            "name": "卫生间冬天太冷",
+            "category": "温度",
+            "severity": 4
+          },
+          {
+            "id": "winter_cold",
+            "name": "冬天孩子房间温度不够",
+            "category": "温度",
+            "severity": 5
+          },
+          {
+            "id": "energy_cost",
+            "name": "电费太高",
+            "category": "能耗",
+            "severity": 3
+          },
+          {
+            "id": "winter_cold",
+            "name": "冬天孩子房间温度不够",
+            "category": "温度",
+            "severity": 2
+          }
+        ],
+        "matchedSystems": [
+          "空调",
+          "地暖",
+          "新风",
+          "热水"
+        ],
+        "aiRecommendations": [
+          "空调系统推荐",
+          "地暖系统推荐",
+          "新风系统推荐",
+          "热水系统推荐"
+        ],
+        "timestamp": "2026-03-06T08:01:59.211Z"
+      },
+      "design": {
+        "templateId": 3,
+        "templateName": "洋房",
+        "floorplan": {
+          "area": 135,
+          "rooms": "3室2厅",
+          "layout": "南向"
+        },
+        "equipment": {
+          "outdoor": {
+            "model": "RHPC-43G",
+            "capacity": "22kW"
+          },
+          "indoor": [
+            {
+              "room": "主卧",
+              "model": "RAUC-31G",
+              "capacity": "5kW"
+            },
+            {
+              "room": "次卧",
+              "model": "RAUC-48G",
+              "capacity": "5kW"
+            },
+            {
+              "room": "次卧",
+              "model": "RAUC-63G",
+              "capacity": "5kW"
+            },
+            {
+              "room": "客厅",
+              "model": "RAUC-52G",
+              "capacity": "3kW"
+            }
+          ],
+          "freshAir": {
+            "model": "ERV-811",
+            "airflow": "1782m³/h"
+          }
+        },
+        "drawings": {
+          "schematic": "/drawings/schematic_001.svg",
+          "layout": "/drawings/layout_001.svg",
+          "piping": "/drawings/piping_001.svg"
+        },
+        "timestamp": "2026-03-07T08:01:59.211Z"
+      },
+      "quotation": {
+        "items": [
+          {
+            "category": "空调",
+            "products": [
+              {
+                "name": "空调主机",
+                "spec": "一级能效",
+                "qty": 1,
+                "unitPrice": 42586,
+                "total": 0
+              },
+              {
+                "name": "空调末端",
+                "spec": "标准型",
+                "qty": 6,
+                "unitPrice": 6432,
+                "total": 0
+              }
+            ]
+          },
+          {
+            "category": "地暖",
+            "products": [
+              {
+                "name": "地暖主机",
+                "spec": "一级能效",
+                "qty": 1,
+                "unitPrice": 15723,
+                "total": 0
+              },
+              {
+                "name": "地暖末端",
+                "spec": "标准型",
+                "qty": 7,
+                "unitPrice": 6359,
+                "total": 0
+              }
+            ]
+          },
+          {
+            "category": "新风",
+            "products": [
+              {
+                "name": "新风主机",
+                "spec": "一级能效",
+                "qty": 1,
+                "unitPrice": 31953,
+                "total": 0
+              },
+              {
+                "name": "新风末端",
+                "spec": "标准型",
+                "qty": 3,
+                "unitPrice": 4723,
+                "total": 0
+              }
+            ]
+          },
+          {
+            "category": "热水",
+            "products": [
+              {
+                "name": "热水主机",
+                "spec": "一级能效",
+                "qty": 1,
+                "unitPrice": 42539,
+                "total": 0
+              },
+              {
+                "name": "热水末端",
+                "spec": "标准型",
+                "qty": 3,
+                "unitPrice": 3404,
+                "total": 0
+              }
+            ]
+          }
+        ],
+        "subtotal": 85800,
+        "discount": 8,
+        "discountAmount": 6864,
+        "tax": 7104,
+        "total": 78936,
+        "status": "approved",
+        "approvedBy": null,
+        "timestamp": "2026-03-12T07:01:59.211Z"
+      },
+      "construction": {
+        "siteId": "SITE-1",
+        "address": "135㎡住宅",
+        "tasks": [
+          {
+            "name": "设备进场",
+            "status": "completed",
+            "date": "2026-03-17T07:01:59.212Z"
+          },
+          {
+            "name": "隐蔽工程",
+            "status": "completed",
+            "date": "2026-03-12T07:01:59.212Z"
+          },
+          {
+            "name": "系统调试",
+            "status": "completed",
+            "date": null
+          },
+          {
+            "name": "竣工验收",
+            "status": "completed",
+            "date": "2026-04-21T07:01:59.212Z"
+          }
+        ],
+        "progress": 100,
+        "startDate": "2026-03-07T08:01:59.212Z",
+        "estimatedEndDate": "2026-05-06T07:01:59.212Z",
+        "actualEndDate": "2026-04-21T07:01:59.212Z",
+        "photos": [
+          {
+            "url": "/photos/site_001.jpg",
+            "date": "2026-04-16T07:01:59.212Z",
+            "desc": "施工现场"
+          },
+          {
+            "url": "/photos/site_002.jpg",
+            "date": "2026-04-19T07:01:59.212Z",
+            "desc": "设备安装"
+          }
+        ]
+      },
+      "timeline": [
+        {
+          "stage": "created",
+          "date": "2026-02-25T08:01:59.212Z",
+          "user": 17,
+          "note": "创建项目"
+        },
+        {
+          "stage": "diagnosis",
+          "date": "2026-03-02T08:01:59.212Z",
+          "user": 17,
+          "note": "完成AI问诊"
+        },
+        {
+          "stage": "design",
+          "date": "2026-03-07T08:01:59.212Z",
+          "user": 14,
+          "note": "设计方案确认"
+        },
+        {
+          "stage": "quotation",
+          "date": "2026-03-12T07:01:59.212Z",
+          "user": 14,
+          "note": "报价生成"
+        }
+      ],
+      "createdAt": "2026-02-25T08:01:59.212Z",
+      "updatedAt": "2026-04-16T07:01:59.212Z"
+    },
+    {
+      "id": 2,
+      "projectNo": "PRJ-2026-00002",
+      "customerId": 2,
+      "customerName": "周宇",
+      "salesId": 16,
+      "designerId": 14,
+      "status": "diagnosis",
+      "progress": 20,
+      "diagnosis": {
+        "painPoints": [
+          {
+            "id": "allergy_dust",
+            "name": "孩子过敏体质，灰尘多",
+            "category": "空气",
+            "severity": 5
+          },
+          {
+            "id": "summer_dry",
+            "name": "空调吹得太干燥",
+            "category": "湿度",
+            "severity": 3
+          },
+          {
+            "id": "temp_uneven",
+            "name": "房间温度不均匀",
+            "category": "温度",
+            "severity": 1
+          },
+          {
+            "id": "allergy_dust",
+            "name": "孩子过敏体质，灰尘多",
+            "category": "空气",
+            "severity": 5
+          }
+        ],
+        "matchedSystems": [
+          "空调",
+          "地暖"
+        ],
+        "aiRecommendations": [
+          "空调系统推荐",
+          "地暖系统推荐"
+        ],
+        "timestamp": "2026-04-19T07:01:59.212Z"
+      },
+      "design": null,
+      "quotation": null,
+      "construction": null,
+      "timeline": [
+        {
+          "stage": "created",
+          "date": "2026-04-10T07:01:59.212Z",
+          "user": 16,
+          "note": "创建项目"
+        },
+        {
+          "stage": "diagnosis",
+          "date": "2026-04-15T07:01:59.212Z",
+          "user": 16,
+          "note": "完成AI问诊"
+        }
+      ],
+      "createdAt": "2026-04-10T07:01:59.212Z",
+      "updatedAt": "2026-04-21T07:01:59.212Z"
+    },
+    {
+      "id": 3,
+      "projectNo": "PRJ-2026-00003",
+      "customerId": 3,
+      "customerName": "郭瑞",
+      "salesId": 17,
+      "designerId": 14,
+      "status": "diagnosis",
+      "progress": 20,
+      "diagnosis": {
+        "painPoints": [
+          {
+            "id": "noise_disturb",
+            "name": "室外机噪音影响睡眠",
+            "category": "噪音",
+            "severity": 3
+          },
+          {
+            "id": "ac_draft",
+            "name": "空调直吹不舒服",
+            "category": "舒适",
+            "severity": 2
+          },
+          {
+            "id": "air_stuffy",
+            "name": "房间闷，空气不流通",
+            "category": "空气",
+            "severity": 1
+          },
+          {
+            "id": "temp_uneven",
+            "name": "房间温度不均匀",
+            "category": "温度",
+            "severity": 1
+          }
+        ],
+        "matchedSystems": [
+          "空调",
+          "地暖",
+          "新风"
+        ],
+        "aiRecommendations": [
+          "空调系统推荐",
+          "地暖系统推荐",
+          "新风系统推荐"
+        ],
+        "timestamp": "2026-04-18T07:01:59.212Z"
+      },
+      "design": null,
+      "quotation": null,
+      "construction": null,
+      "timeline": [
+        {
+          "stage": "created",
+          "date": "2026-04-10T07:01:59.212Z",
+          "user": 17,
+          "note": "创建项目"
+        },
+        {
+          "stage": "diagnosis",
+          "date": "2026-04-15T07:01:59.212Z",
+          "user": 17,
+          "note": "完成AI问诊"
+        }
+      ],
+      "createdAt": "2026-04-10T07:01:59.212Z",
+      "updatedAt": "2026-04-20T07:01:59.212Z"
+    }
+  ]
+}

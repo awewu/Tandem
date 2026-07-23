@@ -1,0 +1,12 @@
+{
+  "name": "brand-console",
+  "version": "0.1.0",
+  "private": true,
+  "description": "板块一 · 品牌运营控制台（内部 admin 工具）：Everhot 产品库 编辑/上新/上下架 + 产品图 DAM + 发布。内部工具可有自有 UI，但不吞并被管主站（RHAUTT-NEXUS-MANAGEMENT-HUB §3/§7）。",
+  "scripts": {
+    "dev": "next dev --port 5012",
+    "build": "next build",
+    "start": "next start --port 5012"
+  },
+  "dependencies": { "@rhautt/shared-auth": "workspace:*" }
+}

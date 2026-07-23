@@ -1,0 +1,254 @@
+{
+  "_comment": "品牌注册表 — 新增品牌在此登记，再创建对应 apps/<slug>",
+  "_governance": {
+    "role": "品牌基础要素唯一事实源(品牌管理中心)。各 app 必须消费此处 + packages/tokens/<slug>.css，禁止硬编码品牌色/命名/NAP。",
+    "viStylingArtifact": "packages/tokens/<slug>.css（styling 事实源；须与本表 vi 值一致）",
+    "damStore": "市场物料库走 file-artifact；logo/手册/海报等 damKey 指向 DAM",
+    "consumers": ["apps/public-portal", "apps/everhot-cn", "product-catalog", "营销/SEO 元数据"],
+    "todoConvention": "值形如 __TODO(...)__ 表示待业务/法务提供；下游应渲染占位而非杜撰",
+    "brandRelationship": {
+      "_decidedAt": "2026-07-02 用户裁定",
+      "rheem": "瑞美集团(Rheem)品牌，瑞合瑞德集团中国独家授权运营（外链官方站）",
+      "ruud": "瑞美集团(Rheem)品牌，瑞合瑞德集团中国独家授权运营（外链官方站）",
+      "everhot": "瑞美集团(Rheem)品牌，瑞合瑞德集团中国独家运营（集团自建站）",
+      "rysnova": "瑞合瑞德自主品牌；对外中性第三方策略（阳谋），公开呈现为中立行业工具/AI 问诊，不主打集团归属。对外英文名固化为 Rysnova",
+      "lithnova-cn": "2026-07-03 独立储能设备品牌（板块一自建站），聚焦新能源储能产品；与瑞诺瓦软件体系无关"
+    },
+    "_vendor": {
+      "name": "Rysnova / 瑞诺瓦",
+      "role": "独立中立的暖通舒适家居垂直软件公司；交付实例冠客户名，合适位置标 Powered by Rysnova",
+      "flagshipCustomer": "Rhautt Comfort / 瑞合瑞德集团（客户#1，实例名 Rhautt Nexus）",
+      "poweredByConvention": "对外站页脚/关于/登录页标注 Powered by Rysnova，不与客户品牌争主视觉",
+      "spec": "docs/RYSNOVA-SAAS-EVOLUTION-PLAN.md"
+    }
+  },
+  "_resolvedDecisions": [
+    "[D1 品牌关系 · 2026-07-02] Rheem/Ruud/EverHot = 瑞美集团独家授权、瑞合瑞德集团中国独家运营；瑞诺瓦 = 瑞合瑞德自主品牌，对外中性第三方策略（阳谋）",
+    "[D2/3 命名 · 2026-07-02] 集团 = 瑞合瑞德暖通科技集团 / 简称瑞合瑞德 / Rhautt Comfort Group；废别名「瑞豪特」",
+    "[D4 瑞诺瓦英文名 · 2026-07-02（07-03 修订）] 瑞诺瓦对外英文名固化为 Rysnova，旧英文名一律废止",
+    "[D5/6 NAP · 2026-07-02] 集团热线 400-886-9119；总部上海市浦东新区（同恒热中国）",
+    "[D · 2026-07-03] 瑞诺瓦对外英文名固化为 Rysnova；Lithnova 名释放为独立储能设备品牌；Rysnova 升级为独立中立软件厂商，Rhautt 为客户#1，实例冠客户名+Powered by Rysnova；技术命名空间统一迁移为 rysnova/rysnova-bim。详见 docs/RYSNOVA-SAAS-EVOLUTION-PLAN.md"
+  ],
+  "_openDecisions": [
+    "真实 ICP 备案号与法律运营主体全称（决策8/9 待补）",
+    "EverHot 主色 #C8102E vs #E4002B（决策14 待定，仅影响 everhot 站）"
+  ],
+  "brands": [
+    {
+      "slug": "rhautt",
+      "fundamentals": {
+        "naming": { "short_cn": "瑞合瑞德", "deprecatedAka": ["瑞豪特"] },
+        "vi": {
+          "tokenCss": "packages/tokens/rhautt.css",
+          "primary": "#E4002B", "primaryDark": "#76232F",
+          "navy": "#1B365D", "ink": "#101C28",
+          "surface": "#F8F8F8", "border": "#DFE2E4",
+          "font": "Microsoft YaHei, PingFang SC, Helvetica, Arial, sans-serif",
+          "radius": "4px"
+        },
+        "logo": { "damKey": null, "note": "待上传 DAM(市场物料库)" },
+        "taglineEn": "Reliable · Sustainable · Intelligent",
+        "contact": {
+          "hotline": "400-886-9119",
+          "emails": { "service": "service@rhautt.com", "business": "business@rhautt.com", "media": "media@rhautt.com" },
+          "address": "上海市浦东新区（同恒热中国，详址待补）",
+          "hours": "周一至周六 9:00-18:00"
+        },
+        "legal": {
+          "entityCn": "__TODO(法务提供: 运营主体全称)__",
+          "icp": "__TODO(法务提供: 真实备案号)__",
+          "copyrightHolder": "瑞合瑞德暖通科技集团"
+        }
+      },
+      "name_cn": "瑞合瑞德暖通科技集团",
+      "name_en": "Rhautt Comfort Group",
+      "domain": "rhautt.com",
+      "type": "group",
+      "token": "packages/tokens/rhautt.css",
+      "app": "apps/public-portal",
+      "crossLinks": {
+        "equipmentBrandSites": [
+          "apps/rheem-cn",
+          "apps/ruud-cn",
+          "apps/everhot-cn"
+        ],
+        "consumerSystem": "apps/consumer-diagnosis",
+        "technicalSupport": "apps/lithnova-workbench"
+      }
+    },
+    {
+      "slug": "rheem-cn",
+      "fundamentals": {
+        "external": true,
+        "note": "外部品牌，VI 以官方 rheem.com.cn 为准；集团站仅外链占位",
+        "vi": {
+          "tokenCss": "packages/tokens/rheem-cn.css",
+          "primary": "#E4002B", "primaryDark": "#A50016",
+          "navy": "#1B365D", "ink": "#101C28",
+          "surface": "#F8F8F8", "border": "#DFE2E4",
+          "font": "Rheem Sans, Helvetica, Arial, sans-serif", "radius": "4px"
+        }
+      },
+      "name_cn": "Rheem 中国",
+      "name_en": "Rheem China",
+      "domain": "rheem.com.cn",
+      "type": "brand-site",
+      "delivery": "external-link",
+      "selfBuilt": false,
+      "deliveryNote": "不自建，外链至 rheem.com.cn（定稿锁定）",
+      "uiViShared": false,
+      "token": "packages/tokens/rheem-cn.css",
+      "app": "apps/rheem-cn",
+      "crossLinks": {
+        "groupPortal": "apps/public-portal",
+        "consumerSystem": "apps/consumer-diagnosis",
+        "siblingBrandSites": [
+          "apps/ruud-cn",
+          "apps/everhot-cn"
+        ]
+      },
+      "standaloneLaunchable": true,
+      "embeddedInRhauttPortal": true
+    },
+    {
+      "slug": "ruud-cn",
+      "fundamentals": {
+        "external": true,
+        "note": "外部品牌，VI 以官方 ruud.com.cn 为准；集团站仅外链占位",
+        "vi": {
+          "tokenCss": "packages/tokens/ruud-cn.css",
+          "primary": "#E4002B", "primaryDark": "#76232F",
+          "accent": "#F26729", "yellow": "#FFD200",
+          "ink": "#1A1A1A", "surface": "#F5F5F5", "border": "#E0E0E0",
+          "font": "Microsoft YaHei, PingFang SC, Helvetica, Arial, sans-serif", "radius": "2px"
+        }
+      },
+      "name_cn": "Ruud 中国",
+      "name_en": "Ruud China",
+      "domain": "ruud.com.cn",
+      "type": "brand-site",
+      "delivery": "external-link",
+      "selfBuilt": false,
+      "deliveryNote": "不自建，外链至 ruud.com.cn（定稿锁定）",
+      "uiViShared": false,
+      "token": "packages/tokens/ruud-cn.css",
+      "app": "apps/ruud-cn",
+      "crossLinks": {
+        "groupPortal": "apps/public-portal",
+        "consumerSystem": "apps/consumer-diagnosis",
+        "siblingBrandSites": [
+          "apps/rheem-cn",
+          "apps/everhot-cn"
+        ]
+      },
+      "standaloneLaunchable": true,
+      "embeddedInRhauttPortal": true
+    },
+    {
+      "slug": "everhot-cn",
+      "fundamentals": {
+        "vi": {
+          "tokenCss": "packages/tokens/everhot-cn.css",
+          "primary": "#E4002B", "primaryDark": "#A50016",
+          "ink": "#1A1A1A", "surface": "#FAFAFA", "border": "#E5E5E5",
+          "font": "Microsoft YaHei, PingFang SC, Helvetica, Arial, sans-serif", "radius": "4px",
+          "note": "站点现用 #C8102E，token 定 #E4002B；待用户最终裁定(见 _openDecisions)"
+        },
+        "logo": { "damKey": null, "note": "待上传 DAM" },
+        "relationshipToGroup": "瑞美集团(Rheem)品牌，瑞合瑞德集团中国独家运营（集团自建站）",
+        "legal": { "copyrightHolder": "瑞合瑞德暖通科技集团(运营)" }
+      },
+      "name_cn": "Everhot 中国",
+      "name_en": "Everhot China",
+      "domain": "everhot.com.cn",
+      "type": "brand-site",
+      "delivery": "self-built",
+      "selfBuilt": true,
+      "deliveryNote": "自建，复刻 rheem.com 三受众架构 + Everhot 暖红",
+      "uiViShared": false,
+      "token": "packages/tokens/everhot-cn.css",
+      "app": "apps/everhot-cn",
+      "crossLinks": {
+        "groupPortal": "apps/public-portal",
+        "consumerSystem": "apps/consumer-diagnosis",
+        "siblingBrandSites": [
+          "apps/rheem-cn",
+          "apps/ruud-cn"
+        ]
+      },
+      "standaloneLaunchable": true,
+      "embeddedInRhauttPortal": true
+    },
+    {
+      "slug": "rysnova-cn",
+      "fundamentals": {
+        "audience": "C端消费者(板块二 · 瑞诺瓦 AI 问诊)",
+        "vi": {
+          "tokenCss": "packages/tokens/rysnova-cn.css",
+          "primary": "#0066CC", "primaryDark": "#004C99", "accent": "#3399FF",
+          "ink": "#1A1A1A", "surface": "#F0F6FF", "border": "#D6E8FF",
+          "font": "Microsoft YaHei, PingFang SC, Helvetica, Arial, sans-serif", "radius": "8px"
+        },
+        "ownership": "瑞合瑞德自主品牌",
+        "publicPositioning": "中性第三方策略（阳谋）：对外呈现为中立行业工具/AI 问诊，不主打集团归属",
+        "namingNote": "英文名 = Rysnova（对外身份固化；slug/域名/namespace 已统一迁移为 rysnova）"
+      },
+      "name_cn": "瑞诺瓦",
+      "name_en": "Rysnova",
+      "domain": "rysnova.com.cn",
+      "type": "consumer-app",
+      "token": "packages/tokens/rysnova-cn.css",
+      "app": "apps/consumer-diagnosis"
+    },
+    {
+      "slug": "lithnova-cn",
+      "fundamentals": {
+        "audience": "新能源储能产品受众（板块一 · 独立设备品牌孵化）",
+        "vi": {
+          "tokenCss": "packages/tokens/lithnova-cn.css",
+          "primary": "#0A7C4A", "primaryDark": "#075C36", "accent": "#2ECC71",
+          "ink": "#14201A", "surface": "#F4FBF7", "border": "#D6EAE0",
+          "font": "Microsoft YaHei, PingFang SC, Helvetica, Arial, sans-serif", "radius": "6px",
+          "note": "储能/新能源调性（绿），token 待市场最终裁定"
+        },
+        "logo": { "damKey": null, "note": "待上传 DAM" },
+        "relationshipToGroup": "瑞合瑞德孵化的独立设备品牌，聚焦新能源储能产品系列（与 Everhot 同构自建站）",
+        "legal": { "copyrightHolder": "瑞合瑞德暖通科技集团(运营)" }
+      },
+      "name_cn": "瓦瑞节能",
+      "name_en": "Lithnova",
+      "namingNote": "中文名=瓦瑞节能（2026-07-05 用户裁定）；英文名=Lithnova。站点/文案统一使用「Lithnova · 瓦瑞节能」",
+      "domain": "lithnova.com.cn",
+      "type": "brand-site",
+      "delivery": "self-built",
+      "selfBuilt": true,
+      "deliveryNote": "自建，复刻 rheem.com/everhot 三受众架构；R0 仅登记，站点建设见 R3",
+      "uiViShared": false,
+      "token": "packages/tokens/lithnova-cn.css",
+      "app": "apps/lithnova-cn",
+      "crossLinks": {
+        "groupPortal": "apps/public-portal",
+        "consumerSystem": "apps/consumer-diagnosis",
+        "siblingBrandSites": ["apps/rheem-cn", "apps/ruud-cn", "apps/everhot-cn"]
+      },
+      "standaloneLaunchable": true,
+      "embeddedInRhauttPortal": true,
+      "productVertical": "energy-storage",
+      "note": "D2 决策(2026-07-03)：Lithnova 名从瑞诺瓦赋能体系释放，转为独立储能设备品牌；不进问诊/精算（储能选型≠暖通负荷计算）"
+    },
+    {
+      "slug": "dealer",
+      "fundamentals": {
+        "audience": "经销商/内部(板块二赋能平台)",
+        "vi": { "tokenCss": "packages/tokens/rhautt.css", "note": "复用集团 VI" }
+      },
+      "name_cn": "经销商赋能平台",
+      "name_en": "Dealer Workbench",
+      "domain": "dealer.rhautt.com",
+      "type": "platform",
+      "token": "packages/tokens/rhautt.css",
+      "app": "apps/dealer-workbench",
+      "modules": ["quotation", "crm", "brand-assets"]
+    }
+  ]
+}

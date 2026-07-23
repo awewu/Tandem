@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#E4002B">
+  <title>产品中心 | Rheem 中国</title>
+  <link rel="stylesheet" href="/packages/tokens/rheem-cn.css">
+  <link rel="stylesheet" href="/css/catalog.css">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--brand-font); color: var(--brand-ink); background: var(--brand-surface); line-height: 1.6; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+    header { background: #fff; border-bottom: 1px solid var(--brand-border); }
+    .nav { display: flex; align-items: center; justify-content: space-between; min-height: 64px; }
+    .logo { color: var(--brand-primary); font-size: 24px; font-weight: 800; text-decoration: none; }
+    .nav a:not(.logo) { color: var(--brand-navy); text-decoration: none; }
+    .btn { display: inline-flex; padding: 8px 16px; border-radius: var(--brand-radius); font-weight: 600; text-decoration: none; }
+    .btn-brand { background: var(--brand-primary); color: #fff; }
+  </style>
+</head>
+<body>
+  <header><div class="container nav"><a class="logo" href="/">Rheem</a><a href="/">返回首页</a></div></header>
+  <main class="catalog-page">
+    <div class="container">
+      <h1>产品中心</h1>
+      <p class="catalog-intro">浏览 Rheem 官网已发布的热水、采暖与空调设备。</p>
+      <div class="product-grid" data-product-list><p class="product-state">正在读取产品目录...</p></div>
+    </div>
+  </main>
+  <script src="/js/catalog.js"></script>
+</body>
+</html>

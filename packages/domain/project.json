@@ -1,0 +1,14 @@
+{
+  "name": "domain",
+  "projectType": "library",
+  "sourceRoot": "packages/domain/src",
+  "tags": ["scope:shared", "type:domain"],
+  "targets": {
+    "build": {
+      "executor": "target-scaffold",
+      "options": {
+        "status": "scaffold-only"
+      }
+    }
+  }
+}

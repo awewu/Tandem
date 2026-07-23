@@ -1,0 +1,10 @@
+{
+  "name": "rheem-cn",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Rheem 中国独立品牌站（静态站，自有域名 rheem.com.cn，独立端口 5014）",
+  "scripts": {
+    "dev": "node scripts/serve.js --port 5014",
+    "start": "node scripts/serve.js --port 5014"
+  }
+}

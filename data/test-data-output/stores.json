@@ -1,0 +1,182 @@
+[
+  {
+    "id": 1,
+    "name": "北京瑞美旗舰店",
+    "city": "北京",
+    "tier": 1,
+    "address": "北京市黄浦区路228号",
+    "phone": "16600543961",
+    "managerId": 10,
+    "status": "active",
+    "stats": {
+      "customers": 350,
+      "projects": 44,
+      "revenue": 4046673,
+      "completionRate": 86
+    },
+    "members": [
+      10,
+      13,
+      16,
+      19,
+      22
+    ],
+    "createdAt": "2025-05-21T07:01:59.209Z"
+  },
+  {
+    "id": 2,
+    "name": "上海瑞美体验中心",
+    "city": "上海",
+    "tier": 1,
+    "address": "上海市浦东新区路427号",
+    "phone": "19915366796",
+    "managerId": 11,
+    "status": "active",
+    "stats": {
+      "customers": 77,
+      "projects": 142,
+      "revenue": 9129414,
+      "completionRate": 88
+    },
+    "members": [
+      10,
+      13,
+      16,
+      19,
+      22
+    ],
+    "createdAt": "2025-06-14T07:01:59.209Z"
+  },
+  {
+    "id": 3,
+    "name": "广州瑞美专卖店",
+    "city": "广州",
+    "tier": 1,
+    "address": "广州市浦东新区路698号",
+    "phone": "19161925913",
+    "managerId": 12,
+    "status": "active",
+    "stats": {
+      "customers": 394,
+      "projects": 148,
+      "revenue": 7795158,
+      "completionRate": 86
+    },
+    "members": [
+      11,
+      14,
+      17,
+      20,
+      23
+    ],
+    "createdAt": "2025-10-13T07:01:59.209Z"
+  },
+  {
+    "id": 4,
+    "name": "深圳瑞美旗舰店",
+    "city": "深圳",
+    "tier": 1,
+    "address": "深圳市浦东新区路712号",
+    "phone": "15506019682",
+    "managerId": 13,
+    "status": "active",
+    "stats": {
+      "customers": 476,
+      "projects": 200,
+      "revenue": 8262425,
+      "completionRate": 85
+    },
+    "members": [
+      11,
+      14,
+      17,
+      20,
+      23
+    ],
+    "createdAt": "2025-12-31T08:01:59.209Z"
+  },
+  {
+    "id": 5,
+    "name": "杭州Ruud旗舰店",
+    "city": "杭州",
+    "tier": 2,
+    "address": "杭州市黄浦区路451号",
+    "phone": "14964382271",
+    "managerId": 14,
+    "status": "active",
+    "stats": {
+      "customers": 122,
+      "projects": 84,
+      "revenue": 5714953,
+      "completionRate": 95
+    },
+    "members": [
+      12,
+      15,
+      18,
+      21,
+      24
+    ],
+    "createdAt": "2025-09-16T07:01:59.209Z"
+  },
+  {
+    "id": 6,
+    "name": "南京Ruud体验店",
+    "city": "南京",
+    "tier": 2,
+    "address": "南京市朝阳区路918号",
+    "phone": "14110226807",
+    "managerId": 15,
+    "status": "active",
+    "stats": {
+      "customers": 139,
+      "projects": 113,
+      "revenue": 8853307,
+      "completionRate": 88
+    },
+    "members": [
+      12,
+      15,
+      18,
+      21,
+      24
+    ],
+    "createdAt": "2025-06-30T07:01:59.209Z"
+  },
+  {
+    "id": 7,
+    "name": "苏州双品牌旗舰店",
+    "city": "苏州",
+    "tier": 2,
+    "address": "苏州市浦东新区路303号",
+    "phone": "13817599817",
+    "managerId": 16,
+    "status": "active",
+    "stats": {
+      "customers": 230,
+      "projects": 52,
+      "revenue": 7436879,
+      "completionRate": 87
+    },
+    "members": [],
+    "createdAt": "2025-12-29T08:01:59.209Z"
+  },
+  {
+    "id": 8,
+    "name": "成都区域旗舰店",
+    "city": "成都",
+    "tier": 2,
+    "address": "成都市天河区路561号",
+    "phone": "13239435355",
+    "managerId": 17,
+    "status": "active",
+    "stats": {
+      "customers": 309,
+      "projects": 47,
+      "revenue": 1268481,
+      "completionRate": 98
+    },
+    "members": [],
+    "createdAt": "2025-09-12T07:01:59.209Z"
+  }
+]

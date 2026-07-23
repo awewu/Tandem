@@ -1,0 +1,282 @@
+{
+  "platform": "Rhautt Nexus / 瑞合数智枢纽",
+  "status": "target-contract-not-production-runtime",
+  "runtimeTruth": "Temporal and Outbox are locked target architecture. Current Express/Mongo compatibility trunk has lifecycle, quotation, audit, and Rysnova services, but no production Temporal worker or staging-applied outbox transaction proof yet.",
+  "boundary": "workflow contract only; IoT boundary is lifecycle_handoff_only; does not claim real-time IoT control or production Temporal runtime",
+  "requiredInvariants": {
+    "tenantScope": "Every workflow and outbox event carries tenantId and aggregate identity.",
+    "idempotency": "Every outbox event has a tenant-scoped idempotency key.",
+    "transaction": "Target PostgreSQL trunk writes business state and outbox event in the same transaction.",
+    "audit": "Workflow state transitions that affect customer visibility, pricing, contract, artifact sharing, or IoT handoff write audit logs.",
+    "deadLetter": "Outbox delivery supports retry attempts and dead_letter status.",
+    "iotBoundary": "IoT workflow performs lifecycle_handoff_only and never issues real-time control commands."
+  },
+  "workflows": [
+    {
+      "id": "quote-approval-workflow",
+      "owner": "backend-platform-builder",
+      "trigger": "quotation.persisted",
+      "aggregateType": "quotation",
+      "aggregateIdField": "quotationId",
+      "idempotencyKey": "tenantId:quotationNo:version:quote-approval",
+      "requiredOutboxEvents": [
+        "quotation.persisted",
+        "quote.approval.requested",
+        "quote.approved",
+        "customer.share.released"
+      ],
+      "requiredAuditActions": [
+        "quotation.created",
+        "quote.approval.requested",
+        "quote.approved"
+      ],
+      "steps": [
+        "validate-tenant-scope",
+        "calculate-cost-and-margin",
+        "apply-margin-guard",
+        "route-approval",
+        "release-customer-share",
+        "write-audit",
+        "emit-outbox"
+      ],
+      "retryPolicy": {
+        "maxAttempts": 5,
+        "backoff": "exponential",
+        "timeout": "P7D"
+      },
+      "compensation": [
+        "revoke-customer-share",
+        "mark-quote-approval-failed"
+      ]
+    },
+    {
+      "id": "contract-signing-workflow",
+      "owner": "backend-platform-builder",
+      "trigger": "quote.approved",
+      "aggregateType": "contract",
+      "aggregateIdField": "contractId",
+      "idempotencyKey": "tenantId:quotationId:contract-signing",
+      "requiredOutboxEvents": [
+        "contract.generated",
+        "contract.customer_confirmed",
+        "contract.signed",
+        "lifecycle.project_state.update"
+      ],
+      "requiredAuditActions": [
+        "contract.generated",
+        "contract.signed",
+        "lifecycle.project_state.update"
+      ],
+      "steps": [
+        "generate-contract-artifact",
+        "customer-confirmation",
+        "signature-capture",
+        "archive-contract",
+        "write-audit",
+        "emit-outbox"
+      ],
+      "retryPolicy": {
+        "maxAttempts": 6,
+        "backoff": "exponential",
+        "timeout": "P14D"
+      },
+      "compensation": [
+        "void-generated-contract",
+        "revert-customer-visible-state"
+      ]
+    },
+    {
+      "id": "construction-delivery-workflow",
+      "owner": "customer-project-lifecycle-director",
+      "trigger": "contract.signed",
+      "aggregateType": "construction_project",
+      "aggregateIdField": "projectId",
+      "idempotencyKey": "tenantId:contractId:construction-delivery",
+      "requiredOutboxEvents": [
+        "construction.scheduled",
+        "construction.milestone.updated",
+        "material.movement.requested",
+        "acceptance.pending"
+      ],
+      "requiredAuditActions": [
+        "lifecycle.project_state.update",
+        "construction.milestone.updated",
+        "acceptance.pending"
+      ],
+      "steps": [
+        "plan-construction",
+        "reserve-materials",
+        "publish-customer-progress",
+        "collect-site-evidence",
+        "request-acceptance",
+        "write-audit",
+        "emit-outbox"
+      ],
+      "retryPolicy": {
+        "maxAttempts": 8,
+        "backoff": "exponential",
+        "timeout": "P60D"
+      },
+      "compensation": [
+        "reschedule-milestone",
+        "flag-delivery-risk"
+      ]
+    },
+    {
+      "id": "iot-handoff-workflow",
+      "owner": "customer-project-lifecycle-director",
+      "trigger": "lifecycle.acceptance.marked",
+      "aggregateType": "lifecycle_link",
+      "aggregateIdField": "contractId",
+      "idempotencyKey": "tenantId:contractId:iot-handoff",
+      "requiredOutboxEvents": [
+        "lifecycle.acceptance.marked",
+        "lifecycle.handover.upsert",
+        "iot.handoff.submitted",
+        "iot.handoff.accepted"
+      ],
+      "requiredAuditActions": [
+        "lifecycle.acceptance.marked",
+        "lifecycle.handover.upsert",
+        "lifecycle.project_state.update"
+      ],
+      "steps": [
+        "freeze-accepted-assets",
+        "build-installed-asset-registry",
+        "build-capability-registry",
+        "prepare-service-plan",
+        "submit-lifecycle-handoff",
+        "wait-binding-receipt",
+        "write-audit",
+        "emit-outbox"
+      ],
+      "retryPolicy": {
+        "maxAttempts": 10,
+        "backoff": "exponential",
+        "timeout": "P30D"
+      },
+      "compensation": [
+        "mark-handoff-pending",
+        "open-service-review-task"
+      ]
+    },
+    {
+      "id": "service-plan-workflow",
+      "owner": "customer-project-lifecycle-director",
+      "trigger": "iot.handoff.accepted",
+      "aggregateType": "service_plan",
+      "aggregateIdField": "servicePlanId",
+      "idempotencyKey": "tenantId:contractId:service-plan",
+      "requiredOutboxEvents": [
+        "service.plan.prepared",
+        "service.plan.activated",
+        "maintenance.scheduled",
+        "customer.lifecycle.activated"
+      ],
+      "requiredAuditActions": [
+        "lifecycle.project_state.update",
+        "service.plan.activated"
+      ],
+      "steps": [
+        "activate-service-plan",
+        "schedule-maintenance",
+        "publish-customer-lifecycle-state",
+        "write-audit",
+        "emit-outbox"
+      ],
+      "retryPolicy": {
+        "maxAttempts": 6,
+        "backoff": "exponential",
+        "timeout": "P7D"
+      },
+      "compensation": [
+        "mark-service-plan-review-required"
+      ]
+    },
+    {
+      "id": "drawing-export-workflow",
+      "owner": "solution-design-rysnova-bim-director",
+      "trigger": "rysnova-bim.artifact.created",
+      "aggregateType": "rysnova-bim_artifact",
+      "aggregateIdField": "artifactId",
+      "idempotencyKey": "tenantId:projectId:artifactType:version:drawing-export",
+      "requiredOutboxEvents": [
+        "rysnova-bim.artifact.created",
+        "rysnova-bim.artifact.integrity.verified",
+        "rysnova-bim.artifact.approved",
+        "rysnova-bim.artifact.shared",
+        "rysnova-bim.customer_package.ready"
+      ],
+      "requiredAuditActions": [
+        "rysnova-bim.artifact.created",
+        "rysnova-bim.artifact.approved",
+        "rysnova-bim.artifact.shared",
+        "rysnova-bim.customer_package.ready"
+      ],
+      "steps": [
+        "generate-artifact",
+        "store-object",
+        "verify-content-hash",
+        "standards-check",
+        "approve-or-reject",
+        "release-customer-visibility",
+        "write-audit",
+        "emit-outbox"
+      ],
+      "retryPolicy": {
+        "maxAttempts": 5,
+        "backoff": "exponential",
+        "timeout": "P3D"
+      },
+      "compensation": [
+        "mark-artifact-superseded",
+        "revoke-customer-visibility"
+      ]
+    },
+    {
+      "id": "rysnova-bim-customer-signoff-workflow",
+      "owner": "solution-design-rysnova-bim-director",
+      "trigger": "rysnova-bim.signoff_package.ready",
+      "aggregateType": "rysnova-bim_customer_signoff",
+      "aggregateIdField": "projectId",
+      "idempotencyKey": "tenantId:projectId:customer-signoff:receipt",
+      "requiredOutboxEvents": [
+        "rysnova-bim.signoff_package.ready",
+        "rysnova-bim.customer_package.ready",
+        "rysnova-bim.customer_signoff.confirmed",
+        "rysnova-bim.lifecycle_handoff.ready"
+      ],
+      "requiredAuditActions": [
+        "rysnova-bim.signoff_package.ready",
+        "rysnova-bim.customer_signoff.confirmed",
+        "rysnova-bim.lifecycle_handoff.ready"
+      ],
+      "steps": [
+        "validate-signoff-package",
+        "verify-customer-visibility",
+        "capture-hash-only-receipt",
+        "confirm-customer-signoff",
+        "prepare-lifecycle-handoff",
+        "write-audit",
+        "emit-outbox"
+      ],
+      "retryPolicy": {
+        "maxAttempts": 5,
+        "backoff": "exponential",
+        "timeout": "P7D"
+      },
+      "compensation": [
+        "mark-signoff-review-required",
+        "revoke-lifecycle-handoff-ready"
+      ]
+    }
+  ],
+  "sourceProbes": {
+    "quotationService": "server/modules/quotation/quotation.service.js",
+    "lifecycleService": "server/modules/lifecycle/lifecycle.service.js",
+    "rysnova-bimArtifactService": "server/modules/rysnova-bim/rysnova-bim-artifact.service.js",
+    "auditService": "server/modules/audit/audit.service.js",
+    "postgresMigration": "database/postgres/migrations/001_rhautt_nexus_core_ledger.sql",
+    "openApi": "contracts/openapi/rhautt-nexus-v2.openapi.json"
+  }
+}

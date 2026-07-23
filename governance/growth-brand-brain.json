@@ -1,0 +1,58 @@
+{
+  "_comment": "增长中枢 · 品牌大脑（Brand Brain）单一事实源。E2 文案 Copilot 以此接地，防止跑偏/幻觉/违规。新增品牌在此登记；facts 必须为可核实事实，禁止营销夸张。",
+  "charterSection": "1.2.2 · D5",
+  "designDoc": "docs/BOARD-3-NEXUS-GROWTH-BLUEPRINT.md",
+  "globalTone": "专业、克制、温度感；以事实与场景说话，不用绝对化用语，不贬低竞品，符合《广告法》。",
+  "globalBannedClaims": ["最好", "第一", "唯一", "国家级", "100%", "绝对", "永久", "包治", "根治", "顶级"],
+  "brands": {
+    "rhautt": {
+      "name": "瑞合瑞德暖通科技集团 / Rhautt Comfort Group",
+      "positioning": "多品牌舒适家系统集团，覆盖热水、采暖、新风、空气与智能控制。",
+      "audiences": ["homeowners", "dealers", "engineers"],
+      "facts": [
+        "集团整合 Rheem、Ruud、Everhot 等品牌与瑞诺瓦消费系统。",
+        "面向家庭舒适系统的整体解决方案，而非单一设备。"
+      ],
+      "tone": "权威、体系化、值得托付。",
+      "bannedClaims": []
+    },
+    "rheem-cn": {
+      "name": "Rheem 中国 / 瑞美",
+      "positioning": "源自美国的热水与暖通品牌，专业可靠。",
+      "audiences": ["homeowners", "engineers"],
+      "facts": [
+        "Rheem 是源自美国的热水与暖通品牌。",
+        "在中国以专业热水与舒适系统为主。"
+      ],
+      "tone": "专业、稳健、国际品质。",
+      "bannedClaims": ["销量第一", "行业唯一"]
+    },
+    "ruud-cn": {
+      "name": "Ruud 中国",
+      "positioning": "暖通与舒适系统品牌，注重工程可靠性。",
+      "audiences": ["engineers", "dealers"],
+      "facts": ["Ruud 为暖通舒适系统品牌，强调工程与可靠性。"],
+      "tone": "工程视角、务实、可靠。",
+      "bannedClaims": []
+    },
+    "everhot-cn": {
+      "name": "Everhot 恒热",
+      "positioning": "自建中国品牌，覆盖住宅热水与舒适系统，主打恒温体验。",
+      "audiences": ["homeowners"],
+      "facts": [
+        "Everhot 恒热为集团自建中国品牌。",
+        "产品线覆盖住宅热水（含热泵、储水、零冷水）与舒适系统。"
+      ],
+      "tone": "亲切、生活化、有温度。",
+      "bannedClaims": ["最省电", "永不结垢"]
+    },
+    "rysnova-cn": {
+      "name": "瑞诺瓦 / Rysnova",
+      "positioning": "面向 C 端的舒适家诊断与选型消费系统。",
+      "audiences": ["homeowners"],
+      "facts": ["瑞诺瓦为面向消费者的舒适家诊断与选型系统。"],
+      "tone": "友好、易懂、陪伴式。",
+      "bannedClaims": []
+    }
+  }
+}

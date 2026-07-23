@@ -1,0 +1,246 @@
+/**
+ * Rhautt Comfort UI/VI Tokens
+ *
+ * Architecture:
+ * - Primitive layer: rheem-official-tokens.css (rheem.com verified, do not edit values)
+ * - Global tokens: stable primitive values aliasing the primitive layer.
+ * - Alias tokens: semantic roles used by pages/components.
+ * - Brand tokens: Rheem/Ruud/瑞诺瓦/HengRe product families.
+ *
+ * Influences:
+ * - Microsoft Fluent: token layers, neutral scale, density, focus states,
+ *   predictable components, restrained operational UI.
+ * - Ruud official VI direction: high-confidence red, rugged/industrial
+ *   accents, product-family navigation, decisive CTA hierarchy.
+ */
+@import url("./rheem-official-tokens.css");
+
+:root {
+  /* Global color primitives — alias rheem.com verified values */
+  --rc-red-rheem: var(--rheem-color-red);   /* #E4002B verified rheem.com */
+  --rc-red-ruud:  var(--rheem-color-red);   /* #E4002B same base red */
+  --rc-blue-rysnova: #0066cc;
+  --rc-blue-rysnova-light: #3399ff;
+  --rc-gold-hengre: #b8860b;
+  --rc-orange-ruud: #f26729;
+  --rc-yellow-ruud: #ffd200;
+  --rc-green-water: #007681;
+
+  --rc-neutral-0: #ffffff;
+  --rc-neutral-25: #fbfbfa;
+  --rc-neutral-50: #f4f4f2;
+  --rc-neutral-100: #ecebe7;
+  --rc-neutral-200: #dedbd4;
+  --rc-neutral-300: #c4bfb5;
+  --rc-neutral-400: #928a7f;
+  --rc-neutral-500: #6f685f;
+  --rc-neutral-600: #514c45;
+  --rc-neutral-700: #34302b;
+  --rc-neutral-800: #211e1a;
+  --rc-neutral-900: #171411;
+  --rc-neutral-950: #0d0b09;
+
+  --rc-success: #107c10;
+  --rc-warning: #f59e0b;
+  --rc-danger: #d13438;
+  --rc-info: #0066cc;
+
+  /* Fluent-like density and spacing */
+  --rc-space-0: 0;
+  --rc-space-1: 4px;
+  --rc-space-2: 8px;
+  --rc-space-3: 12px;
+  --rc-space-4: 16px;
+  --rc-space-5: 20px;
+  --rc-space-6: 24px;
+  --rc-space-8: 32px;
+  --rc-space-10: 40px;
+  --rc-space-12: 48px;
+  --rc-space-16: 64px;
+
+  --rc-radius-control: 6px;
+  --rc-radius-card: 8px;
+  --rc-radius-panel: 10px;
+  --rc-radius-pill: 999px;
+
+  --rc-font-sans: "Segoe UI", -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+  --rc-font-display: "Segoe UI Display", "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+  --rc-font-mono: "SF Mono", Consolas, "Liberation Mono", monospace;
+
+  --rc-type-caption: 12px;
+  --rc-type-body: 14px;
+  --rc-type-body-lg: 16px;
+  --rc-type-title: 20px;
+  --rc-type-section: 24px;
+  --rc-type-hero: 40px;
+
+  --rc-line-tight: 1.25;
+  --rc-line-body: 1.55;
+  --rc-line-loose: 1.75;
+
+  --rc-shadow-1: 0 1px 2px rgba(22, 18, 14, 0.08);
+  --rc-shadow-2: 0 8px 18px rgba(22, 18, 14, 0.10);
+  --rc-shadow-3: 0 18px 42px rgba(22, 18, 14, 0.15);
+  --rc-shadow-panel: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 16px 32px rgba(22, 18, 14, 0.08);
+  --rc-focus-ring: 0 0 0 3px rgba(0, 102, 204, 0.28);
+
+  --rc-motion-fast: 120ms cubic-bezier(0.16, 1, 0.3, 1);
+  --rc-motion-normal: 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  --rc-motion-slow: 260ms cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Alias tokens */
+  --rc-bg-page: #f3f1ed;
+  --rc-bg-surface: var(--rc-neutral-0);
+  --rc-bg-subtle: var(--rc-neutral-100);
+  --rc-bg-inverse: var(--rc-neutral-950);
+  --rc-border-subtle: var(--rc-neutral-200);
+  --rc-border-strong: var(--rc-neutral-300);
+  --rc-text-primary: var(--rc-neutral-900);
+  --rc-text-secondary: var(--rc-neutral-600);
+  --rc-text-muted: var(--rc-neutral-500);
+  --rc-text-inverse: var(--rc-neutral-0);
+
+  --rc-brand-primary: var(--rc-blue-rysnova);
+  --rc-brand-primary-hover: #004c99;
+  --rc-brand-secondary: var(--rc-red-rheem);
+  --rc-brand-accent: var(--rc-gold-hengre);
+  --rc-brand-air: var(--rc-red-ruud);
+  --rc-brand-water: var(--rc-red-rheem);
+  --rc-brand-treatment: var(--rc-blue-rysnova);
+}
+
+[data-rc-theme="dark"] {
+  --rc-bg-page: var(--rc-neutral-950);
+  --rc-bg-surface: var(--rc-neutral-900);
+  --rc-bg-subtle: var(--rc-neutral-800);
+  --rc-border-subtle: rgba(255, 255, 255, 0.08);
+  --rc-border-strong: rgba(255, 255, 255, 0.16);
+  --rc-text-primary: rgba(255, 255, 255, 0.94);
+  --rc-text-secondary: rgba(255, 255, 255, 0.68);
+  --rc-text-muted: rgba(255, 255, 255, 0.42);
+  --rc-focus-ring: 0 0 0 3px rgba(51, 153, 255, 0.34);
+}
+
+[data-brand="ruud"],
+.air-product,
+.hvac-system,
+.fresh-air-system,
+.five-constant-system {
+  --rc-brand-primary: var(--rc-red-ruud);
+  --rc-brand-primary-hover: var(--rheem-color-red-deep);  /* #C20025 verified rheem.com hover */
+  --rc-brand-secondary: var(--rc-orange-ruud);
+  --rc-brand-accent: var(--rc-yellow-ruud);
+  --rc-brand-texture-opacity: 0.055;
+}
+
+[data-brand="rheem"],
+.water-product,
+.water-heater,
+.hot-water-system {
+  --rc-brand-primary: var(--rc-red-rheem);
+  --rc-brand-primary-hover: var(--rheem-color-red-deep);  /* #C20025 verified rheem.com hover */
+  --rc-brand-secondary: #4a4a4a;
+  --rc-brand-accent: var(--rc-gold-hengre);
+}
+
+[data-brand="rysnova"],
+.water-treatment,
+.water-purifier,
+.softener {
+  --rc-brand-primary: var(--rc-blue-rysnova);
+  --rc-brand-primary-hover: #004c99;
+  --rc-brand-secondary: var(--rc-green-water);
+  --rc-brand-accent: var(--rc-blue-rysnova-light);
+}
+
+[data-brand="hengRe"],
+.central-hot-water,
+.premium-hot-water {
+  --rc-brand-primary: var(--rc-gold-hengre);
+  --rc-brand-primary-hover: #8b6914;
+  --rc-brand-secondary: #2c2c2c;
+  --rc-brand-accent: #d4a945;
+}
+
+.rc-scope {
+  font-family: var(--rc-font-sans);
+  background: var(--rc-bg-page);
+  color: var(--rc-text-primary);
+  line-height: var(--rc-line-body);
+}
+
+.rc-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--rc-space-2);
+  min-height: 36px;
+  padding: 0 var(--rc-space-4);
+  border: 1px solid transparent;
+  border-radius: var(--rc-radius-control);
+  background: var(--rc-brand-primary);
+  color: var(--rc-text-inverse);
+  font: 700 var(--rc-type-body) / 1 var(--rc-font-sans);
+  cursor: pointer;
+  transition: background var(--rc-motion-fast), box-shadow var(--rc-motion-fast), transform var(--rc-motion-fast);
+}
+
+.rc-button:hover {
+  background: var(--rc-brand-primary-hover);
+}
+
+.rc-button:focus-visible {
+  outline: none;
+  box-shadow: var(--rc-focus-ring);
+}
+
+.rc-button.secondary {
+  background: var(--rc-bg-surface);
+  border-color: var(--rc-border-strong);
+  color: var(--rc-text-primary);
+}
+
+.rc-button.secondary:hover {
+  background: var(--rc-bg-subtle);
+}
+
+.rc-card {
+  background: var(--rc-bg-surface);
+  border: 1px solid var(--rc-border-subtle);
+  border-radius: var(--rc-radius-card);
+  box-shadow: var(--rc-shadow-1);
+}
+
+.rc-panel {
+  background: var(--rc-bg-surface);
+  border: 1px solid var(--rc-border-subtle);
+  border-radius: var(--rc-radius-panel);
+}
+
+.rc-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 var(--rc-space-2);
+  border-radius: var(--rc-radius-pill);
+  background: color-mix(in srgb, var(--rc-brand-primary) 12%, white);
+  color: var(--rc-brand-primary);
+  font: 700 var(--rc-type-caption) / 1 var(--rc-font-sans);
+}
+
+.rc-ruud-bolt {
+  position: relative;
+  isolation: isolate;
+}
+
+.rc-ruud-bolt::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: var(--rc-brand-texture-opacity, 0);
+  pointer-events: none;
+  z-index: -1;
+  background-image:
+    linear-gradient(135deg, transparent 0 44%, rgba(255, 255, 255, 0.7) 44% 48%, transparent 48% 100%),
+    radial-gradient(circle at 30% 20%, rgba(0, 0, 0, 0.12), transparent 24%);
+}

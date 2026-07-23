@@ -1,0 +1,24 @@
+{
+  "name": "product-catalog",
+  "version": "0.1.0",
+  "private": true,
+  "description": "产品底座 · 产品目录 / 系统方案包（独立 app，被 dealer-workbench / designer / customer-portal 等调用）",
+  "scripts": {
+    "dev": "next dev --port 5016",
+    "build": "next build",
+    "start": "next start --port 5016"
+  },
+  "dependencies": {
+    "@rhautt/shared-auth": "workspace:*",
+    "@rhautt/ui": "workspace:*",
+    "next": "^16.2.7",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "swr": "^2.2.5"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.15",
+    "@types/react-dom": "^18.2.7",
+    "typescript": "^5.0.2"
+  }
+}

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  EVERHOT 标准品牌底板 · 线稿层 / Brand Baseplate linework (VI-2026)
+  ───────────────────────────────────────────────────────────
+  锁定为全站画面标准底层（设计语言）。本文件含 2 个 LOCKED 线稿要素：
+    1) 技术制图栅格参考线（左右各两竖 + 上下横线）
+    2) 椭圆双线 LOGO 容器轮廓
+  第 3 要素「EVERHOT 幽灵字」由 CSS ::after 渲染（用页面已加载的品牌字 Montserrat，
+  见 everhot.css 统一底板规则），故不在本 SVG 内重复，避免双字重叠。
+  线稿统一为「白色半透明」→ 与底色解耦，可叠加在任意创意色底上。
+  颜色（背景）由使用处的 CSS 控制，不在本文件内固化。比例锁定 viewBox 1024×569。
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 569" preserveAspectRatio="xMidYMid slice" role="presentation" aria-hidden="true">
+  <g fill="none" stroke="#ffffff" stroke-width="1" vector-effect="non-scaling-stroke">
+    <!-- ① 技术制图栅格线（LOCKED 位置） -->
+    <g stroke="#ffffff" stroke-opacity="0.10">
+      <line x1="58"  y1="0" x2="58"  y2="569"/>
+      <line x1="120" y1="0" x2="120" y2="569"/>
+      <line x1="904" y1="0" x2="904" y2="569"/>
+      <line x1="966" y1="0" x2="966" y2="569"/>
+      <line x1="0" y1="95"  x2="1024" y2="95"/>
+      <line x1="0" y1="390" x2="1024" y2="390"/>
+      <line x1="0" y1="478" x2="1024" y2="478"/>
+    </g>
+
+    <!-- ② 椭圆双线容器轮廓（LOCKED） -->
+    <g stroke="#ffffff" stroke-opacity="0.16">
+      <ellipse cx="512" cy="285" rx="432" ry="205"/>
+      <ellipse cx="512" cy="285" rx="416" ry="189"/>
+    </g>
+  </g>
+</svg>

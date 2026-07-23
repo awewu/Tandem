@@ -1,0 +1,516 @@
+/* Rhautt Comfort operational surfaces
+   Shared UI layer for business, customer, and design work surfaces. */
+
+.rc-ops-workbench,
+.rc-customer-passport {
+  min-height: 100vh;
+  margin: 0;
+  font-family: "Inter", var(--rc-font-sans);
+  background: #f4f5f7;
+  color: var(--rc-neutral-900);
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.rc-ops-workbench *,
+.rc-customer-passport *,
+.rc-design-studio * {
+  letter-spacing: 0;
+}
+
+.rc-ops-workbench .top-bar,
+.rc-customer-passport .top-bar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  min-height: 70px;
+  padding: 0 clamp(16px, 3vw, 40px);
+  background: rgba(251, 251, 250, 0.95);
+  color: var(--rc-neutral-900);
+  border-bottom: 1px solid rgba(52, 48, 43, 0.16);
+  box-shadow: none;
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+}
+
+.rc-ops-workbench .top-bar .brand,
+.rc-customer-passport .top-bar .brand {
+  gap: 12px;
+  color: var(--rc-neutral-950);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.rc-ops-workbench .top-bar .brand-mark,
+.rc-customer-passport .top-bar .brand-mark {
+  width: 42px;
+  height: 42px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, var(--rc-red-rheem), #b80023);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  box-shadow: 0 6px 16px rgba(228,0,43, 0.22);
+}
+
+.rc-brand-stack {
+  display: grid;
+  gap: 2px;
+}
+
+.rc-brand-stack strong {
+  font-size: 16px;
+  line-height: 1.15;
+}
+
+.rc-brand-stack span {
+  color: var(--rc-neutral-500);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.rc-ops-workbench .top-bar a,
+.rc-customer-passport .top-bar a {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px;
+  border-radius: 2px;
+  color: var(--rc-text-secondary);
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.rc-ops-workbench .top-bar a:hover,
+.rc-customer-passport .top-bar a:hover {
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(228,0,43, 0.18) inset;
+  color: var(--rc-red-rheem);
+}
+
+.rc-ops-workbench .tabs {
+  position: sticky;
+  top: 70px;
+  z-index: 35;
+  padding: 0 clamp(16px, 3vw, 40px);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  border-bottom: 1px solid rgba(52, 48, 43, 0.12);
+  gap: 2px;
+}
+
+.rc-ops-workbench .tab {
+  min-height: 50px;
+  padding: 0 16px;
+  color: var(--rc-neutral-500);
+  border-bottom: 2px solid transparent;
+  border-left: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  transition: color .15s, border-color .15s;
+}
+
+.rc-ops-workbench .tab:hover {
+  color: var(--rc-red-rheem);
+}
+
+.rc-ops-workbench .tab.active {
+  background: transparent;
+  color: var(--rc-red-rheem);
+  border-bottom-color: var(--rc-red-rheem);
+}
+
+.rc-ops-workbench .tab-content {
+  width: min(1440px, 100%);
+  max-width: none;
+  padding: clamp(18px, 3vw, 34px);
+}
+
+.rc-ops-workbench .grid {
+  gap: 14px;
+}
+
+.rc-ops-workbench .card,
+.rc-customer-passport .login-card,
+.rc-customer-passport .portal-header,
+.rc-customer-passport .timeline-card,
+.rc-customer-passport .detail-card,
+.rc-customer-passport .action-card {
+  background: #ffffff;
+  border: 1px solid rgba(52, 48, 43, 0.12);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(16,24,40,.05);
+}
+
+.rc-ops-workbench .card {
+  padding: 22px;
+  transition: box-shadow .2s ease, border-color .2s ease, transform .12s ease;
+}
+
+.rc-ops-workbench .card:hover {
+  box-shadow: 0 8px 24px rgba(16,24,40,.10);
+  border-color: rgba(52, 48, 43, 0.18);
+}
+
+.rc-ops-workbench .card h3,
+.rc-customer-passport .timeline-card h3 {
+  min-height: 30px;
+  margin: 0 0 16px;
+  color: var(--rc-neutral-950);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rc-customer-passport .section-code {
+  min-width: 38px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 6px;
+  border-radius: 6px;
+  background: var(--rc-neutral-950);
+  color: #fff;
+  font: 800 10px / 1 var(--rc-font-mono);
+}
+
+.rc-ops-workbench .card h3 .icon,
+.rc-ops-workbench .agent-progress-title .icon {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  background: rgba(228,0,43, 0.09);
+  color: var(--rc-red-rheem);
+}
+
+.rc-ops-workbench .card h3 .icon svg,
+.rc-ops-workbench .agent-progress-title .icon svg {
+  width: 17px;
+  height: 17px;
+  stroke-width: 2;
+}
+
+.rc-ops-workbench .stat-card {
+  background: #fff;
+  border: 1px solid rgba(52, 48, 43, 0.12);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(16,24,40,.05);
+  position: relative;
+  overflow: hidden;
+  transition: box-shadow .2s ease, transform .12s ease;
+}
+
+.rc-ops-workbench .stat-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--rc-red-rheem);
+}
+
+.rc-ops-workbench .stat-card:hover {
+  box-shadow: 0 8px 24px rgba(16,24,40,.10);
+  transform: translateY(-1px);
+}
+
+.rc-ops-workbench .stat-card .label,
+.rc-customer-passport .detail-card h4 {
+  color: var(--rc-neutral-500);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.rc-ops-workbench .stat-card .value {
+  color: var(--rc-neutral-950);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.rc-ops-workbench .btn,
+.rc-customer-passport .btn-submit,
+.rc-customer-passport .action-btn {
+  min-height: 38px;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.rc-ops-workbench .btn-primary,
+.rc-customer-passport .btn-submit,
+.rc-customer-passport .action-btn.primary {
+  background: var(--rc-red-rheem);
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(228,0,43,.24);
+}
+
+.rc-ops-workbench .btn-primary:hover,
+.rc-customer-passport .btn-submit:hover {
+  background: #c20025;
+  transform: none;
+}
+
+.rc-ops-workbench .btn-secondary,
+.rc-customer-passport .action-btn.secondary {
+  background: #fff;
+  color: var(--rc-neutral-900);
+  border: 1px solid rgba(52, 48, 43, 0.22);
+}
+
+.rc-ops-workbench input,
+.rc-ops-workbench select,
+.rc-ops-workbench textarea,
+.rc-customer-passport input {
+  border-radius: 8px;
+  border-color: rgba(52, 48, 43, 0.2);
+  background: #fff;
+}
+
+.rc-ops-workbench input:focus,
+.rc-ops-workbench select:focus,
+.rc-ops-workbench textarea:focus,
+.rc-customer-passport input:focus {
+  border-color: var(--rc-blue-rysnova);
+  box-shadow: var(--rc-focus-ring);
+}
+
+.rc-ops-workbench th {
+  background: var(--rc-neutral-100);
+  color: var(--rc-neutral-600);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.rc-ops-workbench td {
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.rc-ops-workbench .quote-result,
+.rc-ops-workbench .deliverable-card {
+  background: #fff;
+  border: 1px solid rgba(52, 48, 43, 0.12);
+  border-left: 3px solid rgba(228,0,43, 0.55);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(16,24,40,.05);
+}
+
+.rc-ops-workbench .quote-result .price-row.total {
+  color: var(--rc-red-rheem);
+  border-top-color: rgba(228,0,43, 0.32);
+}
+
+.rc-ops-workbench .quote-result .saved {
+  background: rgba(228,0,43, 0.08);
+  border-left: 3px solid var(--rc-red-rheem);
+  border-radius: 2px;
+}
+
+.rc-ops-workbench form[style],
+.rc-ops-workbench div[style*="background:#f7f9fc"] {
+  background: var(--rc-neutral-50) !important;
+  border: 1px solid rgba(52, 48, 43, 0.12);
+  border-radius: 6px !important;
+}
+
+.rc-customer-passport .login-wrap {
+  min-height: calc(100vh - 70px);
+  align-items: center;
+}
+
+.rc-customer-passport .login-card {
+  max-width: 520px;
+  padding: 38px;
+}
+
+.rc-customer-passport .login-card::before {
+  content: "";
+  display: block;
+  height: 4px;
+  margin: -38px -38px 30px;
+  background: linear-gradient(90deg, var(--rc-red-rheem), var(--rc-neutral-950));
+}
+
+.rc-customer-passport .login-icon {
+  width: 70px;
+  height: 70px;
+  border-radius: 2px;
+  background: var(--rc-neutral-950);
+  color: #fff;
+  font: 900 18px / 1 var(--rc-font-display);
+}
+
+.rc-customer-passport .login-title {
+  color: var(--rc-neutral-950);
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.rc-customer-passport .login-sub,
+.rc-customer-passport .form-hint,
+.rc-customer-passport .customer-info p {
+  color: var(--rc-neutral-600);
+  line-height: 1.7;
+}
+
+.rc-customer-passport .or-divider::before,
+.rc-customer-passport .or-divider::after {
+  background: rgba(52, 48, 43, 0.16);
+}
+
+.rc-customer-passport .demo-hint {
+  background: var(--rc-neutral-50);
+  border: 1px dashed rgba(52, 48, 43, 0.24);
+  border-radius: 6px;
+}
+
+.rc-customer-passport .portal-wrap {
+  max-width: 1120px;
+  padding: clamp(18px, 3vw, 34px);
+}
+
+.rc-customer-passport .contract-badge,
+.rc-customer-passport .tl-badge {
+  border-radius: 2px;
+}
+
+.rc-customer-passport .tl-dot {
+  border-radius: 2px;
+  border: 2px solid #fff;
+  color: #fff;
+  font: 900 10px / 1 var(--rc-font-mono);
+}
+
+.rc-customer-passport .tl-dot.done {
+  background: var(--rc-success);
+}
+
+.rc-customer-passport .tl-dot.active {
+  background: var(--rc-red-rheem);
+  box-shadow: 0 0 0 2px rgba(228,0,43, 0.18);
+}
+
+.rc-customer-passport .tl-dot.pending {
+  background: var(--rc-neutral-400);
+}
+
+.rc-customer-passport .progress-num {
+  color: var(--rc-red-rheem);
+}
+
+.rc-customer-passport .progress-bar {
+  background: linear-gradient(90deg, var(--rc-red-rheem), var(--rc-neutral-950));
+  border-radius: 0;
+}
+
+.rc-customer-passport .action-card {
+  background: #fff;
+  text-align: left;
+  border-left: 4px solid var(--rc-red-rheem);
+}
+
+.rc-design-studio {
+  --rysnova-blue: var(--rc-red-ruud);
+  --rysnova-blue-light: var(--rc-orange-ruud);
+  --gold-light: var(--rc-yellow-ruud);
+  --bg: #0d0b09;
+  --surface: #171411;
+  --card: #211e1a;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-h: rgba(255, 255, 255, 0.18);
+  background:
+    linear-gradient(90deg, rgba(228, 0, 43, 0.055) 0 1px, transparent 1px 100%),
+    linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 100%),
+    #0d0b09;
+  background-size: 40px 40px, 40px 40px, auto;
+}
+
+.rc-design-studio .topbar {
+  height: 50px;
+  background: rgba(13, 11, 9, 0.96);
+  border-bottom: 3px solid var(--rc-red-ruud);
+}
+
+.rc-design-studio .tb-tag,
+.rc-design-studio .insp-h {
+  color: var(--rc-yellow-ruud);
+  border-color: rgba(255, 210, 0, 0.32);
+}
+
+.rc-design-studio .tb-nav a {
+  border-radius: 2px;
+}
+
+.rc-design-studio .tb-nav a.is-cta,
+.rc-design-studio .ct-btn.is-primary {
+  background: linear-gradient(135deg, var(--rc-red-ruud), #9d0e26);
+  border-color: var(--rc-red-ruud);
+}
+
+.rc-design-studio .ws {
+  height: calc(100vh - 50px);
+}
+
+.rc-design-studio .ws-rail button,
+.rc-design-studio .lib-tabs button,
+.rc-design-studio .lib-item,
+.rc-design-studio .ct-name,
+.rc-design-studio .ct-btn,
+.rc-design-studio .prop-row input,
+.rc-design-studio .insp-actions button {
+  border-radius: 2px;
+}
+
+.rc-design-studio .ws-rail button {
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.rc-design-studio .ws-rail button.active {
+  background: var(--rc-red-ruud);
+  border-color: var(--rc-red-ruud);
+  box-shadow: 0 0 0 3px rgba(228, 0, 43, 0.22);
+}
+
+.rc-design-studio .li-icon {
+  border-radius: 2px;
+  color: #fff;
+  font: 900 10px / 1 var(--rc-font-mono);
+}
+
+.rc-design-studio .ct-mode {
+  border-radius: 2px;
+  background: rgba(228, 0, 43, 0.16);
+  color: #ffb3bf;
+}
+
+.rc-design-studio .stage-wrap {
+  background: #090806;
+}
+
+.rc-design-studio .modal {
+  border-radius: 8px;
+}
+
+.rc-design-studio .modal-h {
+  border-radius: 8px 8px 0 0;
+  background: linear-gradient(135deg, var(--rc-red-ruud), #0d0b09);
+}
+
+.rc-design-studio .modal-actions {
+  border-radius: 0 0 8px 8px;
+}

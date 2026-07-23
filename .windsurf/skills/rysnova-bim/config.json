@@ -1,0 +1,124 @@
+{
+  "name": "Rysnova",
+  "version": "1.0.0",
+  "description": "3D暖通专业架构智能体 - 行业最专业的暖通工程设计能力",
+  "role": "专业架构Agent",
+  "parent": "Master Agent",
+  "category": "Development Team - Professional Subgroup",
+  
+  "capabilities": [
+    "3D BIM暖通设计",
+    "专业负荷计算",
+    "水力计算分析",
+    "CFD气流模拟",
+    "噪声计算",
+    "能耗模拟",
+    "规范合规检查",
+    "碰撞检测",
+    "工程量统计",
+    "4D施工模拟",
+    "Revit/AutoCAD集成"
+  ],
+  
+  "engines": {
+    "Rysnova3DEngine": {
+      "path": "core/Rysnova3DEngine.js",
+      "purpose": "3D管道自动路由、设备布置、碰撞检测"
+    },
+    "RysnovaCalcEngine": {
+      "path": "core/RysnovaCalcEngine.js",
+      "purpose": "专业计算（负荷/水力/CFD/噪声/能耗）"
+    },
+    "RysnovaCodeEngine": {
+      "path": "core/RysnovaCodeEngine.js",
+      "purpose": "规范合规检查（GB/ASHRAE）"
+    },
+    "RysnovaBIMEngine": {
+      "path": "core/RysnovaBIMEngine.js",
+      "purpose": "BIM集成、工程量、4D模拟"
+    }
+  },
+  
+  "standards": {
+    "chinese": [
+      "GB 50736-2012 民用建筑供暖通风与空气调节设计规范",
+      "GB 50019-2015 工业建筑供暖通风与空气调节设计规范",
+      "GB 50189 公共建筑节能设计标准",
+      "GB 50356 剧场建筑设计规范",
+      "GB 50118 民用建筑隔声设计规范",
+      "CJJ 34 城市热力网设计规范",
+      "JGJ 142 地面辐射供暖技术规程"
+    ],
+    "international": [
+      "ASHRAE 55 Thermal Environmental Conditions",
+      "ASHRAE 62.1 Ventilation for Acceptable IAQ",
+      "ASHRAE 90.1 Energy Standard for Buildings",
+      "ASHRAE 189.1 High-Performance Buildings",
+      "ISO 16739 IFC (Industry Foundation Classes)"
+    ],
+    "local": [
+      "DGJ08-107 上海公共建筑节能设计标准",
+      "DB11/687 北京公共建筑节能设计标准"
+    ]
+  },
+  
+  "precision": {
+    "loadCalculation": 0.01,
+    "hydraulic": 0.05,
+    "cfd": 0.10,
+    "energy": 0.05,
+    "quantity": 0.95
+  },
+  
+  "integration": {
+    "masterAgent": {
+      "reportingInterval": "30s",
+      "statusSync": ["progress", "health", "results"]
+    },
+    "otherAgents": {
+      "Arch-Agent": "接收架构设计参数",
+      "BE-Lead": "输出计算结果接口",
+      "FE-Lead": "接收3D可视化数据",
+      "QA-Lead": "提交规范合规报告"
+    }
+  },
+  
+  "workflows": {
+    "fullDesign": {
+      "stages": [
+        "BIM导入",
+        "3D设计",
+        "专业计算",
+        "规范检查",
+        "BIM集成",
+        "碰撞检测",
+        "工程量",
+        "出图导出"
+      ],
+      "duration": "2-4小时",
+      "output": "完整设计方案+图纸+报告"
+    },
+    "quickDesign": {
+      "stages": [
+        "快速负荷估算",
+        "设备预选",
+        "概念布置"
+      ],
+      "duration": "5-10分钟",
+      "output": "概念方案+估算"
+    },
+    "optimization": {
+      "stages": [
+        "现状分析",
+        "优化建议",
+        "方案对比"
+      ],
+      "duration": "30-60分钟",
+      "output": "优化报告+对比分析"
+    }
+  },
+  
+  "status": "development",
+  "maturity": "beta",
+  "targetRelease": "2026-Q2"
+}

@@ -1,0 +1,23 @@
+{
+  "name": "everhot-cn",
+  "version": "0.1.0",
+  "private": true,
+  "description": "恒热 Everhot 中国独立品牌站（静态站，自有域名 everhot.com.cn，根路径部署）",
+  "scripts": {
+    "dev": "node scripts/serve.js --port 5011",
+    "start": "node scripts/serve.js --port 5011",
+    "geo": "node scripts/geo-build.js --site everhot",
+    "audit": "node scripts/link-audit.js",
+    "gen:subtypes": "node scripts/gen-subtype-pages.mjs",
+    "sync:products": "node scripts/sync-products-to-nexus.mjs",
+    "sync:images": "node scripts/sync-product-images-to-dam.mjs",
+    "fetch:products": "node scripts/fetch-products-from-nexus.mjs",
+    "fetch:images": "node scripts/fetch-product-images-from-dam.mjs",
+    "opt:img": "node scripts/optimize-images.mjs",
+    "build": "npm run fetch:products && npm run fetch:images && npm run opt:img && npm run gen:subtypes && npm run geo && npm run audit"
+  },
+  "dependencies": {
+    "jsonwebtoken": "^9.0.3",
+    "sharp": "^0.33.5"
+  }
+}

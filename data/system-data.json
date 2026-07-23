@@ -1,0 +1,37 @@
+{
+  "users": [],
+  "projects": [],
+  "customers": [],
+  "products": [
+    {
+      "id": 1,
+      "name": "五恒辐射空调",
+      "model": "RH-WH-300",
+      "price": 45000,
+      "category": "空调"
+    },
+    {
+      "id": 2,
+      "name": "恒热中央热水",
+      "model": "RH-HS-200",
+      "price": 12000,
+      "category": "热水器"
+    },
+    {
+      "id": 3,
+      "name": "全屋新风系统",
+      "model": "RH-FA-500",
+      "price": 8000,
+      "category": "新风"
+    },
+    {
+      "id": 4,
+      "name": "Econet智能控制",
+      "model": "RH-EC-Pro",
+      "price": 5000,
+      "category": "智能控制"
+    }
+  ],
+  "quotations": [],
+  "createdAt": "2026-04-19T01:18:47.103Z"
+}

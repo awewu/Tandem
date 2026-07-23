@@ -1,0 +1,259 @@
+# 🔨 Hammer Industrial Validation Workflow
+# 
+# This workflow runs Hammer validation on every push and PR
+# It enforces quality gates and generates detailed reports
+#
+# Quality Gates:
+#   - G0 Critical: Blocks on security/data loss issues
+#   - G1 High: Blocks on core function failures  
+#   - G2 Medium: Warns on minor issues
+#   - G3/G4: Pass
+
+name: 🔨 Hammer Validation
+
+on:
+  push:
+    branches: [main, master, develop, 'release/*']
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.github/*.md'
+  pull_request:
+    branches: [main, master, develop]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ═══════════════════════════════════════════════════════════════
+  # Phase 1: Fast Validation (L1-L3) - Structure, Syntax, Dependency
+  # ═══════════════════════════════════════════════════════════════
+  hammer-fast:
+    name: ⚡ Fast Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🔨 Run Hammer Fast Validation
+        id: hammer-fast
+        run: |
+          node hammer.js --mode=fast --suites=L1,L2,L3 --format=json --output=./reports
+        continue-on-error: true
+
+      - name: 📤 Upload Fast Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hammer-fast-report
+          path: reports/
+          retention-days: 7
+
+      - name: ❌ Check Fast Validation Result
+        if: steps.hammer-fast.outcome == 'failure'
+        run: |
+          echo "❌ Hammer Fast Validation Failed"
+          echo "Fix L1-L3 issues before proceeding"
+          exit 1
+
+  # ═══════════════════════════════════════════════════════════════
+  # Phase 2: Full Validation (L1-L9) - All Layers
+  # ═══════════════════════════════════════════════════════════════
+  hammer-full:
+    name: 🔨 Full Validation
+    needs: hammer-fast
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for better analysis
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🔨 Run Hammer Full Validation
+        id: hammer-full
+        run: |
+          node hammer.js --mode=strict --format=full --output=./reports
+        continue-on-error: true
+
+      - name: 📊 Parse Quality Gate
+        id: quality-gate
+        run: |
+          if [ -f reports/hammer-report.json ]; then
+            GATE_LEVEL=$(jq -r '.gate.level' reports/hammer-report.json)
+            GATE_PASSED=$(jq -r '.gate.passed' reports/hammer-report.json)
+            QUALITY_SCORE=$(jq -r '.summary.qualityScore' reports/hammer-report.json)
+            
+            echo "gate_level=$GATE_LEVEL" >> $GITHUB_OUTPUT
+            echo "gate_passed=$GATE_PASSED" >> $GITHUB_OUTPUT
+            echo "quality_score=$QUALITY_SCORE" >> $GITHUB_OUTPUT
+            
+            echo "🚦 Quality Gate: $GATE_LEVEL"
+            echo "📈 Quality Score: $QUALITY_SCORE/100"
+          fi
+
+      - name: 📤 Upload Full Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hammer-full-report
+          path: reports/
+          retention-days: 30
+
+      # ═══════════════════════════════════════════════════════════
+      # Quality Gate Enforcement
+      # ═══════════════════════════════════════════════════════════
+      
+      - name: 🚫 Block on Critical Issues (G0)
+        if: steps.quality-gate.outputs.gate_level == 'G0_CRITICAL'
+        run: |
+          echo "💀 CRITICAL ISSUES DETECTED"
+          echo "Security vulnerabilities or data loss risks found"
+          echo "Fix immediately before merging"
+          exit 1
+
+      - name: ❌ Block on High Issues (G1)
+        if: steps.quality-gate.outputs.gate_level == 'G1_HIGH'
+        run: |
+          echo "❌ HIGH SEVERITY ISSUES DETECTED"
+          echo "Core function failures found"
+          echo "Fix before merging"
+          exit 1
+
+      - name: ⚠️ Warn on Medium Issues (G2)
+        if: steps.quality-gate.outputs.gate_level == 'G2_MEDIUM'
+        run: |
+          echo "⚠️ MEDIUM SEVERITY ISSUES DETECTED"
+          echo "Minor issues found but not blocking"
+          echo "Consider fixing in follow-up PR"
+
+      - name: ✅ Pass (G3/G4)
+        if: |
+          steps.quality-gate.outputs.gate_level == 'G3_LOW' || 
+          steps.quality-gate.outputs.gate_level == 'G4_PASS'
+        run: |
+          echo "✅ Quality Gate Passed"
+          echo "All validation layers passed"
+
+      - name: 📝 PR Comment
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            
+            let report;
+            try {
+              report = JSON.parse(fs.readFileSync('reports/hammer-report.json', 'utf8'));
+            } catch (e) {
+              console.log('Could not read Hammer report');
+              return;
+            }
+            
+            const { summary, gate, meta } = report;
+            
+            const gateEmoji = {
+              'G0_CRITICAL': '💀',
+              'G1_HIGH': '❌',
+              'G2_MEDIUM': '⚠️',
+              'G3_LOW': 'ℹ️',
+              'G4_PASS': '✅'
+            };
+            
+            const emoji = gateEmoji[gate.level] || '🔨';
+            
+            let body = '## ' + emoji + ' Hammer Validation Report\n\n';
+            body += '**Quality Gate:** ' + gate.name + '\n';
+            body += '**Quality Score:** ' + summary.qualityScore + '/100\n';
+            body += '**Duration:** ' + meta.duration + 'ms\n\n';
+            body += '### Summary\n';
+            body += '- Passed: ' + summary.passed + '\n';
+            body += '- Failed: ' + summary.failed + '\n';
+            body += '- Skipped: ' + summary.skipped + '\n\n';
+            body += '---\n*Generated by Hammer v' + meta.hammer.version + '*\n';
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+  # ═══════════════════════════════════════════════════════════════
+  # Phase 3: Report Generation & Notification
+  # ═══════════════════════════════════════════════════════════════
+  hammer-report:
+    name: 📊 Generate Report
+    needs: [hammer-fast, hammer-full]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: 📥 Download All Reports
+        uses: actions/download-artifact@v4
+        with:
+          path: reports/
+          pattern: hammer-*-report
+
+      - name: 📦 Upload Combined Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: hammer-complete-report
+          path: reports/
+          retention-days: 90
+
+      - name: 📈 Update Dashboard
+        if: github.ref == 'refs/heads/main'
+        run: |
+          echo "Updating quality dashboard..."
+          # Here you could send metrics to external dashboard
+          # Example: Datadog, Grafana, custom dashboard
+
+  # ═══════════════════════════════════════════════════════════════
+  # Notification (Optional - requires secrets configuration)
+  # ═══════════════════════════════════════════════════════════════
+  # notify:
+  #   name: 📢 Notify Team
+  #   needs: hammer-full
+  #   runs-on: ubuntu-latest
+  #   if: failure()
+  #   
+  #   steps:
+  #     - name: 📧 Send Email
+  #       uses: dawidd6/action-send-mail@v3
+  #       with:
+  #         server_address: smtp.gmail.com
+  #         server_port: 587
+  #         username: ${{ secrets.EMAIL_USERNAME }}
+  #         password: ${{ secrets.EMAIL_PASSWORD }}
+  #         subject: "🔨 Hammer Validation Failed - ${{ github.repository }}"
+  #         to: team@rysnova-bim.com
+  #         from: hammer@rysnova-bim.com
+  #         body: "Quality gate failed. Check the Actions logs."

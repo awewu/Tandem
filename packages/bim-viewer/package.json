@@ -1,0 +1,16 @@
+{
+  "name": "@rhautt/bim-viewer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "统一 BIM/IFC 3D 查看器（裸 three + web-ifc，本地离线 WASM）。单一来源，供 designer / dealer / 技术支持端共用。",
+  "main": "index.tsx",
+  "types": "index.tsx",
+  "peerDependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  },
+  "dependencies": {
+    "three": "^0.175.0",
+    "web-ifc": "0.0.68"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "public-portal",
+  "projectType": "application",
+  "sourceRoot": "apps/public-portal/src",
+  "tags": ["scope:consumer", "surface:portal", "runtime:next-target"],
+  "targets": {
+    "build": {
+      "executor": "target-scaffold",
+      "options": {
+        "status": "scaffold-only",
+        "currentSurface": "public/index-ready.html",
+        "compatibilitySurface": "public/index.html",
+        "embeddedProductModules": [
+          "consumer-diagnosis",
+          "rysnova-bim-workbench"
+        ]
+      }
+    }
+  }
+}

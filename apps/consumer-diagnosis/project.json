@@ -1,0 +1,76 @@
+{
+  "name": "consumer-diagnosis",
+  "projectType": "application",
+  "sourceRoot": "apps/consumer-diagnosis/src",
+  "tags": [
+    "scope:consumer",
+    "surface:diagnosis",
+    "runtime:next-target"
+  ],
+  "targets": {
+    "build": {
+      "executor": "target-scaffold",
+      "options": {
+        "status": "scaffold-only",
+        "currentSurface": "public/pain-diagnosis.html",
+        "productModuleId": "rysnova-consumer-system",
+        "moduleNamespace": "rysnova",
+        "dataNamespace": "rysnova",
+        "apiNamespace": "/api/v2/diagnosis",
+        "deploymentModel": {
+          "portalEmbedded": true,
+          "standaloneLaunchable": true,
+          "embeddedEntry": "/pain-diagnosis.html",
+          "standaloneAliases": [
+            "/rysnova",
+            "/rysnova-ai",
+            "/rysnova-diagnosis"
+          ],
+          "poweredBy": "Powered by Rhautt Comfort",
+          "externalDomainProofRequired": true,
+          "standaloneAppShellMode": "independent-product-app-shell",
+          "standaloneDomainStrategy": "dedicated-domain-or-subdomain-required",
+          "standaloneDomainTargets": [
+            "pending-dedicated-rysnova-domain-or-subdomain"
+          ]
+        },
+        "dataBoundary": {
+          "postgresRegistry": "rhautt_nexus.product_modules",
+          "deploymentRegistry": "rhautt_nexus.product_module_deployments",
+          "dataPartitionRegistry": "rhautt_nexus.product_module_data_partitions",
+          "objectStoragePrefix": "rysnova/",
+          "analyticsNamespace": "rysnova",
+          "futureDatabaseStrategy": "namespace-extractable-shared-ledger",
+          "currentDataMode": "shared-foundation-product-domain-partitioned",
+          "futureDataMode": "standalone-database-extractable",
+          "ownedPostgresTables": [
+            "customers",
+            "opportunities",
+            "quotations"
+          ],
+          "ownedMongoNamespaces": [
+            "DiagnosisReport.moduleNamespace=rysnova"
+          ],
+          "standaloneDatabaseTarget": "rysnova-owned-postgres-schema-plus-mongodb-namespace",
+          "extractionProofRequired": true,
+          "futureStandaloneProductReady": true,
+          "independentDatabaseReady": true,
+          "productIndependenceLevel": "portal-embedded-and-standalone-extractable",
+          "standaloneDomainStrategy": "dedicated-domain-or-subdomain-required",
+          "standaloneAppShellMode": "independent-product-app-shell",
+          "standalonePostgresSchema": "rysnova",
+          "standaloneMongoDatabase": "rysnova_documents",
+          "standaloneObjectStorageBucket": "rysnova-product-artifacts",
+          "extractionPlan": "extract-by-product_data_namespace-moduleNamespace-dataNamespace-objectStoragePrefix"
+        },
+        "productIndependenceLevel": "portal-embedded-and-standalone-extractable",
+        "standaloneDomainStrategy": "dedicated-domain-or-subdomain-required",
+        "standaloneAppShellMode": "independent-product-app-shell",
+        "standalonePostgresSchema": "rysnova",
+        "standaloneMongoDatabase": "rysnova_documents",
+        "standaloneObjectStorageBucket": "rysnova-product-artifacts",
+        "extractionPlan": "extract-by-product_data_namespace-moduleNamespace-dataNamespace-objectStoragePrefix"
+      }
+    }
+  }
+}

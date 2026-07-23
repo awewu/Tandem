@@ -1,0 +1,171 @@
+[
+  {
+    "id": "RHEEM-WH-150",
+    "brand": "Rheem",
+    "category": "water_heater",
+    "name": "恒热商用燃气热水器 150L",
+    "model": "EVERHOT-150",
+    "specs": {
+      "capacity": "150L",
+      "power": "24kW",
+      "energyRating": "一级"
+    },
+    "price": 15800,
+    "cost": 9800,
+    "warranty": "3年",
+    "features": ["零冷水", "智能恒温", "防冻保护"],
+    "applicableScenarios": ["大户型", "多卫", "别墅"]
+  },
+  {
+    "id": "RHEEM-WH-100",
+    "brand": "Rheem",
+    "category": "water_heater",
+    "name": "恒热家用燃气热水器 100L",
+    "model": "EVERHOT-100",
+    "specs": {
+      "capacity": "100L",
+      "power": "18kW",
+      "energyRating": "二级"
+    },
+    "price": 8800,
+    "cost": 5500,
+    "warranty": "2年",
+    "features": ["快速加热", "节能模式"],
+    "applicableScenarios": ["中小户型", "3-4人家庭"]
+  },
+  {
+    "id": "RHEEM-BO-24",
+    "brand": "Rheem",
+    "category": "boiler",
+    "name": "瑞美冷凝燃气壁挂炉 24kW",
+    "model": "RHEEM-24K",
+    "specs": {
+      "heatingPower": "24kW",
+      "hotWaterPower": "24kW",
+      "efficiency": "108%"
+    },
+    "price": 12800,
+    "cost": 7900,
+    "warranty": "3年",
+    "features": ["冷凝节能", "智能控制", "气候补偿"],
+    "applicableScenarios": ["采暖+热水", "120㎡以下"]
+  },
+  {
+    "id": "RHEEM-BO-28",
+    "brand": "Rheem",
+    "category": "boiler",
+    "name": "瑞美冷凝燃气壁挂炉 28kW",
+    "model": "RHEEM-28K",
+    "specs": {
+      "heatingPower": "28kW",
+      "hotWaterPower": "28kW",
+      "efficiency": "108%"
+    },
+    "price": 15800,
+    "cost": 9800,
+    "warranty": "3年",
+    "features": ["冷凝节能", "智能控制", "大流量热水"],
+    "applicableScenarios": ["大户型", "别墅", "多卫"]
+  },
+  {
+    "id": "RUUD-AC-VRF",
+    "brand": "Ruud",
+    "category": "air_conditioning",
+    "name": "Ruud VRF多联机中央空调",
+    "model": "RUUD-VRF-6HP",
+    "specs": {
+      "coolingCapacity": "15.5kW",
+      "heatingCapacity": "17kW",
+      "cop": "4.2"
+    },
+    "price": 35000,
+    "cost": 21000,
+    "warranty": "3年",
+    "features": ["全直流变频", "智能除霜", "静音运行"],
+    "applicableScenarios": ["大平层", "别墅", "全屋空调"]
+  },
+  {
+    "id": "RUUD-FRESH-350",
+    "brand": "Ruud",
+    "category": "ventilation",
+    "name": "Ruud全热交换新风系统 350m³/h",
+    "model": "RUUD-ERV-350",
+    "specs": {
+      "airflow": "350m³/h",
+      "heatRecovery": "75%",
+      "filterLevel": "H13"
+    },
+    "price": 12800,
+    "cost": 7600,
+    "warranty": "2年",
+    "features": ["全热回收", "PM2.5净化", "除霾"],
+    "applicableScenarios": ["100-150㎡", "雾霾区", "过敏人群"]
+  },
+  {
+    "id": "RHEEM-WP-200",
+    "brand": "Rheem",
+    "category": "water_purifier",
+    "name": "瑞美全屋净水系统 200L/h",
+    "model": "RHEEM-RO-200",
+    "specs": {
+      "flowRate": "200L/h",
+      "filterStages": 5,
+      "wasteRatio": "1:1"
+    },
+    "price": 6800,
+    "cost": 4000,
+    "warranty": "1年",
+    "features": ["RO反渗透", "智能换芯提醒", "双出水"],
+    "applicableScenarios": ["直饮水", "母婴家庭", "水质差地区"]
+  },
+  {
+    "id": "RHEEM-SOFT-1000",
+    "brand": "Rheem",
+    "category": "water_softener",
+    "name": "瑞美中央软水机 1000L/h",
+    "model": "RHEEM-SOFT-1T",
+    "specs": {
+      "softeningCapacity": "1000L/h",
+      "resinCapacity": "12L",
+      "regenerationMode": "自动"
+    },
+    "price": 8800,
+    "cost": 5200,
+    "warranty": "2年",
+    "features": ["全自动再生", "省盐省水", "护肤护发"],
+    "applicableScenarios": ["硬水区", "皮肤敏感", "高档卫浴"]
+  },
+  {
+    "id": "RHEEM-5C-120",
+    "brand": "Rheem",
+    "category": "five_constant",
+    "name": "瑞美五恒系统 120㎡套餐",
+    "model": "RHEEM-5C-120",
+    "specs": {
+      "coverage": "120㎡",
+      "components": ["辐射板", "新风主机", "热泵", "控制系统"]
+    },
+    "price": 85000,
+    "cost": 51000,
+    "warranty": "5年",
+    "features": ["恒温恒湿", "恒氧恒洁恒静", "无风感"],
+    "applicableScenarios": ["高端住宅", "老人儿童", "极致舒适"]
+  },
+  {
+    "id": "RHEEM-FLOOR-100",
+    "brand": "Rheem",
+    "category": "floor_heating",
+    "name": "瑞美地暖系统 100㎡套餐",
+    "model": "RHEEM-FLOOR-100",
+    "specs": {
+      "coverage": "100㎡",
+      "pipeMaterial": "PE-RT",
+      "insulation": "XPS"
+    },
+    "price": 18000,
+    "cost": 10800,
+    "warranty": "10年",
+    "features": ["均匀散热", "足暖头凉", "节能舒适"],
+    "applicableScenarios": ["采暖需求", "舒适升级", "新房装修"]
+  }
+]

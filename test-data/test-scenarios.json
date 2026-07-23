@@ -1,0 +1,324 @@
+{
+  "testScenarios": [
+    {
+      "id": 1,
+      "role": "新婚夫妇首套",
+      "profile": {
+        "houseType": "二居",
+        "area": 89,
+        "city": "上海",
+        "budget": "经济型",
+        "residents": 2,
+        "hasElderly": false,
+        "hasChildren": false,
+        "hasPet": false
+      },
+      "painPoints": ["冬天冷", "热水不够"],
+      "priorities": ["性价比", "节能"]
+    },
+    {
+      "id": 2,
+      "role": "三代同堂家庭",
+      "profile": {
+        "houseType": "四居+",
+        "area": 156,
+        "city": "北京",
+        "budget": "舒适型",
+        "residents": 6,
+        "hasElderly": true,
+        "hasChildren": true,
+        "hasPet": false
+      },
+      "painPoints": ["冬天冷", "夏天热", "空气差", "水温不稳"],
+      "priorities": ["舒适", "健康"]
+    },
+    {
+      "id": 3,
+      "role": "单身精英公寓",
+      "profile": {
+        "houseType": "一居",
+        "area": 45,
+        "city": "深圳",
+        "budget": "豪华型",
+        "residents": 1,
+        "hasElderly": false,
+        "hasChildren": false,
+        "hasPet": true
+      },
+      "painPoints": ["空气差", "能耗高"],
+      "priorities": ["智能", "品质"]
+    },
+    {
+      "id": 4,
+      "role": "别墅业主",
+      "profile": {
+        "houseType": "别墅",
+        "area": 320,
+        "city": "杭州",
+        "budget": "豪华型",
+        "residents": 4,
+        "hasElderly": false,
+        "hasChildren": true,
+        "hasPet": true
+      },
+      "painPoints": ["冬天冷", "夏天热", "水质差", "空气差"],
+      "priorities": ["舒适", "智能", "健康"]
+    },
+    {
+      "id": 5,
+      "role": "改善型三居",
+      "profile": {
+        "houseType": "三居",
+        "area": 128,
+        "city": "成都",
+        "budget": "舒适型",
+        "residents": 3,
+        "hasElderly": false,
+        "hasChildren": true,
+        "hasPet": false
+      },
+      "painPoints": ["冬天冷", "热水不够"],
+      "priorities": ["舒适", "性价比"]
+    },
+    {
+      "id": 6,
+      "role": "养老住宅",
+      "profile": {
+        "houseType": "二居",
+        "area": 75,
+        "city": "青岛",
+        "budget": "标准型",
+        "residents": 2,
+        "hasElderly": true,
+        "hasChildren": false,
+        "hasPet": false
+      },
+      "painPoints": ["冬天冷", "水温不稳"],
+      "priorities": ["舒适", "安全"]
+    },
+    {
+      "id": 7,
+      "role": "双职工有娃",
+      "profile": {
+        "houseType": "三居",
+        "area": 115,
+        "city": "武汉",
+        "budget": "标准型",
+        "residents": 3,
+        "hasElderly": false,
+        "hasChildren": true,
+        "hasPet": false
+      },
+      "painPoints": ["夏天热", "空气差", "能耗高"],
+      "priorities": ["健康", "节能"]
+    },
+    {
+      "id": 8,
+      "role": "投资出租房",
+      "profile": {
+        "houseType": "二居",
+        "area": 68,
+        "city": "重庆",
+        "budget": "经济型",
+        "residents": 2,
+        "hasElderly": false,
+        "hasChildren": false,
+        "hasPet": false
+      },
+      "painPoints": ["能耗高"],
+      "priorities": ["性价比"]
+    },
+    {
+      "id": 9,
+      "role": "科技从业者",
+      "profile": {
+        "houseType": "四居+",
+        "area": 168,
+        "city": "南京",
+        "budget": "豪华型",
+        "residents": 3,
+        "hasElderly": false,
+        "hasChildren": false,
+        "hasPet": true
+      },
+      "painPoints": ["空气差", "能耗高", "水温不稳"],
+      "priorities": ["智能", "品质", "节能"]
+    },
+    {
+      "id": 10,
+      "role": "大平层改善",
+      "profile": {
+        "houseType": "大平层",
+        "area": 198,
+        "city": "苏州",
+        "budget": "舒适型",
+        "residents": 4,
+        "hasElderly": false,
+        "hasChildren": true,
+        "hasPet": false
+      },
+      "painPoints": ["冬天冷", "夏天热", "空气差"],
+      "priorities": ["舒适", "健康", "智能"]
+    },
+    {
+      "id": 11,
+      "role": "退休教师",
+      "profile": {
+        "houseType": "三居",
+        "area": 98,
+        "city": "西安",
+        "budget": "标准型",
+        "residents": 2,
+        "hasElderly": true,
+        "hasChildren": false,
+        "hasPet": false
+      },
+      "painPoints": ["冬天冷", "水质差"],
+      "priorities": ["舒适", "健康", "性价比"]
+    },
+    {
+      "id": 12,
+      "role": "年轻创业者",
+      "profile": {
+        "houseType": "一居",
+        "area": 52,
+        "city": "广州",
+        "budget": "经济型",
+        "residents": 1,
+        "hasElderly": false,
+        "hasChildren": false,
+        "hasPet": false
+      },
+      "painPoints": ["夏天热", "热水不够"],
+      "priorities": ["性价比", "节能"]
+    },
+    {
+      "id": 13,
+      "role": "二孩家庭",
+      "profile": {
+        "houseType": "四居+",
+        "area": 145,
+        "city": "天津",
+        "budget": "舒适型",
+        "residents": 4,
+        "hasElderly": false,
+        "hasChildren": true,
+        "hasPet": false
+      },
+      "painPoints": ["冬天冷", "夏天热", "空气差", "热水不够"],
+      "priorities": ["舒适", "健康", "性价比"]
+    },
+    {
+      "id": 14,
+      "role": "高端商务人士",
+      "profile": {
+        "houseType": "大平层",
+        "area": 220,
+        "city": "上海",
+        "budget": "豪华型",
+        "residents": 2,
+        "hasElderly": false,
+        "hasChildren": false,
+        "hasPet": false
+      },
+      "painPoints": ["空气差", "能耗高", "水温不稳"],
+      "priorities": ["品质", "智能", "舒适"]
+    },
+    {
+      "id": 15,
+      "role": " suburban家庭",
+      "profile": {
+        "houseType": "别墅",
+        "area": 280,
+        "city": "无锡",
+        "budget": "舒适型",
+        "residents": 5,
+        "hasElderly": true,
+        "hasChildren": true,
+        "hasPet": true
+      },
+      "painPoints": ["冬天冷", "水质差", "空气差"],
+      "priorities": ["舒适", "健康", "节能"]
+    },
+    {
+      "id": 16,
+      "role": "都市白领",
+      "profile": {
+        "houseType": "二居",
+        "area": 78,
+        "city": "长沙",
+        "budget": "标准型",
+        "residents": 2,
+        "hasElderly": false,
+        "hasChildren": false,
+        "hasPet": false
+      },
+      "painPoints": ["夏天热", "热水不够"],
+      "priorities": ["性价比", "舒适"]
+    },
+    {
+      "id": 17,
+      "role": "医生家庭",
+      "profile": {
+        "houseType": "三居",
+        "area": 135,
+        "city": "郑州",
+        "budget": "舒适型",
+        "residents": 3,
+        "hasElderly": false,
+        "hasChildren": true,
+        "hasPet": false
+      },
+      "painPoints": ["空气差", "水质差", "能耗高"],
+      "priorities": ["健康", "节能", "舒适"]
+    },
+    {
+      "id": 18,
+      "role": "艺术从业者",
+      "profile": {
+        "houseType": "大平层",
+        "area": 175,
+        "city": "厦门",
+        "budget": "豪华型",
+        "residents": 2,
+        "hasElderly": false,
+        "hasChildren": false,
+        "hasPet": true
+      },
+      "painPoints": ["空气差", "湿度问题"],
+      "priorities": ["品质", "智能", "舒适"]
+    },
+    {
+      "id": 19,
+      "role": "公务员家庭",
+      "profile": {
+        "houseType": "三居",
+        "area": 108,
+        "city": "济南",
+        "budget": "标准型",
+        "residents": 3,
+        "hasElderly": false,
+        "hasChildren": true,
+        "hasPet": false
+      },
+      "painPoints": ["冬天冷", "空气差"],
+      "priorities": ["性价比", "健康", "舒适"]
+    },
+    {
+      "id": 20,
+      "role": "外企高管",
+      "profile": {
+        "houseType": "四居+",
+        "area": 188,
+        "city": "北京",
+        "budget": "豪华型",
+        "residents": 4,
+        "hasElderly": false,
+        "hasChildren": true,
+        "hasPet": false
+      },
+      "painPoints": ["冬天冷", "夏天热", "空气差", "水质差", "能耗高"],
+      "priorities": ["智能", "品质", "健康", "舒适"]
+    }
+  ]
+}

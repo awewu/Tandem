@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <title>EVERHOT 标准品牌底板 · Baseplate Spec</title>
+  <link rel="stylesheet" href="/css/everhot.css" />
+  <style>
+    .bp-wrap { max-width: 1280px; margin: 0 auto; padding: clamp(24px,5vw,64px) clamp(16px,4vw,40px); }
+    .bp-demo { aspect-ratio: 1024 / 569; border-radius: var(--r-lg); overflow: hidden;
+               display: grid; place-items: center; box-shadow: var(--shadow-lg); }
+    .bp-demo h2 { font-size: clamp(20px,3vw,34px); text-shadow: 0 2px 18px rgba(0,0,0,.3); }
+    .bp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; margin-top: 28px; }
+    .bp-label { font-size: 13px; color: var(--gray); margin: 14px 2px 0; }
+    .bp-lead { color: var(--gray); max-width: 720px; line-height: 1.7; }
+  </style>
+</head>
+<body>
+  <main class="bp-wrap">
+    <h1>EVERHOT 标准品牌底板</h1>
+    <p class="bp-lead">设计语言基底（<strong>LOCKED</strong>）：技术制图栅格线 + 椭圆双线轮廓 + EVERHOT 幽灵字。
+    线稿恒定，<strong>颜色可创意</strong>——叠加 <code>.eh-baseplate</code> 即得标准底板，加颜色变体或覆盖 <code>--baseplate-bg</code> 即可换色。</p>
+
+    <div class="bp-grid">
+      <div>
+        <div class="bp-demo eh-baseplate"><h2>恒热红（默认）</h2></div>
+        <div class="bp-label">class="eh-baseplate"</div>
+      </div>
+      <div>
+        <div class="bp-demo eh-baseplate eh-baseplate--ember"><h2>暖焰（家用）</h2></div>
+        <div class="bp-label">.eh-baseplate--ember</div>
+      </div>
+      <div>
+        <div class="bp-demo eh-baseplate eh-baseplate--teal"><h2>青·可持续</h2></div>
+        <div class="bp-label">.eh-baseplate--teal</div>
+      </div>
+      <div>
+        <div class="bp-demo eh-baseplate eh-baseplate--ink"><h2>炭墨（深底）</h2></div>
+        <div class="bp-label">.eh-baseplate--ink</div>
+      </div>
+      <div>
+        <div class="bp-demo eh-baseplate" style="--baseplate-bg: radial-gradient(125% 130% at 32% 30%, #6c1525 0%, #4a0f1a 60%, #2b0a10 100%);"><h2>就地覆盖 --baseplate-bg</h2></div>
+        <div class="bp-label">style="--baseplate-bg: …"</div>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

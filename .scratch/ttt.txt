@@ -1,0 +1,259 @@
+worker_processes  1;
+
+events {
+    worker_connections  1024;
+}
+
+http {
+
+ 
+    include  E:/StratOS/nginx/stratos.conf;
+    include       mime.types;
+    default_type  application/octet-stream;
+
+    sendfile        on;
+    keepalive_timeout  65;
+
+    client_max_body_size 200m;
+
+    map $http_upgrade $connection_upgrade {
+        default upgrade;
+        ''      close;
+    }
+
+
+
+
+
+    # HTTP 闂佺绻堥崝鎴﹀磿鐎靛憡宕?HTTPS
+    server {
+        listen 80;
+        server_name rhautt.com www.rhautt.com studio.rhautt.com plm.rhautt.com ai.rhautt.com strat.rhautt.com;
+        return 301 https://$host$request_uri;
+    }
+
+    # 闁诲氦顫夐…鍥╃礊婢舵劖顥堟繛鍡樺姀閸嬫挻鎷呴搹鐟拌闂?
+    server {
+        listen 443 ssl;
+        server_name rhautt.com www.rhautt.com;
+
+        ssl_certificate     C:/cert/rhautt.com_cert_chain.pem;
+        ssl_certificate_key C:/cert/rhautt.com_key.key;
+
+        root E:/rhautt-deploy/public;
+        index index.html;
+
+        location / {
+            try_files $uri $uri/ /index.html;
+        }
+    }
+
+    # Studio闂佹寧绋掗懝鍓т焊閸愵喖鐭?
+    server {
+        listen 443 ssl;
+        server_name studio.rhautt.com;
+
+        ssl_certificate     C:/cert/rhautt.com_cert_chain.pem;
+        ssl_certificate_key C:/cert/rhautt.com_key.key;
+
+        location / {
+    proxy_pass http://127.0.0.1:3020;
+    proxy_http_version 1.1;
+
+    proxy_set_header Host studio.rhautt.com;
+    proxy_set_header X-Forwarded-Host studio.rhautt.com;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header X-Forwarded-Port 443;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+
+    proxy_redirect ~^http://localhost:3020(/.*)$ https://studio.rhautt.com$1;
+    proxy_redirect ~^http://127\.0\.0\.1:3020(/.*)$ https://studio.rhautt.com$1;
+proxy_redirect ~^https://localhost:3020(/.*)$ https://studio.rhautt.com$1;
+proxy_redirect ~^https://127\.0\.0\.1:3020(/.*)$ https://studio.rhautt.com$1;
+}
+    }
+
+    # Cascadia / PLM 闂佸搫鍊稿ú锕傚Υ閸屾稒鍎?
+    server {
+        listen 443 ssl;
+        server_name plm.rhautt.com;
+
+        ssl_certificate     C:/cert/rhautt.com_cert_chain.pem;
+        ssl_certificate_key C:/cert/rhautt.com_key.key;
+
+        location / {
+            proxy_pass http://127.0.0.1:3010;
+            proxy_http_version 1.1;
+
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto https;
+
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+        }
+    }
+
+    # AI 缂備焦姊归悷褔宕?
+    server {
+        listen 443 ssl;
+        server_name ai.rhautt.com;
+
+        ssl_certificate     C:/cert/rhautt.com_cert_chain.pem;
+        ssl_certificate_key C:/cert/rhautt.com_key.key;
+
+        location / {
+            proxy_pass http://127.0.0.1:3000;
+            proxy_http_version 1.1;
+
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto https;
+
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+        }
+    }
+
+# minio
+server {
+    listen 443 ssl;
+    server_name s3.rhautt.com;              # 闂?闂佸搫娲︾€笛冪暦?
+
+    ssl_certificate     C:/cert/rhautt.com_cert_chain.pem;  # 闂?win-acme 闂?fullchain
+    ssl_certificate_key C:/cert/rhautt.com_key.key;        # 闂?win-acme 闂?key
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    # MinIO 闂傚倸瀚€氼亜鈻庨姀銈呯煑妞ゆ牗绻傞崢鎾级閸繂鏆欓柕鍥ф喘閺佸秴顫濋鐔告緬閻庢鍠掗崑鎾绘偣閸ヮ剚鏁遍柣顏嗗閹峰懘骞橀懠顒傛啰闂傚倸瀚崝褏妲愬▎鎾崇濠㈣埖鍔栨禒姗€鎮圭€ｎ亜鏋︾紒杈ㄧ箖娣?200m闂?
+    client_max_body_size 200m;
+
+    # 婵犮垹鐖㈤崟顒傗偓顔济归悩铏瀯缂佹鍊圭€靛ジ鎮崨顖滅崶闂佺绻戞繛濠偽?nginx 缂傚倸鍊归幐鎼佸疮閸ф鏅€光偓閳ь剙煤閸ф鐒?MinIO闂佹寧绋戦惌鍌涘閳哄懎绀傜€广儱瀚ˇ鏌ユ煛閸愩劌顣虫繛?闂佸憡鍔曢幊搴ㄦ偤閵娾晛鍌ㄩ悗锝庝簻椤?
+    proxy_request_buffering off;
+    proxy_buffering off;
+    proxy_http_version 1.1;
+
+    proxy_connect_timeout 300;
+    proxy_read_timeout 300;
+    proxy_send_timeout 300;
+
+    location / {
+        proxy_pass http://127.0.0.1:9000;
+        # 闂佺绻戞繛濠囧极椤撱垺鏅繛鍡欓挕st 闂備緡鍋勭换瀣閸洘鏅悗娑氱亣gV4 缂備焦绋掗崕鎶藉箖?host 闂婎偄娲ら幊姗€濡磋箛鏃傗枖閹肩补妲呴崥鍌炴煙閹绢噮妫戞い蹇ｅ墰缁敻宕滆閻ｅ崬鈽夐幘顖氫壕闂?(s3.your-domain.com)
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+# 闂佸憡鐟崹鍫曞焵椤掆偓椤р偓缂?0 闂?443 闁荤姴鎼悿鍥?
+server {
+    listen 80;
+    server_name s3.rhautt.com;              # 闂?闂佸搫娲︾€笛冪暦?
+    return 301 https://$host$request_uri;
+}
+   
+    
+  
+server {
+    listen 443 ssl;
+    server_name web.rhautt.com;
+
+    ssl_certificate     C:/cert/rhautt.com_cert_chain.pem;
+    ssl_certificate_key C:/cert/rhautt.com_key.key;
+
+    client_max_body_size 200m;
+
+    location / {
+        proxy_pass http://127.0.0.1:4400;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+
+        proxy_read_timeout 120s;
+        proxy_send_timeout 120s;
+    }
+}
+
+
+
+
+upstream rhautt_nexus_frontend {
+    server 127.0.0.1:4000;
+    keepalive 32;
+}
+
+upstream rhautt_nexus_backend {
+    server 127.0.0.1:4500;
+    keepalive 32;
+}
+
+# nexus.rhautt.com
+server {
+    listen 80;
+    server_name nexus.rhautt.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name nexus.rhautt.com;
+
+    ssl_certificate     C:/cert/rhautt.com_cert_chain.pem;
+    ssl_certificate_key C:/cert/rhautt.com_key.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    client_max_body_size 100m;
+
+    location /api/ {
+        proxy_pass http://rhautt_nexus_backend;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+
+    location /ws {
+        proxy_pass http://rhautt_nexus_backend;
+        proxy_http_version 1.1;
+
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+
+    location /_next/static/ {
+        proxy_pass http://rhautt_nexus_frontend;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    location / {
+        proxy_pass http://rhautt_nexus_frontend;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+}
+
+}
+

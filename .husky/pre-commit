@@ -1,0 +1,19 @@
+#!/bin/sh
+# 🔨 Hammer Pre-Commit Hook
+# 在提交前自动运行快速验证 (L1-L3: 结构、语法、依赖)
+
+. "$(dirname "$0")/_/husky.sh"
+
+echo "🔨 Hammer: Running pre-commit validation..."
+
+# 快速模式验证核心层
+node hammer.js --mode=fast --suites=L1,L2,L3 --fail-fast
+
+if [ $? -ne 0 ]; then
+    echo "❌ Hammer validation failed. Commit aborted."
+    echo "💡 Run 'node hammer.js --mode=fast' to see details"
+    exit 1
+fi
+
+echo "✅ Hammer validation passed. Proceeding with commit..."
+exit 0

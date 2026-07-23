@@ -1,0 +1,87 @@
+[
+  {
+    "id": "SOL-001",
+    "name": "VRF多联机+地暖综合方案",
+    "type": "comprehensive",
+    "description": "适用于120-150㎡三居室，制冷制热+地暖一体化解决方案",
+    "systems": ["cooling", "heating", "floor_heating"],
+    "products": [
+      { "id": "RUUD-AC-VRF", "name": "Ruud VRF多联机中央空调", "quantity": 1, "price": 35000 },
+      { "id": "RHEEM-BO-24", "name": "瑞美冷凝燃气壁挂炉", "quantity": 1, "price": 12800 },
+      { "id": "RHEEM-FLOOR-100", "name": "瑞美地暖系统", "quantity": 1.2, "price": 18000 }
+    ],
+    "applicableArea": { "min": 100, "max": 150 },
+    "load": { "cooling": 8.5, "heating": 6.2 },
+    "features": ["节能高效", "分区控制", "智能互联", "静音运行"],
+    "warranty": "5年整机质保",
+    "createdAt": "2025-06-15T08:00:00Z"
+  },
+  {
+    "id": "SOL-002",
+    "name": "五恒全空气系统方案",
+    "type": "premium",
+    "description": "恒温恒湿恒氧恒洁恒静，高端住宅首选",
+    "systems": ["five_constant", "fresh_air", "purification"],
+    "products": [
+      { "id": "RHEEM-5C-120", "name": "瑞美五恒系统", "quantity": 1, "price": 85000 },
+      { "id": "RUUD-FRESH-350", "name": "Ruud全热交换新风系统", "quantity": 1, "price": 12800 },
+      { "id": "RHEEM-WP-200", "name": "瑞美全屋净水系统", "quantity": 1, "price": 6800 }
+    ],
+    "applicableArea": { "min": 120, "max": 200 },
+    "load": { "cooling": 12.0, "heating": 8.5 },
+    "features": ["五恒舒适", "空气品质监测", "智能控制", "超低能耗"],
+    "warranty": "8年核心部件质保",
+    "createdAt": "2025-07-20T08:00:00Z"
+  },
+  {
+    "id": "SOL-003",
+    "name": "小户型空调+热水经济方案",
+    "type": "economy",
+    "description": "适用于80-100㎡两居室，经济实用",
+    "systems": ["cooling", "hot_water"],
+    "products": [
+      { "id": "RHEEM-BO-24", "name": "瑞美冷凝燃气壁挂炉", "quantity": 1, "price": 12800 },
+      { "id": "RHEEM-WH-100", "name": "恒热家用燃气热水器", "quantity": 1, "price": 8800 }
+    ],
+    "applicableArea": { "min": 60, "max": 100 },
+    "load": { "cooling": 5.5, "heating": 4.0 },
+    "features": ["经济实惠", "一机两用", "安装便捷"],
+    "warranty": "3年整机质保",
+    "createdAt": "2025-08-10T08:00:00Z"
+  },
+  {
+    "id": "SOL-004",
+    "name": "大平层全屋水系统方案",
+    "type": "luxury",
+    "description": "适用于180-250㎡大平层，全屋水系统舒适体验",
+    "systems": ["cooling", "heating", "floor_heating", "hot_water", "water_treatment"],
+    "products": [
+      { "id": "RHEEM-WH-150", "name": "恒热商用燃气热水器", "quantity": 1, "price": 15800 },
+      { "id": "RHEEM-BO-28", "name": "瑞美冷凝燃气壁挂炉28kW", "quantity": 1, "price": 15800 },
+      { "id": "RHEEM-FLOOR-100", "name": "瑞美地暖系统", "quantity": 2, "price": 18000 },
+      { "id": "RHEEM-WP-200", "name": "瑞美全屋净水系统", "quantity": 1, "price": 6800 },
+      { "id": "RHEEM-SOFT-1000", "name": "瑞美中央软水机", "quantity": 1, "price": 8800 }
+    ],
+    "applicableArea": { "min": 180, "max": 300 },
+    "load": { "cooling": 15.0, "heating": 12.0 },
+    "features": ["全屋水系统", "分区温控", "热水即开即用", "水质软化处理"],
+    "warranty": "6年核心质保",
+    "createdAt": "2025-09-05T08:00:00Z"
+  },
+  {
+    "id": "SOL-005",
+    "name": "新风+净化健康方案",
+    "type": "health",
+    "description": "专为关注空气质量的家庭设计",
+    "systems": ["fresh_air", "purification"],
+    "products": [
+      { "id": "RUUD-FRESH-350", "name": "Ruud全热交换新风系统", "quantity": 1, "price": 12800 },
+      { "id": "RHEEM-WP-200", "name": "瑞美全屋净水系统", "quantity": 1, "price": 6800 }
+    ],
+    "applicableArea": { "min": 80, "max": 150 },
+    "load": { "air_flow": 350, "filtration": "H13" },
+    "features": ["99.9%净化率", "全热回收", "PM2.5监测", "低噪音"],
+    "warranty": "4年质保",
+    "createdAt": "2025-10-12T08:00:00Z"
+  }
+]

@@ -1,0 +1,1640 @@
+{
+  "platform": "Rhautt Nexus / 瑞合数智枢纽",
+  "status": "active-auditable-orchestration-not-independent-parallel-runtime",
+  "updatedAt": "2026-06-13T02:05:00.000Z",
+  "description": "This ledger records auditable development-lane ownership for the 瑞诺瓦AI舒适家 delivery group. It is not proof that independent model workers ran in parallel; it is the engineering control surface that makes every lane, evidence path, risk, and next action inspectable by guard.",
+  "truths": [
+    "Rhautt Comfort / 瑞合瑞德暖通科技集团 is the group expression, not the software platform name.",
+    "Rhautt Nexus / 瑞合数智枢纽 is the software platform name.",
+    "瑞诺瓦 is the C-end comfort-home system brand and must not be translated as Rysnova.",
+    "Rheem / Ruud / Everhot are equipment brands configured inside 瑞诺瓦 solutions.",
+    "Current IoT scope is lifecycle handoff only, not real-time device control.",
+    "This ledger alone is not production completion evidence; production completion requires executable evidence."
+  ],
+  "remainingProductionGaps": [
+    "Full npm run guard:all proof in a browser-capable environment.",
+    "Real staging/network capacity run for 500+ dealers, 2000+ staff users, and 100000+ homeowner/lifecycle users.",
+    "Full browser visual acceptance review across active pages after final UI/VI polish.",
+    "External object storage PUT/GET/integrity proof.",
+    "Real PostgreSQL staging migration, RLS, tenant isolation, and transaction/outbox proof.",
+    "Real Temporal runtime worker proof.",
+    "Redis staging TLS/ACL/secret posture and degradation drill proof.",
+    "Target Next/Nx/NestJS/Fastify dependency install and boot proof.",
+    "105 legacy HTML acceptance gate remains, and current repository evidence now maps 106/106 public HTML surfaces to target apps/API modules; final implementation and deletion proof are still missing.",
+    "independent multi-agent execution beyond this auditable ledger remains unproven.",
+    "Restart the local production server with current code before claiming runtime alias proof for /rysnova and /rysnova-bim.",
+    "Browser visual acceptance is stale after module/domain changes because Playwright Chromium is blocked by macOS MachPort permission in this environment.",
+    "Rheem VI strict production audit now passes with 0 findings; browser visual proof still needs a permitted browser environment.",
+    "Production trunk isolation guard is now green, current repository evidence maps 37 production-orphan compatibility engines to target API modules, and CommercialTaxEngine, QuoteEngine, and DataEncryption now have partial target-module extraction proof; broader NestJS/Fastify replacement implementation is still missing.",
+    "Target dependency install is still blocked: 8 target dependencies are declared, but only rxjs is locked/installed; 7 target dependencies are missing package-lock and node_modules evidence.",
+    "Repository slimming still needs evidence-preserving migration of backups, archives, generated evidence retention, data fixtures, legacy HTML, and compatibility runtime inventory."
+  ],
+  "runs": [
+    {
+      "owner": "orchestrator-chief",
+      "lane": "overall-delivery-control",
+      "status": "active",
+      "startedAt": "2026-06-06T00:00:00.000Z",
+      "updatedAt": "2026-06-13T02:05:00.000Z",
+      "inputs": [
+        "governance/locked-goal.json",
+        "governance/task-board.json",
+        "docs/RHAUTT-NEXUS-PRODUCTION-DELIVERY-GOAL.md"
+      ],
+      "outputs": [
+        "docs/RHAUTT-NEXUS-GOAL-EVIDENCE-MATRIX.md",
+        "progress.md",
+        "audit/agent-progress-board.md",
+        "test/production-readiness/governance-agent-progress.test.js",
+        "audit/code-size-trunk-report.json",
+        "audit/code-size-trunk-report.md",
+        "audit/product-consolidation-report.json",
+        "audit/product-consolidation-report.md",
+        "audit/production-trunk-isolation-report.json",
+        "audit/production-trunk-isolation-report.md",
+        "audit/workspace-size-governance-report.json",
+        "audit/workspace-size-governance-report.md",
+        "audit/legacy-fusion-report.json",
+        "evidence/operations/repository-bulk-retention-manifest.json",
+        "evidence/operations/repository-bulk-retention-manifest.md",
+        "evidence/architecture/legacy-html-migration-matrix.json",
+        "evidence/architecture/legacy-html-migration-matrix.md",
+        "evidence/architecture/compatibility-engine-retirement-matrix.json",
+        "evidence/architecture/compatibility-engine-retirement-matrix.md",
+        "server/modules/quotation/quotation.service.js",
+        "test/production-readiness/quotation-v2-persistence.test.js",
+        "server/modules/security/crypto.service.js",
+        "server/modules/crm/crm.service.js",
+        "test/production-readiness/repository-and-crm.test.js",
+        "evidence/contracts/production-readiness-jest-result.json",
+        "server/modules/rysnova-bim/rysnova-bim-artifact.service.js",
+        "test/production-readiness/rysnova-bim-artifact-service.test.js",
+        "contracts/openapi/rhautt-nexus-v2.openapi.json",
+        "packages/generated-client/src/rhauttNexusClient.ts",
+        "test/production-readiness/openapi-contract.test.js"
+      ],
+      "evidence": [
+        "governance/locked-goal.json",
+        "governance/task-board.json",
+        "docs/RHAUTT-NEXUS-DEVELOPMENT-GROUP-LAUNCH-BOARD.md",
+        "public/business-console.html",
+        "test/production-readiness/visual-surface-contract.test.js",
+        "server/modules/governance/governance.routes.js",
+        "server/modules/governance/governance.service.js",
+        "audit/agent-progress-board.md",
+        "test/production-readiness/governance-agent-progress.test.js",
+        "audit/code-size-trunk-report.json",
+        "scripts/agent-guards/code-size-trunk-check.js",
+        "test/production-readiness/code-size-trunk-evidence.test.js",
+        "scripts/agent-guards/agent-run-ledger-check.js",
+        "package.json",
+        "server/routes/delivery.js",
+        "server/routes/packagePurchase.js",
+        "server/routes/dxfRoutes.js",
+        "server/routes/workflows.js",
+        "server/routes/journey.routes.js",
+        "test/production-readiness/runtime-route-modules.test.js",
+        "server/modules/routeOwnership.js",
+        "server/modules/legacy-api/new-features.routes.js",
+        "audit/product-consolidation-report.json",
+        "audit/architecture-harness-report.json",
+        "audit/capacity-inprocess-report.json",
+        "evidence/release-evidence.json",
+        "audit/browser-visual-inapp-report.json",
+        "audit/browser-visual-inapp-report.md",
+        "evidence/architecture/target-api-boot-smoke.json",
+        "scripts/agent-guards/production-trunk-isolation-check.js",
+        "audit/production-trunk-isolation-report.json",
+        "test/production-readiness/production-trunk-isolation.test.js",
+        "scripts/agent-guards/workspace-size-governance-check.js",
+        "audit/workspace-size-governance-report.json",
+        "test/production-readiness/workspace-size-governance.test.js",
+        "audit/legacy-fusion-report.json",
+        "scripts/agent-guards/repository-bulk-retention-check.js",
+        "evidence/operations/repository-bulk-retention-manifest.json",
+        "test/production-readiness/repository-bulk-retention.test.js",
+        "scripts/agent-guards/legacy-html-migration-matrix-check.js",
+        "evidence/architecture/legacy-html-migration-matrix.json",
+        "test/production-readiness/legacy-html-migration-matrix.test.js",
+        "scripts/agent-guards/compatibility-engine-retirement-matrix-check.js",
+        "evidence/architecture/compatibility-engine-retirement-matrix.json",
+        "test/production-readiness/compatibility-engine-retirement-matrix.test.js",
+        "server/modules/quotation/quotation.service.js",
+        "test/production-readiness/quotation-v2-persistence.test.js",
+        "server/modules/security/crypto.service.js",
+        "server/modules/crm/crm.service.js",
+        "test/production-readiness/repository-and-crm.test.js",
+        "evidence/contracts/production-readiness-jest-result.json",
+        "server/modules/rysnova-bim/rysnova-bim-artifact.service.js",
+        "test/production-readiness/rysnova-bim-artifact-service.test.js",
+        "contracts/openapi/rhautt-nexus-v2.openapi.json",
+        "packages/generated-client/src/rhauttNexusClient.ts",
+        "test/production-readiness/openapi-contract.test.js"
+      ],
+      "openRisks": [
+        "Production readiness remains unproven until staging, runtime, and visual evidence are current.",
+        "Rysnova local nonvisual delivery evidence is current, but final launch remains blocked by external proof gates."
+      ],
+      "blockers": [],
+      "nextActions": [
+        "Keep route ownership at zero duplicates/zero unassigned before larger NestJS/Fastify migration.",
+        "Use production reachable JS runtime and eager JS startup metrics when discussing size; never use total workspace lines as product-code size.",
+        "Keep agent lanes tied to executable guards and record business-console analytics binding as NX-ANALYTICS-001.",
+        "Prevent completion claims when staging, runtime, capacity, or browser evidence is missing.",
+        "Use the current 60-suite/291-test production-readiness evidence plus guard:all:nonvisual as the local nonvisual baseline for Rysnova while keeping final readiness blocked.",
+        "Keep agent progress board generated from governance/agent-runs.json and covered by production-readiness tests.",
+        "Use the clean guard:all:nonvisual run as local nonvisual delivery evidence while keeping browser and staging gates open.",
+        "Use guard:code-size-trunk to keep production runtime line count separate from legacy assets, generated evidence, docs, backups, and data fixtures.",
+        "Use the reachable runtime report to target server/core compatibility engines for NestJS/Fastify module replacement instead of treating total workspace lines as product code.",
+        "Keep production safe runtime using lazy compatibility facades so heavy engines are loaded by actual business calls, not app construction.",
+        "Keep production route catalog lazy-loaded so business modules are loaded by actual requests, not app construction.",
+        "Use eager-vs-reachable runtime delta as the architecture slimming KPI while compatibility modules are being replaced.",
+        "Keep server/index.js classified as legacy/dev compatibility debt, not production startup proof.",
+        "Use production eager runtime and legacy dev server metrics separately when explaining code size.",
+        "Explain code-size using production JS startup, active HTML assets, reachable compatibility runtime, legacy dev server, and legacy HTML as separate buckets.",
+        "Prioritize reachable compatibility debt before untouched compatibility inventory when planning refactor work.",
+        "Keep EvolutionMechanism and EnterpriseClosedLoopEngine lazy in full runtime so operational status checks and app construction do not drag large governance compatibility engines into startup.",
+        "Keep first-wave route hard bindings resolved through runtime engine facades so quotation, calculation, one-click, Revit, marketing, diagnosis, PPT export, BIM export, smart routing, and design load calculation do not directly require core engines from route files.",
+        "Keep second-wave route hard bindings resolved through runtime engine facades for channel, reports, exports, AI assistant, hotwater, supreme, heartbeat, and template library paths.",
+        "Use the 10,212-line reachable compatibility debt report as the next slimming baseline, not total workspace lines.",
+        "Keep total workspace line count separated from production startup, reachable runtime, legacy HTML inventory, generated evidence, backups, and data fixtures.",
+        "Use the 8,462-line reachable compatibility debt report as the next slimming baseline.",
+        "Keep post-listen background services behind registry-owned lazy factories instead of direct runtimeServices requires.",
+        "Use the 6,800-line reachable compatibility debt report as the next slimming baseline.",
+        "Keep full-runtime background services lazy until startPreListenServices or request paths actually use them.",
+        "Use the 3,430-line reachable compatibility debt report as the next slimming baseline.",
+        "Keep legacy business route modules free of direct compatibility require strings.",
+        "Keep guard:production-trunk-isolation in guard:all and guard:all:nonvisual so backups, generated evidence, archives, legacy HTML inventory, data fixtures, exports, and candidate React surfaces cannot drift into production reachable or eager runtime.",
+        "Use 37 current orphan engine assets, not historical 50/51 counts, as the live legacy-fusion migration debt baseline.",
+        "Use guard:workspace-size to keep repository bulk, backup/archive/data/evidence assets, and production runtime budgets separated before any cleanup.",
+        "Use guard:repository-bulk-retention to keep every backup/archive file hash-inventoried and deletion-blocked until external artifact and rollback evidence exists.",
+        "Use guard:legacy-migration-matrix to keep all 106 public HTML surfaces mapped to target apps, target API modules, replacement evidence, and deletion gates before any cleanup.",
+        "Use guard:compat-engine-matrix to keep all 37 production-orphan compatibility engines mapped to target API modules, retirement evidence, and deletion gates before any cleanup.",
+        "Use CommercialTaxEngine partial extraction evidence as the first P0 compatibility engine migration proof, while keeping deletionSafe false until rollback and final retirement gates are complete.",
+        "Use QuoteEngine partial extraction evidence as the second P0 quote-cost migration proof, while keeping deletionSafe false until route/API contract, OpenAPI/generated client, rollback, and final retirement gates are complete.",
+        "Use DataEncryption partial extraction evidence as the first P0 security migration proof, while keeping deletionSafe false until KMS/secret rotation, rollback, external security posture, SBOM, and provenance gates are complete.",
+        "Keep Rysnova engineeringTraceabilityManifest synchronized across service results, customer package, signoff manifest, OpenAPI, generated client, and production-readiness tests.",
+        "Use Rysnova traceability manifest as the practical delivery-chain KPI tying three visuals, BOM, quantity takeoff, standards, quote explanations, and lifecycle handoff together."
+      ],
+      "guards": [
+        "guard:delivery-goal",
+        "guard:agent-runs",
+        "guard:code-size-trunk",
+        "guard:all:nonvisual",
+        "guard:routes",
+        "guard:production-trunk-isolation",
+        "guard:workspace-size",
+        "guard:repository-bulk-retention",
+        "guard:legacy-migration-matrix",
+        "guard:compat-engine-matrix"
+      ],
+      "harnesses": [
+        "harness:ai-control",
+        "harness:all"
+      ],
+      "progress": {
+        "percent": 86,
+        "stage": "rysnova-bim-engineering-traceability-contract-bound",
+        "currentFocus": "Rysnova now returns an engineeringTraceabilityManifest across visual generation, deliverable generation, customer package, signoff package, and deepening package; local Rysnova and OpenAPI tests pass.",
+        "latestEvidence": "test/production-readiness/rysnova-bim-artifact-service.test.js",
+        "nextMilestone": "Refresh nonvisual guard evidence and continue CAD/BIM fidelity plus external proof preparation without claiming production launch.",
+        "blockerSummary": "Production completion still needs browser visual proof, staging services, network capacity, external object storage proof, PostgreSQL/Redis/Temporal runtime proof, and compatibility runtime replacement evidence."
+      }
+    },
+    {
+      "owner": "prd-charter-monitor",
+      "lane": "prd-brand-boundary-control",
+      "status": "active",
+      "startedAt": "2026-06-06T00:00:00.000Z",
+      "updatedAt": "2026-06-06T09:20:00.000Z",
+      "inputs": [
+        "docs/PROJECT-CHARTER-AND-PRD.md",
+        "docs/PRD-CODE-ASSET-CROSSWALK.md",
+        "governance/locked-goal.json"
+      ],
+      "outputs": [
+        "docs/PRD-NAMING-ALIGNMENT-AUDIT-2026-06-05.md",
+        "docs/RHAUTT-NEXUS-LOCKED-GOAL.md",
+        "contracts/product-modules/rysnova-rysnova-bim-module-boundary.json",
+        "docs/PRODUCT-PORTAL-ARCHITECTURE.md",
+        "PRD-CURRENT.md",
+        "PRODUCT-SCOPE.md",
+        "governance/locked-goal.json"
+      ],
+      "evidence": [
+        "governance/locked-goal.json",
+        "docs/RHAUTT-NEXUS-LOCKED-GOAL.md",
+        "scripts/agent-guards/nexus-naming-check.js",
+        "contracts/product-modules/rysnova-rysnova-bim-module-boundary.json",
+        "scripts/agent-guards/module-independence-check.js",
+        "docs/PRODUCT-PORTAL-ARCHITECTURE.md",
+        "server/modules/productModules/product-module-registry.js",
+        "test/production-readiness/production-app-module-aliases.test.js",
+        "PRD-CURRENT.md",
+        "PRODUCT-SCOPE.md",
+        "contracts/architecture/rhautt-nexus-target-architecture.json",
+        "apps/consumer-diagnosis/project.json",
+        "apps/rysnova-bim-workbench/project.json",
+        "scripts/agent-guards/target-architecture-contract-check.js"
+      ],
+      "openRisks": [
+        "Older generated reports and legacy pages may still contain confusing product language outside production surfaces.",
+        "Current localhost:3100 runtime is stale for /rysnova-bim; restart is required before runtime proof."
+      ],
+      "blockers": [],
+      "nextActions": [
+        "Keep 瑞诺瓦 and Rysnova as independent modules that can be used inside the Rhautt portal and launched standalone.",
+        "Keep Rhautt Comfort as Powered by/support expression on module surfaces, not the primary module logo.",
+        "Keep 瑞诺瓦 and Rysnova module boundaries enforced by PRD, registry, target app metadata, contract, and guard."
+      ],
+      "guards": [
+        "guard:nexus-naming",
+        "guard:delivery-goal",
+        "guard:module-independence"
+      ],
+      "harnesses": [
+        "harness:consolidation"
+      ],
+      "progress": {
+        "percent": 72,
+        "stage": "boundary-guarding-active",
+        "currentFocus": "Protect 瑞诺瓦AI舒适家 naming, 瑞诺瓦/Rysnova module independence, and PRD entrance logic.",
+        "latestEvidence": "governance/locked-goal.json",
+        "nextMilestone": "Keep all C-end/internal/product-module boundaries enforced by guards.",
+        "blockerSummary": "Older legacy/generated materials may still contain confusing wording outside production surfaces."
+      }
+    },
+    {
+      "owner": "product-domain-critic",
+      "lane": "industry-product-depth-and-differentiation",
+      "status": "active",
+      "startedAt": "2026-06-06T00:00:00.000Z",
+      "updatedAt": "2026-06-06T00:00:00.000Z",
+      "inputs": [
+        "docs/PROJECT-CHARTER-AND-PRD.md",
+        "docs/PRODUCTION-TRUNK-REWRITE-PLAN.md",
+        "audit/feature-granularity-harness.js",
+        ".claude/agents/product-domain-critic.md"
+      ],
+      "outputs": [
+        "audit/feature-granularity-report.json",
+        "docs/RHAUTT-NEXUS-GOAL-EVIDENCE-MATRIX.md"
+      ],
+      "evidence": [
+        "docs/PROJECT-CHARTER-AND-PRD.md",
+        "docs/PRODUCTION-TRUNK-REWRITE-PLAN.md",
+        "audit/feature-granularity-harness.js",
+        "audit/feature-granularity-report.json",
+        ".claude/agents/product-domain-critic.md"
+      ],
+      "openRisks": [
+        "Industry differentiation evidence is still mostly internal PRD and feature-depth driven; fresh external competitor research remains constrained by network access.",
+        "Designer, Rysnova, customer project, and quote surfaces must keep moving from demo depth to closed-loop operating-system depth."
+      ],
+      "blockers": [
+        "Fresh competitor/source research needs network access when required."
+      ],
+      "nextActions": [
+        "Challenge every active module against lead, diagnosis, design, quote, contract, construction, acceptance, after-sales, and IoT handoff completeness.",
+        "Convert product critique into buildable gaps owned by backend, frontend, data, Rysnova, lifecycle, and UI/VI lanes."
+      ],
+      "guards": [
+        "harness:features",
+        "guard:delivery-goal"
+      ],
+      "harnesses": [
+        "harness:features",
+        "harness:consolidation"
+      ],
+      "progress": {
+        "percent": 38,
+        "stage": "product-depth-review-active",
+        "currentFocus": "Challenge modules against comfort-home operating-system depth and competitor differentiation.",
+        "latestEvidence": "audit/feature-granularity-report.json",
+        "nextMilestone": "Convert product critique into owner-specific build gaps.",
+        "blockerSummary": "Fresh external competitor/source research still needs reliable network proof."
+      }
+    },
+    {
+      "owner": "ui-vi-director",
+      "lane": "ui-vi-system-and-visual-acceptance",
+      "status": "active",
+      "startedAt": "2026-06-06T00:00:00.000Z",
+      "updatedAt": "2026-06-06T21:16:31.000Z",
+      "inputs": [
+        "docs/RUUD-VI-RESEARCH.md",
+        "docs/RUUD-COM-FULLSITE-VI-AUDIT.md",
+        "docs/UI-VI-ARCHITECTURE-RHAUTT-COMFORT.md",
+        "/Users/tiechuishan/.codex/skills/rheem-design-director/SKILL.md",
+        "skills/rheem-design-director/references/rhautt-production-migration.md"
+      ],
+      "outputs": [
+        "public/css/rhautt-comfort-tokens.css",
+        "public/css/rhautt-operational-surfaces.css",
+        "public/customer-share.html",
+        "audit/browser-visual-acceptance-report.json",
+        "public/pain-diagnosis.html",
+        "public/rysnova-bim-designer.html",
+        "public/images/ruud-logo.svg",
+        "docs/RYSNOVA-AI-DIAGNOSIS-C-END-UI-VI-ARCHITECTURE.md",
+        "audit/rysnova-diagnosis-cend-ui-vi-report.json",
+        "governance/quality-findings.json",
+        "public/css/rheem-official-tokens.css",
+        "public/design-tokens/rheem-official.tokens.json",
+        "audit/rheem-vi-production-audit.json",
+        "audit/rheem-vi-production-triage.json",
+        "audit/rheem-vi-production-triage.md"
+      ],
+      "evidence": [
+        "docs/RUUD-VI-RESEARCH.md",
+        "docs/RUUD-COM-FULLSITE-VI-AUDIT.md",
+        "scripts/agent-guards/ui-vi-check.js",
+        "scripts/agent-guards/ruud-vi-research-check.js",
+        "audit/browser-visual-acceptance-report.json",
+        "evidence/visual/README.md",
+        "public/pain-diagnosis.html",
+        "public/customer-share.html",
+        "public/rysnova-bim-designer.html",
+        "public/images/rheem-logo.svg",
+        "public/images/ruud-logo.svg",
+        "test/production-readiness/visual-surface-contract.test.js",
+        "scripts/agent-guards/rysnova-diagnosis-cend-ui-vi-check.js",
+        "audit/rysnova-diagnosis-cend-ui-vi-report.json",
+        "audit/rysnova-diagnosis-cend-ui-vi-report.md",
+        "governance/quality-findings.json",
+        "evidence/release-evidence.json",
+        "docs/RYSNOVA-AI-DIAGNOSIS-C-END-UI-VI-ARCHITECTURE.md",
+        "public/css/rheem-official-tokens.css",
+        "public/design-tokens/rheem-official.tokens.json",
+        "skills/rheem-design-director/references/rhautt-production-migration.md",
+        "scripts/agent-guards/rheem-vi-production-audit.js",
+        "scripts/agent-guards/rheem-vi-production-triage.js",
+        "audit/rheem-vi-production-audit.json",
+        "audit/rheem-vi-production-triage.json",
+        "audit/rheem-vi-production-triage.md",
+        "audit/browser-visual-inapp-report.json",
+        "audit/browser-visual-inapp-report.md",
+        "evidence/architecture/target-api-boot-smoke.json"
+      ],
+      "openRisks": [
+        "Ruud.com latest full-page review is not proven in this restricted network environment.",
+        "Homepage, diagnosis, and enterprise workbench polish still needs final human-level visual pass.",
+        "Browser visual evidence is stale for public/pain-diagnosis.html and public/customer-share.html after the public report-chain update; Playwright Chromium cannot launch inside the current sandbox and the escalated rerun was rejected by approval infrastructure.",
+        "Rheem VI strict production audit passes with 0 findings after active, legacy, candidate, and shared-asset cleanup.",
+        "瑞诺瓦 AI 问诊 C-end UI/VI must not be called complete until guard:rysnova-diagnosis-ui-vi and browser visual pass.",
+        "瑞诺瓦和 Rysnova 独立产品边界已经写入确认稿和模块合同，但 pain-diagnosis.html 尚未按该边界完成 C 端页面实现。",
+        "Browser visual proof is still stale after VI edits because Playwright Chromium cannot launch inside the current sandbox."
+      ],
+      "blockers": [
+        "External Ruud.com network access may be unavailable in sandbox.",
+        "NX-UI-002 requires user-confirmed refactor before editing public/pain-diagnosis.html; current blockers are tracked in QF-006.",
+        "Rheem logo production use remains gated until an approved brand package asset replaces /images/rheem-logo.svg."
+      ],
+      "nextActions": [
+        "Wait for user confirmation of the C-end home comfort checkup UI/VI architecture before editing public/pain-diagnosis.html.",
+        "Use Rheem equipment-brand wordmark placeholder for 瑞诺瓦 until final authorized brand assets are approved; do not use the gated local Rheem logo asset in active production pages.",
+        "Keep Powered by Rhautt Comfort as support text, not the module primary logo.",
+        "After confirmation, refactor 瑞诺瓦 AI 问诊 into a C-end home comfort checkup and clear QF-006.",
+        "Promote guard:rysnova-diagnosis-ui-vi into guard:all only after browser visual evidence refreshes.",
+        "Keep npm run guard:rheem-vi-production:strict green while continuing visual and browser QA."
+      ],
+      "guards": [
+        "guard:ui-vi",
+        "guard:ruud-vi",
+        "guard:browser-visual",
+        "guard:module-independence",
+        "guard:rysnova-diagnosis-ui-vi",
+        "guard:rheem-vi-production",
+        "guard:rheem-vi-production:triage",
+        "guard:rheem-vi-production:strict",
+        "guard:delivery-goal"
+      ],
+      "harnesses": [
+        "harness:operational"
+      ],
+      "progress": {
+        "percent": 60,
+        "stage": "rheem-vi-strict-pass-visual-proof-pending",
+        "currentFocus": "Rheem Design Director controls VI; strict production audit and triage now pass with 0 findings after cleaning old Rheem red, gated local logo usage, and fake lockup language across active, legacy, candidate, and shared assets.",
+        "latestEvidence": "audit/rheem-vi-production-triage.json",
+        "nextMilestone": "Refresh browser visual proof for active pages in a browser-capable environment and keep strict Rheem VI green.",
+        "blockerSummary": "Rheem VI strict audit is green, but browser visual launch proof is still unavailable in this sandbox."
+      }
+    },
+    {
+      "owner": "architecture-governor",
+      "lane": "route-owner-and-target-architecture",
+      "status": "active",
+      "startedAt": "2026-06-06T00:00:00.000Z",
+      "updatedAt": "2026-06-06T23:49:48.000Z",
+      "inputs": [
+        "contracts/architecture/rhautt-nexus-target-architecture.json",
+        "server/modules",
+        "server/routes"
+      ],
+      "outputs": [
+        "evidence/architecture/target-architecture-contract-report.json",
+        "docs/PRODUCTION-TRUNK-REWRITE-PLAN.md",
+        "apps/consumer-diagnosis/project.json",
+        "apps/rysnova-bim-workbench/project.json",
+        "evidence/architecture/compatibility-engine-retirement-matrix.json"
+      ],
+      "evidence": [
+        "contracts/architecture/rhautt-nexus-target-architecture.json",
+        "scripts/agent-guards/target-architecture-contract-check.js",
+        "scripts/agent-guards/route-owner-check.js",
+        "scripts/agent-guards/route-catalog-boundary-check.js",
+        "contracts/product-modules/rysnova-rysnova-bim-module-boundary.json",
+        "scripts/agent-guards/module-independence-check.js",
+        "apps/consumer-diagnosis/project.json",
+        "apps/rysnova-bim-workbench/project.json",
+        "apps/public-portal/project.json",
+        "evidence/architecture/target-dependency-readiness-report.json",
+        "evidence/architecture/target-api-boot-smoke.json",
+        "test/production-readiness/target-api-source-contract.test.js",
+        "server/modules/lazyEngine.js",
+        "test/production-readiness/production-app-factory.test.js",
+        "server/modules/engineRegistry.js",
+        "server/modules/productionRouteCatalog.js",
+        "audit/code-size-trunk-report.json",
+        "scripts/agent-guards/code-size-trunk-check.js",
+        "server/modules/runtimeServices.js",
+        "server/routes/delivery.js",
+        "server/routes/packagePurchase.js",
+        "server/routes/dxfRoutes.js",
+        "server/routes/workflows.js",
+        "server/routes/journey.routes.js",
+        "test/production-readiness/runtime-route-modules.test.js",
+        "audit/product-consolidation-report.json",
+        "audit/capacity-inprocess-report.json",
+        "services/api/src/main.ts",
+        "services/api/src/modules/app.module.ts",
+        "services/api/src/modules/health.controller.ts",
+        "services/api/src/modules/module-boundary.ts",
+        "evidence/architecture/target-architecture-contract-report.json",
+        "contracts/architecture/production-route-target-module-map.json",
+        "scripts/agent-guards/production-route-target-map-check.js",
+        "evidence/architecture/production-route-target-map-report.json",
+        "test/production-readiness/production-route-target-map.test.js",
+        "scripts/agent-guards/legacy-html-migration-matrix-check.js",
+        "evidence/architecture/legacy-html-migration-matrix.json",
+        "test/production-readiness/legacy-html-migration-matrix.test.js",
+        "scripts/agent-guards/compatibility-engine-retirement-matrix-check.js",
+        "evidence/architecture/compatibility-engine-retirement-matrix.json",
+        "test/production-readiness/compatibility-engine-retirement-matrix.test.js",
+        "server/modules/quotation/quotation.service.js",
+        "test/production-readiness/quotation-v2-persistence.test.js"
+      ],
+      "openRisks": [
+        "Compatibility Express/Mongo trunk still exists while target NestJS/Fastify trunk is not boot-proven.",
+        "Lazy compatibility facades reduce safe startup load, but they are not a substitute for target module replacement."
+      ],
+      "blockers": [
+        "Target dependency install previously blocked by registry/network access."
+      ],
+      "nextActions": [
+        "Preserve dual-mode module architecture: Rhautt portal embedded plus standalone launchable for 瑞诺瓦 and Rysnova.",
+        "Guard target app metadata so consumer-diagnosis and rysnova-bim-workbench keep separate namespaces, API owners, and standalone aliases.",
+        "Keep production route additions gated by owner/catalog checks.",
+        "Install target Next/Nx/NestJS/Fastify dependencies when npm registry access is approved, then rerun target API boot smoke.",
+        "Use lazyEngine.js as a migration seam for replacing old server/core engines with owned modules rather than route-local hard requires.",
+        "Keep route catalog metadata as the owner boundary while handler modules lazy-load on request.",
+        "Audit new routes for side-effect-free module loading and optional-route graceful degradation.",
+        "Keep new route work behind productionRouteCatalog owners and lazy handler loading.",
+        "Treat productionReachableCompatibilityLines as the architecture debt KPI until the target NestJS/Fastify runtime is boot-proven.",
+        "Keep runtimeServices free of direct core/service require strings for optional background services.",
+        "Watch eager JS startup because factory indirection can add small trunk overhead while reducing reachable compatibility debt.",
+        "Keep createFullProductionEngines free of direct compatibility class instantiation for optional background services.",
+        "Use full-runtime lazy tests to prevent regression.",
+        "Keep production route modules dependent on runtimeEngineAccess or injected engines, not direct server/core constructors.",
+        "Use runtime-route source tests to prevent route-local compatibility require regressions.",
+        "Keep every production route catalog mount mapped to target NestJS/Fastify modules before any compatibility route is retired.",
+        "Keep every public HTML surface mapped to target frontend app/reference bucket and target API modules before any legacy page cleanup.",
+        "Keep every production-orphan compatibility engine mapped to target API modules, data stores, owner, and retirement gates before any legacy engine cleanup.",
+        "Use CommercialTaxEngine and QuoteEngine partial extractions as quote-cost target-module proof while keeping both legacy engines non-deletion-safe."
+      ],
+      "guards": [
+        "guard:routes",
+        "guard:catalog",
+        "guard:target-architecture",
+        "guard:target-dependencies",
+        "guard:module-independence",
+        "guard:target-api-boot-smoke",
+        "guard:route-target-map",
+        "guard:legacy-migration-matrix",
+        "guard:compat-engine-matrix"
+      ],
+      "harnesses": [
+        "harness:arch"
+      ],
+      "progress": {
+        "percent": 88,
+        "stage": "quote-cost-p0-extractions-architected",
+        "currentFocus": "Production route mounts, all 106 public HTML surfaces, and all 37 production-orphan compatibility engines have guarded target mappings; quote-cost now has two P0 partial extractions in the target quotation module.",
+        "latestEvidence": "evidence/architecture/compatibility-engine-retirement-matrix.json",
+        "nextMilestone": "Complete quote API/OpenAPI/generated-client replacement proof, then continue CRM, delivery, and security P0 extractions before any compatibility retirement.",
+        "blockerSummary": "Target module source exists, but runtime boot and dependency install remain missing."
+      }
+    },
+    {
+      "owner": "backend-platform-builder",
+      "lane": "api-platform-and-workflow-backbone",
+      "status": "active",
+      "startedAt": "2026-06-06T00:00:00.000Z",
+      "updatedAt": "2026-06-06T23:31:20.000Z",
+      "inputs": [
+        "contracts/openapi/rhautt-nexus-v2.openapi.json",
+        "contracts/workflow/rhautt-nexus-workflow-outbox-contract.json",
+        "server/modules"
+      ],
+      "outputs": [
+        "packages/generated-client/src/rhauttNexusClient.ts",
+        "server/models/DiagnosisReport.js",
+        "server/modules/diagnosis/diagnosis.routes.js",
+        "server/modules/diagnosis/diagnosis.service.js",
+        "server/modules/outbox/outbox.service.js",
+        "public/designer.html",
+        "evidence/workflow/workflow-replay-smoke.json",
+        "server/modules/runtimeEngineAccess.js"
+      ],
+      "evidence": [
+        "contracts/openapi/rhautt-nexus-v2.openapi.json",
+        "packages/generated-client/src/rhauttNexusClient.ts",
+        "server/models/DiagnosisReport.js",
+        "server/modules/diagnosis/diagnosis.routes.js",
+        "server/modules/diagnosis/diagnosis.service.js",
+        "server/modules/contracts/contracts.service.js",
+        "server/modules/contracts/contracts.routes.js",
+        "public/designer.html",
+        "test/production-readiness/diagnosis-service.test.js",
+        "test/production-readiness/contracts-service.test.js",
+        "test/production-readiness/v2-routes.test.js",
+        "test/production-readiness/openapi-contract.test.js",
+        "test/production-readiness/visual-surface-contract.test.js",
+        "evidence/workflow/workflow-outbox-contract-report.json",
+        "server/modules/analytics/analytics.routes.js",
+        "server/modules/analytics/analytics.service.js",
+        "server/modules/productModules/product-module-registry.js",
+        "server/modules/crm/crm.service.js",
+        "server/modules/quotation/quotation.service.js",
+        "services/api/src/main.ts",
+        "evidence/architecture/target-api-boot-smoke.json",
+        "test/production-readiness/target-api-source-contract.test.js",
+        "server/routes/journey.routes.js",
+        "server/routes/dxfRoutes.js",
+        "server/services/JourneySimulator.js",
+        "audit/code-size-trunk-report.json",
+        "server/modules/runtimeEngineAccess.js",
+        "server/modules/engineRegistry.js",
+        "server/routes/delivery.js",
+        "server/routes/packagePurchase.js",
+        "server/routes/workflows.js",
+        "test/production-readiness/runtime-route-modules.test.js",
+        "audit/product-consolidation-report.json",
+        "audit/capacity-inprocess-report.json",
+        "server/modules/legacy-api/new-features.routes.js",
+        "evidence/architecture/target-dependency-readiness-report.json",
+        "evidence/architecture/target-dependency-readiness-report.md",
+        "scripts/agent-guards/target-dependency-readiness-check.js",
+        "services/api/src/modules/app.module.ts",
+        "services/api/src/modules/health.controller.ts",
+        "services/api/src/modules/module-boundary.ts",
+        "evidence/architecture/target-architecture-contract-report.json",
+        "contracts/architecture/production-route-target-module-map.json",
+        "evidence/architecture/production-route-target-map-report.json",
+        "test/production-readiness/production-route-target-map.test.js"
+      ],
+      "openRisks": [
+        "NestJS/Fastify target backend has contract evidence but no dependency boot proof.",
+        "Target dependency state is now audited as declared/lockfile-installed/node_modules-installed; only rxjs is locked and installed.",
+        "Temporal runtime worker is not proven."
+      ],
+      "blockers": [
+        "Network/registry access for target dependency install and package-lock refresh."
+      ],
+      "nextActions": [
+        "Continue hardening current compatibility API contracts, including analytics overview, designer quote-to-contract UI binding, public C-end report readback, and share-token access controls.",
+        "Produce NestJS/Fastify boot proof when dependencies can be installed.",
+        "Continue reducing server-production runtime side effects so app composition can be imported without starting engines.",
+        "Do not promote NestJS/Fastify runtime until dependencies are installed and target API boot smoke passes runtime import.",
+        "Keep low-frequency technical modules such as DXF, Journey simulator, exports, and legacy engines out of app construction.",
+        "Preserve old route contracts while moving store/engine creation behind request-scoped facades.",
+        "Keep runtimeEngineAccess as the compatibility bridge until target NestJS/Fastify providers own these engines.",
+        "Keep old API contracts stable while moving engine creation behind request-time facades.",
+        "Use production-readiness tests to catch contract regressions during compatibility slimming.",
+        "Keep post-listen services loadable at server start without making them route-local direct dependencies.",
+        "Cover each slimming pass with production-readiness and code-size taxonomy tests.",
+        "Keep old API contracts stable while moving business logic out of server/api and server/core compatibility files.",
+        "Keep route API behavior stable while moving object construction out of route modules.",
+        "Retry npm install for Next/Nx/NestJS/Fastify only when network approval is available; do not fake NestJS/Fastify boot proof with local stubs.",
+        "Keep target dependency readiness recording declared, lockfile, and node_modules states so package.json declarations cannot be mistaken for runtime proof.",
+        "Use production-route-target-map as the compatibility-to-target replacement ledger; do not retire legacy routes until the mapped module has boot, contract, client, tests, and rollback proof."
+      ],
+      "guards": [
+        "guard:frontend-api-contract",
+        "guard:workflow-outbox-contract",
+        "guard:temporal-runtime-smoke",
+        "guard:target-dependencies",
+        "guard:target-api-boot-smoke",
+        "guard:route-target-map"
+      ],
+      "harnesses": [
+        "harness:integrity"
+      ],
+      "progress": {
+        "percent": 72,
+        "stage": "route-replacement-ledger-active",
+        "currentFocus": "Backend target modules now have a route replacement ledger tying 52 production compatibility mounts to 15 NestJS/Fastify module boundaries.",
+        "latestEvidence": "evidence/architecture/production-route-target-map-report.json",
+        "nextMilestone": "Install and lock Next/Nx/NestJS/Fastify dependencies, then rerun release:target-api:boot-smoke until status is passed-runtime-import-current-run.",
+        "blockerSummary": "Missing package-lock and node_modules evidence prevents real Next/Nx/NestJS/Fastify boot proof; current evidence remains source-contract only."
+      }
+    },
+    {
+      "owner": "data-platform-architect",
+      "lane": "database-multitenancy-and-audit",
+      "status": "active",
+      "startedAt": "2026-06-06T00:00:00.000Z",
+      "updatedAt": "2026-06-06T09:20:00.000Z",
+      "inputs": [
+        "database/postgres/migrations/001_rhautt_nexus_core_ledger.sql",
+        "database/postgres/harness/target-schema-contract.json",
+        "docs/DATABASE-BACKEND-ARCHITECTURE.md"
+      ],
+      "outputs": [
+        "evidence/database/postgres-target-schema-report.json",
+        "evidence/database/postgres-rls-behavior-report.json",
+        "evidence/database/postgres-staging-smoke-report.json",
+        "server/models/DiagnosisReport.js",
+        "server/models/RysnovaArtifact.js"
+      ],
+      "evidence": [
+        "database/postgres/migrations/001_rhautt_nexus_core_ledger.sql",
+        "scripts/agent-guards/postgres-target-schema-check.js",
+        "scripts/agent-guards/postgres-rls-behavior-check.js",
+        "scripts/agent-guards/postgres-staging-smoke-check.js",
+        "scripts/agent-guards/database-schema-check.js",
+        "server/modules/analytics/analytics.service.js",
+        "test/production-readiness/analytics-service.test.js",
+        "server/models/DiagnosisReport.js",
+        "server/models/RysnovaArtifact.js",
+        "server/modules/diagnosis/diagnosis.service.js",
+        "server/modules/rysnova-bim/rysnova-bim-artifact.service.js",
+        "server/models/CustomerV2.js",
+        "server/models/Opportunity.js",
+        "server/models/QuotationV2.js",
+        "contracts/product-modules/rysnova-rysnova-bim-module-boundary.json",
+        "contracts/architecture/rhautt-nexus-target-architecture.json"
+      ],
+      "openRisks": [
+        "Current PostgreSQL evidence is target/schema/simulation focused; staging-applied proof is still missing.",
+        "Real staging migrations must apply productModuleId/productDeploymentMode indexes before launch."
+      ],
+      "blockers": [
+        "POSTGRES_STAGING_URL is not configured."
+      ],
+      "nextActions": [
+        "Keep moduleId/moduleNamespace/dataNamespace on 瑞诺瓦 diagnosis reports and Rysnova artifacts as standalone-capable data-domain keys.",
+        "Keep productModuleId/productNamespace/productDataNamespace on shared CRM, opportunity, and quotation records so product modules can be analyzed, migrated, or split later.",
+        "Run staging migration smoke when PostgreSQL/Mongo staging URLs are available."
+      ],
+      "guards": [
+        "guard:database",
+        "guard:postgres-target-schema",
+        "guard:postgres-rls-behavior",
+        "guard:postgres-staging-smoke",
+        "guard:module-independence"
+      ],
+      "harnesses": [
+        "harness:integrity"
+      ],
+      "progress": {
+        "percent": 50,
+        "stage": "tenant-schema-contract-active",
+        "currentFocus": "Keep PostgreSQL/RLS/audit/outbox target schema and module data namespaces aligned.",
+        "latestEvidence": "database/postgres/migrations/001_rhautt_nexus_core_ledger.sql",
+        "nextMilestone": "Run real PostgreSQL staging migration and isolation smoke.",
+        "blockerSummary": "POSTGRES_STAGING_URL is not configured; staging-applied proof missing."
+      }
+    },
+    {
+      "owner": "legacy-fusion-migrator",
+      "lane": "legacy-html-engine-and-route-fusion",
+      "status": "active",
+      "startedAt": "2026-06-06T00:00:00.000Z",
+      "updatedAt": "2026-06-07T00:01:34.000Z",
+      "inputs": [
+        "public/legacy-surface-manifest.json",
+        "audit/legacy-fusion-registry.json",
+        "docs/RHAUTT-NEXUS-LEGACY-FUSION-LEDGER.md"
+      ],
+      "outputs": [
+        "audit/legacy-fusion-report.json",
+        "audit/product-consolidation-report.json",
+        "audit/code-size-trunk-report.json",
+        "audit/code-size-trunk-report.md",
+        "audit/production-trunk-isolation-report.json",
+        "audit/legacy-surface-ownership-report.json",
+        "audit/legacy-surface-ownership-report.md",
+        "audit/legacy-fusion-report.md",
+        "audit/workspace-size-governance-report.json",
+        "audit/workspace-size-governance-report.md",
+        "evidence/operations/repository-bulk-retention-manifest.json",
+        "evidence/operations/repository-bulk-retention-manifest.md",
+        "evidence/architecture/production-route-target-map-report.json",
+        "evidence/architecture/production-route-target-map-report.md",
+        "evidence/architecture/legacy-html-migration-matrix.json",
+        "evidence/architecture/legacy-html-migration-matrix.md",
+        "evidence/architecture/compatibility-engine-retirement-matrix.json",
+        "evidence/architecture/compatibility-engine-retirement-matrix.md",
+        "server/modules/quotation/quotation.service.js",
+        "test/production-readiness/quotation-v2-persistence.test.js",
+        "server/modules/security/crypto.service.js",
+        "server/modules/crm/crm.service.js",
+        "test/production-readiness/repository-and-crm.test.js"
+      ],
+      "evidence": [
+        "public/legacy-surface-manifest.json",
+        "audit/legacy-fusion-registry.json",
+        "scripts/agent-guards/legacy-surface-manifest-check.js",
+        "audit/legacy-fusion-harness.js",
+        "audit/code-size-trunk-report.json",
+        "scripts/agent-guards/code-size-trunk-check.js",
+        "audit/legacy-fusion-report.json",
+        "server/routes/delivery.js",
+        "server/routes/packagePurchase.js",
+        "server/routes/dxfRoutes.js",
+        "server/routes/workflows.js",
+        "server/routes/journey.routes.js",
+        "test/production-readiness/runtime-route-modules.test.js",
+        "audit/product-consolidation-report.json",
+        "audit/capacity-inprocess-report.json",
+        "audit/production-trunk-isolation-report.json",
+        "scripts/agent-guards/legacy-surface-ownership-check.js",
+        "audit/legacy-surface-ownership-report.json",
+        "test/production-readiness/legacy-surface-ownership.test.js",
+        "test/production-readiness/legacy-fusion-registry.test.js",
+        "audit/workspace-size-governance-report.json",
+        "test/production-readiness/workspace-size-governance.test.js",
+        "scripts/agent-guards/repository-bulk-retention-check.js",
+        "evidence/operations/repository-bulk-retention-manifest.json",
+        "test/production-readiness/repository-bulk-retention.test.js",
+        "contracts/architecture/production-route-target-module-map.json",
+        "scripts/agent-guards/production-route-target-map-check.js",
+        "evidence/architecture/production-route-target-map-report.json",
+        "test/production-readiness/production-route-target-map.test.js",
+        "scripts/agent-guards/legacy-html-migration-matrix-check.js",
+        "evidence/architecture/legacy-html-migration-matrix.json",
+        "test/production-readiness/legacy-html-migration-matrix.test.js",
+        "scripts/agent-guards/compatibility-engine-retirement-matrix-check.js",
+        "evidence/architecture/compatibility-engine-retirement-matrix.json",
+        "test/production-readiness/compatibility-engine-retirement-matrix.test.js",
+        "server/modules/quotation/quotation.service.js",
+        "test/production-readiness/quotation-v2-persistence.test.js",
+        "server/modules/security/crypto.service.js",
+        "server/modules/crm/crm.service.js",
+        "test/production-readiness/repository-and-crm.test.js"
+      ],
+      "openRisks": [
+        "Current evidence maps 106/106 public HTML surfaces to target apps/API modules/reference archive, but they are not all replaced by implemented target surfaces.",
+        "Current evidence maps 37 production-orphan compatibility engines to target API modules and retirement gates, but they are not yet replaced by implemented target modules.",
+        "Several registry-wired legacy engines are no longer reported as orphan and need migration-completion review: IndustryPlatformEngine, FissionTrackingEngine, LLMDiagnosisEngine, ChannelManagementEngine, CADImporter, and ImageRecognition."
+      ],
+      "blockers": [],
+      "nextActions": [
+        "Classify each legacy surface as migrate, wrap, archive, or retire with replacement proof.",
+        "Do not delete old assets before evidence exists.",
+        "Use code-size trunk report to keep legacy HTML counted as asset inventory, not production runtime code.",
+        "Keep lazy facade tests green so old engines stay out of safe startup until their business APIs are called.",
+        "Use reachable runtime top files to prioritize SelfCheckOrchestrator, AIConsultantEngine, DrawingSVGRenderer, Renderer3DEngine, RAGKnowledgeBaseEngine, MonitoringSystem, HeartbeatMonitor, DXFParserService, and technical delivery/workflow services.",
+        "Use 10,212 reachable compatibility lines as the current owner-triage baseline.",
+        "Keep 106 classified HTML surfaces as asset inventory until migrate/wrap/archive/retire evidence exists.",
+        "Use 8,462 reachable compatibility lines as the current owner-triage baseline.",
+        "Keep optional runtime service factories documented as migration scaffolding, not final target architecture.",
+        "Use 6,800 reachable compatibility lines as the current owner-triage baseline.",
+        "Keep migrated background services in inventory until target modules and launch runtime evidence replace compatibility facades.",
+        "Use 3,430 reachable compatibility lines as the current owner-triage baseline.",
+        "Do not delete shifted services until target modules and regression evidence replace them.",
+        "Use production trunk isolation evidence before deleting or moving legacy assets; deletion still requires owner, replacement, and regression proof.",
+        "Use legacy surface ownership report before migrating, archiving, or retiring any public HTML asset; every surface must keep owner, action, target, evidence, and deletion gate coverage.",
+        "Keep active orphan engine debt separate from resolved historical engine assets: 37 current orphan engines, 14 resolved historical entries, 0 unregistered orphan engines, and 0 legacy-fusion warnings.",
+        "Use workspace bulk asset governance before moving archives or legacy HTML: every large bucket now has owner, target evidence, migration action, and deletion gate.",
+        "Use repository bulk retention manifest before moving backup/archive roots: 523 retained files are hash-inventoried and still deletion-blocked.",
+        "Use production-route-target-map before retiring legacy route mounts: 52 production catalog routes now require mapped target modules and retirement evidence.",
+        "Use legacy-html-migration-matrix before migrating or deleting old HTML: 106 public surfaces now require target app/API module, replacement evidence, and deletion gates.",
+        "Use compatibility-engine-retirement-matrix before deleting old engines: 37 current orphan engines now require target API module, replacement evidence, and retirement gates.",
+        "Keep CommercialTaxEngine and QuoteEngine listed as partially extracted but not deletion-safe until final API, OpenAPI, rollback, checksum, SBOM, and provenance gates are complete.",
+        "Keep DataEncryption listed as partially extracted but not deletion-safe until key management, rollback, external security posture, checksum, SBOM, and provenance gates are complete."
+      ],
+      "guards": [
+        "guard:legacy-surface",
+        "guard:trunk-migration",
+        "guard:code-size-trunk",
+        "guard:production-trunk-isolation",
+        "guard:workspace-size",
+        "guard:repository-bulk-retention",
+        "guard:route-target-map",
+        "guard:legacy-surface-ownership",
+        "guard:legacy-migration-matrix",
+        "guard:compat-engine-matrix"
+      ],
+      "harnesses": [
+        "harness:legacy-fusion",
+        "harness:consolidation"
+      ],
+      "progress": {
+        "percent": 80,
+        "stage": "quote-and-security-p0-partial-extractions-guarded",
+        "currentFocus": "Legacy fusion maps all 106 public HTML surfaces and 37 production-orphan compatibility engines, with CommercialTaxEngine, QuoteEngine, and DataEncryption partially extracted into target modules and covered by production-readiness tests.",
+        "latestEvidence": "evidence/architecture/compatibility-engine-retirement-matrix.json",
+        "nextMilestone": "Finish quote/security route/API/OpenAPI/key-management replacement proof, then continue CRM and delivery P0 engine extraction without deleting historical assets.",
+        "blockerSummary": "No bulk asset is deletion-safe without target evidence, checksum/archive or replacement proof, guard pass, and rollback note; target dependency boot remains unavailable."
+      }
+    },
+    {
+      "owner": "frontend-contract-auditor",
+      "lane": "frontend-api-contract-and-candidate-surface-control",
+      "status": "active",
+      "startedAt": "2026-06-06T00:00:00.000Z",
+      "updatedAt": "2026-06-13T02:05:00.000Z",
+      "inputs": [
+        "contracts/openapi/rhautt-nexus-v2.openapi.json",
+        "packages/generated-client/src/rhauttNexusClient.ts",
+        "public"
+      ],
+      "outputs": [
+        "evidence/contracts/openapi-generated-client.md",
+        "audit/active-page-static-acceptance-report.json",
+        "public/customer-share.html",
+        "public/designer.html",
+        "packages/generated-client/src/rhauttNexusClient.ts",
+        "public/business-console.html",
+        "contracts/openapi/rhautt-nexus-v2.openapi.json",
+        "server/modules/rysnova-bim/rysnova-bim-artifact.service.js",
+        "test/production-readiness/rysnova-bim-artifact-service.test.js",
+        "test/production-readiness/openapi-contract.test.js"
+      ],
+      "evidence": [
+        "contracts/openapi/rhautt-nexus-v2.openapi.json",
+        "packages/generated-client/src/rhauttNexusClient.ts",
+        "public/pain-diagnosis.html",
+        "public/customer-share.html",
+        "public/designer.html",
+        "server/modules/diagnosis/diagnosis.routes.js",
+        "test/production-readiness/v2-routes.test.js",
+        "test/production-readiness/openapi-contract.test.js",
+        "test/production-readiness/visual-surface-contract.test.js",
+        "scripts/agent-guards/frontend-api-contract-check.js",
+        "scripts/agent-guards/active-navigation-check.js",
+        "public/business-console.html",
+        "public/rysnova-bim-designer.html",
+        "scripts/agent-guards/generated-client-check.js",
+        "server/modules/rysnova-bim/rysnova-bim-artifact.service.js",
+        "test/production-readiness/rysnova-bim-artifact-service.test.js"
+      ],
+      "openRisks": [
+        "React candidate surfaces must stay out of production navigation until API contracts and tests align."
+      ],
+      "blockers": [],
+      "nextActions": [
+        "Keep Rhautt portal entries to 瑞诺瓦 and Rysnova while preserving standalone-capable module headers and API contracts.",
+        "Keep Rysnova standardsCoverage contract fields synchronized across OpenAPI, generated client, and frontend API guard.",
+        "Block candidate React app promotion without contract evidence.",
+        "Keep engineeringTraceabilityManifest exposed in OpenAPI and generated client so frontend surfaces can render traceable Rysnova delivery packages without using candidate React service calls."
+      ],
+      "guards": [
+        "guard:frontend-api-contract",
+        "guard:navigation",
+        "guard:active-page-static",
+        "guard:module-independence",
+        "guard:generated-client"
+      ],
+      "harnesses": [
+        "harness:integrity"
+      ],
+      "progress": {
+        "percent": 64,
+        "stage": "rysnova-bim-engineering-traceability-contract-synchronized",
+        "currentFocus": "OpenAPI and generated client now expose Rysnova engineeringTraceabilityManifest for visual, deliverable, customer package, signoff, and deepening results; contract tests and generated-client guard pass.",
+        "latestEvidence": "test/production-readiness/openapi-contract.test.js",
+        "nextMilestone": "Bind production frontend surfaces to generated client only after browser visual and API runtime proof are current.",
+        "blockerSummary": "React service layer remains candidate surface with 53 API calls and is not production navigation proof."
+      }
+    },
+    {
+      "owner": "enterprise-ai-control-architect",
+      "lane": "enterprise-ai-workbench-control",
+      "status": "active",
+      "startedAt": "2026-06-06T00:00:00.000Z",
+      "updatedAt": "2026-06-06T00:00:00.000Z",
+      "inputs": [
+        "docs/RHAUTT-NEXUS-ENTERPRISE-AI-CONTROL-ARCHITECTURE.md",
+        ".claude/agents/enterprise-ai-control-architect.md"
+      ],
+      "outputs": [
+        "docs/RHAUTT-NEXUS-ENTERPRISE-AI-CONTROL-ARCHITECTURE.md"
+      ],
+      "evidence": [
+        "docs/RHAUTT-NEXUS-ENTERPRISE-AI-CONTROL-ARCHITECTURE.md",
+        "scripts/agent-guards/ai-control-plane-check.js",
+        ".claude/agents/enterprise-ai-control-architect.md"
+      ],
+      "openRisks": [
+        "Enterprise AI control is architecture evidence, not yet a fully implemented autonomous runtime."
+      ],
+      "blockers": [],
+      "nextActions": [
+        "Tie assistant workflows to permissions, audit, and human approval states.",
+        "Avoid unsupported claims of autonomous production agents."
+      ],
+      "guards": [
+        "guard:agent-runs"
+      ],
+      "harnesses": [
+        "harness:ai-control"
+      ],
+      "progress": {
+        "percent": 36,
+        "stage": "control-plane-design-active",
+        "currentFocus": "Keep enterprise AI workbench architecture tied to permission, audit, and human approval states.",
+        "latestEvidence": "docs/RHAUTT-NEXUS-ENTERPRISE-AI-CONTROL-ARCHITECTURE.md",
+        "nextMilestone": "Convert control architecture into runtime workflows only with evidence.",
+        "blockerSummary": "Architecture evidence exists; autonomous runtime proof is not claimed."
+      }
+    },
+    {
+      "owner": "quote-cost-governor",
+      "lane": "quotation-cost-bom-margin-and-approval",
+      "status": "active",
+      "startedAt": "2026-06-06T00:00:00.000Z",
+      "updatedAt": "2026-06-06T23:49:48.000Z",
+      "inputs": [
+        ".claude/agents/quote-cost-governor.md",
+        "server/modules",
+        "contracts/openapi/rhautt-nexus-v2.openapi.json"
+      ],
+      "outputs": [
+        "server/core/QuotationEngine-v2.js",
+        "server/routes/quotation-v2.js",
+        "server/modules/contracts/contracts.service.js",
+        "server/modules/contracts/contracts.routes.js",
+        "public/designer.html",
+        "packages/generated-client/src/rhauttNexusClient.ts",
+        "test/production-readiness/quotation-v2-bom.test.js",
+        "test/production-readiness/contracts-service.test.js",
+        "server/modules/quotation/quotation.service.js",
+        "test/production-readiness/quotation-v2-persistence.test.js",
+        "evidence/architecture/compatibility-engine-retirement-matrix.json"
+      ],
+      "evidence": [
+        ".claude/agents/quote-cost-governor.md",
+        "server/core/QuotationEngine-v2.js",
+        "server/routes/quotation-v2.js",
+        "server/modules/quotation/quotation.service.js",
+        "server/modules/contracts/contracts.service.js",
+        "server/modules/contracts/contracts.routes.js",
+        "public/designer.html",
+        "contracts/openapi/rhautt-nexus-v2.openapi.json",
+        "packages/generated-client/src/rhauttNexusClient.ts",
+        "test/production-readiness/contracts-service.test.js",
+        "test/production-readiness/quotation-v2-bom.test.js",
+        "test/production-readiness/quotation-v2-persistence.test.js",
+        "test/production-readiness/v2-routes.test.js",
+        "test/production-readiness/visual-surface-contract.test.js",
+        "test/production-readiness/openapi-contract.test.js",
+        "test/production-readiness",
+        "evidence/architecture/compatibility-engine-retirement-matrix.json"
+      ],
+      "openRisks": [
+        "报价、审批、签名、付款、交付启动已进入 v2 OpenAPI 合同；designer.html 已绑定真实签单 UI，其他需要签约动作的工作台仍需继续按合同推进。",
+        "真实 staging database、Temporal worker、付款凭证/电子签章外部平台仍需要上线证据。"
+      ],
+      "blockers": [],
+      "nextActions": [
+        "Continue tightening designer and staff surfaces around persisted quotation, e-signature provider evidence, payment receipt evidence, and delivery workflow proof.",
+        "Keep margin guard, approval, audit, outbox, and lifecycle handoff in the same production evidence chain.",
+        "Complete public route/API/OpenAPI/generated-client proof for standard quote behavior before retiring server/core/QuoteEngine.js."
+      ],
+      "guards": [
+        "guard:frontend-api-contract",
+        "guard:delivery-goal"
+      ],
+      "harnesses": [
+        "harness:features"
+      ],
+      "progress": {
+        "percent": 64,
+        "stage": "quote-cost-p0-extraction-active",
+        "currentFocus": "Harden quotation, BOM, margin, approval, commercial tax, standard quote behavior, contract, signature, payment, and delivery-start evidence.",
+        "latestEvidence": "test/production-readiness/quotation-v2-persistence.test.js",
+        "nextMilestone": "Expose or intentionally retire standard quote behavior through route/API/OpenAPI generated-client evidence, then continue sign/payment staging proof.",
+        "blockerSummary": "External e-signature/payment/staging database evidence remains missing."
+      }
+    },
+    {
+      "owner": "solution-design-rysnova-bim-director",
+      "lane": "comfort-home-solution-production-line",
+      "status": "active",
+      "startedAt": "2026-06-06T00:00:00.000Z",
+      "updatedAt": "2026-06-13T02:05:00.000Z",
+      "inputs": [
+        "docs/RHAUTT-NEXUS-RYSNOVA-ARTIFACT-CONTRACT.md",
+        "docs/COMFORT-HOME-STANDARDS-MATRIX.md",
+        "public/designer.html",
+        "public/rysnova-bim-designer.html"
+      ],
+      "outputs": [
+        "server/modules/rysnova-bim/rysnova-bim-artifact.service.js",
+        "test/production-readiness/rysnova-bim-artifact-service.test.js",
+        "audit/feature-granularity-report.json",
+        "server/modules/solution-visuals/solution-visual-package.service.js",
+        "server/modules/diagnosis/diagnosis.service.js",
+        "public/customer-share.html",
+        "test/production-readiness/visual-surface-contract.test.js",
+        "test/production-readiness/diagnosis-service.test.js",
+        "server/modules/system-packs/rheemSystemPacks.js",
+        "server/modules/system-packs/system-packs.service.js",
+        "contracts/openapi/rhautt-nexus-v2.openapi.json",
+        "packages/generated-client/src/rhauttNexusClient.ts",
+        "test/production-readiness/system-packs.test.js",
+        "test/production-readiness/openapi-contract.test.js"
+      ],
+      "evidence": [
+        "docs/RHAUTT-NEXUS-RYSNOVA-ARTIFACT-CONTRACT.md",
+        "server/modules/rysnova-bim/rysnova-bim-artifact.service.js",
+        "server/modules/solution-visuals/solution-visual-package.service.js",
+        "server/modules/diagnosis/diagnosis.service.js",
+        "public/customer-share.html",
+        "contracts/openapi/rhautt-nexus-v2.openapi.json",
+        "test/production-readiness/diagnosis-service.test.js",
+        "test/production-readiness/visual-surface-contract.test.js",
+        "test/production-readiness/rysnova-bim-artifact-service.test.js",
+        "audit/feature-granularity-harness.js",
+        "contracts/product-modules/rysnova-rysnova-bim-module-boundary.json",
+        "public/rysnova-bim-designer.html",
+        "server/models/RysnovaArtifact.js",
+        "server/modules/system-packs/rheemSystemPacks.js",
+        "server/modules/system-packs/system-packs.service.js",
+        "packages/generated-client/src/rhauttNexusClient.ts",
+        "test/production-readiness/system-packs.test.js",
+        "audit/feature-granularity-report.json",
+        "test/production-readiness/openapi-contract.test.js"
+      ],
+      "openRisks": [
+        "瑞诺瓦 AI 问诊 now returns essential/balanced/premium visualPackages with principle diagram, 2D layout, and 3D illustration per tier; customer-share.html now renders these packages from the v2 public report readback when share-token access is valid.",
+        "Formal Rysnova CAD/BIM/customer-download artifacts still need external object-storage proof and deeper engineering validation.",
+        "Rysnova generated standards-check, customer report, deliverable result, signoff package, customer package, and deepening package now carry standardsCoverage; OpenAPI and generated client expose the field.",
+        "BOM/quote summary, customer quote summary, installed asset lifecycle handoff, customer report, and signoff lifecycle summary now expose standardsCoverageImpact without leaking internal cost or margin fields."
+      ],
+      "blockers": [],
+      "nextActions": [
+        "Keep Rysnova as an independent engineering/BIM module that can be portal-embedded or standalone.",
+        "Continue improving artifact fidelity beyond inline SVG fallback without changing confirmed C-end PRD structure.",
+        "Keep SystemPack standardsCoverage bound into Rysnova generated standards-check, customer reports, deliverable results, signoff packages, customer packages, and deepening packages.",
+        "Keep standardsCoverageImpact bound into BOM/quote, customer quote summary, customer report, lifecycle handoff, and signoff lifecycle summary.",
+        "Continue tightening quote line explanations after external object storage and browser proof are available.",
+        "Deepen engineeringTraceabilityManifest with CAD/BIM geometry quality, drawing scale, and line-item quantity provenance when renderer evidence is available."
+      ],
+      "guards": [
+        "guard:standards",
+        "guard:object-storage-evidence",
+        "guard:module-independence",
+        "guard:generated-client",
+        "guard:frontend-api-contract",
+        "guard:delivery-goal:nonvisual"
+      ],
+      "harnesses": [
+        "harness:features",
+        "harness:operational"
+      ],
+      "progress": {
+        "percent": 65,
+        "stage": "rysnova-bim-traceable-delivery-chain-active",
+        "currentFocus": "Rysnova now ties principle diagram, 2D layout, 3D/BIM, BOM, quantity takeoff, standards coverage, quote explanations, and lifecycle handoff through engineeringTraceabilityManifest.",
+        "latestEvidence": "test/production-readiness/rysnova-bim-artifact-service.test.js",
+        "nextMilestone": "Add stronger CAD/BIM fidelity and customer-download traceability details while keeping customer surfaces free of internal cost/margin data.",
+        "blockerSummary": "Formal CAD/BIM/customer-download artifacts still need browser visual proof, external object storage integrity, staging service evidence, and engineering validation."
+      }
+    },
+    {
+      "owner": "hvac-standards-auditor",
+      "lane": "comfort-home-hvac-standards-and-calculation-governance",
+      "status": "active",
+      "startedAt": "2026-06-06T00:00:00.000Z",
+      "updatedAt": "2026-06-13T01:10:16.000Z",
+      "inputs": [
+        "docs/COMFORT-HOME-STANDARDS-MATRIX.md",
+        "docs/RHAUTT-NEXUS-RYSNOVA-ARTIFACT-CONTRACT.md",
+        "scripts/agent-guards/standards-metadata-check.js",
+        ".claude/agents/hvac-standards-auditor.md"
+      ],
+      "outputs": [
+        "audit/feature-granularity-report.json",
+        "docs/COMFORT-HOME-STANDARDS-MATRIX.md",
+        "server/modules/system-packs/rheemSystemPacks.js",
+        "scripts/agent-guards/standards-metadata-check.js",
+        "test/production-readiness/system-packs.test.js"
+      ],
+      "evidence": [
+        "docs/COMFORT-HOME-STANDARDS-MATRIX.md",
+        "docs/RHAUTT-NEXUS-RYSNOVA-ARTIFACT-CONTRACT.md",
+        "scripts/agent-guards/standards-metadata-check.js",
+        ".claude/agents/hvac-standards-auditor.md",
+        "test/production-readiness",
+        "server/modules/system-packs/rheemSystemPacks.js",
+        "test/production-readiness/system-packs.test.js",
+        "test/production-readiness/openapi-contract.test.js"
+      ],
+      "openRisks": [
+        "Current standards matrix is a governance baseline; detailed calculation engines for hot water, heating, whole-air, water purification, fresh air, air conditioning, and smart control still need deeper software-backed validation.",
+        "Fresh standards research must be periodically revalidated because standards and product certifications change."
+      ],
+      "blockers": [
+        "External standards/source verification may require network access or licensed standard text."
+      ],
+      "nextActions": [
+        "Make system packs carry standards metadata with level, edition, scope, and softwareCheck.",
+        "Turn standards findings into blockers, warnings, and advisory optimizations in design, quote, Rysnova, and lifecycle outputs.",
+        "Keep the six required standardsCoverage domains as a guard-blocked contract for every full central hot water, heating, whole-air, and smart-control composition."
+      ],
+      "guards": [
+        "guard:standards",
+        "harness:features"
+      ],
+      "harnesses": [
+        "harness:features",
+        "harness:operational"
+      ],
+      "progress": {
+        "percent": 52,
+        "stage": "six-domain-standards-coverage-impact-bound",
+        "currentFocus": "System packs encode six comfort-home standards domains, and Rysnova artifacts/contracts now expose both coverage and quote/lifecycle impact summaries.",
+        "latestEvidence": "test/production-readiness/openapi-contract.test.js",
+        "nextMilestone": "Deepen standardsCoverage-backed quote line explanations, lifecycle handoff notes, and official source verification.",
+        "blockerSummary": "Fresh official standard/source verification and licensed-text interpretation remain external research/compliance work; current code stores metadata, not legal certification."
+      }
+    },
+    {
+      "owner": "rysnova-bim-engineering-builder",
+      "lane": "bim-drawing-artifact-engineering",
+      "status": "active",
+      "startedAt": "2026-06-06T00:00:00.000Z",
+      "updatedAt": "2026-06-13T02:05:00.000Z",
+      "inputs": [
+        "server/modules/rysnova-bim",
+        "server/models/RysnovaArtifact.js",
+        "docs/RHAUTT-NEXUS-RYSNOVA-ARTIFACT-CONTRACT.md"
+      ],
+      "outputs": [
+        "evidence/object-storage/rysnova-bim-object-storage-smoke.json",
+        "evidence/object-storage/rysnova-bim-object-storage-smoke.md",
+        "server/modules/rysnova-bim/rysnova-bim-artifact.service.js",
+        "test/production-readiness/rysnova-bim-artifact-service.test.js",
+        "contracts/openapi/rhautt-nexus-v2.openapi.json",
+        "packages/generated-client/src/rhauttNexusClient.ts",
+        "test/production-readiness/openapi-contract.test.js"
+      ],
+      "evidence": [
+        "server/modules/rysnova-bim/rysnova-bim-artifact.service.js",
+        "server/models/RysnovaArtifact.js",
+        "scripts/release/rysnova-bim-object-storage-smoke.js",
+        "scripts/agent-guards/object-storage-evidence-check.js",
+        "test/production-readiness/rysnova-bim-artifact-service.test.js",
+        "contracts/openapi/rhautt-nexus-v2.openapi.json",
+        "packages/generated-client/src/rhauttNexusClient.ts",
+        "test/production-readiness/openapi-contract.test.js"
+      ],
+      "openRisks": [
+        "External object storage final proof is missing.",
+        "BIM/Revit/CAD interoperability is contract-level, not fully production-integrated."
+      ],
+      "blockers": [
+        "External object storage credentials and endpoint are not configured."
+      ],
+      "nextActions": [
+        "Run external object-storage smoke when provider config exists.",
+        "Add stronger CAD/BIM artifact validations before production promotion.",
+        "Use engineeringTraceabilityManifest to prepare object-storage-ready package manifest and external storage integrity proof hooks."
+      ],
+      "guards": [
+        "guard:object-storage-evidence"
+      ],
+      "harnesses": [
+        "harness:legacy-fusion"
+      ],
+      "progress": {
+        "percent": 40,
+        "stage": "traceability-manifest-storage-ready-local",
+        "currentFocus": "Rysnova artifact service now emits storage-backed artifact refs inside engineeringTraceabilityManifest, ready for external object storage proof once credentials exist.",
+        "latestEvidence": "server/modules/rysnova-bim/rysnova-bim-artifact.service.js",
+        "nextMilestone": "Run external object storage PUT/GET/hash proof and attach manifest refs to the final launch evidence bundle.",
+        "blockerSummary": "External object storage credentials and endpoint are not configured."
+      }
+    },
+    {
+      "owner": "customer-project-lifecycle-director",
+      "lane": "customer-project-journey-and-iot-handoff",
+      "status": "active",
+      "startedAt": "2026-06-06T00:00:00.000Z",
+      "updatedAt": "2026-06-06T22:26:30.000Z",
+      "inputs": [
+        "docs/RHAUTT-NEXUS-CUSTOMER-LIFECYCLE-STATE-MODEL.md",
+        "server/modules/lifecycle",
+        "public/customer-view.html"
+      ],
+      "outputs": [
+        "test/production-readiness/lifecycle-service.test.js",
+        "audit/capacity-inprocess-report.json"
+      ],
+      "evidence": [
+        "docs/RHAUTT-NEXUS-CUSTOMER-LIFECYCLE-STATE-MODEL.md",
+        "server/modules/lifecycle/lifecycle.service.js",
+        "test/production-readiness/lifecycle-service.test.js",
+        "audit/capacity-inprocess-report.json",
+        "audit/capacity-inprocess-test.js",
+        "test/production-readiness/capacity-inprocess-evidence.test.js"
+      ],
+      "openRisks": [
+        "Real customer/project/order data integration and IoT platform handoff callback proof are still missing."
+      ],
+      "blockers": [],
+      "nextActions": [
+        "Keep customer-visible data separated from internal business fields.",
+        "Add staging proof for lifecycle portal read path.",
+        "Preserve summary-list/detail-view split for customer project portal to keep lifecycle pages scalable."
+      ],
+      "guards": [
+        "guard:frontend-api-contract",
+        "guard:capacity-evidence"
+      ],
+      "harnesses": [
+        "harness:features"
+      ],
+      "progress": {
+        "percent": 45,
+        "stage": "customer-lifecycle-contract-active",
+        "currentFocus": "Customer project portal keeps list summary projection separate from full project detail and IoT handoff payloads.",
+        "latestEvidence": "test/production-readiness/capacity-inprocess-evidence.test.js",
+        "nextMilestone": "Connect real customer/order/IoT callback integrations without breaking lifecycle_handoff_only boundaries.",
+        "blockerSummary": "Real customer/order/IoT callback integration proof is missing."
+      }
+    },
+    {
+      "owner": "iot-lifecycle-architect",
+      "lane": "installed-asset-and-iot-lifecycle-handoff",
+      "status": "active",
+      "startedAt": "2026-06-06T00:00:00.000Z",
+      "updatedAt": "2026-06-06T00:00:00.000Z",
+      "inputs": [
+        "docs/LIFECYCLE-IOT-BRIDGE.md",
+        "docs/RHAUTT-NEXUS-CUSTOMER-LIFECYCLE-STATE-MODEL.md",
+        "server/models/LifecycleLink.js"
+      ],
+      "outputs": [
+        "server/modules/lifecycle/lifecycle.service.js",
+        "test/production-readiness/lifecycle-service.test.js"
+      ],
+      "evidence": [
+        "docs/LIFECYCLE-IOT-BRIDGE.md",
+        "server/models/LifecycleLink.js",
+        "server/modules/lifecycle/lifecycle.service.js",
+        "test/production-readiness/lifecycle-service.test.js"
+      ],
+      "openRisks": [
+        "No real IoT platform contract callback proof exists yet."
+      ],
+      "blockers": [],
+      "nextActions": [
+        "Maintain lifecycle_handoff_only boundary.",
+        "Prepare explicit installed-asset binding and warranty/service handoff contracts."
+      ],
+      "guards": [
+        "guard:workflow-outbox-contract",
+        "guard:frontend-api-contract"
+      ],
+      "harnesses": [
+        "harness:operational"
+      ],
+      "progress": {
+        "percent": 33,
+        "stage": "handoff-boundary-active",
+        "currentFocus": "Maintain lifecycle_handoff_only boundary and installed-asset/service handoff contracts.",
+        "latestEvidence": "docs/LIFECYCLE-IOT-BRIDGE.md",
+        "nextMilestone": "Prepare explicit IoT platform callback contract proof.",
+        "blockerSummary": "No real IoT platform callback proof exists yet."
+      }
+    },
+    {
+      "owner": "test-harness-builder",
+      "lane": "production-gates-and-evidence",
+      "status": "active",
+      "startedAt": "2026-06-06T00:00:00.000Z",
+      "updatedAt": "2026-06-13T02:05:00.000Z",
+      "inputs": [
+        "package.json",
+        "scripts/agent-guards",
+        "test/production-readiness",
+        "governance/agent-runs.json"
+      ],
+      "outputs": [
+        "evidence/release-evidence.json",
+        "audit/ai-control-plane-report.json",
+        "audit/active-page-static-acceptance-report.json",
+        "test/production-readiness/visual-surface-contract.test.js",
+        "scripts/agent-guards/module-independence-check.js",
+        "test/production-readiness/governance-agent-progress.test.js",
+        "test/production-readiness/capacity-inprocess-evidence.test.js",
+        "audit/production-trunk-isolation-report.json",
+        "test/production-readiness/production-trunk-isolation.test.js",
+        "audit/legacy-surface-ownership-report.json",
+        "test/production-readiness/legacy-surface-ownership.test.js",
+        "audit/legacy-fusion-report.json",
+        "test/production-readiness/legacy-fusion-registry.test.js",
+        "audit/workspace-size-governance-report.json",
+        "audit/workspace-size-governance-report.md",
+        "test/production-readiness/workspace-size-governance.test.js",
+        "evidence/operations/repository-bulk-retention-manifest.json",
+        "evidence/operations/repository-bulk-retention-manifest.md",
+        "test/production-readiness/repository-bulk-retention.test.js",
+        "evidence/architecture/production-route-target-map-report.json",
+        "evidence/architecture/production-route-target-map-report.md",
+        "test/production-readiness/production-route-target-map.test.js",
+        "evidence/architecture/legacy-html-migration-matrix.json",
+        "evidence/architecture/legacy-html-migration-matrix.md",
+        "test/production-readiness/legacy-html-migration-matrix.test.js",
+        "evidence/architecture/compatibility-engine-retirement-matrix.json",
+        "evidence/architecture/compatibility-engine-retirement-matrix.md",
+        "test/production-readiness/compatibility-engine-retirement-matrix.test.js",
+        "test/production-readiness/quotation-v2-persistence.test.js",
+        "server/modules/rysnova-bim/rysnova-bim-artifact.service.js",
+        "test/production-readiness/rysnova-bim-artifact-service.test.js",
+        "contracts/openapi/rhautt-nexus-v2.openapi.json",
+        "packages/generated-client/src/rhauttNexusClient.ts",
+        "test/production-readiness/openapi-contract.test.js"
+      ],
+      "evidence": [
+        "package.json",
+        "scripts/agent-guards/agent-run-ledger-check.js",
+        "scripts/agent-guards/ai-control-plane-check.js",
+        "scripts/agent-guards/frontend-api-contract-check.js",
+        "test/production-readiness/diagnosis-service.test.js",
+        "test/production-readiness/v2-routes.test.js",
+        "test/production-readiness/openapi-contract.test.js",
+        "test/production-readiness/visual-surface-contract.test.js",
+        "test/production-readiness",
+        "test/production-readiness/analytics-service.test.js",
+        "scripts/agent-guards/active-page-static-acceptance.js",
+        "scripts/agent-guards/module-independence-check.js",
+        "test/production-readiness/production-app-module-aliases.test.js",
+        "test/production-readiness/multitenant-models.test.js",
+        "test/production-readiness/quotation-v2-persistence.test.js",
+        "test/production-readiness/route-ownership.test.js",
+        "test/production-readiness/governance-agent-progress.test.js",
+        "audit/agent-progress-board.md",
+        "test/production-readiness/capacity-inprocess-evidence.test.js",
+        "audit/capacity-inprocess-report.json",
+        "audit/capacity-inprocess-test.js",
+        "evidence/release-evidence.json",
+        "audit/code-size-trunk-report.json",
+        "scripts/agent-guards/code-size-trunk-check.js",
+        "test/production-readiness/code-size-trunk-evidence.test.js",
+        "test/production-readiness/runtime-services.test.js",
+        "test/production-readiness/production-app-factory.test.js",
+        "test/production-readiness/runtime-route-modules.test.js",
+        "audit/product-consolidation-report.json",
+        "evidence/architecture/target-api-boot-smoke.json",
+        "evidence/architecture/target-dependency-readiness-report.json",
+        "services/api/src/main.ts",
+        "services/api/src/modules/app.module.ts",
+        "services/api/src/modules/health.controller.ts",
+        "test/production-readiness/target-api-source-contract.test.js",
+        "audit/browser-visual-inapp-report.json",
+        "audit/browser-visual-inapp-report.md",
+        "services/api/src/modules/module-boundary.ts",
+        "evidence/architecture/target-architecture-contract-report.json",
+        "scripts/agent-guards/production-trunk-isolation-check.js",
+        "audit/production-trunk-isolation-report.json",
+        "test/production-readiness/production-trunk-isolation.test.js",
+        "scripts/agent-guards/legacy-surface-ownership-check.js",
+        "audit/legacy-surface-ownership-report.json",
+        "test/production-readiness/legacy-surface-ownership.test.js",
+        "audit/legacy-fusion-report.json",
+        "test/production-readiness/legacy-fusion-registry.test.js",
+        "scripts/agent-guards/workspace-size-governance-check.js",
+        "audit/workspace-size-governance-report.json",
+        "test/production-readiness/workspace-size-governance.test.js",
+        "scripts/agent-guards/repository-bulk-retention-check.js",
+        "evidence/operations/repository-bulk-retention-manifest.json",
+        "test/production-readiness/repository-bulk-retention.test.js",
+        "contracts/architecture/production-route-target-module-map.json",
+        "scripts/agent-guards/production-route-target-map-check.js",
+        "evidence/architecture/production-route-target-map-report.json",
+        "test/production-readiness/production-route-target-map.test.js",
+        "scripts/agent-guards/legacy-html-migration-matrix-check.js",
+        "evidence/architecture/legacy-html-migration-matrix.json",
+        "test/production-readiness/legacy-html-migration-matrix.test.js",
+        "scripts/agent-guards/compatibility-engine-retirement-matrix-check.js",
+        "evidence/architecture/compatibility-engine-retirement-matrix.json",
+        "test/production-readiness/compatibility-engine-retirement-matrix.test.js",
+        "test/production-readiness/quotation-v2-persistence.test.js",
+        "server/modules/rysnova-bim/rysnova-bim-artifact.service.js",
+        "test/production-readiness/rysnova-bim-artifact-service.test.js",
+        "contracts/openapi/rhautt-nexus-v2.openapi.json",
+        "packages/generated-client/src/rhauttNexusClient.ts"
+      ],
+      "openRisks": [
+        "Some gates pass with honest warning states because staging/runtime/browser capabilities are missing in the current environment.",
+        "guard:delivery-goal currently fails only on stale browser visual evidence for public/pain-diagnosis.html, public/customer-share.html, public/business-console.html, and public/rysnova-bim-designer.html after the latest page/module changes.",
+        "Browser visual guard is blocked by MachPort permission and cannot be refreshed in this environment."
+      ],
+      "blockers": [],
+      "nextActions": [
+        "Keep module independence in guard:all and guard:all:nonvisual.",
+        "Rerun browser visual acceptance in a permitted non-sandbox browser context after module header changes.",
+        "Rerun VISUAL_BASE_URL=<fresh-current-runtime> npm run guard:browser-visual in an allowed browser environment.",
+        "Keep governance progress drift covered by production-readiness test and guard:agent-runs.",
+        "Keep guard:all:nonvisual clean after every governance/progress evidence update.",
+        "Keep perf:capacity:inprocess and capacity evidence test green after lifecycle/customer portal changes.",
+        "Keep code-size trunk evidence aligned with real eager startup semantics after lazy route catalog changes.",
+        "Keep production startup and legacy dev server size metrics separately guarded.",
+        "Keep production JS startup, active HTML asset, reachable runtime, and legacy dev server metrics separately guarded.",
+        "Keep reachable compatibility debt and unreachable inventory metrics in production-readiness tests.",
+        "Keep code-size tests from rewarding larger runtime file counts; they should enforce taxonomy and upper bounds.",
+        "Use targeted Jest plus production-readiness full suite after each trunk-slimming pass.",
+        "Keep runtimeServices tests rejecting direct requires for optional background engines.",
+        "Keep production-app-factory tests proving full runtime background services stay lazy until startup/use.",
+        "Keep code-size thresholds aligned with slimming, using upper bounds and taxonomy rather than minimum bloat.",
+        "Keep runtime-route source tests rejecting direct compatibility requires for migrated business routes.",
+        "Keep production trunk isolation test in production-readiness so guard drift is caught even outside full guard:all runs.",
+        "Keep legacy-surface-ownership in guard:all and guard:all:nonvisual so every old HTML page remains owner-governed until migration or retirement evidence exists.",
+        "Keep legacy-fusion-registry production-readiness coverage so resolved historical entries cannot drift back into current orphan debt.",
+        "Keep workspace-size governance in guard:all and production-readiness so repository bloat cannot be confused with production runtime.",
+        "Keep target dependency readiness in delivery-goal so declared dependencies, package-lock, node_modules, and boot proof cannot drift apart.",
+        "Keep repository bulk retention in guard:all and production-readiness so backup/archive slimming cannot happen without a full hash manifest and deletion gates.",
+        "Keep route-target-map in guard:all and production-readiness so every production route catalog mount has target module ownership and retirement gates.",
+        "Keep legacy-migration-matrix in guard:all and production-readiness so every public HTML page has target app/API mapping and deletion gates before cleanup.",
+        "Keep compat-engine-matrix in guard:all and production-readiness so every orphan compatibility engine has target API mapping and retirement gates before cleanup.",
+        "Keep quotation-v2-persistence tests covering CommercialTaxEngine and QuoteEngine partial extraction behavior before any quote-cost legacy engine retirement.",
+        "Keep engineeringTraceabilityManifest covered by Rysnova service tests, OpenAPI contract tests, generated-client guard, frontend API guard, and guard:all:nonvisual."
+      ],
+      "guards": [
+        "guard:all",
+        "guard:all:nonvisual",
+        "guard:agent-runs",
+        "guard:module-independence",
+        "guard:delivery-goal",
+        "guard:browser-visual",
+        "guard:capacity-evidence",
+        "guard:production-trunk-isolation",
+        "guard:workspace-size",
+        "guard:repository-bulk-retention",
+        "guard:route-target-map",
+        "guard:legacy-surface-ownership",
+        "guard:legacy-migration-matrix",
+        "guard:compat-engine-matrix"
+      ],
+      "harnesses": [
+        "harness:all",
+        "harness:ai-control"
+      ],
+      "progress": {
+        "percent": 97,
+        "stage": "traceability-contract-tests-guarded",
+        "currentFocus": "Production tests now guard Rysnova engineering traceability manifest across service output and OpenAPI/generated-client contract.",
+        "latestEvidence": "test/production-readiness/openapi-contract.test.js",
+        "nextMilestone": "Refresh production-readiness evidence and guard:all:nonvisual after this traceability contract change.",
+        "blockerSummary": "Browser visual, target dependency boot, staging services, and real network capacity remain launch blockers."
+      }
+    },
+    {
+      "owner": "sre-guardian",
+      "lane": "slo-health-capacity-and-recovery",
+      "status": "active",
+      "startedAt": "2026-06-06T00:00:00.000Z",
+      "updatedAt": "2026-06-06T22:45:29.000Z",
+      "inputs": [
+        "evidence/operations/backup-restore-drill.json",
+        "audit/capacity-load-report.json",
+        "audit/capacity-inprocess-report.json"
+      ],
+      "outputs": [
+        "evidence/operations/backup-restore-drill.md",
+        "evidence/rollback/rollback-drill.md",
+        "audit/capacity-inprocess-report.json",
+        "audit/capacity-inprocess-report.md",
+        "audit/workspace-size-governance-report.json",
+        "audit/workspace-size-governance-report.md",
+        "evidence/operations/repository-bulk-retention-manifest.json",
+        "evidence/operations/repository-bulk-retention-manifest.md"
+      ],
+      "evidence": [
+        "evidence/operations/backup-restore-drill.json",
+        "audit/capacity-inprocess-report.json",
+        "audit/capacity-load-report.json",
+        "scripts/agent-guards/capacity-evidence-check.js",
+        "test/production-readiness/capacity-inprocess-evidence.test.js",
+        "audit/capacity-inprocess-test.js",
+        "audit/code-size-trunk-report.json",
+        "audit/workspace-size-governance-report.json",
+        "audit/product-consolidation-report.json",
+        "scripts/agent-guards/repository-bulk-retention-check.js",
+        "evidence/operations/repository-bulk-retention-manifest.json",
+        "test/production-readiness/repository-bulk-retention.test.js"
+      ],
+      "openRisks": [
+        "Staging network capacity and production-like recovery drills still need real environment proof."
+      ],
+      "blockers": [
+        "No reachable staging capacity target is configured."
+      ],
+      "nextActions": [
+        "Run capacity load in production-like staging.",
+        "Keep local in-process capacity distinct from launch proof.",
+        "Keep customer project list on summary projection under capacity load; full project and IoT payloads stay on detail endpoints.",
+        "Run real staging/network capacity when CAPACITY_BASE_URL and MongoDB-backed environment are available.",
+        "Track production startup eager runtime as a reliability KPI until target service boot proof replaces compatibility Express startup.",
+        "Track eager JS startup and in-process capacity as local reliability indicators, while keeping staging network proof as the launch gate.",
+        "Track eager JS startup and in-process capacity as local reliability indicators after each lazy/factory migration.",
+        "Track lazy background services as reliability posture but keep real staging service startup proof as launch evidence.",
+        "Track route-registry migrations against in-process capacity while keeping staging network proof as launch evidence.",
+        "Move backup/archive/data-fixture bulk out of the production workspace only after retained artifact and checksum evidence exists.",
+        "Use workspace-size bulk governance deletion gates before any backup/archive/data/root-report cleanup.",
+        "Use repository-bulk-retention manifest as the current backup/archive checksum baseline; deletionSafe remains false until external URI, restore/reference proof, and rollback evidence are current."
+      ],
+      "guards": [
+        "guard:capacity-evidence",
+        "guard:workspace-size",
+        "guard:repository-bulk-retention"
+      ],
+      "harnesses": [
+        "harness:operational"
+      ],
+      "progress": {
+        "percent": 54,
+        "stage": "backup-archive-checksum-baseline-active",
+        "currentFocus": "SRE now owns a full local SHA-256 baseline for backup/archive roots; no retained asset cleanup is deletion-safe yet.",
+        "latestEvidence": "evidence/operations/repository-bulk-retention-manifest.json",
+        "nextMilestone": "Run real staging/network load once environment endpoints and credentials are configured.",
+        "blockerSummary": "No staging capacity target is configured; in-process proof does not replace network proof."
+      }
+    },
+    {
+      "owner": "security-supply-chain",
+      "lane": "security-sbom-provenance-and-tenant-safety",
+      "status": "active",
+      "startedAt": "2026-06-06T00:00:00.000Z",
+      "updatedAt": "2026-06-07T00:01:34.000Z",
+      "inputs": [
+        "evidence/sbom/rhautt-nexus-sbom.json",
+        "evidence/provenance/rhautt-nexus-provenance.json",
+        "test/production-readiness/tenant-isolation.test.js"
+      ],
+      "outputs": [
+        "evidence/sbom/rhautt-nexus-sbom.md",
+        "evidence/provenance/rhautt-nexus-provenance.md",
+        "server/modules/security/crypto.service.js",
+        "server/modules/crm/crm.service.js",
+        "test/production-readiness/repository-and-crm.test.js",
+        "evidence/architecture/compatibility-engine-retirement-matrix.json"
+      ],
+      "evidence": [
+        "evidence/sbom/rhautt-nexus-sbom.json",
+        "evidence/provenance/rhautt-nexus-provenance.json",
+        "test/production-readiness/tenant-isolation.test.js",
+        "scripts/release/generate-sbom.js",
+        "scripts/release/generate-provenance.js",
+        "server/modules/security/crypto.service.js",
+        "server/modules/crm/crm.service.js",
+        "test/production-readiness/repository-and-crm.test.js",
+        "evidence/architecture/compatibility-engine-retirement-matrix.json",
+        "scripts/agent-guards/compatibility-engine-retirement-matrix-check.js"
+      ],
+      "openRisks": [
+        "DataEncryption AES-256-GCM behavior is now extracted into target security/CRM tests, but KMS/secret rotation, external security scan, and real staging secret/TLS posture are not proven."
+      ],
+      "blockers": [],
+      "nextActions": [
+        "Keep SBOM/provenance refreshed after dependency and package changes.",
+        "Tie tenant isolation evidence to database and API tests.",
+        "Keep SBOM/provenance refreshed after package, contract, and generated client changes.",
+        "Replace dev fallback PII secret with managed KMS/secret configuration and rotation evidence before launch.",
+        "Keep DataEncryption legacy asset non-deletion-safe until rollback, checksum, SBOM/provenance, and external security posture proof are current."
+      ],
+      "guards": [
+        "guard:database",
+        "guard:delivery-goal"
+      ],
+      "harnesses": [
+        "harness:integrity"
+      ],
+      "progress": {
+        "percent": 49,
+        "stage": "pii-encryption-extraction-proven",
+        "currentFocus": "AES-256-GCM PII encryption and tamper-failure behavior now live in the target CryptoService and CRM phone storage path, with legacy base64 read fallback for old data.",
+        "latestEvidence": "test/production-readiness/repository-and-crm.test.js",
+        "nextMilestone": "Add managed key source, key rotation, external security scan, and staging secret/TLS proof.",
+        "blockerSummary": "KMS/managed secret rotation, external security scan, and real staging secret/TLS posture remain unproven."
+      }
+    }
+  ]
+}

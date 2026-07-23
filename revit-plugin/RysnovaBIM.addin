@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RevitAddIns>
+  <AddIn Type="Application">
+    <Name>Rysnova BIM Plugin</Name>
+    <Description>瑞美HVAC AI平台BIM双向同步插件</Description>
+    <Assembly>RysnovaBIMPlugin.dll</Assembly>
+    <FullClassName>Rheem.Rysnova.RevitPlugin.RysnovaBIMApp</FullClassName>
+    <ClientId>5e8a2c1f-9b3d-4a7e-b0f5-2c6d8a3e9f1b</ClientId>
+    <VendorId>RHEEM</VendorId>
+    <VendorDescription>Rheem HVAC AI Platform</VendorDescription>
+    <VisibilityMode>AlwaysVisible</VisibilityMode>
+    <LoadOnStartup>True</LoadOnStartup>
+  </AddIn>
+</RevitAddIns>

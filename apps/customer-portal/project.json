@@ -1,0 +1,15 @@
+{
+  "name": "customer-portal",
+  "projectType": "application",
+  "sourceRoot": "apps/customer-portal/src",
+  "tags": ["scope:consumer", "surface:lifecycle", "runtime:next-target"],
+  "targets": {
+    "build": {
+      "executor": "target-scaffold",
+      "options": {
+        "status": "scaffold-only",
+        "currentSurface": "public/customer-view.html"
+      }
+    }
+  }
+}

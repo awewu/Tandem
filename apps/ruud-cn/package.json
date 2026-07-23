@@ -1,0 +1,10 @@
+{
+  "name": "ruud-cn",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Ruud 中国独立品牌站（静态站，自有域名 ruud.com.cn，独立端口 5015）",
+  "scripts": {
+    "dev": "node scripts/serve.js --port 5015",
+    "start": "node scripts/serve.js --port 5015"
+  }
+}

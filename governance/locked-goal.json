@@ -1,0 +1,167 @@
+{
+  "platform": "Rhautt Nexus / 瑞合数智枢纽",
+  "softwareName": "Rhautt Nexus / 瑞合数智枢纽",
+  "groupExpression": "Rhautt Comfort / 瑞合瑞德暖通科技集团",
+  "status": "locked-active-not-production-complete",
+  "updatedAt": "2026-06-06",
+  "owner": "orchestrator-chief",
+  "oneSentenceGoal": "把 Rhautt Nexus / 瑞合数智枢纽建成瑞合瑞德暖通科技集团的生产级数字化平台主干，承载官网、瑞诺瓦 AI 问诊、客户项目门户、设计师成交工作台、Rysnova 技术支持体系、员工入口、业务控制台、多租户后台、数据底座和 IoT 生命周期衔接，形成可上线、可扩展、可验证、可持续进化的软件系统。",
+  "productBoundaries": {
+    "rhauttComfort": {
+      "meaning": "集团英文/中文表达",
+      "forbidden": "不能作为软件名、工程名或单一系统名"
+    },
+    "rhauttNexus": {
+      "meaning": "软件平台名",
+      "forbidden": "不能回退到待命名或 Rhautt Comfort 软件主干口径"
+    },
+    "rysnova": {
+      "meaning": "瑞诺瓦 / Rysnova 是经销商赋能体系品牌对（瑞诺瓦=中文名，Rysnova=英文名），中立第三方行业软件形态，覆盖瑞诺瓦 AI 问诊 / Rysnova AI Diagnosis、瑞诺瓦舒适家居 CRM / Rysnova Comfort-Home CRM、瑞诺瓦技术支持 BIM / Rysnova BIM",
+      "forbidden": "瑞诺瓦官方英文名锁定为 Rysnova；Rysnova 已释放为独立储能设备品牌，不再作赋能体系英文名；rysnova/rysnova 仅作迁移债 slug，不对外，不写成设备品牌"
+    },
+    "equipmentBrands": {
+      "meaning": "Rheem / Ruud / Everhot 是设备品牌，是瑞诺瓦系统方案的产品配置来源",
+      "forbidden": "不能替代瑞诺瓦的系统品牌定位"
+    },
+    "publicExperience": {
+      "meaning": "官网和瑞诺瓦 AI 问诊保持 C 端逻辑",
+      "forbidden": "不能改成企业后台或 SaaS 控制台"
+    },
+    "internalExperience": {
+      "meaning": "内部工作台、业务控制台、Rysnova、员工入口必须走企业级专业 UI/VI",
+      "forbidden": "不能做成消费级营销页"
+    },
+    "iotScope": {
+      "meaning": "当前系统只做 IoT lifecycle handoff",
+      "forbidden": "不宣称实时 IoT 控制平台责任"
+    },
+    "dualModeProductModules": {
+      "meaning": "瑞诺瓦 / Rysnova 赋能体系（问诊 / CRM / BIM）可以在 Rhautt 官网中被使用、导流和嵌入，也必须保留独立上线、独立产品化、独立数据分析和未来拆库迁移能力",
+      "forbidden": "不能把瑞诺瓦 / Rysnova 体系降级为官网普通内容页、统一 UI shell 皮肤或没有 namespace 的共享业务记录"
+    }
+  },
+  "independentProductModules": [
+    {
+      "id": "rysnova-consumer-system",
+      "displayName": "瑞诺瓦 / Rysnova（经销商赋能体系）",
+      "targetApp": "apps/consumer-diagnosis",
+      "embeddedEntry": "/pain-diagnosis.html",
+      "standaloneAliases": ["/rysnova", "/rysnova-ai", "/rysnova-diagnosis"],
+      "moduleNamespace": "rysnova",
+      "dataNamespace": "rysnova",
+      "apiNamespace": "/api/v2/diagnosis",
+      "poweredBy": "Powered by Rhautt Comfort"
+    },
+    {
+      "id": "rysnova-bim-engineering-support",
+      "displayName": "瑞诺瓦技术支持 BIM / Rysnova BIM",
+      "targetApp": "apps/rysnova-bim-workbench",
+      "embeddedEntry": "/rysnova-bim-designer.html",
+      "standaloneAliases": ["/rysnova-bim", "/rysnova-bim-bim", "/rysnova-bim-workbench"],
+      "moduleNamespace": "rysnova-bim",
+      "dataNamespace": "rysnova-bim",
+      "apiNamespace": "/api/v2/rysnova-bim",
+      "poweredBy": "Powered by Rhautt Comfort"
+    }
+  ],
+  "p0Modules": [
+    {
+      "id": "public-portal",
+      "name": "瑞合瑞德集团官网门户",
+      "capability": "集团介绍、品牌关系、瑞诺瓦系统品牌、Rheem/Ruud/Everhot 独立链接、客户/员工/工作平台入口"
+    },
+    {
+      "id": "consumer-diagnosis",
+      "name": "瑞诺瓦 AI 问诊",
+      "capability": "痛点采集、六大系统需求、三档方案、预算/月供/ROI、留资、客户报告"
+    },
+    {
+      "id": "customer-project-portal",
+      "name": "客户项目门户",
+      "capability": "方案、报价、订单进度、施工、验收、维保、IoT handoff 状态"
+    },
+    {
+      "id": "designer-workbench",
+      "name": "设计师成交工作台",
+      "capability": "平面方案、设备布置、BOM、报价、客户分享"
+    },
+    {
+      "id": "rysnova-bim",
+      "name": "瑞诺瓦技术支持 BIM / Rysnova BIM",
+      "capability": "BIM、图纸、原理图、工程量、标准校核、深化交付"
+    },
+    {
+      "id": "business-console",
+      "name": "员工入口 / 业务控制台",
+      "capability": "多经销商、多租户、总部汇总分析、员工权限、审计"
+    },
+    {
+      "id": "backend-data-foundation",
+      "name": "后端与数据底座",
+      "capability": "tenant-aware、审计、合同、测试、容量、可靠性闭环"
+    }
+  ],
+  "targetArchitecture": {
+    "frontend": "Nx/Turborepo monorepo + Next.js + React + TypeScript，多入口",
+    "backend": "NestJS + Fastify + TypeScript，模块化单体优先，后续可拆微服务",
+    "primaryDatabase": "PostgreSQL，RLS、tenant-aware schema、audit log",
+    "documentDatabase": "MongoDB，承载问诊、设计、BIM、图纸、方案文档",
+    "cache": "Redis，只做 session、限流、热点目录、任务状态、短锁，不做业务真相源",
+    "fileStorage": "对象存储，承载图纸、BIM、PDF、照片、合同、报告、生成物",
+    "workflow": "Temporal + Outbox",
+    "contract": "OpenAPI + generated client",
+    "tests": "Unit + Contract + E2E + Visual + Capacity + Security + Tenant isolation",
+    "release": "SBOM + SLSA provenance + rollback drill + backup/restore + health/heartbeat + capacity report"
+  },
+  "acceptanceGates": [
+    "guard:all",
+    "harness:all",
+    "test:production-readiness",
+    "perf:capacity:inprocess",
+    "staging/network capacity",
+    "browser visual",
+    "OpenAPI + generated client",
+    "multi-tenant isolation",
+    "HQ rollup",
+    "audit log",
+    "105 legacy HTML migration evidence",
+    "React candidate production navigation block",
+    "external object-storage smoke",
+    "PostgreSQL staging RLS proof",
+    "Temporal runtime worker proof",
+    "Redis staging/TLS/ACL/degradation proof",
+    "SBOM",
+    "SLSA provenance",
+    "rollback drill"
+  ],
+  "developmentGroup": [
+    "orchestrator-chief",
+    "prd-charter-monitor",
+    "ui-vi-director",
+    "architecture-governor",
+    "backend-platform-builder",
+    "data-platform-architect",
+    "legacy-fusion-migrator",
+    "frontend-contract-auditor",
+    "enterprise-ai-control-architect",
+    "quote-cost-governor",
+    "solution-design-rysnova-bim-director",
+    "rysnova-bim-engineering-builder",
+    "customer-project-lifecycle-director",
+    "iot-lifecycle-architect",
+    "test-harness-builder",
+    "sre-guardian",
+    "security-supply-chain"
+  ],
+  "nonCompletionTruth": [
+    "目标已锁定，但生产级交付尚未完成",
+    "full guard:all 仍需非沙箱浏览器 clean run",
+    "staging/network capacity 仍缺真实环境压测",
+    "PostgreSQL staging smoke 仍需真实 POSTGRES_STAGING_URL 证据",
+    "Temporal runtime smoke 仍需真实 TEMPORAL_ADDRESS 和 worker proof",
+    "external object-storage smoke 仍缺最终上线证据",
+    "Next/Nx/NestJS/Fastify 目标依赖和 boot proof 仍未完成",
+    "105 个旧 HTML 是资产化迁移库存，不是全部迁移完成"
+  ],
+  "operatingRule": "如果某项 requirement 没有 current evidence，就不能标记为 done；如果 evidence 是 static、local、candidate、migration inventory 或 compatibility trunk，就只能按对应状态描述，不能升格为 production-complete。"
+}

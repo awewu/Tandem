@@ -1,0 +1,74 @@
+{
+  "$description": "EVERHOT 恒热 设计令牌 — 单一真相源镜像自 public/css/everhot.css :root。Tokens Studio 格式：Figma 装 Tokens Studio 插件 → Import → 生成 Variables collection（支持双向 push/pull）。CSS 变量名见每项 $extensions.web。",
+  "color": {
+    "red":        { "value": "#BF1924", "type": "color", "$extensions": { "web": "--red" } },
+    "red-dk":     { "value": "#9E141D", "type": "color", "$extensions": { "web": "--red-dk" } },
+    "red-hi":     { "value": "#C81C28", "type": "color", "$extensions": { "web": "--red-hi" } },
+    "red-lo":     { "value": "#8E1018", "type": "color", "$extensions": { "web": "--red-lo" } },
+    "red-tint":   { "value": "rgba(191,25,36,0.05)", "type": "color", "$extensions": { "web": "--red-tint" } },
+    "ink":        { "value": "#2B2623", "type": "color", "$extensions": { "web": "--ink" } },
+    "dark":       { "value": "#2B2623", "type": "color", "$extensions": { "web": "--dark" } },
+    "gray":       { "value": "#5A534E", "type": "color", "$extensions": { "web": "--gray" } },
+    "gray-lt":    { "value": "#8E867F", "type": "color", "$extensions": { "web": "--gray-lt" } },
+    "border":     { "value": "#E8E2DC", "type": "color", "$extensions": { "web": "--border" } },
+    "border-lt":  { "value": "#F1EDE8", "type": "color", "$extensions": { "web": "--border-lt" } },
+    "surface":    { "value": "#F6F3EF", "type": "color", "$extensions": { "web": "--surface" } },
+    "surface-2":  { "value": "#FBF9F6", "type": "color", "$extensions": { "web": "--surface-2" } },
+    "page":       { "value": "#FFFFFF", "type": "color", "$extensions": { "web": "--page" } },
+    "accent":     { "value": "#BF1924", "type": "color", "$extensions": { "web": "--accent" } }
+  },
+  "color-aux": {
+    "yellow":     { "value": "#F2B03D", "type": "color", "$extensions": { "web": "--aux-yellow" } },
+    "orange":     { "value": "#D8632F", "type": "color", "$extensions": { "web": "--aux-orange" } },
+    "burgundy":   { "value": "#6C1525", "type": "color", "$extensions": { "web": "--aux-burgundy" } },
+    "teal":       { "value": "#41A9A9", "type": "color", "$extensions": { "web": "--aux-teal" } },
+    "teal-dk":    { "value": "#398087", "type": "color", "$extensions": { "web": "--aux-teal-dk" } },
+    "chartreuse": { "value": "#8AAE42", "type": "color", "$extensions": { "web": "--aux-chartreuse" } },
+    "green":      { "value": "#64863C", "type": "color", "$extensions": { "web": "--aux-green" } }
+  },
+  "spacing": {
+    "05": { "value": "2px",  "type": "spacing", "$extensions": { "web": "--space-05" } },
+    "1":  { "value": "4px",  "type": "spacing", "$extensions": { "web": "--space-1" } },
+    "2":  { "value": "8px",  "type": "spacing", "$extensions": { "web": "--space-2" } },
+    "3":  { "value": "12px", "type": "spacing", "$extensions": { "web": "--space-3" } },
+    "4":  { "value": "16px", "type": "spacing", "$extensions": { "web": "--space-4" } },
+    "5":  { "value": "20px", "type": "spacing", "$extensions": { "web": "--space-5" } },
+    "6":  { "value": "24px", "type": "spacing", "$extensions": { "web": "--space-6" } },
+    "7":  { "value": "32px", "type": "spacing", "$extensions": { "web": "--space-7" } },
+    "8":  { "value": "40px", "type": "spacing", "$extensions": { "web": "--space-8" } },
+    "9":  { "value": "48px", "type": "spacing", "$extensions": { "web": "--space-9" } },
+    "10": { "value": "64px", "type": "spacing", "$extensions": { "web": "--space-10" } }
+  },
+  "radius": {
+    "sm":   { "value": "4px",   "type": "borderRadius", "$extensions": { "web": "--r-sm" } },
+    "md":   { "value": "6px",   "type": "borderRadius", "$extensions": { "web": "--r" } },
+    "lg":   { "value": "10px",  "type": "borderRadius", "$extensions": { "web": "--r-lg" } },
+    "xl":   { "value": "16px",  "type": "borderRadius", "$extensions": { "web": "--r-xl" } },
+    "pill": { "value": "999px", "type": "borderRadius", "$extensions": { "web": "--r-pill" } }
+  },
+  "fontSize": {
+    "display": { "value": "clamp(42px, 6vw, 80px)",   "type": "fontSizes", "$extensions": { "web": "--fs-display" } },
+    "h1":      { "value": "clamp(32px, 4.5vw, 54px)", "type": "fontSizes", "$extensions": { "web": "--fs-h1" } },
+    "h2":      { "value": "clamp(28px, 3.4vw, 44px)", "type": "fontSizes", "$extensions": { "web": "--fs-h2" } },
+    "h3":      { "value": "clamp(20px, 2.2vw, 28px)", "type": "fontSizes", "$extensions": { "web": "--fs-h3" } },
+    "lead":    { "value": "clamp(16px, 1.3vw, 18px)", "type": "fontSizes", "$extensions": { "web": "--fs-lead" } },
+    "body":    { "value": "16px", "type": "fontSizes", "$extensions": { "web": "--fs-body" } },
+    "sm":      { "value": "13px", "type": "fontSizes", "$extensions": { "web": "--fs-sm" } }
+  },
+  "lineHeight": {
+    "tight": { "value": "1.04", "type": "lineHeights", "$extensions": { "web": "--lh-tight" } },
+    "head":  { "value": "1.14", "type": "lineHeights", "$extensions": { "web": "--lh-head" } },
+    "body":  { "value": "1.65", "type": "lineHeights", "$extensions": { "web": "--lh-body" } }
+  },
+  "fontFamily": {
+    "sans": { "value": "Mulish, \"Alibaba PuHuiTi 3.0\", \"PingFang SC\", sans-serif", "type": "fontFamilies", "$extensions": { "web": "--font" } },
+    "head": { "value": "Montserrat, \"Alibaba PuHuiTi 3.0\", \"PingFang SC\", sans-serif", "type": "fontFamilies", "$extensions": { "web": "--font-head" } }
+  },
+  "boxShadow": {
+    "shadow":    { "value": "0 1px 2px rgba(43,38,34,0.04), 0 8px 24px rgba(43,38,34,0.08)", "type": "boxShadow", "$extensions": { "web": "--shadow" } },
+    "shadow-lg": { "value": "0 4px 12px rgba(43,38,34,0.06), 0 24px 48px rgba(43,38,34,0.12)", "type": "boxShadow", "$extensions": { "web": "--shadow-lg" } },
+    "elev-1":    { "value": "0 1px 2px rgba(43,38,34,0.05)",  "type": "boxShadow", "$extensions": { "web": "--elev-1" } },
+    "elev-2":    { "value": "0 4px 12px rgba(43,38,34,0.10)", "type": "boxShadow", "$extensions": { "web": "--elev-2" } },
+    "elev-3":    { "value": "0 8px 32px rgba(43,38,34,0.12)", "type": "boxShadow", "$extensions": { "web": "--elev-3" } }
+  }
+}

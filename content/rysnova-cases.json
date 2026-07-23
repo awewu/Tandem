@@ -1,0 +1,4 @@
+{
+  "_schema": "瑞诺瓦问诊案例库 · 运营策展真实案例（禁编造）。每条：{id,title,city?,houseType?,systems?:string[],summary?,images?:[{role,url|artifactId,caption}],testimonial?:{quote,author}}。systems 取值：hot_water/heating/water_treatment/fresh_air/air/smart_control。",
+  "cases": []
+}

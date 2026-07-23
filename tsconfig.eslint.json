@@ -1,0 +1,27 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "allowJs": true,
+    "checkJs": false,
+    "skipLibCheck": true
+  },
+  "include": [
+    "apps/**/*",
+    "packages/**/*",
+    "services/**/*",
+    "scripts/**/*",
+    "server/**/*",
+    "src/**/*",
+    "tests/**/*",
+    "test/**/*",
+    "*.js",
+    "*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    ".next",
+    "out"
+  ]
+}

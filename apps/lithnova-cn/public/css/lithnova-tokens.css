@@ -1,0 +1,56 @@
+/* Lithnova 瓦瑞节能 — 品牌官网设计系统 v1.0
+ * 调性：绿色科技 · 节能可信 · 数据可视化
+ */
+
+@font-face {
+  font-family: 'Lithnova Sans';
+  src: local('PingFang SC'), local('Microsoft YaHei');
+  font-weight: 400 700;
+}
+
+:root {
+  /* Brand palette */
+  --ln-green:        #0A7C4A;
+  --ln-green-dk:     #075C36;
+  --ln-green-dk2:    #054528;
+  --ln-green-lt:     #E8F5EE;
+  --ln-accent:       #2ECC71;
+  --ln-accent-lt:    #D4F8E3;
+
+  /* Neutral */
+  --ln-ink:          #0F1F17;
+  --ln-ink-dim:      #3A4F43;
+  --ln-gray:         #6E8278;
+  --ln-gray-lt:      #A8B8B0;
+  --ln-border:       #D6EAE0;
+  --ln-border-lt:    #EBF4EF;
+  --ln-surface:      #F4FBF7;
+  --ln-page:         #FFFFFF;
+
+  /* Semantic */
+  --ln-warm:         #F6A94C;
+  --ln-warm-lt:      #FFF4E5;
+  --ln-blue:         #1E6091;
+
+  /* Typography */
+  --ln-font:         "PingFang SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --ln-display:      "PingFang SC", "Microsoft YaHei", sans-serif;
+
+  --ln-size-h1:      56px;
+  --ln-size-h2:      42px;
+  --ln-size-h3:      28px;
+  --ln-size-h4:      20px;
+  --ln-size-body:    16px;
+  --ln-size-small:   14px;
+  --ln-size-micro:   12px;
+
+  /* Spacing */
+  --ln-radius:       8px;
+  --ln-radius-lg:    14px;
+  --ln-shadow:       0 4px 20px rgba(10, 124, 74, 0.08);
+  --ln-shadow-lg:    0 12px 40px rgba(10, 124, 74, 0.12);
+
+  /* Layout */
+  --ln-max-width:    1280px;
+  --ln-header-h:     72px;
+}

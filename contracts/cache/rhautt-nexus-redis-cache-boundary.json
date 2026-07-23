@@ -1,0 +1,114 @@
+{
+  "platform": "Rhautt Nexus / 瑞合数智枢纽",
+  "status": "target-boundary-not-production-redis-smoke",
+  "generatedFor": "Redis cache/session/rate-limit/task-status boundary",
+  "nonCompletionRule": "This contract proves Redis boundary behavior by local deterministic checks only. It is not Redis HA, TLS, ACL, or staging smoke proof.",
+  "allowedRoles": [
+    "session",
+    "rate-limit",
+    "hot-catalog-cache",
+    "calculation-cache",
+    "task-status",
+    "short-lived-lock"
+  ],
+  "forbiddenTruthSources": [
+    "customers",
+    "crm_leads",
+    "opportunities",
+    "quotations",
+    "contracts",
+    "lifecycle",
+    "rysnova-bim_artifacts",
+    "rysnova-bim_customer_packages",
+    "rysnova-bim_customer_package_ready",
+    "rysnova-bim_customer_signoff",
+    "rysnova-bim_customer_signoff_receipts",
+    "rysnova-bim_customer_signoff_confirmed",
+    "rysnova-bim_artifact_lists",
+    "rysnova-bim_artifact_hashes",
+    "rysnova-bim_customer_visibility",
+    "audit_logs",
+    "outbox_events",
+    "workflow_instances",
+    "file_artifacts",
+    "tenant_memberships",
+    "permissions"
+  ],
+  "rysnova-bimBoundary": {
+    "allowedEphemeralRole": "task-status",
+    "allowedEphemeralPurpose": "Short-lived export/deepening task status only; Redis may indicate that a Rysnova export job is queued/running/failed/completed.",
+    "allowedEphemeralExampleKey": "rhautt:nexus:tenant:<tenantId>:task-status:rysnova-bim-export-<taskId>",
+    "forbiddenBusinessTruthFields": [
+      "artifactList",
+      "artifacts",
+      "artifactTypes",
+      "contentHash",
+      "objectKey",
+      "customerVisible",
+      "customerPackageReady",
+      "customerPackageCount",
+      "missingTypes",
+      "outboxEvent",
+      "workflowState",
+      "artifactStatus",
+      "customerSignoffReady",
+      "customerSignoffConfirmed",
+      "customerSignoffReceipt",
+      "customerSignoffManifest",
+      "signoffEvidence",
+      "receiptNo",
+      "signerMobileHash",
+      "evidenceHash",
+      "acknowledgements",
+      "deepeningHandoffReady"
+    ],
+    "sourceOfTruth": {
+      "artifactMetadata": "PostgreSQL/MongoDB artifact record",
+      "artifactBinary": "object storage",
+      "packageReadiness": "artifact service + database transaction/outbox",
+      "customerSignoff": "artifact service + PostgreSQL/MongoDB signoff receipt + transaction outbox",
+      "workflowEvents": "transaction outbox/Temporal, not Redis"
+    }
+  },
+  "keyPolicy": {
+    "prefix": "rhautt:nexus:",
+    "tenantScopedPattern": "rhautt:nexus:tenant:<tenantId>:<namespace>:<key>",
+    "ttlRequiredFor": [
+      "session",
+      "rate-limit",
+      "hot-catalog-cache",
+      "calculation-cache",
+      "task-status",
+      "short-lived-lock"
+    ],
+    "ttlSeconds": {
+      "sessionMax": 86400,
+      "rateLimitMax": 900,
+      "catalogCacheMax": 3600,
+      "calculationCacheMax": 7200,
+      "taskStatusMax": 86400,
+      "lockMax": 300
+    }
+  },
+  "degradationPolicy": {
+    "redisUnavailable": "Business truth writes must continue against PostgreSQL/MongoDB/object storage/outbox when Redis is unavailable; cache reads must miss safely and call the source-of-truth service.",
+    "health": "Redis is optional unless explicitly configured as required in deployment environment.",
+    "fallback": "Cache miss or Redis error must return null/miss, not stale business truth.",
+    "iotBoundary": "Redis must never store real-time IoT control commands; only lifecycle handoff task status is allowed."
+  },
+  "currentRuntimeEvidence": {
+    "cacheEngine": "server/core/CacheEngine.js",
+    "calculationCache": "server/core/CalculationCache.js",
+    "rateLimit": "server/modules/productionMiddleware.js",
+    "health": "server/modules/health/health.service.js",
+    "releaseEvidenceKey": "redisCacheBoundary"
+  },
+  "requiredEvidenceBeforeProductionClaim": [
+    "Redis staging smoke with configured REDIS_URL",
+    "Redis TLS/ACL/secret management proof",
+    "Redis-backed session/rate-limit integration proof if enabled",
+    "Tenant-scoped key samples from staging",
+    "Redis unavailable degradation drill",
+    "Health/readiness behavior proof when Redis is required by environment"
+  ]
+}

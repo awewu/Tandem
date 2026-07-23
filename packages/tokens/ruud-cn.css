@@ -1,0 +1,12 @@
+/* Ruud 品牌站 VI tokens — ruud.com.cn */
+:root {
+  --brand-primary:    #E4002B;
+  --brand-primary-dk: #76232F;
+  --brand-accent:     #F26729;
+  --brand-yellow:     #FFD200;
+  --brand-ink:        #1A1A1A;
+  --brand-surface:    #F5F5F5;
+  --brand-border:     #E0E0E0;
+  --brand-font:       "Microsoft YaHei","PingFang SC",Helvetica,Arial,sans-serif;
+  --brand-radius:     2px;
+}

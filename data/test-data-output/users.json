@@ -1,0 +1,634 @@
+[
+  {
+    "id": 1,
+    "phone": "13570359411",
+    "password": "123456",
+    "role": "super_admin",
+    "name": "吴飞",
+    "title": "超级管理员",
+    "storeIds": [],
+    "status": "active",
+    "avatar": "/avatars/super_admin_1.png",
+    "profile": {
+      "expertise": "技术方案",
+      "experience": "6年",
+      "certifications": [
+        "Rheem认证"
+      ]
+    },
+    "stats": {
+      "projects": 20,
+      "customers": 92,
+      "revenue": 4059818
+    },
+    "createdAt": "2025-09-18T07:01:59.208Z"
+  },
+  {
+    "id": 2,
+    "phone": "16383461034",
+    "password": "123456",
+    "role": "super_admin",
+    "name": "张欣",
+    "title": "超级管理员",
+    "storeIds": [],
+    "status": "active",
+    "avatar": "/avatars/super_admin_2.png",
+    "profile": {
+      "expertise": "客户服务",
+      "experience": "9年",
+      "certifications": [
+        "Rheem认证"
+      ]
+    },
+    "stats": {
+      "projects": 19,
+      "customers": 69,
+      "revenue": 1925299
+    },
+    "createdAt": "2025-04-28T07:01:59.208Z"
+  },
+  {
+    "id": 3,
+    "phone": "13385608659",
+    "password": "123456",
+    "role": "super_admin",
+    "name": "胡杰",
+    "title": "超级管理员",
+    "storeIds": [],
+    "status": "active",
+    "avatar": "/avatars/super_admin_3.png",
+    "profile": {
+      "expertise": "暖通设计",
+      "experience": "7年",
+      "certifications": [
+        "Rheem认证",
+        "Ruud认证"
+      ]
+    },
+    "stats": {
+      "projects": 35,
+      "customers": 23,
+      "revenue": 4127246
+    },
+    "createdAt": "2025-10-22T07:01:59.208Z"
+  },
+  {
+    "id": 4,
+    "phone": "15509506617",
+    "password": "123456",
+    "role": "hq_admin",
+    "name": "孙秀英",
+    "title": "总部管理员",
+    "storeIds": [],
+    "status": "active",
+    "avatar": "/avatars/hq_admin_1.png",
+    "profile": {
+      "expertise": "客户服务",
+      "experience": "10年",
+      "certifications": [
+        "Rheem认证"
+      ]
+    },
+    "stats": {
+      "projects": 37,
+      "customers": 3,
+      "revenue": 1439426
+    },
+    "createdAt": "2025-08-08T07:01:59.208Z"
+  },
+  {
+    "id": 5,
+    "phone": "16486884001",
+    "password": "123456",
+    "role": "hq_admin",
+    "name": "罗超",
+    "title": "总部管理员",
+    "storeIds": [],
+    "status": "active",
+    "avatar": "/avatars/hq_admin_2.png",
+    "profile": {
+      "expertise": "暖通设计",
+      "experience": "2年",
+      "certifications": [
+        "Rheem认证",
+        "Ruud认证"
+      ]
+    },
+    "stats": {
+      "projects": 22,
+      "customers": 10,
+      "revenue": 3183860
+    },
+    "createdAt": "2025-09-09T07:01:59.208Z"
+  },
+  {
+    "id": 6,
+    "phone": "16800998988",
+    "password": "123456",
+    "role": "hq_admin",
+    "name": "杨静",
+    "title": "总部管理员",
+    "storeIds": [],
+    "status": "active",
+    "avatar": "/avatars/hq_admin_3.png",
+    "profile": {
+      "expertise": "施工管理",
+      "experience": "10年",
+      "certifications": [
+        "Rheem认证",
+        "Ruud认证"
+      ]
+    },
+    "stats": {
+      "projects": 42,
+      "customers": 60,
+      "revenue": 1081592
+    },
+    "createdAt": "2025-12-16T08:01:59.208Z"
+  },
+  {
+    "id": 7,
+    "phone": "17204053289",
+    "password": "123456",
+    "role": "hq_ops",
+    "name": "陈晨",
+    "title": "总部运营",
+    "storeIds": [],
+    "status": "active",
+    "avatar": "/avatars/hq_ops_1.png",
+    "profile": {
+      "expertise": "暖通设计",
+      "experience": "8年",
+      "certifications": [
+        "Rheem认证"
+      ]
+    },
+    "stats": {
+      "projects": 1,
+      "customers": 10,
+      "revenue": 1625983
+    },
+    "createdAt": "2025-11-29T08:01:59.208Z"
+  },
+  {
+    "id": 8,
+    "phone": "13653225113",
+    "password": "123456",
+    "role": "hq_ops",
+    "name": "刘轩",
+    "title": "总部运营",
+    "storeIds": [],
+    "status": "active",
+    "avatar": "/avatars/hq_ops_2.png",
+    "profile": {
+      "expertise": "暖通设计",
+      "experience": "8年",
+      "certifications": [
+        "Rheem认证"
+      ]
+    },
+    "stats": {
+      "projects": 48,
+      "customers": 19,
+      "revenue": 1995004
+    },
+    "createdAt": "2026-02-18T08:01:59.208Z"
+  },
+  {
+    "id": 9,
+    "phone": "19421292777",
+    "password": "123456",
+    "role": "hq_ops",
+    "name": "徐勇",
+    "title": "总部运营",
+    "storeIds": [],
+    "status": "active",
+    "avatar": "/avatars/hq_ops_3.png",
+    "profile": {
+      "expertise": "暖通设计",
+      "experience": "6年",
+      "certifications": [
+        "Rheem认证",
+        "Ruud认证"
+      ]
+    },
+    "stats": {
+      "projects": 2,
+      "customers": 32,
+      "revenue": 232710
+    },
+    "createdAt": "2025-05-08T07:01:59.208Z"
+  },
+  {
+    "id": 10,
+    "phone": "14177614202",
+    "password": "123456",
+    "role": "store_admin",
+    "name": "朱静",
+    "title": "门店管理员",
+    "storeIds": [
+      1,
+      2
+    ],
+    "status": "active",
+    "avatar": "/avatars/store_admin_1.png",
+    "profile": {
+      "expertise": "施工管理",
+      "experience": "2年",
+      "certifications": [
+        "Rheem认证"
+      ]
+    },
+    "stats": {
+      "projects": 29,
+      "customers": 58,
+      "revenue": 4020218
+    },
+    "createdAt": "2025-07-30T07:01:59.208Z"
+  },
+  {
+    "id": 11,
+    "phone": "15164525447",
+    "password": "123456",
+    "role": "store_admin",
+    "name": "何军",
+    "title": "门店管理员",
+    "storeIds": [
+      3,
+      4
+    ],
+    "status": "active",
+    "avatar": "/avatars/store_admin_2.png",
+    "profile": {
+      "expertise": "施工管理",
+      "experience": "10年",
+      "certifications": [
+        "Rheem认证"
+      ]
+    },
+    "stats": {
+      "projects": 34,
+      "customers": 71,
+      "revenue": 1032861
+    },
+    "createdAt": "2025-07-29T07:01:59.208Z"
+  },
+  {
+    "id": 12,
+    "phone": "17503104629",
+    "password": "123456",
+    "role": "store_admin",
+    "name": "张欣",
+    "title": "门店管理员",
+    "storeIds": [
+      5,
+      6
+    ],
+    "status": "active",
+    "avatar": "/avatars/store_admin_3.png",
+    "profile": {
+      "expertise": "销售管理",
+      "experience": "4年",
+      "certifications": [
+        "Rheem认证",
+        "Ruud认证"
+      ]
+    },
+    "stats": {
+      "projects": 45,
+      "customers": 75,
+      "revenue": 4402768
+    },
+    "createdAt": "2025-07-05T07:01:59.208Z"
+  },
+  {
+    "id": 13,
+    "phone": "17118190683",
+    "password": "123456",
+    "role": "designer",
+    "name": "赵雨",
+    "title": "设计师",
+    "storeIds": [
+      1,
+      2
+    ],
+    "status": "active",
+    "avatar": "/avatars/designer_1.png",
+    "profile": {
+      "expertise": "技术方案",
+      "experience": "7年",
+      "certifications": [
+        "Rheem认证",
+        "Ruud认证"
+      ]
+    },
+    "stats": {
+      "projects": 43,
+      "customers": 47,
+      "revenue": 4775833
+    },
+    "createdAt": "2025-12-13T08:01:59.208Z"
+  },
+  {
+    "id": 14,
+    "phone": "15294741047",
+    "password": "123456",
+    "role": "designer",
+    "name": "何晨",
+    "title": "设计师",
+    "storeIds": [
+      3,
+      4
+    ],
+    "status": "active",
+    "avatar": "/avatars/designer_2.png",
+    "profile": {
+      "expertise": "技术方案",
+      "experience": "10年",
+      "certifications": [
+        "Rheem认证",
+        "Ruud认证"
+      ]
+    },
+    "stats": {
+      "projects": 9,
+      "customers": 27,
+      "revenue": 1479748
+    },
+    "createdAt": "2025-09-06T07:01:59.208Z"
+  },
+  {
+    "id": 15,
+    "phone": "15379379810",
+    "password": "123456",
+    "role": "designer",
+    "name": "赵鹏",
+    "title": "设计师",
+    "storeIds": [
+      5,
+      6
+    ],
+    "status": "active",
+    "avatar": "/avatars/designer_3.png",
+    "profile": {
+      "expertise": "客户服务",
+      "experience": "4年",
+      "certifications": [
+        "Rheem认证",
+        "Ruud认证"
+      ]
+    },
+    "stats": {
+      "projects": 44,
+      "customers": 94,
+      "revenue": 4015482
+    },
+    "createdAt": "2026-03-14T07:01:59.208Z"
+  },
+  {
+    "id": 16,
+    "phone": "16854757377",
+    "password": "123456",
+    "role": "sales",
+    "name": "何强",
+    "title": "销售顾问",
+    "storeIds": [
+      1,
+      2
+    ],
+    "status": "active",
+    "avatar": "/avatars/sales_1.png",
+    "profile": {
+      "expertise": "暖通设计",
+      "experience": "10年",
+      "certifications": [
+        "Rheem认证"
+      ]
+    },
+    "stats": {
+      "projects": 43,
+      "customers": 48,
+      "revenue": 2583413
+    },
+    "createdAt": "2025-05-29T07:01:59.208Z"
+  },
+  {
+    "id": 17,
+    "phone": "19298136845",
+    "password": "123456",
+    "role": "sales",
+    "name": "黄杰",
+    "title": "销售顾问",
+    "storeIds": [
+      3,
+      4
+    ],
+    "status": "active",
+    "avatar": "/avatars/sales_2.png",
+    "profile": {
+      "expertise": "技术方案",
+      "experience": "7年",
+      "certifications": [
+        "Rheem认证",
+        "Ruud认证"
+      ]
+    },
+    "stats": {
+      "projects": 26,
+      "customers": 89,
+      "revenue": 1051754
+    },
+    "createdAt": "2025-07-15T07:01:59.208Z"
+  },
+  {
+    "id": 18,
+    "phone": "16161567442",
+    "password": "123456",
+    "role": "sales",
+    "name": "高丽",
+    "title": "销售顾问",
+    "storeIds": [
+      5,
+      6
+    ],
+    "status": "active",
+    "avatar": "/avatars/sales_3.png",
+    "profile": {
+      "expertise": "暖通设计",
+      "experience": "6年",
+      "certifications": [
+        "Rheem认证"
+      ]
+    },
+    "stats": {
+      "projects": 12,
+      "customers": 56,
+      "revenue": 3434055
+    },
+    "createdAt": "2026-01-01T08:01:59.208Z"
+  },
+  {
+    "id": 19,
+    "phone": "14507376700",
+    "password": "123456",
+    "role": "tech_support",
+    "name": "林磊",
+    "title": "技术支持",
+    "storeIds": [
+      1,
+      2
+    ],
+    "status": "active",
+    "avatar": "/avatars/tech_support_1.png",
+    "profile": {
+      "expertise": "技术方案",
+      "experience": "6年",
+      "certifications": [
+        "Rheem认证"
+      ]
+    },
+    "stats": {
+      "projects": 13,
+      "customers": 2,
+      "revenue": 1200324
+    },
+    "createdAt": "2025-10-11T07:01:59.208Z"
+  },
+  {
+    "id": 20,
+    "phone": "19569194862",
+    "password": "123456",
+    "role": "tech_support",
+    "name": "朱欣",
+    "title": "技术支持",
+    "storeIds": [
+      3,
+      4
+    ],
+    "status": "active",
+    "avatar": "/avatars/tech_support_2.png",
+    "profile": {
+      "expertise": "销售管理",
+      "experience": "6年",
+      "certifications": [
+        "Rheem认证",
+        "Ruud认证"
+      ]
+    },
+    "stats": {
+      "projects": 39,
+      "customers": 46,
+      "revenue": 3789918
+    },
+    "createdAt": "2026-01-09T08:01:59.208Z"
+  },
+  {
+    "id": 21,
+    "phone": "13251727850",
+    "password": "123456",
+    "role": "tech_support",
+    "name": "李华",
+    "title": "技术支持",
+    "storeIds": [
+      5,
+      6
+    ],
+    "status": "active",
+    "avatar": "/avatars/tech_support_3.png",
+    "profile": {
+      "expertise": "暖通设计",
+      "experience": "5年",
+      "certifications": [
+        "Rheem认证"
+      ]
+    },
+    "stats": {
+      "projects": 8,
+      "customers": 76,
+      "revenue": 1045834
+    },
+    "createdAt": "2025-05-25T07:01:59.208Z"
+  },
+  {
+    "id": 22,
+    "phone": "16348758885",
+    "password": "123456",
+    "role": "construction_mgr",
+    "name": "周欣",
+    "title": "施工管理",
+    "storeIds": [
+      1,
+      2
+    ],
+    "status": "active",
+    "avatar": "/avatars/construction_mgr_1.png",
+    "profile": {
+      "expertise": "销售管理",
+      "experience": "3年",
+      "certifications": [
+        "Rheem认证"
+      ]
+    },
+    "stats": {
+      "projects": 32,
+      "customers": 1,
+      "revenue": 127826
+    },
+    "createdAt": "2025-12-10T08:01:59.208Z"
+  },
+  {
+    "id": 23,
+    "phone": "14475678144",
+    "password": "123456",
+    "role": "construction_mgr",
+    "name": "陈杰",
+    "title": "施工管理",
+    "storeIds": [
+      3,
+      4
+    ],
+    "status": "active",
+    "avatar": "/avatars/construction_mgr_2.png",
+    "profile": {
+      "expertise": "客户服务",
+      "experience": "2年",
+      "certifications": [
+        "Rheem认证",
+        "Ruud认证"
+      ]
+    },
+    "stats": {
+      "projects": 50,
+      "customers": 6,
+      "revenue": 1873447
+    },
+    "createdAt": "2025-12-09T08:01:59.208Z"
+  },
+  {
+    "id": 24,
+    "phone": "17102940326",
+    "password": "123456",
+    "role": "construction_mgr",
+    "name": "王洋",
+    "title": "施工管理",
+    "storeIds": [
+      5,
+      6
+    ],
+    "status": "active",
+    "avatar": "/avatars/construction_mgr_3.png",
+    "profile": {
+      "expertise": "暖通设计",
+      "experience": "5年",
+      "certifications": [
+        "Rheem认证"
+      ]
+    },
+    "stats": {
+      "projects": 36,
+      "customers": 41,
+      "revenue": 3314286
+    },
+    "createdAt": "2025-10-16T07:01:59.208Z"
+  }
+]
