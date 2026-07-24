@@ -55,6 +55,12 @@ import {
   Network,
   Bell,
   NotebookPen,
+  Waves,
+  Truck,
+  Coins,
+  HeartPulse,
+  Package,
+  ShoppingCart,
 } from 'lucide-react';
 
 export type Role = 'employee' | 'manager' | 'steward' | 'admin' | 'champion' | 'intranet_editor' | 'owner' | 'partner';
@@ -373,6 +379,36 @@ export const NAV_MODULES: NavModule[] = [
       { name: '360 评估',          href: '/360',              icon: SparklesAlias,  group: '反馈评估', visibleTo: ['manager', 'steward', 'admin', 'champion'] },
       { name: '9 宫格',            href: '/nine-box',         icon: Grid3x3,        group: '反馈评估', visibleTo: ['manager', 'steward', 'admin', 'champion'] },
       { name: '9-box 联动建议',    href: '/nine-box/suggestions', icon: Grid3x3,    group: '反馈评估', visibleTo: ['manager', 'steward', 'admin', 'champion'] },
+    ],
+  },
+
+  // ═══ 拿捏销售 · 经销商商机管理 (PMS Megaplan) ═══
+  {
+    id: 'pms',
+    label: '销售',
+    fullLabel: '销售 · 经销商商机管理',
+    tagline: '项目报备·智能查重·全生命周期跟进 — 产研销的「销」闭环',
+    icon: Store,
+    visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
+    pathPrefixes: ['/pms'],
+    items: [
+      { name: '商机管理', href: '/pms', icon: Store, group: '商机' },
+      { name: '新建商机', href: '/pms/opportunities/new', icon: Plus, accent: 'cta', group: '商机' },
+      { name: '公海池', href: '/pms/public-pool', icon: Waves, group: '商机' },
+      { name: '合同管理', href: '/pms/contracts', icon: FileText, group: '交付' },
+      { name: '交付工单', href: '/pms/delivery-orders', icon: Truck, group: '交付' },
+      { name: '维保工单', href: '/pms/maintenance', icon: Wrench, group: '售后' },
+      { name: '设备台账', href: '/pms/equipment-sns', icon: Cpu, group: '售后' },
+      { name: '在线订货', href: '/pms/dealer-orders', icon: ShoppingCart, group: '渠道' },
+      { name: '返利管理', href: '/pms/rebates', icon: Coins, group: '渠道' },
+      { name: '健康分', href: '/pms/dealer-health', icon: HeartPulse, group: '渠道' },
+      { name: '经销商档案', href: '/pms/dealer-orgs', icon: Building2, group: '渠道' },
+      { name: '线索开发', href: '/pms/demand-gen-leads', icon: Sparkles, group: '增长' },
+      { name: '主推产品', href: '/pms/key-product-campaigns', icon: Megaphone, group: '增长' },
+      { name: '业绩目标', href: '/pms/performance-targets', icon: Target, group: '增长' },
+      { name: '产品目录', href: '/pms/products', icon: Package, group: '主数据' },
+      { name: '分析看板', href: '/pms/analytics', icon: BarChart3, group: '洞察' },
+      { name: '告警中心', href: '/pms/alerts', icon: Bell, group: '协同' },
     ],
   },
 

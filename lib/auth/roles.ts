@@ -25,6 +25,8 @@ export const EXTERNAL_ROLES = [
   'guest',     // 临时访客 (短期, 只读)
   'partner',   // 长期合作伙伴 / 客户接口人
   'contractor',// 承包商 / 乙方 (按项目)
+  'dealer_sales',  // 经销商业务员 (PMS 报备/跟进)
+  'dealer_admin',  // 经销商管理员 (PMS 全权限)
 ] as const;
 
 export const ROLES = [...INTERNAL_ROLES, ...EXTERNAL_ROLES] as const;
@@ -93,6 +95,8 @@ export const ROLE_LABELS: Record<Role, string> = {
   guest: '访客',
   partner: '合作伙伴',
   contractor: '承包商',
+  dealer_sales: '经销商业务员',
+  dealer_admin: '经销商管理员',
 };
 
 // ---------------------------------------------------------------------------

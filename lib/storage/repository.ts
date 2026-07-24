@@ -48,6 +48,39 @@ import type {
   Review360Submission,
   Review360Assignment,
 } from '../types/review-360';
+import type {
+  Opportunity,
+  FollowUpRecord,
+  DuplicateCheck,
+  PriceApplication,
+  Contract,
+  PublicPoolEntry,
+  ApprovalRecord,
+  AlertMessage,
+  NotificationRule,
+  DeliveryOrder,
+  DeliveryTask,
+  AcceptanceRecord,
+  CommissioningRecord,
+  MaintenanceRecord,
+  DealerOrgProfile,
+  DealerQualification,
+  ServiceProviderAssignment,
+  EquipmentSN,
+  EquipmentTelemetry,
+  RebatePolicy,
+  RebateAccrual,
+  DealerOrder,
+  CustomerFeedback,
+  DuplicateAppeal,
+  DealerHealthScore,
+  PerformanceTarget,
+  DemandGenLead,
+  KeyProductCampaign,
+  ProductCatalog,
+  CustomerAccount,
+  QuoteRecommendation,
+} from '../types/pms';
 
 // ---------------------------------------------------------------------------
 // 通用 CRUD 接口
@@ -254,6 +287,73 @@ export interface TandemStore {
   /** 日程异步创建任务 (保存进度 / 断点续传) */
   calendarJobs: Repository<import('../calendar/job-store').CalendarJob>;
   calendarActivityLogs: Repository<import('../calendar/activity-log').CalendarActivityLog>;
+
+  // ---------------------------------------------------------------------------
+  // PMS (项目报备全生命周期管理系统) · 31 collections
+  // ---------------------------------------------------------------------------
+
+  /** 商机报备 (核心实体) */
+  pmsOpportunities: Repository<Opportunity>;
+  /** 跟进记录 */
+  pmsFollowUps: Repository<FollowUpRecord>;
+  /** 查重记录 */
+  pmsDuplicateChecks: Repository<DuplicateCheck>;
+  /** 价格申请 */
+  pmsPriceApplications: Repository<PriceApplication>;
+  /** 合同 */
+  pmsContracts: Repository<Contract>;
+  /** 公海池 */
+  pmsPublicPool: Repository<PublicPoolEntry>;
+  /** 审批记录 */
+  pmsApprovals: Repository<ApprovalRecord>;
+  /** 预警消息 (含分级推送/升级留痕) */
+  pmsAlerts: Repository<AlertMessage>;
+  /** 分级推送规则 (角色×渠道×SLA×升级) */
+  pmsNotificationRules: Repository<NotificationRule>;
+  /** 交付履约工单 */
+  pmsDeliveryOrders: Repository<DeliveryOrder>;
+  /** 交付任务 */
+  pmsDeliveryTasks: Repository<DeliveryTask>;
+  /** 验收记录 */
+  pmsAcceptanceRecords: Repository<AcceptanceRecord>;
+  /** 调试记录 */
+  pmsCommissioningRecords: Repository<CommissioningRecord>;
+  /** 维保记录 */
+  pmsMaintenanceRecords: Repository<MaintenanceRecord>;
+  /** 经销商组织档案 (含资质) */
+  pmsDealerOrgs: Repository<DealerOrgProfile>;
+  /** 经销商资质记录 (独立索引, 便于按资质类型查询) */
+  pmsDealerQualifications: Repository<DealerQualification>;
+  /** 服务商委托记录 */
+  pmsServiceAssignments: Repository<ServiceProviderAssignment>;
+  /** 设备 SN 码全生命周期档案 (含资产层级 父子SN) */
+  pmsEquipmentSNs: Repository<EquipmentSN>;
+  /** 设备 IoT 遥测/告警 (四期) */
+  pmsEquipmentTelemetry: Repository<EquipmentTelemetry>;
+  /** 渠道返利规则 (三期) */
+  pmsRebatePolicies: Repository<RebatePolicy>;
+  /** 渠道返利计提/结算 (三期) */
+  pmsRebateAccruals: Repository<RebateAccrual>;
+  /** 经销商在线订货单 (三期) */
+  pmsDealerOrders: Repository<DealerOrder>;
+  /** 甲方免登录反馈 (扫码报修/满意度, 四期) */
+  pmsCustomerFeedback: Repository<CustomerFeedback>;
+  /** 撞单申诉 (仲裁凭证+透明化) */
+  pmsDuplicateAppeals: Repository<DuplicateAppeal>;
+  /** 经销商健康分 (考核=自查同源) */
+  pmsDealerHealthScores: Repository<DealerHealthScore>;
+  /** 业绩目标 (区域×渠道×产品×经销商×周期分解) */
+  pmsPerformanceTargets: Repository<PerformanceTarget>;
+  /** 线索开发 (Demand Generation, 报备前早期线索) */
+  pmsDemandGenLeads: Repository<DemandGenLead>;
+  /** 主推产品推广活动 (目标+策略+实际进展) */
+  pmsKeyProductCampaigns: Repository<KeyProductCampaign>;
+  /** 产品目录 (导入驱动, 不写死) */
+  pmsProductCatalog: Repository<ProductCatalog>;
+  /** 客户体系 (导入驱动, 不写死) */
+  pmsCustomerAccounts: Repository<CustomerAccount>;
+  /** AI 报价推荐 (需求→产品组合+对比) */
+  pmsQuoteRecommendations: Repository<QuoteRecommendation>;
 }
 
 // ---------------------------------------------------------------------------

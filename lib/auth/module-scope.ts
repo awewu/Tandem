@@ -68,13 +68,21 @@ export const DAZI_PREFIXES = [
   '/api/intranet',
 ] as const;
 
-export type Pillar = 'shiban' | 'naba' | 'dazi' | 'system';
+/** 产研销板块 (Channel): PMS 项目报备全生命周期 — 内部全通, 外部仅 dealer_* 角色 */
+export const CHANNEL_PREFIXES = [
+  '/pms',
+  '/api/pms',
+  '/eq', // 甲方免登录触点 (公开路由, 独立校验)
+] as const;
+
+export type Pillar = 'shiban' | 'naba' | 'dazi' | 'channel' | 'system';
 
 /** 路径 → 板块归属. 未匹配返回 system (设置/管理/通用), 不受 module-scope 限制. */
 export function pillarOf(path: string): Pillar {
   if (SHIBAN_PREFIXES.some((p) => path.startsWith(p))) return 'shiban';
   if (NABA_PREFIXES.some((p) => path.startsWith(p))) return 'naba';
   if (DAZI_PREFIXES.some((p) => path.startsWith(p))) return 'dazi';
+  if (CHANNEL_PREFIXES.some((p) => path.startsWith(p))) return 'channel';
   return 'system';
 }
 
@@ -82,8 +90,8 @@ export function pillarOf(path: string): Pillar {
  * 是否允许角色集访问该路径.
  *
  * 决策表:
- *   纯内部角色 → 三板块全通
- *   纯外部角色 → 事半禁, 拿捏/搭子通, system 通
+ *   纯内部角色 → 四板块全通
+ *   纯外部角色 → 事半禁, 拿捏/搭子通, channel仅dealer_*通, system 通
  *   混合       → 视为内部 (向上聚合)
  *   空 roles  → 仅 system (不允许业务路径)
  */
@@ -100,8 +108,12 @@ export function canAccessPath(roles: readonly string[], path: string): boolean {
     return false;
   }
 
-  // 纯外部: 事半禁, 其它放
+  // 纯外部: 事半禁, channel仅dealer_*通, 其它放
   if (pillar === 'shiban') return false;
+  if (pillar === 'channel') {
+    // channel 板块: 仅 dealer_sales / dealer_admin 可进
+    return roles.some((r) => r === 'dealer_sales' || r === 'dealer_admin');
+  }
   return true;
 }
 

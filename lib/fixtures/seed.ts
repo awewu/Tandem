@@ -38,6 +38,7 @@ export async function seedDevData(): Promise<void> {
         await seedLaunchpadIfEmpty();
         await seedExtraModulesIfEmpty();
         await seedAgentTemplatesIfEmpty();
+        await seedPmsIfEmpty();
         return;
       }
     } catch {
@@ -584,6 +585,7 @@ export async function seedDevData(): Promise<void> {
   await seedLaunchpadIfEmpty();
   await seedExtraModulesIfEmpty();
   await seedAgentTemplatesIfEmpty();
+  await seedPmsIfEmpty();
 }
 
 /**
@@ -812,6 +814,54 @@ export async function seedExtraModulesIfEmpty(): Promise<void> {
 }
 
 /**
+ * PMS · 幂等种子 (商机 demo). 仅 PostgreSQL 模式, 直写 typed table pms_opportunities.
+ * 空表守卫 + onConflictDoNothing, 重复调用安全。
+ */
+export async function seedPmsIfEmpty(): Promise<void> {
+  if (!isDatabaseMode()) return;
+  try {
+    const existing = await db
+      .select({ c: sql<number>`count(*)` })
+      .from(schema.pmsOpportunities);
+    if (Number(existing[0]?.c ?? 0) > 0) return;
+
+    const now = new Date();
+    const rows = [
+      { key: 'bj01', customerName: '北京华住酒店集团', projectName: '朝阳希尔顿中央热水系统', customerPhone: '13800138001', customerAddress: '北京市朝阳区建国路88号', estimatedAmount: '3200000', productLine: '商用热水', region: '华北', channel: '直销', stage: 'quoted', dealerOrgId: 'dealer_bj_01' },
+      { key: 'sh01', customerName: '上海仁济医院', projectName: '浦东院区空气源热泵改造', customerPhone: '13800138002', customerAddress: '上海市浦东新区东方路1630号', estimatedAmount: '5800000', productLine: '空气源热泵', region: '华东', channel: '经销', stage: 'contracted', dealerOrgId: 'dealer_sh_01' },
+      { key: 'sz01', customerName: '深圳富士康科技', projectName: '龙华厂区宿舍热水工程', customerPhone: '13800138003', customerAddress: '广东省深圳市龙华区观澜大道', estimatedAmount: '12000000', productLine: '商用热水', region: '华南', channel: '直销', stage: 'following', dealerOrgId: 'dealer_sz_01' },
+    ];
+    for (const r of rows) {
+      const dedupeKey = Buffer.from(`${r.customerName}|${r.customerAddress}|${r.projectName}`.toLowerCase()).toString('base64').substring(0, 32);
+      await db.insert(schema.pmsOpportunities).values({
+        id: `pms_seed_${r.key}`,
+        tenantId: 'default',
+        orgId: r.dealerOrgId,
+        dealerOrgId: r.dealerOrgId,
+        reporterId: 'demo-user',
+        customerName: r.customerName,
+        customerPhone: r.customerPhone,
+        customerAddress: r.customerAddress,
+        projectName: r.projectName,
+        stage: r.stage,
+        status: 'active',
+        estimatedAmount: r.estimatedAmount,
+        productLine: r.productLine,
+        region: r.region,
+        channel: r.channel,
+        dedupeKey,
+        createdAt: now,
+        updatedAt: now,
+      }).onConflictDoNothing({ target: schema.pmsOpportunities.id });
+    }
+    // eslint-disable-next-line no-console
+    console.info('[seed] PMS opportunities seeded (3)');
+  } catch (err) {
+    console.warn('[seed] PMS seed failed:', (err as Error).message);
+  }
+}
+
+/**
  * Idempotent Launchpad seed — runs even when KvStore is already populated,
  * so existing dev DBs can pick up the new tables without a full reset.
  */
@@ -840,6 +890,23 @@ export async function seedLaunchpadIfEmpty(): Promise<void> {
         description: stratExisting.description ?? '战略地图 · 经营沙盘',
       });
     }
+    // §集团模块 · 快速跳板. url/ssoMode 为对外软件预留接口 (待接入时由 /admin/launchpad 填真实地址 + SSO).
+    const base = {
+      iconUrl: null, ssoMode: 'none' as const, ssoConfig: null,
+      visibleTo: [], visibleToRoles: [], unreadAdapter: null,
+      status: 'active' as const, tenantId: 'default',
+    };
+    // PMS 补种: 已有跳板数据时, 若无 PMS 卡片则补插入 (幂等).
+    const pmsExisting = existing.find((a) => a.url === '/pms' || /销售.*商机|PMS/i.test(a.name));
+    if (!pmsExisting && existing.length > 0) {
+      await lpSvc.create({
+        ...base, category: 'business', name: '销售商机 PMS',
+        description: '项目报备 · 智能查重 · 全生命周期跟进',
+        url: '/pms', order: 9, recommendKeywords: ['销售', '商机', 'pms', '经销商', '合同', '交付'],
+      });
+      // eslint-disable-next-line no-console
+      console.info('[seed] launchpad: 补种 PMS 卡片');
+    }
     // 旧演示卡片名单 (历史默认种子). 仅当跳板「只剩这些」时才视为未定制 → 清掉重播集团模块.
     // 若含任何非旧卡片 (用户自定义 或 已是新集团模块) → 跳过, 保持幂等且绝不误删用户数据.
     const LEGACY_DEMO_NAMES = new Set([
@@ -852,13 +919,6 @@ export async function seedLaunchpadIfEmpty(): Promise<void> {
       // eslint-disable-next-line no-console
       console.info(`[seed] launchpad: 清理 ${existing.length} 张旧演示卡片, 改播集团模块`);
     }
-
-    // §集团模块 · 快速跳板. url/ssoMode 为对外软件预留接口 (待接入时由 /admin/launchpad 填真实地址 + SSO).
-    const base = {
-      iconUrl: null, ssoMode: 'none' as const, ssoConfig: null,
-      visibleTo: [], visibleToRoles: [], unreadAdapter: null,
-      status: 'active' as const, tenantId: 'default',
-    };
     const seedApps: Array<Parameters<typeof lpSvc.create>[0]> = [
       { ...base, category: 'business', name: '搭子手抄', description: 'AI 笔记 · 记录→加工→沉淀',
         url: '/shouchao', order: 0, recommendKeywords: ['笔记', '手抄', 'note', '沉淀'] },
@@ -878,6 +938,8 @@ export async function seedLaunchpadIfEmpty(): Promise<void> {
         url: '#mes', order: 7, recommendKeywords: ['mes', '制造', '生产', '排程', '车间'] },
       { ...base, category: 'business', name: 'Rhautt 宜居家', description: '宜居家 · 智能家居平台',
         url: '#rhautt', order: 8, recommendKeywords: ['rhautt', '宜居家', '家居', 'home', '智能家居'] },
+      { ...base, category: 'business', name: '销售商机 PMS', description: '项目报备 · 智能查重 · 全生命周期跟进',
+        url: '/pms', order: 9, recommendKeywords: ['销售', '商机', 'pms', '经销商', '合同', '交付'] },
     ];
     for (const app of seedApps) await lpSvc.create(app);
     // eslint-disable-next-line no-console

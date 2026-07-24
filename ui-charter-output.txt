@@ -1,0 +1,191 @@
+﻿
+> hermes-agent-webui@1.0.0 lint:ui-charter
+> node scripts/check-ui-charter.mjs
+
+
+鈿?CHARTER-UI-V1 杩濊鎵弿: 146 error, 0 warn
+
+  app/pms/alerts/page.tsx
+    鉁?L25  no-raw-palette-color  'bg-red-100'
+    鉁?L25  no-raw-palette-color  'text-red-700'
+    鉁?L26  no-raw-palette-color  'bg-orange-100'
+    鉁?L26  no-raw-palette-color  'text-orange-700'
+    鉁?L27  no-raw-palette-color  'bg-amber-100'
+    鉁?L27  no-raw-palette-color  'text-amber-700'
+    鉁?L97  no-raw-palette-color  'border-red-200'
+    鉁?L98  no-raw-palette-color  'text-red-600'
+    鉁?L133  no-raw-palette-color  'text-green-600'
+    鉁?L1  requires-responsive-layout  '(鏃?sm:|md:|lg:|xl: 鏂偣)'
+
+  app/pms/analytics/page.tsx
+    鉁?L74  no-raw-palette-color  'border-red-200'
+    鉁?L76  no-raw-palette-color  'text-red-600'
+
+  app/pms/contracts/page.tsx
+    鉁?L28  no-raw-palette-color  'bg-amber-100'
+    鉁?L28  no-raw-palette-color  'text-amber-700'
+    鉁?L29  no-raw-palette-color  'bg-green-100'
+    鉁?L29  no-raw-palette-color  'text-green-700'
+    鉁?L30  no-raw-palette-color  'bg-red-100'
+    鉁?L30  no-raw-palette-color  'text-red-700'
+    鉁?L88  no-raw-palette-color  'border-red-200'
+    鉁?L89  no-raw-palette-color  'text-red-600'
+    鉁?L129  no-raw-palette-color  'text-red-600'
+    鉁?L129  no-raw-palette-color  'border-red-200'
+    鉁?L1  requires-responsive-layout  '(鏃?sm:|md:|lg:|xl: 鏂偣)'
+
+  app/pms/dealer-health/page.tsx
+    鉁?L22  no-raw-palette-color  'bg-green-100'
+    鉁?L22  no-raw-palette-color  'text-green-700'
+    鉁?L23  no-raw-palette-color  'bg-blue-100'
+    鉁?L23  no-raw-palette-color  'text-blue-700'
+    鉁?L24  no-raw-palette-color  'bg-amber-100'
+    鉁?L24  no-raw-palette-color  'text-amber-700'
+    鉁?L25  no-raw-palette-color  'bg-red-100'
+    鉁?L25  no-raw-palette-color  'text-red-700'
+    鉁?L70  no-raw-palette-color  'border-red-200'
+    鉁?L71  no-raw-palette-color  'text-red-600'
+    鉁?L1  requires-responsive-layout  '(鏃?sm:|md:|lg:|xl: 鏂偣)'
+
+  app/pms/dealer-orders/page.tsx
+    鉁?L31  no-raw-palette-color  'bg-blue-100'
+    鉁?L31  no-raw-palette-color  'text-blue-700'
+    鉁?L32  no-raw-palette-color  'bg-amber-100'
+    鉁?L32  no-raw-palette-color  'text-amber-700'
+    鉁?L33  no-raw-palette-color  'bg-green-100'
+    鉁?L33  no-raw-palette-color  'text-green-700'
+    鉁?L34  no-raw-palette-color  'bg-red-100'
+    鉁?L34  no-raw-palette-color  'text-red-700'
+    鉁?L98  no-raw-palette-color  'border-red-200'
+    鉁?L99  no-raw-palette-color  'text-red-600'
+    鉁?L142  no-raw-palette-color  'text-red-600'
+    鉁?L142  no-raw-palette-color  'border-red-200'
+    鉁?L1  requires-responsive-layout  '(鏃?sm:|md:|lg:|xl: 鏂偣)'
+
+  app/pms/dealer-orgs/page.tsx
+    鉁?L59  no-raw-palette-color  'border-red-200'
+    鉁?L60  no-raw-palette-color  'text-red-600'
+    鉁?L1  requires-responsive-layout  '(鏃?sm:|md:|lg:|xl: 鏂偣)'
+
+  app/pms/delivery-orders/page.tsx
+    鉁?L28  no-raw-palette-color  'bg-blue-100'
+    鉁?L28  no-raw-palette-color  'text-blue-700'
+    鉁?L29  no-raw-palette-color  'bg-amber-100'
+    鉁?L29  no-raw-palette-color  'text-amber-700'
+    鉁?L30  no-raw-palette-color  'bg-green-100'
+    鉁?L30  no-raw-palette-color  'text-green-700'
+    鉁?L31  no-raw-palette-color  'bg-red-100'
+    鉁?L31  no-raw-palette-color  'text-red-700'
+    鉁?L100  no-raw-palette-color  'border-red-200'
+    鉁?L101  no-raw-palette-color  'text-red-600'
+    鉁?L143  no-raw-palette-color  'text-red-600'
+    鉁?L143  no-raw-palette-color  'border-red-200'
+    鉁?L1  requires-responsive-layout  '(鏃?sm:|md:|lg:|xl: 鏂偣)'
+
+  app/pms/demand-gen-leads/page.tsx
+    鉁?L27  no-raw-palette-color  'bg-blue-100'
+    鉁?L27  no-raw-palette-color  'text-blue-700'
+    鉁?L28  no-raw-palette-color  'bg-amber-100'
+    鉁?L28  no-raw-palette-color  'text-amber-700'
+    鉁?L29  no-raw-palette-color  'bg-green-100'
+    鉁?L29  no-raw-palette-color  'text-green-700'
+    鉁?L30  no-raw-palette-color  'bg-red-100'
+    鉁?L30  no-raw-palette-color  'text-red-700'
+    鉁?L94  no-raw-palette-color  'border-red-200'
+    鉁?L95  no-raw-palette-color  'text-red-600'
+    鉁?L136  no-raw-palette-color  'text-red-600'
+    鉁?L136  no-raw-palette-color  'border-red-200'
+    鉁?L1  requires-responsive-layout  '(鏃?sm:|md:|lg:|xl: 鏂偣)'
+
+  app/pms/equipment-sns/page.tsx
+    鉁?L27  no-raw-palette-color  'bg-blue-100'
+    鉁?L27  no-raw-palette-color  'text-blue-700'
+    鉁?L28  no-raw-palette-color  'bg-green-100'
+    鉁?L28  no-raw-palette-color  'text-green-700'
+    鉁?L29  no-raw-palette-color  'bg-green-100'
+    鉁?L29  no-raw-palette-color  'text-green-700'
+    鉁?L30  no-raw-palette-color  'bg-red-100'
+    鉁?L30  no-raw-palette-color  'text-red-700'
+    鉁?L73  no-raw-palette-color  'border-red-200'
+    鉁?L74  no-raw-palette-color  'text-red-600'
+    鉁?L108  no-raw-palette-color  'text-green-600'
+    鉁?L108  no-raw-palette-color  'text-red-600'
+    鉁?L1  requires-responsive-layout  '(鏃?sm:|md:|lg:|xl: 鏂偣)'
+
+  app/pms/key-product-campaigns/page.tsx
+    鉁?L59  no-raw-palette-color  'border-red-200'
+    鉁?L60  no-raw-palette-color  'text-red-600'
+    鉁?L1  requires-responsive-layout  '(鏃?sm:|md:|lg:|xl: 鏂偣)'
+
+  app/pms/maintenance/page.tsx
+    鉁?L28  no-raw-palette-color  'bg-blue-100'
+    鉁?L28  no-raw-palette-color  'text-blue-700'
+    鉁?L29  no-raw-palette-color  'bg-amber-100'
+    鉁?L29  no-raw-palette-color  'text-amber-700'
+    鉁?L30  no-raw-palette-color  'bg-green-100'
+    鉁?L30  no-raw-palette-color  'text-green-700'
+    鉁?L31  no-raw-palette-color  'bg-red-100'
+    鉁?L31  no-raw-palette-color  'text-red-700'
+    鉁?L95  no-raw-palette-color  'border-red-200'
+    鉁?L96  no-raw-palette-color  'text-red-600'
+    鉁?L136  no-raw-palette-color  'text-red-600'
+    鉁?L136  no-raw-palette-color  'border-red-200'
+    鉁?L1  requires-responsive-layout  '(鏃?sm:|md:|lg:|xl: 鏂偣)'
+
+  app/pms/opportunities/new/page.tsx
+    鉁?L97  no-raw-palette-color  'border-yellow-500'
+    鉁?L97  no-raw-palette-color  'bg-yellow-50'
+    鉁?L99  no-raw-palette-color  'text-yellow-700'
+    鉁?L105  no-raw-palette-color  'text-yellow-800'
+    鉁?L108  no-raw-palette-color  'text-yellow-800'
+    鉁?L130  no-raw-palette-color  'border-red-500'
+    鉁?L130  no-raw-palette-color  'bg-red-50'
+    鉁?L132  no-raw-palette-color  'text-red-800'
+    鉁?L105  no-raw-text-size  'text-sm'
+    鉁?L108  no-raw-text-size  'text-sm'
+    鉁?L132  no-raw-text-size  'text-sm'
+    鉁?L1  requires-responsive-layout  '(鏃?sm:|md:|lg:|xl: 鏂偣)'
+
+  app/pms/opportunities/[id]/page.tsx
+    鉁?L138  no-raw-palette-color  'text-red-600'
+    鉁?L180  no-raw-palette-color  'text-red-600'
+    鉁?L180  no-raw-palette-color  'text-red-700'
+    鉁?L330  no-raw-palette-color  'bg-green-100'
+    鉁?L330  no-raw-palette-color  'text-green-700'
+    鉁?L217  no-raw-text-size  'text-lg'
+    鉁?L322  no-raw-text-size  'text-sm'
+    鉁?L330  no-raw-text-size  'text-sm'
+    鉁?L1  requires-responsive-layout  '(鏃?sm:|md:|lg:|xl: 鏂偣)'
+
+  app/pms/page.tsx
+    鉁?L69  no-raw-palette-color  'text-red-600'
+    鉁?L136  no-raw-tailwind-shadow  'shadow-md'
+    鉁?L1  requires-responsive-layout  '(鏃?sm:|md:|lg:|xl: 鏂偣)'
+
+  app/pms/performance-targets/page.tsx
+    鉁?L24  no-raw-palette-color  'bg-green-500'
+    鉁?L26  no-raw-palette-color  'bg-amber-500'
+    鉁?L27  no-raw-palette-color  'bg-red-500'
+    鉁?L65  no-raw-palette-color  'border-red-200'
+    鉁?L66  no-raw-palette-color  'text-red-600'
+    鉁?L1  requires-responsive-layout  '(鏃?sm:|md:|lg:|xl: 鏂偣)'
+
+  app/pms/products/page.tsx
+    鉁?L84  no-raw-palette-color  'border-red-200'
+    鉁?L85  no-raw-palette-color  'text-red-600'
+    鉁?L1  requires-responsive-layout  '(鏃?sm:|md:|lg:|xl: 鏂偣)'
+
+  app/pms/public-pool/page.tsx
+    鉁?L95  no-raw-palette-color  'border-red-200'
+    鉁?L96  no-raw-palette-color  'text-red-600'
+    鉁?L142  no-raw-palette-color  'text-green-600'
+    鉁?L144  no-raw-palette-color  'text-amber-600'
+    鉁?L1  requires-responsive-layout  '(鏃?sm:|md:|lg:|xl: 鏂偣)'
+
+  app/pms/rebates/page.tsx
+    鉁?L71  no-raw-palette-color  'border-red-200'
+    鉁?L72  no-raw-palette-color  'text-red-600'
+    鉁?L1  requires-responsive-layout  '(鏃?sm:|md:|lg:|xl: 鏂偣)'
+
+鎬昏: 146 鏉?路 allowlist 0 鏂囦欢宸茶烦杩?(P1.5 娓呴浂)
+鎻愮ず: 娣诲姞 --fix-hint 鐪嬪缓璁? --strict CI 鐢?(鏈?error 閫€ 1)

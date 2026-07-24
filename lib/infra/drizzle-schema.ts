@@ -1150,3 +1150,782 @@ export const agentTemplate = pgTable(
     nameUniq: uniqueIndex('AgentTemplate_tenantId_name_uniq').on(t.tenantId, t.name),
   }),
 );
+
+// ============================================================================
+// PMS (项目报备全生命周期管理) Typed Tables
+// 方案 A: 全 Typed Tables 架构（世界级百万级数据支持）
+// ============================================================================
+
+/**
+ * pms_opportunities · 商机报备
+ * 核心业务实体，支持百万级数据查询
+ */
+export const pmsOpportunities = pgTable(
+  'pms_opportunities',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    orgId: text('orgId').notNull(),
+    dealerOrgId: text('dealerOrgId').notNull(),
+    reporterId: text('reporterId').notNull(),
+    customerName: text('customerName').notNull(),
+    customerPhone: text('customerPhone'),
+    customerAddress: text('customerAddress'),
+    projectName: text('projectName').notNull(),
+    stage: text('stage').notNull().default('initial_contact'),
+    status: text('status').notNull().default('active'),
+    estimatedAmount: numeric('estimatedAmount'),
+    estimatedClosingDate: text('estimatedClosingDate'),
+    productLine: text('productLine'),
+    region: text('region'),
+    channel: text('channel'),
+    dedupeKey: text('dedupeKey').notNull(),
+    duplicateStatus: text('duplicateStatus'),
+    lastFollowUpAt: timestamp('lastFollowUpAt', { precision: 3, mode: 'date' }),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+    archivedAt: timestamp('archivedAt', { precision: 3, mode: 'date' }),
+  },
+  (t) => ({
+    // 高频查询索引（支持百万级过滤）
+    orgIdStatusStageIdx: index('pms_opp_orgid_status_stage_idx').on(t.orgId, t.status, t.stage),
+    dedupeKeyIdx: uniqueIndex('pms_opp_dedupkey_idx').on(t.dedupeKey),
+    dealerStageIdx: index('pms_opp_dealer_stage_idx').on(t.dealerOrgId, t.stage, t.createdAt),
+    // 预警扫描索引
+    alertScanIdx: index('pms_opp_alert_scan_idx').on(t.lastFollowUpAt, t.status),
+    // 分析查询复合索引
+    analyticsIdx: index('pms_opp_analytics_idx').on(
+      t.tenantId, t.orgId, t.stage, t.status, t.region, t.productLine, t.createdAt
+    ),
+    tenantIdx: index('pms_opp_tenant_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * pms_follow_ups · 跟进记录
+ * 时间序列数据，支持高频写入
+ */
+export const pmsFollowUps = pgTable(
+  'pms_follow_ups',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    opportunityId: text('opportunityId').notNull(),
+    userId: text('userId').notNull(),
+    stage: text('stage').notNull(),
+    content: text('content').notNull(),
+    nextFollowUpAt: timestamp('nextFollowUpAt', { precision: 3, mode: 'date' }),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => ({
+    // 时间序列索引（按商机ID + 时间倒序）
+    oppTimeIdx: index('pms_followup_opp_time_idx').on(t.opportunityId, t.createdAt),
+    tenantIdx: index('pms_followup_tenant_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * pms_duplicate_checks · 查重记录
+ * 存储查重结果，支持撞单仲裁
+ */
+export const pmsDuplicateChecks = pgTable(
+  'pms_duplicate_checks',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    opportunityId: text('opportunityId').notNull(),
+    duplicateOpportunityId: text('duplicateOpportunityId'),
+    similarityScore: numeric('similarityScore').notNull(),
+    dimensions: jsonb('dimensions').notNull(),
+    status: text('status').notNull().default('pending'),
+    resolvedBy: text('resolvedBy'),
+    resolvedAt: timestamp('resolvedAt', { precision: 3, mode: 'date' }),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => ({
+    oppIdx: index('pms_dupcheck_opp_idx').on(t.opportunityId),
+    statusIdx: index('pms_dupcheck_status_idx').on(t.status),
+    tenantIdx: index('pms_dupcheck_tenant_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * pms_duplicate_appeals · 撞单申诉
+ * 支持撞单仲裁流程
+ */
+export const pmsDuplicateAppeals = pgTable(
+  'pms_duplicate_appeals',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    duplicateCheckId: text('duplicateCheckId').notNull(),
+    appealerId: text('appealerId').notNull(),
+    reason: text('reason').notNull(),
+    evidence: jsonb('evidence'),
+    status: text('status').notNull().default('pending'),
+    arbitratedBy: text('arbitratedBy'),
+    arbitrationResult: text('arbitrationResult'),
+    arbitrationReason: text('arbitrationReason'),
+    arbitratedAt: timestamp('arbitratedAt', { precision: 3, mode: 'date' }),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => ({
+    checkIdx: index('pms_appeal_check_idx').on(t.duplicateCheckId),
+    statusIdx: index('pms_appeal_status_idx').on(t.status),
+    tenantIdx: index('pms_appeal_tenant_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * pms_public_pool · 公海池
+ * 支持商机流转和认领
+ */
+export const pmsPublicPool = pgTable(
+  'pms_public_pool',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    opportunityId: text('opportunityId').notNull(),
+    releasedBy: text('releasedBy').notNull(),
+    releasedReason: text('releasedReason').notNull(),
+    releasedAt: timestamp('releasedAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    claimed: boolean('claimed').notNull().default(false),
+    claimedBy: text('claimedBy'),
+    claimedAt: timestamp('claimedAt', { precision: 3, mode: 'date' }),
+    protectionExpiresAt: timestamp('protectionExpiresAt', { precision: 3, mode: 'date' }),
+  },
+  (t) => ({
+    // 公海池认领查询
+    releasedIdx: index('pms_pool_released_idx').on(t.releasedAt, t.claimed),
+    oppIdx: index('pms_pool_opp_idx').on(t.opportunityId),
+    tenantIdx: index('pms_pool_tenant_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * pms_approvals · 审批记录
+ * 支持多级审批流程
+ */
+export const pmsApprovals = pgTable(
+  'pms_approvals',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    entityType: text('entityType').notNull(),
+    entityId: text('entityId').notNull(),
+    level: integer('level').notNull(),
+    approverId: text('approverId').notNull(),
+    status: text('status').notNull().default('pending'),
+    decision: text('decision'),
+    comment: text('comment'),
+    decidedAt: timestamp('decidedAt', { precision: 3, mode: 'date' }),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => ({
+    entityIdx: index('pms_approval_entity_idx').on(t.entityType, t.entityId),
+    approverIdx: index('pms_approval_approver_idx').on(t.approverId, t.status),
+    tenantIdx: index('pms_approval_tenant_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * pms_price_applications · 价格申请
+ * 支持折扣审批流程
+ */
+export const pmsPriceApplications = pgTable(
+  'pms_price_applications',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    opportunityId: text('opportunityId').notNull(),
+    applicantId: text('applicantId').notNull(),
+    productId: text('productId').notNull(),
+    listPrice: numeric('listPrice').notNull(),
+    requestedPrice: numeric('requestedPrice').notNull(),
+    discountRate: numeric('discountRate').notNull(),
+    reason: text('reason').notNull(),
+    status: text('status').notNull().default('pending'),
+    approvedPrice: numeric('approvedPrice'),
+    approvedBy: text('approvedBy'),
+    approvedAt: timestamp('approvedAt', { precision: 3, mode: 'date' }),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => ({
+    oppIdx: index('pms_price_opp_idx').on(t.opportunityId),
+    statusIdx: index('pms_price_status_idx').on(t.status),
+    tenantIdx: index('pms_price_tenant_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * pms_contracts · 合同管理
+ * 支持合同签订和审批
+ */
+export const pmsContracts = pgTable(
+  'pms_contracts',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    opportunityId: text('opportunityId').notNull(),
+    contractNumber: text('contractNumber').notNull(),
+    customerName: text('customerName').notNull(),
+    totalAmount: numeric('totalAmount').notNull(),
+    signedDate: text('signedDate'),
+    effectiveDate: text('effectiveDate'),
+    expiryDate: text('expiryDate'),
+    status: text('status').notNull().default('draft'),
+    signedBy: text('signedBy'),
+    approvedBy: text('approvedBy'),
+    approvedAt: timestamp('approvedAt', { precision: 3, mode: 'date' }),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+  },
+  (t) => ({
+    oppIdx: index('pms_contract_opp_idx').on(t.opportunityId),
+    numberIdx: uniqueIndex('pms_contract_number_idx').on(t.contractNumber),
+    statusIdx: index('pms_contract_status_idx').on(t.status),
+    tenantIdx: index('pms_contract_tenant_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * pms_delivery_orders · 交付工单
+ * 支持设备交付全流程管理
+ */
+export const pmsDeliveryOrders = pgTable(
+  'pms_delivery_orders',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    orgId: text('orgId').notNull(),
+    contractId: text('contractId').notNull(),
+    orderNumber: text('orderNumber').notNull(),
+    customerName: text('customerName').notNull(),
+    deliveryAddress: text('deliveryAddress').notNull(),
+    status: text('status').notNull().default('pending'),
+    scheduledDeliveryDate: text('scheduledDeliveryDate'),
+    actualDeliveryDate: text('actualDeliveryDate'),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+    archivedAt: timestamp('archivedAt', { precision: 3, mode: 'date' }),
+  },
+  (t) => ({
+    orgStatusIdx: index('pms_delivery_org_status_idx').on(t.orgId, t.status, t.createdAt),
+    contractIdx: index('pms_delivery_contract_idx').on(t.contractId),
+    numberIdx: uniqueIndex('pms_delivery_number_idx').on(t.orderNumber),
+    tenantIdx: index('pms_delivery_tenant_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * pms_delivery_tasks · 交付任务
+ * 支持交付工单的子任务管理
+ */
+export const pmsDeliveryTasks = pgTable(
+  'pms_delivery_tasks',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    deliveryOrderId: text('deliveryOrderId').notNull(),
+    type: text('type').notNull(),
+    assignedTo: text('assignedTo').notNull(),
+    assigneeType: text('assigneeType').notNull(),
+    description: text('description').notNull(),
+    dueDate: text('dueDate'),
+    status: text('status').notNull().default('pending'),
+    completedAt: timestamp('completedAt', { precision: 3, mode: 'date' }),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+  },
+  (t) => ({
+    orderIdx: index('pms_task_order_idx').on(t.deliveryOrderId),
+    assigneeIdx: index('pms_task_assignee_idx').on(t.assignedTo, t.status),
+    tenantIdx: index('pms_task_tenant_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * pms_equipment_sns · 设备SN码
+ * 支持设备全生命周期追溯
+ */
+export const pmsEquipmentSns = pgTable(
+  'pms_equipment_sns',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    snCode: text('snCode').notNull(),
+    productId: text('productId').notNull(),
+    productModel: text('productModel').notNull(),
+    batchNumber: text('batchNumber'),
+    manufacturedAt: text('manufacturedAt'),
+    parentSNId: text('parentSNId'),
+    deliveryOrderId: text('deliveryOrderId'),
+    status: text('status').notNull().default('in_stock'),
+    installedAt: text('installedAt'),
+    warrantyExpiresAt: text('warrantyExpiresAt'),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+  },
+  (t) => ({
+    snCodeIdx: uniqueIndex('pms_sn_code_idx').on(t.snCode),
+    batchStatusIdx: index('pms_sn_batch_status_idx').on(t.batchNumber, t.status),
+    deliveryIdx: index('pms_sn_delivery_idx').on(t.deliveryOrderId),
+    tenantIdx: index('pms_sn_tenant_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * pms_maintenance_records · 维保记录
+ * 支持设备维保全流程
+ */
+export const pmsMaintenanceRecords = pgTable(
+  'pms_maintenance_records',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    equipmentSNId: text('equipmentSNId').notNull(),
+    type: text('type').notNull(),
+    reportedBy: text('reportedBy').notNull(),
+    assignedTo: text('assignedTo'),
+    description: text('description').notNull(),
+    status: text('status').notNull().default('pending'),
+    scheduledAt: timestamp('scheduledAt', { precision: 3, mode: 'date' }),
+    completedAt: timestamp('completedAt', { precision: 3, mode: 'date' }),
+    customerFeedback: text('customerFeedback'),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+  },
+  (t) => ({
+    snIdx: index('pms_maint_sn_idx').on(t.equipmentSNId),
+    statusIdx: index('pms_maint_status_idx').on(t.status),
+    expiryIdx: index('pms_maint_expiry_idx').on(t.scheduledAt, t.status),
+    tenantIdx: index('pms_maint_tenant_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * pms_dealer_org_profiles · 经销商组织档案
+ * 扩展 organizations 表的经销商专属信息
+ */
+export const pmsDealerOrgProfiles = pgTable(
+  'pms_dealer_org_profiles',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    orgId: text('orgId').notNull(),
+    contactName: text('contactName'),
+    contactPhone: text('contactPhone'),
+    contactEmail: text('contactEmail'),
+    businessLicense: text('businessLicense'),
+    registeredCapital: numeric('registeredCapital'),
+    establishedDate: text('establishedDate'),
+    coverageRegions: jsonb('coverageRegions').default([]),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+  },
+  (t) => ({
+    orgIdx: uniqueIndex('pms_dealer_org_idx').on(t.orgId),
+    tenantIdx: index('pms_dealer_tenant_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * pms_dealer_qualifications · 经销商资质
+ * 支持五类资质管理
+ */
+export const pmsDealerQualifications = pgTable(
+  'pms_dealer_qualifications',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    dealerOrgId: text('dealerOrgId').notNull(),
+    type: text('type').notNull(),
+    certificateNumber: text('certificateNumber'),
+    issuedBy: text('issuedBy'),
+    issuedDate: text('issuedDate'),
+    expiryDate: text('expiryDate'),
+    status: text('status').notNull().default('pending'),
+    approvedBy: text('approvedBy'),
+    approvedAt: timestamp('approvedAt', { precision: 3, mode: 'date' }),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+  },
+  (t) => ({
+    dealerIdx: index('pms_qual_dealer_idx').on(t.dealerOrgId),
+    typeIdx: index('pms_qual_type_idx').on(t.type, t.status),
+    expiryIdx: index('pms_qual_expiry_idx').on(t.expiryDate, t.status),
+    tenantIdx: index('pms_qual_tenant_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * pms_product_catalog · 产品目录
+ * 导入驱动设计，支持从外部系统导入
+ */
+export const pmsProductCatalog = pgTable(
+  'pms_product_catalog',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    series: text('series').notNull(),
+    seriesCode: text('seriesCode'),
+    model: text('model').notNull(),
+    modelCode: text('modelCode'),
+    category: text('category'),
+    specification: text('specification'),
+    unit: text('unit'),
+    listPrice: numeric('listPrice'),
+    costPrice: numeric('costPrice'),
+    minPrice: numeric('minPrice'),
+    bomItems: jsonb('bomItems').default([]),
+    parentModel: text('parentModel'),
+    attributes: jsonb('attributes').default({}),
+    source: text('source').default('manual'),
+    sourceRefId: text('sourceRefId'),
+    status: text('status').notNull().default('active'),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+  },
+  (t) => ({
+    seriesCategoryIdx: index('pms_product_series_cat_idx').on(t.series, t.category, t.status),
+    modelIdx: index('pms_product_model_idx').on(t.model),
+    tenantIdx: index('pms_product_tenant_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * pms_customer_accounts · 客户体系
+ * 导入驱动设计，支持层级结构
+ */
+export const pmsCustomerAccounts = pgTable(
+  'pms_customer_accounts',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    name: text('name').notNull(),
+    externalCode: text('externalCode'),
+    type: text('type'),
+    parentAccountId: text('parentAccountId'),
+    level: integer('level').default(0),
+    region: text('region'),
+    channel: text('channel'),
+    dealerOrgId: text('dealerOrgId'),
+    attributes: jsonb('attributes').default({}),
+    source: text('source').default('manual'),
+    sourceRefId: text('sourceRefId'),
+    status: text('status').notNull().default('active'),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+  },
+  (t) => ({
+    nameIdx: index('pms_customer_name_idx').on(t.name),
+    parentIdx: index('pms_customer_parent_idx').on(t.parentAccountId),
+    dealerIdx: index('pms_customer_dealer_idx').on(t.dealerOrgId),
+    tenantIdx: index('pms_customer_tenant_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * pms_alerts · 预警消息
+ * 支持分级推送和升级阶梯
+ */
+export const pmsAlerts = pgTable(
+  'pms_alerts',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    type: text('type').notNull(),
+    severity: text('severity').notNull(),
+    entityType: text('entityType').notNull(),
+    entityId: text('entityId').notNull(),
+    message: text('message').notNull(),
+    targetRole: text('targetRole'),
+    targetUserId: text('targetUserId'),
+    acted: boolean('acted').notNull().default(false),
+    actedBy: text('actedBy'),
+    actedAt: timestamp('actedAt', { precision: 3, mode: 'date' }),
+    escalationLevel: integer('escalationLevel').default(0),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => ({
+    entityIdx: index('pms_alert_entity_idx').on(t.entityType, t.entityId),
+    severityIdx: index('pms_alert_severity_idx').on(t.severity, t.acted),
+    targetIdx: index('pms_alert_target_idx').on(t.targetUserId, t.acted),
+    tenantIdx: index('pms_alert_tenant_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * pms_notification_rules · 分级推送规则
+ * 支持角色×紧急度×渠道矩阵配置
+ */
+export const pmsNotificationRules = pgTable(
+  'pms_notification_rules',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    name: text('name').notNull(),
+    alertType: text('alertType').notNull(),
+    severity: text('severity').notNull(),
+    targetRole: text('targetRole').notNull(),
+    channels: jsonb('channels').notNull().default([]),
+    escalationSLA: integer('escalationSLA'),
+    enabled: boolean('enabled').notNull().default(true),
+    createdBy: text('createdBy').notNull(),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+  },
+  (t) => ({
+    typeIdx: index('pms_notifrule_type_idx').on(t.alertType, t.severity),
+    tenantIdx: index('pms_notifrule_tenant_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * pms_rebate_policies · 返利政策
+ * 支持阶梯规则配置
+ */
+export const pmsRebatePolicies = pgTable(
+  'pms_rebate_policies',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    name: text('name').notNull(),
+    productLine: text('productLine'),
+    tiers: jsonb('tiers').notNull(),
+    effectiveDate: text('effectiveDate').notNull(),
+    expiryDate: text('expiryDate'),
+    status: text('status').notNull().default('active'),
+    createdBy: text('createdBy').notNull(),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+  },
+  (t) => ({
+    statusIdx: index('pms_rebate_status_idx').on(t.status),
+    tenantIdx: index('pms_rebate_tenant_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * pms_rebate_accruals · 返利计提
+ * 支持返利计算和结算
+ */
+export const pmsRebateAccruals = pgTable(
+  'pms_rebate_accruals',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    dealerOrgId: text('dealerOrgId').notNull(),
+    policyId: text('policyId').notNull(),
+    period: text('period').notNull(),
+    salesAmount: numeric('salesAmount').notNull(),
+    rebateAmount: numeric('rebateAmount').notNull(),
+    status: text('status').notNull().default('pending'),
+    settledBy: text('settledBy'),
+    settledAt: timestamp('settledAt', { precision: 3, mode: 'date' }),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => ({
+    dealerPeriodIdx: index('pms_rebate_acc_dealer_period_idx').on(t.dealerOrgId, t.period),
+    statusIdx: index('pms_rebate_acc_status_idx').on(t.status),
+    tenantIdx: index('pms_rebate_acc_tenant_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * pms_dealer_orders · 经销商订货
+ * 支持在线订货流程
+ */
+export const pmsDealerOrders = pgTable(
+  'pms_dealer_orders',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    dealerOrgId: text('dealerOrgId').notNull(),
+    orderNumber: text('orderNumber').notNull(),
+    items: jsonb('items').notNull(),
+    totalAmount: numeric('totalAmount').notNull(),
+    status: text('status').notNull().default('pending'),
+    confirmedBy: text('confirmedBy'),
+    confirmedAt: timestamp('confirmedAt', { precision: 3, mode: 'date' }),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+  },
+  (t) => ({
+    dealerIdx: index('pms_order_dealer_idx').on(t.dealerOrgId, t.status),
+    numberIdx: uniqueIndex('pms_order_number_idx').on(t.orderNumber),
+    tenantIdx: index('pms_order_tenant_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * pms_dealer_health_scores · 经销商健康分
+ * 支持考核算法和自查
+ */
+export const pmsDealerHealthScores = pgTable(
+  'pms_dealer_health_scores',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    dealerOrgId: text('dealerOrgId').notNull(),
+    period: text('period').notNull(),
+    totalScore: numeric('totalScore').notNull(),
+    dimensions: jsonb('dimensions').notNull(),
+    rank: text('rank'),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => ({
+    dealerPeriodIdx: uniqueIndex('pms_health_dealer_period_idx').on(t.dealerOrgId, t.period),
+    tenantIdx: index('pms_health_tenant_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * pms_performance_targets · 业绩目标
+ * 支持目标分解和追踪
+ */
+export const pmsPerformanceTargets = pgTable(
+  'pms_performance_targets',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    orgId: text('orgId'),
+    dealerOrgId: text('dealerOrgId'),
+    period: text('period').notNull(),
+    targetType: text('targetType').notNull(),
+    targetValue: numeric('targetValue').notNull(),
+    actualValue: numeric('actualValue').default('0'),
+    achievementRate: numeric('achievementRate').default('0'),
+    createdBy: text('createdBy').notNull(),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+  },
+  (t) => ({
+    orgPeriodIdx: index('pms_target_org_period_idx').on(t.orgId, t.period),
+    dealerPeriodIdx: index('pms_target_dealer_period_idx').on(t.dealerOrgId, t.period),
+    tenantIdx: index('pms_target_tenant_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * pms_demand_gen_leads · 线索开发
+ * 支持线索漏斗和转化追踪
+ */
+export const pmsDemandGenLeads = pgTable(
+  'pms_demand_gen_leads',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    source: text('source').notNull(),
+    customerName: text('customerName').notNull(),
+    contactPhone: text('contactPhone'),
+    region: text('region'),
+    status: text('status').notNull().default('new'),
+    assignedTo: text('assignedTo'),
+    convertedOpportunityId: text('convertedOpportunityId'),
+    convertedAt: timestamp('convertedAt', { precision: 3, mode: 'date' }),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+  },
+  (t) => ({
+    sourceStatusIdx: index('pms_lead_source_status_idx').on(t.source, t.status),
+    assignedIdx: index('pms_lead_assigned_idx').on(t.assignedTo),
+    tenantIdx: index('pms_lead_tenant_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * pms_key_product_campaigns · 主推产品推广
+ * 支持推广目标和进展追踪
+ */
+export const pmsKeyProductCampaigns = pgTable(
+  'pms_key_product_campaigns',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    productId: text('productId').notNull(),
+    name: text('name').notNull(),
+    targetSales: numeric('targetSales').notNull(),
+    actualSales: numeric('actualSales').default('0'),
+    startDate: text('startDate').notNull(),
+    endDate: text('endDate').notNull(),
+    status: text('status').notNull().default('active'),
+    createdBy: text('createdBy').notNull(),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+  },
+  (t) => ({
+    productIdx: index('pms_campaign_product_idx').on(t.productId, t.status),
+    dateIdx: index('pms_campaign_date_idx').on(t.startDate, t.endDate),
+    tenantIdx: index('pms_campaign_tenant_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * pms_equipment_telemetry · 设备遥测数据
+ * 支持IoT数据接入和告警
+ */
+export const pmsEquipmentTelemetry = pgTable(
+  'pms_equipment_telemetry',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    snCode: text('snCode').notNull(),
+    timestamp: timestamp('timestamp', { precision: 3, mode: 'date' }).notNull(),
+    metrics: jsonb('metrics').notNull(),
+    alerts: jsonb('alerts').default([]),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => ({
+    snTimeIdx: index('pms_telemetry_sn_time_idx').on(t.snCode, t.timestamp),
+    tenantIdx: index('pms_telemetry_tenant_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * pms_customer_feedback · 甲方反馈
+ * 支持免登录触点和满意度收集
+ */
+export const pmsCustomerFeedback = pgTable(
+  'pms_customer_feedback',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    snCode: text('snCode'),
+    maintenanceRecordId: text('maintenanceRecordId'),
+    type: text('type').notNull(),
+    rating: integer('rating'),
+    comment: text('comment'),
+    contactInfo: text('contactInfo'),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+  },
+  (t) => ({
+    snIdx: index('pms_feedback_sn_idx').on(t.snCode),
+    maintIdx: index('pms_feedback_maint_idx').on(t.maintenanceRecordId),
+    tenantIdx: index('pms_feedback_tenant_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * pms_quote_recommendations · AI报价推荐
+ * 预留接口，待恒热代码融入
+ */
+export const pmsQuoteRecommendations = pgTable(
+  'pms_quote_recommendations',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    opportunityId: text('opportunityId'),
+    customerRequirements: jsonb('customerRequirements').notNull(),
+    recommendations: jsonb('recommendations').notNull(),
+    aiModel: text('aiModel'),
+    status: text('status').notNull().default('draft'),
+    createdBy: text('createdBy').notNull(),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+  },
+  (t) => ({
+    oppIdx: index('pms_quote_opp_idx').on(t.opportunityId),
+    tenantIdx: index('pms_quote_tenant_idx').on(t.tenantId),
+  }),
+);
