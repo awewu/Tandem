@@ -89,7 +89,7 @@ export async function listTargets(filters: {
   targetType?: string;
   limit?: number;
   offset?: number;
-}): Promise<any[]> {
+}): Promise<ReturnType<typeof mapTarget>[]> {
   const conditions = [eq(pmsPerformanceTargets.tenantId, filters.tenantId)];
   if (filters.period) conditions.push(eq(pmsPerformanceTargets.period, filters.period));
   if (filters.orgId) conditions.push(eq(pmsPerformanceTargets.orgId, filters.orgId));

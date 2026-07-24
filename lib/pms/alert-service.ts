@@ -146,7 +146,7 @@ export async function listAlerts(filters: {
   acted?: boolean;
   limit?: number;
   offset?: number;
-}): Promise<any[]> {
+}): Promise<ReturnType<typeof mapAlert>[]> {
   const conditions = [eq(pmsAlerts.tenantId, filters.tenantId)];
   if (filters.severity) conditions.push(eq(pmsAlerts.severity, filters.severity));
   if (filters.entityType) conditions.push(eq(pmsAlerts.entityType, filters.entityType));
@@ -183,7 +183,21 @@ export async function ackAlert(input: {
   return { id: input.id, acted: true, actedBy: input.actedBy, actedAt: now.toISOString() };
 }
 
-export async function createNotificationRule(tenantId: string, input: any): Promise<any> {
+export interface CreateNotificationRuleInput {
+  name: string;
+  alertType: string;
+  severity: string;
+  targetRole: string;
+  channels?: string[];
+  escalationSLA?: number | null;
+  enabled?: boolean;
+  createdBy: string;
+}
+
+export async function createNotificationRule(
+  tenantId: string,
+  input: CreateNotificationRuleInput,
+): Promise<CreateNotificationRuleInput & { id: string; tenantId: string; enabled: boolean; createdAt: string }> {
   const now = new Date();
   const id = nanoid();
   await db.insert(pmsNotificationRules).values({
@@ -207,7 +221,7 @@ export async function listNotificationRules(filters: {
   tenantId: string;
   alertType?: string;
   severity?: string;
-}): Promise<any[]> {
+}): Promise<ReturnType<typeof mapRule>[]> {
   const conditions = [eq(pmsNotificationRules.tenantId, filters.tenantId)];
   if (filters.alertType) conditions.push(eq(pmsNotificationRules.alertType, filters.alertType));
   if (filters.severity) conditions.push(eq(pmsNotificationRules.severity, filters.severity));

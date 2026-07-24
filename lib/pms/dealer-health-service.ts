@@ -112,7 +112,7 @@ export async function listHealthScores(filters: {
   period?: string;
   limit?: number;
   offset?: number;
-}): Promise<any[]> {
+}): Promise<ReturnType<typeof mapScore>[]> {
   const conditions = [eq(pmsDealerHealthScores.tenantId, filters.tenantId)];
   if (filters.dealerOrgId) conditions.push(eq(pmsDealerHealthScores.dealerOrgId, filters.dealerOrgId));
   if (filters.period) conditions.push(eq(pmsDealerHealthScores.period, filters.period));

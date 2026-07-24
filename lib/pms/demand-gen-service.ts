@@ -83,7 +83,7 @@ export async function listLeads(filters: {
   assignedTo?: string;
   limit?: number;
   offset?: number;
-}): Promise<any[]> {
+}): Promise<ReturnType<typeof mapLead>[]> {
   const conditions = [eq(pmsDemandGenLeads.tenantId, filters.tenantId)];
   if (filters.status) conditions.push(eq(pmsDemandGenLeads.status, filters.status));
   if (filters.source) conditions.push(eq(pmsDemandGenLeads.source, filters.source));

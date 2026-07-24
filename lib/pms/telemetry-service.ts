@@ -87,7 +87,7 @@ export async function listTelemetry(filters: {
   from?: string;
   to?: string;
   limit?: number;
-}): Promise<any[]> {
+}): Promise<ReturnType<typeof mapTelemetry>[]> {
   const conditions = [
     eq(pmsEquipmentTelemetry.tenantId, filters.tenantId),
     eq(pmsEquipmentTelemetry.snCode, filters.snCode),

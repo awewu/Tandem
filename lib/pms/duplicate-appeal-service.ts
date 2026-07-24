@@ -135,7 +135,7 @@ export async function listAppeals(filters: {
   appealerId?: string;
   limit?: number;
   offset?: number;
-}): Promise<any[]> {
+}): Promise<ReturnType<typeof mapAppeal>[]> {
   const conditions = [eq(pmsDuplicateAppeals.tenantId, filters.tenantId)];
   if (filters.status) conditions.push(eq(pmsDuplicateAppeals.status, filters.status));
   if (filters.duplicateCheckId) conditions.push(eq(pmsDuplicateAppeals.duplicateCheckId, filters.duplicateCheckId));
@@ -153,7 +153,7 @@ export async function listAppeals(filters: {
 }
 
 /** 获取申诉详情 */
-export async function getAppeal(appealId: string, tenantId: string): Promise<any | null> {
+export async function getAppeal(appealId: string, tenantId: string): Promise<ReturnType<typeof mapAppeal> | null> {
   const rows = await db
     .select()
     .from(pmsDuplicateAppeals)

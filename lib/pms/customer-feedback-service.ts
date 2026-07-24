@@ -75,7 +75,7 @@ export async function listFeedback(filters: {
   type?: string;
   limit?: number;
   offset?: number;
-}): Promise<any[]> {
+}): Promise<ReturnType<typeof mapFeedback>[]> {
   const conditions = [eq(pmsCustomerFeedback.tenantId, filters.tenantId)];
   if (filters.snCode) conditions.push(eq(pmsCustomerFeedback.snCode, filters.snCode));
   if (filters.maintenanceRecordId) conditions.push(eq(pmsCustomerFeedback.maintenanceRecordId, filters.maintenanceRecordId));

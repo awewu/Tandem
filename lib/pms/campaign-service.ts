@@ -83,7 +83,7 @@ export async function listCampaigns(filters: {
   status?: string;
   limit?: number;
   offset?: number;
-}): Promise<any[]> {
+}): Promise<ReturnType<typeof mapCampaign>[]> {
   const conditions = [eq(pmsKeyProductCampaigns.tenantId, filters.tenantId)];
   if (filters.productId) conditions.push(eq(pmsKeyProductCampaigns.productId, filters.productId));
   if (filters.status) conditions.push(eq(pmsKeyProductCampaigns.status, filters.status));

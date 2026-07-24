@@ -113,7 +113,7 @@ export async function upsertDealerProfile(input: {
 }
 
 /** 获取经销商档案 (按 orgId) */
-export async function getDealerProfile(orgId: string, tenantId: string): Promise<any | null> {
+export async function getDealerProfile(orgId: string, tenantId: string): Promise<ReturnType<typeof mapProfile> | null> {
   const rows = await db
     .select()
     .from(pmsDealerOrgProfiles)
@@ -127,7 +127,7 @@ export async function listDealerProfiles(filters: {
   tenantId: string;
   limit?: number;
   offset?: number;
-}): Promise<any[]> {
+}): Promise<ReturnType<typeof mapProfile>[]> {
   const rows = await db
     .select()
     .from(pmsDealerOrgProfiles)
@@ -174,7 +174,7 @@ export async function listQualifications(filters: {
   dealerOrgId?: string;
   type?: string;
   status?: string;
-}): Promise<any[]> {
+}): Promise<ReturnType<typeof mapQual>[]> {
   const conditions = [eq(pmsDealerQualifications.tenantId, filters.tenantId)];
   if (filters.dealerOrgId) conditions.push(eq(pmsDealerQualifications.dealerOrgId, filters.dealerOrgId));
   if (filters.type) conditions.push(eq(pmsDealerQualifications.type, filters.type));
