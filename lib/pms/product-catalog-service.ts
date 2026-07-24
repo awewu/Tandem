@@ -10,6 +10,41 @@ import { nanoid } from 'nanoid';
 import { db } from '../infra/drizzle-client';
 import { pmsProductCatalog, pmsCustomerAccounts } from '../infra/drizzle-schema';
 import { and, eq, desc } from 'drizzle-orm';
+import type { BomItem } from '@/lib/types/pms';
+
+export interface CreateProductInput {
+  series: string;
+  seriesCode?: string;
+  model: string;
+  modelCode?: string;
+  category?: string;
+  specification?: string;
+  unit?: string;
+  listPrice?: number;
+  costPrice?: number;
+  minPrice?: number;
+  bomItems?: BomItem[];
+  parentModel?: string;
+  attributes?: Record<string, string>;
+  source?: 'ys' | 'import' | 'manual';
+  sourceRefId?: string;
+  status?: string;
+}
+
+export interface CreateCustomerAccountInput {
+  name: string;
+  externalCode?: string;
+  type?: 'hotel' | 'factory' | 'school' | 'apartment' | 'hospital' | 'government' | 'other';
+  parentAccountId?: string;
+  level?: number;
+  region?: string;
+  channel?: string;
+  dealerOrgId?: string;
+  attributes?: Record<string, string>;
+  source?: 'ys' | 'import' | 'manual';
+  sourceRefId?: string;
+  status?: string;
+}
 
 // --- 纯函数 (可测) ---
 
@@ -71,7 +106,10 @@ function mapCustomer(row: typeof pmsCustomerAccounts.$inferSelect) {
   };
 }
 
-export async function createProduct(tenantId: string, input: any): Promise<any> {
+export async function createProduct(
+  tenantId: string,
+  input: CreateProductInput,
+): Promise<CreateProductInput & { id: string; tenantId: string; status: string; createdAt: string }> {
   const now = new Date();
   const id = nanoid();
   await db.insert(pmsProductCatalog).values({
@@ -106,7 +144,7 @@ export async function listProducts(filters: {
   status?: string;
   limit?: number;
   offset?: number;
-}): Promise<any[]> {
+}): Promise<ReturnType<typeof mapProduct>[]> {
   const conditions = [eq(pmsProductCatalog.tenantId, filters.tenantId)];
   if (filters.series) conditions.push(eq(pmsProductCatalog.series, filters.series));
   if (filters.category) conditions.push(eq(pmsProductCatalog.category, filters.category));
@@ -121,7 +159,7 @@ export async function listProducts(filters: {
   return rows.map(mapProduct);
 }
 
-export async function getProduct(id: string, tenantId: string): Promise<any | null> {
+export async function getProduct(id: string, tenantId: string): Promise<ReturnType<typeof mapProduct> | null> {
   const rows = await db
     .select()
     .from(pmsProductCatalog)
@@ -134,7 +172,7 @@ export async function updateProductStatus(input: {
   tenantId: string;
   id: string;
   status: string;
-}): Promise<any> {
+}): Promise<{ id: string; status: string; updatedAt: string }> {
   const now = new Date();
   const rows = await db
     .select()
@@ -149,7 +187,10 @@ export async function updateProductStatus(input: {
   return { id: input.id, status: input.status, updatedAt: now.toISOString() };
 }
 
-export async function createCustomerAccount(tenantId: string, input: any): Promise<any> {
+export async function createCustomerAccount(
+  tenantId: string,
+  input: CreateCustomerAccountInput,
+): Promise<CreateCustomerAccountInput & { id: string; tenantId: string; status: string; createdAt: string }> {
   const now = new Date();
   const id = nanoid();
   await db.insert(pmsCustomerAccounts).values({
@@ -180,7 +221,7 @@ export async function listCustomerAccounts(filters: {
   parentAccountId?: string;
   limit?: number;
   offset?: number;
-}): Promise<any[]> {
+}): Promise<ReturnType<typeof mapCustomer>[]> {
   const conditions = [eq(pmsCustomerAccounts.tenantId, filters.tenantId)];
   if (filters.region) conditions.push(eq(pmsCustomerAccounts.region, filters.region));
   if (filters.dealerOrgId) conditions.push(eq(pmsCustomerAccounts.dealerOrgId, filters.dealerOrgId));

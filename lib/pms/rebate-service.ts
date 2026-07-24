@@ -6,7 +6,6 @@ import { nanoid } from 'nanoid';
 import { db } from '../infra/drizzle-client';
 import { pmsRebatePolicies, pmsRebateAccruals } from '../infra/drizzle-schema';
 import { eq, and, desc } from 'drizzle-orm';
-import type { RebatePolicy, RebateAccrual } from '@/lib/types/pms';
 
 // ---------------------------------------------------------------------------
 // 纯函数 (可测) · 阶梯返利计算
@@ -46,7 +45,20 @@ export function computeRebate(
   return { rebateRate: tier.rebateRate, rebateAmount };
 }
 
-export async function createRebatePolicy(tenantId: string, input: any): Promise<any> {
+export interface CreateRebatePolicyInput {
+  name: string;
+  productLine?: string;
+  tiers: RebateTier[];
+  effectiveDate: string;
+  expiryDate?: string;
+  status?: string;
+  createdBy: string;
+}
+
+export async function createRebatePolicy(
+  tenantId: string,
+  input: CreateRebatePolicyInput,
+): Promise<CreateRebatePolicyInput & { id: string; createdAt: string; updatedAt: string }> {
   const now = new Date();
   const id = nanoid();
   
@@ -92,7 +104,21 @@ export async function listRebatePolicies(tenantId: string, status?: string): Pro
   }));
 }
 
-export async function createRebateAccrual(tenantId: string, input: any): Promise<any> {
+export interface CreateRebateAccrualInput {
+  dealerOrgId: string;
+  policyId: string;
+  period: string;
+  salesAmount: number;
+  rebateAmount: number;
+  status?: string;
+  settledBy?: string;
+  settledAt?: Date | null;
+}
+
+export async function createRebateAccrual(
+  tenantId: string,
+  input: CreateRebateAccrualInput,
+): Promise<CreateRebateAccrualInput & { id: string; createdAt: string }> {
   const now = new Date();
   const id = nanoid();
   

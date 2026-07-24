@@ -9,6 +9,16 @@ import { nanoid } from 'nanoid';
 import { db } from '../infra/drizzle-client';
 import { pmsQuoteRecommendations } from '../infra/drizzle-schema';
 import { and, eq, desc } from 'drizzle-orm';
+import type { QuoteRecommendation } from '@/lib/types/pms';
+
+export interface CreateQuoteRecommendationInput {
+  opportunityId?: string;
+  customerRequirements: QuoteRecommendation['customerRequirements'];
+  recommendations: QuoteRecommendation['recommendations'];
+  aiModel?: string;
+  status?: string;
+  createdBy: string;
+}
 
 // --- 纯函数 (可测) ---
 
@@ -46,7 +56,10 @@ function mapRec(row: typeof pmsQuoteRecommendations.$inferSelect) {
   };
 }
 
-export async function createQuoteRecommendation(tenantId: string, input: any): Promise<any> {
+export async function createQuoteRecommendation(
+  tenantId: string,
+  input: CreateQuoteRecommendationInput,
+): Promise<CreateQuoteRecommendationInput & { id: string; tenantId: string; status: string; createdAt: string }> {
   const now = new Date();
   const id = nanoid();
   await db.insert(pmsQuoteRecommendations).values({
