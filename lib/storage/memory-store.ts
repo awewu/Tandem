@@ -281,6 +281,7 @@ function createInMemoryAuthStore(): AuthStore {
 export function createInMemoryStore(): TandemStore {
   return instrumentBusinessRepositories({
     _storeKind: 'memory' as const,
+    withMutationTransaction: (mutation) => mutation(),
     decisionCards: new InMemoryRepository(),
     personas: new InMemoryRepository(),
     agentTemplates: new InMemoryRepository(),
@@ -304,6 +305,7 @@ export function createInMemoryStore(): TandemStore {
     ttis: new InMemoryRepository(),
     initiatives: new InMemoryRepository(),
     checkIns: new InMemoryRepository(),
+    dailyReports: new InMemoryRepository(),
 
     // KPI 体系 (CHARTER-KPI-TTI §2)
     kpiCycles: new InMemoryRepository(),

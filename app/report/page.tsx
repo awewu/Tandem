@@ -48,6 +48,34 @@ import {
 type Mood = 'happy' | 'neutral' | 'sad';
 type ReportVisibility = 'private' | 'selected' | 'public';
 type AnalysisConfidence = 'on-track' | 'at-risk' | 'off-track';
+type VisibleReport = Omit<CheckIn, 'scope' | 'achievements' | 'blockers' | 'nextSteps' | 'mood'> & {
+  scope: CheckIn['scope'] | 'non_okr';
+  achievements?: string | null;
+  blockers?: string | null;
+  nextSteps?: string | null;
+  mood?: Mood | null;
+  tenantId?: string;
+  reportDate?: string;
+  hours?: number;
+  workType?: string;
+  projectCode?: string;
+  sourceSystem?: string;
+};
+type PlmDailyReport = {
+  id: string;
+  tenantId: string;
+  authorId: string;
+  reportDate: string;
+  updatedAt: string;
+  entries: Array<{
+    externalEntryId: string;
+    krId: string | null;
+    projectCode: string;
+    hours: number;
+    workType: string;
+    content: string;
+  }>;
+};
 type AnalysisResult = {
   achievements: string[];
   blockers: string[];
@@ -217,7 +245,7 @@ function ReportPageInner() {
   const [reportViewerIds, setReportViewerIds] = useState<string[]>([]);
   const [viewerSearch, setViewerSearch] = useState('');
   const [viewerSelectOpen, setViewerSelectOpen] = useState(false);
-  const [visibleReports, setVisibleReports] = useState<CheckIn[]>([]);
+  const [visibleReports, setVisibleReports] = useState<VisibleReport[]>([]);
   const [visibleReportsLoading, setVisibleReportsLoading] = useState(false);
   const [reportAuthorSearch, setReportAuthorSearch] = useState('');
 
@@ -298,12 +326,13 @@ function ReportPageInner() {
       const authorName = nameOf(report.authorId).toLowerCase();
       const authorId = report.authorId.toLowerCase();
       const krTitle = kr?.title.toLowerCase() ?? '';
+      const dailyText = `${report.projectCode ?? ''} ${report.workType ?? ''} ${report.achievements ?? ''}`.toLowerCase();
       const normalizedAuthorId = authorId.startsWith('person:') ? authorId.slice('person:'.length) : authorId;
       const matchedPerson =
         searchedReportOwnerIds.has(report.authorId) ||
         searchedReportOwnerIds.has(normalizedAuthorId) ||
         searchedReportOwnerIds.has(`person:${normalizedAuthorId}`);
-      return matchedPerson || authorName.includes(keyword) || authorId.includes(keyword) || krTitle.includes(keyword);
+      return matchedPerson || authorName.includes(keyword) || authorId.includes(keyword) || krTitle.includes(keyword) || dailyText.includes(keyword);
     });
   }, [nameOf, normalizedReportSearch, searchedReportOwnerIds, visibleReportItems]);
   const searchedOkrSnapshotItems = useMemo(() => {
@@ -335,21 +364,59 @@ function ReportPageInner() {
   const loadVisibleReports = async () => {
     setVisibleReportsLoading(true);
     try {
-      const res = await fetch('/api/okr/checkins?feed=visible-daily', {
-        cache: 'no-store',
-        credentials: 'include',
-      });
-      if (!res.ok) return;
-      const data = await res.json();
-      const items = Array.isArray(data.checkIns) ? data.checkIns : [];
-      setVisibleReports(items.map((item: any) => ({
+      const [checkInRes, dailyReportRes] = await Promise.all([
+        fetch('/api/okr/checkins?feed=visible-daily', {
+          cache: 'no-store',
+          credentials: 'include',
+        }),
+        fetch('/api/integrations/plm/daily-reports', {
+          cache: 'no-store',
+          credentials: 'include',
+        }),
+      ]);
+
+      const checkInData = checkInRes.ok ? await checkInRes.json() : { checkIns: [] };
+      const dailyReportData = dailyReportRes.ok ? await dailyReportRes.json() : { dailyReports: [] };
+      const items = Array.isArray(checkInData.checkIns) ? checkInData.checkIns : [];
+      const reports = Array.isArray(dailyReportData.dailyReports)
+        ? (dailyReportData.dailyReports as PlmDailyReport[])
+        : [];
+      const checkInReports: VisibleReport[] = items.map((item: any) => ({
         ...item,
         achievements: item.achievements ?? undefined,
         blockers: item.blockers ?? undefined,
         nextSteps: item.nextSteps ?? undefined,
         mood: item.mood ?? undefined,
         createdAt: typeof item.createdAt === 'string' ? Date.parse(item.createdAt) : item.createdAt,
-      })));
+      }));
+      const nonOkrReports: VisibleReport[] = reports.flatMap((report) =>
+        report.entries
+          .filter((entry) => entry.krId == null)
+          .map((entry) => ({
+            id: `${report.id}:${entry.externalEntryId}`,
+            scope: 'non_okr' as const,
+            scopeId: '',
+            authorId: report.authorId,
+            progressBefore: 0,
+            progressAfter: 0,
+            confidenceBefore: 'on-track' as const,
+            confidenceAfter: 'on-track' as const,
+            achievements: entry.content,
+            blockers: null,
+            nextSteps: null,
+            mood: null,
+            visibility: 'private' as const,
+            viewerIds: [],
+            tenantId: report.tenantId,
+            createdAt: Date.parse(`${report.reportDate}T12:00:00.000Z`),
+            reportDate: report.reportDate,
+            hours: entry.hours,
+            workType: entry.workType,
+            projectCode: entry.projectCode,
+            sourceSystem: 'innovation-studio',
+          })),
+      );
+      setVisibleReports([...checkInReports, ...nonOkrReports].sort((a, b) => b.createdAt - a.createdAt));
     } finally {
       setVisibleReportsLoading(false);
     }
@@ -1530,18 +1597,27 @@ function ReportPageInner() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="truncate font-semibold text-ink-primary">
-                            {kr?.title ?? (report.scope === 'objective' ? 'Objective 日报' : 'KR 日报')}
+                            {report.scope === 'non_okr'
+                              ? `非 OKR 工作 · ${report.projectCode ?? '未归类'}`
+                              : kr?.title ?? (report.scope === 'objective' ? 'Objective 日报' : 'KR 日报')}
                           </p>
                           <p className="mt-0.5 text-[10px] text-muted-foreground">
-                            {nameOf(report.authorId)} · {new Date(report.createdAt).toLocaleString('zh-CN')}
+                            {nameOf(report.authorId)} · {report.reportDate ?? new Date(report.createdAt).toLocaleString('zh-CN')}
                           </p>
                         </div>
                         <Badge variant="outline" className="shrink-0 bg-white text-[10px]">
-                          {report.visibility === 'public' ? '全员' : report.visibility === 'selected' ? '指定人' : '仅自己'}
+                          {report.scope === 'non_okr'
+                            ? `${report.hours ?? 0}h`
+                            : report.visibility === 'public' ? '全员' : report.visibility === 'selected' ? '指定人' : '仅自己'}
                         </Badge>
                       </div>
                       {report.achievements && (
                         <p className="mt-2 whitespace-pre-wrap leading-relaxed text-ink-secondary">{report.achievements}</p>
+                      )}
+                      {report.scope === 'non_okr' && (
+                        <p className="mt-2 text-[10px] text-muted-foreground">
+                          {report.workType ?? 'work'} · {report.sourceSystem === 'innovation-studio' ? 'Innovation Studio 同步' : '结构化日报'}
+                        </p>
                       )}
                       {report.blockers && (
                         <p className="mt-2 whitespace-pre-wrap leading-relaxed text-warning">卡点：{report.blockers}</p>

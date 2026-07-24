@@ -1276,6 +1276,8 @@ function createAgentTemplateRepo(): import('./repository').Repository<AgentTempl
 export function createDrizzleStore(): TandemStore {
   return instrumentBusinessRepositories({
     _storeKind: 'prisma' as const, // 历史命名, 表示"已持久化"模式
+    withMutationTransaction: (mutation) =>
+      db.transaction((tx) => kvTransactionContext.run(tx, mutation)),
     decisionCards: new DrizzleKvRepository('decision_cards'),
     personas: new DrizzleKvRepository('personas'),
     agentTemplates: createAgentTemplateRepo(),
@@ -1299,6 +1301,7 @@ export function createDrizzleStore(): TandemStore {
     ttis: new DrizzleKvRepository('ttis'),
     initiatives: new DrizzleKvRepository('initiatives'),
     checkIns: new DrizzleKvRepository('check_ins'),
+    dailyReports: new DrizzleKvRepository('daily_reports'),
 
     // KPI 体系 (CHARTER-KPI-TTI §2) — 强类型表, 不走 KvStore
     kpiCycles: createKpiCycleRepo(),
