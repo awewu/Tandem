@@ -274,10 +274,11 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
       if (query.category) qb.andWhere('p.category = :category', { category: query.category });
       if (query.status)   qb.andWhere('p.status = :status', { status: query.status });
       else qb.andWhere("p.status <> 'archived'");
-      if (query.q) {
+      const keyword = query.keyword || query.q;
+      if (keyword) {
         qb.andWhere(
           "(p.name ILIKE :q OR p.sku ILIKE :q OR p.brand ILIKE :q OR COALESCE(p.spec->>'officialModel', '') ILIKE :q OR COALESCE(p.meta -> p.brand ->> 'slug', '') ILIKE :q OR COALESCE(p.meta -> p.brand ->> 'series', '') ILIKE :q OR COALESCE(p.meta -> p.brand ->> 'tagline', '') ILIKE :q)",
-          { q: `%${String(query.q).trim()}%` },
+          { q: `%${String(keyword).trim()}%` },
         );
       }
       // 定位维度筛选（P4 消费）：jsonb 数组元素存在性。dim 取自白名单，非用户任意串。
@@ -926,11 +927,16 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
       : await findProduct(this.products);
     if (!product) return null;
     const refs = sanitizeAssetRefs(product.assetRefs);
-    const legacyId = (product.meta as any)?.imageArtifactId;
-    const linked = refs.some((r) => ['main', 'detail', 'card', 'icon'].includes(r.role) && r.artifactId === artifactId)
-      || legacyId === artifactId;
+    const meta = product.meta as any;
+    const legacyId = meta?.imageArtifactId;
+    const linkedRef = refs.find((r) => ['main', 'detail', 'card', 'icon'].includes(r.role) && r.artifactId === artifactId);
+    const linked = linkedRef || legacyId === artifactId;
     if (!linked) return null;
-    return this.fileArtifacts.getPublicActiveArtifact(tenantId, artifactId);
+    const objectKey = linkedRef?.objectKey || (legacyId === artifactId ? meta?.imageObjectKey : null);
+    const artifactTenantId = typeof objectKey === 'string' && objectKey.includes('/')
+      ? objectKey.split('/')[0]
+      : tenantId;
+    return this.fileArtifacts.getPublicActiveArtifact(artifactTenantId, artifactId);
   }
 
   // ── L7 发布工作流（P1）· draft→review→scheduled→published + 审计流转 ────────

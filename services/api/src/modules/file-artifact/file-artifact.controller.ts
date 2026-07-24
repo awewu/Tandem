@@ -1,6 +1,6 @@
 import {
-  Body, Controller, Delete, Get, Param, Post, Query,
-  Request, Res, UploadedFile, UseGuards, UseInterceptors,
+  BadRequestException, Body, Controller, Delete, Get, NotFoundException, Param, Post, Query,
+  Request, Res, StreamableFile, UploadedFile, UseGuards, UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
@@ -25,6 +25,7 @@ export class FileArtifactController {
     @Query('entityType') entityType: string,
     @Query('entityId')   entityId: string,
   ) {
+    if (!file) throw new BadRequestException('file is required');
     return this.svc.save(req.user, {
       entityType: entityType || 'general',
       entityId:   entityId   || 'unlinked',
@@ -62,6 +63,16 @@ export class FileArtifactController {
   @Get(':id/base64')
   getBase64(@Request() req: { user: JwtPayload }, @Param('id') id: string) {
     return this.svc.getBase64ById(req.user, id);
+  }
+
+  @Get(':id/content')
+  async content(@Request() req: { user: JwtPayload }, @Param('id') id: string) {
+    const artifact = await this.svc.getReadableById(req.user, id);
+    if (!artifact) throw new NotFoundException('artifact not found');
+    return new StreamableFile(artifact.buffer, {
+      type: artifact.row.mimeType || 'application/octet-stream',
+      disposition: `inline; filename="${encodeURIComponent(artifact.row.originalName || id)}"`,
+    });
   }
 
   /** W-BIM-2 · 2.3：对象存储外部往返验证 */

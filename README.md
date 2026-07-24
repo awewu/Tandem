@@ -138,21 +138,30 @@ cp .env.example .env
 mongod
 ```
 
-1. **启动开发服务器**
+1. **Windows 本地全量启动（当前开发栈）**
 
-```bash
-# 同时启动前端和后端
-npm run dev
+在普通 PowerShell 中从仓库根目录执行。每条命令会占用一个终端窗口/标签页，建议先启动 API，再启动各个前端应用。Codex/受限沙盒里 `pnpm` 可能因为访问 `C:\Users\Rheem` 被拒，遇到这种情况请用正常 PowerShell 运行。
 
-# 或者分别启动
-npm run dev:server  # 后端服务 (端口 5000)
-npm run dev:client  # 前端服务 (端口 3000)
+```powershell
+node scripts/start-api.js
+
+pnpm.cmd --filter dealer-workbench dev
+pnpm.cmd --filter public-portal dev
+pnpm.cmd --filter everhot-cn dev
+pnpm.cmd --filter lithnova-cn dev
+pnpm.cmd --filter rheem-cn dev
+pnpm.cmd --filter ruud-cn dev
 ```
 
 1. **访问应用**
 
-- 前端：<http://localhost:3000>
-- 后端API：<http://localhost:5000>
+- API：<http://localhost:5500/api/v2/health>
+- 经销商工作台：<http://localhost:5000/>
+- 公共门户：<http://localhost:5005/>
+- Everhot 官网：<http://localhost:5011/>
+- Lithnova 官网：<http://localhost:5013/>
+- Rheem 官网：<http://localhost:5014/>
+- Ruud 官网：<http://localhost:5015/>
 
 ## 项目结构
 

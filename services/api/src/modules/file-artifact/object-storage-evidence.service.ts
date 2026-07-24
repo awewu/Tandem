@@ -7,6 +7,7 @@ import * as path from 'path';
 import { ObjectStorageEvidenceEntity } from './object-storage-evidence.entity';
 import { withRlsTransaction } from '../common/rls';
 import { TenantScope } from '../common/tenant-context';
+import { resolveStorageRoot } from './file-artifact.storage';
 
 /**
  * W-BIM-2 · 2.3：对象存储外部往返证据服务。
@@ -14,7 +15,7 @@ import { TenantScope } from '../common/tenant-context';
  * 当前实现基于本地磁盘（`file-artifact` 现有存储），但抽象为 `record` / `verifyRoundTrip`
  * 两个接口；未来切到 S3/OSS 时只需替换底层 `putObject` / `getObject` 即可复用证据链。
  */
-const STORAGE_ROOT = process.env.STORAGE_LOCAL_PATH || path.join(process.cwd(), '../../storage');
+const STORAGE_ROOT = resolveStorageRoot();
 
 export interface EvidenceRecord {
   tenantId: string;

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { FileArtifactEntity } from './file-artifact.entity';
@@ -9,9 +9,11 @@ import { TenantScope } from '../common/tenant-context';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
+import { artifactBase64Url, artifactContentUrl, resolveStorageRoot } from './file-artifact.storage';
 
-const STORAGE_ROOT = process.env.STORAGE_LOCAL_PATH || path.join(process.cwd(), '../../storage');
+const STORAGE_ROOT = resolveStorageRoot();
 const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+const DEFAULT_MAX_BYTES = 25 * 1024 * 1024;
 
 @Injectable()
 export class FileArtifactService {
@@ -32,6 +34,7 @@ export class FileArtifactService {
     mimeType?: string;
     buffer: Buffer;
   }) {
+    this.assertUpload(opts);
     const ext = path.extname(opts.originalName) || '';
     const key = `${user.tenantId}/${opts.entityType}/${Date.now()}_${crypto.randomBytes(6).toString('hex')}${ext}`;
     const dest = path.join(STORAGE_ROOT, key);
@@ -70,7 +73,7 @@ export class FileArtifactService {
         storageRegion: process.env.STORAGE_REGION ?? 'default',
         meta: { uploadedVia: 'file-artifact' },
       }, this.rls(user));
-      return { success: true, data: saved };
+      return { success: true, data: this.toView(saved) };
     }, this.rls(user));
   }
 
@@ -85,7 +88,7 @@ export class FileArtifactService {
     mimeType?: string;
     dataBase64: string;
   }) {
-    const buffer = Buffer.from(opts.dataBase64, 'base64');
+    const buffer = Buffer.from(this.normalizeBase64(opts.dataBase64), 'base64');
     return this.save(user, {
       entityType: opts.entityType,
       entityId: opts.entityId,
@@ -134,7 +137,7 @@ export class FileArtifactService {
       return {
         success: true,
         data: {
-          id: row.id,
+          ...this.toView(row),
           fileKey: row.fileKey,
           originalName: row.originalName,
           mimeType: row.mimeType,
@@ -188,6 +191,15 @@ export class FileArtifactService {
     return fs.createReadStream(p);
   }
 
+  async getReadableById(user: JwtPayload, id: string) {
+    const artifact = await this.getBase64ById(user, id);
+    if (!artifact.success || !artifact.data) return null;
+    return {
+      row: artifact.data,
+      buffer: Buffer.from(String(artifact.data.dataBase64 || ''), 'base64'),
+    };
+  }
+
   /** Soft-delete. */
   async remove(user: JwtPayload, id: string) {
     await withRlsTransaction(this.ds, (em) => {
@@ -199,5 +211,34 @@ export class FileArtifactService {
       return qb.execute();
     }, this.rls(user));
     return { success: true };
+  }
+
+  private normalizeBase64(value: string) {
+    return String(value || '').replace(/^data:[^;]+;base64,/, '').replace(/\s/g, '');
+  }
+
+  private maxBytes() {
+    const configured = Number(process.env.FILE_ARTIFACT_MAX_BYTES || DEFAULT_MAX_BYTES);
+    return Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_MAX_BYTES;
+  }
+
+  private assertUpload(opts: { originalName: string; mimeType?: string; buffer: Buffer }) {
+    const filename = String(opts.originalName || '').trim();
+    if (!filename) throw new BadRequestException('filename is required');
+    if (filename.includes('\0')) throw new BadRequestException('filename is invalid');
+    if (!opts.buffer?.length) throw new BadRequestException('file cannot be empty');
+    if (opts.buffer.length > this.maxBytes()) {
+      throw new BadRequestException(`file exceeds max size ${this.maxBytes()} bytes`);
+    }
+    const mime = String(opts.mimeType || '').toLowerCase();
+    if (mime && /[\r\n]/.test(mime)) throw new BadRequestException('mimeType is invalid');
+  }
+
+  private toView(row: FileArtifactEntity) {
+    return {
+      ...row,
+      contentUrl: artifactContentUrl(row.id),
+      base64Url: artifactBase64Url(row.id),
+    };
   }
 }
