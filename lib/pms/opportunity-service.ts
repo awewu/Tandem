@@ -92,8 +92,9 @@ export async function createOpportunity(input: {
       archivedAt: null,
     });
   } catch (err: any) {
-    // Postgres 唯一约束冲突 (23505) → 并发精确撞单, 五维查重未及拦截
-    if (err?.code === '23505') {
+    // Postgres 唯一约束冲突 (23505) → 并发精确撞单, 五维查重未及拦截.
+    // Drizzle 包装 postgres 错误: 码可能在 err.code 或 err.cause.code.
+    if (err?.code === '23505' || err?.cause?.code === '23505') {
       return {
         opportunity: undefined,
         duplicateCheck: {

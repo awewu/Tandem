@@ -104,7 +104,8 @@ export async function createContract(input: {
       updatedAt: now,
     });
   } catch (err: any) {
-    if (err?.code === '23505') {
+    // Drizzle 包装 postgres 错误: 唯一约束码可能在 err.code 或 err.cause.code
+    if (err?.code === '23505' || err?.cause?.code === '23505') {
       throw new Error('contract number conflict; retry');
     }
     throw err;
