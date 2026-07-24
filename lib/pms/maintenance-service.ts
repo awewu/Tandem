@@ -77,7 +77,7 @@ export async function createMaintenance(input: {
   type: string;
   reportedBy: string;
   description: string;
-}): Promise<any> {
+}) {
   const now = new Date();
   const id = nanoid();
   await db.insert(pmsMaintenanceRecords).values({
@@ -155,7 +155,7 @@ export async function assignMaintenance(input: {
   id: string;
   assignedTo: string;
   scheduledAt?: string;
-}): Promise<any> {
+}) {
   const now = new Date();
   const current = await getMaintenance(input.id, input.tenantId);
   if (!current) throw new Error('maintenance record not found');
@@ -182,7 +182,7 @@ export async function transitionMaintenance(input: {
   id: string;
   toStatus: MaintenanceStatus;
   customerFeedback?: string;
-}): Promise<any> {
+}) {
   const now = new Date();
   const current = await getMaintenance(input.id, input.tenantId);
   if (!current) throw new Error('maintenance record not found');
@@ -190,7 +190,7 @@ export async function transitionMaintenance(input: {
     throw new Error(`illegal maintenance transition: ${current.status} → ${input.toStatus}`);
   }
 
-  const patch: Record<string, any> = { status: input.toStatus, updatedAt: now };
+  const patch: Partial<typeof pmsMaintenanceRecords.$inferInsert> = { status: input.toStatus, updatedAt: now };
   if (input.toStatus === 'completed') {
     patch.completedAt = now;
     if (input.customerFeedback) patch.customerFeedback = input.customerFeedback;

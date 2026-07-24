@@ -31,7 +31,7 @@ export async function createFollowUp(input: {
   stage: string;
   content: string;
   nextFollowUpAt?: string;
-}): Promise<any> {
+}) {
   const now = new Date();
   const id = nanoid();
   

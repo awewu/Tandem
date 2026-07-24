@@ -57,7 +57,7 @@ export async function createCampaign(input: {
   startDate: string;
   endDate: string;
   createdBy: string;
-}): Promise<any> {
+}) {
   const now = new Date();
   const id = nanoid();
   await db.insert(pmsKeyProductCampaigns).values({
@@ -103,7 +103,7 @@ export async function updateCampaignProgress(input: {
   id: string;
   actualSales: number;
   status?: string;
-}): Promise<any> {
+}) {
   const now = new Date();
   const rows = await db
     .select()
@@ -111,7 +111,7 @@ export async function updateCampaignProgress(input: {
     .where(and(eq(pmsKeyProductCampaigns.id, input.id), eq(pmsKeyProductCampaigns.tenantId, input.tenantId)))
     .limit(1);
   if (rows.length === 0) throw new Error('campaign not found');
-  const patch: Record<string, any> = { actualSales: input.actualSales.toString(), updatedAt: now };
+  const patch: Partial<typeof pmsKeyProductCampaigns.$inferInsert> = { actualSales: input.actualSales.toString(), updatedAt: now };
   if (input.status) patch.status = input.status;
   await db
     .update(pmsKeyProductCampaigns)

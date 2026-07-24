@@ -101,8 +101,8 @@ export async function emitAlert(input: {
 }): Promise<void> {
   try {
     await createAlert(input);
-  } catch (e: any) {
-    console.error('[pms] emitAlert failed (fail-soft):', e?.message || e);
+  } catch (e) {
+    console.error('[pms] emitAlert failed (fail-soft):', e instanceof Error ? e.message : e);
   }
 }
 
@@ -115,7 +115,7 @@ export async function createAlert(input: {
   message: string;
   targetRole?: string;
   targetUserId?: string;
-}): Promise<any> {
+}) {
   const now = new Date();
   const id = nanoid();
   await db.insert(pmsAlerts).values({
@@ -168,7 +168,7 @@ export async function ackAlert(input: {
   tenantId: string;
   id: string;
   actedBy: string;
-}): Promise<any> {
+}) {
   const now = new Date();
   const rows = await db
     .select()

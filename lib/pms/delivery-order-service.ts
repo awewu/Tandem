@@ -141,7 +141,7 @@ export async function transitionDeliveryOrder(input: {
   scheduledDeliveryDate?: string;
   actualDeliveryDate?: string;
   visibleOrgIds?: string[];
-}): Promise<any> {
+}) {
   const now = new Date();
 
   const current = await getDeliveryOrder(input.orderId, input.tenantId, input.visibleOrgIds);
@@ -152,7 +152,7 @@ export async function transitionDeliveryOrder(input: {
     throw new Error(`illegal transition: ${current.status} → ${input.toStatus}`);
   }
 
-  const patch: Record<string, any> = { status: input.toStatus, updatedAt: now };
+  const patch: Partial<typeof pmsDeliveryOrders.$inferInsert> = { status: input.toStatus, updatedAt: now };
   if (input.toStatus === 'scheduled' && input.scheduledDeliveryDate) {
     patch.scheduledDeliveryDate = input.scheduledDeliveryDate;
   }
@@ -184,7 +184,7 @@ export async function createDeliveryTask(input: {
   assigneeType: string;
   description: string;
   dueDate?: string;
-}): Promise<any> {
+}) {
   const now = new Date();
   const id = nanoid();
   await db.insert(pmsDeliveryTasks).values({
@@ -246,7 +246,7 @@ export async function listDeliveryTasks(filters: {
 export async function completeDeliveryTask(input: {
   tenantId: string;
   taskId: string;
-}): Promise<any> {
+}) {
   const now = new Date();
 
   const rows = await db

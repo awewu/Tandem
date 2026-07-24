@@ -174,7 +174,7 @@ export async function checkDuplicate(input: {
 /**
  * 获取查重记录
  */
-export async function getDuplicateCheck(checkId: string, tenantId: string): Promise<any | null> {
+export async function getDuplicateCheck(checkId: string, tenantId: string) {
   const rows = await db
     .select()
     .from(pmsDuplicateChecks)

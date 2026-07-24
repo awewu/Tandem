@@ -80,7 +80,7 @@ export async function createContract(input: {
   signedDate?: string;
   effectiveDate?: string;
   expiryDate?: string;
-}): Promise<any> {
+}) {
   const now = new Date();
   const id = nanoid();
   const contractNumber = formatContractNumber(now, nanoid(8));
@@ -103,9 +103,10 @@ export async function createContract(input: {
       createdAt: now,
       updatedAt: now,
     });
-  } catch (err: any) {
+  } catch (err) {
     // Drizzle 包装 postgres 错误: 唯一约束码可能在 err.code 或 err.cause.code
-    if (err?.code === '23505' || err?.cause?.code === '23505') {
+    const e = err as { code?: string; cause?: { code?: string } };
+    if (e.code === '23505' || e.cause?.code === '23505') {
       throw new Error('contract number conflict; retry');
     }
     throw err;
@@ -222,7 +223,7 @@ export async function approveContract(input: {
   tenantId: string;
   contractId: string;
   approverId: string;
-}): Promise<any> {
+}) {
   const now = new Date();
 
   const rows = await db
@@ -279,7 +280,7 @@ export async function rejectContract(input: {
   tenantId: string;
   contractId: string;
   approverId: string;
-}): Promise<any> {
+}) {
   const now = new Date();
 
   const rows = await db

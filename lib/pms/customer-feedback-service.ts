@@ -50,7 +50,7 @@ export async function submitFeedback(input: {
   rating?: number;
   comment?: string;
   contactInfo?: string;
-}): Promise<any> {
+}) {
   const now = new Date();
   const id = nanoid();
   await db.insert(pmsCustomerFeedback).values({

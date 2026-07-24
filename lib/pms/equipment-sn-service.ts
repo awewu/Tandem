@@ -97,7 +97,7 @@ export async function registerSN(input: {
   batchNumber?: string;
   manufacturedAt?: string;
   parentSNId?: string;
-}): Promise<any> {
+}) {
   const now = new Date();
   const id = nanoid();
   try {
@@ -117,9 +117,10 @@ export async function registerSN(input: {
       createdAt: now,
       updatedAt: now,
     });
-  } catch (err: any) {
+  } catch (err) {
     // Drizzle 包装 postgres 错误: 唯一约束码可能在 err.code 或 err.cause.code
-    if (err?.code === '23505' || err?.cause?.code === '23505') {
+    const e = err as { code?: string; cause?: { code?: string } };
+    if (e.code === '23505' || e.cause?.code === '23505') {
       throw new Error('SN code already exists');
     }
     throw err;
@@ -199,7 +200,7 @@ export async function transitionSN(input: {
   deliveryOrderId?: string;
   installedAt?: string;
   warrantyMonths?: number;
-}): Promise<any> {
+}) {
   const now = new Date();
 
   const current = await getSN(input.snId, input.tenantId);
@@ -210,7 +211,7 @@ export async function transitionSN(input: {
     throw new Error(`illegal SN transition: ${current.status} → ${input.toStatus}`);
   }
 
-  const patch: Record<string, any> = { status: input.toStatus, updatedAt: now };
+  const patch: Partial<typeof pmsEquipmentSns.$inferInsert> = { status: input.toStatus, updatedAt: now };
 
   if (input.toStatus === 'shipped' && input.deliveryOrderId) {
     patch.deliveryOrderId = input.deliveryOrderId;

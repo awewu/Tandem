@@ -80,7 +80,7 @@ export async function createDealerOrder(input: {
   tenantId: string;
   dealerOrgId: string;
   items: OrderItem[];
-}): Promise<any> {
+}) {
   const now = new Date();
   const id = nanoid();
   const totalAmount = computeOrderTotal(input.items);
@@ -90,7 +90,7 @@ export async function createDealerOrder(input: {
     tenantId: input.tenantId,
     dealerOrgId: input.dealerOrgId,
     orderNumber,
-    items: input.items as any,
+    items: input.items,
     totalAmount: totalAmount.toString(),
     status: 'pending',
     confirmedBy: null,
@@ -142,7 +142,7 @@ export async function transitionDealerOrder(input: {
   id: string;
   toStatus: DealerOrderStatus;
   actorId?: string;
-}): Promise<any> {
+}) {
   const now = new Date();
   const rows = await db
     .select()
@@ -153,7 +153,7 @@ export async function transitionDealerOrder(input: {
   if (!canTransitionOrder(rows[0].status, input.toStatus)) {
     throw new Error(`illegal order transition: ${rows[0].status} → ${input.toStatus}`);
   }
-  const patch: Record<string, any> = { status: input.toStatus, updatedAt: now };
+  const patch: Partial<typeof pmsDealerOrders.$inferInsert> = { status: input.toStatus, updatedAt: now };
   if (input.toStatus === 'confirmed') {
     patch.confirmedBy = input.actorId ?? null;
     patch.confirmedAt = now;

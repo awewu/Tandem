@@ -74,7 +74,7 @@ export async function upsertDealerProfile(input: {
   registeredCapital?: number;
   establishedDate?: string;
   coverageRegions?: string[];
-}): Promise<any> {
+}) {
   const now = new Date();
   const existing = await db
     .select()
@@ -147,7 +147,7 @@ export async function addQualification(input: {
   issuedBy?: string;
   issuedDate?: string;
   expiryDate?: string;
-}): Promise<any> {
+}) {
   const now = new Date();
   const id = nanoid();
   await db.insert(pmsDealerQualifications).values({
@@ -193,7 +193,7 @@ export async function decideQualification(input: {
   qualificationId: string;
   approverId: string;
   decision: 'approved' | 'rejected';
-}): Promise<any> {
+}) {
   const now = new Date();
   const rows = await db
     .select()

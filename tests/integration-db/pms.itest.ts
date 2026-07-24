@@ -273,7 +273,7 @@ describe.skipIf(!hasDb)('integration(db) · PMS 关键路径', () => {
     expect(a.byRegion['北京']).toBe(2);
     expect(a.byRegion['上海']).toBe(1);
     // 漏斗按标准阶段顺序
-    const initial = a.funnel.find((f: any) => f.stage === 'initial_contact');
+    const initial = a.funnel.find((f) => f.stage === 'initial_contact')!;
     expect(initial.count).toBe(1);
 
     // orgId 隔离下的聚合: 仅可见 ORG_B → 全空

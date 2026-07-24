@@ -68,7 +68,7 @@ export async function createAppeal(input: {
   appealerId: string;
   reason: string;
   evidence?: string[];
-}): Promise<any> {
+}) {
   const now = new Date();
 
   const checkRows = await db
@@ -177,7 +177,7 @@ export async function arbitrateAppeal(input: {
   arbitratedBy: string;
   decision: ArbitrationDecision;
   arbitrationReason?: string;
-}): Promise<any> {
+}) {
   const now = new Date();
 
   const rows = await db

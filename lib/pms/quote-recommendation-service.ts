@@ -26,7 +26,7 @@ export interface Recommendation {
   model?: string;
   price?: number;
   score?: number;
-  [k: string]: any;
+  [k: string]: unknown;
 }
 
 /** 取评分最高的推荐 (score 缺失视为 0); 空 → null */
@@ -101,7 +101,7 @@ export async function updateQuoteRecommendationStatus(input: {
   tenantId: string;
   id: string;
   status: string;
-}): Promise<any> {
+}) {
   const now = new Date();
   const rows = await db
     .select()

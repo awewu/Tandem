@@ -63,7 +63,7 @@ export async function ingestTelemetry(input: {
   timestamp?: string;
   metrics: Record<string, number>;
   thresholds?: Record<string, TelemetryThreshold>;
-}): Promise<any> {
+}) {
   const now = new Date();
   const id = nanoid();
   const ts = input.timestamp ? new Date(input.timestamp) : now;
@@ -73,8 +73,8 @@ export async function ingestTelemetry(input: {
     tenantId: input.tenantId,
     snCode: input.snCode,
     timestamp: ts,
-    metrics: input.metrics as any,
-    alerts: alerts as any,
+    metrics: input.metrics,
+    alerts,
     createdAt: now,
   });
   return { id, snCode: input.snCode, timestamp: ts.toISOString(), alerts };

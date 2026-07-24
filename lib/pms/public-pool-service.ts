@@ -272,7 +272,7 @@ export async function listPublicPool(input: {
   includeClaimed?: boolean;
   limit?: number;
   offset?: number;
-}): Promise<any[]> {
+}) {
   const conditions = [eq(pmsPublicPool.tenantId, input.tenantId)];
   if (!input.includeClaimed) conditions.push(eq(pmsPublicPool.claimed, false));
 

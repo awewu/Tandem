@@ -69,7 +69,7 @@ export async function upsertHealthScore(input: {
   dealerOrgId: string;
   period: string;
   dimensions: HealthDimensions;
-}): Promise<any> {
+}) {
   const now = new Date();
   const totalScore = computeHealthScore(input.dimensions);
   const rank = healthRank(totalScore);
@@ -87,7 +87,7 @@ export async function upsertHealthScore(input: {
   if (existing.length > 0) {
     await db
       .update(pmsDealerHealthScores)
-      .set({ totalScore: totalScore.toString(), dimensions: input.dimensions as any, rank })
+      .set({ totalScore: totalScore.toString(), dimensions: input.dimensions, rank })
       .where(eq(pmsDealerHealthScores.id, existing[0].id));
     return { id: existing[0].id, ...input, totalScore, rank, updatedAt: now.toISOString() };
   }
@@ -99,7 +99,7 @@ export async function upsertHealthScore(input: {
     dealerOrgId: input.dealerOrgId,
     period: input.period,
     totalScore: totalScore.toString(),
-    dimensions: input.dimensions as any,
+    dimensions: input.dimensions,
     rank,
     createdAt: now,
   });

@@ -200,7 +200,7 @@ export async function settleRebateAccrual(input: {
   tenantId: string;
   accrualId: string;
   settledBy: string;
-}): Promise<any> {
+}) {
   const now = new Date();
   const rows = await db
     .select()

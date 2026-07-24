@@ -63,7 +63,7 @@ export async function createOpportunity(input: {
   productLine?: string;
   region?: string;
   channel?: string;
-}): Promise<{ opportunity?: any; duplicateCheck?: any }> {
+}) {
   const now = new Date();
   
   // 1. 生成查重键
@@ -118,10 +118,11 @@ export async function createOpportunity(input: {
       updatedAt: now,
       archivedAt: null,
     });
-  } catch (err: any) {
+  } catch (err) {
     // Postgres 唯一约束冲突 (23505) → 并发精确撞单, 五维查重未及拦截.
     // Drizzle 包装 postgres 错误: 码可能在 err.code 或 err.cause.code.
-    if (err?.code === '23505' || err?.cause?.code === '23505') {
+    const e = err as { code?: string; cause?: { code?: string } };
+    if (e.code === '23505' || e.cause?.code === '23505') {
       return {
         opportunity: undefined,
         duplicateCheck: {
@@ -166,7 +167,7 @@ export async function updateOpportunity(
     channel?: string;
   },
   tenantId: string
-): Promise<any> {
+) {
   const now = new Date();
   
   await db

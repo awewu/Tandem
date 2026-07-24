@@ -91,7 +91,7 @@ export async function createPriceApplication(input: {
   listPrice: number;
   requestedPrice: number;
   reason: string;
-}): Promise<any> {
+}) {
   const now = new Date();
   const discountRate = computeDiscountRate(input.listPrice, input.requestedPrice);
   const id = nanoid();
@@ -190,7 +190,7 @@ export async function decidePriceApplication(input: {
   decision: 'approved' | 'rejected';
   approvedPrice?: number;
   comment?: string;
-}): Promise<any> {
+}) {
   const now = new Date();
 
   const rows = await db

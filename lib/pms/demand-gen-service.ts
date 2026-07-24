@@ -56,7 +56,7 @@ export async function createLead(input: {
   contactPhone?: string;
   region?: string;
   assignedTo?: string;
-}): Promise<any> {
+}) {
   const now = new Date();
   const id = nanoid();
   await db.insert(pmsDemandGenLeads).values({
@@ -104,7 +104,7 @@ export async function transitionLead(input: {
   id: string;
   toStatus: LeadStatus;
   assignedTo?: string;
-}): Promise<any> {
+}) {
   const now = new Date();
   const rows = await db
     .select()
@@ -115,7 +115,7 @@ export async function transitionLead(input: {
   if (!canTransitionLead(rows[0].status, input.toStatus)) {
     throw new Error(`illegal lead transition: ${rows[0].status} → ${input.toStatus}`);
   }
-  const patch: Record<string, any> = { status: input.toStatus, updatedAt: now };
+  const patch: Partial<typeof pmsDemandGenLeads.$inferInsert> = { status: input.toStatus, updatedAt: now };
   if (input.toStatus === 'assigned' && input.assignedTo) patch.assignedTo = input.assignedTo;
   await db
     .update(pmsDemandGenLeads)
@@ -129,7 +129,7 @@ export async function convertLead(input: {
   tenantId: string;
   id: string;
   opportunityId: string;
-}): Promise<any> {
+}) {
   const now = new Date();
   const rows = await db
     .select()

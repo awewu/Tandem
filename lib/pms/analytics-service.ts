@@ -114,7 +114,7 @@ export async function getOpportunityAnalytics(input: {
   productLine?: string;
   dateFrom?: string;
   dateTo?: string;
-}): Promise<any> {
+}) {
   const conditions = [
     eq(pmsOpportunities.tenantId, input.tenantId),
     isNull(pmsOpportunities.archivedAt),

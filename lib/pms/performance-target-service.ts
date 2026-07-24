@@ -47,7 +47,7 @@ export async function createTarget(input: {
   targetValue: number;
   actualValue?: number;
   createdBy: string;
-}): Promise<any> {
+}) {
   const now = new Date();
   const id = nanoid();
   const actual = input.actualValue ?? 0;
@@ -110,7 +110,7 @@ export async function updateActual(input: {
   tenantId: string;
   id: string;
   actualValue: number;
-}): Promise<any> {
+}) {
   const now = new Date();
   const rows = await db
     .select()
