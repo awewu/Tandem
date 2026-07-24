@@ -34,6 +34,7 @@ import { createFollowUp, getOpportunityFollowUps } from '@/lib/pms/follow-up-ser
 import { checkDuplicate } from '@/lib/pms/duplicate-check';
 import { releaseToPool, claimFromPool, listPublicPool } from '@/lib/pms/public-pool-service';
 import { runPmsDailyScan } from '@/lib/pms/cron-service';
+import { getOpportunityAnalytics } from '@/lib/pms/analytics-service';
 
 const TEST_TENANT = '__pms_itest__';
 const ORG_A = 'itest_org_a';
@@ -241,5 +242,43 @@ describe.skipIf(!hasDb)('integration(db) · PMS 关键路径', () => {
       warrantyAlerts: expect.any(Number),
       escalated: expect.any(Number),
     });
+  });
+
+  it('分析看板: SQL group by 聚合 (状态/阶段/区域/管道/赢单率)', async () => {
+    // active 100000 (北京, initial_contact)
+    await createOpportunity(baseOppInput({
+      customerName: '甲公司', projectName: '甲项目', region: '北京', stage: 'initial_contact',
+      status: 'active', estimatedAmount: 100000,
+    }));
+    // active 250000 (上海, quoted)
+    await createOpportunity(baseOppInput({
+      customerName: '乙公司', projectName: '乙项目', region: '上海', stage: 'quoted',
+      status: 'active', estimatedAmount: 250000,
+    }));
+    // won 300000 (北京, closed)
+    await createOpportunity(baseOppInput({
+      customerName: '丙公司', projectName: '丙项目', region: '北京', stage: 'closed',
+      status: 'won', estimatedAmount: 300000,
+    }));
+
+    const a = await getOpportunityAnalytics({ tenantId: TEST_TENANT });
+    expect(a.total).toBe(3);
+    expect(a.byStatus.active).toBe(2);
+    expect(a.byStatus.won).toBe(1);
+    expect(a.totalPipeline).toBe(350000); // 仅 active 金额合计
+    expect(a.wonAmount).toBe(300000);
+    expect(a.won).toBe(1);
+    expect(a.lost).toBe(0);
+    expect(a.winRate).toBe(100);
+    expect(a.byRegion['北京']).toBe(2);
+    expect(a.byRegion['上海']).toBe(1);
+    // 漏斗按标准阶段顺序
+    const initial = a.funnel.find((f: any) => f.stage === 'initial_contact');
+    expect(initial.count).toBe(1);
+
+    // orgId 隔离下的聚合: 仅可见 ORG_B → 全空
+    const b = await getOpportunityAnalytics({ tenantId: TEST_TENANT, visibleOrgIds: [ORG_B] });
+    expect(b.total).toBe(0);
+    expect(b.totalPipeline).toBe(0);
   });
 });

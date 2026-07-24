@@ -5,14 +5,12 @@
  *   - 商机漏斗 (阶段分布) / 状态分布 / 区域分布 / 赢单率 / 管道金额
  *   - 纯只读, 不写库; orgId 隔离 (内部全量, 经销商仅本 org)
  *
- * 聚合在 JS 层完成 (纯函数可测); 大规模可后续下推 SQL group by.
+ * 聚合下推 SQL group by (不再全量拉行到 JS, 无行数上限); 纯函数保留供小规模/单测复用。
  */
 
 import { db } from '../infra/drizzle-client';
 import { pmsOpportunities } from '../infra/drizzle-schema';
-import { and, eq, isNull, inArray, gte, lte } from 'drizzle-orm';
-
-const ANALYTICS_ROW_CAP = 10000;
+import { and, eq, isNull, inArray, gte, lte, sql } from 'drizzle-orm';
 
 /** 标准商机阶段顺序 (漏斗展示) */
 export const STANDARD_STAGE_ORDER = [
@@ -103,7 +101,12 @@ export function buildFunnel(
 // DB 聚合查询
 // ---------------------------------------------------------------------------
 
-/** 商机分析 (orgId 隔离). 内部传 visibleOrgIds=undefined 全量. */
+/**
+ * 商机分析 (orgId 隔离). 内部传 visibleOrgIds=undefined 全量.
+ *
+ * 聚合全部下推 SQL group by (3 条分组查询: status+金额 / stage / region),
+ * 不再拉取明细行到 JS, 无行数上限 (旧实现 ANALYTICS_ROW_CAP=10000 会静默截断).
+ */
 export async function getOpportunityAnalytics(input: {
   tenantId: string;
   visibleOrgIds?: string[];
@@ -124,27 +127,67 @@ export async function getOpportunityAnalytics(input: {
   if (input.dateFrom) conditions.push(gte(pmsOpportunities.createdAt, new Date(input.dateFrom)));
   if (input.dateTo) conditions.push(lte(pmsOpportunities.createdAt, new Date(input.dateTo)));
 
-  const rows = await db
+  const where = and(...conditions);
+
+  // 1) 按状态分组: 计数 + 金额合计 (管道/赢单额从此派生)
+  const statusRows = await db
     .select({
-      stage: pmsOpportunities.stage,
       status: pmsOpportunities.status,
-      estimatedAmount: pmsOpportunities.estimatedAmount,
-      region: pmsOpportunities.region,
+      n: sql<number>`count(*)::int`,
+      amt: sql<number>`coalesce(sum(cast(${pmsOpportunities.estimatedAmount} as double precision)), 0)::float8`,
     })
     .from(pmsOpportunities)
-    .where(and(...conditions))
-    .limit(ANALYTICS_ROW_CAP);
+    .where(where)
+    .groupBy(pmsOpportunities.status);
 
-  const opps: AnalyticsOpp[] = rows.map((r) => ({
-    stage: r.stage,
-    status: r.status,
-    estimatedAmount: r.estimatedAmount != null ? parseFloat(r.estimatedAmount) : undefined,
-    region: r.region || undefined,
-  }));
+  // 2) 按阶段分组: 计数 (漏斗)
+  const stageRows = await db
+    .select({ stage: pmsOpportunities.stage, n: sql<number>`count(*)::int` })
+    .from(pmsOpportunities)
+    .where(where)
+    .groupBy(pmsOpportunities.stage);
 
-  const summary = summarizeOpportunities(opps);
+  // 3) 按区域分组: 计数 (null → unknown)
+  const regionRows = await db
+    .select({
+      region: sql<string>`coalesce(${pmsOpportunities.region}, 'unknown')`,
+      n: sql<number>`count(*)::int`,
+    })
+    .from(pmsOpportunities)
+    .where(where)
+    .groupBy(sql`coalesce(${pmsOpportunities.region}, 'unknown')`);
+
+  const byStatus: Record<string, number> = {};
+  let total = 0;
+  let totalPipeline = 0;
+  let wonAmount = 0;
+  for (const r of statusRows) {
+    const n = Number(r.n);
+    byStatus[r.status] = n;
+    total += n;
+    if (r.status === 'active') totalPipeline += Number(r.amt);
+    if (r.status === 'won') wonAmount += Number(r.amt);
+  }
+
+  const byStage: Record<string, number> = {};
+  for (const r of stageRows) byStage[r.stage] = Number(r.n);
+
+  const byRegion: Record<string, number> = {};
+  for (const r of regionRows) byRegion[r.region || 'unknown'] = Number(r.n);
+
+  const won = byStatus['won'] ?? 0;
+  const lost = byStatus['lost'] ?? 0;
+
   return {
-    ...summary,
-    funnel: buildFunnel(summary.byStage),
+    total,
+    byStatus,
+    byStage,
+    byRegion,
+    totalPipeline: Math.round(totalPipeline * 100) / 100,
+    wonAmount: Math.round(wonAmount * 100) / 100,
+    won,
+    lost,
+    winRate: winRate(won, lost),
+    funnel: buildFunnel(byStage),
   };
 }
