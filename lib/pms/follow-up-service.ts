@@ -8,6 +8,19 @@ import { db } from '../infra/drizzle-client';
 import { pmsFollowUps, pmsOpportunities } from '../infra/drizzle-schema';
 import { eq, and, desc } from 'drizzle-orm';
 
+function mapFollowUp(row: typeof pmsFollowUps.$inferSelect) {
+  return {
+    id: row.id,
+    tenantId: row.tenantId,
+    opportunityId: row.opportunityId,
+    userId: row.userId,
+    stage: row.stage,
+    content: row.content,
+    nextFollowUpAt: row.nextFollowUpAt?.toISOString() || undefined,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
 /**
  * 创建跟进记录
  */
@@ -62,7 +75,7 @@ export async function listFollowUps(filters: {
   userId?: string;
   limit?: number;
   offset?: number;
-}): Promise<any[]> {
+}): Promise<ReturnType<typeof mapFollowUp>[]> {
   const conditions = [eq(pmsFollowUps.tenantId, filters.tenantId)];
   
   if (filters.opportunityId) conditions.push(eq(pmsFollowUps.opportunityId, filters.opportunityId));
@@ -76,16 +89,7 @@ export async function listFollowUps(filters: {
     .limit(filters.limit || 50)
     .offset(filters.offset || 0);
   
-  return rows.map(row => ({
-    id: row.id,
-    tenantId: row.tenantId,
-    opportunityId: row.opportunityId,
-    userId: row.userId,
-    stage: row.stage,
-    content: row.content,
-    nextFollowUpAt: row.nextFollowUpAt?.toISOString() || undefined,
-    createdAt: row.createdAt.toISOString(),
-  }));
+  return rows.map(mapFollowUp);
 }
 
 /**
@@ -95,7 +99,7 @@ export async function getOpportunityFollowUps(
   opportunityId: string,
   tenantId: string,
   limit = 20
-): Promise<any[]> {
+): Promise<ReturnType<typeof mapFollowUp>[]> {
   const rows = await db
     .select()
     .from(pmsFollowUps)
@@ -106,14 +110,5 @@ export async function getOpportunityFollowUps(
     .orderBy(desc(pmsFollowUps.createdAt))
     .limit(limit);
   
-  return rows.map(row => ({
-    id: row.id,
-    tenantId: row.tenantId,
-    opportunityId: row.opportunityId,
-    userId: row.userId,
-    stage: row.stage,
-    content: row.content,
-    nextFollowUpAt: row.nextFollowUpAt?.toISOString() || undefined,
-    createdAt: row.createdAt.toISOString(),
-  }));
+  return rows.map(mapFollowUp);
 }

@@ -9,6 +9,33 @@ import { pmsOpportunities, pmsDuplicateChecks } from '../infra/drizzle-schema';
 import { eq, and, desc, isNull, inArray } from 'drizzle-orm';
 import { checkDuplicate } from './duplicate-check';
 
+function mapOpportunity(row: typeof pmsOpportunities.$inferSelect) {
+  return {
+    id: row.id,
+    tenantId: row.tenantId,
+    orgId: row.orgId,
+    dealerOrgId: row.dealerOrgId,
+    reporterId: row.reporterId,
+    customerName: row.customerName,
+    customerPhone: row.customerPhone || undefined,
+    customerAddress: row.customerAddress || undefined,
+    projectName: row.projectName,
+    stage: row.stage,
+    status: row.status,
+    estimatedAmount: row.estimatedAmount ? parseFloat(row.estimatedAmount) : undefined,
+    estimatedClosingDate: row.estimatedClosingDate || undefined,
+    productLine: row.productLine || undefined,
+    region: row.region || undefined,
+    channel: row.channel || undefined,
+    dedupeKey: row.dedupeKey,
+    duplicateStatus: row.duplicateStatus || undefined,
+    lastFollowUpAt: row.lastFollowUpAt?.toISOString() || undefined,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+    archivedAt: row.archivedAt?.toISOString() || undefined,
+  };
+}
+
 /**
  * 生成查重键
  */
@@ -164,7 +191,7 @@ export async function getOpportunity(
   opportunityId: string,
   tenantId: string,
   visibleOrgIds?: string[]
-): Promise<any | null> {
+): Promise<ReturnType<typeof mapOpportunity> | null> {
   const rows = await db
     .select()
     .from(pmsOpportunities)
@@ -181,30 +208,7 @@ export async function getOpportunity(
   if (visibleOrgIds && visibleOrgIds.length > 0 && !visibleOrgIds.includes(row.orgId)) {
     return null;
   }
-  return {
-    id: row.id,
-    tenantId: row.tenantId,
-    orgId: row.orgId,
-    dealerOrgId: row.dealerOrgId,
-    reporterId: row.reporterId,
-    customerName: row.customerName,
-    customerPhone: row.customerPhone || undefined,
-    customerAddress: row.customerAddress || undefined,
-    projectName: row.projectName,
-    stage: row.stage,
-    status: row.status,
-    estimatedAmount: row.estimatedAmount ? parseFloat(row.estimatedAmount) : undefined,
-    estimatedClosingDate: row.estimatedClosingDate || undefined,
-    productLine: row.productLine || undefined,
-    region: row.region || undefined,
-    channel: row.channel || undefined,
-    dedupeKey: row.dedupeKey,
-    duplicateStatus: row.duplicateStatus || undefined,
-    lastFollowUpAt: row.lastFollowUpAt?.toISOString() || undefined,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-    archivedAt: row.archivedAt?.toISOString() || undefined,
-  };
+  return mapOpportunity(row);
 }
 
 /**
@@ -220,7 +224,7 @@ export async function listOpportunities(filters: {
   offset?: number;
   /** 外部经销商可见 org 集合. 传入且非空 → 强制 orgId ∈ 集合. 内部角色传 undefined = 全通. */
   visibleOrgIds?: string[];
-}): Promise<any[]> {
+}): Promise<ReturnType<typeof mapOpportunity>[]> {
   const conditions = [eq(pmsOpportunities.tenantId, filters.tenantId)];
   
   if (filters.orgId) conditions.push(eq(pmsOpportunities.orgId, filters.orgId));
@@ -244,29 +248,7 @@ export async function listOpportunities(filters: {
     .limit(filters.limit || 50)
     .offset(filters.offset || 0);
   
-  return rows.map(row => ({
-    id: row.id,
-    tenantId: row.tenantId,
-    orgId: row.orgId,
-    dealerOrgId: row.dealerOrgId,
-    reporterId: row.reporterId,
-    customerName: row.customerName,
-    customerPhone: row.customerPhone || undefined,
-    customerAddress: row.customerAddress || undefined,
-    projectName: row.projectName,
-    stage: row.stage,
-    status: row.status,
-    estimatedAmount: row.estimatedAmount ? parseFloat(row.estimatedAmount) : undefined,
-    estimatedClosingDate: row.estimatedClosingDate || undefined,
-    productLine: row.productLine || undefined,
-    region: row.region || undefined,
-    channel: row.channel || undefined,
-    dedupeKey: row.dedupeKey,
-    duplicateStatus: row.duplicateStatus || undefined,
-    lastFollowUpAt: row.lastFollowUpAt?.toISOString() || undefined,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-  }));
+  return rows.map(mapOpportunity);
 }
 
 /**

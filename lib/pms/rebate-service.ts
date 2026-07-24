@@ -79,17 +79,8 @@ export async function createRebatePolicy(
   return { ...input, id, createdAt: now.toISOString(), updatedAt: now.toISOString() };
 }
 
-export async function listRebatePolicies(tenantId: string, status?: string): Promise<any[]> {
-  const conditions = [eq(pmsRebatePolicies.tenantId, tenantId)];
-  if (status) conditions.push(eq(pmsRebatePolicies.status, status));
-  
-  const rows = await db
-    .select()
-    .from(pmsRebatePolicies)
-    .where(and(...conditions))
-    .orderBy(desc(pmsRebatePolicies.createdAt));
-  
-  return rows.map(row => ({
+function mapPolicy(row: typeof pmsRebatePolicies.$inferSelect) {
+  return {
     id: row.id,
     tenantId: row.tenantId,
     name: row.name,
@@ -101,7 +92,39 @@ export async function listRebatePolicies(tenantId: string, status?: string): Pro
     createdBy: row.createdBy,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
-  }));
+  };
+}
+
+function mapAccrual(row: typeof pmsRebateAccruals.$inferSelect) {
+  return {
+    id: row.id,
+    tenantId: row.tenantId,
+    dealerOrgId: row.dealerOrgId,
+    policyId: row.policyId,
+    period: row.period,
+    salesAmount: parseFloat(row.salesAmount),
+    rebateAmount: parseFloat(row.rebateAmount),
+    status: row.status,
+    settledBy: row.settledBy || undefined,
+    settledAt: row.settledAt?.toISOString() || undefined,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+export async function listRebatePolicies(
+  tenantId: string,
+  status?: string,
+): Promise<ReturnType<typeof mapPolicy>[]> {
+  const conditions = [eq(pmsRebatePolicies.tenantId, tenantId)];
+  if (status) conditions.push(eq(pmsRebatePolicies.status, status));
+  
+  const rows = await db
+    .select()
+    .from(pmsRebatePolicies)
+    .where(and(...conditions))
+    .orderBy(desc(pmsRebatePolicies.createdAt));
+  
+  return rows.map(mapPolicy);
 }
 
 export interface CreateRebateAccrualInput {
@@ -139,7 +162,10 @@ export async function createRebateAccrual(
   return { ...input, id, createdAt: now.toISOString() };
 }
 
-export async function listRebateAccruals(tenantId: string, filters: { dealerOrgId?: string; period?: string; status?: string } = {}): Promise<any[]> {
+export async function listRebateAccruals(
+  tenantId: string,
+  filters: { dealerOrgId?: string; period?: string; status?: string } = {},
+): Promise<ReturnType<typeof mapAccrual>[]> {
   const conditions = [eq(pmsRebateAccruals.tenantId, tenantId)];
   
   if (filters.dealerOrgId) conditions.push(eq(pmsRebateAccruals.dealerOrgId, filters.dealerOrgId));
@@ -152,43 +178,21 @@ export async function listRebateAccruals(tenantId: string, filters: { dealerOrgI
     .where(and(...conditions))
     .orderBy(desc(pmsRebateAccruals.createdAt));
   
-  return rows.map(row => ({
-    id: row.id,
-    tenantId: row.tenantId,
-    dealerOrgId: row.dealerOrgId,
-    policyId: row.policyId,
-    period: row.period,
-    salesAmount: parseFloat(row.salesAmount),
-    rebateAmount: parseFloat(row.rebateAmount),
-    status: row.status,
-    settledBy: row.settledBy || undefined,
-    settledAt: row.settledAt?.toISOString() || undefined,
-    createdAt: row.createdAt.toISOString(),
-  }));
+  return rows.map(mapAccrual);
 }
 
 /** 获取返利政策详情 */
-export async function getRebatePolicy(id: string, tenantId: string): Promise<any | null> {
+export async function getRebatePolicy(
+  id: string,
+  tenantId: string,
+): Promise<ReturnType<typeof mapPolicy> | null> {
   const rows = await db
     .select()
     .from(pmsRebatePolicies)
     .where(and(eq(pmsRebatePolicies.id, id), eq(pmsRebatePolicies.tenantId, tenantId)))
     .limit(1);
   if (rows.length === 0) return null;
-  const row = rows[0];
-  return {
-    id: row.id,
-    tenantId: row.tenantId,
-    name: row.name,
-    productLine: row.productLine || undefined,
-    tiers: row.tiers,
-    effectiveDate: row.effectiveDate,
-    expiryDate: row.expiryDate || undefined,
-    status: row.status,
-    createdBy: row.createdBy,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-  };
+  return mapPolicy(rows[0]);
 }
 
 /** 结算返利计提 (pending → settled) */

@@ -185,7 +185,7 @@ describe.skipIf(!hasDb)('integration(db) · PMS 返利政策+计提+结算', () 
     });
     expect(policy.id).toBeDefined();
 
-    const got = await getRebatePolicy(policy.id, TEST_TENANT);
+    const got = (await getRebatePolicy(policy.id, TEST_TENANT))!;
     expect(got).not.toBeNull();
     expect(got.name).toBe('2026 中央空调阶梯返利');
     expect(got.tiers).toHaveLength(2);

@@ -86,7 +86,7 @@ describe.skipIf(!hasDb)('integration(db) · PMS 关键路径', () => {
     const id = opportunity!.id;
 
     // get 回读
-    const got = await getOpportunity(id, TEST_TENANT);
+    const got = (await getOpportunity(id, TEST_TENANT))!;
     expect(got).not.toBeNull();
     expect(got.customerName).toBe('北京星光酒店管理有限公司');
     expect(got.stage).toBe('initial_contact');
@@ -98,7 +98,7 @@ describe.skipIf(!hasDb)('integration(db) · PMS 关键路径', () => {
 
     // update 生效
     await updateOpportunity(id, { stage: 'quoted', estimatedAmount: 250000 }, TEST_TENANT);
-    const afterUpdate = await getOpportunity(id, TEST_TENANT);
+    const afterUpdate = (await getOpportunity(id, TEST_TENANT))!;
     expect(afterUpdate.stage).toBe('quoted');
     expect(afterUpdate.estimatedAmount).toBe(250000);
 
@@ -107,7 +107,7 @@ describe.skipIf(!hasDb)('integration(db) · PMS 关键路径', () => {
     const afterArchive = await listOpportunities({ tenantId: TEST_TENANT });
     expect(afterArchive.map((o) => o.id)).not.toContain(id);
     // get 仍可读到 (软删不物理删除)
-    const stillReadable = await getOpportunity(id, TEST_TENANT);
+    const stillReadable = (await getOpportunity(id, TEST_TENANT))!;
     expect(stillReadable).not.toBeNull();
     expect(stillReadable.archivedAt).toBeDefined();
   });
@@ -167,7 +167,7 @@ describe.skipIf(!hasDb)('integration(db) · PMS 关键路径', () => {
     const { opportunity } = await createOpportunity(baseOppInput());
     const id = opportunity!.id;
 
-    const before = await getOpportunity(id, TEST_TENANT);
+    const before = (await getOpportunity(id, TEST_TENANT))!;
     expect(before.lastFollowUpAt).toBeUndefined();
 
     await createFollowUp({
@@ -178,7 +178,7 @@ describe.skipIf(!hasDb)('integration(db) · PMS 关键路径', () => {
       content: '已电话联系客户, 约定下周现场勘查',
     });
 
-    const after = await getOpportunity(id, TEST_TENANT);
+    const after = (await getOpportunity(id, TEST_TENANT))!;
     expect(after.lastFollowUpAt).toBeDefined();
 
     const history = await getOpportunityFollowUps(id, TEST_TENANT);
@@ -223,7 +223,7 @@ describe.skipIf(!hasDb)('integration(db) · PMS 关键路径', () => {
     });
     expect(claim.opportunityId).toBe(oppId);
 
-    const reassigned = await getOpportunity(oppId, TEST_TENANT);
+    const reassigned = (await getOpportunity(oppId, TEST_TENANT))!;
     expect(reassigned.orgId).toBe(ORG_B);
     expect(reassigned.status).toBe('active');
 
