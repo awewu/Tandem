@@ -23,6 +23,7 @@
     "check:backlog-drift": "node scripts/check-backlog-drift.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:pms-integration": "vitest run --config vitest.integration.config.ts",
     "test:ui": "vitest --ui",
     "evals": "vitest run tests/eval --reporter=verbose",
     "brain:smoke": "node scripts/brain-smoke.mjs",
