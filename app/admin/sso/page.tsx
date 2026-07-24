@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import {
-  KeyRound, Plus, RefreshCw, AlertCircle, Copy, Check, Trash2, Power, ShieldCheck, Globe, Link2,
+  KeyRound, Plus, RefreshCw, AlertCircle, Copy, Check, Trash2, Power, ShieldCheck, Globe, Link2, SlidersHorizontal,
 } from 'lucide-react';
 
 interface ClientView {
@@ -31,7 +31,20 @@ interface ClientView {
   createdAt: string;
 }
 
-const ALL_SCOPES = ['openid', 'profile', 'email', 'offline_access', 'roles', 'org'];
+const ALL_SCOPES = [
+  'openid',
+  'profile',
+  'email',
+  'roles',
+  'org',
+  'api.read',
+  'api.write',
+  'okr.read',
+  'okr.write',
+  'kpi.read',
+  'kpi.write',
+  'offline_access',
+];
 
 function CopyButton({ value }: { value: string }) {
   const [copied, setCopied] = useState(false);
@@ -165,12 +178,105 @@ function CreateDialog({
   );
 }
 
+function EditScopesDialog({
+  client, open, onClose, onSaved,
+}: {
+  client: ClientView | null; open: boolean; onClose: () => void; onSaved: () => void;
+}) {
+  const [scopes, setScopes] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open && client) {
+      setScopes(client.allowedScopes);
+      setError(null);
+    }
+  }, [client, open]);
+
+  function toggleScope(scope: string) {
+    if (scope === 'openid') return;
+    setScopes((prev) => {
+      const next = prev.includes(scope) ? prev.filter((item) => item !== scope) : [...prev, scope];
+      return next.includes('openid') ? next : ['openid', ...next];
+    });
+  }
+
+  async function submit() {
+    if (!client) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const normalized = ALL_SCOPES.filter((scope) => scopes.includes(scope));
+      const allowedScopes = normalized.includes('openid') ? normalized : ['openid', ...normalized];
+      const res = await fetch(`/api/oidc/clients/${client.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ allowedScopes }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? '授权范围更新失败');
+      onSaved();
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '授权范围更新失败');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader><DialogTitle>编辑授权范围</DialogTitle></DialogHeader>
+        <div className="space-y-3 py-2">
+          {error && (
+            <div className="flex items-center gap-2 text-caption text-danger bg-danger/5 border border-danger/30 rounded px-3 py-2">
+              <AlertCircle className="h-4 w-4" />{error}
+            </div>
+          )}
+          <div className="rounded-md border bg-surface-1 px-3 py-2">
+            <p className="text-caption font-medium">{client?.name}</p>
+            <p className="text-footnote text-muted-foreground font-mono">{client?.id}</p>
+          </div>
+          <div>
+            <label className="text-caption font-medium mb-1 block">授权范围 (scope)</label>
+            <div className="flex flex-wrap gap-1.5">
+              {ALL_SCOPES.map((scope) => (
+                <button
+                  key={scope}
+                  type="button"
+                  onClick={() => toggleScope(scope)}
+                  className={`px-2 py-0.5 rounded text-footnote border ${
+                    scopes.includes(scope) ? 'bg-primary/10 border-primary/30 text-primary' : 'bg-surface-1 text-muted-foreground'
+                  } ${scope === 'openid' ? 'opacity-70 cursor-not-allowed' : ''}`}
+                >
+                  {scope}
+                </button>
+              ))}
+            </div>
+            <p className="text-footnote text-muted-foreground mt-1">
+              保存时会提交完整 allowedScopes；不会修改回调地址、client_secret 或其他 client 配置。
+            </p>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>取消</Button>
+          <Button onClick={submit} disabled={saving}>{saving ? '保存中...' : '保存授权范围'}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function AdminSsoPage() {
   const [clients, setClients] = useState<ClientView[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [secretReveal, setSecretReveal] = useState<{ name: string; secret: string } | null>(null);
+  const [scopeClient, setScopeClient] = useState<ClientView | null>(null);
   const [issuer, setIssuer] = useState('');
 
   useEffect(() => {
@@ -309,6 +415,9 @@ export default function AdminSsoPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
+                  <Button variant="outline" size="sm" onClick={() => setScopeClient(c)} title="编辑授权范围">
+                    <SlidersHorizontal className="h-3.5 w-3.5" />
+                  </Button>
                   {c.type === 'confidential' && (
                     <Button variant="outline" size="sm" onClick={() => rotate(c)} title="重置 secret">
                       <KeyRound className="h-3.5 w-3.5" />
@@ -331,6 +440,12 @@ export default function AdminSsoPage() {
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         onCreated={(secret, name) => { if (secret) setSecretReveal({ name, secret }); void load(); }}
+      />
+      <EditScopesDialog
+        client={scopeClient}
+        open={!!scopeClient}
+        onClose={() => setScopeClient(null)}
+        onSaved={() => { void load(); }}
       />
 
       {/* secret 一次性展示 */}
