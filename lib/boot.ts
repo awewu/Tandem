@@ -29,6 +29,7 @@ type BootGlobals = {
   __tandem_tick_interval__?: ReturnType<typeof setInterval> | null;
   __tandem_retro_interval__?: ReturnType<typeof setInterval> | null;
   __tandem_reminder_interval__?: ReturnType<typeof setInterval> | null;
+  __tandem_pms_scan_date__?: string | null;
 };
 const _g = globalThis as typeof globalThis & BootGlobals;
 
@@ -543,6 +544,27 @@ async function runSlowScans(): Promise<void> {
   } catch (err) {
     // eslint-disable-next-line no-console
     console.warn('[boot] company-brain monthly reflection failed:', err);
+  }
+
+  // PMS 每日扫描 (公海释放 + 资质/保修到期预警 + 告警 SLA 升级).
+  //   vercel.json 的 cron 仅 Vercel 部署生效; 自托管 standalone 靠本进程内守卫兜底.
+  //   slow-scans 每 10 分钟触发, 用 UTC 日期守卫保证每天至多跑一次 (幂等: createAlert 有 dedup).
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    if (_g.__tandem_pms_scan_date__ !== today) {
+      const { runPmsDailyScan } = await import('./pms/cron-service');
+      const s = await runPmsDailyScan('default');
+      _g.__tandem_pms_scan_date__ = today;
+      if (s.poolReleased > 0 || s.qualificationAlerts > 0 || s.warrantyAlerts > 0 || s.escalated > 0) {
+        // eslint-disable-next-line no-console
+        console.info(
+          `[boot] pms daily scan: 公海释放 ${s.poolReleased} / 资质预警 ${s.qualificationAlerts} / 保修预警 ${s.warrantyAlerts} / 告警升级 ${s.escalated}`,
+        );
+      }
+    }
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('[boot] pms daily scan failed:', err);
   }
 }
 
