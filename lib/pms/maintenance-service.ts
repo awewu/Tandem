@@ -121,7 +121,7 @@ export async function listMaintenance(filters: {
   assignedTo?: string;
   limit?: number;
   offset?: number;
-}): Promise<any[]> {
+}): Promise<ReturnType<typeof mapRecord>[]> {
   const conditions = [eq(pmsMaintenanceRecords.tenantId, filters.tenantId)];
   if (filters.equipmentSNId) conditions.push(eq(pmsMaintenanceRecords.equipmentSNId, filters.equipmentSNId));
   if (filters.status) conditions.push(eq(pmsMaintenanceRecords.status, filters.status));
@@ -139,7 +139,7 @@ export async function listMaintenance(filters: {
 }
 
 /** 获取维保记录 */
-export async function getMaintenance(id: string, tenantId: string): Promise<any | null> {
+export async function getMaintenance(id: string, tenantId: string): Promise<ReturnType<typeof mapRecord> | null> {
   const rows = await db
     .select()
     .from(pmsMaintenanceRecords)

@@ -90,7 +90,7 @@ export async function listDeliveryOrders(filters: {
   visibleOrgIds?: string[];
   limit?: number;
   offset?: number;
-}): Promise<any[]> {
+}): Promise<ReturnType<typeof mapOrder>[]> {
   const conditions = [eq(pmsDeliveryOrders.tenantId, filters.tenantId)];
   if (filters.status) conditions.push(eq(pmsDeliveryOrders.status, filters.status));
   if (filters.contractId) conditions.push(eq(pmsDeliveryOrders.contractId, filters.contractId));
@@ -115,7 +115,7 @@ export async function getDeliveryOrder(
   id: string,
   tenantId: string,
   visibleOrgIds?: string[],
-): Promise<any | null> {
+): Promise<ReturnType<typeof mapOrder> | null> {
   const rows = await db
     .select()
     .from(pmsDeliveryOrders)
@@ -226,7 +226,7 @@ export async function listDeliveryTasks(filters: {
   tenantId: string;
   deliveryOrderId: string;
   status?: string;
-}): Promise<any[]> {
+}): Promise<ReturnType<typeof mapTask>[]> {
   const conditions = [
     eq(pmsDeliveryTasks.tenantId, filters.tenantId),
     eq(pmsDeliveryTasks.deliveryOrderId, filters.deliveryOrderId),

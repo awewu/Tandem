@@ -145,7 +145,7 @@ export async function listPriceApplications(filters: {
   applicantId?: string;
   limit?: number;
   offset?: number;
-}): Promise<any[]> {
+}): Promise<ReturnType<typeof mapApplication>[]> {
   const conditions = [eq(pmsPriceApplications.tenantId, filters.tenantId)];
   if (filters.status) conditions.push(eq(pmsPriceApplications.status, filters.status));
   if (filters.opportunityId) conditions.push(eq(pmsPriceApplications.opportunityId, filters.opportunityId));
@@ -163,7 +163,7 @@ export async function listPriceApplications(filters: {
 }
 
 /** 获取价格申请详情 */
-export async function getPriceApplication(id: string, tenantId: string): Promise<any | null> {
+export async function getPriceApplication(id: string, tenantId: string): Promise<ReturnType<typeof mapApplication> | null> {
   const rows = await db
     .select()
     .from(pmsPriceApplications)

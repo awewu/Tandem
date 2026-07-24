@@ -132,7 +132,7 @@ export async function listContracts(filters: {
   opportunityId?: string;
   limit?: number;
   offset?: number;
-}): Promise<any[]> {
+}): Promise<ReturnType<typeof mapContract>[]> {
   const conditions = [eq(pmsContracts.tenantId, filters.tenantId)];
   if (filters.status) conditions.push(eq(pmsContracts.status, filters.status));
   if (filters.opportunityId) conditions.push(eq(pmsContracts.opportunityId, filters.opportunityId));
@@ -149,7 +149,7 @@ export async function listContracts(filters: {
 }
 
 /** 获取合同详情 */
-export async function getContract(id: string, tenantId: string): Promise<any | null> {
+export async function getContract(id: string, tenantId: string): Promise<ReturnType<typeof mapContract> | null> {
   const rows = await db
     .select()
     .from(pmsContracts)

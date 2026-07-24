@@ -147,7 +147,7 @@ export async function listSNs(filters: {
   parentSNId?: string;
   limit?: number;
   offset?: number;
-}): Promise<any[]> {
+}): Promise<ReturnType<typeof mapSN>[]> {
   const conditions = [eq(pmsEquipmentSns.tenantId, filters.tenantId)];
   if (filters.status) conditions.push(eq(pmsEquipmentSns.status, filters.status));
   if (filters.batchNumber) conditions.push(eq(pmsEquipmentSns.batchNumber, filters.batchNumber));
@@ -166,7 +166,7 @@ export async function listSNs(filters: {
 }
 
 /** 获取 SN 详情 */
-export async function getSN(id: string, tenantId: string): Promise<any | null> {
+export async function getSN(id: string, tenantId: string): Promise<ReturnType<typeof mapSN> | null> {
   const rows = await db
     .select()
     .from(pmsEquipmentSns)
@@ -177,7 +177,7 @@ export async function getSN(id: string, tenantId: string): Promise<any | null> {
 }
 
 /** 按 SN 码查询 */
-export async function getSNByCode(snCode: string, tenantId: string): Promise<any | null> {
+export async function getSNByCode(snCode: string, tenantId: string): Promise<ReturnType<typeof mapSN> | null> {
   const rows = await db
     .select()
     .from(pmsEquipmentSns)
@@ -240,7 +240,7 @@ export async function transitionSN(input: {
 }
 
 /** 列出子 SN (资产层级) */
-export async function listChildSNs(parentSNId: string, tenantId: string): Promise<any[]> {
+export async function listChildSNs(parentSNId: string, tenantId: string): Promise<ReturnType<typeof mapSN>[]> {
   const rows = await db
     .select()
     .from(pmsEquipmentSns)

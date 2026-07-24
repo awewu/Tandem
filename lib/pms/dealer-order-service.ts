@@ -113,7 +113,7 @@ export async function listDealerOrders(filters: {
   status?: string;
   limit?: number;
   offset?: number;
-}): Promise<any[]> {
+}): Promise<ReturnType<typeof mapOrder>[]> {
   const conditions = [eq(pmsDealerOrders.tenantId, filters.tenantId)];
   if (filters.dealerOrgId) conditions.push(eq(pmsDealerOrders.dealerOrgId, filters.dealerOrgId));
   if (filters.status) conditions.push(eq(pmsDealerOrders.status, filters.status));
@@ -127,7 +127,7 @@ export async function listDealerOrders(filters: {
   return rows.map(mapOrder);
 }
 
-export async function getDealerOrder(id: string, tenantId: string): Promise<any | null> {
+export async function getDealerOrder(id: string, tenantId: string): Promise<ReturnType<typeof mapOrder> | null> {
   const rows = await db
     .select()
     .from(pmsDealerOrders)

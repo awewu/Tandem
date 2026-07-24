@@ -83,7 +83,7 @@ export async function listQuoteRecommendations(filters: {
   status?: string;
   limit?: number;
   offset?: number;
-}): Promise<any[]> {
+}): Promise<ReturnType<typeof mapRec>[]> {
   const conditions = [eq(pmsQuoteRecommendations.tenantId, filters.tenantId)];
   if (filters.opportunityId) conditions.push(eq(pmsQuoteRecommendations.opportunityId, filters.opportunityId));
   if (filters.status) conditions.push(eq(pmsQuoteRecommendations.status, filters.status));

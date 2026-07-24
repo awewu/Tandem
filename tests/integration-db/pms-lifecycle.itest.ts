@@ -106,7 +106,7 @@ describe.skipIf(!hasDb)('integration(db) · PMS 合同生命周期', () => {
     expect(res.deliveryOrder.alreadyExists).toBe(false);
 
     // 合同已生效
-    const got = await getContract(contract.id, TEST_TENANT);
+    const got = (await getContract(contract.id, TEST_TENANT))!;
     expect(got.status).toBe('approved');
     expect(got.approvedBy).toBe('itest_approver');
 
@@ -240,7 +240,7 @@ describe.skipIf(!hasDb)('integration(db) · PMS 设备 SN 生命周期', () => {
     expect(t2.warrantyExpiresAt).toBe('2028-01-15');
 
     // 按 SN 码回读
-    const byCode = await getSNByCode('SN-ITEST-0001', TEST_TENANT);
+    const byCode = (await getSNByCode('SN-ITEST-0001', TEST_TENANT))!;
     expect(byCode.id).toBe(sn.id);
     expect(byCode.warrantyExpiresAt).toBe('2028-01-15');
   });
@@ -310,7 +310,7 @@ describe.skipIf(!hasDb)('integration(db) · PMS 维保 FSM', () => {
     expect(c.to).toBe('completed');
     expect(c.completedAt).toBeDefined();
 
-    const got = await getMaintenance(rec.id, TEST_TENANT);
+    const got = (await getMaintenance(rec.id, TEST_TENANT))!;
     expect(got.customerFeedback).toBe('已修复, 满意');
   });
 

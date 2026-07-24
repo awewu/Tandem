@@ -89,7 +89,7 @@ describe.skipIf(!hasDb)('integration(db) · PMS 价格申请分级审批', () =>
     expect(res.status).toBe('approved');
     expect(res.approvedPrice).toBe(97000);
 
-    const got = await getPriceApplication(app.id, TEST_TENANT);
+    const got = (await getPriceApplication(app.id, TEST_TENANT))!;
     expect(got.status).toBe('approved');
 
     // 审批留痕落库
@@ -123,7 +123,7 @@ describe.skipIf(!hasDb)('integration(db) · PMS 价格申请分级审批', () =>
     ).rejects.toThrow(/insufficient approval authority/);
 
     // 仍是 pending
-    expect((await getPriceApplication(app.id, TEST_TENANT)).status).toBe('pending');
+    expect((await getPriceApplication(app.id, TEST_TENANT))!.status).toBe('pending');
 
     // 总经理 (level 3) 可批
     const res = await decidePriceApplication({
@@ -245,7 +245,7 @@ describe.skipIf(!hasDb)('integration(db) · PMS 经销商在线订货 FSM', () =
 
     const c = await transitionDealerOrder({ tenantId: TEST_TENANT, id: order.id, toStatus: 'confirmed', actorId: 'itest_ops' });
     expect(c.to).toBe('confirmed');
-    const confirmed = await getDealerOrder(order.id, TEST_TENANT);
+    const confirmed = (await getDealerOrder(order.id, TEST_TENANT))!;
     expect(confirmed.confirmedBy).toBe('itest_ops');
 
     const s = await transitionDealerOrder({ tenantId: TEST_TENANT, id: order.id, toStatus: 'shipped' });
