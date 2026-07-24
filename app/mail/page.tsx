@@ -12,7 +12,7 @@
  * 设置入口      :  右上角 → /settings/email
  */
 
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { usePullToRefreshAction } from '@/components/pull-to-refresh';
@@ -30,6 +30,7 @@ import {
   ArrowLeft,
   FileText,
   Star,
+  KeyRound,
 } from 'lucide-react';
 import { Download, FolderInput } from 'lucide-react';
 import { Reply, ReplyAll, Forward, Bold, Italic, Underline, List, ListOrdered, Link2 } from 'lucide-react';
@@ -37,6 +38,7 @@ import PageTabs from '@/components/page-tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useHandoffPrefill } from '@/hooks/useHandoffPrefill';
 import { useCalendarStore } from '@/lib/store/calendar';
 import { useContactStore } from '@/lib/store/contacts';
@@ -50,6 +52,8 @@ interface MailStatus {
   inbound: { configured: boolean; note?: string };
 }
 
+const MAIL_SETTINGS_HREF = '/settings/email?next=/mail&reason=mail-inbox';
+
 export default function MailPage() {
   return (
     <Suspense fallback={null}>
@@ -62,6 +66,8 @@ function MailInner() {
   const params = useSearchParams();
   const [tab, setTab] = useState<'inbox' | 'compose'>('inbox');
   const [status, setStatus] = useState<MailStatus | null>(null);
+  const [personalMailConfigured, setPersonalMailConfigured] = useState<boolean | null>(null);
+  const [mailGuideOpen, setMailGuideOpen] = useState(false);
   /** Tandem 转交草稿: 仅在收到 handoff 时有值, 一次性预填给 ComposeView */
   const [handoffDraft, setHandoffDraft] = useState<{ subject: string; body: string } | null>(null);
   /** 回复 / 转发草稿: 由收件箱详情页触发, 预填 ComposeView (含收件人/抄送/HTML 引用) */
@@ -78,7 +84,20 @@ function MailInner() {
       .then((r) => (r.ok ? r.json() : Promise.reject(r.statusText)))
       .then(setStatus)
       .catch(() => setStatus(null));
+
+    fetch('/api/mail/credentials', { credentials: 'include', cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : Promise.reject(r.statusText)))
+      .then((data) => setPersonalMailConfigured(data.configured === true))
+      .catch(() => setPersonalMailConfigured(null));
   }, []);
+
+  useEffect(() => {
+    if (personalMailConfigured !== false) return;
+    const key = 'tandem-mail-password-guide-seen';
+    if (window.sessionStorage.getItem(key)) return;
+    window.sessionStorage.setItem(key, '1');
+    setMailGuideOpen(true);
+  }, [personalMailConfigured]);
 
   useHandoffPrefill('mail', (p) => {
     setHandoffDraft({ subject: p.title, body: p.body });
@@ -102,17 +121,27 @@ function MailInner() {
               <Mail className="h-6 w-6 text-[rgb(var(--brand-600))]" />
               邮箱
             </h1>
-            <p className="mt-1 text-caption text-ink-tertiary">
-              对外沟通的正式通道 · 出站走 SMTP, 收件 V2 接入 IMAP
+            <p className="mt-1 text-caption text-ink-tertiary break-words">
+              对外沟通的正式通道 · 绑定个人邮箱后可收信、发信与同步日程
             </p>
           </div>
-          <Link
-            href="/settings/email"
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-caption font-medium text-ink-secondary hover:text-ink-primary hover:bg-surface-2 surface-interactive"
-          >
-            <Settings className="h-3.5 w-3.5" />
-            邮箱设置
-          </Link>
+          <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row">
+            <button
+              type="button"
+              onClick={() => setMailGuideOpen(true)}
+              className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-caption font-medium text-ink-secondary hover:text-ink-primary hover:bg-surface-2 surface-interactive"
+            >
+              <KeyRound className="h-3.5 w-3.5" />
+              配置引导
+            </button>
+            <Link
+              href={MAIL_SETTINGS_HREF}
+              className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-caption font-medium text-ink-secondary hover:text-ink-primary hover:bg-surface-2 surface-interactive"
+            >
+              <Settings className="h-3.5 w-3.5" />
+              邮箱设置
+            </Link>
+          </div>
         </div>
 
         {/* Status pill */}
@@ -121,15 +150,20 @@ function MailInner() {
             <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-2 px-3 py-1 text-footnote text-ink-tertiary">
               加载中...
             </span>
+          ) : personalMailConfigured ? (
+            <span className="inline-flex max-w-full items-start gap-1.5 rounded-full bg-success/10 px-3 py-1 text-footnote font-medium text-success im-mobile-break-anywhere">
+              <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              个人邮箱已绑定 · {status.personal?.user ?? status.effective?.fromAddress}
+            </span>
           ) : status.configured ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-3 py-1 text-footnote font-medium text-success">
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              {status.effective?.mode === 'personal' ? '个人邮箱' : '全局 SMTP'} · {status.effective?.fromAddress}
+            <span className="inline-flex max-w-full items-start gap-1.5 rounded-full bg-warning/5 px-3 py-1 text-footnote font-medium text-warning im-mobile-break-anywhere">
+              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              发件已可用 · 收件需绑定个人邮箱账号和密码
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-warning/5 px-3 py-1 text-footnote font-medium text-warning">
-              <AlertCircle className="h-3.5 w-3.5" />
-              SMTP 未配置 · 请先绑定个人邮箱
+            <span className="inline-flex max-w-full items-start gap-1.5 rounded-full bg-warning/5 px-3 py-1 text-footnote font-medium text-warning im-mobile-break-anywhere">
+              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              未绑定个人邮箱 · 收件前需要输入账号和密码
             </span>
           )}
         </div>
@@ -138,7 +172,12 @@ function MailInner() {
       {/* Body */}
       <div className="min-w-0 flex-1 overflow-auto px-4 py-4 sm:p-6">
         {tab === 'inbox' ? (
-          <InboxView folder={params.get('folder') || 'INBOX'} onCompose={startCompose} />
+          <InboxView
+            folder={params.get('folder') || 'INBOX'}
+            onCompose={startCompose}
+            personalMailConfigured={personalMailConfigured}
+            onOpenGuide={() => setMailGuideOpen(true)}
+          />
         ) : (
           <ComposeView
             canSend={status?.configured ?? false}
@@ -148,6 +187,41 @@ function MailInner() {
           />
         )}
       </div>
+
+      <Dialog open={mailGuideOpen} onOpenChange={setMailGuideOpen}>
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-title-3">
+              <KeyRound className="h-5 w-5 text-[rgb(var(--brand-600))]" />
+              输入邮箱账号和密码后才能收信
+            </DialogTitle>
+            <DialogDescription>
+              系统需要你自己的公司邮箱地址和邮箱密码，才能读取收件箱，并把网易企业邮箱日程同步到系统日程。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 text-caption text-ink-secondary">
+            <div className="rounded-md border border-border bg-surface-2 p-3">
+              <p className="font-medium text-ink-primary">什么时候需要填写？</p>
+              <p className="mt-1">第一次使用收件箱、发邮件、同步邮箱日程时都需要先绑定。绑定后不用每次重复输入。</p>
+            </div>
+            <div className="rounded-md border border-border bg-surface-2 p-3">
+              <p className="font-medium text-ink-primary">填什么密码？</p>
+              <p className="mt-1">按当前公司邮箱策略，先使用你平时登录网易企业邮箱的账号和密码；这里不强制要求客户端授权密码。</p>
+            </div>
+            <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:justify-end">
+              <Button variant="outline" onClick={() => setMailGuideOpen(false)}>
+                稍后再说
+              </Button>
+              <Button asChild>
+                <Link href={MAIL_SETTINGS_HREF}>
+                  <Settings className="mr-1.5 h-4 w-4" />
+                  去绑定邮箱
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -179,6 +253,11 @@ interface InboxEmail {
   seen: boolean;
 }
 
+interface MailDirectoryUser {
+  email: string;
+  name?: string | null;
+}
+
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr);
   const now = new Date();
@@ -207,7 +286,42 @@ function stripHtml(html: string): string {
   return html.replace(/<style[\s\S]*?<\/style>/gi, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-function InboxView({ folder = 'INBOX', onCompose }: { folder?: string; onCompose: (d: ComposeDraft) => void }) {
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+function formatMailIdentity(
+  person: { name?: string; address?: string } | undefined,
+  nameByEmail: Map<string, string>,
+): string {
+  const address = person?.address?.trim() ?? '';
+  if (!address) return person?.name?.trim() || '未知发件人';
+  const rawName = person?.name?.trim();
+  const normalizedAddress = normalizeEmail(address);
+  const usableRawName = rawName && normalizeEmail(rawName) !== normalizedAddress ? rawName : '';
+  const resolvedName = usableRawName || nameByEmail.get(normalizedAddress) || '';
+  if (!resolvedName || normalizeEmail(resolvedName) === normalizedAddress) return address;
+  return `${resolvedName}（${address}）`;
+}
+
+function formatMailInboxError(error: string): string {
+  if (/^(未绑定|.*请先配置)/.test(error)) {
+    return '收取邮件前需要先绑定个人邮箱账号和密码。';
+  }
+  return error;
+}
+
+function InboxView({
+  folder = 'INBOX',
+  onCompose,
+  personalMailConfigured,
+  onOpenGuide,
+}: {
+  folder?: string;
+  onCompose: (d: ComposeDraft) => void;
+  personalMailConfigured: boolean | null;
+  onOpenGuide: () => void;
+}) {
   const [emails, setEmails] = useState<InboxEmail[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -221,8 +335,28 @@ function InboxView({ folder = 'INBOX', onCompose }: { folder?: string; onCompose
   const [moving, setMoving] = useState(false);
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
+  const contacts = useContactStore((state) => state.contacts);
+  const [directoryUsers, setDirectoryUsers] = useState<MailDirectoryUser[]>([]);
 
   const label = FOLDER_LABELS[folder] ?? { title: folder, icon: Inbox };
+  const directoryNameByEmail = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const user of directoryUsers) {
+      if (user.email && user.name) map.set(normalizeEmail(user.email), user.name);
+    }
+    for (const contact of contacts) {
+      const email = normalizeEmail(contact.email);
+      if (contact.email && contact.name && !map.has(email)) map.set(email, contact.name);
+    }
+    return map;
+  }, [contacts, directoryUsers]);
+
+  useEffect(() => {
+    fetch('/api/calendar/attendees?limit=500', { credentials: 'include', cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : { users: [] }))
+      .then((data) => setDirectoryUsers(Array.isArray(data.users) ? data.users : []))
+      .catch(() => setDirectoryUsers([]));
+  }, []);
 
   // 移动端下拉刷新 → 重新加载收件箱第一页
   usePullToRefreshAction(() => loadEmails(1, false));
@@ -236,15 +370,24 @@ function InboxView({ folder = 'INBOX', onCompose }: { folder?: string; onCompose
     setDetail(null);
     setError(null);
     setSelectedUids(new Set());
+    if (personalMailConfigured !== true) {
+      setLoading(false);
+      return;
+    }
     // 使用 setTimeout 避免与 React 批量更新冲突
     const timer = setTimeout(() => {
       loadEmails(1, false);
     }, 0);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [folder]);
+  }, [folder, personalMailConfigured]);
 
   async function loadEmails(pageNum = 1, append = false) {
+    if (personalMailConfigured !== true) {
+      setLoading(false);
+      setError(null);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -386,13 +529,9 @@ function InboxView({ folder = 'INBOX', onCompose }: { folder?: string; onCompose
     }
   }
 
-  useEffect(() => {
-    loadEmails();
-  }, []);
-
   /** 构造引用块: Gmail 风格的 "On <date>, <from> wrote:" + 原文 HTML */
   function buildQuote(d: InboxEmail): string {
-    const fromLabel = d.from[0]?.name || d.from[0]?.address || '';
+    const fromLabel = formatMailIdentity(d.from[0], directoryNameByEmail);
     const when = new Date(d.date).toLocaleString('zh-CN');
     const original = d.htmlBody || (d.textBody ? `<pre style="white-space:pre-wrap;font-family:inherit">${escapeHtml(d.textBody)}</pre>` : '');
     return `<br/><br/><div style="border-left:2px solid #ccc;padding-left:12px;color:#666">在 ${when}，${escapeHtml(fromLabel)} 写道：<br/>${original}</div>`;
@@ -414,12 +553,13 @@ function InboxView({ folder = 'INBOX', onCompose }: { folder?: string; onCompose
   }
 
   function startForward(d: InboxEmail) {
+    const fromLabel = formatMailIdentity(d.from[0], directoryNameByEmail);
     onCompose({
       mode: 'forward',
       to: '',
       cc: '',
       subject: /^fwd?:/i.test(d.subject) ? d.subject : `Fwd: ${d.subject}`,
-      html: `<br/><br/>---------- 转发邮件 ----------<br/>发件人: ${escapeHtml(d.from[0]?.address || '')}<br/>日期: ${new Date(d.date).toLocaleString('zh-CN')}<br/>主题: ${escapeHtml(d.subject)}<br/><br/>${d.htmlBody || escapeHtml(d.textBody || '')}`,
+      html: `<br/><br/>---------- 转发邮件 ----------<br/>发件人: ${escapeHtml(fromLabel)}<br/>日期: ${new Date(d.date).toLocaleString('zh-CN')}<br/>主题: ${escapeHtml(d.subject)}<br/><br/>${d.htmlBody || escapeHtml(d.textBody || '')}`,
       quotedText: d.textBody || stripHtml(d.htmlBody || ''),
     });
   }
@@ -521,9 +661,8 @@ function InboxView({ folder = 'INBOX', onCompose }: { folder?: string; onCompose
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <h2 className="text-headline text-ink-primary break-words">{detail.subject}</h2>
-                  <div className="mt-1 text-caption text-ink-secondary">
-                    <span className="font-medium">{detail.from[0]?.name || detail.from[0]?.address}</span>
-                    <span className="text-ink-tertiary ml-1">&lt;{detail.from[0]?.address}&gt;</span>
+                  <div className="mt-1 text-caption text-ink-secondary break-words">
+                    <span className="font-medium break-words">{formatMailIdentity(detail.from[0], directoryNameByEmail)}</span>
                   </div>
                   <div className="text-footnote text-ink-tertiary mt-0.5">
                     收件人: {detail.to.map((t) => t.address).join(', ')}
@@ -579,6 +718,33 @@ function InboxView({ folder = 'INBOX', onCompose }: { folder?: string; onCompose
         </Button>
       </div>
 
+      {personalMailConfigured === false && (
+        <div className="rounded-md border border-[rgb(var(--brand-500))]/25 bg-[rgb(var(--brand-50))]/60 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-caption font-semibold text-ink-primary">
+                <KeyRound className="h-4 w-4 text-[rgb(var(--brand-600))]" />
+                收取邮件前需要绑定个人邮箱
+              </div>
+              <p className="mt-1 text-caption leading-relaxed text-ink-secondary">
+                为了从公司邮箱获取邮件，系统需要你的邮箱账号和密码来连接 IMAP 收件服务。绑定后也会用于发件和网易日程同步，不需要每次重复输入。
+              </p>
+            </div>
+            <div className="flex shrink-0 gap-2 sm:flex-col">
+              <Button variant="outline" size="sm" onClick={onOpenGuide}>
+                查看说明
+              </Button>
+              <Button asChild size="sm">
+                <Link href={MAIL_SETTINGS_HREF}>
+                  <Settings className="mr-1.5 h-3.5 w-3.5" />
+                  去配置邮箱
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {selectedUids.size > 0 && (
         <div className="flex items-center gap-2 rounded-md bg-surface-2 px-3 py-2">
           <span className="text-caption text-ink-secondary">已选 {selectedUids.size} 封</span>
@@ -613,11 +779,11 @@ function InboxView({ folder = 'INBOX', onCompose }: { folder?: string; onCompose
       {error && (
         <div className="rounded-md bg-warning/5 px-3 py-2 text-caption text-warning flex items-start gap-2">
           <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-          <span className="flex-1">{error}</span>
+          <span className="min-w-0 flex-1 break-words">{formatMailInboxError(error)}</span>
           {/^(未绑定|.*请先配置)/.test(error) && (
             <Link
-              href="/settings/email"
-              className="shrink-0 inline-flex items-center gap-1 rounded-md bg-warning/10 px-2 py-0.5 font-medium text-warning hover:bg-warning/20 surface-interactive"
+              href={MAIL_SETTINGS_HREF}
+              className="inline-flex shrink-0 items-center gap-1 rounded-md bg-warning/10 px-2 py-0.5 font-medium text-warning hover:bg-warning/20 surface-interactive"
             >
               <Settings className="h-3.5 w-3.5" /> 去配置邮箱
             </Link>
@@ -625,7 +791,7 @@ function InboxView({ folder = 'INBOX', onCompose }: { folder?: string; onCompose
         </div>
       )}
 
-      {emails.length === 0 && !loading ? (
+      {personalMailConfigured === false ? null : emails.length === 0 && !loading ? (
         <Card>
           <CardContent className="p-8 text-center space-y-2">
             <Inbox className="h-8 w-8 text-ink-tertiary mx-auto" />
@@ -659,7 +825,7 @@ function InboxView({ folder = 'INBOX', onCompose }: { folder?: string; onCompose
                   <div className="flex items-center gap-2">
                     {!email.seen && <span className="h-2 w-2 rounded-full bg-[rgb(var(--brand-600))] shrink-0" />}
                     <span className="text-caption font-medium text-ink-primary truncate">
-                      {email.from[0]?.name || email.from[0]?.address || '未知发件人'}
+                      {formatMailIdentity(email.from[0], directoryNameByEmail)}
                     </span>
                   </div>
                   <div className={`mt-0.5 truncate ${email.seen ? 'text-caption text-ink-secondary' : 'text-caption font-medium text-ink-primary'}`}>

@@ -47,8 +47,7 @@ const DEPT_COLORS = [
   'bg-warning/5 border-warning/20 text-warning',
   'bg-danger/5 border-danger/30 text-danger',
   'bg-info/10 border-info/30 text-info',
-  'bg-success/10 border-success/30 text-success',
-];
+  'bg-success/10 border-success/30 text-success',];
 
 export function OKRAlignmentTree({ selectedId, cycleId, onSelect }: Props) {
   const { objectives, keyResults } = useOKRStore();
@@ -147,8 +146,7 @@ export function OKRAlignmentTree({ selectedId, cycleId, onSelect }: Props) {
         <div
           className={`flex items-start gap-2 rounded-md border-l-2 p-2 transition ${color} ${
             dimmed ? 'opacity-40' : ''
-          } ${isSelected ? 'ring-2 ring-info/50 ring-offset-1' : ''}`}
-          style={{ marginLeft: depth * 20 }}
+          } ${isSelected ? 'ring-2 ring-info/50 ring-offset-1' : ''}`}          style={{ marginLeft: depth * 20 }}
         >
           {crossDeptWarn && (
             <div
@@ -254,8 +252,7 @@ export function OKRAlignmentTree({ selectedId, cycleId, onSelect }: Props) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-1.5 text-caption font-semibold">
-            <Network className="h-4 w-4 text-brand-700" />
-            跨部门对齐树
+            <Network className="h-4 w-4 text-brand-700" />            跨部门对齐树
           </div>
           <div className="text-[11px] text-muted-foreground mt-0.5">
             {roots.length} 根 · {withParent.length} 条对齐 · {totalCross} 条跨部门
@@ -306,8 +303,7 @@ export function OKRAlignmentTree({ selectedId, cycleId, onSelect }: Props) {
       )}
 
       {/* 说明 */}
-      <div className="rounded-md border border-dashed border-border bg-surface-2/60 p-2.5 text-[10.5px] text-ink-secondary">
-        <strong>💡 怎么用:</strong> 点节点 → 右侧详情联动 | 高亮链路 = 选中 O 的祖+孙 |
+      <div className="rounded-md border border-dashed border-border bg-surface-2/60 p-2.5 text-[10.5px] text-ink-secondary">        <strong>💡 怎么用:</strong> 点节点 → 右侧详情联动 | 高亮链路 = 选中 O 的祖+孙 |
         红三角 ⚠️ = 子 O 跟父 O 不同部门 (公司战略沟通风险点, 该季复盘重点)
       </div>
     </div>

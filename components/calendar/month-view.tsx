@@ -263,10 +263,10 @@ function getEventMeta(event: EventInstance, currentUserId?: string): {
     return {
       badge: '订',
       label: '订阅日程',
-      bg: 'rgb(var(--muted-foreground))',
-      softBg: 'rgb(var(--muted))',
-      border: 'rgb(var(--border))',
-      text: 'rgb(var(--ink-secondary))',
+      bg: 'rgb(var(--info))',
+      softBg: 'rgb(var(--info) / 0.1)',
+      border: 'rgb(var(--info) / 0.3)',
+      text: 'rgb(var(--info))',
     };
   }
   if (event.sourceKind === 'okr' || event.calendarId === 'cal-okr' || event.type === 'okr_due' || event.type === 'checkin' || event.type === 'cycle') {
@@ -277,6 +277,16 @@ function getEventMeta(event: EventInstance, currentUserId?: string): {
       softBg: 'rgb(var(--success) / 0.1)',
       border: 'rgb(var(--success) / 0.3)',
       text: 'rgb(var(--success))',
+    };
+  }
+  if (event.calendarId === 'cal-netease') {
+    return {
+      badge: '网',
+      label: '网易同步',
+      bg: 'rgb(var(--brand-500))',
+      softBg: 'rgb(var(--brand-50))',
+      border: 'rgb(var(--brand-200))',
+      text: 'rgb(var(--brand-700))',
     };
   }
   if (event.type === 'meeting') {

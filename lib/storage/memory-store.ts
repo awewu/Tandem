@@ -281,6 +281,7 @@ function createInMemoryAuthStore(): AuthStore {
 export function createInMemoryStore(): TandemStore {
   return instrumentBusinessRepositories({
     _storeKind: 'memory' as const,
+    withMutationTransaction: (mutation) => mutation(),
     decisionCards: new InMemoryRepository(),
     personas: new InMemoryRepository(),
     agentTemplates: new InMemoryRepository(),
@@ -304,6 +305,7 @@ export function createInMemoryStore(): TandemStore {
     ttis: new InMemoryRepository(),
     initiatives: new InMemoryRepository(),
     checkIns: new InMemoryRepository(),
+    dailyReports: new InMemoryRepository(),
 
     // KPI 体系 (CHARTER-KPI-TTI §2)
     kpiCycles: new InMemoryRepository(),
@@ -337,6 +339,7 @@ export function createInMemoryStore(): TandemStore {
     learningEnrollments: new InMemoryRepository(),
     llmPreferences: new InMemoryRepository(),
     tenantAiPolicies: new InMemoryRepository(),
+    mobileFeatureConfigs: new InMemoryRepository(),
     workspaceManifests: new InMemoryRepository(),
     personaConstitutions: new InMemoryRepository(),
     documents: new InMemoryRepository(),
@@ -367,6 +370,7 @@ export function createInMemoryStore(): TandemStore {
     userEmailCredentials: new InMemoryRepository(),
     calendarJobs: new InMemoryRepository(),
     calendarActivityLogs: new InMemoryRepository(),
+    calendarSyncStates: new InMemoryRepository(),
 
     // PMS (项目报备全生命周期管理系统) · 31 collections
     pmsOpportunities: new InMemoryRepository(),

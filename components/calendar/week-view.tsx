@@ -109,7 +109,7 @@ export default function WeekView({ date, todayMs, onEventClick, onCellClick }: W
                           'w-full text-[9px] px-1 py-0.5 rounded truncate text-left',
                           ev.status === 'cancelled' && 'opacity-40 line-through'
                         )}
-                        style={{ backgroundColor: getColorBg(ev.color), color: '#fff' }}
+                        style={{ backgroundColor: getColorBg(ev.color), color: 'rgb(var(--surface-1))' }}
                         onClick={(e) => { e.stopPropagation(); onEventClick(ev); }}
                       >
                         {ev.title}
@@ -142,7 +142,7 @@ export default function WeekView({ date, todayMs, onEventClick, onCellClick }: W
                           top: `${top}px`,
                           height: `${height}px`,
                           backgroundColor: getColorBg(ev.color),
-                          color: '#fff',
+                          color: 'rgb(var(--surface-1))',
                         }}
                         onClick={(e) => { e.stopPropagation(); onEventClick(ev); }}
                       >

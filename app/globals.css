@@ -636,6 +636,13 @@
   .skeleton-text   { height: 0.75rem; border-radius: var(--radius-sm); }
   .skeleton-circle { border-radius: var(--radius-full); }
   .skeleton-card   { height: 6rem;    border-radius: var(--radius-lg); }
+
+  /* Token alias guard: keep shorthand text helpers consistent even when
+     Tailwind also generates `.text-primary` / `.text-secondary` utilities. */
+  .text-primary { color: rgb(var(--text-primary)) !important; }
+  .text-secondary { color: rgb(var(--text-secondary)) !important; }
+  .text-tertiary { color: rgb(var(--text-tertiary)) !important; }
+  .text-muted-foreground { color: rgb(var(--text-secondary)) !important; }
 }
 
 /* =============================================================

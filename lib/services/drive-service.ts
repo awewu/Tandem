@@ -1,5 +1,6 @@
 ﻿import { NotFoundError, ForbiddenError, ValidationError } from '@/lib/domain/errors';
 import type { ApplicationContext } from '@/lib/repositories/app-context';
+import { ConflictError } from '@/lib/domain/errors';
 import type { DriveFile } from '@/lib/types/feishu-catchup';
 import { presignUpload, presignDownload, deleteObject, getS3, BUCKET_DRIVE } from '@/lib/infra/s3-client';
 import { generateId } from '@/lib/storage/repository';
@@ -91,8 +92,17 @@ export class DriveService {
   async delete(id: string, actor: DriveAclUser): Promise<void> {
     const f = await this.ctx.driveRepo.findById(id);
     if (!f) throw new NotFoundError('DriveFile', id);
+    if (!this.isAdmin(actor) && f.ownerId !== actor.id) {
+      throw new ForbiddenError('Only admin or owner can delete drive files');
+    }
+    if (f.isFolder) {
+      const children = await this.ctx.driveRepo.list({ parentId: id, tenantId: f.tenantId });
+      if (children.some((child) => !child.deletedAt)) {
+        throw new ConflictError('Folder is not empty');
+      }
+    }
     const chain = await this.loadChain(id, f.tenantId);
-    if (f.ownerId !== actor.id && !canWrite(chain, actor)) throw new ForbiddenError('No write permission');
+    if (!canWrite(chain, actor)) throw new ForbiddenError('No write permission');
     await this.ctx.driveRepo.softDelete(id);
     // §T6 软删后异步清理 S3 (失败不阻塞业务)
     if (!f.isFolder && f.storageKey && getS3()) {
@@ -106,8 +116,12 @@ export class DriveService {
     const chain = await this.loadChain(id, f.tenantId);
     if (f.ownerId !== actor.id && !canWrite(chain, actor)) throw new ForbiddenError('No write permission');
     if (parentId) {
+      if (parentId === id) throw new ValidationError('Cannot move folder into itself');
       const parentChain = await this.loadChain(parentId, f.tenantId);
       if (parentChain.length === 0) throw new NotFoundError('DriveFile', parentId);
+      if (f.isFolder && parentChain.some((node) => node.id === id)) {
+        throw new ValidationError('Cannot move folder into its child folder');
+      }
       if (!canWrite(parentChain, actor)) throw new ForbiddenError('No write permission on target');
     }
     return this.ctx.driveRepo.move(id, parentId);

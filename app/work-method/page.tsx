@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * /work-method — 工作法 · 周节奏驾驶舱 (对标 Tita「工作法」, 2026-06-27)
+ * /work-method — 四象限工作法驾驶舱 (对标 Tita「工作法」, 2026-06-27)
  *
  * 四象限: OKR 面板 / 本周工作 / 未来四周计划 / 当前进展。
  * 核心交互: 把行动项"钉"到本周 (Initiative.weekOf) — 完整落库 (Server.Initiative.weekOf),
@@ -77,9 +77,8 @@ function fromDateInputValue(value: string): number | undefined {
   return Number.isFinite(ms) ? ms : undefined;
 }
 
-function weekInputToStart(value: string): number | null {
-  const ms = fromDateInputValue(value);
-  return ms == null ? null : startOfWeek(ms);
+function startDateInputToValue(value: string): number | null {
+  return fromDateInputValue(value) ?? null;
 }
 
 export default function WorkMethodPage() {
@@ -111,24 +110,9 @@ export default function WorkMethodPage() {
     () => new Set([effectiveOwner, `person:${effectiveOwner}`]),
     [effectiveOwner],
   );
+  const isViewingSelf = selfOwnerIds.has(effectiveOwner);
 
-  const visibleOwnerIds = useMemo(() => {
-    const canViewAll = user?.roles?.some((role) => role === 'owner' || role === 'admin') ?? false;
-    if (canViewAll) return new Set(people.map((p) => p.id));
-
-    const rootIds = new Set([currentUserId, user?.id].filter(Boolean) as string[]);
-    const visible = new Set(rootIds);
-    let changed = true;
-    while (changed) {
-      changed = false;
-      for (const p of people) {
-        if (!p.managerId || !visible.has(p.managerId) || visible.has(p.id)) continue;
-        visible.add(p.id);
-        changed = true;
-      }
-    }
-    return visible;
-  }, [currentUserId, people, user?.id, user?.roles]);
+  const visibleOwnerIds = useMemo(() => new Set(people.map((p) => p.id)), [people]);
 
   const peopleOptions = useMemo(() => {
     const scoped = people.filter((p) => visibleOwnerIds.has(p.id) && !(user?.id && p.id === 'me'));
@@ -234,7 +218,18 @@ export default function WorkMethodPage() {
   const [deletePlanError, setDeletePlanError] = useState<string | null>(null);
   const [savingDeletePlan, setSavingDeletePlan] = useState(false);
 
+  useEffect(() => {
+    if (isViewingSelf) return;
+    setEditingInit(null);
+    setCreatingPlanWeekOf(undefined);
+    setDeletingInit(null);
+    setInitiativeError(null);
+    setCreatePlanError(null);
+    setDeletePlanError(null);
+  }, [isViewingSelf]);
+
   function openInitiativeEditor(init: Initiative) {
+    if (!isViewingSelf) return;
     setInitiativeError(null);
     setEditingInit(init);
   }
@@ -260,6 +255,7 @@ export default function WorkMethodPage() {
 
   /** 落库: 钉到本周 / 移回 backlog。乐观更新 → PATCH → hydrate 收敛。 */
   async function setWeek(init: Initiative, weekOf: number | null) {
+    if (!isViewingSelf) return;
     try {
       await updateInitiativePatch(init, { weekOf });
     } catch (err) {
@@ -268,6 +264,7 @@ export default function WorkMethodPage() {
   }
 
   async function updateInitiativeFromList(init: Initiative, patch: InitiativeEditPatch) {
+    if (!isViewingSelf) return;
     try {
       await updateInitiativePatch(init, patch);
     } catch (err) {
@@ -276,11 +273,13 @@ export default function WorkMethodPage() {
   }
 
   function deleteInitiativeFromList(init: Initiative) {
+    if (!isViewingSelf) return;
     setDeletePlanError(null);
     setDeletingInit(init);
   }
 
   function createPlan(weekOf: number | null) {
+    if (!isViewingSelf) return;
     if (!selected) return;
     if (objKRs.length === 0) {
       alert('请先给当前目标添加 KR，再创建工作计划');
@@ -301,7 +300,7 @@ export default function WorkMethodPage() {
         <div>
           <h1 className="text-title-2 text-ink-primary flex items-center gap-2">
             <CalendarCheck className="h-6 w-6 text-brand-500" />
-            工作法 · 周节奏
+            四象限工作法
           </h1>
           <p className="mt-1 text-body text-ink-secondary">
             把 OKR 拆成本周可执行的事 · {activeCycle ? activeCycle.name : '无激活周期'}
@@ -441,12 +440,18 @@ export default function WorkMethodPage() {
                   <div className="rounded-lg border border-border bg-surface-1 p-3">
                     <div className="flex items-center justify-between gap-2">
                       <div className="text-caption font-medium text-ink-primary">KR 进度</div>
-                      <Link
-                        href={`/okr#obj-${selected.id}`}
-                        className="inline-flex items-center gap-1 text-footnote text-brand-600 hover:text-brand-700"
-                      >
-                        去 OKR 更新 <ArrowRight className="h-3.5 w-3.5" />
-                      </Link>
+                      {isViewingSelf ? (
+                        <Link
+                          href={`/okr#obj-${selected.id}`}
+                          className="inline-flex items-center gap-1 text-footnote text-brand-600 hover:text-brand-700"
+                        >
+                          去 OKR 更新 <ArrowRight className="h-3.5 w-3.5" />
+                        </Link>
+                      ) : (
+                        <span className="inline-flex cursor-not-allowed items-center gap-1 text-footnote text-ink-tertiary">
+                          去 OKR 更新 <ArrowRight className="h-3.5 w-3.5" />
+                        </span>
+                      )}
                     </div>
                     <div className="mt-2 space-y-2">
                       {objKRs.length === 0 ? (
@@ -529,8 +534,9 @@ export default function WorkMethodPage() {
               <div className="mt-2 flex justify-end">
                 <button
                   type="button"
+                  disabled={!isViewingSelf}
                   onClick={() => createPlan(startOfWeek(now))}
-                  className="rounded-md border border-border px-2.5 py-1 text-footnote text-brand-700 hover:bg-brand-50"
+                  className="rounded-md border border-border px-2.5 py-1 text-footnote text-brand-700 hover:bg-brand-50 disabled:cursor-not-allowed disabled:text-ink-tertiary disabled:hover:bg-transparent"
                 >
                   + 新增本周工作
                 </button>
@@ -543,6 +549,7 @@ export default function WorkMethodPage() {
                 onEdit={openInitiativeEditor}
                 onUpdate={updateInitiativeFromList}
                 onDelete={deleteInitiativeFromList}
+                readOnly={!isViewingSelf}
                 action={{ icon: PinOff, label: '移出本周', onClick: (i) => setWeek(i, null) }}
               />
             </section>
@@ -557,8 +564,9 @@ export default function WorkMethodPage() {
               <div className="mt-2 flex justify-end">
                 <button
                   type="button"
+                  disabled={!isViewingSelf}
                   onClick={() => createPlan(startOfWeek(now) + WEEK_MS)}
-                  className="rounded-md border border-border px-2.5 py-1 text-footnote text-brand-700 hover:bg-brand-50"
+                  className="rounded-md border border-border px-2.5 py-1 text-footnote text-brand-700 hover:bg-brand-50 disabled:cursor-not-allowed disabled:text-ink-tertiary disabled:hover:bg-transparent"
                 >
                   + 新增未来计划
                 </button>
@@ -571,6 +579,7 @@ export default function WorkMethodPage() {
                 onEdit={openInitiativeEditor}
                 onUpdate={updateInitiativeFromList}
                 onDelete={deleteInitiativeFromList}
+                readOnly={!isViewingSelf}
                 action={{ icon: Pin, label: '钉到本周', onClick: (i) => setWeek(i, startOfWeek(now)) }}
               />
             </section>
@@ -605,7 +614,6 @@ export default function WorkMethodPage() {
       <CreatePlanDialog
         open={creatingPlanWeekOf !== undefined}
         krs={objKRs}
-        now={now}
         initialWeekOf={creatingPlanWeekOf}
         saving={savingCreatePlan}
         error={createPlanError}
@@ -645,7 +653,6 @@ export default function WorkMethodPage() {
       />
       <InitiativeEditDialog
         initiative={editingInit}
-        now={now}
         saving={savingInitiative}
         error={initiativeError}
         onClose={() => {
@@ -741,7 +748,6 @@ function DeletePlanDialog({
 function CreatePlanDialog({
   open,
   krs,
-  now,
   initialWeekOf,
   saving,
   error,
@@ -750,7 +756,6 @@ function CreatePlanDialog({
 }: {
   open: boolean;
   krs: KeyResult[];
-  now: number;
   initialWeekOf: number | null | undefined;
   saving: boolean;
   error: string | null;
@@ -762,19 +767,25 @@ function CreatePlanDialog({
   const [status, setStatus] = useState<Initiative['status']>('todo');
   const [dueDate, setDueDate] = useState('');
   const [weekOf, setWeekOf] = useState('');
+  const wasOpenRef = useRef(false);
 
   useEffect(() => {
-    if (!open) return;
-    setTitle('');
-    setKeyResultId(krs[0]?.id ?? '');
-    setStatus('todo');
-    setDueDate('');
-    setWeekOf(toDateInputValue(initialWeekOf));
+    if (open && !wasOpenRef.current) {
+      setTitle('');
+      setKeyResultId(krs[0]?.id ?? '');
+      setStatus('todo');
+      setDueDate('');
+      setWeekOf(toDateInputValue(initialWeekOf));
+    }
+    wasOpenRef.current = open;
   }, [initialWeekOf, krs, open]);
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose(); }}>
-      <DialogContent className="max-h-[88vh] max-w-xl overflow-hidden p-0">
+      <DialogContent
+        className="max-h-[88vh] max-w-xl overflow-hidden p-0"
+        onInteractOutside={(event) => event.preventDefault()}
+      >
         <DialogHeader className="border-b border-border px-5 py-4">
           <DialogTitle className="text-headline">新增工作计划</DialogTitle>
         </DialogHeader>
@@ -802,22 +813,32 @@ function CreatePlanDialog({
             />
           </label>
 
+          <label className="block space-y-1.5">
+            <span className="text-footnote font-medium text-ink-secondary">进度状态</span>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as Initiative['status'])}
+              className="w-full rounded-md border border-border bg-surface-1 px-3 py-2 text-caption text-ink-primary outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
+            >
+              {INITIATIVE_STATUS_OPTIONS.map((s) => (
+                <option key={s.value} value={s.value}>{s.label}</option>
+              ))}
+            </select>
+          </label>
+
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block space-y-1.5">
-              <span className="text-footnote font-medium text-ink-secondary">进度状态</span>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value as Initiative['status'])}
+              <span className="text-footnote font-medium text-ink-secondary">开始时间</span>
+              <input
+                type="date"
+                value={weekOf}
+                onChange={(e) => setWeekOf(e.target.value)}
                 className="w-full rounded-md border border-border bg-surface-1 px-3 py-2 text-caption text-ink-primary outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
-              >
-                {INITIATIVE_STATUS_OPTIONS.map((s) => (
-                  <option key={s.value} value={s.value}>{s.label}</option>
-                ))}
-              </select>
+              />
             </label>
 
             <label className="block space-y-1.5">
-              <span className="text-footnote font-medium text-ink-secondary">截止日期</span>
+              <span className="text-footnote font-medium text-ink-secondary">截止时间</span>
               <input
                 type="date"
                 value={dueDate}
@@ -825,40 +846,6 @@ function CreatePlanDialog({
                 className="w-full rounded-md border border-border bg-surface-1 px-3 py-2 text-caption text-ink-primary outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
               />
             </label>
-          </div>
-
-          <label className="block space-y-1.5">
-            <span className="text-footnote font-medium text-ink-secondary">计划执行周</span>
-            <input
-              type="date"
-              value={weekOf}
-              onChange={(e) => setWeekOf(e.target.value)}
-              className="w-full rounded-md border border-border bg-surface-1 px-3 py-2 text-caption text-ink-primary outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
-            />
-          </label>
-
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setWeekOf(toDateInputValue(startOfWeek(now)))}
-              className="rounded-md border border-border px-2.5 py-1 text-footnote text-ink-secondary hover:bg-surface-3"
-            >
-              本周
-            </button>
-            <button
-              type="button"
-              onClick={() => setWeekOf(toDateInputValue(startOfWeek(now) + WEEK_MS))}
-              className="rounded-md border border-border px-2.5 py-1 text-footnote text-ink-secondary hover:bg-surface-3"
-            >
-              下周
-            </button>
-            <button
-              type="button"
-              onClick={() => setWeekOf('')}
-              className="rounded-md border border-border px-2.5 py-1 text-footnote text-ink-secondary hover:bg-surface-3"
-            >
-              移到待规划
-            </button>
           </div>
         </div>
 
@@ -881,7 +868,7 @@ function CreatePlanDialog({
                 keyResultId,
                 status,
                 dueDate: fromDateInputValue(dueDate) ?? null,
-                weekOf: weekInputToStart(weekOf),
+                weekOf: startDateInputToValue(weekOf),
               })
             }
             className="inline-flex items-center gap-1 rounded-md bg-brand-600 px-3 py-1.5 text-caption text-white hover:bg-brand-700 disabled:opacity-60"
@@ -897,14 +884,12 @@ function CreatePlanDialog({
 
 function InitiativeEditDialog({
   initiative,
-  now,
   saving,
   error,
   onClose,
   onSave,
 }: {
   initiative: Initiative | null;
-  now: number;
   saving: boolean;
   error: string | null;
   onClose: () => void;
@@ -925,7 +910,10 @@ function InitiativeEditDialog({
 
   return (
     <Dialog open={Boolean(initiative)} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="max-h-[88vh] max-w-xl overflow-hidden p-0">
+      <DialogContent
+        className="max-h-[88vh] max-w-xl overflow-hidden p-0"
+        onInteractOutside={(event) => event.preventDefault()}
+      >
         <DialogHeader className="border-b border-border px-5 py-4">
           <DialogTitle className="text-headline">编辑工作计划</DialogTitle>
         </DialogHeader>
@@ -942,22 +930,32 @@ function InitiativeEditDialog({
                 />
               </label>
 
+              <label className="block space-y-1.5">
+                <span className="text-footnote font-medium text-ink-secondary">进度状态</span>
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value as Initiative['status'])}
+                  className="w-full rounded-md border border-border bg-surface-1 px-3 py-2 text-caption text-ink-primary outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
+                >
+                  {INITIATIVE_STATUS_OPTIONS.map((s) => (
+                    <option key={s.value} value={s.value}>{s.label}</option>
+                  ))}
+                </select>
+              </label>
+
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="block space-y-1.5">
-                  <span className="text-footnote font-medium text-ink-secondary">进度状态</span>
-                  <select
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value as Initiative['status'])}
+                  <span className="text-footnote font-medium text-ink-secondary">开始时间</span>
+                  <input
+                    type="date"
+                    value={weekOf}
+                    onChange={(e) => setWeekOf(e.target.value)}
                     className="w-full rounded-md border border-border bg-surface-1 px-3 py-2 text-caption text-ink-primary outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
-                  >
-                    {INITIATIVE_STATUS_OPTIONS.map((s) => (
-                      <option key={s.value} value={s.value}>{s.label}</option>
-                    ))}
-                  </select>
+                  />
                 </label>
 
                 <label className="block space-y-1.5">
-                  <span className="text-footnote font-medium text-ink-secondary">截止日期</span>
+                  <span className="text-footnote font-medium text-ink-secondary">截止时间</span>
                   <input
                     type="date"
                     value={dueDate}
@@ -965,40 +963,6 @@ function InitiativeEditDialog({
                     className="w-full rounded-md border border-border bg-surface-1 px-3 py-2 text-caption text-ink-primary outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
                   />
                 </label>
-              </div>
-
-              <label className="block space-y-1.5">
-                <span className="text-footnote font-medium text-ink-secondary">计划执行周</span>
-                <input
-                  type="date"
-                  value={weekOf}
-                  onChange={(e) => setWeekOf(e.target.value)}
-                  className="w-full rounded-md border border-border bg-surface-1 px-3 py-2 text-caption text-ink-primary outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
-                />
-              </label>
-
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => setWeekOf(toDateInputValue(startOfWeek(now)))}
-                  className="rounded-md border border-border px-2.5 py-1 text-footnote text-ink-secondary hover:bg-surface-3"
-                >
-                  本周
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setWeekOf(toDateInputValue(startOfWeek(now) + WEEK_MS))}
-                  className="rounded-md border border-border px-2.5 py-1 text-footnote text-ink-secondary hover:bg-surface-3"
-                >
-                  下周
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setWeekOf('')}
-                  className="rounded-md border border-border px-2.5 py-1 text-footnote text-ink-secondary hover:bg-surface-3"
-                >
-                  移到待规划
-                </button>
               </div>
             </div>
 
@@ -1020,7 +984,7 @@ function InitiativeEditDialog({
                     title,
                     status,
                     dueDate: fromDateInputValue(dueDate) ?? null,
-                    weekOf: weekInputToStart(weekOf),
+                    weekOf: startDateInputToValue(weekOf),
                   })
                 }
                 className="inline-flex items-center gap-1 rounded-md bg-brand-600 px-3 py-1.5 text-caption text-white hover:bg-brand-700 disabled:opacity-60"
@@ -1037,7 +1001,7 @@ function InitiativeEditDialog({
 }
 
 function InitiativeList({
-  items, emptyHint, now, ownerName, onEdit, onUpdate, onDelete, action,
+  items, emptyHint, now, ownerName, onEdit, onUpdate, onDelete, readOnly = false, action,
 }: {
   items: Initiative[];
   emptyHint: string;
@@ -1046,6 +1010,7 @@ function InitiativeList({
   onEdit: (i: Initiative) => void;
   onUpdate: (i: Initiative, patch: InitiativeEditPatch) => void;
   onDelete: (i: Initiative) => void;
+  readOnly?: boolean;
   action: { icon: React.ComponentType<{ className?: string }>; label: string; onClick: (i: Initiative) => void };
 }) {
   if (items.length === 0) {
@@ -1064,16 +1029,22 @@ function InitiativeList({
               <div className={`text-caption truncate ${done ? 'text-ink-tertiary line-through' : 'text-ink-primary'}`}>{i.title}</div>
               <div className="text-footnote text-ink-tertiary flex items-center gap-2">
                 <span>{ownerName(i.ownerId)}</span>
-                <select
-                  value={i.status}
-                  onChange={(e) => onUpdate(i, { status: e.target.value as Initiative['status'] })}
-                  className="rounded border border-border bg-surface-1 px-1.5 py-0.5 text-[11px] text-ink-secondary outline-none hover:bg-surface-3"
-                  title="更新进度状态"
-                >
-                  {INITIATIVE_STATUS_OPTIONS.map((s) => (
-                    <option key={s.value} value={s.value}>{s.label}</option>
-                  ))}
-                </select>
+                {readOnly ? (
+                  <span className="rounded border border-border bg-surface-1 px-1.5 py-0.5 text-[11px] text-ink-secondary">
+                    {INITIATIVE_STATUS_OPTIONS.find((s) => s.value === i.status)?.label ?? i.status}
+                  </span>
+                ) : (
+                  <select
+                    value={i.status}
+                    onChange={(e) => onUpdate(i, { status: e.target.value as Initiative['status'] })}
+                    className="rounded border border-border bg-surface-1 px-1.5 py-0.5 text-[11px] text-ink-secondary outline-none hover:bg-surface-3"
+                    title="更新进度状态"
+                  >
+                    {INITIATIVE_STATUS_OPTIONS.map((s) => (
+                      <option key={s.value} value={s.value}>{s.label}</option>
+                    ))}
+                  </select>
+                )}
                 {i.dueDate != null && (
                   <span className={overdue ? 'text-danger' : ''}>
                     {overdue && <AlertTriangle className="inline h-3 w-3 mr-0.5" />}
@@ -1082,32 +1053,36 @@ function InitiativeList({
                 )}
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => onEdit(i)}
-              className="shrink-0 inline-flex items-center gap-1 rounded-md px-2 py-1 text-footnote text-ink-secondary hover:bg-surface-3 hover:text-ink-primary"
-              title="编辑本周/未来计划"
-            >
-              <Edit2 className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">编辑</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => action.onClick(i)}
-              className="shrink-0 inline-flex items-center gap-1 rounded-md px-2 py-1 text-footnote text-ink-secondary hover:bg-surface-3 hover:text-ink-primary"
-            >
-              <ActionIcon className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">{action.label}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => onDelete(i)}
-              className="shrink-0 inline-flex items-center gap-1 rounded-md px-2 py-1 text-footnote text-danger hover:bg-danger/10"
-              title="删除工作计划"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">删除</span>
-            </button>
+            {!readOnly && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => onEdit(i)}
+                  className="shrink-0 inline-flex items-center gap-1 rounded-md px-2 py-1 text-footnote text-ink-secondary hover:bg-surface-3 hover:text-ink-primary"
+                  title="编辑本周/未来计划"
+                >
+                  <Edit2 className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">编辑</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => action.onClick(i)}
+                  className="shrink-0 inline-flex items-center gap-1 rounded-md px-2 py-1 text-footnote text-ink-secondary hover:bg-surface-3 hover:text-ink-primary"
+                >
+                  <ActionIcon className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">{action.label}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDelete(i)}
+                  className="shrink-0 inline-flex items-center gap-1 rounded-md px-2 py-1 text-footnote text-danger hover:bg-danger/10"
+                  title="删除工作计划"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">删除</span>
+                </button>
+              </>
+            )}
           </li>
         );
       })}

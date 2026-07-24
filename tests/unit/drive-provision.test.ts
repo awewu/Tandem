@@ -25,6 +25,17 @@ class FakeRepo implements DriveFolderRepoLike {
     this.store.push(f);
     return f;
   }
+  async move(id: string, parentId: string | null): Promise<DriveFile> {
+    const f = this.store.find((item) => item.id === id);
+    if (!f) throw new Error('not found');
+    f.parentId = parentId;
+    f.updatedAt = new Date().toISOString();
+    return f;
+  }
+  async softDelete(id: string): Promise<void> {
+    const f = this.store.find((item) => item.id === id);
+    if (f) f.deletedAt = new Date().toISOString();
+  }
 }
 
 const TENANT = 'default';
@@ -93,6 +104,61 @@ describe('ensurePersonalHome', () => {
     const b = await ensurePersonalHome({ tenantId: TENANT, userId: 'u_alice', departmentId: 'dept_b', repo });
     expect(b.id).toBe(a.id);
     expect(repo.store.filter((f) => f.nodeRole === 'personal_home').length).toBe(1);
+  });
+
+  it('人员换部门后, 新建当前部门个人工作区, 不带走旧部门内容', async () => {
+    await provisionOrgDrive({ tenantId: TENANT, depts, repo });
+    const rootA = repo.store.find((f) => f.permissions.read?.includes('dept:dept_a'))!;
+    const rootB = repo.store.find((f) => f.permissions.read?.includes('dept:dept_b'))!;
+    const a = await ensurePersonalHome({ tenantId: TENANT, userId: 'u_alice', departmentId: 'dept_b', repo });
+    expect(a.parentId).toBe(rootB.id);
+
+    const b = await ensurePersonalHome({ tenantId: TENANT, userId: 'u_alice', departmentId: 'dept_a', repo });
+    expect(b.id).not.toBe(a.id);
+    expect(b.parentId).toBe(rootA.id);
+    expect(repo.store.filter((f) => f.nodeRole === 'personal_home' && f.ownerId === 'u_alice').length).toBe(2);
+    expect(repo.store.find((f) => f.id === a.id)?.parentId).toBe(rootB.id);
+  });
+
+  it('不会把其他用户的 personal_home 当成本人目录', async () => {
+    await provisionOrgDrive({ tenantId: TENANT, depts, repo });
+    const rootB = repo.store.find((f) => f.permissions.read?.includes('dept:dept_b'))!;
+    const aliceHome = await ensurePersonalHome({ tenantId: TENANT, userId: 'u_alice', departmentId: 'dept_b', repo });
+    const bobHome = await ensurePersonalHome({ tenantId: TENANT, userId: 'u_bob', departmentId: 'dept_b', repo });
+
+    expect(bobHome.id).not.toBe(aliceHome.id);
+    expect(bobHome.ownerId).toBe('u_bob');
+    expect(bobHome.parentId).toBe(rootB.id);
+  });
+
+  it('合并同一用户同一部门下重复的个人工作区', async () => {
+    await provisionOrgDrive({ tenantId: TENANT, depts, repo });
+    const rootB = repo.store.find((f) => f.permissions.read?.includes('dept:dept_b'))!;
+    const first = await ensurePersonalHome({ tenantId: TENANT, userId: 'u_alice', departmentId: 'dept_b', repo });
+    const { id: _firstId, ...firstDraft } = first;
+    const duplicate = await repo.create({
+      ...firstDraft,
+      createdAt: new Date(Date.parse(first.createdAt) + 1000).toISOString(),
+      updatedAt: new Date(Date.parse(first.updatedAt) + 1000).toISOString(),
+    });
+    const { id: _duplicateId, ...duplicateDraft } = duplicate;
+    const child = await repo.create({
+      ...duplicateDraft,
+      name: '重复目录里的文件',
+      isFolder: false,
+      nodeRole: null,
+      parentId: duplicate.id,
+      storageKey: 'k/child',
+      createdAt: new Date(Date.parse(first.createdAt) + 2000).toISOString(),
+      updatedAt: new Date(Date.parse(first.updatedAt) + 2000).toISOString(),
+    });
+
+    const home = await ensurePersonalHome({ tenantId: TENANT, userId: 'u_alice', departmentId: 'dept_b', repo });
+
+    expect(home.id).toBe(first.id);
+    expect(home.parentId).toBe(rootB.id);
+    expect(repo.store.find((f) => f.id === duplicate.id)?.deletedAt).toBeTruthy();
+    expect(repo.store.find((f) => f.id === child.id)?.parentId).toBe(first.id);
   });
 
   it('无部门 → 挂 company_share', async () => {

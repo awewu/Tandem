@@ -34424,6 +34424,148 @@
           }
         ]
       }
+    },
+    "/api/integrations/plm/daily-reports": {
+      "get": {
+        "tags": [
+          "平台、状态、推送与协议"
+        ],
+        "summary": "查询当前登录人的结构化 DailyReport。",
+        "description": "Tandem 日报页使用。返回当前登录人当前租户下的结构化日报；不会跨用户返回。",
+        "operationId": "get_api_integrations_plm_daily_reports",
+        "parameters": [
+          {
+            "name": "x-request-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "可选。调用方传入后服务端会透传。"
+          }
+        ],
+        "security": [
+          {
+            "TandemCookieAuth": []
+          },
+          {
+            "TandemBearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "查询成功。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "dailyReports": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/DailyReport"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登录或 token 无效。"
+          },
+          "500": {
+            "description": "服务端异常。"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "平台、状态、推送与协议"
+        ],
+        "summary": "Innovation Studio 日报同步接口。",
+        "description": "必须使用 Tandem OIDC Bearer access token，且 token scope 必须包含 api.write。authorId、tenantId 只取自 token，忽略请求体中的 authorId/userId/email/tenantId。日报唯一键为 tenantId + authorId + sourceSystem + externalReportId。",
+        "operationId": "post_api_integrations_plm_daily_reports",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Bearer <access_token>，必须包含 api.write scope。"
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "推荐与 externalReportId 相同。"
+          },
+          {
+            "name": "x-request-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "可选。调用方传入后服务端会透传。"
+          }
+        ],
+        "security": [
+          {
+            "TandemBearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlmDailyReportRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "同步成功。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlmDailyReportResponse"
+                },
+                "example": {
+                  "ok": true,
+                  "reportId": "daily_xxx",
+                  "authorId": "token-sub",
+                  "reportDate": "2026-07-24",
+                  "entryCount": 2,
+                  "updated": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数或 KR 校验失败。"
+          },
+          "401": {
+            "description": "未提供有效 Bearer access token。"
+          },
+          "403": {
+            "description": "缺少 api.write scope，或无权关联该 KR。"
+          },
+          "409": {
+            "description": "幂等记录关联的 check-in 冲突。"
+          },
+          "500": {
+            "description": "服务端异常。"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -34465,6 +34607,169 @@
           "requestId": {
             "type": "string",
             "description": "???? ID?"
+          }
+        }
+      },
+      "PlmDailyReportEntry": {
+        "type": "object",
+        "required": [
+          "externalEntryId",
+          "krId",
+          "projectCode",
+          "hours",
+          "workType",
+          "content"
+        ],
+        "properties": {
+          "externalEntryId": {
+            "type": "string",
+            "description": "PLM 侧条目幂等 ID，同一日报内唯一。"
+          },
+          "krId": {
+            "type": "string",
+            "nullable": true,
+            "description": "关联 KR ID；null 表示非 OKR 工作。"
+          },
+          "checkInId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Tandem 接口生成的 KR check-in ID。"
+          },
+          "projectCode": {
+            "type": "string"
+          },
+          "hours": {
+            "type": "number",
+            "minimum": 0,
+            "description": "结构化工时数值。"
+          },
+          "workType": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string",
+            "description": "工作成果内容；日期和工时不会拼接进此文本。"
+          }
+        }
+      },
+      "PlmDailyReportRequest": {
+        "type": "object",
+        "required": [
+          "schemaVersion",
+          "sourceSystem",
+          "externalReportId",
+          "reportDate",
+          "replaceExisting",
+          "entries"
+        ],
+        "properties": {
+          "schemaVersion": {
+            "type": "string",
+            "enum": [
+              "plm.daily-report.v1"
+            ]
+          },
+          "sourceSystem": {
+            "type": "string",
+            "enum": [
+              "innovation-studio"
+            ]
+          },
+          "externalReportId": {
+            "type": "string",
+            "description": "PLM 侧日报幂等 ID。"
+          },
+          "reportDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "replaceExisting": {
+            "type": "boolean",
+            "description": "true 表示本次 entries 是完整日报数据。"
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlmDailyReportEntry"
+            }
+          }
+        }
+      },
+      "PlmDailyReportResponse": {
+        "type": "object",
+        "required": [
+          "ok",
+          "reportId",
+          "authorId",
+          "reportDate",
+          "entryCount",
+          "updated"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "reportId": {
+            "type": "string"
+          },
+          "authorId": {
+            "type": "string",
+            "description": "来自 Bearer token sub。"
+          },
+          "reportDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "entryCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "updated": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DailyReport": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tenantId": {
+            "type": "string"
+          },
+          "authorId": {
+            "type": "string"
+          },
+          "sourceSystem": {
+            "type": "string",
+            "enum": [
+              "innovation-studio"
+            ]
+          },
+          "externalReportId": {
+            "type": "string"
+          },
+          "reportDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlmDailyReportEntry"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       }

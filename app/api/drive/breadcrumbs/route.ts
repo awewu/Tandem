@@ -5,6 +5,7 @@ import { boot } from '@/lib/boot';
 import { createAppContext } from '@/lib/repositories/app-context-factory';
 import { DriveService } from '@/lib/services/drive-service';
 import { resolveDriveActor } from '@/lib/drive/actor';
+import { ensureDriveOrgScope, scopeBreadcrumbs } from '@/lib/drive/org-scope';
 import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const dynamic = 'force-dynamic';
@@ -17,13 +18,16 @@ const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
   if (auth instanceof NextResponse) return auth;
   const { searchParams } = new URL(req.url);
   const folderId = searchParams.get('folderId');
-  if (!folderId || folderId === 'root') return NextResponse.json({ breadcrumbs: [ROOT] });
-
   const ctx = createAppContext();
   const svc = new DriveService(ctx);
   const actor = await resolveDriveActor(auth);
-  const chain = await svc.breadcrumbs(folderId, auth.tenantId, actor);
-  return NextResponse.json({ breadcrumbs: [ROOT, ...chain] });
+  const scope = await ensureDriveOrgScope({ tenantId: auth.tenantId, userId: auth.userId, actor, repo: ctx.driveRepo });
+  if (!scope.rootFolderId) return NextResponse.json({ breadcrumbs: [ROOT], scope });
+
+  const targetId = !folderId || folderId === 'root' ? scope.rootFolderId : folderId;
+  const chain = await svc.breadcrumbs(targetId, auth.tenantId, actor);
+  const scoped = scopeBreadcrumbs(chain, scope);
+  return NextResponse.json({ breadcrumbs: [ROOT, ...scoped], scope });
 });
 
 export const GET = withApiLog(GETApiHandler, { route: '/api/drive/breadcrumbs' });

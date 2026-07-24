@@ -998,8 +998,7 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
 
               {prepResult && (
                 <div className="rounded-md border border-info/30 bg-info/10 p-2.5 space-y-2 text-caption">
-                  <div className="font-medium text-info">会前准备材料</div>
-                  <p className="text-ink-secondary">{prepResult.context}</p>
+                  <div className="font-medium text-info">会前准备材料</div>                  <p className="text-ink-secondary">{prepResult.context}</p>
                   {prepResult.keyPoints.length > 0 && (
                     <div>
                       <div className="text-[10px] font-medium text-ink-tertiary uppercase mb-0.5">关键议题</div>
@@ -1038,8 +1037,7 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
           <div className="mt-4 rounded-md border border-info/30 bg-info/10 p-3 space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="text-caption font-medium text-info">保存进度</span>
-              <span className="text-caption text-info">
-                {jobStatus.completedSteps}/{jobStatus.totalSteps}
+              <span className="text-caption text-info">                {jobStatus.completedSteps}/{jobStatus.totalSteps}
                 {jobStatus.status === 'running' && ' · 进行中...'}
                 {jobStatus.status === 'completed' && ' · 已完成'}
                 {jobStatus.status === 'partial' && ' · 部分失败'}
@@ -1059,17 +1057,15 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
                   {step.status === 'done' ? (
                     <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0" />
                   ) : step.status === 'in_progress' ? (
-                    <Loader2 className="h-3.5 w-3.5 text-info shrink-0 animate-spin" />
-                  ) : step.status === 'failed' ? (
+                    <Loader2 className="h-3.5 w-3.5 text-info shrink-0 animate-spin" />                  ) : step.status === 'failed' ? (
                     <AlertCircle className="h-3.5 w-3.5 text-danger shrink-0" />
                   ) : (
                     <div className="h-3.5 w-3.5 rounded-full border border-muted-foreground/30 shrink-0" />
                   )}
-                  <span className={step.status === 'done' ? 'text-success' : step.status === 'in_progress' ? 'text-info font-medium' : step.status === 'failed' ? 'text-danger' : 'text-muted-foreground'}>
-                    {step.label}
+                  <span className={step.status === 'done' ? 'text-success' : step.status === 'in_progress' ? 'text-info font-medium' : step.status === 'failed' ? 'text-danger' : 'text-muted-foreground'}>                    {step.label}
                   </span>
                   {step.detail && (
-                    <span className="text-muted-foreground text-[11px]">· {step.detail}</span>
+                    <span className="text-ink-tertiary text-[11px]">· {step.detail}</span>
                   )}
                 </div>
               ))}
@@ -1079,7 +1075,7 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
                 <Button type="button" size="sm" variant="outline" onClick={handleRetryJob} disabled={saving || deleting} className="text-caption">
                   {saving ? '重试中...' : '从断点重试'}
                 </Button>
-                <span className="text-[11px] text-muted-foreground">已完成的步骤不会重复执行</span>
+                <span className="text-[11px] text-ink-tertiary">已完成的步骤不会重复执行</span>
               </div>
             )}
           </div>
@@ -1107,8 +1103,7 @@ export default function EventEditor({ open, onClose, initialDate, editEventId, o
               <X className="h-4 w-4 mr-1" />
               取消
             </Button>
-            <Button type="button" size="sm" onClick={handleSave} disabled={saving || deleting || jobStatus?.status === 'completed'} className="bg-info/80 hover:bg-info/70 text-white">
-              {deleting ? '取消中...' : jobStatus?.status === 'completed' ? '已创建' : saving ? (jobStatus ? '处理中...' : '保存中...') : editing ? '保存' : '创建'}
+            <Button type="button" size="sm" onClick={handleSave} disabled={saving || deleting || jobStatus?.status === 'completed'} className="bg-info/80 hover:bg-info/70 text-white">              {deleting ? '取消中...' : jobStatus?.status === 'completed' ? '已创建' : saving ? (jobStatus ? '处理中...' : '保存中...') : editing ? '保存' : '创建'}
             </Button>
           </div>
         </div>

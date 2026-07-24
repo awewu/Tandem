@@ -1276,6 +1276,8 @@ function createAgentTemplateRepo(): import('./repository').Repository<AgentTempl
 export function createDrizzleStore(): TandemStore {
   return instrumentBusinessRepositories({
     _storeKind: 'prisma' as const, // 历史命名, 表示"已持久化"模式
+    withMutationTransaction: (mutation) =>
+      db.transaction((tx) => kvTransactionContext.run(tx, mutation)),
     decisionCards: new DrizzleKvRepository('decision_cards'),
     personas: new DrizzleKvRepository('personas'),
     agentTemplates: createAgentTemplateRepo(),
@@ -1299,6 +1301,7 @@ export function createDrizzleStore(): TandemStore {
     ttis: new DrizzleKvRepository('ttis'),
     initiatives: new DrizzleKvRepository('initiatives'),
     checkIns: new DrizzleKvRepository('check_ins'),
+    dailyReports: new DrizzleKvRepository('daily_reports'),
 
     // KPI 体系 (CHARTER-KPI-TTI §2) — 强类型表, 不走 KvStore
     kpiCycles: createKpiCycleRepo(),
@@ -1332,6 +1335,7 @@ export function createDrizzleStore(): TandemStore {
     learningEnrollments: new DrizzleKvRepository('learning_enrollments'),
     llmPreferences: new DrizzleKvRepository('llm_preferences'),
     tenantAiPolicies: new DrizzleKvRepository('tenant_ai_policies'),
+    mobileFeatureConfigs: new DrizzleKvRepository('mobile_feature_configs'),
     workspaceManifests: new DrizzleKvRepository('workspace_manifests'),
     personaConstitutions: new DrizzleKvRepository('persona_constitutions'),
     // V1 GA 模型仍使用专用 Drizzle Repo (强类型 schema)
@@ -1363,6 +1367,7 @@ export function createDrizzleStore(): TandemStore {
     userEmailCredentials: new DrizzleKvRepository('user_email_creds'),
     calendarJobs: new DrizzleKvRepository('calendar_jobs'),
     calendarActivityLogs: new DrizzleKvRepository('calendar_activity_logs'),
+    calendarSyncStates: new DrizzleKvRepository('calendar_sync_states'),
 
     // PMS (项目报备全生命周期管理系统) · 31 collections
     pmsOpportunities: new DrizzleKvRepository('pms_opportunities'),

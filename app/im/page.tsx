@@ -939,8 +939,7 @@ function ImInner() {
                   >
                     {sendAsAgent
                       ? <Bot className="h-3.5 w-3.5 shrink-0" />
-                      : <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white bg-gradient-to-br from-warning/30 to-warning`}>{ME.slice(0, 1).toUpperCase()}</span>
-                    }
+                      : <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white bg-gradient-to-br from-warning/30 to-warning`}>{ME.slice(0, 1).toUpperCase()}</span>                    }
                     <span className="hidden sm:inline">{sendAsAgent ? 'AI 分身' : '真人'}</span>
                     <svg className="h-3 w-3 shrink-0 text-current opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6"/></svg>
                   </button>
@@ -1019,8 +1018,7 @@ function ConvAvatar({ channel, name }: { channel: Channel; name: string }) {
   ];
   if (channel.type === 'announcement') {
     return (
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-danger/30 to-danger text-white">
-        <Megaphone className="h-5 w-5" />
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-danger/30 to-danger text-white">        <Megaphone className="h-5 w-5" />
       </div>
     );
   }
@@ -1071,29 +1069,25 @@ function IdentityPickerDropdown({
         onClick={() => onSelect(false)}
         className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-surface-3 ${!sendAsAgent ? 'bg-surface-3' : ''}`}
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-warning/30 to-warning text-[11px] font-bold text-white">
-          {meId.slice(0, 2).toUpperCase()}
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-warning/30 to-warning text-[11px] font-bold text-white">          {meId.slice(0, 2).toUpperCase()}
         </span>
         <div className="min-w-0 flex-1">
           <div className="text-[13px] font-medium text-ink-primary truncate">{meId}</div>
           <div className="text-[11px] text-ink-secondary">真人 · 以我自己的身份发言</div>
         </div>
-        {!sendAsAgent && <span className="h-2 w-2 shrink-0 rounded-full bg-success/30" />}
-      </button>
+        {!sendAsAgent && <span className="h-2 w-2 shrink-0 rounded-full bg-success/30" />}      </button>
       <button
         type="button"
         onClick={() => onSelect(true)}
         className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-brand-50 ${sendAsAgent ? 'bg-brand-50' : ''}`}
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-500 text-white">
-          <Bot className="h-4 w-4" />
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-500 text-white">          <Bot className="h-4 w-4" />
         </span>
         <div className="min-w-0 flex-1">
           <div className="text-[13px] font-medium text-brand-700">AI 分身</div>
           <div className="text-[11px] text-brand-700">让我的分身代我在群里发言</div>
         </div>
-        {sendAsAgent && <span className="h-2 w-2 shrink-0 rounded-full bg-brand-400" />}
-      </button>
+        {sendAsAgent && <span className="h-2 w-2 shrink-0 rounded-full bg-brand-400" />}      </button>
     </div>
   );
 }
@@ -1443,8 +1437,7 @@ function MessageRow({
             ? 'bg-gradient-to-br from-brand-400 to-brand-500 text-white'
             : isMe
             ? 'bg-gradient-to-br from-warning/30 to-warning text-white'
-            : 'bg-gradient-to-br from-surface-3 to-ink-tertiary text-white'
-        }`}
+            : 'bg-gradient-to-br from-surface-3 to-ink-tertiary text-white'        }`}
         title={nameOf(msg.senderId)}
       >
         {isPersona ? <Bot className="h-4 w-4" /> : nameOf(msg.senderId).slice(0, 2).toUpperCase()}
@@ -1460,8 +1453,7 @@ function MessageRow({
             {isPersona && (
               <Badge
                 variant="outline"
-                className="h-4 border-brand-300 bg-brand-50 px-1 text-[9px] font-medium text-brand-700"
-              >
+                className="h-4 border-brand-300 bg-brand-50 px-1 text-[9px] font-medium text-brand-700"              >
                 AI 分身
               </Badge>
             )}
@@ -1481,8 +1473,7 @@ function MessageRow({
               isMe
                 ? 'bg-gradient-to-br from-warning to-warning text-white'
                 : isPersona
-                ? 'border border-brand-200/80 bg-gradient-to-br from-brand-50 to-brand-50/40 text-brand-700'
-                : 'bg-surface-2 text-ink-primary ring-1 ring-hairline'
+                ? 'border border-brand-200/80 bg-gradient-to-br from-brand-50 to-brand-50/40 text-brand-700'                : 'bg-surface-2 text-ink-primary ring-1 ring-hairline'
             }`}
           >
             {(() => {
@@ -1500,8 +1491,7 @@ function MessageRow({
                     <span className="inline-flex gap-0.5">
                       <span className="h-1 w-1 animate-bounce rounded-full bg-brand-400 [animation-delay:-0.3s]" />
                       <span className="h-1 w-1 animate-bounce rounded-full bg-brand-400 [animation-delay:-0.15s]" />
-                      <span className="h-1 w-1 animate-bounce rounded-full bg-brand-400" />
-                    </span>
+                      <span className="h-1 w-1 animate-bounce rounded-full bg-brand-400" />                    </span>
                   </span>
                 );
               }
@@ -1509,8 +1499,7 @@ function MessageRow({
                 <>
                   {renderInline(msg.body, onMentionPersona)}
                   {isStreaming && !bodyEmpty && (
-                    <span className="ml-0.5 inline-block w-[6px] animate-pulse text-brand-700/70">▍</span>
-                  )}
+                    <span className="ml-0.5 inline-block w-[6px] animate-pulse text-brand-700/70">▍</span>                  )}
                 </>
               );
             })()}
@@ -1549,8 +1538,7 @@ function MessageRow({
               type="button"
               onClick={onPromote}
               disabled={!!msg.spawnedPromotionId}
-              className="flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-brand-700 shadow-soft ring-1 ring-brand-300/80 transition hover:bg-brand-50 hover:shadow-soft-lg disabled:cursor-not-allowed disabled:opacity-40"
-              title="沉淀为 Memory 升级提议 (三级签批) — 差异化 §2.2 第 3 条"
+              className="flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-brand-700 shadow-soft ring-1 ring-brand-300/80 transition hover:bg-brand-50 hover:shadow-soft-lg disabled:cursor-not-allowed disabled:opacity-40"              title="沉淀为 Memory 升级提议 (三级签批) — 差异化 §2.2 第 3 条"
             >
               <Brain className="h-3 w-3" />
               沉淀
@@ -1662,8 +1650,7 @@ function renderInline(
     const [userId, kind = 'notify'] = ref.split(':');
     const cls =
       kind === 'persona'
-        ? 'bg-brand-100 text-brand-700'
-        : kind === 'assign'
+        ? 'bg-brand-100 text-brand-700'        : kind === 'assign'
         ? 'bg-danger/10 text-danger'
         : kind === 'consult'
         ? 'bg-info/10 text-info'

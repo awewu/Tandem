@@ -48,6 +48,7 @@ beforeEach(async () => {
   await repo.create(folder({ id: 'share', name: '公司共享区', parentId: null, ownerId: '__company__', nodeRole: 'company_share', permissions: { read: ['all'], write: ['role:admin'] } }));
   await repo.create(folder({ id: 'deptA', name: 'A部门', parentId: 'share', ownerId: '__company__', nodeRole: 'dept_root', permissions: { read: ['dept:dept_a'], write: ['dept:dept_a'] } }));
   await repo.create(folder({ id: 'fileA', name: 'a.txt', parentId: 'deptA', ownerId: 'u_carol', isFolder: false, storageKey: 'k/a', permissions: {} })); // 继承 deptA
+  await repo.create(folder({ id: 'emptyFolder', name: '空文件夹', parentId: 'deptA', ownerId: 'u_alice', isFolder: true, storageKey: '', permissions: {} }));
   await repo.create(folder({ id: 'priv', name: 'private.txt', parentId: null, ownerId: 'u_alice', isFolder: false, storageKey: 'k/p', permissions: { read: ['user:u_alice'], write: ['user:u_alice'] } }));
 });
 
@@ -57,6 +58,11 @@ describe('list · ACL 过滤', () => {
     expect(forAlice.map((f) => f.id)).toContain('deptA');
     const forBob = await svc.list({ parentId: 'share', tenantId: TENANT }, bob);
     expect(forBob.map((f) => f.id)).not.toContain('deptA');
+  });
+
+  it('管理员可见所有部门目录', async () => {
+    const forAdmin = await svc.list({ parentId: 'share', tenantId: TENANT }, admin);
+    expect(forAdmin.map((f) => f.id)).toContain('deptA');
   });
 
   it('继承: deptA 下文件对 A 部门可见, 对 B 不可见', async () => {
@@ -76,6 +82,9 @@ describe('getById / requestDownload · 读权', () => {
   it('同部门可读', async () => {
     expect((await svc.getById('fileA', alice))?.id).toBe('fileA');
   });
+  it('管理员可读跨部门文件', async () => {
+    expect((await svc.getById('fileA', admin))?.id).toBe('fileA');
+  });
   it('requestDownload 无读权先被 ACL 拒 (不泄漏)', async () => {
     await expect(svc.requestDownload('fileA', bob)).rejects.toThrow(/permission/i);
   });
@@ -93,18 +102,34 @@ describe('create · 写权', () => {
 });
 
 describe('delete / move / rename · 写权', () => {
-  it('owner 可删自己的私有文件', async () => {
+  it('创建者可删除自己的文件', async () => {
     await expect(svc.delete('priv', alice)).resolves.toBeUndefined();
   });
-  it('非 owner 且无写权不能删', async () => {
-    await expect(svc.delete('priv', bob)).rejects.toThrow(/permission/i);
+  it('创建者可删除自己的空文件夹', async () => {
+    await expect(svc.delete('emptyFolder', alice)).resolves.toBeUndefined();
   });
-  it('部门成员(有写权)可删部门文件', async () => {
-    await expect(svc.delete('fileA', alice)).resolves.toBeUndefined();
+  it('非创建者且非管理员不能删除, 即使有部门写权', async () => {
+    await expect(svc.delete('fileA', alice)).rejects.toThrow(/owner/i);
+  });
+  it('管理员可删除文件', async () => {
+    await expect(svc.delete('fileA', admin)).resolves.toBeUndefined();
+  });
+  it('管理员不能删除非空文件夹', async () => {
+    await expect(svc.delete('deptA', admin)).rejects.toThrow(/not empty/i);
+  });
+  it('管理员可删除空文件夹', async () => {
+    await expect(svc.delete('emptyFolder', admin)).resolves.toBeUndefined();
+  });
+  it('不能把文件夹移动到自己或自己的子文件夹', async () => {
+    await expect(svc.move('deptA', 'deptA', admin)).rejects.toThrow(/itself/i);
+    await expect(svc.move('deptA', 'emptyFolder', admin)).rejects.toThrow(/child folder/i);
   });
   it('rename 需写权', async () => {
     await expect(svc.rename('fileA', 'b.txt', bob)).rejects.toThrow(/permission/i);
     expect((await svc.rename('fileA', 'b.txt', alice)).name).toBe('b.txt');
+  });
+  it('管理员可写跨部门文件', async () => {
+    expect((await svc.rename('fileA', 'admin.txt', admin)).name).toBe('admin.txt');
   });
 });
 

@@ -133,8 +133,7 @@ export function OkrCheckinDialog({
       <DialogContent className="sm:max-w-[480px] rounded-3xl border-border/80 bg-white p-6 shadow-soft-xl">
         <DialogHeader className="space-y-1.5 pb-2 border-b border-border">
           <DialogTitle className="text-title-3 font-bold text-ink-primary flex items-center gap-2">
-            <Target className="h-5 w-5 text-info shrink-0" />
-            快速 OKR Check-in 与 IM 广播
+            <Target className="h-5 w-5 text-info shrink-0" />            快速 OKR Check-in 与 IM 广播
           </DialogTitle>
         </DialogHeader>
 
@@ -162,8 +161,7 @@ export function OkrCheckinDialog({
                 value={checkinValue}
                 onChange={(e) => setCheckinValue(parseFloat(e.target.value) || 0)}
                 required
-                className="h-10 rounded-2xl border-border focus:border-warning/50 focus:ring-warning/10"
-              />
+                className="h-10 rounded-2xl border-border focus:border-warning/50 focus:ring-warning/10"              />
             </div>
 
             <div className="space-y-1.5">
@@ -197,8 +195,7 @@ export function OkrCheckinDialog({
               value={checkinAchievements}
               onChange={(e) => setCheckinAchievements(e.target.value)}
               placeholder="完成了哪些里程碑？达成了哪些合作？(建议分行填写...)"
-              className="rounded-2xl border-border focus:border-warning/50 focus:ring-warning/10 min-h-[70px] text-[13px]"
-              required
+              className="rounded-2xl border-border focus:border-warning/50 focus:ring-warning/10 min-h-[70px] text-[13px]"              required
             />
           </div>
 
@@ -210,8 +207,7 @@ export function OkrCheckinDialog({
               value={checkinBlockers}
               onChange={(e) => setCheckinBlockers(e.target.value)}
               placeholder="是否需要团队/主管协调资源解决？无阻碍可不填。"
-              className="rounded-2xl border-border focus:border-warning/50 focus:ring-warning/10 min-h-[60px] text-[13px]"
-            />
+              className="rounded-2xl border-border focus:border-warning/50 focus:ring-warning/10 min-h-[60px] text-[13px]"            />
           </div>
 
           <div className="space-y-1.5">
@@ -222,8 +218,7 @@ export function OkrCheckinDialog({
               value={checkinNextSteps}
               onChange={(e) => setCheckinNextSteps(e.target.value)}
               placeholder="接下来的工作方向或具体任务安排..."
-              className="rounded-2xl border-border focus:border-warning/50 focus:ring-warning/10 min-h-[60px] text-[13px]"
-              required
+              className="rounded-2xl border-border focus:border-warning/50 focus:ring-warning/10 min-h-[60px] text-[13px]"              required
             />
           </div>
 
@@ -240,8 +235,7 @@ export function OkrCheckinDialog({
             <Button
               type="submit"
               disabled={checkinSubmitting}
-              className="h-10 px-6 rounded-full bg-ink-primary text-white hover:bg-ink-primary font-medium shadow-soft-sm gap-1.5"
-            >
+              className="h-10 px-6 rounded-full bg-ink-primary text-white hover:bg-ink-primary font-medium shadow-soft-sm gap-1.5"            >
               {checkinSubmitting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />

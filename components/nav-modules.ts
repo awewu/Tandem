@@ -139,8 +139,9 @@ export const NAV_MODULES: NavModule[] = [
       { name: 'TTI（Target to Improve）牵引', href: '/tti',     icon: Activity,       group: '目标与关键成果法 OKR' },
       // 目标管理 (精简为符合 Tita 极简逻辑 of 3步流程)
       { name: '我的目标与对齐',    href: '/okr?owner=me',     icon: Target,         group: '目标与关键成果法 OKR' },
-      { name: '工作法 · 周节奏',   href: '/work-method',      icon: CalendarCheck,  group: '目标与关键成果法 OKR' },
+      { name: '四象限工作法',      href: '/work-method',      icon: CalendarCheck,  group: '目标与关键成果法 OKR' },
       { name: 'OKR 5 层级联树',    href: '/okr/cascade',      icon: Network,        group: '目标与关键成果法 OKR' },
+      { name: '部门效能',          href: '/okr/dashboard',    icon: BarChart3,      group: '目标与关键成果法 OKR' },
       // 双入口: 战略项目走三省六部执行协同 (主高亮归 Tandem 议事模块, 此处仅可点直达).
       { name: '战略项目 · 三省六部', href: '/governance/three-departments', icon: Network, group: '目标与关键成果法 OKR' },
       { name: 'OKR 校准会',        href: '/okr/calibration',  icon: Grid3x3,        group: '目标与关键成果法 OKR', visibleTo: ['manager', 'steward', 'admin', 'champion'] },
@@ -206,7 +207,8 @@ export const NAV_MODULES: NavModule[] = [
     // /chat /agents = 用已固化 agent/Gem 干活, 归搭子 (入口在工作台"通用 AI"召唤).
     // /teammates = AI 同事目录 (中央 AI + 我的搭子, 一键召唤), 概念归搭子; 入口在首页 QuickAction.
     //   搭子无 SubSidebar (会破坏 /tandem 全屏布局), 故仅靠 pathPrefix 高亮 + 首页磁贴可达.
-    pathPrefixes: ['/tandem', '/chat', '/agents', '/teammates'],
+    // /knowledge 是搭子手抄的文件管理入口，归个人工作台，不归公司知识模块。
+    pathPrefixes: ['/tandem', '/chat', '/agents', '/teammates', '/knowledge'],
     items: [],
   },
 
@@ -471,6 +473,7 @@ export const NAV_MODULES: NavModule[] = [
         tabs: [
           { name: 'Intranet 编辑', href: '/admin/intranet', visibleTo: ['admin', 'champion', 'intranet_editor'] },
           { name: 'Launchpad 管理', href: '/admin/launchpad', visibleTo: ['admin', 'champion'] },
+          { name: '移动端功能', href: '/admin/mobile-features', visibleTo: ['admin', 'owner'] },
           { name: 'Baseline', href: '/admin/baseline', visibleTo: ['admin', 'champion'] },
         ],
       },

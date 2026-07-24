@@ -27,8 +27,7 @@ const ACTION_META: Record<OKRActivity['action'], { icon: any; cls: string }> = {
   'reassign':  { icon: UserCheck,    cls: 'text-info bg-info/10 dark:bg-info/40' },
   'complete':  { icon: CheckCircle2, cls: 'text-success bg-success/10 dark:bg-success/40' },
   'archive':   { icon: Archive,      cls: 'text-ink-secondary bg-surface-2 dark:bg-ink-primary/30' },
-  'reopen':    { icon: RotateCcw,    cls: 'text-warning bg-warning/10 dark:bg-warning/35' },
-};
+  'reopen':    { icon: RotateCcw,    cls: 'text-warning bg-warning/10 dark:bg-warning/35' },};
 
 function timeAgo(t: number): string {
   const diff = Date.now() - t;

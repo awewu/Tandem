@@ -183,6 +183,8 @@ export const driveFile = pgTable(
     permissions: jsonb('permissions').notNull().default({}),
     version: integer('version').notNull().default(1),
     isFolder: boolean('isFolder').notNull().default(false),
+    nodeRole: text('nodeRole'),
+    distillable: boolean('distillable').notNull().default(true),
     createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
     updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
     deletedAt: timestamp('deletedAt', { precision: 3, mode: 'date' }),

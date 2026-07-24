@@ -28,14 +28,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-
-interface MailStatus {
-  configured: boolean;
-  effective: { mode: 'personal' | 'global'; host: string; port: number; fromAddress: string } | null;
-  personal: { host: string; port: number; user: string } | null;
-  global: { host: string | null; port: number; fromAddress: string | null } | null;
-  inbound: { configured: boolean; note?: string };
-}
+import { useCurrentUser } from '@/lib/hooks/use-current-user';
 
 interface PersonalCreds {
   configured: boolean;
@@ -133,7 +126,7 @@ function responseErrorMessage(data: unknown, fallback: string): string {
 }
 
 export default function EmailSettingsPage() {
-  const [status, setStatus] = useState<MailStatus | null>(null);
+  const { user } = useCurrentUser();
   const [personalCreds, setPersonalCreds] = useState<PersonalCreds | null>(null);
   const [config, setConfig] = useState<MailConfig | null>(null);
   const [credsLoading, setCredsLoading] = useState(true);
@@ -157,39 +150,41 @@ export default function EmailSettingsPage() {
   const [showGlobalPass, setShowGlobalPass] = useState(false);
 
   useEffect(() => {
-    fetch('/api/mail/status', { credentials: 'include' })
-      .then((r) => r.json())
-      .then(setStatus)
-      .catch(() => setStatus(null));
+    setPersonalCreds(null);
+    setCredsLoading(true);
+    setFeedback(null);
+    setForm({ smtpUser: '', smtpPass: '', imapUser: '', imapPass: '' });
 
-    fetch('/api/mail/config', { credentials: 'include' })
+    fetch('/api/mail/config', { credentials: 'include', cache: 'no-store' })
       .then((r) => r.json())
       .then((data: MailConfig) => setConfig(data))
       .catch(() => {});
 
     void refreshGlobalConfigs();
 
-    fetch('/api/mail/credentials', { credentials: 'include' })
+    fetch('/api/mail/credentials', { credentials: 'include', cache: 'no-store' })
       .then((r) => r.json())
       .then((data) => {
         setPersonalCreds(data);
         if (data.configured && data.smtp) {
-          setForm((prev) => ({
-            ...prev,
+          setForm({
             smtpUser: data.smtp.user,
             smtpPass: '',
             imapUser: data.imap?.user ?? '',
             imapPass: '',
-          }));
+          });
+        } else {
+          setForm({ smtpUser: '', smtpPass: '', imapUser: '', imapPass: '' });
         }
       })
       .catch(() => {})
       .finally(() => setCredsLoading(false));
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   async function refreshGlobalConfigs() {
     try {
-      const res = await fetch('/api/mail/global-configs', { credentials: 'include' });
+      const res = await fetch('/api/mail/global-configs', { credentials: 'include', cache: 'no-store' });
       if (res.status === 403) return;
       const data = await res.json();
       if (res.ok) setGlobalConfigs(data.configs ?? []);
@@ -197,15 +192,6 @@ export default function EmailSettingsPage() {
       setGlobalConfigs([]);
     } finally {
       setGlobalLoading(false);
-    }
-  }
-
-  async function refreshMailStatus() {
-    try {
-      const res = await fetch('/api/mail/status', { credentials: 'include' });
-      if (res.ok) setStatus(await res.json());
-    } catch {
-      // 状态卡保持最近一次成功结果，不影响配置保存。
     }
   }
 
@@ -268,7 +254,7 @@ export default function EmailSettingsPage() {
       }
       setGlobalEditorOpen(false);
       setFeedback({ ok: true, msg: editingGlobalId ? '全局邮箱配置已更新' : '全局邮箱配置已创建' });
-      await Promise.all([refreshGlobalConfigs(), refreshMailStatus()]);
+      await refreshGlobalConfigs();
     } catch (err) {
       setFeedback({ ok: false, msg: (err as Error).message });
     } finally {
@@ -290,7 +276,7 @@ export default function EmailSettingsPage() {
         return;
       }
       setFeedback({ ok: true, msg: '全局邮箱配置已删除' });
-      await Promise.all([refreshGlobalConfigs(), refreshMailStatus()]);
+      await refreshGlobalConfigs();
     } catch (err) {
       setFeedback({ ok: false, msg: (err as Error).message });
     }
@@ -320,6 +306,7 @@ export default function EmailSettingsPage() {
         imap: config ? { host: config.imapHost, port: config.imapPort, secure: config.imapSecure, user: imapUser } : undefined,
         updatedAt: new Date().toISOString(),
       });
+      setForm((current) => ({ ...current, smtpPass: '', imapPass: '' }));
     } catch (err) {
       setFeedback({ ok: false, msg: (err as Error).message });
     } finally {
@@ -365,7 +352,7 @@ export default function EmailSettingsPage() {
           邮箱配置
         </h1>
         <p className="mt-1 text-caption text-ink-tertiary">
-          绑定个人邮箱后，发件将以你的邮箱身份发送
+          绑定当前登录用户自己的公司邮箱，用于收信、发信和网易日程同步
         </p>
       </header>
 
@@ -374,6 +361,25 @@ export default function EmailSettingsPage() {
           {feedback.msg}
         </div>
       )}
+
+      <Card>
+        <CardContent className="p-4 sm:p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[rgb(var(--brand-50))] text-[rgb(var(--brand-700))]">
+              <Lock className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 space-y-2">
+              <h2 className="text-headline text-ink-primary">为什么这里要填账号和密码？</h2>
+              <p className="text-caption leading-relaxed text-ink-secondary">
+                收件箱和网易日程同步都需要系统代你连接公司邮箱服务，所以必须绑定当前登录用户自己的邮箱地址和邮箱密码。保存后用于 IMAP 收信、SMTP 发信和 CalDAV 日程同步。
+              </p>
+              <p className="text-footnote leading-relaxed text-ink-tertiary">
+                切换账号后这里会按当前账号单独读取配置；未配置的账号应显示空白。按当前公司邮箱策略，先填写平时登录网易企业邮箱使用的账号和密码。
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* 个人邮箱绑定 (V2) */}
       <Card>
@@ -580,39 +586,39 @@ export default function EmailSettingsPage() {
         </Card>
       )}
 
-      {/* 全局 SMTP 状态 (只读) */}
+      {/* 个人邮箱状态 (只读) */}
       <Card>
         <CardContent className="p-5 space-y-4">
           <div className="flex items-start justify-between">
             <div>
               <h2 className="text-headline text-ink-primary flex items-center gap-2">
                 <Server className="h-4 w-4" />
-                当前生效的 SMTP
+                当前账号邮箱状态
               </h2>
               <p className="mt-0.5 text-caption text-ink-tertiary">
-                个人邮箱优先，其次按域名匹配全局配置，最后使用默认配置
+                这里只展示当前登录用户自己的邮箱绑定状态
               </p>
             </div>
-            {status === null ? null : status.global?.host ? (
+            {credsLoading ? null : personalCreds?.configured ? (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-3 py-1 text-footnote font-medium text-success">
                 <CheckCircle2 className="h-3.5 w-3.5" />
-                已配置
+                已绑定
               </span>
             ) : (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-warning/5 px-3 py-1 text-footnote font-medium text-warning">
                 <AlertCircle className="h-3.5 w-3.5" />
-                未配置
+                未绑定
               </span>
             )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <ReadField icon={Server} label="主机 / 端口" value={
-              status?.global?.host
-                ? `${status.global.host}:${status.global.port}`
-                : '—'
+            <ReadField icon={Server} label="收发主机" value={
+              personalCreds?.configured
+                ? `${personalCreds.smtp?.host ?? config?.smtpHost ?? 'smtphz.qiye.163.com'} / ${personalCreds.imap?.host ?? config?.imapHost ?? 'imaphz.qiye.163.com'}`
+                : '未绑定个人邮箱'
             } />
-            <ReadField icon={AtSign} label="发件地址" value={status?.global?.fromAddress ?? '—'} />
+            <ReadField icon={AtSign} label="邮箱地址" value={personalCreds?.smtp?.user ?? '未绑定个人邮箱'} />
           </div>
         </CardContent>
       </Card>

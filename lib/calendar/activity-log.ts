@@ -55,6 +55,9 @@ export async function recordCalendarActivity(input: Omit<CalendarActivityLog, 'i
 
 export async function listCalendarActivities(input: {
   tenantId: string;
+  viewerId?: string;
+  viewerEmail?: string;
+  includeAll?: boolean;
   page?: number;
   pageSize?: number;
 }): Promise<{ items: CalendarActivityLog[]; total: number; page: number; pageSize: number }> {
@@ -65,7 +68,10 @@ export async function listCalendarActivities(input: {
     return { items: [], total: 0, page, pageSize };
   }
   const all = await repo.list({ tenantId: input.tenantId });
-  const sorted = all.sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
+  const visible = input.includeAll
+    ? all
+    : all.filter((item) => canViewCalendarActivity(item, input.viewerId, input.viewerEmail));
+  const sorted = visible.sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
   const offset = (page - 1) * pageSize;
   return {
     items: sorted.slice(offset, offset + pageSize),
@@ -73,4 +79,25 @@ export async function listCalendarActivities(input: {
     page,
     pageSize,
   };
+}
+
+function canViewCalendarActivity(
+  item: CalendarActivityLog,
+  viewerId?: string,
+  viewerEmail?: string,
+): boolean {
+  const email = normalizeEmail(viewerEmail);
+  if (!viewerId && !email) return false;
+  if (viewerId && item.actorId === viewerId) return true;
+  if (email && normalizeEmail(item.actorEmail) === email) return true;
+  if (email && (item.attendeeEmails ?? []).some((attendeeEmail) => normalizeEmail(attendeeEmail) === email)) {
+    return true;
+  }
+  if (viewerId && item.subscriberId === viewerId) return true;
+  if (viewerId && item.targetUserId === viewerId) return true;
+  return false;
+}
+
+function normalizeEmail(email?: string): string {
+  return email?.trim().toLowerCase() ?? '';
 }

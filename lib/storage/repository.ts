@@ -7,6 +7,7 @@
  */
 
 import type { DecisionCard } from '../types/decision-card';
+import type { DailyReport } from '../types/daily-report';
 import type { Persona } from '../types/persona';
 import type {
   Material,
@@ -118,6 +119,7 @@ export interface TenantLockedRepository<T extends { id: string }> extends Reposi
 
 export interface TandemStore {
   _storeKind?: 'memory' | 'prisma';
+  withMutationTransaction?<R>(mutation: () => Promise<R>): Promise<R>;
   decisionCards: Repository<DecisionCard>;
   personas: Repository<Persona>;
 
@@ -145,6 +147,7 @@ export interface TandemStore {
   ttis: Repository<TTI>;
   initiatives: Repository<Initiative>;
   checkIns: Repository<CheckIn>;
+  dailyReports: Repository<DailyReport>;
 
   /** KPI 体系 (CHARTER-KPI-TTI §2): 年度底线 + 全维度监控, 三通道写入 */
   kpiCycles: Repository<KpiCycle>;
@@ -209,6 +212,9 @@ export interface TandemStore {
 
   /** 企业 AI 治理策略 (中央AI token 开关 / 配额 / 白名单) */
   tenantAiPolicies: Repository<import('../types/tenant-ai-policy').TenantAiPolicy>;
+
+  /** 移动端 App 功能开关 (PC 管理后台控制 Android/iOS 可见功能) */
+  mobileFeatureConfigs: Repository<import('../types/mobile-features').MobileFeatureConfig>;
 
   /** WorkspaceManifest (tandem.workspace.md declarative governance, 借鉴 CLAUDE.md/AGENTS.md) */
   workspaceManifests: Repository<import('../types/workspace-manifest').WorkspaceManifest>;
@@ -287,6 +293,7 @@ export interface TandemStore {
   /** 日程异步创建任务 (保存进度 / 断点续传) */
   calendarJobs: Repository<import('../calendar/job-store').CalendarJob>;
   calendarActivityLogs: Repository<import('../calendar/activity-log').CalendarActivityLog>;
+  calendarSyncStates: Repository<import('../calendar/sync-state').CalendarSyncState>;
 
   // ---------------------------------------------------------------------------
   // PMS (项目报备全生命周期管理系统) · 31 collections

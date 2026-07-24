@@ -292,6 +292,7 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
   { group: '平台、状态、推送与协议', path: '/api/dashboard/stats', methods: ['GET'], auth: 'auth' },
   { group: '平台、状态、推送与协议', path: '/api/health', methods: ['GET'], auth: 'public', note: 'readiness/liveness 探针。' },
   { group: '平台、状态、推送与协议', path: '/api/integrations/health', methods: ['GET'], auth: 'public' },
+  { group: '平台、状态、推送与协议', path: '/api/integrations/plm/daily-reports', methods: ['GET', 'POST'], auth: 'auth', note: 'Innovation Studio 日报同步；POST 必须使用 OIDC Bearer access token 且包含 api.write scope。' },
   { group: '平台、状态、推送与协议', path: '/api/launchpad', methods: ['GET', 'POST'], auth: 'role' },
   { group: '平台、状态、推送与协议', path: '/api/launchpad/{id}', methods: ['DELETE', 'PATCH', 'POST'], auth: 'role' },
   { group: '平台、状态、推送与协议', path: '/api/launchpad/{id}/click', methods: ['POST'], auth: 'auth' },

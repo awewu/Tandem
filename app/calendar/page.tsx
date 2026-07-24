@@ -8,12 +8,13 @@
  * 集成: OKR due / Check-in / Cycle 自动同步 (cal-okr)
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useCalendarStore, type CalendarEvent, type EventInstance, fmtMonthCN } from '@/lib/store/calendar';
 import { useOKRStore } from '@/lib/store/okr';
 import { useOwnerDirectory } from '@/lib/org/use-owner-directory';
-import { useCurrentUser } from '@/lib/hooks/use-current-user';
-import { fetchWithTimeout } from '@/lib/http/fetch-with-timeout';
+import { useCurrentUser, useCurrentUserId } from '@/lib/hooks/use-current-user';
+import { fetchWithTimeout, isRequestTimeoutError } from '@/lib/http/fetch-with-timeout';
+import { buildCurrentOkrOwnerIds, buildOkrCalendarEvents } from '@/lib/calendar/okr-calendar-events';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -21,6 +22,7 @@ import {
   ChevronLeft, ChevronRight, Plus, Sparkles, Wand2,
   LayoutGrid, Columns3, List, Eye, EyeOff,
   ShieldCheck, MessageSquare, History, RefreshCw, PanelLeft,
+  KeyRound, Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import MonthView from '@/components/calendar/month-view';
@@ -33,6 +35,7 @@ import UpcomingEvents from '@/components/calendar/upcoming-events';
 type ViewMode = 'month' | 'week' | 'day';
 
 const CALENDAR_REQUEST_TIMEOUT_MS = 15_000;
+const CALENDAR_SYNC_TIMEOUT_MS = 45_000;
 const ACTIVITY_PAGE_SIZE = 10;
 
 interface CalendarActivityItem {
@@ -70,11 +73,31 @@ interface ImReminderMeeting {
   hasConflict?: boolean;
 }
 
+interface NeteaseCalendarSyncStatus {
+  configured: boolean;
+  account?: string | null;
+  autoEnabled: boolean;
+  status: 'idle' | 'running' | 'succeeded' | 'failed';
+  lastSyncAt?: string | null;
+  lastAttemptAt?: string | null;
+  lastManualSyncAt?: string | null;
+  lastError?: string | null;
+  lastResult?: {
+    source: string;
+    total?: number;
+    created: number;
+    updated: number;
+    skipped: number;
+    cancelled?: number;
+  } | null;
+}
+
 export default function CalendarPage() {
   const {
-    calendars, events, toggleCalendarVisibility, addEvent, deleteEvent, replaceManagedEvents,
+    calendars, events, toggleCalendarVisibility, replaceManagedEvents, replaceOkrEvents,
   } = useCalendarStore();
   const { user } = useCurrentUser();
+  const legacyCurrentUserId = useCurrentUserId();
   const { cycles, keyResults, checkIns, objectives } = useOKRStore();
   const { nameOf } = useOwnerDirectory();
 
@@ -111,6 +134,25 @@ export default function CalendarPage() {
   const [imReminderResult, setImReminderResult] = useState<{ channelId: string; channelName: string; reused: boolean } | null>(null);
   const [imReminderMeetings, setImReminderMeetings] = useState<ImReminderMeeting[]>([]);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [neteaseSyncing, setNeteaseSyncing] = useState(false);
+  const [neteaseSyncError, setNeteaseSyncError] = useState('');
+  const [neteaseCredentialGuideOpen, setNeteaseCredentialGuideOpen] = useState(false);
+  const [neteaseSyncStatus, setNeteaseSyncStatus] = useState<NeteaseCalendarSyncStatus | null>(null);
+  const primaryCalendars = useMemo(() => calendars.filter((calendar) => calendar.id !== 'cal-subscribed'), [calendars]);
+  const subscribedCalendar = useMemo(() => calendars.find((calendar) => calendar.id === 'cal-subscribed'), [calendars]);
+  const neteaseSubscribedCalendarNames = useMemo(() => {
+    const names = events
+      .filter((event) => event.status !== 'cancelled')
+      .map((event) => extractNeteaseSourceCalendarName(event.description))
+      .filter((name): name is string => Boolean(name))
+      .map(formatSubscribedCalendarOwnerName);
+    return Array.from(new Set(names)).sort((left, right) => left.localeCompare(right, 'zh-CN'));
+  }, [events]);
+  const currentOkrOwnerIds = useMemo(() => buildCurrentOkrOwnerIds({
+    legacyCurrentUserId,
+    authUserId: user?.id,
+    authEmail: user?.email,
+  }), [legacyCurrentUserId, user?.email, user?.id]);
 
   // 初始化
   useEffect(() => {
@@ -139,6 +181,25 @@ export default function CalendarPage() {
   useEffect(() => {
     void refreshManagedEvents().catch(() => undefined);
   }, [refreshManagedEvents]);
+
+  const loadNeteaseSyncStatus = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const response = await fetchWithTimeout(
+        '/api/calendar/sync/netease',
+        { credentials: 'include', cache: 'no-store' },
+        CALENDAR_REQUEST_TIMEOUT_MS,
+      );
+      const data = await response.json().catch(() => ({}));
+      if (response.ok) setNeteaseSyncStatus(data);
+    } catch {
+      // 保留最近一次状态，不打扰主日历使用。
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    void loadNeteaseSyncStatus();
+  }, [loadNeteaseSyncStatus]);
 
   const loadActivity = useCallback(async (page = activityPage) => {
     if (!user?.id) return;
@@ -194,81 +255,16 @@ export default function CalendarPage() {
   // 自动同步 OKR 数据 → CalendarEvent (cal-okr)
   useEffect(() => {
     if (year === 0) return;
-    const okrCalId = 'cal-okr';
-    const now = Date.now();
-
-    // 清理旧的同步事件
-    const toRemove = events.filter(
-      (e) => e.calendarId === okrCalId && !e.externalSource
-    );
-    for (const e of toRemove) deleteEvent(e.id);
-
-    // KR dueDate
-    for (const kr of keyResults) {
-      if (!kr || !kr.dueDate) continue;
-      const d = typeof kr.dueDate === 'number' ? kr.dueDate : Date.parse(kr.dueDate as unknown as string);
-      if (Number.isNaN(d)) continue;
-      const objTitle = objectives.find((o) => o.id === kr.objectiveId)?.title || '';
-      const ownerName = nameOf(kr.ownerId);
-      addEvent({
-        calendarId: okrCalId,
-        title: `KR截止: ${kr.title || '(无标题)'}`,
-        startTime: new Date(new Date(d).setHours(9, 0, 0, 0)).getTime(),
-        endTime: new Date(new Date(d).setHours(10, 0, 0, 0)).getTime(),
-        isAllDay: false,
-        type: 'okr_due',
-        linkedKrId: kr.id,
-        createdBy: 'system',
-        status: 'confirmed',
-        description: `目标: ${objTitle}\n负责人: ${ownerName}`,
-      });
-    }
-
-    // Check-ins
-    for (const ci of checkIns) {
-      if (!ci || !ci.createdAt) continue;
-      const d = typeof ci.createdAt === 'number' ? ci.createdAt : Date.parse(ci.createdAt as unknown as string);
-      if (Number.isNaN(d)) continue;
-      const authorName = nameOf(ci.authorId);
-      addEvent({
-        calendarId: okrCalId,
-        title: `${ci.scope === 'objective' ? 'O' : 'KR'} Check-in`,
-        startTime: d,
-        endTime: d + 30 * 60 * 1000,
-        isAllDay: false,
-        type: 'checkin',
-        createdBy: 'system',
-        status: 'confirmed',
-        description: `提交人: ${authorName}\n进度: ${ci.progressAfter ?? 0}%`,
-      });
-    }
-
-    // Cycle 切换
-    for (const c of cycles) {
-      if (!c.startDate || !c.endDate) continue;
-      addEvent({
-        calendarId: okrCalId,
-        title: `${c.name} 开始`,
-        startTime: c.startDate,
-        endTime: c.startDate + 60 * 60 * 1000,
-        isAllDay: true,
-        type: 'cycle',
-        createdBy: 'system',
-        status: 'confirmed',
-      });
-      addEvent({
-        calendarId: okrCalId,
-        title: `${c.name} 结束`,
-        startTime: c.endDate,
-        endTime: c.endDate + 60 * 60 * 1000,
-        isAllDay: true,
-        type: 'cycle',
-        createdBy: 'system',
-        status: 'confirmed',
-      });
-    }
+    replaceOkrEvents(buildOkrCalendarEvents({
+      cycles,
+      objectives,
+      keyResults,
+      checkIns,
+      currentOwnerIds: currentOkrOwnerIds,
+      nameOf,
+    }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cycles, keyResults, checkIns, objectives, nameOf, year]);
+  }, [cycles, keyResults, checkIns, objectives, nameOf, year, currentOkrOwnerIds, replaceOkrEvents]);
 
   const goPrev = () => {
     if (view === 'month') {
@@ -486,6 +482,70 @@ export default function CalendarPage() {
     }
   }
 
+  async function handleNeteaseSync() {
+    if (neteaseSyncing) return;
+    setNeteaseSyncing(true);
+    setNeteaseSyncError('');
+    try {
+      const credentialResponse = await fetchWithTimeout(
+        '/api/mail/credentials',
+        { credentials: 'include', cache: 'no-store' },
+        CALENDAR_REQUEST_TIMEOUT_MS,
+      );
+      const credentialData = await credentialResponse.json().catch(() => ({}));
+      if (!credentialResponse.ok || credentialData.configured !== true) {
+        setNeteaseCredentialGuideOpen(true);
+        return;
+      }
+
+      const visibleRange = year > 0
+        ? {
+            from: new Date(year, month, 1).toISOString(),
+            to: new Date(year, month + 1, 1).toISOString(),
+          }
+        : {};
+      const response = await fetchWithTimeout('/api/calendar/sync/netease', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        cache: 'no-store',
+        body: JSON.stringify(visibleRange),
+      }, CALENDAR_SYNC_TIMEOUT_MS);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        if (response.status === 428 && typeof data.error?.configureUrl === 'string') {
+          setNeteaseCredentialGuideOpen(true);
+          return;
+        }
+        throw new Error(readNeteaseSyncResponseError(data));
+      }
+      setNeteaseSyncStatus((current) => ({
+        configured: true,
+        account: current?.account ?? credentialData.smtp?.user ?? null,
+        autoEnabled: data.autoEnabled !== false,
+        status: 'succeeded',
+        lastSyncAt: data.lastSyncAt ?? new Date().toISOString(),
+        lastAttemptAt: data.lastSyncAt ?? new Date().toISOString(),
+        lastManualSyncAt: data.lastSyncAt ?? new Date().toISOString(),
+        lastError: null,
+        lastResult: {
+          source: String(data.source ?? 'netease'),
+          total: Number(data.total ?? 0),
+          created: Number(data.created ?? 0),
+          updated: Number(data.updated ?? 0),
+          skipped: Number(data.skipped ?? 0),
+          cancelled: Number(data.cancelled ?? 0),
+        },
+      }));
+      await loadNeteaseSyncStatus();
+      await refreshManagedEvents();
+    } catch (error) {
+      setNeteaseSyncError(formatNeteaseSyncError(error));
+    } finally {
+      setNeteaseSyncing(false);
+    }
+  }
+
   const renderSidebarContent = () => (
     <>
       <div className="p-3 border-b space-y-2">
@@ -533,12 +593,28 @@ export default function CalendarPage() {
           <MessageSquare className="h-3.5 w-3.5" />
           IM 提醒参会人
         </Button>
+        <Button
+          variant="outline"
+          className="w-full gap-1 text-caption"
+          size="sm"
+          onClick={() => {
+            setMobileSidebarOpen(false);
+            void handleNeteaseSync();
+          }}
+          disabled={neteaseSyncing}
+        >
+          <RefreshCw className={cn('h-3.5 w-3.5', neteaseSyncing && 'animate-spin')} />
+          {neteaseSyncing ? '同步中' : '同步网易日程'}
+        </Button>
+        <div className="px-1 text-[11px] leading-relaxed text-ink-tertiary">
+          {formatNeteaseSyncStatusText(neteaseSyncStatus, neteaseSyncing)}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-3">
         <h3 className="text-caption font-semibold text-muted-foreground mb-2 uppercase tracking-wider">我的日历</h3>
         <div className="space-y-1">
-          {calendars.map((cal) => (
+          {primaryCalendars.map((cal) => (
             <button
               key={cal.id}
               className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-body hover:bg-muted transition-colors"
@@ -556,6 +632,33 @@ export default function CalendarPage() {
             </button>
           ))}
         </div>
+        {neteaseSubscribedCalendarNames.length > 0 && (
+          <div className="mt-4">
+            <h3 className="mb-2 text-caption font-semibold uppercase tracking-wider text-ink-tertiary">网易订阅日历</h3>
+            <div className="space-y-1">
+              {neteaseSubscribedCalendarNames.map((name) => {
+                const visible = subscribedCalendar?.isVisible ?? true;
+                return (
+                  <button
+                    key={name}
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-body transition-colors hover:bg-surface-2"
+                    onClick={() => subscribedCalendar && toggleCalendarVisibility(subscribedCalendar.id)}
+                  >
+                    {visible ? (
+                      <Eye className="h-3.5 w-3.5 text-ink-tertiary" />
+                    ) : (
+                      <EyeOff className="h-3.5 w-3.5 text-ink-tertiary" />
+                    )}
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-info" />
+                    <span className={cn('truncate', !visible && 'text-ink-tertiary line-through')}>
+                      {name}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <UpcomingEvents />
         <CalendarSubscriptionPanel
@@ -665,6 +768,15 @@ export default function CalendarPage() {
           </div>
         </div>
 
+        {neteaseSyncError && (
+          <div className={cn(
+            'shrink-0 border-b px-4 py-2 text-caption',
+            'bg-warning/5 text-warning',
+          )}>
+            {neteaseSyncError}
+          </div>
+        )}
+
         {/* 智能时间建议面板 */}
         {showSmartTime && smartSuggestions && (
           <div className="shrink-0 border-b px-4 py-2 bg-info/10/50">
@@ -734,6 +846,43 @@ export default function CalendarPage() {
           </DialogHeader>
           <div className="flex max-h-[calc(86vh-56px)] flex-col overflow-hidden bg-muted/20">
             {renderSidebarContent()}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={neteaseCredentialGuideOpen} onOpenChange={setNeteaseCredentialGuideOpen}>
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-title-3">
+              <KeyRound className="h-5 w-5 text-[rgb(var(--brand-600))]" />
+              需要先配置邮箱账号和密码
+            </DialogTitle>
+            <DialogDescription>
+              网易日程同步会通过你的公司邮箱账号连接 CalDAV，所以首次同步前需要先在邮箱配置页填写个人邮箱地址和密码。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 text-caption text-ink-secondary">
+            <div className="rounded-md border border-border bg-surface-2 p-3">
+              <p className="font-medium text-ink-primary">配置后会做什么？</p>
+              <p className="mt-1">系统会用这组账号密码收取邮件、发送邮件，并同步网易企业邮箱里的日程。配置只需做一次。</p>
+            </div>
+            <div className="rounded-md border border-border bg-surface-2 p-3">
+              <p className="font-medium text-ink-primary">填什么密码？</p>
+              <p className="mt-1">按当前公司邮箱策略，先填写平时登录网易企业邮箱使用的账号和密码。</p>
+            </div>
+            <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:justify-end">
+              <Button variant="outline" onClick={() => setNeteaseCredentialGuideOpen(false)}>
+                稍后再说
+              </Button>
+              <Button
+                onClick={() => {
+                  window.location.href = '/settings/email?next=/calendar&reason=netease-calendar-sync';
+                }}
+              >
+                <Settings className="mr-1.5 h-4 w-4" />
+                去配置邮箱
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -987,9 +1136,15 @@ function mapApiEvents(events: Array<Record<string, any>>, calendarId: string, so
     const attendeeEmails = Array.isArray(event.attendeeEmails) ? event.attendeeEmails : [];
     const attendeeUsers = Array.isArray(event.attendeeUsers) ? event.attendeeUsers : [];
     const isMeeting = attendeeEmails.length > 0 || attendeeUsers.length > 0 || Boolean(event.meetingUrl);
+    const mappedSourceKind = sourceKind === 'own' && isNeteaseSubscribedEvent(event) ? 'subscribed' : sourceKind;
+    const mappedCalendarId = mappedSourceKind === 'subscribed'
+      ? 'cal-subscribed'
+      : event.calendarSource === 'netease'
+        ? 'cal-netease'
+        : calendarId;
     return {
       id: event.id,
-      calendarId,
+      calendarId: mappedCalendarId,
       title: event.title,
       description: event.description ?? undefined,
       location: event.location ?? undefined,
@@ -1013,10 +1168,35 @@ function mapApiEvents(events: Array<Record<string, any>>, calendarId: string, so
       createdAt: new Date(event.createdAt).getTime(),
       updatedAt: new Date(event.updatedAt).getTime(),
       status: event.status,
-      color: sourceKind === 'subscribed' ? 'bg-surface-3' : isMeeting ? 'bg-brand-500' : 'bg-info',
+      color: mappedSourceKind === 'subscribed'
+        ? 'bg-info'
+        : event.calendarSource === 'netease'
+          ? 'bg-brand-500'
+          : isMeeting
+            ? 'bg-brand-500'
+            : 'bg-info',
       serverManaged: true,
     };
   });
+}
+
+function isNeteaseSubscribedEvent(event: Record<string, any>): boolean {
+  return event.calendarSource === 'netease'
+    && typeof event.description === 'string'
+    && event.description.includes('来源日历：');
+}
+
+function extractNeteaseSourceCalendarName(description?: string): string | null {
+  if (!description) return null;
+  const match = description.match(/来源日历：(.+?)(?:\n|$)/);
+  return match?.[1]?.trim() || null;
+}
+
+function formatSubscribedCalendarOwnerName(calendarName: string): string {
+  return calendarName
+    .replace(/[（(].*?[）)]/g, '')
+    .replace(/的(日历|日程)$/g, '')
+    .trim() || calendarName;
 }
 
 function describeReminder(minutes: number): string {
@@ -1053,6 +1233,48 @@ function formatPerson(name: string | undefined, email: string): string {
   const trimmedName = name?.trim();
   const trimmedEmail = email.trim();
   return trimmedName && trimmedName !== trimmedEmail ? `${trimmedName} (${trimmedEmail})` : trimmedEmail;
+}
+
+function formatNeteaseSyncStatusText(status: NeteaseCalendarSyncStatus | null, syncing: boolean): string {
+  if (syncing) return '网易同步：本次同步中，同步成功后自动后台更新';
+  if (!status) return '网易同步：状态暂未读取';
+  if (!status.configured) return '未配置邮箱，首次同步前需要先配置账号和密码';
+  if (status.lastSyncAt) {
+    return `网易同步：最近 ${formatShortDateTime(status.lastSyncAt)} · ${status.autoEnabled ? '自动更新已开启' : '自动更新未开启'}`;
+  }
+  return status.autoEnabled ? '网易同步：自动更新已开启，等待首次同步' : '网易同步：尚未开启，首次需手动点击';
+}
+
+function formatNeteaseSyncError(error: unknown): string {
+  if (isRequestTimeoutError(error)) {
+    return '网易日程同步请求超时。可能是服务端仍在连接邮箱，请稍后刷新查看最近同步时间，或再次点击同步。';
+  }
+  const message = error instanceof Error ? error.message : '网易邮箱日程同步失败';
+  if (/internal server error/i.test(message)) {
+    return '网易同步服务暂时不可用，请刷新页面后重试。';
+  }
+  return message;
+}
+
+function readNeteaseSyncResponseError(data: unknown): string {
+  if (!data || typeof data !== 'object') return '网易邮箱日程同步失败';
+  const error = (data as { error?: unknown }).error;
+  if (typeof error === 'string') return error;
+  if (error && typeof error === 'object' && typeof (error as { message?: unknown }).message === 'string') {
+    return (error as { message: string }).message;
+  }
+  return '网易邮箱日程同步失败';
+}
+
+function formatShortDateTime(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 function formatActivityActor(item: CalendarActivityItem): string {

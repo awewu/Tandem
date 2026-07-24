@@ -84,8 +84,7 @@ export function OKRTtiPanel({ ownerId, cycle, keyResults }: Props) {
             <Sparkles size={14} className="text-warning" />
             TTI · 成长软轨
           </h3>
-          <span className="text-[11px] rounded bg-warning/10 px-2 py-0.5 text-warning font-mono">
-            §4 永不挂奖金 · 60-70% = 健康
+          <span className="text-[11px] rounded bg-warning/10 px-2 py-0.5 text-warning font-mono">            §4 永不挂奖金 · 60-70% = 健康
           </span>
         </div>
         {loading ? (
@@ -146,8 +145,7 @@ export function OKRTtiPanel({ ownerId, cycle, keyResults }: Props) {
       {/* M2 月度对比表预告 */}
       <section className="border-2 border-dashed rounded p-4 text-footnote">
         <p className="font-medium mb-1 inline-flex items-center gap-1.5">
-          <TrendingUp size={12} className="text-info" />
-          月度对比 / 同比环比 (M2 上线)
+          <TrendingUp size={12} className="text-info" />          月度对比 / 同比环比 (M2 上线)
         </p>
         <p className="text-muted-foreground">
           每月 plan / actual / 偏差% / MoM 环比 · 横向月份纵向 KR · 接 CheckIn 历史快照
@@ -166,8 +164,7 @@ function TtiRow({ tti }: { tti: PrismaTti }) {
     : isOverEasy
     ? 'border-warning/30 bg-warning/5/50'
     : rate >= 0.4
-    ? 'border-warning/30 bg-warning/10'
-    : 'border-danger/20 bg-danger/5/30';
+    ? 'border-warning/30 bg-warning/10'    : 'border-danger/20 bg-danger/5/30';
   const note = isOverEasy
     ? '⚠ 设得过低 (过于轻松)'
     : isHealthy
@@ -199,8 +196,7 @@ function TtiRow({ tti }: { tti: PrismaTti }) {
         />
         <div
           className={`h-full transition-all ${
-            isHealthy ? 'bg-success' : isOverEasy ? 'bg-warning' : 'bg-warning/30'
-          }`}
+            isHealthy ? 'bg-success' : isOverEasy ? 'bg-warning' : 'bg-warning/30'          }`}
           style={{ width: `${Math.min(100, rate * 100)}%` }}
         />
       </div>

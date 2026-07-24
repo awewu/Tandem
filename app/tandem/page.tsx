@@ -175,6 +175,39 @@ function useActiveChat() {
 }
 const useTandemDraft = () => useContext(DraftContext);
 
+const COCKPIT_PANEL_MIN_WIDTH = 200;
+const COCKPIT_PANEL_MAX_WIDTH = 460;
+const DOCK_PANEL_MIN_WIDTH = 240;
+const DOCK_PANEL_MAX_WIDTH = 560;
+const COCKPIT_PANEL_WIDTH_KEY = 'tandem:cockpit-panel-width';
+const DOCK_PANEL_WIDTH_KEY = 'tandem:dock-panel-width';
+
+function clampPanelWidth(width: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, Math.round(width)));
+}
+
+function useStoredPanelWidth(key: string, fallback: number, min: number, max: number) {
+  const [width, setWidth] = useState(fallback);
+
+  useEffect(() => {
+    const raw = window.localStorage.getItem(key);
+    const parsed = raw ? Number(raw) : NaN;
+    if (Number.isFinite(parsed)) {
+      setWidth(clampPanelWidth(parsed, min, max));
+    }
+  }, [key, min, max]);
+
+  useEffect(() => {
+    window.localStorage.setItem(key, String(width));
+  }, [key, width]);
+
+  const resize = (nextWidth: number) => {
+    setWidth(clampPanelWidth(nextWidth, min, max));
+  };
+
+  return [width, resize] as const;
+}
+
 function useDashboardFetch(): DashboardCtx {
   const [state, setState] = useState<DashboardCtx>({ loading: true, dashboard: null, retros: null });
   useEffect(() => {
@@ -214,6 +247,18 @@ function TandemPageInner() {
   // 右侧行动坞默认开在「交付」(常驻产出); 左侧今日驾驶舱默认常驻展开
   const [dockTab, setDockTab] = useState<DockTabId | null>('deliver');
   const [cockpitOpen, setCockpitOpen] = useState(true);
+  const [cockpitWidth, setCockpitWidth] = useStoredPanelWidth(
+    COCKPIT_PANEL_WIDTH_KEY,
+    260,
+    COCKPIT_PANEL_MIN_WIDTH,
+    COCKPIT_PANEL_MAX_WIDTH,
+  );
+  const [dockWidth, setDockWidth] = useStoredPanelWidth(
+    DOCK_PANEL_WIDTH_KEY,
+    280,
+    DOCK_PANEL_MIN_WIDTH,
+    DOCK_PANEL_MAX_WIDTH,
+  );
   // 移动端: 'cockpit' / 某个 dock tab / null
   const [mobileSheet, setMobileSheet] = useState<'cockpit' | DockTabId | null>(null);
   // 交付草稿桥: 主舞台/对话产出 → 交付卡
@@ -233,24 +278,17 @@ function TandemPageInner() {
 
   const dashCtx = useDashboardFetch();
 
-  // 行动坞可拖拽宽度 (240–560px, localStorage 持久化)
-  const [dockWidth, setDockWidth] = useState(320);
-  useEffect(() => {
-    const saved = Number(localStorage.getItem('tandem:dock-width'));
-    if (saved >= 240 && saved <= 560) setDockWidth(saved);
-  }, []);
-  const handleDockResize = (w: number) => {
-    const clamped = Math.min(560, Math.max(240, w));
-    setDockWidth(clamped);
-    try { localStorage.setItem('tandem:dock-width', String(clamped)); } catch { /* ignore */ }
-  };
-
   return (
    <DashboardContext.Provider value={dashCtx}>
    <DraftContext.Provider value={{ draft, pushDraft }}>
     <div className="relative flex h-full w-full surface-2">
       {/* ───────── 左: 今日驾驶舱 (常驻) · 桌面 ───────── */}
-      <CockpitRail open={cockpitOpen} onToggle={() => setCockpitOpen((v) => !v)} />
+      <CockpitRail
+        open={cockpitOpen}
+        width={cockpitWidth}
+        onResize={setCockpitWidth}
+        onToggle={() => setCockpitOpen((v) => !v)}
+      />
 
       {/* ───────── 主舞台 ───────── */}
       <main className="flex-1 min-w-0 flex flex-col overflow-hidden">
@@ -271,9 +309,9 @@ function TandemPageInner() {
         <SummonPanel
           side="right"
           tab={DOCK_TABS.find((t) => t.id === dockTab) ?? null}
-          onClose={() => setDockTab(null)}
           width={dockWidth}
-          onResize={handleDockResize}
+          onResize={setDockWidth}
+          onClose={() => setDockTab(null)}
         />
         <SummonRail
           side="right"
@@ -296,11 +334,21 @@ function TandemPageInner() {
 }
 
 // ════════════════════════════════════════════════════════════════
-// 左: 今日驾驶舱 (常驻 260px, 可折叠到 48px) · 桌面
+// 左: 今日驾驶舱 (默认 260px, 可折叠到 48px, 可拖拽调宽) · 桌面
 //   = 今日待办 (InboxCard) + 搭子推荐 (RecommendCard)
 //   第一屏直接呈现「今天的战场」, 不再藏折叠栏.
 // ════════════════════════════════════════════════════════════════
-function CockpitRail({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+function CockpitRail({
+  open,
+  width,
+  onResize,
+  onToggle,
+}: {
+  open: boolean;
+  width: number;
+  onResize: (width: number) => void;
+  onToggle: () => void;
+}) {
   const { dashboard, retros } = useTandemDashboard();
   const total = (dashboard?.todos.totalCount ?? 0) + (retros?.items.length ?? 0);
 
@@ -338,9 +386,17 @@ function CockpitRail({ open, onToggle }: { open: boolean; onToggle: () => void }
   return (
     <aside
       aria-label="今日驾驶舱"
-      className="hidden md:flex w-[260px] shrink-0 flex-col overflow-hidden surface-1 border-r"
-      style={{ borderColor: 'rgb(var(--border-subtle))' }}
+      className="relative hidden shrink-0 flex-col overflow-hidden surface-1 border-r md:flex"
+      style={{ width, borderColor: 'rgb(var(--border-subtle))' }}
     >
+      <PanelResizeHandle
+        edge="right"
+        width={width}
+        min={COCKPIT_PANEL_MIN_WIDTH}
+        max={COCKPIT_PANEL_MAX_WIDTH}
+        onResize={onResize}
+        label="调整今日驾驶舱宽度"
+      />
       <header
         className="flex items-center justify-between border-b px-4 py-3"
         style={{ borderColor: 'rgb(var(--border-subtle))' }}
@@ -370,6 +426,87 @@ function CockpitRail({ open, onToggle }: { open: boolean; onToggle: () => void }
         </section>
       </div>
     </aside>
+  );
+}
+
+function PanelResizeHandle({
+  edge,
+  width,
+  min,
+  max,
+  onResize,
+  label,
+}: {
+  edge: 'left' | 'right';
+  width: number;
+  min: number;
+  max: number;
+  onResize: (width: number) => void;
+  label: string;
+}) {
+  const dragRef = useRef({ startX: 0, startWidth: width });
+
+  function startResize(e: React.PointerEvent<HTMLDivElement>) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    dragRef.current = { startX: e.clientX, startWidth: width };
+    const previousCursor = document.body.style.cursor;
+    const previousUserSelect = document.body.style.userSelect;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    const move = (event: PointerEvent) => {
+      const delta = event.clientX - dragRef.current.startX;
+      const next = edge === 'right'
+        ? dragRef.current.startWidth + delta
+        : dragRef.current.startWidth - delta;
+      onResize(clampPanelWidth(next, min, max));
+    };
+    const stop = () => {
+      document.body.style.cursor = previousCursor;
+      document.body.style.userSelect = previousUserSelect;
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', stop);
+      window.removeEventListener('pointercancel', stop);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', stop);
+    window.addEventListener('pointercancel', stop);
+  }
+
+  function resizeByKeyboard(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    e.preventDefault();
+    const direction = e.key === 'ArrowRight' ? 1 : -1;
+    const signedStep = edge === 'right' ? direction * 16 : -direction * 16;
+    onResize(clampPanelWidth(width + signedStep, min, max));
+  }
+
+  return (
+    <div
+      role="separator"
+      aria-label={label}
+      aria-orientation="vertical"
+      aria-valuemin={min}
+      aria-valuemax={max}
+      aria-valuenow={width}
+      tabIndex={0}
+      onPointerDown={startResize}
+      onKeyDown={resizeByKeyboard}
+      className={cn(
+        'group absolute top-0 z-20 hidden h-full w-3 cursor-col-resize touch-none outline-none md:block',
+        edge === 'right' ? '-right-1.5' : '-left-1.5',
+      )}
+    >
+      <span
+        aria-hidden
+        className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-transparent transition-colors group-hover:bg-[rgb(var(--brand-300))] group-focus-visible:bg-[rgb(var(--brand-500))]"
+      />
+      <span
+        aria-hidden
+        className="absolute left-1/2 top-1/2 h-14 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[rgb(var(--border-subtle))] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+      />
+    </div>
   );
 }
 
@@ -440,18 +577,17 @@ interface SummonTab {
 interface SummonPanelProps {
   side: 'left' | 'right';
   tab: SummonTab | null;
+  width: number;
+  onResize: (width: number) => void;
   onClose: () => void;
-  width?: number;
-  onResize?: (w: number) => void;
 }
 
-function SummonPanel({ side, tab, onClose, width = 280, onResize }: SummonPanelProps) {
+function SummonPanel({ side, tab, onClose, width, onResize }: SummonPanelProps) {
   if (!tab) return null;
   const Icon = tab.icon;
   const CloseIcon = side === 'left' ? ChevronLeft : ChevronRight;
 
   function startResize(e: React.PointerEvent) {
-    if (!onResize) return;
     e.preventDefault();
     const startX = e.clientX;
     const startW = width;
@@ -481,19 +617,17 @@ function SummonPanel({ side, tab, onClose, width = 280, onResize }: SummonPanelP
       )}
       style={{ width, borderColor: 'rgb(var(--border-subtle))' }}
     >
-      {onResize && (
-        <div
-          role="separator"
-          aria-orientation="vertical"
-          aria-label="拖拽调整面板宽度"
-          onPointerDown={startResize}
-          className={cn(
-            'absolute top-0 z-20 h-full w-1.5 cursor-col-resize touch-none transition-colors',
-            'hover:bg-[rgb(var(--brand-300))] active:bg-[rgb(var(--brand-500))]',
-            side === 'right' ? 'left-0 -translate-x-1/2' : 'right-0 translate-x-1/2',
-          )}
-        />
-      )}
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="拖拽调整面板宽度"
+        onPointerDown={startResize}
+        className={cn(
+          'absolute top-0 z-20 h-full w-1.5 cursor-col-resize touch-none transition-colors',
+          'hover:bg-[rgb(var(--brand-300))] active:bg-[rgb(var(--brand-500))]',
+          side === 'right' ? 'left-0 -translate-x-1/2' : 'right-0 translate-x-1/2',
+        )}
+      />
       <header
         className="flex items-center justify-between border-b px-4 py-3"
         style={{ borderColor: 'rgb(var(--border-subtle))' }}

@@ -125,8 +125,7 @@ export function OKRTemplatePicker({ open, cycleId, onClose, onApplied }: Props) 
               <div className="text-footnote text-muted-foreground line-clamp-2 mb-2">{tpl.description}</div>
               <div className="flex flex-wrap gap-1 mb-2">
                 {tpl.tags.map((tg) => (
-                  <span key={tg} className="text-[10px] px-1.5 py-0.5 rounded bg-info/10 text-info dark:bg-info/40">
-                    {tg}
+                  <span key={tg} className="text-[10px] px-1.5 py-0.5 rounded bg-info/10 text-info dark:bg-info/40">                    {tg}
                   </span>
                 ))}
               </div>

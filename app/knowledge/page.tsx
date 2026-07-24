@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { type KNode, useChatStore } from '@/lib/store';
@@ -15,7 +16,7 @@ import {
   parseSpreadsheetContent,
   writeSpreadsheetFile,
 } from '@/lib/knowledge/spreadsheet-content';
-import { Save, Download, ArrowRightLeft, Building2, Users, User, Lock } from 'lucide-react';
+import { Save, Download, ArrowRightLeft, Building2, Users, User, Lock, ArrowLeft } from 'lucide-react';
 
 /**
  * Q1 (2026-05-10) Memory ownership 4 级 — 给文档分级 (公司/部门/团队/个人).
@@ -448,7 +449,7 @@ export default function KnowledgePage() {
       <FileManager
         nodes={fmNodes}
         rootId="root"
-        title="我的资料库"
+        title="手抄文件管理"
         onCreateFolder={handleCreateFolder}
         onRename={handleRename}
         onDelete={handleDelete}
@@ -459,6 +460,13 @@ export default function KnowledgePage() {
         renderDetails={renderDetails}
         toolbarExtra={
           <>
+            <Link
+              href="/shouchao"
+              className="inline-flex h-7 items-center gap-1 rounded-md border border-border bg-surface-1 px-2 text-[11px] font-medium text-ink-secondary hover:bg-surface-2 hover:text-ink-primary surface-interactive"
+              title="返回搭子手抄"
+            >
+              <ArrowLeft className="h-3 w-3" /> 手抄
+            </Link>
             {/* Q1 Ownership 筛选 */}
             <div className="flex items-center gap-0.5 ml-1 border-l pl-1.5">
               {(['all', 'company', 'department', 'team', 'personal', 'unset'] as const).map((f) => {

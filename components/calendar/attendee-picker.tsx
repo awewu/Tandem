@@ -237,8 +237,7 @@ export function AttendeePicker({ value, onChange, showLabel = true }: AttendeePi
                         >
                           <span className={cn(
                             'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-caption font-medium',
-                            selected ? 'bg-brand-600 text-white' : 'bg-background text-ink-secondary'
-                          )}>
+                            selected ? 'bg-brand-600 text-white' : 'bg-background text-ink-secondary'                          )}>
                             {initials(option.name || option.email)}
                           </span>
                           <span className="min-w-0 flex-1">
@@ -247,8 +246,7 @@ export function AttendeePicker({ value, onChange, showLabel = true }: AttendeePi
                           </span>
                           <span className={cn(
                             'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border',
-                            selected ? 'border-brand-600 bg-brand-600 text-white' : 'border-border bg-background'
-                          )}>
+                            selected ? 'border-brand-600 bg-brand-600 text-white' : 'border-border bg-background'                          )}>
                             {selected && <Check className="h-3.5 w-3.5" />}
                           </span>
                         </button>
@@ -284,8 +282,7 @@ export function AttendeePicker({ value, onChange, showLabel = true }: AttendeePi
                       {draftEmails.map((email) => {
                         const option = optionByEmail.get(email);
                         return (
-                          <div key={email} className="flex items-center gap-3 rounded-lg border bg-surface-2/70 px-3 py-2.5">
-                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-caption font-medium text-brand-700">
+                          <div key={email} className="flex items-center gap-3 rounded-lg border bg-surface-2/70 px-3 py-2.5">                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-caption font-medium text-brand-700">
                               {initials(option?.name || email)}
                             </span>
                             <span className="min-w-0 flex-1">

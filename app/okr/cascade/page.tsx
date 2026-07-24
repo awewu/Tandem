@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useMemo, useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Loader2,
@@ -17,7 +17,6 @@ import {
   XCircle,
   ArrowRight,
   Layers,
-  BarChart3,
 } from 'lucide-react';
 import PageTabs from '@/components/page-tabs';
 import { useDynamicStyle } from '@/lib/hooks/use-dynamic-style';
@@ -83,6 +82,7 @@ export default function OkrCascadePage() {
   const [expandedKr, setExpandedKr] = useState<Set<string>>(new Set());
   const [levelFilter, setLevelFilter] =
     useState<'all' | 'company' | 'team' | 'individual'>('all');
+  const treeRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     void load();
@@ -136,6 +136,30 @@ export default function OkrCascadePage() {
     (acc, o) => acc + o.keyResults.filter((kr) => kr.riskStatus === 'on_track').length,
     0
   );
+  const filteredObjectives = useMemo(
+    () =>
+      levelFilter === 'all'
+        ? objectives
+        : objectives.filter((o) => o.level === levelFilter),
+    [levelFilter, objectives],
+  );
+
+  function scrollToTree() {
+    treeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function showObjectiveDetails() {
+    setLevelFilter('all');
+    setExpandedObj(new Set(objectives.map((o) => o.id)));
+    scrollToTree();
+  }
+
+  function showKrDetails() {
+    setLevelFilter('all');
+    setExpandedObj(new Set(objectives.map((o) => o.id)));
+    setExpandedKr(new Set(objectives.flatMap((o) => o.keyResults.map((kr) => kr.id))));
+    scrollToTree();
+  }
 
   return (
     <div className="h-full overflow-auto bg-gradient-to-b from-surface-1 to-surface-2/50">
@@ -154,7 +178,13 @@ export default function OkrCascadePage() {
 
         {/* Top metrics */}
         <div className="grid gap-4 md:grid-cols-3">
-          <MetricCard label="Objectives" value={objectives.length} icon={Building2} tone="brand" />
+          <MetricCard
+            label="Objectives"
+            value={objectives.length}
+            icon={Building2}
+            tone="brand"
+            onClick={showObjectiveDetails}
+          />
           <MetricCard
             label="KR 健康"
             value={totalKrs > 0 ? `${krsOnTrack}/${totalKrs}` : '—'}
@@ -165,6 +195,7 @@ export default function OkrCascadePage() {
                 ? `${Math.round((krsOnTrack / totalKrs) * 100)}% 在轨`
                 : '暂无 KR'
             }
+            onClick={showKrDetails}
           />
           <MetricCard
             label="议事室决议"
@@ -172,6 +203,7 @@ export default function OkrCascadePage() {
             icon={Sparkles}
             tone="info"
             hint={`${cards.filter((c) => c.primaryKrId).length} 已绑 KR`}
+            href="/convergence"
           />
         </div>
 
@@ -192,39 +224,23 @@ export default function OkrCascadePage() {
             },
             {
               id: 'team',
-              label: '部门级',
+              label: '体系级',
               icon: Users,
               badge: objectives.filter((o) => o.level === 'team').length,
             },
             {
               id: 'individual',
-              label: '我的',
+              label: '个人级',
               icon: User,
               badge: objectives.filter((o) => o.level === 'individual').length,
             },
           ]}
           active={levelFilter}
           onChange={(id) => setLevelFilter(id as 'all' | 'company' | 'team' | 'individual')}
-          actions={
-            <div className="flex items-center gap-2">
-              <Link
-                href="/okr/dashboard"
-                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-1 px-3 py-1.5 text-caption text-ink-secondary hover:text-ink-primary hover:bg-surface-2 surface-interactive"
-                title="按部门聚合的进度/风险 · 管理层视角"
-              >
-                <BarChart3 className="h-3.5 w-3.5" /> 部门效能
-              </Link>
-              <Link
-                href="/okr"
-                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-1 px-3 py-1.5 text-caption text-ink-secondary hover:text-ink-primary hover:bg-surface-2 surface-interactive"
-              >
-                编辑 OKR <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-          }
         />
 
         {/* Cascade tree */}
+        <div ref={treeRef}>
         {loading ? (
           <div className="card-elevated flex items-center justify-center gap-2 p-12 text-caption text-ink-tertiary">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -241,10 +257,7 @@ export default function OkrCascadePage() {
             </Link>
           </div>
         ) : (() => {
-          const filtered =
-            levelFilter === 'all'
-              ? objectives
-              : objectives.filter((o) => o.level === levelFilter);
+          const filtered = filteredObjectives;
           if (filtered.length === 0) {
             return (
               <div className="card-elevated p-12 text-center">
@@ -278,6 +291,7 @@ export default function OkrCascadePage() {
             </div>
           );
         })()}
+        </div>
 
         {/* Legend */}
         <div className="card-elevated p-4 mt-8">
@@ -333,7 +347,7 @@ function ObjectiveNode({
         <div className="flex-1 min-w-0">
           <p className="text-headline text-ink-primary truncate">{obj.title}</p>
           <p className="mt-0.5 text-footnote text-ink-tertiary">
-            {obj.level === 'company' ? '公司级' : obj.level === 'team' ? '部门级' : '个人级'} ·
+            {obj.level === 'company' ? '公司级' : obj.level === 'team' ? '体系级' : '个人级'} ·
             {' '}{obj.keyResults.length} KR
           </p>
         </div>
@@ -498,20 +512,26 @@ function MetricCard({
   icon: Icon,
   tone,
   hint,
+  onClick,
+  href,
 }: {
   label: string;
   value: number | string;
   icon: React.ComponentType<{ className?: string }>;
   tone: 'brand' | 'success' | 'info';
   hint?: string;
+  onClick?: () => void;
+  href?: string;
 }) {
   const toneMap = {
     brand:   'bg-brand-50 text-brand-600',
     success: 'bg-success/10 text-success',
     info:    'bg-info/10 text-info',
   };
-  return (
-    <div className="card-elevated p-5">
+  const className =
+    'card-elevated p-5 text-left transition-colors duration-fast hover:bg-surface-2 focus:outline-none focus:ring-2 focus:ring-brand-100';
+  const content = (
+    <>
       <div className="flex items-start justify-between">
         <span className="text-caption text-ink-secondary">{label}</span>
         <span className={`rounded-md p-1.5 ${toneMap[tone]}`}>
@@ -520,7 +540,19 @@ function MetricCard({
       </div>
       <div className="mt-3 text-title-1 font-bold text-ink-primary tabular-nums">{value}</div>
       {hint && <p className="mt-1 text-footnote text-ink-tertiary">{hint}</p>}
-    </div>
+    </>
+  );
+  if (href) {
+    return (
+      <Link href={href} className={className} aria-label={`查看${label}明细`}>
+        {content}
+      </Link>
+    );
+  }
+  return (
+    <button type="button" onClick={onClick} className={className} aria-label={`查看${label}明细`}>
+      {content}
+    </button>
   );
 }
 

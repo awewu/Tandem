@@ -15,6 +15,8 @@ import type { DriveFile } from '@/lib/types/feishu-catchup';
 export interface DriveFolderRepoLike {
   list(opts?: { tenantId?: string }): Promise<DriveFile[]>;
   create(data: Omit<DriveFile, 'id'>): Promise<DriveFile>;
+  move?(id: string, parentId: string | null): Promise<DriveFile>;
+  softDelete?(id: string): Promise<void>;
 }
 
 /** provision 所需的最小部门画像 (真实实现 = HrDept)。 */
@@ -47,21 +49,58 @@ function baseFolder(
   };
 }
 
-/** 从现存目录里找 company_share 根。 */
-function findCompanyShare(folders: DriveFile[]): DriveFile | undefined {
-  return folders.find((f) => f.isFolder && f.nodeRole === 'company_share' && !f.deletedAt);
+function hasPrincipal(f: DriveFile, mode: 'read' | 'write', principal: string): boolean {
+  return (f.permissions?.[mode] ?? []).includes(principal);
+}
+
+/** 从现存目录里找 company_share 根。兼容真实库未持久化 nodeRole 的旧数据。 */
+export function findCompanyShare(folders: DriveFile[]): DriveFile | undefined {
+  return folders.find((f) => f.isFolder && f.nodeRole === 'company_share' && !f.deletedAt)
+    ?? folders.find((f) => (
+      f.isFolder
+      && !f.deletedAt
+      && !f.parentId
+      && f.name === '公司共享区'
+      && hasPrincipal(f, 'read', 'all')
+    ));
 }
 
 /** 从现存目录里按 dept principal 建 deptId → dept_root 索引 (幂等指纹)。 */
-function indexDeptRoots(folders: DriveFile[]): Map<string, DriveFile> {
+export function indexDeptRoots(folders: DriveFile[]): Map<string, DriveFile> {
   const map = new Map<string, DriveFile>();
   for (const f of folders) {
-    if (!f.isFolder || f.nodeRole !== 'dept_root' || f.deletedAt) continue;
+    if (!f.isFolder || f.deletedAt) continue;
     for (const p of f.permissions?.read ?? []) {
-      if (p.startsWith('dept:')) map.set(p.slice(5), f);
+      if (!p.startsWith('dept:')) continue;
+      const deptId = p.slice(5);
+      const looksLikeDeptRoot = f.nodeRole === 'dept_root'
+        || (f.ownerId === DRIVE_SYSTEM_OWNER && hasPrincipal(f, 'write', p));
+      if (looksLikeDeptRoot) map.set(deptId, f);
     }
   }
   return map;
+}
+
+export function findDeptRoot(folders: DriveFile[], departmentId?: string | null): DriveFile | undefined {
+  if (!departmentId) return undefined;
+  return indexDeptRoots(folders).get(departmentId);
+}
+
+function isPersonalHomeForUser(f: DriveFile, userId: string, parentId: string | null): boolean {
+  return (
+    f.isFolder
+    && !f.deletedAt
+    && f.ownerId === userId
+    && (f.parentId ?? null) === parentId
+    && (
+      f.nodeRole === 'personal_home'
+      || (
+        hasPrincipal(f, 'read', `user:${userId}`)
+        && hasPrincipal(f, 'write', `user:${userId}`)
+        && (f.name === '我的工作区' || f.name.endsWith(' 的工作区'))
+      )
+    )
+  );
 }
 
 /**
@@ -147,12 +186,8 @@ export async function ensurePersonalHome(opts: {
   repo: DriveFolderRepoLike;
 }): Promise<DriveFile> {
   const { tenantId, userId, repo } = opts;
-  const folders = (await repo.list({ tenantId })).filter((f) => f.isFolder && !f.deletedAt);
-
-  const existing = folders.find(
-    (f) => f.nodeRole === 'personal_home' && f.ownerId === userId,
-  );
-  if (existing) return existing;
+  const all = (await repo.list({ tenantId })).filter((f) => !f.deletedAt);
+  const folders = all.filter((f) => f.isFolder);
 
   // 挂载点: 本部门 dept_root → company_share → 根
   let parentId: string | null = null;
@@ -161,6 +196,22 @@ export async function ensurePersonalHome(opts: {
     if (deptRoot) parentId = deptRoot.id;
   }
   if (!parentId) parentId = findCompanyShare(folders)?.id ?? null;
+
+  const existingHomes = folders
+    .filter((f) => isPersonalHomeForUser(f, userId, parentId))
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+  const existing = existingHomes[0];
+  if (existing) {
+    if (repo.move && repo.softDelete && existingHomes.length > 1) {
+      for (const duplicate of existingHomes.slice(1)) {
+        for (const child of all.filter((f) => (f.parentId ?? null) === duplicate.id)) {
+          await repo.move(child.id, existing.id);
+        }
+        await repo.softDelete(duplicate.id);
+      }
+    }
+    return existing;
+  }
 
   return repo.create(
     baseFolder({

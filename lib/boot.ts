@@ -48,6 +48,7 @@ function bootSync(): void {
   const storeNeedsReset =
     !existingStore ||
     (typeof existingStore === 'object' && !('documents' in existingStore)) ||
+    (typeof existingStore === 'object' && !('calendarSyncStates' in existingStore)) ||
     actualKind !== expectedKind;
 
   if (_g.__tandem_booted__ && !storeNeedsReset) return;
@@ -458,7 +459,21 @@ async function runSlowScans(): Promise<void> {
     }
   } catch (err) {
     // eslint-disable-next-line no-console
-    console.warn('[boot] kpi snapshot scan failed:', err);
+      console.warn('[boot] kpi snapshot scan failed:', err);
+  }
+
+  try {
+    const { runNeteaseCalendarAutoSync } = await import('./calendar/netease-auto-sync');
+    const r = await runNeteaseCalendarAutoSync();
+    if (r.synced > 0 || r.failed > 0) {
+      // eslint-disable-next-line no-console
+      console.info(
+        `[boot] netease calendar auto sync: synced=${r.synced}, failed=${r.failed}, skipped=${r.skipped}, scanned=${r.scanned}`,
+      );
+    }
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('[boot] netease calendar auto sync failed:', err);
   }
 
   // ON-2: 代行动作否决窗到期处理

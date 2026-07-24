@@ -7,9 +7,11 @@
  * 第一版: 中央 AI + 我的搭子. 后续可加部门 AI / 三大部 AI.
  */
 
+import type React from 'react';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ArrowRight, Bot, Brain, Building2, Scale } from 'lucide-react';
 
 interface Teammate {
   id: string;
@@ -29,11 +31,11 @@ const ZONE_BADGE: Record<Teammate['zone'], { label: string; cls: string }> = {
   red: { label: '高代行 · 红区', cls: 'bg-destructive/10 text-destructive' },
 };
 
-const KIND_ICON: Record<Teammate['kind'], string> = {
-  central: '🧠',
-  persona: '🤝',
-  governance: '⚖',
-  department: '🏛',
+const KIND_ICON: Record<Teammate['kind'], React.ComponentType<{ className?: string }>> = {
+  central: Brain,
+  persona: Bot,
+  governance: Scale,
+  department: Building2,
 };
 
 export default function TeammatesPage() {
@@ -51,35 +53,39 @@ export default function TeammatesPage() {
   }, []);
 
   return (
-    <main className="container mx-auto max-w-5xl space-y-4 px-4 py-6 md:px-8">
+    <main className="h-full overflow-auto bg-gradient-to-b from-surface-1 to-surface-2/50">
+      <div className="page-container space-y-4 py-6">
       <header>
-        <h1 className="text-title-3 font-bold">AI 同事</h1>
-        <p className="text-caption text-muted-foreground">
+        <h1 className="text-title-3 text-ink-primary">AI 同事</h1>
+        <p className="text-caption text-ink-secondary">
           每个 AI 角色都有明确职责 / 代行边界 / 红线兜底. 像浏览团队成员一样查看, 一键对话.
         </p>
       </header>
 
       {loading && (
-        <Card><CardContent className="py-8 text-center text-muted-foreground">加载中...</CardContent></Card>
+        <Card><CardContent className="py-8 text-center text-ink-tertiary">加载中...</CardContent></Card>
       )}
 
       {!loading && teammates.length === 0 && (
-        <Card><CardContent className="py-8 text-center text-muted-foreground">暂无可用 AI 同事</CardContent></Card>
+        <Card><CardContent className="py-8 text-center text-ink-tertiary">暂无可用 AI 同事</CardContent></Card>
       )}
 
       {!loading && teammates.length > 0 && (
         <div className="grid gap-4 md:grid-cols-2">
           {teammates.map((t) => {
             const zone = ZONE_BADGE[t.zone];
+            const Icon = KIND_ICON[t.kind];
             return (
-              <Card key={t.id} className={t.status === 'disabled' ? 'opacity-60' : ''}>
+              <Card key={t.id} className={t.status === 'disabled' ? 'opacity-60' : 'card-elevated'}>
                 <CardHeader>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3">
-                      <span className="text-title-2 leading-none">{KIND_ICON[t.kind]}</span>
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-brand-50 text-brand-600">
+                        <Icon className="h-5 w-5" />
+                      </span>
                       <div>
-                        <CardTitle className="text-body">{t.name}</CardTitle>
-                        <p className="mt-1 text-caption text-muted-foreground">{t.subtitle}</p>
+                        <CardTitle className="text-body text-ink-primary">{t.name}</CardTitle>
+                        <p className="mt-1 text-caption text-ink-secondary">{t.subtitle}</p>
                       </div>
                     </div>
                     <span className={`shrink-0 rounded-md px-2 py-0.5 text-caption ${zone.cls}`}>
@@ -90,10 +96,10 @@ export default function TeammatesPage() {
                 <CardContent className="space-y-3">
                   {/* 能力 */}
                   <div>
-                    <p className="mb-1 text-caption text-muted-foreground">能力</p>
+                    <p className="mb-1 text-caption text-ink-secondary">能力</p>
                     <div className="flex flex-wrap gap-1">
                       {t.capabilities.map((c) => (
-                        <span key={c} className="rounded-md bg-muted px-1.5 py-0.5 text-caption">
+                        <span key={c} className="rounded-md bg-surface-2 px-1.5 py-0.5 text-caption text-ink-secondary">
                           {c}
                         </span>
                       ))}
@@ -104,8 +110,8 @@ export default function TeammatesPage() {
                   <div className="grid grid-cols-2 gap-2 border-y py-2">
                     {t.stats.map((s, i) => (
                       <div key={i}>
-                        <p className="text-caption text-muted-foreground">{s.label}</p>
-                        <p className="text-caption font-medium">{s.value}</p>
+                        <p className="text-caption text-ink-secondary">{s.label}</p>
+                        <p className="text-caption font-medium text-ink-primary">{s.value}</p>
                       </div>
                     ))}
                   </div>
@@ -113,9 +119,10 @@ export default function TeammatesPage() {
                   {/* CTA */}
                   <Link
                     href={t.entryUrl}
-                    className="block rounded-md bg-warning px-3 py-2 text-center text-caption font-medium text-warning-foreground hover:opacity-90"
+                    className="flex items-center justify-center gap-1.5 rounded-md bg-brand-500 px-3 py-2 text-center text-caption font-semibold text-white hover:bg-brand-600 surface-interactive"
                   >
                     {t.kind === 'central' ? '去对话 / 浮窗已挂载全局' : t.kind === 'persona' ? '管理 / 进化' : '查看'}
+                    <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </CardContent>
               </Card>
@@ -125,11 +132,12 @@ export default function TeammatesPage() {
       )}
 
       <Card>
-        <CardContent className="py-4 text-caption text-muted-foreground">
+        <CardContent className="py-4 text-caption text-ink-secondary">
           后续规划: 部门 AI · 治理委员会 AI · 三大部 AI (战略 / 人力 / 财务) — 当工作流真正需要时再上,
           不为了凑数加角色 (charter §15 不替员工自决, 每个 AI 必须有清晰职责).
         </CardContent>
       </Card>
+      </div>
     </main>
   );
 }

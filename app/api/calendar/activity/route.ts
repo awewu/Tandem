@@ -15,6 +15,8 @@ const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
   const pageSize = Number(url.searchParams.get('pageSize') ?? '20');
   const result = await listCalendarActivities({
     tenantId: auth.tenantId,
+    viewerId: auth.userId,
+    viewerEmail: auth.email,
     page,
     pageSize,
   });
