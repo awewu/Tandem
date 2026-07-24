@@ -45,7 +45,7 @@ PMS (项目报备全生命周期) 已完成**功能骨架落地**: 28 张 typed 
 
 | # | 债 | 说明 |
 |---|---|---|
-| D1 | **DB 集成测试 (核心+生命周期已补)** | ✅ 2026-07-24: opt-in 真库集成测试 **20 用例 / 2 文件**。`pms.itest.ts` (7): 商机 CRUD / orgId 隔离 / 查重 / 跟进副作用 / 公海释放+认领 / cron。`pms-lifecycle.itest.ts` (13): 合同 create→approve→自动交付工单+告警 / 状态机守卫 / 交付工单 FSM+orgId 隔离+交付任务 / 设备 SN 全生命周期(register→ship→install 保修计算+父子层级+唯一约束) / 维保 FSM。运行 `npm run test:pms-integration` (唯一租户 + 全清理, 实测零残留, 不进默认套件/pre-commit)。**🐛 集成测试抓到真 bug**: 三处并发唯一约束兜底 (`createOpportunity`/`createContract`/`registerSN`) 的 `err.code==='23505'` 判断失效 (Drizzle 把 pg 错误包一层, 码在 `err.cause.code`), 已修。⚠️ 仍未覆盖: 返利/经销商订货/健康分/线索/活动/目录等 service。 |
+| D1 | **DB 集成测试 (核心+生命周期+渠道已补)** | ✅ 2026-07-24: opt-in 真库集成测试 **29 用例 / 3 文件**。`pms.itest.ts` (7): 商机 CRUD / orgId 隔离 / 查重 / 跟进副作用 / 公海释放+认领 / cron。`pms-lifecycle.itest.ts` (13): 合同→交付工单+告警 / 状态机守卫 / 交付工单 FSM+orgId 隔离+交付任务 / 设备 SN 全生命周期(保修计算/父子层级/唯一约束) / 维保 FSM。`pms-channel.itest.ts` (9): 价格申请分级审批(越权拦截+留痕) / 返利政策+计提+结算 / 经销商订货 FSM+隔离。运行 `npm run test:pms-integration` (唯一租户 + 全清理, 实测零残留, 不进默认套件/pre-commit)。**🐛 集成测试抓到真 bug**: 三处并发唯一约束兜底 (`createOpportunity`/`createContract`/`registerSN`) 的 `err.code==='23505'` 判断失效 (Drizzle 把 pg 错误包一层, 码在 `err.cause.code`), 已修。⚠️ 仍未覆盖: 健康分/线索/活动/业绩目标/目录/遥测/申诉/反馈等只读或次要 service。 |
 | D2 | **83 处 `any`** | service 层 `input: any` / `Promise<any>` 遍布 22 文件 (源于早期"绕过类型冲突"策略)。应逐步用 `lib/types/pms.ts` 类型收敛。 |
 | D3 | **analytics 1 万行上限** | `ANALYTICS_ROW_CAP = 10000`, JS 层聚合未下推 SQL `group by`; 规模化会静默截断。 |
 | D4 | **tenantId 隔离靠自觉** | 依赖各 service 手动传参过滤 (与全局 P4-1 一致, 未强制)。 |
