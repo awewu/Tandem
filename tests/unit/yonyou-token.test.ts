@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildYonyouStringToSign,
   buildYonyouTokenUrl,
+  getYonyouTokenConfig,
   getYonyouAccessToken,
+  isYonyouTokenConfigured,
   resetYonyouAccessTokenCacheForTests,
   signYonyouParams,
   type YonyouTokenConfig,
@@ -51,6 +53,26 @@ describe('Yonyou token client', () => {
       `?appKey=${config.appKey}&timestamp=1568098531823&signature=${expectedSignature}`,
     );
     expect(url).not.toContain('%25');
+  });
+
+  it('accepts YonSuite environment variable aliases', () => {
+    const env = {
+      YONSUITE_TOKEN_URL: 'https://yon.example.com/token',
+      YONSUITE_API_BASE: 'https://yon.example.com',
+      YONSUITE_API_PREFIX: '/iuap-api-gateway/yonbip',
+      YONSUITE_APP_KEY: 'suite-key',
+      YONSUITE_APP_SECRET: 'suite-secret',
+    } as unknown as NodeJS.ProcessEnv;
+
+    expect(isYonyouTokenConfigured(env)).toBe(true);
+    expect(getYonyouTokenConfig(env)).toMatchObject({
+      baseUrl: 'https://yon.example.com',
+      appKey: 'suite-key',
+      appSecret: 'suite-secret',
+      tokenUrl: 'https://yon.example.com/token',
+    });
+    expect(buildYonyouTokenUrl(getYonyouTokenConfig(env), 1568098531823))
+      .toContain('https://yon.example.com/token?appKey=suite-key&timestamp=1568098531823&signature=');
   });
 
   it('fetches and caches a successful token response', async () => {

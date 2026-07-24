@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mergePeople } from '@/lib/org/people-source';
+import { mergePeople, useOrgPeopleStore } from '@/lib/org/people-source';
 
 describe('mergePeople (真用户 + fixture 合并)', () => {
   it('真用户 → 转 OrgPerson, departmentId → ministryId, source=auth', () => {
@@ -56,5 +56,21 @@ describe('mergePeople (真用户 + fixture 合并)', () => {
       [{ id: 'p1', name: 'C', ministryId: 'm' }],
     );
     expect(r.map((p) => p.id)).toEqual(['u1', 'u2', 'p1']);
+  });
+
+  it('setFixture 保留已 hydrate 真用户的部门归属', () => {
+    useOrgPeopleStore.setState({
+      people: [{ id: 'u1', name: '真张三', ministryId: 'd-tech', source: 'auth' }],
+      _hydrated: true,
+      _fixture: [],
+    });
+
+    useOrgPeopleStore.getState().setFixture([{ id: 'p1', name: '虚拟李四', ministryId: 'm-fe' }]);
+
+    expect(useOrgPeopleStore.getState().people.find((p) => p.id === 'u1')).toMatchObject({
+      id: 'u1',
+      ministryId: 'd-tech',
+      source: 'auth',
+    });
   });
 });

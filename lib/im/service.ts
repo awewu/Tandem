@@ -156,6 +156,44 @@ export async function listMyChannels(userId: string, tenantId?: string): Promise
   return result;
 }
 
+export async function listVisibleChannels(
+  userId: string,
+  tenantId: string | undefined,
+  canViewAll: boolean,
+): Promise<Array<ImChannel & { unread: number; membership: ImMembership }>> {
+  if (!canViewAll) return listMyChannels(userId, tenantId);
+
+  const store = getStore();
+  const memberships = await store.imMemberships.list({ userId });
+  const membershipByChannel = new Map(memberships.map((m) => [m.channelId, m]));
+  const all = await store.imChannels.list();
+  const result: Array<ImChannel & { unread: number; membership: ImMembership }> = [];
+
+  for (const ch of all) {
+    if (tenantId && (ch.tenantId ?? 'default') !== tenantId) continue;
+    const membership = membershipByChannel.get(ch.id) ?? {
+      id: membershipKey(ch.id, userId),
+      channelId: ch.id,
+      userId,
+      role: 'admin' as const,
+      joinedAt: ch.createdAt,
+      unreadCount: 0,
+      muted: false,
+    };
+    result.push({ ...ch, unread: membership.unreadCount, membership });
+  }
+
+  result.sort((a, b) => {
+    const pa = a.membership.pinnedChat ? 1 : 0;
+    const pb = b.membership.pinnedChat ? 1 : 0;
+    if (pb !== pa) return pb - pa;
+    return (b.lastMessageAt ?? b.createdAt).localeCompare(
+      a.lastMessageAt ?? a.createdAt
+    );
+  });
+  return result;
+}
+
 export async function getChannelMessages(
   channelId: string,
   options: { limit?: number; before?: string } = {}
@@ -182,10 +220,20 @@ export async function getChannelIfMember(
   userId: string,
   tenantId?: string,
 ): Promise<ImChannel | null> {
+  return getChannelIfVisible(channelId, userId, tenantId, false);
+}
+
+export async function getChannelIfVisible(
+  channelId: string,
+  userId: string,
+  tenantId?: string,
+  canViewAll = false,
+): Promise<ImChannel | null> {
   const store = getStore();
   const channel = await store.imChannels.get(channelId);
   if (!channel) return null;
   if (tenantId && (channel.tenantId ?? 'default') !== tenantId) return null;
+  if (canViewAll) return channel;
   if (!channel.memberIds.includes(userId)) return null;
   return channel;
 }
@@ -609,12 +657,13 @@ export interface SeedResult {
 export async function seedDepartmentChannels(
   specs: DepartmentSpec[],
   operatorId: string,
+  tenantId = 'default',
 ): Promise<SeedResult> {
   const store = getStore();
   const existing = await store.imChannels.list();
   const existsByDept = new Map<string, ImChannel>();
   for (const ch of existing) {
-    if (ch.departmentId && ch.autoCreated) {
+    if ((ch.tenantId ?? 'default') === tenantId && ch.departmentId && ch.autoCreated) {
       existsByDept.set(ch.departmentId, ch);
     }
   }
@@ -639,12 +688,15 @@ export async function seedDepartmentChannels(
       continue;
     }
     try {
+      const memberIds = Array.from(new Set(spec.memberIds));
+      const createdBy = memberIds.includes(operatorId) ? operatorId : memberIds[0];
       const ch = await createChannel({
         type: spec.level === 'team' ? 'team' : 'department',
         name: spec.name,
         visibility: 'public',
-        memberIds: Array.from(new Set([operatorId, ...spec.memberIds])),
-        createdBy: operatorId,
+        memberIds,
+        createdBy,
+        tenantId,
         departmentId: spec.departmentId,
         autoCreated: true,
         topic: `${spec.name} · 按组织架构自动建群`,

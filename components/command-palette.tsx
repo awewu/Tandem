@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import {
   NAV_MODULES,
+  isGlobalNavEntry,
   isVisible,
   resolveNavRoles,
   type Role,
@@ -107,6 +108,7 @@ export function CommandPalette() {
   const navCommands: CommandItem[] = useMemo(() => {
     const out: CommandItem[] = [];
     for (const m of NAV_MODULES) {
+      if (!isGlobalNavEntry(m)) continue;
       if (!isVisible(m.visibleTo, userRoles)) continue;
       // Module itself (jump to its primary item or path).
       const primary = m.items.find((i) => isVisible(i.visibleTo, userRoles));

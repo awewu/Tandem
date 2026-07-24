@@ -1323,8 +1323,8 @@ export default function OKRPage() {
       {renderHealthDrawer()}
 
       {/* ===== 主体 ===== */}
-      <div className="flex flex-1 min-h-0">
-        <div className="flex-1 overflow-auto p-3 md:border-r">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        <div className="min-w-0 flex-1 overflow-auto p-3 md:w-[36%] md:max-w-[600px] md:shrink-0 md:flex-none md:border-r">
           {filteredObjectives.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-muted-foreground gap-2 text-caption">
               <Target className="h-10 w-10 opacity-30" />
@@ -1438,7 +1438,7 @@ export default function OKRPage() {
           )}
         </div>
         {/* 右栏详情 (mobile 隐藏, 详情编辑走桌面; mobile 用户进入 OKR 看进度 + /report 写进展) */}
-        <div className="hidden md:block w-[420px] shrink-0 bg-muted/10 overflow-hidden">{renderDetail()}</div>
+        <div className="hidden min-w-0 flex-1 bg-muted/10 overflow-hidden md:block">{renderDetail()}</div>
       </div>
 
       {/* ===== 编辑弹窗 ===== */}

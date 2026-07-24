@@ -9,25 +9,27 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { usePersonNameResolver } from '@/lib/org/people-source';
 import { CreateChannelDialog } from '@/components/im/create-channel-dialog';
+import { SeedFromOrgDialog } from '@/components/im/seed-from-org-dialog';
 import { StartDmDialog } from '@/components/im/start-dm-dialog';
 import { useHandoffPrefill } from '@/hooks/useHandoffPrefill';
 import { cn } from '@/lib/utils';
 import type { ImChannel, ImMembership } from '@/lib/types/im';
-import { Hash, Megaphone, Plus, Search, Bot, AtSign, MessageSquare, MessageSquarePlus, Users, Bookmark, BellDot } from 'lucide-react';
+import { Hash, Megaphone, Plus, Search, Bot, AtSign, MessageSquare, MessageSquarePlus, Users, Bookmark, BellDot, Building2, UsersRound } from 'lucide-react';
 
 type Channel = ImChannel & { unread?: number; membership?: ImMembership };
 
-type FilterGroup = 'all' | 'unread' | 'at' | 'dm' | 'group' | 'marked';
+type FilterGroup = 'all' | 'unread' | 'at' | 'dm' | 'group' | 'dept' | 'marked';
 
 const FILTER_TABS: { id: FilterGroup; label: string; icon: React.ElementType }[] = [
   { id: 'unread', label: '未读', icon: BellDot },
   { id: 'at', label: '@我', icon: AtSign },
   { id: 'dm', label: '单聊', icon: MessageSquare },
   { id: 'group', label: '群聊', icon: Users },
+  { id: 'dept', label: '部门群', icon: Building2 },
   { id: 'marked', label: '标记', icon: Bookmark },
 ];
 
@@ -84,6 +86,20 @@ function ConvAvatar({ channel, name, collapsed }: { channel: Channel; name: stri
       </div>
     );
   }
+  if (channel.type === 'team') {
+    return (
+      <div className={`${size} flex shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-info/40 to-brand-500 text-white`}>
+        <UsersRound className={collapsed ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
+      </div>
+    );
+  }
+  if (channel.type === 'department') {
+    return (
+      <div className={`${size} flex shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-info/30 to-info text-white`}>
+        <Building2 className={collapsed ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
+      </div>
+    );
+  }
   const idx = channel.id.charCodeAt(0) % palette.length;
   return (
     <div className={`${size} flex shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${palette[idx]} text-white`}>
@@ -95,18 +111,22 @@ function ConvAvatar({ channel, name, collapsed }: { channel: Channel; name: stri
 export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const { user } = useCurrentUser();
   const ME = user?.id ?? 'demo-user';
   const nameOf = usePersonNameResolver();
+  const canManageOrgGroups = user?.permissions?.includes('organization.manage') ?? false;
 
   const [channels, setChannels] = useState<Channel[]>([]);
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterGroup>('all');
   const [showCreate, setShowCreate] = useState(false);
   const [showDm, setShowDm] = useState(false);
+  const [showSeedOrg, setShowSeedOrg] = useState(false);
   const [handoffDraft, setHandoffDraft] = useState<{ name?: string; topic?: string } | null>(null);
 
   const activeId = searchParams?.get('ch') ?? null;
+  const isImRoute = pathname?.startsWith('/im') ?? false;
 
   useHandoffPrefill('im', (payload) => {
     setHandoffDraft({ name: payload.title, topic: payload.body });
@@ -121,14 +141,14 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
       setChannels(list);
       // 首次加载自动选第一个 — 仅桌面端 (md+).
       // 移动端 SubSidebar 隐藏, /im 入口应停留在会话选择页, 不能自动跳进对话框.
-      if (!activeId && list.length > 0) {
+      if (isImRoute && !activeId && list.length > 0) {
         const isDesktop =
           typeof window !== 'undefined' &&
           window.matchMedia('(min-width: 768px)').matches;
         if (isDesktop) router.replace(`/im?ch=${list[0].id}`);
       }
     } catch { /* ignore */ }
-  }, [ME, activeId, router]);
+  }, [ME, activeId, isImRoute, router]);
 
   useEffect(() => { void loadChannels(); }, [loadChannels]);
 
@@ -151,7 +171,9 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
     } else if (activeFilter === 'dm') {
       list = list.filter((c) => c.type === 'dm');
     } else if (activeFilter === 'group') {
-      list = list.filter((c) => c.type === 'group' || c.type === 'announcement');
+      list = list.filter((c) => c.type === 'group' || c.type === 'announcement' || c.type === 'project' || c.type === 'cross_dept');
+    } else if (activeFilter === 'dept') {
+      list = list.filter((c) => c.type === 'department' || c.type === 'team');
     } else if (activeFilter === 'marked') {
       list = list.filter((c) => !!(c.membership?.markedChat));
     }
@@ -172,7 +194,8 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
     unread: channels.filter((c) => (c.unread ?? 0) > 0).length,
     at: channels.filter((c) => !!(c.membership?.hasUnreadMention)).length,
     dm: channels.filter((c) => c.type === 'dm').length,
-    group: channels.filter((c) => c.type === 'group' || c.type === 'announcement').length,
+    group: channels.filter((c) => c.type === 'group' || c.type === 'announcement' || c.type === 'project' || c.type === 'cross_dept').length,
+    dept: channels.filter((c) => c.type === 'department' || c.type === 'team').length,
     marked: channels.filter((c) => !!(c.membership?.markedChat)).length,
   }), [channels]);
 
@@ -206,6 +229,16 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
         >
           <Plus className="h-4 w-4" />
         </button>
+        {canManageOrgGroups && (
+          <button
+            type="button"
+            onClick={() => setShowSeedOrg(true)}
+            className="flex h-8 w-8 items-center justify-center rounded-md text-ink-secondary hover:bg-surface-3"
+            title="按组织架构同步部门群"
+          >
+            <Building2 className="h-4 w-4" />
+          </button>
+        )}
         {filteredChannels.slice(0, 12).map((c) => {
           const displayName = c.type === 'dm' ? (nameOf(c.memberIds.find((m) => m !== ME)) || '?') : c.name;
           const u = unreadStyle(c);
@@ -242,6 +275,12 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
           currentUserId={ME}
           onStarted={(id) => { void loadChannels(); selectChannel(id); }}
         />
+        <SeedFromOrgDialog
+          open={showSeedOrg}
+          onOpenChange={setShowSeedOrg}
+          currentUserId={ME}
+          onSeeded={() => void loadChannels()}
+        />
       </div>
     );
   }
@@ -277,6 +316,22 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
           </button>
         </div>
       </div>
+
+      {canManageOrgGroups && (
+        <div className="shrink-0 px-2 pb-2">
+          <button
+            type="button"
+            onClick={() => setShowSeedOrg(true)}
+            className="flex w-full items-center gap-2 rounded-md border border-hairline bg-surface-2 px-2.5 py-2 text-left text-[12px] font-medium text-ink-primary transition-colors hover:bg-surface-3"
+            title="按照 HR 组织结构自动生成体系群和部门群"
+          >
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-info/10 text-info">
+              <Building2 className="h-4 w-4" />
+            </span>
+            <span className="min-w-0 flex-1 truncate">同步组织群</span>
+          </button>
+        </div>
+      )}
 
       {/* 搜索框 */}
       <div className="shrink-0 px-2 pb-2">
@@ -336,6 +391,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
               : activeFilter === 'at' ? '没有 @ 我的消息'
               : activeFilter === 'dm' ? '还没有单聊'
               : activeFilter === 'group' ? '还没有群聊'
+              : activeFilter === 'dept' ? '还没有部门群'
               : activeFilter === 'marked' ? '还没有标记的会话'
               : '还没有会话'}
           </div>
@@ -401,6 +457,12 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
         onOpenChange={setShowDm}
         currentUserId={ME}
         onStarted={(id) => { void loadChannels(); selectChannel(id); }}
+      />
+      <SeedFromOrgDialog
+        open={showSeedOrg}
+        onOpenChange={setShowSeedOrg}
+        currentUserId={ME}
+        onSeeded={() => void loadChannels()}
       />
     </div>
   );

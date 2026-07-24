@@ -22,7 +22,7 @@ async function GETApiHandler(req: NextRequest) {
     return NextResponse.json({
       configured: false,
       reachable: false,
-      error: 'YONYOU_ERP_BASE_URL, YONYOU_ERP_APP_KEY and YONYOU_ERP_APP_SECRET are required',
+      error: 'YONSUITE_API_BASE, YONSUITE_APP_KEY and YONSUITE_APP_SECRET are required',
     }, { status: 503 });
   }
 

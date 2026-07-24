@@ -4,8 +4,10 @@ skills/review_test/
 /node_modules
 /.next
 /.next-dev
+/.next-dev-*
 /out
 /dist
+/deploy-output/
 .env
 .env.local
 .env.docker-pg
@@ -87,6 +89,7 @@ tsconfig.tsbuildinfo
 
 .env.local.inmem
 .dev-memory
+.drive-local-storage/
 
 # 本地 health probe 临时输出 (smoke-* / health-check 脚本生成, 不入提交)
 .health.txt

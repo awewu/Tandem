@@ -19,6 +19,15 @@ import {
   listQualifications,
   decideQualification,
 } from '@/lib/pms/dealer-org-service';
+import {
+  isYonyouVendorConfigured,
+  listYonyouVendorDealerProfiles,
+  YonyouVendorRequestError,
+} from '@/lib/integrations/yonyou-vendor';
+import {
+  YonyouTokenConfigError,
+  YonyouTokenRequestError,
+} from '@/lib/integrations/yonyou-token';
 
 function dealerCanTouch(auth: PmsAuthResult, orgId: string): boolean {
   return auth.isInternal || auth.visibleOrgIds.includes(orgId);
@@ -51,6 +60,36 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ qualifications });
     }
 
+    if (searchParams.get('source') === 'ys') {
+      if (!auth.isInternal) {
+        return NextResponse.json({ error: 'forbidden: YS vendor source requires internal role' }, { status: 403 });
+      }
+      if (!isYonyouVendorConfigured()) {
+        return NextResponse.json({
+          error: 'YONSUITE_API_BASE, YONSUITE_APP_KEY and YONSUITE_APP_SECRET are required',
+        }, { status: 503 });
+      }
+      const pageIndex = searchParams.get('pageIndex') ? parseInt(searchParams.get('pageIndex')!) : 1;
+      const pageSize = searchParams.get('pageSize') ? parseInt(searchParams.get('pageSize')!) : 50;
+      const result = await listYonyouVendorDealerProfiles({
+        pageIndex,
+        pageSize,
+        code: searchParams.get('code') || undefined,
+        pubts: searchParams.get('pubts') || undefined,
+      });
+      return NextResponse.json({
+        source: 'ys',
+        profiles: result.profiles,
+        page: {
+          pageIndex: result.pageIndex,
+          pageSize: result.pageSize,
+          pageCount: result.pageCount,
+          recordCount: result.recordCount,
+          pubts: result.pubts,
+        },
+      });
+    }
+
     const orgId = searchParams.get('orgId') || undefined;
     if (orgId) {
       if (!dealerCanTouch(auth, orgId)) {
@@ -71,6 +110,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ profiles });
   } catch (error: any) {
     console.error('Dealer-orgs GET error:', error);
+    if (error instanceof YonyouTokenConfigError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    if (error instanceof YonyouTokenRequestError || error instanceof YonyouVendorRequestError) {
+      return NextResponse.json({
+        error: error.message,
+        code: error.details.code,
+        yonyouMessage: error.details.yonyouMessage,
+        status: error.details.status,
+      }, { status: 502 });
+    }
     return NextResponse.json({ error: error.message || 'Failed' }, { status: 500 });
   }
 }

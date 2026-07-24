@@ -120,7 +120,7 @@ async function GETApiHandler() {
     configured: isYonyouTokenConfigured(),
     note: isYonyouTokenConfigured()
       ? '配置已存在；用 /api/integrations/yonyou/token 做受控连通性探测'
-      : '配置 YONYOU_ERP_BASE_URL / YONYOU_ERP_APP_KEY / YONYOU_ERP_APP_SECRET 后启用',
+      : '配置 YONSUITE_API_BASE / YONSUITE_APP_KEY / YONSUITE_APP_SECRET 后启用',
   });
 
   // === Storage ===
