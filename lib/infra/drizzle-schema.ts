@@ -1793,11 +1793,19 @@ export const pmsPerformanceTargets = pgTable(
     tenantId: text('tenantId').notNull().default('default'),
     orgId: text('orgId'),
     dealerOrgId: text('dealerOrgId'),
+    // 多维运营轴
+    dimension: text('dimension').notNull().default('org'),
+    dimensionValue: text('dimensionValue'),
     period: text('period').notNull(),
+    periodType: text('periodType').notNull().default('monthly'),
     targetType: text('targetType').notNull(),
     targetValue: numeric('targetValue').notNull(),
+    targetCount: numeric('targetCount'),
     actualValue: numeric('actualValue').default('0'),
+    actualCount: numeric('actualCount').default('0'),
     achievementRate: numeric('achievementRate').default('0'),
+    yoyGrowth: numeric('yoyGrowth'),
+    momGrowth: numeric('momGrowth'),
     createdBy: text('createdBy').notNull(),
     createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
     updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
@@ -1805,6 +1813,7 @@ export const pmsPerformanceTargets = pgTable(
   (t) => ({
     orgPeriodIdx: index('pms_target_org_period_idx').on(t.orgId, t.period),
     dealerPeriodIdx: index('pms_target_dealer_period_idx').on(t.dealerOrgId, t.period),
+    dimensionIdx: index('pms_target_dimension_idx').on(t.tenantId, t.dimension, t.period, t.periodType),
     tenantIdx: index('pms_target_tenant_idx').on(t.tenantId),
   }),
 );
