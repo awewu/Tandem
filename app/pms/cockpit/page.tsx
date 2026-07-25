@@ -38,6 +38,22 @@ const SEV_STYLE: Record<string, { cls: string; icon: JSX.Element; label: string 
   info: { cls: 'border-border bg-surface-2', icon: <Info className="w-4 h-4 text-ink-tertiary" />, label: '提示' },
 };
 
+// CHARTER-UI-V2 §2.2: 每类预警的“下一步动作” (动词开头)
+const NEXT_ACTION: Record<string, string> = {
+  stalled_project: '立即安排回访, 推进到下一阶段',
+  tender_deadline: '组织标书评审, 确保按时提交',
+  spec_at_risk: '联系设计方, 推动备选位升级为设计基准',
+  chain_gap: '补齐缺失的关键决策人触点',
+  target_gap: '制定补差计划, 聚焦高胜率管道',
+  contract_pending: '催办审批, 释放挂单金额',
+  dim_concentration: '拓展新客户, 降低单一客户依赖',
+  dim_winrate: '复盘该维度打法, 调整策略',
+};
+
+function nextActionOf(type: string): string {
+  return NEXT_ACTION[type] ?? '查看详情并处理';
+}
+
 export default function PmsCockpitPage() {
   const router = useRouter();
   const [data, setData] = useState<Cockpit | null>(null);
@@ -78,6 +94,12 @@ export default function PmsCockpitPage() {
   };
   const meta = SCOPE_META[data.scope];
 
+  // CHARTER-UI-V2 §2.1: 结论先行 — 找出最重要的一件事
+  const topException =
+    data.exceptions.find((e) => e.severity === 'critical') ??
+    data.exceptions.find((e) => e.severity === 'warning') ??
+    null;
+
   return (
     <div className="container mx-auto md:max-w-5xl p-6 max-w-5xl">
       <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
@@ -89,6 +111,34 @@ export default function PmsCockpitPage() {
         </div>
         <Button size="sm" variant="outline" onClick={load}><RefreshCw className="w-4 h-4 mr-1" /> 刷新</Button>
       </div>
+
+      {/* CHARTER-UI-V2 §2.1 结论横幅 (BLUF) */}
+      {topException ? (
+        <div
+          className={`mb-6 rounded-2xl border p-5 ${topException.severity === 'critical' ? 'border-danger/40 bg-danger/5' : 'border-warning/40 bg-warning/5'} ${topException.href ? 'cursor-pointer hover:shadow-soft-sm' : ''}`}
+          onClick={() => topException.href && router.push(topException.href)}
+        >
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 shrink-0">{SEV_STYLE[topException.severity].icon}</span>
+            <div className="min-w-0">
+              <p className={`text-caption font-medium ${topException.severity === 'critical' ? 'text-danger' : 'text-warning'}`}>
+                {data.counts.critical > 0 ? `${data.counts.critical} 个严重问题待处理` : `${data.counts.warning} 个问题需关注`}
+                {' · 最紧急：'}
+              </p>
+              <p className="text-headline font-semibold text-ink-primary mt-1">{topException.title}</p>
+              <p className="text-caption text-ink-secondary mt-1">{topException.detail}</p>
+              <p className="text-caption text-brand-500 font-medium mt-2">→ 下一步：{nextActionOf(topException.type)}</p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="mb-6 rounded-2xl border border-success/30 bg-success/5 p-5">
+          <p className="text-headline font-semibold text-ink-primary">✓ 暂无紧急问题，一切正常</p>
+          <p className="text-caption text-ink-secondary mt-1">
+            加权管道 {money(data.sales.totalPipeline)} · 赢单率 {data.sales.winRate}% · 活跃项目 {data.sales.activeProjects} 个。保持推进。
+          </p>
+        </div>
+      )}
 
       {/* 异常概览计数 */}
       <div className="grid grid-cols-3 gap-3 mb-6">
@@ -133,6 +183,7 @@ export default function PmsCockpitPage() {
                       <div className="min-w-0">
                         <p className="text-caption font-medium text-ink-primary">{e.title}</p>
                         <p className="text-caption text-ink-tertiary mt-0.5">{e.detail}</p>
+                        <p className="text-caption text-brand-500 mt-1">→ {nextActionOf(e.type)}</p>
                       </div>
                     </div>
                     <span className="text-caption rounded px-1.5 py-0.5 bg-surface-1 text-ink-secondary shrink-0">{e.category === 'sales' ? '销售' : '财务'}</span>
