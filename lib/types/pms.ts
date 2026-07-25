@@ -1081,6 +1081,68 @@ export interface SpecCoverage {
   atRiskCount: number;
 }
 
+// ============================================================================
+// 招投标 + 提交物 (Phase 2)
+// ============================================================================
+
+export type TenderType = 'open' | 'invited' | 'competitive_negotiation' | 'single_source';
+export type TenderStatus = 'preparing' | 'submitted' | 'opened' | 'won' | 'lost';
+
+export interface Tender {
+  id: string;
+  tenantId: string;
+  projectId: string;
+  tenderNo?: string;
+  tenderName: string;
+  tenderType: TenderType;
+  status: TenderStatus;
+  bidAmount?: number; // 我方投标报价
+  budgetAmount?: number; // 招标控制价
+  publishedAt?: string;
+  submitDeadline?: string;
+  submittedAt?: string;
+  openedAt?: string;
+  winnerName?: string;
+  ourRank?: number;
+  result?: string;
+  notes?: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt?: string;
+}
+
+export type SubmittalDocType =
+  | 'drawing'
+  | 'spec'
+  | 'technical_proposal'
+  | 'commercial_bid'
+  | 'qualification'
+  | 'other';
+export type SubmittalStatus = 'draft' | 'submitted' | 'approved' | 'rejected' | 'revision_required';
+
+export interface Submittal {
+  id: string;
+  tenantId: string;
+  projectId: string;
+  tenderId?: string;
+  docType: SubmittalDocType;
+  title: string;
+  version: number;
+  fileUrl?: string;
+  status: SubmittalStatus;
+  submittedTo?: string;
+  submittedAt?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  reviewNotes?: string;
+  supersedesId?: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt?: string;
+}
+
 export interface PerformanceDashboard {
   period: string;
   periodType: 'monthly' | 'quarterly' | 'yearly';

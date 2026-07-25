@@ -15,6 +15,7 @@ function mapOpportunity(row: typeof pmsOpportunities.$inferSelect) {
     tenantId: row.tenantId,
     orgId: row.orgId,
     dealerOrgId: row.dealerOrgId,
+    projectId: row.projectId || undefined,
     reporterId: row.reporterId,
     customerName: row.customerName,
     customerPhone: row.customerPhone || undefined,
@@ -59,6 +60,7 @@ export async function createOpportunity(input: {
   orgId: string;
   dealerOrgId: string;
   reporterId: string;
+  projectId?: string;
   customerName: string;
   customerPhone?: string;
   customerAddress?: string;
@@ -113,6 +115,7 @@ export async function createOpportunity(input: {
       tenantId: input.tenantId,
       orgId: input.orgId,
       dealerOrgId: input.dealerOrgId,
+      projectId: input.projectId ?? null,
       reporterId: input.reporterId,
       customerName: input.customerName,
       customerPhone: input.customerPhone,
@@ -179,6 +182,7 @@ export async function createOpportunity(input: {
 export async function updateOpportunity(
   opportunityId: string,
   input: {
+    projectId?: string;
     stage?: string;
     status?: string;
     estimatedAmount?: number;
@@ -247,6 +251,7 @@ export async function listOpportunities(filters: {
   tenantId: string;
   orgId?: string;
   dealerOrgId?: string;
+  projectId?: string;
   stage?: string;
   status?: string;
   limit?: number;
@@ -258,6 +263,7 @@ export async function listOpportunities(filters: {
   
   if (filters.orgId) conditions.push(eq(pmsOpportunities.orgId, filters.orgId));
   if (filters.dealerOrgId) conditions.push(eq(pmsOpportunities.dealerOrgId, filters.dealerOrgId));
+  if (filters.projectId) conditions.push(eq(pmsOpportunities.projectId, filters.projectId));
   if (filters.stage) conditions.push(eq(pmsOpportunities.stage, filters.stage));
   if (filters.status) conditions.push(eq(pmsOpportunities.status, filters.status));
   
@@ -278,6 +284,22 @@ export async function listOpportunities(filters: {
     .offset(filters.offset || 0);
   
   return rows.map(mapOpportunity);
+}
+
+/**
+ * 关联/解绑商机到工程项目 (项目型销售: 1 项目 : N 报价/竞标)
+ * projectId=null 解绑.
+ */
+export async function linkOpportunityToProject(
+  opportunityId: string,
+  projectId: string | null,
+  tenantId: string,
+): Promise<void> {
+  const now = new Date();
+  await db
+    .update(pmsOpportunities)
+    .set({ projectId, updatedAt: now })
+    .where(and(eq(pmsOpportunities.id, opportunityId), eq(pmsOpportunities.tenantId, tenantId)));
 }
 
 /**

@@ -12,6 +12,7 @@ import { db } from '../infra/drizzle-client';
 import { pmsProjects } from '../infra/drizzle-schema';
 import { and, eq, desc, inArray, isNull } from 'drizzle-orm';
 import type { Project, ProjectStage, ProjectStatus, ProjectType } from '@/lib/types/pms';
+import { listOpportunities } from './opportunity-service';
 
 // ---------------------------------------------------------------------------
 // 纯函数 (可测)
@@ -49,6 +50,66 @@ export function formatProjectCode(date: Date, suffix: string): string {
   const m = String(date.getUTCMonth() + 1).padStart(2, '0');
   const d = String(date.getUTCDate()).padStart(2, '0');
   return `PJ-${y}${m}${d}-${suffix}`;
+}
+
+/** 商机阶段 → 赢单概率 (两阶段管道加权预测) */
+export const OPPORTUNITY_STAGE_PROBABILITY: Record<string, number> = {
+  initial_contact: 0.1,
+  reported: 0.1,
+  following: 0.2,
+  visit: 0.2,
+  proposal: 0.4,
+  solution: 0.4,
+  bidding: 0.6,
+  quote: 0.7,
+  quoted: 0.7,
+  quotation: 0.7,
+  negotiation: 0.8,
+  contract: 0.95,
+  contracted: 0.95,
+  delivery: 1.0,
+  delivered: 1.0,
+  won: 1.0,
+  closed: 1.0,
+  lost: 0,
+};
+
+export interface ProjectPipeline {
+  opportunityCount: number;
+  totalValue: number; // active + won 的预估额合计
+  weightedValue: number; // Σ 预估额 × 阶段概率 (四舍五入)
+  wonValue: number; // status=won 的合计
+}
+
+/**
+ * 项目管道加权预测 (纯函数).
+ *   lost/cancelled → 权重 0; won → 权重 1; 其余按阶段概率.
+ */
+export function weightedPipelineValue(
+  opps: { stage: string; status: string; estimatedAmount?: number }[],
+): ProjectPipeline {
+  let totalValue = 0;
+  let weightedValue = 0;
+  let wonValue = 0;
+  for (const o of opps) {
+    const amt = o.estimatedAmount ?? 0;
+    if (o.status === 'lost' || o.status === 'cancelled') continue;
+    if (o.status === 'won') {
+      wonValue += amt;
+      weightedValue += amt;
+      totalValue += amt;
+      continue;
+    }
+    totalValue += amt;
+    const prob = OPPORTUNITY_STAGE_PROBABILITY[o.stage] ?? 0.1;
+    weightedValue += amt * prob;
+  }
+  return {
+    opportunityCount: opps.length,
+    totalValue,
+    weightedValue: Math.round(weightedValue),
+    wonValue,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -238,6 +299,12 @@ export async function updateProject(input: {
     .where(eq(pmsProjects.id, input.id));
   const updated = await db.select().from(pmsProjects).where(eq(pmsProjects.id, input.id)).limit(1);
   return mapProject(updated[0]);
+}
+
+/** 项目管道: 聚合归属商机的加权预测 */
+export async function getProjectPipeline(tenantId: string, projectId: string): Promise<ProjectPipeline> {
+  const opps = await listOpportunities({ tenantId, projectId, limit: 1000 });
+  return weightedPipelineValue(opps.map((o) => ({ stage: o.stage, status: o.status, estimatedAmount: o.estimatedAmount })));
 }
 
 /** 软删除 */

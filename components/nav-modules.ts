@@ -394,6 +394,7 @@ export const NAV_MODULES: NavModule[] = [
     visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
     pathPrefixes: ['/pms'],
     items: [
+      { name: '工程项目', href: '/pms/projects', icon: Building2, group: '项目' },
       { name: '商机管理', href: '/pms', icon: Store, group: '商机' },
       { name: '新建商机', href: '/pms/opportunities/new', icon: Plus, accent: 'cta', group: '商机' },
       { name: '公海池', href: '/pms/public-pool', icon: Waves, group: '商机' },

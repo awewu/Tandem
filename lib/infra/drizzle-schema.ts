@@ -2057,3 +2057,72 @@ export const pmsSpecPositions = pgTable(
     tenantIdx: index('pms_spec_tenant_idx').on(t.tenantId),
   }),
 );
+
+/**
+ * pms_tenders · 招投标记录 (项目型销售投标阶段)
+ * FSM: preparing→submitted→opened→won | lost.
+ */
+export const pmsTenders = pgTable(
+  'pms_tenders',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    projectId: text('projectId').notNull(),
+    tenderNo: text('tenderNo'), // 标段编号
+    tenderName: text('tenderName').notNull(),
+    tenderType: text('tenderType').notNull().default('open'), // open/invited/competitive_negotiation/single_source
+    status: text('status').notNull().default('preparing'),
+    bidAmount: numeric('bidAmount'), // 我方投标报价
+    budgetAmount: numeric('budgetAmount'), // 招标控制价
+    publishedAt: text('publishedAt'),
+    submitDeadline: text('submitDeadline'),
+    submittedAt: text('submittedAt'),
+    openedAt: text('openedAt'),
+    winnerName: text('winnerName'),
+    ourRank: integer('ourRank'),
+    result: text('result'),
+    notes: text('notes'),
+    createdBy: text('createdBy').notNull(),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+    archivedAt: timestamp('archivedAt', { precision: 3, mode: 'date' }),
+  },
+  (t) => ({
+    projectIdx: index('pms_tender_project_idx').on(t.projectId, t.status),
+    tenantIdx: index('pms_tender_tenant_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * pms_submittals · 提交物/图纸版本管理
+ * 技术方案/图纸/资质/商务标 的版本控制与审批 (supersedesId 链式).
+ */
+export const pmsSubmittals = pgTable(
+  'pms_submittals',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    projectId: text('projectId').notNull(),
+    tenderId: text('tenderId'),
+    docType: text('docType').notNull().default('drawing'), // drawing/spec/technical_proposal/commercial_bid/qualification/other
+    title: text('title').notNull(),
+    version: integer('version').notNull().default(1),
+    fileUrl: text('fileUrl'),
+    status: text('status').notNull().default('draft'), // draft/submitted/approved/rejected/revision_required
+    submittedTo: text('submittedTo'),
+    submittedAt: text('submittedAt'),
+    reviewedBy: text('reviewedBy'),
+    reviewedAt: text('reviewedAt'),
+    reviewNotes: text('reviewNotes'),
+    supersedesId: text('supersedesId'), // 上一版本 id
+    createdBy: text('createdBy').notNull(),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+    archivedAt: timestamp('archivedAt', { precision: 3, mode: 'date' }),
+  },
+  (t) => ({
+    projectIdx: index('pms_submittal_project_idx').on(t.projectId, t.docType),
+    tenderIdx: index('pms_submittal_tender_idx').on(t.tenderId),
+    tenantIdx: index('pms_submittal_tenant_idx').on(t.tenantId),
+  }),
+);

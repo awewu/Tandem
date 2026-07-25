@@ -22,7 +22,9 @@ import {
   transitionProjectStage,
   updateProject,
   archiveProject,
+  getProjectPipeline,
 } from '@/lib/pms/project-service';
+import { listOpportunities, linkOpportunityToProject } from '@/lib/pms/opportunity-service';
 import {
   addStakeholder,
   listStakeholders,
@@ -60,14 +62,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     if (!canAccessRecord(auth, project)) {
       return NextResponse.json({ error: 'forbidden' }, { status: 403 });
     }
-    const [stakeholders, specPositions] = await Promise.all([
+    const [stakeholders, specPositions, opportunities, pipeline] = await Promise.all([
       listStakeholders(auth.tenantId, id),
       listSpecPositions(auth.tenantId, id),
+      listOpportunities({ tenantId: auth.tenantId, projectId: id, limit: 1000 }),
+      getProjectPipeline(auth.tenantId, id),
     ]);
     return NextResponse.json({
       project,
       stakeholders,
       specPositions,
+      opportunities,
+      pipeline,
       decisionChain: decisionChainHealth(stakeholders),
       specCoverage: specCoverage(specPositions),
     });
@@ -158,6 +164,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       case 'remove_spec': {
         if (!body.specId) return NextResponse.json({ error: 'Missing specId' }, { status: 400 });
         await removeSpecPosition(auth.tenantId, body.specId);
+        return NextResponse.json({ ok: true });
+      }
+      case 'link_opportunity': {
+        if (!body.opportunityId) return NextResponse.json({ error: 'Missing opportunityId' }, { status: 400 });
+        await linkOpportunityToProject(body.opportunityId, id, auth.tenantId);
+        return NextResponse.json({ ok: true });
+      }
+      case 'unlink_opportunity': {
+        if (!body.opportunityId) return NextResponse.json({ error: 'Missing opportunityId' }, { status: 400 });
+        await linkOpportunityToProject(body.opportunityId, null, auth.tenantId);
         return NextResponse.json({ ok: true });
       }
       default:
