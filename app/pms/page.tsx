@@ -19,6 +19,12 @@ interface Opportunity {
   estimatedAmount: number;
   dealerOrgId: string;
   createdAt: string;
+  contactName?: string;
+  contactTitle?: string;
+  leadSource?: string;
+  region?: string;
+  customerIndustry?: string;
+  competitors?: string[];
 }
 
 export default function PMSPage() {
@@ -26,6 +32,18 @@ export default function PMSPage() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [stageFilter, setStageFilter] = useState('all');
+
+  const stageOptions = Array.from(new Set(opportunities.map((o) => o.stage).filter(Boolean)));
+  const q = query.trim().toLowerCase();
+  const filteredOpps = opportunities.filter((o) => {
+    if (stageFilter !== 'all' && o.stage !== stageFilter) return false;
+    if (!q) return true;
+    return [o.customerName, o.projectName, o.contactName, o.region, o.leadSource]
+      .filter(Boolean)
+      .some((v) => v!.toLowerCase().includes(q));
+  });
 
   useEffect(() => {
     loadOpportunities();
@@ -104,14 +122,25 @@ export default function PMSPage() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-ink-tertiary" />
               <input
                 type="text"
-                placeholder="搜索客户名称、项目名称..."
-                className="w-full pl-10 pr-4 py-2 border border-border rounded-2xl focus:outline-none focus:ring-2 focus:ring-brand-500"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="搜索客户 / 项目 / 联系人 / 区域 / 线索来源..."
+                className="w-full pl-10 pr-4 py-2 border border-border rounded-2xl focus:outline-none focus:ring-2 focus:ring-brand-500 bg-surface-1 text-ink-primary"
               />
             </div>
-            <Button variant="outline" className="rounded-2xl">
-              <Filter className="w-4 h-4 mr-2" />
-              筛选
-            </Button>
+            <div className="relative">
+              <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-ink-tertiary pointer-events-none" />
+              <select
+                value={stageFilter}
+                onChange={(e) => setStageFilter(e.target.value)}
+                className="pl-9 pr-8 py-2 border border-border rounded-2xl focus:outline-none focus:ring-2 focus:ring-brand-500 bg-surface-1 text-ink-primary"
+              >
+                <option value="all">全部阶段</option>
+                {stageOptions.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -129,8 +158,14 @@ export default function PMSPage() {
               </Button>
             </CardContent>
           </Card>
+        ) : filteredOpps.length === 0 ? (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <p className="text-ink-secondary">没有符合条件的商机</p>
+            </CardContent>
+          </Card>
         ) : (
-          opportunities.map((opp) => (
+          filteredOpps.map((opp) => (
             <Card
               key={opp.id}
               className="cursor-pointer hover:shadow-soft-sm transition-shadow"
@@ -145,10 +180,29 @@ export default function PMSPage() {
                     <p className="text-body text-ink-secondary mt-1">
                       {opp.projectName}
                     </p>
-                    <div className="flex items-center gap-4 mt-3">
+                    {(opp.contactName || opp.region || opp.leadSource) && (
+                      <p className="text-caption text-ink-tertiary mt-1">
+                        {[
+                          opp.contactName && `联系人 ${opp.contactName}${opp.contactTitle ? `(${opp.contactTitle})` : ''}`,
+                          opp.region,
+                          opp.leadSource && `来源: ${opp.leadSource}`,
+                        ].filter(Boolean).join(' · ')}
+                      </p>
+                    )}
+                    <div className="flex items-center flex-wrap gap-2 mt-3">
                       <span className="inline-flex items-center px-3 py-1 rounded-full text-caption bg-surface-2 text-ink-secondary">
                         {opp.stage}
                       </span>
+                      {opp.customerIndustry && (
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-caption bg-surface-2 text-ink-secondary">
+                          {opp.customerIndustry}
+                        </span>
+                      )}
+                      {opp.competitors && opp.competitors.length > 0 && (
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-caption bg-warning/10 text-warning">
+                          竞品 {opp.competitors.length}
+                        </span>
+                      )}
                       <span className="text-caption text-ink-tertiary">
                         {new Date(opp.createdAt).toLocaleDateString('zh-CN')}
                       </span>

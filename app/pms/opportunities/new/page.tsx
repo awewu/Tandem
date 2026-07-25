@@ -19,6 +19,11 @@ import {
 } from '@/components/ui/select';
 import { ArrowLeft, AlertTriangle, Package } from 'lucide-react';
 
+const LEAD_SOURCES = ['设计院', '招标网', '老客户转介绍', '展会', '网络营销', '电话开发', '厂家线索', '合作伙伴', '其他'];
+const INDUSTRIES = ['医院', '学校', '酒店', '商业综合体', '数据中心', '工业厂房', '住宅地产', '政府/公建', '其他'];
+const REGIONS = ['华北', '华东', '华南', '华中', '西南', '西北', '东北'];
+const CHANNELS = ['直销', '经销', '工程', '设计院', '电商', '其他'];
+
 interface CatalogProduct {
   id: string;
   series: string;
@@ -54,9 +59,14 @@ export default function NewOpportunityPage() {
   const [formData, setFormData] = useState({
     dealerOrgId: 'dealer_default',
     customerName: '',
+    customerIndustry: '',
     customerPhone: '',
+    contactName: '',
+    contactTitle: '',
     customerAddress: '',
     projectName: '',
+    leadSource: '',
+    competitors: '',
     estimatedAmount: '',
     estimatedClosingDate: '',
     region: '',
@@ -110,6 +120,9 @@ export default function NewOpportunityPage() {
         credentials: 'include',
         body: JSON.stringify({
           ...formData,
+          competitors: formData.competitors
+            ? formData.competitors.split(/[,，、]/).map((s) => s.trim()).filter(Boolean)
+            : undefined,
           estimatedAmount: formData.estimatedAmount ? parseFloat(formData.estimatedAmount) : undefined,
           // 结构化产品选型 (来自目录, 供后续按系列/型号分析 + AI 报价)
           productSeries: selectedProduct?.series,
@@ -211,87 +224,88 @@ export default function NewOpportunityPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="customerName">客户名称 *</Label>
-                <Input
-                  id="customerName"
-                  value={formData.customerName}
-                  onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
-                  placeholder="例：北京某医院"
-                  required
-                />
+                <Input id="customerName" value={formData.customerName} onChange={(e) => setFormData({ ...formData, customerName: e.target.value })} placeholder="例：北京某医院" required />
+              </div>
+              <div>
+                <Label>客户行业</Label>
+                <Select value={formData.customerIndustry} onValueChange={(v) => setFormData({ ...formData, customerIndustry: v })}>
+                  <SelectTrigger><SelectValue placeholder="选择行业" /></SelectTrigger>
+                  <SelectContent>{INDUSTRIES.map((i) => <SelectItem key={i} value={i}>{i}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="contactName">联系人</Label>
+                <Input id="contactName" value={formData.contactName} onChange={(e) => setFormData({ ...formData, contactName: e.target.value })} placeholder="张工" />
+              </div>
+              <div>
+                <Label htmlFor="contactTitle">职务</Label>
+                <Input id="contactTitle" value={formData.contactTitle} onChange={(e) => setFormData({ ...formData, contactTitle: e.target.value })} placeholder="设备科长" />
               </div>
               <div>
                 <Label htmlFor="customerPhone">联系电话</Label>
-                <Input
-                  id="customerPhone"
-                  value={formData.customerPhone}
-                  onChange={(e) => setFormData({ ...formData, customerPhone: e.target.value })}
-                  placeholder="13800138000"
-                />
+                <Input id="customerPhone" value={formData.customerPhone} onChange={(e) => setFormData({ ...formData, customerPhone: e.target.value })} placeholder="13800138000" />
               </div>
             </div>
 
             <div>
               <Label htmlFor="customerAddress">项目地址</Label>
-              <Input
-                id="customerAddress"
-                value={formData.customerAddress}
-                onChange={(e) => setFormData({ ...formData, customerAddress: e.target.value })}
-                placeholder="北京市朝阳区xxx路xxx号"
-              />
+              <Input id="customerAddress" value={formData.customerAddress} onChange={(e) => setFormData({ ...formData, customerAddress: e.target.value })} placeholder="北京市朝阳区xxx路xxx号" />
             </div>
 
             <div>
               <Label htmlFor="projectName">项目名称 *</Label>
-              <Input
-                id="projectName"
-                value={formData.projectName}
-                onChange={(e) => setFormData({ ...formData, projectName: e.target.value })}
-                placeholder="例：中央空调采购项目"
-                required
-              />
+              <Input id="projectName" value={formData.projectName} onChange={(e) => setFormData({ ...formData, projectName: e.target.value })} placeholder="例：中央空调采购项目" required />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>线索来源</Label>
+                <Select value={formData.leadSource} onValueChange={(v) => setFormData({ ...formData, leadSource: v })}>
+                  <SelectTrigger><SelectValue placeholder="选择来源" /></SelectTrigger>
+                  <SelectContent>{LEAD_SOURCES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="competitors">竞争对手</Label>
+                <Input id="competitors" value={formData.competitors} onChange={(e) => setFormData({ ...formData, competitors: e.target.value })} placeholder="开利, 麦克维尔 (逗号分隔)" />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="estimatedAmount">预估金额（元）</Label>
-                <Input
-                  id="estimatedAmount"
-                  type="number"
-                  value={formData.estimatedAmount}
-                  onChange={(e) => setFormData({ ...formData, estimatedAmount: e.target.value })}
-                  placeholder="5000000"
-                />
+                <Input id="estimatedAmount" type="number" value={formData.estimatedAmount} onChange={(e) => setFormData({ ...formData, estimatedAmount: e.target.value })} placeholder="5000000" />
               </div>
               <div>
                 <Label htmlFor="estimatedClosingDate">预计成交日期</Label>
-                <Input
-                  id="estimatedClosingDate"
-                  type="date"
-                  value={formData.estimatedClosingDate}
-                  onChange={(e) => setFormData({ ...formData, estimatedClosingDate: e.target.value })}
-                />
+                <Input id="estimatedClosingDate" type="date" value={formData.estimatedClosingDate} onChange={(e) => setFormData({ ...formData, estimatedClosingDate: e.target.value })} />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="region">区域</Label>
-                <Input
-                  id="region"
-                  value={formData.region}
-                  onChange={(e) => setFormData({ ...formData, region: e.target.value })}
-                  placeholder="华北"
-                />
+                <Label>区域</Label>
+                <Select value={formData.region} onValueChange={(v) => setFormData({ ...formData, region: v })}>
+                  <SelectTrigger><SelectValue placeholder="选择区域" /></SelectTrigger>
+                  <SelectContent>{REGIONS.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
+                </Select>
               </div>
               <div>
-                <Label htmlFor="channel">渠道</Label>
-                <Input
-                  id="channel"
-                  value={formData.channel}
-                  onChange={(e) => setFormData({ ...formData, channel: e.target.value })}
-                  placeholder="直销"
-                />
+                <Label>渠道</Label>
+                <Select value={formData.channel} onValueChange={(v) => setFormData({ ...formData, channel: v })}>
+                  <SelectTrigger><SelectValue placeholder="选择渠道" /></SelectTrigger>
+                  <SelectContent>{CHANNELS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                </Select>
               </div>
+            </div>
+
+            <div>
+              <Label htmlFor="dealerOrgId">归属经销商编码</Label>
+              <Input id="dealerOrgId" value={formData.dealerOrgId} onChange={(e) => setFormData({ ...formData, dealerOrgId: e.target.value })} placeholder="dealer_default" />
+              <p className="text-caption text-ink-tertiary mt-1">经销商登录时自动归属本商；内部代报时填写归属经销商编码。</p>
             </div>
           </CardContent>
         </Card>

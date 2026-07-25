@@ -20,6 +20,11 @@ function mapOpportunity(row: typeof pmsOpportunities.$inferSelect) {
     customerName: row.customerName,
     customerPhone: row.customerPhone || undefined,
     customerAddress: row.customerAddress || undefined,
+    contactName: row.contactName || undefined,
+    contactTitle: row.contactTitle || undefined,
+    leadSource: row.leadSource || undefined,
+    competitors: (row.competitors as string[] | null) || undefined,
+    customerIndustry: row.customerIndustry || undefined,
     projectName: row.projectName,
     stage: row.stage,
     status: row.status,
@@ -64,6 +69,11 @@ export async function createOpportunity(input: {
   customerName: string;
   customerPhone?: string;
   customerAddress?: string;
+  contactName?: string;
+  contactTitle?: string;
+  leadSource?: string;
+  competitors?: string[];
+  customerIndustry?: string;
   projectName: string;
   stage?: string;
   status?: string;
@@ -120,6 +130,11 @@ export async function createOpportunity(input: {
       customerName: input.customerName,
       customerPhone: input.customerPhone,
       customerAddress: input.customerAddress,
+      contactName: input.contactName,
+      contactTitle: input.contactTitle,
+      leadSource: input.leadSource,
+      competitors: input.competitors,
+      customerIndustry: input.customerIndustry,
       projectName: input.projectName,
       stage: input.stage || 'initial_contact',
       status: input.status || 'active',
@@ -185,6 +200,13 @@ export async function updateOpportunity(
     projectId?: string;
     stage?: string;
     status?: string;
+    contactName?: string;
+    contactTitle?: string;
+    leadSource?: string;
+    competitors?: string[];
+    customerIndustry?: string;
+    customerPhone?: string;
+    customerAddress?: string;
     estimatedAmount?: number;
     estimatedClosingDate?: string;
     productLine?: string;

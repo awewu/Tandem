@@ -196,6 +196,20 @@ export default function OpportunityDetailPage() {
                   <p className="text-ink-primary mt-1">{opportunity.customerName}</p>
                 </div>
                 <div>
+                  <Label className="text-ink-tertiary">客户行业</Label>
+                  <p className="text-ink-primary mt-1">{opportunity.customerIndustry || '-'}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label className="text-ink-tertiary">联系人</Label>
+                  <p className="text-ink-primary mt-1">{opportunity.contactName || '-'}</p>
+                </div>
+                <div>
+                  <Label className="text-ink-tertiary">职务</Label>
+                  <p className="text-ink-primary mt-1">{opportunity.contactTitle || '-'}</p>
+                </div>
+                <div>
                   <Label className="text-ink-tertiary">联系电话</Label>
                   <p className="text-ink-primary mt-1">{opportunity.customerPhone || '-'}</p>
                 </div>
@@ -234,6 +248,22 @@ export default function OpportunityDetailPage() {
                 <div>
                   <Label className="text-ink-tertiary">渠道</Label>
                   <p className="text-ink-primary mt-1">{opportunity.channel || '-'}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-ink-tertiary">线索来源</Label>
+                  <p className="text-ink-primary mt-1">{opportunity.leadSource || '-'}</p>
+                </div>
+                <div>
+                  <Label className="text-ink-tertiary">竞争对手</Label>
+                  <div className="mt-1 flex flex-wrap gap-1.5">
+                    {opportunity.competitors && opportunity.competitors.length > 0
+                      ? opportunity.competitors.map((c: string) => (
+                          <span key={c} className="text-caption text-ink-secondary bg-surface-2 border border-border rounded px-2 py-0.5">{c}</span>
+                        ))
+                      : <span className="text-ink-primary">-</span>}
+                  </div>
                 </div>
               </div>
             </CardContent>

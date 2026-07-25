@@ -66,10 +66,16 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     
-    // 验证必填字段
-    if (!body.dealerOrgId || !body.customerName || !body.projectName) {
+    // 验证必填字段 (dealerOrgId 仅内部代报时必填; 外部经销商从登录态推导)
+    if (!body.customerName || !body.projectName) {
       return NextResponse.json(
-        { error: 'Missing required fields: dealerOrgId, customerName, projectName' },
+        { error: 'Missing required fields: customerName, projectName' },
+        { status: 400 }
+      );
+    }
+    if (auth.isInternal && !body.dealerOrgId) {
+      return NextResponse.json(
+        { error: '内部代报商机需指定 dealerOrgId (归属经销商)' },
         { status: 400 }
       );
     }
@@ -86,6 +92,11 @@ export async function POST(req: NextRequest) {
       customerName: body.customerName,
       customerPhone: body.customerPhone,
       customerAddress: body.customerAddress,
+      contactName: body.contactName,
+      contactTitle: body.contactTitle,
+      leadSource: body.leadSource,
+      competitors: Array.isArray(body.competitors) ? body.competitors : undefined,
+      customerIndustry: body.customerIndustry,
       projectName: body.projectName,
       stage: body.stage,
       status: body.status,

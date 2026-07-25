@@ -1175,6 +1175,12 @@ export const pmsOpportunities = pgTable(
     customerName: text('customerName').notNull(),
     customerPhone: text('customerPhone'),
     customerAddress: text('customerAddress'),
+    // 销售关键信息补充 (2026-07 增补)
+    contactName: text('contactName'),
+    contactTitle: text('contactTitle'),
+    leadSource: text('leadSource'),
+    competitors: jsonb('competitors'),
+    customerIndustry: text('customerIndustry'),
     projectName: text('projectName').notNull(),
     stage: text('stage').notNull().default('initial_contact'),
     status: text('status').notNull().default('active'),
