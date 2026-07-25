@@ -22,6 +22,12 @@ import type {
 import { specRiskLevel } from './spec-position-service';
 import { CRITICAL_ROLES } from './project-stakeholder-service';
 import { logger } from '@/lib/infra/logger';
+import { recordEvalTraceSafe } from '@/lib/eval/service';
+
+export interface PmsAiCtx {
+  tenantId?: string;
+  actorUserId?: string;
+}
 
 // ---------------------------------------------------------------------------
 // 纯函数 (可测)
@@ -47,6 +53,18 @@ export function extractJsonObject<T = Record<string, unknown>>(raw: string): T |
   } catch {
     return null;
   }
+}
+
+/** 统计输出文本中命中了多少个输入真实实体 (数据接地度, 纯函数) */
+export function countGroundedRefs(entities: string[], text: string): number {
+  if (!text) return 0;
+  const seen = new Set<string>();
+  for (const e of entities) {
+    const t = (e || '').trim();
+    if (t.length < 2) continue;
+    if (text.includes(t)) seen.add(t);
+  }
+  return seen.size;
 }
 
 /** 数值裁剪到 0-100 整数 */
@@ -184,6 +202,36 @@ export interface TenderAnalysis {
 // LLM 增强 (best-effort, fail-soft 到规则基线)
 // ---------------------------------------------------------------------------
 
+/** 采集一条 PMS AI 分析 trace 到评估台 (fire-and-forget, 永不阻塞) */
+async function recordPmsAiTrace(params: {
+  capability: string;
+  ctx?: PmsAiCtx;
+  inputSummary: string;
+  outputSummary: string;
+  source: InsightSource;
+  entities: string[];
+  /** 接地对比文本 (默认用 outputSummary; 招标场景传原文校验抽取项是否源于原文) */
+  groundText?: string;
+}): Promise<void> {
+  const groundedRefs = countGroundedRefs(params.entities, params.groundText ?? params.outputSummary);
+  await recordEvalTraceSafe({
+    traceId: `pmsai_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+    tenantId: params.ctx?.tenantId || 'default',
+    kind: 'pms_analysis',
+    actorUserId: params.ctx?.actorUserId || '__pms_ai__',
+    isProxy: false,
+    inputSummary: params.inputSummary,
+    toolInvocations: [],
+    finalOutputSummary: params.outputSummary,
+    roundsExecuted: 0,
+    finishedNaturally: true,
+    tokensUsed: Math.ceil((params.inputSummary.length + params.outputSummary.length) / 2),
+    latencyMs: 0,
+    triggerReason: params.capability,
+    meta: { capability: params.capability, source: params.source, parsed: params.source === 'ai', groundedRefs },
+  });
+}
+
 async function callJson<T>(system: string, user: string, maxTokens = 900): Promise<T | null> {
   try {
     const { getRouter } = await import('@/lib/boot');
@@ -214,7 +262,7 @@ export async function predictSpecInRisk(input: {
   specs: SpecPosition[];
   coverage: SpecCoverage;
   chain: DecisionChainHealth;
-}): Promise<SpecInRiskAssessment> {
+}, ctx?: PmsAiCtx): Promise<SpecInRiskAssessment> {
   const baseline = buildSpecRiskBaseline(input.specs, input.coverage, input.chain);
 
   const system =
@@ -234,17 +282,30 @@ export async function predictSpecInRisk(input: {
     summary?: unknown;
   }>(system, `项目数据(JSON):\n${JSON.stringify(payload, null, 2)}`);
 
-  if (!parsed) return baseline;
-  const riskScore = clampScore(parsed.riskScore, baseline.riskScore);
-  return {
-    source: 'ai',
-    riskScore,
-    riskLevel: scoreToLevel(riskScore),
-    positions: baseline.positions,
-    keyRisks: toStringArray(parsed.keyRisks, baseline.keyRisks),
-    recommendedActions: toStringArray(parsed.recommendedActions, baseline.recommendedActions),
-    summary: typeof parsed.summary === 'string' && parsed.summary.trim() ? parsed.summary.trim() : baseline.summary,
-  };
+  let result: SpecInRiskAssessment;
+  if (!parsed) {
+    result = baseline;
+  } else {
+    const riskScore = clampScore(parsed.riskScore, baseline.riskScore);
+    result = {
+      source: 'ai',
+      riskScore,
+      riskLevel: scoreToLevel(riskScore),
+      positions: baseline.positions,
+      keyRisks: toStringArray(parsed.keyRisks, baseline.keyRisks),
+      recommendedActions: toStringArray(parsed.recommendedActions, baseline.recommendedActions),
+      summary: typeof parsed.summary === 'string' && parsed.summary.trim() ? parsed.summary.trim() : baseline.summary,
+    };
+  }
+  await recordPmsAiTrace({
+    capability: 'spec_risk',
+    ctx,
+    inputSummary: `项目 ${input.project.projectName} · ${input.specs.length}个规格位 · 决策链${input.chain.completeness}%`,
+    outputSummary: [result.summary, ...result.keyRisks, ...result.recommendedActions].join(' | '),
+    source: result.source,
+    entities: [input.project.projectName, ...baseline.positions.map((p) => p.equipmentFamily)],
+  });
+  return result;
 }
 
 /**
@@ -254,7 +315,7 @@ export async function analyzeDecisionChain(input: {
   project: Project;
   stakeholders: ProjectStakeholder[];
   chain: DecisionChainHealth;
-}): Promise<DecisionChainInsight> {
+}, ctx?: PmsAiCtx): Promise<DecisionChainInsight> {
   const baseline = buildDecisionChainBaseline(input.stakeholders, input.chain);
 
   const system =
@@ -277,20 +338,33 @@ export async function analyzeDecisionChain(input: {
     `决策链数据(JSON):\n${JSON.stringify(payload, null, 2)}`,
   );
 
-  if (!parsed) return baseline;
-  return {
-    source: 'ai',
-    completeness: input.chain.completeness,
-    gaps: toStringArray(parsed.gaps, baseline.gaps),
-    nextBestActions: toStringArray(parsed.nextBestActions, baseline.nextBestActions),
-    summary: typeof parsed.summary === 'string' && parsed.summary.trim() ? parsed.summary.trim() : baseline.summary,
-  };
+  let result: DecisionChainInsight;
+  if (!parsed) {
+    result = baseline;
+  } else {
+    result = {
+      source: 'ai',
+      completeness: input.chain.completeness,
+      gaps: toStringArray(parsed.gaps, baseline.gaps),
+      nextBestActions: toStringArray(parsed.nextBestActions, baseline.nextBestActions),
+      summary: typeof parsed.summary === 'string' && parsed.summary.trim() ? parsed.summary.trim() : baseline.summary,
+    };
+  }
+  await recordPmsAiTrace({
+    capability: 'decision_chain',
+    ctx,
+    inputSummary: `项目 ${input.project.projectName} · ${input.stakeholders.length}个干系人 · 完整度${input.chain.completeness}%`,
+    outputSummary: [result.summary, ...result.gaps, ...result.nextBestActions].join(' | '),
+    source: result.source,
+    entities: [input.project.projectName, ...input.stakeholders.map((s) => s.company).filter(Boolean) as string[]],
+  });
+  return result;
 }
 
 /**
  * 招投标文档解析 (LLM 增强). 无 LLM 时返回空骨架 (source='rule').
  */
-export async function analyzeTenderDocument(rawText: string): Promise<TenderAnalysis> {
+export async function analyzeTenderDocument(rawText: string, ctx?: PmsAiCtx): Promise<TenderAnalysis> {
   const emptyBaseline: TenderAnalysis = {
     source: 'rule',
     keyRequirements: [],
@@ -316,16 +390,32 @@ export async function analyzeTenderDocument(rawText: string): Promise<TenderAnal
     summary?: unknown;
   }>(system, `招标文本:\n${rawText.slice(0, 12000)}`, 1500);
 
-  if (!parsed) return emptyBaseline;
-  return {
-    source: 'ai',
-    keyRequirements: toStringArray(parsed.keyRequirements, []),
-    deadlines: toDeadlineArray(parsed.deadlines),
-    qualificationRequirements: toStringArray(parsed.qualificationRequirements, []),
-    scoringCriteria: toStringArray(parsed.scoringCriteria, []),
-    riskFlags: toStringArray(parsed.riskFlags, []),
-    summary: typeof parsed.summary === 'string' && parsed.summary.trim() ? parsed.summary.trim() : '已解析招标文档',
-  };
+  let result: TenderAnalysis;
+  if (!parsed) {
+    result = emptyBaseline;
+  } else {
+    result = {
+      source: 'ai',
+      keyRequirements: toStringArray(parsed.keyRequirements, []),
+      deadlines: toDeadlineArray(parsed.deadlines),
+      qualificationRequirements: toStringArray(parsed.qualificationRequirements, []),
+      scoringCriteria: toStringArray(parsed.scoringCriteria, []),
+      riskFlags: toStringArray(parsed.riskFlags, []),
+      summary: typeof parsed.summary === 'string' && parsed.summary.trim() ? parsed.summary.trim() : '已解析招标文档',
+    };
+  }
+  // 招标解析接地度: 抽取项是否能在原文中找到 (防臆造)
+  const outItems = [...result.keyRequirements, ...result.qualificationRequirements, ...result.scoringCriteria];
+  await recordPmsAiTrace({
+    capability: 'tender_analysis',
+    ctx,
+    inputSummary: `招标文本 ${rawText.length} 字`,
+    outputSummary: [result.summary, ...result.keyRequirements, ...result.riskFlags].join(' | '),
+    source: result.source,
+    entities: outItems,
+    groundText: rawText,
+  });
+  return result;
 }
 
 // ---------------------------------------------------------------------------

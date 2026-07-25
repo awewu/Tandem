@@ -51,7 +51,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           specs,
           coverage: specCoverage(specs),
           chain: decisionChainHealth(stakeholders),
-        });
+        }, { tenantId: auth.tenantId, actorUserId: auth.userId });
         return NextResponse.json({ assessment });
       }
       case 'decision_chain': {
@@ -60,13 +60,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           project,
           stakeholders,
           chain: decisionChainHealth(stakeholders),
-        });
+        }, { tenantId: auth.tenantId, actorUserId: auth.userId });
         return NextResponse.json({ insight });
       }
       case 'tender_analysis': {
         const text = typeof body.text === 'string' ? body.text : '';
         if (!text.trim()) return NextResponse.json({ error: 'Missing text' }, { status: 400 });
-        const analysis = await analyzeTenderDocument(text);
+        const analysis = await analyzeTenderDocument(text, { tenantId: auth.tenantId, actorUserId: auth.userId });
         return NextResponse.json({ analysis });
       }
       default:

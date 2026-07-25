@@ -25,10 +25,26 @@ interface DealDesk {
 
 const money = (n: number) => '¥' + (n ?? 0).toLocaleString('zh-CN');
 
+interface Regression {
+  tracesEvaluated: number;
+  overallPassRate: number;
+  byGrader: Record<string, { pass: number; total: number; passRate: number; avgScore: number }>;
+}
+
+const GRADER_LABELS: Record<string, string> = {
+  'pms-structured': '产出结构化',
+  'pms-grounded': '数据接地(防臆造)',
+  'pms-ai-live': 'AI 增强可用率',
+  'answer-quality': '答案质量(LLM自评)',
+  'budget-sane': 'Token 预算',
+  'guardrail-clean': '无注入/越狱',
+};
+
 export default function DealDeskPage() {
   const [data, setData] = useState<DealDesk | null>(null);
   const [status, setStatus] = useState<'loading' | 'ok' | 'error' | 'forbidden'>('loading');
   const [busy, setBusy] = useState<string | null>(null);
+  const [regression, setRegression] = useState<Regression | null>(null);
 
   const load = useCallback(async () => {
     setStatus('loading');
@@ -44,7 +60,14 @@ export default function DealDeskPage() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  const loadEval = useCallback(async () => {
+    try {
+      const res = await fetch('/api/pms/eval', { credentials: 'include', cache: 'no-store' });
+      if (res.ok) setRegression((await res.json()).regression);
+    } catch { /* eval 只读, 失败不影响主流程 */ }
+  }, []);
+
+  useEffect(() => { load(); loadEval(); }, [load, loadEval]);
 
   const arbitrate = async (appealId: string, decision: 'approved' | 'rejected') => {
     setBusy(appealId);
@@ -151,6 +174,35 @@ export default function DealDeskPage() {
           ))}
         </CardContent>
       </Card>
+
+      {/* AI 分析质量 (评估台读数) */}
+      {regression && regression.tracesEvaluated > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-headline">
+              AI 分析质量 · 评估台 ({regression.tracesEvaluated} 条 · 总通过率 {Math.round(regression.overallPassRate * 100)}%)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {Object.entries(regression.byGrader).map(([id, g]) => (
+              <div key={id}>
+                <div className="flex justify-between text-caption text-ink-secondary mb-1">
+                  <span>{GRADER_LABELS[id] ?? id}</span>
+                  <span className={g.passRate >= 0.8 ? 'text-success' : g.passRate >= 0.5 ? 'text-warning' : 'text-danger'}>
+                    {Math.round(g.passRate * 100)}% ({g.pass}/{g.total})
+                  </span>
+                </div>
+                <div className="h-2 bg-surface-2 rounded-full overflow-hidden">
+                  <div className="h-full bg-brand-500 rounded-full" style={{ width: `${g.passRate * 100}%` }} />
+                </div>
+              </div>
+            ))}
+            <p className="text-caption text-ink-tertiary pt-1">
+              度量 spec 风险 / 决策链 / 招标解析三类 AI 分析的：产出结构化、数据接地(防臆造)、AI 增强可用率。让预警从「我说准」变「可度量准」。
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

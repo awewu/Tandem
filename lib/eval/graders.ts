@@ -31,6 +31,7 @@ const TOKEN_BUDGET: Record<EvalTraceKind, number> = {
   act: 2500,
   decision: 2000,
   okr_review: 3000,
+  pms_analysis: 2000,
 };
 
 // ---------------------------------------------------------------------------
@@ -118,7 +119,7 @@ export const answerQualityGrader: Grader = {
   id: 'answer-quality',
   description: 'LLM 自评最终输出质量 (是否基于真值/不臆测数字/切题)',
   kind: 'llm',
-  appliesTo: ['decision', 'reasoning'],
+  appliesTo: ['decision', 'reasoning', 'pms_analysis'],
   async grade(trace) {
     const insufficient = (notes: string): EvalGrade =>
       mkGrade(this.id, 0.5, true, '答案质量 (LLM 自评)', `llm grader unavailable: ${notes}`);
@@ -175,6 +176,49 @@ export const guardrailCleanGrader: Grader = {
   },
 };
 
+// ---------------------------------------------------------------------------
+// PMS 分析专属 graders (单发式 AI, 无 tool-loop; 度量: 结构化/接地/AI可用性)
+// ---------------------------------------------------------------------------
+
+/** ⑧ 产出结构化 (非空且成功解析, 未沦为空骨架) */
+export const pmsStructuredGrader: Grader = {
+  id: 'pms-structured',
+  description: 'PMS AI 分析产出结构化非空 (成功解析, 未沦为空基线)',
+  kind: 'rule',
+  appliesTo: ['pms_analysis'],
+  grade(trace) {
+    const parsed = trace.meta?.parsed === true;
+    const hasOutput = trace.finalOutputSummary.trim().length > 0;
+    const pass = parsed && hasOutput;
+    return mkGrade(this.id, pass ? 1 : 0, pass, '成功解析且输出非空', `parsed=${parsed} outputLen=${trace.finalOutputSummary.trim().length}`);
+  },
+};
+
+/** ⑨ 数据接地: 输出引用了 ≥1 个输入中的真实实体 (防臆造) */
+export const pmsGroundedGrader: Grader = {
+  id: 'pms-grounded',
+  description: 'PMS AI 输出引用 ≥1 个输入真实实体 (防臆造)',
+  kind: 'rule',
+  appliesTo: ['pms_analysis'],
+  grade(trace) {
+    const refs = Number(trace.meta?.groundedRefs ?? 0);
+    const pass = refs >= 1;
+    return mkGrade(this.id, pass ? 1 : 0, pass, '引用≥1真实输入实体', `groundedRefs=${refs}`);
+  },
+};
+
+/** ⑩ AI 可用性: 本次是否走真 LLM (source=ai) 而非降级规则. 降级不算失败, 仅观测计分. */
+export const pmsAiLiveGrader: Grader = {
+  id: 'pms-ai-live',
+  description: 'PMS AI 走真 LLM 增强 (非降级规则基线); 降级仅降分不失败',
+  kind: 'rule',
+  appliesTo: ['pms_analysis'],
+  grade(trace) {
+    const isAi = trace.meta?.source === 'ai';
+    return mkGrade(this.id, isAi ? 1 : 0.5, true, 'source=ai (LLM 增强)', `source=${String(trace.meta?.source ?? 'rule')}`);
+  },
+};
+
 export const RULE_GRADERS: Grader[] = [
   toolGroundedGrader,
   noForbiddenToolGrader,
@@ -182,6 +226,9 @@ export const RULE_GRADERS: Grader[] = [
   zoneCompliantGrader,
   budgetSaneGrader,
   guardrailCleanGrader,
+  pmsStructuredGrader,
+  pmsGroundedGrader,
+  pmsAiLiveGrader,
 ];
 
 export const LLM_GRADERS: Grader[] = [answerQualityGrader];
