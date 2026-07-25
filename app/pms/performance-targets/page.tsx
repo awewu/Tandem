@@ -16,7 +16,15 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/ui/select';
-import { Target, RefreshCw, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Target, RefreshCw, TrendingUp, TrendingDown, Minus, Plus } from 'lucide-react';
 
 interface PerformanceTarget {
   id: string;
@@ -53,6 +61,31 @@ const PERIOD_TYPE_LABELS: Record<string, string> = {
   yearly: '年度',
 };
 
+const TARGET_TYPE_LABELS: Record<string, string> = {
+  revenue: '成交额',
+  count: '成交单数',
+};
+
+interface CreateForm {
+  dimension: string;
+  dimensionValue: string;
+  period: string;
+  periodType: string;
+  targetType: string;
+  targetValue: string;
+  targetCount: string;
+}
+
+const EMPTY_FORM: CreateForm = {
+  dimension: 'region',
+  dimensionValue: '',
+  period: '',
+  periodType: 'monthly',
+  targetType: 'revenue',
+  targetValue: '',
+  targetCount: '',
+};
+
 function rateColor(rate: number): string {
   if (rate >= 100) return 'bg-success';
   if (rate >= 70) return 'bg-brand-500';
@@ -87,6 +120,11 @@ export default function PmsPerformanceTargetsPage() {
   const [dimension, setDimension] = useState<string>(ALL);
   const [periodType, setPeriodType] = useState<string>(ALL);
   const [period, setPeriod] = useState<string>('');
+
+  const [createOpen, setCreateOpen] = useState(false);
+  const [form, setForm] = useState<CreateForm>(EMPTY_FORM);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -134,6 +172,41 @@ export default function PmsPerformanceTargetsPage() {
     }
   }
 
+  async function submitCreate() {
+    if (!form.period.trim() || !form.targetValue.trim()) {
+      setCreateError('请填写周期与目标值');
+      return;
+    }
+    try {
+      setCreating(true);
+      setCreateError(null);
+      const body: Record<string, string | number> = {
+        action: 'create',
+        dimension: form.dimension,
+        period: form.period.trim(),
+        periodType: form.periodType,
+        targetType: form.targetType,
+        targetValue: Number(form.targetValue),
+      };
+      if (form.dimensionValue.trim()) body.dimensionValue = form.dimensionValue.trim();
+      if (form.targetCount.trim()) body.targetCount = Number(form.targetCount);
+      const res = await fetch('/api/pms/performance-targets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || '创建失败');
+      setCreateOpen(false);
+      setForm(EMPTY_FORM);
+      await load();
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : '创建失败');
+    } finally {
+      setCreating(false);
+    }
+  }
+
   return (
     <div className="container mx-auto md:max-w-4xl p-6 max-w-4xl">
       <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
@@ -144,10 +217,23 @@ export default function PmsPerformanceTargetsPage() {
           </h1>
           <p className="text-body text-ink-secondary mt-1">多维运营看板 · 目标达成 · 同比环比</p>
         </div>
-        <Button onClick={rollupAll} disabled={rolling} className="bg-brand-500 hover:bg-brand-600">
-          <RefreshCw className={`w-4 h-4 mr-2 ${rolling ? 'animate-spin' : ''}`} />
-          {rolling ? '汇总中...' : '汇总实际'}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setForm(EMPTY_FORM);
+              setCreateError(null);
+              setCreateOpen(true);
+            }}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            新建目标
+          </Button>
+          <Button onClick={rollupAll} disabled={rolling} className="bg-brand-500 hover:bg-brand-600">
+            <RefreshCw className={`w-4 h-4 mr-2 ${rolling ? 'animate-spin' : ''}`} />
+            {rolling ? '汇总中...' : '汇总实际'}
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
@@ -241,6 +327,109 @@ export default function PmsPerformanceTargetsPage() {
           ))}
         </div>
       )}
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>新建业绩目标</DialogTitle>
+            <DialogDescription>按维度与周期下达目标, 之后可一键从真实商机汇总实际达成。</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-caption text-ink-secondary mb-1 block">维度</label>
+                <Select value={form.dimension} onValueChange={(v) => setForm((f) => ({ ...f, dimension: v }))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(DIMENSION_LABELS).map(([k, v]) => (
+                      <SelectItem key={k} value={k}>{v}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-caption text-ink-secondary mb-1 block">
+                  维度值{form.dimension === 'org' ? ' (留空=全公司)' : ''}
+                </label>
+                <input
+                  value={form.dimensionValue}
+                  onChange={(e) => setForm((f) => ({ ...f, dimensionValue: e.target.value }))}
+                  placeholder={form.dimension === 'product_line' ? '系列编码 如 RH-HP' : '如 华东'}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-caption placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-caption text-ink-secondary mb-1 block">周期类型</label>
+                <Select value={form.periodType} onValueChange={(v) => setForm((f) => ({ ...f, periodType: v }))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(PERIOD_TYPE_LABELS).map(([k, v]) => (
+                      <SelectItem key={k} value={k}>{v}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-caption text-ink-secondary mb-1 block">周期</label>
+                <input
+                  value={form.period}
+                  onChange={(e) => setForm((f) => ({ ...f, period: e.target.value }))}
+                  placeholder={form.periodType === 'monthly' ? '2026-03' : form.periodType === 'quarterly' ? '2026-Q2' : '2026'}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-caption placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="text-caption text-ink-secondary mb-1 block">目标类型</label>
+                <Select value={form.targetType} onValueChange={(v) => setForm((f) => ({ ...f, targetType: v }))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(TARGET_TYPE_LABELS).map(([k, v]) => (
+                      <SelectItem key={k} value={k}>{v}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-caption text-ink-secondary mb-1 block">目标额</label>
+                <input
+                  type="number"
+                  value={form.targetValue}
+                  onChange={(e) => setForm((f) => ({ ...f, targetValue: e.target.value }))}
+                  placeholder="1000000"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-caption placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                />
+              </div>
+              <div>
+                <label className="text-caption text-ink-secondary mb-1 block">目标单数</label>
+                <input
+                  type="number"
+                  value={form.targetCount}
+                  onChange={(e) => setForm((f) => ({ ...f, targetCount: e.target.value }))}
+                  placeholder="选填"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-caption placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                />
+              </div>
+            </div>
+            {createError && <p className="text-caption text-danger">{createError}</p>}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={creating}>取消</Button>
+            <Button onClick={submitCreate} disabled={creating} className="bg-brand-500 hover:bg-brand-600">
+              {creating ? '创建中...' : '创建'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
