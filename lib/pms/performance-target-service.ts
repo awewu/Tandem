@@ -107,6 +107,19 @@ export function shiftPeriod(period: string, periodType: PeriodType, kind: 'yoy' 
   return `${y}-${String(mon).padStart(2, '0')}`;
 }
 
+/**
+ * 当前周期字符串 (UTC).
+ *   monthly   → 'YYYY-MM'
+ *   quarterly → 'YYYY-Q{n}'
+ *   yearly    → 'YYYY'
+ */
+export function currentPeriod(periodType: PeriodType, now: Date): string {
+  const y = now.getUTCFullYear();
+  if (periodType === 'yearly') return String(y);
+  if (periodType === 'quarterly') return `${y}-Q${Math.floor(now.getUTCMonth() / 3) + 1}`;
+  return `${y}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
 // --- DB ---
 
 function mapTarget(row: typeof pmsPerformanceTargets.$inferSelect) {
@@ -400,4 +413,18 @@ export async function rollupAllTargets(input: {
     results.push(await rollupTarget({ tenantId: input.tenantId, id: t.id, visibleOrgIds: input.visibleOrgIds }));
   }
   return results;
+}
+
+/**
+ * cron 友好汇总: 只重算"当前存活周期"的目标 (本月/本季/本年),
+ * 历史已闭合周期不重复扫描 (幂等但省算力). 返回汇总的目标数.
+ */
+export async function rollupCurrentPeriodTargets(tenantId: string, now = new Date()): Promise<number> {
+  const periodTypes: PeriodType[] = ['monthly', 'quarterly', 'yearly'];
+  let count = 0;
+  for (const pt of periodTypes) {
+    const rolled = await rollupAllTargets({ tenantId, period: currentPeriod(pt, now), periodType: pt });
+    count += rolled.length;
+  }
+  return count;
 }

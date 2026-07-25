@@ -19,6 +19,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { scanExpiringOpportunities } from './public-pool-service';
 import { createAlert } from './alert-service';
 import { shouldEscalate } from './alert-service';
+import { rollupCurrentPeriodTargets } from './performance-target-service';
 
 // --- 纯函数 (可测) ---
 
@@ -137,16 +138,25 @@ export async function runPmsDailyScan(tenantId: string, now = new Date()): Promi
   qualificationAlerts: number;
   warrantyAlerts: number;
   escalated: number;
+  targetsRolledUp: number;
 }> {
   const pool = await scanExpiringOpportunities({ tenantId });
   const qualificationAlerts = await scanQualificationExpiry(tenantId, now);
   const warrantyAlerts = await scanWarrantyExpiry(tenantId, now);
   const escalated = await escalateOverdueAlerts(tenantId, now);
+  // 业绩目标: 每日自动汇总当前存活周期 (本月/本季/本年) 实际达成 + 同环比
+  let targetsRolledUp = 0;
+  try {
+    targetsRolledUp = await rollupCurrentPeriodTargets(tenantId, now);
+  } catch (e) {
+    console.error('[pms] rollupCurrentPeriodTargets failed (fail-soft):', e instanceof Error ? e.message : e);
+  }
   return {
     poolReleased: pool?.released ?? 0,
     poolWarned: (pool?.yellow ?? 0) + (pool?.red ?? 0),
     qualificationAlerts,
     warrantyAlerts,
     escalated,
+    targetsRolledUp,
   };
 }

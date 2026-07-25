@@ -276,6 +276,7 @@ describe.skipIf(!hasDb)('integration(db) · PMS 关键路径', () => {
       qualificationAlerts: expect.any(Number),
       warrantyAlerts: expect.any(Number),
       escalated: expect.any(Number),
+      targetsRolledUp: expect.any(Number),
     });
   });
 

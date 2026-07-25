@@ -4,6 +4,7 @@ import {
   computeGrowth,
   periodBounds,
   shiftPeriod,
+  currentPeriod,
 } from '@/lib/pms/performance-target-service';
 
 describe('PMS performance · computeAchievementRate', () => {
@@ -70,5 +71,21 @@ describe('PMS performance · shiftPeriod', () => {
   it('yearly → 上一年', () => {
     expect(shiftPeriod('2026', 'yearly', 'yoy')).toBe('2025');
     expect(shiftPeriod('2026', 'yearly', 'mom')).toBe('2025');
+  });
+});
+
+describe('PMS performance · currentPeriod', () => {
+  const now = new Date(Date.UTC(2026, 4, 15)); // 2026-05-15 (Q2)
+  it('monthly → YYYY-MM', () => {
+    expect(currentPeriod('monthly', now)).toBe('2026-05');
+    expect(currentPeriod('monthly', new Date(Date.UTC(2026, 0, 1)))).toBe('2026-01');
+  });
+  it('quarterly → YYYY-Q{n}', () => {
+    expect(currentPeriod('quarterly', now)).toBe('2026-Q2');
+    expect(currentPeriod('quarterly', new Date(Date.UTC(2026, 11, 31)))).toBe('2026-Q4');
+    expect(currentPeriod('quarterly', new Date(Date.UTC(2026, 0, 1)))).toBe('2026-Q1');
+  });
+  it('yearly → YYYY', () => {
+    expect(currentPeriod('yearly', now)).toBe('2026');
   });
 });
