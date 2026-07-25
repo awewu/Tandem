@@ -968,16 +968,36 @@ export async function seedLaunchpadIfEmpty(): Promise<void> {
       visibleTo: [], visibleToRoles: [], unreadAdapter: null,
       status: 'active' as const, tenantId: 'default',
     };
+    // PMS/驾驶舱卡片对「内部 + 经销商」都可见 (isAppVisibleTo: 内部亦需 visibleToRoles 命中, 故须列全).
+    const PMS_ROLES = ['owner', 'admin', 'manager', 'employee', 'steward', 'champion', 'dealer_sales', 'dealer_admin'];
     // PMS 补种: 已有跳板数据时, 若无 PMS 卡片则补插入 (幂等).
     const pmsExisting = existing.find((a) => a.url === '/pms' || /销售.*商机|PMS/i.test(a.name));
     if (!pmsExisting && existing.length > 0) {
       await lpSvc.create({
         ...base, category: 'business', name: '销售商机 PMS',
         description: '项目报备 · 智能查重 · 全生命周期跟进',
-        url: '/pms', order: 9, recommendKeywords: ['销售', '商机', 'pms', '经销商', '合同', '交付'],
+        url: '/pms', order: 9, visibleToRoles: PMS_ROLES, recommendKeywords: ['销售', '商机', 'pms', '经销商', '合同', '交付'],
       });
       // eslint-disable-next-line no-console
       console.info('[seed] launchpad: 补种 PMS 卡片');
+    }
+    // 幂等升级: 老库 PMS 卡片 visibleToRoles 为空/缺经销商 → 补 (否则经销商 hub 看不到 PMS 入口).
+    const pmsCard = existing.find((a) => a.url === '/pms');
+    if (pmsCard && ((pmsCard.visibleToRoles?.length ?? 0) === 0 || !pmsCard.visibleToRoles.includes('dealer_admin'))) {
+      await lpSvc.update(pmsCard.id, { visibleToRoles: PMS_ROLES });
+      // eslint-disable-next-line no-console
+      console.info('[seed] launchpad: 升级 PMS 卡片 visibleToRoles → 含经销商');
+    }
+    // 补种「销售驾驶舱」卡片 (经销商 hub 直达经营驾驶舱 — 体现专业赋能).
+    if (!existing.find((a) => a.url === '/pms/cockpit') && existing.length > 0) {
+      await lpSvc.create({
+        ...base, category: 'business', name: '销售驾驶舱',
+        description: '项目/管道/风险异常即时暴露 — 经营驾驶舱',
+        url: '/pms/cockpit', order: 10, visibleToRoles: PMS_ROLES,
+        recommendKeywords: ['驾驶舱', '预警', '销售', '经营', '风险', '经销商'],
+      });
+      // eslint-disable-next-line no-console
+      console.info('[seed] launchpad: 补种 销售驾驶舱 卡片');
     }
     // 旧演示卡片名单 (历史默认种子). 仅当跳板「只剩这些」时才视为未定制 → 清掉重播集团模块.
     // 若含任何非旧卡片 (用户自定义 或 已是新集团模块) → 跳过, 保持幂等且绝不误删用户数据.
@@ -1011,7 +1031,9 @@ export async function seedLaunchpadIfEmpty(): Promise<void> {
       { ...base, category: 'business', name: 'Rhautt 宜居家', description: '宜居家 · 智能家居平台',
         url: '#rhautt', order: 8, recommendKeywords: ['rhautt', '宜居家', '家居', 'home', '智能家居'] },
       { ...base, category: 'business', name: '销售商机 PMS', description: '项目报备 · 智能查重 · 全生命周期跟进',
-        url: '/pms', order: 9, recommendKeywords: ['销售', '商机', 'pms', '经销商', '合同', '交付'] },
+        url: '/pms', order: 9, visibleToRoles: PMS_ROLES, recommendKeywords: ['销售', '商机', 'pms', '经销商', '合同', '交付'] },
+      { ...base, category: 'business', name: '销售驾驶舱', description: '项目/管道/风险异常即时暴露 — 经营驾驶舱',
+        url: '/pms/cockpit', order: 10, visibleToRoles: PMS_ROLES, recommendKeywords: ['驾驶舱', '预警', '销售', '经营', '风险', '经销商'] },
     ];
     for (const app of seedApps) await lpSvc.create(app);
     // eslint-disable-next-line no-console

@@ -64,7 +64,7 @@ import {
   Gauge,
 } from 'lucide-react';
 
-export type Role = 'employee' | 'manager' | 'steward' | 'admin' | 'champion' | 'intranet_editor' | 'owner' | 'partner';
+export type Role = 'employee' | 'manager' | 'steward' | 'admin' | 'champion' | 'intranet_editor' | 'owner' | 'partner' | 'dealer';
 
 /** 内部员工角色集合（不含合作伙伴） */
 export const INTERNAL_ROLES: Role[] = ['employee', 'manager', 'steward', 'admin', 'champion', 'intranet_editor', 'owner'];
@@ -392,7 +392,8 @@ export const NAV_MODULES: NavModule[] = [
     fullLabel: '销售 · 经销商商机管理',
     tagline: '项目报备·智能查重·全生命周期跟进 — 产研销的「销」闭环',
     icon: Store,
-    visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
+    // 内部员工 + 经销商 (dealer) 共用: 经销商仅见渠道相关项 (总部项标 INTERNAL_ROLES 屏蔽)
+    visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner', 'dealer'],
     pathPrefixes: ['/pms'],
     items: [
       { name: '驾驶舱预警', href: '/pms/cockpit', icon: Gauge, group: '洞察' },
@@ -406,14 +407,15 @@ export const NAV_MODULES: NavModule[] = [
       { name: '设备台账', href: '/pms/equipment-sns', icon: Cpu, group: '售后' },
       { name: '在线订货', href: '/pms/dealer-orders', icon: ShoppingCart, group: '渠道' },
       { name: '返利管理', href: '/pms/rebates', icon: Coins, group: '渠道' },
-      { name: '健康分', href: '/pms/dealer-health', icon: HeartPulse, group: '渠道' },
-      { name: '经销商档案', href: '/pms/dealer-orgs', icon: Building2, group: '渠道' },
-      { name: '线索开发', href: '/pms/demand-gen-leads', icon: Sparkles, group: '增长' },
-      { name: '主推产品', href: '/pms/key-product-campaigns', icon: Megaphone, group: '增长' },
-      { name: '业绩目标', href: '/pms/performance-targets', icon: Target, group: '增长' },
+      // --- 以下总部专属, 经销商不可见 ---
+      { name: '健康分', href: '/pms/dealer-health', icon: HeartPulse, group: '渠道', visibleTo: INTERNAL_ROLES },
+      { name: '经销商档案', href: '/pms/dealer-orgs', icon: Building2, group: '渠道', visibleTo: INTERNAL_ROLES },
+      { name: '线索开发', href: '/pms/demand-gen-leads', icon: Sparkles, group: '增长', visibleTo: INTERNAL_ROLES },
+      { name: '主推产品', href: '/pms/key-product-campaigns', icon: Megaphone, group: '增长', visibleTo: INTERNAL_ROLES },
+      { name: '业绩目标', href: '/pms/performance-targets', icon: Target, group: '增长', visibleTo: INTERNAL_ROLES },
       { name: '产品目录', href: '/pms/products', icon: Package, group: '主数据' },
-      { name: '分析看板', href: '/pms/analytics', icon: BarChart3, group: '洞察' },
-      { name: '告警中心', href: '/pms/alerts', icon: Bell, group: '协同' },
+      { name: '分析看板', href: '/pms/analytics', icon: BarChart3, group: '洞察', visibleTo: INTERNAL_ROLES },
+      { name: '告警中心', href: '/pms/alerts', icon: Bell, group: '协同', visibleTo: INTERNAL_ROLES },
     ],
   },
 
@@ -579,6 +581,11 @@ export function resolveNavRoles(
     (x): x is Role => typeof x === 'string' && (ALL_ROLES as string[]).includes(x),
   );
   if (opts?.email === 'admin@tandem.local' && known.length === 0) return ALL_ROLES;
+  // 经销商 (dealer_sales/dealer_admin): 映射为专属 'dealer' 导航视图 —
+  //   仅见 PMS(渠道相关项) + settings, 不再错误 fallback 成 employee 而露出全部内部模块.
+  if (known.length === 0 && (authRoles ?? []).some((r) => r === 'dealer_sales' || r === 'dealer_admin')) {
+    return ['dealer'];
+  }
   const resolved = [...known];
   const permissions = new Set(opts?.permissions ?? []);
   // 数据库自定义角色通过权限映射到既有导航视图；服务端仍按具体权限鉴权。
