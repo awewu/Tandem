@@ -21,6 +21,7 @@ import { useCurrentUser, useAuthStore } from '@/lib/hooks/use-current-user';
 import {
   NAV_MODULES,
   isVisible,
+  isGlobalNavEntry,
   activeModuleId,
   resolveNavRoles,
   type Role,
@@ -78,7 +79,7 @@ export default function AppRail() {
 
   if (isAuthRoute) return null;
 
-  const visibleModules = NAV_MODULES.filter((m) => isVisible(m.visibleTo, userRoles));
+  const visibleModules = NAV_MODULES.filter((m) => isGlobalNavEntry(m) && isVisible(m.visibleTo, userRoles));
   const activeId = activeModuleId(pathname);
 
   return (

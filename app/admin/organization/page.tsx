@@ -585,17 +585,21 @@ function DeptNode({
   return (
     <div>
       <div
-        className={`flex items-center gap-1.5 px-2 py-1.5 rounded-md cursor-pointer transition-colors group ${selected ? 'bg-primary/8' : 'hover:bg-muted/40'}`}
+        className={`flex items-center gap-1.5 px-2 py-1.5 rounded-md cursor-pointer transition-colors group ${
+          selected
+            ? 'bg-primary/12 text-primary ring-1 ring-primary/30 shadow-sm'
+            : 'hover:bg-muted/40'
+        }`}
         style={{ paddingLeft: depth * 16 + 8 }}
         onClick={() => onSelectDept(dept.id)}
       >
-        <button onClick={(e) => { e.stopPropagation(); setOpen((p) => !p); }} className="shrink-0 text-muted-foreground hover:text-foreground">
+        <button onClick={(e) => { e.stopPropagation(); setOpen((p) => !p); }} className={`shrink-0 ${selected ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
           {children.length > 0 ? (open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />) : <span className="w-3.5 inline-block" />}
         </button>
-        <Building2 className={`h-3.5 w-3.5 shrink-0 ${depth === 0 ? 'text-primary' : 'text-muted-foreground'}`} />
-        <span className={`text-caption flex-1 truncate ${depth === 0 ? 'font-semibold' : 'font-medium'}`}>{dept.name}</span>
+        <Building2 className={`h-3.5 w-3.5 shrink-0 ${selected || depth === 0 ? 'text-primary' : 'text-muted-foreground'}`} />
+        <span className={`text-caption flex-1 truncate ${selected || depth === 0 ? 'font-semibold' : 'font-medium'}`}>{dept.name}</span>
         {head && <span className="text-footnote text-muted-foreground hidden group-hover:inline truncate max-w-[80px]">{head.name}</span>}
-        <Badge variant="secondary" className="h-4 px-1 text-[10px] tabular-nums shrink-0">{total}</Badge>
+        <Badge variant={selected ? 'default' : 'secondary'} className="h-4 px-1 text-[10px] tabular-nums shrink-0">{total}</Badge>
         <div className="hidden group-hover:flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
           <button title="新增子部门" className="p-0.5 rounded hover:bg-muted" onClick={() => onAddChild(dept.id)}><Plus className="h-3 w-3" /></button>
           <button title="编辑" className="p-0.5 rounded hover:bg-muted" onClick={() => onEdit(dept)}><Pencil className="h-3 w-3" /></button>

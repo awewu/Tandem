@@ -203,16 +203,27 @@ function bootSync(): void {
       try {
         const { provisionOrgDrive } = await import('./drive/provision');
         const { listDepts } = await import('./org/departments');
+        const { getStore } = await import('./storage/repository');
         const { createAppContext } = await import('./repositories/app-context-factory');
         const depts = isDatabaseMode() ? await listDepts('default') : [];
+        const users = isDatabaseMode()
+          ? (await getStore().auth.users.list({ tenantId: 'default' }))
+              .map((u) => ({
+                id: u.id,
+                name: u.name,
+                departmentId: u.departmentId ?? null,
+                disabled: u.disabled,
+              }))
+          : [];
         const r = await provisionOrgDrive({
           tenantId: 'default',
           depts,
+          users,
           repo: createAppContext().driveRepo,
         });
         if (r.created.length > 0) {
           // eslint-disable-next-line no-console
-          console.info(`[boot] org drive provisioned: ${r.created.length} 目录 (company_share + dept_root)`);
+          console.info(`[boot] org drive provisioned: ${r.created.length} 目录 (company_share + dept_root + personal_home)`);
         }
       } catch (err) {
         // eslint-disable-next-line no-console

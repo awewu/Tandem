@@ -6,6 +6,7 @@ import { DriveService } from '@/lib/services/drive-service';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { resolveDriveActor } from '@/lib/drive/actor';
 import { ensureDriveOrgScope, isInDriveOrgScope } from '@/lib/drive/org-scope';
+import { isLocalDriveStorageKey } from '@/lib/drive/local-storage';
 import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /**
@@ -64,6 +65,10 @@ const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
     const all = await ctx.driveRepo.list({ tenantId: auth.tenantId });
     if (!isInDriveOrgScope(all, body.fileId, scope)) {
       return NextResponse.json({ error: 'file is outside current department scope', scope }, { status: 403 });
+    }
+    const file = await svc.getById(body.fileId, actor);
+    if (file?.storageKey && isLocalDriveStorageKey(file.storageKey)) {
+      return NextResponse.json({ url: `/api/drive/${encodeURIComponent(file.id)}/download`, expiresInSec: 900 });
     }
     const result = await svc.requestDownload(body.fileId, actor);
     return NextResponse.json(result);

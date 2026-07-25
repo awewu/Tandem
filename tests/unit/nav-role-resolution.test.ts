@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { resolveNavRoles, NAV_MODULES, isVisible } from '@/components/nav-modules';
+import { activeModuleId, isGlobalNavEntry, isVisible, NAV_MODULES, resolveNavRoles } from '@/components/nav-modules';
 
 describe('resolveNavRoles', () => {
   it('未发起 fetch → employee (避免闪烁)', () => {
@@ -96,5 +96,26 @@ describe('PMS 导航 · 经销商可见性', () => {
     const empItems = pms.items.filter((i) => isVisible(i.visibleTo, ['employee'])).map((i) => i.href);
     expect(empItems).toContain('/pms/performance-targets');
     expect(empItems).toContain('/pms/cockpit');
+  });
+});
+
+describe('nav module ownership', () => {
+  it('战略项目 · 三省六部 归属议事模块, 不归 IM', () => {
+    expect(activeModuleId('/governance/three-departments')).toBe('tandem');
+    expect(activeModuleId('/strategic-projects')).toBe('tandem');
+    expect(activeModuleId('/strategic-projects/v3')).toBe('tandem');
+    const im = NAV_MODULES.find((m) => m.id === 'im')!;
+    const tandem = NAV_MODULES.find((m) => m.id === 'tandem')!;
+    expect(im.items.some((item) => item.href === '/governance/three-departments')).toBe(false);
+    expect(tandem.items.some((item) => item.href === '/governance/three-departments')).toBe(true);
+    expect(tandem.items.some((item) => item.href === '/strategic-projects')).toBe(true);
+  });
+
+  it('PMS 只能从首页跳板进入, 不出现在全局主导航', () => {
+    expect(activeModuleId('/pms')).toBe('pms');
+    expect(activeModuleId('/pms/dealer-orgs')).toBe('pms');
+    const pms = NAV_MODULES.find((m) => m.id === 'pms')!;
+    expect(pms.pathPrefixes).toContain('/pms');
+    expect(isGlobalNavEntry(pms)).toBe(false);
   });
 });

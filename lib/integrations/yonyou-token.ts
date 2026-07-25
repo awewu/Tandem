@@ -9,6 +9,7 @@ export interface YonyouTokenConfig {
   baseUrl: string;
   appKey: string;
   appSecret: string;
+  tokenUrl?: string;
   tokenPath?: string;
   timeoutMs?: number;
 }
@@ -70,24 +71,29 @@ function normalizePath(value: string): string {
 }
 
 export function isYonyouTokenConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
-  return Boolean(env.YONYOU_ERP_BASE_URL && env.YONYOU_ERP_APP_KEY && env.YONYOU_ERP_APP_SECRET);
+  return Boolean(
+    (env.YONYOU_ERP_BASE_URL || env.YONSUITE_API_BASE) &&
+    (env.YONYOU_ERP_APP_KEY || env.YONSUITE_APP_KEY) &&
+    (env.YONYOU_ERP_APP_SECRET || env.YONSUITE_APP_SECRET)
+  );
 }
 
 export function getYonyouTokenConfig(env: NodeJS.ProcessEnv = process.env): YonyouTokenConfig {
-  const baseUrl = env.YONYOU_ERP_BASE_URL?.trim();
-  const appKey = env.YONYOU_ERP_APP_KEY?.trim();
-  const appSecret = env.YONYOU_ERP_APP_SECRET?.trim();
+  const baseUrl = (env.YONYOU_ERP_BASE_URL || env.YONSUITE_API_BASE)?.trim();
+  const appKey = (env.YONYOU_ERP_APP_KEY || env.YONSUITE_APP_KEY)?.trim();
+  const appSecret = (env.YONYOU_ERP_APP_SECRET || env.YONSUITE_APP_SECRET)?.trim();
 
   if (!baseUrl || !appKey || !appSecret) {
-    throw new YonyouTokenConfigError('Yonyou ERP token is not configured');
+    throw new YonyouTokenConfigError('Yonyou/YonSuite token is not configured');
   }
 
   return {
     baseUrl,
     appKey,
     appSecret,
-    tokenPath: env.YONYOU_ERP_TOKEN_PATH?.trim() || DEFAULT_SELF_APP_TOKEN_PATH,
-    timeoutMs: Number(env.YONYOU_ERP_TOKEN_TIMEOUT_MS || DEFAULT_TIMEOUT_MS),
+    tokenUrl: (env.YONYOU_ERP_TOKEN_URL || env.YONSUITE_TOKEN_URL)?.trim() || undefined,
+    tokenPath: (env.YONYOU_ERP_TOKEN_PATH || env.YONSUITE_TOKEN_PATH)?.trim() || DEFAULT_SELF_APP_TOKEN_PATH,
+    timeoutMs: Number(env.YONYOU_ERP_TOKEN_TIMEOUT_MS || env.YONSUITE_TIMEOUT_MS || DEFAULT_TIMEOUT_MS),
   };
 }
 
@@ -109,20 +115,22 @@ export function signYonyouParams(
 }
 
 export function buildYonyouTokenUrl(config: YonyouTokenConfig, timestamp = Date.now()): string {
-  const tokenPath = normalizePath(config.tokenPath || DEFAULT_SELF_APP_TOKEN_PATH);
-  const endpoint = `${trimTrailingSlash(config.baseUrl)}${tokenPath}`;
+  const endpoint = config.tokenUrl
+    ? config.tokenUrl
+    : `${trimTrailingSlash(config.baseUrl)}${normalizePath(config.tokenPath || DEFAULT_SELF_APP_TOKEN_PATH)}`;
   const params = { appKey: config.appKey, timestamp };
   const signature = signYonyouParams(params, config.appSecret);
-  const query = new URLSearchParams({
-    appKey: config.appKey,
-    timestamp: String(timestamp),
-  });
-  return `${endpoint}?${query.toString()}&signature=${signature}`;
+  const url = new URL(endpoint);
+  url.searchParams.set('appKey', config.appKey);
+  url.searchParams.set('timestamp', String(timestamp));
+  return `${url.toString()}&signature=${signature}`;
 }
 
 function cacheKeyForConfig(config: YonyouTokenConfig): string {
-  const tokenPath = normalizePath(config.tokenPath || DEFAULT_SELF_APP_TOKEN_PATH);
-  return `${trimTrailingSlash(config.baseUrl)}${tokenPath}:${config.appKey}`;
+  const endpoint = config.tokenUrl
+    ? config.tokenUrl
+    : `${trimTrailingSlash(config.baseUrl)}${normalizePath(config.tokenPath || DEFAULT_SELF_APP_TOKEN_PATH)}`;
+  return `${endpoint}:${config.appKey}`;
 }
 
 function assertHttpBaseUrl(baseUrl: string): void {
@@ -130,10 +138,10 @@ function assertHttpBaseUrl(baseUrl: string): void {
   try {
     url = new URL(baseUrl);
   } catch {
-    throw new YonyouTokenConfigError('YONYOU_ERP_BASE_URL must be a valid URL');
+    throw new YonyouTokenConfigError('YONSUITE_API_BASE or YONYOU_ERP_BASE_URL must be a valid URL');
   }
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-    throw new YonyouTokenConfigError('YONYOU_ERP_BASE_URL must use http or https');
+    throw new YonyouTokenConfigError('YONSUITE_API_BASE or YONYOU_ERP_BASE_URL must use http or https');
   }
 }
 
@@ -199,7 +207,9 @@ export async function getYonyouAccessToken(options: {
     ? config.timeoutMs
     : DEFAULT_TIMEOUT_MS;
   const url = buildYonyouTokenUrl(config, now);
-  const endpoint = `${trimTrailingSlash(config.baseUrl)}${normalizePath(config.tokenPath || DEFAULT_SELF_APP_TOKEN_PATH)}`;
+  const endpoint = config.tokenUrl
+    ? config.tokenUrl
+    : `${trimTrailingSlash(config.baseUrl)}${normalizePath(config.tokenPath || DEFAULT_SELF_APP_TOKEN_PATH)}`;
 
   try {
     const response = await fetchJsonWithTimeout(url, timeoutMs, options.fetchImpl ?? fetch);

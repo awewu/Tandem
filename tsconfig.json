@@ -1,6 +1,10 @@
 {
   "compilerOptions": {
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "forceConsistentCasingInFileNames": true,
     "allowJs": true,
     "skipLibCheck": true,
@@ -13,9 +17,33 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
-    "plugins": [{ "name": "next" }],
-    "paths": { "@/*": ["./*"] }
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": [
+        "./*"
+      ]
+    }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", ".next-dev/types/**/*.ts"],
-  "exclude": ["node_modules", "_backup_e_*", "dist", ".next", ".next-dev", "vendor", "android", "ios"]
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next-dev/types/**/*.ts",
+    ".next-dev-3006/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "_backup_e_*",
+    "dist",
+    ".next",
+    ".next-dev",
+    "vendor",
+    "android",
+    "ios"
+  ]
 }

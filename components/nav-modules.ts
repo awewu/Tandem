@@ -110,6 +110,8 @@ export interface NavModule {
    */
   tagline?: string;
   icon: React.ComponentType<{ className?: string }>;
+  /** false = route/module still exists, but cannot be entered from global nav surfaces. */
+  showInGlobalNav?: boolean;
   /** All path prefixes this module owns. Longest match wins for active state. */
   pathPrefixes: string[];
   items: NavItem[];                // empty array = no sub-sidebar (e.g. home)
@@ -144,8 +146,6 @@ export const NAV_MODULES: NavModule[] = [
       { name: '四象限工作法',      href: '/work-method',      icon: CalendarCheck,  group: '目标与关键成果法 OKR' },
       { name: 'OKR 5 层级联树',    href: '/okr/cascade',      icon: Network,        group: '目标与关键成果法 OKR' },
       { name: '部门效能',          href: '/okr/dashboard',    icon: BarChart3,      group: '目标与关键成果法 OKR' },
-      // 双入口: 战略项目走三省六部执行协同 (主高亮归 Tandem 议事模块, 此处仅可点直达).
-      { name: '战略项目 · 三省六部', href: '/governance/three-departments', icon: Network, group: '目标与关键成果法 OKR' },
       { name: 'OKR 校准会',        href: '/okr/calibration',  icon: Grid3x3,        group: '目标与关键成果法 OKR', visibleTo: ['manager', 'steward', 'admin', 'champion'] },
       { name: 'OKR 日历视图',      href: '/okr/calendar',     icon: CalendarDays,   group: '目标与关键成果法 OKR' },
       // 每日推进 (5min 日报 / 周回顾) 主入口已迁往「搭子 · 个人工作台」(每天和分身一起干活);
@@ -187,13 +187,13 @@ export const NAV_MODULES: NavModule[] = [
     tagline: '提案·审议·执行 — 重大公司级工作的协同与 17 分钟议事收敛',
     icon: Sparkles,
     visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
-    pathPrefixes: ['/convergence', '/meetings', '/decisions', '/governance'],
+    pathPrefixes: ['/convergence', '/meetings', '/decisions', '/governance', '/strategic-projects'],
     items: [
       { name: '议事室',   href: '/convergence', icon: SparklesAlias, accent: 'cta', badge: '17min', group: '议事' },
+      { name: '战略项目', href: '/strategic-projects', icon: Network, group: '议事' },
+      { name: '战略项目 · 三省六部', href: '/governance/three-departments', icon: Network, group: '议事' },
       { name: '会议室',   href: '/meetings',    icon: Video,                        group: '议事' },
       { name: '决议台账', href: '/decisions',   icon: ScrollText,                   group: '决议' },
-      // 三省六部 = 提案(中书)→审议(门下)→执行(尚书六部) 的执行协同骨架, 支撑 OKR 战略执行.
-      { name: '三省六部 · 执行协同', href: '/governance/three-departments', icon: Network, group: '执行协同' },
     ],
   },
 
@@ -373,7 +373,7 @@ export const NAV_MODULES: NavModule[] = [
     tagline: '部门是人归属哪里, 反馈评估让成长看得见',
     icon: Building2,
     visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
-    // 三省六部 已迁出: 主高亮归 Tandem(议事)模块「执行协同」, 事半模块设双入口.
+    // 三省六部 属于重大公司级工作的提案、审议与执行协同, 入口归「议事」模块。
     pathPrefixes: ['/organization', '/admin/organization', '/360', '/1on1', '/nine-box'],
     items: [
       // 公司架构 (HR 部门线 · 真员工数据)
@@ -393,6 +393,7 @@ export const NAV_MODULES: NavModule[] = [
     fullLabel: '销售 · 经销商商机管理',
     tagline: '项目报备·智能查重·全生命周期跟进 — 产研销的「销」闭环',
     icon: Store,
+    showInGlobalNav: false,
     // 内部员工 + 经销商 (dealer) 共用: 经销商仅见渠道相关项 (总部项标 INTERNAL_ROLES 屏蔽)
     visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner', 'dealer'],
     pathPrefixes: ['/pms'],
@@ -562,6 +563,10 @@ const EXTERNAL_AUTH_ROLES = new Set(['guest', 'partner', 'contractor']);
 export function isVisible(scopeRoles: Role[] | undefined, userRoles: Role[]): boolean {
   if (!scopeRoles || scopeRoles.length === 0) return true;
   return scopeRoles.some((r) => userRoles.includes(r));
+}
+
+export function isGlobalNavEntry(module: NavModule): boolean {
+  return module.showInGlobalNav !== false;
 }
 
 /**

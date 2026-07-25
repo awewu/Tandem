@@ -22,12 +22,13 @@ import { useRouter } from 'next/navigation';
 import { BrandLogo } from '@/components/brand-logo';
 import { enqueue as enqueueOffline, flushQueue } from '@/lib/shouchao/offline-queue';
 import { BlockEditor } from '@/components/shouchao/block-editor';
-import { PageTree } from '@/components/shouchao/page-tree';
 import { DistillPanel } from '@/components/shouchao/distill-panel';
 import {
   NotebookPen,
   Plus,
   PanelLeft,
+  ChevronRight,
+  ChevronDown,
   Database,
   Search,
   Trash2,
@@ -42,6 +43,7 @@ import {
   ArrowLeft,
   Pin,
   PinOff,
+  Pencil,
   ExternalLink,
   Share2,
   MessageCircleQuestion,
@@ -102,8 +104,9 @@ export default function ShouchaoPage() {
   // 知识库分组 (对标 Get笔记 知识库). null=全部 / 'unfiled'=未分组 / id=某知识库
   const [notebooks, setNotebooks] = useState<Notebook[]>([]);
   const [notebookFilter, setNotebookFilter] = useState<string | null>(null);
-  // 页面树侧栏 (Notion 式嵌套导航) 开关
+  // 分组树侧栏 (Kimi 式: 组 -> 笔记) 开关
   const [treeOpen, setTreeOpen] = useState(true);
+  const showDatabaseBar = process.env.NEXT_PUBLIC_SHOW_SHOUCHAO_DATABASES === 'true';
   // 数据库 (对标 Notion databases) 列表
   const [databases, setDatabases] = useState<Array<{ id: string; name: string; icon?: string }>>([]);
   // A2 个人蒸馏"整理建议"面板开关
@@ -167,8 +170,13 @@ export default function ShouchaoPage() {
 
   // 当前可见笔记 (叠加标签筛选; 搜索已在服务端过滤)
   const visibleNotes = useMemo(
-    () => (tagFilter ? notes.filter((n) => (n.tags ?? []).includes(tagFilter)) : notes),
-    [notes, tagFilter],
+    () => notes.filter((n) => {
+      if (notebookFilter === 'unfiled' && n.notebookId) return false;
+      if (notebookFilter && notebookFilter !== 'unfiled' && n.notebookId !== notebookFilter) return false;
+      if (tagFilter && !(n.tags ?? []).includes(tagFilter)) return false;
+      return true;
+    }),
+    [notes, notebookFilter, tagFilter],
   );
 
   const showToast = useCallback((kind: 'ok' | 'err', text: string) => {
@@ -182,7 +190,6 @@ export default function ShouchaoPage() {
       try {
         const params = new URLSearchParams();
         if (q) params.set('q', q);
-        if (notebookFilter) params.set('notebook', notebookFilter);
         const r = await fetch(`/api/shouchao/notes?${params.toString()}`);
         if (r.ok) {
           const d = await r.json();
@@ -194,7 +201,7 @@ export default function ShouchaoPage() {
         setLoading(false);
       }
     },
-    [notebookFilter],
+    [],
   );
 
   // ---- 知识库列表加载 ----
@@ -317,6 +324,7 @@ export default function ShouchaoPage() {
           title: seed?.title ?? '',
           content: seed?.content ?? '',
           tags: seed?.tags ?? [],
+          notebookId: seed?.notebookId,
           sourceUrl: seed?.sourceUrl,
           parentId: seed?.parentId,
           icon: seed?.icon,
@@ -336,19 +344,48 @@ export default function ShouchaoPage() {
 
   // ---- 知识库: 新建 (轻量 prompt) ----
   async function createNotebookPrompt() {
-    const name = window.prompt('新建知识库名称')?.trim();
+    const name = window.prompt('新建分组名称')?.trim();
     if (!name) return;
+    await createNotebook(name);
+  }
+
+  async function createNotebook(name: string) {
+    const cleanName = name.trim();
+    if (!cleanName) return null;
     try {
       const r = await fetch('/api/shouchao/notebooks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name: cleanName }),
       });
       if (!r.ok) throw new Error('create failed');
+      const d = await r.json();
       await loadNotebooks();
-      showToast('ok', `已创建知识库「${name}」`);
+      const notebook = d.notebook as Notebook | undefined;
+      if (notebook?.id) setNotebookFilter(notebook.id);
+      showToast('ok', `已创建分组「${cleanName}」`);
+      return notebook ?? null;
     } catch {
-      showToast('err', '创建知识库失败');
+      showToast('err', '创建分组失败');
+      return null;
+    }
+  }
+
+  async function renameNotebookPrompt(notebook: Pick<Notebook, 'id' | 'name' | 'icon'>) {
+    const name = window.prompt('修改分组名称', notebook.name)?.trim();
+    if (!name || name === notebook.name) return;
+    try {
+      const r = await fetch(`/api/shouchao/notebooks/${notebook.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      if (!r.ok) throw new Error('rename failed');
+      setNotebooks((prev) => prev.map((nb) => (nb.id === notebook.id ? { ...nb, name } : nb)));
+      void loadNotebooks();
+      showToast('ok', `已重命名为「${name}」`);
+    } catch {
+      showToast('err', '修改分组名称失败');
     }
   }
 
@@ -383,7 +420,7 @@ export default function ShouchaoPage() {
       const updated: Note = d.note;
       setNotes((prev) => prev.map((n) => (n.id === updated.id ? updated : n)));
       void loadNotebooks();
-      showToast('ok', notebookId ? '已移入知识库' : '已移出到未分组');
+      showToast('ok', notebookId ? '已移入分组' : '已移出到未分组');
     } catch {
       showToast('err', '操作失败');
     }
@@ -738,39 +775,37 @@ export default function ShouchaoPage() {
           <button
             type="button"
             onClick={() => setTreeOpen((v) => !v)}
-            title={treeOpen ? '隐藏页面树' : '显示页面树'}
+            title={treeOpen ? '隐藏分组树' : '显示分组树'}
             className={`hidden rounded-md border border-border p-1.5 surface-interactive md:inline-flex ${treeOpen ? 'bg-brand-50 text-brand-600' : 'bg-surface-1 text-ink-tertiary hover:bg-surface-2'}`}
           >
             <PanelLeft className="h-4 w-4" />
           </button>
           <Link
-            href="/knowledge"
+            href="/knowledge-hub"
             className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-1 px-3 py-1.5 text-caption font-medium text-ink-secondary hover:bg-surface-2 hover:text-ink-primary surface-interactive"
           >
-            <FileText className="h-3.5 w-3.5" /> 文件管理
-          </Link>
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-1 px-3 py-1.5 text-caption font-medium text-ink-secondary hover:bg-surface-2 hover:text-ink-primary surface-interactive"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" /> 返回 Tandem
+            <ArrowLeft className="h-3.5 w-3.5" /> 返回知识
           </Link>
         </div>
       </header>
 
       <div className="flex min-h-0 flex-1">
-      {/* ── 页面树侧栏 (Notion 式嵌套导航, md+ 显示) ── */}
+      {/* ── 分组树侧栏 (Kimi 式: 组 -> 笔记, md+ 显示) ── */}
       {treeOpen && (
         <aside className="hidden w-60 shrink-0 flex-col overflow-hidden border-r border-border bg-surface-1/60 md:flex">
-          <PageTree
+          <NotebookNoteTree
             notes={notes}
+            notebooks={notebooks}
             activeId={activeId}
-            onSelect={(id) => {
+            notebookFilter={notebookFilter}
+            onSelectNotebook={setNotebookFilter}
+            onCreateNotebook={createNotebook}
+            onRenameNotebook={renameNotebookPrompt}
+            onSelectNote={(id) => {
               const n = notes.find((x) => x.id === id);
               if (n) selectNote(n);
             }}
-            onAddChild={(parentId) => void createNote({ parentId })}
-            onAddRoot={() => void createNote()}
+            onAddNote={(notebookId) => void createNote(notebookId ? { notebookId } : undefined)}
           />
         </aside>
       )}
@@ -886,6 +921,8 @@ export default function ShouchaoPage() {
                 key={nb.id}
                 type="button"
                 onClick={() => setNotebookFilter(nb.id)}
+                onDoubleClick={() => void renameNotebookPrompt(nb)}
+                title="点击筛选，双击修改名称"
                 className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-footnote surface-interactive ${
                   notebookFilter === nb.id ? 'bg-brand-500 text-white' : 'bg-surface-2 text-ink-secondary hover:bg-surface-3'
                 }`}
@@ -899,44 +936,45 @@ export default function ShouchaoPage() {
               type="button"
               onClick={() => void createNotebookPrompt()}
               className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2.5 py-1 text-footnote text-ink-tertiary hover:border-brand-300 hover:text-brand-600 surface-interactive"
-              title="新建知识库"
+              title="新建分组"
             >
-              <Plus className="h-3 w-3" /> 知识库
+              <Plus className="h-3 w-3" /> 分组
             </button>
           </div>
 
-          {/* 数据库条 (对标 Notion databases) */}
-          <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            <span className="inline-flex items-center gap-1 text-footnote text-ink-tertiary">
-              <Database className="h-3.5 w-3.5" /> 数据库
-            </span>
-            {databases.map((db) => (
-              <Link
-                key={db.id}
-                href={`/shouchao/db/${db.id}`}
-                className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-footnote text-ink-secondary hover:bg-surface-3 surface-interactive"
+          {showDatabaseBar && (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <span className="inline-flex items-center gap-1 text-footnote text-ink-tertiary">
+                <Database className="h-3.5 w-3.5" /> 数据库
+              </span>
+              {databases.map((db) => (
+                <Link
+                  key={db.id}
+                  href={`/shouchao/db/${db.id}`}
+                  className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-footnote text-ink-secondary hover:bg-surface-3 surface-interactive"
+                >
+                  {db.icon && <span>{db.icon}</span>}
+                  {db.name}
+                </Link>
+              ))}
+              <button
+                type="button"
+                onClick={() => void createDatabase()}
+                className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2.5 py-1 text-footnote text-ink-tertiary hover:border-brand-300 hover:text-brand-600 surface-interactive"
+                title="新建数据库"
               >
-                {db.icon && <span>{db.icon}</span>}
-                {db.name}
-              </Link>
-            ))}
-            <button
-              type="button"
-              onClick={() => void createDatabase()}
-              className="inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2.5 py-1 text-footnote text-ink-tertiary hover:border-brand-300 hover:text-brand-600 surface-interactive"
-              title="新建数据库"
-            >
-              <Plus className="h-3 w-3" /> 数据库
-            </button>
-            <button
-              type="button"
-              onClick={() => setDistillOpen(true)}
-              className="ml-auto inline-flex items-center gap-1 rounded-full border border-brand-200 bg-brand-50/40 px-2.5 py-1 text-footnote font-medium text-brand-600 hover:bg-brand-50 surface-interactive"
-              title="让 AI 整理你已授权的笔记（仅个人范围）"
-            >
-              <Sparkles className="h-3 w-3" /> 整理建议
-            </button>
-          </div>
+                <Plus className="h-3 w-3" /> 数据库
+              </button>
+              <button
+                type="button"
+                onClick={() => setDistillOpen(true)}
+                className="ml-auto inline-flex items-center gap-1 rounded-full border border-brand-200 bg-brand-50/40 px-2.5 py-1 text-footnote font-medium text-brand-600 hover:bg-brand-50 surface-interactive"
+                title="让 AI 整理你已授权的笔记（仅个人范围）"
+              >
+                <Sparkles className="h-3 w-3" /> 整理建议
+              </button>
+            </div>
+          )}
 
           {/* 问笔记 (跨笔记 AI 问答 · NotebookLM 式"第二大脑") */}
           <div className="mt-3">
@@ -1493,6 +1531,203 @@ export default function ShouchaoPage() {
           {toast.text}
         </div>
       )}
+    </div>
+  );
+}
+
+function NotebookNoteTree({
+  notes,
+  notebooks,
+  activeId,
+  notebookFilter,
+  onSelectNotebook,
+  onCreateNotebook,
+  onRenameNotebook,
+  onSelectNote,
+  onAddNote,
+}: {
+  notes: Note[];
+  notebooks: Notebook[];
+  activeId: string | null;
+  notebookFilter: string | null;
+  onSelectNotebook: (id: string | null) => void;
+  onCreateNotebook: (name: string) => Promise<Notebook | null>;
+  onRenameNotebook: (notebook: Pick<Notebook, 'id' | 'name' | 'icon'>) => void;
+  onSelectNote: (id: string) => void;
+  onAddNote: (notebookId: string | null) => void;
+}) {
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+  const [newGroupName, setNewGroupName] = useState('');
+  const [creating, setCreating] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  const grouped = useMemo(() => {
+    const byNotebook = new Map<string, Note[]>();
+    for (const note of notes) {
+      const key = note.notebookId ?? 'unfiled';
+      byNotebook.set(key, [...(byNotebook.get(key) ?? []), note]);
+    }
+    return byNotebook;
+  }, [notes]);
+
+  const toggle = (id: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const createGroup = async () => {
+    const name = newGroupName.trim();
+    if (!name || creating) return;
+    setCreating(true);
+    try {
+      const notebook = await onCreateNotebook(name);
+      if (notebook) {
+        setNewGroupName('');
+        setCollapsed((prev) => {
+          const next = new Set(prev);
+          next.delete(notebook.id);
+          return next;
+        });
+        setTimeout(() => inputRef.current?.focus(), 0);
+      }
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const renderGroup = (group: { id: string | null; name: string; icon?: string; notes: Note[] }) => {
+    const key = group.id ?? 'all';
+    const notebookId = group.id && group.id !== 'unfiled' ? group.id : null;
+    const isCollapsed = collapsed.has(key);
+    const selected = notebookFilter === group.id || (group.id === null && notebookFilter === null);
+    return (
+      <div key={key}>
+        <div
+          className={`group/tree flex items-center gap-1 rounded-md px-1 py-0.5 surface-interactive ${
+            selected ? 'bg-brand-50 text-brand-700' : 'text-ink-secondary hover:bg-surface-2'
+          }`}
+        >
+          <button
+            type="button"
+            onClick={() => toggle(key)}
+            className="shrink-0 rounded p-0.5 text-ink-tertiary hover:bg-surface-3"
+            title={isCollapsed ? '展开' : '收起'}
+          >
+            {isCollapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+          </button>
+          <button
+            type="button"
+            onClick={() => onSelectNotebook(group.id)}
+            className="flex min-w-0 flex-1 items-center gap-1.5 py-1 text-left text-caption"
+          >
+            <span className="shrink-0">{group.icon ?? <NotebookPen className="h-3.5 w-3.5 text-ink-tertiary" />}</span>
+            <span className="truncate">{group.name}</span>
+            <span className="ml-auto shrink-0 text-footnote text-ink-tertiary">{group.notes.length}</span>
+          </button>
+          {notebookId && (
+            <button
+              type="button"
+              onClick={() => onRenameNotebook({ id: notebookId, name: group.name, icon: group.icon })}
+              title="修改分组名称"
+              className="shrink-0 rounded p-0.5 text-ink-tertiary opacity-0 transition-opacity hover:bg-surface-3 group-hover/tree:opacity-100"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+          )}
+          {group.id !== null && (
+            <button
+              type="button"
+              onClick={() => onAddNote(group.id === 'unfiled' ? null : group.id)}
+              title="在该分组新建笔记"
+              className="shrink-0 rounded p-0.5 text-ink-tertiary opacity-0 transition-opacity hover:bg-surface-3 group-hover/tree:opacity-100"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+        {!isCollapsed && (
+          <div className="ml-5 mt-0.5 space-y-0.5">
+            {group.notes.length === 0 ? (
+              <p className="px-2 py-1 text-footnote text-ink-tertiary">暂无笔记</p>
+            ) : (
+              group.notes.map((note) => (
+                <button
+                  key={note.id}
+                  type="button"
+                  onClick={() => onSelectNote(note.id)}
+                  className={`flex w-full min-w-0 items-center gap-1.5 rounded-md px-2 py-1 text-left text-caption surface-interactive ${
+                    activeId === note.id ? 'bg-brand-50 text-brand-700' : 'text-ink-secondary hover:bg-surface-2'
+                  }`}
+                >
+                  <span className="shrink-0">
+                    {note.icon ? <span>{note.icon}</span> : <FileText className="h-3.5 w-3.5 text-ink-tertiary" />}
+                  </span>
+                  <span className="truncate">{note.title || '未命名笔记'}</span>
+                </button>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const groups = [
+    { id: null, name: '全部笔记', notes },
+    { id: 'unfiled', name: '未分组', notes: grouped.get('unfiled') ?? [] },
+    ...notebooks.map((nb) => ({
+      id: nb.id,
+      name: nb.name,
+      icon: nb.icon,
+      notes: grouped.get(nb.id) ?? [],
+    })),
+  ];
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex items-center justify-between px-2 py-1.5">
+        <span className="text-footnote font-semibold text-ink-tertiary">分组</span>
+        <button
+          type="button"
+          onClick={() => onAddNote(notebookFilter && notebookFilter !== 'unfiled' ? notebookFilter : null)}
+          title="新建笔记"
+          className="rounded p-0.5 text-ink-tertiary hover:bg-surface-2 hover:text-ink-secondary surface-interactive"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+        <div className="space-y-1">{groups.map(renderGroup)}</div>
+      </div>
+      <div className="border-t border-border p-2">
+        <div className="flex items-center gap-1.5">
+          <input
+            ref={inputRef}
+            value={newGroupName}
+            onChange={(e) => setNewGroupName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                void createGroup();
+              }
+            }}
+            placeholder="连续新建分组"
+            className="min-w-0 flex-1 rounded-md border border-border bg-surface-1 px-2 py-1 text-footnote text-ink-primary placeholder:text-ink-tertiary focus:border-brand-400 focus:outline-none"
+          />
+          <button
+            type="button"
+            onClick={() => void createGroup()}
+            disabled={!newGroupName.trim() || creating}
+            title="新建分组"
+            className="rounded-md bg-brand-500 p-1.5 text-white hover:bg-brand-600 disabled:opacity-40 surface-interactive"
+          >
+            {creating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

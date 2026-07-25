@@ -4,13 +4,13 @@
  * 按组织架构一键建群对话框 (IM P1, 2026-05-10)
  *
  * HR/Admin 视角:
- *   - 列出所有部门 + 下辖 ministry, 默认全选
+ *   - 列出 HR 组织树中的体系 + 部门, 默认全选
  *   - 勾选哪些要建群 (已存在的自动跳过)
  *   - 显示预估成员数
  *   - 执行 → 展示结果 (created / skipped)
  *
  * 数据流:
- *   zustand OrgStore (departments) + OKRStore (people.ministryId)
+ *   useOrgStore.hrDepts + useOrgPeopleStore.people
  *     → 组装 specs → POST /api/im/channels/seed-from-org → 结果面板
  */
 
@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { useOrgStore } from '@/lib/store';
 import { useOrgPeopleStore } from '@/lib/org/people-source';
+import type { HrDept } from '@/lib/org/departments';
 
 interface Props {
   open: boolean;
@@ -36,9 +37,10 @@ interface Props {
 }
 
 interface RowSpec {
-  id: string;             // department.id 或 ministry.id
+  id: string;
   name: string;
-  parentName?: string;    // ministry 时是 department name
+  deptName: string;
+  parentName?: string;
   level: 'department' | 'team';
   memberIds: string[];
 }
@@ -49,7 +51,9 @@ interface SeedResponse {
 }
 
 export function SeedFromOrgDialog({ open, onOpenChange, currentUserId, onSeeded }: Props) {
-  const { departments } = useOrgStore();
+  const hrDepts = useOrgStore((s) => s.hrDepts);
+  const hrDeptsHydrated = useOrgStore((s) => s._hrHydrated);
+  const hydrateHrDepts = useOrgStore((s) => s.hydrateHrDepts);
   // E-pragma (2026-05-31): 真用户 + fixture 合并后的人源
   const people = useOrgPeopleStore((s) => s.people);
 
@@ -58,48 +62,65 @@ export function SeedFromOrgDialog({ open, onOpenChange, currentUserId, onSeeded 
   const [result, setResult] = useState<SeedResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // 展平: 每个 department + 每个 ministry 都是一行
+  useEffect(() => {
+    if (open && !hrDeptsHydrated) void hydrateHrDepts();
+  }, [open, hrDeptsHydrated, hydrateHrDepts]);
+
+  function groupName(dept: HrDept, level: RowSpec['level']) {
+    if (level === 'team') {
+      return dept.name.endsWith('体系') ? `${dept.name}群` : `${dept.name} 体系群`;
+    }
+    return dept.name.endsWith('部门') ? `${dept.name}群` : `${dept.name} 部门群`;
+  }
+
+  // 展平 HR 组织树: 根节点建体系群, 非根节点建部门群.
   const rows = useMemo<RowSpec[]>(() => {
+    const childrenByParent = new Map<string | null, HrDept[]>();
+    const deptById = new Map(hrDepts.map((d) => [d.id, d]));
+    for (const dept of hrDepts) {
+      const key = dept.parentId ?? null;
+      childrenByParent.set(key, [...(childrenByParent.get(key) ?? []), dept]);
+    }
+
+    const collectDescendantIds = (deptId: string): string[] => {
+      const ids = [deptId];
+      for (const child of childrenByParent.get(deptId) ?? []) {
+        ids.push(...collectDescendantIds(child.id));
+      }
+      return ids;
+    };
+
     const out: RowSpec[] = [];
-    for (const d of departments) {
-      const deptMembers = people
-        .filter((p) =>
-          p.ministryId === d.id ||
-          d.ministries.some((m) => m.id === p.ministryId)
-        )
+    for (const d of hrDepts) {
+      const level: RowSpec['level'] = d.parentId ? 'department' : 'team';
+      const deptIds = new Set(collectDescendantIds(d.id));
+      const memberIds = people
+        .filter((p) => p.ministryId && deptIds.has(p.ministryId))
         .map((p) => p.id);
       out.push({
         id: d.id,
-        name: `${d.name} 工作群`,
-        level: 'department',
-        memberIds: deptMembers,
+        name: groupName(d, level),
+        deptName: d.name,
+        parentName: d.parentId ? deptById.get(d.parentId)?.name : undefined,
+        level,
+        memberIds,
       });
-      for (const m of d.ministries) {
-        const teamMembers = people
-          .filter((p) => p.ministryId === m.id)
-          .map((p) => p.id);
-        out.push({
-          id: m.id,
-          name: `${d.name} / ${m.name}`,
-          parentName: d.name,
-          level: 'team',
-          memberIds: teamMembers,
-        });
-      }
     }
     return out;
-  }, [departments, people]);
+  }, [hrDepts, people]);
 
   // 对话框打开时: 默认全选 (且清结果)
   useEffect(() => {
     if (open) {
-      setSelected(new Set(rows.map((r) => r.id)));
+      setSelected(new Set(rows.filter((r) => r.memberIds.length > 0).map((r) => r.id)));
       setResult(null);
       setError(null);
     }
   }, [open, rows]);
 
   const toggleOne = (id: string) => {
+    const row = rows.find((r) => r.id === id);
+    if (!row || row.memberIds.length === 0) return;
     const next = new Set(selected);
     if (next.has(id)) next.delete(id);
     else next.add(id);
@@ -107,18 +128,19 @@ export function SeedFromOrgDialog({ open, onOpenChange, currentUserId, onSeeded 
   };
 
   const toggleAll = () => {
-    if (selected.size === rows.length) setSelected(new Set());
-    else setSelected(new Set(rows.map((r) => r.id)));
+    const selectableRows = rows.filter((r) => r.memberIds.length > 0);
+    if (selected.size === selectableRows.length) setSelected(new Set());
+    else setSelected(new Set(selectableRows.map((r) => r.id)));
   };
 
   const handleSeed = async () => {
     setBusy(true); setError(null); setResult(null);
     try {
       const specs = rows
-        .filter((r) => selected.has(r.id))
+        .filter((r) => selected.has(r.id) && r.memberIds.length > 0)
         .map((r) => ({
           departmentId: r.id,
-          name: r.level === 'department' ? r.name : `${r.name} 工作群`,
+          name: r.name,
           memberIds: r.memberIds,
           level: r.level,
         }));
@@ -142,7 +164,8 @@ export function SeedFromOrgDialog({ open, onOpenChange, currentUserId, onSeeded 
     }
   };
 
-  const allChecked = selected.size === rows.length && rows.length > 0;
+  const selectableCount = rows.filter((r) => r.memberIds.length > 0).length;
+  const allChecked = selected.size === selectableCount && selectableCount > 0;
   const totalMembers = rows
     .filter((r) => selected.has(r.id))
     .reduce((s, r) => s + r.memberIds.length, 0);
@@ -156,7 +179,7 @@ export function SeedFromOrgDialog({ open, onOpenChange, currentUserId, onSeeded 
             按组织架构一键建群
           </DialogTitle>
           <div className="text-[11px] text-muted-foreground mt-1">
-            每个部门 + 团队生成 1 个工作群 · 已存在的自动跳过 (幂等)
+            根节点生成体系群, 下级节点生成部门群 · 已存在的自动跳过
           </div>
         </DialogHeader>
 
@@ -209,51 +232,55 @@ export function SeedFromOrgDialog({ open, onOpenChange, currentUserId, onSeeded 
                 <span className="font-medium">全选</span>
               </label>
               <span className="text-muted-foreground">
-                选 {selected.size}/{rows.length} · 共 {totalMembers} 人 (含重复)
+                选 {selected.size}/{selectableCount} · 共 {totalMembers} 人次
               </span>
             </div>
             <div className="flex-1 overflow-y-auto space-y-0.5 py-1">
               {rows.map((r) => {
-                const Icon = r.level === 'department' ? Building2 : UsersRound;
+                const Icon = r.level === 'team' ? UsersRound : Building2;
+                const hasMembers = r.memberIds.length > 0;
                 return (
                   <label
                     key={r.id}
-                    className="flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer hover:bg-muted/40"
+                    className={`flex items-center gap-2 rounded px-2 py-1.5 ${
+                      hasMembers ? 'cursor-pointer hover:bg-muted/40' : 'cursor-not-allowed opacity-45'
+                    }`}
                   >
                     <input
                       type="checkbox"
                       checked={selected.has(r.id)}
+                      disabled={!hasMembers}
                       onChange={() => toggleOne(r.id)}
                       className="h-3.5 w-3.5 rounded border-hairline accent-brand-600"
                     />
                     <Icon
                       className={`h-3.5 w-3.5 shrink-0 ${
-                        r.level === 'department' ? 'text-info' : 'text-ink-secondary'
+                        r.level === 'team' ? 'text-info' : 'text-ink-secondary'
                       }`}
                     />
                     <div className="flex-1 min-w-0">
                       <div className="text-footnote truncate">
-                        {r.level === 'team' && r.parentName && (
+                        {r.level === 'department' && r.parentName && (
                           <span className="text-muted-foreground">{r.parentName} / </span>
                         )}
                         <span className="font-medium">
-                          {r.level === 'department' ? r.name : r.name.split(' / ').pop()}
+                          {r.deptName}
                         </span>
                       </div>
                       <div className="text-[10px] text-muted-foreground flex items-center gap-1">
                         <Users className="h-2.5 w-2.5" />
-                        {r.memberIds.length} 人
+                        {hasMembers ? `${r.memberIds.length} 人` : '无成员，不创建'}
                       </div>
                     </div>
                     <Badge variant="outline" className="text-[9px] h-4">
-                      {r.level === 'department' ? '部门' : '团队'}
+                      {r.level === 'team' ? '体系' : '部门群'}
                     </Badge>
                   </label>
                 );
               })}
               {rows.length === 0 && (
                 <div className="text-footnote text-muted-foreground text-center py-6">
-                  无部门数据 · 先去 /organization 配置
+                  暂无 HR 组织数据 · 先去 <a className="underline" href="/admin/organization">组织架构</a> 配置
                 </div>
               )}
             </div>

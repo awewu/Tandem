@@ -11,9 +11,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import {
   listChannelMembers, addChannelMember, removeChannelMember, setMemberRole, updateMemberSettings,
-  getChannelIfMember,
+  getChannelIfVisible,
 } from '@/lib/im/service';
-import { requireAuth } from '@/lib/auth/require-auth';
+import { requireAuth, requirePermission } from '@/lib/auth/require-auth';
 import { withApiLog } from '@/lib/api-log/with-api-log';
 
 async function GETApiHandler(
@@ -24,8 +24,9 @@ async function GETApiHandler(
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   const { id } = await params;
-  // 访问控制: 仅频道成员可查看成员名单 (防跨频道/跨租户 IDOR).
-  const channel = await getChannelIfMember(id, auth.userId, auth.tenantId);
+  // 访问控制: 成员可查看; 组织管理员可只读巡检本租户成员名单.
+  const canViewAll = (await requirePermission(auth, 'organization.manage')) === null;
+  const channel = await getChannelIfVisible(id, auth.userId, auth.tenantId, canViewAll);
   if (!channel) return NextResponse.json({ error: 'not found' }, { status: 404 });
   const members = await listChannelMembers(id);
   return NextResponse.json({ members });

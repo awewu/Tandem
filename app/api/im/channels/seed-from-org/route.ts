@@ -15,16 +15,16 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { seedDepartmentChannels, type DepartmentSpec } from '@/lib/im/service';
-import { requireAuth, requireRole } from '@/lib/auth/require-auth';
+import { requireAuth, requirePermission } from '@/lib/auth/require-auth';
 import { withApiLog } from '@/lib/api-log/with-api-log';
 
 async function POSTApiHandler(req: NextRequest) {
   await boot();
-  // 管理员专属: 必须登录且为 owner/admin, operator 取自登录身份.
+  // 组织管理权限专属: operator 取自登录身份, 不接受 body 注入.
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
-  const roleGuard = requireRole(auth, ['owner', 'admin']);
-  if (roleGuard) return roleGuard;
+  const forbidden = await requirePermission(auth, 'organization.manage');
+  if (forbidden) return forbidden;
   try {
     const body = await req.json();
     if (!Array.isArray(body.specs)) {
@@ -42,7 +42,7 @@ async function POSTApiHandler(req: NextRequest) {
         return NextResponse.json({ error: 'level must be department or team' }, { status: 400 });
       }
     }
-    const result = await seedDepartmentChannels(body.specs, auth.userId);
+    const result = await seedDepartmentChannels(body.specs, auth.userId, auth.tenantId);
     return NextResponse.json(result);
   } catch (err) {
     return NextResponse.json(

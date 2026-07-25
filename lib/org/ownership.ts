@@ -132,6 +132,13 @@ export function formatOwnerLabel(owner: ResolvedOwner, opts?: { includeDept?: bo
   return `[${owner.deptName}] ${owner.name}`;
 }
 
+/** 渲染 owner 所属组织部门路径. */
+export function formatOwnerDepartment(owner: ResolvedOwner): string {
+  if (owner.deptName && owner.ministryName) return `${owner.deptName} / ${owner.ministryName}`;
+  if (owner.deptName) return owner.deptName;
+  return '未设置组织部门';
+}
+
 /**
  * 面向用户的负责人文案. resolveOwner 保留原始 id 便于内部诊断, UI 则绝不泄露原始 id.
  */

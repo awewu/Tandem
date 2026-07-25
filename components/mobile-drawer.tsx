@@ -12,7 +12,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { X, Sparkles, ShieldCheck, Settings, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { NAV_MODULES, isVisible, resolveNavRoles, type Role } from './nav-modules';
+import { NAV_MODULES, isGlobalNavEntry, isVisible, resolveNavRoles, type Role } from './nav-modules';
 import { useCurrentUser, useAuthStore } from '@/lib/hooks/use-current-user';
 import { useBackDismiss } from '@/lib/hooks/use-back-dismiss';
 
@@ -63,7 +63,7 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
   }
 
   const modules = useMemo(
-    () => NAV_MODULES.filter((m) => isVisible(m.visibleTo, userRoles)),
+    () => NAV_MODULES.filter((m) => isGlobalNavEntry(m) && isVisible(m.visibleTo, userRoles)),
     [userRoles],
   );
 

@@ -18,14 +18,17 @@ import Link from 'next/link';
 import {
   Target, CalendarRange, CalendarCheck, ArrowRight,
   Pin, PinOff, AlertTriangle, ClipboardCheck, User, Edit2, Save, Trash2,
+  ChevronDown, ChevronRight,
 } from 'lucide-react';
 import { useOKRStore } from '@/lib/store';
+import { useOrgStore } from '@/lib/store/org';
 import { krProgress, objectiveProgress } from '@/lib/okr/progress';
 import { objectiveScheduleRisk, type RiskBand } from '@/lib/okr/risk';
 import { startOfWeek, buildWorkMethod } from '@/lib/okr/work-method';
 import { persistCreateInitiative, persistDeleteInitiative, persistUpdateInitiative, hydrateOkrFromApi } from '@/lib/store/okr-sync';
 import type { Confidence, Initiative, KeyResult } from '@/lib/store';
 import { useOwnerDirectory } from '@/lib/org/use-owner-directory';
+import { formatOwnerDepartment } from '@/lib/org/ownership';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
@@ -62,6 +65,23 @@ type CreatePlanDraft = Required<Pick<InitiativeEditPatch, 'title' | 'status'>> &
   keyResultId: string;
 };
 
+type OwnerPersonOption = {
+  id: string;
+  label: string;
+  deptId: string | null;
+  departmentLabel: string;
+  searchText: string;
+};
+
+type OwnerTreeDeptNode = {
+  id: string;
+  name: string;
+  path: string;
+  searchText: string;
+  people: OwnerPersonOption[];
+  children: OwnerTreeDeptNode[];
+};
+
 function toDateInputValue(ms?: number | null): string {
   if (ms == null) return '';
   const d = new Date(ms);
@@ -81,10 +101,60 @@ function startDateInputToValue(value: string): number | null {
   return fromDateInputValue(value) ?? null;
 }
 
+function hrDeptPath(
+  deptId: string | null | undefined,
+  byId: Map<string, { id: string; name: string; parentId: string | null }>,
+): string | null {
+  if (!deptId) return null;
+  const parts: string[] = [];
+  const visited = new Set<string>();
+  let cur = byId.get(deptId);
+  while (cur && !visited.has(cur.id)) {
+    visited.add(cur.id);
+    parts.unshift(cur.name);
+    cur = cur.parentId ? byId.get(cur.parentId) : undefined;
+  }
+  return parts.length > 0 ? parts.join(' / ') : null;
+}
+
+function cloneOwnerTree(nodes: OwnerTreeDeptNode[]): OwnerTreeDeptNode[] {
+  return nodes.map((node) => ({
+    ...node,
+    children: cloneOwnerTree(node.children),
+    people: [...node.people],
+  }));
+}
+
+function filterOwnerTree(nodes: OwnerTreeDeptNode[], query: string): OwnerTreeDeptNode[] {
+  if (!query) return nodes;
+  const result: OwnerTreeDeptNode[] = [];
+  for (const node of nodes) {
+    const deptMatches = node.searchText.includes(query);
+    const children = deptMatches ? cloneOwnerTree(node.children) : filterOwnerTree(node.children, query);
+    const people = deptMatches ? [...node.people] : node.people.filter((p) => p.searchText.includes(query));
+    if (deptMatches || children.length > 0 || people.length > 0) {
+      result.push({ ...node, children, people });
+    }
+  }
+  return result;
+}
+
+function firstOwnerInTree(nodes: OwnerTreeDeptNode[]): OwnerPersonOption | undefined {
+  for (const node of nodes) {
+    if (node.people[0]) return node.people[0];
+    const child = firstOwnerInTree(node.children);
+    if (child) return child;
+  }
+  return undefined;
+}
+
 export default function WorkMethodPage() {
   const { cycles, objectives, keyResults, checkIns, initiatives, currentUserId, updateInitiative, deleteInitiative } = useOKRStore();
+  const hrDepts = useOrgStore((s) => s.hrDepts);
+  const hrDeptsHydrated = useOrgStore((s) => s._hrHydrated);
+  const hydrateHrDepts = useOrgStore((s) => s.hydrateHrDepts);
   const { user } = useCurrentUser();
-  const { people, nameOf } = useOwnerDirectory();
+  const { people, nameOf, resolve } = useOwnerDirectory();
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => setNow(Date.now()), []);
   useEffect(() => {
@@ -93,6 +163,9 @@ export default function WorkMethodPage() {
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
   }, []);
+  useEffect(() => {
+    if (!hrDeptsHydrated) void hydrateHrDepts();
+  }, [hrDeptsHydrated, hydrateHrDepts]);
 
   const activeCycle = useMemo(() => cycles.find((c) => c.isActive) ?? cycles[0], [cycles]);
 
@@ -101,6 +174,7 @@ export default function WorkMethodPage() {
   const [ownerSearch, setOwnerSearch] = useState('');
   const [ownerPickerOpen, setOwnerPickerOpen] = useState(false);
   const ownerPickerRef = useRef<HTMLDivElement | null>(null);
+  const [expandedOwnerDeptIds, setExpandedOwnerDeptIds] = useState<Set<string>>(new Set());
   const selfOwnerIds = useMemo(() => {
     const ids = [currentUserId, user?.id].filter(Boolean) as string[];
     return new Set(ids.flatMap((id) => [id, `person:${id}`]));
@@ -126,6 +200,16 @@ export default function WorkMethodPage() {
     return selfOwnerIds.has(hit.id) && hit.name !== '我' ? `${hit.name}（我）` : hit.name;
   }, [effectiveOwner, nameOf, peopleOptions, selfOwnerIds]);
 
+  const hrDeptById = useMemo(
+    () => new Map(hrDepts.map((d) => [d.id, { id: d.id, name: d.name, parentId: d.parentId }])),
+    [hrDepts],
+  );
+
+  const ownerDepartmentLabel = useMemo(() => {
+    const hit = peopleOptions.find((p) => p.id === effectiveOwner);
+    return hrDeptPath(hit?.ministryId, hrDeptById) ?? formatOwnerDepartment(resolve(effectiveOwner));
+  }, [effectiveOwner, hrDeptById, peopleOptions, resolve]);
+
   useEffect(() => {
     if (!ownerPickerOpen) setOwnerSearch(ownerLabel);
   }, [ownerLabel, ownerPickerOpen]);
@@ -143,14 +227,95 @@ export default function WorkMethodPage() {
     return () => document.removeEventListener('pointerdown', closeOnOutsidePointer);
   }, [ownerLabel, ownerPickerOpen]);
 
-  const filteredPeopleOptions = useMemo(() => {
-    const q = ownerSearch.trim().toLowerCase();
-    if (!q || q === ownerLabel.toLowerCase()) return peopleOptions;
-    return peopleOptions.filter((p) => {
+  const ownerPersonOptions = useMemo<OwnerPersonOption[]>(() => (
+    peopleOptions.map((p) => {
       const label = selfOwnerIds.has(p.id) && p.name !== '我' ? `${p.name}（我）` : p.name;
-      return label.toLowerCase().includes(q) || p.id.toLowerCase().includes(q);
+      const deptId = p.ministryId && hrDeptById.has(p.ministryId) ? p.ministryId : null;
+      const departmentLabel = hrDeptPath(deptId, hrDeptById) ?? formatOwnerDepartment(resolve(p.id));
+      return {
+        id: p.id,
+        label,
+        deptId,
+        departmentLabel,
+        searchText: `${label} ${p.id} ${departmentLabel}`.toLowerCase(),
+      };
+    })
+  ), [hrDeptById, peopleOptions, resolve, selfOwnerIds]);
+
+  const ownerTree = useMemo(() => {
+    const deptIds = new Set(hrDepts.map((d) => d.id));
+    const childrenByParent = new Map<string | null, typeof hrDepts>();
+    for (const dept of hrDepts) {
+      const parentId = dept.parentId && deptIds.has(dept.parentId) ? dept.parentId : null;
+      childrenByParent.set(parentId, [...(childrenByParent.get(parentId) ?? []), dept]);
+    }
+    const peopleByDept = new Map<string | null, OwnerPersonOption[]>();
+    for (const person of ownerPersonOptions) {
+      peopleByDept.set(person.deptId, [...(peopleByDept.get(person.deptId) ?? []), person]);
+    }
+
+    const build = (parentId: string | null): OwnerTreeDeptNode[] =>
+      (childrenByParent.get(parentId) ?? []).map((dept) => {
+        const path = hrDeptPath(dept.id, hrDeptById) ?? dept.name;
+        return {
+          id: dept.id,
+          name: dept.name,
+          path,
+          searchText: `${dept.name} ${path} ${dept.id}`.toLowerCase(),
+          people: peopleByDept.get(dept.id) ?? [],
+          children: build(dept.id),
+        };
+      });
+
+    const roots = build(null);
+    const unassigned = peopleByDept.get(null) ?? [];
+    return unassigned.length > 0
+      ? [
+          ...roots,
+          {
+            id: '__unassigned__',
+            name: '未设置组织部门',
+            path: '未设置组织部门',
+            searchText: '未设置组织部门 __unassigned__',
+            people: unassigned,
+            children: [],
+          },
+        ]
+      : roots;
+  }, [hrDeptById, hrDepts, ownerPersonOptions]);
+
+  const visibleOwnerTree = useMemo(() => {
+    const q = ownerSearch.trim().toLowerCase();
+    if (!q || q === ownerLabel.toLowerCase()) return ownerTree;
+    return filterOwnerTree(ownerTree, q);
+  }, [ownerLabel, ownerSearch, ownerTree]);
+
+  const firstFilteredOwner = useMemo(() => firstOwnerInTree(visibleOwnerTree), [visibleOwnerTree]);
+
+  function openOwnerPicker() {
+    setOwnerSearch('');
+    setOwnerPickerOpen(true);
+    setExpandedOwnerDeptIds((prev) => {
+      const next = new Set(prev);
+      for (const node of ownerTree) next.add(node.id);
+      const hit = peopleOptions.find((p) => p.id === effectiveOwner);
+      let cur = hit?.ministryId ? hrDeptById.get(hit.ministryId) : undefined;
+      while (cur) {
+        next.add(cur.id);
+        cur = cur.parentId ? hrDeptById.get(cur.parentId) : undefined;
+      }
+      return next;
     });
-  }, [ownerLabel, ownerSearch, peopleOptions, selfOwnerIds]);
+  }
+
+  function toggleOwnerDept(id: string) {
+    setExpandedOwnerDeptIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   function chooseOwner(id: string) {
     setOwnerId(id === user?.id || id === currentUserId ? '' : id);
@@ -307,60 +472,104 @@ export default function WorkMethodPage() {
           </p>
         </div>
         {/* 查看对象切换 (本人/下属) */}
-        <label className="inline-flex items-center gap-2 text-caption text-ink-secondary">
+        <div className="inline-flex items-center gap-2 text-caption text-ink-secondary">
           <User className="h-3.5 w-3.5" />
           查看
-          <div ref={ownerPickerRef} className="relative w-52">
-            <input
-              value={ownerPickerOpen ? ownerSearch : ownerLabel}
-              onChange={(e) => {
-                setOwnerSearch(e.target.value);
-                setOwnerPickerOpen(true);
+          <div ref={ownerPickerRef} className="relative w-80 max-w-[min(20rem,calc(100vw-2rem))]">
+            <button
+              type="button"
+              onClick={() => {
+                if (ownerPickerOpen) setOwnerPickerOpen(false);
+                else openOwnerPicker();
               }}
-              onFocus={() => {
-                setOwnerSearch('');
-                setOwnerPickerOpen(true);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') {
-                  setOwnerPickerOpen(false);
-                  return;
-                }
-                if (e.key === 'Enter' && filteredPeopleOptions[0]) {
-                  e.preventDefault();
-                  chooseOwner(filteredPeopleOptions[0].id);
-                }
-              }}
-              placeholder="输入姓名搜索"
-              className="w-full rounded-md border border-border bg-surface-1 px-2.5 py-1.5 text-caption text-ink-primary outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
-            />
+              className="flex w-full items-center justify-between gap-2 rounded-md border border-border bg-surface-1 px-2.5 py-1.5 text-left text-caption text-ink-primary outline-none transition hover:bg-surface-2 focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
+            >
+              <span className="truncate">{ownerLabel}</span>
+              <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-ink-tertiary transition ${ownerPickerOpen ? 'rotate-180' : ''}`} />
+            </button>
+            <div className="mt-1 truncate text-[11px] text-ink-tertiary">
+              组织部门：{ownerDepartmentLabel}
+            </div>
             {ownerPickerOpen && (
-              <div className="absolute right-0 z-20 mt-1 max-h-72 w-full overflow-auto rounded-md border border-border bg-surface-1 py-1 shadow-soft-lg">
-                {filteredPeopleOptions.length === 0 ? (
-                  <div className="px-3 py-2 text-footnote text-ink-tertiary">没有匹配的人</div>
-                ) : (
-                  filteredPeopleOptions.map((p) => {
-                    const label = selfOwnerIds.has(p.id) && p.name !== '我' ? `${p.name}（我）` : p.name;
-                    const active = p.id === effectiveOwner;
-                    return (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => chooseOwner(p.id)}
-                        className={`block w-full px-3 py-2 text-left text-caption ${
-                          active ? 'bg-brand-50 text-brand-700' : 'text-ink-primary hover:bg-surface-3'
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })
-                )}
+              <div className="absolute right-0 z-20 mt-1 w-full rounded-md border border-border bg-surface-1 p-2 shadow-soft-lg">
+                <input
+                  value={ownerSearch}
+                  onChange={(e) => setOwnerSearch(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      setOwnerPickerOpen(false);
+                      return;
+                    }
+                    if (e.key === 'Enter' && firstFilteredOwner) {
+                      e.preventDefault();
+                      chooseOwner(firstFilteredOwner.id);
+                    }
+                  }}
+                  placeholder="输入姓名搜索"
+                  autoFocus
+                  className="mb-2 w-full rounded-md border border-border bg-surface-1 px-2.5 py-1.5 text-caption text-ink-primary outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
+                />
+                <div className="max-h-72 overflow-auto">
+                  {visibleOwnerTree.length === 0 ? (
+                    <div className="px-3 py-2 text-footnote text-ink-tertiary">没有匹配的人</div>
+                  ) : (
+                    visibleOwnerTree.map((node) => {
+                      const renderNode = (item: OwnerTreeDeptNode, depth: number) => {
+                        const searching = ownerSearch.trim().length > 0;
+                        const expanded = searching || expandedOwnerDeptIds.has(item.id);
+                        const hasChildren = item.children.length > 0 || item.people.length > 0;
+                        return (
+                          <div key={item.id}>
+                            <button
+                              type="button"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => hasChildren && toggleOwnerDept(item.id)}
+                              className="flex w-full items-center gap-1 rounded px-2 py-1.5 text-left text-caption text-ink-secondary hover:bg-surface-3"
+                              style={{ paddingLeft: 8 + depth * 14 }}
+                              title={item.path}
+                            >
+                              {hasChildren ? (
+                                expanded ? <ChevronDown className="h-3 w-3 shrink-0" /> : <ChevronRight className="h-3 w-3 shrink-0" />
+                              ) : (
+                                <span className="w-3 shrink-0" />
+                              )}
+                              <span className="truncate">{item.name}</span>
+                            </button>
+                            {expanded && (
+                              <>
+                                {item.children.map((child) => renderNode(child, depth + 1))}
+                                {item.people.map((person) => {
+                                  const active = person.id === effectiveOwner;
+                                  return (
+                                    <button
+                                      key={person.id}
+                                      type="button"
+                                      onMouseDown={(e) => e.preventDefault()}
+                                      onClick={() => chooseOwner(person.id)}
+                                      className={`block w-full rounded px-2 py-1.5 text-left transition ${
+                                        active ? 'bg-brand-50 text-brand-700' : 'text-ink-primary hover:bg-surface-3'
+                                      }`}
+                                      style={{ paddingLeft: 28 + depth * 14 }}
+                                      title={person.departmentLabel}
+                                    >
+                                      <span className="block truncate text-caption">{person.label}</span>
+                                      <span className="block truncate text-[11px] text-ink-tertiary">{person.departmentLabel}</span>
+                                    </button>
+                                  );
+                                })}
+                              </>
+                            )}
+                          </div>
+                        );
+                      };
+                      return renderNode(node, 0);
+                    })
+                  )}
+                </div>
               </div>
             )}
           </div>
-        </label>
+        </div>
       </header>
 
       {ownerObjectives.length === 0 ? (

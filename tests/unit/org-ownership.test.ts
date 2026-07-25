@@ -4,6 +4,7 @@ import {
   resolveOwner,
   formatOwnerDisplay,
   formatOwnerLabel,
+  formatOwnerDepartment,
 } from '@/lib/org/ownership';
 import type { Department } from '@/lib/types/governance';
 
@@ -132,6 +133,25 @@ describe('formatOwnerLabel', () => {
   it('没 dept 时即使 includeDept 也只返回 name', () => {
     const r = resolveOwner('p4', { people, deptIndex: idx });
     expect(formatOwnerLabel(r, { includeDept: true })).toBe('赵六');
+  });
+});
+
+describe('formatOwnerDepartment', () => {
+  const idx = buildDeptIndex(deps);
+
+  it('person 挂到 ministry 时显示部门 / 小组', () => {
+    const r = resolveOwner('p1', { people, deptIndex: idx });
+    expect(formatOwnerDepartment(r)).toBe('技术部 / 前端组');
+  });
+
+  it('person 直接挂到一级部门时只显示部门', () => {
+    const r = resolveOwner('p3', { people, deptIndex: idx });
+    expect(formatOwnerDepartment(r)).toBe('技术部');
+  });
+
+  it('未配置部门时显示兜底文案', () => {
+    const r = resolveOwner('p4', { people, deptIndex: idx });
+    expect(formatOwnerDepartment(r)).toBe('未设置组织部门');
   });
 });
 

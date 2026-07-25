@@ -94,10 +94,19 @@ export const useOrgPeopleStore = create<OrgPeopleStore>((set, get) => ({
   _hydrated: false,
   _fixture: [],
   setFixture: (fixture) => {
+    const authUsers = get().people
+      .filter((p) => p.source === 'auth')
+      .map<AuthUserRow>((p) => ({
+        id: p.id,
+        name: p.name,
+        email: p.email,
+        departmentId: p.ministryId ?? null,
+        managerId: p.managerId ?? null,
+      }));
     const merged = mergePeople(
       // 已 hydrated 时 _authUsers 缓存在 people 里 (filter source=auth);
-      // 简化: 重新从当前 people 提取 auth, 与新 fixture 合并
-      get().people.filter((p) => p.source === 'auth') as AuthUserRow[],
+      // 重新从当前 people 提取 auth, 与新 fixture 合并
+      authUsers,
       fixture,
     );
     set({ _fixture: fixture, people: merged });

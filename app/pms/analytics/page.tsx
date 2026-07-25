@@ -85,6 +85,9 @@ export default function PmsAnalyticsPage() {
 
   const maxFunnel = Math.max(1, ...data.funnel.map((f) => f.count));
   const regions = Object.entries(data.byRegion).sort((a, b) => b[1] - a[1]);
+  const topRegion = regions[0];
+  const decided = data.won + data.lost;
+  const winLow = decided >= 5 && data.winRate < 30;
 
   return (
     <div className="container mx-auto p-6 max-w-5xl">
@@ -95,6 +98,27 @@ export default function PmsAnalyticsPage() {
         </h1>
         <p className="text-body text-ink-secondary mt-1">商机漏斗 · 赢单率 · 管道金额</p>
       </div>
+
+      {/* CHARTER-UI-V2 §2.1 结论横幅 (BLUF) — 先给结论与下一步, 再看明细 */}
+      {data.total === 0 ? (
+        <div className="mb-6 rounded-2xl border border-border bg-surface-2 p-5">
+          <p className="text-headline font-semibold text-ink-primary">暂无商机数据</p>
+          <p className="text-caption text-ink-secondary mt-1">→ 下一步：前往商机列表创建第一个商机，开始积累管道。</p>
+        </div>
+      ) : (
+        <div className={`mb-6 rounded-2xl border p-5 ${winLow ? 'border-warning/40 bg-warning/5' : 'border-success/30 bg-success/5'}`}>
+          <p className="text-headline font-semibold text-ink-primary">
+            {winLow ? '赢单率偏低，需复盘' : '整体运行健康'}：赢单率 {data.winRate}% · 管道 {money(data.totalPipeline)}
+          </p>
+          <p className="text-caption text-ink-secondary mt-1">
+            {data.total} 个商机 · 赢 {data.won} / 输 {data.lost}
+            {topRegion ? ` · 主力区域 ${topRegion[0]} (${topRegion[1]} 个)` : ''}。
+            {winLow
+              ? ' → 下一步：复盘报价策略与跟进节奏，聚焦高胜率区域。'
+              : ' → 保持推进，关注管道健康度与漏斗转化。'}
+          </p>
+        </div>
+      )}
 
       {/* KPI 卡片 */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">

@@ -40,7 +40,7 @@ const RISK_COLORS: Record<string, string> = {
   'off-track': 'bg-danger/10 text-danger',
 };
 
-const OBJECTIVE_SOURCE_TAGS = new Set(['公司', '部门', '团队', '个人']);
+const OBJECTIVE_SOURCE_TAGS = new Set(['公司', '体系', '部门', '团队', '个人']);
 
 interface DeptStats {
   id: string;

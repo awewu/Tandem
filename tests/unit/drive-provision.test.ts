@@ -12,6 +12,7 @@ import {
   DRIVE_SYSTEM_OWNER,
   type DriveFolderRepoLike,
   type ProvisionDept,
+  type ProvisionUser,
 } from '@/lib/drive/provision';
 
 class FakeRepo implements DriveFolderRepoLike {
@@ -43,6 +44,11 @@ const TENANT = 'default';
 const depts: ProvisionDept[] = [
   { id: 'dept_a', name: '销售大区', parentId: null },
   { id: 'dept_b', name: '华东销售部', parentId: 'dept_a' },
+];
+const users: ProvisionUser[] = [
+  { id: 'u_alice', name: 'Alice', departmentId: 'dept_b' },
+  { id: 'u_bob', name: 'Bob', departmentId: 'dept_a' },
+  { id: 'u_disabled', name: 'Disabled', departmentId: 'dept_a', disabled: true },
 ];
 
 let repo: FakeRepo;
@@ -81,6 +87,29 @@ describe('provisionOrgDrive', () => {
     const rootB = repo.store.find((f) => f.permissions.read?.includes('dept:dept_b'))!;
     expect(rootB.parentId).toBe(rootA.id);
   });
+
+  it('批量为在职员工创建个人工作区, 挂到所属部门目录下', async () => {
+    const { created } = await provisionOrgDrive({ tenantId: TENANT, depts, users, repo });
+    expect(created.length).toBe(5); // company_share + 2 dept_root + 2 personal_home
+
+    const rootA = repo.store.find((f) => f.permissions.read?.includes('dept:dept_a'))!;
+    const rootB = repo.store.find((f) => f.permissions.read?.includes('dept:dept_b'))!;
+    const alice = repo.store.find((f) => f.nodeRole === 'personal_home' && f.ownerId === 'u_alice')!;
+    const bob = repo.store.find((f) => f.nodeRole === 'personal_home' && f.ownerId === 'u_bob')!;
+
+    expect(alice.name).toBe('Alice 的工作区');
+    expect(alice.parentId).toBe(rootB.id);
+    expect(bob.parentId).toBe(rootA.id);
+    expect(repo.store.some((f) => f.ownerId === 'u_disabled' && f.nodeRole === 'personal_home')).toBe(false);
+  });
+
+  it('批量创建幂等: 重复调用不重建员工个人工作区', async () => {
+    await provisionOrgDrive({ tenantId: TENANT, depts, users, repo });
+    const countAfterFirst = repo.store.length;
+    const { created } = await provisionOrgDrive({ tenantId: TENANT, depts, users, repo });
+    expect(created.length).toBe(0);
+    expect(repo.store.length).toBe(countAfterFirst);
+  });
 });
 
 describe('ensurePersonalHome', () => {
@@ -106,7 +135,7 @@ describe('ensurePersonalHome', () => {
     expect(repo.store.filter((f) => f.nodeRole === 'personal_home').length).toBe(1);
   });
 
-  it('人员换部门后, 新建当前部门个人工作区, 不带走旧部门内容', async () => {
+  it('人员换部门后, 复用并移动个人工作区到当前部门', async () => {
     await provisionOrgDrive({ tenantId: TENANT, depts, repo });
     const rootA = repo.store.find((f) => f.permissions.read?.includes('dept:dept_a'))!;
     const rootB = repo.store.find((f) => f.permissions.read?.includes('dept:dept_b'))!;
@@ -114,10 +143,9 @@ describe('ensurePersonalHome', () => {
     expect(a.parentId).toBe(rootB.id);
 
     const b = await ensurePersonalHome({ tenantId: TENANT, userId: 'u_alice', departmentId: 'dept_a', repo });
-    expect(b.id).not.toBe(a.id);
+    expect(b.id).toBe(a.id);
     expect(b.parentId).toBe(rootA.id);
-    expect(repo.store.filter((f) => f.nodeRole === 'personal_home' && f.ownerId === 'u_alice').length).toBe(2);
-    expect(repo.store.find((f) => f.id === a.id)?.parentId).toBe(rootB.id);
+    expect(repo.store.filter((f) => f.nodeRole === 'personal_home' && f.ownerId === 'u_alice' && !f.deletedAt).length).toBe(1);
   });
 
   it('不会把其他用户的 personal_home 当成本人目录', async () => {

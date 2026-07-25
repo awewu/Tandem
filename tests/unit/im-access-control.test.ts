@@ -8,13 +8,14 @@
  *   - 成员管理 operator 取自登录身份, 普通成员不能冒充 owner 提权
  *   - dm meId 取自登录身份, 不能冒充他人发起私聊
  *
- * 攻击模型: 登录用户 (demo / tenant=default / userId='demo-user') 试图访问/操作
+ * 攻击模型: 登录普通员工 (tenant=default) 试图访问/操作
  * 自己不是成员的频道, 或借 body 注入冒充他人。
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { setStore, getStore } from '@/lib/storage/repository';
 import { createInMemoryStore } from '@/lib/storage/memory-store';
+import { COOKIE_ACCESS, signAccessToken } from '@/lib/auth/session';
 
 vi.mock('@/lib/boot', async () => {
   const repo = await import('@/lib/storage/repository');
@@ -29,6 +30,26 @@ function req(url: string, body?: unknown, method = 'GET'): NextRequest {
   const r = new Request(url, {
     method,
     headers: { 'Content-Type': 'application/json' },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  return new NextRequest(r);
+}
+
+function reqAsEmployee(url: string, body?: unknown, method = 'GET'): NextRequest {
+  const token = signAccessToken({
+    sub: 'plain-employee',
+    email: 'plain-employee@tandem.local',
+    roles: ['employee'],
+    tenantId: 'default',
+    mfa: true,
+    sid: 'sid-employee',
+  });
+  const r = new Request(url, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      Cookie: `${COOKIE_ACCESS}=${token}`,
+    },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   return new NextRequest(r);
@@ -57,9 +78,9 @@ afterEach(() => {
 
 describe('IM IDOR · 非成员不可读频道数据', () => {
   it('GET messages: 非成员频道返回 404 (不泄露存在性)', async () => {
-    const ch = await seedChannel(['other-user']); // demo-user 不是成员
+    const ch = await seedChannel(['other-user']); // plain-employee 不是成员
     const { GET } = await import('@/app/api/im/channels/[id]/messages/route');
-    const res = await GET(req(`http://t/api/im/channels/${ch.id}/messages`), {
+    const res = await GET(reqAsEmployee(`http://t/api/im/channels/${ch.id}/messages`), {
       params: { id: ch.id },
     });
     expect(res.status).toBe(404);
@@ -77,7 +98,7 @@ describe('IM IDOR · 非成员不可读频道数据', () => {
   it('GET members: 非成员频道返回 404', async () => {
     const ch = await seedChannel(['other-user']);
     const { GET } = await import('@/app/api/im/channels/[id]/members/route');
-    const res = await GET(req(`http://t/api/im/channels/${ch.id}/members`), {
+    const res = await GET(reqAsEmployee(`http://t/api/im/channels/${ch.id}/members`), {
       params: Promise.resolve({ id: ch.id }),
     });
     expect(res.status).toBe(404);

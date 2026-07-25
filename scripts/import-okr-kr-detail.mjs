@@ -36,6 +36,14 @@ const now = new Date().toISOString();
 const id = (prefix) => `${prefix}_${Date.now().toString(36)}_${randomBytes(5).toString('hex')}`;
 const clean = (v) => String(v ?? '').trim();
 const normalizeName = (v) => clean(v).replace(/\s+/g, '');
+const SYSTEM_NAME_ALIASES = {
+  '4294967251': '营销体系',
+  '2754088': '营销体系',
+};
+const normalizeSystemName = (v) => {
+  const text = clean(v);
+  return SYSTEM_NAME_ALIASES[text] ?? text;
+};
 const parsePercent = (v) => {
   const s = clean(v);
   if (!s) return null;
@@ -54,7 +62,7 @@ const riskOf = (p) => (p >= 0.7 ? 'on_track' : p >= 0.4 ? 'at_risk' : 'off_track
 const percentWeight = (ratio) => Math.round(ratio * 1000) / 10;
 const levelOf = (type) => {
   if (type === '公司') return 'company';
-  if (type === '部门' || type === '团队') return 'team';
+  if (type === '体系' || type === '部门' || type === '团队') return 'team';
   return 'individual';
 };
 const cycleByPeriod = {
@@ -160,7 +168,7 @@ for (const r of rows) {
   const cycle = cycleByPeriod[periodName] ?? cycleByPeriod['年度'];
   const type = clean(r['目标类型']) || '个人';
   const ownerName = normalizeName(r['目标负责人'] || r['KR负责人']);
-  const dept = clean(r['目标负责人所属部门'] || r['KR负责人所属部门']);
+  const dept = normalizeSystemName(r['目标负责人所属部门'] || r['KR负责人所属部门']);
   const key = [cycle.id, type, ownerName, dept, objectiveTitle].join('||');
   if (!objectiveMap.has(key)) {
     objectiveMap.set(key, {

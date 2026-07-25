@@ -39,6 +39,7 @@ import {
   Users,
   Sparkles,
   Bot,
+  Building2,
   ArrowRight,
   ArrowLeft,
   Plus,
@@ -56,6 +57,7 @@ import {
   ZoomOut,
   RefreshCw,
   Download,
+  UsersRound,
 } from 'lucide-react';
 
 // Day 4-7: 升级 Channel/Message 类型 以含撤回 + 公告 + pinned
@@ -969,7 +971,7 @@ function ImInner() {
                 <Button
                   onClick={sendMessage}
                   disabled={sending || (!input.trim() && attachments.length === 0)}
-                  className="h-9 shrink-0 gap-1 rounded-lg bg-brand-600 px-3 text-[13px] text-white transition hover:bg-brand-700 disabled:bg-surface-3 disabled:text-ink-tertiary sm:px-4"
+                  className="h-9 shrink-0 gap-1 rounded-lg bg-brand-600 px-3 text-[13px] text-white transition hover:bg-brand-700 disabled:!bg-brand-600 disabled:!text-white disabled:!opacity-100 sm:px-4"
                 >
                   <Send className="h-3.5 w-3.5" />
                   发送
@@ -1027,6 +1029,20 @@ function ConvAvatar({ channel, name }: { channel: Channel; name: string }) {
     return (
       <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${palette[idx]} text-[13px] font-semibold uppercase text-white`}>
         {name.slice(0, 2)}
+      </div>
+    );
+  }
+  if (channel.type === 'team') {
+    return (
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-info/40 to-brand-500 text-white">
+        <UsersRound className="h-5 w-5" />
+      </div>
+    );
+  }
+  if (channel.type === 'department') {
+    return (
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-info/30 to-info text-white">
+        <Building2 className="h-5 w-5" />
       </div>
     );
   }

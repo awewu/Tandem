@@ -5,8 +5,8 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
-import { getChannelMessages, sendMessage, getChannelIfMember } from '@/lib/im/service';
-import { requireAuth } from '@/lib/auth/require-auth';
+import { getChannelMessages, sendMessage, getChannelIfVisible } from '@/lib/im/service';
+import { requireAuth, requirePermission } from '@/lib/auth/require-auth';
 import { rateLimit, POLICIES } from '@/lib/infra/rate-limit';
 import { deferAudit } from '@/lib/audit/defer';
 import { withApiLog } from '@/lib/api-log/with-api-log';
@@ -22,8 +22,9 @@ async function GETApiHandler(req: NextRequest, { params }: Params) {
   const url = new URL(req.url);
   const before = url.searchParams.get('before') ?? undefined;
   const limit = Number(url.searchParams.get('limit') ?? '100');
-  // 访问控制: 仅频道成员可读消息历史 (防跨频道/跨租户 IDOR). 404 不泄露存在性.
-  const channel = await getChannelIfMember(params.id, auth.userId, auth.tenantId);
+  // 访问控制: 成员可读; 组织管理员可只读巡检本租户群. 404 不泄露跨租户存在性.
+  const canViewAll = (await requirePermission(auth, 'organization.manage')) === null;
+  const channel = await getChannelIfVisible(params.id, auth.userId, auth.tenantId, canViewAll);
   if (!channel) return NextResponse.json({ error: 'not found' }, { status: 404 });
   const messages = await getChannelMessages(params.id, { before, limit });
   return NextResponse.json({ messages });
