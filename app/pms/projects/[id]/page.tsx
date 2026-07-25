@@ -9,7 +9,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Building2, ArrowLeft, Users, Target, Gavel, FileText, TrendingUp } from 'lucide-react';
+import { Building2, ArrowLeft, Users, Target, Gavel, FileText, TrendingUp, Sparkles, AlertTriangle } from 'lucide-react';
 
 interface Detail {
   project: any;
@@ -146,6 +146,9 @@ export default function ProjectDetailPage() {
           <p className="text-caption text-ink-tertiary mt-1">{dc.hasChampion ? '有内线' : '无内线'} · {dc.hasEconomicBuyer ? '有决策人' : '缺决策人'}</p>
         </CardContent></Card>
       </div>
+
+      {/* AI 洞察 (Phase 3) */}
+      <AiInsightsSection projectId={id} />
 
       {/* 决策链 */}
       <Card className="mb-4">
@@ -338,6 +341,109 @@ function TenderSection({ projectId }: { projectId: string }) {
       </Card>
     );
   }
+
+const RISK_LEVEL_LABELS: Record<string, string> = { low: '低', medium: '中', high: '高', critical: '极高' };
+const RISK_LEVEL_COLOR: Record<string, string> = {
+  low: 'bg-success/15 text-success', medium: 'bg-warning/15 text-warning',
+  high: 'bg-danger/10 text-danger', critical: 'bg-danger/20 text-danger',
+};
+
+function AiInsightsSection({ projectId }: { projectId: string }) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [risk, setRisk] = useState<any>(null);
+  const [chain, setChain] = useState<any>(null);
+  const [tenderText, setTenderText] = useState('');
+  const [tender, setTender] = useState<any>(null);
+  const [tenderOpen, setTenderOpen] = useState(false);
+
+  async function run(action: string, setter: (v: any) => void, extra: Record<string, unknown> = {}) {
+    setBusy(action);
+    try {
+      const res = await fetch(`/api/pms/projects/${projectId}/ai`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+        body: JSON.stringify({ action, ...extra }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || '分析失败');
+      setter(json);
+    } catch (e) { alert(e instanceof Error ? e.message : '分析失败'); } finally { setBusy(null); }
+  }
+
+  return (
+    <Card className="mb-4 border-brand-500/30">
+      <CardHeader>
+        <CardTitle className="text-headline flex items-center gap-2"><Sparkles className="w-4 h-4 text-brand-500" /> AI 洞察</CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0 grid gap-4">
+        {/* spec-in 风险预测 */}
+        <div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-caption font-medium text-ink-secondary flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> spec-in 被替换风险</span>
+            <Button size="sm" variant="outline" disabled={busy === 'spec_risk'} onClick={() => run('spec_risk', setRisk)}>{busy === 'spec_risk' ? '分析中...' : '预测'}</Button>
+          </div>
+          {risk?.assessment && (
+            <div className="mt-2 p-3 rounded-md bg-surface-2 text-caption grid gap-1">
+              <div className="flex items-center gap-2">
+                <span className={`rounded px-1.5 py-0.5 ${RISK_LEVEL_COLOR[risk.assessment.riskLevel] || 'bg-surface-2'}`}>风险 {RISK_LEVEL_LABELS[risk.assessment.riskLevel]} · {risk.assessment.riskScore}/100</span>
+                <span className="text-ink-tertiary">{risk.assessment.source === 'ai' ? 'AI 分析' : '规则基线'}</span>
+              </div>
+              <p className="text-ink-secondary">{risk.assessment.summary}</p>
+              {risk.assessment.keyRisks?.length > 0 && <ul className="list-disc pl-4 text-ink-tertiary">{risk.assessment.keyRisks.map((r: string, i: number) => <li key={i}>{r}</li>)}</ul>}
+              {risk.assessment.recommendedActions?.length > 0 && <div className="text-brand-500">建议: {risk.assessment.recommendedActions.join('；')}</div>}
+            </div>
+          )}
+        </div>
+
+        {/* 决策链智能诊断 */}
+        <div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-caption font-medium text-ink-secondary flex items-center gap-1"><Users className="w-3 h-3" /> 决策链智能诊断</span>
+            <Button size="sm" variant="outline" disabled={busy === 'decision_chain'} onClick={() => run('decision_chain', setChain)}>{busy === 'decision_chain' ? '分析中...' : '诊断'}</Button>
+          </div>
+          {chain?.insight && (
+            <div className="mt-2 p-3 rounded-md bg-surface-2 text-caption grid gap-1">
+              <div className="flex items-center gap-2">
+                <span className="text-ink-primary font-medium">完整度 {chain.insight.completeness}%</span>
+                <span className="text-ink-tertiary">{chain.insight.source === 'ai' ? 'AI 分析' : '规则基线'}</span>
+              </div>
+              <p className="text-ink-secondary">{chain.insight.summary}</p>
+              {chain.insight.gaps?.length > 0 && <div className="text-warning">缺口: {chain.insight.gaps.join('；')}</div>}
+              {chain.insight.nextBestActions?.length > 0 && <div className="text-brand-500">下一步: {chain.insight.nextBestActions.join('；')}</div>}
+            </div>
+          )}
+        </div>
+
+        {/* 招投标文档解析 */}
+        <div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-caption font-medium text-ink-secondary flex items-center gap-1"><Gavel className="w-3 h-3" /> 招投标文档解析</span>
+            <Button size="sm" variant="outline" onClick={() => setTenderOpen((v) => !v)}>{tenderOpen ? '收起' : '粘贴文本'}</Button>
+          </div>
+          {tenderOpen && (
+            <div className="mt-2 grid gap-2">
+              <textarea value={tenderText} onChange={(e) => setTenderText(e.target.value)} placeholder="粘贴招标 / 技术要求文本..." rows={5}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-caption placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+              <div className="flex justify-end">
+                <Button size="sm" disabled={busy === 'tender_analysis' || !tenderText.trim()} className="bg-brand-500 hover:bg-brand-600"
+                  onClick={() => run('tender_analysis', setTender, { text: tenderText })}>{busy === 'tender_analysis' ? '解析中...' : '解析'}</Button>
+              </div>
+            </div>
+          )}
+          {tender?.analysis && (
+            <div className="mt-2 p-3 rounded-md bg-surface-2 text-caption grid gap-1.5">
+              <p className="text-ink-secondary">{tender.analysis.summary}</p>
+              {tender.analysis.keyRequirements?.length > 0 && <div><span className="text-ink-tertiary">关键要求: </span>{tender.analysis.keyRequirements.join('；')}</div>}
+              {tender.analysis.deadlines?.length > 0 && <div><span className="text-ink-tertiary">时间节点: </span>{tender.analysis.deadlines.map((d: any) => `${d.label}${d.date ? '(' + d.date + ')' : ''}`).join('、')}</div>}
+              {tender.analysis.qualificationRequirements?.length > 0 && <div><span className="text-ink-tertiary">资质要求: </span>{tender.analysis.qualificationRequirements.join('；')}</div>}
+              {tender.analysis.scoringCriteria?.length > 0 && <div><span className="text-ink-tertiary">评分办法: </span>{tender.analysis.scoringCriteria.join('；')}</div>}
+              {tender.analysis.riskFlags?.length > 0 && <div className="text-danger">风险点: {tender.analysis.riskFlags.join('；')}</div>}
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 function SubmittalSection({ projectId }: { projectId: string }) {
     const [subs, setSubs] = useState<any[]>([]);
