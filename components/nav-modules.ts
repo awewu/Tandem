@@ -62,6 +62,7 @@ import {
   Package,
   ShoppingCart,
   Gauge,
+  ClipboardList,
 } from 'lucide-react';
 
 export type Role = 'employee' | 'manager' | 'steward' | 'admin' | 'champion' | 'intranet_editor' | 'owner' | 'partner' | 'dealer';
@@ -415,6 +416,7 @@ export const NAV_MODULES: NavModule[] = [
       { name: '业绩目标', href: '/pms/performance-targets', icon: Target, group: '增长', visibleTo: INTERNAL_ROLES },
       { name: '产品目录', href: '/pms/products', icon: Package, group: '主数据' },
       { name: '分析看板', href: '/pms/analytics', icon: BarChart3, group: '洞察', visibleTo: INTERNAL_ROLES },
+      { name: '信息管理岗', href: '/pms/deal-desk', icon: ClipboardList, group: '洞察', visibleTo: ['owner', 'admin', 'manager', 'steward'] },
       { name: '告警中心', href: '/pms/alerts', icon: Bell, group: '协同', visibleTo: INTERNAL_ROLES },
     ],
   },
