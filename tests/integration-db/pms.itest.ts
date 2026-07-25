@@ -112,6 +112,41 @@ describe.skipIf(!hasDb)('integration(db) · PMS 关键路径', () => {
     expect(stillReadable.archivedAt).toBeDefined();
   });
 
+  it('结构化产品选型: 系列/型号/attributes 选项 round-trip', async () => {
+    const { opportunity } = await createOpportunity(
+      baseOppInput({
+        productSeries: 'Rheem 商用空气源热泵',
+        productSeriesCode: 'RH-HP',
+        productModel: 'HP-16 变频空气源热泵',
+        productModelCode: 'HP16INV',
+        productCatalogId: 'pms_prod_HP16INV',
+        productCategory: 'heat_pump',
+        productAttributes: { 制热量: '16kW', COP: '4.1', 能效等级: '一级' },
+      }),
+    );
+    const id = opportunity!.id;
+
+    const got = (await getOpportunity(id, TEST_TENANT))!;
+    expect(got.productSeries).toBe('Rheem 商用空气源热泵');
+    expect(got.productSeriesCode).toBe('RH-HP');
+    expect(got.productModel).toBe('HP-16 变频空气源热泵');
+    expect(got.productModelCode).toBe('HP16INV');
+    expect(got.productCatalogId).toBe('pms_prod_HP16INV');
+    expect(got.productCategory).toBe('heat_pump');
+    expect(got.productAttributes).toEqual({ 制热量: '16kW', COP: '4.1', 能效等级: '一级' });
+
+    // 改选型号 (updateOpportunity 透传结构化字段)
+    await updateOpportunity(
+      id,
+      { productModel: 'HP-25 商用空气源热泵', productModelCode: 'HP25COM' },
+      TEST_TENANT,
+    );
+    const afterUpdate = (await getOpportunity(id, TEST_TENANT))!;
+    expect(afterUpdate.productModelCode).toBe('HP25COM');
+    // 系列不变
+    expect(afterUpdate.productSeriesCode).toBe('RH-HP');
+  });
+
   it('orgId 隔离: 外部经销商 visibleOrgIds 过滤跨组织商机', async () => {
     const { opportunity } = await createOpportunity(baseOppInput({ orgId: ORG_A, dealerOrgId: ORG_A }));
     const id = opportunity!.id;

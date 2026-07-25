@@ -25,6 +25,13 @@ function mapOpportunity(row: typeof pmsOpportunities.$inferSelect) {
     estimatedAmount: row.estimatedAmount ? parseFloat(row.estimatedAmount) : undefined,
     estimatedClosingDate: row.estimatedClosingDate || undefined,
     productLine: row.productLine || undefined,
+    productSeries: row.productSeries || undefined,
+    productSeriesCode: row.productSeriesCode || undefined,
+    productModel: row.productModel || undefined,
+    productModelCode: row.productModelCode || undefined,
+    productCatalogId: row.productCatalogId || undefined,
+    productCategory: row.productCategory || undefined,
+    productAttributes: (row.productAttributes as Record<string, string> | null) || undefined,
     region: row.region || undefined,
     channel: row.channel || undefined,
     dedupeKey: row.dedupeKey,
@@ -61,6 +68,13 @@ export async function createOpportunity(input: {
   estimatedAmount?: number;
   estimatedClosingDate?: string;
   productLine?: string;
+  productSeries?: string;
+  productSeriesCode?: string;
+  productModel?: string;
+  productModelCode?: string;
+  productCatalogId?: string;
+  productCategory?: string;
+  productAttributes?: Record<string, string>;
   region?: string;
   channel?: string;
 }) {
@@ -109,6 +123,13 @@ export async function createOpportunity(input: {
       estimatedAmount: input.estimatedAmount?.toString(),
       estimatedClosingDate: input.estimatedClosingDate,
       productLine: input.productLine,
+      productSeries: input.productSeries,
+      productSeriesCode: input.productSeriesCode,
+      productModel: input.productModel,
+      productModelCode: input.productModelCode,
+      productCatalogId: input.productCatalogId,
+      productCategory: input.productCategory,
+      productAttributes: input.productAttributes,
       region: input.region,
       channel: input.channel,
       dedupeKey,
@@ -163,6 +184,13 @@ export async function updateOpportunity(
     estimatedAmount?: number;
     estimatedClosingDate?: string;
     productLine?: string;
+    productSeries?: string;
+    productSeriesCode?: string;
+    productModel?: string;
+    productModelCode?: string;
+    productCatalogId?: string;
+    productCategory?: string;
+    productAttributes?: Record<string, string>;
     region?: string;
     channel?: string;
   },

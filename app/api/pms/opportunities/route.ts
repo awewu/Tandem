@@ -92,6 +92,13 @@ export async function POST(req: NextRequest) {
       estimatedAmount: body.estimatedAmount,
       estimatedClosingDate: body.estimatedClosingDate,
       productLine: body.productLine,
+      productSeries: body.productSeries,
+      productSeriesCode: body.productSeriesCode,
+      productModel: body.productModel,
+      productModelCode: body.productModelCode,
+      productCatalogId: body.productCatalogId,
+      productCategory: body.productCategory,
+      productAttributes: body.productAttributes,
       region: body.region,
       channel: body.channel,
     });

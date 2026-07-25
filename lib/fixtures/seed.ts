@@ -39,6 +39,7 @@ export async function seedDevData(): Promise<void> {
         await seedExtraModulesIfEmpty();
         await seedAgentTemplatesIfEmpty();
         await seedPmsIfEmpty();
+        await seedPmsProductCatalogIfEmpty();
         return;
       }
     } catch {
@@ -586,6 +587,7 @@ export async function seedDevData(): Promise<void> {
   await seedExtraModulesIfEmpty();
   await seedAgentTemplatesIfEmpty();
   await seedPmsIfEmpty();
+  await seedPmsProductCatalogIfEmpty();
 }
 
 /**
@@ -858,6 +860,76 @@ export async function seedPmsIfEmpty(): Promise<void> {
     console.info('[seed] PMS opportunities seeded (3)');
   } catch (err) {
     console.warn('[seed] PMS seed failed:', (err as Error).message);
+  }
+}
+
+/**
+ * PMS · 产品目录幂等种子 (系列 × 型号 + attributes 选项). 仅 PostgreSQL 模式.
+ * 空表守卫 + 确定性 id + onConflictDoNothing, 重复调用安全。
+ * 品牌对齐 Rheem / RUUD / 恒热, 品类覆盖热泵/热水/新风/净水/五恒。
+ * attributes = "选项挂型号 JSON" 范式 (制热量/COP/出水温度/能效等), 供报备选型与后续分析。
+ */
+export async function seedPmsProductCatalogIfEmpty(): Promise<void> {
+  if (!isDatabaseMode()) return;
+  try {
+    const existing = await db
+      .select({ c: sql<number>`count(*)` })
+      .from(schema.pmsProductCatalog);
+    if (Number(existing[0]?.c ?? 0) > 0) return;
+
+    const now = new Date();
+    const products: Array<{
+      series: string; seriesCode: string; model: string; modelCode: string;
+      category: string; specification: string; unit: string;
+      listPrice: number; costPrice: number; minPrice: number;
+      attributes: Record<string, string>;
+    }> = [
+      // 空气源热泵 (heat_pump)
+      { series: 'Rheem 商用空气源热泵', seriesCode: 'RH-HP', model: 'HP-12 变频空气源热泵', modelCode: 'HP12INV', category: 'heat_pump', specification: '制热量 12kW', unit: '台', listPrice: 28000, costPrice: 19600, minPrice: 23800, attributes: { 制热量: '12kW', COP: '4.2', 出水温度: '60℃', 能效等级: '一级', 安装方式: '落地' } },
+      { series: 'Rheem 商用空气源热泵', seriesCode: 'RH-HP', model: 'HP-16 变频空气源热泵', modelCode: 'HP16INV', category: 'heat_pump', specification: '制热量 16kW', unit: '台', listPrice: 35000, costPrice: 24500, minPrice: 29750, attributes: { 制热量: '16kW', COP: '4.1', 出水温度: '60℃', 能效等级: '一级', 安装方式: '落地' } },
+      { series: 'Rheem 商用空气源热泵', seriesCode: 'RH-HP', model: 'HP-25 商用空气源热泵', modelCode: 'HP25COM', category: 'heat_pump', specification: '制热量 25kW', unit: '台', listPrice: 68000, costPrice: 47600, minPrice: 57800, attributes: { 制热量: '25kW', COP: '3.9', 出水温度: '65℃', 能效等级: '一级', 安装方式: '落地' } },
+      // 商用热水 (water_heater)
+      { series: '恒热商用热水', seriesCode: 'EH-WH', model: 'Premier TW-300 热泵热水机', modelCode: 'TW300', category: 'water_heater', specification: '水箱 300L', unit: '台', listPrice: 12500, costPrice: 8750, minPrice: 10625, attributes: { 水箱容量: '300L', 类型: 'heatpump', COP: '3.5', 出水温度: '55℃' } },
+      { series: '恒热商用热水', seriesCode: 'EH-WH', model: 'Instant E-15 即热电热水器', modelCode: 'E15', category: 'water_heater', specification: '功率 15kW', unit: '台', listPrice: 4500, costPrice: 3150, minPrice: 3825, attributes: { 功率: '15kW', 类型: 'electric', 出水温度: '45℃' } },
+      // 新风除湿 (fresh_air)
+      { series: 'Rheem 新风系统', seriesCode: 'RH-FA', model: 'FA-350 新风除湿一体机', modelCode: 'FA350', category: 'fresh_air', specification: '风量 350m³/h', unit: '台', listPrice: 8800, costPrice: 6160, minPrice: 7480, attributes: { 风量: '350m³/h', 除湿量: '30L/天', 滤网等级: 'H13', 安装方式: '吊顶' } },
+      { series: 'Rheem 新风系统', seriesCode: 'RH-FA', model: 'FA-500 管道式新风机', modelCode: 'FA500', category: 'fresh_air', specification: '风量 500m³/h', unit: '台', listPrice: 12000, costPrice: 8400, minPrice: 10200, attributes: { 风量: '500m³/h', 滤网等级: 'H13', 安装方式: '管道' } },
+      // 全屋净水 (water_purify)
+      { series: '恒热全屋净水', seriesCode: 'EH-WP', model: 'PureFlow RO-800 中央净水', modelCode: 'RO800', category: 'water_purify', specification: '通量 800G', unit: '套', listPrice: 12500, costPrice: 8750, minPrice: 10625, attributes: { 通量: '800G', 类型: 'ro', 制水率: '85%', 滤芯寿命: '12月' } },
+      { series: '恒热全屋净水', seriesCode: 'EH-WP', model: 'AquaTap UF-200 直饮机', modelCode: 'UF200', category: 'water_purify', specification: '通量 200G', unit: '套', listPrice: 3200, costPrice: 2240, minPrice: 2720, attributes: { 通量: '200G', 类型: 'uf', 制水率: '72%' } },
+      // 五恒系统 (five_comfort)
+      { series: 'RUUD 五恒系统', seriesCode: 'RU-5H', model: '5H-20 家用五恒系统', modelCode: '5H20', category: 'five_comfort', specification: '适用 200㎡', unit: '套', listPrice: 85000, costPrice: 59500, minPrice: 72250, attributes: { 适用面积: '200㎡', 恒温: '是', 恒湿: '是', 恒氧: '是', 恒洁: '是', 恒静: '是' } },
+      { series: 'RUUD 五恒系统', seriesCode: 'RU-5H', model: '5H-50 别墅五恒系统', modelCode: '5H50', category: 'five_comfort', specification: '适用 500㎡', unit: '套', listPrice: 168000, costPrice: 117600, minPrice: 142800, attributes: { 适用面积: '500㎡', 恒温: '是', 恒湿: '是', 恒氧: '是', 恒洁: '是', 恒静: '是' } },
+      // 地暖 (floor_heating)
+      { series: 'Rheem 地暖系统', seriesCode: 'RH-FH', model: 'WM-28C 冷凝壁挂炉', modelCode: 'WM28C', category: 'floor_heating', specification: '功率 28kW', unit: '台', listPrice: 18000, costPrice: 12600, minPrice: 15300, attributes: { 功率: '28kW', 类型: '冷凝', 能效等级: '一级' } },
+    ];
+
+    for (const p of products) {
+      await db.insert(schema.pmsProductCatalog).values({
+        id: `pms_prod_${p.modelCode}`,
+        tenantId: 'default',
+        series: p.series,
+        seriesCode: p.seriesCode,
+        model: p.model,
+        modelCode: p.modelCode,
+        category: p.category,
+        specification: p.specification,
+        unit: p.unit,
+        listPrice: p.listPrice.toString(),
+        costPrice: p.costPrice.toString(),
+        minPrice: p.minPrice.toString(),
+        bomItems: [],
+        attributes: p.attributes,
+        source: 'manual',
+        status: 'active',
+        createdAt: now,
+        updatedAt: now,
+      }).onConflictDoNothing({ target: schema.pmsProductCatalog.id });
+    }
+    // eslint-disable-next-line no-console
+    console.info(`[seed] PMS product catalog seeded (${products.length})`);
+  } catch (err) {
+    console.warn('[seed] PMS product catalog seed failed:', (err as Error).message);
   }
 }
 

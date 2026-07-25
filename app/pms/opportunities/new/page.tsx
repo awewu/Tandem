@@ -4,21 +4,53 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, AlertTriangle } from 'lucide-react';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/ui/select';
+import { ArrowLeft, AlertTriangle, Package } from 'lucide-react';
+
+interface CatalogProduct {
+  id: string;
+  series: string;
+  seriesCode?: string;
+  model: string;
+  modelCode?: string;
+  category?: string;
+  specification?: string;
+  unit?: string;
+  listPrice?: number;
+  attributes?: Record<string, string>;
+}
+
+interface DuplicateMatchDetail {
+  similarity: number;
+  dimensions?: string[];
+}
+interface DuplicateCheck {
+  matchDetails?: DuplicateMatchDetail[];
+  matchedOpportunities?: string[];
+}
 
 export default function NewOpportunityPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [duplicateWarning, setDuplicateWarning] = useState<any>(null);
-  
+  const [duplicateWarning, setDuplicateWarning] = useState<DuplicateCheck | null>(null);
+
+  const [products, setProducts] = useState<CatalogProduct[]>([]);
+  const [selectedSeriesCode, setSelectedSeriesCode] = useState<string>('');
+  const [selectedProductId, setSelectedProductId] = useState<string>('');
+
   const [formData, setFormData] = useState({
     dealerOrgId: 'dealer_default',
     customerName: '',
@@ -27,10 +59,37 @@ export default function NewOpportunityPage() {
     projectName: '',
     estimatedAmount: '',
     estimatedClosingDate: '',
-    productLine: '',
     region: '',
     channel: '',
   });
+
+  useEffect(() => {
+    fetch('/api/pms/products?status=active&limit=500', { credentials: 'include', cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : { products: [] }))
+      .then((d) => setProducts(d.products || []))
+      .catch(() => setProducts([]));
+  }, []);
+
+  // 系列列表 (按 seriesCode 去重)
+  const seriesList = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const p of products) {
+      const code = p.seriesCode || p.series;
+      if (!map.has(code)) map.set(code, p.series);
+    }
+    return Array.from(map, ([code, name]) => ({ code, name }));
+  }, [products]);
+
+  // 当前系列下的型号
+  const modelsInSeries = useMemo(
+    () => products.filter((p) => (p.seriesCode || p.series) === selectedSeriesCode),
+    [products, selectedSeriesCode],
+  );
+
+  const selectedProduct = useMemo(
+    () => products.find((p) => p.id === selectedProductId),
+    [products, selectedProductId],
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,6 +111,15 @@ export default function NewOpportunityPage() {
         body: JSON.stringify({
           ...formData,
           estimatedAmount: formData.estimatedAmount ? parseFloat(formData.estimatedAmount) : undefined,
+          // 结构化产品选型 (来自目录, 供后续按系列/型号分析 + AI 报价)
+          productSeries: selectedProduct?.series,
+          productSeriesCode: selectedProduct?.seriesCode,
+          productModel: selectedProduct?.model,
+          productModelCode: selectedProduct?.modelCode,
+          productCatalogId: selectedProduct?.id,
+          productCategory: selectedProduct?.category,
+          productAttributes: selectedProduct?.attributes,
+          productLine: selectedProduct?.series,
         }),
       });
       
@@ -69,8 +137,8 @@ export default function NewOpportunityPage() {
       
       // 成功，跳转到详情页
       router.push(`/pms/opportunities/${data.opportunity.id}`);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '创建失败');
     } finally {
       setLoading(false);
     }
@@ -103,7 +171,7 @@ export default function NewOpportunityPage() {
           </CardHeader>
           <CardContent>
             <p className="text-caption text-warning mb-2">
-              相似度: {(duplicateWarning.matchDetails?.[0]?.similarity * 100).toFixed(0)}%
+              相似度: {((duplicateWarning.matchDetails?.[0]?.similarity ?? 0) * 100).toFixed(0)}%
             </p>
             <p className="text-caption text-warning mb-4">
               匹配维度: {duplicateWarning.matchDetails?.[0]?.dimensions?.join(', ')}
@@ -205,16 +273,7 @@ export default function NewOpportunityPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <Label htmlFor="productLine">产品线</Label>
-                <Input
-                  id="productLine"
-                  value={formData.productLine}
-                  onChange={(e) => setFormData({ ...formData, productLine: e.target.value })}
-                  placeholder="中央空调"
-                />
-              </div>
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="region">区域</Label>
                 <Input
@@ -234,6 +293,93 @@ export default function NewOpportunityPage() {
                 />
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Package className="w-5 h-5 text-brand-500" />
+              产品选型
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-caption text-ink-tertiary">
+              从产品目录选择系列与型号，便于后续按系列/型号分析与 AI 报价。
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>产品系列</Label>
+                <Select
+                  value={selectedSeriesCode}
+                  onValueChange={(v) => {
+                    setSelectedSeriesCode(v);
+                    setSelectedProductId('');
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={seriesList.length ? '选择系列' : '暂无产品目录'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {seriesList.map((s) => (
+                      <SelectItem key={s.code} value={s.code}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>型号</Label>
+                <Select
+                  value={selectedProductId}
+                  onValueChange={setSelectedProductId}
+                  disabled={!selectedSeriesCode}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={selectedSeriesCode ? '选择型号' : '请先选系列'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {modelsInSeries.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.model}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {selectedProduct && (
+              <div className="rounded-md border border-border bg-surface-2 p-4 space-y-2">
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-headline font-semibold text-ink-primary">
+                    {selectedProduct.model}
+                  </span>
+                  {selectedProduct.listPrice != null && (
+                    <span className="text-headline font-bold text-brand-500">
+                      目录价 ¥{selectedProduct.listPrice.toLocaleString('zh-CN')}
+                    </span>
+                  )}
+                </div>
+                <p className="text-caption text-ink-tertiary">
+                  {selectedProduct.category} · {selectedProduct.specification || '—'}
+                  {selectedProduct.unit ? ` / ${selectedProduct.unit}` : ''}
+                </p>
+                {selectedProduct.attributes && Object.keys(selectedProduct.attributes).length > 0 && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {Object.entries(selectedProduct.attributes).map(([k, v]) => (
+                      <span
+                        key={k}
+                        className="text-caption text-ink-secondary bg-surface-1 border border-border rounded px-2 py-0.5"
+                      >
+                        {k}: {v}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 
