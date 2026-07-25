@@ -21,10 +21,19 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const cockpit = await assembleCockpit({
-      tenantId: auth.tenantId,
-      visibleOrgIds: auth.isInternal ? undefined : auth.visibleOrgIds,
-    });
+    // 视角按角色下沉:
+    //   管理层 (owner/admin/manager/steward) → 全公司
+    //   其他内部员工 (employee/champion) → 只看"我负责"的项目 (ownerId 收窄, 不背公司财务)
+    //   经销商 (dealer_*) → 本经销商 org 范围
+    const MGMT = ['owner', 'admin', 'manager', 'steward'];
+    const isManagement = auth.roles.some((r) => MGMT.includes(r));
+    const cockpit = await assembleCockpit(
+      auth.isInternal
+        ? isManagement
+          ? { tenantId: auth.tenantId, scope: 'company' }
+          : { tenantId: auth.tenantId, ownerId: auth.userId, scope: 'mine' }
+        : { tenantId: auth.tenantId, visibleOrgIds: auth.visibleOrgIds, scope: 'org' },
+    );
     return NextResponse.json({ cockpit });
   } catch (error: any) {
     console.error('Cockpit error:', error);

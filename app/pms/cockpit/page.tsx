@@ -16,8 +16,10 @@ interface Exception {
   type: string; title: string; detail: string; amount?: number; href?: string;
 }
 interface FunnelRow { stage: string; label: string; count: number; value: number }
+type Scope = 'company' | 'mine' | 'org';
 interface Cockpit {
   generatedAt: string;
+  scope: Scope;
   exceptions: Exception[];
   counts: { critical: number; warning: number; info: number };
   sales: { activeProjects: number; totalPipeline: number; wonAmount: number; winRate: number; lostCount: number; lostValue: number };
@@ -63,17 +65,24 @@ export default function PmsCockpitPage() {
     return <div className="container mx-auto max-w-3xl p-6"><Card className="border-danger/30"><CardContent className="p-6 text-danger">{err}</CardContent></Card></div>;
   }
 
+  const showFinance = data.scope !== 'mine';
   const exceptions = data.exceptions.filter((e) => filter === 'all' || e.category === filter);
   const maxFunnel = Math.max(1, ...data.projectFunnel.map((f) => f.count));
+  const SCOPE_META: Record<Scope, { title: string; sub: string }> = {
+    company: { title: '老板驾驶舱', sub: '全公司 · 销售+财务视角 — 问题即时暴露 (management by exception)' },
+    mine: { title: '我的项目预警', sub: '仅我负责的项目 — 停滞/招标/spec风险/决策链缺口即时提醒' },
+    org: { title: '经销商驾驶舱', sub: '本经销商范围 · 销售+财务视角 — 问题即时暴露' },
+  };
+  const meta = SCOPE_META[data.scope];
 
   return (
     <div className="container mx-auto md:max-w-5xl p-6 max-w-5xl">
       <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-title-lg font-bold text-ink-primary flex items-center gap-2">
-            <Gauge className="w-6 h-6 text-brand-500" /> 老板驾驶舱
+            <Gauge className="w-6 h-6 text-brand-500" /> {meta.title}
           </h1>
-          <p className="text-body text-ink-secondary mt-1">销售 · 财务视角 — 问题即时暴露 (management by exception)</p>
+          <p className="text-body text-ink-secondary mt-1">{meta.sub}</p>
         </div>
         <Button size="sm" variant="outline" onClick={load}><RefreshCw className="w-4 h-4 mr-1" /> 刷新</Button>
       </div>
@@ -99,7 +108,7 @@ export default function PmsCockpitPage() {
         <CardHeader className="flex-row items-center justify-between space-y-0">
           <CardTitle className="text-headline flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-brand-500" /> 待处理问题 ({exceptions.length})</CardTitle>
           <div className="flex items-center gap-1">
-            {(['all', 'sales', 'finance'] as const).map((f) => (
+            {(['all', 'sales', ...(showFinance ? ['finance' as const] : [])] as const).map((f) => (
               <Button key={f} size="sm" variant={filter === f ? 'default' : 'outline'} className={filter === f ? 'bg-brand-500 hover:bg-brand-600 h-7' : 'h-7'} onClick={() => setFilter(f)}>
                 {f === 'all' ? '全部' : f === 'sales' ? '销售' : '财务'}
               </Button>
@@ -141,13 +150,17 @@ export default function PmsCockpitPage() {
         <Kpi icon={<XCircle className="w-5 h-5" />} label="丢标" value={String(data.sales.lostCount)} sub={money(data.sales.lostValue)} accent="danger" />
       </div>
 
-      {/* 财务 KPI */}
-      <h2 className="text-headline font-semibold text-ink-primary mb-3">财务视角</h2>
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-        <Kpi icon={<FileWarning className="w-5 h-5" />} label="合同待审批" value={String(data.finance.pendingContracts)} sub={money(data.finance.pendingContractAmount)} accent={data.finance.pendingContracts > 0 ? 'warning' : undefined} />
-        <Kpi icon={<AlertTriangle className="w-5 h-5" />} label="业绩缺口目标" value={String(data.finance.targetGaps)} accent={data.finance.targetGaps > 0 ? 'warning' : undefined} />
-        <Kpi icon={<Wallet className="w-5 h-5" />} label="赢单金额" value={money(data.sales.wonAmount)} />
-      </div>
+      {/* 财务 KPI (个人"我的"视角不含公司财务) */}
+      {showFinance && (
+        <>
+          <h2 className="text-headline font-semibold text-ink-primary mb-3">财务视角</h2>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+            <Kpi icon={<FileWarning className="w-5 h-5" />} label="合同待审批" value={String(data.finance.pendingContracts)} sub={money(data.finance.pendingContractAmount)} accent={data.finance.pendingContracts > 0 ? 'warning' : undefined} />
+            <Kpi icon={<AlertTriangle className="w-5 h-5" />} label="业绩缺口目标" value={String(data.finance.targetGaps)} accent={data.finance.targetGaps > 0 ? 'warning' : undefined} />
+            <Kpi icon={<Wallet className="w-5 h-5" />} label="赢单金额" value={money(data.sales.wonAmount)} />
+          </div>
+        </>
+      )}
 
       {/* 项目阶段漏斗 */}
       <Card>

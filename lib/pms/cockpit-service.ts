@@ -19,7 +19,7 @@ import {
 } from '../infra/drizzle-schema';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { listProjects } from './project-service';
-import { getOpportunityAnalytics } from './analytics-service';
+import { getOpportunityAnalytics, winRate } from './analytics-service';
 import { CRITICAL_ROLES } from './project-stakeholder-service';
 import type { Project, ProjectStage } from '@/lib/types/pms';
 
@@ -266,8 +266,11 @@ export function detectContractBacklog(pending: { count: number; amount: number }
 // DB 装配
 // ---------------------------------------------------------------------------
 
+export type CockpitScope = 'company' | 'mine' | 'org';
+
 export interface CockpitData {
   generatedAt: string;
+  scope: CockpitScope;
   exceptions: CockpitException[];
   counts: { critical: number; warning: number; info: number };
   sales: {
@@ -289,13 +292,20 @@ export interface CockpitData {
 export async function assembleCockpit(input: {
   tenantId: string;
   visibleOrgIds?: string[];
+  /** 仅看某人负责的项目 (员工"我的预警"视角). 设置后隐藏公司级财务异常. */
+  ownerId?: string;
+  /** 视角: company=全公司(管理层) / mine=我负责 / org=本经销商. 默认 company. */
+  scope?: CockpitScope;
   now?: Date;
 }): Promise<CockpitData> {
   const now = input.now ?? new Date();
-  const { tenantId, visibleOrgIds } = input;
+  const { tenantId, visibleOrgIds, ownerId } = input;
+  const scope: CockpitScope = input.scope ?? (ownerId ? 'mine' : visibleOrgIds && visibleOrgIds.length > 0 ? 'org' : 'company');
+  // 公司级财务异常 (合同审批积压 / 业绩目标缺口) 仅对管理层/经销商老板可见, 个人"我的"视角不背公司财务
+  const includeFinance = scope !== 'mine';
 
-  // 1) 项目 (orgId 隔离通过 listProjects)
-  const projects = await listProjects({ tenantId, visibleOrgIds, limit: 500 });
+  // 1) 项目 (orgId 隔离通过 listProjects; ownerId 进一步收窄到"我负责")
+  const projects = await listProjects({ tenantId, visibleOrgIds, ownerId, limit: 500 });
   const projectIds = projects.map((p) => p.id);
   const nameById = new Map(projects.map((p) => [p.id, p.projectName]));
   const scoped = projectIds.length > 0;
@@ -369,32 +379,37 @@ export async function assembleCockpit(input: {
     }));
   }
 
-  // 5) 合同审批积压 (draft/pending) — 财务视角, 租户级
-  const contractAgg = await db
-    .select({
-      n: sql<number>`count(*)::int`,
-      amt: sql<number>`coalesce(sum(cast(${pmsContracts.totalAmount} as double precision)), 0)::float8`,
-    })
-    .from(pmsContracts)
-    .where(and(
-      eq(pmsContracts.tenantId, tenantId),
-      inArray(pmsContracts.status, ['draft', 'pending']),
-    ));
-  const pendingContracts = { count: Number(contractAgg[0]?.n ?? 0), amount: Number(contractAgg[0]?.amt ?? 0) };
+  // 5) 合同审批积压 (draft/pending) — 财务视角, 租户级 (个人"我的"视角不纳入)
+  let pendingContracts = { count: 0, amount: 0 };
+  if (includeFinance) {
+    const contractAgg = await db
+      .select({
+        n: sql<number>`count(*)::int`,
+        amt: sql<number>`coalesce(sum(cast(${pmsContracts.totalAmount} as double precision)), 0)::float8`,
+      })
+      .from(pmsContracts)
+      .where(and(
+        eq(pmsContracts.tenantId, tenantId),
+        inArray(pmsContracts.status, ['draft', 'pending']),
+      ));
+    pendingContracts = { count: Number(contractAgg[0]?.n ?? 0), amount: Number(contractAgg[0]?.amt ?? 0) };
+  }
 
-  // 6) 业绩目标 (存活周期缺口) — 取达成率 < 门槛的当期目标
-  const targetRows = await db
-    .select({
-      id: pmsPerformanceTargets.id,
-      dimension: pmsPerformanceTargets.dimension,
-      dimensionValue: pmsPerformanceTargets.dimensionValue,
-      period: pmsPerformanceTargets.period,
-      targetValue: pmsPerformanceTargets.targetValue,
-      actualValue: pmsPerformanceTargets.actualValue,
-      achievementRate: pmsPerformanceTargets.achievementRate,
-    })
-    .from(pmsPerformanceTargets)
-    .where(eq(pmsPerformanceTargets.tenantId, tenantId));
+  // 6) 业绩目标 (存活周期缺口) — 取达成率 < 门槛的当期目标 (个人"我的"视角不纳入)
+  const targetRows = includeFinance
+    ? await db
+        .select({
+          id: pmsPerformanceTargets.id,
+          dimension: pmsPerformanceTargets.dimension,
+          dimensionValue: pmsPerformanceTargets.dimensionValue,
+          period: pmsPerformanceTargets.period,
+          targetValue: pmsPerformanceTargets.targetValue,
+          actualValue: pmsPerformanceTargets.actualValue,
+          achievementRate: pmsPerformanceTargets.achievementRate,
+        })
+        .from(pmsPerformanceTargets)
+        .where(eq(pmsPerformanceTargets.tenantId, tenantId))
+    : [];
   const targets = targetRows.map((t) => ({
     id: t.id,
     dimension: t.dimension,
@@ -405,8 +420,28 @@ export async function assembleCockpit(input: {
     achievementRate: Number(t.achievementRate ?? 0),
   }));
 
-  // 7) 商机层管道 / 赢单率 (复用现有分析)
-  const oppAnalytics = await getOpportunityAnalytics({ tenantId, visibleOrgIds });
+  // 7) 销售 KPI:
+  //    company/org 视角 → 复用商机层分析 (管道/赢单率);
+  //    mine 视角 → 从"我负责的项目"派生 (商机表无 ownerId, 不能按人切).
+  let salesPipeline: number;
+  let salesWonAmount: number;
+  let salesWinRate: number;
+  if (scope === 'mine') {
+    const activeValue = projects
+      .filter((p) => ACTIVE_STAGES.includes(p.stage))
+      .reduce((s, p) => s + (p.estimatedValue ?? 0), 0);
+    const wonValue = projects.filter((p) => p.status === 'won').reduce((s, p) => s + (p.estimatedValue ?? 0), 0);
+    const wonN = projects.filter((p) => p.status === 'won').length;
+    const lostN = projects.filter((p) => p.status === 'lost').length;
+    salesPipeline = Math.round(activeValue);
+    salesWonAmount = Math.round(wonValue);
+    salesWinRate = winRate(wonN, lostN);
+  } else {
+    const oppAnalytics = await getOpportunityAnalytics({ tenantId, visibleOrgIds });
+    salesPipeline = oppAnalytics.totalPipeline;
+    salesWonAmount = oppAnalytics.wonAmount;
+    salesWinRate = oppAnalytics.winRate;
+  }
 
   // --- 汇编异常 ---
   const exceptions = sortExceptions([
@@ -427,13 +462,14 @@ export async function assembleCockpit(input: {
 
   return {
     generatedAt: now.toISOString(),
+    scope,
     exceptions,
     counts,
     sales: {
       activeProjects,
-      totalPipeline: oppAnalytics.totalPipeline,
-      wonAmount: oppAnalytics.wonAmount,
-      winRate: oppAnalytics.winRate,
+      totalPipeline: salesPipeline,
+      wonAmount: salesWonAmount,
+      winRate: salesWinRate,
       lostCount,
       lostValue,
     },

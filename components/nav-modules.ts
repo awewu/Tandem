@@ -395,7 +395,7 @@ export const NAV_MODULES: NavModule[] = [
     visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
     pathPrefixes: ['/pms'],
     items: [
-      { name: '老板驾驶舱', href: '/pms/cockpit', icon: Gauge, group: '洞察', visibleTo: ['owner', 'admin', 'manager', 'steward'] },
+      { name: '驾驶舱预警', href: '/pms/cockpit', icon: Gauge, group: '洞察' },
       { name: '工程项目', href: '/pms/projects', icon: Building2, group: '项目' },
       { name: '商机管理', href: '/pms', icon: Store, group: '商机' },
       { name: '新建商机', href: '/pms/opportunities/new', icon: Plus, accent: 'cta', group: '商机' },

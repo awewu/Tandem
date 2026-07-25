@@ -204,13 +204,11 @@ async function main() {
   // 幂等检查
   const existing = await get('/api/pms/projects?limit=200');
   const already = (existing.projects || []).filter((p) => (p.projectName || '').startsWith(PREFIX));
-  if (already.length >= PROJECTS.length) {
-    console.log(`[seed-pms-demo] 已存在 ${already.length} 个示例项目, 跳过 (幂等).`);
-    return;
-  }
+  const skipProjects = already.length >= PROJECTS.length;
+  if (skipProjects) console.log(`[seed-pms-demo] 已存在 ${already.length} 个示例项目, 跳过项目播种 (幂等).`);
 
   let createdProjects = 0;
-  for (const def of PROJECTS) {
+  for (const def of (skipProjects ? [] : PROJECTS)) {
     try {
       const { project } = await api('/api/pms/projects', {
         projectName: `${PREFIX}${def.name}`,
@@ -285,7 +283,7 @@ async function main() {
 
   // 未归属线索
   let unassignedOk = 0;
-  for (const o of UNASSIGNED_OPPS) {
+  for (const o of (skipProjects ? [] : UNASSIGNED_OPPS)) {
     try {
       await api('/api/pms/opportunities', {
         dealerOrgId: 'default', customerName: o.customer, projectName: o.projectName,
@@ -295,8 +293,58 @@ async function main() {
     } catch (e) { console.warn(`  ! 未归属线索 ${o.customer}: ${e.message}`); }
   }
 
-  console.log(`\n[seed-pms-demo] 完成: 项目 ${createdProjects}/${PROJECTS.length}, 未归属线索 ${unassignedOk}/${UNASSIGNED_OPPS.length}`);
-  console.log(`打开 ${BASE}/pms/projects 查看.`);
+  // 财务数据 (业绩目标 + 草稿合同) — 点亮驾驶舱财务视角, 独立幂等
+  const fin = await seedFinance();
+
+  console.log(`\n[seed-pms-demo] 完成: 项目 ${createdProjects}/${PROJECTS.length}, 未归属线索 ${unassignedOk}/${UNASSIGNED_OPPS.length}, 业绩目标 ${fin.targets}, 草稿合同 ${fin.contracts}`);
+  console.log(`打开 ${BASE}/pms/cockpit 查看老板驾驶舱.`);
+}
+
+// 业绩目标 (部分刻意低于目标 → 触发缺口告警; 一个健康 → 展示非全红)
+const TARGETS = [
+  { dimension: 'region', dimensionValue: '示例·西南', period: '2026-07', periodType: 'monthly', targetType: 'amount', targetValue: 20000000, actualValue: 8000000 }, // 40% critical
+  { dimension: 'region', dimensionValue: '示例·华南', period: '2026-07', periodType: 'monthly', targetType: 'amount', targetValue: 10000000, actualValue: 5500000 }, // 55% warning
+  { dimension: 'product_line', dimensionValue: '示例·热泵产品线', period: '2026', periodType: 'yearly', targetType: 'amount', targetValue: 50000000, actualValue: 18000000 }, // 36% critical
+  { dimension: 'org', dimensionValue: '示例·集团整体', period: '2026', periodType: 'yearly', targetType: 'amount', targetValue: 200000000, actualValue: 130000000 }, // 65% 健康
+];
+
+async function seedFinance() {
+  let targets = 0;
+  let contracts = 0;
+
+  // --- 业绩目标 (幂等: 已有示例·目标则跳过) ---
+  try {
+    const existing = await get('/api/pms/performance-targets?limit=200');
+    const has = (existing.targets || []).some((t) => (t.dimensionValue || '').startsWith(PREFIX));
+    if (!has) {
+      for (const t of TARGETS) {
+        await api('/api/pms/performance-targets', { action: 'create', ...t }).then(() => { targets += 1; })
+          .catch((e) => console.warn(`  ! 业绩目标 ${t.dimensionValue}: ${e.message}`));
+      }
+    } else {
+      console.log('[seed-pms-demo] 业绩目标已存在, 跳过.');
+    }
+  } catch (e) { console.warn(`  ! 业绩目标播种: ${e.message}`); }
+
+  // --- 草稿合同 (幂等: 已有 >=3 合同则跳过; 从现有商机建草稿 → 触发审批积压) ---
+  try {
+    const existing = await get('/api/pms/contracts?limit=50');
+    if ((existing.contracts || []).length >= 3) {
+      console.log('[seed-pms-demo] 合同已存在, 跳过.');
+    } else {
+      const opps = (await get('/api/pms/opportunities?limit=50')).opportunities || [];
+      const picks = opps.filter((o) => o.estimatedAmount > 0).slice(0, 4);
+      for (const o of picks) {
+        await api('/api/pms/contracts', {
+          action: 'create', opportunityId: o.id, customerName: o.customerName,
+          totalAmount: o.estimatedAmount,
+        }).then(() => { contracts += 1; })
+          .catch((e) => console.warn(`  ! 合同 ${o.customerName}: ${e.message}`));
+      }
+    }
+  } catch (e) { console.warn(`  ! 合同播种: ${e.message}`); }
+
+  return { targets, contracts };
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
