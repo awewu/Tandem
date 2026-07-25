@@ -252,6 +252,8 @@ export async function listOpportunities(filters: {
   orgId?: string;
   dealerOrgId?: string;
   projectId?: string;
+  /** true = 仅返回未归属任何工程项目的商机线索 (projectId 为空). 与 projectId 互斥. */
+  unassigned?: boolean;
   stage?: string;
   status?: string;
   limit?: number;
@@ -264,6 +266,7 @@ export async function listOpportunities(filters: {
   if (filters.orgId) conditions.push(eq(pmsOpportunities.orgId, filters.orgId));
   if (filters.dealerOrgId) conditions.push(eq(pmsOpportunities.dealerOrgId, filters.dealerOrgId));
   if (filters.projectId) conditions.push(eq(pmsOpportunities.projectId, filters.projectId));
+  if (filters.unassigned) conditions.push(isNull(pmsOpportunities.projectId));
   if (filters.stage) conditions.push(eq(pmsOpportunities.stage, filters.stage));
   if (filters.status) conditions.push(eq(pmsOpportunities.status, filters.status));
   

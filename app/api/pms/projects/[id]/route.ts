@@ -24,7 +24,7 @@ import {
   archiveProject,
   getProjectPipeline,
 } from '@/lib/pms/project-service';
-import { listOpportunities, linkOpportunityToProject } from '@/lib/pms/opportunity-service';
+import { listOpportunities, linkOpportunityToProject, createOpportunity } from '@/lib/pms/opportunity-service';
 import {
   addStakeholder,
   listStakeholders,
@@ -175,6 +175,37 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         if (!body.opportunityId) return NextResponse.json({ error: 'Missing opportunityId' }, { status: 400 });
         await linkOpportunityToProject(body.opportunityId, null, auth.tenantId);
         return NextResponse.json({ ok: true });
+      }
+      case 'list_unassigned_opportunities': {
+        // 本租户下未归属任何工程项目的商机线索 (供 360 页关联)
+        const list = await listOpportunities({
+          tenantId: auth.tenantId,
+          unassigned: true,
+          visibleOrgIds: auth.isInternal ? undefined : auth.visibleOrgIds,
+          limit: 100,
+        });
+        return NextResponse.json({ opportunities: list });
+      }
+      case 'create_opportunity': {
+        // 在本项目下直接新建商机 (自动 projectId 绑定, 归属沿用项目 orgId)
+        if (!body.customerName) return NextResponse.json({ error: 'Missing customerName' }, { status: 400 });
+        const orgId = project.orgId;
+        const result = await createOpportunity({
+          tenantId: auth.tenantId,
+          orgId,
+          dealerOrgId: body.dealerOrgId || orgId,
+          reporterId: auth.userId,
+          projectId: id,
+          customerName: body.customerName,
+          projectName: body.projectName || project.projectName,
+          stage: body.stage,
+          estimatedAmount: typeof body.estimatedAmount === 'number' ? body.estimatedAmount : undefined,
+          region: body.region || project.region,
+        });
+        if (!result.opportunity && result.duplicateCheck) {
+          return NextResponse.json({ error: 'Duplicate opportunity detected', duplicateCheck: result.duplicateCheck }, { status: 409 });
+        }
+        return NextResponse.json({ opportunity: result.opportunity }, { status: 201 });
       }
       default:
         return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });

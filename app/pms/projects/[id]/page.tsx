@@ -252,25 +252,106 @@ export default function ProjectDetailPage() {
       {/* 提交物 */}
       <SubmittalSection projectId={id} />
 
-      {/* 归属商机 */}
-      <Card className="mb-4">
-        <CardHeader><CardTitle className="text-headline flex items-center gap-2"><FileText className="w-4 h-4 text-brand-500" /> 归属商机 ({opportunities.length})</CardTitle></CardHeader>
-        <CardContent className="pt-0">
-          {opportunities.length === 0 ? <p className="text-caption text-ink-tertiary">暂无归属商机</p> : (
-            <div className="grid gap-2">
-              {opportunities.map((o) => (
-                <div key={o.id} className="flex items-center justify-between gap-2 text-caption">
-                  <span className="text-ink-primary">{o.customerName} · {o.projectName}</span>
-                  <span className="text-ink-tertiary">{o.stage} · ¥{(o.estimatedAmount || 0).toLocaleString('zh-CN')}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* 归属商机 (项目统领: 关联散落线索 / 项目下新建 / 移出) */}
+      <OpportunitiesSection projectId={id} project={p} opportunities={opportunities} onChange={load} />
     </div>
   );
 
+}
+
+const OPP_STAGE_LABELS: Record<string, string> = {
+  initial_contact: '初次接触', reported: '已报备', following: '跟进中', visit: '拜访', proposal: '方案',
+  bidding: '招标', quote: '报价', quoted: '已报价', quotation: '报价', negotiation: '谈判',
+  contract: '签约', contracted: '已签约', delivery: '交付', delivered: '已交付', won: '赢单', closed: '结案', lost: '丢单',
+};
+
+function OpportunitiesSection({ projectId, project, opportunities, onChange }: { projectId: string; project: any; opportunities: any[]; onChange: () => Promise<void> | void }) {
+  const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState<'none' | 'create' | 'link'>('none');
+  const [unassigned, setUnassigned] = useState<any[]>([]);
+  const [form, setForm] = useState({ customerName: '', estimatedAmount: '', stage: 'proposal' });
+
+  async function cpost(body: Record<string, unknown>) {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/pms/projects/${projectId}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(body),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || '操作失败');
+      return json;
+    } catch (e) { alert(e instanceof Error ? e.message : '操作失败'); return null; } finally { setBusy(false); }
+  }
+
+  async function openLink() {
+    if (mode === 'link') { setMode('none'); return; }
+    setMode('link');
+    const json = await cpost({ action: 'list_unassigned_opportunities' });
+    if (json) setUnassigned(json.opportunities || []);
+  }
+
+  return (
+    <Card className="mb-4">
+      <CardHeader className="flex-row items-center justify-between space-y-0">
+        <CardTitle className="text-headline flex items-center gap-2"><FileText className="w-4 h-4 text-brand-500" /> 归属商机 ({opportunities.length})</CardTitle>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={() => setMode((m) => (m === 'create' ? 'none' : 'create'))}>+ 新建商机</Button>
+          <Button size="sm" variant="outline" disabled={busy} onClick={openLink}>关联线索</Button>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {mode === 'create' && (
+          <div className="grid grid-cols-3 gap-2 mb-3 p-3 rounded-md bg-surface-2">
+            <input value={form.customerName} onChange={(e) => setForm((f) => ({ ...f, customerName: e.target.value }))} placeholder="客户名称" className={inputCls} />
+            <input type="number" value={form.estimatedAmount} onChange={(e) => setForm((f) => ({ ...f, estimatedAmount: e.target.value }))} placeholder="预估额" className={inputCls} />
+            <select value={form.stage} onChange={(e) => setForm((f) => ({ ...f, stage: e.target.value }))} className={inputCls}>
+              {['proposal', 'bidding', 'quote', 'negotiation', 'contract'].map((s) => <option key={s} value={s}>{OPP_STAGE_LABELS[s]}</option>)}
+            </select>
+            <div className="col-span-3 flex justify-end">
+              <Button size="sm" disabled={busy || !form.customerName.trim()} className="bg-brand-500 hover:bg-brand-600"
+                onClick={async () => {
+                  const body: any = { action: 'create_opportunity', customerName: form.customerName.trim(), stage: form.stage };
+                  if (form.estimatedAmount.trim()) body.estimatedAmount = Number(form.estimatedAmount);
+                  if (await cpost(body)) { setForm({ customerName: '', estimatedAmount: '', stage: 'proposal' }); setMode('none'); await onChange(); }
+                }}>创建并归入本项目</Button>
+            </div>
+          </div>
+        )}
+        {mode === 'link' && (
+          <div className="mb-3 p-3 rounded-md bg-surface-2">
+            {unassigned.length === 0 ? <p className="text-caption text-ink-tertiary">暂无未归属的商机线索</p> : (
+              <div className="grid gap-2">
+                {unassigned.map((o) => (
+                  <div key={o.id} className="flex items-center justify-between gap-2 text-caption">
+                    <span className="text-ink-primary truncate">{o.customerName} · {o.projectName}</span>
+                    <Button size="sm" variant="outline" className="h-7" disabled={busy}
+                      onClick={async () => { if (await cpost({ action: 'link_opportunity', opportunityId: o.id })) { setUnassigned((prev) => prev.filter((x) => x.id !== o.id)); await onChange(); } }}>关联</Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {opportunities.length === 0 ? <p className="text-caption text-ink-tertiary">暂无归属商机 — 可「关联线索」或「新建商机」</p> : (
+          <div className="grid gap-2">
+            {opportunities.map((o) => (
+              <div key={o.id} className="flex items-center justify-between gap-2 text-caption">
+                <div className="flex items-center gap-2 flex-wrap min-w-0">
+                  <span className="text-ink-primary truncate">{o.customerName} · {o.projectName}</span>
+                  <span className="rounded px-1.5 py-0.5 bg-surface-2 text-ink-secondary">{OPP_STAGE_LABELS[o.stage] || o.stage}</span>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className="text-ink-tertiary">¥{(o.estimatedAmount || 0).toLocaleString('zh-CN')}</span>
+                  <button className="text-ink-tertiary hover:text-danger" disabled={busy}
+                    onClick={async () => { if (await cpost({ action: 'unlink_opportunity', opportunityId: o.id })) await onChange(); }}>移出</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
 }
 
 function TenderSection({ projectId }: { projectId: string }) {
