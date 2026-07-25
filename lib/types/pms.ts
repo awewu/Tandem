@@ -950,6 +950,137 @@ export interface ComparisonResult {
   };
 }
 
+// ============================================================================
+// 项目型销售骨架 (Phase 1) · 项目为核心对象 + 决策链 + 规格指定矩阵
+// ============================================================================
+
+/** 项目生命周期阶段 (工程项目型) */
+export type ProjectStage =
+  | 'lead' // 线索/立项
+  | 'design' // 设计选型 (争取品牌指定)
+  | 'tender' // 招投标
+  | 'awarded' // 中标
+  | 'delivery' // 交付
+  | 'warranty' // 质保
+  | 'closed' // 结案
+  | 'lost'; // 丢标
+
+export type ProjectStatus = 'active' | 'won' | 'lost' | 'archived';
+
+export type ProjectType = 'new_construction' | 'renovation' | 'replacement' | 'expansion';
+
+export interface Project {
+  id: string;
+  tenantId: string;
+  orgId: string;
+  projectCode: string; // 项目编号 (租户内唯一)
+  projectName: string;
+  projectType: ProjectType;
+  customerName?: string;
+  customerAccountId?: string;
+  region?: string;
+  channel?: string;
+  address?: string;
+  addressGeo?: { lat: number; lng: number };
+  designInstitute?: string; // 设计院
+  stage: ProjectStage;
+  status: ProjectStatus;
+  estimatedValue?: number;
+  ownerId?: string; // 项目负责人
+  expectedTenderDate?: string;
+  expectedAwardDate?: string;
+  detectedAt?: string; // 项目发现日期
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt?: string;
+}
+
+/** 干系人角色 (决策链) */
+export type StakeholderRole =
+  | 'owner' // 甲方/业主
+  | 'architect' // 设计院
+  | 'design_engineer' // 设计工程师 (specifier)
+  | 'general_contractor' // 总包
+  | 'installer' // 安装商 (真正的买家)
+  | 'distributor' // 经销商
+  | 'consultant' // 顾问/审图
+  | 'other';
+
+export type StakeholderInfluence = 'high' | 'medium' | 'low';
+
+export interface ProjectStakeholder {
+  id: string;
+  tenantId: string;
+  projectId: string;
+  role: StakeholderRole;
+  name: string;
+  company?: string;
+  title?: string;
+  phone?: string;
+  email?: string;
+  influence: StakeholderInfluence;
+  isChampion: boolean; // 内线/支持者
+  isEconomicBuyer: boolean; // 经济决策人
+  notes?: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt?: string;
+}
+
+/** 我方品牌在某设备族的指定状态 */
+export type SpecBrandStatus =
+  | 'not_specified' // 未指定
+  | 'basis_of_design' // 设计基准 (最强)
+  | 'specified' // 已指定
+  | 'alternate' // 备选/入围
+  | 'substituted' // 被替换
+  | 'lost'; // 丢失
+
+export type SpecStage = 'design' | 'tender' | 'awarded';
+
+export interface SpecPosition {
+  id: string;
+  tenantId: string;
+  projectId: string;
+  equipmentFamily: string; // 设备族 (冷水机组/空调箱/热泵/防火阀...)
+  ourBrandStatus: SpecBrandStatus;
+  ourProductSeriesCode?: string;
+  ourProductModel?: string;
+  competitorBrand?: string;
+  competitorModel?: string;
+  estimatedValue?: number;
+  specStage: SpecStage;
+  notes?: string;
+  createdBy: string;
+  updatedBy?: string;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt?: string;
+}
+
+/** 决策链完整度诊断 (MEDDICC 内核, 纯函数产出) */
+export interface DecisionChainHealth {
+  totalStakeholders: number;
+  presentRoles: StakeholderRole[];
+  missingCriticalRoles: StakeholderRole[]; // owner/design_engineer/installer 缺失
+  hasChampion: boolean;
+  hasEconomicBuyer: boolean;
+  completeness: number; // 0-100
+}
+
+/** 规格指定盘面汇总 (spec-in 战况) */
+export interface SpecCoverage {
+  totalPositions: number;
+  wonValue: number; // basis_of_design + specified 的预算合计
+  atRiskValue: number; // alternate 的预算合计
+  lostValue: number; // substituted + lost 的预算合计
+  totalValue: number;
+  specWinRate: number; // wonValue / totalValue %
+  atRiskCount: number;
+}
+
 export interface PerformanceDashboard {
   period: string;
   periodType: 'monthly' | 'quarterly' | 'yearly';

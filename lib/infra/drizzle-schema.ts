@@ -1169,6 +1169,8 @@ export const pmsOpportunities = pgTable(
     tenantId: text('tenantId').notNull().default('default'),
     orgId: text('orgId').notNull(),
     dealerOrgId: text('dealerOrgId').notNull(),
+    // 项目型销售: 归属项目 (一个项目可挂多条报价/竞标商机)
+    projectId: text('projectId'),
     reporterId: text('reporterId').notNull(),
     customerName: text('customerName').notNull(),
     customerPhone: text('customerPhone'),
@@ -1201,6 +1203,7 @@ export const pmsOpportunities = pgTable(
     orgIdStatusStageIdx: index('pms_opp_orgid_status_stage_idx').on(t.orgId, t.status, t.stage),
     dedupeKeyIdx: uniqueIndex('pms_opp_dedupkey_idx').on(t.dedupeKey),
     dealerStageIdx: index('pms_opp_dealer_stage_idx').on(t.dealerOrgId, t.stage, t.createdAt),
+    projectIdx: index('pms_opp_project_idx').on(t.projectId),
     // 预警扫描索引
     alertScanIdx: index('pms_opp_alert_scan_idx').on(t.lastFollowUpAt, t.status),
     // 分析查询复合索引
@@ -1946,5 +1949,111 @@ export const pmsQuoteRecommendations = pgTable(
   (t) => ({
     oppIdx: index('pms_quote_opp_idx').on(t.opportunityId),
     tenantIdx: index('pms_quote_tenant_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * pms_projects · 工程项目 (项目型销售核心父对象)
+ * 一个项目挂多干系人 + 规格指定矩阵 + 多条报价/竞标商机.
+ * 生命周期: lead→design→tender→awarded→delivery→warranty→closed | lost
+ */
+export const pmsProjects = pgTable(
+  'pms_projects',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    orgId: text('orgId').notNull(), // 归属组织 (经销商/内部)
+    projectCode: text('projectCode').notNull(), // 项目编号 (租户内唯一)
+    projectName: text('projectName').notNull(),
+    projectType: text('projectType').notNull().default('new_construction'),
+    customerName: text('customerName'),
+    customerAccountId: text('customerAccountId'),
+    region: text('region'),
+    channel: text('channel'),
+    address: text('address'),
+    addressGeo: jsonb('addressGeo'),
+    designInstitute: text('designInstitute'), // 设计院 (快捷字段)
+    stage: text('stage').notNull().default('lead'),
+    status: text('status').notNull().default('active'),
+    estimatedValue: numeric('estimatedValue'),
+    ownerId: text('ownerId'), // 项目负责人 userId
+    expectedTenderDate: text('expectedTenderDate'),
+    expectedAwardDate: text('expectedAwardDate'),
+    detectedAt: text('detectedAt'), // 项目发现日期
+    createdBy: text('createdBy').notNull(),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+    archivedAt: timestamp('archivedAt', { precision: 3, mode: 'date' }),
+  },
+  (t) => ({
+    codeIdx: uniqueIndex('pms_project_code_idx').on(t.tenantId, t.projectCode),
+    orgStageIdx: index('pms_project_org_stage_idx').on(t.orgId, t.stage, t.status),
+    regionIdx: index('pms_project_region_idx').on(t.tenantId, t.region, t.stage),
+    tenantIdx: index('pms_project_tenant_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * pms_project_stakeholders · 项目干系人 (决策链地图)
+ * 角色: owner(甲方)/architect(设计院)/design_engineer(设计工程师)/
+ *       general_contractor(总包)/installer(安装商=买家)/distributor(经销商)/consultant/other
+ */
+export const pmsProjectStakeholders = pgTable(
+  'pms_project_stakeholders',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    projectId: text('projectId').notNull(),
+    role: text('role').notNull(),
+    name: text('name').notNull(),
+    company: text('company'),
+    title: text('title'),
+    phone: text('phone'),
+    email: text('email'),
+    influence: text('influence').notNull().default('medium'), // high/medium/low
+    isChampion: boolean('isChampion').notNull().default(false),
+    isEconomicBuyer: boolean('isEconomicBuyer').notNull().default(false),
+    notes: text('notes'),
+    createdBy: text('createdBy').notNull(),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+    archivedAt: timestamp('archivedAt', { precision: 3, mode: 'date' }),
+  },
+  (t) => ({
+    projectIdx: index('pms_stakeholder_project_idx').on(t.projectId, t.role),
+    tenantIdx: index('pms_stakeholder_tenant_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * pms_spec_positions · 规格指定矩阵 (spec-in tracking · 暖通工程命脉)
+ * 项目 × 设备族: 我方品牌状态 vs 竞品. 在设计选型阶段"把品牌写进图纸".
+ * ourBrandStatus: not_specified/basis_of_design/specified/alternate/substituted/lost
+ */
+export const pmsSpecPositions = pgTable(
+  'pms_spec_positions',
+  {
+    id: text('id').primaryKey(),
+    tenantId: text('tenantId').notNull().default('default'),
+    projectId: text('projectId').notNull(),
+    equipmentFamily: text('equipmentFamily').notNull(), // 设备族 (冷水机组/空调箱/热泵...)
+    ourBrandStatus: text('ourBrandStatus').notNull().default('not_specified'),
+    ourProductSeriesCode: text('ourProductSeriesCode'),
+    ourProductModel: text('ourProductModel'),
+    competitorBrand: text('competitorBrand'),
+    competitorModel: text('competitorModel'),
+    estimatedValue: numeric('estimatedValue'),
+    specStage: text('specStage').notNull().default('design'), // design/tender/awarded
+    notes: text('notes'),
+    createdBy: text('createdBy').notNull(),
+    updatedBy: text('updatedBy'),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+    archivedAt: timestamp('archivedAt', { precision: 3, mode: 'date' }),
+  },
+  (t) => ({
+    projectIdx: index('pms_spec_project_idx').on(t.projectId, t.equipmentFamily),
+    statusIdx: index('pms_spec_status_idx').on(t.tenantId, t.ourBrandStatus),
+    tenantIdx: index('pms_spec_tenant_idx').on(t.tenantId),
   }),
 );
