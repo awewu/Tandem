@@ -13,6 +13,10 @@ import {
   createTarget,
   listTargets,
   updateActual,
+  rollupTarget,
+  rollupAllTargets,
+  type TargetDimension,
+  type PeriodType,
 } from '@/lib/pms/performance-target-service';
 
 export async function GET(req: NextRequest) {
@@ -39,6 +43,9 @@ export async function GET(req: NextRequest) {
     const targets = await listTargets({
       tenantId: auth.tenantId,
       period: searchParams.get('period') || undefined,
+      periodType: (searchParams.get('periodType') as PeriodType) || undefined,
+      dimension: (searchParams.get('dimension') as TargetDimension) || undefined,
+      dimensionValue: searchParams.get('dimensionValue') || undefined,
       orgId: searchParams.get('orgId') || undefined,
       dealerOrgId,
       targetType: searchParams.get('targetType') || undefined,
@@ -77,11 +84,15 @@ export async function POST(req: NextRequest) {
       }
       const target = await createTarget({
         tenantId: auth.tenantId,
+        dimension: (body.dimension as TargetDimension) || undefined,
+        dimensionValue: body.dimensionValue || undefined,
         orgId: body.orgId,
         dealerOrgId: body.dealerOrgId,
         period: body.period,
+        periodType: (body.periodType as PeriodType) || undefined,
         targetType: body.targetType,
         targetValue: Number(body.targetValue),
+        targetCount: typeof body.targetCount === 'number' ? body.targetCount : undefined,
         actualValue: typeof body.actualValue === 'number' ? body.actualValue : undefined,
         createdBy: auth.userId,
       });
@@ -96,7 +107,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ result });
     }
 
-    return NextResponse.json({ error: 'Unknown action; expected create | update_actual' }, { status: 400 });
+    // 单目标汇总: 从真实商机聚合成交额/单数 + 同比环比
+    if (action === 'rollup') {
+      if (!body.id) {
+        return NextResponse.json({ error: 'Missing id' }, { status: 400 });
+      }
+      const target = await rollupTarget({ tenantId: auth.tenantId, id: body.id });
+      return NextResponse.json({ target });
+    }
+
+    // 批量汇总: 对匹配筛选的目标全部重算
+    if (action === 'rollup_all') {
+      const targets = await rollupAllTargets({
+        tenantId: auth.tenantId,
+        period: body.period || undefined,
+        periodType: (body.periodType as PeriodType) || undefined,
+        dimension: (body.dimension as TargetDimension) || undefined,
+      });
+      return NextResponse.json({ targets, rolledUp: targets.length });
+    }
+
+    return NextResponse.json({ error: 'Unknown action; expected create | update_actual | rollup | rollup_all' }, { status: 400 });
   } catch (error: any) {
     console.error('Performance targets POST error:', error);
     if (/not found/.test(error?.message || '')) {

@@ -9,8 +9,8 @@
 
 import { nanoid } from 'nanoid';
 import { db } from '../infra/drizzle-client';
-import { pmsPerformanceTargets } from '../infra/drizzle-schema';
-import { and, eq, desc } from 'drizzle-orm';
+import { pmsPerformanceTargets, pmsOpportunities } from '../infra/drizzle-schema';
+import { and, eq, desc, gte, lt, isNull, inArray, sql, type SQL, type Column } from 'drizzle-orm';
 
 /** 运营维度轴 */
 export type TargetDimension =
@@ -244,4 +244,160 @@ export async function updateActual(input: {
     .set({ actualValue: input.actualValue.toString(), achievementRate: rate.toString(), updatedAt: now })
     .where(eq(pmsPerformanceTargets.id, input.id));
   return { id: input.id, actualValue: input.actualValue, achievementRate: rate, updatedAt: now.toISOString() };
+}
+
+// --- 汇总引擎 (batch2): 按 维度×周期 从真实商机自动聚合 actual/count + 同比环比 ---
+
+/**
+ * 维度 → pms_opportunities 归属列.
+ *   product_line 对齐结构化选型的 productSeriesCode (系列=产品线).
+ *   'org' 无 dimensionValue 时代表租户全量 (不加维度过滤).
+ */
+function dimensionColumn(dimension: TargetDimension): Column {
+  switch (dimension) {
+    case 'region':
+      return pmsOpportunities.region;
+    case 'channel':
+      return pmsOpportunities.channel;
+    case 'product_line':
+      return pmsOpportunities.productSeriesCode;
+    case 'dealer_org':
+      return pmsOpportunities.dealerOrgId;
+    case 'sales_person':
+      return pmsOpportunities.reporterId;
+    case 'org':
+      return pmsOpportunities.orgId;
+    default:
+      return pmsOpportunities.orgId;
+  }
+}
+
+/**
+ * 聚合某 维度切片 在 [start,end) 内的成交额与成交单数.
+ *   actualValue = SUM(estimatedAmount) WHERE status='won'
+ *   actualCount = COUNT(*)              WHERE status='won'
+ * 周期按 createdAt 归属 (与 analytics-service 一致).
+ * visibleOrgIds 传入则叠加 orgId 隔离 (经销商).
+ */
+async function aggregateActuals(params: {
+  tenantId: string;
+  dimension: TargetDimension;
+  dimensionValue?: string;
+  start: Date;
+  end: Date;
+  visibleOrgIds?: string[];
+}): Promise<{ value: number; count: number }> {
+  const conditions: SQL[] = [
+    eq(pmsOpportunities.tenantId, params.tenantId),
+    isNull(pmsOpportunities.archivedAt),
+    gte(pmsOpportunities.createdAt, params.start),
+    lt(pmsOpportunities.createdAt, params.end),
+  ];
+  // 维度过滤: org 且无值 → 租户全量; 否则按维度列匹配
+  if (!(params.dimension === 'org' && !params.dimensionValue) && params.dimensionValue) {
+    conditions.push(eq(dimensionColumn(params.dimension), params.dimensionValue));
+  }
+  if (params.visibleOrgIds && params.visibleOrgIds.length > 0) {
+    conditions.push(inArray(pmsOpportunities.orgId, params.visibleOrgIds));
+  }
+  const rows = await db
+    .select({
+      value: sql<number>`coalesce(sum(cast(${pmsOpportunities.estimatedAmount} as double precision)) filter (where ${pmsOpportunities.status} = 'won'), 0)::float8`,
+      count: sql<number>`cast(count(*) filter (where ${pmsOpportunities.status} = 'won') as int)`,
+    })
+    .from(pmsOpportunities)
+    .where(and(...conditions));
+  const r = rows[0];
+  return { value: Math.round(Number(r?.value ?? 0) * 100) / 100, count: Number(r?.count ?? 0) };
+}
+
+/**
+ * 单目标汇总: 聚合当期成交额/单数 → 回写 actualValue/actualCount/达成率/同比/环比.
+ * 返回更新后的目标.
+ */
+export async function rollupTarget(input: {
+  tenantId: string;
+  id: string;
+  visibleOrgIds?: string[];
+}): Promise<ReturnType<typeof mapTarget>> {
+  const rows = await db
+    .select()
+    .from(pmsPerformanceTargets)
+    .where(and(eq(pmsPerformanceTargets.id, input.id), eq(pmsPerformanceTargets.tenantId, input.tenantId)))
+    .limit(1);
+  if (rows.length === 0) throw new Error('performance target not found');
+  const row = rows[0];
+  const dimension = (row.dimension || 'org') as TargetDimension;
+  const dimensionValue = row.dimensionValue || undefined;
+  const periodType = (row.periodType || 'monthly') as PeriodType;
+
+  const cur = periodBounds(row.period, periodType);
+  const actual = await aggregateActuals({
+    tenantId: input.tenantId,
+    dimension,
+    dimensionValue,
+    start: cur.start,
+    end: cur.end,
+    visibleOrgIds: input.visibleOrgIds,
+  });
+
+  // 同比 (去年同期) / 环比 (上一连续周期)
+  const yoyPeriod = shiftPeriod(row.period, periodType, 'yoy');
+  const momPeriod = shiftPeriod(row.period, periodType, 'mom');
+  const yoyB = periodBounds(yoyPeriod, periodType);
+  const momB = periodBounds(momPeriod, periodType);
+  const [yoyAgg, momAgg] = await Promise.all([
+    aggregateActuals({ tenantId: input.tenantId, dimension, dimensionValue, start: yoyB.start, end: yoyB.end, visibleOrgIds: input.visibleOrgIds }),
+    aggregateActuals({ tenantId: input.tenantId, dimension, dimensionValue, start: momB.start, end: momB.end, visibleOrgIds: input.visibleOrgIds }),
+  ]);
+  const yoyGrowth = computeGrowth(actual.value, yoyAgg.value);
+  const momGrowth = computeGrowth(actual.value, momAgg.value);
+
+  const target = parseFloat(row.targetValue);
+  const rate = computeAchievementRate(actual.value, target);
+  const now = new Date();
+  await db
+    .update(pmsPerformanceTargets)
+    .set({
+      actualValue: actual.value.toString(),
+      actualCount: actual.count.toString(),
+      achievementRate: rate.toString(),
+      yoyGrowth: yoyGrowth != null ? yoyGrowth.toString() : null,
+      momGrowth: momGrowth != null ? momGrowth.toString() : null,
+      updatedAt: now,
+    })
+    .where(eq(pmsPerformanceTargets.id, input.id));
+
+  const updated = await db
+    .select()
+    .from(pmsPerformanceTargets)
+    .where(eq(pmsPerformanceTargets.id, input.id))
+    .limit(1);
+  return mapTarget(updated[0]);
+}
+
+/**
+ * 批量汇总: 对匹配筛选的所有目标逐个 rollup.
+ * 返回汇总后的目标列表 (与 listTargets 同结构).
+ */
+export async function rollupAllTargets(input: {
+  tenantId: string;
+  period?: string;
+  periodType?: PeriodType;
+  dimension?: TargetDimension;
+  visibleOrgIds?: string[];
+}): Promise<ReturnType<typeof mapTarget>[]> {
+  const conditions = [eq(pmsPerformanceTargets.tenantId, input.tenantId)];
+  if (input.period) conditions.push(eq(pmsPerformanceTargets.period, input.period));
+  if (input.periodType) conditions.push(eq(pmsPerformanceTargets.periodType, input.periodType));
+  if (input.dimension) conditions.push(eq(pmsPerformanceTargets.dimension, input.dimension));
+  const targets = await db
+    .select({ id: pmsPerformanceTargets.id })
+    .from(pmsPerformanceTargets)
+    .where(and(...conditions));
+  const results: ReturnType<typeof mapTarget>[] = [];
+  for (const t of targets) {
+    results.push(await rollupTarget({ tenantId: input.tenantId, id: t.id, visibleOrgIds: input.visibleOrgIds }));
+  }
+  return results;
 }
