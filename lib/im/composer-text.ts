@@ -15,3 +15,12 @@ export function insertTextAtSelection(
     caret: start + text.length,
   };
 }
+
+export function buildPersonMentionToken(input: {
+  userId: string;
+  name: string;
+  kind?: 'notify' | 'assign' | 'consult' | 'persona';
+}): string {
+  const safeName = input.name.replace(/[\[\]\(\)]/g, '').trim() || input.userId;
+  return `@[${safeName}](${input.userId}:${input.kind ?? 'notify'}) `;
+}

@@ -3,7 +3,7 @@ import { withErrorHandler } from '@/lib/api/error-middleware';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { getStore } from '@/lib/storage/repository';
 import { decrypt } from '@/lib/infra/crypto';
-import { searchMessages } from '@/lib/integrations/email-tier1';
+import { searchMessagePage } from '@/lib/integrations/email-tier1';
 import type { EmailCredentials } from '@/lib/integrations/email-tier1';
 import { withApiLog } from '@/lib/api-log/with-api-log';
 
@@ -21,11 +21,28 @@ const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const q = searchParams.get('q') ?? '';
   const folder = searchParams.get('folder') ?? 'INBOX';
+  const page = Math.max(1, Number(searchParams.get('page')) || 1);
+  const limit = Math.min(100, Math.max(1, Number(searchParams.get('limit')) || 30));
   if (!q.trim()) return NextResponse.json({ messages: [] });
   const creds = await getKvRepo('user_email_creds').get(auth.userId);
   if (!creds?.smtpPassEncrypted) return NextResponse.json({ error: '未绑定邮箱' }, { status: 400 });
-  const messages = await searchMessages(buildCreds(auth.userId, creds), { query: q, folder, limit: 30 });
-  return NextResponse.json({ messages });
+  const isStarred = folder === 'starred';
+  const result = await searchMessagePage(buildCreds(auth.userId, creds), {
+    query: q,
+    folder: isStarred ? 'INBOX' : folder,
+    page,
+    limit,
+  });
+  const visibleMessages = isStarred
+    ? result.messages.filter((message) => message.flags.includes('\\Flagged'))
+    : result.messages;
+  return NextResponse.json({
+    messages: visibleMessages,
+    total: result.total,
+    hasMore: isStarred ? false : result.hasMore,
+    page: result.page,
+    pageSize: result.pageSize,
+  });
 });
 
 export const GET = withApiLog(GETApiHandler, { route: '/api/mail/search' });

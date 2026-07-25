@@ -16,10 +16,6 @@ import { ImSidebar } from '@/components/im/im-sidebar';
 import { AgentModeToggle } from '@/components/im/agent-mode-toggle';
 import { AiTraceButton } from '@/components/im/ai-trace-button';
 import { CompanyBrainFeedbackButtons } from '@/components/im/company-brain-feedback';
-import {
-  DocumentMentionPicker,
-  useMentionTrigger,
-} from '@/components/documents/mention-picker';
 import { cn } from '@/lib/utils';
 import { MessageReactions } from '@/components/im/message-reactions';
 import type { ImAttachment, ImChannel, ImMembership, ImMessage } from '@/lib/types/im';
@@ -31,7 +27,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { insertTextAtSelection, messageBodyForSend } from '@/lib/im/composer-text';
+import { buildPersonMentionToken, insertTextAtSelection, messageBodyForSend } from '@/lib/im/composer-text';
+import { displayImChannelName } from '@/lib/im/channel-name';
 import {
   Hash,
   Megaphone,
@@ -170,6 +167,18 @@ function ImInner() {
     return window.confirm('还有文件传输中，返回会导致传输失败。确定要返回吗？');
   }
 
+  function notifyChannelsRefresh() {
+    window.dispatchEvent(new Event('tandem:im-channels-refresh'));
+  }
+
+  async function markActiveChannelRead(chId: string) {
+    await fetch(`/api/im/channels/${chId}/read`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    notifyChannelsRefresh();
+  }
+
   function closeActiveChat() {
     if (!confirmLeaveDuringUpload()) return;
     setShowSettings(false);
@@ -238,11 +247,7 @@ function ImInner() {
     setTimeout(() => {
       scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
     }, 30);
-    void fetch(`/api/im/channels/${chId}/read`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: ME }),
-    });
+    void markActiveChannelRead(chId);
   }
 
   async function refreshMessages(chId: string) {
@@ -269,11 +274,7 @@ function ImInner() {
       }, 30);
     }
 
-    void fetch(`/api/im/channels/${chId}/read`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: ME }),
-    });
+    void markActiveChannelRead(chId);
   }
 
   // -- SSE subscribe --
@@ -303,16 +304,12 @@ function ImInner() {
           }, 30);
         }
         // 保持已读
-        void fetch(`/api/im/channels/${activeId}/read`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: ME }),
-        });
+        void markActiveChannelRead(activeId);
       } catch {
         /* ignore */
       }
     });
-    es.addEventListener('unread', () => { /* ImSidebar 自行轮询 */ });
+    es.addEventListener('unread', notifyChannelsRefresh);
     // Day 4: 撤回事件 — 替换本地设置 deletedAt
     es.addEventListener('message_updated', (e) => {
       try {
@@ -320,7 +317,7 @@ function ImInner() {
         setMessages((prev) => prev.map((m) => (m.id === msg.id ? msg : m)));
       } catch { /* ignore */ }
     });
-    es.addEventListener('channel', () => { /* ImSidebar 自行轮询 */ });
+    es.addEventListener('channel', notifyChannelsRefresh);
 
     const poll = window.setInterval(() => {
       if (document.visibilityState === 'hidden') return;
@@ -551,6 +548,7 @@ function ImInner() {
           }
           return prev.map((m) => (m.id === tempId ? confirmedMessage : m));
         });
+        notifyChannelsRefresh();
       }
 
       if (queuedAttachments.length === 0 || !serverMessage) {
@@ -730,13 +728,13 @@ function ImInner() {
                 </button>
                 <ConvAvatar
                   channel={activeChannel}
-                  name={activeChannel.type === 'dm' ? nameOf(activeChannel.memberIds.find((m) => m !== ME)) ?? '私聊' : activeChannel.name}
+                  name={activeChannel.type === 'dm' ? nameOf(activeChannel.memberIds.find((m) => m !== ME)) ?? '私聊' : displayImChannelName(activeChannel)}
                 />
                 <div className="min-w-0">
                   <div className="truncate text-[14px] font-semibold text-ink-primary">
                     {activeChannel.type === 'dm'
                       ? nameOf(activeChannel.memberIds.find((m) => m !== ME)) ?? '私聊'
-                      : activeChannel.name}
+                      : displayImChannelName(activeChannel)}
                   </div>
                   {activeChannel.topic && (
                     <div className="truncate text-[12px] text-ink-secondary">{activeChannel.topic}</div>
@@ -962,10 +960,13 @@ function ImInner() {
                     composerRef={composerRef}
                     value={input}
                     setValue={setInput}
+                    members={members}
+                    meId={ME}
+                    nameOf={nameOf}
                     onEnter={() => void sendMessage()}
                     onPasteFiles={queuePastedImages}
                     disabled={sending}
-                    placeholder={sendAsAgent ? '以 AI 分身身份发言…' : '发送消息（可直接粘贴图片）…'}
+                    placeholder={sendAsAgent ? '以 AI 分身身份发言...' : '发送消息，输入 @ 选择人员（可直接粘贴图片）...'}
                   />
                 </div>
                 <Button
@@ -994,6 +995,8 @@ function ImInner() {
           channel={activeChannel}
           currentUserId={ME}
           onClose={() => setShowSettings(false)}
+          onDissolve={closeActiveChat}
+          onLeft={closeActiveChat}
           onChanged={() => {
             if (!activeId) return;
             void fetch(`/api/im/channels?userId=${ME}`)
@@ -1691,28 +1694,40 @@ function renderInline(
   return parts.length ? parts : body;
 }
 
-/**
- * D-01: IM composer 输入框, 接 @ 文档引用 picker.
- *
- * 既不破坏现有 @[name](userId:persona) 召唤分身的语法 (那个是 @ 紧跟 `[`,
- * useMentionTrigger 的 regex 会立刻 fail → 收起 picker),
- * 也支持新的 @<文件名> 文档引用 (插入 [[doc:id|title]], 走 router preprocess).
- */
 function ImComposerInput(props: {
   composerRef: React.RefObject<HTMLTextAreaElement>;
   value: string;
   setValue: React.Dispatch<React.SetStateAction<string>>;
+  members: ImMembership[];
+  meId: string;
+  nameOf: (id: string | null | undefined) => string;
   onEnter: () => void;
   onPasteFiles?: (files: File[]) => void;
   disabled?: boolean;
   placeholder?: string;
 }) {
-  const { composerRef, value, setValue, onEnter, onPasteFiles, disabled, placeholder } = props;
-  const mention = useMentionTrigger({
-    value,
-    setValue: (v) => setValue(v),
-    inputRef: composerRef,
-  });
+  const { composerRef, value, setValue, members, meId, nameOf, onEnter, onPasteFiles, disabled, placeholder } = props;
+  const [mentionOpen, setMentionOpen] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [mentionStart, setMentionStart] = useState(-1);
+  const [mentionActive, setMentionActive] = useState(0);
+  const [mentionAnchor, setMentionAnchor] = useState<{ x: number; y: number } | undefined>();
+  const mentionCandidates = useMemo(() => {
+    const q = mentionQuery.trim().toLowerCase();
+    return members
+      .map((m) => ({ userId: m.userId, name: nameOf(m.userId) }))
+      .filter((m) => m.userId !== meId)
+      .filter((m) => (
+        !q ||
+        m.name.toLowerCase().includes(q) ||
+        m.userId.toLowerCase().includes(q)
+      ))
+      .slice(0, 8);
+  }, [members, mentionQuery, meId, nameOf]);
+
+  useEffect(() => {
+    setMentionActive(0);
+  }, [mentionQuery, mentionCandidates.length]);
 
   useEffect(() => {
     const el = composerRef.current;
@@ -1723,13 +1738,59 @@ function ImComposerInput(props: {
     el.style.overflowY = el.scrollHeight > 120 ? 'auto' : 'hidden';
   }, [composerRef, value]);
 
+  function updateMentionState(next: string, caret: number, target: HTMLTextAreaElement) {
+    let i = caret - 1;
+    while (i >= 0 && !/\s/.test(next[i])) {
+      if (next[i] === '@') {
+        const query = next.slice(i + 1, caret);
+        if (/^[A-Za-z0-9_\-\.\u4e00-\u9fff\u3040-\u30ff]*$/.test(query)) {
+          const rect = target.getBoundingClientRect();
+          setMentionStart(i);
+          setMentionQuery(query);
+          setMentionOpen(true);
+          setMentionAnchor({ x: rect.left + 8, y: rect.top + rect.height });
+          return;
+        }
+        break;
+      }
+      i--;
+    }
+    setMentionOpen(false);
+    setMentionStart(-1);
+    setMentionQuery('');
+  }
+
+  function insertPersonMention(person: { userId: string; name: string }) {
+    if (mentionStart < 0) return;
+    const caret = composerRef.current?.selectionStart ?? value.length;
+    const before = value.slice(0, mentionStart);
+    const after = value.slice(caret);
+    const token = buildPersonMentionToken(person);
+    const next = before + token + after;
+    setValue(next);
+    setMentionOpen(false);
+    setMentionStart(-1);
+    setMentionQuery('');
+    queueMicrotask(() => {
+      const el = composerRef.current;
+      if (!el) return;
+      const pos = before.length + token.length;
+      el.focus();
+      el.setSelectionRange(pos, pos);
+    });
+  }
+
   return (
     <>
       <Textarea
         ref={composerRef}
         rows={1}
         value={value}
-        onChange={mention.onChange}
+        onChange={(e) => {
+          const next = e.target.value;
+          setValue(next);
+          updateMentionState(next, e.target.selectionStart ?? next.length, e.currentTarget);
+        }}
         onPaste={(e) => {
           const items = e.clipboardData?.items;
           if (!items) return;
@@ -1762,9 +1823,18 @@ function ImComposerInput(props: {
           }
         }}
         onKeyDown={(e) => {
-          // picker 接管 ↑↓⏎Esc, 不让编辑器默认 Enter 触发发送
-          if (mention.open && ['ArrowDown', 'ArrowUp', 'Enter', 'Escape', 'Tab'].includes(e.key)) {
-            if (e.key === 'Enter' || e.key === 'Tab') e.preventDefault();
+          if (mentionOpen && ['ArrowDown', 'ArrowUp', 'Enter', 'Escape', 'Tab'].includes(e.key)) {
+            e.preventDefault();
+            if (e.key === 'ArrowDown') {
+              setMentionActive((idx) => Math.min(idx + 1, Math.max(mentionCandidates.length - 1, 0)));
+            } else if (e.key === 'ArrowUp') {
+              setMentionActive((idx) => Math.max(idx - 1, 0));
+            } else if (e.key === 'Enter' || e.key === 'Tab') {
+              const selected = mentionCandidates[mentionActive] ?? mentionCandidates[0];
+              if (selected) insertPersonMention(selected);
+            } else if (e.key === 'Escape') {
+              setMentionOpen(false);
+            }
             return;
           }
           if (e.nativeEvent.isComposing) return;
@@ -1777,13 +1847,82 @@ function ImComposerInput(props: {
         disabled={disabled}
         className="max-h-[120px] min-h-7 min-w-0 resize-none overflow-y-hidden border-0 bg-transparent px-0 py-1 text-[13px] leading-5 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
       />
-      <DocumentMentionPicker
-        open={mention.open}
-        query={mention.query}
-        anchor={mention.anchor}
-        onSelect={mention.insertMention}
-        onClose={() => mention.setOpen(false)}
+      <PersonMentionPicker
+        open={mentionOpen}
+        query={mentionQuery}
+        anchor={mentionAnchor}
+        candidates={mentionCandidates}
+        activeIndex={mentionActive}
+        onActiveIndexChange={setMentionActive}
+        onSelect={insertPersonMention}
       />
     </>
+  );
+}
+
+function PersonMentionPicker({
+  open,
+  query,
+  anchor,
+  candidates,
+  activeIndex,
+  onActiveIndexChange,
+  onSelect,
+}: {
+  open: boolean;
+  query: string;
+  anchor?: { x: number; y: number };
+  candidates: Array<{ userId: string; name: string }>;
+  activeIndex: number;
+  onActiveIndexChange: (index: number) => void;
+  onSelect: (person: { userId: string; name: string }) => void;
+}) {
+  if (!open) return null;
+  const pos = anchor ? { left: anchor.x, top: anchor.y + 4 } : { left: 16, bottom: 16 };
+  return (
+    <div
+      className="fixed z-50 w-72 max-h-72 overflow-auto rounded-lg border border-hairline bg-surface-2 shadow-soft-lg"
+      style={pos}
+      role="listbox"
+      aria-label="@人员选择"
+    >
+      <div className="flex items-center gap-2 border-b border-hairline px-3 py-2 text-caption text-ink-tertiary">
+        <UsersRound size={12} />
+        <span>@ 人员{query ? <span className="font-medium text-ink-secondary"> · {query}</span> : null}</span>
+        <span className="ml-auto text-footnote">↑↓ 选择 · Enter 插入</span>
+      </div>
+      {candidates.length === 0 ? (
+        <div className="px-3 py-4 text-center text-caption text-ink-tertiary">
+          当前会话没有匹配成员
+        </div>
+      ) : (
+        <ul>
+          {candidates.map((person, index) => (
+            <li key={person.userId}>
+              <button
+                type="button"
+                onMouseEnter={() => onActiveIndexChange(index)}
+                onClick={() => onSelect(person)}
+                className={`flex w-full items-center gap-2 px-3 py-2 text-left text-caption transition-colors ${
+                  index === activeIndex
+                    ? 'bg-brand-50 text-brand-700'
+                    : 'text-ink-secondary hover:bg-surface-3'
+                }`}
+                role="option"
+                aria-selected={index === activeIndex}
+              >
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-surface-3 text-[10px] font-semibold text-ink-secondary">
+                  {person.name.slice(0, 2).toUpperCase()}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">{person.name}</span>
+                  <span className="block truncate text-footnote text-ink-tertiary">{person.userId}</span>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

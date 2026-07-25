@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import type { ImChannel, ImMembership, ImMessage, ImMemberRole } from '@/lib/types/im';
 import { useOrgPeopleStore } from '@/lib/org/people-source';
+import { displayImChannelName } from '@/lib/im/channel-name';
 
 interface Props {
   open: boolean;
@@ -78,6 +79,7 @@ export function ChannelSettingsDialog({
   }, [open, channel]);
 
   if (!channel) return null;
+  const displayName = displayImChannelName(channel);
 
   const reloadMembers = async () => {
     const res = await fetch(`/api/im/channels/${channel.id}/members`);
@@ -202,7 +204,7 @@ export function ChannelSettingsDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
-            {channel.name} · 设置
+            {displayName} · 设置
             {!isAdmin && (
               <Badge variant="secondary" className="text-[10px]">只读</Badge>
             )}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { insertTextAtSelection, messageBodyForSend } from '@/lib/im/composer-text';
+import { buildPersonMentionToken, insertTextAtSelection, messageBodyForSend } from '@/lib/im/composer-text';
+import { parseMentions } from '@/lib/types/im';
 
 describe('IM composer text', () => {
   it('preserves pasted multiline text exactly', () => {
@@ -19,5 +20,30 @@ describe('IM composer text', () => {
     const body = '  第一行\n第二行\n  ';
     expect(messageBodyForSend(body)).toBe(body);
     expect(messageBodyForSend(' \n\t ')).toBe('');
+  });
+
+  it('builds a person mention token that the IM service parser understands', () => {
+    const token = buildPersonMentionToken({ userId: 'user-2', name: '张三' });
+
+    expect(token).toBe('@[张三](user-2:notify) ');
+    expect(parseMentions(`请 ${token} 看一下`)).toMatchObject([
+      { userId: 'user-2', kind: 'notify' },
+    ]);
+  });
+
+  it('sanitizes display names that would break the mention token syntax', () => {
+    const token = buildPersonMentionToken({ userId: 'user-3', name: '李四(研发)[A]' });
+
+    expect(token).toBe('@[李四研发A](user-3:notify) ');
+    expect(parseMentions(token)).toMatchObject([
+      { userId: 'user-3', kind: 'notify' },
+    ]);
+  });
+
+  it('keeps insertion behavior stable when inserting a person mention token', () => {
+    expect(insertTextAtSelection('hello world', '@[张三](user-2:notify) ', 6, 11)).toEqual({
+      value: 'hello @[张三](user-2:notify) ',
+      caret: 27,
+    });
   });
 });

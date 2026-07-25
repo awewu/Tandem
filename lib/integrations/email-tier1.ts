@@ -44,6 +44,21 @@ export interface EmailListResult {
   hasMore: boolean;
 }
 
+export interface EmailSearchOptions {
+  query: string;
+  folder?: string;
+  limit?: number;
+  page?: number;
+}
+
+export interface EmailSearchResult {
+  messages: EmailMessage[];
+  total: number;
+  hasMore: boolean;
+  page: number;
+  pageSize: number;
+}
+
 function normalizeFolder(folder?: string): string {
   if (!folder) return 'INBOX';
   const map: Record<string, string> = {
@@ -401,11 +416,11 @@ export async function deleteMessages(
     await client.logout();
   }
 }
-/** IMAP 全文搜索 */
-export async function searchMessages(
+/** IMAP 全文搜索，按 UID 从新到旧分页，不限制历史时间范围。 */
+export async function searchMessagePage(
   cred: EmailCredentials,
-  options: { query: string; folder?: string; limit?: number }
-): Promise<EmailMessage[]> {
+  options: EmailSearchOptions
+): Promise<EmailSearchResult> {
   const client = new ImapFlow({
     host: cred.imap.host, port: cred.imap.port,
     secure: cred.imap.secure, auth: cred.imap.auth, logger: false,
@@ -416,12 +431,26 @@ export async function searchMessages(
     const lock = await client.getMailboxLock(resolved);
     try {
       const q = options.query.trim();
-      const found = await client.search({ or: [{ subject: q }, { from: q }, { body: q }] }, { uid: true });
+      const pageSize = Math.min(Math.max(options.limit ?? 30, 1), 100);
+      const page = Math.max(options.page ?? 1, 1);
+      const found = await client.search({
+        or: [
+          { subject: q },
+          { from: q },
+          { to: q },
+          { cc: q },
+          { body: q },
+        ],
+      }, { uid: true });
       const uids = Array.isArray(found) ? found : [];
-      const limited = uids.slice(-Math.min(options.limit ?? 30, 50)).reverse();
-      if (!limited.length) return [];
+      const newestFirst = [...uids].sort((a, b) => b - a);
+      const start = (page - 1) * pageSize;
+      const paged = newestFirst.slice(start, start + pageSize);
+      if (!paged.length) {
+        return { messages: [], total: uids.length, hasMore: false, page, pageSize };
+      }
       const msgs: EmailMessage[] = [];
-      for await (const msg of client.fetch(limited.join(','), { envelope: true, flags: true }, { uid: true })) {
+      for await (const msg of client.fetch(paged.join(','), { envelope: true, flags: true }, { uid: true })) {
         msgs.push({
           uid: msg.uid,
           seq: msg.seq,
@@ -434,9 +463,24 @@ export async function searchMessages(
           attachments: [],
         });
       }
-      return msgs;
+      const order = new Map(paged.map((uid, index) => [uid, index]));
+      msgs.sort((a, b) => (order.get(a.uid) ?? 0) - (order.get(b.uid) ?? 0));
+      return {
+        messages: msgs,
+        total: uids.length,
+        hasMore: start + pageSize < uids.length,
+        page,
+        pageSize,
+      };
     } finally { lock.release(); }
   } finally { await client.logout(); }
+}
+
+export async function searchMessages(
+  cred: EmailCredentials,
+  options: EmailSearchOptions
+): Promise<EmailMessage[]> {
+  return (await searchMessagePage(cred, options)).messages;
 }
 
 /** 移动邮件到指定文件夹 */

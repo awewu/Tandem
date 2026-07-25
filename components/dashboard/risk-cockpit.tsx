@@ -1,61 +1,72 @@
 'use client';
 
 /**
- * <RiskCockpit /> — 首页置顶 AI 风险驾驶舱 (2026-06-27)
+ * <RiskCockpit /> — 首页置顶 AI 工作风险驾驶舱
  *
- * 对标 Tita 首页"风险分析"一句话摘要, 但用客观算法 (时间基准偏差) 而非人工标注:
- *   "AI 风险扫描:N 个目标严重滞后 · M 个预警 · X 个逾期行动项 · 填写率 Y%"
- *
- * 工程约束 (用户铁律):
- *   - 100% 派生自 useOKRStore (DB hydrate), 无写死/无 mock
- *   - SSR-safe: now 在 useEffect 内取
- *   - 无激活周期 → 不渲染; 无风险 → 渲染极简"全部在轨"(不占视觉)
- *   - 每个数字都能下钻到真实路由 (/okr/dashboard, /okr#obj-)
+ * 入口展示当前账号可见范围内的风险摘要, 具体范围和证据粒度由 /api/work-risk 裁剪。
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ShieldAlert, ShieldCheck, ArrowRight, AlertTriangle, Clock } from 'lucide-react';
-import { useOKRStore } from '@/lib/store';
-import { computeRiskCockpit } from '@/lib/okr/cockpit';
-import { useOwnerDirectory } from '@/lib/org/use-owner-directory';
+import type { WorkRiskBoard, WorkRiskScope } from '@/lib/work-risk/types';
+
+const SCOPE_LABEL: Record<WorkRiskScope, string> = {
+  self: '我自己',
+  team: '我的团队',
+  organization: '可见全部人员',
+};
+
+function broadestScope(scopes: WorkRiskScope[]): WorkRiskScope {
+  if (scopes.includes('organization')) return 'organization';
+  if (scopes.includes('team')) return 'team';
+  return 'self';
+}
 
 export function RiskCockpit() {
-  const { cycles, objectives, keyResults, initiatives } = useOKRStore();
-  const { people, nameOf } = useOwnerDirectory();
-  const [now, setNow] = useState<number | null>(null);
-  useEffect(() => setNow(Date.now()), []);
+  const [board, setBoard] = useState<WorkRiskBoard | null>(null);
 
-  const activeCycle = useMemo(
-    () => cycles.find((c) => c.isActive) ?? cycles[0],
-    [cycles],
-  );
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const first = await fetch('/api/work-risk?scope=self', { credentials: 'include', cache: 'no-store' });
+        const firstData = await first.json();
+        if (!first.ok || !firstData.ok) return;
+        const preferred = broadestScope(firstData.board.allowedScopes);
+        if (preferred === 'self') {
+          if (!cancelled) setBoard(firstData.board);
+          return;
+        }
+        const next = await fetch(`/api/work-risk?scope=${preferred}`, { credentials: 'include', cache: 'no-store' });
+        const nextData = await next.json();
+        if (!cancelled) setBoard(next.ok && nextData.ok ? nextData.board : firstData.board);
+      } catch {
+        if (!cancelled) setBoard(null);
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  const cockpit = useMemo(() => {
-    if (now == null) return null;
-    return computeRiskCockpit({
-      objectives, keyResults, initiatives, people, cycle: activeCycle, now,
-    });
-  }, [now, objectives, keyResults, initiatives, people, activeCycle]);
-
-  // 未初始化 / 无激活周期 / 无活跃目标 → 不渲染 (不占位、不糊弄)
-  if (!cockpit || cockpit.activeCycleId == null || cockpit.totalActiveObjectives === 0) {
+  if (!board || board.summary.peopleCount === 0) {
     return null;
   }
 
-  // 全部在轨 → 极简正向条
-  if (!cockpit.hasRisk) {
+  if (board.summary.signalCount === 0) {
     return (
       <div className="rounded-2xl border border-success/30 bg-success/10 px-4 py-3 flex items-center gap-2.5">
         <ShieldCheck className="h-4 w-4 text-success shrink-0" />
         <span className="text-caption text-success">
-          AI 风险扫描:本周期 {cockpit.totalActiveObjectives} 个目标全部在轨 · 填写率 {cockpit.coverage}%
+          AI 工作风险扫描:{SCOPE_LABEL[board.scope]}暂无风险信号 · {board.summary.peopleCount} 人可见
         </span>
         <Link
-          href="/okr/dashboard"
+          href={`/work-risk?scope=${board.scope}`}
           className="ml-auto text-footnote text-success hover:text-success inline-flex items-center gap-1 shrink-0"
         >
-          健康看板 <ArrowRight className="h-3 w-3" />
+          工作风险看板 <ArrowRight className="h-3 w-3" />
         </Link>
       </div>
     );
@@ -72,47 +83,46 @@ export function RiskCockpit() {
             <div className="text-headline text-ink-primary flex items-center gap-2">
               AI 风险扫描
               <span className="text-footnote font-normal text-ink-tertiary">
-                · 时间基准客观评估 · {cockpit.totalActiveObjectives} 个目标
+                · {SCOPE_LABEL[board.scope]} · {board.summary.peopleCount} 人可见
               </span>
             </div>
             <Link
-              href="/okr/dashboard"
+              href={`/work-risk?scope=${board.scope}`}
               className="text-caption text-brand-600 hover:text-brand-700 inline-flex items-center gap-1 shrink-0"
             >
-              健康看板 <ArrowRight className="h-3 w-3" />
+              工作风险看板 <ArrowRight className="h-3 w-3" />
             </Link>
           </div>
 
-          {/* 一句话摘要数字 (全部真实派生, 可下钻) */}
           <div className="mt-2 flex items-center gap-x-5 gap-y-1.5 flex-wrap text-caption">
-            <Metric value={cockpit.offTrack} label="严重滞后" tone="danger" />
-            <Metric value={cockpit.atRisk} label="预警" tone="warning" />
-            <Metric value={cockpit.overdueInitiatives} label="逾期行动项" tone="warning" icon={Clock} />
+            <Metric value={board.summary.high} label="高风险" tone="danger" />
+            <Metric value={board.summary.medium} label="预警" tone="warning" />
+            <Metric value={board.sources.find((s) => s.source === 'okr')?.signalCount ?? 0} label="OKR/行动项" tone="warning" icon={Clock} />
             <span className="text-ink-tertiary">
-              填写率 <strong className="text-ink-secondary">{cockpit.coverage}%</strong>
+              证据受限 <strong className="text-ink-secondary">{board.summary.restrictedEvidence}</strong>
             </span>
             <span className="text-ink-tertiary">
-              对齐率 <strong className="text-ink-secondary">{cockpit.alignment}%</strong>
+              已接入来源 <strong className="text-ink-secondary">{board.sources.filter((s) => s.enabled).length}</strong>
             </span>
           </div>
 
-          {/* 最该关注的目标 — 直接下钻 */}
-          {cockpit.topRisks.length > 0 && (
+          {board.signals.length > 0 && (
             <ul className="mt-3 space-y-1.5">
-              {cockpit.topRisks.slice(0, 3).map((r) => (
-                <li key={r.objectiveId} className="flex min-w-0 items-center gap-2 text-caption">
+              {board.signals.slice(0, 3).map((r) => (
+                <li key={r.id} className="flex min-w-0 items-center gap-2 text-caption">
                   <AlertTriangle
-                    className={`h-3.5 w-3.5 shrink-0 ${r.band === 'off-track' ? 'text-danger' : 'text-warning'}`}
+                    className={`h-3.5 w-3.5 shrink-0 ${r.severity === 'high' ? 'text-danger' : 'text-warning'}`}
                   />
-                  <Link
-                    href={`/okr#obj-${r.objectiveId}`}
-                    className="text-ink-primary hover:text-brand-600 truncate"
-                  >
-                    {r.title}
-                  </Link>
-                  <span className="text-ink-tertiary shrink-0">· {nameOf(r.ownerId)}</span>
+                  {r.href ? (
+                    <Link href={r.href} className="text-ink-primary hover:text-brand-600 truncate">
+                      {r.title}
+                    </Link>
+                  ) : (
+                    <span className="text-ink-primary truncate">{r.title}</span>
+                  )}
+                  <span className="text-ink-tertiary shrink-0">· {r.subjectName}</span>
                   <span className="ml-auto text-footnote text-ink-tertiary shrink-0">
-                    落后基准 <strong className="text-danger">{r.variance}%</strong>
+                    {r.evidence.visibility === 'restricted' ? '证据受限' : r.detail}
                   </span>
                 </li>
               ))}

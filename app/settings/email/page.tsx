@@ -23,6 +23,10 @@ import {
   EyeOff,
   Pencil,
   Plus,
+  RefreshCw,
+  ExternalLink,
+  ShieldCheck,
+  History,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -35,6 +39,7 @@ interface PersonalCreds {
   smtp?: { host: string; port: number; secure: boolean; user: string };
   imap?: { host: string; port: number; secure: boolean; user: string };
   updatedAt?: string;
+  verifiedAt?: string;
 }
 
 interface MailConfig {
@@ -103,6 +108,10 @@ const PROVIDER_PRESETS: Record<Exclude<EmailProvider, 'custom'>, Pick<GlobalEmai
   },
 };
 
+const NETEASE_LOGIN_URL = 'https://mail.qiye.163.com/static/login/';
+const NETEASE_HISTORY_RANGE_HELP_URL = 'https://office.163.com/helpCenter/mail/d/1967411071057756161.html';
+const NETEASE_PASSWORD_RESET_HELP_URL = 'https://qy.163.com/help/c56f84.html';
+
 function newGlobalEmailForm(): GlobalEmailForm {
   return {
     provider: 'netease',
@@ -132,7 +141,9 @@ export default function EmailSettingsPage() {
   const [credsLoading, setCredsLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [verifyResult, setVerifyResult] = useState<{ verifiedAt: string; calendarAutoSyncEnabled: boolean } | null>(null);
 
   const [form, setForm] = useState({
     smtpUser: '',
@@ -153,6 +164,7 @@ export default function EmailSettingsPage() {
     setPersonalCreds(null);
     setCredsLoading(true);
     setFeedback(null);
+    setVerifyResult(null);
     setForm({ smtpUser: '', smtpPass: '', imapUser: '', imapPass: '' });
 
     fetch('/api/mail/config', { credentials: 'include', cache: 'no-store' })
@@ -298,19 +310,48 @@ export default function EmailSettingsPage() {
         setFeedback({ ok: false, msg: responseErrorMessage(data, '保存失败') });
         return;
       }
-      setFeedback({ ok: true, msg: '个人邮箱凭据已保存' });
+      setFeedback({ ok: true, msg: '个人邮箱账号已验证并保存' });
       const imapUser = form.imapUser || form.smtpUser;
       setPersonalCreds({
         configured: true,
         smtp: config ? { host: config.smtpHost, port: config.smtpPort, secure: config.smtpSecure, user: form.smtpUser } : undefined,
         imap: config ? { host: config.imapHost, port: config.imapPort, secure: config.imapSecure, user: imapUser } : undefined,
         updatedAt: new Date().toISOString(),
+        verifiedAt: new Date().toISOString(),
       });
       setForm((current) => ({ ...current, smtpPass: '', imapPass: '' }));
     } catch (err) {
       setFeedback({ ok: false, msg: (err as Error).message });
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleVerify() {
+    setVerifying(true);
+    setFeedback(null);
+    setVerifyResult(null);
+    try {
+      const res = await fetch('/api/mail/credentials/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(form),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setFeedback({ ok: false, msg: responseErrorMessage(data, '邮箱登录验证失败') });
+        return;
+      }
+      setVerifyResult({
+        verifiedAt: typeof data.verifiedAt === 'string' ? data.verifiedAt : new Date().toISOString(),
+        calendarAutoSyncEnabled: data.calendarAutoSyncEnabled === true,
+      });
+      setFeedback({ ok: true, msg: '邮箱登录验证通过，IMAP 收件和 SMTP 发件均可用。' });
+    } catch (err) {
+      setFeedback({ ok: false, msg: (err as Error).message });
+    } finally {
+      setVerifying(false);
     }
   }
 
@@ -381,6 +422,102 @@ export default function EmailSettingsPage() {
         </CardContent>
       </Card>
 
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <Card>
+          <CardContent className="flex h-full flex-col gap-4 p-4 sm:p-5">
+            <div className="flex items-start gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-success/10 text-success">
+                <ShieldCheck className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-headline text-ink-primary">邮箱登录验证</h2>
+                <p className="mt-1 text-caption leading-relaxed text-ink-secondary">
+                  验证当前账号能否通过网易企业邮箱的 IMAP 收件和 SMTP 发件服务。
+                </p>
+              </div>
+            </div>
+            <div className="mt-auto space-y-3">
+              {verifyResult && (
+                <p className="rounded-md bg-success/10 px-3 py-2 text-footnote text-success">
+                  最近验证通过：{new Date(verifyResult.verifiedAt).toLocaleString('zh-CN')}
+                  {verifyResult.calendarAutoSyncEnabled ? ' · 网易日程后台自动同步已开启' : ''}
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => void handleVerify()}
+                disabled={verifying || credsLoading || (!form.smtpUser && !personalCreds?.configured)}
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-border px-3 py-2 text-footnote font-medium text-ink-secondary hover:bg-surface-2 hover:text-ink-primary disabled:cursor-not-allowed disabled:opacity-50 surface-interactive"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${verifying ? 'animate-spin' : ''}`} />
+                {verifying ? '验证中...' : '验证邮箱登录'}
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="flex h-full flex-col gap-4 p-4 sm:p-5">
+            <div className="flex items-start gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[rgb(var(--brand-50))] text-[rgb(var(--brand-700))]">
+                <History className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-headline text-ink-primary">历史邮件同步范围</h2>
+                <p className="mt-1 text-caption leading-relaxed text-ink-secondary">
+                  网易企业邮箱默认只给客户端同步近 30 天邮件。需要稳定查询历史邮件时，请在网易网页端把客户端收取范围设置为全部或指定起始时间。
+                </p>
+              </div>
+            </div>
+            <a
+              href={NETEASE_HISTORY_RANGE_HELP_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-auto inline-flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-2 text-footnote font-medium text-ink-secondary hover:bg-surface-2 hover:text-ink-primary surface-interactive"
+            >
+              查看网易说明
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="flex h-full flex-col gap-4 p-4 sm:p-5">
+            <div className="flex items-start gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-warning/10 text-warning">
+                <Lock className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-headline text-ink-primary">找回密码引导</h2>
+                <p className="mt-1 text-caption leading-relaxed text-ink-secondary">
+                  已开启自助重置时，可在网易登录页点“忘记密码”。未开启时，需要联系企业邮箱管理员重置，管理员账号通常是 admin@公司域名。
+                </p>
+              </div>
+            </div>
+            <div className="mt-auto grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+              <a
+                href={NETEASE_LOGIN_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-2 text-footnote font-medium text-ink-secondary hover:bg-surface-2 hover:text-ink-primary surface-interactive"
+              >
+                去网易登录页
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+              <a
+                href={NETEASE_PASSWORD_RESET_HELP_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-2 text-footnote font-medium text-ink-secondary hover:bg-surface-2 hover:text-ink-primary surface-interactive"
+              >
+                查看找回说明
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* 个人邮箱绑定 (V2) */}
       <Card>
         <CardContent className="p-5 space-y-4">
@@ -401,7 +538,7 @@ export default function EmailSettingsPage() {
             ) : personalCreds?.configured ? (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-3 py-1 text-footnote font-medium text-success">
                 <CheckCircle2 className="h-3.5 w-3.5" />
-                已绑定 · {personalCreds.smtp?.user}
+                {personalCreds.verifiedAt ? '已验证' : '已绑定'} · {personalCreds.smtp?.user}
               </span>
             ) : (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-2 px-3 py-1 text-footnote text-ink-tertiary">
@@ -475,17 +612,38 @@ export default function EmailSettingsPage() {
                   </div>
                 </div>
               </div>
-              <p className="text-footnote text-ink-tertiary">同一账号同时用于 SMTP 发件与 IMAP 收件。</p>
+              <div className="space-y-2">
+                <p className="text-footnote text-ink-tertiary">
+                  同一账号同时用于 SMTP 发件与 IMAP 收件。系统会先验证账号和密码/授权码，验证通过后才保存。
+                </p>
+                <div className="rounded-md border border-warning/20 bg-warning/5 px-3 py-2 text-footnote leading-relaxed text-ink-secondary">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
+                    <p>
+                      忘记授权码时，请先到网易企业邮箱网页端按提示重新生成客户端授权码；如果忘记邮箱登录密码，请联系企业邮箱管理员重置。完成后再回到这里验证并保存。
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div className="flex items-center gap-3 pt-2">
+            <div className="flex flex-wrap items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => void handleVerify()}
+                disabled={verifying || !form.smtpUser}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border px-4 py-2 text-footnote font-medium text-ink-secondary hover:bg-surface-2 hover:text-ink-primary disabled:cursor-not-allowed disabled:opacity-50 surface-interactive"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${verifying ? 'animate-spin' : ''}`} />
+                {verifying ? '验证中...' : '仅验证登录'}
+              </button>
               <button
                 type="submit"
                 disabled={saving || !form.smtpUser}
                 className="inline-flex items-center gap-1.5 rounded-md bg-[rgb(var(--brand-600))] px-4 py-2 text-footnote font-medium text-white hover:bg-[rgb(var(--brand-700))] disabled:opacity-50 disabled:cursor-not-allowed surface-interactive"
               >
                 <Save className="h-3.5 w-3.5" />
-                {saving ? '保存中...' : '保存凭据'}
+                {saving ? '验证中...' : '验证并保存'}
               </button>
               {personalCreds?.configured && (
                 <button
@@ -620,30 +778,6 @@ export default function EmailSettingsPage() {
             } />
             <ReadField icon={AtSign} label="邮箱地址" value={personalCreds?.smtp?.user ?? '未绑定个人邮箱'} />
           </div>
-        </CardContent>
-      </Card>
-
-      {/* 收件 IMAP (V2 后续) */}
-      <Card>
-        <CardContent className="p-5 space-y-3">
-          <div className="flex items-start justify-between">
-            <div>
-              <h2 className="text-headline text-ink-primary flex items-center gap-2">
-                <Lock className="h-4 w-4 text-ink-tertiary" />
-                收件 IMAP (V2)
-              </h2>
-              <p className="mt-0.5 text-caption text-ink-tertiary">
-                通用 IMAP 收件 + 用户级账号. 加密存储于 credential-vault.
-              </p>
-            </div>
-            <span className="rounded-md bg-surface-2 px-2 py-0.5 text-footnote text-ink-tertiary font-mono">
-              规划中
-            </span>
-          </div>
-          <p className="text-caption text-ink-secondary">
-            将支持: Gmail OAuth · Outlook OAuth · 任意 IMAP/SMTP 自托管邮箱.
-            邮件入档为 ORIGIN 不可篡改 · @ 触发分身回信草稿.
-          </p>
         </CardContent>
       </Card>
 

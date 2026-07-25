@@ -95,6 +95,7 @@ Copy-Item -LiteralPath "drizzle" -Destination (Join-Path $App "drizzle") -Recurs
 Copy-Item -LiteralPath "drizzle.config.ts" -Destination (Join-Path $App "drizzle.config.ts") -Force
 New-Item -ItemType Directory -Path (Join-Path $App "scripts") -Force | Out-Null
 Copy-Item -LiteralPath "scripts\apply-migrations.mjs" -Destination (Join-Path $App "scripts\apply-migrations.mjs") -Force
+Copy-Item -LiteralPath "scripts\backfill-user-default-passwords.mjs" -Destination (Join-Path $App "scripts\backfill-user-default-passwords.mjs") -Force
 
 # pdfjs-dist 已在 next.config.js 外置 (serverComponentsExternalPackages). nft 能追踪 pdf.mjs,
 # 但 pdf.mjs 内部对 worker 的动态 import 是变量路径, nft 无法跟踪 -> standalone 缺 pdf.worker.mjs,
@@ -198,7 +199,8 @@ try {
     "app/docs/",
     "app/skills/",
     "app/drizzle.config.ts",
-    "app/scripts/apply-migrations.mjs"
+    "app/scripts/apply-migrations.mjs",
+    "app/scripts/backfill-user-default-passwords.mjs"
   )
   $names = $zip.Entries | ForEach-Object { $_.FullName -replace "\\", "/" }
   foreach ($item in $needed) {

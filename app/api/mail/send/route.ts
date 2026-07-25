@@ -4,9 +4,11 @@ import { requireAuth } from '@/lib/auth/require-auth';
 import { sendEmail } from '@/lib/infra/email';
 import { resolveUserEmailSmtp } from '@/lib/email/global-email-config';
 import { withApiLog } from '@/lib/api-log/with-api-log';
+import { getStore } from '@/lib/storage/repository';
 
 interface Body {
   to?: unknown;
+  recipientUserIds?: unknown;
   subject?: unknown;
   text?: unknown;
   html?: unknown;
@@ -25,14 +27,37 @@ function asAddrList(v: unknown): string[] | string | undefined {
   return undefined;
 }
 
+function asStringList(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return Array.from(new Set(v.filter((s): s is string => typeof s === 'string' && s.trim().length > 0).map((s) => s.trim())));
+}
+
 const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
 
   const body = (await req.json().catch(() => ({}))) as Body;
-  const to = asAddrList(body.to);
+  const recipientUserIds = asStringList(body.recipientUserIds);
+  const directTo = asAddrList(body.to);
+  let resolvedUserEmails: string[] = [];
+  if (recipientUserIds.length > 0) {
+    const users = await getStore().auth.users.list({ tenantId: auth.tenantId });
+    const userById = new Map(users.map((user) => [user.id, user]));
+    const missing = recipientUserIds.filter((id) => !userById.has(id));
+    if (missing.length > 0) {
+      return NextResponse.json({ ok: false, error: '存在无效收件人' }, { status: 400 });
+    }
+    resolvedUserEmails = recipientUserIds
+      .map((id) => userById.get(id))
+      .filter((user): user is NonNullable<typeof user> => Boolean(user && !user.disabled && user.email))
+      .map((user) => user.email);
+    if (resolvedUserEmails.length !== recipientUserIds.length) {
+      return NextResponse.json({ ok: false, error: '存在未启用或无邮箱的收件人' }, { status: 400 });
+    }
+  }
+  const to = resolvedUserEmails.length > 0 ? resolvedUserEmails : directTo;
   if (!to) {
-    return NextResponse.json({ ok: false, error: 'to 必填 (字符串或字符串数组)' }, { status: 400 });
+    return NextResponse.json({ ok: false, error: 'to 或 recipientUserIds 必填' }, { status: 400 });
   }
   const subject = typeof body.subject === 'string' ? body.subject.trim() : '';
   if (!subject) {

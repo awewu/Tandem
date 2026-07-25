@@ -34,6 +34,12 @@ const IM_SIDEBAR_MAX_WIDTH = 520;
 const IM_SIDEBAR_DEFAULT_WIDTH = 360;
 const IM_SIDEBAR_COLLAPSE_THRESHOLD = 72;
 
+function navItemMatches(itemHref: string, fullPath: string, pathname: string | null): boolean {
+  if (itemHref === '/') return fullPath === '/';
+  if (itemHref.includes('?')) return fullPath === itemHref;
+  return pathname === itemHref || Boolean(pathname?.startsWith(itemHref + '/'));
+}
+
 export default function SubSidebar() {
   // useSearchParams() 必须在 Suspense 边界内, 否则静态预渲染 (next build) 会因 CSR bailout 失败.
   return (
@@ -140,6 +146,11 @@ function SubSidebarInner() {
   }
 
   const label = isImModule ? 'IM · 消息' : (activeModule?.fullLabel ?? '');
+  const q = searchParams?.toString();
+  const fullPath = pathname + (q ? '?' + q : '');
+  const activeItemHref = items
+    .filter((item) => navItemMatches(item.href, fullPath, pathname))
+    .sort((a, b) => b.href.length - a.href.length)[0]?.href;
   const toggleOpen = () => {
     setOpen((currentOpen) => {
       if (isImModule && !currentOpen && imWidth <= IM_SIDEBAR_COLLAPSE_THRESHOLD) {
@@ -204,14 +215,7 @@ function SubSidebarInner() {
         <ul className="space-y-0.5">
           {items.map((item, idx) => {
             const Icon = item.icon;
-
-            // 构建完整路径（含 query string）用于精确匹配
-            const q = searchParams?.toString();
-            const fullPath = pathname + (q ? '?' + q : '');
-            const isActive =
-              item.href === '/'
-                ? fullPath === '/'
-                : fullPath === item.href || (item.href !== '/' && fullPath.startsWith(item.href + '/'));
+            const isActive = item.href === activeItemHref;
 
             // CTA 按钮只在选中时才显示红色背景，否则和普通项一样
             const showAsCta = item.accent === 'cta' && isActive;

@@ -11,6 +11,7 @@ import { getStore } from '@/lib/storage/repository';
 import { listDepts } from '@/lib/org/departments';
 import type { DriveFile } from '@/lib/types/feishu-catchup';
 import { buildDriveDeptTree, type DriveDeptTreeNode } from '@/lib/drive/org-tree';
+import { buildFolderSizeMap } from '@/lib/drive/folder-size';
 
 function deptIdOf(folder: DriveFile): string | null {
   for (const principal of folder.permissions?.read ?? []) {
@@ -85,6 +86,7 @@ const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
   const scope = await ensureDriveOrgScope({ tenantId: auth.tenantId, userId: auth.userId, actor, repo: ctx.driveRepo });
   const all = (await ctx.driveRepo.list({ tenantId: auth.tenantId })).filter((file) => !file.deletedAt);
   const byId = new Map(all.map((file) => [file.id, file]));
+  const folderSizeById = buildFolderSizeMap(all);
   const users = (await getStore().auth.users.list({ tenantId: auth.tenantId })).filter((user) => !user.disabled);
   const userById = new Map(users.map((user) => [user.id, user]));
   const depts = await listDepts(auth.tenantId);
@@ -157,8 +159,10 @@ const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
           const childCount = childCountByParent.get(folder.id) ?? 0;
           const hasDeleteRole = (actor.roles ?? []).some((role) => role === 'admin' || role === 'owner') || folder.ownerId === actor.id;
           const canDeleteItem = hasDeleteRole && childCount === 0;
+          const canMoveItem = folder.ownerId === actor.id;
           return {
             ...folder,
+            size: folderSizeById.get(folder.id) ?? 0,
             ownerName: owner?.name ?? folder.name.replace(/\s*的工作区$/, ''),
             departmentId: owner?.departmentId ?? selectedDeptId,
             childCount,
@@ -168,6 +172,10 @@ const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
               : !hasDeleteRole
               ? '仅管理员或创建者可删除'
               : '文件夹不为空，不能删除',
+            canRename: false,
+            renameDisabledReason: '人员文件夹由组织架构生成，不可改名',
+            canMove: canMoveItem,
+            moveDisabledReason: canMoveItem ? null : '只能移动自己的人员文件夹',
           };
         })
     : [];

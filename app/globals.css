@@ -647,22 +647,32 @@
 
 /* =============================================================
    §BossAI Drawer Layout Adjustment (2026-05-29)
-   drawer 打开时, 桌面 (md+) 让出 420px 空间, 让主内容平滑缩小而非被遮挡.
+   drawer 打开时, 桌面 (md+) 让出抽屉宽度空间, 让主内容平滑缩小而非被遮挡.
    mobile 不调整, drawer 全屏覆盖是预期行为.
    ============================================================= */
+:root {
+  --boss-ai-drawer-width: 420px;
+}
 @media (min-width: 768px) {
+  .boss-ai-drawer {
+    width: var(--boss-ai-drawer-width);
+  }
   /* 仅作用于外层 shell main (layout.tsx), 嵌套 <main> 不受影响 */
   body.bossai-open #tandem-shell-main {
-    padding-right: 420px;
+    padding-right: var(--boss-ai-drawer-width);
   }
   /* 同时给 fixed FAB 也让位, 避免被 drawer 盖住 */
   body.bossai-open [aria-label*="Tandem AI"][aria-pressed] {
-    right: calc(420px + 1.25rem);
+    right: calc(var(--boss-ai-drawer-width) + 1.25rem);
     transition: right 240ms cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
 #tandem-shell-main {
   transition: padding-right 240ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+body.bossai-resizing #tandem-shell-main,
+body.bossai-resizing [aria-label*="Tandem AI"][aria-pressed] {
+  transition: none !important;
 }
 
 /* =============================================================

@@ -37,7 +37,7 @@ describe('IM seedDepartmentChannels', () => {
     const channels = await getStore().imChannels.list();
     const main = channels.find((c) => c.tenantId === 'tenant-main' && c.departmentId === 'dept-sales');
     expect(main).toMatchObject({
-      name: '销售部 部门群',
+      name: '销售部',
       type: 'department',
       autoCreated: true,
       tenantId: 'tenant-main',
@@ -59,10 +59,10 @@ describe('IM seedDepartmentChannels', () => {
     const adminVisibleChannels = await listVisibleChannels('org-admin', 'default', true);
     const userAChannels = await listMyChannels('u-a', 'default');
 
-    expect(adminMemberChannels.map((c) => c.name)).not.toContain('A 部门群');
-    expect(adminVisibleChannels.map((c) => c.name)).toEqual(expect.arrayContaining(['A 部门群', 'B 部门群']));
+    expect(adminMemberChannels.map((c) => c.name)).not.toContain('A');
+    expect(adminVisibleChannels.map((c) => c.name)).toEqual(expect.arrayContaining(['A', 'B']));
     expect(adminVisibleChannels).toHaveLength(2);
-    expect(userAChannels.map((c) => c.name)).toEqual(['A 部门群']);
+    expect(userAChannels.map((c) => c.name)).toEqual(['A']);
   });
 });
 
@@ -103,7 +103,7 @@ describe('POST /api/im/channels/seed-from-org permissions', () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.created).toHaveLength(1);
-    expect(json.created[0].name).toBe('研发部 部门群');
+    expect(json.created[0].name).toBe('研发部');
   });
 
   it('普通员工仍不能同步全组织群', async () => {

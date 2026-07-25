@@ -15,6 +15,68 @@ import {
   createCustomerAccount,
   listCustomerAccounts,
 } from '@/lib/pms/product-catalog-service';
+import {
+  getYonyouMaterialConfig,
+  isYonyouMaterialConfigured,
+  listYonyouMaterialCategories,
+  listYonyouMaterialProducts,
+  YonyouMaterialRequestError,
+} from '@/lib/integrations/yonyou-material';
+import {
+  YonyouTokenConfigError,
+  YonyouTokenRequestError,
+} from '@/lib/integrations/yonyou-token';
+
+type MaterialCategoryForDefault = Awaited<ReturnType<typeof listYonyouMaterialCategories>>[number];
+
+const MATERIAL_CATEGORY_CACHE_TTL_MS = 10 * 60 * 1000;
+
+let materialCategoryCache: {
+  expiresAt: number;
+  categories: MaterialCategoryForDefault[];
+} | null = null;
+let materialCategoryInFlight: Promise<MaterialCategoryForDefault[]> | null = null;
+
+async function listCachedYonyouMaterialCategories(): Promise<MaterialCategoryForDefault[]> {
+  const now = Date.now();
+  if (materialCategoryCache && materialCategoryCache.expiresAt > now) {
+    return materialCategoryCache.categories;
+  }
+  if (materialCategoryInFlight) return materialCategoryInFlight;
+
+  materialCategoryInFlight = listYonyouMaterialCategories({
+    pageIndex: 1,
+    pageSize: 5000,
+  }).then((categories) => {
+    materialCategoryCache = {
+      categories,
+      expiresAt: Date.now() + MATERIAL_CATEGORY_CACHE_TTL_MS,
+    };
+    return categories;
+  }).finally(() => {
+    materialCategoryInFlight = null;
+  });
+  return materialCategoryInFlight;
+}
+
+function pickDefaultProductCategoryCode(
+  categories: MaterialCategoryForDefault[],
+  rootCategoryCodes: string[],
+  includeStopped: boolean,
+): string | undefined {
+  const source = categories.filter((category) => includeStopped || category.isEnabled);
+  const rootKeys = new Set(rootCategoryCodes);
+  const rootCategories = source.filter((category) => rootKeys.has(category.code ?? '') || rootKeys.has(category.id));
+  const rootLookup = new Set(rootCategories.flatMap((category) => [category.id, category.code].filter(Boolean) as string[]));
+  const candidates = rootLookup.size
+    ? source.filter((category) => category.parentId && rootLookup.has(category.parentId))
+    : source.filter((category) => !rootKeys.has(category.code ?? '') && !rootKeys.has(category.id));
+  const sorted = [...candidates].sort((a, b) => {
+    if ((a.order ?? 0) !== (b.order ?? 0)) return (a.order ?? 0) - (b.order ?? 0);
+    return a.name.localeCompare(b.name, 'zh-CN');
+  });
+  return sorted[0]?.code ?? sorted[0]?.id;
+}
 
 export async function GET(req: NextRequest) {
   await boot();
@@ -42,6 +104,70 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ customers });
     }
 
+    if (searchParams.get('source') === 'ys') {
+      if (!isYonyouMaterialConfigured()) {
+        return NextResponse.json({
+          error: 'YONSUITE_API_BASE, YONSUITE_APP_KEY and YONSUITE_APP_SECRET are required',
+        }, { status: 503 });
+      }
+      const config = getYonyouMaterialConfig();
+      const pageIndex = searchParams.get('pageIndex') ? parseInt(searchParams.get('pageIndex')!) : 1;
+      const pageSize = searchParams.get('pageSize') ? parseInt(searchParams.get('pageSize')!) : 50;
+      const includeStopped = searchParams.get('includeStopped') === '1';
+      const categories = await listCachedYonyouMaterialCategories();
+      const keyword = (searchParams.get('q') || '').trim();
+      const materialClassCodes = (searchParams.get('categoryCodes') || '')
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .slice(0, 50);
+      const requestedCategoryCode = searchParams.get('categoryCode') || undefined;
+      const defaultCategoryCode = !materialClassCodes.length && !requestedCategoryCode
+        ? pickDefaultProductCategoryCode(categories, config.productRootCategoryCodes ?? [], includeStopped)
+        : undefined;
+      const categoryCodes = materialClassCodes.length
+        ? materialClassCodes
+        : (requestedCategoryCode
+          ? [requestedCategoryCode]
+          : (defaultCategoryCode ? [defaultCategoryCode] : config.productRootCategoryCodes ?? []));
+      const keywordLooksLikeCode = /^[A-Za-z0-9_.\/-]+$/.test(keyword);
+      const searchVariants = keyword
+        ? (keywordLooksLikeCode ? [{ code: keyword }, { name: keyword }] : [{ name: keyword }, { code: keyword }])
+        : [{
+          code: searchParams.get('code') || undefined,
+          name: searchParams.get('name') || undefined,
+        }];
+      const results = await Promise.all(searchVariants.map((variant) => (
+        listYonyouMaterialProducts({
+          pageIndex,
+          pageSize,
+          ...variant,
+          categoryCodes,
+          enabled: includeStopped ? undefined : true,
+          pubts: searchParams.get('pubts') || undefined,
+        })
+      )));
+      const result = results[0];
+      const shouldMergeProducts = searchVariants.length > 1;
+      const products = shouldMergeProducts
+        ? Array.from(new Map(results.flatMap((item) => item.products).map((product) => [product.id, product])).values()).slice(0, pageSize)
+        : result.products;
+      return NextResponse.json({
+        source: 'ys',
+        products,
+        categories,
+        selectedCategoryCode: defaultCategoryCode,
+        rootCategoryCodes: config.productRootCategoryCodes ?? [],
+        page: {
+          pageIndex,
+          pageSize,
+          pageCount: shouldMergeProducts ? Math.max(...results.map((item) => item.pageCount), 1) : result.pageCount,
+          recordCount: shouldMergeProducts ? results.reduce((sum, item) => sum + item.recordCount, 0) : result.recordCount,
+          pubts: result.pubts,
+        },
+      });
+    }
+
     const products = await listProducts({
       tenantId: auth.tenantId,
       series: searchParams.get('series') || undefined,
@@ -53,6 +179,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ products });
   } catch (error: any) {
     console.error('Products GET error:', error);
+    if (error instanceof YonyouTokenConfigError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    if (error instanceof YonyouTokenRequestError || error instanceof YonyouMaterialRequestError) {
+      return NextResponse.json({
+        error: error.message,
+        code: error.details.code,
+        yonyouMessage: error.details.yonyouMessage,
+        status: error.details.status,
+      }, { status: 502 });
+    }
     return NextResponse.json({ error: error.message || 'Failed' }, { status: 500 });
   }
 }

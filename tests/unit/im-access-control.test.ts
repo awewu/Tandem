@@ -165,6 +165,66 @@ describe('IM 成员管理 · operator 取自登录身份防提权', () => {
     const m = await store.imMemberships.get(membershipKey(ch.id, 'demo-user'));
     expect(m?.role).toBe('member'); // 未被提权
   });
+
+  it('普通成员可以自己退群, 且不能通过 operatorId 冒充他人', async () => {
+    const ch = await seedChannel(['other-user', 'plain-employee']);
+    const { DELETE } = await import('@/app/api/im/channels/[id]/members/route');
+    const res = await DELETE(
+      reqAsEmployee(
+        `http://t/api/im/channels/${ch.id}/members?userId=plain-employee&operatorId=other-user`,
+        undefined,
+        'DELETE',
+      ),
+      { params: Promise.resolve({ id: ch.id }) },
+    );
+
+    expect(res.status).toBe(200);
+    const store = getStore();
+    const { membershipKey } = await import('@/lib/types/im');
+    const channel = await store.imChannels.get(ch.id);
+    const leftMembership = await store.imMemberships.get(membershipKey(ch.id, 'plain-employee'));
+    expect(channel?.memberIds).toEqual(['other-user']);
+    expect(leftMembership).toBeNull();
+  });
+
+  it('群主自己退群时自动把群主交接给其他成员', async () => {
+    const ch = await seedChannel(['demo-user', 'plain-employee']);
+    const { DELETE } = await import('@/app/api/im/channels/[id]/members/route');
+    const res = await DELETE(
+      req(`http://t/api/im/channels/${ch.id}/members?userId=demo-user`, undefined, 'DELETE'),
+      { params: Promise.resolve({ id: ch.id }) },
+    );
+
+    expect(res.status).toBe(200);
+    const store = getStore();
+    const { membershipKey } = await import('@/lib/types/im');
+    const channel = await store.imChannels.get(ch.id);
+    const nextOwner = await store.imMemberships.get(membershipKey(ch.id, 'plain-employee'));
+    const leftMembership = await store.imMemberships.get(membershipKey(ch.id, 'demo-user'));
+    expect(channel?.memberIds).toEqual(['plain-employee']);
+    expect(nextOwner?.role).toBe('owner');
+    expect(leftMembership).toBeNull();
+  });
+
+  it('私聊不能退群', async () => {
+    const { createChannel } = await import('@/lib/im/service');
+    const ch = await createChannel({
+      type: 'dm',
+      name: '',
+      memberIds: ['demo-user', 'plain-employee'],
+      createdBy: 'demo-user',
+      tenantId: 'default',
+      visibility: 'private',
+    });
+    const { DELETE } = await import('@/app/api/im/channels/[id]/members/route');
+    const res = await DELETE(
+      req(`http://t/api/im/channels/${ch.id}/members?userId=demo-user`, undefined, 'DELETE'),
+      { params: Promise.resolve({ id: ch.id }) },
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: 'cannot leave a DM channel' });
+  });
 });
 
 describe('IM dm · meId 取自登录身份防冒充', () => {

@@ -44,6 +44,7 @@ import {
   Megaphone,
   MessageSquare,
   Palette,
+  Search,
   Send,
   Sparkles,
   Stamp,
@@ -736,6 +737,14 @@ const DELIVER_TARGETS: Array<{ id: DeliverTarget; label: string; icon: React.Com
 ];
 
 interface ImChannelLite { id: string; name: string }
+interface MailRecipientUser {
+  id: string;
+  name: string;
+  email?: string | null;
+  departmentName?: string | null;
+  jobTitle?: string | null;
+  disabled?: boolean;
+}
 
 function DeliverCard() {
   const router = useRouter();
@@ -750,7 +759,12 @@ function DeliverCard() {
   const [channels, setChannels] = useState<ImChannelLite[] | null>(null);
   const [channelId, setChannelId] = useState('');
   // 邮件收件人
-  const [mailTo, setMailTo] = useState('');
+  const [mailRecipients, setMailRecipients] = useState<MailRecipientUser[]>([]);
+  const [mailRecipientQuery, setMailRecipientQuery] = useState('');
+  const [mailRecipientResults, setMailRecipientResults] = useState<MailRecipientUser[]>([]);
+  const [mailRecipientOpen, setMailRecipientOpen] = useState(false);
+  const [mailRecipientLoading, setMailRecipientLoading] = useState(false);
+  const mailRecipientBoxRef = useRef<HTMLDivElement | null>(null);
 
   // 主舞台/对话产出 → 自动带入 (nonce 变化即覆盖)
   useEffect(() => {
@@ -777,6 +791,45 @@ function DeliverCard() {
       .catch(() => { if (!cancelled) setChannels([]); });
     return () => { cancelled = true; };
   }, [target, channels]);
+
+  useEffect(() => {
+    if (target !== 'mail') return;
+    const ctrl = new AbortController();
+    const t = window.setTimeout(() => {
+      const q = mailRecipientQuery.trim();
+      setMailRecipientLoading(true);
+      fetch(q ? `/api/org/users?q=${encodeURIComponent(q)}` : '/api/org/users', {
+        credentials: 'include',
+        cache: 'no-store',
+        signal: ctrl.signal,
+      })
+        .then((r) => (r.ok ? r.json() : { users: [] }))
+        .then((data: { users?: MailRecipientUser[] }) => {
+          const selectedIds = new Set(mailRecipients.map((user) => user.id));
+          setMailRecipientResults(
+            (data.users ?? [])
+              .filter((user) => !user.disabled && !selectedIds.has(user.id))
+              .slice(0, 8),
+          );
+        })
+        .catch(() => setMailRecipientResults([]))
+        .finally(() => setMailRecipientLoading(false));
+    }, 220);
+    return () => {
+      window.clearTimeout(t);
+      ctrl.abort();
+    };
+  }, [target, mailRecipientQuery, mailRecipients]);
+
+  useEffect(() => {
+    function onDocMouseDown(event: MouseEvent) {
+      if (mailRecipientBoxRef.current && !mailRecipientBoxRef.current.contains(event.target as Node)) {
+        setMailRecipientOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', onDocMouseDown);
+    return () => document.removeEventListener('mousedown', onDocMouseDown);
+  }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -819,10 +872,14 @@ function DeliverCard() {
         setOk('已发送到频道');
       } else if (target === 'mail') {
         // 真直送: 经 SMTP 发出 (未配置 SMTP 会回 503)
-        if (!mailTo.trim()) throw new Error('请填收件人邮箱');
+        if (mailRecipients.length === 0) throw new Error('请选择收件人');
         const res = await fetch('/api/mail/send', {
           method: 'POST', headers,
-          body: JSON.stringify({ to: mailTo.trim(), subject: title.trim(), text: body.trim() || title.trim() }),
+          body: JSON.stringify({
+            recipientUserIds: mailRecipients.map((user) => user.id),
+            subject: title.trim(),
+            text: body.trim() || title.trim(),
+          }),
         });
         const data = await res.json();
         if (!res.ok || data?.ok === false) throw new Error(data?.error ?? `HTTP ${res.status}`);
@@ -885,14 +942,80 @@ function DeliverCard() {
 
       {/* 邮件: 收件人 */}
       {target === 'mail' && (
-        <input
-          value={mailTo}
-          onChange={(e) => setMailTo(e.target.value)}
-          placeholder="收件人邮箱 (逗号分隔可多个)"
-          type="text"
-          className={inputCls}
-          style={{ borderColor: 'rgb(var(--border-subtle))' }}
-        />
+        <div ref={mailRecipientBoxRef} className="relative">
+          <div
+            className={cn(
+              inputCls,
+              'flex min-h-[2.35rem] flex-wrap items-center gap-1.5 py-1',
+            )}
+            style={{ borderColor: 'rgb(var(--border-subtle))' }}
+          >
+            {mailRecipients.map((user) => (
+              <span
+                key={user.id}
+                className="inline-flex max-w-full items-center gap-1 rounded-full border border-[rgb(var(--brand-200))] bg-[rgb(var(--brand-50))] px-2 py-0.5 text-footnote text-[rgb(var(--brand-700))]"
+              >
+                <span className="max-w-[9rem] truncate">{user.name || user.email || user.id}</span>
+                <button
+                  type="button"
+                  aria-label={`移除 ${user.name || user.id}`}
+                  className="rounded-full p-0.5 hover:bg-[rgb(var(--brand-100))]"
+                  onClick={() => setMailRecipients((cur) => cur.filter((item) => item.id !== user.id))}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+            <div className="flex min-w-[9rem] flex-1 items-center gap-1">
+              <Search className="h-3.5 w-3.5 shrink-0 text-tertiary" />
+              <input
+                value={mailRecipientQuery}
+                onChange={(e) => {
+                  setMailRecipientQuery(e.target.value);
+                  setMailRecipientOpen(true);
+                }}
+                onFocus={() => setMailRecipientOpen(true)}
+                placeholder={mailRecipients.length > 0 ? '继续搜索收件人' : '搜索姓名 / 邮箱 / 部门'}
+                type="text"
+                className="min-w-0 flex-1 bg-transparent py-0.5 outline-none placeholder:text-tertiary"
+              />
+            </div>
+          </div>
+          {mailRecipientOpen && (
+            <div className="absolute left-0 right-0 z-30 mt-1 max-h-64 overflow-auto rounded-md border border-[rgb(var(--border-subtle))] bg-[rgb(var(--surface-1))] shadow-soft">
+              {mailRecipientLoading && mailRecipientResults.length === 0 && (
+                <div className="px-3 py-3 text-center text-footnote text-tertiary">搜索中…</div>
+              )}
+              {!mailRecipientLoading && mailRecipientResults.length === 0 && (
+                <div className="px-3 py-3 text-center text-footnote text-tertiary">
+                  {mailRecipientQuery.trim() ? '没有匹配的同事' : '暂无可选收件人'}
+                </div>
+              )}
+              {mailRecipientResults.map((user) => (
+                <button
+                  key={user.id}
+                  type="button"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-[rgb(var(--surface-2))]"
+                  onClick={() => {
+                    setMailRecipients((cur) => [...cur, user]);
+                    setMailRecipientQuery('');
+                    setMailRecipientOpen(false);
+                  }}
+                >
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[rgb(var(--brand-50))] text-footnote font-semibold text-[rgb(var(--brand-700))]">
+                    {(user.name || user.email || user.id).slice(0, 1)}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-caption font-medium text-primary">{user.name || user.email || user.id}</span>
+                    <span className="block truncate text-footnote text-tertiary">
+                      {[user.jobTitle, user.departmentName, user.email].filter(Boolean).join(' · ') || '组织用户'}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
       <input

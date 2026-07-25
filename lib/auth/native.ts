@@ -187,13 +187,28 @@ export async function login(input: LoginInput): Promise<AuthResult> {
     throw new AuthError('account_disabled', '账号已被禁用', 403);
   }
 
+  const stored = await userStore.findPasswordHash(user.id);
+  if (!stored) {
+    await audit({
+      userId: user.id,
+      email,
+      eventType: 'login_failed',
+      metadata: { reason: 'password_not_initialized' },
+      ...input.deviceInfo,
+    });
+    throw new AuthError(
+      'password_not_initialized',
+      '账号已创建但尚未初始化密码，请联系管理员重置密码',
+      409,
+    );
+  }
+
   if (user.lockedUntil && new Date(user.lockedUntil).getTime() > Date.now()) {
     const min = Math.ceil((new Date(user.lockedUntil).getTime() - Date.now()) / 60000);
     throw new AuthError('account_locked', `账号已锁定, 请 ${min} 分钟后重试`, 423);
   }
 
-  const stored = await userStore.findPasswordHash(user.id);
-  const passOk = stored ? verifyPassword(input.password, stored.hash) : false;
+  const passOk = verifyPassword(input.password, stored.hash);
 
   if (!passOk) {
     const attempts = (user.failedLoginCount ?? 0) + 1;

@@ -22,6 +22,7 @@ import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import { executeAction, type KrCheckinResult, type ObjectiveCheckinResult } from '@/lib/ontology';
 import { withApiLog } from '@/lib/api-log/with-api-log';
 import { propagateRollupFromKr } from '@/lib/okr/rollup';
+import { notifyDailyReportCheckInToDepartment } from '@/lib/daily-report/department-im-notify';
 
 function currentValueFromProgress(
   startValue: number,
@@ -141,7 +142,14 @@ async function POSTApiHandler(req: NextRequest) {
       }
       // lineage (被 rollup 重算的 Objective 链) 从副作用输出读出, 保持原响应体形状
       const rolledUp = r.sideEffects.find((s) => s.name === 'okr.rollup.propagate')?.data ?? [];
-      return NextResponse.json({ checkIn: r.result!.checkIn, rolledUp });
+      const imNotification = await notifyDailyReportCheckInToDepartment({
+        tenantId: auth.tenantId,
+        authorId: auth.userId,
+        checkIn: r.result!.checkIn,
+        source: 'tandem-report',
+        reportDate: typeof body.reportDate === 'string' ? body.reportDate : r.result!.checkIn.createdAt.slice(0, 10),
+      });
+      return NextResponse.json({ checkIn: r.result!.checkIn, rolledUp, imNotification });
     }
 
     // ── scope === 'objective' → 走 ON-1 声明式 Action Type (单一真值: lib/ontology/actions/objective-checkin) ──
@@ -173,7 +181,14 @@ async function POSTApiHandler(req: NextRequest) {
       );
     }
     const rolledUp = r.sideEffects.find((s) => s.name === 'okr.rollup.propagate')?.data ?? [];
-    return NextResponse.json({ checkIn: r.result!.checkIn, rolledUp });
+    const imNotification = await notifyDailyReportCheckInToDepartment({
+      tenantId: auth.tenantId,
+      authorId: auth.userId,
+      checkIn: r.result!.checkIn,
+      source: 'tandem-report',
+      reportDate: typeof body.reportDate === 'string' ? body.reportDate : r.result!.checkIn.createdAt.slice(0, 10),
+    });
+    return NextResponse.json({ checkIn: r.result!.checkIn, rolledUp, imNotification });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
