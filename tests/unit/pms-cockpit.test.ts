@@ -10,7 +10,15 @@ import {
   detectTargetGaps,
   detectContractBacklog,
   COCKPIT_THRESHOLDS,
+  topShare,
+  detectConcentrationRisk,
+  detectZeroWinDimensions,
 } from '@/lib/pms/cockpit-service';
+import type { DimensionRow, DimensionAnalysis } from '@/lib/pms/cockpit-service';
+
+function dimRow(key: string, o: Partial<DimensionRow> = {}): DimensionRow {
+  return { key, count: 1, pipeline: 0, won: 0, wonCount: 0, lostCount: 0, winRate: 0, ...o };
+}
 
 const NOW = new Date('2026-07-25T00:00:00.000Z');
 function daysAgo(n: number): string {
@@ -147,5 +155,43 @@ describe('cockpit · detectContractBacklog', () => {
     expect(detectContractBacklog({ count: 0, amount: 0 })).toHaveLength(0);
     expect(detectContractBacklog({ count: 2, amount: 100 })[0].severity).toBe('warning');
     expect(detectContractBacklog({ count: 6, amount: 100 })[0].severity).toBe('critical');
+  });
+});
+
+describe('cockpit · 多维分析', () => {
+  it('topShare 返回管道占比最高的维度值', () => {
+    const share = topShare([{ key: 'A', pipeline: 60 }, { key: 'B', pipeline: 40 }]);
+    expect(share?.key).toBe('A');
+    expect(share?.share).toBeCloseTo(0.6);
+    expect(topShare([])).toBeNull();
+    expect(topShare([{ key: 'A', pipeline: 0 }])).toBeNull();
+  });
+
+  it('detectConcentrationRisk: 占比>=40% 告警, >=60% 严重', () => {
+    const low = [dimRow('A', { pipeline: 30 }), dimRow('B', { pipeline: 70 })];
+    expect(detectConcentrationRisk(low)[0].severity).toBe('critical'); // B=70%
+    const mid = [dimRow('A', { pipeline: 45 }), dimRow('B', { pipeline: 55 })];
+    expect(detectConcentrationRisk(mid)[0].severity).toBe('warning'); // B=55%
+    const ok = [dimRow('A', { pipeline: 35 }), dimRow('B', { pipeline: 33 }), dimRow('C', { pipeline: 32 })];
+    expect(detectConcentrationRisk(ok)).toHaveLength(0);
+  });
+
+  it('detectZeroWinDimensions: 零赢单且丢单>=2 告警, 跳过客户维度', () => {
+    const analyses: DimensionAnalysis[] = [
+      { dimension: 'region', label: '区域', rows: [dimRow('华东', { wonCount: 0, lostCount: 3 })] },
+      { dimension: 'customer', label: '客户', rows: [dimRow('X', { wonCount: 0, lostCount: 5 })] },
+    ];
+    const out = detectZeroWinDimensions(analyses);
+    expect(out).toHaveLength(1);
+    expect(out[0].type).toBe('dim_winrate');
+    expect(out[0].title).toContain('华东');
+  });
+
+  it('detectZeroWinDimensions: 有赢单 或 丢单不足 → 不告警', () => {
+    const analyses: DimensionAnalysis[] = [
+      { dimension: 'channel', label: '渠道', rows: [dimRow('直销', { wonCount: 1, lostCount: 5 })] },
+      { dimension: 'productLine', label: '产品线', rows: [dimRow('P1', { wonCount: 0, lostCount: 1 })] },
+    ];
+    expect(detectZeroWinDimensions(analyses)).toHaveLength(0);
   });
 });

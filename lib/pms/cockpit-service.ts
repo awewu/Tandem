@@ -11,12 +11,14 @@
 
 import { db } from '../infra/drizzle-client';
 import {
+  pmsOpportunities,
   pmsSpecPositions,
   pmsProjectStakeholders,
   pmsTenders,
   pmsContracts,
   pmsPerformanceTargets,
 } from '../infra/drizzle-schema';
+import type { SQL, AnyColumn } from 'drizzle-orm';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { listProjects } from './project-service';
 import { getOpportunityAnalytics, winRate } from './analytics-service';
@@ -263,6 +265,81 @@ export function detectContractBacklog(pending: { count: number; amount: number }
 }
 
 // ---------------------------------------------------------------------------
+// 多维分析 (产品线/客户/销售/区域/渠道 — 深化预警)
+// ---------------------------------------------------------------------------
+
+/** 客户集中度风险阈值: 单一客户管道占比超此值 → 告警 */
+export const CONCENTRATION_RISK_SHARE = 0.4;
+/** 零赢单维度告警: 丢单数 ≥ 此值且赢单=0 → 告警 */
+export const ZERO_WIN_MIN_LOST = 2;
+
+export interface DimensionRow {
+  key: string;
+  count: number;
+  pipeline: number; // status=active 预估额合计
+  won: number; // status=won 预估额合计
+  wonCount: number;
+  lostCount: number;
+  winRate: number;
+}
+
+export interface DimensionAnalysis {
+  dimension: string;
+  label: string;
+  rows: DimensionRow[];
+}
+
+/** 单一维度值的最高管道占比 (客户集中度用) */
+export function topShare(rows: Pick<DimensionRow, 'key' | 'pipeline'>[]): { key: string; share: number } | null {
+  const total = rows.reduce((s, r) => s + r.pipeline, 0);
+  if (total <= 0) return null;
+  let top = rows[0];
+  for (const r of rows) if (r.pipeline > (top?.pipeline ?? 0)) top = r;
+  if (!top) return null;
+  return { key: top.key, share: top.pipeline / total };
+}
+
+/** 客户集中度风险检测 (纯函数) */
+export function detectConcentrationRisk(customerRows: DimensionRow[]): CockpitException[] {
+  const top = topShare(customerRows);
+  if (!top || top.share < CONCENTRATION_RISK_SHARE) return [];
+  const pct = Math.round(top.share * 100);
+  return [{
+    id: `dim_concentration:${top.key}`,
+    severity: top.share >= 0.6 ? 'critical' : 'warning',
+    category: 'sales',
+    type: 'dim_concentration',
+    title: `客户集中度风险 — ${top.key} 占管道 ${pct}%`,
+    detail: `单一客户管道占比 ${pct}%, 依赖过高, 建议分散客户结构`,
+    amount: customerRows.find((r) => r.key === top.key)?.pipeline,
+    href: '/pms/analytics',
+  }];
+}
+
+/** 零赢单维度检测: 某维度值持续丢单且零赢单 (纯函数) */
+export function detectZeroWinDimensions(analyses: DimensionAnalysis[]): CockpitException[] {
+  const out: CockpitException[] = [];
+  for (const a of analyses) {
+    // 客户维度不做零赢单告警 (客户天然离散), 只对 区域/渠道/产品线/销售 做
+    if (a.dimension === 'customer') continue;
+    for (const r of a.rows) {
+      if (r.wonCount === 0 && r.lostCount >= ZERO_WIN_MIN_LOST) {
+        out.push({
+          id: `dim_winrate:${a.dimension}:${r.key}`,
+          severity: r.lostCount >= ZERO_WIN_MIN_LOST * 2 ? 'warning' : 'info',
+          category: 'sales',
+          type: 'dim_winrate',
+          title: `${a.label}「${r.key}」零赢单 (丢 ${r.lostCount})`,
+          detail: `该${a.label}维度赢单率 0%, 累计丢单 ${r.lostCount} 单, 需复盘打法`,
+          href: '/pms/analytics',
+        });
+      }
+    }
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
 // DB 装配
 // ---------------------------------------------------------------------------
 
@@ -287,6 +364,65 @@ export interface CockpitData {
     targetGaps: number;
   };
   projectFunnel: StageFunnelRow[];
+  /** 多维分析: 区域/渠道/产品线/销售/客户 (mine 视角为空) */
+  dimensions: DimensionAnalysis[];
+}
+
+/** 某维度列的下推 group-by 聚合 (count/pipeline/won/winRate), 取管道 Top N */
+async function dimensionAgg(
+  col: SQL | AnyColumn,
+  dimension: string,
+  label: string,
+  baseConds: (SQL | undefined)[],
+  topN = 8,
+): Promise<DimensionAnalysis> {
+  const keyExpr = sql<string>`coalesce(${col}, '未分类')`;
+  const rows = await db
+    .select({
+      key: keyExpr,
+      count: sql<number>`count(*)::int`,
+      pipeline: sql<number>`coalesce(sum(case when ${pmsOpportunities.status} = 'active' then cast(${pmsOpportunities.estimatedAmount} as double precision) else 0 end), 0)::float8`,
+      won: sql<number>`coalesce(sum(case when ${pmsOpportunities.status} = 'won' then cast(${pmsOpportunities.estimatedAmount} as double precision) else 0 end), 0)::float8`,
+      wonCount: sql<number>`sum(case when ${pmsOpportunities.status} = 'won' then 1 else 0 end)::int`,
+      lostCount: sql<number>`sum(case when ${pmsOpportunities.status} = 'lost' then 1 else 0 end)::int`,
+    })
+    .from(pmsOpportunities)
+    .where(and(...baseConds))
+    .groupBy(keyExpr);
+
+  const mapped: DimensionRow[] = rows.map((r) => {
+    const wonCount = Number(r.wonCount);
+    const lostCount = Number(r.lostCount);
+    return {
+      key: r.key || '未分类',
+      count: Number(r.count),
+      pipeline: Math.round(Number(r.pipeline)),
+      won: Math.round(Number(r.won)),
+      wonCount,
+      lostCount,
+      winRate: winRate(wonCount, lostCount),
+    };
+  });
+  mapped.sort((a, b) => b.pipeline - a.pipeline || b.count - a.count);
+  return { dimension, label, rows: mapped.slice(0, topN) };
+}
+
+/** 多维分析装配 (区域/渠道/产品线/销售/客户), orgId 隔离 */
+async function dimensionalBreakdown(tenantId: string, visibleOrgIds?: string[]): Promise<DimensionAnalysis[]> {
+  const baseConds: (SQL | undefined)[] = [
+    eq(pmsOpportunities.tenantId, tenantId),
+    isNull(pmsOpportunities.archivedAt),
+  ];
+  if (visibleOrgIds && visibleOrgIds.length > 0) {
+    baseConds.push(inArray(pmsOpportunities.orgId, visibleOrgIds));
+  }
+  return Promise.all([
+    dimensionAgg(pmsOpportunities.region, 'region', '区域', baseConds),
+    dimensionAgg(pmsOpportunities.channel, 'channel', '渠道', baseConds),
+    dimensionAgg(pmsOpportunities.productLine, 'productLine', '产品线', baseConds),
+    dimensionAgg(pmsOpportunities.reporterId, 'salesperson', '销售', baseConds),
+    dimensionAgg(pmsOpportunities.customerName, 'customer', '客户', baseConds),
+  ]);
 }
 
 export async function assembleCockpit(input: {
@@ -443,7 +579,11 @@ export async function assembleCockpit(input: {
     salesWinRate = oppAnalytics.winRate;
   }
 
-  // --- 汇编异常 ---
+  // 8) 多维分析 (区域/渠道/产品线/销售/客户) — mine 视角不做 (商机无 ownerId 无法按人切)
+  const dimensions: DimensionAnalysis[] = includeFinance ? await dimensionalBreakdown(tenantId, visibleOrgIds) : [];
+  const customerRows = dimensions.find((d) => d.dimension === 'customer')?.rows ?? [];
+
+  // --- 汇编异常 (含多维预警: 客户集中度 / 零赢单维度) ---
   const exceptions = sortExceptions([
     ...detectStalledProjects(projects, now),
     ...detectTenderDeadlines(tenderRows, now),
@@ -451,6 +591,8 @@ export async function assembleCockpit(input: {
     ...detectChainGaps(projects, chainByProject),
     ...detectTargetGaps(targets, now),
     ...detectContractBacklog(pendingContracts),
+    ...detectConcentrationRisk(customerRows),
+    ...detectZeroWinDimensions(dimensions),
   ]);
 
   const counts = { critical: 0, warning: 0, info: 0 };
@@ -461,6 +603,7 @@ export async function assembleCockpit(input: {
   const targetGaps = targets.filter((t) => t.achievementRate < COCKPIT_THRESHOLDS.targetGapRate).length;
 
   return {
+    dimensions,
     generatedAt: now.toISOString(),
     scope,
     exceptions,

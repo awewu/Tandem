@@ -16,6 +16,8 @@ interface Exception {
   type: string; title: string; detail: string; amount?: number; href?: string;
 }
 interface FunnelRow { stage: string; label: string; count: number; value: number }
+interface DimRow { key: string; count: number; pipeline: number; won: number; wonCount: number; lostCount: number; winRate: number }
+interface DimAnalysis { dimension: string; label: string; rows: DimRow[] }
 type Scope = 'company' | 'mine' | 'org';
 interface Cockpit {
   generatedAt: string;
@@ -25,6 +27,7 @@ interface Cockpit {
   sales: { activeProjects: number; totalPipeline: number; wonAmount: number; winRate: number; lostCount: number; lostValue: number };
   finance: { pendingContracts: number; pendingContractAmount: number; targetGaps: number };
   projectFunnel: FunnelRow[];
+  dimensions: DimAnalysis[];
 }
 
 const money = (n: number) => '¥' + (n ?? 0).toLocaleString('zh-CN');
@@ -191,7 +194,55 @@ export default function PmsCockpitPage() {
           )}
         </CardContent>
       </Card>
+
+      {data.dimensions.length > 0 && <DimensionSection dimensions={data.dimensions} />}
     </div>
+  );
+}
+
+function DimensionSection({ dimensions }: { dimensions: DimAnalysis[] }) {
+  const [active, setActive] = useState(dimensions[0]?.dimension ?? '');
+  const dim = dimensions.find((d) => d.dimension === active) ?? dimensions[0];
+  if (!dim) return null;
+  const maxPipe = Math.max(1, ...dim.rows.map((r) => r.pipeline));
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-headline">多维分析预警</CardTitle>
+        <div className="flex flex-wrap gap-2 pt-2">
+          {dimensions.map((d) => (
+            <button
+              key={d.dimension}
+              onClick={() => setActive(d.dimension)}
+              className={`px-3 py-1 rounded-full text-caption transition-colors ${
+                d.dimension === (dim.dimension)
+                  ? 'bg-brand-500 text-white'
+                  : 'bg-surface-2 text-ink-secondary hover:bg-surface-3'
+              }`}
+            >
+              {d.label}
+            </button>
+          ))}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {dim.rows.length === 0 ? (
+          <p className="text-caption text-ink-tertiary">暂无{dim.label}维度数据</p>
+        ) : dim.rows.map((r) => (
+          <div key={r.key}>
+            <div className="flex justify-between text-caption text-ink-secondary mb-1">
+              <span className="truncate max-w-[55%]" title={r.key}>{r.key}</span>
+              <span>
+                {money(r.pipeline)} 管道 · 赢单率 <span className={r.winRate >= 0.5 ? 'text-success' : r.winRate === 0 && r.lostCount > 0 ? 'text-danger' : 'text-ink-secondary'}>{Math.round(r.winRate * 100)}%</span>
+              </span>
+            </div>
+            <div className="h-3 bg-surface-2 rounded-full overflow-hidden">
+              <div className="h-full bg-brand-500 rounded-full transition-all" style={{ width: `${(r.pipeline / maxPipe) * 100}%` }} />
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
   );
 }
 
