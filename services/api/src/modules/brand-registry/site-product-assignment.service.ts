@@ -11,9 +11,7 @@ import { BrandSiteEntity, SiteProductAssignmentEntity } from './brand-site.entit
 
 const CODE_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const BRAND_SITE_CODES: readonly string[] = ['rheem', 'ruud', 'everhot'];
 const GROUP_SITE_CODE = 'rhautt-group';
-const SUPPORTED_ASSIGNMENT_BRANDS = BRAND_SITE_CODES;
 const PRODUCT_IMAGE_PLACEHOLDER = {
   role: 'placeholder',
   url: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360"%3E%3Crect width="640" height="360" fill="%23f4f6f8"/%3E%3Cpath d="M238 212h164l-50-62-42 46-28-30-44 46Z" fill="%23ccd3da"/%3E%3Ccircle cx="250" cy="135" r="18" fill="%23ccd3da"/%3E%3C/svg%3E',
@@ -30,6 +28,15 @@ export interface SiteProductAssignmentInput {
   siteTitle?: string | null;
   siteSummary?: string | null;
   siteMeta?: Record<string, unknown>;
+}
+
+export interface SiteProductAssignmentBatchItem extends SiteProductAssignmentInput {
+  assignmentId?: string;
+  sku?: string;
+}
+
+export interface SiteProductAssignmentBatchInput {
+  items?: SiteProductAssignmentBatchItem[];
 }
 
 export function normalizeSiteCode(value: unknown): string {
@@ -49,15 +56,29 @@ export function resolvePublicSiteTenant(siteCode: string): string | undefined {
   return process.env[`SITE_${key}_TENANT_ID`] || process.env[`${key}_TENANT_ID`];
 }
 
-export function assertSiteProductBrandAllowed(siteCodeInput: unknown, productBrandInput: unknown) {
+export function assertSiteProductBrandAllowed(
+  siteCodeInput: unknown,
+  productBrandInput: unknown,
+  supportedBrandInputs: readonly string[] = ['rheem', 'ruud', 'everhot'],
+) {
   const siteCode = normalizeSiteCode(siteCodeInput);
   const productBrand = String(productBrandInput || '').trim().toLowerCase();
-  if (BRAND_SITE_CODES.includes(siteCode) && productBrand !== siteCode) {
+  const supportedBrands = supportedBrandInputs.map(normalizeSiteCode);
+  if (!isSiteProductBrandAllowed(siteCode, productBrand, supportedBrands)) {
     throw new BadRequestException(`Invalid site/product brand combination: ${siteCode} site only accepts ${siteCode} products`);
   }
-  if (siteCode === GROUP_SITE_CODE && !SUPPORTED_ASSIGNMENT_BRANDS.includes(productBrand)) {
-    throw new BadRequestException(`Invalid site/product brand combination: ${GROUP_SITE_CODE} only accepts rheem, ruud, or everhot products`);
+  if (siteCode === GROUP_SITE_CODE && !supportedBrands.includes(productBrand)) {
+    const label = supportedBrands.length ? supportedBrands.join(', ') : 'configured child-brand';
+    throw new BadRequestException(`Invalid site/product brand combination: ${GROUP_SITE_CODE} only accepts ${label} products`);
   }
+}
+
+function isSiteProductBrandAllowed(
+  siteCode: string,
+  productBrand: string,
+  supportedBrands: readonly string[] = ['rheem', 'ruud', 'everhot'],
+) {
+  return siteCode === GROUP_SITE_CODE || !supportedBrands.includes(siteCode) || productBrand === siteCode;
 }
 
 function text(value: unknown): string {
@@ -73,8 +94,13 @@ function positiveInteger(value: unknown): number | null {
   return Number.isInteger(n) && n > 0 ? n : null;
 }
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'Website shelf batch operation failed';
+}
+
 const PUBLIC_SITE_PRODUCT_FIELDS = [
   'brand', 'category', 'slug', 'sku', 'displayOrder', 'model', 'name',
+  'categoryLevel1Id', 'categoryLevel2Id', 'categoryLevel3Id', 'categoryPath',
   'websiteCategory', 'cat', 'sys', 'series', 'tagline', 'tags', 'badges',
   'en', 'icon', 'image', 'mainImage', 'gallery', 'specImage', 'specs',
   'features', 'highlights', 'certs', 'faqs', 'locale', 'positioning',
@@ -134,15 +160,66 @@ export class SiteProductAssignmentService {
     private readonly products: ProductCatalogService,
   ) {}
 
-  list(user: JwtPayload, siteCode: string) {
+  list(user: JwtPayload, siteCode: string, includeArchived = false) {
     return withRlsTransaction(this.ds, async (em) => {
       const site = await this.findSite(em, user.tenantId, siteCode);
       const items = await em.getRepository(SiteProductAssignmentEntity).find({
-        where: { tenantId: user.tenantId, siteId: site.id, deletedAt: null } as any,
+        where: includeArchived
+          ? { tenantId: user.tenantId, siteId: site.id } as any
+          : { tenantId: user.tenantId, siteId: site.id, deletedAt: null } as any,
         order: { displayOrder: 'ASC', createdAt: 'ASC' },
       });
       return { items, total: items.length };
     }, this.scope(user));
+  }
+
+  async batchPublish(user: JwtPayload, siteCode: string, input: SiteProductAssignmentBatchInput) {
+    const items = Array.isArray(input.items) ? input.items : [];
+    const success: Array<{ productId: string; assignmentId: string; sku?: string }> = [];
+    const failed: Array<{ productId?: string; assignmentId?: string; sku?: string; error: string }> = [];
+    for (const item of items) {
+      const productId = text(item.productId);
+      const sku = text(item.sku);
+      try {
+        let assignmentId = text(item.assignmentId);
+        if (!assignmentId) {
+          const created = await this.create(user, siteCode, item);
+          assignmentId = created.id;
+        }
+        await this.setStatus(user, siteCode, assignmentId, 'published');
+        success.push({ productId, assignmentId, sku });
+      } catch (error) {
+        failed.push({
+          productId,
+          assignmentId: text(item.assignmentId),
+          sku,
+          error: errorMessage(error),
+        });
+      }
+    }
+    return { success, failed, total: items.length, successCount: success.length, failureCount: failed.length };
+  }
+
+  async batchHide(user: JwtPayload, siteCode: string, input: SiteProductAssignmentBatchInput) {
+    const items = Array.isArray(input.items) ? input.items : [];
+    const success: Array<{ productId?: string; assignmentId?: string; sku?: string; skipped?: boolean }> = [];
+    const failed: Array<{ productId?: string; assignmentId?: string; sku?: string; error: string }> = [];
+    for (const item of items) {
+      const productId = text(item.productId);
+      const assignmentId = text(item.assignmentId);
+      const sku = text(item.sku);
+      if (!assignmentId) {
+        success.push({ productId, sku, skipped: true });
+        continue;
+      }
+      try {
+        await this.setStatus(user, siteCode, assignmentId, 'hidden');
+        success.push({ productId, assignmentId, sku });
+      } catch (error) {
+        failed.push({ productId, assignmentId, sku, error: errorMessage(error) });
+      }
+    }
+    return { success, failed, total: items.length, successCount: success.length, failureCount: failed.length };
   }
 
   async create(user: JwtPayload, siteCode: string, input: SiteProductAssignmentInput) {
@@ -155,9 +232,10 @@ export class SiteProductAssignmentService {
     const publicSlug = normalizePublicSlug(input.publicSlug);
     const product = await this.findActiveProduct(productTenantId, productId);
     if (!product) throw new NotFoundException('Product does not exist or is archived');
+    const productBrand = text(product.brand);
     return withRlsTransaction(this.ds, async (em) => {
       const site = await this.findSite(em, user.tenantId, siteCode);
-      assertSiteProductBrandAllowed(site.code, product.brand);
+      assertSiteProductBrandAllowed(site.code, productBrand, await this.assignmentBrandCodes(em, user.tenantId, site));
       const repo = em.getRepository(SiteProductAssignmentEntity);
       const existing = await repo.createQueryBuilder('assignment')
         .where('assignment.tenantId = :tenantId', { tenantId: user.tenantId })
@@ -171,14 +249,14 @@ export class SiteProductAssignmentService {
         siteId: site.id,
         productTenantId,
         productId,
-        brand: product.brand,
+        brand: productBrand,
         publicSlug,
         ...this.assignmentPatch(input),
         status: 'draft',
         publishedAt: null,
         createdBy: user.userId,
         updatedBy: user.userId,
-      }));
+      } as Partial<SiteProductAssignmentEntity>));
       await this.audit(em, user, 'site-product-assignment.create', saved.id, null, { ...saved });
       return saved;
     }, this.scope(user));
@@ -204,6 +282,12 @@ export class SiteProductAssignmentService {
   setStatus(user: JwtPayload, siteCode: string, id: string, status: 'published' | 'hidden') {
     return withRlsTransaction(this.ds, async (em) => {
       const row = await this.findAssignment(em, user.tenantId, siteCode, id);
+      if (status === 'published') {
+        const product = await this.findActiveProduct(row.productTenantId, row.productId);
+        if (!product) throw new NotFoundException('Product does not exist or is archived');
+        const site = await this.findSite(em, user.tenantId, siteCode);
+        assertSiteProductBrandAllowed(site.code, product.brand, await this.assignmentBrandCodes(em, user.tenantId, site));
+      }
       const before = { ...row };
       row.status = status;
       row.publishedAt = status === 'published' ? (row.publishedAt || new Date()) : null;
@@ -280,6 +364,7 @@ export class SiteProductAssignmentService {
     return assignments.flatMap((assignment) => {
       const product = hydrated.get(assignment.productId);
       if (!product) return [];
+      if (!isSiteProductBrandAllowed(siteCode, text(product.brand))) return [];
       const { productId: _productId, ...publicProduct } = product;
       return [projectSiteProductDisplay(siteCode, assignment, publicProduct)];
     });
@@ -321,7 +406,7 @@ export class SiteProductAssignmentService {
   private async findActiveProduct(productTenantId: string, productId: string) {
     const result = await this.products.get(productId, productTenantId);
     const product = result.data;
-    return product.status === 'active' ? product : null;
+    return product.status === 'archived' ? null : product;
   }
 
   private async findSite(em: EntityManager, tenantId: string, siteCode: string) {
@@ -330,6 +415,20 @@ export class SiteProductAssignmentService {
     } as any);
     if (!site) throw new NotFoundException('网站不存在或未启用');
     return site;
+  }
+
+  private async assignmentBrandCodes(em: EntityManager, tenantId: string, site?: BrandSiteEntity): Promise<string[]> {
+    if (site?.code === GROUP_SITE_CODE) {
+      return (site.childBrandCodes || []).map(normalizeSiteCode);
+    }
+    const rows = await em.getRepository(BrandSiteEntity).find({
+      where: { tenantId, status: 'active', deletedAt: null } as any,
+      order: { sortOrder: 'ASC', createdAt: 'ASC' },
+      take: 500,
+    });
+    return rows
+      .map((row) => normalizeSiteCode(row.code))
+      .filter((code) => code !== GROUP_SITE_CODE);
   }
 
   private async findAssignment(em: EntityManager, tenantId: string, siteCode: string, id: string) {

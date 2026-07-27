@@ -12,6 +12,7 @@ const ACTIVE_PRODUCT_ID = '22222222-2222-4222-8222-222222222222';
 const HIDDEN_PRODUCT_ID = '33333333-3333-4333-8333-333333333333';
 const DRAFT_PRODUCT_ID = '44444444-4444-4444-8444-444444444444';
 const ARCHIVED_PRODUCT_ID = '55555555-5555-4555-8555-555555555555';
+const RUUD_PRODUCT_ID = '66666666-6666-4666-8666-666666666666';
 const UNASSIGNED_PRODUCT_ID = '77777777-7777-4777-8777-777777777777';
 
 test('网站代码和公开 slug 统一转为小写', () => {
@@ -59,17 +60,170 @@ test('brand sites only accept products from the same brand', () => {
 });
 
 test('group site accepts only supported product brands', () => {
-  for (const brand of ['rheem', 'ruud', 'everhot']) {
-    assert.doesNotThrow(() => assertSiteProductBrandAllowed('rhautt-group', brand));
+  const supportedBrands = ['rheem', 'ruud', 'everhot', 'newbrand'];
+  for (const brand of supportedBrands) {
+    assert.doesNotThrow(() => assertSiteProductBrandAllowed('rhautt-group', brand, supportedBrands));
   }
+  assert.doesNotThrow(() => assertSiteProductBrandAllowed('newbrand', 'newbrand', supportedBrands));
+  assert.throws(
+    () => assertSiteProductBrandAllowed('newbrand', 'rheem', supportedBrands),
+    /newbrand site only accepts newbrand products/,
+  );
 
   assert.throws(
-    () => assertSiteProductBrandAllowed('rhautt-group', 'unknown'),
-    /rhautt-group only accepts rheem, ruud, or everhot products/,
+    () => assertSiteProductBrandAllowed('rhautt-group', 'unknown', supportedBrands),
+    /rhautt-group only accepts rheem, ruud, everhot, newbrand products/,
   );
   assert.throws(
-    () => assertSiteProductBrandAllowed('rhautt-group', null),
-    /rhautt-group only accepts rheem, ruud, or everhot products/,
+    () => assertSiteProductBrandAllowed('rhautt-group', null, supportedBrands),
+    /rhautt-group only accepts rheem, ruud, everhot, newbrand products/,
+  );
+});
+
+test('group site assignment brands come from configured child brand codes', async () => {
+  const user = { tenantId: TENANT_ID, userId: '99999999-9999-4999-8999-999999999999', role: 'hq_admin' } as any;
+  const brandSites = new InMemoryRepository<BrandSiteEntity>().seed(
+    { ...brandSiteRecord('site-group', 'rhautt-group', 0), childBrandCodes: ['newbrand'] },
+    brandSiteRecord('site-newbrand', 'newbrand', 10),
+  );
+  const assignments = new InMemoryRepository<SiteProductAssignmentEntity>().seed({
+    ...assignment(UNASSIGNED_PRODUCT_ID, 'draft', 'newbrand-product', 1),
+    siteId: 'site-group',
+    brand: 'newbrand',
+  });
+  const { ds } = makeFakeDataSource([
+    [BrandSiteEntity, brandSites],
+    [SiteProductAssignmentEntity, assignments],
+  ]);
+  const products = {
+    async get(productId: string, tenantId: string) {
+      assert.equal(productId, UNASSIGNED_PRODUCT_ID);
+      assert.equal(tenantId, TENANT_ID);
+      return { success: true, data: { id: productId, productId, tenantId, brand: 'newbrand', status: 'active' } };
+    },
+  };
+
+  const service = new SiteProductAssignmentService(ds, products as any);
+  const saved = await service.setStatus(user, 'rhautt-group', 'assignment-newbrand-product', 'published');
+
+  assert.equal(saved.brand, 'newbrand');
+  assert.equal(saved.status, 'published');
+});
+
+test('inactive catalog products can still be published to website shelf', async () => {
+  const user = { tenantId: TENANT_ID, userId: '99999999-9999-4999-8999-999999999999', role: 'brand_admin' } as any;
+  const brandSites = new InMemoryRepository<BrandSiteEntity>().seed(brandSiteRecord('site-everhot', 'everhot', 10));
+  const assignments = new InMemoryRepository<SiteProductAssignmentEntity>().seed({
+    ...assignment(ACTIVE_PRODUCT_ID, 'draft', 'inactive-everhot-product', 1),
+    siteId: 'site-everhot',
+    brand: 'everhot',
+  });
+  const { ds } = makeFakeDataSource([
+    [BrandSiteEntity, brandSites],
+    [SiteProductAssignmentEntity, assignments],
+  ]);
+  const products = {
+    async get(productId: string, tenantId: string) {
+      assert.equal(productId, ACTIVE_PRODUCT_ID);
+      assert.equal(tenantId, TENANT_ID);
+      return { success: true, data: { id: productId, productId, tenantId, brand: 'everhot', status: 'inactive' } };
+    },
+  };
+
+  const service = new SiteProductAssignmentService(ds, products as any);
+  const saved = await service.setStatus(user, 'everhot', 'assignment-inactive-everhot-product', 'published');
+
+  assert.equal(saved.status, 'published');
+});
+
+test('batch publish reports row failures without stopping the whole batch', async () => {
+  const user = { tenantId: TENANT_ID, userId: '99999999-9999-4999-8999-999999999999', role: 'brand_admin' } as any;
+  const brandSites = new InMemoryRepository<BrandSiteEntity>().seed(brandSiteRecord('site-everhot', 'everhot', 10));
+  const assignments = new InMemoryRepository<SiteProductAssignmentEntity>().seed({
+    ...assignment(ACTIVE_PRODUCT_ID, 'draft', 'active-everhot-product', 1),
+    siteId: 'site-everhot',
+    brand: 'everhot',
+  });
+  const { ds } = makeFakeDataSource([
+    [BrandSiteEntity, brandSites],
+    [SiteProductAssignmentEntity, assignments],
+  ]);
+  const products = {
+    async get(productId: string, tenantId: string) {
+      assert.equal(tenantId, TENANT_ID);
+      return { success: true, data: { id: productId, productId, tenantId, brand: 'everhot', status: 'active' } };
+    },
+  };
+
+  const service = new SiteProductAssignmentService(ds, products as any);
+  const result = await service.batchPublish(user, 'everhot', {
+    items: [
+      { assignmentId: 'assignment-active-everhot-product', productId: ACTIVE_PRODUCT_ID, sku: 'OK-1' },
+      { assignmentId: 'missing-assignment', productId: HIDDEN_PRODUCT_ID, sku: 'BAD-1' },
+    ],
+  });
+
+  assert.equal(result.successCount, 1);
+  assert.equal(result.failureCount, 1);
+  assert.equal(result.success[0].assignmentId, 'assignment-active-everhot-product');
+  assert.equal(result.failed[0].sku, 'BAD-1');
+});
+
+test('group site rejects products from child brands that were not selected', async () => {
+  const user = { tenantId: TENANT_ID, userId: '99999999-9999-4999-8999-999999999999', role: 'hq_admin' } as any;
+  const brandSites = new InMemoryRepository<BrandSiteEntity>().seed(
+    { ...brandSiteRecord('site-group', 'rhautt-group', 0), childBrandCodes: ['newbrand'] },
+    brandSiteRecord('site-rheem', 'rheem', 10),
+  );
+  const assignments = new InMemoryRepository<SiteProductAssignmentEntity>().seed({
+    ...assignment(RUUD_PRODUCT_ID, 'draft', 'rheem-product', 1),
+    siteId: 'site-group',
+    brand: 'rheem',
+  });
+  const { ds } = makeFakeDataSource([
+    [BrandSiteEntity, brandSites],
+    [SiteProductAssignmentEntity, assignments],
+  ]);
+  const products = {
+    async get() {
+      return { success: true, data: { id: RUUD_PRODUCT_ID, productId: RUUD_PRODUCT_ID, tenantId: TENANT_ID, brand: 'rheem', status: 'active' } };
+    },
+  };
+
+  const service = new SiteProductAssignmentService(ds, products as any);
+
+  await assert.rejects(
+    () => service.setStatus(user, 'rhautt-group', 'assignment-rheem-product', 'published'),
+    /rhautt-group only accepts newbrand products/,
+  );
+});
+
+test('group site with no selected child brands rejects child-brand products', async () => {
+  const user = { tenantId: TENANT_ID, userId: '99999999-9999-4999-8999-999999999999', role: 'hq_admin' } as any;
+  const brandSites = new InMemoryRepository<BrandSiteEntity>().seed(
+    { ...brandSiteRecord('site-group', 'rhautt-group', 0), childBrandCodes: [] },
+    brandSiteRecord('site-rheem', 'rheem', 10),
+  );
+  const assignments = new InMemoryRepository<SiteProductAssignmentEntity>().seed({
+    ...assignment(RUUD_PRODUCT_ID, 'draft', 'rheem-product', 1),
+    siteId: 'site-group',
+    brand: 'rheem',
+  });
+  const { ds } = makeFakeDataSource([
+    [BrandSiteEntity, brandSites],
+    [SiteProductAssignmentEntity, assignments],
+  ]);
+  const products = {
+    async get() {
+      return { success: true, data: { id: RUUD_PRODUCT_ID, productId: RUUD_PRODUCT_ID, tenantId: TENANT_ID, brand: 'rheem', status: 'active' } };
+    },
+  };
+
+  const service = new SiteProductAssignmentService(ds, products as any);
+
+  await assert.rejects(
+    () => service.setStatus(user, 'rhautt-group', 'assignment-rheem-product', 'published'),
+    /rhautt-group only accepts configured child-brand products/,
   );
 });
 
@@ -175,6 +329,7 @@ test('Everhot public site products return only published shelf assignments with 
     sortOrder: 1,
     status: 'active',
     siteNote: null,
+    childBrandCodes: [],
     createdBy: null,
     updatedBy: null,
     deletedBy: null,
@@ -187,7 +342,8 @@ test('Everhot public site products return only published shelf assignments with 
     assignment(HIDDEN_PRODUCT_ID, 'hidden', 'proterra-hidden', 2),
     assignment(DRAFT_PRODUCT_ID, 'draft', 'proterra-draft', 3),
     assignment(ARCHIVED_PRODUCT_ID, 'published', 'proterra-archived', 4),
-    { ...assignment('66666666-6666-4666-8666-666666666666', 'published', 'deleted-assignment', 5), deletedAt: new Date('2026-01-02T00:00:00Z') },
+    assignment(RUUD_PRODUCT_ID, 'published', 'ruud-cross-brand', 5),
+    { ...assignment('88888888-8888-4888-8888-888888888888', 'published', 'deleted-assignment', 6), deletedAt: new Date('2026-01-02T00:00:00Z') },
   );
   const { ds } = makeFakeDataSource([
     [BrandSiteEntity, brandSites],
@@ -207,6 +363,10 @@ test('Everhot public site products return only published shelf assignments with 
           productId: id,
           brand: 'everhot',
           category: 'Hot Water',
+          categoryLevel1Id: 'everhot-l1',
+          categoryLevel2Id: 'everhot-l2',
+          categoryLevel3Id: 'everhot-l3',
+          categoryPath: '家用 / 热水系统 / 空气能热水器',
           sku: 'EH-200',
           slug: 'catalog-slug',
           name: 'Catalog product',
@@ -219,7 +379,20 @@ test('Everhot public site products return only published shelf assignments with 
           tenantId: TENANT_ID,
           privilegedMetadata: { workflow: 'internal' },
           workflowState: 'approved',
-        }));
+          deletedAt: new Date('2026-01-03T00:00:00Z'),
+          meta: { private: true },
+        }))
+        .concat(ids
+          .filter((id) => id === RUUD_PRODUCT_ID)
+          .map((id) => ({
+            productId: id,
+            brand: 'ruud',
+            category: 'Hot Water',
+            sku: 'RUUD-200',
+            slug: 'ruud-cross-brand',
+            name: 'Ruud stale assignment',
+            tagline: 'Should not render on Everhot',
+          })));
     },
   };
 
@@ -228,15 +401,19 @@ test('Everhot public site products return only published shelf assignments with 
     const result = await service.publicList('everhot', 'zh-CN');
     const items = (result.data.items as Record<string, unknown>[]);
 
-    assert.deepEqual(hydratedProductIds, [[ACTIVE_PRODUCT_ID, ARCHIVED_PRODUCT_ID]]);
+    assert.deepEqual(hydratedProductIds, [[ACTIVE_PRODUCT_ID, ARCHIVED_PRODUCT_ID, RUUD_PRODUCT_ID]]);
     assert.equal(result.success, true);
     assert.equal(result.data.total, 1);
     assert.deepEqual(items.map((item) => item.slug), ['proterra-active']);
     assert.equal(items[0].slug, 'proterra-active');
     assert.equal(items[0].siteCode, 'everhot');
+    assert.equal(items[0].categoryLevel1Id, 'everhot-l1');
+    assert.equal(items[0].categoryLevel2Id, 'everhot-l2');
+    assert.equal(items[0].categoryLevel3Id, 'everhot-l3');
+    assert.equal(items[0].categoryPath, '家用 / 热水系统 / 空气能热水器');
     for (const field of [
       'cost', 'costPrice', 'dealerPrice', 'internalPrice', 'priceListItems',
-      'tenantId', 'privilegedMetadata', 'workflowState',
+      'tenantId', 'privilegedMetadata', 'workflowState', 'deletedAt', 'meta',
     ]) {
       assert.equal(field in items[0], false, `${field} must not be exposed`);
     }
@@ -245,6 +422,78 @@ test('Everhot public site products return only published shelf assignments with 
     else process.env.SITE_EVERHOT_TENANT_ID = previous;
   }
 });
+
+test('admin assignment list can include archived rows for row-level shelf state', async () => {
+  const brandSites = new InMemoryRepository<BrandSiteEntity>().seed(brandSite('everhot'));
+  const active = assignment(ACTIVE_PRODUCT_ID, 'published', 'active-row', 1);
+  const archived = {
+    ...assignment(ARCHIVED_PRODUCT_ID, 'hidden', 'archived-row', 2),
+    deletedAt: new Date('2026-01-02T00:00:00Z'),
+  };
+  const assignments = new InMemoryRepository<SiteProductAssignmentEntity>().seed(active, archived);
+  const { ds } = makeFakeDataSource([
+    [BrandSiteEntity, brandSites],
+    [SiteProductAssignmentEntity, assignments],
+  ]);
+  const service = new SiteProductAssignmentService(ds, { get: async () => ({ data: {} }) } as any);
+  const user = { tenantId: TENANT_ID, userId: TENANT_ID, role: 'brand_admin' } as any;
+
+  const normal = await service.list(user, 'everhot');
+  const withArchived = await service.list(user, 'everhot', true);
+
+  assert.deepEqual(normal.items.map((item) => item.publicSlug), ['active-row']);
+  assert.deepEqual(withArchived.items.map((item) => item.publicSlug), ['active-row', 'archived-row']);
+});
+
+test('publishing a stale cross-brand concrete-site assignment is rejected', async () => {
+  const brandSites = new InMemoryRepository<BrandSiteEntity>().seed(brandSite('rheem'));
+  const assignments = new InMemoryRepository<SiteProductAssignmentEntity>().seed({
+    ...assignment(ACTIVE_PRODUCT_ID, 'draft', 'ruud-row-on-rheem', 1),
+    siteId: 'site-rheem',
+    brand: 'ruud',
+  });
+  const { ds } = makeFakeDataSource([
+    [BrandSiteEntity, brandSites],
+    [SiteProductAssignmentEntity, assignments],
+  ]);
+  const products = {
+    async get() {
+      return { data: { id: ACTIVE_PRODUCT_ID, status: 'active', brand: 'ruud' } };
+    },
+  };
+  const service = new SiteProductAssignmentService(ds, products as any);
+  const user = { tenantId: TENANT_ID, userId: TENANT_ID, role: 'brand_admin' } as any;
+
+  await assert.rejects(
+    () => service.setStatus(user, 'rheem', 'assignment-ruud-row-on-rheem', 'published'),
+    /rheem site only accepts rheem products/,
+  );
+});
+
+function brandSite(code: 'rheem' | 'ruud' | 'everhot'): BrandSiteEntity {
+  return {
+    id: `site-${code}`,
+    tenantId: TENANT_ID,
+    code,
+    nameCn: code,
+    nameEn: code,
+    appKey: null,
+    deliveryType: 'self_hosted',
+    developmentUrl: null,
+    productionUrl: null,
+    logoArtifactId: null,
+    sortOrder: 1,
+    status: 'active',
+    siteNote: null,
+    childBrandCodes: [],
+    createdBy: null,
+    updatedBy: null,
+    deletedBy: null,
+    deletedAt: null,
+    createdAt: new Date('2026-01-01T00:00:00Z'),
+    updatedAt: new Date('2026-01-01T00:00:00Z'),
+  };
+}
 
 function assignment(
   productId: string,
@@ -275,5 +524,30 @@ function assignment(
     deletedAt: null,
     createdAt: new Date(`2026-01-01T00:00:0${displayOrder}Z`),
     updatedAt: new Date(`2026-01-01T00:00:0${displayOrder}Z`),
+  };
+}
+
+function brandSiteRecord(id: string, code: string, sortOrder: number): BrandSiteEntity {
+  return {
+    id,
+    tenantId: TENANT_ID,
+    code,
+    nameCn: code,
+    nameEn: code,
+    appKey: null,
+    deliveryType: 'self_hosted',
+    developmentUrl: null,
+    productionUrl: null,
+    logoArtifactId: null,
+    sortOrder,
+    status: 'active',
+    siteNote: null,
+    childBrandCodes: [],
+    createdBy: null,
+    updatedBy: null,
+    deletedBy: null,
+    deletedAt: null,
+    createdAt: new Date('2026-01-01T00:00:00Z'),
+    updatedAt: new Date('2026-01-01T00:00:00Z'),
   };
 }

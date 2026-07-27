@@ -3,7 +3,11 @@ import type { JwtPayload } from '../auth/auth.service';
 import { Public } from '../common/public.decorator';
 import { PublicRateLimitGuard } from '../common/public-rate-limit.guard';
 import { Roles } from '../common/roles.decorator';
-import { SiteProductAssignmentInput, SiteProductAssignmentService } from './site-product-assignment.service';
+import {
+  SiteProductAssignmentBatchInput,
+  SiteProductAssignmentInput,
+  SiteProductAssignmentService,
+} from './site-product-assignment.service';
 
 interface AuthRequest { user: JwtPayload; }
 
@@ -12,8 +16,8 @@ export class SiteProductAssignmentController {
   constructor(private readonly service: SiteProductAssignmentService) {}
 
   @Get()
-  list(@Req() req: AuthRequest, @Param('siteCode') siteCode: string) {
-    return this.service.list(req.user, siteCode);
+  list(@Req() req: AuthRequest, @Param('siteCode') siteCode: string, @Query('includeArchived') includeArchived?: string) {
+    return this.service.list(req.user, siteCode, includeArchived === 'true');
   }
 
   @Post()
@@ -29,6 +33,18 @@ export class SiteProductAssignmentController {
     @Param('assignmentId') id: string, @Body() body: SiteProductAssignmentInput,
   ) {
     return this.service.update(req.user, siteCode, id, body);
+  }
+
+  @Post('batch/publish')
+  @Roles('platform_admin', 'hq_admin', 'brand_admin')
+  batchPublish(@Req() req: AuthRequest, @Param('siteCode') siteCode: string, @Body() body: SiteProductAssignmentBatchInput) {
+    return this.service.batchPublish(req.user, siteCode, body);
+  }
+
+  @Post('batch/hide')
+  @Roles('platform_admin', 'hq_admin', 'brand_admin')
+  batchHide(@Req() req: AuthRequest, @Param('siteCode') siteCode: string, @Body() body: SiteProductAssignmentBatchInput) {
+    return this.service.batchHide(req.user, siteCode, body);
   }
 
   @Post(':assignmentId/publish')
