@@ -960,6 +960,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
       .map((entry) => entry.product);
   }, [assignmentByProductId, categoryFilter, categoryOptionMap, productRows]);
   const visibleProductIds = useMemo(() => visibleProducts.map((product) => product.id).filter(Boolean), [visibleProducts]);
+  const visibleProductIdKey = visibleProductIds.join('|');
   const selectedVisibleProducts = useMemo(() => {
     const selected = new Set(selectedProductIds);
     return visibleProducts.filter((product) => selected.has(product.id));
@@ -982,8 +983,11 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
 
   useEffect(() => {
     const visible = new Set(visibleProductIds);
-    setSelectedProductIds((current) => current.filter((id) => visible.has(id)));
-  }, [visibleProductIds]);
+    setSelectedProductIds((current) => {
+      const next = current.filter((id) => visible.has(id));
+      return next.length === current.length ? current : next;
+    });
+  }, [visibleProductIdKey]);
 
   function updateDraft(id: string, patch: Partial<BrandProductEditDraft>) {
     setDrafts((current) => ({ ...current, [id]: { ...current[id], ...patch } as BrandProductEditDraft }));
