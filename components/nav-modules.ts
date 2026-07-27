@@ -477,11 +477,12 @@ export const NAV_MODULES: NavModule[] = [
         name: '内容管理',
         href: '/admin/intranet',
         icon: Megaphone,
-        visibleTo: ['admin', 'champion', 'intranet_editor'],
+        visibleTo: ['admin', 'champion', 'intranet_editor', 'owner'],
         tabs: [
           { name: 'Intranet 编辑', href: '/admin/intranet', visibleTo: ['admin', 'champion', 'intranet_editor'] },
           { name: 'Launchpad 管理', href: '/admin/launchpad', visibleTo: ['admin', 'champion'] },
           { name: '移动端功能', href: '/admin/mobile-features', visibleTo: ['admin', 'owner'] },
+          { name: '隐私政策', href: '/admin/legal', visibleTo: ['admin', 'owner'] },
           { name: 'Baseline', href: '/admin/baseline', visibleTo: ['admin', 'champion'] },
         ],
       },
@@ -630,4 +631,24 @@ export function activeModuleId(pathname: string | null | undefined): string {
     }
   }
   return bestId;
+}
+
+/**
+ * Pick the single active href from sibling links. The longest matching href wins,
+ * so parent links such as /persona do not stay active on /persona/training.
+ */
+export function activeHref(
+  hrefs: readonly string[],
+  pathname: string | null | undefined,
+  fullPath?: string | null | undefined,
+): string | undefined {
+  if (!pathname) return undefined;
+  const pathWithQuery = fullPath ?? pathname;
+  return hrefs
+    .filter((href) => {
+      if (href === '/') return pathWithQuery === '/';
+      if (href.includes('?')) return pathWithQuery === href;
+      return pathname === href || pathname.startsWith(href + '/');
+    })
+    .sort((a, b) => b.length - a.length)[0];
 }

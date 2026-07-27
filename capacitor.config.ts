@@ -20,7 +20,7 @@ const isHttp = serverUrl.startsWith('http://');
 
 const config: CapacitorConfig = {
   appId: 'local.tandem.mobile',
-  appName: 'Tandem',
+  appName: '牛马搭子',
   webDir: 'dist/mobile',
   server: {
     // HTTP 开发环境用 http scheme, 避免 https origin 下 cookie domain 不匹配导致登录失败.

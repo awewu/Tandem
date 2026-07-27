@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { buildPersonMentionToken, insertTextAtSelection, messageBodyForSend } from '@/lib/im/composer-text';
+import {
+  buildPersonMentionDisplay,
+  buildPersonMentionToken,
+  encodePendingPersonMentionsForSend,
+  insertTextAtSelection,
+  messageBodyForSend,
+  reconcilePendingPersonMentionRanges,
+  type PendingPersonMention,
+} from '@/lib/im/composer-text';
 import { parseMentions } from '@/lib/types/im';
 
 describe('IM composer text', () => {
@@ -40,10 +48,80 @@ describe('IM composer text', () => {
     ]);
   });
 
-  it('keeps insertion behavior stable when inserting a person mention token', () => {
-    expect(insertTextAtSelection('hello world', '@[张三](user-2:notify) ', 6, 11)).toEqual({
-      value: 'hello @[张三](user-2:notify) ',
-      caret: 27,
+  it('builds the visible person mention shown in the composer', () => {
+    const visible = buildPersonMentionDisplay({ userId: 'user-2', name: '张三' });
+
+    expect(visible).toBe('@张三 ');
+    expect(insertTextAtSelection('hello world', visible, 6, 11)).toEqual({
+      value: 'hello @张三 ',
+      caret: 10,
     });
+  });
+
+  it('encodes selected visible person mentions before sending', () => {
+    const mention: PendingPersonMention = {
+      userId: 'user-2',
+      name: '张三',
+      kind: 'notify',
+      start: 2,
+      end: 5,
+      text: '@张三',
+    };
+
+    const encoded = encodePendingPersonMentionsForSend('请 @张三 看一下', [mention]);
+
+    expect(encoded).toBe('请 @[张三](user-2:notify) 看一下');
+    expect(parseMentions(encoded)).toMatchObject([
+      { userId: 'user-2', kind: 'notify' },
+    ]);
+  });
+
+  it('tracks inserted mention ranges across edits before the mention', () => {
+    const mention: PendingPersonMention = {
+      userId: 'user-2',
+      name: '张三',
+      start: 2,
+      end: 5,
+      text: '@张三',
+    };
+
+    const reconciled = reconcilePendingPersonMentionRanges('请 @张三 看一下', '请先 @张三 看一下', [mention]);
+
+    expect(reconciled).toEqual([{ ...mention, start: 3, end: 6 }]);
+    expect(encodePendingPersonMentionsForSend('请先 @张三 看一下', reconciled)).toBe(
+      '请先 @[张三](user-2:notify) 看一下',
+    );
+  });
+
+  it('does not encode a selected mention after the visible name is edited', () => {
+    const mention: PendingPersonMention = {
+      userId: 'user-2',
+      name: '张三',
+      start: 2,
+      end: 5,
+      text: '@张三',
+    };
+
+    const reconciled = reconcilePendingPersonMentionRanges('请 @张三 看一下', '请 @张 看一下', [mention]);
+
+    expect(reconciled).toEqual([]);
+    expect(encodePendingPersonMentionsForSend('请 @张 看一下', reconciled)).toBe('请 @张 看一下');
+  });
+
+  it('keeps the selected mention when only the inserted trailing space is removed', () => {
+    const mention: PendingPersonMention = {
+      userId: 'user-2',
+      name: '张三',
+      start: 2,
+      end: 5,
+      text: '@张三',
+    };
+
+    const reconciled = reconcilePendingPersonMentionRanges('请 @张三 看一下', '请 @张三看一下', [mention]);
+
+    expect(reconciled).toEqual([mention]);
+    expect(encodePendingPersonMentionsForSend('请 @张三看一下', reconciled)).toBe(
+      '请 @[张三](user-2:notify)看一下',
+    );
   });
 });

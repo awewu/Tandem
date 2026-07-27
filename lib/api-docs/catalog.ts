@@ -54,6 +54,7 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
   { group: '认证与账号', path: '/api/auth/wechat/qr', methods: ['GET'], auth: 'public' },
 
   { group: '管理后台', path: '/api/admin/ai-settings', methods: ['GET', 'PUT'], auth: 'auth' },
+  { group: '管理后台', path: '/api/admin/legal/privacy-policy', methods: ['GET', 'PUT'], auth: 'role' },
   { group: '管理后台', path: '/api/admin/hard-refuse', methods: ['GET', 'PUT'], auth: 'role' },
   { group: '管理后台', path: '/api/admin/company-brain', methods: ['GET'], auth: 'auth' },
   { group: '管理后台', path: '/api/admin/company-brain/decisions', methods: ['GET'], auth: 'role' },
@@ -296,6 +297,7 @@ export const API_ENDPOINTS: ApiEndpoint[] = [
   { group: '平台、状态、推送与协议', path: '/api/launchpad', methods: ['GET', 'POST'], auth: 'role' },
   { group: '平台、状态、推送与协议', path: '/api/launchpad/{id}', methods: ['DELETE', 'PATCH', 'POST'], auth: 'role' },
   { group: '平台、状态、推送与协议', path: '/api/launchpad/{id}/click', methods: ['POST'], auth: 'auth' },
+  { group: '平台、状态、推送与协议', path: '/api/legal/privacy-policy', methods: ['GET'], auth: 'public' },
   { group: '平台、状态、推送与协议', path: '/api/llm-health', methods: ['GET'], auth: 'public' },
   { group: '平台、状态、推送与协议', path: '/api/logs', methods: ['GET'], auth: 'middleware' },
   { group: '平台、状态、推送与协议', path: '/api/mcp', methods: ['GET'], auth: 'middleware' },

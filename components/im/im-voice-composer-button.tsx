@@ -1,10 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Mic, MicOff, Square } from 'lucide-react';
+import { Loader2, Mic, MicOff, Square } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { isCapacitor } from '@/lib/capacitor/client';
 
 interface ImVoiceComposerButtonProps {
   onText: (text: string) => void;
@@ -12,179 +11,232 @@ interface ImVoiceComposerButtonProps {
   className?: string;
 }
 
-type SpeechRecognitionInstance = {
-  lang: string;
-  continuous: boolean;
-  interimResults: boolean;
-  start: () => void;
-  stop: () => void;
-  abort: () => void;
-  onresult: ((ev: { results: { isFinal: boolean; 0: { transcript: string } }[]; resultIndex: number }) => void) | null;
-  onerror: ((ev: { error: string }) => void) | null;
-  onend: (() => void) | null;
-};
+type VoicePhase = 'idle' | 'recording' | 'transcribing';
 
 export function ImVoiceComposerButton({
   onText,
   disabled,
   className,
 }: ImVoiceComposerButtonProps) {
-  const [supported, setSupported] = useState(false);
-  const [active, setActive] = useState(false);
+  const [supported, setSupported] = useState(true);
+  const [phase, setPhase] = useState<VoicePhase>('idle');
   const [error, setError] = useState<string | null>(null);
-  const [mobileMode, setMobileMode] = useState(false);
-  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
-  const finalTextRef = useRef('');
+  const [sttConfigured, setSttConfigured] = useState<boolean | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const SR =
-      (window as unknown as { SpeechRecognition?: new () => SpeechRecognitionInstance }).SpeechRecognition ||
-      (window as unknown as { webkitSpeechRecognition?: new () => SpeechRecognitionInstance }).webkitSpeechRecognition;
-    setSupported(Boolean(SR));
-    try {
-      const mq = typeof window.matchMedia === 'function' ? window.matchMedia('(max-width: 767px)') : null;
-      const ua = window.navigator.userAgent;
-      const isMobileUa = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
-      setMobileMode(isCapacitor() || isMobileUa || Boolean(mq?.matches));
-    } catch {
-      setMobileMode(isCapacitor());
-    }
+    setSupported(Boolean(navigator.mediaDevices?.getUserMedia) && typeof MediaRecorder !== 'undefined');
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/shouchao/transcribe', { credentials: 'include', cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => {
+        if (alive) setSttConfigured(Boolean(d.configured));
+      })
+      .catch(() => {
+        if (alive) setSttConfigured(false);
+      });
+    return () => {
+      alive = false;
+    };
   }, []);
 
   useEffect(() => {
     return () => {
+      stopTracks();
       try {
-        recognitionRef.current?.abort();
+        if (recorderRef.current?.state !== 'inactive') recorderRef.current?.stop();
       } catch {
         /* no-op */
       }
     };
   }, []);
 
-  function stopRecognition(cancel = false) {
-    if (!recognitionRef.current) return;
-    try {
-      if (cancel) recognitionRef.current.abort();
-      else recognitionRef.current.stop();
-    } catch {
-      /* no-op */
-    }
+  function stopTracks() {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
   }
 
-  function startRecognition() {
-    if (disabled || active) return;
+  function getMimeType() {
+    if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function') return '';
+    return ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4']
+      .find((type) => MediaRecorder.isTypeSupported(type)) ?? '';
+  }
 
-    if (mobileMode) {
+  async function transcribeBlob(blob: Blob, mimeType: string) {
+    if (!blob.size) {
+      setError('empty');
       toast({
         variant: 'destructive',
-        title: '移动端暂不支持',
-        description: '当前只保留桌面浏览器原生语音识别。',
+        title: '没有录到声音',
+        description: '请重新录音后再试。',
       });
       return;
     }
 
-    const SR =
-      (window as unknown as { SpeechRecognition?: new () => SpeechRecognitionInstance }).SpeechRecognition ||
-      (window as unknown as { webkitSpeechRecognition?: new () => SpeechRecognitionInstance }).webkitSpeechRecognition;
+    setPhase('transcribing');
+    try {
+      const fd = new FormData();
+      const filename = mimeType.includes('mp4') ? 'im-voice.m4a' : 'im-voice.webm';
+      fd.append('file', blob, filename);
+      fd.append('language', 'zh');
+      const response = await fetch('/api/shouchao/transcribe', { method: 'POST', body: fd });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.ok || !data.text) throw new Error(data.error ?? '语音转文字失败');
+      onText(String(data.text));
+      setError(null);
+      toast({
+        title: '语音已转文字',
+        description: '已填入输入框，确认后可发送。',
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '语音转文字失败';
+      setError(message);
+      toast({
+        variant: 'destructive',
+        title: '语音转文字失败',
+        description: message,
+      });
+    } finally {
+      setPhase('idle');
+    }
+  }
 
-    if (!SR) {
+  async function startRecording() {
+    if (disabled || phase !== 'idle') return;
+
+    if (!supported) {
       setError('unsupported');
       toast({
         variant: 'destructive',
         title: '当前浏览器不支持',
-        description: '请改用支持 SpeechRecognition 的桌面 Chrome 或 Edge。',
+        description: '请使用支持录音的浏览器，或先授予麦克风权限。',
       });
       return;
     }
 
-    const recognition = new SR();
-    recognition.lang = 'zh-CN';
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    finalTextRef.current = '';
-
-    recognition.onresult = (ev) => {
-      let final = '';
-      for (let i = ev.resultIndex; i < ev.results.length; i++) {
-        const text = ev.results[i][0].transcript;
-        if (ev.results[i].isFinal) final += text;
-      }
-      if (final) finalTextRef.current += final;
-    };
-    recognition.onerror = (ev) => {
-      setError(ev.error);
-      setActive(false);
-      recognitionRef.current = null;
+    if (sttConfigured === false) {
+      setError('stt-not-configured');
       toast({
         variant: 'destructive',
-        title: '原生语音识别失败',
-        description:
-          ev.error === 'not-allowed'
-            ? '请先允许浏览器访问麦克风。'
-            : ev.error === 'network'
-            ? '浏览器内置语音服务当前不可用。'
-            : `浏览器返回错误: ${ev.error}`,
+        title: '服务端还没配置语音转写',
+        description: '请在 AI 设置中配置 DashScope 千问 ASR 或 Whisper 兼容服务。',
       });
-    };
-    recognition.onend = () => {
-      setActive(false);
-      recognitionRef.current = null;
-      const text = finalTextRef.current.trim();
-      if (text) onText(text);
-    };
+      return;
+    }
 
     try {
-      recognition.start();
-      recognitionRef.current = recognition;
-      setActive(true);
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = getMimeType();
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      chunksRef.current = [];
+      streamRef.current = stream;
+      recorderRef.current = recorder;
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) chunksRef.current.push(event.data);
+      };
+      recorder.onstop = () => {
+        const type = recorder.mimeType || mimeType || 'audio/webm';
+        const blob = new Blob(chunksRef.current, { type });
+        chunksRef.current = [];
+        recorderRef.current = null;
+        stopTracks();
+        void transcribeBlob(blob, type);
+      };
+      recorder.onerror = () => {
+        setPhase('idle');
+        stopTracks();
+        setError('recording');
+        toast({
+          variant: 'destructive',
+          title: '录音失败',
+          description: '录音过程中发生错误，请重试。',
+        });
+      };
+
+      recorder.start();
+      setPhase('recording');
       setError(null);
       toast({
-        title: '开始听写',
-        description: '再次点击麦克风结束，并把识别结果填回输入框。',
+        title: '开始录音',
+        description: '再次点击结束录音并转文字。',
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'unknown';
       setError(message);
-      setActive(false);
+      setPhase('idle');
+      stopTracks();
       toast({
         variant: 'destructive',
-        title: '无法启动原生语音识别',
-        description: message,
+        title: '无法启动录音',
+        description: message.includes('Permission') || message.includes('NotAllowed')
+          ? '请先允许浏览器访问麦克风。'
+          : message,
       });
     }
   }
 
+  function stopRecording() {
+    if (phase !== 'recording') return;
+    try {
+      recorderRef.current?.stop();
+    } catch {
+      setPhase('idle');
+      stopTracks();
+    }
+  }
+
+  const active = phase === 'recording';
+  const transcribing = phase === 'transcribing';
+  const buttonDisabled = disabled || transcribing;
+
   return (
     <button
       type="button"
-      disabled={disabled}
-      aria-label={active ? '结束语音识别' : '开始语音识别'}
+      disabled={buttonDisabled}
+      aria-label={active ? '结束录音并转文字' : '开始语音转文字'}
       aria-pressed={active}
       title={
-        mobileMode
-          ? '移动端暂不支持浏览器原生语音识别'
+        transcribing
+          ? '正在转文字...'
+          : sttConfigured === false
+          ? '服务端还没配置语音转写'
           : error
           ? `语音输入失败: ${error}`
           : active
-          ? '点击结束并回填文字'
-          : '点击开始浏览器原生语音识别'
+          ? '点击结束录音并转文字'
+          : '点击开始录音，结束后用千问 STT 转文字'
       }
       onClick={() => {
-        if (active) stopRecognition(false);
-        else startRecognition();
+        if (active) stopRecording();
+        else void startRecording();
       }}
       className={cn(
         'flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all',
         active
           ? 'scale-110 bg-[rgb(var(--brand-500))] text-white shadow-soft-lg shadow-[rgb(var(--brand-500))]/30'
           : 'bg-surface-3 text-ink-secondary hover:bg-surface-3 dark:bg-white/10 dark:text-white/75 dark:hover:bg-white/15',
-        disabled && 'cursor-not-allowed opacity-50',
+        buttonDisabled && 'cursor-not-allowed opacity-50',
+        sttConfigured === false && 'text-danger hover:text-danger',
         className,
       )}
     >
-      {active ? <Square className="h-4.5 w-4.5" /> : error ? <MicOff className="h-4.5 w-4.5" /> : <Mic className="h-4.5 w-4.5" />}
+      {transcribing ? (
+        <Loader2 className="h-4.5 w-4.5 animate-spin" />
+      ) : active ? (
+        <Square className="h-4.5 w-4.5" />
+      ) : error ? (
+        <MicOff className="h-4.5 w-4.5" />
+      ) : (
+        <Mic className="h-4.5 w-4.5" />
+      )}
     </button>
   );
 }

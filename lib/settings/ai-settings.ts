@@ -12,6 +12,7 @@ import { getStore } from '../storage/repository';
 import type { AiSettings, AiSettingsPatch } from '../types/ai-settings';
 
 const DEFAULT_TENANT = 'default';
+const DEFAULT_QWEN_BASE_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1';
 
 function env(key: string): string | undefined {
   if (typeof process === 'undefined') return undefined;
@@ -19,10 +20,19 @@ function env(key: string): string | undefined {
   return v && v.trim() !== '' ? v.trim() : undefined;
 }
 
+function toChatCompletionsUrl(baseUrl: string | undefined): string | undefined {
+  if (!baseUrl) return undefined;
+  const clean = baseUrl.replace(/\/+$/, '');
+  return clean.endsWith('/chat/completions') ? clean : `${clean}/chat/completions`;
+}
+
 /** 从环境变量构造兜底配置 (未配置字段为 undefined) */
 function fromEnv(): Partial<AiSettings> {
   const gatewayBaseUrl = env('LLM_GATEWAY_BASE_URL');
   const gatewayModel = env('LLM_GATEWAY_MODEL');
+  const qwenApiKey = env('QWEN_API_KEY') ?? env('DASHSCOPE_API_KEY');
+  const qwenBaseUrl = env('QWEN_BASE_URL') ?? DEFAULT_QWEN_BASE_URL;
+  const useQwenForOcr = Boolean(qwenApiKey);
   return {
     gatewayEnabled: Boolean(gatewayBaseUrl && gatewayModel),
     gatewayBaseUrl,
@@ -54,11 +64,11 @@ function fromEnv(): Partial<AiSettings> {
     sttProvider: (env('STT_PROVIDER') as AiSettings['sttProvider']) ?? 'none',
     sttModel: env('STT_MODEL'),
     sttApiUrl: env('STT_API_URL'),
-    sttApiKey: env('STT_API_KEY') ?? env('OPENAI_API_KEY'),
-    ocrProvider: (env('OCR_PROVIDER') as AiSettings['ocrProvider']) ?? 'none',
-    ocrModel: env('OCR_MODEL'),
-    ocrApiUrl: env('OCR_API_URL'),
-    ocrApiKey: env('OCR_API_KEY') ?? env('OPENAI_API_KEY'),
+    sttApiKey: env('STT_API_KEY') ?? env('DASHSCOPE_API_KEY') ?? env('QWEN_API_KEY') ?? env('OPENAI_API_KEY'),
+    ocrProvider: (env('OCR_PROVIDER') as AiSettings['ocrProvider']) ?? (useQwenForOcr ? 'openai' : 'none'),
+    ocrModel: env('OCR_MODEL') ?? env('QWEN_OCR_MODEL') ?? env('QWEN_VISION_MODEL') ?? (useQwenForOcr ? 'qwen-vl-ocr' : undefined),
+    ocrApiUrl: env('OCR_API_URL') ?? (useQwenForOcr ? toChatCompletionsUrl(qwenBaseUrl) : undefined),
+    ocrApiKey: env('OCR_API_KEY') ?? qwenApiKey ?? env('OPENAI_API_KEY'),
     tavilyApiKey: env('TAVILY_API_KEY'),
     braveSearchApiKey: env('BRAVE_SEARCH_API_KEY'),
     smtpHost: env('SMTP_HOST'),

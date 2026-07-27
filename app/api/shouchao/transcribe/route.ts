@@ -18,7 +18,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { bootHotPath } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
-import { transcribe, isSttConfigured } from '@/lib/infra/transcribe';
+import { transcribe, isSttConfigured, getSttStatus } from '@/lib/infra/transcribe';
 import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
@@ -51,7 +51,7 @@ async function POSTApiHandler(req: NextRequest) {
 
   if (!(await isSttConfigured())) {
     return NextResponse.json(
-      { ok: false, error: '未配置语音转写 (STT)，请在 AI 设置中配置 Whisper 兼容服务' },
+      { ok: false, error: '未配置语音转写 (STT)，请在 AI 设置中配置 OpenAI Whisper 或 DashScope 千问 ASR' },
       { status: 503 },
     );
   }
@@ -116,4 +116,27 @@ async function POSTApiHandler(req: NextRequest) {
   }
 }
 
+async function GETApiHandler(req: NextRequest) {
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
+  bootHotPath();
+  const status = await getSttStatus();
+
+  return NextResponse.json({
+    ok: true,
+    configured: status.configured,
+    provider: status.provider,
+    model: status.model,
+    url: status.url,
+    supportedProviders: status.supportedProviders,
+    required: [
+      'STT_PROVIDER=dashscope',
+      'STT_MODEL=qwen3-asr-flash',
+      'STT_API_URL=https://dashscope.aliyuncs.com/compatible-mode/v1',
+      'STT_API_KEY',
+    ],
+  });
+}
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/shouchao/transcribe' });
 export const POST = withApiLog(POSTApiHandler, { route: '/api/shouchao/transcribe' });

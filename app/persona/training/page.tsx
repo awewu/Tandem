@@ -21,7 +21,7 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
-import { useCurrentUserId } from '@/lib/hooks/use-current-user';
+import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { cn } from '@/lib/utils';
 import { PersonaConstitutionCard } from '@/components/persona/ConstitutionCard';
 import {
@@ -84,7 +84,8 @@ function specialtyLabel(s: string | null | undefined): string {
 interface SkillPersonaLite { id: string; kind: string; specialty: string | null; stage: string }
 
 export default function PersonaTrainingPage() {
-  const me = useCurrentUserId();
+  const { user } = useCurrentUser();
+  const me = user?.id ?? '';
   const { toast } = useToast();
 
   const [ctx, setCtx] = useState<TrainingContext | null>(null);

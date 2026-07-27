@@ -15,6 +15,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
+import { activeHref } from '@/components/nav-modules';
 
 export interface PageTabItem {
   id: string;
@@ -46,6 +47,10 @@ export default function PageTabs({ tabs, active, onChange, className, actions }:
   const tabRefs = useRef<Map<string, HTMLElement>>(new Map());
   const [indicator, setIndicator] = useState<{ left: number; width: number } | null>(null);
   const [hasMounted, setHasMounted] = useState(false);
+  const activeTabHref = activeHref(
+    tabs.map((tab) => tab.href).filter((href): href is string => Boolean(href)),
+    pathname,
+  );
 
   // 计算选中 tab 的位置 + 宽度 (相对于 nav 容器)
   const measure = () => {
@@ -55,9 +60,7 @@ export default function PageTabs({ tabs, active, onChange, className, actions }:
     for (const t of tabs) {
       const el = tabRefs.current.get(t.id);
       if (!el) continue;
-      const isActive = t.href
-        ? pathname === t.href || pathname?.startsWith(t.href + '/') || pathname?.startsWith(t.href + '?')
-        : active === t.id;
+      const isActive = t.href ? t.href === activeTabHref : active === t.id;
       if (isActive) { activeEl = el; break; }
     }
     if (!activeEl) { setIndicator(null); return; }
@@ -115,10 +118,7 @@ export default function PageTabs({ tabs, active, onChange, className, actions }:
           />
         )}
         {tabs.map((t) => {
-          // Active detection: href-mode uses pathname startsWith, controlled uses active id.
-          const isActive = t.href
-            ? pathname === t.href || pathname?.startsWith(t.href + '/') || pathname?.startsWith(t.href + '?')
-            : active === t.id;
+          const isActive = t.href ? t.href === activeTabHref : active === t.id;
           const Icon = t.icon;
 
           const inner = (

@@ -1,13 +1,13 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { completeMfa, AuthError } from '@/lib/auth/native';
-import { COOKIE_ACCESS, SESSION_COOKIE_OPTIONS } from '@/lib/auth/session';
+import { COOKIE_ACCESS, SESSION_COOKIE_OPTIONS, DESKTOP_SESSION_TTL_SEC } from '@/lib/auth/session';
 import { rateLimit, getClientIp } from '@/lib/infra/rate-limit';
 import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /**
  * POST /api/auth/mfa/verify
- * Body: { pendingSessionId, totpCode? | recoveryCode? }
+ * Body: { pendingSessionId, totpCode? | recoveryCode?, rememberMe? }
  *
  * 登录第二阶段, 提交 TOTP 或恢复码.
  */
@@ -25,6 +25,7 @@ async function POSTApiHandler(req: NextRequest) {
     pendingSessionId?: string;
     totpCode?: string;
     recoveryCode?: string;
+    rememberMe?: boolean;
   };
   if (!body.pendingSessionId) {
     return NextResponse.json({ ok: false, error: 'pendingSessionId required' }, { status: 400 });
@@ -38,6 +39,7 @@ async function POSTApiHandler(req: NextRequest) {
       pendingSessionId: body.pendingSessionId,
       totpCode: body.totpCode,
       recoveryCode: body.recoveryCode,
+      longSession: body.rememberMe === true,
       deviceInfo: {
         userAgent: req.headers.get('user-agent') ?? undefined,
         ip: req.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? undefined,
@@ -47,7 +49,7 @@ async function POSTApiHandler(req: NextRequest) {
     const res = NextResponse.json({ ok: true, userId: result.userId });
     res.cookies.set(COOKIE_ACCESS, result.accessToken, {
       ...SESSION_COOKIE_OPTIONS,
-      maxAge: 24 * 60 * 60,
+      maxAge: body.rememberMe === true ? DESKTOP_SESSION_TTL_SEC : 24 * 60 * 60,
     });
     return res;
   } catch (err) {

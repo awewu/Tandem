@@ -3,7 +3,8 @@
  * 通过 TandemStore 访问 KvStore, 不直接依赖 DB 实现.
  */
 
-import { getStore, generateId } from '../storage/repository';
+import { generateId } from '../storage/repository';
+import { getShouchaoStore } from './store';
 import type {
   ShouchaoDatabase,
   ShouchaoRow,
@@ -30,7 +31,7 @@ function defaultProperties(): ShouchaoProperty[] {
 }
 
 export async function listDatabases(ownerId: string): Promise<ShouchaoDatabase[]> {
-  const store = getStore();
+  const store = getShouchaoStore();
   const all = await store.shouchaoDatabases.list({ ownerId } as Partial<ShouchaoDatabase>);
   return all
     .filter((d) => !d.deletedAt)
@@ -38,7 +39,7 @@ export async function listDatabases(ownerId: string): Promise<ShouchaoDatabase[]
 }
 
 export async function getDatabase(ownerId: string, id: string): Promise<ShouchaoDatabase | null> {
-  const store = getStore();
+  const store = getShouchaoStore();
   const db = await store.shouchaoDatabases.get(id);
   if (!db || db.ownerId !== ownerId || db.deletedAt) return null;
   return db;
@@ -51,7 +52,7 @@ export async function createDatabase(input: {
   icon?: string;
   parentId?: string;
 }): Promise<ShouchaoDatabase> {
-  const store = getStore();
+  const store = getShouchaoStore();
   const ts = nowIso();
   const props = defaultProperties();
   const view: ShouchaoView = { id: generateId('view'), name: '表格', type: 'table' };
@@ -76,7 +77,7 @@ export async function updateDatabase(
 ): Promise<ShouchaoDatabase | null> {
   const existing = await getDatabase(ownerId, id);
   if (!existing) return null;
-  const store = getStore();
+  const store = getShouchaoStore();
   const clean: Partial<ShouchaoDatabase> = { updatedAt: nowIso() };
   if (patch.name !== undefined) clean.name = patch.name.trim() || '未命名数据库';
   if (patch.icon !== undefined) clean.icon = patch.icon || undefined;
@@ -89,7 +90,7 @@ export async function updateDatabase(
 export async function deleteDatabase(ownerId: string, id: string): Promise<boolean> {
   const existing = await getDatabase(ownerId, id);
   if (!existing) return false;
-  const store = getStore();
+  const store = getShouchaoStore();
   const ts = nowIso();
   await store.shouchaoDatabases.update(id, { deletedAt: ts, updatedAt: ts });
   const rows = await store.shouchaoRows.list({ ownerId, databaseId: id } as Partial<ShouchaoRow>);
@@ -104,7 +105,7 @@ export async function deleteDatabase(ownerId: string, id: string): Promise<boole
 // ---------------------------------------------------------------------------
 
 export async function listRows(ownerId: string, databaseId: string): Promise<ShouchaoRow[]> {
-  const store = getStore();
+  const store = getShouchaoStore();
   const all = await store.shouchaoRows.list({ ownerId, databaseId } as Partial<ShouchaoRow>);
   return all
     .filter((r) => !r.deletedAt)
@@ -119,7 +120,7 @@ export async function createRow(input: {
 }): Promise<ShouchaoRow | null> {
   const db = await getDatabase(input.ownerId, input.databaseId);
   if (!db) return null; // 库不存在/无权 → 不建孤儿行
-  const store = getStore();
+  const store = getShouchaoStore();
   const ts = nowIso();
   return store.shouchaoRows.create({
     id: generateId('scrow'),
@@ -137,7 +138,7 @@ export async function updateRow(
   id: string,
   cells: Record<string, ShouchaoCellValue>,
 ): Promise<ShouchaoRow | null> {
-  const store = getStore();
+  const store = getShouchaoStore();
   const existing = await store.shouchaoRows.get(id);
   if (!existing || existing.ownerId !== ownerId || existing.deletedAt) return null;
   return store.shouchaoRows.update(id, {
@@ -147,7 +148,7 @@ export async function updateRow(
 }
 
 export async function deleteRow(ownerId: string, id: string): Promise<boolean> {
-  const store = getStore();
+  const store = getShouchaoStore();
   const existing = await store.shouchaoRows.get(id);
   if (!existing || existing.ownerId !== ownerId || existing.deletedAt) return false;
   await store.shouchaoRows.update(id, { deletedAt: nowIso(), updatedAt: nowIso() });

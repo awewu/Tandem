@@ -19,6 +19,9 @@ import { useAuthStore } from '@/lib/hooks/use-current-user';
 import { isTauri, desktopHeaders, refreshDesktopSession } from '@/lib/desktop/client';
 import { isCapacitor, capacitorHeaders, refreshMobileSession } from '@/lib/capacitor/client';
 
+const REMEMBERED_LOGIN_KEY = 'tandem.login.rememberedAccount';
+const REMEMBER_LOGIN_PREF_KEY = 'tandem.login.rememberPreference';
+
 // useSearchParams() in a Client Component must be wrapped in <Suspense> for prerender.
 export default function LoginPage() {
   return (
@@ -47,6 +50,21 @@ function LoginInner() {
   const [busy, setBusy] = useState(false);
   // §desktop / §mobile: 桌面端或移动端重开应用时, 先静默尝试用长会话续期, 成功则免登录直接进入.
   const [recovering, setRecovering] = useState(isTauri() || isCapacitor());
+
+  useEffect(() => {
+    try {
+      const rememberedEmail = window.localStorage.getItem(REMEMBERED_LOGIN_KEY);
+      const rememberPref = window.localStorage.getItem(REMEMBER_LOGIN_PREF_KEY);
+      if (rememberedEmail) {
+        setEmail(rememberedEmail);
+        setRemember(true);
+      } else if (rememberPref === '0') {
+        setRemember(false);
+      }
+    } catch {
+      /* localStorage may be unavailable in privacy modes */
+    }
+  }, []);
 
   useEffect(() => {
     const withRecoverTimeout = (task: Promise<boolean>) => Promise.race([
@@ -82,7 +100,7 @@ function LoginInner() {
           if (cancelled) return;
           if (ok) {
             await fetchMe();
-            router.replace(next === '/' ? '/im' : next);
+            router.replace(next);
           } else {
             setRecovering(false);
           }
@@ -97,6 +115,32 @@ function LoginInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  function persistRememberedLogin() {
+    try {
+      if (remember && email.trim()) {
+        window.localStorage.setItem(REMEMBERED_LOGIN_KEY, email.trim());
+        window.localStorage.setItem(REMEMBER_LOGIN_PREF_KEY, '1');
+      } else {
+        window.localStorage.removeItem(REMEMBERED_LOGIN_KEY);
+        window.localStorage.setItem(REMEMBER_LOGIN_PREF_KEY, '0');
+      }
+    } catch {
+      /* localStorage may be unavailable in privacy modes */
+    }
+  }
+
+  function handleRememberChange(checked: boolean) {
+    setRemember(checked);
+    if (!checked) {
+      try {
+        window.localStorage.removeItem(REMEMBERED_LOGIN_KEY);
+        window.localStorage.setItem(REMEMBER_LOGIN_PREF_KEY, '0');
+      } catch {
+        /* localStorage may be unavailable in privacy modes */
+      }
+    }
+  }
+
   async function submitCreds(e: React.FormEvent) {
     e.preventDefault();
     if (method !== 'account') return; // 手机/微信走各自面板, 不触发账户登录
@@ -107,13 +151,14 @@ function LoginInner() {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json', ...desktopHeaders(), ...capacitorHeaders() },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, rememberMe: remember }),
       });
       const data = await res.json();
       if (!res.ok || !data.ok) {
         setError(data.error ?? '登录失败');
         return;
       }
+      persistRememberedLogin();
       if (data.requiresMfa) {
         setPendingSessionId(data.pendingSessionId);
         setStage('mfa');
@@ -141,6 +186,7 @@ function LoginInner() {
           pendingSessionId,
           totpCode: totpCode || undefined,
           recoveryCode: recoveryCode || undefined,
+          rememberMe: remember,
         }),
       });
       const data = await res.json();
@@ -238,7 +284,13 @@ function LoginInner() {
 
         {/* Bottom: legal */}
         <div className="relative z-10 text-footnote text-ink-tertiary">
-          © Tandem · 自研身份系统 · 你的数据永远在你这里
+          © Tandem · 自研身份系统 · 你的数据永远在你这里 ·{' '}
+          <Link
+            href="/privacy"
+            className="font-medium text-ink-secondary hover:text-[rgb(var(--brand-600))]"
+          >
+            隐私政策
+          </Link>
         </div>
       </aside>
 
@@ -268,6 +320,7 @@ function LoginInner() {
               {method === 'account' && (<>
               <PillInput
                 id="email"
+                name="username"
                 type="email"
                 required
                 value={email}
@@ -278,6 +331,7 @@ function LoginInner() {
 
               <PillInput
                 id="password"
+                name="password"
                 type={showPwd ? 'text' : 'password'}
                 required
                 value={password}
@@ -301,7 +355,7 @@ function LoginInner() {
                   <input
                     type="checkbox"
                     checked={remember}
-                    onChange={(e) => setRemember(e.target.checked)}
+                    onChange={(e) => handleRememberChange(e.target.checked)}
                     className="h-4 w-4 rounded border-border accent-[rgb(var(--brand-500))]"
                   />
                   记住我
@@ -360,6 +414,8 @@ function LoginInner() {
                 </div>
                 <LoginMethodTabs method={method} onChange={(m) => { setMethod(m); setError(''); }} />
               </div>
+
+              <LoginLegalNotice />
             </form>
           ) : (
             <form onSubmit={submitMfa} className="space-y-5">
@@ -430,6 +486,8 @@ function LoginInner() {
                   ← 返回登录
                 </button>
               </p>
+
+              <LoginLegalNotice />
             </form>
           )}
         </div>
@@ -442,6 +500,7 @@ function LoginInner() {
 
 function PillInput({
   id,
+  name,
   type = 'text',
   value,
   onChange,
@@ -456,6 +515,7 @@ function PillInput({
   className,
 }: {
   id?: string;
+  name?: string;
   type?: string;
   value: string;
   onChange: (v: string) => void;
@@ -484,6 +544,7 @@ function PillInput({
     (className ?? '');
   const commonProps = {
     id,
+    name,
     type,
     value,
     onChange: (e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value),
@@ -530,6 +591,20 @@ function PillInput({
 }
 
 type LoginMethod = 'account' | 'phone' | 'wechat';
+
+function LoginLegalNotice() {
+  return (
+    <p className="text-center text-[11px] leading-relaxed text-ink-tertiary">
+      登录或继续使用即表示你已阅读并同意{' '}
+      <Link
+        href="/privacy"
+        className="font-medium text-[rgb(var(--brand-600))] underline-offset-2 hover:underline"
+      >
+        《隐私政策》
+      </Link>
+    </p>
+  );
+}
 
 function LoginMethodTabs({
   method,

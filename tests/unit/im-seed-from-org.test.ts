@@ -45,7 +45,7 @@ describe('IM seedDepartmentChannels', () => {
     expect(main?.memberIds).toEqual(expect.arrayContaining(['u-me']));
   });
 
-  it('同步操作人不自动加入所有组织群, 但组织管理员可查看本租户所有群', async () => {
+  it('同步操作人不自动加入所有组织群, 组织管理员也只能查看自己加入的群', async () => {
     await seedDepartmentChannels(
       [
         { departmentId: 'dept-a', name: 'A 部门群', memberIds: ['u-a'], level: 'department' },
@@ -56,12 +56,11 @@ describe('IM seedDepartmentChannels', () => {
     );
 
     const adminMemberChannels = await listMyChannels('org-admin', 'default');
-    const adminVisibleChannels = await listVisibleChannels('org-admin', 'default', true);
+    const adminVisibleChannels = await listVisibleChannels('org-admin', 'default');
     const userAChannels = await listMyChannels('u-a', 'default');
 
     expect(adminMemberChannels.map((c) => c.name)).not.toContain('A');
-    expect(adminVisibleChannels.map((c) => c.name)).toEqual(expect.arrayContaining(['A', 'B']));
-    expect(adminVisibleChannels).toHaveLength(2);
+    expect(adminVisibleChannels).toHaveLength(0);
     expect(userAChannels.map((c) => c.name)).toEqual(['A']);
   });
 });

@@ -37,6 +37,7 @@ export default function NotificationsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [unreadCount, setUnreadCount] = useState(0);
   const [actionId, setActionId] = useState<string | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
   const [error, setError] = useState("");
 
   const loadNotifications = useCallback(async (targetPage = page) => {
@@ -105,11 +106,30 @@ export default function NotificationsPage() {
     }
   }
 
+  async function markAllRead() {
+    if (bulkBusy || unreadCount <= 0) return;
+    setBulkBusy(true);
+    setError("");
+    try {
+      const res = await fetch("/api/notifications/read-all", {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error?.message ?? data.error ?? "批量标记已读失败");
+      await loadNotifications(page);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "批量标记已读失败");
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
   if (loading) return <div className="p-8 text-ink-secondary">加载中...</div>;
 
   return (
     <div className="p-6 max-w-3xl mx-auto md:px-8">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-title-3 font-bold flex items-center gap-2">
             <Bell size={24} /> 消息中心
@@ -121,6 +141,16 @@ export default function NotificationsPage() {
             共 {total} 条通知，{unreadCount} 条未读
           </div>
         </div>
+        <button
+          type="button"
+          onClick={() => void markAllRead()}
+          disabled={bulkBusy || unreadCount <= 0}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-success/30 px-3 py-2 text-caption font-medium text-success transition hover:bg-success/5 disabled:cursor-not-allowed disabled:opacity-40"
+          title="将所有未读通知设置为已读"
+        >
+          <Check size={15} />
+          {bulkBusy ? "处理中..." : "全部已读"}
+        </button>
       </div>
 
       <div className="mb-6">

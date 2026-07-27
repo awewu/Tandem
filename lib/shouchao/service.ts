@@ -5,7 +5,8 @@
  * 不直接依赖 DB 实现. 独立模块, 不与其它业务耦合.
  */
 
-import { getStore, generateId } from '../storage/repository';
+import { generateId } from '../storage/repository';
+import { getShouchaoStore } from './store';
 import { audit } from '../audit/log';
 import type { ShouchaoNote, ShouchaoNotebook, ShouchaoAttachment } from '../types/shouchao';
 import { embed, cosineSim, isEmbeddingConfigured } from '../infra/embedding';
@@ -59,7 +60,7 @@ export async function listNotes(
   ownerId: string,
   opts?: { q?: string; includeArchived?: boolean; notebookId?: string | null },
 ): Promise<ShouchaoNote[]> {
-  const store = getStore();
+  const store = getShouchaoStore();
   const all = await store.shouchaoNotes.list({ ownerId } as Partial<ShouchaoNote>);
   const q = (opts?.q ?? '').trim().toLowerCase();
   const nb = opts?.notebookId;
@@ -82,14 +83,14 @@ export async function listNotes(
 }
 
 export async function getNote(ownerId: string, id: string): Promise<ShouchaoNote | null> {
-  const store = getStore();
+  const store = getShouchaoStore();
   const note = await store.shouchaoNotes.get(id);
   if (!note || note.ownerId !== ownerId || note.deletedAt) return null;
   return note;
 }
 
 export async function createNote(input: CreateNoteInput): Promise<ShouchaoNote> {
-  const store = getStore();
+  const store = getShouchaoStore();
   const ts = nowIso();
   const note = await store.shouchaoNotes.create({
     id: generateId('sc'),
@@ -123,7 +124,7 @@ export async function updateNote(
 ): Promise<ShouchaoNote | null> {
   const existing = await getNote(ownerId, id);
   if (!existing) return null;
-  const store = getStore();
+  const store = getShouchaoStore();
   const clean: Partial<ShouchaoNote> = { updatedAt: nowIso() };
   if (patch.title !== undefined) clean.title = patch.title.trim() || '未命名笔记';
   if (patch.content !== undefined) clean.content = patch.content;
@@ -154,7 +155,7 @@ export async function updateNote(
 export async function deleteNote(ownerId: string, id: string): Promise<boolean> {
   const existing = await getNote(ownerId, id);
   if (!existing) return false;
-  const store = getStore();
+  const store = getShouchaoStore();
   const ts = nowIso();
   await store.shouchaoNotes.update(id, { deletedAt: ts, updatedAt: ts });
   // A3: 软删同步移除向量 (fire-and-forget)
@@ -188,7 +189,7 @@ export interface NotebookWithCount extends ShouchaoNotebook {
 
 /** 列出某用户的全部知识库 (按创建时间升序), 附带笔记数. */
 export async function listNotebooks(ownerId: string): Promise<NotebookWithCount[]> {
-  const store = getStore();
+  const store = getShouchaoStore();
   const [books, notes] = await Promise.all([
     store.shouchaoNotebooks.list({ ownerId } as Partial<ShouchaoNotebook>),
     store.shouchaoNotes.list({ ownerId } as Partial<ShouchaoNote>),
@@ -210,7 +211,7 @@ export async function createNotebook(
   name: string,
   icon?: string,
 ): Promise<ShouchaoNotebook> {
-  const store = getStore();
+  const store = getShouchaoStore();
   const ts = nowIso();
   return store.shouchaoNotebooks.create({
     id: generateId('scnb'),
@@ -224,7 +225,7 @@ export async function createNotebook(
 }
 
 async function getNotebook(ownerId: string, id: string): Promise<ShouchaoNotebook | null> {
-  const store = getStore();
+  const store = getShouchaoStore();
   const nb = await store.shouchaoNotebooks.get(id);
   if (!nb || nb.ownerId !== ownerId || nb.deletedAt) return null;
   return nb;
@@ -238,7 +239,7 @@ export async function updateNotebook(
 ): Promise<ShouchaoNotebook | null> {
   const existing = await getNotebook(ownerId, id);
   if (!existing) return null;
-  const store = getStore();
+  const store = getShouchaoStore();
   const clean: Partial<ShouchaoNotebook> = { updatedAt: nowIso() };
   if (patch.name !== undefined) clean.name = patch.name.trim() || '未命名知识库';
   if (patch.icon !== undefined) clean.icon = patch.icon.trim() || undefined;
@@ -252,7 +253,7 @@ export async function updateNotebook(
 export async function deleteNotebook(ownerId: string, id: string): Promise<boolean> {
   const existing = await getNotebook(ownerId, id);
   if (!existing) return false;
-  const store = getStore();
+  const store = getShouchaoStore();
   const ts = nowIso();
   const notes = await store.shouchaoNotes.list({ ownerId } as Partial<ShouchaoNote>);
   await Promise.all(
@@ -291,7 +292,7 @@ export async function pullChanges(
   ownerId: string,
   since?: string,
 ): Promise<SyncPullResult> {
-  const store = getStore();
+  const store = getShouchaoStore();
   const all = await store.shouchaoNotes.list({ ownerId } as Partial<ShouchaoNote>);
   const sinceMs = since ? Date.parse(since) : NaN;
   const changed = Number.isNaN(sinceMs)
@@ -326,7 +327,7 @@ export async function pushChanges(
   tenantId: string,
   incoming: ShouchaoNote[],
 ): Promise<ShouchaoNote[]> {
-  const store = getStore();
+  const store = getShouchaoStore();
   const result: ShouchaoNote[] = [];
   for (const inc of incoming) {
     if (!inc?.id) continue;
@@ -388,7 +389,7 @@ export async function setSharedToPersona(
 ): Promise<ShouchaoNote | null> {
   const existing = await getNote(ownerId, id);
   if (!existing) return null;
-  const store = getStore();
+  const store = getShouchaoStore();
   // 方案丙: enabled 时记录定向 (空数组 = 喂全队); 关闭授权时清空定向。
   const normalizedTargets =
     enabled && Array.isArray(targetPersonaIds) && targetPersonaIds.length > 0
@@ -540,7 +541,7 @@ export async function retrieveSharedNotesForPersona(
   intent: string,
   opts?: { topK?: number; personaId?: string },
 ): Promise<ShouchaoNote[]> {
-  const store = getStore();
+  const store = getShouchaoStore();
   const all = await store.shouchaoNotes.list({ ownerId } as Partial<ShouchaoNote>);
   const personaId = opts?.personaId;
   const shared = all.filter((n) => {
@@ -622,7 +623,7 @@ export async function getOutgoingLinks(ownerId: string, id: string): Promise<Lin
   const targets = extractWikiLinks(note.content);
   if (targets.length === 0) return [];
 
-  const store = getStore();
+  const store = getShouchaoStore();
   const all = await store.shouchaoNotes.list({ ownerId } as Partial<ShouchaoNote>);
   const active = all.filter((n) => !n.deletedAt);
   const byTitle = new Map<string, ShouchaoNote>();
@@ -649,7 +650,7 @@ export async function getBacklinks(ownerId: string, id: string): Promise<Shoucha
   const targetTitle = target.title.trim().toLowerCase();
   if (!targetTitle) return [];
 
-  const store = getStore();
+  const store = getShouchaoStore();
   const all = await store.shouchaoNotes.list({ ownerId } as Partial<ShouchaoNote>);
   return all
     .filter((n) => !n.deletedAt && n.id !== id)
@@ -668,7 +669,7 @@ export async function searchNotesForAsk(
   query: string,
   opts?: { topK?: number },
 ): Promise<NoteHit[]> {
-  const store = getStore();
+  const store = getShouchaoStore();
   const all = await store.shouchaoNotes.list({ ownerId } as Partial<ShouchaoNote>);
   const active = all.filter((n) => !n.deletedAt && !n.archived);
   if (active.length === 0) return [];
@@ -689,7 +690,7 @@ export async function searchNotesForAsk(
 
 // ---------------------------------------------------------------------------
 // 文件附件 (图片/文档原件) · 对标 Notion 的图片块 + 附件. 个人资产, ownerId 隔离.
-//   原件存对象存储 (S3/MinIO, BUCKET_ATTACHMENTS), 本表只存元数据 + storageKey.
+//   原件存对象存储 (S3/MinIO, S3_BUCKET_SHOUCHAO_ATTACHMENTS), 本表只存元数据 + storageKey.
 //   内嵌图片走稳定 serving URL /api/shouchao/attachments/{id}; 文件附件记在 note.attachments[].
 // ---------------------------------------------------------------------------
 
@@ -704,7 +705,7 @@ export interface CreateAttachmentInput {
 }
 
 export async function createAttachment(input: CreateAttachmentInput): Promise<ShouchaoAttachment> {
-  const store = getStore();
+  const store = getShouchaoStore();
   return store.shouchaoAttachments.create({
     id: generateId('sca'),
     ownerId: input.ownerId,
@@ -720,7 +721,7 @@ export async function createAttachment(input: CreateAttachmentInput): Promise<Sh
 
 /** 取附件元数据 — 仅 owner 可见. 返回 null 表示不存在/无权/已删. */
 export async function getAttachment(ownerId: string, id: string): Promise<ShouchaoAttachment | null> {
-  const store = getStore();
+  const store = getShouchaoStore();
   const att = await store.shouchaoAttachments.get(id);
   if (!att || att.ownerId !== ownerId || att.deletedAt) return null;
   return att;
@@ -730,7 +731,7 @@ export async function getAttachment(ownerId: string, id: string): Promise<Shouch
 export async function deleteAttachment(ownerId: string, id: string): Promise<boolean> {
   const existing = await getAttachment(ownerId, id);
   if (!existing) return false;
-  const store = getStore();
+  const store = getShouchaoStore();
   await store.shouchaoAttachments.update(id, { deletedAt: nowIso() });
   return true;
 }

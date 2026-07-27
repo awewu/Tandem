@@ -62,16 +62,71 @@ function hasPrincipal(f: DriveFile, mode: 'read' | 'write', principal: string): 
   return (f.permissions?.[mode] ?? []).includes(principal);
 }
 
+function descendantCount(rootId: string, folders: DriveFile[]): number {
+  const childrenByParent = new Map<string, DriveFile[]>();
+  for (const folder of folders) {
+    if (!folder.isFolder || folder.deletedAt || !folder.parentId) continue;
+    childrenByParent.set(folder.parentId, [...(childrenByParent.get(folder.parentId) ?? []), folder]);
+  }
+  let count = 0;
+  const stack = [...(childrenByParent.get(rootId) ?? [])];
+  const seen = new Set<string>();
+  while (stack.length > 0) {
+    const folder = stack.pop()!;
+    if (seen.has(folder.id)) continue;
+    seen.add(folder.id);
+    count++;
+    stack.push(...(childrenByParent.get(folder.id) ?? []));
+  }
+  return count;
+}
+
+function preferPopulatedFolder(a: DriveFile, b: DriveFile, folders: DriveFile[]): DriveFile {
+  const countDelta = descendantCount(b.id, folders) - descendantCount(a.id, folders);
+  if (countDelta !== 0) return countDelta > 0 ? b : a;
+  const roleDelta = Number(b.nodeRole === 'company_share' || b.nodeRole === 'dept_root')
+    - Number(a.nodeRole === 'company_share' || a.nodeRole === 'dept_root');
+  if (roleDelta !== 0) return roleDelta > 0 ? b : a;
+  return a.createdAt.localeCompare(b.createdAt) <= 0 ? a : b;
+}
+
 /** 从现存目录里找 company_share 根。兼容真实库未持久化 nodeRole 的旧数据。 */
 export function findCompanyShare(folders: DriveFile[]): DriveFile | undefined {
-  return folders.find((f) => f.isFolder && f.nodeRole === 'company_share' && !f.deletedAt)
-    ?? folders.find((f) => (
-      f.isFolder
-      && !f.deletedAt
-      && !f.parentId
-      && f.name === '公司共享区'
-      && hasPrincipal(f, 'read', 'all')
-    ));
+  const candidates = folders.filter((f) => (
+    f.isFolder
+    && !f.deletedAt
+    && (
+      f.nodeRole === 'company_share'
+      || (
+        !f.parentId
+        && f.name === '公司共享区'
+        && hasPrincipal(f, 'read', 'all')
+      )
+    )
+  ));
+  return candidates.reduce<DriveFile | undefined>(
+    (best, candidate) => best ? preferPopulatedFolder(best, candidate, folders) : candidate,
+    undefined,
+  );
+}
+
+function preferDeptRoot(a: DriveFile, b: DriveFile, folders: DriveFile[]): DriveFile {
+  const countDelta = descendantCount(b.id, folders) - descendantCount(a.id, folders);
+  if (countDelta !== 0) return countDelta > 0 ? b : a;
+  const roleDelta = Number(b.nodeRole === 'dept_root') - Number(a.nodeRole === 'dept_root');
+  if (roleDelta !== 0) return roleDelta > 0 ? b : a;
+  return a.createdAt.localeCompare(b.createdAt) <= 0 ? a : b;
+}
+
+function isDeptRootLike(f: DriveFile, principal: string): boolean {
+  return (
+    f.isFolder
+    && !f.deletedAt
+    && (
+      f.nodeRole === 'dept_root'
+      || (f.ownerId === DRIVE_SYSTEM_OWNER && hasPrincipal(f, 'write', principal))
+    )
+  );
 }
 
 /** 从现存目录里按 dept principal 建 deptId → dept_root 索引 (幂等指纹)。 */
@@ -81,10 +136,10 @@ export function indexDeptRoots(folders: DriveFile[]): Map<string, DriveFile> {
     if (!f.isFolder || f.deletedAt) continue;
     for (const p of f.permissions?.read ?? []) {
       if (!p.startsWith('dept:')) continue;
+      if (!isDeptRootLike(f, p)) continue;
       const deptId = p.slice(5);
-      const looksLikeDeptRoot = f.nodeRole === 'dept_root'
-        || (f.ownerId === DRIVE_SYSTEM_OWNER && hasPrincipal(f, 'write', p));
-      if (looksLikeDeptRoot) map.set(deptId, f);
+      const current = map.get(deptId);
+      map.set(deptId, current ? preferDeptRoot(current, f, folders) : f);
     }
   }
   return map;

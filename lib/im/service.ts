@@ -161,40 +161,8 @@ export async function listMyChannels(userId: string, tenantId?: string): Promise
 export async function listVisibleChannels(
   userId: string,
   tenantId: string | undefined,
-  canViewAll: boolean,
 ): Promise<Array<ImChannel & { unread: number; membership: ImMembership }>> {
-  if (!canViewAll) return listMyChannels(userId, tenantId);
-
-  const store = getStore();
-  const memberships = await store.imMemberships.list({ userId });
-  const membershipByChannel = new Map(memberships.map((m) => [m.channelId, m]));
-  const all = await store.imChannels.list();
-  const result: Array<ImChannel & { unread: number; membership: ImMembership }> = [];
-
-  for (const ch of all) {
-    if (tenantId && (ch.tenantId ?? 'default') !== tenantId) continue;
-    if (ch.archivedAt) continue;
-    const membership = membershipByChannel.get(ch.id) ?? {
-      id: membershipKey(ch.id, userId),
-      channelId: ch.id,
-      userId,
-      role: 'admin' as const,
-      joinedAt: ch.createdAt,
-      unreadCount: 0,
-      muted: false,
-    };
-    result.push({ ...ch, unread: membership.unreadCount, membership });
-  }
-
-  result.sort((a, b) => {
-    const pa = a.membership.pinnedChat ? 1 : 0;
-    const pb = b.membership.pinnedChat ? 1 : 0;
-    if (pb !== pa) return pb - pa;
-    return (b.lastMessageAt ?? b.createdAt).localeCompare(
-      a.lastMessageAt ?? a.createdAt
-    );
-  });
-  return result;
+  return listMyChannels(userId, tenantId);
 }
 
 export async function getChannelMessages(
@@ -223,21 +191,19 @@ export async function getChannelIfMember(
   userId: string,
   tenantId?: string,
 ): Promise<ImChannel | null> {
-  return getChannelIfVisible(channelId, userId, tenantId, false);
+  return getChannelIfVisible(channelId, userId, tenantId);
 }
 
 export async function getChannelIfVisible(
   channelId: string,
   userId: string,
   tenantId?: string,
-  canViewAll = false,
 ): Promise<ImChannel | null> {
   const store = getStore();
   const channel = await store.imChannels.get(channelId);
   if (!channel) return null;
   if (channel.archivedAt) return null;
   if (tenantId && (channel.tenantId ?? 'default') !== tenantId) return null;
-  if (canViewAll) return channel;
   if (!channel.memberIds.includes(userId)) return null;
   return channel;
 }

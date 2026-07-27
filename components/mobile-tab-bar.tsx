@@ -16,7 +16,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { LucideIcon } from 'lucide-react';
-import { Home, MessagesSquare, Target, BotMessageSquare, Sparkles, NotebookPen, UserRound } from 'lucide-react';
+import { Home, MessagesSquare, Target, BotMessageSquare, ClipboardPenLine, NotebookPen, UserRound } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { hasExternalRole, hasInternalRole } from '@/lib/auth/roles';
@@ -94,7 +94,7 @@ const CENTER_TAB: Tab = {
   id: 'report',
   label: '日报',
   href: '/report',
-  icon: Sparkles,
+  icon: ClipboardPenLine,
   matches: (p) => p.startsWith('/report'),
 };
 

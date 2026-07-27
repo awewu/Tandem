@@ -14,6 +14,7 @@ import { readFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import postgres from 'postgres';
+import { loadPmsEnv } from './pms-env.mjs';
 
 const projectRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 function loadEnv() {
@@ -29,7 +30,7 @@ function loadEnv() {
     process.env[k.trim()] = val;
   }
 }
-loadEnv();
+loadPmsEnv(projectRoot);
 
 async function main() {
   const url = process.env.DATABASE_URL;

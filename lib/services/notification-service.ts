@@ -67,6 +67,16 @@ export class NotificationService {
     return n;
   }
 
+  async markAllRead(userId: string, opts?: { tenantId?: string }): Promise<{ updated: number }> {
+    const unread = await this.ctx.notificationRepo.findByUser(userId, {
+      unreadOnly: true,
+      tenantId: opts?.tenantId,
+    });
+    await Promise.all(unread.map((n) => this.ctx.notificationRepo.markRead(n.id)));
+    if (unread.length > 0) await cacheDel(`badge:${userId}`);
+    return { updated: unread.length };
+  }
+
   async markDismissed(id: string): Promise<Notification> {
     const n = await this.ctx.notificationRepo.markDismissed(id);
     await cacheDel(`badge:${n.userId}`);

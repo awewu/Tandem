@@ -11,8 +11,7 @@
  *     搭子手抄 = 员工个人资产 / 外部用户旗舰; /hub = 外部用户落地页。
  */
 
-import { useEffect } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import AppRail from '@/components/app-rail';
 import SubSidebar from '@/components/sub-sidebar';
 import HubTabs from '@/components/hub-tabs';
@@ -26,7 +25,6 @@ import { ApiHydrator } from '@/components/api-hydrator';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { PullToRefreshProvider } from '@/components/pull-to-refresh';
 import { ScrollRestoration } from '@/components/scroll-restoration';
-import { isCapacitor } from '@/lib/capacitor/client';
 
 /** 这些前缀及其子路由不套内部 chrome, 作为独立 app 全屏呈现 */
 const STANDALONE_PREFIXES = ['/shouchao', '/hub'];
@@ -48,14 +46,6 @@ function isAuthRoute(pathname: string): boolean {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? '';
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!isCapacitor()) return;
-    if (pathname === '/' || pathname === '/home') {
-      router.replace('/im');
-    }
-  }, [pathname, router]);
 
   // 独立 app / 鉴权页: 无内部导航 / 无问老板 / 无命令面板, 全屏纯内容
   if (isStandalone(pathname) || isAuthRoute(pathname)) {
