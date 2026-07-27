@@ -35,7 +35,7 @@ function createWindow() {
   });
 
   // 加载本地服务器
-  mainWindow.loadURL('http://localhost:5001');
+  mainWindow.loadURL('http://localhost:5000');
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();

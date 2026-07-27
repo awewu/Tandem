@@ -19,7 +19,7 @@ test('brand site content switch keeps products and simulated materials separate'
   assert.match(source, /type ContentTab = 'products' \| 'materials';/);
   assert.match(source, /useState<ContentTab>\('products'\)/);
   assert.match(source, /activeContentTab === 'products' \? \(/);
-  assert.match(source, /<SiteMaterialMockPanel \/>/);
+  assert.match(source, /<SiteMaterialMockPanel brandCode=\{normalizedBrandCode\} \/>/);
   assert.match(source, /aria-pressed=\{activeContentTab === 'products'\}/);
   assert.match(source, /aria-pressed=\{activeContentTab === 'materials'\}/);
 });
@@ -29,12 +29,14 @@ test('simulated non-product website material records cover expected website area
     assert.match(source, new RegExp(label));
   }
 
-  assert.match(source, /当前仅用于验证运营流程，未接入真实 DAM、生产素材库或官网发布流程。/);
-  assert.match(source, /当前为模拟数据/);
-  assert.match(source, /真实 DAM 接入不在本次范围/);
+  assert.match(source, /Everhot 官网首页素材 manifest/);
+  assert.match(source, /status: '模拟数据'/);
+  assert.match(source, /DAM/);
 });
 
-test('materials tab remains UI-only without real material API wiring', () => {
+test('materials tab syncs through the local homepage manifest without DAM wiring', () => {
+  assert.match(source, /siteMaterials\.upload/);
+  assert.match(source, /homepageSrc/);
   assert.doesNotMatch(source, /brandSites\.(materials|assets|dam)/);
   assert.doesNotMatch(source, /api\/v2\/brand-sites\/.*materials/);
   assert.doesNotMatch(source, /api\/v2\/dam/);

@@ -4,7 +4,7 @@ import { apiFetch } from '../../lib/api';
 import { ArrowRight, Globe2, BookOpen, Trophy, Megaphone, ChevronRight } from 'lucide-react';
 import { HeroCarousel, type HeroSlide } from '../../components/HeroCarousel';
 import { BRAND_TARGETS, CAMPAIGNS, TRAININGS, brandSummary } from '../../lib/brand-data';
-import { PageHeader } from '@rhautt/ui';
+import { WorkbenchSectionHeader } from '../../components/WorkbenchCore';
 
 const fmt  = (v: number) => v >= 10000 ? `${(v/10000).toFixed(0)}万` : `¥${v.toLocaleString()}`;
 const pct  = (v: number) => `${(v*100).toFixed(0)}%`;
@@ -24,7 +24,7 @@ const HERO_SLIDES: HeroSlide[] = [
     eyebrow: '品牌中心',
     title: '瑞合瑞德 · 经销商品牌协同平台',
     subtitle: '活动参与 · 培训认证 · 返点追踪 · 物料下载 — 一站直达',
-    bgGradient: 'linear-gradient(135deg, #241F1B 0%, #2f3a2b 55%, #4E9A3D 100%)',
+    bgGradient: 'linear-gradient(135deg, #1F1F1F 0%, #680014 58%, #E4002B 100%)',
     href: '/brand',
     badge: 'Rheem Partner',
   },
@@ -34,8 +34,8 @@ const HERO_SLIDES: HeroSlide[] = [
     title: c.title,
     subtitle: c.incentive,
     bgGradient: i === 0
-      ? 'linear-gradient(135deg, #1c3d15 0%, #3a7a2e 60%, #4E9A3D 100%)'
-      : 'linear-gradient(135deg, #1e3a5f 0%, #1e40af 60%, #2563eb 100%)',
+      ? 'linear-gradient(135deg, #1F1F1F 0%, #8F001B 62%, #E4002B 100%)'
+      : 'linear-gradient(135deg, #101828 0%, #680014 60%, #B80023 100%)',
     href: '/brand',
     badge: c.status,
   })),
@@ -68,7 +68,7 @@ export default function BrandPage() {
     eyebrow: 'Rheem 品牌动态',
     title: n.title,
     subtitle: n.date || '',
-    bgGradient: 'linear-gradient(135deg, #1e3a5f 0%, #1e40af 60%, #2563eb 100%)',
+    bgGradient: 'linear-gradient(135deg, #101828 0%, #680014 60%, #E4002B 100%)',
     href: n.url || '/brand',
     badge: '品牌资讯',
   }));
@@ -83,7 +83,23 @@ export default function BrandPage() {
   return (
     <div style={{ background:'linear-gradient(to bottom, var(--surface-1) 0%, var(--surface-2) 100%)', minHeight:'100%' }}>
       <div className="page-container">
-        <PageHeader title="品牌运营" subtitle="活动 · 培训 · 返点 · 物料" />
+        <WorkbenchSectionHeader
+          eyebrow="营销工作台"
+          title="品牌运营"
+          description="活动、培训、返点与官网物料入口，面向品牌官网和市场协同的营销控制台。"
+          actions={
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              <a className="btn btn-brand btn-sm" href="/comfort/sites">
+                <Globe2 size={14} />
+                管理品牌官网
+              </a>
+              <a className="btn btn-outline btn-sm" href="/products?module=catalog">
+                产品目录
+                <ArrowRight size={14} />
+              </a>
+            </div>
+          }
+        />
         <div className="split-main">
 
           {/* ──────── 左主区 ──────── */}
@@ -95,7 +111,7 @@ export default function BrandPage() {
             {/* 品牌活动 — 新闻卡片行 */}
             <section>
               <SectionHeader eyebrow="品牌活动" title="ACTIVE CAMPAIGNS" />
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12 }}>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))', gap:12 }}>
                 {CAMPAIGNS.map(c => (
                   <a key={c.id} href="/brand" className="card-elevated surface-interactive" style={{ padding:16, display:'flex', alignItems:'flex-start', gap:12, textDecoration:'none' }}>
                     <div style={{ width:36, height:36, borderRadius:'50%', background:'var(--surface-3)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, color:'var(--t-secondary)' }}>
@@ -199,7 +215,7 @@ export default function BrandPage() {
             <a href="/brand" style={{ display:'block', borderRadius:16, overflow:'hidden', boxShadow:'var(--sh-lg)', textDecoration:'none' }}>
               <div style={{
                 position:'relative', padding:20, color:'#fff',
-                background:'linear-gradient(135deg, #1f1f1f 0%, #2b2b2b 50%, #7e131a 100%)',
+                background:'linear-gradient(135deg, #1F1F1F 0%, #680014 56%, #E4002B 100%)',
               }}>
                 <div style={{ position:'absolute', inset:0, opacity:0.15, backgroundImage:'radial-gradient(circle,white 1px,transparent 1px)', backgroundSize:'18px 18px', pointerEvents:'none' }} />
                 <div style={{ position:'relative' }}>

@@ -31,8 +31,16 @@ test('public product projection uses the current product brand metadata', () => 
         series: 'Rheem series',
         tagline: 'Rheem tagline',
         displayOrder: 12,
+        categoryLevel1Id: 'rheem-l1',
+        categoryLevel2Id: 'rheem-l2',
+        categoryLevel3Id: 'rheem-l3',
+        categoryPath: '家用 / 热水系统 / 空气能热水器',
+        privateWorkflowNote: 'internal only',
       },
     },
+    listPrice: 100,
+    costPrice: 80,
+    currency: 'CNY',
   }, 'zh-CN', null);
 
   assert.equal(projected.slug, 'rheem-right-slug');
@@ -42,4 +50,11 @@ test('public product projection uses the current product brand metadata', () => 
   assert.equal(projected.sys, 'Rheem website system');
   assert.equal(projected.series, 'Rheem series');
   assert.equal(projected.tagline, 'Rheem tagline');
+  assert.equal(projected.categoryLevel1Id, 'rheem-l1');
+  assert.equal(projected.categoryLevel2Id, 'rheem-l2');
+  assert.equal(projected.categoryLevel3Id, 'rheem-l3');
+  assert.equal(projected.categoryPath, '家用 / 热水系统 / 空气能热水器');
+  for (const field of ['id', 'tenantId', 'meta', 'listPrice', 'costPrice', 'currency', 'privateWorkflowNote']) {
+    assert.equal(field in projected, false, `${field} must not be exposed`);
+  }
 });

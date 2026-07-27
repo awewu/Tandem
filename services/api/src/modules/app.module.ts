@@ -6,6 +6,7 @@ import { TenantContextInterceptor } from './common/tenant-context.interceptor';
 import { AuthGuard } from './auth/auth.guard';
 import { RolesGuard } from './common/roles.guard';
 import { BrandModule } from './brand/brand.module';
+import { BrandProductCategoryModule } from './brand-product-category/brand-product-category.module';
 import { BrandRegistryModule } from './brand-registry/brand-registry.module';
 import { ComplianceModule } from './compliance/compliance.module';
 import { MdmModule } from './mdm/mdm.module';
@@ -77,6 +78,7 @@ import { TARGET_API_BOOT_SMOKE, BootSmokeInfraModule } from './boot-smoke';
     AiDesignModule,
     AftersalesModule,
     BrandModule,
+    BrandProductCategoryModule,
     BrandRegistryModule,
     ComplianceModule,
     MdmModule,

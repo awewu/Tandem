@@ -21,6 +21,7 @@ function nextId(): string {
 function matchesOne(row: Row, where: Record<string, any>): boolean {
   return Object.entries(where).every(([k, v]) => {
     if (v === undefined) return true; // 忽略 undefined（等价于未约束）
+    if (v && typeof v === 'object' && v._type === 'isNull') return row[k] === null || row[k] === undefined;
     return row[k] === v;
   });
 }
@@ -80,6 +81,19 @@ export class InMemoryRepository<T extends Row = Row> {
     const row = this.rows.find((r) => matchesOne(r, where));
     if (!row) throw new Error('EntityNotFound: findOneByOrFail matched no rows');
     return row;
+  }
+
+  createQueryBuilder(): any {
+    return {
+      where() { return this; },
+      andWhere() { return this; },
+      orderBy() { return this; },
+      addOrderBy() { return this; },
+      skip() { return this; },
+      take() { return this; },
+      getOne: async () => null,
+      getManyAndCount: async () => [[], 0],
+    };
   }
 
   /** 测试辅助：直接注入初始数据（绕过 create/save 语义）。 */

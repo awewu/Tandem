@@ -4,13 +4,13 @@ const path = require('path');
 
 const ROOT = path.join(__dirname, '..', '..');
 const APPS = path.join(ROOT, 'apps');
-const SOURCE_DIRS = new Set(['src', 'public']);
+const SOURCE_DIRS = new Set(['src', 'public', 'scripts']);
 const SOURCE_EXTENSIONS = new Set(['.js', '.jsx', '.mjs', '.cjs', '.ts', '.tsx']);
 const SKIP_DIRS = new Set(['node_modules', '.next', 'dist', 'build', 'coverage']);
 const RULES = [
-  { label: 'database package import', pattern: /(?:from\s+|require\s*\(\s*)['"](?:pg|typeorm|mongoose|mongodb)['"]/ },
-  { label: 'database connection environment variable', pattern: /\b(?:DATABASE_URL|POSTGRES_(?:URI|HOST|PORT|USER|PASSWORD|DB)|MONGODB_URI)\b/ },
-  { label: 'database connection URL', pattern: /\b(?:postgres(?:ql)?|mongodb(?:\+srv)?):\/\//i },
+  { label: 'database package import', pattern: /(?:from\s+|require\s*\(\s*)['"](?:pg|typeorm|mongoose|mongodb|mysql2?|sqlite3|better-sqlite3|@prisma\/client|knex|sequelize)['"]/ },
+  { label: 'database connection environment variable', pattern: /\b(?:DATABASE_URL|POSTGRES_(?:URI|HOST|PORT|USER|PASSWORD|DB)|MONGODB_URI|MYSQL_(?:URI|HOST|PORT|USER|PASSWORD|DB)|SQLITE_(?:PATH|FILE)|PRISMA_DATABASE_URL)\b/ },
+  { label: 'database connection URL', pattern: /\b(?:postgres(?:ql)?|mongodb(?:\+srv)?|mysql|sqlite):\/\//i },
 ];
 
 function walk(dir, files = []) {

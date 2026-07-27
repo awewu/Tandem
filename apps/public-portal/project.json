@@ -10,9 +10,7 @@
         "status": "scaffold-only",
         "currentSurface": "public/index-ready.html",
         "compatibilitySurface": "public/index.html",
-        "embeddedProductModules": [
-          "consumer-diagnosis"
-        ]
+        "embeddedProductModules": []
       }
     }
   }

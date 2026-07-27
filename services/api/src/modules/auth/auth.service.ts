@@ -7,7 +7,7 @@ import { randomUUID } from 'crypto';
 import { UserEntity, UserRole } from './auth.entity';
 import { TenantEntity } from '../tenant/tenant.entity';
 import { withRlsTransaction } from '../common/rls';
-import { hashPII, encryptPII, decryptPII, maskPhone } from '../compliance/compliance.pii';
+import { hashPII, encryptPII, decryptPII } from '../compliance/compliance.pii';
 import { assertIdentifierForRole, SELF_REGISTER_ROLE } from './identity-policy';
 import { EntitlementService } from '../entitlement/entitlement.service';
 import { OtpService } from './otp.service';
@@ -286,16 +286,21 @@ export class AuthService {
   /** 管理视图：脱敏标识 + 状态，绝不返回 passwordHash。 */
   private toAdminView(u: UserEntity) {
     let identifierMasked = '';
+    let identifierKind: 'email' | 'phone' | 'unknown' = 'unknown';
     try {
       const raw = decryptPII(u.phoneEncrypted);
-      identifierMasked = raw.includes('@')
-        ? raw.replace(/^(.).*(.@.*)$/, '$1***$2')
-        : maskPhone(raw);
+      if (raw.includes('@')) {
+        identifierKind = 'email';
+        identifierMasked = raw;
+      } else {
+        identifierKind = 'phone';
+        identifierMasked = raw;
+      }
     } catch { identifierMasked = '***'; }
     return {
       id: u.id, name: u.name, role: u.role, status: u.status,
       dealerId: u.dealerId, storeId: u.storeId,
-      identifierMasked, isLocked: u.isLocked,
+      identifierMasked, identifierKind, isLocked: u.isLocked,
       lastLoginAt: u.lastLoginAt ?? null, createdAt: u.createdAt ?? null,
     };
   }
@@ -379,6 +384,18 @@ export class AuthService {
         passwordHash: await bcrypt.hash(newPwd, 10), loginAttempts: 0, lockUntil: null,
       });
       return { reset: true };
+    }, { tenantId: actor.tenantId });
+  }
+
+  async adminDeleteUser(actor: JwtPayload, targetId: string) {
+    if (actor.userId === targetId) throw new BadRequestException('不能删除当前登录账号');
+    return withRlsTransaction(this.ds, async (em) => {
+      const repo = em.getRepository(UserEntity);
+      const user = await repo.findOne({ where: { id: targetId } });
+      if (!user) throw new NotFoundException('用户不存在');
+      this.assertActorOverTarget(actor, user);
+      await repo.delete({ id: targetId });
+      return { deleted: true };
     }, { tenantId: actor.tenantId });
   }
 

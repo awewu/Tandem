@@ -143,15 +143,23 @@ mongod
 在普通 PowerShell 中从仓库根目录执行。每条命令会占用一个终端窗口/标签页，建议先启动 API，再启动各个前端应用。Codex/受限沙盒里 `pnpm` 可能因为访问 `C:\Users\Rheem` 被拒，遇到这种情况请用正常 PowerShell 运行。
 
 ```powershell
-node scripts/start-api.js
+$env:API_START_MODE='typescript'; npm.cmd run start:api
 
-pnpm.cmd --filter dealer-workbench dev
+$env:API_URL='http://localhost:5500'; pnpm.cmd --filter dealer-workbench dev
 pnpm.cmd --filter public-portal dev
 pnpm.cmd --filter everhot-cn dev
 pnpm.cmd --filter lithnova-cn dev
 pnpm.cmd --filter rheem-cn dev
 pnpm.cmd --filter ruud-cn dev
 ```
+
+本地启动验证方式（2026-07-24）：
+
+- API 可以直接在当前仓库根目录执行 `$env:API_START_MODE='typescript'; npm.cmd run start:api`，健康检查地址为 `http://localhost:5500/api/v2/health`。
+- 经销商工作台开发调试建议执行 `$env:API_URL='http://localhost:5500'; pnpm.cmd --filter dealer-workbench dev`，确保前端请求代理到当前 NestJS API。
+- 前端 `pnpm.cmd --filter public-portal dev` 和 `$env:API_URL='http://localhost:5500'; pnpm.cmd --filter dealer-workbench dev` 建议在正常权限 PowerShell 中运行；Codex 沙盒可能因访问 `C:\Users\Rheem` 被拒而无法启动 `pnpm`。
+- 如果 `public-portal` 提示 `Another next dev server is already running`，先停止提示里的旧 PID；本次遇到的是旧 PM2 `public-portal-dev` 占用 `4005`，清理旧进程后即可按 README 启动到 `5005`。
+- 启动后验证：API `5500`、经销商工作台 `5000`、公共门户 `5005` 均应返回 HTTP 200。
 
 1. **访问应用**
 

@@ -1,28 +1,37 @@
 import {
-  ArrowRight,
+  AlertCircle,
   BarChart3,
   Bot,
+  CheckCircle2,
+  Clock3,
+  Download,
+  Eye,
   FileImage,
   FileSearch,
   FileText,
   FolderOpen,
-  Gauge,
-  PenTool,
+  Loader2,
   Radio,
+  RefreshCw,
   Search,
+  Sparkles,
+  TrendingUp,
   Zap,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { PageHeader } from '@rhautt/ui';
 
 type GrowthSection = 'geo' | 'copywriter' | 'sentiment' | 'automation' | 'materials';
+type StatusKind = 'running' | 'review' | 'risk' | 'config' | 'download' | 'success' | 'warning' | 'neutral';
 
 type SectionConfig = {
   title: string;
   subtitle: string;
-  icon: typeof Search;
+  icon: LucideIcon;
   primaryMetric: string;
   primaryLabel: string;
   status: string;
+  statusKind: StatusKind;
 };
 
 const SECTIONS: Record<GrowthSection, SectionConfig> = {
@@ -33,14 +42,16 @@ const SECTIONS: Record<GrowthSection, SectionConfig> = {
     primaryMetric: '8',
     primaryLabel: '已监测 AI 搜索入口',
     status: '运行中',
+    statusKind: 'running',
   },
   copywriter: {
     title: '文案 Copilot',
     subtitle: '面向官网、投放、活动页的品牌一致性文案生成',
-    icon: PenTool,
+    icon: Sparkles,
     primaryMetric: '24',
     primaryLabel: '本周生成候选文案',
     status: '待审核',
+    statusKind: 'review',
   },
   sentiment: {
     title: '舆情雷达',
@@ -49,6 +60,7 @@ const SECTIONS: Record<GrowthSection, SectionConfig> = {
     primaryMetric: '92%',
     primaryLabel: '正向及中性声量',
     status: '低风险',
+    statusKind: 'risk',
   },
   automation: {
     title: '营销自动化',
@@ -57,6 +69,7 @@ const SECTIONS: Record<GrowthSection, SectionConfig> = {
     primaryMetric: '4',
     primaryLabel: '运行中的自动化流程',
     status: '配置中',
+    statusKind: 'config',
   },
   materials: {
     title: '营销物料库',
@@ -65,39 +78,48 @@ const SECTIONS: Record<GrowthSection, SectionConfig> = {
     primaryMetric: '18',
     primaryLabel: '当前可用营销物料',
     status: '可下载',
+    statusKind: 'download',
   },
 };
 
+const SECTION_LINKS: Array<{ key: GrowthSection; href: string }> = [
+  { key: 'geo', href: '/growth/geo' },
+  { key: 'copywriter', href: '/growth/copywriter' },
+  { key: 'sentiment', href: '/growth/sentiment' },
+  { key: 'automation', href: '/growth/automation' },
+  { key: 'materials', href: '/growth/materials' },
+];
+
 const OVERVIEW = [
-  { label: 'GEO 分析', value: '8', hint: 'AI 引擎品牌可见度', icon: Search },
-  { label: '文案 Copilot', value: '24', hint: '多平台候选文案', icon: PenTool },
-  { label: '舆情雷达', value: '92%', hint: '正向及中性声量', icon: Radio },
-  { label: '营销自动化', value: '4', hint: '触达流程运行中', icon: Zap },
+  { label: 'GEO 分析', value: '8', hint: 'AI 引擎品牌可见度', icon: Search, status: '运行中', kind: 'running' as const },
+  { label: '文案 Copilot', value: '24', hint: '多平台候选文案', icon: Sparkles, status: '待审核', kind: 'review' as const },
+  { label: '舆情雷达', value: '92%', hint: '正向及中性声量', icon: Radio, status: '低风险', kind: 'success' as const },
+  { label: '营销自动化', value: '4', hint: '触达流程运行中', icon: Zap, status: '配置中', kind: 'config' as const },
 ];
 
 const KEYWORDS = [
-  { word: '瑞美热水系统', rank: 'A-', exposure: '76%', intent: '品牌词' },
-  { word: '别墅五恒系统', rank: 'B+', exposure: '62%', intent: '品类词' },
-  { word: '空气源热泵热水', rank: 'B', exposure: '58%', intent: '方案词' },
-  { word: 'Rheem 商用热水', rank: 'A', exposure: '81%', intent: '商用词' },
+  { word: '瑞美热水系统', rank: 'A-', exposure: '76%', intent: '品牌词', source: 'AI 搜索 / 官网答案' },
+  { word: '别墅五恒系统', rank: 'B+', exposure: '62%', intent: '品类词', source: '问答摘要' },
+  { word: '空气源热泵热水', rank: 'B', exposure: '58%', intent: '方案词', source: '行业榜单' },
+  { word: 'Rheem 商用热水', rank: 'A', exposure: '81%', intent: '商用词', source: '采购问答' },
 ];
 
 const COPY_TASKS = [
-  { title: '瑞美官网夏季热泵专题', channel: '官网专题', state: '待品牌审核' },
-  { title: '经销商朋友圈活动短文案', channel: '私域触达', state: '可发布' },
-  { title: '恒热 Everhot 商用案例标题', channel: '案例页', state: '需补证据' },
+  { title: '瑞美官网夏季热泵专题', channel: '官网专题', state: '待品牌审核', kind: 'review' as const },
+  { title: '经销商朋友圈活动短文案', channel: '私域触达', state: '可发布', kind: 'success' as const },
+  { title: '恒热 Everhot 商用案例标题', channel: '案例页', state: '需补证据', kind: 'warning' as const },
 ];
 
 const SENTIMENT = [
-  { source: '小红书 / 抖音', signal: '节能、省电、安装体验', tone: '正向' },
-  { source: '搜索问答', signal: '维修响应、型号选型', tone: '中性' },
-  { source: '公开投诉', signal: '交付周期个别延迟', tone: '关注' },
+  { source: '小红书 / 抖音', signal: '节能、省电、安装体验', tone: '正向', kind: 'success' as const },
+  { source: '搜索问答', signal: '维修响应、型号选型', tone: '中性', kind: 'neutral' as const },
+  { source: '公开投诉', signal: '交付周期个别延迟', tone: '关注', kind: 'warning' as const },
 ];
 
 const AUTOMATIONS = [
-  { name: '官网询盘 5 分钟内首触达', step: '短信 + 企微任务', conversion: '38%' },
-  { name: '未报价客户 48 小时唤醒', step: '顾问提醒 + 资料包', conversion: '21%' },
-  { name: '活动页报名后培育', step: '三段式内容触达', conversion: '44%' },
+  { name: '官网询盘 5 分钟内首触达', step: '短信 + 企微任务', conversion: '38%', status: '运行中', kind: 'running' as const },
+  { name: '未报价客户 48 小时唤醒', step: '顾问提醒 + 资料包', conversion: '21%', status: '待优化', kind: 'review' as const },
+  { name: '活动页报名后培育', step: '三段式内容触达', conversion: '44%', status: '运行中', kind: 'running' as const },
 ];
 
 const MATERIALS = [
@@ -108,6 +130,7 @@ const MATERIALS = [
     format: '海报 / 朋友圈图',
     updatedAt: '07-18',
     status: '可下载',
+    kind: 'download' as const,
     href: '/brand',
     icon: FileImage,
   },
@@ -118,6 +141,7 @@ const MATERIALS = [
     format: '图文 / 顾问话术',
     updatedAt: '07-16',
     status: '可发布',
+    kind: 'success' as const,
     href: '/brand',
     icon: FileText,
   },
@@ -128,6 +152,7 @@ const MATERIALS = [
     format: '课件 / 产品页',
     updatedAt: '07-12',
     status: '需审核',
+    kind: 'review' as const,
     href: '/products?module=materials',
     icon: FolderOpen,
   },
@@ -138,6 +163,7 @@ const MATERIALS = [
     format: '案例长图 / 产品图',
     updatedAt: '07-10',
     status: '可下载',
+    kind: 'download' as const,
     href: '/comfort/sites/everhot',
     icon: FileImage,
   },
@@ -163,10 +189,29 @@ export default async function GrowthWorkspacePage({
     <div style={{ background: 'linear-gradient(to bottom, var(--surface-1) 0%, var(--surface-2) 100%)', minHeight: '100%' }}>
       <div className="page-container" style={{ display: 'grid', gap: 20 }}>
         <PageHeader
-          title="市场营销"
+          title="市场增长"
           subtitle="GEO 可见度 · 文案 Copilot · 舆情雷达 · 营销自动化 · 营销物料库"
-          actions={<span className="pill-brand">{active.status}</span>}
+          actions={<StatusPill kind={active.statusKind}>{active.status}</StatusPill>}
         />
+
+        <nav className="card-elevated" aria-label="市场增长模块" style={{ padding: 8, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {SECTION_LINKS.map((item) => {
+            const config = SECTIONS[item.key];
+            const Icon = config.icon;
+            const isActive = item.key === activeKey;
+            return (
+              <a
+                key={item.key}
+                href={item.href}
+                className={isActive ? 'btn btn-brand btn-sm' : 'btn btn-ghost btn-sm'}
+                aria-current={isActive ? 'page' : undefined}
+              >
+                <Icon size={15} />
+                {config.title}
+              </a>
+            );
+          })}
+        </nav>
 
         <section
           className="card-elevated"
@@ -184,20 +229,18 @@ export default async function GrowthWorkspacePage({
             </div>
             <div style={{ minWidth: 0 }}>
               <p className="t-label">增长引擎</p>
-              <h1 style={{ marginTop: 4, fontSize: 28, lineHeight: 1.18, letterSpacing: 0, color: 'var(--t-strong)' }}>{active.title}</h1>
+              <h1 style={{ marginTop: 4, fontSize: 24, lineHeight: 1.22, letterSpacing: 0, color: 'var(--t-strong)' }}>{active.title}</h1>
               <p style={{ marginTop: 8, color: 'var(--t-secondary)', fontSize: 14 }}>{active.subtitle}</p>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16 }}>
-                <span className="pill-brand">稳供品牌证据</span>
-                <span className="pill-neutral">准入官网发布</span>
-                <span className="pill-neutral">通达私域触达</span>
-                <span className="pill-neutral">原生物料取用</span>
+                <span className="pill-neutral">营销面板</span>
+                <span className="pill-neutral">审核状态清晰</span>
+                <span className="pill-neutral">仅保留营销目的地</span>
               </div>
             </div>
           </div>
-          <div className="inset" style={{ display: 'grid', alignContent: 'center', gap: 6 }}>
+          <div className="inset" style={{ display: 'grid', alignContent: 'center', gap: 8 }}>
             <div className="t-label">{active.primaryLabel}</div>
             <div style={{ fontSize: 38, lineHeight: 1, fontWeight: 800, color: 'var(--brand)', fontVariantNumeric: 'tabular-nums' }}>{active.primaryMetric}</div>
-            <p style={{ color: 'var(--t-tertiary)', fontSize: 12 }}>5000 原生营销工作台，不再内嵌 5010 页面。</p>
           </div>
         </section>
 
@@ -205,14 +248,17 @@ export default async function GrowthWorkspacePage({
           {OVERVIEW.map((item) => {
             const Icon = item.icon;
             return (
-              <div key={item.label} className="card-elevated" style={{ padding: 16 }}>
+              <article key={item.label} className="card-elevated" style={{ padding: 16 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                   <span className="t-label">{item.label}</span>
                   <Icon size={16} style={{ color: 'var(--brand)' }} />
                 </div>
                 <div style={{ marginTop: 8, fontSize: 30, lineHeight: 1.1, fontWeight: 800, color: 'var(--t-strong)', fontVariantNumeric: 'tabular-nums' }}>{item.value}</div>
-                <p style={{ marginTop: 4, color: 'var(--t-tertiary)', fontSize: 12 }}>{item.hint}</p>
-              </div>
+                <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <p style={{ color: 'var(--t-tertiary)', fontSize: 12 }}>{item.hint}</p>
+                  <StatusPill kind={item.kind}>{item.status}</StatusPill>
+                </div>
+              </article>
             );
           })}
         </section>
@@ -220,42 +266,11 @@ export default async function GrowthWorkspacePage({
         <section className="split-main">
           <div style={{ display: 'grid', gap: 16, minWidth: 0 }}>
             <NativePanel activeKey={activeKey} />
+            <StatePreview />
           </div>
           <aside style={{ display: 'grid', gap: 16 }}>
-            <div className="card-elevated" style={{ padding: 16 }}>
-              <p className="t-label">本周推进</p>
-              <div style={{ marginTop: 10, display: 'grid', gap: 10 }}>
-                {[
-                  { label: 'GEO 引擎检测', value: '已同步 8 个入口', icon: FileSearch },
-                  { label: '品牌审核', value: '3 条文案待确认', icon: Bot },
-                  { label: '物料发布', value: '18 项资源可取用', icon: FolderOpen },
-                  { label: '活动归因', value: 'UTM 参数待补齐', icon: Gauge },
-                ].map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <div key={item.label} className="inset" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <Icon size={16} style={{ color: 'var(--brand)' }} />
-                      <div>
-                        <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--t-primary)' }}>{item.label}</p>
-                        <p style={{ fontSize: 12, color: 'var(--t-tertiary)' }}>{item.value}</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="card-elevated" style={{ padding: 16 }}>
-              <p className="t-label">发布队列</p>
-              <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
-                {['官网专题页', '朋友圈短文案', '经销商活动海报', '认证培训资料'].map((item) => (
-                  <div key={item} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>
-                    <span style={{ fontSize: 13, color: 'var(--t-primary)' }}>{item}</span>
-                    <span style={{ fontSize: 12, color: 'var(--brand)', fontWeight: 700 }}>待审</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <SideQueue />
+            <PublishQueue />
           </aside>
         </section>
       </div>
@@ -266,64 +281,66 @@ export default async function GrowthWorkspacePage({
 function NativePanel({ activeKey }: { activeKey: GrowthSection }) {
   if (activeKey === 'copywriter') {
     return (
-      <div className="card-elevated" style={{ padding: 18 }}>
-        <PanelTitle icon={PenTool} title="文案 Copilot 工作区" desc="生成、审校并沉淀符合品牌语气的官网与私域文案。" />
-        <div style={{ display: 'grid', gap: 10, marginTop: 14 }}>
+      <PanelShell icon={Sparkles} title="文案 Copilot 工作区" desc="生成、审校并沉淀符合品牌语气的官网与私域文案。">
+        <div style={{ display: 'grid', gap: 10 }}>
           {COPY_TASKS.map((item) => (
-            <div key={item.title} className="inset" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 120px 100px', gap: 12, alignItems: 'center' }}>
+            <div key={item.title} className="inset" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(128px, 1fr))', gap: 12, alignItems: 'center' }}>
               <strong style={{ fontSize: 14, color: 'var(--t-primary)' }}>{item.title}</strong>
               <span style={{ color: 'var(--t-secondary)', fontSize: 12 }}>{item.channel}</span>
-              <span className={item.state === '可发布' ? 'badge badge-success' : 'badge badge-warning'}>{item.state}</span>
+              <StatusPill kind={item.kind}>{item.state}</StatusPill>
             </div>
           ))}
         </div>
-      </div>
+      </PanelShell>
     );
   }
 
   if (activeKey === 'sentiment') {
     return (
-      <div className="card-elevated" style={{ padding: 18 }}>
-        <PanelTitle icon={Radio} title="舆情雷达" desc="跟踪公开渠道声量，给品牌和销售团队提供风险提示。" />
-        <div style={{ overflowX: 'auto', marginTop: 14 }}>
+      <PanelShell icon={Radio} title="舆情雷达" desc="跟踪公开渠道声量，给品牌和销售团队提供风险提示。">
+        <div className="table-shell">
           <table className="table">
-            <thead><tr><th>渠道</th><th>主要信号</th><th>情绪</th></tr></thead>
+            <thead>
+              <tr><th>渠道</th><th>主要信号</th><th>情绪</th></tr>
+            </thead>
             <tbody>
               {SENTIMENT.map((item) => (
-                <tr key={item.source}><td>{item.source}</td><td>{item.signal}</td><td><span className={item.tone === '关注' ? 'badge badge-warning' : 'badge badge-success'}>{item.tone}</span></td></tr>
+                <tr key={item.source}>
+                  <td style={{ fontWeight: 700 }}>{item.source}</td>
+                  <td>{item.signal}</td>
+                  <td><StatusPill kind={item.kind}>{item.tone}</StatusPill></td>
+                </tr>
               ))}
             </tbody>
           </table>
         </div>
-      </div>
+      </PanelShell>
     );
   }
 
   if (activeKey === 'automation') {
     return (
-      <div className="card-elevated" style={{ padding: 18 }}>
-        <PanelTitle icon={Zap} title="营销自动化" desc="把官网线索、顾问任务和内容触达串成可追踪流程。" />
-        <div style={{ display: 'grid', gap: 10, marginTop: 14 }}>
+      <PanelShell icon={Zap} title="营销自动化" desc="把官网线索、顾问任务和内容触达串成可追踪流程。">
+        <div style={{ display: 'grid', gap: 10 }}>
           {AUTOMATIONS.map((item) => (
-            <div key={item.name} className="inset" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 160px 80px', gap: 12, alignItems: 'center' }}>
+            <div key={item.name} className="inset" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12, alignItems: 'center' }}>
               <strong style={{ fontSize: 14, color: 'var(--t-primary)' }}>{item.name}</strong>
               <span style={{ color: 'var(--t-secondary)', fontSize: 12 }}>{item.step}</span>
-              <span className="pill-brand">{item.conversion}</span>
+              <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--brand)', fontVariantNumeric: 'tabular-nums' }}>{item.conversion}</span>
+              <StatusPill kind={item.kind}>{item.status}</StatusPill>
             </div>
           ))}
         </div>
-      </div>
+      </PanelShell>
     );
   }
 
   if (activeKey === 'materials') {
     return (
-      <div className="card-elevated" style={{ padding: 18 }}>
-        <PanelTitle icon={FolderOpen} title="营销物料库" desc="在当前工作台内原生展示可下载、可发布、待审核的市场物料，不使用 iframe 嵌入外部页面。" />
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12, marginTop: 14 }}>
+      <PanelShell icon={FolderOpen} title="营销物料库" desc="集中管理可下载、可发布、待审核的市场物料。">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
           {MATERIALS.map((item) => {
             const Icon = item.icon;
-            const statusClass = item.status === '需审核' ? 'badge badge-warning' : 'badge badge-success';
             return (
               <article key={item.title} className="inset" style={{ display: 'grid', gap: 12 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
@@ -336,7 +353,7 @@ function NativePanel({ activeKey }: { activeKey: GrowthSection }) {
                       <h3 style={{ marginTop: 4, fontSize: 14, lineHeight: 1.35, fontWeight: 700, color: 'var(--t-primary)' }}>{item.title}</h3>
                     </div>
                   </div>
-                  <span className={statusClass}>{item.status}</span>
+                  <StatusPill kind={item.kind}>{item.status}</StatusPill>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                   <Meta label="品牌" value={item.brand} />
@@ -345,35 +362,138 @@ function NativePanel({ activeKey }: { activeKey: GrowthSection }) {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
                   <span style={{ fontSize: 12, color: 'var(--t-tertiary)' }}>更新 {item.updatedAt}</span>
                   <a href={item.href} className="btn btn-outline btn-sm" aria-label={`查看${item.title}`}>
-                    查看资源
-                    <ArrowRight size={13} />
+                    <Eye size={13} />
+                    查看
                   </a>
                 </div>
               </article>
             );
           })}
         </div>
-      </div>
+      </PanelShell>
     );
   }
 
   return (
-    <div className="card-elevated" style={{ padding: 18 }}>
-      <PanelTitle icon={BarChart3} title="GEO 可见度分析" desc="监测 AI 搜索入口中的品牌露出、答案引用和品类词排名。" />
-      <div style={{ overflowX: 'auto', marginTop: 14 }}>
+    <PanelShell icon={BarChart3} title="GEO 可见度分析" desc="监测 AI 搜索入口中的品牌露出、答案引用和品类词排名。">
+      <div className="table-shell">
         <table className="table">
-          <thead><tr><th>关键词</th><th>意图</th><th>等级</th><th>露出率</th></tr></thead>
+          <thead>
+            <tr><th>关键词</th><th>意图</th><th>来源</th><th>等级</th><th>露出率</th></tr>
+          </thead>
           <tbody>
             {KEYWORDS.map((item) => (
               <tr key={item.word}>
                 <td style={{ fontWeight: 700 }}>{item.word}</td>
                 <td>{item.intent}</td>
-                <td><span className="pill-brand">{item.rank}</span></td>
+                <td>{item.source}</td>
+                <td><StatusPill kind={item.rank.startsWith('A') ? 'success' : 'running'}>{item.rank}</StatusPill></td>
                 <td>{item.exposure}</td>
               </tr>
             ))}
           </tbody>
         </table>
+      </div>
+    </PanelShell>
+  );
+}
+
+function PanelShell({ icon: Icon, title, desc, children }: { icon: LucideIcon; title: string; desc: string; children: React.ReactNode }) {
+  return (
+    <section className="card-elevated" style={{ padding: 18 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, alignItems: 'flex-start', marginBottom: 14 }}>
+        <div>
+          <p className="t-label">营销模块</p>
+          <h2 className="t-headline" style={{ marginTop: 4 }}>{title}</h2>
+          <p style={{ marginTop: 4, color: 'var(--t-secondary)', fontSize: 13 }}>{desc}</p>
+        </div>
+        <div style={{ width: 38, height: 38, borderRadius: 'var(--r-lg)', display: 'grid', placeItems: 'center', background: 'var(--surface-2)', color: 'var(--brand)' }}>
+          <Icon size={18} />
+        </div>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function StatePreview() {
+  return (
+    <section className="card-elevated" style={{ padding: 18 }}>
+      <div className="workbench-section-header" style={{ marginBottom: 12 }}>
+        <div>
+          <p className="workbench-section-header__eyebrow">页面状态</p>
+          <h2 className="workbench-section-header__title">加载 / 空 / 错误状态</h2>
+          <p className="workbench-section-header__description">用于检查营销增长数据在不同状态下的展示效果。</p>
+        </div>
+      </div>
+      <div className="g3">
+        <StateTile icon={Loader2} title="加载中" desc="正在同步营销增长数据" tone="loading" />
+        <StateTile icon={FolderOpen} title="暂无数据" desc="筛选条件下没有可展示项目" tone="empty" />
+        <StateTile icon={AlertCircle} title="加载失败" desc="请刷新后重试或联系管理员" tone="error" />
+      </div>
+    </section>
+  );
+}
+
+function StateTile({ icon: Icon, title, desc, tone }: { icon: LucideIcon; title: string; desc: string; tone: 'loading' | 'empty' | 'error' }) {
+  const color = tone === 'error' ? 'var(--danger)' : tone === 'loading' ? 'var(--brand)' : 'var(--t-secondary)';
+  return (
+    <div className="inset" style={{ minHeight: 116, display: 'grid', placeItems: 'center', textAlign: 'center', gap: 6 }}>
+      <Icon size={20} className={tone === 'loading' ? 'animate-spin' : undefined} style={{ color }} />
+      <strong style={{ fontSize: 13, color: tone === 'error' ? 'var(--danger)' : 'var(--t-primary)' }}>{title}</strong>
+      <p style={{ fontSize: 12, color: 'var(--t-secondary)' }}>{desc}</p>
+    </div>
+  );
+}
+
+function SideQueue() {
+  const items = [
+    { label: 'GEO 引擎检测', value: '已同步 8 个入口', icon: FileSearch },
+    { label: '品牌审核', value: '3 条文案待确认', icon: Bot },
+    { label: '物料发布', value: '18 项资源可取用', icon: Download },
+    { label: '活动归因', value: 'UTM 参数待补齐', icon: TrendingUp },
+  ];
+
+  return (
+    <div className="card-elevated" style={{ padding: 16 }}>
+      <p className="t-label">本周推进</p>
+      <div style={{ marginTop: 10, display: 'grid', gap: 10 }}>
+        {items.map((item) => {
+          const Icon = item.icon;
+          return (
+            <div key={item.label} className="inset" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Icon size={16} style={{ color: 'var(--brand)' }} />
+              <div>
+                <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--t-primary)' }}>{item.label}</p>
+                <p style={{ fontSize: 12, color: 'var(--t-tertiary)' }}>{item.value}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function PublishQueue() {
+  const queue = ['官网专题页', '朋友圈短文案', '经销商活动海报', '认证培训资料'];
+
+  return (
+    <div className="card-elevated" style={{ padding: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+        <p className="t-label">发布队列</p>
+        <a className="btn btn-outline btn-sm" href="/brand">
+          <RefreshCw size={13} />
+          刷新
+        </a>
+      </div>
+      <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
+        {queue.map((item) => (
+          <div key={item} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>
+            <span style={{ fontSize: 13, color: 'var(--t-primary)' }}>{item}</span>
+            <StatusPill kind="review">待审</StatusPill>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -388,17 +508,27 @@ function Meta({ label, value }: { label: string; value: string }) {
   );
 }
 
-function PanelTitle({ icon: Icon, title, desc }: { icon: typeof Search; title: string; desc: string }) {
+function StatusPill({ kind, children }: { kind: StatusKind; children: React.ReactNode }) {
+  const Icon = statusIcon(kind);
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, alignItems: 'flex-start' }}>
-      <div>
-        <p className="t-label">原生 VI 页面</p>
-        <h2 className="t-headline" style={{ marginTop: 4 }}>{title}</h2>
-        <p style={{ marginTop: 4, color: 'var(--t-secondary)', fontSize: 13 }}>{desc}</p>
-      </div>
-      <div style={{ width: 38, height: 38, borderRadius: 'var(--r-lg)', display: 'grid', placeItems: 'center', background: 'var(--surface-2)', color: 'var(--brand)' }}>
-        <Icon size={18} />
-      </div>
-    </div>
+    <span className={`status-pill ${statusClass(kind)}`}>
+      <Icon size={13} />
+      {children}
+    </span>
   );
+}
+
+function statusClass(kind: StatusKind) {
+  if (kind === 'success' || kind === 'download') return 'status-pill-success';
+  if (kind === 'review' || kind === 'warning' || kind === 'risk') return 'status-pill-warning';
+  if (kind === 'running' || kind === 'config') return 'status-pill-info';
+  return 'status-pill-neutral';
+}
+
+function statusIcon(kind: StatusKind): LucideIcon {
+  if (kind === 'success') return CheckCircle2;
+  if (kind === 'download') return Download;
+  if (kind === 'review' || kind === 'warning' || kind === 'risk') return Clock3;
+  if (kind === 'running' || kind === 'config') return Loader2;
+  return AlertCircle;
 }

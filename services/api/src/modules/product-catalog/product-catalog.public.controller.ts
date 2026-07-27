@@ -73,6 +73,8 @@ export class BrandPublicController {
       personas: body?.personas,
       markets: body?.markets,
       channels: body?.channels,
+      scenarios: body?.scenarios,
+      systems: body?.systems,
       painPoints: body?.painPoints,
       limit: body?.limit,
       brand: slug,

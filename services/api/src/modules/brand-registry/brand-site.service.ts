@@ -23,6 +23,7 @@ export interface BrandSiteInput {
   sortOrder?: number;
   status?: 'active' | 'inactive';
   siteNote?: string | null;
+  childBrandCodes?: string[] | null;
 }
 
 const CODE_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -98,10 +99,18 @@ export class BrandSiteService {
   }
 
   remove(user: JwtPayload, id: string) {
+    if (user.role !== 'platform_admin') {
+      throw new ForbiddenException('仅平台管理员可以删除品牌官网配置');
+    }
     return withRlsTransaction(this.ds, async (em) => {
       const repo = em.getRepository(BrandSiteEntity);
-      const row = await this.find(em, user.tenantId, id, false);
+      const row = await this.find(em, user.tenantId, id, true);
       const before = this.snapshot(row);
+      if (row.deletedAt) {
+        await repo.delete({ id, tenantId: user.tenantId } as any);
+        await this.audit(em, user, 'brand-site.delete', id, before, { deleted: true });
+        return { deleted: true, id };
+      }
       row.deletedAt = new Date();
       row.deletedBy = user.userId;
       row.updatedBy = user.userId;
@@ -179,12 +188,23 @@ export class BrandSiteService {
       patch.sortOrder = order;
     }
     if (Object.prototype.hasOwnProperty.call(input, 'logoArtifactId')) patch.logoArtifactId = input.logoArtifactId || null;
+    if (Object.prototype.hasOwnProperty.call(input, 'childBrandCodes')) {
+      patch.childBrandCodes = this.normalizeChildBrandCodes(input.childBrandCodes);
+    }
     if (creating) {
       patch.deliveryType ??= 'self_hosted';
       patch.status ??= 'active';
       patch.sortOrder ??= 0;
+      patch.childBrandCodes ??= [];
     }
     return patch;
+  }
+
+  private normalizeChildBrandCodes(value: unknown): string[] {
+    if (value == null) return [];
+    if (!Array.isArray(value)) throw new BadRequestException('子品牌配置必须是数组');
+    const codes = value.map((item) => normalizeBrandCodeInput(item)).filter((code) => code && code !== 'rhautt-group');
+    return [...new Set(codes)];
   }
 
   private requireNames(input: BrandSiteInput) {
@@ -235,7 +255,7 @@ export class BrandSiteService {
       id: row.id, tenantId: row.tenantId, code: row.code, nameCn: row.nameCn, nameEn: row.nameEn,
       appKey: row.appKey, deliveryType: row.deliveryType, developmentUrl: row.developmentUrl,
       productionUrl: row.productionUrl, logoArtifactId: row.logoArtifactId, sortOrder: row.sortOrder,
-      status: row.status, siteNote: row.siteNote, deletedAt: row.deletedAt,
+      status: row.status, siteNote: row.siteNote, childBrandCodes: row.childBrandCodes || [], deletedAt: row.deletedAt,
     };
   }
 
@@ -259,4 +279,11 @@ export class BrandSiteService {
       requestId: null, traceId: null, ipHash: null,
     }));
   }
+}
+
+function normalizeBrandCodeInput(value: unknown): string {
+  const code = String(value || '').trim().toLowerCase();
+  if (!code) return '';
+  if (!CODE_RE.test(code)) throw new BadRequestException('子品牌代码只能使用小写字母、数字和连字符');
+  return code;
 }

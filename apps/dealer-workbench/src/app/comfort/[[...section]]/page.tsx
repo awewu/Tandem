@@ -1,7 +1,7 @@
-import { WORKBENCH_PORTS } from '../../../lib/workbench-navigation';
 import BrandSiteConsoleShell from './BrandSiteConsoleShell';
 import BrandSitesManager from './BrandSitesManager';
-import SiteProductShelfManager from './SiteProductShelfManager';
+
+const LEGACY_COMFORT_PORT = 5010;
 
 export default async function ComfortWorkspacePage({
   params,
@@ -11,13 +11,12 @@ export default async function ComfortWorkspacePage({
   const { section } = await params;
   if (section?.[0] === 'sites') {
     const brandCode = section[1];
-    if (brandCode && section[2] === 'library') return <SiteProductShelfManager siteCode={brandCode} />;
     if (brandCode) return <BrandSiteConsoleShell brandCode={brandCode} />;
     return <BrandSitesManager brandCode="all" />;
   }
 
   const suffix = section?.length ? `/${section.map(encodeURIComponent).join('/')}` : '';
-  const src = `http://localhost:${WORKBENCH_PORTS.nexus}/comfort${suffix}`;
+  const src = `http://localhost:${LEGACY_COMFORT_PORT}/comfort${suffix}`;
 
   return (
     <div className="embedded-workspace">

@@ -52,6 +52,10 @@
     copy.image = product && (product.image || (product.mainImage && product.mainImage.url)) || '';
     return copy;
   }
+  function isRuntimeProductForSite(product){
+    var brand = String(product && product.brand || '').trim().toLowerCase();
+    return !brand || brand === RUNTIME_SITE_CODE;
+  }
   function loadRuntimeProducts(){
     if(window.EVERHOT_PRODUCTS_READY) return window.EVERHOT_PRODUCTS_READY;
     if(!isLocalRuntime()){ installCatalog(); setRuntimeStatus('static'); return Promise.resolve(false); }
@@ -64,7 +68,7 @@
       .then(function(json){
         var items = json && json.data && json.data.items;
         if(Array.isArray(items)){
-          window.EVERHOT_PRODUCTS = items.map(normalizeRuntimeProduct).filter(function(p){ return p.slug; });
+          window.EVERHOT_PRODUCTS = items.map(normalizeRuntimeProduct).filter(function(p){ return p.slug && isRuntimeProductForSite(p); });
           installCatalog();
           setRuntimeStatus(window.EVERHOT_PRODUCTS.length ? 'runtime' : 'empty');
           return true;
@@ -90,7 +94,7 @@
     )
       .then(function(json){
         var item = normalizeRuntimeProduct(json && json.data);
-        if(!item) return null;
+        if(!item || !item.slug || !isRuntimeProductForSite(item)) return null;
         var list = Array.isArray(window.EVERHOT_PRODUCTS) ? window.EVERHOT_PRODUCTS.slice() : [];
         list = list.filter(function(p){ return p.slug !== item.slug; });
         list.push(item);
@@ -224,8 +228,10 @@
     // 首页精选：data-featured="residential" / "commercial"，可选条数 data-count
     document.querySelectorAll('[data-featured]').forEach(function(g){
       var cat=g.getAttribute('data-featured');
-      var n=parseInt(g.getAttribute('data-count')||'6',10);
-      var list=window.EVERHOT_PRODUCTS.filter(function(p){return p.cat===cat;}).slice(0,n);
+      var rawCount=g.getAttribute('data-count');
+      var n=rawCount?parseInt(rawCount,10):0;
+      var list=window.EVERHOT_PRODUCTS.filter(function(p){return p.cat===cat;});
+      if(n>0) list=list.slice(0,n);
       if(!list.length){ g.innerHTML=emptyState(); return; }
       g.innerHTML=runtimeNotice()+list.map(card).join('');
     });
@@ -400,7 +406,7 @@
 
     if(window.EVERHOT_SHOW_PRODUCT_POSITIONING){ html+=positioningBlock(p); }
     var gallery=galleryImgs(p);
-    if(window.EVERHOT_SHOW_PRODUCT_GALLERY && gallery.length){
+    if(window.EVERHOT_SHOW_PRODUCT_GALLERY !== false && gallery.length){
       html+='<section class="section"><div class="container">'
         +'<div class="section-head"><div class="eyebrow">产品图片</div><h2>'+e(p.name)+' 图集</h2></div>'
         +'<div class="pd-gallery">'+gallery.map(function(src,i){

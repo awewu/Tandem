@@ -172,6 +172,8 @@
     "db:backfill-project-spine:apply": "node scripts/db/backfill-project-spine.js --apply",
     "db:backfill-site-products": "node scripts/db/backfill-site-product-assignments.js",
     "db:backfill-site-products:apply": "node scripts/db/backfill-site-product-assignments.js --apply",
+    "db:backfill-product-categories": "node scripts/db/backfill-product-category-bindings.js",
+    "db:backfill-product-categories:apply": "node scripts/db/backfill-product-category-bindings.js --apply",
     "db:seed-fake-addresses": "node scripts/db/seed-fake-project-addresses.js",
     "db:seed-fake-addresses:apply": "node scripts/db/seed-fake-project-addresses.js --apply",
     "prod:start": "pm2 start production-config/ecosystem.config.js",

@@ -171,22 +171,14 @@ async function main() {
       { timeout: 15000 }
     );
 
-    await page.goto(`${baseUrl}/comfort/sites/rhautt-group/library`, { waitUntil: 'networkidle' });
-    await page.locator('.site-shelf-head-actions .btn-brand').click();
-    const groupBrandButtons = page.locator('.site-shelf-brand-picker button');
-    if ((await groupBrandButtons.count()) !== 3) throw new Error('rhautt-group brand picker did not expose three brands');
-    for (const brand of ['rheem', 'ruud', 'everhot']) {
-      await page.locator('.site-shelf-brand-picker button').filter({ hasText: brand === 'rheem' ? 'Rheem' : brand === 'ruud' ? 'Ruud' : 'Everhot' }).click();
-      await page.waitForTimeout(350);
-      await page.locator('.site-shelf-product-option').filter({ hasText: productFor(brand).sku }).first().click();
-    }
+    await page.goto(`${baseUrl}/comfort/sites/rhautt-group`, { waitUntil: 'networkidle' });
+    const groupBrandOptions = page.locator('.child-brand-option');
+    if ((await groupBrandOptions.count()) !== 3) throw new Error('rhautt-group child brand binding did not expose three brands');
 
-    await page.goto(`${baseUrl}/comfort/sites/rheem/library`, { waitUntil: 'networkidle' });
-    await page.locator('.site-shelf-head-actions .btn-brand').click();
-    if ((await page.locator('.site-shelf-brand-picker button').count()) !== 0) {
-      throw new Error('brand site exposed cross-brand picker');
+    await page.goto(`${baseUrl}/comfort/sites/rheem`, { waitUntil: 'networkidle' });
+    if ((await page.locator('.child-brand-option').count()) !== 0) {
+      throw new Error('brand site exposed cross-brand binding controls');
     }
-    await page.locator('.site-shelf-product-option').filter({ hasText: 'RH-HP-160' }).first().waitFor({ timeout: 15000 });
 
     role = 'brand_viewer';
     await page.goto(`${baseUrl}/comfort/sites/everhot`, { waitUntil: 'networkidle' });
@@ -202,7 +194,7 @@ async function main() {
     });
 
     await browser.close();
-    const requiredBrands = ['rheem', 'ruud', 'everhot'];
+    const requiredBrands = ['everhot'];
     const missingPickerBrands = requiredBrands.filter((brand) => !productListBrands.includes(brand));
     if (missingPickerBrands.length || readOnlyMutationButtons !== 0 || unauthorizedStatus !== 403) {
       throw new Error(JSON.stringify({ missingPickerBrands, readOnlyMutationButtons, unauthorizedStatus, assignmentCreates }));

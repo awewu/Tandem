@@ -1,25 +1,13 @@
 'use client';
+
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import {
-  ChevronLeft,
-  ChevronRight,
-  LogOut,
-  Megaphone,
-  Package,
-  UserRound,
-  UsersRound,
-} from 'lucide-react';
+import { ChevronLeft, ChevronRight, LogOut, UserRound } from 'lucide-react';
 import { clearToken } from '@rhautt/shared-auth';
 import { WORKBENCH_NAV, navItemForPath } from '../lib/workbench-navigation';
+import type { WorkbenchChild } from '../lib/workbench-navigation';
 import { auth, brandSites } from '../lib/api';
-
-const MOBILE = [
-  { href: '/products', label: '产品', icon: Package },
-  { href: '/brand', label: '品牌', icon: Megaphone },
-  { href: '/accounts', label: '账号', icon: UsersRound },
-];
 
 type BrandSiteNavItem = {
   id: string;
@@ -137,7 +125,23 @@ export default function DealerNav() {
     };
   }, [activeItem.key]);
 
-  if (path === '/' || path === '/mobile' || path === '/hub') return null;
+  if (path === '/') return null;
+
+  const activeChildren: WorkbenchChild[] =
+    activeItem.key === 'brand-sites'
+      ? [
+          activeItem.children[0],
+          ...(siteNavItems.length
+            ? siteNavItems.map((site) => ({
+                key: `site-${site.code}`,
+                label: `${site.nameCn || site.nameEn} ${site.nameEn || ''}`.trim(),
+                href: `/comfort/sites/${encodeURIComponent(site.code)}`,
+                icon: activeItem.children[0].icon,
+              }))
+            : activeItem.children.slice(1, 4)),
+          ...activeItem.children.slice(4),
+        ]
+      : activeItem.children;
 
   function toggleSubnav() {
     setCollapsed((current) => {
@@ -153,7 +157,13 @@ export default function DealerNav() {
       const childModule = new URLSearchParams(href.split('?')[1] || '').get('module') || 'catalog';
       return (new URLSearchParams(search).get('module') || 'catalog') === childModule;
     }
-    return href.includes('?') ? currentHref === href : path === childPath;
+    if (href.includes('?')) return currentHref === href;
+    if (path === childPath) return true;
+    if (!path?.startsWith(`${childPath}/`)) return false;
+    return !activeChildren.some((child) => {
+      const candidatePath = child.href.split('?')[0];
+      return candidatePath !== childPath && (path === candidatePath || path.startsWith(`${candidatePath}/`));
+    });
   }
 
   function rememberChildSearch(href: string) {
@@ -175,74 +185,54 @@ export default function DealerNav() {
   const roleLabel = (profile?.role && ROLE_LABEL[profile.role]) || profile?.role || '未分配角色';
   const initials = accountName.trim().slice(0, 1).toUpperCase() || 'U';
 
-  const activeChildren =
-    activeItem.key === 'brand-sites'
-      ? [
-          activeItem.children[0],
-          ...siteNavItems.map((site) => ({
-            key: `site-${site.code}`,
-            label: `${site.nameCn || site.nameEn} ${site.nameEn || ''}`.trim(),
-            href: `/comfort/sites/${encodeURIComponent(site.code)}`,
-            icon: activeItem.children[0].icon,
-          })),
-          activeItem.children[activeItem.children.length - 1],
-        ]
-      : activeItem.children;
-
-  const items: React.ReactNode[] = [];
-  let lastGroup = -1;
-  WORKBENCH_NAV.forEach(n => {
-    if (n.group !== lastGroup && lastGroup !== -1) {
-      items.push(
-        <div key={`sep-${n.group}`} style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '6px 12px' }} />
-      );
-    }
-    lastGroup = n.group;
-    const active = n.key === activeItem.key;
-    const Icon = n.icon;
-    items.push(
-      <Link key={n.href} href={n.href} title={n.label} style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        width: 40, height: 40, borderRadius: 10, margin: '2px auto',
-        color: active ? 'var(--brand)' : 'rgba(255,255,255,0.45)',
-        background: active ? 'rgba(78,154,61,0.15)' : 'transparent',
-        transition: 'all 0.12s',
-        textDecoration: 'none', flexShrink: 0,
-        position: 'relative',
-      }}>
-        {/* Active indicator: left edge dot */}
-        {active && (
-          <span style={{
-            position: 'absolute', left: -8, top: '50%', transform: 'translateY(-50%)',
-            width: 3, height: 18, borderRadius: 2,
-            background: 'var(--brand)',
-          }} />
-        )}
-        <Icon size={18} strokeWidth={active ? 2.2 : 1.8} />
-      </Link>
-    );
-  });
-
   return (
     <>
       <aside className="sidebar" style={{ alignItems: 'center' }}>
-        {/* 品牌红线 */}
         <div style={{ height: 3, width: '100%', background: 'var(--brand)', flexShrink: 0 }} />
-
-        {/* Rysnova Logo */}
         <div style={{ margin: '12px auto 10px', width: 44, height: 24, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <img
-            src="/images/rysnova-logo.jpg"
-            alt="Rysnova"
-            style={{ width: 44, height: 'auto', objectFit: 'contain', filter: 'brightness(1.15) contrast(1.05)' }}
-          />
+          <img src="/images/rysnova-logo.jpg" alt="Rysnova" style={{ width: 44, height: 'auto', objectFit: 'contain', filter: 'brightness(1.15) contrast(1.05)' }} />
         </div>
-
         <div style={{ height: 1, width: 32, background: 'rgba(255,255,255,0.08)', margin: '0 auto 8px' }} />
 
-        {/* Nav icons */}
-        <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', width: '100%', padding: '4px 0' }}>
-          {items}
+        <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', width: '100%', padding: '4px 0' }} aria-label="营销控制台主导航">
+          {WORKBENCH_NAV.map((item, index) => {
+            const active = item.key === activeItem.key;
+            const Icon = item.icon;
+            const previous = WORKBENCH_NAV[index - 1];
+            return (
+              <div key={item.key}>
+                {previous && previous.group !== item.group && <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '6px 12px' }} />}
+                <Link
+                  href={item.href}
+                  title={item.label}
+                  aria-current={active ? 'page' : undefined}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 3,
+                    width: 56,
+                    minHeight: 52,
+                    borderRadius: 8,
+                    margin: '2px auto',
+                    color: active ? '#fff' : 'rgba(255,255,255,0.52)',
+                    background: active ? 'rgba(228,0,43,0.22)' : 'transparent',
+                    transition: 'all 0.12s',
+                    textDecoration: 'none',
+                    flexShrink: 0,
+                    position: 'relative',
+                  }}
+                >
+                  {active && <span style={{ position: 'absolute', left: -4, top: '50%', transform: 'translateY(-50%)', width: 3, height: 20, borderRadius: 2, background: 'var(--brand)' }} />}
+                  <Icon size={18} strokeWidth={active ? 2.2 : 1.8} />
+                  <span style={{ maxWidth: 48, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10, lineHeight: 1.1, fontWeight: active ? 700 : 500 }}>
+                    {item.shortLabel}
+                  </span>
+                </Link>
+              </div>
+            );
+          })}
         </nav>
 
         <div className="account-menu-wrap">
@@ -253,7 +243,6 @@ export default function DealerNav() {
                 <div className="account-menu-contact">{accountContact}</div>
                 <div className="account-menu-role">{roleLabel}</div>
               </div>
-
               <div className="account-menu-actions">
                 <button type="button" role="menuitem" onClick={logout}>
                   <LogOut size={15} />
@@ -262,7 +251,6 @@ export default function DealerNav() {
               </div>
             </div>
           )}
-
           <button
             type="button"
             className="account-trigger"
@@ -293,7 +281,7 @@ export default function DealerNav() {
         {!collapsed && (
           <>
             <div className="workbench-subnav-head">
-              <p>运营</p>
+              <p>Marketing</p>
               <h2>{activeItem.shortLabel}</h2>
               <span>{activeItem.desc}</span>
             </div>
@@ -302,13 +290,7 @@ export default function DealerNav() {
                 const ChildIcon = child.icon;
                 const selected = isChildSelected(child.href);
                 return (
-                  <Link
-                    key={child.key}
-                    href={child.href}
-                    title={child.label}
-                    className={selected ? 'is-active' : undefined}
-                    onClick={() => rememberChildSearch(child.href)}
-                  >
+                  <Link key={child.key} href={child.href} title={child.label} className={selected ? 'is-active' : undefined} onClick={() => rememberChildSearch(child.href)}>
                     <ChildIcon size={16} strokeWidth={selected ? 2.3 : 1.8} />
                     <span>{child.label}</span>
                     {selected && <ChevronRight size={14} />}
@@ -325,14 +307,7 @@ export default function DealerNav() {
               const ChildIcon = child.icon;
               const selected = isChildSelected(child.href);
               return (
-                <Link
-                  key={child.key}
-                  href={child.href}
-                  title={child.label}
-                  aria-label={child.label}
-                  className={selected ? 'is-active' : undefined}
-                  onClick={() => rememberChildSearch(child.href)}
-                >
+                <Link key={child.key} href={child.href} title={child.label} aria-label={child.label} className={selected ? 'is-active' : undefined} onClick={() => rememberChildSearch(child.href)}>
                   <ChildIcon size={17} strokeWidth={selected ? 2.4 : 1.8} />
                 </Link>
               );
@@ -341,24 +316,14 @@ export default function DealerNav() {
         )}
       </aside>
 
-      {/* Mobile bottom nav */}
-      <nav style={{
-        display: 'none', position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50,
-        background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(16px)',
-        borderTop: '1px solid var(--border)', padding: '6px 0',
-        gridTemplateColumns: 'repeat(5,1fr)',
-      }} className="mobile-nav">
-        {MOBILE.map(n => {
-          const active = path === n.href || (n.href === '/brand' ? path?.startsWith('/comfort') || path?.startsWith('/brand') : path?.startsWith(n.href));
-          const Icon = n.icon;
+      <nav className="mobile-nav" style={{ display: 'none', position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50, background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(16px)', borderTop: '1px solid var(--border)', padding: '6px 0', gridTemplateColumns: `repeat(${WORKBENCH_NAV.length}, minmax(58px, 1fr))`, overflowX: 'auto' }} aria-label="移动端营销导航">
+        {WORKBENCH_NAV.map((item) => {
+          const active = item.key === activeItem.key;
+          const Icon = item.icon;
           return (
-            <Link key={n.href} href={n.href} style={{
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-              padding: '4px 0', fontSize: 10, fontWeight: active ? 700 : 500,
-              color: active ? 'var(--brand)' : 'var(--t-tertiary)', textDecoration: 'none',
-            }}>
+            <Link key={item.href} href={item.href} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '4px 0', fontSize: 10, fontWeight: active ? 700 : 500, color: active ? 'var(--brand)' : 'var(--t-tertiary)', textDecoration: 'none' }}>
               <Icon size={18} />
-              {n.label}
+              {item.shortLabel}
             </Link>
           );
         })}
@@ -373,6 +338,10 @@ export default function DealerNav() {
         .sidebar nav a:hover {
           background: rgba(255,255,255,0.08) !important;
           color: rgba(255,255,255,0.85) !important;
+        }
+        .sidebar nav a[aria-current="page"]:hover {
+          background: rgba(228,0,43,0.26) !important;
+          color: #fff !important;
         }
       `}</style>
     </>

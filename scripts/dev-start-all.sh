@@ -41,7 +41,7 @@ log "===== 瑞诺瓦开发环境启动 ====="
 check_node_deps
 
 # 清理已有占用端口（避免 Turbopack/Next.js 端口冲突）
-for port in 5500 5000 5001 5002 5005 5011 5012 5013 5014 5015; do
+for port in 5500 5000 5005 5011 5013 5014 5015; do
   stop_port "$port"
 done
 
@@ -52,12 +52,8 @@ start_bg "api-5500" "cd '$ROOT' && pnpm run start:api"
 # 2. 核心工作台应用
 start_bg "portal-5005" "cd '$ROOT' && pnpm --filter public-portal dev --port 5005"
 start_bg "dealer-5000" "cd '$ROOT' && pnpm --filter dealer-workbench dev --port 5000"
-start_bg "diagnosis-5001" "cd '$ROOT' && pnpm --filter consumer-diagnosis dev --port 5001"
-start_bg "customer-5002" "cd '$ROOT' && pnpm --filter customer-portal dev --port 5002"
 
 # 3. 控制台
-start_bg "nexus-5010" "cd '$ROOT' && pnpm --filter nexus-console dev --port 5010"
-start_bg "brand-5012" "cd '$ROOT' && pnpm --filter brand-console dev --port 5012"
 
 # 4. 产品底座
 
@@ -74,18 +70,14 @@ log "等待服务就绪（最长 60s）..."
 declare -A URLS=(
   [5500]="http://localhost:5500/api/v2/auth/me"
   [5000]="http://localhost:5000/"
-  [5001]="http://localhost:5001/"
-  [5002]="http://localhost:5002/"
   [5005]="http://localhost:5005/"
-  [5010]="http://localhost:5010/"
   [5011]="http://localhost:5011/"
-  [5012]="http://localhost:5012/"
   [5013]="http://localhost:5013/"
   [5014]="http://localhost:5014/"
   [5015]="http://localhost:5015/"
 )
 
-for port in 5500 5000 5001 5002 5005 5010 5011 5012 5013 5014 5015; do
+for port in 5500 5000 5005 5011 5013 5014 5015; do
   url="${URLS[$port]}"
   status="--"
   for i in $(seq 1 30); do
@@ -103,6 +95,5 @@ log "===== 启动完成 ====="
 echo ""
 echo "常用入口："
 echo "  统一门户/登录: http://localhost:5000/hub"
-echo "  AI 问诊:       http://localhost:5001"
 echo ""
 echo "停止所有服务: ./scripts/dev-stop-all.sh"

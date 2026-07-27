@@ -20,6 +20,8 @@
     if(typeof window.EVERHOT_LOAD_PRODUCTS==='function') return window.EVERHOT_LOAD_PRODUCTS();
     return window.EVERHOT_PRODUCTS_READY || Promise.resolve(false);
   }
+  function apiBase(){ return window.EVERHOT_API_BASE || ''; }
+  function siteCode(){ return window.EVERHOT_SITE_CODE || 'everhot'; }
 
   // 关注点 → 关键词权重表（按系统区分）
   var PRIORITY={
@@ -105,7 +107,55 @@
       return {p:p,score:score,reasons:reasons};
     }).sort(function(a,b){return b.score-a.score;});
 
-    return {cat:cat,sys:sys,items:scored.filter(function(x){return x.p;}).slice(0,3)};
+    return {cat:cat,sys:sys,items:scored.filter(function(x){return x.p;})};
+  }
+
+  function selectionSystems(state){
+    if(state.need==='water-heating') return ['hot_water'];
+    if(state.need==='both') return ['heating','hot_water'];
+    if(state.need==='heating-cooling') return ['heating'];
+    return [];
+  }
+
+  function backendCriteria(state){
+    return {
+      segments: state.scene ? [state.scene] : [],
+      channels: ['dealer'],
+      systems: selectionSystems(state),
+      limit: 4
+    };
+  }
+
+  function normalizeBackendProduct(item){
+    var p = {};
+    Object.keys(item || {}).forEach(function(key){ p[key] = item[key]; });
+    p.slug = String(item && (item.slug || item.sku) || '');
+    p.tagline = item && (item.tagline || item.summary || item.description) || '';
+    p.highlights = Array.isArray(item && item.highlights) ? item.highlights : [];
+    p.features = Array.isArray(item && item.features) ? item.features : [];
+    return p;
+  }
+
+  function recommendFromBackend(state){
+    if(!window.fetch) return Promise.reject(new Error('fetch unavailable'));
+    return fetch(apiBase() + '/api/v2/brand/' + encodeURIComponent(siteCode()) + '/recommend', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(backendCriteria(state))
+    }).then(function(res){
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      return res.json();
+    }).then(function(json){
+      var items = json && json.data && Array.isArray(json.data.items) ? json.data.items : [];
+      if(!items.length) throw new Error('empty backend recommendation');
+      return {
+        cat: state.scene,
+        sys: state.need==='both'?'water-heating':state.need,
+        items: items.map(function(item){
+          return {p:normalizeBackendProduct(item),score:Number(item.matchScore||0),reasons:item.matchSignals||[]};
+        })
+      };
+    });
   }
 
   function init(){
@@ -192,7 +242,22 @@
     }
 
     function drawResult(defs){
-      var rec=recommend(state);
+      var fallback=recommend(state);
+      renderPendingResult();
+      recommendFromBackend(state).then(renderResult).catch(function(){
+        renderResult(fallback);
+      });
+    }
+
+    function renderPendingResult(){
+      var h='';
+      h+='<div class="selw-card selw-result">';
+      h+='<div class="selw-result-head"><span class="selw-badge">为您推荐</span><h3 class="selw-q">正在按官网产品字段匹配方案...</h3></div>';
+      h+='</div>';
+      host.innerHTML=h;
+    }
+
+    function renderResult(rec){
       var picks=rec.items.map(function(x){return x.p.slug;});
       var cmpUrl=BASE+'/products/compare/?cat='+encodeURIComponent(rec.cat)+'&sys='+encodeURIComponent(rec.sys)+'&pick='+encodeURIComponent(picks.join(','));
       var h='';

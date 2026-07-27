@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Param, Patch, Post, Put, Query, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Query, Req, Res, UseGuards } from '@nestjs/common';
 import { AuthGuard } from './auth.guard';
 import { AuthService } from './auth.service';
 import { OidcSsoCallbackService } from './oidc-sso-callback.service';
@@ -165,5 +165,12 @@ export class AuthController {
   @Roles('platform_admin', 'hq_admin', 'dealer_admin')
   adminResetPassword(@Req() req: any, @Param('id') id: string, @Body() body: { newPassword: string }) {
     return this.svc.adminResetPassword(req.user, id, body.newPassword);
+  }
+
+  @Delete('admin/users/:id')
+  @UseGuards(AuthGuard)
+  @Roles('platform_admin', 'hq_admin', 'dealer_admin')
+  adminDeleteUser(@Req() req: any, @Param('id') id: string) {
+    return this.svc.adminDeleteUser(req.user, id);
   }
 }

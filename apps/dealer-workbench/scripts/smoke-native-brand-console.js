@@ -20,7 +20,11 @@ async function main() {
   const browser = await chromium.launch(launchOptions());
   const page = await browser.newPage();
 
-  const sites = [
+  let sites = [
+    {
+      id: 'site-group', code: 'rhautt-group', nameCn: '瑞合瑞德暖通科技集团', nameEn: 'Rhautt Comfort', appKey: null,
+      deliveryType: 'self_hosted', status: 'active', sortOrder: 0, deletedAt: null,
+    },
     {
       id: 'site-rheem', code: 'rheem', nameCn: '瑞美', nameEn: 'Rheem', appKey: 'rheem-cn',
       deliveryType: 'self_hosted', status: 'active', sortOrder: 10, deletedAt: null,
@@ -50,11 +54,24 @@ async function main() {
   await page.route('**/api/v2/auth/me', async (route) => {
     await route.fulfill({
       contentType: 'application/json',
-      body: JSON.stringify({ role: 'brand_viewer', permissions: [] }),
+      body: JSON.stringify({ role: 'platform_admin', permissions: [] }),
     });
   });
 
+  let archivedDeleteCalled = false;
+
   await page.route('**/api/v2/brand-sites**', async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    if (request.method() === 'DELETE' && url.pathname.endsWith('/api/v2/brand-sites/site-archived')) {
+      archivedDeleteCalled = true;
+      sites = sites.filter((site) => site.id !== 'site-archived');
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { deleted: true, id: 'site-archived' } }),
+      });
+      return;
+    }
     await route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify({
@@ -115,22 +132,39 @@ async function main() {
   });
 
   await page.goto(`${baseUrl}/comfort/sites`, { waitUntil: 'networkidle' });
-  await page.getByRole('heading', { name: '品牌官网管理', exact: true }).waitFor();
+  await page.locator('.workbench-section-header__title').filter({ hasText: '品牌官网管理' }).waitFor();
   const masterCrudVisible = await page.getByRole('button', { name: '新增官网', exact: true }).isVisible();
   const subnav = page.getByRole('navigation', { name: '品牌官网管理二级菜单' });
   const menuLabels = (await subnav.locator('a').allTextContents()).map((label) => label.trim());
   const menuHrefs = await subnav.locator('a').evaluateAll((links) =>
     links.map((link) => link.getAttribute('href'))
   );
-  const expectedLabels = ['品牌官网管理', '瑞美 Rheem', '瑞德 Ruud', '新牌 Nova', '恒热 Everhot', '品牌运营'];
+  const expectedLabels = ['品牌官网管理', '瑞合瑞德暖通科技集团 Rhautt Comfort', '瑞美 Rheem', '瑞德 Ruud', '新牌 Nova', '恒热 Everhot', '品牌运营'];
   const expectedHrefs = [
     '/comfort/sites',
+    '/comfort/sites/rhautt-group',
     '/comfort/sites/rheem',
     '/comfort/sites/ruud',
     '/comfort/sites/nova',
     '/comfort/sites/everhot',
     '/brand',
   ];
+
+  const archivedRow = page.locator('tr').filter({ hasText: 'archived-brand' });
+  await archivedRow.waitFor({ state: 'visible' });
+  const archivedDeleteVisible = await archivedRow.getByRole('button').nth(1).isVisible();
+  await archivedRow.getByRole('button').nth(1).click();
+  await page.getByPlaceholder('archived-brand').fill('archived-brand');
+  await page.getByRole('button', { name: /永久删除/ }).click();
+  await page.waitForFunction(() => !document.body.innerText.includes('archived-brand'));
+  const archivedDeletedFromList = await page.getByText('archived-brand').count() === 0;
+
+  await subnav.locator('a[href="/comfort/sites/rhautt-group"]').click();
+  await page.waitForURL('**/comfort/sites/rhautt-group');
+  await page.waitForFunction(() => {
+    return document.querySelector('.dealer-topbar-title p')?.textContent === '瑞合瑞德暖通科技集团 Rhautt Comfort';
+  });
+  const groupTopbarConsistent = await page.locator('.dealer-topbar-title p').textContent() === '瑞合瑞德暖通科技集团 Rhautt Comfort';
 
   await subnav.locator('a[href="/comfort/sites/nova"]').click();
   await page.waitForURL('**/comfort/sites/nova');
@@ -166,6 +200,10 @@ async function main() {
     !masterCrudVisible
     || JSON.stringify(menuLabels) !== JSON.stringify(expectedLabels)
     || JSON.stringify(menuHrefs) !== JSON.stringify(expectedHrefs)
+    || !archivedDeleteVisible
+    || !archivedDeleteCalled
+    || !archivedDeletedFromList
+    || !groupTopbarConsistent
     || !newBrandNative
     || !newBrandScoped
     || !emptyStateVisible
@@ -182,6 +220,10 @@ async function main() {
         masterCrudVisible,
         menuLabels,
         menuHrefs,
+        archivedDeleteVisible,
+        archivedDeleteCalled,
+        archivedDeletedFromList,
+        groupTopbarConsistent,
         newBrandNative,
         newBrandScoped,
         everhotSkuVisible,
@@ -197,7 +239,7 @@ async function main() {
   }
 
   console.log(
-    'native-brand-console smoke passed: CRUD, ordered dynamic menu, multi-brand native consoles, scoped empty state, VI and no iframe'
+    'native-brand-console smoke passed: CRUD, archived delete action, ordered dynamic menu, multi-brand native consoles, scoped empty state, VI and no iframe'
   );
 }
 

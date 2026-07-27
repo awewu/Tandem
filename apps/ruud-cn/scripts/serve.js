@@ -31,7 +31,6 @@ const API_TARGET = (process.env.RUUD_API_TARGET || process.env.NEXUS_API_ORIGIN 
 // 跨站地址（本地默认独立端口；生产用 SITE_*_URL 覆盖为真实域名）。
 const SITES = {
   group: process.env.SITE_GROUP_URL || 'http://localhost:5005',
-  diagnosis: process.env.SITE_DIAGNOSIS_URL || 'http://localhost:5001',
   everhot: process.env.SITE_EVERHOT_URL || 'http://localhost:5011',
   lithnova: process.env.SITE_LITHNOVA_URL || 'http://localhost:5013',
   rheem: process.env.SITE_RHEEM_URL || 'http://localhost:5014',
@@ -115,7 +114,6 @@ const server = http.createServer((req, res) => {
   // ① 跨站绝对链接 → 各自独立端口（本地）/ 真实域名（生产）
   if (urlPath === '/') return serveFile(res, path.join(PUBLIC, 'index.html'));
   if (urlPath === '/index-ready.html') return redirect(res, SITES.group + '/');
-  if (urlPath === '/pain-diagnosis.html') return redirect(res, SITES.diagnosis + '/');
   if (urlPath.startsWith('/everhot-cn')) return redirect(res, SITES.everhot + '/');
   if (urlPath.startsWith('/lithnova-cn')) return redirect(res, SITES.lithnova + '/');
   if (urlPath.startsWith('/rheem-cn')) return redirect(res, SITES.rheem + '/');

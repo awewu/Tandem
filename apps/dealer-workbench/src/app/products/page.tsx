@@ -1,18 +1,24 @@
 'use client';
 
 import { Suspense, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
-import { Archive, Boxes, CheckCircle2, Edit3, FileText, Package, Plus, Search, SlidersHorizontal, XCircle } from 'lucide-react';
+import { Archive, Boxes, CheckCircle2, Edit3, FileText, FolderOpen, Package, Plus, Search, SlidersHorizontal, XCircle } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
-import { PageHeader } from '@rhautt/ui';
-import { auth, products } from '../../lib/api';
+import {
+  StatusPill,
+  WorkbenchFilterToolbar,
+  WorkbenchSectionHeader,
+  WorkbenchTableShell,
+  WorkbenchTableState,
+} from '../../components/WorkbenchCore';
+import { auth, brandProductCategories, brandSites, products } from '../../lib/api';
 import { canWriteBrandProducts } from '../../lib/brand-product-adapter';
 import { CATEGORIES, PRODUCTS, SYSTEM_PACKS, type CatKey, type Product } from '../../lib/products-data';
 
-type ProductModule = 'catalog' | 'materials' | 'base';
+type ProductModule = 'catalog' | 'materials' | 'base' | 'categories';
 type ProductStock = Product['stock'];
-type BrandFilter = 'all' | 'rheem' | 'ruud' | 'everhot';
-type ProductBrand = Exclude<BrandFilter, 'all'>;
+type BrandFilter = string;
+type ProductBrand = string;
 type StatusFilter = 'all' | 'active' | 'inactive' | 'archived';
 type CreateProductDraft = {
   brand: ProductBrand | '';
@@ -26,6 +32,9 @@ type EditProductDraft = {
   model: string;
   category: string;
   system: string;
+  categoryLevel1Id: string;
+  categoryLevel2Id: string;
+  categoryLevel3Id: string;
   publicSlug: string;
   series: string;
   tagline: string;
@@ -44,24 +53,59 @@ type NormalizedProduct = Product & {
   sku: string;
   status: string;
   system: string;
+  materialCode: string;
+  materialCategory: string;
+  productLine: string;
+  categoryPath: string;
+  applicationScenarios: string[];
   marginRate: number;
   raw?: Record<string, any>;
 };
+type ProductCategoryNode = {
+  id: string;
+  parentId: string | null;
+  level: number;
+  code: string;
+  name: string;
+  nameCn: string;
+  nameEn: string;
+  slug: string;
+  status: string;
+  sortOrder: number;
+  description: string;
+  hasChildren: boolean;
+  childCategoryCount: number;
+  directProductCount: number;
+  descendantProductCount: number;
+  children: ProductCategoryNode[];
+};
+type ProductCategoryDraft = {
+  nameCn: string;
+  code: string;
+  slug: string;
+  sortOrder: string;
+  status: 'active' | 'inactive';
+  description: string;
+};
+type ProductCategoryUsage = {
+  boundProductCount: number;
+  childCategoryCount?: number;
+};
 
 const CATEGORY_KEYS = new Set<string>(CATEGORIES.map((category) => category.key));
-const BRAND_OPTIONS: Array<{ value: BrandFilter; label: string }> = [
+const DEFAULT_BRAND_OPTIONS: Array<{ value: BrandFilter; label: string }> = [
   { value: 'all', label: '全部品牌' },
   { value: 'rheem', label: '瑞美 Rheem' },
   { value: 'ruud', label: '瑞德 Ruud' },
   { value: 'everhot', label: '恒热 Everhot' },
 ];
-const CREATE_BRAND_OPTIONS: Array<{ value: ProductBrand; label: string }> = [
+const DEFAULT_CREATE_BRAND_OPTIONS: Array<{ value: ProductBrand; label: string }> = [
   { value: 'rheem', label: '瑞美 Rheem' },
   { value: 'ruud', label: '瑞德 Ruud' },
   { value: 'everhot', label: '恒热 Everhot' },
 ];
-const SUPPORTED_PRODUCT_BRANDS: ProductBrand[] = ['rheem', 'ruud', 'everhot'];
-const BRAND_PRODUCT_TENANTS: Record<ProductBrand, string | undefined> = {
+const DEFAULT_PRODUCT_BRANDS: ProductBrand[] = ['rheem', 'ruud', 'everhot'];
+const BRAND_PRODUCT_TENANTS: Record<string, string | undefined> = {
   rheem: process.env.NEXT_PUBLIC_RHEEM_TENANT_ID || '4aee0000-0000-4000-8000-000000000001',
   ruud: process.env.NEXT_PUBLIC_RUUD_TENANT_ID || '7aad0000-0000-4000-8000-000000000001',
   everhot: process.env.NEXT_PUBLIC_EVERHOT_TENANT_ID || 'e5e40000-0000-4000-8000-000000000001',
@@ -72,6 +116,8 @@ const STATUS_OPTIONS: Array<{ value: StatusFilter; label: string }> = [
   { value: 'inactive', label: '停用' },
   { value: 'archived', label: '已归档' },
 ];
+const PRODUCT_CATALOG_TABLE_GRID =
+  'minmax(280px, 1.75fr) minmax(92px, 0.62fr) minmax(92px, 0.62fr) minmax(136px, 0.85fr) minmax(118px, 0.78fr) minmax(150px, 0.95fr) minmax(110px, 0.62fr) minmax(150px, 0.7fr)';
 const STOCK: Record<ProductStock, { label: string; className: string; tone: string }> = {
   in: { label: '现货', className: 'badge-success', tone: 'var(--success)' },
   low: { label: '低库存', className: 'badge-warning', tone: 'var(--warning)' },
@@ -82,7 +128,7 @@ const fmt = (value: number) => `￥${Math.round(value || 0).toLocaleString('zh-C
 const pct = (value: number) => `${Math.round(value || 0)}%`;
 
 function normalizeModule(value: unknown): ProductModule {
-  return value === 'materials' || value === 'base' ? value : 'catalog';
+  return value === 'materials' || value === 'base' || value === 'categories' ? value : 'catalog';
 }
 
 function normalizeCategory(value: unknown): CatKey {
@@ -102,6 +148,21 @@ function displayBrand(value: string): string {
   return value || '未绑定';
 }
 
+function brandOptionsFromSites(result: unknown): Array<{ value: ProductBrand; label: string }> {
+  const rows = Array.isArray((result as any)?.items) ? (result as any).items : [];
+  const options = rows
+    .filter((site: Record<string, any>) => site.status === 'active' && !site.deletedAt && site.code !== 'rhautt-group')
+    .map((site: Record<string, any>) => ({
+      value: normalizeBrand(site.code),
+      label: `${site.nameCn || site.nameEn || site.code} ${site.nameEn || ''}`.trim(),
+      sortOrder: Number(site.sortOrder || 0),
+    }))
+    .filter((site: { value: string }) => site.value)
+    .sort((left: { sortOrder: number }, right: { sortOrder: number }) => left.sortOrder - right.sortOrder)
+    .map(({ value, label }: { value: string; label: string }) => ({ value, label }));
+  return options.length ? options : DEFAULT_CREATE_BRAND_OPTIONS;
+}
+
 function statusLabel(status: string): string {
   if (status === 'active') return '上架';
   if (status === 'inactive') return '停用';
@@ -109,15 +170,89 @@ function statusLabel(status: string): string {
   return status || '未知';
 }
 
-function statusClassName(status: string): string {
-  if (status === 'active') return 'badge-success';
-  if (status === 'inactive') return 'badge-warning';
-  if (status === 'archived') return 'badge-grey';
-  return 'badge-info';
+function statusTone(status: string): 'success' | 'warning' | 'neutral' | 'info' {
+  if (status === 'active') return 'success';
+  if (status === 'inactive') return 'warning';
+  if (status === 'archived') return 'neutral';
+  return 'info';
+}
+
+function productStatusSortRank(status: string): number {
+  if (status === 'active') return 0;
+  if (status === 'inactive') return 1;
+  if (status === 'archived') return 2;
+  return 3;
+}
+
+function sortProductsByStatusThenOrder(items: NormalizedProduct[]): NormalizedProduct[] {
+  return [...items].sort((left, right) => {
+    const byStatus = productStatusSortRank(left.status) - productStatusSortRank(right.status);
+    if (byStatus) return byStatus;
+    const byBrand = displayBrand(left.brand).localeCompare(displayBrand(right.brand), 'zh-CN');
+    if (byBrand) return byBrand;
+    return String(left.name || left.model || left.sku).localeCompare(String(right.name || right.model || right.sku), 'zh-CN');
+  });
 }
 
 function text(value: unknown): string {
   return typeof value === 'string' ? value.trim() : value == null ? '' : String(value).trim();
+}
+
+function productCategoryItems(result: unknown): Record<string, any>[] {
+  if (Array.isArray(result)) return result as Record<string, any>[];
+  if (Array.isArray((result as any)?.items)) return (result as any).items;
+  if (Array.isArray((result as any)?.categories)) return (result as any).categories;
+  if (Array.isArray((result as any)?.tree)) return flattenRawCategoryItems((result as any).tree);
+  return [];
+}
+
+function flattenRawCategoryItems(items: Record<string, any>[]): Record<string, any>[] {
+  return items.flatMap((item) => [item, ...flattenRawCategoryItems(Array.isArray(item.children) ? item.children : [])]);
+}
+
+function normalizeProductCategoryTree(result: unknown): ProductCategoryNode[] {
+  const rows = productCategoryItems(result)
+    .map((item) => {
+      const id = text(item.id || item._id || item.code);
+      const parentId = text(item.parentId || item.parent_id) || null;
+      const level = Math.max(1, Number(item.level || 1));
+      if (!id) return null;
+      return {
+        id,
+        parentId,
+        level,
+        code: text(item.code),
+        name: text(item.nameCn || item.name || item.label || item.nameEn || item.code),
+        nameCn: text(item.nameCn || item.name || item.label || item.code),
+        nameEn: text(item.nameEn),
+        slug: text(item.slug),
+        status: text(item.status || 'active'),
+        sortOrder: Number(item.sortOrder ?? item.sort_order ?? 0),
+        description: text(item.description),
+        hasChildren: Boolean(item.hasChildren || (Array.isArray(item.children) && item.children.length)),
+        childCategoryCount: Number(item.childCategoryCount || 0),
+        directProductCount: Number(item.directProductCount || item.exactBoundProductCount || 0),
+        descendantProductCount: Number(item.descendantProductCount || item.descendantBoundProductCount || 0),
+        children: [],
+      } satisfies ProductCategoryNode;
+    })
+    .filter(Boolean) as ProductCategoryNode[];
+  const byId = new Map(rows.map((item) => [item.id, item]));
+  const roots: ProductCategoryNode[] = [];
+  rows.forEach((item) => {
+    const parent = item.parentId ? byId.get(item.parentId) : null;
+    if (parent && item.level > parent.level) {
+      parent.children.push(item);
+    } else {
+      roots.push(item);
+    }
+  });
+  const sortTree = (items: ProductCategoryNode[]) => {
+    items.sort((left, right) => left.sortOrder - right.sortOrder || left.name.localeCompare(right.name));
+    items.forEach((item) => sortTree(item.children));
+    return items;
+  };
+  return sortTree(roots);
 }
 
 function slug(value: string): string {
@@ -133,17 +268,25 @@ function skeletonSku(brand: ProductBrand, seed: string): string {
   return `${brand.toUpperCase()}-${suffix.toUpperCase()}`;
 }
 
+function internalCategoryCode(prefix = 'cat'): string {
+  return `${prefix}-${Date.now().toString(36)}`.replace(/[^a-z0-9-]+/g, '-');
+}
+
 function emptyCreateDraft(): CreateProductDraft {
   return { brand: '', name: '', skuSeed: '', category: '', system: '' };
 }
 
 function editDraftFromProduct(product: NormalizedProduct): EditProductDraft {
   const brandMeta = productBrandMeta(product);
+  const categoryBinding = productCategoryBinding(product);
   return {
     name: text(product.name),
     model: text(product.model),
     category: text(product.category),
     system: text(product.system),
+    categoryLevel1Id: categoryBinding.categoryLevel1Id,
+    categoryLevel2Id: categoryBinding.categoryLevel2Id,
+    categoryLevel3Id: categoryBinding.categoryLevel3Id,
     publicSlug: text(brandMeta.slug) || slug(text(product.sku)),
     series: text(brandMeta.series),
     tagline: text(brandMeta.tagline),
@@ -161,6 +304,22 @@ function tenantIdForProduct(product: NormalizedProduct): string {
 function productBrandMeta(product: NormalizedProduct): Record<string, any> {
   const meta = objectOrEmpty(product.raw?.meta);
   return objectOrEmpty(meta[normalizeBrand(product.brand)]);
+}
+
+function productCategoryBinding(product: NormalizedProduct): {
+  categoryLevel1Id: string;
+  categoryLevel2Id: string;
+  categoryLevel3Id: string;
+} {
+  const raw = objectOrEmpty(product.raw);
+  const meta = objectOrEmpty(raw.meta);
+  const brandMeta = productBrandMeta(product);
+  const categoryMeta = objectOrEmpty(meta.categoryBinding);
+  return {
+    categoryLevel1Id: text(raw.categoryLevel1Id || brandMeta.categoryLevel1Id || meta.categoryLevel1Id || categoryMeta.categoryLevel1Id),
+    categoryLevel2Id: text(raw.categoryLevel2Id || brandMeta.categoryLevel2Id || meta.categoryLevel2Id || categoryMeta.categoryLevel2Id),
+    categoryLevel3Id: text(raw.categoryLevel3Id || brandMeta.categoryLevel3Id || meta.categoryLevel3Id || categoryMeta.categoryLevel3Id),
+  };
 }
 
 function nonNegativeInt(value: unknown): number {
@@ -184,10 +343,15 @@ function productUpdatePayload(
   const model = text(draft.model);
   const category = text(draft.category);
   const system = text(draft.system);
+  const categoryLevel1Id = text(draft.categoryLevel1Id);
+  const categoryLevel2Id = text(draft.categoryLevel2Id);
+  const categoryLevel3Id = text(draft.categoryLevel3Id);
   if (!name) throw new Error('请填写产品名称。');
   if (!model) throw new Error('请填写产品型号。');
   if (!category) throw new Error('请选择分类。');
   if (!system) throw new Error('请填写系统。');
+  if (!categoryLevel1Id) throw new Error('请选择一级产品分类。');
+  if (!categoryLevel2Id) throw new Error('请选择二级产品分类。');
   const previousSpec = objectOrEmpty(product.raw?.spec);
   const brand = normalizeBrand(product.brand);
   const previousMeta = objectOrEmpty(product.raw?.meta);
@@ -200,6 +364,9 @@ function productUpdatePayload(
     ...(tenantId ? { tenantId } : {}),
     name,
     category,
+    categoryLevel1Id,
+    categoryLevel2Id,
+    categoryLevel3Id: categoryLevel3Id || null,
     ...(status ? { status } : {}),
     spec: {
       ...previousSpec,
@@ -220,6 +387,9 @@ function productUpdatePayload(
         sys: system,
         displayOrder,
         sortOrder: displayOrder,
+        categoryLevel1Id,
+        categoryLevel2Id,
+        categoryLevel3Id: categoryLevel3Id || null,
         series: text(draft.series),
         tagline: text(draft.tagline),
         en: text(draft.officialEnglishName),
@@ -240,7 +410,6 @@ function productStatusPayload(
 function createProductPayload(draft: CreateProductDraft): Record<string, unknown> {
   if (!draft.brand) throw new Error('请选择产品品牌。');
   const tenantId = BRAND_PRODUCT_TENANTS[draft.brand];
-  if (!tenantId) throw new Error(`缺少 ${displayBrand(draft.brand)} 品牌租户 ID 配置。`);
   const name = text(draft.name);
   const skuSeed = text(draft.skuSeed);
   const category = text(draft.category);
@@ -251,7 +420,7 @@ function createProductPayload(draft: CreateProductDraft): Record<string, unknown
   if (!system) throw new Error('请填写系统。');
   const sku = skeletonSku(draft.brand, skuSeed);
   return {
-    tenantId,
+    ...(tenantId ? { tenantId } : {}),
     sku,
     name,
     brand: draft.brand,
@@ -343,6 +512,10 @@ function mergeCatalogResponses(responses: any[]): { items: any[]; total: number 
 }
 
 function normalizeProduct(item: any): NormalizedProduct {
+  const spec = objectOrEmpty(item.spec);
+  const meta = objectOrEmpty(item.meta);
+  const brandMeta = objectOrEmpty(meta[normalizeBrand(item.brand)]);
+  const positioning = objectOrEmpty(item.positioning);
   const marketPrice = Number(item.marketPrice ?? item.listPrice ?? item.retailPrice ?? item.msrp ?? 0);
   const dealerPrice = Number(item.dealerPrice ?? item.costPrice ?? item.tradePrice ?? item.price ?? 0);
   const safeMarketPrice = marketPrice || dealerPrice;
@@ -364,6 +537,13 @@ function normalizeProduct(item: any): NormalizedProduct {
       item.summary ||
       '',
     system: productSystem(item),
+    materialCode: text(spec.materialCode) || text(item.sku),
+    materialCategory: text(spec.materialCategory) || text(brandMeta.materialCategory),
+    productLine: text(spec.productLine) || text(brandMeta.productLine),
+    categoryPath: text(item.categoryPath) || text(brandMeta.categoryPath),
+    applicationScenarios: Array.isArray(positioning.applicationScenarios)
+      ? positioning.applicationScenarios.map(text).filter(Boolean)
+      : [],
     status: text(item.status) || 'active',
     marketPrice: safeMarketPrice,
     dealerPrice: safeDealerPrice,
@@ -380,6 +560,11 @@ function normalizeFallbackProduct(item: Product): NormalizedProduct {
     sku: item.model,
     status: 'active',
     system: '',
+    materialCode: item.model,
+    materialCategory: '',
+    productLine: '',
+    categoryPath: '',
+    applicationScenarios: [],
     marginRate: item.marketPrice ? ((item.marketPrice - item.dealerPrice) / item.marketPrice) * 100 : 0,
   };
 }
@@ -402,6 +587,16 @@ function ProductsContent() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [canWrite, setCanWrite] = useState(false);
   const [actionNotice, setActionNotice] = useState('');
+  const { data: brandSiteData } = useSWR('/api/v2/brand-sites', () => brandSites.list(), { revalidateOnFocus: false });
+  const createBrandOptions = useMemo(() => brandOptionsFromSites(brandSiteData), [brandSiteData]);
+  const brandOptions = useMemo(
+    () => [DEFAULT_BRAND_OPTIONS[0], ...createBrandOptions],
+    [createBrandOptions],
+  );
+  const supportedProductBrands = useMemo(
+    () => createBrandOptions.map((option) => option.value).filter(Boolean),
+    [createBrandOptions],
+  );
 
   const catalogQueries = useMemo(() => {
     const query: Record<string, string> = { page: '1', pageSize: '100' };
@@ -415,12 +610,12 @@ function ProductsContent() {
     if (statusFilter !== 'all') query.status = statusFilter;
     if (category !== 'all') query.category = category;
     if (brandFilter !== 'all') return [query];
-    return SUPPORTED_PRODUCT_BRANDS.map((brand) => ({
+    return (supportedProductBrands.length ? supportedProductBrands : DEFAULT_PRODUCT_BRANDS).map((brand) => ({
       ...query,
       brand,
       tenantId: BRAND_PRODUCT_TENANTS[brand] || '',
     }));
-  }, [brandFilter, category, keyword, statusFilter]);
+  }, [brandFilter, category, keyword, statusFilter, supportedProductBrands]);
 
   const { data: apiData, error, isLoading, mutate } = useSWR(
     ['/api/v2/product-catalog/devices', catalogQueries],
@@ -473,13 +668,14 @@ function ProductsContent() {
 
   const visibleCatalogProducts = useMemo(() => {
     const query = keyword.trim().toLowerCase();
-    return liveProductList.filter((product) => {
+    const filtered = liveProductList.filter((product) => {
       if (brandFilter !== 'all' && normalizeBrand(product.brand) !== brandFilter) return false;
       if (statusFilter !== 'all' && product.status !== statusFilter) return false;
       if (category !== 'all' && product.category !== category) return false;
       if (!query) return true;
       return [product.sku, product.name, product.model].join(' ').toLowerCase().includes(query);
     });
+    return sortProductsByStatusThenOrder(filtered);
   }, [brandFilter, category, keyword, liveProductList, statusFilter]);
 
   const productByModel = useMemo(() => {
@@ -509,10 +705,19 @@ function ProductsContent() {
         minHeight: '100%',
       }}
     >
-      <div className="page-container" style={{ display: 'grid', gap: 20 }}>
-        <PageHeader
-          title="5000 原生产品库"
-          subtitle="Rhautt Nexus 产品目录 · 单品、系统方案包、库存与经销价格"
+      <div
+        className="page-container products-page"
+        style={{
+          display: 'grid',
+          gap: 20,
+          maxWidth: 'none',
+          width: '100%',
+        }}
+      >
+        <WorkbenchSectionHeader
+          eyebrow="营销工作台"
+          title="产品营销目录"
+          description="产品目录、官网资料和目录底座共用同一套筛选、状态与内容管理入口。"
           actions={
             <div
               style={{
@@ -539,25 +744,24 @@ function ProductsContent() {
                 <Boxes size={14} />
                 目录底座
               </ModeButton>
+              <ModeButton active={activeModule === 'categories'} onClick={() => setModule('categories')}>
+                <FolderOpen size={14} />
+                产品分类
+              </ModeButton>
             </div>
           }
         />
 
-        <section className="g4" style={{ gap: 12 }}>
-          <Metric label="产品编码" value={String(stats.total)} hint="目录可售单品" />
-          <Metric label="现货产品" value={String(stats.stock)} hint="可直接纳入报价" />
-          <Metric label="新品" value={String(stats.newest)} hint="建议优先推荐" />
-          <Metric label="平均毛利" value={pct(stats.avgMargin)} hint="按指导价估算" />
-        </section>
+        {activeModule !== 'categories' && (
+          <>
+            <section className="g4" style={{ gap: 12 }}>
+              <Metric label="产品编码" value={String(stats.total)} hint="目录可售单品" />
+              <Metric label="现货产品" value={String(stats.stock)} hint="可直接纳入报价" />
+              <Metric label="新品" value={String(stats.newest)} hint="建议优先推荐" />
+              <Metric label="平均毛利" value={pct(stats.avgMargin)} hint="按指导价估算" />
+            </section>
 
-        <section
-          className="card-elevated"
-          style={{
-            padding: 14,
-            display: 'grid',
-            gap: 12,
-          }}
-        >
+            <WorkbenchFilterToolbar>
           <div
             style={{
               display: 'flex',
@@ -574,7 +778,7 @@ function ProductsContent() {
                 value={keyword}
                 onChange={(event) => setKeyword(event.target.value)}
                 placeholder="搜索型号、品牌、名称或参数"
-                style={{ maxWidth: 420, minWidth: 0 }}
+                style={{ width: '100%', minWidth: 0 }}
               />
             </div>
             <span
@@ -582,7 +786,7 @@ function ProductsContent() {
               title={error ? String(error.message || error) : undefined}
               style={{ maxWidth: '100%', overflowWrap: 'anywhere' }}
             >
-              {error ? '产品 API 加载失败' : isLoading ? '同步中' : '已连接产品 API'}
+              {error ? '产品加载失败' : isLoading ? '同步中' : '产品已同步'}
             </span>
           </div>
 
@@ -598,7 +802,7 @@ function ProductsContent() {
               >
                 品牌
               </span>
-              {BRAND_OPTIONS.map((item) => (
+              {brandOptions.map((item) => (
                 <CategoryChip
                   key={item.value}
                   active={brandFilter === item.value}
@@ -662,7 +866,9 @@ function ProductsContent() {
               </CategoryChip>
             ))}
           </div>
-        </section>
+            </WorkbenchFilterToolbar>
+          </>
+        )}
 
         {activeModule === 'catalog' ? (
           <ProductCatalogShell
@@ -671,6 +877,7 @@ function ProductsContent() {
             isLoading={isLoading}
             error={error}
             canWrite={canWrite}
+            brandOptions={createBrandOptions}
             actionNotice={actionNotice}
             onNotice={setActionNotice}
             onCreated={(brand) => {
@@ -690,6 +897,8 @@ function ProductsContent() {
           />
         ) : activeModule === 'materials' ? (
           <ProductMaterialsView products={productList} />
+        ) : activeModule === 'categories' ? (
+          <ProductCategoryManagerCrudView canWrite={canWrite} />
         ) : (
           <ProductBaseView products={productList} productByModel={productByModel} />
         )}
@@ -768,12 +977,37 @@ function Metric({ label, value, hint }: { label: string; value: string; hint: st
   );
 }
 
+function CategoryCountPill({ label, value, tone = 'neutral' }: { label: string; value: number; tone?: 'neutral' | 'success' }) {
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        minHeight: 30,
+        padding: '5px 10px',
+        borderRadius: 999,
+        border: tone === 'success' ? '1px solid rgba(76, 175, 80, 0.28)' : '1px solid var(--border)',
+        background: tone === 'success' ? 'rgba(76, 175, 80, 0.08)' : 'var(--surface-2)',
+        color: tone === 'success' ? 'var(--success)' : 'var(--t-secondary)',
+        fontSize: 12,
+        fontWeight: 700,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {label}
+      <strong style={{ color: 'var(--t-primary)', fontSize: 14 }}>{value}</strong>
+    </span>
+  );
+}
+
 function ProductCatalogShell({
   products: items,
   total,
   isLoading,
   error,
   canWrite,
+  brandOptions,
   actionNotice,
   onNotice,
   onCreated,
@@ -785,6 +1019,7 @@ function ProductCatalogShell({
   isLoading: boolean;
   error: unknown;
   canWrite: boolean;
+  brandOptions: Array<{ value: ProductBrand; label: string }>;
   actionNotice: string;
   onNotice: (text: string) => void;
   onCreated: (brand: ProductBrand) => Promise<unknown>;
@@ -830,12 +1065,12 @@ function ProductCatalogShell({
         }}
       >
         <div style={{ flex: '1 1 260px', minWidth: 0 }}>
-          <p className="t-label">产品目录 CRUD 工作台</p>
+          <p className="t-label">产品目录管理</p>
           <h2 className="t-headline" style={{ marginTop: 4 }}>
             真实产品主数据
           </h2>
           <p style={{ marginTop: 6, color: 'var(--t-secondary)', fontSize: 13, overflowWrap: 'anywhere' }}>
-            当前列表来自 /api/v2/product-catalog/devices，编辑、状态切换与归档会写回同一份产品主数据。
+            编辑、状态切换与归档会同步到同一份产品主数据。
           </p>
         </div>
         {canWrite ? (
@@ -859,9 +1094,10 @@ function ProductCatalogShell({
       </div>
 
       {canWrite && showCreate && (
-        <CreateProductForm
-          draft={createDraft}
-          error={createError}
+          <CreateProductForm
+            draft={createDraft}
+            brandOptions={brandOptions}
+            error={createError}
           submitting={creating}
           onChange={setCreateDraft}
           onCancel={() => {
@@ -899,7 +1135,8 @@ function ProductCatalogShell({
 
       {error ? (
         <EmptyCatalogState
-          title="产品 API 暂不可用"
+          type="error"
+          title="产品暂不可用"
           description={String((error as Error)?.message || error)}
           onReset={onReset}
         />
@@ -910,7 +1147,31 @@ function ProductCatalogShell({
           onReset={onReset}
         />
       ) : (
-        <div style={{ display: 'grid', minWidth: 0 }}>
+        <div style={{ display: 'grid', minWidth: 0, overflowX: 'auto' }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: PRODUCT_CATALOG_TABLE_GRID,
+              gap: 12,
+              alignItems: 'center',
+              minWidth: 1220,
+              padding: '10px 18px',
+              borderBottom: '1px solid var(--border)',
+              background: 'var(--surface-2)',
+              color: 'var(--t-tertiary)',
+              fontSize: 12,
+              fontWeight: 800,
+            }}
+          >
+            <span>产品</span>
+            <span>分类</span>
+            <span>系统</span>
+            <span>官网路径</span>
+            <span>官网分类</span>
+            <span>主数据分类</span>
+            <span>状态</span>
+            <span style={{ textAlign: 'right' }}>操作</span>
+          </div>
           {items.map((product) => (
             <ProductCatalogRow
               key={product.id}
@@ -928,6 +1189,7 @@ function ProductCatalogShell({
 
 function CreateProductForm({
   draft,
+  brandOptions,
   error,
   submitting,
   onChange,
@@ -935,6 +1197,7 @@ function CreateProductForm({
   onSubmit,
 }: {
   draft: CreateProductDraft;
+  brandOptions: Array<{ value: ProductBrand; label: string }>;
   error: string;
   submitting: boolean;
   onChange: (draft: CreateProductDraft) => void;
@@ -965,7 +1228,7 @@ function CreateProductForm({
             onChange={(event) => patch({ brand: event.target.value as ProductBrand })}
           >
             <option value="">选择品牌</option>
-            {CREATE_BRAND_OPTIONS.map((brand) => (
+            {brandOptions.map((brand) => (
               <option key={brand.value} value={brand.value}>
                 {brand.label}
               </option>
@@ -1063,11 +1326,44 @@ function ProductCatalogRow({
     success: '',
     error: '',
   });
+  const brandCode = normalizeBrand(product.brand);
+  const { data: categoryData, error: categoryError, isLoading: categoryLoading } = useSWR(
+    editing && brandCode ? ['/api/v2/brand-product-categories', brandCode, 'product-edit'] : null,
+    async () => {
+      const result = await brandProductCategories.list({ brandCode });
+      return { tree: normalizeProductCategoryTree(result) };
+    },
+    { revalidateOnFocus: false },
+  );
+  const productCategoryTree = categoryData?.tree || [];
+  const productCategoryFlat = useMemo(() => flattenCategoryTree(productCategoryTree), [productCategoryTree]);
+  const selectedLevel1 = productCategoryFlat.find((item) => item.id === draft.categoryLevel1Id) || null;
+  const selectedLevel2 = productCategoryFlat.find((item) => item.id === draft.categoryLevel2Id) || null;
+  const selectedLevel3 = productCategoryFlat.find((item) => item.id === draft.categoryLevel3Id) || null;
+  const level2Children = selectedLevel1?.children || [];
+  const level3Children = selectedLevel2?.children || [];
+  const level1Options = activeCategoryOptions(productCategoryTree, selectedLevel1);
+  const level2Options = activeCategoryOptions(level2Children, selectedLevel2);
+  const level3Options = activeCategoryOptions(level3Children, selectedLevel3);
+  const inactiveCategoryBindings = [selectedLevel1, selectedLevel2, selectedLevel3].filter(
+    (item): item is ProductCategoryNode => Boolean(item && item.status === 'inactive'),
+  );
 
   useEffect(() => {
     setDraft(editDraftFromProduct(product));
     setRowState({ dirty: false, saving: false, success: '', error: '' });
-  }, [product.id, product.name, product.model, product.category, product.system, product.status, product.raw?.meta]);
+  }, [
+    product.id,
+    product.name,
+    product.model,
+    product.category,
+    product.system,
+    product.status,
+    product.raw?.categoryLevel1Id,
+    product.raw?.categoryLevel2Id,
+    product.raw?.categoryLevel3Id,
+    product.raw?.meta,
+  ]);
 
   function patchDraft(next: Partial<EditProductDraft>) {
     const updated = { ...draft, ...next };
@@ -1131,27 +1427,28 @@ function ProductCatalogRow({
   const websiteCategory = text(brandMeta.websiteCategory || brandMeta.websiteMenuCategory || brandMeta.cat);
 
   return (
-    <div style={{ borderBottom: '1px solid var(--border)', minWidth: 0 }}>
+    <div style={{ borderBottom: '1px solid var(--border)', minWidth: 1220 }}>
       <article
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 160px), 1fr))',
+          gridTemplateColumns: PRODUCT_CATALOG_TABLE_GRID,
           gap: 12,
-          alignItems: 'center',
-          padding: '14px 18px',
-          minWidth: 0,
+          alignItems: 'stretch',
+          padding: '12px 18px',
+          minWidth: 1220,
           maxWidth: '100%',
+          background: editing ? 'rgba(228, 0, 43, 0.025)' : 'var(--surface-1)',
         }}
       >
-        <div style={{ minWidth: 0 }}>
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ minWidth: 0, display: 'grid', alignContent: 'start', gap: 7 }}>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', minWidth: 0 }}>
             <span
               className="pill-neutral"
-              style={{ maxWidth: '100%', overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+              style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
             >
               {product.sku || '未生成编码'}
             </span>
-            <span className="pill-brand" style={{ maxWidth: '100%', overflowWrap: 'anywhere' }}>
+            <span className="pill-brand" style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {displayBrand(product.brand)}
             </span>
             {rowState.dirty && <span className="badge badge-warning">有未保存修改</span>}
@@ -1159,37 +1456,46 @@ function ProductCatalogRow({
           </div>
           <h3
             style={{
-              marginTop: 8,
+              margin: 0,
               color: 'var(--t-primary)',
               fontSize: 15,
-              lineHeight: 1.35,
-              fontWeight: 700,
-              overflowWrap: 'anywhere',
+              lineHeight: 1.32,
+              fontWeight: 800,
+              overflow: 'hidden',
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
             }}
+            title={product.name}
           >
             {product.name}
           </h3>
-          <p style={{ marginTop: 4, color: 'var(--t-tertiary)', fontSize: 12, overflowWrap: 'anywhere' }}>
+          <p style={{ margin: 0, color: 'var(--t-tertiary)', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             型号 {product.model || '待补齐'}
           </p>
         </div>
 
-        <MetaBlock label="分类" value={product.category || '未分类'} />
-        <MetaBlock label="系统" value={product.system || '待补齐'} />
-        <MetaBlock label="官网公开路径" value={text(brandMeta.slug) || product.sku || '待补齐'} />
-        <MetaBlock label="官网分类" value={websiteCategory || product.category || '待补齐'} />
-        <span
-          className={`badge ${statusClassName(product.status)}`}
-          style={{ justifySelf: 'start', maxWidth: '100%', overflowWrap: 'anywhere' }}
-        >
-          {statusLabel(product.status)}
-        </span>
+        <MetaBlock label="分类" value={product.category || '未分类'} compact />
+        <MetaBlock label="系统" value={product.system || '待补齐'} compact />
+        <MetaBlock label="官网路径" value={text(brandMeta.slug) || product.sku || '待补齐'} compact />
+        <MetaBlock label="官网分类" value={websiteCategory || product.category || '待补齐'} compact />
+        <MetaBlock
+          label="主数据分类"
+          value={[product.materialCategory, product.productLine, product.categoryPath].filter(Boolean).join(' / ') || '-'}
+          compact
+        />
+        <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
+          <StatusPill tone={statusTone(product.status)}>
+            {statusLabel(product.status)}
+          </StatusPill>
+        </div>
         {canWrite ? (
           <div
             style={{
               display: 'flex',
               justifyContent: 'flex-end',
-              gap: 8,
+              alignItems: 'center',
+              gap: 6,
               flexWrap: 'wrap',
               minWidth: 0,
               maxWidth: '100%',
@@ -1200,7 +1506,7 @@ function ProductCatalogRow({
               className="btn btn-outline btn-sm"
               onClick={() => setEditing((value) => !value)}
               disabled={rowState.saving}
-              style={{ flex: '0 1 auto' }}
+              style={{ flex: '0 0 auto' }}
             >
               <Edit3 size={14} />
               {editing ? '收起' : '编辑'}
@@ -1211,7 +1517,7 @@ function ProductCatalogRow({
                 className="btn btn-outline btn-sm"
                 onClick={() => changeStatus(statusTarget)}
                 disabled={rowState.saving}
-                style={{ flex: '0 1 auto' }}
+                style={{ flex: '0 0 auto' }}
               >
                 {statusTarget === 'active' ? '启用' : '停用'}
               </button>
@@ -1221,7 +1527,7 @@ function ProductCatalogRow({
               className="btn btn-ghost btn-sm"
               onClick={archiveProduct}
               disabled={rowState.saving || product.status === 'archived'}
-              style={{ flex: '0 1 auto' }}
+              style={{ flex: '0 0 auto' }}
             >
               <Archive size={14} />
               归档
@@ -1315,9 +1621,100 @@ function ProductCatalogRow({
           </div>
           <div style={{ display: 'grid', gap: 10, paddingTop: 4 }}>
             <div>
+              <p className="t-label">品牌产品分类绑定</p>
+              <p style={{ marginTop: 4, color: 'var(--t-tertiary)', fontSize: 12, overflowWrap: 'anywhere' }}>
+                从 {displayBrand(product.brand)} 的产品分类树选择官网分类路径；旧分类和系统字段继续保留用于兼容。
+              </p>
+            </div>
+            {categoryLoading ? (
+              <div className="inset" style={{ padding: 12, color: 'var(--t-secondary)', fontSize: 13 }}>
+                正在加载产品分类...
+              </div>
+            ) : categoryError ? (
+              <div className="inset" role="alert" style={{ padding: 12, color: 'var(--danger)', fontSize: 13 }}>
+                产品分类加载失败：{String((categoryError as Error)?.message || categoryError)}
+              </div>
+            ) : !productCategoryTree.length ? (
+              <div className="inset" style={{ padding: 12, color: 'var(--t-secondary)', fontSize: 13 }}>
+                当前品牌暂无可绑定的产品分类。请先在“产品分类”中维护分类树。
+              </div>
+            ) : (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: 12 }}>
+                  <label style={{ display: 'grid', gap: 6 }}>
+                    <span className="t-label">一级分类</span>
+                    <select
+                      className="input"
+                      value={draft.categoryLevel1Id}
+                      required
+                      onChange={(event) =>
+                        patchDraft({
+                          categoryLevel1Id: event.target.value,
+                          categoryLevel2Id: '',
+                          categoryLevel3Id: '',
+                        })
+                      }
+                    >
+                      <option value="">请选择一级分类</option>
+                      {level1Options.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {categoryOptionLabel(item)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label style={{ display: 'grid', gap: 6 }}>
+                    <span className="t-label">二级分类</span>
+                    <select
+                      className="input"
+                      value={draft.categoryLevel2Id}
+                      required
+                      disabled={!draft.categoryLevel1Id}
+                      onChange={(event) =>
+                        patchDraft({
+                          categoryLevel2Id: event.target.value,
+                          categoryLevel3Id: '',
+                        })
+                      }
+                    >
+                      <option value="">请选择二级分类</option>
+                      {level2Options.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {categoryOptionLabel(item)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label style={{ display: 'grid', gap: 6 }}>
+                    <span className="t-label">三级分类（可选）</span>
+                    <select
+                      className="input"
+                      value={draft.categoryLevel3Id}
+                      disabled={!draft.categoryLevel2Id}
+                      onChange={(event) => patchDraft({ categoryLevel3Id: event.target.value })}
+                    >
+                      <option value="">不选择三级分类</option>
+                      {level3Options.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {categoryOptionLabel(item)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                {inactiveCategoryBindings.length ? (
+                  <div className="badge badge-warning" role="status" style={{ justifySelf: 'start', whiteSpace: 'normal' }}>
+                    已停用：{inactiveCategoryBindings.map((item) => item.name || item.code).join(' / ')}
+                  </div>
+                ) : null}
+              </>
+            )}
+          </div>
+          <div style={{ display: 'grid', gap: 10, paddingTop: 4 }}>
+            <div>
               <p className="t-label">品牌官网元数据</p>
               <p style={{ marginTop: 4, color: 'var(--t-tertiary)', fontSize: 12 }}>
-                写入 {displayBrand(product.brand)} 的产品官网基础字段；官网货架覆盖项仍在货架页面维护。
+                写入 {displayBrand(product.brand)} 的产品官网基础字段；官网上架和覆盖项在品牌官网控制台维护。
               </p>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: 12 }}>
@@ -1412,11 +1809,25 @@ function ProductCatalogRow({
   );
 }
 
-function MetaBlock({ label, value }: { label: string; value: string }) {
+function MetaBlock({ label, value, compact = false }: { label: string; value: string; compact?: boolean }) {
   return (
-    <div style={{ minWidth: 0 }}>
-      <p className="t-label">{label}</p>
-      <p style={{ marginTop: 4, color: 'var(--t-primary)', fontSize: 13, overflowWrap: 'anywhere' }}>
+    <div style={{ minWidth: 0, display: 'grid', alignContent: 'center', gap: compact ? 3 : 4 }}>
+      <p className="t-label" style={compact ? { fontSize: 11 } : undefined}>
+        {label}
+      </p>
+      <p
+        style={{
+          margin: 0,
+          color: 'var(--t-primary)',
+          fontSize: compact ? 12 : 13,
+          lineHeight: 1.35,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: compact ? 'nowrap' : 'normal',
+          overflowWrap: compact ? undefined : 'anywhere',
+        }}
+        title={value}
+      >
         {value}
       </p>
     </div>
@@ -1424,25 +1835,29 @@ function MetaBlock({ label, value }: { label: string; value: string }) {
 }
 
 function EmptyCatalogState({
+  type = 'empty',
   title,
   description,
   onReset,
 }: {
+  type?: 'empty' | 'error';
   title: string;
   description: string;
   onReset: () => void;
 }) {
   return (
-    <div style={{ padding: '44px 20px', textAlign: 'center', color: 'var(--t-secondary)' }}>
-      <p style={{ fontSize: 14, fontWeight: 700 }}>{title}</p>
-      <p style={{ marginTop: 6, fontSize: 13 }}>{description}</p>
-      <button type="button" className="btn btn-outline btn-sm" style={{ marginTop: 12 }} onClick={onReset}>
-        清空筛选
-      </button>
-    </div>
+    <WorkbenchTableState
+      type={type}
+      title={title}
+      description={description}
+      action={
+        <button type="button" className="btn btn-outline btn-sm" onClick={onReset}>
+          清空筛选
+        </button>
+      }
+    />
   );
 }
-
 function ProductGrid({
   products: items,
   onReset,
@@ -1616,8 +2031,8 @@ function ProductMaterialsView({ products: items }: { products: NormalizedProduct
         <Metric label="定位资料" value={`${withPositioning}/${items.length}`} hint="人群/场景/卖点" />
         <Metric label="待补资料" value={String(Math.max(0, items.length - withMainImage))} hint="优先补主图与摘要" />
       </div>
-      <div style={{ overflowX: 'auto' }}>
-        <table className="table" style={{ minWidth: 860 }}>
+      <WorkbenchTableShell>
+        <table className="table">
           <thead>
             <tr>
               <th>产品编码</th>
@@ -1644,9 +2059,1117 @@ function ProductMaterialsView({ products: items }: { products: NormalizedProduct
             ))}
           </tbody>
         </table>
-      </div>
+      </WorkbenchTableShell>
     </section>
   );
+}
+
+function ProductCategoryManagerView() {
+  const [brandCode, setBrandCode] = useState<ProductBrand>('rheem');
+  const { data, error, isLoading } = useSWR(
+    ['/api/v2/brand-product-categories', brandCode],
+    async () => {
+      try {
+        const result = await brandProductCategories.list({ brandCode });
+        return { tree: normalizeProductCategoryTree(result), apiUnavailable: false };
+      } catch (e) {
+        const status = Number((e as Error & { status?: number })?.status || 0);
+        if (status === 404 || status === 405 || status === 501) {
+          return { tree: [], apiUnavailable: true };
+        }
+        throw e;
+      }
+    },
+    { revalidateOnFocus: false }
+  );
+  const tree = data?.tree || [];
+  const flat = useMemo(() => flattenCategoryTree(tree), [tree]);
+  const activeCount = flat.filter((item) => item.status !== 'inactive').length;
+  const levelCounts = [1, 2, 3].map((level) => flat.filter((item) => item.level === level).length);
+
+  return (
+    <div style={{ display: 'grid', gap: 16 }}>
+      <section className="card-elevated" style={{ padding: 18 }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            gap: 16,
+            flexWrap: 'wrap',
+          }}
+        >
+          <div style={{ flex: '1 1 320px', minWidth: 0 }}>
+            <p className="t-label">Product Category Manager</p>
+            <h2 className="t-headline" style={{ marginTop: 4 }}>
+              产品分类
+            </h2>
+            <p style={{ marginTop: 6, color: 'var(--t-secondary)', fontSize: 13, overflowWrap: 'anywhere' }}>
+              按品牌查看独立分类树。本页仅提供管理入口和树形展示，新增、编辑、停用、删除会在后续 CRUD issue 中接入。
+            </p>
+          </div>
+          <span
+            className={
+              error
+                ? 'badge badge-warning'
+                : data?.apiUnavailable
+                  ? 'badge badge-grey'
+                  : isLoading
+                    ? 'badge badge-grey'
+                    : 'badge badge-success'
+            }
+            title={error ? String((error as Error)?.message || error) : undefined}
+            style={{ maxWidth: '100%', overflowWrap: 'anywhere' }}
+          >
+            {error
+              ? '分类加载失败'
+              : data?.apiUnavailable
+                ? '分类 API 未接入'
+                : isLoading
+                  ? '分类加载中'
+                  : '分类已同步'}
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 16 }}>
+          <span style={{ color: 'var(--t-secondary)', fontSize: 12, fontWeight: 600, marginRight: 2 }}>
+            品牌
+          </span>
+          {DEFAULT_CREATE_BRAND_OPTIONS.map((item) => (
+            <CategoryChip
+              key={item.value}
+              active={brandCode === item.value}
+              onClick={() => setBrandCode(item.value)}
+            >
+              {item.label}
+            </CategoryChip>
+          ))}
+        </div>
+      </section>
+
+      <section className="g4" style={{ gap: 12 }}>
+        <Metric label="一级分类" value={String(levelCounts[0])} hint="品牌顶层菜单" />
+        <Metric label="二级分类" value={String(levelCounts[1])} hint="系统或菜单分组" />
+        <Metric label="三级分类" value={String(levelCounts[2])} hint="可选细分层级" />
+        <Metric label="启用分类" value={String(activeCount)} hint="当前可用于后续绑定" />
+      </section>
+
+      <section className="card-elevated" style={{ overflow: 'hidden' }}>
+        <div style={{ padding: 18, borderBottom: '1px solid var(--border)' }}>
+          <p className="t-label">{displayBrand(brandCode)}</p>
+          <h3 className="t-headline" style={{ marginTop: 4 }}>
+            分类树
+          </h3>
+        </div>
+        {isLoading ? (
+          <WorkbenchTableState
+            type="loading"
+            title="正在加载分类树"
+            description="正在读取当前品牌的一、二、三级产品分类。"
+          />
+        ) : error ? (
+          <WorkbenchTableState
+            type="error"
+            title="分类树暂时不可用"
+            description={String((error as Error)?.message || error)}
+          />
+        ) : data?.apiUnavailable ? (
+          <WorkbenchTableState
+            type="empty"
+            title="分类 API 尚未接入"
+            description="已预留产品分类页面、品牌切换和三级树区域；接口可用后会读取真实分类数据。"
+          />
+        ) : tree.length ? (
+          <CategoryTreeSurface tree={tree} />
+        ) : (
+          <WorkbenchTableState
+            type="empty"
+            title="当前品牌暂无分类"
+            description="分类树为空，后续可在 CRUD 能力接入后创建一级、二级和三级分类。"
+          />
+        )}
+      </section>
+    </div>
+  );
+}
+
+function flattenCategoryTree(tree: ProductCategoryNode[]): ProductCategoryNode[] {
+  return tree.flatMap((item) => [item, ...flattenCategoryTree(item.children)]);
+}
+
+function activeCategoryOptions(items: ProductCategoryNode[], selected?: ProductCategoryNode | null): ProductCategoryNode[] {
+  const options = items.filter((item) => item.status !== 'inactive');
+  if (selected && !options.some((item) => item.id === selected.id)) return [...options, selected];
+  return options;
+}
+
+function categoryOptionLabel(item: ProductCategoryNode): string {
+  return `${item.name || item.code}${item.status === 'inactive' ? '（已停用）' : ''}`;
+}
+
+function CategoryTreeSurface({ tree }: { tree: ProductCategoryNode[] }) {
+  return (
+    <div style={{ display: 'grid', gap: 10, padding: 16 }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(180px, 1.1fr) minmax(160px, 1fr) minmax(160px, 1fr)',
+          gap: 10,
+          color: 'var(--t-tertiary)',
+          fontSize: 12,
+          fontWeight: 700,
+        }}
+      >
+        <span>Level 1 · 一级</span>
+        <span>Level 2 · 二级</span>
+        <span>Level 3 · 三级</span>
+      </div>
+      {tree.map((node) => (
+        <CategoryTreeRow key={node.id} node={node} />
+      ))}
+    </div>
+  );
+}
+
+function CategoryTreeRow({ node }: { node: ProductCategoryNode }) {
+  const secondLevel = node.children.length ? node.children : [];
+  return (
+    <div
+      className="inset"
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'minmax(180px, 1.1fr) minmax(160px, 1fr) minmax(160px, 1fr)',
+        gap: 10,
+        alignItems: 'stretch',
+      }}
+    >
+      <CategoryNodeCard node={node} />
+      <div style={{ display: 'grid', gap: 8 }}>
+        {secondLevel.length ? (
+          secondLevel.map((child) => <CategoryNodeCard key={child.id} node={child} />)
+        ) : (
+          <CategoryLevelPlaceholder label="未设置二级分类" />
+        )}
+      </div>
+      <div style={{ display: 'grid', gap: 8 }}>
+        {secondLevel.some((child) => child.children.length) ? (
+          secondLevel.flatMap((child) =>
+            child.children.map((grandchild) => (
+              <CategoryNodeCard key={grandchild.id} node={grandchild} parentName={child.name} />
+            ))
+          )
+        ) : (
+          <CategoryLevelPlaceholder label="未设置三级分类" />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CategoryNodeCard({ node, parentName }: { node: ProductCategoryNode; parentName?: string }) {
+  return (
+    <div
+      style={{
+        minWidth: 0,
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--r-lg)',
+        background: '#FFFFFF',
+        padding: '10px 12px',
+        boxShadow: 'var(--sh-xs)',
+      }}
+    >
+      {parentName ? (
+        <p style={{ color: 'var(--t-tertiary)', fontSize: 11, overflowWrap: 'anywhere' }}>{parentName}</p>
+      ) : null}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+        <strong style={{ minWidth: 0, overflowWrap: 'anywhere', fontSize: 13 }}>{node.name || node.code}</strong>
+        <StatusPill tone={node.status === 'inactive' ? 'warning' : 'success'}>
+          {node.status === 'inactive' ? '停用' : '启用'}
+        </StatusPill>
+      </div>
+      <p style={{ marginTop: 5, color: 'var(--t-tertiary)', fontSize: 11, overflowWrap: 'anywhere' }}>
+        {node.code || '未设置编码'} · 排序 {node.sortOrder}
+      </p>
+    </div>
+  );
+}
+
+function CategoryLevelPlaceholder({ label }: { label: string }) {
+  return (
+    <div
+      style={{
+        minHeight: 60,
+        border: '1px dashed var(--border-2)',
+        borderRadius: 'var(--r-lg)',
+        color: 'var(--t-tertiary)',
+        background: 'var(--surface-2)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 10,
+        fontSize: 12,
+        textAlign: 'center',
+      }}
+    >
+      {label}
+    </div>
+  );
+}
+
+function ProductCategoryManagerCrudView({ canWrite }: { canWrite: boolean }) {
+  const [brandCode, setBrandCode] = useState<ProductBrand>('rheem');
+  const [selectedId, setSelectedId] = useState('');
+  const [mode, setMode] = useState<'edit' | 'create'>('edit');
+  const [createParentId, setCreateParentId] = useState<string | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [draft, setDraft] = useState<ProductCategoryDraft>(emptyCategoryDraft());
+  const [usage, setUsage] = useState<ProductCategoryUsage | null>(null);
+  const [notice, setNotice] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
+  const [childrenByParent, setChildrenByParent] = useState<Record<string, ProductCategoryNode[]>>({});
+  const [loadingChildren, setLoadingChildren] = useState<Record<string, boolean>>({});
+  const { data, error, isLoading, mutate } = useSWR(
+    ['/api/v2/brand-product-categories', brandCode, 'root', 'crud'],
+    async () => {
+      const result = await brandProductCategories.list({ brandCode, parentId: 'root', metrics: 'false' });
+      return { tree: normalizeProductCategoryTree(result) };
+    },
+    { revalidateOnFocus: false },
+  );
+  const tree = data?.tree || [];
+  const flat = useMemo(
+    () => flattenLazyCategoryRows(tree, expandedIds, childrenByParent),
+    [childrenByParent, expandedIds, tree],
+  );
+  const selected = flat.find((item) => item.id === selectedId) || null;
+  const createParent = createParentId ? flat.find((item) => item.id === createParentId) || null : null;
+  const createLevel = createParent ? createParent.level + 1 : 1;
+  const activeCount = flat.filter((item) => item.status !== 'inactive').length;
+  const loadedCount = flat.length;
+
+  useEffect(() => {
+    setSelectedId('');
+    setMode('edit');
+    setCreateParentId(null);
+    setEditorOpen(false);
+    setDraft(emptyCategoryDraft());
+    setUsage(null);
+    setNotice('');
+    setActionError('');
+    setExpandedIds(new Set());
+    setChildrenByParent({});
+    setLoadingChildren({});
+  }, [brandCode]);
+
+  useEffect(() => {
+    if (mode === 'edit' && selected) setDraft(categoryDraftFromNode(selected));
+  }, [mode, selected?.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setUsage(null);
+    if (!editorOpen || !selected || mode !== 'edit') return () => { cancelled = true; };
+    brandProductCategories.usage(selected.id)
+      .then((result) => {
+        if (!cancelled) setUsage({
+          boundProductCount: Number(result?.boundProductCount || 0),
+          childCategoryCount: Number(result?.childCategoryCount || 0),
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setUsage(null);
+      });
+    return () => { cancelled = true; };
+  }, [editorOpen, mode, selected?.id]);
+
+  function selectCategory(node: ProductCategoryNode) {
+    setSelectedId(node.id);
+    setMode('edit');
+    setCreateParentId(null);
+    setEditorOpen(true);
+    setDraft(categoryDraftFromNode(node));
+    setNotice('');
+    setActionError('');
+  }
+
+  async function loadChildren(parent: ProductCategoryNode, force = false) {
+    if (!force && childrenByParent[parent.id]) return;
+    setLoadingChildren((current) => ({ ...current, [parent.id]: true }));
+    try {
+      const result = await brandProductCategories.list({ brandCode, parentId: parent.id, metrics: 'false' });
+      const rows = normalizeProductCategoryTree(result);
+      setChildrenByParent((current) => ({ ...current, [parent.id]: rows }));
+    } catch (e) {
+      setActionError(errorMessage(e));
+    } finally {
+      setLoadingChildren((current) => ({ ...current, [parent.id]: false }));
+    }
+  }
+
+  async function refreshVisibleCategoryRows(target: ProductCategoryNode | null) {
+    await mutate();
+    if (!target?.parentId) return;
+    const parent = flat.find((item) => item.id === target.parentId);
+    if (parent) await loadChildren(parent, true);
+  }
+
+  async function toggleExpand(node: ProductCategoryNode) {
+    if (!node.hasChildren && !node.childCategoryCount) return;
+    const next = new Set(expandedIds);
+    if (next.has(node.id)) {
+      next.delete(node.id);
+      setExpandedIds(next);
+      return;
+    }
+    next.add(node.id);
+    setExpandedIds(next);
+    await loadChildren(node);
+  }
+
+  function startCreate(parent: ProductCategoryNode | null) {
+    if (false) {
+      setActionError('产品目录最多支持三级，不能新增四级分类。');
+      return;
+    }
+    setMode('create');
+    setCreateParentId(parent?.id || null);
+    setEditorOpen(true);
+    setDraft(emptyCategoryDraft(
+      nextCategorySortOrder(parent),
+      internalCategoryCode(parent?.code || 'cat'),
+    ));
+    setNotice('');
+    setActionError('');
+  }
+
+  function nextCategorySortOrder(parent: ProductCategoryNode | null): number {
+    if (!parent) return tree.length;
+    return childrenByParent[parent.id]?.length ?? parent.childCategoryCount ?? 0;
+  }
+
+  async function saveCategory(event: FormEvent) {
+    event.preventDefault();
+    setSaving(true);
+    setNotice('');
+    setActionError('');
+    try {
+      const payload = categoryDraftPayload(draft);
+      if (mode === 'create') {
+        const saved = await brandProductCategories.create({
+          ...payload,
+          brandCode,
+          parentId: createParentId,
+        });
+        setSelectedId(text(saved?.id));
+        setMode('edit');
+        setCreateParentId(null);
+        setEditorOpen(false);
+        if (createParentId && createParent) {
+          setExpandedIds((current) => new Set([...current, createParentId]));
+          await loadChildren(createParent, true);
+        }
+        setNotice('分类已创建。');
+      } else if (selected) {
+        const saved = await brandProductCategories.update(selected.id, payload);
+        setSelectedId(text(saved?.id || selected.id));
+        setEditorOpen(false);
+        setNotice('分类已保存。');
+      }
+      await refreshVisibleCategoryRows(mode === 'edit' ? selected : null);
+    } catch (e) {
+      const message = errorMessage(e);
+      setActionError(message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function toggleCategoryStatus() {
+    if (!selected) return;
+    const nextStatus = selected.status === 'inactive' ? 'active' : 'inactive';
+    setSaving(true);
+    setNotice('');
+    setActionError('');
+    try {
+      let boundProductCount = usage?.boundProductCount;
+      if (nextStatus === 'inactive') {
+        if (boundProductCount === undefined) {
+          const guard = await brandProductCategories.usage(selected.id);
+          boundProductCount = Number(guard?.boundProductCount || 0);
+          setUsage({ boundProductCount, childCategoryCount: usage?.childCategoryCount });
+        }
+        if (boundProductCount > 0 && !window.confirm(`当前分类已绑定 ${boundProductCount} 个产品。停用后这些产品仍会保留绑定，但该分类不会作为启用目录使用。确认停用吗？`)) {
+          return;
+        }
+      }
+      await brandProductCategories.update(selected.id, { status: nextStatus });
+      setNotice(nextStatus === 'inactive' ? '分类已停用。' : '分类已启用。');
+      await refreshVisibleCategoryRows(selected);
+    } catch (e) {
+      setActionError(errorMessage(e));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteCategory(target: ProductCategoryNode | null = selected) {
+    if (!target) return;
+    setSaving(true);
+    setNotice('');
+    setActionError('');
+    try {
+      const childCategoryCount = target.children.length || Number(usage?.childCategoryCount || target.childCategoryCount || 0);
+      if (childCategoryCount > 0) {
+        const message = `不能删除：当前分类下面还有 ${childCategoryCount} 个下级分类。请先删除下级分类。`;
+        setActionError(message);
+        return;
+      }
+      const guard = await brandProductCategories.usage(target.id);
+      const boundProductCount = Number(guard?.boundProductCount || guard?.directProductCount || 0);
+      const latestChildCategoryCount = Number(guard?.childCategoryCount || 0);
+      const descendantProductCount = Number(guard?.descendantProductCount || guard?.descendantBoundProductCount || 0);
+      setUsage({ boundProductCount, childCategoryCount: latestChildCategoryCount });
+      if (latestChildCategoryCount > 0) {
+        const message = `不能删除：当前分类下面还有 ${latestChildCategoryCount} 个下级分类。请先删除下级分类。`;
+        setActionError(message);
+        return;
+      }
+      if (boundProductCount > 0 || descendantProductCount > 0) {
+        const message = `不能删除：当前分类已绑定 ${boundProductCount} 个产品。请先迁移或清空产品分类。`;
+        setActionError(message);
+        return;
+      }
+      if (!window.confirm(`确认删除分类“${target.name || target.code}”？`)) return;
+      await brandProductCategories.remove(target.id);
+      setSelectedId('');
+      setMode('edit');
+      setEditorOpen(false);
+      setNotice('分类已删除。');
+      await mutate();
+      if (target.parentId) {
+        setChildrenByParent((current) => {
+          const next = { ...current };
+          next[target.parentId!] = (next[target.parentId!] || []).filter((item) => item.id !== target.id);
+          return next;
+        });
+      }
+    } catch (e) {
+      setActionError(errorMessage(e));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div style={{ display: 'grid', gap: 16 }}>
+      <section className="card-elevated" style={{ padding: 18, borderRadius: 'var(--r-lg)' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 320px', minWidth: 0 }}>
+            <p className="t-label">产品分类管理</p>
+            <h2 className="t-headline" style={{ marginTop: 4 }}>品牌产品目录分类</h2>
+            <p style={{ marginTop: 6, color: 'var(--t-secondary)', fontSize: 13, overflowWrap: 'anywhere' }}>
+              按品牌维护官网产品目录层级。一级、二级、三级都可配置，产品后续按这套目录归类展示。
+            </p>
+          </div>
+          <span className={error ? 'badge badge-warning' : isLoading ? 'badge badge-grey' : 'badge badge-success'}>
+            {error ? '加载失败' : isLoading ? '同步中' : '已同步'}
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 16 }}>
+          <span style={{ color: 'var(--t-secondary)', fontSize: 12, fontWeight: 600, marginRight: 2 }}>品牌</span>
+          {DEFAULT_CREATE_BRAND_OPTIONS.map((item) => (
+            <CategoryChip key={item.value} active={brandCode === item.value} onClick={() => setBrandCode(item.value)}>
+              {item.label}
+            </CategoryChip>
+          ))}
+        </div>
+      </section>
+
+      <section
+        className="card-elevated"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+          flexWrap: 'wrap',
+          padding: '12px 16px',
+          borderRadius: 'var(--r-lg)',
+        }}
+      >
+        <div>
+          <p className="t-label">当前目录</p>
+          <strong style={{ display: 'block', marginTop: 3 }}>{displayBrand(brandCode)}</strong>
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <CategoryCountPill label="已加载" value={loadedCount} />
+          <CategoryCountPill label="根节点" value={tree.length} />
+          <CategoryCountPill label="启用" value={activeCount} tone="success" />
+        </div>
+      </section>
+
+      {notice ? <span className="badge badge-success" style={{ justifySelf: 'start' }}>{notice}</span> : null}
+      {actionError ? <span className="badge badge-warning" style={{ justifySelf: 'start', overflowWrap: 'anywhere' }}>{actionError}</span> : null}
+
+      <section style={{ display: 'grid', gap: 16, alignItems: 'start' }}>
+        {editorOpen ? (
+          <div
+            role="presentation"
+            onClick={() => {
+              if (!saving) {
+                setEditorOpen(false);
+                setMode('edit');
+                setCreateParentId(null);
+                setDraft(selected ? categoryDraftFromNode(selected) : emptyCategoryDraft());
+                setActionError('');
+              }
+            }}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 80,
+              display: 'grid',
+              alignItems: 'center',
+              justifyItems: 'center',
+              padding: 24,
+              background: 'rgba(15, 23, 42, 0.28)',
+              overflow: 'auto',
+            }}
+          >
+          <div role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()} style={{ width: 'min(100%, 640px)' }}>
+            <CategoryCrudEditor
+              mode={mode}
+              brandCode={brandCode}
+              selected={selected}
+              createParent={createParent}
+              createLevel={createLevel}
+              draft={draft}
+              usage={usage}
+              actionError={actionError}
+              saving={saving}
+              canWrite={canWrite}
+              onDraft={setDraft}
+              onSave={saveCategory}
+              onToggleStatus={toggleCategoryStatus}
+              onDelete={deleteCategory}
+              onClose={() => {
+                setEditorOpen(false);
+                setMode('edit');
+                setCreateParentId(null);
+                setDraft(selected ? categoryDraftFromNode(selected) : emptyCategoryDraft());
+                setActionError('');
+              }}
+            />
+          </div>
+          </div>
+        ) : null}
+
+        <div className="card-elevated" style={{ overflow: 'hidden', borderRadius: 'var(--r-lg)', width: '100%', justifySelf: 'stretch' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: 18, borderBottom: '1px solid var(--border)' }}>
+            <div>
+              <p className="t-label">{displayBrand(brandCode)}</p>
+              <h3 className="t-headline" style={{ marginTop: 4 }}>产品目录树</h3>
+            </div>
+            <button type="button" className="btn btn-brand btn-sm" onClick={() => startCreate(null)} disabled={!canWrite || saving || isLoading}>
+              <Plus size={14} />
+              新增根分类
+            </button>
+          </div>
+          {isLoading ? (
+            <WorkbenchTableState type="loading" title="正在加载产品目录" description="正在读取当前品牌的一、二、三级分类。" />
+          ) : error ? (
+            <WorkbenchTableState type="error" title="产品目录暂时不可用" description={String((error as Error)?.message || error)} />
+          ) : tree.length ? (
+            <CategoryCrudTreeTable
+              rows={flat}
+              selectedId={selected?.id || ''}
+              expandedIds={expandedIds}
+              loadingChildren={loadingChildren}
+              saving={saving}
+              canWrite={canWrite}
+              onToggleExpand={toggleExpand}
+              onSelect={selectCategory}
+              onAddChild={startCreate}
+              onDelete={deleteCategory}
+            />
+          ) : (
+            <WorkbenchTableState
+              type="empty"
+              title="当前品牌还没有产品目录"
+              description="先创建一级分类，再在一级下维护二级系统，三级分类可按需补充。"
+              action={
+                <button type="button" className="btn btn-brand btn-sm" onClick={() => startCreate(null)} disabled={!canWrite || saving}>
+                  <Plus size={14} />
+                  新增根分类
+                </button>
+              }
+            />
+          )}
+        </div>
+
+      </section>
+    </div>
+  );
+}
+
+function flattenLazyCategoryRows(
+  roots: ProductCategoryNode[],
+  expandedIds: Set<string>,
+  childrenByParent: Record<string, ProductCategoryNode[]>,
+): ProductCategoryNode[] {
+  const out: ProductCategoryNode[] = [];
+  const visit = (items: ProductCategoryNode[]) => {
+    items.forEach((item) => {
+      out.push(item);
+      if (expandedIds.has(item.id)) visit(childrenByParent[item.id] || item.children || []);
+    });
+  };
+  visit(roots);
+  return out;
+}
+
+function CategoryCrudTreeTable({
+  rows,
+  selectedId,
+  expandedIds,
+  loadingChildren,
+  saving,
+  canWrite,
+  onToggleExpand,
+  onSelect,
+  onAddChild,
+  onDelete,
+}: {
+  rows: ProductCategoryNode[];
+  selectedId: string;
+  expandedIds: Set<string>;
+  loadingChildren: Record<string, boolean>;
+  saving: boolean;
+  canWrite: boolean;
+  onToggleExpand: (node: ProductCategoryNode) => void;
+  onSelect: (node: ProductCategoryNode) => void;
+  onAddChild: (node: ProductCategoryNode) => void;
+  onDelete: (node: ProductCategoryNode) => void;
+}) {
+  return (
+    <WorkbenchTableShell>
+      <table className="table" style={{ width: '100%', minWidth: 1360, tableLayout: 'fixed' }}>
+        <colgroup>
+          <col style={{ width: '22%' }} />
+          <col style={{ width: '12%' }} />
+          <col style={{ width: '12%' }} />
+          <col style={{ width: '6%' }} />
+          <col style={{ width: '8%' }} />
+          <col style={{ width: '12%' }} />
+          <col style={{ width: '10%' }} />
+          <col style={{ width: '18%' }} />
+        </colgroup>
+        <thead>
+          <tr>
+            <th>分类名称</th>
+            <th>备注</th>
+            <th>编码</th>
+            <th>排序</th>
+            <th>状态</th>
+            <th>下级目录及其产品</th>
+            <th>直接产品</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((node) => {
+            const expandable = node.hasChildren || node.childCategoryCount > 0;
+            const expanded = expandedIds.has(node.id);
+            return (
+              <tr
+                key={node.id}
+                className={node.level > 1 ? 'category-tree-row category-tree-row--child' : 'category-tree-row'}
+                style={{ background: selectedId === node.id ? 'var(--brand-50)' : undefined }}
+              >
+                <td>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: Math.max(0, node.level - 1) * 18 }}>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => onToggleExpand(node)}
+                      disabled={!expandable || loadingChildren[node.id]}
+                      aria-label={expanded ? '收起分类' : '展开分类'}
+                      title={expandable ? (expanded ? '收起下级目录' : '打开下级目录') : '暂无下级目录，可点击右侧新增'}
+                      style={{
+                        width: 30,
+                        height: 30,
+                        padding: 0,
+                        flex: '0 0 30px',
+                        border: expandable ? '1px solid var(--border)' : '1px solid transparent',
+                        background: expandable ? '#FFFFFF' : 'transparent',
+                        color: expandable ? 'var(--t-primary)' : 'var(--t-tertiary)',
+                        transition: 'background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease',
+                        transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                      }}
+                    >
+                      {loadingChildren[node.id] ? '...' : expandable ? (expanded ? '-' : '+') : '·'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onSelect(node)}
+                      style={{ border: 0, background: 'transparent', padding: 0, textAlign: 'left', color: 'var(--t-primary)', minWidth: 0 }}
+                    >
+                      <strong style={{ display: 'block', overflowWrap: 'anywhere' }}>{node.name || node.code}</strong>
+                      <span style={{ color: 'var(--t-tertiary)', fontSize: 12 }}>Level {node.level}</span>
+                    </button>
+                  </div>
+                </td>
+                <td style={{ color: node.description ? 'var(--t-secondary)' : 'var(--t-tertiary)', overflowWrap: 'anywhere' }}>
+                  {node.description || '暂无备注'}
+                </td>
+                <td style={{ overflowWrap: 'anywhere' }}>{node.code}</td>
+                <td>{node.sortOrder}</td>
+                <td>
+                  <StatusPill tone={node.status === 'inactive' ? 'warning' : 'success'}>
+                    {node.status === 'inactive' ? '停用' : '启用'}
+                  </StatusPill>
+                </td>
+                <td>{node.descendantProductCount}</td>
+                <td>{node.directProductCount}</td>
+                <td>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'nowrap', alignItems: 'center' }}>
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => onAddChild(node)} disabled={!canWrite || saving} style={{ flexShrink: 0 }}>
+                      <Plus size={14} />
+                      新增
+                    </button>
+                    <button type="button" className="btn btn-outline btn-sm" onClick={() => onSelect(node)} disabled={saving} style={{ flexShrink: 0 }}>
+                      <Edit3 size={14} />
+                      修改
+                    </button>
+                    <button type="button" className="btn btn-danger btn-sm" onClick={() => onDelete(node)} disabled={!canWrite || saving} style={{ flexShrink: 0 }}>
+                      <Archive size={14} />
+                      删除
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </WorkbenchTableShell>
+  );
+}
+
+function CategoryCrudTree({
+  tree,
+  selectedId,
+  saving,
+  canWrite,
+  onSelect,
+  onAddChild,
+}: {
+  tree: ProductCategoryNode[];
+  selectedId: string;
+  saving: boolean;
+  canWrite: boolean;
+  onSelect: (node: ProductCategoryNode) => void;
+  onAddChild: (node: ProductCategoryNode) => void;
+}) {
+  return (
+    <div style={{ display: 'grid', gap: 10, padding: 16 }}>
+      {tree.map((node) => (
+        <CategoryCrudTreeRow
+          key={node.id}
+          node={node}
+          selectedId={selectedId}
+          saving={saving}
+          canWrite={canWrite}
+          onSelect={onSelect}
+          onAddChild={onAddChild}
+        />
+      ))}
+    </div>
+  );
+}
+
+function CategoryCrudTreeRow({
+  node,
+  selectedId,
+  saving,
+  canWrite,
+  onSelect,
+  onAddChild,
+}: {
+  node: ProductCategoryNode;
+  selectedId: string;
+  saving: boolean;
+  canWrite: boolean;
+  onSelect: (node: ProductCategoryNode) => void;
+  onAddChild: (node: ProductCategoryNode) => void;
+}) {
+  return (
+    <div style={{ display: 'grid', gap: 8 }}>
+      <CategoryCrudNodeCard
+        node={node}
+        active={selectedId === node.id}
+        saving={saving}
+        canWrite={canWrite}
+        onSelect={() => onSelect(node)}
+        onAddChild={() => onAddChild(node)}
+      />
+      {node.children.length ? (
+        <div style={{ display: 'grid', gap: 8, paddingLeft: Math.min(node.level, 2) * 18, borderLeft: '1px solid var(--border)', marginLeft: 12 }}>
+          {node.children.map((child) => (
+            <CategoryCrudTreeRow
+              key={child.id}
+              node={child}
+              selectedId={selectedId}
+              saving={saving}
+              canWrite={canWrite}
+              onSelect={onSelect}
+              onAddChild={onAddChild}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function CategoryCrudNodeCard({
+  node,
+  active,
+  saving,
+  canWrite,
+  onSelect,
+  onAddChild,
+}: {
+  node: ProductCategoryNode;
+  active: boolean;
+  saving: boolean;
+  canWrite: boolean;
+  onSelect: () => void;
+  onAddChild: () => void;
+}) {
+  const canAddChild = true;
+  const levelLabel = `Level ${node.level}`;
+  return (
+    <div
+      style={{
+        minWidth: 0,
+        border: active ? '1px solid var(--brand)' : '1px solid var(--border)',
+        borderRadius: 'var(--r-md)',
+        background: active ? 'var(--brand-50)' : '#FFFFFF',
+        padding: node.level === 1 ? '12px 14px' : '10px 12px',
+        boxShadow: active ? 'var(--sh-glow)' : 'var(--sh-xs)',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+        <button type="button" onClick={onSelect} style={{ border: 0, background: 'transparent', color: 'var(--t-primary)', textAlign: 'left', minWidth: 0, padding: 0, fontWeight: 700, overflowWrap: 'anywhere' }}>
+          <span style={{ display: 'block', color: 'var(--t-tertiary)', fontSize: 11, marginBottom: 3 }}>{levelLabel}</span>
+          <span style={{ display: 'block', fontSize: node.level === 1 ? 15 : 13 }}>{node.name || node.code}</span>
+          <span style={{ display: 'block', marginTop: 3, color: 'var(--t-tertiary)', fontSize: 11 }}>
+            {node.code || '未设置编码'} · 排序 {node.sortOrder}
+          </span>
+        </button>
+        <StatusPill tone={node.status === 'inactive' ? 'warning' : 'success'}>
+          {node.status === 'inactive' ? '停用' : '启用'}
+        </StatusPill>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+        <button type="button" className="btn btn-outline btn-sm" onClick={onSelect} disabled={saving}>
+          <Edit3 size={14} />
+          编辑
+        </button>
+        <button type="button" className="btn btn-secondary btn-sm" onClick={onAddChild} disabled={!canWrite || saving || !canAddChild}>
+          <Plus size={14} />
+          新增下级
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function CategoryCrudEditor({
+  mode,
+  brandCode,
+  selected,
+  createParent,
+  createLevel,
+  draft,
+  usage,
+  actionError,
+  saving,
+  canWrite,
+  onDraft,
+  onSave,
+  onToggleStatus,
+  onDelete,
+  onClose,
+}: {
+  mode: 'edit' | 'create';
+  brandCode: string;
+  selected: ProductCategoryNode | null;
+  createParent: ProductCategoryNode | null;
+  createLevel: number;
+  draft: ProductCategoryDraft;
+  usage: ProductCategoryUsage | null;
+  actionError: string;
+  saving: boolean;
+  canWrite: boolean;
+  onDraft: (draft: ProductCategoryDraft) => void;
+  onSave: (event: FormEvent) => void;
+  onToggleStatus: () => void;
+  onDelete: () => void;
+  onClose: () => void;
+}) {
+  const title = mode === 'create'
+    ? `新增 Level ${createLevel} 分类`
+    : selected
+      ? '编辑分类'
+      : '选择分类';
+  const subtitle = mode === 'create'
+    ? createParent
+      ? `上级：${createParent.name || createParent.code}`
+      : `品牌：${displayBrand(brandCode)}`
+    : selected
+      ? `${selected.level === 1 ? '一级目录' : selected.level === 2 ? '二级系统' : '三级分类'} / ${selected.code}`
+      : '从左侧选择一个分类，或先新增一级目录。';
+  const disabled = !canWrite || saving || (mode === 'edit' && !selected);
+
+  return (
+    <section className="card-elevated" style={{ padding: 18, borderRadius: 'var(--r-lg)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
+        <div>
+          <p className="t-label">分类详情</p>
+          <h3 className="t-headline" style={{ marginTop: 4 }}>{title}</h3>
+          <p style={{ marginTop: 4, color: 'var(--t-secondary)', fontSize: 12, overflowWrap: 'anywhere' }}>{subtitle}</p>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          {mode === 'edit' && selected ? (
+            <StatusPill tone={selected.status === 'inactive' ? 'warning' : 'success'}>
+              {selected.status === 'inactive' ? '停用' : '启用'}
+            </StatusPill>
+          ) : null}
+          <button type="button" className="btn btn-ghost btn-sm" onClick={onClose} disabled={saving} aria-label="关闭">
+            <XCircle size={14} />
+          </button>
+        </div>
+      </div>
+
+      {!canWrite ? <p className="field-error" style={{ marginTop: 12 }}>当前账号不能维护产品分类。</p> : null}
+      {actionError ? <p className="field-error" style={{ marginTop: 12 }}>{actionError}</p> : null}
+
+      <form onSubmit={onSave} style={{ display: 'grid', gap: 12, marginTop: 16 }}>
+        <label style={{ display: 'grid', gap: 6 }}>
+          <span className="t-label">分类名称</span>
+          <input className="input" placeholder="例如：家用、热水系统、空气能热水器" value={draft.nameCn} required disabled={disabled} onChange={(event) => onDraft({ ...draft, nameCn: event.target.value })} />
+        </label>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span className="t-label">排序</span>
+            <input className="input" type="number" min="0" max="999999" value={draft.sortOrder} required disabled={disabled} onChange={(event) => onDraft({ ...draft, sortOrder: event.target.value })} />
+          </label>
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span className="t-label">状态</span>
+            <select className="input" value={draft.status} disabled={disabled} onChange={(event) => onDraft({ ...draft, status: event.target.value === 'inactive' ? 'inactive' : 'active' })}>
+              <option value="active">启用</option>
+              <option value="inactive">停用</option>
+            </select>
+          </label>
+        </div>
+        <label style={{ display: 'grid', gap: 6 }}>
+          <span className="t-label">说明</span>
+          <textarea className="textarea" value={draft.description} disabled={disabled} onChange={(event) => onDraft({ ...draft, description: event.target.value })} />
+        </label>
+
+        {mode === 'edit' && selected ? (
+          <div className="inset" style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <span style={{ color: 'var(--t-secondary)', fontSize: 12 }}>已绑定产品</span>
+            <strong style={{ color: usage && usage.boundProductCount > 0 ? 'var(--warning)' : 'var(--t-primary)' }}>
+              {usage ? usage.boundProductCount : '检查中...'}
+            </strong>
+          </div>
+        ) : null}
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginTop: 4 }}>
+          {mode === 'create' ? (
+            <button type="button" className="btn btn-ghost btn-sm" onClick={onClose} disabled={saving}>取消</button>
+          ) : (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={onToggleStatus} disabled={disabled}>
+                <XCircle size={14} />
+                {selected?.status === 'inactive' ? '启用' : '停用'}
+              </button>
+              <button type="button" className="btn btn-danger btn-sm" onClick={onDelete} disabled={disabled}>
+                <Archive size={14} />
+                删除
+              </button>
+            </div>
+          )}
+          <button type="submit" className="btn btn-brand btn-sm" disabled={disabled}>
+            <CheckCircle2 size={14} />
+            {saving ? '保存中...' : mode === 'create' ? '创建' : '保存'}
+          </button>
+        </div>
+      </form>
+    </section>
+  );
+}
+
+function emptyCategoryDraft(sortOrder = 0, code = ''): ProductCategoryDraft {
+  return {
+    nameCn: '',
+    code,
+    slug: '',
+    sortOrder: String(sortOrder),
+    status: 'active',
+    description: '',
+  };
+}
+
+function categoryDraftFromNode(node: ProductCategoryNode): ProductCategoryDraft {
+  return {
+    nameCn: node.nameCn || node.name,
+    code: node.code,
+    slug: node.slug,
+    sortOrder: String(node.sortOrder),
+    status: node.status === 'inactive' ? 'inactive' : 'active',
+    description: node.description,
+  };
+}
+
+function categoryDraftPayload(draft: ProductCategoryDraft): Record<string, unknown> {
+  const code = slug(draft.code) || internalCategoryCode();
+  const sortOrder = nonNegativeInt(draft.sortOrder);
+  if (!text(draft.nameCn)) throw new Error('Category name is required.');
+  return {
+    nameCn: text(draft.nameCn),
+    code,
+    slug: draft.slug ? slug(draft.slug) : null,
+    sortOrder,
+    status: draft.status,
+    description: text(draft.description) || null,
+  };
+}
+
+function errorMessage(error: unknown): string {
+  const anyError = error as Error & { details?: any };
+  const message = anyError?.details?.message || anyError?.message || String(error);
+  const normalized = Array.isArray(message) ? message.join('; ') : String(message);
+  if (/Brand product categories support levels 1,\s*2,\s*and 3 only/i.test(normalized)) {
+    return '产品分类已支持无限层级；当前服务仍返回旧的三级限制，请重启后端服务后再试。';
+  }
+  if (/Root categories must use level 1/i.test(normalized)) return '根分类层级必须为 1。';
+  if (/Category level must be (\d+) for the selected parent/i.test(normalized)) {
+    const expected = normalized.match(/Category level must be (\d+) for the selected parent/i)?.[1];
+    return expected ? `当前上级分类要求新分类层级为 ${expected}。` : '分类层级与上级分类不匹配。';
+  }
+  if (/Parent category does not exist/i.test(normalized)) return '上级分类不存在或不属于当前品牌。';
+  if (/Category code already exists/i.test(normalized)) return '同一品牌、同一上级下已存在相同编码的分类。';
+  if (/code.*lowercase letters/i.test(normalized)) return '编码只能使用小写字母、数字和连字符。';
+  if (/sortOrder must be an integer/i.test(normalized)) return '排序必须是 0 到 999999 之间的整数。';
+  if (/Category name is required/i.test(normalized) || /nameCn is required/i.test(normalized)) return '请填写分类名称。';
+  if (/Request failed/i.test(normalized)) return '请求失败，请稍后重试。';
+  return normalized;
 }
 
 function ProductBaseView({

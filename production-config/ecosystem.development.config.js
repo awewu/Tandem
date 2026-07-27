@@ -46,8 +46,8 @@ module.exports = {
     },
     {
       name: 'dealer-workbench-dev',
-      script: 'scripts/dev-logged.js',
-      cwd: path.join(repoRoot, 'apps', 'dealer-workbench'),
+      script: path.join(repoRoot, 'scripts', 'dealer-workbench', 'dev-logged.js'),
+      cwd: repoRoot,
       interpreter: process.execPath,
       autorestart: true,
       max_restarts: 20,
@@ -58,7 +58,7 @@ module.exports = {
       time: true,
       env: {
         NODE_ENV: 'development',
-        API_URL: 'http://localhost:3000',
+        API_URL: 'http://localhost:5500',
       },
       out_file: path.join(repoRoot, 'runtime-logs', 'startup', 'dealer-workbench-pm2.out.log'),
       error_file: path.join(repoRoot, 'runtime-logs', 'startup', 'dealer-workbench-pm2.error.log'),

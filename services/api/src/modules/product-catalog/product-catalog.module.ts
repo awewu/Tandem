@@ -2,6 +2,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ProductEntity, PriceListItemEntity, ProductContentEntity, ProductContentEventEntity, ProductRelationEntity } from './product-catalog.entity';
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { BrandProductCategoryEntity } from '../brand-product-category/brand-product-category.entity';
 import { ProductCatalogController } from './product-catalog.controller';
 import { BrandPublicController } from './product-catalog.public.controller';
 import { ProductCatalogService } from './product-catalog.service';
@@ -11,7 +12,7 @@ import { FileArtifactModule } from '../file-artifact/file-artifact.module';
 
 @Module({
   imports: [
-    ...(TARGET_API_BOOT_SMOKE ? [] : [TypeOrmModule.forFeature([ProductEntity, PriceListItemEntity, ProductContentEntity, ProductContentEventEntity, ProductRelationEntity])]),
+    ...(TARGET_API_BOOT_SMOKE ? [] : [TypeOrmModule.forFeature([ProductEntity, PriceListItemEntity, ProductContentEntity, ProductContentEventEntity, ProductRelationEntity, BrandProductCategoryEntity])]),
     AuthModule,
     FileArtifactModule,
   ],
@@ -25,7 +26,8 @@ import { FileArtifactModule } from '../file-artifact/file-artifact.module';
         bootSmokeRepositoryProvider(PriceListItemEntity),
         bootSmokeRepositoryProvider(ProductContentEntity),
         bootSmokeRepositoryProvider(ProductContentEventEntity),
-        bootSmokeRepositoryProvider(ProductRelationEntity)
+        bootSmokeRepositoryProvider(ProductRelationEntity),
+        bootSmokeRepositoryProvider(BrandProductCategoryEntity)
       ]
       : [])
   ],

@@ -4,7 +4,7 @@
 log() { echo "[dev-stop] $1"; }
 
 log "清理所有瑞诺瓦开发服务进程..."
-for port in 5500 5000 5001 5002 5005 5010 5011 5012 5013 5014 5015; do
+for port in 5500 5000 5005 5011 5013 5014 5015; do
   pids=$(lsof -ti :"$port" 2>/dev/null || true)
   if [ -n "$pids" ]; then
     log "释放端口 $port (pids: $pids)"

@@ -9,8 +9,10 @@ export type BrandSiteSummary = {
   productionUrl?: string | null;
   resolvedUrl?: string | null;
   resolvedEnvironment?: string;
+  logoArtifactId?: string | null;
   status: 'active' | 'inactive';
   sortOrder: number;
+  childBrandCodes?: string[];
   deletedAt: string | null;
   publishCapability?: BrandPublishCapability;
 };
@@ -31,10 +33,18 @@ export type BrandPublishCapability = {
 export type BrandProductRow = {
   id: string;
   sku: string;
+  materialCode: string;
   publicSlug: string;
   name: string;
   model: string;
   category: string;
+  materialCategory: string;
+  productLine: string;
+  categoryLevel1Id: string | null;
+  categoryLevel2Id: string | null;
+  categoryLevel3Id: string | null;
+  categoryPath: string;
+  applicationScenarios: string[];
   system: string;
   websiteMenuCategory: string;
   status: string;
@@ -134,11 +144,48 @@ export type BrandProductConsoleData = {
   products: BrandProductRow[];
   taxonomy: Record<string, unknown>;
   total: number;
+  page: number;
+  pageSize: number;
+  pages: number;
+  facets: BrandProductFacets;
   emptyState: BrandProductEmptyState | null;
   apiCalls: string[];
 };
 
-const PRODUCT_PAGE_SIZE = '100';
+export type BrandProductQuery = {
+  page?: number;
+  pageSize?: number;
+  keyword?: string;
+  status?: string;
+  category?: string;
+  categoryLevel1Id?: string;
+  categoryLevel2Id?: string;
+  categoryLevel3Id?: string;
+  deferGroupProducts?: boolean;
+};
+
+export type BrandProductFacets = {
+  categories: Array<{ value: string; count: number }>;
+  statuses: Array<{ value: string; count: number }>;
+};
+
+export type BrandMenuGroupOption = {
+  value: string;
+  label: string;
+};
+
+type BrandProductConsoleApiDeps = {
+  products?: {
+    list: (query?: Record<string, string>) => Promise<unknown>;
+    taxonomy: () => Promise<Record<string, unknown>>;
+  };
+  brandSites?: {
+    list: () => Promise<unknown>;
+  };
+};
+
+const DEFAULT_PRODUCT_PAGE_SIZE = 20;
+const GROUP_SITE_CODE = 'rhautt-group';
 
 const BRAND_PRODUCT_TENANTS: Record<string, string | undefined> = {
   everhot: process.env.NEXT_PUBLIC_EVERHOT_TENANT_ID || 'e5e40000-0000-4000-8000-000000000001',
@@ -150,6 +197,30 @@ const BRAND_SITE_ENVIRONMENT_FALLBACKS: Record<string, { testing: string; produc
   rheem: { testing: 'http://localhost:5014/', production: 'https://www.rheem.com.cn/' },
   ruud: { testing: 'http://localhost:5015/', production: 'https://www.ruud.com.cn/' },
   everhot: { testing: 'http://localhost:5011/', production: 'https://www.everhot.com.cn/' },
+};
+
+const BRAND_MENU_GROUP_OPTIONS: Record<string, string[]> = {
+  everhot: [
+    '家用中央空调',
+    '地暖系统',
+    '全热新风',
+    '热水系统',
+    '燃气冷凝壁挂炉',
+    '零冷水燃气热水器',
+    '空气能热水器',
+    '容积式燃气热水器',
+    '电热水器',
+    '采暖热水两联供',
+  ],
+  rheem: ['中央热水系统', '采暖系统', '全空气系统', '智能控制系统'],
+  ruud: ['中央空调', '空气源热泵', '全热新风', '采暖系统'],
+};
+
+const MENU_GROUP_LABELS: Record<string, string> = {
+  residential: '家用',
+  commercial: '商用',
+  residential_comfort: '家用舒适系统',
+  'residential-comfort': '家用舒适系统',
 };
 
 const WRITE_ROLES = new Set(['platform_admin', 'hq_admin', 'brand_admin']);
@@ -195,16 +266,21 @@ export function resolveBrandSiteEnvironmentLinks(
 }
 
 export async function loadBrandProductConsoleData(
-  brandCodeInput: string
+  brandCodeInput: string,
+  options: BrandProductQuery = {},
+  deps: BrandProductConsoleApiDeps = {}
 ): Promise<BrandProductConsoleData> {
   const brandCode = normalizeBrandCode(brandCodeInput);
+  const query = buildBrandProductListQuery(brandCode, options);
   const apiCalls = [
     '/api/v2/brand-sites',
     '/api/v2/product-catalog/taxonomy',
-    '/api/v2/product-catalog/devices',
   ];
 
-  const [products, brandSites] = await Promise.all([apiProducts(), apiBrandSites()]);
+  const [products, brandSites] = await Promise.all([
+    deps.products ? Promise.resolve(deps.products) : apiProducts(),
+    deps.brandSites ? Promise.resolve(deps.brandSites) : apiBrandSites(),
+  ]);
   const [siteResult, taxonomy] = await Promise.all([
     brandSites.list().catch(() => ({ items: [] })),
     products.taxonomy().catch(() => ({})),
@@ -223,6 +299,10 @@ export async function loadBrandProductConsoleData(
       products: [],
       taxonomy,
       total: 0,
+      page: Number(query.page),
+      pageSize: Number(query.pageSize),
+      pages: 0,
+      facets: { categories: [], statuses: [] },
       emptyState: {
         kind: 'unknown-brand',
         title: '品牌站点尚未绑定',
@@ -234,35 +314,107 @@ export async function loadBrandProductConsoleData(
     };
   }
 
-  const query: Record<string, string> = {
-    brand: brandCode,
-    page: '1',
-    pageSize: PRODUCT_PAGE_SIZE,
-  };
-  const tenantId = BRAND_PRODUCT_TENANTS[brandCode] || '';
-  if (tenantId) query.tenantId = tenantId;
+  if (brandCode === GROUP_SITE_CODE) {
+    const childBrandCodes = childBrandCodesForSite(site);
+    const page = Math.max(Number(options.page) || 1, 1);
+    const pageSize = Math.min(Math.max(Number(options.pageSize) || DEFAULT_PRODUCT_PAGE_SIZE, 1), 100);
 
+    if (!childBrandCodes.length) {
+      return {
+        brandCode,
+        site,
+        products: [],
+        taxonomy,
+        total: 0,
+        page,
+        pageSize,
+        pages: 0,
+        facets: { categories: [], statuses: [] },
+        emptyState: {
+          kind: 'no-products',
+          title: '集团站点尚未绑定子品牌',
+          description: '请先在子品牌绑定区域选择可加入集团下面的子品牌，再维护集团官网货架产品。',
+          actionLabel: '选择子品牌',
+          actionHref: '/comfort/sites/rhautt-group',
+        },
+        apiCalls,
+      };
+    }
+
+    if (options.deferGroupProducts) {
+      return {
+        brandCode,
+        site,
+        products: [],
+        taxonomy,
+        total: 0,
+        page,
+        pageSize,
+        pages: 0,
+        facets: { categories: [], statuses: [] },
+        emptyState: null,
+        apiCalls,
+      };
+    }
+
+    const childQueries = childBrandCodes.map((childBrandCode) =>
+      buildBrandProductListQuery(childBrandCode, { ...options, page: 1, pageSize: 100 })
+    );
+    apiCalls.push(...childQueries.map((childQuery) => `/api/v2/product-catalog/devices?${new URLSearchParams(childQuery).toString()}`));
+    const productResults = await Promise.all(childQueries.map((childQuery) => products.list(childQuery)));
+    const productItems = productResults
+      .flatMap((productResult) => getItems(productResult))
+      .filter((item) => childBrandCodes.includes(productBrandCode(item)))
+      .map((item) => toBrandProductRow(item as Record<string, unknown>, productBrandCode(item)))
+      .sort(compareProductRows);
+    const pagedProducts = productItems.slice((page - 1) * pageSize, page * pageSize);
+
+    return {
+      brandCode,
+      site,
+      products: pagedProducts,
+      taxonomy,
+      total: productItems.length,
+      page,
+      pageSize,
+      pages: Math.ceil(productItems.length / pageSize),
+      facets: facetsFromProductRows(productItems),
+      emptyState: productItems.length
+        ? null
+        : {
+            kind: 'no-products',
+            title: '已绑定子品牌暂无产品目录记录',
+            description: '当前勾选的子品牌在产品目录中没有匹配产品。请先在产品目录创建或导入对应子品牌产品。',
+            actionLabel: '打开产品目录',
+            actionHref: '/products?module=catalog',
+          },
+      apiCalls,
+    };
+  }
+
+  apiCalls.push(`/api/v2/product-catalog/devices?${new URLSearchParams(query).toString()}`);
   const productResult = await products.list(query);
+  const productData = productResultData(productResult);
   const productItems = getItems(productResult)
     .filter((item) => normalizeBrandCode(String((item as any).brand || '')) === brandCode)
     .map((item) => toBrandProductRow(item as Record<string, unknown>, brandCode))
-    .sort((left, right) => {
-      const bySort = left.sortOrder - right.sortOrder;
-      if (bySort) return bySort;
-      return left.name.localeCompare(right.name) || left.sku.localeCompare(right.sku);
-    });
+    .sort(compareProductRows);
 
   return {
     brandCode,
     site,
     products: productItems,
     taxonomy,
-    total: Number((productResult as any)?.total ?? productItems.length),
+    total: Number(productData.total ?? productItems.length),
+    page: Number(productData.page ?? query.page),
+    pageSize: Number(productData.pageSize ?? query.pageSize),
+    pages: Number(productData.pages ?? Math.ceil(Number(productData.total ?? productItems.length) / Number(query.pageSize))),
+    facets: normalizeProductFacets(productData.facets),
     emptyState: productItems.length
       ? null
       : {
           kind: 'no-products',
-          title: '该品牌还没有官网产品',
+          title: '该品牌还没有产品目录记录',
           description:
             '当前品牌站点已存在，但产品目录没有该品牌的产品。请先在产品目录创建或导入产品，再回到这里维护官网字段。',
           actionLabel: '打开产品目录',
@@ -270,6 +422,51 @@ export async function loadBrandProductConsoleData(
         },
     apiCalls,
   };
+}
+
+export function buildBrandProductListQuery(
+  brandCodeInput: string,
+  options: BrandProductQuery = {}
+): Record<string, string> {
+  const brandCode = normalizeBrandCode(brandCodeInput);
+  const page = Math.max(Number(options.page) || 1, 1);
+  const pageSize = Math.min(Math.max(Number(options.pageSize) || DEFAULT_PRODUCT_PAGE_SIZE, 1), 100);
+  const query: Record<string, string> = {
+    brand: brandCode,
+    page: String(page),
+    pageSize: String(pageSize),
+  };
+  const tenantId = BRAND_PRODUCT_TENANTS[brandCode] || '';
+  if (tenantId) query.tenantId = tenantId;
+  const keyword = text(options.keyword);
+  const status = text(options.status);
+  const category = text(options.category);
+  const categoryLevel1Id = text(options.categoryLevel1Id);
+  const categoryLevel2Id = text(options.categoryLevel2Id);
+  const categoryLevel3Id = text(options.categoryLevel3Id);
+  if (keyword) query.keyword = keyword;
+  if (status) query.status = status;
+  if (category) query.category = category;
+  if (categoryLevel1Id) query.categoryLevel1Id = categoryLevel1Id;
+  if (categoryLevel2Id) query.categoryLevel2Id = categoryLevel2Id;
+  if (categoryLevel3Id) query.categoryLevel3Id = categoryLevel3Id;
+  return query;
+}
+
+export function getBrandMenuGroupOptions(
+  brandCodeInput: string,
+  currentValue = ''
+): BrandMenuGroupOption[] {
+  const brandCode = normalizeBrandCode(brandCodeInput);
+  const values = [...(BRAND_MENU_GROUP_OPTIONS[brandCode] || BRAND_MENU_GROUP_OPTIONS.rheem)];
+  const current = text(currentValue);
+  if (current && !values.includes(current)) values.unshift(current);
+  return values.map((value) => ({
+    value,
+    label: value === current && !BRAND_MENU_GROUP_OPTIONS[brandCode]?.includes(value)
+      ? `${MENU_GROUP_LABELS[value] || value}（当前值）`
+      : MENU_GROUP_LABELS[value] || value,
+  }));
 }
 
 export function canWriteBrandProducts(session: { role?: string | null; permissions?: string[] | null } | null): boolean {
@@ -547,6 +744,7 @@ export async function uploadBrandProductMainImage(
     filename: text((artifact as any)?.originalName) || file.name || `${row.sku || row.id}.jpg`,
     mimeType: text((artifact as any)?.mimeType) || file.type || 'application/octet-stream',
     sortOrder: 0,
+    url: text((artifact as any)?.contentUrl) || artifactContentUrl(artifactId),
   };
 
   return products.update(row.id, {
@@ -615,6 +813,62 @@ export async function deleteBrandProductMainImage(
   return fileArtifacts.remove(artifactId);
 }
 
+export async function uploadBrandProductDetailImage(
+  brandCodeInput: string,
+  row: BrandProductRow,
+  file: File,
+) {
+  assertBrandProductScope(brandCodeInput, row);
+  if (!file.type.startsWith('image/')) throw new Error('只能上传图片文件。');
+
+  const [products, fileArtifacts] = await Promise.all([apiProducts(), apiFileArtifacts()]);
+  const artifact = await fileArtifacts.uploadBase64({
+    entityType: 'product-detail-image',
+    entityId: row.sku || row.id,
+    filename: file.name || `${row.sku || row.id}-detail.jpg`,
+    mimeType: file.type || 'application/octet-stream',
+    dataBase64: await readFileBase64(file),
+  });
+  const artifactId = text((artifact as any)?.id || (artifact as any)?.artifactId);
+  if (!artifactId) throw new Error('文件上传未返回素材 ID。');
+
+  const refs = assetRefsFromRaw(row.raw);
+  const detailRefs = refs.filter((ref) => ref.role === 'detail');
+  const nextRef: AssetRef = {
+    role: 'detail',
+    artifactId,
+    objectKey: text((artifact as any)?.fileKey || (artifact as any)?.objectKey),
+    filename: text((artifact as any)?.originalName) || file.name || `${row.sku || row.id}-detail.jpg`,
+    mimeType: text((artifact as any)?.mimeType) || file.type || 'application/octet-stream',
+    sortOrder: detailRefs.length,
+    url: text((artifact as any)?.contentUrl) || artifactContentUrl(artifactId),
+  };
+
+  return products.update(row.id, {
+    ...tenantPatch(row),
+    assetRefs: [...refs, nextRef],
+  });
+}
+
+export async function deleteBrandProductDetailImage(
+  brandCodeInput: string,
+  row: BrandProductRow,
+  artifactId: string,
+) {
+  assertBrandProductScope(brandCodeInput, row);
+  const targetId = text(artifactId);
+  if (!targetId) throw new Error('缺少详情图素材 ID。');
+  const [products, fileArtifacts] = await Promise.all([apiProducts(), apiFileArtifacts()]);
+  const nextRefs = assetRefsFromRaw(row.raw)
+    .filter((ref) => !(ref.role === 'detail' && ref.artifactId === targetId))
+    .map((ref, index) => ref.role === 'detail' ? { ...ref, sortOrder: index } : ref);
+  await products.update(row.id, {
+    ...tenantPatch(row),
+    assetRefs: nextRefs,
+  });
+  return fileArtifacts.remove(targetId);
+}
+
 export async function reorderBrandProductDetailImages(
   brandCodeInput: string,
   row: BrandProductRow,
@@ -656,6 +910,63 @@ function getItems(payload: unknown): unknown[] {
   return [];
 }
 
+function productResultData(payload: unknown): Record<string, any> {
+  const data = (payload as any)?.data ?? payload;
+  return data && typeof data === 'object' && !Array.isArray(data) ? data as Record<string, any> : {};
+}
+
+function normalizeProductFacets(value: unknown): BrandProductFacets {
+  const facets = objectOrEmpty(value);
+  return {
+    categories: facetItems(facets.categories),
+    statuses: facetItems(facets.statuses),
+  };
+}
+
+function childBrandCodesForSite(site: BrandSiteSummary): string[] {
+  if (!Array.isArray(site.childBrandCodes)) return [];
+  return [...new Set(site.childBrandCodes.map((code) => normalizeBrandCode(code)).filter((code) => code && code !== GROUP_SITE_CODE))];
+}
+
+function productBrandCode(product: unknown): string {
+  return normalizeBrandCode(String((product as any)?.brand || ''));
+}
+
+function compareProductRows(left: BrandProductRow, right: BrandProductRow): number {
+  const byBrand = String(left.raw.brand || '').localeCompare(String(right.raw.brand || ''));
+  if (byBrand) return byBrand;
+  const bySort = left.sortOrder - right.sortOrder;
+  if (bySort) return bySort;
+  return left.name.localeCompare(right.name) || left.sku.localeCompare(right.sku);
+}
+
+function facetsFromProductRows(rows: BrandProductRow[]): BrandProductFacets {
+  return {
+    categories: countedFacet(rows.map((row) => row.category)),
+    statuses: countedFacet(rows.map((row) => row.status)),
+  };
+}
+
+function countedFacet(values: string[]): Array<{ value: string; count: number }> {
+  const counts = new Map<string, number>();
+  for (const value of values.map(text).filter(Boolean)) {
+    counts.set(value, (counts.get(value) || 0) + 1);
+  }
+  return [...counts.entries()]
+    .map(([value, count]) => ({ value, count }))
+    .sort((left, right) => left.value.localeCompare(right.value));
+}
+
+function facetItems(value: unknown): Array<{ value: string; count: number }> {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      const record = objectOrEmpty(item);
+      return { value: text(record.value), count: Number(record.count) || 0 };
+    })
+    .filter((item) => item.value);
+}
+
 function toBrandProductRow(product: Record<string, unknown>, brandCode: string): BrandProductRow {
   const spec = objectOrEmpty(product.spec);
   const meta = objectOrEmpty(product.meta);
@@ -669,9 +980,10 @@ function toBrandProductRow(product: Record<string, unknown>, brandCode: string):
     .sort((left, right) => Number(left.sortOrder || 0) - Number(right.sortOrder || 0));
   const galleryCount =
     detailRefs.length + arrayLength(brandMeta.gallery);
-  const mainImageUrl = text(mainAsset?.url) || text(brandMeta.image) || text(meta.imageUrl);
   const mainArtifactId =
     text(mainAsset?.artifactId) || text(meta.imageArtifactId) || text(brandMeta.imageArtifactId);
+  const mainImageUrl =
+    text(mainAsset?.url) || text(brandMeta.image) || text(meta.imageUrl) || artifactContentUrl(mainArtifactId);
   const publicSlug = slug(text(brandMeta.slug) || text(meta.publicSlug) || text(product.sku));
   const websiteMenuCategory =
     text(brandMeta.cat) ||
@@ -686,6 +998,18 @@ function toBrandProductRow(product: Record<string, unknown>, brandCode: string):
     text(product.sku);
   const name = text(brandMeta.name) || text(product.name) || model || text(product.sku);
   const category = text(product.category) || text(brandMeta.cat);
+  const rootCategoryLevel1Id = text(product.categoryLevel1Id);
+  const rootCategoryLevel2Id = text(product.categoryLevel2Id);
+  const rootCategoryLevel3Id = text(product.categoryLevel3Id);
+  const categoryLevel1Id = text(brandMeta.categoryLevel1Id) || rootCategoryLevel1Id || null;
+  const categoryLevel2Id = text(brandMeta.categoryLevel2Id) || rootCategoryLevel2Id || null;
+  const categoryLevel3Id = text(brandMeta.categoryLevel3Id) || rootCategoryLevel3Id || null;
+  const categoryPath = text(product.categoryPath) || text(brandMeta.categoryPath);
+  const materialCode = text(spec.materialCode) || text(product.sku);
+  const materialCategory = text(spec.materialCategory) || text(brandMeta.materialCategory);
+  const productLine = text(spec.productLine) || text(brandMeta.productLine);
+  const positioning = objectOrEmpty(product.positioning);
+  const applicationScenarios = stringArray(positioning.applicationScenarios);
   const system = text(brandMeta.sys) || text(spec.system) || text(product.systemFamily);
   const sortOrder = nonNegativeInt(
     brandMeta.displayOrder ?? brandMeta.sortOrder ?? product.sortOrder
@@ -714,10 +1038,18 @@ function toBrandProductRow(product: Record<string, unknown>, brandCode: string):
   return {
     id: text(product.id) || text(product._id) || text(product.sku),
     sku: text(product.sku),
+    materialCode,
     publicSlug,
     name,
     model,
     category,
+    materialCategory,
+    productLine,
+    categoryLevel1Id,
+    categoryLevel2Id,
+    categoryLevel3Id,
+    categoryPath,
+    applicationScenarios,
     system,
     websiteMenuCategory,
     status,
@@ -777,8 +1109,13 @@ function assetRefsFromRaw(product: Record<string, unknown>): AssetRef[] {
       filename: text(ref.filename),
       mimeType: text(ref.mimeType),
       sortOrder: Number.isFinite(Number(ref.sortOrder)) ? Number(ref.sortOrder) : undefined,
-      url: text(ref.url),
+      url: text(ref.url) || artifactContentUrl(text(ref.artifactId)),
     }));
+}
+
+function artifactContentUrl(artifactId: string) {
+  const id = text(artifactId);
+  return id ? `/api/v2/file-artifact/${encodeURIComponent(id)}/content` : '';
 }
 
 function tenantPatch(row: BrandProductRow): Record<string, string> {

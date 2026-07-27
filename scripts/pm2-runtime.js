@@ -20,11 +20,7 @@ const commandArgs = {
     'legacy-api-dev',
     'nestjs-api-dev',
     'dealer-workbench-dev',
-    'consumer-diagnosis-dev',
-    'customer-portal-dev',
     'public-portal-dev',
-    'nexus-console-dev',
-    'brand-console-dev',
   ],
 };
 

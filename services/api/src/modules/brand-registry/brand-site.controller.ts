@@ -29,7 +29,7 @@ export class BrandSiteController {
   }
 
   @Delete(':id')
-  @Roles('platform_admin', 'hq_admin', 'brand_admin')
+  @Roles('platform_admin')
   remove(@Req() req: any, @Param('id') id: string) { return this.service.remove(req.user, id); }
 
   @Post(':id/restore')

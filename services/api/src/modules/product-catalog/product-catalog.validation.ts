@@ -125,6 +125,12 @@ export function validateProductUpsertInput(dto: unknown): Record<string, unknown
   assertOptionalString(body.name, 'name');
   assertOptionalString(body.brand, 'brand');
   assertOptionalString(body.category, 'category');
+  assertOptionalString(body.categoryLevel1Id, 'categoryLevel1Id');
+  assertOptionalString(body.categoryLevel2Id, 'categoryLevel2Id');
+  assertOptionalString(body.categoryLevel3Id, 'categoryLevel3Id');
+  assertOptionalString(body.primaryCategoryId, 'primaryCategoryId');
+  assertOptionalString(body.categoryId, 'categoryId');
+  assertOptionalArray(body.categoryBindings, 'categoryBindings');
   assertOptionalString(body.currency, 'currency');
   assertOptionalString(body.status, 'status');
   assertOptionalFiniteNumber(body.listPrice, 'listPrice');

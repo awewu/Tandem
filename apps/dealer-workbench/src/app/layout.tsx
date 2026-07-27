@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import DealerNav from '../components/DealerNav';
-import { TopBar } from '@rhautt/ui';
+import DealerTopBar from '../components/DealerTopBar';
 
 export const metadata: Metadata = { title: '瑞诺瓦 AI 舒适家' };
 
@@ -12,7 +12,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <div className="layout">
           <DealerNav />
-          <TopBar />
+          <DealerTopBar />
           <main className="content">{children}</main>
         </div>
       </body>

@@ -4,6 +4,7 @@ import {
   Edit3,
   ExternalLink,
   Globe2,
+  ShieldAlert,
   Plus,
   Power,
   RefreshCw,
@@ -12,7 +13,6 @@ import {
   Upload,
   X,
 } from 'lucide-react';
-import { PageHeader } from '@rhautt/ui';
 import {
   useCallback,
   useEffect,
@@ -21,7 +21,14 @@ import {
   type FormEvent,
   type ReactNode,
 } from 'react';
-import { brandSites } from '../../../lib/api';
+import { auth, brandSites } from '../../../lib/api';
+import {
+  StatusPill,
+  WorkbenchFilterToolbar,
+  WorkbenchSectionHeader,
+  WorkbenchTableShell,
+  WorkbenchTableState,
+} from '../../../components/WorkbenchCore';
 
 type SiteStatus = 'active' | 'inactive';
 type DeliveryType = 'self_hosted' | 'external';
@@ -45,6 +52,11 @@ type BrandSite = {
   updatedAt: string | null;
 };
 
+type Session = {
+  role?: string | null;
+  permissions?: string[] | null;
+};
+
 type SiteForm = {
   code: string;
   nameCn: string;
@@ -59,15 +71,23 @@ type SiteForm = {
 };
 
 const BRAND_OPTIONS = [
+  { code: 'rhautt-group', label: '瑞合瑞德暖通科技集团', tone: 'Group' },
   { code: 'all', label: '全部站点', tone: 'All' },
   { code: 'rheem', label: '瑞美 Rheem', tone: 'Rheem' },
   { code: 'ruud', label: '瑞德 Ruud', tone: 'Ruud' },
   { code: 'everhot', label: '恒热 Everhot', tone: 'Everhot' },
 ] as const;
 
-const DEFAULT_FILTER = BRAND_OPTIONS[0];
+const DEFAULT_FILTER = BRAND_OPTIONS.find((option) => option.code === 'all') || BRAND_OPTIONS[0];
 
 const BRAND_PRESETS: Record<string, Partial<SiteForm>> = {
+  'rhautt-group': {
+    code: 'rhautt-group',
+    nameCn: '瑞合瑞德暖通科技集团',
+    nameEn: 'Rhautt Comfort',
+    appKey: '',
+    sortOrder: '0',
+  },
   rheem: {
     code: 'rheem',
     nameCn: '瑞美',
@@ -120,6 +140,18 @@ const statusMeta = (site: Pick<BrandSite, 'status' | 'deletedAt'>) => {
 const displayUrl = (site: BrandSite) =>
   site.productionUrl || site.resolvedUrl || site.developmentUrl || '';
 
+const isGroupSite = (site: Pick<BrandSite, 'code'>) => site.code === 'rhautt-group';
+
+async function loadLogo(siteId: string) {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 5000);
+  try {
+    return await brandSites.logo(siteId, { signal: controller.signal });
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
 export default function BrandSitesManager({ brandCode }: { brandCode: string }) {
   const initialBrand = brandCode || DEFAULT_FILTER.code;
   const [activeBrand, setActiveBrand] = useState(initialBrand);
@@ -131,6 +163,10 @@ export default function BrandSitesManager({ brandCode }: { brandCode: string }) 
   const [error, setError] = useState('');
   const [editing, setEditing] = useState<BrandSite | null>(null);
   const [creating, setCreating] = useState(false);
+  const [session, setSession] = useState<Session | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<BrandSite | null>(null);
+
+  const canDeleteSites = session?.role === 'platform_admin' || Boolean(session?.permissions?.includes('*'));
 
   const filteredSites = useMemo(() => {
     const selectedSites = activeBrand === 'all'
@@ -179,13 +215,18 @@ export default function BrandSitesManager({ brandCode }: { brandCode: string }) 
       const result = await brandSites.list({ includeDeleted: true });
       const items = (result.items || []) as BrandSite[];
       setSites(items);
+      setLogos((current) => {
+        const visibleIds = new Set(items.filter((site) => !site.deletedAt).map((site) => site.id));
+        return Object.fromEntries(Object.entries(current).filter(([siteId]) => visibleIds.has(siteId)));
+      });
       window.dispatchEvent(new CustomEvent('rhautt-brand-sites-updated'));
-      const logoEntries = await Promise.all(
+      setLoading(false);
+      void Promise.all(
         items
           .filter((site) => site.logoArtifactId && !site.deletedAt)
           .map(async (site) => {
             try {
-              const logo = await brandSites.logo(site.id);
+              const logo = await loadLogo(site.id);
               if (!logo.dataBase64) return null;
               return [
                 site.id,
@@ -195,8 +236,12 @@ export default function BrandSitesManager({ brandCode }: { brandCode: string }) 
               return null;
             }
           })
-      );
-      setLogos(Object.fromEntries(logoEntries.filter(Boolean) as Array<readonly [string, string]>));
+      ).then((logoEntries) => {
+        setLogos((current) => ({
+          ...current,
+          ...Object.fromEntries(logoEntries.filter(Boolean) as Array<readonly [string, string]>),
+        }));
+      });
     } catch (e) {
       setError((e as Error).message || '官网站点加载失败');
     } finally {
@@ -207,6 +252,20 @@ export default function BrandSitesManager({ brandCode }: { brandCode: string }) 
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    let cancelled = false;
+    auth.me()
+      .then((me) => {
+        if (!cancelled) setSession(me as Session);
+      })
+      .catch(() => {
+        if (!cancelled) setSession(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     setActiveBrand(initialBrand);
@@ -232,6 +291,10 @@ export default function BrandSitesManager({ brandCode }: { brandCode: string }) 
   }
 
   async function archiveSite(site: BrandSite) {
+    if (!canDeleteSites) {
+      setError('只有平台管理员可以删除或归档官网配置。');
+      return;
+    }
     if (!window.confirm(`归档 ${site.nameCn || site.nameEn} 官网配置？`)) return;
     setBusyId(site.id);
     setError('');
@@ -260,6 +323,52 @@ export default function BrandSitesManager({ brandCode }: { brandCode: string }) 
     }
   }
 
+  function deleteArchivedSite(site: BrandSite) {
+    if (!canDeleteSites) {
+      setError('只有平台管理员可以永久删除官网配置。');
+      return;
+    }
+    setDeleteTarget(site);
+  }
+
+  async function legacyDeleteArchivedSite(site: BrandSite) {
+    if (!canDeleteSites) {
+      setError('只有平台管理员可以永久删除官网配置。');
+      return;
+    }
+    setDeleteTarget(site);
+    return;
+    if (!window.confirm(`永久删除 ${site.nameCn || site.nameEn} 官网配置？该操作不可恢复。`)) return;
+    setBusyId(site.id);
+    setError('');
+    try {
+      await brandSites.remove(site.id);
+      setSites((current) => current.filter((item) => item.id !== site.id));
+      await load();
+      flash('官网配置已删除');
+    } catch (e) {
+      setError((e as Error).message || '删除失败');
+    } finally {
+      setBusyId('');
+    }
+  }
+
+  async function confirmDeleteArchivedSite(site: BrandSite) {
+    setBusyId(site.id);
+    setError('');
+    try {
+      await brandSites.remove(site.id);
+      setSites((current) => current.filter((item) => item.id !== site.id));
+      await load();
+      flash('官网配置已删除');
+    } catch (e) {
+      setError((e as Error).message || '删除失败');
+    } finally {
+      setBusyId('');
+      setDeleteTarget(null);
+    }
+  }
+
   const actions = (
     <>
       <button type="button" className="btn btn-outline" onClick={load} disabled={loading}>
@@ -276,10 +385,11 @@ export default function BrandSitesManager({ brandCode }: { brandCode: string }) 
   return (
     <div style={{ minHeight: '100%', background: 'var(--bg)' }}>
       <div className="page-container brand-sites-page">
-        <PageHeader
+        <WorkbenchSectionHeader
+          eyebrow="品牌官网"
           title="品牌官网管理"
-          subtitle="瑞美 Rheem / 瑞德 Ruud / 恒热 Everhot 官网主数据"
-          actions={actions}
+          description="维护 Rheem、Ruud、Everhot 与集团官网的站点主数据、Logo、发布状态和访问地址。"
+          actions={<div className="site-header-actions">{actions}</div>}
         />
 
         <section className="site-kpis" aria-label="官网状态汇总">
@@ -289,7 +399,7 @@ export default function BrandSitesManager({ brandCode }: { brandCode: string }) 
           <Stat label="已归档" value={counts.archived} tone="muted" />
         </section>
 
-        <section className="brand-sites-toolbar" aria-label="品牌筛选">
+        <WorkbenchFilterToolbar>
           <div className="brand-filter-group">
             {filterOptions.map((brand) => (
               <button
@@ -303,12 +413,13 @@ export default function BrandSitesManager({ brandCode }: { brandCode: string }) 
               </button>
             ))}
           </div>
-        </section>
+          <span className="workbench-filter-toolbar__meta">当前显示 {filteredSites.length} 个站点</span>
+        </WorkbenchFilterToolbar>
 
         {error && <Notice tone="error">{error}</Notice>}
         {message && <Notice tone="success">{message}</Notice>}
 
-        <section className="card-elevated site-list-panel">
+        <section className="site-list-panel">
           <div className="site-list-head">
             <div>
               <p className="t-label">Official Sites</p>
@@ -317,6 +428,7 @@ export default function BrandSitesManager({ brandCode }: { brandCode: string }) 
             <span>{filteredSites.length} 个站点</span>
           </div>
 
+          <WorkbenchTableShell>
           <div className="site-table-wrap">
             <table className="table site-table">
               <thead>
@@ -334,13 +446,21 @@ export default function BrandSitesManager({ brandCode }: { brandCode: string }) 
                 {loading ? (
                   <tr>
                     <td colSpan={7} className="table-empty">
-                      正在加载官网站点
+                      <WorkbenchTableState
+                        type="loading"
+                        title="正在加载官网站点"
+                        description="正在同步品牌站点、发布状态和 Logo 素材。"
+                      />
                     </td>
                   </tr>
                 ) : filteredSites.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="table-empty">
-                      暂无官网站点
+                      <WorkbenchTableState
+                        type="empty"
+                        title="暂无官网站点"
+                        description="可以新建 Rheem、Ruud、Everhot 或集团品牌站点配置。"
+                      />
                     </td>
                   </tr>
                 ) : (
@@ -348,13 +468,17 @@ export default function BrandSitesManager({ brandCode }: { brandCode: string }) 
                     const meta = statusMeta(site);
                     const url = displayUrl(site);
                     return (
-                      <tr key={site.id} className={site.deletedAt ? 'is-archived' : undefined}>
+                      <tr
+                        key={site.id}
+                        className={`${site.deletedAt ? 'is-archived' : ''}${isGroupSite(site) ? ' is-group-site' : ''}`}
+                      >
                         <td>
                           <div className="site-brand-cell">
                             <strong>{site.nameCn}</strong>
                             <span>
                               {site.nameEn} · {site.code}
                             </span>
+                            {isGroupSite(site) && <em className="group-site-chip">集团官网</em>}
                           </div>
                         </td>
                         <td>
@@ -382,21 +506,35 @@ export default function BrandSitesManager({ brandCode }: { brandCode: string }) 
                           </span>
                         </td>
                         <td>
-                          <span className={`badge ${meta.className}`}>{meta.label}</span>
+                          <StatusPill tone={meta.className === 'badge-success' ? 'success' : meta.className === 'badge-warning' ? 'warning' : 'neutral'}>
+                            {meta.label}
+                          </StatusPill>
                         </td>
                         <td className="mono-cell">{site.sortOrder}</td>
                         <td>
                           <div className="row-actions">
                             {site.deletedAt ? (
-                              <button
-                                type="button"
-                                title="恢复"
-                                aria-label={`恢复 ${site.nameCn} 官网配置`}
-                                onClick={() => restoreSite(site)}
-                                disabled={busyId === site.id}
-                              >
-                                <RotateCcw size={15} />
-                              </button>
+                              <>
+                                <button
+                                  type="button"
+                                  title="恢复"
+                                  aria-label={`恢复 ${site.nameCn} 官网配置`}
+                                  onClick={() => restoreSite(site)}
+                                  disabled={busyId === site.id}
+                                >
+                                  <RotateCcw size={15} />
+                                </button>
+                                <button
+                                  type="button"
+                                  title="删除"
+                                  aria-label={`删除 ${site.nameCn} 官网配置`}
+                                  className="danger-action"
+                                  onClick={() => deleteArchivedSite(site)}
+                                  disabled={busyId === site.id || !canDeleteSites}
+                                >
+                                  <Trash2 size={15} />
+                                </button>
+                              </>
                             ) : (
                               <>
                                 <button
@@ -429,8 +567,9 @@ export default function BrandSitesManager({ brandCode }: { brandCode: string }) 
                                   type="button"
                                   title="归档"
                                   aria-label={`归档 ${site.nameCn} 官网配置`}
+                                  className="danger-action"
                                   onClick={() => archiveSite(site)}
-                                  disabled={busyId === site.id}
+                                  disabled={busyId === site.id || !canDeleteSites}
                                 >
                                   <Trash2 size={15} />
                                 </button>
@@ -445,6 +584,7 @@ export default function BrandSitesManager({ brandCode }: { brandCode: string }) 
               </tbody>
             </table>
           </div>
+          </WorkbenchTableShell>
         </section>
 
         {(creating || editing) && (
@@ -464,17 +604,33 @@ export default function BrandSitesManager({ brandCode }: { brandCode: string }) 
             onError={setError}
           />
         )}
+        {deleteTarget && (
+          <DeleteSiteDialog
+            site={deleteTarget}
+            busy={busyId === deleteTarget.id}
+            onClose={() => setDeleteTarget(null)}
+            onConfirm={() => confirmDeleteArchivedSite(deleteTarget)}
+          />
+        )}
       </div>
 
       <style>{`
         .brand-sites-page {
-          max-width: 1280px;
+          display: grid;
+          gap: var(--s4);
+          width: 100%;
+          max-width: none;
+        }
+        .site-header-actions {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+          gap: 8px;
         }
         .site-kpis {
           display: grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));
           gap: var(--s4);
-          margin-bottom: var(--s5);
         }
         .site-stat {
           min-height: 92px;
@@ -507,13 +663,6 @@ export default function BrandSitesManager({ brandCode }: { brandCode: string }) 
           font-weight: 700;
           color: var(--t-strong);
           font-variant-numeric: tabular-nums;
-        }
-        .brand-sites-toolbar {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-          margin-bottom: var(--s4);
         }
         .brand-filter-group {
           display: flex;
@@ -554,7 +703,18 @@ export default function BrandSitesManager({ brandCode }: { brandCode: string }) 
           color: var(--brand-700);
         }
         .site-list-panel {
+          width: 100%;
           overflow: hidden;
+          background: var(--surface-1);
+          border: 1px solid var(--border);
+          border-radius: var(--r-lg);
+          box-shadow: var(--sh-card);
+        }
+        .site-list-panel .workbench-table-shell {
+          border: 0;
+          border-top: 1px solid var(--border);
+          border-radius: 0;
+          box-shadow: none;
         }
         .site-list-head {
           min-height: 64px;
@@ -576,14 +736,20 @@ export default function BrandSitesManager({ brandCode }: { brandCode: string }) 
           color: var(--t-secondary);
         }
         .site-table-wrap {
-          overflow-x: auto;
+          overflow: visible;
+          width: 100%;
         }
         .site-table {
-          min-width: 920px;
+          width: 100%;
+          min-width: 0;
+          table-layout: fixed;
         }
         .site-table tr.is-archived td {
           color: var(--t-tertiary);
           background: rgba(234,230,223,0.45);
+        }
+        .site-table tr.is-group-site td:first-child {
+          border-left: 3px solid var(--brand);
         }
         .site-brand-cell {
           display: grid;
@@ -597,6 +763,16 @@ export default function BrandSitesManager({ brandCode }: { brandCode: string }) 
         .site-brand-cell span {
           font-size: 12px;
           color: var(--t-tertiary);
+        }
+        .group-site-chip {
+          width: max-content;
+          padding: 2px 7px;
+          border-radius: 999px;
+          background: var(--brand-tint);
+          color: var(--brand-700);
+          font-size: 11px;
+          font-style: normal;
+          font-weight: 700;
         }
         .site-logo {
           width: 72px;
@@ -677,6 +853,16 @@ export default function BrandSitesManager({ brandCode }: { brandCode: string }) 
           opacity: 0.45;
           cursor: not-allowed;
         }
+        .row-actions button.danger-action:not(:disabled) {
+          color: var(--danger);
+          border-color: rgba(220,38,38,0.24);
+        }
+        .row-actions button.danger-action:not(:disabled):hover,
+        .row-actions button.danger-action:not(:disabled):focus-visible {
+          color: var(--danger);
+          border-color: var(--danger);
+          box-shadow: 0 0 0 3px rgba(220,38,38,0.12);
+        }
         .table-empty {
           height: 128px;
           text-align: center;
@@ -739,6 +925,47 @@ export default function BrandSitesManager({ brandCode }: { brandCode: string }) 
           margin-top: 4px;
           font-size: 12px;
           color: var(--t-secondary);
+        }
+        .delete-site-dialog {
+          max-width: 620px;
+        }
+        .delete-site-dialog-head {
+          border-top: 4px solid var(--danger);
+        }
+        .delete-site-dialog-body {
+          display: grid;
+          gap: 16px;
+          padding: 20px 22px 22px;
+        }
+        .delete-site-warning {
+          display: flex;
+          gap: 12px;
+          padding: 14px;
+          border: 1px solid rgba(220,38,38,0.22);
+          border-radius: var(--r-lg);
+          background: var(--danger-bg);
+          color: var(--danger);
+        }
+        .delete-site-warning div {
+          display: grid;
+          gap: 4px;
+        }
+        .delete-site-warning span {
+          color: var(--t-secondary);
+          font-size: 13px;
+          line-height: 1.6;
+        }
+        .btn.btn-danger {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          border-color: var(--danger);
+          background: var(--danger);
+          color: #fff;
+        }
+        .btn.btn-danger:disabled {
+          opacity: 0.48;
+          cursor: not-allowed;
         }
         .site-form {
           display: grid;
@@ -855,6 +1082,71 @@ function LogoPreview({ site, src }: { site: BrandSite; src?: string }) {
       ) : (
         <span className="site-logo-fallback">{site.nameEn || site.code}</span>
       )}
+    </div>
+  );
+}
+
+function DeleteSiteDialog({
+  site,
+  busy,
+  onClose,
+  onConfirm,
+}: {
+  site: BrandSite;
+  busy: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  const [confirmCode, setConfirmCode] = useState('');
+  const matched = confirmCode.trim() === site.code;
+  return (
+    <div className="site-dialog-backdrop" onClick={onClose}>
+      <div
+        className="site-dialog delete-site-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-site-dialog-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="site-dialog-head delete-site-dialog-head">
+          <div>
+            <p className="t-label">Platform admin only</p>
+            <h2 id="delete-site-dialog-title">永久删除官网站点</h2>
+            <p>{site.nameCn || site.nameEn} / {site.code}</p>
+          </div>
+          <button type="button" className="dialog-close" onClick={onClose} aria-label="关闭">
+            <X size={16} />
+          </button>
+        </div>
+        <div className="delete-site-dialog-body">
+          <div className="delete-site-warning">
+            <ShieldAlert size={20} />
+            <div>
+              <strong>该操作不可恢复</strong>
+              <span>删除后将移除官网入口、站点配置、Logo 绑定和集团子品牌绑定关系；子品牌站点与产品主数据不会被删除。</span>
+            </div>
+          </div>
+          <label className="site-field">
+            <span>输入站点 Code 确认删除</span>
+            <input
+              className="input"
+              value={confirmCode}
+              onChange={(event) => setConfirmCode(event.target.value)}
+              placeholder={site.code}
+              autoFocus
+            />
+          </label>
+          <div className="site-dialog-actions">
+            <button type="button" className="btn btn-outline" onClick={onClose} disabled={busy}>
+              取消
+            </button>
+            <button type="button" className="btn btn-danger" onClick={onConfirm} disabled={!matched || busy}>
+              <Trash2 size={15} />
+              {busy ? '删除中' : '永久删除'}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

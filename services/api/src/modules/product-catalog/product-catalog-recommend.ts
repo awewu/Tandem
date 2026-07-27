@@ -25,6 +25,10 @@ export interface ProductRecommendationScore {
   positioning: ProductPositioning;
 }
 
+export interface ProductRecommendationRank<T extends ProductRecommendationCandidate = ProductRecommendationCandidate> extends ProductRecommendationScore {
+  p: T;
+}
+
 const SYSTEM_KEYWORDS: Record<string, string[]> = {
   hot_water: ['water-heating', 'hot water', 'water heater', '热水', '热水器', '恒温', '大水量'],
   heating: ['heating-boiler', 'boiler', '采暖', '壁挂炉', '冷凝炉', '锅炉'],
@@ -132,4 +136,33 @@ export function scoreProductRecommendation(
   }
 
   return { score, signals, positioning };
+}
+
+export function rankProductRecommendationCandidates<T extends ProductRecommendationCandidate>(
+  products: T[],
+  criteria: ProductRecommendationCriteria,
+): ProductRecommendationRank<T>[] {
+  const systems = resolveRecommendationSystems(criteria);
+  const painPoints = lowerList(criteria.painPoints);
+  const hasCriteria = systems.length > 0
+    || painPoints.length > 0
+    || [
+      criteria.segments,
+      criteria.channels,
+      criteria.personas,
+      criteria.markets,
+      criteria.scenarios,
+    ].some((value) => asList(value).length > 0);
+  const scoreCriteria = { ...criteria, painPoints, systems };
+  const scored = products.map((p) => {
+    const rec = scoreProductRecommendation(p, scoreCriteria);
+    return { p, positioning: rec.positioning, score: rec.score, signals: rec.signals };
+  });
+
+  if (!hasCriteria) return scored.sort((a, b) => String(a.p.name || '').localeCompare(String(b.p.name || '')));
+
+  return scored
+    .filter((s) => s.score > 0)
+    .filter((s) => !systems.length || systems.some((system) => s.signals.includes(`system:${system}`)))
+    .sort((a, b) => b.score - a.score);
 }

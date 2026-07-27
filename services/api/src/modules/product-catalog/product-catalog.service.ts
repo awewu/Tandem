@@ -1,7 +1,14 @@
 import { Injectable, BadRequestException, Logger, NotFoundException, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In, Repository } from 'typeorm';
-import { ProductEntity, PriceListItemEntity, ProductContentEntity, ProductContentEventEntity, ProductRelationEntity } from './product-catalog.entity';
+import {
+  ProductEntity,
+  PriceListItemEntity,
+  ProductContentEntity,
+  ProductContentEventEntity,
+  ProductRelationEntity,
+} from './product-catalog.entity';
+import { BrandProductCategoryEntity } from '../brand-product-category/brand-product-category.entity';
 import { withRlsTransaction } from '../common/rls';
 import { TenantScope } from '../common/tenant-context';
 import type { JwtPayload } from '../auth/auth.service';
@@ -18,9 +25,25 @@ import {
 import {
   validateContentInput, validateTransitionInput, validateRelationInput, validateProductUpsertInput,
 } from './product-catalog.validation';
-import { scoreProductRecommendation } from './product-catalog-recommend';
+import { rankProductRecommendationCandidates } from './product-catalog-recommend';
 
 type ProductMutationActor = Pick<JwtPayload, 'userId' | 'role'>;
+type ProductCategoryBinding = {
+  primaryCategoryId: string | null;
+  categoryLevel1Id: string | null;
+  categoryLevel2Id: string | null;
+  categoryLevel3Id: string | null;
+  categoryPath: string;
+  categoryBindings: Array<Record<string, unknown>>;
+};
+
+const PRODUCT_CATEGORY_BINDING_FIELDS = [
+  'primaryCategoryId',
+  'categoryId',
+  'categoryLevel1Id',
+  'categoryLevel2Id',
+  'categoryLevel3Id',
+] as const;
 
 @Injectable()
 export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
@@ -34,6 +57,7 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
     @InjectRepository(ProductContentEntity) private readonly contents: Repository<ProductContentEntity>,
     private readonly eventBus: EventBusService,
     private readonly fileArtifacts: FileArtifactService,
+    @InjectRepository(BrandProductCategoryEntity) private readonly categories?: Repository<BrandProductCategoryEntity>,
   ) {}
 
   // ══════════════════════════════════════════════════════════════════════
@@ -139,6 +163,213 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
     return meta && typeof meta === 'object' && !Array.isArray(meta) ? meta : {};
   }
 
+  private metaObject(value: unknown): Record<string, any> {
+    return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, any> : {};
+  }
+
+  private legacyCategoryPath(product: ProductEntity): string {
+    const meta = this.brandMeta(product);
+    return [
+      meta.websiteMenuCategory || meta.websiteCategory || meta.cat || product.category,
+      meta.system || meta.sys || (product.spec as any)?.system,
+    ]
+      .map((value) => String(value || '').trim())
+      .filter(Boolean)
+      .filter((value, index, values) => values.indexOf(value) === index)
+      .join(' / ');
+  }
+
+  private categoryBindingFromMeta(product: ProductEntity): ProductCategoryBinding {
+    const brandMeta = this.brandMeta(product);
+    const rootMeta = this.metaObject(product.meta);
+    const categoryBindings = Array.isArray(brandMeta.categoryBindings)
+      ? brandMeta.categoryBindings
+      : Array.isArray(rootMeta.categoryBindings) ? rootMeta.categoryBindings : [];
+    const primaryFromBindings = categoryBindings.find((binding) =>
+      binding && typeof binding === 'object' && (binding as Record<string, unknown>).role === 'primary',
+    ) as Record<string, unknown> | undefined;
+    return {
+      primaryCategoryId: normalizedNullableText(
+        brandMeta.primaryCategoryId
+        ?? rootMeta.primaryCategoryId
+        ?? primaryFromBindings?.categoryId
+        ?? brandMeta.categoryId
+        ?? rootMeta.categoryId
+        ?? brandMeta.categoryLevel3Id
+        ?? rootMeta.categoryLevel3Id
+        ?? brandMeta.categoryLevel2Id
+        ?? rootMeta.categoryLevel2Id
+        ?? brandMeta.categoryLevel1Id
+        ?? rootMeta.categoryLevel1Id,
+      ),
+      categoryLevel1Id: normalizedNullableText(brandMeta.categoryLevel1Id ?? rootMeta.categoryLevel1Id),
+      categoryLevel2Id: normalizedNullableText(brandMeta.categoryLevel2Id ?? rootMeta.categoryLevel2Id),
+      categoryLevel3Id: normalizedNullableText(brandMeta.categoryLevel3Id ?? rootMeta.categoryLevel3Id),
+      categoryPath: normalizedNullableText(brandMeta.categoryPath ?? rootMeta.categoryPath) || '',
+      categoryBindings,
+    };
+  }
+
+  private categoryBindingInput(dto: Record<string, unknown>) {
+    const patch: Partial<ProductCategoryBinding> = {};
+    let touched = false;
+    for (const field of PRODUCT_CATEGORY_BINDING_FIELDS) {
+      if (Object.prototype.hasOwnProperty.call(dto, field)) {
+        if (field === 'categoryId') patch.primaryCategoryId = normalizedNullableText(dto[field]);
+        else patch[field] = normalizedNullableText(dto[field]);
+        touched = true;
+      }
+    }
+    if (Object.prototype.hasOwnProperty.call(dto, 'categoryBindings')) {
+      patch.categoryBindings = Array.isArray(dto.categoryBindings) ? dto.categoryBindings as Array<Record<string, unknown>> : [];
+      touched = true;
+    }
+    return touched ? patch : null;
+  }
+
+  private metaHasCategoryBindingInput(metaInput: unknown, brand: string): boolean {
+    const meta = this.metaObject(metaInput);
+    const brandMeta = this.metaObject(meta[brand]);
+    return PRODUCT_CATEGORY_BINDING_FIELDS.some((field) =>
+      Object.prototype.hasOwnProperty.call(meta, field)
+      || Object.prototype.hasOwnProperty.call(brandMeta, field),
+    ) || Object.prototype.hasOwnProperty.call(meta, 'categoryBindings')
+      || Object.prototype.hasOwnProperty.call(brandMeta, 'categoryBindings');
+  }
+
+  private applyCategoryBindingInput(
+    metaInput: unknown,
+    brand: string,
+    patch: Partial<ProductCategoryBinding> | null,
+  ): Record<string, unknown> {
+    const meta = { ...this.metaObject(metaInput) };
+    if (!patch) return meta;
+    const brandMeta = { ...this.metaObject(meta[brand]) };
+    for (const field of PRODUCT_CATEGORY_BINDING_FIELDS) {
+      if (Object.prototype.hasOwnProperty.call(patch, field)) {
+        const target = field === 'categoryId' ? 'primaryCategoryId' : field;
+        const value = patch[field as keyof ProductCategoryBinding];
+        if (value) brandMeta[target] = value;
+        else delete brandMeta[target];
+      }
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, 'categoryBindings')) {
+      brandMeta.categoryBindings = patch.categoryBindings;
+    }
+    delete brandMeta.categoryPath;
+    meta[brand] = brandMeta;
+    return meta;
+  }
+
+  private async categoryMapForProducts(products: ProductEntity[]): Promise<Map<string, BrandProductCategoryEntity>> {
+    const ids = new Set<string>();
+    for (const product of products) {
+      const binding = this.categoryBindingFromMeta(product);
+      for (const id of [
+        binding.primaryCategoryId,
+        binding.categoryLevel1Id,
+        binding.categoryLevel2Id,
+        binding.categoryLevel3Id,
+        ...binding.categoryBindings.map((row) => normalizedNullableText(row.categoryId)),
+      ]) {
+        if (id) ids.add(id);
+      }
+    }
+    if (!ids.size || !this.categories) return new Map();
+    const rows = await this.categories.find({ where: { deletedAt: null } as any });
+    return new Map(rows.filter((row) => ids.has(row.id)).map((row) => [row.id, row]));
+  }
+
+  private projectProductRead(
+    product: ProductEntity,
+    categories = new Map<string, BrandProductCategoryEntity>(),
+  ): Record<string, unknown> {
+    const binding = this.categoryBindingFromMeta(product);
+    const primaryCategory = binding.primaryCategoryId ? categories.get(binding.primaryCategoryId) : null;
+    const ancestry = primaryCategory ? categoryAncestry(primaryCategory, categories) : [];
+    const pathFromCategories = ancestry.map((item) => item.nameCn).join(' / ');
+    const categoryBindings = binding.categoryBindings.length ? binding.categoryBindings : (
+      primaryCategory ? [{
+        categoryId: primaryCategory.id,
+        role: 'primary',
+        path: pathFromCategories,
+        ancestry: categoryProjection(ancestry),
+      }] : []
+    );
+    return {
+      ...product,
+      primaryCategoryId: binding.primaryCategoryId,
+      categoryLevel1Id: binding.categoryLevel1Id,
+      categoryLevel2Id: binding.categoryLevel2Id,
+      categoryLevel3Id: binding.categoryLevel3Id,
+      categoryBindings,
+      categoryAncestry: categoryProjection(ancestry),
+      categoryPath: pathFromCategories || binding.categoryPath || this.legacyCategoryPath(product),
+    };
+  }
+
+  private async validateCategoryBinding(
+    manager: EntityManager,
+    product: ProductEntity,
+  ): Promise<Record<string, unknown>> {
+    const brand = String(product.brand || '').trim().toLowerCase();
+    if (!brand) throw new BadRequestException('Product brand is required before binding product categories.');
+    const binding = this.categoryBindingFromMeta(product);
+    const primaryCategoryId = binding.primaryCategoryId;
+    const ids = [primaryCategoryId, binding.categoryLevel1Id, binding.categoryLevel2Id, binding.categoryLevel3Id].filter(Boolean) as string[];
+    if (!ids.length) {
+      return this.applyCategoryBindingInput(product.meta, brand, {
+        primaryCategoryId: null,
+        categoryLevel1Id: null,
+        categoryLevel2Id: null,
+        categoryLevel3Id: null,
+        categoryBindings: [],
+      });
+    }
+    const rows = await manager.getRepository(BrandProductCategoryEntity).find({
+      where: { deletedAt: null } as any,
+    });
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    const primary = primaryCategoryId ? byId.get(primaryCategoryId) : null;
+    if (!primary) {
+      throw new BadRequestException('Selected product category does not exist.');
+    }
+    if (primary.brandCode !== brand) {
+      throw new BadRequestException('Selected product categories must belong to the product brand.');
+    }
+    if (primary.status !== 'active') {
+      throw new BadRequestException('Selected product category must be active for new bindings.');
+    }
+    const ancestry = categoryAncestry(primary, byId);
+    for (const [index, id] of [binding.categoryLevel1Id, binding.categoryLevel2Id, binding.categoryLevel3Id].entries()) {
+      if (id && ancestry[index]?.id !== id) {
+        throw new BadRequestException(`categoryLevel${index + 1}Id must match the selected primary category ancestry.`);
+      }
+    }
+    const meta = { ...this.metaObject(product.meta) };
+    const brandMeta = { ...this.metaObject(meta[brand]) };
+    brandMeta.primaryCategoryId = primary.id;
+    brandMeta.categoryLevel1Id = ancestry[0]?.id ?? null;
+    if (ancestry[1]) brandMeta.categoryLevel2Id = ancestry[1].id;
+    else delete brandMeta.categoryLevel2Id;
+    if (ancestry[2]) brandMeta.categoryLevel3Id = ancestry[2].id;
+    else delete brandMeta.categoryLevel3Id;
+    const path = ancestry.map((row) => row.nameCn).join(' / ');
+    brandMeta.categoryPath = path;
+    brandMeta.categoryBindings = [{
+      categoryId: primary.id,
+      role: 'primary',
+      sortOrder: 0,
+      code: primary.code,
+      slug: primary.slug,
+      nameCn: primary.nameCn,
+      path,
+      ancestry: categoryProjection(ancestry),
+    }];
+    meta[brand] = brandMeta;
+    return meta;
+  }
+
   private publicSlug(product: ProductEntity): string {
     return this.normalizePublicSlug(this.brandMeta(product).slug || product.sku);
   }
@@ -212,6 +443,7 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
     const gallery = imageRefs.gallery.length ? imageRefs.gallery : this.publicGallery(meta.gallery);
     const marketing: ProductMarketing = content?.marketing ?? EMPTY_MARKETING;
     const seo: ProductSeo = content?.seo ?? EMPTY_SEO;
+    const categoryBinding = this.categoryBindingFromMeta(product);
     const base: Record<string, unknown> = {
       slug: this.publicSlug(product),
       sku: product.sku,
@@ -219,6 +451,12 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
       model: meta.model || (product.spec as any)?.officialModel || product.sku,
       name: content?.name || meta.name || product.name,
       websiteCategory: meta.websiteCategory || meta.websiteCategoryCode || meta.cat || product.category,
+      primaryCategoryId: categoryBinding.primaryCategoryId,
+      categoryLevel1Id: categoryBinding.categoryLevel1Id,
+      categoryLevel2Id: categoryBinding.categoryLevel2Id,
+      categoryLevel3Id: categoryBinding.categoryLevel3Id,
+      categoryBindings: categoryBinding.categoryBindings,
+      categoryPath: categoryBinding.categoryPath || this.legacyCategoryPath(product),
       cat: meta.cat || product.category,
       sys: meta.sys || '',
       series: meta.series || '',
@@ -272,6 +510,36 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
       const qb = repo.createQueryBuilder('p').where('p.tenant_id = :tenantId', { tenantId });
       if (query.brand)    qb.andWhere('p.brand = :brand', { brand: String(query.brand).toLowerCase() });
       if (query.category) qb.andWhere('p.category = :category', { category: query.category });
+      if (query.categoryLevel1Id) {
+        qb.andWhere("COALESCE(NULLIF(p.meta -> p.brand ->> 'categoryLevel1Id', ''), NULLIF(p.meta ->> 'categoryLevel1Id', '')) = :categoryLevel1Id", {
+          categoryLevel1Id: String(query.categoryLevel1Id),
+        });
+      }
+      if (query.categoryLevel2Id) {
+        qb.andWhere("COALESCE(NULLIF(p.meta -> p.brand ->> 'categoryLevel2Id', ''), NULLIF(p.meta ->> 'categoryLevel2Id', '')) = :categoryLevel2Id", {
+          categoryLevel2Id: String(query.categoryLevel2Id),
+        });
+      }
+      if (query.categoryLevel3Id) {
+        qb.andWhere("COALESCE(NULLIF(p.meta -> p.brand ->> 'categoryLevel3Id', ''), NULLIF(p.meta ->> 'categoryLevel3Id', '')) = :categoryLevel3Id", {
+          categoryLevel3Id: String(query.categoryLevel3Id),
+        });
+      }
+      if (query.categoryId) {
+        const categoryIds = await this.categoryFilterIds(String(query.categoryId), query.includeDescendants === true || query.includeDescendants === 'true');
+        qb.andWhere(
+          `(COALESCE(NULLIF(p.meta -> p.brand ->> 'primaryCategoryId', ''), NULLIF(p.meta ->> 'primaryCategoryId', '')) IN (:...categoryIds)
+            OR COALESCE(NULLIF(p.meta -> p.brand ->> 'categoryLevel1Id', ''), NULLIF(p.meta ->> 'categoryLevel1Id', '')) IN (:...categoryIds)
+            OR COALESCE(NULLIF(p.meta -> p.brand ->> 'categoryLevel2Id', ''), NULLIF(p.meta ->> 'categoryLevel2Id', '')) IN (:...categoryIds)
+            OR COALESCE(NULLIF(p.meta -> p.brand ->> 'categoryLevel3Id', ''), NULLIF(p.meta ->> 'categoryLevel3Id', '')) IN (:...categoryIds)
+            OR EXISTS (
+              SELECT 1
+              FROM jsonb_array_elements(COALESCE(p.meta -> p.brand -> 'categoryBindings', p.meta -> 'categoryBindings', '[]'::jsonb)) AS binding
+              WHERE binding ->> 'categoryId' IN (:...categoryIds)
+            ))`,
+          { categoryIds },
+        );
+      }
       if (query.status)   qb.andWhere('p.status = :status', { status: query.status });
       else qb.andWhere("p.status <> 'archived'");
       const keyword = query.keyword || query.q;
@@ -295,7 +563,9 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
         .addOrderBy('p.sku', 'ASC')
         .skip((page - 1) * pageSize)
         .take(pageSize);
-      const [items, total] = await qb.getManyAndCount();
+      const [rows, total] = await qb.getManyAndCount();
+      const categoryMap = await this.categoryMapForProducts(rows);
+      const items = rows.map((product) => this.projectProductRead(product, categoryMap));
       const facetRows = await repo.find({ where: { tenantId } as any, take: 2000 });
       const toFacet = (values: Array<string | null | undefined>) => {
         const counts = new Map<string, number>();
@@ -341,7 +611,30 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
   async get(id: string, tenantId: string) {
     const product = await this.scoped(tenantId, (repo) => repo.findOne({ where: { id, tenantId } }));
     if (!product) throw new NotFoundException('产品不存在');
-    return { success: true, data: product };
+    const categoryMap = await this.categoryMapForProducts([product]);
+    return { success: true, data: this.projectProductRead(product, categoryMap) };
+  }
+
+  private async categoryFilterIds(categoryId: string, includeDescendants: boolean): Promise<string[]> {
+    const rootId = String(categoryId || '').trim();
+    if (!rootId) throw new BadRequestException('categoryId is required.');
+    if (!includeDescendants || !this.categories) return [rootId];
+    const rows = await this.categories.find({ where: { deletedAt: null } as any });
+    const children = new Map<string, BrandProductCategoryEntity[]>();
+    for (const row of rows) {
+      if (!row.parentId) continue;
+      if (!children.has(row.parentId)) children.set(row.parentId, []);
+      children.get(row.parentId)!.push(row);
+    }
+    const out = new Set([rootId]);
+    const visit = (id: string) => {
+      for (const child of children.get(id) ?? []) {
+        out.add(child.id);
+        visit(child.id);
+      }
+    };
+    visit(rootId);
+    return [...out];
   }
 
   /**
@@ -373,17 +666,7 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
       take: 500,
     }));
 
-    const scored = rows.map((p) => {
-      const rec = scoreProductRecommendation(p, { ...criteria, painPoints, systems });
-      return { p, pos: rec.positioning, score: rec.score, signals: rec.signals };
-    });
-
-    const matched = hasCriteria
-      ? scored.filter((s) => s.score > 0).sort((a, b) => b.score - a.score)
-      : [];
-    const ranked = matched.length
-      ? matched
-      : scored.sort((a, b) => a.p.name.localeCompare(b.p.name));
+    const ranked = rankProductRecommendationCandidates(rows, hasCriteria ? { ...criteria, painPoints, systems } : criteria);
 
     const items = ranked.slice(0, limit).map(({ p, score, signals }) => {
       const base = this.publicProductProjection(p, DEFAULT_LOCALE, null);
@@ -452,6 +735,7 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
     const tenantId = this.requireWriteTenant(dto.tenantId);
     // 定位字段归一（受控词表软约束）：仅当显式传入时改写，避免 partial 更新误清已有定位。
     const patch: Partial<ProductEntity> = { ...dto, tenantId };
+    const categoryBindingPatch = this.categoryBindingInput(dto as Record<string, unknown>);
     if ('positioning' in dto) patch.positioning = sanitizePositioning(dto.positioning);
     if ('assetRefs' in dto) patch.assetRefs = sanitizeAssetRefs(dto.assetRefs);
     return withRlsTransaction(this.ds, async (manager) => {
@@ -467,7 +751,11 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
         throw new BadRequestException(`品牌必须与当前租户一致（${tenantBrand}）`);
       }
       patch.brand = tenantBrand;
+      patch.meta = this.applyCategoryBindingInput(patch.meta ?? existing?.meta ?? {}, tenantBrand, categoryBindingPatch);
       const base = { ...(existing ?? {}), ...patch };
+      if (categoryBindingPatch || this.metaHasCategoryBindingInput(dto.meta, tenantBrand)) {
+        base.meta = await this.validateCategoryBinding(manager, base as ProductEntity);
+      }
       await this.assertBrandSlugUnique(repo, tenantId, tenantBrand, (base.meta as any)?.[tenantBrand]?.slug || base.sku, existing?.id);
       // MDM-lite product_key（P4）：缺失时自动回填（新行/历史行均覆盖），显式传入优先。
       if (!base.productKey && base.name) base.productKey = computeProductKey(base.name, base.category);
@@ -491,6 +779,8 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
     const patch = Object.fromEntries(mutable
       .filter((key) => Object.prototype.hasOwnProperty.call(dto, key) && dto[key] !== undefined)
       .map((key) => [key, dto[key]])) as Partial<ProductEntity>;
+    const categoryBindingPatch = this.categoryBindingInput(dto);
+    if (!Object.keys(patch).length && categoryBindingPatch) patch.meta = {};
     if (!Object.keys(patch).length) throw new BadRequestException('没有可更新字段');
     if ('positioning' in patch) patch.positioning = sanitizePositioning(patch.positioning);
     if ('assetRefs' in patch) patch.assetRefs = sanitizeAssetRefs(patch.assetRefs);
@@ -498,15 +788,23 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
     return withRlsTransaction(this.ds, async (manager) => {
       const repo = manager.getRepository(ProductEntity);
       const before = await repo.findOne({ where: { id, tenantId } });
+      const brand = String(before?.brand || '').trim().toLowerCase();
+      patch.meta = this.applyCategoryBindingInput(patch.meta ?? before?.meta ?? {}, brand, categoryBindingPatch);
+      const candidate = before
+        ? repo.create({ ...before, ...patch, id, tenantId, sku: before.sku, brand: before.brand })
+        : null;
+      if (candidate && (categoryBindingPatch || this.metaHasCategoryBindingInput(dto.meta, brand))) {
+        candidate.meta = await this.validateCategoryBinding(manager, candidate);
+      }
       if (!before) throw new NotFoundException('产品不存在');
       await this.assertBrandSlugUnique(
         repo,
         tenantId,
         String(before.brand || ''),
-        (patch.meta as any)?.[String(before.brand || '')]?.slug || this.publicSlug(before),
+        (candidate?.meta as any)?.[String(before.brand || '')]?.slug || this.publicSlug(before),
         before.id,
       );
-      const saved = await repo.save(repo.create({ ...before, ...patch, id, tenantId, sku: before.sku, brand: before.brand }));
+      const saved = await repo.save(candidate!);
       await this.recordProductMutation(manager, actor, 'product.update', before, saved);
       return { success: true, data: saved };
     }, { tenantId, actorId: actor.userId, role: actor.role });
@@ -1148,4 +1446,38 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
     }
     return grouped;
   }
+}
+
+function normalizedNullableText(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  const text = String(value).trim();
+  return text || null;
+}
+
+function categoryAncestry(
+  row: BrandProductCategoryEntity,
+  byId: Map<string, BrandProductCategoryEntity>,
+): BrandProductCategoryEntity[] {
+  const ancestry: BrandProductCategoryEntity[] = [];
+  const seen = new Set<string>();
+  for (let cursor: BrandProductCategoryEntity | undefined = row; cursor; cursor = cursor.parentId ? byId.get(cursor.parentId) : undefined) {
+    if (seen.has(cursor.id)) break;
+    seen.add(cursor.id);
+    ancestry.unshift(cursor);
+  }
+  return ancestry;
+}
+
+function categoryProjection(rows: BrandProductCategoryEntity[]) {
+  return rows.map((row) => ({
+    id: row.id,
+    brandCode: row.brandCode,
+    parentId: row.parentId,
+    level: row.level,
+    code: row.code,
+    slug: row.slug,
+    nameCn: row.nameCn,
+    nameEn: row.nameEn,
+    status: row.status,
+  }));
 }

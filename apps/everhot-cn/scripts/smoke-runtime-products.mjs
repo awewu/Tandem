@@ -11,6 +11,7 @@ function product(overrides) {
   return {
     slug: 'runtime-pump',
     name: 'Runtime Heat Pump',
+    brand: 'everhot',
     cat: 'residential',
     sys: 'water-heating',
     series: 'Runtime Series',
@@ -18,6 +19,23 @@ function product(overrides) {
     mainImage: { url: '/api/v2/sites/everhot/products/runtime-pump/images/main' },
     ...overrides,
   };
+}
+
+const INTERNAL_PRODUCT_FIELDS = [
+  'cost',
+  'costPrice',
+  'dealerPrice',
+  'internalPrice',
+  'priceListItems',
+  'tenantId',
+  'privilegedMetadata',
+  'workflowState',
+];
+
+function assertPublicSafe(product) {
+  for (const field of INTERNAL_PRODUCT_FIELDS) {
+    assert.equal(field in product, false, `${field} must not be exposed to the Everhot runtime`);
+  }
 }
 
 function createGrid() {
@@ -79,6 +97,40 @@ async function runCatalog({ hostname, fetchImpl, staticProducts }) {
 }
 
 const successCalls = [];
+const publishedEverhot = product({
+  slug: 'everhot-runtime-published',
+  name: 'Everhot Runtime Published',
+});
+const unlistedEverhot = product({
+  slug: 'everhot-runtime-unlisted',
+  name: 'Everhot Runtime Unlisted',
+});
+const hiddenEverhot = product({
+  slug: 'everhot-runtime-hidden',
+  name: 'Everhot Runtime Hidden',
+});
+const rheemProduct = product({
+  slug: 'rheem-runtime-product',
+  name: 'Rheem Runtime Product',
+  brand: 'rheem',
+});
+const ruudProduct = product({
+  slug: 'ruud-runtime-product',
+  name: 'Ruud Runtime Product',
+  brand: 'ruud',
+});
+const publicEverhotPayload = {
+  success: true,
+  data: {
+    items: [publishedEverhot, rheemProduct, ruudProduct],
+    total: 1,
+  },
+};
+
+assertPublicSafe(publicEverhotPayload.data.items[0]);
+assert.equal(publicEverhotPayload.data.items.some((item) => item.slug === unlistedEverhot.slug), false);
+assert.equal(publicEverhotPayload.data.items.some((item) => item.slug === hiddenEverhot.slug), false);
+
 const success = await runCatalog({
   hostname: 'localhost',
   staticProducts: [product({ slug: 'static-pump', name: 'Static Heat Pump', tagline: 'Static fallback' })],
@@ -87,14 +139,19 @@ const success = await runCatalog({
     assert.equal(url, '/api/v2/sites/everhot/products?locale=zh-CN');
     return {
       ok: true,
-      json: async () => ({ success: true, data: { items: [product()], total: 1 } }),
+      json: async () => publicEverhotPayload,
     };
   },
 });
 
 assert.equal(success.window.EVERHOT_PRODUCTS_STATUS, 'runtime');
-assert.equal(success.window.EVERHOT_PRODUCTS[0].slug, 'runtime-pump');
-assert.match(success.grid.innerHTML, /Runtime Heat Pump/);
+assert.deepEqual(success.window.EVERHOT_PRODUCTS.map((item) => item.slug), ['everhot-runtime-published']);
+assertPublicSafe(success.window.EVERHOT_PRODUCTS[0]);
+assert.match(success.grid.innerHTML, /Everhot Runtime Published/);
+assert.doesNotMatch(success.grid.innerHTML, /Everhot Runtime Unlisted/);
+assert.doesNotMatch(success.grid.innerHTML, /Everhot Runtime Hidden/);
+assert.doesNotMatch(success.grid.innerHTML, /Rheem Runtime Product/);
+assert.doesNotMatch(success.grid.innerHTML, /Ruud Runtime Product/);
 assert.doesNotMatch(success.grid.innerHTML, /Static Heat Pump/);
 assert.deepEqual(successCalls, ['/api/v2/sites/everhot/products?locale=zh-CN']);
 
