@@ -109,13 +109,12 @@ smoke:
   services:
     - name: pgvector/pgvector:pg16
       alias: postgres
-      variables:
-        POSTGRES_USER: tandem
-        POSTGRES_PASSWORD: tandem
-        POSTGRES_DB: tandem
     - name: redis:7-alpine
       alias: redis
   variables:
+    POSTGRES_USER: "tandem"
+    POSTGRES_PASSWORD: "tandem"
+    POSTGRES_DB: "tandem"
     DATABASE_URL: "postgresql://tandem:tandem@postgres:5432/tandem"
     REDIS_URL: "redis://redis:6379"
     NEXTAUTH_SECRET: "ci-secret-not-for-production"
