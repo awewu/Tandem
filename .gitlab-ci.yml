@@ -3,62 +3,86 @@
 # 这是当前真实生效的 CI 配置 (git remote 是内部 GitLab: 192.1.1.208:8088/root/hermes-tandem.git)
 # .github/workflows/ci.yml 是镜像配置, 仅当 push 到 GitHub mirror 时触发
 #
-# 5 个 stage:
+# 4 个 stage:
 #   - test (并行): typecheck / lint / unit (vitest)
 #   - build:        next build
 #   - smoke:        PG + Redis services + drizzle migrations + dev server + scripts/smoke-api.sh
+#   - deploy:       deploy 分支通过 smoke 后上传发布包到 Windows Server 并触发蓝绿发布
 
 stages:
   - test
   - build
   - smoke
+  - deploy
 
 variables:
   NODE_VERSION: "22"
   NEXT_TELEMETRY_DISABLED: "1"
   NPM_CONFIG_CACHE: ".npm"
+  DEPLOY_NGINX_EXE: "E:/soft/nginx-1.30.2/nginx.exe"
+  DEPLOY_PUBLIC_BASE_URL: "https://ai.rhautt.com"
+  DEPLOY_NOTIFY_WEBHOOK_TYPE: "wecom"
 
-# 共享 base (extends)
-.node-base:
+typecheck:
   image: node:22-bookworm
+  stage: test
+  cache:
+    key: tandem-node-cache
+    paths:
+      - .npm/
+      - node_modules/
   before_script:
     - node --version
     - npm --version
     - npm ci --no-audit --no-fund --ignore-scripts --prefer-offline
-  cache:
-    key:
-      files:
-        - package-lock.json
-    paths:
-      - .npm/
-      - node_modules/
-    policy: pull-push
-
-typecheck:
-  extends: .node-base
-  stage: test
   script:
     - npx tsc --noEmit
 
 lint:
-  extends: .node-base
+  image: node:22-bookworm
   stage: test
+  cache:
+    key: tandem-node-cache
+    paths:
+      - .npm/
+      - node_modules/
+  before_script:
+    - node --version
+    - npm --version
+    - npm ci --no-audit --no-fund --ignore-scripts --prefer-offline
   script:
     - npm run lint --if-present
   allow_failure: true # lint 警告暂不阻塞 (V1 阶段)
 
 unit:
-  extends: .node-base
+  image: node:22-bookworm
   stage: test
+  cache:
+    key: tandem-node-cache
+    paths:
+      - .npm/
+      - node_modules/
+  before_script:
+    - node --version
+    - npm --version
+    - npm ci --no-audit --no-fund --ignore-scripts --prefer-offline
   script:
     - npm test
   variables:
     NODE_ENV: test
 
 build:
-  extends: .node-base
+  image: node:22-bookworm
   stage: build
-  needs: ["typecheck"]
+  cache:
+    key: tandem-node-cache
+    paths:
+      - .npm/
+      - node_modules/
+  before_script:
+    - node --version
+    - npm --version
+    - npm ci --no-audit --no-fund --ignore-scripts --prefer-offline
   script:
     - node scripts/copy-pdf-worker.mjs || true
     - npm run build
@@ -71,9 +95,17 @@ build:
     when: on_success
 
 smoke:
-  extends: .node-base
+  image: node:22-bookworm
   stage: smoke
-  needs: ["unit", "build"]
+  cache:
+    key: tandem-node-cache
+    paths:
+      - .npm/
+      - node_modules/
+  before_script:
+    - node --version
+    - npm --version
+    - npm ci --no-audit --no-fund --ignore-scripts --prefer-offline
   services:
     - name: pgvector/pgvector:pg16
       alias: postgres
@@ -115,3 +147,20 @@ smoke:
     paths:
       - dev.log
     expire_in: 3 days
+
+deploy_prod:
+  stage: deploy
+  tags:
+    - windows
+  only:
+    - deploy
+  script:
+    - New-Item -ItemType Directory -Force "$env:USERPROFILE\.ssh"
+    - $env:DEPLOY_SSH_PRIVATE_KEY -replace "`r", "" | Set-Content -NoNewline "$env:USERPROFILE\.ssh\id_tandem_deploy"
+    - ssh-keyscan $env:DEPLOY_HOST | Add-Content "$env:USERPROFILE\.ssh\known_hosts"
+    - npm ci --no-audit --no-fund
+    - powershell -ExecutionPolicy Bypass -File package-deploy.ps1 -OutputZip tandem-deploy.zip
+    - scp -i "$env:USERPROFILE\.ssh\id_tandem_deploy" tandem-deploy.zip "${env:DEPLOY_USER}@${env:DEPLOY_HOST}:$env:DEPLOY_ROOT/update/tandem-deploy.zip"
+    - ssh -i "$env:USERPROFILE\.ssh\id_tandem_deploy" "${env:DEPLOY_USER}@${env:DEPLOY_HOST}" "powershell -ExecutionPolicy Bypass -File $env:DEPLOY_ROOT/deploy-windows-nssm-bluegreen.ps1 -Root $env:DEPLOY_ROOT -BlueServiceName TandemServerBlue -GreenServiceName TandemServerGreen -BluePort 3005 -GreenPort 3006 -NginxExe '$env:DEPLOY_NGINX_EXE' -NginxUpstreamFile '$env:DEPLOY_ROOT/nginx/tandem-upstream.conf' -PublicBaseUrl '$env:DEPLOY_PUBLIC_BASE_URL' -NotifyWebhookUrl '$env:DEPLOY_NOTIFY_WEBHOOK_URL' -NotifyWebhookType '$env:DEPLOY_NOTIFY_WEBHOOK_TYPE'"
+  environment:
+    name: production
