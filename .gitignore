@@ -76,6 +76,8 @@ src-tauri/*.key
 android/
 ios/
 .capacitor-shouchao-work/
+.capacitor-shouchao-ios-work/
+tandem-deploy*.zip
 
 # TS build cache
 tsconfig.tsbuildinfo

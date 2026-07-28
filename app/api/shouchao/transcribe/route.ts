@@ -45,6 +45,13 @@ const MEETING_SYSTEM = [
   '规则：忠于原文，不编造未提及的事实；修正明显错别字；去掉口水词。直接输出纪要，不要解释你做了什么。',
 ].join('\n');
 
+function isLikelyFillerOnly(text: string): boolean {
+  const clean = normalizeVoiceTranscriptionText(text)
+    .replace(/[。！？!?，,、.\s]/g, '')
+    .trim();
+  return /^(嗯+|啊+|呃+|额+|唔+|恩+|哼+)$/.test(clean);
+}
+
 async function POSTApiHandler(req: NextRequest) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -76,11 +83,27 @@ async function POSTApiHandler(req: NextRequest) {
   const meeting = String(form.get('meeting') ?? '') === 'true';
   const polish = String(form.get('polish') ?? '') === 'true';
   const language = (form.get('language') as string | null)?.trim() || undefined;
+  const durationMs = Number(form.get('durationMs') ?? 0);
   const filename = file instanceof File && file.name ? file.name : 'audio.webm';
 
   const result = await transcribe(file, filename, language);
   if (!result.ok || !result.text) {
     return NextResponse.json({ ok: false, error: result.error ?? '转写失败' }, { status: 502 });
+  }
+
+  if (isLikelyFillerOnly(result.text)) {
+    const shortAudio = Number.isFinite(durationMs) && durationMs > 0 && durationMs < 1800;
+    return NextResponse.json(
+      {
+        ok: false,
+        error: shortAudio
+          ? '录音太短，语音识别只听到语气词。请按住/录满 2 秒左右再说“你好”重试。'
+          : '语音识别只听到语气词，请靠近麦克风并重试。',
+        raw: result.text,
+        durationMs: Number.isFinite(durationMs) ? durationMs : undefined,
+      },
+      { status: 422 },
+    );
   }
 
   // meeting 优先; 都没开则直接返回原始转写稿

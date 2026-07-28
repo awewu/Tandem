@@ -41,10 +41,14 @@ export function MobileViewportFixes() {
       return Boolean(el?.closest('.im-composer-bar'));
     }
 
+    function isInsideStableLogin(el: HTMLElement | null): boolean {
+      return Boolean(el?.closest('.login-mobile-form'));
+    }
+
     function scrollFocusedIntoView() {
-      if (!focusedEditable || isInsideFixedComposer(focusedEditable)) return;
+      if (!focusedEditable || isInsideFixedComposer(focusedEditable) || isInsideStableLogin(focusedEditable)) return;
       try {
-        focusedEditable.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        focusedEditable.scrollIntoView({ block: 'nearest', behavior: 'auto' });
       } catch {
         /* ignore */
       }

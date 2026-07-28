@@ -120,14 +120,20 @@ function resolveDashScopeEndpoint(url: string): { url: string; mode: 'native' | 
 
 function inferAudioMimeType(audio: Blob, filename: string): string {
   const blobType = audio.type.split(';')[0]?.trim();
-  if (blobType) return blobType;
+  if (blobType.startsWith('audio/')) return blobType;
+  if (blobType.startsWith('video/')) {
+    return blobType;
+  }
 
   const ext = filename.toLowerCase().split('.').pop() ?? '';
   const byExt: Record<string, string> = {
+    '3gp': 'audio/mp4',
+    '3gpp': 'audio/mp4',
     aac: 'audio/aac',
     amr: 'audio/amr',
     flac: 'audio/flac',
     m4a: 'audio/mp4',
+    mov: 'audio/mp4',
     mp3: 'audio/mpeg',
     mp4: 'audio/mp4',
     ogg: 'audio/ogg',
@@ -176,6 +182,7 @@ function buildDashScopeSystemPrompt(language: string | undefined): string {
     `你是高准确率语音识别引擎，请逐字转写${languageHint}音频。`,
     '只输出音频里真实说出的文字，不要总结、不要润色、不要扩写。',
     '短句也要完整识别，不要因为音频短就输出“嗯”“啊”等占位语气词。',
+    '例如听到“你好”就输出“你好”，听到“好的”就输出“好的”。',
   ].join('');
 }
 
@@ -250,7 +257,7 @@ async function transcribeWithDashScope(
 
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
-    logger.warn({ status: res.status }, '[transcribe:dashscope] http error');
+    logger.warn({ status: res.status, detail: detail.slice(0, 500), mimeType, filename }, '[transcribe:dashscope] http error');
     return { ok: false, error: `转写服务返回 HTTP ${res.status}${detail ? `: ${detail.slice(0, 200)}` : ''}` };
   }
 

@@ -47,8 +47,20 @@ function isAuthRoute(pathname: string): boolean {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? '';
 
-  // 独立 app / 鉴权页: 无内部导航 / 无问老板 / 无命令面板, 全屏纯内容
-  if (isStandalone(pathname) || isAuthRoute(pathname)) {
+  // 独立 app: 页面内部自行管理滚动, 避免外层和业务页双滚动导致移动端适配漂移.
+  if (isStandalone(pathname)) {
+    return (
+      <main
+        id="tandem-shell-main"
+        className="flex h-dvh w-screen flex-col overflow-hidden bg-[rgb(var(--surface-1))]"
+      >
+        <ErrorBoundary>{children}</ErrorBoundary>
+      </main>
+    );
+  }
+
+  // 鉴权页: 保留外层滚动, 注册等页面内容可能超过一屏.
+  if (isAuthRoute(pathname)) {
     return (
       <main
         id="tandem-shell-main"

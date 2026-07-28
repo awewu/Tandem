@@ -204,7 +204,7 @@ function LoginInner() {
   // §desktop: 静默续期中显示极简加载页, 避免重开应用时闪现登录表单.
   if (recovering) {
     return (
-      <main className="min-h-screen w-full flex flex-col items-center justify-center bg-white gap-4">
+      <main className="login-mobile-shell h-full min-h-screen w-full flex flex-col items-center justify-center bg-white gap-4">
         <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[rgb(var(--brand-500))] text-white text-headline font-extrabold">
           T
         </span>
@@ -214,7 +214,7 @@ function LoginInner() {
   }
 
   return (
-    <main className="min-h-screen w-full grid grid-cols-1 lg:grid-cols-2 bg-white">
+    <main className="login-mobile-shell h-full min-h-screen w-full grid grid-cols-1 lg:grid-cols-2 bg-white">
       {/* ─────── Left · Brand panel ─────── */}
       <aside className="relative hidden lg:flex flex-col justify-between p-12 bg-[rgb(var(--surface-2))] overflow-hidden">
         {/* Subtle grid texture (Rheem login background vibe) */}
@@ -295,10 +295,10 @@ function LoginInner() {
       </aside>
 
       {/* ─────── Right · Auth form ─────── */}
-      <section className="flex flex-col items-center justify-center px-6 py-12 sm:px-12">
-        <div className="w-full max-w-sm">
+      <section className="login-mobile-form-section flex flex-col items-center justify-center px-6 py-12 sm:px-12">
+        <div className="login-mobile-panel w-full max-w-sm">
           {stage === 'creds' ? (
-            <form onSubmit={submitCreds} className="space-y-5">
+            <form onSubmit={submitCreds} className="login-mobile-form space-y-5">
               <header className="text-center mb-2">
                 {/* Mobile-only inline brand */}
                 <div className="lg:hidden mb-6 flex items-center justify-center gap-2">
@@ -418,7 +418,7 @@ function LoginInner() {
               <LoginLegalNotice />
             </form>
           ) : (
-            <form onSubmit={submitMfa} className="space-y-5">
+            <form onSubmit={submitMfa} className="login-mobile-form space-y-5">
               <header className="text-center mb-2">
                 <h2 className="rheem-display text-title-1 leading-none">
                   再确认一下<span className="text-[rgb(var(--brand-500))]">.</span>

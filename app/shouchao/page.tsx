@@ -931,9 +931,9 @@ export default function ShouchaoPage() {
   }, [active, closeEditor]);
 
   return (
-    <div className="flex h-full flex-col bg-gradient-to-b from-surface-1 to-surface-2/50">
+    <div className="shouchao-mobile-shell flex h-full min-w-0 flex-col overflow-hidden bg-gradient-to-b from-surface-1 to-surface-2/50">
       {/* ── 模块头 ── */}
-      <header className="flex items-center justify-between gap-2 border-b border-border bg-surface-1/80 px-4 py-3 backdrop-blur md:gap-3 md:px-6">
+      <header className="shouchao-mobile-header flex shrink-0 items-center justify-between gap-2 border-b border-border bg-surface-1/80 px-4 py-3 backdrop-blur transition-transform duration-200 md:gap-3 md:px-6">
         <div className="flex min-w-0 items-center gap-2 md:gap-3">
           {/* 公司 VI 锚点 (Rheem Red 品牌 mark) — 独立运行时也带公司标准 */}
           <div className="hidden shrink-0 sm:block">
@@ -990,7 +990,7 @@ export default function ShouchaoPage() {
         />
       )}
 
-      <div className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
       {/* ── 分组树侧栏 (Kimi 式: 组 -> 笔记, md+ 显示) ── */}
       {treeOpen && (
         <aside className="hidden w-60 shrink-0 flex-col overflow-hidden border-r border-border bg-surface-1/60 md:flex">
@@ -1012,8 +1012,8 @@ export default function ShouchaoPage() {
       )}
 
       {/* ── 单列卡片流 (Get 式: 速记框置顶 + 卡片瀑布) ── */}
-      <main className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-2xl px-4 py-4 md:px-6 md:py-5">
+      <main className="shouchao-mobile-main min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
+        <div className="shouchao-mobile-content mx-auto w-full max-w-2xl px-4 py-4 md:px-6 md:py-5">
           {/* 刚需 · 随手记 (flomo 式速记, 1 步落库, 常驻置顶) */}
           <div className="rounded-2xl border border-border bg-surface-1 p-3 shadow-soft-sm focus-within:border-brand-400">
             <textarea
@@ -1031,11 +1031,11 @@ export default function ShouchaoPage() {
               className="w-full resize-none bg-transparent px-1 py-1 text-body text-ink-primary placeholder:text-ink-tertiary focus:outline-none"
             />
             <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div className="grid w-full grid-cols-5 gap-1 sm:-ml-1 sm:flex sm:min-w-0 sm:flex-1 sm:items-center sm:overflow-x-auto sm:pb-1 sm:pr-1 sm:[scrollbar-width:none] sm:[&::-webkit-scrollbar]:hidden">
+              <div className="-mx-1 flex min-w-0 items-center gap-1 overflow-x-auto px-1 pb-1 pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:-ml-1 sm:flex-1">
                 <button
                   type="button"
                   onClick={() => setClipOpen(true)}
-                  className="inline-flex min-w-0 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-md px-1 py-1.5 text-[11px] leading-none text-ink-tertiary hover:bg-surface-2 hover:text-ink-secondary surface-interactive sm:px-2 sm:py-1 sm:text-footnote"
+                  className="inline-flex min-w-[4.1rem] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-md px-2 py-1.5 text-[11px] leading-none text-ink-tertiary hover:bg-surface-2 hover:text-ink-secondary surface-interactive sm:min-w-0 sm:py-1 sm:text-footnote"
                   title="剪藏网页链接"
                 >
                   <Link2 className="h-3.5 w-3.5 shrink-0" /> <span>剪藏</span>
@@ -1043,7 +1043,7 @@ export default function ShouchaoPage() {
                 <button
                   type="button"
                   onClick={() => setImportOpen(true)}
-                  className="inline-flex min-w-0 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-md px-1 py-1.5 text-[11px] leading-none text-ink-tertiary hover:bg-surface-2 hover:text-ink-secondary surface-interactive sm:px-2 sm:py-1 sm:text-footnote"
+                  className="inline-flex min-w-[5.1rem] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-md px-2 py-1.5 text-[11px] leading-none text-ink-tertiary hover:bg-surface-2 hover:text-ink-secondary surface-interactive sm:min-w-0 sm:py-1 sm:text-footnote"
                   title="导入 PDF / Word / 文本文件"
                 >
                   <FileUp className="h-3.5 w-3.5 shrink-0" /> <span>导入文件</span>
@@ -1051,7 +1051,7 @@ export default function ShouchaoPage() {
                 <button
                   type="button"
                   onClick={() => setVoiceOpen(true)}
-                  className="inline-flex min-w-0 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-md px-1 py-1.5 text-[11px] leading-none text-ink-tertiary hover:bg-surface-2 hover:text-ink-secondary surface-interactive sm:px-2 sm:py-1 sm:text-footnote"
+                  className="inline-flex min-w-[4.1rem] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-md px-2 py-1.5 text-[11px] leading-none text-ink-tertiary hover:bg-surface-2 hover:text-ink-secondary surface-interactive sm:min-w-0 sm:py-1 sm:text-footnote"
                   title="语音转笔记 (录音后自动转写)"
                 >
                   <Mic className="h-3.5 w-3.5 shrink-0" /> <span>语音</span>
@@ -1059,7 +1059,7 @@ export default function ShouchaoPage() {
                 <button
                   type="button"
                   onClick={() => setPhotoOpen(true)}
-                  className="inline-flex min-w-0 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-md px-1 py-1.5 text-[11px] leading-none text-ink-tertiary hover:bg-surface-2 hover:text-ink-secondary surface-interactive sm:px-2 sm:py-1 sm:text-footnote"
+                  className="inline-flex min-w-[4.1rem] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-md px-2 py-1.5 text-[11px] leading-none text-ink-tertiary hover:bg-surface-2 hover:text-ink-secondary surface-interactive sm:min-w-0 sm:py-1 sm:text-footnote"
                   title="拍照/图片转笔记 (识别图中文字)"
                 >
                   <Camera className="h-3.5 w-3.5 shrink-0" /> <span>拍照</span>
@@ -1067,7 +1067,7 @@ export default function ShouchaoPage() {
                 <button
                   type="button"
                   onClick={() => void createNote()}
-                  className="inline-flex min-w-0 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-md px-1 py-1.5 text-[11px] leading-none text-ink-tertiary hover:bg-surface-2 hover:text-ink-secondary surface-interactive sm:px-2 sm:py-1 sm:text-footnote"
+                  className="inline-flex min-w-[4.7rem] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-md px-2 py-1.5 text-[11px] leading-none text-ink-tertiary hover:bg-surface-2 hover:text-ink-secondary surface-interactive sm:min-w-0 sm:py-1 sm:text-footnote"
                   title="打开编辑器写长文"
                 >
                   <NotebookPen className="h-3.5 w-3.5 shrink-0" /> <span>写长文</span>
@@ -1404,17 +1404,18 @@ export default function ShouchaoPage() {
             onClick={(e) => e.stopPropagation()}
           >
             {/* sheet 头: 返回 + 状态 + 动作 */}
-            <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2 md:px-4 md:py-3">
+            <div className="flex shrink-0 items-center gap-1.5 border-b border-border px-3 py-2 md:gap-2 md:px-4 md:py-3">
               <button
                 type="button"
                 onClick={() => void closeEditor()}
-                className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1.5 text-caption font-medium text-ink-secondary hover:bg-surface-2 hover:text-ink-primary surface-interactive"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-ink-secondary hover:bg-surface-2 hover:text-ink-primary surface-interactive sm:w-auto sm:gap-1 sm:px-2 sm:py-1.5 sm:text-caption sm:font-medium"
                 title="关闭 (Esc)"
+                aria-label="关闭"
               >
                 <ArrowLeft className="h-4 w-4" />
                 <span className="hidden sm:inline">关闭</span>
               </button>
-              <span className="ml-0 inline-flex shrink-0 items-center gap-1 text-footnote text-ink-tertiary md:ml-1">
+              <span className="ml-0 inline-flex min-w-0 shrink items-center gap-1 truncate text-footnote text-ink-tertiary md:ml-1">
                 {saving ? (
                   <>
                     <Loader2 className="h-3 w-3 animate-spin" /> 保存中
@@ -1429,35 +1430,38 @@ export default function ShouchaoPage() {
                   </>
                 )}
               </span>
-              <div className="ml-auto flex min-w-0 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1">
                 <button
                   type="button"
                   onClick={() => void toggleShare()}
-                  className={`inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1.5 surface-interactive ${
+                  className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md surface-interactive sm:w-auto sm:gap-1 sm:px-2 sm:py-1.5 ${
                     shared
                       ? 'bg-brand-50 text-brand-700'
                       : 'text-ink-tertiary hover:bg-surface-2 hover:text-ink-primary'
                   }`}
                   title={shared ? '已喂给工作分身 · 点击撤回' : '喂给我的工作分身 (默认关, 可撤回)'}
+                  aria-label={shared ? '已喂给工作分身，点击撤回' : '喂给我的工作分身'}
                 >
                   <Bot className="h-4 w-4" />
-                  <span className="text-footnote font-medium">
+                  <span className="hidden text-footnote font-medium sm:inline">
                     {shared ? '已喂分身' : '喂给分身'}
                   </span>
                 </button>
                 <button
                   type="button"
                   onClick={() => void togglePinned()}
-                  className="rounded-md p-1.5 text-ink-tertiary hover:bg-surface-2 hover:text-ink-primary surface-interactive"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ink-tertiary hover:bg-surface-2 hover:text-ink-primary surface-interactive"
                   title={pinned ? '取消置顶' : '置顶'}
+                  aria-label={pinned ? '取消置顶' : '置顶'}
                 >
                   {pinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
                 </button>
                 <button
                   type="button"
                   onClick={() => setDeleteConfirmOpen(true)}
-                  className="rounded-md p-1.5 text-danger hover:bg-danger/10 surface-interactive"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-md text-danger hover:bg-danger/10 surface-interactive"
                   title="删除"
+                  aria-label="删除"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -1465,14 +1469,13 @@ export default function ShouchaoPage() {
             </div>
 
             {/* sheet 体: 可滚动 */}
-            <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-4 pb-[calc(16px+var(--capacitor-safe-area-bottom,0px))] pt-4 md:p-6">
+            <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-3 pb-[calc(16px+var(--capacitor-safe-area-bottom,0px))] pt-3 md:p-6">
               <div className="min-w-0 space-y-4">
                 {/* AI 工具条: 加工 (改写笔记) + 创作 (产出洞察不改原文) */}
-                <div className="flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex-wrap">
+                <div className="grid grid-cols-3 gap-2 md:flex md:flex-wrap md:items-center">
                   <AiButton icon={Sparkles} label="AI 总结" busy={aiBusy === 'summarize'} onClick={() => runAi('summarize')} />
                   <AiButton icon={Wand2} label="润色" busy={aiBusy === 'polish'} onClick={() => runAi('polish')} />
                   <AiButton icon={Tags} label="生成标签" busy={aiBusy === 'tags'} onClick={() => runAi('tags')} />
-                  <span className="h-4 w-px shrink-0 bg-border" />
                   <AiButton icon={Sparkles} label="点评" busy={insightBusy === 'review'} onClick={() => runInsight('review')} />
                   <AiButton icon={MessageCircleQuestion} label="拷问" busy={insightBusy === 'challenge'} onClick={() => runInsight('challenge')} />
                   <AiButton icon={Sprout} label="发芽" busy={insightBusy === 'sprout'} onClick={() => runInsight('sprout')} />
@@ -1605,7 +1608,7 @@ export default function ShouchaoPage() {
                     </button>
                   </div>
                   {editorMode === 'block' ? (
-                    <div className="min-h-[45vh] rounded-lg border border-border bg-surface-1 p-3 md:min-h-[55vh] md:p-4">
+                    <div className="min-h-[50vh] rounded-lg border border-border bg-surface-1 p-3 md:min-h-[55vh] md:p-4">
                       <BlockEditor
                         value={content}
                         onChange={(md) => {
@@ -1644,7 +1647,7 @@ export default function ShouchaoPage() {
                         markDirty();
                       }}
                       placeholder="开始记录…支持 Markdown。可口述草稿后点「润色」让 AI 整理成稿。"
-                      className="min-h-[45vh] w-full resize-y rounded-lg border border-border bg-surface-1 p-3 text-body leading-relaxed text-ink-primary placeholder:text-ink-tertiary focus:border-brand-400 focus:outline-none md:min-h-[55vh] md:p-4"
+                      className="min-h-[50vh] w-full resize-y rounded-lg border border-border bg-surface-1 p-3 text-body leading-relaxed text-ink-primary placeholder:text-ink-tertiary focus:border-brand-400 focus:outline-none md:min-h-[55vh] md:p-4"
                     />
                   )}
                 </div>
@@ -2030,10 +2033,10 @@ function AiButton({
       type="button"
       onClick={onClick}
       disabled={busy}
-      className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-border bg-surface-1 px-2.5 py-1.5 text-caption font-medium text-ink-secondary hover:bg-surface-2 hover:text-ink-primary disabled:opacity-50 surface-interactive"
+      className="inline-flex min-w-0 items-center justify-center gap-1 rounded-md border border-border bg-surface-1 px-2 py-2 text-[11px] font-medium leading-none text-ink-secondary hover:bg-surface-2 hover:text-ink-primary disabled:opacity-50 surface-interactive md:w-auto md:shrink-0 md:gap-1.5 md:px-2.5 md:py-1.5 md:text-caption"
     >
       {busy ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" /> : <Icon className="h-3.5 w-3.5 shrink-0" />}
-      <span>{label}</span>
+      <span className="min-w-0 truncate">{label}</span>
     </button>
   );
 }
@@ -2945,6 +2948,19 @@ function base64ToBlob(base64: string, mimeType: string): Blob {
   return new Blob([bytes], { type: mimeType });
 }
 
+function isRecordableMediaFile(file: File): boolean {
+  const mimeType = file.type.toLowerCase();
+  const name = file.name.toLowerCase();
+  return (
+    mimeType.startsWith('audio/') ||
+    /\.(m4a|mp3|wav|webm|ogg|aac|amr)$/i.test(name)
+  );
+}
+
+function normalizePickedRecordingFile(file: File): { blob: Blob; filename: string } {
+  return { blob: file, filename: file.name || 'audio.m4a' };
+}
+
 function VoiceDialog({
   onClose,
   onTranscribed,
@@ -2957,7 +2973,7 @@ function VoiceDialog({
   type Phase = 'idle' | 'recording' | 'recorded' | 'transcribing';
   const [phase, setPhase] = useState<Phase>('idle');
   const [elapsed, setElapsed] = useState(0);
-  const [polish, setPolish] = useState(true);
+  const [polish, setPolish] = useState(false);
   const [mode, setMode] = useState<'note' | 'meeting'>('note');
   const [supported, setSupported] = useState(true);
   const [nativeRecorderAvailable, setNativeRecorderAvailable] = useState(false);
@@ -2970,6 +2986,8 @@ function VoiceDialog({
   const chunksRef = useRef<Blob[]>([]);
   const blobRef = useRef<Blob | null>(null);
   const nativeRecordingRef = useRef(false);
+  const recordingStartedAtRef = useRef<number | null>(null);
+  const recordedDurationMsRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
 
@@ -3027,6 +3045,8 @@ function VoiceDialog({
         blobRef.current = null;
         setPickedName('');
         setElapsed(0);
+        recordingStartedAtRef.current = Date.now();
+        recordedDurationMsRef.current = 0;
         setPhase('recording');
         timerRef.current = setInterval(() => setElapsed((s) => s + 1), 1000);
         return;
@@ -3049,6 +3069,10 @@ function VoiceDialog({
       };
       rec.onstop = () => {
         blobRef.current = new Blob(chunksRef.current, { type: rec.mimeType || 'audio/webm' });
+        recordedDurationMsRef.current = recordingStartedAtRef.current
+          ? Math.max(0, Date.now() - recordingStartedAtRef.current)
+          : Math.max(0, elapsed * 1000);
+        recordingStartedAtRef.current = null;
         setPickedName('');
         setPhase('recorded');
         stopTracks();
@@ -3056,6 +3080,8 @@ function VoiceDialog({
       rec.start(250);
       recorderRef.current = rec;
       setElapsed(0);
+      recordingStartedAtRef.current = Date.now();
+      recordedDurationMsRef.current = 0;
       setPhase('recording');
       timerRef.current = setInterval(() => setElapsed((s) => s + 1), 1000);
     } catch {
@@ -3066,14 +3092,15 @@ function VoiceDialog({
 
   function pickAudio(file: File | null | undefined) {
     if (!file) return;
-    if (!file.type.startsWith('audio/') && !/\.(m4a|mp3|wav|webm|ogg|aac|amr)$/i.test(file.name)) {
-      onError('请选择音频文件');
+    if (!isRecordableMediaFile(file)) {
+      onError('请选择音频/录音文件');
       return;
     }
-    blobRef.current = file;
+    const picked = normalizePickedRecordingFile(file);
+    blobRef.current = picked.blob;
     chunksRef.current = [];
     setElapsed(0);
-    setPickedName(file.name || '已选择音频');
+    setPickedName(picked.filename || '已选择录音');
     setPhase('recorded');
   }
 
@@ -3113,8 +3140,10 @@ function VoiceDialog({
       chunksRef.current = [];
       setPickedName(result.filename || 'audio.m4a');
       if (typeof result.durationMs === 'number') {
+        recordedDurationMsRef.current = Math.max(0, Math.round(result.durationMs));
         setElapsed(Math.max(1, Math.round(result.durationMs / 1000)));
       }
+      recordingStartedAtRef.current = null;
       setPhase('recorded');
     } catch (error) {
       nativeRecordingRef.current = false;
@@ -3144,6 +3173,7 @@ function VoiceDialog({
         fd.append('polish', polish ? 'true' : 'false');
       }
       fd.append('language', 'zh');
+      fd.append('durationMs', String(Math.max(recordedDurationMsRef.current, Math.round(elapsed * 1000))));
       const r = await fetch('/api/shouchao/transcribe', { method: 'POST', body: fd });
       const d = await r.json().catch(() => ({}));
       if (!r.ok || !d.ok || !d.text) throw new Error(d.error ?? '转写失败');
@@ -3161,6 +3191,8 @@ function VoiceDialog({
     }
     blobRef.current = null;
     chunksRef.current = [];
+    recordingStartedAtRef.current = null;
+    recordedDurationMsRef.current = 0;
     setPickedName('');
     setElapsed(0);
     setPhase('idle');
@@ -3281,11 +3313,13 @@ function VoiceDialog({
                 <input
                   ref={audioInputRef}
                   type="file"
-                  accept="audio/*"
-                  capture
+                  accept="audio/*,.m4a,.mp3,.wav,.aac,.amr,.webm,.ogg"
                   className="absolute inset-0 cursor-pointer opacity-0"
                   disabled={sttConfigured === false}
-                  onChange={(e) => pickAudio(e.target.files?.[0])}
+                  onChange={(e) => {
+                    pickAudio(e.target.files?.[0]);
+                    e.currentTarget.value = '';
+                  }}
                 />
               </label>
               <p className="text-center text-footnote text-ink-tertiary">
@@ -3303,7 +3337,7 @@ function VoiceDialog({
               onChange={(e) => setPolish(e.target.checked)}
               className="accent-brand-500"
             />
-            AI 润色（去口头语、修错别字、分段）
+            AI 润色（长口述再开；短句建议关闭，避免误改）
           </label>
         ) : (
           <p className="mt-4 text-footnote text-ink-tertiary">

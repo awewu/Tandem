@@ -1,0 +1,38 @@
+{
+	"appId": "com.rhautt.shouchao",
+	"appName": "搭子手抄",
+	"webDir": "../dist/mobile",
+	"server": {
+		"androidScheme": "https",
+		"url": "https://ai.rhautt.com/shouchao",
+		"allowNavigation": [
+			"ai.rhautt.com",
+			"*.rhautt.com"
+		],
+		"cleartext": false,
+		"errorPath": "offline.html"
+	},
+	"ios": {
+		"path": "../ios-shouchao",
+		"backgroundColor": "#FFFFFF"
+	},
+	"plugins": {
+		"StatusBar": {
+			"style": "LIGHT",
+			"backgroundColor": "#FFFFFF",
+			"overlaysWebView": false
+		},
+		"Keyboard": {
+			"resize": "none",
+			"resizeOnFullScreen": false,
+			"style": "LIGHT"
+		}
+	},
+	"packageClassList": [
+		"AppPlugin",
+		"CAPBrowserPlugin",
+		"KeyboardPlugin",
+		"ShouchaoNativeRecorderPlugin",
+		"StatusBarPlugin"
+	]
+}

@@ -4,7 +4,7 @@ import { withApiLog } from '@/lib/api-log/with-api-log';/**
  * 下载通讯录 CSV 模板, 给 IT 填写后回传到 POST /api/admin/users/bulk-invite.
  */
 
-export const dynamic = 'force-static';
+export const dynamic = 'force-dynamic';
 
 const TEMPLATE = `email,name,department,roles
 zhang@example.com,张三,产品部,employee

@@ -10,16 +10,17 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const serverUrl =
   process.env.SHOUCHAO_MOBILE_SERVER_URL ??
   process.env.TANDEM_MOBILE_SERVER_URL ??
-  'http://10.0.2.2:3005/shouchao';
+  'https://ai.rhautt.com/shouchao';
 const isHttp = serverUrl.startsWith('http://');
 
 const config: CapacitorConfig = {
-  appId: 'local.shouchao.mobile',
+  appId: 'com.rhautt.shouchao',
   appName: '搭子手抄',
   webDir: 'dist/mobile',
   server: {
     androidScheme: isHttp ? 'http' : 'https',
     url: serverUrl,
+    allowNavigation: ['ai.rhautt.com', '*.rhautt.com'],
     cleartext: isHttp,
     errorPath: 'offline.html',
   },
@@ -39,8 +40,8 @@ const config: CapacitorConfig = {
       overlaysWebView: false,
     },
     Keyboard: {
-      resize: 'body',
-      resizeOnFullScreen: true,
+      resize: 'none',
+      resizeOnFullScreen: false,
       style: 'LIGHT',
     },
   },
