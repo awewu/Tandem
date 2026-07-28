@@ -1,22 +1,14 @@
 # GitLab CI · Tandem
 #
-# 这是当前真实生效的 CI 配置 (git remote 是内部 GitLab: 192.1.1.208:8088/root/hermes-tandem.git)
-# .github/workflows/ci.yml 是镜像配置, 仅当 push 到 GitHub mirror 时触发
-#
-# 4 个 stage:
-#   - test (并行): typecheck / lint / unit (vitest)
-#   - build:        next build
-#   - smoke:        PG + Redis services + drizzle migrations + dev server + scripts/smoke-api.sh
-#   - deploy:       deploy 分支通过 smoke 后上传发布包到 Windows Server 并触发蓝绿发布
+# 兼容老版本 GitLab：不使用 extends / rules / needs / service variables。
+# 当前发布环境：Windows Runner + NSSM + Nginx + deploy 分支触发生产发布。
 
 stages:
   - test
   - build
-  - smoke
   - deploy
 
 variables:
-  NODE_VERSION: "22"
   NEXT_TELEMETRY_DISABLED: "1"
   NPM_CONFIG_CACHE: ".npm"
   DEPLOY_NGINX_EXE: "E:/soft/nginx-1.30.2/nginx.exe"
@@ -24,128 +16,71 @@ variables:
   DEPLOY_NOTIFY_WEBHOOK_TYPE: "wecom"
 
 typecheck:
-  image: node:22-bookworm
   stage: test
+  tags:
+    - windows
   cache:
     key: tandem-node-cache
     paths:
       - .npm/
       - node_modules/
-  before_script:
+  script:
     - node --version
     - npm --version
     - npm ci --no-audit --no-fund --ignore-scripts --prefer-offline
-  script:
     - npx tsc --noEmit
 
 lint:
-  image: node:22-bookworm
   stage: test
+  tags:
+    - windows
   cache:
     key: tandem-node-cache
     paths:
       - .npm/
       - node_modules/
-  before_script:
+  script:
     - node --version
     - npm --version
     - npm ci --no-audit --no-fund --ignore-scripts --prefer-offline
-  script:
     - npm run lint --if-present
-  allow_failure: true # lint 警告暂不阻塞 (V1 阶段)
+  allow_failure: true
 
 unit:
-  image: node:22-bookworm
   stage: test
+  tags:
+    - windows
   cache:
     key: tandem-node-cache
     paths:
       - .npm/
       - node_modules/
-  before_script:
-    - node --version
-    - npm --version
-    - npm ci --no-audit --no-fund --ignore-scripts --prefer-offline
-  script:
-    - npm test
   variables:
     NODE_ENV: test
+  script:
+    - node --version
+    - npm --version
+    - npm ci --no-audit --no-fund --ignore-scripts --prefer-offline
+    - npm test
 
-build:
-  image: node:22-bookworm
+package:
   stage: build
+  tags:
+    - windows
   cache:
     key: tandem-node-cache
     paths:
       - .npm/
       - node_modules/
-  before_script:
+  script:
     - node --version
     - npm --version
-    - npm ci --no-audit --no-fund --ignore-scripts --prefer-offline
-  script:
-    - node scripts/copy-pdf-worker.mjs || true
-    - npm run build
-  variables:
-    NEXT_OUTPUT: standalone
+    - npm ci --no-audit --no-fund --prefer-offline
+    - powershell -ExecutionPolicy Bypass -File package-deploy.ps1 -OutputZip tandem-deploy.zip
   artifacts:
     paths:
-      - .next/
+      - tandem-deploy.zip
     expire_in: 1 day
-    when: on_success
-
-smoke:
-  image: node:22-bookworm
-  stage: smoke
-  cache:
-    key: tandem-node-cache
-    paths:
-      - .npm/
-      - node_modules/
-  before_script:
-    - node --version
-    - npm --version
-    - npm ci --no-audit --no-fund --ignore-scripts --prefer-offline
-  services:
-    - name: pgvector/pgvector:pg16
-      alias: postgres
-    - name: redis:7-alpine
-      alias: redis
-  variables:
-    POSTGRES_USER: "tandem"
-    POSTGRES_PASSWORD: "tandem"
-    POSTGRES_DB: "tandem"
-    DATABASE_URL: "postgresql://tandem:tandem@postgres:5432/tandem"
-    REDIS_URL: "redis://redis:6379"
-    NEXTAUTH_SECRET: "ci-secret-not-for-production"
-    ALLOW_DEMO_AUTH: "1"
-    NODE_ENV: development
-  script:
-    - apt-get update -qq && apt-get install -y -qq postgresql-client curl >/dev/null
-    - node scripts/copy-pdf-worker.mjs || true
-    # Apply Drizzle migrations
-    - |
-      for f in drizzle/migrations/*.sql; do
-        echo "Applying $f"
-        PGPASSWORD=tandem psql -h postgres -U tandem -d tandem -f "$f"
-      done
-    # Start dev server in background
-    - nohup npx next dev -p 3001 > dev.log 2>&1 &
-    - |
-      for i in $(seq 1 40); do
-        if curl -fs http://localhost:3001/api/health > /dev/null; then
-          echo "ready"; break
-        fi
-        sleep 2
-      done
-    - bash scripts/smoke-api.sh
-  after_script:
-    - tail -200 dev.log || true
-  artifacts:
-    when: on_failure
-    paths:
-      - dev.log
-    expire_in: 3 days
 
 deploy_prod:
   stage: deploy
@@ -157,8 +92,7 @@ deploy_prod:
     - New-Item -ItemType Directory -Force "$env:USERPROFILE\.ssh"
     - $env:DEPLOY_SSH_PRIVATE_KEY -replace "`r", "" | Set-Content -NoNewline "$env:USERPROFILE\.ssh\id_tandem_deploy"
     - ssh-keyscan $env:DEPLOY_HOST | Add-Content "$env:USERPROFILE\.ssh\known_hosts"
-    - npm ci --no-audit --no-fund
-    - powershell -ExecutionPolicy Bypass -File package-deploy.ps1 -OutputZip tandem-deploy.zip
+    - if (-not (Test-Path "tandem-deploy.zip")) { powershell -ExecutionPolicy Bypass -File package-deploy.ps1 -OutputZip tandem-deploy.zip }
     - scp -i "$env:USERPROFILE\.ssh\id_tandem_deploy" tandem-deploy.zip "${env:DEPLOY_USER}@${env:DEPLOY_HOST}:$env:DEPLOY_ROOT/update/tandem-deploy.zip"
     - ssh -i "$env:USERPROFILE\.ssh\id_tandem_deploy" "${env:DEPLOY_USER}@${env:DEPLOY_HOST}" "powershell -ExecutionPolicy Bypass -File $env:DEPLOY_ROOT/deploy-windows-nssm-bluegreen.ps1 -Root $env:DEPLOY_ROOT -BlueServiceName TandemServerBlue -GreenServiceName TandemServerGreen -BluePort 3005 -GreenPort 3006 -NginxExe '$env:DEPLOY_NGINX_EXE' -NginxUpstreamFile '$env:DEPLOY_ROOT/nginx/tandem-upstream.conf' -PublicBaseUrl '$env:DEPLOY_PUBLIC_BASE_URL' -NotifyWebhookUrl '$env:DEPLOY_NOTIFY_WEBHOOK_URL' -NotifyWebhookType '$env:DEPLOY_NOTIFY_WEBHOOK_TYPE'"
   environment:
