@@ -274,6 +274,7 @@ export async function completeMfa(input: {
   pendingSessionId: string;
   totpCode?: string;
   recoveryCode?: string;
+  longSession?: boolean;
   deviceInfo?: { userAgent?: string; ip?: string };
 }): Promise<AuthResult> {
   const userStore = getUserStore();
@@ -318,7 +319,7 @@ export async function completeMfa(input: {
     tenantId: user.tenantId ?? 'default',
     mfa: true,
     sid: session.id,
-  });
+  }, input.longSession ? DESKTOP_SESSION_TTL_SEC : undefined);
 
   return {
     userId: user.id,

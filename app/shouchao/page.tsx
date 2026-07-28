@@ -19,10 +19,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { BrandLogo } from '@/components/brand-logo';
 import { enqueue as enqueueOffline, flushQueue } from '@/lib/shouchao/offline-queue';
+import {
+  appendVoiceTextToNoteContent,
+  deriveVoiceNoteTitle,
+  normalizeVoiceTranscriptionText,
+  voiceNoteTag,
+} from '@/lib/shouchao/voice-note';
 import { BlockEditor } from '@/components/shouchao/block-editor';
 import { DistillPanel } from '@/components/shouchao/distill-panel';
+import { useAuthStore, useCurrentUser, type AuthUser } from '@/lib/hooks/use-current-user';
+import { isCapacitor, refreshMobileSession } from '@/lib/capacitor/client';
 import {
   NotebookPen,
   Plus,
@@ -45,7 +55,7 @@ import {
   PinOff,
   Pencil,
   ExternalLink,
-  Share2,
+  Bot,
   MessageCircleQuestion,
   Send as SendIcon,
   LayoutList,
@@ -55,6 +65,10 @@ import {
   Square,
   Camera,
   Sprout,
+  LogOut,
+  Settings,
+  ShieldCheck,
+  UserRound,
 } from 'lucide-react';
 
 interface Note {
@@ -93,6 +107,21 @@ interface Notebook {
   name: string;
   icon?: string;
   noteCount: number;
+}
+
+function sortNotesForDisplay(items: Note[]): Note[] {
+  return [...items].sort((a, b) => {
+    if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+    return b.updatedAt.localeCompare(a.updatedAt);
+  });
+}
+
+function mergeSortedNote(items: Note[], updated: Note): Note[] {
+  const exists = items.some((n) => n.id === updated.id);
+  const next = exists
+    ? items.map((n) => (n.id === updated.id ? updated : n))
+    : [updated, ...items];
+  return sortNotesForDisplay(next);
 }
 
 export default function ShouchaoPage() {
@@ -135,7 +164,16 @@ export default function ShouchaoPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [voiceOpen, setVoiceOpen] = useState(false);
   const [photoOpen, setPhotoOpen] = useState(false);
+  const [createGroupOpen, setCreateGroupOpen] = useState(false);
+  const [groupPickerOpen, setGroupPickerOpen] = useState(false);
+  const [renameNotebookTarget, setRenameNotebookTarget] = useState<Pick<Notebook, 'id' | 'name' | 'icon'> | null>(null);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const [toast, setToast] = useState<Toast>(null);
+  const { user } = useCurrentUser();
+  const resetAuth = useAuthStore((s) => s.reset);
 
   // 跨笔记 AI 问答 (Ask) · 问你的第二大脑
   const [askOpen, setAskOpen] = useState(false);
@@ -160,6 +198,10 @@ export default function ShouchaoPage() {
   const saveSeqRef = useRef(0);
 
   const active = useMemo(() => notes.find((n) => n.id === activeId) ?? null, [notes, activeId]);
+  const selectedNotebook = useMemo(
+    () => notebooks.find((nb) => nb.id === notebookFilter) ?? null,
+    [notebooks, notebookFilter],
+  );
 
   // 全部标签 (卡片流上方筛选用)
   const allTags = useMemo(() => {
@@ -184,6 +226,25 @@ export default function ShouchaoPage() {
     setTimeout(() => setToast(null), 2600);
   }, []);
 
+  function isAbortLikeError(error: unknown): boolean {
+    if (error instanceof DOMException && error.name === 'AbortError') return true;
+    if (!(error instanceof Error)) return false;
+    return error.name === 'AbortError' || /aborted|abort/i.test(error.message);
+  }
+
+  async function signOut() {
+    if (signingOut) return;
+    setSigningOut(true);
+    try {
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+    } catch {
+      /* ignore */
+    }
+    resetAuth();
+    setAccountOpen(false);
+    router.replace('/login?next=/shouchao');
+  }
+
   // ---- 列表加载 (debounced search + 知识库过滤) ----
   const loadNotes = useCallback(
     async (q: string) => {
@@ -193,7 +254,7 @@ export default function ShouchaoPage() {
         const r = await fetch(`/api/shouchao/notes?${params.toString()}`);
         if (r.ok) {
           const d = await r.json();
-          setNotes(d.notes ?? []);
+          setNotes(sortNotesForDisplay(d.notes ?? []));
         }
       } catch {
         /* ignore */
@@ -333,7 +394,7 @@ export default function ShouchaoPage() {
       if (!r.ok) throw new Error('create failed');
       const d = await r.json();
       const note: Note = d.note;
-      setNotes((prev) => [note, ...prev]);
+      setNotes((prev) => mergeSortedNote(prev, note));
       selectNote(note);
       return note;
     } catch {
@@ -342,11 +403,9 @@ export default function ShouchaoPage() {
     }
   }
 
-  // ---- 知识库: 新建 (轻量 prompt) ----
+  // ---- 知识库: 新建 ----
   async function createNotebookPrompt() {
-    const name = window.prompt('新建分组名称')?.trim();
-    if (!name) return;
-    await createNotebook(name);
+    setCreateGroupOpen(true);
   }
 
   async function createNotebook(name: string) {
@@ -372,20 +431,30 @@ export default function ShouchaoPage() {
   }
 
   async function renameNotebookPrompt(notebook: Pick<Notebook, 'id' | 'name' | 'icon'>) {
-    const name = window.prompt('修改分组名称', notebook.name)?.trim();
-    if (!name || name === notebook.name) return;
+    setRenameNotebookTarget(notebook);
+  }
+
+  async function renameNotebook(notebook: Pick<Notebook, 'id' | 'name' | 'icon'>, name: string) {
+    const cleanName = name.trim();
+    if (!cleanName || cleanName === notebook.name) {
+      setRenameNotebookTarget(null);
+      return true;
+    }
     try {
       const r = await fetch(`/api/shouchao/notebooks/${notebook.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name: cleanName }),
       });
       if (!r.ok) throw new Error('rename failed');
-      setNotebooks((prev) => prev.map((nb) => (nb.id === notebook.id ? { ...nb, name } : nb)));
+      setNotebooks((prev) => prev.map((nb) => (nb.id === notebook.id ? { ...nb, name: cleanName } : nb)));
+      setRenameNotebookTarget(null);
       void loadNotebooks();
-      showToast('ok', `已重命名为「${name}」`);
+      showToast('ok', `已重命名为「${cleanName}」`);
+      return true;
     } catch {
       showToast('err', '修改分组名称失败');
+      return false;
     }
   }
 
@@ -408,7 +477,16 @@ export default function ShouchaoPage() {
 
   // ---- 知识库: 把当前笔记移入/移出 (null = 移出到未分组) ----
   async function moveActiveToNotebook(notebookId: string | null) {
-    if (!activeId) return;
+    if (!activeId || !active) return;
+    const previousNotebookId = active.notebookId ?? null;
+    if (previousNotebookId === notebookId) return;
+    const optimistic: Note = {
+      ...active,
+      notebookId: notebookId || undefined,
+      updatedAt: new Date().toISOString(),
+    };
+    setNotes((prev) => mergeSortedNote(prev, optimistic));
+    setGroupPickerOpen(false);
     try {
       const r = await fetch(`/api/shouchao/notes/${activeId}`, {
         method: 'PATCH',
@@ -418,10 +496,11 @@ export default function ShouchaoPage() {
       if (!r.ok) throw new Error('move failed');
       const d = await r.json();
       const updated: Note = d.note;
-      setNotes((prev) => prev.map((n) => (n.id === updated.id ? updated : n)));
+      setNotes((prev) => mergeSortedNote(prev, updated));
       void loadNotebooks();
       showToast('ok', notebookId ? '已移入分组' : '已移出到未分组');
     } catch {
+      setNotes((prev) => mergeSortedNote(prev, { ...active, notebookId: previousNotebookId || undefined }));
       showToast('err', '操作失败');
     }
   }
@@ -445,14 +524,14 @@ export default function ShouchaoPage() {
       });
       if (!r.ok) throw new Error('quick capture failed');
       const d = await r.json();
-      setNotes((prev) => [d.note as Note, ...prev]);
+      setNotes((prev) => mergeSortedNote(prev, d.note as Note));
       setQuick('');
       showToast('ok', '已记下');
       quickRef.current?.focus();
     } catch {
       // 断网/请求失败 → 落本地离线队列, 恢复网络自动回传 (手机端刚需)
       const offline = enqueueOffline({ title, content: body, tags: [] });
-      setNotes((prev) => [offline as Note, ...prev]);
+      setNotes((prev) => mergeSortedNote(prev, offline as Note));
       setQuick('');
       showToast('ok', '已离线保存 · 联网后自动同步');
       quickRef.current?.focus();
@@ -493,26 +572,86 @@ export default function ShouchaoPage() {
     const seq = ++saveSeqRef.current;
     setSaving(true);
     try {
-      const r = await fetch(`/api/shouchao/notes/${activeId}`, {
+      const saveRequest = () => fetch(`/api/shouchao/notes/${activeId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ title, content, tags, summary, pinned }),
         signal: ctrl.signal,
       });
+      let r = await saveRequest();
+      if (r.status === 401 && await refreshMobileSession()) {
+        r = await saveRequest();
+      }
       if (!r.ok) throw new Error('save failed');
       const d = await r.json();
       // 过期响应丢弃: 已有更晚的保存发出, 不能用旧权威态回写覆盖新输入
       if (seq !== saveSeqRef.current) return;
       const updated: Note = d.note;
-      setNotes((prev) => prev.map((n) => (n.id === updated.id ? updated : n)));
+      setNotes((prev) => mergeSortedNote(prev, updated));
       setDirty(false);
     } catch (e) {
-      if (e instanceof DOMException && e.name === 'AbortError') return; // 被新保存取消, 正常
+      if (ctrl.signal.aborted || seq !== saveSeqRef.current || isAbortLikeError(e)) return;
       showToast('err', '保存失败');
     } finally {
       if (seq === saveSeqRef.current) setSaving(false);
     }
   }, [activeId, title, content, tags, summary, pinned, showToast]);
+
+  async function applyVoiceTranscription(text: string, mode: 'note' | 'meeting') {
+    const cleanText = normalizeVoiceTranscriptionText(text);
+    if (!cleanText) return;
+
+    const tag = voiceNoteTag(mode);
+    if (!activeId || !active) {
+      await createNote({
+        title: deriveVoiceNoteTitle(cleanText, mode),
+        content: cleanText,
+        tags: [tag],
+      });
+      showToast('ok', mode === 'meeting' ? '已生成会议纪要' : '语音已转成笔记');
+      return;
+    }
+
+    saveAbortRef.current?.abort();
+    saveSeqRef.current += 1;
+    const nextContent = appendVoiceTextToNoteContent(content, cleanText);
+    const nextTitle = title.trim() ? title : deriveVoiceNoteTitle(cleanText, mode);
+    const nextTags = tags.includes(tag) ? tags : [...tags, tag];
+    const optimistic: Note = {
+      ...active,
+      title: nextTitle,
+      content: nextContent,
+      tags: nextTags,
+      summary,
+      pinned,
+      updatedAt: new Date().toISOString(),
+    };
+
+    setTitle(nextTitle);
+    setContent(nextContent);
+    setTags(nextTags);
+    setDirty(false);
+    setSaving(true);
+    setNotes((prev) => mergeSortedNote(prev, optimistic));
+
+    try {
+      const r = await fetch(`/api/shouchao/notes/${activeId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: nextTitle, content: nextContent, tags: nextTags, summary, pinned }),
+      });
+      if (!r.ok) throw new Error('save voice text failed');
+      const d = await r.json();
+      if (d.note) setNotes((prev) => mergeSortedNote(prev, d.note as Note));
+      showToast('ok', mode === 'meeting' ? '会议纪要已追加到当前笔记' : '语音已追加到当前笔记');
+    } catch {
+      setDirty(true);
+      showToast('err', '语音已填入当前笔记，但自动保存失败，请稍后再试');
+    } finally {
+      setSaving(false);
+    }
+  }
 
   // 自动保存 (1.2s 防抖)
   useEffect(() => {
@@ -524,16 +663,19 @@ export default function ShouchaoPage() {
   // ---- 删除 ----
   async function deleteActive() {
     if (!activeId) return;
-    if (!confirm('确认删除这条笔记？不可撤销。')) return;
     const id = activeId;
+    setDeleting(true);
     try {
       const r = await fetch(`/api/shouchao/notes/${id}`, { method: 'DELETE' });
       if (!r.ok) throw new Error('delete failed');
       setNotes((prev) => prev.filter((n) => n.id !== id));
+      setDeleteConfirmOpen(false);
       setActiveId(null);
       showToast('ok', '已删除');
     } catch {
       showToast('err', '删除失败');
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -728,6 +870,39 @@ export default function ShouchaoPage() {
     }
   }
 
+  async function togglePinned() {
+    if (!activeId || !active) return;
+    const next = !pinned;
+    const previous = pinned;
+    saveAbortRef.current?.abort();
+    saveSeqRef.current += 1;
+    setPinned(next);
+    setNotes((prev) =>
+      mergeSortedNote(prev, { ...active, title, content, tags, summary, pinned: next, updatedAt: new Date().toISOString() }),
+    );
+    setSaving(true);
+    try {
+      const r = await fetch(`/api/shouchao/notes/${activeId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pinned: next }),
+      });
+      if (!r.ok) throw new Error('pin failed');
+      const d = await r.json();
+      const updated: Note = d.note;
+      setNotes((prev) =>
+        mergeSortedNote(prev, dirty ? { ...updated, title, content, tags, summary } : updated),
+      );
+      showToast('ok', next ? '已置顶' : '已取消置顶');
+    } catch {
+      setPinned(previous);
+      setNotes((prev) => mergeSortedNote(prev, { ...active, title, content, tags, summary, pinned: previous }));
+      showToast('err', '置顶失败');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function removeTag(t: string) {
     setTags((prev) => prev.filter((x) => x !== t));
     markDirty();
@@ -756,22 +931,24 @@ export default function ShouchaoPage() {
   }, [active, closeEditor]);
 
   return (
-    <div className="flex h-full flex-col bg-gradient-to-b from-surface-1 to-surface-2/50">
+    <div className="shouchao-mobile-shell flex h-full min-w-0 flex-col overflow-hidden bg-gradient-to-b from-surface-1 to-surface-2/50">
       {/* ── 模块头 ── */}
-      <header className="flex items-center justify-between gap-3 border-b border-border bg-surface-1/80 px-4 py-3 backdrop-blur md:px-6">
-        <div className="flex items-center gap-3">
+      <header className="shouchao-mobile-header flex shrink-0 items-center justify-between gap-2 border-b border-border bg-surface-1/80 px-4 py-3 backdrop-blur transition-transform duration-200 md:gap-3 md:px-6">
+        <div className="flex min-w-0 items-center gap-2 md:gap-3">
           {/* 公司 VI 锚点 (Rheem Red 品牌 mark) — 独立运行时也带公司标准 */}
-          <BrandLogo variant="mark" theme="auto" size={32} alt="Tandem" />
-          <span className="h-6 w-px bg-border" />
-          <div className="flex items-center gap-2">
-            <NotebookPen className="h-5 w-5 text-brand-500" />
-            <div>
-              <h1 className="text-headline font-bold text-ink-primary leading-none">搭子手抄</h1>
-              <p className="mt-0.5 text-footnote text-ink-tertiary">AI 笔记 · 记录 → 加工 → 沉淀</p>
+          <div className="hidden shrink-0 sm:block">
+            <BrandLogo variant="mark" theme="auto" size={32} alt="Tandem" />
+          </div>
+          <span className="hidden h-6 w-px shrink-0 bg-border sm:block" />
+          <div className="flex min-w-0 items-center gap-2">
+            <NotebookPen className="h-5 w-5 shrink-0 text-brand-500" />
+            <div className="min-w-0">
+              <h1 className="truncate text-headline font-bold leading-none text-ink-primary">搭子手抄</h1>
+              <p className="mt-0.5 truncate text-footnote text-ink-tertiary">AI 笔记 · 记录 → 加工 → 沉淀</p>
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
             onClick={() => setTreeOpen((v) => !v)}
@@ -782,14 +959,38 @@ export default function ShouchaoPage() {
           </button>
           <Link
             href="/knowledge-hub"
-            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-1 px-3 py-1.5 text-caption font-medium text-ink-secondary hover:bg-surface-2 hover:text-ink-primary surface-interactive"
+            className="hidden items-center gap-1.5 rounded-md border border-border bg-surface-1 px-3 py-1.5 text-caption font-medium text-ink-secondary hover:bg-surface-2 hover:text-ink-primary surface-interactive sm:inline-flex"
           >
             <ArrowLeft className="h-3.5 w-3.5" /> 返回知识
           </Link>
+          <button
+            type="button"
+            onClick={() => setAccountOpen(true)}
+            title="账号与设置"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-surface-1 text-caption font-semibold text-ink-secondary shadow-soft-xs hover:bg-surface-2 hover:text-ink-primary surface-interactive"
+            aria-label="打开账号与设置"
+          >
+            {user?.name || user?.email ? (
+              <span className="leading-none">{(user.name || user.email).slice(0, 1).toUpperCase()}</span>
+            ) : (
+              <UserRound className="h-4 w-4" />
+            )}
+          </button>
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1">
+      {accountOpen && (
+        <AccountSheet
+          user={user}
+          noteCount={notes.length}
+          notebookCount={notebooks.length}
+          signingOut={signingOut}
+          onClose={() => setAccountOpen(false)}
+          onSignOut={signOut}
+        />
+      )}
+
+      <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
       {/* ── 分组树侧栏 (Kimi 式: 组 -> 笔记, md+ 显示) ── */}
       {treeOpen && (
         <aside className="hidden w-60 shrink-0 flex-col overflow-hidden border-r border-border bg-surface-1/60 md:flex">
@@ -811,8 +1012,8 @@ export default function ShouchaoPage() {
       )}
 
       {/* ── 单列卡片流 (Get 式: 速记框置顶 + 卡片瀑布) ── */}
-      <main className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-2xl px-4 py-5 md:px-6">
+      <main className="shouchao-mobile-main min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
+        <div className="shouchao-mobile-content mx-auto w-full max-w-2xl px-4 py-4 md:px-6 md:py-5">
           {/* 刚需 · 随手记 (flomo 式速记, 1 步落库, 常驻置顶) */}
           <div className="rounded-2xl border border-border bg-surface-1 p-3 shadow-soft-sm focus-within:border-brand-400">
             <textarea
@@ -829,54 +1030,54 @@ export default function ShouchaoPage() {
               rows={3}
               className="w-full resize-none bg-transparent px-1 py-1 text-body text-ink-primary placeholder:text-ink-tertiary focus:outline-none"
             />
-            <div className="mt-1 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1">
+            <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="-mx-1 flex min-w-0 items-center gap-1 overflow-x-auto px-1 pb-1 pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:-ml-1 sm:flex-1">
                 <button
                   type="button"
                   onClick={() => setClipOpen(true)}
-                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-footnote text-ink-tertiary hover:bg-surface-2 hover:text-ink-secondary surface-interactive"
+                  className="inline-flex min-w-[4.1rem] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-md px-2 py-1.5 text-[11px] leading-none text-ink-tertiary hover:bg-surface-2 hover:text-ink-secondary surface-interactive sm:min-w-0 sm:py-1 sm:text-footnote"
                   title="剪藏网页链接"
                 >
-                  <Link2 className="h-3.5 w-3.5" /> 剪藏
+                  <Link2 className="h-3.5 w-3.5 shrink-0" /> <span>剪藏</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setImportOpen(true)}
-                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-footnote text-ink-tertiary hover:bg-surface-2 hover:text-ink-secondary surface-interactive"
+                  className="inline-flex min-w-[5.1rem] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-md px-2 py-1.5 text-[11px] leading-none text-ink-tertiary hover:bg-surface-2 hover:text-ink-secondary surface-interactive sm:min-w-0 sm:py-1 sm:text-footnote"
                   title="导入 PDF / Word / 文本文件"
                 >
-                  <FileUp className="h-3.5 w-3.5" /> 导入文件
+                  <FileUp className="h-3.5 w-3.5 shrink-0" /> <span>导入文件</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setVoiceOpen(true)}
-                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-footnote text-ink-tertiary hover:bg-surface-2 hover:text-ink-secondary surface-interactive"
+                  className="inline-flex min-w-[4.1rem] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-md px-2 py-1.5 text-[11px] leading-none text-ink-tertiary hover:bg-surface-2 hover:text-ink-secondary surface-interactive sm:min-w-0 sm:py-1 sm:text-footnote"
                   title="语音转笔记 (录音后自动转写)"
                 >
-                  <Mic className="h-3.5 w-3.5" /> 语音
+                  <Mic className="h-3.5 w-3.5 shrink-0" /> <span>语音</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setPhotoOpen(true)}
-                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-footnote text-ink-tertiary hover:bg-surface-2 hover:text-ink-secondary surface-interactive"
+                  className="inline-flex min-w-[4.1rem] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-md px-2 py-1.5 text-[11px] leading-none text-ink-tertiary hover:bg-surface-2 hover:text-ink-secondary surface-interactive sm:min-w-0 sm:py-1 sm:text-footnote"
                   title="拍照/图片转笔记 (识别图中文字)"
                 >
-                  <Camera className="h-3.5 w-3.5" /> 拍照
+                  <Camera className="h-3.5 w-3.5 shrink-0" /> <span>拍照</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => void createNote()}
-                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-footnote text-ink-tertiary hover:bg-surface-2 hover:text-ink-secondary surface-interactive"
+                  className="inline-flex min-w-[4.7rem] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-md px-2 py-1.5 text-[11px] leading-none text-ink-tertiary hover:bg-surface-2 hover:text-ink-secondary surface-interactive sm:min-w-0 sm:py-1 sm:text-footnote"
                   title="打开编辑器写长文"
                 >
-                  <NotebookPen className="h-3.5 w-3.5" /> 写长文
+                  <NotebookPen className="h-3.5 w-3.5 shrink-0" /> <span>写长文</span>
                 </button>
               </div>
               <button
                 type="button"
                 onClick={() => void quickCapture()}
                 disabled={!quick.trim() || quickBusy}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-1.5 text-caption font-semibold text-white hover:bg-brand-600 shadow-soft-sm disabled:opacity-40 surface-interactive"
+                className="inline-flex w-full shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-brand-500 px-3 py-2 text-caption font-semibold text-white shadow-soft-sm hover:bg-brand-600 disabled:opacity-40 surface-interactive sm:w-auto sm:py-1.5 md:px-4"
               >
                 {quickBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
                 记下
@@ -916,22 +1117,40 @@ export default function ShouchaoPage() {
             >
               未分组
             </button>
-            {notebooks.map((nb) => (
-              <button
-                key={nb.id}
-                type="button"
-                onClick={() => setNotebookFilter(nb.id)}
-                onDoubleClick={() => void renameNotebookPrompt(nb)}
-                title="点击筛选，双击修改名称"
-                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-footnote surface-interactive ${
-                  notebookFilter === nb.id ? 'bg-brand-500 text-white' : 'bg-surface-2 text-ink-secondary hover:bg-surface-3'
-                }`}
-              >
-                {nb.icon && <span>{nb.icon}</span>}
-                {nb.name}
-                <span className={notebookFilter === nb.id ? 'text-white/70' : 'text-ink-tertiary'}>{nb.noteCount}</span>
-              </button>
-            ))}
+            {notebooks.map((nb) => {
+              const selected = notebookFilter === nb.id;
+              return (
+                <div
+                  key={nb.id}
+                  className={`inline-flex items-center overflow-hidden rounded-full text-footnote surface-interactive ${
+                    selected ? 'bg-brand-500 text-white' : 'bg-surface-2 text-ink-secondary hover:bg-surface-3'
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setNotebookFilter(nb.id)}
+                    className="inline-flex min-w-0 items-center gap-1 px-2.5 py-1"
+                    title="筛选分组"
+                  >
+                    {nb.icon && <span>{nb.icon}</span>}
+                    <span className="max-w-[8rem] truncate">{nb.name}</span>
+                    <span className={selected ? 'text-white/70' : 'text-ink-tertiary'}>{nb.noteCount}</span>
+                  </button>
+                  {selected && (
+                    <button
+                      type="button"
+                      onClick={() => void renameNotebookPrompt(nb)}
+                      className="inline-flex items-center gap-0.5 border-l border-white/25 px-2 py-1 font-medium text-white/90 hover:bg-white/15"
+                      title="修改分组名称"
+                      aria-label={`修改分组名称：${nb.name}`}
+                    >
+                      <Pencil className="h-3 w-3" />
+                      <span>修改</span>
+                    </button>
+                  )}
+                </div>
+              );
+            })}
             <button
               type="button"
               onClick={() => void createNotebookPrompt()}
@@ -940,6 +1159,16 @@ export default function ShouchaoPage() {
             >
               <Plus className="h-3 w-3" /> 分组
             </button>
+            {selectedNotebook && (
+              <button
+                type="button"
+                onClick={() => void renameNotebookPrompt(selectedNotebook)}
+                className="inline-flex items-center gap-1 rounded-full border border-brand-200 bg-brand-50/50 px-2.5 py-1 text-footnote font-medium text-brand-600 hover:bg-brand-50 surface-interactive"
+                title="修改当前分组名称"
+              >
+                <Pencil className="h-3 w-3" /> 修改当前
+              </button>
+            )}
           </div>
 
           {showDatabaseBar && (
@@ -1120,20 +1349,27 @@ export default function ShouchaoPage() {
                   key={n.id}
                   type="button"
                   onClick={() => selectNote(n)}
-                  className="w-full rounded-2xl border border-border bg-surface-1 p-4 text-left shadow-soft-sm hover:border-brand-200 hover:shadow-soft-md surface-interactive"
+                  className={`w-full rounded-2xl border p-4 text-left shadow-soft-sm surface-interactive ${
+                    n.pinned
+                      ? 'border-brand-300 bg-brand-50/35 shadow-soft-md hover:border-brand-400'
+                      : 'border-border bg-surface-1 hover:border-brand-200 hover:shadow-soft-md'
+                  }`}
                 >
                   <div className="flex items-center gap-1.5 text-footnote text-ink-tertiary">
+                    {n.pinned && (
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand-500 px-1.5 py-0.5 font-medium text-white">
+                        <Pin className="h-3 w-3" /> 置顶
+                      </span>
+                    )}
                     <span>{fmtTime(n.updatedAt)}</span>
-                    {n.pinned && <Pin className="h-3 w-3 text-brand-500" />}
                     {n.sourceUrl && <Link2 className="h-3 w-3" />}
-                    {n.sharedToPersona && <Share2 className="h-3 w-3 text-brand-500" />}
+                    {n.sharedToPersona && <Bot className="h-3 w-3 text-brand-500" />}
                   </div>
-                  {n.title && n.title !== '未命名笔记' && (
-                    <h3 className="mt-1.5 truncate text-headline font-semibold text-ink-primary">{n.title}</h3>
-                  )}
-                  <p className="mt-1 line-clamp-4 whitespace-pre-wrap text-body leading-relaxed text-ink-secondary">
-                    {n.content || n.summary || '空笔记'}
-                  </p>
+                  <h3 className="mt-1.5 truncate text-headline font-semibold text-ink-primary">
+                    {n.title && n.title !== '未命名笔记'
+                      ? n.title
+                      : (n.content || n.summary || '未命名笔记').split('\n').find((line) => line.trim())?.trim().slice(0, 40) ?? '未命名笔记'}
+                  </h3>
                   {n.tags?.length > 0 && (
                     <div className="mt-2.5 flex flex-wrap gap-1.5">
                       {n.tags.slice(0, 5).map((t) => (
@@ -1160,24 +1396,26 @@ export default function ShouchaoPage() {
       {/* ── 滑出式编辑 sheet (Get 式: 卡片点开从右侧覆盖) ── */}
       {active && (
         <div
-          className="fixed inset-0 z-40 flex justify-end bg-black/30 backdrop-blur-sm"
+          className="fixed inset-0 z-40 flex justify-end bg-black/30 pt-[var(--capacitor-effective-top-inset,0px)] backdrop-blur-sm md:pt-0"
           onClick={() => void closeEditor()}
         >
           <div
-            className="flex h-full w-full max-w-2xl flex-col bg-surface-1 shadow-soft-lg"
+            className="flex h-full w-full max-w-2xl min-w-0 flex-col overflow-x-hidden bg-surface-1 shadow-soft-lg"
             onClick={(e) => e.stopPropagation()}
           >
             {/* sheet 头: 返回 + 状态 + 动作 */}
-            <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+            <div className="flex shrink-0 items-center gap-1.5 border-b border-border px-3 py-2 md:gap-2 md:px-4 md:py-3">
               <button
                 type="button"
                 onClick={() => void closeEditor()}
-                className="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-caption font-medium text-ink-secondary hover:bg-surface-2 hover:text-ink-primary surface-interactive"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-ink-secondary hover:bg-surface-2 hover:text-ink-primary surface-interactive sm:w-auto sm:gap-1 sm:px-2 sm:py-1.5 sm:text-caption sm:font-medium"
                 title="关闭 (Esc)"
+                aria-label="关闭"
               >
-                <ArrowLeft className="h-4 w-4" /> 关闭
+                <ArrowLeft className="h-4 w-4" />
+                <span className="hidden sm:inline">关闭</span>
               </button>
-              <span className="ml-1 inline-flex items-center gap-1 text-footnote text-ink-tertiary">
+              <span className="ml-0 inline-flex min-w-0 shrink items-center gap-1 truncate text-footnote text-ink-tertiary md:ml-1">
                 {saving ? (
                   <>
                     <Loader2 className="h-3 w-3 animate-spin" /> 保存中
@@ -1192,38 +1430,38 @@ export default function ShouchaoPage() {
                   </>
                 )}
               </span>
-              <div className="ml-auto flex items-center gap-1">
+              <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1">
                 <button
                   type="button"
                   onClick={() => void toggleShare()}
-                  className={`inline-flex items-center gap-1 rounded-md px-2 py-1.5 surface-interactive ${
+                  className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md surface-interactive sm:w-auto sm:gap-1 sm:px-2 sm:py-1.5 ${
                     shared
                       ? 'bg-brand-50 text-brand-700'
                       : 'text-ink-tertiary hover:bg-surface-2 hover:text-ink-primary'
                   }`}
                   title={shared ? '已喂给工作分身 · 点击撤回' : '喂给我的工作分身 (默认关, 可撤回)'}
+                  aria-label={shared ? '已喂给工作分身，点击撤回' : '喂给我的工作分身'}
                 >
-                  <Share2 className="h-4 w-4" />
-                  <span className="hidden text-footnote font-medium md:inline">
+                  <Bot className="h-4 w-4" />
+                  <span className="hidden text-footnote font-medium sm:inline">
                     {shared ? '已喂分身' : '喂给分身'}
                   </span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setPinned((p) => !p);
-                    markDirty();
-                  }}
-                  className="rounded-md p-1.5 text-ink-tertiary hover:bg-surface-2 hover:text-ink-primary surface-interactive"
+                  onClick={() => void togglePinned()}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ink-tertiary hover:bg-surface-2 hover:text-ink-primary surface-interactive"
                   title={pinned ? '取消置顶' : '置顶'}
+                  aria-label={pinned ? '取消置顶' : '置顶'}
                 >
                   {pinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
                 </button>
                 <button
                   type="button"
-                  onClick={() => void deleteActive()}
-                  className="rounded-md p-1.5 text-danger hover:bg-danger/10 surface-interactive"
+                  onClick={() => setDeleteConfirmOpen(true)}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-md text-danger hover:bg-danger/10 surface-interactive"
                   title="删除"
+                  aria-label="删除"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -1231,14 +1469,13 @@ export default function ShouchaoPage() {
             </div>
 
             {/* sheet 体: 可滚动 */}
-            <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
-              <div className="space-y-4">
+            <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-3 pb-[calc(16px+var(--capacitor-safe-area-bottom,0px))] pt-3 md:p-6">
+              <div className="min-w-0 space-y-4">
                 {/* AI 工具条: 加工 (改写笔记) + 创作 (产出洞察不改原文) */}
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="grid grid-cols-3 gap-2 md:flex md:flex-wrap md:items-center">
                   <AiButton icon={Sparkles} label="AI 总结" busy={aiBusy === 'summarize'} onClick={() => runAi('summarize')} />
                   <AiButton icon={Wand2} label="润色" busy={aiBusy === 'polish'} onClick={() => runAi('polish')} />
                   <AiButton icon={Tags} label="生成标签" busy={aiBusy === 'tags'} onClick={() => runAi('tags')} />
-                  <span className="h-4 w-px bg-border" />
                   <AiButton icon={Sparkles} label="点评" busy={insightBusy === 'review'} onClick={() => runInsight('review')} />
                   <AiButton icon={MessageCircleQuestion} label="拷问" busy={insightBusy === 'challenge'} onClick={() => runInsight('challenge')} />
                   <AiButton icon={Sprout} label="发芽" busy={insightBusy === 'sprout'} onClick={() => runInsight('sprout')} />
@@ -1276,18 +1513,19 @@ export default function ShouchaoPage() {
                 {/* 知识库归属 */}
                 <div className="flex items-center gap-2">
                   <NotebookPen className="h-3.5 w-3.5 text-ink-tertiary" />
-                  <select
-                    value={active?.notebookId ?? ''}
-                    onChange={(e) => void moveActiveToNotebook(e.target.value || null)}
-                    className="rounded-md border border-border bg-surface-1 px-2 py-1 text-footnote text-ink-secondary focus:border-brand-400 focus:outline-none"
+                  <button
+                    type="button"
+                    onClick={() => setGroupPickerOpen(true)}
+                    className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md border border-border bg-surface-1 px-2 py-1 text-footnote text-ink-secondary hover:bg-surface-2 hover:text-ink-primary surface-interactive"
+                    title="切换分组"
                   >
-                    <option value="">未分组</option>
-                    {notebooks.map((nb) => (
-                      <option key={nb.id} value={nb.id}>
-                        {nb.icon ? `${nb.icon} ` : ''}{nb.name}
-                      </option>
-                    ))}
-                  </select>
+                    <span className="truncate">
+                      {active?.notebookId
+                        ? notebooks.find((nb) => nb.id === active.notebookId)?.name ?? '未知分组'
+                        : '未分组'}
+                    </span>
+                    <ChevronDown className="h-3.5 w-3.5 shrink-0 text-ink-tertiary" />
+                  </button>
                 </div>
 
                 {/* 来源链接 */}
@@ -1350,7 +1588,7 @@ export default function ShouchaoPage() {
                 )}
 
                 {/* 正文 · 块编辑 / Markdown 双模式 */}
-                <div>
+                <div className="min-w-0">
                   <div className="mb-2 flex items-center gap-1">
                     <button
                       type="button"
@@ -1370,7 +1608,7 @@ export default function ShouchaoPage() {
                     </button>
                   </div>
                   {editorMode === 'block' ? (
-                    <div className="min-h-[55vh] rounded-lg border border-border bg-surface-1 p-4">
+                    <div className="min-h-[50vh] rounded-lg border border-border bg-surface-1 p-3 md:min-h-[55vh] md:p-4">
                       <BlockEditor
                         value={content}
                         onChange={(md) => {
@@ -1409,7 +1647,7 @@ export default function ShouchaoPage() {
                         markDirty();
                       }}
                       placeholder="开始记录…支持 Markdown。可口述草稿后点「润色」让 AI 整理成稿。"
-                      className="min-h-[55vh] w-full resize-y rounded-lg border border-border bg-surface-1 p-4 text-body leading-relaxed text-ink-primary placeholder:text-ink-tertiary focus:border-brand-400 focus:outline-none"
+                      className="min-h-[50vh] w-full resize-y rounded-lg border border-border bg-surface-1 p-3 text-body leading-relaxed text-ink-primary placeholder:text-ink-tertiary focus:border-brand-400 focus:outline-none md:min-h-[55vh] md:p-4"
                     />
                   )}
                 </div>
@@ -1464,6 +1702,17 @@ export default function ShouchaoPage() {
         </div>
       )}
 
+      {deleteConfirmOpen && active && (
+        <DeleteNoteDialog
+          noteTitle={title || active.title}
+          deleting={deleting}
+          onClose={() => {
+            if (!deleting) setDeleteConfirmOpen(false);
+          }}
+          onConfirm={deleteActive}
+        />
+      )}
+
       {/* 剪藏弹窗 */}
       {clipOpen && (
         <ClipDialog
@@ -1497,10 +1746,7 @@ export default function ShouchaoPage() {
           onClose={() => setVoiceOpen(false)}
           onTranscribed={async ({ text, mode }) => {
             setVoiceOpen(false);
-            const firstLine = text.split('\n').map((l) => l.trim()).find(Boolean) ?? '';
-            const title = firstLine.replace(/^#+\s*/, '').slice(0, 30) || (mode === 'meeting' ? '会议纪要' : '语音笔记');
-            await createNote({ title, content: text, tags: [mode === 'meeting' ? '会议纪要' : '语音'] });
-            showToast('ok', mode === 'meeting' ? '已生成会议纪要' : '语音已转成笔记');
+            await applyVoiceTranscription(text, mode);
           }}
           onError={(m) => showToast('err', m)}
         />
@@ -1518,6 +1764,35 @@ export default function ShouchaoPage() {
             showToast('ok', '图片已转成笔记');
           }}
           onError={(m) => showToast('err', m)}
+        />
+      )}
+
+      {createGroupOpen && (
+        <CreateGroupDialog
+          onClose={() => setCreateGroupOpen(false)}
+          onCreate={async (name) => {
+            const notebook = await createNotebook(name);
+            if (notebook) setCreateGroupOpen(false);
+            return notebook;
+          }}
+        />
+      )}
+
+      {renameNotebookTarget && (
+        <RenameGroupDialog
+          notebook={renameNotebookTarget}
+          onClose={() => setRenameNotebookTarget(null)}
+          onRename={(name) => renameNotebook(renameNotebookTarget, name)}
+        />
+      )}
+
+      {groupPickerOpen && active && (
+        <GroupPickerDialog
+          notebooks={notebooks}
+          currentNotebookId={active.notebookId ?? null}
+          onClose={() => setGroupPickerOpen(false)}
+          onPick={(notebookId) => void moveActiveToNotebook(notebookId)}
+          onRenameNotebook={setRenameNotebookTarget}
         />
       )}
 
@@ -1632,7 +1907,7 @@ function NotebookNoteTree({
               type="button"
               onClick={() => onRenameNotebook({ id: notebookId, name: group.name, icon: group.icon })}
               title="修改分组名称"
-              className="shrink-0 rounded p-0.5 text-ink-tertiary opacity-0 transition-opacity hover:bg-surface-3 group-hover/tree:opacity-100"
+              className="shrink-0 rounded p-0.5 text-ink-tertiary hover:bg-surface-3 hover:text-ink-secondary"
             >
               <Pencil className="h-3.5 w-3.5" />
             </button>
@@ -1665,6 +1940,7 @@ function NotebookNoteTree({
                   <span className="shrink-0">
                     {note.icon ? <span>{note.icon}</span> : <FileText className="h-3.5 w-3.5 text-ink-tertiary" />}
                   </span>
+                  {note.pinned && <Pin className="h-3 w-3 shrink-0 text-brand-500" />}
                   <span className="truncate">{note.title || '未命名笔记'}</span>
                 </button>
               ))
@@ -1677,7 +1953,6 @@ function NotebookNoteTree({
 
   const groups = [
     { id: null, name: '全部笔记', notes },
-    { id: 'unfiled', name: '未分组', notes: grouped.get('unfiled') ?? [] },
     ...notebooks.map((nb) => ({
       id: nb.id,
       name: nb.name,
@@ -1758,11 +2033,645 @@ function AiButton({
       type="button"
       onClick={onClick}
       disabled={busy}
-      className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-1 px-2.5 py-1.5 text-caption font-medium text-ink-secondary hover:bg-surface-2 hover:text-ink-primary disabled:opacity-50 surface-interactive"
+      className="inline-flex min-w-0 items-center justify-center gap-1 rounded-md border border-border bg-surface-1 px-2 py-2 text-[11px] font-medium leading-none text-ink-secondary hover:bg-surface-2 hover:text-ink-primary disabled:opacity-50 surface-interactive md:w-auto md:shrink-0 md:gap-1.5 md:px-2.5 md:py-1.5 md:text-caption"
     >
-      {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Icon className="h-3.5 w-3.5" />}
-      {label}
+      {busy ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" /> : <Icon className="h-3.5 w-3.5 shrink-0" />}
+      <span className="min-w-0 truncate">{label}</span>
     </button>
+  );
+}
+
+type AccountSheetView = 'main' | 'security' | 'privacy' | 'policy';
+
+function AccountSheet({
+  user,
+  noteCount,
+  notebookCount,
+  signingOut,
+  onClose,
+  onSignOut,
+}: {
+  user: AuthUser | null;
+  noteCount: number;
+  notebookCount: number;
+  signingOut: boolean;
+  onClose: () => void;
+  onSignOut: () => void | Promise<void>;
+}) {
+  const [view, setView] = useState<AccountSheetView>('main');
+  const displayName = user?.name || user?.email || '未登录用户';
+  const email = user?.email || '登录后同步你的手抄笔记';
+  const initials = displayName.slice(0, 1).toUpperCase();
+  const roleLabel = user?.roles?.length ? user.roles.join(' · ') : '个人账号';
+  const title =
+    view === 'security'
+      ? '账号与安全'
+      : view === 'privacy'
+        ? '数据与隐私'
+        : view === 'policy'
+          ? '隐私政策'
+          : '我的';
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-3 pb-[calc(12px+var(--capacitor-safe-area-bottom,0px))] pt-[calc(12px+var(--capacitor-effective-top-inset,0px))] sm:items-center sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className={`max-h-[calc(var(--visual-viewport-height,100dvh)-24px-var(--capacitor-effective-top-inset,0px)-var(--capacitor-safe-area-bottom,0px))] w-full overflow-hidden rounded-2xl bg-surface-1 shadow-soft-lg ${
+          view === 'policy' ? 'max-w-2xl' : 'max-w-sm'
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+          <div className="flex items-center gap-2">
+            {view === 'main' ? (
+              <UserRound className="h-5 w-5 text-brand-500" />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setView('main')}
+                className="rounded-md p-1 text-ink-tertiary hover:bg-surface-2 hover:text-ink-secondary surface-interactive"
+                aria-label="返回我的"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </button>
+            )}
+            <h2 className="text-headline font-bold text-ink-primary">{title}</h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md p-1 text-ink-tertiary hover:bg-surface-2 hover:text-ink-secondary surface-interactive"
+            aria-label="关闭"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className={`p-4 ${view === 'policy' ? 'max-h-[calc(100dvh-88px)] overflow-y-auto' : ''}`}>
+          {view === 'main' ? (
+            <>
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand-500 text-title font-bold text-white">
+                  {initials}
+                </div>
+                <div className="min-w-0">
+                  <div className="truncate text-body font-semibold text-ink-primary">{displayName}</div>
+                  <div className="mt-0.5 truncate text-footnote text-ink-tertiary">{email}</div>
+                  <div className="mt-1 inline-flex max-w-full items-center gap-1 rounded-full bg-surface-2 px-2 py-0.5 text-[10px] text-ink-tertiary">
+                    <ShieldCheck className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{roleLabel}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <div className="rounded-lg border border-border bg-surface-2 px-3 py-2">
+                  <div className="text-title-3 font-bold text-ink-primary">{noteCount}</div>
+                  <div className="mt-0.5 text-footnote text-ink-tertiary">笔记</div>
+                </div>
+                <div className="rounded-lg border border-border bg-surface-2 px-3 py-2">
+                  <div className="text-title-3 font-bold text-ink-primary">{notebookCount}</div>
+                  <div className="mt-0.5 text-footnote text-ink-tertiary">分组</div>
+                </div>
+              </div>
+
+              <div className="mt-4 overflow-hidden rounded-xl border border-border">
+                <AccountAction icon={Settings} onClick={() => setView('security')}>
+                  账号与安全
+                </AccountAction>
+                <AccountAction icon={ShieldCheck} onClick={() => setView('privacy')}>
+                  数据与隐私
+                </AccountAction>
+                <AccountAction icon={FileText} onClick={() => setView('policy')}>
+                  隐私政策
+                </AccountAction>
+                <AccountLink href="/" icon={ExternalLink} onClick={onClose}>
+                  打开牛马搭子
+                </AccountLink>
+              </div>
+            </>
+          ) : view === 'security' ? (
+            <AccountSecurityPanel user={user} displayName={displayName} email={email} roleLabel={roleLabel} />
+          ) : view === 'privacy' ? (
+            <AccountPrivacyPanel
+              noteCount={noteCount}
+              notebookCount={notebookCount}
+              onOpenPolicy={() => setView('policy')}
+            />
+          ) : (
+            <AccountPolicyPanel />
+          )}
+
+          {view !== 'policy' && (
+            <button
+              type="button"
+              onClick={() => void onSignOut()}
+              disabled={signingOut}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-danger/20 bg-danger/10 px-4 py-2.5 text-caption font-semibold text-danger hover:bg-danger/15 disabled:opacity-60 surface-interactive"
+            >
+              {signingOut ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
+              {signingOut ? '退出中...' : '退出登录'}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AccountSecurityPanel({
+  user,
+  displayName,
+  email,
+  roleLabel,
+}: {
+  user: AuthUser | null;
+  displayName: string;
+  email: string;
+  roleLabel: string;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="rounded-xl border border-border bg-surface-2 p-3">
+        <AccountDetailRow label="当前账号" value={displayName} />
+        <AccountDetailRow label="邮箱" value={email} />
+        <AccountDetailRow label="账号类型" value={roleLabel} />
+        <AccountDetailRow label="组织" value={user?.tenantId || 'default'} />
+      </div>
+      <div className="rounded-xl border border-brand-200 bg-brand-50/50 p-3 text-caption leading-relaxed text-ink-secondary">
+        这里是搭子手抄内的账号状态页。密码、验证码、多因素认证等能力后续会接到手抄自己的账号安全页，不再跳到牛马搭子的设置页。
+      </div>
+    </div>
+  );
+}
+
+function AccountPrivacyPanel({
+  noteCount,
+  notebookCount,
+  onOpenPolicy,
+}: {
+  noteCount: number;
+  notebookCount: number;
+  onOpenPolicy: () => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2">
+        <div className="rounded-lg border border-border bg-surface-2 px-3 py-2">
+          <div className="text-title-3 font-bold text-ink-primary">{noteCount}</div>
+          <div className="mt-0.5 text-footnote text-ink-tertiary">当前笔记</div>
+        </div>
+        <div className="rounded-lg border border-border bg-surface-2 px-3 py-2">
+          <div className="text-title-3 font-bold text-ink-primary">{notebookCount}</div>
+          <div className="mt-0.5 text-footnote text-ink-tertiary">当前分组</div>
+        </div>
+      </div>
+      <div className="rounded-xl border border-border bg-surface-2 p-3 text-caption leading-relaxed text-ink-secondary">
+        手抄笔记按当前登录账号保存。隐私政策由牛马搭子 Web 管理后台统一发布，搭子手抄只读取公开政策页面。
+      </div>
+      <div className="overflow-hidden rounded-xl border border-border">
+        <AccountAction icon={FileText} onClick={onOpenPolicy}>
+          查看隐私政策
+        </AccountAction>
+      </div>
+    </div>
+  );
+}
+
+function AccountPolicyPanel() {
+  const [policy, setPolicy] = useState<{ title: string; contentMarkdown: string } | null>(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/legal/privacy-policy', { credentials: 'include', cache: 'no-store' })
+      .then(async (res) => {
+        const data = (await res.json()) as {
+          policy?: { title?: string; contentMarkdown?: string };
+          error?: string;
+        };
+        if (!res.ok || !data.policy?.contentMarkdown) throw new Error(data.error ?? `HTTP ${res.status}`);
+        return {
+          title: data.policy.title || '隐私政策',
+          contentMarkdown: data.policy.contentMarkdown,
+        };
+      })
+      .then((next) => {
+        if (!cancelled) setPolicy(next);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : '隐私政策暂不可读');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (error) {
+    return (
+      <div className="rounded-xl border border-danger/20 bg-danger/10 p-3 text-caption text-danger">
+        {error}
+      </div>
+    );
+  }
+
+  if (!policy) {
+    return (
+      <div className="flex items-center justify-center rounded-xl border border-border bg-surface-2 py-10 text-caption text-ink-tertiary">
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        加载隐私政策...
+      </div>
+    );
+  }
+
+  return (
+    <article className="rounded-xl border border-border bg-white px-4 py-4">
+      <div className="mb-3 border-b border-border pb-3">
+        <h3 className="text-body font-bold text-ink-primary">{policy.title}</h3>
+        <p className="mt-1 text-footnote text-ink-tertiary">搭子手抄内查看，不跳转到牛马搭子页面</p>
+      </div>
+      <div className="prose prose-slate max-w-none prose-sm prose-headings:text-ink-primary prose-p:text-ink-secondary prose-table:block prose-table:max-w-full prose-table:overflow-x-auto prose-table:text-footnote">
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>{policy.contentMarkdown}</ReactMarkdown>
+      </div>
+    </article>
+  );
+}
+
+function AccountDetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-3 border-b border-border py-2 text-caption last:border-b-0">
+      <span className="shrink-0 text-ink-tertiary">{label}</span>
+      <span className="min-w-0 flex-1 truncate text-right font-medium text-ink-primary">{value}</span>
+    </div>
+  );
+}
+
+function AccountAction({
+  icon: Icon,
+  children,
+  onClick,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  children: React.ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center gap-2 border-b border-border px-3 py-3 text-left text-caption font-medium text-ink-secondary last:border-b-0 hover:bg-surface-2 hover:text-ink-primary surface-interactive"
+    >
+      <Icon className="h-4 w-4 shrink-0 text-ink-tertiary" />
+      <span className="min-w-0 flex-1 truncate">{children}</span>
+      <ChevronRight className="h-3.5 w-3.5 shrink-0 text-ink-tertiary" />
+    </button>
+  );
+}
+
+function AccountLink({
+  href,
+  icon: Icon,
+  children,
+  onClick,
+}: {
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  children: React.ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      className="flex items-center gap-2 border-b border-border px-3 py-3 text-caption font-medium text-ink-secondary last:border-b-0 hover:bg-surface-2 hover:text-ink-primary surface-interactive"
+    >
+      <Icon className="h-4 w-4 shrink-0 text-ink-tertiary" />
+      <span className="min-w-0 flex-1 truncate">{children}</span>
+      <ChevronRight className="h-3.5 w-3.5 shrink-0 text-ink-tertiary" />
+    </Link>
+  );
+}
+
+function DeleteNoteDialog({
+  noteTitle,
+  deleting,
+  onClose,
+  onConfirm,
+}: {
+  noteTitle: string;
+  deleting: boolean;
+  onClose: () => void;
+  onConfirm: () => void | Promise<void>;
+}) {
+  const displayTitle = noteTitle.trim() || '未命名笔记';
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 px-3 pb-[calc(12px+var(--capacitor-safe-area-bottom,0px))] pt-[calc(12px+var(--capacitor-effective-top-inset,0px))] sm:items-center sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-sm overflow-hidden rounded-2xl bg-surface-1 shadow-soft-lg"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="border-b border-border px-4 py-3">
+          <div className="flex items-center gap-2">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-danger/10 text-danger">
+              <Trash2 className="h-4 w-4" />
+            </span>
+            <div className="min-w-0">
+              <h2 className="text-headline font-bold text-ink-primary">删除笔记</h2>
+              <p className="mt-0.5 truncate text-footnote text-ink-tertiary">{displayTitle}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4">
+          <p className="text-caption leading-relaxed text-ink-secondary">
+            删除后这条笔记会从当前列表移除。这个操作不可撤销。
+          </p>
+
+          <div className="mt-5 flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={deleting}
+              className="rounded-lg border border-border px-4 py-2 text-caption font-medium text-ink-secondary hover:bg-surface-2 disabled:opacity-50 surface-interactive"
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              onClick={() => void onConfirm()}
+              disabled={deleting}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-danger px-4 py-2 text-caption font-semibold text-white hover:opacity-90 disabled:opacity-60 surface-interactive"
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              {deleting ? '删除中...' : '确认删除'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CreateGroupDialog({
+  onClose,
+  onCreate,
+}: {
+  onClose: () => void;
+  onCreate: (name: string) => Promise<Notebook | null>;
+}) {
+  const [name, setName] = useState('');
+  const [busy, setBusy] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  async function submit() {
+    const clean = name.trim();
+    if (!clean || busy) return;
+    setBusy(true);
+    try {
+      await onCreate(clean);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-3 pb-[calc(12px+var(--capacitor-safe-area-bottom,0px))] pt-[calc(12px+var(--capacitor-effective-top-inset,0px))] sm:items-center sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-sm rounded-2xl bg-surface-1 p-4 shadow-soft-lg sm:p-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-3 flex items-center gap-2">
+          <NotebookPen className="h-5 w-5 text-brand-500" />
+          <h2 className="text-headline font-bold text-ink-primary">新建分组</h2>
+        </div>
+        <label className="mb-1 block text-footnote font-medium text-ink-secondary">分组名称</label>
+        <input
+          ref={inputRef}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              void submit();
+            }
+            if (e.key === 'Escape') onClose();
+          }}
+          placeholder="例如：项目资料"
+          className="w-full rounded-lg border border-border bg-surface-1 px-3 py-2 text-caption text-ink-primary placeholder:text-ink-tertiary focus:border-brand-400 focus:outline-none"
+        />
+        <div className="mt-4 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-border px-4 py-2 text-caption font-medium text-ink-secondary hover:bg-surface-2 surface-interactive"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            onClick={() => void submit()}
+            disabled={busy || !name.trim()}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-caption font-semibold text-white hover:bg-brand-600 disabled:opacity-50 surface-interactive"
+          >
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            确定
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RenameGroupDialog({
+  notebook,
+  onClose,
+  onRename,
+}: {
+  notebook: Pick<Notebook, 'id' | 'name' | 'icon'>;
+  onClose: () => void;
+  onRename: (name: string) => Promise<boolean>;
+}) {
+  const [name, setName] = useState(notebook.name);
+  const [busy, setBusy] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, []);
+
+  async function submit() {
+    const clean = name.trim();
+    if (!clean || busy) return;
+    setBusy(true);
+    try {
+      const ok = await onRename(clean);
+      if (!ok) setBusy(false);
+    } catch {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-3 pb-[calc(12px+var(--capacitor-safe-area-bottom,0px))] pt-[calc(12px+var(--capacitor-effective-top-inset,0px))] sm:items-center sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-sm rounded-2xl bg-surface-1 p-4 shadow-soft-lg sm:p-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-3 flex items-center gap-2">
+          <NotebookPen className="h-5 w-5 text-brand-500" />
+          <h2 className="text-headline font-bold text-ink-primary">修改分组</h2>
+        </div>
+        <label className="mb-1 block text-footnote font-medium text-ink-secondary">分组名称</label>
+        <input
+          ref={inputRef}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              void submit();
+            }
+            if (e.key === 'Escape' && !busy) onClose();
+          }}
+          className="w-full rounded-lg border border-border bg-surface-1 px-3 py-2 text-caption text-ink-primary placeholder:text-ink-tertiary focus:border-brand-400 focus:outline-none"
+        />
+        <div className="mt-4 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            className="rounded-lg border border-border px-4 py-2 text-caption font-medium text-ink-secondary hover:bg-surface-2 disabled:opacity-50 surface-interactive"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            onClick={() => void submit()}
+            disabled={busy || !name.trim()}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-caption font-semibold text-white hover:bg-brand-600 disabled:opacity-50 surface-interactive"
+          >
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+            保存
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GroupPickerDialog({
+  notebooks,
+  currentNotebookId,
+  onClose,
+  onPick,
+  onRenameNotebook,
+}: {
+  notebooks: Notebook[];
+  currentNotebookId: string | null;
+  onClose: () => void;
+  onPick: (notebookId: string | null) => void;
+  onRenameNotebook: (notebook: Pick<Notebook, 'id' | 'name' | 'icon'>) => void;
+}) {
+  const options = [
+    { id: null as string | null, name: '未分组', icon: null as string | null },
+    ...notebooks.map((nb) => ({ id: nb.id, name: nb.name, icon: nb.icon ?? null })),
+  ];
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-3 pb-[calc(12px+var(--capacitor-safe-area-bottom,0px))] pt-[calc(12px+var(--capacitor-effective-top-inset,0px))] sm:items-center sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-sm overflow-hidden rounded-2xl bg-surface-1 shadow-soft-lg"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+          <div className="flex items-center gap-2">
+            <NotebookPen className="h-5 w-5 text-brand-500" />
+            <h2 className="text-headline font-bold text-ink-primary">切换分组</h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md p-1 text-ink-tertiary hover:bg-surface-2 hover:text-ink-secondary surface-interactive"
+            aria-label="关闭"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="max-h-[55dvh] overflow-y-auto p-2">
+          {options.map((option) => {
+            const selected = (option.id ?? null) === currentNotebookId;
+            const editableNotebookId = option.id;
+            return (
+              <div
+                key={option.id ?? 'unfiled'}
+                className={`flex items-center gap-1 rounded-lg px-1 py-1 surface-interactive ${
+                  selected
+                    ? 'bg-brand-50 text-brand-700'
+                    : 'text-ink-secondary hover:bg-surface-2'
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => onPick(option.id)}
+                  className={`flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-caption ${
+                    selected ? 'font-semibold text-brand-700' : 'text-ink-secondary hover:text-ink-primary'
+                  }`}
+                >
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-surface-2 text-footnote">
+                    {option.icon ?? <NotebookPen className="h-3.5 w-3.5 text-ink-tertiary" />}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate">{option.name}</span>
+                  {selected && <Check className="h-4 w-4 shrink-0 text-brand-500" />}
+                </button>
+                {editableNotebookId && (
+                  <button
+                    type="button"
+                    title="修改分组名称"
+                    aria-label={`修改分组名称：${option.name}`}
+                    className="shrink-0 rounded-md p-1.5 text-ink-tertiary hover:bg-surface-3 hover:text-ink-secondary"
+                    onClick={() => {
+                      onClose();
+                      onRenameNotebook({ id: editableNotebookId, name: option.name, icon: option.icon ?? undefined });
+                    }}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <div className="border-t border-border px-4 py-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full rounded-lg border border-border px-4 py-2 text-caption font-medium text-ink-secondary hover:bg-surface-2 surface-interactive"
+          >
+            取消
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1787,11 +2696,16 @@ function ClipDialog({
     if (!url.trim()) return;
     setBusy(true);
     try {
-      const r = await fetch('/api/shouchao/clip', {
+      const requestClip = () => fetch('/api/shouchao/clip', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ url }),
       });
+      let r = await requestClip();
+      if (r.status === 401 && await refreshMobileSession()) {
+        r = await requestClip();
+      }
       const d = await r.json();
       if (!r.ok || !d.ok) throw new Error(d.error ?? '剪藏失败');
       onClipped({ title: d.title, content: d.content, url: d.url });
@@ -1895,7 +2809,7 @@ function ImportDialog({
           <h2 className="text-headline font-bold text-ink-primary">导入文件</h2>
         </div>
         <p className="mb-3 text-footnote text-ink-tertiary">
-          支持 PDF / Word(.docx) / 文本(.txt/.md)。AI 提炼成结构化笔记，或保留全文。
+          支持 PDF / Word(.docx) / Excel(.xlsx/.xls) / PPT(.pptx) / 文本(.txt/.md)。AI 提炼成结构化笔记，或保留全文。
         </p>
 
         {/* 拖拽 / 点击选择区 */}
@@ -1922,12 +2836,12 @@ function ImportDialog({
           ) : (
             <span className="text-caption text-ink-tertiary">点击选择，或拖拽文件到此处</span>
           )}
-          <span className="text-footnote text-ink-tertiary">PDF · DOCX · TXT · MD（≤20MB）</span>
+          <span className="text-footnote text-ink-tertiary">PDF · DOCX · XLSX · PPTX · TXT · MD（≤20MB）</span>
         </button>
         <input
           ref={fileRef}
           type="file"
-          accept=".pdf,.docx,.txt,.md,.markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown"
+          accept=".pdf,.docx,.xlsx,.xls,.ods,.pptx,.txt,.md,.markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/vnd.oasis.opendocument.spreadsheet,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain,text/markdown"
           className="hidden"
           onChange={(e) => pick(e.target.files?.[0])}
         />
@@ -1981,6 +2895,72 @@ function ImportDialog({
   );
 }
 
+function getPreferredAudioRecorderOptions(): MediaRecorderOptions {
+  if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function') {
+    return { audioBitsPerSecond: 128000 };
+  }
+  const mimeType = [
+    'audio/webm;codecs=opus',
+    'audio/webm',
+    'audio/mp4;codecs=mp4a.40.2',
+    'audio/mp4',
+  ].find((type) => MediaRecorder.isTypeSupported(type));
+  return {
+    ...(mimeType ? { mimeType } : {}),
+    audioBitsPerSecond: 128000,
+  };
+}
+
+type NativeRecorderResult = {
+  ok?: boolean;
+  base64?: string;
+  mimeType?: string;
+  filename?: string;
+  durationMs?: number;
+  size?: number;
+};
+
+type ShouchaoNativeRecorder = {
+  isAvailable?: () => Promise<{ available?: boolean }>;
+  start?: () => Promise<{ ok?: boolean }>;
+  stop?: () => Promise<NativeRecorderResult>;
+  cancel?: () => Promise<{ ok?: boolean }>;
+};
+
+function getShouchaoNativeRecorder(): ShouchaoNativeRecorder | null {
+  if (typeof window === 'undefined') return null;
+  const w = window as unknown as {
+    Capacitor?: {
+      Plugins?: {
+        ShouchaoNativeRecorder?: ShouchaoNativeRecorder;
+      };
+    };
+  };
+  return w.Capacitor?.Plugins?.ShouchaoNativeRecorder ?? null;
+}
+
+function base64ToBlob(base64: string, mimeType: string): Blob {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new Blob([bytes], { type: mimeType });
+}
+
+function isRecordableMediaFile(file: File): boolean {
+  const mimeType = file.type.toLowerCase();
+  const name = file.name.toLowerCase();
+  return (
+    mimeType.startsWith('audio/') ||
+    /\.(m4a|mp3|wav|webm|ogg|aac|amr)$/i.test(name)
+  );
+}
+
+function normalizePickedRecordingFile(file: File): { blob: Blob; filename: string } {
+  return { blob: file, filename: file.name || 'audio.m4a' };
+}
+
 function VoiceDialog({
   onClose,
   onTranscribed,
@@ -1993,15 +2973,23 @@ function VoiceDialog({
   type Phase = 'idle' | 'recording' | 'recorded' | 'transcribing';
   const [phase, setPhase] = useState<Phase>('idle');
   const [elapsed, setElapsed] = useState(0);
-  const [polish, setPolish] = useState(true);
+  const [polish, setPolish] = useState(false);
   const [mode, setMode] = useState<'note' | 'meeting'>('note');
   const [supported, setSupported] = useState(true);
+  const [nativeRecorderAvailable, setNativeRecorderAvailable] = useState(false);
+  const [inlineRecordingUnavailable, setInlineRecordingUnavailable] = useState(false);
+  const [pickedName, setPickedName] = useState('');
+  const [sttConfigured, setSttConfigured] = useState<boolean | null>(null);
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const blobRef = useRef<Blob | null>(null);
+  const nativeRecordingRef = useRef(false);
+  const recordingStartedAtRef = useRef<number | null>(null);
+  const recordedDurationMsRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const audioInputRef = useRef<HTMLInputElement>(null);
 
   const stopTracks = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -2020,39 +3008,151 @@ function VoiceDialog({
     ) {
       setSupported(false);
     }
-    return () => stopTracks();
+    void getShouchaoNativeRecorder()?.isAvailable?.()
+      .then((res) => setNativeRecorderAvailable(Boolean(res?.available)))
+      .catch(() => setNativeRecorderAvailable(false));
+    return () => {
+      stopTracks();
+      if (nativeRecordingRef.current) {
+        void getShouchaoNativeRecorder()?.cancel?.();
+        nativeRecordingRef.current = false;
+      }
+    };
   }, [stopTracks]);
+
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/shouchao/transcribe', { credentials: 'include', cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => {
+        if (alive) setSttConfigured(Boolean(d.configured));
+      })
+      .catch(() => {
+        if (alive) setSttConfigured(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   async function startRecording() {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const nativeRecorder = isCapacitor() ? getShouchaoNativeRecorder() : null;
+      if (nativeRecorder?.start && nativeRecorder.stop) {
+        await nativeRecorder.start();
+        nativeRecordingRef.current = true;
+        chunksRef.current = [];
+        blobRef.current = null;
+        setPickedName('');
+        setElapsed(0);
+        recordingStartedAtRef.current = Date.now();
+        recordedDurationMsRef.current = 0;
+        setPhase('recording');
+        timerRef.current = setInterval(() => setElapsed((s) => s + 1), 1000);
+        return;
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          channelCount: { ideal: 1 },
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: { ideal: 48000 },
+        },
+      });
       streamRef.current = stream;
       chunksRef.current = [];
-      const rec = new MediaRecorder(stream);
+      const rec = new MediaRecorder(stream, getPreferredAudioRecorderOptions());
       rec.ondataavailable = (e) => {
         if (e.data.size > 0) chunksRef.current.push(e.data);
       };
       rec.onstop = () => {
         blobRef.current = new Blob(chunksRef.current, { type: rec.mimeType || 'audio/webm' });
+        recordedDurationMsRef.current = recordingStartedAtRef.current
+          ? Math.max(0, Date.now() - recordingStartedAtRef.current)
+          : Math.max(0, elapsed * 1000);
+        recordingStartedAtRef.current = null;
+        setPickedName('');
         setPhase('recorded');
         stopTracks();
       };
-      rec.start();
+      rec.start(250);
       recorderRef.current = rec;
       setElapsed(0);
+      recordingStartedAtRef.current = Date.now();
+      recordedDurationMsRef.current = 0;
       setPhase('recording');
       timerRef.current = setInterval(() => setElapsed((s) => s + 1), 1000);
     } catch {
-      onError('无法访问麦克风，请在浏览器中授予录音权限');
+      setInlineRecordingUnavailable(true);
+      onError('无法访问麦克风，已切换为系统录音/选择音频；如需直接录音，请在应用权限中允许麦克风');
     }
   }
 
+  function pickAudio(file: File | null | undefined) {
+    if (!file) return;
+    if (!isRecordableMediaFile(file)) {
+      onError('请选择音频/录音文件');
+      return;
+    }
+    const picked = normalizePickedRecordingFile(file);
+    blobRef.current = picked.blob;
+    chunksRef.current = [];
+    setElapsed(0);
+    setPickedName(picked.filename || '已选择录音');
+    setPhase('recorded');
+  }
+
   function stopRecording() {
+    if (nativeRecordingRef.current) {
+      void stopNativeRecording();
+      return;
+    }
     try {
       recorderRef.current?.stop();
     } catch {
       stopTracks();
       setPhase('recorded');
+    }
+  }
+
+  async function stopNativeRecording() {
+    const nativeRecorder = getShouchaoNativeRecorder();
+    if (!nativeRecorder?.stop) {
+      nativeRecordingRef.current = false;
+      setPhase('recorded');
+      return;
+    }
+
+    try {
+      const result = await nativeRecorder.stop();
+      nativeRecordingRef.current = false;
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      if (!result?.base64) throw new Error('没有录到声音，请重试');
+      const mimeType = result.mimeType || 'audio/mp4';
+      const blob = base64ToBlob(result.base64, mimeType);
+      if (blob.size === 0) throw new Error('没有录到声音，请重试');
+      blobRef.current = blob;
+      chunksRef.current = [];
+      setPickedName(result.filename || 'audio.m4a');
+      if (typeof result.durationMs === 'number') {
+        recordedDurationMsRef.current = Math.max(0, Math.round(result.durationMs));
+        setElapsed(Math.max(1, Math.round(result.durationMs / 1000)));
+      }
+      recordingStartedAtRef.current = null;
+      setPhase('recorded');
+    } catch (error) {
+      nativeRecordingRef.current = false;
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      onError(error instanceof Error ? error.message : '原生录音失败，请重试');
+      setPhase('idle');
     }
   }
 
@@ -2065,13 +3165,15 @@ function VoiceDialog({
     setPhase('transcribing');
     try {
       const fd = new FormData();
-      fd.append('file', blob, 'audio.webm');
+      const filename = pickedName || (blob.type.includes('mp4') ? 'audio.m4a' : 'audio.webm');
+      fd.append('file', blob, filename);
       if (mode === 'meeting') {
         fd.append('meeting', 'true');
       } else {
         fd.append('polish', polish ? 'true' : 'false');
       }
       fd.append('language', 'zh');
+      fd.append('durationMs', String(Math.max(recordedDurationMsRef.current, Math.round(elapsed * 1000))));
       const r = await fetch('/api/shouchao/transcribe', { method: 'POST', body: fd });
       const d = await r.json().catch(() => ({}));
       if (!r.ok || !d.ok || !d.text) throw new Error(d.error ?? '转写失败');
@@ -2083,120 +3185,164 @@ function VoiceDialog({
   }
 
   function reset() {
+    if (nativeRecordingRef.current) {
+      void getShouchaoNativeRecorder()?.cancel?.();
+      nativeRecordingRef.current = false;
+    }
     blobRef.current = null;
     chunksRef.current = [];
+    recordingStartedAtRef.current = null;
+    recordedDurationMsRef.current = 0;
+    setPickedName('');
     setElapsed(0);
     setPhase('idle');
   }
 
   const mmss = `${String(Math.floor(elapsed / 60)).padStart(2, '0')}:${String(elapsed % 60).padStart(2, '0')}`;
+  const canRecordInline = nativeRecorderAvailable || (supported && !inlineRecordingUnavailable);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="w-full max-w-lg rounded-2xl bg-surface-1 p-6 shadow-soft-lg" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 px-3 pb-[calc(12px+var(--capacitor-safe-area-bottom,0px))] pt-[calc(12px+var(--capacitor-effective-top-inset,0px))] sm:items-center sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className="max-h-[calc(var(--visual-viewport-height,100dvh)-24px-var(--capacitor-effective-top-inset,0px)-var(--capacitor-safe-area-bottom,0px))] w-full max-w-lg overflow-y-auto rounded-2xl bg-surface-1 p-4 shadow-soft-lg sm:p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="mb-3 flex items-center gap-2">
           <Mic className="h-5 w-5 text-brand-500" />
           <h2 className="text-headline font-bold text-ink-primary">语音转笔记</h2>
         </div>
 
-        {!supported ? (
-          <p className="text-caption text-danger">
-            当前浏览器不支持录音，请改用 Chrome/Safari 等现代浏览器，或用「导入文件」上传音频。
-          </p>
-        ) : (
-          <>
-            <p className="mb-3 text-footnote text-ink-tertiary">
-              对着麦克风口述，停止后自动转写成文字。可整理成口述笔记或会议纪要。
-            </p>
+        <p className="mb-3 text-footnote text-ink-tertiary">
+          对着麦克风口述，停止后转写成文字。手机 App 会优先使用原生录音，提高鸿蒙/安卓兼容性。
+        </p>
 
-            {/* 模式: 口述笔记 / 会议纪要 */}
-            <div className="mb-4 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setMode('note')}
-                className={`flex-1 rounded-lg border px-3 py-2 text-caption font-medium surface-interactive ${
-                  mode === 'note' ? 'border-brand-400 bg-brand-50 text-brand-700' : 'border-border text-ink-secondary hover:bg-surface-2'
-                }`}
-              >
-                口述笔记
-              </button>
-              <button
-                type="button"
-                onClick={() => setMode('meeting')}
-                className={`flex-1 rounded-lg border px-3 py-2 text-caption font-medium surface-interactive ${
-                  mode === 'meeting' ? 'border-brand-400 bg-brand-50 text-brand-700' : 'border-border text-ink-secondary hover:bg-surface-2'
-                }`}
-              >
-                会议纪要
-              </button>
+        {/* 模式: 口述笔记 / 会议纪要 */}
+        <div className="mb-4 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setMode('note')}
+            className={`flex-1 rounded-lg border px-3 py-2 text-caption font-medium surface-interactive ${
+              mode === 'note' ? 'border-brand-400 bg-brand-50 text-brand-700' : 'border-border text-ink-secondary hover:bg-surface-2'
+            }`}
+          >
+            口述笔记
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('meeting')}
+            className={`flex-1 rounded-lg border px-3 py-2 text-caption font-medium surface-interactive ${
+              mode === 'meeting' ? 'border-brand-400 bg-brand-50 text-brand-700' : 'border-border text-ink-secondary hover:bg-surface-2'
+            }`}
+          >
+            会议纪要
+          </button>
+        </div>
+
+        {sttConfigured === false && (
+          <div className="mb-4 rounded-2xl border border-warning/30 bg-warning/10 p-3 text-caption leading-relaxed text-ink-secondary">
+            <div className="font-semibold text-ink-primary">服务端还没配置语音转写</div>
+            <div className="mt-1">
+              需要配置 DashScope 千问 ASR 或 Whisper 兼容服务：`STT_PROVIDER=dashscope`、`STT_API_KEY`、`STT_API_URL`、`STT_MODEL`，然后重启服务。
             </div>
+          </div>
+        )}
 
-            <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-border bg-surface-2 py-8">
-              {phase === 'recording' ? (
-                <>
-                  <div className="flex items-center gap-2 text-title font-bold tabular-nums text-danger">
-                    <span className="inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-danger" />
-                    {mmss}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={stopRecording}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-danger px-5 py-2.5 text-caption font-semibold text-white hover:opacity-90 surface-interactive"
-                  >
-                    <Square className="h-4 w-4" /> 停止录音
-                  </button>
-                </>
-              ) : phase === 'transcribing' ? (
-                <div className="flex items-center gap-2 text-caption text-ink-secondary">
-                  <Loader2 className="h-4 w-4 animate-spin" /> 正在转写…
-                </div>
-              ) : phase === 'recorded' ? (
-                <>
-                  <div className="text-caption text-ink-secondary">已录制 {mmss}</div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={reset}
-                      className="rounded-lg border border-border px-4 py-2 text-caption text-ink-secondary hover:bg-surface-1 surface-interactive"
-                    >
-                      重录
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void transcribe()}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-caption font-semibold text-white hover:bg-brand-600 surface-interactive"
-                    >
-                      <Check className="h-4 w-4" /> 转成笔记
-                    </button>
-                  </div>
-                </>
-              ) : (
+        <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-border bg-surface-2 px-4 py-8">
+          {phase === 'recording' ? (
+            <>
+              <div className="flex items-center gap-2 text-title font-bold tabular-nums text-danger">
+                <span className="inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-danger" />
+                {mmss}
+              </div>
+              <button
+                type="button"
+                onClick={stopRecording}
+                className="inline-flex items-center gap-1.5 rounded-full bg-danger px-5 py-2.5 text-caption font-semibold text-white hover:opacity-90 surface-interactive"
+              >
+                <Square className="h-4 w-4" /> 停止录音
+              </button>
+            </>
+          ) : phase === 'transcribing' ? (
+            <div className="flex items-center gap-2 text-caption text-ink-secondary">
+              <Loader2 className="h-4 w-4 animate-spin" /> 正在转写…
+            </div>
+          ) : phase === 'recorded' ? (
+            <>
+              <div className="max-w-full truncate text-caption text-ink-secondary">
+                {pickedName ? `已选择 ${pickedName}` : `已录制 ${mmss}`}
+              </div>
+              <div className="flex w-full items-center gap-2 sm:w-auto">
                 <button
                   type="button"
-                  onClick={() => void startRecording()}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-brand-500 px-5 py-2.5 text-caption font-semibold text-white hover:bg-brand-600 surface-interactive"
+                  onClick={reset}
+                  className="flex-1 rounded-lg border border-border px-4 py-2 text-caption text-ink-secondary hover:bg-surface-1 surface-interactive sm:flex-none"
                 >
-                  <Mic className="h-4 w-4" /> 开始录音
+                  重录
                 </button>
-              )}
-            </div>
-
-            {mode === 'note' ? (
-              <label className="mt-4 flex items-center gap-2 text-caption text-ink-secondary">
+                <button
+                  type="button"
+                  onClick={() => void transcribe()}
+                  className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-caption font-semibold text-white hover:bg-brand-600 surface-interactive sm:flex-none"
+                >
+                  <Check className="h-4 w-4" /> 转成笔记
+                </button>
+              </div>
+            </>
+          ) : canRecordInline ? (
+            <button
+              type="button"
+              onClick={() => void startRecording()}
+              className="inline-flex items-center gap-1.5 rounded-full bg-brand-500 px-5 py-2.5 text-caption font-semibold text-white hover:bg-brand-600 surface-interactive"
+            >
+              <Mic className="h-4 w-4" /> 开始录音
+            </button>
+          ) : (
+            <>
+              {inlineRecordingUnavailable ? (
+                <p className="max-w-sm text-center text-footnote text-ink-tertiary">
+                  当前系统环境无法直接调用麦克风，请用系统录音或选择已有音频后转写。
+                </p>
+              ) : null}
+              <label className={`relative inline-flex w-full cursor-pointer items-center justify-center gap-1.5 overflow-hidden rounded-full px-5 py-2.5 text-caption font-semibold text-white surface-interactive sm:w-auto ${
+                sttConfigured === false ? 'bg-ink-tertiary opacity-60' : 'bg-brand-500 hover:bg-brand-600'
+              }`}>
+                <Mic className="h-4 w-4" /> 录音/选择音频
                 <input
-                  type="checkbox"
-                  checked={polish}
-                  onChange={(e) => setPolish(e.target.checked)}
-                  className="accent-brand-500"
+                  ref={audioInputRef}
+                  type="file"
+                  accept="audio/*,.m4a,.mp3,.wav,.aac,.amr,.webm,.ogg"
+                  className="absolute inset-0 cursor-pointer opacity-0"
+                  disabled={sttConfigured === false}
+                  onChange={(e) => {
+                    pickAudio(e.target.files?.[0]);
+                    e.currentTarget.value = '';
+                  }}
                 />
-                AI 润色（去口头语、修错别字、分段）
               </label>
-            ) : (
-              <p className="mt-4 text-footnote text-ink-tertiary">
-                会议纪要模式：AI 会整理成摘要 / 讨论要点 / 决策 / 待办结构。
+              <p className="text-center text-footnote text-ink-tertiary">
+                选择手机录音生成的音频后，会自动进入转写。
               </p>
-            )}
-          </>
+            </>
+          )}
+        </div>
+
+        {mode === 'note' ? (
+          <label className="mt-4 flex items-center gap-2 text-caption text-ink-secondary">
+            <input
+              type="checkbox"
+              checked={polish}
+              onChange={(e) => setPolish(e.target.checked)}
+              className="accent-brand-500"
+            />
+            AI 润色（长口述再开；短句建议关闭，避免误改）
+          </label>
+        ) : (
+          <p className="mt-4 text-footnote text-ink-tertiary">
+            会议纪要模式：AI 会整理成摘要 / 讨论要点 / 决策 / 待办结构。
+          </p>
         )}
 
         <div className="mt-5 flex justify-end gap-2">

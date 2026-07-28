@@ -13,6 +13,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { CreateChannelDialog } from '@/components/im/create-channel-dialog';
 import { ChannelDetailPanel } from '@/components/im/channel-detail-panel';
 import { ImSidebar } from '@/components/im/im-sidebar';
+import { ImVoiceComposerButton } from '@/components/im/im-voice-composer-button';
 import { AgentModeToggle } from '@/components/im/agent-mode-toggle';
 import { AiTraceButton } from '@/components/im/ai-trace-button';
 import { CompanyBrainFeedbackButtons } from '@/components/im/company-brain-feedback';
@@ -27,7 +28,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { buildPersonMentionToken, insertTextAtSelection, messageBodyForSend } from '@/lib/im/composer-text';
+import {
+  buildPersonMentionDisplay,
+  encodePendingPersonMentionsForSend,
+  insertTextAtSelection,
+  messageBodyForSend,
+  reconcilePendingPersonMentionRanges,
+  type PendingPersonMention,
+} from '@/lib/im/composer-text';
 import { displayImChannelName } from '@/lib/im/channel-name';
 import {
   Hash,
@@ -60,6 +68,16 @@ import {
 // Day 4-7: 升级 Channel/Message 类型 以含撤回 + 公告 + pinned
 type Channel = ImChannel & { unread?: number };
 type Message = ImMessage;
+
+function shortUserId(id: string): string {
+  if (id.length <= 10) return id;
+  return `${id.slice(0, 4)}...${id.slice(-4)}`;
+}
+
+function initialsOf(value: string): string {
+  const chars = Array.from(value.trim().replace(/\s+/g, ''));
+  return (chars.slice(0, 2).join('') || '?').toUpperCase();
+}
 
 type ComposerAttachment = {
   id: string;
@@ -116,6 +134,7 @@ function ImInner() {
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
+  const [pendingMentions, setPendingMentions] = useState<PendingPersonMention[]>([]);
   const [sending, setSending] = useState(false);
   const [busy, setBusy] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -139,6 +158,41 @@ function ImInner() {
   const { user } = useCurrentUser();
   const ME = user?.id ?? 'demo-user';
   const nameOf = usePersonNameResolver();
+  const myDisplayName = useMemo(() => {
+    const name = user?.name?.trim();
+    if (name) return name;
+    const email = user?.email?.trim();
+    if (email) return email.split('@')[0] || email;
+    return shortUserId(ME);
+  }, [ME, user?.email, user?.name]);
+  const myAvatarText = useMemo(() => initialsOf(myDisplayName), [myDisplayName]);
+  const handleComposerTextChange = useCallback((previous: string, next: string) => {
+    setPendingMentions((current) => reconcilePendingPersonMentionRanges(previous, next, current));
+  }, []);
+  const handlePersonMentionInserted = useCallback((mention: PendingPersonMention) => {
+    setPendingMentions((current) => [...current, mention]);
+  }, []);
+  const insertVoiceText = useCallback((text: string) => {
+    const spoken = text.trim();
+    if (!spoken) return;
+    const el = composerRef.current;
+    const current = input;
+    const start = el?.selectionStart ?? current.length;
+    const end = el?.selectionEnd ?? start;
+    const needsLeadingSpace = start > 0 && current[start - 1] && !/\s/.test(current[start - 1]);
+    const needsTrailingSpace = end < current.length && current[end] && !/\s/.test(current[end]);
+    const insert = `${needsLeadingSpace ? ' ' : ''}${spoken}${needsTrailingSpace ? ' ' : ''}`;
+    const next = current.slice(0, start) + insert + current.slice(end);
+    setInput(next);
+    handleComposerTextChange(current, next);
+    queueMicrotask(() => {
+      const target = composerRef.current;
+      if (!target) return;
+      const caret = start + insert.length;
+      target.focus();
+      target.setSelectionRange(caret, caret);
+    });
+  }, [handleComposerTextChange, input]);
   const hasActiveUploads = sending && attachments.some((a) => a.uploadStatus === 'queued' || a.uploadStatus === 'uploading');
 
   function isTempMessage(message: Message): boolean {
@@ -485,8 +539,10 @@ function ImInner() {
   }
 
   async function sendMessage() {
-    const text = messageBodyForSend(input);
-    if ((!text && attachments.length === 0) || !activeId || sending) return;
+    const displayText = messageBodyForSend(input);
+    const mentionsForSend = pendingMentions;
+    const text = encodePendingPersonMentionsForSend(displayText, mentionsForSend);
+    if ((!displayText && attachments.length === 0) || !activeId || sending) return;
 
     const queuedAttachments = attachments;
     const placeholderAttachments: ImAttachment[] = queuedAttachments.length > 0
@@ -513,6 +569,7 @@ function ImInner() {
 
     setSending(true);
     setInput('');
+    setPendingMentions([]);
     setMessages((prev) => [...prev, optimisticMessage]);
     setTimeout(() => {
       scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -533,7 +590,8 @@ function ImInner() {
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
-        setInput(text);
+        setInput(displayText);
+        setPendingMentions(mentionsForSend);
         window.alert(`发送失败: ${err.error ?? res.statusText}`);
         return;
       }
@@ -919,7 +977,12 @@ function ImInner() {
                   onChange={(e) => handleFileSelect(e, 'file')}
                 />
 
-                {/* @成员与语音入口暂时下线。 */}
+                {/* 语音转文字 */}
+                <ImVoiceComposerButton
+                  onText={insertVoiceText}
+                  disabled={sending}
+                  className="h-8 w-8 rounded-md"
+                />
 
               </div>
 
@@ -939,7 +1002,8 @@ function ImInner() {
                   >
                     {sendAsAgent
                       ? <Bot className="h-3.5 w-3.5 shrink-0" />
-                      : <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white bg-gradient-to-br from-warning/30 to-warning`}>{ME.slice(0, 1).toUpperCase()}</span>                    }
+                      : <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white bg-gradient-to-br from-warning/30 to-warning`}>{myAvatarText}</span>
+                    }
                     <span className="hidden sm:inline">{sendAsAgent ? 'AI 分身' : '真人'}</span>
                     <svg className="h-3 w-3 shrink-0 text-current opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6"/></svg>
                   </button>
@@ -947,6 +1011,9 @@ function ImInner() {
                   {showIdentityPicker && (
                     <IdentityPickerDropdown
                       meId={ME}
+                      meName={myDisplayName}
+                      meEmail={user?.email ?? undefined}
+                      meAvatarText={myAvatarText}
                       sendAsAgent={sendAsAgent}
                       onSelect={(asAgent) => { setSendAsAgent(asAgent); setShowIdentityPicker(false); composerRef.current?.focus(); }}
                       onClose={() => setShowIdentityPicker(false)}
@@ -964,6 +1031,8 @@ function ImInner() {
                     meId={ME}
                     nameOf={nameOf}
                     onEnter={() => void sendMessage()}
+                    onTextChange={handleComposerTextChange}
+                    onMentionInserted={handlePersonMentionInserted}
                     onPasteFiles={queuePastedImages}
                     disabled={sending}
                     placeholder={sendAsAgent ? '以 AI 分身身份发言...' : '发送消息，输入 @ 选择人员（可直接粘贴图片）...'}
@@ -1023,7 +1092,8 @@ function ConvAvatar({ channel, name }: { channel: Channel; name: string }) {
   ];
   if (channel.type === 'announcement') {
     return (
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-danger/30 to-danger text-white">        <Megaphone className="h-5 w-5" />
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-danger/30 to-danger text-white">
+        <Megaphone className="h-5 w-5" />
       </div>
     );
   }
@@ -1059,12 +1129,18 @@ function ConvAvatar({ channel, name }: { channel: Channel; name: string }) {
 
 function IdentityPickerDropdown({
   meId,
+  meName,
+  meEmail,
+  meAvatarText,
   sendAsAgent,
   onSelect,
   onClose,
   containerRef,
 }: {
   meId: string;
+  meName: string;
+  meEmail?: string;
+  meAvatarText: string;
   sendAsAgent: boolean;
   onSelect: (asAgent: boolean) => void;
   onClose: () => void;
@@ -1088,25 +1164,31 @@ function IdentityPickerDropdown({
         onClick={() => onSelect(false)}
         className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-surface-3 ${!sendAsAgent ? 'bg-surface-3' : ''}`}
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-warning/30 to-warning text-[11px] font-bold text-white">          {meId.slice(0, 2).toUpperCase()}
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-warning/30 to-warning text-[11px] font-bold text-white">
+          {meAvatarText}
         </span>
         <div className="min-w-0 flex-1">
-          <div className="text-[13px] font-medium text-ink-primary truncate">{meId}</div>
-          <div className="text-[11px] text-ink-secondary">真人 · 以我自己的身份发言</div>
+          <div className="text-[13px] font-medium text-ink-primary truncate" title={meName}>{meName}</div>
+          <div className="text-[11px] text-ink-secondary truncate" title={meEmail ?? meId}>
+            真人 · {meEmail ?? '以我自己的身份发言'}
+          </div>
         </div>
-        {!sendAsAgent && <span className="h-2 w-2 shrink-0 rounded-full bg-success/30" />}      </button>
+        {!sendAsAgent && <span className="h-2 w-2 shrink-0 rounded-full bg-success/30" />}
+      </button>
       <button
         type="button"
         onClick={() => onSelect(true)}
         className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-brand-50 ${sendAsAgent ? 'bg-brand-50' : ''}`}
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-500 text-white">          <Bot className="h-4 w-4" />
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-500 text-white">
+          <Bot className="h-4 w-4" />
         </span>
         <div className="min-w-0 flex-1">
           <div className="text-[13px] font-medium text-brand-700">AI 分身</div>
           <div className="text-[11px] text-brand-700">让我的分身代我在群里发言</div>
         </div>
-        {sendAsAgent && <span className="h-2 w-2 shrink-0 rounded-full bg-brand-400" />}      </button>
+        {sendAsAgent && <span className="h-2 w-2 shrink-0 rounded-full bg-brand-400" />}
+      </button>
     </div>
   );
 }
@@ -1456,7 +1538,8 @@ function MessageRow({
             ? 'bg-gradient-to-br from-brand-400 to-brand-500 text-white'
             : isMe
             ? 'bg-gradient-to-br from-warning/30 to-warning text-white'
-            : 'bg-gradient-to-br from-surface-3 to-ink-tertiary text-white'        }`}
+            : 'bg-gradient-to-br from-surface-3 to-ink-tertiary text-white'
+        }`}
         title={nameOf(msg.senderId)}
       >
         {isPersona ? <Bot className="h-4 w-4" /> : nameOf(msg.senderId).slice(0, 2).toUpperCase()}
@@ -1472,7 +1555,8 @@ function MessageRow({
             {isPersona && (
               <Badge
                 variant="outline"
-                className="h-4 border-brand-300 bg-brand-50 px-1 text-[9px] font-medium text-brand-700"              >
+                className="h-4 border-brand-300 bg-brand-50 px-1 text-[9px] font-medium text-brand-700"
+              >
                 AI 分身
               </Badge>
             )}
@@ -1492,7 +1576,8 @@ function MessageRow({
               isMe
                 ? 'bg-gradient-to-br from-warning to-warning text-white'
                 : isPersona
-                ? 'border border-brand-200/80 bg-gradient-to-br from-brand-50 to-brand-50/40 text-brand-700'                : 'bg-surface-2 text-ink-primary ring-1 ring-hairline'
+                ? 'border border-brand-200/80 bg-gradient-to-br from-brand-50 to-brand-50/40 text-brand-700'
+                : 'bg-surface-2 text-ink-primary ring-1 ring-hairline'
             }`}
           >
             {(() => {
@@ -1510,7 +1595,8 @@ function MessageRow({
                     <span className="inline-flex gap-0.5">
                       <span className="h-1 w-1 animate-bounce rounded-full bg-brand-400 [animation-delay:-0.3s]" />
                       <span className="h-1 w-1 animate-bounce rounded-full bg-brand-400 [animation-delay:-0.15s]" />
-                      <span className="h-1 w-1 animate-bounce rounded-full bg-brand-400" />                    </span>
+                      <span className="h-1 w-1 animate-bounce rounded-full bg-brand-400" />
+                    </span>
                   </span>
                 );
               }
@@ -1518,7 +1604,8 @@ function MessageRow({
                 <>
                   {renderInline(msg.body, onMentionPersona)}
                   {isStreaming && !bodyEmpty && (
-                    <span className="ml-0.5 inline-block w-[6px] animate-pulse text-brand-700/70">▍</span>                  )}
+                    <span className="ml-0.5 inline-block w-[6px] animate-pulse text-brand-700/70">▍</span>
+                  )}
                 </>
               );
             })()}
@@ -1557,7 +1644,8 @@ function MessageRow({
               type="button"
               onClick={onPromote}
               disabled={!!msg.spawnedPromotionId}
-              className="flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-brand-700 shadow-soft ring-1 ring-brand-300/80 transition hover:bg-brand-50 hover:shadow-soft-lg disabled:cursor-not-allowed disabled:opacity-40"              title="沉淀为 Memory 升级提议 (三级签批) — 差异化 §2.2 第 3 条"
+              className="flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-brand-700 shadow-soft ring-1 ring-brand-300/80 transition hover:bg-brand-50 hover:shadow-soft-lg disabled:cursor-not-allowed disabled:opacity-40"
+              title="沉淀为 Memory 升级提议 (三级签批) — 差异化 §2.2 第 3 条"
             >
               <Brain className="h-3 w-3" />
               沉淀
@@ -1669,7 +1757,8 @@ function renderInline(
     const [userId, kind = 'notify'] = ref.split(':');
     const cls =
       kind === 'persona'
-        ? 'bg-brand-100 text-brand-700'        : kind === 'assign'
+        ? 'bg-brand-100 text-brand-700'
+        : kind === 'assign'
         ? 'bg-danger/10 text-danger'
         : kind === 'consult'
         ? 'bg-info/10 text-info'
@@ -1702,16 +1791,31 @@ function ImComposerInput(props: {
   meId: string;
   nameOf: (id: string | null | undefined) => string;
   onEnter: () => void;
+  onTextChange?: (previous: string, next: string) => void;
+  onMentionInserted?: (mention: PendingPersonMention) => void;
   onPasteFiles?: (files: File[]) => void;
   disabled?: boolean;
   placeholder?: string;
 }) {
-  const { composerRef, value, setValue, members, meId, nameOf, onEnter, onPasteFiles, disabled, placeholder } = props;
+  const {
+    composerRef,
+    value,
+    setValue,
+    members,
+    meId,
+    nameOf,
+    onEnter,
+    onTextChange,
+    onMentionInserted,
+    onPasteFiles,
+    disabled,
+    placeholder,
+  } = props;
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
   const [mentionStart, setMentionStart] = useState(-1);
   const [mentionActive, setMentionActive] = useState(0);
-  const [mentionAnchor, setMentionAnchor] = useState<{ x: number; y: number } | undefined>();
+  const [mentionAnchor, setMentionAnchor] = useState<{ x: number; top: number; bottom: number } | undefined>();
   const mentionCandidates = useMemo(() => {
     const q = mentionQuery.trim().toLowerCase();
     return members
@@ -1748,7 +1852,7 @@ function ImComposerInput(props: {
           setMentionStart(i);
           setMentionQuery(query);
           setMentionOpen(true);
-          setMentionAnchor({ x: rect.left + 8, y: rect.top + rect.height });
+          setMentionAnchor({ x: rect.left + 8, top: rect.top, bottom: rect.bottom });
           return;
         }
         break;
@@ -1765,16 +1869,25 @@ function ImComposerInput(props: {
     const caret = composerRef.current?.selectionStart ?? value.length;
     const before = value.slice(0, mentionStart);
     const after = value.slice(caret);
-    const token = buildPersonMentionToken(person);
-    const next = before + token + after;
+    const visibleMention = buildPersonMentionDisplay(person);
+    const mentionText = visibleMention.trimEnd();
+    const next = before + visibleMention + after;
     setValue(next);
+    onTextChange?.(value, next);
+    onMentionInserted?.({
+      ...person,
+      kind: 'notify',
+      start: before.length,
+      end: before.length + mentionText.length,
+      text: mentionText,
+    });
     setMentionOpen(false);
     setMentionStart(-1);
     setMentionQuery('');
     queueMicrotask(() => {
       const el = composerRef.current;
       if (!el) return;
-      const pos = before.length + token.length;
+      const pos = before.length + visibleMention.length;
       el.focus();
       el.setSelectionRange(pos, pos);
     });
@@ -1789,6 +1902,7 @@ function ImComposerInput(props: {
         onChange={(e) => {
           const next = e.target.value;
           setValue(next);
+          onTextChange?.(value, next);
           updateMentionState(next, e.target.selectionStart ?? next.length, e.currentTarget);
         }}
         onPaste={(e) => {
@@ -1813,6 +1927,7 @@ function ImComposerInput(props: {
                 e.currentTarget.selectionEnd,
               );
               setValue(result.value);
+              onTextChange?.(value, result.value);
               queueMicrotask(() => {
                 const el = composerRef.current;
                 if (!el) return;
@@ -1871,14 +1986,32 @@ function PersonMentionPicker({
 }: {
   open: boolean;
   query: string;
-  anchor?: { x: number; y: number };
+  anchor?: { x: number; top: number; bottom: number };
   candidates: Array<{ userId: string; name: string }>;
   activeIndex: number;
   onActiveIndexChange: (index: number) => void;
   onSelect: (person: { userId: string; name: string }) => void;
 }) {
   if (!open) return null;
-  const pos = anchor ? { left: anchor.x, top: anchor.y + 4 } : { left: 16, bottom: 16 };
+  const viewportWidth = typeof window === 'undefined' ? 1024 : window.innerWidth;
+  const viewportHeight = typeof window === 'undefined' ? 768 : window.innerHeight;
+  const pickerWidth = 288;
+  const pickerMaxHeight = 288;
+  const gap = 8;
+  const pos = anchor
+    ? (() => {
+      const spaceBelow = viewportHeight - anchor.bottom - gap;
+      const spaceAbove = anchor.top - gap;
+      const openAbove = spaceBelow < Math.min(pickerMaxHeight, candidates.length * 44 + 44) && spaceAbove > spaceBelow;
+      return {
+        left: Math.max(12, Math.min(anchor.x, viewportWidth - pickerWidth - 12)),
+        maxHeight: Math.max(120, Math.min(pickerMaxHeight, openAbove ? spaceAbove - 8 : spaceBelow - 8)),
+        ...(openAbove
+          ? { bottom: viewportHeight - anchor.top + gap }
+          : { top: anchor.bottom + gap }),
+      };
+    })()
+    : { left: 16, bottom: 16 };
   return (
     <div
       className="fixed z-50 w-72 max-h-72 overflow-auto rounded-lg border border-hairline bg-surface-2 shadow-soft-lg"

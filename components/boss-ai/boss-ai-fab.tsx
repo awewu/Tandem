@@ -130,6 +130,8 @@ export function BossAiFab() {
     toggle();
   }
 
+  if (isOpen) return null;
+
   return (
     <button
       ref={buttonRef}
@@ -139,8 +141,8 @@ export function BossAiFab() {
       onPointerMove={handlePointerMove}
       onPointerUp={finishDrag}
       onPointerCancel={finishDrag}
-      aria-label={isOpen ? '关闭 Tandem AI · 中央智囊' : '打开 Tandem AI · 中央智囊'}
-      aria-pressed={isOpen}
+      aria-label="打开 Tandem AI · 中央智囊"
+      aria-pressed={false}
       title="Tandem AI (⌘J) · 可上下拖动"
       className={
         // 桌面: 右下 24px · mobile: 右下 80px (避开底部 tab bar 56px + 间距)

@@ -21,7 +21,7 @@ import { ArchiveTab } from '@/components/persona/ArchiveTab';
 import { PrivacyFooter } from '@/components/persona/PrivacyFooter';
 import { AiPreferenceCard } from '@/components/persona/AiPreferenceCard';
 import { STAGE_META } from '@/lib/persona/stage-meta';
-import { useCurrentUserId } from '@/lib/hooks/use-current-user';
+import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import type { Persona } from '@/lib/types/persona';
 
 // ---------------------------------------------------------------------------
@@ -94,7 +94,8 @@ export default function PersonaPage() {
 }
 
 function PersonaPageInner() {
-  const userId = useCurrentUserId();
+  const { user } = useCurrentUser();
+  const userId = user?.id ?? '';
   const params = useSearchParams();
   const tabParam = params.get('tab');
   const activeTab: PersonaTab = isPersonaTab(tabParam) ? tabParam : 'today';
@@ -104,6 +105,7 @@ function PersonaPageInner() {
 
   useEffect(() => {
     let cancel = false;
+    if (!userId) return;
     setLoading(true);
     fetch(`/api/persona/${encodeURIComponent(userId)}`)
       .then(async (r) => (r.ok ? r.json() : null))

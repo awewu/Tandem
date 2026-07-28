@@ -14,7 +14,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot, bootHotPath } from '@/lib/boot';
 import { createChannel, listVisibleChannels } from '@/lib/im/service';
-import { requireAuth, requirePermission } from '@/lib/auth/require-auth';
+import { requireAuth } from '@/lib/auth/require-auth';
 import { withApiLog } from '@/lib/api-log/with-api-log';
 import { createAppContext } from '@/lib/repositories/app-context-factory';
 import { CalendarImReminderService } from '@/lib/services/calendar-im-reminder-service';
@@ -23,9 +23,8 @@ async function GETApiHandler(req: NextRequest) {
   bootHotPath();
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
-  const canViewAll = (await requirePermission(auth, 'organization.manage')) === null;
   await new CalendarImReminderService(createAppContext()).cleanupExpiredOneTimeMeetingGroups(auth.tenantId);
-  const channels = await listVisibleChannels(auth.userId, auth.tenantId, canViewAll);
+  const channels = await listVisibleChannels(auth.userId, auth.tenantId);
   return NextResponse.json({ channels });
 }
 

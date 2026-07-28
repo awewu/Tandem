@@ -12,7 +12,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { getAttachment, deleteAttachment } from '@/lib/shouchao/service';
-import { getObject, BUCKET_ATTACHMENTS } from '@/lib/infra/s3-client';
+import { getObject, BUCKET_ATTACHMENTS, BUCKET_SHOUCHAO_ATTACHMENTS } from '@/lib/infra/s3-client';
 import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
@@ -26,7 +26,14 @@ async function GETApiHandler(req: NextRequest, { params }: { params: { id: strin
   if (!att) return NextResponse.json({ error: 'not_found' }, { status: 404 });
 
   try {
-    const { body, contentType } = await getObject(att.storageKey, BUCKET_ATTACHMENTS);
+    let object: Awaited<ReturnType<typeof getObject>>;
+    try {
+      object = await getObject(att.storageKey, BUCKET_SHOUCHAO_ATTACHMENTS);
+    } catch (err) {
+      if (BUCKET_SHOUCHAO_ATTACHMENTS === BUCKET_ATTACHMENTS) throw err;
+      object = await getObject(att.storageKey, BUCKET_ATTACHMENTS);
+    }
+    const { body, contentType } = object;
     return new NextResponse(Buffer.from(body), {
       status: 200,
       headers: {

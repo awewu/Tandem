@@ -5,7 +5,8 @@
  *   绝不写组织 Memory/OKR/baseline。承 C3: 建议默认 pending, 人确认才生效, 可忽略。
  */
 
-import { getStore, generateId } from '../storage/repository';
+import { generateId } from '../storage/repository';
+import { getShouchaoStore } from './store';
 import { audit } from '../audit/log';
 import { getNote, updateNote } from './service';
 import { buildCandidates, type DistillNote } from './distill-detect';
@@ -18,7 +19,7 @@ function nowIso(): string {
 
 /** 列出本人 pending 蒸馏候选 (最新在前)。 */
 export async function listCandidates(ownerId: string): Promise<ShouchaoDistillCandidate[]> {
-  const store = getStore();
+  const store = getShouchaoStore();
   const all = await store.shouchaoDistillCandidates.list({ ownerId } as Partial<ShouchaoDistillCandidate>);
   return all
     .filter((c) => c.status === 'pending')
@@ -35,7 +36,7 @@ export interface ScanResult {
  * 避免重复扫描灌重复建议 / 复活已忽略项。
  */
 export async function scanForCandidates(ownerId: string): Promise<ScanResult> {
-  const store = getStore();
+  const store = getShouchaoStore();
   const notes = await store.shouchaoNotes.list({ ownerId } as Partial<ShouchaoNote>);
   // 隐私门: 只喂本人显式授权 (sharedToPersona) 且未删/未归档的笔记
   const opted: DistillNote[] = notes
@@ -76,7 +77,7 @@ export async function scanForCandidates(ownerId: string): Promise<ScanResult> {
 }
 
 async function getCandidate(ownerId: string, id: string): Promise<ShouchaoDistillCandidate | null> {
-  const store = getStore();
+  const store = getShouchaoStore();
   const c = await store.shouchaoDistillCandidates.get(id);
   if (!c || c.ownerId !== ownerId) return null;
   return c;
@@ -91,7 +92,7 @@ async function getCandidate(ownerId: string, id: string): Promise<ShouchaoDistil
 export async function applyCandidate(ownerId: string, id: string): Promise<ShouchaoDistillCandidate | null> {
   const c = await getCandidate(ownerId, id);
   if (!c || c.status !== 'pending') return c && c.status !== 'pending' ? c : null;
-  const store = getStore();
+  const store = getShouchaoStore();
 
   if (c.type === 'link' && c.noteIds.length === 2) {
     const [a, b] = await Promise.all([getNote(ownerId, c.noteIds[0]), getNote(ownerId, c.noteIds[1])]);
@@ -122,7 +123,7 @@ export async function applyCandidate(ownerId: string, id: string): Promise<Shouc
 export async function dismissCandidate(ownerId: string, id: string): Promise<boolean> {
   const c = await getCandidate(ownerId, id);
   if (!c) return false;
-  const store = getStore();
+  const store = getShouchaoStore();
   await store.shouchaoDistillCandidates.update(id, {
     status: 'dismissed',
     resolvedAt: nowIso(),

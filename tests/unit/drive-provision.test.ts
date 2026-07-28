@@ -9,6 +9,8 @@ import type { DriveFile } from '@/lib/types/feishu-catchup';
 import {
   provisionOrgDrive,
   ensurePersonalHome,
+  findCompanyShare,
+  indexDeptRoots,
   DRIVE_SYSTEM_OWNER,
   type DriveFolderRepoLike,
   type ProvisionDept,
@@ -54,7 +56,80 @@ const users: ProvisionUser[] = [
 let repo: FakeRepo;
 beforeEach(() => { repo = new FakeRepo(); });
 
+function folderDraft(input: Partial<DriveFile>): Omit<DriveFile, 'id'> {
+  const ts = '2026-07-24T00:00:00.000Z';
+  return {
+    name: input.name ?? '目录',
+    parentId: input.parentId ?? null,
+    ownerId: input.ownerId ?? DRIVE_SYSTEM_OWNER,
+    tenantId: input.tenantId ?? TENANT,
+    mimeType: input.mimeType ?? 'application/x-directory',
+    size: input.size ?? 0,
+    storageKey: input.storageKey ?? '',
+    storageUrl: input.storageUrl ?? null,
+    permissions: input.permissions ?? {},
+    version: input.version ?? 1,
+    isFolder: input.isFolder ?? true,
+    nodeRole: input.nodeRole ?? null,
+    distillable: input.distillable ?? true,
+    createdAt: input.createdAt ?? ts,
+    updatedAt: input.updatedAt ?? ts,
+    deletedAt: input.deletedAt,
+  };
+}
+
 describe('provisionOrgDrive', () => {
+  it('重复 company_share 时优先复用已有内容最多的根', async () => {
+    const emptyNewShare = await repo.create(folderDraft({
+      name: '公司共享区',
+      parentId: null,
+      ownerId: DRIVE_SYSTEM_OWNER,
+      permissions: { read: ['all'], write: ['role:admin', 'role:owner'] },
+      createdAt: '2026-07-24T00:00:00.000Z',
+    }));
+    const oldShare = await repo.create(folderDraft({
+      name: '公司共享区',
+      parentId: null,
+      ownerId: DRIVE_SYSTEM_OWNER,
+      permissions: { read: ['all'], write: ['role:admin', 'role:owner'] },
+      createdAt: '2026-07-23T00:00:00.000Z',
+    }));
+    await repo.create(folderDraft({
+      name: '总裁办',
+      parentId: oldShare.id,
+      ownerId: DRIVE_SYSTEM_OWNER,
+      permissions: { read: ['dept:dept_a'], write: ['dept:dept_a'] },
+    }));
+
+    expect(findCompanyShare([emptyNewShare, oldShare, ...repo.store.slice(2)])?.id).toBe(oldShare.id);
+  });
+
+  it('重复 dept_root 时优先选择已有人员/文件的部门目录', async () => {
+    const emptyDept = await repo.create(folderDraft({
+      name: '总裁办',
+      parentId: null,
+      ownerId: DRIVE_SYSTEM_OWNER,
+      permissions: { read: ['dept:dept_a'], write: ['dept:dept_a'] },
+      createdAt: '2026-07-24T00:00:00.000Z',
+    }));
+    const populatedDept = await repo.create(folderDraft({
+      name: '总裁办',
+      parentId: null,
+      ownerId: DRIVE_SYSTEM_OWNER,
+      permissions: { read: ['dept:dept_a'], write: ['dept:dept_a'] },
+      createdAt: '2026-07-23T00:00:00.000Z',
+    }));
+    await repo.create(folderDraft({
+      name: 'Alice 的工作区',
+      parentId: populatedDept.id,
+      ownerId: 'u_alice',
+      nodeRole: 'personal_home',
+      permissions: { read: ['user:u_alice'], write: ['user:u_alice'] },
+    }));
+
+    expect(indexDeptRoots([emptyDept, populatedDept, ...repo.store.slice(2)]).get('dept_a')?.id).toBe(populatedDept.id);
+  });
+
   it('创建 company_share + 每个部门 dept_root', async () => {
     const { created } = await provisionOrgDrive({ tenantId: TENANT, depts, repo });
     expect(created.length).toBe(3); // company_share + 2 dept_root

@@ -9,6 +9,7 @@
  * 配置优先级 (高 → 低):
  *   1. DB AiSettings (Admin UI 热更新): ocrProvider / ocrModel / ocrApiUrl / ocrApiKey
  *   2. 环境变量 OCR_PROVIDER / OCR_MODEL / OCR_API_URL / OCR_API_KEY
+ *   3. 已配置 QWEN_API_KEY / QWEN_BASE_URL 时自动复用千问视觉 OCR
  *
  * 未配置时: isOcrConfigured() → false, 调用方应提示"未配置图片识别"。
  * 永不抛裸错: ocrImage 失败返回 { ok:false, error }。
@@ -29,14 +30,14 @@ async function resolveOcrConfig(): Promise<{
       provider: s.ocrProvider ?? process.env.OCR_PROVIDER ?? 'none',
       model: s.ocrModel ?? process.env.OCR_MODEL ?? 'gpt-4o-mini',
       url: s.ocrApiUrl ?? process.env.OCR_API_URL ?? 'https://api.openai.com/v1/chat/completions',
-      apiKey: s.ocrApiKey ?? process.env.OCR_API_KEY ?? process.env.OPENAI_API_KEY,
+      apiKey: s.ocrApiKey ?? process.env.OCR_API_KEY ?? process.env.QWEN_API_KEY ?? process.env.DASHSCOPE_API_KEY ?? process.env.OPENAI_API_KEY,
     };
   } catch {
     return {
       provider: process.env.OCR_PROVIDER ?? 'none',
       model: process.env.OCR_MODEL ?? 'gpt-4o-mini',
       url: process.env.OCR_API_URL ?? 'https://api.openai.com/v1/chat/completions',
-      apiKey: process.env.OCR_API_KEY ?? process.env.OPENAI_API_KEY,
+      apiKey: process.env.OCR_API_KEY ?? process.env.QWEN_API_KEY ?? process.env.DASHSCOPE_API_KEY ?? process.env.OPENAI_API_KEY,
     };
   }
 }

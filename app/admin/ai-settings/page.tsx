@@ -41,6 +41,10 @@ interface AiSettingsForm {
   sttModel: string;
   sttApiUrl: string;
   sttApiKey: string;
+  ocrProvider: string;
+  ocrModel: string;
+  ocrApiUrl: string;
+  ocrApiKey: string;
   tavilyApiKey: string;
   braveSearchApiKey: string;
   webSearchEnabled: string;   // 'true'|'false'|''
@@ -65,11 +69,31 @@ const EMPTY: AiSettingsForm = {
   hermesBaseUrl: '', hermesModel: '',
   embeddingProvider: '', embeddingModel: '', embeddingApiUrl: '', embeddingApiKey: '',
   sttProvider: '', sttModel: '', sttApiUrl: '', sttApiKey: '',
+  ocrProvider: '', ocrModel: '', ocrApiUrl: '', ocrApiKey: '',
   tavilyApiKey: '', braveSearchApiKey: '', webSearchEnabled: '', webLearnEnabled: '',
   offTopicNudgeEnabled: '', offTopicNudgeText: '',
   smtpHost: '', smtpPort: '', smtpUser: '',
   smtpPass: '', smtpFrom: '', smtpSecure: '',
 };
+
+const KEY_FIELDS = new Set<keyof AiSettingsForm>([
+  'gatewayApiKey',
+  'deepseekApiKey',
+  'anthropicApiKey',
+  'qwenApiKey',
+  'doubaoApiKey',
+  'kimiApiKey',
+  'embeddingApiKey',
+  'sttApiKey',
+  'ocrApiKey',
+  'tavilyApiKey',
+  'braveSearchApiKey',
+  'smtpPass',
+]);
+
+function isMaskedSecret(value: string) {
+  return value.includes('****') || value === '******';
+}
 
 interface FieldProps {
   label: string;
@@ -277,9 +301,11 @@ export default function AiSettingsPage() {
     try {
       const body: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(form)) {
+        const key = k as keyof AiSettingsForm;
         if (typeof v === 'string') {
           if (v === 'true') body[k] = true;
           else if (v === 'false') body[k] = false;
+          else if (KEY_FIELDS.has(key) && isMaskedSecret(v.trim())) continue;
           else if (v.trim()) body[k] = v.trim();
         }
       }
@@ -467,9 +493,9 @@ export default function AiSettingsPage() {
         <Field label="API Key" field="embeddingApiKey" form={form} onChange={onChange} isKey />
       </Section>
 
-      <Section title="语音转写 (STT)" badge="Whisper 兼容">
+      <Section title="语音转写 (STT)" badge="Whisper / DashScope">
         <div className="md:col-span-2 text-footnote text-ink-secondary -mb-1">
-          IM 语音转文字、手抄语音转笔记都走这里。推荐直接填 OpenAI Whisper 兼容接口。
+          IM 语音转文字、Tandem 手抄、独立搭子手抄 APP 都走这里。可选 OpenAI Whisper 兼容接口，或 DashScope 千问 ASR。
         </div>
         <div className="flex flex-col gap-1">
           <label className="text-footnote text-ink-secondary font-medium">Provider</label>
@@ -481,11 +507,33 @@ export default function AiSettingsPage() {
             <option value="">沿用环境变量</option>
             <option value="none">关闭 (none)</option>
             <option value="openai">OpenAI 兼容 (openai)</option>
+            <option value="dashscope">DashScope 千问 ASR (dashscope)</option>
           </select>
         </div>
-        <Field label="模型名" field="sttModel" form={form} onChange={onChange} placeholder="whisper-1" />
-        <Field label="API URL" field="sttApiUrl" form={form} onChange={onChange} placeholder="https://api.openai.com/v1/audio/transcriptions" />
+        <Field label="模型名" field="sttModel" form={form} onChange={onChange} placeholder="qwen3-asr-flash / whisper-1" />
+        <Field label="API URL" field="sttApiUrl" form={form} onChange={onChange} placeholder="https://dashscope.aliyuncs.com/compatible-mode/v1" />
         <Field label="API Key" field="sttApiKey" form={form} onChange={onChange} isKey />
+      </Section>
+
+      <Section title="图片识别 / 拍照记 OCR" badge="Qwen VL / OpenAI vision">
+        <div className="md:col-span-2 text-footnote text-ink-secondary -mb-1">
+          Tandem 手抄与独立搭子手抄 APP 的拍照记走这里。留空时会优先复用环境变量里的 QWEN_API_KEY / QWEN_BASE_URL。
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-footnote text-ink-secondary font-medium">Provider</label>
+          <select
+            value={form.ocrProvider}
+            onChange={(e) => onChange('ocrProvider', e.target.value)}
+            className="rounded-md border border-hairline bg-surface-1 px-3 py-1.5 text-caption text-ink-primary focus:outline-none focus:ring-1 focus:ring-brand-500"
+          >
+            <option value="">沿用环境变量 / 自动复用千问</option>
+            <option value="none">关闭 (none)</option>
+            <option value="openai">OpenAI 兼容 vision (openai)</option>
+          </select>
+        </div>
+        <Field label="模型名" field="ocrModel" form={form} onChange={onChange} placeholder="qwen-vl-ocr" />
+        <Field label="API URL" field="ocrApiUrl" form={form} onChange={onChange} placeholder="https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions" />
+        <Field label="API Key" field="ocrApiKey" form={form} onChange={onChange} isKey placeholder="留空则复用 QWEN_API_KEY" />
       </Section>
 
       <Section title="Web 搜索 · 外网学习">

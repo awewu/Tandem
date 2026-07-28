@@ -13,7 +13,8 @@
  *
  * 公众号 (mp.weixin.qq.com) 等需 UA 伪装的站点已带浏览器 UA; 反爬严重的站点会失败,
  * 此时前端可提示用户改用"粘贴正文" (rawText)。
- * 文件支持: PDF (pdfjs-dist) / .docx (mammoth) / 纯文本/Markdown; 旧版 .doc 与扫描件 PDF 不支持。
+ * 文件支持: PDF (pdfjs-dist) / .docx (mammoth) / .xlsx/.xls (xlsx) / .pptx (JSZip) / 纯文本/Markdown;
+ * 旧版 .doc/.ppt 与扫描件 PDF 不支持。
  */
 
 import { NextResponse, type NextRequest } from 'next/server';

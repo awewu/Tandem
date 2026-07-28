@@ -60,8 +60,8 @@ export interface AiSettings {
   embeddingApiUrl?: string;
   embeddingApiKey?: string;
 
-  /** 语音转写 (STT) · 对标 Get笔记 语音转笔记. OpenAI Whisper 兼容协议 */
-  sttProvider?: 'openai' | 'none';
+  /** 语音转写 (STT) · 对标 Get笔记 语音转笔记. OpenAI Whisper 兼容协议 / DashScope Qwen-ASR */
+  sttProvider?: 'openai' | 'dashscope' | 'none';
   sttModel?: string;
   sttApiUrl?: string;
   sttApiKey?: string;

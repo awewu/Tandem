@@ -23,6 +23,7 @@ import {
   Clock,
   ChevronRight,
   FileText,
+  Mail,
   CalendarDays,
   HardDrive,
   Search,
@@ -39,6 +40,7 @@ import {
   Cloud,
   Factory,
   Home,
+  UserRound,
 } from 'lucide-react';
 import { InsightsWidget } from '@/components/insights/insights-widget';
 import { RiskCockpit } from '@/components/dashboard/risk-cockpit';
@@ -79,6 +81,26 @@ interface DashboardStats {
   }>;
 }
 
+interface MobileDashboard {
+  todos: {
+    totalCount: number;
+    myKrAtRisk: Array<{ id: string; title: string; riskStatus: string; progress: number }>;
+    myTtiInProgress: Array<{ id: string; title: string; completionRate: number }>;
+    personaUpgradeAvailable: { bossCaptureScore: number; reason?: string } | null;
+  };
+  creation: {
+    persona: { stage: string; bossCaptureScore: number; learningActive: boolean } | null;
+    myMemoryContributions: { total: number; pending: number; rejected: number };
+    myRecentDecisions: Array<{ id: string; title: string; state: string; createdAt: string }>;
+    weeklyLearningCount: number;
+  };
+}
+
+interface MobileFeatureState {
+  enabledFeatures: string[];
+  dashboardCards: string[];
+}
+
 export default function HomePage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [now, setNow] = useState(new Date());
@@ -86,11 +108,6 @@ export default function HomePage() {
   const router = useRouter();
   const { open: openRightPane, close: closeRightPane } = useRightPane();
   const capacitorApp = isCapacitor();
-
-  useEffect(() => {
-    if (!capacitorApp) return;
-    router.replace('/im');
-  }, [capacitorApp, router]);
 
   function previewDecision(d: DashboardStats['recentDecisions'][number]) {
     openRightPane({
@@ -213,11 +230,7 @@ export default function HomePage() {
   const inTimePct = stats ? Math.round(stats.decisionCards.inTimeRate * 100) : null;
 
   if (capacitorApp) {
-    return (
-      <div className="flex h-full items-center justify-center bg-surface-1 text-caption text-ink-tertiary">
-        正在进入 IM…
-      </div>
-    );
+    return <MobileHomeDashboard now={now} />;
   }
 
   return (
@@ -408,6 +421,224 @@ export default function HomePage() {
 }
 
 // ──────────── Sub-components ────────────
+
+function MobileHomeDashboard({ now }: { now: Date }) {
+  const [dashboard, setDashboard] = useState<MobileDashboard | null>(null);
+  const [features, setFeatures] = useState<MobileFeatureState>({
+    enabledFeatures: ['home_dashboard', 'central_ai', 'shouchao', 'mail', 'calendar', 'daily_report', 'naba'],
+    dashboardCards: ['central_ai', 'mail', 'calendar', 'daily_report', 'shouchao', 'naba'],
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        const [dashboardRes, featuresRes] = await Promise.all([
+          fetch('/api/me/dashboard', { credentials: 'include', cache: 'no-store' }),
+          fetch('/api/mobile/features', { credentials: 'include', cache: 'no-store' }),
+        ]);
+
+        if (dashboardRes.ok) {
+          const data = await dashboardRes.json();
+          if (!cancelled) setDashboard(data as MobileDashboard);
+        }
+
+        if (featuresRes.ok) {
+          const data = await featuresRes.json();
+          if (!cancelled && data?.config) {
+            setFeatures({
+              enabledFeatures: data.config.enabledFeatures ?? features.enabledFeatures,
+              dashboardCards: data.config.dashboardCards ?? features.dashboardCards,
+            });
+          }
+        }
+      } catch {
+        /* keep static fallback */
+      }
+    }
+
+    load();
+    const id = setInterval(load, 30000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const weekday = now.toLocaleDateString('zh-CN', { weekday: 'long' });
+  const dateStr = now.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' });
+  const enabled = new Set(features.enabledFeatures);
+  const cards = new Set(features.dashboardCards);
+  const todoCount = dashboard?.todos.totalCount ?? 0;
+  const krRiskCount = dashboard?.todos.myKrAtRisk.length ?? 0;
+  const ttiCount = dashboard?.todos.myTtiInProgress.length ?? 0;
+  const personaScore = dashboard?.creation.persona
+    ? Math.round(dashboard.creation.persona.bossCaptureScore * 100)
+    : null;
+
+  return (
+    <div className="min-h-full bg-surface-1 px-4 pb-6 pt-4">
+      <div className="mx-auto max-w-xl space-y-4">
+        <section className="rounded-lg border border-border bg-[rgb(var(--surface-1))] p-4 shadow-soft-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-footnote text-ink-tertiary">{dateStr} · {weekday}</p>
+              <h1 className="mt-1 text-title-2 text-ink-primary">{greetingForHour(now.getHours())}</h1>
+              <p className="mt-1 text-caption text-ink-secondary">
+                今日看板汇总待办、邮件、日程、日报和分身状态。
+              </p>
+            </div>
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-500 text-white">
+              <Sparkles className="h-5 w-5" />
+            </span>
+          </div>
+
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            <MobileMetric label="待办" value={todoCount} />
+            <MobileMetric label="KR 风险" value={krRiskCount} />
+            <MobileMetric label="TTI 进行" value={ttiCount} />
+          </div>
+        </section>
+
+        {enabled.has('central_ai') && cards.has('central_ai') && (
+          <MobileDashboardCard
+            href="/atlas"
+            icon={Brain}
+            title="中央 AI"
+            description={todoCount > 0 ? `你有 ${todoCount} 项需要处理，先让 AI 帮你排优先级。` : '询问今日重点、风险和下一步建议。'}
+            action="问 AI"
+            tone="brand"
+          />
+        )}
+
+        <div className="grid grid-cols-2 gap-3">
+          {enabled.has('mail') && cards.has('mail') && (
+            <MobileDashboardCard
+              href="/mail"
+              icon={Mail}
+              title="邮箱"
+              description="查看收件箱、星标、草稿和已发送。"
+              action="打开"
+            />
+          )}
+          {enabled.has('calendar') && cards.has('calendar') && (
+            <MobileDashboardCard
+              href="/calendar"
+              icon={CalendarDays}
+              title="日程"
+              description="查看今天安排和会议节奏。"
+              action="查看"
+            />
+          )}
+          {enabled.has('daily_report') && cards.has('daily_report') && (
+            <MobileDashboardCard
+              href="/report"
+              icon={FileText}
+              title="日报"
+              description="用 5 分钟同步今日进展。"
+              action="填写"
+              tone="brand"
+            />
+          )}
+          {enabled.has('shouchao') && cards.has('shouchao') && (
+            <MobileDashboardCard
+              href="/shouchao"
+              icon={NotebookPen}
+              title="手抄"
+              description="快速记录想法和资料。"
+              action="记录"
+            />
+          )}
+          {enabled.has('naba') && cards.has('naba') && (
+            <MobileDashboardCard
+              href="/persona"
+              icon={UserRound}
+              title="拿捏"
+              description={personaScore === null ? '查看分身成长和代行动作。' : `拿捏分 ${personaScore}，查看训练状态。`}
+              action="进入"
+            />
+          )}
+        </div>
+
+        <section className="rounded-lg border border-border bg-[rgb(var(--surface-1))] p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-headline text-ink-primary">下一步</h2>
+              <p className="mt-0.5 text-caption text-ink-tertiary">
+                优先处理会影响 OKR 或当天节奏的事项。
+              </p>
+            </div>
+            <Link href="/report" className="inline-flex shrink-0 items-center gap-1 rounded-md bg-brand-500 px-3 py-1.5 text-caption font-semibold text-white">
+              写日报 <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+
+          <div className="mt-3 space-y-2">
+            {dashboard?.todos.myKrAtRisk.slice(0, 2).map((item) => (
+              <Link key={item.id} href="/okr" className="flex items-center gap-2 rounded-md bg-warning/5 px-3 py-2 text-caption text-warning">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span className="min-w-0 flex-1 truncate">{item.title}</span>
+                <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+              </Link>
+            ))}
+            {(!dashboard || dashboard.todos.myKrAtRisk.length === 0) && (
+              <div className="flex items-center gap-2 rounded-md bg-success/10 px-3 py-2 text-caption text-success">
+                <CheckCircle2 className="h-4 w-4 shrink-0" />
+                今日暂无 KR 风险提醒
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function MobileMetric({ label, value }: { label: string; value: number | string }) {
+  return (
+    <div className="rounded-md bg-surface-2 px-3 py-2 text-center">
+      <div className="text-title-3 font-semibold text-ink-primary tabular-nums">{value}</div>
+      <div className="mt-0.5 text-[10px] text-ink-tertiary">{label}</div>
+    </div>
+  );
+}
+
+function MobileDashboardCard({
+  href,
+  icon: Icon,
+  title,
+  description,
+  action,
+  tone = 'default',
+}: {
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  description: string;
+  action: string;
+  tone?: 'default' | 'brand';
+}) {
+  return (
+    <Link
+      href={href}
+      className="min-w-0 rounded-lg border border-border bg-[rgb(var(--surface-1))] p-3 shadow-soft-sm surface-interactive hover:bg-surface-2"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className={tone === 'brand' ? 'rounded-md bg-brand-50 p-1.5 text-brand-600' : 'rounded-md bg-surface-2 p-1.5 text-ink-secondary'}>
+          <Icon className="h-4 w-4" />
+        </span>
+        <span className="inline-flex items-center gap-0.5 text-footnote font-medium text-brand-600">
+          {action}
+          <ChevronRight className="h-3.5 w-3.5" />
+        </span>
+      </div>
+      <h2 className="mt-3 text-callout font-semibold text-ink-primary">{title}</h2>
+      <p className="mt-1 min-h-[34px] text-footnote leading-relaxed text-ink-tertiary">{description}</p>
+    </Link>
+  );
+}
 
 function SectionHeader({
   title,

@@ -55,6 +55,26 @@ function reqAsEmployee(url: string, body?: unknown, method = 'GET'): NextRequest
   return new NextRequest(r);
 }
 
+function reqAsOrgAdmin(url: string, body?: unknown, method = 'GET'): NextRequest {
+  const token = signAccessToken({
+    sub: 'org-admin',
+    email: 'org-admin@tandem.local',
+    roles: ['steward'],
+    tenantId: 'default',
+    mfa: true,
+    sid: 'sid-admin',
+  });
+  const r = new Request(url, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      Cookie: `${COOKIE_ACCESS}=${token}`,
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  return new NextRequest(r);
+}
+
 async function seedChannel(memberIds: string[], tenantId = 'default') {
   const { createChannel } = await import('@/lib/im/service');
   return createChannel({
@@ -102,6 +122,22 @@ describe('IM IDOR · 非成员不可读频道数据', () => {
       params: Promise.resolve({ id: ch.id }),
     });
     expect(res.status).toBe(404);
+  });
+
+  it('组织管理员不是成员时也不能读取频道消息和成员名单', async () => {
+    const ch = await seedChannel(['plain-employee']);
+    const messages = await import('@/app/api/im/channels/[id]/messages/route');
+    const members = await import('@/app/api/im/channels/[id]/members/route');
+
+    const msgRes = await messages.GET(reqAsOrgAdmin(`http://t/api/im/channels/${ch.id}/messages`), {
+      params: { id: ch.id },
+    });
+    const memberRes = await members.GET(reqAsOrgAdmin(`http://t/api/im/channels/${ch.id}/members`), {
+      params: Promise.resolve({ id: ch.id }),
+    });
+
+    expect(msgRes.status).toBe(404);
+    expect(memberRes.status).toBe(404);
   });
 
   it('跨租户: 他租户频道对 demo-user 不可读 (404)', async () => {

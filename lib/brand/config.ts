@@ -98,7 +98,7 @@ export const TANDEM_PROFILE: BrandProfile = {
     accentForeground: '#FFFFFF',
   },
   legal: {
-    privacyUrl: '/legal/privacy',
+    privacyUrl: '/privacy',
     termsUrl: '/legal/terms',
     contactEmail: 'hello@tandem.work',
     copyright: `© ${new Date().getFullYear()} Tandem. All rights reserved.`,
@@ -131,7 +131,7 @@ export const ENTERPRISE_TEMPLATE: BrandProfile = {
     accentForeground: '#FFFFFF',
   },
   legal: {
-    privacyUrl: '/legal/privacy',
+    privacyUrl: '/privacy',
     termsUrl: '/legal/terms',
     contactEmail: 'support@yourco.com',
     copyright: `© ${new Date().getFullYear()} YourCo. All rights reserved.`,

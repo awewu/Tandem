@@ -14,7 +14,7 @@
  */
 
 import { useEffect } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { App } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
 import { StatusBar, Style } from '@capacitor/status-bar';
@@ -24,7 +24,7 @@ const CAPACITOR_CHUNK_RELOAD_KEY = 'tandem:capacitor-chunk-reload-at';
 
 export function CapacitorShell() {
   const pathname = usePathname() ?? '';
-  const router = useRouter();
+  const isShouchaoRoute = pathname === '/shouchao' || pathname.startsWith('/shouchao/');
 
   useEffect(() => {
     if (!isCapacitor()) return;
@@ -64,25 +64,19 @@ export function CapacitorShell() {
 
   useEffect(() => {
     if (!isCapacitor()) return;
-    if (pathname === '/' || pathname === '/home') {
-      router.replace('/im');
-    }
-  }, [pathname, router]);
-
-  useEffect(() => {
-    if (!isCapacitor()) return;
 
     let cleanup: (() => void) | undefined;
 
     (async () => {
-      // 标记 Capacitor 环境。统一采用 overlay 状态栏: WebView 背景铺到状态栏后面,
-      // 页面通过 --capacitor-effective-top-inset 把可交互内容下移。
-      document.documentElement.classList.add('is-capacitor', 'capacitor-overlay-statusbar');
+      // 标记 Capacitor 环境。统一使用 overlay 状态栏并由 CSS 留出安全区;
+      // 独立手抄是白底工具型界面, 只切换状态栏颜色和图标风格。
+      document.documentElement.classList.add('is-capacitor');
+      document.documentElement.classList.add('capacitor-overlay-statusbar');
 
-      // 1. 状态栏: 深色图标, WebView 覆盖状态栏, CSS 负责安全区
+      // 1. 状态栏
       try {
-        await StatusBar.setStyle({ style: Style.Dark });
-        await StatusBar.setBackgroundColor({ color: '#0E0E0E' });
+        await StatusBar.setStyle({ style: isShouchaoRoute ? Style.Light : Style.Dark });
+        await StatusBar.setBackgroundColor({ color: isShouchaoRoute ? '#FFFFFF' : '#0E0E0E' });
         await StatusBar.setOverlaysWebView({ overlay: true });
 
         // Android 原生层会用 density 转换后注入 CSS px。
@@ -143,7 +137,7 @@ export function CapacitorShell() {
     return () => {
       cleanup?.();
     };
-  }, []);
+  }, [isShouchaoRoute]);
 
   return null;
 }

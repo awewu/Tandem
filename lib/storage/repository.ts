@@ -186,6 +186,9 @@ export interface TandemStore {
   /** 移动端 App 功能开关 (PC 管理后台控制 Android/iOS 可见功能) */
   mobileFeatureConfigs: Repository<import('../types/mobile-features').MobileFeatureConfig>;
 
+  /** 法务文档 (隐私政策等, Admin UI 热更新; 手抄 App 与 Tandem 共用公开页面) */
+  legalDocuments: Repository<import('../types/legal-document').LegalDocument>;
+
   /** WorkspaceManifest (tandem.workspace.md declarative governance, 借鉴 CLAUDE.md/AGENTS.md) */
   workspaceManifests: Repository<import('../types/workspace-manifest').WorkspaceManifest>;
 

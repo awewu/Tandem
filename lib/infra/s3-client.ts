@@ -45,6 +45,8 @@ export function getS3(): S3Client | null {
 
 export const BUCKET_DRIVE = process.env.S3_BUCKET_DRIVE ?? 'tandem-drive';
 export const BUCKET_ATTACHMENTS = process.env.S3_BUCKET_ATTACHMENTS ?? 'tandem-attachments';
+export const BUCKET_SHOUCHAO_ATTACHMENTS =
+  process.env.S3_BUCKET_SHOUCHAO_ATTACHMENTS ?? BUCKET_ATTACHMENTS;
 
 /** Health check: HEAD bucket. */
 export async function headBucket(bucket: string = BUCKET_DRIVE): Promise<void> {

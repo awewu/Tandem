@@ -4,6 +4,8 @@
  * 服务端 (Node.js runtime) 把上传的文件抽成纯文本, 交给 import 路由的 LLM 提炼。
  *   - PDF  : pdfjs-dist legacy build, 无头逐页提取 textContent
  *   - Word : mammoth (.docx → 纯文本)
+ *   - Excel: xlsx 读取每个 sheet → CSV 文本
+ *   - PPT  : JSZip 解压 .pptx → 抽取 slide XML 文本
  *   - 纯文本/Markdown : 直接 UTF-8 解码
  *
  * 设计约束:
@@ -16,7 +18,10 @@ export const MAX_FILE_BYTES = 20 * 1024 * 1024; // 20MB
 const MAX_PDF_PAGES = 200;
 const MAX_TEXT_CHARS = 200_000;
 
-export type ExtractKind = 'pdf' | 'docx' | 'text';
+import JSZip from 'jszip';
+import * as XLSX from 'xlsx';
+
+export type ExtractKind = 'pdf' | 'docx' | 'xlsx' | 'pptx' | 'text';
 
 export interface ExtractResult {
   ok: boolean;
@@ -40,6 +45,21 @@ export function detectKind(filename: string, mime?: string): ExtractKind | null 
     return 'docx';
   }
   if (
+    m.includes('officedocument.presentationml') ||
+    name.endsWith('.pptx')
+  ) {
+    return 'pptx';
+  }
+  if (
+    m.includes('spreadsheet') ||
+    m.includes('excel') ||
+    name.endsWith('.xlsx') ||
+    name.endsWith('.xls') ||
+    name.endsWith('.ods')
+  ) {
+    return 'xlsx';
+  }
+  if (
     m.startsWith('text/') ||
     m.includes('markdown') ||
     name.endsWith('.txt') ||
@@ -60,6 +80,16 @@ function clampText(s: string): string {
 
 function baseTitle(filename: string): string {
   return (filename || '').replace(/\.[^.]+$/, '').trim().slice(0, 60) || '导入的文档';
+}
+
+function decodeXmlText(s: string): string {
+  return s
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
 }
 
 /**
@@ -137,6 +167,51 @@ async function extractDocx(bytes: Uint8Array, filename: string): Promise<Extract
   return { ok: true, kind: 'docx', title: baseTitle(filename), text };
 }
 
+async function extractXlsx(bytes: Uint8Array, filename: string): Promise<ExtractResult> {
+  const workbook = XLSX.read(Buffer.from(bytes), { type: 'buffer' });
+  const sections: string[] = [];
+  for (const sheetName of workbook.SheetNames) {
+    const sheet = workbook.Sheets[sheetName];
+    const csv = XLSX.utils.sheet_to_csv(sheet, { blankrows: false }).trim();
+    if (csv) sections.push(`### Sheet: ${sheetName}\n\n${csv}`);
+  }
+  const text = clampText(sections.join('\n\n---\n\n'));
+  if (!text || text.length < 20) {
+    return { ok: false, error: '表格文本为空或过短' };
+  }
+  return { ok: true, kind: 'xlsx', title: baseTitle(filename), text };
+}
+
+async function extractPptx(bytes: Uint8Array, filename: string): Promise<ExtractResult> {
+  const zip = await JSZip.loadAsync(Buffer.from(bytes));
+  const slidePaths = Object.keys(zip.files)
+    .filter((p) => /^ppt\/slides\/slide\d+\.xml$/.test(p))
+    .sort((a, b) => {
+      const ai = Number(a.match(/slide(\d+)/)?.[1] ?? 0);
+      const bi = Number(b.match(/slide(\d+)/)?.[1] ?? 0);
+      return ai - bi;
+    });
+
+  const sections: string[] = [];
+  for (let i = 0; i < slidePaths.length; i++) {
+    const xml = await zip.files[slidePaths[i]].async('string');
+    const texts: string[] = [];
+    const re = /<a:t[^>]*>([\s\S]*?)<\/a:t>/g;
+    let match: RegExpExecArray | null;
+    while ((match = re.exec(xml)) !== null) {
+      const piece = decodeXmlText(match[1]).trim();
+      if (piece) texts.push(piece);
+    }
+    if (texts.length) sections.push(`### Slide ${i + 1}\n\n${texts.join('\n')}`);
+  }
+
+  const text = clampText(sections.join('\n\n---\n\n'));
+  if (!text || text.length < 20) {
+    return { ok: false, error: 'PPT 文本为空或过短（可能主要是图片/图表，暂不支持 OCR）' };
+  }
+  return { ok: true, kind: 'pptx', title: baseTitle(filename), text };
+}
+
 function extractText(bytes: Uint8Array, filename: string): ExtractResult {
   const text = clampText(new TextDecoder('utf-8', { fatal: false }).decode(bytes));
   if (!text || text.length < 1) {
@@ -159,11 +234,13 @@ export async function extractDocument(
   }
   const kind = detectKind(filename, mime);
   if (kind === null) {
-    return { ok: false, error: '不支持的文件类型（支持 PDF / .docx / 纯文本/Markdown）' };
+    return { ok: false, error: '不支持的文件类型（支持 PDF / .docx / .xlsx / .pptx / 纯文本/Markdown）' };
   }
   try {
     if (kind === 'pdf') return await extractPdf(bytes, filename);
     if (kind === 'docx') return await extractDocx(bytes, filename);
+    if (kind === 'xlsx') return await extractXlsx(bytes, filename);
+    if (kind === 'pptx') return await extractPptx(bytes, filename);
     return extractText(bytes, filename);
   } catch (err) {
     const msg = err instanceof Error ? err.message : '解析失败';
