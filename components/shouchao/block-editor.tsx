@@ -99,6 +99,7 @@ export function BlockEditor({ value, onChange, placeholder, onUploadImage }: Blo
   // 防止外部 value 与内部循环互相打架: 仅当外部 value 与当前序列化结果不同才重建
   const lastSerialized = useRef<string>(serializeBlocks(blocks));
   const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const inputRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
   const focusAfter = useRef<string | null>(null);
   // 拖拽排序: 当前被拖块 id + 悬停目标块 id (插入到目标块之前)
@@ -329,7 +330,7 @@ export function BlockEditor({ value, onChange, placeholder, onUploadImage }: Blo
           key={block.id}
           className={`group relative grid min-w-0 max-w-full grid-cols-[minmax(0,1fr)] items-start gap-1 rounded-md transition-colors sm:grid-cols-[2.5rem_minmax(0,1fr)_2rem] ${
             dragOverId === block.id ? 'border-t-2 border-brand-400' : 'border-t-2 border-transparent'
-          } ${dragId === block.id ? 'opacity-40' : ''} ${menuFor === block.id ? 'z-40' : 'z-0'}`}
+          } ${dragId === block.id ? 'opacity-40' : ''} ${menuFor === block.id ? 'z-40 pb-44 sm:pb-0' : 'z-0'}`}
           onDragOver={(e) => {
             if (!dragId || dragId === block.id) return;
             e.preventDefault();
@@ -342,17 +343,29 @@ export function BlockEditor({ value, onChange, placeholder, onUploadImage }: Blo
             endDrag();
           }}
         >
-          {/* 块控制: 手机端自适应为顶栏, 桌面端为左侧工具列 */}
-          <div className="col-start-1 row-start-1 flex h-8 shrink-0 items-center justify-start gap-1 sm:h-auto sm:w-10 sm:justify-center sm:pt-0.5">
+          {/* 块控制: 仅在当前块聚焦/悬停/菜单打开时显示，避免长文满屏工具按钮 */}
+          <div className={`col-start-1 row-start-1 flex h-8 shrink-0 items-center justify-start gap-1 transition-opacity sm:h-auto sm:w-10 sm:justify-center sm:pt-0.5 ${
+            activeBlockId === block.id || menuFor === block.id
+              ? 'opacity-100'
+              : 'opacity-0 group-focus-within:opacity-100 group-hover:opacity-100'
+          }`}>
             <button
               type="button"
               title="块类型"
               aria-label="选择块类型"
-              onClick={() => setMenuFor(menuFor === block.id ? null : block.id)}
-              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-border bg-surface-1 px-2 text-caption font-medium text-ink-tertiary shadow-soft-xs transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-600 sm:h-7 sm:w-7 sm:px-0"
+              onMouseDown={(e) => e.preventDefault()}
+              onTouchStart={(e) => e.currentTarget.focus()}
+              onClick={(e) => {
+                if (document.activeElement instanceof HTMLElement) {
+                  document.activeElement.blur();
+                }
+                e.currentTarget.focus();
+                setActiveBlockId(block.id);
+                setMenuFor(menuFor === block.id ? null : block.id);
+              }}
+              className="inline-flex h-8 w-10 items-center justify-center rounded-lg border border-border bg-surface-1 text-caption font-medium text-ink-tertiary shadow-soft-xs transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-600 sm:h-7 sm:w-7"
             >
               <Plus className="h-4 w-4" />
-              <span className="sm:hidden">块</span>
             </button>
             <span
               draggable
@@ -372,7 +385,7 @@ export function BlockEditor({ value, onChange, placeholder, onUploadImage }: Blo
 
           {/* 块类型菜单 */}
           {menuFor === block.id && (
-            <div className="absolute left-0 top-9 z-50 max-h-[min(20rem,calc(100vh-12rem))] w-44 overflow-y-auto rounded-lg border border-border bg-surface-1 p-1 shadow-soft-lg sm:left-8 sm:top-8">
+            <div className="absolute left-0 top-10 z-50 max-h-[min(20rem,calc(100vh-12rem))] w-[min(16rem,calc(100vw-3.5rem))] overflow-y-auto rounded-lg border border-border bg-surface-1 p-1 shadow-soft-lg sm:left-8 sm:top-8 sm:w-44">
               {BLOCK_MENU.map(({ type, label, Icon }) => (
                 <button
                   key={type}
@@ -417,6 +430,7 @@ export function BlockEditor({ value, onChange, placeholder, onUploadImage }: Blo
                 )}
                 <input
                   value={block.alt ?? ''}
+                  onFocus={() => setActiveBlockId(block.id)}
                   onChange={(e) => updateBlock(block.id, { alt: e.target.value })}
                   placeholder="图注 / 替代文字…"
                   className="mt-1 w-full bg-transparent text-caption text-ink-tertiary placeholder:text-ink-tertiary focus:outline-none"
@@ -440,6 +454,7 @@ export function BlockEditor({ value, onChange, placeholder, onUploadImage }: Blo
                   ref={(el) => { inputRefs.current[block.id] = el; }}
                   value={block.text}
                   rows={1}
+                  onFocus={() => setActiveBlockId(block.id)}
                   onChange={(e) => {
                     updateBlock(block.id, { text: e.target.value });
                     resizeTextarea(e.currentTarget);
@@ -462,6 +477,7 @@ export function BlockEditor({ value, onChange, placeholder, onUploadImage }: Blo
                   </button>
                   <input
                     value={block.text}
+                    onFocus={() => setActiveBlockId(block.id)}
                     onChange={(e) => updateBlock(block.id, { text: e.target.value })}
                     placeholder="折叠标题…"
                     className="w-full bg-transparent text-body font-medium text-ink-primary placeholder:text-ink-tertiary focus:outline-none"
@@ -471,6 +487,7 @@ export function BlockEditor({ value, onChange, placeholder, onUploadImage }: Blo
                   <textarea
                     value={block.body ?? ''}
                     rows={2}
+                    onFocus={() => setActiveBlockId(block.id)}
                     onChange={(e) => {
                       updateBlock(block.id, { body: e.target.value });
                       resizeTextarea(e.currentTarget);
@@ -492,6 +509,7 @@ export function BlockEditor({ value, onChange, placeholder, onUploadImage }: Blo
                               ref={(el) => resizeTextarea(el)}
                               value={cell}
                               rows={1}
+                              onFocus={() => setActiveBlockId(block.id)}
                               onChange={(e) => {
                                 updateTableCell(block.id, r, c, e.target.value);
                                 resizeTextarea(e.currentTarget);
@@ -538,6 +556,7 @@ export function BlockEditor({ value, onChange, placeholder, onUploadImage }: Blo
                   ref={(el) => { inputRefs.current[block.id] = el; }}
                   value={block.text}
                   rows={1}
+                  onFocus={() => setActiveBlockId(block.id)}
                   onChange={(e) => {
                     updateBlock(block.id, { text: e.target.value });
                     resizeTextarea(e.currentTarget);
@@ -555,7 +574,11 @@ export function BlockEditor({ value, onChange, placeholder, onUploadImage }: Blo
             onClick={() => removeBlock(block.id)}
             title="删除块"
             aria-label="删除块"
-            className="col-start-1 row-start-1 mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center justify-self-end rounded-md text-ink-tertiary opacity-100 transition-opacity hover:bg-danger/10 hover:text-danger sm:col-start-3 sm:row-start-1 sm:mt-1 sm:opacity-0 sm:group-hover:opacity-100"
+            className={`col-start-1 row-start-1 mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center justify-self-end rounded-md text-ink-tertiary transition-opacity hover:bg-danger/10 hover:text-danger sm:col-start-3 sm:row-start-1 sm:mt-1 ${
+              activeBlockId === block.id || menuFor === block.id
+                ? 'opacity-100'
+                : 'opacity-0 group-focus-within:opacity-100 group-hover:opacity-100'
+            }`}
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>

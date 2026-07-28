@@ -23,10 +23,16 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { BrandLogo } from '@/components/brand-logo';
 import { enqueue as enqueueOffline, flushQueue } from '@/lib/shouchao/offline-queue';
-import { appendVoiceTextToNoteContent, deriveVoiceNoteTitle, voiceNoteTag } from '@/lib/shouchao/voice-note';
+import {
+  appendVoiceTextToNoteContent,
+  deriveVoiceNoteTitle,
+  normalizeVoiceTranscriptionText,
+  voiceNoteTag,
+} from '@/lib/shouchao/voice-note';
 import { BlockEditor } from '@/components/shouchao/block-editor';
 import { DistillPanel } from '@/components/shouchao/distill-panel';
 import { useAuthStore, useCurrentUser, type AuthUser } from '@/lib/hooks/use-current-user';
+import { isCapacitor, refreshMobileSession } from '@/lib/capacitor/client';
 import {
   NotebookPen,
   Plus,
@@ -219,6 +225,12 @@ export default function ShouchaoPage() {
     setToast({ kind, text });
     setTimeout(() => setToast(null), 2600);
   }, []);
+
+  function isAbortLikeError(error: unknown): boolean {
+    if (error instanceof DOMException && error.name === 'AbortError') return true;
+    if (!(error instanceof Error)) return false;
+    return error.name === 'AbortError' || /aborted|abort/i.test(error.message);
+  }
 
   async function signOut() {
     if (signingOut) return;
@@ -560,12 +572,17 @@ export default function ShouchaoPage() {
     const seq = ++saveSeqRef.current;
     setSaving(true);
     try {
-      const r = await fetch(`/api/shouchao/notes/${activeId}`, {
+      const saveRequest = () => fetch(`/api/shouchao/notes/${activeId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ title, content, tags, summary, pinned }),
         signal: ctrl.signal,
       });
+      let r = await saveRequest();
+      if (r.status === 401 && await refreshMobileSession()) {
+        r = await saveRequest();
+      }
       if (!r.ok) throw new Error('save failed');
       const d = await r.json();
       // 过期响应丢弃: 已有更晚的保存发出, 不能用旧权威态回写覆盖新输入
@@ -574,7 +591,7 @@ export default function ShouchaoPage() {
       setNotes((prev) => mergeSortedNote(prev, updated));
       setDirty(false);
     } catch (e) {
-      if (e instanceof DOMException && e.name === 'AbortError') return; // 被新保存取消, 正常
+      if (ctrl.signal.aborted || seq !== saveSeqRef.current || isAbortLikeError(e)) return;
       showToast('err', '保存失败');
     } finally {
       if (seq === saveSeqRef.current) setSaving(false);
@@ -582,7 +599,7 @@ export default function ShouchaoPage() {
   }, [activeId, title, content, tags, summary, pinned, showToast]);
 
   async function applyVoiceTranscription(text: string, mode: 'note' | 'meeting') {
-    const cleanText = text.trim();
+    const cleanText = normalizeVoiceTranscriptionText(text);
     if (!cleanText) return;
 
     const tag = voiceNoteTag(mode);
@@ -2676,11 +2693,16 @@ function ClipDialog({
     if (!url.trim()) return;
     setBusy(true);
     try {
-      const r = await fetch('/api/shouchao/clip', {
+      const requestClip = () => fetch('/api/shouchao/clip', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ url }),
       });
+      let r = await requestClip();
+      if (r.status === 401 && await refreshMobileSession()) {
+        r = await requestClip();
+      }
       const d = await r.json();
       if (!r.ok || !d.ok) throw new Error(d.error ?? '剪藏失败');
       onClipped({ title: d.title, content: d.content, url: d.url });
@@ -2870,6 +2892,59 @@ function ImportDialog({
   );
 }
 
+function getPreferredAudioRecorderOptions(): MediaRecorderOptions {
+  if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function') {
+    return { audioBitsPerSecond: 128000 };
+  }
+  const mimeType = [
+    'audio/webm;codecs=opus',
+    'audio/webm',
+    'audio/mp4;codecs=mp4a.40.2',
+    'audio/mp4',
+  ].find((type) => MediaRecorder.isTypeSupported(type));
+  return {
+    ...(mimeType ? { mimeType } : {}),
+    audioBitsPerSecond: 128000,
+  };
+}
+
+type NativeRecorderResult = {
+  ok?: boolean;
+  base64?: string;
+  mimeType?: string;
+  filename?: string;
+  durationMs?: number;
+  size?: number;
+};
+
+type ShouchaoNativeRecorder = {
+  isAvailable?: () => Promise<{ available?: boolean }>;
+  start?: () => Promise<{ ok?: boolean }>;
+  stop?: () => Promise<NativeRecorderResult>;
+  cancel?: () => Promise<{ ok?: boolean }>;
+};
+
+function getShouchaoNativeRecorder(): ShouchaoNativeRecorder | null {
+  if (typeof window === 'undefined') return null;
+  const w = window as unknown as {
+    Capacitor?: {
+      Plugins?: {
+        ShouchaoNativeRecorder?: ShouchaoNativeRecorder;
+      };
+    };
+  };
+  return w.Capacitor?.Plugins?.ShouchaoNativeRecorder ?? null;
+}
+
+function base64ToBlob(base64: string, mimeType: string): Blob {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new Blob([bytes], { type: mimeType });
+}
+
 function VoiceDialog({
   onClose,
   onTranscribed,
@@ -2885,6 +2960,8 @@ function VoiceDialog({
   const [polish, setPolish] = useState(true);
   const [mode, setMode] = useState<'note' | 'meeting'>('note');
   const [supported, setSupported] = useState(true);
+  const [nativeRecorderAvailable, setNativeRecorderAvailable] = useState(false);
+  const [inlineRecordingUnavailable, setInlineRecordingUnavailable] = useState(false);
   const [pickedName, setPickedName] = useState('');
   const [sttConfigured, setSttConfigured] = useState<boolean | null>(null);
 
@@ -2892,6 +2969,7 @@ function VoiceDialog({
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const blobRef = useRef<Blob | null>(null);
+  const nativeRecordingRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
 
@@ -2912,7 +2990,16 @@ function VoiceDialog({
     ) {
       setSupported(false);
     }
-    return () => stopTracks();
+    void getShouchaoNativeRecorder()?.isAvailable?.()
+      .then((res) => setNativeRecorderAvailable(Boolean(res?.available)))
+      .catch(() => setNativeRecorderAvailable(false));
+    return () => {
+      stopTracks();
+      if (nativeRecordingRef.current) {
+        void getShouchaoNativeRecorder()?.cancel?.();
+        nativeRecordingRef.current = false;
+      }
+    };
   }, [stopTracks]);
 
   useEffect(() => {
@@ -2932,10 +3019,31 @@ function VoiceDialog({
 
   async function startRecording() {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const nativeRecorder = isCapacitor() ? getShouchaoNativeRecorder() : null;
+      if (nativeRecorder?.start && nativeRecorder.stop) {
+        await nativeRecorder.start();
+        nativeRecordingRef.current = true;
+        chunksRef.current = [];
+        blobRef.current = null;
+        setPickedName('');
+        setElapsed(0);
+        setPhase('recording');
+        timerRef.current = setInterval(() => setElapsed((s) => s + 1), 1000);
+        return;
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          channelCount: { ideal: 1 },
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: { ideal: 48000 },
+        },
+      });
       streamRef.current = stream;
       chunksRef.current = [];
-      const rec = new MediaRecorder(stream);
+      const rec = new MediaRecorder(stream, getPreferredAudioRecorderOptions());
       rec.ondataavailable = (e) => {
         if (e.data.size > 0) chunksRef.current.push(e.data);
       };
@@ -2945,13 +3053,14 @@ function VoiceDialog({
         setPhase('recorded');
         stopTracks();
       };
-      rec.start();
+      rec.start(250);
       recorderRef.current = rec;
       setElapsed(0);
       setPhase('recording');
       timerRef.current = setInterval(() => setElapsed((s) => s + 1), 1000);
     } catch {
-      onError('无法访问麦克风，请在浏览器中授予录音权限');
+      setInlineRecordingUnavailable(true);
+      onError('无法访问麦克风，已切换为系统录音/选择音频；如需直接录音，请在应用权限中允许麦克风');
     }
   }
 
@@ -2969,11 +3078,52 @@ function VoiceDialog({
   }
 
   function stopRecording() {
+    if (nativeRecordingRef.current) {
+      void stopNativeRecording();
+      return;
+    }
     try {
       recorderRef.current?.stop();
     } catch {
       stopTracks();
       setPhase('recorded');
+    }
+  }
+
+  async function stopNativeRecording() {
+    const nativeRecorder = getShouchaoNativeRecorder();
+    if (!nativeRecorder?.stop) {
+      nativeRecordingRef.current = false;
+      setPhase('recorded');
+      return;
+    }
+
+    try {
+      const result = await nativeRecorder.stop();
+      nativeRecordingRef.current = false;
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      if (!result?.base64) throw new Error('没有录到声音，请重试');
+      const mimeType = result.mimeType || 'audio/mp4';
+      const blob = base64ToBlob(result.base64, mimeType);
+      if (blob.size === 0) throw new Error('没有录到声音，请重试');
+      blobRef.current = blob;
+      chunksRef.current = [];
+      setPickedName(result.filename || 'audio.m4a');
+      if (typeof result.durationMs === 'number') {
+        setElapsed(Math.max(1, Math.round(result.durationMs / 1000)));
+      }
+      setPhase('recorded');
+    } catch (error) {
+      nativeRecordingRef.current = false;
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      onError(error instanceof Error ? error.message : '原生录音失败，请重试');
+      setPhase('idle');
     }
   }
 
@@ -3005,6 +3155,10 @@ function VoiceDialog({
   }
 
   function reset() {
+    if (nativeRecordingRef.current) {
+      void getShouchaoNativeRecorder()?.cancel?.();
+      nativeRecordingRef.current = false;
+    }
     blobRef.current = null;
     chunksRef.current = [];
     setPickedName('');
@@ -3013,6 +3167,7 @@ function VoiceDialog({
   }
 
   const mmss = `${String(Math.floor(elapsed / 60)).padStart(2, '0')}:${String(elapsed % 60).padStart(2, '0')}`;
+  const canRecordInline = nativeRecorderAvailable || (supported && !inlineRecordingUnavailable);
 
   return (
     <div
@@ -3029,7 +3184,7 @@ function VoiceDialog({
         </div>
 
         <p className="mb-3 text-footnote text-ink-tertiary">
-          对着麦克风口述，停止后转写成文字。当前手机 App 使用系统录音/音频选择，兼容 HTTP 局域网调试。
+          对着麦克风口述，停止后转写成文字。手机 App 会优先使用原生录音，提高鸿蒙/安卓兼容性。
         </p>
 
         {/* 模式: 口述笔记 / 会议纪要 */}
@@ -3104,7 +3259,7 @@ function VoiceDialog({
                 </button>
               </div>
             </>
-          ) : supported ? (
+          ) : canRecordInline ? (
             <button
               type="button"
               onClick={() => void startRecording()}
@@ -3114,6 +3269,11 @@ function VoiceDialog({
             </button>
           ) : (
             <>
+              {inlineRecordingUnavailable ? (
+                <p className="max-w-sm text-center text-footnote text-ink-tertiary">
+                  当前系统环境无法直接调用麦克风，请用系统录音或选择已有音频后转写。
+                </p>
+              ) : null}
               <label className={`relative inline-flex w-full cursor-pointer items-center justify-center gap-1.5 overflow-hidden rounded-full px-5 py-2.5 text-caption font-semibold text-white surface-interactive sm:w-auto ${
                 sttConfigured === false ? 'bg-ink-tertiary opacity-60' : 'bg-brand-500 hover:bg-brand-600'
               }`}>
@@ -3122,7 +3282,7 @@ function VoiceDialog({
                   ref={audioInputRef}
                   type="file"
                   accept="audio/*"
-                  capture="user"
+                  capture
                   className="absolute inset-0 cursor-pointer opacity-0"
                   disabled={sttConfigured === false}
                   onChange={(e) => pickAudio(e.target.files?.[0])}

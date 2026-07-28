@@ -20,6 +20,7 @@ import { bootHotPath } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { transcribe, isSttConfigured, getSttStatus } from '@/lib/infra/transcribe';
 import { withApiLog } from '@/lib/api-log/with-api-log';
+import { normalizeVoiceTranscriptionText } from '@/lib/shouchao/voice-note';
 
 export const runtime = 'nodejs';
 export const maxDuration = 120;
@@ -84,7 +85,7 @@ async function POSTApiHandler(req: NextRequest) {
 
   // meeting 优先; 都没开则直接返回原始转写稿
   if (!meeting && !polish) {
-    return NextResponse.json({ ok: true, text: result.text, mode: 'raw' });
+    return NextResponse.json({ ok: true, text: normalizeVoiceTranscriptionText(result.text), mode: 'raw' });
   }
 
   const mode = meeting ? 'meeting' : 'polish';
@@ -103,10 +104,12 @@ async function POSTApiHandler(req: NextRequest) {
       maxTokens: meeting ? 1800 : 1200,
       metadata: { userId: auth.userId, requestId: `shouchao:transcribe-${mode}` },
     });
-    const processed = typeof resp.message.content === 'string' ? resp.message.content.trim() : '';
+    const processed = typeof resp.message.content === 'string'
+      ? normalizeVoiceTranscriptionText(resp.message.content)
+      : '';
     return NextResponse.json({
       ok: true,
-      text: processed || result.text,
+      text: processed || normalizeVoiceTranscriptionText(result.text),
       raw: result.text,
       mode: processed ? mode : 'raw',
       polished: Boolean(processed),

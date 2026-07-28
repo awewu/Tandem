@@ -18,7 +18,7 @@ describe('transcribe', () => {
     vi.unstubAllGlobals();
   });
 
-  it('uses DashScope chat completions with input_audio payload', async () => {
+  it('uses DashScope native multimodal endpoint for uploaded audio payloads', async () => {
     aiSettings.current = {
       sttProvider: 'dashscope',
       sttModel: 'qwen3-asr-flash',
@@ -26,7 +26,11 @@ describe('transcribe', () => {
       sttApiKey: 'test-key',
     };
     const fetchMock = vi.fn<typeof fetch>(async () =>
-      new Response(JSON.stringify({ choices: [{ message: { content: '转写结果' } }] }), { status: 200 }),
+      new Response(JSON.stringify({
+        output: {
+          choices: [{ message: { content: [{ text: '转写结果' }] } }],
+        },
+      }), { status: 200 }),
     );
     vi.stubGlobal('fetch', fetchMock);
 
@@ -34,19 +38,15 @@ describe('transcribe', () => {
 
     expect(result).toEqual({ ok: true, text: '转写结果' });
     expect(fetchMock).toHaveBeenCalledWith(
-      'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
+      'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
       expect.objectContaining({ method: 'POST' }),
     );
     const dashScopeCall = fetchMock.mock.calls[0] as [string, RequestInit];
     const body = JSON.parse(dashScopeCall[1].body as string);
     expect(body.model).toBe('qwen3-asr-flash');
-    expect(body.messages[0].content[0]).toEqual({
-      type: 'input_audio',
-      input_audio: {
-        data: 'data:audio/webm;base64,YWJj',
-      },
-    });
-    expect(body.asr_options).toEqual({ language: 'zh', enable_itn: false });
+    expect(body.input.messages[0].content[0].text).toContain('逐字转写中文普通话');
+    expect(body.input.messages[1].content[0]).toEqual({ audio: 'data:audio/webm;base64,YWJj' });
+    expect(body.parameters.asr_options).toEqual({ language: 'zh', enable_itn: false });
   });
 
   it('keeps OpenAI-compatible STT on multipart upload', async () => {

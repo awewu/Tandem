@@ -97,6 +97,27 @@ function buildDashScopeChatCompletionsUrl(url: string): string {
   return trimmed.endsWith('/chat/completions') ? trimmed : `${trimmed}/chat/completions`;
 }
 
+function buildDashScopeNativeGenerationUrl(originUrl: URL): string {
+  return `${originUrl.origin}/api/v1/services/aigc/multimodal-generation/generation`;
+}
+
+function resolveDashScopeEndpoint(url: string): { url: string; mode: 'native' | 'compatible' } {
+  const trimmed = url.trim().replace(/\/+$/, '');
+  try {
+    const parsed = new URL(trimmed);
+    const isOfficialDashScope = /(^|\.)dashscope(?:-intl)?\.aliyuncs\.com$/i.test(parsed.hostname);
+    if (isOfficialDashScope) {
+      return { url: buildDashScopeNativeGenerationUrl(parsed), mode: 'native' };
+    }
+    if (parsed.pathname.includes('/services/aigc/multimodal-generation/generation')) {
+      return { url: trimmed, mode: 'native' };
+    }
+  } catch {
+    // Fall back to the OpenAI-compatible shape for custom gateway URLs.
+  }
+  return { url: buildDashScopeChatCompletionsUrl(trimmed), mode: 'compatible' };
+}
+
 function inferAudioMimeType(audio: Blob, filename: string): string {
   const blobType = audio.type.split(';')[0]?.trim();
   if (blobType) return blobType;
@@ -127,7 +148,10 @@ function extractDashScopeText(data: unknown): string {
     return ((output as Record<string, unknown>).text as string).trim();
   }
 
-  const choices = root.choices;
+  const outputChoices = output && typeof output === 'object'
+    ? (output as Record<string, unknown>).choices
+    : undefined;
+  const choices = Array.isArray(outputChoices) ? outputChoices : root.choices;
   if (!Array.isArray(choices) || choices.length === 0) return '';
   const first = choices[0] as Record<string, unknown>;
   const message = first.message as Record<string, unknown> | undefined;
@@ -146,6 +170,15 @@ function extractDashScopeText(data: unknown): string {
     .trim();
 }
 
+function buildDashScopeSystemPrompt(language: string | undefined): string {
+  const languageHint = language === 'zh' ? '中文普通话' : '用户音频中的原始语言';
+  return [
+    `你是高准确率语音识别引擎，请逐字转写${languageHint}音频。`,
+    '只输出音频里真实说出的文字，不要总结、不要润色、不要扩写。',
+    '短句也要完整识别，不要因为音频短就输出“嗯”“啊”等占位语气词。',
+  ].join('');
+}
+
 async function transcribeWithDashScope(
   audio: Blob,
   filename: string,
@@ -156,33 +189,63 @@ async function transcribeWithDashScope(
   const base64 = Buffer.from(await audio.arrayBuffer()).toString('base64');
   const dataUrl = `data:${mimeType};base64,${base64}`;
 
-  const res = await fetch(buildDashScopeChatCompletionsUrl(cfg.url), {
+  const endpoint = resolveDashScopeEndpoint(cfg.url);
+  const prompt = buildDashScopeSystemPrompt(language);
+  const body = endpoint.mode === 'native'
+    ? {
+        model: cfg.model,
+        input: {
+          messages: [
+            {
+              role: 'system',
+              content: [{ text: prompt }],
+            },
+            {
+              role: 'user',
+              content: [{ audio: dataUrl }],
+            },
+          ],
+        },
+        parameters: {
+          asr_options: {
+            ...(language ? { language } : { enable_lid: true }),
+            enable_itn: false,
+          },
+        },
+      }
+    : {
+        model: cfg.model,
+        stream: false,
+        messages: [
+          {
+            role: 'system',
+            content: prompt,
+          },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'input_audio',
+                input_audio: {
+                  data: dataUrl,
+                },
+              },
+            ],
+          },
+        ],
+        asr_options: {
+          ...(language ? { language } : { enable_lid: true }),
+          enable_itn: false,
+        },
+      };
+
+  const res = await fetch(endpoint.url, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${cfg.apiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      model: cfg.model,
-      stream: false,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'input_audio',
-              input_audio: {
-                data: dataUrl,
-              },
-            },
-          ],
-        },
-      ],
-      asr_options: {
-        ...(language ? { language } : {}),
-        enable_itn: false,
-      },
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {
