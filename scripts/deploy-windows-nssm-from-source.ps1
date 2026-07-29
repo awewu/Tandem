@@ -12,7 +12,6 @@ param(
   [string]$HealthPath = "/api/health",
   [int]$HealthTimeoutSeconds = 90,
   [string]$NotifyWebhookUrl = $env:DEPLOY_NOTIFY_WEBHOOK_URL,
-  [ValidateSet("generic", "feishu", "dingtalk", "wecom")]
   [string]$NotifyWebhookType = $(if ($env:DEPLOY_NOTIFY_WEBHOOK_TYPE) { $env:DEPLOY_NOTIFY_WEBHOOK_TYPE } else { "generic" })
 )
 
@@ -56,10 +55,13 @@ function Send-DeployNotification {
     return
   }
 
+  $type = $NotifyWebhookType
+  if ([string]::IsNullOrWhiteSpace($type)) { $type = "generic" }
+  $type = $type.Trim().Trim("'").Trim('"').ToLowerInvariant()
   $text = "[Tandem Source Deploy] $Status`nRoot: $Root`nTime: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`n$Message"
-  if ($NotifyWebhookType -eq "feishu") {
+  if ($type -eq "feishu") {
     $body = @{ msg_type = "text"; content = @{ text = $text } }
-  } elseif ($NotifyWebhookType -eq "dingtalk" -or $NotifyWebhookType -eq "wecom") {
+  } elseif ($type -eq "dingtalk" -or $type -eq "wecom") {
     $body = @{ msgtype = "text"; text = @{ content = $text } }
   } else {
     $body = @{ text = $text }
