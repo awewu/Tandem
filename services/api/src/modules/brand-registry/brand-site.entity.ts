@@ -54,3 +54,29 @@ export class SiteProductAssignmentEntity {
   @CreateDateColumn({ name: 'created_at' }) createdAt: Date;
   @UpdateDateColumn({ name: 'updated_at' }) updatedAt: Date;
 }
+
+@Entity('site_news_articles')
+@Index(['tenantId', 'siteId', 'slug'], { unique: true, where: 'deleted_at IS NULL' })
+@Index(['tenantId', 'siteId', 'status'])
+export class SiteNewsArticleEntity {
+  @PrimaryGeneratedColumn('uuid') id: string;
+  @Column({ name: 'tenant_id' }) @Index() tenantId: string;
+  @Column({ name: 'site_id' }) @Index() siteId: string;
+  @Column() slug: string;
+  @Column() title: string;
+  @Column({ type: 'text' }) summary: string;
+  @Column({ type: 'text', default: '' }) body: string;
+  @Column({ name: 'cover_image_artifact_id', type: 'uuid', nullable: true }) coverImageArtifactId: string | null;
+  @Column({ name: 'cover_image_url', type: 'text', nullable: true }) coverImageUrl: string | null;
+  @Column({ name: 'published_at', type: 'timestamptz', nullable: true }) publishedAt: Date | null;
+  @Column({ default: 'draft' }) @Index() status: 'draft' | 'published' | 'hidden' | 'archived';
+  @Column({ name: 'sort_order', default: 0 }) sortOrder: number;
+  @Column({ name: 'is_featured', default: false }) isFeatured: boolean;
+  @Column({ name: 'site_meta', type: 'jsonb', default: () => "'{}'::jsonb" }) siteMeta: Record<string, unknown>;
+  @Column({ name: 'created_by', type: 'uuid', nullable: true }) createdBy: string | null;
+  @Column({ name: 'updated_by', type: 'uuid', nullable: true }) updatedBy: string | null;
+  @Column({ name: 'deleted_by', type: 'uuid', nullable: true }) deletedBy: string | null;
+  @Column({ name: 'deleted_at', type: 'timestamptz', nullable: true }) deletedAt: Date | null;
+  @CreateDateColumn({ name: 'created_at' }) createdAt: Date;
+  @UpdateDateColumn({ name: 'updated_at' }) updatedAt: Date;
+}

@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { BrandRegistryController } from './brand-registry.controller';
 import { BrandRegistryService } from './brand-registry.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { BrandSiteEntity, SiteProductAssignmentEntity } from './brand-site.entity';
+import { BrandSiteEntity, SiteNewsArticleEntity, SiteProductAssignmentEntity } from './brand-site.entity';
 import { BrandSiteController } from './brand-site.controller';
 import { BrandSiteService } from './brand-site.service';
 import { BrandSitePublishService } from './brand-site-publish.service';
@@ -15,6 +15,8 @@ import {
   SiteProductAssignmentController, SiteProductPublicController,
 } from './site-product-assignment.controller';
 import { SiteProductAssignmentService } from './site-product-assignment.service';
+import { SiteNewsController, SiteNewsPublicController } from './site-news.controller';
+import { SiteNewsService } from './site-news.service';
 
 /**
  * 品牌注册表模块（配置驱动的品牌基础要素 API）。
@@ -24,20 +26,23 @@ import { SiteProductAssignmentService } from './site-product-assignment.service'
   imports: [
     FileArtifactModule,
     ProductCatalogModule,
-    ...(TARGET_API_BOOT_SMOKE ? [] : [TypeOrmModule.forFeature([BrandSiteEntity, SiteProductAssignmentEntity, AuditLogEntity])]),
+    ...(TARGET_API_BOOT_SMOKE ? [] : [TypeOrmModule.forFeature([BrandSiteEntity, SiteProductAssignmentEntity, SiteNewsArticleEntity, AuditLogEntity])]),
   ],
   controllers: [
     BrandRegistryController, BrandSiteController, SiteProductAssignmentController, SiteProductPublicController,
+    SiteNewsController, SiteNewsPublicController,
   ],
   providers: [
     BrandRegistryService,
     BrandSiteService,
     BrandSitePublishService,
     SiteProductAssignmentService,
+    SiteNewsService,
     PublicRateLimitGuard,
     ...(TARGET_API_BOOT_SMOKE ? [
       bootSmokeRepositoryProvider(BrandSiteEntity),
       bootSmokeRepositoryProvider(SiteProductAssignmentEntity),
+      bootSmokeRepositoryProvider(SiteNewsArticleEntity),
       bootSmokeRepositoryProvider(AuditLogEntity),
     ] : []),
   ],

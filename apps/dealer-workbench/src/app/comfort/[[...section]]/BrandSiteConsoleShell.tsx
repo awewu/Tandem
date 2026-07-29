@@ -1,15 +1,22 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import {
   Archive,
   ArrowDownCircle,
   ArrowUpCircle,
+  Bold,
   ChevronDown,
   Check,
   ExternalLink,
   EyeOff,
+  Heading2,
   Image,
+  Italic,
+  Link,
+  List,
+  ListOrdered,
+  Loader2,
   Pencil,
   Plus,
   PackagePlus,
@@ -25,15 +32,15 @@ import {
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { PageHeader } from '@rhautt/ui';
-import { auth, brandProductCategories, brandSites, siteMaterials, siteProductAssignments } from '../../../lib/api';
+import { auth, brandProductCategories, brandSites, fileArtifacts, products, siteMaterials, siteNews, siteProductAssignments } from '../../../lib/api';
 import {
   archiveBrandProduct,
   blankNewProductDraft,
-  canWriteBrandProducts,
   createBrandProduct,
   deleteBrandProductDetailImage,
   deleteBrandProductMainImage,
   draftFromProductRow,
+  getBrandProductPermissions,
   getBrandMenuGroupOptions,
   isDirtyStructuredContentDraft,
   isDirtyProductDraft,
@@ -54,6 +61,7 @@ import {
   type BrandProductRow,
   type BrandPublishCapability,
   type BrandMenuGroupOption,
+  type BrandProductPermissions,
 } from '../../../lib/brand-product-adapter';
 import {
   StatusPill,
@@ -65,12 +73,37 @@ import {
 
 type SiteStatus = 'active' | 'inactive';
 type DeliveryType = 'self_hosted' | 'external';
-type ContentTab = 'products' | 'materials';
+type ContentTab = 'products' | 'materials' | 'news';
 type TaxonomyOption = { code: string; label: string };
 type AssignmentStatus = 'draft' | 'published' | 'hidden';
 type WebsiteShelfTransition = 'publishing' | 'hiding';
+type WebsiteShelfFilter = 'all' | 'published' | 'unpublished';
 type ImageActionFeedback = { tone: 'pending' | 'success' | 'error'; text: string };
 type CategoryFilterLevel = 1 | 2 | 3;
+type ProductManualPdfDraft = {
+  id: string;
+  file?: File;
+  artifactId?: string;
+  objectKey?: string;
+  name: string;
+  mimeType?: string;
+  previewUrl: string;
+  saved?: boolean;
+  sortOrder?: number;
+};
+const EMPTY_BRAND_PRODUCT_PERMISSIONS: BrandProductPermissions = {
+  canCreateProduct: false,
+  canUpdateProduct: false,
+  canDeleteProduct: false,
+  canPublishProduct: false,
+  canCreateBrandLibrary: false,
+  canUpdateBrandLibrary: false,
+  canDeleteBrandLibrary: false,
+  canPublishBrandLibrary: false,
+  canAnyProductWrite: false,
+  canAnyBrandWrite: false,
+  canAnyWrite: false,
+};
 type ProductCategoryFilterNode = {
   id: string;
   parentId: string | null;
@@ -144,7 +177,6 @@ const PRODUCT_COLUMNS = [
 
 const PRODUCT_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 const CATEGORY_FILTER_LOAD_PAGE_SIZE = 100;
-const PRODUCT_STATUS_FILTER_OPTIONS = ['active', 'inactive', 'draft', 'archived'];
 const PRODUCT_TABLE_COLUMNS = [
   '',
   '\u4ea7\u54c1\u5206\u7c7b',
@@ -152,6 +184,7 @@ const PRODUCT_TABLE_COLUMNS = [
   '\u4ea7\u54c1\u578b\u53f7',
   '\u56fe\u7247',
   '\u6392\u5e8f',
+  '\u5b98\u7f51\u72b6\u6001',
   '\u64cd\u4f5c',
 ];
 
@@ -210,41 +243,37 @@ const TAXONOMY_LABELS: Record<string, string> = {
 const MOCK_SITE_MATERIALS = [
   {
     key: 'home-hero',
-    recommendedSize: '1920 x 760 px',
+    recommendedSize: '1660 x 550 px',
     name: '首页 Hero 主视觉',
     type: '图片 / 标题文案',
     location: '首页首屏',
-    owner: '品牌运营',
     status: '模拟数据',
     note: '展示官网首页主图、标题和行动入口的占位流程。',
   },
   {
     key: 'brand-story',
-    recommendedSize: '1200 x 800 px',
+    recommendedSize: '940 x 900 px',
     name: '品牌故事图文',
     type: '图文模块',
     location: '品牌介绍',
-    owner: '市场内容',
     status: '模拟数据',
     note: '用于模拟品牌故事图片、段落摘要和官网落点。',
   },
   {
     key: 'service-banner',
-    recommendedSize: '1440 x 520 px',
+    recommendedSize: '940 x 900 px',
     name: '服务入口 Banner',
     type: '图片 / 链接',
     location: '服务与支持',
-    owner: '售后服务',
     status: '模拟数据',
     note: '用于模拟售后服务、保修注册和支持入口素材。',
   },
   {
     key: 'footer-cert',
-    recommendedSize: '960 x 320 px',
+    recommendedSize: '940 x 900 px',
     name: '页脚资质素材',
     type: '证书 / Logo',
     location: '全站页脚',
-    owner: '合规运营',
     status: '模拟数据',
     note: '用于模拟备案、授权、认证和 Powered by Rysnova 信息。',
   },
@@ -313,24 +342,35 @@ async function loadBrandSiteLogo(siteId: string, signal: AbortSignal) {
   return brandSites.logo(siteId, { signal }) as Promise<{ mimeType?: string; dataBase64?: string }>;
 }
 
-function productStatusLabel(status: string) {
-  const labels: Record<string, string> = {
-    active: '在架',
-    inactive: '下架',
-    archived: '已归档',
-    draft: '草稿',
-  };
-  return labels[String(status || '').trim().toLowerCase()] || status || '未设置';
-}
-
-function productStatusFilterOptions(facets: Array<{ value: string; count: number }> = []) {
-  const counts = new Map(facets.map((item) => [String(item.value || '').trim(), Number(item.count || 0)]));
-  const values = [...PRODUCT_STATUS_FILTER_OPTIONS, ...facets.map((item) => String(item.value || '').trim())]
-    .filter(Boolean);
-  return [...new Set(values)].map((value) => ({
-    value,
-    count: counts.get(value) || 0,
-  }));
+async function loadShelfFilterProductRows(
+  brandCode: string,
+  query: BrandProductQuery,
+  currentData: BrandProductConsoleData,
+  deferGroupProducts: boolean
+) {
+  if (deferGroupProducts) return currentData.products;
+  const firstPageQuery = { ...query, page: 1, pageSize: CATEGORY_FILTER_LOAD_PAGE_SIZE };
+  const firstPageData =
+    currentData.page === 1 && currentData.pageSize === CATEGORY_FILTER_LOAD_PAGE_SIZE
+      ? currentData
+      : await loadBrandProductConsoleData(brandCode, firstPageQuery);
+  const rowsById = new Map<string, BrandProductRow>();
+  for (const product of firstPageData.products) rowsById.set(product.id || product.sku, product);
+  const pages = Math.max(firstPageData.pages || 1, 1);
+  if (pages > 1) {
+    const pageResults = await Promise.all(
+      Array.from({ length: pages - 1 }, (_, index) => index + 2).map((nextPage) =>
+        loadBrandProductConsoleData(brandCode, {
+          ...firstPageQuery,
+          page: nextPage,
+        })
+      )
+    );
+    for (const result of pageResults) {
+      for (const product of result.products) rowsById.set(product.id || product.sku, product);
+    }
+  }
+  return [...rowsById.values()];
 }
 
 function productCategoryLabel(category: string) {
@@ -378,6 +418,117 @@ function productDisplayCategoryPath(product: BrandProductRow) {
 
 function productDisplaySystem(value: string) {
   return productCategoryLabel(value);
+}
+
+function productRowFromCreateDraft(draft: BrandProductEditDraft, brandCode: string): BrandProductRow {
+  return {
+    id: '__new-product__',
+    sku: '',
+    materialCode: '',
+    publicSlug: draft.publicSlug,
+    name: draft.name,
+    model: draft.model,
+    category: draft.category,
+    materialCategory: '',
+    productLine: '',
+    categoryLevel1Id: null,
+    categoryLevel2Id: null,
+    categoryLevel3Id: null,
+    categoryPath: '',
+    applicationScenarios: [],
+    system: draft.system,
+    websiteMenuCategory: draft.websiteMenuCategory,
+    status: 'inactive',
+    sortOrder: Number(draft.sortOrder) || 0,
+    imageState: {
+      hasMainImage: false,
+      mainImageUrl: '',
+      mainArtifactId: '',
+      mainRef: null,
+      detailRefs: [],
+      galleryCount: 0,
+      label: '未上传图片',
+    },
+    metadataReadiness: {
+      ready: false,
+      score: 0,
+      missing: [],
+    },
+    raw: {
+      brand: brandCode,
+      meta: {
+        [brandCode]: {
+          en: draft.officialEnglishName,
+          series: draft.series,
+          tagline: draft.tagline,
+          badges: draft.badges,
+        },
+      },
+    },
+  };
+}
+
+function blankCreateStructuredDraft(brandCode: string): BrandStructuredContentDraft {
+  return structuredDraftFromProductRow(
+    productRowFromCreateDraft(blankNewProductDraft(brandCode), brandCode),
+    brandCode,
+  );
+}
+
+function productContentItems(result: unknown): Array<Record<string, any>> {
+  const payload = (result as any)?.data ?? result;
+  if (Array.isArray(payload?.items)) return payload.items;
+  if (Array.isArray(payload)) return payload;
+  return [];
+}
+
+function officialDetailFromContent(result: unknown): string {
+  const items = productContentItems(result);
+  return String((items.find((item) => item?.locale === 'zh-CN') || items[0])?.officialDetailHtml || '');
+}
+
+function rowAssetRefs(row: BrandProductRow) {
+  return Array.isArray(row.raw?.assetRefs) ? (row.raw.assetRefs as Array<Record<string, unknown>>) : [];
+}
+
+function savedProductManualPdfs(row: BrandProductRow): ProductManualPdfDraft[] {
+  return rowAssetRefs(row)
+    .filter((ref) => ref?.role === 'doc' && ref?.artifactId)
+    .sort((left, right) => (Number(left.sortOrder) || 0) - (Number(right.sortOrder) || 0))
+    .map((ref, index) => {
+      const artifactId = String(ref.artifactId || '');
+      const url = String(ref.url || `/api/v2/file-artifact/${encodeURIComponent(artifactId)}/content`);
+      return {
+        id: artifactId,
+        artifactId,
+        objectKey: String(ref.objectKey || ''),
+        name: String(ref.filename || `产品说明-${index + 1}.pdf`),
+        mimeType: String(ref.mimeType || 'application/pdf'),
+        previewUrl: url,
+        saved: true,
+        sortOrder: Number(ref.sortOrder) || index,
+      };
+    });
+}
+
+function productManualPdfsChanged(row: BrandProductRow, manualPdfs: ProductManualPdfDraft[]): boolean {
+  const currentIds = savedProductManualPdfs(row).map((item) => item.artifactId || item.id).join('|');
+  const nextIds = manualPdfs.map((item) => item.artifactId || item.id).join('|');
+  return currentIds !== nextIds || manualPdfs.some((item) => item.file);
+}
+
+function manualPdfAssetRefs(manualPdfs: ProductManualPdfDraft[]) {
+  return manualPdfs
+    .filter((manual) => manual.saved && manual.artifactId)
+    .map((manual, index) => ({
+      role: 'doc',
+      artifactId: manual.artifactId,
+      objectKey: manual.objectKey || '',
+      filename: manual.name,
+      mimeType: manual.mimeType || 'application/pdf',
+      sortOrder: index,
+      url: manual.previewUrl || `/api/v2/file-artifact/${encodeURIComponent(String(manual.artifactId))}/content`,
+    }));
 }
 
 function optionsWithCurrent(
@@ -669,19 +820,21 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
   const normalizedBrandCode = normalizeBrandCode(decodeMaybe(brandCode));
   const [data, setData] = useState<BrandProductConsoleData | null>(null);
   const [keyword, setKeyword] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
   const [categoryFilterOpen, setCategoryFilterOpen] = useState(false);
   const [categoryTree, setCategoryTree] = useState<ProductCategoryFilterNode[]>([]);
   const [categoryLoading, setCategoryLoading] = useState(false);
   const [categoryError, setCategoryError] = useState('');
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(10);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-  const [canWrite, setCanWrite] = useState(false);
+  const [productPermissions, setProductPermissions] = useState<BrandProductPermissions>(EMPTY_BRAND_PRODUCT_PERMISSIONS);
   const [drafts, setDrafts] = useState<Record<string, BrandProductEditDraft>>({});
   const [structuredDrafts, setStructuredDrafts] = useState<Record<string, BrandStructuredContentDraft>>({});
+  const [officialDetailDrafts, setOfficialDetailDrafts] = useState<Record<string, string>>({});
+  const [officialDetailInitials, setOfficialDetailInitials] = useState<Record<string, string>>({});
+  const [manualPdfDrafts, setManualPdfDrafts] = useState<Record<string, ProductManualPdfDraft[]>>({});
   const [editingProductId, setEditingProductId] = useState('');
   const [savingId, setSavingId] = useState('');
   const [savingStructuredId, setSavingStructuredId] = useState('');
@@ -691,6 +844,8 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
   const [rowFeedback, setRowFeedback] = useState<Record<string, { tone: 'success' | 'error'; text: string }>>({});
   const [imageFeedback, setImageFeedback] = useState<Record<string, ImageActionFeedback>>({});
   const [shelfAssignments, setShelfAssignments] = useState<WebsiteShelfAssignment[]>([]);
+  const [shelfProductRows, setShelfProductRows] = useState<BrandProductRow[]>([]);
+  const [shelfFilter, setShelfFilter] = useState<WebsiteShelfFilter>('all');
   const [shelfLoading, setShelfLoading] = useState(false);
   const [shelfError, setShelfError] = useState('');
   const [shelfBusyProductId, setShelfBusyProductId] = useState('');
@@ -700,6 +855,8 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
   const [showCreate, setShowCreate] = useState(false);
   const [activeContentTab, setActiveContentTab] = useState<ContentTab>('products');
   const [createDraft, setCreateDraft] = useState<BrandProductEditDraft>(() => blankNewProductDraft(normalizedBrandCode));
+  const [createStructuredDraft, setCreateStructuredDraft] = useState<BrandStructuredContentDraft>(() => blankCreateStructuredDraft(normalizedBrandCode));
+  const [createManualPdfs, setCreateManualPdfs] = useState<ProductManualPdfDraft[]>([]);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
   const [publishing, setPublishing] = useState(false);
@@ -731,7 +888,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
         page: hasCategoryFilter ? 1 : page,
         pageSize: hasCategoryFilter ? CATEGORY_FILTER_LOAD_PAGE_SIZE : pageSize,
         keyword,
-        status: statusFilter,
+        status: 'active',
         ...(categoryFilter.length === 1 ? categoryFilterQuery(categoryFilter[0]) : {}),
       };
       const shouldDeferGroupProducts = normalizedBrandCode === GROUP_SITE_CODE;
@@ -766,11 +923,23 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
       }
       if (!isCurrentRequest()) return;
       setData(nextData);
+      setShelfProductRows(nextData.products);
       setIsLoading(false);
+      loadShelfFilterProductRows(normalizedBrandCode, query, nextData, shouldDeferGroupProducts)
+        .then((nextShelfProductRows) => {
+          if (isCurrentRequest()) setShelfProductRows(nextShelfProductRows);
+        })
+        .catch((e) => {
+          if (isCurrentRequest()) setShelfError((e as Error).message || '官网货架筛选数据加载失败。');
+        });
       if (shouldDeferGroupProducts && normalizedChildBrandCodes(nextData.site?.childBrandCodes).length) {
         loadBrandProductConsoleData(normalizedBrandCode, query)
-          .then((fullData) => {
-            if (isCurrentRequest()) setData(fullData);
+          .then(async (fullData) => {
+            const fullShelfProductRows = await loadShelfFilterProductRows(normalizedBrandCode, query, fullData, false);
+            if (isCurrentRequest()) {
+              setData(fullData);
+              setShelfProductRows(fullShelfProductRows);
+            }
           })
           .catch((e) => {
             if (isCurrentRequest()) setShelfError((e as Error).message || '集团产品加载失败。');
@@ -789,6 +958,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
       }
       if (!nextData.site) {
         setShelfAssignments([]);
+        setShelfProductRows([]);
         setShelfLoading(false);
         return;
       }
@@ -808,10 +978,11 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
     } catch (e) {
       if (!isCurrentRequest()) return;
       setError((e as Error).message || '品牌官网产品数据加载失败。');
+      setShelfProductRows([]);
       setIsLoading(false);
       setShelfLoading(false);
     }
-  }, [categoryFilter, keyword, normalizedBrandCode, page, pageSize, statusFilter]);
+  }, [categoryFilter, keyword, normalizedBrandCode, page, pageSize]);
 
   useEffect(() => {
     load();
@@ -858,10 +1029,10 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
     let cancelled = false;
     auth.me()
       .then((me) => {
-        if (!cancelled) setCanWrite(canWriteBrandProducts(me));
+        if (!cancelled) setProductPermissions(getBrandProductPermissions(me));
       })
       .catch(() => {
-        if (!cancelled) setCanWrite(false);
+        if (!cancelled) setProductPermissions(EMPTY_BRAND_PRODUCT_PERMISSIONS);
       });
     return () => {
       cancelled = true;
@@ -875,7 +1046,8 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
     setStructuredDrafts({});
     setEditingProductId('');
     setKeyword('');
-    setStatusFilter('');
+    setShelfProductRows([]);
+    setShelfFilter('all');
     setCategoryFilter([]);
     setPage(1);
   }, [normalizedBrandCode]);
@@ -919,11 +1091,20 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
   const fallbackLogo = fallbackBrandLogoSrc(site.code);
   const currentBrandLogoSrc = brandLogoFailed ? '' : brandLogo || fallbackLogo;
   const publishCapability = site.publishCapability || UNSUPPORTED_PUBLISH;
+  const canCreateProduct = productPermissions.canCreateProduct;
+  const canUpdateProduct = productPermissions.canUpdateProduct;
+  const canDeleteProduct = productPermissions.canDeleteProduct;
+  const canPublishProduct = productPermissions.canPublishProduct;
+  const canUpdateBrandLibrary = productPermissions.canUpdateBrandLibrary;
+  const canPublishBrandLibrary = productPermissions.canPublishBrandLibrary;
+  const canPublishWebsiteShelf = productPermissions.canCreateBrandLibrary && productPermissions.canPublishBrandLibrary;
+  const canWrite = canUpdateProduct;
   const environmentLinks = useMemo(
     () => resolveBrandSiteEnvironmentLinks(data?.site || site, normalizedBrandCode),
     [data?.site, normalizedBrandCode, site]
   );
   const productRows = data?.products || [];
+  const shelfSourceProductRows = shelfProductRows.length || !productRows.length ? shelfProductRows : productRows;
   const totalProducts = data?.total || 0;
   const currentPage = data?.page || page;
   const currentPageSize = data?.pageSize || pageSize;
@@ -934,7 +1115,6 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
   const categoryOptionMap = useMemo(() => {
     return new Map(categoryOptions.map((option) => [option.value, option]));
   }, [categoryOptions]);
-  const statusOptions = useMemo(() => productStatusFilterOptions(data?.facets.statuses), [data?.facets.statuses]);
   const assignmentByProductId = useMemo(() => {
     const map = new Map<string, WebsiteShelfAssignment>();
     for (const assignment of shelfAssignments) {
@@ -946,9 +1126,20 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
     }
     return map;
   }, [shelfAssignments]);
+  const shelfFilterCounts = useMemo(() => {
+    let published = 0;
+    let unpublished = 0;
+    for (const product of shelfSourceProductRows.filter((item) => productMatchesCategoryFilters(item, categoryFilter, categoryOptionMap))) {
+      if (isWebsiteShelfPublished(assignmentByProductId.get(product.id))) published += 1;
+      else unpublished += 1;
+    }
+    return { all: published + unpublished, published, unpublished };
+  }, [assignmentByProductId, categoryFilter, categoryOptionMap, shelfSourceProductRows]);
   const visibleProducts = useMemo(() => {
-    return productRows
+    const sourceRows = shelfFilter === 'all' ? productRows : shelfSourceProductRows;
+    return sourceRows
       .filter((product) => productMatchesCategoryFilters(product, categoryFilter, categoryOptionMap))
+      .filter((product) => productMatchesShelfFilter(assignmentByProductId.get(product.id), shelfFilter))
       .map((product, index) => ({ product, index }))
       .sort((left, right) => {
         const byShelf =
@@ -958,7 +1149,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
         return left.index - right.index;
       })
       .map((entry) => entry.product);
-  }, [assignmentByProductId, categoryFilter, categoryOptionMap, productRows]);
+  }, [assignmentByProductId, categoryFilter, categoryOptionMap, productRows, shelfFilter, shelfSourceProductRows]);
   const visibleProductIds = useMemo(() => visibleProducts.map((product) => product.id).filter(Boolean), [visibleProducts]);
   const visibleProductIdKey = visibleProductIds.join('|');
   const selectedVisibleProducts = useMemo(() => {
@@ -968,13 +1159,18 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
   const allVisibleSelected = visibleProductIds.length > 0 && visibleProductIds.every((id) => selectedProductIds.includes(id));
   const someVisibleSelected = visibleProductIds.some((id) => selectedProductIds.includes(id));
   const isInitialLoading = isLoading && !data;
-  const footerTotalProducts = categoryFilter.length ? visibleProducts.length : totalProducts;
-  const footerCurrentPage = categoryFilter.length ? 1 : currentPage;
-  const footerTotalPages = categoryFilter.length ? 1 : totalPages;
+  const usesLocalProductFilter = categoryFilter.length > 0 || shelfFilter !== 'all';
+  const footerTotalProducts = usesLocalProductFilter ? visibleProducts.length : totalProducts;
+  const footerCurrentPage = usesLocalProductFilter ? 1 : currentPage;
+  const footerTotalPages = usesLocalProductFilter ? 1 : totalPages;
   const editingProduct = useMemo(() => {
     if (!editingProductId) return null;
     return visibleProducts.find((product) => product.id === editingProductId) || null;
   }, [editingProductId, visibleProducts]);
+  const createProductPreview = useMemo(
+    () => productRowFromCreateDraft(createDraft, normalizedBrandCode),
+    [createDraft, normalizedBrandCode]
+  );
 
   const taxonomyCount = useMemo(() => {
     if (!data?.taxonomy) return 0;
@@ -1018,6 +1214,18 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
       ...current,
       [row.id]: current[row.id] || structuredDraftFromProductRow(row, normalizedBrandCode),
     }));
+    products
+      .listContent(row.id, { tenantId: rowTenantId(row), locale: 'zh-CN' })
+      .then((result) => {
+        const officialDetailHtml = officialDetailFromContent(result);
+        setOfficialDetailDrafts((current) => ({ ...current, [row.id]: officialDetailHtml }));
+        setOfficialDetailInitials((current) => ({ ...current, [row.id]: officialDetailHtml }));
+      })
+      .catch(() => {
+        setOfficialDetailDrafts((current) => ({ ...current, [row.id]: '' }));
+        setOfficialDetailInitials((current) => ({ ...current, [row.id]: '' }));
+      });
+    setShowCreate(false);
     setEditingProductId(row.id);
   }
 
@@ -1026,11 +1234,46 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
       resetDraft(row);
       resetStructuredDraft(row);
     }
+    if (row) {
+      (manualPdfDrafts[row.id] || []).forEach((manual) => URL.revokeObjectURL(manual.previewUrl));
+      setManualPdfDrafts((current) => {
+        const next = { ...current };
+        delete next[row.id];
+        return next;
+      });
+    }
     setEditingProductId('');
+  }
+
+  function beginProductCreate() {
+    setEditingProductId('');
+    const nextDraft = blankNewProductDraft(normalizedBrandCode);
+    createManualPdfs.forEach((manual) => URL.revokeObjectURL(manual.previewUrl));
+    setCreateDraft(nextDraft);
+    setCreateStructuredDraft(blankCreateStructuredDraft(normalizedBrandCode));
+    setCreateManualPdfs([]);
+    setCreateError('');
+    setShowCreate(true);
+  }
+
+  function closeProductCreate() {
+    setShowCreate(false);
+    setCreateError('');
+    createManualPdfs.forEach((manual) => URL.revokeObjectURL(manual.previewUrl));
+    setCreateDraft(blankNewProductDraft(normalizedBrandCode));
+    setCreateStructuredDraft(blankCreateStructuredDraft(normalizedBrandCode));
+    setCreateManualPdfs([]);
   }
 
   function resetDraft(row: BrandProductRow) {
     setDrafts((current) => ({ ...current, [row.id]: draftFromProductRow(row) }));
+    setOfficialDetailDrafts((current) => ({ ...current, [row.id]: officialDetailInitials[row.id] || '' }));
+    (manualPdfDrafts[row.id] || []).forEach((manual) => URL.revokeObjectURL(manual.previewUrl));
+    setManualPdfDrafts((current) => {
+      const next = { ...current };
+      delete next[row.id];
+      return next;
+    });
     setRowFeedback((current) => {
       const next = { ...current };
       delete next[row.id];
@@ -1047,9 +1290,15 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
     });
   }
 
-  async function saveRow(row: BrandProductRow) {
+  async function saveRow(row: BrandProductRow, overrides?: { officialDetailHtml?: string }) {
     if (!canWrite) return;
     const draft = drafts[row.id] || draftFromProductRow(row);
+    const officialDetailHtml = overrides?.officialDetailHtml ?? officialDetailDrafts[row.id] ?? '';
+    const officialDetailInitial = officialDetailInitials[row.id] || '';
+    const manualPdfs = manualPdfDrafts[row.id] || savedProductManualPdfs(row);
+    const baseDirty = isDirtyProductDraft(row, draft);
+    const detailDirty = officialDetailHtml !== officialDetailInitial;
+    const manualDirty = productManualPdfsChanged(row, manualPdfs);
     if (!draft.name.trim()) {
       setRowFeedback((current) => ({
         ...current,
@@ -1057,13 +1306,41 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
       }));
       return;
     }
-    if (!isDirtyProductDraft(row, draft)) return;
+    if (!baseDirty && !detailDirty && !manualDirty) return;
     setSavingId(row.id);
     setRowFeedback((current) => ({ ...current, [row.id]: { tone: 'success', text: '保存中...' } }));
     try {
-      await saveBrandProductRow(normalizedBrandCode, row, draft);
+      if (baseDirty) await saveBrandProductRow(normalizedBrandCode, row, draft);
+      if (detailDirty) {
+        await products.upsertContent(row.id, {
+          tenantId: rowTenantId(row),
+          locale: 'zh-CN',
+          status: 'published',
+          officialDetailHtml,
+        });
+      }
+      if (manualDirty) {
+        const manualRefs = await uploadProductManualPdfRefs(manualPdfs.filter((manual) => manual.file), row.sku || row.id);
+        const existingManualRefs = manualPdfAssetRefs(manualPdfs);
+        await products.update(row.id, {
+          tenantId: rowTenantId(row),
+          assetRefs: [
+            ...rowAssetRefs(row).filter((ref) => ref?.role !== 'doc'),
+            ...existingManualRefs,
+            ...manualRefs.map((ref, index) => ({ ...ref, sortOrder: existingManualRefs.length + index })),
+          ],
+        });
+      }
       await load();
+      manualPdfs.filter((manual) => manual.file).forEach((manual) => URL.revokeObjectURL(manual.previewUrl));
       setDrafts((current) => {
+        const next = { ...current };
+        delete next[row.id];
+        return next;
+      });
+      setOfficialDetailDrafts((current) => ({ ...current, [row.id]: officialDetailHtml }));
+      setOfficialDetailInitials((current) => ({ ...current, [row.id]: officialDetailHtml }));
+      setManualPdfDrafts((current) => {
         const next = { ...current };
         delete next[row.id];
         return next;
@@ -1119,14 +1396,21 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
   }
 
   async function createProduct() {
-    if (!canWrite || !data?.site) return;
+    if (!canCreateProduct || !data?.site) return;
     setCreating(true);
     setCreateError('');
     try {
-      await createBrandProduct(normalizedBrandCode, createDraft);
+      const manualPdfRefs = await uploadProductManualPdfRefs(
+        createManualPdfs,
+        createDraft.model || createDraft.publicSlug || createDraft.name || normalizedBrandCode,
+      );
+      await createBrandProduct(normalizedBrandCode, createDraft, createStructuredDraft, manualPdfRefs);
       await load();
       setShowCreate(false);
+      createManualPdfs.forEach((manual) => URL.revokeObjectURL(manual.previewUrl));
       setCreateDraft(blankNewProductDraft(normalizedBrandCode));
+      setCreateStructuredDraft(blankCreateStructuredDraft(normalizedBrandCode));
+      setCreateManualPdfs([]);
     } catch (e) {
       setCreateError((e as Error).message || '上新失败');
     } finally {
@@ -1135,7 +1419,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
   }
 
   async function toggleStatus(row: BrandProductRow) {
-    if (!canWrite) return;
+    if (!canUpdateProduct) return;
     const nextStatus = row.status === 'active' ? 'inactive' : 'active';
     setActionProductId(row.id);
     setActionFeedback(null);
@@ -1180,7 +1464,22 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
   }
 
   async function runBatchShelfAction(action: WebsiteShelfTransition) {
-    if (!canWrite || !selectedVisibleProducts.length || bulkShelfAction) return;
+    if (bulkShelfAction) {
+      setActionFeedback({ tone: 'error', text: '官网货架批量操作正在处理中，请稍后再试。' });
+      return;
+    }
+    if ((action === 'publishing' && !canPublishBrandLibrary) || (action === 'hiding' && !canUpdateBrandLibrary)) {
+      setActionFeedback({ tone: 'error', text: '当前账号没有官网货架写入权限，不能批量上架或下架。' });
+      return;
+    }
+    if (!selectedVisibleProducts.length) {
+      setActionFeedback({ tone: 'error', text: '请先勾选需要批量操作的产品。' });
+      return;
+    }
+    if (shelfLoading) {
+      setActionFeedback({ tone: 'error', text: '官网货架状态还在加载，请加载完成后再批量操作。' });
+      return;
+    }
     const rows = selectedVisibleProducts;
     const invalidRows = action === 'publishing'
       ? rows
@@ -1286,7 +1585,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
   }
 
   async function runBulkShelfAction(action: WebsiteShelfTransition) {
-    if (!canWrite || !selectedVisibleProducts.length || bulkShelfAction) return;
+    if ((action === 'publishing' && !canPublishWebsiteShelf) || (action === 'hiding' && !canUpdateBrandLibrary) || !selectedVisibleProducts.length || bulkShelfAction) return;
     const rows = selectedVisibleProducts;
     const nextFeedback = action === 'publishing' ? '官网货架批量上架中...' : '官网货架批量下架中...';
     setBulkShelfAction(action);
@@ -1340,7 +1639,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
   }
 
   async function publishWebsiteShelf(row: BrandProductRow) {
-    if (!canWrite) return;
+    if (!canPublishWebsiteShelf) return;
     const existing = assignmentByProductId.get(row.id);
     setShelfBusyProductId(row.id);
     setShelfTransitions((current) => ({ ...current, [row.id]: 'publishing' }));
@@ -1372,7 +1671,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
   }
 
   async function hideWebsiteShelf(row: BrandProductRow) {
-    if (!canWrite) return;
+    if (!canUpdateBrandLibrary) return;
     const assignment = assignmentByProductId.get(row.id);
     if (!assignment) return;
     setShelfBusyProductId(row.id);
@@ -1405,7 +1704,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
   }
 
   async function archiveProduct(row: BrandProductRow) {
-    if (!canWrite) return;
+    if (!canDeleteProduct) return;
     const confirmed = window.confirm(
       `确认归档 ${row.name || row.sku}？归档后官网不再展示该产品，后台记录会保留。`
     );
@@ -1444,7 +1743,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
   }
 
   async function uploadMainImage(row: BrandProductRow, file: File | null) {
-    if (!canWrite || !file) return;
+    if (!canUpdateProduct || !file) return;
     if (!isAllowedJpgOrPng(file)) {
       showImageFeedback(row, { tone: 'error', text: imageTypeErrorText() });
       setActionFeedback({ tone: 'error', text: imageTypeErrorText() });
@@ -1468,7 +1767,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
   }
 
   async function deleteMainImage(row: BrandProductRow) {
-    if (!canWrite) return;
+    if (!canUpdateProduct) return;
     setImageActionId(`${row.id}:main`);
     setActionFeedback(null);
     showImageFeedback(row, { tone: 'pending', text: '主图正在删除...' });
@@ -1487,7 +1786,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
   }
 
   async function uploadDetailImage(row: BrandProductRow, file: File | null) {
-    if (!canWrite || !file) return;
+    if (!canUpdateProduct || !file) return;
     if (!isAllowedJpgOrPng(file)) {
       showImageFeedback(row, { tone: 'error', text: imageTypeErrorText() });
       setActionFeedback({ tone: 'error', text: imageTypeErrorText() });
@@ -1511,7 +1810,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
   }
 
   async function deleteDetailImage(row: BrandProductRow, artifactId: string) {
-    if (!canWrite) return;
+    if (!canUpdateProduct) return;
     setImageActionId(`${row.id}:detail`);
     setActionFeedback(null);
     showImageFeedback(row, { tone: 'pending', text: '详情图正在删除...' });
@@ -1530,7 +1829,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
   }
 
   async function moveDetailImage(row: BrandProductRow, artifactId: string, direction: -1 | 1) {
-    if (!canWrite) return;
+    if (!canUpdateProduct) return;
     const ids = row.imageState.detailRefs.map((ref) => ref.artifactId);
     const index = ids.indexOf(artifactId);
     const nextIndex = index + direction;
@@ -1553,7 +1852,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
     }
   }
   async function publishBrandSite() {
-    if (!canWrite || !data?.site || !publishCapability.supported) return;
+    if (!canPublishBrandLibrary || !data?.site || !publishCapability.supported) return;
     setPublishing(true);
     setPublishResult(null);
     try {
@@ -1574,7 +1873,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
   }
 
   async function saveChildBrandBindings() {
-    if (!canWrite || !data?.site || normalizedBrandCode !== GROUP_SITE_CODE) return;
+    if (!canUpdateBrandLibrary || !data?.site || normalizedBrandCode !== GROUP_SITE_CODE) return;
     setSavingChildBrands(true);
     setChildBrandFeedback(null);
     try {
@@ -1600,13 +1899,13 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
                 <RefreshCw size={15} />
                 刷新
               </button>
-              {canWrite && data?.site && (
-                <button type="button" className="btn btn-outline" onClick={() => setShowCreate((current) => !current)}>
+              {canCreateProduct && data?.site && (
+                <button type="button" className="btn btn-outline" onClick={beginProductCreate}>
                   <PackagePlus size={15} />
                   上新产品
                 </button>
               )}
-              {canWrite && data?.site && (
+              {canPublishBrandLibrary && data?.site && (
                 <button
                   type="button"
                   className="btn btn-brand"
@@ -1717,7 +2016,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
                     <input
                       type="checkbox"
                       checked={checked}
-                      disabled={!canWrite || savingChildBrands}
+                      disabled={!canUpdateBrandLibrary || savingChildBrands}
                       onChange={(event) => {
                         if (event.target.checked) setChildBrandDraft((current) => [...new Set([...current, childSite.code])]);
                         else setChildBrandDraft((current) => current.filter((code) => code !== childSite.code));
@@ -1731,7 +2030,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
             </div>
             <div className="child-brand-actions">
               {childBrandFeedback && <span className={`row-feedback ${childBrandFeedback.tone}`}>{childBrandFeedback.text}</span>}
-              {canWrite ? (
+              {canUpdateBrandLibrary ? (
                 <button type="button" className="btn btn-brand btn-sm" onClick={saveChildBrandBindings} disabled={savingChildBrands || !data?.site}>
                   <Save size={13} />
                   {savingChildBrands ? '保存中...' : '保存子品牌'}
@@ -1786,6 +2085,14 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
                   >
                     其他素材
                   </button>
+                  <button
+                    type="button"
+                    className={activeContentTab === 'news' ? 'is-active' : undefined}
+                    aria-pressed={activeContentTab === 'news'}
+                    onClick={() => setActiveContentTab('news')}
+                  >
+                    资讯
+                  </button>
                 </div>
               </div>
             </div>
@@ -1807,19 +2114,16 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
               />
               <select
                 className="input brand-product-filter"
-                value={statusFilter}
+                value={shelfFilter}
                 onChange={(event) => {
-                  setStatusFilter(event.target.value);
+                  setShelfFilter(event.target.value as WebsiteShelfFilter);
                   setPage(1);
                 }}
-                aria-label="Product status filter"
+                aria-label="Website shelf status filter"
               >
-                <option value="">全部状态</option>
-                {statusOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {productStatusLabel(option.value)} ({option.count})
-                  </option>
-                ))}
+                <option value="all">全部官网状态 ({shelfFilterCounts.all})</option>
+                <option value="published">官网已上架 ({shelfFilterCounts.published})</option>
+                <option value="unpublished">官网未上架 ({shelfFilterCounts.unpublished})</option>
               </select>
               <CategoryMultiSelect
                 options={categoryOptions}
@@ -1849,21 +2153,6 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
                   </option>
                 ))}
               </select>
-              <select
-                className="input brand-product-page-size"
-                value={pageSize}
-                onChange={(event) => {
-                  setPageSize(Number(event.target.value) || 20);
-                  setPage(1);
-                }}
-                aria-label="Products per page"
-              >
-                {PRODUCT_PAGE_SIZE_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    每页 {option} 条
-                  </option>
-                ))}
-              </select>
             </div>
             {isLoading && data ? (
               <span className="badge badge-info brand-product-sync-badge" role="status">
@@ -1873,44 +2162,33 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
             {categoryError && <span className="row-feedback error">{categoryError}</span>}
             {shelfError && <span className="row-feedback error">{shelfError}</span>}
           </WorkbenchFilterToolbar>
-          {showCreate && canWrite && (
-            <ProductCreatePanel
-              brandCode={normalizedBrandCode}
-              draft={createDraft}
-              error={createError}
-              creating={creating}
-              onChange={(patch) => setCreateDraft((current) => ({ ...current, ...patch }))}
-              onCancel={() => {
-                setShowCreate(false);
-                setCreateError('');
-                setCreateDraft(blankNewProductDraft(normalizedBrandCode));
-              }}
-              onCreate={createProduct}
-            />
-          )}
           <WorkbenchTableShell>
           {selectedVisibleProducts.length ? (
             <div className="brand-product-bulk-bar" role="status">
               <span>已选 {selectedVisibleProducts.length} 个产品</span>
               <div className="brand-product-bulk-actions">
+                {canPublishBrandLibrary && (
                 <button
                   type="button"
                   className="btn btn-brand btn-sm"
                   onClick={() => runBatchShelfAction('publishing')}
-                  disabled={!canWrite || Boolean(bulkShelfAction) || shelfLoading}
+                  disabled={Boolean(bulkShelfAction)}
                 >
                   <Rocket size={13} />
                   {bulkShelfAction === 'publishing' ? '批量官网上架中' : '批量官网上架'}
                 </button>
+                )}
+                {canUpdateBrandLibrary && (
                 <button
                   type="button"
                   className="btn btn-outline btn-sm"
                   onClick={() => runBatchShelfAction('hiding')}
-                  disabled={!canWrite || Boolean(bulkShelfAction) || shelfLoading}
+                  disabled={Boolean(bulkShelfAction)}
                 >
                   <EyeOff size={13} />
                   {bulkShelfAction === 'hiding' ? '批量官网下架中' : '批量官网下架'}
                 </button>
+                )}
                 <button
                   type="button"
                   className="btn btn-ghost btn-sm"
@@ -1922,6 +2200,11 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
               </div>
             </div>
           ) : null}
+          {actionFeedback && (
+            <div className={`brand-product-inline-feedback ${actionFeedback.tone}`} role={actionFeedback.tone === 'error' ? 'alert' : 'status'}>
+              {actionFeedback.text}
+            </div>
+          )}
           <div className="brand-product-table-wrap">
             <table className="table brand-product-table">
               <thead>
@@ -1933,7 +2216,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
                           type="checkbox"
                           className="brand-product-select-checkbox"
                           checked={allVisibleSelected}
-                          disabled={!visibleProductIds.length || Boolean(bulkShelfAction)}
+                          disabled={!visibleProductIds.length || (!canPublishBrandLibrary && !canUpdateBrandLibrary) || Boolean(bulkShelfAction)}
                           ref={(node) => {
                             if (node) node.indeterminate = someVisibleSelected && !allVisibleSelected;
                           }}
@@ -1978,6 +2261,8 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
                       key={product.id || product.sku}
                       product={product}
                       canWrite={canWrite}
+                      canPublishShelf={canPublishWebsiteShelf}
+                      canHideShelf={canUpdateBrandLibrary}
                       feedback={rowFeedback[product.id]}
                       shelfAssignment={assignmentByProductId.get(product.id)}
                       shelfLoading={shelfLoading}
@@ -1985,7 +2270,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
                       shelfTransition={shelfTransitions[product.id]}
                       shelfFeedback={rowFeedback[`${product.id}:shelf`]}
                       selected={selectedProductIds.includes(product.id)}
-                      selectionDisabled={Boolean(bulkShelfAction)}
+                      selectionDisabled={(!canPublishBrandLibrary && !canUpdateBrandLibrary) || Boolean(bulkShelfAction)}
                       onSelectionChange={(checked) => toggleProductSelection(product.id, checked)}
                       onEdit={() => beginProductEdit(product)}
                       onPublishShelf={() => publishWebsiteShelf(product)}
@@ -2006,28 +2291,91 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
               </tbody>
             </table>
           </div>
-          </WorkbenchTableShell>
           <WorkbenchPaginationFooter
             currentPage={footerCurrentPage}
             totalPages={footerTotalPages}
             totalItems={footerTotalProducts}
             pageSize={pageSize}
+            pageSizeOptions={PRODUCT_PAGE_SIZE_OPTIONS}
+            onPageSizeChange={(nextPageSize) => {
+              setPageSize(nextPageSize);
+              setPage(1);
+            }}
+            onPageChange={isLoading ? undefined : (nextPage) => setPage(nextPage)}
             onPrevious={isLoading || footerCurrentPage <= 1 ? undefined : () => setPage((current) => Math.max(current - 1, 1))}
             onNext={isLoading || footerCurrentPage >= footerTotalPages ? undefined : () => setPage((current) => current + 1)}
           />
+          </WorkbenchTableShell>
+          {showCreate && canCreateProduct && (
+            <ProductEditModal
+              mode="create"
+              product={createProductPreview}
+              brandCode={normalizedBrandCode}
+              canWrite={canCreateProduct}
+              canUpdateStatus={false}
+              canArchiveProduct={false}
+              canPublishShelf={false}
+              canHideShelf={false}
+              categoryOptions={categoryOptions}
+              draft={createDraft}
+              structuredDraft={createStructuredDraft}
+              manualPdfs={createManualPdfs}
+              officialDetailDirty={false}
+              taxonomy={data?.taxonomy || {}}
+              saving={creating}
+              savingStructured={false}
+              feedback={createError ? { tone: 'error', text: createError } : undefined}
+              shelfLoading={false}
+              shelfBusy={false}
+              actionBusy={false}
+              imageBusy={false}
+              onChange={(patch) => setCreateDraft((current) => ({ ...current, ...patch }))}
+              onStructuredChange={(patch) => setCreateStructuredDraft((current) => ({ ...current, ...patch }))}
+              onManualPdfsChange={setCreateManualPdfs}
+              onSave={createProduct}
+              onReset={() => {
+                createManualPdfs.forEach((manual) => URL.revokeObjectURL(manual.previewUrl));
+                setCreateDraft(blankNewProductDraft(normalizedBrandCode));
+                setCreateStructuredDraft(blankCreateStructuredDraft(normalizedBrandCode));
+                setCreateManualPdfs([]);
+              }}
+              onStructuredSave={() => {}}
+              onStructuredReset={() => {}}
+              onClose={closeProductCreate}
+              onToggleStatus={() => {}}
+              onArchive={() => {}}
+              onPublishShelf={() => {}}
+              onHideShelf={() => {}}
+              onUploadMainImage={() => {}}
+              onDeleteMainImage={() => {}}
+              onUploadDetailImage={() => {}}
+              onDeleteDetailImage={() => {}}
+              onMoveDetailImage={() => {}}
+            />
+          )}
           {editingProduct && (
             <ProductEditModal
+              mode="edit"
               product={editingProduct}
               brandCode={normalizedBrandCode}
               canWrite={canWrite}
+              canUpdateStatus={canPublishProduct}
+              canArchiveProduct={canDeleteProduct}
+              canPublishShelf={canPublishWebsiteShelf}
+              canHideShelf={canUpdateBrandLibrary}
               categoryOptions={categoryOptions}
               draft={drafts[editingProduct.id] || draftFromProductRow(editingProduct)}
               structuredDraft={structuredDraft(editingProduct)}
+              officialDetailHtml={officialDetailDrafts[editingProduct.id] || ''}
+              officialDetailDirty={(officialDetailDrafts[editingProduct.id] || '') !== (officialDetailInitials[editingProduct.id] || '')}
+              manualPdfs={manualPdfDrafts[editingProduct.id] || savedProductManualPdfs(editingProduct)}
+              manualPdfsDirty={productManualPdfsChanged(editingProduct, manualPdfDrafts[editingProduct.id] || savedProductManualPdfs(editingProduct))}
               taxonomy={data?.taxonomy || {}}
               saving={savingId === editingProduct.id}
               savingStructured={savingStructuredId === editingProduct.id}
               feedback={rowFeedback[editingProduct.id]}
               structuredFeedback={rowFeedback[`${editingProduct.id}:structured`]}
+              officialDetailFeedback={rowFeedback[`${editingProduct.id}:official-detail`]}
               shelfAssignment={assignmentByProductId.get(editingProduct.id)}
               shelfLoading={shelfLoading}
               shelfBusy={shelfBusyProductId === editingProduct.id}
@@ -2038,7 +2386,10 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
               imageFeedback={imageFeedback[`${editingProduct.id}:image`]}
               onChange={(patch) => updateDraft(editingProduct.id, patch)}
               onStructuredChange={(patch) => updateStructuredDraft(editingProduct.id, patch)}
-              onSave={() => saveRow(editingProduct)}
+              onOfficialDetailChange={(officialDetailHtml) => setOfficialDetailDrafts((current) => ({ ...current, [editingProduct.id]: officialDetailHtml }))}
+              onOfficialDetailFeedback={(detailFeedback) => setRowFeedback((current) => ({ ...current, [`${editingProduct.id}:official-detail`]: detailFeedback }))}
+              onManualPdfsChange={(manualPdfs) => setManualPdfDrafts((current) => ({ ...current, [editingProduct.id]: manualPdfs }))}
+              onSave={(overrides) => saveRow(editingProduct, overrides)}
               onReset={() => resetDraft(editingProduct)}
               onStructuredSave={() => saveStructured(editingProduct)}
               onStructuredReset={() => resetStructuredDraft(editingProduct)}
@@ -2055,8 +2406,14 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
             />
           )}
             </>
-          ) : (
+          ) : activeContentTab === 'materials' ? (
             <SiteMaterialMockPanel brandCode={normalizedBrandCode} />
+          ) : (
+            <SiteNewsPanel
+              siteCode={site.code || normalizedBrandCode}
+              siteAssetBaseUrl={site.developmentUrl || site.productionUrl || site.resolvedUrl || ''}
+              canWrite={canUpdateBrandLibrary}
+            />
           )}
         </section>
       </div>
@@ -2587,6 +2944,23 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           gap: 8px;
           flex-wrap: wrap;
         }
+        .brand-product-inline-feedback {
+          margin: 0;
+          padding: 10px 16px;
+          border-bottom: 1px solid var(--border);
+          background: var(--surface-1);
+          color: var(--t-secondary);
+          font-size: 13px;
+          font-weight: 800;
+        }
+        .brand-product-inline-feedback.success {
+          background: #f0fdf4;
+          color: #166534;
+        }
+        .brand-product-inline-feedback.error {
+          background: #fff1f2;
+          color: #be123c;
+        }
         .brand-product-table {
           width: 100%;
           min-width: 1160px;
@@ -2663,15 +3037,15 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
         }
         .brand-product-table th:nth-child(2),
         .brand-product-table td:nth-child(2) {
-          width: 20%;
+          width: 18%;
         }
         .brand-product-table th:nth-child(3),
         .brand-product-table td:nth-child(3) {
-          width: 25%;
+          width: 24%;
         }
         .brand-product-table th:nth-child(4),
         .brand-product-table td:nth-child(4) {
-          width: 15%;
+          width: 14%;
         }
         .brand-product-table th:nth-child(5),
         .brand-product-table td:nth-child(5) {
@@ -2685,7 +3059,13 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
         }
         .brand-product-table th:nth-child(7),
         .brand-product-table td:nth-child(7) {
-          width: 20%;
+          width: 11%;
+          text-align: center;
+          white-space: nowrap;
+        }
+        .brand-product-table th:nth-child(8),
+        .brand-product-table td:nth-child(8) {
+          width: 13%;
           text-align: center;
           white-space: nowrap;
         }
@@ -2702,7 +3082,9 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
         .brand-product-table th:nth-child(6),
         .brand-product-table td:nth-child(6),
         .brand-product-table th:nth-child(7),
-        .brand-product-table td:nth-child(7) {
+        .brand-product-table td:nth-child(7),
+        .brand-product-table th:nth-child(8),
+        .brand-product-table td:nth-child(8) {
           text-align: center;
         }
         .site-material-panel {
@@ -2776,6 +3158,428 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           flex-wrap: wrap;
           justify-content: flex-end;
           gap: 6px;
+        }
+        .site-news-panel {
+          display: grid;
+          gap: 14px;
+          min-height: 397px;
+          padding: 16px;
+          border-top: 1px solid var(--border);
+          background: var(--surface-2);
+        }
+        .site-news-panel .product-create-panel {
+          border: 1px solid var(--border);
+          border-radius: var(--r-md);
+          background: var(--surface-1);
+          box-shadow: var(--sh-xs);
+        }
+        .site-news-table {
+          min-width: 980px;
+        }
+        .site-news-table th:nth-child(1),
+        .site-news-table td:nth-child(1) {
+          width: 116px;
+          text-align: center;
+        }
+        .site-news-table th:nth-child(2),
+        .site-news-table td:nth-child(2) {
+          width: auto;
+          text-align: left;
+        }
+        .site-news-table th:nth-child(3),
+        .site-news-table td:nth-child(3),
+        .site-news-table th:nth-child(4),
+        .site-news-table td:nth-child(4),
+        .site-news-table th:nth-child(5),
+        .site-news-table td:nth-child(5) {
+          width: 120px;
+          text-align: center;
+        }
+        .site-news-table th:nth-child(6),
+        .site-news-table td:nth-child(6) {
+          width: 260px;
+          text-align: right;
+        }
+        .site-news-thumb {
+          width: 82px;
+          height: 54px;
+          margin: 0 auto;
+          border: 1px solid var(--border);
+          border-radius: var(--r-sm);
+          background: var(--surface-2) center/cover no-repeat;
+          box-shadow: var(--sh-xs);
+        }
+        .site-news-preview-card {
+          display: grid;
+          grid-template-columns: 240px minmax(0, 1fr);
+          overflow: hidden;
+          border: 1px solid var(--border);
+          border-radius: var(--r-md);
+          background: var(--surface-1);
+          box-shadow: var(--sh-xs);
+        }
+        .site-news-preview-img {
+          min-height: 150px;
+          background: var(--surface-2) center/cover no-repeat;
+        }
+        .site-news-preview-grid {
+          display: grid;
+          grid-template-columns: minmax(280px, 0.85fr) minmax(320px, 1.15fr);
+          gap: 12px;
+          align-items: start;
+        }
+        .site-news-preview-pane {
+          min-width: 0;
+          display: grid;
+          gap: 8px;
+        }
+        .news-preview-body {
+          display: grid;
+          align-content: center;
+          gap: 8px;
+          padding: 18px;
+        }
+        .news-preview-body span {
+          color: var(--t-tertiary);
+          font-size: 11px;
+          font-weight: 800;
+        }
+        .news-preview-body strong {
+          color: var(--t-strong);
+          font-size: 15px;
+        }
+        .news-preview-body p {
+          margin: 0;
+          color: var(--t-secondary);
+          font-size: 12px;
+          line-height: 1.65;
+        }
+        .site-news-detail-preview {
+          overflow: hidden;
+          border: 1px solid var(--border);
+          border-radius: var(--r-md);
+          background: var(--surface-1);
+          box-shadow: var(--sh-xs);
+        }
+        .site-news-detail-preview-img {
+          height: 180px;
+          background: var(--surface-2) center/cover no-repeat;
+        }
+        .site-news-detail-preview-body {
+          display: grid;
+          gap: 8px;
+          padding: 18px;
+        }
+        .site-news-detail-preview-body > span {
+          color: var(--t-tertiary);
+          font-size: 11px;
+          font-weight: 800;
+        }
+        .site-news-detail-preview-body h4 {
+          margin: 0;
+          color: var(--t-strong);
+          font-size: 18px;
+          line-height: 1.35;
+        }
+        .site-news-detail-preview-body > p {
+          margin: 0;
+          color: var(--t-secondary);
+          font-size: 13px;
+          line-height: 1.7;
+        }
+        .site-news-detail-preview-content {
+          display: grid;
+          gap: 8px;
+          padding-top: 6px;
+          border-top: 1px solid var(--border);
+          color: var(--t-primary);
+          font-size: 13px;
+          line-height: 1.75;
+        }
+        .site-news-detail-preview-content :where(p, ul, ol, blockquote, h2, h3) {
+          margin: 0;
+        }
+        .site-news-detail-preview-content [data-align="center"],
+        .site-news-richtext-editor [data-align="center"] {
+          text-align: center;
+        }
+        .site-news-detail-preview-content [data-align="right"],
+        .site-news-richtext-editor [data-align="right"] {
+          text-align: right;
+        }
+        .site-news-detail-preview-content [data-align="justify"],
+        .site-news-richtext-editor [data-align="justify"] {
+          text-align: justify;
+        }
+        .site-news-detail-preview-content [data-indent="1"],
+        .site-news-richtext-editor [data-indent="1"] {
+          padding-left: 1.5em;
+        }
+        .site-news-detail-preview-content [data-indent="2"],
+        .site-news-richtext-editor [data-indent="2"] {
+          padding-left: 3em;
+        }
+        .site-news-detail-preview-content [data-indent="3"],
+        .site-news-richtext-editor [data-indent="3"] {
+          padding-left: 4.5em;
+        }
+        .site-news-detail-preview-content [data-size="12"],
+        .site-news-richtext-editor [data-size="12"] { font-size: 12px; }
+        .site-news-detail-preview-content [data-size="14"],
+        .site-news-richtext-editor [data-size="14"] { font-size: 14px; }
+        .site-news-detail-preview-content [data-size="16"],
+        .site-news-richtext-editor [data-size="16"] { font-size: 16px; }
+        .site-news-detail-preview-content [data-size="18"],
+        .site-news-richtext-editor [data-size="18"] { font-size: 18px; }
+        .site-news-detail-preview-content [data-size="20"],
+        .site-news-richtext-editor [data-size="20"] { font-size: 20px; }
+        .site-news-detail-preview-content [data-size="24"],
+        .site-news-richtext-editor [data-size="24"] { font-size: 24px; }
+        .site-news-detail-preview-content [data-size="28"],
+        .site-news-richtext-editor [data-size="28"] { font-size: 28px; }
+        .site-news-detail-preview-content [data-color="ink"],
+        .site-news-richtext-editor [data-color="ink"] { color: var(--t-strong); }
+        .site-news-detail-preview-content [data-color="gray"],
+        .site-news-richtext-editor [data-color="gray"] { color: var(--t-secondary); }
+        .site-news-detail-preview-content [data-color="muted"],
+        .site-news-richtext-editor [data-color="muted"] { color: var(--t-tertiary); }
+        .site-news-detail-preview-content [data-color="brand"],
+        .site-news-richtext-editor [data-color="brand"] { color: var(--brand); }
+        .site-news-detail-preview-content [data-bg="soft"],
+        .site-news-richtext-editor [data-bg="soft"] { background: var(--surface-2); }
+        .site-news-detail-preview-content [data-bg="brand-soft"],
+        .site-news-richtext-editor [data-bg="brand-soft"] { background: var(--brand-50); }
+        .site-news-detail-preview-content [data-bg="warning-soft"],
+        .site-news-richtext-editor [data-bg="warning-soft"] { background: var(--warning-bg); }
+        .site-news-detail-preview-content code,
+        .site-news-richtext-editor code {
+          padding: 1px 5px;
+          border: 1px solid var(--border);
+          border-radius: var(--r-sm);
+          background: var(--surface-2);
+          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          font-size: 0.92em;
+        }
+        .site-news-detail-preview-content :where(ul, ol) {
+          padding-left: 1.25em;
+        }
+        .site-news-detail-preview-content :where(h2, h3) {
+          color: var(--t-strong);
+          font-size: 15px;
+          line-height: 1.4;
+        }
+        .site-news-detail-preview-content blockquote {
+          margin: 2px 0;
+          padding: 10px 12px;
+          border-left: 3px solid var(--brand);
+          border-radius: 0 var(--r-sm) var(--r-sm) 0;
+          background: var(--surface-2);
+          color: var(--t-secondary);
+          font-size: 13px;
+          line-height: 1.75;
+        }
+        .site-news-detail-preview-content blockquote p {
+          margin: 0;
+        }
+        .site-news-detail-preview-content a {
+          color: var(--brand);
+          font-weight: 700;
+        }
+        .site-news-detail-preview-content figure,
+        .site-news-richtext-editor figure {
+          display: table;
+          width: auto;
+          max-width: 100%;
+          margin: 8px 0;
+        }
+        .site-news-detail-preview-content figure[data-align="center"],
+        .site-news-richtext-editor figure[data-align="center"] {
+          margin-left: auto;
+          margin-right: auto;
+        }
+        .site-news-detail-preview-content figure[data-align="right"],
+        .site-news-richtext-editor figure[data-align="right"] {
+          margin-left: auto;
+          margin-right: 0;
+        }
+        .site-news-detail-preview-content figure[data-size="small"],
+        .site-news-richtext-editor figure[data-size="small"] {
+          width: 38%;
+        }
+        .site-news-detail-preview-content figure[data-size="medium"],
+        .site-news-richtext-editor figure[data-size="medium"] {
+          width: 62%;
+        }
+        .site-news-detail-preview-content figure[data-size="large"],
+        .site-news-richtext-editor figure[data-size="large"] {
+          width: 82%;
+        }
+        .site-news-detail-preview-content figure[data-size="full"],
+        .site-news-richtext-editor figure[data-size="full"] {
+          width: 100%;
+        }
+        .site-news-detail-preview-content figure img,
+        .site-news-richtext-editor figure img,
+        .site-news-detail-preview-content > img,
+        .site-news-richtext-editor > img {
+          display: block;
+          width: 100%;
+          max-width: 100%;
+          height: auto;
+          margin: 0;
+          border: 1px solid var(--border);
+          border-radius: var(--r-md);
+          background: var(--surface-2);
+          box-shadow: var(--sh-xs);
+        }
+        .site-news-detail-preview-content > img[data-size="small"],
+        .site-news-richtext-editor > img[data-size="small"] {
+          width: 38%;
+        }
+        .site-news-detail-preview-content > img[data-size="medium"],
+        .site-news-richtext-editor > img[data-size="medium"] {
+          width: 62%;
+        }
+        .site-news-detail-preview-content > img[data-size="large"],
+        .site-news-richtext-editor > img[data-size="large"] {
+          width: 82%;
+        }
+        .site-news-detail-preview-content > img[data-size="full"],
+        .site-news-richtext-editor > img[data-size="full"] {
+          width: 100%;
+        }
+        .site-news-richtext-editor img.is-selected {
+          border-color: var(--brand);
+          box-shadow: 0 0 0 3px rgba(228, 0, 43, 0.14);
+        }
+        .site-news-detail-preview-content figcaption,
+        .site-news-richtext-editor figcaption {
+          margin-top: 6px;
+          color: var(--t-tertiary);
+          font-size: 12px;
+          line-height: 1.55;
+          text-align: center;
+        }
+        .site-news-richtext {
+          overflow: hidden;
+          border: 1px solid var(--border-2);
+          border-radius: var(--r-lg);
+          background: var(--surface-1);
+          box-shadow: var(--sh-xs);
+        }
+        .site-news-richtext:focus-within {
+          border-color: var(--brand);
+          box-shadow: 0 0 0 3px rgba(228, 0, 43, 0.14);
+        }
+        .site-news-richtext-toolbar {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          padding: 8px;
+          border-bottom: 1px solid var(--border);
+          background: var(--surface-2);
+        }
+        .site-news-richtext-file {
+          display: none;
+        }
+        .site-news-image-size-tools {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding-left: 4px;
+          border-left: 1px solid var(--border);
+        }
+        .site-news-image-size-btn {
+          min-width: 26px;
+          min-height: 28px;
+          padding: 0 7px;
+          border: 1px solid var(--border-2);
+          border-radius: var(--r-sm);
+          background: var(--surface-1);
+          color: var(--t-secondary);
+          font-size: 11px;
+          font-weight: 700;
+        }
+        .site-news-image-size-btn.active {
+          color: var(--brand);
+          border-color: var(--brand-100);
+          background: var(--brand-50);
+        }
+        .site-news-image-size-btn.danger {
+          color: var(--danger);
+        }
+        .site-news-image-size-btn:disabled {
+          opacity: 0.42;
+          cursor: not-allowed;
+        }
+        .site-news-format-btn {
+          min-width: 30px;
+          min-height: 30px;
+          padding: 0 8px;
+          border: 1px solid var(--border-2);
+          border-radius: var(--r-sm);
+          background: var(--surface-1);
+          color: var(--t-primary);
+          font-size: 12px;
+          font-weight: 700;
+        }
+        .site-news-format-btn.active,
+        .site-news-tool-btn.active {
+          color: var(--brand);
+          border-color: var(--brand-100);
+          background: var(--brand-50);
+          box-shadow: inset 0 0 0 1px rgba(228, 0, 43, 0.14);
+        }
+        .site-news-richtext-select {
+          min-height: 30px;
+          padding: 0 8px;
+          border: 1px solid var(--border-2);
+          border-radius: var(--r-sm);
+          background: var(--surface-1);
+          color: var(--t-primary);
+          font-size: 12px;
+          font-weight: 700;
+        }
+        .site-news-richtext-editor {
+          min-height: 168px;
+          max-height: 320px;
+          overflow: auto;
+          padding: 10px 12px;
+          color: var(--t-primary);
+          font-size: 14px;
+          line-height: 1.75;
+          outline: none;
+        }
+        .site-news-richtext-editor:empty::before {
+          content: attr(data-placeholder);
+          color: var(--t-disabled);
+        }
+        .site-news-richtext-editor :where(p, ul, ol, blockquote, h2, h3) {
+          margin: 0 0 8px;
+        }
+        .site-news-richtext-editor :where(ul, ol) {
+          padding-left: 1.25em;
+        }
+        .site-news-richtext-editor :where(h2, h3) {
+          color: var(--t-strong);
+          line-height: 1.4;
+        }
+        .site-news-richtext-editor h2 {
+          font-size: 18px;
+        }
+        .site-news-richtext-editor h3 {
+          font-size: 15px;
+        }
+        .site-news-richtext-editor blockquote {
+          margin: 0 0 8px;
+          padding: 8px 10px;
+          border-left: 3px solid var(--brand);
+          background: var(--surface-2);
+          color: var(--t-secondary);
+        }
+        .site-news-richtext-editor a {
+          color: var(--brand);
+          font-weight: 700;
         }
         .brand-product-table tr.is-dirty td {
           background: rgba(78, 154, 61, 0.05);
@@ -2932,6 +3736,18 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           border: 0;
           padding: 0;
           box-shadow: none;
+        }
+        .site-news-edit-modal {
+          width: min(1120px, 100%);
+        }
+        .site-news-edit-modal-body {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .site-news-edit-section .product-create-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .site-news-edit-section .product-create-field {
+          min-width: 0;
         }
         .brand-product-main-cell,
         .brand-product-identity-cell,
@@ -3117,15 +3933,22 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
         .website-shelf-cell {
           position: relative;
           min-width: 0;
-          display: grid;
+          display: inline-flex;
           align-items: center;
-          justify-items: center;
+          justify-content: center;
+          gap: 6px;
           min-height: 34px;
         }
         .website-shelf-cell .btn {
-          width: 64px;
           white-space: nowrap;
           transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+        }
+        .website-shelf-status-cell {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 34px;
         }
         .brand-product-actions-col .row-edit-actions {
           width: 100%;
@@ -3135,8 +3958,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           flex-wrap: nowrap;
         }
         .brand-product-actions-col .website-shelf-cell {
-          flex: 0 0 68px;
-          justify-items: center;
+          flex: 0 0 auto;
         }
         .website-shelf-cell > .row-feedback {
           position: absolute;
@@ -3348,35 +4170,6 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           opacity: 0;
           pointer-events: none;
         }
-        .detail-image-list {
-          display: grid;
-          gap: 6px;
-        }
-        .detail-image-ref {
-          display: grid;
-          grid-template-columns: 48px minmax(0, 1fr) auto;
-          gap: 8px;
-          align-items: center;
-          color: var(--t-secondary);
-          font-size: 12px;
-        }
-        .detail-image-thumb {
-          width: 48px;
-          height: 36px;
-          object-fit: contain;
-          border: 1px solid var(--border);
-          border-radius: var(--r-sm);
-          background: var(--surface-2);
-        }
-        .detail-image-ref > span {
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-        .detail-image-actions {
-          display: inline-flex;
-          gap: 4px;
-        }
         .icon-only {
           min-width: 28px;
           padding-left: 6px;
@@ -3405,6 +4198,9 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           padding-left: 9px;
           padding-right: 9px;
           justify-content: center;
+        }
+        .brand-product-actions-col .website-shelf-action {
+          min-width: 58px;
         }
         .dirty-chip {
           display: inline-flex;
@@ -3711,10 +4507,17 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           .product-edit-field-grid {
             grid-template-columns: 1fr;
           }
+          .site-news-preview-grid,
+          .site-news-preview-card {
+            grid-template-columns: 1fr;
+          }
           .product-edit-shelf-actions {
             flex-wrap: wrap;
           }
           .product-create-grid {
+            grid-template-columns: 1fr;
+          }
+          .site-news-edit-section .product-create-grid {
             grid-template-columns: 1fr;
           }
           .structured-pair,
@@ -3840,7 +4643,6 @@ function SiteMaterialMockPanel({ brandCode }: { brandCode: string }) {
             <article className="site-material-item" key={item.key}>
               <strong>{item.name}</strong>
               <span>{item.type} · {item.location}</span>
-              <small>责任方：{item.owner}</small>
               <span className="site-material-spec">建议尺寸：{item.recommendedSize}</span>
               <p>{item.note}</p>
               <div className="site-material-file" title={uploaded?.name || '尚未上传'}>
@@ -3894,6 +4696,1245 @@ function SiteMaterialMockPanel({ brandCode }: { brandCode: string }) {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+type SiteNewsStatus = 'draft' | 'published' | 'hidden' | 'archived';
+type SiteNewsArticle = {
+  id: string;
+  slug: string;
+  title: string;
+  summary: string;
+  body: string;
+  coverImageArtifactId?: string | null;
+  coverImageUrl?: string | null;
+  publishedAt?: string | null;
+  status: SiteNewsStatus;
+  sortOrder: number;
+  isFeatured: boolean;
+  deletedAt?: string | null;
+};
+type SiteNewsDraft = {
+  slug: string;
+  title: string;
+  summary: string;
+  body: string;
+  coverImageUrl: string;
+  coverImageArtifactId: string;
+  publishedAt: string;
+  status: SiteNewsStatus;
+  sortOrder: string;
+  isFeatured: boolean;
+};
+
+function emptyNewsDraft(): SiteNewsDraft {
+  return {
+    slug: '',
+    title: '',
+    summary: '',
+    body: '',
+    coverImageUrl: '',
+    coverImageArtifactId: '',
+    publishedAt: '',
+    status: 'draft',
+    sortOrder: '0',
+    isFeatured: false,
+  };
+}
+
+function newsDraftFromArticle(article: SiteNewsArticle): SiteNewsDraft {
+  const publishedAt = article.publishedAt ? String(article.publishedAt).slice(0, 10) : '';
+  return {
+    slug: article.slug || '',
+    title: article.title || '',
+    summary: article.summary || '',
+    body: article.body || '',
+    coverImageUrl: article.coverImageUrl || '',
+    coverImageArtifactId: article.coverImageArtifactId || '',
+    publishedAt,
+    status: article.status || 'draft',
+    sortOrder: String(article.sortOrder || 0),
+    isFeatured: Boolean(article.isFeatured),
+  };
+}
+
+function newsPayload(draft: SiteNewsDraft) {
+  const title = draft.title.trim();
+  const summary = draft.summary.trim();
+  const slug = draft.slug || `news-${Date.now()}`;
+  const coverImageArtifactId = draft.coverImageArtifactId.trim();
+  const coverImageUrl = draft.coverImageUrl.trim();
+  const body = sanitizeSiteNewsBody(draft.body);
+  if (!title) throw new Error('请填写资讯标题。');
+  if (!summary) throw new Error('请填写资讯摘要。');
+  if (draft.status === 'published' && !coverImageArtifactId && !coverImageUrl) throw new Error('发布资讯前请先上传封面。');
+  if (draft.status === 'published' && !siteNewsPlainText(body)) throw new Error('发布资讯前请填写正文。');
+  return {
+    slug,
+    title,
+    summary,
+    body,
+    coverImageUrl: coverImageUrl || null,
+    coverImageArtifactId: coverImageArtifactId || null,
+    publishedAt: draft.publishedAt || null,
+    status: draft.status,
+    sortOrder: Number(draft.sortOrder) || 0,
+    isFeatured: draft.isFeatured,
+  };
+}
+
+const SITE_NEWS_ALLOWED_TAGS = new Set(['P', 'BR', 'STRONG', 'B', 'EM', 'I', 'U', 'S', 'STRIKE', 'UL', 'OL', 'LI', 'A', 'H2', 'H3', 'BLOCKQUOTE', 'CODE', 'SPAN', 'FIGURE', 'FIGCAPTION', 'IMG']);
+const SITE_NEWS_TEXT_SIZES = ['12', '14', '16', '18', '20', '24', '28'];
+const SITE_NEWS_TEXT_COLORS = ['default', 'ink', 'gray', 'muted', 'brand'];
+const SITE_NEWS_BG_COLORS = ['none', 'soft', 'brand-soft', 'warning-soft'];
+
+function copySiteNewsSemanticAttrs(source: HTMLElement, target: HTMLElement, tag: string) {
+  const role = source.getAttribute('data-role') || '';
+  if (tag === 'P' && role === 'lead') target.setAttribute('data-role', role);
+
+  const align = source.getAttribute('data-align') || '';
+  if (['left', 'center', 'right', 'justify'].includes(align)) target.setAttribute('data-align', align);
+
+  const indent = source.getAttribute('data-indent') || '';
+  if (['1', '2', '3'].includes(indent)) target.setAttribute('data-indent', indent);
+
+  const size = source.getAttribute('data-size') || '';
+  if (SITE_NEWS_TEXT_SIZES.includes(size)) target.setAttribute('data-size', size);
+
+  const color = source.getAttribute('data-color') || '';
+  if (SITE_NEWS_TEXT_COLORS.includes(color)) target.setAttribute('data-color', color);
+
+  const bg = source.getAttribute('data-bg') || '';
+  if (SITE_NEWS_BG_COLORS.includes(bg)) target.setAttribute('data-bg', bg);
+}
+
+function escapeSiteNewsHtml(value: string) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function siteNewsPlainText(value: string) {
+  return String(value || '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function sanitizeSiteNewsBody(value: string) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (typeof document === 'undefined') return escapeSiteNewsHtml(raw).replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br>');
+
+  const template = document.createElement('template');
+  template.innerHTML = raw;
+
+  function cleanNode(node: Node): Node | null {
+    if (node.nodeType === Node.TEXT_NODE) return document.createTextNode(node.textContent || '');
+    if (node.nodeType !== Node.ELEMENT_NODE) return null;
+
+    const element = node as HTMLElement;
+    const tag = element.tagName.toUpperCase();
+    if (!SITE_NEWS_ALLOWED_TAGS.has(tag)) {
+      const fragment = document.createDocumentFragment();
+      Array.from(element.childNodes).forEach((child) => {
+        const clean = cleanNode(child);
+        if (clean) fragment.appendChild(clean);
+      });
+      return fragment;
+    }
+
+    const output = document.createElement(tag.toLowerCase());
+    copySiteNewsSemanticAttrs(element, output, tag);
+    if (tag === 'A') {
+      const href = element.getAttribute('href') || '';
+      if (/^(https?:\/\/|mailto:|tel:|\/)/i.test(href)) {
+        output.setAttribute('href', href);
+        output.setAttribute('rel', 'noopener noreferrer');
+        if (/^https?:\/\//i.test(href)) output.setAttribute('target', '_blank');
+      }
+    }
+    if (tag === 'IMG') {
+      const src = element.getAttribute('src') || '';
+      if (/^(https?:\/\/|data:image\/|blob:|\/api\/|\/assets\/)/i.test(src)) {
+        output.setAttribute('src', src);
+        output.setAttribute('alt', element.getAttribute('alt') || '');
+        output.setAttribute('loading', 'lazy');
+        const size = element.getAttribute('data-size') || '';
+        if (['small', 'medium', 'large', 'full'].includes(size)) output.setAttribute('data-size', size);
+        const align = element.getAttribute('data-align') || '';
+        if (['left', 'center', 'right'].includes(align)) output.setAttribute('data-align', align);
+      } else {
+        return null;
+      }
+    }
+    if (tag === 'FIGURE') {
+      const size = element.getAttribute('data-size') || '';
+      const align = element.getAttribute('data-align') || '';
+      if (['small', 'medium', 'large', 'full'].includes(size)) output.setAttribute('data-size', size);
+      if (['left', 'center', 'right'].includes(align)) output.setAttribute('data-align', align);
+    }
+    Array.from(element.childNodes).forEach((child) => {
+      const clean = cleanNode(child);
+      if (clean) output.appendChild(clean);
+    });
+    return output;
+  }
+
+  const fragment = document.createDocumentFragment();
+  Array.from(template.content.childNodes).forEach((child) => {
+    const clean = cleanNode(child);
+    if (clean) fragment.appendChild(clean);
+  });
+  const container = document.createElement('div');
+  container.appendChild(fragment);
+  const sanitized = container.innerHTML.trim();
+  if (sanitized && !/<[a-z][\s\S]*>/i.test(sanitized)) return `<p>${escapeSiteNewsHtml(siteNewsPlainText(sanitized))}</p>`;
+  return sanitized || `<p>${escapeSiteNewsHtml(siteNewsPlainText(raw))}</p>`;
+}
+
+function siteNewsPreviewHtml(value: string) {
+  const clean = sanitizeSiteNewsBody(value);
+  if (!clean) return '<p>正文内容将在这里预览。</p>';
+  if (/<[a-z][\s\S]*>/i.test(clean)) return clean;
+  return `<p>${escapeSiteNewsHtml(clean)}</p>`;
+}
+
+function siteNewsAssetUrl(url: string, siteAssetBaseUrl: string) {
+  const value = String(url || '').trim();
+  if (!value) return '';
+  if (/^(https?:|data:|blob:)/i.test(value)) return value;
+  if (value.startsWith('/api/')) return value;
+  if (value.startsWith('/assets/') && siteAssetBaseUrl) {
+    try {
+      return new URL(value, siteAssetBaseUrl.endsWith('/') ? siteAssetBaseUrl : `${siteAssetBaseUrl}/`).toString();
+    } catch {
+      return value;
+    }
+  }
+  return value;
+}
+
+function siteNewsImage(article: SiteNewsArticle, siteAssetBaseUrl: string) {
+  if (article.coverImageArtifactId) return `/api/v2/file-artifact/${encodeURIComponent(article.coverImageArtifactId)}/content`;
+  if (article.coverImageUrl) return siteNewsAssetUrl(article.coverImageUrl, siteAssetBaseUrl);
+  return siteNewsAssetUrl('/assets/img/home-card1.webp', siteAssetBaseUrl);
+}
+
+function siteNewsStatusMeta(status: SiteNewsStatus) {
+  if (status === 'published') return { label: '已发布', tone: 'success' as const };
+  if (status === 'hidden') return { label: '已隐藏', tone: 'warning' as const };
+  if (status === 'archived') return { label: '已归档', tone: 'neutral' as const };
+  return { label: '草稿', tone: 'info' as const };
+}
+
+function SiteNewsRichTextEditor({
+  value,
+  onChange,
+  entityId,
+  imageEntityType = 'site-news-body',
+  onFeedback,
+  onRegisterFlush,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  entityId: string;
+  imageEntityType?: string;
+  onFeedback: (feedback: { tone: 'success' | 'error'; text: string }) => void;
+  onRegisterFlush?: (flush: () => string) => void;
+}) {
+  const editorRef = useRef<HTMLDivElement | null>(null);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const imageUploadModeRef = useRef<'insert' | 'replace'>('insert');
+  const selectionRef = useRef<Range | null>(null);
+  const selectedImageRef = useRef<HTMLImageElement | null>(null);
+  const syncTimerRef = useRef<number | null>(null);
+  const lastValueRef = useRef(value);
+  const lastEmittedValueRef = useRef(value);
+  const [uploadingBodyImage, setUploadingBodyImage] = useState(false);
+  const [selectedImageSize, setSelectedImageSize] = useState('');
+  const [selectedImageAlign, setSelectedImageAlign] = useState('');
+  const [activeFormats, setActiveFormats] = useState({
+    block: 'p',
+    bold: false,
+    italic: false,
+    underline: false,
+    strike: false,
+    unorderedList: false,
+    orderedList: false,
+    link: false,
+    align: 'left',
+  });
+
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    if (document.activeElement === editor) return;
+    if (editor.innerHTML === value) {
+      lastValueRef.current = value;
+      lastEmittedValueRef.current = value;
+      return;
+    }
+    editor.innerHTML = value || '';
+    lastValueRef.current = value;
+    lastEmittedValueRef.current = value;
+  }, [value]);
+
+  useEffect(() => () => {
+    if (syncTimerRef.current) window.clearTimeout(syncTimerRef.current);
+  }, []);
+
+  useEffect(() => {
+    onRegisterFlush?.(() => flushBody());
+    return () => onRegisterFlush?.(() => lastEmittedValueRef.current);
+  }, [onRegisterFlush]);
+
+  function editorHtml() {
+    return editorRef.current?.innerHTML || '';
+  }
+
+  function emitChange(next: string) {
+    lastValueRef.current = next;
+    lastEmittedValueRef.current = next;
+    onChange(next);
+  }
+
+  function commitNow({ sanitize = false }: { sanitize?: boolean } = {}) {
+    if (syncTimerRef.current) {
+      window.clearTimeout(syncTimerRef.current);
+      syncTimerRef.current = null;
+    }
+    const next = sanitize ? sanitizeSiteNewsBody(editorHtml()) : editorHtml();
+    if (next !== lastEmittedValueRef.current) emitChange(next);
+  }
+
+  function scheduleCommit() {
+    lastValueRef.current = editorHtml();
+    if (syncTimerRef.current) window.clearTimeout(syncTimerRef.current);
+    syncTimerRef.current = window.setTimeout(() => commitNow(), 220);
+  }
+
+  function flushBody() {
+    if (syncTimerRef.current) {
+      window.clearTimeout(syncTimerRef.current);
+      syncTimerRef.current = null;
+    }
+    const next = sanitizeSiteNewsBody(editorHtml());
+    if (next !== lastEmittedValueRef.current) emitChange(next);
+    return next;
+  }
+
+  function selectionInsideEditor() {
+    const editor = editorRef.current;
+    const selection = window.getSelection();
+    if (!editor || !selection || selection.rangeCount === 0) return false;
+    const range = selection.getRangeAt(0);
+    return editor.contains(range.commonAncestorContainer);
+  }
+
+  function saveSelection() {
+    if (!selectionInsideEditor()) return;
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+    selectionRef.current = selection.getRangeAt(0).cloneRange();
+    refreshActiveFormats();
+  }
+
+  function refreshActiveFormats() {
+    const editor = editorRef.current;
+    const selection = window.getSelection();
+    if (!editor || !selection || selection.rangeCount === 0) return;
+    const range = selection.getRangeAt(0);
+    if (!editor.contains(range.commonAncestorContainer)) return;
+    const baseNode = range.startContainer.nodeType === Node.ELEMENT_NODE
+      ? range.startContainer as Element
+      : range.startContainer.parentElement;
+    const blockElement = baseNode?.closest('h2,h3,blockquote,p,li');
+    const block = blockElement?.tagName.toLowerCase() || 'p';
+    setActiveFormats({
+      block: block === 'li' ? 'p' : block,
+      bold: document.queryCommandState('bold'),
+      italic: document.queryCommandState('italic'),
+      underline: document.queryCommandState('underline'),
+      strike: document.queryCommandState('strikeThrough'),
+      unorderedList: document.queryCommandState('insertUnorderedList'),
+      orderedList: document.queryCommandState('insertOrderedList'),
+      link: Boolean(baseNode?.closest('a')),
+      align: (blockElement?.getAttribute('data-align') || 'left'),
+    });
+  }
+
+  function restoreSelection() {
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.focus();
+    const selection = window.getSelection();
+    if (!selection) return;
+    selection.removeAllRanges();
+    if (selectionRef.current) {
+      selection.addRange(selectionRef.current);
+      return;
+    }
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    range.collapse(false);
+    selection.addRange(range);
+  }
+
+  function toolbarMouseDown(event: MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    restoreSelection();
+  }
+
+  function run(command: string, commandValue?: string) {
+    restoreSelection();
+    document.execCommand(command, false, commandValue);
+    scheduleCommit();
+    saveSelection();
+    refreshActiveFormats();
+  }
+
+  function nearestBlock() {
+    const editor = editorRef.current;
+    const selection = window.getSelection();
+    if (!editor || !selection || selection.rangeCount === 0) return null;
+    const range = selection.getRangeAt(0);
+    if (!editor.contains(range.commonAncestorContainer)) return null;
+    const baseNode = range.startContainer.nodeType === Node.ELEMENT_NODE
+      ? range.startContainer as Element
+      : range.startContainer.parentElement;
+    return baseNode?.closest('p,h2,h3,blockquote,li') as HTMLElement | null;
+  }
+
+  function formatBlock(tag: 'p' | 'h2' | 'h3' | 'blockquote') {
+    run('formatBlock', tag);
+  }
+
+  function clearFormat() {
+    restoreSelection();
+    document.execCommand('removeFormat');
+    document.execCommand('formatBlock', false, 'p');
+    nearestBlock()?.removeAttribute('data-align');
+    nearestBlock()?.removeAttribute('data-indent');
+    scheduleCommit();
+    saveSelection();
+    refreshActiveFormats();
+  }
+
+  function pastedTextToNewsHtml(text: string) {
+    const lines = text.replace(/\r\n/g, '\n').split('\n').map((line) => line.trim()).filter(Boolean);
+    const chunks: string[] = [];
+    let listType: 'ul' | 'ol' | '' = '';
+    let listItems: string[] = [];
+
+    function flushList() {
+      if (!listType || !listItems.length) return;
+      chunks.push(`<${listType}>${listItems.map((item) => `<li>${escapeSiteNewsHtml(item)}</li>`).join('')}</${listType}>`);
+      listType = '';
+      listItems = [];
+    }
+
+    for (const line of lines) {
+      const bullet = line.match(/^[-*•]\s+(.+)$/);
+      const ordered = line.match(/^\d+[.)、]\s*(.+)$/);
+      if (bullet) {
+        if (listType && listType !== 'ul') flushList();
+        listType = 'ul';
+        listItems.push(bullet[1]);
+        continue;
+      }
+      if (ordered) {
+        if (listType && listType !== 'ol') flushList();
+        listType = 'ol';
+        listItems.push(ordered[1]);
+        continue;
+      }
+      flushList();
+      chunks.push(`<p>${escapeSiteNewsHtml(line)}</p>`);
+    }
+    flushList();
+    return chunks.join('');
+  }
+
+  function selectedHtml() {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return '';
+    const container = document.createElement('div');
+    container.appendChild(selection.getRangeAt(0).cloneContents());
+    return container.innerHTML;
+  }
+
+  function applyInlineData(kind: 'size' | 'color' | 'bg', value: string) {
+    if (!value || value === 'default' || value === 'none') return;
+    restoreSelection();
+    const attr = kind === 'size' ? 'data-size' : kind === 'color' ? 'data-color' : 'data-bg';
+    const html = selectedHtml() || '&#8203;';
+    document.execCommand('insertHTML', false, `<span ${attr}="${escapeSiteNewsHtml(value)}">${html}</span>`);
+    scheduleCommit();
+    saveSelection();
+  }
+
+  function wrapInlineTag(tag: 'code') {
+    restoreSelection();
+    const html = selectedHtml() || '&#8203;';
+    document.execCommand('insertHTML', false, `<${tag}>${html}</${tag}>`);
+    scheduleCommit();
+    saveSelection();
+    refreshActiveFormats();
+  }
+
+  function applyBlockAlign(align: 'left' | 'center' | 'right' | 'justify') {
+    restoreSelection();
+    const block = nearestBlock();
+    if (block) block.setAttribute('data-align', align);
+    const command = align === 'center' ? 'justifyCenter' : align === 'right' ? 'justifyRight' : align === 'justify' ? 'justifyFull' : 'justifyLeft';
+    document.execCommand(command);
+    scheduleCommit();
+    saveSelection();
+    refreshActiveFormats();
+  }
+
+  function changeIndent(delta: 1 | -1) {
+    restoreSelection();
+    const block = nearestBlock();
+    if (!block) return;
+    const current = Number(block.getAttribute('data-indent') || 0);
+    const next = Math.max(0, Math.min(3, current + delta));
+    if (next) block.setAttribute('data-indent', String(next));
+    else block.removeAttribute('data-indent');
+    scheduleCommit();
+    saveSelection();
+    refreshActiveFormats();
+  }
+
+  function addLink() {
+    restoreSelection();
+    const href = window.prompt('请输入链接地址');
+    if (!href) return;
+    const trimmedHref = href.trim();
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+      document.execCommand('insertHTML', false, `<a href="${escapeSiteNewsHtml(trimmedHref)}">${escapeSiteNewsHtml(trimmedHref)}</a>`);
+      scheduleCommit();
+      saveSelection();
+      return;
+    }
+    run('createLink', trimmedHref);
+  }
+
+  function markSelectedImage(img: HTMLImageElement | null) {
+    if (selectedImageRef.current && selectedImageRef.current !== img) selectedImageRef.current.classList.remove('is-selected');
+    selectedImageRef.current = img;
+    if (!img) {
+      setSelectedImageSize('');
+      setSelectedImageAlign('');
+      return;
+    }
+    img.classList.add('is-selected');
+    const figure = selectedFigure(img);
+    setSelectedImageSize(figure?.getAttribute('data-size') || img.getAttribute('data-size') || 'large');
+    setSelectedImageAlign(figure?.getAttribute('data-align') || img.getAttribute('data-align') || 'center');
+  }
+
+  function selectedFigure(img = selectedImageRef.current) {
+    const figure = img?.closest('figure');
+    return figure instanceof HTMLElement ? figure : null;
+  }
+
+  function handleEditorClick(event: MouseEvent<HTMLDivElement>) {
+    const target = event.target instanceof HTMLElement ? event.target : null;
+    const img = target?.closest('img');
+    markSelectedImage(img instanceof HTMLImageElement ? img : null);
+    saveSelection();
+  }
+
+  function applyImageSize(size: 'small' | 'medium' | 'large' | 'full') {
+    const img = selectedImageRef.current;
+    if (!img) return;
+    const figure = selectedFigure(img);
+    if (figure) figure.setAttribute('data-size', size);
+    img.setAttribute('data-size', size);
+    setSelectedImageSize(size);
+    scheduleCommit();
+  }
+
+  function applyImageAlign(align: 'left' | 'center' | 'right') {
+    const img = selectedImageRef.current;
+    if (!img) return;
+    const figure = selectedFigure(img);
+    if (figure) figure.setAttribute('data-align', align);
+    img.setAttribute('data-align', align);
+    setSelectedImageAlign(align);
+    scheduleCommit();
+  }
+
+  function editImageCaption() {
+    const img = selectedImageRef.current;
+    if (!img) return;
+    let figure = selectedFigure(img);
+    if (!figure) {
+      figure = document.createElement('figure');
+      figure.setAttribute('data-size', img.getAttribute('data-size') || 'large');
+      figure.setAttribute('data-align', img.getAttribute('data-align') || 'center');
+      img.parentNode?.insertBefore(figure, img);
+      figure.appendChild(img);
+    }
+    const current = figure.querySelector('figcaption')?.textContent || '';
+    const caption = window.prompt('请输入图片图注', current);
+    if (caption === null) return;
+    figure.querySelector('figcaption')?.remove();
+    const next = caption.trim();
+    if (next) {
+      const figcaption = document.createElement('figcaption');
+      figcaption.textContent = next;
+      figure.appendChild(figcaption);
+    }
+    scheduleCommit();
+  }
+
+  function deleteSelectedImage() {
+    const img = selectedImageRef.current;
+    if (!img) return;
+    const figure = selectedFigure(img);
+    (figure || img).remove();
+    markSelectedImage(null);
+    scheduleCommit();
+  }
+
+  function openImageUpload(mode: 'insert' | 'replace') {
+    imageUploadModeRef.current = mode;
+    imageInputRef.current?.click();
+  }
+
+  async function uploadBodyImage(file: File | null) {
+    if (!file) return;
+    if (!isAllowedJpgOrPng(file)) {
+      onFeedback({ tone: 'error', text: imageTypeErrorText() });
+      return;
+    }
+    setUploadingBodyImage(true);
+    try {
+      restoreSelection();
+      const artifact = await fileArtifacts.uploadBase64({
+        entityType: imageEntityType,
+        entityId,
+        filename: file.name,
+        mimeType: file.type || 'image/png',
+        dataBase64: await readBrowserFileBase64(file),
+      });
+      const artifactId = String((artifact as any)?.id || '');
+      if (!artifactId) throw new Error('正文图片上传后未返回文件 ID。');
+      const src = `/api/v2/file-artifact/${encodeURIComponent(artifactId)}/content`;
+      if (imageUploadModeRef.current === 'replace' && selectedImageRef.current) {
+        selectedImageRef.current.setAttribute('src', src);
+        selectedImageRef.current.setAttribute('alt', file.name);
+      } else {
+        document.execCommand('insertHTML', false, `<figure data-size="large" data-align="center"><img src="${src}" alt="${escapeSiteNewsHtml(file.name)}" loading="lazy" data-size="large" data-align="center"></figure><p><br></p>`);
+      }
+      scheduleCommit();
+      saveSelection();
+      onFeedback({ tone: 'success', text: '正文图片已上传并插入。' });
+    } catch (e) {
+      onFeedback({ tone: 'error', text: (e as Error).message || '正文图片上传失败。' });
+    } finally {
+      setUploadingBodyImage(false);
+      imageUploadModeRef.current = 'insert';
+      if (imageInputRef.current) imageInputRef.current.value = '';
+    }
+  }
+
+  return (
+    <div className="site-news-richtext">
+      <div className="site-news-richtext-toolbar" aria-label="正文格式工具栏">
+        <button type="button" className={`site-news-format-btn${activeFormats.block === 'p' ? ' active' : ''}`} onMouseDown={toolbarMouseDown} onClick={() => formatBlock('p')} title="段落">
+          段
+        </button>
+        <button type="button" className={`btn btn-outline btn-sm icon-only site-news-tool-btn${activeFormats.block === 'h2' ? ' active' : ''}`} onMouseDown={toolbarMouseDown} onClick={() => formatBlock('h2')} title="二级标题" aria-label="二级标题">
+          <Heading2 size={13} />
+        </button>
+        <button type="button" className={`site-news-format-btn${activeFormats.block === 'h3' ? ' active' : ''}`} onMouseDown={toolbarMouseDown} onClick={() => formatBlock('h3')} title="三级标题">
+          H3
+        </button>
+        <button type="button" className={`site-news-format-btn${activeFormats.block === 'blockquote' ? ' active' : ''}`} onMouseDown={toolbarMouseDown} onClick={() => formatBlock('blockquote')} title="引用">
+          引
+        </button>
+        <button type="button" className={`btn btn-outline btn-sm icon-only site-news-tool-btn${activeFormats.bold ? ' active' : ''}`} onMouseDown={toolbarMouseDown} onClick={() => run('bold')} title="加粗" aria-label="加粗">
+          <Bold size={13} />
+        </button>
+        <button type="button" className={`btn btn-outline btn-sm icon-only site-news-tool-btn${activeFormats.italic ? ' active' : ''}`} onMouseDown={toolbarMouseDown} onClick={() => run('italic')} title="斜体" aria-label="斜体">
+          <Italic size={13} />
+        </button>
+        <button type="button" className={`site-news-format-btn${activeFormats.underline ? ' active' : ''}`} onMouseDown={toolbarMouseDown} onClick={() => run('underline')} title="下划线">
+          U
+        </button>
+        <button type="button" className={`site-news-format-btn${activeFormats.strike ? ' active' : ''}`} onMouseDown={toolbarMouseDown} onClick={() => run('strikeThrough')} title="删除线">
+          S
+        </button>
+        <button type="button" className="site-news-format-btn" onMouseDown={toolbarMouseDown} onClick={() => wrapInlineTag('code')} title="代码样式">
+          {'</>'}
+        </button>
+        <button type="button" className={`btn btn-outline btn-sm icon-only site-news-tool-btn${activeFormats.unorderedList ? ' active' : ''}`} onMouseDown={toolbarMouseDown} onClick={() => run('insertUnorderedList')} title="项目列表" aria-label="项目列表">
+          <List size={13} />
+        </button>
+        <button type="button" className={`btn btn-outline btn-sm icon-only site-news-tool-btn${activeFormats.orderedList ? ' active' : ''}`} onMouseDown={toolbarMouseDown} onClick={() => run('insertOrderedList')} title="编号列表" aria-label="编号列表">
+          <ListOrdered size={13} />
+        </button>
+        <button type="button" className="site-news-format-btn" onMouseDown={toolbarMouseDown} onClick={() => changeIndent(-1)} title="减少缩进">
+          减
+        </button>
+        <button type="button" className="site-news-format-btn" onMouseDown={toolbarMouseDown} onClick={() => changeIndent(1)} title="增加缩进">
+          增
+        </button>
+        <select className="site-news-richtext-select" defaultValue="" onChange={(event) => {
+          applyInlineData('size', event.target.value);
+          event.target.value = '';
+        }} title="字号">
+          <option value="">字号</option>
+          {SITE_NEWS_TEXT_SIZES.map((size) => <option key={size} value={size}>{size}px</option>)}
+        </select>
+        <select className="site-news-richtext-select" defaultValue="" onChange={(event) => {
+          applyInlineData('color', event.target.value);
+          event.target.value = '';
+        }} title="文字颜色">
+          <option value="">文字色</option>
+          <option value="ink">标题黑</option>
+          <option value="gray">正文灰</option>
+          <option value="muted">辅助灰</option>
+          <option value="brand">品牌红</option>
+        </select>
+        <select className="site-news-richtext-select" defaultValue="" onChange={(event) => {
+          applyInlineData('bg', event.target.value);
+          event.target.value = '';
+        }} title="背景色">
+          <option value="">背景</option>
+          <option value="soft">浅灰</option>
+          <option value="brand-soft">浅红</option>
+          <option value="warning-soft">浅黄</option>
+        </select>
+        <div className="site-news-image-size-tools" aria-label="段落对齐">
+          {[
+            ['left', '左'],
+            ['center', '中'],
+            ['right', '右'],
+            ['justify', '齐'],
+          ].map(([align, label]) => (
+            <button
+              key={align}
+              type="button"
+              className={`site-news-image-size-btn${activeFormats.align === align ? ' active' : ''}`}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => applyBlockAlign(align as 'left' | 'center' | 'right' | 'justify')}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <button type="button" className={`btn btn-outline btn-sm icon-only site-news-tool-btn${activeFormats.link ? ' active' : ''}`} onMouseDown={toolbarMouseDown} onClick={addLink} title="插入链接" aria-label="插入链接">
+          <Link size={13} />
+        </button>
+        <button type="button" className="site-news-format-btn" onMouseDown={toolbarMouseDown} onClick={clearFormat} title="清除格式">
+          清
+        </button>
+        <button type="button" className="btn btn-outline btn-sm icon-only" onMouseDown={toolbarMouseDown} onClick={() => openImageUpload('insert')} title="上传正文图片" aria-label="上传正文图片" disabled={uploadingBodyImage}>
+          <Image size={13} />
+        </button>
+        <div className="site-news-image-size-tools" aria-label="正文图片尺寸">
+          {[
+            ['small', '小'],
+            ['medium', '中'],
+            ['large', '大'],
+            ['full', '满'],
+          ].map(([size, label]) => (
+            <button
+              key={size}
+              type="button"
+              className={`site-news-image-size-btn${selectedImageSize === size ? ' active' : ''}`}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => applyImageSize(size as 'small' | 'medium' | 'large' | 'full')}
+              disabled={!selectedImageRef.current}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="site-news-image-size-tools" aria-label="正文图片对齐">
+          {[
+            ['left', '左'],
+            ['center', '中'],
+            ['right', '右'],
+          ].map(([align, label]) => (
+            <button
+              key={align}
+              type="button"
+              className={`site-news-image-size-btn${selectedImageAlign === align ? ' active' : ''}`}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => applyImageAlign(align as 'left' | 'center' | 'right')}
+              disabled={!selectedImageRef.current}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="site-news-image-size-tools" aria-label="正文图片操作">
+          <button type="button" className="site-news-image-size-btn" onMouseDown={(event) => event.preventDefault()} onClick={editImageCaption} disabled={!selectedImageRef.current}>注</button>
+          <button type="button" className="site-news-image-size-btn" onMouseDown={(event) => event.preventDefault()} onClick={() => openImageUpload('replace')} disabled={!selectedImageRef.current || uploadingBodyImage}>替</button>
+          <button type="button" className="site-news-image-size-btn danger" onMouseDown={(event) => event.preventDefault()} onClick={deleteSelectedImage} disabled={!selectedImageRef.current}>删</button>
+        </div>
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/png,image/jpeg"
+          className="site-news-richtext-file"
+          onChange={(event) => uploadBodyImage(event.target.files?.[0] || null)}
+        />
+      </div>
+      <div
+        ref={editorRef}
+        className="site-news-richtext-editor"
+        contentEditable
+        role="textbox"
+        aria-label="资讯正文富文本编辑器"
+        data-placeholder="输入官网新闻正文，可使用小标题、段落、列表和链接。"
+        suppressContentEditableWarning
+        onInput={() => {
+          scheduleCommit();
+          refreshActiveFormats();
+        }}
+        onBlur={() => commitNow({ sanitize: true })}
+        onFocus={saveSelection}
+        onKeyUp={() => {
+          saveSelection();
+          refreshActiveFormats();
+        }}
+        onMouseUp={saveSelection}
+        onClick={handleEditorClick}
+        onPaste={(event) => {
+          event.preventDefault();
+          const text = event.clipboardData.getData('text/plain');
+          document.execCommand('insertHTML', false, pastedTextToNewsHtml(text));
+          scheduleCommit();
+          saveSelection();
+        }}
+      />
+    </div>
+  );
+}
+
+function SiteNewsPanel({
+  siteCode,
+  siteAssetBaseUrl,
+  canWrite,
+}: {
+  siteCode: string;
+  siteAssetBaseUrl: string;
+  canWrite: boolean;
+}) {
+  const [items, setItems] = useState<SiteNewsArticle[]>([]);
+  const [keyword, setKeyword] = useState('');
+  const [status, setStatus] = useState<'all' | SiteNewsStatus>('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [feedback, setFeedback] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [editingId, setEditingId] = useState('');
+  const [draft, setDraft] = useState<SiteNewsDraft>(() => emptyNewsDraft());
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const bodyFlushRef = useRef<(() => string) | null>(null);
+
+  const loadNews = useCallback(async () => {
+    setLoading(true);
+    try {
+      const result = await siteNews.list(siteCode, {
+        includeArchived: 'true',
+        page: String(page),
+        pageSize: String(pageSize),
+        ...(keyword.trim() ? { q: keyword.trim() } : {}),
+        ...(status !== 'all' ? { status } : {}),
+      });
+      const rows = Array.isArray((result as any)?.items) ? (result as any).items : [];
+      setItems(rows);
+      setTotal(Number((result as any)?.total || rows.length));
+      setTotalPages(Math.max(Number((result as any)?.pages || 1), 1));
+      setFeedback(null);
+    } catch (e) {
+      setFeedback({ tone: 'error', text: (e as Error).message || '资讯加载失败。' });
+    } finally {
+      setLoading(false);
+    }
+  }, [keyword, page, pageSize, siteCode, status]);
+
+  useEffect(() => {
+    loadNews();
+  }, [loadNews]);
+
+  function startCreate() {
+    setEditingId('');
+    setDraft(emptyNewsDraft());
+    setShowCreate(true);
+    setFeedback(null);
+  }
+
+  function startEdit(article: SiteNewsArticle) {
+    setEditingId(article.id);
+    setDraft(newsDraftFromArticle(article));
+    setShowCreate(false);
+    setFeedback(null);
+  }
+
+  function closeNewsEditor() {
+    setShowCreate(false);
+    setEditingId('');
+    setDraft(emptyNewsDraft());
+  }
+
+  async function saveDraft() {
+    setSaving(true);
+    try {
+      const flushedBody = bodyFlushRef.current?.() ?? draft.body;
+      const payload = newsPayload({ ...draft, body: flushedBody });
+      if (editingId) await siteNews.update(siteCode, editingId, payload);
+      else await siteNews.create(siteCode, payload);
+      setFeedback({ tone: 'success', text: editingId ? '资讯已保存。' : '资讯已创建。' });
+      setEditingId('');
+      setShowCreate(false);
+      setDraft(emptyNewsDraft());
+      await loadNews();
+    } catch (e) {
+      setFeedback({ tone: 'error', text: (e as Error).message || '资讯保存失败。' });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function uploadCover(file: File | null) {
+    if (!file) return;
+    if (!isAllowedJpgOrPng(file)) {
+      setFeedback({ tone: 'error', text: imageTypeErrorText() });
+      return;
+    }
+    setUploading(true);
+    try {
+      const artifact = await fileArtifacts.uploadBase64({
+        entityType: 'site-news',
+        entityId: editingId || 'draft',
+        filename: file.name,
+        mimeType: file.type || 'image/png',
+        dataBase64: await readBrowserFileBase64(file),
+      });
+      setDraft((current) => ({
+        ...current,
+        coverImageArtifactId: String((artifact as any)?.id || ''),
+        coverImageUrl: '',
+      }));
+      setFeedback({ tone: 'success', text: '封面图已上传。系统会自动生成官网可访问的封面地址。' });
+    } catch (e) {
+      setFeedback({ tone: 'error', text: (e as Error).message || '封面图上传失败。' });
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function changeStatus(article: SiteNewsArticle, next: 'published' | 'hidden') {
+    setSaving(true);
+    try {
+      if (next === 'published') await siteNews.publish(siteCode, article.id);
+      else await siteNews.hide(siteCode, article.id);
+      setFeedback({ tone: 'success', text: next === 'published' ? '资讯已发布。' : '资讯已隐藏。' });
+      await loadNews();
+    } catch (e) {
+      setFeedback({ tone: 'error', text: (e as Error).message || '资讯状态更新失败。' });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function archiveArticle(article: SiteNewsArticle) {
+    if (!window.confirm(`确认归档「${article.title}」？归档后前台不再展示。`)) return;
+    setSaving(true);
+    try {
+      await siteNews.archive(siteCode, article.id);
+      setFeedback({ tone: 'success', text: '资讯已归档。' });
+      await loadNews();
+    } catch (e) {
+      setFeedback({ tone: 'error', text: (e as Error).message || '资讯归档失败。' });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const editing = Boolean(showCreate || editingId);
+  const registerBodyFlush = useCallback((flush: () => string) => {
+    bodyFlushRef.current = flush;
+  }, []);
+  const draftPreviewImage = draft.coverImageArtifactId
+    ? `/api/v2/file-artifact/${encodeURIComponent(draft.coverImageArtifactId)}/content`
+    : siteNewsAssetUrl(draft.coverImageUrl || '/assets/img/home-card1.webp', siteAssetBaseUrl);
+
+  return (
+    <div className="site-news-panel" aria-label="品牌官网资讯管理">
+      <div className="site-material-panel-head">
+        <div>
+          <p className="t-label">资讯管理</p>
+          <h3>官网资讯 CRUD</h3>
+          <p>维护当前品牌官网的 News & Insights；前台保持现有卡片视觉，仅替换为后台数据。</p>
+        </div>
+        {canWrite ? (
+          <button type="button" className="btn btn-brand btn-sm" onClick={startCreate} disabled={saving}>
+            <Plus size={13} />
+            新增资讯
+          </button>
+        ) : (
+          <span className="pill-neutral">只读</span>
+        )}
+      </div>
+
+      <WorkbenchFilterToolbar>
+        <div className="brand-product-search">
+          <Search size={15} />
+          <input
+            className="input"
+            value={keyword}
+            onChange={(event) => {
+              setKeyword(event.target.value);
+              setPage(1);
+            }}
+            placeholder="搜索标题、摘要"
+          />
+          <select
+            className="input brand-product-filter"
+            value={status}
+            onChange={(event) => {
+              setStatus(event.target.value as any);
+              setPage(1);
+            }}
+          >
+            <option value="all">全部状态</option>
+            <option value="draft">草稿</option>
+            <option value="published">已发布</option>
+            <option value="hidden">已隐藏</option>
+            <option value="archived">已归档</option>
+          </select>
+        </div>
+        {loading && <span className="badge badge-info">加载中</span>}
+      </WorkbenchFilterToolbar>
+
+      {feedback && <div className={`brand-product-inline-feedback ${feedback.tone}`}>{feedback.text}</div>}
+
+      {editing && canWrite && (
+        <div className="product-edit-backdrop" role="presentation" onMouseDown={closeNewsEditor}>
+          <section
+            className="product-edit-modal site-news-edit-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="site-news-edit-title"
+            data-testid="site-news-edit-modal"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <header className="product-edit-modal-head">
+              <div>
+                <p className="t-label">资讯编辑</p>
+                <h2 id="site-news-edit-title">{editingId ? draft.title || '编辑资讯' : '新增资讯'}</h2>
+                <span>{draft.slug || 'News & Insights'}</span>
+              </div>
+              <button type="button" className="btn btn-outline btn-sm icon-only" onClick={closeNewsEditor} aria-label="关闭资讯编辑">
+                <X size={15} />
+              </button>
+            </header>
+
+            <div className="product-edit-modal-body site-news-edit-modal-body">
+              <section className="product-edit-section site-news-edit-section">
+                <div className="product-edit-section-head">
+                  <h3>基础信息</h3>
+                </div>
+                <div className="product-create-grid">
+                  <FormField label="标题" value={draft.title} onChange={(title) => setDraft((current) => ({ ...current, title }))} />
+                  <FormField label="发布日期" value={draft.publishedAt} type="date" onChange={(publishedAt) => setDraft((current) => ({ ...current, publishedAt }))} />
+                  <FormField label="排序" value={draft.sortOrder} type="number" onChange={(sortOrder) => setDraft((current) => ({ ...current, sortOrder }))} />
+                  <FormField
+                    label="状态"
+                    value={draft.status}
+                    options={[
+                      { value: 'draft', label: '草稿' },
+                      { value: 'published', label: '已发布' },
+                      { value: 'hidden', label: '已隐藏' },
+                    ]}
+                    onChange={(nextStatus) => setDraft((current) => ({ ...current, status: nextStatus as SiteNewsStatus }))}
+                  />
+                  <label style={{ display: 'grid', gap: 6 }}>
+                    <span className="t-label">上传封面</span>
+                    <input className="input" type="file" accept="image/png,image/jpeg" onChange={(event) => uploadCover(event.target.files?.[0] || null)} disabled={uploading} />
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="checkbox" checked={draft.isFeatured} onChange={(event) => setDraft((current) => ({ ...current, isFeatured: event.target.checked }))} />
+                    <span className="t-label">置顶/精选</span>
+                  </label>
+                </div>
+              </section>
+
+              <section className="product-edit-section site-news-edit-section">
+                <div className="product-edit-section-head">
+                  <h3>内容编辑</h3>
+                </div>
+                <label style={{ display: 'grid', gap: 6 }}>
+                  <span className="t-label">摘要</span>
+                  <textarea className="input" rows={2} value={draft.summary} onChange={(event) => setDraft((current) => ({ ...current, summary: event.target.value }))} />
+                </label>
+                <label style={{ display: 'grid', gap: 6 }}>
+                  <span className="t-label">正文</span>
+                  <SiteNewsRichTextEditor
+                    value={draft.body}
+                    entityId={editingId || draft.slug || 'draft'}
+                    onChange={(body) => setDraft((current) => ({ ...current, body }))}
+                    onFeedback={setFeedback}
+                    onRegisterFlush={registerBodyFlush}
+                  />
+                </label>
+              </section>
+
+              <section className="product-edit-section product-edit-section-wide site-news-edit-section">
+                <div className="product-edit-section-head">
+                  <h3>官网预览</h3>
+                </div>
+                <div className="site-news-preview-grid">
+                  <div className="site-news-preview-pane">
+                    <span className="t-label">卡片</span>
+                    <div className="site-news-preview-card">
+                      <div
+                        className="site-news-preview-img"
+                        style={{ backgroundImage: `url("${draftPreviewImage}")` }}
+                      />
+                      <div className="news-preview-body">
+                        <span>{draft.publishedAt ? draft.publishedAt.slice(0, 7) : '发布日期'}</span>
+                        <strong>{draft.title || '资讯标题'}</strong>
+                        <p>{draft.summary || '资讯摘要'}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="site-news-preview-pane">
+                    <span className="t-label">详情</span>
+                    <div className="site-news-detail-preview">
+                      <div className="site-news-detail-preview-img" style={{ backgroundImage: `url("${draftPreviewImage}")` }} />
+                      <div className="site-news-detail-preview-body">
+                        <span>{draft.publishedAt ? draft.publishedAt.slice(0, 7) : '发布日期'}</span>
+                        <h4>{draft.title || '资讯标题'}</h4>
+                        <p>{draft.summary || '资讯摘要'}</p>
+                        <div className="site-news-detail-preview-content" dangerouslySetInnerHTML={{ __html: siteNewsPreviewHtml(draft.body) }} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <footer className="product-edit-modal-actions">
+              <button type="button" className="btn btn-outline btn-sm" onClick={closeNewsEditor} disabled={saving}>
+                <X size={13} />
+                取消
+              </button>
+              <button type="button" className="btn btn-brand btn-sm" onClick={saveDraft} disabled={saving || uploading}>
+                <Save size={13} />
+                {saving ? '保存中...' : '保存资讯'}
+              </button>
+            </footer>
+          </section>
+        </div>
+      )}
+
+      <WorkbenchTableShell>
+        <div className="brand-product-table-wrap">
+          <table className="table brand-product-table site-news-table">
+            <thead>
+              <tr>
+                <th>封面</th>
+                <th>资讯</th>
+                <th>发布日期</th>
+                <th>排序</th>
+                <th>状态</th>
+                <th style={{ textAlign: 'right' }}>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {!loading && items.length ? (
+                items.map((article) => {
+                  const meta = siteNewsStatusMeta(article.status);
+                  return (
+                    <tr key={article.id}>
+                      <td>
+                        <div className="site-news-thumb" style={{ backgroundImage: `url("${siteNewsImage(article, siteAssetBaseUrl)}")` }} />
+                      </td>
+                      <td>
+                        <strong>{article.title}</strong>
+                        <div style={{ color: 'var(--t-tertiary)', fontSize: 12 }}>{article.summary}</div>
+                      </td>
+                      <td>{article.publishedAt ? String(article.publishedAt).slice(0, 10) : '-'}</td>
+                      <td><span className="mono-cell">{article.sortOrder || 0}</span></td>
+                      <td><StatusPill tone={meta.tone}>{meta.label}</StatusPill></td>
+                      <td style={{ textAlign: 'right' }}>
+                        {canWrite ? (
+                          <div className="row-edit-actions">
+                            <button type="button" className="btn btn-brand btn-sm" onClick={() => startEdit(article)} disabled={saving}>
+                              <Pencil size={13} />
+                              编辑
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-outline btn-sm"
+                              onClick={() => changeStatus(article, article.status === 'published' ? 'hidden' : 'published')}
+                              disabled={saving || article.status === 'archived'}
+                            >
+                              {article.status === 'published' ? <EyeOff size={13} /> : <Rocket size={13} />}
+                              {article.status === 'published' ? '隐藏' : '发布'}
+                            </button>
+                            <button type="button" className="btn btn-ghost btn-sm" onClick={() => archiveArticle(article)} disabled={saving || article.status === 'archived'}>
+                              <Archive size={13} />
+                              归档
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="muted-value">只读</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td colSpan={6} className="brand-product-empty">
+                    <WorkbenchTableState
+                      type={loading ? 'loading' : 'empty'}
+                      title={loading ? '正在加载资讯' : '暂无资讯'}
+                      description={loading ? '正在读取当前品牌官网资讯。' : '新增资讯后会用于官网 News & Insights 模块。'}
+                    />
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <WorkbenchPaginationFooter
+          currentPage={page}
+          totalPages={totalPages}
+          totalItems={total}
+          pageSize={pageSize}
+          pageSizeOptions={PRODUCT_PAGE_SIZE_OPTIONS}
+          onPageSizeChange={(nextPageSize) => {
+            setPageSize(nextPageSize);
+            setPage(1);
+          }}
+          onPageChange={loading ? undefined : (nextPage) => setPage(nextPage)}
+          onPrevious={loading || page <= 1 ? undefined : () => setPage((current) => Math.max(current - 1, 1))}
+          onNext={loading || page >= totalPages ? undefined : () => setPage((current) => current + 1)}
+        />
+      </WorkbenchTableShell>
     </div>
   );
 }
@@ -4216,6 +6257,8 @@ function CategorySingleSelectField({
 function ProductSummaryRow({
   product,
   canWrite,
+  canPublishShelf,
+  canHideShelf,
   feedback,
   shelfAssignment,
   shelfLoading,
@@ -4231,6 +6274,8 @@ function ProductSummaryRow({
 }: {
   product: BrandProductRow;
   canWrite: boolean;
+  canPublishShelf: boolean;
+  canHideShelf: boolean;
   feedback?: { tone: 'success' | 'error'; text: string };
   shelfAssignment?: WebsiteShelfAssignment;
   shelfLoading: boolean;
@@ -4244,14 +6289,10 @@ function ProductSummaryRow({
   onPublishShelf: () => void;
   onHideShelf: () => void;
 }) {
-  const canHideShelf = shelfAssignment?.status === 'published' && !shelfAssignment.deletedAt;
-  const shelfActionLabel = shelfTransition === 'publishing'
-    ? '官网上架中'
-    : shelfTransition === 'hiding'
-      ? '官网下架中'
-      : canHideShelf
-        ? '官网下架'
-        : '官网上架';
+  const shelfMeta = websiteShelfMeta(shelfAssignment, shelfTransition);
+  const shelfPublished = isWebsiteShelfPublished(shelfAssignment, shelfTransition);
+  const canUseShelfAction = shelfPublished ? canHideShelf : canPublishShelf;
+  const shelfActionLabel = shelfPublished ? '从当前品牌官网下架' : '上架到当前品牌官网';
   return (
     <tr className={selected ? 'is-selected' : undefined}>
       <td className="brand-product-select-col">
@@ -4284,9 +6325,18 @@ function ProductSummaryRow({
       <td className="brand-product-order-col">
         <span className="mono-cell">{product.sortOrder || 0}</span>
       </td>
+      <td className="brand-product-shelf-status-col">
+        <div className="website-shelf-status-cell">
+          <span data-testid={`website-shelf-status-${product.sku}`}>
+            <StatusPill tone={statusTone(shelfMeta.className)}>{shelfMeta.label}</StatusPill>
+          </span>
+          {shelfFeedback && (shelfBusy || shelfFeedback.tone === 'error') && <span className={`row-feedback ${shelfFeedback.tone}`}>{shelfFeedback.text}</span>}
+        </div>
+      </td>
       <td className="brand-product-actions-col">
-        {canWrite ? (
+        {canWrite || canUseShelfAction ? (
           <div className="row-edit-actions">
+            {canWrite && (
             <button
               type="button"
               className="btn btn-brand btn-sm"
@@ -4296,20 +6346,21 @@ function ProductSummaryRow({
               <Pencil size={13} />
               编辑
             </button>
-            <div className="website-shelf-cell">
+            )}
+            {canUseShelfAction && (
               <button
                 type="button"
                 className={`btn btn-outline btn-sm website-shelf-action${shelfTransition ? ' is-transitioning' : ''}`}
-                onClick={canHideShelf ? onHideShelf : onPublishShelf}
+                onClick={shelfPublished ? onHideShelf : onPublishShelf}
                 disabled={shelfBusy || shelfLoading}
-                title={canHideShelf ? '从当前品牌官网下架' : '上架到当前品牌官网'}
+                title={shelfActionLabel}
+                aria-label={shelfActionLabel}
                 data-testid={`website-shelf-action-${product.sku}`}
               >
-                {canHideShelf ? <EyeOff size={13} /> : <Rocket size={13} />}
-                {shelfActionLabel}
+                {shelfTransition ? <Loader2 size={13} /> : shelfPublished ? <EyeOff size={13} /> : <Rocket size={13} />}
+                {shelfTransition ? '处理中' : shelfPublished ? '下架' : '上架'}
               </button>
-              {shelfFeedback && (shelfBusy || shelfFeedback.tone === 'error') && <span className={`row-feedback ${shelfFeedback.tone}`}>{shelfFeedback.text}</span>}
-            </div>
+            )}
             {feedback && <span className={`row-feedback ${feedback.tone}`}>{feedback.text}</span>}
           </div>
         ) : (
@@ -4321,17 +6372,27 @@ function ProductSummaryRow({
 }
 
 function ProductEditModal({
+  mode = 'edit',
   product,
   brandCode,
   canWrite,
+  canUpdateStatus,
+  canArchiveProduct,
+  canPublishShelf,
+  canHideShelf,
   categoryOptions,
   draft,
   structuredDraft,
+  officialDetailHtml = '',
+  officialDetailDirty = false,
+  manualPdfs = [],
+  manualPdfsDirty = false,
   taxonomy,
   saving,
   savingStructured,
   feedback,
   structuredFeedback,
+  officialDetailFeedback,
   shelfAssignment,
   shelfLoading,
   shelfBusy,
@@ -4342,6 +6403,9 @@ function ProductEditModal({
   imageFeedback,
   onChange,
   onStructuredChange,
+  onOfficialDetailChange,
+  onOfficialDetailFeedback,
+  onManualPdfsChange,
   onSave,
   onReset,
   onStructuredSave,
@@ -4357,17 +6421,27 @@ function ProductEditModal({
   onDeleteDetailImage,
   onMoveDetailImage,
 }: {
+  mode?: 'create' | 'edit';
   product: BrandProductRow;
   brandCode: string;
   canWrite: boolean;
+  canUpdateStatus: boolean;
+  canArchiveProduct: boolean;
+  canPublishShelf: boolean;
+  canHideShelf: boolean;
   categoryOptions: ProductCategoryFilterOption[];
   draft: BrandProductEditDraft;
   structuredDraft: BrandStructuredContentDraft;
+  officialDetailHtml?: string;
+  officialDetailDirty?: boolean;
+  manualPdfs?: ProductManualPdfDraft[];
+  manualPdfsDirty?: boolean;
   taxonomy: Record<string, unknown>;
   saving: boolean;
   savingStructured: boolean;
   feedback?: { tone: 'success' | 'error'; text: string };
   structuredFeedback?: { tone: 'success' | 'error'; text: string };
+  officialDetailFeedback?: { tone: 'success' | 'error'; text: string };
   shelfAssignment?: WebsiteShelfAssignment;
   shelfLoading: boolean;
   shelfBusy: boolean;
@@ -4378,7 +6452,10 @@ function ProductEditModal({
   imageFeedback?: ImageActionFeedback;
   onChange: (patch: Partial<BrandProductEditDraft>) => void;
   onStructuredChange: (patch: Partial<BrandStructuredContentDraft>) => void;
-  onSave: () => void;
+  onOfficialDetailChange?: (officialDetailHtml: string) => void;
+  onOfficialDetailFeedback?: (feedback: { tone: 'success' | 'error'; text: string }) => void;
+  onManualPdfsChange?: (manualPdfs: ProductManualPdfDraft[]) => void;
+  onSave: (overrides?: { officialDetailHtml?: string }) => void;
   onReset: () => void;
   onStructuredSave: () => void;
   onStructuredReset: () => void;
@@ -4393,11 +6470,13 @@ function ProductEditModal({
   onDeleteDetailImage: (artifactId: string) => void;
   onMoveDetailImage: (artifactId: string, direction: -1 | 1) => void;
 }) {
-  const dirty = canWrite && isDirtyProductDraft(product, draft);
-  const structuredDirty = canWrite && isDirtyStructuredContentDraft(product, brandCode, structuredDraft);
+  const isCreate = mode === 'create';
+  const dirty = canWrite && (isCreate || isDirtyProductDraft(product, draft) || officialDetailDirty || manualPdfsDirty);
+  const structuredDirty = !isCreate && canWrite && isDirtyStructuredContentDraft(product, brandCode, structuredDraft);
   const status = productStatusMeta(product.status);
   const shelfMeta = websiteShelfMeta(shelfAssignment, shelfTransition);
-  const canHideShelf = isWebsiteShelfPublished(shelfAssignment, shelfTransition);
+  const shelfPublished = isWebsiteShelfPublished(shelfAssignment, shelfTransition);
+  const canUseShelfAction = shelfPublished ? canHideShelf : canPublishShelf;
   const menuGroupOptions = getBrandMenuGroupOptions(String(product.raw.brand || brandCode), draft.websiteMenuCategory);
   const productCategoryOptions = productSingleCategoryOptions(categoryOptions, product, draft);
   const selectedProductCategory = selectedProductCategoryValue(productCategoryOptions, product, draft);
@@ -4405,11 +6484,22 @@ function ProductEditModal({
     ? '官网上架中'
     : shelfTransition === 'hiding'
       ? '官网下架中'
-      : canHideShelf
+      : shelfPublished
         ? '官网下架'
         : '官网上架';
   const nameInvalid = !draft.name.trim();
+  const createInvalid = isCreate && !(draft.model.trim() || draft.publicSlug.trim());
   const update = (patch: Partial<BrandProductEditDraft>) => onChange({ ...draft, ...patch });
+  const officialDetailFlushRef = useRef<(() => string) | null>(null);
+  const handleSave = () => {
+    if (isCreate || !officialDetailFlushRef.current) {
+      onSave();
+      return;
+    }
+    const flushedOfficialDetailHtml = officialDetailFlushRef.current();
+    onOfficialDetailChange?.(flushedOfficialDetailHtml);
+    onSave({ officialDetailHtml: flushedOfficialDetailHtml });
+  };
 
   return (
     <div className="product-edit-backdrop" role="presentation" onMouseDown={onClose}>
@@ -4423,9 +6513,9 @@ function ProductEditModal({
       >
         <header className="product-edit-modal-head">
           <div>
-            <p className="t-label">产品编辑</p>
-            <h2 id="product-edit-title">{product.name || product.sku || '未命名产品'}</h2>
-            <span>{product.sku || product.id} · {product.model || '缺少型号'}</span>
+            <p className="t-label">{isCreate ? '新增产品' : '产品编辑'}</p>
+            <h2 id="product-edit-title">{isCreate ? draft.name || '新增产品' : product.name || product.sku || '未命名产品'}</h2>
+            <span>{isCreate ? '创建后生成 SKU 与官网货架状态' : `${product.sku || product.id} · ${product.model || '缺少型号'}`}</span>
           </div>
           <button type="button" className="btn btn-outline btn-sm icon-only" onClick={onClose} aria-label="关闭产品编辑">
             <X size={15} />
@@ -4468,22 +6558,25 @@ function ProductEditModal({
               />
               <FormField label="系列" value={draft.series} onChange={(series) => update({ series })} />
               <FormField label="英文名" value={draft.officialEnglishName} onChange={(officialEnglishName) => update({ officialEnglishName })} />
-              <div className="product-edit-shelf-field">
+              {!isCreate && <div className="product-edit-shelf-field">
                 <div className="product-edit-section-head">
                   <h3>官网货架</h3>
                   <StatusPill tone={statusTone(shelfMeta.className)}>{shelfMeta.label}</StatusPill>
                 </div>
                 <div className="product-edit-shelf-actions">
+                  {canUseShelfAction && (
                   <button
                     type="button"
                     className={`btn btn-outline btn-sm website-shelf-action${shelfTransition ? ' is-transitioning' : ''}`}
-                    onClick={canHideShelf ? onHideShelf : onPublishShelf}
+                    onClick={shelfPublished ? onHideShelf : onPublishShelf}
                     disabled={shelfBusy || shelfLoading}
                     data-testid={`modal-shelf-action-${product.sku}`}
                   >
-                    {canHideShelf ? <EyeOff size={13} /> : <Rocket size={13} />}
+                    {shelfPublished ? <EyeOff size={13} /> : <Rocket size={13} />}
                     {modalShelfActionLabel}
                   </button>
+                  )}
+                  {canUpdateStatus && (
                   <button
                     type="button"
                     className={`btn btn-outline btn-sm product-status-action${actionBusy ? ' is-transitioning' : ''}`}
@@ -4494,13 +6587,16 @@ function ProductEditModal({
                     {product.status === 'active' ? <ArrowDownCircle size={13} /> : <ArrowUpCircle size={13} />}
                     {actionBusy ? '处理中' : product.status === 'active' ? '产品库下架' : '产品库上架'}
                   </button>
+                  )}
+                  {canArchiveProduct && (
                   <button type="button" className="btn btn-outline btn-sm btn-danger" onClick={onArchive} disabled={actionBusy}>
                     <Archive size={13} />
                     归档产品
                   </button>
+                  )}
                   {shelfFeedback && (shelfBusy || shelfFeedback.tone === 'error') && <span className={`row-feedback ${shelfFeedback.tone}`}>{shelfFeedback.text}</span>}
                 </div>
-              </div>
+              </div>}
             </div>
           </section>
 
@@ -4524,7 +6620,7 @@ function ProductEditModal({
             {nameInvalid && <p className="product-edit-validation">产品名称不能为空。</p>}
           </section>
 
-          <section className="product-edit-section">
+          {!isCreate && <section className="product-edit-section">
             <div className="product-edit-section-head">
               <h3>图片 / 素材</h3>
               <span className={product.imageState.hasMainImage ? 'badge badge-success' : 'badge badge-warning'}>
@@ -4542,7 +6638,7 @@ function ProductEditModal({
               onDeleteDetailImage={onDeleteDetailImage}
               onMoveDetailImage={onMoveDetailImage}
             />
-          </section>
+          </section>}
 
           <section className="product-edit-section product-edit-section-wide">
             <div className="product-edit-section-head">
@@ -4561,6 +6657,33 @@ function ProductEditModal({
               onReset={onStructuredReset}
             />
           </section>
+
+          {!isCreate && <section className="product-edit-section product-edit-section-wide">
+            <div className="product-edit-section-head">
+              <h3>官网产品详情</h3>
+              <span className="badge badge-grey">750px 长图</span>
+              {officialDetailFeedback && <span className={`row-feedback ${officialDetailFeedback.tone}`}>{officialDetailFeedback.text}</span>}
+            </div>
+            <SiteNewsRichTextEditor
+              value={officialDetailHtml}
+              entityId={product.id}
+              imageEntityType="product-detail-body"
+              onChange={(nextHtml) => onOfficialDetailChange?.(nextHtml)}
+              onFeedback={(nextFeedback) => onOfficialDetailFeedback?.(nextFeedback)}
+              onRegisterFlush={(flush) => {
+                officialDetailFlushRef.current = flush;
+              }}
+            />
+            <p style={{ margin: 0, color: 'var(--t-tertiary)', fontSize: 12 }}>
+              建议上传宽度 750px 的详情图片，高度不限；官网移动端会等比例缩放。
+            </p>
+          </section>}
+
+          <ProductManualPdfUploader
+            manualPdfs={manualPdfs}
+            disabled={saving}
+            onChange={(nextManualPdfs) => onManualPdfsChange?.(nextManualPdfs)}
+          />
         </div>
 
         <footer className="product-edit-modal-actions">
@@ -4569,19 +6692,19 @@ function ProductEditModal({
             <X size={13} />
             取消
           </button>
-          <button type="button" className="btn btn-outline btn-sm" onClick={onReset} disabled={!dirty || saving}>
+          {!isCreate && <button type="button" className="btn btn-outline btn-sm" onClick={onReset} disabled={!dirty || saving}>
             <RefreshCw size={13} />
             重置基础信息
-          </button>
+          </button>}
           <button
             type="button"
             className="btn btn-brand btn-sm"
-            onClick={onSave}
-            disabled={!dirty || saving || nameInvalid}
-            data-testid="brand-product-edit-save"
+            onClick={handleSave}
+            disabled={!dirty || saving || nameInvalid || createInvalid}
+            data-testid={isCreate ? 'brand-product-create-save' : 'brand-product-edit-save'}
           >
-            <Save size={13} />
-            {saving ? '保存中...' : '保存产品'}
+            {isCreate ? <Check size={13} /> : <Save size={13} />}
+            {saving ? (isCreate ? '创建中...' : '保存中...') : (isCreate ? '创建产品骨架' : '保存产品')}
           </button>
         </footer>
       </section>
@@ -4595,6 +6718,75 @@ function LabeledValue({ label, value, fallback }: { label: string; value: string
       <span className="edit-field-caption">{label}</span>
       <span>{value || fallback}</span>
     </div>
+  );
+}
+
+function ProductManualPdfUploader({
+  manualPdfs,
+  disabled,
+  onChange,
+}: {
+  manualPdfs: ProductManualPdfDraft[];
+  disabled: boolean;
+  onChange: (manualPdfs: ProductManualPdfDraft[]) => void;
+}) {
+  return (
+    <section className="product-edit-section product-edit-section-wide">
+      <div className="product-edit-section-head">
+        <h3>产品说明 PDF</h3>
+        <span className="badge badge-grey">不限数量</span>
+      </div>
+      <label className="product-create-field">
+        <span>上传 PDF</span>
+        <input
+          className="input"
+          type="file"
+          accept="application/pdf,.pdf"
+          multiple
+          disabled={disabled}
+          onChange={(event) => {
+            const files = Array.from(event.target.files || []).filter((file) => file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf'));
+            if (!files.length) return;
+            onChange([
+              ...manualPdfs,
+              ...files.map((file) => ({
+                id: `${file.name}-${file.lastModified}-${Math.random().toString(36).slice(2)}`,
+                file,
+                name: file.name,
+                previewUrl: URL.createObjectURL(file),
+              })),
+            ]);
+            event.currentTarget.value = '';
+          }}
+        />
+      </label>
+      {manualPdfs.length ? (
+        <div style={{ display: 'grid', gap: 10 }}>
+          {manualPdfs.map((manual, index) => (
+            <div key={manual.id} className="inset" style={{ display: 'grid', gap: 8, padding: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <strong style={{ overflowWrap: 'anywhere' }}>{index + 1}. {manual.name}</strong>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => {
+                    URL.revokeObjectURL(manual.previewUrl);
+                    onChange(manualPdfs.filter((item) => item.id !== manual.id));
+                  }}
+                  disabled={disabled}
+                >
+                  <X size={13} />
+                  移除
+                </button>
+              </div>
+              <iframe title={`PDF preview ${manual.name}`} src={manual.previewUrl} style={{ width: '100%', height: 320, border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', background: 'var(--surface-2)' }} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="inset" style={{ padding: 12, color: 'var(--t-secondary)', fontSize: 13 }}>尚未上传产品说明 PDF。</div>
+      )}
+    </section>
   );
 }
 
@@ -4865,6 +7057,7 @@ function StructuredContentEditor({
   dirty,
   saving,
   feedback,
+  showActions = true,
   onChange,
   onSave,
   onReset,
@@ -4875,6 +7068,7 @@ function StructuredContentEditor({
   dirty: boolean;
   saving: boolean;
   feedback?: { tone: 'success' | 'error'; text: string };
+  showActions?: boolean;
   onChange: (patch: Partial<BrandStructuredContentDraft>) => void;
   onSave: () => void;
   onReset: () => void;
@@ -4888,7 +7082,7 @@ function StructuredContentEditor({
           <p className="t-label">结构化官网内容</p>
           <strong>官网文案、规格、富内容与分类词表</strong>
         </div>
-        {canWrite ? (
+        {canWrite && showActions ? (
           <div className="structured-actions">
             {feedback && <span className={`row-feedback ${feedback.tone}`}>{feedback.text}</span>}
             <button type="button" className="btn btn-outline btn-sm" onClick={onReset} disabled={!dirty || saving}>
@@ -4927,7 +7121,6 @@ function StructuredContentEditor({
             />
             <StructuredTextField label="官方文案" value={draft.officialCopy} canWrite={canWrite} multiline onChange={(officialCopy) => update({ officialCopy })} />
             <StructuredTextField label="图标" value={draft.icon} canWrite={canWrite} onChange={(icon) => update({ icon })} />
-            <StructuredTextField label="主图地址" value={draft.image} canWrite={canWrite} onChange={(image) => update({ image })} />
             <StructuredTextField label="规格图地址" value={draft.specImage} canWrite={canWrite} onChange={(specImage) => update({ specImage })} />
           </div>
         </section>
@@ -5397,9 +7590,6 @@ function ProductImageAssets({
   feedback,
   onUploadMainImage,
   onDeleteMainImage,
-  onUploadDetailImage,
-  onDeleteDetailImage,
-  onMoveDetailImage,
 }: {
   product: BrandProductRow;
   canWrite: boolean;
@@ -5412,9 +7602,6 @@ function ProductImageAssets({
   onMoveDetailImage: (artifactId: string, direction: -1 | 1) => void;
 }) {
   const inputId = `main-image-${product.id || product.sku}`;
-  const detailInputId = `detail-image-${product.id || product.sku}`;
-  const details = product.imageState.detailRefs;
-  const [previewImage, setPreviewImage] = useState<{ src: string; alt: string } | null>(null);
   return (
     <div className="image-asset-cell" data-testid={`image-assets-${product.sku}`}>
       <div className="image-main-preview">
@@ -5424,7 +7611,6 @@ function ProductImageAssets({
         <span className={product.imageState.hasMainImage ? 'pill-brand' : 'pill-neutral'}>
           {product.imageState.hasMainImage ? '主图已就绪' : '缺少主图'}
         </span>
-        <span className="muted-value">详情图：{product.imageState.galleryCount}</span>
         <span className="image-format-hint">只能上传 JPG / PNG 图片</span>
       </div>
       {canWrite && (
@@ -5445,22 +7631,6 @@ function ProductImageAssets({
             <Upload size={13} />
             {busy ? '处理中' : product.imageState.hasMainImage ? '替换' : '上传'}
           </label>
-          <input
-            id={detailInputId}
-            data-testid={`detail-image-input-${product.sku}`}
-            className="sr-only-file"
-            type="file"
-            accept="image/jpeg,image/png,.jpg,.jpeg,.png"
-            disabled={busy}
-            onChange={(event) => {
-              onUploadDetailImage(event.target.files?.[0] || null);
-              event.currentTarget.value = '';
-            }}
-          />
-          <label className={`btn btn-outline btn-sm image-upload-label${busy ? ' is-disabled' : ''}`} htmlFor={detailInputId} title="上传详情图">
-            <Plus size={13} />
-            {busy ? '处理中' : '详情图'}
-          </label>
           <button
             type="button"
             className="btn btn-outline btn-sm btn-danger"
@@ -5479,63 +7649,6 @@ function ProductImageAssets({
           {feedback.text}
         </div>
       )}
-      {details.length > 0 && (
-        <div className="detail-image-list" aria-label={`${product.sku} 详情图引用`}>
-          {details.map((ref, index) => (
-            <div className="detail-image-ref" key={ref.artifactId}>
-              <button
-                type="button"
-                className="image-preview-button"
-                onClick={() => setPreviewImage({ src: detailImageUrl(ref), alt: ref.filename || ref.artifactId || '详情图' })}
-                title="点击查看大图"
-              >
-                <img
-                  className="detail-image-thumb"
-                  src={detailImageUrl(ref)}
-                  alt={ref.filename || ref.artifactId || '详情图'}
-                  loading="lazy"
-                />
-              </button>
-              <span title={ref.filename || ref.artifactId}>{ref.filename || ref.artifactId}</span>
-              {canWrite && (
-                <div className="detail-image-actions">
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-sm icon-only"
-                    disabled={busy || index === 0}
-                    onClick={() => onMoveDetailImage(ref.artifactId, -1)}
-                    title="详情图上移"
-                    data-testid={`detail-up-${product.sku}-${ref.artifactId}`}
-                  >
-                    <ArrowUpCircle size={13} />
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-sm icon-only"
-                    disabled={busy || index === details.length - 1}
-                    onClick={() => onMoveDetailImage(ref.artifactId, 1)}
-                    title="详情图下移"
-                    data-testid={`detail-down-${product.sku}-${ref.artifactId}`}
-                  >
-                    <ArrowDownCircle size={13} />
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-sm icon-only btn-danger"
-                    disabled={busy}
-                    onClick={() => onDeleteDetailImage(ref.artifactId)}
-                    title="删除详情图"
-                    data-testid={`detail-delete-${product.sku}-${ref.artifactId}`}
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-      {previewImage && <ImageLightbox src={previewImage.src} alt={previewImage.alt} onClose={() => setPreviewImage(null)} />}
     </div>
   );
 }
@@ -5561,6 +7674,12 @@ function isWebsiteShelfPublished(assignment?: WebsiteShelfAssignment, transition
   return assignment?.status === 'published' && !assignment.deletedAt;
 }
 
+function productMatchesShelfFilter(assignment: WebsiteShelfAssignment | undefined, filter: WebsiteShelfFilter) {
+  if (filter === 'all') return true;
+  const published = isWebsiteShelfPublished(assignment);
+  return filter === 'published' ? published : !published;
+}
+
 function statusTone(className: string): 'success' | 'warning' | 'danger' | 'info' | 'neutral' {
   if (className.includes('badge-success')) return 'success';
   if (className.includes('badge-warning')) return 'warning';
@@ -5581,66 +7700,6 @@ function shelfSortRank(assignment?: WebsiteShelfAssignment) {
   if (assignment.status === 'published') return 3;
   if (assignment.status === 'hidden') return 2;
   return 1;
-}
-
-function ProductCreatePanel({
-  brandCode,
-  draft,
-  error,
-  creating,
-  onChange,
-  onCancel,
-  onCreate,
-}: {
-  brandCode: string;
-  draft: BrandProductEditDraft;
-  error: string;
-  creating: boolean;
-  onChange: (patch: Partial<BrandProductEditDraft>) => void;
-  onCancel: () => void;
-  onCreate: () => void;
-}) {
-  const ready = Boolean(draft.name.trim() && (draft.model.trim() || draft.publicSlug.trim()));
-  const menuGroupOptions = getBrandMenuGroupOptions(brandCode, draft.websiteMenuCategory);
-  const categoryOptions = optionsWithCurrent(PRODUCT_CATEGORY_SELECT_OPTIONS, draft.category, productCategoryLabel);
-  const systemOptions = optionsWithCurrent(PRODUCT_SYSTEM_SELECT_OPTIONS, draft.system, productDisplaySystem);
-  return (
-    <div className="product-create-panel">
-      <div className="product-create-grid">
-        <FormField label="公开 Slug" value={draft.publicSlug} onChange={(publicSlug) => onChange({ publicSlug })} />
-        <FormField label="名称" value={draft.name} onChange={(name) => onChange({ name })} />
-        <FormField label="型号" value={draft.model} onChange={(model) => onChange({ model })} />
-        <FormField label="分类" value={draft.category} options={categoryOptions} onChange={(category) => onChange({ category })} />
-        <FormField label="系统" value={draft.system} options={systemOptions} onChange={(system) => onChange({ system })} />
-        <FormField
-          label="官网菜单分类"
-          value={draft.websiteMenuCategory}
-          options={menuGroupOptions}
-          onChange={(websiteMenuCategory) => onChange({ websiteMenuCategory })}
-        />
-        <FormField label="排序" value={draft.sortOrder} type="number" onChange={(sortOrder) => onChange({ sortOrder })} />
-        <FormField label="标语" value={draft.tagline} onChange={(tagline) => onChange({ tagline })} />
-        <FormField label="系列" value={draft.series} onChange={(series) => onChange({ series })} />
-        <FormField
-          label="英文名"
-          value={draft.officialEnglishName}
-          onChange={(officialEnglishName) => onChange({ officialEnglishName })}
-        />
-        <FormField label="标签" value={draft.badges} onChange={(badges) => onChange({ badges })} />
-      </div>
-      <div className="product-create-actions">
-        {error && <span className="row-feedback error">{error}</span>}
-        <button type="button" className="btn btn-outline btn-sm" onClick={onCancel} disabled={creating}>
-          <X size={13} />
-          取消
-        </button>
-        <button type="button" className="btn btn-brand btn-sm" onClick={onCreate} disabled={!ready || creating}>
-          <Check size={13} />
-          {creating ? '创建中' : '创建产品骨架'}
-        </button>
-      </div>
-    </div>
-  );
 }
 
 function LabeledCompactField({
@@ -5768,6 +7827,33 @@ function readBrowserFileBase64(file: File): Promise<string> {
     reader.onerror = () => reject(reader.error || new Error('Image file could not be read.'));
     reader.readAsDataURL(file);
   });
+}
+
+async function uploadProductManualPdfRefs(manualPdfs: ProductManualPdfDraft[], sku: string) {
+  const clean = (value: unknown) => String(value || '').trim();
+  return Promise.all(
+    manualPdfs.map(async (manual, index) => {
+      if (!manual.file) throw new Error('PDF file is missing.');
+      const artifact = await fileArtifacts.uploadBase64({
+        entityType: 'product-manual-pdf',
+        entityId: sku,
+        filename: manual.name || manual.file.name || `${sku}-manual-${index + 1}.pdf`,
+        mimeType: manual.file.type || 'application/pdf',
+        dataBase64: await readBrowserFileBase64(manual.file),
+      });
+      const artifactId = clean((artifact as any)?.id || (artifact as any)?.artifactId);
+      if (!artifactId) throw new Error('PDF upload did not return an artifact id.');
+      return {
+        role: 'doc',
+        artifactId,
+        objectKey: clean((artifact as any)?.fileKey || (artifact as any)?.objectKey),
+        filename: clean((artifact as any)?.originalName) || manual.name || manual.file.name,
+        mimeType: clean((artifact as any)?.mimeType) || manual.file.type || 'application/pdf',
+        sortOrder: index,
+        url: clean((artifact as any)?.contentUrl) || `/api/v2/file-artifact/${encodeURIComponent(artifactId)}/content`,
+      };
+    }),
+  );
 }
 
 function SummaryItem({ label, children }: { label: string; children: ReactNode }) {

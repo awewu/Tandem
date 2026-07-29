@@ -84,6 +84,21 @@ export const adminUsers = {
     apiFetch('/api/v2/auth/admin/users/' + encodeURIComponent(id) + '/reset-password', { method: 'POST', body: JSON.stringify({ newPassword }) }),
   remove: (id: string) =>
     apiFetch('/api/v2/auth/admin/users/' + encodeURIComponent(id), { method: 'DELETE' }),
+  setRoles: (id: string, data: { roleIds: string[]; primaryRoleId?: string }) =>
+    apiFetch('/api/v2/auth/admin/users/' + encodeURIComponent(id) + '/roles', { method: 'PUT', body: JSON.stringify(data) }),
+  effectivePermissions: (id: string) =>
+    apiFetch('/api/v2/auth/admin/users/' + encodeURIComponent(id) + '/effective-permissions'),
+};
+
+export const adminRbac = {
+  permissions: () => apiFetch('/api/v2/auth/admin/permissions'),
+  roles: () => apiFetch('/api/v2/auth/admin/roles'),
+  createRole: (data: Record<string, unknown>) =>
+    apiFetch('/api/v2/auth/admin/roles', { method: 'POST', body: JSON.stringify(data) }),
+  updateRole: (id: string, data: Record<string, unknown>) =>
+    apiFetch('/api/v2/auth/admin/roles/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify(data) }),
+  setRolePermissions: (id: string, permissions: string[]) =>
+    apiFetch('/api/v2/auth/admin/roles/' + encodeURIComponent(id) + '/permissions', { method: 'PUT', body: JSON.stringify({ permissions }) }),
 };
 
 export const products = {
@@ -99,6 +114,15 @@ export const products = {
   update: (id: string, data: Record<string, unknown>) =>
     apiFetch(`/api/v2/product-catalog/devices/${encodeURIComponent(id)}`, {
       method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+  listContent: (id: string, query?: Record<string, string>) => {
+    const qs = new URLSearchParams(query || {}).toString();
+    return apiFetch(`/api/v2/product-catalog/devices/${encodeURIComponent(id)}/content${qs ? `?${qs}` : ''}`);
+  },
+  upsertContent: (id: string, data: Record<string, unknown>) =>
+    apiFetch(`/api/v2/product-catalog/devices/${encodeURIComponent(id)}/content`, {
+      method: 'POST',
       body: JSON.stringify(data),
     }),
   archive: (id: string, tenantId?: string) => {
@@ -219,6 +243,35 @@ export const siteProductAssignments = {
       `/api/v2/brand-sites/${encodeURIComponent(siteCode)}/product-assignments/${encodeURIComponent(assignmentId)}`,
       { method: 'DELETE' }
     ),
+};
+
+export const siteNews = {
+  list: (siteCode: string, query?: Record<string, string>) => {
+    const qs = new URLSearchParams(query || {}).toString();
+    return apiFetch(`/api/v2/brand-sites/${encodeURIComponent(siteCode)}/news${qs ? `?${qs}` : ''}`);
+  },
+  create: (siteCode: string, data: Record<string, unknown>) =>
+    apiFetch(`/api/v2/brand-sites/${encodeURIComponent(siteCode)}/news`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  update: (siteCode: string, articleId: string, data: Record<string, unknown>) =>
+    apiFetch(`/api/v2/brand-sites/${encodeURIComponent(siteCode)}/news/${encodeURIComponent(articleId)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+  publish: (siteCode: string, articleId: string) =>
+    apiFetch(`/api/v2/brand-sites/${encodeURIComponent(siteCode)}/news/${encodeURIComponent(articleId)}/publish`, {
+      method: 'POST',
+    }),
+  hide: (siteCode: string, articleId: string) =>
+    apiFetch(`/api/v2/brand-sites/${encodeURIComponent(siteCode)}/news/${encodeURIComponent(articleId)}/hide`, {
+      method: 'POST',
+    }),
+  archive: (siteCode: string, articleId: string) =>
+    apiFetch(`/api/v2/brand-sites/${encodeURIComponent(siteCode)}/news/${encodeURIComponent(articleId)}`, {
+      method: 'DELETE',
+    }),
 };
 
 export const siteMaterials = {
