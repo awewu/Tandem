@@ -6,7 +6,8 @@
 - NSSM 托管 Node 服务
 - GitLab 本地仓库
 - 云服务器不能访问 GitLab
-- GitLab Runner 构建 zip 包并上传服务器
+- GitLab Linux Runner 上传源码包到服务器
+- Windows Server 本机构建发布包
 - `deploy` 分支触发发布
 - 蓝绿不停机发布
 - Nginx 反向代理切流
@@ -19,12 +20,13 @@
 ```text
 .gitlab-ci.yml
 package-deploy.ps1
+scripts\deploy-windows-nssm-from-source.ps1
 scripts\deploy-windows-nssm-bluegreen.ps1
 scripts\deploy-windows-nssm.ps1
 docs\WINDOWS-NSSM-CICD.md
 ```
 
-GitLab Runner 建议使用 Windows Runner，因为 `package-deploy.ps1` 使用了 `robocopy`。
+GitLab Runner 使用 Linux shell Runner；它只上传源码包，不在 Linux 上构建 Windows 运行包。
 
 ## 1. Windows Server 准备
 
@@ -74,12 +76,14 @@ E:\tandem-deploy\.env.production
 把仓库里的脚本复制到服务器：
 
 ```text
+scripts\deploy-windows-nssm-from-source.ps1
 scripts\deploy-windows-nssm-bluegreen.ps1
 ```
 
 目标路径：
 
 ```text
+E:\tandem-deploy\deploy-windows-nssm-from-source.ps1
 E:\tandem-deploy\deploy-windows-nssm-bluegreen.ps1
 ```
 
@@ -214,28 +218,23 @@ DEPLOY_NOTIFY_WEBHOOK_TYPE=wecom
 
 ## 4. GitLab Runner 要求
 
-当前 `.gitlab-ci.yml` 的发布任务需要 Windows Runner，并带有 tag：
+当前 `.gitlab-ci.yml` 的发布任务需要 Linux shell Runner，并带有 tag：
 
 ```text
-windows
+linux
 ```
 
 Runner 机器需要安装：
 
 ```text
-Node.js
-npm
-PowerShell
 OpenSSH client
 Git
 ```
 
 确认 Runner 执行用户能运行：
 
-```powershell
-npm -v
-powershell -v
-scp -V
+```bash
+git --version
 ssh -V
 ```
 
@@ -276,14 +275,15 @@ deploy_prod
 
 `deploy_prod` 会做：
 
-1. 写入 SSH 私钥。
-2. 构建 `tandem-deploy.zip`。
-3. 上传到 `E:/tandem-deploy/update/tandem-deploy.zip`。
-4. 执行 `deploy-windows-nssm-bluegreen.ps1`。
-5. 启动闲置实例。
-6. 健康检查。
-7. 切换 Nginx upstream 并 reload。
-8. 发送企微通知。
+1. Linux Runner 用 `git archive` 生成 `tandem-source.zip`。
+2. 上传到 `E:/tandem-deploy/update/tandem-source.zip`。
+3. 远程执行 `deploy-windows-nssm-from-source.ps1`。
+4. Windows Server 本机 `npm ci` 并运行 `package-deploy.ps1`。
+5. 生成 `tandem-deploy.zip`。
+6. 执行蓝绿发布。
+7. 启动闲置实例并健康检查。
+8. 切换 Nginx upstream 并 reload。
+9. 发送企微通知。
 
 第一次蓝绿发布通常会从：
 

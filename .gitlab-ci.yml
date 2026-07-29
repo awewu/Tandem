@@ -1,99 +1,46 @@
 # GitLab CI · Tandem
 #
 # 兼容老版本 GitLab：不使用 extends / rules / needs / service variables。
-# 当前发布环境：Windows Runner + NSSM + Nginx + deploy 分支触发生产发布。
+# 当前发布环境：Linux shell Runner 只上传源码，Windows Server 本机打包并蓝绿发布。
 
 stages:
-  - test
-  - build
+  - package
   - deploy
 
 variables:
-  NEXT_TELEMETRY_DISABLED: "1"
-  NPM_CONFIG_CACHE: ".npm"
+  DEPLOY_ROOT: "E:/tandem-deploy"
   DEPLOY_NGINX_EXE: "E:/soft/nginx-1.30.2/nginx.exe"
   DEPLOY_PUBLIC_BASE_URL: "https://ai.rhautt.com"
   DEPLOY_NOTIFY_WEBHOOK_TYPE: "wecom"
 
-typecheck:
-  stage: test
+package_source:
+  stage: package
   tags:
-    - windows
-  cache:
-    key: tandem-node-cache
-    paths:
-      - .npm/
-      - node_modules/
+    - linux
+  only:
+    - deploy
   script:
-    - node --version
-    - npm --version
-    - npm ci --no-audit --no-fund --ignore-scripts --prefer-offline
-    - npx tsc --noEmit
-
-lint:
-  stage: test
-  tags:
-    - windows
-  cache:
-    key: tandem-node-cache
-    paths:
-      - .npm/
-      - node_modules/
-  script:
-    - node --version
-    - npm --version
-    - npm ci --no-audit --no-fund --ignore-scripts --prefer-offline
-    - npm run lint --if-present
-  allow_failure: true
-
-unit:
-  stage: test
-  tags:
-    - windows
-  cache:
-    key: tandem-node-cache
-    paths:
-      - .npm/
-      - node_modules/
-  variables:
-    NODE_ENV: test
-  script:
-    - node --version
-    - npm --version
-    - npm ci --no-audit --no-fund --ignore-scripts --prefer-offline
-    - npm test
-
-package:
-  stage: build
-  tags:
-    - windows
-  cache:
-    key: tandem-node-cache
-    paths:
-      - .npm/
-      - node_modules/
-  script:
-    - node --version
-    - npm --version
-    - npm ci --no-audit --no-fund --prefer-offline
-    - powershell -ExecutionPolicy Bypass -File package-deploy.ps1 -OutputZip tandem-deploy.zip
+    - git archive --format=zip --output=tandem-source.zip HEAD
   artifacts:
     paths:
-      - tandem-deploy.zip
+      - tandem-source.zip
     expire_in: 1 day
 
 deploy_prod:
   stage: deploy
   tags:
-    - windows
+    - linux
   only:
     - deploy
   script:
-    - New-Item -ItemType Directory -Force "$env:USERPROFILE\.ssh"
-    - $env:DEPLOY_SSH_PRIVATE_KEY -replace "`r", "" | Set-Content -NoNewline "$env:USERPROFILE\.ssh\id_tandem_deploy"
-    - ssh-keyscan $env:DEPLOY_HOST | Add-Content "$env:USERPROFILE\.ssh\known_hosts"
-    - if (-not (Test-Path "tandem-deploy.zip")) { powershell -ExecutionPolicy Bypass -File package-deploy.ps1 -OutputZip tandem-deploy.zip }
-    - scp -i "$env:USERPROFILE\.ssh\id_tandem_deploy" tandem-deploy.zip "${env:DEPLOY_USER}@${env:DEPLOY_HOST}:$env:DEPLOY_ROOT/update/tandem-deploy.zip"
-    - ssh -i "$env:USERPROFILE\.ssh\id_tandem_deploy" "${env:DEPLOY_USER}@${env:DEPLOY_HOST}" "powershell -ExecutionPolicy Bypass -File $env:DEPLOY_ROOT/deploy-windows-nssm-bluegreen.ps1 -Root $env:DEPLOY_ROOT -BlueServiceName TandemServerBlue -GreenServiceName TandemServerGreen -BluePort 3005 -GreenPort 3006 -NginxExe '$env:DEPLOY_NGINX_EXE' -NginxUpstreamFile '$env:DEPLOY_ROOT/nginx/tandem-upstream.conf' -PublicBaseUrl '$env:DEPLOY_PUBLIC_BASE_URL' -NotifyWebhookUrl '$env:DEPLOY_NOTIFY_WEBHOOK_URL' -NotifyWebhookType '$env:DEPLOY_NOTIFY_WEBHOOK_TYPE'"
+    - mkdir -p ~/.ssh
+    - printf '%s' "$DEPLOY_SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_tandem_deploy
+    - chmod 600 ~/.ssh/id_tandem_deploy
+    - ssh-keyscan "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+    - ssh -i ~/.ssh/id_tandem_deploy "$DEPLOY_USER@$DEPLOY_HOST" "powershell -ExecutionPolicy Bypass -Command \"New-Item -ItemType Directory -Force '$DEPLOY_ROOT','${DEPLOY_ROOT}/update','${DEPLOY_ROOT}/nginx' | Out-Null\""
+    - scp -i ~/.ssh/id_tandem_deploy scripts/deploy-windows-nssm-from-source.ps1 "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_ROOT/deploy-windows-nssm-from-source.ps1"
+    - scp -i ~/.ssh/id_tandem_deploy scripts/deploy-windows-nssm-bluegreen.ps1 "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_ROOT/deploy-windows-nssm-bluegreen.ps1"
+    - scp -i ~/.ssh/id_tandem_deploy tandem-source.zip "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_ROOT/update/tandem-source.zip"
+    - ssh -i ~/.ssh/id_tandem_deploy "$DEPLOY_USER@$DEPLOY_HOST" "powershell -ExecutionPolicy Bypass -File $DEPLOY_ROOT/deploy-windows-nssm-from-source.ps1 -Root $DEPLOY_ROOT -SourcePackageName tandem-source.zip -BlueServiceName TandemServerBlue -GreenServiceName TandemServerGreen -BluePort 3005 -GreenPort 3006 -NginxExe '$DEPLOY_NGINX_EXE' -NginxUpstreamFile '$DEPLOY_ROOT/nginx/tandem-upstream.conf' -PublicBaseUrl '$DEPLOY_PUBLIC_BASE_URL' -NotifyWebhookUrl '$DEPLOY_NOTIFY_WEBHOOK_URL' -NotifyWebhookType '$DEPLOY_NOTIFY_WEBHOOK_TYPE'"
   environment:
     name: production
