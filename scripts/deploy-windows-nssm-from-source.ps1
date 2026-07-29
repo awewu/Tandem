@@ -18,6 +18,24 @@ param(
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
+function Normalize-Arg {
+  param([string]$Value)
+  if ($null -eq $Value) { return $Value }
+  return $Value.Trim().Trim("'").Trim('"')
+}
+
+$Root = Normalize-Arg $Root
+$SourcePackageName = Normalize-Arg $SourcePackageName
+$BlueServiceName = Normalize-Arg $BlueServiceName
+$GreenServiceName = Normalize-Arg $GreenServiceName
+$NodeExe = Normalize-Arg $NodeExe
+$NginxExe = Normalize-Arg $NginxExe
+$NginxUpstreamFile = Normalize-Arg $NginxUpstreamFile
+$PublicBaseUrl = Normalize-Arg $PublicBaseUrl
+$HealthPath = Normalize-Arg $HealthPath
+$NotifyWebhookUrl = Normalize-Arg $NotifyWebhookUrl
+$NotifyWebhookType = Normalize-Arg $NotifyWebhookType
+
 $UpdateDir = Join-Path $Root "update"
 $SourceZip = Join-Path $UpdateDir $SourcePackageName
 $SourceDir = Join-Path $Root "source"
