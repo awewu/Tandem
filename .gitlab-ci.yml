@@ -34,13 +34,12 @@ deploy_prod:
     - deploy
   script:
     - mkdir -p ~/.ssh
-    - printf '%s' "$DEPLOY_SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_tandem_deploy
     - chmod 600 ~/.ssh/id_tandem_deploy
     - ssh-keyscan "$DEPLOY_HOST" >> ~/.ssh/known_hosts
-    - ssh -i ~/.ssh/id_tandem_deploy "$DEPLOY_USER@$DEPLOY_HOST" "powershell -ExecutionPolicy Bypass -Command \"New-Item -ItemType Directory -Force '$DEPLOY_ROOT','${DEPLOY_ROOT}/update','${DEPLOY_ROOT}/nginx' | Out-Null\""
-    - scp -i ~/.ssh/id_tandem_deploy scripts/deploy-windows-nssm-from-source.ps1 "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_ROOT/deploy-windows-nssm-from-source.ps1"
-    - scp -i ~/.ssh/id_tandem_deploy scripts/deploy-windows-nssm-bluegreen.ps1 "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_ROOT/deploy-windows-nssm-bluegreen.ps1"
-    - scp -i ~/.ssh/id_tandem_deploy tandem-source.zip "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_ROOT/update/tandem-source.zip"
-    - ssh -i ~/.ssh/id_tandem_deploy "$DEPLOY_USER@$DEPLOY_HOST" "powershell -ExecutionPolicy Bypass -File $DEPLOY_ROOT/deploy-windows-nssm-from-source.ps1 -Root $DEPLOY_ROOT -SourcePackageName tandem-source.zip -BlueServiceName TandemServerBlue -GreenServiceName TandemServerGreen -BluePort 3005 -GreenPort 3006 -NginxExe '$DEPLOY_NGINX_EXE' -NginxUpstreamFile '$DEPLOY_ROOT/nginx/tandem-upstream.conf' -PublicBaseUrl '$DEPLOY_PUBLIC_BASE_URL' -NotifyWebhookUrl '$DEPLOY_NOTIFY_WEBHOOK_URL' -NotifyWebhookType '$DEPLOY_NOTIFY_WEBHOOK_TYPE'"
+    - ssh -o BatchMode=yes -i ~/.ssh/id_tandem_deploy "$DEPLOY_USER@$DEPLOY_HOST" "powershell -ExecutionPolicy Bypass -Command \"New-Item -ItemType Directory -Force '$DEPLOY_ROOT','${DEPLOY_ROOT}/update','${DEPLOY_ROOT}/nginx' | Out-Null\""
+    - scp -o BatchMode=yes -i ~/.ssh/id_tandem_deploy scripts/deploy-windows-nssm-from-source.ps1 "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_ROOT/deploy-windows-nssm-from-source.ps1"
+    - scp -o BatchMode=yes -i ~/.ssh/id_tandem_deploy scripts/deploy-windows-nssm-bluegreen.ps1 "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_ROOT/deploy-windows-nssm-bluegreen.ps1"
+    - scp -o BatchMode=yes -i ~/.ssh/id_tandem_deploy tandem-source.zip "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_ROOT/update/tandem-source.zip"
+    - ssh -o BatchMode=yes -i ~/.ssh/id_tandem_deploy "$DEPLOY_USER@$DEPLOY_HOST" "powershell -ExecutionPolicy Bypass -File $DEPLOY_ROOT/deploy-windows-nssm-from-source.ps1 -Root $DEPLOY_ROOT -SourcePackageName tandem-source.zip -BlueServiceName TandemServerBlue -GreenServiceName TandemServerGreen -BluePort 3005 -GreenPort 3006 -NginxExe '$DEPLOY_NGINX_EXE' -NginxUpstreamFile '$DEPLOY_ROOT/nginx/tandem-upstream.conf' -PublicBaseUrl '$DEPLOY_PUBLIC_BASE_URL' -NotifyWebhookUrl '$DEPLOY_NOTIFY_WEBHOOK_URL' -NotifyWebhookType '$DEPLOY_NOTIFY_WEBHOOK_TYPE'"
   environment:
     name: production
