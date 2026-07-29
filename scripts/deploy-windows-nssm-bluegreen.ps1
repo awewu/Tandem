@@ -49,6 +49,36 @@ function Require-File {
   }
 }
 
+function Resolve-Executable {
+  param([string]$Command, [string]$Message)
+
+  if (Test-Path $Command) {
+    return (Resolve-Path -LiteralPath $Command).Path
+  }
+
+  $resolved = Get-Command $Command -ErrorAction SilentlyContinue
+  if ($resolved) {
+    return $resolved.Source
+  }
+
+  $leaf = Split-Path -Leaf $Command
+  if ($leaf) {
+    $resolved = Get-Command $leaf -ErrorAction SilentlyContinue
+    if ($resolved) {
+      return $resolved.Source
+    }
+  }
+
+  if ($leaf -ieq "node.exe") {
+    $resolved = Get-Command "node" -ErrorAction SilentlyContinue
+    if ($resolved) {
+      return $resolved.Source
+    }
+  }
+
+  throw "$Message`: $Command"
+}
+
 function Invoke-Nssm {
   param([Parameter(ValueFromRemainingArguments = $true)][string[]]$NssmArgs)
   & nssm @NssmArgs
@@ -208,7 +238,8 @@ Ensure-Dir $LogDir
 
 Require-File $PackagePath "Deployment package missing"
 Require-File $EnvFile "Production env file missing"
-Require-File $NodeExe "Node executable missing"
+$NodeExe = Resolve-Executable $NodeExe "Node executable missing"
+Write-Host "Node executable: $NodeExe"
 
 $activeName = Get-ActiveSlotName
 $inactiveName = if ($activeName -eq "blue") { "green" } else { "blue" }

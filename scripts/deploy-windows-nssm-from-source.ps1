@@ -45,6 +45,36 @@ function Require-File {
   }
 }
 
+function Resolve-Executable {
+  param([string]$Command, [string]$Message)
+
+  if (Test-Path $Command) {
+    return (Resolve-Path -LiteralPath $Command).Path
+  }
+
+  $resolved = Get-Command $Command -ErrorAction SilentlyContinue
+  if ($resolved) {
+    return $resolved.Source
+  }
+
+  $leaf = Split-Path -Leaf $Command
+  if ($leaf) {
+    $resolved = Get-Command $leaf -ErrorAction SilentlyContinue
+    if ($resolved) {
+      return $resolved.Source
+    }
+  }
+
+  if ($leaf -ieq "node.exe") {
+    $resolved = Get-Command "node" -ErrorAction SilentlyContinue
+    if ($resolved) {
+      return $resolved.Source
+    }
+  }
+
+  throw "$Message`: $Command"
+}
+
 function Send-DeployNotification {
   param(
     [string]$Status,
@@ -80,7 +110,8 @@ Ensure-Dir $UpdateDir
 Ensure-Dir $SourceBackupDir
 Require-File $SourceZip "Source package missing"
 Require-File $EnvFile "Production env file missing"
-Require-File $NodeExe "Node executable missing"
+$NodeExe = Resolve-Executable $NodeExe "Node executable missing"
+Write-Host "Node executable: $NodeExe"
 
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $SourceBackup = Join-Path $SourceBackupDir "source-$timestamp"
