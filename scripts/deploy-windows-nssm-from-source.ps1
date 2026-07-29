@@ -7,6 +7,8 @@ param(
   [int]$GreenPort = 3006,
   [string]$NodeExe = "C:\Program Files\nodejs\node.exe",
   [string]$NginxExe = "nginx",
+  [string]$NginxPrefix = "",
+  [string]$NginxConfig = "conf\nginx.conf",
   [string]$NginxUpstreamFile = "E:\tandem-deploy\nginx\tandem-upstream.conf",
   [string]$PublicBaseUrl = "http://127.0.0.1:3000",
   [string]$HealthPath = "/api/health",
@@ -30,6 +32,8 @@ $BlueServiceName = Normalize-Arg $BlueServiceName
 $GreenServiceName = Normalize-Arg $GreenServiceName
 $NodeExe = Normalize-Arg $NodeExe
 $NginxExe = Normalize-Arg $NginxExe
+$NginxPrefix = Normalize-Arg $NginxPrefix
+$NginxConfig = Normalize-Arg $NginxConfig
 $NginxUpstreamFile = Normalize-Arg $NginxUpstreamFile
 $PublicBaseUrl = Normalize-Arg $PublicBaseUrl
 $HealthPath = Normalize-Arg $HealthPath
@@ -174,6 +178,8 @@ try {
     -GreenPort $GreenPort `
     -NodeExe $NodeExe `
     -NginxExe $NginxExe `
+    -NginxPrefix $NginxPrefix `
+    -NginxConfig $NginxConfig `
     -NginxUpstreamFile $NginxUpstreamFile `
     -PublicBaseUrl $PublicBaseUrl `
     -HealthPath $HealthPath `
