@@ -46,6 +46,7 @@ $SourceDir = Join-Path $Root "source"
 $SourceBackupDir = Join-Path $Root "source-backup"
 $DeployZip = Join-Path $UpdateDir "tandem-deploy.zip"
 $EnvFile = Join-Path $Root ".env.production"
+$NpmInstallHashFile = Join-Path $Root "npm-install-package-lock.sha256"
 
 function Write-Step {
   param([string]$Message)
@@ -65,6 +66,15 @@ function Require-File {
   if (-not (Test-Path $Path)) {
     throw "$Message`: $Path"
   }
+}
+
+function Get-FileHashValue {
+  param([string]$Path)
+  if (-not (Test-Path $Path)) {
+    return ""
+  }
+
+  return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash
 }
 
 function Resolve-Executable {
@@ -149,15 +159,27 @@ try {
   Expand-Archive -LiteralPath $SourceZip -DestinationPath $SourceDir -Force
   Require-File (Join-Path $SourceDir "package.json") "Source package is invalid, package.json missing"
   Require-File (Join-Path $SourceDir "package-deploy.ps1") "Source package is invalid, package-deploy.ps1 missing"
+  Require-File (Join-Path $SourceDir "package-lock.json") "Source package is invalid, package-lock.json missing"
 
   Write-Step "Installing dependencies and building Windows package"
   Push-Location $SourceDir
   try {
     $env:NEXT_TELEMETRY_DISABLED = "1"
     $env:NEXT_OUTPUT = "standalone"
-    & npm.cmd ci --no-audit --no-fund
-    if ($LASTEXITCODE -ne 0) {
-      throw "npm ci failed with exit code $LASTEXITCODE"
+    $currentLockHash = Get-FileHashValue (Join-Path $SourceDir "package-lock.json")
+    $previousLockHash = if (Test-Path $NpmInstallHashFile) { (Get-Content -LiteralPath $NpmInstallHashFile -TotalCount 1).Trim() } else { "" }
+    $previousNodeModules = Join-Path $SourceBackup "node_modules"
+    $currentNodeModules = Join-Path $SourceDir "node_modules"
+
+    if ($currentLockHash -and $currentLockHash -eq $previousLockHash -and (Test-Path $previousNodeModules)) {
+      Write-Host "package-lock.json unchanged; reusing previous node_modules."
+      Move-Item -LiteralPath $previousNodeModules -Destination $currentNodeModules -Force
+    } else {
+      & npm.cmd ci --no-audit --no-fund
+      if ($LASTEXITCODE -ne 0) {
+        throw "npm ci failed with exit code $LASTEXITCODE"
+      }
+      Set-Content -LiteralPath $NpmInstallHashFile -Value $currentLockHash -Encoding ASCII
     }
 
     powershell -ExecutionPolicy Bypass -File "package-deploy.ps1" -OutputZip $DeployZip
