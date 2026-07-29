@@ -29,6 +29,28 @@ function Remove-DirSafe {
   }
 }
 
+function Resolve-7Zip {
+  $candidates = @(
+    "7z",
+    "7za",
+    "C:\Program Files\7-Zip\7z.exe",
+    "C:\Program Files (x86)\7-Zip\7z.exe"
+  )
+
+  foreach ($candidate in $candidates) {
+    if (Test-Path $candidate) {
+      return (Resolve-Path -LiteralPath $candidate).Path
+    }
+
+    $resolved = Get-Command $candidate -ErrorAction SilentlyContinue
+    if ($resolved) {
+      return $resolved.Source
+    }
+  }
+
+  return $null
+}
+
 Set-Location $Repo
 
 Write-Host "Tandem deploy package builder" -ForegroundColor Green
@@ -185,21 +207,38 @@ if (Test-Path $OutputZip) {
 }
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zipCreated = $false
-for ($attempt = 1; $attempt -le 5 -and -not $zipCreated; $attempt++) {
+$SevenZip = Resolve-7Zip
+if ($SevenZip) {
+  Write-Host "Using 7-Zip for faster packaging: $SevenZip"
+  Push-Location $Stage
   try {
-    [System.GC]::Collect()
-    Start-Sleep -Seconds 2
-    [System.IO.Compression.ZipFile]::CreateFromDirectory(
-      $Stage,
-      $OutputZip,
-      [System.IO.Compression.CompressionLevel]::Optimal,
-      $false
-    )
+    & $SevenZip a -tzip -mx=1 $OutputZip ".\*" -r | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+      throw "7-Zip failed with exit code $LASTEXITCODE"
+    }
     $zipCreated = $true
-  } catch {
-    Write-Host "Zip attempt $attempt failed: $($_.Exception.Message). Retrying..." -ForegroundColor Yellow
-    if (Test-Path $OutputZip) { Remove-Item -LiteralPath $OutputZip -Force -ErrorAction SilentlyContinue }
-    if ($attempt -eq 5) { throw }
+  } finally {
+    Pop-Location
+  }
+}
+
+if (-not $zipCreated) {
+  for ($attempt = 1; $attempt -le 5 -and -not $zipCreated; $attempt++) {
+    try {
+      [System.GC]::Collect()
+      Start-Sleep -Seconds 2
+      [System.IO.Compression.ZipFile]::CreateFromDirectory(
+        $Stage,
+        $OutputZip,
+        [System.IO.Compression.CompressionLevel]::Optimal,
+        $false
+      )
+      $zipCreated = $true
+    } catch {
+      Write-Host "Zip attempt $attempt failed: $($_.Exception.Message). Retrying..." -ForegroundColor Yellow
+      if (Test-Path $OutputZip) { Remove-Item -LiteralPath $OutputZip -Force -ErrorAction SilentlyContinue }
+      if ($attempt -eq 5) { throw }
+    }
   }
 }
 
