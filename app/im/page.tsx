@@ -7,9 +7,13 @@
  * 差异化: hover 消息 → 开议事室 / 沉淀 Memory / @AI分身 / 已读回执
  */
 
-import { Suspense, useCallback, useState, useEffect, useMemo, useRef } from 'react';
+import { Suspense, useCallback, useState, useEffect, useMemo, useRef, type ComponentType, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
+import dynamic from 'next/dynamic';
 import { useSearchParams, useRouter } from 'next/navigation';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import officePreset from '@file-viewer/preset-office';
 import { CreateChannelDialog } from '@/components/im/create-channel-dialog';
 import { ChannelDetailPanel } from '@/components/im/channel-detail-panel';
 import { ImSidebar } from '@/components/im/im-sidebar';
@@ -57,6 +61,8 @@ import {
   Smile,
   Image,
   Paperclip,
+  FileText,
+  Eye,
   X,
   ZoomIn,
   ZoomOut,
@@ -68,6 +74,17 @@ import {
 // Day 4-7: 升级 Channel/Message 类型 以含撤回 + 公告 + pinned
 type Channel = ImChannel & { unread?: number };
 type Message = ImMessage;
+
+const OfficeFileViewer = dynamic(() => import('@file-viewer/react'), { ssr: false }) as ComponentType<{
+  url: string;
+  name?: string;
+  filename?: string;
+  type?: string;
+  size?: number;
+  options?: Record<string, unknown>;
+  className?: string;
+  style?: CSSProperties;
+}>;
 
 function shortUserId(id: string): string {
   if (id.length <= 10) return id;
@@ -491,6 +508,7 @@ function ImInner() {
         kind: 'image',
         name: file.name,
         size: file.size,
+        mimeType: file.type,
         url: dataUrl ?? await readFileAsDataUrl(file),
       };
     }
@@ -509,6 +527,7 @@ function ImInner() {
           kind: 'image',
           name: file.name,
           size: file.size,
+          mimeType: file.type,
           url: inlineUrl,
         };
       }
@@ -523,6 +542,7 @@ function ImInner() {
       kind: file.type.startsWith('image/') ? 'image' : 'file',
       name: file.name,
       size: file.size,
+      mimeType: file.type || 'application/octet-stream',
       refId: storageKey,
     };
   }
@@ -550,6 +570,7 @@ function ImInner() {
         kind: isImageAttachment(a.file, a.dataUrl) ? 'image' : 'file',
         name: a.name,
         size: a.size,
+        mimeType: a.file.type || 'application/octet-stream',
         url: a.dataUrl,
         uploadStatus: 'uploading',
         uploadProgress: 0,
@@ -1250,6 +1271,193 @@ function formatSize(bytes?: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
+function attachmentExt(name?: string): string {
+  return (name?.split('.').pop() ?? '').toLowerCase();
+}
+
+function isMarkdownPreview(name?: string, mimeType?: string): boolean {
+  const ext = attachmentExt(name);
+  const mime = (mimeType ?? '').toLowerCase();
+  return ext === 'md' || ext === 'markdown' || mime.includes('markdown');
+}
+
+function isTextPreview(name?: string, mimeType?: string): boolean {
+  const ext = attachmentExt(name);
+  const mime = (mimeType ?? '').toLowerCase();
+  return (
+    mime.startsWith('text/') ||
+    mime.includes('json') ||
+    ['txt', 'md', 'markdown', 'json', 'csv', 'log', 'yaml', 'yml', 'xml'].includes(ext)
+  );
+}
+
+function isPdfPreview(name?: string, mimeType?: string): boolean {
+  return attachmentExt(name) === 'pdf' || (mimeType ?? '').toLowerCase().includes('pdf');
+}
+
+function isOfficeFile(name?: string, mimeType?: string): boolean {
+  const ext = attachmentExt(name);
+  const mime = (mimeType ?? '').toLowerCase();
+  return (
+    ['doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx'].includes(ext) ||
+    mime.includes('officedocument') ||
+    mime.includes('msword') ||
+    mime.includes('powerpoint') ||
+    mime.includes('excel') ||
+    mime.includes('spreadsheet')
+  );
+}
+
+function isOfficePreviewable(name?: string, mimeType?: string): boolean {
+  const ext = attachmentExt(name);
+  const mime = (mimeType ?? '').toLowerCase();
+  return (
+    ['docx', 'pptx', 'xlsx'].includes(ext) ||
+    mime.includes('officedocument.wordprocessingml') ||
+    mime.includes('officedocument.presentationml') ||
+    mime.includes('officedocument.spreadsheetml')
+  );
+}
+
+function previewContentType(name?: string, mimeType?: string): string | undefined {
+  if (isMarkdownPreview(name, mimeType)) return 'text/markdown; charset=utf-8';
+  if (isTextPreview(name, mimeType)) return 'text/plain; charset=utf-8';
+  if (isPdfPreview(name, mimeType)) return 'application/pdf';
+  return mimeType || undefined;
+}
+
+function FilePreviewModal({
+  url,
+  downloadUrl,
+  name,
+  mimeType,
+  fileViewerPreview,
+  size,
+  onClose,
+}: {
+  url: string;
+  downloadUrl?: string | null;
+  name?: string;
+  mimeType?: string;
+  fileViewerPreview?: boolean;
+  size?: number;
+  onClose: () => void;
+}) {
+  const [text, setText] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const textLike = isTextPreview(name, mimeType);
+  const markdown = isMarkdownPreview(name, mimeType);
+  const pdf = isPdfPreview(name, mimeType);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!textLike) return;
+    const controller = new AbortController();
+    setText(null);
+    setError(null);
+    void fetch(url, { signal: controller.signal })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`预览失败 (${res.status})`);
+        const buffer = await res.arrayBuffer();
+        return new TextDecoder('utf-8').decode(buffer);
+      })
+      .then(setText)
+      .catch((err) => {
+        if (!controller.signal.aborted) setError((err as Error).message || '预览失败');
+      });
+    return () => controller.abort();
+  }, [textLike, url]);
+
+  const stop = (e: React.MouseEvent) => e.stopPropagation();
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[100] flex flex-col bg-black/70 p-3 backdrop-blur-sm md:p-6"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="mx-auto flex h-full w-full max-w-5xl flex-col overflow-hidden rounded-lg bg-surface-1 shadow-2xl" onClick={stop}>
+        <header className="flex h-12 shrink-0 items-center gap-2 border-b border-hairline px-3">
+          <FileText className="h-4 w-4 shrink-0 text-ink-tertiary" />
+          <div className="min-w-0 flex-1 truncate text-caption font-semibold text-ink-primary">{name ?? '附件预览'}</div>
+          {downloadUrl ? (
+            <a
+              href={downloadUrl}
+              download={name}
+              className="flex h-8 w-8 items-center justify-center rounded-md text-ink-secondary transition hover:bg-surface-3 hover:text-ink-primary"
+              title="下载"
+            >
+              <Download className="h-4 w-4" />
+            </a>
+          ) : null}
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-md text-ink-secondary transition hover:bg-surface-3 hover:text-ink-primary"
+            title="关闭"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </header>
+        <div className="min-h-0 flex-1 overflow-auto bg-white">
+          {fileViewerPreview ? (
+            <OfficeFileViewer
+              url={url}
+              name={name}
+              filename={name}
+              type={mimeType || attachmentExt(name)}
+              size={size}
+              className="h-full min-h-[70vh] w-full"
+              style={{ height: '100%' }}
+              options={{
+                preset: officePreset,
+                rendererMode: 'replace',
+                theme: 'light',
+                toolbar: { position: 'top' },
+                download: false,
+              }}
+            />
+          ) : textLike ? (
+            error ? (
+              <div className="p-6 text-caption text-danger">{error}</div>
+            ) : text === null ? (
+              <div className="p-6 text-caption text-ink-tertiary">正在加载预览...</div>
+            ) : markdown ? (
+              <article className="prose prose-slate max-w-none p-6 prose-sm prose-headings:text-ink-primary prose-p:text-ink-secondary prose-table:block prose-table:max-w-full prose-table:overflow-x-auto">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+              </article>
+            ) : (
+              <pre className="min-h-full whitespace-pre-wrap break-words p-6 font-mono text-[12px] leading-relaxed text-ink-primary">{text}</pre>
+            )
+          ) : pdf ? (
+            <iframe src={url} title={name ?? '附件预览'} className="h-full min-h-[70vh] w-full" />
+          ) : (
+            <div className="flex h-full min-h-[360px] flex-col items-center justify-center gap-3 p-6 text-center">
+              <FileText className="h-8 w-8 text-ink-tertiary" />
+              <div className="text-caption font-medium text-ink-primary">此类型暂不支持内嵌预览</div>
+              <div className="text-footnote text-ink-tertiary">可以先下载到本地查看。</div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 /**
  * 图片灯箱. 通过 portal 挂到 document.body, 避免被带 transform/backdrop-filter
  * 的祖先约束导致 fixed 不铺满视口. 支持滚轮/按钮缩放、复位、下载、打开原图.
@@ -1349,8 +1557,11 @@ function ImageLightbox({ url, name, onClose }: { url: string; name?: string; onC
  */
 function AttachmentView({ channelId, att }: { channelId: string; att: ImAttachment }) {
   const [url, setUrl] = useState<string | null>(att.url ?? null);
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(att.url ?? null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [preview, setPreview] = useState(false);
+  const contentType = previewContentType(att.name, att.mimeType);
+  const officePreviewable = isOfficePreviewable(att.name, att.mimeType);
 
   useEffect(() => {
     if (att.url || !att.refId) return;
@@ -1359,15 +1570,24 @@ function AttachmentView({ channelId, att }: { channelId: string; att: ImAttachme
     void fetch(`/api/im/channels/${channelId}/attachments/presign`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mode: 'download', storageKey: att.refId }),
+      body: JSON.stringify({
+        mode: 'download',
+        storageKey: att.refId,
+        fileName: att.name,
+        contentType,
+      }),
     })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then((data) => {
-        if (!cancelled) { setUrl(data.url); setStatus('idle'); }
+        if (!cancelled) {
+          setUrl(data.previewUrl ?? data.url);
+          setDownloadUrl(data.downloadUrl ?? data.url);
+          setStatus('idle');
+        }
       })
       .catch(() => { if (!cancelled) setStatus('error'); });
     return () => { cancelled = true; };
-  }, [channelId, att.url, att.refId]);
+  }, [channelId, att.url, att.refId, att.name, contentType]);
 
   if (att.uploadStatus === 'pending' || att.uploadStatus === 'uploading') {
     return (
@@ -1429,21 +1649,73 @@ function AttachmentView({ channelId, att }: { channelId: string; att: ImAttachme
     );
   }
 
+  const canPreview = isTextPreview(att.name, att.mimeType) || isPdfPreview(att.name, att.mimeType) || officePreviewable;
+  const officeFile = isOfficeFile(att.name, att.mimeType);
+  const disabled = !url || status === 'loading' || status === 'error';
+  const previewDisabled = disabled || !canPreview;
+  const secondaryLabel = status === 'loading'
+    ? '加载中'
+    : status === 'error'
+    ? '加载失败'
+    : officePreviewable
+    ? 'Office 文件 · 可预览'
+    : officeFile
+    ? 'Office 文件 · 下载查看'
+    : canPreview
+    ? formatSize(att.size) || '可预览'
+    : '下载查看';
   return (
-    <a
-      href={url ?? undefined}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={`flex items-center gap-2 rounded-lg border border-hairline bg-surface-2 px-3 py-2 text-[12px] transition hover:bg-surface-3 ${
-        url ? '' : 'pointer-events-none opacity-60'
-      }`}
-    >
-      <Paperclip className="h-4 w-4 shrink-0 text-ink-tertiary" />
-      <div className="min-w-0">
-        <div className="max-w-[160px] truncate text-ink-primary">{att.name ?? '附件'}</div>
-        {att.size ? <div className="text-[10px] text-ink-tertiary">{formatSize(att.size)}</div> : null}
+    <>
+      <div
+        className={`flex min-w-[220px] max-w-[280px] items-center gap-2 rounded-lg border border-hairline bg-surface-2 px-3 py-2 text-[12px] transition hover:bg-surface-3 ${
+          disabled ? 'opacity-70' : ''
+        }`}
+      >
+        <FileText className="h-4 w-4 shrink-0 text-ink-tertiary" />
+        <button
+          type="button"
+          onClick={() => {
+            if (canPreview && !disabled) setPreview(true);
+          }}
+          disabled={disabled}
+          className="min-w-0 flex-1 text-left disabled:cursor-default"
+          title={canPreview ? '预览' : '此类型需下载查看'}
+        >
+          <div className="truncate text-ink-primary">{att.name ?? '附件'}</div>
+          <div className="text-[10px] text-ink-tertiary">{secondaryLabel}</div>
+        </button>
+        <button
+          type="button"
+          onClick={() => { if (!previewDisabled) setPreview(true); }}
+          disabled={previewDisabled}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-ink-secondary transition hover:bg-surface-4 hover:text-ink-primary disabled:pointer-events-none disabled:opacity-35"
+          title={canPreview ? '预览' : '此类型需配置 Office 转 PDF 服务后才能预览'}
+        >
+          <Eye className="h-3.5 w-3.5" />
+        </button>
+        <a
+          href={downloadUrl ?? url ?? undefined}
+          download={att.name}
+          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-ink-secondary transition hover:bg-surface-4 hover:text-ink-primary ${
+            downloadUrl || url ? '' : 'pointer-events-none opacity-40'
+          }`}
+          title="下载"
+        >
+          <Download className="h-3.5 w-3.5" />
+        </a>
       </div>
-    </a>
+      {preview && url ? (
+        <FilePreviewModal
+          url={url}
+          downloadUrl={downloadUrl}
+          name={att.name}
+          mimeType={att.mimeType}
+          size={att.size}
+          fileViewerPreview={officePreviewable}
+          onClose={() => setPreview(false)}
+        />
+      ) : null}
+    </>
   );
 }
 

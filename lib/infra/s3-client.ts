@@ -89,13 +89,17 @@ export async function presignUpload(
 /** 预签名下载 URL (GET). */
 export async function presignDownload(
   key: string,
-  opts: { bucket?: string; expiresInSec?: number } = {},
+  opts: { bucket?: string; expiresInSec?: number; downloadName?: string; contentType?: string } = {},
 ): Promise<string> {
   const s3 = getS3();
   if (!s3) throw new Error('S3 not configured');
   const cmd = new GetObjectCommand({
     Bucket: opts.bucket ?? BUCKET_DRIVE,
     Key: key,
+    ResponseContentDisposition: opts.downloadName
+      ? `attachment; filename*=UTF-8''${encodeURIComponent(opts.downloadName)}`
+      : undefined,
+    ResponseContentType: opts.contentType,
   });
   return getSignedUrl(s3, cmd, { expiresIn: opts.expiresInSec ?? 900 });
 }
