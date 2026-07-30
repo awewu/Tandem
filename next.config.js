@@ -2,10 +2,20 @@ const isTauri = process.env.TAURI === '1';
 const isStandalone = process.env.NEXT_OUTPUT === 'standalone';
 const devDistDir = process.env.NEXT_DIST_DIR;
 const shouldPoll = process.env.NEXT_WEBPACK_POLL === '1';
+// Windows 部署机内存受限, next build 的 lint/typecheck worker 会 OOM
+// (Fatal process out of memory: Zone)。CI verify 阶段已在 Linux runner 上
+// 跑过 tsc --noEmit + next lint, 部署构建无需重复检查。仅 package-deploy.ps1 置位。
+const skipBuildChecks = process.env.TANDEM_SKIP_BUILD_CHECKS === '1';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  eslint: {
+    ignoreDuringBuilds: skipBuildChecks,
+  },
+  typescript: {
+    ignoreBuildErrors: skipBuildChecks,
+  },
   // 桌面端 (Tauri) = 瘦客户端: webview 加载远端公司 Tandem server (完整 Next.js, 含 API + Postgres),
   // 功能与 web 端 100% 等价. 桌面打包不再静态导出整个应用, 仅打入 scripts/build-desktop-bootstrap.mjs
   // 生成的连接网关页 (dist/index.html). 因此 TAURI=1 静态导出分支已不再用于桌面构建, 保留仅作兜底.

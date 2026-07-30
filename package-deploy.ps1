@@ -84,6 +84,9 @@ if (-not $SkipBuild) {
   $env:SKIP_STARTUP_GUARD = "1"
   $env:DEEPSEEK_API_KEY = "build-placeholder"
   $env:DATABASE_URL = ""
+  # 类型检查与 lint 已在 CI verify 阶段 (Linux runner) 完成, 此处跳过以避免部署机 OOM。
+  $env:TANDEM_SKIP_BUILD_CHECKS = "1"
+  $env:NODE_OPTIONS = "--max-old-space-size=4096"
 
   & npm.cmd run build
   if ($LASTEXITCODE -ne 0) {
