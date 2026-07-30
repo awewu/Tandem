@@ -2,6 +2,7 @@ import { CanActivate, ExecutionContext, ForbiddenException, Injectable, Unauthor
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { IS_PUBLIC_KEY } from '../common/public.decorator';
+import { RbacService } from './rbac.service';
 
 const NX_COOKIE_NAME = 'nx_token';
 
@@ -46,9 +47,10 @@ export class AuthGuard implements CanActivate {
   constructor(
     private readonly jwt: JwtService,
     private readonly reflector: Reflector,
+    private readonly rbac: RbacService,
   ) {}
 
-  canActivate(ctx: ExecutionContext): boolean {
+  async canActivate(ctx: ExecutionContext): Promise<boolean> {
     // H2：全局 deny-by-default。仅 @Public() 标注的端点跳过认证。
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       ctx.getHandler(),
@@ -69,7 +71,13 @@ export class AuthGuard implements CanActivate {
     if (!isValidScope(payload)) {
       throw new ForbiddenException('访问令牌租户范围无效');
     }
-    req.user = payload;
+    const access = await this.rbac.resolveUserAccess({
+      id: payload.userId,
+      tenantId: payload.tenantId,
+      role: payload.role,
+      permissions: payload.permissions ?? [],
+    });
+    req.user = { ...payload, role: access.role, roles: access.roles, permissions: access.permissions };
     return true;
   }
 }

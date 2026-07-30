@@ -56,6 +56,22 @@ function lowerList(value: unknown): string[] {
   return asList(value).map((item) => item.toLowerCase());
 }
 
+function criteriaSegments(criteria: ProductRecommendationCriteria): string[] {
+  const segments = new Set<string>();
+  for (const segment of lowerList(criteria.segments)) {
+    if (segment === 'residential') {
+      segments.add('home');
+      segments.add('villa');
+    } else if (segment === 'commercial') {
+      segments.add('commercial');
+      segments.add('project');
+    } else {
+      segments.add(segment);
+    }
+  }
+  return [...segments];
+}
+
 function inferSystemsFromPainPoints(painPoints: string[]): string[] {
   const out = new Set<string>();
   for (const raw of painPoints) {
@@ -80,8 +96,9 @@ export function scoreProductRecommendation(
   criteria: ProductRecommendationCriteria,
 ): ProductRecommendationScore {
   const positioning = sanitizePositioning(product.positioning ?? EMPTY_POSITIONING);
+  const segments = criteriaSegments(criteria);
   const wanted: Array<[keyof ProductPositioning, string[], number]> = [
-    ['targetSegments', lowerList(criteria.segments), 2],
+    ['targetSegments', segments, 2],
     ['channels', lowerList(criteria.channels), 2],
     ['userPersonas', lowerList(criteria.personas), 2],
     ['markets', lowerList(criteria.markets), 2],
@@ -143,6 +160,7 @@ export function rankProductRecommendationCandidates<T extends ProductRecommendat
   criteria: ProductRecommendationCriteria,
 ): ProductRecommendationRank<T>[] {
   const systems = resolveRecommendationSystems(criteria);
+  const segments = criteriaSegments(criteria);
   const painPoints = lowerList(criteria.painPoints);
   const hasCriteria = systems.length > 0
     || painPoints.length > 0
@@ -163,6 +181,7 @@ export function rankProductRecommendationCandidates<T extends ProductRecommendat
 
   return scored
     .filter((s) => s.score > 0)
+    .filter((s) => !segments.length || segments.some((segment) => s.positioning.targetSegments.includes(segment)))
     .filter((s) => !systems.length || systems.some((system) => s.signals.includes(`system:${system}`)))
     .sort((a, b) => b.score - a.score);
 }

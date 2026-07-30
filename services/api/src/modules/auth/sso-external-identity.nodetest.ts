@@ -94,6 +94,65 @@ test('active provider issuer subject binding resolves the local Nexus user', asy
   assert.ok(resolved.binding.lastLoginAt instanceof Date);
 });
 
+test('active SSO binding repairs role-like local display name from profile name', async () => {
+  const f = fixture({ users: [user({ name: '超级管理员' })] });
+
+  const resolved = await f.service.resolveVerifiedIdentity({
+    ...IDENTITY,
+    profile: { email: 'employee@rhautt.com', name: '易传德', roles: ['platform_admin'], org: 'hq' },
+  });
+
+  assert.equal(resolved.status, 'authenticated');
+  assert.equal(resolved.user.name, '易传德');
+  assert.equal(f.users.rows[0].name, '易传德');
+});
+
+test('SSO auto-provision does not use a role label as display name', async () => {
+  const previous = {
+    NODE_ENV: process.env.NODE_ENV,
+    OIDC_DEV_AUTO_PROVISION_PLATFORM_ADMIN: process.env.OIDC_DEV_AUTO_PROVISION_PLATFORM_ADMIN,
+    OIDC_DEV_AUTO_PROVISION_TENANT_CODE: process.env.OIDC_DEV_AUTO_PROVISION_TENANT_CODE,
+  };
+  process.env.NODE_ENV = 'development';
+  process.env.OIDC_DEV_AUTO_PROVISION_PLATFORM_ADMIN = 'true';
+  process.env.OIDC_DEV_AUTO_PROVISION_TENANT_CODE = 'DEFAULT';
+
+  try {
+    const f = fixture({ users: [], bindings: [] });
+    (f.service as any).ds.query = async () => [{ id: 'tenant-default' }];
+
+    const resolved = await f.service.resolveVerifiedIdentity({
+      provider: 'RHAUTT-AI-OIDC',
+      issuer: 'https://ai.rhautt.com/',
+      subject: 'employee-role-name',
+      profile: {
+        email: 'new@rhautt.com',
+        name: '超级管理员',
+        preferred_username: 'new.employee',
+        roles: ['platform_admin'],
+      },
+    });
+
+    assert.equal(resolved.status, 'authenticated');
+    assert.equal(resolved.user.name, 'new@rhautt.com');
+    assert.equal(f.users.rows[0].name, 'new@rhautt.com');
+  } finally {
+    if (previous.NODE_ENV === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previous.NODE_ENV;
+    if (previous.OIDC_DEV_AUTO_PROVISION_PLATFORM_ADMIN === undefined) {
+      delete process.env.OIDC_DEV_AUTO_PROVISION_PLATFORM_ADMIN;
+    } else {
+      process.env.OIDC_DEV_AUTO_PROVISION_PLATFORM_ADMIN =
+        previous.OIDC_DEV_AUTO_PROVISION_PLATFORM_ADMIN;
+    }
+    if (previous.OIDC_DEV_AUTO_PROVISION_TENANT_CODE === undefined) {
+      delete process.env.OIDC_DEV_AUTO_PROVISION_TENANT_CODE;
+    } else {
+      process.env.OIDC_DEV_AUTO_PROVISION_TENANT_CODE = previous.OIDC_DEV_AUTO_PROVISION_TENANT_CODE;
+    }
+  }
+});
+
 test('missing binding creates a pending authorization record without local user access', async () => {
   const f = fixture({ bindings: [] });
 

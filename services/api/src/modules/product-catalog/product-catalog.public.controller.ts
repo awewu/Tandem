@@ -41,11 +41,6 @@ export class BrandPublicController {
   }
 
   /** 本地化单品（脱敏 + JSON-LD）：供品牌站产品详情页 SSR/SSG。 */
-  @Get(':slug/products/:sku')
-  product(@Param('slug') slug: string, @Param('sku') sku: string, @Query('locale') locale?: string) {
-    return this.svc.getBrandProductLocalized(slug, sku, locale, this.brandTenant(slug));
-  }
-
   @Get(':slug/products/:sku/images/:artifactId')
   async productImage(
     @Param('slug') slug: string,
@@ -58,6 +53,25 @@ export class BrandPublicController {
       type: found.row.mimeType || 'application/octet-stream',
       disposition: `inline; filename="${encodeURIComponent(found.row.originalName)}"`,
     });
+  }
+
+  @Get(':slug/products/:sku/documents/:artifactId')
+  async productDocument(
+    @Param('slug') slug: string,
+    @Param('sku') sku: string,
+    @Param('artifactId') artifactId: string,
+  ) {
+    const found = await this.svc.getPublicProductDocument(slug, sku, artifactId, this.brandTenant(slug));
+    if (!found) throw new NotFoundException('document not found');
+    return new StreamableFile(found.stream, {
+      type: found.row.mimeType || 'application/pdf',
+      disposition: `inline; filename="${encodeURIComponent(found.row.originalName)}"`,
+    });
+  }
+
+  @Get(':slug/products/:sku')
+  product(@Param('slug') slug: string, @Param('sku') sku: string, @Query('locale') locale?: string) {
+    return this.svc.getBrandProductLocalized(slug, sku, locale, this.brandTenant(slug));
   }
 
   /**

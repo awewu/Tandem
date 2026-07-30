@@ -2,7 +2,13 @@ import { Module } from '@nestjs/common';
 import { BrandRegistryController } from './brand-registry.controller';
 import { BrandRegistryService } from './brand-registry.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { BrandSiteEntity, SiteNewsArticleEntity, SiteProductAssignmentEntity } from './brand-site.entity';
+import {
+  BrandSiteBasicSettingsEntity,
+  BrandSiteEntity,
+  SiteInquiryEntity,
+  SiteNewsArticleEntity,
+  SiteProductAssignmentEntity,
+} from './brand-site.entity';
 import { BrandSiteController } from './brand-site.controller';
 import { BrandSiteService } from './brand-site.service';
 import { BrandSitePublishService } from './brand-site-publish.service';
@@ -17,6 +23,13 @@ import {
 import { SiteProductAssignmentService } from './site-product-assignment.service';
 import { SiteNewsController, SiteNewsPublicController } from './site-news.controller';
 import { SiteNewsService } from './site-news.service';
+import { SiteInquiryController, SiteInquiryPublicController } from './site-inquiry.controller';
+import { SiteInquiryService } from './site-inquiry.service';
+import {
+  BrandSiteBasicSettingsController,
+  BrandSiteBasicSettingsPublicController,
+} from './brand-site-basic-settings.controller';
+import { BrandSiteBasicSettingsService } from './brand-site-basic-settings.service';
 
 /**
  * 品牌注册表模块（配置驱动的品牌基础要素 API）。
@@ -26,23 +39,35 @@ import { SiteNewsService } from './site-news.service';
   imports: [
     FileArtifactModule,
     ProductCatalogModule,
-    ...(TARGET_API_BOOT_SMOKE ? [] : [TypeOrmModule.forFeature([BrandSiteEntity, SiteProductAssignmentEntity, SiteNewsArticleEntity, AuditLogEntity])]),
+    ...(TARGET_API_BOOT_SMOKE ? [] : [TypeOrmModule.forFeature([
+      BrandSiteEntity,
+      BrandSiteBasicSettingsEntity,
+      SiteProductAssignmentEntity,
+      SiteNewsArticleEntity,
+      SiteInquiryEntity,
+      AuditLogEntity,
+    ])]),
   ],
   controllers: [
     BrandRegistryController, BrandSiteController, SiteProductAssignmentController, SiteProductPublicController,
-    SiteNewsController, SiteNewsPublicController,
+    SiteNewsController, SiteNewsPublicController, BrandSiteBasicSettingsController,
+    BrandSiteBasicSettingsPublicController, SiteInquiryController, SiteInquiryPublicController,
   ],
   providers: [
     BrandRegistryService,
     BrandSiteService,
     BrandSitePublishService,
+    BrandSiteBasicSettingsService,
     SiteProductAssignmentService,
     SiteNewsService,
+    SiteInquiryService,
     PublicRateLimitGuard,
     ...(TARGET_API_BOOT_SMOKE ? [
       bootSmokeRepositoryProvider(BrandSiteEntity),
+      bootSmokeRepositoryProvider(BrandSiteBasicSettingsEntity),
       bootSmokeRepositoryProvider(SiteProductAssignmentEntity),
       bootSmokeRepositoryProvider(SiteNewsArticleEntity),
+      bootSmokeRepositoryProvider(SiteInquiryEntity),
       bootSmokeRepositoryProvider(AuditLogEntity),
     ] : []),
   ],

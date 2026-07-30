@@ -15,15 +15,18 @@
 | GET | `/api/v2/brands/_meta` | 治理元数据（供应商定位 / 已决 / 待决） | 公开 |
 | GET | `/api/v2/brands/:slug` | 单品牌完整要素（fundamentals / VI / NAP / 外链） | 公开 |
 | POST | `/api/v2/brands/reload` | 改注册表文件后强制重载缓存 | AuthGuard |
+| GET/PUT | `/api/v2/brand-sites/:siteCode/basic-settings` | 管理官网基本信息、SEO、联系信息、备案版权等基础配置 | AuthGuard + RBAC |
 | GET/POST | `/api/v2/brand-sites/:siteCode/product-assignments` | 管理网站产品货架 | AuthGuard + RBAC |
 | PATCH/DELETE | `/api/v2/brand-sites/:siteCode/product-assignments/:id` | 更新或归档货架项 | AuthGuard + RBAC |
 | POST | `/api/v2/brand-sites/:siteCode/product-assignments/:id/publish` | 发布货架项 | AuthGuard + RBAC |
 | POST | `/api/v2/brand-sites/:siteCode/product-assignments/:id/hide` | 下架货架项 | AuthGuard + RBAC |
+| GET | `/api/v2/sites/:siteCode/basic-settings` | 网站公开基本信息投影 | 公开、限流、脱敏 |
 | GET | `/api/v2/sites/:siteCode/products` | 网站公开产品列表 | 公开、限流、脱敏 |
 | GET | `/api/v2/sites/:siteCode/products/:publicSlug` | 网站公开产品详情 | 公开、限流、脱敏 |
 
-响应字段来源即 `brand-registry.json`；未提供的业务/法务信息以 `__TODO(...)__` 占位，前端应
-渲染占位而非杜撰。
+`/brands*` 响应字段来源即 `brand-registry.json`；未提供的业务/法务信息以 `__TODO(...)__`
+占位，前端应渲染占位而非杜撰。`basic-settings` 来源于租户站点配置表，并与恒热官网当前
+默认值合并返回。
 
 ## 新增一个品牌（标准流程 · 零改代码）
 1. 在 `brand-registry.json` 的 `brands[]` 增加一条，至少包含：

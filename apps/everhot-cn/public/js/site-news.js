@@ -124,6 +124,28 @@
     return item.image || item.coverImageUrl || item.coverImage || '/assets/img/home-card1.webp';
   }
 
+  function newsRank(item) {
+    return item && (item.isFeatured === true || item.featured === true) ? 0 : 1;
+  }
+
+  function isFeaturedNews(item) {
+    return item && (item.isFeatured === true || item.featured === true);
+  }
+
+  function newsTimestamp(item) {
+    var raw = item && (item.publishedAt || item.date || item.createdAt);
+    var time = raw ? Date.parse(raw) : 0;
+    return Number.isFinite(time) ? time : 0;
+  }
+
+  function sortNewsItems(items) {
+    return (items || []).slice().sort(function (left, right) {
+      return newsRank(left) - newsRank(right)
+        || (Number(left.sortOrder) || 0) - (Number(right.sortOrder) || 0)
+        || newsTimestamp(right) - newsTimestamp(left);
+    });
+  }
+
   function newsUrl(item) {
     var slug = item.slug ? String(item.slug) : '';
     return slug ? '/news/?news=' + encodeURIComponent(slug) : '/news/';
@@ -133,12 +155,13 @@
     var title = item.title || '恒热资讯';
     var summary = item.summary || item.description || '';
     return [
-      '<a href="', escapeHtml(newsUrl(item)), '" class="news-card">',
-      '<div class="news-img" style="background-image:url(&quot;', escapeHtml(newsImage(item)), '&quot;)"></div>',
+      '<a href="', escapeHtml(newsUrl(item)), '" class="news-card', isFeaturedNews(item) ? ' is-featured' : '', '">',
+      '<div class="news-img"><img src="', escapeHtml(newsImage(item)), '" alt="" loading="lazy" decoding="async"></div>',
+      isFeaturedNews(item) ? '<span class="news-featured-badge">精选</span>' : '',
       '<div class="news-body">',
-      '<span class="news-date">', escapeHtml(newsDate(item)), '</span>',
       '<h4>', escapeHtml(title), '</h4>',
       '<p>', escapeHtml(summary), '</p>',
+      '<div class="news-meta"><span class="news-date">', escapeHtml(newsDate(item)), '</span><span class="news-link">了解更多 ›</span></div>',
       '</div>',
       '</a>',
     ].join('');
@@ -148,7 +171,7 @@
     var grid = document.querySelector('.news-grid');
     if (!grid || !items.length) return;
     var limit = Math.max(Number(grid.getAttribute('data-news-limit') || 3) || 3, 1);
-    grid.innerHTML = items.slice(0, limit).map(cardHtml).join('');
+    grid.innerHTML = sortNewsItems(items).slice(0, limit).map(cardHtml).join('');
   }
 
   function renderDetail(items) {
@@ -175,9 +198,9 @@
     mount.innerHTML = [
       '<article class="news-detail">',
       '<a class="news-detail-back" href="/news/">返回资讯列表</a>',
-      '<div class="news-detail-cover" style="background-image:url(&quot;', escapeHtml(newsImage(item)), '&quot;)"></div>',
+      '<div class="news-detail-cover"><img src="', escapeHtml(newsImage(item)), '" alt="" loading="lazy" decoding="async"></div>',
       '<div class="news-detail-body">',
-      '<span class="news-date">', escapeHtml(newsDate(item)), '</span>',
+      '<div class="news-detail-meta"><span class="news-date">', escapeHtml(newsDate(item)), '</span>', isFeaturedNews(item) ? '<span class="news-featured-inline">精选</span>' : '', '</div>',
       '<h2>', escapeHtml(item.title || '恒热资讯'), '</h2>',
       '<p class="news-detail-summary">', escapeHtml(item.summary || ''), '</p>',
       '<div class="news-detail-content">', sanitizeBody(item.body || item.content || item.summary || ''), '</div>',
@@ -203,7 +226,7 @@
         return response.json();
       })
       .then(function (json) {
-        var items = extractItems(json);
+        var items = sortNewsItems(extractItems(json));
         if (!renderDetail(items)) renderNews(items);
       })
       .catch(function () {});

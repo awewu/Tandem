@@ -52,6 +52,64 @@
     return API_BASE + path;
   }
 
+  function officialDetailHtml(product) {
+    return String(product.officialDetailHtml || (product.content && product.content.officialDetailHtml) || '');
+  }
+
+  function normalizeOfficialDetailHtml(html) {
+    if (!html) return '';
+    var template = document.createElement('template');
+    template.innerHTML = String(html);
+    template.content.querySelectorAll('script, style, iframe, object, embed, form, input, button').forEach(function (node) {
+      node.remove();
+    });
+    template.content.querySelectorAll('*').forEach(function (node) {
+      Array.prototype.slice.call(node.attributes || []).forEach(function (attr) {
+        var name = attr.name.toLowerCase();
+        if (name.indexOf('on') === 0 || name === 'style') node.removeAttribute(attr.name);
+      });
+      if (node.tagName === 'A') {
+        var href = node.getAttribute('href') || '';
+        if (/^(https?:\/\/|mailto:|tel:|\/)/i.test(href)) {
+          node.setAttribute('rel', 'noopener noreferrer');
+          if (/^https?:\/\//i.test(href)) node.setAttribute('target', '_blank');
+        } else {
+          node.removeAttribute('href');
+        }
+      }
+      if (node.tagName === 'IMG') {
+        var src = node.getAttribute('src') || '';
+        if (/^(https?:\/\/|\/api\/|\/assets\/|\/uploads\/)/i.test(src)) {
+          node.setAttribute('src', imageUrl(src));
+          node.setAttribute('loading', 'lazy');
+          node.setAttribute('decoding', 'async');
+          node.setAttribute('alt', node.getAttribute('alt') || '');
+        } else {
+          node.remove();
+        }
+      }
+    });
+    return template.innerHTML.trim();
+  }
+
+  function hasDetailBody(html) {
+    if (!html) return false;
+    var text = html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+    return !!(text || /<(img|table)\b/i.test(html));
+  }
+
+  function officialDetailSection(product) {
+    var html = normalizeOfficialDetailHtml(officialDetailHtml(product));
+    var body = hasDetailBody(html)
+      ? '<div class="official-product-detail-body">' + html + '</div>'
+      : '<p class="official-product-detail-empty">\u6682\u65e0\u5b98\u7f51\u4ea7\u54c1\u8be6\u60c5\uff0c\u60a8\u4ecd\u53ef\u67e5\u770b\u4e0a\u65b9\u57fa\u7840\u4fe1\u606f\u3002</p>';
+    return '<section class="official-product-detail-section" aria-labelledby="official-product-detail-title">'
+      + '<div class="official-product-detail-container">'
+      + '<h2 id="official-product-detail-title">\u5b98\u7f51\u4ea7\u54c1\u8be6\u60c5</h2>'
+      + body
+      + '</div></section>';
+  }
+
   function card(product) {
     var image = imageUrl(product.image);
     return '<article class="product-card">'
@@ -86,8 +144,8 @@
     }
     var encoded = encodeURIComponent(slug);
     fetchFirst([
-      '/api/v2/sites/' + SITE_CODE + '/products/' + encoded + '?locale=zh-CN',
       '/api/v2/brand/' + SITE_CODE + '/products/' + encoded + '?locale=zh-CN',
+      '/api/v2/sites/' + SITE_CODE + '/products/' + encoded + '?locale=zh-CN',
     ], function (json) {
       return !!(json && json.data && typeof json.data === 'object');
     }).then(function (json) {
@@ -101,7 +159,8 @@
         + '</div><div class="product-detail-copy"><span>' + escapeHtml(product.series || product.category || '') + '</span>'
         + '<h1>' + escapeHtml(product.name) + '</h1><p>' + escapeHtml(product.tagline) + '</p>'
         + '<dl><dt>型号</dt><dd>' + escapeHtml(product.model || product.sku || '') + '</dd></dl>'
-        + '<a class="btn btn-brand" href="/products/">返回产品中心</a></div>';
+        + '<a class="btn btn-brand" href="/products/">返回产品中心</a></div>'
+        + officialDetailSection(product);
     }).catch(function () {
       host.innerHTML = '<p class="product-state">未找到该产品，或产品暂未发布。</p>';
     });

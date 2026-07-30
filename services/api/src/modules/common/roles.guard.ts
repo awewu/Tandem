@@ -1,6 +1,7 @@
 import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from './public.decorator';
+import { PERMISSIONS_KEY } from './permissions.decorator';
 import { ROLES_KEY } from './roles.decorator';
 import type { UserRole } from '../auth/auth.entity';
 
@@ -21,6 +22,12 @@ export class RolesGuard implements CanActivate {
     ]);
     if (isPublic) return true;
 
+    const permissions = this.reflector.getAllAndOverride<string[]>(PERMISSIONS_KEY, [
+      ctx.getHandler(),
+      ctx.getClass(),
+    ]);
+    if (permissions && permissions.length > 0) return true;
+
     const required = this.reflector.getAllAndOverride<UserRole[]>(ROLES_KEY, [
       ctx.getHandler(),
       ctx.getClass(),
@@ -28,8 +35,8 @@ export class RolesGuard implements CanActivate {
     if (!required || required.length === 0) return true;
 
     const req = ctx.switchToHttp().getRequest();
-    const role: string | undefined = req.user?.role;
-    if (!role || !required.includes(role as UserRole)) {
+    const roles = new Set<string>([req.user?.role, ...(req.user?.roles ?? [])].filter(Boolean));
+    if (!required.some((role) => roles.has(role))) {
       throw new ForbiddenException('当前角色无权访问该资源');
     }
     return true;

@@ -17,8 +17,28 @@ test('总部角色可以显式切换品牌租户', () => {
   assert.equal(resolveProductTenant(actor, ruud), ruud);
 });
 
+test('动态产品权限可以访问指定产品租户', () => {
+  const actor = {
+    userId: 'operator-user',
+    tenantId: rheem,
+    role: 'marketing_operator',
+    permissions: ['product.catalog.view'],
+  };
+  assert.equal(resolveProductTenant(actor, ruud), ruud);
+  assert.throws(
+    () => resolveProductTenant({ userId: 'viewer-user', tenantId: rheem, role: 'viewer', permissions: [] }, ruud),
+    /不可跨品牌租户/,
+  );
+});
+
 test('只有产品管理角色可以写入', () => {
   assert.doesNotThrow(() => requireProductWrite({ userId: 'brand-user', tenantId: rheem, role: 'brand_admin' }));
+  assert.doesNotThrow(() => requireProductWrite({
+    userId: 'operator-user',
+    tenantId: rheem,
+    role: 'marketing',
+    permissions: ['product.catalog.update'],
+  }));
   assert.throws(() => requireProductWrite({ userId: 'sales-user', tenantId: rheem, role: 'sales' }), /无权维护/);
 });
 

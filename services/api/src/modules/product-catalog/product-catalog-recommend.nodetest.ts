@@ -125,3 +125,48 @@ test('recommendation ranking excludes scored products that do not match requeste
 
   assert.deepEqual(result.map((item) => item.p.sku), ['EVERHOT-BOILER']);
 });
+
+test('recommendation ranking excludes residential products for commercial requests', () => {
+  const products = [
+    {
+      sku: 'L1PB26-EBW',
+      name: 'residential wall-hung gas boiler hot water',
+      brand: 'everhot',
+      category: 'heating-boiler',
+      positioning: { targetSegments: ['home'], channels: ['dealer'] },
+    },
+    {
+      sku: 'GCC280-52HP-H',
+      name: 'commercial condensing gas water heater',
+      brand: 'everhot',
+      category: 'water-heating',
+      positioning: { targetSegments: ['commercial'], channels: ['dealer'] },
+    },
+  ];
+  const result = rankProductRecommendationCandidates(products, {
+    segments: ['commercial'],
+    channels: ['dealer'],
+    systems: ['hot_water'],
+  });
+
+  assert.deepEqual(result.map((item) => item.p.sku), ['GCC280-52HP-H']);
+});
+
+test('recommendation ranking maps residential requests to home and villa segments', () => {
+  const products = [
+    {
+      sku: 'HOME-WATER',
+      name: 'home hot water heater',
+      brand: 'everhot',
+      category: 'water-heating',
+      positioning: { targetSegments: ['home'], channels: ['dealer'] },
+    },
+  ];
+  const result = rankProductRecommendationCandidates(products, {
+    segments: ['residential'],
+    channels: ['dealer'],
+    systems: ['hot_water'],
+  });
+
+  assert.deepEqual(result.map((item) => item.p.sku), ['HOME-WATER']);
+});

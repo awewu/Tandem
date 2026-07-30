@@ -6,6 +6,7 @@ const ROUTE_OWNERSHIP = [
   { prefix: '/api/v2/stores',     owner: 'services/api/src/modules/tenant', status: 'production' },
   { prefix: '/api/v2/entitlement', owner: 'services/api/src/modules/entitlement', status: 'production' },
   { prefix: '/api/v2/crm',        owner: 'services/api/src/modules/crm',    status: 'production' },
+  { prefix: '/api/v2/audit-logs', owner: 'services/api/src/modules/audit-log', status: 'production' },
   { prefix: '/api/v2/audit',      owner: 'server/modules/audit',            status: 'production' },
   { prefix: '/api/v2/brand',      owner: 'services/api/src/modules/brand, services/api/src/modules/product-catalog, and services/api/src/modules/brand-product-category public brand surface', status: 'production' },
   { prefix: '/api/v2/brands',     owner: 'services/api/src/modules/brand-registry', status: 'production' },

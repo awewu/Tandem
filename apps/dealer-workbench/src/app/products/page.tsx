@@ -1,31 +1,73 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
-import { Archive, Boxes, CheckCircle2, Edit3, FileText, FolderOpen, Package, Plus, Search, SlidersHorizontal, XCircle } from 'lucide-react';
+import { Suspense, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import { Archive, Bold, Boxes, CheckCircle2, Edit3, EyeOff, FileText, FolderOpen, Heading2, Image, Italic, Link, List, ListOrdered, Package, Plus, Search, Table2, X, XCircle } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
 import {
   StatusPill,
   WorkbenchFilterToolbar,
+  WorkbenchPaginationFooter,
   WorkbenchSectionHeader,
   WorkbenchTableShell,
   WorkbenchTableState,
 } from '../../components/WorkbenchCore';
-import { auth, brandProductCategories, brandSites, products } from '../../lib/api';
-import { canWriteBrandProducts } from '../../lib/brand-product-adapter';
+import { auth, brandProductCategories, brandSites, fileArtifacts, products, siteProductAssignments } from '../../lib/api';
+import { getBrandProductPermissions, type BrandProductPermissions } from '../../lib/brand-product-adapter';
 import { CATEGORIES, PRODUCTS, SYSTEM_PACKS, type CatKey, type Product } from '../../lib/products-data';
 
 type ProductModule = 'catalog' | 'materials' | 'base' | 'categories';
 type ProductStock = Product['stock'];
 type BrandFilter = string;
 type ProductBrand = string;
+type CatalogCategoryFilter = 'all' | string;
 type StatusFilter = 'all' | 'active' | 'inactive' | 'archived';
+type AssignmentStatus = 'draft' | 'published' | 'hidden';
+type WebsiteShelfTransition = 'publishing' | 'hiding';
+type WebsiteShelfAssignment = {
+  id: string;
+  productTenantId: string;
+  productId: string;
+  status: AssignmentStatus;
+  deletedAt?: string | null;
+};
+
+const EMPTY_BRAND_PRODUCT_PERMISSIONS: BrandProductPermissions = {
+  canCreateProduct: false,
+  canUpdateProduct: false,
+  canDeleteProduct: false,
+  canPublishProduct: false,
+  canCreateBrandLibrary: false,
+  canUpdateBrandLibrary: false,
+  canDeleteBrandLibrary: false,
+  canPublishBrandLibrary: false,
+  canAnyProductWrite: false,
+  canAnyBrandWrite: false,
+  canAnyWrite: false,
+};
 type CreateProductDraft = {
   brand: ProductBrand | '';
   name: string;
   skuSeed: string;
-  category: CatKey | '';
-  system: string;
+  categoryLevel1Id: string;
+  categoryLevel2Id: string;
+  categoryLevel3Id: string;
+  publicSlug: string;
+  series: string;
+  tagline: string;
+  websiteCategory: string;
+  displayOrder: string;
+  badges: string;
+  officialEnglishName: string;
+  officialDetailHtml: string;
+  manualPdfs: ProductManualPdfDraft[];
+};
+type ProductManualPdfDraft = {
+  id: string;
+  file: File;
+  name: string;
+  previewUrl: string;
 };
 type EditProductDraft = {
   name: string;
@@ -42,6 +84,7 @@ type EditProductDraft = {
   displayOrder: string;
   badges: string;
   officialEnglishName: string;
+  officialDetailHtml: string;
 };
 type RowActionState = {
   dirty: boolean;
@@ -111,18 +154,22 @@ const BRAND_PRODUCT_TENANTS: Record<string, string | undefined> = {
   everhot: process.env.NEXT_PUBLIC_EVERHOT_TENANT_ID || 'e5e40000-0000-4000-8000-000000000001',
 };
 const STATUS_OPTIONS: Array<{ value: StatusFilter; label: string }> = [
-  { value: 'all', label: '全部状态' },
-  { value: 'active', label: '上架' },
+  { value: 'all', label: '全部产品库状态' },
+  { value: 'active', label: '启用' },
   { value: 'inactive', label: '停用' },
   { value: 'archived', label: '已归档' },
 ];
-const PRODUCT_CATALOG_TABLE_GRID =
-  'minmax(280px, 1.75fr) minmax(92px, 0.62fr) minmax(92px, 0.62fr) minmax(136px, 0.85fr) minmax(118px, 0.78fr) minmax(150px, 0.95fr) minmax(110px, 0.62fr) minmax(150px, 0.7fr)';
+const PRODUCT_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 const STOCK: Record<ProductStock, { label: string; className: string; tone: string }> = {
   in: { label: '现货', className: 'badge-success', tone: 'var(--success)' },
   low: { label: '低库存', className: 'badge-warning', tone: 'var(--warning)' },
   order: { label: '需订货', className: 'badge-danger', tone: 'var(--danger)' },
 };
+const PRODUCT_DETAIL_LOCALE = 'zh-CN';
+const PRODUCT_DETAIL_ALLOWED_TAGS = new Set([
+  'P', 'BR', 'STRONG', 'B', 'EM', 'I', 'UL', 'OL', 'LI', 'A', 'IMG',
+  'H2', 'H3', 'H4', 'TABLE', 'THEAD', 'TBODY', 'TR', 'TH', 'TD',
+]);
 
 const fmt = (value: number) => `￥${Math.round(value || 0).toLocaleString('zh-CN')}`;
 const pct = (value: number) => `${Math.round(value || 0)}%`;
@@ -164,7 +211,7 @@ function brandOptionsFromSites(result: unknown): Array<{ value: ProductBrand; la
 }
 
 function statusLabel(status: string): string {
-  if (status === 'active') return '上架';
+  if (status === 'active') return '启用';
   if (status === 'inactive') return '停用';
   if (status === 'archived') return '已归档';
   return status || '未知';
@@ -196,6 +243,164 @@ function sortProductsByStatusThenOrder(items: NormalizedProduct[]): NormalizedPr
 
 function text(value: unknown): string {
   return typeof value === 'string' ? value.trim() : value == null ? '' : String(value).trim();
+}
+
+function productDetailContentItems(result: unknown): Array<Record<string, any>> {
+  const payload = (result as any)?.data ?? result;
+  if (Array.isArray(payload?.items)) return payload.items;
+  if (Array.isArray(payload)) return payload;
+  return [];
+}
+
+function officialDetailFromContent(result: unknown): string {
+  const item = productDetailContentItems(result).find((row) => row?.locale === PRODUCT_DETAIL_LOCALE)
+    || productDetailContentItems(result)[0];
+  return text(item?.officialDetailHtml);
+}
+
+function escapeProductDetailHtml(value: string) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function productDetailPlainText(value: string) {
+  return String(value || '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function sanitizeOfficialProductDetailHtml(value: string) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (typeof document === 'undefined') {
+    return escapeProductDetailHtml(raw).replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br>');
+  }
+
+  const template = document.createElement('template');
+  template.innerHTML = raw;
+
+  function cleanNode(node: Node): Node | null {
+    if (node.nodeType === Node.TEXT_NODE) return document.createTextNode(node.textContent || '');
+    if (node.nodeType !== Node.ELEMENT_NODE) return null;
+
+    const element = node as HTMLElement;
+    const tag = element.tagName.toUpperCase();
+    if (!PRODUCT_DETAIL_ALLOWED_TAGS.has(tag)) {
+      const fragment = document.createDocumentFragment();
+      Array.from(element.childNodes).forEach((child) => {
+        const clean = cleanNode(child);
+        if (clean) fragment.appendChild(clean);
+      });
+      return fragment;
+    }
+
+    const output = document.createElement(tag.toLowerCase());
+    if (tag === 'A') {
+      const href = element.getAttribute('href') || '';
+      if (/^(https?:\/\/|mailto:|tel:|\/)/i.test(href)) {
+        output.setAttribute('href', href);
+        output.setAttribute('rel', 'noopener noreferrer');
+        if (/^https?:\/\//i.test(href)) output.setAttribute('target', '_blank');
+      }
+    }
+    if (tag === 'IMG') {
+      const src = element.getAttribute('src') || '';
+      if (/^(https?:\/\/|\/api\/|\/assets\/|\/uploads\/)/i.test(src)) {
+        output.setAttribute('src', src);
+        output.setAttribute('alt', element.getAttribute('alt') || '');
+        output.setAttribute('loading', 'lazy');
+      } else {
+        return null;
+      }
+    }
+    Array.from(element.childNodes).forEach((child) => {
+      const clean = cleanNode(child);
+      if (clean) output.appendChild(clean);
+    });
+    return output;
+  }
+
+  const fragment = document.createDocumentFragment();
+  Array.from(template.content.childNodes).forEach((child) => {
+    const clean = cleanNode(child);
+    if (clean) fragment.appendChild(clean);
+  });
+  const container = document.createElement('div');
+  container.appendChild(fragment);
+  const sanitized = container.innerHTML.trim();
+  if (sanitized && !/<[a-z][\s\S]*>/i.test(sanitized)) {
+    return `<p>${escapeProductDetailHtml(productDetailPlainText(sanitized))}</p>`;
+  }
+  return sanitized || `<p>${escapeProductDetailHtml(productDetailPlainText(raw))}</p>`;
+}
+
+function assignmentItems(payload: unknown): WebsiteShelfAssignment[] {
+  const data = (payload as any)?.data ?? payload;
+  if (Array.isArray(data?.items)) return data.items;
+  if (Array.isArray(data)) return data;
+  return [];
+}
+
+function assignmentKey(productId: string, tenantId: string): string {
+  return `${tenantId || '-'}:${productId}`;
+}
+
+function assignmentMatchesProduct(assignment: WebsiteShelfAssignment | undefined, product: NormalizedProduct) {
+  return Boolean(
+    assignment &&
+      !assignment.deletedAt &&
+      assignment.productId === product.id &&
+      assignment.productTenantId === tenantIdForProduct(product)
+  );
+}
+
+function websiteShelfMeta(assignment?: WebsiteShelfAssignment, transition?: WebsiteShelfTransition) {
+  if (transition === 'publishing') return { label: '官网上架中', tone: 'info' as const };
+  if (transition === 'hiding') return { label: '官网下架中', tone: 'warning' as const };
+  if (!assignment) return { label: '官网未上架', tone: 'neutral' as const };
+  if (assignment.deletedAt || assignment.status === 'hidden') return { label: '官网已下架', tone: 'warning' as const };
+  if (assignment.status === 'published') return { label: '官网已上架', tone: 'success' as const };
+  return { label: '官网未上架', tone: 'neutral' as const };
+}
+
+function catalogCategoryFilterOptions(tree: ProductCategoryNode[]) {
+  return flattenCategoryTree(tree)
+    .filter((item) => item.status !== 'inactive')
+    .map((item) => ({
+      value: `${item.level}:${item.id}`,
+      label: `${'　'.repeat(Math.max(0, item.level - 1))}${item.name || item.code}`,
+    }));
+}
+
+function productMatchesCatalogCategory(product: NormalizedProduct, value: CatalogCategoryFilter) {
+  if (value === 'all') return true;
+  const [level, categoryId] = value.split(':');
+  const binding = productCategoryBinding(product);
+  if (categoryId) {
+    if (level === '1') return binding.categoryLevel1Id === categoryId;
+    if (level === '2') return binding.categoryLevel2Id === categoryId;
+    if (level === '3') return binding.categoryLevel3Id === categoryId;
+  }
+  return product.category === value;
+}
+
+function applyCatalogCategoryQuery(query: Record<string, string>, category: CatalogCategoryFilter) {
+  if (category === 'all') return;
+  if (!category.includes(':')) {
+    query.category = category;
+    return;
+  }
+  const [level, categoryId] = category.split(':');
+  if (!categoryId) return;
+  if (level === '1') query.categoryLevel1Id = categoryId;
+  if (level === '2') query.categoryLevel2Id = categoryId;
+  if (level === '3') query.categoryLevel3Id = categoryId;
 }
 
 function productCategoryItems(result: unknown): Record<string, any>[] {
@@ -273,7 +478,23 @@ function internalCategoryCode(prefix = 'cat'): string {
 }
 
 function emptyCreateDraft(): CreateProductDraft {
-  return { brand: '', name: '', skuSeed: '', category: '', system: '' };
+  return {
+    brand: '',
+    name: '',
+    skuSeed: '',
+    categoryLevel1Id: '',
+    categoryLevel2Id: '',
+    categoryLevel3Id: '',
+    publicSlug: '',
+    series: '',
+    tagline: '',
+    websiteCategory: '',
+    displayOrder: '0',
+    badges: '',
+    officialEnglishName: '',
+    officialDetailHtml: '',
+    manualPdfs: [],
+  };
 }
 
 function editDraftFromProduct(product: NormalizedProduct): EditProductDraft {
@@ -294,6 +515,7 @@ function editDraftFromProduct(product: NormalizedProduct): EditProductDraft {
     displayOrder: String(nonNegativeInt(brandMeta.displayOrder ?? brandMeta.sortOrder)),
     badges: Array.isArray(brandMeta.badges) ? brandMeta.badges.map(text).filter(Boolean).join(', ') : '',
     officialEnglishName: text(brandMeta.en || brandMeta.officialEnglishName),
+    officialDetailHtml: text((product.raw as any)?.officialDetailHtml),
   };
 }
 
@@ -407,17 +629,106 @@ function productStatusPayload(
   return { status, ...(tenantId ? { tenantId } : {}) };
 }
 
-function createProductPayload(draft: CreateProductDraft): Record<string, unknown> {
+function productImageSrc(product: NormalizedProduct): string {
+  const raw = objectOrEmpty(product.raw);
+  const meta = objectOrEmpty(raw.meta);
+  const brandMeta = productBrandMeta(product);
+  const assetRefs = Array.isArray(raw.assetRefs) ? raw.assetRefs : [];
+  const imageRef =
+    assetRefs.find((item: Record<string, any>) => item?.role === 'main' || item?.role === 'card') ||
+    assetRefs[0] ||
+    {};
+  const artifactId =
+    text(imageRef.artifactId) ||
+    text(meta.imageArtifactId) ||
+    text(brandMeta.imageArtifactId);
+  const artifactUrl = artifactId ? `/api/v2/file-artifact/${encodeURIComponent(artifactId)}/content` : '';
+  return text(
+    imageRef.url ||
+      imageRef.src ||
+      artifactUrl ||
+      brandMeta.image ||
+      brandMeta.imageUrl ||
+      meta.imageUrl ||
+      meta.mainImageUrl ||
+      raw.imageUrl ||
+      raw.image
+  );
+}
+
+function readBrowserFileBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || '').replace(/^data:[^;]+;base64,/, ''));
+    reader.onerror = () => reject(reader.error || new Error('File read failed.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadProductManualPdfRefs(draft: CreateProductDraft, sku: string) {
+  return Promise.all(
+    draft.manualPdfs.map(async (manual, index) => {
+      const artifact = await fileArtifacts.uploadBase64({
+        entityType: 'product-manual-pdf',
+        entityId: sku,
+        filename: manual.name || manual.file.name || `${sku}-manual-${index + 1}.pdf`,
+        mimeType: manual.file.type || 'application/pdf',
+        dataBase64: await readBrowserFileBase64(manual.file),
+      });
+      const artifactId = text((artifact as any)?.id || (artifact as any)?.artifactId);
+      if (!artifactId) throw new Error('PDF upload did not return an artifact id.');
+      return {
+        role: 'doc',
+        artifactId,
+        objectKey: text((artifact as any)?.fileKey || (artifact as any)?.objectKey),
+        filename: text((artifact as any)?.originalName) || manual.name || manual.file.name,
+        mimeType: text((artifact as any)?.mimeType) || manual.file.type || 'application/pdf',
+        sortOrder: index,
+        url: text((artifact as any)?.contentUrl) || `/api/v2/file-artifact/${encodeURIComponent(artifactId)}/content`,
+      };
+    })
+  );
+}
+
+async function saveOfficialProductDetailContent(productId: string, tenantId: string, officialDetailHtml: string) {
+  const html = sanitizeOfficialProductDetailHtml(officialDetailHtml);
+  await products.upsertContent(productId, {
+    ...(tenantId ? { tenantId } : {}),
+    locale: PRODUCT_DETAIL_LOCALE,
+    status: 'draft',
+    officialDetailHtml: html,
+  });
+}
+
+function createCategorySelection(draft: CreateProductDraft, tree: ProductCategoryNode[]) {
+  const flat = flattenCategoryTree(tree);
+  const level1 = flat.find((item) => item.id === draft.categoryLevel1Id) || null;
+  const level2 = flat.find((item) => item.id === draft.categoryLevel2Id) || null;
+  const level3 = flat.find((item) => item.id === draft.categoryLevel3Id) || null;
+  const leaf = level3 || level2 || level1;
+  const path = [level1, level2, level3].filter(Boolean).map((item) => item?.name || item?.code).join(' / ');
+  return { level1, level2, level3, leaf, path };
+}
+
+function createProductPayload(draft: CreateProductDraft, categoryTree: ProductCategoryNode[]): Record<string, unknown> {
   if (!draft.brand) throw new Error('请选择产品品牌。');
   const tenantId = BRAND_PRODUCT_TENANTS[draft.brand];
   const name = text(draft.name);
   const skuSeed = text(draft.skuSeed);
-  const category = text(draft.category);
-  const system = text(draft.system);
+  const categorySelection = createCategorySelection(draft, categoryTree);
+  const category = text(categorySelection.leaf?.code);
+  const categoryLevel1Id = text(categorySelection.level1?.id);
+  const categoryLevel2Id = text(categorySelection.level2?.id);
+  const categoryLevel3Id = text(categorySelection.level3?.id);
+  const publicSlug = slug(draft.publicSlug || skuSeed);
+  const websiteCategory = text(draft.websiteCategory) || category;
+  const displayOrder = nonNegativeInt(draft.displayOrder);
   if (!name) throw new Error('请填写产品名称。');
   if (!skuSeed) throw new Error('请填写型号或编码种子。');
-  if (!category) throw new Error('请选择分类。');
-  if (!system) throw new Error('请填写系统。');
+  if (!categoryLevel1Id) throw new Error('请选择一级产品分类。');
+  if (!categoryLevel2Id) throw new Error('请选择二级产品分类。');
+  if (!category) throw new Error('请选择产品分类。');
+  const system = category;
   const sku = skeletonSku(draft.brand, skuSeed);
   return {
     ...(tenantId ? { tenantId } : {}),
@@ -425,6 +736,10 @@ function createProductPayload(draft: CreateProductDraft): Record<string, unknown
     name,
     brand: draft.brand,
     category,
+    categoryLevel1Id,
+    categoryLevel2Id,
+    categoryLevel3Id: categoryLevel3Id || null,
+    categoryPath: categorySelection.path,
     status: 'active',
     spec: {
       officialModel: skuSeed,
@@ -433,15 +748,22 @@ function createProductPayload(draft: CreateProductDraft): Record<string, unknown
     },
     meta: {
       [draft.brand]: {
-        slug: slug(skuSeed) || slug(sku),
+        slug: publicSlug || slug(sku),
         name,
         model: skuSeed,
-        cat: category,
-        websiteMenuCategory: category,
+        cat: websiteCategory,
+        websiteCategory,
+        websiteMenuCategory: websiteCategory,
         sys: system,
-        displayOrder: 0,
-        sortOrder: 0,
-        badges: [],
+        displayOrder,
+        sortOrder: displayOrder,
+        categoryLevel1Id,
+        categoryLevel2Id,
+        categoryLevel3Id: categoryLevel3Id || null,
+        series: text(draft.series),
+        tagline: text(draft.tagline),
+        en: text(draft.officialEnglishName),
+        badges: splitBadges(draft.badges),
       },
     },
   };
@@ -581,11 +903,13 @@ function ProductsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const activeModule = normalizeModule(searchParams.get('module'));
-  const [category, setCategory] = useState<CatKey | 'all'>('all');
+  const [category, setCategory] = useState<CatalogCategoryFilter>('all');
   const [keyword, setKeyword] = useState('');
   const [brandFilter, setBrandFilter] = useState<BrandFilter>('all');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [canWrite, setCanWrite] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
+  const [pageSize, setPageSize] = useState(20);
+  const [catalogPage, setCatalogPage] = useState(1);
+  const [productPermissions, setProductPermissions] = useState<BrandProductPermissions>(EMPTY_BRAND_PRODUCT_PERMISSIONS);
   const [actionNotice, setActionNotice] = useState('');
   const { data: brandSiteData } = useSWR('/api/v2/brand-sites', () => brandSites.list(), { revalidateOnFocus: false });
   const createBrandOptions = useMemo(() => brandOptionsFromSites(brandSiteData), [brandSiteData]);
@@ -598,8 +922,9 @@ function ProductsContent() {
     [createBrandOptions],
   );
 
-  const catalogQueries = useMemo(() => {
+  const makeCatalogQueries = (status: StatusFilter, pageSizeValue = '100') => {
     const query: Record<string, string> = { page: '1', pageSize: '100' };
+    query.pageSize = pageSizeValue;
     const q = keyword.trim();
     if (q) query.q = q;
     if (brandFilter !== 'all') {
@@ -607,15 +932,20 @@ function ProductsContent() {
       const tenantId = BRAND_PRODUCT_TENANTS[brandFilter];
       if (tenantId) query.tenantId = tenantId;
     }
-    if (statusFilter !== 'all') query.status = statusFilter;
-    if (category !== 'all') query.category = category;
+    if (status !== 'all') query.status = status;
+    applyCatalogCategoryQuery(query, category);
     if (brandFilter !== 'all') return [query];
     return (supportedProductBrands.length ? supportedProductBrands : DEFAULT_PRODUCT_BRANDS).map((brand) => ({
       ...query,
       brand,
       tenantId: BRAND_PRODUCT_TENANTS[brand] || '',
     }));
-  }, [brandFilter, category, keyword, statusFilter, supportedProductBrands]);
+  };
+
+  const catalogQueries = useMemo(
+    () => makeCatalogQueries(statusFilter),
+    [brandFilter, category, keyword, statusFilter, supportedProductBrands]
+  );
 
   const { data: apiData, error, isLoading, mutate } = useSWR(
     ['/api/v2/product-catalog/devices', catalogQueries],
@@ -630,10 +960,10 @@ function ProductsContent() {
     let cancelled = false;
     auth.me()
       .then((me) => {
-        if (!cancelled) setCanWrite(canWriteBrandProducts(me));
+        if (!cancelled) setProductPermissions(getBrandProductPermissions(me));
       })
       .catch(() => {
-        if (!cancelled) setCanWrite(false);
+        if (!cancelled) setProductPermissions(EMPTY_BRAND_PRODUCT_PERMISSIONS);
       });
     return () => {
       cancelled = true;
@@ -653,10 +983,94 @@ function ProductsContent() {
     return liveProducts.length ? liveProducts : PRODUCTS.map(normalizeFallbackProduct);
   }, [liveProductList]);
 
+  const catalogAssignmentBrands = useMemo(() => {
+    const brands = new Set<string>();
+    liveProductList.forEach((product) => {
+      const brand = normalizeBrand(product.brand);
+      if (brand) brands.add(brand);
+    });
+    if (!brands.size) {
+      (supportedProductBrands.length ? supportedProductBrands : DEFAULT_PRODUCT_BRANDS).forEach((brand) => brands.add(brand));
+    }
+    return Array.from(brands).sort();
+  }, [liveProductList, supportedProductBrands]);
+
+  const categoryFilterBrands = useMemo(() => {
+    if (brandFilter !== 'all') return [brandFilter];
+    return supportedProductBrands.length ? supportedProductBrands : DEFAULT_PRODUCT_BRANDS;
+  }, [brandFilter, supportedProductBrands]);
+
+  const { data: catalogCategoryData } = useSWR(
+    categoryFilterBrands.length ? ['/api/v2/brand-product-categories/catalog-filter', categoryFilterBrands] : null,
+    async () => {
+      const responses = await Promise.all(
+        categoryFilterBrands.map((brandCode) =>
+          brandProductCategories
+            .list({ brandCode })
+            .then((result) => normalizeProductCategoryTree(result))
+            .catch(() => [])
+        )
+      );
+      const seen = new Set<string>();
+      return responses.flatMap((tree) =>
+        catalogCategoryFilterOptions(tree).filter((option) => {
+          if (seen.has(option.value)) return false;
+          seen.add(option.value);
+          return true;
+        })
+      );
+    },
+    { revalidateOnFocus: false }
+  );
+
+  const { data: statusFilterCounts } = useSWR(
+    ['/api/v2/product-catalog/devices/status-counts', brandFilter, category, keyword, supportedProductBrands.join('|')],
+    async () => {
+      const entries = await Promise.all(
+        STATUS_OPTIONS.map(async (status) => {
+          const queries = makeCatalogQueries(status.value, '1');
+          const responses = await Promise.all(queries.map((query) => products.list(query)));
+          return [status.value, responses.reduce((sum, response) => sum + getProductTotal(response), 0)] as const;
+        })
+      );
+      return Object.fromEntries(entries) as Record<StatusFilter, number>;
+    },
+    { revalidateOnFocus: false }
+  );
+  const catalogCategoryOptions = catalogCategoryData?.length
+    ? catalogCategoryData
+    : CATEGORIES.map((item) => ({ value: item.key, label: item.label }));
+
+  const { data: shelfAssignmentData, mutate: mutateShelfAssignments } = useSWR(
+    catalogAssignmentBrands.length ? ['/api/v2/brand-sites/product-assignments', catalogAssignmentBrands] : null,
+    async () => {
+      const responses = await Promise.all(
+        catalogAssignmentBrands.map((brand) =>
+          siteProductAssignments
+            .list(brand, { page: '1', pageSize: '500' })
+            .then((result) => assignmentItems(result))
+            .catch(() => [])
+        )
+      );
+      return responses.flat();
+    },
+    { revalidateOnFocus: false }
+  );
+
+  const assignmentByProductKey = useMemo(() => {
+    const map = new Map<string, WebsiteShelfAssignment>();
+    for (const assignment of shelfAssignmentData || []) {
+      if (!assignment.productId) continue;
+      map.set(assignmentKey(assignment.productId, assignment.productTenantId), assignment);
+      if (!map.has(assignment.productId)) map.set(assignment.productId, assignment);
+    }
+    return map;
+  }, [shelfAssignmentData]);
+
   const visibleProducts = useMemo(() => {
     const query = keyword.trim().toLowerCase();
     return productList.filter((product) => {
-      const categoryMatch = category === 'all' || product.category === category;
+      const categoryMatch = productMatchesCatalogCategory(product, category);
       if (!categoryMatch) return false;
       if (!query) return true;
       return [product.name, product.brand, product.model, product.spec]
@@ -671,12 +1085,24 @@ function ProductsContent() {
     const filtered = liveProductList.filter((product) => {
       if (brandFilter !== 'all' && normalizeBrand(product.brand) !== brandFilter) return false;
       if (statusFilter !== 'all' && product.status !== statusFilter) return false;
-      if (category !== 'all' && product.category !== category) return false;
+      if (!productMatchesCatalogCategory(product, category)) return false;
       if (!query) return true;
       return [product.sku, product.name, product.model].join(' ').toLowerCase().includes(query);
     });
     return sortProductsByStatusThenOrder(filtered);
   }, [brandFilter, category, keyword, liveProductList, statusFilter]);
+
+  const catalogTotalPages = Math.max(Math.ceil(visibleCatalogProducts.length / pageSize), 1);
+
+  const pagedCatalogProducts = useMemo(() => {
+    const safePage = Math.min(Math.max(catalogPage, 1), catalogTotalPages);
+    const start = (safePage - 1) * pageSize;
+    return visibleCatalogProducts.slice(start, start + pageSize);
+  }, [catalogPage, catalogTotalPages, pageSize, visibleCatalogProducts]);
+
+  useEffect(() => {
+    setCatalogPage(1);
+  }, [brandFilter, category, keyword, pageSize, statusFilter]);
 
   const productByModel = useMemo(() => {
     const map = new Map<string, NormalizedProduct>();
@@ -716,8 +1142,8 @@ function ProductsContent() {
       >
         <WorkbenchSectionHeader
           eyebrow="营销工作台"
-          title="产品营销目录"
-          description="产品目录、官网资料和目录底座共用同一套筛选、状态与内容管理入口。"
+          title="产品库管理"
+          description="产品库、产品资料和目录底座共用同一套筛选、产品库状态与内容管理入口。"
           actions={
             <div
               style={{
@@ -755,129 +1181,96 @@ function ProductsContent() {
         {activeModule !== 'categories' && (
           <>
             <section className="g4" style={{ gap: 12 }}>
-              <Metric label="产品编码" value={String(stats.total)} hint="目录可售单品" />
+              <Metric label="产品编码" value={String(stats.total)} hint="产品库单品" />
               <Metric label="现货产品" value={String(stats.stock)} hint="可直接纳入报价" />
               <Metric label="新品" value={String(stats.newest)} hint="建议优先推荐" />
               <Metric label="平均毛利" value={pct(stats.avgMargin)} hint="按指导价估算" />
             </section>
 
             <WorkbenchFilterToolbar>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 12,
-              flexWrap: 'wrap',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '1 1 240px', minWidth: 0 }}>
-              <Search size={16} style={{ color: 'var(--t-tertiary)', flexShrink: 0 }} />
-              <input
-                className="input"
-                value={keyword}
-                onChange={(event) => setKeyword(event.target.value)}
-                placeholder="搜索型号、品牌、名称或参数"
-                style={{ width: '100%', minWidth: 0 }}
-              />
-            </div>
-            <span
-              className={error ? 'badge badge-warning' : 'badge badge-success'}
-              title={error ? String(error.message || error) : undefined}
-              style={{ maxWidth: '100%', overflowWrap: 'anywhere' }}
-            >
-              {error ? '产品加载失败' : isLoading ? '同步中' : '产品已同步'}
-            </span>
-          </div>
-
-          {activeModule === 'catalog' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <span
-                style={{
-                  color: 'var(--t-secondary)',
-                  fontSize: 12,
-                  fontWeight: 600,
-                  marginRight: 2,
-                }}
-              >
-                品牌
-              </span>
-              {brandOptions.map((item) => (
-                <CategoryChip
-                  key={item.value}
-                  active={brandFilter === item.value}
-                  onClick={() => setBrandFilter(item.value)}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', width: '100%' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '1 1 260px', minWidth: 240 }}>
+                  <Search size={16} style={{ color: 'var(--t-tertiary)', flexShrink: 0 }} />
+                  <input
+                    className="input"
+                    value={keyword}
+                    onChange={(event) => setKeyword(event.target.value)}
+                    placeholder="搜索 SKU、slug、名称、型号"
+                    style={{ width: '100%', minWidth: 0 }}
+                  />
+                </div>
+                {activeModule === 'catalog' && (
+                  <>
+                    <select
+                      className="input"
+                      value={brandFilter}
+                      onChange={(event) => setBrandFilter(event.target.value)}
+                      aria-label="产品库品牌筛选"
+                      style={{ width: 160 }}
+                    >
+                      {brandOptions.map((item) => (
+                        <option key={item.value} value={item.value}>
+                          {item.label}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      className="input"
+                      value={statusFilter}
+                      onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
+                      aria-label="产品库状态筛选"
+                      style={{ width: 170 }}
+                    >
+                      {STATUS_OPTIONS.map((item) => (
+                        <option key={item.value} value={item.value}>
+                          {statusFilterCounts ? `${item.label} (${statusFilterCounts[item.value] ?? 0})` : item.label}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      className="input"
+                      value={category}
+                      onChange={(event) => setCategory(event.target.value as CatalogCategoryFilter)}
+                      aria-label="产品库分类筛选"
+                      style={{ width: 180 }}
+                    >
+                      <option value="all">全部产品库分类</option>
+                      {catalogCategoryOptions.map((item) => (
+                        <option key={item.value} value={item.value}>
+                          {item.label}
+                        </option>
+                      ))}
+                    </select>
+                  </>
+                )}
+                <span
+                  className={error ? 'badge badge-warning' : 'badge badge-success'}
+                  title={error ? String(error.message || error) : undefined}
+                  style={{ maxWidth: '100%', overflowWrap: 'anywhere' }}
                 >
-                  {item.label}
-                </CategoryChip>
-              ))}
-            </div>
-          )}
-
-          {activeModule === 'catalog' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <span
-                style={{
-                  color: 'var(--t-secondary)',
-                  fontSize: 12,
-                  fontWeight: 600,
-                  marginRight: 2,
-                }}
-              >
-                状态
-              </span>
-              {STATUS_OPTIONS.map((item) => (
-                <CategoryChip
-                  key={item.value}
-                  active={statusFilter === item.value}
-                  onClick={() => setStatusFilter(item.value)}
-                >
-                  {item.label}
-                </CategoryChip>
-              ))}
-            </div>
-          )}
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <span
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-                color: 'var(--t-secondary)',
-                fontSize: 12,
-                fontWeight: 600,
-                marginRight: 2,
-              }}
-            >
-              <SlidersHorizontal size={14} />
-              分类
-            </span>
-            <CategoryChip active={category === 'all'} onClick={() => setCategory('all')}>
-              全部
-            </CategoryChip>
-            {CATEGORIES.map((item) => (
-              <CategoryChip
-                key={item.key}
-                active={category === item.key}
-                onClick={() => setCategory(item.key)}
-              >
-                {item.label}
-              </CategoryChip>
-            ))}
-          </div>
+                  {error ? '产品加载失败' : isLoading ? '同步中' : '产品库已同步'}
+                </span>
+              </div>
             </WorkbenchFilterToolbar>
           </>
         )}
 
         {activeModule === 'catalog' ? (
           <ProductCatalogShell
-            products={visibleCatalogProducts}
-            total={Number((apiData as any)?.total ?? liveProductList.length)}
+            products={pagedCatalogProducts}
+            total={visibleCatalogProducts.length}
+            currentPage={Math.min(catalogPage, catalogTotalPages)}
+            totalPages={catalogTotalPages}
+            pageSize={pageSize}
+            pageSizeOptions={PRODUCT_PAGE_SIZE_OPTIONS}
             isLoading={isLoading}
             error={error}
-            canWrite={canWrite}
+            canCreateProduct={productPermissions.canCreateProduct}
+            canUpdateProduct={productPermissions.canUpdateProduct}
+            canPublishProduct={productPermissions.canPublishProduct}
+            canDeleteProduct={productPermissions.canDeleteProduct}
             brandOptions={createBrandOptions}
+            assignmentByProductKey={assignmentByProductKey}
             actionNotice={actionNotice}
             onNotice={setActionNotice}
             onCreated={(brand) => {
@@ -885,9 +1278,11 @@ function ProductsContent() {
               setStatusFilter('active');
               setCategory('all');
               setKeyword('');
-              return mutate();
+              return Promise.all([mutate(), mutateShelfAssignments()]);
             }}
-            onChanged={() => mutate()}
+            onChanged={() => Promise.all([mutate(), mutateShelfAssignments()])}
+            onPageChange={setCatalogPage}
+            onPageSizeChange={setPageSize}
             onReset={() => {
               setCategory('all');
               setBrandFilter('all');
@@ -898,7 +1293,11 @@ function ProductsContent() {
         ) : activeModule === 'materials' ? (
           <ProductMaterialsView products={productList} />
         ) : activeModule === 'categories' ? (
-          <ProductCategoryManagerCrudView canWrite={canWrite} />
+          <ProductCategoryManagerCrudView
+            canCreate={productPermissions.canCreateBrandLibrary}
+            canUpdate={productPermissions.canUpdateBrandLibrary}
+            canDelete={productPermissions.canDeleteBrandLibrary}
+          />
         ) : (
           <ProductBaseView products={productList} productByModel={productByModel} />
         )}
@@ -1004,40 +1403,117 @@ function CategoryCountPill({ label, value, tone = 'neutral' }: { label: string; 
 function ProductCatalogShell({
   products: items,
   total,
+  currentPage,
+  totalPages,
+  pageSize,
+  pageSizeOptions,
   isLoading,
   error,
-  canWrite,
+  canCreateProduct,
+  canUpdateProduct,
+  canPublishProduct,
+  canDeleteProduct,
   brandOptions,
+  assignmentByProductKey,
   actionNotice,
   onNotice,
   onCreated,
   onChanged,
+  onPageChange,
+  onPageSizeChange,
   onReset,
 }: {
   products: NormalizedProduct[];
   total: number;
+  currentPage: number;
+  totalPages: number;
+  pageSize: number;
+  pageSizeOptions: number[];
   isLoading: boolean;
   error: unknown;
-  canWrite: boolean;
+  canCreateProduct: boolean;
+  canUpdateProduct: boolean;
+  canPublishProduct: boolean;
+  canDeleteProduct: boolean;
   brandOptions: Array<{ value: ProductBrand; label: string }>;
+  assignmentByProductKey: Map<string, WebsiteShelfAssignment>;
   actionNotice: string;
   onNotice: (text: string) => void;
   onCreated: (brand: ProductBrand) => Promise<unknown>;
   onChanged: () => Promise<unknown>;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (pageSize: number) => void;
   onReset: () => void;
 }) {
   const [showCreate, setShowCreate] = useState(false);
   const [createDraft, setCreateDraft] = useState<CreateProductDraft>(() => emptyCreateDraft());
   const [createError, setCreateError] = useState('');
   const [creating, setCreating] = useState(false);
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  const [bulkStatus, setBulkStatus] = useState<'active' | 'inactive' | ''>('');
+  const createBrandCode = normalizeBrand(createDraft.brand);
+  const { data: createCategoryData, error: createCategoryError, isLoading: createCategoryLoading } = useSWR(
+    showCreate && createBrandCode ? ['/api/v2/brand-product-categories', createBrandCode, 'product-create'] : null,
+    async () => {
+      const result = await brandProductCategories.list({ brandCode: createBrandCode });
+      return { tree: normalizeProductCategoryTree(result) };
+    },
+    { revalidateOnFocus: false },
+  );
+  const createCategoryTree = createCategoryData?.tree || [];
+
+  const visibleProductIds = useMemo(() => items.map((product) => product.id).filter(Boolean), [items]);
+  const selectedItems = useMemo(() => {
+    const selected = new Set(selectedProductIds);
+    return items.filter((product) => selected.has(product.id));
+  }, [items, selectedProductIds]);
+  const allVisibleSelected = visibleProductIds.length > 0 && visibleProductIds.every((id) => selectedProductIds.includes(id));
+  const someVisibleSelected = visibleProductIds.some((id) => selectedProductIds.includes(id));
+
+  function toggleVisibleSelection(checked: boolean) {
+    setSelectedProductIds((current) => {
+      const next = new Set(current);
+      visibleProductIds.forEach((id) => {
+        if (checked) next.add(id);
+        else next.delete(id);
+      });
+      return Array.from(next);
+    });
+  }
+
+  async function runBulkStatus(nextStatus: 'active' | 'inactive') {
+    if (!canPublishProduct || !selectedItems.length || bulkStatus) return;
+    setBulkStatus(nextStatus);
+    const writableItems = selectedItems.filter((product) => product.status !== 'archived');
+    try {
+      await Promise.all(
+        writableItems.map((product) => products.update(product.id, productStatusPayload(product, nextStatus)))
+      );
+      onNotice(`已批量${nextStatus === 'active' ? '启用' : '停用'} ${writableItems.length} 个产品库产品。`);
+      setSelectedProductIds((current) => current.filter((id) => !selectedItems.some((product) => product.id === id)));
+      await onChanged();
+    } catch (e) {
+      onNotice((e as Error)?.message || '批量更新产品库状态失败。');
+    } finally {
+      setBulkStatus('');
+    }
+  }
 
   async function submitCreate(event: FormEvent) {
     event.preventDefault();
+    if (!canCreateProduct) return;
     setCreating(true);
     setCreateError('');
     try {
-      const payload = createProductPayload(createDraft);
-      await products.create(payload);
+      const basePayload = createProductPayload(createDraft, createCategoryTree);
+      const manualPdfRefs = await uploadProductManualPdfRefs(createDraft, String(basePayload.sku || createDraft.skuSeed));
+      const payload = manualPdfRefs.length ? { ...basePayload, assetRefs: manualPdfRefs } : basePayload;
+      const created = await products.create(payload);
+      const createdId = text((created as any)?.id);
+      if (createdId && text(createDraft.officialDetailHtml)) {
+        await saveOfficialProductDetailContent(createdId, text((payload as any).tenantId), createDraft.officialDetailHtml);
+      }
+      createDraft.manualPdfs.forEach((manual) => URL.revokeObjectURL(manual.previewUrl));
       setCreateDraft(emptyCreateDraft());
       setShowCreate(false);
       onNotice(`Created ${String(payload.name)} for ${displayBrand(String(payload.brand))}.`);
@@ -1073,18 +1549,19 @@ function ProductCatalogShell({
             编辑、状态切换与归档会同步到同一份产品主数据。
           </p>
         </div>
-        {canWrite ? (
+        {canCreateProduct ? (
           <button
             type="button"
             className="btn btn-brand btn-sm"
             onClick={() => {
               setCreateError('');
-              setShowCreate((value) => !value);
+              setCreateDraft(emptyCreateDraft());
+              setShowCreate(true);
             }}
             style={{ flexShrink: 0 }}
           >
             <Plus size={14} />
-            {showCreate ? '收起新增' : '新增产品'}
+            新增产品
           </button>
         ) : (
           <span className="badge badge-grey" style={{ flexShrink: 0 }}>
@@ -1093,16 +1570,21 @@ function ProductCatalogShell({
         )}
       </div>
 
-      {canWrite && showCreate && (
+      {canCreateProduct && showCreate && (
           <CreateProductForm
             draft={createDraft}
             brandOptions={brandOptions}
+            categoryTree={createCategoryTree}
+            categoryLoading={createCategoryLoading}
+            categoryError={createCategoryError}
             error={createError}
           submitting={creating}
           onChange={setCreateDraft}
           onCancel={() => {
+            createDraft.manualPdfs.forEach((manual) => URL.revokeObjectURL(manual.previewUrl));
             setCreateDraft(emptyCreateDraft());
             setCreateError('');
+            setShowCreate(false);
           }}
           onSubmit={submitCreate}
         />
@@ -1120,7 +1602,7 @@ function ProductCatalogShell({
         }}
       >
         <span style={{ color: 'var(--t-secondary)', fontSize: 12, minWidth: 0 }}>
-          {isLoading ? '正在加载真实产品...' : `显示 ${items.length} / ${total} 个产品`}
+          {isLoading ? '正在加载真实产品...' : `显示 ${items.length} / ${total} 个产品库产品`}
         </span>
         {actionNotice && (
           <span
@@ -1147,41 +1629,122 @@ function ProductCatalogShell({
           onReset={onReset}
         />
       ) : (
-        <div style={{ display: 'grid', minWidth: 0, overflowX: 'auto' }}>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: PRODUCT_CATALOG_TABLE_GRID,
-              gap: 12,
-              alignItems: 'center',
-              minWidth: 1220,
-              padding: '10px 18px',
-              borderBottom: '1px solid var(--border)',
-              background: 'var(--surface-2)',
-              color: 'var(--t-tertiary)',
-              fontSize: 12,
-              fontWeight: 800,
-            }}
-          >
-            <span>产品</span>
-            <span>分类</span>
-            <span>系统</span>
-            <span>官网路径</span>
-            <span>官网分类</span>
-            <span>主数据分类</span>
-            <span>状态</span>
-            <span style={{ textAlign: 'right' }}>操作</span>
+        <WorkbenchTableShell>
+          {canPublishProduct && selectedItems.length ? (
+            <div
+              role="status"
+              style={{
+                padding: '10px 18px',
+                borderBottom: '1px solid var(--border)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 12,
+                flexWrap: 'wrap',
+                background: 'rgba(228, 0, 43, 0.04)',
+              }}
+            >
+              <span style={{ fontSize: 12, fontWeight: 800 }}>已选 {selectedItems.length} 个产品库产品</span>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn btn-brand btn-sm"
+                  onClick={() => runBulkStatus('active')}
+                  disabled={Boolean(bulkStatus)}
+                >
+                  <CheckCircle2 size={13} />
+                  {bulkStatus === 'active' ? '批量启用中' : '批量启用'}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  onClick={() => runBulkStatus('inactive')}
+                  disabled={Boolean(bulkStatus)}
+                >
+                  <EyeOff size={13} />
+                  {bulkStatus === 'inactive' ? '批量停用中' : '批量停用'}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => toggleVisibleSelection(false)}
+                  disabled={Boolean(bulkStatus)}
+                >
+                  取消选择
+                </button>
+              </div>
+            </div>
+          ) : null}
+          <div style={{ overflowX: 'auto' }}>
+            <table className="table product-catalog-table" style={{ minWidth: 1360 }}>
+              <thead>
+                <tr>
+                  <th style={{ width: 44 }}>
+                    <input
+                      type="checkbox"
+                      checked={allVisibleSelected}
+                      disabled={!canPublishProduct || !visibleProductIds.length || Boolean(bulkStatus)}
+                      ref={(node) => {
+                        if (node) node.indeterminate = someVisibleSelected && !allVisibleSelected;
+                      }}
+                      onChange={(event) => toggleVisibleSelection(event.target.checked)}
+                      aria-label="选择当前页全部产品库产品"
+                    />
+                  </th>
+                  <th>产品库分类</th>
+                  <th>产品</th>
+                  <th>产品型号</th>
+                  <th>品牌</th>
+                  <th>图片</th>
+                  <th>排序</th>
+                  <th>产品库状态</th>
+                  <th>官网上架状态</th>
+                  <th style={{ textAlign: 'right' }}>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((product) => {
+                  const assignment =
+                    assignmentByProductKey.get(assignmentKey(product.id, tenantIdForProduct(product))) ||
+                    assignmentByProductKey.get(product.id);
+                  return (
+                    <ProductCatalogRow
+                      key={product.id}
+                      product={product}
+                      canUpdateProduct={canUpdateProduct}
+                      canPublishProduct={canPublishProduct}
+                      canDeleteProduct={canDeleteProduct}
+                      assignment={assignment}
+                      selected={selectedProductIds.includes(product.id)}
+                      selectionDisabled={!canPublishProduct || Boolean(bulkStatus)}
+                      onSelectionChange={(checked) => {
+                        setSelectedProductIds((current) => {
+                          const next = new Set(current);
+                          if (checked) next.add(product.id);
+                          else next.delete(product.id);
+                          return Array.from(next);
+                        });
+                      }}
+                      onNotice={onNotice}
+                      onChanged={onChanged}
+                    />
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
-          {items.map((product) => (
-            <ProductCatalogRow
-              key={product.id}
-              product={product}
-              canWrite={canWrite}
-              onNotice={onNotice}
-              onChanged={onChanged}
-            />
-          ))}
-        </div>
+          <WorkbenchPaginationFooter
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={total}
+            pageSize={pageSize}
+            pageSizeOptions={pageSizeOptions}
+            onPageSizeChange={onPageSizeChange}
+            onPageChange={isLoading ? undefined : onPageChange}
+            onPrevious={isLoading || currentPage <= 1 ? undefined : () => onPageChange(Math.max(currentPage - 1, 1))}
+            onNext={isLoading || currentPage >= totalPages ? undefined : () => onPageChange(currentPage + 1)}
+          />
+        </WorkbenchTableShell>
       )}
     </section>
   );
@@ -1190,6 +1753,9 @@ function ProductCatalogShell({
 function CreateProductForm({
   draft,
   brandOptions,
+  categoryTree,
+  categoryLoading,
+  categoryError,
   error,
   submitting,
   onChange,
@@ -1198,6 +1764,9 @@ function CreateProductForm({
 }: {
   draft: CreateProductDraft;
   brandOptions: Array<{ value: ProductBrand; label: string }>;
+  categoryTree: ProductCategoryNode[];
+  categoryLoading: boolean;
+  categoryError: unknown;
   error: string;
   submitting: boolean;
   onChange: (draft: CreateProductDraft) => void;
@@ -1206,115 +1775,328 @@ function CreateProductForm({
 }) {
   const patch = (next: Partial<CreateProductDraft>) => onChange({ ...draft, ...next });
   const tenantId = draft.brand ? BRAND_PRODUCT_TENANTS[draft.brand] : '';
+  const categoryFlat = useMemo(() => flattenCategoryTree(categoryTree), [categoryTree]);
+  const selectedLevel1 = categoryFlat.find((item) => item.id === draft.categoryLevel1Id) || null;
+  const selectedLevel2 = categoryFlat.find((item) => item.id === draft.categoryLevel2Id) || null;
+  const selectedLevel3 = categoryFlat.find((item) => item.id === draft.categoryLevel3Id) || null;
+  const level1Options = activeCategoryOptions(categoryTree, selectedLevel1);
+  const level2Options = activeCategoryOptions(selectedLevel1?.children || [], selectedLevel2);
+  const level3Options = activeCategoryOptions(selectedLevel2?.children || [], selectedLevel3);
+  const selectedPath = [selectedLevel1, selectedLevel2, selectedLevel3].filter(Boolean).map((item) => item?.name || item?.code).join(' / ');
 
-  return (
-    <form
-      onSubmit={onSubmit}
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
+    <div
+      className="product-edit-backdrop"
+      role="presentation"
+      onMouseDown={onCancel}
       style={{
-        padding: 18,
-        borderBottom: '1px solid var(--border)',
+        position: 'fixed',
+        inset: 0,
+        zIndex: 1000,
         display: 'grid',
-        gap: 14,
-        background: 'var(--surface-2)',
+        placeItems: 'center',
+        padding: 24,
+        background: 'rgba(15, 23, 42, 0.45)',
       }}
     >
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: 12 }}>
-        <label style={{ display: 'grid', gap: 6 }}>
-          <span className="t-label">品牌</span>
-          <select
-            className="input"
-            value={draft.brand}
-            required
-            onChange={(event) => patch({ brand: event.target.value as ProductBrand })}
-          >
-            <option value="">选择品牌</option>
-            {brandOptions.map((brand) => (
-              <option key={brand.value} value={brand.value}>
-                {brand.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label style={{ display: 'grid', gap: 6 }}>
-          <span className="t-label">产品名称</span>
-          <input
-            className="input"
-            value={draft.name}
-            required
-            onChange={(event) => patch({ name: event.target.value })}
-            placeholder="Rheem heat pump 16kW"
-          />
-        </label>
-        <label style={{ display: 'grid', gap: 6 }}>
-          <span className="t-label">型号 / 编码种子</span>
-          <input
-            className="input"
-            value={draft.skuSeed}
-            required
-            onChange={(event) => patch({ skuSeed: event.target.value })}
-            placeholder="RP-16kW-INV"
-          />
-        </label>
-        <label style={{ display: 'grid', gap: 6 }}>
-          <span className="t-label">分类</span>
-          <select
-            className="input"
-            value={draft.category}
-            required
-            onChange={(event) => patch({ category: event.target.value as CatKey })}
-          >
-            <option value="">选择分类</option>
-            {CATEGORIES.map((category) => (
-              <option key={category.key} value={category.key}>
-                {category.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label style={{ display: 'grid', gap: 6 }}>
-          <span className="t-label">系统</span>
-          <input
-            className="input"
-            value={draft.system}
-            required
-            onChange={(event) => patch({ system: event.target.value })}
-            placeholder="air-source-heat-pump"
-          />
-        </label>
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <span className={tenantId ? 'badge badge-success' : 'badge badge-warning'} style={{ maxWidth: '100%', overflowWrap: 'anywhere', whiteSpace: 'normal' }}>
-          {tenantId ? `tenantId: ${tenantId}` : '请选择品牌以匹配租户 tenantId'}
-        </span>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel} disabled={submitting}>
-            重置
+      <form
+        className="product-edit-modal"
+        onSubmit={onSubmit}
+        onMouseDown={(event) => event.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="product-create-title"
+        style={{
+          width: 'min(1040px, 100%)',
+          maxHeight: 'min(860px, calc(100vh - 48px))',
+          display: 'grid',
+          gridTemplateRows: 'auto minmax(0, 1fr) auto',
+          background: 'var(--surface-1)',
+          borderRadius: 'var(--r-xl)',
+          border: '1px solid var(--border)',
+          boxShadow: 'var(--sh-lg)',
+          overflow: 'hidden',
+        }}
+      >
+        <header
+          className="product-edit-modal-head"
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: 16,
+            alignItems: 'flex-start',
+            padding: 18,
+            borderBottom: '1px solid var(--border)',
+          }}
+        >
+          <div>
+            <p className="t-label">新增产品</p>
+            <h2 id="product-create-title">{draft.name || '新增产品库主数据'}</h2>
+            <span>{draft.brand ? `${displayBrand(draft.brand)} · ${selectedPath || '请选择产品分类'}` : '先选择品牌，再选择该品牌已有分类'}</span>
+          </div>
+          <button type="button" className="btn btn-outline btn-sm icon-only" onClick={onCancel} aria-label="关闭新增产品" disabled={submitting}>
+            <X size={15} />
           </button>
-          <button type="submit" className="btn btn-brand btn-sm" disabled={submitting}>
+        </header>
+
+        <div className="product-edit-modal-body" style={{ overflow: 'auto', padding: 18, display: 'grid', gap: 14 }}>
+          <section className="product-edit-section" style={{ display: 'grid', gap: 12 }}>
+            <div className="product-edit-section-head">
+              <h3>基础信息</h3>
+              <span className={tenantId ? 'badge badge-success' : 'badge badge-warning'}>
+                {tenantId ? `tenantId: ${tenantId}` : '请选择品牌'}
+              </span>
+            </div>
+            <div className="product-edit-field-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 12 }}>
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span className="t-label">品牌</span>
+                <select
+                  className="input"
+                  value={draft.brand}
+                  required
+                  onChange={(event) =>
+                    onChange({
+                      ...draft,
+                      brand: event.target.value as ProductBrand,
+                      categoryLevel1Id: '',
+                      categoryLevel2Id: '',
+                      categoryLevel3Id: '',
+                      officialEnglishName: String(event.target.value || '').toUpperCase(),
+                    })
+                  }
+                >
+                  <option value="">选择品牌</option>
+                  {brandOptions.map((brand) => (
+                    <option key={brand.value} value={brand.value}>
+                      {brand.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span className="t-label">产品名称</span>
+                <input className="input" value={draft.name} required onChange={(event) => patch({ name: event.target.value })} placeholder="Rheem heat pump 16kW" />
+              </label>
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span className="t-label">型号 / 编码种子</span>
+                <input className="input" value={draft.skuSeed} required onChange={(event) => patch({ skuSeed: event.target.value })} placeholder="RP-16kW-INV" />
+              </label>
+            </div>
+          </section>
+
+          <section className="product-edit-section" style={{ display: 'grid', gap: 12 }}>
+            <div className="product-edit-section-head">
+              <h3>产品分类绑定</h3>
+              <span className="badge badge-grey">来自当前品牌分类树</span>
+            </div>
+            {categoryLoading ? (
+              <div className="inset" style={{ padding: 12, color: 'var(--t-secondary)', fontSize: 13 }}>正在加载产品分类...</div>
+            ) : categoryError ? (
+              <div className="inset" role="alert" style={{ padding: 12, color: 'var(--danger)', fontSize: 13 }}>
+                产品分类加载失败：{String((categoryError as Error)?.message || categoryError)}
+              </div>
+            ) : !draft.brand ? (
+              <div className="inset" style={{ padding: 12, color: 'var(--t-secondary)', fontSize: 13 }}>请选择品牌后加载该品牌分类。</div>
+            ) : !categoryTree.length ? (
+              <div className="inset" style={{ padding: 12, color: 'var(--t-secondary)', fontSize: 13 }}>当前品牌暂无分类，请先在“产品分类”中维护分类树。</div>
+            ) : (
+              <div className="product-edit-field-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 12 }}>
+                <label style={{ display: 'grid', gap: 6 }}>
+                  <span className="t-label">一级分类</span>
+                  <select
+                    className="input"
+                    value={draft.categoryLevel1Id}
+                    required
+                    onChange={(event) => patch({ categoryLevel1Id: event.target.value, categoryLevel2Id: '', categoryLevel3Id: '' })}
+                  >
+                    <option value="">请选择一级分类</option>
+                    {level1Options.map((item) => (
+                      <option key={item.id} value={item.id}>{categoryOptionLabel(item)}</option>
+                    ))}
+                  </select>
+                </label>
+                <label style={{ display: 'grid', gap: 6 }}>
+                  <span className="t-label">二级分类</span>
+                  <select
+                    className="input"
+                    value={draft.categoryLevel2Id}
+                    required
+                    disabled={!draft.categoryLevel1Id}
+                    onChange={(event) => patch({ categoryLevel2Id: event.target.value, categoryLevel3Id: '' })}
+                  >
+                    <option value="">请选择二级分类</option>
+                    {level2Options.map((item) => (
+                      <option key={item.id} value={item.id}>{categoryOptionLabel(item)}</option>
+                    ))}
+                  </select>
+                </label>
+                <label style={{ display: 'grid', gap: 6 }}>
+                  <span className="t-label">三级分类（可选）</span>
+                  <select className="input" value={draft.categoryLevel3Id} disabled={!draft.categoryLevel2Id} onChange={(event) => patch({ categoryLevel3Id: event.target.value })}>
+                    <option value="">不选择三级分类</option>
+                    {level3Options.map((item) => (
+                      <option key={item.id} value={item.id}>{categoryOptionLabel(item)}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            )}
+          </section>
+
+          <section className="product-edit-section" style={{ display: 'grid', gap: 12 }}>
+            <div className="product-edit-section-head">
+              <h3>官网元数据</h3>
+            </div>
+            <div className="product-edit-field-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 12 }}>
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span className="t-label">公开路径</span>
+                <input className="input" value={draft.publicSlug} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" onChange={(event) => patch({ publicSlug: event.target.value })} placeholder="留空则按型号生成" />
+              </label>
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span className="t-label">系列</span>
+                <input className="input" value={draft.series} onChange={(event) => patch({ series: event.target.value })} />
+              </label>
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span className="t-label">英文名</span>
+                <input className="input" value={draft.officialEnglishName} onChange={(event) => patch({ officialEnglishName: event.target.value })} />
+              </label>
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span className="t-label">排序</span>
+                <input className="input" type="number" min={0} value={draft.displayOrder} onChange={(event) => patch({ displayOrder: event.target.value })} />
+              </label>
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span className="t-label">标语</span>
+                <input className="input" value={draft.tagline} onChange={(event) => patch({ tagline: event.target.value })} />
+              </label>
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span className="t-label">标签</span>
+                <input className="input" value={draft.badges} onChange={(event) => patch({ badges: event.target.value })} placeholder="用逗号分隔" />
+              </label>
+            </div>
+          </section>
+
+          <section className="product-edit-section" style={{ display: 'grid', gap: 12 }}>
+            <div className="product-edit-section-head">
+              <h3>官网产品详情</h3>
+              <span className="badge badge-grey">750px 长图</span>
+            </div>
+            <OfficialProductDetailEditor
+              value={draft.officialDetailHtml}
+              onChange={(officialDetailHtml) => patch({ officialDetailHtml })}
+              entityId={draft.skuSeed || draft.name || 'new-product'}
+              disabled={submitting}
+            />
+          </section>
+
+          <section className="product-edit-section" style={{ display: 'grid', gap: 12 }}>
+            <div className="product-edit-section-head">
+              <h3>产品说明 PDF</h3>
+              <span className="badge badge-grey">不限数量</span>
+            </div>
+            <label style={{ display: 'grid', gap: 6 }}>
+              <span className="t-label">上传 PDF</span>
+              <input
+                className="input"
+                type="file"
+                accept="application/pdf,.pdf"
+                multiple
+                onChange={(event) => {
+                  const files = Array.from(event.target.files || []).filter((file) => file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf'));
+                  if (!files.length) return;
+                  patch({
+                    manualPdfs: [
+                      ...draft.manualPdfs,
+                      ...files.map((file) => ({
+                        id: `${file.name}-${file.lastModified}-${Math.random().toString(36).slice(2)}`,
+                        file,
+                        name: file.name,
+                        previewUrl: URL.createObjectURL(file),
+                      })),
+                    ],
+                  });
+                  event.currentTarget.value = '';
+                }}
+              />
+            </label>
+            {draft.manualPdfs.length ? (
+              <div style={{ display: 'grid', gap: 10 }}>
+                {draft.manualPdfs.map((manual, index) => (
+                  <div key={manual.id} className="inset" style={{ display: 'grid', gap: 8, padding: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <strong style={{ overflowWrap: 'anywhere' }}>{index + 1}. {manual.name}</strong>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => {
+                          URL.revokeObjectURL(manual.previewUrl);
+                          patch({ manualPdfs: draft.manualPdfs.filter((item) => item.id !== manual.id) });
+                        }}
+                        disabled={submitting}
+                      >
+                        <X size={13} />
+                        移除
+                      </button>
+                    </div>
+                    <iframe title={`PDF preview ${manual.name}`} src={manual.previewUrl} style={{ width: '100%', height: 320, border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', background: 'var(--surface-2)' }} />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="inset" style={{ padding: 12, color: 'var(--t-secondary)', fontSize: 13 }}>尚未上传产品说明 PDF。</div>
+            )}
+          </section>
+        </div>
+
+        <footer
+          className="product-edit-modal-actions"
+          style={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            alignItems: 'center',
+            gap: 8,
+            padding: 18,
+            borderTop: '1px solid var(--border)',
+            background: 'var(--surface-2)',
+          }}
+        >
+          {error && <span className="row-feedback error" role="alert">{error}</span>}
+          <button type="button" className="btn btn-outline btn-sm" onClick={onCancel} disabled={submitting}>
+            <X size={13} />
+            取消
+          </button>
+          <button type="submit" className="btn btn-brand btn-sm" disabled={submitting || categoryLoading}>
             <Plus size={14} />
             {submitting ? '创建中...' : '创建'}
           </button>
-        </div>
-      </div>
-
-      {error && (
-        <p role="alert" style={{ margin: 0, color: 'var(--danger)', fontSize: 13, overflowWrap: 'anywhere' }}>
-          {error}
-        </p>
-      )}
-    </form>
+        </footer>
+      </form>
+    </div>,
+    document.body,
   );
 }
 
 function ProductCatalogRow({
   product,
-  canWrite,
+  canUpdateProduct,
+  canPublishProduct,
+  canDeleteProduct,
+  assignment,
+  selected,
+  selectionDisabled,
+  onSelectionChange,
   onNotice,
   onChanged,
 }: {
   product: NormalizedProduct;
-  canWrite: boolean;
+  canUpdateProduct: boolean;
+  canPublishProduct: boolean;
+  canDeleteProduct: boolean;
+  assignment?: WebsiteShelfAssignment;
+  selected: boolean;
+  selectionDisabled: boolean;
+  onSelectionChange: (checked: boolean) => void;
   onNotice: (text: string) => void;
   onChanged: () => Promise<unknown>;
 }) {
@@ -1333,6 +2115,11 @@ function ProductCatalogRow({
       const result = await brandProductCategories.list({ brandCode });
       return { tree: normalizeProductCategoryTree(result) };
     },
+    { revalidateOnFocus: false },
+  );
+  const { data: contentData, error: contentError, isLoading: contentLoading } = useSWR(
+    editing && product.id ? ['/api/v2/product-catalog/devices/content', product.id, tenantIdForProduct(product)] : null,
+    async () => products.listContent(product.id, tenantIdForProduct(product) ? { tenantId: tenantIdForProduct(product) } : undefined),
     { revalidateOnFocus: false },
   );
   const productCategoryTree = categoryData?.tree || [];
@@ -1365,6 +2152,13 @@ function ProductCatalogRow({
     product.raw?.meta,
   ]);
 
+  useEffect(() => {
+    if (!editing || !contentData) return;
+    const officialDetailHtml = officialDetailFromContent(contentData);
+    setDraft((current) => ({ ...current, officialDetailHtml }));
+    setRowState((state) => ({ ...state, dirty: false, success: '', error: '' }));
+  }, [contentData, editing]);
+
   function patchDraft(next: Partial<EditProductDraft>) {
     const updated = { ...draft, ...next };
     setDraft(updated);
@@ -1378,9 +2172,14 @@ function ProductCatalogRow({
 
   async function saveEdit(event: FormEvent) {
     event.preventDefault();
+    if (!canUpdateProduct) return;
     setRowState((state) => ({ ...state, saving: true, error: '', success: '' }));
     try {
       await products.update(product.id, productUpdatePayload(product, draft));
+      const existingOfficialDetailHtml = officialDetailFromContent(contentData);
+      if (text(draft.officialDetailHtml) || existingOfficialDetailHtml) {
+        await saveOfficialProductDetailContent(product.id, tenantIdForProduct(product), draft.officialDetailHtml);
+      }
       setEditing(false);
       setRowState({ dirty: false, saving: false, success: '已保存，刷新品牌页可见同步变化。', error: '' });
       onNotice(`已保存 ${product.sku || draft.name}。`);
@@ -1393,6 +2192,7 @@ function ProductCatalogRow({
   }
 
   async function changeStatus(nextStatus: 'active' | 'inactive') {
+    if (!canPublishProduct) return;
     setRowState((state) => ({ ...state, saving: true, error: '', success: '' }));
     try {
       await products.update(product.id, productStatusPayload(product, nextStatus));
@@ -1407,6 +2207,7 @@ function ProductCatalogRow({
   }
 
   async function archiveProduct() {
+    if (!canDeleteProduct) return;
     if (!window.confirm(`确认归档「${product.name}」？归档后会从默认产品列表移出，但不会物理删除。`)) return;
     setRowState((state) => ({ ...state, saving: true, error: '', success: '' }));
     try {
@@ -1425,32 +2226,32 @@ function ProductCatalogRow({
   const customCategory = draft.category && !CATEGORY_KEYS.has(draft.category);
   const brandMeta = productBrandMeta(product);
   const websiteCategory = text(brandMeta.websiteCategory || brandMeta.websiteMenuCategory || brandMeta.cat);
+  const shelfMeta = websiteShelfMeta(assignment);
+  const displayOrder = nonNegativeInt(brandMeta.displayOrder ?? brandMeta.sortOrder);
+  const imageSrc = productImageSrc(product);
 
   return (
-    <div style={{ borderBottom: '1px solid var(--border)', minWidth: 1220 }}>
-      <article
-        style={{
-          display: 'grid',
-          gridTemplateColumns: PRODUCT_CATALOG_TABLE_GRID,
-          gap: 12,
-          alignItems: 'stretch',
-          padding: '12px 18px',
-          minWidth: 1220,
-          maxWidth: '100%',
-          background: editing ? 'rgba(228, 0, 43, 0.025)' : 'var(--surface-1)',
-        }}
-      >
-        <div style={{ minWidth: 0, display: 'grid', alignContent: 'start', gap: 7 }}>
+    <>
+      <tr className={selected ? 'is-selected' : undefined}>
+        <td>
+          <input
+            type="checkbox"
+            checked={selected}
+            disabled={selectionDisabled}
+            onChange={(event) => onSelectionChange(event.target.checked)}
+            aria-label={`选择 ${product.name || product.sku || '产品库产品'}`}
+          />
+        </td>
+        <td>
+          <div style={{ minWidth: 0, fontWeight: 800 }}>
+            {product.categoryPath ||
+              websiteCategory ||
+              product.category ||
+              '未分类'}
+          </div>
+        </td>
+        <td>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', minWidth: 0 }}>
-            <span
-              className="pill-neutral"
-              style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-            >
-              {product.sku || '未生成编码'}
-            </span>
-            <span className="pill-brand" style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {displayBrand(product.brand)}
-            </span>
             {rowState.dirty && <span className="badge badge-warning">有未保存修改</span>}
             {rowState.saving && <span className="badge badge-info">保存中...</span>}
           </div>
@@ -1470,105 +2271,100 @@ function ProductCatalogRow({
           >
             {product.name}
           </h3>
-          <p style={{ margin: 0, color: 'var(--t-tertiary)', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            型号 {product.model || '待补齐'}
-          </p>
-        </div>
-
-        <MetaBlock label="分类" value={product.category || '未分类'} compact />
-        <MetaBlock label="系统" value={product.system || '待补齐'} compact />
-        <MetaBlock label="官网路径" value={text(brandMeta.slug) || product.sku || '待补齐'} compact />
-        <MetaBlock label="官网分类" value={websiteCategory || product.category || '待补齐'} compact />
-        <MetaBlock
-          label="主数据分类"
-          value={[product.materialCategory, product.productLine, product.categoryPath].filter(Boolean).join(' / ') || '-'}
-          compact
-        />
-        <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
+        </td>
+        <td>
+          <span className="mono-cell">{product.model || '待补齐'}</span>
+        </td>
+        <td>
+          <span className="pill-brand" style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {displayBrand(product.brand)}
+          </span>
+        </td>
+        <td>
+          <ProductCatalogImagePreview src={imageSrc} alt={product.name || product.model || '产品图片'} />
+        </td>
+        <td>
+          <span className="mono-cell">{displayOrder}</span>
+        </td>
+        <td>
           <StatusPill tone={statusTone(product.status)}>
             {statusLabel(product.status)}
           </StatusPill>
-        </div>
-        {canWrite ? (
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'flex-end',
-              alignItems: 'center',
-              gap: 6,
-              flexWrap: 'wrap',
-              minWidth: 0,
-              maxWidth: '100%',
-            }}
-          >
-            <button
-              type="button"
-              className="btn btn-outline btn-sm"
-              onClick={() => setEditing((value) => !value)}
-              disabled={rowState.saving}
-              style={{ flex: '0 0 auto' }}
-            >
-              <Edit3 size={14} />
-              {editing ? '收起' : '编辑'}
-            </button>
-            {product.status !== 'archived' && (
-              <button
-                type="button"
-                className="btn btn-outline btn-sm"
-                onClick={() => changeStatus(statusTarget)}
-                disabled={rowState.saving}
-                style={{ flex: '0 0 auto' }}
-              >
-                {statusTarget === 'active' ? '启用' : '停用'}
-              </button>
-            )}
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              onClick={archiveProduct}
-              disabled={rowState.saving || product.status === 'archived'}
-              style={{ flex: '0 0 auto' }}
-            >
-              <Archive size={14} />
-              归档
-            </button>
-          </div>
+        </td>
+        <td>
+          <StatusPill tone={shelfMeta.tone}>{shelfMeta.label}</StatusPill>
+        </td>
+        {canUpdateProduct || canPublishProduct || canDeleteProduct ? (
+          <td style={{ textAlign: 'right' }}>
+            <div className="table-row-actions product-catalog-row-actions">
+              {canUpdateProduct && (
+                <button
+                  type="button"
+                  className="btn btn-brand btn-sm"
+                  onClick={() => setEditing((value) => !value)}
+                  disabled={rowState.saving}
+                >
+                  <Edit3 size={14} />
+                  {editing ? '收起' : '编辑'}
+                </button>
+              )}
+              {canPublishProduct && product.status !== 'archived' && (
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  onClick={() => changeStatus(statusTarget)}
+                  disabled={rowState.saving}
+                >
+                  {statusTarget === 'active' ? '启用' : '停用'}
+                </button>
+              )}
+              {canDeleteProduct && (
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={archiveProduct}
+                  disabled={rowState.saving || product.status === 'archived'}
+                >
+                  <Archive size={14} />
+                  归档
+                </button>
+              )}
+            </div>
+          </td>
         ) : (
-          <span
-            style={{
-              justifySelf: 'end',
-              color: 'var(--t-tertiary)',
-              fontSize: 12,
-              overflowWrap: 'anywhere',
-            }}
-          >
+          <td style={{ textAlign: 'right', color: 'var(--t-tertiary)', fontSize: 12 }}>
             无写入权限
-          </span>
+          </td>
         )}
-      </article>
+      </tr>
 
       {(rowState.success || rowState.error) && (
-        <div style={{ padding: '0 18px 12px', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {rowState.success && (
-            <span className="badge badge-success" role="status" style={{ whiteSpace: 'normal', overflowWrap: 'anywhere' }}>
-              <CheckCircle2 size={13} />
-              {rowState.success}
-            </span>
-          )}
-          {rowState.error && (
-            <span className="badge badge-warning" role="alert" style={{ whiteSpace: 'normal', overflowWrap: 'anywhere' }}>
-              <XCircle size={13} />
-              {rowState.error}
-            </span>
-          )}
-        </div>
+        <tr>
+          <td colSpan={9}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {rowState.success && (
+                <span className="badge badge-success" role="status" style={{ whiteSpace: 'normal', overflowWrap: 'anywhere' }}>
+                  <CheckCircle2 size={13} />
+                  {rowState.success}
+                </span>
+              )}
+              {rowState.error && (
+                <span className="badge badge-warning" role="alert" style={{ whiteSpace: 'normal', overflowWrap: 'anywhere' }}>
+                  <XCircle size={13} />
+                  {rowState.error}
+                </span>
+              )}
+            </div>
+          </td>
+        </tr>
       )}
 
-      {canWrite && editing && (
+      {canUpdateProduct && editing && (
+        <tr>
+          <td colSpan={9}>
         <form
           onSubmit={saveEdit}
           style={{
-            padding: '0 18px 16px',
             display: 'grid',
             gap: 12,
             background: 'var(--surface-1)',
@@ -1782,6 +2578,30 @@ function ProductCatalogRow({
               </label>
             </div>
           </div>
+          <div style={{ display: 'grid', gap: 10, paddingTop: 4 }}>
+            <div>
+              <p className="t-label">官网产品详情</p>
+              <p style={{ marginTop: 4, color: 'var(--t-tertiary)', fontSize: 12 }}>
+                用于官网产品列表点击后的详情页；建议上传宽度 750px 的详情图片，高度不限。
+              </p>
+            </div>
+            {contentLoading ? (
+              <div className="inset" style={{ padding: 12, color: 'var(--t-secondary)', fontSize: 13 }}>
+                正在加载官网产品详情...
+              </div>
+            ) : contentError ? (
+              <div className="inset" role="alert" style={{ padding: 12, color: 'var(--warning)', fontSize: 13 }}>
+                官网产品详情加载失败；基础信息仍可编辑保存，详情内容请稍后重试。{String((contentError as Error)?.message || contentError)}
+              </div>
+            ) : (
+              <OfficialProductDetailEditor
+                value={draft.officialDetailHtml}
+                onChange={(officialDetailHtml) => patchDraft({ officialDetailHtml })}
+                entityId={product.sku || product.id}
+                disabled={rowState.saving}
+              />
+            )}
+          </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
             <span className={rowState.dirty ? 'badge badge-warning' : 'badge badge-grey'}>
               {rowState.dirty ? '有未保存修改' : '无未保存修改'}
@@ -1804,7 +2624,217 @@ function ProductCatalogRow({
             </div>
           </div>
         </form>
+          </td>
+        </tr>
       )}
+    </>
+  );
+}
+
+function OfficialProductDetailEditor({
+  value,
+  onChange,
+  entityId,
+  disabled = false,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  entityId: string;
+  disabled?: boolean;
+}) {
+  const editorRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const lastValueRef = useRef(value);
+  const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor || lastValueRef.current === value) return;
+    editor.innerHTML = value || '';
+    lastValueRef.current = value;
+  }, [value]);
+
+  function commit() {
+    const next = sanitizeOfficialProductDetailHtml(editorRef.current?.innerHTML || '');
+    lastValueRef.current = next;
+    onChange(next);
+  }
+
+  function run(command: string, commandValue?: string) {
+    if (disabled) return;
+    editorRef.current?.focus();
+    document.execCommand(command, false, commandValue);
+    commit();
+  }
+
+  function insertHtml(html: string) {
+    if (disabled) return;
+    editorRef.current?.focus();
+    document.execCommand('insertHTML', false, html);
+    commit();
+  }
+
+  function addLink() {
+    const href = window.prompt('请输入链接地址');
+    if (!href) return;
+    run('createLink', href.trim());
+  }
+
+  function addTable() {
+    insertHtml('<table><tbody><tr><th>参数</th><th>说明</th></tr><tr><td>型号</td><td></td></tr></tbody></table>');
+  }
+
+  async function uploadImages(files: FileList | null) {
+    const selected = Array.from(files || []);
+    if (!selected.length || disabled || uploading) return;
+    const invalid = selected.find((file) => !/^image\/(png|jpe?g|webp)$/i.test(file.type) && !/\.(png|jpe?g|webp)$/i.test(file.name));
+    if (invalid) {
+      window.alert('仅支持 png、jpg、jpeg、webp 格式的详情图片。');
+      return;
+    }
+    setUploading(true);
+    try {
+      for (const file of selected) {
+        const artifact = await fileArtifacts.uploadBase64({
+          entityType: 'product-official-detail-image',
+          entityId: entityId || 'product-detail',
+          filename: file.name,
+          mimeType: file.type || 'image/jpeg',
+          dataBase64: await readBrowserFileBase64(file),
+        });
+        const artifactId = text((artifact as any)?.id || (artifact as any)?.artifactId);
+        const url = text((artifact as any)?.contentUrl) || (artifactId ? `/api/v2/file-artifact/${encodeURIComponent(artifactId)}/content` : '');
+        if (!url) throw new Error('图片上传未返回可访问地址。');
+        insertHtml(`<img src="${escapeProductDetailHtml(url)}" alt="${escapeProductDetailHtml(file.name)}" loading="lazy">`);
+      }
+    } catch (e) {
+      window.alert((e as Error)?.message || '详情图片上传失败。');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  }
+
+  return (
+    <div className="official-product-detail-editor">
+      <div className="official-product-detail-editor-toolbar" aria-label="官网产品详情格式工具栏">
+        <button type="button" className="btn btn-outline btn-sm icon-only" onClick={() => run('formatBlock', 'h2')} title="标题" aria-label="标题" disabled={disabled}>
+          <Heading2 size={13} />
+        </button>
+        <button type="button" className="btn btn-outline btn-sm icon-only" onClick={() => run('bold')} title="加粗" aria-label="加粗" disabled={disabled}>
+          <Bold size={13} />
+        </button>
+        <button type="button" className="btn btn-outline btn-sm icon-only" onClick={() => run('italic')} title="斜体" aria-label="斜体" disabled={disabled}>
+          <Italic size={13} />
+        </button>
+        <button type="button" className="btn btn-outline btn-sm icon-only" onClick={() => run('insertUnorderedList')} title="项目列表" aria-label="项目列表" disabled={disabled}>
+          <List size={13} />
+        </button>
+        <button type="button" className="btn btn-outline btn-sm icon-only" onClick={() => run('insertOrderedList')} title="编号列表" aria-label="编号列表" disabled={disabled}>
+          <ListOrdered size={13} />
+        </button>
+        <button type="button" className="btn btn-outline btn-sm icon-only" onClick={addTable} title="插入参数表" aria-label="插入参数表" disabled={disabled}>
+          <Table2 size={13} />
+        </button>
+        <button type="button" className="btn btn-outline btn-sm icon-only" onClick={addLink} title="插入链接" aria-label="插入链接" disabled={disabled}>
+          <Link size={13} />
+        </button>
+        <button type="button" className="btn btn-outline btn-sm" onClick={() => fileInputRef.current?.click()} disabled={disabled || uploading}>
+          <Image size={13} />
+          {uploading ? '上传中' : '详情图'}
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
+          multiple
+          style={{ display: 'none' }}
+          onChange={(event) => uploadImages(event.target.files)}
+        />
+      </div>
+      <div
+        ref={editorRef}
+        className="official-product-detail-editor-body"
+        contentEditable={!disabled}
+        role="textbox"
+        aria-label="官网产品详情富文本编辑器"
+        data-placeholder="编辑官网产品详情，可插入宽度 750px 的长图、参数表、标题、段落和链接。"
+        suppressContentEditableWarning
+        onInput={commit}
+        onBlur={commit}
+        onPaste={(event) => {
+          event.preventDefault();
+          const html = event.clipboardData.getData('text/html');
+          const plain = event.clipboardData.getData('text/plain');
+          insertHtml(html ? sanitizeOfficialProductDetailHtml(html) : escapeProductDetailHtml(plain).replace(/\n/g, '<br>'));
+        }}
+        dangerouslySetInnerHTML={{ __html: value || '' }}
+      />
+      <p style={{ margin: 0, color: 'var(--t-tertiary)', fontSize: 12 }}>
+        建议上传宽度 750px 的详情图片，高度不限；官网移动端会等比例缩放。
+      </p>
+      <style jsx>{`
+        .official-product-detail-editor {
+          display: grid;
+          gap: 8px;
+          min-width: 0;
+        }
+        .official-product-detail-editor-toolbar {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-wrap: wrap;
+          padding: 8px;
+          border: 1px solid var(--border);
+          border-radius: 8px 8px 0 0;
+          background: var(--surface-2);
+        }
+        .official-product-detail-editor-body {
+          min-height: 260px;
+          max-height: 680px;
+          overflow: auto;
+          padding: 14px;
+          border: 1px solid var(--border);
+          border-top: 0;
+          border-radius: 0 0 8px 8px;
+          background: #fff;
+          color: var(--t-primary);
+          line-height: 1.68;
+          outline: none;
+        }
+        .official-product-detail-editor-body:empty::before {
+          content: attr(data-placeholder);
+          color: var(--t-tertiary);
+        }
+        .official-product-detail-editor-body :global(img) {
+          display: block;
+          width: 100%;
+          max-width: 750px;
+          height: auto;
+          margin: 12px auto;
+        }
+        .official-product-detail-editor-body :global(table) {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 12px 0;
+          font-size: 13px;
+        }
+        .official-product-detail-editor-body :global(th),
+        .official-product-detail-editor-body :global(td) {
+          border: 1px solid var(--border);
+          padding: 8px 10px;
+          text-align: left;
+          vertical-align: top;
+        }
+        .official-product-detail-editor-body :global(h2),
+        .official-product-detail-editor-body :global(h3),
+        .official-product-detail-editor-body :global(h4),
+        .official-product-detail-editor-body :global(p),
+        .official-product-detail-editor-body :global(ul),
+        .official-product-detail-editor-body :global(ol) {
+          margin: 0 0 10px;
+        }
+      `}</style>
     </div>
   );
 }
@@ -1830,6 +2860,148 @@ function MetaBlock({ label, value, compact = false }: { label: string; value: st
       >
         {value}
       </p>
+    </div>
+  );
+}
+
+function ProductCatalogImagePreview({ src, alt }: { src: string; alt: string }) {
+  const [failed, setFailed] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
+
+  if (!src || failed) {
+    return (
+      <div
+        title={src ? '图片加载失败' : '暂无产品图片'}
+        style={{
+          width: 44,
+          height: 38,
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--r-sm)',
+          background: 'var(--surface-2)',
+          display: 'grid',
+          placeItems: 'center',
+          color: 'var(--t-tertiary)',
+        }}
+      >
+        <Package size={16} />
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setPreviewOpen(true)}
+        title="点击查看大图"
+        style={{
+          width: 44,
+          height: 38,
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--r-sm)',
+          background: 'var(--surface-2)',
+          display: 'grid',
+          placeItems: 'center',
+          overflow: 'hidden',
+          padding: 0,
+          cursor: 'zoom-in',
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={src}
+          alt={alt}
+          loading="lazy"
+          onError={() => setFailed(true)}
+          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+        />
+      </button>
+      {previewOpen && <ProductCatalogImageLightbox src={src} alt={alt} onClose={() => setPreviewOpen(false)} />}
+    </>
+  );
+}
+
+function ProductCatalogImageLightbox({
+  src,
+  alt,
+  onClose,
+}: {
+  src: string;
+  alt: string;
+  onClose: () => void;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [onClose]);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={alt}
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 1000,
+        padding: 24,
+        background: 'rgba(0, 0, 0, 0.72)',
+        display: 'grid',
+        placeItems: 'center',
+      }}
+    >
+      <button
+        type="button"
+        className="btn btn-ghost btn-sm"
+        onClick={onClose}
+        aria-label="关闭图片预览"
+        style={{
+          position: 'fixed',
+          top: 18,
+          right: 18,
+          color: '#fff',
+          background: 'rgba(255, 255, 255, 0.12)',
+          borderColor: 'rgba(255, 255, 255, 0.2)',
+        }}
+      >
+        <X size={16} />
+        关闭
+      </button>
+      <div
+        onClick={(event) => event.stopPropagation()}
+        style={{
+          maxWidth: 'min(920px, 92vw)',
+          maxHeight: '86vh',
+          padding: 12,
+          borderRadius: 'var(--r-xl)',
+          background: '#fff',
+          boxShadow: '0 24px 80px rgba(0, 0, 0, 0.32)',
+        }}
+      >
+        {failed ? (
+          <div style={{ width: 520, maxWidth: '80vw', padding: 32, color: 'var(--t-secondary)', textAlign: 'center' }}>
+            图片加载失败
+          </div>
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={src}
+            alt={alt}
+            onError={() => setFailed(true)}
+            style={{ maxWidth: 'calc(92vw - 48px)', maxHeight: 'calc(86vh - 24px)', objectFit: 'contain', display: 'block' }}
+          />
+        )}
+      </div>
     </div>
   );
 }
@@ -2316,7 +3488,16 @@ function CategoryLevelPlaceholder({ label }: { label: string }) {
   );
 }
 
-function ProductCategoryManagerCrudView({ canWrite }: { canWrite: boolean }) {
+function ProductCategoryManagerCrudView({
+  canCreate,
+  canUpdate,
+  canDelete,
+}: {
+  canCreate: boolean;
+  canUpdate: boolean;
+  canDelete: boolean;
+}) {
+  const canWrite = canCreate || canUpdate || canDelete;
   const [brandCode, setBrandCode] = useState<ProductBrand>('rheem');
   const [selectedId, setSelectedId] = useState('');
   const [mode, setMode] = useState<'edit' | 'create'>('edit');
@@ -2331,14 +3512,15 @@ function ProductCategoryManagerCrudView({ canWrite }: { canWrite: boolean }) {
   const [childrenByParent, setChildrenByParent] = useState<Record<string, ProductCategoryNode[]>>({});
   const [loadingChildren, setLoadingChildren] = useState<Record<string, boolean>>({});
   const { data, error, isLoading, mutate } = useSWR(
-    ['/api/v2/brand-product-categories', brandCode, 'root', 'crud'],
+    ['/api/v2/brand-product-categories', brandCode, 'all', 'crud'],
     async () => {
-      const result = await brandProductCategories.list({ brandCode, parentId: 'root', metrics: 'false' });
+      const result = await brandProductCategories.list({ brandCode, metrics: 'false' });
       return { tree: normalizeProductCategoryTree(result) };
     },
     { revalidateOnFocus: false },
   );
   const tree = data?.tree || [];
+  const allCategoryRows = useMemo(() => flattenCategoryTree(tree), [tree]);
   const flat = useMemo(
     () => flattenLazyCategoryRows(tree, expandedIds, childrenByParent),
     [childrenByParent, expandedIds, tree],
@@ -2346,8 +3528,8 @@ function ProductCategoryManagerCrudView({ canWrite }: { canWrite: boolean }) {
   const selected = flat.find((item) => item.id === selectedId) || null;
   const createParent = createParentId ? flat.find((item) => item.id === createParentId) || null : null;
   const createLevel = createParent ? createParent.level + 1 : 1;
-  const activeCount = flat.filter((item) => item.status !== 'inactive').length;
-  const loadedCount = flat.length;
+  const activeCount = allCategoryRows.filter((item) => item.status !== 'inactive').length;
+  const loadedCount = allCategoryRows.length;
 
   useEffect(() => {
     setSelectedId('');
@@ -2416,7 +3598,8 @@ function ProductCategoryManagerCrudView({ canWrite }: { canWrite: boolean }) {
   }
 
   async function toggleExpand(node: ProductCategoryNode) {
-    if (!node.hasChildren && !node.childCategoryCount) return;
+    const hasEmbeddedChildren = node.children.length > 0;
+    if (!node.hasChildren && !node.childCategoryCount && !hasEmbeddedChildren) return;
     const next = new Set(expandedIds);
     if (next.has(node.id)) {
       next.delete(node.id);
@@ -2425,7 +3608,7 @@ function ProductCategoryManagerCrudView({ canWrite }: { canWrite: boolean }) {
     }
     next.add(node.id);
     setExpandedIds(next);
-    await loadChildren(node);
+    if (!hasEmbeddedChildren) await loadChildren(node);
   }
 
   function startCreate(parent: ProductCategoryNode | null) {
@@ -2672,17 +3855,19 @@ function ProductCategoryManagerCrudView({ canWrite }: { canWrite: boolean }) {
               <p className="t-label">{displayBrand(brandCode)}</p>
               <h3 className="t-headline" style={{ marginTop: 4 }}>产品目录树</h3>
             </div>
-            <button type="button" className="btn btn-brand btn-sm" onClick={() => startCreate(null)} disabled={!canWrite || saving || isLoading}>
-              <Plus size={14} />
-              新增根分类
-            </button>
+            {canCreate && (
+              <button type="button" className="btn btn-brand btn-sm" onClick={() => startCreate(null)} disabled={saving || isLoading}>
+                <Plus size={14} />
+                新增根分类
+              </button>
+            )}
           </div>
           {isLoading ? (
             <WorkbenchTableState type="loading" title="正在加载产品目录" description="正在读取当前品牌的一、二、三级分类。" />
           ) : error ? (
             <WorkbenchTableState type="error" title="产品目录暂时不可用" description={String((error as Error)?.message || error)} />
           ) : tree.length ? (
-            <CategoryCrudTreeTable
+            <CategoryCrudTreePanel
               rows={flat}
               selectedId={selected?.id || ''}
               expandedIds={expandedIds}
@@ -2699,12 +3884,12 @@ function ProductCategoryManagerCrudView({ canWrite }: { canWrite: boolean }) {
               type="empty"
               title="当前品牌还没有产品目录"
               description="先创建一级分类，再在一级下维护二级系统，三级分类可按需补充。"
-              action={
+              action={canCreate ? (
                 <button type="button" className="btn btn-brand btn-sm" onClick={() => startCreate(null)} disabled={!canWrite || saving}>
                   <Plus size={14} />
                   新增根分类
                 </button>
-              }
+              ) : undefined}
             />
           )}
         </div>
@@ -2728,6 +3913,138 @@ function flattenLazyCategoryRows(
   };
   visit(roots);
   return out;
+}
+
+function CategoryCrudTreePanel({
+  rows,
+  selectedId,
+  expandedIds,
+  loadingChildren,
+  saving,
+  canWrite,
+  onToggleExpand,
+  onSelect,
+  onAddChild,
+  onDelete,
+}: {
+  rows: ProductCategoryNode[];
+  selectedId: string;
+  expandedIds: Set<string>;
+  loadingChildren: Record<string, boolean>;
+  saving: boolean;
+  canWrite: boolean;
+  onToggleExpand: (node: ProductCategoryNode) => void;
+  onSelect: (node: ProductCategoryNode) => void;
+  onAddChild: (node: ProductCategoryNode) => void;
+  onDelete: (node: ProductCategoryNode) => void;
+}) {
+  return (
+    <div style={{ padding: 10 }}>
+      <div
+        role="tree"
+        aria-label="产品目录树"
+        style={{
+          display: 'grid',
+          alignContent: 'start',
+          gap: 2,
+          minHeight: 120,
+          padding: '8px 8px',
+          border: '1px solid var(--border)',
+          borderRadius: 8,
+          background: '#FFFFFF',
+        }}
+      >
+        {rows.map((node) => {
+          const expandable = node.hasChildren || node.childCategoryCount > 0 || node.children.length > 0;
+          const expanded = expandedIds.has(node.id);
+          const childCount = node.children.length || node.childCategoryCount;
+          return (
+            <div
+              key={node.id}
+              role="treeitem"
+              aria-expanded={expandable ? expanded : undefined}
+              aria-selected={selectedId === node.id}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(260px, 1fr) auto',
+                alignItems: 'center',
+                gap: 10,
+                minHeight: 30,
+                padding: '2px 8px',
+                paddingLeft: 8 + Math.max(0, node.level - 1) * 22,
+                borderRadius: 6,
+                background: selectedId === node.id ? 'var(--brand-50)' : 'transparent',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                <button
+                  type="button"
+                  onClick={() => onToggleExpand(node)}
+                  disabled={!expandable || loadingChildren[node.id]}
+                  aria-label={expanded ? '收起分类' : '展开分类'}
+                  title={expandable ? (expanded ? '收起下级目录' : '展开下级目录') : '暂无下级目录'}
+                  style={{
+                    width: 18,
+                    height: 18,
+                    border: 0,
+                    padding: 0,
+                    background: 'transparent',
+                    color: expandable ? 'var(--t-secondary)' : 'var(--t-tertiary)',
+                    cursor: expandable ? 'pointer' : 'default',
+                    fontSize: 12,
+                    lineHeight: '18px',
+                    flex: '0 0 18px',
+                  }}
+                >
+                  {loadingChildren[node.id] ? '...' : expandable ? (expanded ? '▾' : '▸') : ''}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSelect(node)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    minWidth: 0,
+                    border: 0,
+                    background: 'transparent',
+                    padding: 0,
+                    color: 'var(--t-primary)',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <span style={{ overflowWrap: 'anywhere', fontWeight: node.level === 1 ? 800 : 650, lineHeight: 1.25 }}>{node.name || node.code}</span>
+                  <span style={{ color: 'var(--t-tertiary)', fontSize: 12 }}>Level {node.level}</span>
+                  <StatusPill tone={node.status === 'inactive' ? 'warning' : 'success'}>
+                    {node.status === 'inactive' ? '停用' : '启用'}
+                  </StatusPill>
+                  <span style={{ color: 'var(--t-tertiary)', fontSize: 12 }}>{node.code}</span>
+                </button>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'nowrap' }}>
+                <span style={{ color: 'var(--t-tertiary)', fontSize: 12, whiteSpace: 'nowrap' }}>
+                  下级 {childCount} / 产品 {node.directProductCount}
+                </span>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => onAddChild(node)} disabled={!canWrite || saving} style={{ flexShrink: 0 }}>
+                  <Plus size={14} />
+                  新增
+                </button>
+                <button type="button" className="btn btn-outline btn-sm" onClick={() => onSelect(node)} disabled={saving} style={{ flexShrink: 0 }}>
+                  <Edit3 size={14} />
+                  修改
+                </button>
+                <button type="button" className="btn btn-danger btn-sm" onClick={() => onDelete(node)} disabled={!canWrite || saving} style={{ flexShrink: 0 }}>
+                  <Archive size={14} />
+                  删除
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 function CategoryCrudTreeTable({

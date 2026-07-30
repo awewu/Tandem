@@ -110,7 +110,7 @@ test('group site assignment brands come from configured child brand codes', asyn
   assert.equal(saved.status, 'published');
 });
 
-test('inactive catalog products can still be published to website shelf', async () => {
+test('inactive catalog products cannot be published to website shelf', async () => {
   const user = { tenantId: TENANT_ID, userId: '99999999-9999-4999-8999-999999999999', role: 'brand_admin' } as any;
   const brandSites = new InMemoryRepository<BrandSiteEntity>().seed(brandSiteRecord('site-everhot', 'everhot', 10));
   const assignments = new InMemoryRepository<SiteProductAssignmentEntity>().seed({
@@ -131,9 +131,11 @@ test('inactive catalog products can still be published to website shelf', async 
   };
 
   const service = new SiteProductAssignmentService(ds, products as any);
-  const saved = await service.setStatus(user, 'everhot', 'assignment-inactive-everhot-product', 'published');
 
-  assert.equal(saved.status, 'published');
+  await assert.rejects(
+    () => service.setStatus(user, 'everhot', 'assignment-inactive-everhot-product', 'published'),
+    /Product does not exist or is not active/,
+  );
 });
 
 test('batch publish reports row failures without stopping the whole batch', async () => {
@@ -227,7 +229,7 @@ test('group site with no selected child brands rejects child-brand products', as
   );
 });
 
-test('site product projection uses assignment overrides first', () => {
+test('site product projection uses assignment overrides first except canonical category path', () => {
   const projected = projectSiteProductDisplay('rheem', {
     publicSlug: 'site-slug',
     siteTitle: 'Site title',
@@ -243,6 +245,7 @@ test('site product projection uses assignment overrides first', () => {
     name: 'Localized product name',
     tagline: 'Product tagline',
     category: 'Product category',
+    categoryPath: '家用 / 热水系统',
     websiteCategory: 'Product website category',
     sys: 'Product system',
     displayOrder: 88,
@@ -253,7 +256,7 @@ test('site product projection uses assignment overrides first', () => {
   assert.equal(projected.slug, 'site-slug');
   assert.equal(projected.name, 'Site title');
   assert.equal(projected.summary, 'Site summary');
-  assert.equal(projected.websiteCategory, 'Site category');
+  assert.equal(projected.websiteCategory, '家用 / 热水系统');
   assert.equal(projected.menuGroup, 'Site menu');
   assert.equal(projected.displayOrder, 12);
   assert.equal(projected.isFeatured, true);
@@ -292,6 +295,19 @@ test('site product projection falls back to public product fields', () => {
   assert.equal(projected.displayOrder, 36);
   assert.deepEqual(projected.mainImage, { role: 'main', url: '/brand-meta.png' });
   assert.equal('dealerPrice' in projected, false);
+});
+
+test('site product projection falls back to assignment website category without category path', () => {
+  const projected = projectSiteProductDisplay('rheem', {
+    websiteCategory: 'Site category',
+  }, {
+    sku: 'RHM-002A',
+    name: 'Localized product name',
+    category: 'Product category',
+    websiteCategory: 'Product website category',
+  });
+
+  assert.equal(projected.websiteCategory, 'Site category');
 });
 
 test('site product projection uses category, sku, and placeholder as final fallbacks', () => {

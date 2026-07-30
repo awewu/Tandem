@@ -27,6 +27,29 @@ export class BrandSiteEntity {
   @UpdateDateColumn({ name: 'updated_at' }) updatedAt: Date;
 }
 
+@Entity('brand_site_basic_settings')
+@Index(['tenantId', 'siteId'], { unique: true })
+export class BrandSiteBasicSettingsEntity {
+  @PrimaryGeneratedColumn('uuid') id: string;
+  @Column({ name: 'tenant_id' }) @Index() tenantId: string;
+  @Column({ name: 'site_id' }) @Index() siteId: string;
+  @Column({ name: 'site_code' }) @Index() siteCode: string;
+  @Column({ type: 'jsonb', default: () => "'{}'::jsonb" }) identity: Record<string, unknown>;
+  @Column({ name: 'brand_claims', type: 'jsonb', default: () => "'{}'::jsonb" }) brandClaims: Record<string, unknown>;
+  @Column({ type: 'jsonb', default: () => "'{}'::jsonb" }) stats: Record<string, unknown>;
+  @Column({ type: 'jsonb', default: () => "'{}'::jsonb" }) organization: Record<string, unknown>;
+  @Column({ type: 'jsonb', default: () => "'{}'::jsonb" }) contact: Record<string, unknown>;
+  @Column({ name: 'dealer_service', type: 'jsonb', default: () => "'{}'::jsonb" }) dealerService: Record<string, unknown>;
+  @Column({ type: 'jsonb', default: () => "'{}'::jsonb" }) legal: Record<string, unknown>;
+  @Column({ type: 'jsonb', default: () => "'{}'::jsonb" }) privacy: Record<string, unknown>;
+  @Column({ type: 'jsonb', default: () => "'{}'::jsonb" }) seo: Record<string, unknown>;
+  @Column({ type: 'jsonb', default: () => "'{}'::jsonb" }) analytics: Record<string, unknown>;
+  @Column({ name: 'created_by', type: 'uuid', nullable: true }) createdBy: string | null;
+  @Column({ name: 'updated_by', type: 'uuid', nullable: true }) updatedBy: string | null;
+  @CreateDateColumn({ name: 'created_at' }) createdAt: Date;
+  @UpdateDateColumn({ name: 'updated_at' }) updatedAt: Date;
+}
+
 
 @Entity('site_product_assignments')
 @Index(['tenantId', 'siteId', 'productId'])
@@ -75,6 +98,30 @@ export class SiteNewsArticleEntity {
   @Column({ name: 'site_meta', type: 'jsonb', default: () => "'{}'::jsonb" }) siteMeta: Record<string, unknown>;
   @Column({ name: 'created_by', type: 'uuid', nullable: true }) createdBy: string | null;
   @Column({ name: 'updated_by', type: 'uuid', nullable: true }) updatedBy: string | null;
+  @Column({ name: 'deleted_by', type: 'uuid', nullable: true }) deletedBy: string | null;
+  @Column({ name: 'deleted_at', type: 'timestamptz', nullable: true }) deletedAt: Date | null;
+  @CreateDateColumn({ name: 'created_at' }) createdAt: Date;
+  @UpdateDateColumn({ name: 'updated_at' }) updatedAt: Date;
+}
+
+@Entity('site_inquiries')
+@Index(['tenantId', 'siteId', 'kind', 'createdAt'])
+export class SiteInquiryEntity {
+  @PrimaryGeneratedColumn('uuid') id: string;
+  @Column({ name: 'tenant_id' }) @Index() tenantId: string;
+  @Column({ name: 'site_id' }) @Index() siteId: string;
+  @Column({ name: 'site_code' }) @Index() siteCode: string;
+  @Column() @Index() kind: 'customer' | 'dealer';
+  @Column({ type: 'varchar', nullable: true }) name: string | null;
+  @Column({ type: 'varchar', nullable: true }) phone: string | null;
+  @Column({ type: 'varchar', nullable: true }) city: string | null;
+  @Column({ name: 'inquiry_type', type: 'varchar', nullable: true }) inquiryType: string | null;
+  @Column({ name: 'message', type: 'text', nullable: true }) message: string | null;
+  @Column({ name: 'company_name', type: 'varchar', nullable: true }) companyName: string | null;
+  @Column({ name: 'intended_region', type: 'varchar', nullable: true }) intendedRegion: string | null;
+  @Column({ name: 'business_summary', type: 'text', nullable: true }) businessSummary: string | null;
+  @Column({ name: 'source_path', type: 'text', nullable: true }) sourcePath: string | null;
+  @Column({ name: 'user_agent', type: 'text', nullable: true }) userAgent: string | null;
   @Column({ name: 'deleted_by', type: 'uuid', nullable: true }) deletedBy: string | null;
   @Column({ name: 'deleted_at', type: 'timestamptz', nullable: true }) deletedAt: Date | null;
   @CreateDateColumn({ name: 'created_at' }) createdAt: Date;

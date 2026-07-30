@@ -40,6 +40,7 @@ export type WorkbenchNavItem = {
   href: string;
   icon: LucideIcon;
   group: number;
+  permission?: string;
   children: WorkbenchChild[];
 };
 
@@ -52,6 +53,7 @@ export const WORKBENCH_NAV: WorkbenchNavItem[] = [
     href: '/comfort/sites',
     icon: Globe2,
     group: 0,
+    permission: 'brand.library.view',
     children: [
       { key: 'sites', label: '品牌官网管理', href: '/comfort/sites', icon: Globe2 },
       { key: 'site-rheem', label: '瑞美 Rheem', href: '/comfort/sites/rheem', icon: BadgeCheck },
@@ -68,6 +70,7 @@ export const WORKBENCH_NAV: WorkbenchNavItem[] = [
     href: '/growth',
     icon: Rocket,
     group: 1,
+    permission: 'marketing.campaigns.view',
     children: [
       { key: 'geo', label: 'GEO', href: '/growth/geo', icon: Search },
       { key: 'copywriter', label: '文案 Copilot', href: '/growth/copywriter', icon: PenTool },
@@ -84,6 +87,7 @@ export const WORKBENCH_NAV: WorkbenchNavItem[] = [
     href: '/products',
     icon: Boxes,
     group: 2,
+    permission: 'product.catalog.view',
     children: [
       { key: 'product-list', label: '产品目录', href: '/products?module=catalog', icon: Package },
       { key: 'product-materials', label: '产品资料', href: '/products?module=materials', icon: FileText },
@@ -99,11 +103,23 @@ export const WORKBENCH_NAV: WorkbenchNavItem[] = [
     href: '/accounts',
     icon: UsersRound,
     group: 3,
+    permission: 'admin.users.view',
     children: [
       { key: 'account-list', label: '账号列表', href: '/accounts', icon: UsersRound },
+      { key: 'account-audit', label: '操作日志', href: '/accounts?module=audit', icon: FileText },
     ],
   },
 ];
+
+export function canSeeNavItem(
+  item: WorkbenchNavItem,
+  permissions: string[] = [],
+  role?: string | null,
+): boolean {
+  if (!item.permission) return true;
+  if (role === 'platform_admin' || role === 'hq_admin') return true;
+  return permissions.includes('*') || permissions.includes(item.permission);
+}
 
 export function navItemForPath(path: string | null): WorkbenchNavItem {
   if (path?.startsWith('/accounts')) return WORKBENCH_NAV.find((item) => item.key === 'accounts')!;

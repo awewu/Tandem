@@ -47,8 +47,11 @@ export type BrandPublishRunner = (
 const WRITE_ROLES = new Set(['platform_admin', 'hq_admin', 'brand_admin']);
 const EVERHOT_APP_KEY = 'everhot-cn';
 
-export function requireBrandPublishWrite(user: Pick<JwtPayload, 'role'>): void {
-  if (!WRITE_ROLES.has(user?.role)) throw new ForbiddenException('当前角色无品牌发布权限');
+export function requireBrandPublishWrite(user: Pick<JwtPayload, 'role'> & { permissions?: string[] }): void {
+  if (WRITE_ROLES.has(user?.role)) return;
+  const permissions = new Set(user?.permissions ?? []);
+  if (permissions.has('*') || permissions.has('brand.library.publish')) return;
+  throw new ForbiddenException('当前角色无品牌发布权限');
 }
 
 export function resolveBrandPublishCapability(site: BrandPublishTarget): BrandPublishCapability {

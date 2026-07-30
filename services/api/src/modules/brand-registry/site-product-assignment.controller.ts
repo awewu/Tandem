@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import type { JwtPayload } from '../auth/auth.service';
+import { Permissions } from '../common/permissions.decorator';
 import { Public } from '../common/public.decorator';
 import { PublicRateLimitGuard } from '../common/public-rate-limit.guard';
 import { Roles } from '../common/roles.decorator';
@@ -16,18 +17,21 @@ export class SiteProductAssignmentController {
   constructor(private readonly service: SiteProductAssignmentService) {}
 
   @Get()
+  @Permissions('brand.library.read')
   list(@Req() req: AuthRequest, @Param('siteCode') siteCode: string, @Query('includeArchived') includeArchived?: string) {
     return this.service.list(req.user, siteCode, includeArchived === 'true');
   }
 
   @Post()
   @Roles('platform_admin', 'hq_admin', 'brand_admin')
+  @Permissions('brand.library.create')
   create(@Req() req: AuthRequest, @Param('siteCode') siteCode: string, @Body() body: SiteProductAssignmentInput) {
     return this.service.create(req.user, siteCode, body);
   }
 
   @Patch(':assignmentId')
   @Roles('platform_admin', 'hq_admin', 'brand_admin')
+  @Permissions('brand.library.update')
   update(
     @Req() req: AuthRequest, @Param('siteCode') siteCode: string,
     @Param('assignmentId') id: string, @Body() body: SiteProductAssignmentInput,
@@ -37,30 +41,35 @@ export class SiteProductAssignmentController {
 
   @Post('batch/publish')
   @Roles('platform_admin', 'hq_admin', 'brand_admin')
+  @Permissions('brand.library.publish')
   batchPublish(@Req() req: AuthRequest, @Param('siteCode') siteCode: string, @Body() body: SiteProductAssignmentBatchInput) {
     return this.service.batchPublish(req.user, siteCode, body);
   }
 
   @Post('batch/hide')
   @Roles('platform_admin', 'hq_admin', 'brand_admin')
+  @Permissions('brand.library.update')
   batchHide(@Req() req: AuthRequest, @Param('siteCode') siteCode: string, @Body() body: SiteProductAssignmentBatchInput) {
     return this.service.batchHide(req.user, siteCode, body);
   }
 
   @Post(':assignmentId/publish')
   @Roles('platform_admin', 'hq_admin', 'brand_admin')
+  @Permissions('brand.library.publish')
   publish(@Req() req: AuthRequest, @Param('siteCode') siteCode: string, @Param('assignmentId') id: string) {
     return this.service.setStatus(req.user, siteCode, id, 'published');
   }
 
   @Post(':assignmentId/hide')
   @Roles('platform_admin', 'hq_admin', 'brand_admin')
+  @Permissions('brand.library.update')
   hide(@Req() req: AuthRequest, @Param('siteCode') siteCode: string, @Param('assignmentId') id: string) {
     return this.service.setStatus(req.user, siteCode, id, 'hidden');
   }
 
   @Delete(':assignmentId')
   @Roles('platform_admin', 'hq_admin', 'brand_admin')
+  @Permissions('brand.library.delete')
   archive(@Req() req: AuthRequest, @Param('siteCode') siteCode: string, @Param('assignmentId') id: string) {
     return this.service.archive(req.user, siteCode, id);
   }

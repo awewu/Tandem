@@ -19,7 +19,8 @@ export async function createApiApplication() {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter({
-      logger: false
+      logger: false,
+      bodyLimit: Number(process.env.API_BODY_LIMIT_BYTES || 50 * 1024 * 1024),
     }),
     { rawBody: true }
   );

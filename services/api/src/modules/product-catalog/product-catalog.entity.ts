@@ -57,6 +57,7 @@ export class ProductContentEntity {
   @Column({ type: 'varchar', nullable: true }) mpn: string | null;
   // L7c 富营销内容
   @Column({ type: 'jsonb', default: () => "'{}'::jsonb" }) marketing: ProductMarketing;
+  @Column({ name: 'official_detail_html', type: 'text', nullable: true }) officialDetailHtml: string | null;
   // 发布工作流：draft→review→scheduled→published（只有 published 且 publishedAt<=now 进公开供给）
   @Column({ default: 'draft' }) @Index() status: string;
   @Column({ name: 'published_at', type: 'timestamptz', nullable: true }) publishedAt: Date | null;

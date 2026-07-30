@@ -176,6 +176,14 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .hero-poster-mobile { display: none; }
 .hero-video { opacity: 0; transition: opacity .6s ease-in; }
 .hero-video.is-ready { opacity: 1; }
+.hero-carousel { position: absolute; inset: 0; z-index: 0; }
+.hero-carousel-slide { position: absolute; inset: 0; display: block; background: var(--ink) center/cover no-repeat; opacity: 0; pointer-events: none; transition: opacity .7s ease; }
+.hero-carousel-slide.is-active { opacity: 1; pointer-events: auto; }
+.hero.has-carousel .hero-media { pointer-events: auto; }
+.hero.has-carousel .hero-scrim,
+.hero.has-carousel .hero-content { pointer-events: none; }
+.hero.has-carousel .hero-actions,
+.hero.has-carousel .hero-actions a { pointer-events: auto; }
 /* Rheem hero: full-bleed media with a left-anchored dark scrim so headline stays legible */
 .hero-scrim { position: absolute; inset: 0; z-index: 1; background: linear-gradient(90deg, rgba(43,38,34,.86) 0%, rgba(43,38,34,.64) 42%, rgba(43,38,34,.18) 78%, rgba(43,38,34,.08) 100%); }
 /* 标准底板叠层（hero 专用）：仅线稿层(栅格+椭圆)，淡淡叠在媒体上，不放巨型字以免压住标题 */
@@ -424,22 +432,30 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .pro-note { text-align: center; font-size: 12px; color: var(--gray-lt); }
 
 /* === NEWS === */
-.news-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; }
-.news-card { border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; transition: box-shadow .15s; }
-.news-card:hover { box-shadow: var(--shadow); }
-.news-img { height: 180px; background: var(--surface) center/cover no-repeat; }
+.news-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; align-items: stretch; }
+.news-card { position: relative; display: flex; flex-direction: column; min-height: 390px; border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; background: #fff; transition: box-shadow .15s, transform .15s; }
+.news-card:hover { box-shadow: var(--shadow); transform: translateY(-1px); }
+.news-img { flex: 0 0 auto; aspect-ratio: 1280 / 600; background: var(--surface) center/contain no-repeat; border-bottom: 1px solid var(--border); overflow: hidden; }
+.news-img img { display: block; width: 100%; height: 100%; object-fit: contain; object-position: center; }
+.news-featured-badge { position: absolute; top: 12px; left: 12px; z-index: 1; display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 999px; background: var(--red); color: #fff; box-shadow: 0 8px 18px rgba(191,25,36,.22); font-size: 12px; font-weight: 900; letter-spacing: 0; }
 .news-1 { background-image: url(/assets/img/home-card1.webp); }
 .news-2 { background-image: url(/assets/img/sust-product-new.webp); }
 .news-3 { background-image: url(/assets/img/home-card3.webp); }
-.news-body { padding: 18px; }
-.news-date { font-size: 11px; color: var(--gray-lt); display: block; margin-bottom: 6px; }
-.news-card h4 { font-size: 14px; font-weight: 700; margin-bottom: 7px; color: var(--ink); }
-.news-card p { font-size: 12px; color: var(--gray); line-height: 1.65; }
+.news-body { display: flex; flex: 1; flex-direction: column; min-height: 0; padding: 18px; }
+.news-date { font-size: 12px; color: var(--gray-lt); font-weight: 700; }
+.news-card h4 { display: -webkit-box; min-height: 42px; margin-bottom: 8px; overflow: hidden; color: var(--ink); font-size: 15px; font-weight: 800; line-height: 1.4; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.news-card p { display: -webkit-box; overflow: hidden; color: var(--gray); font-size: 13px; line-height: 1.7; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.news-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: auto; padding-top: 14px; }
+.news-link { flex-shrink: 0; color: var(--red); font-size: 12px; font-weight: 800; }
+.news-card:hover .news-link { color: var(--red-dk); }
 [data-news-detail]:empty { display: none; }
 .news-detail { max-width: 860px; margin: 0 auto; border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; background: #fff; box-shadow: var(--shadow); }
 .news-detail-back { display: inline-flex; margin: 18px 22px 0; font-size: 13px; font-weight: 700; color: var(--red); }
-.news-detail-cover { height: clamp(220px, 34vw, 380px); margin-top: 18px; background: var(--surface) center/cover no-repeat; }
+.news-detail-cover { aspect-ratio: 1280 / 600; margin-top: 18px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--surface); overflow: hidden; }
+.news-detail-cover img { display: block; width: 100%; height: 100%; object-fit: contain; object-position: center; }
 .news-detail-body { padding: clamp(24px, 5vw, 48px); }
+.news-detail-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.news-featured-inline { display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: 999px; background: rgba(191,25,36,.1); color: var(--red); font-size: 12px; font-weight: 900; }
 .news-detail-body h2 { margin: 8px 0 12px; font-family: var(--font-head); font-size: clamp(26px, 4vw, 42px); line-height: 1.18; font-weight: 900; color: var(--ink); }
 .news-detail-summary { margin: 0 0 var(--space-6); color: var(--gray); font-size: 15px; line-height: 1.8; }
 .news-detail-content { padding-top: var(--space-5); border-top: 1px solid var(--border); color: var(--gray); font-size: 15px; line-height: 1.9; }
@@ -770,8 +786,8 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
    (official VI: 恒热红 #BF1924 + 中性灰 + 辅助色点缀；无暖 espresso/无蓝)
 ═══════════════════════════════════════ */
 /* card refresh */
-.product-card .pc-media { aspect-ratio: 3/2; background: var(--surface); display: flex; align-items: center; justify-content: center; overflow: hidden; border-bottom: 1px solid var(--border-lt); flex-shrink: 0; }
-.product-card .pc-media img { width: 100%; height: 100%; object-fit: cover; object-position: center; }
+.product-card .pc-media { aspect-ratio: 4/3; background: var(--surface); display: flex; align-items: center; justify-content: center; overflow: hidden; border-bottom: 1px solid var(--border-lt); flex-shrink: 0; }
+.product-card .pc-media img { width: 100%; height: 100%; object-fit: contain; object-position: center; }
 .product-card .pc-media-icon { font-size: 46px; }
 .product-card .pc-badges { position: absolute; top: 10px; left: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
 .product-card { position: relative; }
@@ -787,7 +803,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .pd-hero { background: var(--dark); color: #fff; padding: clamp(var(--space-8),6vw,72px) 0; }
 .pd-hero-inner { display: grid; grid-template-columns: minmax(0,440px) 1fr; gap: clamp(var(--space-6),5vw,56px); align-items: center; }
 .pd-hero-media { background: linear-gradient(160deg,#3A332E,#2B2623); border-radius: var(--r); aspect-ratio: 4/3; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid rgba(255,255,255,.08); }
-.pd-hero-media img { width: 100%; height: 100%; object-fit: cover; }
+.pd-hero-media img { width: 100%; height: 100%; object-fit: contain; object-position: center; }
 .pd-hero-icon { font-size: 96px; }
 .pd-crumb { font-size: 12px; color: rgba(255,255,255,.55); margin-bottom: 14px; }
 .pd-crumb a { color: rgba(255,255,255,.7); }
@@ -1128,6 +1144,54 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   border-radius: 50%; background: var(--red); color: #fff; font-size: 11px; }
 
 .doc-actions { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; }
+
+.ev-backtop {
+  position: fixed;
+  right: clamp(14px,2vw,24px);
+  bottom: calc(clamp(14px,2vw,24px) + 60px);
+  z-index: 80;
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 50%;
+  background: var(--baseplate-bg);
+  color: #fff;
+  box-shadow: var(--red-shadow);
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px);
+  transition: opacity .16s ease, visibility .16s ease, transform .16s ease, box-shadow .16s ease;
+}
+.ev-backtop.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+.ev-backtop:hover {
+  box-shadow: var(--red-shadow-lg);
+  transform: translateY(-2px);
+}
+.ev-backtop:focus-visible {
+  outline: 3px solid rgba(196, 18, 48, 0.24);
+  outline-offset: 3px;
+}
+.ev-backtop span {
+  font-size: 22px;
+  line-height: 1;
+  font-weight: 800;
+}
+@media (max-width: 640px) {
+  .ev-backtop {
+    right: 14px;
+    bottom: 70px;
+    width: 40px;
+    height: 40px;
+  }
+}
 
 .faq-list { display: flex; flex-direction: column; gap: var(--space-3); }
 .faq-item { border: 1px solid var(--border); border-radius: var(--r); background: var(--page); overflow: hidden; }

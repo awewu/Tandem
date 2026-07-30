@@ -4,6 +4,7 @@ import { AuthService } from './auth.service';
 import { OidcSsoCallbackService } from './oidc-sso-callback.service';
 import { OidcSsoLoginService } from './oidc-sso-login.service';
 import { Public } from '../common/public.decorator';
+import { Permissions } from '../common/permissions.decorator';
 import { Roles } from '../common/roles.decorator';
 import type { UserRole } from './auth.entity';
 
@@ -141,6 +142,7 @@ export class AuthController {
   @Get('admin/users')
   @UseGuards(AuthGuard)
   @Roles('platform_admin', 'hq_admin', 'dealer_admin')
+  @Permissions('admin.users.read')
   adminListUsers(@Req() req: any, @Query() q: { search?: string; role?: string; status?: string }) {
     return this.svc.adminListUsers(req.user, q);
   }
@@ -148,6 +150,7 @@ export class AuthController {
   @Post('admin/users')
   @UseGuards(AuthGuard)
   @Roles('platform_admin', 'hq_admin', 'dealer_admin')
+  @Permissions('admin.users.create')
   adminCreateUser(@Req() req: any, @Body() body: { identifier: string; password: string; name?: string; role: UserRole; dealerId?: string | null; storeId?: string | null }) {
     return this.svc.adminCreateUser(req.user, body);
   }
@@ -155,14 +158,32 @@ export class AuthController {
   @Patch('admin/users/:id')
   @UseGuards(AuthGuard)
   @Roles('platform_admin', 'hq_admin', 'dealer_admin')
+  @Permissions('admin.users.update')
   adminUpdateUser(@Req() req: any, @Param('id') id: string, @Body() body: { role?: UserRole; status?: 'active' | 'inactive' | 'suspended'; name?: string; dealerId?: string | null; storeId?: string | null }) {
     return this.svc.adminUpdateUser(req.user, id, body);
+  }
+
+  @Put('admin/users/:id/roles')
+  @UseGuards(AuthGuard)
+  @Roles('platform_admin', 'hq_admin', 'dealer_admin')
+  @Permissions('admin.users.assign_roles')
+  adminSetUserRoles(@Req() req: any, @Param('id') id: string, @Body() body: { roleIds?: string[]; primaryRoleId?: string }) {
+    return this.svc.adminSetUserRoles(req.user, id, body);
+  }
+
+  @Get('admin/users/:id/effective-permissions')
+  @UseGuards(AuthGuard)
+  @Roles('platform_admin', 'hq_admin', 'dealer_admin')
+  @Permissions('admin.users.read')
+  adminEffectivePermissions(@Req() req: any, @Param('id') id: string) {
+    return this.svc.adminEffectivePermissions(req.user, id);
   }
 
   @Post('admin/users/:id/reset-password')
   @HttpCode(200)
   @UseGuards(AuthGuard)
   @Roles('platform_admin', 'hq_admin', 'dealer_admin')
+  @Permissions('admin.users.reset_password')
   adminResetPassword(@Req() req: any, @Param('id') id: string, @Body() body: { newPassword: string }) {
     return this.svc.adminResetPassword(req.user, id, body.newPassword);
   }
@@ -170,7 +191,48 @@ export class AuthController {
   @Delete('admin/users/:id')
   @UseGuards(AuthGuard)
   @Roles('platform_admin', 'hq_admin', 'dealer_admin')
+  @Permissions('admin.users.delete')
   adminDeleteUser(@Req() req: any, @Param('id') id: string) {
     return this.svc.adminDeleteUser(req.user, id);
+  }
+
+  @Get('admin/permissions')
+  @UseGuards(AuthGuard)
+  @Roles('platform_admin', 'hq_admin', 'dealer_admin')
+  @Permissions('admin.permissions.read')
+  adminListPermissions(@Req() req: any) {
+    return this.svc.adminListPermissions(req.user);
+  }
+
+  @Get('admin/roles')
+  @UseGuards(AuthGuard)
+  @Roles('platform_admin', 'hq_admin', 'dealer_admin')
+  @Permissions('admin.roles.read')
+  adminListRoles(@Req() req: any) {
+    return this.svc.adminListRoles(req.user);
+  }
+
+  @Post('admin/roles')
+  @UseGuards(AuthGuard)
+  @Roles('platform_admin', 'hq_admin', 'dealer_admin')
+  @Permissions('admin.roles.create')
+  adminCreateRole(@Req() req: any, @Body() body: { code?: string; name?: string; description?: string; permissions?: string[] }) {
+    return this.svc.adminCreateRole(req.user, body);
+  }
+
+  @Patch('admin/roles/:id')
+  @UseGuards(AuthGuard)
+  @Roles('platform_admin', 'hq_admin', 'dealer_admin')
+  @Permissions('admin.roles.update')
+  adminUpdateRole(@Req() req: any, @Param('id') id: string, @Body() body: { name?: string; description?: string; status?: 'active' | 'inactive' }) {
+    return this.svc.adminUpdateRole(req.user, id, body);
+  }
+
+  @Put('admin/roles/:id/permissions')
+  @UseGuards(AuthGuard)
+  @Roles('platform_admin', 'hq_admin', 'dealer_admin')
+  @Permissions('admin.roles.assign_permissions')
+  adminSetRolePermissions(@Req() req: any, @Param('id') id: string, @Body() body: { permissions?: string[] }) {
+    return this.svc.adminSetRolePermissions(req.user, id, body);
   }
 }

@@ -116,7 +116,8 @@ test('product catalog behavior remains represented in the retained product page'
   assert.match(products, /type ProductModule = 'catalog' \| 'materials' \| 'base' \| 'categories';/);
   assert.match(products, /const \{ data: brandSiteData \} = useSWR\('\/api\/v2\/brand-sites'/);
   assert.match(products, /products\.list\(query\)/);
-  assert.match(products, /const payload = createProductPayload\(createDraft\);/);
+  assert.match(products, /const basePayload = createProductPayload\(createDraft, createCategoryTree\);/);
+  assert.match(products, /saveOfficialProductDetailContent\(createdId/);
   assert.match(products, /products\.create\(payload\)/);
   assert.match(products, /products\.update\(product\.id, productUpdatePayload\(product, draft\)\)/);
   assert.match(products, /products\.archive\(product\.id/);

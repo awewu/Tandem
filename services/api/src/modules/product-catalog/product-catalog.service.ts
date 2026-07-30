@@ -18,7 +18,7 @@ import { TARGET_API_BOOT_SMOKE } from '../boot-smoke';
 import { FileArtifactService } from '../file-artifact/file-artifact.service';
 import {
   PRODUCT_TAXONOMY, EMPTY_POSITIONING, sanitizePositioning, sanitizeAssetRefs, computeProductKey,
-  DEFAULT_LOCALE, LOCALES, EMPTY_SEO, EMPTY_MARKETING, sanitizeLocale, sanitizeSeo, sanitizeMarketing,
+  DEFAULT_LOCALE, LOCALES, EMPTY_SEO, EMPTY_MARKETING, sanitizeLocale, sanitizeSeo, sanitizeMarketing, sanitizeOfficialDetailHtml,
   resolveTransition, isValidRelationType, inverseRelationType,
   type ProductSeo, type ProductMarketing,
 } from './product-taxonomy';
@@ -390,23 +390,13 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
     return `/api/v2/brand/${encodeURIComponent(String(product.brand || 'everhot'))}/products/${encodeURIComponent(this.publicSlug(product))}/images/${encodeURIComponent(artifactId)}`;
   }
 
+  private documentUrl(product: ProductEntity, artifactId: string): string {
+    return `/api/v2/brand/${encodeURIComponent(String(product.brand || 'everhot'))}/products/${encodeURIComponent(this.publicSlug(product))}/documents/${encodeURIComponent(artifactId)}`;
+  }
+
   private publicImageRefs(product: ProductEntity) {
-    const rawMeta = product.meta as any;
     const refs = sanitizeAssetRefs(product.assetRefs);
-    const legacyMain = rawMeta?.imageArtifactId
-      ? [{
-        role: 'main',
-        artifactId: String(rawMeta.imageArtifactId),
-        objectKey: typeof rawMeta.imageObjectKey === 'string' ? rawMeta.imageObjectKey : undefined,
-        filename: typeof rawMeta.imageFilename === 'string' ? rawMeta.imageFilename : undefined,
-        mimeType: typeof rawMeta.imageMimeType === 'string' ? rawMeta.imageMimeType : undefined,
-        sortOrder: 0,
-      }]
-      : [];
-    const mainRef = refs.find((r) => r.role === 'main')
-      ?? refs.find((r) => r.role === 'card')
-      ?? legacyMain[0]
-      ?? null;
+    const mainRef = refs.find((r) => r.role === 'main') ?? null;
     const iconRef = refs.find((r) => r.role === 'icon') ?? null;
     const toPublic = (r: any) => ({
       role: r.role,
@@ -422,25 +412,78 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
     return { main: mainRef ? toPublic(mainRef) : null, icon: iconRef ? toPublic(iconRef) : null, gallery };
   }
 
-  private publicGallery(value: unknown) {
-    if (!Array.isArray(value)) return [];
-    return value
-      .map((item) => {
-        if (typeof item === 'string') return { url: item.trim() };
-        const row = item && typeof item === 'object' ? item as Record<string, unknown> : {};
-        return {
-          url: String(row.url || '').trim(),
-          alt: String(row.alt || '').trim(),
-        };
-      })
-      .filter((item) => item.url);
+  private publicDocumentRefs(product: ProductEntity) {
+    return sanitizeAssetRefs(product.assetRefs)
+      .filter((r) => r.role === 'doc')
+      .sort((a, b) => (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0))
+      .map((r) => ({
+        role: r.role,
+        url: this.documentUrl(product, r.artifactId),
+        filename: r.filename || 'product-manual.pdf',
+        mimeType: r.mimeType || 'application/pdf',
+        sortOrder: Number(r.sortOrder) || 0,
+      }));
   }
 
-  private publicProductProjection(product: ProductEntity, locale: string, content?: ProductContentEntity | null) {
+  private rewriteOfficialDetailArtifactUrls(product: ProductEntity, html: string | null | undefined): string {
+    if (!html) return '';
+    return String(html).replace(
+      /(?:https?:\/\/[^"'<>\s]+)?\/api\/v2\/file-artifact\/([0-9a-fA-F-]{36})\/content/g,
+      (_match, artifactId) => this.imageUrl(product, String(artifactId)),
+    );
+  }
+
+  private officialDetailArtifactIds(html: string | null | undefined): Set<string> {
+    const ids = new Set<string>();
+    if (!html) return ids;
+    const patterns = [
+      /(?:https?:\/\/[^"'<>\s]+)?\/api\/v2\/file-artifact\/([0-9a-fA-F-]{36})\/content/g,
+      /(?:https?:\/\/[^"'<>\s]+)?\/api\/v2\/brand\/[^"'<>\s]+\/products\/[^"'<>\s]+\/images\/([0-9a-fA-F-]{36})/g,
+    ];
+    for (const pattern of patterns) {
+      let match: RegExpExecArray | null;
+      while ((match = pattern.exec(String(html)))) ids.add(match[1]);
+    }
+    return ids;
+  }
+
+  private artifactTenantIdFromObjectKey(objectKey: unknown): string | null {
+    if (typeof objectKey !== 'string' || !objectKey.includes('/')) return null;
+    const tenantId = objectKey.split('/')[0];
+    return ProductCatalogService.UUID_RE.test(tenantId) ? tenantId : null;
+  }
+
+  private publicArtifactTenantCandidates(brand: string, productTenantId: string, product: ProductEntity, objectKey?: unknown): string[] {
+    const candidates = [
+      this.artifactTenantIdFromObjectKey(objectKey),
+      productTenantId,
+      process.env[`SITE_${String(brand).toUpperCase().replace(/[^A-Z0-9]/g, '_')}_TENANT_ID`],
+      process.env.SITE_EVERHOT_TENANT_ID,
+      ...sanitizeAssetRefs(product.assetRefs).map((ref) => this.artifactTenantIdFromObjectKey(ref.objectKey)),
+    ];
+    return [...new Set(candidates.filter((tenantId): tenantId is string => Boolean(tenantId)))];
+  }
+
+  private async getPublicActiveArtifactFromCandidates(tenantIds: string[], artifactId: string) {
+    for (const tenantId of tenantIds) {
+      const found = await this.fileArtifacts.getPublicActiveArtifact(tenantId, artifactId);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  private publicProductProjection(
+    product: ProductEntity,
+    locale: string,
+    content?: ProductContentEntity | null,
+    opts: { includeOfficialDetail?: boolean } = {},
+  ) {
     const meta = this.brandMeta(product);
     const positioning = sanitizePositioning(product.positioning ?? EMPTY_POSITIONING);
     const imageRefs = this.publicImageRefs(product);
-    const gallery = imageRefs.gallery.length ? imageRefs.gallery : this.publicGallery(meta.gallery);
+    const mainImage = imageRefs.main;
+    const gallery = imageRefs.gallery;
+    const manualPdfs = this.publicDocumentRefs(product);
     const marketing: ProductMarketing = content?.marketing ?? EMPTY_MARKETING;
     const seo: ProductSeo = content?.seo ?? EMPTY_SEO;
     const categoryBinding = this.categoryBindingFromMeta(product);
@@ -465,9 +508,10 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
       badges: Array.isArray(meta.badges) ? meta.badges : Array.isArray(meta.tags) ? meta.tags : [],
       en: meta.en || '',
       icon: imageRefs.icon?.url || meta.icon || '🔥',
-      image: imageRefs.main?.url || meta.image || '',
-      mainImage: imageRefs.main,
+      image: mainImage?.url || '',
+      mainImage,
       gallery,
+      manualPdfs,
       specImage: meta.specImage || '',
       specs: Array.isArray(meta.specs) ? meta.specs : [],
       features: Array.isArray(meta.features) ? meta.features : [],
@@ -480,6 +524,9 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
       seo,
       jsonLd: this.buildJsonLd(product, content ?? null, locale),
     };
+    if (opts.includeOfficialDetail) {
+      base.officialDetailHtml = this.rewriteOfficialDetailArtifactUrls(product, content?.officialDetailHtml);
+    }
     return Object.fromEntries(Object.entries(base).filter(([, value]) => value !== undefined));
   }
 
@@ -667,8 +714,20 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
     }));
 
     const ranked = rankProductRecommendationCandidates(rows, hasCriteria ? { ...criteria, painPoints, systems } : criteria);
+    const seenFamilies = new Set<string>();
+    const uniqueRanked = ranked.filter(({ p }) => {
+      const meta = this.brandMeta(p);
+      const familyKey = String(meta.series || meta.name || p.name || p.sku || '')
+        .replace(/\b[A-Z]*\d{2,4}[A-Z-]*\b/gi, '')
+        .replace(/\s+/g, '')
+        .toLowerCase();
+      const key = `${p.brand || ''}:${p.category || ''}:${familyKey || p.sku || p.name || ''}`;
+      if (seenFamilies.has(key)) return false;
+      seenFamilies.add(key);
+      return true;
+    });
 
-    const items = ranked.slice(0, limit).map(({ p, score, signals }) => {
+    const items = uniqueRanked.slice(0, limit).map(({ p, score, signals }) => {
       const base = this.publicProductProjection(p, DEFAULT_LOCALE, null);
       return {
         ...base,
@@ -937,6 +996,13 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
         if ('seo' in dto) patch.seo = sanitizeSeo(dto.seo);
         if ('gtin' in dto) patch.gtin = typeof dto.gtin === 'string' ? dto.gtin.trim() : null;
         if ('mpn' in dto) patch.mpn = typeof dto.mpn === 'string' ? dto.mpn.trim() : null;
+        if ('officialDetailHtml' in dto) {
+          const product = await manager.getRepository(ProductEntity).findOne({ where: { tenantId, id: productId } as any });
+          const html = product
+            ? this.rewriteOfficialDetailArtifactUrls(product, String(dto.officialDetailHtml ?? ''))
+            : String(dto.officialDetailHtml ?? '');
+          patch.officialDetailHtml = sanitizeOfficialDetailHtml(html);
+        }
         if ('marketing' in dto) patch.marketing = sanitizeMarketing(dto.marketing);
         patch.publishedAt = status === 'published' ? (existing?.publishedAt ?? new Date()) : null;
         const saved = await repo.save(repo.create(patch));
@@ -1108,8 +1174,13 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
   }
 
   /** 把本地化内容合并进公开投影（脱敏），并内联 JSON-LD。 */
-  private projectLocalized(product: ProductEntity, content: ProductContentEntity | null, locale: string) {
-    return this.publicProductProjection(product, locale, content);
+  private projectLocalized(
+    product: ProductEntity,
+    content: ProductContentEntity | null,
+    locale: string,
+    opts: { includeOfficialDetail?: boolean } = {},
+  ) {
+    return this.publicProductProjection(product, locale, content, opts);
   }
 
   /**
@@ -1167,7 +1238,7 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
           productId: product.id,
           brand: product.brand,
           category: product.category,
-          ...this.projectLocalized(product, this.pickLocale(liveByProductLocale, product.id, locale), locale),
+          ...this.projectLocalized(product, this.pickLocale(liveByProductLocale, product.id, locale), locale, { includeOfficialDetail: true }),
         }));
       },
       { tenantId } as TenantScope,
@@ -1192,7 +1263,7 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
             .getOne();
           if (!product) return { success: true, data: null };
           const content = await this.fetchContentForLocale(manager, tenantId, product.id, locale);
-          const projected = this.projectLocalized(product, content, locale);
+          const projected = this.projectLocalized(product, content, locale, { includeOfficialDetail: true });
           const related = await this.fetchRelatedForPublic(manager, tenantId, product.id, locale);
           return { success: true, data: { ...projected, related } };
         },
@@ -1220,21 +1291,60 @@ export class ProductCatalogService implements OnModuleInit, OnModuleDestroy {
       .andWhere('p.status = :status', { status: 'active' })
       .andWhere("(p.sku = :sku OR COALESCE(NULLIF(p.meta -> :brand ->> 'slug', ''), p.sku) = :slug)", { sku, slug, brand })
       .getOne();
-    const product = ProductCatalogService.UUID_RE.test(tenantId)
-      ? await withRlsTransaction(this.ds, (manager) => findProduct(manager.getRepository(ProductEntity)), { tenantId } as TenantScope)
-      : await findProduct(this.products);
-    if (!product) return null;
-    const refs = sanitizeAssetRefs(product.assetRefs);
-    const meta = product.meta as any;
-    const legacyId = meta?.imageArtifactId;
-    const linkedRef = refs.find((r) => ['main', 'detail', 'card', 'icon'].includes(r.role) && r.artifactId === artifactId);
-    const linked = linkedRef || legacyId === artifactId;
-    if (!linked) return null;
-    const objectKey = linkedRef?.objectKey || (legacyId === artifactId ? meta?.imageObjectKey : null);
-    const artifactTenantId = typeof objectKey === 'string' && objectKey.includes('/')
-      ? objectKey.split('/')[0]
-      : tenantId;
-    return this.fileArtifacts.getPublicActiveArtifact(artifactTenantId, artifactId);
+    const loadAccess = async (manager: EntityManager) => {
+      const product = await findProduct(manager.getRepository(ProductEntity));
+      if (!product) return null;
+      const refs = sanitizeAssetRefs(product.assetRefs);
+      const linkedRef = refs.find((r) => ['main', 'card', 'icon', 'detail'].includes(r.role) && r.artifactId === artifactId);
+      if (linkedRef) return { product, objectKey: linkedRef.objectKey };
+      const rows = await manager.getRepository(ProductContentEntity).find({
+        where: { tenantId, productId: product.id, status: 'published' } as any,
+      });
+      const detailLinked = rows
+        .filter((row) => this.isLiveContent(row))
+        .some((row) => this.officialDetailArtifactIds(row.officialDetailHtml).has(artifactId));
+      return detailLinked ? { product, objectKey: null } : null;
+    };
+    const access = ProductCatalogService.UUID_RE.test(tenantId)
+      ? await withRlsTransaction(this.ds, loadAccess, { tenantId } as TenantScope)
+      : await loadAccess(this.ds.manager);
+    if (!access) return null;
+    const found = await this.getPublicActiveArtifactFromCandidates(
+      this.publicArtifactTenantCandidates(brand, tenantId, access.product, access.objectKey),
+      artifactId,
+    );
+    if (!found) return null;
+    return String(found.row.mimeType || '').toLowerCase().startsWith('image/') ? found : null;
+  }
+
+  async getPublicProductDocument(brand: string, sku: string, artifactId: string, tenantIdInput?: string) {
+    const tenantId = tenantIdInput || process.env.EVERHOT_TENANT_ID || 'rhautt_shared';
+    const slug = this.normalizePublicSlug(sku);
+    const findProduct = (repo: Repository<ProductEntity>) => repo
+      .createQueryBuilder('p')
+      .where('p.tenant_id = :tenantId', { tenantId })
+      .andWhere('p.brand = :brand', { brand })
+      .andWhere('p.status = :status', { status: 'active' })
+      .andWhere("(p.sku = :sku OR COALESCE(NULLIF(p.meta -> :brand ->> 'slug', ''), p.sku) = :slug)", { sku, slug, brand })
+      .getOne();
+    const loadAccess = async (manager: EntityManager) => {
+      const product = await findProduct(manager.getRepository(ProductEntity));
+      if (!product) return null;
+      const refs = sanitizeAssetRefs(product.assetRefs);
+      const linkedRef = refs.find((r) => r.role === 'doc' && r.artifactId === artifactId);
+      return linkedRef ? { product, objectKey: linkedRef.objectKey } : null;
+    };
+    const access = ProductCatalogService.UUID_RE.test(tenantId)
+      ? await withRlsTransaction(this.ds, loadAccess, { tenantId } as TenantScope)
+      : await loadAccess(this.ds.manager);
+    if (!access) return null;
+    const found = await this.getPublicActiveArtifactFromCandidates(
+      this.publicArtifactTenantCandidates(brand, tenantId, access.product, access.objectKey),
+      artifactId,
+    );
+    if (!found) return null;
+    const mime = String(found.row.mimeType || '').toLowerCase();
+    return mime === 'application/pdf' || mime.endsWith('/pdf') ? found : null;
   }
 
   // ── L7 发布工作流（P1）· draft→review→scheduled→published + 审计流转 ────────

@@ -11,6 +11,7 @@ import { UserEntity } from './auth.entity';
 import { ExternalIdentityBindingEntity } from './external-identity-binding.entity';
 import { OtpChallengeEntity } from './otp-challenge.entity';
 import { OtpService } from './otp.service';
+import { RbacService } from './rbac.service';
 import { SsoAuditLogService } from './sso-audit-log.service';
 import { SsoExternalIdentityService } from './sso-external-identity.service';
 import { DefaultSmsSender, SMS_SENDER } from './sms-sender';
@@ -50,6 +51,7 @@ function resolveJwtSecret(): string {
     OidcSsoCallbackService,
     SsoAuditLogService,
     SsoExternalIdentityService,
+    RbacService,
     AuthGuard,
     OtpService,
     { provide: SMS_SENDER, useClass: DefaultSmsSender },
@@ -61,7 +63,7 @@ function resolveJwtSecret(): string {
         ]
       : [])
   ],
-  exports: [AuthGuard, JwtModule, SsoExternalIdentityService],
+  exports: [AuthGuard, JwtModule, SsoExternalIdentityService, RbacService],
 })
 export class AuthModule {}
 

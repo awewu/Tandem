@@ -91,6 +91,7 @@ export function validateContentInput(dto: unknown): Record<string, unknown> {
   assertOptionalString(body.status, 'status');
   assertOptionalString(body.gtin, 'gtin');
   assertOptionalString(body.mpn, 'mpn');
+  assertOptionalString(body.officialDetailHtml, 'officialDetailHtml');
   assertOptionalObject(body.seo, 'seo');
   assertOptionalObject(body.marketing, 'marketing');
   return body;

@@ -8,6 +8,7 @@ import {
   buildNewBrandProductPayload,
   canWriteBrandProducts,
   draftFromProductRow,
+  getBrandProductPermissions,
   getBrandMenuGroupOptions,
   isDirtyStructuredContentDraft,
   isDirtyProductDraft,
@@ -71,6 +72,9 @@ const row: BrandProductRow = {
         sys: 'hot-water',
         displayOrder: 10,
         tagline: 'Old tagline',
+        icon: '🔥',
+        specImage: '/images/matrix-spec.jpg',
+        image: '/old-manual-main.jpg',
         specs: [{ k: 'capacity', v: '180L' }],
         features: [{ title: 'Old feature', description: 'Keep warm' }],
         highlights: [{ label: 'Warranty', value: '3 years' }],
@@ -146,6 +150,29 @@ test('brand product writes fail closed for read-only sessions', () => {
   assert.equal(canWriteBrandProducts({ role: 'sales', permissions: [] }), false);
   assert.equal(canWriteBrandProducts({ role: 'brand_admin', permissions: [] }), true);
   assert.equal(canWriteBrandProducts({ role: 'viewer', permissions: ['product-catalog:write'] }), true);
+  assert.equal(canWriteBrandProducts({ role: 'viewer', permissions: ['product.catalog.update'] }), true);
+  assert.equal(canWriteBrandProducts({ role: 'viewer', permissions: ['product.content.delete'] }), false);
+});
+
+test('brand product permissions split create update and delete actions', () => {
+  const permissions = getBrandProductPermissions({
+    role: 'viewer',
+    permissions: ['product.catalog.update', 'brand.library.read'],
+  });
+  assert.equal(permissions.canCreateProduct, false);
+  assert.equal(permissions.canUpdateProduct, true);
+  assert.equal(permissions.canDeleteProduct, false);
+  assert.equal(permissions.canCreateBrandLibrary, false);
+  assert.equal(permissions.canUpdateBrandLibrary, false);
+});
+
+test('product content delete does not grant product archive permission', () => {
+  const permissions = getBrandProductPermissions({
+    role: 'viewer',
+    permissions: ['product.content.delete'],
+  });
+  assert.equal(permissions.canDeleteProduct, false);
+  assert.equal(permissions.canAnyProductWrite, false);
 });
 
 test('brand site environment links use exact labels and Everhot local fallback', () => {
@@ -502,9 +529,6 @@ test('structured website content payload edits rich fields and preserves unrelat
     officialCopy: 'Official product website copy',
     websiteTitle: 'Everhot Matrix',
     websiteDescription: 'Display-ready water heating product',
-    icon: '/icons/matrix.svg',
-    image: '/images/matrix.jpg',
-    specImage: '/images/matrix-spec.jpg',
     badges: ['New', 'Premium'],
     specs: [
       { key: 'capacity', value: '200L' },
@@ -514,7 +538,6 @@ test('structured website content payload edits rich fields and preserves unrelat
     highlights: [{ key: 'Warranty', value: '5 years' }],
     certs: ['CE', 'WaterMark'],
     faqs: [{ question: 'Can it be installed indoors?', answer: 'Yes.' }],
-    gallery: [{ url: '/gallery/matrix-1.jpg', alt: 'Installed product' }],
     positioning: {
       ...draft.positioning,
       targetSegments: ['commercial'],
@@ -533,6 +556,11 @@ test('structured website content payload edits rich fields and preserves unrelat
   assert.equal(payload.meta.everhot.slug, 'old-slug');
   assert.equal(payload.meta.everhot.tagline, 'Fresh official tagline');
   assert.equal(payload.meta.everhot.officialCopy, 'Official product website copy');
+  assert.equal('icon' in payload.meta.everhot, true);
+  assert.equal(payload.meta.everhot.icon, '🔥');
+  assert.equal('specImage' in payload.meta.everhot, true);
+  assert.equal(payload.meta.everhot.specImage, '/images/matrix-spec.jpg');
+  assert.equal('image' in payload.meta.everhot, false);
   assert.deepEqual(payload.meta.everhot.specs, [
     { k: 'capacity', v: '200L' },
     { k: 'power', v: '3kW' },
@@ -543,7 +571,7 @@ test('structured website content payload edits rich fields and preserves unrelat
   assert.deepEqual(payload.meta.everhot.highlights, [{ label: 'Warranty', value: '5 years' }]);
   assert.deepEqual(payload.meta.everhot.certs, ['CE', 'WaterMark']);
   assert.deepEqual(payload.meta.everhot.faqs, [{ question: 'Can it be installed indoors?', answer: 'Yes.' }]);
-  assert.deepEqual(payload.meta.everhot.gallery, [{ url: '/gallery/matrix-1.jpg', alt: 'Installed product' }]);
+  assert.deepEqual(payload.meta.everhot.gallery, [{ url: '/old-gallery.jpg', alt: 'Old gallery' }]);
   assert.deepEqual(payload.positioning.retainedPositioning, ['keep']);
   assert.deepEqual(payload.positioning.channels, ['dealer']);
   assert.deepEqual(payload.positioning.targetSegments, ['commercial']);
@@ -563,7 +591,7 @@ test('structured website content payload edits rich fields and preserves unrelat
   );
   assert.deepEqual(echoed.specs, edited.specs);
   assert.deepEqual(echoed.features, edited.features);
-  assert.deepEqual(echoed.gallery, edited.gallery);
+  assert.deepEqual(echoed.gallery, [{ url: '/old-gallery.jpg', alt: 'Old gallery' }]);
 });
 
 function brandSite(code: string, childBrandCodes: string[] = []) {

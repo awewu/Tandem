@@ -3,13 +3,11 @@
   "version": "1.0.0",
   "description": "Rhautt Nexus / 瑞合数智枢纽 brand marketing DAM platform for the Rhautt Comfort flagship instance",
   "packageManager": "pnpm@9.15.0",
-  "main": "electron-main.js",
+  "main": "server-production.js",
   "scripts": {
     "dev": "npm run dev:all",
     "start": "node server-production.js",
     "start:web": "node server-production.js",
-    "start:desktop": "electron electron-main.js",
-    "start:dual": "concurrently \"npm run start:web\" \"npm run start:desktop\"",
     "start:multi": "node multi-port-launcher.js",
     "dev:start-all": "./scripts/dev-start-all.sh",
     "dev:stop-all": "./scripts/dev-stop-all.sh",
@@ -30,8 +28,6 @@
     "dev:legacy-stack:managed:status": "node scripts/pm2-runtime.js status-stack",
     "dev:legacy-stack:managed:stop": "node scripts/pm2-runtime.js stop-stack",
     "dev:all": "concurrently -n api,portal,dealer -c blue,green,magenta \"npm run dev:api\" \"npm run dev:portal\" \"npm run dev:dealer\"",
-    "build:desktop": "electron-builder --win",
-    "build:desktop:full": "electron-builder --win --x64 --ia32",
     "test": "jest",
     "test:production-readiness": "jest test/production-readiness --runInBand",
     "test:production-readiness:evidence": "jest test/production-readiness --runInBand --json --outputFile=evidence/contracts/production-readiness-jest-result.json && node scripts/release/update-production-readiness-evidence.js",
@@ -177,9 +173,7 @@
     "db:seed-fake-addresses": "node scripts/db/seed-fake-project-addresses.js",
     "db:seed-fake-addresses:apply": "node scripts/db/seed-fake-project-addresses.js --apply",
     "prod:start": "pm2 start production-config/ecosystem.config.js",
-    "prod:stop": "pm2 stop all && pm2 delete all",
-    "desktop": "env -u ELECTRON_RUN_AS_NODE electron desktop/main.js",
-    "desktop:dev": "env -u ELECTRON_RUN_AS_NODE DESKTOP_DEVTOOLS=1 electron desktop/main.js"
+    "prod:stop": "pm2 stop all && pm2 delete all"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",
@@ -192,13 +186,9 @@
     "@nestjs/platform-express": "^11.1.26",
     "@nestjs/platform-fastify": "^11.1.14",
     "@nestjs/typeorm": "^11.0.1",
-    "@react-three/drei": "^9.80.0",
-    "@react-three/fiber": "^8.13.6",
     "@rhautt/engines": "workspace:*",
     "@tanstack/react-query": "^4.44.0",
     "@tanstack/react-query-devtools": "^4.44.0",
-    "@thatopen/components": "^2.4.0",
-    "@thatopen/components-front": "^2.4.0",
     "aedes": "^1.0.2",
     "axios": "^1.5.0",
     "bcryptjs": "^2.4.3",
@@ -239,7 +229,6 @@
     "sharp": "^0.33.0",
     "socket.io": "^4.7.2",
     "tailwind-merge": "^1.14.0",
-    "three": "^0.175.0",
     "typeorm": "^0.3.20",
     "uuid": "^9.0.1",
     "web-ifc": "0.0.68",
@@ -266,14 +255,12 @@
     "@types/node": "^20.5.0",
     "@types/react": "^18.2.15",
     "@types/react-dom": "^18.2.7",
-    "@types/three": "^0.155.0",
     "@types/uuid": "^9.0.2",
     "@typescript-eslint/eslint-plugin": "^8.62.1",
     "@typescript-eslint/parser": "^8.62.1",
     "autocannon": "^8.0.0",
     "autoprefixer": "^10.4.15",
     "concurrently": "^8.2.0",
-    "electron": "^41.7.2",
     "eslint": "^8.45.0",
     "eslint-plugin-react": "^7.32.2",
     "eslint-plugin-react-hooks": "^4.6.0",
@@ -295,73 +282,5 @@
   "engines": {
     "node": ">=20.9.0",
     "npm": ">=8.0.0"
-  },
-  "build": {
-    "appId": "com.rhautt.nexus",
-    "productName": "Rhautt Nexus",
-    "directories": {
-      "output": "dist"
-    },
-    "files": [
-      "electron-main.js",
-      "server/**/*",
-      "server-production.js",
-      "public/**/*",
-      "exports/**/*",
-      "templates/**/*",
-      "database/**/*",
-      "node_modules/**/*"
-    ],
-    "extraResources": [
-      {
-        "from": "public",
-        "to": "public"
-      },
-      {
-        "from": "server",
-        "to": "server"
-      }
-    ],
-    "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64",
-            "ia32"
-          ]
-        },
-        {
-          "target": "portable",
-          "arch": [
-            "x64"
-          ]
-        }
-      ],
-      "icon": "public/images/rhenext-logo.png",
-      "publisherName": "Rheem China",
-      "verifyUpdateCodeSignature": false
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowElevation": true,
-      "allowToChangeInstallationDirectory": true,
-      "installerIcon": "public/images/rhenext-logo.png",
-      "uninstallerIcon": "public/images/rhenext-logo.png",
-      "installerHeaderIcon": "public/images/rhenext-logo.png",
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "Rhautt Nexus",
-      "include": "build/installer.nsh",
-      "license": "LICENSE.txt"
-    },
-    "portable": {
-      "artifactName": "Rhautt-Nexus-portable-${version}-${arch}.${ext}"
-    },
-    "asar": true,
-    "asarUnpack": [
-      "server/**/*",
-      "exports/**/*"
-    ]
   }
 }

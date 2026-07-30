@@ -1,13 +1,15 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import {
   Archive,
   ArrowDownCircle,
   ArrowUpCircle,
   Bold,
+  Calendar,
   ChevronDown,
   Check,
+  Download,
   ExternalLink,
   EyeOff,
   Heading2,
@@ -25,14 +27,13 @@ import {
   Rows3,
   Save,
   Search,
-  Settings2,
   Trash2,
   Upload,
   X,
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { PageHeader } from '@rhautt/ui';
-import { auth, brandProductCategories, brandSites, fileArtifacts, products, siteMaterials, siteNews, siteProductAssignments } from '../../../lib/api';
+import { auth, brandProductCategories, brandSites, fileArtifacts, products, siteBasicSettings, siteInquiries, siteMaterials, siteNews, siteProductAssignments } from '../../../lib/api';
 import {
   archiveBrandProduct,
   blankNewProductDraft,
@@ -47,10 +48,10 @@ import {
   loadBrandProductConsoleData,
   normalizeBrandCode,
   reorderBrandProductDetailImages,
-  resolveBrandSiteEnvironmentLinks,
   saveBrandProductRow,
   saveBrandStructuredContent,
   structuredDraftFromProductRow,
+  toBrandProductRow,
   uploadBrandProductMainImage,
   uploadBrandProductDetailImage,
   updateBrandProductStatus,
@@ -73,7 +74,7 @@ import {
 
 type SiteStatus = 'active' | 'inactive';
 type DeliveryType = 'self_hosted' | 'external';
-type ContentTab = 'products' | 'materials' | 'news';
+type ContentTab = 'basic' | 'products' | 'materials' | 'news' | 'inquiries';
 type TaxonomyOption = { code: string; label: string };
 type AssignmentStatus = 'draft' | 'published' | 'hidden';
 type WebsiteShelfTransition = 'publishing' | 'hiding';
@@ -90,6 +91,10 @@ type ProductManualPdfDraft = {
   previewUrl: string;
   saved?: boolean;
   sortOrder?: number;
+};
+type ProductPendingImageDraft = {
+  file: File;
+  previewUrl: string;
 };
 const EMPTY_BRAND_PRODUCT_PERMISSIONS: BrandProductPermissions = {
   canCreateProduct: false,
@@ -242,15 +247,6 @@ const TAXONOMY_LABELS: Record<string, string> = {
 
 const MOCK_SITE_MATERIALS = [
   {
-    key: 'home-hero',
-    recommendedSize: '1660 x 550 px',
-    name: '首页 Hero 主视觉',
-    type: '图片 / 标题文案',
-    location: '首页首屏',
-    status: '模拟数据',
-    note: '展示官网首页主图、标题和行动入口的占位流程。',
-  },
-  {
     key: 'brand-story',
     recommendedSize: '940 x 900 px',
     name: '品牌故事图文',
@@ -278,12 +274,6 @@ const MOCK_SITE_MATERIALS = [
     note: '用于模拟备案、授权、认证和 Powered by Rysnova 信息。',
   },
 ];
-
-function statusMeta(site: BrandSite) {
-  if (site.deletedAt) return { label: '已归档', className: 'badge-grey' };
-  if (site.status === 'active') return { label: '启用中', className: 'badge-success' };
-  return { label: '已停用', className: 'badge-warning' };
-}
 
 function fallbackSite(code: string): BrandSite {
   const preset = KNOWN_BRANDS[code];
@@ -328,18 +318,6 @@ function normalizedChildBrandCodes(value: unknown): string[] {
 
 function childBrandLabel(site: BrandSite) {
   return `${site.nameCn || site.nameEn || site.code} ${site.nameEn || ''}`.trim();
-}
-
-function fallbackBrandLogoSrc(codeInput: string) {
-  const code = normalizeBrandCode(codeInput);
-  if (code === 'everhot') {
-    return '/images/brand/everhot-logo.png';
-  }
-  return '';
-}
-
-async function loadBrandSiteLogo(siteId: string, signal: AbortSignal) {
-  return brandSites.logo(siteId, { signal }) as Promise<{ mimeType?: string; dataBase64?: string }>;
 }
 
 async function loadShelfFilterProductRows(
@@ -490,7 +468,6 @@ function officialDetailFromContent(result: unknown): string {
 function rowAssetRefs(row: BrandProductRow) {
   return Array.isArray(row.raw?.assetRefs) ? (row.raw.assetRefs as Array<Record<string, unknown>>) : [];
 }
-
 function savedProductManualPdfs(row: BrandProductRow): ProductManualPdfDraft[] {
   return rowAssetRefs(row)
     .filter((ref) => ref?.role === 'doc' && ref?.artifactId)
@@ -853,10 +830,14 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [bulkShelfAction, setBulkShelfAction] = useState<WebsiteShelfTransition | ''>('');
   const [showCreate, setShowCreate] = useState(false);
-  const [activeContentTab, setActiveContentTab] = useState<ContentTab>('products');
+  const [activeContentTab, setActiveContentTab] = useState<ContentTab>('basic');
   const [createDraft, setCreateDraft] = useState<BrandProductEditDraft>(() => blankNewProductDraft(normalizedBrandCode));
   const [createStructuredDraft, setCreateStructuredDraft] = useState<BrandStructuredContentDraft>(() => blankCreateStructuredDraft(normalizedBrandCode));
   const [createManualPdfs, setCreateManualPdfs] = useState<ProductManualPdfDraft[]>([]);
+  const [createMainImage, setCreateMainImage] = useState<ProductPendingImageDraft | null>(null);
+  const [createOfficialDetailHtml, setCreateOfficialDetailHtml] = useState('');
+  const [createImageFeedback, setCreateImageFeedback] = useState<ImageActionFeedback | undefined>();
+  const [postCreateProduct, setPostCreateProduct] = useState<BrandProductRow | null>(null);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
   const [publishing, setPublishing] = useState(false);
@@ -869,10 +850,10 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
   const [childBrandDraft, setChildBrandDraft] = useState<string[]>([]);
   const [savingChildBrands, setSavingChildBrands] = useState(false);
   const [childBrandFeedback, setChildBrandFeedback] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
-  const [brandLogo, setBrandLogo] = useState('');
-  const [brandLogoFailed, setBrandLogoFailed] = useState(false);
+  const [showBackTop, setShowBackTop] = useState(false);
   const loadRequestRef = useRef(0);
   const imageFeedbackTimersRef = useRef<Record<string, number>>({});
+  const backTopButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const load = useCallback(async () => {
     const requestId = loadRequestRef.current + 1;
@@ -989,6 +970,49 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
   }, [load]);
 
   useEffect(() => {
+    function scrollTopValue(source?: EventTarget | null) {
+      const targets = [
+        document.querySelector('.app-main'),
+        document.querySelector('.content'),
+        document.querySelector('main'),
+        document.scrollingElement,
+        document.documentElement,
+        document.body,
+      ].filter(Boolean) as HTMLElement[];
+      const sourceTop = source instanceof HTMLElement ? source.scrollTop || 0 : 0;
+      return Math.max(window.scrollY || 0, sourceTop, ...targets.map((target) => target.scrollTop || 0));
+    }
+
+    function updateBackTopVisibility(event?: Event) {
+      const isVisible = scrollTopValue(event?.target) > 360;
+      const button = backTopButtonRef.current;
+      if (!button) return;
+      button.classList.toggle('is-visible', isVisible);
+      button.setAttribute('aria-hidden', isVisible ? 'false' : 'true');
+      button.tabIndex = isVisible ? 0 : -1;
+    }
+
+    const scrollTargets = [
+      document.querySelector('.app-main'),
+      document.querySelector('.content'),
+      document.querySelector('main'),
+      window,
+    ].filter(Boolean) as (HTMLElement | Window)[];
+
+    updateBackTopVisibility();
+    scrollTargets.forEach((target) => target.addEventListener('scroll', updateBackTopVisibility, { passive: true }));
+    document.addEventListener('scroll', updateBackTopVisibility, { passive: true, capture: true });
+    window.addEventListener('resize', updateBackTopVisibility);
+    const visibilityTimer = window.setInterval(updateBackTopVisibility, 160);
+    return () => {
+      scrollTargets.forEach((target) => target.removeEventListener('scroll', updateBackTopVisibility));
+      document.removeEventListener('scroll', updateBackTopVisibility, true);
+      window.removeEventListener('resize', updateBackTopVisibility);
+      window.clearInterval(visibilityTimer);
+    };
+  }, []);
+
+  useEffect(() => {
     if (actionFeedback?.tone !== 'success') return undefined;
     const timer = window.setTimeout(() => setActionFeedback(null), 3000);
     return () => window.clearTimeout(timer);
@@ -1041,6 +1065,11 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
 
   useEffect(() => {
     setCreateDraft(blankNewProductDraft(normalizedBrandCode));
+    if (createMainImage) URL.revokeObjectURL(createMainImage.previewUrl);
+    setCreateMainImage(null);
+    setCreateOfficialDetailHtml('');
+    setCreateImageFeedback(undefined);
+    setPostCreateProduct(null);
     setShowCreate(false);
     setPublishResult(null);
     setStructuredDrafts({});
@@ -1056,40 +1085,6 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
     return (data?.site as BrandSite | null) || fallbackSite(normalizedBrandCode);
   }, [data, normalizedBrandCode]);
 
-  useEffect(() => {
-    let cancelled = false;
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 5000);
-    setBrandLogo('');
-    setBrandLogoFailed(false);
-    if (!site.logoArtifactId) {
-      window.clearTimeout(timeout);
-      return () => {
-        cancelled = true;
-        controller.abort();
-      };
-    }
-    loadBrandSiteLogo(site.id, controller.signal)
-      .then((logo) => {
-        if (cancelled || !logo.dataBase64) return;
-        setBrandLogo(`data:${logo.mimeType || 'image/png'};base64,${logo.dataBase64}`);
-      })
-      .catch(() => {
-        if (!cancelled) setBrandLogo('');
-      })
-      .finally(() => {
-        window.clearTimeout(timeout);
-      });
-    return () => {
-      cancelled = true;
-      controller.abort();
-      window.clearTimeout(timeout);
-    };
-  }, [site.id, site.logoArtifactId]);
-
-  const meta = statusMeta(site);
-  const fallbackLogo = fallbackBrandLogoSrc(site.code);
-  const currentBrandLogoSrc = brandLogoFailed ? '' : brandLogo || fallbackLogo;
   const publishCapability = site.publishCapability || UNSUPPORTED_PUBLISH;
   const canCreateProduct = productPermissions.canCreateProduct;
   const canUpdateProduct = productPermissions.canUpdateProduct;
@@ -1099,10 +1094,6 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
   const canPublishBrandLibrary = productPermissions.canPublishBrandLibrary;
   const canPublishWebsiteShelf = productPermissions.canCreateBrandLibrary && productPermissions.canPublishBrandLibrary;
   const canWrite = canUpdateProduct;
-  const environmentLinks = useMemo(
-    () => resolveBrandSiteEnvironmentLinks(data?.site || site, normalizedBrandCode),
-    [data?.site, normalizedBrandCode, site]
-  );
   const productRows = data?.products || [];
   const shelfSourceProductRows = shelfProductRows.length || !productRows.length ? shelfProductRows : productRows;
   const totalProducts = data?.total || 0;
@@ -1165,17 +1156,25 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
   const footerTotalPages = usesLocalProductFilter ? 1 : totalPages;
   const editingProduct = useMemo(() => {
     if (!editingProductId) return null;
-    return visibleProducts.find((product) => product.id === editingProductId) || null;
-  }, [editingProductId, visibleProducts]);
+    return visibleProducts.find((product) => product.id === editingProductId) || (postCreateProduct?.id === editingProductId ? postCreateProduct : null);
+  }, [editingProductId, postCreateProduct, visibleProducts]);
   const createProductPreview = useMemo(
-    () => productRowFromCreateDraft(createDraft, normalizedBrandCode),
-    [createDraft, normalizedBrandCode]
+    () => {
+      const preview = productRowFromCreateDraft(createDraft, normalizedBrandCode);
+      if (!createMainImage) return preview;
+      return {
+        ...preview,
+        imageState: {
+          ...preview.imageState,
+          hasMainImage: true,
+          mainImageUrl: createMainImage.previewUrl,
+          mainArtifactId: '__pending_main_image__',
+          label: createMainImage.file.name || '待上传主图',
+        },
+      };
+    },
+    [createDraft, createMainImage, normalizedBrandCode]
   );
-
-  const taxonomyCount = useMemo(() => {
-    if (!data?.taxonomy) return 0;
-    return Object.values(data.taxonomy).filter((value) => Array.isArray(value)).length;
-  }, [data]);
 
   useEffect(() => {
     const visible = new Set(visibleProductIds);
@@ -1209,6 +1208,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
   }
 
   function beginProductEdit(row: BrandProductRow) {
+    setPostCreateProduct(null);
     setDrafts((current) => ({ ...current, [row.id]: current[row.id] || draftFromProductRow(row) }));
     setStructuredDrafts((current) => ({
       ...current,
@@ -1243,16 +1243,23 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
       });
     }
     setEditingProductId('');
+    setPostCreateProduct(null);
   }
 
   function beginProductCreate() {
     setEditingProductId('');
+    setPostCreateProduct(null);
     const nextDraft = blankNewProductDraft(normalizedBrandCode);
     createManualPdfs.forEach((manual) => URL.revokeObjectURL(manual.previewUrl));
+    if (createMainImage) URL.revokeObjectURL(createMainImage.previewUrl);
     setCreateDraft(nextDraft);
     setCreateStructuredDraft(blankCreateStructuredDraft(normalizedBrandCode));
     setCreateManualPdfs([]);
+    setCreateMainImage(null);
+    setCreateOfficialDetailHtml('');
+    setCreateImageFeedback(undefined);
     setCreateError('');
+    setActiveContentTab('products');
     setShowCreate(true);
   }
 
@@ -1260,9 +1267,32 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
     setShowCreate(false);
     setCreateError('');
     createManualPdfs.forEach((manual) => URL.revokeObjectURL(manual.previewUrl));
+    if (createMainImage) URL.revokeObjectURL(createMainImage.previewUrl);
     setCreateDraft(blankNewProductDraft(normalizedBrandCode));
     setCreateStructuredDraft(blankCreateStructuredDraft(normalizedBrandCode));
     setCreateManualPdfs([]);
+    setCreateMainImage(null);
+    setCreateOfficialDetailHtml('');
+    setCreateImageFeedback(undefined);
+  }
+
+  function selectCreateMainImage(file: File | null) {
+    if (!file) return;
+    if (!isAllowedJpgOrPng(file)) {
+      const text = imageTypeErrorText();
+      setCreateImageFeedback({ tone: 'error', text });
+      setCreateError(text);
+      return;
+    }
+    if (createMainImage) URL.revokeObjectURL(createMainImage.previewUrl);
+    setCreateMainImage({ file, previewUrl: URL.createObjectURL(file) });
+    setCreateImageFeedback({ tone: 'success', text: '主图已选择，创建产品时会自动上传。' });
+  }
+
+  function clearCreateMainImage() {
+    if (createMainImage) URL.revokeObjectURL(createMainImage.previewUrl);
+    setCreateMainImage(null);
+    setCreateImageFeedback(undefined);
   }
 
   function resetDraft(row: BrandProductRow) {
@@ -1395,22 +1425,50 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
     }
   }
 
-  async function createProduct() {
+  async function createProduct(overrides?: { officialDetailHtml?: string }) {
     if (!canCreateProduct || !data?.site) return;
     setCreating(true);
     setCreateError('');
     try {
+      const officialDetailHtml = overrides?.officialDetailHtml ?? createOfficialDetailHtml;
       const manualPdfRefs = await uploadProductManualPdfRefs(
         createManualPdfs,
         createDraft.model || createDraft.publicSlug || createDraft.name || normalizedBrandCode,
       );
-      await createBrandProduct(normalizedBrandCode, createDraft, createStructuredDraft, manualPdfRefs);
-      await load();
+      const created = await createBrandProduct(normalizedBrandCode, createDraft, createStructuredDraft, manualPdfRefs);
+      const createdData = ((created as any)?.data ?? created) as Record<string, unknown>;
+      const createdRow = toBrandProductRow(createdData, normalizedBrandCode);
+      if (!createdRow.id) throw new Error('产品创建成功但未返回产品 ID，无法继续添加资源。');
+      if (createMainImage?.file) {
+        await uploadBrandProductMainImage(normalizedBrandCode, createdRow, createMainImage.file);
+      }
+      if (officialDetailHtml.trim()) {
+        await products.upsertContent(createdRow.id, {
+          tenantId: rowTenantId(createdRow),
+          locale: 'zh-CN',
+          status: 'published',
+          officialDetailHtml,
+        });
+      }
+      const refreshed = await products.get(createdRow.id, { tenantId: rowTenantId(createdRow) }).catch(() => ({ data: createdData }));
+      const refreshedRow = toBrandProductRow(((refreshed as any)?.data ?? refreshed) as Record<string, unknown>, normalizedBrandCode);
+      setPostCreateProduct(refreshedRow);
+      setDrafts((current) => ({ ...current, [refreshedRow.id]: draftFromProductRow(refreshedRow) }));
+      setStructuredDrafts((current) => ({ ...current, [refreshedRow.id]: structuredDraftFromProductRow(refreshedRow, normalizedBrandCode) }));
+      setOfficialDetailDrafts((current) => ({ ...current, [refreshedRow.id]: officialDetailHtml }));
+      setOfficialDetailInitials((current) => ({ ...current, [refreshedRow.id]: officialDetailHtml }));
+      setManualPdfDrafts((current) => ({ ...current, [refreshedRow.id]: savedProductManualPdfs(refreshedRow) }));
       setShowCreate(false);
       createManualPdfs.forEach((manual) => URL.revokeObjectURL(manual.previewUrl));
+      if (createMainImage) URL.revokeObjectURL(createMainImage.previewUrl);
       setCreateDraft(blankNewProductDraft(normalizedBrandCode));
       setCreateStructuredDraft(blankCreateStructuredDraft(normalizedBrandCode));
       setCreateManualPdfs([]);
+      setCreateMainImage(null);
+      setCreateOfficialDetailHtml('');
+      setCreateImageFeedback(undefined);
+      setEditingProductId(refreshedRow.id);
+      await load();
     } catch (e) {
       setCreateError((e as Error).message || '上新失败');
     } finally {
@@ -1887,6 +1945,21 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
     }
   }
 
+  function scrollBrandConsoleToTop() {
+    const targets = [
+      document.querySelector('.app-main'),
+      document.querySelector('.content'),
+      document.querySelector('main'),
+      document.scrollingElement,
+      document.documentElement,
+      document.body,
+    ].filter(Boolean) as HTMLElement[];
+    targets.forEach((target) => {
+      if (typeof target.scrollTo === 'function') target.scrollTo({ top: 0, behavior: 'smooth' });
+      else target.scrollTop = 0;
+    });
+  }
+
   return (
     <div className="brand-console-shell">
       <div className="page-container brand-console-page">
@@ -1895,16 +1968,6 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           subtitle="集中维护官网内容、产品货架与发布状态"
           actions={
             <>
-              <button type="button" className="btn btn-outline" onClick={load} disabled={isLoading}>
-                <RefreshCw size={15} />
-                刷新
-              </button>
-              {canCreateProduct && data?.site && (
-                <button type="button" className="btn btn-outline" onClick={beginProductCreate}>
-                  <PackagePlus size={15} />
-                  上新产品
-                </button>
-              )}
               {canPublishBrandLibrary && data?.site && (
                 <button
                   type="button"
@@ -1931,75 +1994,6 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
             {actionFeedback.text}
           </div>
         )}
-
-        <section className="brand-console-hero" aria-label="品牌官网摘要">
-          <div className="brand-console-identity">
-            <div className="brand-console-mark">
-              {currentBrandLogoSrc ? (
-                <img
-                  src={currentBrandLogoSrc}
-                  alt={`${site.nameCn || site.nameEn || site.code} Logo`}
-                  onError={() => {
-                    if (currentBrandLogoSrc !== fallbackLogo && fallbackLogo) {
-                      setBrandLogo('');
-                      setBrandLogoFailed(false);
-                      return;
-                    }
-                    setBrandLogoFailed(true);
-                  }}
-                />
-              ) : null}
-              <span>{(site.nameEn || site.code).slice(0, 1).toUpperCase()}</span>
-            </div>
-            <div>
-              <p className="t-label">当前品牌</p>
-              <h2>{site.nameEn || site.nameCn || site.code}</h2>
-              <span>{site.nameCn || site.code} / {site.code}</span>
-            </div>
-          </div>
-          <div className="brand-console-summary">
-            <SummaryItem label="站点状态">
-              <span className={`badge ${meta.className}`}>{meta.label}</span>
-            </SummaryItem>
-            <SummaryItem label="交付方式">
-              <span className="pill-neutral">
-                {site.deliveryType === 'self_hosted' ? '自建站' : '外部站'}
-              </span>
-            </SummaryItem>
-            {environmentLinks.map((environment) => (
-              <SummaryItem key={environment.key} label={environment.label}>
-                {environment.url ? (
-                  <a
-                    className="environment-link"
-                    href={environment.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={`打开${environment.label}`}
-                  >
-                    <span>{environment.url}</span>
-                    <ExternalLink size={13} />
-                  </a>
-                ) : (
-                  <span className="muted-value">未配置</span>
-                )}
-              </SummaryItem>
-            ))}
-            <SummaryItem label="应用标识">
-              <span>{site.appKey || '未绑定'}</span>
-            </SummaryItem>
-          </div>
-        </section>
-
-        <section className="brand-console-modules" aria-label="产品管理能力">
-          <ConsoleModule icon={<Rows3 size={18} />} title="产品行" value={`${data?.products.length || 0} 条产品`} />
-          <ConsoleModule icon={<Image size={18} />} title="图片素材" value="主图与详情图素材" />
-          <ConsoleModule icon={<Settings2 size={18} />} title="分类词表" value={`${taxonomyCount} 组词表`} />
-          <ConsoleModule
-            icon={<Rocket size={18} />}
-            title="发布备份"
-            value={publishCapability.reason}
-          />
-        </section>
 
         {normalizedBrandCode === GROUP_SITE_CODE && (
           <section className="card-elevated child-brand-panel" aria-label="子品牌绑定">
@@ -2062,13 +2056,21 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           </section>
         )}
 
-        <section className="card-elevated brand-product-panel" aria-label="品牌产品行">
+        <section className="card-elevated brand-product-panel" aria-label="官网内容管理">
           <div className="brand-product-head">
             <div>
-              <p className="t-label">产品库</p>
+              <p className="t-label">官网内容</p>
               <div className="brand-product-title-row">
-                <h2>{site.nameCn || site.nameEn || site.code} 官网产品</h2>
+                <h2>{site.nameCn || site.nameEn || site.code} 官网内容</h2>
                 <div className="brand-content-switch" aria-label="官网内容类型切换">
+                  <button
+                    type="button"
+                    className={activeContentTab === 'basic' ? 'is-active' : undefined}
+                    aria-pressed={activeContentTab === 'basic'}
+                    onClick={() => setActiveContentTab('basic')}
+                  >
+                    基本信息
+                  </button>
                   <button
                     type="button"
                     className={activeContentTab === 'products' ? 'is-active' : undefined}
@@ -2083,7 +2085,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
                     aria-pressed={activeContentTab === 'materials'}
                     onClick={() => setActiveContentTab('materials')}
                   >
-                    其他素材
+                    首页模块
                   </button>
                   <button
                     type="button"
@@ -2093,12 +2095,22 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
                   >
                     资讯
                   </button>
+                  <button
+                    type="button"
+                    className={activeContentTab === 'inquiries' ? 'is-active' : undefined}
+                    aria-pressed={activeContentTab === 'inquiries'}
+                    onClick={() => setActiveContentTab('inquiries')}
+                  >
+                    咨询
+                  </button>
                 </div>
               </div>
             </div>
             <div className="brand-product-head-actions" />
           </div>
-          {activeContentTab === 'products' ? (
+          {activeContentTab === 'basic' ? (
+            <SiteBasicInfoPanel siteCode={site.code || normalizedBrandCode} canWrite={canUpdateBrandLibrary} />
+          ) : activeContentTab === 'products' ? (
             <>
           <WorkbenchFilterToolbar>
             <div className="brand-product-search">
@@ -2161,6 +2173,18 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
             ) : null}
             {categoryError && <span className="row-feedback error">{categoryError}</span>}
             {shelfError && <span className="row-feedback error">{shelfError}</span>}
+            <div className="brand-product-toolbar-actions">
+              {canCreateProduct && data?.site && (
+                <button type="button" className="btn btn-outline btn-sm" onClick={beginProductCreate}>
+                  <PackagePlus size={13} />
+                  新增产品
+                </button>
+              )}
+              <button type="button" className="btn btn-outline btn-sm" onClick={load} disabled={isLoading}>
+                <RefreshCw size={13} />
+                刷新
+              </button>
+            </div>
           </WorkbenchFilterToolbar>
           <WorkbenchTableShell>
           {selectedVisibleProducts.length ? (
@@ -2319,25 +2343,35 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
               categoryOptions={categoryOptions}
               draft={createDraft}
               structuredDraft={createStructuredDraft}
+              officialDetailHtml={createOfficialDetailHtml}
+              officialDetailDirty={Boolean(createOfficialDetailHtml.trim())}
               manualPdfs={createManualPdfs}
-              officialDetailDirty={false}
+              manualPdfsDirty={createManualPdfs.length > 0}
               taxonomy={data?.taxonomy || {}}
               saving={creating}
               savingStructured={false}
               feedback={createError ? { tone: 'error', text: createError } : undefined}
+              officialDetailFeedback={createOfficialDetailHtml.trim() ? { tone: 'success', text: '详情内容会在创建产品时自动保存。' } : undefined}
               shelfLoading={false}
               shelfBusy={false}
               actionBusy={false}
-              imageBusy={false}
+              imageBusy={creating}
+              imageFeedback={createImageFeedback}
               onChange={(patch) => setCreateDraft((current) => ({ ...current, ...patch }))}
               onStructuredChange={(patch) => setCreateStructuredDraft((current) => ({ ...current, ...patch }))}
+              onOfficialDetailChange={setCreateOfficialDetailHtml}
+              onOfficialDetailFeedback={(feedback) => setCreateError(feedback.tone === 'error' ? feedback.text : '')}
               onManualPdfsChange={setCreateManualPdfs}
               onSave={createProduct}
               onReset={() => {
                 createManualPdfs.forEach((manual) => URL.revokeObjectURL(manual.previewUrl));
+                if (createMainImage) URL.revokeObjectURL(createMainImage.previewUrl);
                 setCreateDraft(blankNewProductDraft(normalizedBrandCode));
                 setCreateStructuredDraft(blankCreateStructuredDraft(normalizedBrandCode));
                 setCreateManualPdfs([]);
+                setCreateMainImage(null);
+                setCreateOfficialDetailHtml('');
+                setCreateImageFeedback(undefined);
               }}
               onStructuredSave={() => {}}
               onStructuredReset={() => {}}
@@ -2346,8 +2380,8 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
               onArchive={() => {}}
               onPublishShelf={() => {}}
               onHideShelf={() => {}}
-              onUploadMainImage={() => {}}
-              onDeleteMainImage={() => {}}
+              onUploadMainImage={selectCreateMainImage}
+              onDeleteMainImage={clearCreateMainImage}
               onUploadDetailImage={() => {}}
               onDeleteDetailImage={() => {}}
               onMoveDetailImage={() => {}}
@@ -2408,15 +2442,71 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
             </>
           ) : activeContentTab === 'materials' ? (
             <SiteMaterialMockPanel brandCode={normalizedBrandCode} />
-          ) : (
+          ) : activeContentTab === 'news' ? (
             <SiteNewsPanel
               siteCode={site.code || normalizedBrandCode}
               siteAssetBaseUrl={site.developmentUrl || site.productionUrl || site.resolvedUrl || ''}
               canWrite={canUpdateBrandLibrary}
             />
+          ) : (
+            <SiteInquiryPanel
+              siteCode={site.code || normalizedBrandCode}
+              canWrite={canUpdateBrandLibrary}
+            />
           )}
         </section>
       </div>
+
+      <button
+        ref={backTopButtonRef}
+        type="button"
+        className="brand-console-backtop"
+        onClick={scrollBrandConsoleToTop}
+        aria-hidden="true"
+        tabIndex={-1}
+        aria-label="回到顶部"
+        title="回到顶部"
+      >
+        <ArrowUpCircle size={18} />
+      </button>
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `
+(() => {
+  const button = document.querySelector('.brand-console-backtop');
+  if (!button || button.dataset.bound === 'true') return;
+  button.dataset.bound = 'true';
+  const targets = () => [
+    document.querySelector('.app-main'),
+    document.querySelector('.content'),
+    document.querySelector('main'),
+    document.scrollingElement,
+    document.documentElement,
+    document.body,
+  ].filter(Boolean);
+  const topValue = () => Math.max(window.scrollY || 0, ...targets().map((target) => target.scrollTop || 0));
+  const update = () => {
+    const visible = topValue() > 360;
+    button.classList.toggle('is-visible', visible);
+    button.setAttribute('aria-hidden', visible ? 'false' : 'true');
+    button.tabIndex = visible ? 0 : -1;
+  };
+  const backTop = () => {
+    targets().forEach((target) => {
+      if (typeof target.scrollTo === 'function') target.scrollTo({ top: 0, behavior: 'smooth' });
+      else target.scrollTop = 0;
+    });
+  };
+  targets().forEach((target) => target.addEventListener('scroll', update, { passive: true }));
+  document.addEventListener('scroll', update, { passive: true, capture: true });
+  window.addEventListener('resize', update);
+  button.addEventListener('click', backTop);
+  window.setInterval(update, 160);
+  update();
+})();
+          `.trim(),
+        }}
+      />
 
       <style>{`
         .brand-console-shell {
@@ -2428,6 +2518,41 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           gap: 12px;
           width: 100%;
           max-width: none;
+        }
+        .brand-console-backtop {
+          position: fixed;
+          right: 22px;
+          bottom: 24px;
+          z-index: 45;
+          width: 42px;
+          height: 42px;
+          display: inline-grid;
+          place-items: center;
+          border: 1px solid rgba(228, 0, 43, 0.22);
+          border-radius: 999px;
+          background: var(--brand);
+          color: #fff;
+          box-shadow: 0 12px 28px rgba(15, 23, 42, 0.2);
+          cursor: pointer;
+          opacity: 0;
+          visibility: hidden;
+          transform: translateY(10px);
+          pointer-events: none;
+          transition: opacity 0.16s ease, visibility 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+        }
+        .brand-console-backtop.is-visible {
+          opacity: 1;
+          visibility: visible;
+          transform: translateY(0);
+          pointer-events: auto;
+        }
+        .brand-console-backtop.is-visible:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 16px 34px rgba(15, 23, 42, 0.24);
+        }
+        .brand-console-backtop:focus-visible {
+          outline: 3px solid rgba(228, 0, 43, 0.24);
+          outline-offset: 3px;
         }
         .brand-console-notice {
           padding: 10px 12px;
@@ -2757,6 +2882,131 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           background: var(--brand);
           box-shadow: var(--sh-xs);
         }
+        .site-inquiry-toolbar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 10px 0 2px;
+        }
+        .site-inquiry-date-filter {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          flex-wrap: nowrap;
+          min-height: 38px;
+          padding: 4px;
+          border: 1px solid var(--border);
+          border-radius: var(--r-sm);
+          background: var(--surface-1);
+          box-shadow: var(--sh-xs);
+        }
+        .site-inquiry-date-filter-label {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          padding: 0 8px;
+          color: var(--t-secondary);
+          font-size: 12px;
+          font-weight: 700;
+          white-space: nowrap;
+        }
+        .site-inquiry-date-filter-label svg {
+          color: var(--brand);
+        }
+        .site-inquiry-date-input {
+          width: 132px;
+          min-width: 132px;
+          min-height: 30px;
+          padding: 6px 8px;
+          border-color: transparent;
+          background: var(--surface-2);
+          color: var(--t-strong);
+          font-size: 12px;
+          font-weight: 650;
+          text-align: center;
+          color-scheme: light;
+        }
+        .site-inquiry-date-input:focus {
+          border-color: rgba(228, 0, 43, 0.34);
+          background: #fff;
+        }
+        .site-inquiry-date-input::-webkit-calendar-picker-indicator {
+          cursor: pointer;
+          opacity: 0.58;
+        }
+        .site-inquiry-date-input::-webkit-calendar-picker-indicator:hover {
+          opacity: 0.9;
+        }
+        .site-inquiry-date-filter-separator {
+          color: var(--t-tertiary);
+          font-size: 12px;
+          font-weight: 700;
+          white-space: nowrap;
+        }
+        .site-inquiry-date-filter .btn {
+          min-height: 30px;
+          padding: 0 10px;
+        }
+        .site-inquiry-table th,
+        .site-inquiry-table td {
+          vertical-align: middle;
+        }
+        .site-inquiry-table {
+          table-layout: fixed;
+          min-width: 1120px;
+        }
+        .site-inquiry-table th,
+        .site-inquiry-table td {
+          text-align: center;
+          white-space: normal;
+          word-break: normal;
+          overflow-wrap: anywhere;
+        }
+        .site-inquiry-table th:nth-child(1),
+        .site-inquiry-table td:nth-child(1) {
+          width: 16%;
+          text-align: center;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .site-inquiry-table th:nth-child(2),
+        .site-inquiry-table td:nth-child(2) {
+          width: 12%;
+          text-align: center;
+          white-space: nowrap;
+        }
+        .site-inquiry-table th:nth-child(3),
+        .site-inquiry-table td:nth-child(3) {
+          width: 10%;
+          text-align: center;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .site-inquiry-table th:nth-child(4),
+        .site-inquiry-table td:nth-child(4) {
+          width: 12%;
+          text-align: center;
+        }
+        .site-inquiry-table th:nth-child(5),
+        .site-inquiry-table td:nth-child(5) {
+          width: 26%;
+          text-align: center;
+        }
+        .site-inquiry-table th:nth-child(6),
+        .site-inquiry-table td:nth-child(6) {
+          width: 14%;
+          text-align: center;
+          white-space: nowrap;
+        }
+        .site-inquiry-table th:nth-child(7),
+        .site-inquiry-table td:nth-child(7) {
+          width: 10%;
+          text-align: right;
+          white-space: nowrap;
+        }
         .brand-product-toolbar {
           display: flex;
           align-items: center;
@@ -2780,6 +3030,13 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
         .brand-product-filter {
           width: 150px;
           flex: 0 0 150px;
+        }
+        .brand-product-toolbar-actions {
+          margin-left: auto;
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 8px;
         }
         .legacy-category-select {
           display: none;
@@ -3108,7 +3365,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
         }
         .site-material-grid {
           display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
+          grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 10px;
         }
         .site-material-item {
@@ -3158,6 +3415,648 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           flex-wrap: wrap;
           justify-content: flex-end;
           gap: 6px;
+        }
+        .site-basic-panel {
+          display: grid;
+          gap: 14px;
+          min-height: 397px;
+          padding: 16px;
+          border-top: 1px solid var(--border);
+          background: var(--surface-2);
+        }
+        .site-basic-jump-nav {
+          position: sticky;
+          top: 0;
+          z-index: 3;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          padding: 10px;
+          border: 1px solid var(--border);
+          border-radius: var(--r-sm);
+          background: rgba(255, 255, 255, .96);
+          box-shadow: 0 8px 22px rgba(15, 23, 42, .06);
+        }
+        .site-basic-jump-nav .btn {
+          transition: border-color .16s ease, background .16s ease, box-shadow .16s ease, color .16s ease;
+        }
+        .site-basic-jump-nav .btn.is-active {
+          color: var(--brand);
+          border-color: color-mix(in srgb, var(--brand) 45%, var(--border));
+          background: var(--brand-50);
+          box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 22%, transparent);
+        }
+        .site-basic-section {
+          scroll-margin-top: 72px;
+          display: grid;
+          gap: 14px;
+          padding: 16px;
+          border: 1px solid var(--border);
+          border-radius: var(--r-sm);
+          background: var(--surface-1);
+        }
+        .site-basic-section-stats .site-basic-grid {
+          grid-template-columns: minmax(116px, .42fr) minmax(136px, .48fr) minmax(280px, 1.4fr);
+          align-items: end;
+        }
+        .site-basic-section-stats .site-basic-field {
+          gap: 4px;
+        }
+        .site-basic-section-stats .input {
+          min-height: 34px;
+          padding-top: 7px;
+          padding-bottom: 7px;
+        }
+        .site-basic-section-actions {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+          gap: 6px;
+        }
+        .site-basic-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          align-items: start;
+          gap: 12px;
+        }
+        .site-basic-section-identity .site-basic-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .site-basic-field {
+          display: grid;
+          align-self: start;
+          gap: 6px;
+          min-width: 0;
+        }
+        .site-basic-section-identity .site-basic-field {
+          grid-column: auto;
+        }
+        .site-basic-field.wide {
+          grid-column: 1 / -1;
+        }
+        .site-basic-section-identity .site-basic-field.image-field.wide {
+          grid-column: auto;
+        }
+        .site-basic-section-identity .site-basic-field.image-field:not(.wide) {
+          grid-column: auto;
+        }
+        .site-basic-section-identity .site-basic-field.image-field:not(.wide) {
+          min-height: 224px;
+        }
+        .site-basic-field.image-field {
+          gap: 10px;
+          padding: 12px;
+          border: 1px solid var(--border);
+          border-radius: var(--r-sm);
+          background: #fff;
+          box-shadow: 0 4px 14px rgba(15, 23, 42, .04);
+        }
+        .site-basic-field span {
+          color: var(--t-secondary);
+          font-size: 12px;
+          font-weight: 700;
+        }
+        .site-basic-field em {
+          margin-top: -2px;
+          color: var(--t-tertiary);
+          font-size: 11px;
+          font-style: normal;
+          line-height: 1.35;
+        }
+        .site-basic-field .input,
+        .hero-carousel-table .input {
+          width: 100%;
+          min-width: 0;
+        }
+        .site-basic-image-control {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 10px;
+          align-items: start;
+          min-width: 0;
+        }
+        .site-basic-image-preview {
+          display: grid;
+          place-items: center;
+          height: 116px;
+          overflow: hidden;
+          border: 1px solid var(--border);
+          border-radius: var(--r-sm);
+          background: #fff;
+        }
+        .site-basic-field.wide .site-basic-image-preview {
+          height: 116px;
+        }
+        .site-basic-section-identity .site-basic-field.image-field:not(.wide) .site-basic-image-preview {
+          height: 116px;
+        }
+        .site-basic-image-preview.is-dark {
+          background: #111827;
+        }
+        .site-basic-image-preview img {
+          max-width: 100%;
+          max-height: 86px;
+          object-fit: contain;
+        }
+        .site-basic-field.wide .site-basic-image-preview img {
+          max-height: 86px;
+        }
+        .site-basic-section-identity .site-basic-field.image-field:not(.wide) .site-basic-image-preview img {
+          max-height: 86px;
+        }
+        .site-basic-image-preview span {
+          color: var(--t-tertiary);
+          padding: 8px;
+          font-weight: 600;
+          text-align: center;
+        }
+        .site-basic-image-stack {
+          display: grid;
+          gap: 8px;
+          min-width: 0;
+        }
+        .site-basic-image-preview.is-error {
+          border-color: rgba(228, 0, 43, .32);
+          background: #fff5f6;
+        }
+        .site-basic-image-purpose {
+          display: grid;
+          gap: 3px;
+          padding: 8px 10px;
+          border: 1px solid var(--border);
+          border-radius: var(--r-sm);
+          background: #fff;
+        }
+        .site-basic-image-purpose strong {
+          color: var(--t-primary);
+          font-size: 12px;
+        }
+        .site-basic-image-purpose p,
+        .site-basic-share-preview p {
+          margin: 0;
+          color: var(--t-secondary);
+          font-size: 11px;
+          line-height: 1.45;
+        }
+        .site-basic-image-purpose small,
+        .site-basic-share-preview small {
+          color: var(--t-tertiary);
+          font-size: 10.5px;
+        }
+        .site-basic-share-preview {
+          display: grid;
+          grid-template-columns: 92px minmax(0, 1fr);
+          gap: 10px;
+          align-items: center;
+          padding: 8px;
+          border: 1px solid var(--border);
+          border-radius: var(--r-sm);
+          background: #fff;
+          box-shadow: 0 8px 18px rgba(15, 23, 42, .05);
+        }
+        .site-basic-share-preview strong {
+          display: block;
+          margin-bottom: 2px;
+          overflow: hidden;
+          color: var(--t-primary);
+          font-size: 12px;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .site-basic-share-thumb {
+          display: grid;
+          place-items: center;
+          aspect-ratio: 1.91 / 1;
+          overflow: hidden;
+          border-radius: 6px;
+          background: var(--surface-2);
+        }
+        .site-basic-share-thumb img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+        .site-basic-share-thumb span {
+          color: var(--t-tertiary);
+          font-size: 11px;
+          font-weight: 700;
+        }
+        .site-basic-image-actions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+        .site-basic-image-meta {
+          display: flex;
+          min-width: 0;
+          flex-direction: row;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+        }
+        .site-basic-image-meta > div {
+          display: grid;
+          min-width: 0;
+          gap: 2px;
+        }
+        .site-basic-image-meta strong {
+          color: var(--t-primary);
+          font-size: 13px;
+        }
+        .site-basic-image-meta code {
+          width: 100%;
+          min-width: 0;
+          overflow: hidden;
+          color: var(--t-tertiary);
+          font-size: 11px;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .site-basic-contact-table {
+          min-width: 1480px;
+        }
+        .site-basic-panel .hero-carousel-table tbody tr {
+          cursor: default;
+        }
+        .hero-carousel-manager {
+          scroll-margin-top: 72px;
+          display: grid;
+          gap: 14px;
+          padding: 16px;
+          border: 1px solid rgba(228, 0, 43, 0.14);
+          border-radius: 10px;
+          background: #fff;
+          box-shadow: 0 10px 28px rgba(15, 23, 42, .06);
+        }
+        .hero-carousel-head {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 12px;
+        }
+        .hero-carousel-head h4 {
+          margin: 1px 0 2px;
+          color: var(--brand-600);
+          font-size: 15px;
+        }
+        .hero-carousel-head span {
+          color: var(--t-secondary);
+          font-size: 12px;
+        }
+        .hero-carousel-table-wrap {
+          overflow-x: auto;
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          background: #fff;
+        }
+        .hero-carousel-table {
+          width: 100%;
+          min-width: 1180px;
+          border-collapse: collapse;
+          font-size: 12px;
+        }
+        .hero-carousel-table th {
+          padding: 10px 12px;
+          border-bottom: 1px solid var(--border);
+          background: var(--surface-2);
+          color: var(--t-secondary);
+          font-size: 11px;
+          font-weight: 900;
+          letter-spacing: .04em;
+          text-align: left;
+          text-transform: uppercase;
+          white-space: nowrap;
+        }
+        .hero-carousel-table td {
+          padding: 10px 12px;
+          border-bottom: 1px solid var(--border);
+          color: var(--t-secondary);
+          vertical-align: middle;
+        }
+        .hero-carousel-table tbody tr {
+          background: #fff;
+          cursor: grab;
+          transition: background .15s, opacity .15s;
+        }
+        .hero-carousel-table tbody tr:hover {
+          background: rgba(228, 0, 43, .035);
+        }
+        .hero-carousel-table tbody tr.is-dragging {
+          opacity: .56;
+        }
+        .hero-carousel-table tbody tr:last-child td {
+          border-bottom: 0;
+        }
+        .hero-carousel-drag {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          color: var(--t-secondary);
+          font-weight: 800;
+          white-space: nowrap;
+        }
+        .hero-carousel-thumb {
+          display: block;
+          width: 126px;
+          height: 42px;
+          border: 1px solid var(--border);
+          border-radius: 6px;
+          background: var(--surface-3);
+          object-fit: cover;
+        }
+        .hero-carousel-thumb-button {
+          display: inline-flex;
+          padding: 0;
+          border: 0;
+          border-radius: 6px;
+          background: transparent;
+          cursor: zoom-in;
+        }
+        .hero-carousel-thumb-button:focus-visible {
+          outline: 3px solid rgba(228, 0, 43, .16);
+          outline-offset: 2px;
+        }
+        .hero-carousel-file {
+          display: grid;
+          gap: 2px;
+          min-width: 0;
+        }
+        .hero-carousel-file strong {
+          max-width: 220px;
+          overflow: hidden;
+          color: var(--t-strong);
+          font-size: 12px;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .hero-carousel-file span {
+          color: var(--t-tertiary);
+          font-size: 11px;
+        }
+        .hero-carousel-order {
+          width: 58px;
+          padding: 7px 8px;
+          border: 1px solid var(--border);
+          border-radius: 7px;
+          background: #fff;
+          color: var(--t-strong);
+          font-size: 12px;
+          text-align: center;
+        }
+        .hero-carousel-link-control {
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          min-width: 300px;
+          padding: 7px 9px;
+          border: 1px solid var(--border);
+          border-radius: 7px;
+          background: #fff;
+        }
+        .hero-carousel-link-control:focus-within,
+        .hero-carousel-order:focus,
+        .hero-carousel-remark:focus {
+          border-color: rgba(228, 0, 43, .42);
+          box-shadow: 0 0 0 3px rgba(228, 0, 43, .08);
+          outline: none;
+        }
+        .hero-carousel-link-control input {
+          min-width: 0;
+          flex: 1;
+          border: 0;
+          background: transparent;
+          color: var(--t-strong);
+          font-size: 12px;
+          outline: none;
+        }
+        .hero-carousel-link-actions {
+          display: flex;
+          gap: 6px;
+          white-space: nowrap;
+        }
+        .site-audience-table {
+          min-width: 0;
+          table-layout: fixed;
+        }
+        .site-audience-table-wrap {
+          overflow-x: hidden;
+        }
+        .site-audience-table th,
+        .site-audience-table td {
+          padding: 8px 9px;
+        }
+        .site-audience-table th:nth-child(1),
+        .site-audience-table td:nth-child(1) {
+          width: 5%;
+        }
+        .site-audience-table th:nth-child(2),
+        .site-audience-table td:nth-child(2) {
+          width: 17%;
+        }
+        .site-audience-table th:nth-child(3),
+        .site-audience-table td:nth-child(3) {
+          width: 16%;
+        }
+        .site-audience-table th:nth-child(4),
+        .site-audience-table td:nth-child(4) {
+          width: 18%;
+        }
+        .site-audience-table th:nth-child(5),
+        .site-audience-table td:nth-child(5),
+        .site-audience-table th:nth-child(6),
+        .site-audience-table td:nth-child(6) {
+          width: 19%;
+        }
+        .site-audience-table th:nth-child(7),
+        .site-audience-table td:nth-child(7) {
+          width: 6%;
+        }
+        .site-audience-table tbody tr {
+          cursor: default;
+        }
+        .site-audience-field-pair {
+          display: grid;
+          gap: 6px;
+          min-width: 0;
+        }
+        .site-audience-table .input {
+          width: 100%;
+          min-width: 0;
+          min-height: 34px;
+          padding: 7px 9px;
+          font-size: 12px;
+        }
+        .site-audience-textarea {
+          width: 100%;
+          min-width: 0;
+          min-height: 74px;
+          resize: vertical;
+        }
+        .hero-carousel-order-text {
+          color: var(--t-strong);
+          font-weight: 900;
+        }
+        .hero-carousel-remark {
+          width: 220px;
+          min-width: 0;
+          padding: 7px 9px;
+          border: 1px solid var(--border);
+          border-radius: 7px;
+          background: #fff;
+          color: var(--t-strong);
+          font-size: 12px;
+        }
+        .hero-carousel-visible-toggle {
+          border: 0;
+          cursor: pointer;
+        }
+        .hero-carousel-visible-toggle:disabled {
+          cursor: wait;
+          opacity: .7;
+        }
+        .hero-carousel-empty {
+          padding: 18px;
+          border: 1px dashed var(--border);
+          border-radius: var(--r-sm);
+          background: var(--surface-1);
+          color: var(--t-secondary);
+          font-size: 13px;
+          text-align: center;
+        }
+        .hero-carousel-strip {
+          overflow-x: auto;
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          background: #fff;
+        }
+        .hero-carousel-strip::before {
+          content: "拖拽  图片 / 文件 / 跳转链接 / 操作";
+          display: block;
+          padding: 10px 12px;
+          border-bottom: 1px solid var(--border);
+          background: var(--surface-2);
+          color: var(--t-secondary);
+          font-size: 11px;
+          font-weight: 900;
+          letter-spacing: .04em;
+        }
+        .hero-carousel-card {
+          display: grid;
+          grid-template-columns: 168px minmax(520px, 1fr);
+          gap: 12px;
+          align-items: center;
+          min-width: 860px;
+          padding: 10px 12px;
+          border-bottom: 1px solid var(--border);
+          background: #fff;
+          cursor: grab;
+          transition: background .15s, opacity .15s;
+        }
+        .hero-carousel-card:hover {
+          background: rgba(228, 0, 43, .035);
+        }
+        .hero-carousel-card.is-dragging {
+          opacity: .56;
+        }
+        .hero-carousel-card:last-child {
+          border-bottom: 0;
+        }
+        .hero-carousel-preview {
+          display: grid;
+          grid-template-columns: 40px 118px;
+          gap: 8px;
+          align-items: center;
+        }
+        .hero-carousel-preview img {
+          order: 2;
+          display: block;
+          width: 118px;
+          height: 40px;
+          border: 1px solid var(--border);
+          border-radius: 6px;
+          background: var(--surface-3);
+          object-fit: cover;
+        }
+        .hero-carousel-cardbar {
+          display: contents;
+        }
+        .hero-carousel-cardbar span:first-child {
+          order: 1;
+          color: var(--t-secondary);
+          font-size: 12px;
+          font-weight: 900;
+        }
+        .hero-carousel-cardbar span:nth-child(2) {
+          display: none;
+        }
+        .hero-carousel-cardbar button {
+          display: none;
+        }
+        .hero-carousel-cardbody {
+          display: grid;
+          grid-template-columns: minmax(160px, 220px) minmax(320px, 1fr) auto;
+          gap: 12px;
+          align-items: center;
+        }
+        .hero-carousel-link-row {
+          display: block;
+        }
+        .hero-carousel-link-row label {
+          display: none;
+        }
+        .hero-carousel-preview-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 80;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 24px;
+          background: rgba(15, 23, 42, .68);
+        }
+        .hero-carousel-preview-modal {
+          position: relative;
+          display: grid;
+          gap: 10px;
+          width: min(1040px, 92vw);
+          max-height: 88vh;
+          padding: 12px;
+          border: 1px solid rgba(255, 255, 255, .22);
+          border-radius: 10px;
+          background: #fff;
+          box-shadow: 0 24px 80px rgba(15, 23, 42, .28);
+        }
+        .hero-carousel-preview-modal img {
+          display: block;
+          width: 100%;
+          max-height: calc(88vh - 72px);
+          border-radius: 7px;
+          object-fit: contain;
+          background: var(--surface-2);
+        }
+        .hero-carousel-preview-modal span {
+          overflow: hidden;
+          color: var(--t-secondary);
+          font-size: 12px;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .hero-carousel-preview-close {
+          position: absolute;
+          top: 10px;
+          right: 10px;
+          z-index: 1;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 30px;
+          height: 30px;
+          border: 1px solid var(--border);
+          border-radius: 50%;
+          background: rgba(255, 255, 255, .92);
+          color: var(--t-strong);
+          cursor: pointer;
+          box-shadow: var(--sh-xs);
         }
         .site-news-panel {
           display: grid;
@@ -3210,8 +4109,8 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           box-shadow: var(--sh-xs);
         }
         .site-news-preview-card {
-          display: grid;
-          grid-template-columns: 240px minmax(0, 1fr);
+          display: flex;
+          flex-direction: column;
           overflow: hidden;
           border: 1px solid var(--border);
           border-radius: var(--r-md);
@@ -3219,8 +4118,13 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           box-shadow: var(--sh-xs);
         }
         .site-news-preview-img {
-          min-height: 150px;
-          background: var(--surface-2) center/cover no-repeat;
+          display: block;
+          width: 100%;
+          aspect-ratio: 1280 / 600;
+          border-bottom: 1px solid var(--border);
+          background: var(--surface-2);
+          object-fit: contain;
+          object-position: center;
         }
         .site-news-preview-grid {
           display: grid;
@@ -3234,8 +4138,9 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           gap: 8px;
         }
         .news-preview-body {
-          display: grid;
-          align-content: center;
+          display: flex;
+          flex: 1;
+          flex-direction: column;
           gap: 8px;
           padding: 18px;
         }
@@ -3249,10 +4154,28 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           font-size: 15px;
         }
         .news-preview-body p {
+          display: -webkit-box;
+          overflow: hidden;
           margin: 0;
           color: var(--t-secondary);
           font-size: 12px;
           line-height: 1.65;
+          -webkit-box-orient: vertical;
+          -webkit-line-clamp: 3;
+        }
+        .news-preview-meta {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          margin-top: auto;
+          padding-top: 12px;
+        }
+        .news-preview-link {
+          flex-shrink: 0;
+          color: var(--brand);
+          font-size: 12px;
+          font-weight: 800;
         }
         .site-news-detail-preview {
           overflow: hidden;
@@ -3262,8 +4185,13 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           box-shadow: var(--sh-xs);
         }
         .site-news-detail-preview-img {
-          height: 180px;
-          background: var(--surface-2) center/cover no-repeat;
+          display: block;
+          width: 100%;
+          aspect-ratio: 1280 / 600;
+          border-bottom: 1px solid var(--border);
+          background: var(--surface-2);
+          object-fit: contain;
+          object-position: center;
         }
         .site-news-detail-preview-body {
           display: grid;
@@ -3678,6 +4606,14 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
         .product-edit-section-wide {
           grid-column: 1 / -1;
         }
+        .product-edit-section-basic {
+          grid-column: 1;
+          grid-row: span 2;
+        }
+        .product-edit-section-website,
+        .product-edit-section-assets {
+          grid-column: 2;
+        }
         .product-edit-section-head {
           justify-content: space-between;
           flex-wrap: wrap;
@@ -3687,6 +4623,69 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           color: var(--t-strong);
           font-size: 14px;
           line-height: 1.25;
+        }
+        .product-manual-pdf-upload-row {
+          min-height: 42px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 6px 8px;
+          border: 1px solid var(--border);
+          border-radius: var(--r-sm);
+          background: var(--surface-1);
+        }
+        .product-manual-pdf-inline-list {
+          min-width: 0;
+          flex: 1 1 auto;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        .product-manual-pdf-chip {
+          position: relative;
+          min-width: 0;
+          max-width: 100%;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 6px 26px 6px 10px;
+          border: 1px solid var(--border);
+          border-radius: var(--r-sm);
+          background: var(--surface-2);
+        }
+        .product-manual-pdf-chip strong {
+          min-width: 0;
+          max-width: min(420px, 50vw);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          color: var(--t-strong);
+          font-size: 13px;
+          line-height: 1.35;
+        }
+        .product-manual-pdf-remove {
+          position: absolute;
+          top: 3px;
+          right: 3px;
+          width: 18px;
+          height: 18px;
+          display: inline-grid;
+          place-items: center;
+          padding: 0;
+          border: 0;
+          border-radius: 999px;
+          background: transparent;
+          color: var(--t-tertiary);
+          cursor: pointer;
+        }
+        .product-manual-pdf-remove:hover:not(:disabled) {
+          background: rgba(228, 0, 43, 0.1);
+          color: var(--brand);
+        }
+        .product-manual-pdf-remove:disabled {
+          cursor: not-allowed;
+          opacity: 0.45;
         }
         .product-edit-field-grid {
           display: grid;
@@ -3748,6 +4747,48 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
         }
         .site-news-edit-section .product-create-field {
           min-width: 0;
+        }
+        .site-news-cover-asset {
+          display: grid;
+          gap: 10px;
+          align-content: start;
+        }
+        .site-news-cover-preview {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 96px;
+          aspect-ratio: 1280 / 600;
+          overflow: hidden;
+          border: 1px solid var(--border);
+          border-radius: var(--r-sm);
+          background: var(--surface-2);
+          box-shadow: var(--sh-xs);
+        }
+        .site-news-cover-preview img {
+          display: block;
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          object-position: center;
+        }
+        .site-news-cover-preview.is-empty {
+          color: var(--t-tertiary);
+          border-style: dashed;
+        }
+        .site-news-cover-status {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+          color: var(--t-secondary);
+          font-size: 12px;
+        }
+        .site-news-cover-actions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
         }
         .brand-product-main-cell,
         .brand-product-identity-cell,
@@ -4450,7 +5491,20 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           .structured-grid,
           .structured-field-grid,
           .taxonomy-grid,
+          .hero-carousel-strip,
+          .site-basic-grid,
           .site-material-grid {
+            grid-template-columns: 1fr;
+          }
+          .site-basic-section-identity .site-basic-grid {
+            grid-template-columns: 1fr;
+          }
+          .site-basic-section-identity .site-basic-field,
+          .site-basic-section-identity .site-basic-field.image-field.wide,
+          .site-basic-section-identity .site-basic-field.image-field:not(.wide) {
+            grid-column: 1 / -1;
+          }
+          .site-basic-image-control {
             grid-template-columns: 1fr;
           }
           .summary-item,
@@ -4492,6 +5546,14 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
             margin-left: 0;
             align-self: flex-start;
           }
+          .brand-product-toolbar-actions {
+            width: 100%;
+            margin-left: 0;
+          }
+          .brand-product-toolbar-actions .btn {
+            width: 100%;
+            justify-content: center;
+          }
           .brand-product-pagination,
           .brand-product-page-actions {
             align-items: stretch;
@@ -4506,6 +5568,12 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           .product-edit-modal-body,
           .product-edit-field-grid {
             grid-template-columns: 1fr;
+          }
+          .product-edit-section-basic,
+          .product-edit-section-website,
+          .product-edit-section-assets {
+            grid-column: 1;
+            grid-row: auto;
           }
           .site-news-preview-grid,
           .site-news-preview-card {
@@ -4530,11 +5598,998 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
   );
 }
 
+type SiteMaterialUpload = { name: string; size: number; url?: string; homepageSrc?: string; synced?: boolean };
+type HeroCarouselItem = {
+  id: string;
+  src: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  updatedAt: string;
+  linkUrl?: string;
+  remark?: string;
+  visible?: boolean;
+  sortOrder: number;
+};
+type AudienceCardItem = {
+  id: 'residential' | 'commercial' | 'professionals';
+  tagZh: string;
+  tagEn: string;
+  title: string;
+  description: string;
+  primaryLabel: string;
+  primaryHref: string;
+  secondaryLabel: string;
+  secondaryHref: string;
+  visible: boolean;
+  sortOrder: number;
+};
+
+const DEFAULT_AUDIENCE_CARDS: AudienceCardItem[] = [
+  {
+    id: 'residential',
+    tagZh: '家用',
+    tagEn: 'RESIDENTIAL',
+    title: '为家庭打造的舒适系统',
+    description: '热水 · 采暖为核心，兼顾制冷，全屋舒适一站解决',
+    primaryLabel: '热水 Water →',
+    primaryHref: '/products/residential/water-heating/',
+    secondaryLabel: '采暖制冷 Air →',
+    secondaryHref: '/products/residential/heating-cooling/',
+    visible: true,
+    sortOrder: 0,
+  },
+  {
+    id: 'commercial',
+    tagZh: '商用',
+    tagEn: 'COMMERCIAL',
+    title: '为建筑而生的工程系统',
+    description: '酒店 · 公寓 · 综合体，高并发连续供热水、稳定供暖，兼顾供冷',
+    primaryLabel: '热水 Water →',
+    primaryHref: '/products/commercial/water-heating/',
+    secondaryLabel: '采暖制冷 Air →',
+    secondaryHref: '/products/commercial/heating-cooling/',
+    visible: true,
+    sortOrder: 1,
+  },
+  {
+    id: 'professionals',
+    tagZh: '专业人士',
+    tagEn: 'PROFESSIONALS',
+    title: '为经销商与工程师赋能',
+    description: '培训 · 技术资料 · BIM/CAD · 合作计划',
+    primaryLabel: '专业人士中心 →',
+    primaryHref: '/professionals/',
+    secondaryLabel: '查找经销商 →',
+    secondaryHref: '/find-a-pro/',
+    visible: true,
+    sortOrder: 2,
+  },
+];
+
+function normalizeAudienceCards(value: unknown): AudienceCardItem[] {
+  const rows = Array.isArray(value) ? value : [];
+  return DEFAULT_AUDIENCE_CARDS.map((fallback, index) => {
+    const found = rows.find((row) => row && (row as any).id === fallback.id) as Partial<AudienceCardItem> | undefined;
+    return {
+      ...fallback,
+      ...found,
+      id: fallback.id,
+      visible: found?.visible !== false,
+      sortOrder: Number(found?.sortOrder ?? index),
+    };
+  }).sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+function siteMaterialPreviewSrc(brandCode: string, src: string) {
+  if (/^https?:\/\//i.test(src) || src.startsWith('blob:')) return src;
+  return `/local-site-materials/${encodeURIComponent(brandCode)}?asset=${encodeURIComponent(src)}`;
+}
+
+type BasicSettings = Record<string, Record<string, any>>;
+
+const BASIC_INFO_FIELD_GROUPS: Array<{
+  section: string;
+  title: string;
+  eyebrow: string;
+  fields: Array<{ key: string; label: string; span?: boolean }>;
+}> = [
+  { section: 'identity', title: '站点身份', eyebrow: 'Identity', fields: [
+    { key: 'siteTitle', label: '网站标题', span: true }, { key: 'siteName', label: '站点名称' },
+    { key: 'brandNameCn', label: '品牌中文名' }, { key: 'brandNameEn', label: '品牌英文名' },
+    { key: 'logoUrl', label: '品牌 Logo', span: true }, { key: 'whiteLogoUrl', label: '白色 Logo', span: true },
+    { key: 'favicon16Url', label: 'Favicon 16' }, { key: 'favicon32Url', label: 'Favicon 32' },
+    { key: 'faviconIcoUrl', label: 'Favicon ICO' }, { key: 'appleTouchIconUrl', label: 'Apple Touch Icon' },
+    { key: 'siteUrl', label: '官网域名' }, { key: 'localeLabel', label: '地区/语言' },
+  ] },
+  { section: 'brandClaims', title: '品牌主张', eyebrow: 'Brand Claims', fields: [
+    { key: 'heroEyebrow', label: 'Hero 顶部说明', span: true }, { key: 'heroTitleLine1', label: 'Hero 主标题第一行' },
+    { key: 'heroTitleLine2', label: 'Hero 主标题第二行' }, { key: 'heroSloganEn', label: '英文口号' },
+    { key: 'heroClaim', label: '中文广告语', span: true }, { key: 'ctaSlogan', label: 'CTA 口号', span: true },
+  ] },
+  { section: 'stats', title: '服务网络数字', eyebrow: 'Stats', fields: [
+    { key: 'serviceProvinceCount', label: '服务覆盖省市' }, { key: 'serviceOutletCount', label: '授权服务网点' },
+    { key: 'serviceNetworkText', label: '服务网络文案' },
+  ] },
+  { section: 'organization', title: '企业与集团关系', eyebrow: 'Organization', fields: [
+    { key: 'operatorGroupName', label: '运营集团名称' }, { key: 'operatorGroupNameEn', label: '运营集团英文/系统名' },
+    { key: 'operatorGroupUrl', label: '集团官网链接', span: true }, { key: 'parentBrandRelationText', label: '母品牌关系文案', span: true },
+    { key: 'rheemUrl', label: 'Rheem 链接' }, { key: 'ruudUrl', label: 'Ruud 链接' }, { key: 'groupSiteUrl', label: '集团官网链接' },
+  ] },
+  { section: 'contact', title: '联系信息', eyebrow: 'Contact', fields: [
+    { key: 'customerServiceHotline', label: '全国客服热线' }, { key: 'customerServiceTelHref', label: '电话链接' },
+    { key: 'serviceHours', label: '服务时间' }, { key: 'businessEmail', label: '商务合作邮箱' },
+    { key: 'mediaEmail', label: '媒体/品牌邮箱' }, { key: 'privacyEmail', label: '隐私负责人邮箱' },
+    { key: 'dealerJoinEmail', label: '经销商加盟邮箱' }, { key: 'contactFormSuccessText', label: '联系表单成功文案', span: true },
+    { key: 'urgentRepairNote', label: '紧急报修提示', span: true },
+  ] },
+  { section: 'dealerService', title: '经销商服务入口', eyebrow: 'Dealer Service', fields: [
+    { key: 'dealerLocatorButtonText', label: '查找经销商按钮' }, { key: 'dealerLocatorPageTitle', label: '查找经销商页标题', span: true },
+    { key: 'dealerLocatorDescription', label: '查找经销商页描述', span: true }, { key: 'dealerSearchPlaceholder', label: '搜索占位文案', span: true },
+    { key: 'nearestDealerButtonText', label: '定位按钮文案' }, { key: 'dealerJoinTitle', label: '加盟标题' },
+    { key: 'dealerJoinDescription', label: '加盟说明', span: true }, { key: 'dealerJoinButtonText', label: '加盟按钮文案' },
+    { key: 'dealerJoinHref', label: '加盟按钮链接' },
+  ] },
+  { section: 'legal', title: '备案版权', eyebrow: 'Legal', fields: [
+    { key: 'icpNumber', label: 'ICP备案号' }, { key: 'icpUrl', label: '备案链接' },
+    { key: 'copyrightText', label: '版权所有文案', span: true }, { key: 'copyrightYear', label: '版权年份' },
+    { key: 'copyrightOwner', label: '版权主体' }, { key: 'trademarkText', label: '商标声明', span: true },
+  ] },
+  { section: 'privacy', title: '隐私法务', eyebrow: 'Privacy', fields: [
+    { key: 'privacyEffectiveDate', label: '隐私政策生效日期' }, { key: 'privacyLastUpdatedDate', label: '隐私政策最近更新' },
+    { key: 'privacyVersion', label: '隐私政策版本' }, { key: 'legalOperatorName', label: '运营主体全称', span: true },
+    { key: 'registeredAddress', label: '注册地址', span: true }, { key: 'privacyContactEmail', label: '隐私负责人邮箱' },
+    { key: 'privacyContactHotline', label: '隐私联系热线' },
+  ] },
+  { section: 'seo', title: 'SEO / 分享', eyebrow: 'SEO', fields: [
+    { key: 'homeMetaTitle', label: '首页 SEO 标题', span: true }, { key: 'homeMetaDescription', label: '首页 SEO 描述', span: true },
+    { key: 'homeMetaKeywords', label: '首页关键词', span: true }, { key: 'ogSiteName', label: 'OG 站点名' },
+    { key: 'defaultOgImage', label: '默认分享图', span: true }, { key: 'defaultTwitterImage', label: 'Twitter 默认图', span: true },
+    { key: 'canonicalBaseUrl', label: 'Canonical 基础地址' }, { key: 'organizationName', label: '组织名称' },
+    { key: 'organizationLogo', label: '组织 Logo', span: true }, { key: 'parentOrganizationName', label: '上级组织名称' },
+    { key: 'parentOrganizationUrl', label: '上级组织链接' }, { key: 'sameAs', label: 'sameAs' }, { key: 'sitemapUrl', label: 'Sitemap 地址' },
+  ] },
+  { section: 'analytics', title: 'Cookie / 统计', eyebrow: 'Analytics', fields: [
+    { key: 'analyticsEndpoint', label: '统计上报端点', span: true }, { key: 'cookieConsentText', label: 'Cookie 告知文案', span: true },
+    { key: 'cookieDenyText', label: '拒绝按钮文案' }, { key: 'cookieAcceptText', label: '同意按钮文案' },
+  ] },
+];
+
+const BASIC_INFO_TABLES = [
+  { section: 'stats', key: 'technicalStats', title: '技术卖点数字', source: '首页产品能力/系统亮点数字' },
+  { section: 'stats', key: 'sustainabilityStats', title: '可持续发展数字', source: '首页可持续发展/节能减排数字' },
+  { section: 'dealerService', key: 'authorizedServiceStandards', title: '授权服务标准', source: '查找经销商页服务标准' },
+] as const;
+
+function cloneBasicSettings(value: unknown): BasicSettings {
+  return JSON.parse(JSON.stringify(value || {}));
+}
+
+const EVERHOT_BASIC_INFO_CURRENT: BasicSettings = {
+  identity: {
+    siteTitle: '恒热 Everhot | 中央采暖·热水·制冷整体解决方案',
+    siteName: 'Everhot 中国 Everhot China',
+    brandNameCn: '恒热',
+    brandNameEn: 'Everhot',
+    logoUrl: '/assets/img/brand/everhot-logo.png',
+    whiteLogoUrl: '/assets/img/brand/everhot-logo-white.png',
+    favicon16Url: '/favicon-16x16.png',
+    favicon32Url: '/favicon-32x32.png',
+    faviconIcoUrl: '/favicon.ico',
+    appleTouchIconUrl: '/apple-touch-icon.png',
+    siteUrl: 'https://www.everhot.com.cn',
+    localeLabel: '中国 · 简体中文',
+  },
+  brandClaims: {
+    heroEyebrow: '瑞美（Rheem）集团旗下 · 瑞合瑞德集团中国运营',
+    heroTitleLine1: '百年恒续',
+    heroTitleLine2: '为爱恒热',
+    heroSloganEn: 'EVERHOT FOR EVERLOVE',
+    heroClaim: '大户型选恒热，多点用水没烦恼',
+    ctaSlogan: '大户型选恒热 · 多点用水没烦恼',
+  },
+  stats: {
+    technicalStats: [
+      { value: '≥105%', label: '冷凝热效率', sortOrder: 0, visible: true },
+      { value: '≤5s', label: '出热水时间', sortOrder: 1, visible: true },
+      { value: 'COP 4.2+', label: '系统能效比', sortOrder: 2, visible: true },
+      { value: '24h', label: '商用连续供热', sortOrder: 3, visible: true },
+    ],
+    sustainabilityStats: [
+      { value: '38%', label: '平均能耗降低', sortOrder: 0, visible: true },
+      { value: '1,200+', label: '节能改造项目', sortOrder: 1, visible: true },
+      { value: '6,800t', label: '年减少碳排放', sortOrder: 2, visible: true },
+    ],
+    serviceProvinceCount: '30',
+    serviceOutletCount: '200+',
+    serviceNetworkText: '覆盖全国 30 省市，200+ 授权服务网点',
+  },
+  organization: {
+    operatorGroupName: '瑞合瑞德暖通科技集团',
+    operatorGroupNameEn: 'Rhautt Comfort',
+    operatorGroupUrl: 'https://rhautt.com',
+    parentBrandRelationText: '瑞美（Rheem）集团旗下 · 瑞合瑞德集团中国运营',
+    rheemUrl: 'https://www.rheem.com.cn',
+    ruudUrl: 'https://www.ruud.com.cn',
+    groupSiteUrl: 'https://rhautt.com',
+  },
+  contact: {
+    customerServiceHotline: '400-888-8888',
+    customerServiceTelHref: 'tel:4008888888',
+    serviceHours: '周一至周六 9:00—18:00',
+    businessEmail: 'business@everhot.com.cn',
+    mediaEmail: 'pr@everhot.com.cn',
+    privacyEmail: 'privacy@everhot.com.cn',
+    dealerJoinEmail: 'dealer@rhautt.com',
+    contactFormSuccessText: '留言已提交，恒热客服将尽快与您联系。',
+    urgentRepairNote: '提交后将由客服回拨。紧急报修请直接致电 400-888-8888。',
+    contactCards: [
+      { tag: '客服', title: '全国客服热线', body: '产品咨询、使用指导、售后报修', linkText: '400-888-8888', href: 'tel:4008888888', sortOrder: 0, visible: true },
+      { tag: '售后', title: '预约上门维修', body: '在线预约授权服务工程师上门检测维修。', linkText: '立即预约', href: '/find-a-pro/', sortOrder: 1, visible: true },
+      { tag: '商务', title: '工程与商务合作', body: '酒店、公寓、综合体项目与集采合作。', linkText: 'business@everhot.com.cn', href: 'mailto:business@everhot.com.cn', sortOrder: 2, visible: true },
+      { tag: '加盟', title: '经销商加盟', body: '申请成为恒热授权经销商。', linkText: '加盟申请', href: '/professionals/residential/partner-programs/', sortOrder: 3, visible: true },
+      { tag: '媒体', title: '媒体与品牌', body: '媒体采访与品牌合作。', linkText: 'pr@everhot.com.cn', href: 'mailto:pr@everhot.com.cn', sortOrder: 4, visible: true },
+      { tag: '集团', title: '集团与其他品牌', body: '瑞美（Rheem）集团品牌矩阵，瑞合瑞德集团中国运营。', linkText: '访问集团官网', href: 'https://rhautt.com', sortOrder: 5, visible: true },
+    ],
+  },
+  dealerService: {
+    dealerLocatorButtonText: '查找经销商',
+    dealerLocatorPageTitle: '查找授权经销商 | 恒热 Everhot',
+    dealerLocatorDescription: '覆盖全国 30 省市，200+ 授权服务网点，专业安装工程师，完善售后保障。',
+    dealerSearchPlaceholder: '输入城市 / 区域 / 地址，如：上海 浦东',
+    nearestDealerButtonText: '离我最近',
+    dealerJoinTitle: '成为恒热授权经销商',
+    dealerJoinDescription: '加入恒热经销商网络，获取独家授权、培训支持与市场资源',
+    dealerJoinButtonText: '申请加盟',
+    dealerJoinHref: 'mailto:dealer@rhautt.com',
+    authorizedServiceStandards: [
+      { value: 'Rheem认证', label: '官方认证安装工程师', sortOrder: 0, visible: true },
+      { value: '5年质保', label: '整机售后保障', sortOrder: 1, visible: true },
+      { value: '48h响应', label: '售后上门时效', sortOrder: 2, visible: true },
+      { value: '正品承诺', label: '官方渠道授权货源', sortOrder: 3, visible: true },
+    ],
+  },
+  legal: {
+    icpNumber: '沪ICP备XXXXXXXX号',
+    icpUrl: 'https://beian.miit.gov.cn/',
+    copyrightText: '© 2026 Everhot 恒热 · 瑞合瑞德暖通科技集团 · Everhot 为注册商标',
+    copyrightYear: '2026',
+    copyrightOwner: '瑞合瑞德暖通科技集团',
+    trademarkText: 'Everhot / 恒热 为注册商标',
+  },
+  privacy: {
+    privacyEffectiveDate: '2026-XX-XX',
+    privacyLastUpdatedDate: '2026-XX-XX',
+    privacyVersion: 'v1.0',
+    legalOperatorName: '【运营主体全称】',
+    registeredAddress: '【注册地址】',
+    privacyContactEmail: 'privacy@everhot.com.cn',
+    privacyContactHotline: '400-888-8888',
+  },
+  seo: {
+    homeMetaTitle: '恒热 Everhot | 中央采暖·热水·制冷整体解决方案',
+    homeMetaDescription: '恒热 Everhot —— 百年恒续，为爱恒热。专注家用与商用中央采暖、热水、制冷整体解决方案，瑞美集团旗下品牌。',
+    homeMetaKeywords: '恒热,Everhot,壁挂炉,热水器,中央热水,中央采暖,空气能,商用热水,家用采暖',
+    ogSiteName: 'Everhot 中国 Everhot China',
+    defaultOgImage: 'https://www.everhot.com.cn/assets/img/hero-poster-desktop.webp',
+    defaultTwitterImage: 'https://www.everhot.com.cn/assets/img/hero-poster-desktop.webp',
+    canonicalBaseUrl: 'https://www.everhot.com.cn/',
+    organizationName: 'Everhot 中国 Everhot China',
+    organizationLogo: 'https://www.everhot.com.cn/assets/img/brand/everhot-logo.png',
+    parentOrganizationName: 'Rhautt Comfort 瑞合瑞德暖通科技集团',
+    parentOrganizationUrl: 'https://rhautt.com',
+    sameAs: 'https://rhautt.com',
+    sitemapUrl: 'https://www.everhot.com.cn/sitemap.xml',
+  },
+  analytics: {
+    analyticsEndpoint: '',
+    analyticsConsentEnabled: true,
+    cookieConsentText: '本站使用 Cookie 与匿名统计以保障基本功能并改善体验。继续浏览即表示同意，您也可拒绝非必要统计。详见隐私政策。',
+    cookieDenyText: '拒绝非必要',
+    cookieAcceptText: '同意',
+  },
+};
+
+function normalizeBasicSettingsPayload(value: unknown): BasicSettings {
+  const payload = (value as any)?.data ?? value;
+  return cloneBasicSettings(payload);
+}
+
+function sectionLabel(section: string) {
+  return BASIC_INFO_FIELD_GROUPS.find((group) => group.section === section)?.title || section;
+}
+
+const BASIC_INFO_IMAGE_FIELDS = new Set([
+  'identity.logoUrl',
+  'identity.whiteLogoUrl',
+  'identity.favicon16Url',
+  'identity.favicon32Url',
+  'identity.faviconIcoUrl',
+  'identity.appleTouchIconUrl',
+  'seo.defaultOgImage',
+  'seo.defaultTwitterImage',
+  'seo.organizationLogo',
+]);
+
+function isBasicInfoImageField(section: string, key: string) {
+  return BASIC_INFO_IMAGE_FIELDS.has(`${section}.${key}`);
+}
+
+function basicInfoImagePreviewSrc(siteCode: string, value: unknown) {
+  const src = String(value || '').trim();
+  if (!src) return '';
+  if (/^(https?:|data:|blob:)/i.test(src)) return src;
+  if (src.startsWith('/api/')) return src;
+  return `/local-site-materials/${encodeURIComponent(siteCode || 'everhot')}?asset=${encodeURIComponent(src)}`;
+}
+
+function basicInfoImagePurpose(fieldKey: string) {
+  if (fieldKey === 'seo.defaultOgImage') {
+    return {
+      title: '分享卡片封面',
+      detail: '用于微信、企业微信、飞书、浏览器收藏和搜索引擎抓取官网链接时的 og:image 预览图。',
+      recommended: '建议 1200 x 630 px 或同等 1.91:1 横图。',
+    };
+  }
+  if (fieldKey === 'seo.defaultTwitterImage') {
+    return {
+      title: 'Twitter/X 分享封面',
+      detail: '用于 Twitter/X 等平台分享官网链接时的 twitter:image 卡片图；国内低频，但国际传播需要保留。',
+      recommended: '建议 1200 x 630 px。',
+    };
+  }
+  if (fieldKey === 'seo.organizationLogo') {
+    return {
+      title: '搜索引擎品牌 Logo',
+      detail: '用于 Organization 结构化数据，帮助搜索引擎识别官网主体和品牌标识，不一定直接显示在页面正文。',
+      recommended: '建议透明背景 PNG，方形或横版均可，但要清晰可读。',
+    };
+  }
+  return null;
+}
+
+function BasicInfoImagePreview({
+  fieldKey,
+  label,
+  siteName,
+  src,
+  value,
+  dark,
+}: {
+  fieldKey: string;
+  label: string;
+  siteName: string;
+  src: string;
+  value: string;
+  dark?: boolean;
+}) {
+  const [failed, setFailed] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const purpose = basicInfoImagePurpose(fieldKey);
+  const showShareCard = fieldKey === 'seo.defaultOgImage' || fieldKey === 'seo.defaultTwitterImage';
+
+  useEffect(() => {
+    setFailed(false);
+    setCopied(false);
+  }, [src]);
+
+  async function copyUrl() {
+    if (!value || typeof navigator === 'undefined' || !navigator.clipboard) return;
+    await navigator.clipboard.writeText(value).catch(() => {});
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1200);
+  }
+
+  return (
+    <>
+      <div className={`site-basic-image-preview ${dark ? 'is-dark' : ''}${failed ? ' is-error' : ''}`}>
+        {src && !failed ? (
+          <img src={src} alt={`${label}预览`} onError={() => setFailed(true)} />
+        ) : (
+          <span>{src ? '图片无法访问' : '暂无图片'}</span>
+        )}
+      </div>
+      {purpose ? (
+        <div className="site-basic-image-purpose">
+          <strong>{purpose.title}</strong>
+          <p>{purpose.detail}</p>
+          <small>{purpose.recommended}</small>
+        </div>
+      ) : null}
+      {showShareCard ? (
+        <div className="site-basic-share-preview" aria-label={`${label}分享卡片效果预览`}>
+          <div className={`site-basic-share-thumb${failed || !src ? ' is-empty' : ''}`}>
+            {src && !failed ? <img src={src} alt="" onError={() => setFailed(true)} /> : <span>分享图预览</span>}
+          </div>
+          <div>
+            <strong>{siteName || 'Everhot 中国 Everhot China'}</strong>
+            <p>官网链接被分享时，外部平台通常会用这张图作为卡片封面。</p>
+            <small>www.everhot.com.cn</small>
+          </div>
+        </div>
+      ) : null}
+      {value ? (
+        <div className="site-basic-image-actions">
+          <a className="btn btn-outline btn-sm" href={src || value} target="_blank" rel="noreferrer">
+            <ExternalLink size={13} />
+            打开原图
+          </a>
+          <button type="button" className="btn btn-outline btn-sm" onClick={copyUrl}>
+            {copied ? '已复制' : '复制链接'}
+          </button>
+        </div>
+      ) : null}
+    </>
+  );
+}
+function uploadedArtifactContentUrl(artifact: any) {
+  const id = String(artifact?.id || artifact?.artifactId || '').trim();
+  return (
+    String(artifact?.contentUrl || artifact?.url || '').trim() ||
+    (id ? `/api/v2/file-artifact/${encodeURIComponent(id)}/content` : '')
+  );
+}
+
+const BASIC_INFO_USAGE: Record<string, string> = {
+  'identity.siteTitle': '首页 title / 浏览器标题',
+  'identity.siteName': '页头品牌识别、结构化数据站点名',
+  'identity.brandNameCn': '页头、页脚、品牌文案中文名',
+  'identity.brandNameEn': '页头、页脚、品牌文案英文名',
+  'identity.logoUrl': '页头导航 Logo',
+  'identity.whiteLogoUrl': '页脚/深色区域 Logo',
+  'identity.favicon16Url': 'favicon 16x16',
+  'identity.favicon32Url': 'favicon 32x32',
+  'identity.faviconIcoUrl': 'favicon.ico',
+  'identity.appleTouchIconUrl': 'Apple touch icon',
+  'identity.siteUrl': '官网 canonical/结构化数据域名',
+  'identity.localeLabel': '页头地区/语言显示',
+  'brandClaims.heroEyebrow': '首页首屏顶部说明',
+  'brandClaims.heroTitleLine1': '首页首屏主标题第一行',
+  'brandClaims.heroTitleLine2': '首页首屏主标题第二行',
+  'brandClaims.heroSloganEn': '首页首屏英文口号',
+  'brandClaims.heroClaim': '首页首屏中文广告语',
+  'brandClaims.ctaSlogan': '首页 CTA 区域口号',
+  'stats.serviceProvinceCount': '查找经销商页/服务网络省市数量',
+  'stats.serviceOutletCount': '查找经销商页/服务网络网点数量',
+  'stats.serviceNetworkText': '查找经销商页服务网络说明',
+  'organization.operatorGroupName': '页脚版权、隐私政策运营主体',
+  'organization.operatorGroupNameEn': '结构化数据上级组织英文名',
+  'organization.operatorGroupUrl': '页脚集团官网链接',
+  'organization.parentBrandRelationText': '首页首屏/品牌关系说明',
+  'organization.rheemUrl': '页脚 Rheem 品牌链接',
+  'organization.ruudUrl': '页脚 Ruud 品牌链接',
+  'organization.groupSiteUrl': '页脚集团链接',
+  'contact.customerServiceHotline': '页头/页脚/联系页客服热线',
+  'contact.customerServiceTelHref': '电话按钮 tel 链接',
+  'contact.serviceHours': '联系页服务时间',
+  'contact.businessEmail': '联系页商务合作邮箱',
+  'contact.mediaEmail': '联系页媒体品牌邮箱',
+  'contact.privacyEmail': '隐私政策联系邮箱',
+  'contact.dealerJoinEmail': '经销商加盟邮箱',
+  'contact.contactFormSuccessText': '联系表单提交成功提示',
+  'contact.urgentRepairNote': '报修表单紧急提示',
+  'dealerService.dealerLocatorButtonText': '导航/首页查找经销商入口按钮',
+  'dealerService.dealerLocatorPageTitle': '查找经销商页 title',
+  'dealerService.dealerLocatorDescription': '查找经销商页说明',
+  'dealerService.dealerSearchPlaceholder': '查找经销商页搜索框占位',
+  'dealerService.nearestDealerButtonText': '查找经销商页定位按钮',
+  'dealerService.dealerJoinTitle': '经销商加盟入口标题',
+  'dealerService.dealerJoinDescription': '经销商加盟入口说明',
+  'dealerService.dealerJoinButtonText': '经销商加盟按钮文案',
+  'dealerService.dealerJoinHref': '经销商加盟按钮链接',
+  'legal.icpNumber': '页脚 ICP 备案号',
+  'legal.icpUrl': '页脚 ICP 备案链接',
+  'legal.copyrightText': '页脚版权完整文案',
+  'legal.copyrightYear': '页脚版权年份',
+  'legal.copyrightOwner': '页脚版权主体',
+  'legal.trademarkText': '页脚/隐私页商标声明',
+  'privacy.privacyEffectiveDate': '隐私政策页生效日期',
+  'privacy.privacyLastUpdatedDate': '隐私政策页最近更新日期',
+  'privacy.privacyVersion': '隐私政策页版本号',
+  'privacy.legalOperatorName': '隐私政策页运营主体',
+  'privacy.registeredAddress': '隐私政策页注册地址',
+  'privacy.privacyContactEmail': '隐私政策页联系邮箱',
+  'privacy.privacyContactHotline': '隐私政策页联系热线',
+  'seo.homeMetaTitle': '首页 meta title',
+  'seo.homeMetaDescription': '首页 meta description',
+  'seo.homeMetaKeywords': '首页 meta keywords',
+  'seo.ogSiteName': '首页 og:site_name',
+  'seo.defaultOgImage': '首页 og:image',
+  'seo.defaultTwitterImage': '首页 twitter:image',
+  'seo.canonicalBaseUrl': '首页 canonical',
+  'seo.organizationName': '首页 Organization 结构化数据 name',
+  'seo.organizationLogo': '首页 Organization 结构化数据 logo',
+  'seo.parentOrganizationName': '首页 Organization 结构化数据 parentOrganization.name',
+  'seo.parentOrganizationUrl': '首页 Organization 结构化数据 parentOrganization.url',
+  'seo.sameAs': '首页 Organization 结构化数据 sameAs',
+  'seo.sitemapUrl': 'robots.txt / sitemap.xml 地址',
+  'analytics.analyticsEndpoint': 'js/analytics.js 上报端点',
+  'analytics.cookieConsentText': 'Cookie 同意横幅文案',
+  'analytics.cookieDenyText': 'Cookie 拒绝按钮',
+  'analytics.cookieAcceptText': 'Cookie 同意按钮',
+  'analytics.analyticsConsentEnabled': 'Cookie/匿名统计开关',
+};
+
+function SiteBasicInfoPanel({ siteCode, canWrite }: { siteCode: string; canWrite: boolean }) {
+  const [settings, setSettings] = useState<BasicSettings | null>(null);
+  const [draft, setDraft] = useState<BasicSettings | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [savingSection, setSavingSection] = useState('');
+  const [uploadingField, setUploadingField] = useState('');
+  const [activeBasicSection, setActiveBasicSection] = useState(BASIC_INFO_FIELD_GROUPS[0]?.section || '');
+  const [feedback, setFeedback] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
+
+  const loadSettings = useCallback(() => {
+    let cancelled = false;
+    setLoading(true);
+    setFeedback(null);
+    siteBasicSettings.get(siteCode)
+      .then((result) => {
+        if (cancelled) return;
+        const next = normalizeBasicSettingsPayload(result);
+        setSettings(next);
+        setDraft(next);
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          const fallback = cloneBasicSettings(EVERHOT_BASIC_INFO_CURRENT);
+          setSettings(fallback);
+          setDraft(fallback);
+          setFeedback({
+            tone: 'error',
+            text: `${(e as Error).message || '基本信息接口暂不可用'}，已回显当前恒热官网前端内容。`,
+          });
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [siteCode]);
+
+  useEffect(() => loadSettings(), [loadSettings]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const sectionIds = [
+      ...BASIC_INFO_FIELD_GROUPS.map((group) => group.section),
+      ...BASIC_INFO_TABLES.map((table) => `${table.section}-${table.key}`),
+      'contact-cards',
+    ];
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        const id = visible?.target.id.replace(/^site-basic-/, '');
+        if (id) setActiveBasicSection(id);
+      },
+      { rootMargin: '-96px 0px -62% 0px', threshold: [0.05, 0.2, 0.4] }
+    );
+    sectionIds.forEach((section) => {
+      const element = document.getElementById(`site-basic-${section}`);
+      if (element) observer.observe(element);
+    });
+    return () => observer.disconnect();
+  }, [draft]);
+
+  function setField(section: string, key: string, value: string | boolean) {
+    setDraft((current) => ({ ...(current || {}), [section]: { ...((current || {})[section] || {}), [key]: value } }));
+  }
+
+  function resetFieldGroupToCurrentDefault(group: (typeof BASIC_INFO_FIELD_GROUPS)[number]) {
+    const defaultSection = cloneBasicSettings(EVERHOT_BASIC_INFO_CURRENT)[group.section] || {};
+    const resetKeys = new Set(group.fields.map((field) => field.key));
+    if (group.section === 'analytics') resetKeys.add('analyticsConsentEnabled');
+    setDraft((current) => {
+      const base = current || {};
+      const sectionData = base[group.section] || {};
+      const nextSection = { ...sectionData };
+      resetKeys.forEach((key) => {
+        if (key in defaultSection) nextSection[key] = cloneBasicSettings(defaultSection)[key];
+        else delete nextSection[key];
+      });
+      return { ...base, [group.section]: nextSection };
+    });
+    setFeedback({ tone: 'success', text: `${group.title}已恢复到当前官网重置状态，点击保存后生效。` });
+  }
+
+  function resetListToCurrentDefault(section: string, key: string, title: string) {
+    const defaultSection = cloneBasicSettings(EVERHOT_BASIC_INFO_CURRENT)[section] || {};
+    setDraft((current) => {
+      const base = current || {};
+      const sectionData = base[section] || {};
+      return {
+        ...base,
+        [section]: {
+          ...sectionData,
+          [key]: cloneBasicSettings(defaultSection[key] || []),
+        },
+      };
+    });
+    setFeedback({ tone: 'success', text: `${title}已恢复到当前官网重置状态，点击保存后生效。` });
+  }
+
+  function scrollToBasicSection(section: string) {
+    setActiveBasicSection(section);
+    document.getElementById(`site-basic-${section}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  async function uploadBasicImage(section: string, key: string, file: File | null) {
+    if (!file) return;
+    if (!file.type.startsWith('image/') && !/\.ico$/i.test(file.name)) {
+      setFeedback({ tone: 'error', text: '请上传图片文件。' });
+      return;
+    }
+    const fieldKey = `${section}.${key}`;
+    setUploadingField(fieldKey);
+    setFeedback(null);
+    try {
+      const artifact = await fileArtifacts.uploadBase64({
+        entityType: 'brand-site-basic-settings',
+        entityId: `${siteCode}:${fieldKey}`,
+        filename: file.name,
+        mimeType: file.type || (/\.ico$/i.test(file.name) ? 'image/x-icon' : 'image/png'),
+        dataBase64: await readBrowserFileBase64(file),
+      });
+      const contentUrl = uploadedArtifactContentUrl(artifact);
+      if (!contentUrl) throw new Error('图片上传后未返回可访问地址。');
+      setField(section, key, contentUrl);
+      setFeedback({ tone: 'success', text: `${sectionLabel(section)}图片已上传，点击保存后生效。` });
+    } catch (e) {
+      setFeedback({ tone: 'error', text: (e as Error).message || '图片上传失败。' });
+    } finally {
+      setUploadingField('');
+    }
+  }
+
+  function updateListItem(section: string, key: string, index: number, patch: Record<string, unknown>) {
+    setDraft((current) => {
+      const base = current || {};
+      const sectionData = base[section] || {};
+      const rows = Array.isArray(sectionData[key]) ? [...sectionData[key]] : [];
+      rows[index] = { ...(rows[index] || {}), ...patch };
+      return { ...base, [section]: { ...sectionData, [key]: rows } };
+    });
+  }
+
+  function addListItem(section: string, key: string, shape: Record<string, unknown>) {
+    setDraft((current) => {
+      const base = current || {};
+      const sectionData = base[section] || {};
+      const rows = Array.isArray(sectionData[key]) ? [...sectionData[key]] : [];
+      return { ...base, [section]: { ...sectionData, [key]: [...rows, { ...shape, sortOrder: rows.length, visible: true }] } };
+    });
+  }
+
+  function removeListItem(section: string, key: string, index: number) {
+    setDraft((current) => {
+      const base = current || {};
+      const sectionData = base[section] || {};
+      const rows = Array.isArray(sectionData[key]) ? [...sectionData[key]] : [];
+      rows.splice(index, 1);
+      return { ...base, [section]: { ...sectionData, [key]: rows.map((item, sortOrder) => ({ ...item, sortOrder })) } };
+    });
+  }
+
+  async function save() {
+    if (!draft) return;
+    setSaving(true);
+    setFeedback(null);
+    try {
+      const saved = await siteBasicSettings.update(siteCode, draft);
+      const next = normalizeBasicSettingsPayload(saved);
+      setSettings(next);
+      setDraft(next);
+      setFeedback({ tone: 'success', text: '基本信息已保存。' });
+    } catch (e) {
+      setFeedback({ tone: 'error', text: (e as Error).message || '基本信息保存失败。' });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function saveSection(section: string) {
+    if (!draft) return;
+    setSavingSection(section);
+    setFeedback(null);
+    try {
+      const saved = await siteBasicSettings.updateSection(siteCode, section, draft[section] || {});
+      const savedSection = normalizeBasicSettingsPayload(saved)[section] || draft[section] || {};
+      const next = {
+        ...(settings || draft || {}),
+        [section]: savedSection,
+        updatedAt: (saved as any)?.updatedAt || (settings as any)?.updatedAt || null,
+      } as BasicSettings;
+      setSettings(next);
+      setDraft(next);
+      setFeedback({ tone: 'success', text: `${sectionLabel(section)}已保存。` });
+    } catch (e) {
+      setFeedback({ tone: 'error', text: (e as Error).message || `${sectionLabel(section)}保存失败。` });
+    } finally {
+      setSavingSection('');
+    }
+  }
+
+  if (loading && !draft) {
+    return (
+      <div className="brand-product-empty">
+        <WorkbenchTableState type="loading" title="正在加载基本信息" description="正在读取恒热官网当前基础配置。" />
+      </div>
+    );
+  }
+
+  const current = draft || settings || {};
+  const busy = saving || Boolean(savingSection) || Boolean(uploadingField);
+  return (
+    <div className="site-basic-panel" aria-label="恒热官网基本信息">
+      <div className="site-material-panel-head">
+        <div>
+          <p className="t-label">基本信息</p>
+          <h3>恒热官网基础配置</h3>
+          <p>只维护当前恒热官网实际使用的站点身份、品牌主张、联系信息、备案版权和默认 SEO。</p>
+        </div>
+        <div className="site-material-transfer-actions">
+          {feedback && <span className={`row-feedback ${feedback.tone}`}>{feedback.text}</span>}
+          <button type="button" className="btn btn-outline btn-sm" onClick={loadSettings} disabled={loading || busy}>
+            <RefreshCw size={13} />
+            刷新
+          </button>
+          {canWrite ? (
+            <button type="button" className="btn btn-brand btn-sm" onClick={save} disabled={busy || !draft}>
+              <Save size={13} />
+              {saving ? '保存中' : '保存基本信息'}
+            </button>
+          ) : <span className="badge badge-grey">只读查看</span>}
+        </div>
+      </div>
+
+      <nav className="site-basic-jump-nav" aria-label="基本信息快捷跳转">
+        {BASIC_INFO_FIELD_GROUPS.map((group) => (
+          <button
+            type="button"
+            className={`btn btn-outline btn-sm${activeBasicSection === group.section ? ' is-active' : ''}`}
+            key={`jump-${group.section}`}
+            aria-pressed={activeBasicSection === group.section}
+            onClick={() => scrollToBasicSection(group.section)}
+          >
+            {group.title}
+          </button>
+        ))}
+        {BASIC_INFO_TABLES.map((table) => (
+          <button
+            type="button"
+            className={`btn btn-outline btn-sm${activeBasicSection === `${table.section}-${table.key}` ? ' is-active' : ''}`}
+            key={`jump-${table.section}-${table.key}`}
+            aria-pressed={activeBasicSection === `${table.section}-${table.key}`}
+            onClick={() => scrollToBasicSection(`${table.section}-${table.key}`)}
+          >
+            {table.title}
+          </button>
+        ))}
+        <button
+          type="button"
+          className={`btn btn-outline btn-sm${activeBasicSection === 'contact-cards' ? ' is-active' : ''}`}
+          aria-pressed={activeBasicSection === 'contact-cards'}
+          onClick={() => scrollToBasicSection('contact-cards')}
+        >
+          联系页入口卡片
+        </button>
+      </nav>
+
+      {BASIC_INFO_FIELD_GROUPS.map((group) => (
+        <section className={`site-basic-section site-basic-section-${group.section}`} id={`site-basic-${group.section}`} key={group.section}>
+          <div className="hero-carousel-head">
+            <div><p className="t-label">{group.eyebrow}</p><h4>{group.title}</h4></div>
+            {canWrite && (
+              <div className="site-basic-section-actions">
+                <button type="button" className="btn btn-outline btn-sm" onClick={() => resetFieldGroupToCurrentDefault(group)} disabled={busy || !draft}>
+                  <RefreshCw size={13} />
+                  恢复默认
+                </button>
+                <button type="button" className="btn btn-outline btn-sm" onClick={() => saveSection(group.section)} disabled={busy || !draft}>
+                  <Save size={13} />
+                  {savingSection === group.section ? '保存中' : '保存设备'}
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="site-basic-grid">
+            {group.fields.map((field) => {
+              if (group.section === 'identity' && (field.key === 'siteUrl' || field.key === 'localeLabel')) return null;
+              const value = String(current[group.section]?.[field.key] ?? '');
+              const fieldKey = `${group.section}.${field.key}`;
+              const isImageField = isBasicInfoImageField(group.section, field.key);
+              const previewSrc = isImageField ? basicInfoImagePreviewSrc(siteCode, value) : '';
+              const siteName = String(current.identity?.siteName || current.seo?.ogSiteName || current.seo?.organizationName || '');
+              const fieldWide = group.section === 'identity' ? false : field.span;
+              return (
+                <div className={`${fieldWide ? 'site-basic-field wide' : 'site-basic-field'}${isImageField ? ' image-field' : ''}`} key={`${group.section}-${field.key}`}>
+                  <span>{field.label}</span>
+                  {BASIC_INFO_USAGE[fieldKey] ? (
+                    <em>官网位置：{BASIC_INFO_USAGE[fieldKey]}</em>
+                  ) : null}
+                  {isImageField ? (
+                    <div className="site-basic-image-control">
+                      <div className="site-basic-image-stack">
+                        <BasicInfoImagePreview
+                          fieldKey={fieldKey}
+                          label={field.label}
+                          siteName={siteName}
+                          src={previewSrc}
+                          value={value}
+                          dark={field.key === 'whiteLogoUrl'}
+                        />
+                      </div>
+                      <div className="site-basic-image-meta">
+                        <div>
+                          <strong>{value ? '当前图片' : '未设置图片'}</strong>
+                          {value ? <code title={value}>{value}</code> : null}
+                        </div>
+                        {canWrite ? (
+                          <>
+                            <input
+                              id={`site-basic-image-${group.section}-${field.key}`}
+                              className="sr-only-file"
+                              type="file"
+                              accept="image/*,.ico"
+                              disabled={busy}
+                              onChange={(event) => {
+                                uploadBasicImage(group.section, field.key, event.target.files?.[0] || null);
+                                event.currentTarget.value = '';
+                              }}
+                            />
+                            <label
+                              className="btn btn-outline btn-sm image-upload-label"
+                              htmlFor={`site-basic-image-${group.section}-${field.key}`}
+                            >
+                              <Upload size={13} />
+                              {uploadingField === fieldKey ? '上传中' : '上传图片'}
+                            </label>
+                          </>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : (
+                    <input
+                      className="input"
+                      value={value}
+                      disabled={!canWrite || busy}
+                      onChange={(event) => setField(group.section, field.key, event.target.value)}
+                    />
+                  )}
+                </div>
+              );
+            })}
+            {group.section === 'analytics' && (
+              <label className="site-basic-field">
+                <span>启用匿名统计</span>
+                <em>官网位置：{BASIC_INFO_USAGE['analytics.analyticsConsentEnabled']}</em>
+                <select
+                  className="input"
+                  value={current.analytics?.analyticsConsentEnabled === false ? 'false' : 'true'}
+                  disabled={!canWrite || busy}
+                  onChange={(event) => setField('analytics', 'analyticsConsentEnabled', event.target.value === 'true')}
+                >
+                  <option value="true">启用</option>
+                  <option value="false">关闭</option>
+                </select>
+              </label>
+            )}
+          </div>
+        </section>
+      ))}
+
+      {BASIC_INFO_TABLES.map((table) => {
+        const rows = Array.isArray(current[table.section]?.[table.key]) ? current[table.section][table.key] : [];
+        return (
+          <section className="hero-carousel-manager" id={`site-basic-${table.section}-${table.key}`} key={`${table.section}-${table.key}`}>
+            <div className="hero-carousel-head">
+              <div><p className="t-label">Table</p><h4>{table.title}</h4><span>官网位置：{table.source}</span></div>
+              <div className="site-basic-section-actions">
+                {canWrite && (
+                  <>
+                    <button type="button" className="btn btn-outline btn-sm" onClick={() => resetListToCurrentDefault(table.section, table.key, table.title)} disabled={busy || !draft}>
+                      <RefreshCw size={13} />
+                      恢复默认
+                    </button>
+                    <button type="button" className="btn btn-outline btn-sm" onClick={() => addListItem(table.section, table.key, { value: '', label: '' })} disabled={busy}>
+                      <Plus size={13} />
+                      新增
+                    </button>
+                    <button type="button" className="btn btn-outline btn-sm" onClick={() => saveSection(table.section)} disabled={busy || !draft}>
+                      <Save size={13} />
+                      {savingSection === table.section ? '保存中' : '保存设备'}
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="hero-carousel-table-wrap">
+              <table className="hero-carousel-table">
+                <thead><tr><th>数值</th><th>标签</th><th>排序</th><th>官网显示</th><th>操作</th></tr></thead>
+                <tbody>
+                  {rows.length ? rows.map((row: Record<string, unknown>, index: number) => (
+                    <tr key={`${table.key}-${index}`}>
+                      <td><input className="input" value={String(row.value || '')} disabled={!canWrite || busy} onChange={(event) => updateListItem(table.section, table.key, index, { value: event.target.value })} /></td>
+                      <td><input className="input" value={String(row.label || '')} disabled={!canWrite || busy} onChange={(event) => updateListItem(table.section, table.key, index, { label: event.target.value })} /></td>
+                      <td><input className="input" type="number" value={String(row.sortOrder ?? index)} disabled={!canWrite || busy} onChange={(event) => updateListItem(table.section, table.key, index, { sortOrder: Number(event.target.value) || 0 })} /></td>
+                      <td>
+                        <button type="button" className={`badge hero-carousel-visible-toggle ${row.visible === false ? 'badge-grey' : 'badge-success'}`} disabled={!canWrite || busy} onClick={() => updateListItem(table.section, table.key, index, { visible: row.visible === false })}>
+                          {row.visible === false ? '暂不显示' : '官网显示'}
+                        </button>
+                      </td>
+                      <td><button type="button" className="btn btn-outline btn-sm btn-danger" disabled={!canWrite || busy} onClick={() => removeListItem(table.section, table.key, index)}><Trash2 size={13} />删除</button></td>
+                    </tr>
+                  )) : <tr><td colSpan={5} className="hero-carousel-empty">暂无数据</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        );
+      })}
+
+      <section className="hero-carousel-manager" id="site-basic-contact-cards">
+        <div className="hero-carousel-head">
+          <div><p className="t-label">Contact</p><h4>联系页入口卡片</h4><span>官网位置：联系页入口卡片列表</span></div>
+          <div className="site-basic-section-actions">
+            {canWrite && (
+              <>
+                <button type="button" className="btn btn-outline btn-sm" onClick={() => resetListToCurrentDefault('contact', 'contactCards', '联系页入口卡片')} disabled={busy || !draft}>
+                  <RefreshCw size={13} />
+                  恢复默认
+                </button>
+                <button type="button" className="btn btn-outline btn-sm" onClick={() => addListItem('contact', 'contactCards', { tag: '', title: '', body: '', linkText: '', href: '' })} disabled={busy}>
+                  <Plus size={13} />
+                  新增
+                </button>
+                <button type="button" className="btn btn-outline btn-sm" onClick={() => saveSection('contact')} disabled={busy || !draft}>
+                  <Save size={13} />
+                  {savingSection === 'contact' ? '保存中' : '保存设备'}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+        <div className="hero-carousel-table-wrap site-audience-table-wrap">
+          <table className="hero-carousel-table site-basic-contact-table">
+            <thead><tr><th>类型</th><th>标题</th><th>说明</th><th>链接文案</th><th>链接</th><th>显示</th><th>操作</th></tr></thead>
+            <tbody>
+              {(Array.isArray(current.contact?.contactCards) ? current.contact.contactCards : []).length ? (
+                (Array.isArray(current.contact?.contactCards) ? current.contact.contactCards : []).map((row: Record<string, unknown>, index: number) => (
+                <tr key={`contact-card-${index}`}>
+                  {['tag', 'title', 'body', 'linkText', 'href'].map((key) => (
+                    <td key={key}>
+                      <input className="input" value={String(row[key] || '')} disabled={!canWrite || busy} onChange={(event) => updateListItem('contact', 'contactCards', index, { [key]: event.target.value })} />
+                    </td>
+                  ))}
+                  <td>
+                    <button type="button" className={`badge hero-carousel-visible-toggle ${row.visible === false ? 'badge-grey' : 'badge-success'}`} disabled={!canWrite || busy} onClick={() => updateListItem('contact', 'contactCards', index, { visible: row.visible === false })}>
+                      {row.visible === false ? '暂不显示' : '官网显示'}
+                    </button>
+                  </td>
+                  <td><button type="button" className="btn btn-outline btn-sm btn-danger" disabled={!canWrite || busy} onClick={() => removeListItem('contact', 'contactCards', index)}><Trash2 size={13} />删除</button></td>
+                </tr>
+                ))
+              ) : <tr><td colSpan={7} className="hero-carousel-empty">暂无联系入口</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function SiteMaterialMockPanel({ brandCode }: { brandCode: string }) {
-  const [uploadedMaterials, setUploadedMaterials] = useState<
-    Record<string, { name: string; size: number; url?: string; homepageSrc?: string; synced?: boolean }>
-  >({});
+  const [uploadedMaterials, setUploadedMaterials] = useState<Record<string, SiteMaterialUpload>>({});
+  const [heroCarousel, setHeroCarousel] = useState<HeroCarouselItem[]>([]);
+  const [audienceCards, setAudienceCards] = useState<AudienceCardItem[]>(DEFAULT_AUDIENCE_CARDS);
   const [materialBusyKey, setMaterialBusyKey] = useState('');
+  const [heroCarouselBusy, setHeroCarouselBusy] = useState(false);
+  const [audienceCardsBusy, setAudienceCardsBusy] = useState(false);
+  const [draggedHeroId, setDraggedHeroId] = useState('');
+  const [previewHero, setPreviewHero] = useState<HeroCarouselItem | null>(null);
   const [materialFeedback, setMaterialFeedback] = useState<Record<string, { tone: 'success' | 'error'; text: string }>>(
     {}
   );
@@ -4553,8 +6608,9 @@ function SiteMaterialMockPanel({ brandCode }: { brandCode: string }) {
       .list(brandCode)
       .then((manifest) => {
         if (cancelled || !manifest || typeof manifest !== 'object') return;
-        const next: Record<string, { name: string; size: number; homepageSrc?: string; synced?: boolean }> = {};
+        const next: Record<string, SiteMaterialUpload> = {};
         for (const [key, value] of Object.entries(manifest as Record<string, any>)) {
+          if (key === 'home-hero-carousel') continue;
           if (!value?.src) continue;
           next[key] = {
             name: String(value.filename || value.src),
@@ -4564,6 +6620,27 @@ function SiteMaterialMockPanel({ brandCode }: { brandCode: string }) {
           };
         }
         setUploadedMaterials(next);
+        const carousel = Array.isArray((manifest as any)['home-hero-carousel'])
+          ? ((manifest as any)['home-hero-carousel'] as any[])
+          : [];
+        setHeroCarousel(
+          carousel
+            .filter((item) => item?.src)
+            .map((item, index) => ({
+              id: String(item.id || `hero-${index}`),
+              src: String(item.src),
+              filename: String(item.filename || item.src),
+              mimeType: String(item.mimeType || 'image/png'),
+              size: Number(item.size || 0),
+              updatedAt: String(item.updatedAt || ''),
+              linkUrl: String(item.linkUrl || ''),
+              remark: String(item.remark || ''),
+              visible: item.visible !== false,
+              sortOrder: Number.isFinite(Number(item.sortOrder)) ? Number(item.sortOrder) : index,
+            }))
+            .sort((a, b) => a.sortOrder - b.sortOrder)
+        );
+        setAudienceCards(normalizeAudienceCards((manifest as any)['home-audience-cards']));
       })
       .catch(() => {});
     return () => {
@@ -4623,16 +6700,455 @@ function SiteMaterialMockPanel({ brandCode }: { brandCode: string }) {
     }
   }
 
+  async function uploadHeroCarousel(files: FileList | null) {
+    const selected = Array.from(files || []);
+    if (!selected.length) return;
+    if (selected.some((file) => !isAllowedJpgOrPng(file))) {
+      setMaterialFeedback((current) => ({ ...current, 'home-hero-carousel': { tone: 'error', text: imageTypeErrorText() } }));
+      return;
+    }
+    setHeroCarouselBusy(true);
+    setMaterialFeedback((current) => ({
+      ...current,
+      'home-hero-carousel': { tone: 'success', text: `正在批量上传 ${selected.length} 张 Banner...` },
+    }));
+    try {
+      const payload = await Promise.all(
+        selected.map(async (file) => ({
+          filename: file.name,
+          mimeType: file.type || 'image/png',
+          dataBase64: await readBrowserFileBase64(file),
+        }))
+      );
+      const saved = await siteMaterials.uploadCarousel(brandCode, payload);
+      setHeroCarousel(Array.isArray(saved) ? (saved as HeroCarouselItem[]) : []);
+      setMaterialFeedback((current) => ({
+        ...current,
+        'home-hero-carousel': { tone: 'success', text: '轮播图已同步到官网首页' },
+      }));
+    } catch (e) {
+      setMaterialFeedback((current) => ({
+        ...current,
+        'home-hero-carousel': { tone: 'error', text: (e as Error).message || '轮播图上传失败' },
+      }));
+    } finally {
+      setHeroCarouselBusy(false);
+    }
+  }
+
+  async function persistHeroCarousel(items: HeroCarouselItem[], message = '轮播图设置已保存') {
+    setHeroCarouselBusy(true);
+    const normalized = items.map((item, index) => ({ ...item, sortOrder: index }));
+    try {
+      const saved = await siteMaterials.saveCarousel(brandCode, normalized);
+      setHeroCarousel(Array.isArray(saved) ? (saved as HeroCarouselItem[]) : normalized);
+      setMaterialFeedback((current) => ({ ...current, 'home-hero-carousel': { tone: 'success', text: message } }));
+    } catch (e) {
+      setMaterialFeedback((current) => ({
+        ...current,
+        'home-hero-carousel': { tone: 'error', text: (e as Error).message || '轮播图设置保存失败' },
+      }));
+    } finally {
+      setHeroCarouselBusy(false);
+    }
+  }
+
+  function moveHeroCarouselItem(sourceId: string, targetId: string) {
+    if (!sourceId || !targetId || sourceId === targetId) return;
+    const sourceIndex = heroCarousel.findIndex((item) => item.id === sourceId);
+    const targetIndex = heroCarousel.findIndex((item) => item.id === targetId);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+    const next = [...heroCarousel];
+    const [source] = next.splice(sourceIndex, 1);
+    next.splice(targetIndex, 0, source);
+    setHeroCarousel(next.map((item, index) => ({ ...item, sortOrder: index })));
+    persistHeroCarousel(next, '轮播图排序已保存');
+  }
+
+  function updateHeroCarouselLink(id: string, linkUrl: string) {
+    setHeroCarousel((current) => current.map((item) => (item.id === id ? { ...item, linkUrl } : item)));
+  }
+
+  function updateHeroCarouselRemark(id: string, remark: string) {
+    setHeroCarousel((current) => current.map((item) => (item.id === id ? { ...item, remark } : item)));
+  }
+
+  function toggleHeroCarouselVisible(id: string) {
+    const next = heroCarousel.map((item) => (item.id === id ? { ...item, visible: item.visible === false } : item));
+    setHeroCarousel(next);
+    persistHeroCarousel(next, '\u5b98\u7f51\u663e\u793a\u72b6\u6001\u5df2\u4fdd\u5b58');
+  }
+
+  function deleteHeroCarouselItem(id: string) {
+    const next = heroCarousel.filter((item) => item.id !== id).map((item, index) => ({ ...item, sortOrder: index }));
+    setHeroCarousel(next);
+    persistHeroCarousel(next, '轮播图已移除');
+  }
+
+  function updateAudienceCard(id: AudienceCardItem['id'], patch: Partial<AudienceCardItem>) {
+    setAudienceCards((current) => current.map((item) => (item.id === id ? { ...item, ...patch } : item)));
+  }
+
+  async function persistAudienceCards(message = '首页入口卡片已保存') {
+    setAudienceCardsBusy(true);
+    const normalized = audienceCards.map((item, index) => ({ ...item, sortOrder: index }));
+    try {
+      const saved = await siteMaterials.saveModule(brandCode, 'home-audience-cards', normalized);
+      setAudienceCards(normalizeAudienceCards(Array.isArray(saved) ? saved : normalized));
+      setMaterialFeedback((current) => ({ ...current, 'home-audience-cards': { tone: 'success', text: message } }));
+    } catch (e) {
+      setMaterialFeedback((current) => ({
+        ...current,
+        'home-audience-cards': { tone: 'error', text: (e as Error).message || '首页入口卡片保存失败' },
+      }));
+    } finally {
+      setAudienceCardsBusy(false);
+    }
+  }
+
   return (
-    <div className="site-material-panel" aria-label="其他官网素材">
+    <div className="site-material-panel" aria-label="首页模块管理">
       <div className="site-material-panel-head">
         <div>
-          <p className="t-label">其他素材</p>
-          <h3>官网非产品素材</h3>
-          <p>上传后同步到 Everhot 官网首页素材 manifest，暂未接入真实 DAM 或生产素材库。</p>
+          <p className="t-label">首页模块</p>
+          <h3>官网首页模块</h3>
+          <p>维护 Everhot 官网首页轮播图、受众入口卡片和图文素材；内容保存到现有首页 manifest，不新增数据库表。</p>
         </div>
         <span className="pill-neutral">本地首页同步</span>
       </div>
+      <section className="hero-carousel-manager" aria-label="\u9996\u9875\u8f6e\u64ad\u56fe\u7ba1\u7406">
+        <div className="hero-carousel-head">
+          <div>
+            <p className="t-label">Banner</p>
+            <h4>{'\u8f6e\u64ad\u56fe\u7ba1\u7406'}</h4>
+            <span>{'Banner \u56fe\u7247\u6279\u91cf\u4e0a\u4f20\u3001\u62d6\u62fd\u6392\u5e8f\u53ca\u94fe\u63a5\u8df3\u8f6c\u8bbe\u7f6e\uff0c\u4e30\u5bcc\u9996\u9875\u89c6\u89c9\u3002'}</span>
+          </div>
+          <div className="site-material-transfer-actions">
+            <input
+              id="site-material-upload-home-hero-carousel"
+              className="sr-only-file"
+              type="file"
+              accept="image/jpeg,image/png,.jpg,.jpeg,.png"
+              multiple
+              disabled={heroCarouselBusy}
+              data-testid="site-material-input-home-hero-carousel"
+              onChange={(event) => {
+                uploadHeroCarousel(event.target.files);
+                event.currentTarget.value = '';
+              }}
+            />
+            <label className="btn btn-outline btn-sm image-upload-label" htmlFor="site-material-upload-home-hero-carousel">
+              <Upload size={13} />
+              {heroCarouselBusy ? '\u540c\u6b65\u4e2d' : '\u6279\u91cf\u4e0a\u4f20'}
+            </label>
+            <button type="button" className="btn btn-outline btn-sm" disabled={heroCarouselBusy} onClick={() => persistHeroCarousel(heroCarousel)}>
+              <Save size={13} />
+              {'\u4fdd\u5b58\u8bbe\u7f6e'}
+            </button>
+          </div>
+        </div>
+        {materialFeedback['home-hero-carousel'] && (
+          <span className={`row-feedback ${materialFeedback['home-hero-carousel'].tone}`}>
+            {materialFeedback['home-hero-carousel'].text}
+          </span>
+        )}
+        {heroCarousel.length ? (
+          <div className="hero-carousel-table-wrap">
+            <table className="hero-carousel-table">
+              <thead>
+                <tr>
+                  <th>{'\u62d6\u62fd'}</th>
+                  <th>{'\u56fe\u7247'}</th>
+                  <th>{'\u6392\u5e8f'}</th>
+                  <th>{'\u8df3\u8f6c\u94fe\u63a5'}</th>
+                  <th>{'\u5907\u6ce8'}</th>
+                  <th>{'\u5b98\u7f51\u663e\u793a'}</th>
+                  <th>{'\u64cd\u4f5c'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {heroCarousel.map((item, index) => (
+                  <tr
+                    className={draggedHeroId === item.id ? 'is-dragging' : ''}
+                    key={item.id}
+                    draggable
+                    onDragStart={() => setDraggedHeroId(item.id)}
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      moveHeroCarouselItem(draggedHeroId, item.id);
+                      setDraggedHeroId('');
+                    }}
+                    onDragEnd={() => setDraggedHeroId('')}
+                  >
+                    <td>
+                      <span className="hero-carousel-drag">
+                        <Rows3 size={14} />
+                        #{index + 1}
+                      </span>
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className="hero-carousel-thumb-button"
+                        onClick={() => setPreviewHero(item)}
+                        title={'\u70b9\u51fb\u653e\u5927\u67e5\u770b'}
+                      >
+                        <img className="hero-carousel-thumb" src={siteMaterialPreviewSrc(brandCode, item.src)} alt="" />
+                      </button>
+                    </td>
+                    <td>
+                      <span className="hero-carousel-order-text">#{index + 1}</span>
+                    </td>
+                    <td>
+                      <div className="hero-carousel-link-control">
+                        <Link size={14} />
+                        <input
+                          id={`hero-carousel-link-${item.id}`}
+                          value={item.linkUrl || ''}
+                          placeholder="/products/residential/ \u6216 https://..."
+                          onChange={(event) => updateHeroCarouselLink(item.id, event.target.value)}
+                          onBlur={(event) => {
+                            const next = heroCarousel.map((row) =>
+                              row.id === item.id ? { ...row, linkUrl: event.currentTarget.value } : row
+                            );
+                            persistHeroCarousel(next, '\u8f6e\u64ad\u56fe\u94fe\u63a5\u5df2\u4fdd\u5b58');
+                          }}
+                        />
+                      </div>
+                    </td>
+                    <td>
+                      <input
+                        className="hero-carousel-remark"
+                        value={item.remark || ''}
+                        maxLength={200}
+                        placeholder={'\u4f8b\uff1a\u9996\u9875\u6d3b\u52a8\u56fe'}
+                        onChange={(event) => updateHeroCarouselRemark(item.id, event.target.value)}
+                        onBlur={(event) => {
+                          const next = heroCarousel.map((row) =>
+                            row.id === item.id ? { ...row, remark: event.currentTarget.value } : row
+                          );
+                          persistHeroCarousel(next, '\u5907\u6ce8\u5df2\u4fdd\u5b58');
+                        }}
+                      />
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className={`badge hero-carousel-visible-toggle ${item.visible === false ? 'badge-grey' : 'badge-success'}`}
+                        disabled={heroCarouselBusy}
+                        onClick={() => toggleHeroCarouselVisible(item.id)}
+                      >
+                        {item.visible === false ? '\u6682\u4e0d\u663e\u793a' : '\u5b98\u7f51\u663e\u793a'}
+                      </button>
+                    </td>
+                    <td>
+                      <div className="hero-carousel-link-actions">
+                        <a
+                          className="btn btn-outline btn-sm"
+                          href={item.linkUrl || '#'}
+                          target={item.linkUrl && /^https?:\/\//i.test(item.linkUrl) ? '_blank' : undefined}
+                          rel={item.linkUrl && /^https?:\/\//i.test(item.linkUrl) ? 'noopener noreferrer' : undefined}
+                          aria-disabled={!item.linkUrl}
+                          onClick={(event) => {
+                            if (!item.linkUrl) event.preventDefault();
+                          }}
+                        >
+                          <ExternalLink size={13} />
+                          {'\u6253\u5f00'}
+                        </a>
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-sm btn-danger"
+                          disabled={heroCarouselBusy}
+                          onClick={() => deleteHeroCarouselItem(item.id)}
+                        >
+                          <Trash2 size={13} />
+                          {'\u5220\u9664'}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="hero-carousel-empty">{'\u5c1a\u672a\u4e0a\u4f20\u8f6e\u64ad\u56fe\uff0c\u4e0a\u4f20\u540e\u4f1a\u4f18\u5148\u66ff\u6362\u9996\u9875 Hero \u4e3b\u89c6\u89c9\u3002'}</div>
+        )}
+        <div className="hero-carousel-strip" hidden>
+          {heroCarousel.length ? (
+            heroCarousel.map((item, index) => (
+              <article
+                className={`hero-carousel-card${draggedHeroId === item.id ? ' is-dragging' : ''}`}
+                key={item.id}
+                draggable
+                onDragStart={() => setDraggedHeroId(item.id)}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  moveHeroCarouselItem(draggedHeroId, item.id);
+                  setDraggedHeroId('');
+                }}
+                onDragEnd={() => setDraggedHeroId('')}
+              >
+                <div className="hero-carousel-preview">
+                  <img src={siteMaterialPreviewSrc(brandCode, item.src)} alt={item.filename || ''} />
+                  <div className="hero-carousel-cardbar">
+                    <span>#{index + 1}</span>
+                    <span><Rows3 size={13} /> {'\u62d6\u62fd\u6392\u5e8f'}</span>
+                    <button type="button" aria-label="\u79fb\u9664\u8f6e\u64ad\u56fe" onClick={() => deleteHeroCarouselItem(item.id)}>
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                </div>
+                <div className="hero-carousel-cardbody">
+                  <div className="hero-carousel-file" title={item.filename}>
+                    {item.filename || item.src} · {Math.ceil(Number(item.size || 0) / 1024)} KB
+                  </div>
+                  <div className="hero-carousel-link-row">
+                    <label htmlFor={`hero-carousel-link-${item.id}`}>链接地址</label>
+                    <div className="hero-carousel-link-control">
+                      <Link size={14} />
+                      <input
+                        id={`hero-carousel-link-${item.id}`}
+                        value={item.linkUrl || ''}
+                        placeholder="/products/residential/ 或 https://..."
+                        onChange={(event) => updateHeroCarouselLink(item.id, event.target.value)}
+                        onBlur={(event) => {
+                          const next = heroCarousel.map((row) =>
+                            row.id === item.id ? { ...row, linkUrl: event.currentTarget.value } : row
+                          );
+                          persistHeroCarousel(next, '\u8f6e\u64ad\u56fe\u94fe\u63a5\u5df2\u4fdd\u5b58');
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div className="hero-carousel-link-actions">
+                    <a
+                      className="btn btn-outline btn-sm"
+                      href={item.linkUrl || '#'}
+                      target={item.linkUrl && /^https?:\/\//i.test(item.linkUrl) ? '_blank' : undefined}
+                      rel={item.linkUrl && /^https?:\/\//i.test(item.linkUrl) ? 'noopener noreferrer' : undefined}
+                      aria-disabled={!item.linkUrl}
+                      onClick={(event) => {
+                        if (!item.linkUrl) event.preventDefault();
+                      }}
+                    >
+                      <ExternalLink size={13} />
+                      打开链接
+                    </a>
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      disabled={heroCarouselBusy}
+                      onClick={() => persistHeroCarousel(heroCarousel, '\u8f6e\u64ad\u56fe\u94fe\u63a5\u5df2\u4fdd\u5b58')}
+                    >
+                      <Save size={13} />
+                      保存
+                    </button>
+                  </div>
+                </div>
+              </article>
+            ))
+          ) : (
+            <div className="hero-carousel-empty">{'\u5c1a\u672a\u4e0a\u4f20\u8f6e\u64ad\u56fe\uff0c\u4e0a\u4f20\u540e\u4f1a\u4f18\u5148\u66ff\u6362\u9996\u9875 Hero \u4e3b\u89c6\u89c9\u3002'}</div>
+          )}
+        </div>
+        {previewHero && (
+          <div className="hero-carousel-preview-backdrop" role="dialog" aria-modal="true" onClick={() => setPreviewHero(null)}>
+            <div className="hero-carousel-preview-modal" onClick={(event) => event.stopPropagation()}>
+              <button type="button" className="hero-carousel-preview-close" onClick={() => setPreviewHero(null)} aria-label="Close">
+                <X size={15} />
+              </button>
+              <img src={siteMaterialPreviewSrc(brandCode, previewHero.src)} alt="" />
+              {previewHero.remark ? <span>{previewHero.remark}</span> : null}
+            </div>
+          </div>
+        )}
+      </section>
+      <section className="hero-carousel-manager" aria-label="首页入口卡片管理">
+        <div className="hero-carousel-head">
+          <div>
+            <p className="t-label">Audience Entries</p>
+            <h4>首页入口卡片</h4>
+            <span>维护首页家用、商用、专业人士三张导流卡片的标签、标题、说明、按钮文案和跳转链接。</span>
+          </div>
+          <div className="site-material-transfer-actions">
+            {materialFeedback['home-audience-cards'] && (
+              <span className={`row-feedback ${materialFeedback['home-audience-cards'].tone}`}>
+                {materialFeedback['home-audience-cards'].text}
+              </span>
+            )}
+            <button type="button" className="btn btn-outline btn-sm" disabled={audienceCardsBusy} onClick={() => setAudienceCards(DEFAULT_AUDIENCE_CARDS)}>
+              <RefreshCw size={13} />
+              恢复默认
+            </button>
+            <button type="button" className="btn btn-outline btn-sm" disabled={audienceCardsBusy} onClick={() => persistAudienceCards()}>
+              <Save size={13} />
+              {audienceCardsBusy ? '保存中' : '保存设置'}
+            </button>
+          </div>
+        </div>
+        <div className="hero-carousel-table-wrap">
+          <table className="hero-carousel-table site-audience-table">
+            <thead>
+              <tr>
+                <th>模块</th>
+                <th>小标签</th>
+                <th>标题</th>
+                <th>说明文案</th>
+                <th>按钮 1</th>
+                <th>按钮 2</th>
+                <th>显示</th>
+              </tr>
+            </thead>
+            <tbody>
+              {audienceCards.map((item) => (
+                <tr key={item.id}>
+                  <td>
+                    <span className="hero-carousel-drag">#{item.sortOrder + 1}</span>
+                  </td>
+                  <td>
+                    <div className="site-audience-field-pair">
+                      <input className="input" value={item.tagZh} maxLength={24} disabled={audienceCardsBusy} onChange={(event) => updateAudienceCard(item.id, { tagZh: event.target.value })} />
+                      <input className="input" value={item.tagEn} maxLength={32} disabled={audienceCardsBusy} onChange={(event) => updateAudienceCard(item.id, { tagEn: event.target.value })} />
+                    </div>
+                  </td>
+                  <td>
+                    <input className="input" value={item.title} maxLength={80} disabled={audienceCardsBusy} onChange={(event) => updateAudienceCard(item.id, { title: event.target.value })} />
+                  </td>
+                  <td>
+                    <textarea className="input site-audience-textarea" value={item.description} maxLength={160} disabled={audienceCardsBusy} onChange={(event) => updateAudienceCard(item.id, { description: event.target.value })} />
+                  </td>
+                  <td>
+                    <div className="site-audience-field-pair">
+                      <input className="input" value={item.primaryLabel} maxLength={32} disabled={audienceCardsBusy} onChange={(event) => updateAudienceCard(item.id, { primaryLabel: event.target.value })} />
+                      <input className="input" value={item.primaryHref} disabled={audienceCardsBusy} onChange={(event) => updateAudienceCard(item.id, { primaryHref: event.target.value })} />
+                    </div>
+                  </td>
+                  <td>
+                    <div className="site-audience-field-pair">
+                      <input className="input" value={item.secondaryLabel} maxLength={32} disabled={audienceCardsBusy} onChange={(event) => updateAudienceCard(item.id, { secondaryLabel: event.target.value })} />
+                      <input className="input" value={item.secondaryHref} disabled={audienceCardsBusy} onChange={(event) => updateAudienceCard(item.id, { secondaryHref: event.target.value })} />
+                    </div>
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      className={`badge hero-carousel-visible-toggle ${item.visible === false ? 'badge-grey' : 'badge-success'}`}
+                      disabled={audienceCardsBusy}
+                      onClick={() => updateAudienceCard(item.id, { visible: item.visible === false })}
+                    >
+                      {item.visible === false ? '暂不显示' : '官网显示'}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
       <div className="site-material-grid">
         {MOCK_SITE_MATERIALS.map((item) => {
           const uploaded = uploadedMaterials[item.key];
@@ -5678,6 +8194,13 @@ function SiteNewsPanel({
   const draftPreviewImage = draft.coverImageArtifactId
     ? `/api/v2/file-artifact/${encodeURIComponent(draft.coverImageArtifactId)}/content`
     : siteNewsAssetUrl(draft.coverImageUrl || '/assets/img/home-card1.webp', siteAssetBaseUrl);
+  const draftCoverImage = draft.coverImageArtifactId
+    ? `/api/v2/file-artifact/${encodeURIComponent(draft.coverImageArtifactId)}/content`
+    : draft.coverImageUrl
+      ? siteNewsAssetUrl(draft.coverImageUrl, siteAssetBaseUrl)
+      : '';
+  const hasDraftCoverImage = Boolean(draft.coverImageArtifactId || draft.coverImageUrl);
+  const coverInputId = `site-news-cover-${editingId || 'new'}`;
 
   return (
     <div className="site-news-panel" aria-label="品牌官网资讯管理">
@@ -5769,10 +8292,45 @@ function SiteNewsPanel({
                     ]}
                     onChange={(nextStatus) => setDraft((current) => ({ ...current, status: nextStatus as SiteNewsStatus }))}
                   />
-                  <label style={{ display: 'grid', gap: 6 }}>
+                  <div className="site-news-cover-asset">
                     <span className="t-label">上传封面</span>
-                    <input className="input" type="file" accept="image/png,image/jpeg" onChange={(event) => uploadCover(event.target.files?.[0] || null)} disabled={uploading} />
-                  </label>
+                    <div className={`site-news-cover-preview${hasDraftCoverImage ? '' : ' is-empty'}`}>
+                      {hasDraftCoverImage ? <img src={draftCoverImage} alt="" /> : <Image size={18} />}
+                    </div>
+                    <div className="site-news-cover-status">
+                      <span className={hasDraftCoverImage ? 'pill-brand' : 'pill-neutral'}>
+                        {hasDraftCoverImage ? '封面已就绪' : '缺少封面'}
+                      </span>
+                      <span>只能上传 JPG / PNG 图片 · 建议 1280 × 600px</span>
+                    </div>
+                    <div className="site-news-cover-actions">
+                      <input
+                        id={coverInputId}
+                        className="sr-only-file"
+                        type="file"
+                        accept="image/png,image/jpeg,.png,.jpg,.jpeg"
+                        onChange={(event) => {
+                          uploadCover(event.target.files?.[0] || null);
+                          event.currentTarget.value = '';
+                        }}
+                        disabled={uploading}
+                      />
+                      <label className={`btn btn-outline btn-sm image-upload-label${uploading ? ' is-disabled' : ''}`} htmlFor={coverInputId} title="上传或替换封面">
+                        <Upload size={13} />
+                        {uploading ? '上传中' : hasDraftCoverImage ? '替换' : '上传'}
+                      </label>
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm btn-danger"
+                        disabled={uploading || !hasDraftCoverImage}
+                        onClick={() => setDraft((current) => ({ ...current, coverImageArtifactId: '', coverImageUrl: '' }))}
+                        title="删除封面"
+                      >
+                        <Trash2 size={13} />
+                        删除
+                      </button>
+                    </div>
+                  </div>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <input type="checkbox" checked={draft.isFeatured} onChange={(event) => setDraft((current) => ({ ...current, isFeatured: event.target.checked }))} />
                     <span className="t-label">置顶/精选</span>
@@ -5808,21 +8366,25 @@ function SiteNewsPanel({
                   <div className="site-news-preview-pane">
                     <span className="t-label">卡片</span>
                     <div className="site-news-preview-card">
-                      <div
+                      <img
                         className="site-news-preview-img"
-                        style={{ backgroundImage: `url("${draftPreviewImage}")` }}
+                        src={draftPreviewImage}
+                        alt=""
                       />
                       <div className="news-preview-body">
-                        <span>{draft.publishedAt ? draft.publishedAt.slice(0, 7) : '发布日期'}</span>
                         <strong>{draft.title || '资讯标题'}</strong>
                         <p>{draft.summary || '资讯摘要'}</p>
+                        <div className="news-preview-meta">
+                          <span>{draft.publishedAt ? draft.publishedAt.slice(0, 7) : '发布日期'}</span>
+                          <span className="news-preview-link">了解更多 ›</span>
+                        </div>
                       </div>
                     </div>
                   </div>
                   <div className="site-news-preview-pane">
                     <span className="t-label">详情</span>
                     <div className="site-news-detail-preview">
-                      <div className="site-news-detail-preview-img" style={{ backgroundImage: `url("${draftPreviewImage}")` }} />
+                      <img className="site-news-detail-preview-img" src={draftPreviewImage} alt="" />
                       <div className="site-news-detail-preview-body">
                         <span>{draft.publishedAt ? draft.publishedAt.slice(0, 7) : '发布日期'}</span>
                         <h4>{draft.title || '资讯标题'}</h4>
@@ -5873,6 +8435,7 @@ function SiteNewsPanel({
                       </td>
                       <td>
                         <strong>{article.title}</strong>
+                        {article.isFeatured ? <span className="badge badge-info" style={{ marginLeft: 8 }}>精选</span> : null}
                         <div style={{ color: 'var(--t-tertiary)', fontSize: 12 }}>{article.summary}</div>
                       </td>
                       <td>{article.publishedAt ? String(article.publishedAt).slice(0, 10) : '-'}</td>
@@ -6371,6 +8934,349 @@ function ProductSummaryRow({
   );
 }
 
+type SiteInquiryKind = 'customer' | 'dealer';
+type SiteInquiryRow = {
+  id: string;
+  kind: SiteInquiryKind;
+  name: string;
+  phone: string;
+  city: string;
+  inquiryType: string;
+  message: string;
+  companyName: string;
+  intendedRegion: string;
+  businessSummary: string;
+  submittedAt: string;
+  createdAt: string;
+};
+
+function shortText(value: string, max = 80) {
+  const clean = String(value || '').replace(/\s+/g, ' ').trim();
+  return clean.length > max ? `${clean.slice(0, max)}...` : clean;
+}
+
+function formatSubmittedAt(value: string) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value).slice(0, 19).replace('T', ' ');
+  return date.toLocaleString('zh-CN', { hour12: false });
+}
+
+function formatExportFilenameTime(value = new Date()) {
+  const pad = (input: number) => String(input).padStart(2, '0');
+  return [
+    value.getFullYear(),
+    pad(value.getMonth() + 1),
+    pad(value.getDate()),
+    '_',
+    pad(value.getHours()),
+    pad(value.getMinutes()),
+    pad(value.getSeconds()),
+  ].join('');
+}
+
+function SiteInquiryPanel({ siteCode, canWrite }: { siteCode: string; canWrite: boolean }) {
+  const [kind, setKind] = useState<SiteInquiryKind>('customer');
+  const [items, setItems] = useState<SiteInquiryRow[]>([]);
+  const [keyword, setKeyword] = useState('');
+  const [submittedFrom, setSubmittedFrom] = useState('');
+  const [submittedTo, setSubmittedTo] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [feedback, setFeedback] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
+
+  const totalPages = Math.max(Math.ceil(total / pageSize), 1);
+
+  const inquiryQuery = useCallback((nextPage: string, nextPageSize: string) => ({
+    kind,
+    page: nextPage,
+    pageSize: nextPageSize,
+    q: keyword,
+    ...(submittedFrom ? { submittedFrom } : {}),
+    ...(submittedTo ? { submittedTo } : {}),
+  }), [kind, keyword, submittedFrom, submittedTo]);
+
+  const loadInquiries = useCallback(async () => {
+    setLoading(true);
+    setFeedback(null);
+    try {
+      const result = await siteInquiries.list(siteCode, inquiryQuery(String(page), String(pageSize)));
+      const data = (result as any)?.data || result || {};
+      setItems(Array.isArray(data.items) ? data.items : []);
+      setTotal(Number(data.total || 0));
+    } catch (e) {
+      setFeedback({ tone: 'error', text: (e as Error).message || '咨询数据加载失败。' });
+      setItems([]);
+      setTotal(0);
+    } finally {
+      setLoading(false);
+    }
+  }, [inquiryQuery, page, pageSize, siteCode]);
+
+  useEffect(() => {
+    loadInquiries();
+  }, [loadInquiries]);
+
+  async function deleteInquiry(row: SiteInquiryRow) {
+    if (!canWrite || !window.confirm('确认删除这条咨询记录？')) return;
+    setBusy(true);
+    try {
+      await siteInquiries.remove(siteCode, row.id);
+      setFeedback({ tone: 'success', text: '咨询记录已删除。' });
+      await loadInquiries();
+    } catch (e) {
+      setFeedback({ tone: 'error', text: (e as Error).message || '删除失败。' });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function exportCurrent() {
+    setBusy(true);
+    let exportRows = items;
+    try {
+      const first = await siteInquiries.list(siteCode, inquiryQuery('1', '200'));
+      const firstData = (first as any)?.data || first || {};
+      exportRows = Array.isArray(firstData.items) ? firstData.items : [];
+      const pages = Math.max(Number(firstData.pages || 1), 1);
+      for (let nextPage = 2; nextPage <= pages; nextPage += 1) {
+        const next = await siteInquiries.list(siteCode, inquiryQuery(String(nextPage), '200'));
+        const nextData = (next as any)?.data || next || {};
+        if (Array.isArray(nextData.items)) exportRows = [...exportRows, ...nextData.items];
+      }
+    } catch (e) {
+      setFeedback({ tone: 'error', text: (e as Error).message || '导出失败。' });
+      setBusy(false);
+      return;
+    }
+    const headers = kind === 'customer'
+      ? ['称呼', '电话', '城市', '咨询类型', '内容摘要', '提交时间']
+      : ['联系人', '电话', '公司/门店', '意向区域', '主营业务摘要', '提交时间'];
+    const rows = exportRows.map((row) => kind === 'customer'
+      ? [row.name, row.phone, row.city, row.inquiryType, row.message, formatSubmittedAt(row.submittedAt || row.createdAt)]
+      : [row.name, row.phone, row.companyName, row.intendedRegion, row.businessSummary, formatSubmittedAt(row.submittedAt || row.createdAt)]);
+    try {
+      const XLSX = await import('xlsx');
+      const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+      worksheet['!cols'] = kind === 'customer'
+        ? [{ wch: 18 }, { wch: 16 }, { wch: 12 }, { wch: 16 }, { wch: 42 }, { wch: 22 }]
+        : [{ wch: 18 }, { wch: 16 }, { wch: 18 }, { wch: 14 }, { wch: 42 }, { wch: 22 }];
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, kind === 'customer' ? '客户咨询' : '加盟咨询');
+      const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([excelBuffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const exportTitle = kind === 'customer' ? '客户咨询' : '加盟咨询';
+      link.href = url;
+      link.download = `${exportTitle}_${formatExportFilenameTime()}.xlsx`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setFeedback({ tone: 'error', text: (e as Error).message || '导出 Excel 失败。' });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="site-news-panel site-inquiry-panel" aria-label="品牌官网咨询管理">
+      <div className="site-material-panel-head">
+        <div>
+          <p className="t-label">咨询管理</p>
+          <h3>官网咨询</h3>
+          <p>统一查看官网客户咨询和加盟咨询；数据来自官网表单提交并保存到数据库。</p>
+        </div>
+        {loading && <span className="badge badge-info">加载中</span>}
+      </div>
+
+      <WorkbenchFilterToolbar>
+        <div className="brand-product-search">
+          <Search size={15} />
+          <input
+            className="input"
+            value={keyword}
+            onChange={(event) => {
+              setKeyword(event.target.value);
+              setPage(1);
+            }}
+            placeholder={kind === 'customer' ? '搜索称呼、电话、城市、类型或内容' : '搜索联系人、电话、公司、区域或主营业务'}
+          />
+        </div>
+        <div className="site-inquiry-date-filter" aria-label="提交时间筛选">
+          <span className="site-inquiry-date-filter-label">
+            <Calendar size={14} />
+            提交时间
+          </span>
+          <input
+            className="input site-inquiry-date-input"
+            type="date"
+            placeholder="开始日期"
+            value={submittedFrom}
+            onChange={(event) => {
+              setSubmittedFrom(event.target.value);
+              setPage(1);
+            }}
+            aria-label="开始日期"
+          />
+          <span className="site-inquiry-date-filter-separator">至</span>
+          <input
+            className="input site-inquiry-date-input"
+            type="date"
+            placeholder="结束日期"
+            value={submittedTo}
+            min={submittedFrom || undefined}
+            onChange={(event) => {
+              setSubmittedTo(event.target.value);
+              setPage(1);
+            }}
+            aria-label="结束日期"
+          />
+          {(submittedFrom || submittedTo) && (
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={() => {
+                setSubmittedFrom('');
+                setSubmittedTo('');
+                setPage(1);
+              }}
+            >
+              清除
+            </button>
+          )}
+        </div>
+      </WorkbenchFilterToolbar>
+
+      <div className="site-inquiry-toolbar">
+        <div className="brand-content-switch" aria-label="咨询类型切换">
+          <button
+            type="button"
+            className={kind === 'customer' ? 'is-active' : undefined}
+            aria-pressed={kind === 'customer'}
+            onClick={() => {
+              setKind('customer');
+              setPage(1);
+            }}
+          >
+            客户咨询
+          </button>
+          <button
+            type="button"
+            className={kind === 'dealer' ? 'is-active' : undefined}
+            aria-pressed={kind === 'dealer'}
+            onClick={() => {
+              setKind('dealer');
+              setPage(1);
+            }}
+          >
+            加盟咨询
+          </button>
+        </div>
+        <button type="button" className="btn btn-outline btn-sm" onClick={exportCurrent} disabled={busy || !items.length}>
+          <Download size={13} />
+          导出
+        </button>
+      </div>
+
+      {feedback && <div className={`brand-product-inline-feedback ${feedback.tone}`}>{feedback.text}</div>}
+
+      <WorkbenchTableShell>
+        <div className="brand-product-table-wrap">
+          <table className="table brand-product-table site-inquiry-table">
+            <thead>
+              {kind === 'customer' ? (
+                <tr>
+                  <th>称呼</th>
+                  <th>电话</th>
+                  <th>城市</th>
+                  <th>咨询类型</th>
+                  <th>内容摘要</th>
+                  <th>提交时间</th>
+                  <th style={{ textAlign: 'right' }}>操作</th>
+                </tr>
+              ) : (
+                <tr>
+                  <th>联系人</th>
+                  <th>电话</th>
+                  <th>公司/门店</th>
+                  <th>意向区域</th>
+                  <th>主营业务摘要</th>
+                  <th>提交时间</th>
+                  <th style={{ textAlign: 'right' }}>操作</th>
+                </tr>
+              )}
+            </thead>
+            <tbody>
+              {!loading && items.length ? (
+                items.map((row) => (
+                  <tr key={row.id}>
+                    <td><strong>{row.name || '-'}</strong></td>
+                    <td><span className="mono-cell">{row.phone || '-'}</span></td>
+                    {kind === 'customer' ? (
+                      <>
+                        <td>{row.city || '-'}</td>
+                        <td>{row.inquiryType || '-'}</td>
+                        <td title={row.message}>{shortText(row.message)}</td>
+                      </>
+                    ) : (
+                      <>
+                        <td>{row.companyName || '-'}</td>
+                        <td>{row.intendedRegion || '-'}</td>
+                        <td title={row.businessSummary}>{shortText(row.businessSummary)}</td>
+                      </>
+                    )}
+                    <td>{formatSubmittedAt(row.submittedAt || row.createdAt)}</td>
+                    <td style={{ textAlign: 'right' }}>
+                      {canWrite ? (
+                        <button type="button" className="btn btn-outline btn-sm btn-danger" onClick={() => deleteInquiry(row)} disabled={busy}>
+                          <Trash2 size={13} />
+                          删除
+                        </button>
+                      ) : (
+                        <span className="muted-value">只读</span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={7} className="brand-product-empty">
+                    <WorkbenchTableState
+                      type={loading ? 'loading' : 'empty'}
+                      title={loading ? '正在加载咨询' : kind === 'customer' ? '暂无客户咨询' : '暂无加盟咨询'}
+                      description={loading ? '正在从数据库读取当前品牌官网咨询。' : '官网表单提交后会显示在这里。'}
+                    />
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <WorkbenchPaginationFooter
+          currentPage={page}
+          totalPages={totalPages}
+          totalItems={total}
+          pageSize={pageSize}
+          pageSizeOptions={PRODUCT_PAGE_SIZE_OPTIONS}
+          onPageSizeChange={(nextPageSize) => {
+            setPageSize(nextPageSize);
+            setPage(1);
+          }}
+          onPageChange={loading ? undefined : (nextPage) => setPage(nextPage)}
+          onPrevious={loading || page <= 1 ? undefined : () => setPage((current) => Math.max(current - 1, 1))}
+          onNext={loading || page >= totalPages ? undefined : () => setPage((current) => current + 1)}
+        />
+      </WorkbenchTableShell>
+    </div>
+  );
+}
+
 function ProductEditModal({
   mode = 'edit',
   product,
@@ -6492,7 +9398,7 @@ function ProductEditModal({
   const update = (patch: Partial<BrandProductEditDraft>) => onChange({ ...draft, ...patch });
   const officialDetailFlushRef = useRef<(() => string) | null>(null);
   const handleSave = () => {
-    if (isCreate || !officialDetailFlushRef.current) {
+    if (!officialDetailFlushRef.current) {
       onSave();
       return;
     }
@@ -6523,25 +9429,7 @@ function ProductEditModal({
         </header>
 
         <div className="product-edit-modal-body">
-          <section className="product-edit-section">
-            <div className="product-edit-section-head">
-              <h3>{'\u5bfc\u5165\u7269\u6599\u4fe1\u606f'}</h3>
-              <span className="badge badge-grey">ERP</span>
-            </div>
-            <div className="product-edit-field-grid">
-              <LabeledValue label={'\u7269\u6599\u7f16\u7801'} value={product.materialCode || product.sku} fallback="-" />
-              <LabeledValue label={'\u7269\u6599\u5206\u7c7b'} value={product.materialCategory} fallback="-" />
-              <LabeledValue label={'\u4ea7\u54c1\u7ebf'} value={product.productLine} fallback="-" />
-              <LabeledValue label={'\u4ea7\u54c1\u5206\u7c7b'} value={productDisplayCategoryPath(product)} fallback="-" />
-              <LabeledValue
-                label={'\u5e94\u7528\u573a\u666f'}
-                value={product.applicationScenarios.map(taxonomyDisplayLabel).join(' / ')}
-                fallback="-"
-              />
-            </div>
-          </section>
-
-          <section className="product-edit-section">
+          <section className="product-edit-section product-edit-section-basic">
             <div className="product-edit-section-head">
               <h3>基础信息</h3>
               <StatusPill tone={statusTone(status.className)}>{status.label}</StatusPill>
@@ -6558,7 +9446,7 @@ function ProductEditModal({
               />
               <FormField label="系列" value={draft.series} onChange={(series) => update({ series })} />
               <FormField label="英文名" value={draft.officialEnglishName} onChange={(officialEnglishName) => update({ officialEnglishName })} />
-              {!isCreate && <div className="product-edit-shelf-field">
+              <div className="product-edit-shelf-field">
                 <div className="product-edit-section-head">
                   <h3>官网货架</h3>
                   <StatusPill tone={statusTone(shelfMeta.className)}>{shelfMeta.label}</StatusPill>
@@ -6596,11 +9484,11 @@ function ProductEditModal({
                   )}
                   {shelfFeedback && (shelfBusy || shelfFeedback.tone === 'error') && <span className={`row-feedback ${shelfFeedback.tone}`}>{shelfFeedback.text}</span>}
                 </div>
-              </div>}
+              </div>
             </div>
           </section>
 
-          <section className="product-edit-section">
+          <section className="product-edit-section product-edit-section-website">
             <div className="product-edit-section-head">
               <h3>官网展示</h3>
               {dirty && <span className="dirty-chip">有未保存修改</span>}
@@ -6620,7 +9508,7 @@ function ProductEditModal({
             {nameInvalid && <p className="product-edit-validation">产品名称不能为空。</p>}
           </section>
 
-          {!isCreate && <section className="product-edit-section">
+          <section className="product-edit-section product-edit-section-assets">
             <div className="product-edit-section-head">
               <h3>图片 / 素材</h3>
               <span className={product.imageState.hasMainImage ? 'badge badge-success' : 'badge badge-warning'}>
@@ -6638,7 +9526,7 @@ function ProductEditModal({
               onDeleteDetailImage={onDeleteDetailImage}
               onMoveDetailImage={onMoveDetailImage}
             />
-          </section>}
+          </section>
 
           <section className="product-edit-section product-edit-section-wide">
             <div className="product-edit-section-head">
@@ -6658,7 +9546,7 @@ function ProductEditModal({
             />
           </section>
 
-          {!isCreate && <section className="product-edit-section product-edit-section-wide">
+          <section className="product-edit-section product-edit-section-wide">
             <div className="product-edit-section-head">
               <h3>官网产品详情</h3>
               <span className="badge badge-grey">750px 长图</span>
@@ -6677,7 +9565,7 @@ function ProductEditModal({
             <p style={{ margin: 0, color: 'var(--t-tertiary)', fontSize: 12 }}>
               建议上传宽度 750px 的详情图片，高度不限；官网移动端会等比例缩放。
             </p>
-          </section>}
+          </section>
 
           <ProductManualPdfUploader
             manualPdfs={manualPdfs}
@@ -6730,6 +9618,21 @@ function ProductManualPdfUploader({
   disabled: boolean;
   onChange: (manualPdfs: ProductManualPdfDraft[]) => void;
 }) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  function addFiles(files: FileList | null) {
+    const selected = Array.from(files || []).filter((file) => file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf'));
+    if (!selected.length) return;
+    onChange([
+      ...manualPdfs,
+      ...selected.map((file) => ({
+        id: `${file.name}-${file.lastModified}-${Math.random().toString(36).slice(2)}`,
+        file,
+        name: file.name,
+        previewUrl: URL.createObjectURL(file),
+      })),
+    ]);
+  }
+
   return (
     <section className="product-edit-section product-edit-section-wide">
       <div className="product-edit-section-head">
@@ -6738,55 +9641,81 @@ function ProductManualPdfUploader({
       </div>
       <label className="product-create-field">
         <span>上传 PDF</span>
-        <input
-          className="input"
-          type="file"
-          accept="application/pdf,.pdf"
-          multiple
-          disabled={disabled}
-          onChange={(event) => {
-            const files = Array.from(event.target.files || []).filter((file) => file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf'));
-            if (!files.length) return;
-            onChange([
-              ...manualPdfs,
-              ...files.map((file) => ({
-                id: `${file.name}-${file.lastModified}-${Math.random().toString(36).slice(2)}`,
-                file,
-                name: file.name,
-                previewUrl: URL.createObjectURL(file),
-              })),
-            ]);
-            event.currentTarget.value = '';
-          }}
-        />
-      </label>
-      {manualPdfs.length ? (
-        <div style={{ display: 'grid', gap: 10 }}>
-          {manualPdfs.map((manual, index) => (
-            <div key={manual.id} className="inset" style={{ display: 'grid', gap: 8, padding: 12 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                <strong style={{ overflowWrap: 'anywhere' }}>{index + 1}. {manual.name}</strong>
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => {
+        <div className="product-manual-pdf-upload-row">
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            onClick={() => inputRef.current?.click()}
+            disabled={disabled}
+          >
+            <Upload size={13} />
+            选择文件
+          </button>
+          <input
+            ref={inputRef}
+            type="file"
+            accept="application/pdf,.pdf"
+            multiple
+            disabled={disabled}
+            style={{ display: 'none' }}
+            onChange={(event) => {
+              addFiles(event.target.files);
+              event.currentTarget.value = '';
+            }}
+          />
+          <div className="product-manual-pdf-inline-list">
+            {manualPdfs.length ? (
+              manualPdfs.map((manual, index) => (
+                <ProductManualPdfItem
+                  key={manual.id}
+                  manual={manual}
+                  index={index}
+                  disabled={disabled}
+                  onRemove={() => {
                     URL.revokeObjectURL(manual.previewUrl);
                     onChange(manualPdfs.filter((item) => item.id !== manual.id));
                   }}
-                  disabled={disabled}
-                >
-                  <X size={13} />
-                  移除
-                </button>
-              </div>
-              <iframe title={`PDF preview ${manual.name}`} src={manual.previewUrl} style={{ width: '100%', height: 320, border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', background: 'var(--surface-2)' }} />
-            </div>
-          ))}
+                />
+              ))
+            ) : (
+              <span className="muted-value">未选择文件</span>
+            )}
+          </div>
         </div>
-      ) : (
-        <div className="inset" style={{ padding: 12, color: 'var(--t-secondary)', fontSize: 13 }}>尚未上传产品说明 PDF。</div>
-      )}
+      </label>
     </section>
+  );
+}
+
+function ProductManualPdfItem({
+  manual,
+  index,
+  disabled,
+  onRemove,
+}: {
+  manual: ProductManualPdfDraft;
+  index: number;
+  disabled: boolean;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="product-manual-pdf-chip">
+      <strong>{index + 1}. {manual.name}</strong>
+      <a className="btn btn-brand btn-sm" href={manual.previewUrl} target="_blank" rel="noopener noreferrer">
+        <ExternalLink size={13} />
+        预览
+      </a>
+      <button
+        type="button"
+        className="product-manual-pdf-remove"
+        onClick={onRemove}
+        disabled={disabled}
+        title="移除"
+        aria-label={`移除 ${manual.name}`}
+      >
+        <X size={11} />
+      </button>
+    </div>
   );
 }
 
@@ -7120,8 +10049,6 @@ function StructuredContentEditor({
               onChange={(websiteDescription) => update({ websiteDescription })}
             />
             <StructuredTextField label="官方文案" value={draft.officialCopy} canWrite={canWrite} multiline onChange={(officialCopy) => update({ officialCopy })} />
-            <StructuredTextField label="图标" value={draft.icon} canWrite={canWrite} onChange={(icon) => update({ icon })} />
-            <StructuredTextField label="规格图地址" value={draft.specImage} canWrite={canWrite} onChange={(specImage) => update({ specImage })} />
           </div>
         </section>
 
@@ -7145,7 +10072,6 @@ function StructuredContentEditor({
         />
         <StringListEditor title="认证" canWrite={canWrite} values={draft.certs} onChange={(certs) => update({ certs })} />
         <FaqEditor title="常见问题" canWrite={canWrite} rows={draft.faqs} onChange={(faqs) => update({ faqs })} />
-        <GalleryEditor title="图库" canWrite={canWrite} rows={draft.gallery} onChange={(gallery) => update({ gallery })} />
 
         <section className="structured-section structured-section-wide">
           <h3>定位词表</h3>
@@ -7317,37 +10243,6 @@ function FaqEditor({
           <div className="structured-pair" key={`${title}-${index}`}>
             <StructuredInlineInput canWrite={canWrite} value={row.question} placeholder="问题" onChange={(question) => onChange(replaceAt(rows, index, { ...row, question }))} />
             <StructuredInlineInput canWrite={canWrite} value={row.answer} placeholder="答案" onChange={(answer) => onChange(replaceAt(rows, index, { ...row, answer }))} />
-            {canWrite && (
-              <button type="button" className="btn btn-outline btn-sm icon-only" onClick={() => onChange(removeAt(rows, index))}>
-                <X size={13} />
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function GalleryEditor({
-  title,
-  canWrite,
-  rows,
-  onChange,
-}: {
-  title: string;
-  canWrite: boolean;
-  rows: { url: string; alt: string }[];
-  onChange: (rows: { url: string; alt: string }[]) => void;
-}) {
-  return (
-    <section className="structured-section">
-      <StructuredSectionTitle title={title} canWrite={canWrite} onAdd={() => onChange([...rows, { url: '', alt: '' }])} />
-      <div className="structured-list">
-        {(rows.length ? rows : [{ url: '', alt: '' }]).map((row, index) => (
-          <div className="structured-pair" key={`${title}-${index}`}>
-            <StructuredInlineInput canWrite={canWrite} value={row.url} placeholder="URL" onChange={(url) => onChange(replaceAt(rows, index, { ...row, url }))} />
-            <StructuredInlineInput canWrite={canWrite} value={row.alt} placeholder="图片说明" onChange={(alt) => onChange(replaceAt(rows, index, { ...row, alt }))} />
             {canWrite && (
               <button type="button" className="btn btn-outline btn-sm icon-only" onClick={() => onChange(removeAt(rows, index))}>
                 <X size={13} />
@@ -7853,32 +10748,5 @@ async function uploadProductManualPdfRefs(manualPdfs: ProductManualPdfDraft[], s
         url: clean((artifact as any)?.contentUrl) || `/api/v2/file-artifact/${encodeURIComponent(artifactId)}/content`,
       };
     }),
-  );
-}
-
-function SummaryItem({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="summary-item">
-      <label>{label}</label>
-      <div>{children}</div>
-    </div>
-  );
-}
-
-function ConsoleModule({
-  icon,
-  title,
-  value,
-}: {
-  icon: ReactNode;
-  title: string;
-  value: string;
-}) {
-  return (
-    <div className="console-module">
-      {icon}
-      <strong>{title}</strong>
-      <span>{value}</span>
-    </div>
   );
 }

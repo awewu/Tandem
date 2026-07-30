@@ -2,7 +2,6 @@
 import { useState } from 'react';
 import { auth } from '../lib/api';
 import { setToken } from '@rhautt/shared-auth';
-import { WORKBENCH_PORTS } from '../lib/workbench-navigation';
 
 const HUB_BRAND = process.env.NEXT_PUBLIC_TENANT_BRAND || 'Rhautt Comfort';
 const PLATFORM_TAG = process.env.NEXT_PUBLIC_PLATFORM_TAG || 'Powered by Rysnova AI';
@@ -204,13 +203,6 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* 唯一登录口原则：登录后进入 /brand 统一工作台，此处不再提供第二登录入口。
-              仅保留「返回集团公开官网」这一非登录链接。 */}
-          <div style={{ marginTop: 28, paddingTop: 24, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <a href={process.env.NEXT_PUBLIC_PORTAL_URL || `http://localhost:${WORKBENCH_PORTS.public}`} style={{ fontSize: 13, color: 'var(--t-tertiary)', display: 'flex', alignItems: 'center', gap: 4 }}>
-              ← 返回集团官网
-            </a>
-          </div>
         </div>
       </div>
 

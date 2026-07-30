@@ -26,5 +26,72 @@
     "mimeType": "image/webp",
     "size": 26424,
     "updatedAt": "2026-07-24T10:32:50.437Z"
-  }
+  },
+  "home-audience-cards": [
+    {
+      "id": "residential",
+      "tagZh": "家用",
+      "tagEn": "RESIDENTIAL",
+      "title": "为家庭打造的舒适系统",
+      "description": "热水 · 采暖为核心，兼顾制冷，全屋舒适一站解决",
+      "primaryLabel": "热水 Water →",
+      "primaryHref": "/products/residential/water-heating/",
+      "secondaryLabel": "采暖制冷 Air →",
+      "secondaryHref": "/products/residential/heating-cooling/",
+      "visible": true,
+      "sortOrder": 0
+    },
+    {
+      "id": "commercial",
+      "tagZh": "商用",
+      "tagEn": "COMMERCIAL",
+      "title": "为建筑而生的工程系统",
+      "description": "酒店 · 公寓 · 综合体，高并发连续供热水、稳定供暖，兼顾供冷",
+      "primaryLabel": "热水 Water →",
+      "primaryHref": "/products/commercial/water-heating/",
+      "secondaryLabel": "采暖制冷 Air →",
+      "secondaryHref": "/products/commercial/heating-cooling/",
+      "visible": true,
+      "sortOrder": 1
+    },
+    {
+      "id": "professionals",
+      "tagZh": "专业人士",
+      "tagEn": "PROFESSIONALS",
+      "title": "为经销商与工程师赋能",
+      "description": "培训 · 技术资料 · BIM/CAD · 合作计划",
+      "primaryLabel": "专业人士中心 →",
+      "primaryHref": "/professionals/",
+      "secondaryLabel": "查找经销商 →",
+      "secondaryHref": "/find-a-pro/",
+      "visible": true,
+      "sortOrder": 2
+    }
+  ],
+  "home-hero-carousel": [
+    {
+      "id": "hero-1785307919239-0",
+      "src": "/assets/img/site-materials/hero-1785307919239-0.jpg",
+      "filename": "1408177635.jpg",
+      "mimeType": "image/jpeg",
+      "size": 108748,
+      "updatedAt": "2026-07-29T06:51:59.241Z",
+      "linkUrl": "https://www.rheemchina.com/news/21.html",
+      "remark": "",
+      "visible": true,
+      "sortOrder": 0
+    },
+    {
+      "id": "hero-1785307919239-1",
+      "src": "/assets/img/site-materials/hero-1785307919239-1.png",
+      "filename": "1637386633.png",
+      "mimeType": "image/png",
+      "size": 71222,
+      "updatedAt": "2026-07-29T06:51:59.242Z",
+      "linkUrl": "https://www.rheemchina.com/news/21.html",
+      "remark": "",
+      "visible": true,
+      "sortOrder": 1
+    }
+  ]
 }

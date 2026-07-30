@@ -5,12 +5,15 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { TenantContextInterceptor } from './common/tenant-context.interceptor';
 import { AuthGuard } from './auth/auth.guard';
 import { RolesGuard } from './common/roles.guard';
+import { PermissionsGuard } from './common/permissions.guard';
 import { BrandModule } from './brand/brand.module';
 import { BrandProductCategoryModule } from './brand-product-category/brand-product-category.module';
 import { BrandRegistryModule } from './brand-registry/brand-registry.module';
 import { ComplianceModule } from './compliance/compliance.module';
 import { MdmModule } from './mdm/mdm.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { AuditLogInterceptor } from './audit-log/audit-log.interceptor';
+import { AuditLogModule } from './audit-log/audit-log.module';
 import { AuthModule } from './auth/auth.module';
 import { CrmModule } from './crm/crm.module';
 import { DeliveryModule } from './delivery/delivery.module';
@@ -67,6 +70,7 @@ import { TARGET_API_BOOT_SMOKE, BootSmokeInfraModule } from './boot-smoke';
         logging: process.env.NODE_ENV === 'development',
       })
     ]),
+    AuditLogModule,
     AuthModule,
     TenantModule,
     CrmModule,
@@ -98,10 +102,12 @@ import { TARGET_API_BOOT_SMOKE, BootSmokeInfraModule } from './boot-smoke';
   controllers: [HealthController],
   providers: [
     { provide: APP_INTERCEPTOR, useClass: TenantContextInterceptor },
+    { provide: APP_INTERCEPTOR, useClass: AuditLogInterceptor },
     // H2：全局 deny-by-default。AuthGuard 先跑（认证 + 校验租户范围，@Public() 放行），
     // RolesGuard 后跑（读 req.user.role 做 RBAC，未标 @Roles 时 no-op）。顺序即数组顺序。
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_GUARD, useClass: PermissionsGuard },
     // 商业化订阅授权：@RequireModule 标注的端点校验租户是否订阅对应模块（无标注则 no-op）。
     { provide: APP_GUARD, useClass: EntitlementGuard },
   ],

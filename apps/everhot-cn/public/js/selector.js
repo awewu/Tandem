@@ -118,12 +118,61 @@
   }
 
   function backendCriteria(state){
+    var segments = state.scene==='commercial' ? ['commercial','project'] : ['home','villa'];
     return {
-      segments: state.scene ? [state.scene] : [],
+      segments: state.scene ? segments : [],
       channels: ['dealer'],
       systems: selectionSystems(state),
       limit: 4
     };
+  }
+
+  var REASON_VALUE_LABELS = {
+    dealer: '授权经销商渠道',
+    home: '家庭住宅',
+    villa: '别墅大宅',
+    commercial: '商用工程',
+    project: '项目工程',
+    heating: '采暖系统',
+    hot_water: '热水系统',
+    air: '空气系统',
+    fresh_air: '新风系统',
+    water_treatment: '水处理系统',
+    smart_control: '智能控制'
+  };
+  var REASON_DIMENSION_LABELS = {
+    targetSegments: '适配',
+    channels: '适配',
+    userPersonas: '适配',
+    markets: '适配',
+    applicationScenarios: '适配',
+    system: '匹配',
+    pain: '覆盖'
+  };
+
+  function reasonValueLabel(value){
+    value=String(value||'').trim();
+    return REASON_VALUE_LABELS[value] || value.replace(/_/g,' ');
+  }
+
+  function reasonLabel(reason){
+    reason=String(reason||'').trim();
+    if(!reason) return '';
+    if(reason.indexOf(':')<0) return reason;
+    var parts=reason.split(':');
+    var dimension=parts.shift();
+    var values=parts.join(':').split(',').map(reasonValueLabel).filter(Boolean);
+    var suffix=REASON_DIMENSION_LABELS[dimension] || '匹配';
+    return values.length ? values.join('、') + suffix : '';
+  }
+
+  function displayReasons(reasons){
+    var seen={};
+    return (Array.isArray(reasons)?reasons:[]).map(reasonLabel).filter(function(reason){
+      if(!reason || seen[reason]) return false;
+      seen[reason]=1;
+      return true;
+    });
   }
 
   function normalizeBackendProduct(item){
@@ -152,7 +201,7 @@
         cat: state.scene,
         sys: state.need==='both'?'water-heating':state.need,
         items: items.map(function(item){
-          return {p:normalizeBackendProduct(item),score:Number(item.matchScore||0),reasons:item.matchSignals||[]};
+          return {p:normalizeBackendProduct(item),score:Number(item.matchScore||0),reasons:displayReasons(item.matchReasons || item.reasons || item.matchSignals)};
         })
       };
     });

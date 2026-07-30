@@ -24,11 +24,9 @@
     window.EVERHOT_PRODUCTS_STATUS = status;
     try{ window.dispatchEvent(new CustomEvent('everhot-products-status',{detail:{status:status}})); }catch(_){}
   }
-  function isLocalRuntime(){
-    if(window.EVERHOT_RUNTIME_PRODUCTS === true) return true;
+  function shouldUseRuntimeProducts(){
     if(window.EVERHOT_RUNTIME_PRODUCTS === false) return false;
-    var host = location && location.hostname ? location.hostname : '';
-    return host === 'localhost' || host === '127.0.0.1' || host === '::1';
+    return true;
   }
   function fetchJson(url){
     return fetch(url, { cache:'no-store' }).then(function(res){
@@ -58,7 +56,7 @@
   }
   function loadRuntimeProducts(){
     if(window.EVERHOT_PRODUCTS_READY) return window.EVERHOT_PRODUCTS_READY;
-    if(!isLocalRuntime()){ installCatalog(); setRuntimeStatus('static'); return Promise.resolve(false); }
+    if(!shouldUseRuntimeProducts()){ installCatalog(); setRuntimeStatus('static'); return Promise.resolve(false); }
     if(!window.fetch){ installCatalog(); setRuntimeStatus('fallback'); return Promise.resolve(false); }
     setRuntimeStatus('loading');
     var apiBase = RUNTIME_API_BASE;
@@ -81,7 +79,7 @@
     return window.EVERHOT_PRODUCTS_READY;
   }
   function loadRuntimeProduct(slug){
-    if(!slug || !isLocalRuntime() || !window.fetch) return Promise.resolve(null);
+    if(!slug || !shouldUseRuntimeProducts() || !window.fetch) return Promise.resolve(null);
     var found = window.EVERHOT_CATALOG && window.EVERHOT_CATALOG.one(slug);
     if(found) return Promise.resolve(found);
     var apiBase = RUNTIME_API_BASE;
@@ -106,6 +104,75 @@
   }
   window.EVERHOT_LOAD_PRODUCTS = loadRuntimeProducts;
   window.EVERHOT_LOAD_PRODUCT = loadRuntimeProduct;
+
+  function imageUrl(path) {
+    if (!path || /^(?:https?:|data:)/.test(path)) return path;
+    return RUNTIME_API_BASE + path;
+  }
+
+  function officialDetailHtml(product) {
+    return String(product && (product.officialDetailHtml || (product.content && product.content.officialDetailHtml)) || '');
+  }
+
+  function manualPdfs(product) {
+    return (product && Array.isArray(product.manualPdfs) ? product.manualPdfs : [])
+      .map(function (item) {
+        var url = item && item.url ? imageUrl(String(item.url)) : '';
+        if (!url || !/^(https?:\/\/|\/api\/|\/assets\/|\/uploads\/)/i.test(url)) return null;
+        return { url: url, filename: String((item && item.filename) || '产品说明.pdf') };
+      })
+      .filter(Boolean);
+  }
+
+  function normalizeOfficialDetailHtml(html) {
+    if (!html) return '';
+    var template = document.createElement('template');
+    template.innerHTML = String(html);
+    template.content.querySelectorAll('script, style, iframe, object, embed, form, input, button').forEach(function (node) {
+      node.remove();
+    });
+    template.content.querySelectorAll('*').forEach(function (node) {
+      Array.prototype.slice.call(node.attributes || []).forEach(function (attr) {
+        var name = attr.name.toLowerCase();
+        if (name.indexOf('on') === 0 || name === 'style') node.removeAttribute(attr.name);
+      });
+      if (node.tagName === 'A') {
+        var href = node.getAttribute('href') || '';
+        if (/^(https?:\/\/|mailto:|tel:|\/)/i.test(href)) {
+          node.setAttribute('rel', 'noopener noreferrer');
+          if (/^https?:\/\//i.test(href)) node.setAttribute('target', '_blank');
+        } else {
+          node.removeAttribute('href');
+        }
+      }
+      if (node.tagName === 'IMG') {
+        var src = node.getAttribute('src') || '';
+        if (/^(https?:\/\/|\/api\/|\/assets\/|\/uploads\/)/i.test(src)) {
+          node.setAttribute('src', imageUrl(src));
+          node.setAttribute('loading', 'lazy');
+          node.setAttribute('decoding', 'async');
+          node.setAttribute('alt', node.getAttribute('alt') || '');
+        } else {
+          node.remove();
+        }
+      }
+    });
+    return template.innerHTML.trim();
+  }
+
+  function hasOfficialDetailBody(html) {
+    if (!html) return false;
+    var text = html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+    return !!(text || /<(img|table)\b/i.test(html));
+  }
+
+  function officialDetailBlock(product) {
+    var html = normalizeOfficialDetailHtml(officialDetailHtml(product));
+    if (!hasOfficialDetailBody(html)) return '';
+    return '<section class="section pd-official-detail-section"><div class="container">'
+      + '<div class="pd-official-detail-body">' + html + '</div>'
+      + '</div></section>';
+  }
 
   function iconSrc(p){
     var v=p&&p.icon ? String(p.icon) : '';
@@ -316,12 +383,22 @@
 
   /* 资料下载：规格书走浏览器打印/另存 PDF（真实可用，无占位文件） */
   function docBlock(p){
+    var docs = manualPdfs(p);
+    var resourcesUrl = BASE+'/professionals/'+(p.cat==='commercial'?'commercial':'residential')+'/resources/';
+    if(docs.length){
+      return '<section class="section section-alt"><div class="container">'
+        +'<div class="section-head"><div class="eyebrow">资料下载</div><h2>技术资料</h2>'
+        +'<p>产品说明 PDF 来自后台上传，可直接预览或下载。</p></div>'
+        +'<div class="doc-actions">'
+        +docs.map(function(doc){ return '<a class="btn btn-brand" href="'+e(doc.url)+'" target="_blank" rel="noopener noreferrer">下载 '+e(doc.filename)+'</a>'; }).join('')
+        +'<a class="btn btn-outline" href="'+resourcesUrl+'">经销商资料库</a>'
+        +'</div></div></section>';
+    }
     return '<section class="section section-alt"><div class="container">'
       +'<div class="section-head"><div class="eyebrow">资料下载</div><h2>技术资料</h2>'
-      +'<p>规格书可直接打印或另存为 PDF；安装手册、BIM/CAD 选型资料请向授权经销商索取。</p></div>'
+      +'<p>产品说明 PDF 尚未上传，安装手册、BIM/CAD 选型资料请向授权经销商索取。</p></div>'
       +'<div class="doc-actions">'
-      +'<button type="button" class="btn btn-brand" data-ev-print>↓ 下载规格书（PDF）</button>'
-      +'<a class="btn btn-outline" href="'+BASE+'/professionals/'+(p.cat==='commercial'?'commercial':'residential')+'/resources/">经销商资料库</a>'
+      +'<a class="btn btn-outline" href="'+resourcesUrl+'">经销商资料库</a>'
       +'</div></div></section>';
   }
 
@@ -376,7 +453,6 @@
     var p=slug?window.EVERHOT_CATALOG.one(slug):null;
     if(!p && slug && window.EVERHOT_LOAD_PRODUCT && !host.getAttribute('data-single-load-tried')){
       host.setAttribute('data-single-load-tried','1');
-      host.innerHTML='<section class="section"><div class="container">'+loadingState()+'</div></section>';
       window.EVERHOT_LOAD_PRODUCT(slug).then(function(item){
         if(item) renderDetail();
         else renderDetail();
@@ -405,15 +481,6 @@
       +   '</div></div></section>';
 
     if(window.EVERHOT_SHOW_PRODUCT_POSITIONING){ html+=positioningBlock(p); }
-    var gallery=galleryImgs(p);
-    if(window.EVERHOT_SHOW_PRODUCT_GALLERY !== false && gallery.length){
-      html+='<section class="section"><div class="container">'
-        +'<div class="section-head"><div class="eyebrow">产品图片</div><h2>'+e(p.name)+' 图集</h2></div>'
-        +'<div class="pd-gallery">'+gallery.map(function(src,i){
-          return '<figure><img src="'+e(src)+'" alt="'+e(p.name)+' 详情图 '+(i+1)+'" loading="lazy" decoding="async"></figure>';
-        }).join('')+'</div></div></section>';
-    }
-
     if((p.highlights||[]).length){
       html+='<section class="pd-stats-band"><div class="container pd-stats">'+highlightStats(p)+'</div></section>';
     }
@@ -431,6 +498,7 @@
       html+='</div></section>';
     }
     html+=certBlock(p);
+    html+=officialDetailBlock(p);
     html+=docBlock(p);
     html+=faqBlock(p);
     html+='<section class="section-cta"><div class="container"><h2>需要为您的项目选型？</h2>'
@@ -441,9 +509,6 @@
     host.innerHTML=html;
 
     // 规格书下载：浏览器打印 / 另存 PDF（配合 @media print 样式）
-    var printBtn=host.querySelector('[data-ev-print]');
-    if(printBtn){ printBtn.addEventListener('click',function(){ document.body.classList.add('ev-printing'); window.print(); }); }
-    window.addEventListener('afterprint',function(){ document.body.classList.remove('ev-printing'); });
     injectFaqLd(p);
 
     // 注入 Product JSON-LD（GEO 友好）
@@ -564,7 +629,7 @@
   function renderLoading(){
     document.querySelectorAll('[data-catalog],[data-featured]').forEach(function(g){ g.innerHTML=loadingState(); });
     var detail=document.querySelector('[data-product-detail]');
-    if(detail) detail.innerHTML='<section class="section"><div class="container">'+loadingState()+'</div></section>';
+    if(detail) detail.innerHTML='';
     var compare=document.querySelector('[data-product-compare]');
     if(compare) compare.innerHTML=loadingState();
   }

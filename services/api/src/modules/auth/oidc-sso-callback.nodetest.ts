@@ -163,12 +163,20 @@ function fixture(options: {
     [OtpChallengeEntity, otpChallenges],
   ]);
   const jwtService = new JwtService({ secret: JWT_SECRET });
+  const rbac = {
+    resolveUserAccess: async (u: UserEntity) => ({
+      role: u.role,
+      roles: [u.role],
+      permissions: u.permissions ?? [],
+    }),
+  };
   const auth = new AuthService(
     ds as any,
     users as any,
     jwtService,
     { activeModuleIds: async () => new Set(['crm']) } as any,
-    {} as any
+    {} as any,
+    rbac as any
   );
   let issuedSessions = 0;
   const issueLoginForResolvedUser = auth.issueLoginForResolvedUser.bind(auth);
@@ -297,7 +305,11 @@ test('OIDC callback exchanges code, validates id_token, binds user, and issues N
     assert.equal(payload.role, 'sales');
     assert.deepEqual(payload.permissions, ['crm:read']);
     assert.deepEqual(payload.modules, ['crm']);
-    assert.deepEqual(f.auth.getMe(payload), payload);
+    const me = await f.auth.getMe(payload);
+    assert.equal(me.id, 'user-001');
+    assert.equal(me.name, 'Local Sales');
+    assert.equal(me.role, 'sales');
+    assert.deepEqual(me.permissions, ['crm:read']);
 
     const tokenCall = f.fetchMock.calls.find((call) => call.input === TOKEN_ENDPOINT);
     assert.ok(tokenCall);

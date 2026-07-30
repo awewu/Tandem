@@ -240,8 +240,8 @@ export function sanitizeAssetRefs(input: unknown): AssetRef[] {
   if (!Array.isArray(input)) return [];
   const allowed = codeSet(ASSET_ROLES);
   const singletonByRole = new Map<string, AssetRef>();
-  const details: AssetRef[] = [];
-  const seenDetails = new Set<string>();
+  const multiRefs: AssetRef[] = [];
+  const seenMultiRefs = new Set<string>();
   for (const raw of input) {
     if (!raw || typeof raw !== 'object') continue;
     const r = raw as Partial<AssetRef>;
@@ -252,18 +252,19 @@ export function sanitizeAssetRefs(input: unknown): AssetRef[] {
     if (typeof r.filename === 'string') ref.filename = r.filename;
     if (typeof r.mimeType === 'string') ref.mimeType = r.mimeType;
     if (Number.isFinite(Number(r.sortOrder))) ref.sortOrder = Math.max(0, Number(r.sortOrder));
-    if (ref.role === 'detail') {
-      if (seenDetails.has(ref.artifactId)) continue;
-      seenDetails.add(ref.artifactId);
-      details.push(ref);
+    if (ref.role === 'detail' || ref.role === 'doc') {
+      const key = `${ref.role}:${ref.artifactId}`;
+      if (seenMultiRefs.has(key)) continue;
+      seenMultiRefs.add(key);
+      multiRefs.push(ref);
     } else {
       singletonByRole.set(ref.role, ref);
     }
   }
-  const sortedDetails = details
+  const sortedMultiRefs = multiRefs
     .map((ref, index) => ({ ...ref, sortOrder: Number.isFinite(ref.sortOrder) ? ref.sortOrder : index }))
     .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-  return [...singletonByRole.values(), ...sortedDetails];
+  return [...singletonByRole.values(), ...sortedMultiRefs];
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -424,4 +425,83 @@ export function sanitizeMarketing(input: unknown): ProductMarketing {
       .map((x) => ({ q: str((x as FaqItem)?.q), a: str((x as FaqItem)?.a) }))
       .filter((x) => x.q && x.a),
   };
+}
+
+const OFFICIAL_DETAIL_ALLOWED_TAGS = new Set([
+  'p', 'br', 'strong', 'b', 'em', 'i', 'ul', 'ol', 'li', 'a', 'img',
+  'h2', 'h3', 'h4', 'table', 'thead', 'tbody', 'tr', 'th', 'td',
+]);
+const OFFICIAL_DETAIL_VOID_TAGS = new Set(['br', 'img']);
+
+function escapeOfficialDetailHtml(value: string): string {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function readHtmlAttrs(raw: string): Record<string, string> {
+  const attrs: Record<string, string> = {};
+  raw.replace(/([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/g, (_match, name, dquoted, squoted, bare) => {
+    attrs[String(name).toLowerCase()] = String(dquoted ?? squoted ?? bare ?? '');
+    return '';
+  });
+  return attrs;
+}
+
+function safeOfficialDetailUrl(value: string, kind: 'href' | 'src'): string {
+  const url = String(value || '').trim();
+  if (!url) return '';
+  if (kind === 'href' && /^(https?:\/\/|mailto:|tel:|\/)/i.test(url)) return url;
+  if (kind === 'src' && /^(https?:\/\/|\/api\/|\/assets\/|\/uploads\/)/i.test(url)) return url;
+  return '';
+}
+
+function officialDetailTagHtml(tag: string, attrsRaw: string, closing: boolean, selfClosing: boolean): string {
+  if (!OFFICIAL_DETAIL_ALLOWED_TAGS.has(tag)) return '';
+  if (closing) return OFFICIAL_DETAIL_VOID_TAGS.has(tag) ? '' : `</${tag}>`;
+
+  const attrs = readHtmlAttrs(attrsRaw);
+  if (tag === 'a') {
+    const href = safeOfficialDetailUrl(attrs.href, 'href');
+    return href
+      ? `<a href="${escapeOfficialDetailHtml(href)}" rel="noopener noreferrer"${/^https?:\/\//i.test(href) ? ' target="_blank"' : ''}>`
+      : '<a>';
+  }
+  if (tag === 'img') {
+    const src = safeOfficialDetailUrl(attrs.src, 'src');
+    if (!src) return '';
+    return `<img src="${escapeOfficialDetailHtml(src)}" alt="${escapeOfficialDetailHtml(attrs.alt || '')}" loading="lazy">`;
+  }
+  if (OFFICIAL_DETAIL_VOID_TAGS.has(tag) || selfClosing) return `<${tag}>`;
+  return `<${tag}>`;
+}
+
+export function sanitizeOfficialDetailHtml(input: unknown): string | null {
+  if (input == null) return null;
+  const raw = String(input).trim();
+  if (!raw) return '';
+  const withoutBlockedContent = raw
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<(script|style|iframe|object|embed|form|input|button)\b[\s\S]*?<\/\1\s*>/gi, '')
+    .replace(/<(script|style|iframe|object|embed|form|input|button)\b[^>]*\/?>/gi, '');
+  let output = '';
+  let cursor = 0;
+  const tagRe = /<\/?\s*([a-zA-Z][a-zA-Z0-9]*)\b([^>]*)>/g;
+  let match: RegExpExecArray | null;
+  while ((match = tagRe.exec(withoutBlockedContent))) {
+    output += escapeOfficialDetailHtml(withoutBlockedContent.slice(cursor, match.index));
+    const full = match[0] || '';
+    output += officialDetailTagHtml(
+      String(match[1] || '').toLowerCase(),
+      match[2] || '',
+      /^<\//.test(full),
+      /\/\s*>$/.test(full),
+    );
+    cursor = match.index + full.length;
+  }
+  output += escapeOfficialDetailHtml(withoutBlockedContent.slice(cursor));
+  return output.trim();
 }

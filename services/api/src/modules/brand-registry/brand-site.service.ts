@@ -36,7 +36,7 @@ export class BrandSiteService {
   ) {}
 
   list(user: JwtPayload, includeDeleted = false) {
-    if (includeDeleted && !['platform_admin', 'hq_admin', 'brand_admin'].includes(user.role)) {
+    if (includeDeleted && !this.can(user, 'brand.library.read')) {
       throw new ForbiddenException('无权查看已归档品牌');
     }
     return withRlsTransaction(this.ds, async (em) => {
@@ -99,7 +99,7 @@ export class BrandSiteService {
   }
 
   remove(user: JwtPayload, id: string) {
-    if (user.role !== 'platform_admin') {
+    if (!this.can(user, 'brand.library.delete')) {
       throw new ForbiddenException('仅平台管理员可以删除品牌官网配置');
     }
     return withRlsTransaction(this.ds, async (em) => {
@@ -261,6 +261,12 @@ export class BrandSiteService {
 
   private scope(user: JwtPayload) {
     return { tenantId: user.tenantId, actorId: user.userId, role: user.role };
+  }
+
+  private can(user: JwtPayload, permission: string) {
+    if (user.role === 'platform_admin' || user.role === 'hq_admin') return true;
+    const permissions = new Set(user.permissions ?? []);
+    return permissions.has('*') || permissions.has(permission);
   }
 
   private async audit(

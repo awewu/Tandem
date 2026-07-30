@@ -3,11 +3,11 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ChevronLeft, ChevronRight, LogOut, UserRound } from 'lucide-react';
+import { ChevronLeft, ChevronRight, LogOut, UserCog, UserRound } from 'lucide-react';
 import { clearToken } from '@rhautt/shared-auth';
-import { WORKBENCH_NAV, navItemForPath } from '../lib/workbench-navigation';
+import { WORKBENCH_NAV, canSeeNavItem, navItemForPath } from '../lib/workbench-navigation';
 import type { WorkbenchChild } from '../lib/workbench-navigation';
-import { auth, brandSites } from '../lib/api';
+import { adminUsers, auth, brandSites } from '../lib/api';
 
 type BrandSiteNavItem = {
   id: string;
@@ -20,11 +20,18 @@ type BrandSiteNavItem = {
 };
 
 type AccountProfile = {
+  id?: string;
+  userId?: string;
+  tenantId?: string;
   name?: string;
   email?: string;
   phone?: string;
   identifier?: string;
+  identifierMasked?: string;
+  identifierKind?: 'email' | 'phone' | 'unknown';
   role?: string;
+  roles?: string[];
+  permissions?: string[];
 };
 
 const ROLE_LABEL: Record<string, string> = {
@@ -51,6 +58,79 @@ function readCachedProfile(): AccountProfile | null {
   }
 }
 
+function cleanAccountValue(value?: string | null) {
+  const text = String(value || '').trim();
+  if (!text || text === '***') return '';
+  return text;
+}
+
+function isRoleLikeAccountName(value?: string | null) {
+  const text = cleanAccountValue(value);
+  if (!text) return false;
+  const normalized = text.replace(/\s+/g, '').toLowerCase();
+  const roleNames = new Set([
+    ...Object.keys(ROLE_LABEL).map((role) => role.toLowerCase()),
+    ...Object.values(ROLE_LABEL).map((role) => role.replace(/\s+/g, '').toLowerCase()),
+    '超级管理员',
+    '平台超级管理员',
+    '系统管理员',
+  ]);
+  return roleNames.has(normalized);
+}
+
+function mergeProfile(base: AccountProfile | null, next: AccountProfile): AccountProfile {
+  const nextName = cleanAccountValue(next.name);
+  const baseName = cleanAccountValue(base?.name);
+  return {
+    ...(base || {}),
+    ...next,
+    name: (!isRoleLikeAccountName(nextName) && nextName) || (!isRoleLikeAccountName(baseName) && baseName) || undefined,
+    email: cleanAccountValue(next.email) || cleanAccountValue(base?.email) || undefined,
+    phone: cleanAccountValue(next.phone) || cleanAccountValue(base?.phone) || undefined,
+    identifier: cleanAccountValue(next.identifier) || cleanAccountValue(base?.identifier) || undefined,
+    identifierMasked: cleanAccountValue(next.identifierMasked) || cleanAccountValue(base?.identifierMasked) || undefined,
+  };
+}
+
+function accountInitials(profile: AccountProfile | null) {
+  const source =
+    cleanAccountValue(profile?.name) ||
+    cleanAccountValue(profile?.identifierMasked) ||
+    cleanAccountValue(profile?.phone) ||
+    cleanAccountValue(profile?.email) ||
+    cleanAccountValue(profile?.identifier);
+  if (!source) return '账';
+  if (/^\d+$/.test(source)) return source.slice(-1);
+  const compact = source.includes('@') ? source.split('@')[0] : source;
+  return compact.slice(0, 1).toUpperCase();
+}
+
+function canReadAccountDirectory(profile: AccountProfile) {
+  const permissions = profile.permissions || [];
+  return profile.role === 'platform_admin' || profile.role === 'hq_admin' || permissions.includes('*') || permissions.includes('admin.users.read');
+}
+
+async function enrichProfileFromAccountDirectory(profile: AccountProfile): Promise<AccountProfile> {
+  if (cleanAccountValue(profile.name) && !isRoleLikeAccountName(profile.name)) return profile;
+  if (!canReadAccountDirectory(profile)) return profile;
+  const currentId = cleanAccountValue(profile.id || profile.userId);
+  if (!currentId) return profile;
+
+  const result = await adminUsers.list();
+  const users = Array.isArray(result?.users) ? result.users : [];
+  const currentUser = users.find((user: AccountProfile) => cleanAccountValue(user.id || user.userId) === currentId);
+  if (!currentUser) return profile;
+
+  return mergeProfile(profile, {
+    id: currentUser.id,
+    userId: currentUser.userId,
+    name: currentUser.name,
+    role: currentUser.role || profile.role,
+    identifierMasked: currentUser.identifierMasked || profile.identifierMasked,
+    identifierKind: currentUser.identifierKind || profile.identifierKind,
+  });
+}
+
 export default function DealerNav() {
   const path = usePathname();
   const [collapsed, setCollapsed] = useState(false);
@@ -59,6 +139,7 @@ export default function DealerNav() {
   const [accountOpen, setAccountOpen] = useState(false);
   const [profile, setProfile] = useState<AccountProfile | null>(null);
   const activeItem = navItemForPath(path);
+  const visibleNav = WORKBENCH_NAV.filter((item) => canSeeNavItem(item, profile?.permissions || [], profile?.role));
   const currentHref = `${path || ''}${search}`;
 
   useEffect(() => {
@@ -73,10 +154,16 @@ export default function DealerNav() {
 
     let cancelled = false;
     auth.me()
-      .then((me) => {
+      .then(async (me) => {
         if (cancelled) return;
-        setProfile(me);
-        localStorage.setItem('user', JSON.stringify(me));
+        const fromMe = mergeProfile(cached, me);
+        const enriched = await enrichProfileFromAccountDirectory(fromMe).catch(() => fromMe);
+        if (cancelled) return;
+        setProfile((current) => {
+          const merged = mergeProfile(current || cached, enriched);
+          localStorage.setItem('user', JSON.stringify(merged));
+          return merged;
+        });
       })
       .catch(() => {
         if (!cancelled && !cached) setProfile(null);
@@ -157,6 +244,10 @@ export default function DealerNav() {
       const childModule = new URLSearchParams(href.split('?')[1] || '').get('module') || 'catalog';
       return (new URLSearchParams(search).get('module') || 'catalog') === childModule;
     }
+    if (childPath === '/accounts' && path === '/accounts') {
+      const childModule = new URLSearchParams(href.split('?')[1] || '').get('module') || 'users';
+      return (new URLSearchParams(search).get('module') || 'users') === childModule;
+    }
     if (href.includes('?')) return currentHref === href;
     if (path === childPath) return true;
     if (!path?.startsWith(`${childPath}/`)) return false;
@@ -180,10 +271,19 @@ export default function DealerNav() {
     window.location.href = '/';
   }
 
-  const accountName = profile?.name || '未命名账户';
-  const accountContact = profile?.email || profile?.phone || profile?.identifier || '未绑定联系方式';
-  const roleLabel = (profile?.role && ROLE_LABEL[profile.role]) || profile?.role || '未分配角色';
-  const initials = accountName.trim().slice(0, 1).toUpperCase() || 'U';
+  const loginIdentifier =
+    cleanAccountValue(profile?.identifierMasked) ||
+    cleanAccountValue(profile?.email) ||
+    cleanAccountValue(profile?.phone) ||
+    cleanAccountValue(profile?.identifier);
+  const profileName = cleanAccountValue(profile?.name);
+  const displayAccountName = profileName || (loginIdentifier ? `账号 ${loginIdentifier}` : '账号信息待完善');
+  const displayAccountContact = loginIdentifier ? `登录账号：${loginIdentifier}` : '登录账号：未绑定手机号/邮箱';
+  const displayContactStatus = loginIdentifier
+    ? `联系方式：${profile?.identifierKind === 'email' ? '邮箱已绑定' : profile?.identifierKind === 'phone' ? '手机号已绑定' : '已绑定'}`
+    : '联系方式：待绑定';
+  const displayRoleLabel = (profile?.role && ROLE_LABEL[profile.role]) || profile?.role || '未分配角色';
+  const displayInitials = accountInitials(profile);
 
   return (
     <>
@@ -195,10 +295,10 @@ export default function DealerNav() {
         <div style={{ height: 1, width: 32, background: 'rgba(255,255,255,0.08)', margin: '0 auto 8px' }} />
 
         <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', width: '100%', padding: '4px 0' }} aria-label="营销控制台主导航">
-          {WORKBENCH_NAV.map((item, index) => {
+          {visibleNav.map((item, index) => {
             const active = item.key === activeItem.key;
             const Icon = item.icon;
-            const previous = WORKBENCH_NAV[index - 1];
+            const previous = visibleNav[index - 1];
             return (
               <div key={item.key}>
                 {previous && previous.group !== item.group && <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '6px 12px' }} />}
@@ -239,11 +339,16 @@ export default function DealerNav() {
           {accountOpen && (
             <div className="account-menu" role="menu" aria-label="账户菜单">
               <div className="account-menu-profile">
-                <div className="account-menu-name">{accountName}</div>
-                <div className="account-menu-contact">{accountContact}</div>
-                <div className="account-menu-role">{roleLabel}</div>
+                <div className="account-menu-name">{displayAccountName}</div>
+                <div className="account-menu-contact">{displayAccountContact}</div>
+                <div className="account-menu-contact">{displayContactStatus}</div>
+                <div className="account-menu-role">当前角色：{displayRoleLabel}</div>
               </div>
               <div className="account-menu-actions">
+                <Link href="/accounts" role="menuitem" onClick={() => setAccountOpen(false)}>
+                  <UserCog size={15} />
+                  <span>账号管理</span>
+                </Link>
                 <button type="button" role="menuitem" onClick={logout}>
                   <LogOut size={15} />
                   <span>退出登录</span>
@@ -261,7 +366,7 @@ export default function DealerNav() {
               setAccountOpen((open) => !open);
             }}
           >
-            {profile ? initials : <UserRound size={17} />}
+            {profile ? displayInitials : <UserRound size={17} />}
           </button>
           <div className="account-version">v2</div>
         </div>
@@ -278,46 +383,42 @@ export default function DealerNav() {
           {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </button>
 
-        {!collapsed && (
-          <>
-            <div className="workbench-subnav-head">
-              <p>Marketing</p>
-              <h2>{activeItem.shortLabel}</h2>
-              <span>{activeItem.desc}</span>
-            </div>
-            <nav className="workbench-subnav-list" aria-label={`${activeItem.label}二级菜单`}>
-              {activeChildren.map((child) => {
-                const ChildIcon = child.icon;
-                const selected = isChildSelected(child.href);
-                return (
-                  <Link key={child.key} href={child.href} title={child.label} className={selected ? 'is-active' : undefined} onClick={() => rememberChildSearch(child.href)}>
-                    <ChildIcon size={16} strokeWidth={selected ? 2.3 : 1.8} />
-                    <span>{child.label}</span>
-                    {selected && <ChevronRight size={14} />}
-                  </Link>
-                );
-              })}
-            </nav>
-          </>
-        )}
-
-        {collapsed && (
-          <nav className="workbench-subnav-icon-list" aria-label={`${activeItem.label}折叠菜单`}>
+        <div className="workbench-subnav-expanded" aria-hidden={collapsed}>
+          <div className="workbench-subnav-head">
+            <p>Marketing</p>
+            <h2>{activeItem.shortLabel}</h2>
+            <span>{activeItem.desc}</span>
+          </div>
+          <nav className="workbench-subnav-list" aria-label={`${activeItem.label}二级菜单`}>
             {activeChildren.map((child) => {
               const ChildIcon = child.icon;
               const selected = isChildSelected(child.href);
               return (
-                <Link key={child.key} href={child.href} title={child.label} aria-label={child.label} className={selected ? 'is-active' : undefined} onClick={() => rememberChildSearch(child.href)}>
-                  <ChildIcon size={17} strokeWidth={selected ? 2.4 : 1.8} />
+                <Link key={child.key} href={child.href} title={child.label} className={selected ? 'is-active' : undefined} tabIndex={collapsed ? -1 : undefined} onClick={() => rememberChildSearch(child.href)}>
+                  <ChildIcon size={16} strokeWidth={selected ? 2.3 : 1.8} />
+                  <span>{child.label}</span>
+                  {selected && <ChevronRight size={14} />}
                 </Link>
               );
             })}
           </nav>
-        )}
+        </div>
+
+        <nav className="workbench-subnav-icon-list" aria-label={`${activeItem.label}折叠菜单`} aria-hidden={!collapsed}>
+          {activeChildren.map((child) => {
+            const ChildIcon = child.icon;
+            const selected = isChildSelected(child.href);
+            return (
+              <Link key={child.key} href={child.href} title={child.label} aria-label={child.label} className={selected ? 'is-active' : undefined} tabIndex={!collapsed ? -1 : undefined} onClick={() => rememberChildSearch(child.href)}>
+                <ChildIcon size={17} strokeWidth={selected ? 2.4 : 1.8} />
+              </Link>
+            );
+          })}
+        </nav>
       </aside>
 
-      <nav className="mobile-nav" style={{ display: 'none', position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50, background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(16px)', borderTop: '1px solid var(--border)', padding: '6px 0', gridTemplateColumns: `repeat(${WORKBENCH_NAV.length}, minmax(58px, 1fr))`, overflowX: 'auto' }} aria-label="移动端营销导航">
-        {WORKBENCH_NAV.map((item) => {
+      <nav className="mobile-nav" style={{ display: 'none', position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50, background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(16px)', borderTop: '1px solid var(--border)', padding: '6px 0', gridTemplateColumns: `repeat(${Math.max(visibleNav.length, 1)}, minmax(58px, 1fr))`, overflowX: 'auto' }} aria-label="移动端营销导航">
+        {visibleNav.map((item) => {
           const active = item.key === activeItem.key;
           const Icon = item.icon;
           return (

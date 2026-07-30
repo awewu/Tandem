@@ -27,6 +27,9 @@ const BRAND_STAFF_ROLES: ReadonlySet<UserRole> = new Set<UserRole>([
 ]);
 
 const CUSTOMER_ROLES: ReadonlySet<UserRole> = new Set<UserRole>(['customer']);
+const DEALER_SIDE_ROLES: ReadonlySet<UserRole> = new Set<UserRole>([
+  'dealer_admin', 'store_manager', 'designer', 'sales', 'engineer', 'installer',
+]);
 
 /** 经销商侧角色：自助注册默认落到 dealer_admin，其余由管理员后续调整。 */
 export const SELF_REGISTER_ROLE: UserRole = 'dealer_admin';
@@ -79,6 +82,8 @@ export function assertIdentifierForRole(role: UserRole, identifier: string): Ide
   }
 
   // 经销商侧：邮箱或手机号皆可，但企业域名邮箱保留给品牌员工，禁止冒用。
+  if (!DEALER_SIDE_ROLES.has(role)) return kind;
+
   if (kind === 'email' && isBrandStaffEmail(identifier)) {
     throw new ForbiddenException('该邮箱域名为企业内部专用，经销商请使用非企业邮箱或手机号');
   }

@@ -57,6 +57,11 @@ type Session = {
   permissions?: string[] | null;
 };
 
+function can(session: Session | null, permission: string) {
+  if (session?.role === 'platform_admin' || session?.role === 'hq_admin') return true;
+  return Boolean(session?.permissions?.includes('*') || session?.permissions?.includes(permission));
+}
+
 type SiteForm = {
   code: string;
   nameCn: string;
@@ -166,7 +171,9 @@ export default function BrandSitesManager({ brandCode }: { brandCode: string }) 
   const [session, setSession] = useState<Session | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<BrandSite | null>(null);
 
-  const canDeleteSites = session?.role === 'platform_admin' || Boolean(session?.permissions?.includes('*'));
+  const canCreateSites = can(session, 'brand.library.create');
+  const canUpdateSites = can(session, 'brand.library.update');
+  const canDeleteSites = can(session, 'brand.library.delete');
 
   const filteredSites = useMemo(() => {
     const selectedSites = activeBrand === 'all'
@@ -375,10 +382,12 @@ export default function BrandSitesManager({ brandCode }: { brandCode: string }) 
         <RefreshCw size={15} />
         刷新
       </button>
-      <button type="button" className="btn btn-brand" onClick={() => setCreating(true)}>
-        <Plus size={15} />
-        新增官网
-      </button>
+      {canCreateSites && (
+        <button type="button" className="btn btn-brand" onClick={() => setCreating(true)}>
+          <Plus size={15} />
+          新增官网
+        </button>
+      )}
     </>
   );
 
@@ -515,64 +524,74 @@ export default function BrandSitesManager({ brandCode }: { brandCode: string }) 
                           <div className="row-actions">
                             {site.deletedAt ? (
                               <>
-                                <button
-                                  type="button"
-                                  title="恢复"
-                                  aria-label={`恢复 ${site.nameCn} 官网配置`}
-                                  onClick={() => restoreSite(site)}
-                                  disabled={busyId === site.id}
-                                >
-                                  <RotateCcw size={15} />
-                                </button>
-                                <button
-                                  type="button"
-                                  title="删除"
-                                  aria-label={`删除 ${site.nameCn} 官网配置`}
-                                  className="danger-action"
-                                  onClick={() => deleteArchivedSite(site)}
-                                  disabled={busyId === site.id || !canDeleteSites}
-                                >
-                                  <Trash2 size={15} />
-                                </button>
+                                {canUpdateSites && (
+                                  <button
+                                    type="button"
+                                    title="恢复"
+                                    aria-label={`恢复 ${site.nameCn} 官网配置`}
+                                    onClick={() => restoreSite(site)}
+                                    disabled={busyId === site.id}
+                                  >
+                                    <RotateCcw size={15} />
+                                  </button>
+                                )}
+                                {canDeleteSites && (
+                                  <button
+                                    type="button"
+                                    title="删除"
+                                    aria-label={`删除 ${site.nameCn} 官网配置`}
+                                    className="danger-action"
+                                    onClick={() => deleteArchivedSite(site)}
+                                    disabled={busyId === site.id}
+                                  >
+                                    <Trash2 size={15} />
+                                  </button>
+                                )}
                               </>
                             ) : (
                               <>
-                                <button
-                                  type="button"
-                                  title="编辑"
-                                  aria-label={`编辑 ${site.nameCn} 官网配置`}
-                                  onClick={() => setEditing(site)}
-                                  disabled={busyId === site.id}
-                                >
-                                  <Edit3 size={15} />
-                                </button>
-                                <button
-                                  type="button"
-                                  title={site.status === 'active' ? '停用' : '启用'}
-                                  aria-label={`${site.status === 'active' ? '停用' : '启用'} ${
-                                    site.nameCn
-                                  } 官网`}
-                                  onClick={() =>
-                                    updateSite(
-                                      site,
-                                      { status: site.status === 'active' ? 'inactive' : 'active' },
-                                      site.status === 'active' ? '官网已停用' : '官网已启用'
-                                    )
-                                  }
-                                  disabled={busyId === site.id}
-                                >
-                                  <Power size={15} />
-                                </button>
-                                <button
-                                  type="button"
-                                  title="归档"
-                                  aria-label={`归档 ${site.nameCn} 官网配置`}
-                                  className="danger-action"
-                                  onClick={() => archiveSite(site)}
-                                  disabled={busyId === site.id || !canDeleteSites}
-                                >
-                                  <Trash2 size={15} />
-                                </button>
+                                {canUpdateSites && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      title="编辑"
+                                      aria-label={`编辑 ${site.nameCn} 官网配置`}
+                                      onClick={() => setEditing(site)}
+                                      disabled={busyId === site.id}
+                                    >
+                                      <Edit3 size={15} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      title={site.status === 'active' ? '停用' : '启用'}
+                                      aria-label={`${site.status === 'active' ? '停用' : '启用'} ${
+                                        site.nameCn
+                                      } 官网`}
+                                      onClick={() =>
+                                        updateSite(
+                                          site,
+                                          { status: site.status === 'active' ? 'inactive' : 'active' },
+                                          site.status === 'active' ? '官网已停用' : '官网已启用'
+                                        )
+                                      }
+                                      disabled={busyId === site.id}
+                                    >
+                                      <Power size={15} />
+                                    </button>
+                                  </>
+                                )}
+                                {canDeleteSites && (
+                                  <button
+                                    type="button"
+                                    title="归档"
+                                    aria-label={`归档 ${site.nameCn} 官网配置`}
+                                    className="danger-action"
+                                    onClick={() => archiveSite(site)}
+                                    disabled={busyId === site.id}
+                                  >
+                                    <Trash2 size={15} />
+                                  </button>
+                                )}
                               </>
                             )}
                           </div>

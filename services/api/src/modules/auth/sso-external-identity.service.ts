@@ -110,10 +110,20 @@ export class SsoExternalIdentityService {
 
     const user = await withRlsTransaction(
       this.ds,
-      (em) =>
-        em.getRepository(UserEntity).findOne({
+      async (em) => {
+        const repo = em.getRepository(UserEntity);
+        const current = await repo.findOne({
           where: { id: localUserId, tenantId },
-        }),
+        });
+        if (current && this.isRoleLikeDisplayName(current.name)) {
+          const displayName = this.autoProvisionDisplayName(identity, profile);
+          if (!this.isRoleLikeDisplayName(displayName) && displayName !== current.name) {
+            current.name = displayName;
+            await repo.save({ id: current.id, tenantId: current.tenantId, name: displayName } as UserEntity);
+          }
+        }
+        return current;
+      },
       { tenantId },
     );
 
@@ -309,10 +319,41 @@ export class SsoExternalIdentityService {
     identity: { provider: string; issuer: string; subject: string },
     profile: Record<string, unknown>,
   ) {
-    const name = profile.name || profile.nickname || profile.email || profile.preferred_username;
-    return typeof name === 'string' && name.trim()
-      ? name.trim()
-      : `SSO ${identity.subject.slice(0, 12)}`;
+    const name = [profile.name, profile.nickname, profile.email, profile.preferred_username]
+      .map((value) => (typeof value === 'string' ? value.trim() : ''))
+      .find((value) => value && !this.isRoleLikeDisplayName(value));
+    return name || `SSO ${identity.subject.slice(0, 12)}`;
+  }
+
+  private isRoleLikeDisplayName(value: unknown) {
+    const text = typeof value === 'string' ? value.trim().replace(/\s+/g, '').toLowerCase() : '';
+    if (!text) return false;
+    return new Set([
+      'platform_admin',
+      'hq_admin',
+      'brand_admin',
+      'regional_manager',
+      'dealer_admin',
+      'store_manager',
+      'designer',
+      'sales',
+      'engineer',
+      'installer',
+      'customer',
+      '平台超管',
+      '平台超级管理员',
+      '超级管理员',
+      '总部管理员',
+      '品牌管理员',
+      '区域经理',
+      '经销商管理员',
+      '门店经理',
+      '设计师',
+      '销售',
+      '工程师',
+      '安装工',
+      '客户',
+    ]).has(text);
   }
 
   private normalizeIdentifier(raw: string) {

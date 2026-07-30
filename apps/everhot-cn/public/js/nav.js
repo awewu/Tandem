@@ -68,8 +68,15 @@
       { head:'公司介绍', items:[['关于恒热','about/'],['品质与可靠性','reliability/'],['可持续发展','sustainability/'],['创新科技','innovation/'],['加入恒热','careers/'],['新闻动态','about/']]},
       { head:'联系与支持', items:[['支持中心','support/'],['联系我们','contact/'],['保修服务','warranty/'],['常见问题','faqs/'],['节能补贴','rebates/'],['金融分期','financing/'],['配件与正品','parts/'],['查找经销商','find-a-pro/']]}
     ]},
-    { id:'support', label:'支持', label_en:'Support', compact:true, cols:[
-      { head:'支持 Support', items:[['保修与注册','warranty/','shield'],['节能补贴','rebates/','gift'],['可持续发展','sustainability/','leaf'],['帮助与支持','support/','help']]}
+    { id:'support', label:'支持', label_en:'Support', cols:[
+      { head:'售后服务', items:[['支持中心','support/'],['保修与注册','warranty/'],['常见问题 FAQ','faqs/'],['联系我们','contact/']]},
+      { head:'购买支持', items:[['查找经销商','find-a-pro/'],['节能补贴','rebates/'],['金融分期','financing/'],['配件与正品','parts/']]},
+      { head:'品牌责任', items:[['可持续发展','sustainability/'],['品质与可靠性','reliability/'],['创新科技','innovation/'],['关于恒热','about/']]},
+      { head:'精选服务', featured:true, cards:[
+        ['保修与注册','产品注册 · 保修查询','warranty/','shield'],
+        ['节能补贴','国补以旧换新 · 地方政策','rebates/','gift'],
+        ['帮助与支持','安装调试 · 日常维护','support/','help']
+      ], cta:['查看支持中心','support/'] }
     ]},
   ];
 
@@ -315,5 +322,23 @@
       el.addEventListener('click',function(ev){ ev.preventDefault(); openAud(); });
     });
     window.EVERHOT_openAudience=openAud;
+
+    if(!document.querySelector('.ev-backtop')){
+      var backTop=document.createElement('button');
+      backTop.type='button';
+      backTop.className='ev-backtop';
+      backTop.setAttribute('aria-label','回到顶部');
+      backTop.setAttribute('title','回到顶部');
+      backTop.innerHTML='<span aria-hidden="true">↑</span>';
+      backTop.addEventListener('click',function(){
+        window.scrollTo({top:0,behavior:'smooth'});
+      });
+      document.body.appendChild(backTop);
+      function updateBackTop(){
+        backTop.classList.toggle('is-visible',window.scrollY>360);
+      }
+      updateBackTop();
+      window.addEventListener('scroll',updateBackTop,{passive:true});
+    }
   });
 })();

@@ -101,6 +101,11 @@ export const adminRbac = {
     apiFetch('/api/v2/auth/admin/roles/' + encodeURIComponent(id) + '/permissions', { method: 'PUT', body: JSON.stringify({ permissions }) }),
 };
 
+export const auditLogs = {
+  list: (query?: Record<string, string>) =>
+    apiFetch('/api/v2/audit-logs?' + new URLSearchParams(query || {}).toString()),
+};
+
 export const products = {
   list: (query?: Record<string, string>) =>
     apiFetch('/api/v2/product-catalog/devices?' + new URLSearchParams(query || {}).toString()),
@@ -203,6 +208,21 @@ export const brandSites = {
     }),
 };
 
+export const siteBasicSettings = {
+  get: (siteCode: string) =>
+    apiFetch(`/api/v2/brand-sites/${encodeURIComponent(siteCode)}/basic-settings`),
+  update: (siteCode: string, data: Record<string, unknown>) =>
+    apiFetch(`/api/v2/brand-sites/${encodeURIComponent(siteCode)}/basic-settings`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  updateSection: (siteCode: string, section: string, data: Record<string, unknown>) =>
+    apiFetch(`/api/v2/brand-sites/${encodeURIComponent(siteCode)}/basic-settings/${encodeURIComponent(section)}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+};
+
 export const siteProductAssignments = {
   list: (siteCode: string, query?: Record<string, string>) => {
     const qs = new URLSearchParams(query || {}).toString();
@@ -274,6 +294,17 @@ export const siteNews = {
     }),
 };
 
+export const siteInquiries = {
+  list: (siteCode: string, query?: Record<string, string>) => {
+    const qs = new URLSearchParams(query || {}).toString();
+    return apiFetch(`/api/v2/brand-sites/${encodeURIComponent(siteCode)}/inquiries${qs ? `?${qs}` : ''}`);
+  },
+  remove: (siteCode: string, inquiryId: string) =>
+    apiFetch(`/api/v2/brand-sites/${encodeURIComponent(siteCode)}/inquiries/${encodeURIComponent(inquiryId)}`, {
+      method: 'DELETE',
+    }),
+};
+
 export const siteMaterials = {
   list: (brandCode: string) =>
     apiFetch(`/local-site-materials/${encodeURIComponent(brandCode)}`),
@@ -284,5 +315,23 @@ export const siteMaterials = {
     apiFetch(`/local-site-materials/${encodeURIComponent(brandCode)}`, {
       method: 'POST',
       body: JSON.stringify(data),
+    }),
+  uploadCarousel: (
+    brandCode: string,
+    files: Array<{ filename: string; mimeType: string; dataBase64: string; linkUrl?: string }>
+  ) =>
+    apiFetch(`/local-site-materials/${encodeURIComponent(brandCode)}`, {
+      method: 'POST',
+      body: JSON.stringify({ key: 'home-hero-carousel', files }),
+    }),
+  saveCarousel: (brandCode: string, items: Array<Record<string, unknown>>) =>
+    apiFetch(`/local-site-materials/${encodeURIComponent(brandCode)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ key: 'home-hero-carousel', items }),
+    }),
+  saveModule: (brandCode: string, key: string, items: Array<Record<string, unknown>>) =>
+    apiFetch(`/local-site-materials/${encodeURIComponent(brandCode)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ key, items }),
     }),
 };

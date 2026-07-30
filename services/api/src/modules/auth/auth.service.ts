@@ -11,11 +11,13 @@ import { hashPII, encryptPII, decryptPII } from '../compliance/compliance.pii';
 import { assertIdentifierForRole, SELF_REGISTER_ROLE } from './identity-policy';
 import { EntitlementService } from '../entitlement/entitlement.service';
 import { OtpService } from './otp.service';
+import { RbacService, type RbacAccess } from './rbac.service';
 
 export interface JwtPayload {
   userId: string; tenantId: string;
   dealerId: string | null; storeId: string | null; customerId: string | null;
   role: string; permissions: string[];
+  roles?: string[];
   modules?: string[];
 }
 
@@ -38,6 +40,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly entitlement: EntitlementService,
     private readonly otp: OtpService,
+    private readonly rbac: RbacService,
   ) {}
 
   // PIPL：登录标识规范化后取检索哈希（与用户开通时写入的 phone_hash 同源，compliance.pii.hashPII）。
@@ -93,7 +96,8 @@ export class AuthService {
       ),
     { tenantId: user.tenantId });
     const modules = await this.resolveModules(user.tenantId);
-    return { token: this.sign(user, modules), user: this.toPublic(user) };
+    const access = await this.rbac.resolveUserAccess(user);
+    return { token: this.sign(user, modules, access), user: this.toPublic(user, access) };
   }
 
   async sendSmsCode(phone: string) {
@@ -124,7 +128,8 @@ export class AuthService {
       ),
     { tenantId: user.tenantId });
     const modules = await this.resolveModules(user.tenantId);
-    return { token: this.sign(user, modules), user: this.toPublic(user) };
+    const access = await this.rbac.resolveUserAccess(user);
+    return { token: this.sign(user, modules, access), user: this.toPublic(user, access) };
   }
 
   async changePassword(userId: string, oldPwd: string, newPwd: string) {
@@ -149,10 +154,18 @@ export class AuthService {
     { tenantId: payload.tenantId });
     if (!user || user.status !== 'active') throw new UnauthorizedException('账号不可用');
     const modules = await this.resolveModules(user.tenantId);
-    return { token: this.sign(user, modules), user: this.toPublic(user) };
+    const access = await this.rbac.resolveUserAccess(user);
+    return { token: this.sign(user, modules, access), user: this.toPublic(user, access) };
   }
 
-  getMe(payload: JwtPayload) { return payload; }
+  async getMe(payload: JwtPayload) {
+    const user = await withRlsTransaction(this.ds, (em) =>
+      em.getRepository(UserEntity).findOne({ where: { id: payload.userId } }),
+    { tenantId: payload.tenantId });
+    if (!user || user.status !== 'active') throw new UnauthorizedException('账号不可用');
+    const access = await this.rbac.resolveUserAccess(user);
+    return this.toPublic(user, access);
+  }
 
   logout() { return { revoked: false, tokenMode: 'stateless-jwt' }; }
 
@@ -168,7 +181,8 @@ export class AuthService {
       role: user.role as UserRole,
       permissions: user.permissions ?? [],
     });
-    return { token: this.sign(localUser, modules), user: this.toPublic(localUser) };
+    const access = await this.rbac.resolveUserAccess(localUser);
+    return { token: this.sign(localUser, modules, access), user: this.toPublic(localUser, access) };
   }
 
   /**
@@ -233,7 +247,8 @@ export class AuthService {
     }, { tenantId });
 
     const modules = await this.resolveModules(tenantId); // 新租户无订阅 → []
-    return { token: this.sign(user, modules), user: this.toPublic(user) };
+    const access = await this.rbac.resolveUserAccess(user);
+    return { token: this.sign(user, modules, access), user: this.toPublic(user, access) };
   }
 
   async updateUser(userId: string, payload: { name?: string }) {
@@ -243,7 +258,8 @@ export class AuthService {
       if (!user) throw new NotFoundException('用户不存在');
       if (payload.name !== undefined) user.name = payload.name;
       await repo.save(user);
-      return { user: this.toPublic(user) };
+      const access = await this.rbac.resolveUserAccess(user);
+      return { user: this.toPublic(user, access) };
     });
   }
 
@@ -399,12 +415,41 @@ export class AuthService {
     }, { tenantId: actor.tenantId });
   }
 
-  private sign(user: UserEntity, modules: string[] = []): string {
+  adminListPermissions(actor: JwtPayload) {
+    return this.rbac.listPermissions(actor);
+  }
+
+  adminListRoles(actor: JwtPayload) {
+    return this.rbac.listRoles(actor);
+  }
+
+  adminCreateRole(actor: JwtPayload, body: { code?: string; name?: string; description?: string; permissions?: string[] }) {
+    return this.rbac.createRole(actor, body);
+  }
+
+  adminUpdateRole(actor: JwtPayload, id: string, body: { name?: string; description?: string; status?: 'active' | 'inactive' }) {
+    return this.rbac.updateRole(actor, id, body);
+  }
+
+  adminSetRolePermissions(actor: JwtPayload, id: string, body: { permissions?: string[] }) {
+    return this.rbac.setRolePermissions(actor, id, body.permissions ?? []);
+  }
+
+  adminSetUserRoles(actor: JwtPayload, id: string, body: { roleIds?: string[]; primaryRoleId?: string }) {
+    return this.rbac.setUserRoles(actor, id, body);
+  }
+
+  adminEffectivePermissions(actor: JwtPayload, id: string) {
+    return this.rbac.effectivePermissions(actor, id);
+  }
+
+  private sign(user: UserEntity, modules: string[] = [], access?: RbacAccess): string {
+    const resolved = access ?? { role: user.role, roles: [user.role], permissions: user.permissions ?? [] };
     const payload: JwtPayload = {
       userId: user.id, tenantId: user.tenantId,
       dealerId: user.dealerId ?? null, storeId: user.storeId ?? null,
       customerId: user.customerId ?? null,
-      role: user.role, permissions: user.permissions ?? [],
+      role: resolved.role, roles: resolved.roles, permissions: resolved.permissions,
       modules,
     };
     return this.jwt.sign(payload);
@@ -419,8 +464,27 @@ export class AuthService {
     }
   }
 
-  private toPublic(u: UserEntity) {
-    return { id: u.id, tenantId: u.tenantId, dealerId: u.dealerId, storeId: u.storeId, name: u.name, role: u.role, permissions: u.permissions };
+  private toPublic(u: UserEntity, access?: RbacAccess) {
+    const resolved = access ?? { role: u.role, roles: [u.role], permissions: u.permissions ?? [] };
+    let identifierMasked = '';
+    let identifierKind: 'email' | 'phone' | 'unknown' = 'unknown';
+    try {
+      const raw = decryptPII(u.phoneEncrypted);
+      if (raw.includes('@')) {
+        identifierKind = 'email';
+        identifierMasked = raw;
+      } else if (raw) {
+        identifierKind = 'phone';
+        identifierMasked = raw;
+      }
+    } catch {
+      identifierMasked = '';
+    }
+    return {
+      id: u.id, userId: u.id, tenantId: u.tenantId, dealerId: u.dealerId, storeId: u.storeId, name: u.name,
+      role: resolved.role, roles: resolved.roles, permissions: resolved.permissions,
+      identifierMasked, identifierKind,
+    };
   }
 
   private async recordFail(user: UserEntity) {

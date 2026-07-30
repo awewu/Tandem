@@ -7,6 +7,8 @@
    ═══════════════════════════════════════════════════════════ */
 (function () {
   var STORE_KEY = 'everhot_leads';
+  var SITE_CODE = window.EVERHOT_SITE_CODE || 'everhot';
+  var API_BASE = window.EVERHOT_API_BASE || '';
 
   function saveLocal(kind, data){
     try{
@@ -67,6 +69,55 @@
     form.style.display='none';
   }
 
+  function fieldValue(form, selector, fallbackIndex) {
+    var field = selector ? form.querySelector(selector) : null;
+    if (!field && typeof fallbackIndex === 'number') {
+      field = form.querySelectorAll('input,select,textarea')[fallbackIndex];
+    }
+    return field ? (field.value || '').trim() : '';
+  }
+
+  function inquiryPayload(form, data) {
+    var kind = form.getAttribute('data-ev-form') || 'lead';
+    if (kind === 'dealer') {
+      return {
+        kind: 'dealer',
+        body: {
+          name: fieldValue(form, null, 0),
+          phone: fieldValue(form, null, 1),
+          companyName: fieldValue(form, null, 2),
+          intendedRegion: fieldValue(form, null, 3),
+          businessSummary: fieldValue(form, null, 4),
+          sourcePath: location.pathname
+        }
+      };
+    }
+    return {
+      kind: 'customer',
+      body: {
+        name: fieldValue(form, '#cf-name', 0),
+        phone: fieldValue(form, '#cf-tel', 1),
+        city: fieldValue(form, '#cf-city', 2),
+        inquiryType: fieldValue(form, '#cf-type', 3),
+        message: fieldValue(form, '#cf-msg', 4),
+        sourcePath: location.pathname
+      }
+    };
+  }
+
+  function submitInquiry(form, data) {
+    var payload = inquiryPayload(form, data);
+    if (!window.fetch) return Promise.reject(new Error('fetch unavailable'));
+    return fetch(API_BASE + '/api/v2/sites/' + encodeURIComponent(SITE_CODE) + '/inquiries/' + encodeURIComponent(payload.kind), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload.body)
+    }).then(function(res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    });
+  }
+
   function attach(form){
     form.setAttribute('novalidate','');
     // A11y：必填字段标注 aria-required（供屏幕阅读器）
@@ -75,9 +126,16 @@
       ev.preventDefault();
       var data=validate(form);
       if(!data) return;
-      saveLocal(form.getAttribute('data-ev-form')||'lead', data);
-      // TODO(backend): fetch('/api/v2/leads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:..,data:data})})
-      showSuccess(form);
+      var btn=form.querySelector('[type="submit"]');
+      if(btn) btn.disabled=true;
+      submitInquiry(form, data).then(function(){
+        saveLocal(form.getAttribute('data-ev-form')||'lead', data);
+        showSuccess(form);
+      }).catch(function(){
+        alert('提交失败，请稍后再试或直接致电 400-888-8888。');
+      }).finally(function(){
+        if(btn) btn.disabled=false;
+      });
     });
     // live clear errors
     form.querySelectorAll('input,select,textarea').forEach(function(f){

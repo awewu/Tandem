@@ -104,7 +104,7 @@ const PUBLIC_SITE_PRODUCT_FIELDS = [
   'websiteCategory', 'cat', 'sys', 'series', 'tagline', 'tags', 'badges',
   'en', 'icon', 'image', 'mainImage', 'gallery', 'specImage', 'specs',
   'features', 'highlights', 'certs', 'faqs', 'locale', 'positioning',
-  'marketing', 'seo', 'jsonLd',
+  'marketing', 'seo', 'jsonLd', 'officialDetailHtml', 'manualPdfs',
 ] as const;
 
 function publicProductFields(product: Record<string, unknown>): Record<string, unknown> {
@@ -129,7 +129,8 @@ export function projectSiteProductDisplay(
     : brandMetaImage
       ? { role: 'main', url: brandMetaImage }
       : PRODUCT_IMAGE_PLACEHOLDER;
-  const websiteCategory = text(assignment.websiteCategory)
+  const websiteCategory = text(safeProduct.categoryPath)
+    || text(assignment.websiteCategory)
     || text(safeProduct.websiteCategory)
     || text(safeProduct.cat)
     || text(safeProduct.category);
@@ -231,7 +232,7 @@ export class SiteProductAssignmentService {
     this.assertProductTenantAccess(user, productTenantId);
     const publicSlug = normalizePublicSlug(input.publicSlug);
     const product = await this.findActiveProduct(productTenantId, productId);
-    if (!product) throw new NotFoundException('Product does not exist or is archived');
+    if (!product) throw new NotFoundException('Product does not exist or is not active');
     const productBrand = text(product.brand);
     return withRlsTransaction(this.ds, async (em) => {
       const site = await this.findSite(em, user.tenantId, siteCode);
@@ -284,7 +285,7 @@ export class SiteProductAssignmentService {
       const row = await this.findAssignment(em, user.tenantId, siteCode, id);
       if (status === 'published') {
         const product = await this.findActiveProduct(row.productTenantId, row.productId);
-        if (!product) throw new NotFoundException('Product does not exist or is archived');
+        if (!product) throw new NotFoundException('Product does not exist or is not active');
         const site = await this.findSite(em, user.tenantId, siteCode);
         assertSiteProductBrandAllowed(site.code, product.brand, await this.assignmentBrandCodes(em, user.tenantId, site));
       }
@@ -406,7 +407,7 @@ export class SiteProductAssignmentService {
   private async findActiveProduct(productTenantId: string, productId: string) {
     const result = await this.products.get(productId, productTenantId);
     const product = result.data;
-    return product.status === 'archived' ? null : product;
+    return product.status === 'active' ? product : null;
   }
 
   private async findSite(em: EntityManager, tenantId: string, siteCode: string) {

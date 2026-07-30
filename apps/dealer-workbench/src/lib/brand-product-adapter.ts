@@ -30,6 +30,20 @@ export type BrandPublishCapability = {
   reason: string;
 };
 
+export type BrandProductPermissions = {
+  canCreateProduct: boolean;
+  canUpdateProduct: boolean;
+  canDeleteProduct: boolean;
+  canPublishProduct: boolean;
+  canCreateBrandLibrary: boolean;
+  canUpdateBrandLibrary: boolean;
+  canDeleteBrandLibrary: boolean;
+  canPublishBrandLibrary: boolean;
+  canAnyProductWrite: boolean;
+  canAnyBrandWrite: boolean;
+  canAnyWrite: boolean;
+};
+
 export type BrandProductRow = {
   id: string;
   sku: string;
@@ -118,7 +132,6 @@ export type BrandStructuredContentDraft = {
   websiteTitle: string;
   websiteDescription: string;
   icon: string;
-  image: string;
   specImage: string;
   badges: string[];
   specs: BrandContentKeyValueDraft[];
@@ -469,10 +482,51 @@ export function getBrandMenuGroupOptions(
   }));
 }
 
-export function canWriteBrandProducts(session: { role?: string | null; permissions?: string[] | null } | null): boolean {
+type PermissionSession = { role?: string | null; permissions?: string[] | null } | null;
+
+function hasPermission(session: PermissionSession, permission: string): boolean {
+  if (!session?.role) return false;
+  if (WRITE_ROLES.has(session.role)) return true;
+  return Boolean(session.permissions?.includes('*') || session.permissions?.includes(permission));
+}
+
+export function getBrandProductPermissions(session: PermissionSession): BrandProductPermissions {
+  const canCreateProduct = hasPermission(session, 'product.catalog.create');
+  const canUpdateProduct = hasPermission(session, 'product.catalog.update');
+  const canDeleteProduct = hasPermission(session, 'product.catalog.delete');
+  const canPublishProduct = hasPermission(session, 'product.catalog.publish');
+  const canCreateBrandLibrary = hasPermission(session, 'brand.library.create');
+  const canUpdateBrandLibrary = hasPermission(session, 'brand.library.update') || hasPermission(session, 'brand.asset.update');
+  const canDeleteBrandLibrary = hasPermission(session, 'brand.library.delete');
+  const canPublishBrandLibrary = hasPermission(session, 'brand.library.publish');
+  const canAnyProductWrite = canCreateProduct || canUpdateProduct || canDeleteProduct || canPublishProduct;
+  const canAnyBrandWrite = canCreateBrandLibrary || canUpdateBrandLibrary || canDeleteBrandLibrary || canPublishBrandLibrary;
+  return {
+    canCreateProduct,
+    canUpdateProduct,
+    canDeleteProduct,
+    canPublishProduct,
+    canCreateBrandLibrary,
+    canUpdateBrandLibrary,
+    canDeleteBrandLibrary,
+    canPublishBrandLibrary,
+    canAnyProductWrite,
+    canAnyBrandWrite,
+    canAnyWrite: canAnyProductWrite || canAnyBrandWrite,
+  };
+}
+
+export function canWriteBrandProducts(session: PermissionSession): boolean {
   if (!session?.role) return false;
   if (session.permissions?.includes('*')) return true;
-  return WRITE_ROLES.has(session.role) || Boolean(session.permissions?.includes('product-catalog:write'));
+  return WRITE_ROLES.has(session.role) || Boolean(
+    session.permissions?.includes('product-catalog:write')
+    || session.permissions?.includes('product.catalog.create')
+    || session.permissions?.includes('product.catalog.update')
+    || session.permissions?.includes('product.catalog.delete')
+    || session.permissions?.includes('product.content.create')
+    || session.permissions?.includes('product.content.update'),
+  );
 }
 
 export function draftFromProductRow(row: BrandProductRow): BrandProductEditDraft {
@@ -520,16 +574,39 @@ export function structuredDraftFromProductRow(
 ): BrandStructuredContentDraft {
   const brandCode = normalizeBrandCode(brandCodeInput || String(row.raw.brand || ''));
   const brandMeta = objectOrEmpty(objectOrEmpty(row.raw.meta)[brandCode]);
+  const marketing = objectOrEmpty(row.raw.marketing);
+  const seo = objectOrEmpty(row.raw.seo);
+  const content = objectOrEmpty(row.raw.content);
   const positioning = objectOrEmpty(row.raw.positioning);
   return {
     tagline: text(brandMeta.tagline),
     series: text(brandMeta.series),
     officialEnglishName: text(brandMeta.en),
-    officialCopy: text(brandMeta.officialCopy || brandMeta.copy),
-    websiteTitle: text(brandMeta.websiteTitle || brandMeta.title),
-    websiteDescription: text(brandMeta.websiteDescription || brandMeta.description),
+    officialCopy: text(
+      brandMeta.officialCopy ||
+      brandMeta.copy ||
+      brandMeta.officialText ||
+      brandMeta.body ||
+      marketing.copy ||
+      marketing.description ||
+      content.officialCopy,
+    ),
+    websiteTitle: text(
+      brandMeta.websiteTitle ||
+      brandMeta.title ||
+      brandMeta.seoTitle ||
+      seo.title ||
+      content.websiteTitle,
+    ),
+    websiteDescription: text(
+      brandMeta.websiteDescription ||
+      brandMeta.description ||
+      brandMeta.seoDescription ||
+      seo.description ||
+      marketing.subtitle ||
+      content.websiteDescription,
+    ),
     icon: text(brandMeta.icon),
-    image: text(brandMeta.image),
     specImage: text(brandMeta.specImage),
     badges: stringArray(brandMeta.badges),
     specs: keyValueRows(brandMeta.specs, 'key', 'value'),
@@ -569,30 +646,28 @@ export function buildBrandStructuredContentUpdatePayload(
   const previousBrandMeta = objectOrEmpty(rawMeta[brandCode]);
   const previousPositioning = objectOrEmpty(row.raw.positioning);
   const normalized = normalizeStructuredDraft(draft);
+  const nextBrandMeta = {
+    ...previousBrandMeta,
+    tagline: normalized.tagline,
+    series: normalized.series,
+    en: normalized.officialEnglishName,
+    officialCopy: normalized.officialCopy,
+    websiteTitle: normalized.websiteTitle,
+    websiteDescription: normalized.websiteDescription,
+    badges: normalized.badges,
+    specs: mergeKeyValueShape(previousBrandMeta.specs, normalized.specs, 'k', 'v'),
+    features: normalized.features,
+    highlights: mergeKeyValueShape(previousBrandMeta.highlights, normalized.highlights, 'label', 'value'),
+    certs: normalized.certs,
+    faqs: normalized.faqs,
+  };
+  delete (nextBrandMeta as Record<string, unknown>).image;
 
   return {
     ...tenantPatch(row),
     meta: {
       ...rawMeta,
-      [brandCode]: {
-        ...previousBrandMeta,
-        tagline: normalized.tagline,
-        series: normalized.series,
-        en: normalized.officialEnglishName,
-        officialCopy: normalized.officialCopy,
-        websiteTitle: normalized.websiteTitle,
-        websiteDescription: normalized.websiteDescription,
-        icon: normalized.icon,
-        image: normalized.image,
-        specImage: normalized.specImage,
-        badges: normalized.badges,
-        specs: mergeKeyValueShape(previousBrandMeta.specs, normalized.specs, 'k', 'v'),
-        features: normalized.features,
-        highlights: mergeKeyValueShape(previousBrandMeta.highlights, normalized.highlights, 'label', 'value'),
-        certs: normalized.certs,
-        faqs: normalized.faqs,
-        gallery: normalized.gallery,
-      },
+      [brandCode]: nextBrandMeta,
     },
     positioning: {
       ...previousPositioning,
@@ -650,9 +725,12 @@ export function buildBrandProductUpdatePayload(
 export function buildNewBrandProductPayload(
   brandCodeInput: string,
   draft: BrandProductEditDraft,
+  structuredDraft?: BrandStructuredContentDraft,
+  assetRefs?: AssetRef[],
 ): Record<string, unknown> {
   const brandCode = normalizeBrandCode(brandCodeInput);
   const normalized = normalizeDraft(draft);
+  const structured = structuredDraft ? normalizeStructuredDraft(structuredDraft) : null;
   const sku = skeletonSku(brandCode, normalized.model || normalized.publicSlug || normalized.name);
   const tenantId = BRAND_PRODUCT_TENANTS[brandCode] || '';
   return {
@@ -662,11 +740,21 @@ export function buildNewBrandProductPayload(
     brand: brandCode,
     category: normalized.category,
     status: 'inactive',
+    ...(assetRefs?.length ? { assetRefs } : {}),
     spec: {
       officialModel: normalized.model || sku,
       model: normalized.model || sku,
       system: normalized.system,
     },
+    ...(structured ? {
+      positioning: {
+        targetSegments: structured.positioning.targetSegments,
+        channels: structured.positioning.channels,
+        userPersonas: structured.positioning.userPersonas,
+        markets: structured.positioning.markets,
+        applicationScenarios: structured.positioning.applicationScenarios,
+      },
+    } : {}),
     meta: {
       [brandCode]: {
         slug: normalized.publicSlug || slug(sku),
@@ -677,13 +765,18 @@ export function buildNewBrandProductPayload(
         sys: normalized.system,
         displayOrder: normalized.sortOrder,
         sortOrder: normalized.sortOrder,
-        series: normalized.series,
-        tagline: normalized.tagline,
-        en: normalized.officialEnglishName,
-        badges: normalized.badges,
-        specs: [],
-        features: [],
-        highlights: [],
+        series: structured?.series || normalized.series,
+        tagline: structured?.tagline || normalized.tagline,
+        en: structured?.officialEnglishName || normalized.officialEnglishName,
+        officialCopy: structured?.officialCopy || '',
+        websiteTitle: structured?.websiteTitle || '',
+        websiteDescription: structured?.websiteDescription || '',
+        badges: structured?.badges?.length ? structured.badges : normalized.badges,
+        specs: structured ? mergeKeyValueShape([], structured.specs, 'k', 'v') : [],
+        features: structured?.features || [],
+        highlights: structured ? mergeKeyValueShape([], structured.highlights, 'label', 'value') : [],
+        certs: structured?.certs || [],
+        faqs: structured?.faqs || [],
       },
     },
   };
@@ -710,9 +803,11 @@ export async function saveBrandStructuredContent(
 export async function createBrandProduct(
   brandCode: string,
   draft: BrandProductEditDraft,
+  structuredDraft?: BrandStructuredContentDraft,
+  assetRefs?: AssetRef[],
 ) {
   const products = await apiProducts();
-  return products.create(buildNewBrandProductPayload(brandCode, draft));
+  return products.create(buildNewBrandProductPayload(brandCode, draft, structuredDraft, assetRefs));
 }
 
 export async function uploadBrandProductMainImage(
@@ -967,7 +1062,7 @@ function facetItems(value: unknown): Array<{ value: string; count: number }> {
     .filter((item) => item.value);
 }
 
-function toBrandProductRow(product: Record<string, unknown>, brandCode: string): BrandProductRow {
+export function toBrandProductRow(product: Record<string, unknown>, brandCode: string): BrandProductRow {
   const spec = objectOrEmpty(product.spec);
   const meta = objectOrEmpty(product.meta);
   const brandMeta = objectOrEmpty(meta[brandCode]);
@@ -1167,9 +1262,8 @@ function normalizeStructuredDraft(draft: BrandStructuredContentDraft): BrandStru
     officialCopy: text(draft.officialCopy),
     websiteTitle: text(draft.websiteTitle),
     websiteDescription: text(draft.websiteDescription),
-    icon: text(draft.icon),
-    image: text(draft.image),
-    specImage: text(draft.specImage),
+    icon: '',
+    specImage: '',
     badges: normalizeStringList(draft.badges),
     specs: normalizeKeyValueList(draft.specs),
     features: (draft.features || [])
@@ -1186,12 +1280,7 @@ function normalizeStructuredDraft(draft: BrandStructuredContentDraft): BrandStru
         answer: text(item.answer),
       }))
       .filter((item) => item.question || item.answer),
-    gallery: (draft.gallery || [])
-      .map((item) => ({
-        url: text(item.url),
-        alt: text(item.alt),
-      }))
-      .filter((item) => item.url || item.alt),
+    gallery: [],
     positioning: {
       targetSegments: normalizeStringList(draft.positioning?.targetSegments),
       channels: normalizeStringList(draft.positioning?.channels),

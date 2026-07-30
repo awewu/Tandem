@@ -78,7 +78,10 @@ export class SiteNewsService {
           keyword: `%${keyword}%`,
         });
       }
-      qb.orderBy('article.sortOrder', 'ASC').addOrderBy('article.publishedAt', 'DESC').addOrderBy('article.createdAt', 'DESC');
+      qb.orderBy('article.isFeatured', 'DESC')
+        .addOrderBy('article.sortOrder', 'ASC')
+        .addOrderBy('article.publishedAt', 'DESC')
+        .addOrderBy('article.createdAt', 'DESC');
       const page = Math.max(Number(query.page) || 1, 1);
       const pageSize = Math.min(Math.max(Number(query.pageSize) || 20, 1), 100);
       const [items, total] = await qb.skip((page - 1) * pageSize).take(pageSize).getManyAndCount();
@@ -158,7 +161,7 @@ export class SiteNewsService {
       const limit = Math.min(Math.max(Number(query.limit || query.pageSize) || 20, 1), 100);
       const items = await em.getRepository(SiteNewsArticleEntity).find({
         where: { tenantId, siteId: site.id, status: 'published', deletedAt: null } as any,
-        order: { sortOrder: 'ASC', publishedAt: 'DESC', createdAt: 'DESC' },
+        order: { isFeatured: 'DESC', sortOrder: 'ASC', publishedAt: 'DESC', createdAt: 'DESC' },
         take: limit,
       });
       return { success: true, data: { items: items.map((article) => publicArticle(article, siteCode)), total: items.length } };
