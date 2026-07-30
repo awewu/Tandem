@@ -4,7 +4,6 @@
 # 当前发布环境：Linux shell Runner 只上传源码，Windows Server 本机打包并蓝绿发布。
 
 stages:
-  - verify
   - package
   - deploy
 
@@ -16,25 +15,8 @@ variables:
   DEPLOY_PUBLIC_BASE_URL: "https://ai.rhautt.com"
   DEPLOY_NOTIFY_WEBHOOK_TYPE: "wecom"
 
-# 类型检查 / lint 在 Linux runner 上完成: Windows 部署机内存不足, next build 的
-# lint+typecheck worker 会 OOM。本阶段失败则不会进入 package / deploy。
-# 前置要求: Linux runner 需装有 Node (见 .nvmrc)。
-verify_types:
-  stage: verify
-  tags:
-    - linux
-  only:
-    - deploy
-  cache:
-    key: tandem-node-modules
-    paths:
-      - node_modules/
-  script:
-    - node --version
-    - npm ci --no-audit --no-fund
-    - npx tsc --noEmit
-    - npm run lint
-
+# TODO: Linux runner 装好 Node 后恢复 verify 阶段 (tsc --noEmit + next lint)。
+# 在此之前 package-deploy.ps1 的 TANDEM_SKIP_BUILD_CHECKS=1 使部署构建不做类型检查。
 package_source:
   stage: package
   tags:
