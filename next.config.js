@@ -6,6 +6,10 @@ const shouldPoll = process.env.NEXT_WEBPACK_POLL === '1';
 // (Fatal process out of memory: Zone)。CI verify 阶段已在 Linux runner 上
 // 跑过 tsc --noEmit + next lint, 部署构建无需重复检查。仅 package-deploy.ps1 置位。
 const skipBuildChecks = process.env.TANDEM_SKIP_BUILD_CHECKS === '1';
+// 部署机提交上限仅 20GB (16GB RAM + 4GB 页面文件), 基线已占约 12GB,
+// 构建可用提交量不足 4GB。默认按 CPU 核数并发的构建 worker 会撞上提交限制,
+// 表现为 Fatal process out of memory: Zone。置位后把构建并发压到单 worker。
+const lowMemoryBuild = process.env.TANDEM_LOW_MEMORY_BUILD === '1';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -48,6 +52,7 @@ const nextConfig = {
     // @napi-rs/canvas 含原生 .node 二进制, 用于在 Node 端为 pdfjs 提供 DOMMatrix/Path2D/ImageData
     // (见 lib/infra/document-extract.ts ensurePdfGlobals), 必须外置, 否则被 webpack 打包会丢二进制。
     serverComponentsExternalPackages: ['pdfjs-dist', '@napi-rs/canvas'],
+    ...(lowMemoryBuild ? { cpus: 1, workerThreads: false } : {}),
   },
   async rewrites() {
     return [
