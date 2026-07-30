@@ -11,6 +11,41 @@ import {
   archiveOpportunity,
 } from '@/lib/pms/opportunity-service';
 
+const PATCH_FIELDS = [
+  'projectId',
+  'customerName',
+  'projectName',
+  'stage',
+  'status',
+  'contactName',
+  'contactTitle',
+  'leadSource',
+  'competitors',
+  'customerIndustry',
+  'customerPhone',
+  'customerAddress',
+  'estimatedAmount',
+  'estimatedClosingDate',
+  'productLine',
+  'productSeries',
+  'productSeriesCode',
+  'productModel',
+  'productModelCode',
+  'productCatalogId',
+  'productCategory',
+  'productAttributes',
+  'region',
+  'channel',
+] as const;
+
+function sanitizePatchBody(body: Record<string, unknown>) {
+  return Object.fromEntries(
+    PATCH_FIELDS
+      .filter((field) => Object.prototype.hasOwnProperty.call(body, field))
+      .map((field) => [field, body[field]])
+  );
+}
+
 /**
  * GET /api/pms/opportunities/[id] - 获取详情
  */
@@ -70,7 +105,7 @@ export async function PATCH(
 
   try {
     const { id } = await params;
-    const body = await req.json();
+    const body = sanitizePatchBody(await req.json());
     const visibleOrgIds = auth.isInternal ? undefined : auth.visibleOrgIds;
     
     // 归属校验: 跨 org 禁止写
@@ -80,6 +115,9 @@ export async function PATCH(
     }
     
     const updated = await updateOpportunity(id, body, auth.tenantId);
+    if (!updated) {
+      return NextResponse.json({ error: 'Opportunity not found' }, { status: 404 });
+    }
     
     return NextResponse.json({ opportunity: updated });
   } catch (error: any) {

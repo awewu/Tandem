@@ -8,7 +8,7 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Waves, MapPin, Hand } from 'lucide-react';
+import { Waves, MapPin, Hand, RefreshCw } from 'lucide-react';
 
 interface PoolEntry {
   id: string;
@@ -27,6 +27,13 @@ interface PoolEntry {
   };
 }
 
+interface ScanResult {
+  scanned: number;
+  yellow: number;
+  red: number;
+  released: number;
+}
+
 const REASON_LABELS: Record<string, string> = {
   ninety_day_timeout: '90天超时',
   manual_release: '主动释放',
@@ -38,6 +45,8 @@ export default function PmsPublicPoolPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [claiming, setClaiming] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [scanResult, setScanResult] = useState<ScanResult | null>(null);
 
   useEffect(() => {
     load();
@@ -77,19 +86,64 @@ export default function PmsPublicPoolPage() {
     }
   }
 
+  async function runScan() {
+    try {
+      setScanning(true);
+      setError(null);
+      setScanResult(null);
+      const res = await fetch('/api/pms/public-pool', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'scan',
+          autoRelease: true,
+          protectionDays: 0,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '扫描失败');
+      setScanResult(data.result);
+      await load();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setScanning(false);
+    }
+  }
+
   function protectionActive(entry: PoolEntry): boolean {
     return !!entry.protectionExpiresAt && new Date(entry.protectionExpiresAt).getTime() > Date.now();
   }
 
   return (
     <div className="container mx-auto md:max-w-4xl p-6 max-w-4xl">
-      <div className="mb-6">
-        <h1 className="text-title-lg font-bold text-ink-primary flex items-center gap-2">
-          <Waves className="w-6 h-6 text-brand-500" />
-          公海池
-        </h1>
-        <p className="text-body text-ink-secondary mt-1">超时释放的商机 · 先到先得</p>
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h1 className="text-title-lg font-bold text-ink-primary flex items-center gap-2">
+            <Waves className="w-6 h-6 text-brand-500" />
+            公海池
+          </h1>
+          <p className="text-body text-ink-secondary mt-1">90天未跟进自动释放 · 先到先得</p>
+        </div>
+        <Button
+          variant="outline"
+          className="rounded-2xl"
+          disabled={scanning || loading}
+          onClick={runScan}
+        >
+          <RefreshCw className={`w-4 h-4 mr-2 ${scanning ? 'animate-spin' : ''}`} />
+          {scanning ? '扫描中...' : '执行90天扫描'}
+        </Button>
       </div>
+
+      {scanResult && (
+        <Card className="mb-4 border-success/30 bg-success/5">
+          <CardContent className="p-4 text-caption text-success">
+            本次扫描 {scanResult.scanned} 条预警商机，90天超时 {scanResult.red} 条，已释放 {scanResult.released} 条。
+          </CardContent>
+        </Card>
+      )}
 
       {error && (
         <Card className="mb-4 border-danger/30">

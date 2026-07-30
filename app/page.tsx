@@ -771,7 +771,7 @@ function resolveLaunchpadIcon(name: string): React.ComponentType<{ className?: s
 }
 
 const PLM_SSO_URL = 'https://studio.rhautt.com/api/auth/sso?next=%2F';
-const STRAT_SSO_URL = 'https://strat.rhautt.com/api/auth/tandem?next=%2Fcommand';
+const STRAT_SSO_URL = 'https://strat.rhautt.com/api/auth/tandem?next=%2Fstrategy%2Finput';
 const RENOVA_AI_URL = 'https://rhautt.com/pain-diagnosis.html';
 const YONYOU_SSO_URL = '/api/integrations/yonyou/sso';
 const YONYOU_SSO_URL_API = '/api/integrations/yonyou/sso/url';

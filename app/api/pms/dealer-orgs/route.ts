@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requirePmsAuth, type PmsAuthResult } from '@/lib/pms/pms-auth';
+import { getStore } from '@/lib/storage/repository';
 import {
   upsertDealerProfile,
   getDealerProfile,
@@ -19,6 +20,7 @@ import {
   listQualifications,
   decideQualification,
 } from '@/lib/pms/dealer-org-service';
+import { mergeDealerProfilesWithOrganizations } from '@/lib/pms/dealer-options';
 import {
   isYonyouCustomerConfigured,
   listYonyouCustomerCategories,
@@ -142,7 +144,9 @@ export async function GET(req: NextRequest) {
       limit: searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 50,
       offset: searchParams.get('offset') ? parseInt(searchParams.get('offset')!) : 0,
     });
-    return NextResponse.json({ profiles });
+    const organizations = await getStore().organizations.list({ tenantId: auth.tenantId });
+    const enrichedProfiles = mergeDealerProfilesWithOrganizations(profiles, organizations);
+    return NextResponse.json({ profiles: enrichedProfiles });
   } catch (error: any) {
     console.error('Dealer-orgs GET error:', error);
     if (error instanceof YonyouTokenConfigError) {

@@ -198,45 +198,80 @@ export async function updateOpportunity(
   opportunityId: string,
   input: {
     projectId?: string;
+    customerName?: string;
+    projectName?: string;
     stage?: string;
     status?: string;
-    contactName?: string;
-    contactTitle?: string;
-    leadSource?: string;
-    competitors?: string[];
-    customerIndustry?: string;
-    customerPhone?: string;
-    customerAddress?: string;
-    estimatedAmount?: number;
-    estimatedClosingDate?: string;
-    productLine?: string;
-    productSeries?: string;
-    productSeriesCode?: string;
-    productModel?: string;
-    productModelCode?: string;
-    productCatalogId?: string;
-    productCategory?: string;
-    productAttributes?: Record<string, string>;
-    region?: string;
-    channel?: string;
+    contactName?: string | null;
+    contactTitle?: string | null;
+    leadSource?: string | null;
+    competitors?: string[] | null;
+    customerIndustry?: string | null;
+    customerPhone?: string | null;
+    customerAddress?: string | null;
+    estimatedAmount?: number | null;
+    estimatedClosingDate?: string | null;
+    productLine?: string | null;
+    productSeries?: string | null;
+    productSeriesCode?: string | null;
+    productModel?: string | null;
+    productModelCode?: string | null;
+    productCatalogId?: string | null;
+    productCategory?: string | null;
+    productAttributes?: Record<string, string> | null;
+    region?: string | null;
+    channel?: string | null;
   },
   tenantId: string
 ) {
   const now = new Date();
-  
+  const rows = await db
+    .select()
+    .from(pmsOpportunities)
+    .where(and(
+      eq(pmsOpportunities.id, opportunityId),
+      eq(pmsOpportunities.tenantId, tenantId)
+    ))
+    .limit(1);
+  if (rows.length === 0) return null;
+
+  const current = rows[0];
+  const patch: Partial<typeof pmsOpportunities.$inferInsert> = {
+    ...input,
+    estimatedAmount:
+      input.estimatedAmount === undefined
+        ? undefined
+        : input.estimatedAmount === null
+          ? null
+          : input.estimatedAmount.toString(),
+    updatedAt: now,
+  };
+
+  if (
+    input.customerName !== undefined ||
+    input.customerAddress !== undefined ||
+    input.projectName !== undefined
+  ) {
+    patch.dedupeKey = generateDedupeKey(
+      input.customerName ?? current.customerName,
+      input.customerAddress ?? current.customerAddress ?? '',
+      input.projectName ?? current.projectName
+    );
+  }
+
+  const cleanPatch = Object.fromEntries(
+    Object.entries(patch).filter(([, value]) => value !== undefined)
+  ) as Partial<typeof pmsOpportunities.$inferInsert>;
+
   await db
     .update(pmsOpportunities)
-    .set({
-      ...input,
-      estimatedAmount: input.estimatedAmount?.toString(),
-      updatedAt: now,
-    })
+    .set(cleanPatch)
     .where(and(
       eq(pmsOpportunities.id, opportunityId),
       eq(pmsOpportunities.tenantId, tenantId)
     ));
-  
-  return { id: opportunityId, ...input, updatedAt: now.toISOString() };
+
+  return getOpportunity(opportunityId, tenantId);
 }
 
 /**

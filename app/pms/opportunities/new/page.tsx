@@ -17,12 +17,15 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/ui/select';
-import { ArrowLeft, AlertTriangle, Package } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, Check, ChevronDown, Package, Search } from 'lucide-react';
 
 const LEAD_SOURCES = ['设计院', '招标网', '老客户转介绍', '展会', '网络营销', '电话开发', '厂家线索', '合作伙伴', '其他'];
 const INDUSTRIES = ['医院', '学校', '酒店', '商业综合体', '数据中心', '工业厂房', '住宅地产', '政府/公建', '其他'];
 const REGIONS = ['华北', '华东', '华南', '华中', '西南', '西北', '东北'];
 const CHANNELS = ['直销', '经销', '工程', '设计院', '电商', '其他'];
+const YS_MASTER_REQUEST_TIMEOUT_MS = 60_000;
+const MASTER_PAGE_SIZE = 5000;
+const SEARCHABLE_SELECT_VISIBLE_LIMIT = 200;
 
 interface CatalogProduct {
   id: string;
@@ -37,6 +40,15 @@ interface CatalogProduct {
   attributes?: Record<string, string>;
 }
 
+interface DealerProfile {
+  orgId: string;
+  code?: string;
+  name?: string;
+  orgName?: string;
+  status?: string;
+  source?: 'pms' | 'organization' | 'ys';
+}
+
 interface DuplicateMatchDetail {
   similarity: number;
   dimensions?: string[];
@@ -46,6 +58,17 @@ interface DuplicateCheck {
   matchedOpportunities?: string[];
 }
 
+interface PageInfo {
+  pageIndex: number;
+  pageCount: number;
+}
+
+interface SearchableOption {
+  value: string;
+  label: string;
+  description?: string;
+}
+
 export default function NewOpportunityPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -53,11 +76,13 @@ export default function NewOpportunityPage() {
   const [duplicateWarning, setDuplicateWarning] = useState<DuplicateCheck | null>(null);
 
   const [products, setProducts] = useState<CatalogProduct[]>([]);
+  const [productSource, setProductSource] = useState<'ys' | 'local' | 'none'>('none');
   const [selectedSeriesCode, setSelectedSeriesCode] = useState<string>('');
   const [selectedProductId, setSelectedProductId] = useState<string>('');
+  const [dealers, setDealers] = useState<DealerProfile[]>([]);
 
   const [formData, setFormData] = useState({
-    dealerOrgId: 'dealer_default',
+    dealerOrgId: '',
     customerName: '',
     customerIndustry: '',
     customerPhone: '',
@@ -74,11 +99,126 @@ export default function NewOpportunityPage() {
   });
 
   useEffect(() => {
-    fetch('/api/pms/products?status=active&limit=500', { credentials: 'include', cache: 'no-store' })
-      .then((r) => (r.ok ? r.json() : { products: [] }))
-      .then((d) => setProducts(d.products || []))
-      .catch(() => setProducts([]));
+    loadMasterData();
+    // Master data is loaded once when the create form opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function loadMasterData() {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), YS_MASTER_REQUEST_TIMEOUT_MS);
+    const [localDealersResult, ysDealersResult] = await Promise.allSettled([
+      fetch('/api/pms/dealer-orgs?limit=5000', { credentials: 'include', cache: 'no-store' })
+        .then(async (res) => (res.ok ? (await res.json()).profiles || [] : [])),
+      loadPagedMasterData<DealerProfile>({
+        basePath: '/api/pms/dealer-orgs',
+        itemKey: 'profiles',
+        source: 'ys',
+        signal: controller.signal,
+      }),
+    ]);
+    window.clearTimeout(timer);
+
+    const localDealers = localDealersResult.status === 'fulfilled' ? localDealersResult.value : [];
+    const ysDealers = ysDealersResult.status === 'fulfilled' ? ysDealersResult.value : [];
+    setDealers(mergeDealerOptions(localDealers, ysDealers));
+
+    await loadProducts();
+  }
+
+  async function loadPagedMasterData<T>(options: {
+    basePath: string;
+    itemKey: string;
+    source: 'ys';
+    signal?: AbortSignal;
+  }): Promise<T[]> {
+    const loadPage = async (pageIndex: number) => {
+      const url = new URL(options.basePath, window.location.origin);
+      url.searchParams.set('source', options.source);
+      url.searchParams.set('pageIndex', String(pageIndex));
+      url.searchParams.set('pageSize', String(MASTER_PAGE_SIZE));
+      const res = await fetch(url.toString(), {
+        credentials: 'include',
+        cache: 'no-store',
+        signal: options.signal,
+      });
+      if (!res.ok) return { items: [] as T[], page: { pageIndex, pageCount: 0 } };
+      const data = await res.json();
+      return {
+        items: (data[options.itemKey] || []) as T[],
+        page: (data.page || { pageIndex, pageCount: 1 }) as PageInfo,
+      };
+    };
+
+    const first = await loadPage(1);
+    const pageCount = Math.max(first.page.pageCount || 1, 1);
+    if (pageCount === 1) return first.items;
+    const items = [...first.items];
+    for (let pageIndex = 2; pageIndex <= pageCount; pageIndex += 1) {
+      const nextPage = await loadPage(pageIndex);
+      items.push(...nextPage.items);
+    }
+    return items;
+  }
+
+  function dealerLabel(dealer: DealerProfile | undefined): string {
+    return dealer?.orgName || dealer?.name || dealer?.code || dealer?.orgId || '';
+  }
+
+  function dealerKeys(dealer: DealerProfile): string[] {
+    return [dealer.orgId, dealer.orgName, dealer.name, dealer.code]
+      .map((value) => String(value || '').trim().toLowerCase())
+      .filter(Boolean);
+  }
+
+  function mergeDealerOptions(localDealers: DealerProfile[], ysDealers: DealerProfile[]): DealerProfile[] {
+    const seen = new Set<string>();
+    const merged: DealerProfile[] = [];
+    const add = (dealer: DealerProfile) => {
+      if (dealer.status === 'suspended' || dealer.status === 'stopped') return;
+      const keys = dealerKeys(dealer);
+      if (keys.some((key) => seen.has(key))) return;
+      keys.forEach((key) => seen.add(key));
+      merged.push(dealer);
+    };
+    localDealers.forEach(add);
+    ysDealers.forEach(add);
+    return merged;
+  }
+
+  async function loadProducts() {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), YS_MASTER_REQUEST_TIMEOUT_MS);
+    try {
+      const nextProducts = await loadPagedMasterData<CatalogProduct>({
+        basePath: '/api/pms/products?type=products&allCategories=1',
+        itemKey: 'products',
+        source: 'ys',
+        signal: controller.signal,
+      });
+      if (nextProducts.length > 0) {
+        setProducts(nextProducts);
+        setProductSource('ys');
+        return;
+      }
+    } catch {
+      // fall back to local catalog below
+    } finally {
+      window.clearTimeout(timer);
+    }
+
+    fetch('/api/pms/products?status=active&limit=5000', { credentials: 'include', cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : { products: [] }))
+      .then((d) => {
+        const nextProducts = d.products || [];
+        setProducts(nextProducts);
+        setProductSource(nextProducts.length > 0 ? 'local' : 'none');
+      })
+      .catch(() => {
+        setProducts([]);
+        setProductSource('none');
+      });
+  }
 
   // 系列列表 (按 seriesCode 去重)
   const seriesList = useMemo(() => {
@@ -101,6 +241,30 @@ export default function NewOpportunityPage() {
     [products, selectedProductId],
   );
 
+  const dealerOptions = useMemo<SearchableOption[]>(() => (
+    dealers.map((dealer) => ({
+      value: dealer.orgId,
+      label: dealerLabel(dealer),
+      description: dealer.code && dealer.code !== dealerLabel(dealer) ? dealer.code : undefined,
+    }))
+  ), [dealers]);
+
+  const seriesOptions = useMemo<SearchableOption[]>(() => (
+    seriesList.map((series) => ({
+      value: series.code,
+      label: series.name,
+      description: series.code !== series.name ? series.code : undefined,
+    }))
+  ), [seriesList]);
+
+  const modelOptions = useMemo<SearchableOption[]>(() => (
+    modelsInSeries.map((product) => ({
+      value: product.id,
+      label: product.model,
+      description: [product.modelCode, product.specification].filter(Boolean).join(' / ') || undefined,
+    }))
+  ), [modelsInSeries]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -113,6 +277,7 @@ export default function NewOpportunityPage() {
       setLoading(true);
       setError(null);
       setDuplicateWarning(null);
+      const selectedDealer = dealers.find((dealer) => dealer.orgId === formData.dealerOrgId);
       
       const res = await fetch('/api/pms/opportunities', {
         method: 'POST',
@@ -120,6 +285,9 @@ export default function NewOpportunityPage() {
         credentials: 'include',
         body: JSON.stringify({
           ...formData,
+          dealerOrgName: dealerLabel(selectedDealer),
+          dealerOrgCode: selectedDealer?.code,
+          dealerOrgSource: selectedDealer?.source,
           competitors: formData.competitors
             ? formData.competitors.split(/[,，、]/).map((s) => s.trim()).filter(Boolean)
             : undefined,
@@ -224,7 +392,7 @@ export default function NewOpportunityPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="customerName">客户名称 *</Label>
-                <Input id="customerName" value={formData.customerName} onChange={(e) => setFormData({ ...formData, customerName: e.target.value })} placeholder="例：北京某医院" required />
+                <Input id="customerName" value={formData.customerName} onChange={(e) => setFormData({ ...formData, customerName: e.target.value })} placeholder="例：上海某医院" required />
               </div>
               <div>
                 <Label>客户行业</Label>
@@ -238,21 +406,21 @@ export default function NewOpportunityPage() {
             <div className="grid grid-cols-3 gap-4">
               <div>
                 <Label htmlFor="contactName">联系人</Label>
-                <Input id="contactName" value={formData.contactName} onChange={(e) => setFormData({ ...formData, contactName: e.target.value })} placeholder="张工" />
+                <Input id="contactName" value={formData.contactName} onChange={(e) => setFormData({ ...formData, contactName: e.target.value })} placeholder="例：张经理" />
               </div>
               <div>
                 <Label htmlFor="contactTitle">职务</Label>
-                <Input id="contactTitle" value={formData.contactTitle} onChange={(e) => setFormData({ ...formData, contactTitle: e.target.value })} placeholder="设备科长" />
+                <Input id="contactTitle" value={formData.contactTitle} onChange={(e) => setFormData({ ...formData, contactTitle: e.target.value })} placeholder="例：采购负责人" />
               </div>
               <div>
                 <Label htmlFor="customerPhone">联系电话</Label>
-                <Input id="customerPhone" value={formData.customerPhone} onChange={(e) => setFormData({ ...formData, customerPhone: e.target.value })} placeholder="13800138000" />
+                <Input id="customerPhone" value={formData.customerPhone} onChange={(e) => setFormData({ ...formData, customerPhone: e.target.value })} placeholder="例：13800000000" />
               </div>
             </div>
 
             <div>
               <Label htmlFor="customerAddress">项目地址</Label>
-              <Input id="customerAddress" value={formData.customerAddress} onChange={(e) => setFormData({ ...formData, customerAddress: e.target.value })} placeholder="北京市朝阳区xxx路xxx号" />
+              <Input id="customerAddress" value={formData.customerAddress} onChange={(e) => setFormData({ ...formData, customerAddress: e.target.value })} placeholder="例：上海市浦东新区..." />
             </div>
 
             <div>
@@ -303,9 +471,19 @@ export default function NewOpportunityPage() {
             </div>
 
             <div>
-              <Label htmlFor="dealerOrgId">归属经销商编码</Label>
-              <Input id="dealerOrgId" value={formData.dealerOrgId} onChange={(e) => setFormData({ ...formData, dealerOrgId: e.target.value })} placeholder="dealer_default" />
-              <p className="text-caption text-ink-tertiary mt-1">经销商登录时自动归属本商；内部代报时填写归属经销商编码。</p>
+              <Label>归属经销商</Label>
+              <SearchableSelect
+                value={formData.dealerOrgId}
+                options={dealerOptions}
+                placeholder={dealers.length ? '选择归属经销商' : '暂无可选经销商'}
+                searchPlaceholder="输入经销商名称/编码筛选"
+                onChange={(v) => setFormData({ ...formData, dealerOrgId: v })}
+              />
+              <p className="text-caption text-ink-tertiary mt-1">
+                {dealers.length
+                  ? `已加载 ${dealers.length} 个经销商；内部代报时从经销商组织中选择。`
+                  : '暂无可选经销商，请先在组织架构中维护经销商组织。'}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -320,47 +498,38 @@ export default function NewOpportunityPage() {
           <CardContent className="space-y-4">
             <p className="text-caption text-ink-tertiary">
               从产品目录选择系列与型号，便于后续按系列/型号分析与 AI 报价。
+              {productSource === 'ys'
+                ? ` 当前读取 YS 物料档案，已加载 ${products.length} 个型号、${seriesList.length} 个系列。`
+                : productSource === 'local'
+                  ? ` 当前读取本地产品目录，已加载 ${products.length} 个型号、${seriesList.length} 个系列。`
+                  : ' 当前暂无可选产品目录。'}
             </p>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>产品系列</Label>
-                <Select
+                <SearchableSelect
                   value={selectedSeriesCode}
-                  onValueChange={(v) => {
+                  options={seriesOptions}
+                  placeholder={seriesList.length ? '选择系列' : '暂无产品目录'}
+                  searchPlaceholder="输入系列名称/编码筛选"
+                  placement="top"
+                  onChange={(v) => {
                     setSelectedSeriesCode(v);
                     setSelectedProductId('');
                   }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={seriesList.length ? '选择系列' : '暂无产品目录'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {seriesList.map((s) => (
-                      <SelectItem key={s.code} value={s.code}>
-                        {s.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                />
               </div>
               <div>
                 <Label>型号</Label>
-                <Select
+                <SearchableSelect
                   value={selectedProductId}
-                  onValueChange={setSelectedProductId}
+                  options={modelOptions}
+                  placeholder={selectedSeriesCode ? '选择型号' : '请先选系列'}
+                  searchPlaceholder="输入型号/规格筛选"
+                  onChange={setSelectedProductId}
                   disabled={!selectedSeriesCode}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={selectedSeriesCode ? '选择型号' : '请先选系列'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {modelsInSeries.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.model}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placement="top"
+                />
               </div>
             </div>
 
@@ -414,6 +583,114 @@ export default function NewOpportunityPage() {
           </Button>
         </div>
       </form>
+    </div>
+  );
+}
+
+function SearchableSelect({
+  value,
+  options,
+  placeholder,
+  searchPlaceholder,
+  onChange,
+  disabled,
+  placement = 'bottom',
+}: {
+  value: string;
+  options: SearchableOption[];
+  placeholder: string;
+  searchPlaceholder: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+  placement?: 'bottom' | 'top';
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const selected = options.find((option) => option.value === value);
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredOptions = useMemo(() => {
+    if (!normalizedQuery) return options;
+    return options.filter((option) => (
+      option.label.toLowerCase().includes(normalizedQuery) ||
+      (option.description || '').toLowerCase().includes(normalizedQuery) ||
+      option.value.toLowerCase().includes(normalizedQuery)
+    ));
+  }, [normalizedQuery, options]);
+  const visibleOptions = filteredOptions.slice(0, SEARCHABLE_SELECT_VISIBLE_LIMIT);
+  const hiddenCount = filteredOptions.length - visibleOptions.length;
+
+  return (
+    <div
+      className="relative"
+      onBlur={(event) => {
+        const nextFocus = event.relatedTarget;
+        if (nextFocus instanceof Node && event.currentTarget.contains(nextFocus)) return;
+        setOpen(false);
+      }}
+    >
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => {
+          if (disabled) return;
+          setOpen((current) => !current);
+          setQuery('');
+        }}
+        className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-left text-caption ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <span className={selected ? 'truncate text-ink-primary' : 'truncate text-muted-foreground'}>
+          {selected?.label || placeholder}
+        </span>
+        <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+      </button>
+
+      {open && !disabled && (
+        <div className={`absolute z-50 w-full overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-soft ${
+          placement === 'top' ? 'bottom-full mb-1' : 'mt-1'
+        }`}>
+          <div className="flex items-center gap-2 border-b border-border px-2 py-1.5">
+            <Search className="h-4 w-4 shrink-0 text-ink-tertiary" />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              autoFocus
+              placeholder={searchPlaceholder}
+              className="h-8 min-w-0 flex-1 bg-transparent text-caption outline-none placeholder:text-ink-tertiary"
+            />
+          </div>
+          <div className="max-h-64 overflow-y-auto p-1">
+            {visibleOptions.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  onChange(option.value);
+                  setOpen(false);
+                  setQuery('');
+                }}
+                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-caption hover:bg-accent hover:text-accent-foreground"
+              >
+                <Check className={`h-4 w-4 shrink-0 ${option.value === value ? 'opacity-100' : 'opacity-0'}`} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-ink-primary">{option.label}</span>
+                  {option.description && (
+                    <span className="block truncate text-[11px] text-ink-tertiary">{option.description}</span>
+                  )}
+                </span>
+              </button>
+            ))}
+            {visibleOptions.length === 0 && (
+              <div className="px-3 py-6 text-center text-caption text-ink-tertiary">没有匹配结果</div>
+            )}
+            {hiddenCount > 0 && (
+              <div className="px-3 py-2 text-center text-[11px] text-ink-tertiary">
+                还有 {hiddenCount} 条结果，请继续输入筛选
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

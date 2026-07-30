@@ -16,6 +16,10 @@ import {
   listCustomerAccounts,
 } from '@/lib/pms/product-catalog-service';
 import {
+  isYonyouCustomerConfigured,
+  listYonyouCustomerDealerProfiles,
+} from '@/lib/integrations/yonyou-customer';
+import {
   getYonyouMaterialConfig,
   isYonyouMaterialConfigured,
   listYonyouMaterialCategories,
@@ -78,6 +82,39 @@ function pickDefaultProductCategoryCode(
   return sorted[0]?.code ?? sorted[0]?.id;
 }
 
+function expandProductCategoryCodes(
+  categories: MaterialCategoryForDefault[],
+  rootCategoryCodes: string[],
+  includeStopped: boolean,
+): string[] {
+  if (!rootCategoryCodes.length) return [];
+  const source = categories.filter((category) => includeStopped || category.isEnabled);
+  const byParent = new Map<string, MaterialCategoryForDefault[]>();
+  source.forEach((category) => {
+    if (!category.parentId) return;
+    byParent.set(category.parentId, [...(byParent.get(category.parentId) ?? []), category]);
+  });
+
+  const codes: string[] = [];
+  const visited = new Set<string>();
+  const visit = (key: string) => {
+    if (visited.has(key)) return;
+    visited.add(key);
+    const category = source.find((item) => item.code === key || item.id === key);
+    if (!category) {
+      codes.push(key);
+      return;
+    }
+    codes.push(category.code ?? category.id);
+    [
+      ...(byParent.get(category.id) ?? []),
+      ...(category.code ? byParent.get(category.code) ?? [] : []),
+    ].forEach((child) => visit(child.code ?? child.id));
+  };
+  rootCategoryCodes.forEach(visit);
+  return Array.from(new Set(codes));
+}
+
 export async function GET(req: NextRequest) {
   await boot();
   let auth: PmsAuthResult;
@@ -93,6 +130,58 @@ export async function GET(req: NextRequest) {
     const type = searchParams.get('type') || 'products';
 
     if (type === 'customers') {
+      if (searchParams.get('source') === 'ys') {
+        if (!isYonyouCustomerConfigured()) {
+          return NextResponse.json({
+            error: 'YONSUITE_API_BASE, YONSUITE_APP_KEY and YONSUITE_APP_SECRET are required',
+          }, { status: 503 });
+        }
+        const pageIndex = searchParams.get('pageIndex') ? parseInt(searchParams.get('pageIndex')!) : 1;
+        const pageSize = searchParams.get('pageSize') ? parseInt(searchParams.get('pageSize')!) : 100;
+        const keyword = (searchParams.get('q') || '').trim();
+        const keywordLooksLikeCode = /^[A-Za-z0-9_.\/-]+$/.test(keyword);
+        const result = await listYonyouCustomerDealerProfiles({
+          pageIndex,
+          pageSize,
+          stopStatus: searchParams.get('includeStopped') === '1' ? undefined : false,
+          ...(keyword
+            ? (keywordLooksLikeCode ? { code: keyword } : { name: keyword })
+            : {}),
+          customerClassCode: searchParams.get('customerClassCode') || undefined,
+          pubts: searchParams.get('pubts') || undefined,
+        });
+        const customers = result.profiles.map((profile) => ({
+          id: profile.id,
+          name: profile.name || profile.orgId,
+          externalCode: profile.code,
+          type: profile.customerClassName,
+          region: profile.coverageRegions?.[0],
+          dealerOrgId: profile.orgId,
+          attributes: {
+            contactName: profile.contactName,
+            contactPhone: profile.contactPhone,
+            contactEmail: profile.contactEmail,
+            address: profile.address,
+            customerIndustry: profile.coverageRegions?.[3],
+            customerClassName: profile.customerClassName,
+            legalBody: profile.legalBody,
+          },
+          source: 'ys',
+          status: profile.status === 'stopped' ? 'stopped' : 'active',
+        }));
+        return NextResponse.json({
+          source: 'ys',
+          customers,
+          page: {
+            pageIndex: result.pageIndex,
+            pageSize: result.pageSize,
+            pageCount: result.pageCount,
+            recordCount: result.recordCount,
+            pubts: result.pubts,
+          },
+        });
+      }
+
       const customers = await listCustomerAccounts({
         tenantId: auth.tenantId,
         region: searchParams.get('region') || undefined,
@@ -114,6 +203,7 @@ export async function GET(req: NextRequest) {
       const pageIndex = searchParams.get('pageIndex') ? parseInt(searchParams.get('pageIndex')!) : 1;
       const pageSize = searchParams.get('pageSize') ? parseInt(searchParams.get('pageSize')!) : 50;
       const includeStopped = searchParams.get('includeStopped') === '1';
+      const allCategories = searchParams.get('allCategories') === '1';
       const categories = await listCachedYonyouMaterialCategories();
       const keyword = (searchParams.get('q') || '').trim();
       const materialClassCodes = (searchParams.get('categoryCodes') || '')
@@ -122,14 +212,19 @@ export async function GET(req: NextRequest) {
         .filter(Boolean)
         .slice(0, 50);
       const requestedCategoryCode = searchParams.get('categoryCode') || undefined;
-      const defaultCategoryCode = !materialClassCodes.length && !requestedCategoryCode
+      const defaultCategoryCode = !allCategories && !materialClassCodes.length && !requestedCategoryCode
         ? pickDefaultProductCategoryCode(categories, config.productRootCategoryCodes ?? [], includeStopped)
         : undefined;
+      const allProductCategoryCodes = allCategories
+        ? expandProductCategoryCodes(categories, config.productRootCategoryCodes ?? [], includeStopped)
+        : [];
       const categoryCodes = materialClassCodes.length
         ? materialClassCodes
-        : (requestedCategoryCode
+        : (allCategories
+          ? allProductCategoryCodes
+          : (requestedCategoryCode
           ? [requestedCategoryCode]
-          : (defaultCategoryCode ? [defaultCategoryCode] : config.productRootCategoryCodes ?? []));
+          : (defaultCategoryCode ? [defaultCategoryCode] : config.productRootCategoryCodes ?? [])));
       const keywordLooksLikeCode = /^[A-Za-z0-9_.\/-]+$/.test(keyword);
       const searchVariants = keyword
         ? (keywordLooksLikeCode ? [{ code: keyword }, { name: keyword }] : [{ name: keyword }, { code: keyword }])

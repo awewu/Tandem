@@ -140,7 +140,12 @@ export async function runPmsDailyScan(tenantId: string, now = new Date()): Promi
   escalated: number;
   targetsRolledUp: number;
 }> {
-  const pool = await scanExpiringOpportunities({ tenantId });
+  const pool = await scanExpiringOpportunities({
+    tenantId,
+    autoRelease: true,
+    actorId: '__system__',
+    protectionDays: 0,
+  });
   const qualificationAlerts = await scanQualificationExpiry(tenantId, now);
   const warrantyAlerts = await scanWarrantyExpiry(tenantId, now);
   const escalated = await escalateOverdueAlerts(tenantId, now);

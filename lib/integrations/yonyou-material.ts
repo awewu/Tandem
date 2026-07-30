@@ -322,11 +322,12 @@ export function mapYonyouMaterialToProduct(record: YonyouMaterialRecord): Yonyou
   const categoryCode = safeString(record.managementClassCode) ?? safeString(record.manageClassCode) ?? safeString(record.materialClassCode);
   const categoryName = safeString(record.managementClassName) ?? safeString(record.manageClassName) ?? safeString(record.materialClassName);
   const stopped = record.stopStatus === true || record.stopstatus === true || record.isEnabled === false || record.enable === false;
-  const series = safeString(record.productLineName) ?? safeString(record.brandName) ?? categoryName ?? '成品';
+  const brandName = safeString(record.brandName);
+  const series = safeString(record.productLineName) ?? brandName ?? '未分系列';
   return {
     id: code ?? safeString(record.id) ?? name ?? 'unknown-material',
     series,
-    seriesCode: safeString(record.productLineCode) ?? categoryCode,
+    seriesCode: safeString(record.productLineCode) ?? brandName ?? 'unclassified',
     model: name ?? code ?? '未命名物料',
     modelCode: code,
     category: categoryName ?? categoryCode,
@@ -340,7 +341,7 @@ export function mapYonyouMaterialToProduct(record: YonyouMaterialRecord): Yonyou
     attributes: {
       ...(categoryCode ? { categoryCode } : {}),
       ...(categoryName ? { categoryName } : {}),
-      ...(safeString(record.brandName) ? { brand: safeString(record.brandName)! } : {}),
+      ...(brandName ? { brand: brandName } : {}),
     },
   };
 }
