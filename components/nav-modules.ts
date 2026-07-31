@@ -65,10 +65,10 @@ import {
   ClipboardList,
 } from 'lucide-react';
 
-export type Role = 'employee' | 'manager' | 'steward' | 'admin' | 'champion' | 'intranet_editor' | 'owner' | 'partner' | 'dealer';
+export type Role = 'employee' | 'manager' | 'steward' | 'admin' | 'champion' | 'exec' | 'finance' | 'intranet_editor' | 'owner' | 'partner' | 'dealer';
 
 /** 内部员工角色集合（不含合作伙伴） */
-export const INTERNAL_ROLES: Role[] = ['employee', 'manager', 'steward', 'admin', 'champion', 'intranet_editor', 'owner'];
+export const INTERNAL_ROLES: Role[] = ['employee', 'manager', 'steward', 'admin', 'champion', 'exec', 'finance', 'intranet_editor', 'owner'];
 /** 合作伙伴可见的模块/功能 */
 export const PARTNER_ALLOWED_MODULES = ['dazi', 'settings'] as const;
 
@@ -228,10 +228,11 @@ export const NAV_MODULES: NavModule[] = [
     //   工作层 = 「我的工作云盘」/drive (组织架构化, 带 ACL, 可被 AI 蒸馏 → 组织记忆).
     //   记忆层 = 「组织记忆」/memories (签批后喂 AI).
     // 遗留 /knowledge (knowledgeNodes) 退役中, 数据并入个人层.
-    pathPrefixes: ['/knowledge-hub', '/documents', '/memories', '/drive', '/bitable', '/shouchao'],
+    pathPrefixes: ['/knowledge-hub', '/documents', '/memories', '/memory/capture', '/drive', '/bitable', '/shouchao'],
     items: [
       { name: '知识导航',     href: '/knowledge-hub', icon: Compass },
       { name: '我的资料库（搭子手抄）', href: '/shouchao', icon: NotebookPen, group: '私人空间' },
+      { name: '待沉淀队列（AI 提炼）', href: '/memory/capture', icon: SparklesAlias, group: '公司权威 · 签批后喂 AI' },
       { name: '组织记忆（需审批）', href: '/memories', icon: Brain,   group: '公司权威 · 签批后喂 AI' },
       { name: '文档协作',     href: '/documents', icon: FileText,   group: '协作产出' },
       { name: '多维表格',     href: '/bitable',   icon: LayoutGrid, group: '协作产出' },
@@ -395,7 +396,7 @@ export const NAV_MODULES: NavModule[] = [
     icon: Store,
     showInGlobalNav: false,
     // 内部员工 + 经销商 (dealer) 共用: 经销商仅见渠道相关项 (总部项标 INTERNAL_ROLES 屏蔽)
-    visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner', 'dealer'],
+    visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'exec', 'finance', 'owner', 'dealer'],
     pathPrefixes: ['/pms'],
     items: [
       { name: '驾驶舱预警', href: '/pms/cockpit', icon: Gauge, group: '洞察' },
@@ -555,7 +556,7 @@ export const NAV_MODULES: NavModule[] = [
   },
 ];
 
-export const ALL_ROLES: Role[] = ['owner', 'admin', 'champion', 'intranet_editor', 'steward', 'manager', 'employee', 'partner'];
+export const ALL_ROLES: Role[] = ['owner', 'admin', 'champion', 'exec', 'finance', 'intranet_editor', 'steward', 'manager', 'employee', 'partner'];
 
 /** auth 外部角色 (lib/auth/roles.ts EXTERNAL_ROLES). nav 只用 'partner' 表达外部视图. */
 const EXTERNAL_AUTH_ROLES = new Set(['guest', 'partner', 'contractor']);

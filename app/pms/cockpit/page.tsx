@@ -127,7 +127,7 @@ export default function PmsCockpitPage() {
               </p>
               <p className="text-headline font-semibold text-ink-primary mt-1">{topException.title}</p>
               <p className="text-caption text-ink-secondary mt-1">{topException.detail}</p>
-              <p className="text-caption text-brand-500 font-medium mt-2">→ 下一步：{nextActionOf(topException.type)}</p>
+              <AiAction exception={topException} scope={data.scope} variant="bluf" />
             </div>
           </div>
         </div>
@@ -183,7 +183,7 @@ export default function PmsCockpitPage() {
                       <div className="min-w-0">
                         <p className="text-caption font-medium text-ink-primary">{e.title}</p>
                         <p className="text-caption text-ink-tertiary mt-0.5">{e.detail}</p>
-                        <p className="text-caption text-brand-500 mt-1">→ {nextActionOf(e.type)}</p>
+                        <AiAction exception={e} scope={data.scope} />
                       </div>
                     </div>
                     <span className="text-caption rounded px-1.5 py-0.5 bg-surface-1 text-ink-secondary shrink-0">{e.category === 'sales' ? '销售' : '财务'}</span>
@@ -294,6 +294,62 @@ function DimensionSection({ dimensions }: { dimensions: DimAnalysis[] }) {
         ))}
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * 单条预警的"下一步动作": 默认即时显示规则基线 (nextActionOf), 提供"AI 建议"按钮
+ * 懒加载真 LLM 建议 (POST /api/pms/cockpit/advise, grounded + fail-soft; 失败保留静态).
+ */
+function AiAction({ exception, scope, variant }: { exception: Exception; scope: Scope; variant?: 'bluf' }) {
+  const [advice, setAdvice] = useState<{ action: string; source: 'ai' | 'rule'; rationale?: string } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const action = advice?.action ?? nextActionOf(exception.type);
+
+  async function ask(ev: { stopPropagation: () => void }) {
+    ev.stopPropagation();
+    if (loading || advice) return;
+    setLoading(true);
+    try {
+      const res = await fetch('/api/pms/cockpit/advise', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: exception.type, title: exception.title, detail: exception.detail,
+          severity: exception.severity, category: exception.category, amount: exception.amount, scope,
+        }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json?.advice?.action) setAdvice(json.advice);
+      }
+    } catch {
+      /* fail-soft: 保留静态基线 */
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className={variant === 'bluf' ? 'mt-2' : 'mt-1'}>
+      <p className={`text-caption ${variant === 'bluf' ? 'text-brand-500 font-medium' : 'text-brand-500'}`}>
+        → 下一步：{action}
+        {advice?.source === 'ai' && (
+          <span className="ml-1 rounded bg-brand-500/10 px-1 text-[10px] align-middle text-brand-500">AI</span>
+        )}
+        {!advice && (
+          <button
+            onClick={ask}
+            disabled={loading}
+            className="ml-2 text-ink-tertiary hover:text-brand-500 underline decoration-dotted disabled:opacity-50"
+          >
+            {loading ? '…' : 'AI 建议'}
+          </button>
+        )}
+      </p>
+      {advice?.rationale && <p className="text-caption text-ink-tertiary mt-0.5">依据：{advice.rationale}</p>}
+    </div>
   );
 }
 

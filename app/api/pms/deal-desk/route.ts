@@ -12,11 +12,11 @@ import { boot } from '@/lib/boot';
 import { requirePmsAuth, type PmsAuthResult } from '@/lib/pms/pms-auth';
 import { assembleDealDesk } from '@/lib/pms/deal-desk-service';
 import { arbitrateAppeal, normalizeDecision } from '@/lib/pms/duplicate-appeal-service';
-
-const STEWARD_ROLES = ['owner', 'admin', 'manager', 'steward'];
+import { reviewOpportunity } from '@/lib/pms/opportunity-service';
+import { PMS_MANAGEMENT_ROLES } from '@/lib/auth/roles';
 
 function authorize(auth: PmsAuthResult): boolean {
-  return auth.isInternal && auth.roles.some((r) => STEWARD_ROLES.includes(r));
+  return auth.isInternal && auth.roles.some((r) => (PMS_MANAGEMENT_ROLES as readonly string[]).includes(r));
 }
 
 export async function GET(req: NextRequest) {
@@ -58,6 +58,29 @@ export async function POST(req: NextRequest) {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: 'invalid json' }, { status: 400 });
+  }
+
+  // 报备审核: 通过/驳回 pending_review 商机
+  if (body?.action === 'review') {
+    if (!body.opportunityId) {
+      return NextResponse.json({ error: 'opportunityId required' }, { status: 400 });
+    }
+    const decision = body.decision === 'approved' ? 'approved' : body.decision === 'rejected' ? 'rejected' : null;
+    if (!decision) {
+      return NextResponse.json({ error: 'decision must be approved|rejected' }, { status: 400 });
+    }
+    try {
+      const result = await reviewOpportunity(
+        String(body.opportunityId),
+        decision,
+        auth.userId,
+        auth.tenantId,
+        body.note ? String(body.note) : undefined,
+      );
+      return NextResponse.json({ ok: true, result });
+    } catch (error: any) {
+      return NextResponse.json({ error: error.message || 'review failed' }, { status: 400 });
+    }
   }
 
   if (body?.action !== 'arbitrate') {

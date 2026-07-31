@@ -7,6 +7,7 @@ import {
   toDeadlineArray,
   buildSpecRiskBaseline,
   buildDecisionChainBaseline,
+  ruleActionForException,
 } from '@/lib/pms/ai-service';
 import type {
   SpecPosition,
@@ -29,6 +30,17 @@ describe('pms-ai · extractJsonObject', () => {
     expect(extractJsonObject('no json here')).toBeNull();
     expect(extractJsonObject('')).toBeNull();
     expect(extractJsonObject('{broken')).toBeNull();
+  });
+});
+
+describe('pms-ai · ruleActionForException (驾驶舱建议规则基线/LLM兜底)', () => {
+  it('已知异常类型返回专属动作 (动词开头)', () => {
+    expect(ruleActionForException('spec_at_risk')).toContain('设计');
+    expect(ruleActionForException('tender_deadline')).toContain('标书');
+    expect(ruleActionForException('contract_backlog')).toContain('审批');
+  });
+  it('未知类型回退到通用动作', () => {
+    expect(ruleActionForException('unknown_type')).toBe('查看详情并处理');
   });
 });
 

@@ -8,7 +8,7 @@
  */
 
 /** 一次可评分的 agent pass 类型 */
-export type EvalTraceKind = 'perception' | 'act' | 'reasoning' | 'decision' | 'okr_review' | 'pms_analysis';
+export type EvalTraceKind = 'perception' | 'act' | 'reasoning' | 'decision' | 'okr_review' | 'pms_analysis' | 'pms_exception';
 
 /** trace 里精简记录的一次工具调用 (只留评分所需字段) */
 export interface EvalToolInvocation {

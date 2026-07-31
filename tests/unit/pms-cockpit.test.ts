@@ -13,6 +13,7 @@ import {
   topShare,
   detectConcentrationRisk,
   detectZeroWinDimensions,
+  resolvePmsCockpitScope,
 } from '@/lib/pms/cockpit-service';
 import type { DimensionRow, DimensionAnalysis } from '@/lib/pms/cockpit-service';
 
@@ -155,6 +156,26 @@ describe('cockpit · detectContractBacklog', () => {
     expect(detectContractBacklog({ count: 0, amount: 0 })).toHaveLength(0);
     expect(detectContractBacklog({ count: 2, amount: 100 })[0].severity).toBe('warning');
     expect(detectContractBacklog({ count: 6, amount: 100 })[0].severity).toBe('critical');
+  });
+});
+
+describe('cockpit · resolvePmsCockpitScope', () => {
+  it('管理层/职能高管/财务 → company 全景 (修复 CMO/finance 看不到)', () => {
+    for (const r of ['owner', 'admin', 'manager', 'steward', 'exec', 'finance']) {
+      expect(resolvePmsCockpitScope([r], true)).toBe('company');
+    }
+  });
+  it('其他内部员工 → mine (仅我负责, 隐藏公司财务)', () => {
+    expect(resolvePmsCockpitScope(['employee'], true)).toBe('mine');
+    expect(resolvePmsCockpitScope(['champion'], true)).toBe('mine');
+    expect(resolvePmsCockpitScope(['internal_staff'], true)).toBe('mine');
+  });
+  it('外部经销商 → org (本经销商范围), 与角色无关', () => {
+    expect(resolvePmsCockpitScope(['dealer_admin'], false)).toBe('org');
+    expect(resolvePmsCockpitScope(['exec'], false)).toBe('org');
+  });
+  it('多角色任一命中全景组即 company', () => {
+    expect(resolvePmsCockpitScope(['employee', 'exec'], true)).toBe('company');
   });
 });
 
