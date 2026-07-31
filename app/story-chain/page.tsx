@@ -12,6 +12,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   GitBranch, Target, Rocket, ScrollText, FileText, Stamp, MessageSquare, Loader2, Link2,
+  History, ArrowDown, Replace,
 } from 'lucide-react';
 
 interface MemoryNode { id: string; title: string; type: string; status: string; ownershipLevel: string }
@@ -28,12 +29,19 @@ interface CheckInNode {
   id: string; createdAt: string; progressAfter: number; confidenceAfter: string;
   achievements?: string | null; blockers?: string | null;
 }
+type CausalEdgeKind = 'temporal_next' | 'supersedes' | 'same_session';
+interface TimelineEventNode {
+  id: string; title: string; type: string; ownershipLevel: string; at: string; order: number;
+}
+interface CausalLink { fromId: string; toId: string; kind: CausalEdgeKind; weight: number }
+interface Timeline { events: TimelineEventNode[]; causalLinks: CausalLink[] }
 interface StoryChain {
   anchor: { krId: string; krTitle: string; progress: number; confidence: string; objectiveId?: string; objectiveTitle?: string };
   initiatives: InitiativeNode[];
   decisions: DecisionNode[];
   checkIns: CheckInNode[];
-  stats: { initiativeCount: number; decisionCount: number; materialCount: number; memoryCount: number; checkInCount: number };
+  timeline: Timeline;
+  stats: { initiativeCount: number; decisionCount: number; materialCount: number; memoryCount: number; checkInCount: number; timelineEventCount: number };
 }
 interface AnchorKr { krId: string; krTitle: string; objectiveTitle?: string; progress: number }
 
@@ -43,6 +51,70 @@ const OWNERSHIP_LABEL: Record<string, string> = {
 const CONFIDENCE_CLASS: Record<string, string> = {
   'on-track': 'text-success', 'at-risk': 'text-warning', 'off-track': 'text-danger',
 };
+const MEMORY_TYPE_LABEL: Record<string, string> = {
+  sop: 'SOP', case: '案例', redline: '红线', value: '价值观', lesson: '教训',
+};
+
+/** 时间/因果轴视图: 触及该 KR 的记忆按时间演进 (MAGMA-lite)。 */
+function TimelineView({ timeline }: { timeline: Timeline }) {
+  // 版本取代 (旧→新) 的目标 id = "新版", 用于在事件上标注"取代了前版"
+  const supersedeTargets = useMemo(
+    () => new Set(timeline.causalLinks.filter((l) => l.kind === 'supersedes').map((l) => l.toId)),
+    [timeline.causalLinks],
+  );
+  const sameSessionIds = useMemo(() => {
+    const s = new Set<string>();
+    for (const l of timeline.causalLinks) {
+      if (l.kind === 'same_session') { s.add(l.fromId); s.add(l.toId); }
+    }
+    return s;
+  }, [timeline.causalLinks]);
+  const supersedeCount = timeline.causalLinks.filter((l) => l.kind === 'supersedes').length;
+
+  if (timeline.events.length === 0) {
+    return <p className="text-footnote text-ink-tertiary">暂无触及此 KR 的记忆事件 (标题/正文未出现该 KR 编号)。</p>;
+  }
+  return (
+    <div className="space-y-0">
+      <p className="mb-2 text-footnote text-ink-tertiary">
+        沿时间主干（然后）串联，标注版本取代与同会话共因
+        {supersedeCount > 0 ? ` · 含 ${supersedeCount} 处版本取代` : ''}。
+      </p>
+      {timeline.events.map((e, idx) => (
+        <div key={e.id} className="min-w-0">
+          <div className="flex min-w-0 items-start gap-2 rounded-2xl bg-surface-2 p-2.5">
+            <span className="mt-0.5 shrink-0 rounded-full bg-surface-1 px-2 py-0.5 text-footnote text-ink-secondary">
+              {e.order + 1}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block break-words text-caption text-ink-primary">{e.title}</span>
+              <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-footnote text-ink-tertiary">
+                <span>{e.at ? new Date(e.at).toLocaleDateString() : '(无日期)'}</span>
+                <span>· {MEMORY_TYPE_LABEL[e.type] ?? e.type}</span>
+                <span>· {OWNERSHIP_LABEL[e.ownershipLevel] ?? e.ownershipLevel}</span>
+                {supersedeTargets.has(e.id) && (
+                  <span className="inline-flex items-center gap-1 text-brand-600">
+                    <Replace className="h-3 w-3" /> 取代前版
+                  </span>
+                )}
+                {sameSessionIds.has(e.id) && (
+                  <span className="inline-flex items-center gap-1">
+                    <Link2 className="h-3 w-3" /> 同会话
+                  </span>
+                )}
+              </span>
+            </span>
+          </div>
+          {idx + 1 < timeline.events.length && (
+            <div className="flex justify-center py-0.5 text-ink-tertiary/50">
+              <ArrowDown className="h-3.5 w-3.5" />
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function pct(n: number): string {
   return `${Math.round(n * 100)}%`;
@@ -225,6 +297,7 @@ export default function StoryChainPage() {
             <span className="rounded-2xl bg-surface-2 px-2.5 py-1 text-ink-secondary">{chain.stats.memoryCount} Memory</span>
             <span className="rounded-2xl bg-surface-2 px-2.5 py-1 text-ink-secondary">{chain.stats.initiativeCount} Initiative</span>
             <span className="rounded-2xl bg-surface-2 px-2.5 py-1 text-ink-secondary">{chain.stats.checkInCount} Check-in</span>
+            <span className="rounded-2xl bg-surface-2 px-2.5 py-1 text-ink-secondary">{chain.stats.timelineEventCount} 演进事件</span>
           </div>
 
           {/* 算: KR 锚点 */}
@@ -337,6 +410,14 @@ export default function StoryChainPage() {
                 ))}
               </div>
             )}
+          </section>
+
+          {/* 演进: 时间/因果轴 (MAGMA-lite) */}
+          <section className="min-w-0 rounded-2xl bg-surface-1 shadow-soft-sm p-4">
+            <div className="flex items-center gap-2 text-caption text-ink-tertiary mb-2">
+              <History className="w-4 h-4 text-brand-600" /> 演进 · 时间/因果轴 · MAGMA-lite ({chain.timeline.events.length})
+            </div>
+            <TimelineView timeline={chain.timeline} />
           </section>
         </div>
       )}

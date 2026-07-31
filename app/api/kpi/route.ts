@@ -101,6 +101,7 @@ async function POSTApiHandler(req: NextRequest) {
       level: body.level,
       parentKpiId: body.parentKpiId,
       assigneeId: body.assigneeId,
+      coOwnerIds: Array.isArray(body.coOwnerIds) ? body.coOwnerIds.filter((id: unknown) => typeof id === 'string') : undefined,
       departmentId: body.departmentId,
       title: body.title,
       description: body.description,

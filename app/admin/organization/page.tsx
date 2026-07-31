@@ -587,7 +587,7 @@ function DeptNode({
       <div
         className={`flex items-center gap-1.5 px-2 py-1.5 rounded-md cursor-pointer transition-colors group ${
           selected
-            ? 'bg-primary/12 text-primary ring-1 ring-primary/30 shadow-sm'
+            ? 'bg-primary/12 text-primary ring-1 ring-primary/30 shadow-soft-sm'
             : 'hover:bg-muted/40'
         }`}
         style={{ paddingLeft: depth * 16 + 8 }}

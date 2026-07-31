@@ -194,7 +194,7 @@ export default function CompanyBrainAdminPage() {
           href="/admin/eval"
           className="group flex items-center gap-3 rounded-2xl bg-white p-4 ring-1 ring-border/80 hover:ring-brand-300 surface-interactive"
         >
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
             <Target className="h-5 w-5" />
           </div>
           <div className="min-w-0">
@@ -208,7 +208,7 @@ export default function CompanyBrainAdminPage() {
           href="/memory/capture"
           className="group flex items-center gap-3 rounded-2xl bg-white p-4 ring-1 ring-border/80 hover:ring-brand-300 surface-interactive"
         >
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
             <Sparkles className="h-5 w-5" />
           </div>
           <div className="min-w-0">
@@ -222,7 +222,7 @@ export default function CompanyBrainAdminPage() {
           href="/admin/governance/okr-drift"
           className="group flex items-center gap-3 rounded-2xl bg-white p-4 ring-1 ring-border/80 hover:ring-brand-300 surface-interactive"
         >
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
             <TrendingUp className="h-5 w-5" />
           </div>
           <div className="min-w-0">

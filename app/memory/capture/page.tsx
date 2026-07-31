@@ -72,7 +72,7 @@ export default function CaptureQueuePage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-8 space-y-6">
+    <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8 space-y-6">
       <header>
         <div className="flex items-center gap-2 text-caption text-tertiary mb-1">
           <Sparkles className="h-4 w-4 text-[rgb(var(--brand-500))]" />
@@ -85,7 +85,7 @@ export default function CaptureQueuePage() {
       </header>
 
       {err && (
-        <div className="rounded-xl border border-danger/30 bg-danger/5 px-4 py-2.5 text-caption text-danger">
+        <div className="rounded-2xl border border-danger/30 bg-danger/5 px-4 py-2.5 text-caption text-danger">
           {err}
         </div>
       )}

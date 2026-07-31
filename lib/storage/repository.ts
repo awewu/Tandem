@@ -34,6 +34,7 @@ import type {
   KpiBonusPayout,
   KpiSubject,
   KpiCausalLink,
+  KpiTargetAmendment,
 } from '../types/kpi';
 import type { ImChannel, ImMessage, ImMembership, ImPresence, ImMentionInboxItem } from '../types/im';
 import type {
@@ -134,6 +135,9 @@ export interface TandemStore {
 
   /** BSC 战略地图因果链 (B-019) */
   kpiCausalLinks: Repository<KpiCausalLink>;
+
+  /** 目标修订签批流 (targetsLockedAt 后 targetValue 变更的唯一合法通道) */
+  kpiTargetAmendments: Repository<KpiTargetAmendment>;
 
   /** IM (内置消息层) */
   imChannels: Repository<ImChannel>;

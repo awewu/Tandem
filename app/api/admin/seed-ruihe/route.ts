@@ -247,6 +247,8 @@ async function POSTApiHandler(req: NextRequest) {
     completion: number;
     parentKpiId?: string;
     titlePrefix?: string;
+    /** 跨体系联合持有人 (纯数据层联合监控标注, 不驱动奖金——见 Kpi.coOwnerIds 注释) */
+    coOwnerIds?: string[];
   }): Promise<Kpi> => {
     const spec = specByCode.get(args.code)!;
     const subj = subjectByCode.get(args.code)!;
@@ -261,6 +263,7 @@ async function POSTApiHandler(req: NextRequest) {
       level: args.level,
       parentKpiId: args.parentKpiId,
       assigneeId: args.assigneeId,
+      coOwnerIds: args.coOwnerIds,
       departmentId: args.departmentId,
       title: `${args.titlePrefix ?? ''}${spec.name}`,
       measureType: spec.measureType,
@@ -313,15 +316,36 @@ async function POSTApiHandler(req: NextRequest) {
 
   // 3c. 个人层 (其余经理) bonus 3, 权重和=100; 按所属职能条线 (研发/制造/营销/供应链/售后/人力/财务)
   //     分配差异化科目组合 — 挂到本事业部同科目 KPI 形成 cascade (无同名 BU 科目时 parentKpiId 留空, 合法)。
+  // functionKpiByCode: 记录每个职能专属科目第一次出现的 KPI id, 供下方"跨职能制约链"做代表性连线。
+  const functionKpiByCode: Record<string, string> = {};
+
+  // 先分组: 同一事业部内按职能条线归并经理 id, 供"跨体系联合持有"标注找对方 (数据层, 非奖金)。
+  const managerIdsByBuFn = new Map<string, string[]>();
+  for (const m of indivManagers) {
+    const key = `${buOf(m)}_${classifyFunction(m.departmentId ?? '')}`;
+    const arr = managerIdsByBuFn.get(key) ?? [];
+    arr.push(m.id);
+    managerIdsByBuFn.set(key, arr);
+  }
+  // 需要跨体系共背的科目 → 对方职能条线 (同事业部内): 该科目由本人 + 对方职能全员共同持有监控。
+  const JOINT_OWNERSHIP: Record<string, OrgFunction> = {
+    'MFG.CAP': 'scm', // 产能利用率: 制造 + 供应链 共背 (断料/交付都会拖累产能)
+    'RD.NPD': 'mfg',  // 新品按期上市率: 研发 + 制造 共背 (设计定型才能量产爬坡)
+  };
+
   for (const m of indivManagers) {
     const bu = buOf(m);
     const fn = classifyFunction(m.departmentId ?? '');
     for (const [code, weight] of Object.entries(INDIV_WEIGHTS_BY_FN[fn])) {
-      await mkKpi({
+      const jointFn = JOINT_OWNERSHIP[code];
+      const coOwnerIds = jointFn ? managerIdsByBuFn.get(`${bu}_${jointFn}`) : undefined;
+      const k = await mkKpi({
         code, assigneeId: m.id, level: 'individual', weight, scope: 'bonus',
         departmentId: bu, completion: completionFor(`ind_${m.id}_${code}`, bu),
         parentKpiId: buKpiByKey[`${bu}_${code}`], titlePrefix: `${m.name ?? ''}·`,
+        coOwnerIds,
       });
+      if (!functionKpiByCode[code]) functionKpiByCode[code] = k.id;
     }
   }
 
@@ -350,6 +374,41 @@ async function POSTApiHandler(req: NextRequest) {
       updatedAt: now,
     } as never);
     causalN++;
+  }
+
+  // ── 4b. 跨职能制约链 (研发→制造→供应链/售后→营销→财务 的产研销接力赋能) ──
+  //   与上面严格按 BSC growth→process→customer→financial 阶梯不同: 这里连的是
+  //   同为 process 维度的跨职能接力 (如 供应链准时→制造产能), 反映真实产研销依赖,
+  //   不受"同维度不算因果"限制 (本 seeder 直写 store, 不经 assertValidLink 校验)。
+  //   代表性连线: 用每个职能科目第一次出现的个人 KPI 作为该职能的代表节点。
+  const crossFnPairs: Array<[string, string, string]> = [
+    ['RD.NPD', 'MFG.CAP', '研发新品按期交付设计 → 制造产能顺利爬坡'],
+    ['RD.EFF', 'MKT.SHARE', '研发能效达标 → 产品竞争力驱动市场份额'],
+    ['SCM.OTD', 'MFG.CAP', '供应商交付准时 → 制造产能利用率不受断料拖累'],
+    ['MFG.FPY', 'SVC.RETURN', '制造一次合格率 → 售后返修率下降'],
+    ['MFG.CAP', 'MKT.DEALER', '产能保障供货 → 经销商网络可持续扩张'],
+    ['MKT.SHARE', 'FIN.REV', '市场份额提升 → 营业收入增长'],
+  ];
+  let crossFnN = 0;
+  for (const [from, to, hyp] of crossFnPairs) {
+    const f = functionKpiByCode[from];
+    const t = functionKpiByCode[to];
+    if (!f || !t) continue;
+    await store.kpiCausalLinks.create({
+      id: `cl_${cycleId}_fn_${from}_${to}`,
+      cycleId,
+      fromKpiId: f,
+      toKpiId: t,
+      strength: 0.5 + 0.3 * hash01(`fn_${from}${to}`),
+      hypothesis: hyp,
+      validated: false,
+      validationNote: '(seed) 同维度跨职能接力特例, 豁免 isCausalDirectionValid 方向校验 —— 正式因果链管理 UI 新建此类链需走 allowAnyDirection 特批, 非常规路径不放行',
+      tenantId,
+      createdBy: auth.userId,
+      createdAt: now,
+      updatedAt: now,
+    } as never);
+    crossFnN++;
   }
 
   // ── 5. 奖金草稿 (每个 bonus assignee 试算一版) ─────────────────────────
@@ -468,6 +527,7 @@ async function POSTApiHandler(req: NextRequest) {
       monitorKpis: created.filter((k) => k.scope === 'monitor').length,
       subjects: subjectByCode.size,
       causalLinks: causalN,
+      crossFunctionCausalLinks: crossFnN,
       bonusPayouts: payoutN,
       ttis: ttiN,
       review360Submissions: subN,

@@ -31,6 +31,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
+import { TargetAmendmentPanel } from '@/components/kpi/target-amendment-panel';
 import { useOKRStore } from '@/lib/store';
 import {
   RefreshCw,
@@ -59,6 +60,7 @@ import {
   type KpiCycle,
   type KpiSubject,
 } from '@/lib/types/kpi';
+import { computeQoqFact } from '@/lib/kpi/bsc-fact-service';
 
 // ---------------------------------------------------------------------------
 // BSC Helpers
@@ -181,16 +183,21 @@ const DS: Record<string, { label: string; icon: typeof Database }> = {
 };
 
 /**
- * `realYoyPct` 来自 /api/kpi/facts (lib/kpi/bsc-fact-service.ts) 的真实跨财年同比;
- * 查不到上一财年真实数据时为 null —— 绝不再用 target*0.85 虚构去年同期 (根治假闭环)。
+ * `datedSnapshots` 用于按真实日历季度边界算环比 (lib/kpi/bsc-fact-service.ts computeQoqFact),
+ * 取代旧实现"最近两条快照相减"——快照按日采集时那其实是日环比, 却被贴上"周环比"标签。
+ * `realYoyPct` 来自 /api/kpi/facts 的真实跨财年同比;
+ * 两者查不到真实历史数据时均为 null —— 绝不用近似值或 target*0.85 虚构 (根治假闭环)。
  */
-function calcDeltas(kpi: Kpi, snapshots: number[], realYoyPct: number | null = null) {
+function calcDeltas(
+  kpi: Kpi,
+  datedSnapshots: { date: string; value: number }[],
+  realYoyPct: number | null = null,
+) {
   const current = kpi.currentValue ?? 0;
   const target = kpi.targetValue;
   const gap = current - target;
   const gapPct = target > 0 ? (gap / target) * 100 : 0;
-  const prev = snapshots.length >= 2 ? snapshots[snapshots.length - 2] : null;
-  const qoq = prev != null && prev > 0 ? ((current - prev) / prev) * 100 : null;
+  const qoq = computeQoqFact(datedSnapshots).qoqPct;
   return { gap, gapPct, qoq, yoy: realYoyPct };
 }
 
@@ -445,21 +452,23 @@ export function KpiContent() {
   }, [bonusKpis]);
 
   const avgQoq = useMemo(() => {
-    const vals = bonusKpis.map(k => calcDeltas(k, snapshotsByKpi[k.id] ?? []).qoq).filter((v): v is number => v !== null);
+    const vals = bonusKpis
+      .map(k => calcDeltas(k, datedSnapshotsByKpi[k.id] ?? []).qoq)
+      .filter((v): v is number => v !== null);
     return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
-  }, [bonusKpis, snapshotsByKpi]);
+  }, [bonusKpis, datedSnapshotsByKpi]);
 
   const avgYoy = useMemo(() => {
     const vals = bonusKpis
-      .map(k => calcDeltas(k, snapshotsByKpi[k.id] ?? [], yoyByKpiId[k.id] ?? null).yoy)
+      .map(k => calcDeltas(k, datedSnapshotsByKpi[k.id] ?? [], yoyByKpiId[k.id] ?? null).yoy)
       .filter((v): v is number => v !== null);
     return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
-  }, [bonusKpis, snapshotsByKpi, yoyByKpiId]);
+  }, [bonusKpis, datedSnapshotsByKpi, yoyByKpiId]);
 
   const totalGapPct = useMemo(() => {
     if (bonusKpis.length === 0) return 0;
-    return bonusKpis.reduce((acc, k) => acc + calcDeltas(k, snapshotsByKpi[k.id] ?? []).gapPct, 0) / bonusKpis.length;
-  }, [bonusKpis, snapshotsByKpi]);
+    return bonusKpis.reduce((acc, k) => acc + calcDeltas(k, datedSnapshotsByKpi[k.id] ?? []).gapPct, 0) / bonusKpis.length;
+  }, [bonusKpis, datedSnapshotsByKpi]);
 
   const onTrackCount = useMemo(() => bonusKpis.filter(k => computeKpiCompletion(k) >= 0.9).length, [bonusKpis]);
   const atRiskCount = useMemo(() => bonusKpis.filter(k => { const c = computeKpiCompletion(k); return c >= 0.6 && c < 0.9; }).length, [bonusKpis]);
@@ -518,9 +527,9 @@ export function KpiContent() {
         color={totalGapPct >= 0 ? 'text-success' : 'text-danger'}
       />
       <StatCard
-        label="平均周环比"
+        label="平均季度环比"
         value={avgQoq !== null ? `${avgQoq >= 0 ? '+' : ''}${avgQoq.toFixed(1)}%` : '—'}
-        sub="vs 上期对账数据"
+        sub="vs 上季度末"
         color={avgQoq !== null ? (avgQoq >= 0 ? 'text-success' : 'text-danger') : ''}
       />
       <StatCard
@@ -603,7 +612,7 @@ export function KpiContent() {
                       const hc = healthColor(completion);
                       const pct = Math.round(completion * 100);
                       const snaps = snapshotsByKpi[kpi.id] ?? [];
-                      const { gap, gapPct, qoq, yoy } = calcDeltas(kpi, snaps, yoyByKpiId[kpi.id] ?? null);
+                      const { gap, gapPct, qoq, yoy } = calcDeltas(kpi, datedSnapshotsByKpi[kpi.id] ?? [], yoyByKpiId[kpi.id] ?? null);
                       const subject = subjectById.get(kpi.subjectId);
                       const ds = DS[kpi.dataSource ?? 'pending'];
                       return (
@@ -754,8 +763,7 @@ export function KpiContent() {
       if (!primaryKpi) return m; // 降级采用静态演示数据
 
       const rate = computeKpiCompletion(primaryKpi);
-      const snaps = snapshotsByKpi[primaryKpi.id] ?? [];
-      const { gap, gapPct, qoq, yoy } = calcDeltas(primaryKpi, snaps);
+      const { gap, gapPct, qoq, yoy } = calcDeltas(primaryKpi, datedSnapshotsByKpi[primaryKpi.id] ?? []);
 
       return {
         ...m,
@@ -790,9 +798,9 @@ export function KpiContent() {
             color="text-success"
           />
           <StatCard
-            label="部门平均周环比"
+            label="部门平均季度环比"
             value="+1.2%"
-            sub="较上期 ERP 自动对账"
+            sub="较上季度末 ERP 自动对账"
             color="text-success"
           />
           <StatCard
@@ -1159,6 +1167,12 @@ export function KpiContent() {
                   <div>
                     <h3 className="text-caption font-bold text-ink-primary leading-snug">{kpi.title}</h3>
                     {subject && <p className="text-[10px] text-muted-foreground mt-1 font-mono">科目: {subject.code} · {subject.name}</p>}
+                    {kpi.coOwnerIds && kpi.coOwnerIds.length > 0 && (
+                      <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
+                        <Users className="h-3 w-3" />
+                        跨体系联合监控 · 共 {kpi.coOwnerIds.length} 位共同持有人 (数据层联合责任, 不驱动奖金分摊)
+                      </p>
+                    )}
                     {kpi.description && <p className="text-[10px] text-ink-tertiary mt-1 leading-normal">{kpi.description}</p>}
                   </div>
                   {/* 数据进度 */}
@@ -1172,6 +1186,17 @@ export function KpiContent() {
                     <Progress value={Math.min(100, Math.round(computeKpiCompletion(kpi) * 100))} className="h-2" />
                   </div>
                 </div>
+
+                {/* 1b. 目标修订签批流 (targetsLockedAt 后唯一合法变更通道) */}
+                <TargetAmendmentPanel
+                  kpiId={kpi.id}
+                  currentTargetValue={kpi.targetValue}
+                  unit={kpi.unit}
+                  cycleLocked={!!activeCycle && activeCycle.status !== 'draft'}
+                  canRequest={(user?.roles ?? []).some((r) => ['owner', 'admin', 'steward', 'manager'].includes(r)) && kpi.assigneeId !== me}
+                  canApprove={(user?.roles ?? []).some((r) => ['owner', 'admin'].includes(r))}
+                  onApplied={loadMyKpis}
+                />
 
                 {/* 2. OKR 战略双向对齐 (OKR Alignment Check) */}
                 <div className="space-y-2">
@@ -1223,7 +1248,7 @@ export function KpiContent() {
                       </div>
                     </div>
                   ) : (
-                    <p className="text-muted-foreground text-[10px]">当前暂无历史周环比快照，对账数据将在下周一 04:00 自动拉取生成。</p>
+                    <p className="text-muted-foreground text-[10px]">当前暂无足够历史快照计算季度环比，对账数据将在下周一 04:00 自动拉取生成。</p>
                   )}
                 </div>
               </div>

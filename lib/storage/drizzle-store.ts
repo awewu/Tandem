@@ -32,6 +32,7 @@ import type {
   KpiManualEntry,
   KpiBonusPayout,
   KpiCausalLink,
+  KpiTargetAmendment,
 } from '../types/kpi';
 import type { AgentTemplate } from '../types/agent-template';
 import { generateId } from './repository';
@@ -585,6 +586,7 @@ type KpiSnapshotRow = typeof schema.kpiSnapshot.$inferSelect;
 type KpiManualEntryRow = typeof schema.kpiManualEntry.$inferSelect;
 type KpiBonusPayoutRow = typeof schema.kpiBonusPayout.$inferSelect;
 type KpiCausalLinkRow = typeof schema.kpiCausalLink.$inferSelect;
+type KpiTargetAmendmentRow = typeof schema.kpiTargetAmendment.$inferSelect;
 
 function rowToKpiCycle(r: KpiCycleRow): KpiCycle {
   return {
@@ -632,6 +634,7 @@ function rowToKpi(r: KpiRow): Kpi {
     level: r.level as Kpi['level'],
     parentKpiId: r.parentKpiId ?? undefined,
     assigneeId: r.assigneeId,
+    coOwnerIds: (r.coOwnerIds as string[] | null) ?? undefined,
     departmentId: r.departmentId ?? undefined,
     title: r.title,
     description: r.description ?? undefined,
@@ -706,6 +709,25 @@ function rowToKpiBonusPayout(r: KpiBonusPayoutRow): KpiBonusPayout {
     committedAt: r.committedAt?.toISOString(),
     note: r.note ?? undefined,
     tenantId: r.tenantId,
+  };
+}
+
+function rowToKpiTargetAmendment(r: KpiTargetAmendmentRow): KpiTargetAmendment {
+  return {
+    id: r.id,
+    kpiId: r.kpiId,
+    cycleId: r.cycleId,
+    requestedBy: r.requestedBy,
+    fromTargetValue: Number(r.fromTargetValue),
+    toTargetValue: Number(r.toTargetValue),
+    reason: r.reason,
+    status: r.status as KpiTargetAmendment['status'],
+    reviewedBy: r.reviewedBy ?? undefined,
+    reviewedAt: r.reviewedAt?.toISOString(),
+    reviewNote: r.reviewNote ?? undefined,
+    tenantId: r.tenantId,
+    createdAt: r.createdAt.toISOString(),
+    updatedAt: r.updatedAt.toISOString(),
   };
 }
 
@@ -876,6 +898,7 @@ function createKpiRepo(): import('./repository').Repository<Kpi> {
         currentValue: String(data.currentValue ?? 0),
         weight: String(data.weight ?? 0),
         parentKpiId: data.parentKpiId ?? null,
+        coOwnerIds: data.coOwnerIds ?? null,
         departmentId: data.departmentId ?? null,
         description: data.description ?? null,
         bscPerspective: data.bscPerspective ?? null,
@@ -902,6 +925,7 @@ function createKpiRepo(): import('./repository').Repository<Kpi> {
         if ((patch as Record<string, unknown>)[f] !== undefined)
           (dbPatch as Record<string, unknown>)[f] = (patch as Record<string, unknown>)[f] ?? null;
       }
+      if (patch.coOwnerIds !== undefined) dbPatch.coOwnerIds = patch.coOwnerIds ?? null;
       await db.update(t).set(dbPatch).where(eq(t.id, id));
       return (await this.get(id))!;
     },
@@ -1179,6 +1203,66 @@ function createKpiCausalLinkRepo(): import('./repository').Repository<KpiCausalL
   };
 }
 
+function createKpiTargetAmendmentRepo(): import('./repository').Repository<KpiTargetAmendment> {
+  const t = schema.kpiTargetAmendment;
+  return {
+    async get(id) {
+      const rows = await db.select().from(t).where(eq(t.id, id)).limit(1);
+      return rows[0] ? rowToKpiTargetAmendment(rows[0]) : null;
+    },
+    async list(filter) {
+      let q = db.select().from(t).$dynamic();
+      q = q.where(
+        and(
+          filter?.kpiId ? eq(t.kpiId, filter.kpiId as string) : undefined,
+          filter?.cycleId && !filter?.kpiId ? eq(t.cycleId, filter.cycleId as string) : undefined,
+          filter?.tenantId ? eq(t.tenantId, filter.tenantId as string) : undefined,
+        ),
+      );
+      const rows = await q.orderBy(desc(t.createdAt));
+      const all = rows.map(rowToKpiTargetAmendment);
+      if (!filter || Object.keys(filter).length === 0) return all;
+      return all.filter((item) =>
+        Object.entries(filter).every(([k, v]) => (item as unknown as Record<string, unknown>)[k] === v),
+      );
+    },
+    async create(data) {
+      const id = data.id ?? generateId('kta');
+      const now = new Date();
+      const row = {
+        ...data,
+        id,
+        fromTargetValue: String(data.fromTargetValue ?? 0),
+        toTargetValue: String(data.toTargetValue ?? 0),
+        reviewedBy: data.reviewedBy ?? null,
+        reviewedAt: data.reviewedAt ? new Date(data.reviewedAt) : null,
+        reviewNote: data.reviewNote ?? null,
+        createdAt: new Date(data.createdAt ?? now),
+        updatedAt: new Date(data.updatedAt ?? now),
+      } as typeof t.$inferInsert;
+      await db.insert(t).values(row).onConflictDoUpdate({
+        target: t.id,
+        set: { ...row, updatedAt: now },
+      });
+      return (await this.get(id))!;
+    },
+    async update(id, patch) {
+      const now = new Date();
+      const dbPatch: Partial<typeof t.$inferInsert> = { updatedAt: now };
+      if (patch.status !== undefined) dbPatch.status = patch.status;
+      if (patch.reviewedBy !== undefined) dbPatch.reviewedBy = patch.reviewedBy ?? null;
+      if (patch.reviewedAt !== undefined)
+        dbPatch.reviewedAt = patch.reviewedAt ? new Date(patch.reviewedAt) : null;
+      if (patch.reviewNote !== undefined) dbPatch.reviewNote = patch.reviewNote ?? null;
+      await db.update(t).set(dbPatch).where(eq(t.id, id));
+      return (await this.get(id))!;
+    },
+    async delete(id) {
+      await db.delete(t).where(eq(t.id, id));
+    },
+  };
+}
+
 // ---------------------------------------------------------------------------
 // AgentTemplate 强类型 Repository (分身编队 B-037)
 // ---------------------------------------------------------------------------
@@ -1313,6 +1397,7 @@ export function createDrizzleStore(): TandemStore {
     kpiManualEntries: createKpiManualEntryRepo(),
     kpiBonusPayouts: createKpiBonusPayoutRepo(),
     kpiCausalLinks: createKpiCausalLinkRepo(),
+    kpiTargetAmendments: createKpiTargetAmendmentRepo(),
     imChannels: new DrizzleKvRepository('im_channels'),
     imMessages: new DrizzleKvRepository('im_messages'),
     imMemberships: new DrizzleKvRepository('im_memberships'),

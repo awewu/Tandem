@@ -90,7 +90,7 @@ async function PATCHApiHandler(req: NextRequest, { params }: { params: { id: str
     }
 
     const patch: Record<string, unknown> = { updatedAt: new Date().toISOString() };
-    const editable = ['title', 'description', 'level', 'parentKpiId', 'assigneeId', 'departmentId', 'measureType', 'startValue', 'targetValue', 'unit', 'weight', 'scope'];
+    const editable = ['title', 'description', 'level', 'parentKpiId', 'assigneeId', 'coOwnerIds', 'departmentId', 'measureType', 'startValue', 'targetValue', 'unit', 'weight', 'scope'];
     for (const k of editable) if (k in body) patch[k] = body[k];
 
     const updated = await kpis.update(params.id, patch);
