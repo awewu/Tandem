@@ -11,9 +11,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requirePmsAuth, type PmsAuthResult } from '@/lib/pms/pms-auth';
 import { assembleDealDesk } from '@/lib/pms/deal-desk-service';
-import { arbitrateAppeal, normalizeDecision } from '@/lib/pms/duplicate-appeal-service';
-import { reviewOpportunity } from '@/lib/pms/opportunity-service';
+import { normalizeDecision } from '@/lib/pms/duplicate-appeal-service';
 import { PMS_MANAGEMENT_ROLES } from '@/lib/auth/roles';
+import { executeAction } from '@/lib/ontology/execute-action';
+import { ensurePmsActions } from '@/lib/ontology/actions/pms-actions';
+
+/** 映射 executeAction 拦截结果 → HTTP 状态。 */
+function blockedStatus(exec: { blocked?: { stage?: string; code?: string; reasons: string[] } }): number {
+  if (exec.blocked?.stage === 'gate') return 403;
+  if (exec.blocked?.code === 'not_found') return 404;
+  const reasons = exec.blocked?.reasons.join('; ') || '';
+  if (/not arbitratable|already/.test(reasons)) return 409;
+  return 400;
+}
 
 function authorize(auth: PmsAuthResult): boolean {
   return auth.isInternal && auth.roles.some((r) => (PMS_MANAGEMENT_ROLES as readonly string[]).includes(r));
@@ -69,18 +79,19 @@ export async function POST(req: NextRequest) {
     if (!decision) {
       return NextResponse.json({ error: 'decision must be approved|rejected' }, { status: 400 });
     }
-    try {
-      const result = await reviewOpportunity(
-        String(body.opportunityId),
-        decision,
-        auth.userId,
-        auth.tenantId,
-        body.note ? String(body.note) : undefined,
-      );
-      return NextResponse.json({ ok: true, result });
-    } catch (error: any) {
-      return NextResponse.json({ error: error.message || 'review failed' }, { status: 400 });
+    // 接治理链: 走 executeAction (validate → zone 闸 → 主写 → 副作用 → 审计)。
+    ensurePmsActions();
+    const exec = await executeAction('pms.opportunity.review', {
+      tenantId: auth.tenantId,
+      opportunityId: String(body.opportunityId),
+      decision,
+      reviewerId: auth.userId,
+      note: body.note ? String(body.note) : undefined,
+    }, { actorUserId: auth.userId, tenantId: auth.tenantId, isProxy: false });
+    if (!exec.ok) {
+      return NextResponse.json({ error: exec.blocked?.reasons.join('; ') || 'review failed' }, { status: blockedStatus(exec) });
     }
+    return NextResponse.json({ ok: true, result: exec.result });
   }
 
   if (body?.action !== 'arbitrate') {
@@ -89,16 +100,22 @@ export async function POST(req: NextRequest) {
   if (!body.appealId) {
     return NextResponse.json({ error: 'appealId required' }, { status: 400 });
   }
+  let decision;
   try {
-    const result = await arbitrateAppeal({
-      tenantId: auth.tenantId,
-      appealId: body.appealId,
-      arbitratedBy: auth.userId,
-      decision: normalizeDecision(String(body.decision)),
-      arbitrationReason: body.reason ? String(body.reason) : undefined,
-    });
-    return NextResponse.json({ ok: true, result });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'arbitration failed' }, { status: 400 });
+    decision = normalizeDecision(String(body.decision));
+  } catch {
+    return NextResponse.json({ error: 'invalid decision; expected approved | rejected' }, { status: 400 });
   }
+  ensurePmsActions();
+  const exec = await executeAction('pms.appeal.arbitrate', {
+    tenantId: auth.tenantId,
+    appealId: body.appealId,
+    arbitratedBy: auth.userId,
+    decision,
+    arbitrationReason: body.reason ? String(body.reason) : undefined,
+  }, { actorUserId: auth.userId, tenantId: auth.tenantId, isProxy: false });
+  if (!exec.ok) {
+    return NextResponse.json({ error: exec.blocked?.reasons.join('; ') || 'arbitration failed' }, { status: blockedStatus(exec) });
+  }
+  return NextResponse.json({ ok: true, result: exec.result });
 }

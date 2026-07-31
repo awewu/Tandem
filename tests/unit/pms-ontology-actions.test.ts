@@ -10,6 +10,7 @@ import { describe, it, expect } from 'vitest';
 import { deriveActionZone } from '@/lib/skill-gateway/derive-zone';
 import {
   PmsAppealArbitrateAction,
+  PmsOpportunityReviewAction,
   ensurePmsActions,
 } from '@/lib/ontology/actions/pms-actions';
 import { actionRegistry } from '@/lib/ontology/action-types';
@@ -22,10 +23,11 @@ function zoneOf(action: { describeIntent: (i: any) => string; declaredActionScop
 }
 
 describe('PMS ontology actions · 治理链接线', () => {
-  it('ensurePmsActions 幂等注册 pms.appeal.arbitrate', () => {
+  it('ensurePmsActions 幂等注册 全部 PMS 动作', () => {
     ensurePmsActions();
     ensurePmsActions();
     expect(actionRegistry.has('pms.appeal.arbitrate')).toBe(true);
+    expect(actionRegistry.has('pms.opportunity.review')).toBe(true);
   });
 
   describe('撞单申诉裁定 · describeIntent 永不判红 (措辞避开「仲裁」红线词)', () => {
@@ -42,6 +44,29 @@ describe('PMS ontology actions · 治理链接线', () => {
     it('intent 文本不含红线词 仲裁/合同/诉讼/打款', () => {
       const text = PmsAppealArbitrateAction.describeIntent({ appealId: 'a1', decision: 'approved' } as any);
       expect(text).not.toMatch(/仲裁|合同|诉讼|起诉|打款|付款/);
+    });
+  });
+
+  describe('商机报备审核 · describeIntent 永不判红', () => {
+    it('decision=approved → yellow, 非 red', () => {
+      const z = zoneOf(PmsOpportunityReviewAction, { opportunityId: 'o1', decision: 'approved' });
+      expect(z).not.toBe('red');
+      expect(z).toBe('yellow');
+    });
+    it('decision=rejected → yellow, 非 red', () => {
+      const z = zoneOf(PmsOpportunityReviewAction, { opportunityId: 'o1', decision: 'rejected' });
+      expect(z).not.toBe('red');
+      expect(z).toBe('yellow');
+    });
+    it('intent 不含红线词, 且不含 YELLOW「审批通过/审批驳回」精确串', () => {
+      const t = PmsOpportunityReviewAction.describeIntent({ opportunityId: 'o1', decision: 'rejected' } as any);
+      expect(t).not.toMatch(/仲裁|合同|诉讼|打款/);
+      expect(t).not.toMatch(/审批通过|审批驳回/);
+    });
+    it('validate: 缺 opportunityId / 非法 decision → invalid', async () => {
+      const ctx = { actorUserId: 'u1', tenantId: 'default', isProxy: false } as any;
+      expect((await PmsOpportunityReviewAction.validate({ decision: 'approved' } as any, ctx)).ok).toBe(false);
+      expect((await PmsOpportunityReviewAction.validate({ opportunityId: 'o1', decision: 'x' } as any, ctx)).ok).toBe(false);
     });
   });
 
