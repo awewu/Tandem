@@ -11,6 +11,7 @@ import { deriveActionZone } from '@/lib/skill-gateway/derive-zone';
 import {
   PmsAppealArbitrateAction,
   PmsOpportunityReviewAction,
+  PmsPublicPoolReleaseAction,
   ensurePmsActions,
 } from '@/lib/ontology/actions/pms-actions';
 import { actionRegistry } from '@/lib/ontology/action-types';
@@ -28,6 +29,7 @@ describe('PMS ontology actions · 治理链接线', () => {
     ensurePmsActions();
     expect(actionRegistry.has('pms.appeal.arbitrate')).toBe(true);
     expect(actionRegistry.has('pms.opportunity.review')).toBe(true);
+    expect(actionRegistry.has('pms.public_pool.release')).toBe(true);
   });
 
   describe('撞单申诉裁定 · describeIntent 永不判红 (措辞避开「仲裁」红线词)', () => {
@@ -67,6 +69,19 @@ describe('PMS ontology actions · 治理链接线', () => {
       const ctx = { actorUserId: 'u1', tenantId: 'default', isProxy: false } as any;
       expect((await PmsOpportunityReviewAction.validate({ decision: 'approved' } as any, ctx)).ok).toBe(false);
       expect((await PmsOpportunityReviewAction.validate({ opportunityId: 'o1', decision: 'x' } as any, ctx)).ok).toBe(false);
+    });
+  });
+
+  describe('释放公海 · describeIntent 永不判红', () => {
+    it('→ yellow, 非 red, 不含红线词', () => {
+      const z = zoneOf(PmsPublicPoolReleaseAction, { opportunityId: 'o1' });
+      expect(z).not.toBe('red');
+      expect(z).toBe('yellow');
+      expect(PmsPublicPoolReleaseAction.describeIntent({ opportunityId: 'o1' } as any)).not.toMatch(/仲裁|合同|诉讼|打款|裁员/);
+    });
+    it('validate: 缺 opportunityId → invalid', async () => {
+      const ctx = { actorUserId: 'u1', tenantId: 'default', isProxy: false } as any;
+      expect((await PmsPublicPoolReleaseAction.validate({} as any, ctx)).ok).toBe(false);
     });
   });
 
