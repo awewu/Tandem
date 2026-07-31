@@ -12,9 +12,10 @@ import { requirePmsAuth, type PmsAuthResult } from '@/lib/pms/pms-auth';
 import {
   createAppeal,
   listAppeals,
-  arbitrateAppeal,
   normalizeDecision,
 } from '@/lib/pms/duplicate-appeal-service';
+import { executeAction } from '@/lib/ontology/execute-action';
+import { ensurePmsActions } from '@/lib/ontology/actions/pms-actions';
 
 export async function GET(req: NextRequest) {
   await boot();
@@ -77,14 +78,25 @@ export async function POST(req: NextRequest) {
       } catch {
         return NextResponse.json({ error: 'invalid decision; expected approved | rejected' }, { status: 400 });
       }
-      const result = await arbitrateAppeal({
+      // 接治理链: 走 executeAction (validate → zone 闸 → 主写 → 副作用 → 审计)。
+      // 人工内部角色 isProxy=false: 黄区立即执行 (行为不变) + 统一审计留痕。
+      ensurePmsActions();
+      const exec = await executeAction('pms.appeal.arbitrate', {
         tenantId: auth.tenantId,
         appealId: body.appealId,
         arbitratedBy: auth.userId,
         decision,
         arbitrationReason: body.arbitrationReason,
-      });
-      return NextResponse.json({ result });
+      }, { actorUserId: auth.userId, tenantId: auth.tenantId, isProxy: false });
+      if (!exec.ok) {
+        const reasons = exec.blocked?.reasons.join('; ') || 'action blocked';
+        const status = exec.blocked?.stage === 'gate' ? 403
+          : exec.blocked?.code === 'not_found' ? 404
+          : /not arbitratable/.test(reasons) ? 409
+          : 400;
+        return NextResponse.json({ error: reasons }, { status });
+      }
+      return NextResponse.json({ result: exec.result });
     }
 
     // --- 提交申诉 ---
