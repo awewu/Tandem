@@ -12,6 +12,8 @@
  *   - embedding 检索索引 → ON-0 增强 (§8.3 第 5 项); 当前 search = 确定性子串匹配
  */
 
+import type { Marking } from './marking';
+
 /** 已注册对象类型 id (字符串, 由 object-types.ts 注册时确定) */
 export type ObjectTypeId = string;
 
@@ -51,6 +53,11 @@ export interface ObjectType<T extends { id: string } = { id: string }> {
    * 复用 lib/types/okr-tti.ts 的真值函数, 保证"真值唯一来源"。
    */
   derived?: (obj: T) => Record<string, unknown>;
+  /**
+   * 本体安全维度: 该类型对象的**数据密级标记** (敏感度 + 类别)。可选; 缺省视为 internal。
+   * 供 lib/ontology/marking.ts canAccess 按 purpose 门控 (Phase 2 起接感知/写动作层)。
+   */
+  marking?: Marking;
 }
 
 /**

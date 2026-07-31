@@ -63,6 +63,7 @@ export const ObjectiveType: ObjectType<Objective> = {
   ],
   // Functions-on-Objects 雏形: 真值进度 (override ?? rollup ?? 0)
   derived: (o) => ({ effectiveProgress: effectiveObjectiveProgress(o) }),
+  marking: { sensitivity: 'internal' },
 };
 
 // ── KeyResult ───────────────────────────────────────────────────────
@@ -92,6 +93,7 @@ export const KeyResultType: ObjectType<KeyResult> = {
   ],
   // Functions-on-Objects 雏形: KR 真值进度 0-1
   derived: (k) => ({ progress: computeKRProgress(k) }),
+  marking: { sensitivity: 'internal' },
 };
 
 // ── Initiative ──────────────────────────────────────────────────────
@@ -113,6 +115,7 @@ export const InitiativeType: ObjectType<Initiative> = {
       resolve: (i) => getStore().keyResults.get(i.keyResultId),
     },
   ],
+  marking: { sensitivity: 'internal' },
 };
 
 // ── DecisionCard ────────────────────────────────────────────────────
@@ -135,6 +138,8 @@ export const DecisionCardType: ObjectType<DecisionCard> = {
     },
   ],
   derived: (d) => ({ convergenceState: d.convergenceState, decisionClass: d.decisionClass }),
+  // 决策卡属治理机密
+  marking: { sensitivity: 'confidential' },
 };
 
 // ── Persona ─────────────────────────────────────────────────────────
@@ -150,6 +155,8 @@ export const PersonaType: ObjectType<Persona> = {
   },
   links: [],
   derived: (p) => ({ stage: p.stage, delegationLevel: p.delegationLevel, bossCaptureScore: p.bossCaptureScore }),
+  // 分身承载个人成长上下文 (决策防火墙密封)
+  marking: { sensitivity: 'confidential', categories: ['personal_growth'] },
 };
 
 // ── Kpi ─────────────────────────────────────────────────────────────
@@ -175,6 +182,8 @@ export const KpiType: ObjectType<Kpi> = {
     achievementRate: k.targetValue !== 0 ? Math.round((k.currentValue / k.targetValue) * 1000) / 1000 : 0,
     bscPerspective: k.bscPerspective,
   }),
+  // KPI 含经营金额 (财务敏感)
+  marking: { sensitivity: 'confidential', categories: ['financial'] },
 };
 
 // ── MemoryEntry ──────────────────────────────────────────────────────
@@ -192,6 +201,7 @@ export const MemoryEntryType: ObjectType<MemoryEntry> = {
   },
   links: [],
   derived: (m) => ({ ownershipLevel: m.ownershipLevel, status: m.status, referenceCount: m.referenceCount }),
+  marking: { sensitivity: 'internal' },
 };
 
 export const CORE_OBJECT_TYPES: ObjectType<{ id: string }>[] = [
