@@ -35,6 +35,13 @@ export interface ActionContext {
    * 仅由 lib/ontology/propose-action.ts 的兑现路径设置, 业务代码不应直接传 true。
    */
   approved?: boolean;
+  /**
+   * 本体安全维度 (Phase 3): 调用主体的密级许可。缺省 = 'restricted' (内部可信主体全权),
+   * 使既有内部写动作零行为变更; 仅在显式降级或外部主体时才收紧。
+   */
+  actorClearance?: import('./marking').Sensitivity;
+  /** 是否外部主体 (guest/partner/contractor/经销商)。外部不得写 confidential+ 对象。 */
+  isExternal?: boolean;
 }
 
 /** 校验结果。code 供调用方映射 HTTP: not_found→404 / forbidden→403 / invalid→400 */

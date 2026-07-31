@@ -15,6 +15,8 @@
 import { deriveActionZone } from '@/lib/skill-gateway/derive-zone';
 import { audit } from '@/lib/audit/log';
 import { actionRegistry, type ActionContext, type ActionZone, type SideEffectOutcome } from './action-types';
+import { ontology } from './registry';
+import { canAccess } from './marking';
 
 export interface ExecuteActionResult<TResult = unknown> {
   ok: boolean;
@@ -78,6 +80,27 @@ export async function executeAction<TResult = unknown>(
       targetType: 'ontology_action',
       tenantId: ctx.tenantId,
       metadata: { stage: 'gate', zone, isProxy: ctx.isProxy, reasons, checkId },
+    });
+    return { ok: false, blocked: { stage: 'gate', reasons }, sideEffects: [], zone, checkId };
+  }
+
+  // ── ②.5 本体安全维度闸 (Phase 3): 按目标 objectType 的密级 marking 门控写入 ──
+  // 缺省 clearance='restricted' (内部可信主体全权) → 既有内部写动作零行为变更;
+  // 仅在 外部主体写 confidential+ 对象 / 目标属 personal_growth (决策防火墙) 时收紧。
+  // objectType 未注册 → marking undefined → 保守 internal → 内部主体放行。
+  const objMarking = ontology.get(action.objectType)?.marking;
+  const markingAccess = canAccess(objMarking, {
+    clearance: ctx.actorClearance ?? 'restricted',
+    purpose: 'governance',
+    isExternal: ctx.isExternal,
+  });
+  if (!markingAccess.allow) {
+    const reasons = [`本体安全维度: ${markingAccess.reason} (对象 ${action.objectType})`];
+    await audit('ontology.action_blocked', ctx.actorUserId, {
+      targetId: actionId,
+      targetType: 'ontology_action',
+      tenantId: ctx.tenantId,
+      metadata: { stage: 'gate', reason: 'marking', objectType: action.objectType, isExternal: ctx.isExternal, isProxy: ctx.isProxy, checkId },
     });
     return { ok: false, blocked: { stage: 'gate', reasons }, sideEffects: [], zone, checkId };
   }
