@@ -16,6 +16,7 @@ export const INTERNAL_ROLES = [
   'employee',  // 普通员工 (默认)
   'steward',   // HR / 数据管家 (绩效数据治理 · 兼治理审核)
   'champion',  // 业务冠军 / 推广大使
+  'exec',      // 职能高管 (CMO/CSO/CFO 等) · 只读全景经营视图, 不含管理写权
   'intranet_editor', // 仅管理企业内网内容，不授予其它后台权限
   'finance',   // 财务 (KPI 通道 C 补录: 财务口径指标 · CHARTER-KPI §2.4)
   'internal_staff', // 内勤 (KPI 通道 C 补录: ERP 未覆盖的人工指标)
@@ -89,6 +90,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   employee: '员工',
   steward: 'HR / 管家',
   champion: '推广大使',
+  exec: '职能高管',
   intranet_editor: '内网内容编辑',
   finance: '财务',
   internal_staff: '内勤',
@@ -120,3 +122,18 @@ export const INTRANET_EDITOR_ROLES: Role[] = [
   'champion',
   'intranet_editor',
 ];
+
+/**
+ * PMS 管理写权组: owner + admin + manager + steward.
+ * 用于"需要写/裁决的管理动作": 信息管理岗工作台(deal-desk)撞单仲裁/报备审核 · AI质量评估台(eval)读数.
+ */
+export const PMS_MANAGEMENT_ROLES: Role[] = ['owner', 'admin', 'manager', 'steward'];
+
+/**
+ * PMS 全公司经营视图(只读)组: 管理写权组 + 职能高管(exec) + 财务(finance).
+ * 用于"看全公司驾驶舱/分析全景但不必拿管理写权":
+ *   - exec (CMO/CSO 等): 需要全景销售+财务异常, 但不给 deal-desk 裁决权.
+ *   - finance: 财务口径本就应看公司级财务异常(合同积压/业绩缺口), 修正其此前被排除的矛盾.
+ * 驾驶舱只读(POST 405), 故授予 company scope 不带来任何写副作用.
+ */
+export const PMS_COMPANY_VIEW_ROLES: Role[] = [...PMS_MANAGEMENT_ROLES, 'exec', 'finance'];

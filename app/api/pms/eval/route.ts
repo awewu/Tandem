@@ -11,8 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requirePmsAuth, type PmsAuthResult } from '@/lib/pms/pms-auth';
 import { runRegression } from '@/lib/eval/service';
-
-const STEWARD_ROLES = ['owner', 'admin', 'manager', 'steward'];
+import { PMS_MANAGEMENT_ROLES } from '@/lib/auth/roles';
 
 export async function GET(req: NextRequest) {
   await boot();
@@ -23,15 +22,18 @@ export async function GET(req: NextRequest) {
     if (e instanceof Response) return e;
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
-  if (!auth.isInternal || !auth.roles.some((r) => STEWARD_ROLES.includes(r))) {
+  if (!auth.isInternal || !auth.roles.some((r) => (PMS_MANAGEMENT_ROLES as readonly string[]).includes(r))) {
     return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   }
   try {
     const { searchParams } = new URL(req.url);
     const includeLlm = searchParams.get('llm') === '1';
+    // kind: pms_analysis (项目级AI分析, 默认) | pms_exception (驾驶舱异常AI建议)
+    const kindParam = searchParams.get('kind');
+    const kind = kindParam === 'pms_exception' ? 'pms_exception' : 'pms_analysis';
     const regression = await runRegression({
       tenantId: auth.tenantId,
-      kind: 'pms_analysis',
+      kind,
       limit: 100,
       includeLlm,
     });

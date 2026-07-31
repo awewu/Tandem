@@ -23,6 +23,7 @@ import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { listProjects } from './project-service';
 import { getOpportunityAnalytics, winRate } from './analytics-service';
 import { CRITICAL_ROLES } from './project-stakeholder-service';
+import { PMS_COMPANY_VIEW_ROLES } from '@/lib/auth/roles';
 import type { Project, ProjectStage } from '@/lib/types/pms';
 
 // ---------------------------------------------------------------------------
@@ -345,6 +346,18 @@ export function detectZeroWinDimensions(analyses: DimensionAnalysis[]): CockpitE
 
 export type CockpitScope = 'company' | 'mine' | 'org';
 
+/**
+ * 驾驶舱视角解析 (纯函数, 可测).
+ *   - 外部(经销商): 恒 'org' (本经销商范围)
+ *   - 内部 & 属于 PMS_COMPANY_VIEW_ROLES (管理层/exec/finance): 'company' 全公司只读全景
+ *   - 其余内部员工 (employee/champion/internal_staff...): 'mine' 仅"我负责", 隐藏公司财务
+ * 用于修复"CMO/职能高管看不到全景""finance 看不到公司财务"的角色缺口.
+ */
+export function resolvePmsCockpitScope(roles: readonly string[], isInternal: boolean): CockpitScope {
+  if (!isInternal) return 'org';
+  return roles.some((r) => (PMS_COMPANY_VIEW_ROLES as readonly string[]).includes(r)) ? 'company' : 'mine';
+}
+
 export interface CockpitData {
   generatedAt: string;
   scope: CockpitScope;
@@ -412,6 +425,8 @@ async function dimensionalBreakdown(tenantId: string, visibleOrgIds?: string[]):
   const baseConds: (SQL | undefined)[] = [
     eq(pmsOpportunities.tenantId, tenantId),
     isNull(pmsOpportunities.archivedAt),
+    // 报备审核关卡: 仅已通过审核的商机计入多维分析
+    eq(pmsOpportunities.reviewStatus, 'approved'),
   ];
   if (visibleOrgIds && visibleOrgIds.length > 0) {
     baseConds.push(inArray(pmsOpportunities.orgId, visibleOrgIds));

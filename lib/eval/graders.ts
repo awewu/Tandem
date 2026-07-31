@@ -32,6 +32,7 @@ const TOKEN_BUDGET: Record<EvalTraceKind, number> = {
   decision: 2000,
   okr_review: 3000,
   pms_analysis: 2000,
+  pms_exception: 800,
 };
 
 // ---------------------------------------------------------------------------
@@ -185,7 +186,7 @@ export const pmsStructuredGrader: Grader = {
   id: 'pms-structured',
   description: 'PMS AI 分析产出结构化非空 (成功解析, 未沦为空基线)',
   kind: 'rule',
-  appliesTo: ['pms_analysis'],
+  appliesTo: ['pms_analysis', 'pms_exception'],
   grade(trace) {
     const parsed = trace.meta?.parsed === true;
     const hasOutput = trace.finalOutputSummary.trim().length > 0;
@@ -199,7 +200,7 @@ export const pmsGroundedGrader: Grader = {
   id: 'pms-grounded',
   description: 'PMS AI 输出引用 ≥1 个输入真实实体 (防臆造)',
   kind: 'rule',
-  appliesTo: ['pms_analysis'],
+  appliesTo: ['pms_analysis', 'pms_exception'],
   grade(trace) {
     const refs = Number(trace.meta?.groundedRefs ?? 0);
     const pass = refs >= 1;
@@ -212,7 +213,7 @@ export const pmsAiLiveGrader: Grader = {
   id: 'pms-ai-live',
   description: 'PMS AI 走真 LLM 增强 (非降级规则基线); 降级仅降分不失败',
   kind: 'rule',
-  appliesTo: ['pms_analysis'],
+  appliesTo: ['pms_analysis', 'pms_exception'],
   grade(trace) {
     const isAi = trace.meta?.source === 'ai';
     return mkGrade(this.id, isAi ? 1 : 0.5, true, 'source=ai (LLM 增强)', `source=${String(trace.meta?.source ?? 'rule')}`);

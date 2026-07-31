@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requirePmsAuth, type PmsAuthResult } from '@/lib/pms/pms-auth';
-import { assembleCockpit } from '@/lib/pms/cockpit-service';
+import { assembleCockpit, resolvePmsCockpitScope } from '@/lib/pms/cockpit-service';
 
 export async function GET(req: NextRequest) {
   await boot();
@@ -21,18 +21,17 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // 视角按角色下沉:
-    //   管理层 (owner/admin/manager/steward) → 全公司
-    //   其他内部员工 (employee/champion) → 只看"我负责"的项目 (ownerId 收窄, 不背公司财务)
-    //   经销商 (dealer_*) → 本经销商 org 范围
-    const MGMT = ['owner', 'admin', 'manager', 'steward'];
-    const isManagement = auth.roles.some((r) => MGMT.includes(r));
+    // 视角按角色下沉 (resolvePmsCockpitScope · SSOT PMS_COMPANY_VIEW_ROLES):
+    //   company: 管理层 + 职能高管(exec) + 财务(finance) → 全公司只读全景
+    //   mine:    其他内部员工 → 只看"我负责"的项目 (ownerId 收窄, 不背公司财务)
+    //   org:     经销商 (dealer_*) → 本经销商 org 范围
+    const scope = resolvePmsCockpitScope(auth.roles, auth.isInternal);
     const cockpit = await assembleCockpit(
-      auth.isInternal
-        ? isManagement
-          ? { tenantId: auth.tenantId, scope: 'company' }
-          : { tenantId: auth.tenantId, ownerId: auth.userId, scope: 'mine' }
-        : { tenantId: auth.tenantId, visibleOrgIds: auth.visibleOrgIds, scope: 'org' },
+      scope === 'company'
+        ? { tenantId: auth.tenantId, scope: 'company' }
+        : scope === 'mine'
+          ? { tenantId: auth.tenantId, ownerId: auth.userId, scope: 'mine' }
+          : { tenantId: auth.tenantId, visibleOrgIds: auth.visibleOrgIds, scope: 'org' },
     );
     return NextResponse.json({ cockpit });
   } catch (error: any) {

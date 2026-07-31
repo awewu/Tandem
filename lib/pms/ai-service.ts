@@ -212,12 +212,14 @@ async function recordPmsAiTrace(params: {
   entities: string[];
   /** 接地对比文本 (默认用 outputSummary; 招标场景传原文校验抽取项是否源于原文) */
   groundText?: string;
+  /** 评估台 trace 分类; 默认 pms_analysis (项目级AI分析), 驾驶舱建议用 pms_exception */
+  kind?: 'pms_analysis' | 'pms_exception';
 }): Promise<void> {
   const groundedRefs = countGroundedRefs(params.entities, params.groundText ?? params.outputSummary);
   await recordEvalTraceSafe({
     traceId: `pmsai_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
     tenantId: params.ctx?.tenantId || 'default',
-    kind: 'pms_analysis',
+    kind: params.kind ?? 'pms_analysis',
     actorUserId: params.ctx?.actorUserId || '__pms_ai__',
     isProxy: false,
     inputSummary: params.inputSummary,
@@ -414,6 +416,104 @@ export async function analyzeTenderDocument(rawText: string, ctx?: PmsAiCtx): Pr
     source: result.source,
     entities: outItems,
     groundText: rawText,
+  });
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// 驾驶舱异常 · AI 下一步动作建议 (LLM 增强, fail-soft 到规则基线)
+// ---------------------------------------------------------------------------
+
+export interface CockpitExceptionInput {
+  type: string;
+  title: string;
+  detail: string;
+  severity: 'critical' | 'warning' | 'info';
+  category: 'sales' | 'finance';
+  amount?: number;
+}
+
+export interface CockpitExceptionAdvice {
+  source: InsightSource;
+  /** 动词开头的下一步动作 (≤40字) */
+  action: string;
+  /** 依据/理由 (可选, ≤80字) */
+  rationale?: string;
+}
+
+/**
+ * 按异常类型的规则基线动作 (纯函数, 无 LLM 时兜底; 也是 LLM 失败的 fallback).
+ * 与前端旧的静态 NEXT_ACTION 对齐并收敛到服务端单一事实源.
+ */
+const EXCEPTION_RULE_ACTION: Record<string, string> = {
+  stalled_project: '立即安排回访, 推进到下一阶段',
+  tender_deadline: '组织标书评审, 确保按时提交',
+  spec_at_risk: '联系设计方, 推动备选位升级为设计基准',
+  chain_gap: '补齐关键决策人/教练, 建立高层关系',
+  target_gap: '召开缺口复盘, 制定追赶计划',
+  contract_backlog: '催办合同审批, 清理积压',
+  dim_concentration: '拓展新客户/渠道, 降低集中度风险',
+  dim_winrate: '复盘该维度打法, 调整策略',
+};
+
+export function ruleActionForException(type: string): string {
+  return EXCEPTION_RULE_ACTION[type] ?? '查看详情并处理';
+}
+
+/**
+ * 驾驶舱异常 → AI 下一步最佳动作 (grounded + fail-soft).
+ *   - 基于异常的真实 title/detail/amount/scope 作答, 不臆造数字.
+ *   - LLM 不可用/解析失败 → 规则基线 (source='rule'), 绝不阻塞驾驶舱.
+ *   - 采集 trace kind='pms_exception' 到评估台 (供 #4 预警准确率回归).
+ */
+export async function adviseCockpitException(
+  input: { exception: CockpitExceptionInput; scope: string },
+  ctx?: PmsAiCtx,
+): Promise<CockpitExceptionAdvice> {
+  const { exception: e, scope } = input;
+  const baseline: CockpitExceptionAdvice = { source: 'rule', action: ruleActionForException(e.type) };
+
+  const system =
+    '你是企业销售运营与项目管理的行动教练。给你一条"老板驾驶舱"里的异常预警, ' +
+    '请给出一个可立即执行的下一步动作。必须基于给定预警数据, 不臆造数字或名称。' +
+    '动作要具体、动词开头、≤40字。只输出 JSON: {"action":"动词开头的下一步动作","rationale":"依据≤80字"}。';
+  const payload = {
+    视角: scope,
+    类型: e.type,
+    严重度: e.severity,
+    面向: e.category === 'sales' ? '销售' : '财务',
+    标题: e.title,
+    详情: e.detail,
+    金额: e.amount,
+  };
+  const parsed = await callJson<{ action?: unknown; rationale?: unknown }>(
+    system,
+    `预警数据(JSON):\n${JSON.stringify(payload, null, 2)}`,
+    300,
+  );
+
+  let result: CockpitExceptionAdvice;
+  if (!parsed || typeof parsed.action !== 'string' || !parsed.action.trim()) {
+    result = baseline;
+  } else {
+    result = {
+      source: 'ai',
+      action: parsed.action.trim().slice(0, 60),
+      rationale:
+        typeof parsed.rationale === 'string' && parsed.rationale.trim()
+          ? parsed.rationale.trim().slice(0, 120)
+          : undefined,
+    };
+  }
+  await recordPmsAiTrace({
+    capability: 'cockpit_advice',
+    kind: 'pms_exception',
+    ctx,
+    inputSummary: `${e.severity}/${e.type} · ${e.title}`,
+    outputSummary: [result.action, result.rationale].filter(Boolean).join(' | '),
+    source: result.source,
+    entities: [e.title, e.detail].filter(Boolean),
+    groundText: `${e.title} ${e.detail}`,
   });
   return result;
 }
