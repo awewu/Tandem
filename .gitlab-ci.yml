@@ -26,7 +26,7 @@ package_windows:
     - npx.cmd tsc --noEmit
     - npm.cmd run lint
     - $env:TANDEM_SKIP_BUILD_CHECKS = "1"
-    - $env:TANDEM_LOW_MEMORY_BUILD = ""
+    - $env:TANDEM_LOW_MEMORY_BUILD = "1"
     - powershell -NoProfile -ExecutionPolicy Bypass -File package-deploy.ps1 -OutputZip tandem-deploy.zip
   artifacts:
     paths:
