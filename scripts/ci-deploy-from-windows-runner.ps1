@@ -29,6 +29,17 @@ function Invoke-Checked {
   }
 }
 
+function ConvertTo-EncodedPowerShellCommand {
+  param([string]$Script)
+  return [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($Script))
+}
+
+function Quote-PowerShellString {
+  param([string]$Value)
+  if ($null -eq $Value) { return "''" }
+  return "'" + ($Value -replace "'", "''") + "'"
+}
+
 function Resolve-SshKeyPath {
   $candidates = @()
 
@@ -85,9 +96,14 @@ Write-Host "Deploy target: $Target"
 Write-Host "Deploy root:   $DeployRoot"
 Write-Host "SSH key:       $KeyPath"
 
+$CreateDirsScript = @"
+`$ErrorActionPreference = 'Stop'
+New-Item -ItemType Directory -Force $(Quote-PowerShellString $DeployRoot),$(Quote-PowerShellString "$DeployRoot/update"),$(Quote-PowerShellString "$DeployRoot/nginx") | Out-Null
+"@
+
 Invoke-Checked "ssh" ($SshOptions + @(
   $Target,
-  "powershell -NoProfile -ExecutionPolicy Bypass -Command `"New-Item -ItemType Directory -Force '$DeployRoot','${DeployRoot}/update','${DeployRoot}/nginx' | Out-Null`""
+  "powershell -NoProfile -ExecutionPolicy Bypass -EncodedCommand $(ConvertTo-EncodedPowerShellCommand $CreateDirsScript)"
 ))
 
 Invoke-Checked "scp" ($SshOptions + @(
@@ -100,26 +116,25 @@ Invoke-Checked "scp" ($SshOptions + @(
   "${Target}:$DeployRoot/update/tandem-deploy.zip"
 ))
 
-$RemoteCommand = @(
-  "powershell -NoProfile -ExecutionPolicy Bypass -File $DeployRoot/deploy-windows-nssm-bluegreen.ps1",
-  "-Root $DeployRoot",
-  "-PackageName tandem-deploy.zip",
-  "-BlueServiceName TandemServerBlue",
-  "-GreenServiceName TandemServerGreen",
-  "-BluePort 3005",
-  "-GreenPort 3006",
-  "-NginxExe '$NginxExe'",
-  "-NginxPrefix '$NginxPrefix'",
-  "-NginxConfig '$NginxConfig'",
-  "-NginxUpstreamFile '$DeployRoot/nginx/tandem-upstream.conf'",
-  "-PublicBaseUrl '$PublicBaseUrl'"
-)
+$DeployScript = @"
+`$ErrorActionPreference = 'Stop'
+& $(Quote-PowerShellString "$DeployRoot/deploy-windows-nssm-bluegreen.ps1") ``
+  -Root $(Quote-PowerShellString $DeployRoot) ``
+  -PackageName 'tandem-deploy.zip' ``
+  -BlueServiceName 'TandemServerBlue' ``
+  -GreenServiceName 'TandemServerGreen' ``
+  -BluePort 3005 ``
+  -GreenPort 3006 ``
+  -NginxExe $(Quote-PowerShellString $NginxExe) ``
+  -NginxPrefix $(Quote-PowerShellString $NginxPrefix) ``
+  -NginxConfig $(Quote-PowerShellString $NginxConfig) ``
+  -NginxUpstreamFile $(Quote-PowerShellString "$DeployRoot/nginx/tandem-upstream.conf") ``
+  -PublicBaseUrl $(Quote-PowerShellString $PublicBaseUrl) ``
+  -NotifyWebhookUrl $(Quote-PowerShellString $NotifyWebhookUrl) ``
+  -NotifyWebhookType $(Quote-PowerShellString $NotifyWebhookType)
+"@
 
-if (-not [string]::IsNullOrWhiteSpace($NotifyWebhookUrl)) {
-  $RemoteCommand += "-NotifyWebhookUrl '$($NotifyWebhookUrl.Trim().Trim("'").Trim('"'))'"
-}
-if (-not [string]::IsNullOrWhiteSpace($NotifyWebhookType)) {
-  $RemoteCommand += "-NotifyWebhookType '$($NotifyWebhookType.Trim().Trim("'").Trim('"'))'"
-}
-
-Invoke-Checked "ssh" ($SshOptions + @($Target, ($RemoteCommand -join " ")))
+Invoke-Checked "ssh" ($SshOptions + @(
+  $Target,
+  "powershell -NoProfile -ExecutionPolicy Bypass -EncodedCommand $(ConvertTo-EncodedPowerShellCommand $DeployScript)"
+))
