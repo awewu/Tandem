@@ -108,6 +108,8 @@ export interface TandemStore {
   materials: Repository<Material>;
   memories: Repository<MemoryEntry>;
   promotions: Repository<MemoryPromotionRequest>;
+  /** 产出捕获层 (#17) · 待沉淀知识候选 (KvStore-based, 采纳后走三级签批) */
+  memoryCaptureCandidates: Repository<import('../memory/capture-types').MemoryCaptureCandidate>;
   /** Memory 降级评估 (宪章 §8.2) */
   downgrades: Repository<MemoryDowngradeRequest>;
   stewards: { get(userId: string): Promise<Steward | null>; set(s: Steward): Promise<void> };

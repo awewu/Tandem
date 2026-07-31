@@ -48,6 +48,24 @@ export interface BossAiMessage {
   feedbackSubmitting?: boolean;
 }
 
+/** 归档的历史话题 (轻量: 只留标题 + 消息 + 时间, 供切回) */
+export interface ArchivedThread {
+  sessionId: string;
+  title: string;
+  messages: BossAiMessage[];
+  updatedAt: number;
+}
+
+/** 单线程最多归档的历史话题数 (超出丢最旧) */
+const MAX_HISTORY = 20;
+
+/** 从首条用户提问派生话题标题 (首行 / 截断 24 字) */
+function deriveThreadTitle(text: string): string {
+  const firstLine = (text.split('\n').find((l) => l.trim().length > 0) ?? '').trim();
+  if (!firstLine) return '新话题';
+  return firstLine.length > 24 ? `${firstLine.slice(0, 24)}…` : firstLine;
+}
+
 /** 深链时由外部组件 askAbout 写入, drawer 消费后清空 */
 export interface PendingPrompt {
   text: string;
@@ -60,7 +78,11 @@ export interface PendingPrompt {
 interface BossAiState {
   open: boolean;
   sessionId: string;
+  /** 当前话题标题 (首条用户提问自动派生, 可编辑; 空线程为 null) */
+  title: string | null;
   messages: BossAiMessage[];
+  /** 归档的历史话题 (最近在前) */
+  history: ArchivedThread[];
   /** stream pending */
   streaming: boolean;
   error: string | null;
@@ -100,7 +122,9 @@ function loadInitial(cfg: AiChatConfig): BossAiState {
   const fallback: BossAiState = {
     open: false,
     sessionId: makeSessionId(cfg.sessionPrefix),
+    title: null,
     messages: [],
+    history: [],
     streaming: false,
     error: null,
     pendingPrompt: null,
@@ -117,7 +141,9 @@ function loadInitial(cfg: AiChatConfig): BossAiState {
       streaming: false,
       error: null,
       sessionId: parsed.sessionId ?? fallback.sessionId,
+      title: typeof parsed.title === 'string' ? parsed.title : null,
       messages: Array.isArray(parsed.messages) ? parsed.messages : [],
+      history: Array.isArray(parsed.history) ? parsed.history : [],
     };
   } catch {
     return fallback;
@@ -130,7 +156,7 @@ function loadInitial(cfg: AiChatConfig): BossAiState {
 type Listener = () => void;
 
 class AiChatStore {
-  private state: BossAiState = { open: false, sessionId: '', messages: [], streaming: false, error: null, pendingPrompt: null };
+  private state: BossAiState = { open: false, sessionId: '', title: null, messages: [], history: [], streaming: false, error: null, pendingPrompt: null };
   private listeners = new Set<Listener>();
   private hydrated = false;
   /** 当前流式请求的中止器 (用于"停止生成"); 非 React state, stop() 直接够得到. */
@@ -183,16 +209,24 @@ class AiChatStore {
   private persist() {
     if (typeof window === 'undefined') return;
     try {
+      // 剥掉 data:image base64 (体积大易爆 quota), 仅保留 http(s) 图.
+      const stripImages = (m: BossAiMessage): BossAiMessage => {
+        if (!m.images || m.images.length === 0) return m;
+        const kept = m.images.filter((u) => u.startsWith('http'));
+        return kept.length > 0 ? { ...m, images: kept } : { ...m, images: undefined };
+      };
       window.localStorage.setItem(
         this.cfg.lsKey,
         JSON.stringify({
           sessionId: this.state.sessionId,
-          // 最多存 50 条; 剥掉 data:image base64 (体积大易爆 quota), 仅保留 http(s) 图.
-          messages: this.state.messages.slice(-50).map((m) => {
-            if (!m.images || m.images.length === 0) return m;
-            const kept = m.images.filter((u) => u.startsWith('http'));
-            return kept.length > 0 ? { ...m, images: kept } : { ...m, images: undefined };
-          }),
+          title: this.state.title,
+          // 最多存 50 条 (当前话题).
+          messages: this.state.messages.slice(-50).map(stripImages),
+          // 历史话题各自也 cap 50 条 + 剥图, 防 localStorage quota 爆.
+          history: this.state.history.slice(0, MAX_HISTORY).map((t) => ({
+            ...t,
+            messages: t.messages.slice(-50).map(stripImages),
+          })),
         }),
       );
     } catch { /* quota */ }
@@ -254,16 +288,67 @@ class AiChatStore {
     return pending;
   }
 
+  /** 归档当前话题到 history 头部 (仅当有消息); 去重同 sessionId, cap MAX_HISTORY. */
+  private archiveCurrent(): ArchivedThread[] {
+    if (this.state.messages.length === 0) return this.state.history;
+    const entry: ArchivedThread = {
+      sessionId: this.state.sessionId,
+      title: this.state.title ?? deriveThreadTitle(this.state.messages.find((m) => m.role === 'user')?.content ?? ''),
+      messages: this.state.messages,
+      updatedAt: Date.now(),
+    };
+    const rest = this.state.history.filter((t) => t.sessionId !== entry.sessionId);
+    return [entry, ...rest].slice(0, MAX_HISTORY);
+  }
+
+  /** 开新话题: 先归档当前 (若非空), 再清空开一条新线程. */
   newSession() {
-    this.state = { ...this.state, sessionId: makeSessionId(this.cfg.sessionPrefix), messages: [], error: null };
+    const history = this.archiveCurrent();
+    this.state = {
+      ...this.state,
+      history,
+      sessionId: makeSessionId(this.cfg.sessionPrefix),
+      title: null,
+      messages: [],
+      error: null,
+    };
+    this.persist();
+    this.emit();
+  }
+
+  /** 手动重命名当前话题. */
+  renameThread(title: string) {
+    const t = title.trim();
+    this.state = { ...this.state, title: t.length > 0 ? t : null };
+    this.persist();
+    this.emit();
+  }
+
+  /** 切回某个历史话题: 先归档当前 (若非空), 再把目标从 history 提为当前. */
+  switchThread(sessionId: string) {
+    const target = this.state.history.find((t) => t.sessionId === sessionId);
+    if (!target) return;
+    const archived = this.archiveCurrent();
+    const history = archived.filter((t) => t.sessionId !== sessionId);
+    this.state = {
+      ...this.state,
+      history,
+      sessionId: target.sessionId,
+      title: target.title,
+      messages: target.messages,
+      error: null,
+    };
     this.persist();
     this.emit();
   }
 
   pushUserMessage(content: string, images?: string[]) {
     const imgs = images && images.length > 0 ? images : undefined;
+    // 首条用户提问自动命名话题 (标题仍为空时).
+    const title = this.state.title ?? (content.trim() ? deriveThreadTitle(content) : null);
     this.state = {
       ...this.state,
+      title,
       messages: [...this.state.messages, { role: 'user', content, images: imgs, createdAt: Date.now() }],
       error: null,
     };
@@ -532,7 +617,9 @@ function useAiChat(cfg: AiChatConfig) {
   return useMemo(() => ({
     isOpen: state.open,
     sessionId: state.sessionId,
+    title: state.title,
     messages: state.messages,
+    history: state.history,
     streaming: state.streaming,
     error: state.error,
     pendingPrompt: state.pendingPrompt,
@@ -540,6 +627,8 @@ function useAiChat(cfg: AiChatConfig) {
     close: () => store.close(),
     toggle: () => store.toggle(),
     newSession: () => store.newSession(),
+    renameThread: (title: string) => store.renameThread(title),
+    switchThread: (sessionId: string) => store.switchThread(sessionId),
     send,
     regenerate,
     editAndResend,

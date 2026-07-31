@@ -103,8 +103,18 @@ describe('序2 · personaPerceptionPass · 搭子装执行肢体 (只读感知)'
 
   it('工具白名单只含只读 (无 hr.salary_read / convergence.start 等写/红区)', async () => {
     const { PERSONA_PERCEPTION_TOOLSET } = await import('@/lib/persona/persona-perception');
-    expect([...PERSONA_PERCEPTION_TOOLSET]).toEqual(['okr.read', 'memory.search', 'decision_card.list']);
+    expect([...PERSONA_PERCEPTION_TOOLSET]).toEqual([
+      'okr.read',
+      'memory.search',
+      'decision_card.list',
+      // 个人助理只读技能 (lib/taf/skills/assistant-skills.ts ASSISTANT_READ_SKILL_IDS)
+      'assistant.schedule_summary',
+      'assistant.find_time',
+      'assistant.task_plan',
+    ]);
     expect(PERSONA_PERCEPTION_TOOLSET).not.toContain('hr.salary_read');
     expect(PERSONA_PERCEPTION_TOOLSET).not.toContain('convergence.start');
+    expect(PERSONA_PERCEPTION_TOOLSET).not.toContain('assistant.create_event');
+    expect(PERSONA_PERCEPTION_TOOLSET).not.toContain('assistant.meeting_sync');
   });
 });

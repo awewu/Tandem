@@ -31,6 +31,7 @@ import {
   ArrowLeft,
   Bot,
   Brain,
+  CalendarClock,
   ChevronLeft,
   ChevronRight,
   ClipboardCheck,
@@ -41,9 +42,11 @@ import {
   FileText,
   History,
   Inbox,
+  MapPin,
   Megaphone,
   MessageSquare,
   Palette,
+  Plus,
   Search,
   Send,
   Sparkles,
@@ -61,10 +64,10 @@ import { cn } from '@/lib/utils';
 // 议事室、IM 是全局 rail 模块, 不在坞内重复.
 // ────────────────────────────────────────────────────────────────
 const DOCK_TABS = [
-  { id: 'deliver',   label: '交付',     icon: Send,     hint: '主舞台产出 → 议事室 / IM / 邮件 / Memory' },
-  { id: 'persona',   label: '我的分身',  icon: Bot,      hint: '分身名片 / 技能模式 / 代行权限' },
-  { id: 'memory',    label: 'Memory',    icon: Brain,    hint: '我签名的决议 / 复盘 / 灵感' },
-  { id: 'sandbox',   label: '通用 AI',   icon: Sparkles, hint: '不入公司 Memory 的个人沙盒' },
+  { id: 'deliver',   label: '交付',     icon: Send,     hint: '主舞台产出 → 议事室 / IM / 邮件 / Memory', group: 'output' },
+  { id: 'persona',   label: '我的分身',  icon: Bot,      hint: '分身名片 / 技能模式 / 代行权限',            group: 'tools' },
+  { id: 'memory',    label: 'Memory',    icon: Brain,    hint: '我签名的决议 / 复盘 / 灵感',                group: 'tools' },
+  { id: 'sandbox',   label: '通用 AI',   icon: Sparkles, hint: '不入公司 Memory 的个人沙盒',               group: 'tools' },
 ] as const;
 
 type DockTabId = (typeof DOCK_TABS)[number]['id'];
@@ -339,6 +342,31 @@ function TandemPageInner() {
 //   = 今日待办 (InboxCard) + 搭子推荐 (RecommendCard)
 //   第一屏直接呈现「今天的战场」, 不再藏折叠栏.
 // ════════════════════════════════════════════════════════════════
+// 快捷开始 · 工作入口 chip (可复用): 驾驶舱常驻 + 欢迎页. 点击 ?card= 在主舞台展开。
+//   放驾驶舱是为了「对话中也够得着」—— WelcomeStage 会被对话流整体替换, 入口不能只挂那。
+function QuickStartChips() {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {(Object.keys(CARD_REGISTRY) as CardId[]).map((id) => {
+        const c = CARD_REGISTRY[id];
+        const Icon = c.icon;
+        return (
+          <Link
+            key={id}
+            href={`/tandem?card=${id}`}
+            title={c.desc}
+            className="group inline-flex items-center gap-1.5 rounded-full border bg-[rgb(var(--surface-1))] px-2.5 py-1.5 text-caption text-primary shadow-soft-xs surface-interactive hover:border-[rgb(var(--brand-300))] hover:bg-[rgb(var(--brand-50))]"
+            style={{ borderColor: 'rgb(var(--border-subtle))' }}
+          >
+            <Icon className="h-3.5 w-3.5 shrink-0 text-[rgb(var(--brand-600))]" />
+            <span className="font-medium">{c.title}</span>
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
 function CockpitRail({
   open,
   width,
@@ -416,13 +444,21 @@ function CockpitRail({
           <ChevronLeft className="h-4 w-4" />
         </button>
       </header>
-      <div className="flex-1 overflow-y-auto p-4 space-y-5">
+      <div className="flex-1 overflow-y-auto px-4 py-5 space-y-6">
         <section>
-          <p className="text-footnote text-tertiary uppercase tracking-wider mb-2">今日待办</p>
+          <SectionLabel icon={Compass} title="快捷开始" />
+          <QuickStartChips />
+        </section>
+        <section>
+          <SectionLabel icon={CalendarClock} title="今日日程" />
+          <TodayScheduleCard />
+        </section>
+        <section>
+          <SectionLabel icon={Inbox} title="今日待办" />
           <InboxCard />
         </section>
         <section>
-          <p className="text-footnote text-tertiary uppercase tracking-wider mb-2">搭子推荐</p>
+          <SectionLabel icon={Sparkles} title="搭子推荐" />
           <RecommendCard />
         </section>
       </div>
@@ -516,7 +552,7 @@ function PanelResizeHandle({
 // ════════════════════════════════════════════════════════════════
 interface SummonRailProps<T extends string> {
   side: 'left' | 'right';
-  tabs: ReadonlyArray<{ id: T; label: string; icon: React.ComponentType<{ className?: string }>; hint: string }>;
+  tabs: ReadonlyArray<{ id: T; label: string; icon: React.ComponentType<{ className?: string }>; hint: string; group?: string }>;
   activeId: T | null;
   onToggle: (id: T) => void;
 }
@@ -531,12 +567,20 @@ function SummonRail<T extends string>({ side, tabs, activeId, onToggle }: Summon
       )}
       style={{ borderColor: 'rgb(var(--border-subtle))' }}
     >
-      {tabs.map((t) => {
+      {tabs.map((t, i) => {
         const Icon = t.icon;
         const active = t.id === activeId;
+        // 组分隔线: 相邻 tab 的 group 变化处插一条细分隔 (产出 | 分身与工具)
+        const showDivider = i > 0 && t.group != null && t.group !== tabs[i - 1].group;
         return (
+          <div key={`wrap-${t.id}`} className="contents">
+          {showDivider && (
+            <span
+              aria-hidden
+              className="my-1 h-px w-6 bg-[rgb(var(--border-subtle))]"
+            />
+          )}
           <button
-            key={t.id}
             type="button"
             onClick={() => onToggle(t.id)}
             title={`${t.label} — ${t.hint}`}
@@ -560,6 +604,7 @@ function SummonRail<T extends string>({ side, tabs, activeId, onToggle }: Summon
             )}
             <Icon className="h-[18px] w-[18px]" />
           </button>
+          </div>
         );
       })}
     </nav>
@@ -1274,6 +1319,156 @@ function MemoryCard() {
   );
 }
 
+// ── 驾驶舱区块小标 (Claude 式克制: 图标 + 全大写细标, 弱化不喧宾夺主) ──
+function SectionLabel({
+  icon: Icon,
+  title,
+  hint,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  hint?: string;
+}) {
+  return (
+    <div className="mb-2.5 flex items-center gap-1.5">
+      <Icon className="h-3.5 w-3.5 text-tertiary" />
+      <p className="text-footnote text-tertiary uppercase tracking-wider">{title}</p>
+      {hint && <span className="text-footnote text-tertiary">· {hint}</span>}
+    </div>
+  );
+}
+
+// ── 今日日程 (B · assistant.schedule_summary 的 UI 面; 拉 /api/calendar 今日真值) ──
+interface ScheduleLite {
+  id: string;
+  title: string;
+  startAt: string;
+  endAt: string;
+  location: string | null;
+  hasConflict: boolean;
+  status: string;
+}
+
+function todayBoundsIso(): { from: string; to: string } {
+  const from = new Date();
+  from.setHours(0, 0, 0, 0);
+  const to = new Date(from);
+  to.setHours(23, 59, 59, 999);
+  return { from: from.toISOString(), to: to.toISOString() };
+}
+
+function hhmm(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '--:--';
+  return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+function TodayScheduleCard() {
+  const [events, setEvents] = useState<ScheduleLite[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const { from, to } = todayBoundsIso();
+    fetch(`/api/calendar?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, {
+      credentials: 'include',
+      cache: 'no-store',
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (cancelled) return;
+        const list: ScheduleLite[] = (d?.events ?? [])
+          .filter((e: { status?: string }) => e.status !== 'cancelled')
+          .map((e: Record<string, unknown>) => ({
+            id: String(e.id ?? ''),
+            title: String(e.title ?? '未命名'),
+            startAt: String(e.startAt ?? ''),
+            endAt: String(e.endAt ?? ''),
+            location: (e.location as string) ?? (e.meetingUrl as string) ?? null,
+            hasConflict: Boolean(e.hasConflict),
+            status: String(e.status ?? 'confirmed'),
+          }))
+          .sort((a: ScheduleLite, b: ScheduleLite) => a.startAt.localeCompare(b.startAt));
+        setEvents(list);
+      })
+      .catch(() => {
+        if (!cancelled) setEvents([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (events === null) return <SkeletonRows />;
+
+  if (events.length === 0) {
+    return (
+      <div className="surface-card-soft rounded-2xl px-3.5 py-4 shadow-soft-xs">
+        <p className="text-caption text-tertiary leading-relaxed">
+          今天没有安排。跟搭子说「帮我约个会」或去
+          <Link href="/calendar" className="text-[rgb(var(--brand-600))] hover:underline"> 日历</Link>
+          添加。
+        </p>
+      </div>
+    );
+  }
+
+  const now = Date.now();
+  return (
+    <div className="space-y-1">
+      {events.map((e, i) => {
+        const isPast = new Date(e.endAt).getTime() < now;
+        const isNow = new Date(e.startAt).getTime() <= now && new Date(e.endAt).getTime() >= now;
+        const isLast = i === events.length - 1;
+        return (
+          <Link
+            key={e.id}
+            href="/calendar"
+            className={cn(
+              'group flex items-start gap-2.5 rounded-lg px-2.5 py-2 surface-interactive',
+              'hover:bg-[rgb(var(--surface-2))]',
+              isPast && 'opacity-55',
+            )}
+          >
+            {/* 时间列 · 等宽, 视觉锚点 */}
+            <div className="flex w-11 shrink-0 flex-col items-end pt-0.5">
+              <span className="text-caption tabular-nums text-primary">{hhmm(e.startAt)}</span>
+              <span className="text-footnote tabular-nums text-tertiary">{hhmm(e.endAt)}</span>
+            </div>
+            {/* 竖轴指示 (进行中=品牌色实心, 其它=细线) */}
+            <div className="relative flex flex-col items-center self-stretch pt-1">
+              <span
+                className={cn(
+                  'h-2 w-2 shrink-0 rounded-full ring-2 ring-[rgb(var(--surface-1))]',
+                  isNow ? 'bg-[rgb(var(--brand-500))]' : 'bg-[rgb(var(--border-default))]',
+                )}
+              />
+              {!isLast && <span className="mt-0.5 w-px flex-1 bg-[rgb(var(--border-subtle))]" />}
+            </div>
+            {/* 内容 */}
+            <div className="min-w-0 flex-1 pt-0.5">
+              <p className="truncate text-caption text-primary">{e.title}</p>
+              <div className="mt-0.5 flex items-center gap-2">
+                {isNow && <span className="pill-brand text-footnote">进行中</span>}
+                {e.hasConflict && (
+                  <span className="inline-flex items-center gap-0.5 text-footnote text-[rgb(var(--semantic-warning))]">
+                    <AlertCircle className="h-3 w-3" /> 冲突
+                  </span>
+                )}
+                {e.location && (
+                  <span className="inline-flex min-w-0 items-center gap-0.5 text-footnote text-tertiary">
+                    <MapPin className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{e.location}</span>
+                  </span>
+                )}
+              </div>
+            </div>
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Inbox: 我的待办 (KR / TTI / 签字 / 否决窗口 / 复盘) ─────────────
 function InboxCard() {
   const { dashboard, retros, loading } = useTandemDashboard();
@@ -1289,69 +1484,121 @@ function InboxCard() {
       </div>
     );
   }
+  // 分桶: 需立刻处理 (逾期/风险) / 待办 (签字/否决窗/待复盘) / 进行中 / 成长机会
+  // — Claude 式"先给焦点, 再给全貌": 紧急在最上, 机会在最下, 每桶带弱化组标。
+  const urgent: InboxRowDesc[] = [];
+  const pending: InboxRowDesc[] = [];
+  const progress: InboxRowDesc[] = [];
+  const opportunity: InboxRowDesc[] = [];
+
+  for (const p of t.promotionsAwaitingMySignature) {
+    (p.overdue ? urgent : pending).push({
+      key: `mem-${p.id}`,
+      icon: Stamp,
+      tone: p.overdue ? 'danger' : 'warning',
+      title: `签字 · ${p.title}`,
+      meta: p.overdue ? 'SLA 已逾期' : `Memory → ${p.level}`,
+      href: `/memories?id=${p.id}`,
+    });
+  }
+  for (const k of t.myKrAtRisk.slice(0, 3)) {
+    urgent.push({
+      key: `kr-${k.id}`,
+      icon: AlertCircle,
+      tone: 'danger',
+      title: k.title,
+      meta: `KR 风险 · ${Math.round(k.progress * 100)}%`,
+      href: `/okr?kr=${k.id}`,
+    });
+  }
+  for (const r of retros?.items ?? []) {
+    (r.urgency === 'overdue' ? urgent : pending).push({
+      key: `retro-${r.decisionId}`,
+      icon: History,
+      tone: r.urgency === 'overdue' ? 'danger' : 'warning',
+      title: `复盘 · ${r.title}`,
+      meta: `${r.daysSinceCommit}d 未复盘`,
+      href: `/decisions/${r.decisionId}?tab=retro`,
+    });
+  }
+  for (const d of t.myRecentCommitsInVetoWindow) {
+    pending.push({
+      key: `veto-${d.id}`,
+      icon: Clock,
+      tone: 'warning',
+      title: d.title,
+      meta: fmtRemainingMs(d.remainingMs),
+      href: `/decisions/${d.id}`,
+    });
+  }
+  for (const tti of t.myTtiInProgress.slice(0, 3)) {
+    progress.push({
+      key: `tti-${tti.id}`,
+      icon: Target,
+      tone: 'info',
+      title: tti.title,
+      meta: `TTI 进行中 · ${Math.round(tti.completionRate * 100)}%`,
+      href: `/okr?tti=${tti.id}`,
+    });
+  }
+  if (t.personaUpgradeAvailable) {
+    opportunity.push({
+      key: 'persona-upgrade',
+      icon: TrendingUp,
+      tone: 'brand',
+      title: `搭子升级 · ${t.personaUpgradeAvailable.fromStage} → ${t.personaUpgradeAvailable.toStage}`,
+      meta: `拿捏分 ${t.personaUpgradeAvailable.bossCaptureScore}`,
+      href: '/persona',
+    });
+  }
+
+  const groups: Array<{ label: string; rows: InboxRowDesc[] }> = [
+    { label: '需立刻处理', rows: urgent },
+    { label: '待办', rows: pending },
+    { label: '进行中', rows: progress },
+    { label: '成长机会', rows: opportunity },
+  ].filter((g) => g.rows.length > 0);
+
   return (
-    <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
-      {t.personaUpgradeAvailable && (
-        <InboxRow
-          icon={TrendingUp}
-          tone="brand"
-          title={`搭子升级 · ${t.personaUpgradeAvailable.fromStage} → ${t.personaUpgradeAvailable.toStage}`}
-          meta={`拿捏分 ${t.personaUpgradeAvailable.bossCaptureScore}`}
-          href="/persona"
-        />
-      )}
-      {t.promotionsAwaitingMySignature.map((p) => (
-        <InboxRow
-          key={`mem-${p.id}`}
-          icon={Stamp}
-          tone={p.overdue ? 'danger' : 'warning'}
-          title={`签字 · ${p.title}`}
-          meta={p.overdue ? 'SLA 已逾期' : `Memory → ${p.level}`}
-          href={`/memories?id=${p.id}`}
-        />
-      ))}
-      {t.myKrAtRisk.slice(0, 3).map((k) => (
-        <InboxRow
-          key={`kr-${k.id}`}
-          icon={AlertCircle}
-          tone="danger"
-          title={k.title}
-          meta={`KR 风险 · ${Math.round(k.progress * 100)}%`}
-          href={`/okr?kr=${k.id}`}
-        />
-      ))}
-      {t.myTtiInProgress.slice(0, 3).map((tti) => (
-        <InboxRow
-          key={`tti-${tti.id}`}
-          icon={Target}
-          tone="info"
-          title={tti.title}
-          meta={`TTI 进行中 · ${Math.round(tti.completionRate * 100)}%`}
-          href={`/okr?tti=${tti.id}`}
-        />
-      ))}
-      {t.myRecentCommitsInVetoWindow.map((d) => (
-        <InboxRow
-          key={`veto-${d.id}`}
-          icon={Clock}
-          tone="warning"
-          title={d.title}
-          meta={fmtRemainingMs(d.remainingMs)}
-          href={`/decisions/${d.id}`}
-        />
-      ))}
-      {retros?.items.map((r) => (
-        <InboxRow
-          key={`retro-${r.decisionId}`}
-          icon={History}
-          tone={r.urgency === 'overdue' ? 'danger' : 'warning'}
-          title={`复盘 · ${r.title}`}
-          meta={`${r.daysSinceCommit}d 未复盘`}
-          href={`/decisions/${r.decisionId}?tab=retro`}
-        />
+    <div className="space-y-4 max-h-[58vh] overflow-y-auto pr-1">
+      {groups.map((g) => (
+        <div key={g.label} className="space-y-1.5">
+          <div className="flex items-center gap-1.5 px-0.5">
+            <span
+              className={cn(
+                'h-1.5 w-1.5 rounded-full',
+                g.label === '需立刻处理' && 'bg-[rgb(var(--semantic-danger))]',
+                g.label === '待办' && 'bg-[rgb(var(--semantic-warning))]',
+                g.label === '进行中' && 'bg-[rgb(var(--semantic-info))]',
+                g.label === '成长机会' && 'bg-[rgb(var(--brand-500))]',
+              )}
+            />
+            <p className="text-footnote text-tertiary">{g.label}</p>
+            <span className="text-footnote text-tertiary">{g.rows.length}</span>
+          </div>
+          {g.rows.map((r) => (
+            <InboxRow
+              key={r.key}
+              icon={r.icon}
+              tone={r.tone}
+              title={r.title}
+              meta={r.meta}
+              href={r.href}
+            />
+          ))}
+        </div>
       ))}
     </div>
   );
+}
+
+interface InboxRowDesc {
+  key: string;
+  icon: React.ComponentType<{ className?: string }>;
+  tone: 'brand' | 'warning' | 'danger' | 'info';
+  title: string;
+  meta?: string;
+  href: string;
 }
 
 // ── Recommend: 搭子基于当前信号给 3+1 建议 (MANIFESTO §2 通用化) ────
@@ -1691,9 +1938,105 @@ function deriveTitle(text: string): string {
   return firstLine.length > 60 ? `${firstLine.slice(0, 60)}…` : firstLine || '搭子产出';
 }
 
+// 相对时间 (刚刚 / N分钟前 / N小时前 / N天前)
+function relativeTime(ts: number): string {
+  const diff = Date.now() - ts;
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return '刚刚';
+  if (m < 60) return `${m}分钟前`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}小时前`;
+  return `${Math.floor(h / 24)}天前`;
+}
+
+// ── 对话话题头: 目标标签 + 可编辑标题 + 最近话题 + 新话题 ──────────────
+function ThreadHeader() {
+  const { target } = useStageTarget();
+  const { title, history, newSession, renameThread, switchThread } = useActiveChat();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [showHistory, setShowHistory] = useState(false);
+  const targetLabel = target === 'company' ? 'Tandem AI · 中央智囊' : '我的分身 · 搭子';
+
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <div className="flex items-center gap-1.5 text-footnote text-tertiary">
+          <Sparkles className="h-3.5 w-3.5 text-[rgb(var(--brand-500))]" />
+          <span className="truncate">{targetLabel}</span>
+        </div>
+        {editing ? (
+          <input
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={() => { renameThread(draft); setEditing(false); }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { renameThread(draft); setEditing(false); }
+              if (e.key === 'Escape') setEditing(false);
+            }}
+            maxLength={40}
+            className="mt-0.5 w-full rounded-md border bg-[rgb(var(--surface-2))] px-2 py-1 text-headline text-primary focus:outline-none focus:ring-2 focus:ring-[rgb(var(--brand-300))]"
+            style={{ borderColor: 'rgb(var(--border-subtle))' }}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => { setDraft(title ?? ''); setEditing(true); }}
+            title="点击重命名话题"
+            className="mt-0.5 max-w-full truncate text-headline text-primary hover:text-[rgb(var(--brand-600))] surface-interactive"
+          >
+            {title ?? '新话题'}
+          </button>
+        )}
+      </div>
+      <div className="relative flex shrink-0 items-center gap-1.5">
+        {history.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowHistory((v) => !v)}
+            title="最近话题"
+            className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-footnote text-tertiary hover:bg-[rgb(var(--surface-2))] hover:text-primary surface-interactive"
+            style={{ borderColor: 'rgb(var(--border-subtle))' }}
+          >
+            <History className="h-3.5 w-3.5" /> 最近 {history.length}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => { newSession(); setShowHistory(false); }}
+          title="开启新话题"
+          className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-footnote text-tertiary hover:bg-[rgb(var(--brand-50))] hover:text-[rgb(var(--brand-700))] surface-interactive"
+          style={{ borderColor: 'rgb(var(--border-subtle))' }}
+        >
+          <Plus className="h-3.5 w-3.5" /> 新话题
+        </button>
+        {showHistory && history.length > 0 && (
+          <div
+            className="absolute right-0 top-full z-30 mt-1.5 w-64 rounded-2xl border bg-[rgb(var(--surface-1))] p-1.5 shadow-soft-lg"
+            style={{ borderColor: 'rgb(var(--border-subtle))' }}
+          >
+            <p className="px-2 py-1 text-footnote text-tertiary">最近话题</p>
+            {history.map((t) => (
+              <button
+                key={t.sessionId}
+                type="button"
+                onClick={() => { switchThread(t.sessionId); setShowHistory(false); }}
+                className="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left surface-interactive hover:bg-[rgb(var(--surface-2))]"
+              >
+                <span className="truncate text-caption text-primary">{t.title}</span>
+                <span className="shrink-0 text-footnote text-tertiary">{relativeTime(t.updatedAt)}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── 内嵌对话流 ──────────────────────────────────────────────────────
 function ConversationStream() {
-  const { target } = useStageTarget();
   const { messages, streaming } = useActiveChat();
   const endRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -1701,10 +2044,7 @@ function ConversationStream() {
   }, [messages]);
   return (
     <div className="mx-auto max-w-3xl px-4 md:px-6 py-6 space-y-4">
-      <div className="flex items-center gap-2 text-caption text-tertiary">
-        <Sparkles className="h-4 w-4 text-[rgb(var(--brand-500))]" />
-        <span>{target === 'company' ? '与 Tandem AI (中央智囊) 的协作' : '与我的分身 (搭子) 的协作'}</span>
-      </div>
+      <ThreadHeader />
       <GovernanceCard compact />
       {messages.map((m, i) => (
         <MessageBubble key={`${m.createdAt}-${i}`} m={m} />
@@ -1905,7 +2245,8 @@ function WelcomeStage({
         <p className="mt-1.5 text-caption text-white/90 max-w-2xl">
           你和「我的搭子」(AI 分身) 的协作主舞台 — 选一件事开始, Tandem AI 兜底。
         </p>
-        <div className="mt-3 flex flex-wrap gap-2">
+        {/* 行动层级 (Claude 式: 唯一主行动实心, 次级弱化为幽灵按钮, 不与主 CTA 争视线) */}
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={onSummonPersona}
@@ -1916,15 +2257,15 @@ function WelcomeStage({
           <button
             type="button"
             onClick={onSummonDeliver}
-            className="inline-flex items-center gap-2 rounded-full border border-white/30 text-white px-4 py-2 text-caption font-medium surface-interactive hover:bg-white/10"
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-caption text-white/85 surface-interactive hover:bg-white/10 hover:text-white"
           >
-            <Send className="h-4 w-4" /> 交付产出
+            <Send className="h-3.5 w-3.5" /> 交付产出
           </button>
           <Link
             href="/okr?owner=me"
-            className="inline-flex items-center gap-2 rounded-full border border-white/30 text-white px-4 py-2 text-caption font-medium surface-interactive hover:bg-white/10"
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-caption text-white/85 surface-interactive hover:bg-white/10 hover:text-white"
           >
-            <Target className="h-4 w-4" /> 我的 OKR
+            <Target className="h-3.5 w-3.5" /> 我的 OKR
           </Link>
         </div>
       </section>
@@ -1935,67 +2276,72 @@ function WelcomeStage({
         <div className="grid gap-2.5 sm:grid-cols-2">
           <Link
             href="/report"
-            className="group surface-card rounded-2xl p-4 shadow-soft-xs surface-interactive hover:shadow-soft-sm"
+            className="group surface-card rounded-2xl p-3.5 shadow-soft-xs surface-interactive hover:shadow-soft-sm"
           >
-            <div className="flex items-start gap-3">
-              <div className="rounded-md bg-[rgb(var(--brand-50))] p-2 text-[rgb(var(--brand-600))]">
-                <Clock className="h-5 w-5" />
+            <div className="flex items-center gap-2.5">
+              <div className="rounded-md bg-[rgb(var(--brand-50))] p-1.5 text-[rgb(var(--brand-600))]">
+                <Clock className="h-4 w-4" />
               </div>
               <div className="min-w-0">
-                <h3 className="text-body font-medium text-primary">5min 智能日报</h3>
-                <p className="mt-1 text-caption text-tertiary">和分身一起过今天的推进 · 自动回填 KR 进度</p>
+                <h3 className="text-caption font-medium text-primary">5min 智能日报</h3>
+                <p className="text-footnote text-tertiary truncate">和分身一起过今天的推进 · 回填 KR</p>
               </div>
             </div>
           </Link>
           <Link
             href="/report/weekly"
-            className="group surface-card rounded-2xl p-4 shadow-soft-xs surface-interactive hover:shadow-soft-sm"
+            className="group surface-card rounded-2xl p-3.5 shadow-soft-xs surface-interactive hover:shadow-soft-sm"
           >
-            <div className="flex items-start gap-3">
-              <div className="rounded-md bg-[rgb(var(--brand-50))] p-2 text-[rgb(var(--brand-600))]">
-                <History className="h-5 w-5" />
+            <div className="flex items-center gap-2.5">
+              <div className="rounded-md bg-[rgb(var(--brand-50))] p-1.5 text-[rgb(var(--brand-600))]">
+                <History className="h-4 w-4" />
               </div>
               <div className="min-w-0">
-                <h3 className="text-body font-medium text-primary">本周回顾</h3>
-                <p className="mt-1 text-caption text-tertiary">复盘本周节奏 · 沉淀进展与下周重点</p>
+                <h3 className="text-caption font-medium text-primary">本周回顾</h3>
+                <p className="text-footnote text-tertiary truncate">复盘本周节奏 · 沉淀进展与下周重点</p>
               </div>
             </div>
           </Link>
         </div>
       </section>
 
-      {/* 启动协作 · 入口卡, 进入后通过 ?card= 在本舞台展开 */}
-      <section>
-        <h2 className="text-headline text-primary mb-2">今天先做点什么</h2>
-        <div className="grid gap-2.5 sm:grid-cols-2">
-          {(Object.keys(CARD_REGISTRY) as CardId[]).map((id) => {
-            const c = CARD_REGISTRY[id];
-            const Icon = c.icon;
-            return (
-              <Link
-                key={id}
-                href={`/tandem?card=${id}`}
-                className="group surface-card rounded-2xl p-4 shadow-soft-xs surface-interactive hover:shadow-soft-sm"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="rounded-md bg-[rgb(var(--brand-50))] p-2 text-[rgb(var(--brand-600))]">
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="text-body font-medium text-primary">{c.title}</h3>
-                    <p className="mt-1 text-caption text-tertiary">{c.desc}</p>
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-      </section>
+      {/* 「今天先做点什么」入口 chip 已移到左驾驶舱「快捷开始」常驻区 (对话中也够得着),
+          此处不再重复, 避免空态左右两处一样的 chip. */}
+
+      <RecentThreads />
 
       <footer className="text-footnote text-tertiary text-center pt-1">
         搭子 · 你 ↔ 搭子 ↔ Tandem AI 三层协作
       </footer>
     </div>
+  );
+}
+
+// ── 最近话题 (空态可续): 从归档历史直接切回一条线程继续聊 ─────────────
+function RecentThreads() {
+  const { history, switchThread } = useActiveChat();
+  if (history.length === 0) return null;
+  return (
+    <section>
+      <h2 className="text-headline text-primary mb-2">最近话题</h2>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {history.slice(0, 6).map((t) => (
+          <button
+            key={t.sessionId}
+            type="button"
+            onClick={() => switchThread(t.sessionId)}
+            className="group flex items-center justify-between gap-2 rounded-2xl border bg-[rgb(var(--surface-1))] px-3.5 py-2.5 text-left shadow-soft-xs surface-interactive hover:border-[rgb(var(--brand-300))] hover:bg-[rgb(var(--surface-2))]"
+            style={{ borderColor: 'rgb(var(--border-subtle))' }}
+          >
+            <div className="flex min-w-0 items-center gap-2">
+              <History className="h-4 w-4 shrink-0 text-[rgb(var(--brand-600))]" />
+              <span className="truncate text-caption text-primary">{t.title}</span>
+            </div>
+            <span className="shrink-0 text-footnote text-tertiary">{relativeTime(t.updatedAt)}</span>
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }
 

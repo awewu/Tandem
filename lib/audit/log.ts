@@ -41,6 +41,9 @@ export type AuditAction =
   | 'memory.downgrade_decided'
   | 'memory.entry_revised'
   | 'memory.entry_archived'
+  // 产出捕获层 (#17)
+  | 'memory.capture_accepted'
+  | 'memory.capture_dismissed'
   // Data ownership
   | 'data.export_origin'
   | 'data.delete_personal'

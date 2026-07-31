@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   daysSinceActivity,
   classifyLifecycle,
+  LIFECYCLE_BLUE_DAYS,
   LIFECYCLE_YELLOW_DAYS,
   LIFECYCLE_RED_DAYS,
 } from '@/lib/pms/deal-desk-service';
@@ -19,10 +20,18 @@ describe('deal-desk · daysSinceActivity', () => {
   });
 });
 
-describe('deal-desk · classifyLifecycle', () => {
-  it('分级阈值 75/90', () => {
+describe('deal-desk · classifyLifecycle (30/60/90 三阶回顾)', () => {
+  it('阈值常量为 30/60/90', () => {
+    expect(LIFECYCLE_BLUE_DAYS).toBe(30);
+    expect(LIFECYCLE_YELLOW_DAYS).toBe(60);
+    expect(LIFECYCLE_RED_DAYS).toBe(90);
+  });
+
+  it('四级分级 ok/blue/yellow/red', () => {
     expect(classifyLifecycle(0)).toBe('ok');
-    expect(classifyLifecycle(LIFECYCLE_YELLOW_DAYS - 1)).toBe('ok');
+    expect(classifyLifecycle(LIFECYCLE_BLUE_DAYS - 1)).toBe('ok');
+    expect(classifyLifecycle(LIFECYCLE_BLUE_DAYS)).toBe('blue');
+    expect(classifyLifecycle(LIFECYCLE_YELLOW_DAYS - 1)).toBe('blue');
     expect(classifyLifecycle(LIFECYCLE_YELLOW_DAYS)).toBe('yellow');
     expect(classifyLifecycle(LIFECYCLE_RED_DAYS - 1)).toBe('yellow');
     expect(classifyLifecycle(LIFECYCLE_RED_DAYS)).toBe('red');

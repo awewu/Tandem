@@ -297,6 +297,7 @@ export function createInMemoryStore(): TandemStore {
     materials: new InMemoryRepository(),
     memories: new InMemoryRepository(),
     promotions: new InMemoryRepository(),
+    memoryCaptureCandidates: new InMemoryRepository(),
     downgrades: new InMemoryRepository(),
     stewards: new InMemoryStewardRepo(),
     cycles: new InMemoryRepository(),

@@ -1,8 +1,10 @@
 /**
- * PMS · 公海池 + 90 天管控服务
+ * PMS · 公海池 + 30/60/90 天回顾管控服务
  *
- * 业务 (CRM-PM-BLUEPRINT L2C):
- *   - 90 天管控: 商机长期未跟进 → 黄色预警(75天) → 红色/释放公海(90天)
+ * 业务 (CRM-PM-BLUEPRINT L2C) — 三阶回顾进度管理:
+ *   - 30 天: 蓝色回顾提醒 (reminder) — 该跟进了
+ *   - 60 天: 黄色停滞预警 (warning)
+ *   - 90 天: 红色释放公海 (release) — 长期未跟进自动回收
  *   - 公海池: 释放的商机进入公海, 其他经销商可认领 (线索回收再分配)
  *   - 保护期: 释放后 N 天内原属主可优先恢复, 到期后任意经销商可认领
  *
@@ -20,6 +22,13 @@ import { and, eq, isNull, lt, or, desc } from 'drizzle-orm';
 
 const DAY_MS = 86_400_000;
 
+// 三阶回顾阈值 (天) — 单一事实源, deal-desk 复用
+export const REVIEW_REMINDER_DAYS = 30;
+export const REVIEW_WARNING_DAYS = 60;
+export const REVIEW_RELEASE_DAYS = 90;
+
+export type ReviewLevel = 'none' | 'blue' | 'yellow' | 'red';
+
 // ---------------------------------------------------------------------------
 // 纯函数 (可测)
 // ---------------------------------------------------------------------------
@@ -30,21 +39,24 @@ export function daysBetween(from: Date, to: Date): number {
 }
 
 /**
- * 90 天管控预警级别 (纯函数):
- *   >= releaseDays → red  (应释放公海)
- *   >= warningDays → yellow (预警)
- *   否则           → none
+ * 30/60/90 天回顾管控级别 (纯函数):
+ *   >= releaseDays  → red    (应释放公海)
+ *   >= warningDays  → yellow (停滞预警)
+ *   >= reminderDays → blue   (回顾提醒)
+ *   否则            → none
  */
 export function computeWarningLevel(
   lastActivityAt: Date,
   now: Date,
-  warningDays = 75,
-  releaseDays = 90,
-): { days: number; level: 'none' | 'yellow' | 'red' } {
+  reminderDays = REVIEW_REMINDER_DAYS,
+  warningDays = REVIEW_WARNING_DAYS,
+  releaseDays = REVIEW_RELEASE_DAYS,
+): { days: number; level: ReviewLevel } {
   const days = daysBetween(lastActivityAt, now);
-  let level: 'none' | 'yellow' | 'red' = 'none';
+  let level: ReviewLevel = 'none';
   if (days >= releaseDays) level = 'red';
   else if (days >= warningDays) level = 'yellow';
+  else if (days >= reminderDays) level = 'blue';
   return { days, level };
 }
 
@@ -142,13 +154,15 @@ export async function releaseToPool(input: {
 }
 
 /**
- * 90 天管控扫描: 找出长期未跟进的活跃商机, 计算预警级别.
+ * 30/60/90 天回顾扫描: 找出停滞的活跃商机, 计算三阶回顾级别.
+ *   blue(>=30) 回顾提醒 · yellow(>=60) 停滞预警 · red(>=90) 应释放公海.
  * autoRelease=true 时自动释放红色 (>=releaseDays) 商机到公海.
  *
  * 未跟进基准 = lastFollowUpAt ?? createdAt.
  */
 export async function scanExpiringOpportunities(input: {
   tenantId: string;
+  reminderDays?: number;
   warningDays?: number;
   releaseDays?: number;
   autoRelease?: boolean;
@@ -156,15 +170,18 @@ export async function scanExpiringOpportunities(input: {
   protectionDays?: number;
 }): Promise<{
   scanned: number;
+  blue: number;
   yellow: number;
   red: number;
   released: number;
-  items: Array<{ opportunityId: string; orgId: string; days: number; level: 'none' | 'yellow' | 'red' }>;
+  items: Array<{ opportunityId: string; orgId: string; days: number; level: ReviewLevel }>;
 }> {
   const now = new Date();
-  const warningDays = input.warningDays ?? 75;
-  const releaseDays = input.releaseDays ?? 90;
-  const warnCutoff = new Date(now.getTime() - warningDays * DAY_MS);
+  const reminderDays = input.reminderDays ?? REVIEW_REMINDER_DAYS;
+  const warningDays = input.warningDays ?? REVIEW_WARNING_DAYS;
+  const releaseDays = input.releaseDays ?? REVIEW_RELEASE_DAYS;
+  // 扫描游标以最低阈值 (回顾提醒) 为界, 覆盖三阶全部命中项
+  const scanCutoff = new Date(now.getTime() - reminderDays * DAY_MS);
 
   const rows = await db
     .select()
@@ -174,14 +191,14 @@ export async function scanExpiringOpportunities(input: {
       eq(pmsOpportunities.status, 'active'),
       isNull(pmsOpportunities.archivedAt),
       or(
-        lt(pmsOpportunities.lastFollowUpAt, warnCutoff),
-        and(isNull(pmsOpportunities.lastFollowUpAt), lt(pmsOpportunities.createdAt, warnCutoff)),
+        lt(pmsOpportunities.lastFollowUpAt, scanCutoff),
+        and(isNull(pmsOpportunities.lastFollowUpAt), lt(pmsOpportunities.createdAt, scanCutoff)),
       ),
     ));
 
   const items = rows.map((r) => {
     const lastActivity = r.lastFollowUpAt ?? r.createdAt;
-    const { days, level } = computeWarningLevel(lastActivity, now, warningDays, releaseDays);
+    const { days, level } = computeWarningLevel(lastActivity, now, reminderDays, warningDays, releaseDays);
     return { opportunityId: r.id, orgId: r.orgId, days, level };
   });
 
@@ -203,6 +220,7 @@ export async function scanExpiringOpportunities(input: {
 
   return {
     scanned: items.length,
+    blue: items.filter((i) => i.level === 'blue').length,
     yellow: items.filter((i) => i.level === 'yellow').length,
     red: items.filter((i) => i.level === 'red').length,
     released,

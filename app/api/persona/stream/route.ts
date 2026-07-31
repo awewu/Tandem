@@ -302,12 +302,54 @@ async function POSTApiHandler(req: NextRequest): Promise<Response> {
           } catch { /* fail-soft */ }
         }
 
+        // ── 8. 个人助理写肢体: 员工明确要"约会议/加日程/提醒参会人"时直执行 ──
+        //   §S1 · 与 IM 代行同源 (personaAssistantPass), fail-soft + 严格写意图门控 (shouldAssist)。
+        //   读侧 (查日程/找空档) 已在 §3 感知处理; 此处只管写, 执行成功后追加确认块。
+        if (!req.signal.aborted) {
+          try {
+            const { personaAssistantPass } = await import('@/lib/persona/persona-assistant');
+            const assist = await personaAssistantPass(latestUserMessage, '', auth.userId, { tenantId: auth.tenantId });
+            const done = assist.actions.filter((a) => a.ok);
+            const failed = assist.actions.filter((a) => !a.ok);
+            if (done.length > 0) {
+              emitStep('assistant', '个人助理执行', undefined, done.map((a) => a.tool));
+              const label = (a: { tool: string }) =>
+                a.tool === 'assistant.create_event' ? '已创建日程' : '已发送会议提醒';
+              const block = `\n\n---\n\n🗓️ **分身已为你处理**: ${done.map(label).join(' · ')}。可在日历中查看。`;
+              send({ content: block });
+              fullResponse += block;
+            } else if (failed.length > 0) {
+              const block = `\n\n---\n\n⚠️ 分身尝试处理日程/会议未成功: ${failed[0].error ?? '请稍后重试或手动操作'}。`;
+              send({ content: block });
+              fullResponse += block;
+            }
+          } catch { /* fail-soft: 助理写失败绝不阻塞主回复 */ }
+        }
+
         deferAudit('boss_ai.answer', auth.userId, {
           targetId: sessionId ?? 'no-session',
           targetType: 'persona_chat_session',
           metadata: { answerLength: fullResponse.length, answerPreview: fullResponse.slice(0, 300) },
           tenantId: auth.tenantId,
         });
+
+        // ── 9. 产出捕获层 (#17): 后台提炼可复用知识 → 待沉淀候选 (fire-and-forget) ──
+        //   不阻塞 done; 严格 gate + fail-soft, 候选进队列由本人一键采纳才走三级签批。
+        if (!req.signal.aborted && fullResponse.trim().length >= 160) {
+          const captureText = fullResponse;
+          void import('@/lib/memory/output-capture')
+            .then(({ captureOutputPass }) =>
+              captureOutputPass({
+                text: captureText,
+                authorUserId: auth.userId,
+                source: 'persona_chat',
+                tenantId: auth.tenantId,
+                sessionId: sessionId ?? undefined,
+                userQuery: userQuestion,
+              }),
+            )
+            .catch(() => { /* fire-and-forget */ });
+        }
 
         send({ done: true, length: fullResponse.length });
       } catch (err) {

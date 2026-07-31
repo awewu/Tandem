@@ -1293,6 +1293,7 @@ export function createDrizzleStore(): TandemStore {
     materials: new DrizzleKvRepository('materials'),
     memories: new DrizzleKvRepository('memories'),
     promotions: new DrizzleKvRepository('memory_promotions'),
+    memoryCaptureCandidates: new DrizzleKvRepository('memory_capture_candidates'),
     downgrades: new DrizzleKvRepository('memory_downgrades'),
     stewards: new DrizzleStewardRepo(),
     cycles: new DrizzleKvRepository('cycles'),

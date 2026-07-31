@@ -118,6 +118,8 @@ export async function getOpportunityAnalytics(input: {
   const conditions = [
     eq(pmsOpportunities.tenantId, input.tenantId),
     isNull(pmsOpportunities.archivedAt),
+    // 报备审核关卡: 仅已通过审核的商机计入漏斗与分析
+    eq(pmsOpportunities.reviewStatus, 'approved'),
   ];
   if (input.visibleOrgIds && input.visibleOrgIds.length > 0) {
     conditions.push(inArray(pmsOpportunities.orgId, input.visibleOrgIds));

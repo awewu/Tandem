@@ -15,7 +15,8 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Gauge, ScrollText, Target, Play, Loader2, RefreshCw } from 'lucide-react';
+import { Gauge, ScrollText, Target, Play, Loader2, RefreshCw, TrendingUp, TrendingDown } from 'lucide-react';
+import { computeEvalSummary, type EvalSummary } from '@/lib/eval/summary';
 
 type Tab = 'traces' | 'attributions' | 'regression';
 
@@ -59,6 +60,71 @@ interface Regression {
   byGrader: Record<string, { pass: number; total: number; passRate: number; avgScore: number }>;
 }
 
+function pct(n: number | null): string {
+  return n === null ? '—' : `${(n * 100).toFixed(0)}%`;
+}
+
+function StatCard({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: 'success' | 'danger' | 'neutral' }) {
+  const valueColor = tone === 'success' ? 'text-success' : tone === 'danger' ? 'text-danger' : 'text-ink-primary';
+  return (
+    <div className="rounded-2xl bg-surface-1 shadow-soft-sm p-3">
+      <div className="text-footnote text-ink-tertiary">{label}</div>
+      <div className={`text-headline mt-1 ${valueColor}`}>{value}</div>
+      {sub && <div className="text-footnote text-ink-tertiary mt-0.5">{sub}</div>}
+    </div>
+  );
+}
+
+/** #11/#14 显影记分卡: 把 raw trace/attribution 汇成一眼可读的"AI 评分 + 归因胜率"故事. */
+function SummaryScorecard({ s }: { s: EvalSummary }) {
+  const winTone = s.attribNetWinRate === null ? 'neutral' : s.attribNetWinRate >= 0 ? 'success' : 'danger';
+  const deltaTone = s.attribAvgDelta === null ? 'neutral' : s.attribAvgDelta >= 0 ? 'success' : 'danger';
+  return (
+    <div className="mb-5 space-y-2">
+      <div className="flex items-center gap-1.5 text-caption text-ink-secondary">
+        <ScrollText className="w-3.5 h-3.5 text-brand-600" /> #14 评估 (线上 trace 打分)
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <StatCard label="Grader 通过率" value={pct(s.gradePassRate)} sub={`${s.gradedTotal}/${s.traceTotal} trace 已评分`}
+          tone={s.gradePassRate === null ? 'neutral' : s.gradePassRate >= 0.7 ? 'success' : 'danger'} />
+        <StatCard label="平均评分" value={s.gradeAvgScore === null ? '—' : (s.gradeAvgScore * 100).toFixed(0)} />
+        <StatCard label="Trace 总量" value={String(s.traceTotal)} />
+        <StatCard label="近 7 天新增" value={String(s.traceLast7d)} sub="AI 活跃度" />
+      </div>
+
+      <div className="flex items-center gap-1.5 text-caption text-ink-secondary pt-1">
+        <Target className="w-3.5 h-3.5 text-brand-600" /> #11 归因 (决策 → KR 是否真改善)
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <StatCard
+          label="净胜率 (正-负)/有效"
+          value={pct(s.attribNetWinRate)}
+          sub={`${s.attribPositive} 正 · ${s.attribNegative} 负`}
+          tone={winTone}
+        />
+        <StatCard
+          label="平均进度变化"
+          value={s.attribAvgDelta === null ? '—' : `${s.attribAvgDelta >= 0 ? '+' : ''}${(s.attribAvgDelta * 100).toFixed(0)}pt`}
+          tone={deltaTone}
+        />
+        <StatCard label="归因总数" value={String(s.attribTotal)} sub={`${s.attribNeutral} 中性`} />
+        <StatCard label="数据不足" value={String(s.attribInsufficient)} sub="待更多 check-in" tone="neutral" />
+      </div>
+
+      {s.attribNetWinRate !== null && (
+        <div className={`flex items-center gap-1.5 text-footnote ${winTone === 'success' ? 'text-success' : winTone === 'danger' ? 'text-danger' : 'text-ink-tertiary'}`}>
+          {winTone === 'success' ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+          {winTone === 'success'
+            ? '中央 AI 的建议在被采纳后, 相关 KR 整体呈正向改善 — 飞轮在转。'
+            : winTone === 'danger'
+              ? '被采纳建议后 KR 整体未改善, 需回看归因诊断定位失效环节。'
+              : '正负相抵, 样本仍小。'}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function verdictClass(v: Attribution['verdict']): string {
   if (v === 'positive') return 'bg-success/10 text-success';
   if (v === 'negative') return 'bg-danger/10 text-danger';
@@ -78,6 +144,24 @@ export default function EvalTracePage() {
   const [loading, setLoading] = useState(false);
   const [running, setRunning] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [summary, setSummary] = useState<EvalSummary | null>(null);
+
+  async function loadSummary() {
+    try {
+      const [tr, ar] = await Promise.all([
+        fetch('/api/admin/eval/traces?limit=200', { credentials: 'include', cache: 'no-store' }).then((r) => (r.ok ? r.json() : { traces: [] })),
+        fetch('/api/admin/eval/attributions?limit=200', { credentials: 'include', cache: 'no-store' }).then((r) => (r.ok ? r.json() : { attributions: [] })),
+      ]);
+      setSummary(
+        computeEvalSummary(
+          Array.isArray(tr.traces) ? tr.traces : [],
+          Array.isArray(ar.attributions) ? ar.attributions : [],
+        ),
+      );
+    } catch {
+      /* 记分卡加载失败静默 (下方列表仍可用) */
+    }
+  }
 
   async function loadTraces() {
     setLoading(true);
@@ -134,6 +218,10 @@ export default function EvalTracePage() {
     else if (tab === 'attributions') void loadAttributions();
   }, [tab]);
 
+  useEffect(() => {
+    void loadSummary();
+  }, []);
+
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
       <header className="mb-4">
@@ -145,6 +233,8 @@ export default function EvalTracePage() {
           线上 agent pass 的可观测 (trace + grader 评分) 与 hindsight 因果归因 (被采纳的 OKR 预警之后 KR 是否改善)。只读只记, 不改任何 OKR/配置。
         </p>
       </header>
+
+      {summary && <SummaryScorecard s={summary} />}
 
       <div className="flex gap-1 mb-4 border-b border-ink-tertiary/15">
         {([

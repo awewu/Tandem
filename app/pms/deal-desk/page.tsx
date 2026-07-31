@@ -8,19 +8,21 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ClipboardList, GitCompareArrows, Clock, DatabaseZap, FileWarning, RefreshCw, Check, X } from 'lucide-react';
+import { ClipboardList, GitCompareArrows, Clock, DatabaseZap, FileWarning, RefreshCw, Check, X, ShieldCheck } from 'lucide-react';
 
 interface Appeal { id: string; duplicateCheckId: string; appealerId: string; reason: string; status: string; createdAt: string }
 interface Dup { id: string; status: string; similarityScore: number; dimensions: string[]; duplicateOpportunityId?: string; createdAt: string }
-interface Life { id: string; customerName: string; projectName: string; stage: string; days: number; level: 'yellow' | 'red' }
+interface Life { id: string; customerName: string; projectName: string; stage: string; days: number; level: 'blue' | 'yellow' | 'red' }
 interface Dq { id: string; customerName: string; projectName: string; issues: string[] }
+interface Review { id: string; customerName: string; projectName: string; dealerOrgId: string; estimatedAmount: number; createdAt: string }
 interface DealDesk {
   generatedAt: string;
   appeals: { total: number; items: Appeal[] };
   duplicates: { total: number; items: Dup[] };
-  lifecycle: { yellow: number; red: number; items: Life[] };
+  lifecycle: { blue: number; yellow: number; red: number; items: Life[] };
   dataQuality: { missingContact: number; orphan: number; items: Dq[] };
   contracts: { pending: number; amount: number };
+  pendingReviews: { total: number; items: Review[] };
 }
 
 const money = (n: number) => '¥' + (n ?? 0).toLocaleString('zh-CN');
@@ -84,6 +86,21 @@ export default function DealDeskPage() {
     }
   };
 
+  const review = async (opportunityId: string, decision: 'approved' | 'rejected') => {
+    setBusy(opportunityId);
+    try {
+      const res = await fetch('/api/pms/deal-desk', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'review', opportunityId, decision }),
+      });
+      if (res.ok) await load();
+    } finally {
+      setBusy(null);
+    }
+  };
+
   if (status === 'loading') return <div className="p-6 text-ink-tertiary">加载中…</div>;
   if (status === 'forbidden') return <div className="p-6 text-ink-secondary">信息管理岗工作台仅限内部管理角色访问。</div>;
   if (status === 'error' || !data) return <div className="p-6 text-danger">加载失败，请重试。</div>;
@@ -101,13 +118,33 @@ export default function DealDeskPage() {
       </div>
 
       {/* 概览计数 */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+        <Stat icon={<ShieldCheck className="w-4 h-4" />} label="待审报备" value={data.pendingReviews.total} accent={data.pendingReviews.total > 0 ? 'warning' : undefined} />
         <Stat icon={<ClipboardList className="w-4 h-4" />} label="待仲裁申诉" value={data.appeals.total} accent={data.appeals.total > 0 ? 'warning' : undefined} />
         <Stat icon={<GitCompareArrows className="w-4 h-4" />} label="未解决查重" value={data.duplicates.total} accent={data.duplicates.total > 0 ? 'warning' : undefined} />
-        <Stat icon={<Clock className="w-4 h-4" />} label="生命周期预警" value={data.lifecycle.yellow + data.lifecycle.red} accent={data.lifecycle.red > 0 ? 'danger' : data.lifecycle.yellow > 0 ? 'warning' : undefined} />
+        <Stat icon={<Clock className="w-4 h-4" />} label="回顾进度(30/60/90)" value={data.lifecycle.blue + data.lifecycle.yellow + data.lifecycle.red} accent={data.lifecycle.red > 0 ? 'danger' : data.lifecycle.yellow > 0 ? 'warning' : undefined} />
         <Stat icon={<DatabaseZap className="w-4 h-4" />} label="数据质量问题" value={data.dataQuality.missingContact + data.dataQuality.orphan} accent={(data.dataQuality.missingContact + data.dataQuality.orphan) > 0 ? 'warning' : undefined} />
         <Stat icon={<FileWarning className="w-4 h-4" />} label="合同积压" value={data.contracts.pending} sub={money(data.contracts.amount)} accent={data.contracts.pending > 0 ? 'warning' : undefined} />
       </div>
+
+      {/* 待审报备 — 前置审核关卡 */}
+      <Card>
+        <CardHeader><CardTitle className="text-headline flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-brand-500" /> 待审报备 ({data.pendingReviews.total}) — 通过后方计入漏斗与分析</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          {data.pendingReviews.items.length === 0 ? <Empty text="无待审报备" /> : data.pendingReviews.items.map((r) => (
+            <div key={r.id} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border bg-surface-2">
+              <a href={`/pms/opportunities/${r.id}`} className="min-w-0 hover:underline">
+                <p className="text-body text-ink-primary truncate">{r.customerName} · {r.projectName}</p>
+                <p className="text-caption text-ink-tertiary">经销商 {r.dealerOrgId} · {money(r.estimatedAmount)} · {new Date(r.createdAt).toLocaleDateString('zh-CN')}</p>
+              </a>
+              <div className="flex gap-2 shrink-0">
+                <Button size="sm" disabled={busy === r.id} onClick={() => review(r.id, 'approved')}><Check className="w-4 h-4 mr-1" />通过</Button>
+                <Button size="sm" variant="outline" disabled={busy === r.id} onClick={() => review(r.id, 'rejected')}><X className="w-4 h-4 mr-1" />驳回</Button>
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
 
       {/* 待仲裁申诉 */}
       <Card>
@@ -144,19 +181,26 @@ export default function DealDeskPage() {
         </CardContent>
       </Card>
 
-      {/* 生命周期预警 */}
+      {/* 三阶回顾进度 (30/60/90) */}
       <Card>
-        <CardHeader><CardTitle className="text-headline">商机生命周期预警 (黄 {data.lifecycle.yellow} · 红 {data.lifecycle.red})</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-headline">商机回顾进度 · 30/60/90 天 (蓝提醒 {data.lifecycle.blue} · 黄预警 {data.lifecycle.yellow} · 红释放 {data.lifecycle.red})</CardTitle></CardHeader>
         <CardContent className="space-y-2">
-          {data.lifecycle.items.length === 0 ? <Empty text="无超期商机" /> : data.lifecycle.items.map((l) => (
-            <a key={l.id} href={`/pms/opportunities/${l.id}`} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border bg-surface-2 hover:bg-surface-3 transition-colors">
-              <div className="min-w-0">
-                <p className="text-body text-ink-primary truncate">{l.customerName} · {l.projectName}</p>
-                <p className="text-caption text-ink-tertiary">{l.stage}</p>
-              </div>
-              <span className={`text-caption shrink-0 ${l.level === 'red' ? 'text-danger' : 'text-warning'}`}>{l.days} 天无跟进</span>
-            </a>
-          ))}
+          {data.lifecycle.items.length === 0 ? <Empty text="无需回顾商机" /> : data.lifecycle.items.map((l) => {
+            const meta = l.level === 'red'
+              ? { cls: 'text-danger', tag: '≥９０天 · 应释放公海' }
+              : l.level === 'yellow'
+                ? { cls: 'text-warning', tag: '≥６０天 · 停滞预警' }
+                : { cls: 'text-brand-500', tag: '≥３０天 · 回顾提醒' };
+            return (
+              <a key={l.id} href={`/pms/opportunities/${l.id}`} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border bg-surface-2 hover:bg-surface-3 transition-colors">
+                <div className="min-w-0">
+                  <p className="text-body text-ink-primary truncate">{l.customerName} · {l.projectName}</p>
+                  <p className="text-caption text-ink-tertiary">{l.stage}</p>
+                </div>
+                <span className={`text-caption shrink-0 text-right ${meta.cls}`}>{l.days} 天无跟进<br /><span className="opacity-80">{meta.tag}</span></span>
+              </a>
+            );
+          })}
         </CardContent>
       </Card>
 

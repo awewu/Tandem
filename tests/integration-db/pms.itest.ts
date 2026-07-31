@@ -62,6 +62,8 @@ function baseOppInput(overrides: Partial<Parameters<typeof createOpportunity>[0]
     customerPhone: '13800138000',
     customerAddress: '北京市朝阳区建国路88号',
     projectName: '星光酒店中央空调采购项目',
+    // 报备审核关卡: itest 直接建单默认视为已通过, 以命中漏斗/分析口径 (approved only)
+    reviewStatus: 'approved' as const,
     ...overrides,
   };
 }

@@ -19,6 +19,8 @@ import { bootstrapOwnerIfMissing } from './auth/bootstrap';
 import { enforceProductionGuard } from './infra/production-guard';
 import { isDatabaseMode } from './infra/storage-mode';
 import { withCronLock } from './infra/leader';
+import { registerErpAdapter } from './kpi/erp-adapter';
+import { createYonyouKpiErpAdapterIfConfigured } from './kpi/erp-adapters/yonyou-kpi-adapter';
 
 // 单例 (挂 globalThis 防 Next.js dev HMR 重置)
 type BootGlobals = {
@@ -112,6 +114,14 @@ function bootSync(): void {
   _g.__tandem_orchestrator__ = new ConvergenceOrchestrator(router);
   registerBuiltinSkills();
   registerBuiltinTriggers();
+  // KPI 通道 B (ERP): 若配置了用友 YonSuite 凭证 + 查询映射, 注册真实适配器;
+  // 否则保留 lib/kpi/erp-adapter.ts 的 NoopErpAdapter 默认值.
+  const yonyouKpiAdapter = createYonyouKpiErpAdapterIfConfigured();
+  if (yonyouKpiAdapter) {
+    registerErpAdapter('default', yonyouKpiAdapter);
+    // eslint-disable-next-line no-console
+    console.info('[boot] KPI ERP adapter registered: yonyou-yonsuite');
+  }
   void initObservability();
   // 自研身份系统: 首次启动建 owner (幂等)
   bootstrapOwnerIfMissing().catch((err) => {
