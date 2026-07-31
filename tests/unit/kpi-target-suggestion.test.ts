@@ -9,7 +9,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { setStore, getStore } from '@/lib/storage/repository';
 import { createInMemoryStore } from '@/lib/storage/memory-store';
-import { suggestTargets } from '@/lib/kpi/target-suggestion-engine';
+import { suggestTargets, checkCascadeConsistency } from '@/lib/kpi/target-suggestion-engine';
 import type { AuthContext } from '@/lib/auth/require-auth';
 import type { Kpi, KpiCycle, KpiSubject } from '@/lib/types/kpi';
 
@@ -17,7 +17,7 @@ describe('suggestTargets (pure function)', () => {
   it('applies per-code growth rate over the real prior actual', () => {
     const out = suggestTargets({
       priorYearActuals: [
-        { subjectId: 's1', subjectCode: 'FIN.REV', assigneeId: 'u1', level: 'company', priorActual: 1000000 },
+        { priorKpiId: 'k1', subjectId: 's1', subjectCode: 'FIN.REV', assigneeId: 'u1', level: 'company', priorActual: 1000000 },
       ],
       growthRateByCode: { 'FIN.REV': 0.15 },
     });
@@ -29,7 +29,7 @@ describe('suggestTargets (pure function)', () => {
   it('falls back to defaultGrowthRate for unlisted codes', () => {
     const out = suggestTargets({
       priorYearActuals: [
-        { subjectId: 's2', subjectCode: 'CUST.NPS', assigneeId: 'u1', level: 'company', priorActual: 80 },
+        { priorKpiId: 'k2', subjectId: 's2', subjectCode: 'CUST.NPS', assigneeId: 'u1', level: 'company', priorActual: 80 },
       ],
       growthRateByCode: { 'FIN.REV': 0.15 },
       defaultGrowthRate: 0.05,
@@ -41,7 +41,7 @@ describe('suggestTargets (pure function)', () => {
   it('defaults growth rate to 0 (flat) when nothing specified', () => {
     const out = suggestTargets({
       priorYearActuals: [
-        { subjectId: 's3', subjectCode: 'X', assigneeId: 'u1', level: 'individual', priorActual: 50 },
+        { priorKpiId: 'k3', subjectId: 's3', subjectCode: 'X', assigneeId: 'u1', level: 'individual', priorActual: 50 },
       ],
     });
     expect(out[0].growthRateUsed).toBe(0);
@@ -50,6 +50,44 @@ describe('suggestTargets (pure function)', () => {
 
   it('returns empty array for empty input (no fabricated suggestions)', () => {
     expect(suggestTargets({ priorYearActuals: [] })).toEqual([]);
+  });
+});
+
+describe('checkCascadeConsistency', () => {
+  it('flags when children suggested targets sum diverges from parent suggestion', () => {
+    const suggestions = suggestTargets({
+      priorYearActuals: [
+        { priorKpiId: 'parent', subjectId: 's1', subjectCode: 'FIN.REV', assigneeId: 'company', level: 'company', priorActual: 1000000 },
+        { priorKpiId: 'child1', priorParentKpiId: 'parent', subjectId: 's1', subjectCode: 'FIN.REV', assigneeId: 'bu1', level: 'business_unit', priorActual: 300000 },
+        { priorKpiId: 'child2', priorParentKpiId: 'parent', subjectId: 's1', subjectCode: 'FIN.REV', assigneeId: 'bu2', level: 'business_unit', priorActual: 300000 },
+      ],
+      defaultGrowthRate: 0.1, // parent -> 1,100,000; children sum -> 660,000 (way under)
+    });
+    const warnings = checkCascadeConsistency(suggestions);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0].parentPriorKpiId).toBe('parent');
+    expect(warnings[0].childrenSuggestedSum).toBe(660000);
+    expect(warnings[0].deltaPct).toBeLessThan(0);
+  });
+
+  it('no warning when children sum matches parent within tolerance', () => {
+    const suggestions = suggestTargets({
+      priorYearActuals: [
+        { priorKpiId: 'parent', subjectId: 's1', subjectCode: 'X', assigneeId: 'company', level: 'company', priorActual: 100 },
+        { priorKpiId: 'child1', priorParentKpiId: 'parent', subjectId: 's1', subjectCode: 'X', assigneeId: 'bu1', level: 'business_unit', priorActual: 50 },
+        { priorKpiId: 'child2', priorParentKpiId: 'parent', subjectId: 's1', subjectCode: 'X', assigneeId: 'bu2', level: 'business_unit', priorActual: 50 },
+      ],
+    });
+    expect(checkCascadeConsistency(suggestions)).toEqual([]);
+  });
+
+  it('skips children whose parent has no suggestion (missing historical baseline)', () => {
+    const suggestions = suggestTargets({
+      priorYearActuals: [
+        { priorKpiId: 'child1', priorParentKpiId: 'no_such_parent', subjectId: 's1', subjectCode: 'X', assigneeId: 'bu1', level: 'business_unit', priorActual: 50 },
+      ],
+    });
+    expect(checkCascadeConsistency(suggestions)).toEqual([]);
   });
 });
 
@@ -111,12 +149,19 @@ async function seedSubject(code: string): Promise<KpiSubject> {
   } as Omit<KpiSubject, 'id'>);
 }
 
-async function seedKpi(cycleId: string, subjectId: string, assigneeId: string, currentValue: number): Promise<Kpi> {
+async function seedKpi(
+  cycleId: string,
+  subjectId: string,
+  assigneeId: string,
+  currentValue: number,
+  overrides: Partial<Pick<Kpi, 'level' | 'parentKpiId'>> = {},
+): Promise<Kpi> {
   const now = new Date().toISOString();
   return getStore().kpis.create({
     cycleId,
     subjectId,
-    level: 'company',
+    level: overrides.level ?? 'company',
+    parentKpiId: overrides.parentKpiId,
     assigneeId,
     title: 'x',
     measureType: 'numeric',
@@ -186,5 +231,27 @@ describe('POST /api/kpi/target-suggestions', () => {
     currentAuth = ctx('u_random', ['employee']);
     const res = await suggestPOST(postReq('http://x/api/kpi/target-suggestions', { cycleId: newCycle.id }));
     expect(res.status).toBe(403);
+  });
+
+  it('surfaces cascadeWarning when parent/child suggested targets diverge', async () => {
+    const subject = await seedSubject('FIN.REV');
+    const priorCycle = await seedCycle(2025, 'closed');
+    const parent = await seedKpi(priorCycle.id, subject.id, 'company', 1000000, { level: 'company' });
+    await seedKpi(priorCycle.id, subject.id, 'bu1', 300000, { level: 'business_unit', parentKpiId: parent.id });
+    await seedKpi(priorCycle.id, subject.id, 'bu2', 300000, { level: 'business_unit', parentKpiId: parent.id });
+    const newCycle = await seedCycle(2026, 'draft');
+
+    currentAuth = ctx('u_hr', ['steward']);
+    const res = await suggestPOST(postReq('http://x/api/kpi/target-suggestions', {
+      cycleId: newCycle.id,
+      defaultGrowthRate: 0.1,
+    }));
+    const data = await res.json();
+    expect(data.cascadeWarnings).toHaveLength(1);
+    expect(data.cascadeWarnings[0].parentSubjectCode).toBe('FIN.REV');
+    const parentSuggestion = data.suggestions.find((s: { priorKpiId: string }) => s.priorKpiId === parent.id);
+    expect(parentSuggestion.cascadeWarning).not.toBeNull();
+    const childSuggestion = data.suggestions.find((s: { assigneeId: string }) => s.assigneeId === 'bu1');
+    expect(childSuggestion.cascadeWarning).toBeNull();
   });
 });

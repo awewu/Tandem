@@ -62,6 +62,7 @@ import type { Kpi, KpiCycle, KpiLevel, KpiScope, KpiSubject } from '@/lib/types/
 import { ExcelImportExport } from '@/components/kpi/ExcelImportExport';
 import { BscDistributionPanel } from '@/components/kpi/BscDistributionPanel';
 import { StrategyMapPanel } from '@/components/kpi/StrategyMapPanel';
+import { TargetSuggestionPanel, type TargetSuggestionRow } from '@/components/kpi/target-suggestion-panel';
 import { assessBscBalance, computeBscDistribution } from '@/lib/kpi/bsc-validation';
 import { useOwnerDirectory } from '@/lib/org/use-owner-directory';
 
@@ -114,6 +115,8 @@ interface KpiFormState {
   targetValue: string;
   unit: string;
   weight: string;
+  /** 跨体系联合持有人 (逗号分隔 userId), 纯数据层监控标注, 不驱动奖金 */
+  coOwnerIds: string;
 }
 
 const EMPTY_KPI_FORM: KpiFormState = {
@@ -129,6 +132,7 @@ const EMPTY_KPI_FORM: KpiFormState = {
   targetValue: '',
   unit: '',
   weight: '0',
+  coOwnerIds: '',
 };
 
 // ---------------------------------------------------------------------------
@@ -338,6 +342,27 @@ export default function KpiSetupPage() {
     setKpiDialogOpen(true);
   };
 
+  // 采纳一条目标建议: 预填新建 KPI 表单, HR 仍需确认/补全 (parentKpiId 必须选新周期内的父 KPI, 不能沿用上一财年的)
+  const adoptSuggestion = (s: TargetSuggestionRow) => {
+    setKpiForm({
+      subjectId: s.subjectId,
+      level: (s.level as KpiLevel) ?? 'individual',
+      scope: (s.priorScope as KpiScope) ?? 'bonus',
+      assigneeId: s.assigneeId,
+      departmentId: s.priorDepartmentId ?? '',
+      title: s.priorTitle ?? '',
+      description: '',
+      measureType: (s.priorMeasureType as KpiFormState['measureType']) ?? 'numeric',
+      startValue: '0',
+      targetValue: s.suggestedTarget.toString(),
+      unit: s.priorUnit ?? '',
+      weight: (s.priorWeight ?? 0).toString(),
+      coOwnerIds: '',
+    });
+    setSubmitError(null);
+    setKpiDialogOpen(true);
+  };
+
   const openEditKpi = (k: Kpi) => {
     setKpiForm({
       id: k.id,
@@ -347,6 +372,7 @@ export default function KpiSetupPage() {
       parentKpiId: k.parentKpiId,
       assigneeId: k.assigneeId,
       departmentId: k.departmentId ?? '',
+      coOwnerIds: (k.coOwnerIds ?? []).join(', '),
       title: k.title,
       description: k.description ?? '',
       measureType: k.measureType,
@@ -394,6 +420,10 @@ export default function KpiSetupPage() {
         targetValue: parseFloat(kpiForm.targetValue),
         unit: kpiForm.unit || undefined,
         weight: parseFloat(kpiForm.weight) || 0,
+        coOwnerIds: kpiForm.coOwnerIds
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
       };
       const r = await fetch(url, {
         method,
@@ -584,6 +614,16 @@ export default function KpiSetupPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* 目标自动生成引擎 (仅 draft 周期可用, 建议基于上一财年真实数据) */}
+      {activeCycle && activeCycle.status === 'draft' && (
+        <TargetSuggestionPanel
+          cycleId={activeCycle.id}
+          subjects={subjects}
+          assigneeName={nameOf}
+          onAdopt={adoptSuggestion}
+        />
+      )}
 
       {/* BSC 四维配比 (B-020) */}
       {activeCycle && kpis.length > 0 && <BscDistributionPanel report={bscReport} />}
@@ -987,6 +1027,19 @@ export default function KpiSetupPage() {
                   className="font-mono"
                 />
               </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>跨体系联合持有人 (可选, 逗号分隔 userId)</Label>
+              <Input
+                value={kpiForm.coOwnerIds}
+                onChange={(e) => setKpiForm({ ...kpiForm, coOwnerIds: e.target.value })}
+                placeholder="u_bob, u_carol"
+                className="font-mono"
+              />
+              <p className="text-footnote text-muted-foreground">
+                纯数据层跨体系监控标注 (体现"共背指标"), 不驱动奖金计算, 奖金归属仍只看 assigneeId
+              </p>
             </div>
 
             <div className="grid grid-cols-4 gap-3">
