@@ -85,10 +85,11 @@ Require-File $PackagePath "Deployment package missing"
 Require-File $BlueGreenScript "Blue-green deploy script missing"
 
 $Target = "$DeployUser@$DeployHost"
+$KnownHostsFile = Join-Path $env:TEMP "tandem-deploy-known-hosts"
 $SshOptions = @(
   "-o", "BatchMode=yes",
   "-o", "StrictHostKeyChecking=no",
-  "-o", "UserKnownHostsFile=NUL",
+  "-o", "UserKnownHostsFile=$KnownHostsFile",
   "-i", $KeyPath
 )
 

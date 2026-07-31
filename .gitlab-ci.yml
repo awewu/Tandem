@@ -8,6 +8,7 @@ stages:
   - deploy
 
 variables:
+  GIT_CLEAN_FLAGS: "-ffdx -e NUL"
   DEPLOY_ROOT: "E:/tandem-deploy"
   DEPLOY_NGINX_EXE: "E:/soft/nginx-1.30.2/nginx.exe"
   DEPLOY_NGINX_PREFIX: "E:/soft/nginx-1.30.2"
