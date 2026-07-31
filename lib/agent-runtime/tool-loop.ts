@@ -31,6 +31,7 @@
 import type { ChatMessage, ContentPart, ScenarioTag, ToolSchema } from '@/lib/taf/provider/types';
 import { logger } from '@/lib/infra/logger';
 import { scanInput, neutralizeToolOutput, type GuardrailFinding } from '@/lib/guardrail';
+import { selectTopology, applyTopologyCeiling, type OrchestrationTopology } from './topology';
 
 /**
  * Hook 生命周期 (Phase 3 · 可信护栏): 工具调用前后的确定性拦截/观测点。
@@ -110,6 +111,12 @@ export interface ToolLoopInput {
   disableGuardrail?: boolean;
   /** Phase 3 · 输入命中高危越狱时是否直接拒绝 (默认 false; 外网用户上下文可开启) */
   blockOnInputJailbreak?: boolean;
+  /**
+   * Phase 4 · 编排拓扑门控 (AdaptOrch 推理时落地): 开启后按 query 复杂度自适应收紧轮次/token。
+   * 调用方传入的 maxRounds/maxTokens 作为**上限**, 拓扑只会对简单问题收紧, 不会超过上限
+   * (复杂融合问题保持满配 → 不欠算; 简单问题省预算 → 纯收益)。默认 false = 零行为变更。
+   */
+  adaptiveTopology?: boolean;
 }
 
 export interface ToolLoopResult {
@@ -123,13 +130,33 @@ export interface ToolLoopResult {
   guardrailFindings: GuardrailFinding[];
   /** Phase 3 · 输入因高危越狱被 guardrail 拒绝 (blockOnInputJailbreak=true 时) */
   inputBlocked?: boolean;
+  /** Phase 4 · 本次采用的编排拓扑 (adaptiveTopology=true 时) — 观测/eval 用 */
+  topology?: OrchestrationTopology;
+  /** Phase 4 · 拓扑选择依据 (可读理由) */
+  topologyRationale?: string;
 }
 
 const DEFAULT_MAX_ROUNDS = 5;
+const DEFAULT_MAX_TOKENS = 800;
 
 export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult> {
-  const maxRounds = input.maxRounds ?? DEFAULT_MAX_ROUNDS;
-  const maxTokens = input.maxTokens ?? 800;
+  // Phase 4 · 编排拓扑门控: 仅在 adaptiveTopology=true 时启用。
+  //   显式 maxRounds/maxTokens 作为**上限**, 拓扑只能对简单问题收紧 (取 min)。
+  //   关闭时 (默认) 走原逻辑: 显式值 ?? 默认值 → 零行为变更。
+  let topology: OrchestrationTopology | undefined;
+  let topologyRationale: string | undefined;
+  let maxRounds: number;
+  let maxTokens: number;
+  if (input.adaptiveTopology) {
+    const plan = selectTopology(input.userQuery, { toolsetSize: input.toolset.length });
+    topology = plan.topology;
+    topologyRationale = plan.rationale;
+    maxRounds = applyTopologyCeiling(plan.maxRounds, input.maxRounds);
+    maxTokens = applyTopologyCeiling(plan.maxTokens, input.maxTokens);
+  } else {
+    maxRounds = input.maxRounds ?? DEFAULT_MAX_ROUNDS;
+    maxTokens = input.maxTokens ?? DEFAULT_MAX_TOKENS;
+  }
   const toolInvocations: ToolInvocationRecord[] = [];
   let totalTokensUsed = 0;
   let totalLatencyMs = 0;
@@ -452,6 +479,8 @@ export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult>
       totalTokensUsed,
       totalLatencyMs,
       guardrailFindings,
+      topology,
+      topologyRationale,
     };
   } catch (err) {
     logger.warn({ err: (err as Error).message }, '[tool-loop] runToolLoop failed');
@@ -463,6 +492,8 @@ export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult>
       totalTokensUsed,
       totalLatencyMs,
       guardrailFindings,
+      topology,
+      topologyRationale,
     };
   }
 }
