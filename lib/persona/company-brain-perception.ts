@@ -269,7 +269,14 @@ export async function companyBrainPerceptionPass(
       triggerReason: gate.reason,
       meta: (() => {
         const g = summarizeFindings(loop.guardrailFindings);
-        return { guardrailInjection: g.injection, guardrailJailbreak: g.jailbreak, guardrailPii: g.pii };
+        return {
+          guardrailInjection: g.injection,
+          guardrailJailbreak: g.jailbreak,
+          guardrailPii: g.pii,
+          // Phase4 编排拓扑门控: 记录本次自适应拓扑决策 (观测/eval — 简单问题应收紧, 融合问题应满配)
+          topology: loop.topology,
+          topologyRationale: loop.topologyRationale,
+        };
       })(),
     });
 
