@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent } from 'react';
 import {
   Archive,
   ArrowDownCircle,
@@ -72,6 +72,8 @@ import {
   WorkbenchTableState,
 } from '../../../components/WorkbenchCore';
 
+const SITE_MATERIALS_API = process.env.NEXT_PUBLIC_API_URL || '';
+
 type SiteStatus = 'active' | 'inactive';
 type DeliveryType = 'self_hosted' | 'external';
 type ContentTab = 'basic' | 'products' | 'materials' | 'news' | 'inquiries';
@@ -96,6 +98,20 @@ type ProductPendingImageDraft = {
   file: File;
   previewUrl: string;
 };
+type FloatingDialogOptions = {
+  title?: string;
+  message: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  tone?: 'default' | 'danger';
+};
+type FloatingPromptOptions = FloatingDialogOptions & {
+  defaultValue?: string;
+  placeholder?: string;
+};
+type FloatingDialogState =
+  | (FloatingDialogOptions & { kind: 'confirm'; resolve: (value: boolean) => void })
+  | (FloatingPromptOptions & { kind: 'prompt'; resolve: (value: string | null) => void });
 const EMPTY_BRAND_PRODUCT_PERMISSIONS: BrandProductPermissions = {
   canCreateProduct: false,
   canUpdateProduct: false,
@@ -109,6 +125,121 @@ const EMPTY_BRAND_PRODUCT_PERMISSIONS: BrandProductPermissions = {
   canAnyBrandWrite: false,
   canAnyWrite: false,
 };
+
+function useFloatingDialog() {
+  const [dialog, setDialog] = useState<FloatingDialogState | null>(null);
+
+  const confirmFloating = useCallback((options: FloatingDialogOptions) => new Promise<boolean>((resolve) => {
+    setDialog({
+      kind: 'confirm',
+      title: options.title || '操作确认',
+      message: options.message,
+      confirmLabel: options.confirmLabel || '确定',
+      cancelLabel: options.cancelLabel || '取消',
+      tone: options.tone || 'default',
+      resolve,
+    });
+  }), []);
+
+  const promptFloating = useCallback((options: FloatingPromptOptions) => new Promise<string | null>((resolve) => {
+    setDialog({
+      kind: 'prompt',
+      title: options.title || '请输入内容',
+      message: options.message,
+      defaultValue: options.defaultValue || '',
+      placeholder: options.placeholder || '',
+      confirmLabel: options.confirmLabel || '确定',
+      cancelLabel: options.cancelLabel || '取消',
+      tone: options.tone || 'default',
+      resolve,
+    });
+  }), []);
+
+  const closeDialog = useCallback((value: boolean | string | null) => {
+    setDialog((current) => {
+      if (!current) return current;
+      current.resolve(value as never);
+      return null;
+    });
+  }, []);
+
+  const floatingDialog = dialog ? (
+    <FloatingDialog dialog={dialog} onClose={closeDialog} />
+  ) : null;
+
+  return { confirmFloating, promptFloating, floatingDialog };
+}
+
+function FloatingDialog({
+  dialog,
+  onClose,
+}: {
+  dialog: FloatingDialogState;
+  onClose: (value: boolean | string | null) => void;
+}) {
+  const [inputValue, setInputValue] = useState(dialog.kind === 'prompt' ? dialog.defaultValue || '' : '');
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (dialog.kind !== 'prompt') return;
+    const timer = window.setTimeout(() => {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [dialog.kind]);
+
+  function submit(event?: FormEvent) {
+    event?.preventDefault();
+    onClose(dialog.kind === 'prompt' ? inputValue : true);
+  }
+
+  const content = (
+    <div className="floating-dialog-backdrop" role="presentation" onMouseDown={() => onClose(dialog.kind === 'prompt' ? null : false)}>
+      <form
+        className={`floating-dialog-card${dialog.tone === 'danger' ? ' is-danger' : ''}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="floating-dialog-title"
+        onMouseDown={(event) => event.stopPropagation()}
+        onSubmit={submit}
+      >
+        <header className="floating-dialog-head">
+          <div>
+            <p className="t-label">系统提示</p>
+            <h2 id="floating-dialog-title">{dialog.title}</h2>
+          </div>
+          <button type="button" className="btn btn-outline btn-sm icon-only" onClick={() => onClose(dialog.kind === 'prompt' ? null : false)} aria-label="关闭弹框">
+            <X size={15} />
+          </button>
+        </header>
+        <div className="floating-dialog-body">
+          <p>{dialog.message}</p>
+          {dialog.kind === 'prompt' ? (
+            <input
+              ref={inputRef}
+              className="input floating-dialog-input"
+              value={inputValue}
+              placeholder={dialog.placeholder}
+              onChange={(event) => setInputValue(event.target.value)}
+            />
+          ) : null}
+        </div>
+        <footer className="floating-dialog-actions">
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => onClose(dialog.kind === 'prompt' ? null : false)}>
+            {dialog.cancelLabel || '取消'}
+          </button>
+          <button type="submit" className={`btn btn-sm ${dialog.tone === 'danger' ? 'btn-danger' : 'btn-brand'}`}>
+            {dialog.confirmLabel || '确定'}
+          </button>
+        </footer>
+      </form>
+    </div>
+  );
+
+  if (typeof document === 'undefined') return null;
+  return createPortal(content, document.body);
+}
 type ProductCategoryFilterNode = {
   id: string;
   parentId: string | null;
@@ -851,6 +982,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
   const [savingChildBrands, setSavingChildBrands] = useState(false);
   const [childBrandFeedback, setChildBrandFeedback] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
   const [showBackTop, setShowBackTop] = useState(false);
+  const { confirmFloating, floatingDialog } = useFloatingDialog();
   const loadRequestRef = useRef(0);
   const imageFeedbackTimersRef = useRef<Record<string, number>>({});
   const backTopButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -1763,9 +1895,12 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
 
   async function archiveProduct(row: BrandProductRow) {
     if (!canDeleteProduct) return;
-    const confirmed = window.confirm(
-      `确认归档 ${row.name || row.sku}？归档后官网不再展示该产品，后台记录会保留。`
-    );
+    const confirmed = await confirmFloating({
+      title: '归档产品',
+      message: `确认归档 ${row.name || row.sku}？归档后官网不再展示该产品，后台记录会保留。`,
+      confirmLabel: '归档',
+      tone: 'danger',
+    });
     if (!confirmed) return;
     setActionProductId(row.id);
     setActionFeedback(null);
@@ -2507,6 +2642,7 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           `.trim(),
         }}
       />
+      {floatingDialog}
 
       <style>{`
         .brand-console-shell {
@@ -2914,29 +3050,134 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
         .site-inquiry-date-filter-label svg {
           color: var(--brand);
         }
+        .site-inquiry-date-picker {
+          position: relative;
+        }
         .site-inquiry-date-input {
           width: 132px;
           min-width: 132px;
           min-height: 30px;
           padding: 6px 8px;
+          border: 1px solid transparent;
+          border-radius: var(--r-sm);
           border-color: transparent;
           background: var(--surface-2);
           color: var(--t-strong);
           font-size: 12px;
           font-weight: 650;
           text-align: center;
-          color-scheme: light;
+          cursor: pointer;
         }
-        .site-inquiry-date-input:focus {
+        .site-inquiry-date-input:not(.has-value) {
+          color: var(--t-tertiary);
+        }
+        .site-inquiry-date-input:hover,
+        .site-inquiry-date-input.is-open,
+        .site-inquiry-date-input:focus-visible {
           border-color: rgba(228, 0, 43, 0.34);
           background: #fff;
+          outline: none;
         }
-        .site-inquiry-date-input::-webkit-calendar-picker-indicator {
+        .site-inquiry-calendar {
+          position: absolute;
+          top: calc(100% + 8px);
+          left: 0;
+          z-index: 70;
+          width: 246px;
+          padding: 12px;
+          border: 1px solid var(--border);
+          border-radius: var(--r-md);
+          background: #fff;
+          box-shadow: 0 18px 42px rgba(15, 23, 42, 0.16);
+        }
+        .site-inquiry-calendar-head {
+          display: grid;
+          grid-template-columns: 30px 1fr 30px;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 8px;
+        }
+        .site-inquiry-calendar-head strong {
+          color: var(--t-strong);
+          font-size: 13px;
+          text-align: center;
+        }
+        .site-inquiry-calendar-nav {
+          width: 30px;
+          height: 30px;
+          border: 1px solid var(--border);
+          border-radius: var(--r-sm);
+          background: var(--surface-1);
+          color: var(--t-secondary);
           cursor: pointer;
-          opacity: 0.58;
+          font-size: 18px;
+          line-height: 1;
         }
-        .site-inquiry-date-input::-webkit-calendar-picker-indicator:hover {
-          opacity: 0.9;
+        .site-inquiry-calendar-nav:hover {
+          border-color: rgba(228, 0, 43, 0.3);
+          color: var(--brand);
+          background: var(--brand-soft);
+        }
+        .site-inquiry-calendar-grid {
+          display: grid;
+          grid-template-columns: repeat(7, 1fr);
+          gap: 4px;
+        }
+        .site-inquiry-calendar-weekdays {
+          margin-bottom: 5px;
+        }
+        .site-inquiry-calendar-weekdays span {
+          color: var(--t-tertiary);
+          font-size: 11px;
+          font-weight: 800;
+          text-align: center;
+        }
+        .site-inquiry-calendar-empty {
+          min-height: 28px;
+        }
+        .site-inquiry-calendar-day {
+          min-width: 0;
+          height: 28px;
+          border: 1px solid transparent;
+          border-radius: var(--r-sm);
+          background: transparent;
+          color: var(--t-strong);
+          cursor: pointer;
+          font-size: 12px;
+          font-weight: 700;
+        }
+        .site-inquiry-calendar-day:hover {
+          border-color: rgba(228, 0, 43, 0.25);
+          background: var(--brand-soft);
+          color: var(--brand);
+        }
+        .site-inquiry-calendar-day.is-today {
+          border-color: rgba(228, 0, 43, 0.38);
+          color: var(--brand);
+        }
+        .site-inquiry-calendar-day.is-selected {
+          border-color: var(--brand);
+          background: var(--brand);
+          color: #fff;
+          box-shadow: 0 8px 16px rgba(228, 0, 43, 0.22);
+        }
+        .site-inquiry-calendar-day:disabled {
+          cursor: not-allowed;
+          color: var(--t-disabled);
+          background: transparent;
+          opacity: 0.45;
+        }
+        .site-inquiry-calendar-actions {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          margin-top: 10px;
+          padding-top: 10px;
+          border-top: 1px solid var(--border);
+        }
+        .site-inquiry-calendar-actions .btn {
+          min-height: 28px;
         }
         .site-inquiry-date-filter-separator {
           color: var(--t-tertiary);
@@ -4549,6 +4790,63 @@ export default function BrandSiteConsoleShell({ brandCode }: { brandCode: string
           padding: 20px;
           background: rgba(15, 23, 42, 0.48);
         }
+        .floating-dialog-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 120;
+          display: flex;
+          align-items: flex-start;
+          justify-content: center;
+          padding: 34px 20px;
+          background: rgba(15, 23, 42, 0.12);
+        }
+        .floating-dialog-card {
+          width: min(448px, calc(100vw - 32px));
+          overflow: hidden;
+          border: 1px solid var(--border);
+          border-radius: var(--r-lg);
+          background: var(--surface-1);
+          box-shadow: var(--sh-lg);
+        }
+        .floating-dialog-card.is-danger {
+          border-color: rgba(228, 0, 43, .28);
+        }
+        .floating-dialog-head,
+        .floating-dialog-actions {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 16px 18px;
+        }
+        .floating-dialog-head {
+          border-bottom: 1px solid var(--border);
+        }
+        .floating-dialog-head h2 {
+          margin: 2px 0 0;
+          color: var(--t-primary);
+          font-size: 16px;
+          font-weight: 900;
+        }
+        .floating-dialog-body {
+          display: grid;
+          gap: 14px;
+          padding: 18px;
+        }
+        .floating-dialog-body p {
+          margin: 0;
+          color: var(--t-secondary);
+          font-size: 14px;
+          line-height: 1.7;
+        }
+        .floating-dialog-input {
+          width: 100%;
+        }
+        .floating-dialog-actions {
+          justify-content: flex-end;
+          border-top: 1px solid var(--border);
+          background: var(--surface-2);
+        }
         .product-edit-modal {
           width: min(1120px, 100%);
           max-height: calc(100vh - 40px);
@@ -5683,7 +5981,7 @@ function normalizeAudienceCards(value: unknown): AudienceCardItem[] {
 
 function siteMaterialPreviewSrc(brandCode: string, src: string) {
   if (/^https?:\/\//i.test(src) || src.startsWith('blob:')) return src;
-  return `/local-site-materials/${encodeURIComponent(brandCode)}?asset=${encodeURIComponent(src)}`;
+  return `${SITE_MATERIALS_API}/api/v2/site-materials/${encodeURIComponent(brandCode)}?asset=${encodeURIComponent(src)}`;
 }
 
 type BasicSettings = Record<string, Record<string, any>>;
@@ -5920,7 +6218,7 @@ function basicInfoImagePreviewSrc(siteCode: string, value: unknown) {
   if (!src) return '';
   if (/^(https?:|data:|blob:)/i.test(src)) return src;
   if (src.startsWith('/api/')) return src;
-  return `/local-site-materials/${encodeURIComponent(siteCode || 'everhot')}?asset=${encodeURIComponent(src)}`;
+  return `${SITE_MATERIALS_API}/api/v2/site-materials/${encodeURIComponent(siteCode || 'everhot')}?asset=${encodeURIComponent(src)}`;
 }
 
 function basicInfoImagePurpose(fieldKey: string) {
@@ -6700,6 +6998,38 @@ function SiteMaterialMockPanel({ brandCode }: { brandCode: string }) {
     }
   }
 
+  async function resetMaterialDefault(key: string) {
+    setMaterialBusyKey(key);
+    setMaterialFeedback((current) => ({ ...current, [key]: { tone: 'success', text: '正在恢复默认素材...' } }));
+    try {
+      const saved = await siteMaterials.resetDefault(brandCode, key);
+      setUploadedMaterials((current) => {
+        const previous = current[key];
+        if (previous?.url) {
+          URL.revokeObjectURL(previous.url);
+          materialObjectUrls.current = materialObjectUrls.current.filter((item) => item !== previous.url);
+        }
+        return {
+          ...current,
+          [key]: {
+            name: String((saved as any)?.filename || ''),
+            size: Number((saved as any)?.size || 0),
+            homepageSrc: String((saved as any)?.src || ''),
+            synced: true,
+          },
+        };
+      });
+      setMaterialFeedback((current) => ({ ...current, [key]: { tone: 'success', text: '已恢复默认并同步首页' } }));
+    } catch (e) {
+      setMaterialFeedback((current) => ({
+        ...current,
+        [key]: { tone: 'error', text: (e as Error).message || '恢复默认失败' },
+      }));
+    } finally {
+      setMaterialBusyKey('');
+    }
+  }
+
   async function uploadHeroCarousel(files: FileList | null) {
     const selected = Array.from(files || []);
     if (!selected.length) return;
@@ -7190,6 +7520,16 @@ function SiteMaterialMockPanel({ brandCode }: { brandCode: string }) {
                     <Upload size={13} />
                     {busy ? '同步中' : '上传'}
                   </label>
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    disabled={busy}
+                    title="恢复为当前默认素材"
+                    onClick={() => resetMaterialDefault(item.key)}
+                  >
+                    <RefreshCw size={13} />
+                    恢复默认
+                  </button>
                   {uploaded?.url ? (
                     <a
                       className="btn btn-outline btn-sm"
@@ -7475,6 +7815,7 @@ function SiteNewsRichTextEditor({
   const [uploadingBodyImage, setUploadingBodyImage] = useState(false);
   const [selectedImageSize, setSelectedImageSize] = useState('');
   const [selectedImageAlign, setSelectedImageAlign] = useState('');
+  const { promptFloating, floatingDialog } = useFloatingDialog();
   const [activeFormats, setActiveFormats] = useState({
     block: 'p',
     bold: false,
@@ -7728,11 +8069,18 @@ function SiteNewsRichTextEditor({
     refreshActiveFormats();
   }
 
-  function addLink() {
+  async function addLink() {
     restoreSelection();
-    const href = window.prompt('请输入链接地址');
+    const href = await promptFloating({
+      title: '插入链接',
+      message: '请输入链接地址',
+      placeholder: 'https://',
+      confirmLabel: '插入',
+    });
     if (!href) return;
     const trimmedHref = href.trim();
+    if (!trimmedHref) return;
+    restoreSelection();
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
       document.execCommand('insertHTML', false, `<a href="${escapeSiteNewsHtml(trimmedHref)}">${escapeSiteNewsHtml(trimmedHref)}</a>`);
@@ -7789,7 +8137,7 @@ function SiteNewsRichTextEditor({
     scheduleCommit();
   }
 
-  function editImageCaption() {
+  async function editImageCaption() {
     const img = selectedImageRef.current;
     if (!img) return;
     let figure = selectedFigure(img);
@@ -7801,7 +8149,12 @@ function SiteNewsRichTextEditor({
       figure.appendChild(img);
     }
     const current = figure.querySelector('figcaption')?.textContent || '';
-    const caption = window.prompt('请输入图片图注', current);
+    const caption = await promptFloating({
+      title: '图片图注',
+      message: '请输入图片图注',
+      defaultValue: current,
+      confirmLabel: '保存',
+    });
     if (caption === null) return;
     figure.querySelector('figcaption')?.remove();
     const next = caption.trim();
@@ -8037,6 +8390,7 @@ function SiteNewsRichTextEditor({
           saveSelection();
         }}
       />
+      {floatingDialog}
     </div>
   );
 }
@@ -8064,6 +8418,7 @@ function SiteNewsPanel({
   const [draft, setDraft] = useState<SiteNewsDraft>(() => emptyNewsDraft());
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const { confirmFloating, floatingDialog } = useFloatingDialog();
   const bodyFlushRef = useRef<(() => string) | null>(null);
 
   const loadNews = useCallback(async () => {
@@ -8174,7 +8529,13 @@ function SiteNewsPanel({
   }
 
   async function archiveArticle(article: SiteNewsArticle) {
-    if (!window.confirm(`确认归档「${article.title}」？归档后前台不再展示。`)) return;
+    const confirmed = await confirmFloating({
+      title: '归档资讯',
+      message: `确认归档「${article.title}」？归档后前台不再展示。`,
+      confirmLabel: '归档',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     setSaving(true);
     try {
       await siteNews.archive(siteCode, article.id);
@@ -8498,6 +8859,7 @@ function SiteNewsPanel({
           onNext={loading || page >= totalPages ? undefined : () => setPage((current) => current + 1)}
         />
       </WorkbenchTableShell>
+      {floatingDialog}
     </div>
   );
 }
@@ -8975,6 +9337,135 @@ function formatExportFilenameTime(value = new Date()) {
   ].join('');
 }
 
+function parseDateValue(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value || '');
+  if (!match) return null;
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatDateValue(date: Date) {
+  const pad = (input: number) => String(input).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function sameDate(a: Date | null, b: Date | null) {
+  return Boolean(a && b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate());
+}
+
+function addMonths(date: Date, delta: number) {
+  return new Date(date.getFullYear(), date.getMonth() + delta, 1);
+}
+
+function SiteInquiryDatePicker({
+  value,
+  min,
+  placeholder,
+  label,
+  onChange,
+}: {
+  value: string;
+  min?: string;
+  placeholder: string;
+  label: string;
+  onChange: (value: string) => void;
+}) {
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const selectedDate = parseDateValue(value);
+  const minDate = parseDateValue(min || '');
+  const today = new Date();
+  const [open, setOpen] = useState(false);
+  const [viewDate, setViewDate] = useState<Date>(() => selectedDate || today);
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const leadingDays = (firstDay.getDay() + 6) % 7;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const days = [
+    ...Array.from({ length: leadingDays }, () => null),
+    ...Array.from({ length: daysInMonth }, (_, index) => new Date(year, month, index + 1)),
+  ];
+  while (days.length % 7 !== 0) days.push(null);
+
+  useEffect(() => {
+    if (open) setViewDate(selectedDate || today);
+  }, [open, value]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
+  }, [open]);
+
+  return (
+    <div className="site-inquiry-date-picker" ref={rootRef}>
+      <button
+        type="button"
+        className={`site-inquiry-date-input${value ? ' has-value' : ''}${open ? ' is-open' : ''}`}
+        onClick={() => setOpen((current) => !current)}
+        aria-label={label}
+        aria-expanded={open}
+      >
+        {value || placeholder}
+      </button>
+      {open && (
+        <div className="site-inquiry-calendar" role="dialog" aria-label={label}>
+          <div className="site-inquiry-calendar-head">
+            <button type="button" className="site-inquiry-calendar-nav" onClick={() => setViewDate(addMonths(viewDate, -1))} aria-label="上个月">
+              ‹
+            </button>
+            <strong>{year}年{month + 1}月</strong>
+            <button type="button" className="site-inquiry-calendar-nav" onClick={() => setViewDate(addMonths(viewDate, 1))} aria-label="下个月">
+              ›
+            </button>
+          </div>
+          <div className="site-inquiry-calendar-grid site-inquiry-calendar-weekdays" aria-hidden="true">
+            {['一', '二', '三', '四', '五', '六', '日'].map((day) => <span key={day}>{day}</span>)}
+          </div>
+          <div className="site-inquiry-calendar-grid">
+            {days.map((day, index) => {
+              if (!day) return <span className="site-inquiry-calendar-empty" key={`empty-${index}`} />;
+              const disabled = Boolean(minDate && day < minDate);
+              const selected = sameDate(day, selectedDate);
+              const current = sameDate(day, today);
+              return (
+                <button
+                  type="button"
+                  key={formatDateValue(day)}
+                  className={`site-inquiry-calendar-day${selected ? ' is-selected' : ''}${current ? ' is-today' : ''}`}
+                  disabled={disabled}
+                  onClick={() => {
+                    onChange(formatDateValue(day));
+                    setOpen(false);
+                  }}
+                >
+                  {day.getDate()}
+                </button>
+              );
+            })}
+          </div>
+          <div className="site-inquiry-calendar-actions">
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => onChange('')}>清除</button>
+            <button
+              type="button"
+              className="btn btn-brand btn-sm"
+              onClick={() => {
+                onChange(formatDateValue(today));
+                setOpen(false);
+              }}
+            >
+              今天
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SiteInquiryPanel({ siteCode, canWrite }: { siteCode: string; canWrite: boolean }) {
   const [kind, setKind] = useState<SiteInquiryKind>('customer');
   const [items, setItems] = useState<SiteInquiryRow[]>([]);
@@ -8987,6 +9478,7 @@ function SiteInquiryPanel({ siteCode, canWrite }: { siteCode: string; canWrite: 
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
+  const { confirmFloating, floatingDialog } = useFloatingDialog();
 
   const totalPages = Math.max(Math.ceil(total / pageSize), 1);
 
@@ -9021,7 +9513,14 @@ function SiteInquiryPanel({ siteCode, canWrite }: { siteCode: string; canWrite: 
   }, [loadInquiries]);
 
   async function deleteInquiry(row: SiteInquiryRow) {
-    if (!canWrite || !window.confirm('确认删除这条咨询记录？')) return;
+    if (!canWrite) return;
+    const confirmed = await confirmFloating({
+      title: '删除咨询',
+      message: '确认删除这条咨询记录？',
+      confirmLabel: '删除',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     setBusy(true);
     try {
       await siteInquiries.remove(siteCode, row.id);
@@ -9113,29 +9612,26 @@ function SiteInquiryPanel({ siteCode, canWrite }: { siteCode: string; canWrite: 
             <Calendar size={14} />
             提交时间
           </span>
-          <input
-            className="input site-inquiry-date-input"
-            type="date"
-            placeholder="开始日期"
+          <SiteInquiryDatePicker
             value={submittedFrom}
-            onChange={(event) => {
-              setSubmittedFrom(event.target.value);
+            placeholder="开始日期"
+            label="开始日期"
+            onChange={(nextValue) => {
+              setSubmittedFrom(nextValue);
+              if (submittedTo && nextValue && submittedTo < nextValue) setSubmittedTo(nextValue);
               setPage(1);
             }}
-            aria-label="开始日期"
           />
           <span className="site-inquiry-date-filter-separator">至</span>
-          <input
-            className="input site-inquiry-date-input"
-            type="date"
-            placeholder="结束日期"
+          <SiteInquiryDatePicker
             value={submittedTo}
             min={submittedFrom || undefined}
-            onChange={(event) => {
-              setSubmittedTo(event.target.value);
+            placeholder="结束日期"
+            label="结束日期"
+            onChange={(nextValue) => {
+              setSubmittedTo(nextValue);
               setPage(1);
             }}
-            aria-label="结束日期"
           />
           {(submittedFrom || submittedTo) && (
             <button
@@ -9273,6 +9769,7 @@ function SiteInquiryPanel({ siteCode, canWrite }: { siteCode: string; canWrite: 
           onNext={loading || page >= totalPages ? undefined : () => setPage((current) => current + 1)}
         />
       </WorkbenchTableShell>
+      {floatingDialog}
     </div>
   );
 }

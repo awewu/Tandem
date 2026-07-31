@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { PageHeader } from '@rhautt/ui';
+import { GrowthGeoWorkspace } from '../../../components/GrowthGeoWorkspace';
 
 type GrowthSection = 'geo' | 'copywriter' | 'sentiment' | 'automation' | 'materials';
 type StatusKind = 'running' | 'review' | 'risk' | 'config' | 'download' | 'success' | 'warning' | 'neutral';
@@ -187,7 +188,7 @@ export default async function GrowthWorkspacePage({
 
   return (
     <div style={{ background: 'linear-gradient(to bottom, var(--surface-1) 0%, var(--surface-2) 100%)', minHeight: '100%' }}>
-      <div className="page-container" style={{ display: 'grid', gap: 20 }}>
+      <div className="page-container" style={{ display: 'grid', gap: 20, maxWidth: 'none', width: '100%' }}>
         <PageHeader
           title="市场增长"
           subtitle="GEO 可见度 · 文案 Copilot · 舆情雷达 · 营销自动化 · 营销物料库"
@@ -263,15 +264,20 @@ export default async function GrowthWorkspacePage({
           })}
         </section>
 
-        <section className="split-main">
+        <section
+          className="split-main"
+          style={activeKey === 'geo' ? { gridTemplateColumns: 'minmax(0, 1fr)' } : undefined}
+        >
           <div style={{ display: 'grid', gap: 16, minWidth: 0 }}>
             <NativePanel activeKey={activeKey} />
-            <StatePreview />
+            {activeKey === 'geo' ? null : <StatePreview />}
           </div>
-          <aside style={{ display: 'grid', gap: 16 }}>
-            <SideQueue />
-            <PublishQueue />
-          </aside>
+          {activeKey === 'geo' ? null : (
+            <aside style={{ display: 'grid', gap: 16 }}>
+              <SideQueue />
+              <PublishQueue />
+            </aside>
+          )}
         </section>
       </div>
     </div>
@@ -279,6 +285,10 @@ export default async function GrowthWorkspacePage({
 }
 
 function NativePanel({ activeKey }: { activeKey: GrowthSection }) {
+  if (activeKey === 'geo') {
+    return <GrowthGeoWorkspace />;
+  }
+
   if (activeKey === 'copywriter') {
     return (
       <PanelShell icon={Sparkles} title="文案 Copilot 工作区" desc="生成、审校并沉淀符合品牌语气的官网与私域文案。">
@@ -335,7 +345,7 @@ function NativePanel({ activeKey }: { activeKey: GrowthSection }) {
     );
   }
 
-  if (activeKey === 'materials') {
+  if (false) {
     return (
       <PanelShell icon={FolderOpen} title="营销物料库" desc="集中管理可下载、可发布、待审核的市场物料。">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>

@@ -6,16 +6,17 @@
   "scripts": {
     "dev": "node scripts/serve.js --port 5011",
     "start": "node scripts/serve.js --port 5011",
-    "geo": "node scripts/geo-build.js --site everhot",
+    "geo": "node scripts/geo-build.js --site everhot-cn",
     "audit": "node scripts/link-audit.js",
     "smoke:runtime-products": "node scripts/smoke-runtime-products.mjs",
     "gen:subtypes": "node scripts/gen-subtype-pages.mjs",
+    "gen:product-details": "node scripts/gen-product-detail-pages.mjs",
     "sync:products": "node scripts/sync-products-to-nexus.mjs",
     "sync:images": "node scripts/sync-product-images-to-dam.mjs",
     "fetch:products": "node scripts/fetch-products-from-nexus.mjs",
     "fetch:images": "node scripts/fetch-product-images-from-dam.mjs",
     "opt:img": "node scripts/optimize-images.mjs",
-    "build": "npm run fetch:products && npm run fetch:images && npm run opt:img && npm run gen:subtypes && npm run geo && npm run audit"
+    "build": "npm run fetch:products && npm run fetch:images && npm run opt:img && npm run gen:subtypes && npm run gen:product-details && npm run geo && npm run audit"
   },
   "dependencies": {
     "jsonwebtoken": "^9.0.3",

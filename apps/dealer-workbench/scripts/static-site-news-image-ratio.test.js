@@ -59,3 +59,9 @@ test('site news featured flag affects public ordering and is visible in console'
   assert.match(siteCss, /\.news-featured-badge/);
   assert.match(siteCss, /\.news-featured-inline/);
 });
+
+test('brand site console uses in-page floating dialogs instead of browser popups', () => {
+  assert.match(consoleSource, /function useFloatingDialog/);
+  assert.match(consoleSource, /className="floating-dialog-backdrop"/);
+  assert.doesNotMatch(consoleSource, /window\.(confirm|prompt|alert)\(/);
+});

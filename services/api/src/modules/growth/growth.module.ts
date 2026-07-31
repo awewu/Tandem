@@ -2,6 +2,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { MdmModule } from '../mdm/mdm.module';
+import { FileArtifactModule } from '../file-artifact/file-artifact.module';
 import { GrowthController } from './growth.controller';
 import { AiGatewayService } from './ai-gateway.service';
 import { AttributionService } from './attribution.service';
@@ -23,6 +24,7 @@ import { TARGET_API_BOOT_SMOKE, bootSmokeRepositoryProvider } from '../boot-smok
     ...(TARGET_API_BOOT_SMOKE ? [] : [TypeOrmModule.forFeature([...GROWTH_ENTITIES])]),
     AuthModule,
     MdmModule,
+    FileArtifactModule,
   ],
   controllers: [GrowthController],
   providers: [

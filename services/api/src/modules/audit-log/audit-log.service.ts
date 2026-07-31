@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { createHash } from 'crypto';
-import { DataSource } from 'typeorm';
+import { DataSource, type EntityManager } from 'typeorm';
 import { withRlsTransaction } from '../common/rls';
 import type { JwtPayload } from '../auth/auth.service';
 
@@ -25,6 +25,7 @@ export type AuditLogQuery = {
   action?: string;
   status?: AuditLogStatus;
   search?: string;
+  page?: string | number;
   limit?: string | number;
 };
 
@@ -64,6 +65,8 @@ export class AuditLogService {
 
   async list(actor: JwtPayload, query: AuditLogQuery) {
     const limit = Math.min(Math.max(Number(query.limit || DEFAULT_LIMIT) || DEFAULT_LIMIT, 1), MAX_LIMIT);
+    const page = Math.max(Number(query.page || 1) || 1, 1);
+    const offset = (page - 1) * limit;
     return withRlsTransaction(this.ds, async (em) => {
       const where = ['l.tenant_id = $1'];
       const params: unknown[] = [actor.tenantId];
@@ -86,6 +89,8 @@ export class AuditLogService {
           l.action ILIKE $${params.length}
           OR l.resource_type ILIKE $${params.length}
           OR COALESCE(l.resource_id, '') ILIKE $${params.length}
+          OR l.before_state::text ILIKE $${params.length}
+          OR l.after_state::text ILIKE $${params.length}
           OR COALESCE(u.display_name, '') ILIKE $${params.length}
         )`);
       }
@@ -99,6 +104,7 @@ export class AuditLogService {
         params,
       );
       params.push(limit);
+      params.push(offset);
       const rows = await em.query(
         `SELECT l.id,
                 l.tenant_id AS "tenantId",
@@ -117,11 +123,69 @@ export class AuditLogService {
            LEFT JOIN rhautt_nexus.users u ON u.id = l.actor_user_id AND u.tenant_id = l.tenant_id
           WHERE ${whereSql}
           ORDER BY l.created_at DESC
-          LIMIT $${params.length}`,
+          LIMIT $${params.length - 1}
+         OFFSET $${params.length}`,
         params,
       );
-      return { logs: rows, total: Number(countRows[0]?.total || 0), limit };
+      await this.enrichResourceLabels(em, actor.tenantId, rows);
+      return { logs: rows, total: Number(countRows[0]?.total || 0), page, limit };
     }, { tenantId: actor.tenantId, actorId: actor.userId, role: actor.role });
+  }
+
+  private async enrichResourceLabels(em: EntityManager, tenantId: string, rows: Array<Record<string, unknown>>) {
+    const ids = [...new Set(rows.map((row) => String(row.resourceId || '').trim()).filter(Boolean))];
+    if (!ids.length) return;
+    const labels = new Map<string, string>();
+    await Promise.all([
+      this.mergeResourceLabels(em, labels, 'site_news_articles', tenantId, ids, "NULLIF(title, '')"),
+      this.mergeResourceLabels(em, labels, 'tenant_brand_sites', tenantId, ids, "COALESCE(NULLIF(name_cn, ''), NULLIF(name_en, ''), NULLIF(code, ''))"),
+      this.mergeResourceLabels(em, labels, 'brand_site_basic_settings', tenantId, ids, "NULLIF(site_code, '')"),
+      this.mergeResourceLabels(em, labels, 'site_product_assignments', tenantId, ids, "COALESCE(NULLIF(site_title, ''), NULLIF(public_slug, ''))"),
+      this.mergeResourceLabels(em, labels, 'products', tenantId, ids, "NULLIF(CONCAT_WS(' · ', NULLIF(name, ''), NULLIF(sku, '')), '')"),
+      this.mergeResourceLabels(em, labels, 'products', 'rhautt_shared', ids, "NULLIF(CONCAT_WS(' · ', NULLIF(name, ''), NULLIF(sku, '')), '')"),
+      this.mergeResourceLabels(em, labels, 'product_content', tenantId, ids, "NULLIF(name, '')"),
+      this.mergeResourceLabels(em, labels, 'uploaded_files', tenantId, ids, "NULLIF(original_name, '')"),
+      this.mergeResourceLabels(em, labels, 'growth_marketing_material', tenantId, ids, "NULLIF(CONCAT_WS(' · ', NULLIF(title, ''), NULLIF(material_type, ''), NULLIF(brand_slug, ''), NULLIF(file_format, '')), '')"),
+      this.mergeResourceLabels(em, labels, 'users', tenantId, ids, "NULLIF(display_name, '')"),
+      this.mergeResourceLabels(em, labels, 'rbac_roles', tenantId, ids, "COALESCE(NULLIF(name, ''), NULLIF(code, ''))"),
+    ]);
+    for (const row of rows) {
+      const id = String(row.resourceId || '').trim();
+      if (id && labels.has(id)) row.resourceLabel = labels.get(id) || null;
+    }
+  }
+
+  private async mergeResourceLabels(
+    em: EntityManager,
+    labels: Map<string, string>,
+    table: string,
+    tenantId: string,
+    ids: string[],
+    labelSql: string,
+  ) {
+    if (!(await this.tableExists(em, table))) return;
+    try {
+      const rows: Array<{ id: string; label: string | null }> = await em.query(
+        `SELECT id::text AS id, ${labelSql} AS label
+           FROM rhautt_nexus.${table}
+          WHERE tenant_id = $1 AND id::text = ANY($2::text[])`,
+        [tenantId, ids],
+      );
+      for (const row of rows) {
+        const label = String(row.label || '').trim();
+        if (label && !labels.has(row.id)) labels.set(row.id, label);
+      }
+    } catch {
+      // Label enrichment is best-effort; the audit list must remain readable even when an optional table differs by environment.
+    }
+  }
+
+  private async tableExists(em: EntityManager, table: string) {
+    const rows: Array<{ exists: boolean }> = await em.query(
+      `SELECT to_regclass($1) IS NOT NULL AS exists`,
+      [`rhautt_nexus.${table}`],
+    );
+    return Boolean(rows[0]?.exists);
   }
 
   private hashIp(ip?: string | null) {

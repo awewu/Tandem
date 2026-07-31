@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { Archive, Bold, Boxes, CheckCircle2, Edit3, EyeOff, FileText, FolderOpen, Heading2, Image, Italic, Link, List, ListOrdered, Package, Plus, Search, Table2, X, XCircle } from 'lucide-react';
+import { Archive, Bold, Boxes, CheckCircle2, Edit3, ExternalLink, EyeOff, FileText, FolderOpen, Heading2, Image, Italic, Link, List, ListOrdered, Package, Plus, Search, Table2, X, XCircle } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
 import {
@@ -32,6 +32,21 @@ type WebsiteShelfAssignment = {
   status: AssignmentStatus;
   deletedAt?: string | null;
 };
+type FloatingDialogOptions = {
+  title?: string;
+  message: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  tone?: 'default' | 'danger';
+};
+type FloatingPromptOptions = FloatingDialogOptions & {
+  defaultValue?: string;
+  placeholder?: string;
+};
+type FloatingDialogState =
+  | (FloatingDialogOptions & { kind: 'alert'; resolve: () => void })
+  | (FloatingDialogOptions & { kind: 'confirm'; resolve: (value: boolean) => void })
+  | (FloatingPromptOptions & { kind: 'prompt'; resolve: (value: string | null) => void });
 
 const EMPTY_BRAND_PRODUCT_PERMISSIONS: BrandProductPermissions = {
   canCreateProduct: false,
@@ -46,6 +61,122 @@ const EMPTY_BRAND_PRODUCT_PERMISSIONS: BrandProductPermissions = {
   canAnyBrandWrite: false,
   canAnyWrite: false,
 };
+
+function useFloatingDialog() {
+  const [dialog, setDialog] = useState<FloatingDialogState | null>(null);
+
+  const alertFloating = (options: FloatingDialogOptions) => new Promise<void>((resolve) => {
+    setDialog({
+      kind: 'alert',
+      title: options.title || '系统提示',
+      message: options.message,
+      confirmLabel: options.confirmLabel || '知道了',
+      tone: options.tone || 'default',
+      resolve,
+    });
+  });
+
+  const confirmFloating = (options: FloatingDialogOptions) => new Promise<boolean>((resolve) => {
+    setDialog({
+      kind: 'confirm',
+      title: options.title || '操作确认',
+      message: options.message,
+      confirmLabel: options.confirmLabel || '确定',
+      cancelLabel: options.cancelLabel || '取消',
+      tone: options.tone || 'default',
+      resolve,
+    });
+  });
+
+  const promptFloating = (options: FloatingPromptOptions) => new Promise<string | null>((resolve) => {
+    setDialog({
+      kind: 'prompt',
+      title: options.title || '请输入内容',
+      message: options.message,
+      defaultValue: options.defaultValue || '',
+      placeholder: options.placeholder || '',
+      confirmLabel: options.confirmLabel || '确定',
+      cancelLabel: options.cancelLabel || '取消',
+      tone: options.tone || 'default',
+      resolve,
+    });
+  });
+
+  const closeDialog = (value: boolean | string | null) => {
+    setDialog((current) => {
+      if (!current) return current;
+      if (current.kind === 'alert') current.resolve();
+      else current.resolve(value as never);
+      return null;
+    });
+  };
+
+  return {
+    alertFloating,
+    confirmFloating,
+    promptFloating,
+    floatingDialog: dialog ? <FloatingDialog dialog={dialog} onClose={closeDialog} /> : null,
+  };
+}
+
+function FloatingDialog({ dialog, onClose }: { dialog: FloatingDialogState; onClose: (value: boolean | string | null) => void }) {
+  const [inputValue, setInputValue] = useState(dialog.kind === 'prompt' ? dialog.defaultValue || '' : '');
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (dialog.kind !== 'prompt') return;
+    const timer = window.setTimeout(() => {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [dialog.kind]);
+
+  if (typeof document === 'undefined') return null;
+
+  const cancelValue = dialog.kind === 'prompt' ? null : false;
+  return createPortal(
+    <div className="product-floating-dialog-backdrop" role="presentation" onMouseDown={() => onClose(cancelValue)}>
+      <form
+        className={`product-floating-dialog${dialog.tone === 'danger' ? ' is-danger' : ''}`}
+        role="dialog"
+        aria-modal="true"
+        onMouseDown={(event) => event.stopPropagation()}
+        onSubmit={(event) => {
+          event.preventDefault();
+          onClose(dialog.kind === 'prompt' ? inputValue : true);
+        }}
+      >
+        <header>
+          <div>
+            <p className="t-label">系统提示</p>
+            <h2>{dialog.title}</h2>
+          </div>
+          <button type="button" className="btn btn-outline btn-sm icon-only" onClick={() => onClose(cancelValue)} aria-label="关闭弹框">
+            <X size={15} />
+          </button>
+        </header>
+        <div className="product-floating-dialog-body">
+          <p>{dialog.message}</p>
+          {dialog.kind === 'prompt' && (
+            <input ref={inputRef} className="input" value={inputValue} placeholder={dialog.placeholder} onChange={(event) => setInputValue(event.target.value)} />
+          )}
+        </div>
+        <footer>
+          {dialog.kind !== 'alert' && (
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => onClose(cancelValue)}>
+              {dialog.cancelLabel || '取消'}
+            </button>
+          )}
+          <button type="submit" className={`btn btn-sm ${dialog.tone === 'danger' ? 'btn-danger' : 'btn-brand'}`}>
+            {dialog.confirmLabel || '确定'}
+          </button>
+        </footer>
+      </form>
+    </div>,
+    document.body,
+  );
+}
 type CreateProductDraft = {
   brand: ProductBrand | '';
   name: string;
@@ -61,13 +192,23 @@ type CreateProductDraft = {
   badges: string;
   officialEnglishName: string;
   officialDetailHtml: string;
+  mainImage: ProductPendingImageDraft | null;
   manualPdfs: ProductManualPdfDraft[];
+};
+type ProductPendingImageDraft = {
+  file: File;
+  previewUrl: string;
 };
 type ProductManualPdfDraft = {
   id: string;
-  file: File;
+  file?: File;
+  artifactId?: string;
+  objectKey?: string;
   name: string;
+  mimeType?: string;
   previewUrl: string;
+  saved?: boolean;
+  sortOrder?: number;
 };
 type EditProductDraft = {
   name: string;
@@ -85,6 +226,8 @@ type EditProductDraft = {
   badges: string;
   officialEnglishName: string;
   officialDetailHtml: string;
+  mainImage: ProductPendingImageDraft | null;
+  manualPdfs: ProductManualPdfDraft[];
 };
 type RowActionState = {
   dirty: boolean;
@@ -493,6 +636,7 @@ function emptyCreateDraft(): CreateProductDraft {
     badges: '',
     officialEnglishName: '',
     officialDetailHtml: '',
+    mainImage: null,
     manualPdfs: [],
   };
 }
@@ -516,6 +660,8 @@ function editDraftFromProduct(product: NormalizedProduct): EditProductDraft {
     badges: Array.isArray(brandMeta.badges) ? brandMeta.badges.map(text).filter(Boolean).join(', ') : '',
     officialEnglishName: text(brandMeta.en || brandMeta.officialEnglishName),
     officialDetailHtml: text((product.raw as any)?.officialDetailHtml),
+    mainImage: null,
+    manualPdfs: savedProductManualPdfs(product),
   };
 }
 
@@ -630,23 +776,49 @@ function productStatusPayload(
 }
 
 function productImageSrc(product: NormalizedProduct): string {
+  return productMainImageSrc(product);
+}
+
+function artifactContentUrl(artifactId: unknown): string {
+  const id = text(artifactId);
+  return id ? `/api/v2/file-artifact/${encodeURIComponent(id)}/content` : '';
+}
+
+function productAssetUrl(ref: Record<string, any>): string {
+  return text(
+    ref.contentUrl ||
+      ref.base64Url ||
+      ref.url ||
+      ref.src ||
+      ref.previewUrl ||
+      ref.href ||
+      artifactContentUrl(ref.artifactId || ref.id)
+  );
+}
+
+function isImageAsset(ref: Record<string, any>) {
+  const role = text(ref.role).toLowerCase();
+  const mimeType = text(ref.mimeType || ref.type).toLowerCase();
+  const name = text(ref.filename || ref.name || ref.url || ref.src).toLowerCase();
+  return role === 'main' || role === 'card' || role === 'image' || mimeType.startsWith('image/') || /\.(png|jpe?g|webp|gif|avif)(?:$|\?)/i.test(name);
+}
+
+function isManualPdfAsset(ref: Record<string, any>) {
+  const role = text(ref.role).toLowerCase();
+  const mimeType = text(ref.mimeType || ref.type).toLowerCase();
+  const name = text(ref.filename || ref.name || ref.url || ref.src).toLowerCase();
+  return role === 'doc' || role === 'manual' || role === 'pdf' || mimeType === 'application/pdf' || /\.pdf(?:$|\?)/i.test(name);
+}
+
+function productMainImageSrc(product: NormalizedProduct): string {
   const raw = objectOrEmpty(product.raw);
   const meta = objectOrEmpty(raw.meta);
   const brandMeta = productBrandMeta(product);
   const assetRefs = Array.isArray(raw.assetRefs) ? raw.assetRefs : [];
-  const imageRef =
-    assetRefs.find((item: Record<string, any>) => item?.role === 'main' || item?.role === 'card') ||
-    assetRefs[0] ||
-    {};
-  const artifactId =
-    text(imageRef.artifactId) ||
-    text(meta.imageArtifactId) ||
-    text(brandMeta.imageArtifactId);
-  const artifactUrl = artifactId ? `/api/v2/file-artifact/${encodeURIComponent(artifactId)}/content` : '';
+  const imageRef = assetRefs.find((item: Record<string, any>) => isImageAsset(item)) || {};
   return text(
-    imageRef.url ||
-      imageRef.src ||
-      artifactUrl ||
+    productAssetUrl(imageRef) ||
+      artifactContentUrl(meta.imageArtifactId || brandMeta.imageArtifactId || raw.imageArtifactId) ||
       brandMeta.image ||
       brandMeta.imageUrl ||
       meta.imageUrl ||
@@ -654,6 +826,28 @@ function productImageSrc(product: NormalizedProduct): string {
       raw.imageUrl ||
       raw.image
   );
+}
+
+function savedProductManualPdfs(product: NormalizedProduct): ProductManualPdfDraft[] {
+  const raw = objectOrEmpty(product.raw);
+  const assetRefs = Array.isArray(raw.assetRefs) ? raw.assetRefs : [];
+  return assetRefs
+    .filter((ref: Record<string, any>) => isManualPdfAsset(ref))
+    .sort((left: Record<string, any>, right: Record<string, any>) => Number(left.sortOrder || 0) - Number(right.sortOrder || 0))
+    .map((ref: Record<string, any>, index: number) => {
+      const artifactId = text(ref.artifactId || ref.id);
+      const name = text(ref.filename || ref.name || ref.originalName) || `产品说明 ${index + 1}.pdf`;
+      return {
+        id: artifactId || text(ref.objectKey) || `${name}-${index}`,
+        artifactId,
+        objectKey: text(ref.objectKey || ref.fileKey),
+        name,
+        mimeType: text(ref.mimeType) || 'application/pdf',
+        previewUrl: productAssetUrl(ref) || artifactContentUrl(artifactId),
+        saved: true,
+        sortOrder: Number(ref.sortOrder || index),
+      };
+    });
 }
 
 function readBrowserFileBase64(file: File): Promise<string> {
@@ -665,9 +859,43 @@ function readBrowserFileBase64(file: File): Promise<string> {
   });
 }
 
-async function uploadProductManualPdfRefs(draft: CreateProductDraft, sku: string) {
+async function uploadProductMainImageRef(mainImage: ProductPendingImageDraft | null, entityId: string) {
+  if (!mainImage?.file) return null;
+  const artifact = await fileArtifacts.uploadBase64({
+    entityType: 'product-main-image',
+    entityId,
+    filename: mainImage.file.name || `${entityId}-main-image.png`,
+    mimeType: mainImage.file.type || 'image/png',
+    dataBase64: await readBrowserFileBase64(mainImage.file),
+  });
+  const artifactId = text((artifact as any)?.id || (artifact as any)?.artifactId);
+  if (!artifactId) throw new Error('Main image upload did not return an artifact id.');
+  return {
+    role: 'main',
+    artifactId,
+    objectKey: text((artifact as any)?.fileKey || (artifact as any)?.objectKey),
+    filename: text((artifact as any)?.originalName) || mainImage.file.name,
+    mimeType: text((artifact as any)?.mimeType) || mainImage.file.type || 'image/png',
+    sortOrder: 0,
+    url: text((artifact as any)?.contentUrl) || `/api/v2/file-artifact/${encodeURIComponent(artifactId)}/content`,
+  };
+}
+
+async function uploadProductManualPdfRefs(manualPdfs: ProductManualPdfDraft[], sku: string) {
   return Promise.all(
-    draft.manualPdfs.map(async (manual, index) => {
+    manualPdfs.map(async (manual, index) => {
+      if (!manual.file && manual.saved) {
+        return {
+          role: 'doc',
+          artifactId: manual.artifactId,
+          objectKey: manual.objectKey,
+          filename: manual.name,
+          mimeType: manual.mimeType || 'application/pdf',
+          sortOrder: index,
+          url: manual.previewUrl,
+        };
+      }
+      if (!manual.file) return null;
       const artifact = await fileArtifacts.uploadBase64({
         entityType: 'product-manual-pdf',
         entityId: sku,
@@ -687,7 +915,7 @@ async function uploadProductManualPdfRefs(draft: CreateProductDraft, sku: string
         url: text((artifact as any)?.contentUrl) || `/api/v2/file-artifact/${encodeURIComponent(artifactId)}/content`,
       };
     })
-  );
+  ).then((refs) => refs.filter(Boolean));
 }
 
 async function saveOfficialProductDetailContent(productId: string, tenantId: string, officialDetailHtml: string) {
@@ -905,6 +1133,7 @@ function ProductsContent() {
   const activeModule = normalizeModule(searchParams.get('module'));
   const [category, setCategory] = useState<CatalogCategoryFilter>('all');
   const [keyword, setKeyword] = useState('');
+  const [deferredKeyword, setDeferredKeyword] = useState('');
   const [brandFilter, setBrandFilter] = useState<BrandFilter>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
   const [pageSize, setPageSize] = useState(20);
@@ -922,10 +1151,15 @@ function ProductsContent() {
     [createBrandOptions],
   );
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDeferredKeyword(keyword.trim()), 260);
+    return () => window.clearTimeout(timer);
+  }, [keyword]);
+
   const makeCatalogQueries = (status: StatusFilter, pageSizeValue = '100') => {
     const query: Record<string, string> = { page: '1', pageSize: '100' };
     query.pageSize = pageSizeValue;
-    const q = keyword.trim();
+    const q = deferredKeyword;
     if (q) query.q = q;
     if (brandFilter !== 'all') {
       query.brand = brandFilter;
@@ -944,7 +1178,7 @@ function ProductsContent() {
 
   const catalogQueries = useMemo(
     () => makeCatalogQueries(statusFilter),
-    [brandFilter, category, keyword, statusFilter, supportedProductBrands]
+    [brandFilter, category, deferredKeyword, statusFilter, supportedProductBrands]
   );
 
   const { data: apiData, error, isLoading, mutate } = useSWR(
@@ -1024,7 +1258,7 @@ function ProductsContent() {
   );
 
   const { data: statusFilterCounts } = useSWR(
-    ['/api/v2/product-catalog/devices/status-counts', brandFilter, category, keyword, supportedProductBrands.join('|')],
+    ['/api/v2/product-catalog/devices/status-counts', brandFilter, category, deferredKeyword, supportedProductBrands.join('|')],
     async () => {
       const entries = await Promise.all(
         STATUS_OPTIONS.map(async (status) => {
@@ -1068,7 +1302,7 @@ function ProductsContent() {
   }, [shelfAssignmentData]);
 
   const visibleProducts = useMemo(() => {
-    const query = keyword.trim().toLowerCase();
+    const query = deferredKeyword.toLowerCase();
     return productList.filter((product) => {
       const categoryMatch = productMatchesCatalogCategory(product, category);
       if (!categoryMatch) return false;
@@ -1078,10 +1312,10 @@ function ProductsContent() {
         .toLowerCase()
         .includes(query);
     });
-  }, [category, keyword, productList]);
+  }, [category, deferredKeyword, productList]);
 
   const visibleCatalogProducts = useMemo(() => {
-    const query = keyword.trim().toLowerCase();
+    const query = deferredKeyword.toLowerCase();
     const filtered = liveProductList.filter((product) => {
       if (brandFilter !== 'all' && normalizeBrand(product.brand) !== brandFilter) return false;
       if (statusFilter !== 'all' && product.status !== statusFilter) return false;
@@ -1090,7 +1324,7 @@ function ProductsContent() {
       return [product.sku, product.name, product.model].join(' ').toLowerCase().includes(query);
     });
     return sortProductsByStatusThenOrder(filtered);
-  }, [brandFilter, category, keyword, liveProductList, statusFilter]);
+  }, [brandFilter, category, deferredKeyword, liveProductList, statusFilter]);
 
   const catalogTotalPages = Math.max(Math.ceil(visibleCatalogProducts.length / pageSize), 1);
 
@@ -1102,7 +1336,7 @@ function ProductsContent() {
 
   useEffect(() => {
     setCatalogPage(1);
-  }, [brandFilter, category, keyword, pageSize, statusFilter]);
+  }, [brandFilter, category, deferredKeyword, pageSize, statusFilter]);
 
   const productByModel = useMemo(() => {
     const map = new Map<string, NormalizedProduct>();
@@ -1131,6 +1365,62 @@ function ProductsContent() {
         minHeight: '100%',
       }}
     >
+      <style jsx global>{`
+        .product-floating-dialog-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 1200;
+          display: flex;
+          align-items: flex-start;
+          justify-content: center;
+          padding: 34px 20px;
+          background: rgba(15, 23, 42, 0.12);
+        }
+        .product-floating-dialog {
+          width: min(448px, calc(100vw - 32px));
+          overflow: hidden;
+          border: 1px solid var(--border);
+          border-radius: var(--r-lg);
+          background: var(--surface-1);
+          box-shadow: var(--sh-lg);
+        }
+        .product-floating-dialog.is-danger {
+          border-color: rgba(228, 0, 43, .28);
+        }
+        .product-floating-dialog header,
+        .product-floating-dialog footer {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 16px 18px;
+        }
+        .product-floating-dialog header {
+          border-bottom: 1px solid var(--border);
+        }
+        .product-floating-dialog h2 {
+          margin: 2px 0 0;
+          color: var(--t-primary);
+          font-size: 16px;
+          font-weight: 900;
+        }
+        .product-floating-dialog-body {
+          display: grid;
+          gap: 14px;
+          padding: 18px;
+        }
+        .product-floating-dialog-body p {
+          margin: 0;
+          color: var(--t-secondary);
+          font-size: 14px;
+          line-height: 1.7;
+        }
+        .product-floating-dialog footer {
+          justify-content: flex-end;
+          border-top: 1px solid var(--border);
+          background: var(--surface-2);
+        }
+      `}</style>
       <div
         className="page-container products-page"
         style={{
@@ -1506,14 +1796,18 @@ function ProductCatalogShell({
     setCreateError('');
     try {
       const basePayload = createProductPayload(createDraft, createCategoryTree);
-      const manualPdfRefs = await uploadProductManualPdfRefs(createDraft, String(basePayload.sku || createDraft.skuSeed));
-      const payload = manualPdfRefs.length ? { ...basePayload, assetRefs: manualPdfRefs } : basePayload;
+      const entityId = String(basePayload.sku || createDraft.skuSeed);
+      const mainImageRef = await uploadProductMainImageRef(createDraft.mainImage, entityId);
+      const manualPdfRefs = await uploadProductManualPdfRefs(createDraft.manualPdfs, entityId);
+      const assetRefs = [mainImageRef, ...manualPdfRefs].filter(Boolean);
+      const payload = assetRefs.length ? { ...basePayload, assetRefs } : basePayload;
       const created = await products.create(payload);
       const createdId = text((created as any)?.id);
       if (createdId && text(createDraft.officialDetailHtml)) {
         await saveOfficialProductDetailContent(createdId, text((payload as any).tenantId), createDraft.officialDetailHtml);
       }
       createDraft.manualPdfs.forEach((manual) => URL.revokeObjectURL(manual.previewUrl));
+      if (createDraft.mainImage) URL.revokeObjectURL(createDraft.mainImage.previewUrl);
       setCreateDraft(emptyCreateDraft());
       setShowCreate(false);
       onNotice(`Created ${String(payload.name)} for ${displayBrand(String(payload.brand))}.`);
@@ -1580,9 +1874,10 @@ function ProductCatalogShell({
             error={createError}
           submitting={creating}
           onChange={setCreateDraft}
-          onCancel={() => {
-            createDraft.manualPdfs.forEach((manual) => URL.revokeObjectURL(manual.previewUrl));
-            setCreateDraft(emptyCreateDraft());
+            onCancel={() => {
+              createDraft.manualPdfs.forEach((manual) => URL.revokeObjectURL(manual.previewUrl));
+              if (createDraft.mainImage) URL.revokeObjectURL(createDraft.mainImage.previewUrl);
+              setCreateDraft(emptyCreateDraft());
             setCreateError('');
             setShowCreate(false);
           }}
@@ -1783,6 +2078,16 @@ function CreateProductForm({
   const level2Options = activeCategoryOptions(selectedLevel1?.children || [], selectedLevel2);
   const level3Options = activeCategoryOptions(selectedLevel2?.children || [], selectedLevel3);
   const selectedPath = [selectedLevel1, selectedLevel2, selectedLevel3].filter(Boolean).map((item) => item?.name || item?.code).join(' / ');
+  const { alertFloating, floatingDialog } = useFloatingDialog();
+  async function selectMainImage(file: File | null) {
+    if (!file) return;
+    if (!/^image\/(png|jpe?g)$/i.test(file.type) && !/\.(png|jpe?g)$/i.test(file.name)) {
+      await alertFloating({ title: '图片格式不支持', message: '只能上传 JPG / PNG 图片。' });
+      return;
+    }
+    if (draft.mainImage) URL.revokeObjectURL(draft.mainImage.previewUrl);
+    patch({ mainImage: { file, previewUrl: URL.createObjectURL(file) } });
+  }
 
   if (typeof document === 'undefined') return null;
 
@@ -1979,6 +2284,54 @@ function CreateProductForm({
 
           <section className="product-edit-section" style={{ display: 'grid', gap: 12 }}>
             <div className="product-edit-section-head">
+              <h3>图片 / 素材</h3>
+              <span className={draft.mainImage ? 'badge badge-success' : 'badge badge-warning'}>
+                {draft.mainImage ? '已选择主图' : '未上传图片'}
+              </span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '160px minmax(0, 1fr)', gap: 14, alignItems: 'start' }}>
+              <div style={{ width: 146, aspectRatio: '1 / 1', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', background: 'var(--surface-2)', display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
+                {draft.mainImage ? (
+                  <img src={draft.mainImage.previewUrl} alt="产品主图预览" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <Image size={28} style={{ color: 'var(--t-tertiary)' }} />
+                )}
+              </div>
+              <div style={{ display: 'grid', gap: 10, alignContent: 'start' }}>
+                <p style={{ margin: 0, color: 'var(--t-secondary)', fontSize: 12 }}>维护产品主图，保存后会进入产品库素材引用，并在产品库列表和品牌产品页面同步读取。</p>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <label className="btn btn-outline btn-sm">
+                    <Image size={13} />
+                    上传主图
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,.png,.jpg,.jpeg"
+                      style={{ display: 'none' }}
+                      onChange={(event) => {
+                        selectMainImage(event.target.files?.[0] || null);
+                        event.currentTarget.value = '';
+                      }}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    disabled={!draft.mainImage || submitting}
+                    onClick={() => {
+                      if (draft.mainImage) URL.revokeObjectURL(draft.mainImage.previewUrl);
+                      patch({ mainImage: null });
+                    }}
+                  >
+                    <X size={13} />
+                    删除
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="product-edit-section" style={{ display: 'grid', gap: 12 }}>
+            <div className="product-edit-section-head">
               <h3>官网产品详情</h3>
               <span className="badge badge-grey">750px 长图</span>
             </div>
@@ -1995,57 +2348,11 @@ function CreateProductForm({
               <h3>产品说明 PDF</h3>
               <span className="badge badge-grey">不限数量</span>
             </div>
-            <label style={{ display: 'grid', gap: 6 }}>
-              <span className="t-label">上传 PDF</span>
-              <input
-                className="input"
-                type="file"
-                accept="application/pdf,.pdf"
-                multiple
-                onChange={(event) => {
-                  const files = Array.from(event.target.files || []).filter((file) => file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf'));
-                  if (!files.length) return;
-                  patch({
-                    manualPdfs: [
-                      ...draft.manualPdfs,
-                      ...files.map((file) => ({
-                        id: `${file.name}-${file.lastModified}-${Math.random().toString(36).slice(2)}`,
-                        file,
-                        name: file.name,
-                        previewUrl: URL.createObjectURL(file),
-                      })),
-                    ],
-                  });
-                  event.currentTarget.value = '';
-                }}
-              />
-            </label>
-            {draft.manualPdfs.length ? (
-              <div style={{ display: 'grid', gap: 10 }}>
-                {draft.manualPdfs.map((manual, index) => (
-                  <div key={manual.id} className="inset" style={{ display: 'grid', gap: 8, padding: 12 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                      <strong style={{ overflowWrap: 'anywhere' }}>{index + 1}. {manual.name}</strong>
-                      <button
-                        type="button"
-                        className="btn btn-ghost btn-sm"
-                        onClick={() => {
-                          URL.revokeObjectURL(manual.previewUrl);
-                          patch({ manualPdfs: draft.manualPdfs.filter((item) => item.id !== manual.id) });
-                        }}
-                        disabled={submitting}
-                      >
-                        <X size={13} />
-                        移除
-                      </button>
-                    </div>
-                    <iframe title={`PDF preview ${manual.name}`} src={manual.previewUrl} style={{ width: '100%', height: 320, border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', background: 'var(--surface-2)' }} />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="inset" style={{ padding: 12, color: 'var(--t-secondary)', fontSize: 13 }}>尚未上传产品说明 PDF。</div>
-            )}
+            <ProductManualPdfUploader
+              manualPdfs={draft.manualPdfs}
+              disabled={submitting}
+              onChange={(manualPdfs) => patch({ manualPdfs })}
+            />
           </section>
         </div>
 
@@ -2108,6 +2415,7 @@ function ProductCatalogRow({
     success: '',
     error: '',
   });
+  const { alertFloating, confirmFloating, floatingDialog } = useFloatingDialog();
   const brandCode = normalizeBrand(product.brand);
   const { data: categoryData, error: categoryError, isLoading: categoryLoading } = useSWR(
     editing && brandCode ? ['/api/v2/brand-product-categories', brandCode, 'product-edit'] : null,
@@ -2149,6 +2457,7 @@ function ProductCatalogRow({
     product.raw?.categoryLevel1Id,
     product.raw?.categoryLevel2Id,
     product.raw?.categoryLevel3Id,
+    product.raw?.assetRefs,
     product.raw?.meta,
   ]);
 
@@ -2170,16 +2479,40 @@ function ProductCatalogRow({
     }));
   }
 
+  async function selectEditMainImage(file: File | null) {
+    if (!file) return;
+    if (!/^image\/(png|jpe?g)$/i.test(file.type) && !/\.(png|jpe?g)$/i.test(file.name)) {
+      await alertFloating({ title: '图片格式不支持', message: '只能上传 JPG / PNG 图片。' });
+      return;
+    }
+    if (draft.mainImage) URL.revokeObjectURL(draft.mainImage.previewUrl);
+    patchDraft({ mainImage: { file, previewUrl: URL.createObjectURL(file) } });
+  }
+
   async function saveEdit(event: FormEvent) {
     event.preventDefault();
     if (!canUpdateProduct) return;
     setRowState((state) => ({ ...state, saving: true, error: '', success: '' }));
     try {
-      await products.update(product.id, productUpdatePayload(product, draft));
+      const mainImageRef = await uploadProductMainImageRef(draft.mainImage, product.sku || product.id);
+      const manualPdfRefs = await uploadProductManualPdfRefs(draft.manualPdfs, product.sku || product.id);
+      const previousRefs = Array.isArray(product.raw?.assetRefs) ? product.raw.assetRefs : [];
+      const payload = productUpdatePayload(product, draft);
+      const retainedRefs = previousRefs.filter((ref: Record<string, any>) => {
+        if (isManualPdfAsset(ref)) return false;
+        if (mainImageRef && (ref?.role === 'main' || ref?.role === 'card')) return false;
+        return true;
+      });
+      const nextAssetRefs = [mainImageRef, ...retainedRefs, ...manualPdfRefs].filter(Boolean);
+      await products.update(product.id, { ...payload, assetRefs: nextAssetRefs });
       const existingOfficialDetailHtml = officialDetailFromContent(contentData);
       if (text(draft.officialDetailHtml) || existingOfficialDetailHtml) {
         await saveOfficialProductDetailContent(product.id, tenantIdForProduct(product), draft.officialDetailHtml);
       }
+      if (draft.mainImage) URL.revokeObjectURL(draft.mainImage.previewUrl);
+      draft.manualPdfs.forEach((manual) => {
+        if (manual.file && manual.previewUrl.startsWith('blob:')) URL.revokeObjectURL(manual.previewUrl);
+      });
       setEditing(false);
       setRowState({ dirty: false, saving: false, success: '已保存，刷新品牌页可见同步变化。', error: '' });
       onNotice(`已保存 ${product.sku || draft.name}。`);
@@ -2208,7 +2541,13 @@ function ProductCatalogRow({
 
   async function archiveProduct() {
     if (!canDeleteProduct) return;
-    if (!window.confirm(`确认归档「${product.name}」？归档后会从默认产品列表移出，但不会物理删除。`)) return;
+    const confirmed = await confirmFloating({
+      title: '归档产品',
+      message: `确认归档「${product.name}」？归档后会从默认产品列表移出，但不会物理删除。`,
+      confirmLabel: '归档',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     setRowState((state) => ({ ...state, saving: true, error: '', success: '' }));
     try {
       await products.archive(product.id, tenantIdForProduct(product) || undefined);
@@ -2229,9 +2568,276 @@ function ProductCatalogRow({
   const shelfMeta = websiteShelfMeta(assignment);
   const displayOrder = nonNegativeInt(brandMeta.displayOrder ?? brandMeta.sortOrder);
   const imageSrc = productImageSrc(product);
+  const editDialog = canUpdateProduct && editing && typeof document !== 'undefined'
+    ? createPortal(
+      <div
+        className="product-edit-backdrop"
+        role="presentation"
+        onMouseDown={() => setEditing(false)}
+        style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 1000,
+          display: 'grid',
+          placeItems: 'center',
+          padding: 24,
+          background: 'rgba(15, 23, 42, 0.45)',
+        }}
+      >
+        <form
+          className="product-edit-modal"
+          onSubmit={saveEdit}
+          onMouseDown={(event) => event.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={`product-edit-title-${product.id}`}
+          style={{
+            width: 'min(1120px, 100%)',
+            maxHeight: 'min(900px, calc(100vh - 48px))',
+            display: 'grid',
+            gridTemplateRows: 'auto minmax(0, 1fr) auto',
+            background: 'var(--surface-1)',
+            borderRadius: 'var(--r-xl)',
+            border: '1px solid var(--border)',
+            boxShadow: 'var(--sh-lg)',
+            overflow: 'hidden',
+          }}
+        >
+          <header
+            className="product-edit-modal-head"
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              gap: 16,
+              alignItems: 'flex-start',
+              padding: 18,
+              borderBottom: '1px solid var(--border)',
+            }}
+          >
+            <div>
+              <p className="t-label">编辑产品</p>
+              <h2 id={`product-edit-title-${product.id}`}>{draft.name || product.name || '编辑产品'}</h2>
+              <span>{displayBrand(product.brand)} / {product.sku || product.model || product.id}</span>
+            </div>
+            <button type="button" className="btn btn-outline btn-sm icon-only" onClick={() => setEditing(false)} aria-label="关闭编辑产品" disabled={rowState.saving}>
+              <X size={15} />
+            </button>
+          </header>
+
+          <div className="product-edit-modal-body" style={{ overflow: 'auto', padding: 18, display: 'grid', gap: 14 }}>
+            <section className="product-edit-section" style={{ display: 'grid', gap: 12 }}>
+              <div className="product-edit-section-head">
+                <h3>基础信息</h3>
+                <span className="badge badge-grey">{displayBrand(product.brand)}</span>
+              </div>
+              <div className="product-edit-field-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 12 }}>
+                <label style={{ display: 'grid', gap: 6 }}>
+                  <span className="t-label">品牌</span>
+                  <input className="input" value={displayBrand(product.brand)} disabled readOnly />
+                </label>
+                <label style={{ display: 'grid', gap: 6 }}>
+                  <span className="t-label">产品名称</span>
+                  <input className="input" value={draft.name} required onChange={(event) => patchDraft({ name: event.target.value })} />
+                </label>
+                <label style={{ display: 'grid', gap: 6 }}>
+                  <span className="t-label">型号</span>
+                  <input className="input" value={draft.model} required onChange={(event) => patchDraft({ model: event.target.value })} />
+                </label>
+                <label style={{ display: 'grid', gap: 6 }}>
+                  <span className="t-label">分类</span>
+                  <select className="input" value={draft.category} required onChange={(event) => patchDraft({ category: event.target.value })}>
+                    {customCategory && <option value={draft.category}>{draft.category}</option>}
+                    {CATEGORIES.map((category) => (
+                      <option key={category.key} value={category.key}>{category.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label style={{ display: 'grid', gap: 6 }}>
+                  <span className="t-label">系统</span>
+                  <input className="input" value={draft.system} required onChange={(event) => patchDraft({ system: event.target.value })} />
+                </label>
+              </div>
+            </section>
+
+            <section className="product-edit-section" style={{ display: 'grid', gap: 12 }}>
+              <div className="product-edit-section-head">
+                <h3>产品分类绑定</h3>
+                <span className="badge badge-grey">来自当前品牌分类树</span>
+              </div>
+              {categoryLoading ? (
+                <div className="inset" style={{ padding: 12, color: 'var(--t-secondary)', fontSize: 13 }}>正在加载产品分类...</div>
+              ) : categoryError ? (
+                <div className="inset" role="alert" style={{ padding: 12, color: 'var(--danger)', fontSize: 13 }}>
+                  产品分类加载失败：{String((categoryError as Error)?.message || categoryError)}
+                </div>
+              ) : !productCategoryTree.length ? (
+                <div className="inset" style={{ padding: 12, color: 'var(--t-secondary)', fontSize: 13 }}>当前品牌暂无可绑定的产品分类。</div>
+              ) : (
+                <div className="product-edit-field-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 12 }}>
+                  <label style={{ display: 'grid', gap: 6 }}>
+                    <span className="t-label">一级分类</span>
+                    <select className="input" value={draft.categoryLevel1Id} required onChange={(event) => patchDraft({ categoryLevel1Id: event.target.value, categoryLevel2Id: '', categoryLevel3Id: '' })}>
+                      <option value="">请选择一级分类</option>
+                      {level1Options.map((item) => <option key={item.id} value={item.id}>{categoryOptionLabel(item)}</option>)}
+                    </select>
+                  </label>
+                  <label style={{ display: 'grid', gap: 6 }}>
+                    <span className="t-label">二级分类</span>
+                    <select className="input" value={draft.categoryLevel2Id} required disabled={!draft.categoryLevel1Id} onChange={(event) => patchDraft({ categoryLevel2Id: event.target.value, categoryLevel3Id: '' })}>
+                      <option value="">请选择二级分类</option>
+                      {level2Options.map((item) => <option key={item.id} value={item.id}>{categoryOptionLabel(item)}</option>)}
+                    </select>
+                  </label>
+                  <label style={{ display: 'grid', gap: 6 }}>
+                    <span className="t-label">三级分类（可选）</span>
+                    <select className="input" value={draft.categoryLevel3Id} disabled={!draft.categoryLevel2Id} onChange={(event) => patchDraft({ categoryLevel3Id: event.target.value })}>
+                      <option value="">不选择三级分类</option>
+                      {level3Options.map((item) => <option key={item.id} value={item.id}>{categoryOptionLabel(item)}</option>)}
+                    </select>
+                  </label>
+                </div>
+              )}
+            </section>
+
+            <section className="product-edit-section" style={{ display: 'grid', gap: 12 }}>
+              <div className="product-edit-section-head">
+                <h3>官网展示</h3>
+                {rowState.dirty && <span className="badge badge-warning">有未保存修改</span>}
+              </div>
+              <div className="product-edit-field-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 12 }}>
+                <label style={{ display: 'grid', gap: 6 }}>
+                  <span className="t-label">公开路径</span>
+                  <input className="input" value={draft.publicSlug} required pattern="[a-z0-9]+(?:-[a-z0-9]+)*" onChange={(event) => patchDraft({ publicSlug: event.target.value })} />
+                </label>
+                <label style={{ display: 'grid', gap: 6 }}>
+                  <span className="t-label">系列</span>
+                  <input className="input" value={draft.series} onChange={(event) => patchDraft({ series: event.target.value })} />
+                </label>
+                <label style={{ display: 'grid', gap: 6 }}>
+                  <span className="t-label">英文名</span>
+                  <input className="input" value={draft.officialEnglishName} onChange={(event) => patchDraft({ officialEnglishName: event.target.value })} />
+                </label>
+                <label style={{ display: 'grid', gap: 6 }}>
+                  <span className="t-label">排序</span>
+                  <input className="input" type="number" min="0" max="999999" value={draft.displayOrder} onChange={(event) => patchDraft({ displayOrder: event.target.value })} />
+                </label>
+                <label style={{ display: 'grid', gap: 6 }}>
+                  <span className="t-label">标语</span>
+                  <input className="input" value={draft.tagline} onChange={(event) => patchDraft({ tagline: event.target.value })} />
+                </label>
+                <label style={{ display: 'grid', gap: 6 }}>
+                  <span className="t-label">标签</span>
+                  <input className="input" value={draft.badges} onChange={(event) => patchDraft({ badges: event.target.value })} placeholder="新品, 高端" />
+                </label>
+              </div>
+            </section>
+
+            <section className="product-edit-section" style={{ display: 'grid', gap: 12 }}>
+              <div className="product-edit-section-head">
+                <h3>图片 / 素材</h3>
+                <span className={draft.mainImage || imageSrc ? 'badge badge-success' : 'badge badge-warning'}>{draft.mainImage ? '已选择新主图' : imageSrc ? '已有主图' : '未上传图片'}</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '160px minmax(0, 1fr)', gap: 14, alignItems: 'start' }}>
+                <div style={{ width: 146, aspectRatio: '1 / 1', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', background: 'var(--surface-2)', display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
+                  {draft.mainImage ? (
+                    <img src={draft.mainImage.previewUrl} alt="新产品主图预览" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : imageSrc ? (
+                    <img src={imageSrc} alt={product.name || '产品主图'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <Image size={28} style={{ color: 'var(--t-tertiary)' }} />
+                  )}
+                </div>
+                <div style={{ display: 'grid', gap: 10, alignContent: 'start' }}>
+                  <p style={{ margin: 0, color: 'var(--t-secondary)', fontSize: 12 }}>编辑产品库主图，保存后同步到产品库素材引用。</p>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <label className="btn btn-outline btn-sm">
+                      <Image size={13} />
+                      上传主图
+                      <input type="file" accept="image/png,image/jpeg,.png,.jpg,.jpeg" style={{ display: 'none' }} onChange={(event) => {
+                        selectEditMainImage(event.target.files?.[0] || null);
+                        event.currentTarget.value = '';
+                      }} />
+                    </label>
+                    <button type="button" className="btn btn-ghost btn-sm" disabled={!draft.mainImage || rowState.saving} onClick={() => {
+                      if (draft.mainImage) URL.revokeObjectURL(draft.mainImage.previewUrl);
+                      patchDraft({ mainImage: null });
+                    }}>
+                      <X size={13} />
+                      取消新图
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="product-edit-section" style={{ display: 'grid', gap: 12 }}>
+              <div className="product-edit-section-head">
+                <h3>官网产品详情</h3>
+                <span className="badge badge-grey">750px 长图</span>
+              </div>
+              {contentLoading ? (
+                <div className="inset" style={{ padding: 12, color: 'var(--t-secondary)', fontSize: 13 }}>正在加载官网产品详情...</div>
+              ) : contentError ? (
+                <div className="inset" role="alert" style={{ padding: 12, color: 'var(--warning)', fontSize: 13 }}>
+                  官网产品详情加载失败；基础信息仍可编辑保存。{String((contentError as Error)?.message || contentError)}
+                </div>
+              ) : (
+                <OfficialProductDetailEditor
+                  value={draft.officialDetailHtml}
+                  onChange={(officialDetailHtml) => patchDraft({ officialDetailHtml })}
+                  entityId={product.sku || product.id}
+                  disabled={rowState.saving}
+                />
+              )}
+            </section>
+            <section className="product-edit-section" style={{ display: 'grid', gap: 12 }}>
+              <div className="product-edit-section-head">
+                <h3>产品说明 PDF</h3>
+                <span className="badge badge-grey">不限数量</span>
+              </div>
+              <ProductManualPdfUploader
+                manualPdfs={draft.manualPdfs}
+                disabled={rowState.saving}
+                onChange={(manualPdfs) => patchDraft({ manualPdfs })}
+              />
+            </section>
+          </div>
+
+          <footer
+            className="product-edit-modal-actions"
+            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: 18, borderTop: '1px solid var(--border)', background: 'var(--surface-2)' }}
+          >
+            <span className={rowState.dirty ? 'badge badge-warning' : 'badge badge-grey'}>{rowState.dirty ? '有未保存修改' : '无未保存修改'}</span>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button type="button" className="btn btn-outline btn-sm" onClick={() => setEditing(false)} disabled={rowState.saving}>
+                <X size={13} />
+                取消
+              </button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => {
+                if (draft.mainImage) URL.revokeObjectURL(draft.mainImage.previewUrl);
+                draft.manualPdfs.forEach((manual) => {
+                  if (manual.file && manual.previewUrl.startsWith('blob:')) URL.revokeObjectURL(manual.previewUrl);
+                });
+                setDraft(editDraftFromProduct(product));
+                setRowState({ dirty: false, saving: false, success: '', error: '' });
+              }} disabled={rowState.saving}>
+                重置内容
+              </button>
+              <button type="submit" className="btn btn-brand btn-sm" disabled={rowState.saving || !rowState.dirty}>
+                {rowState.saving ? '保存中...' : '保存内容'}
+              </button>
+            </div>
+          </footer>
+        </form>
+      </div>,
+      document.body,
+    )
+    : null;
 
   return (
     <>
+      {editDialog}
+      {floatingDialog}
       <tr className={selected ? 'is-selected' : undefined}>
         <td>
           <input
@@ -2301,11 +2907,11 @@ function ProductCatalogRow({
                 <button
                   type="button"
                   className="btn btn-brand btn-sm"
-                  onClick={() => setEditing((value) => !value)}
+                  onClick={() => setEditing(true)}
                   disabled={rowState.saving}
                 >
                   <Edit3 size={14} />
-                  {editing ? '收起' : '编辑'}
+                  编辑
                 </button>
               )}
               {canPublishProduct && product.status !== 'archived' && (
@@ -2358,275 +2964,6 @@ function ProductCatalogRow({
           </td>
         </tr>
       )}
-
-      {canUpdateProduct && editing && (
-        <tr>
-          <td colSpan={9}>
-        <form
-          onSubmit={saveEdit}
-          style={{
-            display: 'grid',
-            gap: 12,
-            background: 'var(--surface-1)',
-          }}
-        >
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: 12 }}>
-            <label style={{ display: 'grid', gap: 6 }}>
-              <span className="t-label">产品名称</span>
-              <input
-                className="input"
-                value={draft.name}
-                required
-                onChange={(event) => patchDraft({ name: event.target.value })}
-              />
-            </label>
-            <label style={{ display: 'grid', gap: 6 }}>
-              <span className="t-label">型号</span>
-              <input
-                className="input"
-                value={draft.model}
-                required
-                onChange={(event) => patchDraft({ model: event.target.value })}
-              />
-            </label>
-            <label style={{ display: 'grid', gap: 6 }}>
-              <span className="t-label">分类</span>
-              <select
-                className="input"
-                value={draft.category}
-                required
-                onChange={(event) => patchDraft({ category: event.target.value })}
-              >
-                {customCategory && <option value={draft.category}>{draft.category}</option>}
-                {CATEGORIES.map((category) => (
-                  <option key={category.key} value={category.key}>
-                    {category.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label style={{ display: 'grid', gap: 6 }}>
-              <span className="t-label">系统</span>
-              <input
-                className="input"
-                value={draft.system}
-                required
-                onChange={(event) => patchDraft({ system: event.target.value })}
-              />
-            </label>
-          </div>
-          <div style={{ display: 'grid', gap: 10, paddingTop: 4 }}>
-            <div>
-              <p className="t-label">品牌产品分类绑定</p>
-              <p style={{ marginTop: 4, color: 'var(--t-tertiary)', fontSize: 12, overflowWrap: 'anywhere' }}>
-                从 {displayBrand(product.brand)} 的产品分类树选择官网分类路径；旧分类和系统字段继续保留用于兼容。
-              </p>
-            </div>
-            {categoryLoading ? (
-              <div className="inset" style={{ padding: 12, color: 'var(--t-secondary)', fontSize: 13 }}>
-                正在加载产品分类...
-              </div>
-            ) : categoryError ? (
-              <div className="inset" role="alert" style={{ padding: 12, color: 'var(--danger)', fontSize: 13 }}>
-                产品分类加载失败：{String((categoryError as Error)?.message || categoryError)}
-              </div>
-            ) : !productCategoryTree.length ? (
-              <div className="inset" style={{ padding: 12, color: 'var(--t-secondary)', fontSize: 13 }}>
-                当前品牌暂无可绑定的产品分类。请先在“产品分类”中维护分类树。
-              </div>
-            ) : (
-              <>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: 12 }}>
-                  <label style={{ display: 'grid', gap: 6 }}>
-                    <span className="t-label">一级分类</span>
-                    <select
-                      className="input"
-                      value={draft.categoryLevel1Id}
-                      required
-                      onChange={(event) =>
-                        patchDraft({
-                          categoryLevel1Id: event.target.value,
-                          categoryLevel2Id: '',
-                          categoryLevel3Id: '',
-                        })
-                      }
-                    >
-                      <option value="">请选择一级分类</option>
-                      {level1Options.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {categoryOptionLabel(item)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label style={{ display: 'grid', gap: 6 }}>
-                    <span className="t-label">二级分类</span>
-                    <select
-                      className="input"
-                      value={draft.categoryLevel2Id}
-                      required
-                      disabled={!draft.categoryLevel1Id}
-                      onChange={(event) =>
-                        patchDraft({
-                          categoryLevel2Id: event.target.value,
-                          categoryLevel3Id: '',
-                        })
-                      }
-                    >
-                      <option value="">请选择二级分类</option>
-                      {level2Options.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {categoryOptionLabel(item)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label style={{ display: 'grid', gap: 6 }}>
-                    <span className="t-label">三级分类（可选）</span>
-                    <select
-                      className="input"
-                      value={draft.categoryLevel3Id}
-                      disabled={!draft.categoryLevel2Id}
-                      onChange={(event) => patchDraft({ categoryLevel3Id: event.target.value })}
-                    >
-                      <option value="">不选择三级分类</option>
-                      {level3Options.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {categoryOptionLabel(item)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-                {inactiveCategoryBindings.length ? (
-                  <div className="badge badge-warning" role="status" style={{ justifySelf: 'start', whiteSpace: 'normal' }}>
-                    已停用：{inactiveCategoryBindings.map((item) => item.name || item.code).join(' / ')}
-                  </div>
-                ) : null}
-              </>
-            )}
-          </div>
-          <div style={{ display: 'grid', gap: 10, paddingTop: 4 }}>
-            <div>
-              <p className="t-label">品牌官网元数据</p>
-              <p style={{ marginTop: 4, color: 'var(--t-tertiary)', fontSize: 12 }}>
-                写入 {displayBrand(product.brand)} 的产品官网基础字段；官网上架和覆盖项在品牌官网控制台维护。
-              </p>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: 12 }}>
-              <label style={{ display: 'grid', gap: 6 }}>
-                <span className="t-label">公开路径</span>
-                <input
-                  className="input"
-                  value={draft.publicSlug}
-                  required
-                  pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
-                  onChange={(event) => patchDraft({ publicSlug: event.target.value })}
-                />
-              </label>
-              <label style={{ display: 'grid', gap: 6 }}>
-                <span className="t-label">系列</span>
-                <input
-                  className="input"
-                  value={draft.series}
-                  onChange={(event) => patchDraft({ series: event.target.value })}
-                />
-              </label>
-              <label style={{ display: 'grid', gap: 6 }}>
-                <span className="t-label">宣传语</span>
-                <input
-                  className="input"
-                  value={draft.tagline}
-                  onChange={(event) => patchDraft({ tagline: event.target.value })}
-                />
-              </label>
-              <label style={{ display: 'grid', gap: 6 }}>
-                <span className="t-label">官网分类</span>
-                <input
-                  className="input"
-                  value={draft.websiteCategory}
-                  onChange={(event) => patchDraft({ websiteCategory: event.target.value })}
-                />
-              </label>
-              <label style={{ display: 'grid', gap: 6 }}>
-                <span className="t-label">展示排序</span>
-                <input
-                  className="input"
-                  type="number"
-                  min="0"
-                  max="999999"
-                  value={draft.displayOrder}
-                  onChange={(event) => patchDraft({ displayOrder: event.target.value })}
-                />
-              </label>
-              <label style={{ display: 'grid', gap: 6 }}>
-                <span className="t-label">标签</span>
-                <input
-                  className="input"
-                  value={draft.badges}
-                  onChange={(event) => patchDraft({ badges: event.target.value })}
-                  placeholder="新品, 高端"
-                />
-              </label>
-              <label style={{ display: 'grid', gap: 6 }}>
-                <span className="t-label">官方英文名</span>
-                <input
-                  className="input"
-                  value={draft.officialEnglishName}
-                  onChange={(event) => patchDraft({ officialEnglishName: event.target.value })}
-                />
-              </label>
-            </div>
-          </div>
-          <div style={{ display: 'grid', gap: 10, paddingTop: 4 }}>
-            <div>
-              <p className="t-label">官网产品详情</p>
-              <p style={{ marginTop: 4, color: 'var(--t-tertiary)', fontSize: 12 }}>
-                用于官网产品列表点击后的详情页；建议上传宽度 750px 的详情图片，高度不限。
-              </p>
-            </div>
-            {contentLoading ? (
-              <div className="inset" style={{ padding: 12, color: 'var(--t-secondary)', fontSize: 13 }}>
-                正在加载官网产品详情...
-              </div>
-            ) : contentError ? (
-              <div className="inset" role="alert" style={{ padding: 12, color: 'var(--warning)', fontSize: 13 }}>
-                官网产品详情加载失败；基础信息仍可编辑保存，详情内容请稍后重试。{String((contentError as Error)?.message || contentError)}
-              </div>
-            ) : (
-              <OfficialProductDetailEditor
-                value={draft.officialDetailHtml}
-                onChange={(officialDetailHtml) => patchDraft({ officialDetailHtml })}
-                entityId={product.sku || product.id}
-                disabled={rowState.saving}
-              />
-            )}
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-            <span className={rowState.dirty ? 'badge badge-warning' : 'badge badge-grey'}>
-              {rowState.dirty ? '有未保存修改' : '无未保存修改'}
-            </span>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                onClick={() => {
-                  setDraft(editDraftFromProduct(product));
-                  setRowState({ dirty: false, saving: false, success: '', error: '' });
-                }}
-                disabled={rowState.saving}
-              >
-                重置
-              </button>
-              <button type="submit" className="btn btn-brand btn-sm" disabled={rowState.saving || !rowState.dirty}>
-                {rowState.saving ? '保存中...' : '保存'}
-              </button>
-            </div>
-          </div>
-        </form>
-          </td>
-        </tr>
-      )}
     </>
   );
 }
@@ -2646,6 +2983,7 @@ function OfficialProductDetailEditor({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const lastValueRef = useRef(value);
   const [uploading, setUploading] = useState(false);
+  const { alertFloating, promptFloating, floatingDialog } = useFloatingDialog();
 
   useEffect(() => {
     const editor = editorRef.current;
@@ -2674,10 +3012,17 @@ function OfficialProductDetailEditor({
     commit();
   }
 
-  function addLink() {
-    const href = window.prompt('请输入链接地址');
+  async function addLink() {
+    const href = await promptFloating({
+      title: '插入链接',
+      message: '请输入链接地址',
+      placeholder: 'https://',
+      confirmLabel: '插入',
+    });
     if (!href) return;
-    run('createLink', href.trim());
+    const nextHref = href.trim();
+    if (!nextHref) return;
+    run('createLink', nextHref);
   }
 
   function addTable() {
@@ -2689,7 +3034,7 @@ function OfficialProductDetailEditor({
     if (!selected.length || disabled || uploading) return;
     const invalid = selected.find((file) => !/^image\/(png|jpe?g|webp)$/i.test(file.type) && !/\.(png|jpe?g|webp)$/i.test(file.name));
     if (invalid) {
-      window.alert('仅支持 png、jpg、jpeg、webp 格式的详情图片。');
+      await alertFloating({ title: '图片格式不支持', message: '仅支持 png、jpg、jpeg、webp 格式的详情图片。' });
       return;
     }
     setUploading(true);
@@ -2708,7 +3053,7 @@ function OfficialProductDetailEditor({
         insertHtml(`<img src="${escapeProductDetailHtml(url)}" alt="${escapeProductDetailHtml(file.name)}" loading="lazy">`);
       }
     } catch (e) {
-      window.alert((e as Error)?.message || '详情图片上传失败。');
+      await alertFloating({ title: '详情图片上传失败', message: (e as Error)?.message || '详情图片上传失败。' });
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -2773,6 +3118,7 @@ function OfficialProductDetailEditor({
       <p style={{ margin: 0, color: 'var(--t-tertiary)', fontSize: 12 }}>
         建议上传宽度 750px 的详情图片，高度不限；官网移动端会等比例缩放。
       </p>
+      {floatingDialog}
       <style jsx>{`
         .official-product-detail-editor {
           display: grid;
@@ -2833,6 +3179,60 @@ function OfficialProductDetailEditor({
         .official-product-detail-editor-body :global(ul),
         .official-product-detail-editor-body :global(ol) {
           margin: 0 0 10px;
+        }
+        :global(.product-floating-dialog-backdrop) {
+          position: fixed;
+          inset: 0;
+          z-index: 1200;
+          display: flex;
+          align-items: flex-start;
+          justify-content: center;
+          padding: 34px 20px;
+          background: rgba(15, 23, 42, 0.12);
+        }
+        :global(.product-floating-dialog) {
+          width: min(448px, calc(100vw - 32px));
+          overflow: hidden;
+          border: 1px solid var(--border);
+          border-radius: var(--r-lg);
+          background: var(--surface-1);
+          box-shadow: var(--sh-lg);
+        }
+        :global(.product-floating-dialog.is-danger) {
+          border-color: rgba(228, 0, 43, .28);
+        }
+        :global(.product-floating-dialog header),
+        :global(.product-floating-dialog footer) {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 16px 18px;
+        }
+        :global(.product-floating-dialog header) {
+          border-bottom: 1px solid var(--border);
+        }
+        :global(.product-floating-dialog h2) {
+          margin: 2px 0 0;
+          color: var(--t-primary);
+          font-size: 16px;
+          font-weight: 900;
+        }
+        :global(.product-floating-dialog-body) {
+          display: grid;
+          gap: 14px;
+          padding: 18px;
+        }
+        :global(.product-floating-dialog-body p) {
+          margin: 0;
+          color: var(--t-secondary);
+          font-size: 14px;
+          line-height: 1.7;
+        }
+        :global(.product-floating-dialog footer) {
+          justify-content: flex-end;
+          border-top: 1px solid var(--border);
+          background: var(--surface-2);
         }
       `}</style>
     </div>
@@ -3004,6 +3404,192 @@ function ProductCatalogImageLightbox({
       </div>
     </div>
   );
+}
+
+function ProductManualPdfUploader({
+  manualPdfs,
+  disabled,
+  onChange,
+}: {
+  manualPdfs: ProductManualPdfDraft[];
+  disabled: boolean;
+  onChange: (manualPdfs: ProductManualPdfDraft[]) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  function addFiles(files: FileList | null) {
+    const selected = Array.from(files || []).filter((file) => file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf'));
+    if (!selected.length) return;
+    onChange([
+      ...manualPdfs,
+      ...selected.map((file) => ({
+        id: `${file.name}-${file.lastModified}-${Math.random().toString(36).slice(2)}`,
+        file,
+        name: file.name,
+        mimeType: file.type || 'application/pdf',
+        previewUrl: URL.createObjectURL(file),
+        saved: false,
+      })),
+    ]);
+  }
+
+  function removeManual(id: string) {
+    const target = manualPdfs.find((manual) => manual.id === id);
+    if (target?.file && target.previewUrl.startsWith('blob:')) URL.revokeObjectURL(target.previewUrl);
+    onChange(manualPdfs.filter((manual) => manual.id !== id));
+  }
+
+  return (
+    <div className="product-manual-pdf-uploader">
+      <div className="product-manual-pdf-upload-row">
+        <button
+          type="button"
+          className="btn btn-outline btn-sm"
+          onClick={() => inputRef.current?.click()}
+          disabled={disabled}
+        >
+          <UploadPdfIcon />
+          选择文件
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="application/pdf,.pdf"
+          multiple
+          style={{ display: 'none' }}
+          onChange={(event) => {
+            addFiles(event.target.files);
+            event.currentTarget.value = '';
+          }}
+        />
+        <div className="product-manual-pdf-inline-list">
+          {manualPdfs.length ? (
+            manualPdfs.map((manual, index) => (
+              <ProductManualPdfItem
+                key={manual.id}
+                manual={manual}
+                index={index}
+                disabled={disabled}
+                onRemove={() => removeManual(manual.id)}
+              />
+            ))
+          ) : (
+            <span className="product-manual-pdf-empty">未选择文件</span>
+          )}
+        </div>
+      </div>
+      <style jsx>{`
+        .product-manual-pdf-uploader {
+          display: grid;
+          gap: 8px;
+        }
+        .product-manual-pdf-upload-row {
+          min-height: 42px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 8px;
+          border: 1px solid var(--border);
+          border-radius: var(--r-sm);
+          background: var(--surface-1);
+        }
+        .product-manual-pdf-inline-list {
+          min-width: 0;
+          flex: 1 1 auto;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        .product-manual-pdf-empty {
+          color: var(--t-secondary);
+          font-size: 13px;
+        }
+      `}</style>
+    </div>
+  );
+}
+
+function ProductManualPdfItem({
+  manual,
+  index,
+  disabled,
+  onRemove,
+}: {
+  manual: ProductManualPdfDraft;
+  index: number;
+  disabled: boolean;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="product-manual-pdf-chip">
+      <strong>{index + 1}. {manual.name}</strong>
+      <a className="btn btn-brand btn-sm" href={manual.previewUrl} target="_blank" rel="noopener noreferrer">
+        <ExternalLink size={13} />
+        预览
+      </a>
+      <button
+        type="button"
+        className="product-manual-pdf-remove"
+        onClick={onRemove}
+        disabled={disabled}
+        title="移除"
+        aria-label={`移除 ${manual.name}`}
+      >
+        <X size={12} />
+      </button>
+      <style jsx>{`
+        .product-manual-pdf-chip {
+          position: relative;
+          min-width: 0;
+          max-width: 100%;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 26px 8px 12px;
+          border: 1px solid var(--border);
+          border-radius: var(--r-sm);
+          background: var(--surface-2);
+        }
+        .product-manual-pdf-chip strong {
+          min-width: 0;
+          max-width: min(420px, 50vw);
+          overflow: hidden;
+          color: var(--t-primary);
+          font-size: 13px;
+          font-weight: 800;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .product-manual-pdf-remove {
+          position: absolute;
+          top: 3px;
+          right: 3px;
+          width: 18px;
+          height: 18px;
+          display: inline-grid;
+          place-items: center;
+          border: 0;
+          border-radius: 50%;
+          background: transparent;
+          color: var(--t-tertiary);
+          cursor: pointer;
+        }
+        .product-manual-pdf-remove:hover:not(:disabled) {
+          background: rgba(228, 0, 43, 0.1);
+          color: var(--brand);
+        }
+        .product-manual-pdf-remove:disabled {
+          cursor: not-allowed;
+          opacity: 0.45;
+        }
+      `}</style>
+    </div>
+  );
+}
+
+function UploadPdfIcon() {
+  return <FileText size={13} />;
 }
 
 function EmptyCatalogState({
@@ -3511,6 +4097,7 @@ function ProductCategoryManagerCrudView({
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
   const [childrenByParent, setChildrenByParent] = useState<Record<string, ProductCategoryNode[]>>({});
   const [loadingChildren, setLoadingChildren] = useState<Record<string, boolean>>({});
+  const { confirmFloating, floatingDialog } = useFloatingDialog();
   const { data, error, isLoading, mutate } = useSWR(
     ['/api/v2/brand-product-categories', brandCode, 'all', 'crud'],
     async () => {
@@ -3683,8 +4270,14 @@ function ProductCategoryManagerCrudView({
           boundProductCount = Number(guard?.boundProductCount || 0);
           setUsage({ boundProductCount, childCategoryCount: usage?.childCategoryCount });
         }
-        if (boundProductCount > 0 && !window.confirm(`当前分类已绑定 ${boundProductCount} 个产品。停用后这些产品仍会保留绑定，但该分类不会作为启用目录使用。确认停用吗？`)) {
-          return;
+        if (boundProductCount > 0) {
+          const confirmed = await confirmFloating({
+            title: '停用分类',
+            message: `当前分类已绑定 ${boundProductCount} 个产品。停用后这些产品仍会保留绑定，但该分类不会作为启用目录使用。确认停用吗？`,
+            confirmLabel: '停用',
+            tone: 'danger',
+          });
+          if (!confirmed) return;
         }
       }
       await brandProductCategories.update(selected.id, { status: nextStatus });
@@ -3724,7 +4317,13 @@ function ProductCategoryManagerCrudView({
         setActionError(message);
         return;
       }
-      if (!window.confirm(`确认删除分类“${target.name || target.code}”？`)) return;
+      const confirmed = await confirmFloating({
+        title: '删除分类',
+        message: `确认删除分类“${target.name || target.code}”？`,
+        confirmLabel: '删除',
+        tone: 'danger',
+      });
+      if (!confirmed) return;
       await brandProductCategories.remove(target.id);
       setSelectedId('');
       setMode('edit');
@@ -3895,6 +4494,7 @@ function ProductCategoryManagerCrudView({
         </div>
 
       </section>
+      {floatingDialog}
     </div>
   );
 }

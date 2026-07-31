@@ -1,4 +1,69 @@
 (function () {
+  var DEFAULT_MANIFEST = {
+    'brand-story': {
+      src: '/assets/img/site-materials/home-audience-residential-bg.webp',
+      filename: 'home-audience-residential-bg.webp',
+      mimeType: 'image/webp',
+      size: 9554,
+      updatedAt: '2026-07-31T00:00:00.000Z'
+    },
+    'service-banner': {
+      src: '/assets/img/site-materials/home-audience-commercial-bg.webp',
+      filename: 'home-audience-commercial-bg.webp',
+      mimeType: 'image/webp',
+      size: 9498,
+      updatedAt: '2026-07-31T00:00:00.000Z'
+    },
+    'footer-cert': {
+      src: '/assets/img/site-materials/home-audience-professionals-bg.webp',
+      filename: 'home-audience-professionals-bg.webp',
+      mimeType: 'image/webp',
+      size: 10358,
+      updatedAt: '2026-07-31T00:00:00.000Z'
+    },
+    'home-audience-cards': [
+      {
+        id: 'residential',
+        tagZh: '家用',
+        tagEn: 'RESIDENTIAL',
+        title: '为家庭打造的舒适系统',
+        description: '热水 · 采暖为核心，兼顾制冷，全屋舒适一站解决',
+        primaryLabel: '热水 Water →',
+        primaryHref: '/products/residential/water-heating/',
+        secondaryLabel: '采暖制冷 Air →',
+        secondaryHref: '/products/residential/heating-cooling/',
+        visible: true,
+        sortOrder: 0
+      },
+      {
+        id: 'commercial',
+        tagZh: '商用',
+        tagEn: 'COMMERCIAL',
+        title: '为建筑而生的工程系统',
+        description: '酒店 · 公寓 · 综合体，高并发连续供热水、稳定供暖，兼顾供冷',
+        primaryLabel: '热水 Water →',
+        primaryHref: '/products/commercial/water-heating/',
+        secondaryLabel: '采暖制冷 Air →',
+        secondaryHref: '/products/commercial/heating-cooling/',
+        visible: true,
+        sortOrder: 1
+      },
+      {
+        id: 'professionals',
+        tagZh: '专业人士',
+        tagEn: 'PROFESSIONALS',
+        title: '为经销商与工程师赋能',
+        description: '培训 · 技术资料 · BIM/CAD · 合作计划',
+        primaryLabel: '专业人士中心 →',
+        primaryHref: '/professionals/',
+        secondaryLabel: '查找经销商 →',
+        secondaryHref: '/find-a-pro/',
+        visible: true,
+        sortOrder: 2
+      }
+    ]
+  };
+
   var MATERIALS = {
     'home-hero': function (asset) {
       var desktop = document.querySelector('.hero-poster-desktop');
@@ -30,11 +95,17 @@
   function setBackground(selector, src) {
     var node = document.querySelector(selector);
     if (!node) return;
+    if (node.classList && node.classList.contains('entry-card')) {
+      node.style.setProperty('--entry-bg-image', 'url("' + src + '")');
+      node.style.setProperty('--entry-bg-size', 'cover');
+      node.style.setProperty('--entry-bg-position', 'center center');
+      return;
+    }
     node.style.backgroundImage = 'url("' + src + '")';
   }
 
   function applyMaterials(manifest) {
-    if (!manifest || typeof manifest !== 'object') return;
+    manifest = Object.assign({}, DEFAULT_MANIFEST, manifest && typeof manifest === 'object' ? manifest : {});
     applyHeroCarousel(manifest['home-hero-carousel']);
     applyAudienceCards(manifest['home-audience-cards']);
     Object.keys(MATERIALS).forEach(function (key) {
@@ -140,7 +211,7 @@
         return response.ok ? response.json() : null;
       })
       .then(applyMaterials)
-      .catch(function () {});
+      .catch(function () { applyMaterials(DEFAULT_MANIFEST); });
   }
 
   if (document.readyState === 'loading') {

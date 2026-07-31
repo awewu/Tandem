@@ -1,10 +1,11 @@
-import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '../auth/auth.guard';
 import { JwtPayload } from '../auth/auth.service';
 import {
   GrowthCampaignService,
   GrowthCopyService,
   GrowthGeoService,
+  GrowthMarketingMaterialService,
   GrowthOpinionService,
 } from './growth.service';
 
@@ -22,6 +23,7 @@ export class GrowthController {
     private readonly copy: GrowthCopyService,
     private readonly geo: GrowthGeoService,
     private readonly campaign: GrowthCampaignService,
+    private readonly materials: GrowthMarketingMaterialService,
   ) {}
 
   // ── E1 舆情监测 ──
@@ -50,12 +52,56 @@ export class GrowthController {
   @UseGuards(AuthGuard) @Post('copy/:id/approve')
   approveCopy(@Req() req: AuthRequest, @Param('id') id: string) { return this.copy.approveCopy(req.user, id); }
 
+  @UseGuards(AuthGuard) @Post('copy/:id/reject')
+  rejectCopy(@Req() req: AuthRequest, @Param('id') id: string) { return this.copy.rejectCopy(req.user, id); }
+
+  @UseGuards(AuthGuard) @Patch('copy/:id')
+  updateCopy(@Req() req: AuthRequest, @Param('id') id: string, @Body() body: any) { return this.copy.updateCopy(req.user, id, body); }
+
+  @UseGuards(AuthGuard) @Delete('copy/:id')
+  removeCopy(@Req() req: AuthRequest, @Param('id') id: string) { return this.copy.removeCopy(req.user, id); }
+
   @UseGuards(AuthGuard) @Get('copy')
   listCopy(@Req() req: AuthRequest) { return this.copy.listCopy(req.user); }
 
   // ── E3 GEO 分析 ──
   @UseGuards(AuthGuard) @Post('geo/probe')
   probe(@Req() req: AuthRequest, @Body() body: any) { return this.geo.probe(req.user, body); }
+
+  @UseGuards(AuthGuard) @Post('geo/probe-jobs/run')
+  runProbeJob(@Req() req: AuthRequest, @Body() body: any) { return this.geo.runProbeJob(req.user, body); }
+
+  @UseGuards(AuthGuard) @Post('geo/probe-jobs/stream')
+  async streamProbeJob(@Req() req: AuthRequest, @Body() body: any, @Res() reply: any) {
+    reply.raw.writeHead(200, {
+      'content-type': 'text/event-stream; charset=utf-8',
+      'cache-control': 'no-cache, no-transform',
+      connection: 'keep-alive',
+    });
+    const emit = (event: Record<string, unknown>) => {
+      reply.raw.write(`data: ${JSON.stringify(event)}\n\n`);
+    };
+    try {
+      await this.geo.streamProbeJob(req.user, body, emit);
+    } finally {
+      reply.raw.end();
+    }
+  }
+
+  @UseGuards(AuthGuard) @Get('geo/probe-jobs')
+  listProbeJobs(@Req() req: AuthRequest) { return this.geo.listProbeJobs(req.user); }
+
+  @UseGuards(AuthGuard) @Get('geo/probe-jobs/:id')
+  getProbeJob(@Req() req: AuthRequest, @Param('id') id: string) { return this.geo.getProbeJob(req.user, id); }
+
+  @UseGuards(AuthGuard) @Post('geo/probe-batches/run')
+  runProbeBatch(@Req() req: AuthRequest, @Body() body: any) { return this.geo.runProbeBatch(req.user, body); }
+
+  @UseGuards(AuthGuard) @Get('geo/probe-batches')
+  listProbeBatches(@Req() req: AuthRequest, @Query() query: any) { return this.geo.listProbeBatches(req.user, query); }
+
+  @UseGuards(AuthGuard) @Get('geo/probe-batches/:id')
+  getProbeBatch(@Req() req: AuthRequest, @Param('id') id: string) { return this.geo.getProbeBatch(req.user, id); }
 
   @UseGuards(AuthGuard) @Get('geo/visibility')
   visibility(@Req() req: AuthRequest) { return this.geo.visibilityReport(req.user); }
@@ -69,11 +115,46 @@ export class GrowthController {
   @UseGuards(AuthGuard) @Post('geo/question-set')
   geoQuestionSet(@Req() req: AuthRequest, @Body() body: any) { return this.geo.questionSet(req.user, body); }
 
+  @UseGuards(AuthGuard) @Post('geo/questions')
+  createGeoQuestion(@Req() req: AuthRequest, @Body() body: any) { return this.geo.createGeoQuestion(req.user, body); }
+
+  @UseGuards(AuthGuard) @Patch('geo/questions/:id')
+  updateGeoQuestion(@Req() req: AuthRequest, @Param('id') id: string, @Body() body: any) { return this.geo.updateGeoQuestion(req.user, id, body); }
+
+  @UseGuards(AuthGuard) @Post('geo/questions/:id/disable')
+  disableGeoQuestion(@Req() req: AuthRequest, @Param('id') id: string) { return this.geo.disableGeoQuestion(req.user, id); }
+
+  @UseGuards(AuthGuard) @Delete('geo/questions/:id')
+  removeGeoQuestion(@Req() req: AuthRequest, @Param('id') id: string) { return this.geo.removeGeoQuestion(req.user, id); }
+
+  @UseGuards(AuthGuard) @Post('geo/question-set/save-generated')
+  saveGeneratedGeoQuestions(@Req() req: AuthRequest, @Body() body: any) { return this.geo.saveGeneratedGeoQuestions(req.user, body); }
+
   @UseGuards(AuthGuard) @Post('geo/probe-worklist')
   geoProbeWorklist(@Req() req: AuthRequest, @Body() body: any) { return this.geo.probeWorklist(req.user, body); }
 
   @UseGuards(AuthGuard) @Post('geo/structured-data')
   geoStructuredData(@Req() req: AuthRequest, @Body() body: any) { return this.geo.structuredData(req.user, body); }
+
+  @UseGuards(AuthGuard) @Post('geo/optimization-content')
+  geoOptimizationContent(@Req() req: AuthRequest, @Body() body: any) { return this.geo.generateOptimizationContent(req.user, body); }
+
+  @UseGuards(AuthGuard) @Post('geo/optimization-content/stream')
+  async streamGeoOptimizationContent(@Req() req: AuthRequest, @Body() body: any, @Res() reply: any) {
+    reply.raw.writeHead(200, {
+      'content-type': 'text/event-stream; charset=utf-8',
+      'cache-control': 'no-cache, no-transform',
+      connection: 'keep-alive',
+    });
+    const emit = (event: Record<string, unknown>) => {
+      reply.raw.write(`data: ${JSON.stringify(event)}\n\n`);
+    };
+    try {
+      await this.geo.streamOptimizationContent(req.user, body, emit);
+    } finally {
+      reply.raw.end();
+    }
+  }
 
   // ── E4 营销自动化 ──
   @UseGuards(AuthGuard) @Post('campaigns')
@@ -87,4 +168,32 @@ export class GrowthController {
 
   @UseGuards(AuthGuard) @Get('campaigns/roi-board')
   roiBoard(@Req() req: AuthRequest) { return this.campaign.roiBoard(req.user); }
+
+  // ── E5 营销物料库 ──
+  @UseGuards(AuthGuard) @Post('materials')
+  createMaterial(@Req() req: AuthRequest, @Body() body: any) { return this.materials.createMaterial(req.user, body); }
+
+  @UseGuards(AuthGuard) @Get('materials')
+  listMaterials(@Req() req: AuthRequest, @Query() query: any) { return this.materials.listMaterials(req.user, query); }
+
+  @UseGuards(AuthGuard) @Get('materials/:id')
+  getMaterial(@Req() req: AuthRequest, @Param('id') id: string) { return this.materials.getMaterial(req.user, id); }
+
+  @UseGuards(AuthGuard) @Patch('materials/:id')
+  updateMaterial(@Req() req: AuthRequest, @Param('id') id: string, @Body() body: any) { return this.materials.updateMaterial(req.user, id, body); }
+
+  @UseGuards(AuthGuard) @Post('materials/:id/approve')
+  approveMaterial(@Req() req: AuthRequest, @Param('id') id: string, @Body() body: any) { return this.materials.approveMaterial(req.user, id, body); }
+
+  @UseGuards(AuthGuard) @Post('materials/:id/publish')
+  publishMaterial(@Req() req: AuthRequest, @Param('id') id: string) { return this.materials.publishMaterial(req.user, id); }
+
+  @UseGuards(AuthGuard) @Post('materials/:id/download')
+  recordMaterialDownload(@Req() req: AuthRequest, @Param('id') id: string) { return this.materials.recordDownload(req.user, id); }
+
+  @UseGuards(AuthGuard) @Post('materials/:id/archive')
+  archiveMaterial(@Req() req: AuthRequest, @Param('id') id: string) { return this.materials.archiveMaterial(req.user, id); }
+
+  @UseGuards(AuthGuard) @Delete('materials/:id')
+  removeMaterial(@Req() req: AuthRequest, @Param('id') id: string) { return this.materials.removeMaterial(req.user, id); }
 }

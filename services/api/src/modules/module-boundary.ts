@@ -13,6 +13,7 @@ export const apiModuleBoundary = [
   'analytics',
   'governance',
   'file-artifact',
+  'site-materials',
   'notification',
   'workflow',
   'compliance',
@@ -216,6 +217,17 @@ export const apiModuleBoundarySpecs: Record<ApiModuleName, ApiModuleBoundarySpec
     requiresAuditLog: true,
     requiresOpenApiContract: true,
     writeApisRequireOutbox: true
+  },
+  'site-materials': {
+    name: 'site-materials',
+    apiNamespace: '/api/v2/site-materials',
+    owner: 'brand-experience',
+    productSurface: 'brand site local materials, Everhot banner carousel, and public preview assets',
+    dataStores: ['filesystem', 'object-storage'],
+    requiresTenantScope: true,
+    requiresAuditLog: true,
+    requiresOpenApiContract: true,
+    writeApisRequireOutbox: false
   },
   notification: {
     name: 'notification',

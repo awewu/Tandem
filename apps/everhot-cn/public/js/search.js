@@ -49,7 +49,7 @@
       var hay=[p.name,p.en,p.series,p.tagline].concat((p.badges||[]),(p.specs||[]).map(function(s){return s.k+s.v;})).join(' ');
       return matchAll(hay, toks);
     }).map(function(p){
-      return {title:p.name, sub:p.series||'', desc:p.tagline||'', url:'products/detail/?model='+encodeURIComponent(p.slug), tag:'产品', ic:p.icon||'🔧'};
+      return {title:p.name, sub:p.series||'', desc:p.tagline||'', url:'products/detail/'+encodeURIComponent(p.slug)+'/', tag:'产品', ic:p.icon||'🔧'};
     });
   }
   function searchDealers(toks){

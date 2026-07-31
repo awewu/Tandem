@@ -329,7 +329,7 @@
           h+='<p class="selw-rec-tag">'+e(p.tagline)+'</p>';
           if(hi) h+='<div class="selw-hls">'+hi+'</div>';
           if(reasons) h+='<div class="selw-reasons">'+reasons+'</div>';
-          h+='<a class="btn btn-brand" style="font-size:13px;width:100%;text-align:center;margin-top:auto" href="'+BASE+'/products/detail/?model='+e(p.slug)+'">查看详情</a>';
+          h+='<a class="btn btn-brand" style="font-size:13px;width:100%;text-align:center;margin-top:auto" href="'+BASE+'/products/detail/'+e(p.slug)+'/">查看详情</a>';
           h+='</div>';
         });
         h+='</div>';

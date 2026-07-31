@@ -7,25 +7,25 @@
     "updatedAt": "2026-07-24T10:32:40.735Z"
   },
   "brand-story": {
-    "src": "/assets/img/site-materials/brand-story.webp",
-    "filename": "home-card-2.webp",
+    "src": "/assets/img/site-materials/home-audience-residential-bg.webp",
+    "filename": "home-audience-residential-bg.webp",
     "mimeType": "image/webp",
-    "size": 26424,
-    "updatedAt": "2026-07-24T10:32:43.639Z"
+    "size": 9554,
+    "updatedAt": "2026-07-31T06:49:00.730Z"
   },
   "service-banner": {
-    "src": "/assets/img/site-materials/service-banner.webp",
-    "filename": "home-card-2.webp",
+    "src": "/assets/img/site-materials/home-audience-commercial-bg.webp",
+    "filename": "home-audience-commercial-bg.webp",
     "mimeType": "image/webp",
-    "size": 26424,
-    "updatedAt": "2026-07-24T10:32:46.763Z"
+    "size": 9498,
+    "updatedAt": "2026-07-31T06:49:00.730Z"
   },
   "footer-cert": {
-    "src": "/assets/img/site-materials/footer-cert.webp",
-    "filename": "home-card-2.webp",
+    "src": "/assets/img/site-materials/home-audience-professionals-bg.webp",
+    "filename": "home-audience-professionals-bg.webp",
     "mimeType": "image/webp",
-    "size": 26424,
-    "updatedAt": "2026-07-24T10:32:50.437Z"
+    "size": 10358,
+    "updatedAt": "2026-07-31T06:49:00.730Z"
   },
   "home-audience-cards": [
     {
@@ -70,28 +70,16 @@
   ],
   "home-hero-carousel": [
     {
-      "id": "hero-1785307919239-0",
-      "src": "/assets/img/site-materials/hero-1785307919239-0.jpg",
-      "filename": "1408177635.jpg",
+      "id": "hero-1785467096246-0",
+      "src": "/assets/img/site-materials/hero-1785467096246-0.jpg",
+      "filename": "首页banner(1).jpg",
       "mimeType": "image/jpeg",
-      "size": 108748,
-      "updatedAt": "2026-07-29T06:51:59.241Z",
-      "linkUrl": "https://www.rheemchina.com/news/21.html",
+      "size": 837075,
+      "updatedAt": "2026-07-31T03:04:56.250Z",
+      "linkUrl": "",
       "remark": "",
       "visible": true,
       "sortOrder": 0
-    },
-    {
-      "id": "hero-1785307919239-1",
-      "src": "/assets/img/site-materials/hero-1785307919239-1.png",
-      "filename": "1637386633.png",
-      "mimeType": "image/png",
-      "size": 71222,
-      "updatedAt": "2026-07-29T06:51:59.242Z",
-      "linkUrl": "https://www.rheemchina.com/news/21.html",
-      "remark": "",
-      "visible": true,
-      "sortOrder": 1
     }
   ]
 }

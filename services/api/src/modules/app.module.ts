@@ -35,6 +35,7 @@ import { AftersalesModule } from './aftersales/aftersales.module';
 import { NotificationModule } from './notification/notification.module';
 import { ProductCatalogModule } from './product-catalog/product-catalog.module';
 import { QuoteModule } from './quote/quote.module';
+import { SiteMaterialsModule } from './site-materials/site-materials.module';
 import { TenantModule } from './tenant/tenant.module';
 import { WorkflowModule } from './workflow/workflow.module';
 import { TARGET_API_BOOT_SMOKE, BootSmokeInfraModule } from './boot-smoke';
@@ -92,6 +93,7 @@ import { TARGET_API_BOOT_SMOKE, BootSmokeInfraModule } from './boot-smoke';
     AnalyticsModule,
     GovernanceModule,
     FileArtifactModule,
+    SiteMaterialsModule,
     NotificationModule,
     WorkflowModule,
     IngressModule,

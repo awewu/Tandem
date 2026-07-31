@@ -14,6 +14,7 @@ export interface GeoEngineDef {
 }
 
 export const GEO_ENGINES: GeoEngineDef[] = [
+  { engine: 'hermes-center-ai', label: '中心 AI（Hermes）', region: 'cn', credentialEnv: 'HERMES_CENTER_AI_BASE_URL' },
   { engine: 'doubao', label: '豆包', region: 'cn', credentialEnv: 'GROWTH_GEO_DOUBAO_KEY' },
   { engine: 'deepseek', label: 'DeepSeek', region: 'cn', credentialEnv: 'GROWTH_GEO_DEEPSEEK_KEY' },
   { engine: 'yuanbao', label: '腾讯元宝', region: 'cn', credentialEnv: 'GROWTH_GEO_YUANBAO_KEY' },
@@ -28,13 +29,15 @@ export const GEO_ENGINES: GeoEngineDef[] = [
 ];
 
 export interface GeoEngineStatus extends GeoEngineDef {
-  status: 'ready' | 'not-configured';
+  status: 'ready' | 'not-configured' | 'pending-adapter';
 }
 
 export function geoEngineStatuses(): GeoEngineStatus[] {
   return GEO_ENGINES.map((e) => ({
     ...e,
-    status: process.env[e.credentialEnv] ? 'ready' : 'not-configured',
+    status: e.engine === 'hermes-center-ai'
+      ? (process.env[e.credentialEnv] ? 'ready' : 'not-configured')
+      : 'pending-adapter',
   }));
 }
 

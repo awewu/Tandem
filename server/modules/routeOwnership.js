@@ -16,6 +16,7 @@ const ROUTE_OWNERSHIP = [
   { prefix: '/api/v2/contracts',  owner: 'server/modules/contracts',        status: 'production' },
   { prefix: '/api/v2/diagnosis',  owner: 'services/api/src/modules/diagnosis', status: 'production' },
   { prefix: '/api/v2/file-artifact', owner: 'services/api/src/modules/file-artifact', status: 'production' },
+  { prefix: '/api/v2/site-materials', owner: 'services/api/src/modules/site-materials', status: 'production' },
   { prefix: '/api/v2/growth',     owner: 'services/api/src/modules/growth', status: 'production' },
   { prefix: '/api/v2/design/projects', owner: 'server/modules/design', nestjsOwner: 'services/api/src/modules/design', status: 'production' },
   { prefix: '/api/v2/health',     owner: 'server/modules/health',                                                              status: 'production' },

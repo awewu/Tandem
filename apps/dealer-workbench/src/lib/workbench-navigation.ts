@@ -76,7 +76,7 @@ export const WORKBENCH_NAV: WorkbenchNavItem[] = [
       { key: 'copywriter', label: '文案 Copilot', href: '/growth/copywriter', icon: PenTool },
       { key: 'sentiment', label: '舆情雷达', href: '/growth/sentiment', icon: Radio },
       { key: 'automation', label: '营销自动化', href: '/growth/automation', icon: Zap },
-      { key: 'materials', label: '营销物料库', href: '/growth/materials', icon: FolderOpen },
+      { key: 'materials', label: '营销物料库管理', href: '/growth/materials', icon: FolderOpen },
     ],
   },
   {

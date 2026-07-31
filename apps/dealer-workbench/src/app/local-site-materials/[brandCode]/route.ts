@@ -60,6 +60,77 @@ const MIME_EXTENSIONS: Record<string, string> = {
   'image/gif': 'gif',
 };
 
+const DEFAULT_UPDATED_AT = '2026-07-31T00:00:00.000Z';
+
+const DEFAULT_MANIFEST: Partial<
+  Record<SiteMaterialKey, { src: string; filename: string; mimeType: string; size: number; updatedAt: string }> &
+    Record<SiteHeroCarouselKey, SiteHeroCarouselItem[]> &
+    Record<SiteAudienceCardsKey, SiteAudienceCardItem[]>
+> = {
+  'brand-story': {
+    src: '/assets/img/site-materials/home-audience-residential-bg.webp',
+    filename: 'home-audience-residential-bg.webp',
+    mimeType: 'image/webp',
+    size: 9554,
+    updatedAt: DEFAULT_UPDATED_AT,
+  },
+  'service-banner': {
+    src: '/assets/img/site-materials/home-audience-commercial-bg.webp',
+    filename: 'home-audience-commercial-bg.webp',
+    mimeType: 'image/webp',
+    size: 9498,
+    updatedAt: DEFAULT_UPDATED_AT,
+  },
+  'footer-cert': {
+    src: '/assets/img/site-materials/home-audience-professionals-bg.webp',
+    filename: 'home-audience-professionals-bg.webp',
+    mimeType: 'image/webp',
+    size: 10358,
+    updatedAt: DEFAULT_UPDATED_AT,
+  },
+  'home-audience-cards': [
+    {
+      id: 'residential',
+      tagZh: '家用',
+      tagEn: 'RESIDENTIAL',
+      title: '为家庭打造的舒适系统',
+      description: '热水 · 采暖为核心，兼顾制冷，全屋舒适一站解决',
+      primaryLabel: '热水 Water →',
+      primaryHref: '/products/residential/water-heating/',
+      secondaryLabel: '采暖制冷 Air →',
+      secondaryHref: '/products/residential/heating-cooling/',
+      visible: true,
+      sortOrder: 0,
+    },
+    {
+      id: 'commercial',
+      tagZh: '商用',
+      tagEn: 'COMMERCIAL',
+      title: '为建筑而生的工程系统',
+      description: '酒店 · 公寓 · 综合体，高并发连续供热水、稳定供暖，兼顾供冷',
+      primaryLabel: '热水 Water →',
+      primaryHref: '/products/commercial/water-heating/',
+      secondaryLabel: '采暖制冷 Air →',
+      secondaryHref: '/products/commercial/heating-cooling/',
+      visible: true,
+      sortOrder: 1,
+    },
+    {
+      id: 'professionals',
+      tagZh: '专业人士',
+      tagEn: 'PROFESSIONALS',
+      title: '为经销商与工程师赋能',
+      description: '培训 · 技术资料 · BIM/CAD · 合作计划',
+      primaryLabel: '专业人士中心 →',
+      primaryHref: '/professionals/',
+      secondaryLabel: '查找经销商 →',
+      secondaryHref: '/find-a-pro/',
+      visible: true,
+      sortOrder: 2,
+    },
+  ],
+};
+
 export async function GET(req: Request, context: RouteContext) {
   const params = await Promise.resolve(context.params);
   if (params.brandCode !== 'everhot') {
@@ -208,11 +279,19 @@ export async function PUT(req: Request, context: RouteContext) {
     return NextResponse.json({ error: 'only everhot site materials are supported' }, { status: 404 });
   }
 
-  let body: { key?: string; items?: SiteHeroCarouselItem[] | SiteAudienceCardItem[] };
+  let body: { key?: string; items?: SiteHeroCarouselItem[] | SiteAudienceCardItem[]; resetDefault?: boolean };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: 'invalid request body' }, { status: 400 });
+  }
+
+  const materialKey = body.key as SiteMaterialKey;
+  if (body.resetDefault === true && MATERIAL_KEYS.has(materialKey)) {
+    const manifest = await readManifest();
+    manifest[materialKey] = DEFAULT_MANIFEST[materialKey];
+    await writeFile(MANIFEST_PATH, JSON.stringify(manifest, null, 2), 'utf8');
+    return NextResponse.json({ data: manifest[materialKey] });
   }
 
   if (body.key === 'home-audience-cards' && Array.isArray(body.items)) {
@@ -275,9 +354,10 @@ async function readManifest(): Promise<
   >
 > {
   try {
-    return JSON.parse(await readFile(MANIFEST_PATH, 'utf8'));
+    const manifest = JSON.parse(await readFile(MANIFEST_PATH, 'utf8'));
+    return { ...DEFAULT_MANIFEST, ...manifest };
   } catch {
-    return {};
+    return { ...DEFAULT_MANIFEST };
   }
 }
 

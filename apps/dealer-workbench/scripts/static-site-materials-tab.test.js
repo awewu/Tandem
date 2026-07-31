@@ -14,6 +14,7 @@ const sourcePath = path.join(
 );
 
 const source = fs.readFileSync(sourcePath, 'utf8');
+const apiSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'lib', 'api.ts'), 'utf8');
 const everhotPublicPath = path.join(__dirname, '..', '..', 'everhot-cn', 'public');
 const siteMaterialsJs = fs.readFileSync(path.join(everhotPublicPath, 'js', 'site-materials.js'), 'utf8');
 const homepageHtml = fs.readFileSync(path.join(everhotPublicPath, 'index.html'), 'utf8');
@@ -43,6 +44,11 @@ test('simulated non-product website material records cover expected website area
 
 test('materials tab syncs through the local homepage manifest without DAM wiring', () => {
   assert.match(source, /siteMaterials\.upload/);
+  assert.match(source, /resetMaterialDefault/);
+  assert.match(source, /siteMaterials\.resetDefault\(brandCode, key\)/);
+  assert.match(source, />\s*恢复默认\s*<\/button>/);
+  assert.match(apiSource, /resetDefault:\s*\(brandCode: string, key: string\)/);
+  assert.match(apiSource, /JSON\.stringify\(\{ key, resetDefault: true \}\)/);
   assert.match(source, /siteMaterials\.saveModule\(brandCode, 'home-audience-cards'/);
   assert.match(source, /homepageSrc/);
   assert.doesNotMatch(source, /brandSites\.(materials|assets|dam)/);

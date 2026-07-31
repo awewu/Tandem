@@ -4,6 +4,15 @@ import * as path from 'path';
 import { BrandBrainService } from './brand-brain.service';
 import { geoEngineStatuses, GeoEngineStatus } from './geo-engines';
 
+const GEO_BRAND_DISPLAY_NAMES: Record<string, string> = {
+  rheem: '瑞美 Rheem',
+  ruud: '瑞德 Ruud',
+  everhot: '恒热 Everhot',
+  'rheem-cn': '瑞美 Rheem',
+  'ruud-cn': '瑞德 Ruud',
+  'everhot-cn': '恒热 Everhot',
+};
+
 /**
  * 增长中枢 · E3 GEO Analyzer 核心分析器（G1）。
  *
@@ -57,13 +66,6 @@ export interface GeoTask {
 const RECOMMEND_CUES = ['推荐', '首选', '值得', '不错', '优选', '建议选', '口碑好', '靠谱', '领先', '知名'];
 const NEGATIVE_CUES = ['差', '坑', '不推荐', '避雷', '故障', '漏水', '投诉', '贵', '不值', '难用', '踩雷', '虚标'];
 const SPEC_PATTERN = /(\d+(?:\.\d+)?\s*(?:年|L|升|kW|W|℃|度|%|级|米|m|mm|万|元|dB|分贝|Hz|匹|P))/;
-
-// 暖通/热水器品类主流竞品（用于答案中自动识别竞品占位，无需调用方逐次传入）。
-const KNOWN_COMPETITORS = [
-  'A.O.史密斯', 'AO史密斯', '史密斯', '海尔', '美的', '万和', '万家乐', '林内', '能率',
-  '博世', 'BOSCH', '威能', '菲斯曼', '华帝', '方太', '樱花', '前锋', '帅康', '斯宝亚创',
-  '格力', '西门子', '阿里斯顿', '火王', '小米',
-];
 
 @Injectable()
 export class GeoAnalyzerService {
@@ -119,8 +121,8 @@ export class GeoAnalyzerService {
     }
     const weCited = citationRank !== null;
 
-    // 竞品候选 = 调用方给定 + 品类已知竞品（自动识别，去重、去掉与我方重名的项）。
-    const candidateCompetitors = [...new Set([...competitors, ...KNOWN_COMPETITORS])]
+    // 竞品候选只使用本次探测显式给定的名单，避免未配置时冒出默认竞品。
+    const candidateCompetitors = [...new Set(competitors)]
       .filter((c) => c && !names.includes(c));
     const competitorsCited = [...new Set(candidateCompetitors.filter((c) => text.includes(c)))];
 
@@ -194,7 +196,7 @@ export class GeoAnalyzerService {
    */
   generateQuestionSet(brandSlug?: string | null, category = '家用热水与舒适系统'): QuestionSet {
     const ctx = this.brandBrain.context(brandSlug ?? null);
-    const brand = ctx ? ctx.name : '瑞合瑞德';
+    const brand = brandSlug ? (GEO_BRAND_DISPLAY_NAMES[brandSlug] || ctx?.name || brandSlug) : '瑞美 Rheem';
     const questions: QuestionSet['questions'] = [
       { stage: 'pre', question: `${category}怎么选？有哪些值得推荐的品牌？` },
       { stage: 'pre', question: `${category}主流品牌对比，哪个口碑好？` },

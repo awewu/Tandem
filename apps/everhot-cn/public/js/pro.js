@@ -64,7 +64,7 @@
     }
     function row(p){
       var spec=(p.specs||[]).slice(0,2).map(function(s){return e(s.k)+' '+e(s.v);}).join(' · ');
-      return '<a class="pl-row" href="'+BASE+'/products/detail/?model='+e(p.slug)+'">'
+      return '<a class="pl-row" href="'+BASE+'/products/detail/'+e(p.slug)+'/">'
         +'<span class="pl-name">'+e(p.name)+'<small>'+e(p.en||'')+'</small></span>'
         +'<span class="pl-series">'+e(p.series||'')+'</span>'
         +'<span class="pl-spec">'+spec+'</span>'

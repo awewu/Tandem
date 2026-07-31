@@ -59,3 +59,44 @@ test('official detail images are constrained to 750px in the editor preview', ()
   assert.match(source, /height: auto;/);
   assert.match(source, /margin: 12px auto;/);
 });
+
+test('product catalog resolves uploaded images and avoids browser popups', () => {
+  assert.match(source, /function productMainImageSrc/);
+  assert.match(source, /function productAssetUrl/);
+  assert.match(source, /artifactContentUrl\(ref\.artifactId \|\| ref\.id\)/);
+  assert.match(source, /const \{ alertFloating, promptFloating, floatingDialog \} = useFloatingDialog\(\)/);
+  assert.doesNotMatch(source, /window\.(confirm|prompt|alert)\(/);
+});
+
+test('product catalog create and edit share manual pdf management', () => {
+  assert.match(source, /function ProductManualPdfUploader/);
+  assert.match(source, /function ProductManualPdfItem/);
+  assert.match(source, /manualPdfs: savedProductManualPdfs\(product\)/);
+  assert.match(source, /const manualPdfRefs = await uploadProductManualPdfRefs\(draft\.manualPdfs/);
+  assert.match(source, /if \(isManualPdfAsset\(ref\)\) return false;/);
+  assert.match(source, /<ProductManualPdfUploader[\s\S]*?manualPdfs=\{draft\.manualPdfs\}/);
+  assert.match(source, /product-manual-pdf-upload-row/);
+  assert.match(source, /product-manual-pdf-inline-list/);
+  assert.match(source, /product-manual-pdf-chip/);
+  assert.match(source, /product-manual-pdf-remove/);
+  assert.doesNotMatch(source, /product-manual-pdf-list/);
+  assert.doesNotMatch(source, /product-manual-pdf-item/);
+  assert.doesNotMatch(source, /<iframe title=\{`PDF preview/);
+});
+
+test('product catalog edit opens the brand-style modal instead of inline table editing', () => {
+  const row = source.slice(source.indexOf('function ProductCatalogRow('), source.indexOf('function OfficialProductDetailEditor('));
+  assert.match(row, /const editDialog = canUpdateProduct && editing && typeof document !== 'undefined'/);
+  assert.match(row, /createPortal\(/);
+  assert.match(row, /className="product-edit-modal"/);
+  assert.match(row, /onClick=\{\(\) => setEditing\(true\)\}/);
+  assert.doesNotMatch(row, /false && canUpdateProduct && editing/);
+  assert.doesNotMatch(row, /editing \? '收起' : '编辑'/);
+});
+
+test('product catalog search defers expensive filtering and count requests', () => {
+  assert.match(source, /const \[deferredKeyword, setDeferredKeyword\] = useState\(''\)/);
+  assert.match(source, /window\.setTimeout\(\(\) => setDeferredKeyword\(keyword\.trim\(\)\), 260\)/);
+  assert.match(source, /const q = deferredKeyword;/);
+  assert.match(source, /const query = deferredKeyword\.toLowerCase\(\);/);
+});

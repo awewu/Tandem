@@ -22,6 +22,12 @@ export interface BrandContext {
   audiences: string[];
 }
 
+const BRAND_BRAIN_ALIASES: Record<string, string> = {
+  rheem: 'rheem-cn',
+  ruud: 'ruud-cn',
+  everhot: 'everhot-cn',
+};
+
 @Injectable()
 export class BrandBrainService {
   private readonly logger = new Logger('GrowthBrandBrain');
@@ -49,10 +55,11 @@ export class BrandBrainService {
   context(brandSlug?: string | null): BrandContext | null {
     if (!brandSlug) return null;
     const data = this.load();
-    const b = (data.brands || {})[brandSlug];
+    const resolvedSlug = BRAND_BRAIN_ALIASES[brandSlug] || brandSlug;
+    const b = (data.brands || {})[resolvedSlug];
     if (!b) return null;
     return {
-      slug: brandSlug,
+      slug: resolvedSlug,
       name: b.name || brandSlug,
       positioning: b.positioning || '',
       facts: b.facts || [],

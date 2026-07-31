@@ -11,6 +11,7 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
+const vm = require('vm');
 
 const REPO_ROOT = path.join(__dirname, '..', '..', '..');
 const PARENT_ORG = 'Rhautt Comfort 瑞合瑞德暖通科技集团';
@@ -50,9 +51,14 @@ function listHtml(dir) {
 // file path -> production URL path (strip index.html, ensure trailing slash)
 function urlPathOf(file) {
   let rel = path.relative(CTX.dir, file).split(path.sep).join('/');
-  rel = rel.replace(/index\.html$/, '');
+  if (rel.endsWith('index.html')) {
+    rel = rel.replace(/index\.html$/, '');
+    if (!rel.startsWith('/')) rel = '/' + rel;
+    if (rel !== '/' && !rel.endsWith('/')) rel += '/';
+    return rel;
+  }
+  if (rel.endsWith('.html')) rel = rel.replace(/\.html$/, '');
   if (!rel.startsWith('/')) rel = '/' + rel;
-  if (rel !== '/' && !rel.endsWith('/')) rel += '/';
   return rel;
 }
 
@@ -89,6 +95,8 @@ function pageSchemas(urlPath, title, desc) {
   const url = CTX.base + urlPath;
   const BASE = CTX.base, BRAND = CTX.brand, OG_IMAGE = CTX.ogImage;
   const schemas = [];
+  const productSlug = (/^\/products\/detail\/([^/]+)\/$/.exec(urlPath) || [])[1];
+  const product = productSlug && CTX.productsBySlug ? CTX.productsBySlug[decodeURIComponent(productSlug)] : null;
 
   if (urlPath === '/') {
     schemas.push({
@@ -103,6 +111,21 @@ function pageSchemas(urlPath, title, desc) {
       '@context': 'https://schema.org', '@type': 'WebSite',
       name: BRAND, url: BASE, inLanguage: 'zh-CN',
       publisher: { '@type': 'Organization', name: PARENT_ORG },
+    });
+  } else if (product) {
+    schemas.push({
+      '@context': 'https://schema.org', '@type': 'Product',
+      name: product.name || title,
+      sku: product.sku || product.slug || productSlug,
+      model: product.model || product.slug || productSlug,
+      brand: { '@type': 'Brand', name: 'Everhot 恒热' },
+      category: product.websiteCategory || product.categoryPath || product.category || 'Everhot 产品',
+      description: product.summary || product.tagline || desc,
+      image: product.image ? new URL(product.image, BASE).href : OG_IMAGE,
+      url,
+      additionalProperty: Array.isArray(product.specs)
+        ? product.specs.map((item) => ({ '@type': 'PropertyValue', name: item.k, value: item.v }))
+        : [],
     });
   } else if (/^\/products\//.test(urlPath)) {
     // 产品列表/类目页：CollectionPage + ItemList（满足 GEO 门 product 页要求）
@@ -178,12 +201,26 @@ function pickOgImage(site) {
   return site.base + '/assets/img/hero-poster-desktop.webp';
 }
 
+function loadProductsBySlug(site) {
+  const file = path.join(site.dir, 'js', 'products-data.js');
+  if (!fs.existsSync(file)) return {};
+  try {
+    const sandbox = { window: {} };
+    vm.createContext(sandbox);
+    vm.runInContext(fs.readFileSync(file, 'utf8'), sandbox, { filename: file });
+    const products = Array.isArray(sandbox.window.EVERHOT_PRODUCTS) ? sandbox.window.EVERHOT_PRODUCTS : [];
+    return Object.fromEntries(products.filter((p) => p && p.slug).map((p) => [String(p.slug), p]));
+  } catch {
+    return {};
+  }
+}
+
 function buildSite(site) {
   if (!fs.existsSync(site.dir)) {
     console.log(`GEO build: [${site.slug}] skip — no public dir (${path.relative(REPO_ROOT, site.dir)})`);
     return { slug: site.slug, skipped: true };
   }
-  CTX = { dir: site.dir, base: site.base, brand: site.brand, ogImage: pickOgImage(site) };
+  CTX = { dir: site.dir, base: site.base, brand: site.brand, ogImage: pickOgImage(site), productsBySlug: loadProductsBySlug(site) };
   const files = listHtml(site.dir);
   const urls = [];
   let injected = 0;

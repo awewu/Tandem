@@ -169,7 +169,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .btn-light:hover { background: var(--surface); }
 
 /* === HERO — Rheem: full-bleed photo, overlay text on left, no border-radius === */
-.hero { position: relative; min-height: 460px; display: flex; align-items: center; overflow: hidden; background: var(--ink); color: #fff; padding: clamp(52px,6.5vw,84px) 0; }
+.hero { position: relative; min-height: 460px; height: clamp(460px, calc(18.66vw + 321px), 590px); display: flex; align-items: center; overflow: hidden; background: var(--ink); color: #fff; padding: clamp(52px,6.5vw,84px) 0; }
 /* Rheem hero: poster image shown first, looping muted video fades in on top (full-bleed) */
 .hero-media { position: absolute; inset: 0; z-index: 0; }
 .hero-poster, .hero-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center; }
@@ -190,16 +190,24 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .hero::after { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
   background: url("/assets/img/brand/everhot-baseplate.svg") center / cover no-repeat;
   opacity: .55; mix-blend-mode: screen; }
-.hero-content { position: relative; z-index: 2; max-width: 600px; }
-.hero-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: rgba(255,255,255,.55); margin-bottom: 18px; }
-.hero h1 { font-size: var(--fs-display); font-weight: 900; line-height: var(--lh-tight); letter-spacing: var(--tracking-tight); margin-bottom: 12px; }
-.hero p { font-size: 16px; color: rgba(255,255,255,.65); line-height: 1.75; margin-bottom: 36px; }
+.hero-content { position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; max-width: none; margin: 0; padding: clamp(87px, calc(3.53vw + 61px), 112px) clamp(var(--space-4),4vw,var(--space-8)) 0 18.28%; display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-start; }
+.hero-eyebrow { font-family: var(--font); font-size: clamp(16px,1.04vw,20px); font-weight: 400; letter-spacing: 0; text-transform: none; color: #fff; margin-bottom: 9px; text-shadow: none; }
+.hero h1 { display: none; }
+.hero p { font-size: 16px; color: #fff; line-height: 1.75; margin-bottom: 36px; text-shadow: 0 2px 10px rgba(0,0,0,.32); }
 /* 核心产品主张：大户型选恒热，多点用水没烦恼（功能购买理由，仅次于情感主标） */
-.hero-claim { font-size: clamp(17px,2vw,22px); font-weight: 700; color: rgba(255,255,255,.9); line-height: 1.45; letter-spacing: var(--tracking-tight); margin-bottom: 28px; }
+.hero .hero-claim { max-width: clamp(320px,22.9vw,440px); font-size: clamp(42px,3.13vw,60px); font-weight: 900; color: #fff; line-height: 1.02; letter-spacing: 0; margin-bottom: clamp(24px,1.93vw,37px); text-shadow: 0 3px 14px rgba(0,0,0,.34); }
 /* 品牌英文标语：与中文主标配对的显性 brand lockup（凸显、非小字水印） */
-.hero-slogan { display: inline-flex; align-items: center; gap: 14px; font-family: var(--font-head); font-size: clamp(15px,1.7vw,20px); font-weight: 800; letter-spacing: 4px; text-transform: uppercase; color: #fff; margin-bottom: 24px; }
-.hero-slogan::before { content: ""; width: 40px; height: 3px; background: var(--red); display: inline-block; border-radius: 2px; }
-.hero-actions { display: flex; gap: 14px; flex-wrap: wrap; }
+.hero-slogan { display: block; max-width: clamp(430px,27.1vw,520px); font-family: var(--font-head); font-size: clamp(42px,3.13vw,60px); font-weight: 900; letter-spacing: 0; line-height: .92; text-transform: uppercase; color: #fff; margin-bottom: clamp(14px,1.04vw,20px); text-shadow: 0 3px 14px rgba(0,0,0,.34); transform: scaleX(.79); transform-origin: left top; }
+.hero-slogan::before { content: none; }
+.hero .hero-eyebrow::after { content: none; display: none; }
+.hero-actions { display: flex; gap: clamp(14px,0.78vw,15px); flex-wrap: nowrap; }
+.hero-actions .btn-lg { display: inline-flex; align-items: center; justify-content: center; min-width: clamp(150px,8.85vw,170px); min-height: clamp(52px,3.07vw,59px); padding: 0 clamp(22px,1.56vw,30px); font-size: clamp(18px,1.15vw,22px); font-weight: 800; border-radius: 7px; transform: translateY(0) scale(1); box-shadow: 0 0 0 rgba(0,0,0,0); transition: transform .22s cubic-bezier(.16,.84,.44,1), box-shadow .22s ease, background-color .18s ease, border-color .18s ease, color .18s ease; will-change: transform; }
+.hero-actions .btn-brand { background: #d3212b; border-color: #d3212b; }
+.hero-actions .btn-outline-light { background: rgba(43,38,34,.22); border-color: rgba(255,255,255,.9); color: #fff; }
+.hero-actions .btn-lg:hover { transform: translateY(-3px) scale(1.025); box-shadow: 0 12px 28px rgba(0,0,0,.22); }
+.hero-actions .btn-brand:hover { background: #e12630; border-color: #e12630; box-shadow: 0 14px 30px rgba(211,33,43,.32); }
+.hero-actions .btn-outline-light:hover { background: rgba(255,255,255,.14); border-color: #fff; box-shadow: 0 14px 30px rgba(0,0,0,.24); }
+.hero-actions .btn-lg:active { transform: translateY(-1px) scale(.99); }
 /* staggered entrance for hero copy */
 .hero-eyebrow, .hero h1, .hero-slogan, .hero-claim, .hero-actions { opacity: 0; transform: translateY(16px); animation: heroRise .7s cubic-bezier(.16,.84,.44,1) forwards; }
 .hero h1 { animation-delay: .08s; }
@@ -214,22 +222,134 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 
 /* === DUAL ENTRY — Rheem style: full-bleed split, sharp corners === */
 .dual-entry { display: grid; grid-template-columns: 1fr 1fr 1fr; min-height: 300px; }
-.entry-card { position: relative; overflow: hidden; padding: clamp(var(--space-7),5vw,var(--space-10)); display: flex; align-items: flex-end; color: #fff; }
-.entry-res { background: url(/assets/img/home-card1.webp) center/cover no-repeat; }
-.entry-com { background: url(/assets/img/home-card3.webp) center/cover no-repeat; }
-.entry-pro { background: url(/assets/img/home-card-2.webp) center/cover no-repeat, var(--ink); }
-.entry-overlay { position: absolute; inset: 0; background: linear-gradient(0deg, rgba(43,38,34,.85) 0%, rgba(43,38,34,.35) 60%, rgba(43,38,34,.15) 100%); transition: background .2s; }
-.entry-card:hover .entry-overlay { background: linear-gradient(0deg, rgba(43,38,34,.88) 0%, rgba(43,38,34,.45) 60%, rgba(43,38,34,.25) 100%); }
-.entry-text { position: relative; }
-.entry-tag { font-size: 10px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--red); margin-bottom: 10px; background: var(--red-line); display: inline-block; padding: 3px 10px; border-radius: var(--r-sm); }
-.entry-card h2 { font-size: var(--fs-h3); font-weight: 900; letter-spacing: -0.015em; margin-bottom: var(--space-2); }
-.entry-card p { font-size: 13px; color: rgba(255,255,255,.65); margin-bottom: var(--space-4); }
-.entry-link { font-size: 13px; font-weight: 700; color: var(--red); border-bottom: 1px solid var(--red-line-2); padding-bottom: 1px; }
-.entry-card:hover .entry-link { color: var(--red-dk); border-color: var(--red-dk); }
+.entry-card {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(58px, 6.6vw, 72px) clamp(36px, 5.6vw, 88px) 20px;
+  display: flex;
+  align-items: flex-start;
+  color: #111;
+  background-image: var(--entry-bg-image);
+  background-size: var(--entry-bg-size, cover);
+  background-position: var(--entry-bg-position, center center);
+  background-repeat: no-repeat;
+  font-family: "Alibaba PuHuiTi 3.0","AlibabaPuHuiTi-Bold","Alibaba PuHuiTi","PingFang SC","Microsoft YaHei",sans-serif;
+  isolation: isolate;
+}
+.entry-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: linear-gradient(105deg, #b71420 0%, #9e121c 48%, #821018 100%);
+  opacity: 0;
+  transition: opacity .22s ease;
+}
+.entry-card::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 1px;
+  z-index: 4;
+  background: rgba(0,0,0,.08);
+  box-shadow: -18px 0 32px rgba(0,0,0,.08);
+  pointer-events: none;
+}
+.entry-card:first-child::after { display: none; }
+.entry-res {
+  --entry-bg-image: url(/assets/img/site-materials/home-audience-residential-bg.webp);
+  --entry-bg-size: cover;
+  --entry-bg-position: left center;
+  --entry-gradient: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0) 100%);
+}
+.entry-com {
+  --entry-bg-image: url(/assets/img/site-materials/home-audience-commercial-bg.webp);
+  --entry-bg-size: cover;
+  --entry-bg-position: center center;
+  --entry-gradient: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0) 100%);
+}
+.entry-pro {
+  --entry-bg-image: url(/assets/img/site-materials/home-audience-professionals-bg.webp);
+  --entry-bg-size: cover;
+  --entry-bg-position: right center;
+  --entry-gradient: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0) 100%);
+}
+.entry-card:hover::before { opacity: 1; }
+.entry-overlay {
+  display: block;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: var(--entry-gradient);
+  pointer-events: none;
+  transition: opacity .22s ease;
+}
+.entry-card:hover .entry-overlay { opacity: 0; }
+.entry-text { position: relative; z-index: 3; max-width: 430px; }
+.entry-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  margin-bottom: 18px;
+  padding: 5px 16px 6px;
+  border-radius: 4px;
+  background: var(--red);
+  color: #fff;
+  font-size: 13px;
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  transition: background .22s ease, color .22s ease;
+}
+.entry-card:hover .entry-tag { background: #fff; color: var(--red); }
+.entry-card h2 {
+  margin-bottom: 12px;
+  color: #111;
+  font-family: "Alibaba PuHuiTi 3.0","AlibabaPuHuiTi-Bold","Alibaba PuHuiTi","PingFang SC","Microsoft YaHei",sans-serif;
+  font-size: clamp(24px, 2.1vw, 30px);
+  line-height: 1.12;
+  font-weight: 900;
+  letter-spacing: 0;
+  transition: color .22s ease;
+}
+.entry-card p {
+  margin-bottom: 18px;
+  color: rgba(17,17,17,.78);
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 600;
+  letter-spacing: 0;
+  transition: color .22s ease;
+}
+.entry-card:hover h2,
+.entry-card:hover p { color: #fff; }
+.entry-link { font-size: 13px; font-weight: 800; color: #fff; border-bottom: 0; padding-bottom: 0; }
+.entry-card:hover .entry-link { color: #fff; border-color: transparent; }
 /* Air/Water 子入口（rheem.com 式：每卡多条产品大类直达） */
-.entry-links { display: flex; gap: 10px; flex-wrap: wrap; }
-.entry-links a { font-size: 13px; font-weight: 800; color: #fff; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.3); padding: var(--space-2) 14px; border-radius: var(--r-sm); transition: background .15s, border-color .15s, color .15s; }
-.entry-links a:hover { background: var(--red); border-color: var(--red); color: #fff; }
+.entry-links { display: flex; gap: 14px; flex-wrap: wrap; }
+.entry-links a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 104px;
+  height: 33px;
+  padding: 0 14px;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,.24);
+  background: rgba(45,41,38,.46);
+  color: #fff;
+  font-size: 13px;
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: 0;
+  transition: background .18s ease, border-color .18s ease, color .18s ease;
+}
+.entry-links a:hover {
+  background: rgba(255,255,255,.16);
+  border-color: rgba(255,255,255,.72);
+  color: #fff;
+}
 
 /* === 按品类选购 tiles (rheem「Shop by category」parity) === */
 .cat-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 18px; }
@@ -593,6 +713,12 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 @media (max-width: 720px) {
   .hero-poster-desktop { display: none; }
   .hero-poster-mobile { display: block; }
+  .hero-eyebrow { font-size: 13px; margin-bottom: 8px; }
+  .hero h1 { display: none; }
+  .hero-slogan { font-size: clamp(32px,9vw,42px); line-height: .96; margin-bottom: 12px; }
+  .hero .hero-claim { font-size: clamp(28px,8.2vw,38px); line-height: 1.04; margin-bottom: 24px; }
+  .hero-actions { gap: 12px; }
+  .hero-actions .btn-lg { min-width: 138px; min-height: 48px; padding: 0 20px; font-size: 16px; }
 }
 @media (max-width: 480px) {
   .footer-grid { grid-template-columns: 1fr; }

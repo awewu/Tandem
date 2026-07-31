@@ -24,6 +24,7 @@ import { adminRbac, adminUsers, auditLogs, auth } from '../../lib/api';
 import {
   StatusPill,
   WorkbenchFilterToolbar,
+  WorkbenchPaginationFooter,
   WorkbenchSectionHeader,
   WorkbenchTableShell,
   WorkbenchTableState,
@@ -79,6 +80,7 @@ type AuditLogRow = {
   action: string;
   resourceType: string;
   resourceId?: string | null;
+  resourceLabel?: string | null;
   beforeState?: Record<string, unknown> | null;
   afterState?: Record<string, unknown> | null;
   status?: 'success' | 'failed';
@@ -192,6 +194,11 @@ const AUDIT_MODULE_LABEL: Record<string, string> = {
   'brand-site-basic-settings': '基础信息',
   'marketing.content': '咨询/资讯',
   'marketing.assets': '图片素材',
+  'growth.geo': 'GEO 可见度',
+  'growth.copy': 'AI 文案',
+  'growth.opinion': '舆情雷达',
+  'growth.campaigns': '营销活动',
+  'growth.materials': '营销物料',
   'brand.library': '品牌发布',
   'diagnosis.consultation': '咨询问诊',
   'crm.consultation': '客户咨询',
@@ -223,6 +230,11 @@ const AUDIT_MODULE_FILTER_OPTIONS = [
   ['product.content', '产品内容'],
   ['marketing.content', '咨询/资讯'],
   ['marketing.assets', '图片素材'],
+  ['growth.geo', 'GEO 可见度'],
+  ['growth.copy', 'AI 文案'],
+  ['growth.opinion', '舆情雷达'],
+  ['growth.campaigns', '营销活动'],
+  ['growth.materials', '营销物料'],
   ['brand.library', '品牌发布'],
   ['admin.users', '账号管理'],
   ['admin.roles', '角色权限'],
@@ -242,6 +254,9 @@ const AUDIT_ACTION_FILTER_OPTIONS = [
   ['assign_roles', '分配角色'],
   ['assign_permissions', '配置权限'],
 ] as const;
+
+const AUDIT_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+const ACCOUNT_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
 const STATUS_TONE: Record<AdminUser['status'], 'success' | 'neutral' | 'danger'> = {
   active: 'success',
@@ -294,6 +309,211 @@ function displayAuditSummary(action: string, resourceType: string) {
   return `${displayAuditModule(resourceType)} · ${displayAuditAction(action)}`;
 }
 
+function displayAuditResource(log: AuditLogRow) {
+  const states = [log.afterState, log.beforeState].filter(Boolean) as Record<string, unknown>[];
+  const label = String(log.resourceLabel || '').trim();
+  const labelParts = splitAuditLabel(label);
+  const resourceName = labelParts[0] || auditResourceTitle(states) || auditResourceFallback(log);
+  const action = displayAuditAction(log.action);
+  const target = auditTargetLabel(log.resourceType);
+  const primary = resourceName && resourceName !== '-' ? `${action}${target}：${resourceName}` : `${action}${target}`;
+  const id = String(log.resourceId || '').trim();
+  const details = auditDetailParts(states);
+  const secondaryParts = [
+    ...(details.length ? details : auditDetailsFromLabel(log.resourceType, labelParts.slice(1))),
+    id && resourceName !== id ? `ID：${id}` : '',
+  ].filter(Boolean);
+  return {
+    primary,
+    secondary: secondaryParts.join(' / '),
+  };
+}
+
+function auditTargetLabel(resourceType: string) {
+  const labels: Record<string, string> = {
+    'admin.users': '账号',
+    'admin.roles': '角色',
+    product: '产品',
+    'product.catalog': '产品',
+    'product.content': '产品内容',
+    'site-news': '资讯',
+    'site-product-assignment': '官网产品',
+    'brand-site': '品牌站点',
+    'brand-site-basic-settings': '官网基础信息',
+    'marketing.content': '资讯',
+    'marketing.assets': '图片素材',
+    'growth.geo': 'GEO 探测',
+    'growth.copy': 'AI 文案',
+    'growth.opinion': '舆情记录',
+    'growth.campaigns': '营销活动',
+    'growth.materials': '营销物料',
+    'brand.library': '品牌内容',
+    'diagnosis.consultation': '咨询问诊',
+    'crm.consultation': '客户咨询',
+  };
+  return labels[resourceType] || displayAuditModule(resourceType);
+}
+
+function splitAuditLabel(label: string) {
+  return label
+    .split(/\s*[·|/]\s*/g)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function auditDetailsFromLabel(resourceType: string, parts: string[]) {
+  if (!parts.length) return [];
+  if (resourceType === 'growth.materials') {
+    const [materialType, brandSlug, fileFormat] = parts;
+    return [
+      materialType ? `类型：${materialType}` : '',
+      brandSlug ? `品牌：${brandSlug}` : '',
+      fileFormat ? `格式：${fileFormat}` : '',
+    ].filter(Boolean);
+  }
+  if (resourceType === 'growth.geo') {
+    const [category, brandSlug, engine] = parts;
+    return [
+      category ? `品类：${category}` : '',
+      brandSlug ? `品牌：${brandSlug}` : '',
+      engine ? `引擎：${engine}` : '',
+    ].filter(Boolean);
+  }
+  if (resourceType === 'product' || resourceType === 'product.catalog') {
+    const [sku] = parts;
+    return sku ? [`SKU：${sku}`] : [];
+  }
+  return parts.map((item) => `信息：${item}`);
+}
+
+function auditDetailParts(states: Record<string, unknown>[]) {
+  for (const state of states) {
+    const current = auditDetailsFromObject(state);
+    if (current.length) return current;
+    const nested = auditNestedDetails(state);
+    if (nested.length) return nested;
+  }
+  return [];
+}
+
+function auditNestedDetails(state: Record<string, unknown>) {
+  const queue = [state];
+  const seen = new Set<unknown>();
+  while (queue.length) {
+    const current = queue.shift();
+    if (!current || seen.has(current)) continue;
+    seen.add(current);
+    const details = auditDetailsFromObject(current);
+    if (details.length) return details;
+    for (const value of Object.values(current)) {
+      if (Array.isArray(value)) {
+        for (const item of value.slice(0, 8)) {
+          if (item && typeof item === 'object') queue.push(item as Record<string, unknown>);
+        }
+      } else if (value && typeof value === 'object') {
+        queue.push(value as Record<string, unknown>);
+      }
+    }
+  }
+  return [];
+}
+
+function auditDetailsFromObject(value: Record<string, unknown>) {
+  return [
+    labeledAuditText('问题', value, ['question']),
+    labeledAuditText('引擎', value, ['engine']),
+    labeledAuditText('类型', value, ['materialType', 'category', 'kind', 'type']),
+    labeledAuditText('品牌', value, ['brandSlug', 'brand']),
+    labeledAuditText('渠道', value, ['channel']),
+    labeledAuditText('格式', value, ['fileFormat', 'mimeType']),
+    labeledAuditText('版本', value, ['versionLabel']),
+    labeledAuditText('SKU', value, ['sku']),
+    labeledAuditText('型号', value, ['model']),
+    labeledAuditText('路径', value, ['publicSlug', 'slug']),
+    labeledAuditText('AIVS', value, ['aivs']),
+  ].filter(Boolean);
+}
+
+function labeledAuditText(label: string, value: Record<string, unknown>, keys: string[]) {
+  const text = firstAuditText(value, keys);
+  return text ? `${label}：${text}` : '';
+}
+
+function auditResourceFallback(log: AuditLogRow) {
+  const id = String(log.resourceId || '').trim();
+  if (id && !isOpaqueAuditId(id)) return id;
+  return id || '-';
+}
+
+function auditResourceTitle(states: Record<string, unknown>[]) {
+  for (const state of states) {
+    const direct = auditTitleFromObject(state);
+    if (direct) return direct;
+    const nested = auditTitleFromNestedState(state);
+    if (nested) return nested;
+  }
+  return '';
+}
+
+function auditTitleFromNestedState(state: Record<string, unknown>) {
+  const queue = [state];
+  const seen = new Set<unknown>();
+  while (queue.length) {
+    const current = queue.shift();
+    if (!current || seen.has(current)) continue;
+    seen.add(current);
+    const title = auditTitleFromObject(current);
+    if (title) return title;
+    for (const value of Object.values(current)) {
+      if (Array.isArray(value)) {
+        for (const item of value.slice(0, 8)) {
+          if (item && typeof item === 'object') queue.push(item as Record<string, unknown>);
+        }
+      } else if (value && typeof value === 'object') {
+        queue.push(value as Record<string, unknown>);
+      }
+    }
+  }
+  return '';
+}
+
+function auditTitleFromObject(value: Record<string, unknown>) {
+  const name = firstAuditText(value, [
+    'displayName',
+    'productName',
+    'officialName',
+    'name',
+    'title',
+    'headline',
+    'filename',
+    'fileName',
+    'originalName',
+    'label',
+  ]);
+  const detail = firstAuditText(value, ['materialType', 'category', 'sku', 'model', 'code', 'slug', 'publicSlug', 'brandSlug', 'brand', 'channel', 'fileFormat']);
+  if (name && detail && name !== detail) return `${name} · ${detail}`;
+  if (name) return name;
+  return detail && !isOpaqueAuditId(detail) ? detail : '';
+}
+
+function firstAuditText(value: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const raw = value[key];
+    if (typeof raw !== 'string' && typeof raw !== 'number') continue;
+    const text = String(raw).trim();
+    if (text && !isRedactedAuditText(text)) return text;
+  }
+  return '';
+}
+
+function isRedactedAuditText(value: string) {
+  return value === '[Redacted]' || value === '[Truncated]';
+}
+
+function isOpaqueAuditId(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) || /^[0-9a-f]{24}$/i.test(value);
+}
+
 function displayContact(user: AdminUser) {
   if (user.identifierMasked && user.identifierMasked !== '***') return user.identifierMasked;
   return '未绑定联系方式';
@@ -340,6 +560,12 @@ function AccountsPageContent() {
   const [auditAction, setAuditAction] = useState('');
   const [auditStatus, setAuditStatus] = useState('');
   const [auditSearch, setAuditSearch] = useState('');
+  const [auditPage, setAuditPage] = useState(1);
+  const [auditPageSize, setAuditPageSize] = useState(10);
+  const [usersPage, setUsersPage] = useState(1);
+  const [usersPageSize, setUsersPageSize] = useState(10);
+  const [rolesPage, setRolesPage] = useState(1);
+  const [rolesPageSize, setRolesPageSize] = useState(10);
   const [auditDetail, setAuditDetail] = useState<AuditLogRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
@@ -370,8 +596,19 @@ function AccountsPageContent() {
   const canUseUsersTab = canViewUsers && canReadUsers;
   const canUseRolesTab = canViewRoles && canReadRoles && canReadPermissions;
   const canUseAuditTab = canReadAudit;
+  const auditTotalPages = Math.max(Math.ceil(auditTotal / auditPageSize), 1);
+  const usersTotalPages = Math.max(Math.ceil(users.length / usersPageSize), 1);
+  const rolesTotalPages = Math.max(Math.ceil(roles.length / rolesPageSize), 1);
 
   const activeRoles = useMemo(() => roles.filter((role) => role.status === 'active'), [roles]);
+  const paginatedUsers = useMemo(() => {
+    const start = (usersPage - 1) * usersPageSize;
+    return users.slice(start, start + usersPageSize);
+  }, [users, usersPage, usersPageSize]);
+  const paginatedRoles = useMemo(() => {
+    const start = (rolesPage - 1) * rolesPageSize;
+    return roles.slice(start, start + rolesPageSize);
+  }, [roles, rolesPage, rolesPageSize]);
 
   const selectTab = useCallback((nextTab: AccountsTab) => {
     setTab(nextTab);
@@ -390,7 +627,7 @@ function AccountsPageContent() {
     }
     setAuditLoading(true);
     try {
-      const q: Record<string, string> = { limit: '120' };
+      const q: Record<string, string> = { page: String(auditPage), limit: String(auditPageSize) };
       if (auditModule) q.module = auditModule;
       if (auditAction) q.action = auditAction;
       if (auditStatus) q.status = auditStatus;
@@ -401,7 +638,7 @@ function AccountsPageContent() {
     } finally {
       setAuditLoading(false);
     }
-  }, [auditAction, auditModule, auditSearch, auditStatus, canReadAudit]);
+  }, [auditAction, auditModule, auditPage, auditPageSize, auditSearch, auditStatus, canReadAudit]);
 
   const loadUsers = useCallback(async () => {
     if (!canReadUsers) {
@@ -491,7 +728,7 @@ function AccountsPageContent() {
           canLoadUsers ? adminUsers.list(q) : Promise.resolve({ users: [] }),
           canLoadRoles ? adminRbac.roles() : Promise.resolve({ roles: [] }),
           canLoadPermissions ? adminRbac.permissions() : Promise.resolve({ permissions: [] }),
-          shouldLoadAudit ? auditLogs.list({ limit: '120' }) : Promise.resolve({ logs: [], total: 0 }),
+          shouldLoadAudit ? auditLogs.list({ page: '1', limit: String(auditPageSize) }) : Promise.resolve({ logs: [], total: 0 }),
         ]);
         if (cancelled) return;
         setUsers(userRes.users || []);
@@ -513,7 +750,7 @@ function AccountsPageContent() {
     return () => {
       cancelled = true;
     };
-  }, [fRole, fStatus, moduleParam, search]);
+  }, [auditPageSize, fRole, fStatus, moduleParam, search]);
 
   useEffect(() => {
     if (authed !== 'ok') return;
@@ -533,9 +770,29 @@ function AccountsPageContent() {
     loadAuditRows().catch((error) => setErr((error as Error).message || '操作日志加载失败'));
   }, [authed, canUseAuditTab, loadAuditRows, tab]);
 
+  useEffect(() => {
+    if (tab === 'audit' && auditPage > auditTotalPages) setAuditPage(auditTotalPages);
+  }, [auditPage, auditTotalPages, tab]);
+
+  useEffect(() => {
+    if (tab === 'users' && usersPage > usersTotalPages) setUsersPage(usersTotalPages);
+  }, [tab, usersPage, usersTotalPages]);
+
+  useEffect(() => {
+    if (tab === 'roles' && rolesPage > rolesTotalPages) setRolesPage(rolesTotalPages);
+  }, [rolesPage, rolesTotalPages, tab]);
+
   function flash(message: string) {
     setMsg(message);
     window.setTimeout(() => setMsg(''), 2500);
+  }
+
+  function reloadAuditFromFirstPage() {
+    if (auditPage !== 1) {
+      setAuditPage(1);
+      return;
+    }
+    loadAuditRows().catch((error) => setErr((error as Error).message || '操作日志加载失败'));
   }
 
   async function updateUser(user: AdminUser, patch: Record<string, unknown>) {
@@ -631,19 +888,19 @@ function AccountsPageContent() {
           <WorkbenchFilterToolbar className="accounts-filter-toolbar">
             <div style={{ position: 'relative', flex: '1 1 360px', minWidth: 220 }}>
               <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--t-tertiary)' }} />
-              <input value={search} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && refreshAll()} placeholder="搜索姓名 / 联系方式" className="input" style={{ width: '100%', paddingLeft: 34 }} />
+              <input value={search} onChange={(event) => { setSearch(event.target.value); setUsersPage(1); }} onKeyDown={(event) => { if (event.key === 'Enter') { setUsersPage(1); refreshAll(); } }} placeholder="搜索姓名 / 联系方式" className="input" style={{ width: '100%', paddingLeft: 34 }} />
             </div>
-            <select value={fRole} onChange={(event) => setFRole(event.target.value)} className="select accounts-filter-toolbar__select">
+            <select value={fRole} onChange={(event) => { setFRole(event.target.value); setUsersPage(1); }} className="select accounts-filter-toolbar__select">
               <option value="">全部角色</option>
               {roles.map((role) => <option key={role.id} value={role.code}>{displayRoleName(role)}</option>)}
             </select>
-            <select value={fStatus} onChange={(event) => setFStatus(event.target.value)} className="select accounts-filter-toolbar__select">
+            <select value={fStatus} onChange={(event) => { setFStatus(event.target.value); setUsersPage(1); }} className="select accounts-filter-toolbar__select">
               <option value="">全部状态</option>
               <option value="active">正常</option>
               <option value="inactive">停用</option>
               <option value="suspended">冻结</option>
             </select>
-            <button onClick={refreshAll} className="btn btn-outline btn-sm">
+            <button onClick={() => { setUsersPage(1); refreshAll(); }} className="btn btn-outline btn-sm">
               <Search size={14} />
               查询
             </button>
@@ -667,7 +924,7 @@ function AccountsPageContent() {
                   <tr><td colSpan={6}><WorkbenchTableState type="loading" title="正在加载账号" /></td></tr>
                 ) : users.length === 0 ? (
                   <tr><td colSpan={6}><WorkbenchTableState type="empty" title="暂无账号" description="调整筛选条件后可以重新查询。" /></td></tr>
-                ) : users.map((user) => {
+                ) : paginatedUsers.map((user) => {
                   const canRemoveUser = canDeleteUser && user.id !== currentUserId;
                   const hasUserActions = canUpdateUser || canAssignRoles || canResetPassword || canRemoveUser;
 
@@ -698,6 +955,20 @@ function AccountsPageContent() {
               </tbody>
             </table>
           </WorkbenchTableShell>
+          <WorkbenchPaginationFooter
+            currentPage={Math.min(usersPage, usersTotalPages)}
+            totalPages={usersTotalPages}
+            totalItems={users.length}
+            pageSize={usersPageSize}
+            pageSizeOptions={ACCOUNT_PAGE_SIZE_OPTIONS}
+            onPageSizeChange={(nextPageSize) => {
+              setUsersPageSize(nextPageSize);
+              setUsersPage(1);
+            }}
+            onPageChange={setUsersPage}
+            onPrevious={loading || usersPage <= 1 ? undefined : () => setUsersPage((current) => Math.max(current - 1, 1))}
+            onNext={loading || usersPage >= usersTotalPages ? undefined : () => setUsersPage((current) => Math.min(current + 1, usersTotalPages))}
+          />
         </section>
       ) : tab === 'roles' ? (
         <section style={{ display: 'grid', gap: 14 }}>
@@ -724,7 +995,7 @@ function AccountsPageContent() {
                   <tr><td colSpan={6}><WorkbenchTableState type="loading" title="正在加载角色" /></td></tr>
                 ) : roles.length === 0 ? (
                   <tr><td colSpan={6}><WorkbenchTableState type="empty" title="暂无角色" description="先创建一个角色，再分配页面和操作权限。" /></td></tr>
-                ) : roles.map((role) => {
+                ) : paginatedRoles.map((role) => {
                   const canConfigureRole = canUpdateRole || canAssignPermissions;
                   const hasRoleActions = canConfigureRole || canUpdateRole;
 
@@ -769,28 +1040,42 @@ function AccountsPageContent() {
               </tbody>
             </table>
           </WorkbenchTableShell>
+          <WorkbenchPaginationFooter
+            currentPage={Math.min(rolesPage, rolesTotalPages)}
+            totalPages={rolesTotalPages}
+            totalItems={roles.length}
+            pageSize={rolesPageSize}
+            pageSizeOptions={ACCOUNT_PAGE_SIZE_OPTIONS}
+            onPageSizeChange={(nextPageSize) => {
+              setRolesPageSize(nextPageSize);
+              setRolesPage(1);
+            }}
+            onPageChange={setRolesPage}
+            onPrevious={loading || rolesPage <= 1 ? undefined : () => setRolesPage((current) => Math.max(current - 1, 1))}
+            onNext={loading || rolesPage >= rolesTotalPages ? undefined : () => setRolesPage((current) => Math.min(current + 1, rolesTotalPages))}
+          />
         </section>
       ) : (
         <section style={{ display: 'grid', gap: 14 }}>
           <WorkbenchFilterToolbar className="accounts-filter-toolbar">
-            <select value={auditModule} onChange={(event) => setAuditModule(event.target.value)} className="select accounts-filter-toolbar__select">
+            <select value={auditModule} onChange={(event) => { setAuditModule(event.target.value); setAuditPage(1); }} className="select accounts-filter-toolbar__select">
               <option value="">全部模块</option>
               {AUDIT_MODULE_FILTER_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
-            <select value={auditAction} onChange={(event) => setAuditAction(event.target.value)} className="select accounts-filter-toolbar__select">
+            <select value={auditAction} onChange={(event) => { setAuditAction(event.target.value); setAuditPage(1); }} className="select accounts-filter-toolbar__select">
               <option value="">全部动作</option>
               {AUDIT_ACTION_FILTER_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
-            <select value={auditStatus} onChange={(event) => setAuditStatus(event.target.value)} className="select accounts-filter-toolbar__select">
+            <select value={auditStatus} onChange={(event) => { setAuditStatus(event.target.value); setAuditPage(1); }} className="select accounts-filter-toolbar__select">
               <option value="">全部结果</option>
               <option value="success">成功</option>
               <option value="failed">失败</option>
             </select>
             <div style={{ position: 'relative', flex: '1 1 320px', minWidth: 220 }}>
               <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--t-tertiary)' }} />
-              <input value={auditSearch} onChange={(event) => setAuditSearch(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && loadAuditRows().catch((error) => setErr((error as Error).message || '操作日志加载失败'))} placeholder="搜索动作 / 对象 / 操作人" className="input" style={{ width: '100%', paddingLeft: 34 }} />
+              <input value={auditSearch} onChange={(event) => setAuditSearch(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && reloadAuditFromFirstPage()} placeholder="搜索动作 / 对象 / 操作人" className="input" style={{ width: '100%', paddingLeft: 34 }} />
             </div>
-            <button onClick={() => loadAuditRows().catch((error) => setErr((error as Error).message || '操作日志加载失败'))} className="btn btn-outline btn-sm">
+            <button onClick={reloadAuditFromFirstPage} className="btn btn-outline btn-sm">
               <Search size={14} />
               查询
             </button>
@@ -804,32 +1089,32 @@ function AccountsPageContent() {
                   <th>时间</th>
                   <th>模块</th>
                   <th>动作</th>
-                  <th>对象</th>
+                  <th>操作说明</th>
                   <th>操作人</th>
                   <th>结果</th>
-                  <th>追踪号</th>
                   <th>详情</th>
                 </tr>
               </thead>
               <tbody>
                 {loading || auditLoading ? (
-                  <tr><td colSpan={8}><WorkbenchTableState type="loading" title="正在加载操作日志" /></td></tr>
+                  <tr><td colSpan={7}><WorkbenchTableState type="loading" title="正在加载操作日志" /></td></tr>
                 ) : auditRows.length === 0 ? (
-                  <tr><td colSpan={8}><WorkbenchTableState type="empty" title="暂无操作日志" description="产品、资讯、图片、发布、账号权限等写操作会自动进入这里。" /></td></tr>
-                ) : auditRows.map((row) => (
+                  <tr><td colSpan={7}><WorkbenchTableState type="empty" title="暂无操作日志" description="产品、资讯、图片、发布、账号权限等写操作会自动进入这里。" /></td></tr>
+                ) : auditRows.map((row) => {
+                  const resource = displayAuditResource(row);
+                  return (
                   <tr key={row.id}>
                     <td style={{ ...td, color: 'var(--t-secondary)', whiteSpace: 'nowrap' }}>{new Date(row.createdAt).toLocaleString('zh-CN')}</td>
                     <td><span className="pill-neutral">{displayAuditModule(row.resourceType)}</span></td>
                     <td style={td}>{displayAuditAction(row.action)}</td>
                     <td style={{ ...td, maxWidth: 260 }}>
                       <div style={{ display: 'grid', gap: 2 }}>
-                        <strong style={{ color: 'var(--t-strong)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.resourceId || '-'}</strong>
-                        <span style={{ color: 'var(--t-tertiary)', fontSize: 12 }}>{displayAuditSummary(row.action, row.resourceType)}</span>
+                        <strong title={resource.primary} style={{ color: 'var(--t-strong)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{resource.primary}</strong>
+                        <span title={resource.secondary} style={{ color: 'var(--t-tertiary)', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{resource.secondary}</span>
                       </div>
                     </td>
                     <td style={td}>{row.actorName || row.actorUserId || '系统'}</td>
                     <td><StatusPill tone={row.status === 'failed' ? 'danger' : 'success'}>{row.status === 'failed' ? '失败' : '成功'}</StatusPill></td>
-                    <td style={{ ...td, fontFamily: 'var(--font-mono)', color: 'var(--t-tertiary)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>{row.requestId || row.traceId || '-'}</td>
                     <td>
                       <button type="button" className="btn btn-outline btn-sm" onClick={() => setAuditDetail(row)}>
                         <ClipboardList size={13} />
@@ -837,10 +1122,25 @@ function AccountsPageContent() {
                       </button>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </WorkbenchTableShell>
+          <WorkbenchPaginationFooter
+            currentPage={Math.min(auditPage, auditTotalPages)}
+            totalPages={auditTotalPages}
+            totalItems={auditTotal}
+            pageSize={auditPageSize}
+            pageSizeOptions={AUDIT_PAGE_SIZE_OPTIONS}
+            onPageSizeChange={(nextPageSize) => {
+              setAuditPageSize(nextPageSize);
+              setAuditPage(1);
+            }}
+            onPageChange={setAuditPage}
+            onPrevious={loading || auditLoading || auditPage <= 1 ? undefined : () => setAuditPage((current) => Math.max(current - 1, 1))}
+            onNext={loading || auditLoading || auditPage >= auditTotalPages ? undefined : () => setAuditPage((current) => Math.min(current + 1, auditTotalPages))}
+          />
         </section>
       )}
 
@@ -1136,6 +1436,7 @@ function ResetModal({ user, onClose, onDone, onError }: { user: AdminUser; onClo
 }
 
 function AuditDetailModal({ log, onClose }: { log: AuditLogRow; onClose: () => void }) {
+  const resource = displayAuditResource(log);
   return (
     <Overlay onClose={onClose} wide>
       <ModalTitle title="操作日志详情" subtitle={`${displayAuditModule(log.resourceType)} · ${displayAuditAction(log.action)}`} />
@@ -1143,10 +1444,16 @@ function AuditDetailModal({ log, onClose }: { log: AuditLogRow; onClose: () => v
         <Field label="操作时间"><input value={new Date(log.createdAt).toLocaleString('zh-CN')} disabled className="input" /></Field>
         <Field label="操作人"><input value={log.actorName || log.actorUserId || '系统'} disabled className="input" /></Field>
         <Field label="对象类型"><input value={displayAuditModule(log.resourceType)} disabled className="input" /></Field>
-        <Field label="对象 ID"><input value={log.resourceId || '-'} disabled className="input" /></Field>
+        <Field label="操作说明"><input value={resource.primary} disabled className="input" /></Field>
         <Field label="动作"><input value={displayAuditAction(log.action)} disabled className="input" /></Field>
         <Field label="结果"><input value={log.status === 'failed' ? '失败' : '成功'} disabled className="input" /></Field>
       </div>
+      {resource.secondary ? (
+        <Field label="补充信息"><input value={resource.secondary} disabled className="input" /></Field>
+      ) : null}
+      {log.resourceId && resource.primary !== log.resourceId ? (
+        <Field label="对象 ID"><input value={log.resourceId} disabled className="input" /></Field>
+      ) : null}
       <Field label="操作前 / 请求上下文">
         <pre style={auditJsonStyle}>{stringifyAuditState(log.beforeState)}</pre>
       </Field>

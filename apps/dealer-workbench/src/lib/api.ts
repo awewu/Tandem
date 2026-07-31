@@ -166,6 +166,8 @@ export const fileArtifacts = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+  getBase64: (id: string) =>
+    apiFetch(`/api/v2/file-artifact/${encodeURIComponent(id)}/base64`),
   remove: (id: string) =>
     apiFetch(`/api/v2/file-artifact/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 };
@@ -307,12 +309,12 @@ export const siteInquiries = {
 
 export const siteMaterials = {
   list: (brandCode: string) =>
-    apiFetch(`/local-site-materials/${encodeURIComponent(brandCode)}`),
+    apiFetch(`/api/v2/site-materials/${encodeURIComponent(brandCode)}`),
   upload: (
     brandCode: string,
     data: { key: string; filename: string; mimeType: string; dataBase64: string }
   ) =>
-    apiFetch(`/local-site-materials/${encodeURIComponent(brandCode)}`, {
+    apiFetch(`/api/v2/site-materials/${encodeURIComponent(brandCode)}`, {
       method: 'POST',
       body: JSON.stringify(data),
     }),
@@ -320,18 +322,325 @@ export const siteMaterials = {
     brandCode: string,
     files: Array<{ filename: string; mimeType: string; dataBase64: string; linkUrl?: string }>
   ) =>
-    apiFetch(`/local-site-materials/${encodeURIComponent(brandCode)}`, {
+    apiFetch(`/api/v2/site-materials/${encodeURIComponent(brandCode)}`, {
       method: 'POST',
       body: JSON.stringify({ key: 'home-hero-carousel', files }),
     }),
   saveCarousel: (brandCode: string, items: Array<Record<string, unknown>>) =>
-    apiFetch(`/local-site-materials/${encodeURIComponent(brandCode)}`, {
+    apiFetch(`/api/v2/site-materials/${encodeURIComponent(brandCode)}`, {
       method: 'PUT',
       body: JSON.stringify({ key: 'home-hero-carousel', items }),
     }),
   saveModule: (brandCode: string, key: string, items: Array<Record<string, unknown>>) =>
-    apiFetch(`/local-site-materials/${encodeURIComponent(brandCode)}`, {
+    apiFetch(`/api/v2/site-materials/${encodeURIComponent(brandCode)}`, {
       method: 'PUT',
       body: JSON.stringify({ key, items }),
+    }),
+  resetDefault: (brandCode: string, key: string) =>
+    apiFetch(`/api/v2/site-materials/${encodeURIComponent(brandCode)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ key, resetDefault: true }),
+    }),
+};
+
+export const growthMaterials = {
+  list: (query?: Record<string, string>) => {
+    const qs = new URLSearchParams(query || {}).toString();
+    return apiFetch(`/api/v2/growth/materials${qs ? `?${qs}` : ''}`);
+  },
+  get: (id: string) =>
+    apiFetch(`/api/v2/growth/materials/${encodeURIComponent(id)}`),
+  create: (data: Record<string, unknown>) =>
+    apiFetch('/api/v2/growth/materials', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: string, data: Record<string, unknown>) =>
+    apiFetch(`/api/v2/growth/materials/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+  approve: (id: string, data?: Record<string, unknown>) =>
+    apiFetch(`/api/v2/growth/materials/${encodeURIComponent(id)}/approve`, {
+      method: 'POST',
+      body: JSON.stringify(data || {}),
+    }),
+  publish: (id: string) =>
+    apiFetch(`/api/v2/growth/materials/${encodeURIComponent(id)}/publish`, { method: 'POST' }),
+  recordDownload: (id: string) =>
+    apiFetch(`/api/v2/growth/materials/${encodeURIComponent(id)}/download`, { method: 'POST' }),
+  archive: (id: string) =>
+    apiFetch(`/api/v2/growth/materials/${encodeURIComponent(id)}/archive`, { method: 'POST' }),
+  remove: (id: string) =>
+    apiFetch(`/api/v2/growth/materials/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+};
+
+export const growthGeo = {
+  visibility: () => apiFetch('/api/v2/growth/geo/visibility'),
+  onsiteReadiness: () => apiFetch('/api/v2/growth/geo/onsite-readiness'),
+  engines: () => apiFetch('/api/v2/growth/geo/engines'),
+  questionSet: (data: { brandSlug?: string; category?: string; stage?: string }) =>
+    apiFetch('/api/v2/growth/geo/question-set', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  createQuestion: (data: {
+    brandSlug: string;
+    category: string;
+    stage: 'pre' | 'mid' | 'post' | 'followup';
+    question: string;
+    priority?: number;
+    enabled?: boolean;
+  }) =>
+    apiFetch('/api/v2/growth/geo/questions', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  updateQuestion: (id: string, data: Record<string, unknown>) =>
+    apiFetch(`/api/v2/growth/geo/questions/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+  disableQuestion: (id: string) =>
+    apiFetch(`/api/v2/growth/geo/questions/${encodeURIComponent(id)}/disable`, { method: 'POST' }),
+  removeQuestion: (id: string) =>
+    apiFetch(`/api/v2/growth/geo/questions/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  saveGeneratedQuestions: (data: { brandSlug?: string; category?: string; questions?: Array<Record<string, unknown>> }) =>
+    apiFetch('/api/v2/growth/geo/question-set/save-generated', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  probeWorklist: (data: { brandSlug?: string; category?: string; stage?: string; engines?: string[] }) =>
+    apiFetch('/api/v2/growth/geo/probe-worklist', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  probe: (data: {
+    question: string;
+    engine: string;
+    answerSnapshot?: string;
+    competitors?: string[];
+    brandSlug?: string;
+    weCited?: boolean;
+    citationRank?: number;
+    competitorsCited?: string[];
+  }) =>
+    apiFetch('/api/v2/growth/geo/probe', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  runProbeJob: (data: {
+    question: string;
+    engine?: string;
+    brandSlug?: string;
+    competitors?: string[];
+  }) =>
+    apiFetch('/api/v2/growth/geo/probe-jobs/run', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  streamProbeJob: async (
+    data: { question: string; engine?: string; brandSlug?: string; competitors?: string[] },
+    onEvent: (event: Record<string, any>) => void,
+  ) => {
+    const token = typeof window !== 'undefined' ? (getToken() || localStorage.getItem('token')) : null;
+    const res = await fetch(`${API}/api/v2/growth/geo/probe-jobs/stream`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok || !res.body) {
+      const text = await res.text();
+      throw new Error(text || '流式探测失败');
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let idx: number;
+      while ((idx = buffer.indexOf('\n\n')) !== -1) {
+        const raw = buffer.slice(0, idx);
+        buffer = buffer.slice(idx + 2);
+        for (const line of raw.split('\n')) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith('data:')) continue;
+          const payload = trimmed.slice(5).trim();
+          if (!payload) continue;
+          onEvent(JSON.parse(payload));
+        }
+      }
+    }
+  },
+  probeJobs: () => apiFetch('/api/v2/growth/geo/probe-jobs'),
+  probeJob: (id: string) =>
+    apiFetch(`/api/v2/growth/geo/probe-jobs/${encodeURIComponent(id)}`),
+  runProbeBatch: (data: { brandSlug?: string; category?: string; stage?: string; questionIds?: string[]; competitors?: string[] }) =>
+    apiFetch('/api/v2/growth/geo/probe-batches/run', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  probeBatches: (query?: Record<string, string>) => {
+    const qs = new URLSearchParams(query || {}).toString();
+    return apiFetch(`/api/v2/growth/geo/probe-batches${qs ? `?${qs}` : ''}`);
+  },
+  probeBatch: (id: string) =>
+    apiFetch(`/api/v2/growth/geo/probe-batches/${encodeURIComponent(id)}`),
+  structuredData: (data: { brandSlug?: string }) =>
+    apiFetch('/api/v2/growth/geo/structured-data', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  optimizationContent: (data: {
+    kind: 'faq' | 'comparison' | 'topic';
+    probeJobId?: string;
+    question: string;
+    category?: string;
+    answerPreview?: string;
+    brandSlug?: string;
+    competitors?: string[];
+    contentGaps?: Array<Record<string, unknown>>;
+    sources?: Array<Record<string, unknown>>;
+  }) =>
+    apiFetch('/api/v2/growth/geo/optimization-content', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  streamOptimizationContent: async (
+    data: {
+      kind: 'faq' | 'comparison' | 'topic';
+      probeJobId?: string;
+      question: string;
+      category?: string;
+      answerPreview?: string;
+      brandSlug?: string;
+      competitors?: string[];
+      contentGaps?: Array<Record<string, unknown>>;
+      sources?: Array<Record<string, unknown>>;
+    },
+    onEvent: (event: Record<string, any>) => void,
+  ) => {
+    const token = typeof window !== 'undefined' ? (getToken() || localStorage.getItem('token')) : null;
+    const res = await fetch(`${API}/api/v2/growth/geo/optimization-content/stream`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok || !res.body) {
+      const text = await res.text();
+      throw new Error(text || '生成优化内容失败');
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let idx: number;
+      while ((idx = buffer.indexOf('\n\n')) !== -1) {
+        const raw = buffer.slice(0, idx);
+        buffer = buffer.slice(idx + 2);
+        for (const line of raw.split('\n')) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith('data:')) continue;
+          const payload = trimmed.slice(5).trim();
+          if (!payload) continue;
+          onEvent(JSON.parse(payload));
+        }
+      }
+    }
+  },
+};
+
+export const growthCopy = {
+  list: (query?: Record<string, string>) => {
+    const qs = new URLSearchParams(query || {}).toString();
+    return apiFetch(`/api/v2/growth/copy${qs ? `?${qs}` : ''}`);
+  },
+  generate: (data: { channel: string; prompt: string; brandSlug?: string }) =>
+    apiFetch('/api/v2/growth/copy/generate', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  update: (id: string, data: { draft?: string }) =>
+    apiFetch(`/api/v2/growth/copy/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+  approve: (id: string) =>
+    apiFetch(`/api/v2/growth/copy/${encodeURIComponent(id)}/approve`, {
+      method: 'POST',
+    }),
+  reject: (id: string) =>
+    apiFetch(`/api/v2/growth/copy/${encodeURIComponent(id)}/reject`, {
+      method: 'POST',
+    }),
+  remove: (id: string) =>
+    apiFetch(`/api/v2/growth/copy/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    }),
+};
+
+export const growthOpinion = {
+  connectors: () => apiFetch('/api/v2/growth/opinion/connectors'),
+  mentions: () => apiFetch('/api/v2/growth/opinion/mentions'),
+  alerts: () => apiFetch('/api/v2/growth/opinion/alerts'),
+  ingest: (data: {
+    source: string;
+    content: string;
+    url?: string;
+    authorHash?: string;
+    entities?: string[];
+  }) =>
+    apiFetch('/api/v2/growth/opinion/mentions', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  pull: (data: { source: string; query: string; limit?: number }) =>
+    apiFetch('/api/v2/growth/opinion/pull', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  updateAlertStatus: (id: string, status: 'open' | 'ack' | 'resolved') =>
+    apiFetch(`/api/v2/growth/opinion/alerts/${encodeURIComponent(id)}/status`, {
+      method: 'POST',
+      body: JSON.stringify({ status }),
+    }),
+};
+
+export const growthCampaigns = {
+  list: () => apiFetch('/api/v2/growth/campaigns'),
+  roiBoard: () => apiFetch('/api/v2/growth/campaigns/roi-board'),
+  create: (data: {
+    name: string;
+    channel: string;
+    budget?: number;
+    utm?: Record<string, unknown>;
+  }) =>
+    apiFetch('/api/v2/growth/campaigns', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  recordMetric: (data: {
+    campaignId: string;
+    impressions?: number;
+    clicks?: number;
+    leads?: number;
+    signed?: number;
+    cac?: number;
+    roi?: number;
+    period?: string;
+  }) =>
+    apiFetch('/api/v2/growth/campaigns/metrics', {
+      method: 'POST',
+      body: JSON.stringify(data),
     }),
 };

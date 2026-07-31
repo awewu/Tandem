@@ -3,7 +3,7 @@
    数据来源：window.EVERHOT_PRODUCTS（products-data.js）
    用法：
      分类页  <div class="product-grid" data-catalog="residential:water-heating"></div>
-     详情页  <div data-product-detail></div>  + URL ?model=slug
+     详情页  <div data-product-detail></div>  + URL /products/detail/slug/（兼容 ?model=slug）
    ═══════════════════════════════════════════════════════════ */
 (function () {
   var BASE = '';
@@ -224,9 +224,12 @@
     if(!p.badges||!p.badges.length) return '';
     return '<div class="pc-badges">'+p.badges.slice(0,1).map(function(b){return '<span class="pc-badge">'+e(b)+'</span>';}).join('')+'</div>';
   }
+  function productUrl(p){
+    return BASE+'/products/detail/'+e(p.slug)+'/';
+  }
 
   function card(p){
-    return '<a class="product-card" href="'+BASE+'/products/detail/?model='+e(p.slug)+'">'
+    return '<a class="product-card" href="'+productUrl(p)+'">'
       + media(p) + badges(p)
       + '<div class="pc-body">'
       + '<span class="pc-series">'+e(p.series||'')+'</span>'
@@ -449,7 +452,12 @@
   function renderDetail(){
     var host=document.querySelector('[data-product-detail]');
     if(!host) return;
-    var slug=(new URLSearchParams(location.search)).get('model');
+    var slug=(host.getAttribute('data-product-slug')||'').trim();
+    if(!slug){
+      var pathMatch=location.pathname.match(/\/products\/detail\/([^/]+)\/?$/);
+      slug=pathMatch?decodeURIComponent(pathMatch[1]):'';
+    }
+    if(!slug) slug=(new URLSearchParams(location.search)).get('model');
     var p=slug?window.EVERHOT_CATALOG.one(slug):null;
     if(!p && slug && window.EVERHOT_LOAD_PRODUCT && !host.getAttribute('data-single-load-tried')){
       host.setAttribute('data-single-load-tried','1');
@@ -588,14 +596,14 @@
         var keys=specKeys(picks);
         var canDiff=picks.length>1;
         var shown=keys.filter(function(k){ return !(state.diffOnly&&canDiff)||rowDiffers(picks,k); });
-        h+='<div class="cmp-table-wrap"><table class="cmp-table"><thead><tr><th>规格</th>'+picks.map(function(p){return '<th><a href="'+BASE+'/products/detail/?model='+e(p.slug)+'">'+e(p.name)+'</a><span class="cmp-th-series">'+e(p.series||'')+'</span></th>';}).join('')+'</tr></thead><tbody>';
+        h+='<div class="cmp-table-wrap"><table class="cmp-table"><thead><tr><th>规格</th>'+picks.map(function(p){return '<th><a href="'+productUrl(p)+'">'+e(p.name)+'</a><span class="cmp-th-series">'+e(p.series||'')+'</span></th>';}).join('')+'</tr></thead><tbody>';
         h+='<tr><th>一句话卖点</th>'+picks.map(function(p){return '<td>'+e(p.tagline)+'</td>';}).join('')+'</tr>';
         shown.forEach(function(k){
           var diff=canDiff&&rowDiffers(picks,k);
           h+='<tr'+(diff?' class="cmp-row-diff"':'')+'><th>'+e(k)+(diff?'<span class="cmp-diff-dot" title="各产品存在差异"></span>':'')+'</th>'+picks.map(function(p){return '<td>'+e(specVal(p,k))+'</td>';}).join('')+'</tr>';
         });
         if(state.diffOnly&&canDiff&&!shown.length){ h+='<tr><td colspan="'+(picks.length+1)+'" class="cmp-empty" style="padding:18px">所选产品在已收录规格上完全一致。</td></tr>'; }
-        h+='<tr><th></th>'+picks.map(function(p){return '<td><a class="btn btn-brand" style="font-size:12px;padding:7px 14px" href="'+BASE+'/products/detail/?model='+e(p.slug)+'">查看详情</a></td>';}).join('')+'</tr>';
+        h+='<tr><th></th>'+picks.map(function(p){return '<td><a class="btn btn-brand" style="font-size:12px;padding:7px 14px" href="'+productUrl(p)+'">查看详情</a></td>';}).join('')+'</tr>';
         h+='</tbody></table></div>';
       } else {
         h+='<div class="cmp-empty">请在上方勾选要对比的产品。</div>';

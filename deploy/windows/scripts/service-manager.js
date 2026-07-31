@@ -69,8 +69,8 @@ function start() {
     NODE_ENV: 'production',
     HOSTNAME: '127.0.0.1',
     PORT: '5000',
-    API_URL: 'http://127.0.0.1:4500',
-    NEXUS_API_URL: 'http://127.0.0.1:4500',
+    API_URL: 'https://nexus.rhautt.com',
+    NEXUS_API_URL: 'https://nexus.rhautt.com',
     NEXUS_API_PREFIX: '/api/v2',
   });
 
