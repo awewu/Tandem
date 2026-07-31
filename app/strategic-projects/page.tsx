@@ -47,23 +47,23 @@ export default function StrategicProjectsPage() {
   return (
     <main className="min-h-full bg-[rgb(var(--surface-2))] text-ink-primary">
       <div className="flex gap-4 px-4 py-5">
-        <aside className="hidden w-[204px] shrink-0 rounded-xl bg-[rgb(var(--surface-1))] p-3 shadow-soft-sm md:block">
+        <aside className="hidden w-[204px] shrink-0 rounded-2xl bg-[rgb(var(--surface-1))] p-3 shadow-soft-sm md:block">
           <div className="mb-4 flex items-center gap-2 text-footnote text-ink-tertiary">
             <ArrowLeft className="h-4 w-4" />
             返回
             <span>项目集</span>
           </div>
-          <div className="flex items-center gap-2 rounded-lg bg-[rgb(var(--brand-50))] px-3 py-3 text-sm font-semibold text-[rgb(var(--brand-700))]">
+          <div className="flex items-center gap-2 rounded-lg bg-[rgb(var(--brand-50))] px-3 py-3 text-caption font-semibold text-[rgb(var(--brand-700))]">
             <Folder className="h-4 w-4 fill-current" />
             V项目
           </div>
         </aside>
 
-        <section className="min-w-0 flex-1 rounded-xl bg-[rgb(var(--surface-1))] shadow-soft-sm">
+        <section className="min-w-0 flex-1 rounded-2xl bg-[rgb(var(--surface-1))] shadow-soft-sm">
           <header className="flex min-h-[122px] flex-col justify-between border-b border-border px-6 pt-4">
             <div className="flex items-center gap-3">
               <ArrowLeft className="h-6 w-6 text-ink-primary" />
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[rgb(var(--brand-50))] text-[rgb(var(--brand-600))]">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[rgb(var(--brand-50))] text-[rgb(var(--brand-600))]">
                 <Folder className="h-5 w-5 fill-current" />
               </div>
               <h1 className="text-title-3 font-semibold">V项目</h1>
@@ -74,7 +74,7 @@ export default function StrategicProjectsPage() {
                 {strategicProjects.slice(0, 5).map((project, index) => (
                   <Avatar key={project.id} name={project.owner} index={index} />
                 ))}
-                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[rgb(var(--brand-500))] text-sm font-semibold text-white">12</span>
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[rgb(var(--brand-500))] text-caption font-semibold text-white">12</span>
                 <button className="flex h-8 w-8 items-center justify-center rounded-full border border-border text-ink-tertiary">
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -89,7 +89,7 @@ export default function StrategicProjectsPage() {
                 <span
                   key={tab}
                   className={cn(
-                    'relative pb-4 text-sm text-ink-secondary',
+                    'relative pb-4 text-caption text-ink-secondary',
                     tab === '项目概览' && 'font-semibold text-[rgb(var(--brand-600))] after:absolute after:bottom-0 after:left-1/2 after:h-1 after:w-7 after:-translate-x-1/2 after:rounded-full after:bg-[rgb(var(--brand-500))]',
                   )}
                 >
@@ -125,9 +125,9 @@ export default function StrategicProjectsPage() {
               </div>
             </div>
 
-            <div className="overflow-hidden rounded-xl border border-border">
+            <div className="overflow-hidden rounded-2xl border border-border">
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[1280px] border-collapse text-sm">
+                <table className="w-full min-w-[1280px] border-collapse text-caption">
                   <thead className="bg-[rgb(var(--surface-2))] text-left text-footnote font-medium text-ink-tertiary">
                     <tr>
                       {['名称', '状态', '风险等级', '负责人', '完成度', '任务数', '过期任务数', '开始日期', '截止日期', '项目目标'].map((column) => (
@@ -195,7 +195,7 @@ export default function StrategicProjectsPage() {
               </div>
             </div>
 
-            <div className="mt-4 flex items-center justify-end gap-3 text-sm text-ink-secondary">
+            <div className="mt-4 flex items-center justify-end gap-3 text-caption text-ink-secondary">
               <span>共 9 条</span>
               <button className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-ink-tertiary">‹</button>
               <button className="flex h-8 w-8 items-center justify-center rounded-lg border border-[rgb(var(--brand-500))] text-[rgb(var(--brand-600))]">1</button>

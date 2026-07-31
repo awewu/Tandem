@@ -50,11 +50,11 @@ function Avatar({ name, className }: { name: string; className?: string }) {
 function MilestoneHeader({ milestone }: { milestone: StrategicMilestone }) {
   return (
     <div className={cn('relative flex h-[74px] items-center gap-3 rounded-r-xl px-4', milestoneToneClass[milestone.tone])}>
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-4 border-[rgb(var(--brand-200))] bg-[rgb(var(--surface-1))] text-sm font-semibold text-[rgb(var(--brand-600))]">
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-4 border-[rgb(var(--brand-200))] bg-[rgb(var(--surface-1))] text-caption font-semibold text-[rgb(var(--brand-600))]">
         {milestone.progress}%
       </div>
       <div className="min-w-0">
-        <p className="truncate text-sm font-semibold text-ink-primary">{milestone.title}</p>
+        <p className="truncate text-caption font-semibold text-ink-primary">{milestone.title}</p>
         <p className="mt-1 text-footnote text-ink-tertiary">
           {milestone.owner}
           <span className="mx-2">{milestone.dueDate}</span>
@@ -77,7 +77,7 @@ function TaskCard({ task, index }: { task: StrategicTask; index: number }) {
         </span>
         <Avatar name={task.owner} className={avatarTone[index % avatarTone.length]} />
       </div>
-      <h3 className="min-h-[44px] text-sm leading-relaxed text-ink-primary">
+      <h3 className="min-h-[44px] text-caption leading-relaxed text-ink-primary">
         <span className={cn('mr-2 font-semibold', task.priority === 'P2' ? 'text-warning' : 'text-[rgb(var(--brand-600))]')}>{task.priority}</span>
         {task.title}
       </h3>
@@ -117,8 +117,8 @@ export default async function StrategicProjectDetailPage({
 
   return (
     <main className="min-h-full bg-[rgb(var(--surface-2))] text-ink-primary">
-      <header className="border-b border-border bg-[rgb(var(--surface-1))] shadow-sm">
-        <div className="flex h-[78px] items-center gap-3 px-7">
+      <header className="border-b border-border bg-[rgb(var(--surface-1))] shadow-soft-sm">
+        <div className="flex h-[78px] items-center gap-3 px-4 sm:px-7">
           <Link href="/strategic-projects" className="text-ink-secondary hover:text-ink-primary">
             <ArrowLeft className="h-6 w-6" />
           </Link>
@@ -130,7 +130,7 @@ export default async function StrategicProjectDetailPage({
           </span>
 
           <div className="ml-auto flex items-center gap-2">
-            <button className="inline-flex h-9 items-center gap-2 rounded-full bg-[rgb(var(--brand-50))] px-4 text-sm font-semibold text-[rgb(var(--brand-600))]">
+            <button className="inline-flex h-9 items-center gap-2 rounded-full bg-[rgb(var(--brand-50))] px-4 text-caption font-semibold text-[rgb(var(--brand-600))]">
               <Bot className="h-4 w-4" />
               AI创建
             </button>
@@ -147,7 +147,7 @@ export default async function StrategicProjectDetailPage({
             <span
               key={tab}
               className={cn(
-                'relative shrink-0 pb-4 text-sm text-ink-secondary',
+                'relative shrink-0 pb-4 text-caption text-ink-secondary',
                 tab === '里程碑' && 'font-semibold text-[rgb(var(--brand-600))] after:absolute after:bottom-0 after:left-1/2 after:h-1 after:w-7 after:-translate-x-1/2 after:rounded-full after:bg-[rgb(var(--brand-500))]',
               )}
             >
@@ -194,7 +194,7 @@ export default async function StrategicProjectDetailPage({
             <div key={milestone.id} className="w-[340px] shrink-0">
               <MilestoneHeader milestone={milestone} />
               <div className="mt-3 min-h-[calc(100vh-278px)] rounded-t-xl bg-[rgb(var(--brand-50))]/55 p-4">
-                <button className="mb-3 flex h-12 w-full items-center justify-center rounded-lg bg-[rgb(var(--surface-1))] text-sm font-medium text-[rgb(var(--brand-600))]">
+                <button className="mb-3 flex h-12 w-full items-center justify-center rounded-lg bg-[rgb(var(--surface-1))] text-caption font-medium text-[rgb(var(--brand-600))]">
                   <Plus className="h-4 w-4" />
                   创建任务
                 </button>
@@ -208,7 +208,7 @@ export default async function StrategicProjectDetailPage({
           ))}
 
           <div className="w-[340px] shrink-0">
-            <div className="flex h-[74px] items-center justify-center rounded-r-xl bg-[rgb(var(--surface-3))] px-4 text-sm font-medium text-ink-tertiary">
+            <div className="flex h-[74px] items-center justify-center rounded-r-xl bg-[rgb(var(--surface-3))] px-4 text-caption font-medium text-ink-tertiary">
               <Plus className="h-4 w-4" />
               创建里程碑
             </div>

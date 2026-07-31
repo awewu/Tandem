@@ -18,6 +18,7 @@
  */
 
 import { getStore } from '@/lib/storage/repository';
+import { buildEntityTimeline, type CausalLink } from '@/lib/memory/timeline';
 
 function tn(x?: string): string {
   return x ?? 'default';
@@ -67,6 +68,18 @@ export interface StoryChainCheckInNode {
   achievements?: string | null;
   blockers?: string | null;
 }
+export interface StoryChainTimelineEvent {
+  id: string;
+  title: string;
+  type: string;
+  ownershipLevel: string;
+  at: string;
+  order: number;
+}
+export interface StoryChainTimeline {
+  events: StoryChainTimelineEvent[];
+  causalLinks: CausalLink[];
+}
 export interface StoryChain {
   anchor: {
     krId: string;
@@ -79,12 +92,15 @@ export interface StoryChain {
   initiatives: StoryChainInitiativeNode[];
   decisions: StoryChainDecisionNode[];
   checkIns: StoryChainCheckInNode[];
+  /** MAGMA-lite 时间/因果轴: 触及本 KR 的记忆按时间演进 + 版本取代/同会话因果边 */
+  timeline: StoryChainTimeline;
   stats: {
     initiativeCount: number;
     decisionCount: number;
     materialCount: number;
     memoryCount: number;
     checkInCount: number;
+    timelineEventCount: number;
   };
 }
 
@@ -221,6 +237,20 @@ export async function buildStoryChain(krId: string, tenantId: string): Promise<S
     };
   });
 
+  // ── MAGMA-lite 时间/因果轴: 触及本 KR 的记忆按时间演进 (租户 = orgId 缺省 default) ──
+  const tl = buildEntityTimeline(krId, allMemories, { orgId: tn(tenantId), maxEvents: 30 });
+  const timeline: StoryChainTimeline = {
+    events: tl.events.map((e) => ({
+      id: e.memory.id,
+      title: e.memory.title,
+      type: e.memory.type,
+      ownershipLevel: e.memory.ownershipLevel,
+      at: e.at,
+      order: e.order,
+    })),
+    causalLinks: tl.causalLinks,
+  };
+
   return {
     anchor: {
       krId: kr.id,
@@ -233,12 +263,14 @@ export async function buildStoryChain(krId: string, tenantId: string): Promise<S
     initiatives,
     decisions,
     checkIns,
+    timeline,
     stats: {
       initiativeCount: initiatives.length,
       decisionCount: decisions.length,
       materialCount,
       memoryCount,
       checkInCount: checkIns.length,
+      timelineEventCount: timeline.events.length,
     },
   };
 }

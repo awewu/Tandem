@@ -922,6 +922,8 @@ export const kpi = pgTable(
     level: text('level').notNull(),
     parentKpiId: text('parentKpiId'),
     assigneeId: text('assigneeId').notNull(),
+    /** 跨体系联合持有人 id 数组 (JSON) — 见 Kpi.coOwnerIds 类型注释: 纯数据层联合监控, 不驱动奖金 */
+    coOwnerIds: jsonb('coOwnerIds'),
     departmentId: text('departmentId'),
     title: text('title').notNull(),
     description: text('description'),
@@ -1106,6 +1108,38 @@ export const kpiCausalLink = pgTable(
     /** 防重: 同周期同一对 KPI 只能有一条因果链 */
     linkUniq: uniqueIndex('KpiCausalLink_from_to_cycle_uniq').on(t.fromKpiId, t.toKpiId, t.cycleId),
     tenantIdx: index('KpiCausalLink_tenantId_idx').on(t.tenantId),
+  }),
+);
+
+/**
+ * KpiTargetAmendment · 目标修订签批流
+ *
+ * KpiCycle.targetsLockedAt 后 targetValue 不可直接编辑, 唯一合法变更通道是这里:
+ * 提交申请 → owner/admin 审批 → approve 时才真正改写 Kpi.targetValue。
+ */
+export const kpiTargetAmendment = pgTable(
+  'KpiTargetAmendment',
+  {
+    id: text('id').primaryKey(),
+    kpiId: text('kpiId').notNull(),
+    cycleId: text('cycleId').notNull(),
+    requestedBy: text('requestedBy').notNull(),
+    fromTargetValue: numeric('fromTargetValue', { precision: 18, scale: 4 }).notNull(),
+    toTargetValue: numeric('toTargetValue', { precision: 18, scale: 4 }).notNull(),
+    reason: text('reason').notNull(),
+    /** pending | approved | rejected */
+    status: text('status').notNull().default('pending'),
+    reviewedBy: text('reviewedBy'),
+    reviewedAt: timestamp('reviewedAt', { precision: 3, mode: 'date' }),
+    reviewNote: text('reviewNote'),
+    tenantId: text('tenantId').notNull().default('default'),
+    createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),
+  },
+  (t) => ({
+    kpiStatusIdx: index('KpiTargetAmendment_kpiId_status_idx').on(t.kpiId, t.status),
+    cycleIdx: index('KpiTargetAmendment_cycleId_idx').on(t.cycleId, t.tenantId),
+    statusTenantIdx: index('KpiTargetAmendment_status_tenant_idx').on(t.status, t.tenantId),
   }),
 );
 

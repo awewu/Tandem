@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
-import { computeYoyFacts } from '@/lib/kpi/bsc-fact-service';
+import { computeYoyFacts, computeQoqFact } from '@/lib/kpi/bsc-fact-service';
 import { getStore, setStore } from '@/lib/storage/repository';
 import { createInMemoryStore } from '@/lib/storage/memory-store';
 import type { Kpi, KpiCycle } from '@/lib/types/kpi';
@@ -102,5 +102,53 @@ describe('computeYoyFacts', () => {
   it('returns empty map for empty input', async () => {
     const facts = await computeYoyFacts(TENANT, []);
     expect(facts.size).toBe(0);
+  });
+});
+
+describe('computeQoqFact', () => {
+  it('returns all-null for empty snapshots', () => {
+    const fact = computeQoqFact([]);
+    expect(fact).toEqual({ currentQuarterValue: null, priorQuarterValue: null, qoqPct: null });
+  });
+
+  it('computes real QoQ across calendar quarter boundary (Q2 vs Q1 end)', () => {
+    const snapshots = [
+      { date: '2026-03-31', value: 100 }, // Q1 末
+      { date: '2026-04-15', value: 110 },
+      { date: '2026-06-30', value: 130 }, // Q2 末
+    ];
+    const fact = computeQoqFact(snapshots, '2026-06-30');
+    expect(fact.priorQuarterValue).toBe(100);
+    expect(fact.currentQuarterValue).toBe(130);
+    expect(fact.qoqPct).toBeCloseTo(30, 5); // (130-100)/100*100
+  });
+
+  it('returns null priorQuarterValue when no snapshot exists before/at prior quarter end', () => {
+    const snapshots = [{ date: '2026-04-05', value: 50 }]; // 只有 Q2 数据, 无 Q1
+    const fact = computeQoqFact(snapshots, '2026-04-05');
+    expect(fact.currentQuarterValue).toBe(50);
+    expect(fact.priorQuarterValue).toBeNull();
+    expect(fact.qoqPct).toBeNull();
+  });
+
+  it('handles year rollover (Q1 vs prior year Q4)', () => {
+    const snapshots = [
+      { date: '2025-12-31', value: 80 }, // 2025 Q4 末
+      { date: '2026-02-10', value: 88 }, // 2026 Q1
+    ];
+    const fact = computeQoqFact(snapshots, '2026-02-10');
+    expect(fact.priorQuarterValue).toBe(80);
+    expect(fact.currentQuarterValue).toBe(88);
+    expect(fact.qoqPct).toBeCloseTo(10, 5);
+  });
+
+  it('defaults asOfDate to the latest snapshot date when omitted', () => {
+    const snapshots = [
+      { date: '2026-03-31', value: 100 },
+      { date: '2026-05-20', value: 120 },
+    ];
+    const fact = computeQoqFact(snapshots);
+    expect(fact.currentQuarterValue).toBe(120);
+    expect(fact.priorQuarterValue).toBe(100);
   });
 });

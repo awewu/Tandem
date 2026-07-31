@@ -142,6 +142,9 @@ export type AuditAction =
   | 'kpi.subject_changed'        // 科目主数据 CRUD
   | 'kpi.target_set'             // 通道 A: target/weight 设置
   | 'kpi.target_locked'          // 周期 active 后 target 不可改
+  | 'kpi.target_amendment_requested' // 目标修订签批流: 提交申请
+  | 'kpi.target_amendment_approved'  // 目标修订签批流: owner/admin 批准, 落地改写 targetValue
+  | 'kpi.target_amendment_rejected'  // 目标修订签批流: owner/admin 驳回
   | 'kpi.actuals_imported_erp'   // 通道 B: ERP 自动采集
   | 'kpi.actuals_manual_entry'   // 通道 C: 财务/HR/内勤人工补录
   | 'kpi.scope_locked'           // bonus/monitor frozen

@@ -146,6 +146,15 @@ export interface Kpi {
   parentKpiId?: string;
   /** 被考核人/部门 ID. scope=monitor 时常为公司主体, 非个人 */
   assigneeId: string;
+  /**
+   * 跨体系联合持有人 (可选). 表达"这个指标由多个职能/部门共同背"的数据归属关系
+   * (如 产能利用率由 制造+供应链 共同监控), 纯粹是 BSC 数据层的联合可见性/责任标注。
+   *
+   * 铁律: 这里不表达也不驱动任何奖金分摊逻辑 —— 联合指标如何计入各共同持有人的绩效/
+   * 奖金, 由独立的「绩效奖金模块」单独设计与实现, BSC/FP&A 数据目标体系只负责
+   * 全量多维度监控企业运营真值, 不越界碰薪酬计算。
+   */
+  coOwnerIds?: string[];
   /** 部门 ID (level=department 必填; level=individual 时记所属部门便于 rollup) */
   departmentId?: string;
   title: string;
@@ -375,6 +384,38 @@ export interface KpiCausalLink {
   validationNote?: string;
   tenantId: string;
   createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// 目标修订签批流 (targetValue 锁定后的唯一合法变更通道)
+// ---------------------------------------------------------------------------
+
+export type KpiTargetAmendmentStatus = 'pending' | 'approved' | 'rejected';
+
+/**
+ * KpiTargetAmendment · 目标修订申请
+ *
+ * KpiCycle.targetsLockedAt 之后 targetValue 不可直接编辑 (CHARTER §2.3)。
+ * 唯一合法变更通道: 提交修订申请 → 审批人 (owner/admin) 审核 → approve 时才真正
+ * 落地改写 Kpi.targetValue (走 audit `kpi.target_amendment_approved`)。
+ * reject 时 Kpi.targetValue 保持不变。
+ */
+export interface KpiTargetAmendment {
+  id: string;
+  kpiId: string;
+  cycleId: string;
+  /** 申请人 (被考核人的直属主管/HR, 不能是 owner 自己给自己改) */
+  requestedBy: string;
+  fromTargetValue: number;
+  toTargetValue: number;
+  reason: string;
+  status: KpiTargetAmendmentStatus;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  reviewNote?: string;
+  tenantId: string;
   createdAt: string;
   updatedAt: string;
 }
