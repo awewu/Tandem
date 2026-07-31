@@ -20,6 +20,7 @@ import {
   normalizeDecision,
   type ArbitrationDecision,
 } from '@/lib/pms/duplicate-appeal-service';
+import { reviewOpportunity } from '@/lib/pms/opportunity-service';
 
 // ---------------------------------------------------------------------------
 // ① 撞单申诉裁定 (原「仲裁」; 内部销售管理岗)
@@ -87,6 +88,60 @@ export const PmsAppealArbitrateAction: ActionType<PmsAppealArbitrateInput, PmsAp
 };
 
 // ---------------------------------------------------------------------------
+// ② 商机报备审核 (经理/信息管理岗 通过 or 退回 pending_review 商机)
+// ---------------------------------------------------------------------------
+
+export type OpportunityReviewDecision = 'approved' | 'rejected';
+
+export interface PmsOpportunityReviewInput {
+  tenantId: string;
+  opportunityId: string;
+  decision: OpportunityReviewDecision;
+  reviewerId: string;
+  note?: string;
+}
+
+export interface PmsOpportunityReviewResult {
+  id: string;
+  reviewStatus: string;
+}
+
+export const PmsOpportunityReviewAction: ActionType<PmsOpportunityReviewInput, PmsOpportunityReviewResult> = {
+  id: 'pms.opportunity.review',
+  objectType: 'PmsOpportunity',
+  label: 'PMS 商机报备审核',
+  declaredActionScope: 'commit',
+  // 措辞用「审核 / 通过 / 退回」, 避开 YELLOW 数据变更红线的「审批通过/驳回」精确串; commit 基线已保持黄区。
+  describeIntent: (i) =>
+    `PMS 商机报备审核: 商机=${i?.opportunityId ?? ''} → ${i?.decision === 'approved' ? '通过(计入漏斗)' : '退回'}`,
+
+  async validate(input, ctx) {
+    if (!input || typeof input.opportunityId !== 'string' || !input.opportunityId) {
+      return { ok: false, errors: ['opportunityId required'], code: 'invalid' };
+    }
+    if (input.decision !== 'approved' && input.decision !== 'rejected') {
+      return { ok: false, errors: ['decision must be approved|rejected'], code: 'invalid' };
+    }
+    if (!(input.tenantId ?? ctx.tenantId)) {
+      return { ok: false, errors: ['tenantId required'], code: 'invalid' };
+    }
+    return { ok: true, errors: [] };
+  },
+
+  async execute(input, ctx) {
+    return reviewOpportunity(
+      input.opportunityId,
+      input.decision,
+      input.reviewerId ?? ctx.actorUserId,
+      input.tenantId ?? ctx.tenantId!,
+      input.note,
+    );
+  },
+
+  sideEffects: [],
+};
+
+// ---------------------------------------------------------------------------
 // 幂等注册 (镜像 ontology/index.ts ensureCoreActions; 独立函数避免把 drizzle
 // 拉进核心 ontology import 图 —— 由 PMS 路由 boot 后按需调用)。
 // ---------------------------------------------------------------------------
@@ -94,5 +149,8 @@ export const PmsAppealArbitrateAction: ActionType<PmsAppealArbitrateInput, PmsAp
 export function ensurePmsActions(): void {
   if (!actionRegistry.has(PmsAppealArbitrateAction.id)) {
     actionRegistry.register(PmsAppealArbitrateAction);
+  }
+  if (!actionRegistry.has(PmsOpportunityReviewAction.id)) {
+    actionRegistry.register(PmsOpportunityReviewAction);
   }
 }
