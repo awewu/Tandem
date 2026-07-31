@@ -67,6 +67,12 @@ async function POSTApiHandler(req: NextRequest) {
     assigneeId: k.assigneeId,
     level: k.level,
     priorActual: k.currentValue,
+    priorTitle: k.title,
+    priorMeasureType: k.measureType,
+    priorUnit: k.unit,
+    priorWeight: k.weight,
+    priorScope: k.scope,
+    priorDepartmentId: k.departmentId,
   }));
 
   const rawSuggestions = suggestTargets({ priorYearActuals, growthRateByCode, defaultGrowthRate });

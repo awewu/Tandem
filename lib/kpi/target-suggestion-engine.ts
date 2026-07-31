@@ -30,6 +30,13 @@ export interface PriorYearActual {
   level: string;
   /** 上一财年真实 currentValue */
   priorActual: number;
+  /** 以下为透传元数据, 仅供 UI "一键采纳" 预填新建 KPI 表单用, 不参与建议计算 */
+  priorTitle?: string;
+  priorMeasureType?: string;
+  priorUnit?: string;
+  priorWeight?: number;
+  priorScope?: string;
+  priorDepartmentId?: string;
 }
 
 export interface TargetSuggestion {
@@ -40,6 +47,12 @@ export interface TargetSuggestion {
   assigneeId: string;
   level: string;
   priorActual: number;
+  priorTitle?: string;
+  priorMeasureType?: string;
+  priorUnit?: string;
+  priorWeight?: number;
+  priorScope?: string;
+  priorDepartmentId?: string;
   /** 实际采用的增长率 (来自 growthRateByCode[code] 或 defaultGrowthRate) */
   growthRateUsed: number;
   /** priorActual * (1 + growthRateUsed), 四舍五入到 2 位小数 */
@@ -122,6 +135,12 @@ export function suggestTargets(input: SuggestTargetsInput): TargetSuggestion[] {
       assigneeId: p.assigneeId,
       level: p.level,
       priorActual: p.priorActual,
+      priorTitle: p.priorTitle,
+      priorMeasureType: p.priorMeasureType,
+      priorUnit: p.priorUnit,
+      priorWeight: p.priorWeight,
+      priorScope: p.priorScope,
+      priorDepartmentId: p.priorDepartmentId,
       growthRateUsed,
       suggestedTarget,
     };
