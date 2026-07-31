@@ -23,6 +23,7 @@
 import { COMPANY_BRAIN_USER_ID } from './company-brain';
 import { recordEvalTraceSafe } from '@/lib/eval/service';
 import { summarizeFindings } from '@/lib/guardrail';
+import { canAccess, type Marking, type AccessContext } from '@/lib/ontology/marking';
 
 /** 只读感知工具白名单 (全部 green · proxyAllowed · 无副作用) */
 export const PERCEPTION_TOOLSET = [
@@ -40,6 +41,48 @@ export const PERCEPTION_TOOLSET = [
   'memory.search',
   'decision_card.list',
 ] as const;
+
+// ---------------------------------------------------------------------------
+// 本体安全维度接线 (Phase 2): 感知工具按数据密级 marking 门控。
+//
+// 中央 AI = owner 全知代理 (restricted 许可, 目的 okr_perception)。okr_perception 策略
+// 允许 financial (聚合经营额), 但恒禁 compensation (个体薪酬) 与 personal_growth (个人成长)。
+// 因此当前 9 个工具全部可访问 → 零行为变更; 但未来若有人误把"个人薪酬/成长"类工具加进
+// 感知集, accessiblePerceptionToolset() 会自动过滤掉 (防误加的纵深防御)。
+// ---------------------------------------------------------------------------
+
+/** 感知工具 → 其返回数据的密级标记。缺省 (未列) 保守视为 internal。 */
+const PERCEPTION_TOOL_MARKINGS: Record<string, Marking> = {
+  'okr.health_digest': { sensitivity: 'internal' },
+  'okr.business_review': { sensitivity: 'internal' },
+  'okr.read': { sensitivity: 'internal' },
+  // KPI / 奖金池 / 销售管道 = 聚合经营额 → financial (okr_perception 允许); 非个体 compensation。
+  'kpi.health_digest': { sensitivity: 'confidential', categories: ['financial'] },
+  'bonus.digest': { sensitivity: 'confidential', categories: ['financial'] },
+  'pms.pipeline_digest': { sensitivity: 'confidential', categories: ['financial'] },
+  'talent.nine_box': { sensitivity: 'confidential' },
+  'analytics.cross_rollup': { sensitivity: 'confidential', categories: ['financial'] },
+  'memory.search': { sensitivity: 'internal' },
+  'decision_card.list': { sensitivity: 'confidential' },
+};
+
+/** 中央 AI 感知的访问上下文: owner 全知代理。 */
+export const CENTRAL_AI_PERCEPTION_ACCESS: AccessContext = {
+  clearance: 'restricted',
+  purpose: 'okr_perception',
+  isExternal: false,
+};
+
+/**
+ * 按 marking → purpose 过滤出中央 AI 本轮可访问的感知工具。
+ * 当前全通 (零行为变更); 语义是"未来误加高敏工具即自动挡下"的纵深防御。
+ */
+export function accessiblePerceptionToolset(
+  toolset: readonly string[] = PERCEPTION_TOOLSET,
+  ctx: AccessContext = CENTRAL_AI_PERCEPTION_ACCESS,
+): string[] {
+  return toolset.filter((t) => canAccess(PERCEPTION_TOOL_MARKINGS[t], ctx).allow);
+}
 
 export interface PerceptionResult {
   /** 是否真跑了感知 pass 且至少调到一个工具 */
@@ -184,7 +227,8 @@ export async function companyBrainPerceptionPass(
     const loop = await runToolLoop({
       systemPrompt: PERCEPTION_SYSTEM,
       userQuery: query,
-      toolset: [...PERCEPTION_TOOLSET],
+      // 本体安全维度: 按 marking→purpose 过滤 (当前全通; 防未来误加高敏工具)。
+      toolset: accessiblePerceptionToolset(),
       scenario: 'tool_use',
       actorUserId: COMPANY_BRAIN_USER_ID,
       isProxy: false,
