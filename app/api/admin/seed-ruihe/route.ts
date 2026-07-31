@@ -67,7 +67,16 @@ interface SubjectSpec {
   target: number;
 }
 
+/**
+ * 目标科目设计 (暖通制造/研发/营销产业属性 · 瑞合瑞德):
+ *   - 集团/事业部通用 7 科目 (北极星, 各 P&L 责任人共用) — 保留原编码, 兼容既有因果链/权重逻辑。
+ *   - 6 大职能条线专属科目 (rd/mfg/mkt/scm/svc/finance), 供个人层按所在部门职能差异化分配,
+ *     取代"全员同一套 3 科目"的旧设计 (研发经理和销售经理不该背一样的指标)。
+ *   - 起止值方向对"越低越好"型指标 (返修率/事故数/成本/响应时长) 显式反向 (start > target),
+ *     computeKpiCompletion 的 (current-start)/(target-start) 公式天然兼容, 无需特判。
+ */
 const SUBJECTS: SubjectSpec[] = [
+  // ── 集团/事业部通用北极星 (不变编码, 兼容既有因果链) ──
   { code: 'FIN.REV', name: '营业收入', unit: '万元', measureType: 'currency', scope: 'bonus', bsc: 'financial', start: 0, target: 1200 },
   { code: 'FIN.GP', name: '毛利率', unit: '%', measureType: 'percentage', scope: 'bonus', bsc: 'financial', start: 28, target: 38 },
   { code: 'CUST.NPS', name: '客户满意度 / NPS', unit: '分', measureType: 'numeric', scope: 'bonus', bsc: 'customer', start: 70, target: 90 },
@@ -75,13 +84,63 @@ const SUBJECTS: SubjectSpec[] = [
   { code: 'PROC.OTD', name: '交付准时率', unit: '%', measureType: 'percentage', scope: 'monitor', bsc: 'process', start: 80, target: 95 },
   { code: 'PROC.QA', name: '质量合格率', unit: '%', measureType: 'percentage', scope: 'monitor', bsc: 'process', start: 90, target: 98 },
   { code: 'GROW.RETAIN', name: '关键人才留存率', unit: '%', measureType: 'percentage', scope: 'monitor', bsc: 'growth', start: 80, target: 92 },
+
+  // ── 研发 (R&D): 新品达成 + 能效标准 (空气能/热水器核心竞争力) + 技术成果 ──
+  { code: 'RD.NPD', name: '新品按期上市率', unit: '%', measureType: 'percentage', scope: 'bonus', bsc: 'process', start: 60, target: 90 },
+  { code: 'RD.EFF', name: '新品能效达标率 (APF/COP)', unit: '%', measureType: 'percentage', scope: 'bonus', bsc: 'process', start: 75, target: 96 },
+  { code: 'RD.PATENT', name: '专利 / 技术成果数', unit: '项', measureType: 'count', scope: 'bonus', bsc: 'growth', start: 0, target: 8 },
+
+  // ── 制造/生产 (瑞合制造事业部核心): 良率 + 成本 + 产能 + 安全 ──
+  { code: 'MFG.FPY', name: '一次合格率', unit: '%', measureType: 'percentage', scope: 'bonus', bsc: 'process', start: 88, target: 98 },
+  { code: 'MFG.COST', name: '单位制造成本 (同比下降)', unit: '%', measureType: 'percentage', scope: 'bonus', bsc: 'process', start: 100, target: 88 },
+  { code: 'MFG.CAP', name: '产能利用率', unit: '%', measureType: 'percentage', scope: 'monitor', bsc: 'process', start: 65, target: 88 },
+  { code: 'MFG.SAFE', name: '安全生产事故数', unit: '起', measureType: 'count', scope: 'monitor', bsc: 'process', start: 3, target: 0 },
+
+  // ── 营销/销售 (热水/空气事业部核心): 市占率 + 渠道网络 + 新客开发 ──
+  { code: 'MKT.SHARE', name: '核心品类市场占有率', unit: '%', measureType: 'percentage', scope: 'bonus', bsc: 'customer', start: 8, target: 14 },
+  { code: 'MKT.DEALER', name: '经销商网络覆盖数', unit: '家', measureType: 'count', scope: 'bonus', bsc: 'customer', start: 200, target: 320 },
+  { code: 'MKT.NEWCUST', name: '新客户开发数', unit: '家', measureType: 'count', scope: 'bonus', bsc: 'customer', start: 0, target: 60 },
+
+  // ── 供应链/采购: 成本节约 + 供应商交付 + 库存周转 ──
+  { code: 'SCM.COST', name: '采购成本节约率', unit: '%', measureType: 'percentage', scope: 'bonus', bsc: 'process', start: 0, target: 6 },
+  { code: 'SCM.OTD', name: '供应商交付准时率', unit: '%', measureType: 'percentage', scope: 'bonus', bsc: 'process', start: 82, target: 96 },
+  { code: 'SCM.INV', name: '库存周转率', unit: '次/年', measureType: 'numeric', scope: 'monitor', bsc: 'process', start: 4, target: 8 },
+
+  // ── 售后服务 (独立顶层单元): 响应时长 + 返修率 ──
+  { code: 'SVC.SLA', name: '平均维修响应时长', unit: '小时', measureType: 'numeric', scope: 'bonus', bsc: 'process', start: 48, target: 12 },
+  { code: 'SVC.RETURN', name: '返修率', unit: '%', measureType: 'percentage', scope: 'bonus', bsc: 'customer', start: 6, target: 2 },
 ];
 
 /** bonus 权重模板 (和=100) */
 const COMPANY_WEIGHTS: Record<string, number> = { 'FIN.REV': 30, 'FIN.GP': 25, 'CUST.NPS': 25, 'GROW.SKILL': 20 };
 const BU_WEIGHTS: Record<string, number> = { 'FIN.REV': 35, 'FIN.GP': 20, 'CUST.NPS': 25, 'GROW.SKILL': 20 };
-const INDIV_WEIGHTS: Record<string, number> = { 'FIN.REV': 40, 'CUST.NPS': 35, 'GROW.SKILL': 25 };
 const MONITOR_CODES = ['PROC.OTD', 'PROC.QA', 'GROW.RETAIN'];
+
+/** 职能条线 (按部门路径关键词分类), 决定个人层背哪一套指标 */
+type OrgFunction = 'rd' | 'mfg' | 'mkt' | 'scm' | 'svc' | 'hr' | 'finance' | 'general';
+
+function classifyFunction(deptPath: string): OrgFunction {
+  if (/研发|技术中心|工程院|研究院|设计院/.test(deptPath)) return 'rd';
+  if (/制造|生产|工厂|车间|智造/.test(deptPath)) return 'mfg';
+  if (/营销|销售|市场|渠道|电商/.test(deptPath)) return 'mkt';
+  if (/供应链|采购|物流|计划/.test(deptPath)) return 'scm';
+  if (/售后|客服/.test(deptPath)) return 'svc';
+  if (/人力|人事|HR/i.test(deptPath)) return 'hr';
+  if (/财务|资金|审计/.test(deptPath)) return 'finance';
+  return 'general';
+}
+
+/** 个人层按职能条线差异化的 bonus 权重模板 (各自和=100) — 取代"全员同 3 科目"的旧设计 */
+const INDIV_WEIGHTS_BY_FN: Record<OrgFunction, Record<string, number>> = {
+  rd: { 'RD.NPD': 35, 'RD.EFF': 35, 'RD.PATENT': 30 },
+  mfg: { 'MFG.FPY': 35, 'MFG.COST': 35, 'MFG.CAP': 30 },
+  mkt: { 'MKT.SHARE': 30, 'MKT.DEALER': 30, 'MKT.NEWCUST': 40 },
+  scm: { 'SCM.COST': 35, 'SCM.OTD': 35, 'SCM.INV': 30 },
+  svc: { 'SVC.SLA': 40, 'SVC.RETURN': 30, 'CUST.NPS': 30 },
+  hr: { 'GROW.RETAIN': 50, 'GROW.SKILL': 50 },
+  finance: { 'FIN.GP': 50, 'FIN.REV': 30, 'GROW.SKILL': 20 },
+  general: { 'FIN.REV': 40, 'CUST.NPS': 35, 'GROW.SKILL': 25 },
+};
 
 async function POSTApiHandler(req: NextRequest) {
   await boot();
@@ -252,10 +311,12 @@ async function POSTApiHandler(req: NextRequest) {
     }
   }
 
-  // 3c. 个人层 (其余经理) bonus 3, 权重和=100; 挂到本事业部同科目 KPI 形成完整 cascade
+  // 3c. 个人层 (其余经理) bonus 3, 权重和=100; 按所属职能条线 (研发/制造/营销/供应链/售后/人力/财务)
+  //     分配差异化科目组合 — 挂到本事业部同科目 KPI 形成 cascade (无同名 BU 科目时 parentKpiId 留空, 合法)。
   for (const m of indivManagers) {
     const bu = buOf(m);
-    for (const [code, weight] of Object.entries(INDIV_WEIGHTS)) {
+    const fn = classifyFunction(m.departmentId ?? '');
+    for (const [code, weight] of Object.entries(INDIV_WEIGHTS_BY_FN[fn])) {
       await mkKpi({
         code, assigneeId: m.id, level: 'individual', weight, scope: 'bonus',
         departmentId: bu, completion: completionFor(`ind_${m.id}_${code}`, bu),

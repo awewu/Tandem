@@ -180,15 +180,18 @@ const DS: Record<string, { label: string; icon: typeof Database }> = {
   pending: { label: '尚未采集', icon: Lock },
 };
 
-function calcDeltas(kpi: Kpi, snapshots: number[]) {
+/**
+ * `realYoyPct` 来自 /api/kpi/facts (lib/kpi/bsc-fact-service.ts) 的真实跨财年同比;
+ * 查不到上一财年真实数据时为 null —— 绝不再用 target*0.85 虚构去年同期 (根治假闭环)。
+ */
+function calcDeltas(kpi: Kpi, snapshots: number[], realYoyPct: number | null = null) {
   const current = kpi.currentValue ?? 0;
   const target = kpi.targetValue;
   const gap = current - target;
   const gapPct = target > 0 ? (gap / target) * 100 : 0;
   const prev = snapshots.length >= 2 ? snapshots[snapshots.length - 2] : null;
   const qoq = prev != null && prev > 0 ? ((current - prev) / prev) * 100 : null;
-  const yoy = target > 0 ? ((current - target * 0.85) / (target * 0.85)) * 100 : null;
-  return { gap, gapPct, qoq, yoy };
+  return { gap, gapPct, qoq, yoy: realYoyPct };
 }
 
 // ---------------------------------------------------------------------------
@@ -243,6 +246,8 @@ export function KpiContent() {
   const [subjects, setSubjects] = useState<KpiSubject[]>([]);
   const [kpis, setKpis] = useState<Kpi[]>([]);
   const [snapsByKpi, setSnapsByKpi] = useState<Record<string, { date: string; value: number }[]>>({});
+  // 真实跨财年同比 (lib/kpi/bsc-fact-service.ts), 取代原先 target*0.85 的虚构同比
+  const [yoyByKpiId, setYoyByKpiId] = useState<Record<string, number | null>>({});
   const [granularity, setGranularity] = useState<Granularity>('live');
   const [periodKey, setPeriodKey] = useState<string | null>(null);
   const [deptKpisByAssignee, setDeptKpisByAssignee] = useState<Record<string, Kpi[]>>({});
@@ -286,9 +291,10 @@ export function KpiContent() {
         : `level=${view}`;
     if (!filter) { setKpis([]); setSnapsByKpi({}); return; }
     try {
-      const [rk, rs] = await Promise.all([
+      const [rk, rs, rf] = await Promise.all([
         fetch(`/api/kpi?cycleId=${activeCycleId}&${filter}`, { cache: 'no-store' }),
         fetch(`/api/kpi/snapshots?cycleId=${activeCycleId}`, { cache: 'no-store' }),
+        fetch(`/api/kpi/facts?cycleId=${activeCycleId}`, { cache: 'no-store' }),
       ]);
       if (!rk.ok) throw new Error(`HTTP ${rk.status}`);
       const jk = await rk.json();
@@ -303,6 +309,14 @@ export function KpiContent() {
           (byKpi[s.kpiId] ??= []).push({ date: s.date, value: s.cumulativeValue });
         }
         setSnapsByKpi(byKpi);
+      }
+      if (rf.ok) {
+        const jf = await rf.json();
+        const byKpiYoy: Record<string, number | null> = {};
+        for (const f of (jf.facts ?? []) as Array<{ kpiId: string; yoyPct: number | null }>) {
+          byKpiYoy[f.kpiId] = f.yoyPct;
+        }
+        setYoyByKpiId(byKpiYoy);
       }
     } catch (e) {
       setError((e as Error).message);
@@ -373,12 +387,21 @@ export function KpiContent() {
     });
   }, [kpis, snapsByKpi, granularity, asOfDate]);
 
-  // sparkline / 环比用的 number[] 序列 (as-of 模式裁剪到 ≤ asOfDate)
+  // sparkline 用的 number[] 序列 (as-of 模式裁剪到 ≤ asOfDate)
   const snapshotsByKpi = useMemo<Record<string, number[]>>(() => {
     const out: Record<string, number[]> = {};
     for (const [id, arr] of Object.entries(snapsByKpi)) {
       const clipped = granularity === 'live' || !asOfDate ? arr : arr.filter((s) => s.date <= asOfDate);
       out[id] = clipped.map((s) => s.value);
+    }
+    return out;
+  }, [snapsByKpi, granularity, asOfDate]);
+
+  // 真实环比 (QoQ) 计算用的带日期序列 (as-of 模式同样裁剪)
+  const datedSnapshotsByKpi = useMemo<Record<string, { date: string; value: number }[]>>(() => {
+    const out: Record<string, { date: string; value: number }[]> = {};
+    for (const [id, arr] of Object.entries(snapsByKpi)) {
+      out[id] = granularity === 'live' || !asOfDate ? arr : arr.filter((s) => s.date <= asOfDate);
     }
     return out;
   }, [snapsByKpi, granularity, asOfDate]);
@@ -427,9 +450,11 @@ export function KpiContent() {
   }, [bonusKpis, snapshotsByKpi]);
 
   const avgYoy = useMemo(() => {
-    const vals = bonusKpis.map(k => calcDeltas(k, snapshotsByKpi[k.id] ?? []).yoy).filter((v): v is number => v !== null);
+    const vals = bonusKpis
+      .map(k => calcDeltas(k, snapshotsByKpi[k.id] ?? [], yoyByKpiId[k.id] ?? null).yoy)
+      .filter((v): v is number => v !== null);
     return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
-  }, [bonusKpis, snapshotsByKpi]);
+  }, [bonusKpis, snapshotsByKpi, yoyByKpiId]);
 
   const totalGapPct = useMemo(() => {
     if (bonusKpis.length === 0) return 0;
@@ -578,7 +603,7 @@ export function KpiContent() {
                       const hc = healthColor(completion);
                       const pct = Math.round(completion * 100);
                       const snaps = snapshotsByKpi[kpi.id] ?? [];
-                      const { gap, gapPct, qoq, yoy } = calcDeltas(kpi, snaps);
+                      const { gap, gapPct, qoq, yoy } = calcDeltas(kpi, snaps, yoyByKpiId[kpi.id] ?? null);
                       const subject = subjectById.get(kpi.subjectId);
                       const ds = DS[kpi.dataSource ?? 'pending'];
                       return (
