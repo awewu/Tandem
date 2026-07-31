@@ -102,8 +102,10 @@ export async function personaPerceptionPass(
       scenario: 'tool_use',
       actorUserId,
       isProxy: true,
+      // Phase4 编排拓扑门控: 3/600 作上限, 简单单维度问题自适应收紧 (省预算), 复杂问题保满配。
       maxRounds: 3,
       maxTokens: 600,
+      adaptiveTopology: true,
       aiTraceId: checkId,
     });
 
