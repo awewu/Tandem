@@ -117,6 +117,50 @@ export const MemoryRelatedSkill: Skill<{ entityId: string; limit?: number }, unk
 };
 
 // ---------------------------------------------------------------------------
+// memory.timeline · 时间/因果链 (MAGMA-lite, 绿区, 代行允许)
+//   回答"这个 KR / 决议一路怎么演进的、哪一步导致下一步" — 关联型召回答不了的时间/因果轴。
+// ---------------------------------------------------------------------------
+
+export const MemoryTimelineSkill: Skill<{ entityId: string; maxEvents?: number }, unknown> = {
+  id: 'memory.timeline',
+  description: '按实体 ID (KR-N / OBJ-N / 决议) 构建时间/因果链: 该实体一路怎么演进、版本如何取代 (MAGMA-lite 时间因果轴)',
+  tags: ['memory', '知识', '时间线', '因果', 'timeline', 'magma', 'kr', 'okr', '演进', '来龙去脉'],
+  zone: 'green',
+  proxyAllowed: true,
+  estimatedTokens: 400,
+  schema: {
+    type: 'function',
+    function: {
+      name: 'memory_timeline',
+      description: '按实体 ID 构建时间/因果链, 例如"KR-3 从立项到现在一路怎么演进的、哪版方案取代了哪版"',
+      parameters: {
+        type: 'object',
+        properties: {
+          entityId: { type: 'string', description: '实体 ID, 如 KR-3 / OBJ-1 / conv-abc / kpi-xx' },
+          maxEvents: { type: 'number', description: '最多纳入事件数, 默认 30' },
+        },
+        required: ['entityId'],
+      },
+    },
+  },
+  async execute({ entityId, maxEvents = 30 }) {
+    const { buildEntityTimeline, summarizeTimeline } = await import('../../memory/timeline');
+    const memories = await getStore().memories.list();
+    const tl = buildEntityTimeline(entityId, memories, { maxEvents });
+    return {
+      ok: true,
+      data: {
+        entityId: tl.entityId,
+        summary: summarizeTimeline(tl),
+        events: tl.events.map((e) => ({ id: e.memory.id, title: e.memory.title, at: e.at, order: e.order })),
+        causalLinks: tl.causalLinks,
+      },
+      tokensUsed: 150 + tl.events.length * 30,
+    };
+  },
+};
+
+// ---------------------------------------------------------------------------
 // decision_card.list · 列出最近决议 (绿区)
 // ---------------------------------------------------------------------------
 
@@ -922,6 +966,7 @@ export const CrossRollupSkill: Skill<{ cycleId?: string }, unknown> = {
 export function registerBuiltinSkills(): void {
   skillRegistry.register(MemorySearchSkill);
   skillRegistry.register(MemoryRelatedSkill);
+  skillRegistry.register(MemoryTimelineSkill);
   skillRegistry.register(DecisionCardListSkill);
   skillRegistry.register(OkrReadSkill);
   skillRegistry.register(OkrHealthDigestSkill);

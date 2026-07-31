@@ -39,6 +39,8 @@ export const PERCEPTION_TOOLSET = [
   // 销售之眼: 全公司 PMS 管道/项目健康 + 最紧急销售/财务异常 (破除 CRM 孤岛)
   'pms.pipeline_digest',
   'memory.search',
+  // 时间/因果轴: 回答"某 KR/决议一路怎么演进的" (MAGMA-lite)
+  'memory.timeline',
   'decision_card.list',
 ] as const;
 
@@ -63,6 +65,7 @@ const PERCEPTION_TOOL_MARKINGS: Record<string, Marking> = {
   'talent.nine_box': { sensitivity: 'confidential' },
   'analytics.cross_rollup': { sensitivity: 'confidential', categories: ['financial'] },
   'memory.search': { sensitivity: 'internal' },
+  'memory.timeline': { sensitivity: 'internal' },
   'decision_card.list': { sensitivity: 'confidential' },
 };
 
