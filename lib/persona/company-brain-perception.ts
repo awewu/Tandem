@@ -235,10 +235,11 @@ export async function companyBrainPerceptionPass(
       scenario: 'tool_use',
       actorUserId: COMPANY_BRAIN_USER_ID,
       isProxy: false,
-      // 跨维度融合推演需分别调 OKR/KPI/人才/奖金 工具, 故提高轮次/token 上限;
-      // 单一维度问题仍会早收敛, 不会浪费预算。
+      // 跨维度融合推演需分别调 OKR/KPI/人才/奖金 工具, 故上限设 5 轮 / 1200 token;
+      // Phase4 编排拓扑门控: 以此为**上限**, 融合问题保持满配, 单维度问题自适应收紧 (省预算)。
       maxRounds: 5,
       maxTokens: 1200,
+      adaptiveTopology: true,
       aiTraceId: checkId,
       // B-002: 中央 AI 感知 pass 可调已配置的外部 MCP server 工具 (经 4 道闸).
       // 没配 MCP server 时 listMcpServers() 为空, 等价于不开启.
