@@ -84,10 +84,6 @@ if (-not $SkipBuild) {
   $env:SKIP_STARTUP_GUARD = "1"
   $env:DEEPSEEK_API_KEY = "build-placeholder"
   $env:DATABASE_URL = ""
-  # 部署机提交上限紧张: 跳过类型检查/lint 并把构建 worker 压到单个, 避免 OOM。
-  $env:TANDEM_SKIP_BUILD_CHECKS = "1"
-  $env:TANDEM_LOW_MEMORY_BUILD = "1"
-
   & npm.cmd run build
   if ($LASTEXITCODE -ne 0) {
     throw "next build failed with exit code $LASTEXITCODE"

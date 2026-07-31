@@ -1,7 +1,7 @@
 # GitLab CI · Tandem
 #
 # 兼容老版本 GitLab：不使用 extends / rules / needs / service variables。
-# 当前发布环境：Linux shell Runner 只上传源码，Windows Server 本机打包并蓝绿发布。
+# 当前发布环境：Windows shell Runner 构建打包，生产 Windows Server 只做蓝绿发布。
 
 stages:
   - package
@@ -15,35 +15,31 @@ variables:
   DEPLOY_PUBLIC_BASE_URL: "https://ai.rhautt.com"
   DEPLOY_NOTIFY_WEBHOOK_TYPE: "wecom"
 
-# TODO: Linux runner 装好 Node 后恢复 verify 阶段 (tsc --noEmit + next lint)。
-# 在此之前 package-deploy.ps1 的 TANDEM_SKIP_BUILD_CHECKS=1 使部署构建不做类型检查。
-package_source:
+package_windows:
   stage: package
   tags:
-    - linux
+    - windows-build
   only:
     - deploy
   script:
-    - git archive --format=zip --output=tandem-source.zip HEAD
+    - npm.cmd ci --no-audit --no-fund
+    - npx.cmd tsc --noEmit
+    - npm.cmd run lint
+    - $env:TANDEM_SKIP_BUILD_CHECKS = "1"
+    - $env:TANDEM_LOW_MEMORY_BUILD = ""
+    - powershell -NoProfile -ExecutionPolicy Bypass -File package-deploy.ps1 -OutputZip tandem-deploy.zip
   artifacts:
     paths:
-      - tandem-source.zip
+      - tandem-deploy.zip
     expire_in: 1 day
 
 deploy_prod:
   stage: deploy
   tags:
-    - linux
+    - windows-build
   only:
     - deploy
   script:
-    - mkdir -p ~/.ssh
-    - chmod 600 ~/.ssh/id_tandem_deploy
-    - ssh-keyscan "$DEPLOY_HOST" >> ~/.ssh/known_hosts
-    - ssh -o BatchMode=yes -i ~/.ssh/id_tandem_deploy "$DEPLOY_USER@$DEPLOY_HOST" "powershell -ExecutionPolicy Bypass -Command \"New-Item -ItemType Directory -Force '$DEPLOY_ROOT','${DEPLOY_ROOT}/update','${DEPLOY_ROOT}/nginx' | Out-Null\""
-    - scp -o BatchMode=yes -i ~/.ssh/id_tandem_deploy scripts/deploy-windows-nssm-from-source.ps1 "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_ROOT/deploy-windows-nssm-from-source.ps1"
-    - scp -o BatchMode=yes -i ~/.ssh/id_tandem_deploy scripts/deploy-windows-nssm-bluegreen.ps1 "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_ROOT/deploy-windows-nssm-bluegreen.ps1"
-    - scp -o BatchMode=yes -i ~/.ssh/id_tandem_deploy tandem-source.zip "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_ROOT/update/tandem-source.zip"
-    - ssh -o BatchMode=yes -i ~/.ssh/id_tandem_deploy "$DEPLOY_USER@$DEPLOY_HOST" "powershell -ExecutionPolicy Bypass -File $DEPLOY_ROOT/deploy-windows-nssm-from-source.ps1 -Root $DEPLOY_ROOT -SourcePackageName tandem-source.zip -BlueServiceName TandemServerBlue -GreenServiceName TandemServerGreen -BluePort 3005 -GreenPort 3006 -NginxExe '$DEPLOY_NGINX_EXE' -NginxPrefix '$DEPLOY_NGINX_PREFIX' -NginxConfig '$DEPLOY_NGINX_CONFIG' -NginxUpstreamFile '$DEPLOY_ROOT/nginx/tandem-upstream.conf' -PublicBaseUrl '$DEPLOY_PUBLIC_BASE_URL' -NotifyWebhookUrl '$DEPLOY_NOTIFY_WEBHOOK_URL' -NotifyWebhookType '$DEPLOY_NOTIFY_WEBHOOK_TYPE'"
+    - powershell -NoProfile -ExecutionPolicy Bypass -File scripts\ci-deploy-from-windows-runner.ps1
   environment:
     name: production
