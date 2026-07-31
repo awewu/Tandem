@@ -29,6 +29,32 @@ function Invoke-Checked {
   }
 }
 
+function Resolve-SshKeyPath {
+  $candidates = @()
+
+  $configured = [Environment]::GetEnvironmentVariable("DEPLOY_SSH_KEY_PATH")
+  if (-not [string]::IsNullOrWhiteSpace($configured)) {
+    $candidates += $configured.Trim().Trim("'").Trim('"')
+  }
+
+  if (-not [string]::IsNullOrWhiteSpace($env:USERPROFILE)) {
+    $candidates += (Join-Path $env:USERPROFILE ".ssh\id_tandem_deploy")
+  }
+
+  $candidates += @(
+    "C:\Users\Administrator\.ssh\id_tandem_deploy",
+    "C:\GitLab-Runner\.ssh\id_tandem_deploy"
+  )
+
+  foreach ($candidate in $candidates) {
+    if (-not [string]::IsNullOrWhiteSpace($candidate) -and (Test-Path -LiteralPath $candidate)) {
+      return (Resolve-Path -LiteralPath $candidate).Path
+    }
+  }
+
+  throw "SSH private key missing. Checked: $($candidates -join ', ')"
+}
+
 $DeployHost = Require-Env "DEPLOY_HOST"
 $DeployUser = Require-Env "DEPLOY_USER"
 $DeployRoot = Require-Env "DEPLOY_ROOT"
@@ -39,16 +65,11 @@ $PublicBaseUrl = Require-Env "DEPLOY_PUBLIC_BASE_URL"
 $NotifyWebhookUrl = [Environment]::GetEnvironmentVariable("DEPLOY_NOTIFY_WEBHOOK_URL")
 $NotifyWebhookType = [Environment]::GetEnvironmentVariable("DEPLOY_NOTIFY_WEBHOOK_TYPE")
 
-$KeyPath = [Environment]::GetEnvironmentVariable("DEPLOY_SSH_KEY_PATH")
-if ([string]::IsNullOrWhiteSpace($KeyPath)) {
-  $KeyPath = Join-Path $env:USERPROFILE ".ssh\id_tandem_deploy"
-}
-$KeyPath = $KeyPath.Trim().Trim("'").Trim('"')
+$KeyPath = Resolve-SshKeyPath
 
 $PackagePath = Join-Path (Get-Location) "tandem-deploy.zip"
 $BlueGreenScript = Join-Path (Get-Location) "scripts\deploy-windows-nssm-bluegreen.ps1"
 
-Require-File $KeyPath "SSH private key missing"
 Require-File $PackagePath "Deployment package missing"
 Require-File $BlueGreenScript "Blue-green deploy script missing"
 
