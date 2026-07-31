@@ -77,6 +77,40 @@ describe('buildStoryChain', () => {
   });
 });
 
+describe('buildStoryChain · MAGMA-lite 时间/因果轴', () => {
+  it('组装触及该 KR 的记忆时间线 + 版本取代因果边 (按时间升序)', async () => {
+    const s = getStore();
+    await s.keyResults.create({
+      id: 'kr-7', objectiveId: 'o9', ownerId: 'u1', coOwnerIds: [], title: 'K7',
+      measureType: 'numeric', computeMethod: 'latest', startValue: 0, targetValue: 10, currentValue: 5,
+      confidence: 'on-track', riskStatus: 'on_track', weight: 1, status: 'active', tenantId: 'default',
+    } as never);
+    // 三条触及 KR-7 的记忆 (标题含编号), 时间递增; mem-v2 取代 mem-v1
+    await s.memories.create({ id: 'mem-v1', type: 'sop', title: 'KR-7 首版方案', body: '关于 KR-7', status: 'active', ownershipLevel: 'company', referenceCount: 0, supersededBy: 'mem-v2', createdAt: '2026-01-01T00:00:00.000Z' } as never);
+    await s.memories.create({ id: 'mem-v2', type: 'sop', title: 'KR-7 修订方案', body: 'KR-7 v2', status: 'active', ownershipLevel: 'company', referenceCount: 0, supersedes: 'mem-v1', createdAt: '2026-02-01T00:00:00.000Z' } as never);
+    await s.memories.create({ id: 'mem-p', type: 'lesson', title: 'KR-7 个人笔记', status: 'active', ownershipLevel: 'personal', referenceCount: 0, createdAt: '2026-03-01T00:00:00.000Z' } as never);
+
+    const chain = await buildStoryChain('kr-7', 'default');
+    expect(chain).not.toBeNull();
+    // 决策防火墙: personal 非审批记忆被排除 → 仅 v1/v2
+    const ids = chain!.timeline.events.map((e) => e.id);
+    expect(ids).toEqual(['mem-v1', 'mem-v2']);
+    expect(chain!.stats.timelineEventCount).toBe(2);
+    // 版本取代因果边 (旧→新)
+    expect(chain!.timeline.causalLinks.some((l) => l.kind === 'supersedes' && l.fromId === 'mem-v1' && l.toId === 'mem-v2')).toBe(true);
+    // 时间主干相邻边
+    expect(chain!.timeline.causalLinks.some((l) => l.kind === 'temporal_next' && l.fromId === 'mem-v1' && l.toId === 'mem-v2')).toBe(true);
+  });
+
+  it('无触及记忆的 KR → 空时间线', async () => {
+    const s = getStore();
+    await s.keyResults.create({ id: 'kr-8', objectiveId: 'o9', ownerId: 'u1', coOwnerIds: [], title: 'K8', measureType: 'numeric', computeMethod: 'latest', startValue: 0, targetValue: 10, currentValue: 0, confidence: 'on-track', riskStatus: 'on_track', weight: 1, status: 'active', tenantId: 'default' } as never);
+    const chain = await buildStoryChain('kr-8', 'default');
+    expect(chain!.timeline.events).toHaveLength(0);
+    expect(chain!.stats.timelineEventCount).toBe(0);
+  });
+});
+
 describe('listAnchorKrs', () => {
   it('返回本租户 KR 列表', async () => {
     await seedChain();
