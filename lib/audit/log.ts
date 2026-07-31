@@ -103,6 +103,15 @@ export type AuditAction =
   | 'approval.created'                     // 提交审批单
   | 'approval.approved'                    // 审批人/admin 通过
   | 'approval.rejected'                    // 审批人/admin 驳回
+  | 'workflow.form_saved'
+  | 'workflow.template_saved'
+  | 'workflow.binding_saved'
+  | 'workflow.instance_started'
+  | 'workflow.task_completed'
+  | 'workflow.instance_withdrawn'
+  | 'workflow.task_admin_transfer'
+  | 'workflow.task_admin_completed'
+  | 'workflow.instance_admin_terminated'
   // 系统
   | 'system.provider_health_failed'
   | 'system.provider_switch'

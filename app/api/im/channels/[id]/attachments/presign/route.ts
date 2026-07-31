@@ -21,6 +21,11 @@ import {
   presignDownload,
   BUCKET_ATTACHMENTS,
 } from '@/lib/infra/s3-client';
+import {
+  filePathForDevObjectKey,
+  legacyFilePathForDevObjectKey,
+  statDevObject,
+} from '@/lib/im/dev-object-store';
 import { generateId } from '@/lib/storage/repository';
 import { withApiLog } from '@/lib/api-log/with-api-log';
 
@@ -85,6 +90,15 @@ async function POSTApiHandler(req: NextRequest, { params }: Params) {
       if (!allowDevObjectStore) {
         return NextResponse.json(
           { error: 'object storage not configured' },
+          { status: 503 },
+        );
+      }
+      const devObjectStat =
+        await statDevObject(filePathForDevObjectKey(body.storageKey)) ??
+        await statDevObject(legacyFilePathForDevObjectKey(body.storageKey));
+      if (!devObjectStat) {
+        return NextResponse.json(
+          { error: '本地对象存储未配置，无法读取部署环境中的附件' },
           { status: 503 },
         );
       }

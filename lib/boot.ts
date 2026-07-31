@@ -51,6 +51,7 @@ function bootSync(): void {
     (typeof existingStore === 'object' && !('documents' in existingStore)) ||
     (typeof existingStore === 'object' && !('calendarSyncStates' in existingStore)) ||
     (typeof existingStore === 'object' && !('legalDocuments' in existingStore)) ||
+    (typeof existingStore === 'object' && !('reportSummaries' in existingStore)) ||
     actualKind !== expectedKind;
 
   if (_g.__tandem_booted__ && !storeNeedsReset) return;

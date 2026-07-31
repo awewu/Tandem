@@ -32,7 +32,6 @@ import {
   HardDrive,
   Search,
   ClipboardCheck,
-  Workflow,
   Clock3,
   CalendarDays,
   CalendarCheck,
@@ -151,6 +150,7 @@ export const NAV_MODULES: NavModule[] = [
       // 每日推进 (5min 日报 / 周回顾) 主入口已迁往「搭子 · 个人工作台」(每天和分身一起干活);
       // 因日报是 KR check-in 输入会回填进度, 此处保留一个深链, 做 OKR 的人仍可直达.
       { name: '每日推进 (日报 / 周回顾)', href: '/report', icon: Clock3, group: '目标与关键成果法 OKR' },
+      { name: '日报查看',          href: '/report/view',       icon: FileText,       group: '目标与关键成果法 OKR' },
       // 经营推演 (FP&A 引擎: 成本中心 BSC + OKR 驱动交付基线; 高亮稳定归事半, 不弹跳 Tandem)
       { name: 'FP&A 经营推演',     href: '/okr/fpa',          icon: Building2,      group: '经营推演 FP&A' },
       // 分析洞察
@@ -255,15 +255,14 @@ export const NAV_MODULES: NavModule[] = [
   {
     id: 'flow',
     label: '流程',
-    fullLabel: '流程 · 审批与工作流',
-    tagline: '日常事务自动跑, 把时间还给思考',
+    fullLabel: '流程 · 流程中心',
+    tagline: '流程模型、业务绑定和审批事务统一处理',
     icon: ListChecks,
     visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
     // /calendar 已提为顶级「日程」模块 (高频独立)
     pathPrefixes: ['/approvals', '/workflows'],
     items: [
-      { name: '审批流',  href: '/approvals',  icon: ClipboardCheck },
-      { name: '工作流',  href: '/workflows',  icon: Workflow },
+      { name: '流程中心', href: '/approvals', icon: ClipboardCheck },
     ],
   },
 

@@ -128,6 +128,8 @@ function SubSidebarInner() {
   if (isAuthRoute) return null;
 
   const activeId = activeModuleId(pathname);
+  if (activeId === 'flow') return null;
+
   const activeModule = NAV_MODULES.find((m) => m.id === activeId);
 
   // Home (or any module without items) → render only a thin collapse handle.
@@ -143,7 +145,7 @@ function SubSidebarInner() {
   const label = isImModule ? 'IM · 消息' : (activeModule?.fullLabel ?? '');
   const q = searchParams?.toString();
   const fullPath = pathname + (q ? '?' + q : '');
-  const activeItemHref = activeHref(items.map((item) => item.href), pathname, fullPath);
+  const activeItemHref = activeHref(items.map((item) => item.href), pathname, fullPath) ?? (items.length === 1 ? items[0].href : undefined);
   const toggleOpen = () => {
     setOpen((currentOpen) => {
       if (isImModule && !currentOpen && imWidth <= IM_SIDEBAR_COLLAPSE_THRESHOLD) {

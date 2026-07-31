@@ -35,7 +35,8 @@ export type ImBusEvent =
   | { type: 'message'; channelId: string; message: ImMessage }
   | { type: 'message_updated'; channelId: string; message: ImMessage }
   | { type: 'channel_updated'; channelId: string; channel: ImChannel }
-  | { type: 'unread_changed'; channelId: string; userId: string; unread: number };
+  | { type: 'unread_changed'; channelId: string; userId: string; unread: number }
+  | { type: 'read_receipt_changed'; channelId: string; userId: string; lastReadAt: string };
 
 export function subscribeIm(handler: (e: ImBusEvent) => void): () => void {
   _bus.on('event', handler);
@@ -345,12 +346,14 @@ export async function markChannelRead(
   const store = getStore();
   const m = await store.imMemberships.get(membershipKey(channelId, userId));
   if (!m) return;
+  const lastReadAt = new Date().toISOString();
   await store.imMemberships.update(m.id, {
     unreadCount: 0,
-    lastReadAt: new Date().toISOString(),
+    lastReadAt,
     hasUnreadMention: false,
   });
   broadcast({ type: 'unread_changed', channelId, userId, unread: 0 });
+  broadcast({ type: 'read_receipt_changed', channelId, userId, lastReadAt });
 }
 
 // ---------------------------------------------------------------------------
@@ -367,7 +370,7 @@ export async function recallMessage(
   const store = getStore();
   const msg = await store.imMessages.get(messageId);
   if (!msg) throw new Error('message not found');
-  if (msg.deletedAt) throw new Error('already recalled');
+  if (msg.deletedAt) return msg;
 
   const channel = await store.imChannels.get(msg.channelId);
   if (!channel) throw new Error('channel gone');

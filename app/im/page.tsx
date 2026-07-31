@@ -41,6 +41,7 @@ import {
   type PendingPersonMention,
 } from '@/lib/im/composer-text';
 import { displayImChannelName } from '@/lib/im/channel-name';
+import { chooseImPopupDirection, formatImMessageTimestamp, getImReadReceiptSummary, type ImPopupDirection } from '@/lib/im/message-display';
 import {
   Hash,
   Megaphone,
@@ -77,6 +78,7 @@ type Message = ImMessage;
 
 const OfficeFileViewer = dynamic(() => import('@file-viewer/react'), { ssr: false }) as ComponentType<{
   url: string;
+  buffer?: ArrayBuffer;
   name?: string;
   filename?: string;
   type?: string;
@@ -162,6 +164,7 @@ function ImInner() {
   const identityPickerRef = useRef<HTMLDivElement>(null);
   const [attachments, setAttachments] = useState<ComposerAttachment[]>([]);
   const [activeChannel, setActiveChannel] = useState<Channel | null>(null);
+  const [recallingIds, setRecallingIds] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
@@ -241,6 +244,12 @@ function ImInner() {
   function notifyChannelsRefresh() {
     window.dispatchEvent(new Event('tandem:im-channels-refresh'));
   }
+
+  const refreshMembers = useCallback((chId: string) => {
+    void fetch(`/api/im/channels/${chId}/members`)
+      .then((r) => r.json())
+      .then((data) => setMembers(data.members ?? []));
+  }, []);
 
   async function markActiveChannelRead(chId: string) {
     await fetch(`/api/im/channels/${chId}/read`, {
@@ -381,6 +390,7 @@ function ImInner() {
       }
     });
     es.addEventListener('unread', notifyChannelsRefresh);
+    es.addEventListener('read_receipt', () => refreshMembers(activeId));
     // Day 4: 撤回事件 — 替换本地设置 deletedAt
     es.addEventListener('message_updated', (e) => {
       try {
@@ -405,22 +415,34 @@ function ImInner() {
   // 拉取当前频道成员 (为已读人数计算 + 设置对话框复用)
   useEffect(() => {
     if (!activeId) { setMembers([]); return; }
-    void fetch(`/api/im/channels/${activeId}/members`)
-      .then((r) => r.json())
-      .then((data) => setMembers(data.members ?? []));
-  }, [activeId]);
+    refreshMembers(activeId);
+  }, [activeId, refreshMembers]);
 
   /** Day 4: 撤回消息 */
   async function recallMessageHandler(messageId: string) {
+    if (recallingIds.has(messageId)) return;
     if (!confirm('确认撤回这条消息?')) return;
-    const res = await fetch(`/api/im/messages/${messageId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'recall', userId: ME }),
-    });
-    if (!res.ok) {
-      const data = await res.json();
-      window.alert(`撤回失败: ${data.error ?? res.statusText}`);
+    setRecallingIds((prev) => new Set(prev).add(messageId));
+    try {
+      const res = await fetch(`/api/im/messages/${messageId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'recall', userId: ME }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        window.alert(`撤回失败: ${data.error ?? res.statusText}`);
+        return;
+      }
+      if (data.message) {
+        setMessages((prev) => prev.map((m) => (m.id === messageId ? data.message : m)));
+      }
+    } finally {
+      setRecallingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(messageId);
+        return next;
+      });
     }
   }
 
@@ -877,6 +899,7 @@ function ImInner() {
                   onSpawnRoom={() => spawnRoom(m.id)}
                   onPromote={() => promoteToMemory(m.id)}
                   onRecall={() => recallMessageHandler(m.id)}
+                  recalling={recallingIds.has(m.id)}
                   onPin={() => togglePinHandler(m.id)}
                   onMentionPersona={(uid) => summonPersona(uid)}
                   onReactionChange={(reactions) =>
@@ -1344,6 +1367,7 @@ function FilePreviewModal({
   onClose: () => void;
 }) {
   const [text, setText] = useState<string | null>(null);
+  const [officeBuffer, setOfficeBuffer] = useState<ArrayBuffer | null>(null);
   const [error, setError] = useState<string | null>(null);
   const textLike = isTextPreview(name, mimeType);
   const markdown = isMarkdownPreview(name, mimeType);
@@ -1380,6 +1404,30 @@ function FilePreviewModal({
     return () => controller.abort();
   }, [textLike, url]);
 
+  useEffect(() => {
+    if (!fileViewerPreview) return;
+    const controller = new AbortController();
+    setOfficeBuffer(null);
+    setError(null);
+    void fetch(url, { signal: controller.signal })
+      .then(async (res) => {
+        if (!res.ok) {
+          if (res.status === 404) {
+            throw new Error('当前本地服务无法读取该附件，请确认对象存储配置后再预览');
+          }
+          throw new Error(`预览失败 (${res.status})`);
+        }
+        return res.arrayBuffer();
+      })
+      .then((buffer) => {
+        if (!controller.signal.aborted) setOfficeBuffer(buffer);
+      })
+      .catch((err) => {
+        if (!controller.signal.aborted) setError((err as Error).message || '预览失败');
+      });
+    return () => controller.abort();
+  }, [fileViewerPreview, url]);
+
   const stop = (e: React.MouseEvent) => e.stopPropagation();
 
   return createPortal(
@@ -1414,22 +1462,33 @@ function FilePreviewModal({
         </header>
         <div className="min-h-0 flex-1 overflow-auto bg-white">
           {fileViewerPreview ? (
-            <OfficeFileViewer
-              url={url}
-              name={name}
-              filename={name}
-              type={mimeType || attachmentExt(name)}
-              size={size}
-              className="h-full min-h-[70vh] w-full"
-              style={{ height: '100%' }}
-              options={{
-                preset: officePreset,
-                rendererMode: 'replace',
-                theme: 'light',
-                toolbar: { position: 'top' },
-                download: false,
-              }}
-            />
+            error ? (
+              <div className="flex h-full min-h-[360px] flex-col items-center justify-center gap-2 p-6 text-center">
+                <FileText className="h-8 w-8 text-ink-tertiary" />
+                <div className="text-caption font-medium text-danger">{error}</div>
+                <div className="text-footnote text-ink-tertiary">如果部署环境可以查看，请同步本地对象存储配置后再测试 localhost。</div>
+              </div>
+            ) : officeBuffer === null ? (
+              <div className="p-6 text-caption text-ink-tertiary">正在加载预览...</div>
+            ) : (
+              <OfficeFileViewer
+                url={url}
+                buffer={officeBuffer}
+                name={name}
+                filename={name}
+                type={mimeType || attachmentExt(name)}
+                size={size}
+                className="h-full min-h-[70vh] w-full"
+                style={{ height: '100%' }}
+                options={{
+                  preset: officePreset,
+                  rendererMode: 'replace',
+                  theme: 'light',
+                  toolbar: { position: 'top' },
+                  download: false,
+                }}
+              />
+            )
           ) : textLike ? (
             error ? (
               <div className="p-6 text-caption text-danger">{error}</div>
@@ -1559,6 +1618,7 @@ function AttachmentView({ channelId, att }: { channelId: string; att: ImAttachme
   const [url, setUrl] = useState<string | null>(att.url ?? null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(att.url ?? null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [preview, setPreview] = useState(false);
   const contentType = previewContentType(att.name, att.mimeType);
   const officePreviewable = isOfficePreviewable(att.name, att.mimeType);
@@ -1567,6 +1627,7 @@ function AttachmentView({ channelId, att }: { channelId: string; att: ImAttachme
     if (att.url || !att.refId) return;
     let cancelled = false;
     setStatus('loading');
+    setAttachmentError(null);
     void fetch(`/api/im/channels/${channelId}/attachments/presign`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1577,7 +1638,11 @@ function AttachmentView({ channelId, att }: { channelId: string; att: ImAttachme
         contentType,
       }),
     })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then(async (r) => {
+        if (r.ok) return r.json();
+        const data = await r.json().catch(() => ({}));
+        throw new Error(data.error ?? `附件加载失败 (${r.status})`);
+      })
       .then((data) => {
         if (!cancelled) {
           setUrl(data.previewUrl ?? data.url);
@@ -1585,7 +1650,12 @@ function AttachmentView({ channelId, att }: { channelId: string; att: ImAttachme
           setStatus('idle');
         }
       })
-      .catch(() => { if (!cancelled) setStatus('error'); });
+      .catch((err) => {
+        if (!cancelled) {
+          setAttachmentError((err as Error).message || '附件加载失败');
+          setStatus('error');
+        }
+      });
     return () => { cancelled = true; };
   }, [channelId, att.url, att.refId, att.name, contentType]);
 
@@ -1620,7 +1690,7 @@ function AttachmentView({ channelId, att }: { channelId: string; att: ImAttachme
     if (status === 'error') {
       return (
         <div className="flex h-24 w-24 items-center justify-center rounded-lg border border-hairline bg-surface-3 text-[11px] text-ink-tertiary">
-          图片加载失败
+          {attachmentError ?? '图片加载失败'}
         </div>
       );
     }
@@ -1656,7 +1726,7 @@ function AttachmentView({ channelId, att }: { channelId: string; att: ImAttachme
   const secondaryLabel = status === 'loading'
     ? '加载中'
     : status === 'error'
-    ? '加载失败'
+    ? attachmentError ?? '加载失败'
     : officePreviewable
     ? 'Office 文件 · 可预览'
     : officeFile
@@ -1729,6 +1799,7 @@ function MessageRow({
   onSpawnRoom,
   onPromote,
   onRecall,
+  recalling,
   onPin,
   onMentionPersona,
   onReactionChange,
@@ -1742,16 +1813,30 @@ function MessageRow({
   onSpawnRoom: () => void;
   onPromote: () => void;
   onRecall: () => void;
+  recalling: boolean;
   onPin: () => void;
   onMentionPersona: (userId: string) => void;
   onReactionChange: (reactions: Record<string, string[]>) => void;
 }) {
-  // Day 4: 已读人数 (除发送者外, lastReadAt > msg.createdAt 的成员)
-  const readers = members.filter(
-    (m) => m.userId !== msg.senderId && m.lastReadAt && new Date(m.lastReadAt) >= new Date(msg.createdAt)
-  );
-  const readerCount = readers.length;
-  const totalReaders = Math.max(0, members.length - 1); // 除发送者
+  // Day 4: 已读人数 (除发送者外, lastReadAt >= msg.createdAt 的成员)
+  const readReceipt = getImReadReceiptSummary(msg, members);
+  const { readers, unreadMembers, readerCount, totalReaders } = readReceipt;
+  const readReceiptLabel = readerCount === totalReaders
+    ? '全部已读'
+    : `${readerCount}/${totalReaders} 已读`;
+  const readReceiptSummaryRef = useRef<HTMLElement>(null);
+  const [readReceiptDirection, setReadReceiptDirection] = useState<ImPopupDirection>('up');
+  const updateReadReceiptDirection = useCallback(() => {
+    const trigger = readReceiptSummaryRef.current;
+    if (!trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    setReadReceiptDirection(chooseImPopupDirection({
+      triggerTop: rect.top,
+      triggerBottom: rect.bottom,
+      viewportHeight: window.innerHeight,
+      panelHeight: 184,
+    }));
+  }, []);
   // Day 4: recallable 用 Date.now(), SSR 和 CSR 时间不同会 hydration mismatch
   // → useState + useEffect 只在客户端 mount 后计算
   const [recallable, setRecallable] = useState(false);
@@ -1834,10 +1919,7 @@ function MessageRow({
             )}
             <span className="text-ink-tertiary">·</span>
             <span className="text-ink-tertiary">
-              {new Date(msg.createdAt).toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
+              {formatImMessageTimestamp(msg.createdAt)}
             </span>
           </div>
         )}
@@ -1945,11 +2027,12 @@ function MessageRow({
               <button
                 type="button"
                 onClick={onRecall}
+                disabled={recalling}
                 className="flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-danger shadow-soft ring-1 ring-danger/40 transition hover:bg-danger/5 hover:shadow-soft-lg"
                 title="撤回 (2 分钟内 有效)"
               >
                 <Trash2 className="h-3 w-3" />
-                撤回
+                {recalling ? '撤回中' : '撤回'}
               </button>
             )}
           </div>
@@ -1971,13 +2054,26 @@ function MessageRow({
         </div>
         {/* Day 4: 已读人数 (仅我发的消息显示) */}
         {msg.senderId === meId && totalReaders > 0 && (
-          <div className={`mt-1 text-[10px] text-ink-tertiary ${isMe ? 'text-right' : ''}`}>
-            {readerCount === 0
-              ? '未读'
-              : readerCount === totalReaders
-              ? '全部已读'
-              : `${readerCount}/${totalReaders} 已读`}
-          </div>
+          <details className={`group/read relative mt-1 text-[10px] text-ink-tertiary ${isMe ? 'self-end text-right' : ''}`}>
+            <summary
+              ref={readReceiptSummaryRef}
+              onClick={updateReadReceiptDirection}
+              className={`inline-flex cursor-pointer list-none items-center gap-1 rounded-full px-1.5 py-0.5 transition hover:bg-surface-3 focus:outline-none focus:ring-1 focus:ring-brand-200 [&::-webkit-details-marker]:hidden ${isMe ? 'justify-end' : ''}`}
+              aria-label={`${readReceiptLabel}，展开查看已读和未读人员`}
+            >
+              <UsersRound className="h-3 w-3" />
+              {readReceiptLabel}
+            </summary>
+            <div
+              className={`absolute z-30 w-56 rounded-lg border border-hairline bg-surface-1 p-2 text-left shadow-soft-lg ${
+                readReceiptDirection === 'down' ? 'top-full mt-1' : 'bottom-full mb-1'
+              } ${isMe ? 'right-0' : 'left-0'}`}
+            >
+              <ReadReceiptPeopleList title={`已读 ${readers.length}`} people={readers} nameOf={nameOf} emptyText="暂无已读" />
+              <div className="my-1.5 h-px bg-hairline" />
+              <ReadReceiptPeopleList title={`未读 ${unreadMembers.length}`} people={unreadMembers} nameOf={nameOf} emptyText="全部已读" />
+            </div>
+          </details>
         )}
         {/* spawned 状态 chip — 永久可见, 移到气泡下方独立行 (不再嵌进气泡). 比 inline link 更克制 */}
         {(msg.spawnedDecisionCardId || msg.spawnedPromotionId) && (
@@ -2007,6 +2103,38 @@ function MessageRow({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function ReadReceiptPeopleList({
+  title,
+  people,
+  nameOf,
+  emptyText,
+}: {
+  title: string;
+  people: ImMembership[];
+  nameOf: (id: string | null | undefined) => string;
+  emptyText: string;
+}) {
+  return (
+    <div>
+      <div className="mb-1 text-[10px] font-semibold text-ink-secondary">{title}</div>
+      {people.length > 0 ? (
+        <div className="max-h-28 space-y-1 overflow-auto pr-1">
+          {people.map((m) => (
+            <div key={m.userId} className="flex min-w-0 items-center gap-1.5 text-[11px] text-ink-primary">
+              <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-surface-3 text-[8px] font-semibold text-ink-secondary">
+                {nameOf(m.userId).slice(0, 2).toUpperCase()}
+              </span>
+              <span className="truncate">{nameOf(m.userId)}</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-[11px] text-ink-tertiary">{emptyText}</div>
+      )}
     </div>
   );
 }

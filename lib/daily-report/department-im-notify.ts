@@ -2,7 +2,7 @@ import { createChannel, sendMessage } from '@/lib/im/service';
 import { getStore } from '@/lib/storage/repository';
 import type { AuthUser } from '@/lib/storage/repository';
 import type { CheckIn, Confidence, KeyResult, Objective } from '@/lib/types/okr-tti';
-import type { ImChannel } from '@/lib/types/im';
+import { membershipKey, type ImChannel } from '@/lib/types/im';
 
 export type DailyReportNotificationSource = 'tandem-report' | 'plm';
 
@@ -53,13 +53,38 @@ async function findDepartmentChannel(tenantId: string, departmentId: string): Pr
   ) ?? null;
 }
 
+async function ensureAuthorMember(channel: ImChannel, authorId: string): Promise<ImChannel> {
+  if (channel.memberIds.includes(authorId)) return channel;
+
+  const store = getStore();
+  const now = new Date().toISOString();
+  const id = membershipKey(channel.id, authorId);
+  const existing = await store.imMemberships.get(id);
+  if (!existing) {
+    await store.imMemberships.create({
+      id,
+      channelId: channel.id,
+      userId: authorId,
+      role: 'member',
+      joinedAt: now,
+      unreadCount: 0,
+      muted: false,
+    });
+  }
+
+  return store.imChannels.update(channel.id, {
+    memberIds: Array.from(new Set([...channel.memberIds, authorId])),
+    updatedAt: now,
+  });
+}
+
 async function ensureDepartmentChannel(
   tenantId: string,
   departmentId: string,
   authorId: string,
 ): Promise<ImChannel | null> {
   const existing = await findDepartmentChannel(tenantId, departmentId);
-  if (existing) return existing;
+  if (existing) return ensureAuthorMember(existing, authorId);
 
   const users = await getStore().auth.users.list({ tenantId });
   const memberIds = users
@@ -95,9 +120,9 @@ function buildMessageBody(input: {
   target: KeyResult | Objective;
   reportDate?: string;
 }): string {
-  const { source, author, checkIn, target, reportDate } = input;
+  const { source, checkIn, target, reportDate } = input;
   const lines = [
-    `日报同步: ${author.name} 提交了 ${sourceLabel(source)}`,
+    sourceLabel(source),
     formatLine('日期', reportDate),
     formatLine(checkIn.scope === 'kr' ? 'KR' : 'Objective', target.title),
     formatLine('进度', `${checkIn.progressBefore} -> ${checkIn.progressAfter}`),
@@ -133,7 +158,6 @@ export async function notifyDailyReportCheckInToDepartment(
     const message = await sendMessage({
       channelId: channel.id,
       senderId: author.id,
-      senderKind: 'system',
       body: buildMessageBody({
         source: input.source,
         author,

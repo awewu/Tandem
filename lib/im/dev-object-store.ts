@@ -13,7 +13,8 @@ export interface DevObjectEntry {
 const STORE_KEY = '__tandem_im_dev_object_store__';
 const MAX_OBJECT_BYTES = 2 * 1024 * 1024 * 1024;
 const MAX_OBJECTS = 200;
-const STORE_DIR = join(tmpdir(), 'tandem-im-dev-objects');
+const STORE_DIR = join(process.cwd(), '.data', 'im-dev-objects');
+const LEGACY_STORE_DIR = join(tmpdir(), 'tandem-im-dev-objects');
 
 type DevObjectStore = Map<string, DevObjectEntry>;
 
@@ -25,6 +26,10 @@ export function getDevObjectStore(): DevObjectStore {
 
 export function filePathForDevObjectKey(key: string): string {
   return join(STORE_DIR, Buffer.from(key).toString('base64url'));
+}
+
+export function legacyFilePathForDevObjectKey(key: string): string {
+  return join(LEGACY_STORE_DIR, Buffer.from(key).toString('base64url'));
 }
 
 export function createDevObjectReadStream(filePath: string) {

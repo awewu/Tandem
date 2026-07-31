@@ -83,6 +83,11 @@ async function GETApiHandler(req: NextRequest, { params }: Params) {
             evt.channelId === channelId
           ) {
             sendEvent('channel', evt.channel);
+          } else if (
+            evt.type === 'read_receipt_changed' &&
+            evt.channelId === channelId
+          ) {
+            sendEvent('read_receipt', { userId: evt.userId, lastReadAt: evt.lastReadAt });
           }
         } catch {
           cleanup();

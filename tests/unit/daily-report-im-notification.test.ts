@@ -170,7 +170,9 @@ describe('daily report department IM notification', () => {
     expect(channels[0]).toMatchObject({ departmentId: 'dept-sales', autoCreated: true });
     const messages = await getStore().imMessages.list({ channelId: channels[0].id });
     expect(messages).toHaveLength(1);
-    expect(messages[0].body).toContain('日报作者');
+    expect(messages[0].senderId).toBe(user.id);
+    expect(messages[0].senderKind).toBe('user');
+    expect(messages[0].body).not.toContain('日报同步');
     expect(messages[0].body).toContain('完成客户日报联动');
   });
 
@@ -188,7 +190,43 @@ describe('daily report department IM notification', () => {
     expect(channels).toHaveLength(1);
     const messages = await getStore().imMessages.list({ channelId: channels[0].id });
     expect(messages).toHaveLength(1);
+    expect(messages[0].senderId).toBe(user.id);
+    expect(messages[0].senderKind).toBe('user');
+    expect(messages[0].body).not.toContain('日报同步');
     expect(messages[0].body).toContain('PLM 日报');
     expect(messages[0].body).toContain('PLM 推送日报内容');
+  });
+
+  it('复用已有部门群时先补作者成员再以作者身份发消息', async () => {
+    const user = await seedAuthor();
+    await seedOkr(user.id);
+    const { createChannel } = await import('@/lib/im/service');
+    const owner = await getStore().auth.users.create({
+      email: 'dept-owner@example.com',
+      name: '部门群主',
+      roles: ['employee'],
+      tenantId: 'tenant-a',
+      departmentId: 'dept-sales',
+    });
+    const channel = await createChannel({
+      type: 'department',
+      name: '销售部',
+      memberIds: [owner.id],
+      createdBy: owner.id,
+      tenantId: 'tenant-a',
+      departmentId: 'dept-sales',
+      autoCreated: true,
+    });
+    expect(channel.memberIds).not.toContain(user.id);
+
+    const { POST } = await import('@/app/api/okr/checkins/route');
+    const res = await POST(sessionReq(user));
+
+    expect(res.status).toBe(200);
+    const updated = await getStore().imChannels.get(channel.id);
+    expect(updated?.memberIds).toContain(user.id);
+    const messages = await getStore().imMessages.list({ channelId: channel.id });
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toMatchObject({ senderId: user.id, senderKind: 'user' });
   });
 });

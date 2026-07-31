@@ -10,7 +10,7 @@
  *   3. OKR 进度反向推流：AI 自动推算增量，一键更新全局 OKR / TTI 进度，生成 Check-in，终结拉动滑块！
  */
 
-import React, { Suspense, useState, useMemo, useEffect } from 'react';
+import React, { Suspense, useState, useMemo, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useOKRStore } from '@/lib/store';
 import { useToast } from '@/hooks/use-toast';
@@ -24,7 +24,8 @@ import { cn } from '@/lib/utils';
 import { useAuthStore, useCurrentUserId } from '@/lib/hooks/use-current-user';
 import { krProgress, objectiveProgress } from '@/lib/okr/progress';
 import { useOwnerDirectory } from '@/lib/org/use-owner-directory';
-import type { CheckIn } from '@/lib/store';
+import { reportPlanInitiativesForKr } from '@/lib/okr/work-method';
+import type { CheckIn, Initiative } from '@/lib/store';
 import {
   Clock,
   Sparkles,
@@ -39,6 +40,7 @@ import {
   Frown,
   Zap,
   CheckSquare,
+  CalendarCheck,
   RefreshCw,
   ChevronDown,
   Search,
@@ -94,6 +96,14 @@ const CONFIDENCE_OPTIONS: Array<{ value: AnalysisConfidence; label: string }> = 
   { value: 'off-track', label: '需关注' },
 ];
 
+const INITIATIVE_STATUS_LABEL: Record<Initiative['status'], string> = {
+  todo: '待办',
+  'in-progress': '进行中',
+  blocked: '阻塞',
+  done: '完成',
+  cancelled: '取消',
+};
+
 function textToLines(value: string): string[] {
   return value
     .split('\n')
@@ -117,6 +127,16 @@ function progressPercentFromValue(startValue: number, targetValue: number, value
 
 function metricValueFromProgressPercent(startValue: number, targetValue: number, percent: number): number {
   return roundMetricValue(startValue + (targetValue - startValue) * (percent / 100));
+}
+
+function normalizeOwnerId(ownerId: string): string {
+  return ownerId.startsWith('person:') ? ownerId.slice('person:'.length) : ownerId;
+}
+
+function ownerMatchesSet(ownerId: string | undefined | null, ids: Set<string>): boolean {
+  if (!ownerId) return false;
+  const normalized = normalizeOwnerId(ownerId);
+  return ids.has(ownerId) || ids.has(normalized) || ids.has(`person:${normalized}`);
 }
 
 /**
@@ -245,9 +265,8 @@ function ReportPageInner() {
   const [reportViewerIds, setReportViewerIds] = useState<string[]>([]);
   const [viewerSearch, setViewerSearch] = useState('');
   const [viewerSelectOpen, setViewerSelectOpen] = useState(false);
-  const [visibleReports, setVisibleReports] = useState<VisibleReport[]>([]);
-  const [visibleReportsLoading, setVisibleReportsLoading] = useState(false);
-  const [reportAuthorSearch, setReportAuthorSearch] = useState('');
+  const [submittedReports, setSubmittedReports] = useState<VisibleReport[]>([]);
+  const [submittedReportsLoading, setSubmittedReportsLoading] = useState(false);
 
   const selectedKr = useMemo(() => cycleKrs.find(k => k.id === selectedKrId) ?? null, [cycleKrs, selectedKrId]);
   const selectedRawInput = selectedKrId ? rawInputs[selectedKrId] ?? '' : '';
@@ -270,6 +289,15 @@ function ReportPageInner() {
     return d.getTime();
   }, []);
   const todayEnd = todayStart + 86_400_000;
+  const reportPlanByKr = useMemo(() => {
+    const result = new Map<string, Initiative[]>();
+    for (const kr of cycleKrs) {
+      const plans = reportPlanInitiativesForKr(kr.id, initiatives, todayStart)
+        .filter((initiative) => myOwnerIds.has(initiative.ownerId));
+      if (plans.length > 0) result.set(kr.id, plans);
+    }
+    return result;
+  }, [cycleKrs, initiatives, myOwnerIds, todayStart]);
   const viewerOptions = useMemo(
     () => people.filter((p) => !myOwnerIds.has(p.id) && p.id !== 'me'),
     [myOwnerIds, people],
@@ -288,64 +316,15 @@ function ReportPageInner() {
       return name.includes(keyword) || id.includes(keyword);
     });
   }, [viewerOptions, viewerSearch]);
-  const normalizedReportSearch = reportAuthorSearch.trim().toLowerCase();
-  const searchedReportPeople = useMemo(() => {
-    if (!normalizedReportSearch) return [];
-    return people.filter((person) => {
-      const name = person.name.toLowerCase();
-      const id = person.id.toLowerCase();
-      return name.includes(normalizedReportSearch) || id.includes(normalizedReportSearch);
-    });
-  }, [normalizedReportSearch, people]);
-  const searchedReportOwnerIds = useMemo(() => {
-    const ids = new Set<string>();
-    for (const person of searchedReportPeople) {
-      ids.add(person.id);
-      ids.add(`person:${person.id}`);
-    }
-    return ids;
-  }, [searchedReportPeople]);
-  const searchedReportPersonLabel = useMemo(() => {
-    if (searchedReportPeople.length === 0) return '';
-    if (searchedReportPeople.length === 1) return searchedReportPeople[0].name;
-    return `${searchedReportPeople[0].name} 等 ${searchedReportPeople.length} 人`;
-  }, [searchedReportPeople]);
-  const visibleReportItems = useMemo(
+  const submittedReportItems = useMemo(
     () =>
-      visibleReports
+      submittedReports
         .map((report) => ({
           report,
           kr: keyResults.find((kr) => report.scope === 'kr' && kr.id === report.scopeId) ?? null,
         })),
-    [keyResults, visibleReports],
+    [keyResults, submittedReports],
   );
-  const filteredVisibleReportItems = useMemo(() => {
-    const keyword = normalizedReportSearch;
-    if (!keyword) return visibleReportItems;
-    return visibleReportItems.filter(({ report, kr }) => {
-      const authorName = nameOf(report.authorId).toLowerCase();
-      const authorId = report.authorId.toLowerCase();
-      const krTitle = kr?.title.toLowerCase() ?? '';
-      const dailyText = `${report.projectCode ?? ''} ${report.workType ?? ''} ${report.achievements ?? ''}`.toLowerCase();
-      const normalizedAuthorId = authorId.startsWith('person:') ? authorId.slice('person:'.length) : authorId;
-      const matchedPerson =
-        searchedReportOwnerIds.has(report.authorId) ||
-        searchedReportOwnerIds.has(normalizedAuthorId) ||
-        searchedReportOwnerIds.has(`person:${normalizedAuthorId}`);
-      return matchedPerson || authorName.includes(keyword) || authorId.includes(keyword) || krTitle.includes(keyword) || dailyText.includes(keyword);
-    });
-  }, [nameOf, normalizedReportSearch, searchedReportOwnerIds, visibleReportItems]);
-  const searchedOkrSnapshotItems = useMemo(() => {
-    if (!normalizedReportSearch || searchedReportOwnerIds.size === 0) return [];
-    return cycleObjectives
-      .filter((objective) => searchedReportOwnerIds.has(objective.ownerId))
-      .map((objective) => ({
-        objective,
-        progress: objectiveProgress(objective, keyResults),
-        krs: keyResults.filter((kr) => kr.objectiveId === objective.id),
-      }))
-      .filter((item) => item.krs.length > 0);
-  }, [cycleObjectives, keyResults, normalizedReportSearch, searchedReportOwnerIds]);
 
   /** §P4 OKR 联动: 支持 ?krId=xxx URL 参数, mobile OKR 列表点 "写进展" 跳过来直接锚定 */
   const searchParams = useSearchParams();
@@ -361,8 +340,8 @@ function ReportPageInner() {
     }
   }, [cycleKrs, urlKrId]);
 
-  const loadVisibleReports = async () => {
-    setVisibleReportsLoading(true);
+  const loadSubmittedReports = useCallback(async () => {
+    setSubmittedReportsLoading(true);
     try {
       const [checkInRes, dailyReportRes] = await Promise.all([
         fetch('/api/okr/checkins?feed=visible-daily', {
@@ -416,15 +395,19 @@ function ReportPageInner() {
             sourceSystem: 'innovation-studio',
           })),
       );
-      setVisibleReports([...checkInReports, ...nonOkrReports].sort((a, b) => b.createdAt - a.createdAt));
+      setSubmittedReports(
+        [...checkInReports, ...nonOkrReports]
+          .filter((report) => ownerMatchesSet(report.authorId, myOwnerIds))
+          .sort((a, b) => b.createdAt - a.createdAt),
+      );
     } finally {
-      setVisibleReportsLoading(false);
+      setSubmittedReportsLoading(false);
     }
-  };
+  }, [myOwnerIds]);
 
   useEffect(() => {
-    void loadVisibleReports();
-  }, []);
+    void loadSubmittedReports();
+  }, [loadSubmittedReports]);
 
   const toggleObjectivePanel = (objectiveId: string) => {
     setOpenObjectiveIds((prev) => {
@@ -448,6 +431,24 @@ function ReportPageInner() {
       }
       return next;
     });
+  };
+
+  const applyPlanToReportInput = (kr: (typeof cycleKrs)[number], initiative: Initiative) => {
+    const planLine = `计划任务：${initiative.title}`;
+    setRawInputs((prev) => {
+      const existing = prev[kr.id]?.trim();
+      if (existing?.includes(planLine)) return prev;
+      return {
+        ...prev,
+        [kr.id]: existing ? `${existing}\n${planLine}\n今日进展：` : `${planLine}\n今日进展：`,
+      };
+    });
+    setSelectedKrId(kr.id);
+    setOpenKrIds((prev) => new Set(prev).add(kr.id));
+    setOpenObjectiveIds((prev) => new Set(prev).add(kr.objectiveId));
+    setSubmittedReportAt(null);
+    setGeneratedDraftAt(null);
+    setPushSuccess(false);
   };
 
   // ===== AI 动态问题引导逻辑 =====
@@ -681,7 +682,7 @@ function ReportPageInner() {
 
       // 推流成功后清空输入
       setRawInputs((prev) => ({ ...prev, [selectedKr.id]: '' }));
-      void loadVisibleReports();
+      void loadSubmittedReports();
     } catch (e) {
       // 回滚 store
       updateKeyResult(selectedKr.id, snapshot);
@@ -740,7 +741,7 @@ function ReportPageInner() {
         title: '今日日报已提交',
         description: `已保存 ${filledKrEntries.length} 条 KR 进展记录。需要更新进度的 KR，可继续单独提炼并推流。`,
       });
-      void loadVisibleReports();
+      void loadSubmittedReports();
     } catch (e) {
       toast({ variant: 'destructive', title: '日报提交失败', description: (e as Error).message });
     } finally {
@@ -831,6 +832,7 @@ function ReportPageInner() {
     const isOpen = openKrIds.has(kr.id);
     const pct = kr.targetValue > 0 ? (kr.currentValue / kr.targetValue) * 100 : 0;
     const krInput = rawInputs[kr.id] ?? '';
+    const reportPlans = reportPlanByKr.get(kr.id) ?? [];
 
     return (
       <div
@@ -876,10 +878,50 @@ function ReportPageInner() {
                 已填写
               </span>
             )}
+            {reportPlans.length > 0 && (
+              <span className={cn("rounded-full bg-info/10 px-1.5 py-0.5 font-medium text-info", !krInput.trim() && "ml-auto")}>
+                本周任务 {reportPlans.length}
+              </span>
+            )}
           </div>
         </button>
         {isOpen && (
           <div className="border-t border-border bg-surface-2/70 p-2.5">
+            {reportPlans.length > 0 && (
+              <div className="mb-2 rounded-md border border-info/20 bg-info/10 p-2">
+                <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-ink-secondary">
+                  <CalendarCheck className="h-3.5 w-3.5 text-info" />
+                  本周计划任务
+                </div>
+                <div className="space-y-1.5">
+                  {reportPlans.map((initiative) => (
+                    <div key={initiative.id} className="flex items-center gap-2 rounded border border-border bg-white px-2 py-1.5">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[11px] font-medium text-ink-primary">{initiative.title}</p>
+                        <p className="mt-0.5 text-[10px] text-muted-foreground">
+                          {INITIATIVE_STATUS_LABEL[initiative.status]}
+                          {initiative.dueDate != null
+                            ? ` · 截止 ${new Date(initiative.dueDate).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })}`
+                            : ''}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 shrink-0 px-2 text-[11px]"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          applyPlanToReportInput(kr, initiative);
+                        }}
+                      >
+                        带入日报
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <Textarea
               value={krInput}
               spellCheck={false}
@@ -940,25 +982,6 @@ function ReportPageInner() {
           <p className="mt-1 text-[12.5px] md:text-caption text-ink-tertiary leading-relaxed">
             写下今天的进展, AI 帮你提炼成 Action Plan, 一键推流到 OKR 进度.
           </p>
-          <div className="relative mt-3 w-full max-w-[320px]">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={reportAuthorSearch}
-              onChange={(event) => setReportAuthorSearch(event.target.value)}
-              placeholder="输入姓名查看日报/周报"
-              className="h-8 rounded-md border-border bg-surface-1 pl-8 pr-8 text-[12px]"
-            />
-            {reportAuthorSearch && (
-              <button
-                type="button"
-                onClick={() => setReportAuthorSearch('')}
-                className="absolute right-2 top-1/2 inline-flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-ink-tertiary hover:bg-surface-2 hover:text-ink-secondary"
-                aria-label="清空姓名筛选"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
         </div>
         {activeCycle && (
           <Badge variant="outline" className="shrink-0 h-6 text-[11px] bg-white border-border font-medium">
@@ -967,12 +990,12 @@ function ReportPageInner() {
         )}
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-12">
         {/* 左侧：日常推进填报区 (7 cols) */}
-        <div className="lg:col-span-7 space-y-4">
-          <Card>
-            <CardContent className="p-5 space-y-4">
-              <div className="space-y-1.5">
+        <div className="lg:col-span-7 lg:flex">
+          <Card className="w-full lg:h-full">
+            <CardContent className="p-5 space-y-4 lg:flex lg:h-full lg:flex-col">
+              <div className="space-y-3 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
                 <div className="flex items-center justify-between gap-3">
                   <label className="text-footnote font-semibold text-ink-secondary block">
                     1. 按 Objective / KR 分别填写今日进展
@@ -1003,7 +1026,7 @@ function ReportPageInner() {
                     已根据今日系统操作生成草稿，请确认后提交。
                   </p>
                 )}
-                <div className="grid grid-cols-1 gap-3 max-h-[460px] overflow-y-auto pr-1 border rounded-md p-2 bg-surface-2/50">
+                <div className="grid grid-cols-1 gap-3 rounded-md border bg-surface-2/50 p-2 pr-1">
                   {objectiveGroups.length === 0 ? (
                     <p className="text-footnote text-muted-foreground text-center py-4">当前考核周期内无属于你的 O/KR 指标，请在后台配置。</p>
                   ) : (
@@ -1076,7 +1099,7 @@ function ReportPageInner() {
               </div>
 
               {/* AI 问题引导 — Apple HIG 风格 quote card */}
-              <div className="rounded-lg border border-border bg-surface-2/60 p-3 flex items-start gap-2.5">
+              <div className="flex shrink-0 items-start gap-2.5 rounded-lg border border-border bg-surface-2/60 p-3">
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-ink-primary text-white">
                   <Brain className="h-3.5 w-3.5" />
                 </span>
@@ -1086,136 +1109,137 @@ function ReportPageInner() {
                 </div>
               </div>
 
-              <div className="space-y-3 border-t pt-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-footnote font-semibold text-ink-secondary">2. 谁可以看我的日报</p>
-                    <p className="text-[11px] text-muted-foreground">作者本人始终可见；指定的人进入日报页可看到这条内容。</p>
+              <div className="sticky bottom-3 z-30 -mx-5 -mb-5 mt-auto shrink-0 space-y-3 border-t border-border bg-surface-1 px-5 py-3 shadow-[0_-8px_20px_rgba(15,23,42,0.06)]">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-footnote font-semibold text-ink-secondary">2. 谁可以看我的日报</p>
+                      <p className="text-[11px] text-muted-foreground">作者本人始终可见；指定的人进入日报页可看到这条内容。</p>
+                    </div>
+                    {reportVisibility === 'selected' && (
+                      <Badge variant="outline" className="bg-white text-[10px]">
+                        已选 {selectedReportViewers.length} 人
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    {([
+                      { value: 'private', label: '仅自己', desc: '不分享给其他人' },
+                      { value: 'selected', label: '指定人可见', desc: '选择可查看的人' },
+                      { value: 'public', label: '全员可见', desc: '同租户成员可见' },
+                    ] as const).map((item) => (
+                      <button
+                        key={item.value}
+                        type="button"
+                        onClick={() => {
+                          setReportVisibility(item.value);
+                          setViewerSelectOpen(item.value === 'selected');
+                        }}
+                        className={cn(
+                          "rounded-md border px-3 py-2 text-left transition",
+                          reportVisibility === item.value
+                            ? "border-primary/50 bg-primary/5 text-ink-primary"
+                            : "border-border bg-white text-ink-secondary hover:bg-surface-2",
+                        )}
+                      >
+                        <div className="text-[12px] font-semibold">{item.label}</div>
+                        <div className="mt-0.5 text-[10px] text-muted-foreground">{item.desc}</div>
+                      </button>
+                    ))}
                   </div>
                   {reportVisibility === 'selected' && (
-                    <Badge variant="outline" className="bg-white text-[10px]">
-                      已选 {selectedReportViewers.length} 人
-                    </Badge>
-                  )}
-                </div>
-                <div className="grid gap-2 sm:grid-cols-3">
-                  {([
-                    { value: 'private', label: '仅自己', desc: '不分享给其他人' },
-                    { value: 'selected', label: '指定人可见', desc: '选择可查看的人' },
-                    { value: 'public', label: '全员可见', desc: '同租户成员可见' },
-                  ] as const).map((item) => (
-                    <button
-                      key={item.value}
-                      type="button"
-                      onClick={() => {
-                        setReportVisibility(item.value);
-                        setViewerSelectOpen(item.value === 'selected');
-                      }}
-                      className={cn(
-                        "rounded-md border px-3 py-2 text-left transition",
-                        reportVisibility === item.value
-                          ? "border-primary/50 bg-primary/5 text-ink-primary"
-                          : "border-border bg-white text-ink-secondary hover:bg-surface-2",
-                      )}
-                    >
-                      <div className="text-[12px] font-semibold">{item.label}</div>
-                      <div className="mt-0.5 text-[10px] text-muted-foreground">{item.desc}</div>
-                    </button>
-                  ))}
-                </div>
-                {reportVisibility === 'selected' && (
-                  <div className="relative space-y-2">
-                    <button
-                      type="button"
-                      onClick={() => setViewerSelectOpen((open) => !open)}
-                      className="flex h-9 w-full items-center justify-between rounded-md border border-border bg-white px-3 text-left text-[12px] text-ink-secondary transition hover:bg-surface-2"
-                      aria-expanded={viewerSelectOpen}
-                    >
-                      <span className={cn(selectedReportViewers.length === 0 && "text-muted-foreground")}>
-                        {selectedReportViewers.length > 0
-                          ? `已选择 ${selectedReportViewers.length} 人`
-                          : '请选择可见人员，可搜索多选'}
-                      </span>
-                      <ChevronDown
-                        className={cn(
-                          "h-3.5 w-3.5 text-ink-tertiary transition",
-                          viewerSelectOpen && "rotate-180",
-                        )}
-                      />
-                    </button>
+                    <div className="relative space-y-2">
+                      <button
+                        type="button"
+                        onClick={() => setViewerSelectOpen((open) => !open)}
+                        className="flex h-9 w-full items-center justify-between rounded-md border border-border bg-white px-3 text-left text-[12px] text-ink-secondary transition hover:bg-surface-2"
+                        aria-expanded={viewerSelectOpen}
+                      >
+                        <span className={cn(selectedReportViewers.length === 0 && "text-muted-foreground")}>
+                          {selectedReportViewers.length > 0
+                            ? `已选择 ${selectedReportViewers.length} 人`
+                            : '请选择可见人员，可搜索多选'}
+                        </span>
+                        <ChevronDown
+                          className={cn(
+                            "h-3.5 w-3.5 text-ink-tertiary transition",
+                            viewerSelectOpen && "rotate-180",
+                          )}
+                        />
+                      </button>
 
-                    {selectedReportViewers.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {selectedReportViewers.map((person) => (
-                          <button
-                            key={person.id}
-                            type="button"
-                            onClick={() => toggleReportViewer(person.id)}
-                            className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[11px] text-primary transition hover:bg-primary/15"
-                            title={`移除 ${person.name}`}
-                          >
-                            <span>{person.name}</span>
-                            <X className="h-3 w-3" />
-                          </button>
-                        ))}
-                      </div>
-                    )}
-
-                    {viewerSelectOpen && (
-                      <div className="absolute left-0 right-0 z-20 rounded-md border border-border bg-white p-2 shadow-soft-lg">
-                        <div className="relative">
-                          <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-tertiary" />
-                          <input
-                            value={viewerSearch}
-                            onChange={(e) => setViewerSearch(e.target.value)}
-                            placeholder="搜索姓名或账号"
-                            className="h-8 w-full rounded-md border border-border bg-surface-2 pl-7 pr-2 text-[12px] outline-none focus:border-info/40 focus:bg-white focus:ring-2 focus:ring-info/20"
-                          />
+                      {selectedReportViewers.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {selectedReportViewers.map((person) => (
+                            <button
+                              key={person.id}
+                              type="button"
+                              onClick={() => toggleReportViewer(person.id)}
+                              className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[11px] text-primary transition hover:bg-primary/15"
+                              title={`移除 ${person.name}`}
+                            >
+                              <span>{person.name}</span>
+                              <X className="h-3 w-3" />
+                            </button>
+                          ))}
                         </div>
-                        {viewerOptions.length === 0 ? (
-                          <p className="py-3 text-center text-[11px] text-muted-foreground">暂无可选择人员</p>
-                        ) : filteredViewerOptions.length === 0 ? (
-                          <p className="py-3 text-center text-[11px] text-muted-foreground">没有匹配的人员</p>
-                        ) : (
-                          <div className="mt-2 max-h-44 overflow-y-auto pr-1">
-                            {filteredViewerOptions.map((person) => {
-                              const checked = reportViewerIds.includes(person.id);
-                              return (
-                                <button
-                                  key={person.id}
-                                  type="button"
-                                  onClick={() => toggleReportViewer(person.id)}
-                                  className={cn(
-                                    "flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-[12px] transition",
-                                    checked
-                                      ? "bg-primary/10 text-primary"
-                                      : "text-ink-secondary hover:bg-surface-2",
-                                  )}
-                                >
-                                  <span className="min-w-0 truncate">{person.name}</span>
-                                  <span
+                      )}
+
+                      {viewerSelectOpen && (
+                        <div className="absolute left-0 right-0 z-20 rounded-md border border-border bg-white p-2 shadow-soft-lg">
+                          <div className="relative">
+                            <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-tertiary" />
+                            <input
+                              value={viewerSearch}
+                              onChange={(e) => setViewerSearch(e.target.value)}
+                              placeholder="搜索姓名或账号"
+                              className="h-8 w-full rounded-md border border-border bg-surface-2 pl-7 pr-2 text-[12px] outline-none focus:border-info/40 focus:bg-white focus:ring-2 focus:ring-info/20"
+                            />
+                          </div>
+                          {viewerOptions.length === 0 ? (
+                            <p className="py-3 text-center text-[11px] text-muted-foreground">暂无可选择人员</p>
+                          ) : filteredViewerOptions.length === 0 ? (
+                            <p className="py-3 text-center text-[11px] text-muted-foreground">没有匹配的人员</p>
+                          ) : (
+                            <div className="mt-2 max-h-44 overflow-y-auto pr-1">
+                              {filteredViewerOptions.map((person) => {
+                                const checked = reportViewerIds.includes(person.id);
+                                return (
+                                  <button
+                                    key={person.id}
+                                    type="button"
+                                    onClick={() => toggleReportViewer(person.id)}
                                     className={cn(
-                                      "flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px]",
+                                      "flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-[12px] transition",
                                       checked
-                                        ? "border-primary bg-primary text-white"
-                                        : "border-border bg-white text-transparent",
+                                        ? "bg-primary/10 text-primary"
+                                        : "text-ink-secondary hover:bg-surface-2",
                                     )}
                                   >
-                                    ✓
-                                  </span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+                                    <span className="min-w-0 truncate">{person.name}</span>
+                                    <span
+                                      className={cn(
+                                        "flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px]",
+                                        checked
+                                          ? "border-primary bg-primary text-white"
+                                          : "border-border bg-white text-transparent",
+                                      )}
+                                    >
+                                      ✓
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
 
-              {/* 团队心流状态 */}
-              <div className="flex items-center justify-between gap-4 border-t pt-3 flex-wrap">
+                {/* 团队心流状态 */}
+                <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border pt-3">
                 <div className="flex items-center gap-2">
                   <span className="text-footnote font-semibold text-ink-secondary">3. 今日心流状态</span>
                   <div className="flex items-center gap-1.5">
@@ -1273,12 +1297,14 @@ function ReportPageInner() {
                   </Button>
                 </div>
               </div>
+              </div>
             </CardContent>
           </Card>
         </div>
 
         {/* 右侧：AI 提炼结果与一键反向推流 (5 cols) */}
-        <div className="lg:col-span-5 space-y-4">
+        <div className="flex min-h-0 flex-col gap-4 lg:col-span-5">
+          <div>
           {!analysisResult ? (
             isAnalyzing && streamingText ? (
               <Card className="border-info/20 bg-info/10">
@@ -1293,7 +1319,7 @@ function ReportPageInner() {
                       正在生成
                     </span>
                   </div>
-                  <pre className="text-[11px] leading-relaxed text-ink-secondary whitespace-pre-wrap font-mono max-h-[280px] overflow-y-auto bg-white/60 rounded p-3 border border-border">
+                  <pre className="text-[11px] leading-relaxed text-ink-secondary whitespace-pre-wrap font-mono bg-white/60 rounded p-3 border border-border">
                     {streamingText}
                     <span className="inline-block w-1.5 h-3 ml-0.5 bg-info animate-pulse align-middle" />
                   </pre>
@@ -1521,78 +1547,34 @@ function ReportPageInner() {
               </CardContent>
             </Card>
           )}
-          <Card className="border-border bg-white">
-            <CardContent className="p-5 space-y-3">
+          </div>
+          <Card className="h-[320px] shrink-0 border-border bg-white">
+            <CardContent className="flex h-full min-h-0 flex-col space-y-3 p-5">
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <p className="text-footnote font-bold text-ink-primary">可见日报</p>
+                  <p className="text-footnote font-bold text-ink-primary">提交记录</p>
                   <p className="text-[10px] text-muted-foreground">
-                    {searchedReportPersonLabel
-                      ? `当前查看：${searchedReportPersonLabel}`
-                      : '你提交的，以及别人授权给你看的日报内容。'}
+                    你已提交的日报内容，仅用于回看自己的推进记录。
                   </p>
                 </div>
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
-                  onClick={() => void loadVisibleReports()}
-                  disabled={visibleReportsLoading}
+                  onClick={() => void loadSubmittedReports()}
+                  disabled={submittedReportsLoading}
                   className="h-7 px-2 text-[11px]"
                 >
-                  {visibleReportsLoading ? <RefreshCw className="h-3 w-3 animate-spin" /> : '刷新'}
+                  {submittedReportsLoading ? <RefreshCw className="h-3 w-3 animate-spin" /> : '刷新'}
                 </Button>
               </div>
-              {filteredVisibleReportItems.length === 0 ? (
-                searchedOkrSnapshotItems.length > 0 ? (
-                  <div className="max-h-[360px] space-y-2 overflow-y-auto pr-1">
-                    <div className="rounded-md border border-dashed border-border bg-surface-2/70 px-3 py-2 text-[11px] text-muted-foreground">
-                      暂无日报/周报记录，以下为导入 OKR/KR 快照。
-                    </div>
-                    {searchedOkrSnapshotItems.slice(0, 8).map(({ objective, progress, krs }) => (
-                      <article key={objective.id} className="rounded-md border border-border bg-surface-2/60 p-3 text-[11px]">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="line-clamp-2 font-semibold text-ink-primary">{objective.title}</p>
-                            <p className="mt-0.5 text-[10px] text-muted-foreground">
-                              {nameOf(objective.ownerId)} · {krs.length} KR
-                            </p>
-                          </div>
-                          <Badge variant="outline" className="shrink-0 bg-white text-[10px]">
-                            OKR 快照
-                          </Badge>
-                        </div>
-                        <div className="mt-2 flex items-center gap-2">
-                          <Progress value={progress} className="h-1.5 flex-1 bg-surface-3" />
-                          <span className="w-9 text-right text-[10px] font-semibold tabular-nums text-ink-tertiary">
-                            {progress}%
-                          </span>
-                        </div>
-                        <div className="mt-2 space-y-1.5">
-                          {krs.slice(0, 3).map((kr) => (
-                            <div key={kr.id} className="rounded border border-border bg-surface-1 px-2 py-1.5">
-                              <p className="line-clamp-2 text-ink-secondary">{kr.title}</p>
-                              <p className="mt-0.5 text-[10px] text-muted-foreground">
-                                {kr.currentValue}/{kr.targetValue}{kr.unit ?? ''}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="rounded-md border border-dashed border-border py-6 text-center text-[11px] text-muted-foreground">
-                    {normalizedReportSearch
-                      ? searchedReportPeople.length > 0
-                        ? '该员工暂无可见日报/周报记录'
-                        : '未找到匹配的员工'
-                      : '暂无可见日报'}
-                  </div>
-                )
+              {submittedReportItems.length === 0 ? (
+                <div className="rounded-md border border-dashed border-border py-6 text-center text-[11px] text-muted-foreground">
+                  暂无提交记录
+                </div>
               ) : (
-                <div className="max-h-[360px] space-y-2 overflow-y-auto pr-1">
-                  {filteredVisibleReportItems.slice(0, 20).map(({ report, kr }) => (
+                <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+                  {submittedReportItems.slice(0, 20).map(({ report, kr }) => (
                     <article key={report.id} className="rounded-md border border-border bg-surface-2/60 p-3 text-[11px]">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">

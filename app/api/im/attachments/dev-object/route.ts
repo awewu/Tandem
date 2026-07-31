@@ -5,6 +5,7 @@ import {
   createDevObjectReadStream,
   filePathForDevObjectKey,
   getDevObjectStore,
+  legacyFilePathForDevObjectKey,
   statDevObject,
   writeDevObjectRequestBody,
 } from '@/lib/im/dev-object-store';
@@ -56,8 +57,16 @@ export async function GET(req: NextRequest) {
 
   const store = getDevObjectStore();
   const stored = store.get(key);
-  const filePath = stored?.filePath ?? filePathForDevObjectKey(key);
-  const fileStat = await statDevObject(filePath);
+  let filePath = stored?.filePath ?? filePathForDevObjectKey(key);
+  let fileStat = await statDevObject(filePath);
+  if (!fileStat && !stored) {
+    const legacyFilePath = legacyFilePathForDevObjectKey(key);
+    const legacyFileStat = await statDevObject(legacyFilePath);
+    if (legacyFileStat) {
+      filePath = legacyFilePath;
+      fileStat = legacyFileStat;
+    }
+  }
   if (!fileStat) return NextResponse.json({ error: 'not found' }, { status: 404 });
 
   const stream = Readable.toWeb(createDevObjectReadStream(filePath)) as ReadableStream<Uint8Array>;
