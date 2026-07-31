@@ -14,10 +14,11 @@ import { getOpportunity } from '@/lib/pms/opportunity-service';
 import {
   listPublicPool,
   scanExpiringOpportunities,
-  releaseToPool,
   claimFromPool,
   type ReleaseReason,
 } from '@/lib/pms/public-pool-service';
+import { executeAction } from '@/lib/ontology/execute-action';
+import { ensurePmsActions } from '@/lib/ontology/actions/pms-actions';
 
 const RELEASE_REASONS: ReleaseReason[] = ['ninety_day_timeout', 'manual_release', 'dealer_inactive'];
 
@@ -99,14 +100,21 @@ export async function POST(req: NextRequest) {
       const reason: ReleaseReason = RELEASE_REASONS.includes(body.releasedReason)
         ? body.releasedReason
         : 'manual_release';
-      const result = await releaseToPool({
+      // 接治理链: 归属/可见性校验 (上方 getOpportunity) 保留在路由; 写走 executeAction。
+      // 人工内部/属主经销商 isProxy=false: 黄区立即执行 (行为不变) + 统一审计。
+      ensurePmsActions();
+      const exec = await executeAction('pms.public_pool.release', {
         tenantId: auth.tenantId,
         opportunityId: body.opportunityId,
         releasedBy: auth.userId,
         releasedReason: reason,
         protectionDays: typeof body.protectionDays === 'number' ? body.protectionDays : undefined,
-      });
-      return NextResponse.json({ result }, { status: 201 });
+      }, { actorUserId: auth.userId, tenantId: auth.tenantId, isProxy: false });
+      if (!exec.ok) {
+        const status = exec.blocked?.stage === 'gate' ? 403 : 400;
+        return NextResponse.json({ error: exec.blocked?.reasons.join('; ') || 'release failed' }, { status });
+      }
+      return NextResponse.json({ result: exec.result }, { status: 201 });
     }
 
     // --- 认领 ---

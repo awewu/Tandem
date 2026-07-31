@@ -21,6 +21,7 @@ import {
   type ArbitrationDecision,
 } from '@/lib/pms/duplicate-appeal-service';
 import { reviewOpportunity } from '@/lib/pms/opportunity-service';
+import { releaseToPool, type ReleaseReason } from '@/lib/pms/public-pool-service';
 
 // ---------------------------------------------------------------------------
 // ① 撞单申诉裁定 (原「仲裁」; 内部销售管理岗)
@@ -142,6 +143,57 @@ export const PmsOpportunityReviewAction: ActionType<PmsOpportunityReviewInput, P
 };
 
 // ---------------------------------------------------------------------------
+// ③ 释放商机至公海池 (内部管理岗 或 属主经销商 手动回收线索)
+//    注: 归属/可见性校验 (visibleOrgIds) 仍由路由前置 getOpportunity 负责,
+//    ActionType 只承接受治理的写。
+// ---------------------------------------------------------------------------
+
+export interface PmsPublicPoolReleaseInput {
+  tenantId: string;
+  opportunityId: string;
+  releasedBy: string;
+  releasedReason: ReleaseReason;
+  protectionDays?: number;
+}
+
+export interface PmsPublicPoolReleaseResult {
+  poolEntryId: string;
+  alreadyInPool: boolean;
+}
+
+export const PmsPublicPoolReleaseAction: ActionType<PmsPublicPoolReleaseInput, PmsPublicPoolReleaseResult> = {
+  id: 'pms.public_pool.release',
+  objectType: 'PmsOpportunity',
+  label: 'PMS 释放商机至公海',
+  declaredActionScope: 'commit',
+  // 「释放…至公海池」不含红/黄线词; commit 基线保持黄区。
+  describeIntent: (i) => `PMS 释放商机至公海池: 商机=${i?.opportunityId ?? ''}`,
+
+  async validate(input, ctx) {
+    if (!input || typeof input.opportunityId !== 'string' || !input.opportunityId) {
+      return { ok: false, errors: ['opportunityId required'], code: 'invalid' };
+    }
+    if (!(input.tenantId ?? ctx.tenantId)) {
+      return { ok: false, errors: ['tenantId required'], code: 'invalid' };
+    }
+    return { ok: true, errors: [] };
+  },
+
+  async execute(input, ctx) {
+    return releaseToPool({
+      tenantId: input.tenantId ?? ctx.tenantId!,
+      opportunityId: input.opportunityId,
+      releasedBy: input.releasedBy ?? ctx.actorUserId,
+      releasedReason: input.releasedReason ?? 'manual_release',
+      protectionDays: input.protectionDays,
+    });
+  },
+
+  // releaseToPool 幂等 + 同步翻 opportunity.status='released'; 无额外声明式副作用。
+  sideEffects: [],
+};
+
+// ---------------------------------------------------------------------------
 // 幂等注册 (镜像 ontology/index.ts ensureCoreActions; 独立函数避免把 drizzle
 // 拉进核心 ontology import 图 —— 由 PMS 路由 boot 后按需调用)。
 // ---------------------------------------------------------------------------
@@ -152,5 +204,8 @@ export function ensurePmsActions(): void {
   }
   if (!actionRegistry.has(PmsOpportunityReviewAction.id)) {
     actionRegistry.register(PmsOpportunityReviewAction);
+  }
+  if (!actionRegistry.has(PmsPublicPoolReleaseAction.id)) {
+    actionRegistry.register(PmsPublicPoolReleaseAction);
   }
 }
