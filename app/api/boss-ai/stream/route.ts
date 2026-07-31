@@ -433,6 +433,24 @@ async function POSTApiHandler(req: NextRequest): Promise<Response> {
           tenantId: auth.tenantId,
         });
 
+        // §产出捕获层 (#17): 中央 AI 答复也提炼可复用知识 → 待沉淀候选 (fire-and-forget).
+        //   与 persona/stream 同源; 严格 gate + fail-soft, 候选归提问者, 采纳才走三级签批.
+        if (!req.signal.aborted && fullResponse.trim().length >= 160) {
+          const captureText = fullResponse;
+          void import('@/lib/memory/output-capture')
+            .then(({ captureOutputPass }) =>
+              captureOutputPass({
+                text: captureText,
+                authorUserId: auth.userId,
+                source: 'boss_ai',
+                tenantId: auth.tenantId,
+                sessionId: sessionId ?? undefined,
+                userQuery: userQuestion,
+              }),
+            )
+            .catch(() => { /* fire-and-forget */ });
+        }
+
         // §CA-13 闭环 (2026-06-09 · 补燃料): 落地 boss_ai_reply 决策给反思循环喂料.
         //   之前 IM 路径已记 im_reply, 议事路径已记 meeting_advice, 唯独 BossAI (灵魂入口)
         //   不留痕 → 流量最大的入口对训练数据零贡献, 推翻梯度=0. 修补这条腿.

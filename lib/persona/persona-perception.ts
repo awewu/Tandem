@@ -22,13 +22,20 @@
  */
 
 import { shouldPerceive } from './company-brain-perception';
+import { ASSISTANT_READ_SKILL_IDS } from '../taf/skills/assistant-skills';
 
 /** 搭子只读感知工具白名单 (scoped 到本人; 全 green · proxyAllowed · 无写动作) */
 export const PERSONA_PERCEPTION_TOOLSET = [
   'okr.read',
   'memory.search',
   'decision_card.list',
+  // 个人助理只读: 日程概览 / 找空档 / 工作安排聚合 (回答日程/排期类问题时据实作答)
+  ...ASSISTANT_READ_SKILL_IDS,
 ] as const;
+
+/** 日程/安排类关键词 (助理只读场景); shouldPerceive 之外的补充门控。 */
+const SCHEDULE_QUERY_RE =
+  /(日程|安排|行程|会议|开会|日历|排期|空档|空闲|有空|参会人|今天.*(做|干|安排|忙)|本周.*(重点|计划|安排)|下午|上午|几点|schedule|calendar|meeting|find\s*time)/i;
 
 export interface PersonaPerceptionResult {
   /** 是否真跑了感知 pass 且至少调到一个工具并拿到结果 */
@@ -48,7 +55,7 @@ export interface PersonaPerceptionResult {
 }
 
 const PERSONA_PERCEPTION_SYSTEM = [
-  '你是某员工 AI 分身的「感知前置」。你的唯一任务是: 调用提供的只读工具, 收集与该员工的问题相关的、该员工本人有权查看的内部真实数据 (本人/团队 OKR 真值进度 / 相关决议 / 个人与团队知识库)。',
+  '你是某员工 AI 分身的「感知前置」。你的唯一任务是: 调用提供的只读工具, 收集与该员工的问题相关的、该员工本人有权查看的内部真实数据 (本人/团队 OKR 真值进度 / 相关决议 / 个人与团队知识库 / 本人日程安排与共同空档)。',
   '规则:',
   '1. 只收集数据, 不要替员工回答问题本身, 不要做承诺或给最终方案。',
   '2. 用最少的工具调用拿到关键事实即可, 拿到后立即停止。',
@@ -77,7 +84,13 @@ export async function personaPerceptionPass(
     log: { query, triggerReason: reason, toolCallCount: 0, roundsExecuted: 0, latencyMs: Date.now() - t0, checkId },
   });
 
-  const gate = shouldPerceive(query);
+  const baseGate = shouldPerceive(query);
+  const scheduleTrigger = SCHEDULE_QUERY_RE.test((query ?? '').trim());
+  const gate = baseGate.trigger
+    ? baseGate
+    : scheduleTrigger
+      ? { trigger: true, reason: 'schedule_query' }
+      : baseGate;
   if (!gate.trigger) return empty(gate.reason);
 
   try {

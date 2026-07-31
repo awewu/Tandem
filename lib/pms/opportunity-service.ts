@@ -42,6 +42,10 @@ function mapOpportunity(row: typeof pmsOpportunities.$inferSelect) {
     channel: row.channel || undefined,
     dedupeKey: row.dedupeKey,
     duplicateStatus: row.duplicateStatus || undefined,
+    reviewStatus: row.reviewStatus,
+    reviewedBy: row.reviewedBy || undefined,
+    reviewedAt: row.reviewedAt?.toISOString() || undefined,
+    reviewNote: row.reviewNote || undefined,
     lastFollowUpAt: row.lastFollowUpAt?.toISOString() || undefined,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -89,6 +93,8 @@ export async function createOpportunity(input: {
   productAttributes?: Record<string, string>;
   region?: string;
   channel?: string;
+  /** 报备审核初始态; 缺省 'pending_review' (需经理审核后计入漏斗) */
+  reviewStatus?: string;
 }) {
   const now = new Date();
   
@@ -152,6 +158,7 @@ export async function createOpportunity(input: {
       channel: input.channel,
       dedupeKey,
       duplicateStatus: duplicateResult.status === 'warning' ? 'questioned' : null,
+      reviewStatus: input.reviewStatus || 'pending_review',
       lastFollowUpAt: null,
       createdAt: now,
       updatedAt: now,
@@ -240,6 +247,35 @@ export async function updateOpportunity(
 }
 
 /**
+ * 报备审核: 经理通过/驳回商机报备.
+ *   approved → 计入漏斗与分析
+ *   rejected → 退回, 不计入漏斗
+ */
+export async function reviewOpportunity(
+  opportunityId: string,
+  decision: 'approved' | 'rejected',
+  reviewerId: string,
+  tenantId: string,
+  note?: string,
+): Promise<{ id: string; reviewStatus: string }> {
+  const now = new Date();
+  await db
+    .update(pmsOpportunities)
+    .set({
+      reviewStatus: decision,
+      reviewedBy: reviewerId,
+      reviewedAt: now,
+      reviewNote: note ?? null,
+      updatedAt: now,
+    })
+    .where(and(
+      eq(pmsOpportunities.id, opportunityId),
+      eq(pmsOpportunities.tenantId, tenantId),
+    ));
+  return { id: opportunityId, reviewStatus: decision };
+}
+
+/**
  * 获取商机详情
  */
 export async function getOpportunity(
@@ -278,6 +314,8 @@ export async function listOpportunities(filters: {
   unassigned?: boolean;
   stage?: string;
   status?: string;
+  /** 审核态过滤: 'approved' | 'pending_review' | 'rejected' */
+  reviewStatus?: string;
   limit?: number;
   offset?: number;
   /** 外部经销商可见 org 集合. 传入且非空 → 强制 orgId ∈ 集合. 内部角色传 undefined = 全通. */
@@ -291,6 +329,7 @@ export async function listOpportunities(filters: {
   if (filters.unassigned) conditions.push(isNull(pmsOpportunities.projectId));
   if (filters.stage) conditions.push(eq(pmsOpportunities.stage, filters.stage));
   if (filters.status) conditions.push(eq(pmsOpportunities.status, filters.status));
+  if (filters.reviewStatus) conditions.push(eq(pmsOpportunities.reviewStatus, filters.reviewStatus));
   
   // orgId 隔离 (P0/RK2): 外部经销商仅可见自身 org 集合
   if (filters.visibleOrgIds && filters.visibleOrgIds.length > 0) {

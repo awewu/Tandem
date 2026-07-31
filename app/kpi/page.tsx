@@ -236,7 +236,7 @@ export function KpiContent() {
     KPI_VIEW_LEVELS.includes(viewParam as KpiViewLevel) ? (viewParam as KpiViewLevel) : 'individual',
   );
 
-  const { objectives } = useOKRStore();
+  const { objectives, keyResults } = useOKRStore();
   const [activeKpiId, setActiveKpiId] = useState<string | null>(null);
 
   const [cycles, setCycles] = useState<KpiCycle[]>([]);
@@ -1097,8 +1097,10 @@ export function KpiContent() {
         const subject = subjectById.get(kpi.subjectId);
         const pers = BSC_META[getBscPerspective(kpi, subject)];
 
-        // 逆向 OKR 对齐查找 (寻找匹配的 Objective 以做战略树联动)
-        const alignedObj = objectives.find(o => o.title.toLowerCase().includes('SLA') || o.title.toLowerCase().includes('性能') || o.title.toLowerCase().includes('可用'));
+        // 逆向 OKR 对齐查找: 用 KeyResult.targetKpiId 真实锚定链接该 KPI 的 KR, 不再用标题模糊匹配
+        // (BSC 是底线真值, 不因锚定关系被 OKR 数值改写; 详见 lib/governance/delivery-baseline.ts)
+        const anchoringKr = keyResults.find(k => k.targetKpiId === kpi.id);
+        const alignedObj = anchoringKr ? objectives.find(o => o.id === anchoringKr.objectiveId) : undefined;
 
         return (
           <div className="fixed inset-0 z-50 overflow-hidden flex justify-end animate-fade-in">
@@ -1159,7 +1161,8 @@ export function KpiContent() {
                         <Badge variant="outline" className="text-[10px] scale-90">对齐中</Badge>
                       </div>
                       <p className="text-[10px] text-muted-foreground leading-normal">
-                        该 BSC 指标自动通过底层对账映射到上述 OKR，并由本周的 daily check-ins 自动完成增量对账与数据推流。
+                        该 KR 已锚定推动此 BSC 指标 (targetKpiId)。OKR 进度仅用于 FP&A 推演预测末值，不会直接改写本指标的实际值 —
+                        BSC 底线真值仍以人工补录/ERP/导入三通道为准，详见「事半 · FP&A 推演」页。
                       </p>
                     </div>
                   ) : (

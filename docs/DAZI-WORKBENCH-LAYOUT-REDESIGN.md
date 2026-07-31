@@ -156,9 +156,11 @@
 | **P2 · 交付直送 + 自动带入** | DeliverCard 默认常驻 (dockTab 初始 'deliver'), Memory→`promote-text` / IM→频道消息 / 邮件→`mail/send` 真直送; `DraftContext` 桥让对话产出自动带入 | 中 | ✅ 已落 |
 | **P3 · 对话即主舞台** (方案 B) | `HomeStage` 无消息=欢迎页/有消息=内嵌 `ConversationStream`; 底部常驻 `CommandBox` (复用 `useBossAi` 共享 FAB 会话); 每条产出"交付这段"→`pushDraft` | 高 (灵魂归位) | ✅ 已落 |
 | **P4 · 治理可见化** | `GovernanceCard` 列 `awaiting_veto` 代行 (zone + 否决窗倒计时 + 确认/否决 inline); 进右产出坞 `DeliverDock` + 对话流顶部 compact 轨迹卡 | 高 (护城河可见, 超越 WorkBuddy 的差异点) | ✅ 已落 |
+| **P5 · 视觉精修 + 个人助理 + 话题历史** (2026-07-29) | ① 驾驶舱: 新增「今日日程」时间线 (`TodayScheduleCard` 拉 `/api/calendar`) + 待办四组分桶 (需立刻处理/待办/进行中/机会) + `SectionLabel` 统一小标; ② 首屏减负: Hero 行动层级 (1 主 + 2 幽灵) + 「今天先做点什么」大卡→紧凑 chip + 每日推进卡收紧; ③ 右 Dock 图标条按 `group` (产出/工具) 加分隔线; ④ 对话话题管理: `ThreadHeader` 可编辑标题 (首问自动派生) + 新话题 (归档当前) + 最近话题历史 (对话内下拉 + 空态 `RecentThreads` 网格切回); 个人助理写肢体 `personaAssistantPass` (约会议/加日程/提醒参会人) 接入 IM 回复流 | 中 (体验精修 + 助理能力 + 会话可回溯) | ✅ 已落 |
 
-**实现位置**: 全部在 `app/tandem/page.tsx`。tsc / eslint 0 错。
-**复用 API**: `/api/memories/promote-text` · `/api/im/channels[/[id]/messages]` · `/api/mail/send` · `/api/persona/proxy-actions[/[id]/confirm|veto]` · `/api/boss-ai/stream`。
+**实现位置**: UI 全部在 `app/tandem/page.tsx`; 会话话题/历史 store 在 `components/boss-ai/use-boss-ai.ts` (新增 `title`/`history` + `newSession` 归档/`renameThread`/`switchThread`); 个人助理在 `lib/taf/skills/assistant-skills.ts` + `lib/persona/persona-assistant.ts`。tsc / UI-charter 0 错。
+**复用 API**: `/api/memories/promote-text` · `/api/im/channels[/[id]/messages]` · `/api/mail/send` · `/api/persona/proxy-actions[/[id]/confirm|veto]` · `/api/boss-ai/stream` · `/api/persona/stream` · `/api/calendar`。
+**UI 铁律遵守**: 只用 CHARTER-UI token (surface-* / shadow-soft-* / text-{caption,footnote} / pill-* / CSS var); 无 raw palette / raw shadow / raw text-size。
 
 ---
 
@@ -181,3 +183,4 @@
 | 日期 | 修订 |
 |---|---|
 | 2026-06-15 PT | v1 创建. 当前布局四问题诊断 + 方案 C 目标布局 (桌面默认/对话激活/移动) + 组件映射 + 4 阶段落地 + WorkBuddy 形态对照。待 Owner 拍板。 |
+| 2026-07-29 PT | v2 · P5 落地. ① 驾驶舱今日日程时间线 + 待办四组分桶 + SectionLabel; ② 首屏减负 (Hero 行动层级 / 入口卡→chip / 每日推进收紧); ③ 右 Dock 图标条分组分隔; ④ 对话话题管理 (可编辑标题 + 新话题归档 + 最近话题历史, `use-boss-ai.ts` store 扩展 title/history); 个人助理写肢体 `personaAssistantPass` 接入。IA 决策: 入口卡留中央 (行动层) 不搬驾驶舱 (感知层); 话题标题 + 多线历史一并做才有意义。tsc / UI-charter 0 错。 |

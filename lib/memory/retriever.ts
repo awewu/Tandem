@@ -13,6 +13,7 @@ import type { MemoryEntry, Material } from '../types/memory';
 import { embed, cosineSim, isEmbeddingConfigured } from '../infra/embedding';
 import { searchEmbeddings } from '../infra/vector-store';
 import { expandNeighbors } from './graph';
+import { reciprocalRankFusion, type RetrievalHit } from './agentic-retrieval';
 
 /** 性能护栏: 单次最多对多少条候选做向量计算 (其余走 Jaccard 兜底) */
 const SEMANTIC_EVAL_CAP = 80;
@@ -228,10 +229,32 @@ export class CompositeRetriever {
         source: 'memory' as const,
       }));
 
-    const base = [...matMatches, ...memMatches]
+    // 词面 (Jaccard) 全量排序 (先不截断, 供混合融合)
+    const lexicalRanked = [...matMatches, ...memMatches]
       .filter((s) => s.similarity > 0.05)
-      .sort((a, b) => b.similarity - a.similarity)
-      .slice(0, limit);
+      .sort((a, b) => b.similarity - a.similarity);
+
+    // §Agentic RAG 混合检索 (P1): embedding 已配置时, 语义召回与词面用 RRF 融合排序,
+    //   兼顾"语义相近但用词不同"与"关键词精确命中"。未配置 embedding → 与既有行为完全一致 (纯 Jaccard)。
+    let base: (MaterialMatch | MemoryMatch)[];
+    let embConfigured = false;
+    try {
+      embConfigured = await isEmbeddingConfigured();
+    } catch {
+      embConfigured = false;
+    }
+    if (embConfigured) {
+      const semanticRanked = await this.semanticRank(query, materials, memories);
+      base =
+        semanticRanked && semanticRanked.length > 0
+          ? (reciprocalRankFusion([lexicalRanked, semanticRanked], { limit }) as (
+              | MaterialMatch
+              | MemoryMatch
+            )[])
+          : lexicalRanked.slice(0, limit);
+    } else {
+      base = lexicalRanked.slice(0, limit);
+    }
 
     if (!opts.expandGraph) return base;
 
@@ -255,6 +278,82 @@ export class CompositeRetriever {
       seenIds.add(nb.memory.id);
     }
     return [...base, ...expanded].sort((a, b) => b.similarity - a.similarity).slice(0, limit * 2);
+  }
+
+  /**
+   * §Agentic RAG (P1) · 语义召回一路 (供与词面 RRF 融合)。
+   * 仅在 embedding 已配置时被调用。对 materials + 已签批组织记忆做向量 cosine 排序,
+   * 复用防火墙 (排除 personal/非 active) 与 material 0.85 折扣。N+1 成本受 SEMANTIC_EVAL_CAP 限。
+   * 任一环节失败 → 返回 null, 调用方落纯词面 (fail-soft)。
+   */
+  private async semanticRank(
+    query: string,
+    materials: Material[],
+    memories: MemoryEntry[],
+  ): Promise<RetrievalHit[] | null> {
+    try {
+      const qv = await embed(query);
+      if (!qv) return null;
+
+      const candidates: Array<{
+        id: string;
+        title: string;
+        body: string;
+        source: 'material' | 'memory';
+        discount: number;
+        embedding?: number[];
+        updatedAt?: string;
+      }> = [
+        ...materials.map((m) => ({
+          id: m.id,
+          title: m.title,
+          body: serializeBody(m.body),
+          source: 'material' as const,
+          discount: 0.85,
+          updatedAt: (m as { updatedAt?: string }).updatedAt,
+        })),
+        ...memories
+          .filter((m) => m.status === 'active' && m.ownershipLevel !== 'personal')
+          .map((m) => ({
+            id: m.id,
+            title: m.title,
+            body: m.body,
+            source: 'memory' as const,
+            discount: 1,
+            embedding: m.embedding,
+            updatedAt: m.updatedAt,
+          })),
+      ];
+      if (candidates.length === 0) return null;
+
+      const capped = [...candidates]
+        .sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''))
+        .slice(0, SEMANTIC_EVAL_CAP);
+
+      const scored = await Promise.all(
+        capped.map(async (c) => {
+          let v = c.embedding;
+          if (!v || v.length === 0) v = (await embed(`${c.title}\n${c.body}`)) ?? undefined;
+          const sim = v ? cosineSim(qv, v) * c.discount : 0;
+          return { c, sim };
+        }),
+      );
+
+      const ranked = scored
+        .filter((s) => s.sim >= SEMANTIC_MIN_SIM)
+        .sort((a, b) => b.sim - a.sim)
+        .map(({ c, sim }) => ({
+          id: c.id,
+          title: c.title,
+          body: c.body,
+          similarity: sim,
+          source: c.source,
+        })) as RetrievalHit[];
+
+      return ranked.length > 0 ? ranked : null;
+    } catch {
+      return null;
+    }
   }
 }
 

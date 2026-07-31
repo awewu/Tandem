@@ -970,34 +970,36 @@ export async function seedLaunchpadIfEmpty(): Promise<void> {
     };
     // PMS/驾驶舱卡片对「内部 + 经销商」都可见 (isAppVisibleTo: 内部亦需 visibleToRoles 命中, 故须列全).
     const PMS_ROLES = ['owner', 'admin', 'manager', 'employee', 'steward', 'champion', 'dealer_sales', 'dealer_admin'];
-    // PMS 补种: 已有跳板数据时, 若无 PMS 卡片则补插入 (幂等).
-    const pmsExisting = existing.find((a) => a.url === '/pms' || /销售.*商机|PMS/i.test(a.name));
-    if (!pmsExisting && existing.length > 0) {
-      await lpSvc.create({
-        ...base, category: 'business', name: '销售商机 PMS',
-        description: '项目报备 · 智能查重 · 全生命周期跟进',
-        url: '/pms', order: 9, visibleToRoles: PMS_ROLES, recommendKeywords: ['销售', '商机', 'pms', '经销商', '合同', '交付'],
-      });
-      // eslint-disable-next-line no-console
-      console.info('[seed] launchpad: 补种 PMS 卡片');
-    }
-    // 幂等升级: 老库 PMS 卡片 visibleToRoles 为空/缺经销商 → 补 (否则经销商 hub 看不到 PMS 入口).
-    const pmsCard = existing.find((a) => a.url === '/pms');
-    if (pmsCard && ((pmsCard.visibleToRoles?.length ?? 0) === 0 || !pmsCard.visibleToRoles.includes('dealer_admin'))) {
-      await lpSvc.update(pmsCard.id, { visibleToRoles: PMS_ROLES });
-      // eslint-disable-next-line no-console
-      console.info('[seed] launchpad: 升级 PMS 卡片 visibleToRoles → 含经销商');
-    }
-    // 补种「销售驾驶舱」卡片 (经销商 hub 直达经营驾驶舱 — 体现专业赋能).
-    if (!existing.find((a) => a.url === '/pms/cockpit') && existing.length > 0) {
-      await lpSvc.create({
-        ...base, category: 'business', name: '销售驾驶舱',
-        description: '项目/管道/风险异常即时暴露 — 经营驾驶舱',
-        url: '/pms/cockpit', order: 10, visibleToRoles: PMS_ROLES,
-        recommendKeywords: ['驾驶舱', '预警', '销售', '经营', '风险', '经销商'],
-      });
-      // eslint-disable-next-line no-console
-      console.info('[seed] launchpad: 补种 销售驾驶舱 卡片');
+    // PMS 启动台: 合并为单张"大门"卡, 指向更完整的驾驶舱 (/pms/cockpit).
+    // 列表页 (/pms) 在模块内可切换, 无需独立启动台卡. 以下逻辑幂等: 清旧列表卡 + 归一驾驶舱卡.
+    const PMS_GATE = {
+      ...base, category: 'business' as const, name: '销售 · 经销商商机管理',
+      description: '驾驶舱预警 · 项目/管道/风险即时暴露 — 产研销的「销」闭环',
+      url: '/pms/cockpit', order: 9, visibleToRoles: PMS_ROLES,
+      recommendKeywords: ['销售', '商机', 'pms', '驾驶舱', '预警', '经销商', '合同', '交付', '风险', '经营'],
+    };
+    if (existing.length > 0) {
+      // 1. 清理旧的 PMS 列表卡 (url === '/pms') — 已合并入驾驶舱大门.
+      for (const a of existing.filter((x) => x.url === '/pms')) {
+        await lpSvc.delete(a.id);
+        // eslint-disable-next-line no-console
+        console.info('[seed] launchpad: 清理旧 PMS 列表卡 (合并入驾驶舱大门)');
+      }
+      // 2. 归一驾驶舱大门卡: 无则补种, 有则更新首张并删除多余重复.
+      const cockpitCards = existing.filter((a) => a.url === '/pms/cockpit');
+      if (cockpitCards.length === 0) {
+        await lpSvc.create(PMS_GATE);
+        // eslint-disable-next-line no-console
+        console.info('[seed] launchpad: 补种 PMS 大门卡 (→ 驾驶舱)');
+      } else {
+        const [keep, ...dupes] = cockpitCards;
+        await lpSvc.update(keep.id, { name: PMS_GATE.name, description: PMS_GATE.description, visibleToRoles: PMS_ROLES, recommendKeywords: PMS_GATE.recommendKeywords });
+        for (const d of dupes) {
+          await lpSvc.delete(d.id);
+          // eslint-disable-next-line no-console
+          console.info('[seed] launchpad: 清理重复驾驶舱卡');
+        }
+      }
     }
     // 旧演示卡片名单 (历史默认种子). 仅当跳板「只剩这些」时才视为未定制 → 清掉重播集团模块.
     // 若含任何非旧卡片 (用户自定义 或 已是新集团模块) → 跳过, 保持幂等且绝不误删用户数据.
@@ -1030,10 +1032,7 @@ export async function seedLaunchpadIfEmpty(): Promise<void> {
         url: '#mes', order: 7, recommendKeywords: ['mes', '制造', '生产', '排程', '车间'] },
       { ...base, category: 'business', name: 'Rhautt 宜居家', description: '宜居家 · 智能家居平台',
         url: '#rhautt', order: 8, recommendKeywords: ['rhautt', '宜居家', '家居', 'home', '智能家居'] },
-      { ...base, category: 'business', name: '销售商机 PMS', description: '项目报备 · 智能查重 · 全生命周期跟进',
-        url: '/pms', order: 9, visibleToRoles: PMS_ROLES, recommendKeywords: ['销售', '商机', 'pms', '经销商', '合同', '交付'] },
-      { ...base, category: 'business', name: '销售驾驶舱', description: '项目/管道/风险异常即时暴露 — 经营驾驶舱',
-        url: '/pms/cockpit', order: 10, visibleToRoles: PMS_ROLES, recommendKeywords: ['驾驶舱', '预警', '销售', '经营', '风险', '经销商'] },
+      PMS_GATE,
     ];
     for (const app of seedApps) await lpSvc.create(app);
     // eslint-disable-next-line no-console

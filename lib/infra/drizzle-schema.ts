@@ -1199,6 +1199,11 @@ export const pmsOpportunities = pgTable(
     channel: text('channel'),
     dedupeKey: text('dedupeKey').notNull(),
     duplicateStatus: text('duplicateStatus'),
+    // 报备审核关卡 (2026-07 增补): pending_review → approved / rejected
+    reviewStatus: text('reviewStatus').notNull().default('approved'),
+    reviewedBy: text('reviewedBy'),
+    reviewedAt: timestamp('reviewedAt', { precision: 3, mode: 'date' }),
+    reviewNote: text('reviewNote'),
     lastFollowUpAt: timestamp('lastFollowUpAt', { precision: 3, mode: 'date' }),
     createdAt: timestamp('createdAt', { precision: 3, mode: 'date' }).notNull().defaultNow(),
     updatedAt: timestamp('updatedAt', { precision: 3, mode: 'date' }).notNull(),

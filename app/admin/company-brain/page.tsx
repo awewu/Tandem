@@ -188,6 +188,52 @@ export default function CompanyBrainAdminPage() {
         </div>
       </header>
 
+      {/* 进化组件深入 · 把散在各处的"进化器官"聚成一排直达入口 (消除"看不见"的停滞感) */}
+      <nav className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Link
+          href="/admin/eval"
+          className="group flex items-center gap-3 rounded-2xl bg-white p-4 ring-1 ring-border/80 hover:ring-brand-300 surface-interactive"
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+            <Target className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1 text-caption font-semibold text-ink-primary">
+              评估 · 归因记分卡 <ExternalLink className="h-3 w-3 text-ink-tertiary group-hover:text-brand-600" />
+            </div>
+            <div className="text-footnote text-ink-tertiary">#14 打分通过率 + #11 建议→KR 净胜率</div>
+          </div>
+        </Link>
+        <Link
+          href="/memory/capture"
+          className="group flex items-center gap-3 rounded-2xl bg-white p-4 ring-1 ring-border/80 hover:ring-brand-300 surface-interactive"
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+            <Sparkles className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1 text-caption font-semibold text-ink-primary">
+              产出捕获队列 <ExternalLink className="h-3 w-3 text-ink-tertiary group-hover:text-brand-600" />
+            </div>
+            <div className="text-footnote text-ink-tertiary">#17 从对话产出提炼待沉淀知识</div>
+          </div>
+        </Link>
+        <Link
+          href="/admin/governance/okr-drift"
+          className="group flex items-center gap-3 rounded-2xl bg-white p-4 ring-1 ring-border/80 hover:ring-brand-300 surface-interactive"
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+            <TrendingUp className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1 text-caption font-semibold text-ink-primary">
+              OKR 主航道偏离 <ExternalLink className="h-3 w-3 text-ink-tertiary group-hover:text-brand-600" />
+            </div>
+            <div className="text-footnote text-ink-tertiary">提问主航道偏离率月审</div>
+          </div>
+        </Link>
+      </nav>
+
       {/* Overall KPIs */}
       {metrics && (
         <section className="grid grid-cols-2 gap-3 md:grid-cols-4">

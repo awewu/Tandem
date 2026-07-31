@@ -133,6 +133,7 @@ export async function escalateOverdueAlerts(tenantId: string, now: Date): Promis
 
 /** 每日综合扫描 */
 export async function runPmsDailyScan(tenantId: string, now = new Date()): Promise<{
+  poolReminders: number;
   poolReleased: number;
   poolWarned: number;
   qualificationAlerts: number;
@@ -140,7 +141,8 @@ export async function runPmsDailyScan(tenantId: string, now = new Date()): Promi
   escalated: number;
   targetsRolledUp: number;
 }> {
-  const pool = await scanExpiringOpportunities({ tenantId });
+  // 三阶回顾扫描 (30/60/90): blue 提醒 · yellow 预警 · red 自动释放公海
+  const pool = await scanExpiringOpportunities({ tenantId, autoRelease: true, actorId: '__system__' });
   const qualificationAlerts = await scanQualificationExpiry(tenantId, now);
   const warrantyAlerts = await scanWarrantyExpiry(tenantId, now);
   const escalated = await escalateOverdueAlerts(tenantId, now);
@@ -152,6 +154,7 @@ export async function runPmsDailyScan(tenantId: string, now = new Date()): Promi
     console.error('[pms] rollupCurrentPeriodTargets failed (fail-soft):', e instanceof Error ? e.message : e);
   }
   return {
+    poolReminders: pool?.blue ?? 0,
     poolReleased: pool?.released ?? 0,
     poolWarned: (pool?.yellow ?? 0) + (pool?.red ?? 0),
     qualificationAlerts,

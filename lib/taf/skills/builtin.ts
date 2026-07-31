@@ -14,6 +14,14 @@ import {
   PersonaDraftReportSkill,
   PersonaDraftActionItemsSkill,
 } from './persona-write';
+import {
+  AssistantScheduleSummarySkill,
+  AssistantFindTimeSkill,
+  AssistantTaskPlanSkill,
+  AssistantCreateEventSkill,
+  AssistantMeetingSyncSkill,
+} from './assistant-skills';
+import { PmsPipelineDigestSkill } from './pms-skills';
 import { getStore } from '../../storage/repository';
 import { CompositeRetriever } from '../../memory/retriever';
 import {
@@ -51,10 +59,17 @@ export const MemorySearchSkill: Skill<{ query: string; limit?: number }, unknown
       },
     },
   },
-  async execute({ query, limit = 5 }) {
+  async execute({ query, limit = 5 }, ctx) {
     const retriever = new CompositeRetriever();
+    // §Agentic RAG (P1): 复杂/多意图问题先做查询分解, 多子查询并行召回 + RRF 融合, 提升覆盖;
+    //   简单问题 shouldDecompose=false → 单次检索, 行为与既有一致 (不烧额外 LLM)。
     // §GraphRAG M1: AI 工具调用开启 1 跳图谱扩展, 拿到关系相关记忆 (同 KR / supersedes / 共标签)。
-    const results = await retriever.search(query, limit, { expandGraph: true });
+    const { agenticSearch } = await import('../../memory/agentic-retrieval');
+    const results = await agenticSearch(retriever, query, {
+      limit,
+      expandGraph: true,
+      actorUserId: ctx?.userId,
+    });
     return { ok: true, data: results, tokensUsed: 200 + results.length * 50 };
   },
 };
@@ -927,4 +942,12 @@ export function registerBuiltinSkills(): void {
   // A 执行肢体扩面: 起草类代行 (周报 / 行动项), 落 decision_draft ProxyAction (24h)
   skillRegistry.register(PersonaDraftReportSkill);
   skillRegistry.register(PersonaDraftActionItemsSkill);
+  // 个人助理技能组: 日程概览 / 找空档 / 工作安排 (只读) + 创建日程 / 会议提醒 (写, registry 审计)
+  skillRegistry.register(AssistantScheduleSummarySkill);
+  skillRegistry.register(AssistantFindTimeSkill);
+  skillRegistry.register(AssistantTaskPlanSkill);
+  skillRegistry.register(AssistantCreateEventSkill);
+  skillRegistry.register(AssistantMeetingSyncSkill);
+  // 中央 AI "销售之眼" (只读感知, 破除 PMS 孤岛)
+  skillRegistry.register(PmsPipelineDigestSkill);
 }

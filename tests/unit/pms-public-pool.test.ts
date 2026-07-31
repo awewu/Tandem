@@ -20,28 +20,34 @@ describe('PMS public-pool · daysBetween', () => {
   });
 });
 
-describe('PMS public-pool · computeWarningLevel (90天管控)', () => {
+describe('PMS public-pool · computeWarningLevel (30/60/90 三阶回顾)', () => {
   const now = new Date('2026-04-01T00:00:00Z');
   const ago = (d: number) => new Date(now.getTime() - d * DAY);
 
-  it('< 75 天 → none', () => {
+  it('< 30 天 → none', () => {
     expect(computeWarningLevel(ago(0), now).level).toBe('none');
-    expect(computeWarningLevel(ago(74), now).level).toBe('none');
+    expect(computeWarningLevel(ago(29), now).level).toBe('none');
   });
 
-  it('[75, 90) 天 → yellow', () => {
-    expect(computeWarningLevel(ago(75), now).level).toBe('yellow');
+  it('[30, 60) 天 → blue (回顾提醒)', () => {
+    expect(computeWarningLevel(ago(30), now).level).toBe('blue');
+    expect(computeWarningLevel(ago(59), now).level).toBe('blue');
+  });
+
+  it('[60, 90) 天 → yellow (停滞预警)', () => {
+    expect(computeWarningLevel(ago(60), now).level).toBe('yellow');
     expect(computeWarningLevel(ago(89), now).level).toBe('yellow');
   });
 
-  it('>= 90 天 → red', () => {
+  it('>= 90 天 → red (释放公海)', () => {
     expect(computeWarningLevel(ago(90), now).level).toBe('red');
     expect(computeWarningLevel(ago(200), now).level).toBe('red');
   });
 
-  it('自定义阈值生效', () => {
-    expect(computeWarningLevel(ago(30), now, 30, 60).level).toBe('yellow');
-    expect(computeWarningLevel(ago(60), now, 30, 60).level).toBe('red');
+  it('自定义阈值生效 (reminder/warning/release)', () => {
+    expect(computeWarningLevel(ago(10), now, 10, 20, 30).level).toBe('blue');
+    expect(computeWarningLevel(ago(20), now, 10, 20, 30).level).toBe('yellow');
+    expect(computeWarningLevel(ago(30), now, 10, 20, 30).level).toBe('red');
   });
 
   it('返回未跟进天数', () => {

@@ -128,6 +128,23 @@ export const NAV_MODULES: NavModule[] = [
     items: [], // home has no sub-sidebar
   },
 
+  // ═══ BSC · 经营底线 (BSC 记分卡 + FP&A 经营推演, 与事半 OKR 分开导航) ═══
+  {
+    id: 'bsc',
+    label: 'BSC',
+    fullLabel: 'BSC · 经营底线',
+    tagline: '四维度经营底线, 与奖金强挂钩的年度硬指标',
+    icon: BarChart3,
+    visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
+    pathPrefixes: ['/kpi', '/okr/fpa'],
+    items: [
+      // KPI = BSC 底线绩效结果 (年度硬指标, 100% 才达标, 与奖金挂钩; KPI 只关联 BSC). 只读.
+      { name: '绩效记分卡', href: '/kpi', icon: BarChart3, group: 'KPI · BSC 底线绩效' },
+      // 经营推演 (FP&A 引擎: 成本中心 BSC + OKR 驱动交付基线; 只产预测, 不写 BSC 真值)
+      { name: 'FP&A 经营推演', href: '/okr/fpa', icon: Building2, group: '经营推演 FP&A' },
+    ],
+  },
+
   {
     id: 'okr',
     label: '事半',
@@ -135,10 +152,8 @@ export const NAV_MODULES: NavModule[] = [
     tagline: '围绕 OKR 推进, 战略执行与目标达成的核心基座',
     icon: Target,
     visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
-    pathPrefixes: ['/okr', '/work-method', '/insights', '/analytics', '/kpi', '/tti', '/report', '/story-chain'],
+    pathPrefixes: ['/okr', '/work-method', '/insights', '/analytics', '/tti', '/report', '/story-chain'],
     items: [
-      // KPI = BSC 底线绩效结果 (年度硬指标, 100% 才达标, 与奖金挂钩; KPI 只关联 BSC). 只读.
-      { name: '绩效记分卡',         href: '/kpi',              icon: BarChart3,      group: 'KPI · BSC 底线绩效' },
       // TTI = 事半主轴 (前瞻提升轨, 60-70% 即健康, 与薪资分离). /tti=四要素填报, 与 /okr 同源互为镜像.
       { name: 'TTI（Target to Improve）牵引', href: '/tti',     icon: Activity,       group: '目标与关键成果法 OKR' },
       // 目标管理 (精简为符合 Tita 极简逻辑 of 3步流程)
@@ -151,8 +166,6 @@ export const NAV_MODULES: NavModule[] = [
       // 每日推进 (5min 日报 / 周回顾) 主入口已迁往「搭子 · 个人工作台」(每天和分身一起干活);
       // 因日报是 KR check-in 输入会回填进度, 此处保留一个深链, 做 OKR 的人仍可直达.
       { name: '每日推进 (日报 / 周回顾)', href: '/report', icon: Clock3, group: '目标与关键成果法 OKR' },
-      // 经营推演 (FP&A 引擎: 成本中心 BSC + OKR 驱动交付基线; 高亮稳定归事半, 不弹跳 Tandem)
-      { name: 'FP&A 经营推演',     href: '/okr/fpa',          icon: Building2,      group: '经营推演 FP&A' },
       // 分析洞察
       { name: 'AI 智能信号',       href: '/insights',         icon: SparklesAlias,  group: '分析洞察' },
       { name: '故事链 provenance', href: '/story-chain',      icon: Network,        group: '分析洞察' },
@@ -380,6 +393,7 @@ export const NAV_MODULES: NavModule[] = [
       // 公司架构 (HR 部门线 · 真员工数据)
       { name: '组织架构',       href: '/admin/organization',           icon: Building2, group: '公司架构', visibleTo: ['manager', 'steward', 'admin', 'champion', 'owner'] },
       // 反馈评估 (现在归属组织模块)
+      { name: '我的绩效与潜力',    href: '/organization/performance', icon: Target, group: '反馈评估' },
       { name: '1on1 对话',         href: '/1on1',             icon: MessagesSquare, group: '反馈评估' },
       { name: '360 评估',          href: '/360',              icon: SparklesAlias,  group: '反馈评估', visibleTo: ['manager', 'steward', 'admin', 'champion'] },
       { name: '9 宫格',            href: '/nine-box',         icon: Grid3x3,        group: '反馈评估', visibleTo: ['manager', 'steward', 'admin', 'champion'] },

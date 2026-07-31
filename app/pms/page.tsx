@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Search, Filter } from 'lucide-react';
+import { Plus, Search, Filter, Upload } from 'lucide-react';
 
 interface Opportunity {
   id: string;
@@ -106,13 +106,22 @@ export default function PMSPage() {
             项目报备全生命周期管理
           </p>
         </div>
-        <Button
-          onClick={() => router.push('/pms/opportunities/new')}
-          className="bg-brand-500 hover:bg-brand-600"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          新建商机
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => router.push('/pms/opportunities/import')}
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            批量导入
+          </Button>
+          <Button
+            onClick={() => router.push('/pms/opportunities/new')}
+            className="bg-brand-500 hover:bg-brand-600"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            新建商机
+          </Button>
+        </div>
       </div>
 
       <Card className="mb-6">

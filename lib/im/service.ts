@@ -1114,6 +1114,42 @@ async function invokePersonaReply(input: InvokePersonaInput): Promise<void> {
       // eslint-disable-next-line no-console
       console.warn('[im] persona act pass failed (non-blocking)', err);
     }
+
+    // §S1 搭子「个人助理」写肢体: 员工明确要"约会议/加日程/提醒参会人"时, 直执行 (registry 审计)。
+    //   fail-soft + 严格写意图门控 (shouldAssist); 日程/查询只读侧已在 perception 处理, 此处只管写。
+    try {
+      const { personaAssistantPass } = await import('../persona/persona-assistant');
+      const assist = await personaAssistantPass(
+        input.triggeringMessage.body,
+        '',
+        input.targetUserId,
+        { tenantId: 'default' },
+      );
+      const done = assist.actions.filter((a) => a.ok);
+      const failed = assist.actions.filter((a) => !a.ok);
+      if (done.length > 0) {
+        await sendMessage({
+          channelId: input.channelId,
+          senderId: 'persona',
+          senderKind: 'system',
+          body: `🗓️ 分身已为你处理日程/会议: ${done
+            .map((a) => (a.tool === 'assistant.create_event' ? '已创建日程' : '已发送会议提醒'))
+            .join(' · ')}。可在日历中查看。`,
+          parentMessageId: input.triggeringMessage.id,
+        });
+      } else if (failed.length > 0) {
+        await sendMessage({
+          channelId: input.channelId,
+          senderId: 'persona',
+          senderKind: 'system',
+          body: `⚠️ 分身尝试处理日程/会议未成功: ${failed[0].error ?? '请稍后重试或手动操作'}。`,
+          parentMessageId: input.triggeringMessage.id,
+        });
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn('[im] persona assistant pass failed (non-blocking)', err);
+    }
   } catch (err) {
     // 失败静默 (V1 简化), 在频道里提示但不抛
     try {
