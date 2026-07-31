@@ -29,6 +29,41 @@ function Remove-DirSafe {
   }
 }
 
+function Remove-DirSafeWithRetry {
+  param([string]$Path, [string]$Root, [int]$Attempts = 5)
+
+  for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+    try {
+      Remove-DirSafe -Path $Path -Root $Root
+      return
+    } catch {
+      if ($attempt -eq $Attempts) { throw }
+      Write-Host "Remove attempt $attempt failed: $($_.Exception.Message). Retrying..." -ForegroundColor Yellow
+      Start-Sleep -Seconds 3
+    }
+  }
+}
+
+function Invoke-NextBuildWithRetry {
+  param([int]$Attempts = 2)
+
+  for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+    & npm.cmd run build
+    if ($LASTEXITCODE -eq 0) {
+      return
+    }
+
+    if ($attempt -eq $Attempts) {
+      throw "next build failed with exit code $LASTEXITCODE"
+    }
+
+    Write-Host "next build failed with exit code $LASTEXITCODE. Cleaning .next and retrying..." -ForegroundColor Yellow
+    Start-Sleep -Seconds 8
+    Remove-DirSafeWithRetry -Path (Join-Path $Repo ".next") -Root $Repo
+    Start-Sleep -Seconds 5
+  }
+}
+
 function Resolve-7Zip {
   $candidates = @(
     "7z",
@@ -84,10 +119,7 @@ if (-not $SkipBuild) {
   $env:SKIP_STARTUP_GUARD = "1"
   $env:DEEPSEEK_API_KEY = "build-placeholder"
   $env:DATABASE_URL = ""
-  & npm.cmd run build
-  if ($LASTEXITCODE -ne 0) {
-    throw "next build failed with exit code $LASTEXITCODE"
-  }
+  Invoke-NextBuildWithRetry
 } else {
   Write-Step "Skipping build and using existing .next output"
 }
