@@ -7,12 +7,26 @@
  * 内容: header + 首屏引导 (空态) + 消息列表 + 输入框
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { usePathname } from 'next/navigation';
 import { Sparkles, X, Plus, Send, AlertCircle, Loader2, MapPin, ThumbsUp, Pencil, ThumbsDown, ChevronDown, ChevronRight, Database, Globe, Brain, Target, Lightbulb, Check, Square, RotateCcw, ImagePlus, BookOpen, Layers, FileText, Sparkle, User } from 'lucide-react';
 import { useBossAi, type BossAiMessage, type BossAiTraceStep, type BossAiFeedbackOutcome } from './use-boss-ai';
 import { getExamplePrompts, getPathLabel } from './example-prompts';
 import { useBackDismiss } from '@/lib/hooks/use-back-dismiss';
+
+const DRAWER_WIDTH_STORAGE_KEY = 'tandem:boss-ai-drawer-width';
+const DEFAULT_DRAWER_WIDTH = 420;
+const MIN_DRAWER_WIDTH = 360;
+const MAX_DRAWER_WIDTH = 640;
+
+function clampDrawerWidth(width: number) {
+  const viewportMax = typeof window === 'undefined' ? MAX_DRAWER_WIDTH : Math.max(MIN_DRAWER_WIDTH, window.innerWidth - 360);
+  return Math.min(Math.min(MAX_DRAWER_WIDTH, viewportMax), Math.max(MIN_DRAWER_WIDTH, width));
+}
+
+function applyDrawerWidth(width: number) {
+  document.documentElement.style.setProperty('--boss-ai-drawer-width', `${width}px`);
+}
 
 export function BossAiDrawer() {
   const { isOpen, close, messages, streaming, error, send, regenerate, editAndResend, stop, newSession, pendingPrompt, consumePendingPrompt, submitFeedback } = useBossAi();
@@ -23,6 +37,9 @@ export function BossAiDrawer() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const resizeRef = useRef<{ pointerId: number; startX: number; startWidth: number; currentWidth: number } | null>(null);
+  const [drawerWidth, setDrawerWidth] = useState(DEFAULT_DRAWER_WIDTH);
+  const [resizing, setResizing] = useState(false);
 
   // §四方案模式 (megaplan) · 用户主动开启; 开启时提交走 /api/boss-ai/megaplan 而非普通对话
   const [megaplanMode, setMegaplanMode] = useState(false);
@@ -127,6 +144,30 @@ export function BossAiDrawer() {
   const examplePrompts = useMemo(() => getExamplePrompts(pathname), [pathname]);
   const pathLabel = useMemo(() => getPathLabel(pathname), [pathname]);
 
+  useEffect(() => {
+    const saved = Number.parseInt(window.localStorage.getItem(DRAWER_WIDTH_STORAGE_KEY) ?? '', 10);
+    const nextWidth = clampDrawerWidth(Number.isFinite(saved) ? saved : DEFAULT_DRAWER_WIDTH);
+    setDrawerWidth(nextWidth);
+    applyDrawerWidth(nextWidth);
+
+    function keepWidthInsideViewport() {
+      setDrawerWidth((current) => {
+        const next = clampDrawerWidth(current);
+        applyDrawerWidth(next);
+        window.localStorage.setItem(DRAWER_WIDTH_STORAGE_KEY, String(next));
+        return next;
+      });
+    }
+
+    window.addEventListener('resize', keepWidthInsideViewport);
+    return () => {
+      window.removeEventListener('resize', keepWidthInsideViewport);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.body.classList.remove('bossai-resizing');
+    };
+  }, []);
+
   // §深链消费 · 外部组件 askAbout(prompt, { task, autoSend }) 触发后, drawer 自动 prefill / 自动发送
   useEffect(() => {
     if (!isOpen || !pendingPrompt) return;
@@ -191,6 +232,42 @@ export function BossAiDrawer() {
     }
   }
 
+  function handleResizePointerDown(e: ReactPointerEvent<HTMLDivElement>) {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    resizeRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startWidth: drawerWidth,
+      currentWidth: drawerWidth,
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setResizing(true);
+    document.body.classList.add('bossai-resizing');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }
+
+  function handleResizePointerMove(e: ReactPointerEvent<HTMLDivElement>) {
+    const resize = resizeRef.current;
+    if (!resize || resize.pointerId !== e.pointerId) return;
+    const nextWidth = clampDrawerWidth(resize.startWidth - (e.clientX - resize.startX));
+    resize.currentWidth = nextWidth;
+    setDrawerWidth(nextWidth);
+    applyDrawerWidth(nextWidth);
+  }
+
+  function finishResize(e: ReactPointerEvent<HTMLDivElement>) {
+    const resize = resizeRef.current;
+    if (!resize || resize.pointerId !== e.pointerId) return;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+    window.localStorage.setItem(DRAWER_WIDTH_STORAGE_KEY, String(resize.currentWidth));
+    resizeRef.current = null;
+    setResizing(false);
+    document.body.classList.remove('bossai-resizing');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  }
+
   if (!isOpen) return null;
 
   const hasMessages = messages.length > 0;
@@ -209,11 +286,30 @@ export function BossAiDrawer() {
         aria-modal="true"
         aria-label="Tandem AI · 中央智囊"
         className={
-          'fixed right-0 top-0 z-[71] flex h-full w-full flex-col bg-[rgb(var(--surface-1))] shadow-soft-xl ' +
-          'md:w-[420px] md:border-l ' +
+          'boss-ai-drawer fixed right-0 top-0 z-[71] flex h-full w-full flex-col bg-[rgb(var(--surface-1))] shadow-soft-xl ' +
+          'md:border-l ' +
           'border-[rgb(var(--border-subtle))]'
         }
       >
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="调整 Tandem AI 面板宽度"
+          aria-valuemin={MIN_DRAWER_WIDTH}
+          aria-valuemax={MAX_DRAWER_WIDTH}
+          aria-valuenow={drawerWidth}
+          title="拖动调整宽度"
+          onPointerDown={handleResizePointerDown}
+          onPointerMove={handleResizePointerMove}
+          onPointerUp={finishResize}
+          onPointerCancel={finishResize}
+          className={
+            'absolute left-0 top-0 hidden h-full w-3 -translate-x-1/2 touch-none cursor-col-resize md:block ' +
+            'after:absolute after:left-1/2 after:top-0 after:h-full after:w-px after:-translate-x-1/2 after:bg-[rgb(var(--border-subtle))] ' +
+            'hover:after:w-1 hover:after:bg-[rgb(var(--brand-400))] ' +
+            (resizing ? 'after:w-1 after:bg-[rgb(var(--brand-500))]' : '')
+          }
+        />
         {/* ── Header ───────────────────────────────────── */}
         <header
           className="flex items-center gap-3 border-b px-4 py-3"

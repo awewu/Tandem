@@ -12,7 +12,7 @@ import {
   Database, ArrowLeft, Loader2, AlertTriangle, CheckSquare, Target,
   BookOpen, ShieldOff, ShieldCheck, Gauge, StickyNote,
 } from 'lucide-react';
-import { useCurrentUserId } from '@/lib/hooks/use-current-user';
+import { useCurrentUser } from '@/lib/hooks/use-current-user';
 
 const SPECIALTY_LABEL: Record<string, string> = {
   finance: '财务', tech: '技术', pm: '产品', marketing: '营销', legal: '法务',
@@ -33,7 +33,8 @@ interface TrainingContext {
 }
 
 export default function DataSourcePage() {
-  const userId = useCurrentUserId();
+  const { user } = useCurrentUser();
+  const userId = user?.id ?? '';
   const [ctx, setCtx] = useState<TrainingContext | null>(null);
   const [learningActive, setLearningActive] = useState<boolean | null>(null);
   const [status, setStatus] = useState<'loading' | 'ok' | 'error'>('loading');

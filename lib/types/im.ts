@@ -99,6 +99,7 @@ export interface ImAttachment {
   url?: string;
   name?: string;
   size?: number;
+  mimeType?: string;
   /** 引用 Tandem 内部对象 (decision_card / memory) */
   refId?: string;
   /** 摘要预览 */

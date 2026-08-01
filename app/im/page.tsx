@@ -7,19 +7,20 @@
  * 差异化: hover 消息 → 开议事室 / 沉淀 Memory / @AI分身 / 已读回执
  */
 
-import { Suspense, useCallback, useState, useEffect, useMemo, useRef } from 'react';
+import { Suspense, useCallback, useState, useEffect, useMemo, useRef, type ComponentType, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
+import dynamic from 'next/dynamic';
 import { useSearchParams, useRouter } from 'next/navigation';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import officePreset from '@file-viewer/preset-office';
 import { CreateChannelDialog } from '@/components/im/create-channel-dialog';
 import { ChannelDetailPanel } from '@/components/im/channel-detail-panel';
 import { ImSidebar } from '@/components/im/im-sidebar';
+import { ImVoiceComposerButton } from '@/components/im/im-voice-composer-button';
 import { AgentModeToggle } from '@/components/im/agent-mode-toggle';
 import { AiTraceButton } from '@/components/im/ai-trace-button';
 import { CompanyBrainFeedbackButtons } from '@/components/im/company-brain-feedback';
-import {
-  DocumentMentionPicker,
-  useMentionTrigger,
-} from '@/components/documents/mention-picker';
 import { cn } from '@/lib/utils';
 import { MessageReactions } from '@/components/im/message-reactions';
 import type { ImAttachment, ImChannel, ImMembership, ImMessage } from '@/lib/types/im';
@@ -31,7 +32,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { insertTextAtSelection, messageBodyForSend } from '@/lib/im/composer-text';
+import {
+  buildPersonMentionDisplay,
+  encodePendingPersonMentionsForSend,
+  insertTextAtSelection,
+  messageBodyForSend,
+  reconcilePendingPersonMentionRanges,
+  type PendingPersonMention,
+} from '@/lib/im/composer-text';
+import { displayImChannelName } from '@/lib/im/channel-name';
+import { chooseImPopupDirection, formatImMessageTimestamp, getImReadReceiptSummary, type ImPopupDirection } from '@/lib/im/message-display';
 import {
   Hash,
   Megaphone,
@@ -52,6 +62,8 @@ import {
   Smile,
   Image,
   Paperclip,
+  FileText,
+  Eye,
   X,
   ZoomIn,
   ZoomOut,
@@ -63,6 +75,28 @@ import {
 // Day 4-7: 升级 Channel/Message 类型 以含撤回 + 公告 + pinned
 type Channel = ImChannel & { unread?: number };
 type Message = ImMessage;
+
+const OfficeFileViewer = dynamic(() => import('@file-viewer/react'), { ssr: false }) as ComponentType<{
+  url: string;
+  buffer?: ArrayBuffer;
+  name?: string;
+  filename?: string;
+  type?: string;
+  size?: number;
+  options?: Record<string, unknown>;
+  className?: string;
+  style?: CSSProperties;
+}>;
+
+function shortUserId(id: string): string {
+  if (id.length <= 10) return id;
+  return `${id.slice(0, 4)}...${id.slice(-4)}`;
+}
+
+function initialsOf(value: string): string {
+  const chars = Array.from(value.trim().replace(/\s+/g, ''));
+  return (chars.slice(0, 2).join('') || '?').toUpperCase();
+}
 
 type ComposerAttachment = {
   id: string;
@@ -119,6 +153,7 @@ function ImInner() {
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
+  const [pendingMentions, setPendingMentions] = useState<PendingPersonMention[]>([]);
   const [sending, setSending] = useState(false);
   const [busy, setBusy] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -129,6 +164,7 @@ function ImInner() {
   const identityPickerRef = useRef<HTMLDivElement>(null);
   const [attachments, setAttachments] = useState<ComposerAttachment[]>([]);
   const [activeChannel, setActiveChannel] = useState<Channel | null>(null);
+  const [recallingIds, setRecallingIds] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
@@ -142,6 +178,41 @@ function ImInner() {
   const { user } = useCurrentUser();
   const ME = user?.id ?? 'demo-user';
   const nameOf = usePersonNameResolver();
+  const myDisplayName = useMemo(() => {
+    const name = user?.name?.trim();
+    if (name) return name;
+    const email = user?.email?.trim();
+    if (email) return email.split('@')[0] || email;
+    return shortUserId(ME);
+  }, [ME, user?.email, user?.name]);
+  const myAvatarText = useMemo(() => initialsOf(myDisplayName), [myDisplayName]);
+  const handleComposerTextChange = useCallback((previous: string, next: string) => {
+    setPendingMentions((current) => reconcilePendingPersonMentionRanges(previous, next, current));
+  }, []);
+  const handlePersonMentionInserted = useCallback((mention: PendingPersonMention) => {
+    setPendingMentions((current) => [...current, mention]);
+  }, []);
+  const insertVoiceText = useCallback((text: string) => {
+    const spoken = text.trim();
+    if (!spoken) return;
+    const el = composerRef.current;
+    const current = input;
+    const start = el?.selectionStart ?? current.length;
+    const end = el?.selectionEnd ?? start;
+    const needsLeadingSpace = start > 0 && current[start - 1] && !/\s/.test(current[start - 1]);
+    const needsTrailingSpace = end < current.length && current[end] && !/\s/.test(current[end]);
+    const insert = `${needsLeadingSpace ? ' ' : ''}${spoken}${needsTrailingSpace ? ' ' : ''}`;
+    const next = current.slice(0, start) + insert + current.slice(end);
+    setInput(next);
+    handleComposerTextChange(current, next);
+    queueMicrotask(() => {
+      const target = composerRef.current;
+      if (!target) return;
+      const caret = start + insert.length;
+      target.focus();
+      target.setSelectionRange(caret, caret);
+    });
+  }, [handleComposerTextChange, input]);
   const hasActiveUploads = sending && attachments.some((a) => a.uploadStatus === 'queued' || a.uploadStatus === 'uploading');
 
   function isTempMessage(message: Message): boolean {
@@ -168,6 +239,24 @@ function ImInner() {
   function confirmLeaveDuringUpload(): boolean {
     if (!hasActiveUploads) return true;
     return window.confirm('还有文件传输中，返回会导致传输失败。确定要返回吗？');
+  }
+
+  function notifyChannelsRefresh() {
+    window.dispatchEvent(new Event('tandem:im-channels-refresh'));
+  }
+
+  const refreshMembers = useCallback((chId: string) => {
+    void fetch(`/api/im/channels/${chId}/members`)
+      .then((r) => r.json())
+      .then((data) => setMembers(data.members ?? []));
+  }, []);
+
+  async function markActiveChannelRead(chId: string) {
+    await fetch(`/api/im/channels/${chId}/read`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    notifyChannelsRefresh();
   }
 
   function closeActiveChat() {
@@ -238,11 +327,7 @@ function ImInner() {
     setTimeout(() => {
       scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
     }, 30);
-    void fetch(`/api/im/channels/${chId}/read`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: ME }),
-    });
+    void markActiveChannelRead(chId);
   }
 
   async function refreshMessages(chId: string) {
@@ -269,11 +354,7 @@ function ImInner() {
       }, 30);
     }
 
-    void fetch(`/api/im/channels/${chId}/read`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: ME }),
-    });
+    void markActiveChannelRead(chId);
   }
 
   // -- SSE subscribe --
@@ -303,16 +384,13 @@ function ImInner() {
           }, 30);
         }
         // 保持已读
-        void fetch(`/api/im/channels/${activeId}/read`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: ME }),
-        });
+        void markActiveChannelRead(activeId);
       } catch {
         /* ignore */
       }
     });
-    es.addEventListener('unread', () => { /* ImSidebar 自行轮询 */ });
+    es.addEventListener('unread', notifyChannelsRefresh);
+    es.addEventListener('read_receipt', () => refreshMembers(activeId));
     // Day 4: 撤回事件 — 替换本地设置 deletedAt
     es.addEventListener('message_updated', (e) => {
       try {
@@ -320,7 +398,7 @@ function ImInner() {
         setMessages((prev) => prev.map((m) => (m.id === msg.id ? msg : m)));
       } catch { /* ignore */ }
     });
-    es.addEventListener('channel', () => { /* ImSidebar 自行轮询 */ });
+    es.addEventListener('channel', notifyChannelsRefresh);
 
     const poll = window.setInterval(() => {
       if (document.visibilityState === 'hidden') return;
@@ -337,22 +415,34 @@ function ImInner() {
   // 拉取当前频道成员 (为已读人数计算 + 设置对话框复用)
   useEffect(() => {
     if (!activeId) { setMembers([]); return; }
-    void fetch(`/api/im/channels/${activeId}/members`)
-      .then((r) => r.json())
-      .then((data) => setMembers(data.members ?? []));
-  }, [activeId]);
+    refreshMembers(activeId);
+  }, [activeId, refreshMembers]);
 
   /** Day 4: 撤回消息 */
   async function recallMessageHandler(messageId: string) {
+    if (recallingIds.has(messageId)) return;
     if (!confirm('确认撤回这条消息?')) return;
-    const res = await fetch(`/api/im/messages/${messageId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'recall', userId: ME }),
-    });
-    if (!res.ok) {
-      const data = await res.json();
-      window.alert(`撤回失败: ${data.error ?? res.statusText}`);
+    setRecallingIds((prev) => new Set(prev).add(messageId));
+    try {
+      const res = await fetch(`/api/im/messages/${messageId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'recall', userId: ME }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        window.alert(`撤回失败: ${data.error ?? res.statusText}`);
+        return;
+      }
+      if (data.message) {
+        setMessages((prev) => prev.map((m) => (m.id === messageId ? data.message : m)));
+      }
+    } finally {
+      setRecallingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(messageId);
+        return next;
+      });
     }
   }
 
@@ -440,6 +530,7 @@ function ImInner() {
         kind: 'image',
         name: file.name,
         size: file.size,
+        mimeType: file.type,
         url: dataUrl ?? await readFileAsDataUrl(file),
       };
     }
@@ -458,6 +549,7 @@ function ImInner() {
           kind: 'image',
           name: file.name,
           size: file.size,
+          mimeType: file.type,
           url: inlineUrl,
         };
       }
@@ -472,6 +564,7 @@ function ImInner() {
       kind: file.type.startsWith('image/') ? 'image' : 'file',
       name: file.name,
       size: file.size,
+      mimeType: file.type || 'application/octet-stream',
       refId: storageKey,
     };
   }
@@ -488,8 +581,10 @@ function ImInner() {
   }
 
   async function sendMessage() {
-    const text = messageBodyForSend(input);
-    if ((!text && attachments.length === 0) || !activeId || sending) return;
+    const displayText = messageBodyForSend(input);
+    const mentionsForSend = pendingMentions;
+    const text = encodePendingPersonMentionsForSend(displayText, mentionsForSend);
+    if ((!displayText && attachments.length === 0) || !activeId || sending) return;
 
     const queuedAttachments = attachments;
     const placeholderAttachments: ImAttachment[] = queuedAttachments.length > 0
@@ -497,6 +592,7 @@ function ImInner() {
         kind: isImageAttachment(a.file, a.dataUrl) ? 'image' : 'file',
         name: a.name,
         size: a.size,
+        mimeType: a.file.type || 'application/octet-stream',
         url: a.dataUrl,
         uploadStatus: 'uploading',
         uploadProgress: 0,
@@ -516,6 +612,7 @@ function ImInner() {
 
     setSending(true);
     setInput('');
+    setPendingMentions([]);
     setMessages((prev) => [...prev, optimisticMessage]);
     setTimeout(() => {
       scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -536,7 +633,8 @@ function ImInner() {
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
-        setInput(text);
+        setInput(displayText);
+        setPendingMentions(mentionsForSend);
         window.alert(`发送失败: ${err.error ?? res.statusText}`);
         return;
       }
@@ -551,6 +649,7 @@ function ImInner() {
           }
           return prev.map((m) => (m.id === tempId ? confirmedMessage : m));
         });
+        notifyChannelsRefresh();
       }
 
       if (queuedAttachments.length === 0 || !serverMessage) {
@@ -730,13 +829,13 @@ function ImInner() {
                 </button>
                 <ConvAvatar
                   channel={activeChannel}
-                  name={activeChannel.type === 'dm' ? nameOf(activeChannel.memberIds.find((m) => m !== ME)) ?? '私聊' : activeChannel.name}
+                  name={activeChannel.type === 'dm' ? nameOf(activeChannel.memberIds.find((m) => m !== ME)) ?? '私聊' : displayImChannelName(activeChannel)}
                 />
                 <div className="min-w-0">
                   <div className="truncate text-[14px] font-semibold text-ink-primary">
                     {activeChannel.type === 'dm'
                       ? nameOf(activeChannel.memberIds.find((m) => m !== ME)) ?? '私聊'
-                      : activeChannel.name}
+                      : displayImChannelName(activeChannel)}
                   </div>
                   {activeChannel.topic && (
                     <div className="truncate text-[12px] text-ink-secondary">{activeChannel.topic}</div>
@@ -800,6 +899,7 @@ function ImInner() {
                   onSpawnRoom={() => spawnRoom(m.id)}
                   onPromote={() => promoteToMemory(m.id)}
                   onRecall={() => recallMessageHandler(m.id)}
+                  recalling={recallingIds.has(m.id)}
                   onPin={() => togglePinHandler(m.id)}
                   onMentionPersona={(uid) => summonPersona(uid)}
                   onReactionChange={(reactions) =>
@@ -921,7 +1021,12 @@ function ImInner() {
                   onChange={(e) => handleFileSelect(e, 'file')}
                 />
 
-                {/* @成员与语音入口暂时下线。 */}
+                {/* 语音转文字 */}
+                <ImVoiceComposerButton
+                  onText={insertVoiceText}
+                  disabled={sending}
+                  className="h-8 w-8 rounded-md"
+                />
 
               </div>
 
@@ -941,7 +1046,8 @@ function ImInner() {
                   >
                     {sendAsAgent
                       ? <Bot className="h-3.5 w-3.5 shrink-0" />
-                      : <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white bg-gradient-to-br from-warning/30 to-warning`}>{ME.slice(0, 1).toUpperCase()}</span>                    }
+                      : <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white bg-gradient-to-br from-warning/30 to-warning`}>{myAvatarText}</span>
+                    }
                     <span className="hidden sm:inline">{sendAsAgent ? 'AI 分身' : '真人'}</span>
                     <svg className="h-3 w-3 shrink-0 text-current opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6"/></svg>
                   </button>
@@ -949,6 +1055,9 @@ function ImInner() {
                   {showIdentityPicker && (
                     <IdentityPickerDropdown
                       meId={ME}
+                      meName={myDisplayName}
+                      meEmail={user?.email ?? undefined}
+                      meAvatarText={myAvatarText}
                       sendAsAgent={sendAsAgent}
                       onSelect={(asAgent) => { setSendAsAgent(asAgent); setShowIdentityPicker(false); composerRef.current?.focus(); }}
                       onClose={() => setShowIdentityPicker(false)}
@@ -962,10 +1071,15 @@ function ImInner() {
                     composerRef={composerRef}
                     value={input}
                     setValue={setInput}
+                    members={members}
+                    meId={ME}
+                    nameOf={nameOf}
                     onEnter={() => void sendMessage()}
+                    onTextChange={handleComposerTextChange}
+                    onMentionInserted={handlePersonMentionInserted}
                     onPasteFiles={queuePastedImages}
                     disabled={sending}
-                    placeholder={sendAsAgent ? '以 AI 分身身份发言…' : '发送消息（可直接粘贴图片）…'}
+                    placeholder={sendAsAgent ? '以 AI 分身身份发言...' : '发送消息，输入 @ 选择人员（可直接粘贴图片）...'}
                   />
                 </div>
                 <Button
@@ -994,6 +1108,8 @@ function ImInner() {
           channel={activeChannel}
           currentUserId={ME}
           onClose={() => setShowSettings(false)}
+          onDissolve={closeActiveChat}
+          onLeft={closeActiveChat}
           onChanged={() => {
             if (!activeId) return;
             void fetch(`/api/im/channels?userId=${ME}`)
@@ -1020,7 +1136,8 @@ function ConvAvatar({ channel, name }: { channel: Channel; name: string }) {
   ];
   if (channel.type === 'announcement') {
     return (
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-danger/30 to-danger text-white">        <Megaphone className="h-5 w-5" />
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-danger/30 to-danger text-white">
+        <Megaphone className="h-5 w-5" />
       </div>
     );
   }
@@ -1056,12 +1173,18 @@ function ConvAvatar({ channel, name }: { channel: Channel; name: string }) {
 
 function IdentityPickerDropdown({
   meId,
+  meName,
+  meEmail,
+  meAvatarText,
   sendAsAgent,
   onSelect,
   onClose,
   containerRef,
 }: {
   meId: string;
+  meName: string;
+  meEmail?: string;
+  meAvatarText: string;
   sendAsAgent: boolean;
   onSelect: (asAgent: boolean) => void;
   onClose: () => void;
@@ -1085,25 +1208,31 @@ function IdentityPickerDropdown({
         onClick={() => onSelect(false)}
         className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-surface-3 ${!sendAsAgent ? 'bg-surface-3' : ''}`}
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-warning/30 to-warning text-[11px] font-bold text-white">          {meId.slice(0, 2).toUpperCase()}
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-warning/30 to-warning text-[11px] font-bold text-white">
+          {meAvatarText}
         </span>
         <div className="min-w-0 flex-1">
-          <div className="text-[13px] font-medium text-ink-primary truncate">{meId}</div>
-          <div className="text-[11px] text-ink-secondary">真人 · 以我自己的身份发言</div>
+          <div className="text-[13px] font-medium text-ink-primary truncate" title={meName}>{meName}</div>
+          <div className="text-[11px] text-ink-secondary truncate" title={meEmail ?? meId}>
+            真人 · {meEmail ?? '以我自己的身份发言'}
+          </div>
         </div>
-        {!sendAsAgent && <span className="h-2 w-2 shrink-0 rounded-full bg-success/30" />}      </button>
+        {!sendAsAgent && <span className="h-2 w-2 shrink-0 rounded-full bg-success/30" />}
+      </button>
       <button
         type="button"
         onClick={() => onSelect(true)}
         className={`flex w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-brand-50 ${sendAsAgent ? 'bg-brand-50' : ''}`}
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-500 text-white">          <Bot className="h-4 w-4" />
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-500 text-white">
+          <Bot className="h-4 w-4" />
         </span>
         <div className="min-w-0 flex-1">
           <div className="text-[13px] font-medium text-brand-700">AI 分身</div>
           <div className="text-[11px] text-brand-700">让我的分身代我在群里发言</div>
         </div>
-        {sendAsAgent && <span className="h-2 w-2 shrink-0 rounded-full bg-brand-400" />}      </button>
+        {sendAsAgent && <span className="h-2 w-2 shrink-0 rounded-full bg-brand-400" />}
+      </button>
     </div>
   );
 }
@@ -1163,6 +1292,229 @@ function formatSize(bytes?: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function attachmentExt(name?: string): string {
+  return (name?.split('.').pop() ?? '').toLowerCase();
+}
+
+function isMarkdownPreview(name?: string, mimeType?: string): boolean {
+  const ext = attachmentExt(name);
+  const mime = (mimeType ?? '').toLowerCase();
+  return ext === 'md' || ext === 'markdown' || mime.includes('markdown');
+}
+
+function isTextPreview(name?: string, mimeType?: string): boolean {
+  const ext = attachmentExt(name);
+  const mime = (mimeType ?? '').toLowerCase();
+  return (
+    mime.startsWith('text/') ||
+    mime.includes('json') ||
+    ['txt', 'md', 'markdown', 'json', 'csv', 'log', 'yaml', 'yml', 'xml'].includes(ext)
+  );
+}
+
+function isPdfPreview(name?: string, mimeType?: string): boolean {
+  return attachmentExt(name) === 'pdf' || (mimeType ?? '').toLowerCase().includes('pdf');
+}
+
+function isOfficeFile(name?: string, mimeType?: string): boolean {
+  const ext = attachmentExt(name);
+  const mime = (mimeType ?? '').toLowerCase();
+  return (
+    ['doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx'].includes(ext) ||
+    mime.includes('officedocument') ||
+    mime.includes('msword') ||
+    mime.includes('powerpoint') ||
+    mime.includes('excel') ||
+    mime.includes('spreadsheet')
+  );
+}
+
+function isOfficePreviewable(name?: string, mimeType?: string): boolean {
+  const ext = attachmentExt(name);
+  const mime = (mimeType ?? '').toLowerCase();
+  return (
+    ['docx', 'pptx', 'xlsx'].includes(ext) ||
+    mime.includes('officedocument.wordprocessingml') ||
+    mime.includes('officedocument.presentationml') ||
+    mime.includes('officedocument.spreadsheetml')
+  );
+}
+
+function previewContentType(name?: string, mimeType?: string): string | undefined {
+  if (isMarkdownPreview(name, mimeType)) return 'text/markdown; charset=utf-8';
+  if (isTextPreview(name, mimeType)) return 'text/plain; charset=utf-8';
+  if (isPdfPreview(name, mimeType)) return 'application/pdf';
+  return mimeType || undefined;
+}
+
+function FilePreviewModal({
+  url,
+  downloadUrl,
+  name,
+  mimeType,
+  fileViewerPreview,
+  size,
+  onClose,
+}: {
+  url: string;
+  downloadUrl?: string | null;
+  name?: string;
+  mimeType?: string;
+  fileViewerPreview?: boolean;
+  size?: number;
+  onClose: () => void;
+}) {
+  const [text, setText] = useState<string | null>(null);
+  const [officeBuffer, setOfficeBuffer] = useState<ArrayBuffer | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const textLike = isTextPreview(name, mimeType);
+  const markdown = isMarkdownPreview(name, mimeType);
+  const pdf = isPdfPreview(name, mimeType);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!textLike) return;
+    const controller = new AbortController();
+    setText(null);
+    setError(null);
+    void fetch(url, { signal: controller.signal })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`预览失败 (${res.status})`);
+        const buffer = await res.arrayBuffer();
+        return new TextDecoder('utf-8').decode(buffer);
+      })
+      .then(setText)
+      .catch((err) => {
+        if (!controller.signal.aborted) setError((err as Error).message || '预览失败');
+      });
+    return () => controller.abort();
+  }, [textLike, url]);
+
+  useEffect(() => {
+    if (!fileViewerPreview) return;
+    const controller = new AbortController();
+    setOfficeBuffer(null);
+    setError(null);
+    void fetch(url, { signal: controller.signal })
+      .then(async (res) => {
+        if (!res.ok) {
+          if (res.status === 404) {
+            throw new Error('当前本地服务无法读取该附件，请确认对象存储配置后再预览');
+          }
+          throw new Error(`预览失败 (${res.status})`);
+        }
+        return res.arrayBuffer();
+      })
+      .then((buffer) => {
+        if (!controller.signal.aborted) setOfficeBuffer(buffer);
+      })
+      .catch((err) => {
+        if (!controller.signal.aborted) setError((err as Error).message || '预览失败');
+      });
+    return () => controller.abort();
+  }, [fileViewerPreview, url]);
+
+  const stop = (e: React.MouseEvent) => e.stopPropagation();
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[100] flex flex-col bg-black/70 p-3 backdrop-blur-sm md:p-6"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="mx-auto flex h-full w-full max-w-5xl flex-col overflow-hidden rounded-lg bg-surface-1 shadow-2xl" onClick={stop}>
+        <header className="flex h-12 shrink-0 items-center gap-2 border-b border-hairline px-3">
+          <FileText className="h-4 w-4 shrink-0 text-ink-tertiary" />
+          <div className="min-w-0 flex-1 truncate text-caption font-semibold text-ink-primary">{name ?? '附件预览'}</div>
+          {downloadUrl ? (
+            <a
+              href={downloadUrl}
+              download={name}
+              className="flex h-8 w-8 items-center justify-center rounded-md text-ink-secondary transition hover:bg-surface-3 hover:text-ink-primary"
+              title="下载"
+            >
+              <Download className="h-4 w-4" />
+            </a>
+          ) : null}
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-md text-ink-secondary transition hover:bg-surface-3 hover:text-ink-primary"
+            title="关闭"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </header>
+        <div className="min-h-0 flex-1 overflow-auto bg-white">
+          {fileViewerPreview ? (
+            error ? (
+              <div className="flex h-full min-h-[360px] flex-col items-center justify-center gap-2 p-6 text-center">
+                <FileText className="h-8 w-8 text-ink-tertiary" />
+                <div className="text-caption font-medium text-danger">{error}</div>
+                <div className="text-footnote text-ink-tertiary">如果部署环境可以查看，请同步本地对象存储配置后再测试 localhost。</div>
+              </div>
+            ) : officeBuffer === null ? (
+              <div className="p-6 text-caption text-ink-tertiary">正在加载预览...</div>
+            ) : (
+              <OfficeFileViewer
+                url={url}
+                buffer={officeBuffer}
+                name={name}
+                filename={name}
+                type={mimeType || attachmentExt(name)}
+                size={size}
+                className="h-full min-h-[70vh] w-full"
+                style={{ height: '100%' }}
+                options={{
+                  preset: officePreset,
+                  rendererMode: 'replace',
+                  theme: 'light',
+                  toolbar: { position: 'top' },
+                  download: false,
+                }}
+              />
+            )
+          ) : textLike ? (
+            error ? (
+              <div className="p-6 text-caption text-danger">{error}</div>
+            ) : text === null ? (
+              <div className="p-6 text-caption text-ink-tertiary">正在加载预览...</div>
+            ) : markdown ? (
+              <article className="prose prose-slate max-w-none p-6 prose-sm prose-headings:text-ink-primary prose-p:text-ink-secondary prose-table:block prose-table:max-w-full prose-table:overflow-x-auto">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+              </article>
+            ) : (
+              <pre className="min-h-full whitespace-pre-wrap break-words p-6 font-mono text-[12px] leading-relaxed text-ink-primary">{text}</pre>
+            )
+          ) : pdf ? (
+            <iframe src={url} title={name ?? '附件预览'} className="h-full min-h-[70vh] w-full" />
+          ) : (
+            <div className="flex h-full min-h-[360px] flex-col items-center justify-center gap-3 p-6 text-center">
+              <FileText className="h-8 w-8 text-ink-tertiary" />
+              <div className="text-caption font-medium text-ink-primary">此类型暂不支持内嵌预览</div>
+              <div className="text-footnote text-ink-tertiary">可以先下载到本地查看。</div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
 }
 
 /**
@@ -1264,25 +1616,48 @@ function ImageLightbox({ url, name, onClose }: { url: string; name?: string; onC
  */
 function AttachmentView({ channelId, att }: { channelId: string; att: ImAttachment }) {
   const [url, setUrl] = useState<string | null>(att.url ?? null);
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(att.url ?? null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [preview, setPreview] = useState(false);
+  const contentType = previewContentType(att.name, att.mimeType);
+  const officePreviewable = isOfficePreviewable(att.name, att.mimeType);
 
   useEffect(() => {
     if (att.url || !att.refId) return;
     let cancelled = false;
     setStatus('loading');
+    setAttachmentError(null);
     void fetch(`/api/im/channels/${channelId}/attachments/presign`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mode: 'download', storageKey: att.refId }),
+      body: JSON.stringify({
+        mode: 'download',
+        storageKey: att.refId,
+        fileName: att.name,
+        contentType,
+      }),
     })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((data) => {
-        if (!cancelled) { setUrl(data.url); setStatus('idle'); }
+      .then(async (r) => {
+        if (r.ok) return r.json();
+        const data = await r.json().catch(() => ({}));
+        throw new Error(data.error ?? `附件加载失败 (${r.status})`);
       })
-      .catch(() => { if (!cancelled) setStatus('error'); });
+      .then((data) => {
+        if (!cancelled) {
+          setUrl(data.previewUrl ?? data.url);
+          setDownloadUrl(data.downloadUrl ?? data.url);
+          setStatus('idle');
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setAttachmentError((err as Error).message || '附件加载失败');
+          setStatus('error');
+        }
+      });
     return () => { cancelled = true; };
-  }, [channelId, att.url, att.refId]);
+  }, [channelId, att.url, att.refId, att.name, contentType]);
 
   if (att.uploadStatus === 'pending' || att.uploadStatus === 'uploading') {
     return (
@@ -1315,7 +1690,7 @@ function AttachmentView({ channelId, att }: { channelId: string; att: ImAttachme
     if (status === 'error') {
       return (
         <div className="flex h-24 w-24 items-center justify-center rounded-lg border border-hairline bg-surface-3 text-[11px] text-ink-tertiary">
-          图片加载失败
+          {attachmentError ?? '图片加载失败'}
         </div>
       );
     }
@@ -1344,21 +1719,73 @@ function AttachmentView({ channelId, att }: { channelId: string; att: ImAttachme
     );
   }
 
+  const canPreview = isTextPreview(att.name, att.mimeType) || isPdfPreview(att.name, att.mimeType) || officePreviewable;
+  const officeFile = isOfficeFile(att.name, att.mimeType);
+  const disabled = !url || status === 'loading' || status === 'error';
+  const previewDisabled = disabled || !canPreview;
+  const secondaryLabel = status === 'loading'
+    ? '加载中'
+    : status === 'error'
+    ? attachmentError ?? '加载失败'
+    : officePreviewable
+    ? 'Office 文件 · 可预览'
+    : officeFile
+    ? 'Office 文件 · 下载查看'
+    : canPreview
+    ? formatSize(att.size) || '可预览'
+    : '下载查看';
   return (
-    <a
-      href={url ?? undefined}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={`flex items-center gap-2 rounded-lg border border-hairline bg-surface-2 px-3 py-2 text-[12px] transition hover:bg-surface-3 ${
-        url ? '' : 'pointer-events-none opacity-60'
-      }`}
-    >
-      <Paperclip className="h-4 w-4 shrink-0 text-ink-tertiary" />
-      <div className="min-w-0">
-        <div className="max-w-[160px] truncate text-ink-primary">{att.name ?? '附件'}</div>
-        {att.size ? <div className="text-[10px] text-ink-tertiary">{formatSize(att.size)}</div> : null}
+    <>
+      <div
+        className={`flex min-w-[220px] max-w-[280px] items-center gap-2 rounded-lg border border-hairline bg-surface-2 px-3 py-2 text-[12px] transition hover:bg-surface-3 ${
+          disabled ? 'opacity-70' : ''
+        }`}
+      >
+        <FileText className="h-4 w-4 shrink-0 text-ink-tertiary" />
+        <button
+          type="button"
+          onClick={() => {
+            if (canPreview && !disabled) setPreview(true);
+          }}
+          disabled={disabled}
+          className="min-w-0 flex-1 text-left disabled:cursor-default"
+          title={canPreview ? '预览' : '此类型需下载查看'}
+        >
+          <div className="truncate text-ink-primary">{att.name ?? '附件'}</div>
+          <div className="text-[10px] text-ink-tertiary">{secondaryLabel}</div>
+        </button>
+        <button
+          type="button"
+          onClick={() => { if (!previewDisabled) setPreview(true); }}
+          disabled={previewDisabled}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-ink-secondary transition hover:bg-surface-4 hover:text-ink-primary disabled:pointer-events-none disabled:opacity-35"
+          title={canPreview ? '预览' : '此类型需配置 Office 转 PDF 服务后才能预览'}
+        >
+          <Eye className="h-3.5 w-3.5" />
+        </button>
+        <a
+          href={downloadUrl ?? url ?? undefined}
+          download={att.name}
+          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-ink-secondary transition hover:bg-surface-4 hover:text-ink-primary ${
+            downloadUrl || url ? '' : 'pointer-events-none opacity-40'
+          }`}
+          title="下载"
+        >
+          <Download className="h-3.5 w-3.5" />
+        </a>
       </div>
-    </a>
+      {preview && url ? (
+        <FilePreviewModal
+          url={url}
+          downloadUrl={downloadUrl}
+          name={att.name}
+          mimeType={att.mimeType}
+          size={att.size}
+          fileViewerPreview={officePreviewable}
+          onClose={() => setPreview(false)}
+        />
+      ) : null}
+    </>
   );
 }
 
@@ -1372,6 +1799,7 @@ function MessageRow({
   onSpawnRoom,
   onPromote,
   onRecall,
+  recalling,
   onPin,
   onMentionPersona,
   onReactionChange,
@@ -1385,16 +1813,30 @@ function MessageRow({
   onSpawnRoom: () => void;
   onPromote: () => void;
   onRecall: () => void;
+  recalling: boolean;
   onPin: () => void;
   onMentionPersona: (userId: string) => void;
   onReactionChange: (reactions: Record<string, string[]>) => void;
 }) {
-  // Day 4: 已读人数 (除发送者外, lastReadAt > msg.createdAt 的成员)
-  const readers = members.filter(
-    (m) => m.userId !== msg.senderId && m.lastReadAt && new Date(m.lastReadAt) >= new Date(msg.createdAt)
-  );
-  const readerCount = readers.length;
-  const totalReaders = Math.max(0, members.length - 1); // 除发送者
+  // Day 4: 已读人数 (除发送者外, lastReadAt >= msg.createdAt 的成员)
+  const readReceipt = getImReadReceiptSummary(msg, members);
+  const { readers, unreadMembers, readerCount, totalReaders } = readReceipt;
+  const readReceiptLabel = readerCount === totalReaders
+    ? '全部已读'
+    : `${readerCount}/${totalReaders} 已读`;
+  const readReceiptSummaryRef = useRef<HTMLElement>(null);
+  const [readReceiptDirection, setReadReceiptDirection] = useState<ImPopupDirection>('up');
+  const updateReadReceiptDirection = useCallback(() => {
+    const trigger = readReceiptSummaryRef.current;
+    if (!trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    setReadReceiptDirection(chooseImPopupDirection({
+      triggerTop: rect.top,
+      triggerBottom: rect.bottom,
+      viewportHeight: window.innerHeight,
+      panelHeight: 184,
+    }));
+  }, []);
   // Day 4: recallable 用 Date.now(), SSR 和 CSR 时间不同会 hydration mismatch
   // → useState + useEffect 只在客户端 mount 后计算
   const [recallable, setRecallable] = useState(false);
@@ -1453,7 +1895,8 @@ function MessageRow({
             ? 'bg-gradient-to-br from-brand-400 to-brand-500 text-white'
             : isMe
             ? 'bg-gradient-to-br from-warning/30 to-warning text-white'
-            : 'bg-gradient-to-br from-surface-3 to-ink-tertiary text-white'        }`}
+            : 'bg-gradient-to-br from-surface-3 to-ink-tertiary text-white'
+        }`}
         title={nameOf(msg.senderId)}
       >
         {isPersona ? <Bot className="h-4 w-4" /> : nameOf(msg.senderId).slice(0, 2).toUpperCase()}
@@ -1469,16 +1912,14 @@ function MessageRow({
             {isPersona && (
               <Badge
                 variant="outline"
-                className="h-4 border-brand-300 bg-brand-50 px-1 text-[9px] font-medium text-brand-700"              >
+                className="h-4 border-brand-300 bg-brand-50 px-1 text-[9px] font-medium text-brand-700"
+              >
                 AI 分身
               </Badge>
             )}
             <span className="text-ink-tertiary">·</span>
             <span className="text-ink-tertiary">
-              {new Date(msg.createdAt).toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
+              {formatImMessageTimestamp(msg.createdAt)}
             </span>
           </div>
         )}
@@ -1489,7 +1930,8 @@ function MessageRow({
               isMe
                 ? 'bg-gradient-to-br from-warning to-warning text-white'
                 : isPersona
-                ? 'border border-brand-200/80 bg-gradient-to-br from-brand-50 to-brand-50/40 text-brand-700'                : 'bg-surface-2 text-ink-primary ring-1 ring-hairline'
+                ? 'border border-brand-200/80 bg-gradient-to-br from-brand-50 to-brand-50/40 text-brand-700'
+                : 'bg-surface-2 text-ink-primary ring-1 ring-hairline'
             }`}
           >
             {(() => {
@@ -1507,7 +1949,8 @@ function MessageRow({
                     <span className="inline-flex gap-0.5">
                       <span className="h-1 w-1 animate-bounce rounded-full bg-brand-400 [animation-delay:-0.3s]" />
                       <span className="h-1 w-1 animate-bounce rounded-full bg-brand-400 [animation-delay:-0.15s]" />
-                      <span className="h-1 w-1 animate-bounce rounded-full bg-brand-400" />                    </span>
+                      <span className="h-1 w-1 animate-bounce rounded-full bg-brand-400" />
+                    </span>
                   </span>
                 );
               }
@@ -1515,7 +1958,8 @@ function MessageRow({
                 <>
                   {renderInline(msg.body, onMentionPersona)}
                   {isStreaming && !bodyEmpty && (
-                    <span className="ml-0.5 inline-block w-[6px] animate-pulse text-brand-700/70">▍</span>                  )}
+                    <span className="ml-0.5 inline-block w-[6px] animate-pulse text-brand-700/70">▍</span>
+                  )}
                 </>
               );
             })()}
@@ -1554,7 +1998,8 @@ function MessageRow({
               type="button"
               onClick={onPromote}
               disabled={!!msg.spawnedPromotionId}
-              className="flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-brand-700 shadow-soft ring-1 ring-brand-300/80 transition hover:bg-brand-50 hover:shadow-soft-lg disabled:cursor-not-allowed disabled:opacity-40"              title="沉淀为 Memory 升级提议 (三级签批) — 差异化 §2.2 第 3 条"
+              className="flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-brand-700 shadow-soft ring-1 ring-brand-300/80 transition hover:bg-brand-50 hover:shadow-soft-lg disabled:cursor-not-allowed disabled:opacity-40"
+              title="沉淀为 Memory 升级提议 (三级签批) — 差异化 §2.2 第 3 条"
             >
               <Brain className="h-3 w-3" />
               沉淀
@@ -1582,11 +2027,12 @@ function MessageRow({
               <button
                 type="button"
                 onClick={onRecall}
+                disabled={recalling}
                 className="flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-danger shadow-soft ring-1 ring-danger/40 transition hover:bg-danger/5 hover:shadow-soft-lg"
                 title="撤回 (2 分钟内 有效)"
               >
                 <Trash2 className="h-3 w-3" />
-                撤回
+                {recalling ? '撤回中' : '撤回'}
               </button>
             )}
           </div>
@@ -1608,13 +2054,26 @@ function MessageRow({
         </div>
         {/* Day 4: 已读人数 (仅我发的消息显示) */}
         {msg.senderId === meId && totalReaders > 0 && (
-          <div className={`mt-1 text-[10px] text-ink-tertiary ${isMe ? 'text-right' : ''}`}>
-            {readerCount === 0
-              ? '未读'
-              : readerCount === totalReaders
-              ? '全部已读'
-              : `${readerCount}/${totalReaders} 已读`}
-          </div>
+          <details className={`group/read relative mt-1 text-[10px] text-ink-tertiary ${isMe ? 'self-end text-right' : ''}`}>
+            <summary
+              ref={readReceiptSummaryRef}
+              onClick={updateReadReceiptDirection}
+              className={`inline-flex cursor-pointer list-none items-center gap-1 rounded-full px-1.5 py-0.5 transition hover:bg-surface-3 focus:outline-none focus:ring-1 focus:ring-brand-200 [&::-webkit-details-marker]:hidden ${isMe ? 'justify-end' : ''}`}
+              aria-label={`${readReceiptLabel}，展开查看已读和未读人员`}
+            >
+              <UsersRound className="h-3 w-3" />
+              {readReceiptLabel}
+            </summary>
+            <div
+              className={`absolute z-30 w-56 rounded-lg border border-hairline bg-surface-1 p-2 text-left shadow-soft-lg ${
+                readReceiptDirection === 'down' ? 'top-full mt-1' : 'bottom-full mb-1'
+              } ${isMe ? 'right-0' : 'left-0'}`}
+            >
+              <ReadReceiptPeopleList title={`已读 ${readers.length}`} people={readers} nameOf={nameOf} emptyText="暂无已读" />
+              <div className="my-1.5 h-px bg-hairline" />
+              <ReadReceiptPeopleList title={`未读 ${unreadMembers.length}`} people={unreadMembers} nameOf={nameOf} emptyText="全部已读" />
+            </div>
+          </details>
         )}
         {/* spawned 状态 chip — 永久可见, 移到气泡下方独立行 (不再嵌进气泡). 比 inline link 更克制 */}
         {(msg.spawnedDecisionCardId || msg.spawnedPromotionId) && (
@@ -1648,6 +2107,38 @@ function MessageRow({
   );
 }
 
+function ReadReceiptPeopleList({
+  title,
+  people,
+  nameOf,
+  emptyText,
+}: {
+  title: string;
+  people: ImMembership[];
+  nameOf: (id: string | null | undefined) => string;
+  emptyText: string;
+}) {
+  return (
+    <div>
+      <div className="mb-1 text-[10px] font-semibold text-ink-secondary">{title}</div>
+      {people.length > 0 ? (
+        <div className="max-h-28 space-y-1 overflow-auto pr-1">
+          {people.map((m) => (
+            <div key={m.userId} className="flex min-w-0 items-center gap-1.5 text-[11px] text-ink-primary">
+              <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-surface-3 text-[8px] font-semibold text-ink-secondary">
+                {nameOf(m.userId).slice(0, 2).toUpperCase()}
+              </span>
+              <span className="truncate">{nameOf(m.userId)}</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-[11px] text-ink-tertiary">{emptyText}</div>
+      )}
+    </div>
+  );
+}
+
 /** 渲染消息体: 解析 @[name](userId:kind) 为高亮可点击 */
 function renderInline(
   body: string,
@@ -1666,7 +2157,8 @@ function renderInline(
     const [userId, kind = 'notify'] = ref.split(':');
     const cls =
       kind === 'persona'
-        ? 'bg-brand-100 text-brand-700'        : kind === 'assign'
+        ? 'bg-brand-100 text-brand-700'
+        : kind === 'assign'
         ? 'bg-danger/10 text-danger'
         : kind === 'consult'
         ? 'bg-info/10 text-info'
@@ -1691,28 +2183,55 @@ function renderInline(
   return parts.length ? parts : body;
 }
 
-/**
- * D-01: IM composer 输入框, 接 @ 文档引用 picker.
- *
- * 既不破坏现有 @[name](userId:persona) 召唤分身的语法 (那个是 @ 紧跟 `[`,
- * useMentionTrigger 的 regex 会立刻 fail → 收起 picker),
- * 也支持新的 @<文件名> 文档引用 (插入 [[doc:id|title]], 走 router preprocess).
- */
 function ImComposerInput(props: {
   composerRef: React.RefObject<HTMLTextAreaElement>;
   value: string;
   setValue: React.Dispatch<React.SetStateAction<string>>;
+  members: ImMembership[];
+  meId: string;
+  nameOf: (id: string | null | undefined) => string;
   onEnter: () => void;
+  onTextChange?: (previous: string, next: string) => void;
+  onMentionInserted?: (mention: PendingPersonMention) => void;
   onPasteFiles?: (files: File[]) => void;
   disabled?: boolean;
   placeholder?: string;
 }) {
-  const { composerRef, value, setValue, onEnter, onPasteFiles, disabled, placeholder } = props;
-  const mention = useMentionTrigger({
+  const {
+    composerRef,
     value,
-    setValue: (v) => setValue(v),
-    inputRef: composerRef,
-  });
+    setValue,
+    members,
+    meId,
+    nameOf,
+    onEnter,
+    onTextChange,
+    onMentionInserted,
+    onPasteFiles,
+    disabled,
+    placeholder,
+  } = props;
+  const [mentionOpen, setMentionOpen] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [mentionStart, setMentionStart] = useState(-1);
+  const [mentionActive, setMentionActive] = useState(0);
+  const [mentionAnchor, setMentionAnchor] = useState<{ x: number; top: number; bottom: number } | undefined>();
+  const mentionCandidates = useMemo(() => {
+    const q = mentionQuery.trim().toLowerCase();
+    return members
+      .map((m) => ({ userId: m.userId, name: nameOf(m.userId) }))
+      .filter((m) => m.userId !== meId)
+      .filter((m) => (
+        !q ||
+        m.name.toLowerCase().includes(q) ||
+        m.userId.toLowerCase().includes(q)
+      ))
+      .slice(0, 8);
+  }, [members, mentionQuery, meId, nameOf]);
+
+  useEffect(() => {
+    setMentionActive(0);
+  }, [mentionQuery, mentionCandidates.length]);
 
   useEffect(() => {
     const el = composerRef.current;
@@ -1723,13 +2242,69 @@ function ImComposerInput(props: {
     el.style.overflowY = el.scrollHeight > 120 ? 'auto' : 'hidden';
   }, [composerRef, value]);
 
+  function updateMentionState(next: string, caret: number, target: HTMLTextAreaElement) {
+    let i = caret - 1;
+    while (i >= 0 && !/\s/.test(next[i])) {
+      if (next[i] === '@') {
+        const query = next.slice(i + 1, caret);
+        if (/^[A-Za-z0-9_\-\.\u4e00-\u9fff\u3040-\u30ff]*$/.test(query)) {
+          const rect = target.getBoundingClientRect();
+          setMentionStart(i);
+          setMentionQuery(query);
+          setMentionOpen(true);
+          setMentionAnchor({ x: rect.left + 8, top: rect.top, bottom: rect.bottom });
+          return;
+        }
+        break;
+      }
+      i--;
+    }
+    setMentionOpen(false);
+    setMentionStart(-1);
+    setMentionQuery('');
+  }
+
+  function insertPersonMention(person: { userId: string; name: string }) {
+    if (mentionStart < 0) return;
+    const caret = composerRef.current?.selectionStart ?? value.length;
+    const before = value.slice(0, mentionStart);
+    const after = value.slice(caret);
+    const visibleMention = buildPersonMentionDisplay(person);
+    const mentionText = visibleMention.trimEnd();
+    const next = before + visibleMention + after;
+    setValue(next);
+    onTextChange?.(value, next);
+    onMentionInserted?.({
+      ...person,
+      kind: 'notify',
+      start: before.length,
+      end: before.length + mentionText.length,
+      text: mentionText,
+    });
+    setMentionOpen(false);
+    setMentionStart(-1);
+    setMentionQuery('');
+    queueMicrotask(() => {
+      const el = composerRef.current;
+      if (!el) return;
+      const pos = before.length + visibleMention.length;
+      el.focus();
+      el.setSelectionRange(pos, pos);
+    });
+  }
+
   return (
     <>
       <Textarea
         ref={composerRef}
         rows={1}
         value={value}
-        onChange={mention.onChange}
+        onChange={(e) => {
+          const next = e.target.value;
+          setValue(next);
+          onTextChange?.(value, next);
+          updateMentionState(next, e.target.selectionStart ?? next.length, e.currentTarget);
+        }}
         onPaste={(e) => {
           const items = e.clipboardData?.items;
           if (!items) return;
@@ -1752,6 +2327,7 @@ function ImComposerInput(props: {
                 e.currentTarget.selectionEnd,
               );
               setValue(result.value);
+              onTextChange?.(value, result.value);
               queueMicrotask(() => {
                 const el = composerRef.current;
                 if (!el) return;
@@ -1762,9 +2338,18 @@ function ImComposerInput(props: {
           }
         }}
         onKeyDown={(e) => {
-          // picker 接管 ↑↓⏎Esc, 不让编辑器默认 Enter 触发发送
-          if (mention.open && ['ArrowDown', 'ArrowUp', 'Enter', 'Escape', 'Tab'].includes(e.key)) {
-            if (e.key === 'Enter' || e.key === 'Tab') e.preventDefault();
+          if (mentionOpen && ['ArrowDown', 'ArrowUp', 'Enter', 'Escape', 'Tab'].includes(e.key)) {
+            e.preventDefault();
+            if (e.key === 'ArrowDown') {
+              setMentionActive((idx) => Math.min(idx + 1, Math.max(mentionCandidates.length - 1, 0)));
+            } else if (e.key === 'ArrowUp') {
+              setMentionActive((idx) => Math.max(idx - 1, 0));
+            } else if (e.key === 'Enter' || e.key === 'Tab') {
+              const selected = mentionCandidates[mentionActive] ?? mentionCandidates[0];
+              if (selected) insertPersonMention(selected);
+            } else if (e.key === 'Escape') {
+              setMentionOpen(false);
+            }
             return;
           }
           if (e.nativeEvent.isComposing) return;
@@ -1777,13 +2362,100 @@ function ImComposerInput(props: {
         disabled={disabled}
         className="max-h-[120px] min-h-7 min-w-0 resize-none overflow-y-hidden border-0 bg-transparent px-0 py-1 text-[13px] leading-5 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
       />
-      <DocumentMentionPicker
-        open={mention.open}
-        query={mention.query}
-        anchor={mention.anchor}
-        onSelect={mention.insertMention}
-        onClose={() => mention.setOpen(false)}
+      <PersonMentionPicker
+        open={mentionOpen}
+        query={mentionQuery}
+        anchor={mentionAnchor}
+        candidates={mentionCandidates}
+        activeIndex={mentionActive}
+        onActiveIndexChange={setMentionActive}
+        onSelect={insertPersonMention}
       />
     </>
+  );
+}
+
+function PersonMentionPicker({
+  open,
+  query,
+  anchor,
+  candidates,
+  activeIndex,
+  onActiveIndexChange,
+  onSelect,
+}: {
+  open: boolean;
+  query: string;
+  anchor?: { x: number; top: number; bottom: number };
+  candidates: Array<{ userId: string; name: string }>;
+  activeIndex: number;
+  onActiveIndexChange: (index: number) => void;
+  onSelect: (person: { userId: string; name: string }) => void;
+}) {
+  if (!open) return null;
+  const viewportWidth = typeof window === 'undefined' ? 1024 : window.innerWidth;
+  const viewportHeight = typeof window === 'undefined' ? 768 : window.innerHeight;
+  const pickerWidth = 288;
+  const pickerMaxHeight = 288;
+  const gap = 8;
+  const pos = anchor
+    ? (() => {
+      const spaceBelow = viewportHeight - anchor.bottom - gap;
+      const spaceAbove = anchor.top - gap;
+      const openAbove = spaceBelow < Math.min(pickerMaxHeight, candidates.length * 44 + 44) && spaceAbove > spaceBelow;
+      return {
+        left: Math.max(12, Math.min(anchor.x, viewportWidth - pickerWidth - 12)),
+        maxHeight: Math.max(120, Math.min(pickerMaxHeight, openAbove ? spaceAbove - 8 : spaceBelow - 8)),
+        ...(openAbove
+          ? { bottom: viewportHeight - anchor.top + gap }
+          : { top: anchor.bottom + gap }),
+      };
+    })()
+    : { left: 16, bottom: 16 };
+  return (
+    <div
+      className="fixed z-50 w-72 max-h-72 overflow-auto rounded-lg border border-hairline bg-surface-2 shadow-soft-lg"
+      style={pos}
+      role="listbox"
+      aria-label="@人员选择"
+    >
+      <div className="flex items-center gap-2 border-b border-hairline px-3 py-2 text-caption text-ink-tertiary">
+        <UsersRound size={12} />
+        <span>@ 人员{query ? <span className="font-medium text-ink-secondary"> · {query}</span> : null}</span>
+        <span className="ml-auto text-footnote">↑↓ 选择 · Enter 插入</span>
+      </div>
+      {candidates.length === 0 ? (
+        <div className="px-3 py-4 text-center text-caption text-ink-tertiary">
+          当前会话没有匹配成员
+        </div>
+      ) : (
+        <ul>
+          {candidates.map((person, index) => (
+            <li key={person.userId}>
+              <button
+                type="button"
+                onMouseEnter={() => onActiveIndexChange(index)}
+                onClick={() => onSelect(person)}
+                className={`flex w-full items-center gap-2 px-3 py-2 text-left text-caption transition-colors ${
+                  index === activeIndex
+                    ? 'bg-brand-50 text-brand-700'
+                    : 'text-ink-secondary hover:bg-surface-3'
+                }`}
+                role="option"
+                aria-selected={index === activeIndex}
+              >
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-surface-3 text-[10px] font-semibold text-ink-secondary">
+                  {person.name.slice(0, 2).toUpperCase()}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">{person.name}</span>
+                  <span className="block truncate text-footnote text-ink-tertiary">{person.userId}</span>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

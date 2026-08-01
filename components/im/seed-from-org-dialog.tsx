@@ -27,6 +27,7 @@ import {
 import { useOrgStore } from '@/lib/store';
 import { useOrgPeopleStore } from '@/lib/org/people-source';
 import type { HrDept } from '@/lib/org/departments';
+import { normalizeOrgChannelName } from '@/lib/im/channel-name';
 
 interface Props {
   open: boolean;
@@ -66,11 +67,8 @@ export function SeedFromOrgDialog({ open, onOpenChange, currentUserId, onSeeded 
     if (open && !hrDeptsHydrated) void hydrateHrDepts();
   }, [open, hrDeptsHydrated, hydrateHrDepts]);
 
-  function groupName(dept: HrDept, level: RowSpec['level']) {
-    if (level === 'team') {
-      return dept.name.endsWith('体系') ? `${dept.name}群` : `${dept.name} 体系群`;
-    }
-    return dept.name.endsWith('部门') ? `${dept.name}群` : `${dept.name} 部门群`;
+  function groupName(dept: HrDept) {
+    return normalizeOrgChannelName(dept.name);
   }
 
   // 展平 HR 组织树: 根节点建体系群, 非根节点建部门群.
@@ -99,7 +97,7 @@ export function SeedFromOrgDialog({ open, onOpenChange, currentUserId, onSeeded 
         .map((p) => p.id);
       out.push({
         id: d.id,
-        name: groupName(d, level),
+        name: groupName(d),
         deptName: d.name,
         parentName: d.parentId ? deptById.get(d.parentId)?.name : undefined,
         level,

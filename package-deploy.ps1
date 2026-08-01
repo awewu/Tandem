@@ -29,6 +29,63 @@ function Remove-DirSafe {
   }
 }
 
+function Remove-DirSafeWithRetry {
+  param([string]$Path, [string]$Root, [int]$Attempts = 5)
+
+  for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+    try {
+      Remove-DirSafe -Path $Path -Root $Root
+      return
+    } catch {
+      if ($attempt -eq $Attempts) { throw }
+      Write-Host "Remove attempt $attempt failed: $($_.Exception.Message). Retrying..." -ForegroundColor Yellow
+      Start-Sleep -Seconds 3
+    }
+  }
+}
+
+function Invoke-NextBuildWithRetry {
+  param([int]$Attempts = 2)
+
+  for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+    & npm.cmd run build
+    if ($LASTEXITCODE -eq 0) {
+      return
+    }
+
+    if ($attempt -eq $Attempts) {
+      throw "next build failed with exit code $LASTEXITCODE"
+    }
+
+    Write-Host "next build failed with exit code $LASTEXITCODE. Cleaning .next and retrying..." -ForegroundColor Yellow
+    Start-Sleep -Seconds 8
+    Remove-DirSafeWithRetry -Path (Join-Path $Repo ".next") -Root $Repo
+    Start-Sleep -Seconds 5
+  }
+}
+
+function Resolve-7Zip {
+  $candidates = @(
+    "7z",
+    "7za",
+    "C:\Program Files\7-Zip\7z.exe",
+    "C:\Program Files (x86)\7-Zip\7z.exe"
+  )
+
+  foreach ($candidate in $candidates) {
+    if (Test-Path $candidate) {
+      return (Resolve-Path -LiteralPath $candidate).Path
+    }
+
+    $resolved = Get-Command $candidate -ErrorAction SilentlyContinue
+    if ($resolved) {
+      return $resolved.Source
+    }
+  }
+
+  return $null
+}
+
 Set-Location $Repo
 
 Write-Host "Tandem deploy package builder" -ForegroundColor Green
@@ -62,11 +119,7 @@ if (-not $SkipBuild) {
   $env:SKIP_STARTUP_GUARD = "1"
   $env:DEEPSEEK_API_KEY = "build-placeholder"
   $env:DATABASE_URL = ""
-
-  & npm.cmd run build
-  if ($LASTEXITCODE -ne 0) {
-    throw "next build failed with exit code $LASTEXITCODE"
-  }
+  Invoke-NextBuildWithRetry
 } else {
   Write-Step "Skipping build and using existing .next output"
 }
@@ -92,9 +145,32 @@ Get-ChildItem -LiteralPath $Standalone -Force | ForEach-Object {
 Copy-Item -LiteralPath ".next\static" -Destination (Join-Path $App ".next\static") -Recurse -Force
 Copy-Item -LiteralPath "public" -Destination (Join-Path $App "public") -Recurse -Force
 Copy-Item -LiteralPath "drizzle" -Destination (Join-Path $App "drizzle") -Recurse -Force
+Copy-Item -LiteralPath "docs" -Destination (Join-Path $App "docs") -Recurse -Force
+Copy-Item -LiteralPath "skills" -Destination (Join-Path $App "skills") -Recurse -Force
 Copy-Item -LiteralPath "drizzle.config.ts" -Destination (Join-Path $App "drizzle.config.ts") -Force
 New-Item -ItemType Directory -Path (Join-Path $App "scripts") -Force | Out-Null
 Copy-Item -LiteralPath "scripts\apply-migrations.mjs" -Destination (Join-Path $App "scripts\apply-migrations.mjs") -Force
+Copy-Item -LiteralPath "scripts\backfill-user-default-passwords.mjs" -Destination (Join-Path $App "scripts\backfill-user-default-passwords.mjs") -Force
+$ShouchaoDeployScripts = @(
+  "scripts\init-shouchao-db.mjs",
+  "scripts\migrate-shouchao-to-dedicated-db.mjs"
+)
+foreach ($script in $ShouchaoDeployScripts) {
+  Copy-Item -LiteralPath $script -Destination (Join-Path $App $script) -Force
+}
+$PmsMigrationScripts = @(
+  "scripts\pms-env.mjs",
+  "scripts\apply-pms-migrations.mjs",
+  "scripts\add-opportunity-fields.mjs",
+  "scripts\migrate-pms-opportunity-product.mjs",
+  "scripts\migrate-pms-performance-targets-multidim.mjs",
+  "scripts\migrate-pms-projects.mjs",
+  "scripts\migrate-pms-tenders.mjs",
+  "scripts\pms-db-verify.mjs"
+)
+foreach ($script in $PmsMigrationScripts) {
+  Copy-Item -LiteralPath $script -Destination (Join-Path $App $script) -Force
+}
 
 # pdfjs-dist 已在 next.config.js 外置 (serverComponentsExternalPackages). nft 能追踪 pdf.mjs,
 # 但 pdf.mjs 内部对 worker 的动态 import 是变量路径, nft 无法跟踪 -> standalone 缺 pdf.worker.mjs,
@@ -143,6 +219,7 @@ if (-not (Test-Path $CanvasIndex)) {
 # 显式复制 pg 及其纯 JS 运行时依赖，确保部署机可直接执行 scripts/apply-migrations.mjs。
 Write-Step "Ensuring pg runtime for deployment migrations"
 $PgPackages = @(
+  "postgres",
   "pg", "pg-cloudflare", "pg-connection-string", "pg-int8", "pg-pool",
   "pg-protocol", "pg-types", "pgpass", "postgres-array", "postgres-bytea",
   "postgres-date", "postgres-interval", "split2", "xtend"
@@ -161,21 +238,38 @@ if (Test-Path $OutputZip) {
 }
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zipCreated = $false
-for ($attempt = 1; $attempt -le 5 -and -not $zipCreated; $attempt++) {
+$SevenZip = Resolve-7Zip
+if ($SevenZip) {
+  Write-Host "Using 7-Zip for faster packaging: $SevenZip"
+  Push-Location $Stage
   try {
-    [System.GC]::Collect()
-    Start-Sleep -Seconds 2
-    [System.IO.Compression.ZipFile]::CreateFromDirectory(
-      $Stage,
-      $OutputZip,
-      [System.IO.Compression.CompressionLevel]::Optimal,
-      $false
-    )
+    & $SevenZip a -tzip -mx=1 $OutputZip ".\*" -r | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+      throw "7-Zip failed with exit code $LASTEXITCODE"
+    }
     $zipCreated = $true
-  } catch {
-    Write-Host "Zip attempt $attempt failed: $($_.Exception.Message). Retrying..." -ForegroundColor Yellow
-    if (Test-Path $OutputZip) { Remove-Item -LiteralPath $OutputZip -Force -ErrorAction SilentlyContinue }
-    if ($attempt -eq 5) { throw }
+  } finally {
+    Pop-Location
+  }
+}
+
+if (-not $zipCreated) {
+  for ($attempt = 1; $attempt -le 5 -and -not $zipCreated; $attempt++) {
+    try {
+      [System.GC]::Collect()
+      Start-Sleep -Seconds 2
+      [System.IO.Compression.ZipFile]::CreateFromDirectory(
+        $Stage,
+        $OutputZip,
+        [System.IO.Compression.CompressionLevel]::Optimal,
+        $false
+      )
+      $zipCreated = $true
+    } catch {
+      Write-Host "Zip attempt $attempt failed: $($_.Exception.Message). Retrying..." -ForegroundColor Yellow
+      if (Test-Path $OutputZip) { Remove-Item -LiteralPath $OutputZip -Force -ErrorAction SilentlyContinue }
+      if ($attempt -eq 5) { throw }
+    }
   }
 }
 
@@ -198,7 +292,12 @@ try {
     "app/docs/",
     "app/skills/",
     "app/drizzle.config.ts",
-    "app/scripts/apply-migrations.mjs"
+    "app/scripts/apply-migrations.mjs",
+    "app/scripts/init-shouchao-db.mjs",
+    "app/scripts/migrate-shouchao-to-dedicated-db.mjs",
+    "app/scripts/apply-pms-migrations.mjs",
+    "app/scripts/pms-db-verify.mjs",
+    "app/scripts/backfill-user-default-passwords.mjs"
   )
   $names = $zip.Entries | ForEach-Object { $_.FullName -replace "\\", "/" }
   foreach ($item in $needed) {

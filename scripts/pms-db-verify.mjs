@@ -9,6 +9,7 @@ import { readFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import postgres from 'postgres';
+import { loadPmsEnv } from './pms-env.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(__dirname, '..');
@@ -40,7 +41,7 @@ const EXPECTED = [
   'pms_key_product_campaigns', 'pms_equipment_telemetry', 'pms_customer_feedback', 'pms_quote_recommendations',
 ];
 
-loadEnv();
+loadPmsEnv(projectRoot);
 
 async function main() {
   const url = (process.env.DATABASE_URL || '').split('?')[0];

@@ -954,9 +954,9 @@ export async function seedLaunchpadIfEmpty(): Promise<void> {
       });
     }
     const stratExisting = existing.find((a) => a.url === '#stratos' || /StratOS|战略/i.test(a.name));
-    if (stratExisting && stratExisting.url !== 'https://strat.rhautt.com/api/auth/tandem?next=%2Fcommand') {
+    if (stratExisting && stratExisting.url !== 'https://strat.rhautt.com/api/auth/tandem?next=%2Fstrategy%2Finput') {
       await lpSvc.update(stratExisting.id, {
-        url: 'https://strat.rhautt.com/api/auth/tandem?next=%2Fcommand',
+        url: 'https://strat.rhautt.com/api/auth/tandem?next=%2Fstrategy%2Finput',
         ssoMode: 'oidc',
         status: 'active',
         description: stratExisting.description ?? '战略地图 · 经营沙盘',
@@ -1025,7 +1025,7 @@ export async function seedLaunchpadIfEmpty(): Promise<void> {
       { ...base, category: 'business', name: '售后系统', description: '工单 · 客诉 · 维保',
         url: '#after-sales', order: 4, recommendKeywords: ['售后', '工单', '客诉', '维保', 'service'] },
       { ...base, category: 'business', name: '战略布局 StratOS', description: '战略地图 · 经营沙盘',
-        url: 'https://strat.rhautt.com/api/auth/tandem?next=%2Fcommand', ssoMode: 'oidc', order: 5, recommendKeywords: ['战略', '布局', 'stratos', '沙盘', '经营'] },
+        url: 'https://strat.rhautt.com/api/auth/tandem?next=%2Fstrategy%2Finput', ssoMode: 'oidc', order: 5, recommendKeywords: ['战略', '布局', 'stratos', '沙盘', '经营'] },
       { ...base, category: 'business', name: 'Salesforce', description: '客户 · 销售 · 商机跟进',
         url: 'https://login.salesforce.com', order: 6, recommendKeywords: ['销售', '客户', '商机', 'sales', 'crm'] },
       { ...base, category: 'business', name: 'MES', description: '制造执行 · 生产排程',

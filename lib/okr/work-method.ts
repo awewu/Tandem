@@ -67,12 +67,31 @@ export function initiativesForObjective(
   );
 }
 
+/**
+ * 日报填报区应提示的 KR 计划任务。
+ * 口径与 UI"本周工作"一致: 遗留 + 本周, 且排除已完成/取消项。
+ */
+export function reportPlanInitiativesForKr(
+  keyResultId: string,
+  initiatives: Initiative[],
+  now: number,
+): Initiative[] {
+  return initiatives.filter((i) => {
+    if (i.scope !== 'kr' || i.scopeId !== keyResultId) return false;
+    if (isClosed(i)) return false;
+    const bucket = bucketByWeekOf(i.weekOf, now);
+    return bucket === 'overdue' || bucket === 'this-week';
+  });
+}
+
 export interface WorkMethodView {
   /** 按桶分组 (overdue/this-week/next-4-weeks/later/backlog) */
   buckets: Record<WorkHorizon, Initiative[]>;
   counts: Record<WorkHorizon, number>;
   /** 本周聚焦区 = 遗留 + 本周 (UI"本周工作"象限显示这一组) */
   thisWeekFocus: Initiative[];
+  /** 规划区 = 本周 + 未来四周 + 更远 + 未规划 (UI"未来四周/待规划"象限显示这一组) */
+  planningHorizon: Initiative[];
 }
 
 const EMPTY_BUCKETS = (): Record<WorkHorizon, Initiative[]> => ({
@@ -108,5 +127,11 @@ export function buildWorkMethod(opts: {
     buckets,
     counts,
     thisWeekFocus: [...buckets.overdue, ...buckets['this-week']],
+    planningHorizon: [
+      ...buckets['this-week'],
+      ...buckets['next-4-weeks'],
+      ...buckets.later,
+      ...buckets.backlog,
+    ],
   };
 }

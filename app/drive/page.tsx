@@ -10,7 +10,7 @@ import { DriveShareDialog, type DriveShareItem } from "@/components/drive/drive-
 import {
   Folder, File as FileIcon, HardDrive, Plus, Trash2, Upload, Download,
   Share2, Pencil, Scissors, ChevronRight, FolderInput,
-  ChevronDown, Building2,
+  ChevronDown, Building2, Search, X,
 } from "lucide-react";
 
 interface DriveItem {
@@ -27,7 +27,13 @@ interface DriveItem {
   childCount?: number;
   canDelete?: boolean;
   deleteDisabledReason?: string | null;
+  canRename?: boolean;
+  renameDisabledReason?: string | null;
+  canMove?: boolean;
+  moveDisabledReason?: string | null;
+  isSystemManaged?: boolean;
   ownerName?: string;
+  path?: string | null;
 }
 
 interface Crumb { id: string; name: string; }
@@ -48,10 +54,26 @@ interface DriveScope {
 }
 
 function fmtSize(n: number): string {
-  if (!n) return "";
+  if (!n) return "0 B";
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function fileTypeLabel(item: DriveItem): string {
+  if (item.isFolder) return "文件夹";
+  const mime = (item.mimeType || "").toLowerCase();
+  const name = item.name.toLowerCase();
+  if (mime.includes("spreadsheet") || mime.includes("excel") || /\.(xlsx?|csv)$/.test(name)) return "Excel 表格";
+  if (mime.includes("word") || /\.(docx?)$/.test(name)) return "Word 文档";
+  if (mime.includes("presentation") || mime.includes("powerpoint") || /\.(pptx?)$/.test(name)) return "PPT 演示";
+  if (mime.includes("pdf") || name.endsWith(".pdf")) return "PDF";
+  if (mime.startsWith("image/")) return "图片";
+  if (mime.startsWith("video/")) return "视频";
+  if (mime.startsWith("audio/")) return "音频";
+  if (mime.includes("zip") || mime.includes("compressed") || /\.(zip|rar|7z)$/.test(name)) return "压缩包";
+  if (mime.startsWith("text/") || /\.(txt|md)$/.test(name)) return "文本";
+  return "文件";
 }
 
 export default function DrivePage() {
@@ -71,31 +93,43 @@ export default function DrivePage() {
   const [newFolder, setNewFolder] = useState("");
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadDone, setUploadDone] = useState(0);
+  const [uploadTotal, setUploadTotal] = useState(0);
   const [shareTarget, setShareTarget] = useState<DriveShareItem | null>(null);
   const [moveTarget, setMoveTarget] = useState<DriveItem | null>(null);
   const [moveParent, setMoveParent] = useState<string | null>(null);
   const [moveItems, setMoveItems] = useState<DriveItem[]>([]);
   const [moveCrumbs, setMoveCrumbs] = useState<Crumb[]>([{ id: "root", name: "我的工作云盘" }]);
   const [moveLoading, setMoveLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const loadedRef = useRef(false);
+  const loadSeqRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
-    if (!loadedRef.current) setLoading(true);
+    const seq = loadSeqRef.current + 1;
+    loadSeqRef.current = seq;
+    const isCurrent = () => loadSeqRef.current === seq;
+    const q = searchQuery.trim();
+    if (!loadedRef.current || q) setLoading(true);
+    if (q) setItems([]);
     setError(null);
     try {
-      const orgUrl = parent
+      const orgUrl = parent && !q
         ? `/api/drive/org-tree?folderId=${encodeURIComponent(parent)}`
         : "/api/drive/org-tree";
       const orgRes = await fetch(orgUrl, { credentials: "include", cache: "no-store" });
       if (orgRes.ok) {
         const org = await orgRes.json();
+        if (!isCurrent()) return;
         if (Array.isArray(org.tree)) setDeptTree(org.tree);
         if (org.scope) setScope(org.scope);
-        if (org.selectedIsDept) {
+        if (org.selectedIsDept && !q) {
           const people: DriveItem[] = Array.isArray(org.people) ? org.people : [];
           people.sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
           setItems(people);
+          setSelectedIds(new Set());
           setSelectedDeptId(org.selectedDeptId ?? null);
           setSelectedDeptName(org.selectedDeptName ?? null);
           setShowingDeptPeople(true);
@@ -104,30 +138,46 @@ export default function DrivePage() {
         }
       }
 
-      const url = parent ? `/api/drive?parentId=${encodeURIComponent(parent)}` : "/api/drive";
+      const params = new URLSearchParams();
+      if (q) {
+        params.set("q", q);
+      } else if (parent) {
+        params.set("parentId", parent);
+      }
+      const queryString = params.toString();
+      const url = queryString ? `/api/drive?${queryString}` : "/api/drive";
       const r = await fetch(url, { credentials: "include", cache: "no-store" });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const j = await r.json();
+      if (!isCurrent()) return;
       const list: DriveItem[] = Array.isArray(j.files) ? j.files : [];
       list.sort((a, b) => (a.isFolder === b.isFolder ? a.name.localeCompare(b.name) : a.isFolder ? -1 : 1));
       setItems(list);
+      setSelectedIds(new Set());
       setScope(j.scope ?? null);
       setShowingDeptPeople(false);
+      if (q) {
+        setCrumbs([{ id: "root", name: "我的工作云盘" }]);
+        return;
+      }
       const cr = await fetch(`/api/drive/breadcrumbs?folderId=${encodeURIComponent(parent ?? "root")}`, {
         credentials: "include", cache: "no-store",
       });
       if (cr.ok) {
         const cj = await cr.json();
+        if (!isCurrent()) return;
         if (Array.isArray(cj.breadcrumbs) && cj.breadcrumbs.length > 0) setCrumbs(cj.breadcrumbs);
         if (cj.scope) setScope(cj.scope);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "加载失败");
+      if (isCurrent()) setError(e instanceof Error ? e.message : "加载失败");
     } finally {
-      loadedRef.current = true;
-      setLoading(false);
+      if (isCurrent()) {
+        loadedRef.current = true;
+        setLoading(false);
+      }
     }
-  }, [parent]);
+  }, [parent, searchQuery]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -178,56 +228,75 @@ export default function DrivePage() {
     void load();
   }
 
+  async function uploadOneFile(file: File, targetParent: string | null) {
+    const presign = await fetch("/api/drive/presign", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ mode: "upload", fileName: file.name, contentType: file.type, parentId: targetParent }),
+    });
+    if (!presign.ok) {
+      const j = await presign.json().catch(() => ({}));
+      const message = j?.error?.message ?? j?.error ?? "对象存储未配置或无写权限";
+      if (String(message).includes("object storage not configured")) {
+        const form = new FormData();
+        form.append("file", file);
+        if (targetParent) form.append("parentId", targetParent);
+        const localUpload = await fetch("/api/drive/upload", {
+          method: "POST",
+          credentials: "include",
+          body: form,
+        });
+        if (!localUpload.ok) {
+          const localJson = await localUpload.json().catch(() => ({}));
+          throw new Error(localJson?.error?.message ?? localJson?.error ?? "上传失败");
+        }
+        return;
+      }
+      throw new Error(message);
+    }
+    const { uploadUrl, storageKey } = await presign.json();
+    const put = await fetch(uploadUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type || "application/octet-stream" } });
+    if (!put.ok) throw new Error(`上传失败 HTTP ${put.status}`);
+    const meta = await fetch("/api/drive", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ name: file.name, storageKey, size: file.size, mimeType: file.type || "application/octet-stream", parentId: targetParent, isFolder: false }),
+    });
+    if (!meta.ok) throw new Error("提交元数据失败");
+  }
+
   async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
+    const files = Array.from(e.target.files ?? []);
     e.target.value = "";
-    if (!file) return;
+    if (files.length === 0) return;
     const targetParent = showingDeptPeople ? selectedDeptId : parent;
     setUploading(true);
+    setUploadDone(0);
+    setUploadTotal(files.length);
     setError(null);
     try {
-      const presign = await fetch("/api/drive/presign", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ mode: "upload", fileName: file.name, contentType: file.type, parentId: targetParent }),
-      });
-      if (!presign.ok) {
-        const j = await presign.json().catch(() => ({}));
-        const message = j?.error?.message ?? j?.error ?? "对象存储未配置或无写权限";
-        if (String(message).includes("object storage not configured")) {
-          const form = new FormData();
-          form.append("file", file);
-          if (targetParent) form.append("parentId", targetParent);
-          const localUpload = await fetch("/api/drive/upload", {
-            method: "POST",
-            credentials: "include",
-            body: form,
-          });
-          if (!localUpload.ok) {
-            const localJson = await localUpload.json().catch(() => ({}));
-            throw new Error(localJson?.error?.message ?? localJson?.error ?? "上传失败");
-          }
-          void load();
-          return;
+      const failures: string[] = [];
+      for (let index = 0; index < files.length; index += 1) {
+        const file = files[index];
+        try {
+          await uploadOneFile(file, targetParent);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "上传失败";
+          failures.push(`${file.name}: ${message}`);
+        } finally {
+          setUploadDone(index + 1);
         }
-        throw new Error(message);
       }
-      const { uploadUrl, storageKey } = await presign.json();
-      const put = await fetch(uploadUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type || "application/octet-stream" } });
-      if (!put.ok) throw new Error(`上传失败 HTTP ${put.status}`);
-      const meta = await fetch("/api/drive", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ name: file.name, storageKey, size: file.size, mimeType: file.type || "application/octet-stream", parentId: targetParent, isFolder: false }),
-      });
-      if (!meta.ok) throw new Error("提交元数据失败");
-      void load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "上传失败");
+      await load();
+      if (failures.length > 0) {
+        setError(`部分文件上传失败：${failures.slice(0, 3).join("；")}${failures.length > 3 ? `；另有 ${failures.length - 3} 个失败` : ""}`);
+      }
     } finally {
       setUploading(false);
+      setUploadDone(0);
+      setUploadTotal(0);
     }
   }
 
@@ -248,14 +317,34 @@ export default function DrivePage() {
   }
 
   async function rename(item: DriveItem) {
+    if (item.canRename === false) {
+      setError(item.renameDisabledReason ?? "当前文件夹不可改名");
+      return;
+    }
     const name = window.prompt("重命名为：", item.name);
     if (!name || name.trim() === item.name) return;
     const r = await fetch(`/api/drive/${item.id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include",
       body: JSON.stringify({ name: name.trim() }),
     });
-    if (!r.ok) { setError("改名失败（无写权限）"); return; }
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      setError(j?.error?.message ?? j?.error ?? "改名失败（无写权限）");
+      return;
+    }
     void load();
+  }
+
+  async function batchDownload() {
+    const selectedFiles = items.filter((item) => selectedIds.has(item.id) && !item.isFolder);
+    if (selectedFiles.length === 0) {
+      setError("请选择要下载的文件");
+      return;
+    }
+    setError(null);
+    for (const file of selectedFiles) {
+      await download(file);
+    }
   }
 
   async function remove(item: DriveItem) {
@@ -294,14 +383,22 @@ export default function DrivePage() {
   }
 
   function openFolder(item: DriveItem) {
-    if (item.isFolder) setParent(item.id);
+    if (item.isFolder) {
+      setSearchQuery("");
+      setParent(item.id);
+    }
   }
 
   function navCrumb(c: Crumb) {
+    setSearchQuery("");
     setParent(c.id === "root" ? null : c.id);
   }
 
   function openMoveDialog(item: DriveItem) {
+    if (item.canMove === false) {
+      setError(item.moveDisabledReason ?? "当前文件夹不可移动");
+      return;
+    }
     setMoveTarget(item);
     setMoveParent(null);
     setMoveCrumbs([{ id: "root", name: "我的工作云盘" }]);
@@ -309,6 +406,29 @@ export default function DrivePage() {
   }
 
   const isOwner = (item: DriveItem) => item.ownerId === me;
+  const selectableFiles = items.filter((item) => !item.isFolder);
+  const selectedFileCount = selectableFiles.filter((item) => selectedIds.has(item.id)).length;
+  const allVisibleFilesSelected = selectableFiles.length > 0 && selectedFileCount === selectableFiles.length;
+
+  function toggleSelected(id: string, checked: boolean) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  function toggleAllVisibleFiles(checked: boolean) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      for (const item of selectableFiles) {
+        if (checked) next.add(item.id);
+        else next.delete(item.id);
+      }
+      return next;
+    });
+  }
 
   function toggleDept(id: string) {
     setExpandedDeptIds((prev) => {
@@ -331,6 +451,7 @@ export default function DrivePage() {
             setSelectedDeptId(node.id);
             setSelectedDeptName(node.name);
             setShowingDeptPeople(true);
+            setSearchQuery("");
             setParent(node.id);
           }}
           className={`flex w-full items-center gap-1.5 border-l-2 px-2 py-1.5 text-left transition-colors ${
@@ -400,9 +521,10 @@ export default function DrivePage() {
             <Plus size={15} className="mr-1" /> 新建文件夹
           </Button>
           <Button size="sm" disabled={uploading} onClick={() => fileInputRef.current?.click()}>
-            <Upload size={15} className="mr-1" /> {uploading ? "上传中…" : "上传文件"}
+            <Upload size={15} className="mr-1" />
+            {uploading ? `上传中 ${uploadDone}/${uploadTotal}` : "上传文件"}
           </Button>
-          <input ref={fileInputRef} type="file" className="hidden" onChange={onUpload} aria-label="上传文件" />
+          <input ref={fileInputRef} type="file" multiple className="hidden" onChange={onUpload} aria-label="上传文件" />
         </div>
       </div>
 
@@ -419,6 +541,30 @@ export default function DrivePage() {
             </button>
           </span>
         ))}
+      </div>
+
+      <div className="mb-4 max-w-xl">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-tertiary" />
+          <Input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="搜索共享资料"
+            aria-label="搜索共享资料"
+            className="h-9 pl-9 pr-9"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              aria-label="清除搜索"
+              className="absolute right-2 top-1/2 rounded p-1 text-ink-tertiary hover:bg-surface-3 hover:text-ink-primary -translate-y-1/2"
+              onClick={() => setSearchQuery("")}
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
       </div>
 
       {showNewFolder && (
@@ -453,64 +599,116 @@ export default function DrivePage() {
           </aside>
 
           <section className="min-w-0">
-            <div className="flex h-10 items-center justify-between border-b px-3">
+            <div className="flex h-10 items-center justify-between gap-3 border-b px-3">
               <div className="min-w-0 truncate text-caption font-medium text-ink-primary">
-                {showingDeptPeople ? `${selectedDeptName ?? "部门"} · 人员文件夹` : "文件列表"}
+                {searchQuery.trim()
+                  ? `搜索结果：${searchQuery.trim()}`
+                  : showingDeptPeople
+                  ? `${selectedDeptName ?? "部门"} · 人员文件夹`
+                  : "文件列表"}
               </div>
-              <span className="text-footnote text-ink-tertiary">{items.length} 项</span>
+              <div className="flex shrink-0 items-center gap-3">
+                {selectableFiles.length > 0 && (
+                  <Button size="sm" variant="outline" disabled={selectedFileCount === 0} onClick={batchDownload}>
+                    <Download size={14} className="mr-1" /> 批量下载（{selectedFileCount}）
+                  </Button>
+                )}
+                <span className="text-footnote text-ink-tertiary">{items.length} 项</span>
+              </div>
             </div>
-            <div className="overflow-auto">
+            <div className="overflow-x-hidden">
               <table className="w-full table-fixed text-caption">
+                <colgroup>
+                  <col className="w-[4%]" />
+                  <col className="w-[32%]" />
+                  <col className="w-[16%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[26%]" />
+                </colgroup>
                 <thead className="bg-surface-2 text-footnote text-ink-tertiary">
                   <tr className="border-b">
-                    <th className="w-[48%] px-3 py-2 text-left font-medium">名称</th>
-                    <th className="w-[18%] px-3 py-2 text-left font-medium">修改时间</th>
-                    <th className="w-[14%] px-3 py-2 text-left font-medium">类型</th>
-                    <th className="w-[10%] px-3 py-2 text-left font-medium">大小</th>
-                    <th className="w-[10%] px-3 py-2 text-right font-medium">操作</th>
+                    <th className="px-3 py-2 text-left font-medium">
+                      <input
+                        type="checkbox"
+                        aria-label="选择当前列表文件"
+                        checked={allVisibleFilesSelected}
+                        disabled={selectableFiles.length === 0}
+                        onChange={(event) => toggleAllVisibleFiles(event.target.checked)}
+                        className="h-4 w-4 rounded border-border"
+                      />
+                    </th>
+                    <th className="px-3 py-2 text-left font-medium">名称</th>
+                    <th className="px-3 py-2 text-left font-medium">修改时间</th>
+                    <th className="px-3 py-2 text-left font-medium">类型</th>
+                    <th className="px-3 py-2 text-left font-medium">大小</th>
+                    <th className="px-3 py-2 text-right font-medium">操作</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((f) => (
-                    <tr key={f.id} className="group border-b hover:bg-surface-2/70">
-                      <td className="px-3 py-2">
-                        <button className="flex min-w-0 items-center gap-2 text-left" onClick={() => openFolder(f)} disabled={!f.isFolder}>
-                          {f.isFolder ? <Folder size={17} className="shrink-0 text-warning" /> : <FileIcon size={17} className="shrink-0 text-info" />}
-                          <span className="truncate font-medium text-ink-primary">{f.ownerName ?? f.name}</span>
-                        </button>
-                      </td>
-                      <td className="px-3 py-2 text-ink-tertiary">{new Date(f.updatedAt).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}</td>
-                      <td className="px-3 py-2 text-ink-tertiary">{f.isFolder ? "文件夹" : f.mimeType || "文件"}</td>
-                      <td className="px-3 py-2 text-ink-tertiary">{f.isFolder ? "—" : fmtSize(f.size)}</td>
-                      <td className="px-3 py-2">
-                        <div className="flex items-center justify-end gap-0.5 opacity-70 group-hover:opacity-100">
+                  {items.map((f) => {
+                    const displayName = f.ownerName ?? f.name;
+                    return (
+                      <tr key={f.id} className="group border-b hover:bg-surface-2/70">
+                        <td className="px-3 py-2">
                           {!f.isFolder && (
-                            <button aria-label="下载" title="下载" onClick={() => download(f)} className="p-1.5 hover:bg-surface-3 rounded"><Download size={15} /></button>
+                            <input
+                              type="checkbox"
+                              aria-label={`选择 ${displayName}`}
+                              checked={selectedIds.has(f.id)}
+                              onChange={(event) => toggleSelected(f.id, event.target.checked)}
+                              className="h-4 w-4 rounded border-border"
+                            />
                           )}
-                          {isOwner(f) && (
-                            <button aria-label="共享" title="共享" onClick={() => setShareTarget(f)} className="p-1.5 hover:bg-surface-3 rounded"><Share2 size={15} /></button>
-                          )}
-                          <button aria-label="改名" title="改名" onClick={() => rename(f)} className="p-1.5 hover:bg-surface-3 rounded"><Pencil size={15} /></button>
-                          <button aria-label="移动" title="移动" onClick={() => openMoveDialog(f)} className="p-1.5 hover:bg-surface-3 rounded"><Scissors size={15} /></button>
-                          <button
-                            aria-label="删除"
-                            title={f.canDelete ? "删除" : f.deleteDisabledReason ?? "不可删除"}
-                            disabled={!f.canDelete}
-                            onClick={() => remove(f)}
-                            className="p-1.5 text-danger hover:bg-danger/5 rounded disabled:text-ink-tertiary disabled:hover:bg-transparent disabled:cursor-not-allowed"
-                          >
-                            <Trash2 size={15} />
+                        </td>
+                        <td className="min-w-0 px-3 py-2" title={displayName}>
+                          <button className="flex w-full min-w-0 items-center gap-2 text-left" onClick={() => openFolder(f)} disabled={!f.isFolder} title={displayName}>
+                            {f.isFolder ? <Folder size={17} className="shrink-0 text-warning" /> : <FileIcon size={17} className="shrink-0 text-info" />}
+                            <span className="min-w-0 flex-1 truncate font-medium text-ink-primary" title={displayName}>{displayName}</span>
                           </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                          {searchQuery.trim() && f.path && (
+                            <div className="mt-1 truncate pl-7 text-footnote text-ink-tertiary" title={f.path}>位置：{f.path}</div>
+                          )}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2 text-ink-tertiary">{new Date(f.updatedAt).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}</td>
+                        <td className="whitespace-nowrap px-3 py-2 text-ink-tertiary">{fileTypeLabel(f)}</td>
+                        <td className="whitespace-nowrap px-3 py-2 text-ink-tertiary">{fmtSize(f.size)}</td>
+                        <td className="whitespace-nowrap px-3 py-2">
+                          <div className="flex items-center justify-end gap-0.5 opacity-70 group-hover:opacity-100">
+                            {!f.isFolder && (
+                              <button aria-label="下载" title="下载" onClick={() => download(f)} className="p-1.5 hover:bg-surface-3 rounded"><Download size={15} /></button>
+                            )}
+                            {isOwner(f) && (
+                              <button aria-label="共享" title="共享" onClick={() => setShareTarget(f)} className="p-1.5 hover:bg-surface-3 rounded"><Share2 size={15} /></button>
+                            )}
+                            {f.canRename !== false && (
+                              <button aria-label="改名" title="改名" onClick={() => rename(f)} className="p-1.5 hover:bg-surface-3 rounded"><Pencil size={15} /></button>
+                            )}
+                            {f.canMove !== false && (
+                              <button aria-label="移动" title="移动" onClick={() => openMoveDialog(f)} className="p-1.5 hover:bg-surface-3 rounded"><Scissors size={15} /></button>
+                            )}
+                            <button
+                              aria-label="删除"
+                              title={f.canDelete ? "删除" : f.deleteDisabledReason ?? "不可删除"}
+                              disabled={!f.canDelete}
+                              onClick={() => remove(f)}
+                              className="p-1.5 text-danger hover:bg-danger/5 rounded disabled:text-ink-tertiary disabled:hover:bg-transparent disabled:cursor-not-allowed"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
               {items.length === 0 && (
                 <div className="text-center text-ink-tertiary py-16">
                   {scope && !scope.hasDepartment
                     ? "请先在组织架构中维护当前账号的部门归属"
+                    : searchQuery.trim()
+                    ? "没有找到匹配的共享资料"
                     : showingDeptPeople
                     ? "当前部门暂无直属人员文件夹"
                     : "此文件夹为空"}

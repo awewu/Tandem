@@ -3,7 +3,8 @@
  *
  * Body:
  *   { mode: 'upload', fileName, contentType? }  → 返回 { uploadUrl, storageKey, expiresInSec }
- *   { mode: 'download', storageKey }            → 返回 { url, expiresInSec }
+ *   { mode: 'download', storageKey, fileName?, contentType? }
+ *                                               → 返回 { url, previewUrl, downloadUrl, expiresInSec }
  *
  * 鉴权: 仅频道成员 (getChannelIfMember, 同租户). 非成员/跨租户 → 404 (不泄露存在性).
  * 防 IDOR: storageKey 强制落在 `im/{tenantId}/{channelId}/` 前缀下;
@@ -20,6 +21,11 @@ import {
   presignDownload,
   BUCKET_ATTACHMENTS,
 } from '@/lib/infra/s3-client';
+import {
+  filePathForDevObjectKey,
+  legacyFilePathForDevObjectKey,
+  statDevObject,
+} from '@/lib/im/dev-object-store';
 import { generateId } from '@/lib/storage/repository';
 import { withApiLog } from '@/lib/api-log/with-api-log';
 
@@ -87,14 +93,35 @@ async function POSTApiHandler(req: NextRequest, { params }: Params) {
           { status: 503 },
         );
       }
-      const url = `/api/im/attachments/dev-object?key=${encodeURIComponent(body.storageKey)}`;
-      return NextResponse.json({ url, expiresInSec: 900 });
+      const devObjectStat =
+        await statDevObject(filePathForDevObjectKey(body.storageKey)) ??
+        await statDevObject(legacyFilePathForDevObjectKey(body.storageKey));
+      if (!devObjectStat) {
+        return NextResponse.json(
+          { error: '本地对象存储未配置，无法读取部署环境中的附件' },
+          { status: 503 },
+        );
+      }
+      const params = new URLSearchParams({ key: body.storageKey });
+      if (body.fileName) params.set('name', body.fileName);
+      if (body.contentType) params.set('contentType', body.contentType);
+      const previewUrl = `/api/im/attachments/dev-object?${params.toString()}`;
+      params.set('download', '1');
+      const downloadUrl = `/api/im/attachments/dev-object?${params.toString()}`;
+      return NextResponse.json({ url: previewUrl, previewUrl, downloadUrl, expiresInSec: 900 });
     }
     const url = await presignDownload(body.storageKey, {
       bucket: BUCKET_ATTACHMENTS,
       expiresInSec: 900,
+      contentType: body.contentType,
     });
-    return NextResponse.json({ url, expiresInSec: 900 });
+    const downloadUrl = await presignDownload(body.storageKey, {
+      bucket: BUCKET_ATTACHMENTS,
+      expiresInSec: 900,
+      downloadName: body.fileName,
+      contentType: body.contentType,
+    });
+    return NextResponse.json({ url, previewUrl: url, downloadUrl, expiresInSec: 900 });
   }
 
   return NextResponse.json(

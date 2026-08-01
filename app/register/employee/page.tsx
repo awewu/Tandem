@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Building2, CreditCard, CheckCircle2 } from 'lucide-react';
+import Link from 'next/link';
 
 export default function EmployeeSsoRegisterPage() {
   const router = useRouter();
@@ -100,8 +101,12 @@ export default function EmployeeSsoRegisterPage() {
                 {busy ? '注册中...' : '立即注册'}
               </Button>
               <p className="text-[11px] text-center text-muted-foreground">
-                注册即表示同意《隐私政策》。
-                <a href="/login" className="text-primary hover:underline ml-1">已有账号？登录</a>
+                注册即表示同意
+                <Link href="/privacy" className="text-primary hover:underline">
+                  《隐私政策》
+                </Link>
+                。
+                <Link href="/login" className="text-primary hover:underline ml-1">已有账号？登录</Link>
               </p>
               <p className="text-[11px] text-center text-muted-foreground">
                 合作伙伴？

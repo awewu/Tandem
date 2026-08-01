@@ -27,6 +27,7 @@ export class CalendarImReminderService {
   constructor(private readonly ctx: CalendarImReminderContext) {}
 
   async listCandidates(actorId: string, tenantId: string): Promise<CalendarEvent[]> {
+    await this.cleanupExpiredOneTimeMeetingGroups(tenantId);
     const events = await this.ctx.calendarRepo.list({ tenantId });
     const cancellationMarkers = await listCancellationMarkers(tenantId, events);
     return events
@@ -91,6 +92,33 @@ export class CalendarImReminderService {
     return { event, channel, message, reused: Boolean(existing) };
   }
 
+  async cleanupExpiredOneTimeMeetingGroups(tenantId: string, now = new Date()): Promise<number> {
+    const store = getStore();
+    const channels = await store.imChannels.list({ tenantId });
+    const nowIso = now.toISOString();
+    let archivedCount = 0;
+
+    for (const channel of channels) {
+      if (channel.archivedAt || channel.autoCreated !== true || !channel.topic?.startsWith(CALENDAR_IM_TOPIC_PREFIX)) {
+        continue;
+      }
+
+      const eventId = channel.topic.slice(CALENDAR_IM_TOPIC_PREFIX.length);
+      const event = await this.ctx.calendarRepo.findById(eventId);
+      if (!event || (event.tenantId ?? 'default') !== tenantId || !isExpiredOneTimeEvent(event, now)) {
+        continue;
+      }
+
+      await store.imChannels.update(channel.id, {
+        archivedAt: nowIso,
+        updatedAt: nowIso,
+      });
+      archivedCount += 1;
+    }
+
+    return archivedCount;
+  }
+
   private async findExistingChannel(topic: string, tenantId: string): Promise<ImChannel | null> {
     const channels = await getStore().imChannels.list({ tenantId, topic });
     return channels.find((channel) => !channel.archivedAt) ?? null;
@@ -127,6 +155,12 @@ export class CalendarImReminderService {
 
 function topicForEvent(eventId: string): string {
   return `${CALENDAR_IM_TOPIC_PREFIX}${eventId}`;
+}
+
+function isExpiredOneTimeEvent(event: CalendarEvent, now: Date): boolean {
+  if (event.seriesId || event.recurrenceIndex != null || event.recurringRule) return false;
+  const endAt = new Date(event.endAt).getTime();
+  return Number.isFinite(endAt) && endAt <= now.getTime();
 }
 
 async function listCancellationMarkers(

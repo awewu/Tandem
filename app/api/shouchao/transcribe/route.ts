@@ -18,8 +18,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { bootHotPath } from '@/lib/boot';
 import { requireAuth } from '@/lib/auth/require-auth';
-import { transcribe, isSttConfigured } from '@/lib/infra/transcribe';
+import { transcribe, isSttConfigured, getSttStatus } from '@/lib/infra/transcribe';
 import { withApiLog } from '@/lib/api-log/with-api-log';
+import { normalizeVoiceTranscriptionText } from '@/lib/shouchao/voice-note';
 
 export const runtime = 'nodejs';
 export const maxDuration = 120;
@@ -44,6 +45,13 @@ const MEETING_SYSTEM = [
   '规则：忠于原文，不编造未提及的事实；修正明显错别字；去掉口水词。直接输出纪要，不要解释你做了什么。',
 ].join('\n');
 
+function isLikelyFillerOnly(text: string): boolean {
+  const clean = normalizeVoiceTranscriptionText(text)
+    .replace(/[。！？!?，,、.\s]/g, '')
+    .trim();
+  return /^(嗯+|啊+|呃+|额+|唔+|恩+|哼+)$/.test(clean);
+}
+
 async function POSTApiHandler(req: NextRequest) {
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
@@ -51,7 +59,7 @@ async function POSTApiHandler(req: NextRequest) {
 
   if (!(await isSttConfigured())) {
     return NextResponse.json(
-      { ok: false, error: '未配置语音转写 (STT)，请在 AI 设置中配置 Whisper 兼容服务' },
+      { ok: false, error: '未配置语音转写 (STT)，请在 AI 设置中配置 OpenAI Whisper 或 DashScope 千问 ASR' },
       { status: 503 },
     );
   }
@@ -75,6 +83,7 @@ async function POSTApiHandler(req: NextRequest) {
   const meeting = String(form.get('meeting') ?? '') === 'true';
   const polish = String(form.get('polish') ?? '') === 'true';
   const language = (form.get('language') as string | null)?.trim() || undefined;
+  const durationMs = Number(form.get('durationMs') ?? 0);
   const filename = file instanceof File && file.name ? file.name : 'audio.webm';
 
   const result = await transcribe(file, filename, language);
@@ -82,9 +91,24 @@ async function POSTApiHandler(req: NextRequest) {
     return NextResponse.json({ ok: false, error: result.error ?? '转写失败' }, { status: 502 });
   }
 
+  if (isLikelyFillerOnly(result.text)) {
+    const shortAudio = Number.isFinite(durationMs) && durationMs > 0 && durationMs < 1800;
+    return NextResponse.json(
+      {
+        ok: false,
+        error: shortAudio
+          ? '录音太短，语音识别只听到语气词。请按住/录满 2 秒左右再说“你好”重试。'
+          : '语音识别只听到语气词，请靠近麦克风并重试。',
+        raw: result.text,
+        durationMs: Number.isFinite(durationMs) ? durationMs : undefined,
+      },
+      { status: 422 },
+    );
+  }
+
   // meeting 优先; 都没开则直接返回原始转写稿
   if (!meeting && !polish) {
-    return NextResponse.json({ ok: true, text: result.text, mode: 'raw' });
+    return NextResponse.json({ ok: true, text: normalizeVoiceTranscriptionText(result.text), mode: 'raw' });
   }
 
   const mode = meeting ? 'meeting' : 'polish';
@@ -103,10 +127,12 @@ async function POSTApiHandler(req: NextRequest) {
       maxTokens: meeting ? 1800 : 1200,
       metadata: { userId: auth.userId, requestId: `shouchao:transcribe-${mode}` },
     });
-    const processed = typeof resp.message.content === 'string' ? resp.message.content.trim() : '';
+    const processed = typeof resp.message.content === 'string'
+      ? normalizeVoiceTranscriptionText(resp.message.content)
+      : '';
     return NextResponse.json({
       ok: true,
-      text: processed || result.text,
+      text: processed || normalizeVoiceTranscriptionText(result.text),
       raw: result.text,
       mode: processed ? mode : 'raw',
       polished: Boolean(processed),
@@ -116,4 +142,27 @@ async function POSTApiHandler(req: NextRequest) {
   }
 }
 
+async function GETApiHandler(req: NextRequest) {
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
+  bootHotPath();
+  const status = await getSttStatus();
+
+  return NextResponse.json({
+    ok: true,
+    configured: status.configured,
+    provider: status.provider,
+    model: status.model,
+    url: status.url,
+    supportedProviders: status.supportedProviders,
+    required: [
+      'STT_PROVIDER=dashscope',
+      'STT_MODEL=qwen3-asr-flash',
+      'STT_API_URL=https://dashscope.aliyuncs.com/compatible-mode/v1',
+      'STT_API_KEY',
+    ],
+  });
+}
+
+export const GET = withApiLog(GETApiHandler, { route: '/api/shouchao/transcribe' });
 export const POST = withApiLog(POSTApiHandler, { route: '/api/shouchao/transcribe' });

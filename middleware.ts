@@ -40,6 +40,7 @@ const PUBLIC_PREFIXES = [
   '/api/health',
   '/api/integrations/health',
   '/api/llm-health',
+  '/api/legal/privacy-policy',
   // OIDC IdP 协议端点: 接入方用 client 凭据 / Bearer / 登录回跳, 不依赖 Tandem 会话 cookie.
   // 注: /api/oidc/clients (接入方管理 CRUD) 不在此列, 仍走 owner/admin 鉴权.
   '/api/oidc/authorize',

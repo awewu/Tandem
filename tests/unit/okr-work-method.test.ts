@@ -11,6 +11,7 @@ import {
   startOfWeek,
   bucketByWeekOf,
   initiativesForObjective,
+  reportPlanInitiativesForKr,
   buildWorkMethod,
 } from '@/lib/okr/work-method';
 import type { Initiative, KeyResult, Objective } from '@/lib/store';
@@ -85,12 +86,28 @@ describe('initiativesForObjective', () => {
   });
 });
 
+describe('reportPlanInitiativesForKr', () => {
+  const thisWeek = startOfWeek(NOW);
+
+  it('日报计划提示包含遗留和本周 KR 行动项, 排除未来和已关闭项', () => {
+    const got = reportPlanInitiativesForKr('k1', [
+      init({ id: 'this-week', scopeId: 'k1', weekOf: thisWeek }),
+      init({ id: 'overdue', scopeId: 'k1', weekOf: thisWeek - 7 * DAY }),
+      init({ id: 'future', scopeId: 'k1', weekOf: thisWeek + 7 * DAY }),
+      init({ id: 'done', scopeId: 'k1', weekOf: thisWeek, status: 'done' }),
+      init({ id: 'other-kr', scopeId: 'k2', weekOf: thisWeek }),
+    ], NOW).map((i) => i.id);
+
+    expect(got).toEqual(['this-week', 'overdue']);
+  });
+});
+
 describe('buildWorkMethod', () => {
   const o = obj({ id: 'o1' });
   const krs = [kr({ id: 'k1', objectiveId: 'o1' })];
   const thisWeek = startOfWeek(NOW);
 
-  it('分桶 + thisWeekFocus = 遗留 + 本周', () => {
+  it('分桶 + thisWeekFocus = 遗留 + 本周, planningHorizon 包含本周', () => {
     const v = buildWorkMethod({
       objective: o, keyResults: krs, now: NOW,
       initiatives: [
@@ -105,6 +122,7 @@ describe('buildWorkMethod', () => {
     expect(v.counts['next-4-weeks']).toBe(1);
     expect(v.counts.backlog).toBe(1);
     expect(v.thisWeekFocus.map((i) => i.id).sort()).toEqual(['a', 'b']);
+    expect(v.planningHorizon.map((i) => i.id)).toEqual(['a', 'c', 'd']);
   });
 
   it('已完成项即便 weekOf 在过去, 也不计入遗留', () => {

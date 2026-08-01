@@ -282,6 +282,34 @@ describe.skipIf(!hasDb)('integration(db) · PMS 关键路径', () => {
     });
   });
 
+  it('每日扫描: 90 天未跟进商机自动释放到公海池', async () => {
+    const { opportunity } = await createOpportunity(baseOppInput({
+      customerName: '南京长青医院',
+      projectName: '住院楼热水改造项目',
+    }));
+    const oppId = opportunity!.id;
+    const oldDate = new Date(Date.now() - 91 * 86400000);
+
+    await db
+      .update(pmsOpportunities)
+      .set({
+        createdAt: oldDate,
+        updatedAt: oldDate,
+        lastFollowUpAt: null,
+        status: 'active',
+      })
+      .where(eq(pmsOpportunities.id, oppId));
+
+    const summary = await runPmsDailyScan(TEST_TENANT);
+    expect(summary.poolReleased).toBe(1);
+
+    const released = (await getOpportunity(oppId, TEST_TENANT))!;
+    expect(released.status).toBe('released');
+
+    const pool = await listPublicPool({ tenantId: TEST_TENANT });
+    expect(pool.map((p) => p.opportunityId)).toContain(oppId);
+  });
+
   it('分析看板: SQL group by 聚合 (状态/阶段/区域/管道/赢单率)', async () => {
     // active 100000 (北京, initial_contact)
     await createOpportunity(baseOppInput({

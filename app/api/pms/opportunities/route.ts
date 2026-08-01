@@ -4,12 +4,51 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { boot } from '@/lib/boot';
+import { createDownstreamOrg } from '@/lib/auth/organizations';
 import { requirePmsAuth, type PmsAuthResult } from '@/lib/pms/pms-auth';
+import { getStore } from '@/lib/storage/repository';
 import {
   createOpportunity,
   listOpportunities,
   updateOpportunity,
 } from '@/lib/pms/opportunity-service';
+
+function normalizeDealerRef(value: unknown): string {
+  return String(value ?? '').trim().toLowerCase();
+}
+
+async function resolveDealerOrgId(
+  auth: PmsAuthResult,
+  ref: unknown,
+  options: { dealerName?: unknown; dealerSource?: unknown } = {},
+): Promise<string | null> {
+  const targets = [ref, options.dealerName]
+    .map(normalizeDealerRef)
+    .filter(Boolean);
+  if (targets.length === 0) return null;
+  const orgs = await getStore().organizations.list({ tenantId: auth.tenantId });
+  const matched = orgs.find((org) => (
+    org.status === 'active' &&
+    org.type !== 'anchor' &&
+    (
+      targets.includes(normalizeDealerRef(org.id)) ||
+      targets.includes(normalizeDealerRef(org.name))
+    )
+  ));
+  if (matched) return matched.id;
+
+  if (options.dealerSource !== 'ys') return null;
+  const name = String(options.dealerName || ref || '').trim();
+  if (!name) return null;
+  const created = await createDownstreamOrg({
+    name,
+    type: 'downstream',
+    category: 'dealer',
+    createdBy: auth.userId,
+    tenantId: auth.tenantId,
+  });
+  return created.id;
+}
 
 /**
  * GET /api/pms/opportunities - 列表查询
@@ -73,16 +112,29 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    if (auth.isInternal && !body.dealerOrgId) {
+    const dealerRef = body.dealerOrgId || body.dealerOrgCode || body.dealerOrgName || body.dealerOrg || body['归属经销商'];
+    const resolvedDealerOrgId = auth.isInternal
+      ? await resolveDealerOrgId(auth, dealerRef, {
+        dealerName: body.dealerOrgName,
+        dealerSource: body.dealerOrgSource,
+      })
+      : null;
+    if (auth.isInternal && !dealerRef) {
       return NextResponse.json(
-        { error: '内部代报商机需指定 dealerOrgId (归属经销商)' },
+        { error: '内部代报商机需填写归属经销商' },
+        { status: 400 }
+      );
+    }
+    if (auth.isInternal && !resolvedDealerOrgId) {
+      return NextResponse.json(
+        { error: '归属经销商不存在，请填写经销商名称或先维护经销商组织' },
         { status: 400 }
       );
     }
     
     // orgId 归属: 外部经销商强制落自身 org (禁止代报他 org); 内部可指定
-    const orgId = auth.isInternal ? (body.orgId || body.dealerOrgId) : (auth.orgId || body.dealerOrgId);
-    const dealerOrgId = auth.isInternal ? body.dealerOrgId : (auth.orgId || body.dealerOrgId);
+    const orgId = auth.isInternal ? (body.orgId || resolvedDealerOrgId!) : (auth.orgId || body.dealerOrgId);
+    const dealerOrgId = auth.isInternal ? resolvedDealerOrgId! : (auth.orgId || body.dealerOrgId);
     
     const result = await createOpportunity({
       tenantId: auth.tenantId,

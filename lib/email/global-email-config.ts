@@ -66,6 +66,7 @@ export interface PersonalEmailCredentials {
   imapPassEncrypted?: string;
   createdAt: string;
   updatedAt: string;
+  verifiedAt?: string;
 }
 
 function normalizeDomain(value: string): string {

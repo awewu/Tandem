@@ -1,44 +1,16 @@
-import { createReadStream, createWriteStream } from 'fs';
-import { mkdir, stat, unlink } from 'fs/promises';
-import { tmpdir } from 'os';
-import { join } from 'path';
 import { Readable } from 'stream';
 import { NextResponse, type NextRequest } from 'next/server';
+import {
+  cleanupDevObjectStore,
+  createDevObjectReadStream,
+  filePathForDevObjectKey,
+  getDevObjectStore,
+  legacyFilePathForDevObjectKey,
+  statDevObject,
+  writeDevObjectRequestBody,
+} from '@/lib/im/dev-object-store';
 
 export const runtime = 'nodejs';
-
-interface DevObjectEntry {
-  filePath: string;
-  contentType: string;
-  size: number;
-  updatedAt: number;
-}
-
-const STORE_KEY = '__tandem_im_dev_object_store__';
-const MAX_OBJECT_BYTES = 2 * 1024 * 1024 * 1024;
-const MAX_OBJECTS = 200;
-const STORE_DIR = join(tmpdir(), 'tandem-im-dev-objects');
-
-type DevObjectStore = Map<string, DevObjectEntry>;
-
-function getDevObjectStore(): DevObjectStore {
-  const globalStore = globalThis as typeof globalThis & { [STORE_KEY]?: DevObjectStore };
-  if (!globalStore[STORE_KEY]) globalStore[STORE_KEY] = new Map<string, DevObjectEntry>();
-  return globalStore[STORE_KEY];
-}
-
-function filePathForKey(key: string): string {
-  return join(STORE_DIR, Buffer.from(key).toString('base64url'));
-}
-
-async function cleanupStore(store: DevObjectStore) {
-  if (store.size <= MAX_OBJECTS) return;
-  const entries = Array.from(store.entries()).sort((a, b) => a[1].updatedAt - b[1].updatedAt);
-  for (const [key, entry] of entries.slice(0, store.size - MAX_OBJECTS)) {
-    store.delete(key);
-    await unlink(entry.filePath).catch(() => undefined);
-  }
-}
 
 function keyFromRequest(req: NextRequest): string | null {
   const key = new URL(req.url).searchParams.get('key');
@@ -46,51 +18,19 @@ function keyFromRequest(req: NextRequest): string | null {
   return key;
 }
 
-async function writeRequestBodyToFile(req: NextRequest, filePath: string): Promise<number> {
-  if (!req.body) throw new Error('request body required');
-
-  await mkdir(STORE_DIR, { recursive: true });
-  const writer = createWriteStream(filePath);
-  const reader = req.body.getReader();
-  let size = 0;
-
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      size += value.byteLength;
-      if (size > MAX_OBJECT_BYTES) {
-        writer.destroy();
-        await unlink(filePath).catch(() => undefined);
-        throw new Error('file too large');
-      }
-      if (!writer.write(value)) {
-        await new Promise<void>((resolve, reject) => {
-          writer.once('drain', resolve);
-          writer.once('error', reject);
-        });
-      }
-    }
-  } finally {
-    reader.releaseLock();
-  }
-
-  await new Promise<void>((resolve, reject) => {
-    writer.end(() => resolve());
-    writer.once('error', reject);
-  });
-
-  return size;
+function encodeDownloadName(name: string): string {
+  const fallback = name.replace(/[^\x20-\x7E]/g, '_').replace(/["\\]/g, '_') || 'attachment';
+  return `attachment; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(name)}`;
 }
 
 export async function PUT(req: NextRequest) {
   const key = keyFromRequest(req);
   if (!key) return NextResponse.json({ error: 'invalid key' }, { status: 400 });
 
-  const filePath = filePathForKey(key);
+  const filePath = filePathForDevObjectKey(key);
   let size = 0;
   try {
-    size = await writeRequestBodyToFile(req, filePath);
+    size = await writeDevObjectRequestBody(req, filePath);
   } catch (error) {
     if ((error as Error).message === 'file too large') {
       return NextResponse.json({ error: 'file too large' }, { status: 413 });
@@ -105,7 +45,7 @@ export async function PUT(req: NextRequest) {
     contentType: req.headers.get('content-type') ?? 'application/octet-stream',
     updatedAt: Date.now(),
   });
-  await cleanupStore(store);
+  await cleanupDevObjectStore(store);
 
   return new NextResponse(null, { status: 204 });
 }
@@ -113,18 +53,30 @@ export async function PUT(req: NextRequest) {
 export async function GET(req: NextRequest) {
   const key = keyFromRequest(req);
   if (!key) return NextResponse.json({ error: 'invalid key' }, { status: 400 });
+  const params = new URL(req.url).searchParams;
 
   const store = getDevObjectStore();
   const stored = store.get(key);
-  const filePath = stored?.filePath ?? filePathForKey(key);
-  const fileStat = await stat(filePath).catch(() => null);
+  let filePath = stored?.filePath ?? filePathForDevObjectKey(key);
+  let fileStat = await statDevObject(filePath);
+  if (!fileStat && !stored) {
+    const legacyFilePath = legacyFilePathForDevObjectKey(key);
+    const legacyFileStat = await statDevObject(legacyFilePath);
+    if (legacyFileStat) {
+      filePath = legacyFilePath;
+      fileStat = legacyFileStat;
+    }
+  }
   if (!fileStat) return NextResponse.json({ error: 'not found' }, { status: 404 });
 
-  const stream = Readable.toWeb(createReadStream(filePath)) as ReadableStream<Uint8Array>;
+  const stream = Readable.toWeb(createDevObjectReadStream(filePath)) as ReadableStream<Uint8Array>;
   return new Response(stream, {
     headers: {
-      'Content-Type': stored?.contentType ?? 'application/octet-stream',
+      'Content-Type': params.get('contentType') || stored?.contentType || 'application/octet-stream',
       'Content-Length': String(fileStat.size),
+      ...(params.get('download') === '1'
+        ? { 'Content-Disposition': encodeDownloadName(params.get('name') || key.split('/').pop() || 'attachment') }
+        : {}),
       'Cache-Control': 'no-store',
     },
   });

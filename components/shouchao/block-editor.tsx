@@ -17,7 +17,7 @@
  * 且避免与现有 react-markdown 渲染体系冲突.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   Type,
   Heading1,
@@ -99,11 +99,20 @@ export function BlockEditor({ value, onChange, placeholder, onUploadImage }: Blo
   // 防止外部 value 与内部循环互相打架: 仅当外部 value 与当前序列化结果不同才重建
   const lastSerialized = useRef<string>(serializeBlocks(blocks));
   const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const inputRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
   const focusAfter = useRef<string | null>(null);
   // 拖拽排序: 当前被拖块 id + 悬停目标块 id (插入到目标块之前)
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
+
+  const resizeTextarea = useCallback((el: HTMLTextAreaElement | null) => {
+    if (!el) return;
+    el.style.overflowY = 'hidden';
+    el.style.height = 'auto';
+    const lineHeight = Number.parseFloat(window.getComputedStyle(el).lineHeight || '24');
+    el.style.height = `${Math.max(el.scrollHeight, Math.ceil(lineHeight))}px`;
+  }, []);
 
   useEffect(() => {
     if (value !== lastSerialized.current) {
@@ -123,6 +132,10 @@ export function BlockEditor({ value, onChange, placeholder, onUploadImage }: Blo
     },
     [onChange],
   );
+
+  useLayoutEffect(() => {
+    for (const el of Object.values(inputRefs.current)) resizeTextarea(el);
+  }, [blocks, resizeTextarea]);
 
   // 自动聚焦新建块
   useEffect(() => {
@@ -167,11 +180,12 @@ export function BlockEditor({ value, onChange, placeholder, onUploadImage }: Blo
 
   // ---- table 编辑 ----
   const updateTableCell = (id: string, r: number, c: number, val: string) => {
+    const clean = val.replace(/\r?\n/g, ' ');
     commit(
       blocks.map((b) => {
         if (b.id !== id || !b.rows) return b;
         const rows = b.rows.map((row) => [...row]);
-        rows[r][c] = val;
+        rows[r][c] = clean;
         return { ...b, rows };
       }),
     );
@@ -237,6 +251,13 @@ export function BlockEditor({ value, onChange, placeholder, onUploadImage }: Blo
     focusAfter.current = next[Math.max(0, idx - 1)]?.id ?? null;
   };
 
+  const insertBlockAfter = (idx: number, type: BlockType = 'p') => {
+    const nb: Block = { id: newId(), type, text: '', checked: type === 'todo' ? false : undefined };
+    const next = [...blocks.slice(0, idx + 1), nb, ...blocks.slice(idx + 1)];
+    commit(next);
+    focusAfter.current = nb.id;
+  };
+
   // 把 sourceId 移动到 targetId 之前; targetId 为 null 表示移到末尾
   const moveBlock = (sourceId: string, targetId: string | null) => {
     if (sourceId === targetId) return;
@@ -276,10 +297,7 @@ export function BlockEditor({ value, onChange, placeholder, onUploadImage }: Blo
         updateBlock(block.id, { type: 'p' });
         return;
       }
-      const nb: Block = { id: newId(), type: inheritType, text: '', checked: inheritType === 'todo' ? false : undefined };
-      const next = [...blocks.slice(0, idx + 1), nb, ...blocks.slice(idx + 1)];
-      commit(next);
-      focusAfter.current = nb.id;
+      insertBlockAfter(idx, inheritType);
       return;
     }
     // Backspace@行首: 与上一块合并
@@ -303,15 +321,16 @@ export function BlockEditor({ value, onChange, placeholder, onUploadImage }: Blo
       default: return 'text-body';
     }
   };
+  const textAreaChrome = 'scrollbar-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden';
 
   return (
-    <div className="space-y-0.5">
+    <div className="max-w-full space-y-1 overflow-x-hidden">
       {blocks.map((block, idx) => (
         <div
           key={block.id}
-          className={`group relative flex items-start gap-1 rounded-md transition-colors ${
+          className={`group relative grid min-w-0 max-w-full grid-cols-[minmax(0,1fr)] items-start gap-1 rounded-md transition-colors sm:grid-cols-[2.5rem_minmax(0,1fr)_2rem] ${
             dragOverId === block.id ? 'border-t-2 border-brand-400' : 'border-t-2 border-transparent'
-          } ${dragId === block.id ? 'opacity-40' : ''}`}
+          } ${dragId === block.id ? 'opacity-40' : ''} ${menuFor === block.id ? 'z-40 pb-44 sm:pb-0' : 'z-0'}`}
           onDragOver={(e) => {
             if (!dragId || dragId === block.id) return;
             e.preventDefault();
@@ -324,15 +343,29 @@ export function BlockEditor({ value, onChange, placeholder, onUploadImage }: Blo
             endDrag();
           }}
         >
-          {/* 左侧悬浮控制 */}
-          <div className="flex w-10 shrink-0 items-center justify-end gap-0.5 pt-1 opacity-0 transition-opacity group-hover:opacity-100">
+          {/* 块控制: 仅在当前块聚焦/悬停/菜单打开时显示，避免长文满屏工具按钮 */}
+          <div className={`col-start-1 row-start-1 flex h-8 shrink-0 items-center justify-start gap-1 transition-opacity sm:h-auto sm:w-10 sm:justify-center sm:pt-0.5 ${
+            activeBlockId === block.id || menuFor === block.id
+              ? 'opacity-100'
+              : 'opacity-0 group-focus-within:opacity-100 group-hover:opacity-100'
+          }`}>
             <button
               type="button"
               title="块类型"
-              onClick={() => setMenuFor(menuFor === block.id ? null : block.id)}
-              className="rounded p-0.5 text-ink-tertiary hover:bg-surface-2 hover:text-ink-secondary"
+              aria-label="选择块类型"
+              onMouseDown={(e) => e.preventDefault()}
+              onTouchStart={(e) => e.currentTarget.focus()}
+              onClick={(e) => {
+                if (document.activeElement instanceof HTMLElement) {
+                  document.activeElement.blur();
+                }
+                e.currentTarget.focus();
+                setActiveBlockId(block.id);
+                setMenuFor(menuFor === block.id ? null : block.id);
+              }}
+              className="inline-flex h-8 w-10 items-center justify-center rounded-lg border border-border bg-surface-1 text-caption font-medium text-ink-tertiary shadow-soft-xs transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-600 sm:h-7 sm:w-7"
             >
-              <Plus className="h-3.5 w-3.5" />
+              <Plus className="h-4 w-4" />
             </button>
             <span
               draggable
@@ -344,7 +377,7 @@ export function BlockEditor({ value, onChange, placeholder, onUploadImage }: Blo
                 e.dataTransfer.setData('text/plain', block.id);
               }}
               onDragEnd={endDrag}
-              className="cursor-grab text-ink-tertiary active:cursor-grabbing"
+              className="hidden cursor-grab text-ink-tertiary active:cursor-grabbing sm:inline-flex"
             >
               <GripVertical className="h-3.5 w-3.5" />
             </span>
@@ -352,7 +385,7 @@ export function BlockEditor({ value, onChange, placeholder, onUploadImage }: Blo
 
           {/* 块类型菜单 */}
           {menuFor === block.id && (
-            <div className="absolute left-10 top-7 z-20 w-40 rounded-lg border border-border bg-surface-1 p-1 shadow-soft-lg">
+            <div className="absolute left-0 top-10 z-50 max-h-[min(20rem,calc(100vh-12rem))] w-[min(16rem,calc(100vw-3.5rem))] overflow-y-auto rounded-lg border border-border bg-surface-1 p-1 shadow-soft-lg sm:left-8 sm:top-8 sm:w-44">
               {BLOCK_MENU.map(({ type, label, Icon }) => (
                 <button
                   key={type}
@@ -376,13 +409,10 @@ export function BlockEditor({ value, onChange, placeholder, onUploadImage }: Blo
           )}
 
           {/* 块主体 */}
-          <div className="flex-1 py-0.5">
+          <div className="col-start-1 row-start-2 min-w-0 flex-1 py-0.5 sm:col-start-2 sm:row-start-1">
             {block.type === 'hr' ? (
               <div className="flex items-center py-2">
                 <div className="h-px flex-1 bg-border" />
-                <button type="button" onClick={() => removeBlock(block.id)} className="ml-2 text-ink-tertiary opacity-0 group-hover:opacity-100 hover:text-danger">
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
               </div>
             ) : block.type === 'image' ? (
               <div className="group/img relative py-1">
@@ -400,21 +430,14 @@ export function BlockEditor({ value, onChange, placeholder, onUploadImage }: Blo
                 )}
                 <input
                   value={block.alt ?? ''}
+                  onFocus={() => setActiveBlockId(block.id)}
                   onChange={(e) => updateBlock(block.id, { alt: e.target.value })}
                   placeholder="图注 / 替代文字…"
                   className="mt-1 w-full bg-transparent text-caption text-ink-tertiary placeholder:text-ink-tertiary focus:outline-none"
                 />
-                <button
-                  type="button"
-                  onClick={() => removeBlock(block.id)}
-                  title="删除图片"
-                  className="absolute right-2 top-2 rounded-md bg-surface-1/80 p-1 text-ink-tertiary opacity-0 transition-opacity group-hover/img:opacity-100 hover:text-danger"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
               </div>
             ) : block.type === 'callout' ? (
-              <div className={`flex items-start gap-2 rounded-lg border-l-4 px-3 py-2 ${(CALLOUT_STYLE[block.calloutVariant ?? 'NOTE'] ?? CALLOUT_STYLE.NOTE).cls}`}>
+              <div className={`flex min-w-0 items-start gap-2 rounded-lg border-l-4 px-3 py-2 ${(CALLOUT_STYLE[block.calloutVariant ?? 'NOTE'] ?? CALLOUT_STYLE.NOTE).cls}`}>
                 <button
                   type="button"
                   title="切换标注类型"
@@ -431,22 +454,19 @@ export function BlockEditor({ value, onChange, placeholder, onUploadImage }: Blo
                   ref={(el) => { inputRefs.current[block.id] = el; }}
                   value={block.text}
                   rows={1}
+                  onFocus={() => setActiveBlockId(block.id)}
                   onChange={(e) => {
                     updateBlock(block.id, { text: e.target.value });
-                    e.currentTarget.style.height = 'auto';
-                    e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
+                    resizeTextarea(e.currentTarget);
                   }}
                   onKeyDown={(e) => handleKeyDown(e, block, idx)}
                   placeholder="标注内容…"
-                  className="w-full resize-none bg-transparent text-body leading-relaxed text-ink-primary placeholder:text-ink-tertiary focus:outline-none"
+                  className={`min-h-7 w-full resize-none overflow-hidden break-words bg-transparent text-body leading-relaxed text-ink-primary placeholder:text-ink-tertiary focus:outline-none ${textAreaChrome}`}
                 />
-                <button type="button" onClick={() => removeBlock(block.id)} title="删除" className="mt-0.5 shrink-0 text-ink-tertiary opacity-0 transition-opacity group-hover:opacity-100 hover:text-danger">
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
               </div>
             ) : block.type === 'toggle' ? (
               <div className="rounded-lg">
-                <div className="flex items-center gap-1">
+                <div className="flex min-w-0 items-center gap-1">
                   <button
                     type="button"
                     onClick={() => updateBlock(block.id, { open: !block.open })}
@@ -457,40 +477,47 @@ export function BlockEditor({ value, onChange, placeholder, onUploadImage }: Blo
                   </button>
                   <input
                     value={block.text}
+                    onFocus={() => setActiveBlockId(block.id)}
                     onChange={(e) => updateBlock(block.id, { text: e.target.value })}
                     placeholder="折叠标题…"
                     className="w-full bg-transparent text-body font-medium text-ink-primary placeholder:text-ink-tertiary focus:outline-none"
                   />
-                  <button type="button" onClick={() => removeBlock(block.id)} title="删除" className="shrink-0 text-ink-tertiary opacity-0 transition-opacity group-hover:opacity-100 hover:text-danger">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
                 </div>
                 {block.open && (
                   <textarea
                     value={block.body ?? ''}
                     rows={2}
+                    onFocus={() => setActiveBlockId(block.id)}
                     onChange={(e) => {
                       updateBlock(block.id, { body: e.target.value });
-                      e.currentTarget.style.height = 'auto';
-                      e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
+                      resizeTextarea(e.currentTarget);
                     }}
                     placeholder="折叠内容…"
-                    className="ml-5 mt-1 w-[calc(100%-1.25rem)] resize-none rounded-md border border-border bg-surface-1 p-2 text-body leading-relaxed text-ink-secondary placeholder:text-ink-tertiary focus:border-brand-400 focus:outline-none"
+                    className={`ml-5 mt-1 min-h-16 w-[calc(100%-1.25rem)] resize-none overflow-hidden break-words rounded-md border border-border bg-surface-1 p-2 text-body leading-relaxed text-ink-secondary placeholder:text-ink-tertiary focus:border-brand-400 focus:outline-none ${textAreaChrome}`}
                   />
                 )}
               </div>
             ) : block.type === 'table' ? (
-              <div className="group/tbl relative overflow-x-auto py-1">
-                <table className="w-full border-collapse text-caption">
+              <div className="group/tbl relative w-full max-w-full overflow-x-auto overscroll-x-contain rounded-lg border border-border py-1">
+                <table className="w-max min-w-full border-collapse text-caption">
                   <tbody>
                     {(block.rows ?? []).map((row, r) => (
                       <tr key={r}>
                         {row.map((cell, c) => (
-                          <td key={c} className="border border-border p-0">
-                            <input
+                          <td key={c} className="min-w-[8rem] max-w-[14rem] border border-border p-0 align-top">
+                            <textarea
+                              ref={(el) => resizeTextarea(el)}
                               value={cell}
-                              onChange={(e) => updateTableCell(block.id, r, c, e.target.value)}
-                              className={`w-full min-w-[5rem] bg-transparent px-2 py-1 text-ink-primary focus:bg-brand-50/40 focus:outline-none ${r === 0 ? 'font-semibold' : ''}`}
+                              rows={1}
+                              onFocus={() => setActiveBlockId(block.id)}
+                              onChange={(e) => {
+                                updateTableCell(block.id, r, c, e.target.value);
+                                resizeTextarea(e.currentTarget);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') e.preventDefault();
+                              }}
+                              className={`min-h-8 w-full resize-none overflow-hidden break-words bg-transparent px-2 py-1 leading-relaxed text-ink-primary focus:bg-brand-50/40 focus:outline-none ${textAreaChrome} ${r === 0 ? 'font-semibold' : ''}`}
                             />
                           </td>
                         ))}
@@ -511,7 +538,7 @@ export function BlockEditor({ value, onChange, placeholder, onUploadImage }: Blo
                 </div>
               </div>
             ) : (
-              <div className="flex items-start gap-1.5">
+              <div className="flex min-w-0 items-start gap-1.5">
                 {block.type === 'todo' && (
                   <input
                     type="checkbox"
@@ -529,27 +556,32 @@ export function BlockEditor({ value, onChange, placeholder, onUploadImage }: Blo
                   ref={(el) => { inputRefs.current[block.id] = el; }}
                   value={block.text}
                   rows={1}
+                  onFocus={() => setActiveBlockId(block.id)}
                   onChange={(e) => {
                     updateBlock(block.id, { text: e.target.value });
-                    // 自动高度
-                    e.currentTarget.style.height = 'auto';
-                    e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
+                    resizeTextarea(e.currentTarget);
                   }}
                   onKeyDown={(e) => handleKeyDown(e, block, idx)}
                   placeholder={idx === 0 ? (placeholder ?? "输入正文，按 “/” 选择块类型…") : ''}
-                  className={`w-full resize-none bg-transparent leading-relaxed text-ink-primary placeholder:text-ink-tertiary focus:outline-none ${blockClass(block.type)} ${block.checked ? 'line-through text-ink-tertiary' : ''}`}
+                  className={`min-h-9 w-full resize-none overflow-hidden break-words bg-transparent px-0.5 py-1 leading-relaxed text-ink-primary placeholder:text-ink-tertiary focus:outline-none ${textAreaChrome} ${blockClass(block.type)} ${block.checked ? 'line-through text-ink-tertiary' : ''}`}
                 />
-                <button
-                  type="button"
-                  onClick={() => removeBlock(block.id)}
-                  title="删除块"
-                  className="mt-1 shrink-0 text-ink-tertiary opacity-0 transition-opacity group-hover:opacity-100 hover:text-danger"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
               </div>
             )}
           </div>
+
+          <button
+            type="button"
+            onClick={() => removeBlock(block.id)}
+            title="删除块"
+            aria-label="删除块"
+            className={`col-start-1 row-start-1 mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center justify-self-end rounded-md text-ink-tertiary transition-opacity hover:bg-danger/10 hover:text-danger sm:col-start-3 sm:row-start-1 sm:mt-1 ${
+              activeBlockId === block.id || menuFor === block.id
+                ? 'opacity-100'
+                : 'opacity-0 group-focus-within:opacity-100 group-hover:opacity-100'
+            }`}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
         </div>
       ))}
       {/* 末尾落点: 把块拖到这里移到最后 */}

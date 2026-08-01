@@ -18,6 +18,7 @@ import { StartDmDialog } from '@/components/im/start-dm-dialog';
 import { useHandoffPrefill } from '@/hooks/useHandoffPrefill';
 import { cn } from '@/lib/utils';
 import type { ImChannel, ImMembership } from '@/lib/types/im';
+import { displayImChannelName } from '@/lib/im/channel-name';
 import { Hash, Megaphone, Plus, Search, Bot, AtSign, MessageSquare, MessageSquarePlus, Users, Bookmark, BellDot, Building2, UsersRound } from 'lucide-react';
 
 type Channel = ImChannel & { unread?: number; membership?: ImMembership };
@@ -40,7 +41,7 @@ function unreadStyle(channel: Channel): { show: 'none' | 'subtle' | 'urgent'; co
     preview.includes('🏛️') ||
     /\(assign\)|\(consult\)/.test(preview) ||
     /^@/.test(preview);
-  return isUrgent ? { show: 'urgent', count: channel.unread } : { show: 'subtle' };
+  return isUrgent ? { show: 'urgent', count: channel.unread } : { show: 'subtle', count: channel.unread };
 }
 
 function formatRelative(iso: string): string {
@@ -152,13 +153,36 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
 
   useEffect(() => { void loadChannels(); }, [loadChannels]);
 
-  // 兜底刷新会话列表。实时消息由主聊天区 SSE 承接, 这里降低后台压力。
+  // 兜底刷新会话列表。当前聊天区标已读/发消息后会派发事件立即刷新。
   useEffect(() => {
+    const refresh = () => void loadChannels();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+    window.addEventListener('tandem:im-channels-refresh', refresh);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', onVisibilityChange);
     const id = setInterval(() => {
       if (document.visibilityState === 'hidden') return;
       void loadChannels();
     }, 30_000);
-    return () => clearInterval(id);
+    return () => {
+      window.removeEventListener('tandem:im-channels-refresh', refresh);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      clearInterval(id);
+    };
+  }, [loadChannels]);
+
+  useEffect(() => {
+    const es = new EventSource('/api/im/stream');
+    const refresh = () => void loadChannels();
+    es.addEventListener('unread', refresh);
+    es.addEventListener('channel', refresh);
+    es.onerror = () => {
+      es.close();
+    };
+    return () => es.close();
   }, [loadChannels]);
 
   const filteredChannels = useMemo(() => {
@@ -181,7 +205,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
     if (!search.trim()) return list;
     const q = search.toLowerCase();
     return list.filter((c) => {
-      const name = c.type === 'dm' ? nameOf(c.memberIds.find((m) => m !== ME)) : c.name;
+      const name = c.type === 'dm' ? nameOf(c.memberIds.find((m) => m !== ME)) : displayImChannelName(c);
       return (
         name.toLowerCase().includes(q) ||
         (c.lastMessagePreview ?? '').toLowerCase().includes(q)
@@ -240,7 +264,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
           </button>
         )}
         {filteredChannels.slice(0, 12).map((c) => {
-          const displayName = c.type === 'dm' ? (nameOf(c.memberIds.find((m) => m !== ME)) || '?') : c.name;
+          const displayName = c.type === 'dm' ? (nameOf(c.memberIds.find((m) => m !== ME)) || '?') : displayImChannelName(c);
           const u = unreadStyle(c);
           return (
             <button
@@ -251,13 +275,13 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
               className={cn('relative', activeId === c.id && 'ring-2 ring-brand-500 rounded-full')}
             >
               <ConvAvatar channel={c} name={displayName} collapsed />
-              {u.show === 'urgent' && (
-                <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-danger px-0.5 text-[8px] font-bold text-white">
+              {u.show !== 'none' && (
+                <span className={cn(
+                  'absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-0.5 text-[8px] font-bold text-white',
+                  u.show === 'urgent' ? 'bg-danger' : 'bg-success',
+                )}>
                   {(u.count ?? 0) > 9 ? '9+' : u.count}
                 </span>
-              )}
-              {u.show === 'subtle' && (
-                <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-success/30 ring-1 ring-white" />
               )}
             </button>
           );
@@ -397,7 +421,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
           </div>
         )}
         {filteredChannels.map((c) => {
-          const displayName = c.type === 'dm' ? (nameOf(c.memberIds.find((m) => m !== ME)) || '私聊') : c.name;
+          const displayName = c.type === 'dm' ? (nameOf(c.memberIds.find((m) => m !== ME)) || '私聊') : displayImChannelName(c);
           const u = unreadStyle(c);
           const active = activeId === c.id;
 
@@ -430,13 +454,13 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
                   <span className="truncate text-[11px] text-ink-secondary">
                     {c.lastMessagePreview ?? ''}
                   </span>
-                  {u.show === 'urgent' && (
-                    <span className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-danger px-1 text-[9px] font-bold text-white">
+                  {u.show !== 'none' && (
+                    <span className={cn(
+                      'flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full px-1 text-[9px] font-bold text-white',
+                      u.show === 'urgent' ? 'bg-danger' : 'bg-success',
+                    )}>
                       {(u.count ?? 0) > 99 ? '99+' : u.count}
                     </span>
-                  )}
-                  {u.show === 'subtle' && (
-                    <span className="h-2 w-2 shrink-0 rounded-full bg-success/30" />
                   )}
                 </div>
               </div>

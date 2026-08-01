@@ -365,7 +365,7 @@ export default function WorkMethodPage() {
         (c.scope === 'kr' && krIds.has(c.scopeId)),
       )
       .sort((a, b) => b.createdAt - a.createdAt)
-      .slice(0, 3);
+      .slice(0, 5);
   }, [checkIns, objKRs, selected]);
 
   const risk = useMemo(
@@ -693,7 +693,12 @@ export default function WorkMethodPage() {
 
                   <div className="rounded-lg border border-border bg-surface-1 p-3">
                     <div className="flex items-center justify-between gap-2">
-                      <div className="text-caption font-medium text-ink-primary">最近进展</div>
+                      <div>
+                        <div className="text-caption font-medium text-ink-primary">最近进展</div>
+                        {selectedCheckIns.length > 0 && (
+                          <div className="mt-0.5 text-[11px] text-ink-tertiary">最近 {selectedCheckIns.length} 条 · 卡片内滚动</div>
+                        )}
+                      </div>
                       <Link href="/okr" className="inline-flex items-center gap-1 text-footnote text-brand-600 hover:text-brand-700">
                         看完整记录 <ArrowRight className="h-3.5 w-3.5" />
                       </Link>
@@ -701,22 +706,39 @@ export default function WorkMethodPage() {
                     {selectedCheckIns.length === 0 ? (
                       <div className="py-4 text-center text-footnote text-ink-tertiary">暂无 Check-in</div>
                     ) : (
-                      <ul className="mt-2 space-y-2">
+                      <ul className="mt-2 max-h-[230px] space-y-1.5 overflow-y-auto pr-1">
                         {selectedCheckIns.map((c) => {
                           const scopeTitle = c.scope === 'objective'
                             ? selected.title
                             : objKRs.find((kr) => kr.id === c.scopeId)?.title ?? '关键成果';
                           return (
-                            <li key={c.id} className="rounded-md border border-surface-3 px-2.5 py-2 text-footnote">
-                              <div className="flex items-center justify-between gap-2 text-ink-secondary">
-                                <span>{new Date(c.createdAt).toLocaleString('zh-CN')}</span>
-                                <span>{c.progressBefore}% → {c.progressAfter}%</span>
+                            <li key={c.id} className="rounded-md border border-surface-3 bg-white px-2.5 py-2 text-footnote">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <div className="truncate text-[11px] text-ink-tertiary">
+                                    {new Date(c.createdAt).toLocaleString('zh-CN', {
+                                      month: 'numeric',
+                                      day: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                    })}
+                                  </div>
+                                  <div className="mt-0.5 truncate text-caption font-medium text-ink-primary">{scopeTitle}</div>
+                                </div>
+                                <span className="shrink-0 text-[11px] font-medium text-ink-secondary">
+                                  {c.progressBefore}% → {c.progressAfter}%
+                                </span>
                               </div>
-                              <div className="mt-1 truncate text-ink-primary">{scopeTitle}</div>
-                              {c.achievements && <div className="mt-1 text-ink-primary">成果：{c.achievements}</div>}
-                              {c.blockers && <div className="mt-1 text-ink-secondary">障碍：{c.blockers}</div>}
-                              {c.nextSteps && <div className="mt-1 text-ink-secondary">下一步：{c.nextSteps}</div>}
-                              <div className="mt-1 text-ink-tertiary">信心：{CONFIDENCE_LABEL[c.confidenceAfter]}</div>
+                              {c.achievements && <div className="mt-1 line-clamp-1 text-ink-primary">成果：{c.achievements}</div>}
+                              {c.nextSteps && <div className="mt-0.5 line-clamp-1 text-ink-secondary">下一步：{c.nextSteps}</div>}
+                              <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-ink-tertiary">
+                                {c.blockers ? (
+                                  <span className="min-w-0 truncate text-warning">卡点：{c.blockers}</span>
+                                ) : (
+                                  <span>无卡点记录</span>
+                                )}
+                                <span className="shrink-0">信心：{CONFIDENCE_LABEL[c.confidenceAfter]}</span>
+                              </div>
                             </li>
                           );
                         })}
@@ -768,7 +790,7 @@ export default function WorkMethodPage() {
               <QuadrantHeader
                 icon={CalendarRange}
                 title="未来四周 / 待规划"
-                hint={`${(view?.counts['next-4-weeks'] ?? 0) + (view?.counts.later ?? 0) + (view?.counts.backlog ?? 0)} 项`}
+                hint={`${view?.planningHorizon.length ?? 0} 项`}
               />
               <div className="mt-2 flex justify-end">
                 <button
@@ -781,7 +803,7 @@ export default function WorkMethodPage() {
                 </button>
               </div>
               <InitiativeList
-                items={[...(view?.buckets['next-4-weeks'] ?? []), ...(view?.buckets.later ?? []), ...(view?.buckets.backlog ?? [])]}
+                items={view?.planningHorizon ?? []}
                 emptyHint="暂无待规划行动项 · 去 OKR 给 KR 添加行动项"
                 now={now}
                 ownerName={nameOf}
@@ -789,7 +811,12 @@ export default function WorkMethodPage() {
                 onUpdate={updateInitiativeFromList}
                 onDelete={deleteInitiativeFromList}
                 readOnly={!isViewingSelf}
-                action={{ icon: Pin, label: '钉到本周', onClick: (i) => setWeek(i, startOfWeek(now)) }}
+                action={{
+                  icon: Pin,
+                  label: (i) => (i.weekOf != null && startOfWeek(i.weekOf) === startOfWeek(now) ? '已在本周' : '钉到本周'),
+                  disabled: (i) => i.weekOf != null && startOfWeek(i.weekOf) === startOfWeek(now),
+                  onClick: (i) => setWeek(i, startOfWeek(now)),
+                }}
               />
             </section>
           </div>
@@ -1220,7 +1247,12 @@ function InitiativeList({
   onUpdate: (i: Initiative, patch: InitiativeEditPatch) => void;
   onDelete: (i: Initiative) => void;
   readOnly?: boolean;
-  action: { icon: React.ComponentType<{ className?: string }>; label: string; onClick: (i: Initiative) => void };
+  action: {
+    icon: React.ComponentType<{ className?: string }>;
+    label: string | ((i: Initiative) => string);
+    disabled?: (i: Initiative) => boolean;
+    onClick: (i: Initiative) => void;
+  };
 }) {
   if (items.length === 0) {
     return <div className="mt-3 text-footnote text-ink-tertiary py-6 text-center">{emptyHint}</div>;
@@ -1231,6 +1263,8 @@ function InitiativeList({
       {items.map((i) => {
         const overdue = i.dueDate != null && i.dueDate < now && i.status !== 'done' && i.status !== 'cancelled';
         const done = i.status === 'done';
+        const actionLabel = typeof action.label === 'function' ? action.label(i) : action.label;
+        const actionDisabled = action.disabled?.(i) ?? false;
         return (
           <li key={i.id} className="group flex items-center gap-2 rounded-md border border-border px-2.5 py-2">
             <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${done ? 'bg-success' : overdue ? 'bg-danger' : 'bg-brand-400'}`} />
@@ -1275,11 +1309,12 @@ function InitiativeList({
                 </button>
                 <button
                   type="button"
+                  disabled={actionDisabled}
                   onClick={() => action.onClick(i)}
-                  className="shrink-0 inline-flex items-center gap-1 rounded-md px-2 py-1 text-footnote text-ink-secondary hover:bg-surface-3 hover:text-ink-primary"
+                  className="shrink-0 inline-flex items-center gap-1 rounded-md px-2 py-1 text-footnote text-ink-secondary hover:bg-surface-3 hover:text-ink-primary disabled:cursor-default disabled:text-ink-tertiary disabled:hover:bg-transparent"
                 >
                   <ActionIcon className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">{action.label}</span>
+                  <span className="hidden sm:inline">{actionLabel}</span>
                 </button>
                 <button
                   type="button"

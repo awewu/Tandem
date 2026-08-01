@@ -12,7 +12,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { X, Sparkles, ShieldCheck, Settings, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { NAV_MODULES, isGlobalNavEntry, isVisible, resolveNavRoles, type Role } from './nav-modules';
+import { NAV_MODULES, activeHref, isGlobalNavEntry, isVisible, resolveNavRoles, type Role } from './nav-modules';
 import { useCurrentUser, useAuthStore } from '@/lib/hooks/use-current-user';
 import { useBackDismiss } from '@/lib/hooks/use-back-dismiss';
 
@@ -196,6 +196,7 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
           {modules.map((m) => {
             const Icon = m.icon;
             const items = m.items.filter((i) => isVisible(i.visibleTo, userRoles));
+            const activeItemHref = activeHref(items.map((item) => item.href), pathname);
             return (
               <section key={m.id} className="mb-4">
                 <div className="flex items-center gap-2 px-2 pb-1.5">
@@ -220,7 +221,7 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
                   <ul>
                     {items.map((it) => {
                       const ItIcon = it.icon;
-                      const active = pathname === it.href || pathname?.startsWith(it.href + '/');
+                      const active = it.href === activeItemHref;
                       return (
                         <li key={`${m.id}-${it.href}-${it.name}`}>
                           <Link

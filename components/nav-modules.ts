@@ -32,7 +32,6 @@ import {
   HardDrive,
   Search,
   ClipboardCheck,
-  Workflow,
   Clock3,
   CalendarDays,
   CalendarCheck,
@@ -166,6 +165,9 @@ export const NAV_MODULES: NavModule[] = [
       // 每日推进 (5min 日报 / 周回顾) 主入口已迁往「搭子 · 个人工作台」(每天和分身一起干活);
       // 因日报是 KR check-in 输入会回填进度, 此处保留一个深链, 做 OKR 的人仍可直达.
       { name: '每日推进 (日报 / 周回顾)', href: '/report', icon: Clock3, group: '目标与关键成果法 OKR' },
+      { name: '日报查看',          href: '/report/view',       icon: FileText,       group: '目标与关键成果法 OKR' },
+      // 经营推演 (FP&A 引擎: 成本中心 BSC + OKR 驱动交付基线; 高亮稳定归事半, 不弹跳 Tandem)
+      { name: 'FP&A 经营推演',     href: '/okr/fpa',          icon: Building2,      group: '经营推演 FP&A' },
       // 分析洞察
       { name: 'AI 智能信号',       href: '/insights',         icon: SparklesAlias,  group: '分析洞察' },
       { name: '故事链 provenance', href: '/story-chain',      icon: Network,        group: '分析洞察' },
@@ -269,15 +271,14 @@ export const NAV_MODULES: NavModule[] = [
   {
     id: 'flow',
     label: '流程',
-    fullLabel: '流程 · 审批与工作流',
-    tagline: '日常事务自动跑, 把时间还给思考',
+    fullLabel: '流程 · 流程中心',
+    tagline: '流程模型、业务绑定和审批事务统一处理',
     icon: ListChecks,
     visibleTo: ['employee', 'manager', 'steward', 'admin', 'champion', 'owner'],
     // /calendar 已提为顶级「日程」模块 (高频独立)
     pathPrefixes: ['/approvals', '/workflows'],
     items: [
-      { name: '审批流',  href: '/approvals',  icon: ClipboardCheck },
-      { name: '工作流',  href: '/workflows',  icon: Workflow },
+      { name: '流程中心', href: '/approvals', icon: ClipboardCheck },
     ],
   },
 
@@ -492,11 +493,12 @@ export const NAV_MODULES: NavModule[] = [
         name: '内容管理',
         href: '/admin/intranet',
         icon: Megaphone,
-        visibleTo: ['admin', 'champion', 'intranet_editor'],
+        visibleTo: ['admin', 'champion', 'intranet_editor', 'owner'],
         tabs: [
           { name: 'Intranet 编辑', href: '/admin/intranet', visibleTo: ['admin', 'champion', 'intranet_editor'] },
           { name: 'Launchpad 管理', href: '/admin/launchpad', visibleTo: ['admin', 'champion'] },
           { name: '移动端功能', href: '/admin/mobile-features', visibleTo: ['admin', 'owner'] },
+          { name: '隐私政策', href: '/admin/legal', visibleTo: ['admin', 'owner'] },
           { name: 'Baseline', href: '/admin/baseline', visibleTo: ['admin', 'champion'] },
         ],
       },
@@ -645,4 +647,24 @@ export function activeModuleId(pathname: string | null | undefined): string {
     }
   }
   return bestId;
+}
+
+/**
+ * Pick the single active href from sibling links. The longest matching href wins,
+ * so parent links such as /persona do not stay active on /persona/training.
+ */
+export function activeHref(
+  hrefs: readonly string[],
+  pathname: string | null | undefined,
+  fullPath?: string | null | undefined,
+): string | undefined {
+  if (!pathname) return undefined;
+  const pathWithQuery = fullPath ?? pathname;
+  return hrefs
+    .filter((href) => {
+      if (href === '/') return pathWithQuery === '/';
+      if (href.includes('?')) return pathWithQuery === href;
+      return pathname === href || pathname.startsWith(href + '/');
+    })
+    .sort((a, b) => b.length - a.length)[0];
 }

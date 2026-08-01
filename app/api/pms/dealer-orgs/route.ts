@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requirePmsAuth, type PmsAuthResult } from '@/lib/pms/pms-auth';
+import { getStore } from '@/lib/storage/repository';
 import {
   upsertDealerProfile,
   getDealerProfile,
@@ -19,11 +20,13 @@ import {
   listQualifications,
   decideQualification,
 } from '@/lib/pms/dealer-org-service';
+import { mergeDealerProfilesWithOrganizations } from '@/lib/pms/dealer-options';
 import {
-  isYonyouVendorConfigured,
-  listYonyouVendorDealerProfiles,
-  YonyouVendorRequestError,
-} from '@/lib/integrations/yonyou-vendor';
+  isYonyouCustomerConfigured,
+  listYonyouCustomerCategories,
+  listYonyouCustomerDealerProfiles,
+  YonyouCustomerRequestError,
+} from '@/lib/integrations/yonyou-customer';
 import {
   YonyouTokenConfigError,
   YonyouTokenRequestError,
@@ -62,29 +65,63 @@ export async function GET(req: NextRequest) {
 
     if (searchParams.get('source') === 'ys') {
       if (!auth.isInternal) {
-        return NextResponse.json({ error: 'forbidden: YS vendor source requires internal role' }, { status: 403 });
+        return NextResponse.json({ error: 'forbidden: YS customer source requires internal role' }, { status: 403 });
       }
-      if (!isYonyouVendorConfigured()) {
+      if (!isYonyouCustomerConfigured()) {
         return NextResponse.json({
           error: 'YONSUITE_API_BASE, YONSUITE_APP_KEY and YONSUITE_APP_SECRET are required',
         }, { status: 503 });
       }
       const pageIndex = searchParams.get('pageIndex') ? parseInt(searchParams.get('pageIndex')!) : 1;
       const pageSize = searchParams.get('pageSize') ? parseInt(searchParams.get('pageSize')!) : 50;
-      const result = await listYonyouVendorDealerProfiles({
+      const includeStopped = searchParams.get('includeStopped') === '1';
+      const keyword = (searchParams.get('q') || '').trim();
+      const customerClassCodes = (searchParams.get('customerClassCodes') || '')
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .slice(0, 50);
+      const classCodes = customerClassCodes.length
+        ? customerClassCodes
+        : [searchParams.get('customerClassCode') || undefined];
+      const keywordLooksLikeCode = /^[A-Za-z0-9_.\/-]+$/.test(keyword);
+      const searchVariants = keyword
+        ? (keywordLooksLikeCode ? [{ code: keyword }, { name: keyword }] : [{ name: keyword }, { code: keyword }])
+        : [{
+          code: searchParams.get('code') || undefined,
+          name: searchParams.get('name') || undefined,
+        }];
+      const listOptions = {
         pageIndex,
         pageSize,
-        code: searchParams.get('code') || undefined,
+        stopStatus: includeStopped ? undefined : false,
         pubts: searchParams.get('pubts') || undefined,
+      };
+      const results = await Promise.all(classCodes.flatMap((customerClassCode) => (
+        searchVariants.map((variant) => listYonyouCustomerDealerProfiles({
+          ...listOptions,
+          ...variant,
+          customerClassCode,
+        }))
+      )));
+      const result = results[0];
+      const shouldMergeProfiles = customerClassCodes.length > 1 || searchVariants.length > 1;
+      const profiles = shouldMergeProfiles
+        ? Array.from(new Map(results.flatMap((item) => item.profiles).map((profile) => [profile.id, profile])).values()).slice(0, pageSize)
+        : result.profiles;
+      const categories = await listYonyouCustomerCategories({
+        pageIndex: 1,
+        pageSize: 5000,
       });
       return NextResponse.json({
         source: 'ys',
-        profiles: result.profiles,
+        profiles,
+        categories,
         page: {
-          pageIndex: result.pageIndex,
-          pageSize: result.pageSize,
-          pageCount: result.pageCount,
-          recordCount: result.recordCount,
+          pageIndex,
+          pageSize,
+          pageCount: shouldMergeProfiles ? 1 : result.pageCount,
+          recordCount: shouldMergeProfiles ? profiles.length : result.recordCount,
           pubts: result.pubts,
         },
       });
@@ -107,13 +144,15 @@ export async function GET(req: NextRequest) {
       limit: searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 50,
       offset: searchParams.get('offset') ? parseInt(searchParams.get('offset')!) : 0,
     });
-    return NextResponse.json({ profiles });
+    const organizations = await getStore().organizations.list({ tenantId: auth.tenantId });
+    const enrichedProfiles = mergeDealerProfilesWithOrganizations(profiles, organizations);
+    return NextResponse.json({ profiles: enrichedProfiles });
   } catch (error: any) {
     console.error('Dealer-orgs GET error:', error);
     if (error instanceof YonyouTokenConfigError) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
-    if (error instanceof YonyouTokenRequestError || error instanceof YonyouVendorRequestError) {
+    if (error instanceof YonyouTokenRequestError || error instanceof YonyouCustomerRequestError) {
       return NextResponse.json({
         error: error.message,
         code: error.details.code,

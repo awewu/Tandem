@@ -19,6 +19,7 @@ import { readFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import postgres from 'postgres';
+import { loadPmsEnv } from './pms-env.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(__dirname, '..');
@@ -43,7 +44,7 @@ function loadEnv() {
   }
 }
 
-loadEnv();
+loadPmsEnv(projectRoot);
 
 const DDL = `
 ALTER TABLE pms_performance_targets ADD COLUMN IF NOT EXISTS "dimension" text NOT NULL DEFAULT 'org';

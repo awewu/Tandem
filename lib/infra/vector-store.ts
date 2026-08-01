@@ -19,6 +19,7 @@ import { sql } from 'drizzle-orm';
 import { db } from './drizzle-client';
 import { embed, isEmbeddingConfigured, getEmbeddingModelInfo } from './embedding';
 import { logger } from './logger';
+import { getShouchaoVectorDb } from '@/lib/shouchao/store';
 
 export type VectorEntityType = 'memory' | 'shouchao_note' | 'shouchao_row';
 
@@ -26,7 +27,18 @@ export type VectorEntityType = 'memory' | 'shouchao_note' | 'shouchao_row';
 export const EXPECTED_DIM = Number(process.env.EMBEDDING_DIM ?? '1536');
 
 // pgvector 就绪探测缓存 (进程级; 迁移后重启生效)。
-let _pgvectorReady: boolean | null = null;
+const _pgvectorReady = new Map<string, boolean>();
+
+type VectorDb = Pick<typeof db, 'execute'>;
+
+function isShouchaoEntity(entityType: VectorEntityType): boolean {
+  return entityType === 'shouchao_note' || entityType === 'shouchao_row';
+}
+
+function dbForEntity(entityType: VectorEntityType): { key: string; db: VectorDb } {
+  const shouchaoDb = isShouchaoEntity(entityType) ? getShouchaoVectorDb() : null;
+  return shouchaoDb ? { key: 'shouchao', db: shouchaoDb } : { key: 'tandem', db };
+}
 
 /** 把向量数组转成 pgvector 字面量 '[1,2,3]' (供 ::vector 转换)。 */
 export function formatVectorLiteral(v: number[]): string {
@@ -47,27 +59,29 @@ function rowsOf(result: unknown): Array<Record<string, unknown>> {
 }
 
 /** embeddings 表是否存在 (迁移已跑)。任何异常 (无 DB/无表) → false。 */
-async function isPgvectorReady(): Promise<boolean> {
-  if (_pgvectorReady !== null) return _pgvectorReady;
+async function isPgvectorReady(entityType: VectorEntityType): Promise<boolean> {
+  const target = dbForEntity(entityType);
+  const cached = _pgvectorReady.get(target.key);
+  if (cached !== undefined) return cached;
   try {
-    const res = await db.execute(sql`SELECT to_regclass('public.embeddings') AS t`);
+    const res = await target.db.execute(sql`SELECT to_regclass('public.embeddings') AS t`);
     const t = rowsOf(res)[0]?.t;
-    _pgvectorReady = t != null;
+    _pgvectorReady.set(target.key, t != null);
   } catch {
-    _pgvectorReady = false;
+    _pgvectorReady.set(target.key, false);
   }
-  return _pgvectorReady;
+  return _pgvectorReady.get(target.key) ?? false;
 }
 
 /** 测试/迁移后手动清缓存。 */
 export function __resetVectorStoreProbe(): void {
-  _pgvectorReady = null;
+  _pgvectorReady.clear();
 }
 
 /** 统一开关: embedding 已配 且 pgvector 表就绪。 */
-export async function isVectorStoreEnabled(): Promise<boolean> {
+export async function isVectorStoreEnabled(entityType: VectorEntityType = 'memory'): Promise<boolean> {
   if (!(await isEmbeddingConfigured())) return false;
-  return isPgvectorReady();
+  return isPgvectorReady(entityType);
 }
 
 export interface UpsertEmbeddingInput {
@@ -84,7 +98,7 @@ export interface UpsertEmbeddingInput {
  * id = `${entityType}:${entityId}` 保证同实体幂等 upsert。
  */
 export async function upsertEmbedding(input: UpsertEmbeddingInput): Promise<void> {
-  if (!(await isVectorStoreEnabled())) return;
+  if (!(await isVectorStoreEnabled(input.entityType))) return;
   const text = (input.text ?? '').trim();
   if (!text) return;
   const vec = await embed(text);
@@ -100,8 +114,9 @@ export async function upsertEmbedding(input: UpsertEmbeddingInput): Promise<void
   const model = info?.model ?? 'unknown';
   const id = `${input.entityType}:${input.entityId}`;
   const lit = formatVectorLiteral(vec);
+  const target = dbForEntity(input.entityType);
   try {
-    await db.execute(sql`
+    await target.db.execute(sql`
       INSERT INTO embeddings (id, tenant_id, owner_id, entity_type, entity_id, model, dim, vec, updated_at)
       VALUES (${id}, ${input.tenantId}, ${input.ownerId ?? null}, ${input.entityType}, ${input.entityId}, ${model}, ${vec.length}, ${lit}::vector, now())
       ON CONFLICT (id) DO UPDATE SET
@@ -119,9 +134,10 @@ export async function upsertEmbedding(input: UpsertEmbeddingInput): Promise<void
 
 /** 删除一条向量 (实体物删/软删时调, 幂等)。 */
 export async function deleteEmbedding(entityType: VectorEntityType, entityId: string): Promise<void> {
-  if (!(await isPgvectorReady())) return;
+  if (!(await isPgvectorReady(entityType))) return;
+  const target = dbForEntity(entityType);
   try {
-    await db.execute(sql`DELETE FROM embeddings WHERE id = ${`${entityType}:${entityId}`}`);
+    await target.db.execute(sql`DELETE FROM embeddings WHERE id = ${`${entityType}:${entityId}`}`);
   } catch (err) {
     logger.warn({ entityType, entityId, err: (err as Error).message }, '[vector-store] delete failed');
   }
@@ -149,7 +165,7 @@ export interface VectorHit {
  * 返回 [] = 可用但零命中。
  */
 export async function searchEmbeddings(input: SearchEmbeddingsInput): Promise<VectorHit[] | null> {
-  if (!(await isVectorStoreEnabled())) return null;
+  if (!(await isVectorStoreEnabled(input.entityType))) return null;
   const q = (input.queryText ?? '').trim();
   if (!q) return [];
   const qvec = await embed(q);
@@ -161,8 +177,9 @@ export async function searchEmbeddings(input: SearchEmbeddingsInput): Promise<Ve
   const lit = formatVectorLiteral(qvec);
   const ownerCond =
     input.ownerId != null ? sql`AND owner_id = ${input.ownerId}` : sql``;
+  const target = dbForEntity(input.entityType);
   try {
-    const res = await db.execute(sql`
+    const res = await target.db.execute(sql`
       SELECT entity_id, 1 - (vec <=> ${lit}::vector) AS sim
       FROM embeddings
       WHERE tenant_id = ${input.tenantId}

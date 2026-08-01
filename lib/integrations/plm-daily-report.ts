@@ -4,6 +4,10 @@ import { getStore, type TandemStore } from '@/lib/storage/repository';
 import type { AuthContext } from '@/lib/auth/require-auth';
 import type { CheckIn, Confidence, KeyResult } from '@/lib/types/okr-tti';
 import type { DailyReport, DailyReportEntry, DailyReportSourceSystem } from '@/lib/types/daily-report';
+import {
+  notifyDailyReportCheckInToDepartment,
+  type DailyReportDepartmentNotificationResult,
+} from '@/lib/daily-report/department-im-notify';
 
 const SCHEMA_VERSION = 'plm.daily-report.v1';
 const SOURCE_SYSTEM: DailyReportSourceSystem = 'innovation-studio';
@@ -43,6 +47,7 @@ export interface PlmDailyReportSyncResult {
   reportDate: string;
   entryCount: number;
   updated: boolean;
+  imNotifications: DailyReportDepartmentNotificationResult[];
 }
 
 interface PreparedEntry {
@@ -344,6 +349,19 @@ export async function syncPlmDailyReport(
   const report = store.withMutationTransaction
     ? await store.withMutationTransaction(mutate)
     : await mutate();
+  const imNotifications: DailyReportDepartmentNotificationResult[] = [];
+  for (const entry of report.entries) {
+    if (!entry.krId || !entry.checkInId) continue;
+    const checkIn = await store.checkIns.get(entry.checkInId);
+    if (!checkIn) continue;
+    imNotifications.push(await notifyDailyReportCheckInToDepartment({
+      tenantId: auth.tenantId,
+      authorId: auth.userId,
+      checkIn,
+      source: 'plm',
+      reportDate: report.reportDate,
+    }));
+  }
 
   return {
     ok: true,
@@ -352,6 +370,7 @@ export async function syncPlmDailyReport(
     reportDate: report.reportDate,
     entryCount: report.entries.length,
     updated: Boolean(existing),
+    imNotifications,
   };
 }
 

@@ -2,11 +2,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import pg from 'pg';
 import xlsx from 'xlsx';
+import { randomBytes, scryptSync } from 'node:crypto';
 
 const DEFAULT_EXCEL_PATH = 'C:/Users/E00949/Desktop/人员信息管理_列表_0721.xlsx';
 const TENANT_ID = 'default';
 const DEPT_COLLECTION = 'org_hr_depts';
 const EXTRAS_COLLECTION = 'auth_user_extras';
+const PASSWORD_COLLECTION = 'auth_password_hashes';
 const PROTECTED_EMAILS = new Set([
   'admin@rhenext.com',
   'admin@tandem.local',
@@ -17,6 +19,10 @@ const PROTECTED_EMAILS = new Set([
 const argv = process.argv.slice(2);
 const args = new Set(argv);
 const APPLY = args.has('--apply');
+const DEFAULT_PASSWORD = argv.find((arg) => arg.startsWith('--default-password='))?.slice('--default-password='.length)
+  ?? process.env.TANDEM_IMPORTED_USER_DEFAULT_PASSWORD
+  ?? process.env.DEFAULT_USER_PASSWORD
+  ?? '';
 const EXCEL_PATH = argv.find((arg) => arg.startsWith('--file='))?.slice('--file='.length) ?? DEFAULT_EXCEL_PATH;
 const DISABLE_SCOPE_ROOTS = argv
   .filter((arg) => arg.startsWith('--disable-root='))
@@ -134,6 +140,12 @@ function makeId(prefix) {
   return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function hashPassword(password) {
+  const salt = randomBytes(16).toString('hex');
+  const hash = scryptSync(password, salt, 64, { N: 16384, r: 8, p: 1 }).toString('hex');
+  return `scrypt$16384$8$1$${salt}$${hash}`;
+}
+
 function deptPathOf(dept, byId) {
   const parts = [dept.name];
   let cur = dept.parentId ? byId.get(dept.parentId) : null;
@@ -158,6 +170,9 @@ function shallowDiff(before, patch) {
 async function main() {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) throw new Error('DATABASE_URL not set');
+  if (APPLY && !DEFAULT_PASSWORD) {
+    throw new Error('New users need a default password. Set TANDEM_IMPORTED_USER_DEFAULT_PASSWORD or pass --default-password=...');
+  }
 
   const people = parseWorkbook(EXCEL_PATH);
   const client = new pg.Client({ connectionString: databaseUrl, connectionTimeoutMillis: 8000 });
@@ -366,6 +381,10 @@ async function main() {
       await client.query(
         'INSERT INTO "User" (id,email,name,roles,disabled,"tenantId","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,NOW())',
         [item.id, item.person.email, item.person.name, item.roles, item.patch.disabled, TENANT_ID],
+      );
+      await client.query(
+        'INSERT INTO "KvStore" (collection,id,data,"tenantId","createdAt","updatedAt") VALUES ($1,$2,$3,$4,NOW(),NOW()) ON CONFLICT (collection,id) DO UPDATE SET data = EXCLUDED.data, "updatedAt" = NOW()',
+        [PASSWORD_COLLECTION, item.id, { id: item.id, hash: hashPassword(DEFAULT_PASSWORD), historyHashes: [] }, TENANT_ID],
       );
       const extras = {
         id: item.id,

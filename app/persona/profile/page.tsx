@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Users, ArrowLeft, Loader2, Brain, BarChart2, Zap } from 'lucide-react';
 import type { Persona } from '@/lib/types/persona';
-import { useCurrentUserId } from '@/lib/hooks/use-current-user';
+import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { STAGE_META } from '@/lib/persona/stage-meta';
 
 const COMM_LABEL: Record<string, string> = {
@@ -20,7 +20,8 @@ const SPEED_LABEL: Record<string, string> = {
 };
 
 export default function ProfilePage() {
-  const userId = useCurrentUserId();
+  const { user } = useCurrentUser();
+  const userId = user?.id ?? '';
   const [persona, setPersona] = useState<Persona | null>(null);
   const [status, setStatus] = useState<'loading' | 'ok' | 'error'>('loading');
 

@@ -75,6 +75,36 @@ describe('list · ACL 过滤', () => {
   });
 });
 
+describe('search · 共享资料搜索', () => {
+  it('按名称搜索当前共享范围内可读资料', async () => {
+    const found = await svc.search({ query: 'a.', tenantId: TENANT, rootId: 'deptA' }, alice);
+    expect(found.map((f) => f.id)).toEqual(['fileA']);
+  });
+
+  it('跨部门用户搜不到无权共享资料', async () => {
+    const found = await svc.search({ query: 'a.', tenantId: TENANT, rootId: 'share' }, bob);
+    expect(found.map((f) => f.id)).not.toContain('fileA');
+  });
+
+  it('管理员可在公司共享区搜索全部组织资料', async () => {
+    const found = await svc.search({ query: 'a.', tenantId: TENANT, rootId: 'share' }, admin);
+    expect(found.map((f) => f.id)).toContain('fileA');
+  });
+
+  it('搜索会匹配所在路径, 不是只改页面标题', async () => {
+    await repo.create(folder({ id: 'hotWater', name: '热水资料', parentId: 'deptA', ownerId: '__company__', isFolder: true, storageKey: '', permissions: {} }));
+    await repo.create(folder({ id: 'hotWaterFile', name: '销售达成.xlsx', parentId: 'hotWater', ownerId: 'u_alice', isFolder: false, storageKey: 'k/hot-water', permissions: {} }));
+
+    const found = await svc.search({ query: '热水', tenantId: TENANT, rootId: 'share' }, alice);
+    expect(found.map((f) => f.id)).toContain('hotWaterFile');
+  });
+
+  it('rootId 限制搜索范围, 不把个人私有根文件混入共享资料', async () => {
+    const found = await svc.search({ query: 'private', tenantId: TENANT, rootId: 'share' }, alice);
+    expect(found).toHaveLength(0);
+  });
+});
+
 describe('getById / requestDownload · 读权', () => {
   it('跨部门读被拒 (Forbidden)', async () => {
     await expect(svc.getById('fileA', bob)).rejects.toThrow(/permission/i);
@@ -120,9 +150,16 @@ describe('delete / move / rename · 写权', () => {
   it('管理员可删除空文件夹', async () => {
     await expect(svc.delete('emptyFolder', admin)).resolves.toBeUndefined();
   });
+  it('只能移动自己创建的文件或文件夹', async () => {
+    await expect(svc.move('fileA', 'emptyFolder', alice)).rejects.toThrow(/owner/i);
+    await expect(svc.move('fileA', 'emptyFolder', admin)).rejects.toThrow(/owner/i);
+    expect((await svc.move('emptyFolder', null, alice)).parentId).toBeNull();
+  });
   it('不能把文件夹移动到自己或自己的子文件夹', async () => {
-    await expect(svc.move('deptA', 'deptA', admin)).rejects.toThrow(/itself/i);
-    await expect(svc.move('deptA', 'emptyFolder', admin)).rejects.toThrow(/child folder/i);
+    await repo.create(folder({ id: 'childFolder', name: '子文件夹', parentId: 'emptyFolder', ownerId: 'u_alice', isFolder: true, storageKey: '', permissions: {} }));
+
+    await expect(svc.move('emptyFolder', 'emptyFolder', alice)).rejects.toThrow(/itself/i);
+    await expect(svc.move('emptyFolder', 'childFolder', alice)).rejects.toThrow(/child folder/i);
   });
   it('rename 需写权', async () => {
     await expect(svc.rename('fileA', 'b.txt', bob)).rejects.toThrow(/permission/i);
@@ -130,6 +167,18 @@ describe('delete / move / rename · 写权', () => {
   });
   it('管理员可写跨部门文件', async () => {
     expect((await svc.rename('fileA', 'admin.txt', admin)).name).toBe('admin.txt');
+  });
+  it('人员文件夹由组织架构生成, 不允许改名', async () => {
+    await repo.create(folder({
+      id: 'aliceHome',
+      name: 'Alice 的工作区',
+      parentId: 'deptA',
+      ownerId: 'u_alice',
+      nodeRole: 'personal_home',
+      permissions: { read: ['user:u_alice'], write: ['user:u_alice'] },
+    }));
+
+    await expect(svc.rename('aliceHome', '新名字', admin)).rejects.toThrow(/Personal home/i);
   });
 });
 

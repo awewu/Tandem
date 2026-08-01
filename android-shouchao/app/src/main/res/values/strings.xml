@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">&#x642d;&#x5b50;&#x624b;&#x6284;</string>
+    <string name="title_activity_main">&#x642d;&#x5b50;&#x624b;&#x6284;</string>
+    <string name="package_name">local.shouchao.mobile</string>
+    <string name="custom_url_scheme">local.shouchao.mobile</string>
+</resources>

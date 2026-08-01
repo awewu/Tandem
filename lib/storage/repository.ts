@@ -186,11 +186,20 @@ export interface TandemStore {
   /** LLM 模型切换偏好 (中央AI + 个人AI) */
   llmPreferences: Repository<import('../types/llm-preference').LlmPreference>;
 
+  /** 日报查看页个人偏好 (关注的人等) */
+  reportViewPreferences: Repository<import('../types/report-view-preference').ReportViewPreference>;
+
+  /** 周报/月报发布记录 */
+  reportSummaries: Repository<import('../types/report-summary').ReportSummary>;
+
   /** 企业 AI 治理策略 (中央AI token 开关 / 配额 / 白名单) */
   tenantAiPolicies: Repository<import('../types/tenant-ai-policy').TenantAiPolicy>;
 
   /** 移动端 App 功能开关 (PC 管理后台控制 Android/iOS 可见功能) */
   mobileFeatureConfigs: Repository<import('../types/mobile-features').MobileFeatureConfig>;
+
+  /** 法务文档 (隐私政策等, Admin UI 热更新; 手抄 App 与 Tandem 共用公开页面) */
+  legalDocuments: Repository<import('../types/legal-document').LegalDocument>;
 
   /** WorkspaceManifest (tandem.workspace.md declarative governance, 借鉴 CLAUDE.md/AGENTS.md) */
   workspaceManifests: Repository<import('../types/workspace-manifest').WorkspaceManifest>;
@@ -246,6 +255,16 @@ export interface TandemStore {
 
   /** 通用审批单 (采购/请假等, KvStore-based) */
   approvals: Repository<import('../types/approval').Approval>;
+
+  /** 可配置流程中心 (表单 / 模型 / 业务绑定 / 实例 / 待办 / 抄送) */
+  workflowForms: Repository<import('../types/workflow').WorkflowFormTemplate>;
+  workflowTemplates: Repository<import('../types/workflow').WorkflowTemplate>;
+  workflowBindings: Repository<import('../types/workflow').BusinessWorkflowBinding>;
+  workflowFormInstances: Repository<import('../types/workflow').BusinessFormInstance>;
+  workflowInstances: Repository<import('../types/workflow').WorkflowInstance>;
+  workflowTasks: Repository<import('../types/workflow').WorkflowTask>;
+  workflowTaskForms: Repository<import('../types/workflow').WorkflowTaskForm>;
+  workflowCcs: Repository<import('../types/workflow').WorkflowCc>;
 
   /** 会议室预订 (KvStore-based) */
   meetingBookings: Repository<import('../types/meeting-booking').MeetingBooking>;

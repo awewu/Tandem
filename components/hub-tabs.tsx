@@ -15,7 +15,7 @@ import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useCurrentUser, useAuthStore } from '@/lib/hooks/use-current-user';
-import { NAV_MODULES, activeModuleId, isVisible, resolveNavRoles, type Role } from './nav-modules';
+import { NAV_MODULES, activeHref, activeModuleId, isVisible, resolveNavRoles, type Role } from './nav-modules';
 
 export default function HubTabs() {
   const pathname = usePathname() ?? '';
@@ -28,14 +28,16 @@ export default function HubTabs() {
 
   const mod = NAV_MODULES.find((m) => m.id === activeModuleId(pathname));
   const hubs = (mod?.items ?? []).filter((it) => Array.isArray(it.tabs) && it.tabs.length > 0);
-  // 选中当前 Hub: 先按 tab href 精确匹配, 再按前缀
-  const exact = hubs.find((h) => h.tabs!.some((t) => t.href === pathname));
-  const prefixed = hubs.find((h) =>
-    h.tabs!.some((t) => pathname.startsWith(t.href + '/') || pathname.startsWith(t.href + '?')),
-  );
-  const hub = exact ?? prefixed;
+  const hubMatches = hubs
+    .map((h) => ({
+      hub: h,
+      href: activeHref(h.tabs!.map((t) => t.href), pathname),
+    }))
+    .filter((match) => match.href);
+  const hub = hubMatches.sort((a, b) => b.href!.length - a.href!.length)[0]?.hub;
   // 按角色过滤 tab (与 SubSidebar 一致, 不越权显示)
   const visibleTabs = (hub?.tabs ?? []).filter((t) => isVisible(t.visibleTo, userRoles));
+  const activeTabHref = activeHref(visibleTabs.map((t) => t.href), pathname);
 
   // 横向滚动可达性: 检测左右是否还有溢出, 用边缘渐隐提示「还能滑」
   const scrollRef = useRef<HTMLElement>(null);
@@ -79,7 +81,7 @@ export default function HubTabs() {
       />
       <nav ref={scrollRef} className="flex gap-0 overflow-x-auto" role="tablist" aria-label={`${hub.name} 子页`}>
         {visibleTabs.map((t) => {
-          const active = pathname === t.href || pathname.startsWith(t.href + '/');
+          const active = t.href === activeTabHref;
           return (
             <Link
               key={t.href}

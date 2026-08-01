@@ -8,7 +8,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { withErrorHandler } from '@/lib/api/error-middleware';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { getStore } from '@/lib/storage/repository';
-import { encrypt } from '@/lib/infra/crypto';
+import { decrypt, encrypt } from '@/lib/infra/crypto';
 import { getAiSettings } from '@/lib/settings/ai-settings';
 import { neteaseCalendarSyncStateId } from '@/lib/calendar/sync-state';
 import {
@@ -19,6 +19,7 @@ import {
 } from '@/lib/infra/email';
 import { withApiLog } from '@/lib/api-log/with-api-log';
 import type { PersonalEmailCredentials } from '@/lib/email/global-email-config';
+import { verifyPersonalEmailCredentials } from '@/lib/mail/personal-email-verification';
 
 const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
   const auth = requireAuth(req);
@@ -45,6 +46,7 @@ const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
       user: creds.imapUser,
     } : null,
     updatedAt: creds.updatedAt,
+    verifiedAt: creds.verifiedAt,
   });
 });
 
@@ -56,7 +58,10 @@ const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
 
   const body = await req.json().catch(() => ({}));
   // 用户只能填写邮箱地址与密码; 主机/端口/SSL 由系统强制 (不接受客户端值).
-  const { smtpUser, smtpPass, imapUser, imapPass } = body;
+  const smtpUser = typeof body.smtpUser === 'string' ? body.smtpUser.trim() : '';
+  const smtpPass = typeof body.smtpPass === 'string' ? body.smtpPass : '';
+  const imapUser = typeof body.imapUser === 'string' ? body.imapUser.trim() : '';
+  const imapPass = typeof body.imapPass === 'string' ? body.imapPass : '';
   const kvRepo = getStore().userEmailCredentials;
   const existing = await kvRepo.get(auth.userId);
 
@@ -76,7 +81,30 @@ const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
 
   // IMAP 用户名默认与 SMTP 邮箱一致.
   const resolvedImapUser = imapUser || smtpUser;
-  const resolvedImapPass = imapPass || smtpPass;
+  const resolvedSmtpPass = smtpPass || (existing?.smtpPassEncrypted ? decrypt(existing.smtpPassEncrypted) : '');
+  const resolvedImapPass = imapPass
+    || smtpPass
+    || (existing?.imapPassEncrypted ? decrypt(existing.imapPassEncrypted) : resolvedSmtpPass);
+
+  const verificationError = await verifyPersonalEmailCredentials({
+    smtp: {
+      host: FIXED_SMTP_HOST,
+      port: smtpPort,
+      secure: true,
+      user: smtpUser,
+      pass: resolvedSmtpPass,
+    },
+    imap: {
+      host: FIXED_IMAP_HOST,
+      port: imapPort,
+      secure: true,
+      user: resolvedImapUser,
+      pass: resolvedImapPass,
+    },
+  });
+  if (verificationError) {
+    return NextResponse.json({ error: verificationError }, { status: 400 });
+  }
 
   const creds: PersonalEmailCredentials = {
     id: auth.userId,
@@ -94,11 +122,12 @@ const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
       : (existing?.imapPassEncrypted ?? existing!.smtpPassEncrypted),
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
+    verifiedAt: now,
   };
 
   await kvRepo.create(creds);
 
-  return NextResponse.json({ ok: true, message: '凭据已保存' });
+  return NextResponse.json({ ok: true, message: '邮箱账号已验证并保存' });
 });
 
 export const POST = withApiLog(POSTApiHandler, { route: '/api/mail/credentials' });

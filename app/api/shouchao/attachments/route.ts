@@ -4,7 +4,7 @@
  *   POST /api/shouchao/attachments   (multipart)  file=<图片/文件>, noteId?=<关联笔记>
  *     → { ok, attachment: { id, name, mime, size, url } }
  *
- * 代理上传 (浏览器直连不到内网 MinIO): API 收文件 → putObject 到 BUCKET_ATTACHMENTS
+ * 代理上传 (浏览器直连不到内网 MinIO): API 收文件 → putObject 到手抄附件桶
  * → 落一条 ShouchaoAttachment 元数据 → 返回稳定 serving URL /api/shouchao/attachments/{id}.
  * 严格 ownerId 隔离; 未配置对象存储时诚实报错, 不伪造成功.
  */
@@ -15,7 +15,7 @@ import { withErrorHandler } from '@/lib/api/error-middleware';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { createAttachment } from '@/lib/shouchao/service';
 import { generateId } from '@/lib/storage/repository';
-import { getS3, putObject, BUCKET_ATTACHMENTS } from '@/lib/infra/s3-client';
+import { getS3, putObject, BUCKET_SHOUCHAO_ATTACHMENTS } from '@/lib/infra/s3-client';
 import { withApiLog } from '@/lib/api-log/with-api-log';
 
 export const runtime = 'nodejs';
@@ -66,7 +66,7 @@ const POSTApiHandler = withErrorHandler(async (req: NextRequest) => {
 
   const bytes = new Uint8Array(await file.arrayBuffer());
   try {
-    await putObject(storageKey, bytes, { bucket: BUCKET_ATTACHMENTS, contentType: mime });
+    await putObject(storageKey, bytes, { bucket: BUCKET_SHOUCHAO_ATTACHMENTS, contentType: mime });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'unknown';
     return NextResponse.json({ ok: false, error: `上传失败：${msg}` }, { status: 502 });

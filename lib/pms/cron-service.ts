@@ -142,7 +142,12 @@ export async function runPmsDailyScan(tenantId: string, now = new Date()): Promi
   targetsRolledUp: number;
 }> {
   // 三阶回顾扫描 (30/60/90): blue 提醒 · yellow 预警 · red 自动释放公海
-  const pool = await scanExpiringOpportunities({ tenantId, autoRelease: true, actorId: '__system__' });
+  const pool = await scanExpiringOpportunities({
+    tenantId,
+    autoRelease: true,
+    actorId: '__system__',
+    protectionDays: 0,
+  });
   const qualificationAlerts = await scanQualificationExpiry(tenantId, now);
   const warrantyAlerts = await scanWarrantyExpiry(tenantId, now);
   const escalated = await escalateOverdueAlerts(tenantId, now);

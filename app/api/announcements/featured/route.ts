@@ -13,7 +13,7 @@ import {
 } from '@/lib/intranet/featured';
 import { withApiLog } from '@/lib/api-log/with-api-log';
 
-export const dynamic = 'force-static';
+export const dynamic = 'force-dynamic';
 
 async function GETApiHandler() {
   return NextResponse.json({

@@ -13,7 +13,7 @@ import {
   listChannelMembers, addChannelMember, removeChannelMember, setMemberRole, updateMemberSettings,
   getChannelIfVisible,
 } from '@/lib/im/service';
-import { requireAuth, requirePermission } from '@/lib/auth/require-auth';
+import { requireAuth } from '@/lib/auth/require-auth';
 import { withApiLog } from '@/lib/api-log/with-api-log';
 
 async function GETApiHandler(
@@ -24,9 +24,8 @@ async function GETApiHandler(
   const auth = requireAuth(req);
   if (auth instanceof NextResponse) return auth;
   const { id } = await params;
-  // 访问控制: 成员可查看; 组织管理员可只读巡检本租户成员名单.
-  const canViewAll = (await requirePermission(auth, 'organization.manage')) === null;
-  const channel = await getChannelIfVisible(id, auth.userId, auth.tenantId, canViewAll);
+  // 访问控制: 只有频道成员可查看; 管理员不再拥有 IM 只读巡检特权.
+  const channel = await getChannelIfVisible(id, auth.userId, auth.tenantId);
   if (!channel) return NextResponse.json({ error: 'not found' }, { status: 404 });
   const members = await listChannelMembers(id);
   return NextResponse.json({ members });

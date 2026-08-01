@@ -21,6 +21,7 @@ import {
   type ImMemberRole,
   type ImAttachment,
 } from '../types/im';
+import { normalizeOrgChannelName } from './channel-name';
 
 // ---------------------------------------------------------------------------
 // SSE bus (单进程内)
@@ -34,7 +35,8 @@ export type ImBusEvent =
   | { type: 'message'; channelId: string; message: ImMessage }
   | { type: 'message_updated'; channelId: string; message: ImMessage }
   | { type: 'channel_updated'; channelId: string; channel: ImChannel }
-  | { type: 'unread_changed'; channelId: string; userId: string; unread: number };
+  | { type: 'unread_changed'; channelId: string; userId: string; unread: number }
+  | { type: 'read_receipt_changed'; channelId: string; userId: string; lastReadAt: string };
 
 export function subscribeIm(handler: (e: ImBusEvent) => void): () => void {
   _bus.on('event', handler);
@@ -140,6 +142,7 @@ export async function listMyChannels(userId: string, tenantId?: string): Promise
   for (const m of memberships) {
     const ch = await store.imChannels.get(m.channelId);
     if (!ch) continue;
+    if (ch.archivedAt) continue;
     // Tenant isolation: drop channels from other tenants.
     if (tenantId && (ch.tenantId ?? 'default') !== tenantId) continue;
     result.push({ ...ch, unread: m.unreadCount, membership: m });
@@ -159,39 +162,8 @@ export async function listMyChannels(userId: string, tenantId?: string): Promise
 export async function listVisibleChannels(
   userId: string,
   tenantId: string | undefined,
-  canViewAll: boolean,
 ): Promise<Array<ImChannel & { unread: number; membership: ImMembership }>> {
-  if (!canViewAll) return listMyChannels(userId, tenantId);
-
-  const store = getStore();
-  const memberships = await store.imMemberships.list({ userId });
-  const membershipByChannel = new Map(memberships.map((m) => [m.channelId, m]));
-  const all = await store.imChannels.list();
-  const result: Array<ImChannel & { unread: number; membership: ImMembership }> = [];
-
-  for (const ch of all) {
-    if (tenantId && (ch.tenantId ?? 'default') !== tenantId) continue;
-    const membership = membershipByChannel.get(ch.id) ?? {
-      id: membershipKey(ch.id, userId),
-      channelId: ch.id,
-      userId,
-      role: 'admin' as const,
-      joinedAt: ch.createdAt,
-      unreadCount: 0,
-      muted: false,
-    };
-    result.push({ ...ch, unread: membership.unreadCount, membership });
-  }
-
-  result.sort((a, b) => {
-    const pa = a.membership.pinnedChat ? 1 : 0;
-    const pb = b.membership.pinnedChat ? 1 : 0;
-    if (pb !== pa) return pb - pa;
-    return (b.lastMessageAt ?? b.createdAt).localeCompare(
-      a.lastMessageAt ?? a.createdAt
-    );
-  });
-  return result;
+  return listMyChannels(userId, tenantId);
 }
 
 export async function getChannelMessages(
@@ -220,20 +192,19 @@ export async function getChannelIfMember(
   userId: string,
   tenantId?: string,
 ): Promise<ImChannel | null> {
-  return getChannelIfVisible(channelId, userId, tenantId, false);
+  return getChannelIfVisible(channelId, userId, tenantId);
 }
 
 export async function getChannelIfVisible(
   channelId: string,
   userId: string,
   tenantId?: string,
-  canViewAll = false,
 ): Promise<ImChannel | null> {
   const store = getStore();
   const channel = await store.imChannels.get(channelId);
   if (!channel) return null;
+  if (channel.archivedAt) return null;
   if (tenantId && (channel.tenantId ?? 'default') !== tenantId) return null;
-  if (canViewAll) return channel;
   if (!channel.memberIds.includes(userId)) return null;
   return channel;
 }
@@ -375,12 +346,14 @@ export async function markChannelRead(
   const store = getStore();
   const m = await store.imMemberships.get(membershipKey(channelId, userId));
   if (!m) return;
+  const lastReadAt = new Date().toISOString();
   await store.imMemberships.update(m.id, {
     unreadCount: 0,
-    lastReadAt: new Date().toISOString(),
+    lastReadAt,
     hasUnreadMention: false,
   });
   broadcast({ type: 'unread_changed', channelId, userId, unread: 0 });
+  broadcast({ type: 'read_receipt_changed', channelId, userId, lastReadAt });
 }
 
 // ---------------------------------------------------------------------------
@@ -397,7 +370,7 @@ export async function recallMessage(
   const store = getStore();
   const msg = await store.imMessages.get(messageId);
   if (!msg) throw new Error('message not found');
-  if (msg.deletedAt) throw new Error('already recalled');
+  if (msg.deletedAt) return msg;
 
   const channel = await store.imChannels.get(msg.channelId);
   if (!channel) throw new Error('channel gone');
@@ -480,7 +453,7 @@ export async function addChannelMember(
   return next;
 }
 
-/** 移除成员 (owner/admin 操作; owner 不可被移除) */
+/** 移除成员 (owner/admin 可移除他人; 成员可自己退群) */
 export async function removeChannelMember(
   channelId: string,
   userId: string,
@@ -489,24 +462,43 @@ export async function removeChannelMember(
   const store = getStore();
   const channel = await store.imChannels.get(channelId);
   if (!channel) throw new Error('channel not found');
+  if (channel.archivedAt) throw new Error('channel archived');
+  if (channel.type === 'dm') throw new Error('cannot leave a DM channel');
 
   const op = await store.imMemberships.get(membershipKey(channelId, operatorId));
   const target = await store.imMemberships.get(membershipKey(channelId, userId));
+  const isSelfRemoval = operatorId === userId;
   if (!op) throw new Error('operator not in channel');
-  if (op.role !== 'owner' && op.role !== 'admin' && operatorId !== userId) {
+  if (!target) throw new Error('member not found');
+  if (op.role !== 'owner' && op.role !== 'admin' && !isSelfRemoval) {
     throw new Error('only owner/admin can remove others');
   }
-  if (target?.role === 'owner') throw new Error('cannot remove owner');
+  if (target.role === 'owner' && !isSelfRemoval) throw new Error('cannot remove owner');
 
   const now = new Date().toISOString();
+  const nextMemberIds = channel.memberIds.filter((id) => id !== userId);
+  if (target.role === 'owner' && nextMemberIds.length > 0) {
+    const nextOwner = await pickNextOwner(channelId, nextMemberIds);
+    if (!nextOwner) throw new Error('next owner not found');
+    await store.imMemberships.update(nextOwner.id, { role: 'owner' });
+  }
   await store.imMemberships.delete?.(membershipKey(channelId, userId));
   const next = await store.imChannels.update(channelId, {
-    memberIds: channel.memberIds.filter((id) => id !== userId),
+    memberIds: nextMemberIds,
+    archivedAt: nextMemberIds.length === 0 ? now : channel.archivedAt,
     updatedAt: now,
   });
   if (!next) throw new Error('update failed');
   broadcast({ type: 'channel_updated', channelId, channel: next });
   return next;
+}
+
+async function pickNextOwner(channelId: string, memberIds: string[]): Promise<ImMembership | null> {
+  const store = getStore();
+  const memberships = (await Promise.all(
+    memberIds.map((userId) => store.imMemberships.get(membershipKey(channelId, userId))),
+  )).filter((m): m is ImMembership => Boolean(m));
+  return memberships.find((m) => m.role === 'admin') ?? memberships[0] ?? null;
 }
 
 /** 转让群主 (仅当前 owner 可操作) */
@@ -690,16 +682,17 @@ export async function seedDepartmentChannels(
     try {
       const memberIds = Array.from(new Set(spec.memberIds));
       const createdBy = memberIds.includes(operatorId) ? operatorId : memberIds[0];
+      const name = normalizeOrgChannelName(spec.name);
       const ch = await createChannel({
         type: spec.level === 'team' ? 'team' : 'department',
-        name: spec.name,
+        name,
         visibility: 'public',
         memberIds,
         createdBy,
         tenantId,
         departmentId: spec.departmentId,
         autoCreated: true,
-        topic: `${spec.name} · 按组织架构自动建群`,
+        topic: `${name} · 按组织架构自动建群`,
       });
       result.created.push({
         departmentId: spec.departmentId,

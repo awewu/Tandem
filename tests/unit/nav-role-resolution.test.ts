@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { activeModuleId, isGlobalNavEntry, isVisible, NAV_MODULES, resolveNavRoles } from '@/components/nav-modules';
+import { activeHref, activeModuleId, isGlobalNavEntry, isVisible, NAV_MODULES, resolveNavRoles } from '@/components/nav-modules';
 
 describe('resolveNavRoles', () => {
   it('未发起 fetch → employee (避免闪烁)', () => {
@@ -117,5 +117,15 @@ describe('nav module ownership', () => {
     const pms = NAV_MODULES.find((m) => m.id === 'pms')!;
     expect(pms.pathPrefixes).toContain('/pms');
     expect(isGlobalNavEntry(pms)).toBe(false);
+  });
+});
+
+describe('active href selection', () => {
+  it('子路由只选最长命中的 tab, 不同时选中父级 /persona', () => {
+    expect(activeHref(['/persona', '/persona/training'], '/persona/training')).toBe('/persona/training');
+  });
+
+  it('query href 必须完整匹配, 避免同页多个筛选项同时 active', () => {
+    expect(activeHref(['/mail', '/mail?folder=sent'], '/mail', '/mail?folder=sent')).toBe('/mail?folder=sent');
   });
 });

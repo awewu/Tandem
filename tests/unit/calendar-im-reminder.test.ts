@@ -3,6 +3,7 @@ import { CalendarImReminderService } from '@/lib/services/calendar-im-reminder-s
 import { InMemoryCalendarEventRepository } from '@/lib/repositories/memory-calendar-repo';
 import { createInMemoryStore } from '@/lib/storage/memory-store';
 import { getStore, setStore } from '@/lib/storage/repository';
+import { createChannel, listMyChannels } from '@/lib/im/service';
 
 beforeEach(() => {
   setStore(createInMemoryStore());
@@ -90,6 +91,133 @@ describe('CalendarImReminderService', () => {
     expect(channels).toHaveLength(1);
     expect(messages).toHaveLength(2);
     expect(second.message.body).toContain('地点/会议方式：https://meeting.example.com/room');
+  });
+
+  it('archives an auto-created one-time meeting group after the event has ended', async () => {
+    const { calendarRepo, service } = createService();
+    const event = await calendarRepo.create({
+      id: 'evt-ended-once',
+      title: '一次性会议',
+      description: null,
+      startAt: '2026-07-20T02:00:00.000Z',
+      endAt: '2026-07-20T03:00:00.000Z',
+      timezone: 'Asia/Shanghai',
+      allDay: false,
+      ownerId: 'owner-1',
+      attendees: ['attendee-1'],
+      attendeeEmails: ['attendee@example.com'],
+      externalAttendeeEmails: [],
+      reminderMinutes: null,
+      location: null,
+      meetingUrl: null,
+      calendarSource: 'manual',
+      status: 'confirmed',
+      tenantId: 'tenant-1',
+      createdAt: '2026-07-17T00:00:00.000Z',
+      updatedAt: '2026-07-17T00:00:00.000Z',
+    });
+    const reminder = await service.remind(event.id, 'owner-1', 'tenant-1');
+
+    const archivedCount = await service.cleanupExpiredOneTimeMeetingGroups(
+      'tenant-1',
+      new Date('2026-07-20T03:00:00.000Z'),
+    );
+    const archivedChannel = await getStore().imChannels.get(reminder.channel.id);
+    const visibleChannels = await listMyChannels('owner-1', 'tenant-1');
+
+    expect(archivedCount).toBe(1);
+    expect(archivedChannel?.archivedAt).toBe('2026-07-20T03:00:00.000Z');
+    expect(visibleChannels.map((channel) => channel.id)).not.toContain(reminder.channel.id);
+  });
+
+  it('keeps ended recurring meeting groups because they are not one-time meetings', async () => {
+    const { calendarRepo, service } = createService();
+    await calendarRepo.create({
+      id: 'evt-ended-recurring',
+      title: '周期会议',
+      description: null,
+      startAt: '2026-07-20T02:00:00.000Z',
+      endAt: '2026-07-20T03:00:00.000Z',
+      timezone: 'Asia/Shanghai',
+      allDay: false,
+      ownerId: 'owner-1',
+      attendees: ['attendee-1'],
+      attendeeEmails: ['attendee@example.com'],
+      externalAttendeeEmails: [],
+      reminderMinutes: null,
+      seriesId: 'series-a',
+      recurrenceIndex: 0,
+      location: null,
+      meetingUrl: null,
+      calendarSource: 'manual',
+      status: 'confirmed',
+      tenantId: 'tenant-1',
+      createdAt: '2026-07-17T00:00:00.000Z',
+      updatedAt: '2026-07-17T00:00:00.000Z',
+    });
+    const channel = await createChannel({
+      type: 'group',
+      name: '会议：周期会议',
+      topic: 'calendar:event:evt-ended-recurring',
+      visibility: 'private',
+      memberIds: ['owner-1', 'attendee-1'],
+      createdBy: 'owner-1',
+      tenantId: 'tenant-1',
+      autoCreated: true,
+    });
+
+    const archivedCount = await service.cleanupExpiredOneTimeMeetingGroups(
+      'tenant-1',
+      new Date('2026-07-21T03:00:00.000Z'),
+    );
+    const stored = await getStore().imChannels.get(channel.id);
+
+    expect(archivedCount).toBe(0);
+    expect(stored?.archivedAt).toBeUndefined();
+  });
+
+  it('keeps manually created calendar-topic groups after a one-time event ends', async () => {
+    const { calendarRepo, service } = createService();
+    await calendarRepo.create({
+      id: 'evt-ended-manual-group',
+      title: '手工群会议',
+      description: null,
+      startAt: '2026-07-20T02:00:00.000Z',
+      endAt: '2026-07-20T03:00:00.000Z',
+      timezone: 'Asia/Shanghai',
+      allDay: false,
+      ownerId: 'owner-1',
+      attendees: ['attendee-1'],
+      attendeeEmails: ['attendee@example.com'],
+      externalAttendeeEmails: [],
+      reminderMinutes: null,
+      location: null,
+      meetingUrl: null,
+      calendarSource: 'manual',
+      status: 'confirmed',
+      tenantId: 'tenant-1',
+      createdAt: '2026-07-17T00:00:00.000Z',
+      updatedAt: '2026-07-17T00:00:00.000Z',
+    });
+    const channel = await createChannel({
+      type: 'group',
+      name: '手工保留群',
+      topic: 'calendar:event:evt-ended-manual-group',
+      visibility: 'private',
+      memberIds: ['owner-1', 'attendee-1'],
+      createdBy: 'owner-1',
+      tenantId: 'tenant-1',
+      autoCreated: false,
+    });
+
+    const archivedCount = await service.cleanupExpiredOneTimeMeetingGroups(
+      'tenant-1',
+      new Date('2026-07-21T03:00:00.000Z'),
+    );
+    const stored = await getStore().imChannels.get(channel.id);
+
+    expect(archivedCount).toBe(0);
+    expect(stored?.archivedAt).toBeUndefined();
   });
 
   it('rejects meetings without internal attendees', async () => {

@@ -31,6 +31,7 @@ import {
   FileText,
   Star,
   KeyRound,
+  Search,
 } from 'lucide-react';
 import { Download, FolderInput } from 'lucide-react';
 import { Reply, ReplyAll, Forward, Bold, Italic, Underline, List, ListOrdered, Link2 } from 'lucide-react';
@@ -42,6 +43,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { useHandoffPrefill } from '@/hooks/useHandoffPrefill';
 import { useCalendarStore } from '@/lib/store/calendar';
 import { useContactStore } from '@/lib/store/contacts';
+import { emailMatchesSearch, mergeMailSearchResults, normalizeMailSearchQuery } from '@/lib/mail/search-filter';
 import { CalendarPlus, UserCircle } from 'lucide-react';
 
 interface MailStatus {
@@ -333,6 +335,10 @@ function InboxView({
   const [selectedUids, setSelectedUids] = useState<Set<number>>(new Set());
   const [marking, setMarking] = useState(false);
   const [moving, setMoving] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<InboxEmail[]>([]);
+  const [searching, setSearching] = useState(false);
+  const hadActiveSearchRef = useRef(false);
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const contacts = useContactStore((state) => state.contacts);
@@ -350,6 +356,21 @@ function InboxView({
     }
     return map;
   }, [contacts, directoryUsers]);
+  const normalizedSearchQuery = normalizeMailSearchQuery(searchQuery);
+  const localSearchResults = useMemo(
+    () =>
+      normalizedSearchQuery
+        ? emails.filter((email) =>
+          emailMatchesSearch(email, normalizedSearchQuery, (address) =>
+            directoryNameByEmail.get(normalizeEmail(address)),
+          ),
+        )
+        : [],
+    [directoryNameByEmail, emails, normalizedSearchQuery],
+  );
+  const visibleEmails = normalizedSearchQuery
+    ? mergeMailSearchResults(searchResults, localSearchResults)
+    : emails;
 
   useEffect(() => {
     fetch('/api/calendar/attendees?limit=500', { credentials: 'include', cache: 'no-store' })
@@ -358,12 +379,16 @@ function InboxView({
       .catch(() => setDirectoryUsers([]));
   }, []);
 
-  // 移动端下拉刷新 → 重新加载收件箱第一页
-  usePullToRefreshAction(() => loadEmails(1, false));
+  // 移动端下拉刷新 → 重新加载当前视图
+  usePullToRefreshAction(() => {
+    if (normalizedSearchQuery) return searchEmails(normalizedSearchQuery, 1, false);
+    return loadEmails(1, false);
+  });
 
-  // folder 切换时自动重置并重新加载
+  // folder 切换时自动重置并重新加载基础邮件列表
   useEffect(() => {
     setEmails([]);
+    setSearchResults([]);
     setPage(1);
     setHasMore(false);
     setSelectedUid(null);
@@ -376,11 +401,37 @@ function InboxView({
     }
     // 使用 setTimeout 避免与 React 批量更新冲突
     const timer = setTimeout(() => {
-      loadEmails(1, false);
+      void loadEmails(1, false);
     }, 0);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [folder, personalMailConfigured]);
+
+  useEffect(() => {
+    setSelectedUid(null);
+    setDetail(null);
+    setError(null);
+    setSelectedUids(new Set());
+    setSearchResults([]);
+    if (personalMailConfigured !== true || !normalizedSearchQuery) {
+      setSearching(false);
+      if (personalMailConfigured === true && hadActiveSearchRef.current) {
+        hadActiveSearchRef.current = false;
+        setPage(1);
+        setHasMore(false);
+        void loadEmails(1, false);
+      }
+      return;
+    }
+    hadActiveSearchRef.current = true;
+    setPage(1);
+    setHasMore(false);
+    const timer = setTimeout(() => {
+      void searchEmails(normalizedSearchQuery, 1, false);
+    }, 300);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [folder, normalizedSearchQuery, personalMailConfigured]);
 
   async function loadEmails(pageNum = 1, append = false) {
     if (personalMailConfigured !== true) {
@@ -431,6 +482,53 @@ function InboxView({
     }
   }
 
+  async function searchEmails(query: string, pageNum = 1, append = false) {
+    if (personalMailConfigured !== true) {
+      setLoading(false);
+      setError(null);
+      return;
+    }
+    setLoading(true);
+    setSearching(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/mail/search?q=${encodeURIComponent(query)}&folder=${encodeURIComponent(folder)}&page=${pageNum}&limit=30`,
+        { credentials: 'include', cache: 'no-store' },
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        setError(typeof data.error === 'string' ? data.error : '搜索失败');
+        return;
+      }
+      const normalized = Array.isArray(data.messages)
+        ? data.messages.map((m: any) => ({
+          uid: Number(m.uid) || 0,
+          seq: Number(m.seq) || 0,
+          from: Array.isArray(m.from) ? m.from : [],
+          to: Array.isArray(m.to) ? m.to : [],
+          subject: typeof m.subject === 'string' ? m.subject : '(无主题)',
+          date: typeof m.date === 'string' ? m.date : new Date().toISOString(),
+          seen: !!m.seen,
+          flags: Array.isArray(m.flags) ? m.flags : [],
+          attachments: Array.isArray(m.attachments) ? m.attachments : [],
+        }))
+        : [];
+      if (append) {
+        setSearchResults((prev) => mergeMailSearchResults(prev, normalized));
+      } else {
+        setSearchResults(normalized);
+      }
+      setHasMore(!!data.hasMore);
+      setPage(Number(data.page) || pageNum);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+      setSearching(false);
+    }
+  }
+
   function applyFlags(prevFlags: string[], updates: { seen?: boolean; flagged?: boolean }) {
     const flags = [...prevFlags];
     if (updates.seen === true && !flags.includes('\\Seen')) flags.push('\\Seen');
@@ -446,6 +544,11 @@ function InboxView({
     return flags;
   }
 
+  function updateMailLists(updater: (prev: InboxEmail[]) => InboxEmail[]) {
+    setEmails(updater);
+    setSearchResults(updater);
+  }
+
   async function batchMark(uids: number[], updates: { seen?: boolean; flagged?: boolean }) {
     if (uids.length === 0) return;
     setMarking(true);
@@ -459,7 +562,7 @@ function InboxView({
         credentials: 'include',
       });
       if (!res.ok) throw new Error('标记失败');
-      setEmails((prev) =>
+      updateMailLists((prev) =>
         prev.map((e) => {
           if (!uids.includes(e.uid)) return e;
           const newFlags = applyFlags(e.flags, updates);
@@ -496,7 +599,7 @@ function InboxView({
         body: JSON.stringify({ uids, from: apiFolder, to }),
       });
       if (!res.ok) throw new Error('移动失败');
-      setEmails((prev) => prev.filter((e) => !uids.includes(e.uid)));
+      updateMailLists((prev) => prev.filter((e) => !uids.includes(e.uid)));
       setSelectedUids(new Set());
     } catch (e) {
       setError((e as Error).message);
@@ -707,15 +810,35 @@ function InboxView({
 
   return (
     <div className="max-w-3xl space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-headline text-ink-primary flex items-center gap-2">
           <label.icon className="h-4 w-4" />
           {label.title}
         </h2>
-        <Button variant="outline" size="sm" onClick={() => loadEmails()} disabled={loading}>
-          <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loading ? 'animate-spin' : ''}`} />
-          刷新
-        </Button>
+        <div className="flex min-w-0 flex-1 flex-col gap-2 sm:max-w-md sm:flex-row sm:justify-end">
+          <label className="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-border bg-surface-1 px-3 py-1.5 text-caption text-ink-secondary focus-within:border-[rgb(var(--brand-300))] focus-within:ring-2 focus-within:ring-[rgb(var(--brand-100))]">
+            <Search className="h-3.5 w-3.5 shrink-0 text-ink-tertiary" />
+            <input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="搜索全部历史邮件"
+              className="min-w-0 flex-1 bg-transparent text-caption text-ink-primary placeholder:text-ink-tertiary focus:outline-none"
+            />
+            {searchQuery.trim() && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="shrink-0 text-footnote text-ink-tertiary hover:text-ink-primary"
+              >
+                清空
+              </button>
+            )}
+          </label>
+          <Button variant="outline" size="sm" onClick={() => normalizedSearchQuery ? searchEmails(normalizedSearchQuery, 1, false) : loadEmails()} disabled={loading}>
+            <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loading ? 'animate-spin' : ''}`} />
+            刷新
+          </Button>
+        </div>
       </div>
 
       {personalMailConfigured === false && (
@@ -759,7 +882,7 @@ function InboxView({
               const apiFolder = isStarred ? 'INBOX' : folder;
               const res = await fetch(`/api/mail/inbox?uids=${Array.from(selectedUids).join(',')}&folder=${encodeURIComponent(apiFolder)}`, { method: 'DELETE', credentials: 'include' });
               if (!res.ok) throw new Error('删除失败');
-              setEmails((prev) => prev.filter((e) => !selectedUids.has(e.uid)));
+              updateMailLists((prev) => prev.filter((e) => !selectedUids.has(e.uid)));
               setSelectedUids(new Set());
             } catch (e) {
               setError((e as Error).message);
@@ -771,7 +894,7 @@ function InboxView({
             <FolderInput className="h-3.5 w-3.5 mr-1" />
             移至垃圾箱
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => setSelectedUids(new Set(emails.map((e) => e.uid)))}>全选</Button>
+          <Button variant="ghost" size="sm" onClick={() => setSelectedUids(new Set(visibleEmails.map((e) => e.uid)))}>全选</Button>
           <Button variant="ghost" size="sm" onClick={() => setSelectedUids(new Set())}>取消选择</Button>
         </div>
       )}
@@ -791,16 +914,18 @@ function InboxView({
         </div>
       )}
 
-      {personalMailConfigured === false ? null : emails.length === 0 && !loading ? (
+      {personalMailConfigured === false ? null : visibleEmails.length === 0 && !loading ? (
         <Card>
           <CardContent className="p-8 text-center space-y-2">
             <Inbox className="h-8 w-8 text-ink-tertiary mx-auto" />
-            <p className="text-caption text-ink-tertiary">{label.title}为空</p>
+            <p className="text-caption text-ink-tertiary">
+              {normalizedSearchQuery ? '没有找到匹配邮件' : `${label.title}为空`}
+            </p>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-2">
-          {emails.map((email) => (
+          {visibleEmails.map((email) => (
             <div
               key={email.uid}
               onClick={() => openDetail(email.uid)}
@@ -850,10 +975,18 @@ function InboxView({
 
           {hasMore && (
             <div className="flex justify-center pt-2">
-              <Button variant="outline" size="sm" onClick={() => loadEmails(page + 1, true)} disabled={loading}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => normalizedSearchQuery ? searchEmails(normalizedSearchQuery, page + 1, true) : loadEmails(page + 1, true)}
+                disabled={loading}
+              >
                 {loading ? '加载中...' : '加载更多'}
               </Button>
             </div>
+          )}
+          {searching && (
+            <div className="text-center text-footnote text-ink-tertiary">正在搜索...</div>
           )}
         </div>
       )}

@@ -31,6 +31,10 @@ export class DriveService {
     return (actor.roles ?? []).some((r) => r === 'admin' || r === 'owner');
   }
 
+  private isSystemManagedPersonalHome(file: DriveFile): boolean {
+    return file.isFolder && file.nodeRole === 'personal_home';
+  }
+
   /** 列出 parentId 下当前用户可读的子节点 (已经 ACL 过滤). */
   async list(
     opts: { parentId?: string | null; ownerId?: string; tenantId: string },
@@ -45,6 +49,38 @@ export class DriveService {
       return true;
     });
     return inScope.filter((f) => canRead(buildAncestorChain(f.id, byId), actor));
+  }
+
+  /** 搜索当前用户可读的云盘节点, rootId 用于限制在组织共享范围内。 */
+  async search(
+    opts: { query: string; tenantId: string; rootId?: string | null; ownerId?: string; limit?: number },
+    actor: DriveAclUser,
+  ): Promise<DriveFile[]> {
+    const q = opts.query.trim().toLowerCase();
+    if (!q) return [];
+    const all = await this.ctx.driveRepo.list({ tenantId: opts.tenantId });
+    const byId = new Map(all.map((f) => [f.id, f]));
+    const limit = opts.limit ?? 100;
+    const result: DriveFile[] = [];
+
+    for (const f of all) {
+      if (f.deletedAt) continue;
+      const chain = buildAncestorChain(f.id, byId);
+      if (opts.rootId && !chain.some((node) => node.id === opts.rootId)) continue;
+      if (opts.ownerId && f.ownerId !== opts.ownerId) continue;
+      const searchableText = [
+        f.name,
+        ...chain.slice(1).map((node) => node.name),
+      ].join('\n').toLowerCase();
+      if (!searchableText.includes(q)) continue;
+      if (!canRead(chain, actor)) continue;
+      result.push(f);
+    }
+
+    return result.sort((a, b) => {
+      if (a.isFolder !== b.isFolder) return a.isFolder ? -1 : 1;
+      return b.updatedAt.localeCompare(a.updatedAt);
+    }).slice(0, limit);
   }
 
   async getById(id: string, actor: DriveAclUser): Promise<DriveFile | null> {
@@ -113,8 +149,11 @@ export class DriveService {
   async move(id: string, parentId: string | null, actor: DriveAclUser): Promise<DriveFile> {
     const f = await this.ctx.driveRepo.findById(id);
     if (!f) throw new NotFoundError('DriveFile', id);
+    if (f.ownerId !== actor.id) {
+      throw new ForbiddenError('Only owner can move drive files');
+    }
     const chain = await this.loadChain(id, f.tenantId);
-    if (f.ownerId !== actor.id && !canWrite(chain, actor)) throw new ForbiddenError('No write permission');
+    if (!canWrite(chain, actor)) throw new ForbiddenError('No write permission');
     if (parentId) {
       if (parentId === id) throw new ValidationError('Cannot move folder into itself');
       const parentChain = await this.loadChain(parentId, f.tenantId);
@@ -131,6 +170,9 @@ export class DriveService {
     if (!name.trim()) throw new ValidationError('name is required');
     const f = await this.ctx.driveRepo.findById(id);
     if (!f) throw new NotFoundError('DriveFile', id);
+    if (this.isSystemManagedPersonalHome(f)) {
+      throw new ForbiddenError('Personal home folders are managed by organization structure');
+    }
     const chain = await this.loadChain(id, f.tenantId);
     if (f.ownerId !== actor.id && !canWrite(chain, actor)) throw new ForbiddenError('No write permission');
     return this.ctx.driveRepo.rename(id, name.trim());

@@ -85,7 +85,7 @@ export interface ShouchaoNotebook {
 /**
  * 搭子手抄 · 文件附件 (图片/文档原件). 个人资产, 按 ownerId 隔离.
  *
- * 原件存对象存储 (S3/MinIO, BUCKET_ATTACHMENTS), 本记录只存元数据 + storageKey.
+ * 原件存对象存储 (S3/MinIO, S3_BUCKET_SHOUCHAO_ATTACHMENTS), 本记录只存元数据 + storageKey.
  * 内嵌图片: 正文 markdown 写 ![alt](/api/shouchao/attachments/{id}) 稳定 serving URL;
  * 文件附件: 记在 ShouchaoNote.attachments[] 里, 编辑器"附件抽屉"展示、可下载原件.
  * 存储: KvStore collection='shouchao_attachments' (无迁移, 幂等).

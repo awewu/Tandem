@@ -22,6 +22,7 @@ import {
   NAV_MODULES,
   isVisible,
   activeModuleId,
+  activeHref,
   resolveNavRoles,
   type Role,
 } from './nav-modules';
@@ -127,6 +128,8 @@ function SubSidebarInner() {
   if (isAuthRoute) return null;
 
   const activeId = activeModuleId(pathname);
+  if (activeId === 'flow') return null;
+
   const activeModule = NAV_MODULES.find((m) => m.id === activeId);
 
   // Home (or any module without items) → render only a thin collapse handle.
@@ -140,6 +143,9 @@ function SubSidebarInner() {
   }
 
   const label = isImModule ? 'IM · 消息' : (activeModule?.fullLabel ?? '');
+  const q = searchParams?.toString();
+  const fullPath = pathname + (q ? '?' + q : '');
+  const activeItemHref = activeHref(items.map((item) => item.href), pathname, fullPath) ?? (items.length === 1 ? items[0].href : undefined);
   const toggleOpen = () => {
     setOpen((currentOpen) => {
       if (isImModule && !currentOpen && imWidth <= IM_SIDEBAR_COLLAPSE_THRESHOLD) {
@@ -204,14 +210,7 @@ function SubSidebarInner() {
         <ul className="space-y-0.5">
           {items.map((item, idx) => {
             const Icon = item.icon;
-
-            // 构建完整路径（含 query string）用于精确匹配
-            const q = searchParams?.toString();
-            const fullPath = pathname + (q ? '?' + q : '');
-            const isActive =
-              item.href === '/'
-                ? fullPath === '/'
-                : fullPath === item.href || (item.href !== '/' && fullPath.startsWith(item.href + '/'));
+            const isActive = item.href === activeItemHref;
 
             // CTA 按钮只在选中时才显示红色背景，否则和普通项一样
             const showAsCta = item.accent === 'cta' && isActive;

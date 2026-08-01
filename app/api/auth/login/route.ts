@@ -8,7 +8,7 @@ import { withApiLog } from '@/lib/api-log/with-api-log';
 
 /**
  * POST /api/auth/login
- * Body: { email, password }
+ * Body: { email, password, rememberMe? }
  *
  * §T10 防暴力: per-IP sliding window 限流 (默认 5/h, env 可调)
  */
@@ -31,25 +31,28 @@ async function POSTApiHandler(req: NextRequest) {
     );
   }
 
-  let body: Record<string, string> = {};
+  let body: Record<string, unknown> = {};
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ ok: false, error: 'invalid json' }, { status: 400 });
   }
-  if (!body.email || !body.password) {
+  const email = String(body.email ?? '');
+  const password = String(body.password ?? '');
+  if (!email || !password) {
     return NextResponse.json({ ok: false, error: 'email + password required' }, { status: 400 });
   }
 
   // §desktop / §mobile: 桌面端 (Tauri) 或移动端 (Capacitor) 在登录请求上携带此 header → 7 天滑动长会话.
-  //   web 端不带 → 维持现状 (24h access).
+  //   web 端勾选 rememberMe 时也给 7 天登录态, 避免浏览器不保存密码时频繁重登.
   const clientKind = req.headers.get('x-tandem-client');
-  const longSession = clientKind === 'desktop' || clientKind === 'mobile';
+  const rememberMe = body.rememberMe === true;
+  const longSession = clientKind === 'desktop' || clientKind === 'mobile' || rememberMe;
 
   try {
     const result = await login({
-      email: body.email,
-      password: body.password,
+      email,
+      password,
       longSession,
       deviceInfo: {
         userAgent: req.headers.get('user-agent') ?? undefined,

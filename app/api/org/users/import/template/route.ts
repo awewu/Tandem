@@ -3,7 +3,7 @@ import { withApiLog } from '@/lib/api-log/with-api-log';/**
  *
  * Download a contact import CSV template.
  */
-export const dynamic = 'force-static';
+export const dynamic = 'force-dynamic';
 
 const TEMPLATE = `email,name,department,jobTitle,manager,employeeId,hireDate,workLocation,phone,roles
 zhang@example.com,张三,销售部,销售经理,manager@example.com,E001,2024-01-15,上海,13800000000,manager

@@ -40,10 +40,12 @@ import {
   Pin,
   Bookmark,
   Trash2,
+  LogOut,
   Search,
   ChevronRight as ChevronRightIcon,
 } from 'lucide-react';
 import type { ImChannel, ImMembership } from '@/lib/types/im';
+import { displayImChannelName } from '@/lib/im/channel-name';
 
 interface OrgUser {
   id: string;
@@ -68,6 +70,7 @@ interface Props {
   onChanged: () => void;
   onClose: () => void;
   onDissolve?: () => void;
+  onLeft?: () => void;
 }
 
 // ─── helpers ───────────────────────────────────────────────
@@ -306,7 +309,7 @@ function AddMembersDialog({ channelId, operatorId, existingIds, onAdded, onClose
 
 // ─── 主面板 ────────────────────────────────────────────────
 
-export function ChannelDetailPanel({ channel, currentUserId, onChanged, onClose, onDissolve }: Props) {
+export function ChannelDetailPanel({ channel, currentUserId, onChanged, onClose, onDissolve, onLeft }: Props) {
   const [members, setMembers] = useState<ImMembership[]>([]);
   const [orgUsers, setOrgUsers] = useState<Map<string, OrgUser>>(new Map());
   const [okrs, setOkrs] = useState<OkrItem[]>([]);
@@ -454,6 +457,27 @@ export function ChannelDetailPanel({ channel, currentUserId, onChanged, onClose,
     } finally { setMgmtBusy(false); }
   }
 
+  async function handleLeaveChannel() {
+    const message = isOwner && members.length > 1
+      ? '确认退出该群？群主会自动交接给其他成员。'
+      : '确认退出该群？退出后不会再收到该群消息。';
+    if (!confirm(message)) return;
+    setMgmtBusy(true);
+    try {
+      const res = await fetch(
+        `/api/im/channels/${channel.id}/members?userId=${encodeURIComponent(currentUserId)}`,
+        { method: 'DELETE', credentials: 'include' },
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? '退群失败');
+      }
+      onChanged();
+      onLeft?.();
+      onClose();
+    } finally { setMgmtBusy(false); }
+  }
+
   async function requestSummary() {
     if (summaryLoading) return;
     setSummaryLoading(true); setSummary(null);
@@ -473,7 +497,7 @@ export function ChannelDetailPanel({ channel, currentUserId, onChanged, onClose,
 
   const displayName = isDm
     ? (orgUsers.get(channel.memberIds.find((m) => m !== currentUserId) ?? '') ?.name ?? '私聊')
-    : channel.name;
+    : displayImChannelName(channel);
 
   return (
     <>
@@ -499,7 +523,7 @@ export function ChannelDetailPanel({ channel, currentUserId, onChanged, onClose,
               {!editingInfo ? (
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <div className="text-[13px] font-semibold text-ink-primary truncate">{channel.name}</div>
+                    <div className="text-[13px] font-semibold text-ink-primary truncate">{displayName}</div>
                     {channel.topic
                       ? <div className="mt-0.5 text-[11.5px] text-ink-secondary line-clamp-2">{channel.topic}</div>
                       : <div className="mt-0.5 text-[11.5px] text-ink-tertiary">暂无群简介</div>}
@@ -607,12 +631,12 @@ export function ChannelDetailPanel({ channel, currentUserId, onChanged, onClose,
           </div>
 
           {/* ── 群管理 ── */}
-          {isAdmin && !isDm && (
+          {!isDm && (
             <div>
               <SectionHeader icon={Settings} label="群管理" open={openMgmt} onToggle={() => setOpenMgmt((v) => !v)} />
               {openMgmt && (
                 <div className="pb-2">
-                  {members
+                  {isAdmin && members
                     .filter((m) => m.userId !== currentUserId)
                     .map((m) => {
                       const u = orgUsers.get(m.userId);
@@ -644,7 +668,12 @@ export function ChannelDetailPanel({ channel, currentUserId, onChanged, onClose,
                       );
                     })}
 
-                  {/* 解散群 */}
+                  <button type="button" onClick={handleLeaveChannel} disabled={mgmtBusy}
+                    className="mx-3 mt-2 flex w-[calc(100%-1.5rem)] items-center justify-center gap-1.5 rounded-md border border-hairline py-2 text-[12px] text-ink-secondary hover:bg-surface-3 hover:text-ink-primary transition disabled:opacity-50">
+                    <LogOut className="h-3.5 w-3.5" />
+                    {isOwner && members.length > 1 ? '退出并交接群主' : '退出群聊'}
+                  </button>
+
                   {isOwner && (
                     <button type="button" onClick={handleDissolve} disabled={mgmtBusy}
                       className="mx-3 mt-2 mb-1 flex w-[calc(100%-1.5rem)] items-center justify-center gap-1.5 rounded-md border border-danger/30 py-2 text-[12px] text-danger hover:bg-danger/10 transition disabled:opacity-50">
