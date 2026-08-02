@@ -353,7 +353,7 @@ export default function PmsProductLibraryPage() {
 
       {editorOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-lg rounded-lg border border-border bg-surface-1 shadow-xl">
+          <div className="w-full max-w-lg rounded-lg border border-border bg-surface-1 shadow-soft-xl">
             <div className="flex items-center justify-between border-b border-border px-4 py-3">
               <h2 className="text-headline font-semibold text-ink-primary">
                 {editingId ? '编辑产品' : '新增产品'}

@@ -68,9 +68,9 @@ export default function QuoteInsightsPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  if (status === 'loading') return <div className="p-8 text-slate-500">加载中…</div>;
-  if (status === 'forbidden') return <div className="p-8 text-slate-500">定价洞察仅内部管理角色可见。</div>;
-  if (status === 'error' || !report) return <div className="p-8 text-red-500">{err || '加载失败'}</div>;
+  if (status === 'loading') return <div className="p-8 text-ink-tertiary">加载中…</div>;
+  if (status === 'forbidden') return <div className="p-8 text-ink-tertiary">定价洞察仅内部管理角色可见。</div>;
+  if (status === 'error' || !report) return <div className="p-8 text-danger">{err || '加载失败'}</div>;
 
   const critical = report.anomalies.filter((a) => a.severity === 'critical');
   const warning = report.anomalies.filter((a) => a.severity === 'warning');
@@ -79,49 +79,49 @@ export default function QuoteInsightsPage() {
     <div className="mx-auto max-w-5xl px-4 py-6">
       <div className="mb-5 flex items-start justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">报价定价洞察</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <h1 className="text-headline font-semibold text-ink-primary">报价定价洞察</h1>
+          <p className="mt-1 text-caption text-ink-tertiary">
             全量已签发报价 {report.quoteCount} 份 · 事后同侪比较 — 经销商自由报价不阻断, 异常在此显影供管理复盘。
           </p>
         </div>
-        <button onClick={load} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">
+        <button onClick={load} className="rounded-lg border border-border bg-white px-3 py-2 text-caption text-ink-secondary hover:bg-surface-2">
           刷新
         </button>
       </div>
 
       {/* 概览 */}
-      <div className="mb-6 grid grid-cols-3 gap-3">
+      <div className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-3">
         <StatCard label="严重 (破限价/极低)" value={critical.length} tone="danger" />
         <StatCard label="警告 (低于同侪)" value={warning.length} tone="warning" />
         <StatCard label="纳入分析产品" value={report.productStats.length} tone="neutral" />
       </div>
 
       {/* 异常清单 */}
-      <div className="mb-6 rounded-xl border border-slate-200 bg-white">
-        <div className="border-b border-slate-100 px-4 py-3 text-sm font-semibold text-slate-800">异常预警清单</div>
+      <div className="mb-6 rounded-2xl border border-border bg-white">
+        <div className="border-b border-border px-4 py-3 text-caption font-semibold text-ink-primary">异常预警清单</div>
         {report.anomalies.length === 0 ? (
-          <div className="px-4 py-8 text-center text-sm text-slate-400">未发现异常低价 — 定价健康</div>
+          <div className="px-4 py-8 text-center text-caption text-ink-tertiary">未发现异常低价 — 定价健康</div>
         ) : (
           <ul className="divide-y divide-slate-50">
             {report.anomalies.map((a, i) => (
               <li
                 key={i}
                 onClick={() => router.push(`/pms/quotes/${a.quoteId}`)}
-                className="flex cursor-pointer items-center gap-3 px-4 py-3 hover:bg-slate-50"
+                className="flex cursor-pointer items-center gap-3 px-4 py-3 hover:bg-surface-2"
               >
-                <span className={`inline-flex h-2 w-2 shrink-0 rounded-full ${a.severity === 'critical' ? 'bg-red-500' : 'bg-amber-500'}`} />
+                <span className={`inline-flex h-2 w-2 shrink-0 rounded-full ${a.severity === 'critical' ? 'bg-danger' : 'bg-warning'}`} />
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium text-slate-800">
+                  <div className="text-caption font-medium text-ink-primary">
                     {a.productLabel}
-                    <span className={`ml-2 rounded px-1.5 py-0.5 text-xs ${a.type === 'below_floor' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'}`}>
+                    <span className={`ml-2 rounded px-1.5 py-0.5 text-footnote ${a.type === 'below_floor' ? 'bg-danger/5 text-danger' : 'bg-warning/10 text-warning'}`}>
                       {TYPE_LABEL[a.type]}
                     </span>
                   </div>
-                  <div className="mt-0.5 text-xs text-slate-500">{a.detail} · 经销商 {a.dealerOrgId} · 同侪 {a.peerCount} 份</div>
+                  <div className="mt-0.5 text-footnote text-ink-tertiary">{a.detail} · 经销商 {a.dealerOrgId} · 同侪 {a.peerCount} 份</div>
                 </div>
                 <div className="shrink-0 text-right">
-                  <div className="text-sm font-semibold tabular-nums text-slate-800">{money(a.unitPrice)}</div>
-                  <div className="text-xs text-slate-400">中位 {money(a.peerMedian)}</div>
+                  <div className="text-caption font-semibold tabular-nums text-ink-primary">{money(a.unitPrice)}</div>
+                  <div className="text-footnote text-ink-tertiary">中位 {money(a.peerMedian)}</div>
                 </div>
               </li>
             ))}
@@ -130,12 +130,12 @@ export default function QuoteInsightsPage() {
       </div>
 
       {/* 分产品价格区间 */}
-      <div className="rounded-xl border border-slate-200 bg-white">
-        <div className="border-b border-slate-100 px-4 py-3 text-sm font-semibold text-slate-800">分产品价格区间</div>
+      <div className="rounded-2xl border border-border bg-white">
+        <div className="border-b border-border px-4 py-3 text-caption font-semibold text-ink-primary">分产品价格区间</div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-caption">
             <thead>
-              <tr className="border-b border-slate-100 text-left text-xs text-slate-400">
+              <tr className="border-b border-border text-left text-footnote text-ink-tertiary">
                 <th className="px-4 py-2">产品</th>
                 <th className="px-4 py-2 text-right">报价份数</th>
                 <th className="px-4 py-2 text-right">最低</th>
@@ -146,17 +146,17 @@ export default function QuoteInsightsPage() {
             </thead>
             <tbody>
               {report.productStats.map((s) => (
-                <tr key={s.productKey} className="border-b border-slate-50">
-                  <td className="px-4 py-2 text-slate-800">{s.productLabel}</td>
-                  <td className="px-4 py-2 text-right tabular-nums text-slate-600">{s.count}</td>
-                  <td className="px-4 py-2 text-right tabular-nums text-slate-600">{money(s.min)}</td>
-                  <td className="px-4 py-2 text-right tabular-nums font-medium text-slate-800">{money(s.median)}</td>
-                  <td className="px-4 py-2 text-right tabular-nums text-slate-600">{money(s.max)}</td>
-                  <td className="px-4 py-2 text-right tabular-nums text-slate-400">{s.floor != null ? money(s.floor) : '—'}</td>
+                <tr key={s.productKey} className="border-b border-border">
+                  <td className="px-4 py-2 text-ink-primary">{s.productLabel}</td>
+                  <td className="px-4 py-2 text-right tabular-nums text-ink-secondary">{s.count}</td>
+                  <td className="px-4 py-2 text-right tabular-nums text-ink-secondary">{money(s.min)}</td>
+                  <td className="px-4 py-2 text-right tabular-nums font-medium text-ink-primary">{money(s.median)}</td>
+                  <td className="px-4 py-2 text-right tabular-nums text-ink-secondary">{money(s.max)}</td>
+                  <td className="px-4 py-2 text-right tabular-nums text-ink-tertiary">{s.floor != null ? money(s.floor) : '—'}</td>
                 </tr>
               ))}
               {report.productStats.length === 0 && (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">暂无可分析的报价数据</td></tr>
+                <tr><td colSpan={6} className="px-4 py-8 text-center text-ink-tertiary">暂无可分析的报价数据</td></tr>
               )}
             </tbody>
           </table>
@@ -167,11 +167,11 @@ export default function QuoteInsightsPage() {
 }
 
 function StatCard({ label, value, tone }: { label: string; value: number; tone: 'danger' | 'warning' | 'neutral' }) {
-  const toneCls = tone === 'danger' ? 'text-red-600' : tone === 'warning' ? 'text-amber-600' : 'text-slate-800';
+  const toneCls = tone === 'danger' ? 'text-danger' : tone === 'warning' ? 'text-warning' : 'text-ink-primary';
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
-      <div className={`text-2xl font-bold tabular-nums ${toneCls}`}>{value}</div>
-      <div className="mt-1 text-xs text-slate-500">{label}</div>
+    <div className="rounded-2xl border border-border bg-white p-4">
+      <div className={`text-title-3 font-bold tabular-nums ${toneCls}`}>{value}</div>
+      <div className="mt-1 text-footnote text-ink-tertiary">{label}</div>
     </div>
   );
 }
