@@ -130,7 +130,7 @@ export function PersonaConstitutionCard({ userId, className }: Props) {
             {active.map((rule, idx) => (
               <li
                 key={rule.id}
-                className="flex items-start gap-2 rounded-lg border bg-white px-3 py-2 text-footnote"
+                className="flex items-start gap-2 rounded-lg border bg-surface-1 px-3 py-2 text-footnote"
               >
                 <span className="font-bold tabular-nums text-info mt-0.5">{idx + 1}.</span>
                 <span className="flex-1 text-ink-primary leading-relaxed">{rule.text}</span>

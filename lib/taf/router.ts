@@ -210,6 +210,8 @@ export class TandemRouter {
         userId: req.metadata?.userId ?? (req as { actorUserId?: string }).actorUserId ?? null,
         // §IM-7 调用方 trace id (IM messageId / decisionCardId / ⌘K sessionId / ...)
         requestId: req.metadata?.requestId,
+        // P0-8 · call-site 级 feature 标签 (成本可归因)
+        feature: req.metadata?.feature,
         success,
         errorMessage: success ? undefined : (err as Error)?.message?.slice(0, 500),
       });

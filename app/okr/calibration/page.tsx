@@ -30,6 +30,7 @@ import {
   type CalibrationRow,
   type CalibrationUpdate,
 } from '@/lib/services/okr-calibration';
+import { persistUpdateObjective } from '@/lib/store/okr-sync';
 import {
   Scale,
   AlertTriangle,
@@ -174,6 +175,8 @@ function OkrCalibrationPageInner() {
         cycleId,
         updates,
         updateObjective,
+        // P0-2 闭环: 校准分落库 (此前只写内存 → hydrate 覆盖).
+        persistObjective: persistUpdateObjective,
       });
       setDrafts({});
       setSavedAt(Date.now());
@@ -223,7 +226,7 @@ function OkrCalibrationPageInner() {
                 className={cn(
                   'rounded-full px-3 py-1 font-medium transition-colors',
                   granularity === g
-                    ? 'bg-white text-ink-primary shadow-soft-xs'
+                    ? 'bg-surface-1 text-ink-primary shadow-soft-xs'
                     : 'text-ink-tertiary hover:text-ink-secondary',
                 )}
               >

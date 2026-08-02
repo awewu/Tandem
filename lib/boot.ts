@@ -32,6 +32,7 @@ type BootGlobals = {
   __tandem_retro_interval__?: ReturnType<typeof setInterval> | null;
   __tandem_reminder_interval__?: ReturnType<typeof setInterval> | null;
   __tandem_pms_scan_date__?: string | null;
+  __tandem_daily_focus_push_date__?: string | null;
 };
 const _g = globalThis as typeof globalThis & BootGlobals;
 
@@ -43,7 +44,7 @@ function bootSync(): void {
   const useDb = isDatabaseMode();
   const existingStore = (_g as Record<string, unknown>)['__tandem_store__'];
   // §T6: DATABASE_URL → Drizzle+PG (持久化); 否则 InMemory (重启清空)
-  const expectedKind = useDb ? 'prisma' : 'memory';
+  const expectedKind = useDb ? 'drizzle' : 'memory';
   const actualKind =
     existingStore && typeof existingStore === 'object'
       ? (existingStore as Record<string, string>)._storeKind
@@ -578,16 +579,35 @@ async function runSlowScans(): Promise<void> {
       const { runPmsDailyScan } = await import('./pms/cron-service');
       const s = await runPmsDailyScan('default');
       _g.__tandem_pms_scan_date__ = today;
-      if (s.poolReleased > 0 || s.qualificationAlerts > 0 || s.warrantyAlerts > 0 || s.escalated > 0) {
+      if (s.poolReleased > 0 || s.qualificationAlerts > 0 || s.warrantyAlerts > 0 || s.priceAnomalyAlerts > 0 || s.escalated > 0) {
         // eslint-disable-next-line no-console
         console.info(
-          `[boot] pms daily scan: 公海释放 ${s.poolReleased} / 资质预警 ${s.qualificationAlerts} / 保修预警 ${s.warrantyAlerts} / 告警升级 ${s.escalated}`,
+          `[boot] pms daily scan: 公海释放 ${s.poolReleased} / 资质预警 ${s.qualificationAlerts} / 保修预警 ${s.warrantyAlerts} / 异常低价 ${s.priceAnomalyAlerts} / 告警升级 ${s.escalated}`,
         );
       }
     }
   } catch (err) {
     // eslint-disable-next-line no-console
     console.warn('[boot] pms daily scan failed:', err);
+  }
+
+  // 今日聚焦每日主动推送 (对标 WorkBoard Daily Focus).
+  //   默认关闭 (DAILY_FOCUS_PUSH_ENABLED=1 才启用); 按 UTC 日期守卫保证每天至多一轮。
+  //   只推有紧急待办的用户, 走应用内通知铃 + web-push (不刷 IM)。
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    if (_g.__tandem_daily_focus_push_date__ !== today) {
+      const { pushDailyFocusNotifications } = await import('./persona/daily-focus-push');
+      const r = await pushDailyFocusNotifications({ tenantId: 'default' });
+      _g.__tandem_daily_focus_push_date__ = today;
+      if (r.enabled && r.pushed > 0) {
+        // eslint-disable-next-line no-console
+        console.info(`[boot] daily focus push: ${r.pushed}/${r.scanned} 用户已推送今日聚焦`);
+      }
+    }
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('[boot] daily focus push failed:', err);
   }
 }
 

@@ -830,7 +830,7 @@ function SummaryEditorDialog({
                 <h3 className="text-[14px] font-semibold text-ink-primary">{periodName} OKR 进展</h3>
                 <p className="mt-0.5 text-footnote text-ink-tertiary">按我的当前周期 OKR / KR 填写，日报内容已自动带入对应 KR。</p>
               </div>
-              <Badge variant="outline" className="bg-white text-[11px]">
+              <Badge variant="outline" className="bg-surface-1 text-[11px]">
                 {draft.okrRows.length} 项
               </Badge>
             </div>
@@ -848,7 +848,7 @@ function SummaryEditorDialog({
                     <div className="px-3 py-2">进展</div>
                   </div>
                   {draft.okrRows.map((row) => (
-                    <div key={row.id} className="grid grid-cols-[minmax(320px,1.4fr)_150px_110px_minmax(340px,1.6fr)] border-t border-border bg-white">
+                    <div key={row.id} className="grid grid-cols-[minmax(320px,1.4fr)_150px_110px_minmax(340px,1.6fr)] border-t border-border bg-surface-1">
                       <div className="min-w-0 border-r border-border px-3 py-3">
                         <div className="flex items-start gap-2">
                           <span className={cn(
@@ -871,7 +871,7 @@ function SummaryEditorDialog({
                         </div>
                       </div>
                       <div className="border-r border-border px-3 py-3">
-                        <label className="mx-auto flex h-8 max-w-[98px] items-center rounded-md border border-border bg-white px-2 focus-within:border-brand-300 focus-within:ring-2 focus-within:ring-brand-100">
+                        <label className="mx-auto flex h-8 max-w-[98px] items-center rounded-md border border-border bg-surface-1 px-2 focus-within:border-brand-300 focus-within:ring-2 focus-within:ring-brand-100">
                           <Input
                             type="number"
                             min={0}
@@ -973,7 +973,7 @@ function SummaryDraftField({
       <Textarea
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="min-h-[92px] resize-y bg-white text-caption leading-relaxed"
+        className="min-h-[92px] resize-y bg-surface-1 text-caption leading-relaxed"
       />
     </label>
   );
@@ -1060,7 +1060,7 @@ function ExpandableOkrProgressTable({
               <div className="px-4 py-6 text-center text-footnote text-ink-tertiary">暂无可展开的 OKR / KR 进展。</div>
             ) : (
               rows.map((row) => (
-                <div key={row.id} className="grid grid-cols-[minmax(360px,1.5fr)_100px_96px_minmax(300px,1fr)] border-t border-border bg-white text-[12px]">
+                <div key={row.id} className="grid grid-cols-[minmax(360px,1.5fr)_100px_96px_minmax(300px,1fr)] border-t border-border bg-surface-1 text-[12px]">
                   <div className="min-w-0 border-r border-border px-3 py-2.5">
                     <div className="flex items-start gap-2">
                       <span className={cn(

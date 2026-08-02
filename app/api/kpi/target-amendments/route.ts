@@ -65,9 +65,9 @@ async function POSTApiHandler(req: NextRequest) {
   }
 
   const cycle = await store.kpiCycles.get(kpi.cycleId);
-  if (cycle?.status === 'draft') {
+  if (cycle?.status !== 'active') {
     return NextResponse.json(
-      { error: 'cycle_draft: 周期尚未锁定, 目标未锁死, 直接 PATCH /api/kpi/[id] 即可, 无需走签批流' },
+      { error: `cycle_not_active: 周期状态为 ${cycle?.status ?? 'unknown'}, 仅在 active 锁定后可提交目标修订申请` },
       { status: 400 },
     );
   }

@@ -7,7 +7,7 @@
  * 差异化: hover 消息 → 开议事室 / 沉淀 Memory / @AI分身 / 已读回执
  */
 
-import { Suspense, useCallback, useState, useEffect, useMemo, useRef, type ComponentType, type CSSProperties } from 'react';
+import { Suspense, memo, useCallback, useState, useEffect, useMemo, useRef, type ComponentType, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -18,6 +18,9 @@ import { CreateChannelDialog } from '@/components/im/create-channel-dialog';
 import { ChannelDetailPanel } from '@/components/im/channel-detail-panel';
 import { ImSidebar } from '@/components/im/im-sidebar';
 import { ImVoiceComposerButton } from '@/components/im/im-voice-composer-button';
+import { ImVoiceMessageButton } from '@/components/im/ImVoiceMessageButton';
+import ImSearchOverlay from '@/components/im/ImSearchOverlay';
+import ImForwardOverlay from '@/components/im/ImForwardOverlay';
 import { AgentModeToggle } from '@/components/im/agent-mode-toggle';
 import { AiTraceButton } from '@/components/im/ai-trace-button';
 import { CompanyBrainFeedbackButtons } from '@/components/im/company-brain-feedback';
@@ -26,6 +29,7 @@ import { MessageReactions } from '@/components/im/message-reactions';
 import type { ImAttachment, ImChannel, ImMembership, ImMessage } from '@/lib/types/im';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { usePersonNameResolver } from '@/lib/org/people-source';
+import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { useHandoffPrefill } from '@/hooks/useHandoffPrefill';
 import { Button } from '@/components/ui/button';
@@ -41,7 +45,7 @@ import {
   type PendingPersonMention,
 } from '@/lib/im/composer-text';
 import { displayImChannelName } from '@/lib/im/channel-name';
-import { chooseImPopupDirection, formatImMessageTimestamp, getImReadReceiptSummary, type ImPopupDirection } from '@/lib/im/message-display';
+import { chooseImPopupDirection, formatImMessageTimestamp, formatImDateDivider, shouldShowImDateDivider, getImReadReceiptSummary, type ImPopupDirection } from '@/lib/im/message-display';
 import {
   Hash,
   Megaphone,
@@ -57,6 +61,7 @@ import {
   Info,
   Search,
   Pin,
+  Forward,
   Trash2,
   Settings,
   Smile,
@@ -96,6 +101,78 @@ function shortUserId(id: string): string {
 function initialsOf(value: string): string {
   const chars = Array.from(value.trim().replace(/\s+/g, ''));
   return (chars.slice(0, 2).join('') || '?').toUpperCase();
+}
+
+// §#1 perf: 客户端图片压缩/缩放 helpers — 大图上传/内联前先降采样, 大幅削减 base64 负载与 DOM 字节。
+function readImageToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(String(e.target?.result ?? ''));
+    reader.onerror = () => reject(reader.error ?? new Error('读取图片失败'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadHtmlImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    // 注意: 本文件 lucide-react 导出了 Image 图标, 会遮蔽 DOM 构造器 → 用 createElement。
+    const img = document.createElement('img');
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('图片解码失败'));
+    img.src = src;
+  });
+}
+
+function dataUrlToBlob(dataUrl: string): Blob {
+  const [head, body] = dataUrl.split(',');
+  const mime = /data:([^;]+)/.exec(head)?.[1] ?? 'application/octet-stream';
+  const binary = atob(body);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: mime });
+}
+
+/**
+ * 压缩单张图片: 最长边缩到 maxDimension, 重编码 (透明→webp, 其余→jpeg)。
+ * GIF(动图)/已足够小/压缩后反而更大 → 原样返回。任何异常 fail-soft 回退原图。
+ */
+async function compressImageFile(
+  file: File,
+  opts: { maxDimension?: number; quality?: number; minBytes?: number } = {},
+): Promise<{ file: File; dataUrl: string }> {
+  const maxDimension = opts.maxDimension ?? 1600;
+  const quality = opts.quality ?? 0.82;
+  const minBytes = opts.minBytes ?? 256 * 1024;
+  const original = await readImageToDataUrl(file);
+  if (file.type === 'image/gif' || file.size <= minBytes) {
+    return { file, dataUrl: original };
+  }
+  try {
+    const img = await loadHtmlImage(original);
+    const longest = Math.max(img.width, img.height) || 1;
+    const scale = Math.min(1, maxDimension / longest);
+    const targetW = Math.max(1, Math.round(img.width * scale));
+    const targetH = Math.max(1, Math.round(img.height * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = targetW;
+    canvas.height = targetH;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return { file, dataUrl: original };
+    ctx.drawImage(img, 0, 0, targetW, targetH);
+    const hasAlpha = file.type === 'image/png' || file.type === 'image/webp';
+    const outType = hasAlpha ? 'image/webp' : 'image/jpeg';
+    const compressedDataUrl = canvas.toDataURL(outType, quality);
+    if (!compressedDataUrl.startsWith('data:image/') || compressedDataUrl.length >= original.length) {
+      return { file, dataUrl: original };
+    }
+    const blob = dataUrlToBlob(compressedDataUrl);
+    const ext = outType === 'image/webp' ? 'webp' : 'jpg';
+    const baseName = file.name.replace(/\.[^.]+$/, '') || 'image';
+    const compressedFile = new File([blob], `${baseName}.${ext}`, { type: outType });
+    return { file: compressedFile, dataUrl: compressedDataUrl };
+  } catch {
+    return { file, dataUrl: original };
+  }
 }
 
 type ComposerAttachment = {
@@ -150,6 +227,11 @@ function ImInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const activeId = searchParams?.get('ch') ?? null;
+  const msgParam = searchParams?.get('msg') ?? null;
+
+  const [showSearch, setShowSearch] = useState(false);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  const [forwardMessageIds, setForwardMessageIds] = useState<string[] | null>(null);
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -169,13 +251,35 @@ function ImInner() {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const typingLastSentRef = useRef(0);
+  const typingTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const [typingIds, setTypingIds] = useState<string[]>([]);
+  const [hasMoreOlder, setHasMoreOlder] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const loadingOlderRef = useRef(false);
+  // §#5 perf: 已读回执节流状态 (按频道: 上次发送时间 + trailing 定时器)。
+  const readMarkLastRef = useRef<Map<string, number>>(new Map());
+  const readMarkTimerRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  // §B5 回到最新: 追踪是否贴底 + 上方堆积的新消息数。
+  const [atBottom, setAtBottom] = useState(true);
+  const [newMsgCount, setNewMsgCount] = useState(0);
 
   useEffect(() => {
     document.documentElement.classList.toggle('im-chat-open', Boolean(activeId));
     return () => document.documentElement.classList.remove('im-chat-open');
   }, [activeId]);
 
+  // §#5 perf: 卸载时清理已读回执 trailing 定时器, 避免泄漏。
+  useEffect(() => {
+    const timers = readMarkTimerRef.current;
+    return () => {
+      timers.forEach((t) => clearTimeout(t));
+      timers.clear();
+    };
+  }, []);
+
   const { user } = useCurrentUser();
+  const { toast } = useToast();
   const ME = user?.id ?? 'demo-user';
   const nameOf = usePersonNameResolver();
   const myDisplayName = useMemo(() => {
@@ -186,9 +290,26 @@ function ImInner() {
     return shortUserId(ME);
   }, [ME, user?.email, user?.name]);
   const myAvatarText = useMemo(() => initialsOf(myDisplayName), [myDisplayName]);
+  const activeIdRef = useRef<string | null>(activeId);
+  activeIdRef.current = activeId;
+  // §#2 perf: 用 ref 镜像可变 guard, 让下方 useCallback 保持稳定引用 (memo 生效的前提)。
+  const busyRef = useRef(busy);
+  busyRef.current = busy;
+  const recallingIdsRef = useRef(recallingIds);
+  recallingIdsRef.current = recallingIds;
+  // §B1 typing: 节流广播"正在输入" (最多 2.5s 一次), 服务端 transient 不落库。
+  const broadcastTyping = useCallback(() => {
+    const chId = activeIdRef.current;
+    if (!chId) return;
+    const now = Date.now();
+    if (now - typingLastSentRef.current < 2500) return;
+    typingLastSentRef.current = now;
+    void fetch(`/api/im/channels/${chId}/typing`, { method: 'POST' }).catch(() => {});
+  }, []);
   const handleComposerTextChange = useCallback((previous: string, next: string) => {
     setPendingMentions((current) => reconcilePendingPersonMentionRanges(previous, next, current));
-  }, []);
+    if (next.trim() && next !== previous) broadcastTyping();
+  }, [broadcastTyping]);
   const handlePersonMentionInserted = useCallback((mention: PendingPersonMention) => {
     setPendingMentions((current) => [...current, mention]);
   }, []);
@@ -251,12 +372,31 @@ function ImInner() {
       .then((data) => setMembers(data.members ?? []));
   }, []);
 
-  async function markActiveChannelRead(chId: string) {
+  async function sendChannelRead(chId: string) {
+    readMarkLastRef.current.set(chId, Date.now());
     await fetch(`/api/im/channels/${chId}/read`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
     notifyChannelsRefresh();
+  }
+
+  // §#5 perf: 已读回执节流 (每频道最多 1.5s 一次) — 高频消息流下不再每条 POST /read + 全局刷频道列。
+  // 首次/间隔已过 → 立即发; 否则复用/新建 trailing 定时器在窗口边界补发一次 (保证最终一致)。
+  function markActiveChannelRead(chId: string) {
+    const MIN_INTERVAL = 1500;
+    const last = readMarkLastRef.current.get(chId) ?? 0;
+    const elapsed = Date.now() - last;
+    if (elapsed >= MIN_INTERVAL) {
+      void sendChannelRead(chId);
+      return;
+    }
+    if (readMarkTimerRef.current.has(chId)) return;
+    const timer = setTimeout(() => {
+      readMarkTimerRef.current.delete(chId);
+      void sendChannelRead(chId);
+    }, MIN_INTERVAL - elapsed);
+    readMarkTimerRef.current.set(chId, timer);
   }
 
   function closeActiveChat() {
@@ -319,30 +459,107 @@ function ImInner() {
       });
   }, [activeId, ME]);
 
+  // §Sprint1 搜索定位: 带 ?msg= 进入频道时, 滚动到该消息并高亮闪烁, 随后清理 msg 参数.
+  useEffect(() => {
+    if (!msgParam || messages.length === 0) return;
+    if (!messages.some((m) => m.id === msgParam)) return;
+    const el = document.getElementById(`im-msg-${msgParam}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setHighlightId(msgParam);
+    const clearHl = setTimeout(() => setHighlightId(null), 2600);
+    // 去掉 msg 参数避免刷新/重渲染重复触发 (保留 ch).
+    router.replace(`/im?ch=${activeId}`, { scroll: false });
+    return () => clearTimeout(clearHl);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [msgParam, messages]);
+
   // -- messages --
+  // §#4 perf: 初始批量从 200 降到 50 — 首屏 DOM/负载更轻, 更早历史靠向上翻页 (B2) 按需加载。
+  const INITIAL_PAGE = 50;
+  const OLDER_PAGE = 50;
+  const REFRESH_PAGE = 80;
   async function loadMessages(chId: string) {
-    const res = await fetch(`/api/im/channels/${chId}/messages?limit=200`, { cache: 'no-store' });
+    const res = await fetch(`/api/im/channels/${chId}/messages?limit=${INITIAL_PAGE}`, { cache: 'no-store' });
     const data = await res.json();
-    setMessages(data.messages ?? []);
+    const msgs = (data.messages ?? []) as Message[];
+    setMessages(msgs);
+    setHasMoreOlder(msgs.length >= INITIAL_PAGE);
+    setLoadingOlder(false);
+    loadingOlderRef.current = false;
+    // §B5 切频道回到贴底态, 清零新消息计数
+    setNewMsgCount(0);
+    setAtBottom(true);
     setTimeout(() => {
       scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
     }, 30);
     void markActiveChannelRead(chId);
   }
 
+  // §B5 平滑滚到底部并清零新消息计数
+  function scrollToBottom(behavior: ScrollBehavior = 'smooth') {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior });
+    setNewMsgCount(0);
+    setAtBottom(true);
+  }
+
+  // §B2 向上翻页拉历史: before=<当前最早消息 createdAt> (排他游标), 预取后回补滚动锚点避免跳动。
+  async function loadOlderMessages() {
+    const chId = activeIdRef.current;
+    const el = scrollRef.current;
+    if (!chId || !el || loadingOlderRef.current || !hasMoreOlder) return;
+    const oldest = messages[0];
+    if (!oldest) return;
+    loadingOlderRef.current = true;
+    setLoadingOlder(true);
+    const prevHeight = el.scrollHeight;
+    const prevTop = el.scrollTop;
+    try {
+      const res = await fetch(
+        `/api/im/channels/${chId}/messages?limit=${OLDER_PAGE}&before=${encodeURIComponent(oldest.createdAt)}`,
+        { cache: 'no-store' },
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+      const older = (data.messages ?? []) as Message[];
+      if (older.length === 0) { setHasMoreOlder(false); return; }
+      setHasMoreOlder(older.length >= OLDER_PAGE);
+      setMessages((prev) => {
+        const existing = new Set(prev.map((m) => m.id));
+        return [...older.filter((m) => !existing.has(m.id)), ...prev];
+      });
+      // 保持锚点: 新内容插到顶部, 回补 scrollTop = prevTop + (newHeight - prevHeight)
+      requestAnimationFrame(() => {
+        const el2 = scrollRef.current;
+        if (el2) el2.scrollTop = prevTop + (el2.scrollHeight - prevHeight);
+      });
+    } finally {
+      loadingOlderRef.current = false;
+      setLoadingOlder(false);
+    }
+  }
+
   async function refreshMessages(chId: string) {
     const el = scrollRef.current;
     const nearBottom = !el || el.scrollHeight - el.scrollTop - el.clientHeight < 150;
-    const res = await fetch(`/api/im/channels/${chId}/messages?limit=200`, { cache: 'no-store' });
+    const res = await fetch(`/api/im/channels/${chId}/messages?limit=${REFRESH_PAGE}`, { cache: 'no-store' });
     if (!res.ok) return;
     const data = await res.json();
     const serverMessages = (data.messages ?? []) as Message[];
 
+    // §B2 merge (不再整列替换): 否则每次轮询会抹掉向上加载的历史页。
+    // 以最新 N 条覆盖更新/新增, 保留已加载的更早历史, 按 createdAt 升序重排, 末尾接未确认乐观消息。
     setMessages((prev) => {
       const optimisticMessages = prev.filter(
         (m) => isTempMessage(m) && !serverMessages.some((serverMsg) => isSameOutgoingMessage(m, serverMsg))
       );
-      return [...serverMessages, ...optimisticMessages];
+      const byId = new Map<string, Message>();
+      for (const m of prev) if (!isTempMessage(m)) byId.set(m.id, m);
+      for (const sm of serverMessages) byId.set(sm.id, sm);
+      const nonTemp = Array.from(byId.values()).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+      return [...nonTemp, ...optimisticMessages];
     });
 
     if (nearBottom) {
@@ -365,8 +582,19 @@ function ImInner() {
     const es = new EventSource(
       `/api/im/channels/${activeId}/stream?userId=${ME}`
     );
+    // §A2 SSE 自愈: 原生自动重连; 重连成功 (onopen 第二次+) 立即对账补洞
+    // (服务端无 seq-log, 用 merge 拉最新 N 条回填, 对齐 Last-Event-ID 之前的缺口)。
+    let sseHealthy = false;
+    let sseOpenedOnce = false;
+    es.onopen = () => {
+      sseHealthy = true;
+      if (sseOpenedOnce) void refreshMessages(activeId);
+      sseOpenedOnce = true;
+    };
+    es.onerror = () => { sseHealthy = false; }; // 不 close, 交给浏览器自动重试
     es.addEventListener('message', (e) => {
       try {
+        sseHealthy = true;
         // 追加前先判断用户是否本就贴近底部; 若在上方翻历史则不打扰
         const el = scrollRef.current;
         const nearBottom = !el || el.scrollHeight - el.scrollTop - el.clientHeight < 150;
@@ -382,6 +610,9 @@ function ImInner() {
               behavior: 'smooth',
             });
           }, 30);
+        } else if (msg.senderId !== ME) {
+          // §B5 用户在上方翻历史 → 不打扰, 累积"N 条新消息"
+          setNewMsgCount((n) => n + 1);
         }
         // 保持已读
         void markActiveChannelRead(activeId);
@@ -391,6 +622,21 @@ function ImInner() {
     });
     es.addEventListener('unread', notifyChannelsRefresh);
     es.addEventListener('read_receipt', () => refreshMembers(activeId));
+    // §B1 typing: 收到他人"正在输入" → 4s TTL 自动清除 (服务端已排除自己)。
+    es.addEventListener('typing', (e) => {
+      try {
+        const { userId: who } = JSON.parse((e as MessageEvent).data) as { userId: string };
+        if (!who || who === ME) return;
+        const timers = typingTimersRef.current;
+        const existing = timers.get(who);
+        if (existing) clearTimeout(existing);
+        setTypingIds((prev) => (prev.includes(who) ? prev : [...prev, who]));
+        timers.set(who, setTimeout(() => {
+          timers.delete(who);
+          setTypingIds((prev) => prev.filter((id) => id !== who));
+        }, 4000));
+      } catch { /* ignore */ }
+    });
     // Day 4: 撤回事件 — 替换本地设置 deletedAt
     es.addEventListener('message_updated', (e) => {
       try {
@@ -400,14 +646,18 @@ function ImInner() {
     });
     es.addEventListener('channel', notifyChannelsRefresh);
 
+    // §B6 去掉常态 30s 轮询: 仅在 SSE 断线降级时对账 (健康时 no-op, 消除滚动抖动/冗余请求)。
     const poll = window.setInterval(() => {
       if (document.visibilityState === 'hidden') return;
-      void refreshMessages(activeId);
-    }, 30_000);
+      if (!sseHealthy) void refreshMessages(activeId);
+    }, 15_000);
 
     return () => {
       window.clearInterval(poll);
       es.close();
+      typingTimersRef.current.forEach((t) => clearTimeout(t));
+      typingTimersRef.current.clear();
+      setTypingIds([]);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId, ME]);
@@ -419,8 +669,8 @@ function ImInner() {
   }, [activeId, refreshMembers]);
 
   /** Day 4: 撤回消息 */
-  async function recallMessageHandler(messageId: string) {
-    if (recallingIds.has(messageId)) return;
+  const recallMessageHandler = useCallback(async (messageId: string) => {
+    if (recallingIdsRef.current.has(messageId)) return;
     if (!confirm('确认撤回这条消息?')) return;
     setRecallingIds((prev) => new Set(prev).add(messageId));
     try {
@@ -431,7 +681,7 @@ function ImInner() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        window.alert(`撤回失败: ${data.error ?? res.statusText}`);
+        toast({ variant: 'destructive', title: '撤回失败', description: String(data.error ?? res.statusText) });
         return;
       }
       if (data.message) {
@@ -444,21 +694,22 @@ function ImInner() {
         return next;
       });
     }
-  }
+  }, [ME, toast]);
 
   /** Day 7: pin/unpin 消息 */
-  async function togglePinHandler(messageId: string) {
-    if (!activeId) return;
-    const res = await fetch(`/api/im/channels/${activeId}/pins`, {
+  const togglePinHandler = useCallback(async (messageId: string) => {
+    const chId = activeIdRef.current;
+    if (!chId) return;
+    const res = await fetch(`/api/im/channels/${chId}/pins`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ messageId, operatorId: ME }),
     });
     if (!res.ok) {
       const data = await res.json();
-      window.alert(`置顶失败: ${data.error ?? res.statusText}`);
+      toast({ variant: 'destructive', title: '置顶失败', description: String(data.error ?? res.statusText) });
     }
-  }
+  }, [ME, toast]);
 
   function readFileAsDataUrl(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -467,6 +718,15 @@ function ImInner() {
       reader.onerror = () => reject(reader.error ?? new Error('读取图片失败'));
       reader.readAsDataURL(file);
     });
+  }
+
+  // §#1 perf: 统一图片入队 — 先压缩再入 attachments (压缩内部 fail-soft 回退原图)。
+  async function addImageAttachment(rawFile: File, displayName?: string) {
+    const { file, dataUrl } = await compressImageFile(rawFile);
+    setAttachments((prev) => [
+      ...prev,
+      { id: makeAttachmentId(file), name: displayName ?? file.name, size: file.size, dataUrl, file },
+    ]);
   }
 
   function isImageAttachment(file: File, dataUrl?: string): boolean {
@@ -635,7 +895,7 @@ function ImInner() {
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
         setInput(displayText);
         setPendingMentions(mentionsForSend);
-        window.alert(`发送失败: ${err.error ?? res.statusText}`);
+        toast({ variant: 'destructive', title: '发送失败', description: String(err.error ?? res.statusText) });
         return;
       }
 
@@ -673,7 +933,7 @@ function ImInner() {
         }));
         const updated = await updateMessageAttachments(serverMessage.id, failedAttachments);
         if (updated) setMessages((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
-        window.alert(`附件上传失败: ${(e as Error).message}`);
+        toast({ variant: 'destructive', title: '附件上传失败', description: (e as Error).message });
       }
     } finally {
       setSending(false);
@@ -681,8 +941,8 @@ function ImInner() {
     }
   }
 
-  async function spawnRoom(messageId: string) {
-    if (busy) return;
+  const spawnRoom = useCallback(async (messageId: string) => {
+    if (busyRef.current) return;
     setBusy(true);
     try {
       const res = await fetch(`/api/im/messages/${messageId}/spawn-room`, {
@@ -692,7 +952,7 @@ function ImInner() {
       });
       const data = await res.json();
       if (!res.ok) {
-        window.alert(`开议事室失败: ${data.error ?? res.statusText}`);
+        toast({ variant: 'destructive', title: '开议事室失败', description: String(data.error ?? res.statusText) });
         return;
       }
       // 跳到新议事室
@@ -700,10 +960,10 @@ function ImInner() {
     } finally {
       setBusy(false);
     }
-  }
+  }, [ME, toast]);
 
-  async function promoteToMemory(messageId: string) {
-    if (busy) return;
+  const promoteToMemory = useCallback(async (messageId: string) => {
+    if (busyRef.current) return;
     setBusy(true);
     try {
       const res = await fetch(`/api/im/messages/${messageId}/promote-to-memory`, {
@@ -713,23 +973,32 @@ function ImInner() {
       });
       const data = await res.json();
       if (!res.ok) {
-        window.alert(`沉淀 Memory 失败: ${data.error ?? res.statusText}`);
+        toast({ variant: 'destructive', title: '沉淀 Memory 失败', description: String(data.error ?? res.statusText) });
         return;
       }
-      window.alert(
-        `✍️ 已发起 Memory 升级提议\n\nlevel: team · type: lesson\npromotionId: ${data.promotionId}\n\n→ /memories 查看签批`
-      );
+      toast({
+        title: '已发起 Memory 升级提议',
+        description: 'level: team · type: lesson — 去 /memories 查看签批',
+      });
     } finally {
       setBusy(false);
     }
-  }
+  }, [ME, toast]);
 
-  async function summonPersona(targetId: string) {
+  const summonPersona = useCallback((targetId: string) => {
     // 在 composer 插入 mention 语法
     const tag = `@[${targetId}](${targetId}:persona) `;
     setInput((cur) => (cur ? `${cur} ${tag}` : tag));
     composerRef.current?.focus();
-  }
+  }, []);
+
+  // §#2 perf: 稳定回调 (按 id 参数化), 供 memo 化的 MessageRow 使用。
+  const handleReactionChange = useCallback((messageId: string, reactions: Record<string, string[]>) => {
+    setMessages((prev) => prev.map((x) => (x.id === messageId ? { ...x, reactions } : x)));
+  }, []);
+  const handleForward = useCallback((messageId: string) => {
+    setForwardMessageIds([messageId]);
+  }, []);
 
   /** Q2 Day 2: 点通讯录中人员 → 建/找 dm 并切过去 */
   async function startDmWith(otherId: string) {
@@ -758,11 +1027,7 @@ function ImInner() {
       const named = file.name && file.name !== 'image.png'
         ? file
         : new File([file], `pasted-${Date.now()}.${ext}`, { type: file.type });
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        setAttachments((prev) => [...prev, { id: makeAttachmentId(named), name: named.name, size: named.size, dataUrl: ev.target?.result as string, file: named }]);
-      };
-      reader.readAsDataURL(named);
+      void addImageAttachment(named);
     });
   }
 
@@ -771,11 +1036,7 @@ function ImInner() {
     if (!files.length) return;
     files.forEach((file) => {
       if (kind === 'image' && file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          setAttachments((prev) => [...prev, { id: makeAttachmentId(file), name: file.name, size: file.size, dataUrl: ev.target?.result as string, file }]);
-        };
-        reader.readAsDataURL(file);
+        void addImageAttachment(file);
       } else {
         setAttachments((prev) => [...prev, { id: makeAttachmentId(file), name: file.name, size: file.size, file }]);
       }
@@ -783,20 +1044,34 @@ function ImInner() {
     e.target.value = '';
   }
 
-  function newDmPrompt() {
-    const otherId = window.prompt('与谁开始 1:1 对话? 输入 userId:');
-    if (!otherId || otherId === ME) return;
-    void fetch('/api/im/dm', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ meId: ME, otherId }),
-    })
-      .then((r) => r.json())
-      .then(({ channel }) => { if (channel?.id) router.push(`/im?ch=${channel.id}`); });
-  }
-
   return (
     <div className="im-page-root flex h-full min-h-0 w-full min-w-0 overflow-hidden bg-surface-1">
+
+      {/* §Sprint1 搜索浮层 */}
+      {showSearch && (
+        <ImSearchOverlay
+          channelId={activeId ?? undefined}
+          nameOf={nameOf}
+          onClose={() => setShowSearch(false)}
+          onSelect={(chId, messageId) => {
+            setShowSearch(false);
+            router.push(`/im?ch=${chId}&msg=${messageId}`);
+          }}
+        />
+      )}
+
+      {/* §Sprint2 转发浮层 */}
+      {forwardMessageIds && (
+        <ImForwardOverlay
+          meId={ME}
+          messageIds={forwardMessageIds}
+          onForwarded={(toChannelId) => {
+            toast({ title: '已转发', description: '消息已转发到目标会话。' });
+            if (toChannelId === activeId) refreshMessages(activeId);
+          }}
+          onClose={() => setForwardMessageIds(null)}
+        />
+      )}
 
       {/* 消息流 + 右侧详情面板 并排容器 */}
       <div className="flex min-w-0 flex-1 overflow-hidden">
@@ -849,6 +1124,14 @@ function ImInner() {
                 />
                 <button
                   type="button"
+                  onClick={() => setShowSearch(true)}
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-ink-secondary hover:bg-surface-3"
+                  title="搜索消息"
+                >
+                  <Search className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
                   onClick={() => setShowSettings(true)}
                   className="flex h-8 w-8 items-center justify-center rounded-full text-ink-secondary hover:bg-surface-3"
                   title="频道设置"
@@ -879,7 +1162,28 @@ function ImInner() {
             )}
 
             {/* 消息流 */}
-            <div ref={scrollRef} className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-3 sm:px-4">
+            <div className="relative flex min-h-0 flex-1 flex-col">
+            <div
+              ref={scrollRef}
+              onScroll={(e) => {
+                const el = e.currentTarget;
+                if (el.scrollTop < 60 && hasMoreOlder && !loadingOlderRef.current) {
+                  void loadOlderMessages();
+                }
+                // §B5 追踪贴底态, 贴底则清零新消息计数
+                const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+                setAtBottom((prev) => (prev === nearBottom ? prev : nearBottom));
+                if (nearBottom) setNewMsgCount((n) => (n === 0 ? n : 0));
+              }}
+              className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-3 sm:px-4"
+            >
+              {/* §B2 历史加载提示 */}
+              {loadingOlder && (
+                <div className="flex items-center justify-center py-2 text-[11px] text-ink-tertiary">加载更早消息…</div>
+              )}
+              {!hasMoreOlder && messages.length >= INITIAL_PAGE && (
+                <div className="flex items-center justify-center py-2 text-[11px] text-ink-tertiary">已到最早</div>
+              )}
               {messages.length === 0 && (
                 <div className="flex h-full flex-col items-center justify-center gap-2 text-ink-tertiary">
                   <div className="text-[32px]">💬</div>
@@ -887,27 +1191,67 @@ function ImInner() {
                   <p className="text-[11px] text-ink-tertiary">hover 消息可<span className="text-warning font-medium mx-0.5">开议事室</span>或<span className="text-brand-600 font-medium mx-0.5">沉淀 Memory</span></p>
                 </div>
               )}
-              {messages.map((m, idx) => (
-                <MessageRow
-                  key={m.id}
-                  msg={m}
-                  prev={messages[idx - 1] ?? null}
-                  members={members}
-                  meId={ME}
-                  nameOf={nameOf}
-                  isPinned={(activeChannel.pinnedMessageIds ?? []).includes(m.id)}
-                  onSpawnRoom={() => spawnRoom(m.id)}
-                  onPromote={() => promoteToMemory(m.id)}
-                  onRecall={() => recallMessageHandler(m.id)}
-                  recalling={recallingIds.has(m.id)}
-                  onPin={() => togglePinHandler(m.id)}
-                  onMentionPersona={(uid) => summonPersona(uid)}
-                  onReactionChange={(reactions) =>
-                    setMessages((prev) => prev.map((x) => (x.id === m.id ? { ...x, reactions } : x)))
-                  }
-                />
-              ))}
+              {messages.map((m, idx) => {
+                const prevMsg = messages[idx - 1] ?? null;
+                const showDateDivider = shouldShowImDateDivider(prevMsg?.createdAt, m.createdAt);
+                return (
+                <div key={m.id}>
+                  {/* §B4 跨天日期分割线 */}
+                  {showDateDivider && (
+                    <div className="my-3 flex items-center justify-center">
+                      <span className="rounded-full bg-surface-3 px-3 py-0.5 text-[11px] text-ink-tertiary">
+                        {formatImDateDivider(m.createdAt)}
+                      </span>
+                    </div>
+                  )}
+                  <div
+                    id={`im-msg-${m.id}`}
+                    className={cn(
+                      'scroll-mt-4 rounded-lg transition-colors',
+                      highlightId === m.id && 'bg-warning/10 ring-1 ring-warning/40',
+                    )}
+                  >
+                  <MessageRowMemo
+                    msg={m}
+                    prev={prevMsg}
+                    members={members}
+                    meId={ME}
+                    nameOf={nameOf}
+                    isPinned={(activeChannel.pinnedMessageIds ?? []).includes(m.id)}
+                    onSpawnRoom={spawnRoom}
+                    onPromote={promoteToMemory}
+                    onRecall={recallMessageHandler}
+                    recalling={recallingIds.has(m.id)}
+                    onForward={handleForward}
+                    onPin={togglePinHandler}
+                    onMentionPersona={summonPersona}
+                    onReactionChange={handleReactionChange}
+                  />
+                  </div>
+                </div>
+                );
+              })}
             </div>
+            {/* §B5 回到最新 · N 条新消息 悬浮按钮 (仅未贴底时显示) */}
+            {!atBottom && (
+              <button
+                type="button"
+                onClick={() => scrollToBottom()}
+                className="absolute bottom-3 right-4 z-10 flex items-center gap-1 rounded-full border border-hairline bg-surface-1 px-3 py-1.5 text-[12px] font-medium text-ink-secondary shadow-soft-lg transition hover:bg-surface-2"
+                title="回到最新消息"
+              >
+                {newMsgCount > 0 ? `${newMsgCount} 条新消息` : '回到最新'}
+                <span aria-hidden className="text-brand-600">↓</span>
+              </button>
+            )}
+            </div>
+
+            {/* §B1 正在输入指示 */}
+            {typingIds.length > 0 && (
+              <div className="shrink-0 px-4 pb-1 text-[11px] text-ink-tertiary">
+                {typingIds.map((id) => nameOf(id) || shortUserId(id)).join('、')} 正在输入…
+              </div>
+            )}
 
             {/* 输入区 */}
             <footer className="im-composer-bar shrink-0 border-t border-hairline bg-surface-1 shadow-[0_-4px_16px_rgba(15,23,42,0.06)] md:shadow-none">
@@ -1027,6 +1371,15 @@ function ImInner() {
                   disabled={sending}
                   className="h-8 w-8 rounded-md"
                 />
+
+                {/* §Sprint2 语音消息 (发送语音条) */}
+                {activeId && (
+                  <ImVoiceMessageButton
+                    channelId={activeId}
+                    disabled={sending}
+                    onSent={() => refreshMessages(activeId)}
+                  />
+                )}
 
               </div>
 
@@ -1296,6 +1649,14 @@ function formatSize(bytes?: number): string {
 
 function attachmentExt(name?: string): string {
   return (name?.split('.').pop() ?? '').toLowerCase();
+}
+
+/** §Sprint2 语音条时长 mm:ss */
+function formatAudioDuration(sec: number): string {
+  const s = Math.max(0, Math.round(sec));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}:${r.toString().padStart(2, '0')}`;
 }
 
 function isMarkdownPreview(name?: string, mimeType?: string): boolean {
@@ -1709,6 +2070,8 @@ function AttachmentView({ channelId, att }: { channelId: string; att: ImAttachme
           <img
             src={url}
             alt={att.name ?? '图片'}
+            loading="lazy"
+            decoding="async"
             className="max-h-56 max-w-[220px] object-cover"
           />
         </button>
@@ -1716,6 +2079,48 @@ function AttachmentView({ channelId, att }: { channelId: string; att: ImAttachme
           <ImageLightbox url={url} name={att.name} onClose={() => setPreview(false)} />
         )}
       </>
+    );
+  }
+
+  // §Sprint2 语音条: 走 refId → presign download 拿短期 URL, 原生 <audio> 播放。
+  if (att.kind === 'audio') {
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-hairline bg-surface-2 px-3 py-2">
+        {url ? (
+          // eslint-disable-next-line jsx-a11y/media-has-caption
+          <audio controls src={url} className="h-8 max-w-[240px]" />
+        ) : (
+          <div className="h-8 w-40 animate-pulse rounded-md bg-surface-3" />
+        )}
+        {att.durationSec ? (
+          <span className="shrink-0 text-[11px] text-ink-tertiary">
+            {formatAudioDuration(att.durationSec)}
+          </span>
+        ) : null}
+      </div>
+    );
+  }
+
+  // §Sprint2 合并转发: 只读快照卡片。
+  if (att.kind === 'forward') {
+    const items = att.forwardedItems ?? [];
+    return (
+      <div className="max-w-[280px] rounded-lg border border-hairline bg-surface-2 px-3 py-2 text-[12px]">
+        <div className="mb-1 text-[11px] font-medium text-ink-tertiary">
+          合并转发 · {items.length} 条消息
+        </div>
+        <div className="space-y-1">
+          {items.slice(0, 4).map((it) => (
+            <div key={it.messageId} className="flex gap-1.5">
+              <span className="shrink-0 text-ink-secondary">{it.senderName ?? it.senderId}:</span>
+              <span className="truncate text-ink-primary">{it.body || '[非文本消息]'}</span>
+            </div>
+          ))}
+          {items.length > 4 && (
+            <div className="text-[11px] text-ink-tertiary">…等 {items.length} 条</div>
+          )}
+        </div>
+      </div>
     );
   }
 
@@ -1789,6 +2194,10 @@ function AttachmentView({ channelId, att }: { channelId: string; att: ImAttachme
   );
 }
 
+// §#2 perf: memo 化行组件 — 只在自身 data props 变化时重渲染。
+// 配合上方稳定 useCallback 回调, 打字/typing/降级轮询等父重渲染不再连带刷全列 200 行。
+const MessageRowMemo = memo(MessageRow);
+
 function MessageRow({
   msg,
   prev,
@@ -1800,6 +2209,7 @@ function MessageRow({
   onPromote,
   onRecall,
   recalling,
+  onForward,
   onPin,
   onMentionPersona,
   onReactionChange,
@@ -1810,13 +2220,14 @@ function MessageRow({
   isPinned: boolean;
   meId: string;
   nameOf: (id: string | null | undefined) => string;
-  onSpawnRoom: () => void;
-  onPromote: () => void;
-  onRecall: () => void;
+  onSpawnRoom: (id: string) => void;
+  onPromote: (id: string) => void;
+  onRecall: (id: string) => void;
   recalling: boolean;
-  onPin: () => void;
+  onForward: (id: string) => void;
+  onPin: (id: string) => void;
   onMentionPersona: (userId: string) => void;
-  onReactionChange: (reactions: Record<string, string[]>) => void;
+  onReactionChange: (id: string, reactions: Record<string, string[]>) => void;
 }) {
   // Day 4: 已读人数 (除发送者外, lastReadAt >= msg.createdAt 的成员)
   const readReceipt = getImReadReceiptSummary(msg, members);
@@ -1888,19 +2299,24 @@ function MessageRow({
   const showBubble = msg.body.trim().length > 0 || isStreamingBubble;
 
   return (
-    <div className={`group mb-1 flex w-full min-w-0 items-start gap-2 ${isMe ? 'flex-row-reverse' : ''}`}>
-      <div
-        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold shadow-soft-sm ${
-          isPersona
-            ? 'bg-gradient-to-br from-brand-400 to-brand-500 text-white'
-            : isMe
-            ? 'bg-gradient-to-br from-warning/30 to-warning text-white'
-            : 'bg-gradient-to-br from-surface-3 to-ink-tertiary text-white'
-        }`}
-        title={nameOf(msg.senderId)}
-      >
-        {isPersona ? <Bot className="h-4 w-4" /> : nameOf(msg.senderId).slice(0, 2).toUpperCase()}
-      </div>
+    <div className={`group flex w-full min-w-0 items-start gap-2 ${showSender ? 'mt-2 mb-0.5' : 'mb-0.5'} ${isMe ? 'flex-row-reverse' : ''}`}>
+      {/* §B4 同人 5 分钟内分组: 续条隐藏头像, 用等宽占位保持对齐 */}
+      {showSender ? (
+        <div
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold shadow-soft-sm ${
+            isPersona
+              ? 'bg-gradient-to-br from-brand-400 to-brand-500 text-white'
+              : isMe
+              ? 'bg-gradient-to-br from-warning/30 to-warning text-white'
+              : 'bg-gradient-to-br from-surface-3 to-ink-tertiary text-white'
+          }`}
+          title={nameOf(msg.senderId)}
+        >
+          {isPersona ? <Bot className="h-4 w-4" /> : nameOf(msg.senderId).slice(0, 2).toUpperCase()}
+        </div>
+      ) : (
+        <div className="h-1 w-8 shrink-0" aria-hidden />
+      )}
       <div className={`flex max-w-[78%] min-w-0 flex-col sm:max-w-[72%] ${isMe ? 'items-end' : 'items-start'}`}>
         {showSender && (
           <div
@@ -1986,7 +2402,7 @@ function MessageRow({
           >
             <button
               type="button"
-              onClick={onSpawnRoom}
+              onClick={() => onSpawnRoom(msg.id)}
               disabled={!!msg.spawnedDecisionCardId}
               className="flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-warning shadow-soft ring-1 ring-warning/30 transition hover:bg-warning/10 hover:shadow-soft-lg disabled:cursor-not-allowed disabled:opacity-40"
               title="把这条消息变成议事室议题 (Tandem 差异化 — 普通 IM 没有)"
@@ -1996,7 +2412,7 @@ function MessageRow({
             </button>
             <button
               type="button"
-              onClick={onPromote}
+              onClick={() => onPromote(msg.id)}
               disabled={!!msg.spawnedPromotionId}
               className="flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-brand-700 shadow-soft ring-1 ring-brand-300/80 transition hover:bg-brand-50 hover:shadow-soft-lg disabled:cursor-not-allowed disabled:opacity-40"
               title="沉淀为 Memory 升级提议 (三级签批) — 差异化 §2.2 第 3 条"
@@ -2007,7 +2423,7 @@ function MessageRow({
             {/* Day 7: pin/unpin */}
             <button
               type="button"
-              onClick={onPin}
+              onClick={() => onPin(msg.id)}
               className={`flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold shadow-soft transition hover:shadow-soft-lg ${
                 isPinned ? 'text-warning ring-1 ring-warning/30 hover:bg-warning/10' : 'text-ink-secondary ring-1 ring-hairline hover:bg-surface-3'
               }`}
@@ -2016,6 +2432,18 @@ function MessageRow({
               <Pin className="h-3 w-3" />
               {isPinned ? '已顶' : '置顶'}
             </button>
+            {/* §Sprint2 转发 */}
+            {!msg.deletedAt && (
+              <button
+                type="button"
+                onClick={() => onForward(msg.id)}
+                className="flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-ink-secondary shadow-soft ring-1 ring-hairline transition hover:bg-surface-3 hover:shadow-soft-lg"
+                title="转发到其他会话"
+              >
+                <Forward className="h-3 w-3" />
+                转发
+              </button>
+            )}
             {/* §IM-7: AI 回复透明化 trace 按钮 (仅 persona 消息) */}
             {isPersona && <AiTraceButton messageId={msg.id} />}
             {/* §CA-13: CompanyBrain Decision 反馈按钮 (仅 CompanyBrain 消息, 通过 aiTraceId 前缀判断) */}
@@ -2026,7 +2454,7 @@ function MessageRow({
             {recallable && (
               <button
                 type="button"
-                onClick={onRecall}
+                onClick={() => onRecall(msg.id)}
                 disabled={recalling}
                 className="flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold text-danger shadow-soft ring-1 ring-danger/40 transition hover:bg-danger/5 hover:shadow-soft-lg"
                 title="撤回 (2 分钟内 有效)"
@@ -2047,7 +2475,7 @@ function MessageRow({
             messageId={msg.id}
             reactions={msg.reactions}
             currentUserId={meId}
-            onChanged={onReactionChange}
+            onChanged={(reactions) => onReactionChange(msg.id, reactions)}
             align={isMe ? 'right' : 'left'}
             onOpenChange={setReactionOpen}
           />

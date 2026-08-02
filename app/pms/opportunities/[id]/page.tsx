@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Edit, Trash2, MessageSquare, Save, X, Waves } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, MessageSquare, Save, X, Waves, FileText } from 'lucide-react';
 
 // L2C 商机阶段漏斗 (有序 — 支持推进到后续节点)
 const STAGES: Array<{ value: string; label: string }> = [
@@ -355,6 +355,18 @@ export default function OpportunityDetailPage() {
               </>
             ) : (
               <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    router.push(
+                      `/pms/quotes?opp=${encodeURIComponent(opportunity.id)}&customer=${encodeURIComponent(opportunity.customerName)}`,
+                    )
+                  }
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  官方报价
+                </Button>
                 <Button variant="outline" size="sm" onClick={startEdit}>
                   <Edit className="w-4 h-4 mr-2" />
                   编辑

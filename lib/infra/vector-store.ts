@@ -21,7 +21,7 @@ import { embed, isEmbeddingConfigured, getEmbeddingModelInfo } from './embedding
 import { logger } from './logger';
 import { getShouchaoVectorDb } from '@/lib/shouchao/store';
 
-export type VectorEntityType = 'memory' | 'shouchao_note' | 'shouchao_row';
+export type VectorEntityType = 'memory' | 'shouchao_note' | 'shouchao_row' | 'im_message';
 
 /** 期望向量维度 (与迁移脚本 EMBEDDING_DIM 一致)。默认 1536 = text-embedding-3-small。 */
 export const EXPECTED_DIM = Number(process.env.EMBEDDING_DIM ?? '1536');

@@ -85,6 +85,14 @@ export interface MultiStepInput {
    * 注: 'native' 模式下 toolset 必须非空, 否则等价 'prompt'.
    */
   mode?: 'prompt' | 'native';
+  /** call-site 级 feature 标签 (native 模式透传到 runToolLoop → LlmUsageLog.feature) */
+  feature?: string;
+  /** P1 #7 FIDES 信息流硬拦截 (native 模式透传) */
+  enableInfoFlow?: boolean;
+  /** P1 #10 Meta-Reasoner 低信心策略重置 (native 模式透传) */
+  enableStrategyReset?: boolean;
+  /** P1 #11 SELFCOMPACT 自压缩工具 (native 模式透传) */
+  enableSelfCompact?: boolean;
 }
 
 export interface MultiStepResult {
@@ -133,6 +141,12 @@ export async function runMultiStep(input: MultiStepInput): Promise<MultiStepResu
         isProxy: input.isProxy,
         tenantId: input.tenantId,
         maxRounds: maxSteps,
+        trace: { kind: 'reasoning', agentPath: 'multi-step/native' },
+        aiTraceId: input.aiTraceId,
+        feature: input.feature,
+        enableInfoFlow: input.enableInfoFlow,
+        enableStrategyReset: input.enableStrategyReset,
+        enableSelfCompact: input.enableSelfCompact,
       });
       // 把 toolInvocations 适配成 AgentStepTrace[]
       const adaptedTrace: AgentStepTrace[] = r.toolInvocations.map((inv, i) => ({

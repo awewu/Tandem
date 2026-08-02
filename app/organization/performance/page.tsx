@@ -10,11 +10,13 @@
  * 数据源: GET /api/organization/performance?scope=me|reports (只读, 无写操作)
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, Target, Wallet, Users, TrendingUp, AlertCircle, Grid3x3 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Loader2, Target, Wallet, Users, TrendingUp, AlertCircle, Grid3x3, Coins, Layers, ArrowUpRight, Lock, Unlock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type NineBoxCell =
@@ -220,6 +222,304 @@ function PersonCard({
   );
 }
 
+interface GradeGapSkill {
+  id: string;
+  name: string;
+  skillWage: number;
+}
+
+interface CompGradeView {
+  status: 'ok' | 'notfound';
+  family?: { id: string; name: string; board: string };
+  jobClass?: string;
+  level?: string;
+  taskGear?: string;
+  breakdown?: { base: number; skill: number; task: number; monthly: number };
+  certifiedSkillWage?: number;
+  standardSkillWage?: number;
+  nextLevel?: { level: string; standardSkillWage: number; gapSkills: GradeGapSkill[] } | null;
+}
+
+function SegmentBar({ base, skill, task }: { base: number; skill: number; task: number }) {
+  const total = base + skill + task || 1;
+  const seg = (v: number) => `${(v / total) * 100}%`;
+  return (
+    <div className="flex h-2.5 w-full overflow-hidden rounded-full">
+      <div className="bg-info/70" style={{ width: seg(base) }} title={`基本 ${base}`} />
+      <div className="bg-success/70" style={{ width: seg(skill) }} title={`技能 ${skill}`} />
+      <div className="bg-warning/70" style={{ width: seg(task) }} title={`任务 ${task}`} />
+    </div>
+  );
+}
+
+function CompGradeCard() {
+  const [view, setView] = useState<CompGradeView | null>(null);
+  const [locked, setLocked] = useState<{ hasPin: boolean } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [pin, setPin] = useState('');
+  const [pin2, setPin2] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [pinErr, setPinErr] = useState<string | null>(null);
+  const [wiGear, setWiGear] = useState<string | null>(null);
+  const [wiMonthly, setWiMonthly] = useState<number | null>(null);
+  const [wiDelta, setWiDelta] = useState(0);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await fetch('/api/comp/me/grade', { credentials: 'include', cache: 'no-store' });
+      const j = await r.json();
+      if (j.locked) { setLocked({ hasPin: !!j.hasPin }); setView(null); }
+      else { setView(j.view ?? null); setLocked(null); }
+    } catch {
+      setView(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void load(); }, [load]);
+
+  async function submitPin(action: 'set' | 'unlock') {
+    if (action === 'set' && pin !== pin2) { setPinErr('两次输入不一致'); return; }
+    setBusy(true); setPinErr(null);
+    try {
+      const r = await fetch('/api/comp/income', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, pin }),
+      });
+      const j = await r.json();
+      if (!r.ok) { setPinErr(j.error ?? '操作失败'); return; }
+      setPin(''); setPin2('');
+      await load();
+    } catch (e) {
+      setPinErr((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function lockNow() {
+    await fetch('/api/comp/income', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'lock' }),
+    });
+    setView(null); setLocked({ hasPin: true });
+  }
+
+  async function simGear(gear: string) {
+    setWiGear(gear);
+    try {
+      const r = await fetch('/api/comp/me/what-if', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ toGear: gear }),
+      });
+      const j = await r.json();
+      if (j.result?.after) { setWiMonthly(j.result.after.monthly); setWiDelta(j.result.delta ?? 0); }
+    } catch { /* noop */ }
+  }
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="py-6 flex items-center justify-center text-muted-foreground text-caption">
+          <Loader2 className="w-4 h-4 animate-spin mr-2" /> 加载薪酬构成…
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (locked) {
+    return (
+      <Card className="border-warning/30">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-caption flex items-center gap-1.5">
+            <Lock className="h-4 w-4 text-warning" /> 我的薪酬构成 · 已加密
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-[11px] text-muted-foreground">
+            {locked.hasPin
+              ? '收入数据受二次密码保护，请输入二次密码解锁 (有效 15 分钟)。'
+              : '首次查看请设置收入二次密码 (6-12 位数字，独立于登录密码)。'}
+          </p>
+          <div className="space-y-2 max-w-xs">
+            <Input
+              type="password"
+              inputMode="numeric"
+              placeholder={locked.hasPin ? '二次密码' : '设置二次密码 (6-12 位数字)'}
+              value={pin}
+              onChange={(e) => setPin(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && locked.hasPin) void submitPin('unlock'); }}
+              className="h-8 text-[12px]"
+            />
+            {!locked.hasPin && (
+              <Input
+                type="password"
+                inputMode="numeric"
+                placeholder="再次输入确认"
+                value={pin2}
+                onChange={(e) => setPin2(e.target.value)}
+                className="h-8 text-[12px]"
+              />
+            )}
+            {pinErr && <p className="text-[10px] text-danger">{pinErr}</p>}
+            <Button
+              size="sm"
+              className="h-8 text-[12px] gap-1"
+              disabled={busy || !pin}
+              onClick={() => submitPin(locked.hasPin ? 'unlock' : 'set')}
+            >
+              {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Unlock className="h-3 w-3" />}
+              {locked.hasPin ? '解锁查看' : '设置并解锁'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!view || view.status !== 'ok' || !view.breakdown) {
+    return (
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-caption flex items-center gap-1.5">
+            <Coins className="h-4 w-4" /> 我的薪酬构成
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="py-6 text-center text-[11px] text-muted-foreground">
+          尚未为你建立职级定位，薪酬构成暂不可用。
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const b = view.breakdown;
+  const skillPct = view.standardSkillWage
+    ? Math.min(100, Math.round(((view.certifiedSkillWage ?? 0) / view.standardSkillWage) * 100))
+    : 100;
+  const nextGain = view.nextLevel
+    ? view.nextLevel.gapSkills.reduce((a, s) => a + s.skillWage, 0)
+    : 0;
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-caption flex items-center justify-between gap-1.5">
+          <span className="flex items-center gap-1.5">
+            <Coins className="h-4 w-4" /> 我的薪酬构成 (仅本人可见)
+          </span>
+          <span className="flex items-center gap-1">
+            {view.family && (
+              <Badge variant="outline" className="text-[9px] scale-90">{view.family.name}</Badge>
+            )}
+            <Badge variant="outline" className="text-[9px] scale-90 flex items-center gap-0.5">
+              <Layers className="h-2.5 w-2.5" />{view.jobClass}类·{view.level}·任务{view.taskGear}档
+            </Badge>
+            <button
+              onClick={() => void lockNow()}
+              title="立即上锁"
+              className="text-muted-foreground hover:text-warning transition-colors"
+            >
+              <Lock className="h-3.5 w-3.5" />
+            </button>
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="bg-primary/5 rounded-md p-3 border border-primary/20">
+          <div className="flex items-baseline justify-between mb-2">
+            <span className="text-[10px] text-muted-foreground uppercase">月薪构成</span>
+            <span className="text-headline font-bold text-primary tabular-nums">
+              {b.monthly.toLocaleString()}<span className="text-[10px] font-normal text-muted-foreground">/月</span>
+            </span>
+          </div>
+          <SegmentBar base={b.base} skill={b.skill} task={b.task} />
+          <div className="flex justify-between mt-1.5 text-[10px] text-muted-foreground tabular-nums">
+            <span className="text-info">基本 {b.base.toLocaleString()}</span>
+            <span className="text-success">技能 {b.skill.toLocaleString()}</span>
+            <span className="text-warning">任务 {b.task.toLocaleString()}</span>
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-footnote">
+            <span className="flex items-center gap-1 text-[10px] font-semibold text-muted-foreground uppercase">
+              <TrendingUp className="h-3 w-3" /> 技能认证进度 (A轨)
+            </span>
+            <span className="tabular-nums text-[10px] text-muted-foreground">
+              已认证 {(view.certifiedSkillWage ?? 0).toLocaleString()} / 本级标准 {(view.standardSkillWage ?? 0).toLocaleString()}
+            </span>
+          </div>
+          <Progress value={skillPct} className="h-1.5" />
+        </div>
+
+        <div className="space-y-1.5 border-t pt-3">
+          <div className="flex items-center gap-1 text-[10px] font-semibold text-muted-foreground uppercase">
+            <Wallet className="h-3 w-3" /> 任务档试算 (B轨 · 承接越重越高)
+          </div>
+          <div className="flex gap-1">
+            {['A', 'B', 'C', 'D', 'E', 'F', 'G'].map((gg) => (
+              <button
+                key={gg}
+                onClick={() => void simGear(gg)}
+                className={cn(
+                  'h-6 w-7 rounded text-[10px] border tabular-nums transition-colors',
+                  (wiGear ?? view.taskGear) === gg
+                    ? 'bg-primary/10 text-primary border-primary/30'
+                    : 'text-ink-secondary border-border hover:bg-surface-1',
+                )}
+              >
+                {gg}
+              </button>
+            ))}
+          </div>
+          {wiMonthly !== null && wiGear && (
+            <p className="text-[10px] text-muted-foreground">
+              {wiGear} 档月薪 <span className="text-primary font-semibold tabular-nums">{wiMonthly.toLocaleString()}</span>
+              {wiDelta !== 0 && (
+                <span className={cn('ml-1 tabular-nums', wiDelta > 0 ? 'text-success' : 'text-danger')}>
+                  ({wiDelta > 0 ? '+' : ''}{wiDelta.toLocaleString()})
+                </span>
+              )}
+            </p>
+          )}
+        </div>
+
+        {view.nextLevel && (
+          <div className="space-y-2 border-t pt-3">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1 text-[10px] font-semibold text-muted-foreground uppercase">
+                <ArrowUpRight className="h-3 w-3" /> 晋级 {view.nextLevel.level} 缺口
+              </span>
+              {nextGain > 0 && (
+                <Badge variant="outline" className="text-[9px] scale-90 bg-success/10 text-success border-success/30">
+                  认证全部 +{nextGain.toLocaleString()}/月
+                </Badge>
+              )}
+            </div>
+            {view.nextLevel.gapSkills.length === 0 ? (
+              <p className="text-[10px] text-success">✓ 已满足下一级全部必备技能</p>
+            ) : (
+              <div className="space-y-1">
+                {view.nextLevel.gapSkills.map((s) => (
+                  <div key={s.id} className="flex items-center justify-between text-[10px]">
+                    <span className="truncate text-ink-secondary">{s.name}</span>
+                    <span className="tabular-nums text-success shrink-0">+{s.skillWage.toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function OrganizationPerformancePage() {
   const [tab, setTab] = useState<'me' | 'reports'>('me');
   const [loading, setLoading] = useState(true);
@@ -307,13 +607,16 @@ export default function OrganizationPerformancePage() {
       )}
 
       {!loading && !error && tab === 'me' && (
-        <PersonCard
-          title="我的目标与收入"
-          kpis={me?.kpis ?? []}
-          objectives={me?.objectives ?? []}
-          nineBox={me?.nineBox}
-          bonus={me?.bonus}
-        />
+        <div className="space-y-4">
+          <PersonCard
+            title="我的目标与收入"
+            kpis={me?.kpis ?? []}
+            objectives={me?.objectives ?? []}
+            nineBox={me?.nineBox}
+            bonus={me?.bonus}
+          />
+          <CompGradeCard />
+        </div>
       )}
 
       {!loading && !error && tab === 'reports' && (

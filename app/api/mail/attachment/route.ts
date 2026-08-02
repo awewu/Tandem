@@ -29,6 +29,8 @@ const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
   const uid = Number(searchParams.get('uid'));
   const filename = searchParams.get('filename') ?? '';
   const folder = searchParams.get('folder') ?? 'INBOX';
+  // inline=1 → 用于浏览器内预览 (图片/PDF), 使用 inline disposition
+  const inline = searchParams.get('inline') === '1';
   if (!uid || !filename) return NextResponse.json({ error: '缺少 uid 或 filename' }, { status: 400 });
   const creds = await getKvRepo('user_email_creds').get(auth.userId);
   if (!creds?.smtpPassEncrypted) return NextResponse.json({ error: '未绑定邮箱' }, { status: 400 });
@@ -38,7 +40,7 @@ const GETApiHandler = withErrorHandler(async (req: NextRequest) => {
   return new NextResponse(buf, {
     headers: {
       'Content-Type': result.contentType,
-      'Content-Disposition': `attachment; filename="${encodeURIComponent(result.filename)}"`,
+      'Content-Disposition': `${inline ? 'inline' : 'attachment'}; filename="${encodeURIComponent(result.filename)}"`,
       'Content-Length': String(buf.length),
     },
   });

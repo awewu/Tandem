@@ -47,7 +47,7 @@ async function POSTApiHandler(req: NextRequest) {
       priorCycleId: null,
       priorFiscalYear: cycle.fiscalYear - 1,
       suggestions: [],
-      note: `找不到 FY${cycle.fiscalYear - 1} 的历史周期, 无真实基准可用, 需 HR 手工设定全部目标`,
+      note: `找不到 FY${cycle.fiscalYear - 1} 的历史周期, 无真实基准可用。建议: ① 在 KPI 表单手工设定目标; ② 或通过「人工补录」/ ERP 导入上年 actual 后再重新生成建议。`,
     });
   }
 
@@ -57,7 +57,7 @@ async function POSTApiHandler(req: NextRequest) {
     withTenantScope(store.kpiSubjects, auth.tenantId).list(),
   ]);
   const subjectCodeById = new Map(subjects.map((s) => [s.id, s.code]));
-  const alreadySet = new Set(newKpis.map((k) => `${k.subjectId}_${k.assigneeId}_${k.level}`));
+  const newKpiByKey = new Map(newKpis.map((k) => [`${k.subjectId}_${k.assigneeId}_${k.level}`, k]));
 
   const priorYearActuals: PriorYearActual[] = priorKpis.map((k) => ({
     priorKpiId: k.id,
@@ -79,11 +79,15 @@ async function POSTApiHandler(req: NextRequest) {
   const cascadeWarnings = checkCascadeConsistency(rawSuggestions);
   const warningByParentId = new Map(cascadeWarnings.map((w) => [w.parentPriorKpiId, w]));
 
-  const suggestions = rawSuggestions.map((s) => ({
-    ...s,
-    alreadySet: alreadySet.has(`${s.subjectId}_${s.assigneeId}_${s.level}`),
-    cascadeWarning: warningByParentId.get(s.priorKpiId) ?? null,
-  }));
+  const suggestions = rawSuggestions.map((s) => {
+    const existing = newKpiByKey.get(`${s.subjectId}_${s.assigneeId}_${s.level}`);
+    return {
+      ...s,
+      alreadySet: !!existing,
+      existingKpiId: existing?.id,
+      cascadeWarning: warningByParentId.get(s.priorKpiId) ?? null,
+    };
+  });
 
   return NextResponse.json({
     cycleId: cycle.id,

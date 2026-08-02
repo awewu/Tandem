@@ -38,6 +38,8 @@ export const PERCEPTION_TOOLSET = [
   'analytics.cross_rollup',
   // 销售之眼: 全公司 PMS 管道/项目健康 + 最紧急销售/财务异常 (破除 CRM 孤岛)
   'pms.pipeline_digest',
+  // 战略之眼: 跨仓拉 StratOS 战略合理性传感器 (前提脆弱/硬阻断/诊断crux/diff/Bet勾连/runway)
+  'strategy.validity_digest',
   'memory.search',
   // 时间/因果轴: 回答"某 KR/决议一路怎么演进的" (MAGMA-lite)
   'memory.timeline',
@@ -62,6 +64,8 @@ const PERCEPTION_TOOL_MARKINGS: Record<string, Marking> = {
   'kpi.health_digest': { sensitivity: 'confidential', categories: ['financial'] },
   'bonus.digest': { sensitivity: 'confidential', categories: ['financial'] },
   'pms.pipeline_digest': { sensitivity: 'confidential', categories: ['financial'] },
+  // 战略合理性摘要 = 诊断/前提/Bet + FPA 聚合额 → confidential + financial (okr_perception 允许)。
+  'strategy.validity_digest': { sensitivity: 'confidential', categories: ['financial'] },
   'talent.nine_box': { sensitivity: 'confidential' },
   'analytics.cross_rollup': { sensitivity: 'confidential', categories: ['financial'] },
   'memory.search': { sensitivity: 'internal' },
@@ -110,7 +114,7 @@ export interface PerceptionResult {
  * 命中才跑感知 pass (避免每条闲聊都烧一次 tool-loop)。
  */
 const INTERNAL_DATA_RE =
-  /OKR|目标|KR\b|关键结果|进度|落后|滞后|at[ -]?risk|风险|健康度|预警|决议|议事|完成率|执行情况|落地情况|哪些目标|哪个目标|进展|周期目标|对齐|KPI|绩效|奖金|bonus|9\s*宫格|九宫格|nine[ -]?box|人才|梯队|盘点|继任|激励|进化|演进|改进机会|优化机会|销售|商机|管道|赢单|丢单|丢标|项目|经销商|报备|招标|招投标|合同|回款|spec/i;
+  /OKR|目标|KR\b|关键结果|进度|落后|滞后|at[ -]?risk|风险|健康度|预警|决议|议事|完成率|执行情况|落地情况|哪些目标|哪个目标|进展|周期目标|对齐|KPI|绩效|奖金|bonus|9\s*宫格|九宫格|nine[ -]?box|人才|梯队|盘点|继任|激励|进化|演进|改进机会|优化机会|销售|商机|管道|赢单|丢单|丢标|项目|经销商|报备|招标|招投标|合同|回款|spec|战略|前提|假设|复盘|合理性|坚守|审视|crux|诊断|该不该|还成立|pivot|kill/i;
 
 export function shouldPerceive(query: string): { trigger: boolean; reason: string } {
   const q = (query ?? '').trim();
@@ -178,7 +182,7 @@ export function clearPerceptionCache(): void {
 }
 
 const PERCEPTION_SYSTEM = [
-  '你是中央 AI 的「感知前置」。你的唯一任务是: 调用提供的只读工具, 收集与用户问题相关的公司内部真实数据。可用真值维度: OKR 真值进度/at-risk (okr.health_digest/okr.read/okr.business_review)、KPI 底线达成与权重/cascade (kpi.health_digest)、人才 9 宫格分布 (talent.nine_box)、年终奖金池与下发就绪度 (bonus.digest)、全公司销售管道/赢单率与项目异常 (pms_pipeline_digest)、历史决议 (decision_card.list)、知识库 (memory.search)。',
+  '你是中央 AI 的「感知前置」。你的唯一任务是: 调用提供的只读工具, 收集与用户问题相关的公司内部真实数据。可用真值维度: OKR 真值进度/at-risk (okr.health_digest/okr.read/okr.business_review)、KPI 底线达成与权重/cascade (kpi.health_digest)、人才 9 宫格分布 (talent.nine_box)、年终奖金池与下发就绪度 (bonus.digest)、全公司销售管道/赢单率与项目异常 (pms_pipeline_digest)、StratOS 战略合理性真值 (诊断crux/硬阻断/脆弱前提/StratDiff/Bet勾连/runway, strategy_validity_digest)、历史决议 (decision_card.list)、知识库 (memory.search)。',
   '规则:',
   '1. 只收集数据, 不要回答用户的问题本身, 不要给建议。',
   '2. 单一维度问题 (只问 OKR 进度 / 只问某人 KPI 等): 用最少的工具调用拿到关键事实即可, 拿到后立即停止。',
@@ -241,6 +245,10 @@ export async function companyBrainPerceptionPass(
       maxTokens: 1200,
       adaptiveTopology: true,
       aiTraceId: checkId,
+      // P0-8 · call-site 级成本归因
+      feature: 'company_brain_perception',
+      // P1 #7 FIDES 信息流硬拦截 (含 MCP 不可信输出; 只读感知无敏感写工具 → 零回归, 纵深防御)
+      enableInfoFlow: true,
       // B-002: 中央 AI 感知 pass 可调已配置的外部 MCP server 工具 (经 4 道闸).
       // 没配 MCP server 时 listMcpServers() 为空, 等价于不开启.
       includeMcpTools: true,

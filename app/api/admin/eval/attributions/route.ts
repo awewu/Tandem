@@ -11,7 +11,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { boot } from '@/lib/boot';
 import { requireAuth, requireRole } from '@/lib/auth/require-auth';
-import { listAttributions } from '@/lib/persona/attribution';
+import { listAttributions, runAttributionPass } from '@/lib/persona/attribution';
 import type { AttributionVerdict } from '@/lib/types/eval';
 import { withApiLog } from '@/lib/api-log/with-api-log';
 
@@ -41,4 +41,20 @@ async function GETApiHandler(req: NextRequest): Promise<NextResponse> {
   return NextResponse.json({ total: attributions.length, filter: { verdict, limit }, attributions });
 }
 
+async function POSTApiHandler(req: NextRequest): Promise<NextResponse> {
+  await boot();
+  const auth = requireAuth(req);
+  if (auth instanceof NextResponse) return auth;
+  const roleErr = requireRole(auth, ['admin', 'steward', 'champion', 'owner']);
+  if (roleErr) return roleErr;
+
+  const body = await req.json().catch(() => ({}));
+  const windowDays = typeof body?.windowDays === 'number' && body.windowDays > 0 ? body.windowDays : 30;
+  const enrichWithLlm = !!body?.enrichWithLlm;
+
+  const summary = await runAttributionPass({ tenantId: auth.tenantId, windowDays, enrichWithLlm });
+  return NextResponse.json({ summary });
+}
+
 export const GET = withApiLog(GETApiHandler, { route: '/api/admin/eval/attributions' });
+export const POST = withApiLog(POSTApiHandler, { route: '/api/admin/eval/attributions' });

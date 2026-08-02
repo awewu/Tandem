@@ -29,6 +29,12 @@ export interface CompactionOptions {
   scenario?: ScenarioTag;
   /** 是否启用 LLM 摘要 (false 则硬截断, 默认 true) */
   enableLlmSummary?: boolean;
+  /**
+   * P2 #13 · CWL 结构化驱逐: 开启后优先**驱逐已完成的 tool episode** (role:'tool' 结果,
+   * 效果已持久化) 而非全量摘要 — 保留用户轮次 + 活跃推理上下文 + 最近 N 轮, 只丢已完成动作。
+   * 比全量摘要更少丢因果结构, 且不引入摘要幻觉。默认 false = 走原摘要逻辑 (零行为变更)。
+   */
+  structuredEviction?: boolean;
 }
 
 export interface CompactionResult {
@@ -48,6 +54,7 @@ const DEFAULTS: Required<CompactionOptions> = {
   keepLastTurns: 4,
   scenario: 'high_frequency',
   enableLlmSummary: true,
+  structuredEviction: false,
 };
 
 /**
@@ -85,6 +92,37 @@ export async function compactMessages(
   if (middle.length === 0) {
     // 触发了阈值但中间没什么可压, 直接放过
     return { messages, compacted: false, droppedCount: 0, usedLlm: false };
+  }
+
+  // P2 #13 · CWL 结构化驱逐: 优先驱逐中间段已完成的 tool episode (效果已持久化),
+  // 保留 user + assistant 推理上下文。若驱逐后仍超阈值, 落回下方摘要兜底。
+  if (o.structuredEviction) {
+    const toolMsgs = middle.filter((m) => m.role === 'tool');
+    if (toolMsgs.length > 0) {
+      const keptMiddle = middle.filter((m) => m.role !== 'tool');
+      const marker: ChatMessage = {
+        role: 'system',
+        content: `【结构化驱逐 · CWL】已驱逐 ${toolMsgs.length} 条已完成的工具结果 (效果已落地/已被后续推理消费), 保留用户轮次与推理上下文。`,
+      };
+      const evicted: ChatMessage[] = [
+        ...systems,
+        ...(firstUser ? [firstUser] : []),
+        marker,
+        ...keptMiddle,
+        ...tail,
+      ];
+      const evictedChars = totalCharsOf(evicted);
+      // 驱逐已把体量压到阈值内 → 直接返回 (不再摘要, 保住因果结构)
+      if (evictedChars < o.triggerChars) {
+        return {
+          messages: evicted,
+          compacted: true,
+          droppedCount: toolMsgs.length,
+          usedLlm: false,
+          charsBeforeAfter: { before: totalChars, after: evictedChars },
+        };
+      }
+    }
   }
 
   // 2. 摘要中间段

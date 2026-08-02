@@ -10,6 +10,7 @@ import type { EvalTrace, EvalTraceKind, EvalGrade } from '@/lib/types/eval';
 import { getStore } from '@/lib/storage/repository';
 import { logger } from '@/lib/infra/logger';
 import { runRuleGraders, runLlmGraders } from './graders';
+import { computePassK, computeReliabilityCurve, type PassKResult, type ReliabilityCurve } from './pass-k';
 
 function genTraceId(): string {
   return `evt_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
@@ -163,5 +164,38 @@ export async function runRegression(opts: RunRegressionOpts = {}): Promise<Regre
   } catch (err) {
     logger.warn({ err: (err as Error).message }, '[eval] runRegression failed');
     return empty;
+  }
+}
+
+/**
+ * P0-2 · Pass^k 多试一致性: 对已采集 trace 按 (kind + 归一化输入) 分组, 计算 k 次全过率。
+ * 纯只读聚合, 永不抛。默认 k=3 (Pass^3)。
+ */
+export async function runPassK(
+  opts: { tenantId?: string; kind?: EvalTraceKind; k?: number; limit?: number } = {},
+): Promise<PassKResult> {
+  const k = opts.k ?? 3;
+  try {
+    const traces = await listTraces({ tenantId: opts.tenantId, kind: opts.kind, limit: opts.limit ?? 500 });
+    return computePassK(traces, k);
+  } catch (err) {
+    logger.warn({ err: (err as Error).message }, '[eval] runPassK failed');
+    return { k, eligibleGroups: 0, consistentGroups: 0, passAtK: null, singlePassRate: null, groups: [] };
+  }
+}
+
+/**
+ * P2 #18 · 可靠性衰退曲线: 按任务时长分档算 passRate + GDS, 度量 "任务越长可靠性降多快"。
+ * 纯只读聚合, 永不抛。
+ */
+export async function runReliabilityCurve(
+  opts: { tenantId?: string; kind?: EvalTraceKind; limit?: number } = {},
+): Promise<ReliabilityCurve> {
+  try {
+    const traces = await listTraces({ tenantId: opts.tenantId, kind: opts.kind, limit: opts.limit ?? 500 });
+    return computeReliabilityCurve(traces);
+  } catch (err) {
+    logger.warn({ err: (err as Error).message }, '[eval] runReliabilityCurve failed');
+    return { buckets: [], declineSlope: null };
   }
 }

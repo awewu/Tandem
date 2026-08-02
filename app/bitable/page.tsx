@@ -98,7 +98,7 @@ export default function BitableHomePage() {
             <Link
               key={t.id}
               href={`/bitable/${t.id}`}
-              className="block rounded-lg border border-border bg-white p-4 hover:border-success/50 hover:shadow-soft transition"
+              className="block rounded-lg border border-border bg-surface-1 p-4 hover:border-success/50 hover:shadow-soft transition"
             >
               <div className="font-semibold">{t.name}</div>
               {t.description && <div className="text-footnote text-ink-tertiary mt-1">{t.description}</div>}

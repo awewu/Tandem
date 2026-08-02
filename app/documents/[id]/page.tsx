@@ -183,7 +183,7 @@ export default function DocumentEditorPage() {
 
   return (
     <div className="flex flex-col h-screen">
-      <div className="flex items-center gap-3 p-4 border-b bg-white">
+      <div className="flex items-center gap-3 p-4 border-b bg-surface-1">
         <input
           aria-label="文档标题"
           value={title}
@@ -196,7 +196,7 @@ export default function DocumentEditorPage() {
             type="button"
             onClick={runReview}
             disabled={busy === 'review'}
-            className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-info ring-1 ring-info/40 transition hover:bg-info/10 disabled:opacity-40"
+            className="flex items-center gap-1 rounded-full bg-surface-1 px-2.5 py-1 text-[11px] font-semibold text-info ring-1 ring-info/40 transition hover:bg-info/10 disabled:opacity-40"
             title="让中央 AI 评审清晰度/缺漏/风险/建议下一步 (不改文档, 仅参谋)"
           >
             <ScanSearch className="h-3 w-3" />
@@ -207,7 +207,7 @@ export default function DocumentEditorPage() {
             type="button"
             onClick={spawnConvergence}
             disabled={busy === 'spawn'}
-            className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-warning ring-1 ring-warning/30/80 transition hover:bg-warning/5 disabled:opacity-40"
+            className="flex items-center gap-1 rounded-full bg-surface-1 px-2.5 py-1 text-[11px] font-semibold text-warning ring-1 ring-warning/30/80 transition hover:bg-warning/5 disabled:opacity-40"
             title={
               doc.spawnedDecisionCardId
                 ? '本文档已发起议事, 点击查看决议'
@@ -223,7 +223,7 @@ export default function DocumentEditorPage() {
             type="button"
             onClick={promoteToMemory}
             disabled={busy === 'promote'}
-            className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-brand-700 ring-1 ring-brand-300/80 transition hover:bg-brand-50 disabled:opacity-40"
+            className="flex items-center gap-1 rounded-full bg-surface-1 px-2.5 py-1 text-[11px] font-semibold text-brand-700 ring-1 ring-brand-300/80 transition hover:bg-brand-50 disabled:opacity-40"
             title={
               doc.spawnedPromotionId
                 ? '本文档已发起 Memory 升级, 点击查看签批进度'
@@ -297,7 +297,7 @@ export default function DocumentEditorPage() {
         <div className="w-80 border-l p-4 bg-surface-2 overflow-auto space-y-4">
           {/* DOC-3 评审结果 — 仅 advisory, 不替员工决定下一步 (宪法 A) */}
           {review && (
-            <div className="rounded-md border border-info/30 bg-white p-3 space-y-2">
+            <div className="rounded-md border border-info/30 bg-surface-1 p-3 space-y-2">
               <div className="flex items-center justify-between">
                 <h3 className="font-medium text-caption flex items-center gap-1 text-info">
                   <ScanSearch size={14} /> AI 评审

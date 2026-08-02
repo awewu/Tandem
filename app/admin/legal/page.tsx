@@ -157,13 +157,13 @@ export default function AdminLegalPage() {
           <input
             value={title}
             onChange={(event) => setTitle(event.target.value)}
-            className="mb-4 h-10 w-full rounded-md border border-hairline bg-white px-3 text-caption text-ink-primary focus:outline-none focus:ring-1 focus:ring-brand-500"
+            className="mb-4 h-10 w-full rounded-md border border-hairline bg-surface-1 px-3 text-caption text-ink-primary focus:outline-none focus:ring-1 focus:ring-brand-500"
           />
           <label className="mb-1 block text-footnote font-medium text-ink-secondary">正文 Markdown</label>
           <textarea
             value={contentMarkdown}
             onChange={(event) => setContentMarkdown(event.target.value)}
-            className="h-[520px] w-full resize-none rounded-md border border-hairline bg-white px-3 py-2 font-mono text-[13px] leading-6 text-ink-primary focus:outline-none focus:ring-1 focus:ring-brand-500"
+            className="h-[520px] w-full resize-none rounded-md border border-hairline bg-surface-1 px-3 py-2 font-mono text-[13px] leading-6 text-ink-primary focus:outline-none focus:ring-1 focus:ring-brand-500"
             placeholder="# 隐私政策&#10;&#10;请在这里编辑正式内容。"
           />
         </div>

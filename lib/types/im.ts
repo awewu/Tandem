@@ -93,9 +93,19 @@ export interface ImMention {
   kind: ImMentionKind;
 }
 
+/** §Sprint2 合并转发中的单条源消息快照 (只读留档, 不随源消息变化)。 */
+export interface ForwardedMessageItem {
+  messageId: string;
+  channelId: string;
+  senderId: string;
+  senderName?: string;
+  body: string;
+  createdAt: string;
+}
+
 export interface ImAttachment {
-  /** 类型: file / image / link / decisionCard / memory */
-  kind: 'file' | 'image' | 'link' | 'decision_card' | 'memory';
+  /** 类型: file / image / link / decisionCard / memory / audio(语音条) / forward(合并转发) */
+  kind: 'file' | 'image' | 'link' | 'decision_card' | 'memory' | 'audio' | 'forward';
   url?: string;
   name?: string;
   size?: number;
@@ -104,6 +114,10 @@ export interface ImAttachment {
   refId?: string;
   /** 摘要预览 */
   preview?: string;
+  /** §Sprint2 语音条时长 (秒), 仅 kind='audio' */
+  durationSec?: number;
+  /** §Sprint2 合并转发: 打包的源消息条目 (仅 kind='forward') */
+  forwardedItems?: ForwardedMessageItem[];
   /** 大文件两阶段发送: pending/uploading 表示占位, done 表示可下载, error 表示上传失败 */
   uploadStatus?: 'pending' | 'uploading' | 'done' | 'error';
   uploadProgress?: number;

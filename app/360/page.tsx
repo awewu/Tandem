@@ -284,7 +284,7 @@ function ReviewForm({
                         className={`h-9 w-9 rounded text-caption transition ${
                           answers[q.id]?.score === n
                             ? 'bg-warning text-white'
-                            : 'bg-white border hover:bg-warning/5'
+                            : 'bg-surface-1 border hover:bg-warning/5'
                         }`}
                       >
                         {n}
@@ -341,7 +341,7 @@ function ReviewForm({
                   className={`h-8 w-8 rounded text-caption transition ${
                     overallScore === n
                       ? 'bg-warning text-white'
-                      : 'bg-white border hover:bg-warning/5'
+                      : 'bg-surface-1 border hover:bg-warning/5'
                   }`}
                 >
                   {n}
@@ -658,7 +658,7 @@ function CyclesTab() {
                   aria-label="被评估人"
                   value={subjId}
                   onChange={(e) => setSubjId(e.target.value)}
-                  className="w-full h-8 rounded border bg-white px-2 text-footnote"
+                  className="w-full h-8 rounded border bg-surface-1 px-2 text-footnote"
                 >
                   <option value="">选择...</option>
                   {people.map((p) => (
@@ -672,7 +672,7 @@ function CyclesTab() {
                   aria-label="评估人"
                   value={raterId}
                   onChange={(e) => setRaterId(e.target.value)}
-                  className="w-full h-8 rounded border bg-white px-2 text-footnote"
+                  className="w-full h-8 rounded border bg-surface-1 px-2 text-footnote"
                 >
                   <option value="">选择...</option>
                   {people.filter((p) => p.id !== subjId).map((p) => (
@@ -686,7 +686,7 @@ function CyclesTab() {
                   aria-label="评估关系类型"
                   value={raterType}
                   onChange={(e) => setRaterType(e.target.value as Review360RaterType)}
-                  className="w-full h-8 rounded border bg-white px-2 text-footnote"
+                  className="w-full h-8 rounded border bg-surface-1 px-2 text-footnote"
                 >
                   {(Object.keys(RATER_LABEL) as Review360RaterType[]).map((r) => (
                     <option key={r} value={r}>{RATER_LABEL[r]}</option>
@@ -715,7 +715,7 @@ function CyclesTab() {
 
             <div className="space-y-1 max-h-64 overflow-y-auto">
               {activeAssigns.map((a) => (
-                <div key={a.id} className="flex items-center gap-2 text-footnote border rounded px-2 py-1.5 bg-white">
+                <div key={a.id} className="flex items-center gap-2 text-footnote border rounded px-2 py-1.5 bg-surface-1">
                   {a.submitted ? (
                     <CheckCircle2 className="h-3 w-3 text-success shrink-0" />
                   ) : (

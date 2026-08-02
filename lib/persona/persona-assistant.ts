@@ -127,6 +127,9 @@ export async function personaAssistantPass(
       maxRounds: opts?.maxRounds ?? 4,
       maxTokens: 800,
       aiTraceId: checkId,
+      // 高价值前沿接线: 成本归因 + FIDES 信息流硬拦截 (含写工具时 context 污染即拦截)
+      feature: 'persona_assistant',
+      enableInfoFlow: true,
     });
 
     const writeIds = new Set<string>(ASSISTANT_WRITE_SKILL_IDS);

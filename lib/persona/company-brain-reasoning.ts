@@ -144,6 +144,11 @@ export async function companyBrainReasoningPass(
       actorUserId: opts?.actorUserId ?? COMPANY_BRAIN_USER_ID,
       isProxy: false,
       aiTraceId: traceId,
+      // 高价值前沿接线 (S2 深推理主链路): 成本归因 + 信息流硬拦截 + 低信心策略重置 + 自压缩
+      feature: 'company_brain_reasoning',
+      enableInfoFlow: true,
+      enableStrategyReset: true,
+      enableSelfCompact: true,
     });
 
     const toolsUsed = result.trace

@@ -1472,7 +1472,7 @@ function WorkflowTaskDetailDialog(props: {
   const approvalFormData = props.formData[props.task.id] ?? {};
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4 py-6" onClick={props.onClose}>
-      <div className="grid max-h-[88vh] w-full max-w-[980px] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-md border border-border bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="grid max-h-[88vh] w-full max-w-[980px] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-md border border-border bg-surface-1 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
           <div>
             <h3 className="text-title-3 font-bold text-ink-primary">待办详情</h3>
@@ -1545,7 +1545,7 @@ function WorkflowInstanceDetailDialog(props: { instance: WorkflowInstance; forms
   const form = props.instance.formTemplateId ? props.forms.find((item) => item.id === props.instance.formTemplateId) : undefined;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4 py-6" onClick={props.onClose}>
-      <div className="grid max-h-[88vh] w-full max-w-[920px] grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-md border border-border bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="grid max-h-[88vh] w-full max-w-[920px] grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-md border border-border bg-surface-1 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
           <div>
             <h3 className="text-title-3 font-bold text-ink-primary">流程详情</h3>
@@ -1711,7 +1711,7 @@ function WorkflowStartDialog(props: {
     .filter((node) => node.type === 'approval');
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4 py-6" onClick={props.onClose}>
-      <div className="flex max-h-[88vh] w-full max-w-[1120px] flex-col overflow-hidden rounded-md border border-border bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="flex max-h-[88vh] w-full max-w-[1120px] flex-col overflow-hidden rounded-md border border-border bg-surface-1 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
           <div className="min-w-0">
             <h2 className="text-title-3 font-bold text-ink-primary">发起流程</h2>
@@ -2377,7 +2377,7 @@ function BindingsTab(props: {
       />
 
       <Dialog open={bindingDialogOpen} onOpenChange={setBindingDialogOpen}>
-        <DialogContent className="max-h-[86vh] w-[calc(100vw-2rem)] max-w-[480px] overflow-hidden bg-white p-0">
+        <DialogContent className="max-h-[86vh] w-[calc(100vw-2rem)] max-w-[480px] overflow-hidden bg-surface-1 p-0">
           <DialogHeader className="border-b border-border px-5 py-4">
             <DialogTitle>{props.draft.id ? '编辑业务绑定' : '新建业务绑定'}</DialogTitle>
             <DialogDescription>选择业务场景和触发动作，关联一个已发布的流程模型。</DialogDescription>
@@ -2443,7 +2443,7 @@ function BindingsTab(props: {
       </Dialog>
 
       <Dialog open={validationDialogOpen} onOpenChange={setValidationDialogOpen}>
-        <DialogContent className="max-h-[86vh] w-[calc(100vw-2rem)] max-w-[560px] overflow-hidden bg-white p-0">
+        <DialogContent className="max-h-[86vh] w-[calc(100vw-2rem)] max-w-[560px] overflow-hidden bg-surface-1 p-0">
           <DialogHeader className="border-b border-border px-5 py-4">
             <DialogTitle>绑定验证</DialogTitle>
             <DialogDescription>用于管理员模拟业务动作发起流程，不作为正式业务菜单。</DialogDescription>
@@ -2867,7 +2867,7 @@ function WorkflowFormBindingDesigner(props: {
             type="button"
             onClick={() => setPropertyTab('field')}
             className={`h-9 rounded-md text-body font-semibold transition-colors ${
-              propertyTab === 'field' ? 'bg-white text-brand-600 shadow-sm' : 'text-ink-secondary hover:bg-white/70'
+              propertyTab === 'field' ? 'bg-surface-1 text-brand-600 shadow-soft-xs' : 'text-ink-secondary hover:bg-surface-1/70'
             }`}
           >
             组件属性
@@ -2876,7 +2876,7 @@ function WorkflowFormBindingDesigner(props: {
             type="button"
             onClick={() => setPropertyTab('form')}
             className={`h-9 rounded-md text-body font-semibold transition-colors ${
-              propertyTab === 'form' ? 'bg-white text-brand-600 shadow-sm' : 'text-ink-secondary hover:bg-white/70'
+              propertyTab === 'form' ? 'bg-surface-1 text-brand-600 shadow-soft-xs' : 'text-ink-secondary hover:bg-surface-1/70'
             }`}
           >
             表单属性
@@ -3156,7 +3156,7 @@ function WorkflowNodeEditorDrawer(props: {
         aria-label="节点编辑"
         tabIndex={-1}
         autoFocus
-        className="ml-auto flex h-full w-full max-w-[720px] flex-col border-l border-border bg-white shadow-2xl"
+        className="ml-auto flex h-full w-full max-w-[720px] flex-col border-l border-border bg-surface-1 shadow-2xl"
         onClick={(event) => event.stopPropagation()}
         onKeyDown={(event) => { if (event.key === 'Escape') props.onClose(); }}
       >
@@ -3446,7 +3446,7 @@ function WorkflowUserPickerDialog(props: {
   if (!props.open) return null;
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 p-4" onClick={() => props.onOpenChange(false)}>
-      <div role="dialog" aria-modal="true" aria-label="选择用户" className="flex h-[540px] w-full max-w-[560px] flex-col overflow-hidden rounded-md border border-border bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
+      <div role="dialog" aria-modal="true" aria-label="选择用户" className="flex h-[540px] w-full max-w-[560px] flex-col overflow-hidden rounded-md border border-border bg-surface-1 shadow-2xl" onClick={(event) => event.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4">
           <h2 className="text-title-3 font-semibold text-ink-primary">选择用户</h2>
           <button type="button" onClick={() => props.onOpenChange(false)} className="flex h-9 w-9 items-center justify-center rounded-md border border-border text-ink-secondary hover:bg-surface-1" aria-label="关闭用户选择"><X className="h-5 w-5" /></button>
@@ -3469,7 +3469,7 @@ function WorkflowTaskListenerDialog(props: { open: boolean; onOpenChange: (open:
   const listeners = props.node.taskListeners ?? [];
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className="max-w-[560px] bg-white">
+      <DialogContent className="max-w-[560px] bg-surface-1">
         <DialogHeader><DialogTitle>任务监听器</DialogTitle><DialogDescription>配置节点创建、分配或完成时调用的监听实现。</DialogDescription></DialogHeader>
         <div className="max-h-[360px] space-y-3 overflow-y-auto">
           {listeners.map((listener, index) => (

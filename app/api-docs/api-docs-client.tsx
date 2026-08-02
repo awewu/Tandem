@@ -76,7 +76,7 @@ function CopyButton({ value }: { value: string }) {
 
 function FieldTable({ title, fields, emptyText }: { title: string; fields: ApiField[]; emptyText: string }) {
   return (
-    <div className="rounded-md border border-border bg-white">
+    <div className="rounded-md border border-border bg-surface-1">
       <div className="border-b border-border px-3 py-2 text-footnote font-semibold text-ink-secondary">{title}</div>
       {fields.length === 0 ? (
         <div className="px-3 py-3 text-footnote text-ink-tertiary">{emptyText}</div>
@@ -91,7 +91,7 @@ function FieldTable({ title, fields, emptyText }: { title: string; fields: ApiFi
                 <th className="px-3 py-2 font-medium">说明</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-border">
               {fields.map((item) => (
                 <tr key={`${title}:${item.name}`}>
                   <td className="px-3 py-2 font-mono text-ink-primary">{item.name}</td>
@@ -110,7 +110,7 @@ function FieldTable({ title, fields, emptyText }: { title: string; fields: ApiFi
 
 function StatusTable({ statuses }: { statuses: ApiStatus[] }) {
   return (
-    <div className="rounded-md border border-border bg-white">
+    <div className="rounded-md border border-border bg-surface-1">
       <div className="border-b border-border px-3 py-2 text-footnote font-semibold text-ink-secondary">返回状态码</div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[520px] text-left text-footnote">
@@ -120,7 +120,7 @@ function StatusTable({ statuses }: { statuses: ApiStatus[] }) {
               <th className="px-3 py-2 font-medium">含义</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-border">
             {statuses.map((item) => (
               <tr key={item.code}>
                 <td className="px-3 py-2 font-mono text-ink-primary">{item.code}</td>
@@ -175,7 +175,7 @@ export default function ApiDocsClient({ endpoints, host, viewer }: ApiDocsClient
   return (
     <div className="min-h-screen bg-surface-2">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-5 py-6 md:px-8">
-        <header className="rounded-lg border border-border bg-white px-5 py-5 shadow-soft-xs">
+        <header className="rounded-lg border border-border bg-surface-1 px-5 py-5 shadow-soft-xs">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="max-w-3xl">
               <div className="mb-3 inline-flex items-center gap-2 rounded-md border border-border bg-surface-2 px-2.5 py-1 text-footnote font-medium text-ink-secondary">
@@ -215,7 +215,7 @@ export default function ApiDocsClient({ endpoints, host, viewer }: ApiDocsClient
 
         <section className="grid gap-3 md:grid-cols-4">
           {(Object.keys(API_AUTH_LABELS) as ApiAuthLevel[]).map((level) => (
-            <div key={level} className="rounded-lg border border-border bg-white p-4 shadow-soft-xs">
+            <div key={level} className="rounded-lg border border-border bg-surface-1 p-4 shadow-soft-xs">
               <div className="flex items-center justify-between gap-3">
                 <span className={`rounded-md border px-2 py-1 text-footnote font-medium ${AUTH_STYLES[level]}`}>
                   {API_AUTH_LABELS[level]}
@@ -227,7 +227,7 @@ export default function ApiDocsClient({ endpoints, host, viewer }: ApiDocsClient
           ))}
         </section>
 
-        <section className="rounded-lg border border-border bg-white p-5 shadow-soft-xs">
+        <section className="rounded-lg border border-border bg-surface-1 p-5 shadow-soft-xs">
           <h2 className="text-caption font-semibold text-ink-primary">生产调用约定</h2>
           <div className="mt-4 grid gap-4 lg:grid-cols-3">
             <div className="rounded-md border border-border bg-surface-2 p-4">
@@ -258,7 +258,7 @@ export default function ApiDocsClient({ endpoints, host, viewer }: ApiDocsClient
           </div>
         </section>
 
-        <section className="sticky top-0 z-10 rounded-lg border border-border bg-white p-3 shadow-soft-xs">
+        <section className="sticky top-0 z-10 rounded-lg border border-border bg-surface-1 p-3 shadow-soft-xs">
           <div className="grid gap-3 lg:grid-cols-[1fr_240px_180px]">
             <label className="relative block">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-tertiary" />
@@ -266,7 +266,7 @@ export default function ApiDocsClient({ endpoints, host, viewer }: ApiDocsClient
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="搜索路径、方法或模块"
-                className="h-10 w-full rounded-md border border-border bg-white pl-9 pr-3 text-caption outline-none transition focus:border-border"
+                className="h-10 w-full rounded-md border border-border bg-surface-1 pl-9 pr-3 text-caption outline-none transition focus:border-border"
               />
             </label>
             <label className="relative block">
@@ -274,7 +274,7 @@ export default function ApiDocsClient({ endpoints, host, viewer }: ApiDocsClient
               <select
                 value={group}
                 onChange={(event) => setGroup(event.target.value)}
-                className="h-10 w-full appearance-none rounded-md border border-border bg-white pl-9 pr-3 text-caption outline-none transition focus:border-border"
+                className="h-10 w-full appearance-none rounded-md border border-border bg-surface-1 pl-9 pr-3 text-caption outline-none transition focus:border-border"
               >
                 <option value="all">全部模块</option>
                 {API_GROUPS.map((name) => (
@@ -287,7 +287,7 @@ export default function ApiDocsClient({ endpoints, host, viewer }: ApiDocsClient
             <select
               value={auth}
               onChange={(event) => setAuth(event.target.value as 'all' | ApiAuthLevel)}
-              className="h-10 rounded-md border border-border bg-white px-3 text-caption outline-none transition focus:border-border"
+              className="h-10 rounded-md border border-border bg-surface-1 px-3 text-caption outline-none transition focus:border-border"
             >
               {AUTH_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -300,12 +300,12 @@ export default function ApiDocsClient({ endpoints, host, viewer }: ApiDocsClient
 
         <main className="space-y-5">
           {grouped.length === 0 ? (
-            <div className="rounded-lg border border-border bg-white p-8 text-center text-caption text-ink-tertiary">
+            <div className="rounded-lg border border-border bg-surface-1 p-8 text-center text-caption text-ink-tertiary">
               没有匹配的接口。
             </div>
           ) : (
             grouped.map((bucket) => (
-              <section key={bucket.name} className="rounded-lg border border-border bg-white shadow-soft-xs">
+              <section key={bucket.name} className="rounded-lg border border-border bg-surface-1 shadow-soft-xs">
                 <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
                   <div className="flex items-center gap-2">
                     <BookOpen className="h-4 w-4 text-ink-tertiary" />
@@ -313,7 +313,7 @@ export default function ApiDocsClient({ endpoints, host, viewer }: ApiDocsClient
                   </div>
                   <span className="text-footnote text-ink-tertiary">{bucket.endpoints.length} 个路由</span>
                 </div>
-                <div className="divide-y divide-slate-100">
+                <div className="divide-y divide-border">
                   {bucket.endpoints.map((endpoint) => {
                     const url = `${normalizedHost}${endpoint.path}`;
                     const doc = buildEndpointDoc(endpoint);
@@ -367,19 +367,19 @@ export default function ApiDocsClient({ endpoints, host, viewer }: ApiDocsClient
                         {open && (
                           <div className="mt-4 rounded-lg border border-border bg-surface-2 p-4">
                             <div className="grid gap-3 md:grid-cols-2">
-                              <div className="rounded-md border border-border bg-white p-3">
+                              <div className="rounded-md border border-border bg-surface-1 p-3">
                                 <div className="text-footnote font-semibold text-ink-secondary">接口含义</div>
                                 <p className="mt-2 text-footnote leading-5 text-ink-secondary">{doc.summary}</p>
                               </div>
-                              <div className="rounded-md border border-border bg-white p-3">
+                              <div className="rounded-md border border-border bg-surface-1 p-3">
                                 <div className="text-footnote font-semibold text-ink-secondary">鉴权说明</div>
                                 <p className="mt-2 text-footnote leading-5 text-ink-secondary">{authDescription(endpoint)}</p>
                               </div>
-                              <div className="rounded-md border border-border bg-white p-3">
+                              <div className="rounded-md border border-border bg-surface-1 p-3">
                                 <div className="text-footnote font-semibold text-ink-secondary">请求地址</div>
                                 <code className="mt-2 block break-all font-mono text-footnote text-ink-secondary">{url}</code>
                               </div>
-                              <div className="rounded-md border border-border bg-white p-3">
+                              <div className="rounded-md border border-border bg-surface-1 p-3">
                                 <div className="text-footnote font-semibold text-ink-secondary">请求体格式</div>
                                 <code className="mt-2 block font-mono text-footnote text-ink-secondary">{doc.contentType}</code>
                               </div>

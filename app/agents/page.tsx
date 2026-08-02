@@ -326,7 +326,7 @@ ${warRoomDoc}
   return (
     <div className="flex h-full bg-surface-2/50">
       {/* 侧边栏 (自创 Agent 工作台列表) */}
-      <div className="w-72 border-r bg-white flex flex-col shrink-0">
+      <div className="w-72 border-r bg-surface-1 flex flex-col shrink-0">
         <div className="p-3 border-b flex items-center justify-between">
           <Tabs value={viewTab} onValueChange={(v) => { setViewTab(v as 'market' | 'workshop'); setActiveWarRoomAgentId(null); }} className="w-full">
             <TabsList className="grid grid-cols-2 h-8 w-full p-0.5 bg-surface-3">
@@ -352,7 +352,7 @@ ${warRoomDoc}
                       "w-full text-left p-2.5 rounded-lg border text-footnote flex flex-col gap-1 transition-all",
                       isSelected
                         ? "bg-primary/5 border-primary/40 ring-1 ring-primary/20 shadow-soft-sm"
-                        : "bg-white hover:bg-muted/40 border-border"
+                        : "bg-surface-1 hover:bg-muted/40 border-border"
                     )}
                   >
                     <div className="flex items-center gap-1.5 font-semibold text-ink-primary">
@@ -402,7 +402,7 @@ ${warRoomDoc}
           (() => {
             const agent = marketAgents.find(a => a.id === activeWarRoomAgentId)!;
             return (
-              <div className="flex-1 flex flex-col h-full overflow-hidden bg-white animate-fade-in">
+              <div className="flex-1 flex flex-col h-full overflow-hidden bg-surface-1 animate-fade-in">
                 {/* 作战室 Header */}
                 <header className="px-5 py-3 border-b flex items-center justify-between bg-surface-2/50">
                   <div className="flex items-center gap-2">
@@ -451,7 +451,7 @@ ${warRoomDoc}
                   </div>
 
                   {/* 右侧：AI 讨论流 */}
-                  <div className="flex flex-col overflow-hidden bg-white">
+                  <div className="flex flex-col overflow-hidden bg-surface-1">
                     <div className="px-4 py-2 border-b bg-surface-2/40 text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1.5">
                       <Sparkles className="h-3 w-3 text-info" />
                       AI 联合对账与审查建议流
@@ -853,7 +853,7 @@ ${warRoomDoc}
                 return (
                   <Card
                     key={a.id}
-                    className="group cursor-pointer transition-all hover:shadow-soft hover:border-primary/50 flex flex-col bg-white"
+                    className="group cursor-pointer transition-all hover:shadow-soft hover:border-primary/50 flex flex-col bg-surface-1"
                     onClick={() => handleSummon(a.id)}
                   >
                     <CardHeader className="pb-2.5">

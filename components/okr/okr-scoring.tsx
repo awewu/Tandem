@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useOKRStore } from '@/lib/store';
+import { persistUpdateObjective, persistUpdateKeyResult } from '@/lib/store/okr-sync';
 import { calcObjectiveScore, suggestedFinalScore, scoreBand } from '@/lib/okr/scoring';
 import { Award, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -26,6 +27,14 @@ export function OKRScoring({ objectiveId }: Props) {
   const [retroDraft, setRetroDraft] = useState(obj?.retrospective || '');
 
   if (!obj) return null;
+
+  // P0-2 闭环: 乐观 set (store) + 落库 (persist*), 否则评分 hydrate 即丢.
+  const persistObj = (patch: Record<string, unknown>) => {
+    void persistUpdateObjective(obj.id, patch as never).catch(() => { /* 离线/401 不阻断 UI */ });
+  };
+  const persistKr = (krId: string, patch: Record<string, unknown>) => {
+    void persistUpdateKeyResult(krId, patch as never).catch(() => { /* 同上 */ });
+  };
 
   const report = calcObjectiveScore(obj, allKRs);
   const suggested = suggestedFinalScore(obj, allKRs);
@@ -54,20 +63,20 @@ export function OKRScoring({ objectiveId }: Props) {
         <ScoreInput
           label="负责人自评"
           value={obj.selfScore ?? null}
-          onChange={(v) => scoreObjective(obj.id, 'self', v)}
+          onChange={(v) => { scoreObjective(obj.id, 'self', v); persistObj({ selfScore: v }); }}
         />
         <ScoreInput
           label="上级评分"
           value={obj.managerScore ?? null}
-          onChange={(v) => scoreObjective(obj.id, 'manager', v)}
+          onChange={(v) => { scoreObjective(obj.id, 'manager', v); persistObj({ managerScore: v }); }}
         />
         <ScoreInput
           label="终评（最终）"
           value={obj.score ?? null}
-          onChange={(v) => scoreObjective(obj.id, 'final', v)}
+          onChange={(v) => { scoreObjective(obj.id, 'final', v); persistObj({ score: v }); }}
           hint={
             <span>
-              建议值：<button onClick={() => scoreObjective(obj.id, 'final', suggested)} className="underline hover:text-primary">{suggested.toFixed(2)}</button>
+              建议值：<button onClick={() => { scoreObjective(obj.id, 'final', suggested); persistObj({ score: suggested }); }} className="underline hover:text-primary">{suggested.toFixed(2)}</button>
               {' '}（自评×0.4 + 上级×0.6）
             </span>
           }
@@ -84,11 +93,11 @@ export function OKRScoring({ objectiveId }: Props) {
                 <div className="text-caption mb-1.5">{k.title}</div>
                 <div className="flex items-center gap-3 text-footnote">
                   <span className="text-muted-foreground w-12 shrink-0">自评</span>
-                  <ScoreSlider value={k.selfScore ?? null} onChange={(v) => scoreKeyResult(k.id, 'self', v)} />
+                  <ScoreSlider value={k.selfScore ?? null} onChange={(v) => { scoreKeyResult(k.id, 'self', v); persistKr(k.id, { selfScore: v }); }} />
                 </div>
                 <div className="flex items-center gap-3 text-footnote mt-1">
                   <span className="text-muted-foreground w-12 shrink-0">终评</span>
-                  <ScoreSlider value={k.finalScore ?? null} onChange={(v) => scoreKeyResult(k.id, 'final', v)} />
+                  <ScoreSlider value={k.finalScore ?? null} onChange={(v) => { scoreKeyResult(k.id, 'final', v); persistKr(k.id, { finalScore: v }); }} />
                 </div>
               </div>
             ))}
@@ -113,7 +122,7 @@ export function OKRScoring({ objectiveId }: Props) {
             {obj.reviewedAt ? `已于 ${new Date(obj.reviewedAt).toLocaleDateString('zh-CN')} 复盘` : '尚未保存复盘'}
           </span>
           <button
-            onClick={() => reviewObjective(obj.id, retroDraft)}
+            onClick={() => { reviewObjective(obj.id, retroDraft); persistObj({ retrospective: retroDraft, reviewedAt: Date.now() }); }}
             className="text-footnote px-3 py-1 rounded bg-primary text-primary-foreground"
           >
             保存复盘

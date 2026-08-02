@@ -11,6 +11,7 @@ import { requireAuth } from '@/lib/auth/require-auth';
 import { audit } from '@/lib/audit/log';
 import { withTenantScope } from '@/lib/multi-tenant/with-tenant-scope';
 import { withApiLog } from '@/lib/api-log/with-api-log';
+import { isCascadeConsistent } from '@/lib/types/kpi';
 
 function isApprover(auth: { roles: string[]; demo?: boolean }): boolean {
   if (auth.demo) return true;
@@ -43,6 +44,17 @@ async function PATCHApiHandler(req: NextRequest, { params }: { params: { id: str
     return NextResponse.json({ error: 'decision 必须是 approve 或 reject' }, { status: 400 });
   }
 
+  const kpi = await withTenantScope(store.kpis, auth.tenantId).get(amendment.kpiId);
+  if (!kpi) return NextResponse.json({ error: 'kpi_not_found: 目标 KPI 已不存在' }, { status: 404 });
+
+  const cycle = await store.kpiCycles.get(kpi.cycleId);
+  if (cycle?.status !== 'active') {
+    return NextResponse.json(
+      { error: `cycle_not_active: 周期状态为 ${cycle?.status ?? 'unknown'}, 仅在 active 锁定后可审批目标修订` },
+      { status: 400 },
+    );
+  }
+
   const now = new Date().toISOString();
   const status = decision === 'approve' ? 'approved' : 'rejected';
   const updated = await amendments.update(params.id, {
@@ -53,13 +65,41 @@ async function PATCHApiHandler(req: NextRequest, { params }: { params: { id: str
     updatedAt: now,
   });
 
+  let cascadeWarning: { parentTarget: number; childrenSum: number; deltaPct: number } | null = null;
+
   if (decision === 'approve') {
-    const kpi = await withTenantScope(store.kpis, auth.tenantId).get(amendment.kpiId);
-    if (!kpi) return NextResponse.json({ error: 'kpi_not_found: 目标 KPI 已不存在' }, { status: 404 });
     await store.kpis.update(amendment.kpiId, {
       targetValue: amendment.toTargetValue,
       updatedAt: now,
     });
+
+    // 级联一致性校验: 父级 target 改变后, 子级 target 之和是否仍对齐
+    const children = await withTenantScope(store.kpis, auth.tenantId).list({ parentKpiId: kpi.id });
+    const childrenTargets = children.map((c) => c.targetValue);
+    if (children.length > 0 && !isCascadeConsistent(amendment.toTargetValue, childrenTargets)) {
+      const childrenSum = childrenTargets.reduce((a, b) => a + b, 0);
+      const deltaPct =
+        amendment.toTargetValue !== 0
+          ? ((childrenSum - amendment.toTargetValue) / Math.abs(amendment.toTargetValue)) * 100
+          : 0;
+      cascadeWarning = {
+        parentTarget: amendment.toTargetValue,
+        childrenSum: Math.round(childrenSum * 100) / 100,
+        deltaPct: Math.round(deltaPct * 100) / 100,
+      };
+      await audit('kpi.target_amendment_cascade_warning', auth.userId, {
+        targetId: amendment.id,
+        targetType: 'kpi_target_amendment',
+        metadata: {
+          kpiId: amendment.kpiId,
+          parentTarget: cascadeWarning.parentTarget,
+          childrenSum: cascadeWarning.childrenSum,
+          deltaPct: cascadeWarning.deltaPct,
+          childrenIds: children.map((c) => c.id),
+        },
+      });
+    }
+
     await audit('kpi.target_amendment_approved', auth.userId, {
       targetId: amendment.id,
       targetType: 'kpi_target_amendment',
@@ -78,7 +118,7 @@ async function PATCHApiHandler(req: NextRequest, { params }: { params: { id: str
     });
   }
 
-  return NextResponse.json({ amendment: updated });
+  return NextResponse.json({ amendment: updated, cascadeWarning });
 }
 
 export const PATCH = withApiLog(PATCHApiHandler, { route: '/api/kpi/target-amendments/[id]' });

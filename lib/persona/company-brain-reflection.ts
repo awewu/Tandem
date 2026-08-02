@@ -503,6 +503,27 @@ export async function generateReflection(
       logger.warn({ err: (err as Error).message }, '[reflection] attribution pass failed');
     }
 
+    // Tier0-Evo · 情景反思汇总: 把窗口内即时学习信号 (推翻/投诉/护栏拦截) 卷进月度报告,
+    //   让长回路 (月级) 能看到短回路 (情景级) 已捕获的失败信号, 二者互补而非割裂.
+    let episodicSummary: CompanyBrainReflectionReport['episodicSummary'];
+    try {
+      const episodics = await listEpisodicReflections(tenantId, windowDays);
+      if (episodics.length > 0) {
+        const bySignal: Record<string, number> = {};
+        for (const e of episodics) bySignal[e.signal] = (bySignal[e.signal] ?? 0) + 1;
+        episodicSummary = {
+          total: episodics.length,
+          bySignal,
+          recentNotes: episodics
+            .filter((e) => !!e.note)
+            .slice(0, 5)
+            .map((e) => `[${e.signal}] ${e.note}`),
+        };
+      }
+    } catch (err) {
+      logger.warn({ err: (err as Error).message }, '[reflection] episodic summary failed');
+    }
+
     const now = new Date().toISOString();
     const report: CompanyBrainReflectionReport = {
       id: `cbref_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
@@ -517,6 +538,7 @@ export async function generateReflection(
       proposedChanges,
       optimizationProposals,
       attributionSummary,
+      episodicSummary,
       approvalStatus: 'pending',
     };
 
@@ -543,6 +565,7 @@ export async function generateReflection(
           failurePatternCount: failurePatterns.length,
           proposedRationaleLen: proposedChanges.rationale.length,
           optimizationProposalCount: optimizationProposals.length,
+          episodicCount: episodicSummary?.total ?? 0,
         },
       });
     } catch {
@@ -887,5 +910,108 @@ export async function approveReflection(
   } catch (err) {
     logger.warn({ err: (err as Error).message, reportId }, '[reflection] approve failed');
     return null;
+  }
+}
+
+/**
+ * Tier0-Evo · 情景级反思: 单次对话被推翻/被投诉时, 即时记录并做 mini-reflection.
+ * 不等月度, 让学习频率从月级提升到情景级.
+ *
+ * 设计:
+ *   - 只记录 (KvStore 'episodic_reflections'), 不触发版本变更
+ *   - 月度 generateReflection 时可汇总 episodic 记录做更丰富的分析
+ *   - fail-soft: 任何异常不阻塞主流程
+ */
+export interface EpisodicReflectionInput {
+  tenantId?: string;
+  /** 发生场景: im_reply / boss_ai / decision / perception 等 */
+  context: string;
+  /** 用户原始问题 */
+  query: string;
+  /** AI 回答摘要 */
+  responseSummary: string;
+  /** 信号类型: overruled / negative_feedback / guardrail_block / user_complaint / positive_feedback */
+  signal: 'overruled' | 'negative_feedback' | 'guardrail_block' | 'user_complaint' | 'positive_feedback';
+  /** 人工补充的原因/备注 (可选) */
+  note?: string;
+  /** 关联的 decisionId / traceId (可选) */
+  refId?: string;
+  /** 操作人 */
+  actorUserId?: string;
+}
+
+export interface EpisodicReflection {
+  id: string;
+  tenantId: string;
+  context: string;
+  query: string;
+  responseSummary: string;
+  signal: EpisodicReflectionInput['signal'];
+  note?: string;
+  refId?: string;
+  createdAt: string;
+}
+
+export async function recordEpisodicReflection(
+  input: EpisodicReflectionInput,
+): Promise<EpisodicReflection | null> {
+  try {
+    const store = getStore();
+    const tenantId = input.tenantId ?? 'default';
+    const record: EpisodicReflection = {
+      id: `epi_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+      tenantId,
+      context: input.context,
+      query: input.query.slice(0, 500),
+      responseSummary: input.responseSummary.slice(0, 500),
+      signal: input.signal,
+      note: input.note?.slice(0, 500),
+      refId: input.refId,
+      createdAt: new Date().toISOString(),
+    };
+    await store.episodicReflections.create(record);
+    try {
+      await audit('company_brain.episodic_reflection', input.actorUserId ?? 'system', {
+        targetId: record.id,
+        targetType: 'episodic_reflection',
+        tenantId,
+        metadata: { signal: record.signal, context: record.context },
+      });
+    } catch {
+      /* audit 失败不阻塞 */
+    }
+    logger.info({ id: record.id, signal: record.signal, context: record.context }, '[reflection] episodic reflection recorded');
+    // P0-5 · SRPO: 负面信号 → fire-and-forget 提炼修正补丁 (fail-soft, 不阻塞主流程)
+    void (async () => {
+      try {
+        const { generateCorrectionPatch } = await import('./srpo-patch');
+        await generateCorrectionPatch(record, false); // 热路径用确定性兜底, 不烧 LLM; 月度批处理可补 LLM
+      } catch {
+        /* SRPO 补丁生成失败绝不影响 episodic 记录 */
+      }
+    })();
+    return record;
+  } catch (err) {
+    logger.warn({ err: (err as Error).message }, '[reflection] episodic reflection failed (fail-soft)');
+    return null;
+  }
+}
+
+/**
+ * Tier0-Evo · 拉取最近的情景反思记录, 供月度 generateReflection 汇总.
+ */
+export async function listEpisodicReflections(
+  tenantId = 'default',
+  windowDays = 30,
+): Promise<EpisodicReflection[]> {
+  try {
+    const store = getStore();
+    const all = await store.episodicReflections.list();
+    const cutoff = Date.now() - windowDays * 24 * 60 * 60 * 1000;
+    return all
+      .filter((r: EpisodicReflection) => r.tenantId === tenantId && new Date(r.createdAt).getTime() >= cutoff)
+      .sort((a: EpisodicReflection, b: EpisodicReflection) => b.createdAt.localeCompare(a.createdAt));
+  } catch {
+    return [];
   }
 }

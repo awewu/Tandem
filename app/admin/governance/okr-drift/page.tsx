@@ -111,9 +111,9 @@ export default function OkrDriftAdminPage() {
               检测对象: CompanyBrain 答复 / Persona 代行 / 议事议题 vs 公司层 active Objective + KR 的语义对齐度.
             </p>
             <p className="mt-1.5 text-[11px] text-warning/70">
-              判定逻辑: <code className="rounded bg-white/60 px-1.5 py-0.5 font-mono text-[11px]">lib/governance/okr-drift.ts</code> · 阈值
-              <code className="rounded bg-white/60 px-1.5 py-0.5 font-mono text-[11px]">ALIGNED_THRESHOLD=0.28</code> (embedding) /
-              <code className="rounded bg-white/60 px-1.5 py-0.5 font-mono text-[11px]">0.15</code> (jaccard 兜底)
+              判定逻辑: <code className="rounded bg-surface-1/60 px-1.5 py-0.5 font-mono text-[11px]">lib/governance/okr-drift.ts</code> · 阈值
+              <code className="rounded bg-surface-1/60 px-1.5 py-0.5 font-mono text-[11px]">ALIGNED_THRESHOLD=0.28</code> (embedding) /
+              <code className="rounded bg-surface-1/60 px-1.5 py-0.5 font-mono text-[11px]">0.15</code> (jaccard 兜底)
             </p>
           </div>
         </div>
@@ -133,7 +133,7 @@ export default function OkrDriftAdminPage() {
 
       {/* 双栏: 按来源 + 日趋势 */}
       <div className="grid gap-3 md:grid-cols-2">
-        <section className="rounded-2xl bg-white p-5 ring-1 ring-border/80">
+        <section className="rounded-2xl bg-surface-1 p-5 ring-1 ring-border/80">
           <h2 className="mb-3 text-caption font-bold text-ink-primary">按来源分桶</h2>
           {Object.keys(data.bySource).length === 0 ? (
             <p className="text-[12px] text-ink-tertiary">暂无 drift 数据</p>
@@ -165,7 +165,7 @@ export default function OkrDriftAdminPage() {
           )}
         </section>
 
-        <section className="rounded-2xl bg-white p-5 ring-1 ring-border/80">
+        <section className="rounded-2xl bg-surface-1 p-5 ring-1 ring-border/80">
           <h2 className="mb-3 text-caption font-bold text-ink-primary">日趋势</h2>
           {data.dailyTrend.length === 0 ? (
             <p className="text-[12px] text-ink-tertiary">暂无 drift 数据</p>
@@ -191,7 +191,7 @@ export default function OkrDriftAdminPage() {
       </div>
 
       {/* 明细 */}
-      <section className="rounded-2xl bg-white p-5 ring-1 ring-border/80">
+      <section className="rounded-2xl bg-surface-1 p-5 ring-1 ring-border/80">
         <h2 className="mb-3 text-caption font-bold text-ink-primary">
           Drift 明细 ({data.entries.length})
         </h2>

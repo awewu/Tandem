@@ -115,11 +115,12 @@ interface KpiFormState {
   targetValue: string;
   unit: string;
   weight: string;
-  /** 跨体系联合持有人 (逗号分隔 userId), 纯数据层监控标注, 不驱动奖金 */
-  coOwnerIds: string;
+  /** 跨体系联合持有人 (userId 数组), 纯数据层监控标注, 不驱动奖金 */
+  coOwnerIds: string[];
 }
 
 const EMPTY_KPI_FORM: KpiFormState = {
+  id: '',
   subjectId: '',
   level: 'company',
   scope: 'bonus',
@@ -132,7 +133,7 @@ const EMPTY_KPI_FORM: KpiFormState = {
   targetValue: '',
   unit: '',
   weight: '0',
-  coOwnerIds: '',
+  coOwnerIds: [],
 };
 
 // ---------------------------------------------------------------------------
@@ -140,7 +141,7 @@ const EMPTY_KPI_FORM: KpiFormState = {
 // ---------------------------------------------------------------------------
 
 export default function KpiSetupPage() {
-  const { nameOf } = useOwnerDirectory();
+  const { nameOf, people } = useOwnerDirectory();
   const [cycles, setCycles] = useState<KpiCycle[]>([]);
   const [subjects, setSubjects] = useState<KpiSubject[]>([]);
   const [kpis, setKpis] = useState<Kpi[]>([]);
@@ -357,7 +358,7 @@ export default function KpiSetupPage() {
       targetValue: s.suggestedTarget.toString(),
       unit: s.priorUnit ?? '',
       weight: (s.priorWeight ?? 0).toString(),
-      coOwnerIds: '',
+      coOwnerIds: [],
     });
     setSubmitError(null);
     setKpiDialogOpen(true);
@@ -372,7 +373,7 @@ export default function KpiSetupPage() {
       parentKpiId: k.parentKpiId,
       assigneeId: k.assigneeId,
       departmentId: k.departmentId ?? '',
-      coOwnerIds: (k.coOwnerIds ?? []).join(', '),
+      coOwnerIds: k.coOwnerIds ?? [],
       title: k.title,
       description: k.description ?? '',
       measureType: k.measureType,
@@ -420,10 +421,7 @@ export default function KpiSetupPage() {
         targetValue: parseFloat(kpiForm.targetValue),
         unit: kpiForm.unit || undefined,
         weight: parseFloat(kpiForm.weight) || 0,
-        coOwnerIds: kpiForm.coOwnerIds
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean),
+        coOwnerIds: kpiForm.coOwnerIds.filter(Boolean),
       };
       const r = await fetch(url, {
         method,
@@ -622,6 +620,7 @@ export default function KpiSetupPage() {
           subjects={subjects}
           assigneeName={nameOf}
           onAdopt={adoptSuggestion}
+          onUpdated={refreshKpis}
         />
       )}
 
@@ -1030,15 +1029,36 @@ export default function KpiSetupPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label>跨体系联合持有人 (可选, 逗号分隔 userId)</Label>
-              <Input
-                value={kpiForm.coOwnerIds}
-                onChange={(e) => setKpiForm({ ...kpiForm, coOwnerIds: e.target.value })}
-                placeholder="u_bob, u_carol"
-                className="font-mono"
-              />
+              <Label>跨体系联合持有人 (可选)</Label>
+              <div className="max-h-32 overflow-y-auto rounded-md border p-2 space-y-1">
+                {people.length === 0 && (
+                  <p className="text-footnote text-muted-foreground">暂无人员数据</p>
+                )}
+                {people.map((p) => {
+                  const checked = kpiForm.coOwnerIds.includes(p.id);
+                  return (
+                    <label key={p.id} className="flex items-center gap-2 text-footnote cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="h-3.5 w-3.5 rounded border-muted"
+                        checked={checked}
+                        onChange={() => {
+                          setKpiForm((prev) => ({
+                            ...prev,
+                            coOwnerIds: checked
+                              ? prev.coOwnerIds.filter((id) => id !== p.id)
+                              : [...prev.coOwnerIds, p.id],
+                          }));
+                        }}
+                      />
+                      <span className="text-ink-primary">{p.name}</span>
+                      <span className="text-muted-foreground font-mono text-[10px]">{p.id}</span>
+                    </label>
+                  );
+                })}
+              </div>
               <p className="text-footnote text-muted-foreground">
-                纯数据层跨体系监控标注 (体现"共背指标"), 不驱动奖金计算, 奖金归属仍只看 assigneeId
+                纯数据层跨体系监控标注 (体现&quot;共背指标&quot;), 不驱动奖金计算, 奖金归属仍只看 assigneeId
               </p>
             </div>
 

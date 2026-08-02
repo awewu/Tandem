@@ -130,6 +130,12 @@ export const INTRANET_EDITOR_ROLES: Role[] = [
 export const PMS_MANAGEMENT_ROLES: Role[] = ['owner', 'admin', 'manager', 'steward'];
 
 /**
+ * PMS 选型规则集维护组: 管理写权组 + 推广大使(champion, 通常挂"研"/产品口).
+ * 选型规则一经发布即改变全体经销商推荐结果, 属治理敏感写操作 → 排除普通 employee。
+ */
+export const PMS_SELECTOR_MAINTAINER_ROLES: Role[] = [...PMS_MANAGEMENT_ROLES, 'champion'];
+
+/**
  * PMS 全公司经营视图(只读)组: 管理写权组 + 职能高管(exec) + 财务(finance).
  * 用于"看全公司驾驶舱/分析全景但不必拿管理写权":
  *   - exec (CMO/CSO 等): 需要全景销售+财务异常, 但不给 deal-desk 裁决权.
@@ -137,3 +143,11 @@ export const PMS_MANAGEMENT_ROLES: Role[] = ['owner', 'admin', 'manager', 'stewa
  * 驾驶舱只读(POST 405), 故授予 company scope 不带来任何写副作用.
  */
 export const PMS_COMPANY_VIEW_ROLES: Role[] = [...PMS_MANAGEMENT_ROLES, 'exec', 'finance'];
+
+/**
+ * Memory 治理工作台角色组 (宪章 §8 升级/降级签批): 数据管家组 + 管理层 + 职能高管.
+ * 用于 /api/tandem/memory 的 promotion / downgrade / list 端点的浏览与裁决门禁.
+ * 纯外部协作者 (guest/partner/contractor/dealer_*) 一律无权进入知识治理.
+ * 注: 具体"签字角色 (ceo/clevel/team_leader/…)"的身份匹配由 promotion-flow.authorizeSignerRole 二次校验.
+ */
+export const MEMORY_GOVERNANCE_ROLES: Role[] = [...DATA_STEWARD_ROLES, 'manager', 'exec'];

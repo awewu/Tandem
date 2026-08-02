@@ -11,6 +11,7 @@ import { audit } from '../audit/log';
 import type { ShouchaoNote, ShouchaoNotebook, ShouchaoAttachment } from '../types/shouchao';
 import { embed, cosineSim, isEmbeddingConfigured } from '../infra/embedding';
 import { upsertEmbedding, deleteEmbedding, searchEmbeddings } from '../infra/vector-store';
+import { decomposeQuery } from '../memory/agentic-retrieval';
 
 export interface CreateNoteInput {
   ownerId: string;
@@ -660,14 +661,33 @@ export async function getBacklinks(ownerId: string, id: string): Promise<Shoucha
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
+/** 对多路 note 召回结果做 RRF 融合 (按 note id 聚合, 取最高相似度元数据). */
+function rrfMergeNoteLists(lists: Array<Array<{ note: ShouchaoNote; score: number }>>, k = 60): NoteHit[] {
+  const scoreById = new Map<string, number>();
+  const bestById = new Map<string, { note: ShouchaoNote; score: number }>();
+  for (const list of lists) {
+    list.forEach((hit, idx) => {
+      const rank = idx + 1;
+      scoreById.set(hit.note.id, (scoreById.get(hit.note.id) ?? 0) + 1 / (k + rank));
+      const prev = bestById.get(hit.note.id);
+      if (!prev || hit.score > prev.score) bestById.set(hit.note.id, hit);
+    });
+  }
+  return Array.from(scoreById.entries())
+    .map(([id, rrf]) => ({ ...bestById.get(id)!, score: rrf }))
+    .sort((a, b) => b.score - a.score || b.note.updatedAt.localeCompare(a.note.updatedAt));
+}
+
 /**
- * 在本人全部活跃笔记里检索与 query 最相关的若干条 (关键词相似度 jaccard).
+ * 在本人全部活跃笔记里检索与 query 最相关的若干条.
+ * Phase2: 复杂/多意图问题先做 LLM 查询分解, 多子查询并行召回 + RRF 融合;
+ * 简单问题保持单次语义/Jaccard 检索, 零额外成本.
  * 排除软删/归档. 无命中回落最近笔记, 保证"我记过啥"这类宽泛问题也有上下文.
  */
 export async function searchNotesForAsk(
   ownerId: string,
   query: string,
-  opts?: { topK?: number },
+  opts?: { topK?: number; actorUserId?: string },
 ): Promise<NoteHit[]> {
   const store = getShouchaoStore();
   const all = await store.shouchaoNotes.list({ ownerId } as Partial<ShouchaoNote>);
@@ -679,10 +699,26 @@ export async function searchNotesForAsk(
   const q = (query ?? '').trim();
   if (!q) return [...active].sort(byRecent).slice(0, topK).map((n) => ({ note: n, score: 0 }));
 
-  // 语义优先 (embedding), 无损回退 Jaccard; 解决同义词漏召回
-  const ranked = await rankNotesByRelevance(active, q);
-  const matched = ranked.slice(0, topK);
-  // 全无命中给最近 3 条做轻量背景, 让宽泛提问也能回答
+  // Agentic retrieval: 复杂问题分解子查询, 多路召回 + RRF 融合
+  const subQueries = await decomposeQuery(q, { actorUserId: opts?.actorUserId });
+  const perQueryLimit = Math.ceil(topK * 1.5);
+  const queries = [q, ...subQueries.filter((s) => s && s !== q)];
+
+  // 单查询保持原有语义分数 (向后兼容); 多查询才走 RRF
+  if (queries.length === 1) {
+    const ranked = await rankNotesByRelevance(active, q);
+    const matched = ranked.slice(0, topK);
+    return matched.length > 0
+      ? matched
+      : [...active].sort(byRecent).slice(0, Math.min(3, topK)).map((n) => ({ note: n, score: 0 }));
+  }
+
+  const lists = await Promise.all(
+    queries.map((sq) => rankNotesByRelevance(active, sq).then((r) => r.slice(0, perQueryLimit)).catch(() => [])),
+  );
+  const merged = rrfMergeNoteLists(lists);
+  const matched = merged.slice(0, topK);
+  // 全无命中给最近 3 条做轻量背景, 让宽泛问题也能回答
   return matched.length > 0
     ? matched
     : [...active].sort(byRecent).slice(0, Math.min(3, topK)).map((n) => ({ note: n, score: 0 }));

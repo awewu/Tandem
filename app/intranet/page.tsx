@@ -285,7 +285,7 @@ function CeoWeeklyPromo() {
           <p className="mt-2 text-caption opacity-85 line-clamp-2">
             最近 12 次全员会的录像、Q&A 备份与会议纪要, 加 1 个匿名意见箱直达 CEO.
           </p>
-          <span className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-white text-brand-700 px-3 py-1.5 text-caption font-semibold group-hover:bg-brand-50 transition-colors">
+          <span className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-surface-1 text-brand-700 px-3 py-1.5 text-caption font-semibold group-hover:bg-brand-50 transition-colors">
             进入直通车 <ArrowRight className="h-3.5 w-3.5" />
           </span>
         </div>

@@ -177,7 +177,7 @@ export default function CompanyBrainAdminPage() {
             </h1>
             <p className="mt-1 text-[12.5px] text-brand-700/80">
               {head?.persona.name} · 阶段 {head?.persona.stage} · {head?.trainingData.companyMemoryCount} 条公司层 Memory ·{' '}
-              路由 <code className="rounded bg-white/60 px-1.5 py-0.5 font-mono text-[11px]">{head?.routing.primaryProvider}</code>
+              路由 <code className="rounded bg-surface-1/60 px-1.5 py-0.5 font-mono text-[11px]">{head?.routing.primaryProvider}</code>
               {head?.routing.fallbacks?.length ? ` → ${head.routing.fallbacks.join(' / ')}` : ''}
             </p>
             <p className="mt-1.5 text-[11px] text-brand-700/70">
@@ -192,7 +192,7 @@ export default function CompanyBrainAdminPage() {
       <nav className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Link
           href="/admin/eval"
-          className="group flex items-center gap-3 rounded-2xl bg-white p-4 ring-1 ring-border/80 hover:ring-brand-300 surface-interactive"
+          className="group flex items-center gap-3 rounded-2xl bg-surface-1 p-4 ring-1 ring-border/80 hover:ring-brand-300 surface-interactive"
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
             <Target className="h-5 w-5" />
@@ -206,7 +206,7 @@ export default function CompanyBrainAdminPage() {
         </Link>
         <Link
           href="/memory/capture"
-          className="group flex items-center gap-3 rounded-2xl bg-white p-4 ring-1 ring-border/80 hover:ring-brand-300 surface-interactive"
+          className="group flex items-center gap-3 rounded-2xl bg-surface-1 p-4 ring-1 ring-border/80 hover:ring-brand-300 surface-interactive"
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
             <Sparkles className="h-5 w-5" />
@@ -220,7 +220,7 @@ export default function CompanyBrainAdminPage() {
         </Link>
         <Link
           href="/admin/governance/okr-drift"
-          className="group flex items-center gap-3 rounded-2xl bg-white p-4 ring-1 ring-border/80 hover:ring-brand-300 surface-interactive"
+          className="group flex items-center gap-3 rounded-2xl bg-surface-1 p-4 ring-1 ring-border/80 hover:ring-brand-300 surface-interactive"
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
             <TrendingUp className="h-5 w-5" />
@@ -253,7 +253,7 @@ export default function CompanyBrainAdminPage() {
 
       {/* byContext */}
       {metrics && Object.keys(metrics.byContext).length > 0 && (
-        <section className="rounded-2xl bg-white p-5 ring-1 ring-border/80">
+        <section className="rounded-2xl bg-surface-1 p-5 ring-1 ring-border/80">
           <h2 className="mb-3 flex items-center gap-2 text-caption font-bold text-ink-primary">
             <TrendingUp className="h-4 w-4 text-brand-700" /> 按场景分桶
           </h2>
@@ -287,7 +287,7 @@ export default function CompanyBrainAdminPage() {
       {/* byBrainVersion + dailyTrend  */}
       {metrics && (
         <div className="grid gap-3 md:grid-cols-2">
-          <section className="rounded-2xl bg-white p-5 ring-1 ring-border/80">
+          <section className="rounded-2xl bg-surface-1 p-5 ring-1 ring-border/80">
             <h2 className="mb-3 text-caption font-bold text-ink-primary">按版本对比</h2>
             {Object.keys(metrics.byBrainVersion).length === 0 ? (
               <p className="text-[12px] text-ink-tertiary">暂无数据</p>
@@ -315,7 +315,7 @@ export default function CompanyBrainAdminPage() {
             )}
           </section>
 
-          <section className="rounded-2xl bg-white p-5 ring-1 ring-border/80">
+          <section className="rounded-2xl bg-surface-1 p-5 ring-1 ring-border/80">
             <h2 className="mb-3 text-caption font-bold text-ink-primary">近 30 天采纳率趋势</h2>
             <div className="flex h-24 items-end gap-[2px]">
               {metrics.dailyTrend.map((d, i) => {
@@ -348,7 +348,7 @@ export default function CompanyBrainAdminPage() {
             {metrics.topFailurePatterns.map((p) => (
               <span
                 key={p.keyword}
-                className="rounded-full bg-white px-2.5 py-1 text-[11.5px] font-medium text-warning ring-1 ring-warning/30/80"
+                className="rounded-full bg-surface-1 px-2.5 py-1 text-[11.5px] font-medium text-warning ring-1 ring-warning/30/80"
                 title={`样本: ${p.sampleDecisionIds.join(', ')}`}
               >
                 {p.keyword} <span className="text-warning">×{p.count}</span>
@@ -359,7 +359,7 @@ export default function CompanyBrainAdminPage() {
       )}
 
       {/* Recent Decisions */}
-      <section className="rounded-2xl bg-white p-5 ring-1 ring-border/80">
+      <section className="rounded-2xl bg-surface-1 p-5 ring-1 ring-border/80">
         <h2 className="mb-3 text-caption font-bold text-ink-primary">最近 20 条决策</h2>
         {decisions.length === 0 ? (
           <p className="text-[12px] text-ink-tertiary">
@@ -398,21 +398,21 @@ export default function CompanyBrainAdminPage() {
                         <button
                           type="button"
                           onClick={() => void submitFeedback(d.id, 'adopted')}
-                          className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[10.5px] font-medium text-success ring-1 ring-success/40 hover:bg-success/10"
+                          className="inline-flex items-center gap-1 rounded-full bg-surface-1 px-2 py-0.5 text-[10.5px] font-medium text-success ring-1 ring-success/40 hover:bg-success/10"
                         >
                           <ThumbsUp className="h-2.5 w-2.5" /> 采纳
                         </button>
                         <button
                           type="button"
                           onClick={() => void submitFeedback(d.id, 'modified')}
-                          className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[10.5px] font-medium text-warning ring-1 ring-warning/30/60 hover:bg-warning/5"
+                          className="inline-flex items-center gap-1 rounded-full bg-surface-1 px-2 py-0.5 text-[10.5px] font-medium text-warning ring-1 ring-warning/30/60 hover:bg-warning/5"
                         >
                           <Pencil className="h-2.5 w-2.5" /> 修改
                         </button>
                         <button
                           type="button"
                           onClick={() => void submitFeedback(d.id, 'overruled')}
-                          className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[10.5px] font-medium text-danger ring-1 ring-danger/40 hover:bg-danger/5"
+                          className="inline-flex items-center gap-1 rounded-full bg-surface-1 px-2 py-0.5 text-[10.5px] font-medium text-danger ring-1 ring-danger/40 hover:bg-danger/5"
                         >
                           <ThumbsDown className="h-2.5 w-2.5" /> 推翻
                         </button>
@@ -449,7 +449,7 @@ function KpiCard({
   tone: 'slate' | 'emerald' | 'rose' | 'amber' | 'indigo';
 }) {
   const toneClass = {
-    slate: 'bg-white text-ink-primary ring-border',
+    slate: 'bg-surface-1 text-ink-primary ring-border',
     emerald: 'bg-success/10 text-success ring-success/30',
     rose: 'bg-danger/5 text-danger ring-danger/30',
     amber: 'bg-warning/5/50 text-warning ring-warning/20',
@@ -591,7 +591,7 @@ function ReflectionSection() {
   }
 
   return (
-    <section className="rounded-2xl bg-white p-5 ring-1 ring-border/80">
+    <section className="rounded-2xl bg-surface-1 p-5 ring-1 ring-border/80">
       <div className="mb-3 flex items-center justify-between gap-3">
         <h2 className="flex items-center gap-2 text-caption font-bold text-ink-primary">
           <Sparkles className="h-4 w-4 text-brand-700" /> 月度反思 · 优化提议
@@ -646,7 +646,7 @@ function ReflectionSection() {
 
               {/* 配置调整建议 (调 AI 自己) */}
               {r.proposedChanges.rationale && (
-                <div className="mt-2 rounded-lg bg-white p-3 text-[11.5px] ring-1 ring-border/70">
+                <div className="mt-2 rounded-lg bg-surface-1 p-3 text-[11.5px] ring-1 ring-border/70">
                   <div className="mb-1 font-semibold text-ink-secondary">自身配置调整建议</div>
                   <p className="whitespace-pre-wrap text-ink-secondary">{r.proposedChanges.rationale}</p>
                   {(r.proposedChanges.baselineThresholdsDiff ||
@@ -677,7 +677,7 @@ function ReflectionSection() {
                     {r.optimizationProposals.map((p) => (
                       <li
                         key={p.id}
-                        className="rounded-lg bg-white p-3 text-[11.5px] ring-1 ring-border/70"
+                        className="rounded-lg bg-surface-1 p-3 text-[11.5px] ring-1 ring-border/70"
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">

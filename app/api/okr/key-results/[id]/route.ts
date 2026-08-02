@@ -75,6 +75,9 @@ async function PATCHApiHandler(
     if (Array.isArray(body.tags)) patch.tags = body.tags;
     if (Array.isArray(body.collaboratorIds)) patch.collaboratorIds = body.collaboratorIds;
     if (Array.isArray(body.watcherIds)) patch.watcherIds = body.watcherIds;
+    // P0-2 闭环: KR 自评/终评落库 (number 或 null); 此前漏入白名单 → 评分仅存内存被 hydrate 覆盖.
+    if (typeof body.selfScore === 'number' || body.selfScore === null) patch.selfScore = body.selfScore;
+    if (typeof body.finalScore === 'number' || body.finalScore === null) patch.finalScore = body.finalScore;
     const updated = await keyResults.update(params.id, patch as never);
     return NextResponse.json({ keyResult: updated });
   } catch (err) {

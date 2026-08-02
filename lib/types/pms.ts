@@ -930,6 +930,153 @@ export interface QuoteRecommendation {
 }
 
 // ============================================================================
+// 报价单 (Quote) — 三层文档模型: 方案(单头) → 系统 → 明细行
+// P1: 结构化专业报价单 + 分项 BOQ + 验真 + 报备保护绑定
+// ============================================================================
+
+/** 报价单状态: draft 草稿 → issued 已签发(生成验真码) → accepted 客户接受 / superseded 被新版替代 / expired 过期 / revoked 作废 */
+export type QuoteStatus = 'draft' | 'issued' | 'accepted' | 'superseded' | 'expired' | 'revoked';
+
+/** 明细行费用类型 (分项 BOQ) */
+export type QuoteCostType =
+  | 'equipment' // 设备
+  | 'material' // 辅材
+  | 'installation' // 安装
+  | 'freight' // 运输
+  | 'tax' // 税费
+  | 'service' // 服务(调试/培训/质保延长)
+  | 'other';
+
+/** 系统工况参数 (选型依据, 对齐 QuoteRecommendation.customerRequirements) */
+export interface QuoteWorkingConditions {
+  demandPoints?: number; // 用水/末端点数
+  flowRate?: number; // 需求流量 L/min
+  temperature?: string; // 温度需求 (如 "出水60℃")
+  area?: number; // 适用面积 ㎡
+  climateZone?: string; // 气候区
+  buildingType?: string; // 建筑类型 (酒店/公寓/工厂...)
+  note?: string;
+}
+
+/** 报价明细行 (设备/辅材/安装/运输/税) — 软引用产品目录 */
+export interface QuoteItem {
+  id: string;
+  costType: QuoteCostType;
+  productCatalogId?: string; // 软引用 pms_product_catalog
+  series?: string;
+  model?: string; // 型号 / 费用项名 (如 "外机安装")
+  specification?: string; // 规格
+  unit?: string; // 台/套/㎡/项
+  quantity: number;
+  listPrice: number; // 面价 (单价, 未折)
+  discountRate?: number; // 折扣 0-1 (如 0.85=八五折); 空=不打折
+  unitPrice: number; // 折后单价 (= listPrice*discountRate, 或手填)
+  amount: number; // 行小计 (= unitPrice*quantity)
+  attributesSnapshot?: Record<string, string>; // 报价当下参数留痕
+  note?: string;
+  sortOrder?: number;
+}
+
+/** 报价系统层 (一个配置好的子系统, 如"生活热水系统") */
+export interface QuoteSystem {
+  id: string;
+  name: string; // 系统名称
+  category?: string; // 品类 (对齐 catalog.category)
+  workingConditions?: QuoteWorkingConditions;
+  description?: string; // 系统说明 / 选型依据 / 卖点
+  items: QuoteItem[];
+  subtotal: number; // 系统小计 (= sum items.amount)
+  sortOrder?: number;
+  // 选型溯源 (由选型引擎回填时写入; 记录当时依据的规则集/版本, 便于日后追溯)
+  sourceRuleSetId?: string;
+  sourceRuleSetVersion?: number;
+  sourceRuleSetName?: string;
+}
+
+/** 报价商务条款 */
+export interface QuoteTerms {
+  included?: string; // 含项
+  excluded?: string; // 不含项
+  warranty?: string; // 质保/售后
+  payment?: string; // 付款方式
+  note?: string; // 其他说明
+}
+
+/** 分项汇总 (BOQ 小计) */
+export interface QuoteTotals {
+  equipment: number;
+  material: number;
+  installation: number;
+  freight: number;
+  tax: number;
+  service: number;
+  other: number;
+  total: number;
+}
+
+/** 报价单 (方案单头) — 三层文档: 方案 → 系统[] → 明细[] */
+export interface Quote {
+  id: string;
+  tenantId: string;
+  orgId: string;
+  dealerOrgId: string; // 报价经销商
+  opportunityId: string; // 绑定报备 (报备保护 → 唯一报价权)
+  projectId?: string;
+  issuerId: string; // 签发业务员
+  // === 客户/项目 ===
+  title: string; // 方案标题
+  customerName: string;
+  customerContact?: string;
+  scenario?: string; // 应用场景
+  // === 内容 ===
+  systems: QuoteSystem[];
+  totals: QuoteTotals;
+  currency: string; // 默认 CNY
+  terms?: QuoteTerms;
+  validUntil?: string; // 有效期
+  // === 版本/状态/验真 ===
+  version: number;
+  status: QuoteStatus;
+  verifyCode?: string; // 签发后生成的唯一验真码 (公开验真用)
+  supersededById?: string; // 被哪个新版替代
+  // === 元数据 ===
+  issuedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 报价方案模板 (常用系统方案存为模板, 建报价时一键套用) */
+export interface QuoteTemplate {
+  id: string;
+  tenantId: string;
+  orgId: string; // 创建组织 (归属)
+  name: string;
+  category?: string;
+  scenario?: string;
+  description?: string;
+  systems: QuoteSystem[]; // 模板系统+明细 (套用时克隆为新报价 systems)
+  terms?: QuoteTerms;
+  isShared: boolean; // true = 租户内跨组织共享
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt?: string;
+}
+
+/** 公开验真视图 (零登录; 只保真伪+授权关系, 不露价) */
+export interface QuoteVerifyView {
+  valid: boolean; // 是否公司系统真实签发且当前有效
+  status: QuoteStatus;
+  quoteTitle?: string;
+  customerName?: string;
+  authorizedDealerName?: string; // 授权经销商 (背书核心)
+  issuedAt?: string;
+  validUntil?: string;
+  verifyCode: string;
+  message?: string; // "查无此报价" / "已过期" / "已作废"
+}
+
+// ============================================================================
 // 分析体系 (四期)
 // ============================================================================
 
@@ -1179,4 +1326,139 @@ export interface PerformanceDashboard {
     severity: 'warning' | 'critical';
     message: string;
   }[];
+}
+
+// ============================================================================
+// 选型配置器 (Selector / Guided Selling) — 配置驱动
+// P3: "研"团队以数据形式维护选型规则; 业务员填工况 → 引擎产出推荐系统/明细行,
+//     一键回填报价编辑器。引擎为纯函数, 规则本身即数据 (SelectorRuleSet)。
+// ============================================================================
+
+/** 输入字段类型 (业务员填写的工况参数) */
+export type SelectorFieldType = 'number' | 'enum' | 'boolean' | 'text';
+
+/** 一个输入参数定义 (工况问卷的一项) */
+export interface SelectorInputField {
+  key: string; // 参数键 (规则条件引用, 也回填 workingConditions)
+  label: string; // 显示名 (如 "用水点数")
+  type: SelectorFieldType;
+  unit?: string; // 单位 (如 "L/min")
+  required?: boolean;
+  options?: { value: string; label: string }[]; // enum 类型的可选项
+  defaultValue?: string | number | boolean;
+  helpText?: string;
+  sortOrder?: number;
+}
+
+/** 条件比较运算符 */
+export type SelectorOperator =
+  | 'eq'
+  | 'ne'
+  | 'gt'
+  | 'gte'
+  | 'lt'
+  | 'lte'
+  | 'in'
+  | 'between'
+  | 'contains';
+
+/** 单条条件: 对某输入字段的判定 */
+export interface SelectorCondition {
+  field: string; // 引用 SelectorInputField.key
+  op: SelectorOperator;
+  value: string | number | boolean | Array<string | number>; // between → [min,max]; in → 数组
+}
+
+/**
+ * 产品选择方式 (规则命中后产出的一行):
+ *   - byCatalogId: 直接引用产品目录 ID
+ *   - byModel: 按型号匹配产品目录 (大小写不敏感)
+ *   - byAttributes: 按产品目录 attributes 键值匹配 (取首个匹配)
+ */
+export interface SelectorProductRef {
+  matchBy: 'catalogId' | 'model' | 'attributes';
+  catalogId?: string;
+  model?: string;
+  attributes?: Record<string, string>;
+  costType?: QuoteCostType; // 默认 equipment
+  fallbackModel?: string; // 目录未命中时仍产出的占位型号名
+}
+
+/**
+ * 数量计算:
+ *   - fixed: 固定数量
+ *   - perInput: ceil(输入值 / divisor), 夹在 [min,max]
+ */
+export interface SelectorQuantity {
+  mode: 'fixed' | 'perInput';
+  value?: number; // fixed
+  inputField?: string; // perInput 引用的输入键
+  divisor?: number; // perInput 除数 (默认 1)
+  min?: number;
+  max?: number;
+}
+
+/** 一条选型规则: 全部条件满足 → 产出一行推荐 */
+export interface SelectorRule {
+  id: string;
+  label?: string; // 规则说明 (选型依据, 写入行 note)
+  when: SelectorCondition[]; // 空数组 = 无条件恒命中
+  product: SelectorProductRef;
+  quantity: SelectorQuantity;
+  priority?: number; // 越大越优先 (同一 dedupeKey 冲突时保留高优先)
+  stopOnMatch?: boolean; // 命中后停止后续规则评估
+}
+
+export type SelectorRuleSetStatus = 'draft' | 'published' | 'archived';
+
+/** 选型规则集 (一个品类/场景的完整问卷 + 规则) — 配置驱动核心对象 */
+export interface SelectorRuleSet {
+  id: string;
+  tenantId: string;
+  name: string; // 如 "商用热水系统选型 v1"
+  category?: string; // 对齐 catalog.category / QuoteSystem.category
+  scenario?: string; // 应用场景
+  description?: string;
+  systemName?: string; // 产出 QuoteSystem 的默认名称
+  version: number;
+  status: SelectorRuleSetStatus;
+  inputFields: SelectorInputField[];
+  rules: SelectorRule[];
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt?: string;
+  archivedAt?: string;
+}
+
+/** 已发布版本快照 (每次 publish 冻结一份 inputFields+rules, 供审计/回溯) */
+export interface SelectorRuleSetVersion {
+  id: string;
+  tenantId: string;
+  rulesetId: string;
+  version: number;
+  name: string;
+  category?: string;
+  scenario?: string;
+  systemName?: string;
+  inputFields: SelectorInputField[];
+  rules: SelectorRule[];
+  publishedBy: string;
+  publishedAt: string;
+}
+
+/** 引擎评估输出的单行推荐 (含追溯) */
+export interface SelectorResultLine {
+  ruleId: string;
+  ruleLabel?: string;
+  item: QuoteItem;
+  resolved: boolean; // 是否在产品目录命中真实产品
+}
+
+/** 引擎评估结果 */
+export interface SelectorResult {
+  rulesetId: string;
+  system: QuoteSystem; // 可直接回填报价编辑器的系统
+  lines: SelectorResultLine[];
+  warnings: string[]; // 未命中产品 / 缺必填输入等
 }

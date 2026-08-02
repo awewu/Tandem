@@ -282,6 +282,25 @@ async function POSTApiHandler(req: NextRequest): Promise<Response> {
           /* fail-soft */
         }
 
+        // ── 3.6 §P0-5 SRPO 修正补丁召回 · 注入过往被否决/投诉提炼出的可复用修正策略 ──
+        //   与 self-hint 互补: self-hint = 员工个人自省; SRPO patch = 中央 AI 从负面信号
+        //   提炼的"下次应改成 X"修正策略 (确定性关键词检索, 零 LLM 成本). fail-soft.
+        try {
+          const { retrieveCorrectionPatches, buildCorrectionPromptBlock } = await import('@/lib/persona/srpo-patch');
+          // context 与 company-brain-decision 记录的 decision.context 一致 (BossAI = 'boss_ai_reply')
+          const patches = await retrieveCorrectionPatches(latestUserMessage, {
+            tenantId: auth.tenantId,
+            context: 'boss_ai_reply',
+          });
+          const block = buildCorrectionPromptBlock(patches);
+          if (block) {
+            systemPrompt += block;
+            emitStep('srpo', '召回修正经验', `应用 ${patches.length} 条历史修正策略`);
+          }
+        } catch {
+          /* fail-soft */
+        }
+
         // ── 4. Compaction + 起点审计 ──
         // §多模态 · 把图片拼到最新一条 user 消息上 (其余消息保持纯文本).
         const lastUserIdx = messages.map((m) => m.role).lastIndexOf('user');
@@ -318,7 +337,7 @@ async function POSTApiHandler(req: NextRequest): Promise<Response> {
           messages: chatMessages,
           scenario: 'reasoning_complex',
           temperature: 0.6,
-          metadata: { requestId: sessionId },
+          metadata: { requestId: sessionId, feature: 'boss_ai_stream' },
         });
 
         for await (const chunk of stream) {
@@ -364,7 +383,7 @@ async function POSTApiHandler(req: NextRequest): Promise<Response> {
                   ],
                   scenario: 'reasoning_complex',
                   temperature: 0.4,
-                  metadata: { requestId: `${sessionId ?? 'no-session'}_revised` },
+                  metadata: { requestId: `${sessionId ?? 'no-session'}_revised`, feature: 'boss_ai_revise' },
                 });
                 const revised = typeof retry.message.content === 'string' ? retry.message.content.trim() : '';
                 if (revised) {

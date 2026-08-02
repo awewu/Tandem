@@ -2,8 +2,8 @@
  * Storage Repository · 存储抽象层
  *
  * 任何业务模块通过此接口访问数据, 不直接依赖 DB 实现.
- * V1 开发期: 使用 InMemoryStore.
- * V1 后期: 实现 PrismaStore 替换 (无业务代码改动).
+ * 开发/测试: InMemoryStore (lib/storage/memory-store.ts).
+ * 生产: DrizzleStore (lib/storage/drizzle-store.ts, PostgreSQL).
  */
 
 import type { DecisionCard } from '../types/decision-card';
@@ -84,12 +84,47 @@ export interface TenantLockedRepository<T extends { id: string }> extends Reposi
   ): Promise<R>;
 }
 
+/** IM 频道消息查询 (游标 + 限行). */
+export interface ChannelMessageQuery {
+  /** 返回的最大条数 (默认 100). 取"最新"的 N 条. */
+  limit?: number;
+  /** createdAt 游标 (排他): 只返回早于此时间的消息 (向上翻页). */
+  before?: string;
+}
+
+/** IM 消息词面搜索查询 (§Sprint1 全文搜索). */
+export interface MessageSearchQuery {
+  /** 搜索关键词 (子串, 大小写不敏感). */
+  query: string;
+  /** 限定频道集合 (调用方已做权限过滤; 空/未传 = 不限). */
+  channelIds?: string[];
+  /** 返回的最大条数 (默认 30). 取最新命中. */
+  limit?: number;
+}
+
+/**
+ * IM 消息仓储 · 在通用 CRUD 之上提供频道热路径的高效查询.
+ *
+ * 热表性能收口 (2026-08): 旧 getChannelMessages 用 imMessages.list({channelId})
+ * 把整个频道历史全量读入内存再 JS 排序/切片 (每频道 O(N)). listByChannel 下推
+ * "频道 + 排除软删 + createdAt 游标 + 按 createdAt 倒序取 N 条" 到存储层,
+ * 只读回需要的 N 条 (drizzle 侧配 KvStore 部分函数索引). 返回按 createdAt 升序.
+ */
+export interface ImMessageRepository extends Repository<ImMessage> {
+  listByChannel(channelId: string, query?: ChannelMessageQuery): Promise<ImMessage[]>;
+  /**
+   * §Sprint1 全文搜索 · 词面 (子串) 检索, 排除软删, 可限定频道集合, 按 createdAt 倒序取最新 N 条.
+   * 与向量召回 RRF 融合前的词面一路 (embedding 未配时的唯一召回来源).
+   */
+  searchByBody(query: MessageSearchQuery): Promise<ImMessage[]>;
+}
+
 // ---------------------------------------------------------------------------
 // 业务 Repository 集合 (Tandem 数据访问层)
 // ---------------------------------------------------------------------------
 
 export interface TandemStore {
-  _storeKind?: 'memory' | 'prisma';
+  _storeKind?: 'memory' | 'drizzle';
   withMutationTransaction?<R>(mutation: () => Promise<R>): Promise<R>;
   decisionCards: Repository<DecisionCard>;
   personas: Repository<Persona>;
@@ -105,6 +140,10 @@ export interface TandemStore {
   /** P0 Eval / Trace-Grading 台 (评估 + #11 因果归因) */
   evalTraces: Repository<EvalTrace>;
   evalAttributions: Repository<EvalAttribution>;
+  /** Tier0-Evo · 情景级反思记录 (KvStore-based) */
+  episodicReflections: Repository<import('../persona/company-brain-reflection').EpisodicReflection>;
+  /** P0-5 · SRPO 修正补丁 (negative signal → 修正策略 → 检索复用, KvStore-based) */
+  correctionPatches: Repository<import('../persona/srpo-patch').CorrectionPatch>;
   origins: Repository<Origin>;
   materials: Repository<Material>;
   memories: Repository<MemoryEntry>;
@@ -141,7 +180,7 @@ export interface TandemStore {
 
   /** IM (内置消息层) */
   imChannels: Repository<ImChannel>;
-  imMessages: Repository<ImMessage>;
+  imMessages: ImMessageRepository;
   imMemberships: Repository<ImMembership>;
   /** IM 在线状态 (真人离线时分身 24h 兜底代答) */
   imPresence: Repository<ImPresence>;
@@ -439,10 +478,27 @@ export function getStore(): TandemStore {
 
 // ---------------------------------------------------------------------------
 // CUID-like id helper (轻依赖)
+//
+// 熵源使用 Web Crypto (crypto.getRandomValues) 而非 Math.random:
+//   - KvStore 主键是 (collection, id), Math.random 的 8 位 base36 (~41 bit) 在
+//     高并发/大批量插入下有可感知碰撞概率; crypto 提供密码学强随机 + 更多位.
+//   - 保留 `${ts}` 时间戳前缀 (粗略时序 + 可读性), 前缀语义 (user_/team:/…) 不受影响.
+//   - Web Crypto 全局在 Node 18+/Edge/浏览器均可用; 极端缺失时兜底 Math.random.
 // ---------------------------------------------------------------------------
+
+function randomEntropy(): string {
+  const g = globalThis as typeof globalThis & { crypto?: Crypto };
+  if (g.crypto?.getRandomValues) {
+    const buf = new Uint32Array(2);
+    g.crypto.getRandomValues(buf);
+    return buf[0].toString(36) + buf[1].toString(36);
+  }
+  // 兜底 (实际环境几乎不会命中): 仍保持 id 格式稳定.
+  return Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
+}
 
 export function generateId(prefix = ''): string {
   const ts = Date.now().toString(36);
-  const rnd = Math.random().toString(36).slice(2, 10);
+  const rnd = randomEntropy();
   return prefix ? `${prefix}_${ts}${rnd}` : `${ts}${rnd}`;
 }

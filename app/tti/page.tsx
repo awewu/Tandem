@@ -408,6 +408,12 @@ export default function TtiPage() {
           战略成长空间 · 与奖金完全分离 · 60-70% 是健康区间
           <span className="ml-2 text-footnote">CHARTER-KPI-TTI §3</span>
         </p>
+        {/* 三入口互链: 澄清"在哪写进展" (对标审计 P1-1 迷路问题) */}
+        <nav className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-footnote text-muted-foreground">
+          <span className="font-medium text-foreground">当前: 四要素填报</span>
+          <a href="/okr" className="hover:text-primary hover:underline">目标与对齐 → OKR</a>
+          <a href="/report" className="hover:text-primary hover:underline">写今日进展 → 日报</a>
+        </nav>
       </header>
 
       <TrustBanner tone="trust" charter="CHARTER §3.2">

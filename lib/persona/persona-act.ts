@@ -18,6 +18,7 @@
 import { PERSONA_WRITE_SKILL_IDS } from '../taf/skills/persona-write';
 import { recordEvalTraceSafe } from '../eval/service';
 import { summarizeFindings } from '../guardrail';
+import type { ApprovalPacket, ApprovalTraceStep, ApprovalEvidenceRef } from '../types/proxy-action';
 
 /** act pass 工具集: 先 okr.read 定位 KR, 再提议写动作 (全经 proposeAction 治理)。 */
 export const PERSONA_ACT_TOOLSET = ['okr.read', ...PERSONA_WRITE_SKILL_IDS] as const;
@@ -129,6 +130,11 @@ export async function personaActPass(
       maxRounds: opts?.maxRounds ?? 4,
       maxTokens: 700,
       aiTraceId: checkId,
+      // 高价值前沿接线 (写动作主链路): 成本归因 + FIDES 信息流硬拦截 (context 被不可信内容污染时
+      // 拦截写工具) + 低信心策略重置 (写前多想一步, 正确性优先)
+      feature: 'persona_act',
+      enableInfoFlow: true,
+      enableStrategyReset: true,
     });
 
     const writeIds = new Set<string>(PERSONA_WRITE_SKILL_IDS);
@@ -167,6 +173,53 @@ export async function personaActPass(
           }),
       ),
     );
+
+    // P0 #7: 审批包 enrichment — 用 tool-loop trace 丰富每个 ProxyAction 的 metadata
+    // 让审批者看到 AI 的推理过程 (防 rubber-stamping)
+    const reasoningTrace: ApprovalTraceStep[] = loop.toolInvocations.map((inv) => ({
+      tool: inv.name,
+      summary: typeof inv.result === 'string' ? inv.result.slice(0, 200) : JSON.stringify(inv.result ?? '').slice(0, 200),
+      ok: inv.ok,
+    }));
+    const evidenceRefs: ApprovalEvidenceRef[] = [];
+    // 从只读工具 (okr.read) 的 args 提取引用的实体
+    for (const inv of loop.toolInvocations) {
+      if (inv.name === 'okr.read' && inv.ok) {
+        const a = inv.args as { krId?: unknown; objectiveId?: unknown };
+        if (typeof a?.krId === 'string') evidenceRefs.push({ type: 'kr', id: a.krId });
+        if (typeof a?.objectiveId === 'string') evidenceRefs.push({ type: 'okr', id: a.objectiveId });
+      }
+      if (inv.name === 'memory.search' && inv.ok) {
+        const a = inv.args as { query?: unknown };
+        if (typeof a?.query === 'string') evidenceRefs.push({ type: 'memory', id: a.query.slice(0, 60) });
+      }
+    }
+    const alternativesConsidered = rejected.map(
+      (r) => `${r.tool}: ${r.reasons?.join('; ') ?? 'rejected'}`,
+    );
+    const packet: ApprovalPacket = {
+      reasoningTrace,
+      evidenceRefs: evidenceRefs.length > 0 ? evidenceRefs : undefined,
+      alternativesConsidered: alternativesConsidered.length > 0 ? alternativesConsidered : undefined,
+    };
+    // 更新每个已创建的 ProxyAction (fail-soft, 不阻塞返回)
+    for (const p of proposals) {
+      if (!p.proxyActionId) continue;
+      try {
+        const { getStore } = await import('../storage/repository');
+        const store = getStore();
+        const pa = await store.proxyActions.get(p.proxyActionId);
+        if (pa) {
+          await store.proxyActions.update(p.proxyActionId, {
+            metadata: { ...(pa.metadata ?? {}), approvalPacket: packet },
+            updatedAt: new Date().toISOString(),
+          } as never);
+        }
+      } catch {
+        // fail-soft: enrichment 失败不影响业务
+      }
+    }
+
     await recordEvalTraceSafe({
       traceId: checkId,
       tenantId: opts?.tenantId ?? 'default',

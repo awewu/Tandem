@@ -105,7 +105,7 @@ export default function OneOnOnePage() {
   return (
     <div className="flex flex-col md:flex-row h-screen bg-surface-2">
       {/* 左: 列表 */}
-      <aside className="w-80 border-r bg-white flex flex-col">
+      <aside className="w-80 border-r bg-surface-1 flex flex-col">
         <div className="border-b px-4 py-3 flex items-center justify-between">
           <div>
             <div className="text-caption font-semibold flex items-center gap-1.5">
@@ -780,7 +780,7 @@ function MeetingDetail({
                     className={`h-8 w-8 rounded text-caption transition ${
                       meeting.moodScore === n
                         ? 'bg-danger text-white'
-                        : 'bg-white border hover:bg-muted'
+                        : 'bg-surface-1 border hover:bg-muted'
                     }`}
                   >
                     {n}

@@ -237,7 +237,7 @@ export default function OKRCalendarPage() {
                         ? 'border-warning/50 bg-warning/5'
                         : isPast
                         ? 'border-border bg-surface-2/30'
-                        : 'border-border bg-white hover:bg-surface-2'
+                        : 'border-border bg-surface-1 hover:bg-surface-2'
                     }`}
                   >
                     <div className={`text-[11px] font-medium mb-0.5 ${

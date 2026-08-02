@@ -15,6 +15,7 @@ import { usePersonNameResolver } from '@/lib/org/people-source';
 import { CreateChannelDialog } from '@/components/im/create-channel-dialog';
 import { SeedFromOrgDialog } from '@/components/im/seed-from-org-dialog';
 import { StartDmDialog } from '@/components/im/start-dm-dialog';
+import ImSearchOverlay from '@/components/im/ImSearchOverlay';
 import { useHandoffPrefill } from '@/hooks/useHandoffPrefill';
 import { cn } from '@/lib/utils';
 import type { ImChannel, ImMembership } from '@/lib/types/im';
@@ -124,6 +125,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
   const [showCreate, setShowCreate] = useState(false);
   const [showDm, setShowDm] = useState(false);
   const [showSeedOrg, setShowSeedOrg] = useState(false);
+  const [showMsgSearch, setShowMsgSearch] = useState(false);
   const [handoffDraft, setHandoffDraft] = useState<{ name?: string; topic?: string } | null>(null);
 
   const activeId = searchParams?.get('ch') ?? null;
@@ -233,10 +235,33 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
     router.replace(`/im?ch=${encodeURIComponent(id)}`);
   }
 
+  // 全局消息全文/语义搜索 (与顶部"搜索"频道名过滤不同): 命中后带 ?msg= 跳转并高亮定位。
+  function openMessageSearch() {
+    setShowMsgSearch(true);
+  }
+  const messageSearchOverlay = showMsgSearch ? (
+    <ImSearchOverlay
+      nameOf={nameOf}
+      onClose={() => setShowMsgSearch(false)}
+      onSelect={(chId, messageId) => {
+        setShowMsgSearch(false);
+        router.push(`/im?ch=${encodeURIComponent(chId)}&msg=${encodeURIComponent(messageId)}`);
+      }}
+    />
+  ) : null;
+
   if (collapsed) {
     // 折叠态: 只显示头像列 + 未读点
     return (
       <div className="flex flex-col items-center gap-1 py-2">
+        <button
+          type="button"
+          onClick={openMessageSearch}
+          className="flex h-8 w-8 items-center justify-center rounded-md text-ink-secondary hover:bg-surface-3"
+          title="搜索聊天记录"
+        >
+          <Search className="h-4 w-4" />
+        </button>
         <button
           type="button"
           onClick={() => setShowDm(true)}
@@ -305,6 +330,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
           currentUserId={ME}
           onSeeded={() => void loadChannels()}
         />
+        {messageSearchOverlay}
       </div>
     );
   }
@@ -357,7 +383,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
         </div>
       )}
 
-      {/* 搜索框 */}
+      {/* 搜索框 (会话名过滤) + 全局消息搜索入口 */}
       <div className="shrink-0 px-2 pb-2">
         <div className="flex items-center gap-1.5 rounded-md bg-surface-3 px-2.5 py-1.5">
           <Search className="h-3 w-3 shrink-0 text-ink-tertiary" />
@@ -365,10 +391,19 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="搜索"
+            placeholder="搜索会话"
             className="flex-1 bg-transparent text-[12px] text-ink-primary placeholder:text-ink-tertiary outline-none"
           />
         </div>
+        <button
+          type="button"
+          onClick={openMessageSearch}
+          className="mt-1.5 flex w-full items-center gap-1.5 rounded-md px-2.5 py-1.5 text-left text-[11.5px] text-ink-tertiary transition-colors hover:bg-surface-3 hover:text-ink-secondary"
+          title="全文 + 语义搜索聊天记录"
+        >
+          <Search className="h-3 w-3 shrink-0" />
+          <span>搜索聊天记录…</span>
+        </button>
       </div>
 
       {/* 分组 tabs */}
@@ -488,6 +523,7 @@ export function ImSidebar({ collapsed = false }: { collapsed?: boolean }) {
         currentUserId={ME}
         onSeeded={() => void loadChannels()}
       />
+      {messageSearchOverlay}
     </div>
   );
 }

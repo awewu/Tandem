@@ -158,7 +158,7 @@ export default function LaunchpadAdminPage() {
               return (
                 <div
                   key={app.id}
-                  className={`flex items-center gap-4 rounded-2xl border p-4 bg-white ${
+                  className={`flex items-center gap-4 rounded-2xl border p-4 bg-surface-1 ${
                     app.status === 'disabled' ? 'opacity-60' : ''
                   }`}
                 >
@@ -328,7 +328,7 @@ function LaunchpadForm({
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-surface-1 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6 border-b border-border flex items-center justify-between">
           <h2 className="text-headline font-bold">{editing ? '编辑跳板卡片' : '新建跳板卡片'}</h2>
           <button type="button" onClick={onClose} className="text-ink-tertiary hover:text-ink-secondary">
@@ -357,7 +357,7 @@ function LaunchpadForm({
               aria-label="分类"
               value={form.category ?? 'business'}
               onChange={(e) => update('category', e.target.value as LaunchpadCategory)}
-              className="w-full px-3 py-2 border border-border rounded-lg text-caption bg-white"
+              className="w-full px-3 py-2 border border-border rounded-lg text-caption bg-surface-1"
             >
               <option value="business">业务系统 (ERP/CRM/财务)</option>
               <option value="comm">通讯协同 (IM/会议)</option>
@@ -386,7 +386,7 @@ function LaunchpadForm({
               aria-label="SSO 模式"
               value={form.ssoMode ?? 'none'}
               onChange={(e) => update('ssoMode', e.target.value as LaunchpadApp['ssoMode'])}
-              className="w-full px-3 py-2 border border-border rounded-lg text-caption bg-white"
+              className="w-full px-3 py-2 border border-border rounded-lg text-caption bg-surface-1"
             >
               <option value="none">无 SSO（直接跳转）</option>
               <option value="oidc">OIDC（OpenID Connect）</option>

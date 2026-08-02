@@ -82,8 +82,16 @@ export async function decomposeQuery(
   if (!opts?.force && !shouldDecompose(q)) return [];
 
   try {
-    const { getRouter } = await import('../boot');
-    const router = getRouter();
+    // 解析 router: 优先 globalThis.__tandem_router__ (测试/已 boot), 避免 import 整条 boot
+    // 图 (重量级 · 并行单测 CPU 争用下会拖到 >5s 超时)。与 reflexion/governed-chat 同模式。
+    let router: Awaited<ReturnType<typeof import('../boot')['getRouter']>>;
+    const _rg = globalThis as { __tandem_router__?: typeof router };
+    if (_rg.__tandem_router__) {
+      router = _rg.__tandem_router__;
+    } else {
+      const { getRouter } = await import('../boot');
+      router = getRouter();
+    }
     const reply = await router.chat({
       messages: [
         { role: 'system', content: DECOMPOSE_SYSTEM },

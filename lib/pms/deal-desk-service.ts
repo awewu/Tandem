@@ -99,7 +99,7 @@ export async function assembleDealDesk(input: { tenantId: string; now?: Date }):
     .from(pmsDuplicateChecks)
     .where(and(
       eq(pmsDuplicateChecks.tenantId, tenantId),
-      inArray(pmsDuplicateChecks.status, ['warning', 'duplicate']),
+      inArray(pmsDuplicateChecks.status, ['suspect', 'warning', 'duplicate']),
     ))
     .orderBy(desc(pmsDuplicateChecks.createdAt))
     .limit(50);

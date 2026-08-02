@@ -35,6 +35,9 @@ export const SHIBAN_PREFIXES = [
   '/api/nine-box',
   '/api/initiatives',
   '/api/convergence',
+  // Memory 知识治理 (升级/降级签批) = 内部专属, 纯外部协作者禁入 (纵深防御, 端点内另有角色门).
+  '/api/tandem/memory/promotion',
+  '/api/tandem/memory/downgrade',
   '/api-docs',
 ] as const;
 

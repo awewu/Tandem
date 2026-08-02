@@ -41,6 +41,8 @@ const PUBLIC_PREFIXES = [
   '/api/integrations/health',
   '/api/llm-health',
   '/api/legal/privacy-policy',
+  // 报价单公开验真: 客户零登录扫码查真伪+授权经销商 (只读, 不露价).
+  '/api/pms/quotes/verify/',
   // OIDC IdP 协议端点: 接入方用 client 凭据 / Bearer / 登录回跳, 不依赖 Tandem 会话 cookie.
   // 注: /api/oidc/clients (接入方管理 CRUD) 不在此列, 仍走 owner/admin 鉴权.
   '/api/oidc/authorize',
@@ -61,6 +63,7 @@ const PUBLIC_UI_PREFIXES = [
   '/register',
   '/forbidden',
   '/privacy',
+  '/verify',              // 报价单公开验真页 (客户零登录扫码)
   '/_next/',
   '/favicon',
   '/manifest',

@@ -11,7 +11,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { FileEdit, Check, X as XIcon, Clock } from 'lucide-react';
+import { FileEdit, Check, X as XIcon, Clock, AlertTriangle } from 'lucide-react';
 import type { KpiTargetAmendment } from '@/lib/types/kpi';
 
 interface Props {
@@ -34,6 +34,7 @@ export function TargetAmendmentPanel({ kpiId, currentTargetValue, unit, cycleLoc
   const [reviewNote, setReviewNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cascadeWarning, setCascadeWarning] = useState<{ parentTarget: number; childrenSum: number; deltaPct: number } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -92,6 +93,7 @@ export function TargetAmendmentPanel({ kpiId, currentTargetValue, unit, cycleLoc
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? '审批失败'); return; }
       setReviewNote('');
+      setCascadeWarning(data.cascadeWarning ?? null);
       await load();
       onApplied?.();
     } finally {
@@ -170,6 +172,15 @@ export function TargetAmendmentPanel({ kpiId, currentTargetValue, unit, cycleLoc
         </div>
       )}
 
+      {cascadeWarning && (
+        <p className="text-[10px] text-warning flex items-start gap-1">
+          <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
+          <span>
+            级联失衡: 子 KPI 目标值合计 {cascadeWarning.childrenSum.toLocaleString()} 与父级目标 {cascadeWarning.parentTarget.toLocaleString()} 偏差 {cascadeWarning.deltaPct}%。
+            请进入 KPI 设置调整子级目标。
+          </span>
+        </p>
+      )}
       {error && <p className="text-[10px] text-danger">{error}</p>}
     </div>
   );

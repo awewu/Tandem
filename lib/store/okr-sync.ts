@@ -74,7 +74,8 @@ export function mapServerObjective(o: Server.Objective): Objective {
     tags: o.tags ?? [],
     collaborators: o.collaboratorIds ?? [],
     watchers: o.watcherIds ?? [],
-    progressOverride: null,
+    // P0-1 闭环: 服务端手动覆盖进度 0-1 → 客户端 0-100 (此前硬编码 null, 刷新即丢).
+    progressOverride: o.progressOverride != null ? Math.round(o.progressOverride * 100) : null,
     score: o.finalScore ?? null,
     selfScore: o.selfScore ?? null,
     managerScore: o.managerScore ?? null,
@@ -257,7 +258,8 @@ function clientVisibilityToServer(v?: Objective['visibility']): Server.Objective
   return v === 'department' ? 'team' : (v ?? 'public');
 }
 
-function objectiveToBody(o: Partial<Objective>): Record<string, unknown> {
+// exported 供回归测试 (P0-1 progressOverride 双向闭环锁)
+export function objectiveToBody(o: Partial<Objective>): Record<string, unknown> {
   return {
     cycleId: o.cycleId,
     parentObjectiveId: 'parentId' in o ? (o.parentId ?? null) : undefined,
@@ -271,10 +273,27 @@ function objectiveToBody(o: Partial<Objective>): Record<string, unknown> {
     tags: o.tags ?? [],
     collaboratorIds: o.collaborators ?? [],
     watcherIds: o.watchers ?? [],
+    // P0-1 闭环: 手动覆盖进度 客户端 0-100 → 服务端 0-1; 仅当字段存在才下发 (避免部分更新误清).
+    // null 表示显式清除覆盖 (回退到 rollup 自动值), 需原样下发.
+    progressOverride:
+      'progressOverride' in o
+        ? (o.progressOverride == null ? null : o.progressOverride / 100)
+        : undefined,
+    // P0-2 闭环: 评分/复盘落库 (此前只写内存 zustand, hydrate 即被覆盖 = 假闭环).
+    // 仅当字段存在才下发; client 终评字段名是 score, 服务端是 finalScore.
+    selfScore: 'selfScore' in o ? (o.selfScore ?? null) : undefined,
+    managerScore: 'managerScore' in o ? (o.managerScore ?? null) : undefined,
+    finalScore: 'score' in o ? (o.score ?? null) : undefined,
+    retrospective: 'retrospective' in o ? (o.retrospective ?? null) : undefined,
+    reviewedAt:
+      'reviewedAt' in o
+        ? (o.reviewedAt == null ? null : new Date(o.reviewedAt).toISOString())
+        : undefined,
   };
 }
 
-function keyResultToBody(kr: Partial<KeyResult>): Record<string, unknown> {
+// exported 供回归测试 (P0-2 KR selfScore/finalScore 落库锁)
+export function keyResultToBody(kr: Partial<KeyResult>): Record<string, unknown> {
   return {
     objectiveId: kr.objectiveId,
     ownerId: realOwnerId(kr.ownerId),
@@ -291,6 +310,9 @@ function keyResultToBody(kr: Partial<KeyResult>): Record<string, unknown> {
     tags: kr.tags ?? [],
     collaboratorIds: kr.collaborators ?? [],
     watcherIds: kr.watchers ?? [],
+    // P0-2 闭环: KR 自评/终评落库 (同上, 此前只写内存).
+    selfScore: 'selfScore' in kr ? (kr.selfScore ?? null) : undefined,
+    finalScore: 'finalScore' in kr ? (kr.finalScore ?? null) : undefined,
   };
 }
 

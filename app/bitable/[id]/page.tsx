@@ -116,7 +116,7 @@ export default function BitableTablePage() {
                 onClick={() => setView(t.kind)}
                 title={!t.enabled ? (t.kind === 'kanban' ? '需要一个单选列' : '需要一个日期列') : t.label}
                 className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-footnote transition ${
-                  active ? 'bg-white shadow-soft-sm font-medium text-ink-primary' : 'text-ink-tertiary'
+                  active ? 'bg-surface-1 shadow-soft-sm font-medium text-ink-primary' : 'text-ink-tertiary'
                 } ${!t.enabled ? 'opacity-40 cursor-not-allowed' : 'hover:text-ink-primary'}`}
               >
                 <Icon className="h-3.5 w-3.5" /> {t.label}
@@ -178,7 +178,7 @@ function GridView({
   addRow: (data?: Record<string, unknown>) => Promise<void>;
 }) {
   return (
-    <div className="rounded-lg border border-border bg-white overflow-x-auto">
+    <div className="rounded-lg border border-border bg-surface-1 overflow-x-auto">
       <table className="w-full text-caption">
         <thead className="bg-surface-2 text-footnote text-ink-tertiary uppercase">
           <tr>
@@ -338,7 +338,7 @@ function KanbanView({
             </div>
             <div className="space-y-2">
               {rows.map((r) => (
-                <div key={r.id} className="rounded-lg border border-border bg-white p-3 shadow-soft-sm">
+                <div key={r.id} className="rounded-lg border border-border bg-surface-1 p-3 shadow-soft-sm">
                   <div className="font-medium text-caption">
                     {labelCol && r.data[labelCol.id] != null && String(r.data[labelCol.id]).length > 0
                       ? String(r.data[labelCol.id])
@@ -426,7 +426,7 @@ function CalendarView({
   const next = () => setMonthCursor(m === 11 ? { y: y + 1, m: 0 } : { y, m: m + 1 });
 
   return (
-    <div className="rounded-lg border border-border bg-white p-4">
+    <div className="rounded-lg border border-border bg-surface-1 p-4">
       <div className="mb-3 flex items-center justify-between">
         <div className="font-semibold">
           {y} 年 {m + 1} 月
@@ -459,7 +459,7 @@ function CalendarView({
       </div>
       <div className="grid grid-cols-7 gap-px bg-surface-3">
         {cells.map((cell, i) => (
-          <div key={i} className="min-h-[84px] bg-white p-1">
+          <div key={i} className="min-h-[84px] bg-surface-1 p-1">
             {cell && (
               <>
                 <div

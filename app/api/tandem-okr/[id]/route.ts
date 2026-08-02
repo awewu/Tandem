@@ -62,10 +62,18 @@ async function PATCHApiHandler(
     if (Array.isArray(body.tags)) patch.tags = body.tags;
     if (Array.isArray(body.collaboratorIds)) patch.collaboratorIds = body.collaboratorIds;
     if (Array.isArray(body.watcherIds)) patch.watcherIds = body.watcherIds;
-    if (typeof body.finalScore === 'number') patch.finalScore = body.finalScore;
-    if (typeof body.selfScore === 'number') patch.selfScore = body.selfScore;
-    if (typeof body.managerScore === 'number') patch.managerScore = body.managerScore;
+    // P0-2 闭环: 评分接受 number 或 null (null = 清空校准/评分). 此前只收 number → 无法清空.
+    if (typeof body.finalScore === 'number' || body.finalScore === null) patch.finalScore = body.finalScore;
+    if (typeof body.selfScore === 'number' || body.selfScore === null) patch.selfScore = body.selfScore;
+    if (typeof body.managerScore === 'number' || body.managerScore === null) patch.managerScore = body.managerScore;
     if (typeof body.retrospective === 'string') patch.retrospective = body.retrospective;
+    // P0-2 闭环: reviewedAt (ISO 字符串) 此前漏入白名单 → 复盘时间丢失.
+    if (typeof body.reviewedAt === 'string') patch.reviewedAt = body.reviewedAt;
+    // P0-1 闭环: 手动覆盖进度 (0-1) 或 null (清除覆盖, 回退 rollup). 此前未入白名单 → 前端下发被静默丢弃.
+    if ('progressOverride' in body) {
+      const v = body.progressOverride;
+      if (v === null || (typeof v === 'number' && v >= 0 && v <= 1)) patch.progressOverride = v;
+    }
     const hasContentEdit = Object.keys(patch).length > 0;
 
     // ── 状态变更: 服务端强制走审批漏斗状态机 + 角色校验 (此前闸只在前端 = 可绕过) ──

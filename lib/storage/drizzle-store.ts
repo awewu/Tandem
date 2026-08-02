@@ -22,7 +22,11 @@ import type {
   AuthSession,
   AuthInvite,
   AuthEvent,
+  ImMessageRepository,
+  ChannelMessageQuery,
+  MessageSearchQuery,
 } from './repository';
+import type { ImMessage } from '../types/im';
 import type {
   KpiCycle,
   KpiSubject,
@@ -38,6 +42,7 @@ import type { AgentTemplate } from '../types/agent-template';
 import { generateId } from './repository';
 // DB-AUDIT P1 · classifier 提取到独立无 db-import 文件 (便于单测).
 import { classifyKvFilter } from './kv-filter';
+import { isRecordVisibleInScope, applyTenantScopeToFilter, getActiveTenantScope, enforceTenantScope } from './tenant-scope';
 import { instrumentBusinessRepositories } from '@/lib/business-log/repository';
 
 const kv = schema.kvStore;
@@ -63,7 +68,11 @@ class DrizzleKvRepository<T extends { id: string }> implements Repository<T> {
       .from(kv)
       .where(and(eq(kv.collection, this.collection), eq(kv.id, id)))
       .limit(1);
-    return rows[0] ? (rows[0].data as T) : null;
+    if (!rows[0]) return null;
+    const data = rows[0].data as T;
+    // 租户作用域激活时: 跨租户记录视为 not-found (不泄漏存在性).
+    if (!isRecordVisibleInScope(data)) return null;
+    return data;
   }
 
   async list(filter?: Partial<T>, opts?: ListOptions): Promise<T[]> {
@@ -78,7 +87,9 @@ class DrizzleKvRepository<T extends { id: string }> implements Repository<T> {
     //   key 必须是合法标识符 ([A-Za-z_][A-Za-z0-9_]*), 防 SQL 注入 (虽然 key 来自
     //   typed Partial<T> 编译期源, 但兜底校验保留, 兜底成本 ≈ 0).
     // ────────────────────────────────────────────────────────────────────
-    const filterRec = (filter as Record<string, unknown> | undefined) ?? {};
+    // 租户作用域激活时强制注入 tenantId (覆盖调用方传值, 防越权列举).
+    const scopedFilter = applyTenantScopeToFilter(filter);
+    const filterRec = (scopedFilter as Record<string, unknown> | undefined) ?? {};
     const cls = classifyKvFilter(filterRec);
 
     const conds = [eq(kv.collection, this.collection)] as Array<ReturnType<typeof eq> | ReturnType<typeof sql>>;
@@ -159,6 +170,81 @@ class DrizzleTenantLockedKvRepository<T extends { id: string }>
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext('global_email_configs'), hashtext(${tenantId}))`);
       return kvTransactionContext.run(tx, () => mutation(this));
     });
+  }
+}
+
+/**
+ * IM 消息仓储 (drizzle): 频道热路径下推到 SQL, 只读回需要的 N 条.
+ *   WHERE collection='im_messages' AND data->>'channelId'=? AND data->>'deletedAt' IS NULL
+ *     [AND tenantId=<scope>] [AND data->>'createdAt' < <before>]
+ *   ORDER BY data->>'createdAt' DESC LIMIT N   (ISO 串字典序 = 时序)
+ * 结果反转为升序返回 (与 memory / 旧 getChannelMessages 一致).
+ * 配套部分函数索引见 scripts/migrate-im-messages-channel-index.mjs.
+ */
+class DrizzleImMessageRepository
+  extends DrizzleKvRepository<ImMessage>
+  implements ImMessageRepository
+{
+  constructor() {
+    super('im_messages');
+  }
+
+  async listByChannel(
+    channelId: string,
+    query: ChannelMessageQuery = {},
+  ): Promise<ImMessage[]> {
+    const limit = query.limit ?? 100;
+    const conds = [
+      eq(kv.collection, 'im_messages'),
+      sql`${kv.data}->>'channelId' = ${channelId}`,
+      sql`${kv.data}->>'deletedAt' IS NULL`,
+    ] as Array<ReturnType<typeof eq> | ReturnType<typeof sql>>;
+    // 租户作用域: 走 KvStore.tenantId 列 (im_messages 列恒为 'default').
+    const scope = getActiveTenantScope();
+    if (scope !== undefined) conds.push(eq(kv.tenantId, scope));
+    if (query.before) conds.push(sql`${kv.data}->>'createdAt' < ${query.before}`);
+
+    const rows = await kvDb()
+      .select()
+      .from(kv)
+      .where(and(...conds))
+      .orderBy(sql`${kv.data}->>'createdAt' DESC`)
+      .limit(limit);
+    // DESC 取最新 N 条 → 反转为升序返回.
+    return rows.map((r) => r.data as import('../types/im').ImMessage).reverse();
+  }
+
+  async searchByBody(query: MessageSearchQuery): Promise<ImMessage[]> {
+    const raw = (query.query ?? '').trim();
+    if (!raw) return [];
+    // channelIds 已传但为空集 = 无可见频道 → 直接空 (防退化为全库搜索泄露).
+    if (query.channelIds && query.channelIds.length === 0) return [];
+    const limit = query.limit ?? 30;
+    // 转义 LIKE 通配符 (\ % _), 作大小写不敏感子串匹配.
+    const escaped = raw.replace(/[\\%_]/g, (c) => `\\${c}`);
+    const pattern = `%${escaped}%`;
+    const conds = [
+      eq(kv.collection, 'im_messages'),
+      sql`${kv.data}->>'deletedAt' IS NULL`,
+      sql`${kv.data}->>'body' ILIKE ${pattern}`,
+    ] as Array<ReturnType<typeof eq> | ReturnType<typeof sql>>;
+    const scope = getActiveTenantScope();
+    if (scope !== undefined) conds.push(eq(kv.tenantId, scope));
+    if (query.channelIds && query.channelIds.length > 0) {
+      conds.push(
+        sql`${kv.data}->>'channelId' IN (${sql.join(
+          query.channelIds.map((c) => sql`${c}`),
+          sql`, `,
+        )})`,
+      );
+    }
+    const rows = await kvDb()
+      .select()
+      .from(kv)
+      .where(and(...conds))
+      .orderBy(sql`${kv.data}->>'createdAt' DESC`)
+      .limit(limit);
+    return rows.map((r) => r.data as import('../types/im').ImMessage);
   }
 }
 
@@ -1359,12 +1445,12 @@ function createAgentTemplateRepo(): import('./repository').Repository<AgentTempl
 
 export function createDrizzleStore(): TandemStore {
   return instrumentBusinessRepositories({
-    _storeKind: 'prisma' as const, // 历史命名, 表示"已持久化"模式
+    _storeKind: 'drizzle' as const, // PostgreSQL 持久化模式
     withMutationTransaction: (mutation) =>
       db.transaction((tx) => kvTransactionContext.run(tx, mutation)),
     decisionCards: new DrizzleKvRepository('decision_cards'),
     personas: new DrizzleKvRepository('personas'),
-    agentTemplates: createAgentTemplateRepo(),
+    agentTemplates: enforceTenantScope(createAgentTemplateRepo()),
     // §CA-13 CompanyBrain 智能迭代闭环
     companyBrainDecisions: new DrizzleKvRepository('company_brain_decisions'),
     companyBrainVersions: new DrizzleKvRepository('company_brain_versions'),
@@ -1373,6 +1459,8 @@ export function createDrizzleStore(): TandemStore {
     // P0 Eval / Trace-Grading 台 (kvStore, 零 DDL)
     evalTraces: new DrizzleKvRepository('eval_traces'),
     evalAttributions: new DrizzleKvRepository('eval_attributions'),
+    episodicReflections: new DrizzleKvRepository('episodic_reflections'),
+    correctionPatches: new DrizzleKvRepository('correction_patches'),
     origins: new DrizzleKvRepository('origins'),
     materials: new DrizzleKvRepository('materials'),
     memories: new DrizzleKvRepository('memories'),
@@ -1389,17 +1477,17 @@ export function createDrizzleStore(): TandemStore {
     dailyReports: new DrizzleKvRepository('daily_reports'),
 
     // KPI 体系 (CHARTER-KPI-TTI §2) — 强类型表, 不走 KvStore
-    kpiCycles: createKpiCycleRepo(),
-    kpiSubjects: createKpiSubjectRepo(),
-    kpis: createKpiRepo(),
-    kpiCheckIns: createKpiCheckInRepo(),
-    kpiSnapshots: createKpiSnapshotRepo(),
-    kpiManualEntries: createKpiManualEntryRepo(),
-    kpiBonusPayouts: createKpiBonusPayoutRepo(),
-    kpiCausalLinks: createKpiCausalLinkRepo(),
-    kpiTargetAmendments: createKpiTargetAmendmentRepo(),
+    kpiCycles: enforceTenantScope(createKpiCycleRepo()),
+    kpiSubjects: enforceTenantScope(createKpiSubjectRepo()),
+    kpis: enforceTenantScope(createKpiRepo()),
+    kpiCheckIns: enforceTenantScope(createKpiCheckInRepo()),
+    kpiSnapshots: enforceTenantScope(createKpiSnapshotRepo()),
+    kpiManualEntries: enforceTenantScope(createKpiManualEntryRepo()),
+    kpiBonusPayouts: enforceTenantScope(createKpiBonusPayoutRepo()),
+    kpiCausalLinks: enforceTenantScope(createKpiCausalLinkRepo()),
+    kpiTargetAmendments: enforceTenantScope(createKpiTargetAmendmentRepo()),
     imChannels: new DrizzleKvRepository('im_channels'),
-    imMessages: new DrizzleKvRepository('im_messages'),
+    imMessages: new DrizzleImMessageRepository(),
     imMemberships: new DrizzleKvRepository('im_memberships'),
     imPresence: new DrizzleKvRepository('im_presence'),
     imMentionInbox: new DrizzleKvRepository('im_mention_inbox'),

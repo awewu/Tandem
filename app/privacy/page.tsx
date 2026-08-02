@@ -32,7 +32,7 @@ export default async function PrivacyPage() {
         <PrivacyPrintButton />
       </div>
 
-      <article className="mx-auto min-h-[calc(100dvh-96px)] w-full max-w-[920px] rounded-md bg-white px-5 py-7 shadow-soft-lg print:min-h-0 print:max-w-none print:rounded-none print:px-0 print:py-0 print:shadow-none sm:px-10 sm:py-10">
+      <article className="mx-auto min-h-[calc(100dvh-96px)] w-full max-w-[920px] rounded-md bg-surface-1 px-5 py-7 shadow-soft-lg print:min-h-0 print:max-w-none print:rounded-none print:px-0 print:py-0 print:shadow-none sm:px-10 sm:py-10">
         <div className="prose prose-slate max-w-none prose-sm prose-headings:text-ink-primary prose-p:text-ink-secondary prose-table:text-caption md:prose-base">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{policy.contentMarkdown}</ReactMarkdown>
         </div>

@@ -300,6 +300,14 @@ export interface CompanyBrainReflectionReport {
   /** hindsight 归因 pass 汇总; 无样本时缺省 */
   attributionSummary?: import('./eval').AttributionSummary;
 
+  // ----- Tier0-Evo · 情景级反思汇总 (窗口内即时学习信号: overruled/投诉/护栏拦截等) -----
+  /** 窗口内 episodic reflection 记录聚合; 无记录时缺省 */
+  episodicSummary?: {
+    total: number;
+    bySignal: Record<string, number>;
+    recentNotes: string[];
+  };
+
   // ----- 签批状态 -----
   /** pending: 待 Owner/治理委员会签批 / approved: 已应用 / rejected: 已拒绝 */
   approvalStatus: 'pending' | 'approved' | 'rejected';

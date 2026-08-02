@@ -238,4 +238,39 @@ describe('saveCalibrations', () => {
     expect(result.appliedCount).toBe(1);
     expect(calls[0].managerScore).toBeNull();
   });
+
+  // P0-2 闭环回归: 传 persistObjective → 每条校准都落库 (此前无落库 → hydrate 覆盖).
+  it('persistObjective 被逐条调用 (managerScore + reviewedAt 落库)', async () => {
+    const persisted: Array<{ id: string; patch: Partial<Objective> }> = [];
+    const result = await saveCalibrations({
+      managerId: 'mx',
+      cycleId: '2026Q2',
+      updates: [
+        { objectiveId: 'o1', managerScore: 0.7 },
+        { objectiveId: 'o2', managerScore: 0.5 },
+      ],
+      updateObjective: () => {},
+      persistObjective: async (id, patch) => { persisted.push({ id, patch }); },
+    });
+    expect(result.appliedCount).toBe(2);
+    expect(persisted.map((p) => p.id)).toEqual(['o1', 'o2']);
+    expect(persisted[0].patch.managerScore).toBe(0.7);
+    expect(persisted[0].patch.reviewedAt).toBeTruthy();
+  });
+
+  it('persistObjective 落库失败不阻断整批 (乐观内存已更新)', async () => {
+    const memory: string[] = [];
+    const result = await saveCalibrations({
+      managerId: 'mx',
+      cycleId: '2026Q2',
+      updates: [
+        { objectiveId: 'o1', managerScore: 0.7 },
+        { objectiveId: 'o2', managerScore: 0.5 },
+      ],
+      updateObjective: (id) => memory.push(id),
+      persistObjective: async () => { throw new Error('offline'); },
+    });
+    expect(result.appliedCount).toBe(2);
+    expect(memory).toEqual(['o1', 'o2']);
+  });
 });
