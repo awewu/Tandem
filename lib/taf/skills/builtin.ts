@@ -23,6 +23,7 @@ import {
 } from './assistant-skills';
 import { PmsPipelineDigestSkill } from './pms-skills';
 import { StrategyValidityDigestSkill } from './strategy-skills';
+import { DecisionTrailSkill } from './decision-skills';
 import { getStore } from '../../storage/repository';
 import { CompositeRetriever } from '../../memory/retriever';
 import {
@@ -998,4 +999,6 @@ export function registerBuiltinSkills(): void {
   skillRegistry.register(PmsPipelineDigestSkill);
   // 中央 AI "战略之眼" (跨仓只读感知, 拉 StratOS 战略合理性传感器)
   skillRegistry.register(StrategyValidityDigestSkill);
+  // 中央 AI "决策记忆之眼" (Context Graph: 某 KR 的历史决策先例链)
+  skillRegistry.register(DecisionTrailSkill);
 }
