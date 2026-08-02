@@ -347,9 +347,9 @@ export default function QuoteEditorPage() {
     }
   }
 
-  if (status === 'loading') return <div className="p-8 text-slate-500">加载中…</div>;
-  if (status === 'notfound') return <div className="p-8 text-slate-500">报价不存在或无权限</div>;
-  if (status === 'error') return <div className="p-8 text-red-500">加载失败</div>;
+  if (status === 'loading') return <div className="p-8 text-ink-tertiary">加载中…</div>;
+  if (status === 'notfound') return <div className="p-8 text-ink-tertiary">报价不存在或无权限</div>;
+  if (status === 'error') return <div className="p-8 text-danger">加载失败</div>;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">
@@ -360,13 +360,13 @@ export default function QuoteEditorPage() {
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-lg font-semibold"
+              className="w-full rounded-lg border border-border px-3 py-2 text-headline font-semibold"
               placeholder="报价方案标题"
             />
           ) : (
-            <h1 className="truncate text-xl font-semibold text-slate-900">{quote?.title}</h1>
+            <h1 className="truncate text-headline font-semibold text-ink-primary">{quote?.title}</h1>
           )}
-          <div className="mt-1 text-sm text-slate-500">
+          <div className="mt-1 text-caption text-ink-tertiary">
             客户 {quote?.customerName} · 版本 v{quote?.version} ·{' '}
             <StatusBadge status={quote?.status ?? ''} />
           </div>
@@ -376,39 +376,39 @@ export default function QuoteEditorPage() {
             href={`/pms/quotes/${id}/print`}
             target="_blank"
             rel="noreferrer"
-            className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+            className="rounded-lg border border-border px-3 py-2 text-caption font-medium text-ink-secondary hover:bg-surface-2"
           >
             打印 / 导出
           </a>
           {editable && (
-            <button onClick={save} disabled={!!busy} className="rounded-lg bg-slate-100 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 disabled:opacity-50">
+            <button onClick={save} disabled={!!busy} className="rounded-lg bg-surface-3 px-3 py-2 text-caption font-medium text-ink-secondary hover:bg-surface-3 disabled:opacity-50">
               {busy === 'save' ? '保存中…' : '保存'}
             </button>
           )}
           {editable && (
-            <button onClick={() => act('issue', 'issue')} disabled={!!busy} className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+            <button onClick={() => act('issue', 'issue')} disabled={!!busy} className="rounded-lg bg-info/80 px-3 py-2 text-caption font-medium text-white hover:bg-info/70 disabled:opacity-50">
               {busy === 'issue' ? '签发中…' : '签发报价'}
             </button>
           )}
           {!editable && quote?.status !== 'revoked' && (
-            <button onClick={() => act('revise', 'revise', true)} disabled={!!busy} className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+            <button onClick={() => act('revise', 'revise', true)} disabled={!!busy} className="rounded-lg bg-info/80 px-3 py-2 text-caption font-medium text-white hover:bg-info/70 disabled:opacity-50">
               改价出新版本
             </button>
           )}
           {quote?.status !== 'revoked' && (
-            <button onClick={revoke} disabled={!!busy} className="rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50">
+            <button onClick={revoke} disabled={!!busy} className="rounded-lg border border-danger/30 px-3 py-2 text-caption font-medium text-danger hover:bg-danger/5 disabled:opacity-50">
               作废
             </button>
           )}
         </div>
       </div>
 
-      {msg && <div className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">{msg}</div>}
+      {msg && <div className="mb-4 rounded-lg bg-warning/10 px-3 py-2 text-caption text-warning">{msg}</div>}
 
       {/* 模板工具条 (仅草稿可编辑时) */}
       {editable && (
-        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-          <span className="text-xs font-medium text-slate-500">方案模板</span>
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface-2 px-3 py-2">
+          <span className="text-footnote font-medium text-ink-tertiary">方案模板</span>
           <select
             defaultValue=""
             onChange={(e) => {
@@ -417,7 +417,7 @@ export default function QuoteEditorPage() {
                 e.target.value = '';
               }
             }}
-            className="rounded-md border border-slate-200 px-2 py-1.5 text-xs text-slate-600"
+            className="rounded-md border border-border px-2 py-1.5 text-footnote text-ink-secondary"
           >
             <option value="">套用模板 (追加系统)…</option>
             {templates.map((t) => (
@@ -427,13 +427,13 @@ export default function QuoteEditorPage() {
           <button
             onClick={saveAsTemplate}
             disabled={!!busy || computed.systems.length === 0}
-            className="rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+            className="rounded-md border border-border bg-white px-2.5 py-1.5 text-footnote text-ink-secondary hover:bg-surface-3 disabled:opacity-50"
           >
             {busy === 'tpl' ? '保存中…' : '存为模板'}
           </button>
           {selectors.length > 0 && (
             <>
-              <span className="ml-2 text-xs font-medium text-slate-500">智能选型</span>
+              <span className="ml-2 text-footnote font-medium text-ink-tertiary">智能选型</span>
               <select
                 defaultValue=""
                 onChange={(e) => {
@@ -441,7 +441,7 @@ export default function QuoteEditorPage() {
                   if (rs) openSelector(rs);
                   e.target.value = '';
                 }}
-                className="rounded-md border border-slate-200 px-2 py-1.5 text-xs text-slate-600"
+                className="rounded-md border border-border px-2 py-1.5 text-footnote text-ink-secondary"
               >
                 <option value="">按工况选型 (追加系统)…</option>
                 {selectors.map((s) => (
@@ -456,21 +456,21 @@ export default function QuoteEditorPage() {
       {/* 智能选型问卷弹窗 */}
       {selectorModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={() => setSelectorModal(null)}>
-          <div role="dialog" aria-modal="true" aria-label="智能选型" className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-1 text-base font-semibold text-slate-900">{selectorModal.name}</div>
-            {selectorModal.description && <p className="mb-3 text-xs text-slate-500">{selectorModal.description}</p>}
+          <div role="dialog" aria-modal="true" aria-label="智能选型" className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-soft-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-1 text-body font-semibold text-ink-primary">{selectorModal.name}</div>
+            {selectorModal.description && <p className="mb-3 text-footnote text-ink-tertiary">{selectorModal.description}</p>}
             <div className="space-y-3">
               {(selectorModal.inputFields ?? []).map((f, idx) => (
                 <div key={f.key}>
-                  <label className="mb-1 block text-xs font-medium text-slate-600">
-                    {f.label}{f.required && <span className="text-red-500"> *</span>}{f.unit ? ` (${f.unit})` : ''}
+                  <label className="mb-1 block text-footnote font-medium text-ink-secondary">
+                    {f.label}{f.required && <span className="text-danger"> *</span>}{f.unit ? ` (${f.unit})` : ''}
                   </label>
                   {f.type === 'enum' && f.options ? (
                     <select
                       autoFocus={idx === 0}
                       value={selectorInputs[f.key] ?? ''}
                       onChange={(e) => setSelectorInputs((s) => ({ ...s, [f.key]: e.target.value }))}
-                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                      className="w-full rounded-lg border border-border px-3 py-2 text-caption"
                     >
                       <option value="">请选择…</option>
                       {f.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -481,7 +481,7 @@ export default function QuoteEditorPage() {
                       type={f.type === 'number' ? 'number' : 'text'}
                       value={selectorInputs[f.key] ?? ''}
                       onChange={(e) => setSelectorInputs((s) => ({ ...s, [f.key]: e.target.value }))}
-                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                      className="w-full rounded-lg border border-border px-3 py-2 text-caption"
                       placeholder={f.helpText}
                     />
                   )}
@@ -490,35 +490,35 @@ export default function QuoteEditorPage() {
             </div>
 
             <div className="mt-4 flex items-center gap-2">
-              <button onClick={runSelector} disabled={selectorBusy} className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+              <button onClick={runSelector} disabled={selectorBusy} className="rounded-lg bg-info/80 px-3 py-2 text-caption font-medium text-white hover:bg-info/70 disabled:opacity-50">
                 {selectorBusy ? '选型中…' : '运行选型'}
               </button>
-              <button onClick={() => setSelectorModal(null)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">取消</button>
+              <button onClick={() => setSelectorModal(null)} className="rounded-lg border border-border px-3 py-2 text-caption text-ink-secondary hover:bg-surface-2">取消</button>
             </div>
 
             {selectorResult && (
-              <div className="mt-4 rounded-lg border border-slate-200 p-3">
-                <div className="mb-2 text-sm font-medium text-slate-800">
+              <div className="mt-4 rounded-lg border border-border p-3">
+                <div className="mb-2 text-caption font-medium text-ink-primary">
                   {selectorResult.system.name} · 小计 {money(selectorResult.system.subtotal)}
                 </div>
-                <ul className="mb-2 divide-y divide-slate-50 text-xs">
+                <ul className="mb-2 divide-y divide-slate-50 text-footnote">
                   {selectorResult.system.items.map((it, i) => (
                     <li key={i} className="flex justify-between py-1">
-                      <span className="text-slate-700">{it.model} × {it.quantity}{it.unit}</span>
-                      <span className="tabular-nums text-slate-500">{money(it.amount)}</span>
+                      <span className="text-ink-secondary">{it.model} × {it.quantity}{it.unit}</span>
+                      <span className="tabular-nums text-ink-tertiary">{money(it.amount)}</span>
                     </li>
                   ))}
-                  {selectorResult.system.items.length === 0 && <li className="py-2 text-slate-400">无推荐行</li>}
+                  {selectorResult.system.items.length === 0 && <li className="py-2 text-ink-tertiary">无推荐行</li>}
                 </ul>
                 {selectorResult.warnings.length > 0 && (
-                  <ul className="mb-2 space-y-0.5 text-xs text-amber-600">
+                  <ul className="mb-2 space-y-0.5 text-footnote text-warning">
                     {selectorResult.warnings.map((w, i) => <li key={i}>· {w}</li>)}
                   </ul>
                 )}
                 <button
                   onClick={applySelectorResult}
                   disabled={selectorResult.system.items.length === 0}
-                  className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                  className="rounded-lg bg-success/80 px-3 py-2 text-caption font-medium text-white hover:bg-success/70 disabled:opacity-50"
                 >
                   回填到报价 (追加系统)
                 </button>
@@ -536,29 +536,29 @@ export default function QuoteEditorPage() {
       {/* 系统 + 明细 */}
       <div className="space-y-4">
         {computed.systems.map((sys) => (
-          <div key={sys.id} className="rounded-xl border border-slate-200 bg-white p-4">
+          <div key={sys.id} className="rounded-2xl border border-border bg-white p-4">
             <div className="mb-3 flex items-center gap-2">
               {editable ? (
                 <input
                   value={sys.name}
                   onChange={(e) => patchSystem(sys.id, { name: e.target.value })}
-                  className="flex-1 rounded-md border border-slate-300 px-2 py-1.5 text-sm font-medium"
+                  className="flex-1 rounded-md border border-border px-2 py-1.5 text-caption font-medium"
                   placeholder="系统名称 (如 生活热水系统)"
                 />
               ) : (
-                <div className="flex-1 text-sm font-semibold text-slate-800">{sys.name}</div>
+                <div className="flex-1 text-caption font-semibold text-ink-primary">{sys.name}</div>
               )}
               {sys.sourceRuleSetName && (
                 <span
-                  className="rounded bg-indigo-50 px-1.5 py-0.5 text-xs text-indigo-600"
+                  className="rounded bg-info/10 px-1.5 py-0.5 text-footnote text-info"
                   title={`由选型规则集「${sys.sourceRuleSetName}」v${sys.sourceRuleSetVersion} 生成`}
                 >
                   选型 {sys.sourceRuleSetName} v{sys.sourceRuleSetVersion}
                 </span>
               )}
-              <div className="text-sm text-slate-500">小计 {money(sys.subtotal)}</div>
+              <div className="text-caption text-ink-tertiary">小计 {money(sys.subtotal)}</div>
               {editable && (
-                <button onClick={() => removeSystem(sys.id)} className="text-xs text-red-500 hover:underline">
+                <button onClick={() => removeSystem(sys.id)} className="text-footnote text-danger hover:underline">
                   删除系统
                 </button>
               )}
@@ -566,9 +566,9 @@ export default function QuoteEditorPage() {
 
             {/* 明细表 */}
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-caption">
                 <thead>
-                  <tr className="border-b border-slate-100 text-left text-xs text-slate-400">
+                  <tr className="border-b border-border text-left text-footnote text-ink-tertiary">
                     <th className="py-1.5 pr-2">类型</th>
                     <th className="py-1.5 pr-2">型号/项目</th>
                     <th className="py-1.5 pr-2">规格</th>
@@ -583,10 +583,10 @@ export default function QuoteEditorPage() {
                 </thead>
                 <tbody>
                   {sys.items.map((it) => (
-                    <tr key={it.id} className="border-b border-slate-50">
+                    <tr key={it.id} className="border-b border-border">
                       <td className="py-1 pr-2">
                         {editable ? (
-                          <select value={it.costType} onChange={(e) => patchItem(sys.id, it.id, { costType: e.target.value as QuoteCostType })} className="rounded border border-slate-200 px-1 py-1 text-xs">
+                          <select value={it.costType} onChange={(e) => patchItem(sys.id, it.id, { costType: e.target.value as QuoteCostType })} className="rounded border border-border px-1 py-1 text-footnote">
                             {COST_TYPES.map((c) => (
                               <option key={c} value={c}>{COST_TYPE_LABEL[c]}</option>
                             ))}
@@ -601,18 +601,18 @@ export default function QuoteEditorPage() {
                       <NumCell editable={editable} value={it.quantity} onChange={(v) => patchItem(sys.id, it.id, { quantity: v })} />
                       <NumCell editable={editable} value={it.listPrice} onChange={(v) => patchItem(sys.id, it.id, { listPrice: v, unitPrice: NaN as unknown as number })} />
                       <NumCell editable={editable} value={it.discountRate ?? NaN} onChange={(v) => patchItem(sys.id, it.id, { discountRate: Number.isNaN(v) ? undefined : v, unitPrice: NaN as unknown as number })} placeholder="—" step={0.01} />
-                      <td className="py-1 pr-2 text-right text-slate-600">{money(it.unitPrice)}</td>
-                      <td className="py-1 pr-2 text-right font-medium text-slate-800">{money(it.amount)}</td>
+                      <td className="py-1 pr-2 text-right text-ink-secondary">{money(it.unitPrice)}</td>
+                      <td className="py-1 pr-2 text-right font-medium text-ink-primary">{money(it.amount)}</td>
                       {editable && (
                         <td className="py-1 text-right">
-                          <button onClick={() => removeItem(sys.id, it.id)} className="text-xs text-red-400 hover:text-red-600">✕</button>
+                          <button onClick={() => removeItem(sys.id, it.id)} className="text-footnote text-danger hover:text-danger">✕</button>
                         </td>
                       )}
                     </tr>
                   ))}
                   {sys.items.length === 0 && (
                     <tr>
-                      <td colSpan={editable ? 10 : 9} className="py-3 text-center text-xs text-slate-400">暂无明细</td>
+                      <td colSpan={editable ? 10 : 9} className="py-3 text-center text-footnote text-ink-tertiary">暂无明细</td>
                     </tr>
                   )}
                 </tbody>
@@ -621,7 +621,7 @@ export default function QuoteEditorPage() {
 
             {editable && (
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <button onClick={() => addItem(sys.id)} className="rounded-md bg-slate-100 px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-200">+ 手动加行</button>
+                <button onClick={() => addItem(sys.id)} className="rounded-md bg-surface-3 px-2.5 py-1.5 text-footnote text-ink-secondary hover:bg-surface-3">+ 手动加行</button>
                 <select
                   defaultValue=""
                   onChange={(e) => {
@@ -630,7 +630,7 @@ export default function QuoteEditorPage() {
                       e.target.value = '';
                     }
                   }}
-                  className="rounded-md border border-slate-200 px-2 py-1.5 text-xs text-slate-600"
+                  className="rounded-md border border-border px-2 py-1.5 text-footnote text-ink-secondary"
                 >
                   <option value="">+ 从产品目录选设备…</option>
                   {products.map((p) => (
@@ -644,32 +644,32 @@ export default function QuoteEditorPage() {
           </div>
         ))}
         {editable && (
-          <button onClick={addSystem} className="w-full rounded-xl border border-dashed border-slate-300 py-3 text-sm text-slate-500 hover:border-slate-400 hover:text-slate-700">
+          <button onClick={addSystem} className="w-full rounded-2xl border border-dashed border-border py-3 text-caption text-ink-tertiary hover:border-border hover:text-ink-secondary">
             + 添加系统
           </button>
         )}
       </div>
 
       {/* 分项汇总 */}
-      <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
-        <div className="mb-2 text-sm font-semibold text-slate-800">分项报价汇总</div>
-        <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-sm sm:grid-cols-3">
+      <div className="mt-6 rounded-2xl border border-border bg-white p-4">
+        <div className="mb-2 text-caption font-semibold text-ink-primary">分项报价汇总</div>
+        <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-caption sm:grid-cols-3">
           {COST_TYPES.map((c) => (
             <div key={c} className="flex justify-between">
-              <span className="text-slate-500">{COST_TYPE_LABEL[c]}</span>
-              <span className="tabular-nums text-slate-700">{money(totals[c])}</span>
+              <span className="text-ink-tertiary">{COST_TYPE_LABEL[c]}</span>
+              <span className="tabular-nums text-ink-secondary">{money(totals[c])}</span>
             </div>
           ))}
         </div>
-        <div className="mt-3 flex items-baseline justify-between border-t border-slate-100 pt-3">
-          <span className="text-sm text-slate-500">方案总价</span>
-          <span className="text-2xl font-bold tabular-nums text-blue-700">{money(totals.total)}</span>
+        <div className="mt-3 flex items-baseline justify-between border-t border-border pt-3">
+          <span className="text-caption text-ink-tertiary">方案总价</span>
+          <span className="text-title-3 font-bold tabular-nums text-info">{money(totals.total)}</span>
         </div>
       </div>
 
       {/* 商务条款 */}
-      <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
-        <div className="mb-3 text-sm font-semibold text-slate-800">商务条款</div>
+      <div className="mt-6 rounded-2xl border border-border bg-white p-4">
+        <div className="mb-3 text-caption font-semibold text-ink-primary">商务条款</div>
         <div className="grid gap-3 sm:grid-cols-2">
           <TermField editable={editable} label="含项" value={terms.included} onChange={(v) => setTerms({ ...terms, included: v })} />
           <TermField editable={editable} label="不含项" value={terms.excluded} onChange={(v) => setTerms({ ...terms, excluded: v })} />
@@ -677,11 +677,11 @@ export default function QuoteEditorPage() {
           <TermField editable={editable} label="付款方式" value={terms.payment} onChange={(v) => setTerms({ ...terms, payment: v })} />
         </div>
         <div className="mt-3">
-          <label className="mb-1 block text-xs text-slate-500">有效期至</label>
+          <label className="mb-1 block text-footnote text-ink-tertiary">有效期至</label>
           {editable ? (
-            <input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} className="rounded-md border border-slate-300 px-2 py-1.5 text-sm" />
+            <input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} className="rounded-md border border-border px-2 py-1.5 text-caption" />
           ) : (
-            <div className="text-sm text-slate-700">{quote?.validUntil ? quote.validUntil.slice(0, 10) : '—'}</div>
+            <div className="text-caption text-ink-secondary">{quote?.validUntil ? quote.validUntil.slice(0, 10) : '—'}</div>
           )}
         </div>
       </div>
@@ -711,15 +711,15 @@ function QuoteAuditTrail({ quoteId, statusKey }: { quoteId: string; statusKey: s
     'pms.quote.revoked': '作废',
   };
   return (
-    <div className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
-      <div className="mb-3 text-sm font-semibold text-slate-800">操作留痕</div>
+    <div className="mt-6 rounded-2xl border border-border bg-white p-4">
+      <div className="mb-3 text-caption font-semibold text-ink-primary">操作留痕</div>
       <ol className="space-y-2">
         {trail.map((t, i) => (
-          <li key={i} className="flex items-start gap-3 text-sm">
-            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400" />
+          <li key={i} className="flex items-start gap-3 text-caption">
+            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-info/30" />
             <div className="min-w-0">
-              <div className="text-slate-800">{LABEL[t.action] ?? t.action}</div>
-              <div className="text-xs text-slate-400">
+              <div className="text-ink-primary">{LABEL[t.action] ?? t.action}</div>
+              <div className="text-footnote text-ink-tertiary">
                 {t.actorId} · {new Date(t.timestamp).toLocaleString('zh-CN')}
                 {typeof t.metadata?.totalAmount === 'number' ? ` · ${money(t.metadata.totalAmount as number)}` : ''}
               </div>
@@ -760,19 +760,19 @@ function VerifyShare({ code }: { code: string }) {
   };
 
   return (
-    <div className="mb-5 flex flex-col gap-4 rounded-xl border border-green-200 bg-green-50 p-4 sm:flex-row sm:items-center">
+    <div className="mb-5 flex flex-col gap-4 rounded-2xl border border-success/30 bg-success/10 p-4 sm:flex-row sm:items-center">
       {qr ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={qr} alt="验真二维码" className="h-40 w-40 shrink-0 rounded-lg border border-green-200 bg-white p-1" />
+        <img src={qr} alt="验真二维码" className="h-40 w-40 shrink-0 rounded-lg border border-success/30 bg-white p-1" />
       ) : (
-        <div className="flex h-40 w-40 shrink-0 items-center justify-center rounded-lg border border-dashed border-green-200 bg-white text-xs text-green-600">
+        <div className="flex h-40 w-40 shrink-0 items-center justify-center rounded-lg border border-dashed border-success/30 bg-white text-footnote text-success">
           生成二维码…
         </div>
       )}
       <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium text-green-800">已签发 · 官方验真</div>
-        <div className="mt-1 font-mono text-lg font-bold tracking-wider text-green-900">{code}</div>
-        <div className="mt-1 break-all text-xs text-green-700">
+        <div className="text-caption font-medium text-success">已签发 · 官方验真</div>
+        <div className="mt-1 font-mono text-headline font-bold tracking-wider text-success">{code}</div>
+        <div className="mt-1 break-all text-footnote text-success">
           客户扫码或访问{' '}
           <a className="underline" href={url} target="_blank" rel="noreferrer">{url}</a>{' '}
           验真 (只显真伪 + 授权经销商, 不露价)。
@@ -780,13 +780,13 @@ function VerifyShare({ code }: { code: string }) {
         <div className="mt-3 flex flex-wrap gap-2">
           <button
             onClick={() => copy(code, 'code')}
-            className="rounded-lg border border-green-300 bg-white px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-100"
+            className="rounded-lg border border-success/40 bg-white px-3 py-1.5 text-footnote font-medium text-success hover:bg-success/15"
           >
             {copied === 'code' ? '已复制' : '复制验真码'}
           </button>
           <button
             onClick={() => copy(url, 'url')}
-            className="rounded-lg border border-green-300 bg-white px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-100"
+            className="rounded-lg border border-success/40 bg-white px-3 py-1.5 text-footnote font-medium text-success hover:bg-success/15"
           >
             {copied === 'url' ? '已复制' : '复制验真链接'}
           </button>
@@ -798,29 +798,29 @@ function VerifyShare({ code }: { code: string }) {
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
-    draft: 'bg-slate-100 text-slate-600',
-    issued: 'bg-green-100 text-green-700',
-    accepted: 'bg-blue-100 text-blue-700',
-    superseded: 'bg-amber-100 text-amber-700',
-    expired: 'bg-slate-100 text-slate-500',
-    revoked: 'bg-red-100 text-red-600',
+    draft: 'bg-surface-3 text-ink-secondary',
+    issued: 'bg-success/15 text-success',
+    accepted: 'bg-info/15 text-info',
+    superseded: 'bg-warning/15 text-warning',
+    expired: 'bg-surface-3 text-ink-tertiary',
+    revoked: 'bg-danger/10 text-danger',
   };
   const label: Record<string, string> = { draft: '草稿', issued: '已签发', accepted: '已接受', superseded: '已被替代', expired: '已过期', revoked: '已作废' };
-  return <span className={'rounded px-1.5 py-0.5 text-xs ' + (map[status] ?? 'bg-slate-100')}>{label[status] ?? status}</span>;
+  return <span className={'rounded px-1.5 py-0.5 text-footnote ' + (map[status] ?? 'bg-surface-3')}>{label[status] ?? status}</span>;
 }
 
 function Cell({ editable, value, onChange, w }: { editable: boolean; value: string; onChange: (v: string) => void; w: string }) {
-  if (!editable) return <td className="py-1 pr-2 text-slate-700">{value || '—'}</td>;
+  if (!editable) return <td className="py-1 pr-2 text-ink-secondary">{value || '—'}</td>;
   return (
     <td className="py-1 pr-2">
-      <input value={value} onChange={(e) => onChange(e.target.value)} className={`${w} rounded border border-slate-200 px-1.5 py-1 text-xs`} />
+      <input value={value} onChange={(e) => onChange(e.target.value)} className={`${w} rounded border border-border px-1.5 py-1 text-footnote`} />
     </td>
   );
 }
 
 function NumCell({ editable, value, onChange, placeholder, step }: { editable: boolean; value: number; onChange: (v: number) => void; placeholder?: string; step?: number }) {
   const display = Number.isNaN(value) ? '' : value;
-  if (!editable) return <td className="py-1 pr-2 text-right text-slate-700">{Number.isNaN(value) ? '—' : value}</td>;
+  if (!editable) return <td className="py-1 pr-2 text-right text-ink-secondary">{Number.isNaN(value) ? '—' : value}</td>;
   return (
     <td className="py-1 pr-2 text-right">
       <input
@@ -829,7 +829,7 @@ function NumCell({ editable, value, onChange, placeholder, step }: { editable: b
         value={display}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value === '' ? NaN : Number(e.target.value))}
-        className="w-20 rounded border border-slate-200 px-1.5 py-1 text-right text-xs"
+        className="w-20 rounded border border-border px-1.5 py-1 text-right text-footnote"
       />
     </td>
   );
@@ -838,11 +838,11 @@ function NumCell({ editable, value, onChange, placeholder, step }: { editable: b
 function TermField({ editable, label, value, onChange }: { editable: boolean; label: string; value?: string; onChange: (v: string) => void }) {
   return (
     <div>
-      <label className="mb-1 block text-xs text-slate-500">{label}</label>
+      <label className="mb-1 block text-footnote text-ink-tertiary">{label}</label>
       {editable ? (
-        <textarea value={value ?? ''} onChange={(e) => onChange(e.target.value)} rows={2} className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm" />
+        <textarea value={value ?? ''} onChange={(e) => onChange(e.target.value)} rows={2} className="w-full rounded-md border border-border px-2 py-1.5 text-caption" />
       ) : (
-        <div className="whitespace-pre-wrap text-sm text-slate-700">{value || '—'}</div>
+        <div className="whitespace-pre-wrap text-caption text-ink-secondary">{value || '—'}</div>
       )}
     </div>
   );

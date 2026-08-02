@@ -138,22 +138,22 @@ export default function ProductImportPage() {
     <div className="mx-auto max-w-4xl px-4 py-6">
       <div className="mb-5 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">产品主数据导入</h1>
-          <p className="mt-1 text-sm text-slate-500">上传 Excel/CSV 或粘贴数据。以型号编码(或型号)为稳定键幂等更新, 可重复导入。</p>
+          <h1 className="text-headline font-semibold text-ink-primary">产品主数据导入</h1>
+          <p className="mt-1 text-caption text-ink-tertiary">上传 Excel/CSV 或粘贴数据。以型号编码(或型号)为稳定键幂等更新, 可重复导入。</p>
         </div>
-        <button onClick={() => router.push('/pms')} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">
+        <button onClick={() => router.push('/pms')} className="rounded-lg border border-border bg-white px-3 py-2 text-caption text-ink-secondary hover:bg-surface-2">
           返回
         </button>
       </div>
 
-      <div className="mb-4 flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-4 flex flex-col gap-3 rounded-lg border border-border bg-surface-2 p-3 sm:flex-row sm:items-center sm:justify-between">
         <input
           type="file"
           accept=".xlsx,.xls,.csv,.tsv,text/csv"
           onChange={(e) => void handleFile(e.target.files?.[0] ?? null)}
-          className="text-sm text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-white file:px-3 file:py-1.5 file:text-sm file:text-slate-700"
+          className="text-caption text-ink-secondary file:mr-3 file:rounded-md file:border-0 file:bg-white file:px-3 file:py-1.5 file:text-caption file:text-ink-secondary"
         />
-        <button onClick={downloadTemplate} className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100">
+        <button onClick={downloadTemplate} className="rounded-md border border-border bg-white px-3 py-1.5 text-caption text-ink-secondary hover:bg-surface-3">
           下载模板
         </button>
       </div>
@@ -162,14 +162,14 @@ export default function ProductImportPage() {
         value={text}
         onChange={(e) => updateText(e.target.value)}
         placeholder={PLACEHOLDER}
-        className="min-h-40 w-full rounded-lg border border-dashed border-slate-300 bg-white p-3 font-mono text-xs text-slate-800 outline-none placeholder:whitespace-pre-line placeholder:text-slate-400 focus:border-blue-500"
+        className="min-h-40 w-full rounded-lg border border-dashed border-border bg-white p-3 font-mono text-footnote text-ink-primary outline-none placeholder:whitespace-pre-line placeholder:text-ink-tertiary focus:border-info"
       />
 
       {rows.length > 0 && (
-        <div className="mt-4 overflow-x-auto rounded-lg border border-slate-200">
-          <table className="w-full text-xs">
+        <div className="mt-4 overflow-x-auto rounded-lg border border-border">
+          <table className="w-full text-footnote">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-500">
+              <tr className="border-b border-border bg-surface-2 text-left text-ink-tertiary">
                 <th className="px-2 py-1.5">系列</th>
                 <th className="px-2 py-1.5">型号</th>
                 <th className="px-2 py-1.5">品类</th>
@@ -180,28 +180,28 @@ export default function ProductImportPage() {
             </thead>
             <tbody>
               {rows.slice(0, 8).map((r, i) => (
-                <tr key={i} className="border-b border-slate-100">
-                  <td className="px-2 py-1.5 text-slate-700">{r.series || '—'}</td>
-                  <td className="px-2 py-1.5 text-slate-700">{r.model || '—'}</td>
-                  <td className="px-2 py-1.5 text-slate-500">{r.category || '—'}</td>
-                  <td className="px-2 py-1.5 text-slate-500">{r.specification || '—'}</td>
-                  <td className="px-2 py-1.5 text-slate-500">{r.unit || '—'}</td>
-                  <td className="px-2 py-1.5 text-right tabular-nums text-slate-600">{r.listPrice ?? '—'}</td>
+                <tr key={i} className="border-b border-border">
+                  <td className="px-2 py-1.5 text-ink-secondary">{r.series || '—'}</td>
+                  <td className="px-2 py-1.5 text-ink-secondary">{r.model || '—'}</td>
+                  <td className="px-2 py-1.5 text-ink-tertiary">{r.category || '—'}</td>
+                  <td className="px-2 py-1.5 text-ink-tertiary">{r.specification || '—'}</td>
+                  <td className="px-2 py-1.5 text-ink-tertiary">{r.unit || '—'}</td>
+                  <td className="px-2 py-1.5 text-right tabular-nums text-ink-secondary">{r.listPrice ?? '—'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          {rows.length > 8 && <div className="px-2 py-1.5 text-center text-xs text-slate-400">…共 {rows.length} 行</div>}
+          {rows.length > 8 && <div className="px-2 py-1.5 text-center text-footnote text-ink-tertiary">…共 {rows.length} 行</div>}
         </div>
       )}
 
-      {err && <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{err}</div>}
+      {err && <div className="mt-3 rounded-lg bg-danger/5 px-3 py-2 text-caption text-danger">{err}</div>}
 
       {result && (
-        <div className={`mt-3 rounded-lg px-3 py-2 text-sm ${result.failed.length > 0 ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700'}`}>
+        <div className={`mt-3 rounded-lg px-3 py-2 text-caption ${result.failed.length > 0 ? 'bg-warning/10 text-warning' : 'bg-success/10 text-success'}`}>
           已处理 {result.total} 行 · 新建 {result.created} · 更新 {result.updated} · 失败 {result.failed.length}
           {result.failed.length > 0 && (
-            <div className="mt-1 text-slate-600">{result.failed.slice(0, 3).map((f) => `第${f.row}行: ${f.reason}`).join('；')}</div>
+            <div className="mt-1 text-ink-secondary">{result.failed.slice(0, 3).map((f) => `第${f.row}行: ${f.reason}`).join('；')}</div>
           )}
         </div>
       )}
@@ -210,7 +210,7 @@ export default function ProductImportPage() {
         <button
           onClick={submit}
           disabled={busy || rows.length === 0}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          className="rounded-lg bg-info/80 px-4 py-2 text-caption font-medium text-white hover:bg-info/70 disabled:opacity-50"
         >
           {busy ? '导入中…' : rows.length > 0 ? `导入 ${rows.filter((r) => r.series && r.model).length} 条` : '导入'}
         </button>

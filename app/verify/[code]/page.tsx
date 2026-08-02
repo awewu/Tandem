@@ -69,11 +69,11 @@ export default function QuoteVerifyPage() {
   const valid = view?.valid === true;
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center px-4 py-10">
+    <div className="min-h-screen bg-surface-2 flex flex-col items-center px-4 py-6 md:py-10">
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
-          <div className="text-lg font-semibold text-slate-800">报价单验真</div>
-          <div className="text-xs text-slate-500 mt-1">瑞合瑞德 · 官方背书报价查验</div>
+          <div className="text-headline font-semibold text-ink-primary">报价单验真</div>
+          <div className="text-footnote text-ink-tertiary mt-1">瑞合瑞德 · 官方背书报价查验</div>
         </div>
 
         {/* 验真码手动查询 */}
@@ -89,45 +89,45 @@ export default function QuoteVerifyPage() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="输入验真码 XXXX-XXXX-XXXX"
-            className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm tracking-wider uppercase focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 rounded-lg border border-border px-3 py-2 text-caption tracking-wider uppercase focus:outline-none focus:ring-2 focus:ring-info"
           />
-          <button type="submit" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+          <button type="submit" className="rounded-lg bg-info/80 px-4 py-2 text-caption font-medium text-white hover:bg-info/70">
             查验
           </button>
         </form>
 
         {state === 'loading' && (
-          <div className="rounded-2xl bg-white p-8 text-center text-slate-500 shadow-sm">查验中…</div>
+          <div className="rounded-2xl bg-white p-8 text-center text-ink-tertiary shadow-soft-sm">查验中…</div>
         )}
 
         {state === 'error' && (
-          <div className="rounded-2xl bg-white p-8 text-center text-slate-500 shadow-sm">网络异常, 请稍后重试</div>
+          <div className="rounded-2xl bg-white p-8 text-center text-ink-tertiary shadow-soft-sm">网络异常, 请稍后重试</div>
         )}
 
         {state === 'ok' && view && (
-          <div className="rounded-2xl bg-white p-6 shadow-sm">
+          <div className="rounded-2xl bg-white p-6 shadow-soft-sm">
             {/* 真伪大标识 */}
             <div className="flex flex-col items-center py-4">
               <div
                 className={
-                  'flex h-16 w-16 items-center justify-center rounded-full text-3xl ' +
-                  (valid ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-500')
+                  'flex h-16 w-16 items-center justify-center rounded-full text-title-2 ' +
+                  (valid ? 'bg-success/15 text-success' : 'bg-danger/10 text-danger')
                 }
               >
                 {valid ? '✓' : '✕'}
               </div>
-              <div className={'mt-3 text-lg font-bold ' + (valid ? 'text-green-700' : 'text-red-600')}>
+              <div className={'mt-3 text-headline font-bold ' + (valid ? 'text-success' : 'text-danger')}>
                 {valid ? '公司官方报价 · 真实有效' : '非有效官方报价'}
               </div>
-              {view.message && <div className="mt-1 text-sm text-slate-500">{view.message}</div>}
+              {view.message && <div className="mt-1 text-caption text-ink-tertiary">{view.message}</div>}
               {!valid && (
-                <div className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                <div className="mt-3 rounded-lg bg-warning/10 px-3 py-2 text-footnote text-warning">
                   提示: 请仅以公司系统签发的官方报价为准; 系统外转发的报价不具备公司背书。
                 </div>
               )}
             </div>
 
-            <div className="mt-4 divide-y divide-slate-100 border-t border-slate-100 text-sm">
+            <div className="mt-4 divide-y divide-slate-100 border-t border-border text-caption">
               <Row label="授权经销商" value={view.authorizedDealerName || '—'} strong />
               <Row label="状态" value={STATUS_LABEL[view.status] || view.status} />
               <Row label="报价名称" value={view.quoteTitle || '—'} />
@@ -137,7 +137,7 @@ export default function QuoteVerifyPage() {
               <Row label="验真码" value={view.verifyCode} />
             </div>
 
-            <div className="mt-5 text-center text-[11px] text-slate-400">
+            <div className="mt-5 text-center text-[11px] text-ink-tertiary">
               本页仅查验真实性与授权关系, 具体报价内容以经销商提供的报价单为准。
             </div>
           </div>
@@ -150,8 +150,8 @@ export default function QuoteVerifyPage() {
 function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
   return (
     <div className="flex items-center justify-between py-2.5">
-      <span className="text-slate-500">{label}</span>
-      <span className={strong ? 'font-semibold text-slate-900' : 'text-slate-700'}>{value}</span>
+      <span className="text-ink-tertiary">{label}</span>
+      <span className={strong ? 'font-semibold text-ink-primary' : 'text-ink-secondary'}>{value}</span>
     </div>
   );
 }

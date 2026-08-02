@@ -86,36 +86,36 @@ export default function QuotesListPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-6">
-      <h1 className="mb-1 text-xl font-semibold text-slate-900">官方报价单</h1>
-      <p className="mb-5 text-sm text-slate-500">
+      <h1 className="mb-1 text-headline font-semibold text-ink-primary">官方报价单</h1>
+      <p className="mb-5 text-caption text-ink-tertiary">
         绑定报备生成官方背书报价 → 签发获唯一验真码 → 客户扫码验真, 恶意低价失效。
       </p>
 
       {/* 新建 */}
-      <div className="mb-6 rounded-xl border border-slate-200 bg-white p-4">
-        <div className="mb-3 text-sm font-semibold text-slate-800">新建报价</div>
+      <div className="mb-6 rounded-2xl border border-border bg-white p-4">
+        <div className="mb-3 text-caption font-semibold text-ink-primary">新建报价</div>
         <div className="grid gap-2 sm:grid-cols-3">
-          <input value={oppId} onChange={(e) => setOppId(e.target.value)} placeholder="报备 ID (opportunityId)" className="rounded-lg border border-slate-300 px-3 py-2 text-sm" />
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="方案标题" className="rounded-lg border border-slate-300 px-3 py-2 text-sm" />
-          <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="客户名 (可空, 默认取报备)" className="rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          <input value={oppId} onChange={(e) => setOppId(e.target.value)} placeholder="报备 ID (opportunityId)" className="rounded-lg border border-border px-3 py-2 text-caption" />
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="方案标题" className="rounded-lg border border-border px-3 py-2 text-caption" />
+          <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="客户名 (可空, 默认取报备)" className="rounded-lg border border-border px-3 py-2 text-caption" />
         </div>
-        {err && <div className="mt-2 text-sm text-red-600">{err}</div>}
-        <button onClick={create} disabled={busy} className="mt-3 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+        {err && <div className="mt-2 text-caption text-danger">{err}</div>}
+        <button onClick={create} disabled={busy} className="mt-3 rounded-lg bg-info/80 px-4 py-2 text-caption font-medium text-white hover:bg-info/70 disabled:opacity-50">
           {busy ? '创建中…' : '创建并编辑'}
         </button>
       </div>
 
       {/* 列表 */}
-      {status === 'loading' && <div className="text-slate-500">加载中…</div>}
-      {status === 'error' && <div className="text-red-500">加载失败</div>}
+      {status === 'loading' && <div className="text-ink-tertiary">加载中…</div>}
+      {status === 'error' && <div className="text-danger">加载失败</div>}
       {status === 'ok' && (
-        <div className="rounded-xl border border-slate-200 bg-white">
+        <div className="rounded-2xl border border-border bg-white">
           {quotes.length === 0 ? (
-            <div className="p-8 text-center text-sm text-slate-400">暂无报价单</div>
+            <div className="p-8 text-center text-caption text-ink-tertiary">暂无报价单</div>
           ) : (
-            <table className="w-full text-sm">
+            <table className="w-full text-caption">
               <thead>
-                <tr className="border-b border-slate-100 text-left text-xs text-slate-400">
+                <tr className="border-b border-border text-left text-footnote text-ink-tertiary">
                   <th className="px-4 py-2">标题</th>
                   <th className="px-4 py-2">客户</th>
                   <th className="px-4 py-2 text-right">总价</th>
@@ -126,13 +126,13 @@ export default function QuotesListPage() {
               </thead>
               <tbody>
                 {quotes.map((q) => (
-                  <tr key={q.id} className="cursor-pointer border-b border-slate-50 hover:bg-slate-50" onClick={() => router.push(`/pms/quotes/${q.id}`)}>
-                    <td className="px-4 py-2.5 font-medium text-slate-800">{q.title}</td>
-                    <td className="px-4 py-2.5 text-slate-600">{q.customerName}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-slate-700">{money(q.totals.total)}</td>
-                    <td className="px-4 py-2.5 text-slate-500">v{q.version}</td>
-                    <td className="px-4 py-2.5 text-slate-600">{STATUS_LABEL[q.status] ?? q.status}</td>
-                    <td className="px-4 py-2.5 font-mono text-xs text-slate-500">{q.verifyCode ?? '—'}</td>
+                  <tr key={q.id} className="cursor-pointer border-b border-border hover:bg-surface-2" onClick={() => router.push(`/pms/quotes/${q.id}`)}>
+                    <td className="px-4 py-2.5 font-medium text-ink-primary">{q.title}</td>
+                    <td className="px-4 py-2.5 text-ink-secondary">{q.customerName}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-ink-secondary">{money(q.totals.total)}</td>
+                    <td className="px-4 py-2.5 text-ink-tertiary">v{q.version}</td>
+                    <td className="px-4 py-2.5 text-ink-secondary">{STATUS_LABEL[q.status] ?? q.status}</td>
+                    <td className="px-4 py-2.5 font-mono text-footnote text-ink-tertiary">{q.verifyCode ?? '—'}</td>
                   </tr>
                 ))}
               </tbody>

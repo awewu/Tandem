@@ -243,45 +243,45 @@ export default function SelectorConfiguratorPage() {
 
   const editorTitle = useMemo(() => (selectedId ? `编辑: ${draft?.name || ''}` : '新建规则集'), [selectedId, draft]);
 
-  if (status === 'loading') return <div className="p-8 text-slate-500">加载中…</div>;
-  if (status === 'forbidden') return <div className="p-8 text-slate-500">选型配置器仅内部角色可维护。</div>;
-  if (status === 'error') return <div className="p-8 text-red-500">{err || '加载失败'}</div>;
+  if (status === 'loading') return <div className="p-8 text-ink-tertiary">加载中…</div>;
+  if (status === 'forbidden') return <div className="p-8 text-ink-tertiary">选型配置器仅内部角色可维护。</div>;
+  if (status === 'error') return <div className="p-8 text-danger">{err || '加载失败'}</div>;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
       <div className="mb-5 flex items-start justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">选型配置器</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <h1 className="text-headline font-semibold text-ink-primary">选型配置器</h1>
+          <p className="mt-1 text-caption text-ink-tertiary">
             配置驱动 — 以数据维护工况问卷 + 选型规则, 无需改代码即可上线。业务员在报价编辑器&quot;智能选型&quot;填工况即得推荐。
           </p>
         </div>
-        <button onClick={() => openEditor(null)} className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700">
+        <button onClick={() => openEditor(null)} className="rounded-lg bg-ink-primary px-3 py-2 text-caption font-medium text-white hover:bg-ink-secondary">
           + 新建规则集
         </button>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[320px_1fr]">
         {/* 列表 */}
-        <div className="rounded-xl border border-slate-200 bg-white">
-          <div className="border-b border-slate-100 px-4 py-3 text-sm font-semibold text-slate-800">规则集 ({list.length})</div>
+        <div className="rounded-2xl border border-border bg-white">
+          <div className="border-b border-border px-4 py-3 text-caption font-semibold text-ink-primary">规则集 ({list.length})</div>
           {list.length === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-slate-400">暂无规则集</div>
+            <div className="px-4 py-8 text-center text-caption text-ink-tertiary">暂无规则集</div>
           ) : (
             <ul className="divide-y divide-slate-50">
               {list.map((rs) => (
                 <li
                   key={rs.id}
                   onClick={() => openEditor(rs)}
-                  className={`cursor-pointer px-4 py-3 hover:bg-slate-50 ${selectedId === rs.id ? 'bg-slate-50' : ''}`}
+                  className={`cursor-pointer px-4 py-3 hover:bg-surface-2 ${selectedId === rs.id ? 'bg-surface-2' : ''}`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-slate-800">{rs.name}</span>
-                    <span className={`rounded px-1.5 py-0.5 text-xs ${rs.status === 'published' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
+                    <span className="text-caption font-medium text-ink-primary">{rs.name}</span>
+                    <span className={`rounded px-1.5 py-0.5 text-footnote ${rs.status === 'published' ? 'bg-success/10 text-success' : 'bg-surface-3 text-ink-tertiary'}`}>
                       {STATUS_LABEL[rs.status]}
                     </span>
                   </div>
-                  <div className="mt-0.5 text-xs text-slate-400">
+                  <div className="mt-0.5 text-footnote text-ink-tertiary">
                     {[rs.category, rs.scenario].filter(Boolean).join(' · ') || '未分类'} · v{rs.version} · {rs.rules.length} 规则
                   </div>
                 </li>
@@ -292,10 +292,10 @@ export default function SelectorConfiguratorPage() {
 
         {/* 编辑器 */}
         {draft ? (
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="rounded-2xl border border-border bg-white p-4">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-slate-800">{editorTitle}</h2>
-              {msg && <span className="text-xs text-slate-500">{msg}</span>}
+              <h2 className="text-caption font-semibold text-ink-primary">{editorTitle}</h2>
+              {msg && <span className="text-footnote text-ink-tertiary">{msg}</span>}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -308,51 +308,51 @@ export default function SelectorConfiguratorPage() {
 
             <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
               <div>
-                <label className="mb-1 block text-xs font-medium text-slate-500">输入字段 (inputFields · JSON 数组)</label>
-                <textarea value={fieldsText} onChange={(e) => setFieldsText(e.target.value)} rows={12} className="w-full rounded-lg border border-slate-300 p-2 font-mono text-xs" spellCheck={false} />
+                <label className="mb-1 block text-footnote font-medium text-ink-tertiary">输入字段 (inputFields · JSON 数组)</label>
+                <textarea value={fieldsText} onChange={(e) => setFieldsText(e.target.value)} rows={12} className="w-full rounded-lg border border-border p-2 font-mono text-footnote" spellCheck={false} />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-slate-500">选型规则 (rules · JSON 数组)</label>
-                <textarea value={rulesText} onChange={(e) => setRulesText(e.target.value)} rows={12} className="w-full rounded-lg border border-slate-300 p-2 font-mono text-xs" spellCheck={false} />
+                <label className="mb-1 block text-footnote font-medium text-ink-tertiary">选型规则 (rules · JSON 数组)</label>
+                <textarea value={rulesText} onChange={(e) => setRulesText(e.target.value)} rows={12} className="w-full rounded-lg border border-border p-2 font-mono text-footnote" spellCheck={false} />
               </div>
             </div>
 
             <div className="mt-4 flex flex-wrap items-center gap-2">
-              <button onClick={save} disabled={busy} className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50">保存</button>
-              {selectedId && <button onClick={publish} disabled={busy} className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-100 disabled:opacity-50">发布</button>}
-              {selectedId && <button onClick={remove} disabled={busy} className="rounded-lg border border-red-300 bg-white px-3 py-2 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50">归档</button>}
+              <button onClick={save} disabled={busy} className="rounded-lg bg-ink-primary px-3 py-2 text-caption font-medium text-white hover:bg-ink-secondary disabled:opacity-50">保存</button>
+              {selectedId && <button onClick={publish} disabled={busy} className="rounded-lg border border-success/40 bg-success/10 px-3 py-2 text-caption text-success hover:bg-success/15 disabled:opacity-50">发布</button>}
+              {selectedId && <button onClick={remove} disabled={busy} className="rounded-lg border border-danger/40 bg-white px-3 py-2 text-caption text-danger hover:bg-danger/5 disabled:opacity-50">归档</button>}
             </div>
 
             {/* 试跑 */}
-            <div className="mt-6 border-t border-slate-100 pt-4">
-              <h3 className="mb-2 text-sm font-semibold text-slate-800">试跑 (工况 → 推荐, 不落库)</h3>
+            <div className="mt-6 border-t border-border pt-4">
+              <h3 className="mb-2 text-caption font-semibold text-ink-primary">试跑 (工况 → 推荐, 不落库)</h3>
               <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-slate-500">工况 inputs (JSON)</label>
-                  <textarea value={runInputs} onChange={(e) => setRunInputs(e.target.value)} rows={6} className="w-full rounded-lg border border-slate-300 p-2 font-mono text-xs" spellCheck={false} />
-                  <button onClick={testRun} disabled={busy} className="mt-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50">运行选型</button>
+                  <label className="mb-1 block text-footnote font-medium text-ink-tertiary">工况 inputs (JSON)</label>
+                  <textarea value={runInputs} onChange={(e) => setRunInputs(e.target.value)} rows={6} className="w-full rounded-lg border border-border p-2 font-mono text-footnote" spellCheck={false} />
+                  <button onClick={testRun} disabled={busy} className="mt-2 rounded-lg border border-border bg-white px-3 py-2 text-caption text-ink-secondary hover:bg-surface-2 disabled:opacity-50">运行选型</button>
                 </div>
                 <div>
                   {runResult ? (
-                    <div className="rounded-lg border border-slate-200 p-3">
-                      <div className="mb-1 text-sm font-medium text-slate-800">{runResult.system.name} · 小计 {money(runResult.system.subtotal)}</div>
-                      <ul className="mb-2 divide-y divide-slate-50 text-xs">
+                    <div className="rounded-lg border border-border p-3">
+                      <div className="mb-1 text-caption font-medium text-ink-primary">{runResult.system.name} · 小计 {money(runResult.system.subtotal)}</div>
+                      <ul className="mb-2 divide-y divide-slate-50 text-footnote">
                         {runResult.system.items.map((it, i) => (
                           <li key={i} className="flex justify-between py-1">
-                            <span className="text-slate-700">{it.model} × {it.quantity}{it.unit}</span>
-                            <span className="tabular-nums text-slate-500">{money(it.amount)}</span>
+                            <span className="text-ink-secondary">{it.model} × {it.quantity}{it.unit}</span>
+                            <span className="tabular-nums text-ink-tertiary">{money(it.amount)}</span>
                           </li>
                         ))}
-                        {runResult.system.items.length === 0 && <li className="py-2 text-slate-400">无推荐行</li>}
+                        {runResult.system.items.length === 0 && <li className="py-2 text-ink-tertiary">无推荐行</li>}
                       </ul>
                       {runResult.warnings.length > 0 && (
-                        <ul className="space-y-0.5 text-xs text-amber-600">
+                        <ul className="space-y-0.5 text-footnote text-warning">
                           {runResult.warnings.map((w, i) => <li key={i}>· {w}</li>)}
                         </ul>
                       )}
                     </div>
                   ) : (
-                    <div className="rounded-lg border border-dashed border-slate-200 p-4 text-center text-xs text-slate-400">运行后展示推荐结果</div>
+                    <div className="rounded-lg border border-dashed border-border p-4 text-center text-footnote text-ink-tertiary">运行后展示推荐结果</div>
                   )}
                 </div>
               </div>
@@ -360,17 +360,17 @@ export default function SelectorConfiguratorPage() {
 
             {/* 发布版本历史 (溯源) */}
             {selectedId && (
-              <div className="mt-6 border-t border-slate-100 pt-4">
-                <h3 className="mb-2 text-sm font-semibold text-slate-800">发布版本历史 ({versions.length})</h3>
+              <div className="mt-6 border-t border-border pt-4">
+                <h3 className="mb-2 text-caption font-semibold text-ink-primary">发布版本历史 ({versions.length})</h3>
                 {versions.length === 0 ? (
-                  <div className="text-xs text-slate-400">尚无已发布版本 — 发布后此处冻结每版规则快照供审计追溯。</div>
+                  <div className="text-footnote text-ink-tertiary">尚无已发布版本 — 发布后此处冻结每版规则快照供审计追溯。</div>
                 ) : (
-                  <ul className="divide-y divide-slate-50 rounded-lg border border-slate-200">
+                  <ul className="divide-y divide-slate-50 rounded-lg border border-border">
                     {versions.map((v) => (
-                      <li key={v.id} className="flex items-center justify-between px-3 py-2 text-xs">
-                        <span className="font-medium text-slate-700">v{v.version}</span>
-                        <span className="text-slate-500">{v.rules.length} 规则 · {v.inputFields.length} 字段</span>
-                        <span className="text-slate-400">{v.publishedBy} · {new Date(v.publishedAt).toLocaleString('zh-CN')}</span>
+                      <li key={v.id} className="flex items-center justify-between px-3 py-2 text-footnote">
+                        <span className="font-medium text-ink-secondary">v{v.version}</span>
+                        <span className="text-ink-tertiary">{v.rules.length} 规则 · {v.inputFields.length} 字段</span>
+                        <span className="text-ink-tertiary">{v.publishedBy} · {new Date(v.publishedAt).toLocaleString('zh-CN')}</span>
                       </li>
                     ))}
                   </ul>
@@ -379,7 +379,7 @@ export default function SelectorConfiguratorPage() {
             )}
           </div>
         ) : (
-          <div className="flex items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white p-12 text-sm text-slate-400">
+          <div className="flex items-center justify-center rounded-2xl border border-dashed border-border bg-white p-12 text-caption text-ink-tertiary">
             从左侧选择规则集, 或新建。
           </div>
         )}
@@ -401,7 +401,7 @@ export default function SelectorConfiguratorPage() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="mt-3">
-      <label className="mb-1 block text-xs font-medium text-slate-500">{label}</label>
+      <label className="mb-1 block text-footnote font-medium text-ink-tertiary">{label}</label>
       {children}
     </div>
   );
