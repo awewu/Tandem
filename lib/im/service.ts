@@ -9,6 +9,7 @@
 
 import { EventEmitter } from 'events';
 import { getStore } from '../storage/repository';
+import { withConversationLock } from '../infra/leader';
 import {
   membershipKey,
   parseMentions,
@@ -1029,7 +1030,20 @@ interface InvokePersonaInput {
   targetUserId: string;
 }
 
+// 单次分身/中央AI 回复最坏时长 (会话租约 TTL 与等锁预算上限). 含 governedChat + 感知/联网前置.
+const CONVERSATION_REPLY_TTL_MS = 90_000;
+
+// §durable-turn: 同一 (频道 × 分身) 的并发触发串行化, 避免双回复 / 双 ProxyAction / 交错.
+// company-brain 分支只从 invokePersonaReplyInner 内部转发, 故此处统一加锁即全覆盖.
 async function invokePersonaReply(input: InvokePersonaInput): Promise<void> {
+  await withConversationLock(
+    `im:reply:${input.channelId}:${input.targetUserId}`,
+    CONVERSATION_REPLY_TTL_MS,
+    () => invokePersonaReplyInner(input),
+  );
+}
+
+async function invokePersonaReplyInner(input: InvokePersonaInput): Promise<void> {
   // §CA-1 中央 AI 实体: 召唤 CompanyBrain 走独立分支 (不走 baseline-guard, 不写 ProxyAction)
   const { COMPANY_BRAIN_USER_ID, isCompanyBrain } = await import('../persona/company-brain');
   void COMPANY_BRAIN_USER_ID; // 引用以避免 tree-shaking

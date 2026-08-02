@@ -73,3 +73,60 @@ export async function withCronLock(
     }
   }
 }
+
+// ---------------------------------------------------------------------------
+// 会话级串行租约 (durable-turn 基座 · 对照 qm acquireLease(session,"turn"))
+//
+// 与 withCronLock 的"抢不到就跳过"不同: 会话回复不能丢, 必须排队串行.
+//   - 进程内: 按 key 链式串行 (同一会话的并发触发一个接一个跑, 不交错/不重复).
+//   - 跨副本: Redis SET NX PX 轮询等锁 (最多等 waitBudget); 等不到 → fail-open 直接跑
+//             (宁可跨副本偶发并发, 也不丢一条回复). 无 Redis = 仅进程内串行.
+// ---------------------------------------------------------------------------
+
+const conversationChains = new Map<string, Promise<unknown>>();
+
+async function redisSerialize<T>(name: string, ttlMs: number, fn: () => Promise<T>): Promise<T> {
+  const redis = getRedis();
+  if (!redis) return fn();
+  const key = `conv:lock:${name}`;
+  const waitBudgetMs = Math.min(ttlMs, 10_000);
+  const deadline = Date.now() + waitBudgetMs;
+  let acquired = false;
+  while (Date.now() < deadline) {
+    try {
+      acquired = (await redis.set(key, INSTANCE_ID, 'PX', ttlMs, 'NX')) === 'OK';
+    } catch {
+      return fn(); // Redis 异常 → fail-open, 不丢回复
+    }
+    if (acquired) break;
+    await new Promise((r) => setTimeout(r, 150));
+  }
+  if (!acquired) return fn(); // 跨副本锁在预算内没抢到 → 仍执行, 不丢回复
+  try {
+    return await fn();
+  } finally {
+    try {
+      await redis.eval(RELEASE_LUA, 1, key, INSTANCE_ID);
+    } catch {
+      /* 释放失败无妨, 锁按 ttl 自动过期 */
+    }
+  }
+}
+
+/**
+ * 以"会话级串行"语义执行 fn: 同一 key 的并发调用排队一个接一个跑 (不丢、不交错).
+ *
+ * @param key   会话粒度 key, e.g. `im:reply:${channelId}:${targetUserId}`
+ * @param ttlMs 单次最坏执行时长 (跨副本锁 TTL 与等锁预算上限)
+ * @param fn    turn 主体
+ */
+export function withConversationLock<T>(key: string, ttlMs: number, fn: () => Promise<T>): Promise<T> {
+  const prior = (conversationChains.get(key) ?? Promise.resolve()).catch(() => {});
+  const result = prior.then(() => redisSerialize(key, ttlMs, fn));
+  const tail = result.catch(() => {}); // 链尾吞错, 保证队列不因单次失败断裂
+  conversationChains.set(key, tail);
+  void tail.then(() => {
+    if (conversationChains.get(key) === tail) conversationChains.delete(key);
+  });
+  return result;
+}
