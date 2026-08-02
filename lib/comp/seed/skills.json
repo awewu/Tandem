@@ -1,0 +1,3173 @@
+[
+  {
+    "board": "HR",
+    "family": "HRBP",
+    "name": "1、制定人才画像",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "HRBP",
+    "name": "2、实施培训项目",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "HRBP",
+    "name": "3、独立处理劳动纠纷",
+    "skillWage": 700,
+    "requiredAt": [
+      "L1A",
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "HRBP",
+    "name": "4、绩效闭环管理",
+    "skillWage": 700,
+    "requiredAt": [
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "HRBP",
+    "name": "5、制定人才发展计划",
+    "skillWage": 700,
+    "requiredAt": [
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "HRBP",
+    "name": "6、独立牵头人才盘点",
+    "skillWage": 800,
+    "requiredAt": [
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "HRBP",
+    "name": "7、独立牵头完成组织诊断",
+    "skillWage": 800,
+    "requiredAt": [
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "HRBP",
+    "name": "8、设计绩效激励",
+    "skillWage": 800,
+    "requiredAt": [
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "HRBP",
+    "name": "9、独立牵头完成组织设计",
+    "skillWage": 1500,
+    "requiredAt": [
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "HRBP",
+    "name": "10、战略解码",
+    "skillWage": 1500,
+    "requiredAt": [
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "总助",
+    "name": "1、行政管理能力：熟练应用办公室管理流程，包括文件管理、数据整理和报告准备",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "总助",
+    "name": "2、具备PPT制作能力，且能够协助起草文件、报告等",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "总助",
+    "name": "3、英文听说读写",
+    "skillWage": 700,
+    "requiredAt": [
+      "L1A",
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "总助",
+    "name": "4、PDCA管理",
+    "skillWage": 700,
+    "requiredAt": [
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "总助",
+    "name": "5、高阶项目管理",
+    "skillWage": 700,
+    "requiredAt": [
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "总助",
+    "name": "6、理解公司财务报表与商业模型",
+    "skillWage": 800,
+    "requiredAt": [
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "总助",
+    "name": "7、分析市场趋势和竞争对手动态",
+    "skillWage": 800,
+    "requiredAt": [
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "总助",
+    "name": "8、参与战略制定",
+    "skillWage": 800,
+    "requiredAt": [
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "总助",
+    "name": "9、参与战略解码",
+    "skillWage": 1500,
+    "requiredAt": [
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "总助",
+    "name": "10、主导战略执行及落地追踪",
+    "skillWage": 1500,
+    "requiredAt": [
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "法务",
+    "name": "1、法律文书攥写",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "法务",
+    "name": "2、智能法律工具",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "法务",
+    "name": "3、纠纷处理",
+    "skillWage": 700,
+    "requiredAt": [
+      "L1A",
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "法务",
+    "name": "4、建立维护公司合规体系及培训",
+    "skillWage": 700,
+    "requiredAt": [
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "法务",
+    "name": "5、公司关停、设立、并转",
+    "skillWage": 700,
+    "requiredAt": [
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "法务",
+    "name": "6、股权设计",
+    "skillWage": 800,
+    "requiredAt": [
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "SSC",
+    "name": "1、流程制度建设",
+    "skillWage": 150,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "SSC",
+    "name": "2、EHR系统运营",
+    "skillWage": 150,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "SSC",
+    "name": "3、流程设计及梳理",
+    "skillWage": 300,
+    "requiredAt": [
+      "L1A",
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "SSC",
+    "name": "4、薪酬管理及实操",
+    "skillWage": 400,
+    "requiredAt": [
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "SSC",
+    "name": "5、预算管理",
+    "skillWage": 500,
+    "requiredAt": [
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "SSC",
+    "name": "6、人力成本分析",
+    "skillWage": 600,
+    "requiredAt": [
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "SSC",
+    "name": "7、人力资源服务平台搭建",
+    "skillWage": 600,
+    "requiredAt": [
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "培训",
+    "name": "1、培训落地实施，能协助执行一场培训的落地实施",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "培训",
+    "name": "2、能够熟练使用办公软件，进行培训资料的整理和制作",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "培训",
+    "name": "3、培训宣传（独立完成培训宣传内容及总结，照片、视频处理能力）",
+    "skillWage": 700,
+    "requiredAt": [
+      "L1A",
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "培训",
+    "name": "4、能运营培训技术提升培训效果（如头脑风暴、拓展训练、思维训练等）",
+    "skillWage": 700,
+    "requiredAt": [
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "培训",
+    "name": "5、高阶项目管理能力，包含需求调研、内容设计、实施、评价和总结",
+    "skillWage": 700,
+    "requiredAt": [
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "培训",
+    "name": "6、课程开发与授课，具备2门及以上课程开发及讲授能力",
+    "skillWage": 800,
+    "requiredAt": [
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "培训",
+    "name": "7、资源整合（讲师资源、课程资源、设施资源等）",
+    "skillWage": 800,
+    "requiredAt": [
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "HR",
+    "family": "培训",
+    "name": "8、培训体系搭建（制度、讲师、课程、考核及评估全体系）",
+    "skillWage": 800,
+    "requiredAt": [
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "FIN",
+    "family": "出纳",
+    "name": "1、合规的财务档案管理",
+    "skillWage": 100,
+    "requiredAt": [
+      "L1"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "FIN",
+    "family": "出纳",
+    "name": "2、独立纳税申报",
+    "skillWage": 200,
+    "requiredAt": [
+      "L1"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "FIN",
+    "family": "核算会计",
+    "name": "1. 公司制度及税务合规要求下的账务处理",
+    "skillWage": 150,
+    "requiredAt": [
+      "L1",
+      "L2"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "FIN",
+    "family": "核算会计",
+    "name": "1. 需要财务判断的特殊核算处理",
+    "skillWage": 150,
+    "requiredAt": [
+      "L1",
+      "L2"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "FIN",
+    "family": "核算会计",
+    "name": "3. 异常科目风险分析及闭环管理能力",
+    "skillWage": 200,
+    "requiredAt": [
+      "L2"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "FIN",
+    "family": "核算会计",
+    "name": "5. 复杂Excel数据处理及可视化报表分析",
+    "skillWage": 200,
+    "requiredAt": [
+      "L2"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "FIN",
+    "family": "核算会计",
+    "name": "4. 主导跨部门的财务培训",
+    "skillWage": 300,
+    "requiredAt": [
+      "L2"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "FIN",
+    "family": "成本会计",
+    "name": "1. 基于财务判断的特殊成本项目处理 （存货减值等）",
+    "skillWage": 200,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "FIN",
+    "family": "成本会计",
+    "name": "2. 标准成本法的运用及基本差异分析",
+    "skillWage": 300,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "FIN",
+    "family": "成本会计",
+    "name": "3. 成本的计划执行及分析",
+    "skillWage": 300,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "FIN",
+    "family": "成本会计",
+    "name": "5. 采购及库存流程的风险识别",
+    "skillWage": 400,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "FIN",
+    "family": "成本会计",
+    "name": "4. 库存周期管理",
+    "skillWage": 400,
+    "requiredAt": [
+      "L1A",
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "FIN",
+    "family": "成本会计",
+    "name": "6. 采购及库存流程设计",
+    "skillWage": 500,
+    "requiredAt": [
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "FIN",
+    "family": "成本会计",
+    "name": "7. 重要材料/制程浪费识别；",
+    "skillWage": 500,
+    "requiredAt": [
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "FIN",
+    "family": "成本会计",
+    "name": "8. 主导跨部门核心成本项目；",
+    "skillWage": 700,
+    "requiredAt": [
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "FIN",
+    "family": "成本会计",
+    "name": "9. 行业理论成本及库存模型设计",
+    "skillWage": 800,
+    "requiredAt": [
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "FIN",
+    "family": "总账会计",
+    "name": "1. 中国会计准则下财务报表编制",
+    "skillWage": 200,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "FIN",
+    "family": "总账会计",
+    "name": "2. 复杂交易业务会计处理，及准则变更下的会计处理",
+    "skillWage": 300,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "FIN",
+    "family": "总账会计",
+    "name": "3. 公司账务（税务）合规及/内控风险识别",
+    "skillWage": 300,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "FIN",
+    "family": "总账会计",
+    "name": "4. 税务合规及风险识别",
+    "skillWage": 400,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "FIN",
+    "family": "总账会计",
+    "name": "5. 英文口语交流",
+    "skillWage": 400,
+    "requiredAt": [
+      "L1A",
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "FIN",
+    "family": "总账会计",
+    "name": "6. 全面对接审计及第三方业务处理能力",
+    "skillWage": 500,
+    "requiredAt": [
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "FIN",
+    "family": "总账会计",
+    "name": "7. GAAP 准则运用及报表编制",
+    "skillWage": 500,
+    "requiredAt": [
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "FIN",
+    "family": "总账会计",
+    "name": "8. 经营业务的税务筹划建议",
+    "skillWage": 700,
+    "requiredAt": [
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "FIN",
+    "family": "总账会计",
+    "name": "9. 报表体系及业务流程设计",
+    "skillWage": 800,
+    "requiredAt": [
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "FIN",
+    "family": "FP&A",
+    "name": "1. 日常业务及单一财务模型搭建",
+    "skillWage": 200,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "FIN",
+    "family": "FP&A",
+    "name": "2. 财务预算差异分析",
+    "skillWage": 300,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "FIN",
+    "family": "FP&A",
+    "name": "3. 预算执行",
+    "skillWage": 300,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "FIN",
+    "family": "FP&A",
+    "name": "4. 预算报表编制",
+    "skillWage": 400,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "FIN",
+    "family": "FP&A",
+    "name": "7. 英文口语交流",
+    "skillWage": 400,
+    "requiredAt": [
+      "L1A",
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "FIN",
+    "family": "FP&A",
+    "name": "6. 关键业绩指标识别及设计",
+    "skillWage": 400,
+    "requiredAt": [
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "FIN",
+    "family": "FP&A",
+    "name": "7. 中期业绩及关键绩效预警",
+    "skillWage": 600,
+    "requiredAt": [
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "FIN",
+    "family": "FP&A",
+    "name": "8. 复杂/综合财务分析模型搭建（损益，资产负债，现金流）",
+    "skillWage": 700,
+    "requiredAt": [
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "FIN",
+    "family": "FP&A",
+    "name": "9. 预算管理流程编制及管理构架设计",
+    "skillWage": 800,
+    "requiredAt": [
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "FIN",
+    "family": "FP&A",
+    "name": "10. 财务业绩管理",
+    "skillWage": 800,
+    "requiredAt": [
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "FIN",
+    "family": "FP&A",
+    "name": "11. 战略及资源配置筹划",
+    "skillWage": 800,
+    "requiredAt": [
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "采购",
+    "name": "1、能熟练讲解产品图纸",
+    "skillWage": 150,
+    "requiredAt": [
+      "L1",
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "采购",
+    "name": "2、可主导编制采购计划",
+    "skillWage": 150,
+    "requiredAt": [
+      "L1",
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "采购",
+    "name": "3、具有供应商管理能力并能独立开发B级以上优质供应商",
+    "skillWage": 200,
+    "requiredAt": [
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "采购",
+    "name": "4、可独立整合资源主导降本项目",
+    "skillWage": 200,
+    "requiredAt": [
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "采购",
+    "name": "5、可发现供应链管理的风险点及改进机会并推动完善包括ERP系统优化",
+    "skillWage": 300,
+    "requiredAt": [
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "采购",
+    "name": "5、CSCP证书",
+    "skillWage": 700,
+    "requiredAt": [
+      "L3"
+    ],
+    "source": "市场定价"
+  },
+  {
+    "board": "MFG",
+    "family": "采购",
+    "name": "7、分析不同行业发展，主导供应商选择&采购策略搭建",
+    "skillWage": 1000,
+    "requiredAt": [
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "计划",
+    "name": "1、根据客户需求，熟练进行系统操作",
+    "skillWage": 150,
+    "requiredAt": [
+      "L1",
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "计划",
+    "name": "2、高阶EXCEL使用",
+    "skillWage": 150,
+    "requiredAt": [
+      "L1",
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "计划",
+    "name": "3、能讲解生产流程",
+    "skillWage": 200,
+    "requiredAt": [
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "计划",
+    "name": "4、独立编制主生产计划",
+    "skillWage": 500,
+    "requiredAt": [
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "计划",
+    "name": "5、项目管理能力（PDCA)",
+    "skillWage": 700,
+    "requiredAt": [
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "计划",
+    "name": "6、独立编制执行结果分析报告",
+    "skillWage": 1000,
+    "requiredAt": [
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "工艺",
+    "name": "1、具有独立策划编制PWI能力并指导一线实际操作",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "工艺",
+    "name": "2、能挖掘B类工艺改进机会并组织协调资源进行工艺改进",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "工艺",
+    "name": "3、独立主导新产品量产工艺实现",
+    "skillWage": 700,
+    "requiredAt": [
+      "L1A",
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "工艺",
+    "name": "4、具有产线规划设计能力",
+    "skillWage": 700,
+    "requiredAt": [
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "工艺",
+    "name": "5、使用IE工具提升生产能力",
+    "skillWage": 700,
+    "requiredAt": [
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "工艺",
+    "name": "6、可主导A类工艺项目",
+    "skillWage": 800,
+    "requiredAt": [
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "工艺",
+    "name": "7、导入并推广新工艺",
+    "skillWage": 800,
+    "requiredAt": [
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "工艺",
+    "name": "8、新工艺创新解决行业难题",
+    "skillWage": 800,
+    "requiredAt": [
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "设备",
+    "name": "1、具有设备维护保养的实操案例",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "设备",
+    "name": "2、可编制设备维护手册并指导一线实施",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "设备",
+    "name": "3、可对设备进行基础（工装夹具）改造",
+    "skillWage": 700,
+    "requiredAt": [
+      "L1A",
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "设备",
+    "name": "4、具备机电一体化能力",
+    "skillWage": 700,
+    "requiredAt": [
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "设备",
+    "name": "5、PLC编程能力",
+    "skillWage": 700,
+    "requiredAt": [
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "设备",
+    "name": "6、具有机器人编程及调试能力",
+    "skillWage": 800,
+    "requiredAt": [
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "设备",
+    "name": "7、可进行设备性能、结构、重新改良的改造",
+    "skillWage": 800,
+    "requiredAt": [
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "设备",
+    "name": "8、可设计设备、产线",
+    "skillWage": 800,
+    "requiredAt": [
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "模具",
+    "name": "1、具有模具维护保养的实操能力",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "模具",
+    "name": "2、可对模具进行改良性设计",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "模具",
+    "name": "3、可编制推进模具维保计划",
+    "skillWage": 700,
+    "requiredAt": [
+      "L1A",
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "模具",
+    "name": "4、可三维建模",
+    "skillWage": 700,
+    "requiredAt": [
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "模具",
+    "name": "5、可独立设计模具",
+    "skillWage": 700,
+    "requiredAt": [
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "模具",
+    "name": "6、可确定模具加工工艺，并优化成本",
+    "skillWage": 800,
+    "requiredAt": [
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "模具",
+    "name": "7、可对模具设计、加工、进行评审，并给出最优方案",
+    "skillWage": 800,
+    "requiredAt": [
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "模具",
+    "name": "8、主导模具管理规范及设计标准，并可进行设备选型",
+    "skillWage": 800,
+    "requiredAt": [
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "质量",
+    "name": "1、应用专业的统计分析工具发现问题并解决",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "市场定价"
+  },
+  {
+    "board": "MFG",
+    "family": "质量",
+    "name": "2、可编制检验规范（QWI、零部件、终检等）",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "质量",
+    "name": "3、具有协调资源推动质量问题有效改善的能力",
+    "skillWage": 700,
+    "requiredAt": [
+      "L1A",
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "质量",
+    "name": "4、具有编制分段质控计划的能力",
+    "skillWage": 700,
+    "requiredAt": [
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "质量",
+    "name": "5、可推动A类质量改进项目",
+    "skillWage": 700,
+    "requiredAt": [
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "质量",
+    "name": "6、具有独立策划单品类质控计划并推进实施的能力",
+    "skillWage": 800,
+    "requiredAt": [
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "质量",
+    "name": "7、可对新品类产品进行质量策划并推动全过程质控计划的实施",
+    "skillWage": 800,
+    "requiredAt": [
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "质量",
+    "name": "8、深刻理解产品及行业标准，可建立产品的实验验证设计",
+    "skillWage": 800,
+    "requiredAt": [
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "EHS",
+    "name": "1、具有组织能力，能发动各部门发现安全隐患并推动整改",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "EHS",
+    "name": "2、具有安全专业培训的能力",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "EHS",
+    "name": "3、具有独立对接政府管理部门的能力",
+    "skillWage": 700,
+    "requiredAt": [
+      "L1A",
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "EHS",
+    "name": "4、具有安全管理规范统筹编制能力",
+    "skillWage": 700,
+    "requiredAt": [
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "EHS",
+    "name": "5、考取国家注册安全工程师证书",
+    "skillWage": 700,
+    "requiredAt": [
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MFG",
+    "family": "EHS",
+    "name": "6、主导建立科学的安全管理体系",
+    "skillWage": 800,
+    "requiredAt": [
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "开发",
+    "name": "1. 掌握负责品类的产品国家/行业标准",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "开发",
+    "name": "2. 独立处理产品工程变更",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "开发",
+    "name": "3. 独立承担结构设计（关键零部件/复杂零部件）",
+    "skillWage": 700,
+    "requiredAt": [
+      "L1A",
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "开发",
+    "name": "4. 独立承接C类开发项目",
+    "skillWage": 700,
+    "requiredAt": [
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "开发",
+    "name": "5. 独立开展品类全性能测试",
+    "skillWage": 700,
+    "requiredAt": [
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "开发",
+    "name": "6. 独立承接B类开发项目",
+    "skillWage": 800,
+    "requiredAt": [
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "开发",
+    "name": "7.行业难题攻坚能力",
+    "skillWage": 800,
+    "requiredAt": [
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "开发",
+    "name": "8. 独立承接A类开发项目",
+    "skillWage": 800,
+    "requiredAt": [
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "开发",
+    "name": "9. 新技术导入",
+    "skillWage": 1500,
+    "requiredAt": [
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "开发",
+    "name": "10. 参与行业标准制定",
+    "skillWage": 1500,
+    "requiredAt": [
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "DT",
+    "name": "1.面向对象编程",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "DT",
+    "name": "2.内部系统部署运维能力",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "DT",
+    "name": "3.独立设计数据库业务能力",
+    "skillWage": 700,
+    "requiredAt": [
+      "L1A",
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "DT",
+    "name": "4.开发BI数据系统",
+    "skillWage": 700,
+    "requiredAt": [
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "DT",
+    "name": "5.外部SAAS软件系统的技术对接能力",
+    "skillWage": 700,
+    "requiredAt": [
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "DT",
+    "name": "6.独立完成B类系统项目",
+    "skillWage": 800,
+    "requiredAt": [
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "DT",
+    "name": "7.全栈开发能力",
+    "skillWage": 800,
+    "requiredAt": [
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "DT",
+    "name": "8.部署CI/CD开发系统",
+    "skillWage": 800,
+    "requiredAt": [
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "DT",
+    "name": "9.输出项目技术方案书",
+    "skillWage": 1500,
+    "requiredAt": [
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "DT",
+    "name": "10.技术方案战略制定能力",
+    "skillWage": 1500,
+    "requiredAt": [
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "DT项目经理",
+    "name": "1.独立主导对接第三方系统业务",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "DT项目经理",
+    "name": "2.项目协调管理并完成闭环交付",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "DT项目经理",
+    "name": "3.公司现存业务流程梳理与优化能力",
+    "skillWage": 700,
+    "requiredAt": [
+      "L1A",
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "DT项目经理",
+    "name": "4.数字化产品原型设计能力",
+    "skillWage": 700,
+    "requiredAt": [
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "DT项目经理",
+    "name": "5.输出项目建设方案书",
+    "skillWage": 700,
+    "requiredAt": [
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "DT项目经理",
+    "name": "6.敏捷组织打造与敏捷交付排期规划",
+    "skillWage": 800,
+    "requiredAt": [
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "DT项目经理",
+    "name": "7.新数字化生产工具引入",
+    "skillWage": 800,
+    "requiredAt": [
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "DT项目经理",
+    "name": "8.业务战略理解能力拆分",
+    "skillWage": 800,
+    "requiredAt": [
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "DT项目经理",
+    "name": "9.跨二级组织协调管理能力",
+    "skillWage": 1500,
+    "requiredAt": [
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "DT项目经理",
+    "name": "10.制定公司数字化战略及实践",
+    "skillWage": 1500,
+    "requiredAt": [
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "电控系统",
+    "name": "1.测试数据分析能力",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "电控系统",
+    "name": "2.测试排期规划及生产问题解决",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "电控系统",
+    "name": "3.按照规格书，使用手册完成产品测试方案设计",
+    "skillWage": 700,
+    "requiredAt": [
+      "L1A",
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "电控系统",
+    "name": "4.主导系统设计规格书/图集",
+    "skillWage": 700,
+    "requiredAt": [
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "电控系统",
+    "name": "5.独立设计系统测试用例",
+    "skillWage": 700,
+    "requiredAt": [
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "电控系统",
+    "name": "6.主导完成B类项目",
+    "skillWage": 800,
+    "requiredAt": [
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "电控系统",
+    "name": "7.指导研发做符合性设计",
+    "skillWage": 800,
+    "requiredAt": [
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "电控系统",
+    "name": "8.主导完成A类项目",
+    "skillWage": 800,
+    "requiredAt": [
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "电控系统",
+    "name": "9.创新组合现有产品，提升整体解决方案能力",
+    "skillWage": 1500,
+    "requiredAt": [
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "电控系统",
+    "name": "10.快速承接输出项目规格书",
+    "skillWage": 1500,
+    "requiredAt": [
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "电控软件",
+    "name": "1.使用操作系统开发智能硬件能力",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "电控软件",
+    "name": "2.电控类产品外设协议驱动开发调试",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "电控软件",
+    "name": "3.智能化产品平台接入",
+    "skillWage": 700,
+    "requiredAt": [
+      "L1A",
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "电控软件",
+    "name": "4.主导完成B类项目",
+    "skillWage": 700,
+    "requiredAt": [
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "电控软件",
+    "name": "5.满足业务需求的应用开发能力",
+    "skillWage": 700,
+    "requiredAt": [
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "电控软件",
+    "name": "6.产品接入第三方平台的设计和开发能力",
+    "skillWage": 800,
+    "requiredAt": [
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "电控软件",
+    "name": "7.主导完成A类项目",
+    "skillWage": 800,
+    "requiredAt": [
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "电控软件",
+    "name": "8.独立完成软件项目方案书",
+    "skillWage": 800,
+    "requiredAt": [
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "电控软件",
+    "name": "9.新老硬件平台迁移软件移植能力",
+    "skillWage": 1500,
+    "requiredAt": [
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "电控软件",
+    "name": "10.嵌入式边缘计算数据及业务模型设计",
+    "skillWage": 1500,
+    "requiredAt": [
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "电控硬件",
+    "name": "1.核心电控部件选型",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "电控硬件",
+    "name": "2.BOM及生产资料设计",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "电控硬件",
+    "name": "3.专业测试工具使用",
+    "skillWage": 700,
+    "requiredAt": [
+      "L1A",
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "电控硬件",
+    "name": "4.DFX(Design for x)设计能力",
+    "skillWage": 700,
+    "requiredAt": [
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "电控硬件",
+    "name": "5.主导完成B类项目",
+    "skillWage": 700,
+    "requiredAt": [
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "电控硬件",
+    "name": "6.指导研发做符合性设计",
+    "skillWage": 800,
+    "requiredAt": [
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "电控硬件",
+    "name": "7.主导完成A类项目",
+    "skillWage": 800,
+    "requiredAt": [
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "电控硬件",
+    "name": "8.新材料、新技术、新方案设计导入",
+    "skillWage": 800,
+    "requiredAt": [
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "技术支持",
+    "name": "1. 掌握相关品类产品知识，能提供公司产品技术支持服务,包括咨询解答、产品培训",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "技术支持",
+    "name": "2. 输出产品培训相关课件并能主导培训",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "技术支持",
+    "name": "3. 能提供公司产品技术支持服务,包括技术指导、故障分析和排除",
+    "skillWage": 700,
+    "requiredAt": [
+      "L1A",
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "技术支持",
+    "name": "4. 配合完成项目现场安装，调试和验收",
+    "skillWage": 700,
+    "requiredAt": [
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "技术支持",
+    "name": "5. 主导项目系统设计图纸方案的审核",
+    "skillWage": 700,
+    "requiredAt": [
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "技术支持",
+    "name": "6. 主导完成产品标准系统设计应用方案的输出",
+    "skillWage": 800,
+    "requiredAt": [
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "技术支持",
+    "name": "7. 独立推动产品和系统的优化和改进",
+    "skillWage": 800,
+    "requiredAt": [
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "技术支持",
+    "name": "8. 主导完成全品类产品标准系统设计应用方案的输出",
+    "skillWage": 800,
+    "requiredAt": [
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "产品管理",
+    "name": "1.产品生命周期管理",
+    "skillWage": 400,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "产品管理",
+    "name": "2.需求收集",
+    "skillWage": 400,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "产品管理",
+    "name": "3.竞品分析",
+    "skillWage": 400,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "产品管理",
+    "name": "4.用户调研及需求分析",
+    "skillWage": 700,
+    "requiredAt": [
+      "L1A",
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "产品管理",
+    "name": "5.项目管理",
+    "skillWage": 700,
+    "requiredAt": [
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "产品管理",
+    "name": "6.行业分析",
+    "skillWage": 1500,
+    "requiredAt": [
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "产品管理",
+    "name": "7.商业分析",
+    "skillWage": 1600,
+    "requiredAt": [
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "工业设计",
+    "name": "1.产品外观设计输出",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "工业设计",
+    "name": "2.3D建模结构设计",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "工业设计",
+    "name": "3.材料选择",
+    "skillWage": 700,
+    "requiredAt": [
+      "L1A",
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "工业设计",
+    "name": "4. 工艺实现决策",
+    "skillWage": 700,
+    "requiredAt": [
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "工业设计",
+    "name": "5. 公司产品VI标准制定",
+    "skillWage": 1500,
+    "requiredAt": [
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "IT",
+    "name": "1.IT设备系统配置与安全软件配置",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "IT",
+    "name": "2.运维配置公司OA\\CRM\\ERP等软件系统",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L1A",
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "IT",
+    "name": "3.公司网络安全管理",
+    "skillWage": 700,
+    "requiredAt": [
+      "L1A",
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "IT",
+    "name": "4.集团IT业务沟通与本地化导入",
+    "skillWage": 700,
+    "requiredAt": [
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "IT",
+    "name": "5.IT标准化软件合规性决策风险规避与管理",
+    "skillWage": 700,
+    "requiredAt": [
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "IT",
+    "name": "6.信息化系统框架方案设计",
+    "skillWage": 800,
+    "requiredAt": [
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "工程服务",
+    "name": "1. 物料标准化管理",
+    "skillWage": 150,
+    "requiredAt": [
+      "L1",
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "工程服务",
+    "name": "2. 工程变更执行跟踪与闭环管理",
+    "skillWage": 150,
+    "requiredAt": [
+      "L1",
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "工程服务",
+    "name": "3. 流程改进与优化",
+    "skillWage": 300,
+    "requiredAt": [
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "工程服务",
+    "name": "4. 研发流程管理",
+    "skillWage": 400,
+    "requiredAt": [
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "工程服务",
+    "name": "5. 研发效率分析与改善",
+    "skillWage": 700,
+    "requiredAt": [
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "RND",
+    "family": "工程服务",
+    "name": "6. 敏捷开发流程导入",
+    "skillWage": 1000,
+    "requiredAt": [
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "技术支持",
+    "name": "1、掌握全品类产品主要特性，并能培训",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "技术支持",
+    "name": "2、独立完成常规集成系统方案设计（冷暖风水），输出方案选型及设计图纸",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "技术支持",
+    "name": "3、具备独立完成产品及系统课程编制及培训能力",
+    "skillWage": 700,
+    "requiredAt": [
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "技术支持",
+    "name": "4、掌握系统常见应用材料特性，能够根据系统需求选取适宜的主材",
+    "skillWage": 700,
+    "requiredAt": [
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "技术支持",
+    "name": "5、具备行业竞品及系统的研读分析能力，输出分析报告",
+    "skillWage": 1500,
+    "requiredAt": [
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "技术支持",
+    "name": "6、主导完成系统设计施工标准的制定",
+    "skillWage": 800,
+    "requiredAt": [
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "技术支持",
+    "name": "7、新工艺新材料导入能力，并能进行工艺、工具等创新",
+    "skillWage": 800,
+    "requiredAt": [
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "技术支持",
+    "name": "8、行业发展洞察，结合市场需求，输出差异化解决方案，并能进行推广落地",
+    "skillWage": 1000,
+    "requiredAt": [
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "技术支持",
+    "name": "9、获聘成为行业技术顾问/专家",
+    "skillWage": 1000,
+    "requiredAt": [
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "技术支持",
+    "name": "10、参与国标/行标等标准制定",
+    "skillWage": 1000,
+    "requiredAt": [
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "市场营销",
+    "name": "1、市场调研",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "市场营销",
+    "name": "2、市场活动组织实施",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "市场营销",
+    "name": "3、产品推广策略制定",
+    "skillWage": 1400,
+    "requiredAt": [
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "市场营销",
+    "name": "4、市场营销活动方案及主题活动方案制定",
+    "skillWage": 1500,
+    "requiredAt": [
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "市场营销",
+    "name": "5、产品及业务消费者培训体系打造",
+    "skillWage": 1600,
+    "requiredAt": [
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "市场营销",
+    "name": "6、多类型活动策划、推广方案和规则的输出和培训",
+    "skillWage": 1500,
+    "requiredAt": [
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "市场营销",
+    "name": "7、市场预测及情报分析，能为销售决策提供依据",
+    "skillWage": 1500,
+    "requiredAt": [
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "售后服务",
+    "name": "1、掌握全品类产品的安装调试维修标准，并能完成常见问题处理",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "售后服务",
+    "name": "2、独立完成客诉处理",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "售后服务",
+    "name": "3、具备产品类服务课程的编制及培训能力",
+    "skillWage": 1400,
+    "requiredAt": [
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "售后服务",
+    "name": "4、熟悉各类集成系统，并能对常见问题进行判断及处理",
+    "skillWage": 700,
+    "requiredAt": [
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "售后服务",
+    "name": "5、能够结合售后问题，对产品提出创新改进方案，并被用于新品改进",
+    "skillWage": 800,
+    "requiredAt": [
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "售后服务",
+    "name": "6、能够处理各类疑难杂症问题",
+    "skillWage": 1600,
+    "requiredAt": [
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "产品经理",
+    "name": "1、竞品分析，完成主流竞品的分析报告及FABE对比提炼",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "产品经理",
+    "name": "2、独立完成B\\C类产品的立项并跟进推动完成上市",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "产品经理",
+    "name": "3、结合市场调研，完成新品的需求分析并立项，跟进推动完成上市发布",
+    "skillWage": 700,
+    "requiredAt": [
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "产品经理",
+    "name": "4、产品定价及市场价格策略制定，并能结合市场变化及时调整",
+    "skillWage": 700,
+    "requiredAt": [
+      "L2",
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "产品经理",
+    "name": "5、分渠道分区域，产品组合策略制定，并能结合市场变化及时调整",
+    "skillWage": 1500,
+    "requiredAt": [
+      "L3",
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "产品经理",
+    "name": "6、结合市场反馈，主导产品的客户满意度提升策略制定（质量改进等）",
+    "skillWage": 1600,
+    "requiredAt": [
+      "L4",
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "产品经理",
+    "name": "7、结合行业趋势及报告，规划产品发展路径，完成产品路线图输出",
+    "skillWage": 3000,
+    "requiredAt": [
+      "L5"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "运营管理/信息管理/销售助理",
+    "name": "1、熟练掌握办公软件和工具（如：Excel/PPT)",
+    "skillWage": 150,
+    "requiredAt": [
+      "L1",
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "运营管理/信息管理/销售助理",
+    "name": "2、PDCA管理闭环",
+    "skillWage": 150,
+    "requiredAt": [
+      "L1",
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "运营管理/信息管理/销售助理",
+    "name": "3、会务组织和协调能力",
+    "skillWage": 300,
+    "requiredAt": [
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "运营管理/信息管理/销售助理",
+    "name": "4、大客户管理能力",
+    "skillWage": 400,
+    "requiredAt": [
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "运营管理/信息管理/销售助理",
+    "name": "5、制定销售政策能力",
+    "skillWage": 700,
+    "requiredAt": [
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "运营管理/信息管理/销售助理",
+    "name": "6、业务运营逻辑，流程改善及制定",
+    "skillWage": 1000,
+    "requiredAt": [
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "电商运营",
+    "name": "1、线上活动运营",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "电商运营",
+    "name": "2、产品流量监控及引流",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "电商运营",
+    "name": "3、内容架构及产品优化",
+    "skillWage": 1400,
+    "requiredAt": [
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "电商运营",
+    "name": "4、营销策略制定",
+    "skillWage": 1500,
+    "requiredAt": [
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "电商运营",
+    "name": "5、产品运营模式",
+    "skillWage": 1600,
+    "requiredAt": [
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "设计",
+    "name": "1、理解设计目标与需求，有分析意识",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "设计",
+    "name": "2、保持品牌一致性，具备产品意识",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "设计",
+    "name": "3、有独立创作主画面的能力",
+    "skillWage": 1400,
+    "requiredAt": [
+      "L2",
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "设计",
+    "name": "4、项目管理（提前识别项目风险，提高确定性）",
+    "skillWage": 1500,
+    "requiredAt": [
+      "L3",
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "设计",
+    "name": "4、行业获奖",
+    "skillWage": 1600,
+    "requiredAt": [
+      "L4"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "设计院推广",
+    "name": "1、CAD软件熟练使用",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "设计院推广",
+    "name": "2、系统方案应用",
+    "skillWage": 600,
+    "requiredAt": [
+      "L1",
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "设计院推广",
+    "name": "3、渠道产品策略",
+    "skillWage": 1400,
+    "requiredAt": [
+      "L2",
+      "L3"
+    ],
+    "source": "案例佐证"
+  },
+  {
+    "board": "MKT",
+    "family": "设计院推广",
+    "name": "4、智能混动方案应用",
+    "skillWage": 1500,
+    "requiredAt": [
+      "L3"
+    ],
+    "source": "案例佐证"
+  }
+]
